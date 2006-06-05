@@ -90,7 +90,7 @@
 
 /************************** Constants **************************/
 
-#define SIPP_VERSION               20060320
+#define SIPP_VERSION               20060605
 #define T_UDP                      0
 #define T_TCP                      1
 #ifdef _USE_OPENSSL
@@ -208,6 +208,7 @@ extern int                currentScreenToDisplay  _DEFVAL
                                                   (DISPLAY_SCENARIO_SCREEN);
 extern unsigned int       base_cseq               _DEFVAL(0);
 extern char             * auth_uri                _DEFVAL(0);
+extern char             * call_id_string          _DEFVAL("%u-%p@%s");
 
 #ifdef _USE_OPENSSL
 extern BIO                  *bio ;

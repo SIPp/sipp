@@ -2535,6 +2535,10 @@ void help()
      "                      Default value is 1.\n"
      "\n"
      "   -base_cseq n     : Start value of [cseq] for each call.\n"
+     "\n"
+     "   -cid_str string  : Call ID string (default %%u-%%p@%%s).\n"
+     "                      %%u=call_number, %%s=ip_address, %%p=process_number,\n"
+     "                      %%%%=%% (in any order).\n"
 #ifdef _USE_OPENSSL
      "\n"
      "   -auth_uri uri    : Force the value of the URI for authentication.\n"
@@ -3223,6 +3227,16 @@ int main(int argc, char *argv[])
       if((++argi) < argc) {
         processed = 1;
         base_cseq = atoi(argv[argi])-1; /* gets incremented before first use */
+      } else {
+        ERROR_P1("Missing argument for param '%s'.\n"
+                 "Use 'sipp -h' for details\n",  argv[argi-1]);
+      }
+    }
+
+    if(!strcmp(argv[argi], "-cid_str")) { /* Call ID string */
+      if((++argi) < argc) {
+        processed = 1;
+        call_id_string = argv[argi];
       } else {
         ERROR_P1("Missing argument for param '%s'.\n"
                  "Use 'sipp -h' for details\n",  argv[argi-1]);

@@ -135,12 +135,33 @@ call * add_call(bool ipv6)
   static char call_id[MAX_HEADER_LEN];
   
   call * new_call;
+  char * src = call_id_string;
+  int count = 0;
   
   if(!next_number) { next_number ++; }
   
-  sprintf(call_id, 
-	  "%u-%u@%s",
-          next_number, pid, local_ip);
+  while (*src && count < MAX_HEADER_LEN-1) {
+      if (*src == '%') {
+          ++src;
+          switch(*src++) {
+          case 'u':
+              count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1,"%u", next_number);
+              break;
+          case 'p':
+              count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1,"%u", pid);
+              break;
+          case 's':
+              count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1,"%s", local_ip);
+              break;
+          default:      // treat all unknown sequences as %%
+              call_id[count++] = '%';
+              break;
+          }
+      } else {
+        call_id[count++] = *src++;
+      }
+  }
+  call_id[count] = 0;
   
   return add_call(call_id, ipv6);
 }
