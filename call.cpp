@@ -1533,11 +1533,13 @@ int call::sendCmdBuffer(char* cmd)
 char* call::createSendingMessage(char * src, int P_index)
 {
   static char msg_buffer[SIPP_MAX_MSG_SIZE+2];
-
+ 
   if(src != NULL) {
     char * dest = msg_buffer;
     char * key;
     char * length_marker = NULL;
+    const char * auth_marker = NULL;
+    int auth_marker_len = 0;
     int    offset = 0;
     int    len_offset = 0;
     char   current_line[MAX_HEADER_LEN];
@@ -1565,7 +1567,7 @@ char* call::createSendingMessage(char * src, int P_index)
         keyword[key - src] = 0;
         src = key + 1;
 	// allow +/-n for numeric variables
-	if ((key = strchr(keyword,'+')) || (key = strchr(keyword,'-'))) {
+	if (!strstr(keyword, "authentication") && ((key = strchr(keyword,'+')) || (key = strchr(keyword,'-')))) {
            offset = atoi(key);
            *key = 0;
 	} else offset = 0;
@@ -1760,10 +1762,12 @@ char* call::createSendingMessage(char * src, int P_index)
         char my_auth_user[KEYWORD_SIZE];
         char my_auth_pass[KEYWORD_SIZE];
         char * tmp;
+        int  authlen;
 
+        auth_marker = src;
+        auth_marker_len = strchr(src, ']') - src;
         strcpy(my_auth_user, service);
         strcpy(my_auth_pass, auth_password);
-
         /* Look for optional username and password paramaters */
         if(tmp = strstr(src, "username=")) {
             tmp += strlen("username=");
@@ -1833,11 +1837,15 @@ char* call::createSendingMessage(char * src, int P_index)
         src += key - src + 1;
 
         if (dialog_challenge_type == 401) {
-            /* Registrars use Authorization */
-            dest += sprintf(dest, "Authorization: %s", result);
+          /* Registrars use Authorization */
+          authlen = sprintf(dest, "Authorization: %s", result);
         } else {
-            /* Proxies use Proxy-Authorization */
-            dest += sprintf(dest, "Proxy-Authorization: %s", result);
+          /* Proxies use Proxy-Authorization */
+          authlen = sprintf(dest, "Proxy-Authorization: %s", result);
+        }
+        dest += authlen;                 
+        if (length_marker > auth_marker) {
+          length_marker = length_marker - 1 - auth_marker_len + authlen;
         }
         dest += sprintf(dest, "%s", src);
         strcpy(msg_buffer, tmp_buffer);
