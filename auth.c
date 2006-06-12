@@ -15,6 +15,7 @@
  *
  *  Authors: F. Tarek Rogers - 01 Sept 2004
  *           Russell Roy
+ *           Wolfgang Beck
  */
 
 #include <stdlib.h>
@@ -113,6 +114,7 @@ int createAuthHeader(char * user, char * password, char * method,
 
     // Extract the Auth Type - If not present, using 'none' 
     cnonce[0] = '\0';
+    authtype[0] = '\0';
     if ((start = stristr(auth, "qop=")) != NULL) {
         start = start + strlen("qop=");
         if (*start == '"') { start++; }

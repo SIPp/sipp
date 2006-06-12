@@ -26,6 +26,7 @@
  *           Shriram Natarajan
  *           Guillaume Teissier from FTR&D
  *           Clement Chen
+ *           Wolfgang Beck
  */
 
 #define GLOBALS_FULL_DEFINITION
@@ -4060,10 +4061,60 @@ int close_connections() {
   return status;
 }
 
+static int loc_of_rem(
+                 const struct addrinfo *ai,
+                 char *localip,
+                 char *localip_esc,
+                 int maxlen
+                 ) {
+  int s;
+  struct sockaddr_in6 loc6;
+  struct sockaddr_in loc4;
+  struct sockaddr *loc;
+  socklen_t loclen;
+  int slen;
+
+  switch(ai->ai_family) {
+    case AF_INET6:
+      loc = (struct sockaddr *)&loc6;
+      break;
+    case AF_INET:
+      loc = (struct sockaddr *)&loc4;
+      break;
+    default:
+      snprintf(localip, maxlen, "<invalid>");
+      snprintf(localip_esc, maxlen, "[<invalid>]");
+      return -1;
+  }
+  s = socket(ai->ai_family, SOCK_DGRAM, 0);
+  connect(s, ai->ai_addr, ai->ai_addrlen);
+  loclen = ai->ai_addrlen;
+  getsockname(s, loc, &loclen);
+  close(s);
+
+  switch(ai->ai_family) {
+    case AF_INET6:
+      inet_ntop(ai->ai_family, &loc6.sin6_addr, localip, maxlen);
+      slen = strlen(localip);
+      inet_ntop(ai->ai_family, &loc6.sin6_addr, localip_esc + 1, maxlen);
+      localip_esc[0]= '[';
+      localip_esc[1 + slen]= ']';
+      localip_esc[1 + slen + 1]= '\0';
+      break;
+    case AF_INET:
+      inet_ntop(ai->ai_family, &loc4.sin_addr, localip, maxlen);
+      strcpy(localip_esc, localip);
+      break;
+  }
+
+  return 0;
+}
+
 int open_connections() {
   int status=0;
   int err; 
   local_port = 0;
+  struct addrinfo * local_addr;
   
   if(!strlen(remote_host)) {
     if(toolMode != MODE_SERVER) {
@@ -4079,7 +4130,6 @@ int open_connections() {
     /* Resolving the remote IP */
     {
       struct addrinfo   hints;
-      struct addrinfo * local_addr;
 
       fprintf(stderr,"Resolving remote host '%s'... ", remote_host);
 
@@ -4123,7 +4173,6 @@ int open_connections() {
   {
     char            * local_host = NULL;
     struct addrinfo   hints;
-    struct addrinfo * local_addr;
 
     if (!strlen(local_ip)) {
       local_host = (char *)hostname;
@@ -4136,36 +4185,8 @@ int open_connections() {
     hints.ai_family = PF_UNSPEC;
 
   /* Resolving local IP */
-    if (getaddrinfo(local_host,
-                    NULL,
-                    &hints,
-                    &local_addr) != 0) {
-      ERROR_P2("Can't get local IP address in getaddrinfo, local_host='%s', local_ip='%s'", 
-        local_host, 
-        local_ip);
-    }
-    
-    memset(&local_sockaddr,0,sizeof(struct sockaddr_storage));
-    local_sockaddr.ss_family = local_addr->ai_addr->sa_family;
-
-    if (!strlen(local_ip)) {
-    strcpy(local_ip,
-             get_inet_address(
-               _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
-    } else {
-      if (!(local_sockaddr.ss_family == AF_INET6)) {
-        memcpy(&local_sockaddr,
-               local_addr->ai_addr,
-               SOCK_ADDR_SIZE(
-                _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
-      }
-    }
-    if (local_sockaddr.ss_family == AF_INET6) {
-      local_ip_is_ipv6 = true;
-      sprintf(local_ip_escaped, "[%s]", local_ip); 
-    } else {
-      strcpy(local_ip_escaped, local_ip); 
-    }
+    loc_of_rem(local_addr, local_ip, local_ip_escaped,
+               sizeof local_ip_escaped);
   }
   
   /* Creating and binding the local socket */
