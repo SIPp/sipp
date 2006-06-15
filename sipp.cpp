@@ -4184,9 +4184,42 @@ int open_connections() {
     hints.ai_flags  = AI_PASSIVE;
     hints.ai_family = PF_UNSPEC;
 
-  /* Resolving local IP */
-    loc_of_rem(local_addr, local_ip, local_ip_escaped,
-               sizeof local_ip_escaped);
+    /* Resolving local IP */
+    if ((toolMode != MODE_3PCC_CONTROLLER_B) && (toolMode != MODE_SERVER)) {
+      /* In client mode, local IP is determined by attempting a connection */
+      /* to remote */
+      loc_of_rem(local_addr, local_ip, local_ip_escaped,
+                 sizeof local_ip_escaped);
+    } else {
+      if (getaddrinfo(local_host,
+                      NULL,
+                      &hints, 	 
+                      &local_addr) != 0) { 	 
+         ERROR_P2("Can't get local IP address in getaddrinfo, local_host='%s', local_ip='%s'", 	 
+           local_host, 	 
+           local_ip); 	 
+       } 	 
+       memset(&local_sockaddr,0,sizeof(struct sockaddr_storage)); 	 
+       local_sockaddr.ss_family = local_addr->ai_addr->sa_family; 	 
+       if (!strlen(local_ip)) { 	 
+         strcpy(local_ip, 	 
+                get_inet_address( 	 
+                _RCAST(struct sockaddr_storage *, local_addr->ai_addr))); 	 
+       } else { 	 
+         if (!(local_sockaddr.ss_family == AF_INET6)) { 	 
+           memcpy(&local_sockaddr, 	 
+                  local_addr->ai_addr, 	 
+                  SOCK_ADDR_SIZE( 	 
+                   _RCAST(struct sockaddr_storage *,local_addr->ai_addr))); 	 
+         } 	 
+       } 	 
+       if (local_sockaddr.ss_family == AF_INET6) { 	 
+         local_ip_is_ipv6 = true; 	 
+         sprintf(local_ip_escaped, "[%s]", local_ip); 	 
+       } else { 	 
+         strcpy(local_ip_escaped, local_ip); 	 
+       }
+    }
   }
   
   /* Creating and binding the local socket */
