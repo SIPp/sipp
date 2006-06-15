@@ -22,10 +22,10 @@
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <net/ethernet.h>
-#include <assert.h>
 #include <string.h>
 
 #include "prepare_pcap.h"
+#include "screen.hpp"
 
 inline int check(u_int16_t *buffer, int len){
   int sum;
@@ -72,14 +72,16 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
   pkts->pkts = NULL;
 
   pcap = pcap_open_offline(file, errbuf);
-  assert(pcap);
+  if (!pcap) 
+    ERROR_P1("Can't open PCAP file '%s'", file);
 
 #if HAVE_PCAP_NEXT_EX
   while (pcap_next_ex (pcap, &pkthdr, (const u_char **) &pktdata) == 1)
   {
 #else
   pkthdr = malloc (sizeof (*pkthdr));
-  assert (pkthdr);
+  if (!pkthdr)
+    ERROR("Can't allocate memory for pcap pkthdr");
   while ((pktdata = pcap_next (pcap, pkthdr)) != NULL)
   {
 #endif
@@ -113,12 +115,14 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
       abort();
     }
     pkts->pkts = realloc(pkts->pkts, sizeof(*(pkts->pkts)) * (n_pkts + 1));
-    assert(pkts->pkts);
+    if (!pkts->pkts)
+      ERROR("Can't re-allocate memory for pcap pkt");
     pkt_index = pkts->pkts + n_pkts;
     pkt_index->pktlen = pktlen;
     pkt_index->ts = pkthdr->ts;
     pkt_index->data = malloc(pktlen);
-    assert(pkt_index->data);
+    if (!pkt_index->data) 
+      ERROR("Can't allocate memory for pcap pkt data");
     memcpy(pkt_index->data, udphdr, pktlen);
 
       udphdr->check = 0;

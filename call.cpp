@@ -33,7 +33,6 @@
 #include <fstream>
 #include <iostream>
 #ifdef PCAPPLAY
-#include <assert.h>
 #include "send_packets.h"
 #endif
 #include "sipp.hpp"
@@ -2701,7 +2700,8 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 				PTHREAD_CREATE_DETACHED);
           int ret = pthread_create(&media_thread, &attr, send_wrapper,
 		       (void *) play_args);
-          assert(!ret);
+          if(ret)
+            ERROR("Can create thread to send RTP packets");
           pthread_attr_destroy(&attr);
 #endif
         } else {// end action == E_AT_EXECUTE_CMD
@@ -3043,7 +3043,8 @@ void *send_wrapper(void *arg)
   int ret;
   //param.sched_priority = 10;
   //ret = pthread_setschedparam(pthread_self(), SCHED_RR, &param);
-  //assert(!ret);
+  //if(ret)
+  //  ERROR("Can't set RTP play thread realtime parameters");
   pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
   pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
   send_packets(s);

@@ -43,7 +43,6 @@
 
 #include <pcap.h>
 #include <unistd.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <netinet/udp.h>
 #include <netinet/ip6.h>
@@ -52,6 +51,7 @@
 
 #include "send_packets.h"
 #include "prepare_pcap.h"
+#include "screen.hpp"
 
 extern volatile unsigned long rtp_pckts_pcap;
 extern volatile unsigned long rtp_bytes_pcap;
@@ -130,14 +130,18 @@ send_packets (play_args_t * play_args)
 
   if (media_ip_is_ipv6) {
     sock = socket(PF_INET6, SOCK_RAW, IPPROTO_UDP);
-    assert(sock >= 0);
-		from_port = &(((struct sockaddr_in6 *) from )->sin6_port);
-		to_port = &(((struct sockaddr_in6 *) to )->sin6_port);
+    if (sock < 0) {
+      ERROR("Can't create raw socket (need to run as root?)");
+    }
+    from_port = &(((struct sockaddr_in6 *) from )->sin6_port);
+    to_port = &(((struct sockaddr_in6 *) to )->sin6_port);
   }
   else {
     sock = socket(PF_INET, SOCK_RAW, IPPROTO_UDP);
-    assert(sock >= 0);
-		from_port = &(((struct sockaddr_in *) from )->sin_port);
+    if (sock < 0) {
+      ERROR("Can't create raw socket (need to run as root?)");
+    }
+    from_port = &(((struct sockaddr_in *) from )->sin_port);
     to_port = &(((struct sockaddr_in *) to )->sin_port);
   }
 	

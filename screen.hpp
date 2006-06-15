@@ -28,7 +28,11 @@
 
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C"
+#endif
 void _screen_error(char *s, int fatal);
+
 extern char _screen_err[32768];
 
 #define OUTPUT_P3(s, p1, p2, p3, fatal) {     \
