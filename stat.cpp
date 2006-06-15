@@ -597,12 +597,6 @@ int CStat::computeStat (E_Action P_action)
       break;
 
     case E_AUTO_ANSWERED :
-      // We just realized that the call we created must be 
-      // answered automatically and not counted in normal incomming calls. 
-      M_counters [CPT_C_IncomingCallCreated]--;
-      M_counters [CPT_PD_IncomingCallCreated]--;
-      M_counters [CPT_PL_IncomingCallCreated]--;
-      M_counters [CPT_C_CurrentCall]--;
       // Let's count the automatic answered calls
       M_counters [CPT_C_AutoAnswered]++;
       M_counters [CPT_PD_AutoAnswered]++;
