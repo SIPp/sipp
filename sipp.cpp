@@ -4199,8 +4199,12 @@ int open_connections() {
            local_host, 	 
            local_ip); 	 
        } 	 
+       // store local addr info for rsa option
+       getaddrinfo(local_host, NULL, &hints, &local_addr_storage);
+       
        memset(&local_sockaddr,0,sizeof(struct sockaddr_storage)); 	 
        local_sockaddr.ss_family = local_addr->ai_addr->sa_family; 	 
+       
        if (!strlen(local_ip)) { 	 
          strcpy(local_ip, 	 
                 get_inet_address( 	 

@@ -302,6 +302,7 @@ extern bool          is_ipv6                      _DEFVAL(false);
 extern int           start_calls                  _DEFVAL(0);
 extern double        reset_number                 _DEFVAL(0);
 
+extern struct        addrinfo * local_addr_storage;
 
 #ifdef __3PCC__
 extern int           twinSippSocket               _DEFVAL(0);

@@ -497,6 +497,10 @@ call::~call()
     close(call_socket);
   }
     }
+  } else {
+    if (call_remote_socket) {
+      close(call_remote_socket);
+    }
   }
 
   /* Deletion of the call variable */ 
@@ -571,6 +575,11 @@ void call::connect_socket_if_needed()
     if (L_status) {
     memset(&saddr, 0, sizeof(struct sockaddr_storage));
 
+    memcpy(&saddr,
+	   local_addr_storage->ai_addr,
+           SOCK_ADDR_SIZE(
+             _RCAST(struct sockaddr_storage *,local_addr_storage->ai_addr)));
+
     if (use_ipv6) {
     saddr.ss_family       = AF_INET;
     } else {
@@ -632,6 +641,7 @@ void call::connect_socket_if_needed()
   } else { /* TCP */
 
     int L_status = 0 ;	   // no new socket
+    struct sockaddr_storage *L_dest = &remote_sockaddr;
 
     if ((call_socket = new_socket(use_ipv6, SOCK_STREAM, &L_status)) == -1) {
       ERROR_NO("Unable to get a TCP socket");
@@ -639,8 +649,13 @@ void call::connect_socket_if_needed()
     
     if (L_status) {
       sipp_customize_socket(call_socket);
+
+      if (use_remote_sending_addr) {
+        L_dest = &remote_sending_sockaddr;
+      }
+
     if(connect(call_socket,
-               (struct sockaddr *)(void *)&remote_sockaddr,
+                 (struct sockaddr *)(void *)L_dest,
 	        SOCK_ADDR_SIZE(&remote_sockaddr))) {
       
       if (reset_number > 0) {
@@ -658,7 +673,6 @@ void call::connect_socket_if_needed()
       } else {
         ERROR_NO("Unable to connect a TCP socket");
       }
-
       }
     } else {
 #ifdef _USE_OPENSSL
@@ -748,7 +762,7 @@ int call::send_raw(char * msg, int index)
     state = &comp_state;
     sock = call_socket;
 
-    if (use_remote_sending_addr) {
+    if ((use_remote_sending_addr) && (toolMode == MODE_SERVER)) {
       if (!call_remote_socket) {
         struct sockaddr_storage *L_dest = &remote_sending_sockaddr;
 
