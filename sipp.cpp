@@ -4071,15 +4071,15 @@ static int loc_of_rem(
   struct sockaddr_in6 loc6;
   struct sockaddr_in loc4;
   struct sockaddr *loc;
-  socklen_t loclen;
+  sipp_socklen_t loclen;
   int slen;
 
   switch(ai->ai_family) {
     case AF_INET6:
-      loc = (struct sockaddr *)&loc6;
+      loc = (struct sockaddr *)(void *)&loc6;
       break;
     case AF_INET:
-      loc = (struct sockaddr *)&loc4;
+      loc = (struct sockaddr *)(void *)&loc4;
       break;
     default:
       snprintf(localip, maxlen, "<invalid>");

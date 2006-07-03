@@ -1548,7 +1548,7 @@ int call::sendCmdBuffer(char* cmd)
 
 #endif
 
-char* call::createSendingMessage(const char * src, int P_index)
+char* call::createSendingMessage(char * src, int P_index)
 {
   static char msg_buffer[SIPP_MAX_MSG_SIZE+2];
  
