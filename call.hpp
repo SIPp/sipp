@@ -168,7 +168,7 @@ public:
   // P_index use for message index in scenario and ctrl of CRLF
   // P_index = -2 No ctrl of CRLF
   // P_index = -1 Add crlf to end of message
-  char* createSendingMessage(const char * src, int P_index);
+  char* createSendingMessage(char * src, int P_index);
 
   // method for the management of unexpected messages 
   bool  abortCall();                  // call aborted with BYE or CANCEL
