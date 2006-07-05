@@ -42,8 +42,8 @@ inline int check(u_int16_t *buffer, int len){
 }
 
 inline u_int16_t checksum_carry(int s) {
-	int s_c = (s >> 16) + (s & 0xffff);
-	return (~(s_c + (s_c >> 16)) & 0xffff);
+  int s_c = (s >> 16) + (s & 0xffff);
+  return (~(s_c + (s_c >> 16)) & 0xffff);
 }
 
 char errbuf[PCAP_ERRBUF_SIZE];
@@ -97,22 +97,21 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
       pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*ip6hdr);
       ip6hdr = (struct ip6_hdr *)iphdr;
       if (ip6hdr->ip6_nxt != IPPROTO_UDP) {
-        fprintf(stderr, "Ignoring non UDP packet!\n");
-	continue;
+        fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
+        continue;
       }
       udphdr = (struct udphdr *)((char *)ip6hdr + sizeof(*ip6hdr));
     } else {
       //ipv4
       pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*iphdr);
       if (iphdr->protocol != IPPROTO_UDP) {
-        fprintf(stderr, "Ignoring non UDP packet!\n");
+        fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
         continue;
       }
       udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2));
     }
     if (pktlen > PCAP_MAXPACKET) {
-      fprintf(stderr, "Packet size is too big!\nRecompile with bigger PCAP_MAXPACKET in %s!\n", "prepare_pcap.h");
-      abort();
+      ERROR("Packet size is too big! Recompile with bigger PCAP_MAXPACKET in prepare_pcap.h");
     }
     pkts->pkts = realloc(pkts->pkts, sizeof(*(pkts->pkts)) * (n_pkts + 1));
     if (!pkts->pkts)

@@ -96,11 +96,11 @@ parse_play_args (char *buffer, pcap_pkts *pkts)
 }
 
 void hexdump(char *p, int s) {
-	int i;
-	for (i = 0; i < s; i++) {
-		fprintf(stderr, "%02x ", *(char *)(p+i));
-	}
-	fprintf(stderr, "\n");
+  int i;
+  for (i = 0; i < s; i++) {
+    fprintf(stderr, "%02x ", *(char *)(p+i));
+  }
+  fprintf(stderr, "\n");
 }
 
 /*Safe threaded version*/
@@ -117,11 +117,11 @@ send_packets (play_args_t * play_args)
   struct timeval start = { 0, 0 };
   struct timeval last = { 0, 0 };
   pcap_pkts *pkts = play_args->pcap;
-	/* to and from are pointers in case play_args (call sticky) gets modified! */
+  /* to and from are pointers in case play_args (call sticky) gets modified! */
   struct sockaddr_storage *to = &(play_args->to);
   struct sockaddr_storage *from = &(play_args->from);
   struct udphdr *udp;
-	struct ip6_hdr *ip6;
+  struct ip6_hdr *ip6;
   struct sockaddr_in6 to6, from6;
   char buffer[PCAP_MAXPACKET];
 #ifndef MSG_DONTWAIT
@@ -144,7 +144,7 @@ send_packets (play_args_t * play_args)
     from_port = &(((struct sockaddr_in *) from )->sin_port);
     to_port = &(((struct sockaddr_in *) to )->sin_port);
   }
-	
+
 #ifndef MSG_DONTWAIT
   fd_flags = fcntl(sock, F_GETFL , NULL);
   fd_flags |= O_NONBLOCK;
@@ -154,7 +154,7 @@ send_packets (play_args_t * play_args)
 
   pkt_index = pkts->pkts;
   pkt_max = pkts->max;
-	
+
   if (media_ip_is_ipv6) {
     memset(&to6, 0, sizeof(to6));
     memset(&from6, 0, sizeof(from6));
@@ -163,7 +163,7 @@ send_packets (play_args_t * play_args)
     memcpy(&(to6.sin6_addr.s6_addr), &(((struct sockaddr_in6 *) to)->sin6_addr.s6_addr), sizeof(to6.sin6_addr.s6_addr));
     memcpy(&(from6.sin6_addr.s6_addr), &(((struct sockaddr_in6 *) from)->sin6_addr.s6_addr), sizeof(from6.sin6_addr.s6_addr));
   }
-	
+
   while (pkt_index < pkt_max) {
     memcpy(udp, pkt_index->data, pkt_index->pktlen);
     port_diff = ntohs (udp->uh_dport) - pkts->base;
@@ -179,7 +179,7 @@ send_packets (play_args_t * play_args)
     }
 
     do_sleep ((struct timeval *) &pkt_index->ts, &last, &didsleep,
-		&start);
+              &start);
 #ifdef MSG_DONTWAIT
     if (!media_ip_is_ipv6) {
       ret = sendto(sock, buffer, pkt_index->pktlen, MSG_DONTWAIT,
@@ -200,15 +200,14 @@ send_packets (play_args_t * play_args)
     }
 #endif
     if (ret < 0) {
-      fprintf(stderr, "Send: failed with %s\n", strerror(errno));
-      abort();
-	    }
+      ERROR_P1("send_packets.c: sendto failed with error: %s", strerror(errno));
+    }
 
-	  rtp_pckts_pcap++;
+    rtp_pckts_pcap++;
     rtp_bytes_pcap += pkt_index->pktlen - sizeof(*udp);
     memcpy (&last, &(pkt_index->ts), sizeof (struct timeval));
     pkt_index++;
-	}
+  }
 
   close(sock);
   return 0;
@@ -219,7 +218,7 @@ send_packets (play_args_t * play_args)
  * calculate the appropriate amount of time to sleep and do so.
  */
 void do_sleep (struct timeval *time, struct timeval *last,
-	  struct timeval *didsleep, struct timeval *start)
+               struct timeval *didsleep, struct timeval *start)
 {
   struct timeval nap, now, delta;
   struct timespec ignore, sleep;
@@ -263,7 +262,7 @@ void do_sleep (struct timeval *time, struct timeval *last,
       timersub (didsleep, &delta, &nap);
 
       sleep.tv_sec = nap.tv_sec;
-      sleep.tv_nsec = nap.tv_usec * 1000;	/* convert ms to ns */
+      sleep.tv_nsec = nap.tv_usec * 1000;  /* convert ms to ns */
 
       while ((nanosleep (&sleep, &sleep) == -1) && (errno == -EINTR));
     }
