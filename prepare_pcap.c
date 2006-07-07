@@ -19,15 +19,28 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
+#ifdef __HPUX
+#include <netinet/in_systm.h>
+#endif
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
+#ifdef __HPUX
+#include <sys/socket.h>
+#include <net/if_arp.h>
+#include <netinet/if_ether.h>
+#else
 #include <net/ethernet.h>
+#endif
 #include <string.h>
 
 #include "prepare_pcap.h"
 #include "screen.hpp"
 
+#ifdef __HPUX
+int check(u_int16_t *buffer, int len){
+#else
 inline int check(u_int16_t *buffer, int len){
+#endif
   int sum;
   int i;
   sum = 0;
@@ -41,9 +54,13 @@ inline int check(u_int16_t *buffer, int len){
   return sum;
 }
 
+#ifdef __HPUX
+u_int16_t checksum_carry(int s) {
+#else
 inline u_int16_t checksum_carry(int s) {
-  int s_c = (s >> 16) + (s & 0xffff);
-  return (~(s_c + (s_c >> 16)) & 0xffff);
+#endif
+	int s_c = (s >> 16) + (s & 0xffff);
+	return (~(s_c + (s_c >> 16)) & 0xffff);
 }
 
 char errbuf[PCAP_ERRBUF_SIZE];
@@ -79,10 +96,14 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
   while (pcap_next_ex (pcap, &pkthdr, (const u_char **) &pktdata) == 1)
   {
 #else
+#ifdef __HPUX
+  pkthdr = (pcap_pkthdr *) malloc (sizeof (*pkthdr));
+#else
   pkthdr = malloc (sizeof (*pkthdr));
+#endif
   if (!pkthdr)
     ERROR("Can't allocate memory for pcap pkthdr");
-  while ((pktdata = pcap_next (pcap, pkthdr)) != NULL)
+  while ((pktdata = (u_char *) pcap_next (pcap, pkthdr)) != NULL)
   {
 #endif
     ethhdr = (struct ether_header *)pktdata;
@@ -95,10 +116,10 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
     if (iphdr && iphdr->version == 6) {
       //ipv6
       pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*ip6hdr);
-      ip6hdr = (struct ip6_hdr *)iphdr;
+      ip6hdr = (struct ip6_hdr *)(void *) iphdr;
       if (ip6hdr->ip6_nxt != IPPROTO_UDP) {
         fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
-        continue;
+	     continue;
       }
       udphdr = (struct udphdr *)((char *)ip6hdr + sizeof(*ip6hdr));
     } else {
@@ -113,27 +134,40 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
     if (pktlen > PCAP_MAXPACKET) {
       ERROR("Packet size is too big! Recompile with bigger PCAP_MAXPACKET in prepare_pcap.h");
     }
-    pkts->pkts = realloc(pkts->pkts, sizeof(*(pkts->pkts)) * (n_pkts + 1));
+    pkts->pkts = (pcap_pkt *) realloc(pkts->pkts, sizeof(*(pkts->pkts)) * (n_pkts + 1));
     if (!pkts->pkts)
       ERROR("Can't re-allocate memory for pcap pkt");
     pkt_index = pkts->pkts + n_pkts;
     pkt_index->pktlen = pktlen;
     pkt_index->ts = pkthdr->ts;
-    pkt_index->data = malloc(pktlen);
+    pkt_index->data = (unsigned char *) malloc(pktlen);
     if (!pkt_index->data) 
       ERROR("Can't allocate memory for pcap pkt data");
     memcpy(pkt_index->data, udphdr, pktlen);
 
-      udphdr->check = 0;
+#ifdef __HPUX
+    udphdr->uh_sum = 0 ;      
+#else
+    udphdr->check = 0;
+#endif
+
       // compute a partial udp checksum
       // not including port that will be changed
       // when sending RTP
-      pkt_index->partial_check = check((u_int16_t *) &udphdr->len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
-
+#ifdef __HPUX
+    pkt_index->partial_check = check((u_int16_t *) &udphdr->uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+#else
+    pkt_index->partial_check = check((u_int16_t *) &udphdr->len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+#endif
     if (max_length < pktlen)
       max_length = pktlen;
+#ifdef __HPUX
+    if (base > ntohs(udphdr->uh_dport))
+      base = ntohs(udphdr->uh_dport);
+#else
     if (base > ntohs(udphdr->dest))
       base = ntohs(udphdr->dest);
+#endif
     n_pkts++;
   }
   pkts->max = pkts->pkts + n_pkts;
@@ -141,6 +175,8 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
   pkts->base = base;
   fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %d\nbase port %d\n", file, n_pkts, max_length, base);
   pcap_close(pcap);
+
+  return 0;
 }
 
 void free_pkts(pcap_pkts *pkts) {

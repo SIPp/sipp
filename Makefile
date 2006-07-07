@@ -156,6 +156,12 @@ pcapplay:
 pcapplay_ossl:
 	make OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m` OBJ_TLS="auth.o sslinit.o sslthreadsafe.o" TLS_LIBS="-lssl -lcrypto" TLS="-D_USE_OPENSSL -DOPENSSL_NO_KRB5"  OBJ_PCAPPLAY="send_packets.o prepare_pcap.o" PCAPPLAY_LIBS="-lpcap" PCAPPLAY="-DPCAPPLAY" $(OUTPUT)
 
+pcapplay_hp_li_ia:
+	@_HPUX_LI_FLAG=-D_HPUX_LI ; export _HPUX_LI_FLAG ; make pcapplay
+
+pcapplay_ossl_hp_li_ia:
+	@_HPUX_LI_FLAG=-D_HPUX_LI ; export _HPUX_LI_FLAG ; make pcapplay_ossl
+
 $(OUTPUT): $(OBJ_TLS) $(OBJ_PCAPPLAY) $(OBJ)
 	$(CCLINK) $(LFLAGS) $(MFLAGS) $(LIBDIR_$(SYSTEM)) \
 	$(DEBUG_FLAGS) -o $@ $(OBJ_TLS) $(OBJ_PCAPPLAY) $(OBJ) $(LIBS) $(TLS_LIBS) $(PCAPPLAY_LIBS)
@@ -185,11 +191,11 @@ archive:
 *.o: *.h *.hpp
 
 .C.o:
-	$(CPP) $(CPPFLAGS) $(MFLAGS) $(DEBUG_FLAGS) $(INCDIR) -c -o $*.o $<
+	$(CPP) $(CPPFLAGS) $(MFLAGS) $(DEBUG_FLAGS) $(_HPUX_LI_FLAG) $(INCDIR) -c -o $*.o $<
 
 .cpp.o:
-	$(CPP) $(CPPFLAGS) $(MFLAGS) $(DEBUG_FLAGS) $(INCDIR) -c -o $*.o $<
+	$(CPP) $(CPPFLAGS) $(MFLAGS) $(DEBUG_FLAGS) $(_HPUX_LI_FLAG) $(INCDIR) -c -o $*.o $<
 
 .c.o:
-	$(CC) $(CFLAGS) $(MFLAGS) $(DEBUG_FLAGS) $(INCDIR) -c -o $*.o $<
+	$(CC) $(CFLAGS) $(MFLAGS) $(DEBUG_FLAGS) $(_HPUX_LI_FLAG) $(INCDIR) -c -o $*.o $<
 

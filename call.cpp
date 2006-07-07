@@ -301,7 +301,7 @@ uint16_t get_remote_video_port_media(char *msg)
 void call::get_remote_media_addr(char *msg) {
   uint16_t video_port;
   if (media_ip_is_ipv6) {
-    struct in6_addr ip_media;
+  struct in6_addr ip_media;
     if (get_remote_ipv6_media(msg, ip_media)) {
       (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_flowinfo = 0;
       (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_scope_id = 0;
@@ -2694,12 +2694,12 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
           play_args->pcap = currentAction->getPcapPkts();
           /* port number is set in [auto_]media_port interpolation */
           if (media_ip_is_ipv6) {
-            struct sockaddr_in6 *from = (struct sockaddr_in6 *) &(play_args->from);
+            struct sockaddr_in6 *from = (struct sockaddr_in6 *)(void *) &(play_args->from);
             from->sin6_family = AF_INET6;
             inet_pton(AF_INET6, media_ip, &(from->sin6_addr));
           }
           else {
-            struct sockaddr_in *from = (struct sockaddr_in *) &(play_args->from);
+            struct sockaddr_in *from = (struct sockaddr_in *)(void *) &(play_args->from);
             from->sin_family = AF_INET;
             from->sin_addr.s_addr = inet_addr(media_ip);
           }
@@ -3063,5 +3063,6 @@ void *send_wrapper(void *arg)
   pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
   send_packets(s);
   pthread_exit(NULL);
+  return NULL;
 }
 #endif
