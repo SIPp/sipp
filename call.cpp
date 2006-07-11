@@ -1584,11 +1584,11 @@ char* call::createSendingMessage(char * src, int P_index)
  
         keyword[key - src] = 0;
         src = key + 1;
-	// allow +/-n for numeric variables
-	if (!strstr(keyword, "authentication") && ((key = strchr(keyword,'+')) || (key = strchr(keyword,'-')))) {
-           offset = atoi(key);
-           *key = 0;
-	} else offset = 0;
+        // allow +/-n for numeric variables
+        if (!strstr(keyword, "authentication") && ((key = strchr(keyword,'+')) || (key = strchr(keyword,'-')))) {
+          offset = atoi(key);
+          *key = 0;
+        } else offset = 0;
 
         if(!strcmp(keyword, "remote_ip")) {
           dest += sprintf(dest, "%s", remote_ip_escaped);

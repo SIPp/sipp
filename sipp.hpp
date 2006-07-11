@@ -135,6 +135,7 @@
 #define DEFAULT_TIMER_RESOLUTION     200
 #define DEFAULT_FREQ_DUMP_RTT        200
 #define DEFAULT_MAX_MULTI_SOCKET     50000
+#define DEFAULT_CTRL_SOCKET_PORT     8888
 
 /************ User controls and command line options ***********/
 

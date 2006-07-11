@@ -19,6 +19,7 @@
  *           Herve PELLAN
  *           David MANSUTTI
  *           Francois-Xavier Kowalski
+ *           Gerard Lyonnaz
  *           From Hewlett Packard Company.
  *           F. Tarek Rogers
  *           Peter Higginson
@@ -1061,8 +1062,106 @@ void sipp_sigusr2(int /* not used */)
   }
 }
 
-/* User interface thread */
+/* User interface threads */
+/* Socket control thread */
+void ctrl_thread (void * param)
+{
+  int soc,ret;
+  short prt;
+  int port, try_counter;
+  unsigned char bufrcv [20], c; 
+  struct sockaddr_in sin;
+  
+  port = DEFAULT_CTRL_SOCKET_PORT;
+  try_counter = 0;
+  /* Allow 10 control socket on the same system */
+  /* (several SIPp instances)                   */
+  while (try_counter < 10) {
+    prt = htons(port);
+    memset(&sin,0,sizeof(struct sockaddr_in));
+    soc = socket(AF_INET,SOCK_DGRAM,0);
+    sin.sin_port = prt;
+    sin.sin_family = AF_INET;
+    sin.sin_addr.s_addr = INADDR_ANY;
+    if (!bind(soc,(struct sockaddr *)&sin,sizeof(struct sockaddr_in))) {
+      /* Bind successful */
+      break;
+    }
+    try_counter++;
+    port++;
+  }
+  if (try_counter == 10) {
+    WARNING_P3("Unable to bind remote control socket (tried UDP ports %d-%d)", 
+                  DEFAULT_CTRL_SOCKET_PORT, 
+                  DEFAULT_CTRL_SOCKET_PORT+10, 
+                  strerror(errno));
+    return;
+  }
 
+  while(!feof(stdin)){
+    ret = recv(soc,bufrcv,20,0);
+    c = bufrcv[0];
+
+    switch (c) {
+    case '1':
+      currentScreenToDisplay = DISPLAY_SCENARIO_SCREEN;
+      print_statistics(0);
+      break;
+
+    case '2':
+      currentScreenToDisplay = DISPLAY_STAT_SCREEN;
+      print_statistics(0);
+      break;
+
+    case '3':
+      currentScreenToDisplay = DISPLAY_REPARTITION_SCREEN;
+      print_statistics(0);
+      break;
+
+    case '4':
+      currentScreenToDisplay = DISPLAY_VARIABLE_SCREEN;
+      print_statistics(0);
+      break;
+
+    case '+':
+      set_rate(rate + 1);
+      print_statistics(0);
+      break;
+      
+    case '-':
+      set_rate(rate - 1);
+      print_statistics(0);
+      break;
+
+    case '*':
+      set_rate(rate + 10);
+      print_statistics(0);
+      break;
+      
+    case '/':
+      set_rate(rate - 10);
+      print_statistics(0);
+      break;
+
+    case 'p':
+      if(paused) { 
+        paused = 0;
+        set_rate(rate);
+      } else {
+        paused = 1;
+      }
+      print_statistics(0);
+      break;
+
+    case 'q':
+      quitting = 1;
+      print_statistics(0);
+      return;
+    }
+  }
+}
+
+/* KEYBOARD thread */
 void keyb_thread (void * param)
 {
   int c;
@@ -3961,8 +4060,17 @@ int main(int argc, char *argv[])
     /* Second socket bound */
   }
 
-  if( backgroundMode == false ) {
+  /* Creating the remote control socket thread */
+  if (pthread_create
+      (&pthread_id,
+       NULL,
+       (void *(*)(void *)) ctrl_thread,
+       (void*)NULL) 
+      == -1) {
+    ERROR_NO("Unable to create remote control socket thread");
+  }
 
+  if( backgroundMode == false ) {
     /* Creating the keyb thread */
     if (pthread_create
         (&pthread_id,
