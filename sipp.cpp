@@ -4169,55 +4169,6 @@ int close_connections() {
   return status;
 }
 
-static int loc_of_rem(
-                 const struct addrinfo *ai,
-                 char *localip,
-                 char *localip_esc,
-                 int maxlen
-                 ) {
-  int s;
-  struct sockaddr_in6 loc6;
-  struct sockaddr_in loc4;
-  struct sockaddr *loc;
-  sipp_socklen_t loclen;
-  int slen;
-
-  switch(ai->ai_family) {
-    case AF_INET6:
-      loc = (struct sockaddr *)(void *)&loc6;
-      break;
-    case AF_INET:
-      loc = (struct sockaddr *)(void *)&loc4;
-      break;
-    default:
-      snprintf(localip, maxlen, "<invalid>");
-      snprintf(localip_esc, maxlen, "[<invalid>]");
-      return -1;
-  }
-  s = socket(ai->ai_family, SOCK_DGRAM, 0);
-  connect(s, ai->ai_addr, ai->ai_addrlen);
-  loclen = ai->ai_addrlen;
-  getsockname(s, loc, &loclen);
-  close(s);
-
-  switch(ai->ai_family) {
-    case AF_INET6:
-      inet_ntop(ai->ai_family, &loc6.sin6_addr, localip, maxlen);
-      slen = strlen(localip);
-      inet_ntop(ai->ai_family, &loc6.sin6_addr, localip_esc + 1, maxlen);
-      localip_esc[0]= '[';
-      localip_esc[1 + slen]= ']';
-      localip_esc[1 + slen + 1]= '\0';
-      break;
-    case AF_INET:
-      inet_ntop(ai->ai_family, &loc4.sin_addr, localip, maxlen);
-      strcpy(localip_esc, localip);
-      break;
-  }
-
-  return 0;
-}
-
 int open_connections() {
   int status=0;
   int err; 
@@ -4293,12 +4244,6 @@ int open_connections() {
     hints.ai_family = PF_UNSPEC;
 
     /* Resolving local IP */
-    if ((toolMode != MODE_3PCC_CONTROLLER_B) && (toolMode != MODE_SERVER)) {
-      /* In client mode, local IP is determined by attempting a connection */
-      /* to remote */
-      loc_of_rem(local_addr, local_ip, local_ip_escaped,
-                 sizeof local_ip_escaped);
-    } else {
       if (getaddrinfo(local_host,
                       NULL,
                       &hints, 	 
@@ -4331,8 +4276,7 @@ int open_connections() {
        } else { 	 
          strcpy(local_ip_escaped, local_ip); 	 
        }
-    }
-  }
+   } 
   
   /* Creating and binding the local socket */
   if((main_socket = socket(local_ip_is_ipv6 ? AF_INET6 : AF_INET,
