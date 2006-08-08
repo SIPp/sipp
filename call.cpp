@@ -1754,9 +1754,21 @@ char* call::createSendingMessage(char * src, int P_index)
             length_marker = dest;
             dest += sprintf(dest, "    ");
             len_offset = offset;
-        } else {
-          ERROR_P1("Unsupported keyword '%s' in xml scenario file",
+        } else {   // scan for the generic parameters - must be last test
+          int i = 0;
+          while (generic[i]) {
+            char *msg1 = *generic[i];
+            char *msg2 = *(generic[i] + 1);
+            if(!strcmp(keyword, msg1+1)) {
+              dest += sprintf(dest, "%s", msg2);
+              break;
+            }
+            ++i;
+          }
+          if (!generic[i]) {
+            ERROR_P1("Unsupported keyword '%s' in xml scenario file\r\n",
                    keyword);
+          }
         }
       } else if (*src == '\n') {
         *dest++ = '\r';

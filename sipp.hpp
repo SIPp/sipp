@@ -210,6 +210,7 @@ extern int                currentScreenToDisplay  _DEFVAL
 extern unsigned int       base_cseq               _DEFVAL(0);
 extern char             * auth_uri                _DEFVAL(0);
 extern char             * call_id_string          _DEFVAL("%u-%p@%s");
+extern char             **generic[100];
 
 #ifdef _USE_OPENSSL
 extern BIO                  *bio ;

@@ -2831,6 +2831,8 @@ void help()
      "\n"
      "   -aa              : Enable the automatic answer for the INFO message.\n"
      "\n"
+     "   -xyz string      : Any other parameter used in SIP messages as [xyz].\n"
+     "\n"
      "Signal handling:\n"
      "\n"
      "   SIPp can be controlled using posix signals. The following signals\n"
@@ -3086,6 +3088,9 @@ int main(int argc, char *argv[])
   char                *scenario_name = NULL;
   int                  err;
   int                  L_maxSocketPresent = 0;
+  unsigned int         generic_count = 0;
+  
+  generic[0] = NULL;
 
   /* At least one argument is needed */
   if(argc < 2) {
@@ -3788,6 +3793,24 @@ int main(int argc, char *argv[])
       processed = 1;
       bind_local = 1;
     }
+
+    /* --------------------------------------------- */
+    /* !!! This must be the last parameter processed */
+    if(processed == 0 && *argv[argi] == '-') {
+      if((++argi) < argc) {
+        if (generic_count+1 >= sizeof(generic)/sizeof(generic[0])) {
+          ERROR_P1("Too many generic parameters %d\n",generic_count+1);
+        }
+        processed = 1;
+        generic[generic_count++] = &argv[argi-1];
+        generic[generic_count] = NULL;
+      } else {
+        ERROR_P1("Missing argument for param '%s'.\n"
+                 "Use 'sipp -h' for details\n",  argv[argi-1]);
+      }
+    }
+    /* --------------------------------------------- */
+
     if(!processed) {
       if((argv[argi])[0] != '-') {
         strcpy(remote_host, argv[argi]);
