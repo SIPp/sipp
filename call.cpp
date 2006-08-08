@@ -1766,7 +1766,7 @@ char* call::createSendingMessage(char * src, int P_index)
             ++i;
           }
           if (!generic[i]) {
-            ERROR_P1("Unsupported keyword '%s' in xml scenario file\r\n",
+            ERROR_P1("Unsupported keyword '%s' in xml scenario file",
                    keyword);
           }
         }

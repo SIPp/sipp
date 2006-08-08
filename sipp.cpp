@@ -3799,13 +3799,13 @@ int main(int argc, char *argv[])
     if(processed == 0 && *argv[argi] == '-') {
       if((++argi) < argc) {
         if (generic_count+1 >= sizeof(generic)/sizeof(generic[0])) {
-          ERROR_P1("Too many generic parameters %d\n",generic_count+1);
+          ERROR_P1("Too many generic parameters %d",generic_count+1);
         }
         processed = 1;
         generic[generic_count++] = &argv[argi-1];
         generic[generic_count] = NULL;
       } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
+        ERROR_P1("Missing argument for param '%s'."
                  "Use 'sipp -h' for details\n",  argv[argi-1]);
       }
     }
