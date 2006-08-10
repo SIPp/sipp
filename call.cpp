@@ -1573,7 +1573,19 @@ char* call::createSendingMessage(char * src, int P_index)
           current_line[line_mark-src] = '\0';
         }
       }
-      if(*src == '[') {
+      if ((*src == '\\') && (*(src+1) == 'x')) {
+        /* Allows any hex coded char like '\x5B' ([) */
+	src += 2;
+        if (isxdigit(*src)) {
+          int val = get_decimal_from_hex(*src);
+          src++;
+          if (isxdigit(*src)) {
+            val = (val << 4) + get_decimal_from_hex(*src);
+          }
+          *dest++ = val & 0xff;
+        }
+        src++;
+      } else if(*src == '[') {
         char keyword [KEYWORD_SIZE+1];
         src++;
         key = strchr(src, ']');

@@ -400,6 +400,7 @@ int pollset_add(call * p_call, int socket);
 /********************* Utilities functions  *******************/
 
 char *strcasestr2 ( char *__haystack, char *__needle);
+int get_decimal_from_hex(char hex);
 
 int reset_connections() ;
 int close_calls();

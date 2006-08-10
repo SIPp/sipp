@@ -362,6 +362,13 @@ char * strcasestr2(char *s, char *find) {
   return ((char *)s);
 }
 
+int get_decimal_from_hex(char hex) {
+  if (isdigit(hex))
+    return hex - '0';
+  else
+    return tolower(hex) - 'a' + 10;
+}
+
 
 /******************** Recv Poll Processing *********************/
 
