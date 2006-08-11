@@ -1575,7 +1575,7 @@ char* call::createSendingMessage(char * src, int P_index)
       }
       if ((*src == '\\') && (*(src+1) == 'x')) {
         /* Allows any hex coded char like '\x5B' ([) */
-	src += 2;
+        src += 2;
         if (isxdigit(*src)) {
           int val = get_decimal_from_hex(*src);
           src++;
@@ -1597,7 +1597,7 @@ char* call::createSendingMessage(char * src, int P_index)
         keyword[key - src] = 0;
         src = key + 1;
         // allow +/-n for numeric variables
-        if (!strstr(keyword, "authentication") && ((key = strchr(keyword,'+')) || (key = strchr(keyword,'-')))) {
+        if (!strstr(keyword, "authentication") && !strstr(keyword, "map") && ((key = strchr(keyword,'+')) || (key = strchr(keyword,'-')))) {
           offset = atoi(key);
           *key = 0;
         } else offset = 0;
@@ -1714,6 +1714,40 @@ char* call::createSendingMessage(char * src, int P_index)
         } else if(!strcmp(keyword, "peer_tag_param")) {
           if(peer_tag && strlen(peer_tag)) {
             dest += sprintf(dest, ";tag=%s", peer_tag);
+          }
+        } else if(strstr(keyword, "map")) {
+          /* keyword to generate c= line for TDM 
+           * format: g.h.i/j                    
+           * g: varies in interval a, offset x
+           * h: fix value (99 here)
+           * i: varies in interval b, offset y
+           * j: varies in interval c, offset z
+           * Format: map{1-3}{0-27}{1-24}
+           */
+          int h=99; 
+          int a=0; /* or 2-0 */
+          int b=27-0;
+          int c=24-1;
+          int x=0;
+          int y=0;
+          int z=1;
+          int i1, i2, i3, i4, i5, i6;
+
+          if (sscanf(keyword, "map{%d-%d}{%d-%d}{%d-%d}", &i1, &i2, &i3, &i4, &i5, &i6) == 6) {
+            a = i2 - i1;
+            x = i1;
+            b = i4 - i3;
+            y = i3;
+            c = i6 - i5;
+            z = i5;
+            dest += sprintf(dest, "%d.%d.%d/%d", 
+                                  x+(int((number-1)/((b+1)*(c+1))))%(a+1),
+                                  h,
+                                  y+(int((number-1)/(c+1)))%(b+1),
+                                  z+(number-1)%(c+1)
+                                  );
+          } else {
+            ERROR_P1("Keyword '%s' cannot be parsed - must be of the form 'map{%%d-%%d}{%%d-%%d}{%%d-%%d}'", keyword);
           }
         } else if(strstr(keyword, "$")) {
           int varId = atoi(keyword+1);
