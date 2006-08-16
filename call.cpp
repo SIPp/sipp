@@ -1719,10 +1719,10 @@ char* call::createSendingMessage(char * src, int P_index)
           /* keyword to generate c= line for TDM 
            * format: g.h.i/j                    
            * g: varies in interval a, offset x
-           * h: fix value (99 here)
+           * h: fix value
            * i: varies in interval b, offset y
            * j: varies in interval c, offset z
-           * Format: map{1-3}{0-27}{1-24}
+           * Format: map{1-3}{0}{0-27}{1-24}
            */
           int h=99; 
           int a=0; /* or 2-0 */
@@ -1731,15 +1731,16 @@ char* call::createSendingMessage(char * src, int P_index)
           int x=0;
           int y=0;
           int z=1;
-          int i1, i2, i3, i4, i5, i6;
+          int i1, i2, i3, i4, i5, i6, i7;
 
-          if (sscanf(keyword, "map{%d-%d}{%d-%d}{%d-%d}", &i1, &i2, &i3, &i4, &i5, &i6) == 6) {
+          if (sscanf(keyword, "map{%d-%d}{%d}{%d-%d}{%d-%d}", &i1, &i2, &i3, &i4, &i5, &i6, &i7) == 7) {
             a = i2 - i1;
             x = i1;
-            b = i4 - i3;
-            y = i3;
-            c = i6 - i5;
-            z = i5;
+            h = i3;
+            b = i5 - i4;
+            y = i4;
+            c = i7 - i6;
+            z = i6;
             dest += sprintf(dest, "%d.%d.%d/%d", 
                                   x+(int((number-1)/((b+1)*(c+1))))%(a+1),
                                   h,
@@ -1747,7 +1748,7 @@ char* call::createSendingMessage(char * src, int P_index)
                                   z+(number-1)%(c+1)
                                   );
           } else {
-            ERROR_P1("Keyword '%s' cannot be parsed - must be of the form 'map{%%d-%%d}{%%d-%%d}{%%d-%%d}'", keyword);
+            ERROR_P1("Keyword '%s' cannot be parsed - must be of the form 'map{%%d-%%d}{%%d}{%%d-%%d}{%%d-%%d}'", keyword);
           }
         } else if(strstr(keyword, "$")) {
           int varId = atoi(keyword+1);
