@@ -365,30 +365,30 @@ void load_scenario(char * filename, int deflt)
         if(ptr = xp_get_value((char *)"milliseconds")) {
           scenario[scenario_len] -> pause = atol(ptr);
           scenario_duration += scenario[scenario_len] -> pause;
-	} else if(ptr = xp_get_value((char *)"min")) {
+        } else if(ptr = xp_get_value((char *)"min")) {
           scenario[scenario_len] -> pause_min = atol(ptr);
-	  if(ptr = xp_get_value((char *)"max")) {
+          if(ptr = xp_get_value((char *)"max")) {
             scenario[scenario_len] -> pause_max = atol(ptr);
-	    if (scenario[scenario_len] -> pause_max < scenario[scenario_len] -> pause_min) {
-              ERROR("Min is greater than max in variable pause!");
-	    }
-	    /* Update scenario duration with max duration */
-            scenario_duration += scenario[scenario_len] -> pause_max;
-	  } else {
-            ERROR("Min without max for a variable pause");
-	  }
-	} else if(ptr = xp_get_value((char *)"max")) {
-          scenario[scenario_len] -> pause_max = atol(ptr);
-	  /* Update scenario duration with max duration */
-          scenario_duration += scenario[scenario_len] -> pause_max;
-	  if(ptr = xp_get_value((char *)"min")) {
-            scenario[scenario_len] -> pause_min = atol(ptr);
-	    if (scenario[scenario_len] -> pause_max < scenario[scenario_len] -> pause_min) {
+            if (scenario[scenario_len] -> pause_max < scenario[scenario_len] -> pause_min) {
               ERROR("Min is greater than max in variable pause!");
             }
-	  } else {
+            /* Update scenario duration with max duration */
+            scenario_duration += scenario[scenario_len] -> pause_max;
+          } else {
+            ERROR("Min without max for a variable pause");
+          }
+       } else if(ptr = xp_get_value((char *)"max")) {
+          scenario[scenario_len] -> pause_max = atol(ptr);
+          /* Update scenario duration with max duration */
+          scenario_duration += scenario[scenario_len] -> pause_max;
+          if(ptr = xp_get_value((char *)"min")) {
+            scenario[scenario_len] -> pause_min = atol(ptr);
+            if (scenario[scenario_len] -> pause_max < scenario[scenario_len] -> pause_min) {
+              ERROR("Min is greater than max in variable pause!");
+            }
+          } else {
             ERROR("Max without min for a variable pause");
-	  }
+          }
         } else {
           scenario[scenario_len] -> pause = -1;
           scenario_duration += duration;
@@ -489,7 +489,7 @@ void load_scenario(char * filename, int deflt)
            scenario[scenario_len] -> test = -1;
          }
       } else {
-	scenario[scenario_len] -> next = 0;
+        scenario[scenario_len] -> next = 0;
       }
      
       scenario_len++;
@@ -662,14 +662,14 @@ void getActionForThisMessage()
                        ->isRegExpWellFormed()))
                       ERROR_P1("Regexp '%s' is not valid in xml "
                              "scenario file", currentRegExp); 
-		} else {
+                } else {
                   ERROR("Too many call variables in the scenario. Please change '#define SCEN_VARIABLE_SIZE' in scenario.hpp and recompile SIPp");
-		}
+                }
 
                 if (currentNbVarId > 1 ) {
                   sub_currentNbVarId = currentNbVarId - 1 ;
-		  tmpAction.setNbSubVarId(sub_currentNbVarId);
-		 
+                  tmpAction.setNbSubVarId(sub_currentNbVarId);
+
                   for(int i=1; i<= sub_currentNbVarId; i++) {
                   if(currentTabVarId[i] <  SCEN_VARIABLE_SIZE) {
                       tmpAction.setSubVarId(currentTabVarId[i]);

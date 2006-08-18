@@ -94,6 +94,7 @@ public:
     E_FAILED_CMD_NOT_SENT,
     E_FAILED_REGEXP_DOESNT_MATCH,
     E_FAILED_REGEXP_HDR_NOT_FOUND,
+    E_FAILED_OUTBOUND_CONGESTION,
     E_OUT_OF_CALL_MSGS,
     E_AUTO_ANSWERED
   };
@@ -119,6 +120,7 @@ public:
   CPT_C_FailedCallCmdNotSent,
   CPT_C_FailedCallRegexpDoesntMatch,
   CPT_C_FailedCallRegexpHdrNotFound,
+  CPT_C_FailedOutboundCongestion,
   CPT_C_OutOfCallMsgs,
   CPT_C_AutoAnswered,
 
@@ -138,6 +140,7 @@ public:
   CPT_PD_FailedCallCmdNotSent,
   CPT_PD_FailedCallRegexpDoesntMatch,
   CPT_PD_FailedCallRegexpHdrNotFound,
+  CPT_PD_FailedOutboundCongestion,
   CPT_PD_OutOfCallMsgs,
   CPT_PD_AutoAnswered, // must be last (RESET_PD_COUNTER)
 
@@ -157,6 +160,7 @@ public:
   CPT_PL_FailedCallCmdNotSent,
   CPT_PL_FailedCallRegexpDoesntMatch,
   CPT_PL_FailedCallRegexpHdrNotFound,
+  CPT_PL_FailedOutboundCongestion,
   CPT_PL_OutOfCallMsgs,
   CPT_PL_AutoAnswered, // must be last (RESET_PL_COUNTER)
 

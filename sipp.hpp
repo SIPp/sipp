@@ -90,7 +90,7 @@
 
 /************************** Constants **************************/
 
-#define SIPP_VERSION               20060605
+#define SIPP_VERSION               20060818
 #define T_UDP                      0
 #define T_TCP                      1
 #ifdef _USE_OPENSSL
@@ -113,6 +113,7 @@
 #define DISPLAY_REPARTITION_SCREEN 2
 #define DISPLAY_SCENARIO_SCREEN    3
 #define DISPLAY_VARIABLE_SCREEN    4
+#define DISPLAY_TDM_MAP_SCREEN     5
 
 #define MAX_RECV_LOOPS_PER_CYCLE   1000
 #define NB_UPDATE_PER_CYCLE        1
@@ -212,6 +213,17 @@ extern char             * auth_uri                _DEFVAL(0);
 extern char             * call_id_string          _DEFVAL("%u-%p@%s");
 extern char             **generic[100];
 
+/* TDM map */
+extern bool               use_tdmmap              _DEFVAL(false);
+extern unsigned int       tdm_map_a               _DEFVAL(0);
+extern unsigned int       tdm_map_b               _DEFVAL(0);
+extern unsigned int       tdm_map_c               _DEFVAL(0);
+extern unsigned int       tdm_map_x               _DEFVAL(0);
+extern unsigned int       tdm_map_y               _DEFVAL(0);
+extern unsigned int       tdm_map_z               _DEFVAL(0);
+extern unsigned int       tdm_map_h               _DEFVAL(0);
+extern bool               tdm_map[1024];
+
 #ifdef _USE_OPENSSL
 extern BIO                  *bio ;
 extern SSL                  *ssl_tcp_multiplex ;
@@ -252,6 +264,7 @@ extern unsigned long nb_net_send_errors           _DEFVAL(0);
 extern unsigned long nb_net_cong                  _DEFVAL(0);
 extern unsigned long nb_net_recv_errors           _DEFVAL(0);
 extern bool          cpu_max                      _DEFVAL(false);
+extern bool          outbound_congestion          _DEFVAL(false);
 extern int           open_calls_peak              _DEFVAL(0);
 extern unsigned long open_calls_peak_time         _DEFVAL(0);
 extern int           open_calls_user_setting      _DEFVAL(0);

@@ -838,17 +838,20 @@ void print_header_line(FILE *f, int last)
   switch(currentScreenToDisplay)
     {
     case DISPLAY_STAT_SCREEN :
-      fprintf(f,"----------------------------- Statistics Screen ------- [1-4]: Change Screen --" SIPP_ENDL);
+      fprintf(f,"----------------------------- Statistics Screen ------- [1-5]: Change Screen --" SIPP_ENDL);
       break;
     case DISPLAY_REPARTITION_SCREEN :
-      fprintf(f,"---------------------------- Repartition Screen ------- [1-4]: Change Screen --" SIPP_ENDL);
+      fprintf(f,"---------------------------- Repartition Screen ------- [1-5]: Change Screen --" SIPP_ENDL);
       break;
     case DISPLAY_VARIABLE_SCREEN  :
-      fprintf(f,"----------------------------- Variables Screen -------- [1-4]: Change Screen --" SIPP_ENDL);
+      fprintf(f,"----------------------------- Variables Screen -------- [1-5]: Change Screen --" SIPP_ENDL);
+      break;
+    case DISPLAY_TDM_MAP_SCREEN  :
+      fprintf(f,"------------------------------ TDM map Screen --------- [1-5]: Change Screen --" SIPP_ENDL);
       break;
     case DISPLAY_SCENARIO_SCREEN :
     default:
-      fprintf(f,"------------------------------ Scenario Screen -------- [1-4]: Change Screen --" SIPP_ENDL);
+      fprintf(f,"------------------------------ Scenario Screen -------- [1-5]: Change Screen --" SIPP_ENDL);
       break;
     }
 }
@@ -863,6 +866,8 @@ void print_bottom_line(FILE *f, int last)
     fprintf(f,"----------------- Traffic Paused - Press [p] again to resume ------------------" SIPP_ENDL );
   } else if(cpu_max) {
     fprintf(f,"-------------------------------- CPU CONGESTED ---------------------------------" SIPP_ENDL);
+  } else if(outbound_congestion) {
+    fprintf(f,"------------------------------ OUTBOUND CONGESTION -----------------------------" SIPP_ENDL);
   } else {
     switch(toolMode)
       {
@@ -890,12 +895,38 @@ void print_bottom_line(FILE *f, int last)
   fflush(stdout);
 }
 
+void print_tdm_map()
+{
+  int interval = 0;
+  int i = 0;
+  int j = 0;
+  int in_use = 0;
+  interval = (tdm_map_a+1) * (tdm_map_b+1) * (tdm_map_c+1);
+
+  printf("TDM Circuits in use:"  SIPP_ENDL);
+  while (i<interval) {
+    if (tdm_map[i]) {
+      printf("*");
+      in_use++;
+    } else {
+      printf(".");
+    }
+    i++;
+    if (i%(tdm_map_c+1) == 0) printf(SIPP_ENDL);
+  }
+  printf(SIPP_ENDL);
+  printf("%d/%d circuits (%d%%) in use", in_use, interval, int(100*in_use/interval));
+  for(i=0; i<(scenario_len + 8 - int(interval/(tdm_map_c+1))); i++) {
+    printf(SIPP_ENDL);
+  }
+}
+
 void print_variable_list()
 {
   CActions  * actions;
   CAction   * action;
   CVariable * variable;
-  int i;
+  int i,j;
   bool found;
 
   printf("Action defined Per Message :" SIPP_ENDL);
@@ -946,6 +977,7 @@ void print_variable_list()
   printf(SIPP_ENDL);
   printf("Setted Variable List:" SIPP_ENDL);
   found = false;
+  j=0;
   for(i=0; i<SCEN_VARIABLE_SIZE; i++) {
     for (int j=0;j<SCEN_MAX_MESSAGES;j++)
     {
@@ -956,10 +988,14 @@ void print_variable_list()
                  i,
                  variable->getRegularExpression());
           found = true;
+          j++;
         }
     }
   }
   if(!found) printf("=> No variable found for this scenario"SIPP_ENDL);
+  for(i=0; i<(scenario_len + 5 - j); i++) {
+    printf(SIPP_ENDL);
+  }
   
 }
 
@@ -1010,6 +1046,9 @@ void print_statistics(int last)
         break;
       case DISPLAY_VARIABLE_SCREEN  :
         print_variable_list();
+        break;
+      case DISPLAY_TDM_MAP_SCREEN  :
+        print_tdm_map();
         break;
       case DISPLAY_SCENARIO_SCREEN :
       default:
@@ -1130,6 +1169,13 @@ void ctrl_thread (void * param)
       print_statistics(0);
       break;
 
+    case '5':
+      if (use_tdmmap) {
+        currentScreenToDisplay = DISPLAY_TDM_MAP_SCREEN;
+        print_statistics(0);
+      }
+      break;
+
     case '+':
       set_rate(rate + 1);
       print_statistics(0);
@@ -1196,6 +1242,13 @@ void keyb_thread (void * param)
     case '4':
       currentScreenToDisplay = DISPLAY_VARIABLE_SCREEN;
       print_statistics(0);
+      break;
+
+    case '5':
+      if (use_tdmmap) {
+        currentScreenToDisplay = DISPLAY_TDM_MAP_SCREEN;
+        print_statistics(0);
+      }
       break;
 
     case '+':
@@ -2212,11 +2265,17 @@ void pollset_process(bool ipv6)
 #else	
                   call_ptr = add_call(call_id , ipv6); 
 #endif
-                  if((pollset_index) && 
-                     (pollfiles[pollset_index].fd != main_socket) && 
-                     (pollfiles[pollset_index].fd != tcp_multiplex) ) {
-				  
-                    call_ptr -> call_socket = pollfiles[pollset_index].fd;
+                  if(!call_ptr) {
+                    outbound_congestion = true;
+                    CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+                    CStat::instance()->computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
+                  } else {
+                    outbound_congestion = false;
+                    if((pollset_index) && 
+                       (pollfiles[pollset_index].fd != main_socket) && 
+                       (pollfiles[pollset_index].fd != tcp_multiplex) ) {
+                      call_ptr -> call_socket = pollfiles[pollset_index].fd;
+                    }
                   }
                 }
 #ifdef __3PCC__
@@ -2226,13 +2285,19 @@ void pollset_process(bool ipv6)
                   CStat::instance()->computeStat
                     (CStat::E_CREATE_OUTGOING_CALL);
                   call_ptr = add_call(call_id ,ipv6);
-            
-                  if((pollset_index) && 
-                     (pollfiles[pollset_index].fd != main_socket) && 
-                     (pollfiles[pollset_index].fd != tcp_multiplex) &&
-                     (pollfiles[pollset_index].fd != localTwinSippSocket) &&
-                     (pollfiles[pollset_index].fd != twinSippSocket)) {
-                    call_ptr -> call_socket = pollfiles[pollset_index].fd;
+                  if(!call_ptr) {
+                    outbound_congestion = true;
+                    CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+                    CStat::instance()->computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
+                  } else {
+                    outbound_congestion = false;
+                    if((pollset_index) && 
+                       (pollfiles[pollset_index].fd != main_socket) && 
+                       (pollfiles[pollset_index].fd != tcp_multiplex) &&
+                       (pollfiles[pollset_index].fd != localTwinSippSocket) &&
+                       (pollfiles[pollset_index].fd != twinSippSocket)) {
+                      call_ptr -> call_socket = pollfiles[pollset_index].fd;
+                    }
                   }
                 }
 #endif
@@ -2241,7 +2306,8 @@ void pollset_process(bool ipv6)
                   nb_out_of_the_blue++;
                   CStat::instance()->computeStat
                     (CStat::E_OUT_OF_CALL_MSGS);
-                  // This is a message that is not relating to any call
+                  WARNING_P1("Discarding message which can't be mapped to a known SIPp call:\n%s", msg);
+                  // This is a message that is not relating to any known call
                 }
             }
 		
@@ -2362,7 +2428,14 @@ void traffic_thread(bool ipv6)
               // adding a new OUTGOING CALL
               CStat::instance()->computeStat(CStat::E_CREATE_OUTGOING_CALL);
               call * call_ptr = add_call(ipv6);
-              call_ptr -> run();
+              if(!call_ptr) {
+                outbound_congestion = true;
+                CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+                CStat::instance()->computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
+              } else {
+                 outbound_congestion = false;
+                 call_ptr -> run();
+              }
             }
         
           if(open_calls >= open_calls_allowed) {
@@ -2837,6 +2910,10 @@ void help()
      "   -max_reconnect   : Set the the maximum number of reconnection.\n"
      "\n"
      "   -aa              : Enable the automatic answer for the INFO message.\n"
+     "\n"
+     "   -tdmmap map      : Generate and handle a table of TDM circuits.\n"
+     "                      A circuit must be available for the call to be placed.\n"
+     "                      Format: -tdmmap {0-3}{99}{5-8}{1-31}\n"
      "\n"
      "   -xyz string      : Any other parameter used in SIP messages as [xyz].\n"
      "\n"
@@ -3799,6 +3876,29 @@ int main(int argc, char *argv[])
     if(!strcmp(argv[argi], "-bind_local")) {
       processed = 1;
       bind_local = 1;
+    }
+
+    if(!strcmp(argv[argi], "-tdmmap")) {
+      if((++argi) < argc) {
+        processed = 1;
+        int i1, i2, i3, i4, i5, i6, i7;
+
+        if (sscanf(argv[argi], "{%d-%d}{%d}{%d-%d}{%d-%d}", &i1, &i2, &i3, &i4, &i5, &i6, &i7) == 7) {
+          use_tdmmap = true;
+          tdm_map_a = i2 - i1;
+          tdm_map_x = i1;
+          tdm_map_h = i3;
+          tdm_map_b = i5 - i4;
+          tdm_map_y = i4;
+          tdm_map_c = i7 - i6;
+          tdm_map_z = i6;
+        } else {
+          ERROR("Parameter -tdmmap must be of form {%%d-%%d}{%%d}{%%d-%%d}{%%d-%%d}");
+        }
+      } else {
+        ERROR_P1("Missing argument for param '%s'.\n"
+                 "Use 'sipp -h' for details",  argv[argi-1]);
+      }
     }
 
     /* --------------------------------------------- */

@@ -54,6 +54,7 @@ class call {
 public:
   char         * id;
   unsigned int   number;
+  unsigned int   tdm_map_number;
 
   unsigned int   msg_index;
 

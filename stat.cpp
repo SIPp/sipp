@@ -590,6 +590,12 @@ int CStat::computeStat (E_Action P_action)
       M_counters [CPT_PL_FailedCallRegexpHdrNotFound]++;
       break;
 
+    case E_FAILED_OUTBOUND_CONGESTION :
+      M_counters [CPT_C_FailedOutboundCongestion]++;
+      M_counters [CPT_PD_FailedOutboundCongestion]++;
+      M_counters [CPT_PL_FailedOutboundCongestion]++;
+      break;
+
     case E_OUT_OF_CALL_MSGS :
       M_counters [CPT_C_OutOfCallMsgs]++;
       M_counters [CPT_PD_OutOfCallMsgs]++;
@@ -1123,6 +1129,8 @@ void CStat::dumpData ()
                       << "FailedRegexpDoesntMatch(C);"
                       << "FailedRegexpHdrNotFound(P);"
                       << "FailedRegexpHdrNotFound(C);"
+                      << "FailedOutboundCongestion(P);"
+                      << "FailedOutboundCongestion(C);"
                       << "OutOfCallMsgs(P);"
                       << "OutOfCallMsgs(C);"
                       << "AutoAnswered(P);"
@@ -1174,6 +1182,8 @@ void CStat::dumpData ()
                     << M_counters[CPT_C_FailedCallRegexpDoesntMatch]    << ";"
                     << M_counters[CPT_PL_FailedCallRegexpHdrNotFound]   << ";"
                     << M_counters[CPT_C_FailedCallRegexpHdrNotFound]    << ";"
+                    << M_counters[CPT_PL_FailedOutboundCongestion]      << ";"
+                    << M_counters[CPT_C_FailedOutboundCongestion]       << ";"
                     << M_counters[CPT_PL_OutOfCallMsgs]                 << ";"
                     << M_counters[CPT_C_OutOfCallMsgs]                  << ";"
                     << M_counters[CPT_PL_AutoAnswered]                  << ";"

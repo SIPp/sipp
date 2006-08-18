@@ -63,12 +63,51 @@ call_map * get_calls()
 
 static unsigned int next_number = 1;
 
+unsigned int get_tdm_map_number(unsigned int number) {
+  unsigned int nb = 0;
+  unsigned int i=0;
+  unsigned int interval=0;
+  unsigned int random=0;
+  bool found = false;
+
+  /* Find a number in the tdm_map which is not in use */
+  interval = (tdm_map_a+1) * (tdm_map_b+1) * (tdm_map_c+1);
+  random = rand() % interval;
+  while ((i<interval) && (!found)) {
+    if (tdm_map[(random + i - 1) % interval] == false) {
+      nb = (random + i - 1) % interval;
+      found = true;
+    } 
+    i++;
+  } 
+
+  if (!found) {
+    return 0;
+  } else {
+    return nb+1;
+  } 
+}
+
 call * add_call(char * call_id, bool ipv6)
 {
   call * new_call;
+  unsigned int nb;
+
+  if(!next_number) { next_number ++; }
+
+  if (use_tdmmap) {
+    nb = get_tdm_map_number(next_number);
+    if (nb != 0) {
+      /* Mark the entry in the list as busy */
+      tdm_map[nb - 1] = true;
+    } else {
+      /* Can't create the new call */
+      WARNING("Can't create new outgoing call: all tdm_map circuits busy");
+      return NULL;
+    }
+  }
 
   new_call = new call(call_id, ipv6);
-
 
   if(!new_call) {
     ERROR("Memory Overflow");
@@ -76,8 +115,8 @@ call * add_call(char * call_id, bool ipv6)
 
   calls[std::string(call_id)] = new_call;
 
-  if(!next_number) { next_number ++; }
   new_call -> number = next_number;
+  new_call -> tdm_map_number = nb - 1;
 
   /* Vital counters update */
   next_number++;
@@ -98,9 +137,23 @@ call * add_call(char * call_id, bool ipv6)
 call * add_call(char * call_id , int P_pollset_indx, bool ipv6)
 {
   call * new_call;
+  unsigned int nb;
+
+  if(!next_number) { next_number ++; }
+
+  if (use_tdmmap) {
+    nb = get_tdm_map_number(next_number);
+    if (nb != 0) {
+      /* Mark the entry in the list as busy */
+      tdm_map[nb - 1] = true;
+    } else {
+      /* Can't create the new call */
+      WARNING("Can't create new outgoing call: all tdm_map circuits busy");
+      return NULL;
+    }
+  }
 
   new_call = new call(call_id, ipv6);
-
 
   if(!new_call) {
     ERROR("Memory Overflow");
@@ -108,8 +161,8 @@ call * add_call(char * call_id , int P_pollset_indx, bool ipv6)
 
   calls[std::string(call_id)] = new_call;
 
-  if(!next_number) { next_number ++; }
   new_call -> number = next_number;
+  new_call -> tdm_map_number = nb - 1;
   new_call ->  pollset_index = P_pollset_indx;
 
   /* Vital counters update */
@@ -186,13 +239,14 @@ void delete_call(char * call_id)
   call_ptr = (call_it != calls.end()) ? call_it->second : NULL ;
 
   if(call_ptr) {
+    tdm_map[call_ptr->tdm_map_number] = false;
     calls.erase(call_it);
     delete call_ptr;
     open_calls--;
   } else {
     if (start_calls == 0) {
-    ERROR("Call not found");
-  }
+      ERROR("Call not found");
+    }
   }
   
 }
@@ -383,6 +437,7 @@ call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
   last_recv_msg = NULL;
   cseq = base_cseq;
   nb_last_delay = 0;
+  tdm_map_number = 0;
   
 #ifdef _USE_OPENSSL
   m_ctx_ssl = NULL ;
@@ -1715,41 +1770,23 @@ char* call::createSendingMessage(char * src, int P_index)
           if(peer_tag && strlen(peer_tag)) {
             dest += sprintf(dest, ";tag=%s", peer_tag);
           }
-        } else if(strstr(keyword, "map")) {
+        } else if(strstr(keyword, "tdmmap")) {
           /* keyword to generate c= line for TDM 
            * format: g.h.i/j                    
            * g: varies in interval a, offset x
            * h: fix value
            * i: varies in interval b, offset y
            * j: varies in interval c, offset z
-           * Format: map{1-3}{0}{0-27}{1-24}
+           * Format: tdmmap{1-3}{0}{0-27}{1-24}
            */
-          int h=99; 
-          int a=0; /* or 2-0 */
-          int b=27-0;
-          int c=24-1;
-          int x=0;
-          int y=0;
-          int z=1;
-          int i1, i2, i3, i4, i5, i6, i7;
-
-          if (sscanf(keyword, "map{%d-%d}{%d}{%d-%d}{%d-%d}", &i1, &i2, &i3, &i4, &i5, &i6, &i7) == 7) {
-            a = i2 - i1;
-            x = i1;
-            h = i3;
-            b = i5 - i4;
-            y = i4;
-            c = i7 - i6;
-            z = i6;
-            dest += sprintf(dest, "%d.%d.%d/%d", 
-                                  x+(int((number-1)/((b+1)*(c+1))))%(a+1),
-                                  h,
-                                  y+(int((number-1)/(c+1)))%(b+1),
-                                  z+(number-1)%(c+1)
+           if (!use_tdmmap) 
+             ERROR("[tdmmap] keyword without -tdmmap parameter on command line");
+           dest += sprintf(dest, "%d.%d.%d/%d", 
+                                  tdm_map_x+(int((tdm_map_number-1)/((tdm_map_b+1)*(tdm_map_c+1))))%(tdm_map_a+1),
+                                  tdm_map_h,
+                                  tdm_map_y+(int((tdm_map_number-1)/(tdm_map_c+1)))%(tdm_map_b+1),
+                                  tdm_map_z+(tdm_map_number-1)%(tdm_map_c+1)
                                   );
-          } else {
-            ERROR_P1("Keyword '%s' cannot be parsed - must be of the form 'map{%%d-%%d}{%%d}{%%d-%%d}{%%d-%%d}'", keyword);
-          }
         } else if(strstr(keyword, "$")) {
           int varId = atoi(keyword+1);
           if(varId < SCEN_VARIABLE_SIZE) {
