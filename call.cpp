@@ -37,7 +37,7 @@
 #endif
 #include "sipp.hpp"
 
-#define KEYWORD_SIZE 64
+#define KEYWORD_SIZE 128
 
 #ifdef _USE_OPENSSL
 extern  SSL                 *ssl_list[];
