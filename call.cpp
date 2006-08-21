@@ -239,7 +239,8 @@ void delete_call(char * call_id)
   call_ptr = (call_it != calls.end()) ? call_it->second : NULL ;
 
   if(call_ptr) {
-    tdm_map[call_ptr->tdm_map_number] = false;
+    if (use_tdmmap)
+      tdm_map[call_ptr->tdm_map_number] = false;
     calls.erase(call_it);
     delete call_ptr;
     open_calls--;
