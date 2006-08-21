@@ -51,6 +51,11 @@
 #define MODE_3PCC_A_PASSIVE     4
 #endif
 
+#define OPTIONAL_TRUE      1
+#define OPTIONAL_FALSE     0
+#define OPTIONAL_GLOBAL    2
+#define MAX_LABELS       100
+
 class message {
 
 public:
@@ -78,7 +83,7 @@ public:
   /* If this is a recv */
   unsigned int   recv_response;
   char         * recv_request;
-  bool           optional;
+  int            optional;
 
   /* Anyway */
   bool           start_rtd;
@@ -87,6 +92,7 @@ public:
   int            crlf;
   unsigned int   next;
   int            test;
+  unsigned int   on_timeout;
 
   /* Statistics */
   unsigned long   nb_sent;
@@ -147,6 +153,6 @@ int  isWellFormed(char * P_listeStr,
 
 
 extern char * default_scenario[10];
-extern unsigned int  labelArray[20];
+extern unsigned int  labelArray[MAX_LABELS];
 
 #endif

@@ -54,6 +54,7 @@ message::message()
   crlf = 0;
   test = 0;
   next = 0;
+  on_timeout = 0;
 
   /* Statistics */
   nb_sent = 0;
@@ -106,7 +107,7 @@ int           scenario_len = 0;
 char          scenario_name[255];
 int           toolMode  = MODE_CLIENT;
 unsigned long scenario_duration = 0;
-unsigned int  labelArray[20];
+unsigned int  labelArray[MAX_LABELS];
 
 /********************** Scenario File analyser **********************/
 
@@ -325,11 +326,19 @@ void load_scenario(char * filename, int deflt)
           }
         }
 
-        if(ptr = xp_get_value((char *)"optional")) {
+        if (0 != (ptr = xp_get_value((char *)"optional"))) {
           if(!strcmp(ptr, "true")) {
-            scenario[scenario_len] -> optional = true;
-            recv_opt_count++;
+            scenario[scenario_len] -> optional = OPTIONAL_TRUE;
+            ++recv_opt_count;
           }
+          if(!strcmp(ptr, "global")) {
+            scenario[scenario_len] -> optional = OPTIONAL_GLOBAL;
+            ++recv_opt_count;
+          }
+        }
+
+        if (0 != (ptr = xp_get_value((char *)"timeout"))) {
+          scenario[scenario_len]->retrans_delay = atol(ptr);
         }
 
         /* record the route set  */
@@ -491,8 +500,16 @@ void load_scenario(char * filename, int deflt)
       } else {
         scenario[scenario_len] -> next = 0;
       }
+
+      if (0 != (ptr = xp_get_value((char *)"ontimeout")) ) {
+        if ((::scenario[scenario_len]->on_timeout = atol(ptr)) >= MAX_LABELS) {
+            ERROR_P1("Ontimeout label larger than max supported %d", MAX_LABELS-1);
+        }
+      }
      
-      scenario_len++;
+      if (++scenario_len >= SCEN_MAX_MESSAGES) {
+          ERROR("Too many items in xml scenario file");
+      }
     } /** end * Message case */
     xp_close_element();
   } // end while

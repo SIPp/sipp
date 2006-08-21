@@ -743,13 +743,14 @@ void print_stats_in_file(FILE * f, int last)
                scenario[index] -> stop_rtd ? "E-RTD" : "");
       }
 
-      if(toolMode == MODE_SERVER) {
-        fprintf(f,"%-9d %-9d           %-9d" ,
-               scenario[index] -> nb_recv,
-               scenario[index] -> nb_recv_retrans,
-               scenario[index] -> nb_unexp);
+      if(scenario[index]->retrans_delay) {
+        fprintf(f,"%-9ld %-9ld %-9ld %-9ld" ,
+               scenario[index]->nb_recv,
+               scenario[index]->nb_recv_retrans,
+               scenario[index]->nb_timeout,
+               scenario[index]->nb_unexp);
       } else {
-        fprintf(f,"%-9d %-9d           %-9d" ,
+        fprintf(f,"%-9ld %-9ld           %-9ld" ,
                scenario[index] -> nb_recv,
                scenario[index] -> nb_recv_retrans,
                scenario[index] -> nb_unexp);
@@ -792,10 +793,18 @@ void print_stats_in_file(FILE * f, int last)
                "B-RTD" :
                scenario[index] -> stop_rtd ? "E-RTD" : "");
       }
-      fprintf(f,"%-9d %-9d           %-9d" ,
-             scenario[index] -> nb_recv,
-             scenario[index] -> nb_recv_retrans,
-             scenario[index] -> nb_unexp);
+      if(scenario[index]->retrans_delay) {
+        fprintf(f,"%-9ld %-9ld %-9ld %-9ld" ,
+               scenario[index]->nb_recv,
+               scenario[index]->nb_recv_retrans,
+               scenario[index]->nb_timeout,
+               scenario[index]->nb_unexp);
+      } else {
+        fprintf(f,"%-9ld %-9ld           %-9ld" ,
+               scenario[index] -> nb_recv,
+               scenario[index] -> nb_recv_retrans,
+               scenario[index] -> nb_unexp);
+      }
     }
     else if(scenario[index] -> M_type == MSG_TYPE_NOP) {
       fprintf(f,"              [ NOP ]              ");
@@ -803,11 +812,18 @@ void print_stats_in_file(FILE * f, int last)
 #ifdef __3PCC__
     else if(scenario[index] -> M_type == MSG_TYPE_RECVCMD) {
       fprintf(f,"       [ Received Command ]        ");
-      fprintf(f,"%-9d %-9s           %-9s" ,
-             scenario[index] -> M_nbCmdRecv,
-             "",
-             "");
-      
+      if(scenario[index]->retrans_delay) {
+        fprintf(f,"%-9ld %-9s %-9ld %-9s" ,
+                scenario[index]->M_nbCmdRecv,
+                "",
+                scenario[index]->nb_timeout,
+                "");
+      } else {
+         fprintf(f,"%-9ld %-9s           %-9s" ,
+                scenario[index] -> M_nbCmdRecv,
+                "",
+                "");
+      }
     } else if(scenario[index] -> M_type == MSG_TYPE_SENDCMD) {
       fprintf(f,"         [ Sent Command ]          ");
       fprintf(f,"%-9d %-9s           %-9s" ,
@@ -2894,10 +2910,16 @@ void help()
      "                      Default is 5 for INVITE transactions and 7 for\n"
      "                      others.\n"
      "\n"
+     "   -recv_timeout nb : Global receive timeout in milliseconds.\n"
+     "                      If the expected message is not received, the call\n"
+     "                      times out and is aborted\n"
+     "\n"
      "   -nd              : No Default. Disable all default behavior of SIPp\n"
      "                      which are the following:\n"
      "                      - On UDP retransmission timeout, abort the call by\n"
      "                      sending a BYE or a CANCEL\n"
+     "                      - On receive timeout with no ontimeout attribute, \n"
+     "                      abort the call by sending a BYE or a CANCEL\n"
      "                      - On unexpected BYE send a 200 OK and close the call\n"
      "                      - On unexpected CANCEL send a 200 OK and close the call\n"
      "                      - On unexpected PING send a 200 OK and continue the call\n"
@@ -3605,6 +3627,16 @@ int main(int argc, char *argv[])
       if((++argi) < argc) {
         processed = 1;
         timer_resolution = atoi(argv[argi]);
+      } else {
+        ERROR_P1("Missing argument for param '%s'.\n"
+                 "Use 'sipp -h' for details",  argv[argi-1]);
+      }
+    }
+
+    if(!strcmp(argv[argi], "-recv_timeout")) {
+      if((++argi) < argc) {
+        processed = 1;
+        defl_recv_timeout = atol(argv[argi]);
       } else {
         ERROR_P1("Missing argument for param '%s'.\n"
                  "Use 'sipp -h' for details",  argv[argi-1]);

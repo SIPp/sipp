@@ -499,6 +499,7 @@ call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
 #endif
 
   peer_tag[0] = '\0';
+  recv_timeout = 0;
 }
 
 call::~call()
@@ -1131,8 +1132,9 @@ bool call::next()
          msg_index = labelArray[scenario[msg_index]->next];
   } else {
     /* Without branching, use the next message */
-  msg_index++;
+    msg_index++;
   }
+  recv_timeout = 0;
   if(msg_index >= scenario_len) {
     // Call end -> was it successful?
     if(call::last_action_result != call::E_AR_NO_ERROR) {
@@ -1180,6 +1182,26 @@ bool call::run()
     if((nb_retrans > (bInviteTransaction ? UDP_MAX_RETRANS_INVITE_TRANSACTION : UDP_MAX_RETRANS_NON_INVITE_TRANSACTION)) || 
        (nb_retrans > max_udp_retrans)) {
       scenario[last_send_index] -> nb_timeout ++;
+      if (scenario[last_send_index]->on_timeout) {  // action on timeout
+          WARNING_P3("Call-Id: %s, timeout on max UDP retrans for message %d, jumping to label %d ", 
+                      id, msg_index, scenario[last_send_index]->on_timeout);
+          msg_index = labelArray[scenario[last_send_index]->on_timeout];
+          next_retrans = 0;
+          recv_timeout = 0;
+          if (msg_index < scenario_len) return true;
+
+          // here if asked to go to the last label  delete the call
+          CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+          CStat::instance()->computeStat(CStat::E_FAILED_MAX_UDP_RETRANS);
+          if (default_behavior) {
+            // Abort the call by sending proper SIP message
+            return(abortCall());
+          } else {
+            // Just delete existing call
+            delete_call(id);
+            return false;
+          }
+      }
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
       CStat::instance()->computeStat(CStat::E_FAILED_MAX_UDP_RETRANS);
       if (default_behavior) {
@@ -1188,8 +1210,8 @@ bool call::run()
         return(abortCall());
       } else {
         // Just delete existing call
-      delete_call(id);
-      return false;
+        delete_call(id);
+        return false;
       }
     } else {
       nb_last_delay *= 2;
@@ -1357,6 +1379,53 @@ bool call::run()
     scenario[msg_index] -> nb_sent++;
 
     return next();
+  } else if (scenario[msg_index]->M_type == MSG_TYPE_RECV
+#ifdef __3PCC__
+         || scenario[msg_index]->M_type == MSG_TYPE_RECVCMD
+#endif
+                                                 ) {
+    if (recv_timeout) {
+      if(recv_timeout > clock_tick || recv_timeout > getmilliseconds()) {
+          return true;
+      }
+      recv_timeout = 0;
+      ++scenario[msg_index]->nb_timeout;
+      if (scenario[msg_index]->on_timeout == 0) {
+        // if you set a timeout but not a label, the call is aborted 
+        WARNING_P2("Call-Id: %s, receive timeout on message %d without label to jump to (ontimeout attribute): aborting call", 
+                   id, msg_index);
+        CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+        CStat::instance()->computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
+        if (default_behavior) {
+          return (abortCall());
+        } else {
+          delete_call(id);
+          return false;
+        }
+      }
+      WARNING_P3("Call-Id: %s, receive timeout on message %d, jumping to label %d", 
+                  id, msg_index, scenario[msg_index]->on_timeout);
+      msg_index = labelArray[scenario[msg_index]->on_timeout];
+      recv_timeout = 0;
+      if (msg_index < scenario_len) return true;
+      // special case - the label points to the end - finish the call
+      CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+      CStat::instance()->computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
+      if (default_behavior) {
+        return (abortCall());
+      } else {
+        delete_call(id);
+        return false;
+      }
+    } else if ((scenario[msg_index]->retrans_delay) || (defl_recv_timeout)) {
+      if (scenario[msg_index]->retrans_delay)
+        // If timeout is specified on message receive, use it
+        recv_timeout = getmilliseconds() + scenario[msg_index]->retrans_delay;
+      else
+        // Else use the default timeout if specified
+        recv_timeout = getmilliseconds() + defl_recv_timeout;
+      return true;
+    }
   }
   return true;
 }
@@ -1425,7 +1494,6 @@ bool call::abortCall()
   } else {
     is_inv = false;
   }  
-
   if ((toolMode != MODE_SERVER) && (msg_index > 0)) {
     if ((call_established == false) && (is_inv)) {
       char * src = last_recv_msg ;
@@ -2448,29 +2516,30 @@ bool call::process_incomming(char * msg)
      * a 100 trying. */    
     break;
   }
-  
+
   /* Try to find it in the old non-mandatory receptions */
   if(!found) {
+    bool contig = true;
     for(search_index = msg_index - 1;
         search_index >= 0;
         search_index--) {
-      if(MATCHES_SCENARIO(search_index)) {
-        if ((scenario[search_index] -> optional)) {
-        found = true;
-        break;
-        } else {
-          /*
-           * we received a non mandatory msg for an old transaction (this could be due to a retransmit.
-           * If this response is for an INVITE transaction, retransmit the ACK to quench retransmits.
-           */
-          if ( (reply_code) &&
-               (0 == strncmp (responsecseqmethod, "INVITE", strlen(responsecseqmethod)) ) &&
-               (scenario[search_index+1]->M_type == MSG_TYPE_SEND) &&
-               (0 == strncmp(scenario[search_index+1]->send_scheme, "ACK", 3)) ) {
-            sendBuffer(createSendingMessage(scenario[search_index+1] -> send_scheme, (search_index+1)));
-    }
-          return true;
-  }
+      if (scenario[search_index]->optional == OPTIONAL_FALSE) contig = false;
+      if(MATCHES_SCENARIO(search_index) &&
+          (contig || scenario[search_index]->optional == OPTIONAL_GLOBAL)) {
+         found = true;
+         break;  
+      } else {
+        /*
+         * we received a non mandatory msg for an old transaction (this could be due to a retransmit.
+         * If this response is for an INVITE transaction, retransmit the ACK to quench retransmits.
+         */
+        if ( (reply_code) &&
+             (0 == strncmp (responsecseqmethod, "INVITE", strlen(responsecseqmethod)) ) &&
+             (scenario[search_index+1]->M_type == MSG_TYPE_SEND) &&
+             (0 == strncmp(scenario[search_index+1]->send_scheme, "ACK", 3)) ) {
+          sendBuffer(createSendingMessage(scenario[search_index+1] -> send_scheme, (search_index+1)));
+        }
+        return true;
       }
     }
   }

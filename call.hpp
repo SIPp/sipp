@@ -78,6 +78,7 @@ public:
   unsigned long  recv_retrans_hash;
   unsigned int   recv_retrans_recv_index;
   unsigned int   recv_retrans_send_index;
+  unsigned int   recv_timeout;
 
   /* holds the route set */
   char         * dialog_route_set;
