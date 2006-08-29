@@ -45,6 +45,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <netinet/udp.h>
+#ifdef __DARWIN
+#include <netinet/in.h>
+#endif
 #include <netinet/ip6.h>
 #include <errno.h>
 #include <string.h>

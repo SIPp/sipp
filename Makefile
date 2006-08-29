@@ -32,6 +32,7 @@ LIBDIR_hpux=
 LIBDIR_tru64=
 LIBDIR_SunOS=
 LIBDIR_Cygwin=
+LIBDIR_Darwin=
 
 # Archive file created in your home directory when building the archive target
 # ARCHIVE= $(HOME)/$(OUTPUT).tgz
@@ -55,6 +56,7 @@ SYSTEM_FreeBSD=freebsd
 SYSTEM_OSF1=tru64
 SYSTEM_SunOS=SunOS
 SYSTEM_CYGWIN=Cygwin
+SYSTEM_Darwin=Darwin
 SYSTEM=$(SYSTEM_$(OSNAME))
 
 # C compiler
@@ -64,6 +66,7 @@ CC_freebsd=cc
 CC_tru64=cc  
 CC_SunOS=gcc
 CC_Cygwin=cc  
+CC_Darwin=cc  
 CC=$(CC_$(SYSTEM))
 
 # C++ compiler mapping
@@ -73,6 +76,7 @@ CPP_freebsd=g++
 CPP_tru64=cxx  
 CPP_SunOS=g++
 CPP_Cygwin=g++  
+CPP_Darwin=g++  
 CPP=$(CPP_$(SYSTEM))
 
 #Model specific flags
@@ -94,6 +98,7 @@ CFLAGS_freebsd=-D__LINUX -pthread
 CFLAGS_tru64=-D__OSF1 -pthread
 CFLAGS_SunOS=-g
 CFLAGS_Cygwin=-D__CYGWIN -Dsocklen_t=int
+CFLAGS_Darwin=-D__DARWIN
 CFLAGS=$(CFLAGS_$(SYSTEM)) -D__3PCC__ $(TLS) $(PCAPPLAY)
 
 #C++ Compiler Flags
@@ -103,6 +108,7 @@ CPPFLAGS_freebsd=-D__LINUX -pthread
 CPPFLAGS_tru64=-D__OSF1 -pthread
 CPPFLAGS_SunOS=-g
 CPPFLAGS_Cygwin=-D__CYGWIN -Dsocklen_t=int
+CPPFLAGS_Darwin=-D__DARWIN
 CPPFLAGS=$(CPPFLAGS_$(SYSTEM)) -D__3PCC__ $(TLS) $(PCAPPLAY)
 
 #Linker mapping
@@ -112,6 +118,7 @@ CCLINK_freebsd=g++
 CCLINK_tru64=cxx
 CCLINK_SunOS=gcc
 CCLINK_Cygwin=g++
+CCLINK_Darwin=g++
 CCLINK=$(CCLINK_$(SYSTEM))
 
 #Linker Flags
@@ -121,6 +128,7 @@ LFLAGS_freebsd=
 LFLAGS_tru64=
 LFLAGS_SunOS=
 LFLAGS_Cygwin=
+LFLAGS_Darwin=
 LFLAGS=$(LFLAGS_$(SYSTEM))
 
 #Link Libraries
@@ -130,6 +138,7 @@ LIBS_tru64= -lcurses -lpthread
 LIBS_freebsd= -lcurses -pthread
 LIBS_SunOS= -lcurses -lpthread -lnsl -lsocket -lstdc++ -lm -ldl -L /usr/local/ssl/lib/
 LIBS_Cygwin= -lcurses -lpthread -lstdc++ 
+LIBS_Darwin= -lcurses
 LIBS=$(LIBS_$(SYSTEM))
 
 # Include directories
@@ -139,6 +148,7 @@ INCDIR_hpux=-I. -I/usr/local/include -I/opt/openssl/include
 INCDIR_tru64=-I. -I/opt/openssl/include
 INCDIR_SunOS=-I. -I/usr/local/ssl/include/
 INCDIR_Cygwin=-I. -I/usr/include/openssl -I/usr/include
+INCDIR_Darwin=-I. -I/usr/local/ssl/include
 INCDIR=$(INCDIR_$(SYSTEM)) 
 
 # Building without TLS and authentication (no openssl pre-requisite)

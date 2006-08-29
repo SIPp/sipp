@@ -90,7 +90,7 @@
 
 /************************** Constants **************************/
 
-#define SIPP_VERSION               20060818
+#define SIPP_VERSION               20060829
 #define T_UDP                      0
 #define T_TCP                      1
 #ifdef _USE_OPENSSL

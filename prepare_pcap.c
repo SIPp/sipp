@@ -129,7 +129,11 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
         fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
         continue;
       }
+#ifdef __DARWIN
+      udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2) + 4);
+#else
       udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2));
+#endif
     }
     if (pktlen > PCAP_MAXPACKET) {
       ERROR("Packet size is too big! Recompile with bigger PCAP_MAXPACKET in prepare_pcap.h");
@@ -145,7 +149,7 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
       ERROR("Can't allocate memory for pcap pkt data");
     memcpy(pkt_index->data, udphdr, pktlen);
 
-#ifdef __HPUX
+#if defined(__HPUX) || defined(__DARWIN)
     udphdr->uh_sum = 0 ;      
 #else
     udphdr->check = 0;
@@ -154,14 +158,14 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
       // compute a partial udp checksum
       // not including port that will be changed
       // when sending RTP
-#ifdef __HPUX
+#if defined(__HPUX) || defined(__DARWIN)
     pkt_index->partial_check = check((u_int16_t *) &udphdr->uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 #else
     pkt_index->partial_check = check((u_int16_t *) &udphdr->len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 #endif
     if (max_length < pktlen)
       max_length = pktlen;
-#ifdef __HPUX
+#if defined(__HPUX) || defined(__DARWIN)
     if (base > ntohs(udphdr->uh_dport))
       base = ntohs(udphdr->uh_dport);
 #else

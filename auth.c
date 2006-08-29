@@ -60,7 +60,7 @@ typedef char AUTS[AUTSLEN];
 #define AUTS64LEN 21
 typedef char AUTS64[AUTS64LEN];
 #define RESLEN 8
-typedef char RES[RESLEN];
+typedef unsigned char RES[RESLEN];
 #define RESHEXLEN 17
 typedef char RESHEX[RESHEXLEN];
 
