@@ -578,10 +578,10 @@ void computeSippMode()
         default:
           break;
         }
-      if(toolMode == -1)
-        ERROR("Unable to determine mode of the tool (server, "
-              "client, 3PCC controller A, 3PCC controller B).\n");
     }
+    if(toolMode == -1)
+      ERROR("Unable to determine mode of the tool (server, "
+            "client, 3PCC controller A, 3PCC controller B).\n");
 }
 
 
