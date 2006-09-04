@@ -932,6 +932,7 @@ void print_tdm_map()
   }
   printf(SIPP_ENDL);
   printf("%d/%d circuits (%d%%) in use", in_use, interval, int(100*in_use/interval));
+  printf(SIPP_ENDL);
   for(i=0; i<(scenario_len + 8 - int(interval/(tdm_map_c+1))); i++) {
     printf(SIPP_ENDL);
   }

@@ -1851,10 +1851,10 @@ char* call::createSendingMessage(char * src, int P_index)
            if (!use_tdmmap) 
              ERROR("[tdmmap] keyword without -tdmmap parameter on command line");
            dest += sprintf(dest, "%d.%d.%d/%d", 
-                                  tdm_map_x+(int((tdm_map_number-1)/((tdm_map_b+1)*(tdm_map_c+1))))%(tdm_map_a+1),
+                                  tdm_map_x+(int((tdm_map_number)/((tdm_map_b+1)*(tdm_map_c+1))))%(tdm_map_a+1),
                                   tdm_map_h,
-                                  tdm_map_y+(int((tdm_map_number-1)/(tdm_map_c+1)))%(tdm_map_b+1),
-                                  tdm_map_z+(tdm_map_number-1)%(tdm_map_c+1)
+                                  tdm_map_y+(int((tdm_map_number)/(tdm_map_c+1)))%(tdm_map_b+1),
+                                  tdm_map_z+(tdm_map_number)%(tdm_map_c+1)
                                   );
         } else if(strstr(keyword, "$")) {
           int varId = atoi(keyword+1);
