@@ -3049,7 +3049,8 @@ int  call::checkAutomaticResponseMode(char * P_recv) {
     L_res = 2 ;
   } else if (strcmp(P_recv, "PING") == 0) {
     L_res = 3 ;
-  } else if ((strcmp(P_recv, "INFO") == 0) && (call_established == true) && (auto_answer == true)){
+  } else if (((strcmp(P_recv, "INFO") == 0) || (strcmp(P_recv, "NOTIFY") == 0)) 
+               && (auto_answer == true)){
     L_res = 4 ;
   }
 
@@ -3063,6 +3064,7 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
 
   int res ;
   char * old_last_recv_msg = NULL;
+  bool last_recv_msg_saved = false;
 
   switch (P_case) {
   case 1: // response for an unexpected BYE
@@ -3171,19 +3173,21 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
     }
     break ;
 
-  case 4: // response for a random INFO
-    // store previous last msg if msg is INFO
+  case 4: // response for a random INFO or NOTIFY
+    // store previous last msg if msg is INFO or NOTIFY
     // restore last_recv_msg to previous one
     // after sending ok
     old_last_recv_msg = NULL;
-    old_last_recv_msg = (char *) malloc(strlen(last_recv_msg)+1);
-    strcpy(old_last_recv_msg,last_recv_msg);
-    
+    if (last_recv_msg != NULL) {
+      last_recv_msg_saved = true;
+      old_last_recv_msg = (char *) malloc(strlen(last_recv_msg)+1);
+      strcpy(old_last_recv_msg,last_recv_msg);
+    }
     // usage of last_ keywords
     last_recv_msg = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
     strcpy(last_recv_msg, P_recv);
 
-    WARNING_P1("Automatic response mode for an unexpected INFO for call: %s", (id==NULL)?"none":id);
+    WARNING_P1("Automatic response mode for an unexpected INFO or NOTIFY for call: %s", (id==NULL)?"none":id);
     res = sendBuffer(createSendingMessage(
                     (char*)"SIP/2.0 200 OK\n"
                     "[last_Via:]\n"
@@ -3196,11 +3200,13 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
                     , -1)) ;
 
     // restore previous last msg
-    last_recv_msg = (char *) realloc(last_recv_msg, strlen(old_last_recv_msg) + 1);
-    strcpy(last_recv_msg, old_last_recv_msg);
-    if (old_last_recv_msg != NULL) {
-      free(old_last_recv_msg);
-      old_last_recv_msg = NULL;
+    if (last_recv_msg_saved == true) {
+      last_recv_msg = (char *) realloc(last_recv_msg, strlen(old_last_recv_msg) + 1);
+      strcpy(last_recv_msg, old_last_recv_msg);
+      if (old_last_recv_msg != NULL) {
+        free(old_last_recv_msg);
+        old_last_recv_msg = NULL;
+      }
     }
     CStat::instance()->computeStat(CStat::E_AUTO_ANSWERED);
     return true;

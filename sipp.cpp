@@ -2320,11 +2320,23 @@ void pollset_process(bool ipv6)
 #endif
               else // mode != from SERVER and 3PCC Controller B
                 {
-                  nb_out_of_the_blue++;
-                  CStat::instance()->computeStat
-                    (CStat::E_OUT_OF_CALL_MSGS);
-                  WARNING_P1("Discarding message which can't be mapped to a known SIPp call:\n%s", msg);
                   // This is a message that is not relating to any known call
+                  if (auto_answer == true) {
+                    // If auto answer mode, try to answer the incoming message
+		    // if the message is not handled by automatic answers, this new
+		    // call will be discarded (aborted)
+#ifdef _USE_OPENSSL  
+                    call_ptr = add_call(call_id , pollset_index, ipv6); 
+                    pollset_attached(call_ptr,pollset_index);
+#else	
+                    call_ptr = add_call(call_id , ipv6); 
+#endif
+                  } else {
+                    nb_out_of_the_blue++;
+                    CStat::instance()->computeStat
+                      (CStat::E_OUT_OF_CALL_MSGS);
+                    WARNING_P1("Discarding message which can't be mapped to a known SIPp call:\n%s", msg);
+		  }
                 }
             }
 		
@@ -2932,7 +2944,8 @@ void help()
      "\n"
      "   -max_reconnect   : Set the the maximum number of reconnection.\n"
      "\n"
-     "   -aa              : Enable the automatic answer for the INFO message.\n"
+     "   -aa              : Enable automatic 200 OK answer for INFO and NOTIFY\n"
+     "                      messages.\n"
      "\n"
      "   -tdmmap map      : Generate and handle a table of TDM circuits.\n"
      "                      A circuit must be available for the call to be placed.\n"
