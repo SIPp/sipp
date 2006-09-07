@@ -2323,14 +2323,22 @@ void pollset_process(bool ipv6)
                   // This is a message that is not relating to any known call
                   if (auto_answer == true) {
                     // If auto answer mode, try to answer the incoming message
-		    // if the message is not handled by automatic answers, this new
-		    // call will be discarded (aborted)
+                    // with automaticResponseMode
+                    // call is discarded before exiting the block
 #ifdef _USE_OPENSSL  
                     call_ptr = add_call(call_id , pollset_index, ipv6); 
                     pollset_attached(call_ptr,pollset_index);
 #else	
                     call_ptr = add_call(call_id , ipv6); 
 #endif
+		    if (call_ptr) {
+                      call_ptr->last_recv_msg = (char *) realloc(call_ptr->last_recv_msg, strlen(msg) + 1);
+                      strcpy(call_ptr->last_recv_msg, msg);
+                      call_ptr->automaticResponseMode(4, msg);
+                      delete_call(call_id);
+                      call_ptr = NULL;
+		      total_calls--;
+		    }
                   } else {
                     nb_out_of_the_blue++;
                     CStat::instance()->computeStat
