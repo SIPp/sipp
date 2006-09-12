@@ -2397,6 +2397,11 @@ bool call::process_incomming(char * msg)
         (!strcmp(scenario[index] -> recv_request,              \
                  request))))
 
+  /* Authorize nop as a first command, even in server mode */
+  if((msg_index == 0) && (scenario[msg_index] -> M_type == MSG_TYPE_NOP)) {
+    actionResult = executeAction(NULL, msg_index);
+    return next();
+  }
   memset (responsecseqmethod, 0, sizeof(responsecseqmethod));
 
   if((transport == T_UDP) && (retrans_enabled)) {
