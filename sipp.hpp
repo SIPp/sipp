@@ -395,7 +395,7 @@ int send_message_tls(SSL *s, void ** comp_state, char * msg);
 void pollset_remove(int idx);
 int pollset_add(call * p_call, int socket);
 
-#if defined (__hpux) || defined (__alpha)
+#if defined (__hpux) || defined (__alpha) && !defined (__FreeBSD__)
 #define sipp_socklen_t  int
 #else
 #define sipp_socklen_t  socklen_t

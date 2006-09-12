@@ -21,6 +21,9 @@
  * 				- introduced AKAv1-MD5
  */
 
+#ifdef __FreeBSD__
+#include <sys/types.h>
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
