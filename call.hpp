@@ -248,5 +248,6 @@ call * add_call(char * call_id , bool ipv6 = false);
 call * add_call(bool ipv6 = false);
 call * get_call(char *);
 void   delete_call(char *);
+void   delete_calls(void);
 
 #endif

@@ -252,6 +252,21 @@ void delete_call(char * call_id)
   
 }
 
+void delete_calls(void)
+{
+  call * call_ptr;
+  
+  call_map::iterator call_it ;
+  call_it = calls.begin();
+  while (call_it != calls.end()) {
+    call_ptr = (call_it != calls.end()) ? call_it->second : NULL ;
+    WARNING_P1("Aborting call with Call-Id '%s'", call_ptr->id);
+    call_ptr->abortCall();
+    call_it = calls.begin();
+  }
+
+}
+
 #ifdef PCAPPLAY
 /******* Media information management *************************/
 /*
@@ -2453,14 +2468,12 @@ bool call::process_incomming(char * msg)
 #endif
     }
     /* It is a response: update peer_tag */
-    if (strlen(peer_tag) == 0) {
-      ptr = get_peer_tag(msg);
-      if (ptr) {
-        if(strlen(ptr) > (MAX_HEADER_LEN - 1)) {
-          ERROR("Peer tag too long. Change MAX_TAG_LEN and recompile sipp");
-        }
-        strcpy(peer_tag, ptr);
+    ptr = get_peer_tag(msg);
+    if (ptr) {
+      if(strlen(ptr) > (MAX_HEADER_LEN - 1)) {
+        ERROR("Peer tag too long. Change MAX_TAG_LEN and recompile sipp");
       }
+      strcpy(peer_tag, ptr);
     }
     request[0]=0;
     // extract the cseq method from the response

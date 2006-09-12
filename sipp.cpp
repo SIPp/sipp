@@ -877,7 +877,7 @@ void print_bottom_line(FILE *f, int last)
   if(last) {
     fprintf(f,"------------------------------ Test Terminated --------------------------------" SIPP_ENDL);
   } else if(quitting) {
-    fprintf(f,"------- Waiting for active calls to end. Press [Ctrl-c] to force exit. --------" SIPP_ENDL );
+    fprintf(f,"------- Waiting for active calls to end. Press [q] again to force exit. -------" SIPP_ENDL );
   } else if(paused) {
     fprintf(f,"----------------- Traffic Paused - Press [p] again to resume ------------------" SIPP_ENDL );
   } else if(cpu_max) {
@@ -1115,7 +1115,7 @@ void set_rate(double new_rate)
 void sipp_sigusr1(int /* not used */)
 {
   /* Smooth exit: do not place any new calls and exit */
-  quitting = 1;
+  quitting+=10;
 }
 
 void sipp_sigusr2(int /* not used */)
@@ -1224,9 +1224,9 @@ void ctrl_thread (void * param)
       break;
 
     case 'q':
-      quitting = 1;
+      quitting+=10;
       print_statistics(0);
-      return;
+      break;
     }
   }
 }
@@ -1299,9 +1299,9 @@ void keyb_thread (void * param)
       break;
 
     case 'q':
-      quitting = 1;
+      quitting+=10;
       print_statistics(0);
-      return;
+      break;
     }
   }
 }
@@ -2487,6 +2487,10 @@ void traffic_thread(bool ipv6)
       
       
     } else if (quitting) {
+      if (quitting > 11) {
+        /* Force exit: abort all calls */
+        delete_calls();
+      }
       /* Quitting and no more openned calls, close all */
       if(!open_calls) {
         // Dump the latest statistics if necessary
