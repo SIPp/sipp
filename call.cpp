@@ -2556,8 +2556,8 @@ bool call::process_incomming(char * msg)
              (scenario[search_index+1]->M_type == MSG_TYPE_SEND) &&
              (0 == strncmp(scenario[search_index+1]->send_scheme, "ACK", 3)) ) {
           sendBuffer(createSendingMessage(scenario[search_index+1] -> send_scheme, (search_index+1)));
+          return true;
         }
-        return true;
       }
     }
   }
