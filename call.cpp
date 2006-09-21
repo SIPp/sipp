@@ -2542,21 +2542,22 @@ bool call::process_incomming(char * msg)
         search_index >= 0;
         search_index--) {
       if (scenario[search_index]->optional == OPTIONAL_FALSE) contig = false;
-      if(MATCHES_SCENARIO(search_index) &&
-          (contig || scenario[search_index]->optional == OPTIONAL_GLOBAL)) {
+      if(MATCHES_SCENARIO(search_index)) {
+        if (contig || scenario[search_index]->optional == OPTIONAL_GLOBAL) {
          found = true;
          break;  
-      } else {
-        /*
-         * we received a non mandatory msg for an old transaction (this could be due to a retransmit.
-         * If this response is for an INVITE transaction, retransmit the ACK to quench retransmits.
-         */
-        if ( (reply_code) &&
+        } else {
+          /*
+           * we received a non mandatory msg for an old transaction (this could be due to a retransmit.
+           * If this response is for an INVITE transaction, retransmit the ACK to quench retransmits.
+           */
+          if ( (reply_code) &&
              (0 == strncmp (responsecseqmethod, "INVITE", strlen(responsecseqmethod)) ) &&
              (scenario[search_index+1]->M_type == MSG_TYPE_SEND) &&
              (0 == strncmp(scenario[search_index+1]->send_scheme, "ACK", 3)) ) {
-          sendBuffer(createSendingMessage(scenario[search_index+1] -> send_scheme, (search_index+1)));
-          return true;
+            sendBuffer(createSendingMessage(scenario[search_index+1] -> send_scheme, (search_index+1)));
+            return true;
+          }
         }
       }
     }
