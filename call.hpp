@@ -202,6 +202,7 @@ public:
 
   static void getFieldFromInputFile(const char* fieldName, int lineNum, char*& dest);
   static void getIpFieldFromInputFile(int fieldNr, int lineNum, char *dest);
+  static int  m_counter; // used for sequential access
 
 private:
   /* rc == true means call not deleted by processing */
@@ -219,7 +220,6 @@ private:
   char * get_header_content(char* message, char * name);
 
   static InputFileUsage m_usage;
-  static int            m_counter; // used for sequential access
 
   int    m_localLineNumber;
 

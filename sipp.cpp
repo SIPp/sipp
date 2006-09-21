@@ -2331,14 +2331,15 @@ void pollset_process(bool ipv6)
 #else	
                     call_ptr = add_call(call_id , ipv6); 
 #endif
-		    if (call_ptr) {
+                    if (call_ptr) {
                       call_ptr->last_recv_msg = (char *) realloc(call_ptr->last_recv_msg, strlen(msg) + 1);
                       strcpy(call_ptr->last_recv_msg, msg);
                       call_ptr->automaticResponseMode(4, msg);
                       delete_call(call_id);
                       call_ptr = NULL;
-		      total_calls--;
-		    }
+                      total_calls--;
+                      call::m_counter--;
+                    }
                   } else {
                     nb_out_of_the_blue++;
                     CStat::instance()->computeStat
