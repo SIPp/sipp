@@ -1495,7 +1495,7 @@ bool call::process_unexpected(char * msg)
   return (abortCall());
   } else {
     // Do not abort call nor send anything in reply if default behavior is disabled
-    return true;
+    return false;
   }
 }
 
