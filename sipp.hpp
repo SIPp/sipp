@@ -144,6 +144,7 @@ extern int                duration                _DEFVAL(0);
 extern double             rate                    _DEFVAL(DEFAULT_RATE);
 extern double             rate_period_s           _DEFVAL(DEFAULT_RATE_PERIOD_S);
 extern unsigned long      defl_recv_timeout       _DEFVAL(0);
+extern unsigned long      global_timeout          _DEFVAL(0);
 extern int                transport               _DEFVAL(DEFAULT_TRANSPORT);
 extern int                retrans_enabled         _DEFVAL(1);
 extern int                max_udp_retrans         _DEFVAL(UDP_MAX_RETRANS);
@@ -420,6 +421,7 @@ int reset_connections() ;
 int close_calls();
 int close_connections();
 int open_connections();
+void timeout_alarm(int);
 
 /********************* Reset global kludge  *******************/
 

@@ -2271,30 +2271,38 @@ void pollset_process(bool ipv6)
         
           if(!call_ptr)
             {
-              if(toolMode == MODE_SERVER)
+              if(toolMode == MODE_SERVER) 
                 {
-                  // Adding a new INCOMING call !
-                  CStat::instance()->computeStat
-                    (CStat::E_CREATE_INCOMING_CALL);
+                  if (quitting < 1) {
+                    // Adding a new INCOMING call !
+                    CStat::instance()->computeStat
+                      (CStat::E_CREATE_INCOMING_CALL);
 #ifdef _USE_OPENSSL  
-                  call_ptr = add_call(call_id , pollset_index, ipv6); 
-                  pollset_attached(call_ptr,pollset_index);
+                    call_ptr = add_call(call_id , pollset_index, ipv6); 
+                    pollset_attached(call_ptr,pollset_index);
 #else	
-                  call_ptr = add_call(call_id , ipv6); 
+                    call_ptr = add_call(call_id , ipv6); 
 #endif
-                  if(!call_ptr) {
-                    outbound_congestion = true;
-                    CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-                    CStat::instance()->computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
-                  } else {
-                    outbound_congestion = false;
-                    if((pollset_index) && 
-                       (pollfiles[pollset_index].fd != main_socket) && 
-                       (pollfiles[pollset_index].fd != tcp_multiplex) ) {
-                      call_ptr -> call_socket = pollfiles[pollset_index].fd;
+                    if(!call_ptr) {
+                      outbound_congestion = true;
+                      CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+                      CStat::instance()->computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
+                    } else {
+                      outbound_congestion = false;
+                      if((pollset_index) && 
+                         (pollfiles[pollset_index].fd != main_socket) && 
+                         (pollfiles[pollset_index].fd != tcp_multiplex) ) {
+                        call_ptr -> call_socket = pollfiles[pollset_index].fd;
+                      }
                     }
-                  }
+                } else {
+                  nb_out_of_the_blue++;
+                  CStat::instance()->computeStat
+                    (CStat::E_OUT_OF_CALL_MSGS);
+                  TRACE_MSG((s,"Discarded message for new calls while quitting\n"));
+
                 }
+              }
 #ifdef __3PCC__
               else if(toolMode == MODE_3PCC_CONTROLLER_B || toolMode == MODE_3PCC_A_PASSIVE)
                 {
@@ -2391,6 +2399,10 @@ void pollset_process(bool ipv6)
   cpu_max = loops <= 0;
 }
 
+void timeout_alarm(int param){
+  quitting = 1;
+}
+
 /* Send loop & trafic generation*/
 
 void traffic_thread(bool ipv6)
@@ -2410,6 +2422,12 @@ void traffic_thread(bool ipv6)
   /* Prepare pollset with basic sockets */
   pollset_reset();
 
+  /* Arm the global timer if needed */
+  if (global_timeout > 0) { 
+    signal(SIGALRM, timeout_alarm);
+    alarm(global_timeout);
+  }
+  
   while(1) {
 
     scheduling_loops ++;
@@ -2939,6 +2957,9 @@ void help()
      "   -recv_timeout nb : Global receive timeout in milliseconds.\n"
      "                      If the expected message is not received, the call\n"
      "                      times out and is aborted\n"
+     "\n"
+     "   -timeout nb      : Global timeout in seconds.\n"
+     "                      If this option is set, SIPp quits after nb seconds\n"
      "\n"
      "   -nd              : No Default. Disable all default behavior of SIPp\n"
      "                      which are the following:\n"
@@ -3664,6 +3685,16 @@ int main(int argc, char *argv[])
       if((++argi) < argc) {
         processed = 1;
         defl_recv_timeout = atol(argv[argi]);
+      } else {
+        ERROR_P1("Missing argument for param '%s'.\n"
+                 "Use 'sipp -h' for details",  argv[argi-1]);
+      }
+    }
+
+    if(!strcmp(argv[argi], "-timeout")) {
+      if((++argi) < argc) {
+        processed = 1;
+        global_timeout = atol(argv[argi]);
       } else {
         ERROR_P1("Missing argument for param '%s'.\n"
                  "Use 'sipp -h' for details",  argv[argi-1]);
