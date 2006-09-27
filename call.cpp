@@ -2745,6 +2745,10 @@ bool call::process_incomming(char * msg)
     last_recv_msg = (char *) realloc(last_recv_msg, strlen(msg) + 1);
     strcpy(last_recv_msg, msg);
     return next();
+  } else {
+    if (test < SCEN_VARIABLE_SIZE && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()) {
+      WARNING_P1("Last message generates an error and will not be used for next sends (for last_ varaiables)\n",msg);
+    }
   }
   return true;
 }
