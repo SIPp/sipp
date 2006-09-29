@@ -37,7 +37,7 @@
 #endif
 #include "sipp.hpp"
 
-#define KEYWORD_SIZE 128
+#define KEYWORD_SIZE 256
 
 #ifdef _USE_OPENSSL
 extern  SSL                 *ssl_list[];
@@ -1687,6 +1687,54 @@ int call::sendCmdBuffer(char* cmd)
 
 #endif
 
+void call::getHexStringParam(char * dest, char * src, int * len)
+{ 
+  *len=0;
+  /* Allows any hex coded string like '0x5B07F6' */
+  while (isxdigit(*src)) {
+    int val = get_decimal_from_hex(*src);
+    src++;
+    if (isxdigit(*src)) {
+      val = (val << 4) + get_decimal_from_hex(*src);
+      src++;
+    }
+    *dest++ = val & 0xff;
+    (*len)++;
+  }
+}
+
+char* call::getKeywordParam(char * src, char * param, char * output)
+{
+  char *key, *tmp;
+  int len;
+
+  len = 0;
+  key = NULL;
+  if(tmp = strstr(src, param)) {
+    tmp += strlen(param);
+    key = tmp;
+    if ((*key == '0') && (*(key+1) == 'x')) {
+      key += 2;
+      getHexStringParam(output, key, &len);
+      key += len * 2;
+    } else {
+      while (*key) {
+        if (((key - src) > KEYWORD_SIZE) || (!(key - src))) {
+          ERROR_P1("Syntax error parsing '%s' parameter", param);
+        } else if (*key == ']' || *key < 33 || *key > 126) {
+          strncpy(output, tmp, key-tmp);
+          output[key-tmp] = '\0';
+          break;
+        }
+        key++;
+      }
+    }
+  } else {
+    output[0] = '\0';
+  }
+  return key;
+}
+
 char* call::createSendingMessage(char * src, int P_index)
 {
   static char msg_buffer[SIPP_MAX_MSG_SIZE+2];
@@ -1729,7 +1777,7 @@ char* call::createSendingMessage(char * src, int P_index)
         src++;
         key = strchr(src, ']');
         if((!key) || ((key - src) > KEYWORD_SIZE) || (!(key - src))){
-          ERROR("Syntax error or invalid [keyword] in scenario");
+          ERROR_P1("Syntax error or invalid [keyword] in scenario while parsing '%s'", current_line);
         }
         memcpy(keyword, src,  key - src);
  
@@ -1959,43 +2007,24 @@ char* call::createSendingMessage(char * src, int P_index)
 
         char my_auth_user[KEYWORD_SIZE];
         char my_auth_pass[KEYWORD_SIZE];
+        char my_aka_OP[KEYWORD_SIZE];
+        char my_aka_AMF[KEYWORD_SIZE];
+        char my_aka_K[KEYWORD_SIZE];
         char * tmp;
         int  authlen;
+        int  paramlen;
 
         auth_marker = src;
         auth_marker_len = strchr(src, ']') - src;
         strcpy(my_auth_user, service);
         strcpy(my_auth_pass, auth_password);
-        /* Look for optional username and password paramaters */
-        if(tmp = strstr(src, "username=")) {
-            tmp += strlen("username=");
-            key = tmp;
-            while (*key) {
-                if (((key - src) > KEYWORD_SIZE) || (!(key - src))) {
-                    ERROR("Syntax error parsing authentication paramaters");
-                } else if (*key == ']' || *key < 33 || *key > 126) {
-                    memset(my_auth_user, 0, sizeof(my_auth_user));
-                    strncpy(my_auth_user, tmp, key-tmp);
-                    break;
-                }
-                key++;
-            }
-        }
-
-        if(tmp = strstr(src, "password=")) {
-            tmp += strlen("password=");
-            key = tmp;
-            while (*key) {
-                if (((key - src) > KEYWORD_SIZE) || (!(key - src))) {
-                    ERROR("Syntax error parsing authentication paramaters");
-                } else if (*key == ']' || *key < 33 || *key > 126) {
-                    memset(my_auth_pass, 0, sizeof(my_auth_pass));
-                    strncpy(my_auth_pass, tmp, key-tmp);
-                    break;
-                }
-                key++;
-            }
-        }
+        /* Look for optional username and password parameters */
+        /* add aka_OP, aka_AMF, aka_K */
+        key = getKeywordParam(src, "username=", my_auth_user);
+        key = getKeywordParam(src, "password=", my_auth_pass);
+        key = getKeywordParam(src, "aka_OP=", my_aka_OP);
+        key = getKeywordParam(src, "aka_AMF=", my_aka_AMF);
+        key = getKeywordParam(src, "aka_K=", my_aka_K);
 
         /* Need the Method name from the CSeq of the Challenge */
         char method[MAX_HEADER_LEN];
@@ -2024,7 +2053,11 @@ char* call::createSendingMessage(char * src, int P_index)
         char uri[MAX_HEADER_LEN];
         sprintf (uri, "%s:%d", remote_ip, remote_port);
         if (createAuthHeader(my_auth_user, my_auth_pass, method, uri,
-                body, dialog_authentication, result) == 0) {
+                body, dialog_authentication, 
+                my_aka_OP,  
+                my_aka_AMF,  
+                my_aka_K,
+                result) == 0) {
             ERROR_P1("%s", result);
         }
    

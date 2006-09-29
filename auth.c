@@ -16,9 +16,10 @@
  *  Author : F. Tarek Rogers 		- 01 Sept 2004
  *           Russell Roy
  *           Wolfgang Beck
- *           Dragos Vingarzan 		- 02 February 2006 vingarzan@gmail.com
- * 				- split in the auth architecture
- * 				- introduced AKAv1-MD5
+ *           Dragos Vingarzan   - 02 February 2006 vingarzan@gmail.com
+ *                              - split in the auth architecture
+ *                              - introduced AKAv1-MD5
+ *           Frederique Aurouet	
  */
 
 #ifdef __FreeBSD__
@@ -60,24 +61,30 @@ typedef u_char IK[IKLEN];
 typedef u_char SQN[SQNLEN];
 #define AUTSLEN 14
 typedef char AUTS[AUTSLEN];
-#define AUTS64LEN 21
+#define AUTS64LEN 29
 typedef char AUTS64[AUTS64LEN];
 #define RESLEN 8
-typedef unsigned char RES[RESLEN];
+typedef unsigned char RES[RESLEN+1];
 #define RESHEXLEN 17
 typedef char RESHEX[RESHEXLEN];
+#define OPLEN 16
+typedef u_char OP[OPLEN];
 
-AMF amf="\0\0";
 AMF amfstar="\0\0";
+SQN sqn_he={0x00,0x00,0x00,0x00,0x00,0x00};
 
 /* end AKA */
 
 
 int createAuthHeaderMD5(char * user, char * password, char * method,
-                     char * uri, char * msgbody, char * auth, char * result);
-int createAuthHeaderAKAv1MD5(char * user, char * password, char * method,
-                     char * uri, char * msgbody, char * auth, char *algo,
-                     char * result);
+                     char * uri, char * msgbody, char * auth, 
+                     char * algo, char * result);
+int createAuthHeaderAKAv1MD5(char * user, char * OP,
+                             char * AMF,
+                             char * K,
+                             char * method,
+                             char * uri, char * msgbody, char * auth, char *algo,
+                             char * result);
 
 
 /* This function is from RFC 2617 Section 5 */
@@ -131,7 +138,11 @@ char *stristr (const char *s1, const char *s2) {
 }
 
 int createAuthHeader(char * user, char * password, char * method,
-                     char * uri, char * msgbody, char * auth, char * result) {
+                     char * uri, char * msgbody, char * auth, 
+                     char * aka_OP,
+                     char * aka_AMF,
+                     char * aka_K,
+                     char * result) {
 
     char algo[32]="MD5";
     char *start, *end;
@@ -151,9 +162,12 @@ int createAuthHeader(char * user, char * password, char * method,
     }
 
     if (strncasecmp(algo, "MD5", 3)==0) {
-	    return createAuthHeaderMD5(user,password,method,uri,msgbody,auth,result);
+	    return createAuthHeaderMD5(user,password,method,uri,msgbody,auth,algo,result);
 	} else if (strncasecmp(algo, "AKAv1-MD5", 9)==0) {
-		return createAuthHeaderAKAv1MD5(user,password,method,uri,msgbody,auth,algo,result);        
+		return createAuthHeaderAKAv1MD5(user, aka_OP,
+                                                aka_AMF,
+                                                aka_K,
+                                                method,uri,msgbody,auth,algo,result);        
     }else{
     	sprintf(result, "createAuthHeader: authentication must use MD5 or AKAv1-MD5");
         return 0;
@@ -164,13 +178,14 @@ int createAuthHeader(char * user, char * password, char * method,
 
 
 int createAuthHeaderMD5(char * user, char * password, char * method,
-                     char * uri, char * msgbody, char * auth, char * result) {
+                     char * uri, char * msgbody, char * auth, 
+                     char * algo, char * result) {
                      	
     unsigned char ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
     unsigned char resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE]; 
     unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
     unsigned char resp_hex[HASH_HEX_SIZE+1], body_hex[HASH_HEX_SIZE+1];
-    char tmp[MAX_HEADER_LEN], authtype[16], cnonce[32], nc[32], algo[32]="MD5", opaque[64];
+    char tmp[MAX_HEADER_LEN], authtype[16], cnonce[32], nc[32], opaque[64];
     char *start, *end;
     static unsigned int mync = 1;
     int has_opaque = 0;
@@ -202,7 +217,7 @@ int createAuthHeaderMD5(char * user, char * password, char * method,
 
     // Extract the Realm 
     if ((start = stristr(auth, "realm=")) == NULL) {
-        sprintf(result, "createAuthHeader: couldn't parse realm");
+        sprintf(result, "createAuthHeaderMD5: couldn't parse realm in '%s'", auth);
         return 0;
     }
     start = start + strlen("realm=");
@@ -476,132 +491,106 @@ char * base64_encode_string( const char *buf, unsigned int len, int *newlen )
 
 
 char hexa[16]="0123456789abcdef";
-int createAuthHeaderAKAv1MD5(char * user, char * password, char * method,
+int createAuthHeaderAKAv1MD5(char * user, char * aka_OP, 
+                     char * aka_AMF, 
+                     char * aka_K, 
+                     char * method,
                      char * uri, char * msgbody, char * auth, char *algo,
                      char * result) {
                      	
-    char tmp[MAX_HEADER_LEN], authtype[16], cnonce[32], nc[32], opaque[64];
-    char *start, *end;
-    static unsigned int mync = 1;
-    int has_opaque = 0;
-	char *nonce64, *nonce;
-	int noncelen;
-	RESHEX resp_hex;
-	RAND rnd;
-	AUTN autn;
-	MAC mac,xmac;
-	SQN sqn_he;
-	K k;
-	RES res;
-	CK ck;
-	IK ik;
-	AK ak;
-	int i,j;
+  char tmp[MAX_HEADER_LEN], authtype[16], cnonce[32], nc[32], opaque[64];
+  char *start, *end;
+  static unsigned int mync = 1;
+  int has_auts = 0, resuf = 1;
+  int has_opaque = 0;
+  char *nonce64, *nonce;
+  int noncelen;
+  RESHEX resp_hex;
+  AMF amf;
+  OP op;
+  RAND rnd;
+  AUTN autn;
+  AUTS auts_bin;
+  AUTS64 auts_hex;
+  MAC mac,xmac;
+  SQN sqn, sqnxoraka, sqn_ms;
+  K k;
+  RES res;
+  CK ck;
+  IK ik;
+  AK ak;
+  int i,j;
 
-    // Extract the Auth Type - If not present, using 'none' 
-    cnonce[0] = '\0';
-    if ((start = stristr(auth, "qop=")) != NULL) {
-        start = start + strlen("qop=");
-        if (*start == '"') { start++; }
-        end = start + strcspn(start, " ,\"\r\n");
-        strncpy(authtype, start, end - start);
-        authtype[end - start] ='\0';
-        sprintf(cnonce, "%x", rand());
-        sprintf(nc, "%08x", mync++);
+  // Extract the Nonce 
+  if ((start = stristr(auth, "nonce=")) == NULL) {
+      sprintf(result, "createAuthHeaderAKAv1MD5: couldn't parse nonce");
+      return 0;
+  }
+  start = start + strlen("nonce=");
+  if (*start == '"') { start++; }
+  end = start + strcspn(start, " ,\"\r\n");
+  strncpy(tmp, start, end - start);
+  tmp[end - start] ='\0';
+
+  /* Compute the AKA RES */
+  resp_hex[0]=0;
+  nonce64 = tmp;
+  nonce = base64_decode_string(nonce64,end-start,&noncelen);
+  if (noncelen<RANDLEN+AUTNLEN) {
+    sprintf(result,"createAuthHeaderAKAv1MD5 : Nonce is too short %d < %d expected \n",
+    noncelen,RANDLEN+AUTNLEN);
+    return 0;
+  }
+  memcpy(rnd,nonce,RANDLEN);
+  memcpy(sqnxoraka,nonce+RANDLEN,SQNLEN);
+  memcpy(mac,nonce+RANDLEN+SQNLEN+AMFLEN,MACLEN);
+  memcpy(k,aka_K,KLEN);
+  memcpy(amf,aka_AMF,AMFLEN);
+  memcpy(op,aka_OP,OPLEN);
+
+  /* Compute the AK, response and keys CK IK */
+  f2345(k,rnd,res,ck,ik,ak,op);
+  res[RESLEN]='\0';
+
+  /* Compute sqn encoded in AUTN */
+  for (i=0; i < SQNLEN; i++)
+    sqn[i] = sqnxoraka[i] ^ ak[i];
+
+  /* compute XMAC */
+  f1(k,rnd,sqn,aka_AMF,xmac,op);
+  if (memcmp(mac,xmac,MACLEN)!=0) {
+    sprintf(result,"createAuthHeaderAKAv1MD5 : MAC != eXpectedMAC -> Server might not know the secret (man-in-the-middle attack?) \n");
+    return 0;
+  }
+
+  /* Check SQN, compute AUTS if needed and authorization parameter */
+  if (sqn[5] > sqn_he[5]) {
+    sqn_he[5] = sqn[5];
+    has_auts = 0;
+    /* RES has to be used as password to compute response */
+    resuf = createAuthHeaderMD5(user, res, method, uri, msgbody, auth, algo, result);
+  } else {
+    sqn_ms[5] = sqn_he[5] + 1;
+    f5star(k, rnd, ak, op);
+    for(i=0; i<SQNLEN; i++)
+      auts_bin[i]=sqn_ms[i]^ak[i];
+    f1star(k, rnd, sqn_ms, amf, auts_bin+SQNLEN, op);
+    has_auts = 1;
+    /* When re-synchronisation occurs an empty password has to be used */
+    /* to compute MD5 response (Cf. rfc 3310 section 3.2)
+    resuf=createAuthHeaderMD5(user,"",method,uri,msgbody,auth,algo,result);
+  }
+  if (has_auts) {
+    /* Format data for output in the SIP message */
+    for(i=0;i<AUTSLEN;i++){
+      auts_hex[2*i]=hexa[(auts_bin[i]&0xF0)>>4];
+      auts_hex[2*i+1]=hexa[auts_bin[i]&0x0F];
     }
+    auts_hex[AUTS64LEN-1]=0;
 
-    // Extract the Opaque value - if present
-    opaque[0] = '\0';
-    if ((start = stristr(auth, "opaque=")) != NULL) {
-        start = start + strlen("opaque=");
-        if (*start == '"') { start++; }
-        end = start + strcspn(start, " ,\"\r\n");
-        strncpy(opaque, start, end - start);
-        opaque[end - start] ='\0';
-        has_opaque = 1;
-    }
+    sprintf(result, "%s,auts=\"%s\"",result,auts_hex);
+  }
 
-    // Extract the Realm 
-    if ((start = stristr(auth, "realm=")) == NULL) {
-        sprintf(result, "createAuthHeaderAKAv1MD5: couldn't parse realm");
-        return 0;
-    }
-    start = start + strlen("realm=");
-    if (*start == '"') { start++; }       
-    end = start + strcspn(start, ",\"\r\n");
-    strncpy(tmp, start, end - start);
-    tmp[end - start] ='\0';
-
-    sprintf(result, "Digest username=\"%s\",realm=\"%s\"",user,tmp);
-    if (cnonce[0] != '\0') {
-        sprintf(result, "%s,cnonce=\"%s\",nc=%s,qop=\"%s\"",result,cnonce,nc,authtype);
-    }
-
-    // Construct the URI 
-    if (auth_uri == NULL) {
-      sprintf(tmp, "sip:%s", uri);
-    } else {
-      sprintf(tmp, "sip:%s", auth_uri);
-    }
-
-    sprintf(result, "%s,uri=\"%s\"",result,tmp);
-
-    // Extract the Nonce 
-    if ((start = stristr(auth, "nonce=")) == NULL) {
-        sprintf(result, "createAuthHeaderAKAv1MD5: couldn't parse nonce");
-        return 0;
-    }
-    start = start + strlen("nonce=");
-    if (*start == '"') { start++; }
-    end = start + strcspn(start, " ,\"\r\n");
-    strncpy(tmp, start, end - start);
-    tmp[end - start] ='\0';
-
-	/* Compute the AKA response */
-	resp_hex[0]=0;
-	nonce64 = tmp;
-	nonce = base64_decode_string(nonce64,end-start,&noncelen);
-	if (noncelen<RANDLEN+AUTNLEN) {
-		sprintf(result,"createAuthHeaderAKAv1MD5 : Nonce is too short %d < %d expected \n",
-			noncelen,RANDLEN+AUTNLEN);
-		return 0;
-	}
-	memcpy(rnd,nonce,RANDLEN);
-	//memcpy(autn,nonce+RANDLEN,AUTNLEN);
-	memcpy(sqn_he,nonce+RANDLEN,SQNLEN);
-	memcpy(mac,nonce+RANDLEN+SQNLEN+AMFLEN,MACLEN);
-
-	j = strlen(password);
-	memcpy(k,password,j);
-/* HACK TO PUT ALWAYS secret key 0 */		
-//	j=0;
-/* HACK TO PUT ALWAYS secret key 0 */	
-	memset(k+j,0,KLEN-j);
-
-	/* compute XMAC */
-	f1(k,rnd,sqn_he,amf,xmac);
-	if (memcmp(mac,xmac,MACLEN)!=0) {
-		sprintf(result,"createAuthHeaderAKAv1MD5 : MAC != eXpectedMAC -> Server might not know the secret (man-in-the-middle attack?) \n");
-//		return 0;
-	}
-
-	/* compute the response and keys */	
-	f2345(k,rnd,res,ck,ik,ak);
-	/* no check for sqn is performed, so no AUTS synchronization performed */
-	
-	/* Format data for output in the SIP message */
-	for(i=0;i<RESLEN;i++){
-		resp_hex[2*i]=hexa[(res[i]&0xF0)>>4];
-		resp_hex[2*i+1]=hexa[res[i]&0x0F];
-	}
-	resp_hex[RESHEXLEN-1]=0;
-	
-    sprintf(result, "%s,nonce=\"%s\",response=\"%s\",algorithm=\"%s\"",result,nonce64,resp_hex,algo);
-
-    if (has_opaque) {
-        sprintf(result, "%s,opaque=\"%s\"",result,opaque);
-    }
-
-    return 1;
+  return 1;
 }
 

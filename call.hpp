@@ -44,9 +44,9 @@
 #define SIP_TRANSACTION_TIMEOUT 32000
 
 #ifdef __HPUX
-  extern int createAuthHeader(char * user, char * password, char * method, char * uri, char * msgbody, char * auth, char * result);
+  extern int createAuthHeader(char * user, char * password, char * method, char * uri, char * msgbody, char * auth, char * aka_OP, char * aka_AMF, char * aka_K, char * result);
 #else
-  extern "C" { extern int createAuthHeader(char * user, char * password, char * method, char * uri, char * msgbody, char * auth, char * result);  }
+  extern "C" { extern int createAuthHeader(char * user, char * password, char * method, char * uri, char * msgbody, char * auth, char * aka_OP, char * aka_AMF, char * aka_K, char * result);  }
 #endif
 
 class call {
@@ -166,7 +166,11 @@ public:
   T_ActionResult executeAction(char * msg, int scenarioIndex);
   void  extractSubMessage(char * msg, char * matchingString, char* result);
   bool  rejectCall();
-  
+
+  // Get parameters from a [keyword]
+  void getHexStringParam(char * dest, char * src, int * len);
+  char* getKeywordParam(char * src, char * param, char * output);
+ 
   // P_index use for message index in scenario and ctrl of CRLF
   // P_index = -2 No ctrl of CRLF
   // P_index = -1 Add crlf to end of message
