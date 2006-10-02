@@ -162,6 +162,8 @@ extern unsigned long      report_freq             _DEFVAL(DEFAULT_REPORT_FREQ);
 extern unsigned long      report_freq_dumpLog     _DEFVAL
                                                 (DEFAULT_REPORT_FREQ_DUMP_LOG);
 
+extern bool               timeout_exit            _DEFVAL(false);
+
 extern unsigned long      report_freq_dumpRtt     _DEFVAL
                                                 (DEFAULT_FREQ_DUMP_RTT);
 

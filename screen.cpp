@@ -37,6 +37,8 @@ extern int           twinSippSocket;
 extern int           localTwinSippSocket;
 #endif // __3PCC__ //
 
+extern bool    timeout_exit;
+
 unsigned long screen_errors;
 char          screen_last_error[32768];
 char          _screen_err[32768];
@@ -123,7 +125,12 @@ void screen_exit(int rc)
     // In order to compute the return code, get the counter
     // of failed calls. If there is 0 failed calls, then everything is OK!
     if (counter_value == 0) {
-      exit(EXIT_TEST_OK);
+      
+      if (timeout_exit) {
+        exit (EXIT_TEST_RES_INTERNAL);
+      } else {
+        exit(EXIT_TEST_OK);
+      }
     } else {
       exit(EXIT_TEST_FAILED);
     }

@@ -2401,6 +2401,7 @@ void pollset_process(bool ipv6)
 
 void timeout_alarm(int param){
   quitting = 1;
+  timeout_exit = true;
 }
 
 /* Send loop & trafic generation*/
