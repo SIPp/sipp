@@ -2948,10 +2948,10 @@ void help()
      "                      Example: 3PCC-C-A scenario.\n"
      "                      - When the first twin command is 'recvCmd' then\n"
      "                      this is the address of the local twin socket. SIPp \n"
-     "                      will open this address:port to listen for twin command.\n";
+     "                      will open this address:port to listen for twin command.\n"
      "                      Example: 3PCC-C-B scenario.\n"
-     "                      
      "\n"
+
 #endif
      "   -nr              : Disable retransmission in UDP mode.\n"
      "\n"
