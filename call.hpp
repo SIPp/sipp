@@ -220,6 +220,7 @@ private:
   void   connect_socket_if_needed();
 
   char * compute_cseq(char * src);
+  char * get_header_field_code(char * msg, char * code);
   char * get_last_header(char * name);
   char * get_header_content(char* message, char * name);
 

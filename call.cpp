@@ -944,6 +944,25 @@ char * call::compute_cseq(char * src)
     return cseq;
 }
 
+char * call::get_header_field_code(char *msg, char * name)
+{
+  static char code[MAX_HEADER_LEN];
+  char * last_header;
+  int i;
+
+    last_header = NULL;
+    i = 0;
+    /* If we find the field in msg */
+    last_header = get_header_content(msg, name);
+    if(last_header) {
+      /* Extract the integer value of the field */
+      while(isspace(*last_header)) last_header++;
+      sscanf(last_header,"%d", &i);
+      sprintf(code, "%s %d", name, i);
+    }
+    return code;
+}
+
 char * call::get_last_header(char * name)
 {
   static char last_header[MAX_HEADER_LEN * 10];
@@ -1504,6 +1523,9 @@ bool call::abortCall()
   int res ;
   int is_inv;
 
+  char * src_send = NULL ;
+  char * src_recv = NULL ;
+
   if (last_send_msg != NULL) {
     is_inv = !strncmp(last_send_msg, "INVITE", 6);
   } else {
@@ -1511,7 +1533,7 @@ bool call::abortCall()
   }  
   if ((toolMode != MODE_SERVER) && (msg_index > 0)) {
     if ((call_established == false) && (is_inv)) {
-      char * src = last_recv_msg ;
+      src_recv = last_recv_msg ;
       char * dest   ;
       char   L_msg_buffer[SIPP_MAX_MSG_SIZE];
       L_msg_buffer[0] = '\0';
@@ -1519,23 +1541,31 @@ bool call::abortCall()
 
       // Answer unexpected errors (4XX, 5XX and beyond) with an ACK 
       // Contributed by F. Tarek Rogers
-      if((src) && (get_reply_code(src) > 400)) {
-       sendBuffer(createSendingMessage(
-         (char*)"ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n"
-           "Via: SIP/2.0/[transport] [local_ip]:[local_port]\n"
-           "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n"
-           "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n"
-           "Call-ID: [call_id]\n"
-           "CSeq: 1 ACK\n"
-           "Contact: sip:sipp@[local_ip]:[local_port]\n"
-           "Max-Forwards: 70\n"
-           "Subject: Performance Test\n"
-           "Content-Length: 0\n\n"
-         , -1));
-      } else if (src) {
+      if((src_recv) && (get_reply_code(src_recv) > 400)) {
+
+        strcpy(L_param, "ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
+        sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port]\n");
+        sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
+        sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
+        sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
+        char * cseq;
+        cseq = get_header_field_code(src_recv,(char *) "CSeq:");
+        if (cseq != NULL) {
+          sprintf(L_param, "%s%s ACK\n", L_param, cseq);
+        }
+        sprintf(L_param, "%s%s", L_param, "Contact: <sip:sipp@[local_ip]:[local_port];transport=[transport]>\n");
+        sprintf(L_param, "%s%s", L_param, "Max-Forwards: 70\n");
+        sprintf(L_param, "%s%s", L_param, "Subject: Performance Test\n");
+        sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n");
+
+        res = sendBuffer(createSendingMessage((char*)(L_param),-1));
+
+      } else if (src_recv) {
         /* Call is not established and the reply is not a 4XX, 5XX */
         /* And we already received a message. */
         if (ack_is_pending == true) {
+          char * cseq = NULL;
+
           /* If an ACK is expected from the other side, send it
            * and send a BYE afterwards                           */
           ack_is_pending = false;
@@ -1545,26 +1575,25 @@ bool call::abortCall()
           sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
           sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
-          /* The CSeq of an ACK relating to an INVITE must be the same as  */
-          /* the one from the INVITE.                                      */
-          /* Let's simplify this by putting 1 (no support for re-invite in */
-          /* 3PCC?)                                                        */
-          /* FIXME: store CSeq from last INVITE and re-use it              */
-          sprintf(L_param, "%sCSeq: 1 ACK\n", L_param);
+          src_send = last_send_msg ;
+          cseq = get_header_field_code(src_recv,"CSeq:");
+          if (cseq != NULL) {
+            sprintf(L_param, "%s%s ACK\n", L_param, cseq);
+          }
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
           sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
           res = sendBuffer(createSendingMessage((char*)(L_param),-1));
           
           /* Send the BYE */
+          cseq = NULL;
           strcpy(L_param, "BYE sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
           sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port]\n");
           sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
           sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
-          char * cseq;
-          cseq = compute_cseq(src);
+          cseq = compute_cseq(src_recv);
           if (cseq != NULL) {
-            sprintf(L_param, "%s%s BYE\n", L_param, compute_cseq(src));
+            sprintf(L_param, "%s%s BYE\n", L_param, compute_cseq(src_recv));
           }
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
           sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
@@ -1576,7 +1605,7 @@ bool call::abortCall()
           sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
           sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
-	  sprintf(L_param, "%sCSeq: 1 CANCEL\n", L_param);
+	       sprintf(L_param, "%sCSeq: 1 CANCEL\n", L_param);
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
           sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
           res = sendBuffer(createSendingMessage((char*)(L_param),-1));
@@ -1590,7 +1619,7 @@ bool call::abortCall()
       }
     } else {
       /* Call is established */
-      char * src = last_recv_msg ;
+      char * src_recv = last_recv_msg ;
       char   L_msg_buffer[SIPP_MAX_MSG_SIZE];
       L_msg_buffer[0] = '\0';
       char * L_param = L_msg_buffer;
@@ -1600,9 +1629,9 @@ bool call::abortCall()
       sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
       sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
       char * cseq;
-      cseq = compute_cseq(src);
+      cseq = compute_cseq(src_recv);
       if (cseq != NULL) {
-        sprintf(L_param, "%s%s BYE\n", L_param, compute_cseq(src));
+        sprintf(L_param, "%s%s BYE\n", L_param, compute_cseq(src_recv));
       }
       sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
       sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
