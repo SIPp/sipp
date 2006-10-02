@@ -2942,10 +2942,15 @@ void help()
      "                      is depending on the 3PCC role.\n"
      "                      - When the first twin command is 'sendCmd' then\n"
      "                      this is the address of the remote twin socket.\n"
+     "                      SIPp will try to connect to this address:port to\n"
+     "                      send the twin command (This instance must be started\n"
+     "                      after all other 3PCC scenarii).\n"
      "                      Example: 3PCC-C-A scenario.\n"
      "                      - When the first twin command is 'recvCmd' then\n"
-     "                      this is the address of the local twin socket.\n"
+     "                      this is the address of the local twin socket. SIPp \n"
+     "                      will open this address:port to listen for twin command.\n";
      "                      Example: 3PCC-C-B scenario.\n"
+     "                      
      "\n"
 #endif
      "   -nr              : Disable retransmission in UDP mode.\n"
