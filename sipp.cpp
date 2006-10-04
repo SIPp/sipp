@@ -1503,6 +1503,8 @@ int recv_all_tcp(int sock, char *buffer, int size, int trace_id)
       if (toolMode == MODE_3PCC_CONTROLLER_B) {
         /* In 3PCC controller B mode, twin socket is closed at peer closing.
          * This is a normal case: 3PCC controller B should end now */
+        if (localTwinSippSocket) close(localTwinSippSocket);
+        if (twinSippSocket) close(twinSippSocket);
         ERROR("3PCC controller A has ended -> exiting");
       } else
 #endif
@@ -4904,7 +4906,13 @@ int open_connections() {
              (_RCAST(struct sockaddr_in6 *,&localTwin_sockaddr))->sin6_port =
                htons((short)twinSippPort);
            }
-          if(bind(localTwinSippSocket, 
+           
+           // add socket option to allow the use of it without the TCP timeout 
+           // This allows to re-start the B controller without timeout after its exit
+           int reuse = 1;
+           setsockopt(localTwinSippSocket,SOL_SOCKET,SO_REUSEADDR,(int *)&reuse,sizeof(reuse));
+
+           if(bind(localTwinSippSocket, 
                   (sockaddr *)(void *)&localTwin_sockaddr,
                    SOCK_ADDR_SIZE(&localTwin_sockaddr))) {
               ERROR_NO("Unable to bind twin sipp socket in "
