@@ -27,7 +27,7 @@
 #include <sys/types.h>
 #include <regex.h>
 
-#define SCEN_MAX_MESSAGES  100
+#define SCEN_MAX_MESSAGES  500
 
 #define BUFFER_SIZE 512
 #define MAX_MATCHING_EXPR 50
