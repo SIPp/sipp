@@ -201,7 +201,7 @@ int createAuthHeaderMD5(char * user, char * password, char * method,
         strncpy(authtype, start, end - start);
         authtype[end - start] ='\0';
         sprintf(cnonce, "%x", rand());
-        sprintf(nc, "%08x", mync++);
+        sprintf(nc, "%08x", mync);
     }
 
     // Extract the Opaque value - if present
