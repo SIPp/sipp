@@ -1273,7 +1273,7 @@ bool call::run()
       paused_until = 0;
       return next();
     }
-  } else if(scenario[msg_index] -> pause) {
+  } else if(scenario[msg_index] -> M_type == MSG_TYPE_PAUSE) {
     /* Starts a pause instruction */
     if((scenario[msg_index] -> pause) == -1) {
       paused_until = clock_tick + duration;

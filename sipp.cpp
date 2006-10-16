@@ -755,7 +755,7 @@ void print_stats_in_file(FILE * f, int last)
                scenario[index] -> nb_recv_retrans,
                scenario[index] -> nb_unexp);
       }
-    } else if (scenario[index] -> pause) {
+    } else if(scenario[index] -> M_type == MSG_TYPE_PAUSE) {
       if(scenario[index] -> pause < 0) {
         if(toolMode == MODE_SERVER) {
           fprintf(f,"  [%7dms] Var Pause          ", duration);
