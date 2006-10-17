@@ -65,7 +65,8 @@ int  screen_readkey()
 
 void screen_exit(int rc)
 {
-  unsigned long counter_value=0;
+  unsigned long counter_value_failed=0;
+  unsigned long counter_value_success=0;
 
   /* Some signals may be delivered twice during exit() execution,
    * and we must prevent all this from beeing done twice */
@@ -112,7 +113,8 @@ void screen_exit(int rc)
 #endif //__3PCC__
  
   // Get failed calls counter value before releasing objects
-  counter_value = CStat::instance()->GetStat (CStat::CPT_C_FailedCall);
+  counter_value_failed = CStat::instance()->GetStat (CStat::CPT_C_FailedCall);
+  counter_value_success = CStat::instance()->GetStat (CStat::CPT_C_SuccessfulCall);
 
   releaseGlobalAllocations();
 
@@ -124,9 +126,10 @@ void screen_exit(int rc)
     // successful or not.
     // In order to compute the return code, get the counter
     // of failed calls. If there is 0 failed calls, then everything is OK!
-    if (counter_value == 0) {
+    if (counter_value_failed == 0) {
       
-      if (timeout_exit) {
+      if ((timeout_exit) && (counter_value_success < 1)) {
+        
         exit (EXIT_TEST_RES_INTERNAL);
       } else {
         exit(EXIT_TEST_OK);
