@@ -1662,7 +1662,7 @@ int call::sendCmdMessage(int index)
 
   if(scenario[index] -> M_sendCmdData) {
     // WARNING_P1("---PREPARING_TWIN_CMD---%s---", scenario[index] -> M_sendCmdData); 
-    dest = createSendingMessage(scenario[index] -> M_sendCmdData, -2);
+    dest = createSendingMessage(scenario[index] -> M_sendCmdData, -1);
     strcat(dest, delimitor);
     //WARNING_P1("---SEND_TWIN_CMD---%s---", dest); 
 
