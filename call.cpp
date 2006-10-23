@@ -26,12 +26,16 @@
  *           Guillaume Teissier from FTR&D
  *           Wolfgang Beck
  *           Venkatesh
+ *           Vlad Troyanker
  */
 
 #include <iterator>
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #ifdef PCAPPLAY
 #include "send_packets.h"
 #endif
@@ -2909,13 +2913,22 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
                         break;
 
                     case 0:
-                        // child process - execute the command
-                        system(x);
-                        exit(EXIT_OTHER);
-
+                        // first child process - execute the command
+                       if((l_pid = fork()) < 0) {
+                         ERROR("Forking error");
+                       } else {
+                         if( l_pid == 0)
+                         system(x); // second child runs
+                         exit(EXIT_OTHER);
+                       }
+                       break;
                     default:
-                        // parent process continue
-                        break;
+                       // parent process continue
+                       // reap first child immediately
+                       if(waitpid(l_pid, NULL, 0) != l_pid) {  
+                         ERROR("waitpid error"); 
+                       }
+                       break;
                 }
             }
         } else /* end action == E_AT_LOG_TO_FILE */ 
