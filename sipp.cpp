@@ -1380,7 +1380,7 @@ char * get_peer_tag(char *msg)
 char * get_call_id(char *msg)
 {
   static char call_id[MAX_HEADER_LEN];
-  char * ptr1, * ptr2, backup;
+  char * ptr1, * ptr2, * ptr3, backup;
   bool short_form;
 
   short_form = false;
@@ -1420,6 +1420,7 @@ char * get_call_id(char *msg)
 
   backup = *ptr2;
   *ptr2 = 0;
+  if ((ptr3 = strstr(ptr1, "///")) != 0) ptr1 = ptr3+3;
   strcpy(call_id, ptr1);
   *ptr2 = backup;
   return (char *) call_id;
