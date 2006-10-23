@@ -385,6 +385,7 @@ extern char * scenario_file;
 
 int get_method(char *msg);
 char * get_peer_tag(char *msg);
+unsigned long int get_cseq_value(char *msg);
 unsigned long get_reply_code(char *msg);
 
 /********************** Network Interfaces ********************/

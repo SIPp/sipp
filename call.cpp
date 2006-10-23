@@ -2285,7 +2285,7 @@ void call::extract_cseq_method (char* method, char* msg)
       char *end = value;
       int nbytes = 0;
       while ((*end != '\n')) { end++; nbytes++;}
-      strncpy (method, value, (nbytes-1));
+      if (nbytes > 0) strncpy (method, value, (nbytes-1));
       method[nbytes] = '\0';
     }
   }
@@ -2673,7 +2673,12 @@ bool call::process_incomming(char * msg)
     scenario[search_index] -> nb_lost++;
     return true;
   }
-  
+
+  if (request) { // update [cseq] with received CSeq
+    unsigned long int rcseq = get_cseq_value(msg);
+    if (rcseq > cseq) cseq = rcseq;
+  }
+
   /* This is an ACK or a response, and its index is greater than the 
    * current active retransmission message, so we stop the retrans timer. */
   if(((reply_code) ||

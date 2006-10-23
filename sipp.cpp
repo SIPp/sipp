@@ -1425,6 +1425,26 @@ char * get_call_id(char *msg)
   return (char *) call_id;
 }
 
+unsigned long int get_cseq_value(char *msg) {
+  char *ptr1;
+ 
+
+  // no short form for CSeq:
+  ptr1 = strstr(msg, "\r\nCSeq:");
+  if(!ptr1) { ptr1 = strstr(msg, "\r\nCSEQ:"); }
+  if(!ptr1) { ptr1 = strstr(msg, "\r\ncseq:"); }
+  if(!ptr1) { ptr1 = strstr(msg, "\r\nCseq:"); }
+  if(!ptr1) { WARNING_P1("No valid Cseq header in request %s", msg); return 0;}
+ 
+  ptr1 += 7;
+ 
+  while((*ptr1 == ' ') || (*ptr1 == '\t')) {++ptr1;}
+ 
+  if(!(*ptr1)) { WARNING("No valid Cseq data in header"); return 0;}
+ 
+  return strtoul(ptr1, NULL, 10);
+}
+
 unsigned long get_reply_code(char *msg)
 {
   while((msg) && (*msg != ' ') && (*msg != '\t')) msg ++;
