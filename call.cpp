@@ -2682,10 +2682,12 @@ bool call::process_incomming(char * msg)
     if (rcseq > cseq) cseq = rcseq;
   }
 
-  /* This is an ACK or a response, and its index is greater than the 
-   * current active retransmission message, so we stop the retrans timer. */
+  /* This is an ACK/PRACK or a response, and its index is greater than the 
+   * current active retransmission message, so we stop the retrans timer. 
+   * True also for CANCEL and BYE that we also want to answer to */
   if(((reply_code) ||
       ((!strcmp(request, "ACK")) ||
+       (!strcmp(request, "CANCEL")) || (!strcmp(request, "BYE")) ||
        (!strcmp(request, "PRACK"))))  &&
      (search_index > last_send_index)) {
    /*
