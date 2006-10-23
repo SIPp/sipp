@@ -1359,13 +1359,15 @@ bool call::run()
      * Note that cseq is only used by the [cseq] keyword, and
      * not by default
      */
-    
+
+    int incr_cseq = 0;
     if (strncmp(::scenario[msg_index]->send_scheme,"ACK",3) &&
        strncmp(::scenario[msg_index]->send_scheme,"CANCEL",6) &&
        strncmp(::scenario[msg_index]->send_scheme,"SIP/2.0",7)) {
           ++cseq;
+          incr_cseq = 1;
     }
-
+    
     if ((ctrlEW) || (poll_flag_write)) {
       send_status = -1;
     } else {
@@ -1375,6 +1377,7 @@ bool call::run()
     if(send_status == -1) { /* Would Block on TCP */
        if (msg_index == 0 ) 
           delete_call(id) ;
+      if (incr_cseq) --cseq;
       return true; /* No step, nothing done, retry later */
     }
 
