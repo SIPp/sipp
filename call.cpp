@@ -517,7 +517,7 @@ call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
   media_thread = 0;
 #endif
 
-  peer_tag[0] = '\0';
+  peer_tag = NULL;
   recv_timeout = 0;
 }
 
@@ -590,6 +590,7 @@ call::~call()
   if(id) { free(id); }
   if(last_recv_msg) { free(last_recv_msg); }
   if(last_send_msg) { free(last_send_msg); }
+  if(peer_tag) { free(peer_tag); }
 
   if(dialog_route_set) {
        free(dialog_route_set);
@@ -1935,7 +1936,7 @@ char* call::createSendingMessage(char * src, int P_index)
                 }
             }
         } else if(!strcmp(keyword, "peer_tag_param")) {
-          if(peer_tag && strlen(peer_tag)) {
+          if(peer_tag) {
             dest += sprintf(dest, ";tag=%s", peer_tag);
           }
         } else if(strstr(keyword, "tdmmap")) {
@@ -2545,9 +2546,12 @@ bool call::process_incomming(char * msg)
     ptr = get_peer_tag(msg);
     if (ptr) {
       if(strlen(ptr) > (MAX_HEADER_LEN - 1)) {
-        ERROR("Peer tag too long. Change MAX_TAG_LEN and recompile sipp");
+        ERROR("Peer tag too long. Change MAX_HEADER_LEN and recompile sipp");
       }
-      strcpy(peer_tag, ptr);
+      peer_tag = strdup(ptr);
+      if (!peer_tag) {
+	ERROR("Out of memory allocating peer tag.");
+      }
     }
     request[0]=0;
     // extract the cseq method from the response

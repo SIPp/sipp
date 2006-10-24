@@ -112,7 +112,7 @@ public:
 
   bool           rtd_done;
   
-  char           peer_tag[MAX_HEADER_LEN];
+  char           *peer_tag;
   
   int            call_socket;
   int            call_remote_socket;
