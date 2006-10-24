@@ -109,6 +109,18 @@ int           toolMode  = MODE_CLIENT;
 unsigned long scenario_duration = 0;
 unsigned int  labelArray[MAX_LABELS];
 
+/*************** Helper functions for various types *****************/
+long get_long(const char *ptr, const char *what) {
+  char *endptr;
+  long ret;
+
+  ret = strtol(ptr, &endptr, 0);
+  if (*endptr) {
+    ERROR_P2("%s, \"%s\" is not a valid integer!\n", what, ptr);
+  }
+  return ret;
+}
+
 /********************** Scenario File analyser **********************/
 
 void load_scenario(char * filename, int deflt)
@@ -371,40 +383,35 @@ void load_scenario(char * filename, int deflt)
         }
         scenario[scenario_len]->M_type = MSG_TYPE_PAUSE;
 
-        if(ptr = xp_get_value((char *)"milliseconds")) {
-          scenario[scenario_len] -> pause = atol(ptr);
-          scenario_duration += scenario[scenario_len] -> pause;
-        } else if(ptr = xp_get_value((char *)"min")) {
-          scenario[scenario_len] -> pause_min = atol(ptr);
-          if(ptr = xp_get_value((char *)"max")) {
-            scenario[scenario_len] -> pause_max = atol(ptr);
-            if (scenario[scenario_len] -> pause_max < scenario[scenario_len] -> pause_min) {
-              ERROR("Min is greater than max in variable pause!");
-            }
-            /* Update scenario duration with max duration */
-            scenario_duration += scenario[scenario_len] -> pause_max;
-          } else {
-            ERROR("Min without max for a variable pause");
-          }
-       } else if(ptr = xp_get_value((char *)"max")) {
-          scenario[scenario_len] -> pause_max = atol(ptr);
+	if(ptr = xp_get_value("milliseconds")) {
+	  scenario[scenario_len] -> pause = get_long(ptr, "Pause milliseconds");
+	  scenario_duration += scenario[scenario_len] -> pause;
+	} else if(xp_get_value("min") || xp_get_value("max")) {
+	  int isMin = !!xp_get_value("min");
+	  int isMax = !!xp_get_value("max");
+
+	  if (isMin && !isMax) {
+	    ERROR("Max without min for a variable pause");
+	  }
+	  if (isMax && !isMin) {
+	    ERROR("Min without max for a variable pause");
+	  }
+
+	  scenario[scenario_len] -> pause_min = get_long(xp_get_value("min"), "Pause minimum");
+	  scenario[scenario_len] -> pause_max = get_long(xp_get_value("max"), "Pause maximum");
+
+	  if (scenario[scenario_len] -> pause_max <= scenario[scenario_len] -> pause_min) {
+	    ERROR("Min is greater than or equal to max in variable pause!");
+	  }
+
           /* Update scenario duration with max duration */
           scenario_duration += scenario[scenario_len] -> pause_max;
-          if(ptr = xp_get_value((char *)"min")) {
-            scenario[scenario_len] -> pause_min = atol(ptr);
-            if (scenario[scenario_len] -> pause_max < scenario[scenario_len] -> pause_min) {
-              ERROR("Min is greater than max in variable pause!");
-            }
-          } else {
-            ERROR("Max without min for a variable pause");
-          }
         } else {
           scenario[scenario_len] -> pause = -1;
           scenario_duration += duration;
         }
         getActionForThisMessage();
-
-      } 
+      }
       else if(!strcmp(elem, "nop")) {
         /* Does nothing at SIP level, only meant to handle actions */
         scenario[scenario_len]->M_type = MSG_TYPE_NOP;
@@ -529,6 +536,10 @@ void computeSippMode()
     { 
       switch(scenario[i] -> M_type)
         {
+        case MSG_TYPE_PAUSE:
+        case MSG_TYPE_NOP:
+	  /* Allow pauses or nops to go first. */
+	  continue;
         case MSG_TYPE_SEND: 
           if(isFirstMessageFound)
             toolMode  = MODE_CLIENT;
