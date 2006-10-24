@@ -25,15 +25,23 @@
  */
 
 #include "sipp.hpp"
+#ifdef HAVE_GSL
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_cdf.h>
+#endif
 
 /************************ Class Constructor *************************/
 
 message::message()
 {
   //ugly memset(this, 0, sizeof(message));
-  pause = 0;
-  pause_min = 0;
-  pause_max = 0;
+  pause_function = NULL;
+  pause_desc = NULL;
+  pause_param = 0;
+  pause_param2 = 0;
+  pause_dparam = 0;
+  pause_dparam2 = 0;
   sessions = 0;
   bShouldRecordRoutes = 0;
 #ifdef _USE_OPENSSL
@@ -120,6 +128,110 @@ long get_long(const char *ptr, const char *what) {
   }
   return ret;
 }
+
+double get_double(const char *ptr, const char *what) {
+  char *endptr;
+  double ret;
+
+  ret = strtod(ptr, &endptr);
+  if (*endptr) {
+    ERROR_P2("%s, \"%s\" is not a floating point number!\n", what, ptr);
+  }
+  return ret;
+}
+
+/* Pretty print a time. */
+char *time_string(int ms) {
+   static char tmp[20];
+
+   if (ms < 10000) {
+	snprintf(tmp, sizeof(tmp), "%dms", ms);
+   } else if (ms < 100000) {
+	snprintf(tmp, sizeof(tmp), "%.1fs", ((float)ms)/1000);
+   } else {
+	snprintf(tmp, sizeof(tmp), "%ds", ms/1000);
+   }
+
+   return tmp;
+}
+
+char *double_time_string(double ms) {
+   static char tmp[20];
+
+   if (ms < 1000) {
+	snprintf(tmp, sizeof(tmp), "%.2lfms", ms);
+   } else if (ms < 10000) {
+	snprintf(tmp, sizeof(tmp), "%.1lfms", ms);
+   } else if (ms < 100000) {
+	snprintf(tmp, sizeof(tmp), "%.1lfms", ms / 1000);
+   } else {
+	snprintf(tmp, sizeof(tmp), "%ds", (int)(ms/1000));
+   }
+
+   return tmp;
+}
+
+
+/*************** Helper functions for computing pauses *************/
+unsigned int pause_default(message *msg) {
+  if (msg -> pause_param == -1) {
+    return duration;
+  }
+
+  return msg -> pause_param;
+}
+
+unsigned int pause_uniform(message *msg) {
+  return msg-> pause_param + rand() % (msg -> pause_param2 - msg -> pause_param);
+}
+
+#ifdef HAVE_GSL
+
+gsl_rng *rng;
+
+void init_rng() {
+  if (rng) {
+    return;
+  }
+  gsl_rng_env_setup();
+
+  rng = gsl_rng_alloc(gsl_rng_default);
+  if (!rng) {
+    ERROR("Could not initialize GSL random number generator.\n");
+  }
+}
+
+unsigned int pause_normal(message *msg) {
+  double duration;
+
+  duration = gsl_ran_gaussian(rng, (double)msg->pause_param2);
+  duration += msg->pause_param;
+  /* The normal distribution can include negative numbers, which make no sense
+   * for a pause. */
+  if (duration < 0) {
+    duration = 0;
+  }
+
+  return (unsigned int)duration;
+}
+
+unsigned int pause_lognormal(message *msg) {
+  double duration;
+
+  duration = gsl_ran_lognormal(rng, msg->pause_dparam, msg->pause_dparam2);
+
+  return (unsigned int)duration;
+}
+
+unsigned int pause_exponential(message *msg) {
+  double duration = 0;
+
+  duration = gsl_ran_exponential(rng, (double)msg->pause_param);
+
+  return (unsigned int)duration;
+}
+
+#endif
 
 /********************** Scenario File analyser **********************/
 
@@ -384,11 +496,16 @@ void load_scenario(char * filename, int deflt)
         scenario[scenario_len]->M_type = MSG_TYPE_PAUSE;
 
 	if(ptr = xp_get_value("milliseconds")) {
-	  scenario[scenario_len] -> pause = get_long(ptr, "Pause milliseconds");
-	  scenario_duration += scenario[scenario_len] -> pause;
+	  scenario[scenario_len] -> pause_function = pause_default;
+	  scenario[scenario_len] -> pause_param = get_long(ptr, "Pause milliseconds");
+	  scenario[scenario_len] -> pause_desc =
+	    strdup(time_string(scenario[scenario_len] -> pause_param));
+	  scenario_duration += scenario[scenario_len] -> pause_param;
 	} else if(xp_get_value("min") || xp_get_value("max")) {
 	  int isMin = !!xp_get_value("min");
 	  int isMax = !!xp_get_value("max");
+	  int min, max;
+	  char tmp[42];
 
 	  if (isMin && !isMax) {
 	    ERROR("Max without min for a variable pause");
@@ -397,18 +514,130 @@ void load_scenario(char * filename, int deflt)
 	    ERROR("Min without max for a variable pause");
 	  }
 
-	  scenario[scenario_len] -> pause_min = get_long(xp_get_value("min"), "Pause minimum");
-	  scenario[scenario_len] -> pause_max = get_long(xp_get_value("max"), "Pause maximum");
+	  min = get_long(xp_get_value("min"), "Pause minimum");
+	  max = get_long(xp_get_value("max"), "Pause maximum");
 
-	  if (scenario[scenario_len] -> pause_max <= scenario[scenario_len] -> pause_min) {
+	  scenario[scenario_len] -> pause_function = pause_uniform;
+	  strncpy(tmp, time_string(min), sizeof(tmp));
+	  strncat(tmp, "/", sizeof(tmp) - strlen(tmp));
+	  strncat(tmp, time_string(max), sizeof(tmp) - strlen(tmp));
+	  scenario[scenario_len] -> pause_desc = strdup(tmp);
+	  scenario[scenario_len] -> pause_param = min;
+	  scenario[scenario_len] -> pause_param2 = max;
+
+	  if (min >= max) {
 	    ERROR("Min is greater than or equal to max in variable pause!");
 	  }
 
           /* Update scenario duration with max duration */
-          scenario_duration += scenario[scenario_len] -> pause_max;
+	  scenario_duration += scenario[scenario_len] -> pause_param;
+#ifdef HAVE_GSL
+	} else if (xp_get_value("normal")) {
+	  long mean = 0;
+	  long stdev = 1;
+	  char tmp[45];
+
+	  init_rng();
+
+          if (ptr = xp_get_value("mean")) {
+		mean = get_long(ptr, "Mean pause");
+	  }
+          if (ptr = xp_get_value("stdev")) {
+		stdev = get_long(ptr, "Pause standard deviation");
+	  }
+
+	  if (stdev < 0) {
+	    ERROR_P1("Standard deviations must be positive: %d\n", stdev);
+	  }
+	  if (mean < 0) {
+	    ERROR_P1("Pause means should not be negative: %d\n", mean);
+	  }
+
+          scenario[scenario_len] -> pause_param  = mean;
+          scenario[scenario_len] -> pause_param2 = stdev;
+
+	  scenario[scenario_len] -> pause_function = pause_normal;
+	  strcpy(tmp, "N(");
+	  strncat(tmp, time_string(mean), sizeof(tmp) - strlen(tmp));
+	  strncat(tmp, ",", sizeof(tmp) - strlen(tmp));
+	  strncat(tmp, time_string(stdev), sizeof(tmp) - strlen(tmp));
+	  strncat(tmp, ")", sizeof(tmp) - strlen(tmp));
+	  scenario[scenario_len] -> pause_desc = strdup(tmp);
+
+	  /* We have no true maximum duration for a distributed pause, but this
+	   * captures 99% of all calls. */
+	  scenario_duration += (int)gsl_cdf_gaussian_Pinv(0.99, stdev) + mean;
+	} else if (xp_get_value("lognormal")) {
+	  double mean = 0;
+	  double stdev = 1;
+	  char tmp[46];
+
+	  init_rng();
+
+          if (ptr = xp_get_value("mean")) {
+		mean = get_double(ptr, "Exp(Mean) pause");
+	  }
+          if (ptr = xp_get_value("stdev")) {
+		stdev = get_double(ptr, "Pause standard deviation");
+	  }
+
+	  if (stdev < 0) {
+	    ERROR_P1("Standard deviations must be positive: %d\n", stdev);
+	  }
+	  if (mean < 0) {
+	    ERROR_P1("Pause means should not be negative: %d\n", mean);
+	  }
+
+          scenario[scenario_len] -> pause_dparam  = mean;
+          scenario[scenario_len] -> pause_dparam2 = stdev;
+	  scenario[scenario_len] -> pause_function = pause_lognormal;
+	  strcpy(tmp, "LN(");
+	  strncat(tmp, double_time_string(mean), sizeof(tmp) - strlen(tmp));
+	  strncat(tmp, ",", sizeof(tmp) - strlen(tmp));
+	  strncat(tmp, double_time_string(stdev), sizeof(tmp) - strlen(tmp));
+	  strncat(tmp, ")", sizeof(tmp) - strlen(tmp));
+	  scenario[scenario_len] -> pause_desc = strdup(tmp);
+
+	  /* It is easy to shoot yourself in the foot with this distribution,
+	   * so the 99-th percentile serves as a sanity check for duration. */
+	  if (gsl_cdf_lognormal_Pinv(0.99, mean, stdev) > INT_MAX) {
+	    ERROR_P2("You should different Lognormal(%d, %d) parameters.\n"
+		"The scenario is likely to take much too long.\n", mean, stdev);
+	  }
+
+	  scenario_duration += (int)gsl_cdf_lognormal_Pinv(0.99, mean, stdev);
+	} else if (xp_get_value("exponential")) {
+	  long mean = 0;
+	  char tmp[26];
+
+	  init_rng();
+
+          if (ptr = xp_get_value("mean")) {
+		mean = get_long(ptr, "Mean pause");
+	  }
+
+	  if (mean < 0) {
+	    ERROR_P1("Pause means should not be negative: %d\n", mean);
+	  }
+
+          scenario[scenario_len] -> pause_param = mean;
+          scenario[scenario_len] -> pause_function = pause_exponential;
+	  strcpy(tmp, "Exp(");
+	  strncat(tmp, time_string(mean), sizeof(tmp) - strlen(tmp));
+	  strncat(tmp, ")", sizeof(tmp) - strlen(tmp));
+	  scenario[scenario_len] -> pause_desc = strdup(tmp);
+	  scenario_duration += (int)gsl_cdf_exponential_Pinv(0.99, mean);
+#else
+	} else if (xp_get_value("normal") ||
+		   xp_get_value("lognormal") ||
+		   xp_get_value("exponential")
+	          ) {
+	  ERROR("To use a statistically distributed pause, you must have the GNU Scientific Library.\n");
+#endif
         } else {
-          scenario[scenario_len] -> pause = -1;
-          scenario_duration += duration;
+	  scenario[scenario_len] -> pause_function = pause_default;
+          scenario[scenario_len] -> pause_param = -1;
+	  scenario[scenario_len] -> pause_desc = strdup(time_string(duration));
         }
         getActionForThisMessage();
       }

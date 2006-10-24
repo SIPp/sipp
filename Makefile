@@ -18,6 +18,8 @@
 #           From Hewlett Packard Company.
 #
 
+-include local.mk
+
 # Output binary to be built
 OUTPUT=sipp
 
@@ -100,7 +102,7 @@ CFLAGS_tru64=-D__OSF1 -pthread
 CFLAGS_SunOS=-g
 CFLAGS_Cygwin=-D__CYGWIN -Dsocklen_t=int
 CFLAGS_Darwin=-D__DARWIN
-CFLAGS=$(CFLAGS_$(SYSTEM)) -D__3PCC__ $(TLS) $(PCAPPLAY)
+CFLAGS=$(CFLAGS_$(SYSTEM)) -D__3PCC__ $(TLS) $(PCAPPLAY) $(EXTRACFLAGS)
 
 #C++ Compiler Flags
 CPPFLAGS_hpux=-AA -mt -D__HPUX +W829 
@@ -110,7 +112,7 @@ CPPFLAGS_tru64=-D__OSF1 -pthread
 CPPFLAGS_SunOS=-g
 CPPFLAGS_Cygwin=-D__CYGWIN -Dsocklen_t=int
 CPPFLAGS_Darwin=-D__DARWIN
-CPPFLAGS=$(CPPFLAGS_$(SYSTEM)) -D__3PCC__ $(TLS) $(PCAPPLAY)
+CPPFLAGS=$(CPPFLAGS_$(SYSTEM)) -D__3PCC__ $(TLS) $(PCAPPLAY) $(EXTRACPPFLAGS)
 
 #Linker mapping
 CCLINK_hpux=aCC
@@ -130,7 +132,7 @@ LFLAGS_tru64=
 LFLAGS_SunOS=
 LFLAGS_Cygwin=
 LFLAGS_Darwin=
-LFLAGS=$(LFLAGS_$(SYSTEM))
+LFLAGS=$(LFLAGS_$(SYSTEM)) $(EXTRALFLAGS)
 
 #Link Libraries
 LIBS_linux= -ldl -lpthread -lncurses -lstdc++ -lm -L /usr/local/lib -L /usr/lib -L /usr/lib64
@@ -140,7 +142,7 @@ LIBS_freebsd= -lcurses -pthread
 LIBS_SunOS= -lcurses -lpthread -lnsl -lsocket -lstdc++ -lm -ldl -L /usr/local/ssl/lib/
 LIBS_Cygwin= -lcurses -lpthread -lstdc++ 
 LIBS_Darwin= -lcurses
-LIBS=$(LIBS_$(SYSTEM))
+LIBS=$(LIBS_$(SYSTEM)) $(EXTRALIBS)
 
 # Include directories
 INCDIR_linux=-I. -I/opt/openssl/include
@@ -151,6 +153,8 @@ INCDIR_SunOS=-I. -I/usr/local/ssl/include/
 INCDIR_Cygwin=-I. -I/usr/include/openssl -I/usr/include
 INCDIR_Darwin=-I. -I/usr/local/ssl/include
 INCDIR=$(INCDIR_$(SYSTEM)) 
+
+-include local.mk
 
 # Building without TLS and authentication (no openssl pre-requisite)
 all:

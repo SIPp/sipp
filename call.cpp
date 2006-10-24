@@ -1278,22 +1278,14 @@ bool call::run()
       paused_until = 0;
       return next();
     }
-  } else if(scenario[msg_index] -> M_type == MSG_TYPE_PAUSE) {
-    /* Starts a pause instruction */
-    if((scenario[msg_index] -> pause) == -1) {
-      paused_until = clock_tick + duration;
-    } else {
-      paused_until = clock_tick + scenario[msg_index] -> pause;
+  } else if(scenario[msg_index] -> pause_function) {
+    unsigned int pause;
+    pause  = scenario[msg_index] -> pause_function(scenario[msg_index]);
+    if (pause > INT_MAX) {
+      pause = INT_MAX;
     }
-    /* Increment the number of sessions in pause state */
-    ++scenario[msg_index]->sessions;
-    return run(); /* In case delay is 0 */
-    
-  } else if(scenario[msg_index] -> pause_max) {
-    /* Starts a variable pause instruction */
-    paused_until = clock_tick + 
-      scenario[msg_index] -> pause_min + rand() % (scenario[msg_index] -> pause_max - 
-                                                   scenario[msg_index] -> pause_min); 
+    paused_until = clock_tick + pause;
+
     /* Increment the number of sessions in pause state */
     ++scenario[msg_index]->sessions;
     return run(); /* In case delay is 0 */

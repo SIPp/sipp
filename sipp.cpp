@@ -755,28 +755,16 @@ void print_stats_in_file(FILE * f, int last)
                scenario[index] -> nb_recv_retrans,
                scenario[index] -> nb_unexp);
       }
-    } else if(scenario[index] -> M_type == MSG_TYPE_PAUSE) {
-      if(scenario[index] -> pause < 0) {
-        if(toolMode == MODE_SERVER) {
-          fprintf(f,"  [%7dms] Var Pause          ", duration);
-      } else {
-          fprintf(f,"   Var Pause [%7dms]         ", duration);
-      }
-      } else {
+    } else if (scenario[index] -> pause_function) {
+      char *desc = scenario[index]->pause_desc;
+      int len = strlen(desc) < 9 ? 9 : strlen(desc);
+
       if(toolMode == MODE_SERVER) {
-          fprintf(f,"  [%7dms] Pause              ", scenario[index]->pause);
-      } else { 
-          fprintf(f,"       Pause [%7dms]         ", scenario[index]->pause);
-        }
+	fprintf(f,"  [%9s] Pause%*s", desc, 23 - len > 0 ? 23 - len : 0, "");
+      } else {
+	fprintf(f,"       Pause [%9s]%*s", desc, 18 - len > 0 ? 18 - len : 0, "");
       }
-      fprintf(f,"%-9d", scenario[index]->sessions);
-      fprintf(f,"                     %-9d" , scenario[index]->nb_unexp);
-    } else if (scenario[index] -> pause_max) {
-      if(toolMode == MODE_SERVER) {
-        fprintf(f,"  [%6dms/%6dms] Pause      ", scenario[index]->pause_min, scenario[index]->pause_max);
-      } else { 
-        fprintf(f,"       Pause [%6dms/%6dms] ", scenario[index]->pause_min, scenario[index]->pause_max);
-      }
+
       fprintf(f,"%-9d", scenario[index]->sessions);
       fprintf(f,"                     %-9d" , scenario[index]->nb_unexp);
     } else if(scenario[index] -> recv_request) {
