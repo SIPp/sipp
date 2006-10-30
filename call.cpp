@@ -1813,7 +1813,7 @@ char* call::createSendingMessage(char * src, int P_index)
         keyword[key - src] = 0;
         src = key + 1;
         // allow +/-n for numeric variables
-        if (!strstr(keyword, "authentication") && !strstr(keyword, "map") && ((key = strchr(keyword,'+')) || (key = strchr(keyword,'-')))) {
+        if (!strstr(keyword, "authentication") && !strstr(keyword, "map") && ((key = strchr(keyword,'+')) || (key = strchr(keyword,'-'))) && isdigit(*(key+1))) {
           offset = atoi(key);
           *key = 0;
         } else offset = 0;
