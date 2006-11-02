@@ -194,6 +194,19 @@ int get_rtd(const char *ptr) {
   return ret;
 }
 
+/* Get a counter */
+long get_counter(const char *ptr, const char *what) {
+  long ret;
+
+  ret = get_long(ptr, what);
+  if (ret < 1 || ret > MAX_COUNTER) {
+    ERROR_P2("Counter %d exceeds MAX_COUNTER %d!\n", ret, MAX_COUNTER);
+  }
+
+  return ret;
+}
+
+
 /*************** Helper functions for computing pauses *************/
 unsigned int pause_default(message *msg) {
   if (msg -> pause_param == -1) {
@@ -439,6 +452,10 @@ void load_scenario(char * filename, int deflt)
           scenario[scenario_len] -> start_rtd = get_rtd(ptr);
 	}
 
+        if(ptr = xp_get_value((char *)"counter")) {
+          scenario[scenario_len] -> counter = get_counter(ptr, "counter");
+	}
+
 #ifdef PCAPPLAY
         getActionForThisMessage();
 #endif
@@ -462,6 +479,10 @@ void load_scenario(char * filename, int deflt)
 
         if(ptr = xp_get_value((char *)"start_rtd")) {
           scenario[scenario_len] -> start_rtd = get_rtd(ptr);
+	}
+
+	if(ptr = xp_get_value((char *)"counter")) {
+	  scenario[scenario_len] -> counter = get_counter(ptr, "counter");
 	}
 
         if (0 != (ptr = xp_get_value((char *)"optional"))) {

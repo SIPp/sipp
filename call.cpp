@@ -1324,6 +1324,11 @@ bool call::run()
       return true;
     }
 
+    /* If this message increments a counter, do it now. */
+    if(int counter = scenario[msg_index] -> counter) {
+	CStat::instance()->computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, counter - 1);
+    }
+
     /* If this message can be used to compute RTD, do it now */
     if(int rtd = scenario[msg_index] -> start_rtd) {
       start_time_rtd[rtd - 1] = clock_tick;
@@ -2715,7 +2720,12 @@ bool call::process_incomming(char * msg)
   if (reply_code == 200) {
     ack_is_pending = true;
   }
-  
+
+  /* If this message increments a counter, do it now. */
+  if(int counter = scenario[search_index] -> counter) {
+    CStat::instance()->computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, counter - 1);
+  }
+
   /* If this message can be used to compute RTD, do it now */
   if(int rtd = scenario[search_index] -> start_rtd) {
     start_time_rtd[rtd - 1] = clock_tick;

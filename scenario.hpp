@@ -106,6 +106,7 @@ public:
   /* Anyway */
   int            start_rtd;
   int            stop_rtd;
+  int		 counter;
   int            lost;
   int            crlf;
   unsigned int   next;

@@ -32,6 +32,7 @@
 #define MAX_REPARTITION_HEADER_LENGTH 1024
 #define MAX_REPARTITION_INFO_LENGTH   1024
 #define MAX_CHAR_BUFFER_SIZE          1024
+#define MAX_COUNTER		      5
 
 #include <ctime> 
 #include <sys/time.h> 
@@ -100,7 +101,8 @@ public:
     E_FAILED_OUTBOUND_CONGESTION,
     E_FAILED_TIMEOUT_ON_RECV,
     E_OUT_OF_CALL_MSGS,
-    E_AUTO_ANSWERED
+    E_AUTO_ANSWERED,
+    E_ADD_GENERIC_COUNTER,
   };
   /**
    * Counters management
@@ -135,6 +137,11 @@ public:
   CPT_C_FailedOutboundCongestion,
   CPT_C_FailedTimeoutOnRecv,
   CPT_C_OutOfCallMsgs,
+  CPT_C_Generic,
+  CPT_C_Generic_2,
+  CPT_C_Generic_3,
+  CPT_C_Generic_4,
+  CPT_C_Generic_5, // This must match or exceed MAX_COUNTER
   CPT_C_AutoAnswered,
 
   // Periodic Display counter
@@ -164,6 +171,11 @@ public:
   CPT_PD_FailedOutboundCongestion,
   CPT_PD_FailedTimeoutOnRecv,
   CPT_PD_OutOfCallMsgs,
+  CPT_PD_Generic,
+  CPT_PD_Generic_2,
+  CPT_PD_Generic_3,
+  CPT_PD_Generic_4,
+  CPT_PD_Generic_5, // This must match or exceed MAX_COUNTER
   CPT_PD_AutoAnswered, // must be last (RESET_PD_COUNTER)
 
   // Periodic logging counter
@@ -193,6 +205,11 @@ public:
   CPT_PL_FailedOutboundCongestion,
   CPT_PL_FailedTimeoutOnRecv,
   CPT_PL_OutOfCallMsgs,
+  CPT_PL_Generic,
+  CPT_PL_Generic_2,
+  CPT_PL_Generic_3,
+  CPT_PL_Generic_4,
+  CPT_PL_Generic_5,
   CPT_PL_AutoAnswered, // must be last (RESET_PL_COUNTER)
 
   E_NB_COUNTER

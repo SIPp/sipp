@@ -720,6 +720,11 @@ int CStat::computeStat (E_Action P_action,
       break;
 
 
+    case E_ADD_GENERIC_COUNTER :
+      M_counters [CPT_C_Generic + which] += P_value;
+      M_counters [CPT_PD_Generic + which] += P_value;
+      M_counters [CPT_PL_Generic + which] += P_value;
+      break;
 
     case E_ADD_RESPONSE_TIME_DURATION :
       // Updating Cumulative Counter
@@ -953,8 +958,26 @@ void CStat::displayData (FILE *f)
   DISPLAY_CUMUL ("Total Call created", M_counters[CPT_C_IncomingCallCreated] +
                  M_counters[CPT_C_OutgoingCallCreated]);
   DISPLAY_PERIO ("Current Call",       M_counters[CPT_C_CurrentCall]);
-  DISPLAY_CROSS_LINE ();
 
+  bool first = true;
+  for (int i = 0; i < MAX_COUNTER; i++) {
+    char s[20];
+
+    if (M_counters[CPT_C_Generic + i] == 0) {
+      continue;
+    }
+
+    if (first) {
+      DISPLAY_CROSS_LINE ();
+      first = false;
+    }
+
+    sprintf(s, "Generic counter %d", i + 1);
+
+    DISPLAY_2VAL(s, M_counters[CPT_PD_Generic + i], M_counters[CPT_C_Generic + i]);
+  }
+
+  DISPLAY_CROSS_LINE ();
   DISPLAY_2VAL  ("Successful call", 
                  M_counters[CPT_PD_SuccessfulCall], 
                  M_counters[CPT_C_SuccessfulCall]);
@@ -1061,8 +1084,26 @@ void CStat::displayStat (FILE *f)
                  M_counters[CPT_C_OutgoingCallCreated]);
   DISPLAY_PERIO ("Current Call",
                  M_counters[CPT_C_CurrentCall]);
-  DISPLAY_CROSS_LINE ();
 
+  bool first = true;
+  for (int i = 0; i < MAX_COUNTER; i++) {
+    char s[20];
+
+    if (M_counters[CPT_C_Generic + i] == 0) {
+      continue;
+    }
+
+    if (first) {
+      DISPLAY_CROSS_LINE ();
+      first = false;
+    }
+
+    sprintf(s, "Generic counter %d", i + 1);
+
+    DISPLAY_2VAL(s, M_counters[CPT_PD_Generic + i], M_counters[CPT_C_Generic + i]);
+  }
+
+  DISPLAY_CROSS_LINE ();
   DISPLAY_2VAL  ("Successful call",
                  M_counters[CPT_PD_SuccessfulCall], 
                  M_counters[CPT_C_SuccessfulCall]);
@@ -1212,6 +1253,10 @@ void CStat::dumpData ()
 
     (*M_outputStream) << "CallLength(P);"
                       << "CallLength(C);";
+    for (int i = 0; i < MAX_COUNTER; i++) {
+      (*M_outputStream) << "GenericCounter" << (i + 1) << "(P);";
+      (*M_outputStream) << "GenericCounter" << (i + 1) << "(C);";
+    }
     for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
       char s[30];
       sprintf(s, "ResponseTimeRepartition%d", i + 1);
@@ -1279,6 +1324,12 @@ void CStat::dumpData ()
     << msToHHMMSSmmm( M_counters [CPT_PL_AverageCallLength  ] ) << ";";
   (*M_outputStream) 
     << msToHHMMSSmmm( M_counters [CPT_C_AverageCallLength   ] ) << ";";
+
+  for (int i = 0; i < MAX_COUNTER; i++) {
+    (*M_outputStream) << M_counters[CPT_PL_Generic + i] << ";";
+    (*M_outputStream) << M_counters[CPT_C_Generic + i] << ";";
+  }
+
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     (*M_outputStream) 
       << sRepartitionInfo(M_ResponseTimeRepartition[i], 
