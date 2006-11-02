@@ -493,7 +493,10 @@ call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
 
   // If not updated by a message we use the start time 
   // information to compute rtd information
-  start_time_rtd  = clock_tick; 
+  for (i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    start_time_rtd[i] = clock_tick;
+    rtd_done[i] = false;
+  }
 
   // by default, last action result is NO_ERROR
   last_action_result = call::E_AR_NO_ERROR;
@@ -532,9 +535,6 @@ call::~call()
                                    clock_tick - start_time);
   }
 
-  call_duration_sum += clock_tick - start_time;
-  call_duration_nb++;
-  
 #ifdef _USE_OPENSSL
   
   if ((toolMode == MODE_SERVER)  && (multisocket))  {
@@ -1325,28 +1325,28 @@ bool call::run()
     }
 
     /* If this message can be used to compute RTD, do it now */
-    if(!rtd_done) {
-      if(scenario[msg_index] -> start_rtd) {
-        start_time_rtd = clock_tick;
-      }
-  
-      if(scenario[msg_index] -> stop_rtd) {
-        rtd_sum += clock_tick - start_time_rtd;
+    if(int rtd = scenario[msg_index] -> start_rtd) {
+      start_time_rtd[rtd - 1] = clock_tick;
+    }
 
-        if(dumpInRtt) {
-          GET_TIME (&L_currentTime);
-          L_stop_time = (double)L_currentTime.tv_sec*1000.0 +
-                        (double)(L_currentTime.tv_usec)/(double)1000.0 ;
-          CStat::instance()->computeRtt(start_time_rtd, L_stop_time) ;
-        }
+    if(int rtd = scenario[msg_index] -> stop_rtd) {
+      if (!rtd_done[rtd - 1]) {
+	int start = start_time_rtd[rtd - 1];
 
-        CStat::instance()->computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
-                                           clock_tick - start_time_rtd);
-        rtd_nb ++;
-        rtd_done = true;
+	if(dumpInRtt) {
+	  GET_TIME (&L_currentTime);
+	  L_stop_time = (double)L_currentTime.tv_sec*1000.0 +
+	    (double)(L_currentTime.tv_usec)/(double)1000.0 ;
+	  CStat::instance()->computeRtt(start, L_stop_time) ;
+	}
+
+	CStat::instance()->computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
+	    clock_tick - start, rtd - 1);
+
+	rtd_done[rtd - 1] = true;
       }
     }
-  
+
     /* decide whether to increment cseq or not 
      * basically increment for anything except response, ACK or CANCEL 
      * Note that cseq is only used by the [cseq] keyword, and
@@ -2717,26 +2717,25 @@ bool call::process_incomming(char * msg)
   }
   
   /* If this message can be used to compute RTD, do it now */
-  if(!rtd_done) {
-    if(scenario[search_index] -> start_rtd) {
-      start_time_rtd = clock_tick;
-    }
+  if(int rtd = scenario[search_index] -> start_rtd) {
+    start_time_rtd[rtd - 1] = clock_tick;
+  }
 
-    if(scenario[search_index] -> stop_rtd) {
-      rtd_sum += clock_tick - start_time_rtd; 
+  if(int rtd = scenario[search_index] -> stop_rtd) {
+    if (!rtd_done[rtd - 1]) {
+      int start = start_time_rtd[rtd - 1];
 
-    if(dumpInRtt) {
-       GET_TIME (&L_currentTime);
-       L_stop_time = (double)L_currentTime.tv_sec*1000.0 +
-                     (double)(L_currentTime.tv_usec)/(double)1000.0 ;
-       CStat::instance()->computeRtt(start_time_rtd, L_stop_time) ;
-    }
+      if(dumpInRtt) {
+	GET_TIME (&L_currentTime);
+	L_stop_time = (double)L_currentTime.tv_sec*1000.0 +
+	  (double)(L_currentTime.tv_usec)/(double)1000.0 ;
+	CStat::instance()->computeRtt(start, L_stop_time);
+      }
 
       CStat::instance()->
-        computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION, 
-                    clock_tick - start_time_rtd);
-      rtd_nb ++;
-      rtd_done = true;
+	computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
+	    clock_tick - start, rtd - 1);
+      rtd_done[rtd - 1] = true;
     }
   }
 

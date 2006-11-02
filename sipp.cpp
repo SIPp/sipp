@@ -705,17 +705,16 @@ void print_stats_in_file(FILE * f, int last)
       }
       *dest = 0;
       if(toolMode == MODE_SERVER) {
-        fprintf(f,"  <---------- %-10s %-8s", 
-               temp_str, 
-               scenario[index] -> start_rtd ? 
-               "B-RTD" :
-               scenario[index] -> stop_rtd ? "E-RTD" : "");
-      } else { 
-        fprintf(f,"  %10s ----------> %-8s", 
-               temp_str, 
-               scenario[index] -> start_rtd ? 
-               "B-RTD" :
-               scenario[index] -> stop_rtd ? "E-RTD" : "");
+        fprintf(f,"  <---------- %-10s ", temp_str);
+      } else {
+        fprintf(f,"  %10s ----------> ", temp_str);
+      }
+      if (scenario[index] -> start_rtd) {
+	fprintf(f, " B-RTD%d ", scenario[index] -> start_rtd);
+      } else if (scenario[index] -> stop_rtd) {
+	fprintf(f, " E-RTD%d ", scenario[index] -> stop_rtd);
+      } else {
+	fprintf(f, "        ");
       }
 
       if(scenario[index] -> retrans_delay) {
@@ -730,17 +729,17 @@ void print_stats_in_file(FILE * f, int last)
       }
     } else if(scenario[index] -> recv_response) {
       if(toolMode == MODE_SERVER) {
-        fprintf(f,"  ----------> %-10d %-8s", 
-               scenario[index] -> recv_response, 
-               scenario[index] -> start_rtd ?
-               "B-RTD" :
-               scenario[index] -> stop_rtd ? "E-RTD" : "");
+	fprintf(f,"  ----------> %-10d ", scenario[index] -> recv_response);
       } else { 
-        fprintf(f,"  %10d <---------- %-8s", 
-               scenario[index] -> recv_response, 
-               scenario[index] -> start_rtd ?
-               "B-RTD" :
-               scenario[index] -> stop_rtd ? "E-RTD" : "");
+	fprintf(f,"  %10d <---------- ", scenario[index] -> recv_response);
+      }
+
+      if (scenario[index] -> start_rtd) {
+	fprintf(f, " B-RTD%d ", scenario[index] -> start_rtd);
+      } else if (scenario[index] -> stop_rtd) {
+	fprintf(f, " E-RTD%d ", scenario[index] -> stop_rtd);
+      } else {
+	fprintf(f, "        ");
       }
 
       if(scenario[index]->retrans_delay) {
@@ -769,18 +768,19 @@ void print_stats_in_file(FILE * f, int last)
       fprintf(f,"                     %-9d" , scenario[index]->nb_unexp);
     } else if(scenario[index] -> recv_request) {
       if(toolMode == MODE_SERVER) {
-        fprintf(f,"  ----------> %-10s %-8s", 
-               scenario[index] -> recv_request, 
-               scenario[index] -> start_rtd ? 
-               "B-RTD" :
-               scenario[index] -> stop_rtd ? "E-RTD" : "");
-      } else { 
-        fprintf(f,"  %10s <---------- %-8s", 
-               scenario[index] -> recv_request, 
-               scenario[index] -> start_rtd ? 
-               "B-RTD" :
-               scenario[index] -> stop_rtd ? "E-RTD" : "");
+	fprintf(f,"  ----------> %-10s ", scenario[index] -> recv_request);
+      } else {
+	fprintf(f,"  %10s <---------- ", scenario[index] -> recv_request);
       }
+
+      if (scenario[index] -> start_rtd) {
+	fprintf(f, " B-RTD%d ", scenario[index] -> start_rtd);
+      } else if (scenario[index] -> stop_rtd) {
+	fprintf(f, " E-RTD%d ", scenario[index] -> stop_rtd);
+      } else {
+	fprintf(f, "        ");
+      }
+
       if(scenario[index]->retrans_delay) {
         fprintf(f,"%-9ld %-9ld %-9ld %-9ld" ,
                scenario[index]->nb_recv,
@@ -842,20 +842,23 @@ void print_header_line(FILE *f, int last)
   switch(currentScreenToDisplay)
     {
     case DISPLAY_STAT_SCREEN :
-      fprintf(f,"----------------------------- Statistics Screen ------- [1-5]: Change Screen --" SIPP_ENDL);
+      fprintf(f,"----------------------------- Statistics Screen ------- [1-9]: Change Screen --" SIPP_ENDL);
       break;
     case DISPLAY_REPARTITION_SCREEN :
-      fprintf(f,"---------------------------- Repartition Screen ------- [1-5]: Change Screen --" SIPP_ENDL);
+      fprintf(f,"---------------------------- Repartition Screen ------- [1-9]: Change Screen --" SIPP_ENDL);
       break;
     case DISPLAY_VARIABLE_SCREEN  :
-      fprintf(f,"----------------------------- Variables Screen -------- [1-5]: Change Screen --" SIPP_ENDL);
+      fprintf(f,"----------------------------- Variables Screen -------- [1-9]: Change Screen --" SIPP_ENDL);
       break;
     case DISPLAY_TDM_MAP_SCREEN  :
-      fprintf(f,"------------------------------ TDM map Screen --------- [1-5]: Change Screen --" SIPP_ENDL);
+      fprintf(f,"------------------------------ TDM map Screen --------- [1-9]: Change Screen --" SIPP_ENDL);
+      break;
+    case DISPLAY_SECONDARY_REPARTITION_SCREEN :
+      fprintf(f,"--------------------------- Repartition %d Screen ------ [1-9]: Change Screen --" SIPP_ENDL, currentRepartitionToDisplay);
       break;
     case DISPLAY_SCENARIO_SCREEN :
     default:
-      fprintf(f,"------------------------------ Scenario Screen -------- [1-5]: Change Screen --" SIPP_ENDL);
+      fprintf(f,"------------------------------ Scenario Screen -------- [1-9]: Change Screen --" SIPP_ENDL);
       break;
     }
 }
@@ -1008,7 +1011,8 @@ void print_variable_list()
 void print_screens(void)
 {
   int oldScreen = currentScreenToDisplay;
-  
+  int oldRepartition = currentRepartitionToDisplay;
+
   currentScreenToDisplay = DISPLAY_SCENARIO_SCREEN;  
   print_header_line(   screenf, 0);
   print_stats_in_file( screenf, 0);
@@ -1018,13 +1022,22 @@ void print_screens(void)
   print_header_line(   screenf, 0);
   CStat::instance()->displayStat(screenf);
   print_bottom_line(   screenf, 0);
-  
-  currentScreenToDisplay = DISPLAY_REPARTITION_SCREEN;  
+
+  currentScreenToDisplay = DISPLAY_REPARTITION_SCREEN;
   print_header_line(   screenf, 0);
   CStat::instance()->displayRepartition(screenf);
   print_bottom_line(   screenf, 0);
 
+  currentScreenToDisplay = DISPLAY_SECONDARY_REPARTITION_SCREEN;
+  for (int i = 1; i < MAX_RTD_INFO_LENGTH; i++) {
+    currentRepartitionToDisplay = i;
+    print_header_line(   screenf, 0);
+    CStat::instance()->displaySecondaryRepartition(screenf, i);
+    print_bottom_line(   screenf, 0);
+  }
+
   currentScreenToDisplay = oldScreen;
+  currentRepartitionToDisplay = oldRepartition;
 }
 
 void print_statistics(int last)
@@ -1055,6 +1068,9 @@ void print_statistics(int last)
       case DISPLAY_TDM_MAP_SCREEN  :
         print_tdm_map();
         break;
+      case DISPLAY_SECONDARY_REPARTITION_SCREEN :
+	CStat::instance()->displaySecondaryRepartition(stdout, currentRepartitionToDisplay);
+	break;
       case DISPLAY_SCENARIO_SCREEN :
       default:
         print_stats_in_file(stdout, last);
@@ -1142,11 +1158,21 @@ bool process_key(int c) {
       }
       break;
 
+    /* Screens 6, 7, 8, 9  are for the extra RTD repartitions. */
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+      currentScreenToDisplay = DISPLAY_SECONDARY_REPARTITION_SCREEN;
+      currentRepartitionToDisplay = (c - '6') + 1;
+      print_statistics(0);
+      break;
+
     case '+':
       set_rate(rate + 1);
       print_statistics(0);
       break;
-      
+
     case '-':
       set_rate(rate - 1);
       print_statistics(0);
@@ -1156,7 +1182,7 @@ bool process_key(int c) {
       set_rate(rate + 10);
       print_statistics(0);
       break;
-      
+
     case '/':
       set_rate(rate - 10);
       print_statistics(0);
@@ -1164,10 +1190,10 @@ bool process_key(int c) {
 
     case 'p':
       if(paused) { 
-        paused = 0;
-        set_rate(rate);
+	paused = 0;
+	set_rate(rate);
       } else {
-        paused = 1;
+	paused = 1;
       }
       print_statistics(0);
       break;
@@ -1175,8 +1201,9 @@ bool process_key(int c) {
     case 'q':
       quitting+=10;
       print_statistics(0);
-      break;
+      return true;
     }
+    return false;
 }
 
 /* User interface threads */
@@ -2572,10 +2599,6 @@ void traffic_thread(bool ipv6)
         CStat::instance()->computeStat(CStat::E_RESET_PD_COUNTERS);
         last_report_time  = clock_tick;
         last_report_calls = total_calls;
-        rtd_sum = 0;
-        rtd_nb = 0;
-        call_duration_sum = 0;
-        call_duration_nb = 0;
         scheduling_loops = 0;
       }
 
@@ -3244,9 +3267,9 @@ int main(int argc, char *argv[])
   /* Command line parsing */
   
   for(argi = 1; argi < argc; argi++) {
-	 
+
     int processed = 0;
-	 
+
     if((!strcmp(argv[argi], "-h"    )) ||
        (!strcmp(argv[argi], "--h"   )) || 
        (!strcmp(argv[argi], "--help")) || 
@@ -3258,7 +3281,7 @@ int main(int argc, char *argv[])
       }
       exit(EXIT_OTHER);
     }
-	 
+
     if(!strcmp(argv[argi], "-p")) {
       if((++argi) < argc) {
         user_port = atol(argv[argi]);
@@ -3268,7 +3291,7 @@ int main(int argc, char *argv[])
                  argv[argi-1]);
       }
     }
-	 
+
     if(!strcmp(argv[argi], "-mp")) {
       if((++argi) < argc) {
         media_port = atol(argv[argi]);

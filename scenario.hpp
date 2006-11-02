@@ -30,6 +30,12 @@
 
 #define SCEN_VARIABLE_SIZE 20
 
+/* MAX_RTD_INFO_LENGTH defines the number of RTD begin and end points a single
+ * call can have.  If you need more than five, you can increase this number,
+ * but you also need to insert entries into the E_CounterName enum in stat.hpp.
+ */
+#define MAX_RTD_INFO_LENGTH 5
+
 #ifdef __3PCC__
 #define MSG_TYPE_SENDCMD   0
 #define MSG_TYPE_RECVCMD   1
@@ -98,8 +104,8 @@ public:
   int            optional;
 
   /* Anyway */
-  bool           start_rtd;
-  bool           stop_rtd;
+  int            start_rtd;
+  int            stop_rtd;
   int            lost;
   int            crlf;
   unsigned int   next;

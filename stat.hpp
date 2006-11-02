@@ -40,6 +40,9 @@
 #include <fstream>
 #include <stdio.h>
 
+/* For MAX_RTD_INFO_LENGTH. */
+#include "scenario.hpp"
+
 using namespace std;
 
 /*
@@ -113,7 +116,15 @@ public:
   CPT_C_NbOfCallUsedForAverageCallLength,
   CPT_C_AverageCallLength,
   CPT_C_NbOfCallUsedForAverageResponseTime,
+  CPT_C_NbOfCallUsedForAverageResponseTime_2,
+  CPT_C_NbOfCallUsedForAverageResponseTime_3,
+  CPT_C_NbOfCallUsedForAverageResponseTime_4,
+  CPT_C_NbOfCallUsedForAverageResponseTime_5, // This must match or exceed MAX_RTD_INFO
   CPT_C_AverageResponseTime,
+  CPT_C_AverageResponseTime_2,
+  CPT_C_AverageResponseTime_3,
+  CPT_C_AverageResponseTime_4,
+  CPT_C_AverageResponseTime_5, // This must match or exceed MAX_RTD_INFO
   CPT_C_FailedCallCannotSendMessage,
   CPT_C_FailedCallMaxUdpRetrans,
   CPT_C_FailedCallUnexpectedMessage,
@@ -134,7 +145,15 @@ public:
   CPT_PD_NbOfCallUsedForAverageCallLength,
   CPT_PD_AverageCallLength,
   CPT_PD_NbOfCallUsedForAverageResponseTime,
+  CPT_PD_NbOfCallUsedForAverageResponseTime_2, // This must match or exceed MAX_RTD_INFO
+  CPT_PD_NbOfCallUsedForAverageResponseTime_3, // This must match or exceed MAX_RTD_INFO
+  CPT_PD_NbOfCallUsedForAverageResponseTime_4, // This must match or exceed MAX_RTD_INFO
+  CPT_PD_NbOfCallUsedForAverageResponseTime_5, // This must match or exceed MAX_RTD_INFO
   CPT_PD_AverageResponseTime,
+  CPT_PD_AverageResponseTime_2,
+  CPT_PD_AverageResponseTime_3,
+  CPT_PD_AverageResponseTime_4,
+  CPT_PD_AverageResponseTime_5,
   CPT_PD_FailedCallCannotSendMessage,
   CPT_PD_FailedCallMaxUdpRetrans,
   CPT_PD_FailedCallUnexpectedMessage,
@@ -155,7 +174,15 @@ public:
   CPT_PL_NbOfCallUsedForAverageCallLength,
   CPT_PL_AverageCallLength,
   CPT_PL_NbOfCallUsedForAverageResponseTime,
+  CPT_PL_NbOfCallUsedForAverageResponseTime_2,
+  CPT_PL_NbOfCallUsedForAverageResponseTime_3,
+  CPT_PL_NbOfCallUsedForAverageResponseTime_4,
+  CPT_PL_NbOfCallUsedForAverageResponseTime_5,
   CPT_PL_AverageResponseTime,
+  CPT_PL_AverageResponseTime_2,
+  CPT_PL_AverageResponseTime_3,
+  CPT_PL_AverageResponseTime_4,
+  CPT_PL_AverageResponseTime_5,
   CPT_PL_FailedCallCannotSendMessage,
   CPT_PL_FailedCallMaxUdpRetrans,
   CPT_PL_FailedCallUnexpectedMessage,
@@ -202,6 +229,7 @@ public:
    */
   int computeStat (E_Action P_action);
   int computeStat (E_Action P_action, unsigned long P_value);
+  int computeStat (E_Action P_action, unsigned long P_value, int which);
 
   /**
    * ComputeRtt Methods are used to calculate the response time
@@ -270,6 +298,7 @@ public:
   void displayData (FILE *f);
   void displayStat(FILE *f);
   void displayRepartition(FILE *f);
+  void displaySecondaryRepartition (FILE *f, int which);
 
 
   /**
@@ -302,7 +331,7 @@ private:
 
   static CStat*            M_instance;
   unsigned long            M_counters[E_NB_COUNTER];
-  T_dynamicalRepartition*  M_ResponseTimeRepartition;
+  T_dynamicalRepartition*  M_ResponseTimeRepartition[MAX_RTD_INFO_LENGTH];
   T_dynamicalRepartition*  M_CallLengthRepartition;
   int                      M_SizeOfResponseTimeRepartition;
   int                      M_SizeOfCallLengthRepartition;
@@ -324,11 +353,11 @@ private:
   unsigned long            M_report_freq_dumpRtt       ;
 
   unsigned long long       M_C_sumCallLength;
-  unsigned long long       M_C_sumResponseTime;
+  unsigned long long       M_C_sumResponseTime[MAX_RTD_INFO_LENGTH];
   unsigned long long       M_PD_sumCallLength;
-  unsigned long long       M_PD_sumResponseTime;
+  unsigned long long       M_PD_sumResponseTime[MAX_RTD_INFO_LENGTH];
   unsigned long long       M_PL_sumCallLength;
-  unsigned long long       M_PL_sumResponseTime;
+  unsigned long long       M_PL_sumResponseTime[MAX_RTD_INFO_LENGTH];
 
   /**
    * initRepartition

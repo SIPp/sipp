@@ -116,8 +116,13 @@ CStat* CStat::instance()
 
 void CStat::close ()
 {
-  if (M_ResponseTimeRepartition != NULL)
-    delete [] M_ResponseTimeRepartition;
+  int i;
+
+  for (i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    if (M_ResponseTimeRepartition[i] != NULL) {
+      delete [] M_ResponseTimeRepartition[i];
+    }
+  }
 
   if (M_CallLengthRepartition != NULL)
     delete [] M_CallLengthRepartition;
@@ -148,12 +153,15 @@ void CStat::close ()
   M_SizeOfCallLengthRepartition   = 0;
   M_CallLengthRepartition         = NULL;
   M_fileName                      = NULL;
-  M_ResponseTimeRepartition       = NULL;
   M_outputStream                  = NULL;
 
   M_outputStreamRtt               = NULL;
   M_fileNameRtt                   = NULL;
   M_dumpRespTime                  = NULL;
+
+  for (i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    M_ResponseTimeRepartition[i]  = NULL;
+  }
 
   // On last position
   if (M_instance != NULL)
@@ -431,19 +439,22 @@ void CStat::setRepartitionResponseTime (char * P_listeStr)
 {
   unsigned int * listeInteger;
   int sizeOfListe;
-  
-  if(createIntegerTable(P_listeStr, &listeInteger, &sizeOfListe) == 1) {
-    initRepartition(listeInteger, 
-                    sizeOfListe, 
-                    &M_ResponseTimeRepartition, 
-                    &M_SizeOfResponseTimeRepartition);
-  } else {
-    M_CallLengthRepartition         = NULL;
-    M_SizeOfCallLengthRepartition   = 0;
+  int i;
+
+  for (i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    if(createIntegerTable(P_listeStr, &listeInteger, &sizeOfListe) == 1) {
+      initRepartition(listeInteger,
+	  sizeOfListe,
+	  &M_ResponseTimeRepartition[i],
+	  &M_SizeOfResponseTimeRepartition);
+    } else {
+      M_CallLengthRepartition         = NULL;
+      M_SizeOfCallLengthRepartition   = 0;
+    }
   }
   delete [] listeInteger;
   listeInteger = NULL;
-} 
+}
 
 
 void CStat::setRepartitionCallLength(unsigned int* repartition, 
@@ -458,10 +469,12 @@ void CStat::setRepartitionCallLength(unsigned int* repartition,
 void CStat::setRepartitionResponseTime(unsigned int* repartition, 
                                        int nombre)
 {
-  initRepartition(repartition, 
-                  nombre, 
-                  &M_ResponseTimeRepartition, 
-                  &M_SizeOfResponseTimeRepartition);
+  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    initRepartition(repartition,
+                    nombre,
+                    &M_ResponseTimeRepartition[i],
+                    &M_SizeOfResponseTimeRepartition);
+  }
 }
 
 
@@ -636,16 +649,14 @@ int CStat::computeStat (E_Action P_action)
   return (0);
 }
 
-int CStat::computeRtt ( unsigned long P_start_time, double P_stop_time){
+int CStat::computeRtt (unsigned long P_start_time, double P_stop_time) {
+  M_dumpRespTime[M_counterDumpRespTime].date =  (P_stop_time - M_time_ref) ;
+  M_dumpRespTime[M_counterDumpRespTime].rtt = ( P_stop_time - (P_start_time + M_time_ref));
+  M_counterDumpRespTime++ ;
 
-   M_dumpRespTime[M_counterDumpRespTime].date =  (P_stop_time - M_time_ref) ;
-   M_dumpRespTime[M_counterDumpRespTime].rtt = ( P_stop_time - (P_start_time + M_time_ref));
-   M_counterDumpRespTime++ ;
-
-   if (M_counterDumpRespTime > (M_report_freq_dumpRtt - 1)) {
-       dumpDataRtt () ;
-   }
-                                                                                                                             
+  if (M_counterDumpRespTime > (M_report_freq_dumpRtt - 1)) {
+    dumpDataRtt () ;
+  }
   return (0);
 }
 
@@ -680,8 +691,14 @@ void CStat::updateAverageCounter(E_CounterName P_AverageCounter,
     }
 }
 
-int CStat::computeStat (E_Action P_action, 
-                        unsigned long P_value)
+int CStat::computeStat (E_Action P_action,
+                        unsigned long P_value) {
+  return computeStat(P_action, P_value, 0);
+}
+
+int CStat::computeStat (E_Action P_action,
+                        unsigned long P_value,
+			int which)
 {
   switch (P_action)
     {
@@ -706,19 +723,19 @@ int CStat::computeStat (E_Action P_action,
 
     case E_ADD_RESPONSE_TIME_DURATION :
       // Updating Cumulative Counter
-      updateAverageCounter(CPT_C_AverageResponseTime, 
-                           CPT_C_NbOfCallUsedForAverageResponseTime,
-                           &M_C_sumResponseTime, P_value); 
-      updateRepartition(M_ResponseTimeRepartition, 
+      updateAverageCounter((E_CounterName)(CPT_C_AverageResponseTime + which), 
+                           (E_CounterName)(CPT_C_NbOfCallUsedForAverageResponseTime + which),
+                           &M_C_sumResponseTime[which], P_value); 
+      updateRepartition(M_ResponseTimeRepartition[which], 
                         M_SizeOfResponseTimeRepartition, P_value);
       // Updating Periodical Diplayed counter
-      updateAverageCounter(CPT_PD_AverageResponseTime, 
-                           CPT_PD_NbOfCallUsedForAverageResponseTime,
-                           &M_PD_sumResponseTime, P_value); 
+      updateAverageCounter((E_CounterName)(CPT_PD_AverageResponseTime + which), 
+                           (E_CounterName)(CPT_PD_NbOfCallUsedForAverageResponseTime + which),
+                           &M_PD_sumResponseTime[which], P_value); 
       // Updating Periodical Logging counter
-      updateAverageCounter(CPT_PL_AverageResponseTime, 
-                           CPT_PL_NbOfCallUsedForAverageResponseTime,
-                           &M_PL_sumResponseTime, P_value); 
+      updateAverageCounter((E_CounterName)(CPT_PL_AverageResponseTime + which), 
+                           (E_CounterName)(CPT_PL_NbOfCallUsedForAverageResponseTime + which),
+                           &M_PL_sumResponseTime[which], P_value); 
       break;
 
     default :
@@ -781,7 +798,9 @@ CStat::CStat ()
   M_fileName = new char[L_size];
   strcpy(M_fileName, DEFAULT_FILE_NAME);
   strcat(M_fileName, DEFAULT_EXTENSION);
-  M_ResponseTimeRepartition = NULL;
+  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    M_ResponseTimeRepartition[i] = NULL;
+  }
   M_CallLengthRepartition   = NULL;
   M_SizeOfResponseTimeRepartition = 0;
   M_SizeOfCallLengthRepartition   = 0;
@@ -947,16 +966,34 @@ void CStat::displayData (FILE *f)
   //                 M_counters[CPT_C_UnexpectedMessage]);
 
   DISPLAY_CROSS_LINE ();
-  DISPLAY_TXT_COL ("Response Time", 
-                   msToHHMMSSmmm( M_counters [CPT_PD_AverageResponseTime] ), 
-                   msToHHMMSSmmm( M_counters [CPT_C_AverageResponseTime] ));
+  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    char s[15];
+
+    if (M_counters[CPT_C_NbOfCallUsedForAverageResponseTime +i ] == 0) {
+      continue;
+    }
+
+    sprintf(s, "Response Time %d", i + 1);
+    DISPLAY_TXT_COL (s,
+	msToHHMMSSmmm( M_counters [CPT_PD_AverageResponseTime + i] ),
+	msToHHMMSSmmm( M_counters [CPT_C_AverageResponseTime + i] ));
+  }
   DISPLAY_TXT_COL ("Call Length", 
                    msToHHMMSSmmm( M_counters [CPT_PD_AverageCallLength] ), 
                    msToHHMMSSmmm( M_counters [CPT_C_AverageCallLength] ));
   DISPLAY_CROSS_LINE ();
 
-  DISPLAY_INFO("Average Response Time Repartition");
-  displayRepartition(f, M_ResponseTimeRepartition, M_SizeOfResponseTimeRepartition);
+  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    char s[50];
+
+    if (M_counters[CPT_C_AverageResponseTime + i] == 0) {
+      continue;
+    }
+
+    sprintf(s, "Average Response Time Repartition, %d", i + 1);
+    DISPLAY_INFO(s);
+    displayRepartition(f, M_ResponseTimeRepartition[i], M_SizeOfResponseTimeRepartition);
+  }
   DISPLAY_INFO("Average Call Length Repartition");
   displayRepartition(f, M_CallLengthRepartition, M_SizeOfCallLengthRepartition);
 
@@ -1037,9 +1074,19 @@ void CStat::displayStat (FILE *f)
   //               M_counters[CPT_C_UnexpectedMessage]);
 
   DISPLAY_CROSS_LINE ();
-  DISPLAY_TXT_COL ("Response Time", 
-                   msToHHMMSSmmm( M_counters [CPT_PD_AverageResponseTime] ), 
-                   msToHHMMSSmmm( M_counters [CPT_C_AverageResponseTime] ));
+  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    char s[20];
+
+    if (M_counters[CPT_C_NbOfCallUsedForAverageResponseTime + i] == 0) {
+      continue;
+    }
+
+
+    sprintf(s, "Response Time %d", i + 1);
+    DISPLAY_TXT_COL (s,
+	msToHHMMSSmmm( M_counters [CPT_PD_AverageResponseTime + i] ),
+	msToHHMMSSmmm( M_counters [CPT_C_AverageResponseTime + i] ));
+  }
   DISPLAY_TXT_COL ("Call Length", 
                    msToHHMMSSmmm( M_counters [CPT_PD_AverageCallLength] ), 
                    msToHHMMSSmmm( M_counters [CPT_C_AverageCallLength] ));
@@ -1049,13 +1096,22 @@ void CStat::displayRepartition (FILE *f)
 {
   DISPLAY_INFO("Average Response Time Repartition");
   displayRepartition(f,
-                     M_ResponseTimeRepartition, 
+                     M_ResponseTimeRepartition[0], 
                      M_SizeOfResponseTimeRepartition);
   DISPLAY_INFO("Average Call Length Repartition");
   displayRepartition(f,
                      M_CallLengthRepartition, 
                      M_SizeOfCallLengthRepartition);
 }
+
+void CStat::displaySecondaryRepartition (FILE *f, int which)
+{
+  DISPLAY_INFO("Average Response Time Repartition");
+  displayRepartition(f,
+                     M_ResponseTimeRepartition[which],
+                     M_SizeOfResponseTimeRepartition);
+}
+
 
 void CStat::dumpData ()
 {
@@ -1142,14 +1198,27 @@ void CStat::dumpData ()
                       << "OutOfCallMsgs(P);"
                       << "OutOfCallMsgs(C);"
                       << "AutoAnswered(P);"
-                      << "AutoAnswered(C);"
-                      << "ResponseTime(P);"
-                      << "ResponseTime(C);"
-                      << "CallLength(P);"
+                      << "AutoAnswered(C);";
+
+    for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+      char s_P[30];
+      char s_C[30];
+
+      sprintf(s_P, "ResponseTime%d(P);", i + 1);
+      sprintf(s_C, "ResponseTime%d(C);", i + 1);
+
+      (*M_outputStream) << s_P << s_C;
+    }
+
+    (*M_outputStream) << "CallLength(P);"
                       << "CallLength(C);";
-    (*M_outputStream) << sRepartitionHeader(M_ResponseTimeRepartition, 
-                                            M_SizeOfResponseTimeRepartition,
-                                            (char*) "ResponseTimeRepartition");
+    for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+      char s[30];
+      sprintf(s, "ResponseTimeRepartition%d", i + 1);
+      (*M_outputStream) << sRepartitionHeader(M_ResponseTimeRepartition[i],
+					      M_SizeOfResponseTimeRepartition,
+					      s);
+    }
     (*M_outputStream) << sRepartitionHeader(M_CallLengthRepartition, 
                                             M_SizeOfCallLengthRepartition,
                                             (char*) "CallLengthRepartition");
@@ -1200,17 +1269,21 @@ void CStat::dumpData ()
                     << M_counters[CPT_C_AutoAnswered]                   << ";";
 
   // SF917289 << M_counters[CPT_C_UnexpectedMessage]    << ";";
-  (*M_outputStream) 
-    << msToHHMMSSmmm( M_counters [CPT_PL_AverageResponseTime] ) << ";";
-  (*M_outputStream) 
-    << msToHHMMSSmmm( M_counters [CPT_C_AverageResponseTime ] ) << ";";
+  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    (*M_outputStream) 
+      << msToHHMMSSmmm( M_counters [CPT_PL_AverageResponseTime + i] ) << ";";
+    (*M_outputStream) 
+      << msToHHMMSSmmm( M_counters [CPT_C_AverageResponseTime  + i] ) << ";";
+  }
   (*M_outputStream) 
     << msToHHMMSSmmm( M_counters [CPT_PL_AverageCallLength  ] ) << ";";
   (*M_outputStream) 
     << msToHHMMSSmmm( M_counters [CPT_C_AverageCallLength   ] ) << ";";
-  (*M_outputStream) 
-    << sRepartitionInfo(M_ResponseTimeRepartition, 
-                        M_SizeOfResponseTimeRepartition);
+  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    (*M_outputStream) 
+      << sRepartitionInfo(M_ResponseTimeRepartition[i], 
+                          M_SizeOfResponseTimeRepartition);
+  }
   (*M_outputStream) 
     << sRepartitionInfo(M_CallLengthRepartition, 
                         M_SizeOfCallLengthRepartition);
@@ -1218,7 +1291,7 @@ void CStat::dumpData ()
 
   // flushing the output file to let the tail -f working !
   (*M_outputStream).flush();
-  
+
 } /* end of logData () */
 
 void CStat::dumpDataRtt ()

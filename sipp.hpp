@@ -114,6 +114,7 @@
 #define DISPLAY_SCENARIO_SCREEN    3
 #define DISPLAY_VARIABLE_SCREEN    4
 #define DISPLAY_TDM_MAP_SCREEN     5
+#define DISPLAY_SECONDARY_REPARTITION_SCREEN 6
 
 #define MAX_RECV_LOOPS_PER_CYCLE   1000
 #define NB_UPDATE_PER_CYCLE        1
@@ -212,6 +213,7 @@ extern bool               ctrlEWGlobal            _DEFVAL(false);
 
 extern int                currentScreenToDisplay  _DEFVAL
                                                   (DISPLAY_SCENARIO_SCREEN);
+extern int                currentRepartitionToDisplay  _DEFVAL(1);
 extern unsigned int       base_cseq               _DEFVAL(0);
 extern char             * auth_uri                _DEFVAL(0);
 extern char             * call_id_string          _DEFVAL("%u-%p@%s");
@@ -260,10 +262,6 @@ extern unsigned int getmilliseconds();
 
 extern unsigned long total_calls                  _DEFVAL(0);
 extern unsigned long last_report_calls            _DEFVAL(0);
-extern unsigned long rtd_sum                      _DEFVAL(0);
-extern unsigned long rtd_nb                       _DEFVAL(0);
-extern unsigned long call_duration_sum            _DEFVAL(0);
-extern unsigned long call_duration_nb             _DEFVAL(0);
 extern unsigned long nb_net_send_errors           _DEFVAL(0);
 extern unsigned long nb_net_cong                  _DEFVAL(0);
 extern unsigned long nb_net_recv_errors           _DEFVAL(0);

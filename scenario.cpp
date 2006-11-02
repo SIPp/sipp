@@ -171,6 +171,28 @@ char *double_time_string(double ms) {
    return tmp;
 }
 
+/* For backwards compatibility, we assign "true" to slot 1, false to 0, and
+ * allow other valid integers. */
+int get_rtd(const char *ptr) {
+  char *endptr;
+  int ret;
+
+  if(!strcmp(ptr, (char *)"true"))
+    return 1;
+  if(!strcmp(ptr, (char *)"false"))
+    return 0;
+
+  ret = strtol(ptr, &endptr, 0);
+  if (*endptr) {
+    ERROR_P1("rtd \"%s\" is not a valid integer!\n", ptr);
+  }
+
+  if (ret >= MAX_RTD_INFO_LENGTH) {
+    ERROR_P2("rtd %d exceeds MAX_RTD_INFO_LENGTH %d!\n", ret, MAX_RTD_INFO_LENGTH);
+  }
+
+  return ret;
+}
 
 /*************** Helper functions for computing pauses *************/
 unsigned int pause_default(message *msg) {
@@ -410,16 +432,12 @@ void load_scenario(char * filename, int deflt)
         }
       
         if(ptr = xp_get_value((char *)"rtd")) {
-          if(!strcmp(ptr, (char *)"true")) {
-            scenario[scenario_len] -> stop_rtd = true;
-          }
-        }
+          scenario[scenario_len] -> stop_rtd = get_rtd(ptr);
+	}
 
         if(ptr = xp_get_value((char *)"start_rtd")) {
-          if(!strcmp(ptr, (char *)"true")) {
-            scenario[scenario_len] -> start_rtd = true;
-          }
-        }
+          scenario[scenario_len] -> start_rtd = get_rtd(ptr);
+	}
 
 #ifdef PCAPPLAY
         getActionForThisMessage();
@@ -437,18 +455,14 @@ void load_scenario(char * filename, int deflt)
         if(ptr = xp_get_value((char *)"request")) {
           scenario[scenario_len] -> recv_request = strdup(ptr);
         }
-      
+
         if(ptr = xp_get_value((char *)"rtd")) {
-          if(!strcmp(ptr, "true")) {
-            scenario[scenario_len] -> stop_rtd = true;
-          }
-        }
+          scenario[scenario_len] -> stop_rtd = get_rtd(ptr);
+	}
 
         if(ptr = xp_get_value((char *)"start_rtd")) {
-          if(!strcmp(ptr, (char *)"true")) {
-            scenario[scenario_len] -> start_rtd = true;
-          }
-        }
+          scenario[scenario_len] -> start_rtd = get_rtd(ptr);
+	}
 
         if (0 != (ptr = xp_get_value((char *)"optional"))) {
           if(!strcmp(ptr, "true")) {
