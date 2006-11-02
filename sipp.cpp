@@ -1113,6 +1113,72 @@ void sipp_sigusr2(int /* not used */)
   }
 }
 
+bool process_key(int c) {
+    switch (c) {
+    case '1':
+      currentScreenToDisplay = DISPLAY_SCENARIO_SCREEN;
+      print_statistics(0);
+      break;
+
+    case '2':
+      currentScreenToDisplay = DISPLAY_STAT_SCREEN;
+      print_statistics(0);
+      break;
+
+    case '3':
+      currentScreenToDisplay = DISPLAY_REPARTITION_SCREEN;
+      print_statistics(0);
+      break;
+
+    case '4':
+      currentScreenToDisplay = DISPLAY_VARIABLE_SCREEN;
+      print_statistics(0);
+      break;
+
+    case '5':
+      if (use_tdmmap) {
+        currentScreenToDisplay = DISPLAY_TDM_MAP_SCREEN;
+        print_statistics(0);
+      }
+      break;
+
+    case '+':
+      set_rate(rate + 1);
+      print_statistics(0);
+      break;
+      
+    case '-':
+      set_rate(rate - 1);
+      print_statistics(0);
+      break;
+
+    case '*':
+      set_rate(rate + 10);
+      print_statistics(0);
+      break;
+      
+    case '/':
+      set_rate(rate - 10);
+      print_statistics(0);
+      break;
+
+    case 'p':
+      if(paused) { 
+        paused = 0;
+        set_rate(rate);
+      } else {
+        paused = 1;
+      }
+      print_statistics(0);
+      break;
+
+    case 'q':
+      quitting+=10;
+      print_statistics(0);
+      break;
+    }
+}
+
 /* User interface threads */
 /* Socket control thread */
 void ctrl_thread (void * param)
@@ -1151,70 +1217,8 @@ void ctrl_thread (void * param)
 
   while(!feof(stdin)){
     ret = recv(soc,bufrcv,20,0);
-    c = bufrcv[0];
-
-    switch (c) {
-    case '1':
-      currentScreenToDisplay = DISPLAY_SCENARIO_SCREEN;
-      print_statistics(0);
-      break;
-
-    case '2':
-      currentScreenToDisplay = DISPLAY_STAT_SCREEN;
-      print_statistics(0);
-      break;
-
-    case '3':
-      currentScreenToDisplay = DISPLAY_REPARTITION_SCREEN;
-      print_statistics(0);
-      break;
-
-    case '4':
-      currentScreenToDisplay = DISPLAY_VARIABLE_SCREEN;
-      print_statistics(0);
-      break;
-
-    case '5':
-      if (use_tdmmap) {
-        currentScreenToDisplay = DISPLAY_TDM_MAP_SCREEN;
-        print_statistics(0);
-      }
-      break;
-
-    case '+':
-      set_rate(rate + 1);
-      print_statistics(0);
-      break;
-      
-    case '-':
-      set_rate(rate - 1);
-      print_statistics(0);
-      break;
-
-    case '*':
-      set_rate(rate + 10);
-      print_statistics(0);
-      break;
-      
-    case '/':
-      set_rate(rate - 10);
-      print_statistics(0);
-      break;
-
-    case 'p':
-      if(paused) { 
-        paused = 0;
-        set_rate(rate);
-      } else {
-        paused = 1;
-      }
-      print_statistics(0);
-      break;
-
-    case 'q':
-      quitting+=10;
-      print_statistics(0);
-      break;
+    if (process_key(bufrcv[0])) {
+	return;
     }
   }
 }
@@ -1225,71 +1229,9 @@ void keyb_thread (void * param)
   int c;
 
   while(!feof(stdin)){
-
     c = screen_readkey();
-    
-    switch (c) {
-    case '1':
-      currentScreenToDisplay = DISPLAY_SCENARIO_SCREEN;
-      print_statistics(0);
-      break;
-
-    case '2':
-      currentScreenToDisplay = DISPLAY_STAT_SCREEN;
-      print_statistics(0);
-      break;
-
-    case '3':
-      currentScreenToDisplay = DISPLAY_REPARTITION_SCREEN;
-      print_statistics(0);
-      break;
-
-    case '4':
-      currentScreenToDisplay = DISPLAY_VARIABLE_SCREEN;
-      print_statistics(0);
-      break;
-
-    case '5':
-      if (use_tdmmap) {
-        currentScreenToDisplay = DISPLAY_TDM_MAP_SCREEN;
-        print_statistics(0);
-      }
-      break;
-
-    case '+':
-      set_rate(rate + 1);
-      print_statistics(0);
-      break;
-      
-    case '-':
-      set_rate(rate - 1);
-      print_statistics(0);
-      break;
-
-    case '*':
-      set_rate(rate + 10);
-      print_statistics(0);
-      break;
-      
-    case '/':
-      set_rate(rate - 10);
-      print_statistics(0);
-      break;
-
-    case 'p':
-      if(paused) { 
-        paused = 0;
-        set_rate(rate);
-      } else {
-        paused = 1;
-      }
-      print_statistics(0);
-      break;
-
-    case 'q':
-      quitting+=10;
-      print_statistics(0);
-      break;
+    if (process_key(c)) {
+	return;
     }
   }
 }

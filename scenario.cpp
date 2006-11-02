@@ -72,7 +72,6 @@ message::message()
   nb_timeout = 0;
   nb_unexp = 0;
   nb_lost = 0;
-  counter = 0;
 
   M_actions = NULL;
 
