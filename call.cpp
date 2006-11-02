@@ -2191,7 +2191,7 @@ char* call::createSendingMessage(char * src, int P_index)
      * been keyword substituted) to build the md5 hash
      */
 
-    if((src = strstr(msg_buffer, "[authentication")) && dialog_authentication) {
+    if(dialog_authentication && (src = strstr(msg_buffer, "[authentication"))) {
 
         char my_auth_user[KEYWORD_SIZE];
         char my_auth_pass[KEYWORD_SIZE];
