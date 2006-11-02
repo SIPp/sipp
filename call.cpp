@@ -1095,7 +1095,9 @@ char * call::get_last_header(char * name)
 {
   static char last_header[MAX_HEADER_LEN * 10];
   char * src, *dest, *ptr;
-  char src_tmp[MAX_HEADER_LEN+1] = "\n";
+  /* Gcc will zero extend this using memset, if we do a default initializer.
+     We don't need this behavior, because we can just use sprintf. */
+  char src_tmp[MAX_HEADER_LEN+1];
 
   if((!last_recv_msg) || (!strlen(last_recv_msg))) {
     return NULL;
@@ -1103,7 +1105,9 @@ char * call::get_last_header(char * name)
 
   src = last_recv_msg;
   dest = last_header;
-  strncpy(src_tmp+1, name, MAX_HEADER_LEN);
+  snprintf(src_tmp, MAX_HEADER_LEN, "\n%s", name);
+  /* Ideally this check should be moved to the XML parser so that it is not
+   * along a critical path.  We could also handle lowercasing there. */
   if (strlen(name) > MAX_HEADER_LEN) {
     ERROR_P2("call::get_last_header: Header to parse bigger than %d (%d)", MAX_HEADER_LEN, strlen(name));
   }
@@ -1167,10 +1171,10 @@ char * call::get_header_content(char* message, char * name)
 {
   /* non reentrant. consider accepting char buffer as param */
   static char last_header[MAX_HEADER_LEN * 10];
-  char * src, *dest, *ptr;
+  char * src, *dest, *start, *ptr;
 
   /* returns empty string in case of error */
-  memset(last_header, 0, sizeof(last_header));
+  last_header[0] = '\0';
 
   if((!message) || (!strlen(message))) {
     return last_header;
@@ -1223,17 +1227,15 @@ char * call::get_header_content(char* message, char * name)
   }
   
   /* Remove leading whitespaces */
-  while (*last_header == ' ') {
-      strcpy(last_header, &last_header[1]);
-  }
+  for (start = last_header; *start == ' '; start++);
 
   /* remove enclosed CRs in multilines */
-  while(ptr = strchr(last_header, '\r')) {
+  while(ptr = strchr(start, '\r')) {
     /* Use strlen(ptr) to include trailing zero */
     memmove(ptr, ptr+1, strlen(ptr));
   }
 
-  return last_header;
+  return start;
 }
 
 char * call::send_scene(int index, int *send_status)
@@ -1943,6 +1945,8 @@ char* call::createSendingMessage(char * src, int P_index)
           current_line[line_mark-src] = '\0';
         }
       }
+      /* This hex encoding could be done in XML parsing, allowing us to skip
+       * these conditionals and branches. */
       if ((*src == '\\') && (*(src+1) == 'x')) {
         /* Allows any hex coded char like '\x5B' ([) */
         src += 2;
@@ -2169,6 +2173,7 @@ char* call::createSendingMessage(char * src, int P_index)
                    keyword);
           }
         }
+      /* This could also be done at XML parsing time. */
       } else if (*src == '\n') {
         *dest++ = '\r';
         *dest++ = *src++;
@@ -2426,7 +2431,7 @@ void call::extract_cseq_method (char* method, char* msg)
   if (cseq = strstr (msg, "CSeq"))
   {
     char * value ;
-    if ( value = strstr (cseq,  ":"))
+    if ( value = strchr (cseq,  ':'))
     {
       value++;
       while ( isspace(*value)) value++;  // ignore any white spaces after the :
@@ -2434,8 +2439,9 @@ void call::extract_cseq_method (char* method, char* msg)
       value++;
       char *end = value;
       int nbytes = 0;
-      while ((*end != '\n')) { end++; nbytes++;}
-      if (nbytes > 0) strncpy (method, value, (nbytes-1));
+      /* A '\r' terminates the line, so we want to catch that too. */
+      while ((*end != '\r') && (*end != '\n')) { end++; nbytes++; }
+      if (nbytes > 0) strncpy (method, value, nbytes);
       method[nbytes] = '\0';
     }
   }
@@ -2620,7 +2626,7 @@ bool call::process_incoming(char * msg)
     actionResult = executeAction(NULL, msg_index);
     return next();
   }
-  memset (responsecseqmethod, 0, sizeof(responsecseqmethod));
+  responsecseqmethod[0] = '\0';
 
   if((transport == T_UDP) && (retrans_enabled)) {
 

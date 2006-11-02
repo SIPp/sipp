@@ -344,18 +344,36 @@ void get_host_and_port(char * addr, char * host, int * port)
   }
 }
 
+static unsigned char tolower_table[256];
+
+void init_tolower_table() {
+  for (int i = 0; i < 256; i++) {
+    tolower_table[i] = tolower(i);
+  }
+}
+
+/* This is simpler than doing a regular tolower, because there are no branches.
+ * We also inline it, so that we don't have function call overheads.
+ *
+ * An alternative to a table would be to do (c | 0x20), but that only works if
+ * we are sure that we are searching for characters (or don't care if they are
+ * not characters. */
+unsigned char inline mytolower(unsigned char c) {
+  return tolower_table[c];
+}
+
 char * strcasestr2(char *s, char *find) {
   char c, sc;
   size_t len;
 
   if ((c = *find++) != 0) {
-    c = tolower((unsigned char)c);
+    c = mytolower((unsigned char)c);
     len = strlen(find);
     do {
       do {
         if ((sc = *s++) == 0)
         return (NULL);
-      } while ((char)tolower((unsigned char)sc) != c);
+      } while ((char)mytolower((unsigned char)sc) != c);
     } while (strncasecmp(s, find, len) != 0);
     s--;
   }
@@ -2234,8 +2252,8 @@ void pollset_process(bool ipv6)
       char          * call_id;
       call          * call_ptr;
       int             pollset_index = 0;
-      
-      memset(msg,0,sizeof(msg));
+     
+      msg[0] = '\0';
       msg_size = recv_message(msg, 
                               SIPP_MAX_MSG_SIZE, 
                               &pollset_index
@@ -3294,6 +3312,9 @@ int main(int argc, char *argv[])
   
   /* Load compression pluggin if available */
   comp_load();
+
+  /* Initialize the tolower table. */
+  init_tolower_table();
   
   /* Command line parsing */
   
