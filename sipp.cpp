@@ -3004,7 +3004,7 @@ void help()
      "                      - On any other unexpected message, abort the call by\n"
      "                      sending a BYE or a CANCEL\n"
      "\n"
-     "   -rsa host:port   : Set the remote sending address to host:port.\n"
+     "   -rsa host[:port] : Set the remote sending address to host:port.\n"
      "                      for sending the messages.\n"
      "\n"
      "   -max_reconnect   : Set the the maximum number of reconnection.\n"
@@ -3830,7 +3830,7 @@ int main(int argc, char *argv[])
     if(!strcmp(argv[argi], "-rsa")) {
       if((++argi) < argc) {
 	char *remote_s_address ;
-        int   remote_s_p;
+        int   remote_s_p = DEFAULT_PORT;
         int   temp_remote_s_p;
 
         processed = 1;
