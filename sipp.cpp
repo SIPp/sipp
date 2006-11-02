@@ -1720,7 +1720,7 @@ int decompress_if_needed(int sock, char *buff,  int len, void **st)
 
 void sipp_customize_socket(int s)
 {
-  unsigned int buffsize = 65535;
+  unsigned int buffsize = buff_size;
 
   /* Allows fast TCP reuse of the socket */
 #ifdef _USE_OPENSSL
@@ -1764,7 +1764,7 @@ void sipp_customize_socket(int s)
     ERROR_NO("Unable to set socket sndbuf");
   }
   
-  buffsize = 65535;
+  buffsize = buff_size;
   if(setsockopt(s,
                 SOL_SOCKET,
                 SO_RCVBUF,
@@ -2716,6 +2716,8 @@ void help()
      "   -p local_port    : Set the local port number. Default is a\n"
      "                      random free port chosen by the system.\n"
      "\n"
+     "   -buff_size buff_size: Set the send and receive buffer size.\n"
+     "\n"
      "   -i local_ip      : Set the local IP address for 'Contact:',\n"
      "                      'Via:', and 'From:' headers. Default is\n"
      "                      primary host IP address.\n"
@@ -3318,6 +3320,16 @@ int main(int argc, char *argv[])
       } else {
         ERROR_P1("Missing argument for param '%s'.\nUse 'sipp -h' for details",
                  argv[argi-1]);
+      }
+    }
+
+    if(!strcmp(argv[argi], "-buff_size")) {
+      if((++argi) < argc) {
+	buff_size = atol(argv[argi]);
+	processed = 1;
+      } else {
+	ERROR_P1("Missing argument for param '%s'.\nUse 'sipp -h' for details",
+	    argv[argi-1]);
       }
     }
 
