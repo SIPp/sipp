@@ -1215,6 +1215,12 @@ bool process_key(int c) {
       print_statistics(0);
       break;
 
+    case 's':
+      if (screenf) {
+	print_screens();
+      }
+      break;
+
     case 'q':
       quitting+=10;
       print_statistics(0);
