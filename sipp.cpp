@@ -2468,7 +2468,7 @@ void traffic_thread(bool ipv6)
           )
         {
           while((calls_to_open--) && 
-                (open_calls < open_calls_allowed) &&
+                (!open_calls_allowed || open_calls < open_calls_allowed) &&
                 (total_calls < stop_after)) 
             {
               // adding a new OUTGOING CALL
@@ -2489,8 +2489,8 @@ void traffic_thread(bool ipv6)
 		break;
 	      }
             }
-        
-          if(open_calls >= open_calls_allowed) {
+
+          if(open_calls_allowed && (open_calls >= open_calls_allowed)) {
             set_rate(rate);
           }
         }
