@@ -19,7 +19,7 @@
  *            Richard GAYRAUD
  *            From Hewlett Packard Company.
  *            Wolfgang Beck
- *           
+ *
  */
 
 #include <iostream>
@@ -620,6 +620,13 @@ int CStat::computeStat (E_Action P_action)
       M_counters [CPT_PD_OutOfCallMsgs]++;
       M_counters [CPT_PL_OutOfCallMsgs]++;
       break;
+
+    case E_RETRANSMISSION :
+      M_counters [CPT_C_Retransmissions]++;
+      M_counters [CPT_PD_Retransmissions]++;
+      M_counters [CPT_PL_Retransmissions]++;
+      break;
+
 
     case E_AUTO_ANSWERED :
       // Let's count the automatic answered calls
@@ -1262,6 +1269,8 @@ void CStat::dumpData ()
                       << "FailedTimeoutOnRecv(C);"
                       << "OutOfCallMsgs(P);"
                       << "OutOfCallMsgs(C);"
+                      << "Retransmissions(P);"
+                      << "Retransmissions(C);"
                       << "AutoAnswered(P);"
                       << "AutoAnswered(C);";
 
@@ -1341,6 +1350,8 @@ void CStat::dumpData ()
                     << M_counters[CPT_C_FailedTimeoutOnRecv]            << ";"
                     << M_counters[CPT_PL_OutOfCallMsgs]                 << ";"
                     << M_counters[CPT_C_OutOfCallMsgs]                  << ";"
+                    << M_counters[CPT_PL_Retransmissions]               << ";"
+                    << M_counters[CPT_C_Retransmissions]                << ";"
                     << M_counters[CPT_PL_AutoAnswered]                  << ";"
                     << M_counters[CPT_C_AutoAnswered]                   << ";";
 

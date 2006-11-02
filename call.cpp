@@ -1423,6 +1423,7 @@ bool call::run()
         return false;
       }
       scenario[last_send_index] -> nb_sent_retrans++;
+      CStat::instance()->computeStat(CStat::E_RETRANSMISSION);
       next_retrans = clock_tick + nb_last_delay;
     }
   }
