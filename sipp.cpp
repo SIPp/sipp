@@ -484,6 +484,17 @@ void pollset_reset()
 
 }
 
+int pollset_find(int sock) {
+  int idx;
+
+  for(idx = 0; idx < pollnfds; idx++) {
+    if (pollfiles[idx].fd == sock) {
+	return idx;
+    }
+  }
+  return -1;
+}
+
 int pollset_add(call * p_call, int sock)
 {  
 
@@ -1829,104 +1840,67 @@ int send_message(int s, void ** comp_state, char * msg)
                      msg, 
                      strlen(msg), 
                      0);
-    
+
    if (rc >= 0 && rc != strlen(msg))
     {
-      int idx;
-		  
       /* Truncated message sent ... we need to store pending msg */
-      for(idx = 0;
-          idx < pollnfds;
-          idx++) {
-        if (pollfiles[idx].fd == s) {
-          pending_msg[idx] = strdup(msg+rc);
-          return 0;
-        }
-      }
-    }
-    
-    if(rc <= 0) {
-    TRACE_MSG((s,"Error send\n"));    
-    
-#ifdef EAGAIN
-    if((ctrlEWGlobal == false) && (errno == EAGAIN)) {
-      int             L_idx     ;
+      int idx = pollset_find(s);
 
-      TRACE_MSG((s,"problem EAGAIN \n"));
-
-      if (multisocket) {
-         char          * L_call_id;
-         call          * L_call_ptr;
-
-         L_call_id = get_call_id(msg);
-         L_call_ptr = get_call(L_call_id);
-         L_call_ptr -> poll_flag_write = true ;
-
+      if (idx == -1) {
+	ERROR_P1("I was searching for congested socket %d but could not find it in the pollset", s);
       } else {
-        ctrlEW  = true ;
+	pending_msg[idx] = strdup(msg+rc);
       }
-
-      ctrlEWGlobal = true ;
-
-      for(L_idx = 0;
-          L_idx < pollnfds;
-          L_idx++) {
-       if (pollfiles[L_idx].fd == s) {
-            TRACE_MSG((s,"problem EAGAIN on socket  %d and poll_idx  is %d \n", pollfiles[L_idx].fd, L_idx));
-            pollfiles[L_idx].events  = POLLOUT ;
-        }
-      }
-      nb_net_cong++;
-      return 0;
     }
+
+    if(rc <= 0) {
+#ifdef EAGAIN
+      int again = ((errno == EAGAIN) || (errno == EWOULDBLOCK)) ? errno : 0;
+#else
+      int again = (errno == EWOULDBLOCK) ? errno : 0;
 #endif
 
+      if(again) {
+	int             L_idx     ;
 
-    if((ctrlEWGlobal == false) && (errno == EWOULDBLOCK)) {
-      int             L_idx     ;
+	if (multisocket) {
+	  char          * L_call_id;
+	  call          * L_call_ptr;
 
-      TRACE_MSG((s,"problem EWOULDBLOCK \n"));
+	  L_call_id = get_call_id(msg);
+	  L_call_ptr = get_call(L_call_id);
+	  L_call_ptr -> poll_flag_write = true ;
 
-      if (multisocket) {
-         char          * L_call_id;
-         call          * L_call_ptr;
+	} else {
+	  ctrlEW  = true ;
+	}
 
-         L_call_id = get_call_id(msg);
-         L_call_ptr = get_call(L_call_id);
-         L_call_ptr -> poll_flag_write = true ;
+	L_idx = pollset_find(s);
+	if (L_idx == -1) {
+	  ERROR_P1("I was searching for congested socket %d but could not find it in the pollset", s);
+	} else {
+	  TRACE_MSG((s,"Problem %s on socket  %d and poll_idx  is %d \n",
+		again == EWOULDBLOCK ? "EWOULDBLOCK" : "EAGAIN",
+		pollfiles[L_idx].fd, L_idx));
+	  pollfiles[L_idx].events  |= POLLOUT ;
+	}
 
-      } else {
-        ctrlEW  = true ;
+	nb_net_cong++;
+	return 0;
       }
 
-      ctrlEWGlobal = true ;
-
-      for(L_idx = 0;
-          L_idx < pollnfds;
-          L_idx++) {
-       if (pollfiles[L_idx].fd == s) {
-            TRACE_MSG((s,"problem EWOULDBLOCK on socket  %d and poll_idx  is %d \n", pollfiles[L_idx].fd, L_idx));
-            pollfiles[L_idx].events  = POLLOUT ;
-        }
+      if(errno == EPIPE) {
+	nb_net_send_errors++;
+	if (reset_number > 0) {
+	  WARNING("Broken pipe on TCP connection, remote peer "
+	      "probably closed the socket");
+	  start_calls = 1;
+	  return -2;
+	} else {
+	  ERROR("Broken pipe on TCP connection, remote peer "
+	      "probably closed the socket");
+	}
       }
-      nb_net_cong++;
-      return 0;
-    }
-    
-
-    
-    if(errno == EPIPE) {
-      nb_net_send_errors++;
-      if (reset_number > 0) {
-        WARNING("Broken pipe on TCP connection, remote peer "
-                "probably closed the socket");
-        start_calls = 1;
-        return -2;
-      } else {
-        ERROR("Broken pipe on TCP connection, remote peer "
-            "probably closed the socket");
-      }
-    }
 
       nb_net_send_errors++;
       WARNING_NO("Unable to send TCP message");

@@ -225,7 +225,6 @@ void delete_call(char * call_id)
       ERROR("Call not found");
     }
   }
-  
 }
 
 void delete_calls(void)
@@ -1515,13 +1514,8 @@ bool call::run()
     }
 
     if(send_status == -1) { /* Would Block on TCP */
-       if (msg_index == 0 ) 
-          delete_call(id) ;
-      if (incr_cseq) --cseq;
       return true; /* No step, nothing done, retry later */
-    }
-
-    if(send_status <-1) { /* Send error */
+    } else if(send_status <-1) { /* Send error */
       return false; /* call deleted */
     }
     

@@ -212,8 +212,7 @@ extern bool               twinSippMode            _DEFVAL(false);
 extern bool               backgroundMode          _DEFVAL(false);        
 extern bool               signalDump              _DEFVAL(false);        
 
-extern bool               ctrlEW                  _DEFVAL(false);        
-extern bool               ctrlEWGlobal            _DEFVAL(false);    
+extern bool               ctrlEW                  _DEFVAL(false);
 
 extern int                currentScreenToDisplay  _DEFVAL
                                                   (DISPLAY_SCENARIO_SCREEN);
