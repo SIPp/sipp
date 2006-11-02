@@ -1201,6 +1201,12 @@ bool process_key(int c) {
       quitting+=10;
       print_statistics(0);
       return true;
+
+    case 'Q':
+      /* We are going to break, so we never have a chance to press q twice. */
+      quitting+=20;
+      print_statistics(0);
+      break;
     }
     return false;
 }
