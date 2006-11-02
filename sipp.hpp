@@ -134,7 +134,7 @@
 #define DEFAULT_AUTH_PASSWORD        ((char *)"password")
 #define DEFAULT_REPORT_FREQ          1000
 #define DEFAULT_REPORT_FREQ_DUMP_LOG 60000
-#define DEFAULT_TIMER_RESOLUTION     200
+#define DEFAULT_TIMER_RESOLUTION     10
 #define DEFAULT_FREQ_DUMP_RTT        200
 #define DEFAULT_MAX_MULTI_SOCKET     50000
 #define DEFAULT_CTRL_SOCKET_PORT     8888
@@ -285,6 +285,9 @@ extern unsigned long rtp2_bytes_pcap              _DEFVAL(0);
 /************* Rate Control & Contexts variables **************/
 
 extern int           open_calls                   _DEFVAL(0);
+extern int           last_running_calls           _DEFVAL(0);
+extern int           last_woken_calls             _DEFVAL(0);
+extern int           last_paused_calls            _DEFVAL(0);
 extern unsigned int  open_calls_allowed           _DEFVAL(0);
 extern unsigned long last_rate_change_time        _DEFVAL(1);
 extern unsigned long last_report_time             _DEFVAL(1);

@@ -593,18 +593,17 @@ void print_stats_in_file(FILE * f, int last)
 
   /* 2nd line */
   if( toolMode == MODE_SERVER) { 
-    sprintf(temp_str, "%d concurrent calls", open_calls);
+    sprintf(temp_str, "%d calls", open_calls);
   } else {
-    sprintf(temp_str, 
-            "%d concurrent calls (limit %d)",
-            open_calls,
-            open_calls_allowed);
+    sprintf(temp_str, "%d calls (limit %d)", open_calls, open_calls_allowed);
   }
   fprintf(f,"  %-38s Peak was %d calls, after %d s" SIPP_ENDL, 
          temp_str, 
          open_calls_peak, 
          open_calls_peak_time);
-  
+  fprintf(f,"  %d Running, %d Paused, %d Woken up" SIPP_ENDL,
+	 last_running_calls, last_paused_calls, last_woken_calls);
+
   /* 3rd line (optional) */
   if( toolMode != MODE_SERVER) { 
     sprintf(temp_str,"%d out-of-call msg (discarded)", 
@@ -2351,7 +2350,7 @@ void pollset_process(bool ipv6)
               else
 #endif
                 {
-                  if(!call_ptr -> process_incomming(msg))
+                  if(!call_ptr -> process_incoming(msg))
                     {
                       /* Needs to rebuild the pollset (socket removed, 
                        * call deleted, etc... Cause pollcalls is now 
@@ -2543,9 +2542,20 @@ void traffic_thread(bool ipv6)
 
     /* Schedule all pending calls and process their timers */
     if((clock_tick - last_timer_cycle) > timer_resolution) {
-      call_map * calls = get_calls();
-      call_map::iterator iter;
-      
+      call_list *running_calls;
+      call_list::iterator iter;
+
+      /* Just for the count. */
+      running_calls = get_running_calls();
+      last_running_calls = running_calls->size();
+
+      /* If we have expired paused calls, move them to the run queue. */
+      last_woken_calls = expire_paused_calls();
+
+      /* Now we process calls that are on the run queue. */
+      running_calls = get_running_calls();
+      last_paused_calls = paused_calls_count();
+
       /* Workaround hpux problem with iterators. Deleting the
        * current object when iterating breaks the iterator and
        * leads to iterate again on the destroyed (deleted)
@@ -2553,10 +2563,11 @@ void traffic_thread(bool ipv6)
        * deletion of the object*/
       call * last = NULL;
 
-      for(iter = calls->begin(); iter != calls->end(); iter++) {
+
+      for(iter = running_calls->begin(); iter != running_calls->end(); iter++) {
         if(last) { last -> run(); }
-        last = iter -> second;
-      }      
+        last = *iter;
+      }
       if(last) { last -> run(); }
 
       last_timer_cycle = clock_tick;
@@ -2566,10 +2577,10 @@ void traffic_thread(bool ipv6)
       last_time = new_time;
 
     }
-    
-    /* Receive incomming messages */
+
+    /* Receive incoming messages */
     pollset_process(ipv6);
-   
+
     new_time = getmilliseconds();
     clock_tick = new_time ;
     last_time = new_time;
@@ -4353,6 +4364,13 @@ int close_calls() {
     call_ptr = (calls->begin() != calls->end()) ? (calls->begin())->second : NULL ;
     if(call_ptr) {
       calls->erase(calls->begin());
+      if (call_ptr->running) {
+	if (!remove_running_call(call_ptr)) {
+	  ERROR("Internal error: A running call is not in the list.\n");
+	}
+      } else {
+	remove_paused_call(call_ptr);
+      }
       delete call_ptr; 
       open_calls--;
     }

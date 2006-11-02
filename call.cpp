@@ -40,6 +40,7 @@
 #include "send_packets.h"
 #endif
 #include "sipp.hpp"
+#include "assert.h"
 
 #define KEYWORD_SIZE 256
 
@@ -52,6 +53,8 @@ extern  SSL_CTX             *sip_trp_ssl_ctx;
 extern  map<string, int>     map_perip_fd;
 
 call_map calls;
+call_list running_calls;
+timewheel paused_calls;
 
 #ifdef PCAPPLAY
 /* send_packets pthread wrapper */
@@ -59,7 +62,6 @@ void *send_wrapper(void *);
 #endif
 
 /************** Call map and management routines **************/
-
 call_map * get_calls()
 {
   return & calls;
@@ -117,7 +119,10 @@ call * add_call(char * call_id, bool ipv6)
     ERROR("Memory Overflow");
   }
 
+  /* All calls must exist in the map. */
   calls[std::string(call_id)] = new_call;
+  /* All calls start off in the running state. */
+  add_running_call(new_call);
 
   new_call -> number = next_number;
   new_call -> tdm_map_number = nb - 1;
@@ -140,47 +145,8 @@ call * add_call(char * call_id, bool ipv6)
 #ifdef _USE_OPENSSL
 call * add_call(char * call_id , int P_pollset_indx, bool ipv6)
 {
-  call * new_call;
-  unsigned int nb;
-
-  if(!next_number) { next_number ++; }
-
-  if (use_tdmmap) {
-    nb = get_tdm_map_number(next_number);
-    if (nb != 0) {
-      /* Mark the entry in the list as busy */
-      tdm_map[nb - 1] = true;
-    } else {
-      /* Can't create the new call */
-      WARNING("Can't create new outgoing call: all tdm_map circuits busy");
-      return NULL;
-    }
-  }
-
-  new_call = new call(call_id, ipv6);
-
-  if(!new_call) {
-    ERROR("Memory Overflow");
-  }
-
-  calls[std::string(call_id)] = new_call;
-
-  new_call -> number = next_number;
-  new_call -> tdm_map_number = nb - 1;
-  new_call ->  pollset_index = P_pollset_indx;
-
-  /* Vital counters update */
-  next_number++;
-  open_calls++;
-
-  /* Statistics update */
-  calls_since_last_rate_change++;
-  total_calls ++;
-
-  if(open_calls > open_calls_peak) { 
-    open_calls_peak = open_calls;
-    open_calls_peak_time = clock_tick / 1000;
-  }
+  call * new_call = add_call(call_id, ipv6);
+  new_call -> pollset_index = P_pollset_indx;
   return new_call;
 }
 #endif
@@ -218,7 +184,7 @@ call * add_call(bool ipv6)
       }
   }
   call_id[count] = 0;
-  
+
   return add_call(call_id, ipv6);
 }
 
@@ -226,12 +192,11 @@ call * get_call(char * call_id)
 {
 
   call * call_ptr;
-  
+
   call_map::iterator call_it ;
   call_it = calls.find(call_map::key_type(call_id));
   call_ptr = (call_it != calls.end()) ? call_it->second : NULL ;
 
-  
   return call_ptr;
 }
 
@@ -246,6 +211,13 @@ void delete_call(char * call_id)
     if (use_tdmmap)
       tdm_map[call_ptr->tdm_map_number] = false;
     calls.erase(call_it);
+
+    if (call_ptr->running) {
+      remove_running_call(call_ptr);
+    } else {
+      paused_calls.remove_paused_call(call_ptr);
+    }
+
     delete call_ptr;
     open_calls--;
   } else {
@@ -269,6 +241,157 @@ void delete_calls(void)
     call_it = calls.begin();
   }
 
+}
+
+/* Routines for running calls. */
+
+/* Get the overall list of running calls. */
+call_list * get_running_calls()
+{
+  return & running_calls;
+}
+
+/* Put this call in the run queue. */
+void add_running_call(call *call) {
+  call->runit = running_calls.insert(running_calls.end(), call);
+  call->running = true;
+}
+
+/* Remove this call from the run queue. */
+bool remove_running_call(call *call) {
+  if (!call->running) {
+    return false;
+    }
+  running_calls.erase(call->runit);
+  call->running = false;
+  return true;
+}
+
+/* When should this call wake up? */
+unsigned int call_wake(call *call) {
+  unsigned int wake = 0;
+
+  if (call->paused_until) {
+    wake = call->paused_until;
+  }
+
+  if (call->next_retrans && (!wake || (call->next_retrans < wake))) {
+    wake = call->next_retrans;
+  }
+
+  if (call->recv_timeout && (!wake || (call->recv_timeout < wake))) {
+    wake = call->recv_timeout;
+  }
+
+  return wake;
+}
+
+call_list *timewheel::call2list(call *call) {
+  unsigned int wake = call_wake(call);
+  unsigned int wake_sigbits = wake;
+  unsigned int base_sigbits = wheel_base;
+
+  if (wake == 0) {
+    return &forever_list;
+  }
+
+  wake_sigbits /= LEVEL_ONE_SLOTS;
+  base_sigbits /= LEVEL_ONE_SLOTS;
+  if (wake_sigbits == base_sigbits) {
+    return &wheel_one[wake % LEVEL_ONE_SLOTS];
+  }
+  wake_sigbits /= LEVEL_TWO_SLOTS;
+  base_sigbits /= LEVEL_TWO_SLOTS;
+  if (wake_sigbits == base_sigbits) {
+    return &wheel_two[(wake / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS];
+  }
+  assert(wake_sigbits < LEVEL_THREE_SLOTS);
+  return &wheel_three[wake_sigbits];
+}
+
+int expire_paused_calls() {
+  return paused_calls.expire_paused_calls();
+}
+int paused_calls_count() {
+  return paused_calls.size();
+}
+void remove_paused_call(call *call) {
+  assert(!call->running);
+  paused_calls.remove_paused_call(call);
+}
+
+/* Iterate through our sorted set of paused calls, removing those that
+ * should no longer be paused, and adding them to the run queue. */
+int timewheel::expire_paused_calls() {
+  int found = 0;
+
+  while (wheel_base < clock_tick) {
+    int slot1 = wheel_base % LEVEL_ONE_SLOTS;
+
+    /* Migrate calls from slot2 when we hit 0. */
+    if (slot1 == 0) {
+      int slot2 = (wheel_base / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS;
+
+      /* If slot2 is also zero, we must migrate calls from slot3 into slot2. */
+      if (slot2 == 0) {
+	int slot3 = ((wheel_base / LEVEL_ONE_SLOTS) / LEVEL_TWO_SLOTS);
+	assert(slot3 < LEVEL_THREE_SLOTS);
+
+	for (call_list::iterator l3it = wheel_three[slot3].begin();
+	     l3it != wheel_three[slot3].end();
+	     l3it++) {
+	  /* Migrate this call to wheel two. */
+	  add_paused_call(*l3it, false);
+        }
+
+	wheel_three[slot3].clear();
+      }
+
+      for (call_list::iterator l2it = wheel_two[slot2].begin();
+	  l2it != wheel_two[slot2].end();
+	  l2it++) {
+	/* Migrate this call to wheel one. */
+	add_paused_call(*l2it, false);
+      }
+
+      wheel_two[slot2].clear();
+    }
+
+    found += wheel_one[slot1].size();
+    for(call_list::iterator it = wheel_one[slot1].begin();
+	it != wheel_one[slot1].end(); it++) {
+      add_running_call(*it);
+      count--;
+    }
+    wheel_one[slot1].clear();
+
+    wheel_base++;
+  }
+
+  return found;
+}
+
+void timewheel::add_paused_call(call *call, bool increment) {
+  call_list *list = call2list(call);
+  call->pauseit = list->insert(list->end(), call);
+  if (increment) {
+    count++;
+  }
+}
+
+void timewheel::remove_paused_call(call *call) {
+  call_list *list = call2list(call);
+  list->erase(call->pauseit);
+  count--;
+}
+
+timewheel::timewheel() {
+  count = 0;
+  wheel_base = clock_tick;
+}
+
+int timewheel::size() {
+  return count;
 }
 
 #ifdef PCAPPLAY
@@ -1204,6 +1327,8 @@ bool call::run()
   bool            bInviteTransaction = false;
   int             actionResult = 0;
 
+  assert(running);
+
   if(msg_index >= scenario_len) {
     ERROR_P3("Scenario overrun for call %s (%08x) (index = %d)\n", 
              id, this, msg_index);
@@ -1212,7 +1337,7 @@ bool call::run()
   /* Manages retransmissions or delete if max retrans reached */
   if(next_retrans && (next_retrans < clock_tick)) {
     nb_retrans++;
-    
+
     if ( (0 == strncmp (last_send_msg, "INVITE", 6)) )
     {
       bInviteTransaction = true;
@@ -1270,14 +1395,17 @@ bool call::run()
   }
 
   if(paused_until) {
-
     /* Process a pending pause instruction until delay expiration */
     if(paused_until > clock_tick) {
+      if (!remove_running_call(this)) {
+	ERROR("Tried to remove a running call that wasn't running!\n");
+      }
+      paused_calls.add_paused_call(this, true);
       return true;
-    } else {
-      paused_until = 0;
-      return next();
     }
+    /* Our pause is over. */
+    paused_until = 0;
+    return next();
   } else if(scenario[msg_index] -> pause_function) {
     unsigned int pause;
     pause  = scenario[msg_index] -> pause_function(scenario[msg_index]);
@@ -1321,6 +1449,10 @@ bool call::run()
      * retransmission enabled is acknowledged */
 
     if(next_retrans) {
+      if (!remove_running_call(this)) {
+	ERROR("Tried to remove a running call that wasn't running!\n");
+      }
+      paused_calls.add_paused_call(this, true);
       return true;
     }
 
@@ -1425,7 +1557,11 @@ bool call::run()
                                                  ) {
     if (recv_timeout) {
       if(recv_timeout > clock_tick || recv_timeout > getmilliseconds()) {
-          return true;
+	if (!remove_running_call(this)) {
+	  ERROR("Tried to remove a running call that wasn't running!\n");
+	}
+	paused_calls.add_paused_call(this, true);
+	return true;
       }
       recv_timeout = 0;
       ++scenario[msg_index]->nb_timeout;
@@ -1464,6 +1600,12 @@ bool call::run()
         // Else use the default timeout if specified
         recv_timeout = getmilliseconds() + defl_recv_timeout;
       return true;
+    } else {
+	/* We are going to wait forever. */
+	if (!remove_running_call(this)) {
+	  ERROR("Tried to remove a running call that wasn't running!\n");
+	}
+	paused_calls.add_paused_call(this, true);
     }
   }
   return true;
@@ -2439,7 +2581,7 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
   }
 }
 
-bool call::process_incomming(char * msg)
+bool call::process_incoming(char * msg)
 {
   int             reply_code;
   static char     request[65];
@@ -2454,6 +2596,11 @@ bool call::process_incomming(char * msg)
 
   struct timeval  L_currentTime   ;
   double          L_stop_time     ;
+
+  if (!running) {
+    paused_calls.remove_paused_call(this);
+    add_running_call(this);
+  }
 
 #define MATCHES_SCENARIO(index)                                \
       (((reply_code) &&                                        \
@@ -2828,9 +2975,36 @@ bool call::process_incomming(char * msg)
     strcpy(last_recv_msg, msg);
     return next();
   } else {
+    int timeout = call_wake(this);
+    int candidate;
+
     if (test < SCEN_VARIABLE_SIZE && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()) {
       WARNING_P1("Last message generates an error and will not be used for next sends (for last_ varaiables)\n",msg);
     }
+
+    /* We are just waiting for a message to be received, if any of the
+     * potential messages have a timeout we set it as our timeout. We
+     * start from the next message and go until any non-receives. */
+    for(search_index++; search_index < scenario_len; search_index++) {
+      if(scenario[search_index] -> M_type != MSG_TYPE_RECV) {
+	break;
+      }
+      candidate = scenario[search_index] -> retrans_delay;
+      if (candidate == 0) {
+	if (defl_recv_timeout == 0) {
+	  continue;
+	}
+	candidate = defl_recv_timeout;
+      }
+      if (!timeout || (clock_tick + candidate < timeout)) {
+	timeout = clock_tick + candidate;
+      }
+    }
+
+    if (!remove_running_call(this)) {
+      ERROR("Tried to remove a running call that wasn't running!\n");
+    }
+    paused_calls.add_paused_call(this, true);
   }
   return true;
 }
@@ -2983,6 +3157,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
             from->sin_family = AF_INET;
             from->sin_addr.s_addr = inet_addr(media_ip);
           }
+#if 0
           /* Create a thread to send RTP packets */
           pthread_attr_t attr;
           pthread_attr_init(&attr);
@@ -2997,6 +3172,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
           if(ret)
             ERROR("Can create thread to send RTP packets");
           pthread_attr_destroy(&attr);
+#endif
 #endif
         } else {// end action == E_AT_EXECUTE_CMD
           ERROR("call::executeAction unknown action");

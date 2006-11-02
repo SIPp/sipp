@@ -21,6 +21,7 @@
 #define __CALL__
 
 #include <map>
+#include <list>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
@@ -49,8 +50,55 @@
   extern "C" { extern int createAuthHeader(char * user, char * password, char * method, char * uri, char * msgbody, char * auth, char * aka_OP, char * aka_AMF, char * aka_K, char * result);  }
 #endif
 
-class call {
+/* Forward declaration of call, so that we can define the call_list iterator
+ * that is referenced from call. */
+class call;
 
+typedef std::list<call *> call_list;
+
+/* This arrangement of wheels lets us support up to 32 bit timers.
+ *
+ * If we were to put a minimum bound on timer_resol (or do some kind of dynamic
+ * allocation), then we could reduce the level one order by a factor of
+ * timer_resol. */
+#define LEVEL_ONE_ORDER 12
+#define LEVEL_TWO_ORDER 10
+#define LEVEL_THREE_ORDER 10
+#define LEVEL_ONE_SLOTS (1 << LEVEL_ONE_ORDER)
+#define LEVEL_TWO_SLOTS (1 << LEVEL_TWO_ORDER)
+#define LEVEL_THREE_SLOTS (1 << LEVEL_THREE_ORDER)
+
+/* A time wheel structure as defined in Varghese and Lauck's 1996 journal
+ * article (based on their 1987 SOSP paper). */
+class timewheel {
+public:
+	timewheel();
+
+	int expire_paused_calls();
+	/* Add a paused call and increment count. */
+	void add_paused_call(call *call, bool increment);
+	void remove_paused_call(call *call);
+	int size();
+
+private:
+	/* How many calls are in this wheel. */
+	int count;
+
+	int wheel_base;
+
+	/* The actual wheels. */
+	call_list wheel_one[LEVEL_ONE_SLOTS];
+	call_list wheel_two[LEVEL_TWO_SLOTS];
+	call_list wheel_three[LEVEL_THREE_SLOTS];
+
+	/* Calls that are paused indefinitely. */
+	call_list forever_list;
+
+	/* Turn a call into a list (based on wakeup). */
+	call_list *call2list(call *call);
+};
+
+class call {
 public:
   char         * id;
   unsigned int   number;
@@ -161,7 +209,7 @@ public:
   bool run(); 
   void formatNextReqUrl (char* next_req_url);
   void computeRouteSetAndRemoteTargetUri (char* rrList, char* contact, bool bRequestIncoming);
-  bool process_incomming(char * msg);
+  bool process_incoming(char * msg);
 
   T_ActionResult executeAction(char * msg, int scenarioIndex);
   void  extractSubMessage(char * msg, char * matchingString, char* result);
@@ -208,6 +256,13 @@ public:
   static void getIpFieldFromInputFile(int fieldNr, int lineNum, char *dest);
   static int  m_counter; // used for sequential access
 
+  /* Is this call paused or running? */
+  bool running;
+  /* If we are running, the iterator to remove us from the running list. */
+  call_list::iterator runit;
+  /* If we are paused, the iterator to remove us from the paused list. */
+  call_list::iterator pauseit;
+
 private:
   /* rc == true means call not deleted by processing */
   bool next();
@@ -235,18 +290,16 @@ private:
 #ifdef _USE_OPENSSL
   SSL_CTX   *m_ctx_ssl ;
   BIO       *m_bio     ;
-#endif  
-
+#endif
 };
 
 /* Call contexts interface */
 
 typedef std::map<std::string, call *> call_map;
 call_map * get_calls();
+call_list * get_running_calls();
 
-#ifdef _USE_OPENSSL
-  call      * add_call(char * call_id , int P_pollset_indx, bool ipv6 = false);
-#endif  
+call * add_call(char * call_id , int P_pollset_indx, bool ipv6 = false);
 
 call * add_call(char * call_id , bool ipv6 = false);
 
@@ -254,5 +307,11 @@ call * add_call(bool ipv6 = false);
 call * get_call(char *);
 void   delete_call(char *);
 void   delete_calls(void);
+
+void add_running_call(call *call);
+bool remove_running_call(call *call);
+int expire_paused_calls();
+int paused_calls_count();
+void remove_paused_call(call *call);
 
 #endif
