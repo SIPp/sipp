@@ -2540,6 +2540,7 @@ bool call::process_incomming(char * msg)
       if(strlen(ptr) > (MAX_HEADER_LEN - 1)) {
         ERROR("Peer tag too long. Change MAX_HEADER_LEN and recompile sipp");
       }
+      if(peer_tag) { free(peer_tag); }
       peer_tag = strdup(ptr);
       if (!peer_tag) {
 	ERROR("Out of memory allocating peer tag.");
