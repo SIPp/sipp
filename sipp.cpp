@@ -2447,9 +2447,15 @@ void traffic_thread(bool ipv6)
 
     if ((!quitting) && (!paused) && (!start_calls)) {
       long l=0;
-      calls_to_open = (unsigned int)
+
+      if (users) {
+	calls_to_open = ((l = (users - open_calls)) > 0) ? l : 0;
+      } else {
+	calls_to_open = (unsigned int)
               ((l=(long)floor((((clock_tick - last_rate_change_time) * rate/rate_period_s) / 1000)
               - calls_since_last_rate_change))>0?l:0);
+      }
+
 
       if( (toolMode == MODE_CLIENT)
 #ifdef __3PCC__
@@ -2471,7 +2477,13 @@ void traffic_thread(bool ipv6)
               } else {
                  outbound_congestion = false;
                  call_ptr -> run();
-              }
+	      }
+
+	      new_time = getmilliseconds();
+	      /* Never spend more than half of our time processing new call requests. */
+	      if (new_time > (clock_tick + (timer_resolution < 2 ? 1 : (timer_resolution / 2)))) {
+		break;
+	      }
             }
         
           if(open_calls >= open_calls_allowed) {
@@ -3718,7 +3730,7 @@ int main(int argc, char *argv[])
                  "Use 'sipp -h' for details",  argv[argi-1]);
       }
     }
-								
+
 #ifdef _USE_OPENSSL
     if(!strcmp(argv[argi], "-ap")) {
       if((++argi) < argc) {
@@ -3981,6 +3993,22 @@ int main(int argc, char *argv[])
       } else {
         ERROR_P1("Missing argument for param '%s'.\n"
                  "Use 'sipp -h' for details",  argv[argi-1]);
+      }
+    }
+
+    if(!strcmp(argv[argi], "-users")) {
+      if((++argi) < argc) {
+	char *endptr;
+	processed = 1;
+	users = open_calls_allowed = strtol(argv[argi], &endptr, 0);
+	open_calls_user_setting = 1;
+	if (*endptr) {
+	  ERROR_P2("Invalid integer '%d' for param '%s'.\n"
+	      "Use 'sipp -h' for details",  argv[argi], argv[argi-1]);
+	}
+      } else {
+	ERROR_P1("Missing argument for param '%s'.\n"
+	    "Use 'sipp -h' for details",  argv[argi-1]);
       }
     }
 

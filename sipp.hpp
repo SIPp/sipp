@@ -143,6 +143,7 @@
 
 extern int                duration                _DEFVAL(0);
 extern double             rate                    _DEFVAL(DEFAULT_RATE);
+extern int                users                   _DEFVAL(0);
 extern double             rate_period_s           _DEFVAL(DEFAULT_RATE_PERIOD_S);
 extern unsigned long      defl_recv_timeout       _DEFVAL(0);
 extern unsigned long      global_timeout          _DEFVAL(0);
