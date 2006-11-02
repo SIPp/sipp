@@ -670,23 +670,38 @@ unsigned long CStat::GetStat (E_CounterName P_counter)
   return M_counters [P_counter];
 }
 
+/* Use the short form standard deviation formula given our average square and
+ * the average.  */
+unsigned long CStat::computeStdev(E_CounterName P_AverageCounter,
+			 E_CounterName P_NbOfCallUsed,
+			 E_CounterName P_Squares) {
+	return (unsigned long)sqrt((double)(M_counters[P_Squares] - (M_counters[P_AverageCounter] * M_counters[P_AverageCounter])));
+}
+
 void CStat::updateAverageCounter(E_CounterName P_AverageCounter, 
                                  E_CounterName P_NbOfCallUsed,
+                                 E_CounterName P_Squares,
                                  unsigned long long* P_sum, 
+                                 unsigned long long* P_sq,
                                  unsigned long P_value)
 {
   if (M_counters [P_NbOfCallUsed] <= 0)
     {
       M_counters [P_NbOfCallUsed] ++;
-      M_counters [P_AverageCounter] = P_value;
-      (*P_sum) = P_value;
+      *(P_sum) = M_counters [P_AverageCounter] = P_value;
+      *(P_sq) = M_counters [P_Squares] = (P_value * P_value);
     }
   else
     {
       (*P_sum) = P_value + (*P_sum);
+      (*P_sq) = (P_value * P_value)  + (*P_sq);
+
       M_counters [P_AverageCounter] = (*P_sum) /
         (M_counters [P_NbOfCallUsed] + 1);
-    
+
+      M_counters [P_Squares] = (*P_sq) /
+        (M_counters [P_NbOfCallUsed] + 1);
+
       M_counters [P_NbOfCallUsed] ++;
     }
 }
@@ -706,17 +721,23 @@ int CStat::computeStat (E_Action P_action,
       // Updating Cumulative Counter
       updateAverageCounter(CPT_C_AverageCallLength, 
                            CPT_C_NbOfCallUsedForAverageCallLength,
-                           &M_C_sumCallLength, P_value); 
+			   CPT_C_AverageCallLength_Squares,
+                           &M_C_sumCallLength,
+			   &M_C_sumCallLength_Square, P_value);
       updateRepartition(M_CallLengthRepartition, 
                         M_SizeOfCallLengthRepartition, P_value);
       // Updating Periodical Diplayed counter
       updateAverageCounter(CPT_PD_AverageCallLength, 
                            CPT_PD_NbOfCallUsedForAverageCallLength,
-                           &M_PD_sumCallLength, P_value); 
+			   CPT_PD_AverageCallLength_Squares,
+                           &M_PD_sumCallLength,
+                           &M_PD_sumCallLength_Square, P_value);
       // Updating Periodical Logging counter
       updateAverageCounter(CPT_PL_AverageCallLength, 
                            CPT_PL_NbOfCallUsedForAverageCallLength,
-                           &M_PL_sumCallLength, P_value); 
+			   CPT_PL_AverageCallLength_Squares,
+                           &M_PL_sumCallLength,
+			   &M_PL_sumCallLength_Square, P_value);
       break;
 
 
@@ -730,17 +751,20 @@ int CStat::computeStat (E_Action P_action,
       // Updating Cumulative Counter
       updateAverageCounter((E_CounterName)(CPT_C_AverageResponseTime + which), 
                            (E_CounterName)(CPT_C_NbOfCallUsedForAverageResponseTime + which),
-                           &M_C_sumResponseTime[which], P_value); 
+                           (E_CounterName)(CPT_C_AverageResponseTime_Squares + which),
+                           &M_C_sumResponseTime[which], &M_C_sumResponseTime_Square[which], P_value);
       updateRepartition(M_ResponseTimeRepartition[which], 
                         M_SizeOfResponseTimeRepartition, P_value);
       // Updating Periodical Diplayed counter
       updateAverageCounter((E_CounterName)(CPT_PD_AverageResponseTime + which), 
                            (E_CounterName)(CPT_PD_NbOfCallUsedForAverageResponseTime + which),
-                           &M_PD_sumResponseTime[which], P_value); 
+                           (E_CounterName)(CPT_PD_AverageResponseTime_Squares + which),
+                           &M_PD_sumResponseTime[which], &M_PD_sumResponseTime_Square[which], P_value);
       // Updating Periodical Logging counter
       updateAverageCounter((E_CounterName)(CPT_PL_AverageResponseTime + which), 
                            (E_CounterName)(CPT_PL_NbOfCallUsedForAverageResponseTime + which),
-                           &M_PL_sumResponseTime[which], P_value); 
+                           (E_CounterName)(CPT_PL_AverageResponseTime_Squares + which),
+                           &M_PL_sumResponseTime[which], &M_PL_sumResponseTime_Square[which], P_value);
       break;
 
     default :
@@ -1249,10 +1273,17 @@ void CStat::dumpData ()
       sprintf(s_C, "ResponseTime%d(C);", i + 1);
 
       (*M_outputStream) << s_P << s_C;
+
+      sprintf(s_P, "ResponseTime%dStDev(P);", i + 1);
+      sprintf(s_C, "ResponseTime%dStDev(C);", i + 1);
+
+      (*M_outputStream) << s_P << s_C;
     }
 
     (*M_outputStream) << "CallLength(P);"
                       << "CallLength(C);";
+    (*M_outputStream) << "CallLengthStDev(P);"
+                      << "CallLengthStDev(C);";
     for (int i = 0; i < MAX_COUNTER; i++) {
       (*M_outputStream) << "GenericCounter" << (i + 1) << "(P);";
       (*M_outputStream) << "GenericCounter" << (i + 1) << "(C);";
@@ -1319,11 +1350,28 @@ void CStat::dumpData ()
       << msToHHMMSSmmm( M_counters [CPT_PL_AverageResponseTime + i] ) << ";";
     (*M_outputStream) 
       << msToHHMMSSmmm( M_counters [CPT_C_AverageResponseTime  + i] ) << ";";
+
+    (*M_outputStream)
+      << msToHHMMSSmmm( computeStdev((E_CounterName)(CPT_PL_AverageResponseTime + i),
+				     (E_CounterName)(CPT_PL_NbOfCallUsedForAverageResponseTime + i),
+				     (E_CounterName)(CPT_PL_AverageResponseTime_Squares + i)) ) << ";";
+    (*M_outputStream)
+      << msToHHMMSSmmm( computeStdev((E_CounterName)(CPT_C_AverageResponseTime + i),
+				     (E_CounterName)(CPT_C_NbOfCallUsedForAverageResponseTime + i),
+				     (E_CounterName)(CPT_C_AverageResponseTime_Squares + i)) ) << ";";
   }
   (*M_outputStream) 
     << msToHHMMSSmmm( M_counters [CPT_PL_AverageCallLength  ] ) << ";";
   (*M_outputStream) 
     << msToHHMMSSmmm( M_counters [CPT_C_AverageCallLength   ] ) << ";";
+  (*M_outputStream)
+    << msToHHMMSSmmm( computeStdev(CPT_PL_AverageCallLength,
+				   CPT_PL_NbOfCallUsedForAverageCallLength,
+				   CPT_PL_AverageCallLength_Squares )) << ";";
+  (*M_outputStream)
+    << msToHHMMSSmmm( computeStdev(CPT_C_AverageCallLength,
+				   CPT_C_NbOfCallUsedForAverageCallLength,
+				   CPT_C_AverageCallLength_Squares )) << ";";
 
   for (int i = 0; i < MAX_COUNTER; i++) {
     (*M_outputStream) << M_counters[CPT_PL_Generic + i] << ";";
