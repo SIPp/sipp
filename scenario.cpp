@@ -678,8 +678,22 @@ void load_scenario(char * filename, int deflt)
         getActionForThisMessage();
       }
       else if(!strcmp(elem, "nop")) {
-        /* Does nothing at SIP level, only meant to handle actions */
-        scenario[scenario_len]->M_type = MSG_TYPE_NOP;
+	/* Does nothing at SIP level.  This message type can be used to handle
+	 * actions, increment counters, or for RTDs. */
+	scenario[scenario_len]->M_type = MSG_TYPE_NOP;
+
+        if(ptr = xp_get_value((char *)"rtd")) {
+          scenario[scenario_len] -> stop_rtd = get_rtd(ptr);
+	}
+
+        if(ptr = xp_get_value((char *)"start_rtd")) {
+          scenario[scenario_len] -> start_rtd = get_rtd(ptr);
+	}
+
+        if(ptr = xp_get_value((char *)"counter")) {
+          scenario[scenario_len] -> counter = get_counter(ptr, "counter");
+	}
+
         getActionForThisMessage();
       }
 #ifdef __3PCC__

@@ -267,6 +267,7 @@ private:
   /* rc == true means call not deleted by processing */
   bool next();
   bool process_unexpected(char * msg);
+  void do_bookkeeping(int index);
 
   void  extract_cseq_method (char* responseCseq, char* msg);
 

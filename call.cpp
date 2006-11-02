@@ -1282,6 +1282,39 @@ char * call::send_scene(int index, int *send_status)
   return msg_buffer;
 }
 
+void call::do_bookkeeping(int index) {
+  /* If this message increments a counter, do it now. */
+  if(int counter = scenario[index] -> counter) {
+    CStat::instance()->computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, counter - 1);
+  }
+
+  /* If this message can be used to compute RTD, do it now */
+  if(int rtd = scenario[index] -> start_rtd) {
+    start_time_rtd[rtd - 1] = clock_tick;
+  }
+
+  if(int rtd = scenario[index] -> stop_rtd) {
+    if (!rtd_done[rtd - 1]) {
+      int start = start_time_rtd[rtd - 1];
+      struct timeval L_currentTime;
+      double L_stop_time;
+
+
+      if(dumpInRtt) {
+	GET_TIME (&L_currentTime);
+	L_stop_time = (double)L_currentTime.tv_sec*1000.0 +
+	  (double)(L_currentTime.tv_usec)/(double)1000.0 ;
+	CStat::instance()->computeRtt(start, L_stop_time) ;
+      }
+
+      CStat::instance()->computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
+	  clock_tick - start, rtd - 1);
+
+      rtd_done[rtd - 1] = true;
+    }
+  }
+}
+
 bool call::next()
 {
   int test = scenario[msg_index]->test;
@@ -1322,8 +1355,6 @@ bool call::next()
 
 bool call::run()
 {
-  struct timeval  L_currentTime   ;
-  double          L_stop_time     ;
   bool            bInviteTransaction = false;
   int             actionResult = 0;
 
@@ -1437,6 +1468,7 @@ bool call::run()
   }
 #endif
   else if(scenario[msg_index] -> M_type == MSG_TYPE_NOP) {
+    do_bookkeeping(msg_index);
     actionResult = executeAction(NULL, msg_index);
     return(next());
   }
@@ -1456,33 +1488,8 @@ bool call::run()
       return true;
     }
 
-    /* If this message increments a counter, do it now. */
-    if(int counter = scenario[msg_index] -> counter) {
-	CStat::instance()->computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, counter - 1);
-    }
-
-    /* If this message can be used to compute RTD, do it now */
-    if(int rtd = scenario[msg_index] -> start_rtd) {
-      start_time_rtd[rtd - 1] = clock_tick;
-    }
-
-    if(int rtd = scenario[msg_index] -> stop_rtd) {
-      if (!rtd_done[rtd - 1]) {
-	int start = start_time_rtd[rtd - 1];
-
-	if(dumpInRtt) {
-	  GET_TIME (&L_currentTime);
-	  L_stop_time = (double)L_currentTime.tv_sec*1000.0 +
-	    (double)(L_currentTime.tv_usec)/(double)1000.0 ;
-	  CStat::instance()->computeRtt(start, L_stop_time) ;
-	}
-
-	CStat::instance()->computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
-	    clock_tick - start, rtd - 1);
-
-	rtd_done[rtd - 1] = true;
-      }
-    }
+    /* Handle counters and RTDs for this message. */
+    do_bookkeeping(msg_index);
 
     /* decide whether to increment cseq or not 
      * basically increment for anything except response, ACK or CANCEL 
@@ -2594,9 +2601,6 @@ bool call::process_incoming(char * msg)
 
   int             L_case = 0 ;
 
-  struct timeval  L_currentTime   ;
-  double          L_stop_time     ;
-
   if (!running) {
     paused_calls.remove_paused_call(this);
     add_running_call(this);
@@ -2868,33 +2872,8 @@ bool call::process_incoming(char * msg)
     ack_is_pending = true;
   }
 
-  /* If this message increments a counter, do it now. */
-  if(int counter = scenario[search_index] -> counter) {
-    CStat::instance()->computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, counter - 1);
-  }
-
-  /* If this message can be used to compute RTD, do it now */
-  if(int rtd = scenario[search_index] -> start_rtd) {
-    start_time_rtd[rtd - 1] = clock_tick;
-  }
-
-  if(int rtd = scenario[search_index] -> stop_rtd) {
-    if (!rtd_done[rtd - 1]) {
-      int start = start_time_rtd[rtd - 1];
-
-      if(dumpInRtt) {
-	GET_TIME (&L_currentTime);
-	L_stop_time = (double)L_currentTime.tv_sec*1000.0 +
-	  (double)(L_currentTime.tv_usec)/(double)1000.0 ;
-	CStat::instance()->computeRtt(start, L_stop_time);
-      }
-
-      CStat::instance()->
-	computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
-	    clock_tick - start, rtd - 1);
-      rtd_done[rtd - 1] = true;
-    }
-  }
+  /* Handle counters and RTDs for this message. */
+  do_bookkeeping(search_index);
 
   /* Increment the recv counter */
   scenario[search_index] -> nb_recv++;
