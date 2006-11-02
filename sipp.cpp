@@ -2658,11 +2658,17 @@ void traffic_thread(bool ipv6)
     // FIXME - Should we recompute time ? print stat take 
     // a lot of time, so the clock_time is no more 
     // the current time !
-    if(dumpInFile) {
-      if((clock_tick - last_dump_time) >= report_freq_dumpLog)  {
-        CStat::instance()->dumpData();
-        CStat::instance()->computeStat(CStat::E_RESET_PL_COUNTERS);
-        last_dump_time  = clock_tick;
+    if((clock_tick - last_dump_time) >= report_freq_dumpLog)  {
+      if(dumpInFile) {
+	CStat::instance()->dumpData();
+	CStat::instance()->computeStat(CStat::E_RESET_PL_COUNTERS);
+      }
+      last_dump_time  = clock_tick;
+      if (rate_increase) {
+	set_rate(rate + rate_increase);
+	if (rate_max && (rate > rate_max)) {
+	  quitting += 10;
+	}
       }
     }
   }
@@ -2784,6 +2790,17 @@ void help()
      "                      This allows you to have n calls every m milliseconds \n"
      "                      (by using -r n -rp m).\n"
      "                      Example: -r 7 -rp 2000 ==> 7 calls every 2 seconds.\n"
+     "\n"
+     "   -rate_increase   : Specify the rate increase every -fd seconds\n"
+     "                      This allows you to increase the load for each\n"
+     "                      independent logging period\n"
+     "                      Example: -rate_increase 10 -fd 10 \n"
+     "                        ==> increase calls by 10 every 10 seconds.\n"
+     "\n"
+     "   -rate_max        : If -rate_increase is set, then quit after the rate\n"
+     "                      reaches this value.\n"
+     "                      Example: -rate_increase 10 -max_rate 100\n"
+     "                        ==> increase calls by 10 until 100 cps is hit.\n"
      "\n"
      "   -max_socket max  : Set the max number of sockets to open simultaneously.\n"
      "                      This option is significant if you use one socket\n"
@@ -3710,7 +3727,26 @@ int main(int argc, char *argv[])
       }
     }
 
-    
+    if(!strcmp(argv[argi], "-rate_increase")) {
+      if((++argi) < argc) {
+        processed = 1;
+        rate_increase = atol(argv[argi]);
+      } else {
+        ERROR_P1("Missing argument for param '%s'.\n"
+                 "Use 'sipp -h' for details",  argv[argi-1]);
+      }
+    }
+
+    if(!strcmp(argv[argi], "-rate_max")) {
+      if((++argi) < argc) {
+        processed = 1;
+        rate_max = atol(argv[argi]);
+      } else {
+        ERROR_P1("Missing argument for param '%s'.\n"
+                 "Use 'sipp -h' for details",  argv[argi-1]);
+      }
+    }
+
     if(!strcmp(argv[argi], "-s")) {
       if((++argi) < argc) {
         processed = 1;
