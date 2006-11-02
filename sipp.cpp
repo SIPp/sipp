@@ -4221,6 +4221,16 @@ int main(int argc, char *argv[])
           exit(EXIT_FATAL_ERROR);
         case 0:
           // child process - poursuing the execution
+	  // close all of our file descriptors
+	  {
+	    int nullfd = open("/dev/null", O_RDWR);
+
+	    dup2(nullfd, fileno(stdin));
+	    dup2(nullfd, fileno(stdout));
+	    dup2(nullfd, fileno(stderr));
+
+	    close(nullfd);
+	  }
           break;
         default:
           // parent process - killing the parent - the child get the parent pid
