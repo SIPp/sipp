@@ -1514,6 +1514,7 @@ bool call::run()
     }
 
     if(send_status == -1) { /* Would Block on TCP */
+      if (incr_cseq) --cseq;
       return true; /* No step, nothing done, retry later */
     } else if(send_status <-1) { /* Send error */
       return false; /* call deleted */
