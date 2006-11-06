@@ -2205,11 +2205,19 @@ char* call::createSendingMessage(char * src, int P_index)
         /* Look for optional username and password parameters */
         /* add aka_OP, aka_AMF, aka_K */
         key = getKeywordParam(src, "username=", my_auth_user);
+        memset(my_auth_pass,0,KEYWORD_SIZE);
         key = getKeywordParam(src, "password=", my_auth_pass);
+        memset(my_aka_OP,0,KEYWORD_SIZE);
         key = getKeywordParam(src, "aka_OP=", my_aka_OP);
+        memset(my_aka_AMF,0,KEYWORD_SIZE);
         key = getKeywordParam(src, "aka_AMF=", my_aka_AMF);
+        memset(my_aka_K,0,KEYWORD_SIZE);
         key = getKeywordParam(src, "aka_K=", my_aka_K);
-
+        if (my_aka_K[0]==0){
+            memcpy(my_aka_K,my_auth_pass,16);
+            my_aka_K[16]=0;
+        }
+       
         /* Need the Method name from the CSeq of the Challenge */
         char method[MAX_HEADER_LEN];
         tmp = get_last_header("CSeq") + 5;

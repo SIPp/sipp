@@ -560,15 +560,23 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
   f1(k,rnd,sqn,aka_AMF,xmac,op);
   if (memcmp(mac,xmac,MACLEN)!=0) {
     sprintf(result,"createAuthHeaderAKAv1MD5 : MAC != eXpectedMAC -> Server might not know the secret (man-in-the-middle attack?) \n");
-    return 0;
+    //return 0;
   }
 
   /* Check SQN, compute AUTS if needed and authorization parameter */
-  if (sqn[5] > sqn_he[5]) {
+  /* the condition below is wrong.
+   * Should trigger synchronization when sqn_ms>>3!=sqn_he>>3 for example.
+   * Also, we need to store the SQN per user or put it as auth parameter. */
+  if (1/*sqn[5] > sqn_he[5]*/) {
     sqn_he[5] = sqn[5];
     has_auts = 0;
     /* RES has to be used as password to compute response */
-    resuf = createAuthHeaderMD5(user, res, method, uri, msgbody, auth, algo, result);
+    for(i=0;i<RESLEN;i++){
+      resp_hex[2*i]=hexa[(res[i]&0xF0)>>4];
+      resp_hex[2*i+1]=hexa[res[i]&0x0F];
+    }
+    resp_hex[RESLEN*2]=0;
+    resuf = createAuthHeaderMD5(user, resp_hex, method, uri, msgbody, auth, algo, result);   
   } else {
     sqn_ms[5] = sqn_he[5] + 1;
     f5star(k, rnd, ak, op);
@@ -577,7 +585,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
     f1star(k, rnd, sqn_ms, amf, auts_bin+SQNLEN, op);
     has_auts = 1;
     /* When re-synchronisation occurs an empty password has to be used */
-    /* to compute MD5 response (Cf. rfc 3310 section 3.2)
+    /* to compute MD5 response (Cf. rfc 3310 section 3.2) */
     resuf=createAuthHeaderMD5(user,"",method,uri,msgbody,auth,algo,result);
   }
   if (has_auts) {

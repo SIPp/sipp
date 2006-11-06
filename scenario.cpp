@@ -637,7 +637,7 @@ void load_scenario(char * filename, int deflt)
 	  /* It is easy to shoot yourself in the foot with this distribution,
 	   * so the 99-th percentile serves as a sanity check for duration. */
 	  if (gsl_cdf_lognormal_Pinv(0.99, mean, stdev) > INT_MAX) {
-	    ERROR_P2("You should different Lognormal(%d, %d) parameters.\n"
+	    ERROR_P2("You should use different Lognormal(%d, %d) parameters.\n"
 		"The scenario is likely to take much too long.\n", mean, stdev);
 	  }
 
