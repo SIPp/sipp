@@ -2615,6 +2615,10 @@ bool call::process_incoming(char * msg)
     paused_calls.remove_paused_call(this);
     add_running_call(this);
   }
+   
+   /* Ignore the messages received during a pause */ 
+   if(scenario[msg_index] -> M_type == MSG_TYPE_PAUSE)
+    {return(true);}
 
 #define MATCHES_SCENARIO(index)                                \
       (((reply_code) &&                                        \
