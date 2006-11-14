@@ -153,6 +153,7 @@ extern int                transport               _DEFVAL(DEFAULT_TRANSPORT);
 extern int                retrans_enabled         _DEFVAL(1);
 extern int                max_udp_retrans         _DEFVAL(UDP_MAX_RETRANS);
 extern int                default_behavior        _DEFVAL(1);
+extern int                pause_msg_ign           _DEFVAL(0);
 extern int                auto_answer             _DEFVAL(0);
 extern int                multisocket             _DEFVAL(0);
 extern int                compression             _DEFVAL(0);

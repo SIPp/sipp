@@ -3001,6 +3001,9 @@ void help()
      "                      - On any other unexpected message, abort the call by\n"
      "                      sending a BYE or a CANCEL\n"
      "\n"
+     "   -pause_msg_ign   : Ignore the messages received during a pause defined\n" 
+     "                      in the scenario\n"
+     "\n"
      "   -rsa host[:port] : Set the remote sending address to host:port.\n"
      "                      for sending the messages.\n"
      "\n"
@@ -3470,6 +3473,11 @@ int main(int argc, char *argv[])
     if(!strcmp(argv[argi], "-nd")) {
       processed = 1;
       default_behavior = 0;
+    }
+  
+    if(!strcmp(argv[argi], "-pause_msg_ign")) {
+      processed = 1;
+      pause_msg_ign = 1;
     }
 
     if(!strcmp(argv[argi], "-trace_msg")) {
