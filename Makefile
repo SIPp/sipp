@@ -140,7 +140,7 @@ LIBS_hpux= -lcurses -lpthread -L /opt/openssl/lib -L /usr/local/lib
 LIBS_tru64= -lcurses -lpthread
 LIBS_freebsd= -lcurses -pthread
 LIBS_SunOS= -lcurses -lpthread -lnsl -lsocket -lstdc++ -lm -ldl -L /usr/local/ssl/lib/
-LIBS_Cygwin= -lcurses -lpthread -lstdc++ 
+LIBS_Cygwin= -lcurses -lpthread -lstdc++ -L /usr/lib/WpdPack/Lib
 LIBS_Darwin= -lcurses
 LIBS=$(LIBS_$(SYSTEM)) $(EXTRALIBS)
 
@@ -150,7 +150,7 @@ INCDIR_freebsd=-I. -I/opt/openssl/include
 INCDIR_hpux=-I. -I/usr/local/include -I/opt/openssl/include
 INCDIR_tru64=-I. -I/opt/openssl/include
 INCDIR_SunOS=-I. -I/usr/local/ssl/include/
-INCDIR_Cygwin=-I. -I/usr/include/openssl -I/usr/include
+INCDIR_Cygwin=-I. -I/usr/include/openssl -I/usr/include -I/usr/lib/WpdPack/Include
 INCDIR_Darwin=-I. -I/usr/local/ssl/include
 INCDIR=$(INCDIR_$(SYSTEM)) 
 
@@ -177,6 +177,12 @@ pcapplay_hp_li_ia:
 pcapplay_ossl_hp_li_ia:
 	@_HPUX_LI_FLAG=-D_HPUX_LI ; export _HPUX_LI_FLAG ; make pcapplay_ossl
 
+pcapplay_cygwin:
+	make OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_PCAPPLAY="send_packets.o prepare_pcap.o" PCAPPLAY_LIBS="-lwpcap" PCAPPLAY="-DPCAPPLAY" $(OUTPUT)
+
+pcapplay_ossl_cygwin:
+	make OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_TLS="auth.o sslinit.o sslthreadsafe.o  milenage.o rijndael.o" TLS_LIBS="-lssl -lcrypto" TLS="-D_USE_OPENSSL -DOPENSSL_NO_KRB5"  OBJ_PCAPPLAY="send_packets.o prepare_pcap.o" PCAPPLAY_LIBS="-lwpcap" PCAPPLAY="-DPCAPPLAY" $(OUTPUT)
+
 $(OUTPUT): $(OBJ_TLS) $(OBJ_PCAPPLAY) $(OBJ)
 	$(CCLINK) $(LFLAGS) $(MFLAGS) $(LIBDIR_$(SYSTEM)) \
 	$(DEBUG_FLAGS) -o $@ $(OBJ_TLS) $(OBJ_PCAPPLAY) $(OBJ) $(LIBS) $(TLS_LIBS) $(PCAPPLAY_LIBS)
@@ -186,6 +192,9 @@ debug:
 
 debug_tls:
 	@DEBUG_FLAGS=-g ; export DEBUG_FLAGS ; make tls
+
+debug_pcap_cygwin:
+	@DEBUG_FLAGS=-g ; export DEBUG_FLAGS ; make pcapplay_ossl_cygwin
 
 clean:
 	rm -f *.o $(OUTPUT) *~ $(TOCLEAN) 

@@ -22,7 +22,7 @@
 #include <netinet/udp.h>
 #include <time.h>
 
-#if defined(__HPUX) || defined(__DARWIN)
+#if defined(__HPUX) || defined(__DARWIN) || defined(__CYGWIN)
 #define u_int8_t uint8_t
 #define u_int16_t uint16_t
 #define u_int32_t uint32_t

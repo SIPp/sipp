@@ -45,12 +45,15 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <netinet/udp.h>
-#ifdef __DARWIN
+#if defined(__DARWIN) || defined(__CYGWIN)
 #include <netinet/in.h>
 #endif
+#ifndef __CYGWIN
 #include <netinet/ip6.h>
+#endif
 #include <errno.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include "send_packets.h"
 #include "prepare_pcap.h"

@@ -3149,7 +3149,6 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
             from->sin_family = AF_INET;
             from->sin_addr.s_addr = inet_addr(media_ip);
           }
-#if 0
           /* Create a thread to send RTP packets */
           pthread_attr_t attr;
           pthread_attr_init(&attr);
@@ -3164,7 +3163,6 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
           if(ret)
             ERROR("Can create thread to send RTP packets");
           pthread_attr_destroy(&attr);
-#endif
 #endif
         } else {// end action == E_AT_EXECUTE_CMD
           ERROR("call::executeAction unknown action");

@@ -19,22 +19,36 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
-#ifdef __HPUX
+#if defined(__HPUX) || defined(__CYGWIN)
 #include <netinet/in_systm.h>
 #endif
 #include <netinet/ip.h>
+#ifndef __CYGWIN
 #include <netinet/ip6.h>
-#ifdef __HPUX
-#include <sys/socket.h>
-#include <net/if_arp.h>
-#include <netinet/if_ether.h>
-#else
-#include <net/ethernet.h>
 #endif
 #include <string.h>
 
 #include "prepare_pcap.h"
 #include "screen.hpp"
+
+/* We define our own structures for Ethernet Header and IPv6 Header as they are not available on CYGWIN.
+ * We only need the fields, which are necessary to determine the type of the next header.
+ * we could also define our own structures for UDP and IPv4. We currently use the structures
+ * made available by the platform, as we had no problems to get them on all supported platforms.
+ */
+
+typedef struct _ether_hdr {
+      char ether_dst[6];
+      char ether_src[6];
+      u_int16_t ether_type; /* we only need the type, so we can determine, if the next header is IPv4 or IPv6 */
+} ether_hdr;
+
+typedef struct _ipv6_hdr {
+    char dontcare[6];
+    u_int8_t nxt_header; /* we only need the next header, so we can determine, if the next header is UDP or not */
+    char dontcare2[33];
+} ipv6_hdr;
+
 
 #ifdef __HPUX
 int check(u_int16_t *buffer, int len){
@@ -77,9 +91,9 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
   u_int16_t *chk_buffer;
   u_long pktlen;
   pcap_pkt *pkt_index;
-  struct ether_header *ethhdr;
+  ether_hdr *ethhdr;
   struct iphdr *iphdr;
-  struct ip6_hdr *ip6hdr;
+  ipv6_hdr *ip6hdr;
   struct udphdr *udphdr;
 
   // to be suppressed
@@ -106,9 +120,9 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
   while ((pktdata = (u_char *) pcap_next (pcap, pkthdr)) != NULL)
   {
 #endif
-    ethhdr = (struct ether_header *)pktdata;
-    if (ntohs(ethhdr->ether_type) != ETHERTYPE_IP
-          && ntohs(ethhdr->ether_type) != 0x86dd) {
+    ethhdr = (ether_hdr *)pktdata;
+    if (ntohs(ethhdr->ether_type) != 0x0800 /* IPv4 */
+          && ntohs(ethhdr->ether_type) != 0x86dd) /* IPv6 */ {
       fprintf(stderr, "Ignoring non IP{4,6} packet!\n");
       continue;
     }
@@ -116,8 +130,8 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
     if (iphdr && iphdr->version == 6) {
       //ipv6
       pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*ip6hdr);
-      ip6hdr = (struct ip6_hdr *)(void *) iphdr;
-      if (ip6hdr->ip6_nxt != IPPROTO_UDP) {
+      ip6hdr = (ipv6_hdr *)(void *) iphdr;
+      if (ip6hdr->nxt_header != IPPROTO_UDP) {
         fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
 	     continue;
       }
@@ -129,7 +143,7 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
         fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
         continue;
       }
-#ifdef __DARWIN
+#if defined(__DARWIN) || defined(__CYGWIN)
       udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2) + 4);
 #else
       udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2));
@@ -149,7 +163,7 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
       ERROR("Can't allocate memory for pcap pkt data");
     memcpy(pkt_index->data, udphdr, pktlen);
 
-#if defined(__HPUX) || defined(__DARWIN)
+#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN)
     udphdr->uh_sum = 0 ;      
 #else
     udphdr->check = 0;
@@ -158,14 +172,14 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
       // compute a partial udp checksum
       // not including port that will be changed
       // when sending RTP
-#if defined(__HPUX) || defined(__DARWIN)
+#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN)
     pkt_index->partial_check = check((u_int16_t *) &udphdr->uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 #else
     pkt_index->partial_check = check((u_int16_t *) &udphdr->len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 #endif
     if (max_length < pktlen)
       max_length = pktlen;
-#if defined(__HPUX) || defined(__DARWIN)
+#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN)
     if (base > ntohs(udphdr->uh_dport))
       base = ntohs(udphdr->uh_dport);
 #else
