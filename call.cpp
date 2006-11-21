@@ -2345,6 +2345,11 @@ bool call::process_twinSippCom(char * msg)
   bool            found = false;
   T_ActionResult  actionResult;
 
+  if (!running) {
+    paused_calls.remove_paused_call(this);
+    add_running_call(this);
+  }
+
   if (checkInternalCmd(msg) == false) {
 
     for(search_index = msg_index;
