@@ -2732,16 +2732,14 @@ bool call::process_incoming(char * msg)
         call_established=true;
       }
 #ifdef PCAPPLAY
-      if ((toolMode == MODE_SERVER)
-		&& (strncmp(request, "INVITE", 6) == 0)
-		&& (hasMedia == 1)) {
+      /* In case of INVITE or re-INVITE, ACK or PRACK
+         get the media info if needed (= we got a pcap
+         play action) */
+      if ((strncmp(request, "INVITE", 6) == 0) 
+       || (strncmp(request, "ACK", 3) == 0) 
+       || (strncmp(request, "PRACK", 5) == 0)     		
+       && (hasMedia == 1)) 
         get_remote_media_addr(msg);
-      } else if ((toolMode == MODE_CLIENT)
-                // Case of re-INVITE
-		&& (strncmp(request, "INVITE", 6) == 0)
-		&& (hasMedia == 1)) {
-        get_remote_media_addr(msg);
-      }
 #endif
 
       reply_code = 0;
