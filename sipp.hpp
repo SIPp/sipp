@@ -45,11 +45,7 @@
 #include <string>
 #include <math.h>
 
-#ifdef __HPUX
-#include <alloca.h>
-#endif
-
-#if defined (__SVR4) && defined (__sun)
+#if defined(__HPUX) || defined(__SUNOS)
 #include <alloca.h>
 #endif
 

@@ -99,7 +99,7 @@ CFLAGS_hpux=-D__HPUX -DPROTOTYPES +W829
 CFLAGS_linux=-D__LINUX -pthread
 CFLAGS_freebsd=-D__LINUX -pthread
 CFLAGS_tru64=-D__OSF1 -pthread
-CFLAGS_SunOS=-g
+CFLAGS_SunOS=-g -D__SUNOS
 CFLAGS_Cygwin=-D__CYGWIN -Dsocklen_t=int
 CFLAGS_Darwin=-D__DARWIN
 CFLAGS=$(CFLAGS_$(SYSTEM)) -D__3PCC__ $(TLS) $(PCAPPLAY) $(EXTRACFLAGS)
@@ -109,7 +109,7 @@ CPPFLAGS_hpux=-AA -mt -D__HPUX +W829
 CPPFLAGS_linux=-D__LINUX -pthread
 CPPFLAGS_freebsd=-D__LINUX -pthread
 CPPFLAGS_tru64=-D__OSF1 -pthread
-CPPFLAGS_SunOS=-g
+CPPFLAGS_SunOS=-g -D__SUNOS
 CPPFLAGS_Cygwin=-D__CYGWIN -Dsocklen_t=int
 CPPFLAGS_Darwin=-D__DARWIN
 CPPFLAGS=$(CPPFLAGS_$(SYSTEM)) -D__3PCC__ $(TLS) $(PCAPPLAY) $(EXTRACPPFLAGS)
