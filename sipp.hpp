@@ -333,6 +333,8 @@ extern char          hostname[80];
 extern bool          is_ipv6                      _DEFVAL(false);
 extern int           start_calls                  _DEFVAL(0);
 extern double        reset_number                 _DEFVAL(0);
+extern int	     reset_close                  _DEFVAL(1);
+extern int	     reset_sleep                  _DEFVAL(1000);
 
 extern struct        addrinfo * local_addr_storage;
 

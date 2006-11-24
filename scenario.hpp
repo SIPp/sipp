@@ -174,4 +174,9 @@ int  isWellFormed(char * P_listeStr,
 extern char * default_scenario[10];
 extern unsigned int  labelArray[MAX_LABELS];
 
+/* Useful utility functions for parsing integers, etc. */
+long get_long(const char *ptr, const char *what);
+double get_double(const char *ptr, const char *what);
+bool get_bool(const char *ptr, const char *what);
+
 #endif

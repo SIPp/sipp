@@ -141,6 +141,24 @@ double get_double(const char *ptr, const char *what) {
   return ret;
 }
 
+bool get_bool(const char *ptr, const char *what) {
+  char *endptr;
+  long ret;
+
+  if (!strcmp(ptr, "true")) {
+    return true;
+  }
+  if (!strcmp(ptr, "false")) {
+    return false;
+  }
+
+  ret = strtol(ptr, &endptr, 0);
+  if (*endptr) {
+    ERROR_P2("%s, \"%s\" is not a valid boolean!\n", what, ptr);
+  }
+  return ret ? true : false;
+}
+
 /* Pretty print a time. */
 char *time_string(int ms) {
    static char tmp[20];

@@ -2017,10 +2017,10 @@ int send_message(int s, void ** comp_state, char * msg)
 
       if(errno == EPIPE) {
 	nb_net_send_errors++;
+	start_calls = 1;
 	if (reset_number > 0) {
 	  WARNING("Broken pipe on TCP connection, remote peer "
 	      "probably closed the socket");
-	  start_calls = 1;
 	  return -2;
 	} else {
 	  ERROR("Broken pipe on TCP connection, remote peer "
@@ -3139,6 +3139,10 @@ void help()
      "\n"
      "   -max_reconnect   : Set the the maximum number of reconnection.\n"
      "\n"
+     "   -reconnect_close true/false: Should calls be closed on reconnect?\n"
+     "\n"
+     "   -reconnect_sleep int : How long to sleep between the close and reconnect?\n"
+     "\n"
      "   -aa              : Enable automatic 200 OK answer for INFO and NOTIFY\n"
      "                      messages.\n"
      "\n"
@@ -4145,6 +4149,26 @@ int main(int argc, char *argv[])
       }
     }
 
+    if(!strcmp(argv[argi], "-reconnect_close")) {
+      if((++argi) < argc) {
+        processed = 1;
+	reset_close = get_bool(argv[argi], "reconnect_close");
+      } else {
+        ERROR_P1("Missing argument for param '%s'.\n"
+                 "Use 'sipp -h' for details",  argv[argi-1]);
+      }
+    }
+
+    if(!strcmp(argv[argi], "-reconnect_sleep")) {
+      if((++argi) < argc) {
+        processed = 1;
+	reset_sleep = get_long(argv[argi], "reconnect_sleep");
+      } else {
+        ERROR_P1("Missing argument for param '%s'.\n"
+                 "Use 'sipp -h' for details",  argv[argi-1]);
+      }
+    }
+
     if(!strcmp(argv[argi], "-aa")) {
       processed = 1;
       auto_answer = true;
@@ -4581,28 +4605,28 @@ int main(int argc, char *argv[])
 }
 
 int reset_connections() {
-
-int status=0;
+  int status=0;
 
   start_calls = 1;
   reset_number--;
 
-  if (reset_number > 0) {
-    status = close_calls();
-    if (status==0) {
-      status = close_connections();
-      if (status==0) {
-        sleep(1);
-        status = open_connections();
-        start_calls = 0;
-        pollset_reset();
-        WARNING("Re-connection for connections")  
-      }
-    }
-  } else {
+  if (reset_number <= 0) {
     ERROR_NO("Max number of reconnections reached");
   }
-  
+  if (reset_close) {
+    status = close_calls();
+  }
+  if (status==0) {
+    status = close_connections();
+    if (status==0) {
+      usleep(1000 * reset_sleep);
+      status = open_connections();
+      start_calls = 0;
+      pollset_reset();
+      WARNING("Re-connection for connections");
+    }
+  }
+
   return status;
 }
 
