@@ -33,6 +33,7 @@
 #define GLOBALS_FULL_DEFINITION
 
 #include "sipp.hpp"
+#include "assert.h"
 
 #ifdef _USE_OPENSSL
 SSL_CTX  *sip_trp_ssl_ctx = NULL; /* For SSL cserver context */
@@ -393,6 +394,22 @@ int get_decimal_from_hex(char hex) {
 int                  pollnfds;
 struct pollfd        pollfiles[SIPP_MAXFDS];
 call               * pollcalls[SIPP_MAXFDS];
+
+/* These buffers lets us read past the end of the message, and then split it if
+ * required.  This eliminates the need for reading a message octet by octet and
+ * performing a second read for the content length. */
+struct pollbuf {
+	char *buf;
+	int len;
+	int offset;
+	struct pollbuf *next;
+};
+struct pollbuf	   *pollbuffers[SIPP_MAXFDS];
+int outstanding_poll_msgs = 0;
+
+/* Polling management. */
+void free_pollbuf(struct pollbuf *pollbuf);
+
 map<string, int>     map_perip_fd;
 #ifdef _USE_OPENSSL
 SSL                * ssl_list[SIPP_MAXFDS];
@@ -503,6 +520,7 @@ int pollset_add(call * p_call, int sock)
   pollfiles[pollnfds].events  = POLLIN | POLLERR;
   pollfiles[pollnfds].revents = 0;
   pollcalls[pollnfds]         = p_call;
+  pollbuffers[pollnfds]         = NULL;
   pollnfds++;
   
   /*
@@ -549,6 +567,11 @@ void pollset_remove(int idx)
     if((pollcalls[idx]) && (pollcalls[idx] -> pollset_index)) {
       pollcalls[idx] -> pollset_index = idx;
     }
+
+    if (pollbuffers[idx]) {
+      free_pollbuf(pollbuffers[idx]);
+    }
+    pollbuffers[idx] = pollbuffers[pollnfds];
   } else {
     ERROR("Pollset underflow");
   }
@@ -1490,84 +1513,182 @@ int recv_all_tls(SSL *ssl, char *buffer, int size, int trace_id)
 }
 #endif
 
-int recv_all_tcp(int sock, char *buffer, int size, int trace_id)
-{
-  int    recv_size = 0;
-  char * start_buffer = buffer;
-  int    to_be_recvd = size;
-  int    part_size ;
-  do {
-    part_size = recv(sock, start_buffer, to_be_recvd, 0);
-    
-    if(part_size > 0) {
-      to_be_recvd -= part_size;
-      start_buffer += part_size;
-      recv_size += part_size;
-    } else {
-      recv_size = part_size;
-    }
-    
-  } while((part_size > 0) && to_be_recvd);
-  
-  if(recv_size <= 0) {
-    if(recv_size != 0) {
-      nb_net_recv_errors++;
-      WARNING_P3("TCP %d Recv error : size = %d, sock = %d",
-                 trace_id, recv_size, sock);
-      WARNING_NO("TCP Recv error");
-      // ERROR_NO("TCP recv error");
-    } else {
-#ifdef __3PCC__
-      if (toolMode == MODE_3PCC_CONTROLLER_B) {
-        /* In 3PCC controller B mode, twin socket is closed at peer closing.
-         * This is a normal case: 3PCC controller B should end now */
-        if (localTwinSippSocket) close(localTwinSippSocket);
-        if (twinSippSocket) close(twinSippSocket);
-        ERROR("3PCC controller A has ended -> exiting");
-      } else
-#endif
-        /* This is normal for a server to have its client close
-         * the connection */
-        if(toolMode != MODE_SERVER) {
-          WARNING_P3("TCP %d Recv error : size = %d, sock = %d, "
-                     "remote host closed connection",
-                     trace_id, recv_size, sock);
-#ifdef __3PCC__
-	  if(sock == twinSippSocket || sock == localTwinSippSocket) {
-            int L_poll_idx = 0 ;
-	    quitting = 1;
-	    for((L_poll_idx) = 0;
-	        (L_poll_idx) < pollnfds;
-	        (L_poll_idx)++) {
-	         if(pollfiles[L_poll_idx].fd == twinSippSocket) {
-		   pollset_remove(L_poll_idx);
-                  }
-		 if(pollfiles[L_poll_idx].fd == localTwinSippSocket) {
-		    pollset_remove(L_poll_idx);
-                  }
-              }
-	      if(twinSippSocket) {
-		       shutdown(twinSippSocket, SHUT_RDWR);
-		       close(twinSippSocket);
-		       twinSippSocket = 0 ;
-              }
-	      if(localTwinSippSocket) {
-		       shutdown(localTwinSippSocket, SHUT_RDWR);
-		       close(localTwinSippSocket);
-		       localTwinSippSocket = 0 ;
-              }
-          }
-#endif
+/* Allocate a poll buffer. */
+struct pollbuf *alloc_pollbuf(char *buffer, int size) {
+  struct pollbuf *pollbuf;
 
-
-          nb_net_recv_errors++;
-        }
-    }
+  pollbuf = (struct pollbuf *)malloc(sizeof(struct pollbuf));
+  if (!pollbuf) {
+	ERROR("Could not allocate poll buffer!\n");
   }
-  
-  return recv_size;
+  pollbuf->buf = buffer;
+  pollbuf->len = size;
+  pollbuf->offset = 0;
+  pollbuf->next = NULL;
+
+  return pollbuf;
 }
 
+/* Free a poll buffer. */
+void free_pollbuf(struct pollbuf *pollbuf) {
+  free(pollbuf->buf);
+  free(pollbuf);
+}
+
+/* This is used to pull out data from the pollbuffer. */
+int recv_from_pollbuffer(int idx, char *buffer, int size) {
+  int avail;
+  int read = 0;
+
+  while (pollbuffers[idx] && (size > 0)) {
+    avail = pollbuffers[idx]->len - pollbuffers[idx]->offset;
+    if (avail > size) {
+      avail = size;
+    }
+
+    memcpy(buffer, pollbuffers[idx]->buf + pollbuffers[idx]->offset, avail);
+
+    /* Update our buffer and return value. */
+    read += avail;
+    size -= avail;
+    buffer += avail;
+    pollbuffers[idx]->offset += avail;
+
+    /* Have we emptied the buffer? */
+    if (pollbuffers[idx]->offset == pollbuffers[idx]->len) {
+      struct pollbuf *next = pollbuffers[idx]->next;
+      free_pollbuf(pollbuffers[idx]);
+      pollbuffers[idx] = next;
+      if (!next) {
+	outstanding_poll_msgs--;
+      }
+    }
+  }
+
+  return read;
+}
+
+/* Put extra data back in the poll buffer so the next read will pick it up. */
+void pushback_pollbuffer(int idx, char *buffer, int size) {
+  struct pollbuf *pollbuf = alloc_pollbuf(buffer, size);
+  if (!pollbuffers[idx]) {
+    outstanding_poll_msgs++;
+  }
+  pollbuf->next = pollbuffers[idx];
+  pollbuffers[idx] = pollbuf;
+}
+
+/* Refill the poll buffer. */
+int refill_pollbuffer(int sock, int idx, int size, int trace_id) {
+  int readsize = tcp_readsize;
+  struct pollbuf *pollbuf;
+  char *buffer;
+  int ret;
+
+  assert (pollbuffers[idx] == NULL);
+
+  if (readsize < size) {
+    readsize = size;
+  }
+
+  buffer = (char *)malloc(readsize);
+  if (!buffer) {
+    ERROR("Could not allocate memory for read!");
+  }
+  pollbuf = alloc_pollbuf(buffer, readsize);
+
+  ret = recv(sock, buffer, readsize, 0);
+  if (ret < 0) {
+	free_pollbuf(pollbuf);
+	return ret;
+  }
+
+  pollbuf->len = ret;
+  pollbuffers[idx] = pollbuf;
+
+  outstanding_poll_msgs++;
+
+  return 0;
+}
+
+void tcp_recv_error(int error, int trace_id, int sock) {
+  /* We are assuming end of connection, but in fact we could just be closed.
+   * What should we really do? */
+  if (error != 0) {
+      nb_net_recv_errors++;
+      WARNING_P2("TCP %d Recv error : sock = %d", trace_id, sock);
+      WARNING_NO("TCP Recv error");
+      return;
+  }
+
+#ifdef __3PCC__
+  if (toolMode == MODE_3PCC_CONTROLLER_B) {
+    /* In 3PCC controller B mode, twin socket is closed at peer closing.
+     * This is a normal case: 3PCC controller B should end now */
+    if (localTwinSippSocket) close(localTwinSippSocket);
+    if (twinSippSocket) close(twinSippSocket);
+    ERROR("3PCC controller A has ended -> exiting");
+  } else
+#endif
+  /* This is normal for a server to have its client close the connection */
+  if (toolMode == MODE_SERVER) {
+	WARNING("Client must have closed the connection!\n");
+	return;
+  }
+
+  WARNING_P2("TCP %d Recv error : sock = %d, "
+      "remote host closed connection",
+      trace_id, sock);
+
+#ifdef __3PCC__
+  if(sock == twinSippSocket || sock == localTwinSippSocket) {
+    int L_poll_idx = 0 ;
+    quitting = 1;
+    for((L_poll_idx) = 0;
+	(L_poll_idx) < pollnfds;
+	(L_poll_idx)++) {
+      if(pollfiles[L_poll_idx].fd == twinSippSocket) {
+	pollset_remove(L_poll_idx);
+      }
+      if(pollfiles[L_poll_idx].fd == localTwinSippSocket) {
+	pollset_remove(L_poll_idx);
+      }
+    }
+    if(twinSippSocket) {
+      shutdown(twinSippSocket, SHUT_RDWR);
+      close(twinSippSocket);
+      twinSippSocket = 0 ;
+    }
+    if(localTwinSippSocket) {
+      shutdown(localTwinSippSocket, SHUT_RDWR);
+      close(localTwinSippSocket);
+      localTwinSippSocket = 0 ;
+    }
+  }
+#endif
+  nb_net_recv_errors++;
+}
+
+int recv_pollbuff_tcp(int sock, int idx, char *buffer, int size, int trace_id) {
+  int    recv_size = 0;
+  int    part_size ;
+  int ret;
+
+  do {
+    part_size = recv_from_pollbuffer(idx, buffer, size);
+    if (part_size <= 0) {
+	if ((ret = refill_pollbuffer(sock, idx, size, trace_id)) < 0) {
+	  tcp_recv_error(ret, trace_id, sock);
+	  return recv_size;
+	}
+    }
+    size -= part_size;
+    buffer += part_size;
+    recv_size += part_size;
+  } while (size > 0);
+
+  return recv_size;
+}
 
 #ifdef _USE_OPENSSL
 int recv_tls_message(SSL * ssl,
@@ -1595,6 +1716,7 @@ int recv_tls_message(SSL * ssl,
 #endif
     
 int recv_tcp_message(int sock,
+		     int idx,
                      char *buffer,
                      int buffer_size,
                      E_Alter_YesNo alter_msg,
@@ -1611,10 +1733,9 @@ int recv_tcp_message(int sock,
   // Try to read SIP Header Message only
   // or CMD Message
   while(len < buffer_size) {
-    
     // Read one char on tcp socket
-    recv_size = recv_all_tcp(sock, &(buffer[len]), 1, 1);
-    
+    recv_size = recv_pollbuff_tcp(sock, idx, buffer +len, 1, 1);
+
     // Check read problem return
     if(recv_size <= 0) {
       return recv_size;
@@ -1683,7 +1804,7 @@ int recv_tcp_message(int sock,
     }
     // Read Body part 
     do {
-      recv_size = recv_all_tcp(sock, &(buffer[len]), content_length, 2);
+      recv_size = recv_pollbuff_tcp(sock, idx, buffer + len, content_length, 2);
       
       if(recv_size <= 0) {
         return recv_size;
@@ -1992,7 +2113,7 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
       return 0 ;
     } else  {
 
-    if((pollfiles[(*poll_idx)].revents & POLLIN) != 0) {
+    if(pollbuffers[(*poll_idx)] || ((pollfiles[(*poll_idx)].revents & POLLIN) != 0)) {
       
       call * recv_call = pollcalls[(*poll_idx)];
       int s = pollfiles[(*poll_idx)].fd;
@@ -2015,6 +2136,7 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
       else if (s == twinSippSocket)
         {
           size = recv_tcp_message(s,
+				  *poll_idx,
                                   buffer,
                                   buffer_size,
                                   E_ALTER_NO,
@@ -2096,6 +2218,7 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
         } else {
 #endif
         size = recv_tcp_message(s,
+				*poll_idx,
                                 buffer,
                                 buffer_size,
                                 E_ALTER_YES);
@@ -2215,7 +2338,7 @@ void pollset_process(bool ipv6)
   int update_freq = (div(loops,update_nb)).quot ;
   
   while((loops-- > 0) && /* Ensure some minimal statistics display sometime */
-        (rs = poll(pollfiles, pollnfds,  1)) > 0) {
+        ((rs = outstanding_poll_msgs) || (rs = poll(pollfiles, pollnfds,  1))) > 0) {
     if((rs < 0) && (errno == EINTR)) {
       return;
     }

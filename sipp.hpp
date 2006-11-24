@@ -188,6 +188,7 @@ extern char               local_ip_escaped[42];
 extern bool               local_ip_is_ipv6;    
 extern int                local_port              _DEFVAL(0);
 extern int                buff_size               _DEFVAL(65535);
+extern int                tcp_readsize            _DEFVAL(4096);
 #ifdef PCAPPLAY
 extern int                hasMedia                _DEFVAL(0);
 #endif
