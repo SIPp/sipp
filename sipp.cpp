@@ -28,6 +28,7 @@
  *           Guillaume Teissier from FTR&D
  *           Clement Chen
  *           Wolfgang Beck
+ *           Charles P Wright from IBM Research
  */
 
 #define GLOBALS_FULL_DEFINITION

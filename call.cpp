@@ -27,6 +27,7 @@
  *           Wolfgang Beck
  *           Venkatesh
  *           Vlad Troyanker
+ *           Charles P Wright from IBM Research
  */
 
 #include <iterator>
