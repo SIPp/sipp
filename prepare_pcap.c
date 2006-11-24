@@ -138,15 +138,16 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
       udphdr = (struct udphdr *)((char *)ip6hdr + sizeof(*ip6hdr));
     } else {
       //ipv4
-      pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*iphdr);
       if (iphdr->protocol != IPPROTO_UDP) {
         fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
         continue;
       }
 #if defined(__DARWIN) || defined(__CYGWIN)
       udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2) + 4);
+      pktlen = (u_long)(ntohs(udphdr->uh_ulen));
 #else
       udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2));
+      pktlen = (u_long)(ntohs(udphdr->len));
 #endif
     }
     if (pktlen > PCAP_MAXPACKET) {
