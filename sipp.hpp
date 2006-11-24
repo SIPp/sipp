@@ -49,6 +49,10 @@
 #include <alloca.h>
 #endif
 
+#if defined (__SVR4) && defined (__sun)
+#include <alloca.h>
+#endif
+
 /* Sipp includes */
 
 #include "xp_parser.h"
