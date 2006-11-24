@@ -1827,6 +1827,35 @@ int send_message_tls(SSL *ssl, void ** comp_state, char * msg)
 }
 #endif
 
+int enter_congestion(int s, char *msg, int again) {
+  int             L_idx     ;
+
+  if (multisocket) {
+    char          * L_call_id;
+    call          * L_call_ptr;
+
+    L_call_id = get_call_id(msg);
+    L_call_ptr = get_call(L_call_id);
+    L_call_ptr -> poll_flag_write = true ;
+
+  } else {
+    ctrlEW  = true ;
+  }
+
+  L_idx = pollset_find(s);
+  if (L_idx == -1) {
+    ERROR_P1("I was searching for congested socket %d but could not find it in the pollset", s);
+  } else {
+    TRACE_MSG((s,"Problem %s on socket  %d and poll_idx  is %d \n",
+	  again == EWOULDBLOCK ? "EWOULDBLOCK" : "EAGAIN",
+	  pollfiles[L_idx].fd, L_idx));
+    pollfiles[L_idx].events  |= POLLOUT ;
+  }
+
+  nb_net_cong++;
+  return 0;
+}
+
 int send_message(int s, void ** comp_state, char * msg)
 {
 
@@ -1851,6 +1880,7 @@ int send_message(int s, void ** comp_state, char * msg)
       } else {
 	pending_msg[idx] = strdup(msg+rc);
       }
+      return enter_congestion(s, msg, EWOULDBLOCK);
     }
 
     if(rc <= 0) {
@@ -1861,32 +1891,7 @@ int send_message(int s, void ** comp_state, char * msg)
 #endif
 
       if(again) {
-	int             L_idx     ;
-
-	if (multisocket) {
-	  char          * L_call_id;
-	  call          * L_call_ptr;
-
-	  L_call_id = get_call_id(msg);
-	  L_call_ptr = get_call(L_call_id);
-	  L_call_ptr -> poll_flag_write = true ;
-
-	} else {
-	  ctrlEW  = true ;
-	}
-
-	L_idx = pollset_find(s);
-	if (L_idx == -1) {
-	  ERROR_P1("I was searching for congested socket %d but could not find it in the pollset", s);
-	} else {
-	  TRACE_MSG((s,"Problem %s on socket  %d and poll_idx  is %d \n",
-		again == EWOULDBLOCK ? "EWOULDBLOCK" : "EAGAIN",
-		pollfiles[L_idx].fd, L_idx));
-	  pollfiles[L_idx].events  |= POLLOUT ;
-	}
-
-	nb_net_cong++;
-	return 0;
+	return enter_congestion(s, msg, again);
       }
 
       if(errno == EPIPE) {
