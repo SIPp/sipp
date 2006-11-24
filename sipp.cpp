@@ -3484,7 +3484,7 @@ int main(int argc, char *argv[])
 
     if(!strcmp(argv[argi], "-mp")) {
       if((++argi) < argc) {
-        media_port = atol(argv[argi]);
+        user_media_port = atol(argv[argi]);
 	processed = 1;
       } else {
         ERROR_P1("Missing argument for param '%s'.\nUse 'sipp -h' for details",
@@ -4401,9 +4401,6 @@ int main(int argc, char *argv[])
   open_connections();
    
   /* Defaults for media sockets */
-  if (media_port <= 0) {
-    media_port = 6000;
-  }
   if (media_ip[0] == '\0') {
       strcpy(media_ip, local_ip);
     }
@@ -4443,17 +4440,6 @@ int main(int argc, char *argv[])
            SOCK_ADDR_SIZE(
              _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
 
-    if (media_sockaddr.ss_family == AF_INET) {
-     (_RCAST(struct sockaddr_in *,&media_sockaddr))->sin_port =
-       htons((short)media_port);
-     strcpy(media_ip_escaped, media_ip);
-    } else {
-      (_RCAST(struct sockaddr_in6 *,&media_sockaddr))->sin6_port =
-        htons((short)media_port);
-      media_ip_is_ipv6 = true;
-      strcpy(media_ip_escaped, media_ip);
-    }
-
     if((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
                               SOCK_DGRAM, 0)) == -1) {
       char msg[512];
@@ -4468,14 +4454,36 @@ int main(int argc, char *argv[])
       ERROR_NO(msg);
     }
 
-    if(bind(media_socket, 
-            (sockaddr *)(void *)&media_sockaddr,
-            SOCK_ADDR_SIZE(&media_sockaddr))) {
+    int try_counter;
+    int max_tries = user_media_port ? 1 : 10;
+    media_port = user_media_port ? user_media_port : DEFAULT_MEDIA_PORT;
+    for (try_counter = 0; try_counter < max_tries; try_counter++) {
+
+      if (media_sockaddr.ss_family == AF_INET) {
+	(_RCAST(struct sockaddr_in *,&media_sockaddr))->sin_port =
+	  htons((short)media_port);
+      } else {
+	(_RCAST(struct sockaddr_in6 *,&media_sockaddr))->sin6_port =
+	  htons((short)media_port);
+	media_ip_is_ipv6 = true;
+      }
+      strcpy(media_ip_escaped, media_ip);
+
+      if(bind(media_socket,
+	    (sockaddr *)(void *)&media_sockaddr,
+	    SOCK_ADDR_SIZE(&media_sockaddr)) == 0) {
+	break;
+      }
+
+      media_port++;
+    }
+
+    if (try_counter >= max_tries) {
       char msg[512];
       sprintf(msg, "Unable to bind audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
       ERROR_NO(msg);
     }
-    
+
     /*---------------------------------------------------------
        Bind the second socket to media_port+2 
        (+1 is reserved for RTCP) 

@@ -131,6 +131,7 @@
 #define DEFAULT_RATE_PERIOD_S        1.0
 #define DEFAULT_TRANSPORT            T_UDP
 #define DEFAULT_PORT                 5060  
+#define DEFAULT_MEDIA_PORT           6000
 #ifdef __3PCC__
 #define DEFAULT_3PCC_PORT            6060
 #endif
@@ -195,6 +196,7 @@ extern int                hasMedia                _DEFVAL(0);
 extern bool               rtp_echo_enabled        _DEFVAL(0);
 extern char               media_ip[40];
 extern char               media_ip_escaped[42];
+extern int                user_media_port         _DEFVAL(0);
 extern int                media_port              _DEFVAL(0);
 extern size_t             media_bufsize           _DEFVAL(2048);
 extern bool               media_ip_is_ipv6;    
