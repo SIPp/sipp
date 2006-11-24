@@ -540,27 +540,13 @@ void call::get_remote_media_addr(char *msg) {
 /******* Very simple hash for retransmission detection  *******/
 
 unsigned long hash(char * msg) {
-  unsigned long rv = 0;
-  int len = strlen(msg);
-  int index = 0;
-  
-  if (len > 4) {
-    rv  = msg[0] + msg[1] + msg[2] + msg[3];
-  }
-  
-  if (len > 12) {
-    rv += msg[9] + msg[10] + msg[11] + msg[12];
-  }
+  unsigned long hash = 0;
+  int c;
 
-  rv <<= 8;
-  rv += len;
-  rv <<= 16;
-  
-  for (index = 0; index < len; index ++) {
-    rv += + msg[index] * index;
-  }
-  
-  return rv;
+  while (c = *msg++)
+    hash = c + (hash << 6) + (hash << 16) - hash;
+
+  return hash;
 }
 
 /******************* Call class implementation ****************/
