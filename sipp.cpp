@@ -3026,6 +3026,8 @@ void help()
      "\n"
      "   -stf file_name   : Set the file name to use to dump statistics\n"
      "\n"
+     "   -stat_delimiter string : Set the delimiter for the statistics file\n"
+     "\n"
      "   -trace_err       : Trace all unexpected messages in\n"
      "                      <scenario file name>_<pid>_errors.log.\n"
      "\n"
@@ -3698,6 +3700,16 @@ int main(int argc, char *argv[])
       if((++argi) < argc) {
         processed = 1;
         argiFileName = argi;
+      } else {
+        ERROR_P1("Missing argument for param '%s'.\n"
+                 "Use 'sipp -h' for details",  argv[argi-1]);
+      }
+    }
+
+    if(!strcmp(argv[argi], "-stat_delimiter")) {
+      if((++argi) < argc) {
+        processed = 1;
+        stat_delimiter = argv[argi];
       } else {
         ERROR_P1("Missing argument for param '%s'.\n"
                  "Use 'sipp -h' for details",  argv[argi-1]);

@@ -171,6 +171,7 @@ extern char             * auth_password           _DEFVAL(DEFAULT_AUTH_PASSWORD)
 extern unsigned long      report_freq             _DEFVAL(DEFAULT_REPORT_FREQ);
 extern unsigned long      report_freq_dumpLog     _DEFVAL
                                                 (DEFAULT_REPORT_FREQ_DUMP_LOG);
+extern char		* stat_delimiter          _DEFVAL(";");
 
 extern bool               timeout_exit            _DEFVAL(false);
 

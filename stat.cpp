@@ -867,13 +867,13 @@ char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
 
   if(tabRepartition != NULL)
     {
-      sprintf(repartitionHeader, "%s;", P_repartitionName);
+      sprintf(repartitionHeader, "%s%s", P_repartitionName, stat_delimiter);
       for(int i=0; i<(sizeOfTab-1); i++)
         {   
-          sprintf(buffer, "<%d;", tabRepartition[i].borderMax);
+          sprintf(buffer, "<%d%s", tabRepartition[i].borderMax, stat_delimiter);
           strcat(repartitionHeader, buffer);
         }
-      sprintf(buffer, ">=%d;", tabRepartition[sizeOfTab-1].borderMax);
+      sprintf(buffer, ">=%d%s", tabRepartition[sizeOfTab-1].borderMax, stat_delimiter);
       strcat(repartitionHeader, buffer);
     }
   else
@@ -893,13 +893,13 @@ char* CStat::sRepartitionInfo(T_dynamicalRepartition * tabRepartition,
   if(tabRepartition != NULL)
     {
       // if a repartition is present, this field match the repartition name
-      sprintf(repartitionInfo, ";");
+      sprintf(repartitionInfo, stat_delimiter);
       for(int i=0; i<(sizeOfTab-1); i++)
         {   
-          sprintf(buffer, "%d;", tabRepartition[i].nbInThisBorder);
+          sprintf(buffer, "%d%s", tabRepartition[i].nbInThisBorder, stat_delimiter);
           strcat(repartitionInfo, buffer);
         }
-      sprintf(buffer, "%d;", tabRepartition[sizeOfTab-1].nbInThisBorder);
+      sprintf(buffer, "%d%s", tabRepartition[sizeOfTab-1].nbInThisBorder, stat_delimiter);
       strcat(repartitionInfo, buffer);
     }
   else
@@ -1232,70 +1232,70 @@ void CStat::dumpData ()
 
   if(M_headerAlreadyDisplayed == false) {
     // header - it's dump in file only one time at the beginning of the file
-    (*M_outputStream) << "StartTime;"
-                      << "LastResetTime;"
-                      << "CurrentTime;" 
-                      << "ElapsedTime(P);"
-                      << "ElapsedTime(C);"
-                      << "CallRate(P);"
-                      << "CallRate(C);"
-                      << "IncomingCall(P);"
-                      << "IncomingCall(C);"
-                      << "OutgoingCall(P);"
-                      << "OutgoingCall(C);"
-                      << "TotalCallCreated;"
-                      << "CurrentCall;"
-                      << "SuccessfulCall(P);"
-                      << "SuccessfulCall(C);"
-                      << "FailedCall(P);"
-                      << "FailedCall(C);"
-                      << "FailedCannotSendMessage(P);"
-                      << "FailedCannotSendMessage(C);"
-                      << "FailedMaxUDPRetrans(P);"
-                      << "FailedMaxUDPRetrans(C);"
-                      << "FailedUnexpectedMessage(P);"
-                      << "FailedUnexpectedMessage(C);"
-                      << "FailedCallRejected(P);"
-                      << "FailedCallRejected(C);"
-                      << "FailedCmdNotSent(P);"
-                      << "FailedCmdNotSent(C);"
-                      << "FailedRegexpDoesntMatch(P);"
-                      << "FailedRegexpDoesntMatch(C);"
-                      << "FailedRegexpHdrNotFound(P);"
-                      << "FailedRegexpHdrNotFound(C);"
-                      << "FailedOutboundCongestion(P);"
-                      << "FailedOutboundCongestion(C);"
-                      << "FailedTimeoutOnRecv(P);"
-                      << "FailedTimeoutOnRecv(C);"
-                      << "OutOfCallMsgs(P);"
-                      << "OutOfCallMsgs(C);"
-                      << "Retransmissions(P);"
-                      << "Retransmissions(C);"
-                      << "AutoAnswered(P);"
-                      << "AutoAnswered(C);";
+    (*M_outputStream) << "StartTime" << stat_delimiter
+                      << "LastResetTime" << stat_delimiter
+                      << "CurrentTime" << stat_delimiter
+                      << "ElapsedTime(P)" << stat_delimiter
+                      << "ElapsedTime(C)" << stat_delimiter
+                      << "CallRate(P)" << stat_delimiter
+                      << "CallRate(C)" << stat_delimiter
+                      << "IncomingCall(P)" << stat_delimiter
+                      << "IncomingCall(C)" << stat_delimiter
+                      << "OutgoingCall(P)" << stat_delimiter
+                      << "OutgoingCall(C)" << stat_delimiter
+                      << "TotalCallCreated" << stat_delimiter
+                      << "CurrentCall" << stat_delimiter
+                      << "SuccessfulCall(P)" << stat_delimiter
+                      << "SuccessfulCall(C)" << stat_delimiter
+                      << "FailedCall(P)" << stat_delimiter
+                      << "FailedCall(C)" << stat_delimiter
+                      << "FailedCannotSendMessage(P)" << stat_delimiter
+                      << "FailedCannotSendMessage(C)" << stat_delimiter
+                      << "FailedMaxUDPRetrans(P)" << stat_delimiter
+                      << "FailedMaxUDPRetrans(C)" << stat_delimiter
+                      << "FailedUnexpectedMessage(P)" << stat_delimiter
+                      << "FailedUnexpectedMessage(C)" << stat_delimiter
+                      << "FailedCallRejected(P)" << stat_delimiter
+                      << "FailedCallRejected(C)" << stat_delimiter
+                      << "FailedCmdNotSent(P)" << stat_delimiter
+                      << "FailedCmdNotSent(C)" << stat_delimiter
+                      << "FailedRegexpDoesntMatch(P)" << stat_delimiter
+                      << "FailedRegexpDoesntMatch(C)" << stat_delimiter
+                      << "FailedRegexpHdrNotFound(P)" << stat_delimiter
+                      << "FailedRegexpHdrNotFound(C)" << stat_delimiter
+                      << "FailedOutboundCongestion(P)" << stat_delimiter
+                      << "FailedOutboundCongestion(C)" << stat_delimiter
+                      << "FailedTimeoutOnRecv(P)" << stat_delimiter
+                      << "FailedTimeoutOnRecv(C)" << stat_delimiter
+                      << "OutOfCallMsgs(P)" << stat_delimiter
+                      << "OutOfCallMsgs(C)" << stat_delimiter
+                      << "Retransmissions(P)" << stat_delimiter
+                      << "Retransmissions(C)" << stat_delimiter
+                      << "AutoAnswered(P)" << stat_delimiter
+                      << "AutoAnswered(C)" << stat_delimiter;
 
     for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
       char s_P[30];
       char s_C[30];
 
-      sprintf(s_P, "ResponseTime%d(P);", i + 1);
-      sprintf(s_C, "ResponseTime%d(C);", i + 1);
+      sprintf(s_P, "ResponseTime%d(P)%s", i + 1, stat_delimiter);
+      sprintf(s_C, "ResponseTime%d(C)%s", i + 1, stat_delimiter);
 
       (*M_outputStream) << s_P << s_C;
 
-      sprintf(s_P, "ResponseTime%dStDev(P);", i + 1);
-      sprintf(s_C, "ResponseTime%dStDev(C);", i + 1);
+      sprintf(s_P, "ResponseTime%dStDev(P)%s", i + 1, stat_delimiter);
+      sprintf(s_C, "ResponseTime%dStDev(C)%s", i + 1, stat_delimiter);
 
       (*M_outputStream) << s_P << s_C;
     }
 
-    (*M_outputStream) << "CallLength(P);"
-                      << "CallLength(C);";
-    (*M_outputStream) << "CallLengthStDev(P);"
-                      << "CallLengthStDev(C);";
+    (*M_outputStream) << "CallLength(P)" << stat_delimiter
+                      << "CallLength(C)" << stat_delimiter;
+    (*M_outputStream) << "CallLengthStDev(P)" << stat_delimiter
+                      << "CallLengthStDev(C)" << stat_delimiter;
     for (int i = 0; i < MAX_COUNTER; i++) {
-      (*M_outputStream) << "GenericCounter" << (i + 1) << "(P);";
-      (*M_outputStream) << "GenericCounter" << (i + 1) << "(C);";
+      (*M_outputStream) << "GenericCounter" << (i + 1) << "(P)" << stat_delimiter;
+      (*M_outputStream) << "GenericCounter" << (i + 1) << "(C)" << stat_delimiter;
     }
     for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
       char s[30];
@@ -1312,81 +1312,81 @@ void CStat::dumpData ()
   }
   
   // content
-  (*M_outputStream) << formatTime(&M_startTime)               << ";";
-  (*M_outputStream) << formatTime(&M_plStartTime)             << ";";
-  (*M_outputStream) << formatTime(&currentTime)               << ";"
-                    << msToHHMMSS(localElapsedTime)           << ";";
-  (*M_outputStream) << msToHHMMSS(globalElapsedTime)          << ";"
-                    << realInstantCallRate                    << ";"
-                    << averageCallRate                        << ";"
-                    << M_counters[CPT_PL_IncomingCallCreated] << ";"
-                    << M_counters[CPT_C_IncomingCallCreated]  << ";"
-                    << M_counters[CPT_PL_OutgoingCallCreated] << ";"
-                    << M_counters[CPT_C_OutgoingCallCreated]  << ";"
+  (*M_outputStream) << formatTime(&M_startTime)               << stat_delimiter;
+  (*M_outputStream) << formatTime(&M_plStartTime)             << stat_delimiter;
+  (*M_outputStream) << formatTime(&currentTime)               << stat_delimiter
+                    << msToHHMMSS(localElapsedTime)           << stat_delimiter;
+  (*M_outputStream) << msToHHMMSS(globalElapsedTime)          << stat_delimiter
+                    << realInstantCallRate                    << stat_delimiter
+                    << averageCallRate                        << stat_delimiter
+                    << M_counters[CPT_PL_IncomingCallCreated] << stat_delimiter
+                    << M_counters[CPT_C_IncomingCallCreated]  << stat_delimiter
+                    << M_counters[CPT_PL_OutgoingCallCreated] << stat_delimiter
+                    << M_counters[CPT_C_OutgoingCallCreated]  << stat_delimiter
                     << (M_counters[CPT_C_IncomingCallCreated]+ 
-                        M_counters[CPT_C_OutgoingCallCreated])<< ";"
-                    << M_counters[CPT_C_CurrentCall]          << ";"
-                    << M_counters[CPT_PL_SuccessfulCall]      << ";"
-                    << M_counters[CPT_C_SuccessfulCall]       << ";"
-                    << M_counters[CPT_PL_FailedCall]          << ";"
-                    << M_counters[CPT_C_FailedCall]           << ";"
-                    << M_counters[CPT_PL_FailedCallCannotSendMessage]   << ";"
-                    << M_counters[CPT_C_FailedCallCannotSendMessage]    << ";"
-                    << M_counters[CPT_PL_FailedCallMaxUdpRetrans]       << ";"
-                    << M_counters[CPT_C_FailedCallMaxUdpRetrans     ]   << ";"
-                    << M_counters[CPT_PL_FailedCallUnexpectedMessage]   << ";"
-                    << M_counters[CPT_C_FailedCallUnexpectedMessage]    << ";"
-                    << M_counters[CPT_PL_FailedCallCallRejected]        << ";"
-                    << M_counters[CPT_C_FailedCallCallRejected]         << ";"
-                    << M_counters[CPT_PL_FailedCallCmdNotSent]          << ";"
-                    << M_counters[CPT_C_FailedCallCmdNotSent]           << ";"
-                    << M_counters[CPT_PL_FailedCallRegexpDoesntMatch]   << ";"
-                    << M_counters[CPT_C_FailedCallRegexpDoesntMatch]    << ";"
-                    << M_counters[CPT_PL_FailedCallRegexpHdrNotFound]   << ";"
-                    << M_counters[CPT_C_FailedCallRegexpHdrNotFound]    << ";"
-                    << M_counters[CPT_PL_FailedOutboundCongestion]      << ";"
-                    << M_counters[CPT_C_FailedOutboundCongestion]       << ";"
-                    << M_counters[CPT_PL_FailedTimeoutOnRecv]           << ";"
-                    << M_counters[CPT_C_FailedTimeoutOnRecv]            << ";"
-                    << M_counters[CPT_PL_OutOfCallMsgs]                 << ";"
-                    << M_counters[CPT_C_OutOfCallMsgs]                  << ";"
-                    << M_counters[CPT_PL_Retransmissions]               << ";"
-                    << M_counters[CPT_C_Retransmissions]                << ";"
-                    << M_counters[CPT_PL_AutoAnswered]                  << ";"
-                    << M_counters[CPT_C_AutoAnswered]                   << ";";
+                        M_counters[CPT_C_OutgoingCallCreated])<< stat_delimiter
+                    << M_counters[CPT_C_CurrentCall]          << stat_delimiter
+                    << M_counters[CPT_PL_SuccessfulCall]      << stat_delimiter
+                    << M_counters[CPT_C_SuccessfulCall]       << stat_delimiter
+                    << M_counters[CPT_PL_FailedCall]          << stat_delimiter
+                    << M_counters[CPT_C_FailedCall]           << stat_delimiter
+                    << M_counters[CPT_PL_FailedCallCannotSendMessage]   << stat_delimiter
+                    << M_counters[CPT_C_FailedCallCannotSendMessage]    << stat_delimiter
+                    << M_counters[CPT_PL_FailedCallMaxUdpRetrans]       << stat_delimiter
+                    << M_counters[CPT_C_FailedCallMaxUdpRetrans     ]   << stat_delimiter
+                    << M_counters[CPT_PL_FailedCallUnexpectedMessage]   << stat_delimiter
+                    << M_counters[CPT_C_FailedCallUnexpectedMessage]    << stat_delimiter
+                    << M_counters[CPT_PL_FailedCallCallRejected]        << stat_delimiter
+                    << M_counters[CPT_C_FailedCallCallRejected]         << stat_delimiter
+                    << M_counters[CPT_PL_FailedCallCmdNotSent]          << stat_delimiter
+                    << M_counters[CPT_C_FailedCallCmdNotSent]           << stat_delimiter
+                    << M_counters[CPT_PL_FailedCallRegexpDoesntMatch]   << stat_delimiter
+                    << M_counters[CPT_C_FailedCallRegexpDoesntMatch]    << stat_delimiter
+                    << M_counters[CPT_PL_FailedCallRegexpHdrNotFound]   << stat_delimiter
+                    << M_counters[CPT_C_FailedCallRegexpHdrNotFound]    << stat_delimiter
+                    << M_counters[CPT_PL_FailedOutboundCongestion]      << stat_delimiter
+                    << M_counters[CPT_C_FailedOutboundCongestion]       << stat_delimiter
+                    << M_counters[CPT_PL_FailedTimeoutOnRecv]           << stat_delimiter
+                    << M_counters[CPT_C_FailedTimeoutOnRecv]            << stat_delimiter
+                    << M_counters[CPT_PL_OutOfCallMsgs]                 << stat_delimiter
+                    << M_counters[CPT_C_OutOfCallMsgs]                  << stat_delimiter
+                    << M_counters[CPT_PL_Retransmissions]               << stat_delimiter
+                    << M_counters[CPT_C_Retransmissions]                << stat_delimiter
+                    << M_counters[CPT_PL_AutoAnswered]                  << stat_delimiter
+                    << M_counters[CPT_C_AutoAnswered]                   << stat_delimiter;
 
-  // SF917289 << M_counters[CPT_C_UnexpectedMessage]    << ";";
+  // SF917289 << M_counters[CPT_C_UnexpectedMessage]    << stat_delimiter;
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     (*M_outputStream) 
-      << msToHHMMSSmmm( M_counters [CPT_PL_AverageResponseTime + i] ) << ";";
+      << msToHHMMSSmmm( M_counters [CPT_PL_AverageResponseTime + i] ) << stat_delimiter;
     (*M_outputStream) 
-      << msToHHMMSSmmm( M_counters [CPT_C_AverageResponseTime  + i] ) << ";";
+      << msToHHMMSSmmm( M_counters [CPT_C_AverageResponseTime  + i] ) << stat_delimiter;
 
     (*M_outputStream)
       << msToHHMMSSmmm( computeStdev((E_CounterName)(CPT_PL_AverageResponseTime + i),
 				     (E_CounterName)(CPT_PL_NbOfCallUsedForAverageResponseTime + i),
-				     (E_CounterName)(CPT_PL_AverageResponseTime_Squares + i)) ) << ";";
+				     (E_CounterName)(CPT_PL_AverageResponseTime_Squares + i)) ) << stat_delimiter;
     (*M_outputStream)
       << msToHHMMSSmmm( computeStdev((E_CounterName)(CPT_C_AverageResponseTime + i),
 				     (E_CounterName)(CPT_C_NbOfCallUsedForAverageResponseTime + i),
-				     (E_CounterName)(CPT_C_AverageResponseTime_Squares + i)) ) << ";";
+				     (E_CounterName)(CPT_C_AverageResponseTime_Squares + i)) ) << stat_delimiter;
   }
   (*M_outputStream) 
-    << msToHHMMSSmmm( M_counters [CPT_PL_AverageCallLength  ] ) << ";";
+    << msToHHMMSSmmm( M_counters [CPT_PL_AverageCallLength  ] ) << stat_delimiter;
   (*M_outputStream) 
-    << msToHHMMSSmmm( M_counters [CPT_C_AverageCallLength   ] ) << ";";
+    << msToHHMMSSmmm( M_counters [CPT_C_AverageCallLength   ] ) << stat_delimiter;
   (*M_outputStream)
     << msToHHMMSSmmm( computeStdev(CPT_PL_AverageCallLength,
 				   CPT_PL_NbOfCallUsedForAverageCallLength,
-				   CPT_PL_AverageCallLength_Squares )) << ";";
+				   CPT_PL_AverageCallLength_Squares )) << stat_delimiter;
   (*M_outputStream)
     << msToHHMMSSmmm( computeStdev(CPT_C_AverageCallLength,
 				   CPT_C_NbOfCallUsedForAverageCallLength,
-				   CPT_C_AverageCallLength_Squares )) << ";";
+				   CPT_C_AverageCallLength_Squares )) << stat_delimiter;
 
   for (int i = 0; i < MAX_COUNTER; i++) {
-    (*M_outputStream) << M_counters[CPT_PL_Generic + i] << ";";
-    (*M_outputStream) << M_counters[CPT_C_Generic + i] << ";";
+    (*M_outputStream) << M_counters[CPT_PL_Generic + i] << stat_delimiter;
+    (*M_outputStream) << M_counters[CPT_C_Generic + i] << stat_delimiter;
   }
 
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
@@ -1436,8 +1436,8 @@ void CStat::dumpDataRtt ()
   }
 
   for (L_i = 0; L_i < M_counterDumpRespTime ; L_i ++) {
-    (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].date   << ";" ;
-    (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtt   << ";" ;
+    (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].date   << stat_delimiter ;
+    (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtt   << stat_delimiter ;
     M_dumpRespTime[L_i].date = 0.0;
     M_dumpRespTime[L_i].rtt = 0.0;
     (*M_outputStreamRtt) << endl;
