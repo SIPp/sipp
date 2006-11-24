@@ -2127,7 +2127,7 @@ char* call::createSendingMessage(char * src, int P_index)
 #endif
         } else if(strstr(keyword, "branch")) {
           /* Branch is magic cookie + call number + message index in scenario */
-          dest += sprintf(dest, "z9hG4bK-%lu-%d", number, P_index);
+          dest += sprintf(dest, "z9hG4bK-%u-%lu-%d", pid, number, P_index);
         } else if(strstr(keyword, "msg_index")) {
           /* Message index in scenario */
           dest += sprintf(dest, "%d", P_index);
