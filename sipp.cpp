@@ -4035,6 +4035,8 @@ int main(int argc, char *argv[])
             htons((short)remote_s_p);
 	}
         use_remote_sending_addr = 1 ;
+
+        freeaddrinfo(local_addr);
       } else {
         ERROR_P1("Missing argument for param '%s'.\n"
                  "Use 'sipp -h' for details",  argv[argi-1]);
@@ -4451,6 +4453,7 @@ int main(int argc, char *argv[])
            local_addr->ai_addr,
            SOCK_ADDR_SIZE(
              _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
+    freeaddrinfo(local_addr);
 
     if((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
                               SOCK_DGRAM, 0)) == -1) {
@@ -4642,7 +4645,6 @@ int open_connections() {
   int status=0;
   int err; 
   local_port = 0;
-  struct addrinfo * local_addr;
   
   if(!strlen(remote_host)) {
     if(toolMode != MODE_SERVER) {
@@ -4658,6 +4660,7 @@ int open_connections() {
     /* Resolving the remote IP */
     {
       struct addrinfo   hints;
+      struct addrinfo * local_addr;
 
       fprintf(stderr,"Resolving remote host '%s'... ", remote_host);
 
@@ -4680,6 +4683,8 @@ int open_connections() {
              SOCK_ADDR_SIZE(
                _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
 
+      freeaddrinfo(local_addr);
+
       strcpy(remote_ip, get_inet_address(&remote_sockaddr));
       if (remote_sockaddr.ss_family == AF_INET) {
         (_RCAST(struct sockaddr_in *, &remote_sockaddr))->sin_port =
@@ -4700,6 +4705,7 @@ int open_connections() {
   
   {
     char            * local_host = NULL;
+    struct addrinfo * local_addr;
     struct addrinfo   hints;
 
     if (!strlen(local_ip)) {
@@ -4726,7 +4732,7 @@ int open_connections() {
        
        memset(&local_sockaddr,0,sizeof(struct sockaddr_storage)); 	 
        local_sockaddr.ss_family = local_addr->ai_addr->sa_family; 	 
-       
+
        if (!strlen(local_ip)) { 	 
          strcpy(local_ip, 	 
                 get_inet_address( 	 
@@ -4739,6 +4745,8 @@ int open_connections() {
                    _RCAST(struct sockaddr_storage *,local_addr->ai_addr))); 	 
          } 	 
        } 	 
+       freeaddrinfo(local_addr);
+
        if (local_sockaddr.ss_family == AF_INET6) { 	 
          local_ip_is_ipv6 = true; 	 
          sprintf(local_ip_escaped, "[%s]", local_ip); 	 
@@ -4801,6 +4809,7 @@ int open_connections() {
                    local_addr->ai_addr,
                    SOCK_ADDR_SIZE(
                      _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
+            freeaddrinfo(local_addr);
           }
           if (local_ip_is_ipv6) {
             (_RCAST(struct sockaddr_in6 *, &local_sockaddr))->sin6_port
@@ -4860,6 +4869,7 @@ int open_connections() {
              local_addr->ai_addr,
              SOCK_ADDR_SIZE(
                _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
+      freeaddrinfo(local_addr);
     }
 
     if (local_ip_is_ipv6) {
@@ -4937,6 +4947,7 @@ int open_connections() {
               local_addr->ai_addr,
               SOCK_ADDR_SIZE(
                  _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
+        freeaddrinfo(local_addr);
 
         if (is_ipv6) {
           (_RCAST(struct sockaddr_in6 *, &server_sockaddr))->sin6_port
@@ -5063,6 +5074,8 @@ int open_connections() {
              local_addr->ai_addr,
              SOCK_ADDR_SIZE(
                _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
+
+      freeaddrinfo(local_addr);
 
       if (twinSipp_sockaddr.ss_family == AF_INET) {
        (_RCAST(struct sockaddr_in *,&twinSipp_sockaddr))->sin_port =

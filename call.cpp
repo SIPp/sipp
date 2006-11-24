@@ -649,7 +649,7 @@ call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
 call::~call()
 {
   deleted += 1;
-  
+
   if(comp_state) { comp_free(&comp_state); }
 
   if(count_in_stats) {
