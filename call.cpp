@@ -28,6 +28,7 @@
  *           Venkatesh
  *           Vlad Troyanker
  *           Charles P Wright from IBM Research
+ *           Amit On from Followap
  */
 
 #include <iterator>
