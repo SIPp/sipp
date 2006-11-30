@@ -2808,8 +2808,6 @@ bool call::process_incoming(char * msg)
       if (actionResult == E_AR_STOP_CALL) {
           return rejectCall();
       }
-      // handle the error
-      return next();
     }
   }
   
