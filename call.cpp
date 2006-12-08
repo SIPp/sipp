@@ -1681,7 +1681,7 @@ bool call::abortCall()
 
       // Answer unexpected errors (4XX, 5XX and beyond) with an ACK 
       // Contributed by F. Tarek Rogers
-      if((src_recv) && (get_reply_code(src_recv) > 400)) {
+      if((src_recv) && (get_reply_code(src_recv) >= 400)) {
 
         strcpy(L_param, "ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
         sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port]\n");
