@@ -1599,7 +1599,7 @@ int refill_pollbuffer(int sock, int idx, int size, int trace_id) {
   pollbuf = alloc_pollbuf(buffer, readsize);
 
   ret = recv(sock, buffer, readsize, 0);
-  if (ret < 0) {
+  if (ret <= 0) {
 	free_pollbuf(pollbuf);
 	return ret;
   }
@@ -1609,7 +1609,7 @@ int refill_pollbuffer(int sock, int idx, int size, int trace_id) {
 
   outstanding_poll_msgs++;
 
-  return 0;
+  return ret;
 }
 
 void tcp_recv_error(int error, int trace_id, int sock) {
@@ -1678,15 +1678,17 @@ int recv_pollbuff_tcp(int sock, int idx, char *buffer, int size, int trace_id) {
   do {
     part_size = recv_from_pollbuffer(idx, buffer, size);
     if (part_size <= 0) {
-	if ((ret = refill_pollbuffer(sock, idx, size, trace_id)) < 0) {
+	if ((ret = refill_pollbuffer(sock, idx, size, trace_id)) <= 0) {
 	  tcp_recv_error(ret, trace_id, sock);
 	  return recv_size;
+	} else {
+	  part_size = recv_from_pollbuffer(idx, buffer, size);
 	}
     }
     size -= part_size;
     buffer += part_size;
     recv_size += part_size;
-  } while (size > 0);
+  } while (size > 0 && part_size > 0);
 
   return recv_size;
 }
@@ -2153,12 +2155,11 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
         {
 #endif
       
+      if(transport == T_TCP
 #ifdef _USE_OPENSSL
-      if(transport == T_TCP ||  transport == T_TLS ) {
-#else
-      if(transport == T_TCP ) {
+	 || transport == T_TLS
 #endif
-        
+	) {
         if(s == main_socket) {
 
           /* New incoming connection */
@@ -2175,8 +2176,6 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
               ERROR("Unable to create new SSL context recv_message: Fail SSL_new\n");
             }
 
-            // if ( (bio = BIO_new_socket(new_sock,BIO_NOCLOSE)) == NULL) {
-	     
             if ( (bio = BIO_new_socket(new_sock,BIO_CLOSE)) == NULL) {
               ERROR("Unable to create the BIO- New TLS connection - recv_message\n");
 	    } 
@@ -2229,7 +2228,6 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
         
         if(size <= 0) { /* Remote side closed TCP connection */
           
-          nb_net_recv_errors++;
           /* Preventive cleaning */
           if(size < 0) {
             WARNING_P2("TCP/TLS recv error on socket %d, index = %d",
