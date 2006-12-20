@@ -344,7 +344,7 @@ void load_scenario(char * filename, int deflt)
       CStat::instance()->setRepartitionResponseTime(ptr);
     } else if(!strcmp(elem, "label")) {
       ptr = xp_get_value((char *)"id");
-      unsigned int labelNumber = atoi(ptr);
+      unsigned int labelNumber = get_long(ptr, "label identifier");
       if (labelNumber < (sizeof(labelArray)/sizeof(labelArray[0]))) {
        labelArray[labelNumber] = ::scenario_len;
       }
@@ -460,7 +460,7 @@ void load_scenario(char * filename, int deflt)
         }
       
         if(ptr = xp_get_value((char *)"retrans")) {
-          scenario[scenario_len] -> retrans_delay = atol(ptr);
+          scenario[scenario_len] -> retrans_delay = get_long(ptr, "retransmission timer");
         }
       
         if(ptr = xp_get_value((char *)"rtd")) {
@@ -484,7 +484,7 @@ void load_scenario(char * filename, int deflt)
         scenario[scenario_len]->M_type = MSG_TYPE_RECV;
         /* Received messages descriptions */
         if(ptr = xp_get_value((char *)"response")) {
-          scenario[scenario_len] -> recv_response = atol(ptr);
+          scenario[scenario_len] -> recv_response = get_long(ptr, "response code");
           strcpy (scenario[scenario_len]->recv_response_for_cseq_method_list, method_list);
         }
 
@@ -508,31 +508,30 @@ void load_scenario(char * filename, int deflt)
           if(!strcmp(ptr, "true")) {
             scenario[scenario_len] -> optional = OPTIONAL_TRUE;
             ++recv_opt_count;
-          }
-          if(!strcmp(ptr, "global")) {
+          } else if(!strcmp(ptr, "global")) {
             scenario[scenario_len] -> optional = OPTIONAL_GLOBAL;
             ++recv_opt_count;
-          }
+          } else if(!strcmp(ptr, "false")) {
+            scenario[scenario_len] -> optional = OPTIONAL_FALSE;
+          } else {
+	    ERROR_P1("Could not understand optional value: %s", ptr);
+	  }
         }
 
         if (0 != (ptr = xp_get_value((char *)"timeout"))) {
-          scenario[scenario_len]->retrans_delay = atol(ptr);
+          scenario[scenario_len]->retrans_delay = get_long(ptr, "message timeout");
         }
 
         /* record the route set  */
         /* TODO disallow optional and rrs to coexist? */
         if(ptr = xp_get_value((char *)"rrs")) {
-          if(!strcmp(ptr, "true")) {
-            scenario[scenario_len] -> bShouldRecordRoutes = true;
-          }
+	  scenario[scenario_len] -> bShouldRecordRoutes = get_bool(ptr, "record route set");
         }
       
 #ifdef _USE_OPENSSL
         /* record the authentication credentials  */
         if(ptr = xp_get_value((char *)"auth")) {
-          if(!strcmp(ptr, "true")) {
-            scenario[scenario_len] -> bShouldAuthenticate = true;
-          }
+	  scenario[scenario_len] -> bShouldAuthenticate = get_bool(ptr, "message authentication");
         }
 #endif
 
@@ -785,18 +784,18 @@ void load_scenario(char * filename, int deflt)
       }
     
       if(ptr = xp_get_value((char *)"lost")) {
-        scenario[scenario_len] -> lost = atol(ptr);
+        scenario[scenario_len] -> lost = get_long(ptr, "lost percentage");
         lose_packets = 1;
       }
 
       if(ptr = xp_get_value((char *)"crlf")) {
         scenario[scenario_len] -> crlf = 1;
       }
-      
+
       if ( 0 != ( ptr = xp_get_value((char *)"next") ) ) {
-        scenario[scenario_len] -> next = atol(ptr);
+        scenario[scenario_len] -> next = get_long(ptr, "next jump");
          if ( 0 != ( ptr = xp_get_value((char *)"test") ) ) {
-           scenario[scenario_len] -> test = atol(ptr);
+           scenario[scenario_len] -> test = get_long(ptr, "test variable");
          }
          else {
            scenario[scenario_len] -> test = -1;
@@ -806,7 +805,7 @@ void load_scenario(char * filename, int deflt)
       }
 
       if (0 != (ptr = xp_get_value((char *)"ontimeout")) ) {
-        if ((::scenario[scenario_len]->on_timeout = atol(ptr)) >= MAX_LABELS) {
+        if ((::scenario[scenario_len]->on_timeout = get_long(ptr, "timeout jump")) >= MAX_LABELS) {
             ERROR_P1("Ontimeout label larger than max supported %d", MAX_LABELS-1);
         }
       }
