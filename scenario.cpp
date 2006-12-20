@@ -1203,6 +1203,33 @@ int createIntegerTable(char * P_listeStr,
   return(0);
 }
 
+/* These are the names of the scenarios, they must match the default_scenario table. */
+char *scenario_table[] = {
+	"uac",
+	"uas",
+	"regexp",
+	"3pcc-C-A",
+	"3pcc-C-B",
+	"3pcc-A",
+	"3pcc-B",
+	"branchc",
+	"branchs",
+	"uac_pcap"
+};
+
+int find_scenario(const char *scenario) {
+  int i, max;
+  max = sizeof(scenario_table)/sizeof(scenario_table[0]);
+
+  for (i = 0; i < max; i++) {
+    if (!strcmp(scenario_table[i], scenario)) {
+	return i;
+    }
+  }
+
+  return -1;
+}
+
 // TIP: to integrate an existing XML scenario, use the following sed line:
 // cat ../3pcc-controller-B.xml | sed -e 's/\"/\\\"/g' -e 's/\(.*\)/\"\1\\n\"/'
 char * default_scenario [] = {
@@ -2367,8 +2394,11 @@ char * default_scenario [] = {
 "  <CallLengthRepartition value=\"10, 50, 100, 500, 1000, 5000, 10000\"/>\n"
 "\n"
 "</scenario>\n"
-#ifdef PCAPPLAY
 "\n",
+
+/* Although this scenario will not work without pcap play enabled, there is no
+ * harm in including it in the binary anyway, because the user could have
+ * dumped it and passed it with -sf. */
 
 /************* Default_scenario[9] ***************/
 (char*)
@@ -2504,5 +2534,4 @@ char * default_scenario [] = {
 "\n"
 "</scenario>\n"
 "\n"
-#endif
 };

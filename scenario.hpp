@@ -171,6 +171,7 @@ int  isWellFormed(char * P_listeStr,
 
 
 
+int find_scenario(const char *scenario);
 extern char * default_scenario[10];
 extern unsigned int  labelArray[MAX_LABELS];
 

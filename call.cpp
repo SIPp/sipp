@@ -2146,7 +2146,7 @@ char* call::createSendingMessage(char * src, int P_index)
           while (generic[i]) {
             char *msg1 = *generic[i];
             char *msg2 = *(generic[i] + 1);
-            if(!strcmp(keyword, msg1+1)) {
+            if(!strcmp(keyword, msg1)) {
               dest += sprintf(dest, "%s", msg2);
               break;
             }

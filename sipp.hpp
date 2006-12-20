@@ -151,12 +151,12 @@ extern double             rate_period_s           _DEFVAL(DEFAULT_RATE_PERIOD_S)
 extern unsigned long      defl_recv_timeout       _DEFVAL(0);
 extern unsigned long      global_timeout          _DEFVAL(0);
 extern int                transport               _DEFVAL(DEFAULT_TRANSPORT);
-extern int                retrans_enabled         _DEFVAL(1);
+extern bool               retrans_enabled         _DEFVAL(1);
 extern int                max_udp_retrans         _DEFVAL(UDP_MAX_RETRANS);
 extern int                max_invite_retrans      _DEFVAL(UDP_MAX_RETRANS_INVITE_TRANSACTION);
 extern int                max_non_invite_retrans  _DEFVAL(UDP_MAX_RETRANS_NON_INVITE_TRANSACTION);
-extern int                default_behavior        _DEFVAL(1);
-extern int                pause_msg_ign           _DEFVAL(0);
+extern bool               default_behavior        _DEFVAL(1);
+extern bool               pause_msg_ign           _DEFVAL(0);
 extern int                auto_answer             _DEFVAL(0);
 extern int                multisocket             _DEFVAL(0);
 extern int                compression             _DEFVAL(0);
@@ -323,7 +323,6 @@ extern int           tcp_multiplex                _DEFVAL(0);
 extern int           media_socket                 _DEFVAL(0);
 extern int           media_socket_video           _DEFVAL(0);
 
-extern double        max_reconnections            _DEFVAL(0);
 extern struct        sockaddr_storage   local_sockaddr;
 extern struct        sockaddr_storage   localTwin_sockaddr;
 extern int           user_port                    _DEFVAL(0);
@@ -359,12 +358,12 @@ extern FILE * screenf                             _DEFVAL(0);
 extern FILE * logfile                             _DEFVAL(0);
 extern FILE * messagef                            _DEFVAL(0);
 extern FILE * timeoutf                            _DEFVAL(0);
-extern int    useMessagef                         _DEFVAL(0);
-extern int    useScreenf                          _DEFVAL(0);
-extern int    useLogf                             _DEFVAL(0);
-extern int    useTimeoutf                         _DEFVAL(0);
-extern int    dumpInFile                          _DEFVAL(0);
-extern int    dumpInRtt                           _DEFVAL(0);
+extern bool   useMessagef                         _DEFVAL(0);
+extern bool   useScreenf                          _DEFVAL(0);
+extern bool   useLogf                             _DEFVAL(0);
+extern bool   useTimeoutf                         _DEFVAL(0);
+extern bool   dumpInFile                          _DEFVAL(0);
+extern bool   dumpInRtt                           _DEFVAL(0);
 extern char * scenario_file;
 
 #define TRACE_MSG(arg)      \

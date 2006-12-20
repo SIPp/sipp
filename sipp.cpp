@@ -56,6 +56,222 @@ int passwd_call_back_routine(char  *buf , int size , int flag, void *passwd)
 }
 #endif
 
+/* These could be local to main, but for the option processing table. */
+static int argiFileName;
+static int argiInputFile;
+
+/***************** Option Handling Table *****************/
+struct sipp_option {
+	const char *option;
+	const char *help;
+	int type;
+	void *data;
+};
+
+#define SIPP_OPTION_HELP	1
+#define SIPP_OPTION_INT		2
+#define SIPP_OPTION_SETFLAG	3
+#define SIPP_OPTION_UNSETFLAG	4
+#define SIPP_OPTION_STRING	5
+#define SIPP_OPTION_ARGI	6
+#define SIPP_OPTION_INT_TO_MS	7
+#define SIPP_OPTION_FLOAT	8
+#define SIPP_OPTION_FLOAT_TO_SEC 9
+#define SIPP_OPTION_BOOL	10
+#define SIPP_OPTION_VERSION	11
+#define SIPP_OPTION_TRANSPORT	12
+#define SIPP_OPTION_NEED_SSL	13
+#define SIPP_OPTION_IP		14
+#define SIPP_OPTION_MAX_SOCKET	15
+#define SIPP_OPTION_CSEQ	16
+#define SIPP_OPTION_SCENARIO	17
+#define SIPP_OPTION_RSA		18
+#define SIPP_OPTION_LIMIT	19
+#define SIPP_OPTION_USERS	20
+#define SIPP_OPTION_KEY		21
+#define SIPP_OPTION_3PCC	22
+#define SIPP_OPTION_TDMMAP	23
+
+/* Put Each option, its help text, and type in this table. */
+struct sipp_option options_table[] = {
+	{"v", "Display version and copyright information.", SIPP_OPTION_VERSION, NULL},
+
+	{"h", NULL, SIPP_OPTION_HELP, NULL},
+	{"help", NULL, SIPP_OPTION_HELP, NULL},
+
+	{"aa", "Enable automatic 200 OK answer for INFO and NOTIFY messages.", SIPP_OPTION_SETFLAG, &auto_answer},
+#ifdef _USE_OPENSSL
+	{"auth_uri", "Force the value of the URI for authentication.\n"
+                     "By default, the URI is composed of remote_ip:remote_port.", SIPP_OPTION_STRING, &auth_uri},
+#else
+	{"auth_uri", NULL, SIPP_OPTION_NEED_SSL, NULL},
+#endif
+
+	{"base_cseq", "Start value of [cseq] for each call.", SIPP_OPTION_CSEQ, NULL},
+	{"bg", "Launch SIPp in background mode.", SIPP_OPTION_SETFLAG, &backgroundMode},
+	{"bind_local", "Bind socket to local IP address, i.e. the local IP address is used as the source IP address.  If SIPp runs in server mode it will only listen on the local IP address instead of all IP addresses.", SIPP_OPTION_SETFLAG, &bind_local},
+	{"buff_size", "Set the send and receive buffer size.", SIPP_OPTION_INT, &buff_size},
+
+	{"cid_str", "Call ID string (default %u-%p@%s).  %u=call_number, %s=ip_address, %p=process_number, %%=% (in any order).", SIPP_OPTION_STRING, &call_id_string},
+
+	{"d", "Controls the length (in milliseconds) of calls. More precisely, this controls the duration of 'pause' instructions in the scenario, if they do not have a 'milliseconds' section. Default value is 0.", SIPP_OPTION_INT, &duration},
+
+	{"f", "Set the statistics report frequency on screen (in seconds). Default is 1.", SIPP_OPTION_INT, &report_freq},
+
+	{"fd", "Set the statistics dump log report frequency (in seconds). Default is 60.", SIPP_OPTION_INT_TO_MS, &report_freq_dumpLog},
+
+	{"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address.\n", SIPP_OPTION_IP, local_ip},
+	{"inf", "Inject values from an external CSV file during calls into the scenarios.\n"
+                "First line of this file say whether the data is to be read in sequence (SEQUENTIAL) or random (RANDOM) order.\n"
+		"Each line corresponds to one call and has one or more ';' delimited data fields. Those fields can be referred as [field0], [field1], ... in the xml scenario file.", SIPP_OPTION_ARGI, &argiInputFile},
+	{"ip_field", "Set which field from the injection file contains the IP address from which the client will send its messages.\n"
+                     "If this option is omitted and the '-t ui' option is present, then field 0 is assumed.\n"
+		     "Use this option together with '-t ui'", SIPP_OPTION_INT, &peripfield},
+
+	{"l", "Set the maximum number of simultaneous calls. Once this limit is reached, traffic is decreased until the number of open calls goes down. Default:\n"
+	      "  (3 * call_duration (s) * rate).", SIPP_OPTION_LIMIT, NULL},
+
+	{"m", "Stop the test and exit when 'calls' calls are processed", SIPP_OPTION_INT, &stop_after},
+	{"mi", "Set the local media IP address", SIPP_OPTION_IP, media_ip},
+	{"max_recv_loops", "Set the maximum number of messages received read per cycle. Increase this value for high traffic level.  The default value is 1000.", SIPP_OPTION_INT, &max_recv_loops},
+	{"max_reconnect", "Set the the maximum number of reconnection.", SIPP_OPTION_INT, &reset_number},
+	{"max_retrans", "Maximum number of UDP retransmissions before call ends on timeout.  Default is 5 for INVITE transactions and 7 for others.", SIPP_OPTION_INT, &max_udp_retrans},
+	{"max_invite_retrans", "Maximum number of UDP retransmissions for invite transactions before call ends on timeout.", SIPP_OPTION_INT, &max_invite_retrans},
+	{"max_non_invite_retrans", "Maximum number of UDP retransmissions for non-invite transactions before call ends on timeout.", SIPP_OPTION_INT, &max_non_invite_retrans},
+	{"max_socket", "Set the max number of sockets to open simultaneously. This option is significant if you use one socket per call. Once this limit is reached, traffic is distributed over the sockets already opened. Default value is 50000", SIPP_OPTION_MAX_SOCKET, NULL},
+
+	{"mb", "Set the RTP echo buffer size (default: 2048).", SIPP_OPTION_INT, &media_bufsize},
+	{"mp", "Set the local RTP echo port number. Default is 6000.", SIPP_OPTION_INT, &user_media_port},
+
+	{"nd", "No Default. Disable all default behavior of SIPp which are the following:\n"
+	        "- On UDP retransmission timeout, abort the call by sending a BYE or a CANCEL\n"
+	        "- On receive timeout with no ontimeout attribute, abort the call by sending a BYE or a CANCEL\n"
+	        "- On unexpected BYE send a 200 OK and close the call\n"
+	        "- On unexpected CANCEL send a 200 OK and close the call\n"
+	        "- On unexpected PING send a 200 OK and continue the call\n"
+	        "- On any other unexpected message, abort the call by sending a BYE or a CANCEL\n",
+		SIPP_OPTION_UNSETFLAG, &default_behavior},
+	{"nr", "Disable retransmission in UDP mode.", SIPP_OPTION_UNSETFLAG, &retrans_enabled},
+
+	{"p", "Set the local port number.  Default is a random free port chosen by the system.", SIPP_OPTION_INT, &user_port},
+	{"pause_msg_ign", "Ignore the messages received during a pause defined in the scenario ", SIPP_OPTION_SETFLAG, &pause_msg_ign},
+
+	{"r", "Set the call rate (in calls per seconds).  This value can be"
+	      "changed during test by pressing '+','_','*' or '/'. Default is 10.\n"
+	      "pressing '+' key to increase call rate by 1,\n"
+              "pressing '-' key to decrease call rate by 1,\n"
+              "pressing '*' key to increase call rate by 10,\n"
+              "pressing '/' key to decrease call rate by 10.\n"
+              "If the -rp option is used, the call rate is calculated with the period in ms given by the user.", SIPP_OPTION_FLOAT, &rate},
+	{"rp", "Specify the rate period in milliseconds for the call rate.  Default is 1 second.  This allows you to have n calls every m milliseconds (by using -r n -rp m).\n"
+               "Example: -r 7 -rp 2000 ==> 7 calls every 2 seconds.", SIPP_OPTION_FLOAT_TO_SEC, &rate_period_s},
+	{"rate_increase", "Specify the rate increase every -fd seconds.  This allows you to increase the load for each independent logging period.\n"
+                      "Example: -rate_increase 10 -fd 10\n"
+                      "  ==> increase calls by 10 every 10 seconds.", SIPP_OPTION_INT, &rate_increase},
+	{"rate_max", "If -rate_increase is set, then quit after the rate reaches this value.\n"
+                      "Example: -rate_increase 10 -max_rate 100\n"
+                      "  ==> increase calls by 10 until 100 cps is hit.", SIPP_OPTION_INT, &rate_max},
+	{"recv_timeout", "Global receive timeout in milliseconds.  If the expected message is not received, the call times out and is aborted.", SIPP_OPTION_INT, &defl_recv_timeout},
+	{"reconnect_close", "Should calls be closed on reconnect?", SIPP_OPTION_BOOL, &reset_close},
+	{"reconnect_sleep", "How long to sleep between the close and reconnect?", SIPP_OPTION_INT, &reset_sleep},
+	{"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, NULL},
+	{"rtp_echo", "Enable RTP echo. RTP/UDP packets received on port defined by -mp are echoed to their sender.\n"
+                     "RTP/UDP packets coming on this port + 2 are also echoed to their sender (used for sound and video echo).",
+		     SIPP_OPTION_SETFLAG, &rtp_echo_enabled},
+	{"rtt_freq", "freq is mandatory. Dump response times every freq calls in the log file defined by -trace_rtt. Default value is 200.",
+		     SIPP_OPTION_SETFLAG, &report_freq_dumpRtt},
+	{"s", "Set the username part of the resquest URI. Default is 'service'.", SIPP_OPTION_STRING, &service},
+	{"sd", "Dumps a default scenario (embeded in the sipp executable)", SIPP_OPTION_SCENARIO, NULL},
+	{"sf", "Loads an alternate xml scenario file.  To learn more about XML scenario syntax, use the -sd option to dump embedded scenarios. They contain all the necessary help.", SIPP_OPTION_SCENARIO, NULL},
+	{"sn", "Use a default scenario (embedded in the sipp executable). If this option is omitted, the Standard SipStone UAC scenario is loaded.\n"
+               "Available values in this version:\n\n"
+               "- 'uac'      : Standard SipStone UAC (default).\n"
+               "- 'uas'      : Simple UAS responder.\n"
+               "- 'regexp'   : Standard SipStone UAC - with regexp and variables.\n"
+               "- 'branchc'  : Branching and conditional branching in scenarios - client.\n"
+               "- 'branchs'  : Branching and conditional branching in scenarios - server.\n\n"
+               "Default 3pcc scenarios (see -3pcc option):\n\n"
+               "- '3pcc-C-A' : Controller A side (must be started after all other 3pcc scenarios)\n"
+               "- '3pcc-C-B' : Controller B side.\n"
+               "- '3pcc-A'   : A side.\n"
+               "- '3pcc-B'   : B side.\n", SIPP_OPTION_SCENARIO, NULL},
+
+	{"stat_delimiter", "Set the delimiter for the statistics file", SIPP_OPTION_STRING, &stat_delimiter},
+	{"stf", "Set the file name to use to dump statistics", SIPP_OPTION_ARGI, &argiFileName},
+
+	{"t", "Set the transport mode:\n"
+              "- u1: UDP with one socket (default),\n"
+              "- un: UDP with one socket per call,\n"
+              "- ui: UDP with one socket per IP address The IP addresses must be defined in the injection file.\n"
+              "- t1: TCP with one socket,\n"
+              "- tn: TCP with one socket per call,\n"
+              "- l1: TLS with one socket,\n"
+              "- ln: TLS with one socket per call,\n"
+              "- c1: u1 + compression (only if compression plugin loaded),\n"
+              "- cn: un + compression (only if compression plugin loaded).\n"
+
+, SIPP_OPTION_TRANSPORT, NULL},
+
+	{"timeout", "Global timeout in seconds.  If this option is set, SIPp quits after nb seconds.", SIPP_OPTION_INT, &global_timeout},
+	{"timer_resol", "Set the timer resolution in milliseconds.  This option has an impact on timers precision."
+                      "Small values allow more precise scheduling but impacts CPU usage."
+                      "If the compression is on, the value is set to 50ms. The default value is 10ms.", SIPP_OPTION_INT, &timer_resolution},
+	{"trace_msg", "Displays sent and received SIP messages in <scenario file name>_<pid>_messages.log", SIPP_OPTION_SETFLAG, &useMessagef},
+	{"trace_screen", "Dump statistic screens in the <scenario_name>_<pid>_screens.log file when quitting SIPp. Useful to get a final status report in background mode (-bg option).", SIPP_OPTION_SETFLAG, &useScreenf},
+	{"trace_err", "Trace all unexpected messages in <scenario file name>_<pid>_errors.log.", SIPP_OPTION_SETFLAG, &print_all_responses},
+	{"trace_timeout", "Displays call ids for calls with timeouts in <scenario file name>_<pid>_timeout.log", SIPP_OPTION_SETFLAG, &useTimeoutf},
+	{"trace_stat", "Dumps all statistics in <scenario_name>_<pid>.csv file. Use the '-h stat' option for a detailed description of the statistics file content.", SIPP_OPTION_SETFLAG, &dumpInFile},
+	{"trace_rtt", "Allow tracing of all response times in <scenario file name>_<pid>_rtt.csv.", SIPP_OPTION_SETFLAG, &dumpInRtt},
+	{"trace_logs", "Allow tracing of <log> actions in <scenario file name>_<pid>_logs.log.", SIPP_OPTION_SETFLAG, &useLogf},
+
+	{"up_nb", "Set the number of updates of the internal clock during the reading of received messages.  Default value is 1.", SIPP_OPTION_INT, &update_nb},
+
+#ifdef _USE_OPENSSL
+	{"ap", "Set the password for authentication challenges. Default is 'password", SIPP_OPTION_STRING, &auth_password},
+	{"tls_cert", "Set the name for TLS Certificate file. Default is 'cacert.pem", SIPP_OPTION_STRING, &tls_cert_name},
+	{"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem'", SIPP_OPTION_STRING, &tls_key_name},
+	{"tls_crl", "Set the name for Certificate Revocation List file. If not specified, X509 CRL is not activated.", SIPP_OPTION_STRING, &tls_crl_name},
+#else
+	{"ap", NULL, SIPP_OPTION_NEED_SSL, NULL},
+	{"tls_cert", NULL, SIPP_OPTION_NEED_SSL, NULL},
+	{"tls_key", NULL, SIPP_OPTION_NEED_SSL, NULL},
+	{"tls_crl", NULL, SIPP_OPTION_NEED_SSL, NULL},
+#endif
+#ifdef __3PCC__
+	{"3pcc", "Launch the tool in 3pcc mode (\"Third Party call control\"). The passed ip address is depending on the 3PCC role.\n"
+                 "- When the first twin command is 'sendCmd' then this is the address of the remote twin socket.  SIPp will try to connect to this address:port to send the twin command (This instance must be started after all other 3PCC scenarii).\n"
+                 "    Example: 3PCC-C-A scenario.\n"
+                 "- When the first twin command is 'recvCmd' then this is the address of the local twin socket. SIPp will open this address:port to listen for twin command.\n"
+		 "    Example: 3PCC-C-B scenario.", SIPP_OPTION_3PCC, NULL},
+#endif
+	{"tdmmap", "Generate and handle a table of TDM circuits.\n"
+                   "A circuit must be available for the call to be placed.\n"
+                   "Format: -tdmmap {0-3}{99}{5-8}{1-31}", SIPP_OPTION_TDMMAP, NULL},
+	{"key", "key value\nSet the generic parameter named \"key\" to \"value\".", SIPP_OPTION_KEY, NULL},
+};
+
+struct sipp_option *find_option(const char *option) {
+	int i;
+	int max = sizeof(options_table)/sizeof(options_table[0]);
+
+	/* Allow options to start with '-' or '--' */
+	if (option[0] != '-') {
+	  return NULL;
+	}
+	option++;
+	if (option[0] == '-') {
+	  option++;
+	}
+
+	for (i = 0; i < max; i++) {
+	  if (!strcmp(options_table[i].option, option)) {
+	    return &(options_table[i]);
+	  }
+	}
+
+	return NULL;
+};
+
 /***************** System Portability Features *****************/
 
 unsigned int getmilliseconds()
@@ -2828,10 +3044,92 @@ void rtp_echo_thread (void * param)
   }
 }
 
-/* Help screen */
+/* Wrap the help text. */
+char *wrap(const char *in, int offset, int size) {
+  int pos = 0;
+  int i, j;
+  int l = strlen(in);
+  int alloced = l + 1;
+  char *out = (char *)malloc(alloced);
+  int indent = 0;
 
+  if (!out) {
+    ERROR_NO("malloc");
+  }
+
+  for (i = j = 0; i < l; i++) {
+    out[j++] = in[i];
+    if (in[i] == '\n') {
+      out = (char *)realloc(out, alloced += offset);
+      if (!out) {
+        ERROR_NO("realloc");
+      }
+      pos = 0;
+      for (int k = 0; k < offset; k++) {
+        out[j++] = ' ';
+      }
+      if (indent) {
+        indent = 0;
+      }
+    }
+    if (in[i] == '-' && i > 0 && in[i - 1] == '\n') {
+      indent = 1;
+    }
+    if (++pos > size) {
+      int k;
+      for (k = j - 1; k > 0 && !isspace(out[k]); k--);
+      int useoffset = offset;
+
+      if (indent) {
+        useoffset += 2;
+      }
+
+      if (k == 0 || out[k] == '\n') {
+        pos = 0;
+        out[j++] = '\n';
+        out = (char *)realloc(out, alloced += useoffset);
+        if (!out) {
+          ERROR_NO("realloc");
+        }
+        for (k = 0; k < useoffset; k++) {
+          out[j++] = ' ';
+        }
+      } else {
+        int m;
+
+        out[j] = '\0';
+        //printf("Before wrapping (pos = %d, k = %d, j = %d):\n%-*s%s\n", pos, k, j, offset, "", out);
+
+        out[k] = '\n';
+        pos = j - k;
+        k++;
+        out[j] = '\0';
+        out = (char *)realloc(out, alloced += useoffset);
+        if (!out) {
+          ERROR_NO("realloc");
+        }
+        for (m = 0; m < useoffset; m++) {
+          if (k + useoffset + m < alloced) {
+            out[k + useoffset + m] = out[k + m];
+          }
+          out[k + m] = ' ';
+        }
+        j += useoffset;
+        out[j] = '\0';
+        //printf("After wrapping (pos = %d, k = %d):\n%-*s%s\n", pos, k, offset, "", out);
+      }
+    }
+  }
+  out[j] = '\0';
+
+  return out;
+}
+
+/* Help screen */
 void help() 
 {
+  int i, max;
+
   printf
     ("\n"
      "Usage:\n"
@@ -2839,323 +3137,24 @@ void help()
      "  sipp remote_host[:remote_port] [options]\n"
      "\n"
      "  Available options:\n"
-     "\n"
-     "   -v               : Display version and copyright information.\n"
-     "\n"
-     "   -bg              : Launch SIPp in background mode.\n"
-     "\n"
-     "   -p local_port    : Set the local port number. Default is a\n"
-     "                      random free port chosen by the system.\n"
-     "\n"
-     "   -buff_size buff_size: Set the send and receive buffer size.\n"
-     "\n"
-     "   -i local_ip      : Set the local IP address for 'Contact:',\n"
-     "                      'Via:', and 'From:' headers. Default is\n"
-     "                      primary host IP address.\n"
-     "\n"
-     "   -bind_local      : Bind socket to local IP address, i.e. the local IP\n"
-     "                      address is used as the source IP address.\n"
-     "                      If SIPp runs in server mode it will only listen on the\n"
-     "                      local IP address instead of all IP addresses.\n"
-     "\n"
-     "   -inf file_name   : Inject values from an external CSV file during calls\n"
-     "                      into the scenarios.\n"
-     "                      First line of this file say whether the data is \n"
-     "                      to be read in sequence (SEQUENTIAL) or random \n"
-     "                      (RANDOM) order.\n"
-     "                      Each line corresponds to one call and has one or \n"
-     "                      more ';' delimited data fields. Those fields can be \n"
-     "                      referred as [field0], [field1], ... in the xml \n"
-     "                      scenario file.\n"
-     "\n"
-     "   -d duration      : Controls the length (in milliseconds) of\n"
-     "                      calls. More precisely, this controls\n"
-     "                      the duration of 'pause' instructions in\n"
-     "                      the scenario, if they do not have a\n"
-     "                      'milliseconds' section. Default value is 0.\n"
-     "\n"
-     "   -r rate (cps)    : Set the call rate (in calls per seconds).\n"
-     "                      This value can be changed during test by\n"
-     "                      pressing '+','_','*' or '/'. Default is 10.\n"
-     "                      pressing '+' key to increase call rate by 1,\n"
-     "                      pressing '-' key to decrease call rate by 1,\n"
-     "                      pressing '*' key to increase call rate by 10,\n"
-     "                      pressing '/' key to decrease call rate by 10.\n"
-     "                      If the -rp option is used, the call rate is\n"
-     "                      calculated with the period in ms given \n"
-     "                      by the user.\n"
-     "\n"
-     "   -rp period (ms)  : Specify the rate period in milliseconds for the call\n"
-     "                      rate.\n"
-     "                      Default is 1 second.\n"
-     "                      This allows you to have n calls every m milliseconds \n"
-     "                      (by using -r n -rp m).\n"
-     "                      Example: -r 7 -rp 2000 ==> 7 calls every 2 seconds.\n"
-     "\n"
-     "   -rate_increase   : Specify the rate increase every -fd seconds\n"
-     "                      This allows you to increase the load for each\n"
-     "                      independent logging period\n"
-     "                      Example: -rate_increase 10 -fd 10 \n"
-     "                        ==> increase calls by 10 every 10 seconds.\n"
-     "\n"
-     "   -rate_max        : If -rate_increase is set, then quit after the rate\n"
-     "                      reaches this value.\n"
-     "                      Example: -rate_increase 10 -max_rate 100\n"
-     "                        ==> increase calls by 10 until 100 cps is hit.\n"
-     "\n"
-     "   -max_socket max  : Set the max number of sockets to open simultaneously.\n"
-     "                      This option is significant if you use one socket\n"
-     "                      per call. Once this limit is reached, traffic is\n"
-     "                      distributed over the sockets already opened.\n"
-     "                      Default value is 50000.\n"
-     "\n"
-     "   -timer_resol     : Set the timer resolution in milliseconds.\n"
-     "                      This option has an impact on timers precision.\n"
-     "                      Small values allow more precise scheduling but\n"
-     "                      impacts CPU usage.\n"
-     "                      If the compression is on, the value is set to 50ms.\n"
-     "                      The default value is 200ms.\n"
-     "\n"
-     "   -max_recv_loops  : Set the maximum number of messages received read per\n"
-     "                      cycle. Increase this value for high traffic level.\n"
-     "                      The default value is 1000.\n"
-     "\n"
-     "   -up_nb           : Set the number of updates of the internal clock during\n"
-     "                      the reading of received messages.\n"
-     "                      Default value is 1.\n"
-     "\n"
-     "   -base_cseq n     : Start value of [cseq] for each call.\n"
-     "\n"
-     "   -cid_str string  : Call ID string (default %%u-%%p@%%s).\n"
-     "                      %%u=call_number, %%s=ip_address, %%p=process_number,\n"
-     "                      %%%%=%% (in any order).\n"
-#ifdef _USE_OPENSSL
-     "\n"
-     "   -auth_uri uri    : Force the value of the URI for authentication.\n"
-     "                      By default, the URI is composed of \n"
-     "                      remote_ip:remote_port.\n" 
-#endif
-     "\n"
-     "   -sf filename     : Loads an alternate xml scenario file.\n"
-     "                      To learn more about XML scenario syntax,\n"
-     "                      use the -sd option to dump embedded \n"
-     "                      scenarios. They contain all the necessary\n"
-     "                      help.\n"
-     "\n"
-     "   -sn name         : Use a default scenario (embedded in\n"
-     "                      the sipp executable). If this option is omitted,\n"
-     "                      the Standard SipStone UAC scenario is loaded.\n"
-     "                      Available values in this version:\n"
-     "\n"
-     "                        'uac'      : Standard SipStone UAC (default).\n"
-#ifdef PCAPPLAY
-     "                        'uac_pcap' : Standard SipStone UAC with pcap\n"
-     "                                     play (RTP)\n"
-#endif
-     "                        'uas'      : Simple UAS responder.\n"
-     "                        'regexp'   : Standard SipStone UAC - with\n"
-     "                                     regexp and variables.\n"
-     "                        'branchc'  : Branching and conditional\n"
-     "                                     branching in scenarios - client.\n"
-     "                        'branchs'  : Branching and conditional\n"
-     "                                     branching in scenarios - server.\n"
-#ifdef __3PCC__
-     "\n"
-     "                      Default 3pcc scanerios (see -3pcc option):\n"
-     "\n"
-     "                        '3pcc-C-A' : Controller A side (must be started\n"
-     "                                     after all other 3pcc scenarios)\n"
-     "                        '3pcc-C-B' : Controller B side.\n"
-     "                        '3pcc-A'   : A side.\n"
-     "                        '3pcc-B'   : B side.\n"
-#endif
-     "   -ip_field nr     : Set which field from the injection file contains the\n"
-     "                      IP address from which the client will send its\n"
-     "                      messages.\n"
-     "                      If this option is omitted and the '-t ui' option is\n"
-     "                      present, then field 0 is assumed.\n"
-     "                      Use this option together with '-t ui'\n"
-     "\n"
-     "   -sd name         : Dumps a default scenario (embeded in\n"
-     "                      the sipp executable)\n"
-     "\n"
-#ifdef _USE_OPENSSL
-     "   -t [u1|un|ui|t1|tn|l1|ln] : Set the transport mode:\n"
-#else
-     "   -t [u1|un|ui|t1|tn] : Set the transport mode:\n"
-#endif
-     "\n"
-     "                        u1: UDP with one socket (default),\n"
-     "                        un: UDP with one socket per call,\n"
-     "                        ui: UDP with one socket per IP address\n"
-     "                            The IP addresses must be defined in the\n"
-     "                            injection file.\n"
-     "                        t1: TCP with one socket,\n"
-     "                        tn: TCP with one socket per call,\n"
-#ifdef _USE_OPENSSL
-     "                        l1: TLS with one socket,\n"
-     "                        ln: TLS with one socket per call.\n"
-#endif
      "\n");
-  if(!strlen(comp_error)) {
-    printf
-      ("                      It appears that you installed the\n"
-       "                      " COMP_PLUGGIN " plugin. 2 additionnal\n"
-       "                      transport modes are available:\n"
-       "\n"
-       "                        c1: u1 + compression,\n"
-       "                        cn: un + compression.\n"
-       "\n");
-  }
-  printf
-    ("   -trace_msg       : Displays sent and received SIP messages in\n"
-     "                      <scenario file name>_<pid>_messages.log\n"
-     "\n"
-     "   -trace_screen    : Dump statistic screens in the \n"
-     "                      <scenario_name>_<pid>_screens.log file when\n"
-     "                      quitting SIPp. Useful to get a final status report\n"
-     "                      in background mode (-bg option).\n"
-     "\n"
-     "   -trace_timeout   : Displays call ids for calls with timeouts in\n"
-     "                      <scenario file name>_<pid>_timeout.log\n"
-     "\n"
-     "   -trace_stat      : Dumps all statistics in <scenario_name>_<pid>.csv\n"
-     "                      file. Use the '-h stat' option for a detailed\n"
-     "                      description of the statistics file content.\n"
-     "\n"
-     "   -stf file_name   : Set the file name to use to dump statistics\n"
-     "\n"
-     "   -stat_delimiter string : Set the delimiter for the statistics file\n"
-     "\n"
-     "   -trace_err       : Trace all unexpected messages in\n"
-     "                      <scenario file name>_<pid>_errors.log.\n"
-     "\n"
-     "   -trace_logs      : Allow tracing of <log> actions in\n"
-     "                      <scenario file name>_<pid>_logs.log.\n"
-     "\n"
-     "   -trace_rtt       : Allow tracing of all response times in\n"
-     "                      <scenario file name>_<pid>_rtt.csv.\n"
-     "\n"
-     "   -rtt_freq freq   : freq is mandatory. Dump response times \n"
-     "                      every freq calls in the log file defined \n"
-     "                      by -trace_rtt. Default value is 200.\n"
-     "\n"
-     "   -s service_name  : Set the username part of the resquest URI.\n"
-     "                      Default is 'service'.\n"
-     "\n"
-#ifdef _USE_OPENSSL
-     "   -ap password     : Set the password for authentication challenges.\n"
-     "                      Default is 'password'\n"
-     "\n"
-     "   -tls_cert name   : Set the name for TLS Certificate file.\n"
-     "                      Default is 'cacert.pem'\n"
-     "\n"
-     "   -tls_key name    : Set the name for TLS Private Key file.\n"
-     "                      Default is 'cakey.pem'\n"
-     "\n"
-     "   -tls_crl name    : Set the name for Certificate Revocation List file.\n"
-     "                      If not specified, X509 CRL is not activated.\n"
-     "\n"
-#endif
-     "   -f frequency     : Set the statistics report frequency on screen\n"
-     "                      (in seconds). Default is 1.\n"
-     "\n"
-     "   -fd frequency    : Set the statistics dump log report frequency\n"
-     "                      (in seconds). Default is 60.\n"
-     "\n"
-     "   -l calls_limit   : Set the maximum number of simultaneous\n"
-     "                      calls. Once this limit is reached, traffic\n"
-     "                      is decreased until the number of open calls\n"
-     "                      goes down. Default:\n"
-     "\n"
-     "                        (3 * call_duration (s) * rate).\n"
-     "\n"
-     "   -m calls         : Stop the test and exit when 'calls' calls are\n"
-     "                      processed.\n"
-     "\n"
-     "   -rtp_echo        : Enable RTP echo. RTP/UDP packets received\n"
-     "                      on port defined by -mp are echoed to their\n"
-     "                      sender.\n"
-     "                      RTP/UDP packets coming on this port + 2\n"
-     "                      are also echoed to their sender (used for\n"
-     "                      sound and video echo).\n"
-     "\n"
-     "   -mp media_port   : Set the local RTP echo port number. Default\n"
-     "                      is 6000.\n"
-     "\n"
-     "   -mi local_rtp_ip : Set the local media IP address.\n"
-     "\n"
-     "   -mb buf_size     : Set the RTP echo buffer size (default: 2048).\n"
-     "\n"
-#ifdef __3PCC__
-     "   -3pcc ip:port    : Launch the tool in 3pcc mode (\"Third Party\n"
-     "                      call control\"). The passed ip address\n"
-     "                      is depending on the 3PCC role.\n"
-     "                      - When the first twin command is 'sendCmd' then\n"
-     "                      this is the address of the remote twin socket.\n"
-     "                      SIPp will try to connect to this address:port to\n"
-     "                      send the twin command (This instance must be started\n"
-     "                      after all other 3PCC scenarii).\n"
-     "                      Example: 3PCC-C-A scenario.\n"
-     "                      - When the first twin command is 'recvCmd' then\n"
-     "                      this is the address of the local twin socket. SIPp \n"
-     "                      will open this address:port to listen for twin command.\n"
-     "                      Example: 3PCC-C-B scenario.\n"
-     "\n"
 
-#endif
-     "   -nr              : Disable retransmission in UDP mode.\n"
-     "\n"
-     "   -max_retrans     : Maximum number of UDP retransmissions before call\n"
-     "                      ends on timeout.\n"
-     "                      Default is 5 for INVITE transactions and 7 for\n"
-     "                      others.\n"
-     "   -max_invite_retrans : Maximum number of UDP retransmissions for invite\n"
-     "                      transactions before call ends on timeout.\n"
-     "   -max_non_invite_retrans : Maximum number of UDP retransmissions for\n"
-     "                      non-invite transactions before call ends on timeout.\n"
-     "\n"
-     "   -recv_timeout nb : Global receive timeout in milliseconds.\n"
-     "                      If the expected message is not received, the call\n"
-     "                      times out and is aborted\n"
-     "\n"
-     "   -timeout nb      : Global timeout in seconds.\n"
-     "                      If this option is set, SIPp quits after nb seconds\n"
-     "\n"
-     "   -nd              : No Default. Disable all default behavior of SIPp\n"
-     "                      which are the following:\n"
-     "                      - On UDP retransmission timeout, abort the call by\n"
-     "                      sending a BYE or a CANCEL\n"
-     "                      - On receive timeout with no ontimeout attribute, \n"
-     "                      abort the call by sending a BYE or a CANCEL\n"
-     "                      - On unexpected BYE send a 200 OK and close the call\n"
-     "                      - On unexpected CANCEL send a 200 OK and close the call\n"
-     "                      - On unexpected PING send a 200 OK and continue the call\n"
-     "                      - On any other unexpected message, abort the call by\n"
-     "                      sending a BYE or a CANCEL\n"
-     "\n"
-     "   -pause_msg_ign   : Ignore the messages received during a pause defined\n" 
-     "                      in the scenario\n"
-     "\n"
-     "   -rsa host[:port] : Set the remote sending address to host:port.\n"
-     "                      for sending the messages.\n"
-     "\n"
-     "   -max_reconnect   : TCP: set the maximum number of reconnection.\n"
-     "\n"
-     "   -reconnect_close true/false: TCP: should calls be closed on reconnect?\n"
-     "\n"
-     "   -reconnect_sleep int : TCP: how long to sleep between the close and\n"
-     "                      reconnect?\n"
-     "\n"
-     "   -aa              : Enable automatic 200 OK answer for INFO and NOTIFY\n"
-     "                      messages.\n"
-     "\n"
-     "   -tdmmap map      : Generate and handle a table of TDM circuits.\n"
-     "                      A circuit must be available for the call to be placed.\n"
-     "                      Format: -tdmmap {0-3}{99}{5-8}{1-31}\n"
-     "\n"
-     "   -xyz string      : Any other parameter used in SIP messages as [xyz].\n"
-     "\n"
+  /* We automatically generate the help messages based on the options array.
+   * This should hopefully encourage people to write help text when they
+   * introduce a new option and keep the code a bit cleaner. */
+    max = sizeof(options_table)/sizeof(options_table[0]);
+    for (i = 0; i < max; i++) {
+      char *formatted;
+      if (!options_table[i].help) {
+        continue;
+      }
+      formatted = wrap(options_table[i].help, 22, 57);
+      printf("   -%-16s: %s\n\n", options_table[i].option, formatted);
+      free(formatted);
+    }
+
+    printf
+    (
      "Signal handling:\n"
      "\n"
      "   SIPp can be controlled using posix signals. The following signals\n"
@@ -3406,8 +3405,6 @@ int main(int argc, char *argv[])
   int                  index = 0;
   struct sockaddr_storage   media_sockaddr;
   pthread_t            pthread_id, pthread2_id,  pthread3_id;
-  int                  argiFileName = 0;
-  int                  argiInputFile = 0;
   char                *scenario_name = NULL;
   int                  err;
   int                  L_maxSocketPresent = 0;
@@ -3455,848 +3452,312 @@ int main(int argc, char *argv[])
   init_tolower_table();
   
   /* Command line parsing */
-  
+#define REQUIRE_ARG() if((++argi) >= argc) { ERROR_P1("Missing argument for param '%s'.\n" \
+				     "Use 'sipp -h' for details",  argv[argi - 1]); }
+
   for(argi = 1; argi < argc; argi++) {
+    struct sipp_option *option = find_option(argv[argi]);
 
-    int processed = 0;
-
-    if((!strcmp(argv[argi], "-h"    )) ||
-       (!strcmp(argv[argi], "--h"   )) || 
-       (!strcmp(argv[argi], "--help")) || 
-       (!strcmp(argv[argi], "-help" ))    ) {
-      if(((argi+1) < argc) && (!strcmp(argv[argi+1], "stat"))) {
-        help_stats();
-      } else {
-        help();
+    if (!option) {
+      if((argv[argi])[0] != '-') {
+	strcpy(remote_host, argv[argi]);
+	continue;
       }
-      exit(EXIT_OTHER);
+      help();
+      ERROR_P1("Invalid argument: '%s'.\n"
+	  "Use 'sipp -h' for details", argv[argi]);
     }
 
-    if(!strcmp(argv[argi], "-p")) {
-      if((++argi) < argc) {
-        user_port = atol(argv[argi]);
-        processed = 1;
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\nUse 'sipp -h' for details",
-                 argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-buff_size")) {
-      if((++argi) < argc) {
-	buff_size = atol(argv[argi]);
-	processed = 1;
-      } else {
-	ERROR_P1("Missing argument for param '%s'.\nUse 'sipp -h' for details",
-	    argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-mp")) {
-      if((++argi) < argc) {
-        user_media_port = atol(argv[argi]);
-	processed = 1;
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\nUse 'sipp -h' for details",
-                 argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-rtp_echo")) {
-      processed = 1;
-      rtp_echo_enabled = true;
-    }
-
-    if(!strcmp(argv[argi], "-mi")) {
-      if((++argi) < argc) {
-        int dummy_port;
-        processed = 1;
-        strcpy(media_ip, argv[argi]);
-        get_host_and_port(media_ip, media_ip, &dummy_port);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-mb")) {
-      if((++argi) < argc) {
-        processed = 1;
-        media_bufsize = (size_t)atol(argv[argi]);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-t")) {
-      if((++argi) < argc) {
-        processed = 1;
-        if(!strcmp(argv[argi], "u1")) {
-          transport = T_UDP;
-          multisocket = 0;
-          peripsocket = 0;
-        } else if(!strcmp(argv[argi], "un")) {
-          transport = T_UDP;
-          multisocket = 1;
-          peripsocket = 0;
-        } else if(!strcmp(argv[argi], "ui")) {
-          transport = T_UDP;
-          multisocket = 1;
-          peripsocket = 1;
-          socket_close = false;
-        } else if(!strcmp(argv[argi], "t1")) {
-          transport = T_TCP;
-          multisocket = 0;
-        } else if(!strcmp(argv[argi], "tn")) {
-          transport = T_TCP;
-          multisocket = 1;
+    switch(option->type)
+    {
+      case SIPP_OPTION_HELP:
+	if(((argi+1) < argc) && (!strcmp(argv[argi+1], "stat"))) {
+	  help_stats();
+	} else {
+	  help();
+	}
+	exit(EXIT_OTHER);
+      case SIPP_OPTION_VERSION:
+	printf("\n SIPp v1.1"
 #ifdef _USE_OPENSSL
-        } else if(!strcmp(argv[argi], "l1")) {
-          transport = T_TLS;
-          multisocket = 0;
-          if ( init_OpenSSL() != 1) {
-             printf("OpenSSL Initialization problem\n");
-             exit ( -1);
-          } 
-        } else if (!strcmp(argv[argi], "ln")) {       
-          transport = T_TLS;
-          multisocket = 1;
-          if ( init_OpenSSL() != 1) {
-             printf("OpenSSL Initialization problem\n");
-             exit ( -1);
-          }
+	    "-TLS"
 #endif
-        } else if(!strcmp(argv[argi], "c1")) {
-          if(strlen(comp_error)) {
-            ERROR_P1("No " COMP_PLUGGIN " pluggin available:\n%s", comp_error);
-          }
-          transport = T_UDP;
-          multisocket = 0;
-          compression = 1;
-        } else if(!strcmp(argv[argi], "cn")) {
-          if(strlen(comp_error)) {
-            ERROR_P1("No " COMP_PLUGGIN " pluggin available:\n%s", comp_error);
-          }
-          transport = T_UDP;
-          multisocket = 1;
-          compression = 1;
-        } else {
-          ERROR_P1("Invalid argument for -t param : '%s'.\n"
-                   "Use 'sipp -h' for details",  argv[argi]);
-        }          
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
+#ifdef PCAPPLAY
+	    "-PCAP"
+#endif
+	    ", version %ld, built %s, %s.\n\n", 
+	    SIPP_VERSION, __DATE__, __TIME__); 
 
-    if(!strcmp(argv[argi], "-nr")) {
-      processed = 1;
-      retrans_enabled = 0;
-    }
+	printf
+	  (" This program is free software; you can redistribute it and/or\n"
+	   " modify it under the terms of the GNU General Public License as\n"
+	   " published by the Free Software Foundation; either version 2 of\n"
+	   " the License, or (at your option) any later version.\n"
+	   "\n"
+	   " This program is distributed in the hope that it will be useful,\n"
+	   " but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+	   " MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+	   " GNU General Public License for more details.\n"
+	   "\n"
+	   " You should have received a copy of the GNU General Public\n"
+	   " License along with this program; if not, write to the\n"
+	   " Free Software Foundation, Inc.,\n"
+	   " 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA\n"
+	   "\n"
+	   " Author: see source files.\n\n");
+	exit(EXIT_OTHER);
+      case SIPP_OPTION_INT:
+      case SIPP_OPTION_INT_TO_MS:
+	REQUIRE_ARG();
+	*((int *)option->data) = get_long(argv[argi], argv[argi-1]);
+	switch(option->type) {
+	  case SIPP_OPTION_INT_TO_MS:
+	    *((int *)option->data) *= 1000;
+	    break;
+	}
+	break;
+      case SIPP_OPTION_BOOL:
+	REQUIRE_ARG();
+	*((bool *)option->data) = get_bool(argv[argi], argv[argi-1]);
+	break;
+      case SIPP_OPTION_FLOAT:
+      case SIPP_OPTION_FLOAT_TO_SEC:
+	char *endptr;
 
-    if(!strcmp(argv[argi], "-max_retrans")) {
-      if((++argi) < argc) {
-        processed = 1;
-        if (atoi(argv[argi]) > 0) {
-          max_udp_retrans = atoi(argv[argi]);
-        }
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
+	REQUIRE_ARG();
 
-    if(!strcmp(argv[argi], "-max_invite_retrans")) {
-      if((++argi) < argc) {
-        processed = 1;
-        if (atoi(argv[argi]) > 0) {
-          max_invite_retrans = atoi(argv[argi]);
-        }
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
+	*((double *)option->data) = strtod(argv[argi], &endptr);
+	if (*endptr) {
+	  ERROR_P1("Invalid float argument for param '%s'.\n", argv[argi-1]);
+	}
+	switch(option->type) {
+	  case SIPP_OPTION_FLOAT_TO_SEC:
+	    *((int *)option->data) /= 1000;
+	    break;
+	}
+	break;
+      case SIPP_OPTION_STRING:
+	REQUIRE_ARG();
+	*((char **)option->data) = argv[argi];
+	break;
+      case SIPP_OPTION_ARGI:
+	REQUIRE_ARG();
+	*((int *)option->data) = argi;
+	break;
+      case SIPP_OPTION_SETFLAG:
+	*((bool *)option->data) = true;
+	break;
+      case SIPP_OPTION_UNSETFLAG:
+	*((bool *)option->data) = false;
+	break;
+      case SIPP_OPTION_TRANSPORT:
+	REQUIRE_ARG();
 
-    if(!strcmp(argv[argi], "-max_non_invite_retrans")) {
-      if((++argi) < argc) {
-        processed = 1;
-        if (atoi(argv[argi]) > 0) {
-          max_non_invite_retrans = atoi(argv[argi]);
-        }
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
+	if (strlen(argv[argi]) != 2) {
+	  ERROR_P1("Invalid argument for -t param : '%s'.\n"
+	      "Use 'sipp -h' for details",  argv[argi]);
+	}
 
-    if(!strcmp(argv[argi], "-nd")) {
-      processed = 1;
-      default_behavior = 0;
-    }
-  
-    if(!strcmp(argv[argi], "-pause_msg_ign")) {
-      processed = 1;
-      pause_msg_ign = 1;
-    }
+	switch(argv[argi][0]) {
+	  case 'u':
+	    transport = T_UDP;
+	    break;
+	  case 't':
+	    transport = T_TCP;
+	    break;
+	  case 'l':
+#ifdef _USE_OPENSSL
+	    transport = T_TLS;
+	    if ( init_OpenSSL() != 1) {
+	      printf("OpenSSL Initialization problem\n");
+	      exit ( -1);
+	    }
+#else
+	    ERROR("To use a TLS transport you must compile SIPp with OpenSSL");
+#endif
+	    break;
+	  case 'c':
+	    if(strlen(comp_error)) {
+	      ERROR_P1("No " COMP_PLUGGIN " pluggin available:\n%s", comp_error);
+	    }
+	    transport = T_UDP;
+	    compression = 1;
+	}
+	switch(argv[argi][1]) {
+	  case '1':
+	    multisocket = 0;
+	    peripsocket = 0;
+	    break;
+	  case 'n':
+	    multisocket = 1;
+	    peripsocket = 0;
+	    break;
+	  case 'i':
+	    multisocket = 1;
+	    peripsocket = 1;
+	    socket_close = false;
+	    break;
+	}
 
-    if(!strcmp(argv[argi], "-trace_msg")) {
-      useMessagef = 1 ;
-      processed = 1;
-    }
-
-    if(!strcmp(argv[argi], "-trace_screen")) {
-      useScreenf = 1 ;
-      processed = 1;
-    }
-
-    if(!strcmp(argv[argi], "-trace_err")) {
-      processed = 1;
-      print_all_responses = 1;
-    }
-
-    if(!strcmp(argv[argi], "-trace_timeout")) {
-      useTimeoutf = 1 ;
-      processed = 1;
-    }
-
-    if(!strcmp(argv[argi], "-trace_stat")) {
-      processed  = 1;
-      dumpInFile = 1;
-    }
-
-    if(!strcmp(argv[argi], "-trace_rtt")) {
-       processed  = 1;
-       dumpInRtt = 1;
-    }
-
-    if(!strcmp(argv[argi], "-rtt_freq")) {
-       if((++argi) < argc) {
-          processed = 1;
-	  report_freq_dumpRtt = atol(argv[argi]) ;
-        } else {
-         ERROR_P1("Missing argument for param '%s'.\n"
-	          "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-max_socket")) {
-      if((++argi) < argc) {
-        processed = 1;
-        max_multi_socket = atoi(argv[argi]);
+	if (peripsocket && transport != T_UDP) {
+	  ERROR("You can only use a perip socket with UDP!\n");
+	}
+	break;
+      case SIPP_OPTION_NEED_SSL:
+	ERROR_P1("OpenSSL is required for the %s option.", argv[argi]);
+	break;
+      case SIPP_OPTION_MAX_SOCKET:
+	REQUIRE_ARG();
+	max_multi_socket = get_long(argv[argi], argv[argi - 1]);
 	maxSocketPresent = true ;
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
+	break;
+      case SIPP_OPTION_CSEQ:
+	REQUIRE_ARG();
+	base_cseq = get_long(argv[argi], argv[argi - 1]);
+	base_cseq--;
+	break;
+      case SIPP_OPTION_IP:
+        {
+	int dummy_port;
+	char *ptr = (char *)option->data;
+	REQUIRE_ARG();
 
-    if(!strcmp(argv[argi], "-base_cseq")) { /* Base for [cseq] */
-      if((++argi) < argc) {
-        processed = 1;
-        base_cseq = atoi(argv[argi])-1; /* gets incremented before first use */
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details\n",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-cid_str")) { /* Call ID string */
-      if((++argi) < argc) {
-        processed = 1;
-        call_id_string = argv[argi];
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details\n",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-auth_uri")) { /* Forced authentication URI */
-      if((++argi) < argc) {
-        processed = 1;
-        auth_uri = argv[argi];
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details\n",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-trace_logs")) {
-      processed  = 1;
-      useLogf = 1;
-    }
-
-    if(!strcmp(argv[argi], "-stf")) {
-      if((++argi) < argc) {
-        processed = 1;
-        argiFileName = argi;
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-stat_delimiter")) {
-      if((++argi) < argc) {
-        processed = 1;
-        stat_delimiter = argv[argi];
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-inf")) {
-      if((++argi) < argc) {
-        processed = 1;
-        argiInputFile = argi;
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-d")) {
-      if((++argi) < argc) {
-        processed = 1;
-        duration = atol(argv[argi]);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-i")) {
-      if((++argi) < argc) {
-        processed = 1;
-        int dummy_port;
-        strcpy(local_ip, argv[argi]);
-        get_host_and_port(local_ip, local_ip, &dummy_port);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-    
-    if(!strcmp(argv[argi], "-m")) {
-      if((++argi) < argc) {
-        processed = 1;
-        stop_after  = atol(argv[argi]);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-f")) {
-      if((++argi) < argc) {
-        processed = 1;
-        report_freq  = atol(argv[argi]) * 1000;
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-fd")) {
-      if((++argi) < argc) {
-        processed = 1;
-        report_freq_dumpLog = atol(argv[argi]) * 1000;
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-l")) {
-      if((++argi) < argc) {
-        processed = 1;
-        open_calls_allowed = atol(argv[argi]);
-        open_calls_user_setting = 1;
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-bg")) {
-      processed = 1;
-      backgroundMode = true;
-    }
-
-    if(!strcmp(argv[argi], "-v")) {
-#ifdef _USE_OPENSSL
-#ifdef PCAPPLAY
-      printf("\n Sipp v1.1-TLS-PCAP, version %ld, built %s, %s.\n\n", SIPP_VERSION, __DATE__, __TIME__); 
-#else
-      printf("\n Sipp v1.1-TLS, version %ld, built %s, %s.\n\n", SIPP_VERSION, __DATE__, __TIME__); 
-#endif
-#else
-#ifdef PCAPPLAY
-      printf("\n Sipp v1.1-PCAP, version %ld, built %s, %s.\n\n", SIPP_VERSION, __DATE__, __TIME__); 
-#else
-      printf("\n Sipp v1.1, version %ld, built %s, %s.\n\n", SIPP_VERSION, __DATE__, __TIME__); 
-#endif
-#endif
-      printf
-        (" This program is free software; you can redistribute it and/or\n"
-         " modify it under the terms of the GNU General Public License as\n"
-         " published by the Free Software Foundation; either version 2 of\n"
-         " the License, or (at your option) any later version.\n"
-         "\n"
-         " This program is distributed in the hope that it will be useful,\n"
-         " but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-         " MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
-         " GNU General Public License for more details.\n"
-         "\n"
-         " You should have received a copy of the GNU General Public\n"
-         " License along with this program; if not, write to the\n"
-         " Free Software Foundation, Inc.,\n"
-         " 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA\n"
-         "\n"
-         " Author: see source files.\n\n");
-      
-      exit(EXIT_OTHER);
-    }
-    
-    if(!strcmp(argv[argi], "-r")) {
-      if((++argi) < argc) {
-        processed = 1;
-        rate = atof(argv[argi]);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-rp")) {
-      if((++argi) < argc) {
-        processed = 1;
-        rate_period_s = atof(argv[argi]) / 1000 ;
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-rate_increase")) {
-      if((++argi) < argc) {
-        processed = 1;
-        rate_increase = atol(argv[argi]);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-rate_max")) {
-      if((++argi) < argc) {
-        processed = 1;
-        rate_max = atol(argv[argi]);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-s")) {
-      if((++argi) < argc) {
-        processed = 1;
-        service = argv[argi];
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-    
-    if(!strcmp(argv[argi], "-timer_resol")) {
-      if((++argi) < argc) {
-        processed = 1;
-        timer_resolution = atoi(argv[argi]);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-recv_timeout")) {
-      if((++argi) < argc) {
-        processed = 1;
-        defl_recv_timeout = atol(argv[argi]);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-timeout")) {
-      if((++argi) < argc) {
-        processed = 1;
-        global_timeout = atol(argv[argi]);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-max_recv_loops")) {
-      if((++argi) < argc) {
-        processed = 1;
-        if (atoi(argv[argi]) > 0) {
-          max_recv_loops = atoi(argv[argi]);
+	strcpy(ptr, argv[argi]);
+	get_host_and_port(ptr, ptr, &dummy_port);
         }
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
+	break;
+      case SIPP_OPTION_LIMIT:
+	REQUIRE_ARG();
+	open_calls_allowed = get_long(argv[argi], argv[argi - 1]);
+	open_calls_user_setting = 1;
+	break;
+      case SIPP_OPTION_USERS:
+	REQUIRE_ARG();
+	users = open_calls_allowed = get_long(argv[argi], argv[argi - 1]);
+	open_calls_user_setting = 1;
+	break;
+      case SIPP_OPTION_KEY:
+	REQUIRE_ARG();
+	REQUIRE_ARG();
 
-
-    if(!strcmp(argv[argi], "-up_nb")) {
-      if((++argi) < argc) {
-        processed = 1;
-        if (atoi(argv[argi]) > 0) {
-          update_nb = atoi(argv[argi]);
-        }
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-#ifdef _USE_OPENSSL
-    if(!strcmp(argv[argi], "-ap")) {
-      if((++argi) < argc) {
-        auth_password = argv[argi];
-	    processed = 1;
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-tls_cert")) {
-       if((++argi) < argc) {
-         processed = 1;
-         tls_cert_name = argv[argi];
-        } else {
-          ERROR_P1("Missing argument for param '%s'.\n"
-                   "Use 'sipp -h' for details",  argv[argi-1]);
-       }
-     }
-
-    if(!strcmp(argv[argi], "-tls_key")) {
-      if((++argi) < argc) {
-         processed = 1;
-         tls_key_name = argv[argi];
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-tls_crl")) {
-      if((++argi) < argc) {
-         processed = 1;
-         tls_crl_name = argv[argi];
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
+	if (generic_count+1 >= sizeof(generic)/sizeof(generic[0])) {
+	  ERROR_P1("Too many generic parameters %d",generic_count+1);
+	}
+	generic[generic_count++] = &argv[argi - 1];
+	generic[generic_count] = NULL;
+	break;
+      case SIPP_OPTION_3PCC:
+#ifdef __3PCC_
+	REQUIRE_ARG();
+	twinSippMode = true;
+	strcpy(twinSippHost, argv[argi]);
+#else
+	ERROR("SIPp was not compiled with 3PCC enabled!");
 #endif
+	break;
+      case SIPP_OPTION_SCENARIO:
+	REQUIRE_ARG();
+	if (!strcmp(argv[argi - 1], "-sf")) {
+	  load_scenario(argv[argi], 0);
+	  scenario_file = new char [strlen(argv[argi])+1] ;
+	  sprintf(scenario_file,"%s", argv[argi]);
+	  CStat::instance()->setFileName(argv[argi], (char*)".csv");
+	} else if (!strcmp(argv[argi - 1], "-sn")) {
+	  int i = find_scenario(argv[argi]);
 
-    if(!strcmp(argv[argi], "-sf")) {
-      if((++argi) < argc) {
-        processed = 1;
-        load_scenario(argv[argi], 0);
-        scenario_file = new char [strlen(argv[argi])+1] ;
-        sprintf(scenario_file,"%s", argv[argi]);
-        CStat::instance()->setFileName(argv[argi], (char*)".csv");
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    // Remote sending address different from the received messages
-    if(!strcmp(argv[argi], "-rsa")) {
-      if((++argi) < argc) {
-	char *remote_s_address ;
-        int   remote_s_p = DEFAULT_PORT;
-        int   temp_remote_s_p;
-
-        processed = 1;
-        temp_remote_s_p = 0;
-	remote_s_address = argv[argi] ;
-        get_host_and_port(remote_s_address, remote_s_address, &temp_remote_s_p);
-        if (temp_remote_s_p != 0) {
-          remote_s_p = temp_remote_s_p;
-        }
-        struct addrinfo   hints;
-        struct addrinfo * local_addr;
-
-        printf("Resolving remote sending address %s...\n", remote_s_address);
-        
-        memset((char*)&hints, 0, sizeof(hints));
-        hints.ai_flags  = AI_PASSIVE;
-        hints.ai_family = PF_UNSPEC;
-
-        /* FIXME: add DNS SRV support using liburli? */
-        if (getaddrinfo(remote_s_address,
-                        NULL,
-                        &hints,
-                        &local_addr) != 0) {
-	    ERROR_P1("Unknown remote host '%s'.\n"
-		     "Use 'sipp -h' for details", remote_s_address);
+	  if (i < 0) {
+	    ERROR_P1("Invalid default scenario name '%s'.\n", scenario);
 	  }
 
-        memcpy(&remote_sending_sockaddr,
-               local_addr->ai_addr,
-               SOCK_ADDR_SIZE(
-                 _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
+	  printf("Scenario is %d\n");
 
-        if (remote_sending_sockaddr.ss_family == AF_INET) {
-          (_RCAST(struct sockaddr_in *, &remote_sending_sockaddr))->sin_port =
-            htons((short)remote_s_p);
-        } else {
-          (_RCAST(struct sockaddr_in6 *, &remote_sending_sockaddr))->sin6_port =
-            htons((short)remote_s_p);
+	  CStat::instance()->setFileName(argv[argi], (char*)".csv");
+	  load_scenario(0, i);
+	  scenario_file = new char [strlen(argv[argi])+1] ;
+	  sprintf(scenario_file,"%s", argv[argi]);
+	} else if (!strcmp(argv[argi - 1], "-sd")) {
+	  int i = find_scenario(argv[argi]);
+
+	  if (i < 0) {
+	    ERROR_P1("Invalid default scenario name '%s'.\n", scenario);
+	  }
+
+	  fprintf(stdout, "%s", default_scenario[i]);
+	  exit(EXIT_OTHER);
+	} else {
+	  ERROR_P1("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
 	}
-        use_remote_sending_addr = 1 ;
+	break;
+      case SIPP_OPTION_RSA: {
+	REQUIRE_ARG();
+	char *remote_s_address ;
+	int   remote_s_p = DEFAULT_PORT;
+	int   temp_remote_s_p;
 
-        freeaddrinfo(local_addr);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    
-    if(!strcmp(argv[argi], "-sn")) {
-      if((++argi) < argc) {
-        processed = 1;
-        if(!strcmp(argv[argi], "uac")) {
-          CStat::instance()->setFileName((char*)"uac", (char*)".csv");
-          load_scenario(0, 0);
-        } else if(!strcmp(argv[argi], "uas")) {
-          CStat::instance()->setFileName((char*)"uas", (char*)".csv");
-          load_scenario(0, 1);
-        } else if(!strcmp(argv[argi], "regexp")) {
-          CStat::instance()->setFileName((char*)"regexp", (char*)".csv");
-          load_scenario(0, 2);
-        } else if(!strcmp(argv[argi], "3pcc-C-A")) {
-          CStat::instance()->setFileName((char*)"3pcc-C-A", (char*)".csv");
-          load_scenario(0, 3);
-        } else if(!strcmp(argv[argi], "3pcc-C-B")) {
-          CStat::instance()->setFileName((char*)"3pcc-C-B", (char*)".csv");
-          load_scenario(0, 4);
-        } else if(!strcmp(argv[argi], "3pcc-A")) {
-          CStat::instance()->setFileName((char*)"3pcc-A", (char*)".csv");
-          load_scenario(0, 5);
-        } else if(!strcmp(argv[argi], "3pcc-B")) {
-          CStat::instance()->setFileName((char*)"3pcc-B", (char*)".csv");
-          load_scenario(0, 6);
-        } else if(!strcmp(argv[argi], "branchc")) {
-          CStat::instance()->setFileName((char*)"branchc", (char*)".csv");
-          load_scenario(0, 7);
-        } else if(!strcmp(argv[argi], "branchs")) {
-          CStat::instance()->setFileName((char*)"branchs", (char*)".csv");
-          load_scenario(0, 8);
-#ifdef PCAPPLAY
-        } else if(!strcmp(argv[argi], "uac_pcap")) {
-          CStat::instance()->setFileName((char*)"uac_pcap", (char*)".csv");
-          load_scenario(0, 9);
-#endif
-        } else {
-          ERROR_P1("Invalid default scenario name '%s'.\n", argv[argi]);
-        }
-        scenario_file = new char [strlen(argv[argi])+1] ;
-        sprintf(scenario_file,"%s", argv[argi]);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-sd")) {
-      if((++argi) < argc) {
-        processed = 1;
-        if(!strcmp(argv[argi], "uac")) {
-          fprintf(stdout, "%s", default_scenario[0]);
-          exit(EXIT_OTHER);
-        } else if(!strcmp(argv[argi], "uas")) {
-          fprintf(stdout, "%s", default_scenario[1]);
-          exit(EXIT_OTHER);
-        } else if(!strcmp(argv[argi], "regexp")) {
-          fprintf(stdout, "%s", default_scenario[2]);
-          exit(EXIT_OTHER);
-        } else if(!strcmp(argv[argi], "3pcc-C-A")) {
-          fprintf(stdout, "%s", default_scenario[3]);
-          exit(EXIT_OTHER);
-        } else if(!strcmp(argv[argi], "3pcc-C-B")) {
-          fprintf(stdout, "%s", default_scenario[4]);
-          exit(EXIT_OTHER);
-        } else if(!strcmp(argv[argi], "3pcc-A")) {
-          fprintf(stdout, "%s", default_scenario[5]);
-          exit(EXIT_OTHER);
-        } else if(!strcmp(argv[argi], "3pcc-B")) {
-          fprintf(stdout, "%s", default_scenario[6]);
-          exit(EXIT_OTHER);
-        } else if(!strcmp(argv[argi], "branchc")) {
-          fprintf(stdout, "%s", default_scenario[7]);
-          exit(EXIT_OTHER);
-        } else if(!strcmp(argv[argi], "branchs")) {
-          fprintf(stdout, "%s", default_scenario[8]);
-          exit(EXIT_OTHER);
-#ifdef PCAPPLAY
-        } else if(!strcmp(argv[argi], "uac_pcap")) {
-          fprintf(stdout, "%s", default_scenario[9]);
-          exit(EXIT_OTHER);
-#endif
-        } else {
-          ERROR_P1("Invalid default scenario name '%s'.\n", argv[argi]);
-        }
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-max_reconnect")) {
-      if((++argi) < argc) {
-        processed = 1;
-        max_reconnections = atof(argv[argi]);
-        reset_number = max_reconnections;
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-reconnect_close")) {
-      if((++argi) < argc) {
-        processed = 1;
-	reset_close = get_bool(argv[argi], "reconnect_close");
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-reconnect_sleep")) {
-      if((++argi) < argc) {
-        processed = 1;
-	reset_sleep = get_long(argv[argi], "reconnect_sleep");
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-aa")) {
-      processed = 1;
-      auto_answer = true;
-    }
-
-#ifdef __3PCC__
-    if(!strcmp(argv[argi], "-3pcc")) {
-      if((++argi) < argc) {
-        processed = 1;
-        twinSippMode = true;
-        strcpy(twinSippHost, argv[argi]);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-#endif
-
-    if(!strcmp(argv[argi], "-ip_field")) {
-      if((++argi) < argc) {
-        processed = 1;
-        peripfield = atoi(argv[argi]);
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-bind_local")) {
-      processed = 1;
-      bind_local = 1;
-    }
-
-    if(!strcmp(argv[argi], "-tdmmap")) {
-      if((++argi) < argc) {
-        processed = 1;
-        int i1, i2, i3, i4, i5, i6, i7;
-
-        if (sscanf(argv[argi], "{%d-%d}{%d}{%d-%d}{%d-%d}", &i1, &i2, &i3, &i4, &i5, &i6, &i7) == 7) {
-          use_tdmmap = true;
-          tdm_map_a = i2 - i1;
-          tdm_map_x = i1;
-          tdm_map_h = i3;
-          tdm_map_b = i5 - i4;
-          tdm_map_y = i4;
-          tdm_map_c = i7 - i6;
-          tdm_map_z = i6;
-        } else {
-          ERROR("Parameter -tdmmap must be of form {%%d-%%d}{%%d}{%%d-%%d}{%%d-%%d}");
-        }
-      } else {
-        ERROR_P1("Missing argument for param '%s'.\n"
-                 "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
-
-    if(!strcmp(argv[argi], "-users")) {
-      if((++argi) < argc) {
-	char *endptr;
-	processed = 1;
-	users = open_calls_allowed = strtol(argv[argi], &endptr, 0);
-	open_calls_user_setting = 1;
-	if (*endptr) {
-	  ERROR_P2("Invalid integer '%d' for param '%s'.\n"
-	      "Use 'sipp -h' for details",  argv[argi], argv[argi-1]);
+	temp_remote_s_p = 0;
+	remote_s_address = argv[argi] ;
+	get_host_and_port(remote_s_address, remote_s_address, &temp_remote_s_p);
+	if (temp_remote_s_p != 0) {
+	  remote_s_p = temp_remote_s_p;
 	}
-      } else {
-	ERROR_P1("Missing argument for param '%s'.\n"
-	    "Use 'sipp -h' for details",  argv[argi-1]);
-      }
-    }
+	struct addrinfo   hints;
+	struct addrinfo * local_addr;
 
-    /* --------------------------------------------- */
-    /* !!! This must be the last parameter processed */
-    if(processed == 0 && *argv[argi] == '-') {
-      if((++argi) < argc) {
-        if (generic_count+1 >= sizeof(generic)/sizeof(generic[0])) {
-          ERROR_P1("Too many generic parameters %d",generic_count+1);
+	printf("Resolving remote sending address %s...\n", remote_s_address);
+
+	memset((char*)&hints, 0, sizeof(hints));
+	hints.ai_flags  = AI_PASSIVE;
+	hints.ai_family = PF_UNSPEC;
+
+	/* FIXME: add DNS SRV support using liburli? */
+	if (getaddrinfo(remote_s_address,
+	      NULL,
+	      &hints,
+	      &local_addr) != 0) {
+	  ERROR_P1("Unknown remote host '%s'.\n"
+	      "Use 'sipp -h' for details", remote_s_address);
+	}
+
+	memcpy(&remote_sending_sockaddr,
+	    local_addr->ai_addr,
+	    SOCK_ADDR_SIZE(
+	      _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
+
+	if (remote_sending_sockaddr.ss_family == AF_INET) {
+	  (_RCAST(struct sockaddr_in *, &remote_sending_sockaddr))->sin_port =
+	    htons((short)remote_s_p);
+	} else {
+	  (_RCAST(struct sockaddr_in6 *, &remote_sending_sockaddr))->sin6_port =
+	    htons((short)remote_s_p);
+	}
+	use_remote_sending_addr = 1 ;
+
+	freeaddrinfo(local_addr);
+	break;
         }
-        processed = 1;
-        generic[generic_count++] = &argv[argi-1];
-        generic[generic_count] = NULL;
-      } else {
-        ERROR_P1("Missing argument for param '%s'."
-                 "Use 'sipp -h' for details\n",  argv[argi-1]);
-      }
-    }
-    /* --------------------------------------------- */
+      case SIPP_OPTION_TDMMAP: {
+	REQUIRE_ARG();
+	int i1, i2, i3, i4, i5, i6, i7;
 
-    if(!processed) {
-      if((argv[argi])[0] != '-') {
-        strcpy(remote_host, argv[argi]);
-      } else {
-        help();
-        ERROR_P1("Invalid argument: '%s'.\n"
-                 "Use 'sipp -h' for details", argv[argi]);
+	if (sscanf(argv[argi], "{%d-%d}{%d}{%d-%d}{%d-%d}", &i1, &i2, &i3, &i4, &i5, &i6, &i7) == 7) {
+	  use_tdmmap = true;
+	  tdm_map_a = i2 - i1;
+	  tdm_map_x = i1;
+	  tdm_map_h = i3;
+	  tdm_map_b = i5 - i4;
+	  tdm_map_y = i4;
+	  tdm_map_c = i7 - i6;
+	  tdm_map_z = i6;
+	} else {
+	  ERROR("Parameter -tdmmap must be of form {%%d-%%d}{%%d}{%%d-%%d}{%%d-%%d}");
+	}
+	break;
       }
+      default:
+       ERROR_P1("Internal error: I don't recognize the option type for %s\n", argv[argi]);
     }
   }
-  
+
   if (peripsocket) {
     if (!argiInputFile) {
       ERROR("You must use the -inf option when using -t ui.\n"
