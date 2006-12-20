@@ -2789,11 +2789,38 @@ bool call::process_incoming(char * msg)
     }
   }
 
+  /* If it is still not found, process an unexpected message */
+  if(!found) {
+    if ((L_case = checkAutomaticResponseMode(request)) == 0) {
+      if (!process_unexpected(msg)) {
+        return false; // Call aborted by unexpected message handling
+      }
+    } else {
+      // call aborted by automatic response mode if needed
+      return (automaticResponseMode(L_case, msg)); 
+    }
+  }
+
   int test = (!found) ? -1 : scenario[search_index]->test;
   /* test==0: No branching"
    * test==-1 branching without testing"
    * test>0   branching with testing
    */
+
+  /* Simulate loss of messages */
+  if(lost(scenario[search_index] -> lost)) {
+    TRACE_MSG((s, "%s message lost (recv).", 
+               TRANSPORT_TO_STRING(transport)));
+    if(comp_state) { comp_free(&comp_state); }
+    scenario[search_index] -> nb_lost++;
+    return true;
+  }
+
+  /* Handle counters and RTDs for this message. */
+  do_bookkeeping(search_index);
+
+  /* Increment the recv counter */
+  scenario[search_index] -> nb_recv++;
 
   // Action treatment
   if (found) {
@@ -2811,27 +2838,6 @@ bool call::process_incoming(char * msg)
     }
   }
   
-  /* Not found */
-  if(!found) {
-    if ((L_case = checkAutomaticResponseMode(request)) == 0) {
-      if (!process_unexpected(msg)) {
-        return false; // Call aborted by unexpected message handling
-      }
-    } else {
-      // call aborted by automatic response mode if needed
-      return (automaticResponseMode(L_case, msg)); 
-    }
-  }
-
-  /* Simulate loss of messages */
-  if(lost(scenario[search_index] -> lost)) {
-    TRACE_MSG((s, "%s message lost (recv).", 
-               TRANSPORT_TO_STRING(transport)));
-    if(comp_state) { comp_free(&comp_state); }
-    scenario[search_index] -> nb_lost++;
-    return true;
-  }
-
   if (request) { // update [cseq] with received CSeq
     unsigned long int rcseq = get_cseq_value(msg);
     if (rcseq > cseq) cseq = rcseq;
@@ -2873,12 +2879,6 @@ bool call::process_incoming(char * msg)
   if (reply_code == 200) {
     ack_is_pending = true;
   }
-
-  /* Handle counters and RTDs for this message. */
-  do_bookkeeping(search_index);
-
-  /* Increment the recv counter */
-  scenario[search_index] -> nb_recv++;
 
   /* store the route set only once. TODO: does not support target refreshes!! */
   if (scenario[search_index] -> bShouldRecordRoutes &&
