@@ -3110,6 +3110,10 @@ void help()
      "                      ends on timeout.\n"
      "                      Default is 5 for INVITE transactions and 7 for\n"
      "                      others.\n"
+     "   -max_invite_retrans : Maximum number of UDP retransmissions for invite\n"
+     "                      transactions before call ends on timeout.\n"
+     "   -max_non_invite_retrans : Maximum number of UDP retransmissions for\n"
+     "                      non-invite transactions before call ends on timeout.\n"
      "\n"
      "   -recv_timeout nb : Global receive timeout in milliseconds.\n"
      "                      If the expected message is not received, the call\n"
@@ -3597,6 +3601,30 @@ int main(int argc, char *argv[])
         processed = 1;
         if (atoi(argv[argi]) > 0) {
           max_udp_retrans = atoi(argv[argi]);
+        }
+      } else {
+        ERROR_P1("Missing argument for param '%s'.\n"
+                 "Use 'sipp -h' for details",  argv[argi-1]);
+      }
+    }
+
+    if(!strcmp(argv[argi], "-max_invite_retrans")) {
+      if((++argi) < argc) {
+        processed = 1;
+        if (atoi(argv[argi]) > 0) {
+          max_invite_retrans = atoi(argv[argi]);
+        }
+      } else {
+        ERROR_P1("Missing argument for param '%s'.\n"
+                 "Use 'sipp -h' for details",  argv[argi-1]);
+      }
+    }
+
+    if(!strcmp(argv[argi], "-max_non_invite_retrans")) {
+      if((++argi) < argc) {
+        processed = 1;
+        if (atoi(argv[argi]) > 0) {
+          max_non_invite_retrans = atoi(argv[argi]);
         }
       } else {
         ERROR_P1("Missing argument for param '%s'.\n"

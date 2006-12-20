@@ -1363,7 +1363,7 @@ bool call::run()
       bInviteTransaction = true;
     }
 
-    if((nb_retrans > (bInviteTransaction ? UDP_MAX_RETRANS_INVITE_TRANSACTION : UDP_MAX_RETRANS_NON_INVITE_TRANSACTION)) || 
+    if((nb_retrans > (bInviteTransaction ? max_invite_retrans : max_non_invite_retrans)) ||
        (nb_retrans > max_udp_retrans)) {
       scenario[last_send_index] -> nb_timeout ++;
       if (scenario[last_send_index]->on_timeout) {  // action on timeout
