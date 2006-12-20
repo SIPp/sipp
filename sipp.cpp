@@ -3669,8 +3669,6 @@ int main(int argc, char *argv[])
 	    ERROR_P1("Invalid default scenario name '%s'.\n", scenario);
 	  }
 
-	  printf("Scenario is %d\n");
-
 	  CStat::instance()->setFileName(argv[argi], (char*)".csv");
 	  load_scenario(0, i);
 	  scenario_file = new char [strlen(argv[argi])+1] ;
@@ -4275,6 +4273,7 @@ int open_connections() {
     ERROR_NO("Unable to get the local socket");
   }
   
+  sipp_customize_socket(main_socket);
 
   /* Trying to bind local port */
   char peripaddr[256];
@@ -4331,7 +4330,6 @@ int open_connections() {
             (_RCAST(struct sockaddr_in *, &local_sockaddr))->sin_port
                 = htons((short)l_port);
           }
-         
           if(!bind(main_socket,
                  (sockaddr *)(void *)&local_sockaddr,
                  SOCK_ADDR_SIZE(&local_sockaddr))) {
@@ -4421,7 +4419,6 @@ int open_connections() {
     }
 
   }
-  sipp_customize_socket(main_socket);
 
   // Create additional server sockets when running in socket per
   // IP address mode.
@@ -4470,6 +4467,7 @@ int open_connections() {
               = htons((short)local_port);
         }
         
+        sipp_customize_socket(sock);
         if(bind(sock, 
                 (sockaddr *)(void *)&server_sockaddr,
                 SOCK_ADDR_SIZE(&server_sockaddr))) {
@@ -4477,7 +4475,6 @@ int open_connections() {
         }
 
         map_perip_fd[peripaddr] = sock;
-        sipp_customize_socket(sock);
         pollset_add(0, sock);
       }
     }
@@ -4542,7 +4539,6 @@ int open_connections() {
       ssl_list[tcp_multiplex] = ssl_tcp_multiplex;
     }
 #endif
-
     sipp_customize_socket(tcp_multiplex);
   }
 
@@ -4678,6 +4674,7 @@ int open_connections() {
            // This allows to re-start the B controller without timeout after its exit
            int reuse = 1;
            setsockopt(localTwinSippSocket,SOL_SOCKET,SO_REUSEADDR,(int *)&reuse,sizeof(reuse));
+           sipp_customize_socket(localTwinSippSocket);
 
            if(bind(localTwinSippSocket, 
                   (sockaddr *)(void *)&localTwin_sockaddr,
@@ -4689,7 +4686,6 @@ int open_connections() {
           if(listen(localTwinSippSocket, 100))
             ERROR_NO("Unable to listen twin sipp socket in "
                      "3PCC_CONTROLLER_B mode");
-          sipp_customize_socket(localTwinSippSocket);
     } else {
         ERROR("TwinSipp Mode enabled but toolMode is different "
               "from 3PCC_CONTROLLER_B and 3PCC_CONTROLLER_A\n");
