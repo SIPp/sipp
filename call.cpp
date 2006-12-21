@@ -459,8 +459,10 @@ uint16_t get_remote_audio_port_media(char *msg)
     char *begin, *end;
     char number[5];
     begin = strstr(msg, pattern);
-    if (!begin)
-      ERROR("get_remote_audio_port_media: No audio media port found in SDP");
+    if (!begin) {
+      /* m=audio not found */
+      return 0;
+    }
     begin += sizeof("m=audio ") - 1;
     end = strstr(begin, "\r\n");
     if (!end)
@@ -497,15 +499,19 @@ uint16_t get_remote_video_port_media(char *msg)
  * IPv{4,6} compliant
  */
 void call::get_remote_media_addr(char *msg) {
-  uint16_t video_port;
+  uint16_t video_port, audio_port;
   if (media_ip_is_ipv6) {
   struct in6_addr ip_media;
     if (get_remote_ipv6_media(msg, ip_media)) {
-      (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_flowinfo = 0;
-      (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_scope_id = 0;
-      (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_family = AF_INET6;
-      (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_port = get_remote_audio_port_media(msg);
-      (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_addr = ip_media;
+      audio_port = get_remote_audio_port_media(msg);
+      if (audio_port) {
+        /* We have audio in the SDP: set the to_audio addr */
+        (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_flowinfo = 0;
+        (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_scope_id = 0;
+        (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_family = AF_INET6;
+        (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_port = audio_port;
+        (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_addr = ip_media;
+      }
       video_port = get_remote_video_port_media(msg);
       if (video_port) {
         /* We have video in the SDP: set the to_video addr */
@@ -522,9 +528,13 @@ void call::get_remote_media_addr(char *msg) {
     uint32_t ip_media;
     ip_media = get_remote_ip_media(msg);
     if (ip_media != INADDR_NONE) {
-      (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_family = AF_INET;
-      (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_port = get_remote_audio_port_media(msg);
-      (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_addr.s_addr = ip_media;
+      audio_port = get_remote_audio_port_media(msg);
+      if (audio_port) {
+        /* We have audio in the SDP: set the to_audio addr */
+        (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_family = AF_INET;
+        (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_port = audio_port;
+        (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_addr.s_addr = ip_media;
+      }
       video_port = get_remote_video_port_media(msg);
       if (video_port) {
         /* We have video in the SDP: set the to_video addr */
