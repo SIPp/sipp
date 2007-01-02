@@ -3532,7 +3532,7 @@ int main(int argc, char *argv[])
 	}
 	switch(option->type) {
 	  case SIPP_OPTION_FLOAT_TO_SEC:
-	    *((int *)option->data) /= 1000;
+	    *((double *)option->data) /= 1000;
 	    break;
 	}
 	break;
