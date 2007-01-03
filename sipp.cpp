@@ -3647,7 +3647,7 @@ int main(int argc, char *argv[])
 	generic[generic_count] = NULL;
 	break;
       case SIPP_OPTION_3PCC:
-#ifdef __3PCC_
+#ifdef __3PCC__
 	REQUIRE_ARG();
 	twinSippMode = true;
 	strcpy(twinSippHost, argv[argi]);
