@@ -3771,15 +3771,13 @@ int main(int argc, char *argv[])
     scenario_file = remove_pattern (scenario_file, (char*)".xml");
   }
 
-  if( backgroundMode == false ) {
-    if (print_all_responses) {
+   if (print_all_responses) {
       char L_file_name [MAX_PATH];
       sprintf (L_file_name, "%s_%d_errors.log", scenario_file, getpid());
       screen_init(L_file_name, print_last_stats);
     } else {
       screen_init(NULL, print_last_stats);
     }
-  }
 
 #ifdef _USE_OPENSSL
     if ((transport == T_TLS) && (FI_init_ssl_context() != SSL_INIT_NORMAL))
