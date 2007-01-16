@@ -429,8 +429,7 @@ void CStat::setRepartitionCallLength(char * P_listeStr)
                     &M_CallLengthRepartition, 
                     &M_SizeOfCallLengthRepartition);
   } else {
-    M_CallLengthRepartition         = NULL;
-    M_SizeOfCallLengthRepartition   = 0;
+    ERROR_P1("Could not create table for call length repartition '%s'\n", P_listeStr);
   }
   delete [] listeInteger;
   listeInteger = NULL;
@@ -449,8 +448,7 @@ void CStat::setRepartitionResponseTime (char * P_listeStr)
 	  &M_ResponseTimeRepartition[i],
 	  &M_SizeOfResponseTimeRepartition);
     } else {
-      M_CallLengthRepartition         = NULL;
-      M_SizeOfCallLengthRepartition   = 0;
+      ERROR_P1("Could not create table for response time repartition '%s'\n", P_listeStr);
     }
   }
   delete [] listeInteger;
