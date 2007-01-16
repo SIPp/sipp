@@ -124,7 +124,7 @@
 /******************** Default parameters ***********************/
 
 #define DEFAULT_RATE                 10.0
-#define DEFAULT_RATE_PERIOD_S        1.0
+#define DEFAULT_RATE_PERIOD_MS       1000
 #define DEFAULT_TRANSPORT            T_UDP
 #define DEFAULT_PORT                 5060  
 #define DEFAULT_MEDIA_PORT           6000
@@ -147,7 +147,7 @@ extern double             rate                    _DEFVAL(DEFAULT_RATE);
 extern int	          rate_increase           _DEFVAL(0);
 extern int	          rate_max	          _DEFVAL(0);
 extern int                users                   _DEFVAL(0);
-extern double             rate_period_s           _DEFVAL(DEFAULT_RATE_PERIOD_S);
+extern int               rate_period_ms           _DEFVAL(DEFAULT_RATE_PERIOD_MS);
 extern unsigned long      defl_recv_timeout       _DEFVAL(0);
 extern unsigned long      global_timeout          _DEFVAL(0);
 extern int                transport               _DEFVAL(DEFAULT_TRANSPORT);

@@ -137,6 +137,55 @@ long get_long(const char *ptr, const char *what) {
   return ret;
 }
 
+/* This function returns a time in milliseconds from a string.
+ * The multiplier is used to convert from the default input type into
+ * milliseconds.  For example, for seconds you should use 1000 and for
+ * milliseconds use 1. */
+long get_time(const char *ptr, const char *what, int multiplier) {
+  char *endptr;
+  const char *p;
+  long ret;
+  double dret;
+  int i;
+
+  if (!isdigit(*ptr)) {
+    ERROR_P2("%s, \"%s\" is not a valid time!\n", what, ptr);
+  }
+
+  for (i = 0, p = ptr; *p; p++) {
+	if (*p == ':') {
+		i++;
+	}
+  }
+
+  if (i == 1) { /* mm:ss */
+    ERROR_P2("%s, \"%s\" mm:ss not implemented yet!\n", what, ptr);
+  }
+  else if (i == 2) { /* hh:mm:ss */
+    ERROR_P2("%s, \"%s\" hh:mm:ss not implemented yet!\n", what, ptr);
+  } else if (i != 0) {
+    ERROR_P2("%s, \"%s\" is not a valid time!\n", what, ptr);
+  }
+
+  dret = strtod(ptr, &endptr);
+  if (*endptr) {
+    if (!strcmp(endptr, "s")) { /* Seconds */
+	ret = (long)(dret * 1000);
+    } else if (!strcmp(endptr, "ms")) { /* Milliseconds. */
+	ret = (long)dret;
+    } else if (!strcmp(endptr, "m")) { /* Minutes. */
+	ret = (long)(dret * 60000);
+    } else if (!strcmp(endptr, "h")) { /* Hours. */
+	ret = (long)(dret * 60 * 60 * 1000);
+    } else {
+      ERROR_P2("%s, \"%s\" is not a valid time!\n", what, ptr);
+    }
+  } else {
+    ret = (long)(dret * multiplier);
+  }
+  return ret;
+}
+
 double get_double(const char *ptr, const char *what) {
   char *endptr;
   double ret;

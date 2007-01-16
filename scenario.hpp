@@ -179,6 +179,7 @@ extern unsigned int  labelArray[MAX_LABELS];
 
 /* Useful utility functions for parsing integers, etc. */
 long get_long(const char *ptr, const char *what);
+long get_time(const char *ptr, const char *what, int multiplier);
 double get_double(const char *ptr, const char *what);
 bool get_bool(const char *ptr, const char *what);
 

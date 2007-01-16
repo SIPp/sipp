@@ -74,9 +74,8 @@ struct sipp_option {
 #define SIPP_OPTION_UNSETFLAG	4
 #define SIPP_OPTION_STRING	5
 #define SIPP_OPTION_ARGI	6
-#define SIPP_OPTION_INT_TO_MS	7
+#define SIPP_OPTION_TIME_SEC	7
 #define SIPP_OPTION_FLOAT	8
-#define SIPP_OPTION_FLOAT_TO_SEC 9
 #define SIPP_OPTION_BOOL	10
 #define SIPP_OPTION_VERSION	11
 #define SIPP_OPTION_TRANSPORT	12
@@ -91,6 +90,7 @@ struct sipp_option {
 #define SIPP_OPTION_KEY		21
 #define SIPP_OPTION_3PCC	22
 #define SIPP_OPTION_TDMMAP	23
+#define SIPP_OPTION_TIME_MS	24
 
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
@@ -114,11 +114,10 @@ struct sipp_option options_table[] = {
 
 	{"cid_str", "Call ID string (default %u-%p@%s).  %u=call_number, %s=ip_address, %p=process_number, %%=% (in any order).", SIPP_OPTION_STRING, &call_id_string},
 
-	{"d", "Controls the length (in milliseconds) of calls. More precisely, this controls the duration of 'pause' instructions in the scenario, if they do not have a 'milliseconds' section. Default value is 0.", SIPP_OPTION_INT, &duration},
+	{"d", "Controls the length (in milliseconds) of calls. More precisely, this controls the duration of 'pause' instructions in the scenario, if they do not have a 'milliseconds' section. Default value is 0.", SIPP_OPTION_TIME_MS, &duration},
 
-	{"f", "Set the statistics report frequency on screen (in seconds). Default is 1.", SIPP_OPTION_INT, &report_freq},
-
-	{"fd", "Set the statistics dump log report frequency (in seconds). Default is 60.", SIPP_OPTION_INT_TO_MS, &report_freq_dumpLog},
+	{"f", "Set the statistics report frequency on screen (in seconds). Default is 1.", SIPP_OPTION_TIME_SEC, &report_freq},
+	{"fd", "Set the statistics dump log report frequency (in seconds). Default is 60.", SIPP_OPTION_TIME_SEC, &report_freq_dumpLog},
 
 	{"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address.\n", SIPP_OPTION_IP, local_ip},
 	{"inf", "Inject values from an external CSV file during calls into the scenarios.\n"
@@ -164,14 +163,14 @@ struct sipp_option options_table[] = {
               "pressing '/' key to decrease call rate by 10.\n"
               "If the -rp option is used, the call rate is calculated with the period in ms given by the user.", SIPP_OPTION_FLOAT, &rate},
 	{"rp", "Specify the rate period in milliseconds for the call rate.  Default is 1 second.  This allows you to have n calls every m milliseconds (by using -r n -rp m).\n"
-               "Example: -r 7 -rp 2000 ==> 7 calls every 2 seconds.", SIPP_OPTION_FLOAT_TO_SEC, &rate_period_s},
+               "Example: -r 7 -rp 2000 ==> 7 calls every 2 seconds.", SIPP_OPTION_TIME_MS, &rate_period_ms},
 	{"rate_increase", "Specify the rate increase every -fd seconds.  This allows you to increase the load for each independent logging period.\n"
                       "Example: -rate_increase 10 -fd 10\n"
                       "  ==> increase calls by 10 every 10 seconds.", SIPP_OPTION_INT, &rate_increase},
 	{"rate_max", "If -rate_increase is set, then quit after the rate reaches this value.\n"
                       "Example: -rate_increase 10 -max_rate 100\n"
                       "  ==> increase calls by 10 until 100 cps is hit.", SIPP_OPTION_INT, &rate_max},
-	{"recv_timeout", "Global receive timeout in milliseconds.  If the expected message is not received, the call times out and is aborted.", SIPP_OPTION_INT, &defl_recv_timeout},
+	{"recv_timeout", "Global receive timeout in milliseconds.  If the expected message is not received, the call times out and is aborted.", SIPP_OPTION_TIME_MS, &defl_recv_timeout},
 	{"reconnect_close", "Should calls be closed on reconnect?", SIPP_OPTION_BOOL, &reset_close},
 	{"reconnect_sleep", "How long to sleep between the close and reconnect?", SIPP_OPTION_INT, &reset_sleep},
 	{"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, NULL},
@@ -179,7 +178,7 @@ struct sipp_option options_table[] = {
                      "RTP/UDP packets coming on this port + 2 are also echoed to their sender (used for sound and video echo).",
 		     SIPP_OPTION_SETFLAG, &rtp_echo_enabled},
 	{"rtt_freq", "freq is mandatory. Dump response times every freq calls in the log file defined by -trace_rtt. Default value is 200.",
-		     SIPP_OPTION_SETFLAG, &report_freq_dumpRtt},
+		     SIPP_OPTION_INT, &report_freq_dumpRtt},
 	{"s", "Set the username part of the resquest URI. Default is 'service'.", SIPP_OPTION_STRING, &service},
 	{"sd", "Dumps a default scenario (embeded in the sipp executable)", SIPP_OPTION_SCENARIO, NULL},
 	{"sf", "Loads an alternate xml scenario file.  To learn more about XML scenario syntax, use the -sd option to dump embedded scenarios. They contain all the necessary help.", SIPP_OPTION_SCENARIO, NULL},
@@ -212,10 +211,10 @@ struct sipp_option options_table[] = {
 
 , SIPP_OPTION_TRANSPORT, NULL},
 
-	{"timeout", "Global timeout in seconds.  If this option is set, SIPp quits after nb seconds.", SIPP_OPTION_INT, &global_timeout},
+	{"timeout", "Global timeout in seconds.  If this option is set, SIPp quits after nb seconds.", SIPP_OPTION_TIME_SEC, &global_timeout},
 	{"timer_resol", "Set the timer resolution in milliseconds.  This option has an impact on timers precision."
                       "Small values allow more precise scheduling but impacts CPU usage."
-                      "If the compression is on, the value is set to 50ms. The default value is 10ms.", SIPP_OPTION_INT, &timer_resolution},
+                      "If the compression is on, the value is set to 50ms. The default value is 10ms.", SIPP_OPTION_TIME_MS, &timer_resolution},
 	{"trace_msg", "Displays sent and received SIP messages in <scenario file name>_<pid>_messages.log", SIPP_OPTION_SETFLAG, &useMessagef},
 	{"trace_screen", "Dump statistic screens in the <scenario_name>_<pid>_screens.log file when quitting SIPp. Useful to get a final status report in background mode (-bg option).", SIPP_OPTION_SETFLAG, &useScreenf},
 	{"trace_err", "Trace all unexpected messages in <scenario file name>_<pid>_errors.log.", SIPP_OPTION_SETFLAG, &print_all_responses},
@@ -814,7 +813,7 @@ void print_stats_in_file(FILE * f, int last)
   }
   
   /* Header line with global parameters */
-  sprintf(temp_str, "%3.1f(%d ms)/%5.3fs", rate, duration, rate_period_s);
+  sprintf(temp_str, "%3.1f(%d ms)/%5.3fs", rate, duration, (double)rate_period_ms / 1000.0);
   if( toolMode == MODE_SERVER) {
     fprintf
       (f,
@@ -1352,9 +1351,6 @@ void print_statistics(int last)
 
 void set_rate(double new_rate)
 {
-
-  double L_temp ;
-  
   if(toolMode == MODE_SERVER) {
     rate = 0;
     open_calls_allowed = 0;
@@ -1367,17 +1363,16 @@ void set_rate(double new_rate)
 
   last_rate_change_time = clock_tick;
   calls_since_last_rate_change = 0;
-  
+
   if(!open_calls_user_setting) {
-    
+
     int call_duration_min =  scenario_duration;
 
     if(duration > call_duration_min) call_duration_min = duration;
 
     if(call_duration_min < 1000) call_duration_min = 1000;
-    
-    L_temp = (3 * rate * call_duration_min) / rate_period_s / 1000 ;
-    open_calls_allowed = (unsigned int) L_temp ;
+
+    open_calls_allowed = (int)((3.0 * rate * call_duration_min) / (double)rate_period_ms);
     if(!open_calls_allowed) {
       open_calls_allowed = 1;
     }
@@ -2752,7 +2747,7 @@ void traffic_thread(bool ipv6)
   /* Arm the global timer if needed */
   if (global_timeout > 0) { 
     signal(SIGALRM, timeout_alarm);
-    alarm(global_timeout);
+    alarm(global_timeout / 1000);
   }
   
   while(1) {
@@ -2799,7 +2794,7 @@ void traffic_thread(bool ipv6)
 	calls_to_open = ((l = (users - open_calls)) > 0) ? l : 0;
       } else {
 	calls_to_open = (unsigned int)
-              ((l=(long)floor((((clock_tick - last_rate_change_time) * rate/rate_period_s) / 1000)
+              ((l=(long)floor(((clock_tick - last_rate_change_time) * rate/rate_period_ms)
               - calls_since_last_rate_change))>0?l:0);
       }
 
@@ -3507,34 +3502,24 @@ int main(int argc, char *argv[])
 	   " Author: see source files.\n\n");
 	exit(EXIT_OTHER);
       case SIPP_OPTION_INT:
-      case SIPP_OPTION_INT_TO_MS:
 	REQUIRE_ARG();
 	*((int *)option->data) = get_long(argv[argi], argv[argi-1]);
-	switch(option->type) {
-	  case SIPP_OPTION_INT_TO_MS:
-	    *((int *)option->data) *= 1000;
-	    break;
-	}
+	break;
+       case SIPP_OPTION_TIME_SEC:
+	REQUIRE_ARG();
+	*((int *)option->data) = get_time(argv[argi], argv[argi-1], 1000);
+	break;
+      case SIPP_OPTION_TIME_MS:
+	REQUIRE_ARG();
+	*((int *)option->data) = get_time(argv[argi], argv[argi-1], 1);
 	break;
       case SIPP_OPTION_BOOL:
 	REQUIRE_ARG();
 	*((bool *)option->data) = get_bool(argv[argi], argv[argi-1]);
 	break;
       case SIPP_OPTION_FLOAT:
-      case SIPP_OPTION_FLOAT_TO_SEC:
-	char *endptr;
-
 	REQUIRE_ARG();
-
-	*((double *)option->data) = strtod(argv[argi], &endptr);
-	if (*endptr) {
-	  ERROR_P1("Invalid float argument for param '%s'.\n", argv[argi-1]);
-	}
-	switch(option->type) {
-	  case SIPP_OPTION_FLOAT_TO_SEC:
-	    *((double *)option->data) /= 1000;
-	    break;
-	}
+	*((double *)option->data) = get_double(argv[argi], argv[argi-1]);
 	break;
       case SIPP_OPTION_STRING:
 	REQUIRE_ARG();
