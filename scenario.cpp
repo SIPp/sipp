@@ -540,13 +540,18 @@ void load_scenario(char * filename, int deflt)
         if(ptr = xp_get_value((char *)"rrs")) {
 	  scenario[scenario_len] -> bShouldRecordRoutes = get_bool(ptr, "record route set");
         }
-      
-#ifdef _USE_OPENSSL
+
         /* record the authentication credentials  */
         if(ptr = xp_get_value((char *)"auth")) {
-	  scenario[scenario_len] -> bShouldAuthenticate = get_bool(ptr, "message authentication");
-        }
+	  bool temp = get_bool(ptr, "message authentication");
+#ifdef _USE_OPENSSL
+	  scenario[scenario_len] -> bShouldAuthenticate = temp;
+#else
+	  if (temp) {
+	    ERROR("Authentication requires OpenSSL support!");
+	  }
 #endif
+        }
 
         getActionForThisMessage();
 
