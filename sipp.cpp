@@ -224,6 +224,7 @@ struct sipp_option options_table[] = {
 	{"trace_logs", "Allow tracing of <log> actions in <scenario file name>_<pid>_logs.log.", SIPP_OPTION_SETFLAG, &useLogf},
 
 	{"up_nb", "Set the number of updates of the internal clock during the reading of received messages.  Default value is 1.", SIPP_OPTION_INT, &update_nb},
+	{"users", "Instead of starting calls at a fixed rate, begin 'users' calls at startup, and keep the number of calls constant.", SIPP_OPTION_USERS, NULL},
 
 #ifdef _USE_OPENSSL
 	{"ap", "Set the password for authentication challenges. Default is 'password", SIPP_OPTION_STRING, &auth_password},
