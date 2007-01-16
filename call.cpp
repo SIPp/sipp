@@ -1303,13 +1303,15 @@ void call::do_bookkeeping(int index) {
 	GET_TIME (&L_currentTime);
 	L_stop_time = (double)L_currentTime.tv_sec*1000.0 +
 	  (double)(L_currentTime.tv_usec)/(double)1000.0 ;
-	CStat::instance()->computeRtt(start, L_stop_time) ;
+	CStat::instance()->computeRtt(start, L_stop_time, rtd);
       }
 
       CStat::instance()->computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
 	  clock_tick - start, rtd - 1);
 
-      rtd_done[rtd - 1] = true;
+      if (!scenario[index] -> repeat_rtd) {
+	rtd_done[rtd - 1] = true;
+      }
     }
   }
 }

@@ -526,6 +526,13 @@ void load_scenario(char * filename, int deflt)
         if(ptr = xp_get_value((char *)"start_rtd")) {
           scenario[scenario_len] -> start_rtd = get_rtd(ptr);
 	}
+        if (ptr = xp_get_value((char *)"repeat_rtd")) {
+	  if (scenario[scenario_len] -> stop_rtd) {
+	    scenario[scenario_len] -> repeat_rtd = get_bool(ptr, "repeat_rtd");
+	  } else {
+	    ERROR("There is a repeat_rtd element without an rtd element");
+	  }
+	}
 
         if(ptr = xp_get_value((char *)"counter")) {
           scenario[scenario_len] -> counter = get_counter(ptr, "counter");
@@ -555,6 +562,14 @@ void load_scenario(char * filename, int deflt)
         if(ptr = xp_get_value((char *)"start_rtd")) {
           scenario[scenario_len] -> start_rtd = get_rtd(ptr);
 	}
+        if (ptr = xp_get_value((char *)"repeat_rtd")) {
+	  if (scenario[scenario_len] -> stop_rtd) {
+	    scenario[scenario_len] -> repeat_rtd = get_bool(ptr, "repeat_rtd");
+	  } else {
+	    ERROR("There is a repeat_rtd element without an rtd element");
+	  }
+	}
+
 
 	if(ptr = xp_get_value((char *)"counter")) {
 	  scenario[scenario_len] -> counter = get_counter(ptr, "counter");
