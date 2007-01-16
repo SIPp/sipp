@@ -102,6 +102,8 @@ public:
   unsigned int   recv_response;
   char         * recv_request;
   int            optional;
+  int            regexp_match;
+  regex_t      * regexp_compile;
 
   /* Anyway */
   int            start_rtd;

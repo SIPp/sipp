@@ -2601,6 +2601,41 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
   }
 }
 
+bool call::matches_scenario(int index, int reply_code, char * request, char * responsecseqmethod)
+{         
+  int        result;
+          
+  if ((reply_code) && ((scenario[index] -> recv_response) == reply_code) && \
+     (scenario[index]->recv_response_for_cseq_method_list) && \
+     (strstr(scenario[index]->recv_response_for_cseq_method_list, responsecseqmethod))) {
+        return true;
+  }   
+    
+  if ((scenario[index] -> recv_request) && \
+     (!strcmp(scenario[index] -> recv_request, request))) {
+        return true;
+  } 
+  
+  if ((scenario[index] -> recv_request) && (scenario[index] -> regexp_match)) {
+  
+     if (scenario[index] -> regexp_compile == NULL) {
+        regex_t *re = new regex_t;
+        if (regcomp(re, scenario[index] -> recv_request, REG_EXTENDED|REG_NOSUB)) {
+           // regexp is not well formed
+           scenario[index] -> regexp_match = 0;
+           free(re);
+           return false;
+        }
+        scenario[index] -> regexp_compile = re;
+     }
+
+     result = regexec(scenario[index] -> regexp_compile, request, (size_t)0, NULL, 0);
+     if (!result) return true;
+  }
+
+  return false;
+}
+
 bool call::process_incoming(char * msg)
 {
   int             reply_code;
@@ -2621,15 +2656,6 @@ bool call::process_incoming(char * msg)
    
    /* Ignore the messages received during a pause if -pause_msg_ign is set */
    if(scenario[msg_index] -> M_type == MSG_TYPE_PAUSE && pause_msg_ign) return(true);
-
-#define MATCHES_SCENARIO(index)                                \
-      (((reply_code) &&                                        \
-        ((scenario[index] -> recv_response) == reply_code) &&            \
-         (scenario[index]->recv_response_for_cseq_method_list) &&   \
-        (strstr(scenario[index]->recv_response_for_cseq_method_list, responsecseqmethod))) ||  \
-       ((scenario[index] -> recv_request) &&                   \
-        (!strcmp(scenario[index] -> recv_request,              \
-                 request))))
 
   /* Authorize nop as a first command, even in server mode */
   if((msg_index == 0) && (scenario[msg_index] -> M_type == MSG_TYPE_NOP)) {
@@ -2755,7 +2781,7 @@ bool call::process_incoming(char * msg)
   for(search_index = msg_index;
       search_index < scenario_len;
       search_index++) {
-    if(!MATCHES_SCENARIO(search_index)) {
+    if(!matches_scenario(search_index, reply_code, request, responsecseqmethod)) {
       if(scenario[search_index] -> optional) {
         continue;
       }
@@ -2778,7 +2804,7 @@ bool call::process_incoming(char * msg)
         search_index >= 0;
         search_index--) {
       if (scenario[search_index]->optional == OPTIONAL_FALSE) contig = false;
-      if(MATCHES_SCENARIO(search_index)) {
+      if(matches_scenario(search_index, reply_code, request, responsecseqmethod)) {
         if (contig || scenario[search_index]->optional == OPTIONAL_GLOBAL) {
          found = true;
          break;  

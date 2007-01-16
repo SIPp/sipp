@@ -54,6 +54,8 @@ message::message()
   recv_response = 0;
   recv_request = NULL;
   optional = 0;
+  regexp_match = 0;
+  regexp_compile = NULL;
 
   /* Anyway */
   start_rtd = 0;
@@ -100,6 +102,11 @@ message::~message()
   if(recv_request != NULL)
     free (recv_request);
   recv_request = NULL;
+
+  if(regexp_compile != NULL)
+    regfree(regexp_compile);
+    free(regexp_compile);
+  regexp_compile = NULL;
 
 #ifdef __3PCC__
   if(M_sendCmdData != NULL)
@@ -516,6 +523,12 @@ void load_scenario(char * filename, int deflt)
           } else {
 	    ERROR_P1("Could not understand optional value: %s", ptr);
 	  }
+        }
+
+        if (0 != (ptr = xp_get_value((char *)"regexp_match"))) {
+          if(!strcmp(ptr, "true")) {
+            scenario[scenario_len] -> regexp_match = 1;
+          }
         }
 
         if (0 != (ptr = xp_get_value((char *)"timeout"))) {

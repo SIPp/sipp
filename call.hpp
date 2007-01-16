@@ -209,6 +209,7 @@ public:
   bool run(); 
   void formatNextReqUrl (char* next_req_url);
   void computeRouteSetAndRemoteTargetUri (char* rrList, char* contact, bool bRequestIncoming);
+  bool matches_scenario(int index, int reply_code, char * request, char * responsecseqmethod);
   bool process_incoming(char * msg);
 
   T_ActionResult executeAction(char * msg, int scenarioIndex);
