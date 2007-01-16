@@ -1097,6 +1097,11 @@ void getActionForThisMessage()
             tmpActions.setAction(tmpAction);
             tmpActionNumber++;
             hasMedia = 1;
+#else
+          } else if (ptr = xp_get_value((char *) "play_pcap_audio")) {
+	      ERROR("play_pcap_audio requires pcap support! Please recompile SIPp");
+          } else if (ptr = xp_get_value((char *) "play_pcap_video")) {
+	      ERROR("play_pcap_video requires pcap support! Please recompile SIPp");
 #endif
           } else {
               ERROR("illegal <exec> in the scenario\n");
