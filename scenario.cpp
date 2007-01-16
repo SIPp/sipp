@@ -262,7 +262,7 @@ int get_rtd(const char *ptr) {
     ERROR_P1("rtd \"%s\" is not a valid integer!\n", ptr);
   }
 
-  if (ret >= MAX_RTD_INFO_LENGTH) {
+  if (ret > MAX_RTD_INFO_LENGTH) {
     ERROR_P2("rtd %d exceeds MAX_RTD_INFO_LENGTH %d!\n", ret, MAX_RTD_INFO_LENGTH);
   }
 
