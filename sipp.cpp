@@ -114,10 +114,10 @@ struct sipp_option options_table[] = {
 
 	{"cid_str", "Call ID string (default %u-%p@%s).  %u=call_number, %s=ip_address, %p=process_number, %%=% (in any order).", SIPP_OPTION_STRING, &call_id_string},
 
-	{"d", "Controls the length (in milliseconds) of calls. More precisely, this controls the duration of 'pause' instructions in the scenario, if they do not have a 'milliseconds' section. Default value is 0.", SIPP_OPTION_TIME_MS, &duration},
+	{"d", "Controls the length of calls. More precisely, this controls the duration of 'pause' instructions in the scenario, if they do not have a 'milliseconds' section. Default value is 0 and default unit is milliseconds.", SIPP_OPTION_TIME_MS, &duration},
 
-	{"f", "Set the statistics report frequency on screen (in seconds). Default is 1.", SIPP_OPTION_TIME_SEC, &report_freq},
-	{"fd", "Set the statistics dump log report frequency (in seconds). Default is 60.", SIPP_OPTION_TIME_SEC, &report_freq_dumpLog},
+	{"f", "Set the statistics report frequency on screen. Default is 1 and default unit is seconds.", SIPP_OPTION_TIME_SEC, &report_freq},
+	{"fd", "Set the statistics dump log report frequency. Default is 60 and default unit is seconds.", SIPP_OPTION_TIME_SEC, &report_freq_dumpLog},
 
 	{"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address.\n", SIPP_OPTION_IP, local_ip},
 	{"inf", "Inject values from an external CSV file during calls into the scenarios.\n"
@@ -162,15 +162,15 @@ struct sipp_option options_table[] = {
               "pressing '*' key to increase call rate by 10,\n"
               "pressing '/' key to decrease call rate by 10.\n"
               "If the -rp option is used, the call rate is calculated with the period in ms given by the user.", SIPP_OPTION_FLOAT, &rate},
-	{"rp", "Specify the rate period in milliseconds for the call rate.  Default is 1 second.  This allows you to have n calls every m milliseconds (by using -r n -rp m).\n"
-               "Example: -r 7 -rp 2000 ==> 7 calls every 2 seconds.", SIPP_OPTION_TIME_MS, &rate_period_ms},
-	{"rate_increase", "Specify the rate increase every -fd seconds.  This allows you to increase the load for each independent logging period.\n"
-                      "Example: -rate_increase 10 -fd 10\n"
+	{"rp", "Specify the rate period for the call rate.  Default is 1 second and default unit is milliseconds.  This allows you to have n calls every m milliseconds (by using -r n -rp m).\n"
+               "Example: -r 7 -rp 2000 ==> 7 calls every 2 seconds.\n         -r 10 -rp 5s => 10 calls every 5 seconds.", SIPP_OPTION_TIME_MS, &rate_period_ms},
+	{"rate_increase", "Specify the rate increase every -fd units (default is seconds).  This allows you to increase the load for each independent logging period.\n"
+                      "Example: -rate_increase 10 -fd 10s\n"
                       "  ==> increase calls by 10 every 10 seconds.", SIPP_OPTION_INT, &rate_increase},
 	{"rate_max", "If -rate_increase is set, then quit after the rate reaches this value.\n"
-                      "Example: -rate_increase 10 -max_rate 100\n"
+                      "Example: -rate_increase 10 -rate_max 100\n"
                       "  ==> increase calls by 10 until 100 cps is hit.", SIPP_OPTION_INT, &rate_max},
-	{"recv_timeout", "Global receive timeout in milliseconds.  If the expected message is not received, the call times out and is aborted.", SIPP_OPTION_TIME_MS, &defl_recv_timeout},
+	{"recv_timeout", "Global receive timeout. Default unit is milliseconds. If the expected message is not received, the call times out and is aborted.", SIPP_OPTION_TIME_MS, &defl_recv_timeout},
 	{"reconnect_close", "Should calls be closed on reconnect?", SIPP_OPTION_BOOL, &reset_close},
 	{"reconnect_sleep", "How long to sleep between the close and reconnect?", SIPP_OPTION_INT, &reset_sleep},
 	{"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, NULL},
@@ -211,8 +211,8 @@ struct sipp_option options_table[] = {
 
 , SIPP_OPTION_TRANSPORT, NULL},
 
-	{"timeout", "Global timeout in seconds.  If this option is set, SIPp quits after nb seconds.", SIPP_OPTION_TIME_SEC, &global_timeout},
-	{"timer_resol", "Set the timer resolution in milliseconds.  This option has an impact on timers precision."
+	{"timeout", "Global timeout. Default unit is seconds.  If this option is set, SIPp quits after nb units (-timeout 20s quits after 20 seconds).", SIPP_OPTION_TIME_SEC, &global_timeout},
+	{"timer_resol", "Set the timer resolution. Default unit is milliseconds.  This option has an impact on timers precision."
                       "Small values allow more precise scheduling but impacts CPU usage."
                       "If the compression is on, the value is set to 50ms. The default value is 10ms.", SIPP_OPTION_TIME_MS, &timer_resolution},
 	{"trace_msg", "Displays sent and received SIP messages in <scenario file name>_<pid>_messages.log", SIPP_OPTION_SETFLAG, &useMessagef},
