@@ -1,0 +1,43 @@
+#!/bin/bash
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307, USA
+#
+#  Author : Juan Antonio Alvarez <jualvarez@gmail.com>
+#           Ignacio Martin
+#
+
+# Hacemos un solo archivo con todas las salidas
+
+# Procesamos la salida de sipp para que tenga \t
+
+for i in `ls sipp_stats*`
+do
+	sed s/\;$//g $i > $i.1.tmp
+	sed s/\;/\\t/g $i.1.tmp > $i.2.tmp
+	args=`echo "$args $i.2.tmp"`
+done
+
+# Procesamos la salida de snmpwalk para dejarla como csv
+
+for i in `ls snmp* | grep -v csv`
+do
+	~/proyectos/tesis/auto_script/snmparser $i > $i.tmp
+	args=`echo "$args $i.tmp"`
+done
+
+# pasting alltogether!
+
+paste -d# $args | sed s/#/\\t/g > full.csv
+
+rm *.tmp
