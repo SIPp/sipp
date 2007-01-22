@@ -29,7 +29,7 @@
 #include <string.h>
 #include <signal.h>
 #include <screen.hpp>
-#include <errno.h>
+
 
 #ifdef __3PCC__
 #include <unistd.h>
@@ -90,9 +90,9 @@ void screen_exit(int rc)
     fprintf(stderr, "%s", screen_last_error);
     if(screen_errors > 1) {
       if (screen_logfile[0] != (char)0) {
-	fprintf(stderr, 
-              "%s: There were more errors, see '%s' file\n",
-              screen_exename, screen_logfile);
+      fprintf(stderr, 
+              "%s: There were more errors, see scenarioname_pid_errors.log file\n",
+              screen_exename);
       } else {
           fprintf(stderr, 
               "%s: There were more errors, enable -trace_err to log them.\n",
@@ -165,7 +165,7 @@ void screen_init(char *logfile_name, void (*exit_handler)())
   if (logfile_name == NULL) {
     screen_logfile[0] = (char)0;
   } else {
-    strcpy(screen_logfile, logfile_name);
+  strcpy(screen_logfile, logfile_name);
   }
   screen_exit_handler = exit_handler;
 
@@ -200,8 +200,8 @@ void _screen_error(char *s, int fatal)
   if(screen_inited && (!screen_errorf) && screen_logfile[0] != (char)0) {
     screen_errorf = fopen(screen_logfile, "w");
     if(!screen_errorf) {
-      c += sprintf(c, "%s: Unable to create '%s': %s.\n",
-                   screen_exename, screen_logfile, strerror(errno));
+      c += sprintf(c, "%s: Unable to create '%s'.\n",
+                   screen_exename, screen_logfile);
       screen_exit(EXIT_FATAL_ERROR);
     } else {
       fprintf(screen_errorf, "%s: The following events occured:\n",
@@ -216,8 +216,8 @@ void _screen_error(char *s, int fatal)
     fflush(output);
   } else if (fatal) {
     output = stderr;
-    fprintf(output, "%s", screen_last_error);
-    fflush(output);
+  fprintf(output, "%s", screen_last_error);
+  fflush(output);
   }
 
   if(fatal) {

@@ -459,10 +459,8 @@ uint16_t get_remote_audio_port_media(char *msg)
     char *begin, *end;
     char number[5];
     begin = strstr(msg, pattern);
-    if (!begin) {
-      /* m=audio not found */
-      return 0;
-    }
+    if (!begin)
+      ERROR("get_remote_audio_port_media: No audio media port found in SDP");
     begin += sizeof("m=audio ") - 1;
     end = strstr(begin, "\r\n");
     if (!end)
@@ -499,19 +497,15 @@ uint16_t get_remote_video_port_media(char *msg)
  * IPv{4,6} compliant
  */
 void call::get_remote_media_addr(char *msg) {
-  uint16_t video_port, audio_port;
+  uint16_t video_port;
   if (media_ip_is_ipv6) {
   struct in6_addr ip_media;
     if (get_remote_ipv6_media(msg, ip_media)) {
-      audio_port = get_remote_audio_port_media(msg);
-      if (audio_port) {
-        /* We have audio in the SDP: set the to_audio addr */
-        (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_flowinfo = 0;
-        (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_scope_id = 0;
-        (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_family = AF_INET6;
-        (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_port = audio_port;
-        (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_addr = ip_media;
-      }
+      (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_flowinfo = 0;
+      (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_scope_id = 0;
+      (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_family = AF_INET6;
+      (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_port = get_remote_audio_port_media(msg);
+      (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_addr = ip_media;
       video_port = get_remote_video_port_media(msg);
       if (video_port) {
         /* We have video in the SDP: set the to_video addr */
@@ -528,13 +522,9 @@ void call::get_remote_media_addr(char *msg) {
     uint32_t ip_media;
     ip_media = get_remote_ip_media(msg);
     if (ip_media != INADDR_NONE) {
-      audio_port = get_remote_audio_port_media(msg);
-      if (audio_port) {
-        /* We have audio in the SDP: set the to_audio addr */
-        (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_family = AF_INET;
-        (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_port = audio_port;
-        (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_addr.s_addr = ip_media;
-      }
+      (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_family = AF_INET;
+      (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_port = get_remote_audio_port_media(msg);
+      (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_addr.s_addr = ip_media;
       video_port = get_remote_video_port_media(msg);
       if (video_port) {
         /* We have video in the SDP: set the to_video addr */
@@ -1303,15 +1293,13 @@ void call::do_bookkeeping(int index) {
 	GET_TIME (&L_currentTime);
 	L_stop_time = (double)L_currentTime.tv_sec*1000.0 +
 	  (double)(L_currentTime.tv_usec)/(double)1000.0 ;
-	CStat::instance()->computeRtt(start, L_stop_time, rtd);
+	CStat::instance()->computeRtt(start, L_stop_time) ;
       }
 
       CStat::instance()->computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
 	  clock_tick - start, rtd - 1);
 
-      if (!scenario[index] -> repeat_rtd) {
-	rtd_done[rtd - 1] = true;
-      }
+      rtd_done[rtd - 1] = true;
     }
   }
 }
@@ -1462,6 +1450,7 @@ bool call::run()
     send_status = sendCmdMessage(msg_index);
 
     if(send_status != 0) { /* Send error */
+      WARNING("Send error\n");
       return false; /* call deleted */
     }
     scenario[msg_index] -> M_nbCmdSent++;
@@ -1812,6 +1801,10 @@ int call::sendCmdMessage(int index)
   delimitor[0]=27;
   delimitor[1]=0;
 
+  /* 3pcc extended mode */
+  char * peer_dest;
+  int * peer_socket; 
+
   if(scenario[index] -> M_sendCmdData) {
     // WARNING_P1("---PREPARING_TWIN_CMD---%s---", scenario[index] -> M_sendCmdData); 
     dest = createSendingMessage(scenario[index] -> M_sendCmdData, -1);
@@ -1820,11 +1813,23 @@ int call::sendCmdMessage(int index)
 
     int rc;
 
-    rc = send(twinSippSocket, 
-              dest, 
-              strlen(dest), 
-              0);
+    /* 3pcc extended mode */
+    peer_dest = scenario[index]->peer_dest;
+    if(peer_dest){ 
+      peer_socket = get_peer_socket(peer_dest);
+         rc = send(* peer_socket,
+                   dest,
+                   strlen(dest),
+                   0);
+
+     }else {
+        rc = send(twinSippSocket,
+                  dest,
+                  strlen(dest),
+                  0);
+     } 
     if(rc <  0) {
+      WARNING("failed\n");
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
       CStat::instance()->computeStat(CStat::E_FAILED_CMD_NOT_SENT);
       delete_call(id);
@@ -2362,8 +2367,19 @@ bool call::process_twinSippCom(char * msg)
         /* The received message is different from the expected one */
         return rejectCall();
       } else {
-        found = true;
-        break;
+        if(extendedTwinSippMode){                   // 3pcc extended mode 
+	  if(check_peer_src(msg, search_index)){
+            found = true;
+            break;
+	  } else{
+	    WARNING_P1("Unexpected sender for the received peer message \n%s\n", msg);
+	    return rejectCall();
+	    }
+	 }
+	 else {
+            found = true;
+            break;
+         }
       }
     }
     
@@ -2371,14 +2387,12 @@ bool call::process_twinSippCom(char * msg)
       scenario[search_index]->M_nbCmdRecv ++;
       
       // variable treatment
-      // WARNING_P1("---RECVD_TWIN_CMD---%s---", msg); 
       // Remove \r, \n at the end of a received command
       // (necessary for transport, to be removed for usage)
       while ( (msg[strlen(msg)-1] == '\n') &&
       (msg[strlen(msg)-2] == '\r') ) {
         msg[strlen(msg)-2] = 0;
       }
-      // WARNING_P1("---RECVD_TWIN_CMD AFTER---%s---", msg);
       actionResult = executeAction(msg, search_index);
       
       if(actionResult != call::E_AR_NO_ERROR) {
@@ -2428,6 +2442,35 @@ bool call::checkInternalCmd(char * cmd)
     return (true);
   }
 
+  *L_ptr2 = L_backup;
+  return (false);
+}
+
+bool call::check_peer_src(char * msg, int search_index)
+{
+ char * L_ptr1, * L_ptr2, L_backup ;
+
+ L_ptr1 = strstr(msg, "From:");
+ if (!L_ptr1) {return (false);}
+ L_ptr1 += 5 ;
+ while((*L_ptr1 == ' ') || (*L_ptr1 == '\t')) { L_ptr1++; }
+ if (!(*L_ptr1)) {return (false);}
+ L_ptr2 = L_ptr1;
+  while((*L_ptr2) &&
+        (*L_ptr2 != ' ') &&
+        (*L_ptr2 != '\t') &&
+        (*L_ptr2 != '\r') &&
+        (*L_ptr2 != '\n')) {
+    L_ptr2 ++;
+  }
+  if(!*L_ptr2) { return (false); }
+  L_backup = *L_ptr2;
+  *L_ptr2 = 0;
+  if (strcmp(L_ptr1, scenario[search_index] -> peer_src) == 0) {
+    *L_ptr2 = L_backup;
+    return(true);
+  }
+ 
   *L_ptr2 = L_backup;
   return (false);
 }
@@ -2603,41 +2646,6 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
   }
 }
 
-bool call::matches_scenario(int index, int reply_code, char * request, char * responsecseqmethod)
-{         
-  int        result;
-          
-  if ((reply_code) && ((scenario[index] -> recv_response) == reply_code) && \
-     (scenario[index]->recv_response_for_cseq_method_list) && \
-     (strstr(scenario[index]->recv_response_for_cseq_method_list, responsecseqmethod))) {
-        return true;
-  }   
-    
-  if ((scenario[index] -> recv_request) && \
-     (!strcmp(scenario[index] -> recv_request, request))) {
-        return true;
-  } 
-  
-  if ((scenario[index] -> recv_request) && (scenario[index] -> regexp_match)) {
-  
-     if (scenario[index] -> regexp_compile == NULL) {
-        regex_t *re = new regex_t;
-        if (regcomp(re, scenario[index] -> recv_request, REG_EXTENDED|REG_NOSUB)) {
-           // regexp is not well formed
-           scenario[index] -> regexp_match = 0;
-           free(re);
-           return false;
-        }
-        scenario[index] -> regexp_compile = re;
-     }
-
-     result = regexec(scenario[index] -> regexp_compile, request, (size_t)0, NULL, 0);
-     if (!result) return true;
-  }
-
-  return false;
-}
-
 bool call::process_incoming(char * msg)
 {
   int             reply_code;
@@ -2658,6 +2666,15 @@ bool call::process_incoming(char * msg)
    
    /* Ignore the messages received during a pause if -pause_msg_ign is set */
    if(scenario[msg_index] -> M_type == MSG_TYPE_PAUSE && pause_msg_ign) return(true);
+
+#define MATCHES_SCENARIO(index)                                \
+      (((reply_code) &&                                        \
+        ((scenario[index] -> recv_response) == reply_code) &&            \
+         (scenario[index]->recv_response_for_cseq_method_list) &&   \
+        (strstr(scenario[index]->recv_response_for_cseq_method_list, responsecseqmethod))) ||  \
+       ((scenario[index] -> recv_request) &&                   \
+        (!strcmp(scenario[index] -> recv_request,              \
+                 request))))
 
   /* Authorize nop as a first command, even in server mode */
   if((msg_index == 0) && (scenario[msg_index] -> M_type == MSG_TYPE_NOP)) {
@@ -2783,7 +2800,7 @@ bool call::process_incoming(char * msg)
   for(search_index = msg_index;
       search_index < scenario_len;
       search_index++) {
-    if(!matches_scenario(search_index, reply_code, request, responsecseqmethod)) {
+    if(!MATCHES_SCENARIO(search_index)) {
       if(scenario[search_index] -> optional) {
         continue;
       }
@@ -2806,7 +2823,7 @@ bool call::process_incoming(char * msg)
         search_index >= 0;
         search_index--) {
       if (scenario[search_index]->optional == OPTIONAL_FALSE) contig = false;
-      if(matches_scenario(search_index, reply_code, request, responsecseqmethod)) {
+      if(MATCHES_SCENARIO(search_index)) {
         if (contig || scenario[search_index]->optional == OPTIONAL_GLOBAL) {
          found = true;
          break;  

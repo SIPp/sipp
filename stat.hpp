@@ -75,7 +75,6 @@ public:
   typedef struct _T_value_rtt 
   {
     double  date ;
-    int  rtd_no ;
     double  rtt  ;
   } T_value_rtt, *T_pValue_rtt ; 
 
@@ -278,7 +277,7 @@ public:
    * @return 0 if the action is known
    *        -1 else
    */
-  int computeRtt ( unsigned long P_start_time, double P_stop_time, int which);
+  int computeRtt ( unsigned long P_start_time, double P_stop_time);
 
   /**
    * Get_current_counter_call Methods is used to get the number of current call

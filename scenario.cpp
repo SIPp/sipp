@@ -54,8 +54,6 @@ message::message()
   recv_response = 0;
   recv_request = NULL;
   optional = 0;
-  regexp_match = 0;
-  regexp_compile = NULL;
 
   /* Anyway */
   start_rtd = 0;
@@ -65,6 +63,10 @@ message::message()
   test = 0;
   next = 0;
   on_timeout = 0;
+
+/* 3pcc extended mode */
+  peer_dest = NULL;
+  peer_src = NULL;
 
   /* Statistics */
   nb_sent = 0;
@@ -103,10 +105,13 @@ message::~message()
     free (recv_request);
   recv_request = NULL;
 
-  if(regexp_compile != NULL)
-    regfree(regexp_compile);
-    free(regexp_compile);
-  regexp_compile = NULL;
+  if(peer_dest != NULL)
+     free (peer_dest);
+  peer_dest = NULL; 
+
+  if(peer_src != NULL)
+     delete (peer_src);
+  peer_src = NULL;
 
 #ifdef __3PCC__
   if(M_sendCmdData != NULL)
@@ -133,55 +138,6 @@ long get_long(const char *ptr, const char *what) {
   ret = strtol(ptr, &endptr, 0);
   if (*endptr) {
     ERROR_P2("%s, \"%s\" is not a valid integer!\n", what, ptr);
-  }
-  return ret;
-}
-
-/* This function returns a time in milliseconds from a string.
- * The multiplier is used to convert from the default input type into
- * milliseconds.  For example, for seconds you should use 1000 and for
- * milliseconds use 1. */
-long get_time(const char *ptr, const char *what, int multiplier) {
-  char *endptr;
-  const char *p;
-  long ret;
-  double dret;
-  int i;
-
-  if (!isdigit(*ptr)) {
-    ERROR_P2("%s, \"%s\" is not a valid time!\n", what, ptr);
-  }
-
-  for (i = 0, p = ptr; *p; p++) {
-	if (*p == ':') {
-		i++;
-	}
-  }
-
-  if (i == 1) { /* mm:ss */
-    ERROR_P2("%s, \"%s\" mm:ss not implemented yet!\n", what, ptr);
-  }
-  else if (i == 2) { /* hh:mm:ss */
-    ERROR_P2("%s, \"%s\" hh:mm:ss not implemented yet!\n", what, ptr);
-  } else if (i != 0) {
-    ERROR_P2("%s, \"%s\" is not a valid time!\n", what, ptr);
-  }
-
-  dret = strtod(ptr, &endptr);
-  if (*endptr) {
-    if (!strcmp(endptr, "s")) { /* Seconds */
-	ret = (long)(dret * 1000);
-    } else if (!strcmp(endptr, "ms")) { /* Milliseconds. */
-	ret = (long)dret;
-    } else if (!strcmp(endptr, "m")) { /* Minutes. */
-	ret = (long)(dret * 60000);
-    } else if (!strcmp(endptr, "h")) { /* Hours. */
-	ret = (long)(dret * 60 * 60 * 1000);
-    } else {
-      ERROR_P2("%s, \"%s\" is not a valid time!\n", what, ptr);
-    }
-  } else {
-    ret = (long)(dret * multiplier);
   }
   return ret;
 }
@@ -262,7 +218,7 @@ int get_rtd(const char *ptr) {
     ERROR_P1("rtd \"%s\" is not a valid integer!\n", ptr);
   }
 
-  if (ret > MAX_RTD_INFO_LENGTH) {
+  if (ret >= MAX_RTD_INFO_LENGTH) {
     ERROR_P2("rtd %d exceeds MAX_RTD_INFO_LENGTH %d!\n", ret, MAX_RTD_INFO_LENGTH);
   }
 
@@ -354,7 +310,7 @@ void load_scenario(char * filename, int deflt)
   int    L_content_length = 0 ;
   unsigned int recv_count = 0;
   unsigned int recv_opt_count = 0;
-   
+  char * peer; 
   memset (method_list, 0, sizeof (method_list));
 
   if(filename) {
@@ -526,13 +482,6 @@ void load_scenario(char * filename, int deflt)
         if(ptr = xp_get_value((char *)"start_rtd")) {
           scenario[scenario_len] -> start_rtd = get_rtd(ptr);
 	}
-        if (ptr = xp_get_value((char *)"repeat_rtd")) {
-	  if (scenario[scenario_len] -> stop_rtd) {
-	    scenario[scenario_len] -> repeat_rtd = get_bool(ptr, "repeat_rtd");
-	  } else {
-	    ERROR("There is a repeat_rtd element without an rtd element");
-	  }
-	}
 
         if(ptr = xp_get_value((char *)"counter")) {
           scenario[scenario_len] -> counter = get_counter(ptr, "counter");
@@ -562,14 +511,6 @@ void load_scenario(char * filename, int deflt)
         if(ptr = xp_get_value((char *)"start_rtd")) {
           scenario[scenario_len] -> start_rtd = get_rtd(ptr);
 	}
-        if (ptr = xp_get_value((char *)"repeat_rtd")) {
-	  if (scenario[scenario_len] -> stop_rtd) {
-	    scenario[scenario_len] -> repeat_rtd = get_bool(ptr, "repeat_rtd");
-	  } else {
-	    ERROR("There is a repeat_rtd element without an rtd element");
-	  }
-	}
-
 
 	if(ptr = xp_get_value((char *)"counter")) {
 	  scenario[scenario_len] -> counter = get_counter(ptr, "counter");
@@ -589,12 +530,6 @@ void load_scenario(char * filename, int deflt)
 	  }
         }
 
-        if (0 != (ptr = xp_get_value((char *)"regexp_match"))) {
-          if(!strcmp(ptr, "true")) {
-            scenario[scenario_len] -> regexp_match = 1;
-          }
-        }
-
         if (0 != (ptr = xp_get_value((char *)"timeout"))) {
           scenario[scenario_len]->retrans_delay = get_long(ptr, "message timeout");
         }
@@ -604,18 +539,13 @@ void load_scenario(char * filename, int deflt)
         if(ptr = xp_get_value((char *)"rrs")) {
 	  scenario[scenario_len] -> bShouldRecordRoutes = get_bool(ptr, "record route set");
         }
-
+      
+#ifdef _USE_OPENSSL
         /* record the authentication credentials  */
         if(ptr = xp_get_value((char *)"auth")) {
-	  bool temp = get_bool(ptr, "message authentication");
-#ifdef _USE_OPENSSL
-	  scenario[scenario_len] -> bShouldAuthenticate = temp;
-#else
-	  if (temp) {
-	    ERROR("Authentication requires OpenSSL support!");
-	  }
-#endif
+	  scenario[scenario_len] -> bShouldAuthenticate = get_bool(ptr, "message authentication");
         }
+#endif
 
         getActionForThisMessage();
 
@@ -806,6 +736,11 @@ void load_scenario(char * filename, int deflt)
           }
         }
         scenario[scenario_len]->M_type = MSG_TYPE_RECVCMD;
+
+	/* 3pcc extended mode */
+        if(ptr = xp_get_value((char *)"src")) { 
+           scenario[scenario_len] ->peer_src = strdup(ptr) ;
+        }
         getActionForThisMessage();
 
       } else if(!strcmp(elem, "sendCmd")) {
@@ -819,9 +754,27 @@ void load_scenario(char * filename, int deflt)
         }
         scenario[scenario_len]->M_type = MSG_TYPE_SENDCMD;
         /* Sent messages descriptions */
+
+	/* 3pcc extended mode  */
+	if(ptr = xp_get_value((char *)"dest")) { 
+	   peer = strdup(ptr) ;
+	   scenario[scenario_len] ->peer_dest = peer ;
+           peer_map::iterator peer_it;
+	   peer_it = peers.find(peer_map::key_type(peer));
+	   if(peer_it == peers.end())  /* the peer (slave or master)
+					  has not been added in the map
+					  (first occurence in the scenario) */
+	   {
+	     T_peer_infos infos;
+	     infos.peer_socket = 0;
+	     strcpy(infos.peer_host, get_peer_addr(peer));
+             peers[std::string(peer)] = infos; 
+	     }
+        }
+
         if(ptr = xp_get_cdata()) {
         
-          char * msg;
+         char * msg;
         
           while((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) ptr++;
         
@@ -900,9 +853,34 @@ void load_scenario(char * filename, int deflt)
   } // end while
 }
 
+/* 3pcc extended mode:
+   get the correspondances between
+   slave and master names and their 
+   addresses */
+
+void parse_slave_cfg()
+{
+  FILE * f;
+  char line[MAX_PEER_SIZE];
+  char * temp_peer;
+  char * peer_host;
+
+  f = fopen(slave_cfg_file, "r");
+  if(f){
+     while (fgets(line, MAX_PEER_SIZE, f) != NULL)
+     {
+       temp_peer = strtok(line, ";");
+       peer_host = (char *) malloc(MAX_PEER_SIZE);
+       strcpy(peer_host, strtok(NULL, ";"));
+       peer_addrs[std::string(temp_peer)] = peer_host; 
+     }
+   }else{ 
+     ERROR_P1("Can not open slave_cfg file %s\n", slave_cfg_file);
+     }
+}
 
 // Determine in which mode the sipp tool has been 
-// launched (client, server, 3pcc client, 3pcc server)
+// launched (client, server, 3pcc client, 3pcc server, 3pcc extended master or slave)
 void computeSippMode()
 {
   bool isRecvCmdFound = false;
@@ -938,13 +916,24 @@ void computeSippMode()
                * If it is a server already, then start it in
                * 3PCC A passive mode
                */
-              toolMode = MODE_3PCC_A_PASSIVE;
+	       if(twinSippMode){
+                  toolMode = MODE_3PCC_A_PASSIVE;
+	       }else if (extendedTwinSippMode){
+		  toolMode = MODE_MASTER_PASSIVE;
+               }
             } else {
-              toolMode = MODE_3PCC_CONTROLLER_A;
+	        if(twinSippMode){
+                   toolMode = MODE_3PCC_CONTROLLER_A;
+                 }else if (extendedTwinSippMode){
+                   toolMode = MODE_MASTER;
+                 } 
             }
-            if(!twinSippMode)
+            if((toolMode == MODE_MASTER_PASSIVE || toolMode == MODE_MASTER) && !master_name){
+              ERROR("Inconsistency between command line and scenario: master scenario but -master option not set\n");
+              }
+            if(!twinSippMode && !extendedTwinSippMode)
               ERROR("sendCmd message found in scenario but no twin sipp"
-                    " address has been passed! Use -3pcc option.\n");
+                    " address has been passed! Use -3pcc option or 3pcc extended mode.\n");
             return;
           }
           isFirstMessageFound = false;
@@ -954,8 +943,17 @@ void computeSippMode()
           isRecvCmdFound = true;
           if(!isSendCmdFound)
             {
-              toolMode  = MODE_3PCC_CONTROLLER_B;
-              if(!twinSippMode)
+              if(twinSippMode){
+                 toolMode  = MODE_3PCC_CONTROLLER_B;
+              } else if(extendedTwinSippMode){
+	         toolMode = MODE_SLAVE;
+                 if(!slave_number) {
+                    ERROR("Inconsistency between command line and scenario: slave scenario but -slave option not set\n");
+                   }else{
+                    toolMode = MODE_SLAVE;
+                   } 
+              }
+              if(!twinSippMode && !extendedTwinSippMode)
                 ERROR("sendCmd message found in scenario but no "
                       "twin sipp address has been passed! Use "
                       "-3pcc option\n");
@@ -1161,11 +1159,6 @@ void getActionForThisMessage()
             tmpActions.setAction(tmpAction);
             tmpActionNumber++;
             hasMedia = 1;
-#else
-          } else if (ptr = xp_get_value((char *) "play_pcap_audio")) {
-	      ERROR("play_pcap_audio requires pcap support! Please recompile SIPp");
-          } else if (ptr = xp_get_value((char *) "play_pcap_video")) {
-	      ERROR("play_pcap_video requires pcap support! Please recompile SIPp");
 #endif
           } else {
               ERROR("illegal <exec> in the scenario\n");
