@@ -1,4 +1,5 @@
 /*
+
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation; either version 2 of the License, or
@@ -43,6 +44,7 @@
 #include <time.h>
 #include <vector>
 #include <string>
+#include <map>
 #include <math.h>
 
 #if defined(__HPUX) || defined(__SUNOS)
@@ -120,6 +122,10 @@
 #define NB_UPDATE_PER_CYCLE        1
 
 #define MAX_PATH                   250
+
+#define MAX_PEER_SIZE              4096  /* 3pcc extended mode: max size of peer names */
+#define MAX_LOCAL_TWIN_SOCKETS     10    /*3pcc extended mode:max number of peers from which 
+                                           cmd messages are received */
 
 /******************** Default parameters ***********************/
 
@@ -213,9 +219,13 @@ extern char               remote_host[255];
 #ifdef __3PCC__
 extern char               twinSippHost[255];
 extern char               twinSippIp[40];
+extern char             * master_name;
+extern char             * slave_number;
 extern int                twinSippPort            _DEFVAL(DEFAULT_3PCC_PORT);
 extern bool               twinSippMode            _DEFVAL(false);
+extern bool               extendedTwinSippMode    _DEFVAL(false);
 #endif
+
 extern bool               backgroundMode          _DEFVAL(false);        
 extern bool               signalDump              _DEFVAL(false);        
 
@@ -339,6 +349,25 @@ extern struct        addrinfo * local_addr_storage;
 extern int           twinSippSocket               _DEFVAL(0);
 extern int           localTwinSippSocket          _DEFVAL(0);
 extern struct        sockaddr_storage twinSipp_sockaddr;
+
+/* 3pcc extended mode */
+typedef struct _T_peer_infos {
+               char                       peer_host[40];
+               int                        peer_port;
+               struct sockaddr_storage    peer_sockaddr;
+               char                       peer_ip[40];
+               int                        peer_socket ;
+               } T_peer_infos;
+
+typedef std::map<std::string, char * > peer_addr_map;
+extern peer_addr_map peer_addrs;
+typedef std::map<std::string, T_peer_infos> peer_map;
+extern peer_map      peers;
+typedef std::map<int, std::string > peer_socket_map;
+extern peer_socket_map peer_sockets;
+extern int           local_sockets[MAX_LOCAL_TWIN_SOCKETS];
+extern int           local_nb                    _DEFVAL(0);
+extern int           peers_connected             _DEFVAL(0);
 #endif
 
 extern struct        sockaddr_storage remote_sockaddr;
@@ -365,6 +394,7 @@ extern bool   useTimeoutf                         _DEFVAL(0);
 extern bool   dumpInFile                          _DEFVAL(0);
 extern bool   dumpInRtt                           _DEFVAL(0);
 extern char * scenario_file;
+extern char * slave_cfg_file;
 
 #define TRACE_MSG(arg)      \
 {                           \
@@ -430,6 +460,7 @@ int pollset_add(call * p_call, int socket);
 /********************* Utilities functions  *******************/
 
 char *strcasestr2 ( char *__haystack, char *__needle);
+char *get_peer_addr(char *);
 int get_decimal_from_hex(char hex);
 
 int reset_connections() ;
@@ -437,6 +468,17 @@ int close_calls();
 int close_connections();
 int open_connections();
 void timeout_alarm(int);
+
+/* extended 3PCC mode */
+int * get_peer_socket(char *);
+bool is_a_peer_socket(int);
+bool is_a_local_socket(int);
+void connect_to_peer (char *, int *, sockaddr_storage *, char *, int *);
+void connect_to_all_peers ();
+void connect_local_twin_socket(char *);
+void close_peer_sockets();
+void close_local_sockets();
+void free_peer_addr_map();
 
 /********************* Reset global kludge  *******************/
 

@@ -68,30 +68,31 @@ struct sipp_option {
 	void *data;
 };
 
-#define SIPP_OPTION_HELP	1
-#define SIPP_OPTION_INT		2
-#define SIPP_OPTION_SETFLAG	3
-#define SIPP_OPTION_UNSETFLAG	4
-#define SIPP_OPTION_STRING	5
-#define SIPP_OPTION_ARGI	6
-#define SIPP_OPTION_TIME_SEC	7
-#define SIPP_OPTION_FLOAT	8
-#define SIPP_OPTION_BOOL	10
-#define SIPP_OPTION_VERSION	11
-#define SIPP_OPTION_TRANSPORT	12
-#define SIPP_OPTION_NEED_SSL	13
-#define SIPP_OPTION_IP		14
-#define SIPP_OPTION_MAX_SOCKET	15
-#define SIPP_OPTION_CSEQ	16
-#define SIPP_OPTION_SCENARIO	17
-#define SIPP_OPTION_RSA		18
-#define SIPP_OPTION_LIMIT	19
-#define SIPP_OPTION_USERS	20
-#define SIPP_OPTION_KEY		21
-#define SIPP_OPTION_3PCC	22
-#define SIPP_OPTION_TDMMAP	23
-#define SIPP_OPTION_TIME_MS	24
-
+#define SIPP_OPTION_HELP	   1
+#define SIPP_OPTION_INT		   2
+#define SIPP_OPTION_SETFLAG	   3
+#define SIPP_OPTION_UNSETFLAG	   4
+#define SIPP_OPTION_STRING	   5
+#define SIPP_OPTION_ARGI 	   6
+#define SIPP_OPTION_TIME_SEC	   7
+#define SIPP_OPTION_FLOAT	   8
+#define SIPP_OPTION_BOOL	  10 
+#define SIPP_OPTION_VERSION	  11
+#define SIPP_OPTION_TRANSPORT	  12
+#define SIPP_OPTION_NEED_SSL	  13
+#define SIPP_OPTION_IP		  14
+#define SIPP_OPTION_MAX_SOCKET	  15
+#define SIPP_OPTION_CSEQ	  16
+#define SIPP_OPTION_SCENARIO	  17
+#define SIPP_OPTION_RSA		  18
+#define SIPP_OPTION_LIMIT	  19
+#define SIPP_OPTION_USERS	  20
+#define SIPP_OPTION_KEY		  21
+#define SIPP_OPTION_3PCC	  22
+#define SIPP_OPTION_TDMMAP	  23
+#define SIPP_OPTION_TIME_MS	  24
+#define SIPP_OPTION_SLAVE_CFG     25
+#define SIPP_OPTION_3PCC_EXTENDED 26
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
 	{"v", "Display version and copyright information.", SIPP_OPTION_VERSION, NULL},
@@ -132,6 +133,7 @@ struct sipp_option options_table[] = {
 
 	{"m", "Stop the test and exit when 'calls' calls are processed", SIPP_OPTION_INT, &stop_after},
 	{"mi", "Set the local media IP address", SIPP_OPTION_IP, media_ip},
+        {"master","3pcc extended mode: indicates the master number", SIPP_OPTION_3PCC_EXTENDED, &master_name},
 	{"max_recv_loops", "Set the maximum number of messages received read per cycle. Increase this value for high traffic level.  The default value is 1000.", SIPP_OPTION_INT, &max_recv_loops},
 	{"max_reconnect", "Set the the maximum number of reconnection.", SIPP_OPTION_INT, &reset_number},
 	{"max_retrans", "Maximum number of UDP retransmissions before call ends on timeout.  Default is 5 for INVITE transactions and 7 for others.", SIPP_OPTION_INT, &max_udp_retrans},
@@ -182,6 +184,8 @@ struct sipp_option options_table[] = {
 	{"s", "Set the username part of the resquest URI. Default is 'service'.", SIPP_OPTION_STRING, &service},
 	{"sd", "Dumps a default scenario (embeded in the sipp executable)", SIPP_OPTION_SCENARIO, NULL},
 	{"sf", "Loads an alternate xml scenario file.  To learn more about XML scenario syntax, use the -sd option to dump embedded scenarios. They contain all the necessary help.", SIPP_OPTION_SCENARIO, NULL},
+	{"slave", "3pcc extended mode: indicates the slave number", SIPP_OPTION_3PCC_EXTENDED, &slave_number},
+	{"slave_cfg", "3pcc extended mode: indicates the file where the master and slave addresses are stored", SIPP_OPTION_SLAVE_CFG, NULL},
 	{"sn", "Use a default scenario (embedded in the sipp executable). If this option is omitted, the Standard SipStone UAC scenario is loaded.\n"
                "Available values in this version:\n\n"
                "- 'uac'      : Standard SipStone UAC (default).\n"
@@ -645,9 +649,10 @@ bool sipMsgCheck (char *P_msg, int P_msgSize
   const char C_sipHeader[] = "SIP/2.0" ;
 
 #ifdef __3PCC__
-  if (pollfiles[P_pollSetIdx].fd == twinSippSocket) {
-    return true ;
-  } else {
+  if (pollfiles[P_pollSetIdx].fd == twinSippSocket || 
+      pollfiles[P_pollSetIdx].fd == localTwinSippSocket ||
+      is_a_peer_socket(pollfiles[P_pollSetIdx].fd) ||
+      is_a_local_socket(pollfiles[P_pollSetIdx].fd)) return true ; 
 #endif // __3PCC__
 
     if (strstr(P_msg, C_sipHeader) !=  NULL) {
@@ -656,9 +661,6 @@ bool sipMsgCheck (char *P_msg, int P_msgSize
 
     return false ;
 
-#ifdef __3PCC__
-  }
-#endif // __3PCC__
 }
 
 void pollset_reset()
@@ -701,6 +703,18 @@ void pollset_reset()
     pollcalls[pollnfds]         = NULL;
     pollnfds++;
   } 
+
+/* 3pcc extended mode: adds the local sockets (used for reading the messages from 
+   others twin sipp instances, master or slaves) */
+   for (int i = 0; i< local_nb ; i++){
+    pollfiles[pollnfds].fd      = local_sockets[i];
+    pollfiles[pollnfds].events  = POLLIN | POLLERR;
+    pollfiles[pollnfds].revents = 0;
+    pollcalls[pollnfds]         = NULL;
+    pollnfds++;
+  }   
+
+
 #endif
 
 
@@ -748,7 +762,6 @@ int pollset_add(call * p_call, int sock)
   }
     TRACE_MSG((s,"Adding socket :\n"));
   */
-  
   return pollnfds - 1;
 }
 
@@ -776,7 +789,6 @@ void pollset_remove(int idx)
 
   /* Adds call sockets in the array */
   if(pollnfds) {
-    // WARNING_P2("Removing socket %d at idx = %d", pollfiles[idx].fd, idx);
     pollnfds--;
     pollfiles[idx] = pollfiles[pollnfds];
     pollcalls[idx] = pollcalls[pollnfds];
@@ -1159,6 +1171,15 @@ void print_bottom_line(FILE *f, int last)
       case MODE_3PCC_CONTROLLER_A :
         fprintf(f,"----------------------- 3PCC Mode - Controller A side -------------------------" SIPP_ENDL);
         break;
+      case MODE_MASTER :
+        fprintf(f,"-----------------------3PCC extended mode - Master side -------------------------" SIPP_ENDL);
+        break;
+      case MODE_MASTER_PASSIVE :
+        fprintf(f,"------------------ 3PCC extended mode - Master side (passive) --------------------" SIPP_ENDL);
+        break;
+      case MODE_SLAVE :
+        fprintf(f,"----------------------- 3PCC extended mode - Slave side -------------------------" SIPP_ENDL);
+        break; 
 #endif
       case MODE_CLIENT :
       default:
@@ -1834,6 +1855,15 @@ void tcp_recv_error(int error, int trace_id, int sock) {
       return;
   }
 
+  /* 3pcc extended mode */
+  if (extendedTwinSippMode) {
+     close(localTwinSippSocket);
+     close_peer_sockets();
+     close_local_sockets();
+     free_peer_addr_map();
+     ERROR("Master has ended -> exiting"); 
+   }
+  
 #ifdef __3PCC__
   if (toolMode == MODE_3PCC_CONTROLLER_B) {
     /* In 3PCC controller B mode, twin socket is closed at peer closing.
@@ -1854,7 +1884,7 @@ void tcp_recv_error(int error, int trace_id, int sock) {
       trace_id, sock);
 
 #ifdef __3PCC__
-  if(sock == twinSippSocket || sock == localTwinSippSocket) {
+  if(sock == twinSippSocket || sock == localTwinSippSocket ) { 
     int L_poll_idx = 0 ;
     quitting = 1;
     for((L_poll_idx) = 0;
@@ -2337,19 +2367,31 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
       pollfiles[(*poll_idx)].revents = 0;
 
 #ifdef __3PCC__
-      if(s == localTwinSippSocket)
-        {
+      if(s == localTwinSippSocket){
           sipp_socklen_t len = sizeof(twinSipp_sockaddr);
+         if(toolMode == MODE_3PCC_CONTROLLER_B){
           twinSippSocket = accept(s,
                                   (sockaddr *)(void *)&twinSipp_sockaddr,
                                   &len);
-          
           pollset_add(0, twinSippSocket);
 
-          return(-2);
+          }else{ 
+            /*3pcc extended mode: open a local socket
+              which will be used for reading the infos sent by this remote
+              twin sipp instance (slave or master) */
+
+            int localSocket = accept(s,
+                                   (sockaddr *)(void *)&twinSipp_sockaddr,
+                                  &len);
+            pollset_add(0, localSocket);
+	    local_sockets[local_nb] = localSocket;
+	    local_nb++;
+	    if(!peers_connected){
+	      connect_to_all_peers();
         } 
-      else if (s == twinSippSocket)
-        {
+            }
+          return(-2);
+      } else if (s == twinSippSocket || is_a_local_socket(s)){
           size = recv_tcp_message(s,
 				  *poll_idx,
                                   buffer,
@@ -2358,12 +2400,11 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
                                   E_ALTER_YES);
           if(size >= 0) {
             buffer[size] = 0;
-          }
-          else
+          }else {
             buffer[0] = 0;
-          return size;
         }
-        else
+          return size;
+        }else
         {
 #endif
       
@@ -2429,6 +2470,7 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
                                   E_ALTER_YES);
         } else {
 #endif
+	
         size = recv_tcp_message(s,
 				*poll_idx,
                                 buffer,
@@ -2587,10 +2629,8 @@ void pollset_process(bool ipv6)
 			,pollset_index
 #endif // __3PCC__
 			) == true) {
-	  
           call_id = get_call_id(msg);
           call_ptr = get_call(call_id);
-        
           if(!call_ptr)
             {
               if(toolMode == MODE_SERVER) 
@@ -2626,7 +2666,8 @@ void pollset_process(bool ipv6)
                 }
               }
 #ifdef __3PCC__
-              else if(toolMode == MODE_3PCC_CONTROLLER_B || toolMode == MODE_3PCC_A_PASSIVE)
+              else if(toolMode == MODE_3PCC_CONTROLLER_B || toolMode == MODE_3PCC_A_PASSIVE
+                      || toolMode == MODE_MASTER_PASSIVE || toolMode == MODE_SLAVE)
                 {
                   // Adding a new OUTGOING call !
                   CStat::instance()->computeStat
@@ -2642,8 +2683,10 @@ void pollset_process(bool ipv6)
                        (pollfiles[pollset_index].fd != main_socket) && 
                        (pollfiles[pollset_index].fd != tcp_multiplex) &&
                        (pollfiles[pollset_index].fd != localTwinSippSocket) &&
-                       (pollfiles[pollset_index].fd != twinSippSocket)) {
+                       (pollfiles[pollset_index].fd != twinSippSocket) &&
+                       (!is_a_local_socket(pollfiles[pollset_index].fd))) {
                       call_ptr -> call_socket = pollfiles[pollset_index].fd;
+
                     }
                   }
                 }
@@ -2683,7 +2726,8 @@ void pollset_process(bool ipv6)
             {
 #ifdef __3PCC__
               if( (pollfiles[pollset_index].fd == localTwinSippSocket) ||
-                  (pollfiles[pollset_index].fd == twinSippSocket))
+                  (pollfiles[pollset_index].fd == twinSippSocket) ||
+		  (is_a_local_socket(pollfiles[pollset_index].fd)))
                 {
                   if(!call_ptr -> process_twinSippCom(msg))
                     {
@@ -2803,6 +2847,7 @@ void traffic_thread(bool ipv6)
       if( (toolMode == MODE_CLIENT)
 #ifdef __3PCC__
           || (toolMode == MODE_3PCC_CONTROLLER_A)
+          || (toolMode == MODE_MASTER)
 #endif
           )
         {
@@ -3405,6 +3450,7 @@ int main(int argc, char *argv[])
   int                  err;
   int                  L_maxSocketPresent = 0;
   unsigned int         generic_count = 0;
+  bool                 slave_masterSet = false;
   
   generic[0] = NULL;
 
@@ -3413,7 +3459,6 @@ int main(int argc, char *argv[])
     help();
     exit(EXIT_OTHER);
   }
-
   /* Ignore the SIGPIPE signal */
   {
     struct sigaction action_pipe;
@@ -3453,7 +3498,6 @@ int main(int argc, char *argv[])
 
   for(argi = 1; argi < argc; argi++) {
     struct sipp_option *option = find_option(argv[argi]);
-
     if (!option) {
       if((argv[argi])[0] != '-') {
 	strcpy(remote_host, argv[argi]);
@@ -3634,6 +3678,12 @@ int main(int argc, char *argv[])
 	break;
       case SIPP_OPTION_3PCC:
 #ifdef __3PCC__
+        if(slave_masterSet){
+           ERROR("-3PCC option is not compatible with -master and -slave options\n");
+           }
+        if(extendedTwinSippMode){
+           ERROR("-3pcc and -slave_cfg options are not compatible\n");
+           } 
 	REQUIRE_ARG();
 	twinSippMode = true;
 	strcpy(twinSippHost, argv[argi]);
@@ -3671,6 +3721,27 @@ int main(int argc, char *argv[])
 	} else {
 	  ERROR_P1("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
 	}
+	break;
+      case SIPP_OPTION_SLAVE_CFG: 
+	if(twinSippMode){
+	  ERROR("-slave_cfg and -3pcc options are not compatible\n");
+	  }
+        REQUIRE_ARG();
+	extendedTwinSippMode = true;
+        slave_cfg_file = new char [strlen(argv[argi])+1] ;
+        sprintf(slave_cfg_file,"%s", argv[argi]);
+	parse_slave_cfg();
+	break;
+      case SIPP_OPTION_3PCC_EXTENDED:
+        if(slave_masterSet){
+	   ERROR("-slave and -master options are not compatible\n");
+	   }
+	if(twinSippMode){
+	   ERROR("-master and -slave options are not compatible with -3PCC option\n");
+	   }
+	REQUIRE_ARG();
+        *((char **)option->data) = argv[argi];
+	slave_masterSet = true;
 	break;
       case SIPP_OPTION_RSA: {
 	REQUIRE_ARG();
@@ -3742,6 +3813,10 @@ int main(int argc, char *argv[])
     }
   }
 
+  if((extendedTwinSippMode && !slave_masterSet) || (!extendedTwinSippMode && slave_masterSet)){
+    ERROR("-slave_cfg option must be used with -slave or -master option\n");
+    }
+
   if (peripsocket) {
     if (!argiInputFile) {
       ERROR("You must use the -inf option when using -t ui.\n"
@@ -3788,7 +3863,7 @@ int main(int argc, char *argv[])
     if(!screenf) {
       ERROR_P1("Unable to create '%s'", L_file_name);
     }
-  }
+  }  
 
   if (useTimeoutf == 1) {
     char L_file_name [MAX_PATH];
@@ -3908,6 +3983,7 @@ int main(int argc, char *argv[])
   }
    
   open_connections();
+   
    
   /* Defaults for media sockets */
   if (media_ip[0] == '\0') {
@@ -4541,13 +4617,41 @@ int open_connections() {
   /* Trying to connect to Twin Sipp in 3PCC mode */
   if(twinSippMode) {
     if(toolMode == MODE_3PCC_CONTROLLER_A || toolMode == MODE_3PCC_A_PASSIVE) {
-      if(strstr(twinSippHost, ":")) {
-              twinSippPort = atol(strstr(twinSippHost, ":")+1);
-              *(strstr(twinSippHost, ":")) = 0;
+       connect_to_peer(twinSippHost, &twinSippPort, &twinSipp_sockaddr, twinSippIp, &twinSippSocket);
+     }else if(toolMode == MODE_3PCC_CONTROLLER_B){
+       connect_local_twin_socket(twinSippHost);
+      }else{
+       ERROR("TwinSipp Mode enabled but toolMode is different "
+              "from 3PCC_CONTROLLER_B and 3PCC_CONTROLLER_A\n");
+      }
+   }else if (extendedTwinSippMode){       
+     if (toolMode == MODE_MASTER || toolMode == MODE_MASTER_PASSIVE) {
+       strcpy(twinSippHost,get_peer_addr(master_name));
+       connect_local_twin_socket(twinSippHost);
+       connect_to_all_peers();
+     }else if(toolMode == MODE_SLAVE) {
+       strcpy(twinSippHost,get_peer_addr(slave_number));
+       connect_local_twin_socket(twinSippHost);
+     }else{
+        ERROR("extendedTwinSipp Mode enabled but toolMode is different "
+              "from MASTER and SLAVE\n");
+     }
+    }
+#endif
+
+  return status;
             }
 
-          /* Resolving the twin IP */
-            printf("Resolving twin address : %s...\n", twinSippHost);
+
+void connect_to_peer(char *peer_host, int *peer_port, struct sockaddr_storage *peer_sockaddr, char *peer_ip, int *peer_socket){
+
+     if(strstr(peer_host, ":")) {
+              *peer_port = atol(strstr(peer_host, ":")+1);
+              *(strstr(peer_host, ":")) = 0;
+            }
+
+          /* Resolving the  peer IP */
+      printf("Resolving peer address : %s...\n",peer_host);
       struct addrinfo   hints;
       struct addrinfo * local_addr;
       memset((char*)&hints, 0, sizeof(hints));
@@ -4555,53 +4659,98 @@ int open_connections() {
       hints.ai_family = PF_UNSPEC;
       is_ipv6 = false;
       /* Resolving twin IP */
-      if (getaddrinfo(twinSippHost,
+      if (getaddrinfo(peer_host,
                       NULL,
                       &hints,
                       &local_addr) != 0) {
-              ERROR_P1("Unknown twin host '%s'.\n"
-                       "Use 'sipp -h' for details", twinSippHost);
+
+ERROR_P1("Unknown peer host '%s'.\n"
+                       "Use 'sipp -h' for details", peer_host);
             }
 
-      memcpy(&twinSipp_sockaddr,
+      memcpy(peer_sockaddr,
              local_addr->ai_addr,
              SOCK_ADDR_SIZE(
                _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
 
       freeaddrinfo(local_addr);
 
-      if (twinSipp_sockaddr.ss_family == AF_INET) {
-       (_RCAST(struct sockaddr_in *,&twinSipp_sockaddr))->sin_port =
-         htons((short)twinSippPort);
+      if (peer_sockaddr->ss_family == AF_INET) {
+       (_RCAST(struct sockaddr_in *,peer_sockaddr))->sin_port =
+         htons((short)*peer_port);
       } else {
-        (_RCAST(struct sockaddr_in6 *,&twinSipp_sockaddr))->sin6_port =
-          htons((short)twinSippPort);
+        (_RCAST(struct sockaddr_in6 *,peer_sockaddr))->sin6_port =
+          htons((short)*peer_port);
         is_ipv6 = true;
       }
-      strcpy(twinSippIp, get_inet_address(&twinSipp_sockaddr));
-      if((twinSippSocket = socket(is_ipv6 ? AF_INET6 : AF_INET,
+      strcpy(peer_ip, get_inet_address(peer_sockaddr));
+      if((*peer_socket = socket(is_ipv6 ? AF_INET6 : AF_INET,
           SOCK_STREAM, 0))== -1) {
-              ERROR_NO("Unable to get a TCP socket in 3PCC controller A mode");
+              ERROR_NO("Unable to get a twin sipp TCP socket");
             }
     
-          if(connect(twinSippSocket,
-                     (struct sockaddr *)(void *)&twinSipp_sockaddr,
-                 SOCK_ADDR_SIZE(&twinSipp_sockaddr))) {
+          if(connect(*peer_socket,
+                     (struct sockaddr *)(void *)peer_sockaddr,
+                 SOCK_ADDR_SIZE(peer_sockaddr))) {
         if(errno == EINVAL) {
                   /* This occurs sometime on HPUX but is not a true INVAL */
-                  ERROR_NO("Unable to connect a TCP socket in 3PCC controller "
-                        "A mode, remote peer error.\n"
+                  ERROR_NO("Unable to connect a twin sipp TCP socket\n "
+                        ", remote peer error.\n"
                         "Use 'sipp -h' for details");
         } else {
-                  ERROR_NO("Unable to connect a TCP socket in 3PCC controller "
-                           "A mode.\n"
+                  ERROR_NO("Unable to connect a twin sipp socket "
+                           "\n"
                            "Use 'sipp -h' for details");
                 }
             }
 
-          sipp_customize_socket(twinSippSocket);
-    } else if(toolMode == MODE_3PCC_CONTROLLER_B) {
-      if(strstr(twinSippHost, ":")) {
+          sipp_customize_socket(*peer_socket);
+}
+
+int * get_peer_socket(char * peer)
+{
+    int * peer_socket;
+    T_peer_infos infos;
+    peer_map::iterator peer_it;
+    peer_it = peers.find(peer_map::key_type(peer));
+    if(peer_it != peers.end()) {
+      infos = peer_it->second;
+      peer_socket = &(infos.peer_socket);
+      return peer_socket;
+     }
+     else {
+       ERROR_P1("get_peer_socket: Peer %s not found\n", peer);    
+    }
+} 
+
+char * get_peer_addr(char * peer)
+{
+    char * addr;
+    peer_addr_map::iterator peer_addr_it;
+    peer_addr_it = peer_addrs.find(peer_addr_map::key_type(peer)); 
+    if(peer_addr_it != peer_addrs.end()){
+       addr =  peer_addr_it->second;
+       return addr;
+       }
+     else{
+       ERROR_P1("get_peer_addr: Peer %s not found\n", peer);
+       }
+}
+
+bool is_a_peer_socket(int peer_socket)
+{
+    peer_socket_map::iterator peer_socket_it;
+    peer_socket_it = peer_sockets.find(peer_socket_map::key_type(peer_socket));
+    if(peer_socket_it == peer_sockets.end()){
+       return false;
+      }else{
+       return true;
+      }
+}
+    
+void connect_local_twin_socket(char * twinSippHost)
+{
+  if(strstr(twinSippHost, ":")) {
               twinSippPort = atol(strstr(twinSippHost, ":")+1);
               *(strstr(twinSippHost, ":")) = 0;
             }
@@ -4614,7 +4763,7 @@ int open_connections() {
             hints.ai_flags  = AI_PASSIVE;
             hints.ai_family = PF_UNSPEC;
             is_ipv6 = false;
-            
+
             /* Resolving twin IP */
             if (getaddrinfo(twinSippHost,
                            NULL,
@@ -4622,12 +4771,12 @@ int open_connections() {
                            &local_addr) != 0) {
                ERROR_P1("Unknown twin host '%s'.\n"
                         "Use 'sipp -h' for details", twinSippHost);
-             }
+                }
              memcpy(&twinSipp_sockaddr,
                     local_addr->ai_addr,
                     SOCK_ADDR_SIZE(
                       _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
-      
+
              if (twinSipp_sockaddr.ss_family == AF_INET) {
               (_RCAST(struct sockaddr_in *,&twinSipp_sockaddr))->sin_port =
                 htons((short)twinSippPort);
@@ -4637,47 +4786,100 @@ int open_connections() {
                is_ipv6 = true;
              }
              strcpy(twinSippIp, get_inet_address(&twinSipp_sockaddr));
-      
+
              if((localTwinSippSocket = socket(is_ipv6 ? AF_INET6 : AF_INET,
                  SOCK_STREAM, 0))== -1) {
-                ERROR_NO("Unable to get a TCP socket in 3PCC controller B mode");
+                ERROR_NO("Unable to get a listener TCP socket ");
               }
 
            memset(&localTwin_sockaddr, 0, sizeof(struct sockaddr_storage));
            if (!is_ipv6) {
-            localTwin_sockaddr.ss_family = AF_INET;
+               localTwin_sockaddr.ss_family = AF_INET;
             (_RCAST(struct sockaddr_in *,&localTwin_sockaddr))->sin_port =
-              htons((short)twinSippPort);
+             htons((short)twinSippPort);
            } else {
              localTwin_sockaddr.ss_family = AF_INET6;
              (_RCAST(struct sockaddr_in6 *,&localTwin_sockaddr))->sin6_port =
                htons((short)twinSippPort);
            }
-           
-           // add socket option to allow the use of it without the TCP timeout 
-           // This allows to re-start the B controller without timeout after its exit
+
+           // add socket option to allow the use of it without the TCP timeout
+           // This allows to re-start the controller B (or slave) without timeout after its exit
            int reuse = 1;
            setsockopt(localTwinSippSocket,SOL_SOCKET,SO_REUSEADDR,(int *)&reuse,sizeof(reuse));
            sipp_customize_socket(localTwinSippSocket);
 
-           if(bind(localTwinSippSocket, 
+           if(bind(localTwinSippSocket,
                   (sockaddr *)(void *)&localTwin_sockaddr,
                    SOCK_ADDR_SIZE(&localTwin_sockaddr))) {
-              ERROR_NO("Unable to bind twin sipp socket in "
-                    "3PCC_CONTROLLER_B mode");
+              ERROR_NO("Unable to bind twin sipp socket ");
             }
 
-          if(listen(localTwinSippSocket, 100))
-            ERROR_NO("Unable to listen twin sipp socket in "
-                     "3PCC_CONTROLLER_B mode");
-    } else {
-        ERROR("TwinSipp Mode enabled but toolMode is different "
-              "from 3PCC_CONTROLLER_B and 3PCC_CONTROLLER_A\n");
-    }
-  } /* end if(twinSippMode) */
-#endif
-
-  return status;
+            if(listen(localTwinSippSocket, 100))
+            ERROR_NO("Unable to listen twin sipp socket in ");
 
 }
+
+void close_peer_sockets()
+{
+ peer_map::iterator peer_it;
+ T_peer_infos infos;
+ for(peer_it = peers.begin(); peer_it != peers.end(); peer_it++){
+     infos = peer_it->second;
+     shutdown(infos.peer_socket, SHUT_RDWR);
+     close(infos.peer_socket);
+     infos.peer_socket = 0 ;
+     peers[std::string(peer_it->first)] = infos;
+     }
+  peers_connected = 0;
+}
+
+void close_local_sockets(){
+   for (int i = 0; i< local_nb; i++){
+     shutdown(local_sockets[i], SHUT_RDWR);
+     close(local_sockets[i]);
+     local_sockets[i] = 0;
+     }
+}
+
+void connect_to_all_peers(){
+     peer_map::iterator peer_it;
+     T_peer_infos infos;
+     for (peer_it = peers.begin(); peer_it != peers.end(); peer_it++){
+         infos = peer_it->second;
+         connect_to_peer(infos.peer_host, &(infos.peer_port),&(infos.peer_sockaddr), infos.peer_ip, &(infos.peer_socket));
+         peer_sockets[int(infos.peer_socket)] = peer_it->first;
+         peers[std::string(peer_it->first)] = infos;
+         pollset_add(0, infos.peer_socket);
+
+         }
+     peers_connected = 1;
+}
+bool is_a_local_socket(int s){
+  for (int i = 0; i< local_nb + 1; i++){
+      if(local_sockets[i] == s) return true;
+      }
+   return (false);
+}
+
+void free_peer_addr_map(){
+  peer_addr_map::iterator peer_addr_it;
+  for (peer_addr_it = peer_addrs.begin(); peer_addr_it != peer_addrs.end(); peer_addr_it++){
+       free(peer_addr_it->second);
+       }
+}
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
 

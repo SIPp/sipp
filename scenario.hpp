@@ -24,6 +24,8 @@
 #ifndef __SCENARIO__
 #define __SCENARIO__
 
+#include <map>
+#include <sys/socket.h>
 #include "actions.hpp"
 #include "variables.hpp"
 
@@ -55,6 +57,11 @@
 #define MODE_3PCC_CONTROLLER_A  2
 #define MODE_3PCC_CONTROLLER_B  3   
 #define MODE_3PCC_A_PASSIVE     4
+
+/* 3pcc extended mode*/
+#define MODE_MASTER             5 
+#define MODE_MASTER_PASSIVE     6
+#define MODE_SLAVE              7
 #endif
 
 #define OPTIONAL_TRUE      1
@@ -97,6 +104,12 @@ public:
   /* If this is a send */
   char         * send_scheme;
   unsigned int   retrans_delay;
+
+ /* 3pcc extended mode: if this is a sendCmd */
+  char         * peer_dest;
+
+ /* 3pcc extended mode: if this is a recvCmd */
+  char         * peer_src;
 
   /* If this is a recv */
   unsigned int   recv_response;
@@ -156,12 +169,17 @@ extern CVariable *   scenVariableTable[SCEN_VARIABLE_SIZE][SCEN_MAX_MESSAGES];
 extern int           scenario_len;
 extern char          scenario_name[255];
 extern int           toolMode;
+
+
 extern unsigned long scenario_duration; /* include -d option if used */
 
 extern message::ContentLengthFlag  content_length_flag;
 
 void load_scenario(char * filename, 
                    int    deflt);
+
+/* 3pcc extended mode */
+void parse_slave_cfg();
 
 void computeSippMode();
 void getActionForThisMessage();

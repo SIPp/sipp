@@ -231,6 +231,10 @@ public:
                                       // received from the twin socket
                                       // used for example to cancel the call
                                       // of the third party
+  bool  check_peer_src(char* msg,
+		int search_index);    // 3pcc extended mode:check if 
+				      // the twin message received
+				      // comes from the expected sender
   int   sendBuffer(char *buf);        // send a message out of a scenario 
                                       // execution
   int   checkAutomaticResponseMode(char * P_recv);

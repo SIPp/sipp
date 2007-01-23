@@ -66,6 +66,10 @@ message::message()
   next = 0;
   on_timeout = 0;
 
+/* 3pcc extended mode */
+  peer_dest = NULL;
+  peer_src = NULL;
+
   /* Statistics */
   nb_sent = 0;
   nb_recv = 0;
@@ -107,6 +111,14 @@ message::~message()
     regfree(regexp_compile);
     free(regexp_compile);
   regexp_compile = NULL;
+
+  if(peer_dest != NULL)
+     free (peer_dest);
+  peer_dest = NULL; 
+
+  if(peer_src != NULL)
+     delete (peer_src);
+  peer_src = NULL;
 
 #ifdef __3PCC__
   if(M_sendCmdData != NULL)
@@ -354,7 +366,7 @@ void load_scenario(char * filename, int deflt)
   int    L_content_length = 0 ;
   unsigned int recv_count = 0;
   unsigned int recv_opt_count = 0;
-   
+  char * peer; 
   memset (method_list, 0, sizeof (method_list));
 
   if(filename) {
@@ -806,6 +818,11 @@ void load_scenario(char * filename, int deflt)
           }
         }
         scenario[scenario_len]->M_type = MSG_TYPE_RECVCMD;
+
+	/* 3pcc extended mode */
+        if(ptr = xp_get_value((char *)"src")) { 
+           scenario[scenario_len] ->peer_src = strdup(ptr) ;
+        }
         getActionForThisMessage();
 
       } else if(!strcmp(elem, "sendCmd")) {
@@ -819,6 +836,24 @@ void load_scenario(char * filename, int deflt)
         }
         scenario[scenario_len]->M_type = MSG_TYPE_SENDCMD;
         /* Sent messages descriptions */
+
+	/* 3pcc extended mode  */
+	if(ptr = xp_get_value((char *)"dest")) { 
+	   peer = strdup(ptr) ;
+	   scenario[scenario_len] ->peer_dest = peer ;
+           peer_map::iterator peer_it;
+	   peer_it = peers.find(peer_map::key_type(peer));
+	   if(peer_it == peers.end())  /* the peer (slave or master)
+					  has not been added in the map
+					  (first occurence in the scenario) */
+	   {
+	     T_peer_infos infos;
+	     infos.peer_socket = 0;
+	     strcpy(infos.peer_host, get_peer_addr(peer));
+             peers[std::string(peer)] = infos; 
+	     }
+        }
+
         if(ptr = xp_get_cdata()) {
         
           char * msg;
@@ -900,9 +935,34 @@ void load_scenario(char * filename, int deflt)
   } // end while
 }
 
+/* 3pcc extended mode:
+   get the correspondances between
+   slave and master names and their 
+   addresses */
+
+void parse_slave_cfg()
+{
+  FILE * f;
+  char line[MAX_PEER_SIZE];
+  char * temp_peer;
+  char * peer_host;
+
+  f = fopen(slave_cfg_file, "r");
+  if(f){
+     while (fgets(line, MAX_PEER_SIZE, f) != NULL)
+     {
+       temp_peer = strtok(line, ";");
+       peer_host = (char *) malloc(MAX_PEER_SIZE);
+       strcpy(peer_host, strtok(NULL, ";"));
+       peer_addrs[std::string(temp_peer)] = peer_host; 
+     }
+   }else{ 
+     ERROR_P1("Can not open slave_cfg file %s\n", slave_cfg_file);
+     }
+}
 
 // Determine in which mode the sipp tool has been 
-// launched (client, server, 3pcc client, 3pcc server)
+// launched (client, server, 3pcc client, 3pcc server, 3pcc extended master or slave)
 void computeSippMode()
 {
   bool isRecvCmdFound = false;
@@ -938,13 +998,24 @@ void computeSippMode()
                * If it is a server already, then start it in
                * 3PCC A passive mode
                */
+	       if(twinSippMode){
               toolMode = MODE_3PCC_A_PASSIVE;
+	       }else if (extendedTwinSippMode){
+		  toolMode = MODE_MASTER_PASSIVE;
+               }
             } else {
+	        if(twinSippMode){
               toolMode = MODE_3PCC_CONTROLLER_A;
+                 }else if (extendedTwinSippMode){
+                   toolMode = MODE_MASTER;
+                 } 
             }
-            if(!twinSippMode)
+            if((toolMode == MODE_MASTER_PASSIVE || toolMode == MODE_MASTER) && !master_name){
+              ERROR("Inconsistency between command line and scenario: master scenario but -master option not set\n");
+            }
+            if(!twinSippMode && !extendedTwinSippMode)
               ERROR("sendCmd message found in scenario but no twin sipp"
-                    " address has been passed! Use -3pcc option.\n");
+                    " address has been passed! Use -3pcc option or 3pcc extended mode.\n");
             return;
           }
           isFirstMessageFound = false;
@@ -954,8 +1025,17 @@ void computeSippMode()
           isRecvCmdFound = true;
           if(!isSendCmdFound)
             {
+              if(twinSippMode){
               toolMode  = MODE_3PCC_CONTROLLER_B;
-              if(!twinSippMode)
+              } else if(extendedTwinSippMode){
+	         toolMode = MODE_SLAVE;
+                 if(!slave_number) {
+                    ERROR("Inconsistency between command line and scenario: slave scenario but -slave option not set\n");
+                   }else{
+                    toolMode = MODE_SLAVE;
+                   } 
+              }
+              if(!twinSippMode && !extendedTwinSippMode)
                 ERROR("sendCmd message found in scenario but no "
                       "twin sipp address has been passed! Use "
                       "-3pcc option\n");

@@ -1812,6 +1812,10 @@ int call::sendCmdMessage(int index)
   delimitor[0]=27;
   delimitor[1]=0;
 
+  /* 3pcc extended mode */
+  char * peer_dest;
+  int * peer_socket; 
+
   if(scenario[index] -> M_sendCmdData) {
     // WARNING_P1("---PREPARING_TWIN_CMD---%s---", scenario[index] -> M_sendCmdData); 
     dest = createSendingMessage(scenario[index] -> M_sendCmdData, -1);
@@ -1820,10 +1824,21 @@ int call::sendCmdMessage(int index)
 
     int rc;
 
+    /* 3pcc extended mode */
+    peer_dest = scenario[index]->peer_dest;
+    if(peer_dest){ 
+      peer_socket = get_peer_socket(peer_dest);
+         rc = send(* peer_socket,
+                   dest,
+                   strlen(dest),
+                   0);
+
+     }else {
     rc = send(twinSippSocket, 
               dest, 
               strlen(dest), 
               0);
+     } 
     if(rc <  0) {
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
       CStat::instance()->computeStat(CStat::E_FAILED_CMD_NOT_SENT);
@@ -2362,23 +2377,32 @@ bool call::process_twinSippCom(char * msg)
         /* The received message is different from the expected one */
         return rejectCall();
       } else {
+        if(extendedTwinSippMode){                   // 3pcc extended mode 
+	  if(check_peer_src(msg, search_index)){
+            found = true;
+            break;
+	  } else{
+	    WARNING_P1("Unexpected sender for the received peer message \n%s\n", msg);
+	    return rejectCall();
+	    }
+	 }
+	 else {
         found = true;
         break;
       }
+    }
     }
     
     if (found) {
       scenario[search_index]->M_nbCmdRecv ++;
       
       // variable treatment
-      // WARNING_P1("---RECVD_TWIN_CMD---%s---", msg); 
       // Remove \r, \n at the end of a received command
       // (necessary for transport, to be removed for usage)
       while ( (msg[strlen(msg)-1] == '\n') &&
       (msg[strlen(msg)-2] == '\r') ) {
         msg[strlen(msg)-2] = 0;
       }
-      // WARNING_P1("---RECVD_TWIN_CMD AFTER---%s---", msg);
       actionResult = executeAction(msg, search_index);
       
       if(actionResult != call::E_AR_NO_ERROR) {
@@ -2428,6 +2452,35 @@ bool call::checkInternalCmd(char * cmd)
     return (true);
   }
 
+  *L_ptr2 = L_backup;
+  return (false);
+}
+
+bool call::check_peer_src(char * msg, int search_index)
+{
+ char * L_ptr1, * L_ptr2, L_backup ;
+
+ L_ptr1 = strstr(msg, "From:");
+ if (!L_ptr1) {return (false);}
+ L_ptr1 += 5 ;
+ while((*L_ptr1 == ' ') || (*L_ptr1 == '\t')) { L_ptr1++; }
+ if (!(*L_ptr1)) {return (false);}
+ L_ptr2 = L_ptr1;
+  while((*L_ptr2) &&
+        (*L_ptr2 != ' ') &&
+        (*L_ptr2 != '\t') &&
+        (*L_ptr2 != '\r') &&
+        (*L_ptr2 != '\n')) {
+    L_ptr2 ++;
+  }
+  if(!*L_ptr2) { return (false); }
+  L_backup = *L_ptr2;
+  *L_ptr2 = 0;
+  if (strcmp(L_ptr1, scenario[search_index] -> peer_src) == 0) {
+    *L_ptr2 = L_backup;
+    return(true);
+  }
+ 
   *L_ptr2 = L_backup;
   return (false);
 }
