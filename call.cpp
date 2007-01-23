@@ -29,6 +29,7 @@
  *           Vlad Troyanker
  *           Charles P Wright from IBM Research
  *           Amit On from Followap
+ *           Jan Andres from Freenet
  */
 
 #include <iterator>
@@ -457,7 +458,7 @@ uint16_t get_remote_audio_port_media(char *msg)
 {
     char pattern[] = "m=audio ";
     char *begin, *end;
-    char number[5];
+    char number[6];
     begin = strstr(msg, pattern);
     if (!begin) {
       /* m=audio not found */
@@ -467,8 +468,8 @@ uint16_t get_remote_audio_port_media(char *msg)
     end = strstr(begin, "\r\n");
     if (!end)
       ERROR("get_remote_audio_port_media: no CRLF found");
-    memset(number, 0, 5);
-    strncpy(number, begin, end - begin);
+    memset(number, 0, sizeof(number));
+    strncpy(number, begin, sizeof(number) - 1);
     return atoi(number);
 }
 
