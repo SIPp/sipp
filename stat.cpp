@@ -413,6 +413,7 @@ void CStat::initRtt(char * P_name, char * P_extension,
   
   for (L_i = 0 ; L_i < P_report_freq_dumpRtt; L_i ++) {
     M_dumpRespTime[L_i].date = 0.0;
+    M_dumpRespTime[L_i].rtd_no = 0;
     M_dumpRespTime[L_i].rtt = 0.0;
   }
 }
@@ -428,8 +429,7 @@ void CStat::setRepartitionCallLength(char * P_listeStr)
                     &M_CallLengthRepartition, 
                     &M_SizeOfCallLengthRepartition);
   } else {
-    M_CallLengthRepartition         = NULL;
-    M_SizeOfCallLengthRepartition   = 0;
+    ERROR_P1("Could not create table for call length repartition '%s'\n", P_listeStr);
   }
   delete [] listeInteger;
   listeInteger = NULL;
@@ -448,8 +448,7 @@ void CStat::setRepartitionResponseTime (char * P_listeStr)
 	  &M_ResponseTimeRepartition[i],
 	  &M_SizeOfResponseTimeRepartition);
     } else {
-      M_CallLengthRepartition         = NULL;
-      M_SizeOfCallLengthRepartition   = 0;
+      ERROR_P1("Could not create table for response time repartition '%s'\n", P_listeStr);
     }
   }
   delete [] listeInteger;
@@ -656,8 +655,9 @@ int CStat::computeStat (E_Action P_action)
   return (0);
 }
 
-int CStat::computeRtt (unsigned long P_start_time, double P_stop_time) {
+int CStat::computeRtt (unsigned long P_start_time, double P_stop_time, int which) {
   M_dumpRespTime[M_counterDumpRespTime].date =  (P_stop_time - M_time_ref) ;
+  M_dumpRespTime[M_counterDumpRespTime].rtd_no = which;
   M_dumpRespTime[M_counterDumpRespTime].rtt = ( P_stop_time - (P_start_time + M_time_ref));
   M_counterDumpRespTime++ ;
 
@@ -1428,27 +1428,26 @@ void CStat::dumpDataRtt ()
   }
   
   if(M_headerAlreadyDisplayedRtt == false) {
-    (*M_outputStreamRtt) << "Date_ms;"
-      << "response_time_ms;";
-    
-    (*M_outputStreamRtt) << endl;
+    (*M_outputStreamRtt) << "Date_ms" << stat_delimiter
+      << "response_time_ms" << stat_delimiter
+      << "rtd_no" << endl;
     M_headerAlreadyDisplayedRtt = true;
   }
 
   for (L_i = 0; L_i < M_counterDumpRespTime ; L_i ++) {
     (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].date   << stat_delimiter ;
-    (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtt   << stat_delimiter ;
+    (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtt    << stat_delimiter ;
+    (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtd_no << endl;
+    (*M_outputStreamRtt).flush();
     M_dumpRespTime[L_i].date = 0.0;
     M_dumpRespTime[L_i].rtt = 0.0;
-    (*M_outputStreamRtt) << endl;
-    (*M_outputStreamRtt).flush();
+    M_dumpRespTime[L_i].rtd_no = 0;
   }
       
   // flushing the output file
   (*M_outputStreamRtt).flush();
         
   M_counterDumpRespTime = 0;
-
 }
 
 

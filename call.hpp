@@ -209,6 +209,7 @@ public:
   bool run(); 
   void formatNextReqUrl (char* next_req_url);
   void computeRouteSetAndRemoteTargetUri (char* rrList, char* contact, bool bRequestIncoming);
+  bool matches_scenario(int index, int reply_code, char * request, char * responsecseqmethod);
   bool process_incoming(char * msg);
 
   T_ActionResult executeAction(char * msg, int scenarioIndex);
@@ -230,10 +231,6 @@ public:
                                       // received from the twin socket
                                       // used for example to cancel the call
                                       // of the third party
-  bool  check_peer_src(char* msg,
-		int search_index);    // 3pcc extended mode:check if 
-				      // the twin message received
-				      // comes from the expected sender
   int   sendBuffer(char *buf);        // send a message out of a scenario 
                                       // execution
   int   checkAutomaticResponseMode(char * P_recv);
