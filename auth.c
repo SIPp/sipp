@@ -76,7 +76,7 @@ SQN sqn_he={0x00,0x00,0x00,0x00,0x00,0x00};
 /* end AKA */
 
 
-int createAuthHeaderMD5(char * user, char * password, char * method,
+int createAuthHeaderMD5(char * user, char * password, int password_len, char * method,
                      char * uri, char * msgbody, char * auth, 
                      char * algo, char * result);
 int createAuthHeaderAKAv1MD5(char * user, char * OP,
@@ -162,7 +162,7 @@ int createAuthHeader(char * user, char * password, char * method,
     }
 
     if (strncasecmp(algo, "MD5", 3)==0) {
-	    return createAuthHeaderMD5(user,password,method,uri,msgbody,auth,algo,result);
+	    return createAuthHeaderMD5(user,password,strlen(password),method,uri,msgbody,auth,algo,result);
 	} else if (strncasecmp(algo, "AKAv1-MD5", 9)==0) {
 		return createAuthHeaderAKAv1MD5(user, aka_OP,
                                                 aka_AMF,
@@ -177,7 +177,7 @@ int createAuthHeader(char * user, char * password, char * method,
 }
 
 
-int createAuthHeaderMD5(char * user, char * password, char * method,
+int createAuthHeaderMD5(char * user, char * password, int password_len, char * method,
                      char * uri, char * msgbody, char * auth, 
                      char * algo, char * result) {
                      	
@@ -232,7 +232,7 @@ int createAuthHeaderMD5(char * user, char * password, char * method,
     MD5_Update(&Md5Ctx, ":", 1);
     MD5_Update(&Md5Ctx, tmp, strlen(tmp));
     MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, password, strlen(password));
+    MD5_Update(&Md5Ctx, password, password_len);
     MD5_Final(ha1, &Md5Ctx);
     hashToHex(&ha1[0], &ha1_hex[0]);
 
@@ -571,12 +571,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
     sqn_he[5] = sqn[5];
     has_auts = 0;
     /* RES has to be used as password to compute response */
-    for(i=0;i<RESLEN;i++){
-      resp_hex[2*i]=hexa[(res[i]&0xF0)>>4];
-      resp_hex[2*i+1]=hexa[res[i]&0x0F];
-    }
-    resp_hex[RESLEN*2]=0;
-    resuf = createAuthHeaderMD5(user, resp_hex, method, uri, msgbody, auth, algo, result);   
+    resuf = createAuthHeaderMD5(user, res, RESLEN, method, uri, msgbody, auth, algo, result);   
   } else {
     sqn_ms[5] = sqn_he[5] + 1;
     f5star(k, rnd, ak, op);
@@ -586,7 +581,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
     has_auts = 1;
     /* When re-synchronisation occurs an empty password has to be used */
     /* to compute MD5 response (Cf. rfc 3310 section 3.2) */
-    resuf=createAuthHeaderMD5(user,"",method,uri,msgbody,auth,algo,result);
+    resuf=createAuthHeaderMD5(user,"",0,method,uri,msgbody,auth,algo,result);
   }
   if (has_auts) {
     /* Format data for output in the SIP message */
