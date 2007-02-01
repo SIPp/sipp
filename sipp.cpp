@@ -1861,7 +1861,9 @@ void tcp_recv_error(int error, int trace_id, int sock) {
      close_peer_sockets();
      close_local_sockets();
      free_peer_addr_map();
-     ERROR("Master has ended -> exiting"); 
+     WARNING("One of the twin instances has ended -> exiting"); 
+     quitting += 20;
+     return;
    }
   
 #ifdef __3PCC__
@@ -1870,7 +1872,9 @@ void tcp_recv_error(int error, int trace_id, int sock) {
      * This is a normal case: 3PCC controller B should end now */
     if (localTwinSippSocket) close(localTwinSippSocket);
     if (twinSippSocket) close(twinSippSocket);
-    ERROR("3PCC controller A has ended -> exiting");
+    WARNING("3PCC controller A has ended -> exiting");
+    quitting += 20;
+    return;
   } else
 #endif
   /* This is normal for a server to have its client close the connection */
@@ -2391,7 +2395,7 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
         } 
             }
           return(-2);
-      } else if (s == twinSippSocket || is_a_local_socket(s)){
+      } else if (s == twinSippSocket || is_a_local_socket(s) || is_a_peer_socket(s)){
           size = recv_tcp_message(s,
 				  *poll_idx,
                                   buffer,
@@ -2980,7 +2984,6 @@ void traffic_thread(bool ipv6)
 
     /* Receive incoming messages */
     pollset_process(ipv6);
-
     new_time = getmilliseconds();
     clock_tick = new_time ;
     last_time = new_time;
