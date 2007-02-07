@@ -439,6 +439,7 @@ int send_message_tls(SSL *s, void ** comp_state, char * msg);
 #endif
 
 void pollset_remove(int idx);
+void remove_from_pollfiles(int sock);
 int pollset_add(call * p_call, int socket);
 
 #if defined (__hpux) || defined (__alpha) && !defined (__FreeBSD__)

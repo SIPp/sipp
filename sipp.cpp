@@ -745,8 +745,6 @@ int pollset_find(int sock) {
 
 int pollset_add(call * p_call, int sock)
 {  
-
-
   pollfiles[pollnfds].fd      = sock;
   pollfiles[pollnfds].events  = POLLIN | POLLERR;
   pollfiles[pollnfds].revents = 0;
@@ -792,7 +790,6 @@ void pollset_remove(int idx)
     pollnfds--;
     pollfiles[idx] = pollfiles[pollnfds];
     pollcalls[idx] = pollcalls[pollnfds];
-
     if((pollcalls[idx]) && (pollcalls[idx] -> pollset_index)) {
       pollcalls[idx] -> pollset_index = idx;
     }
@@ -1857,7 +1854,12 @@ void tcp_recv_error(int error, int trace_id, int sock) {
 
   /* 3pcc extended mode */
   if (extendedTwinSippMode) {
-     close(localTwinSippSocket);
+     if(localTwinSippSocket){
+	remove_from_pollfiles(localTwinSippSocket);
+	shutdown(localTwinSippSocket, SHUT_RDWR);
+        close(localTwinSippSocket);
+	localTwinSippSocket = 0;
+	}
      close_peer_sockets();
      close_local_sockets();
      free_peer_addr_map();
@@ -1870,8 +1872,18 @@ void tcp_recv_error(int error, int trace_id, int sock) {
   if (toolMode == MODE_3PCC_CONTROLLER_B) {
     /* In 3PCC controller B mode, twin socket is closed at peer closing.
      * This is a normal case: 3PCC controller B should end now */
-    if (localTwinSippSocket) close(localTwinSippSocket);
-    if (twinSippSocket) close(twinSippSocket);
+    if (localTwinSippSocket) {
+        remove_from_pollfiles(localTwinSippSocket);
+        shutdown(localTwinSippSocket, SHUT_RDWR);
+        close(localTwinSippSocket);
+        localTwinSippSocket = 0;
+        } 
+    if (twinSippSocket){ 
+        remove_from_pollfiles(twinSippSocket);
+        shutdown(localTwinSippSocket, SHUT_RDWR);
+        close(twinSippSocket);
+        twinSippSocket = 0;
+        }
     WARNING("3PCC controller A has ended -> exiting");
     quitting += 20;
     return;
@@ -1889,24 +1901,15 @@ void tcp_recv_error(int error, int trace_id, int sock) {
 
 #ifdef __3PCC__
   if(sock == twinSippSocket || sock == localTwinSippSocket ) { 
-    int L_poll_idx = 0 ;
     quitting = 1;
-    for((L_poll_idx) = 0;
-	(L_poll_idx) < pollnfds;
-	(L_poll_idx)++) {
-      if(pollfiles[L_poll_idx].fd == twinSippSocket) {
-	pollset_remove(L_poll_idx);
-      }
-      if(pollfiles[L_poll_idx].fd == localTwinSippSocket) {
-	pollset_remove(L_poll_idx);
-      }
-    }
     if(twinSippSocket) {
+      remove_from_pollfiles(twinSippSocket); 
       shutdown(twinSippSocket, SHUT_RDWR);
       close(twinSippSocket);
       twinSippSocket = 0 ;
     }
     if(localTwinSippSocket) {
+      remove_from_pollfiles(localTwinSippSocket);
       shutdown(localTwinSippSocket, SHUT_RDWR);
       close(localTwinSippSocket);
       localTwinSippSocket = 0 ;
@@ -2333,7 +2336,6 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
   for((*poll_idx) = 0;
       (*poll_idx) < pollnfds;
       (*poll_idx)++) {
-
     if((pollfiles[(*poll_idx)].revents & POLLOUT) != 0 ) {
        TRACE_MSG((s,"exit problem event %d  on socket  %d \n", pollfiles[(*poll_idx)].revents,pollfiles[(*poll_idx)].fd));
        if (multisocket) {
@@ -2367,7 +2369,6 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
       call * recv_call = pollcalls[(*poll_idx)];
       int s = pollfiles[(*poll_idx)].fd;
       int ss = s;
-
       pollfiles[(*poll_idx)].revents = 0;
 
 #ifdef __3PCC__
@@ -2378,7 +2379,6 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
                                   (sockaddr *)(void *)&twinSipp_sockaddr,
                                   &len);
           pollset_add(0, twinSippSocket);
-
           }else{ 
             /*3pcc extended mode: open a local socket
               which will be used for reading the infos sent by this remote
@@ -2474,7 +2474,6 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
                                   E_ALTER_YES);
         } else {
 #endif
-	
         size = recv_tcp_message(s,
 				*poll_idx,
                                 buffer,
@@ -2517,14 +2516,12 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
         
         if(toolMode == MODE_SERVER) {
           sipp_socklen_t len = SOCK_ADDR_SIZE(&remote_sockaddr);
-          
           size  = recvfrom(s,
                            buffer,
                            buffer_size,
                            0,
                            (sockaddr *)(void *)&remote_sockaddr,
                            &len);
-          
         } else {
           size  = recvfrom(s, 
                            buffer, 
@@ -2623,10 +2620,8 @@ void pollset_process(bool ipv6)
                               SIPP_MAX_MSG_SIZE, 
                               &pollset_index
 			);
-      
-      //    TRACE_MSG((s,"msg_size %d and pollset_index is %d \n", msg_size, pollset_index));
+         // TRACE_MSG((s," msg_size %d and pollset_index is %d \n", msg_size, pollset_index));
       if(msg_size > 0) {
-	
 	if (sipMsgCheck(msg, 
 			msg_size
 #ifdef __3PCC__
@@ -2690,7 +2685,6 @@ void pollset_process(bool ipv6)
                        (pollfiles[pollset_index].fd != twinSippSocket) &&
                        (!is_a_local_socket(pollfiles[pollset_index].fd))) {
                       call_ptr -> call_socket = pollfiles[pollset_index].fd;
-
                     }
                   }
                 }
@@ -2762,9 +2756,10 @@ void pollset_process(bool ipv6)
         }
            
       } // end if msg >=0
-      else 
+      else {
       rs--;
     }
+  }
   }
   cpu_max = loops <= 0;
 }
@@ -4829,6 +4824,7 @@ void close_peer_sockets()
  T_peer_infos infos;
  for(peer_it = peers.begin(); peer_it != peers.end(); peer_it++){
      infos = peer_it->second;
+     remove_from_pollfiles(infos.peer_socket);
      shutdown(infos.peer_socket, SHUT_RDWR);
      close(infos.peer_socket);
      infos.peer_socket = 0 ;
@@ -4839,6 +4835,7 @@ void close_peer_sockets()
 
 void close_local_sockets(){
    for (int i = 0; i< local_nb; i++){
+     remove_from_pollfiles(local_sockets[i]);
      shutdown(local_sockets[i], SHUT_RDWR);
      close(local_sockets[i]);
      local_sockets[i] = 0;
@@ -4872,17 +4869,12 @@ void free_peer_addr_map(){
        }
 }
 
-
-
-
-
-
-
- 
-
-
-
-
-
-
+void remove_from_pollfiles (int sock)
+{
+    int L_poll_idx = 0;
+    for((L_poll_idx) = 0;(L_poll_idx) < pollnfds;(L_poll_idx)++) {
+        if(pollfiles[L_poll_idx].fd == sock) break; 
+        }
+    if(L_poll_idx < pollnfds) pollset_remove(L_poll_idx); 
+}
 
