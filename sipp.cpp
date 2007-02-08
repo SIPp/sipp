@@ -1512,9 +1512,9 @@ void ctrl_thread (void * param)
   
   port = DEFAULT_CTRL_SOCKET_PORT;
   try_counter = 0;
-  /* Allow 10 control socket on the same system */
+  /* Allow 60 control sockets on the same system */
   /* (several SIPp instances)                   */
-  while (try_counter < 10) {
+  while (try_counter < 60) {
     prt = htons(port);
     memset(&sin,0,sizeof(struct sockaddr_in));
     soc = socket(AF_INET,SOCK_DGRAM,0);
@@ -1528,10 +1528,10 @@ void ctrl_thread (void * param)
     try_counter++;
     port++;
   }
-  if (try_counter == 10) {
+  if (try_counter == 60) {
     WARNING_P3("Unable to bind remote control socket (tried UDP ports %d-%d)", 
                   DEFAULT_CTRL_SOCKET_PORT, 
-                  DEFAULT_CTRL_SOCKET_PORT+10, 
+                  DEFAULT_CTRL_SOCKET_PORT+60, 
                   strerror(errno));
     return;
   }
@@ -2383,7 +2383,7 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
             /*3pcc extended mode: open a local socket
               which will be used for reading the infos sent by this remote
               twin sipp instance (slave or master) */
-
+            if(local_nb == MAX_LOCAL_TWIN_SOCKETS) ERROR("Max number of twin instances reached\n");
             int localSocket = accept(s,
                                    (sockaddr *)(void *)&twinSipp_sockaddr,
                                   &len);
