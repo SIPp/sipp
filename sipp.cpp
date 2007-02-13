@@ -251,7 +251,7 @@ struct sipp_option options_table[] = {
 	{"tdmmap", "Generate and handle a table of TDM circuits.\n"
                    "A circuit must be available for the call to be placed.\n"
                    "Format: -tdmmap {0-3}{99}{5-8}{1-31}", SIPP_OPTION_TDMMAP, NULL},
-	{"key", "key value\nSet the generic parameter named \"key\" to \"value\".", SIPP_OPTION_KEY, NULL},
+	{"key", "keyword value\nSet the generic parameter named \"keyword\" to \"value\".", SIPP_OPTION_KEY, NULL},
 };
 
 struct sipp_option *find_option(const char *option) {
