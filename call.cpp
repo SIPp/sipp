@@ -1697,7 +1697,7 @@ bool call::abortCall()
       if((src_recv) && (get_reply_code(src_recv) >= 400)) {
 
         strcpy(L_param, "ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
-        sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port]\n");
+        sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
         sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
         sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
         sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
@@ -1724,7 +1724,7 @@ bool call::abortCall()
           ack_is_pending = false;
           /* Send an ACK */
           strcpy(L_param, "ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
-          sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port]\n");
+          sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
           sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
           sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
@@ -1740,7 +1740,7 @@ bool call::abortCall()
           /* Send the BYE */
           cseq = NULL;
           strcpy(L_param, "BYE sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
-          sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port]\n");
+          sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
           sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
           sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
@@ -1754,7 +1754,7 @@ bool call::abortCall()
         } else {
           /* Send a CANCEL */
           strcpy(L_param, "CANCEL sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
-          sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port]\n");
+          sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
           sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
           sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
@@ -1777,7 +1777,7 @@ bool call::abortCall()
       L_msg_buffer[0] = '\0';
       char * L_param = L_msg_buffer;
       strcpy(L_param, "BYE sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
-      sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port]\n");
+      sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
       sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
       sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
       sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
