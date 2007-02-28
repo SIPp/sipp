@@ -22,6 +22,7 @@
  */
 
 #include "stat.hpp"
+#include "sipp.hpp"
 
 #include <curses.h>
 #include <stdio.h>
@@ -30,6 +31,8 @@
 #include <signal.h>
 #include <screen.hpp>
 #include <errno.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #ifdef __3PCC__
 #include <unistd.h>
@@ -47,6 +50,7 @@ int           screen_inited = 0;
 char          screen_logfile[255];
 char          screen_exename[255];
 extern void   releaseGlobalAllocations();
+extern void   stop_all_traces();
 extern bool   backgroundMode;
 
 void (*screen_exit_handler)();
@@ -110,6 +114,11 @@ void screen_exit(int rc)
   if(localTwinSippSocket) {
     close(localTwinSippSocket);
   }
+
+  if(extendedTwinSippMode){
+     close_peer_sockets();
+     close_local_sockets();
+  }
 #endif //__3PCC__
  
   // Get failed calls counter value before releasing objects
@@ -147,6 +156,34 @@ void screen_quit()
   screen_exit(EXIT_TEST_RES_UNKNOWN);
 }
 
+
+void manage_oversized_file()
+{
+  FILE * f;
+  char L_file_name [MAX_PATH];
+  struct timeval currentTime;
+  static int managing = 0;
+
+  if(managing) return;   //we can receive this signal more than once
+
+  managing = 1;
+
+  sprintf (L_file_name, "%s_%d_traces_oversized.log", scenario_file, getpid());
+  f = fopen(L_file_name, "w");
+  if(!f) ERROR_NO("Unable to open special error file\n"); 
+  GET_TIME (&currentTime);
+  fprintf(f,
+          "-------------------------------------------- %s\n"
+          "Max file size reached - no more logs\n",
+           CStat::instance()->formatTime(&currentTime));
+  fflush(f);
+  stop_all_traces(); 
+  screen_logfile[0] = (char)0;
+  screen_errorf = 0; 
+  CStat::instance()->close();
+}
+
+
 void screen_clear() 
 {
   printf("\033[2J");
@@ -159,7 +196,7 @@ void screen_set_exename(char * exe_name)
 
 void screen_init(char *logfile_name, void (*exit_handler)())
 {
-  struct sigaction action_quit;
+  struct sigaction action_quit, action_file_size_exceeded;
   
   screen_inited = 1;
   if (logfile_name == NULL) {
@@ -176,10 +213,13 @@ void screen_init(char *logfile_name, void (*exit_handler)())
   
   /* Map exit handlers to curses reset procedure */
   memset(&action_quit, 0, sizeof(action_quit));
+  memset(&action_file_size_exceeded, 0, sizeof(action_file_size_exceeded));
   (*(void **)(&(action_quit.sa_handler)))=(void *)screen_quit;
+  (*(void **)(&(action_file_size_exceeded.sa_handler)))=(void *)manage_oversized_file;
   sigaction(SIGTERM, &action_quit, NULL);
   sigaction(SIGINT, &action_quit, NULL);
   sigaction(SIGKILL, &action_quit, NULL);  
+  sigaction(SIGXFSZ, &action_file_size_exceeded, NULL);   // avoid core dump if the max file size is exceeded
 
   printf("\033[2J");
 }

@@ -3360,6 +3360,16 @@ void releaseGlobalAllocations()
   }
 }
 
+void stop_all_traces()
+{
+  if(messagef) messagef = NULL;
+  if(logfile) logfile = NULL;
+  if(timeoutf) timeoutf = NULL;
+  if(dumpInRtt) dumpInRtt = 0;
+  if(dumpInFile) dumpInFile = 0;
+  
+}
+
 char* remove_pattern(char* P_buffer, char* P_extensionPattern) {
 
   char *L_ptr = P_buffer;
@@ -4877,4 +4887,5 @@ void remove_from_pollfiles (int sock)
         }
     if(L_poll_idx < pollnfds) pollset_remove(L_poll_idx); 
 }
+
 
