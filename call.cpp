@@ -1711,7 +1711,7 @@ bool call::abortCall()
         sprintf(L_param, "%s%s", L_param, "Subject: Performance Test\n");
         sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n");
 
-        res = sendBuffer(createSendingMessage((char*)(L_param),-1));
+        res = sendBuffer(createSendingMessage((char*)(L_param), -2));
 
       } else if (src_recv) {
         /* Call is not established and the reply is not a 4XX, 5XX */
@@ -1761,7 +1761,7 @@ bool call::abortCall()
 	       sprintf(L_param, "%sCSeq: 1 CANCEL\n", L_param);
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
           sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
-          res = sendBuffer(createSendingMessage((char*)(L_param),-1));
+          res = sendBuffer(createSendingMessage((char*)(L_param),-2));
         }
       } else {
         /* Call is not established and the reply is not a 4XX, 5XX */
@@ -2157,7 +2157,11 @@ char* call::createSendingMessage(char * src, int P_index)
 #endif
         } else if(strstr(keyword, "branch")) {
           /* Branch is magic cookie + call number + message index in scenario */
+	    if(P_index == -2){
+	       dest += sprintf(dest, "z9hG4bK-%u-%lu-%d", pid, number, msg_index-1);
+	    }else{
           dest += sprintf(dest, "z9hG4bK-%u-%lu-%d", pid, number, P_index);
+	    }
         } else if(strstr(keyword, "msg_index")) {
           /* Message index in scenario */
           dest += sprintf(dest, "%d", P_index);
@@ -2305,9 +2309,9 @@ char* call::createSendingMessage(char * src, int P_index)
     int    L_flag_crlf = 0 ; // don't need add crlf
     int    L_content_length = 0;
 
-    if(P_index == -1 ) {
+    if(P_index < 0 ) {
       L_flag_crlf = 1 ; // Add crlf
-    } else if(P_index >= 0 ) {
+    } else {
       message::ContentLengthFlag L_flag_content = scenario[P_index] -> content_length_flag ; 
       switch (L_flag_content) {
         case  message::ContentLengthValueZero :
