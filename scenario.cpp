@@ -1092,23 +1092,35 @@ void getActionForThisMessage()
             tmpAction.setVarType(CAction::E_VT_REGEXP);
             tmpAction.setActionType(CAction::E_AT_ASSIGN_FROM_REGEXP);
             
-            if(ptr = xp_get_value((char *)"search_in")){
-              if(!strcmp(ptr, (char *)"msg")) {
+             // warning - although these are detected for both msg and hdr
+           // they are only implemented for search_in="hdr"
+           if ( 0 != ( ptr = xp_get_value((char *)"case_indep") ) && 
+               0 == strcmp(ptr, "true")) tmpAction.setCaseIndep(true);
+           else tmpAction.setCaseIndep(false);
+
+           if ( 0 != ( ptr = xp_get_value((char *)"start_line") ) && 
+               0 == strcmp(ptr, "true")) tmpAction.setHeadersOnly(true);
+           else tmpAction.setHeadersOnly(false);
+
+           if ( 0 != ( ptr = xp_get_value((char *)"search_in") ) ) { 
+             tmpAction.setOccurence(1);
+
+             if ( 0 == strcmp(ptr, (char *)"msg") ) {
                 tmpAction.setLookingPlace(CAction::E_LP_MSG);
-                tmpAction.setLookingChar(NULL);
+               tmpAction.setLookingChar (NULL);
               } else if (!strcmp(ptr, (char *)"hdr")) {
-                if(ptr = xp_get_value((char *)"header")) {
-                  if(strlen(ptr) > 0) {
+               if ( 0 != ( ptr = xp_get_value((char *)"header") ) ) {
+                 if ( 0 < strlen(ptr) ) {
                     tmpAction.setLookingPlace(CAction::E_LP_HDR);
                     tmpAction.setLookingChar(ptr);
-                  } else {
-                    tmpAction.setLookingPlace(CAction::E_LP_MSG);
-                    tmpAction.setLookingChar(NULL);
+                   if (0 != (ptr = xp_get_value((char *)"occurence"))) {
+                     tmpAction.setOccurence (atol(ptr));
                   }
                 } else {
                   tmpAction.setLookingPlace(CAction::E_LP_MSG);
                   tmpAction.setLookingChar(NULL);
                 }
+               }
               } else {
                 tmpAction.setLookingPlace(CAction::E_LP_MSG);
                 tmpAction.setLookingChar(NULL);

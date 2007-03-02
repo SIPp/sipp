@@ -3108,7 +3108,10 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
               extractSubMessage
                                 (msg, 
                                 currentAction->getLookingChar(), 
-                                msgPart);
+                                msgPart,
+                                currentAction->getCaseIndep(),
+                                currentAction->getOccurence(),
+                                currentAction->getHeadersOnly()); 
         
               if(strlen(msgPart) > 0) {
           
@@ -3258,17 +3261,55 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
   return(call::E_AR_NO_ERROR);
 }
 
-void call::extractSubMessage(char * msg, char * matchingString, char* result)
-{
-  char * ptr;
+void call::extractSubMessage(char * msg, char * matchingString, char* result, bool case_indep, int occurrence, bool headers) {
+
+ char *ptr, *ptr1;
   int sizeOf;
   int i = 0;
-  int len;
+ int len = strlen(matchingString);
+ char mat1 = tolower(*matchingString);
+ char mat2 = toupper(*matchingString);
 
-  ptr = strstr(msg, matchingString); 
-  if(ptr != NULL) {
-    len = strlen(matchingString);
-    strcpy(result, ptr+len);
+ ptr = msg;
+ while (*ptr) { 
+   if (!case_indep) {
+     ptr = strstr(ptr, matchingString);
+     if (ptr == NULL) break;
+     if (headers == true && ptr != msg && *(ptr-1) != '\n') {
+       ++ptr;
+       continue; 
+     }
+   } else {
+     if (headers) {
+       if (ptr != msg) {
+         ptr = strchr(ptr, '\n');
+         if (ptr == NULL) break;
+         ++ptr;
+         if (*ptr == 0) break;
+       }
+     } else {
+       ptr1 = strchr(ptr, mat1);
+       ptr = strchr(ptr, mat2);
+       if (ptr == NULL) {
+         if (ptr1 == NULL) break;
+         ptr = ptr1;
+       } else {
+         if (ptr1 != NULL && ptr1 < ptr) ptr = ptr1; 
+       }
+     }
+     if (strncasecmp(ptr, matchingString, len) != 0) {
+       ++ptr;
+       continue;
+     }
+   }
+   // here with ptr pointing to a matching string
+   if (occurrence <= 1) break; 
+   --occurrence;
+   ++ptr;
+ }
+
+ if(ptr != NULL && *ptr != 0) {
+   strncpy(result, ptr+len, MAX_SUB_MESSAGE_LENGTH);
     sizeOf = strlen(result);
     if(sizeOf >= MAX_SUB_MESSAGE_LENGTH)  
       sizeOf = MAX_SUB_MESSAGE_LENGTH-1;

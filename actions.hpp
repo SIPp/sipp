@@ -79,7 +79,10 @@ class CAction
     T_VarType      getVarType();  
     T_LookingPlace getLookingPlace();
     bool           getCheckIt();
+    bool           getCaseIndep();
+    bool           getHeadersOnly();
     int            getVarId();
+    int            getOccurence();
     char*          getLookingChar();
     char*          getMessage();  /* log specific function  */
     char*          getCmdLine();  /* exec specific function */
@@ -95,6 +98,9 @@ class CAction
     void setVarId        (int            P_value);
     void setLookingChar  (char*          P_value);
     void setAction       (CAction        P_action);
+    void setCaseIndep    (bool           P_action);
+    void setOccurence   (int            P_value);
+    void setHeadersOnly  (bool           P_value);
     void setMessage      (char*          P_value);  /* log specific function  */
     void setCmdLine      (char*          P_value);  /* exec specific function */
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
@@ -118,8 +124,10 @@ class CAction
       T_VarType      M_varType;
       T_LookingPlace M_lookingPlace;
       bool           M_checkIt;
+      bool           M_caseIndep;
+      bool           M_headersOnly;
       int            M_varId;
-
+      int            M_occurence;
       int            M_nbSubVarId;
       int            M_maxNbSubVarId;
       int *          M_subVarId;

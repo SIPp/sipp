@@ -83,6 +83,9 @@ CAction::T_LookingPlace CAction::getLookingPlace() { return(M_lookingPlace); }
 CAction::T_IntCmdType   CAction::getIntCmd ()      { return(M_IntCmd);       }
 
 bool           CAction::getCheckIt()      { return(M_checkIt);      }
+bool           CAction::getCaseIndep()    { return(M_caseIndep);    }
+bool           CAction::getHeadersOnly()  { return(M_headersOnly);  }
+int            CAction::getOccurence()    { return(M_occurence);    }
 int            CAction::getVarId()        { return(M_varId);        }
 char*          CAction::getLookingChar()  { return(M_lookingChar);  }
 char*          CAction::getMessage()      { return(M_message);      }
@@ -101,6 +104,12 @@ void CAction::setCheckIt      (bool           P_value)
 { M_checkIt      = P_value; }
 void CAction::setVarId        (int            P_value) 
 { M_varId        = P_value; }
+void CAction::setCaseIndep    (bool           P_value)
+{ M_caseIndep    = P_value; }
+void CAction::setOccurence   (int            P_value) 
+{ M_occurence    = P_value; }
+void CAction::setHeadersOnly  (bool           P_value)
+{ M_headersOnly  = P_value; }
 void CAction::setIntCmd       (T_IntCmdType P_type) 
 { M_IntCmd       = P_type;  }
 
@@ -232,6 +241,9 @@ void CAction::setAction(CAction P_action)
 
   setLookingChar  ( P_action.getLookingChar()  );
   setCheckIt      ( P_action.getCheckIt()      );
+  setCaseIndep    ( P_action.getCaseIndep()    ); 
+  setOccurence    ( P_action.getOccurence()   );
+  setHeadersOnly  ( P_action.getHeadersOnly()  );
   setMessage      ( P_action.M_message         );
   setCmdLine      ( P_action.M_cmdLine         );
   setIntCmd       ( P_action.M_IntCmd          );

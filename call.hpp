@@ -213,7 +213,8 @@ public:
   bool process_incoming(char * msg);
 
   T_ActionResult executeAction(char * msg, int scenarioIndex);
-  void  extractSubMessage(char * msg, char * matchingString, char* result);
+  void  extractSubMessage(char * msg, char * matchingString, char* result, bool case_indep, 
+							     int occurrence, bool headers); 
   bool  rejectCall();
 
   // Get parameters from a [keyword]
