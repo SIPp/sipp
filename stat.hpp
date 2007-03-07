@@ -118,18 +118,18 @@ public:
   CPT_C_FailedCall,
   CPT_C_CurrentCall,
   CPT_C_NbOfCallUsedForAverageCallLength,
-  CPT_C_AverageCallLength,
+  CPT_C_AverageCallLength_Sum,
   CPT_C_AverageCallLength_Squares,
   CPT_C_NbOfCallUsedForAverageResponseTime,
   CPT_C_NbOfCallUsedForAverageResponseTime_2,
   CPT_C_NbOfCallUsedForAverageResponseTime_3,
   CPT_C_NbOfCallUsedForAverageResponseTime_4,
   CPT_C_NbOfCallUsedForAverageResponseTime_5, // This must match or exceed MAX_RTD_INFO
-  CPT_C_AverageResponseTime,
-  CPT_C_AverageResponseTime_2,
-  CPT_C_AverageResponseTime_3,
-  CPT_C_AverageResponseTime_4,
-  CPT_C_AverageResponseTime_5, // This must match or exceed MAX_RTD_INFO
+  CPT_C_AverageResponseTime_Sum,
+  CPT_C_AverageResponseTime_Sum_2,
+  CPT_C_AverageResponseTime_Sum_3,
+  CPT_C_AverageResponseTime_Sum_4,
+  CPT_C_AverageResponseTime_Sum_5, // This must match or exceed MAX_RTD_INFO
   CPT_C_AverageResponseTime_Squares,
   CPT_C_AverageResponseTime_Squares_2,
   CPT_C_AverageResponseTime_Squares_3,
@@ -159,18 +159,18 @@ public:
   CPT_PD_SuccessfulCall,
   CPT_PD_FailedCall,
   CPT_PD_NbOfCallUsedForAverageCallLength,
-  CPT_PD_AverageCallLength,
+  CPT_PD_AverageCallLength_Sum,
   CPT_PD_AverageCallLength_Squares,
   CPT_PD_NbOfCallUsedForAverageResponseTime,
   CPT_PD_NbOfCallUsedForAverageResponseTime_2, // This must match or exceed MAX_RTD_INFO
   CPT_PD_NbOfCallUsedForAverageResponseTime_3, // This must match or exceed MAX_RTD_INFO
   CPT_PD_NbOfCallUsedForAverageResponseTime_4, // This must match or exceed MAX_RTD_INFO
   CPT_PD_NbOfCallUsedForAverageResponseTime_5, // This must match or exceed MAX_RTD_INFO
-  CPT_PD_AverageResponseTime,
-  CPT_PD_AverageResponseTime_2,
-  CPT_PD_AverageResponseTime_3,
-  CPT_PD_AverageResponseTime_4,
-  CPT_PD_AverageResponseTime_5,
+  CPT_PD_AverageResponseTime_Sum,
+  CPT_PD_AverageResponseTime_Sum_2,
+  CPT_PD_AverageResponseTime_Sum_3,
+  CPT_PD_AverageResponseTime_Sum_4,
+  CPT_PD_AverageResponseTime_Sum_5,
   CPT_PD_AverageResponseTime_Squares,
   CPT_PD_AverageResponseTime_Squares_2,
   CPT_PD_AverageResponseTime_Squares_3,
@@ -200,7 +200,7 @@ public:
   CPT_PL_SuccessfulCall,
   CPT_PL_FailedCall,
   CPT_PL_NbOfCallUsedForAverageCallLength,
-  CPT_PL_AverageCallLength,
+  CPT_PL_AverageCallLength_Sum,
   /* The squares let us compute the standard deviation. */
   CPT_PL_AverageCallLength_Squares,
   CPT_PL_NbOfCallUsedForAverageResponseTime,
@@ -208,11 +208,11 @@ public:
   CPT_PL_NbOfCallUsedForAverageResponseTime_3,
   CPT_PL_NbOfCallUsedForAverageResponseTime_4,
   CPT_PL_NbOfCallUsedForAverageResponseTime_5,
-  CPT_PL_AverageResponseTime,
-  CPT_PL_AverageResponseTime_2,
-  CPT_PL_AverageResponseTime_3,
-  CPT_PL_AverageResponseTime_4,
-  CPT_PL_AverageResponseTime_5,
+  CPT_PL_AverageResponseTime_Sum,
+  CPT_PL_AverageResponseTime_Sum_2,
+  CPT_PL_AverageResponseTime_Sum_3,
+  CPT_PL_AverageResponseTime_Sum_4,
+  CPT_PL_AverageResponseTime_Sum_5,
   CPT_PL_AverageResponseTime_Squares,
   CPT_PL_AverageResponseTime_Squares_2,
   CPT_PL_AverageResponseTime_Squares_3,
@@ -371,7 +371,7 @@ private:
   ~CStat ();
 
   static CStat*            M_instance;
-  unsigned long            M_counters[E_NB_COUNTER];
+  unsigned long long       M_counters[E_NB_COUNTER];
   T_dynamicalRepartition*  M_ResponseTimeRepartition[MAX_RTD_INFO_LENGTH];
   T_dynamicalRepartition*  M_CallLengthRepartition;
   int                      M_SizeOfResponseTimeRepartition;
@@ -392,19 +392,6 @@ private:
   T_pValue_rtt             M_dumpRespTime              ;
   int                      M_counterDumpRespTime       ;
   unsigned long            M_report_freq_dumpRtt       ;
-
-  unsigned long long       M_C_sumCallLength;
-  unsigned long long       M_C_sumCallLength_Square;
-  unsigned long long       M_C_sumResponseTime[MAX_RTD_INFO_LENGTH];
-  unsigned long long       M_C_sumResponseTime_Square[MAX_RTD_INFO_LENGTH];
-  unsigned long long       M_PD_sumCallLength;
-  unsigned long long       M_PD_sumCallLength_Square;
-  unsigned long long       M_PD_sumResponseTime[MAX_RTD_INFO_LENGTH];
-  unsigned long long       M_PD_sumResponseTime_Square[MAX_RTD_INFO_LENGTH];
-  unsigned long long       M_PL_sumCallLength;
-  unsigned long long       M_PL_sumCallLength_Square;
-  unsigned long long       M_PL_sumResponseTime[MAX_RTD_INFO_LENGTH];
-  unsigned long long       M_PL_sumResponseTime_Square[MAX_RTD_INFO_LENGTH];
 
   /**
    * initRepartition
@@ -479,11 +466,9 @@ private:
    * This methode compute the real moyenne with the passed value on the given 
    * counter
    */
-  void updateAverageCounter(E_CounterName P_AverageCounter, 
+  void updateAverageCounter(E_CounterName P_SumCounter,
                             E_CounterName P_NbOfCallUsed,
                             E_CounterName P_Squares,
-                            unsigned long long* P_sum, 
-                            unsigned long long* P_sq,
                             unsigned long P_value);
 
   /**
@@ -491,10 +476,16 @@ private:
    * This method computes the standard deviation using our recorded mean
    * and recorded mean square.
    */
-  unsigned long computeStdev(E_CounterName P_AverageCounter,
+  double computeStdev(E_CounterName P_SumCounter,
                              E_CounterName P_NbOfCallUsed,
                              E_CounterName P_Squares);
 
+  /**
+   * computeMean
+   * This method computes the recorded sum and count.
+   */
+  double computeMean(E_CounterName P_SumCounter,
+                             E_CounterName P_NbOfCallUsed);
   /**
    * computeDiffTimeInMs.
    *

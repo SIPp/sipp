@@ -1529,12 +1529,14 @@ bool call::run()
       /* We are sending just after msg reception. There is a great
        * chance that we will be asked to retransmit this message */
       recv_retrans_hash       = last_recv_hash;
+      TRACE_MSG((s, "Set recv_retrans_hash to %lu.", recv_retrans_hash));
       recv_retrans_recv_index = last_recv_index;
       recv_retrans_send_index = msg_index;
     
       /* Prevent from detecting the cause relation between send and recv 
        * in the next valid send */
       last_recv_hash = 0;
+      TRACE_MSG((s, "Set last_recv_hash to %lu.", last_recv_hash));
     }
 
     /* Update retransmission information */
@@ -2725,53 +2727,54 @@ bool call::process_incoming(char * msg)
   responsecseqmethod[0] = '\0';
 
   if((transport == T_UDP) && (retrans_enabled)) {
+    /* Detects retransmissions from peer and retransmit the
+     * message which was sent just after this one was received */
+    cookie = hash(msg);
+    if(recv_retrans_hash == cookie) {
 
-  /* Detects retransmissions from peer and retransmit the 
-   * message which was sent just after this one was received */
-  cookie = hash(msg);
-  if(recv_retrans_hash == cookie) {
+      int status;
 
-    int status;
+      if(lost(scenario[recv_retrans_recv_index] -> lost)) {
+	TRACE_MSG((s, "%s message (retrans) lost (recv).",
+	      TRANSPORT_TO_STRING(transport)));
 
-    if(lost(scenario[recv_retrans_recv_index] -> lost)) {
-      TRACE_MSG((s, "%s message (retrans) lost (recv).", 
-                 TRANSPORT_TO_STRING(transport)));
+	if(comp_state) { comp_free(&comp_state); }
+	scenario[recv_retrans_recv_index] -> nb_lost++;
+	return true;
+      }
 
-      if(comp_state) { comp_free(&comp_state); }
-      scenario[recv_retrans_recv_index] -> nb_lost++;
+      scenario[recv_retrans_recv_index] -> nb_recv_retrans++;
+
+      send_scene(recv_retrans_send_index, &status);
+
+      if(status == 0) {
+	scenario[recv_retrans_send_index] -> nb_sent_retrans++;
+      } else if(status < -1) {
+	return false;
+      }
+
       return true;
     }
-    
-    send_scene(recv_retrans_send_index, &status);
 
-    if(status == 0) {
-      scenario[recv_retrans_recv_index] -> nb_recv_retrans++;
-      scenario[recv_retrans_send_index] -> nb_sent_retrans++;
-    } else if(status < -1) { 
-      return false; 
-    }
-
-    return true;
-  }
-
-  if(last_recv_hash == cookie) {
-    /* This one has already been received, but not processed
-     * yet => (has not triggered something yet) so we can discard.
-     *
-     * This case appears when the UAS has send a 200 but not received
-     * a ACK yet. Thus, the UAS retransmit the 200 (invite transaction)
-     * until it receives a ACK. In this case, it nevers sends the 200
-     * from the  BYE, until it has reveiced the previous 200. Thus, 
-     * the UAC retransmit the BYE, and this BYE is considered as an
-     * unexpected.
-     *
-     * This case can also appear in case of message duplication by
-     * the network. This should not be considered as an unexpected.
-     */
-    return true;
+    if(last_recv_hash == cookie) {
+      /* This one has already been received, but not processed
+       * yet => (has not triggered something yet) so we can discard.
+       *
+       * This case appears when the UAS has send a 200 but not received
+       * a ACK yet. Thus, the UAS retransmit the 200 (invite transaction)
+       * until it receives a ACK. In this case, it nevers sends the 200
+       * from the  BYE, until it has reveiced the previous 200. Thus,
+       * the UAC retransmit the BYE, and this BYE is considered as an
+       * unexpected.
+       *
+       * This case can also appear in case of message duplication by
+       * the network. This should not be considered as an unexpected.
+       */
+      scenario[last_recv_index]->nb_recv_retrans++;
+      return true;
     }
   }
-  
+
   /* Is it a response ? */
   if((msg[0] == 'S') && 
      (msg[1] == 'I') &&
@@ -2912,6 +2915,8 @@ bool call::process_incoming(char * msg)
     return true;
   }
 
+  TRACE_MSG((s, "Message found at search index: %d.", search_index));
+
   /* Handle counters and RTDs for this message. */
   do_bookkeeping(search_index);
 
@@ -3033,23 +3038,22 @@ bool call::process_incoming(char * msg)
   }
 #endif
 
-  /* If this was a mandatory message, and keeps its cookie for
-   * future retransmissions, and its body for fields inclusion
-   * in our messages. Similarly if there is an explicit next label set 
-   */
+  /* Store last received message information for all messages so that we can
+   * correctly identify retransmissions, and use its body for inclusion
+   * in our messages. */
+  last_recv_index = search_index;
+  last_recv_hash = cookie;
+  last_recv_msg = (char *) realloc(last_recv_msg, strlen(msg) + 1);
+  strcpy(last_recv_msg, msg);
+
+  /* If this was a mandatory message, or if there is an explicit next label set
+   * we must update our state machine.  */
   if (!(scenario[search_index] -> optional) ||
        scenario[search_index]->next && 
       ((test == -1) ||
        (test < SCEN_VARIABLE_SIZE && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
      ) {
     msg_index = search_index;
-
-    /* Store last recv msg information */
-    last_recv_index = search_index;
-    last_recv_hash = cookie;
-
-    last_recv_msg = (char *) realloc(last_recv_msg, strlen(msg) + 1);
-    strcpy(last_recv_msg, msg);
     return next();
   } else {
     int timeout = call_wake(this);
@@ -3085,7 +3089,7 @@ bool call::process_incoming(char * msg)
   }
   return true;
 }
-  
+
 call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 {
   CActions*  actions;
