@@ -265,6 +265,9 @@ CAction::CAction()
   M_checkIt      = false;
   M_lookingPlace = E_LP_MSG;
   M_lookingChar  = NULL;
+  M_caseIndep    = false;
+  M_occurence    = 1;
+  M_headersOnly  = true;   
   M_message      = NULL;
   M_cmdLine      = NULL;
   M_IntCmd       = E_INTCMD_INVALID;
@@ -298,6 +301,9 @@ CAction::CAction(const CAction &P_action)
   setVarId        ( P_action.M_varId        );
   setLookingChar  ( P_action.M_lookingChar  );
   setCheckIt      ( P_action.M_checkIt      );
+  setCaseIndep    ( P_action.M_caseIndep    );
+  setOccurence    ( P_action.M_occurence   );
+  setHeadersOnly  ( P_action.M_headersOnly  );   
   setMessage      ( P_action.M_message      );
   setCmdLine      ( P_action.M_cmdLine      );
   setIntCmd       ( P_action.M_IntCmd       );

@@ -1529,14 +1529,12 @@ bool call::run()
       /* We are sending just after msg reception. There is a great
        * chance that we will be asked to retransmit this message */
       recv_retrans_hash       = last_recv_hash;
-      TRACE_MSG((s, "Set recv_retrans_hash to %lu.", recv_retrans_hash));
       recv_retrans_recv_index = last_recv_index;
       recv_retrans_send_index = msg_index;
     
       /* Prevent from detecting the cause relation between send and recv 
        * in the next valid send */
       last_recv_hash = 0;
-      TRACE_MSG((s, "Set last_recv_hash to %lu.", last_recv_hash));
     }
 
     /* Update retransmission information */
@@ -2915,7 +2913,6 @@ bool call::process_incoming(char * msg)
     return true;
   }
 
-  TRACE_MSG((s, "Message found at search index: %d.", search_index));
 
   /* Handle counters and RTDs for this message. */
   do_bookkeeping(search_index);
