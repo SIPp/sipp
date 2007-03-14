@@ -3141,6 +3141,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
                   // checking action say it MUST match
                   // --> Call will be marked as failed but 
                   // will go on
+                  WARNING_P2("Failed regexp match: header %s not found in message %s\n", currentAction->getLookingChar(), msg);
                   return(call::E_AR_HDR_NOT_FOUND);
                 } 
               }

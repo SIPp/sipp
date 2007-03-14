@@ -299,7 +299,6 @@ unsigned int pause_default(message *msg) {
   if (msg -> pause_param == -1) {
     return duration;
   }
-
   return msg -> pause_param;
 }
 
