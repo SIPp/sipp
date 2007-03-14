@@ -218,7 +218,9 @@ send_packets (play_args_t * play_args)
     }
 #endif
     if (ret < 0) {
-      ERROR_P1("send_packets.c: sendto failed with error: %s", strerror(errno));
+      close(sock);
+      WARNING_P1("send_packets.c: sendto failed with error: %s", strerror(errno));
+      return( -1);
     }
 
 	  rtp_pckts_pcap++;
