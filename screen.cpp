@@ -115,10 +115,6 @@ void screen_exit(int rc)
     close(localTwinSippSocket);
   }
 
-  if(extendedTwinSippMode){
-     close_peer_sockets();
-     close_local_sockets();
-  }
 #endif //__3PCC__
  
   // Get failed calls counter value before releasing objects
