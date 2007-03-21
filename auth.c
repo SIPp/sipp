@@ -557,7 +557,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
     sqn[i] = sqnxoraka[i] ^ ak[i];
 
   /* compute XMAC */
-  f1(k,rnd,sqn,aka_AMF,xmac,op);
+  f1(k,rnd,sqn,(unsigned char *) aka_AMF,xmac,op);
   if (memcmp(mac,xmac,MACLEN)!=0) {
     sprintf(result,"createAuthHeaderAKAv1MD5 : MAC != eXpectedMAC -> Server might not know the secret (man-in-the-middle attack?) \n");
     //return 0;
@@ -571,13 +571,13 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
     sqn_he[5] = sqn[5];
     has_auts = 0;
     /* RES has to be used as password to compute response */
-    resuf = createAuthHeaderMD5(user, res, RESLEN, method, uri, msgbody, auth, algo, result);   
+    resuf = createAuthHeaderMD5(user, (char *) res, RESLEN, method, uri, msgbody, auth, algo, result);   
   } else {
     sqn_ms[5] = sqn_he[5] + 1;
     f5star(k, rnd, ak, op);
     for(i=0; i<SQNLEN; i++)
       auts_bin[i]=sqn_ms[i]^ak[i];
-    f1star(k, rnd, sqn_ms, amf, auts_bin+SQNLEN, op);
+    f1star(k, rnd, sqn_ms, amf, (unsigned char * ) (auts_bin+SQNLEN), op);
     has_auts = 1;
     /* When re-synchronisation occurs an empty password has to be used */
     /* to compute MD5 response (Cf. rfc 3310 section 3.2) */
