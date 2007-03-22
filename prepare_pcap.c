@@ -142,9 +142,12 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
         fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
         continue;
       }
-#if defined(__DARWIN) || defined(__CYGWIN) || defined(__HPUX)
+#if defined(__DARWIN) || defined(__CYGWIN)
       udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2) + 4);
       pktlen = (u_long)(ntohs(udphdr->uh_ulen));
+#elif defined ( __HPUX)
+      udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2));
+      pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*iphdr);
 #else
       udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2));
       pktlen = (u_long)(ntohs(udphdr->len));

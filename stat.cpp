@@ -843,9 +843,13 @@ CStat::CStat ()
 
 CStat::~CStat ()
 {
-
-
-
+  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    if (M_ResponseTimeRepartition[i] == NULL)
+	continue;
+    delete M_ResponseTimeRepartition[i];
+  }
+  if (M_CallLengthRepartition != NULL)
+    delete M_CallLengthRepartition;
 }
 
 char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition, 

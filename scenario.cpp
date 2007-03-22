@@ -60,6 +60,7 @@ message::message()
   /* Anyway */
   start_rtd = 0;
   stop_rtd  = 0;
+  repeat_rtd = 0;
   lost = 0;
   crlf = 0;
   test = 0;
@@ -119,6 +120,10 @@ message::~message()
   if(peer_src != NULL)
      delete (peer_src);
   peer_src = NULL;
+
+  if(pause_desc != NULL)
+     free(pause_desc);
+  pause_desc = NULL;
 
 #ifdef __3PCC__
   if(M_sendCmdData != NULL)
