@@ -22,8 +22,10 @@
  *           Lee Ballard
  *           Guillaume TEISSIER from FTR&D
  *           Wolfgang Beck
+ *           Marc Van Diest from Belgacom
  */
 
+#include <stdlib.h>
 #include "sipp.hpp"
 #ifdef HAVE_GSL
 #include <gsl/gsl_rng.h>
@@ -64,6 +66,7 @@ message::message()
   lost = 0;
   crlf = 0;
   test = 0;
+  chance = 0;/* meaning always */
   next = 0;
   on_timeout = 0;
 
@@ -920,6 +923,17 @@ void load_scenario(char * filename, int deflt)
          }
          else {
            scenario[scenario_len] -> test = -1;
+         }
+         if ( 0 != ( ptr = xp_get_value((char *)"chance") ) ) {
+           float chance = get_double(ptr,"chance");
+                                     /* probability of branch to next */
+           if (( chance < 0.0 ) || (chance > 1.0 )) {
+             ERROR_P1("Chance %s not in range [0..1]", ptr);
+           }
+           scenario[scenario_len] -> chance = (int)((1.0-chance)*RAND_MAX);
+         }
+         else {
+           scenario[scenario_len] -> chance = 0;/* always */
          }
       } else {
         scenario[scenario_len] -> next = 0;

@@ -127,6 +127,7 @@ public:
   int            crlf;
   unsigned int   next;
   int            test;
+  int            chance;/* 0=always, RAND_MAX+1=never (test rand() >= chance) */
   unsigned int   on_timeout;
 
   /* Statistics */

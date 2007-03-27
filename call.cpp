@@ -31,6 +31,7 @@
  *           Amit On from Followap
  *           Jan Andres from Freenet
  *           Ben Evans from Open Cloud
+ *           Marc Van Diest from Belgacom
  */
 
 #include <iterator>
@@ -1322,16 +1323,21 @@ bool call::next()
 {
   int test = scenario[msg_index]->test;
   /* What is the next message index? */
+  /* Default without branching: use the next message */
+  int new_msg_index = msg_index+1;
+  /* If branch needed, overwrite this default */
   if ( scenario[msg_index]->next && 
        ((test == -1) ||
         (test < SCEN_VARIABLE_SIZE && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
      ) {
-    /* For branching, use the 'next' attribute value */
-         msg_index = labelArray[scenario[msg_index]->next];
-  } else {
-    /* Without branching, use the next message */
-    msg_index++;
+    /* Branching possible, check the probability */
+    int chance = scenario[msg_index]->chance;
+    if ((chance <= 0) || (rand() > chance )) {
+      /* Branch == overwrite with the 'next' attribute value */
+      new_msg_index = labelArray[scenario[msg_index]->next];
+    }
   }
+  msg_index=new_msg_index;
   recv_timeout = 0;
   if(msg_index >= scenario_len) {
     // Call end -> was it successful?
@@ -1620,7 +1626,6 @@ bool call::run()
 
 bool call::process_unexpected(char * msg)
 {
-  int search_index;
   static int first = 1;
   int res ;
   
