@@ -30,6 +30,7 @@
  *           Charles P Wright from IBM Research
  *           Amit On from Followap
  *           Jan Andres from Freenet
+ *           Ben Evans from Open Cloud
  */
 
 #include <iterator>
@@ -2147,9 +2148,13 @@ char* call::createSendingMessage(char * src, int P_index)
             }
           }
         } else if(strstr(keyword, "routes")) {
-            if (dialog_route_set) {
-                dest += sprintf(dest, "Route: %s", dialog_route_set);
-            }
+          if (dialog_route_set) {
+             dest += sprintf(dest, "Route: %s", dialog_route_set);
+          } else {
+             // Skip to end of line
+             while((*src) && (*src != '\n')) src++;
+             if (*src == '\n') src++;
+          }  
 #ifdef _USE_OPENSSL
         } else if(strstr(keyword, "authentication")) {
             /* This keyword is substituted below */
