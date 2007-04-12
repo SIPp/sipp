@@ -215,6 +215,7 @@ extern int                quitting                _DEFVAL(0);
 extern int                interrupt               _DEFVAL(0);
 extern int                paused                  _DEFVAL(0);
 extern int                lose_packets            _DEFVAL(0);
+extern double             global_lost             _DEFVAL(0.0);
 extern char               remote_host[255]; 
 #ifdef __3PCC__
 extern char               twinSippHost[255];

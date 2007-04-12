@@ -123,7 +123,7 @@ public:
   int            stop_rtd;
   bool           repeat_rtd;
   int		 counter;
-  int            lost;
+  double         lost;
   int            crlf;
   unsigned int   next;
   int            test;

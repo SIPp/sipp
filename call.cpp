@@ -911,23 +911,27 @@ void call::connect_socket_if_needed()
   }
 }
 
-bool lost(int percent)
+bool lost(int index)
 {
   static int inited = 0;
+  double percent = global_lost;
 
   if(!lose_packets) return false;
-  if(!percent) return false;
+
+  if (scenario[index]->lost >= 0) {
+    percent = scenario[index]->lost;
+  }
+
+  if (percent == 0) {
+    return false;
+  }
 
   if(!inited) {
     srand((unsigned int) time(NULL));
     inited = 1;
   }
 
-  if((rand() % 100) < percent) {
-    return true;
-  } else {
-    return false;
-  }
+  return (((double)rand() / (double)RAND_MAX) < (percent / 100.0));
 }
 
 int call::send_raw(char * msg, int index) 
@@ -949,7 +953,7 @@ int call::send_raw(char * msg, int index)
              msg));
   }
   
-  if((index!=-1) && (lost(scenario[index] -> lost))) {
+  if((index!=-1) && (lost(index))) {
     TRACE_MSG((s, "%s message voluntary lost (while sending).", TRANSPORT_TO_STRING(transport)));
     
     if(comp_state) { comp_free(&comp_state); }
@@ -2739,7 +2743,7 @@ bool call::process_incoming(char * msg)
 
       int status;
 
-      if(lost(scenario[recv_retrans_recv_index] -> lost)) {
+      if(lost(recv_retrans_recv_index)) {
 	TRACE_MSG((s, "%s message (retrans) lost (recv).",
 	      TRANSPORT_TO_STRING(transport)));
 
@@ -2912,7 +2916,7 @@ bool call::process_incoming(char * msg)
    */
 
   /* Simulate loss of messages */
-  if(lost(scenario[search_index] -> lost)) {
+  if(lost(search_index)) {
     TRACE_MSG((s, "%s message lost (recv).", 
                TRANSPORT_TO_STRING(transport)));
     if(comp_state) { comp_free(&comp_state); }

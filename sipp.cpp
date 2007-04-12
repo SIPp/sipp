@@ -131,6 +131,7 @@ struct sipp_option options_table[] = {
 	{"l", "Set the maximum number of simultaneous calls. Once this limit is reached, traffic is decreased until the number of open calls goes down. Default:\n"
 	      "  (3 * call_duration (s) * rate).", SIPP_OPTION_LIMIT, NULL},
 
+	{"lost", "Set the number of packets to lose by default (scenario specifications override this value).", SIPP_OPTION_FLOAT, &global_lost},
 	{"m", "Stop the test and exit when 'calls' calls are processed", SIPP_OPTION_INT, &stop_after},
 	{"mi", "Set the local media IP address", SIPP_OPTION_IP, media_ip},
         {"master","3pcc extended mode: indicates the master number", SIPP_OPTION_3PCC_EXTENDED, &master_name},
@@ -992,14 +993,17 @@ void print_stats_in_file(FILE * f, int last)
       }
 
       if(scenario[index] -> retrans_delay) {
-        fprintf(f,"%-9d %-9d %-9d" ,
+        fprintf(f,"%-9d %-9d %-9d %-9s" ,
                scenario[index] -> nb_sent,
                scenario[index] -> nb_sent_retrans,
-               scenario[index] -> nb_timeout);
+               scenario[index] -> nb_timeout,
+               "" /* Unexpected */);
       } else {
-        fprintf(f,"%-9d %-9d                    " ,
+        fprintf(f,"%-9d %-9d %-9s %-9s" ,
                scenario[index] -> nb_sent,
-               scenario[index] -> nb_sent_retrans);
+               scenario[index] -> nb_sent_retrans,
+               "", /* Timeout. */
+               "" /* Unexpected. */);
       }
     } else if(scenario[index] -> recv_response) {
       if(toolMode == MODE_SERVER) {
@@ -3812,6 +3816,10 @@ int main(int argc, char *argv[])
       ERROR("You must use the -inf option when using -t ui.\n"
                "Use 'sipp -h' for details");
     }
+  }
+
+  if (global_lost) {
+    lose_packets = 1;
   }
 
   /* trace file setting */

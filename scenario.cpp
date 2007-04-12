@@ -64,7 +64,7 @@ message::message()
   start_rtd = 0;
   stop_rtd  = 0;
   repeat_rtd = 0;
-  lost = 0;
+  lost = -1;
   crlf = 0;
   test = 0;
   chance = 0;/* meaning always */
@@ -956,7 +956,7 @@ void load_scenario(char * filename, int deflt)
       }
     
       if(ptr = xp_get_value((char *)"lost")) {
-        scenario[scenario_len] -> lost = get_long(ptr, "lost percentage");
+        scenario[scenario_len] -> lost = get_double(ptr, "lost percentage");
         lose_packets = 1;
       }
 
