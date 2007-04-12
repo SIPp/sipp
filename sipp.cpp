@@ -279,20 +279,25 @@ struct sipp_option *find_option(const char *option) {
 
 /***************** System Portability Features *****************/
 
-unsigned int getmilliseconds()
+unsigned long long getmicroseconds()
 {
   struct timeval LS_system_time;
-  unsigned long long int VI_milli;
-  static unsigned long long int VI_milli_base = 0;
-  
+  unsigned long long VI_micro;
+  static unsigned long long VI_micro_base = 0;
+
   gettimeofday(&LS_system_time, NULL);
-  VI_milli = ((unsigned long long) LS_system_time.tv_sec) 
-    * 1000LL + (LS_system_time.tv_usec / 1000LL);
-  if (!VI_milli_base) VI_milli_base = VI_milli - 1;
-  VI_milli = VI_milli - VI_milli_base;
-  
-  return (unsigned int) VI_milli;
+  VI_micro = (((unsigned long long) LS_system_time.tv_sec) * 1000000LL) + LS_system_time.tv_usec;
+  if (!VI_micro_base) VI_micro_base = VI_micro - 1;
+  VI_micro = VI_micro - VI_micro_base;
+
+  return VI_micro;
 }
+
+unsigned long getmilliseconds()
+{
+  return getmicroseconds() / 1000LL;
+}
+
 
 #ifdef _USE_OPENSSL
 /****** SSL error handling                         *************/

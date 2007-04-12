@@ -616,7 +616,11 @@ call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
   // If not updated by a message we use the start time 
   // information to compute rtd information
   for (i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    start_time_rtd[i] = clock_tick;
+    if (dumpInRtt) {
+      start_time_rtd[i] = getmicroseconds();
+    } else {
+      start_time_rtd[i] = (unsigned long long)clock_tick * 1000LL;
+    }
     rtd_done[i] = false;
   }
 
@@ -1294,25 +1298,25 @@ void call::do_bookkeeping(int index) {
 
   /* If this message can be used to compute RTD, do it now */
   if(int rtd = scenario[index] -> start_rtd) {
-    start_time_rtd[rtd - 1] = clock_tick;
+    if (dumpInRtt) {
+      start_time_rtd[rtd - 1] = getmicroseconds();
+    } else {
+      start_time_rtd[rtd - 1] = (unsigned long long)clock_tick * 1000LL;
+    }
   }
 
   if(int rtd = scenario[index] -> stop_rtd) {
     if (!rtd_done[rtd - 1]) {
-      int start = start_time_rtd[rtd - 1];
-      struct timeval L_currentTime;
-      double L_stop_time;
-
+      unsigned long long start = start_time_rtd[rtd - 1];
+      unsigned long long end = (unsigned long long)clock_tick * 1000LL;
 
       if(dumpInRtt) {
-	GET_TIME (&L_currentTime);
-	L_stop_time = (double)L_currentTime.tv_sec*1000.0 +
-	  (double)(L_currentTime.tv_usec)/(double)1000.0 ;
-	CStat::instance()->computeRtt(start, L_stop_time, rtd);
+	end = getmicroseconds();
+	CStat::instance()->computeRtt(start, end, rtd);
       }
 
       CStat::instance()->computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
-	  clock_tick - start, rtd - 1);
+	  (end - start) / 1000, rtd - 1);
 
       if (!scenario[index] -> repeat_rtd) {
 	rtd_done[rtd - 1] = true;

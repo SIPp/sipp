@@ -397,9 +397,6 @@ void CStat::initRtt(char * P_name, char * P_extension,
         << DEFAULT_FILE_NAME << endl;
   }
 
-  // calculate M_time_ref 
-  M_time_ref = (double)M_startTime.tv_sec*1000.0 + (double)M_startTime.tv_usec/1000.0 ;  
-  
   // initiate the table dump response time
   M_report_freq_dumpRtt = P_report_freq_dumpRtt ;
   
@@ -654,16 +651,16 @@ int CStat::computeStat (E_Action P_action)
   return (0);
 }
 
-int CStat::computeRtt (unsigned long P_start_time, double P_stop_time, int which) {
-  M_dumpRespTime[M_counterDumpRespTime].date =  (P_stop_time - M_time_ref) ;
+void CStat::computeRtt (unsigned long long P_start_time, unsigned long long P_stop_time, int which) {
+  M_dumpRespTime[M_counterDumpRespTime].date = (double)P_stop_time / (double)1000;
   M_dumpRespTime[M_counterDumpRespTime].rtd_no = which;
-  M_dumpRespTime[M_counterDumpRespTime].rtt = ( P_stop_time - (P_start_time + M_time_ref));
+  M_dumpRespTime[M_counterDumpRespTime].rtt =
+    ((double)(P_stop_time - P_start_time)) / (double)1000;
   M_counterDumpRespTime++ ;
 
   if (M_counterDumpRespTime > (M_report_freq_dumpRtt - 1)) {
     dumpDataRtt () ;
   }
-  return (0);
 }
 
 unsigned long long CStat::get_current_counter_call (){
@@ -680,6 +677,9 @@ unsigned long long CStat::GetStat (E_CounterName P_counter)
 double CStat::computeStdev(E_CounterName P_SumCounter,
 			 E_CounterName P_NbOfCallUsed,
 			 E_CounterName P_Squares) {
+  if (M_counters[P_NbOfCallUsed] == 0)
+    return 0.0;
+
   double numerator = ((double)(M_counters[P_NbOfCallUsed]) * (double)(M_counters[P_Squares])) - ((double)(M_counters[P_SumCounter] * M_counters[P_SumCounter]));
   double denominator = (double)(M_counters[P_NbOfCallUsed]) * (((double)(M_counters[P_NbOfCallUsed])) - 1.0);
 
@@ -688,6 +688,8 @@ double CStat::computeStdev(E_CounterName P_SumCounter,
 
 double CStat::computeMean(E_CounterName P_SumCounter,
 			 E_CounterName P_NbOfCallUsed) {
+  if (M_counters[P_NbOfCallUsed] == 0)
+    return 0.0;
   return ((double)(M_counters[P_SumCounter]) / (double)(M_counters[P_NbOfCallUsed]));
 }
 
@@ -1366,15 +1368,6 @@ void CStat::dumpData ()
     (*M_outputStream) 
       << msToHHMMSSmmm( (unsigned long)computeMean((E_CounterName)(CPT_C_AverageResponseTime_Sum + i),
 				    (E_CounterName)(CPT_C_NbOfCallUsedForAverageResponseTime + i))) << stat_delimiter;
-
-    (*M_outputStream) << M_counters[(E_CounterName)(CPT_PL_AverageResponseTime_Sum + i)] << stat_delimiter;
-    (*M_outputStream) << M_counters[(E_CounterName)(CPT_C_AverageResponseTime_Sum + i)] << stat_delimiter;
-
-    (*M_outputStream) << M_counters[(E_CounterName)(CPT_PL_NbOfCallUsedForAverageResponseTime + i)] << stat_delimiter;
-    (*M_outputStream) << M_counters[(E_CounterName)(CPT_C_NbOfCallUsedForAverageResponseTime + i)] << stat_delimiter;
-
-    (*M_outputStream) << M_counters[(E_CounterName)(CPT_PL_AverageResponseTime_Squares + i)] << stat_delimiter;
-    (*M_outputStream) << M_counters[(E_CounterName)(CPT_C_AverageResponseTime_Squares + i)] << stat_delimiter;
 
     (*M_outputStream)
       << msToHHMMSSmmm( (unsigned long)computeStdev((E_CounterName)(CPT_PL_AverageResponseTime_Sum + i),

@@ -274,11 +274,8 @@ public:
 
   /**
    * ComputeRtt Methods are used to calculate the response time
-   *
-   * @return 0 if the action is known
-   *        -1 else
    */
-  int computeRtt ( unsigned long P_start_time, double P_stop_time, int which);
+  void computeRtt ( unsigned long long P_start_time, unsigned long long P_stop_time, int which);
 
   /**
    * Get_current_counter_call Methods is used to get the number of current call

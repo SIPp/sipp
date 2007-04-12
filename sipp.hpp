@@ -277,7 +277,8 @@ extern bool     socket_open         _DEFVAL(true);
 extern bool     maxSocketPresent    _DEFVAL(false);
 extern int      *tab_multi_socket;
 
-extern unsigned int getmilliseconds();
+extern unsigned long getmilliseconds();
+extern unsigned long long getmicroseconds();
 
 /************************ Statistics **************************/
 
