@@ -228,7 +228,6 @@ struct sipp_option options_table[] = {
 	{"trace_rtt", "Allow tracing of all response times in <scenario file name>_<pid>_rtt.csv.", SIPP_OPTION_SETFLAG, &dumpInRtt},
 	{"trace_logs", "Allow tracing of <log> actions in <scenario file name>_<pid>_logs.log.", SIPP_OPTION_SETFLAG, &useLogf},
 
-	{"up_nb", "Set the number of updates of the internal clock during the reading of received messages.  Default value is 1.", SIPP_OPTION_INT, &update_nb},
 	{"users", "Instead of starting calls at a fixed rate, begin 'users' calls at startup, and keep the number of calls constant.", SIPP_OPTION_USERS, NULL},
 
 #ifdef _USE_OPENSSL
@@ -2585,20 +2584,13 @@ void pollset_process(bool ipv6)
 	         long as there's data to read */
 
   int loops = max_recv_loops;
-  int update_freq = (div(loops,update_nb)).quot ;
   
   while((loops-- > 0) && /* Ensure some minimal statistics display sometime */
         ((rs = outstanding_poll_msgs) || (rs = poll(pollfiles, pollnfds,  1))) > 0) {
     if((rs < 0) && (errno == EINTR)) {
       return;
     }
-    
-    if (update_freq > 0) {
-      if ((div(loops,update_freq)).rem == 0 ) { 
-      /*if (loops % update_freq == 0 ) {*/
-        clock_tick = getmilliseconds();
-      }
-    }
+    clock_tick = getmilliseconds();
 
     if(rs < 0) {
       ERROR_NO("poll() error");

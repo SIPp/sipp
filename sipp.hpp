@@ -141,7 +141,7 @@
 #define DEFAULT_AUTH_PASSWORD        ((char *)"password")
 #define DEFAULT_REPORT_FREQ          1000
 #define DEFAULT_REPORT_FREQ_DUMP_LOG 60000
-#define DEFAULT_TIMER_RESOLUTION     10
+#define DEFAULT_TIMER_RESOLUTION     1
 #define DEFAULT_FREQ_DUMP_RTT        200
 #define DEFAULT_MAX_MULTI_SOCKET     50000
 #define DEFAULT_CTRL_SOCKET_PORT     8888
@@ -187,7 +187,6 @@ extern unsigned int       max_multi_socket        _DEFVAL
 
 extern unsigned int       timer_resolution        _DEFVAL(DEFAULT_TIMER_RESOLUTION);
 extern int                max_recv_loops          _DEFVAL(MAX_RECV_LOOPS_PER_CYCLE);
-extern int                update_nb               _DEFVAL(NB_UPDATE_PER_CYCLE);
  
 extern char               local_ip[40];
 extern char               local_ip_escaped[42];

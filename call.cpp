@@ -616,11 +616,7 @@ call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
   // If not updated by a message we use the start time 
   // information to compute rtd information
   for (i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    if (dumpInRtt) {
-      start_time_rtd[i] = getmicroseconds();
-    } else {
-      start_time_rtd[i] = (unsigned long long)clock_tick * 1000LL;
-    }
+    start_time_rtd[i] = getmicroseconds();
     rtd_done[i] = false;
   }
 
@@ -1298,20 +1294,15 @@ void call::do_bookkeeping(int index) {
 
   /* If this message can be used to compute RTD, do it now */
   if(int rtd = scenario[index] -> start_rtd) {
-    if (dumpInRtt) {
-      start_time_rtd[rtd - 1] = getmicroseconds();
-    } else {
-      start_time_rtd[rtd - 1] = (unsigned long long)clock_tick * 1000LL;
-    }
+    start_time_rtd[rtd - 1] = getmicroseconds();
   }
 
   if(int rtd = scenario[index] -> stop_rtd) {
     if (!rtd_done[rtd - 1]) {
       unsigned long long start = start_time_rtd[rtd - 1];
-      unsigned long long end = (unsigned long long)clock_tick * 1000LL;
+      unsigned long long end = getmicroseconds();
 
       if(dumpInRtt) {
-	end = getmicroseconds();
 	CStat::instance()->computeRtt(start, end, rtd);
       }
 
@@ -1378,6 +1369,8 @@ bool call::run()
   int             actionResult = 0;
 
   assert(running);
+
+  clock_tick = getmilliseconds();
 
   if(msg_index >= scenario_len) {
     ERROR_P3("Scenario overrun for call %s (%p) (index = %d)\n",
