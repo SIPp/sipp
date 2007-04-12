@@ -145,6 +145,8 @@ char          scenario_name[255];
 int           toolMode  = MODE_CLIENT;
 unsigned long scenario_duration = 0;
 unsigned int  labelArray[MAX_LABELS];
+bool	      rtd_stopped[MAX_RTD_INFO_LENGTH];
+bool	      rtd_started[MAX_RTD_INFO_LENGTH];
 
 /*************** Helper functions for various types *****************/
 long get_long(const char *ptr, const char *what) {
@@ -371,6 +373,17 @@ unsigned int pause_weibull(message *msg) {
 
 #endif
 
+/* Some validation functions. */
+
+/* If you start an RTD, then you should be interested in collecting statistics for it. */
+void validate_rtds() {
+  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    if (rtd_started[i] && !rtd_stopped[i]) {
+      ERROR_P1("You have started Response Time Duration %d, but have never stopped it!", i + 1);
+    }
+  }
+}
+
 /********************** Scenario File analyser **********************/
 
 void load_scenario(char * filename, int deflt)
@@ -549,10 +562,12 @@ void load_scenario(char * filename, int deflt)
       
         if(ptr = xp_get_value((char *)"rtd")) {
           scenario[scenario_len] -> stop_rtd = get_rtd(ptr);
+	  rtd_stopped[scenario[scenario_len]->stop_rtd - 1] = true;
 	}
 
         if(ptr = xp_get_value((char *)"start_rtd")) {
           scenario[scenario_len] -> start_rtd = get_rtd(ptr);
+	  rtd_started[scenario[scenario_len]->start_rtd - 1] = true;
 	}
         if (ptr = xp_get_value((char *)"repeat_rtd")) {
 	  if (scenario[scenario_len] -> stop_rtd) {
@@ -585,10 +600,12 @@ void load_scenario(char * filename, int deflt)
 
         if(ptr = xp_get_value((char *)"rtd")) {
           scenario[scenario_len] -> stop_rtd = get_rtd(ptr);
+	  rtd_stopped[scenario[scenario_len]->stop_rtd - 1] = true;
 	}
 
         if(ptr = xp_get_value((char *)"start_rtd")) {
           scenario[scenario_len] -> start_rtd = get_rtd(ptr);
+	  rtd_started[scenario[scenario_len]->start_rtd - 1] = true;
 	}
         if (ptr = xp_get_value((char *)"repeat_rtd")) {
 	  if (scenario[scenario_len] -> stop_rtd) {
@@ -850,10 +867,12 @@ void load_scenario(char * filename, int deflt)
 
         if(ptr = xp_get_value((char *)"rtd")) {
           scenario[scenario_len] -> stop_rtd = get_rtd(ptr);
+	  rtd_stopped[scenario[scenario_len]->stop_rtd - 1] = true;
 	}
 
         if(ptr = xp_get_value((char *)"start_rtd")) {
           scenario[scenario_len] -> start_rtd = get_rtd(ptr);
+	  rtd_started[scenario[scenario_len]->start_rtd - 1] = true;
 	}
 
         if(ptr = xp_get_value((char *)"counter")) {
@@ -999,6 +1018,9 @@ void load_scenario(char * filename, int deflt)
     } /** end * Message case */
     xp_close_element();
   } // end while
+
+  /* Some post-scenario loading validation. */
+  validate_rtds();
 }
 
 /* 3pcc extended mode:

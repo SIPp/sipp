@@ -170,6 +170,8 @@ extern CVariable *   scenVariableTable[SCEN_VARIABLE_SIZE][SCEN_MAX_MESSAGES];
 extern int	     scenario_len;
 extern char          scenario_name[255];
 extern int           toolMode;
+extern bool          rtd_stopped[MAX_RTD_INFO_LENGTH];
+extern bool          rtd_started[MAX_RTD_INFO_LENGTH];
 
 
 extern unsigned long scenario_duration; /* include -d option if used */

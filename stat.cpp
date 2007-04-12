@@ -27,6 +27,7 @@
 #include <iomanip>
 
 #include "sipp.hpp"
+#include "scenario.hpp"
 #include "screen.hpp"
 
 /*
@@ -1013,7 +1014,7 @@ void CStat::displayData (FILE *f)
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     char s[15];
 
-    if (M_counters[CPT_C_NbOfCallUsedForAverageResponseTime +i ] == 0) {
+    if (!rtd_stopped[i]) {
       continue;
     }
 
@@ -1030,7 +1031,7 @@ void CStat::displayData (FILE *f)
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     char s[50];
 
-    if (M_counters[CPT_C_NbOfCallUsedForAverageResponseTime + i] == 0) {
+    if (!rtd_stopped[i]) {
       continue;
     }
 
@@ -1138,7 +1139,7 @@ void CStat::displayStat (FILE *f)
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     char s[20];
 
-    if (M_counters[CPT_C_NbOfCallUsedForAverageResponseTime + i] == 0) {
+    if (!rtd_stopped[i]) {
       continue;
     }
 
@@ -1267,6 +1268,10 @@ void CStat::dumpData ()
       char s_P[30];
       char s_C[30];
 
+      if (!rtd_stopped[i]) {
+	continue;
+      }
+
       sprintf(s_P, "ResponseTime%d(P)%s", i + 1, stat_delimiter);
       sprintf(s_C, "ResponseTime%d(C)%s", i + 1, stat_delimiter);
 
@@ -1288,6 +1293,11 @@ void CStat::dumpData ()
     }
     for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
       char s[30];
+
+      if (!rtd_stopped[i]) {
+	continue;
+      }
+
       sprintf(s, "ResponseTimeRepartition%d", i + 1);
       (*M_outputStream) << sRepartitionHeader(M_ResponseTimeRepartition[i],
 					      M_SizeOfResponseTimeRepartition,
@@ -1346,6 +1356,10 @@ void CStat::dumpData ()
 
   // SF917289 << M_counters[CPT_C_UnexpectedMessage]    << stat_delimiter;
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    if (!rtd_stopped[i]) {
+      continue;
+    }
+
     (*M_outputStream) 
       << msToHHMMSSmmm( (unsigned long)computeMean((E_CounterName)(CPT_PL_AverageResponseTime_Sum + i),
 				    (E_CounterName)(CPT_PL_NbOfCallUsedForAverageResponseTime + i))) << stat_delimiter;
@@ -1390,6 +1404,9 @@ void CStat::dumpData ()
   }
 
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    if (!rtd_stopped[i]) {
+      continue;
+    }
     (*M_outputStream) 
       << sRepartitionInfo(M_ResponseTimeRepartition[i], 
                           M_SizeOfResponseTimeRepartition);
