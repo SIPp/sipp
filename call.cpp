@@ -161,7 +161,6 @@ call * add_call(bool ipv6)
 {
   static char call_id[MAX_HEADER_LEN];
   
-  call * new_call;
   char * src = call_id_string;
   int count = 0;
   
@@ -1052,7 +1051,6 @@ int call::sendBuffer(char * msg)
 
 char * call::compute_cseq(char * src)
 {
-  char *dest;
   static char cseq[MAX_HEADER_LEN];
 
     /* If we find a CSeq in incoming msg */
@@ -1109,7 +1107,7 @@ char * call::get_last_header(char * name)
   /* Ideally this check should be moved to the XML parser so that it is not
    * along a critical path.  We could also handle lowercasing there. */
   if (strlen(name) > MAX_HEADER_LEN) {
-    ERROR_P2("call::get_last_header: Header to parse bigger than %d (%d)", MAX_HEADER_LEN, strlen(name));
+    ERROR_P2("call::get_last_header: Header to parse bigger than %d (%zu)", MAX_HEADER_LEN, strlen(name));
   }
   while(src = strcasestr2(src, src_tmp)) {
     src++;
@@ -1351,6 +1349,10 @@ bool call::next()
           CStat::instance()->computeStat(CStat::E_CALL_FAILED);
           CStat::instance()->computeStat(CStat::E_FAILED_REGEXP_HDR_NOT_FOUND);
           break;
+	case call::E_AR_NO_ERROR:
+	case call::E_AR_STOP_CALL:
+	  /* Do nothing. */
+	  break;
       }
     } else {
       CStat::instance()->computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
@@ -1370,7 +1372,7 @@ bool call::run()
   assert(running);
 
   if(msg_index >= scenario_len) {
-    ERROR_P3("Scenario overrun for call %s (%08x) (index = %d)\n", 
+    ERROR_P3("Scenario overrun for call %s (%p) (index = %d)\n",
              id, this, msg_index);
   }
 
@@ -1626,9 +1628,6 @@ bool call::run()
 
 bool call::process_unexpected(char * msg)
 {
-  static int first = 1;
-  int res ;
-  
   scenario[msg_index] -> nb_unexp++;
   
   if (scenario[msg_index] -> recv_request) {
@@ -1659,7 +1658,7 @@ bool call::process_unexpected(char * msg)
   // if twin socket call => reset the other part here 
   if (twinSippSocket && (msg_index > 0)) {
     //WARNING_P2("call-ID '%s', internal-cmd: abort_call %s",id, "");
-    res = sendCmdBuffer
+    sendCmdBuffer
       (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n", -1));
   }
 #endif /* __3PCC__ */
@@ -1693,7 +1692,6 @@ bool call::abortCall()
   if ((toolMode != MODE_SERVER) && (msg_index > 0)) {
     if ((call_established == false) && (is_inv)) {
       src_recv = last_recv_msg ;
-      char * dest   ;
       char   L_msg_buffer[SIPP_MAX_MSG_SIZE];
       L_msg_buffer[0] = '\0';
       char * L_param = L_msg_buffer;
@@ -1859,7 +1857,6 @@ int call::sendCmdMessage(int index)
     return(-1);
 }
 
-
 int call::sendCmdBuffer(char* cmd)
 {
   char * dest;
@@ -1946,8 +1943,6 @@ char* call::createSendingMessage(char * src, int P_index)
     char * dest = msg_buffer;
     char * key;
     char * length_marker = NULL;
-    const char * auth_marker = NULL;
-    int auth_marker_len = 0;
     int    offset = 0;
     int    len_offset = 0;
     char   current_line[MAX_HEADER_LEN];
@@ -2079,7 +2074,7 @@ char* call::createSendingMessage(char * src, int P_index)
         } else if(!strcmp(keyword, "media_ip_type")) {
           dest += sprintf(dest, "%s", (media_ip_is_ipv6 ? "6" : "4"));
         } else if(!strcmp(keyword, "call_number")) {
-          dest += sprintf(dest, "%lu", number);
+          dest += sprintf(dest, "%u", number);
         } else if(!strcmp(keyword, "call_id")) {
           dest += sprintf(dest, "%s", id);
         } else if(!strcmp(keyword, "cseq")) {
@@ -2168,9 +2163,9 @@ char* call::createSendingMessage(char * src, int P_index)
         } else if(strstr(keyword, "branch")) {
           /* Branch is magic cookie + call number + message index in scenario */
 	    if(P_index == -2){
-	       dest += sprintf(dest, "z9hG4bK-%u-%lu-%d", pid, number, msg_index-1);
-	    }else{
-          dest += sprintf(dest, "z9hG4bK-%u-%lu-%d", pid, number, P_index);
+	       dest += sprintf(dest, "z9hG4bK-%u-%u-%d", pid, number, msg_index-1);
+	    } else {
+	      dest += sprintf(dest, "z9hG4bK-%u-%u-%d", pid, number, P_index);
 	    }
         } else if(strstr(keyword, "msg_index")) {
           /* Message index in scenario */
@@ -2218,6 +2213,8 @@ char* call::createSendingMessage(char * src, int P_index)
      */
 
     if(dialog_authentication && (src = strstr(msg_buffer, "[authentication"))) {
+        char * auth_marker;
+	int	   auth_marker_len;
 
         char my_auth_user[KEYWORD_SIZE];
         char my_auth_pass[KEYWORD_SIZE];
@@ -2226,7 +2223,6 @@ char* call::createSendingMessage(char * src, int P_index)
         char my_aka_K[KEYWORD_SIZE];
         char * tmp;
         int  authlen;
-        int  paramlen;
 
         auth_marker = src;
         auth_marker_len = strchr(src, ']') - src;
@@ -2255,7 +2251,8 @@ char* call::createSendingMessage(char * src, int P_index)
             ERROR("Could not extract method from cseq of challenge");
         }
         while(isspace(*tmp) || isdigit(*tmp)) tmp++;
-        sscanf(tmp,"%s", &method);
+	/* This looks like it could have been be a bug, shouldn't it be method instead of &method. */
+        sscanf(tmp,"%s", method);
 
         /* Need the body for auth-int calculation */
         char body[SIPP_MAX_MSG_SIZE];
@@ -2354,7 +2351,7 @@ char* call::createSendingMessage(char * src, int P_index)
       key = strstr(length_marker,"\r\n\r\n");
       if (key && dest - key > 4 && dest - key < 10004) {
         char tmp = length_marker[4];
-        sprintf(length_marker, "%4u", dest - key - 4 + len_offset);
+        sprintf(length_marker, "%4zu", dest - key - 4 + len_offset);
         length_marker[4] = tmp;
       } else {
         // Other cases: Content-Length is 0
@@ -2371,7 +2368,7 @@ char* call::createSendingMessage(char * src, int P_index)
 #ifdef __3PCC__
 bool call::process_twinSippCom(char * msg)
 {
-  int             search_index;
+  int		  search_index;
   bool            found = false;
   T_ActionResult  actionResult;
 
@@ -2671,7 +2668,7 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
   }
 }
 
-bool call::matches_scenario(int index, int reply_code, char * request, char * responsecseqmethod)
+bool call::matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod)
 {         
   int        result;
           
@@ -3063,11 +3060,11 @@ bool call::process_incoming(char * msg)
     msg_index = search_index;
     return next();
   } else {
-    int timeout = call_wake(this);
-    int candidate;
+    unsigned int timeout = call_wake(this);
+    unsigned int candidate;
 
     if (test < SCEN_VARIABLE_SIZE && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()) {
-      WARNING_P1("Last message generates an error and will not be used for next sends (for last_ varaiables)\n",msg);
+      WARNING_P1("Last message generates an error and will not be used for next sends (for last_ variables):\r\n%s",msg);
     }
 
     /* We are just waiting for a message to be received, if any of the
@@ -3392,7 +3389,7 @@ void call::readInputFileContents(const char* fileName)
   delete inFile;
 }
  
-void call::getFieldFromInputFile(const char* keyword, int lineNum, char*& dest)
+void call::getFieldFromInputFile(const char* keyword, unsigned int lineNum, char*& dest)
 {
   int nthField    = atoi(keyword+5 /*strlen("field")*/);
   int origNth     = nthField;
@@ -3403,15 +3400,15 @@ void call::getFieldFromInputFile(const char* keyword, int lineNum, char*& dest)
     // WARNING_P3("lineNum [%d] nthField [%d] line [%s]",
     //         lineNum, nthField, line.c_str());
     
-    int pos(0), oldpos(0);
+    size_t pos(0), oldpos(0);
     do {
       oldpos = pos;
-      int localint = line.find(';', oldpos);
+      size_t localpos = line.find(';', oldpos);
       
-      if (localint != string::npos) {
-        pos = localint + 1;
+      if (localpos != string::npos) {
+        pos = localpos + 1;
       } else {
-        pos = localint;
+        pos = localpos;
         break;
       }
       
@@ -3643,8 +3640,8 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
 void *send_wrapper(void *arg)
 {
   play_args_t *s = (play_args_t *) arg;
-  struct sched_param param;
-  int ret;
+  //struct sched_param param;
+  //int ret;
   //param.sched_priority = 10;
   //ret = pthread_setschedparam(pthread_self(), SCHED_RR, &param);
   //if(ret)

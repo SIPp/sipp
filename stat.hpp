@@ -282,18 +282,15 @@ public:
 
   /**
    * Get_current_counter_call Methods is used to get the number of current call
-   *
-   * @return 0 if the action is known
-   *        -1 else
    */
-  int get_current_counter_call ();
+  unsigned long long get_current_counter_call ();
 
   /**
    * GetStat Method is used to retrieve a counter value
    *
    * @return the counter value
    **/
-  unsigned long  GetStat (E_CounterName P_counter);
+  unsigned long long GetStat (E_CounterName P_counter);
   
   /**
    * formatTime.
@@ -390,7 +387,7 @@ private:
   double                   M_time_ref                  ;
 
   T_pValue_rtt             M_dumpRespTime              ;
-  int                      M_counterDumpRespTime       ;
+  unsigned int             M_counterDumpRespTime       ;
   unsigned long            M_report_freq_dumpRtt       ;
 
   /**

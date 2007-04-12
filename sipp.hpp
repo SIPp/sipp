@@ -182,10 +182,10 @@ extern bool               timeout_exit            _DEFVAL(false);
 extern unsigned long      report_freq_dumpRtt     _DEFVAL
                                                 (DEFAULT_FREQ_DUMP_RTT);
 
-extern int                max_multi_socket        _DEFVAL
+extern unsigned int       max_multi_socket        _DEFVAL
                                                 (DEFAULT_MAX_MULTI_SOCKET);
 
-extern int                timer_resolution        _DEFVAL(DEFAULT_TIMER_RESOLUTION);
+extern unsigned int       timer_resolution        _DEFVAL(DEFAULT_TIMER_RESOLUTION);
 extern int                max_recv_loops          _DEFVAL(MAX_RECV_LOOPS_PER_CYCLE);
 extern int                update_nb               _DEFVAL(NB_UPDATE_PER_CYCLE);
  
@@ -287,7 +287,7 @@ extern unsigned long nb_net_cong                  _DEFVAL(0);
 extern unsigned long nb_net_recv_errors           _DEFVAL(0);
 extern bool          cpu_max                      _DEFVAL(false);
 extern bool          outbound_congestion          _DEFVAL(false);
-extern int           open_calls_peak              _DEFVAL(0);
+extern unsigned int  open_calls_peak              _DEFVAL(0);
 extern unsigned long open_calls_peak_time         _DEFVAL(0);
 extern int           open_calls_user_setting      _DEFVAL(0);
 extern int           nb_out_of_the_blue           _DEFVAL(0);
@@ -304,7 +304,7 @@ extern unsigned long rtp2_bytes_pcap              _DEFVAL(0);
 
 /************* Rate Control & Contexts variables **************/
 
-extern int           open_calls                   _DEFVAL(0);
+extern unsigned int  open_calls                   _DEFVAL(0);
 extern int           last_running_calls           _DEFVAL(0);
 extern int           last_woken_calls             _DEFVAL(0);
 extern int           last_paused_calls            _DEFVAL(0);

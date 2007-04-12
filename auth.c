@@ -498,18 +498,15 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
                      char * uri, char * msgbody, char * auth, char *algo,
                      char * result) {
                      	
-  char tmp[MAX_HEADER_LEN], authtype[16], cnonce[32], nc[32], opaque[64];
+  char tmp[MAX_HEADER_LEN];
   char *start, *end;
-  static unsigned int mync = 1;
   int has_auts = 0, resuf = 1;
-  int has_opaque = 0;
   char *nonce64, *nonce;
   int noncelen;
   RESHEX resp_hex;
   AMF amf;
   OP op;
   RAND rnd;
-  AUTN autn;
   AUTS auts_bin;
   AUTS64 auts_hex;
   MAC mac,xmac;
@@ -519,7 +516,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
   CK ck;
   IK ik;
   AK ak;
-  int i,j;
+  int i;
 
   // Extract the Nonce 
   if ((start = stristr(auth, "nonce=")) == NULL) {

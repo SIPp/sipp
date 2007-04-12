@@ -296,7 +296,7 @@ long get_counter(const char *ptr, const char *what) {
 
   ret = get_long(ptr, what);
   if (ret < 1 || ret > MAX_COUNTER) {
-    ERROR_P2("Counter %d exceeds MAX_COUNTER %d!\n", ret, MAX_COUNTER);
+    ERROR_P2("Counter %ld exceeds MAX_COUNTER %d!\n", ret, MAX_COUNTER);
   }
 
   return ret;
@@ -442,7 +442,7 @@ void load_scenario(char * filename, int deflt)
             recv_count = 0;
             recv_opt_count = 0;
           } else {
-            ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true'.", scenario_file_cursor);
+            ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
           }
         }
         
@@ -653,7 +653,7 @@ void load_scenario(char * filename, int deflt)
             recv_count = 0;
             recv_opt_count = 0;
           } else {
-            ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true'.", scenario_file_cursor);
+            ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
           }
         }
         scenario[scenario_len]->M_type = MSG_TYPE_PAUSE;
@@ -710,10 +710,10 @@ void load_scenario(char * filename, int deflt)
 	  }
 
 	  if (stdev < 0) {
-	    ERROR_P1("Standard deviations must be positive: %d\n", stdev);
+	    ERROR_P1("Standard deviations must be positive: %ld\n", stdev);
 	  }
 	  if (mean < 0) {
-	    ERROR_P1("Pause means should not be negative: %d\n", mean);
+	    ERROR_P1("Pause means should not be negative: %ld\n", mean);
 	  }
 
           scenario[scenario_len] -> pause_param  = mean;
@@ -745,10 +745,10 @@ void load_scenario(char * filename, int deflt)
 	  }
 
 	  if (stdev < 0) {
-	    ERROR_P1("Standard deviations must be positive: %d\n", stdev);
+	    ERROR_P1("Standard deviations must be positive: %lf\n", stdev);
 	  }
 	  if (mean < 0) {
-	    ERROR_P1("Pause means should not be negative: %d\n", mean);
+	    ERROR_P1("Pause means should not be negative: %lf\n", mean);
 	  }
 
           scenario[scenario_len] -> pause_dparam  = mean;
@@ -764,7 +764,7 @@ void load_scenario(char * filename, int deflt)
 	  /* It is easy to shoot yourself in the foot with this distribution,
 	   * so the 99-th percentile serves as a sanity check for duration. */
 	  if (gsl_cdf_lognormal_Pinv(0.99, mean, stdev) > INT_MAX) {
-	    ERROR_P2("You should use different Lognormal(%d, %d) parameters.\n"
+	    ERROR_P2("You should use different Lognormal(%lf, %lf) parameters.\n"
 		"The scenario is likely to take much too long.\n", mean, stdev);
 	  }
 
@@ -818,7 +818,7 @@ void load_scenario(char * filename, int deflt)
 	  }
 
 	  if (mean < 0) {
-	    ERROR_P1("Pause means should not be negative: %d\n", mean);
+	    ERROR_P1("Pause means should not be negative: %ld\n", mean);
 	  }
 
           scenario[scenario_len] -> pause_param = mean;
@@ -869,7 +869,7 @@ void load_scenario(char * filename, int deflt)
             recv_count = 0;
             recv_opt_count = 0;
           } else {
-            ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true'.", scenario_file_cursor);
+            ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
           }
         }
         scenario[scenario_len]->M_type = MSG_TYPE_RECVCMD;
@@ -886,7 +886,7 @@ void load_scenario(char * filename, int deflt)
             recv_count = 0;
             recv_opt_count = 0;
           } else {
-            ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true'.", scenario_file_cursor);
+            ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
           }
         }
         scenario[scenario_len]->M_type = MSG_TYPE_SENDCMD;

@@ -84,7 +84,7 @@ private:
 	/* How many calls are in this wheel. */
 	int count;
 
-	int wheel_base;
+	unsigned int wheel_base;
 
 	/* The actual wheels. */
 	call_list wheel_one[LEVEL_ONE_SLOTS];
@@ -104,19 +104,19 @@ public:
   unsigned int   number;
   unsigned int   tdm_map_number;
 
-  unsigned int   msg_index;
+  int		msg_index;
 
   /* Last message sent from scenario step (retransmitions do not
    * change this index. Only message sent from the scenario
    * are kept in this index.) */
-  unsigned int   last_send_index;
+  int		 last_send_index;
   char         * last_send_msg;
 
   /* Last received message (expected,  not optional, and not 
    * retransmitted) and the associated hash. Stills setted until a new
    * scenario steps sends a message */
   unsigned long    last_recv_hash;
-  unsigned int     last_recv_index;
+  int		   last_recv_index;
   char           * last_recv_msg;
 
   /* Recv message characteristics when we sent a valid message
@@ -150,7 +150,7 @@ public:
 #endif
 
   unsigned int   next_retrans;
-  unsigned int   nb_retrans;
+  int   	 nb_retrans;
   unsigned int   nb_last_delay;
 
   unsigned int   paused_until;
@@ -209,7 +209,7 @@ public:
   bool run(); 
   void formatNextReqUrl (char* next_req_url);
   void computeRouteSetAndRemoteTargetUri (char* rrList, char* contact, bool bRequestIncoming);
-  bool matches_scenario(int index, int reply_code, char * request, char * responsecseqmethod);
+  bool matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod);
   bool process_incoming(char * msg);
 
   T_ActionResult executeAction(char * msg, int scenarioIndex);
@@ -258,7 +258,7 @@ public:
   static void readInputFileContents(const char* fileName);
   static void dumpFileContents(void);
 
-  static void getFieldFromInputFile(const char* fieldName, int lineNum, char*& dest);
+  static void getFieldFromInputFile(const char* fieldName, unsigned int lineNum, char*& dest);
   static void getIpFieldFromInputFile(int fieldNr, int lineNum, char *dest);
   static int  m_counter; // used for sequential access
 

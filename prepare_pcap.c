@@ -88,17 +88,12 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
   int n_pkts = 0;
   u_long max_length = 0;
   u_int16_t base = 0xffff;
-  u_int16_t *chk_buffer;
   u_long pktlen;
   pcap_pkt *pkt_index;
   ether_hdr *ethhdr;
   struct iphdr *iphdr;
   ipv6_hdr *ip6hdr;
   struct udphdr *udphdr;
-
-  // to be suppressed
-  int check_s = 0;
-  int diff;
 
   pkts->pkts = NULL;
 
@@ -195,7 +190,7 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
   pkts->max = pkts->pkts + n_pkts;
   pkts->max_length = max_length;
   pkts->base = base;
-  fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %d\nbase port %d\n", file, n_pkts, max_length, base);
+  fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %ld\nbase port %d\n", file, n_pkts, max_length, base);
   pcap_close(pcap);
 
   return 0;

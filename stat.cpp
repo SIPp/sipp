@@ -258,8 +258,6 @@ int CStat::createIntegerTable(char * P_listeStr,
   char * ptr = P_listeStr;
   char * ptr_prev = P_listeStr;
   unsigned int current_int;
-  int sizeOf;
-  bool isANumber;
  
   if(isWellFormed(P_listeStr, sizeOfList) == 1)
     {
@@ -346,7 +344,7 @@ void CStat::setFileName(char * P_name, char * P_extension)
 
 void CStat::setFileName(char * P_name)
 {
-  int sizeOf, sizeOfExtension; 
+  int sizeOf;
 
   if(P_name != NULL) 
     { 
@@ -375,7 +373,7 @@ void CStat::setFileName(char * P_name)
 
 void CStat::initRtt(char * P_name, char * P_extension,
                     unsigned long P_report_freq_dumpRtt) {
-  int sizeOf, sizeOfExtension, L_i; 
+  int sizeOf, sizeOfExtension;
 
   if(P_name != NULL) { 
     sizeOf = strlen(P_name) ;
@@ -411,7 +409,7 @@ void CStat::initRtt(char * P_name, char * P_extension,
     exit(EXIT_FATAL_ERROR);
   }
   
-  for (L_i = 0 ; L_i < P_report_freq_dumpRtt; L_i ++) {
+  for (unsigned L_i = 0 ; L_i < P_report_freq_dumpRtt; L_i ++) {
     M_dumpRespTime[L_i].date = 0.0;
     M_dumpRespTime[L_i].rtd_no = 0;
     M_dumpRespTime[L_i].rtt = 0.0;
@@ -667,12 +665,11 @@ int CStat::computeRtt (unsigned long P_start_time, double P_stop_time, int which
   return (0);
 }
 
-int CStat::get_current_counter_call (){
-  return (M_counters[CPT_C_CurrentCall]);
-
+unsigned long long CStat::get_current_counter_call (){
+  return M_counters[CPT_C_CurrentCall];
 }
 
-unsigned long CStat::GetStat (E_CounterName P_counter)
+unsigned long long CStat::GetStat (E_CounterName P_counter)
 {
   return M_counters [P_counter];
 }
@@ -808,7 +805,7 @@ void CStat::updateRepartition(T_dynamicalRepartition* P_tabReport,
             {
               // ERROR !!!!
               printf("\n ERROR - Unable to sort this Value in "
-                     "the repartition table! %d \n", P_value);
+                     "the repartition table! %lu \n", P_value);
             }
         }
     }
@@ -872,7 +869,7 @@ char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
     }
   else
     {
-      sprintf(repartitionHeader, "");
+      repartitionHeader[0] = '\0';
     }
 
   return(repartitionHeader);
@@ -890,15 +887,15 @@ char* CStat::sRepartitionInfo(T_dynamicalRepartition * tabRepartition,
       sprintf(repartitionInfo, stat_delimiter);
       for(int i=0; i<(sizeOfTab-1); i++)
         {   
-          sprintf(buffer, "%d%s", tabRepartition[i].nbInThisBorder, stat_delimiter);
+          sprintf(buffer, "%lu%s", tabRepartition[i].nbInThisBorder, stat_delimiter);
           strcat(repartitionInfo, buffer);
         }
-      sprintf(buffer, "%d%s", tabRepartition[sizeOfTab-1].nbInThisBorder, stat_delimiter);
+      sprintf(buffer, "%lu%s", tabRepartition[sizeOfTab-1].nbInThisBorder, stat_delimiter);
       strcat(repartitionInfo, buffer);
     }
   else
     {
-      sprintf(repartitionInfo, "");
+      repartitionInfo[0] = '\0';
     }
 
   return(repartitionInfo);
@@ -929,7 +926,6 @@ void CStat::displayRepartition(FILE *f,
 
 void CStat::displayData (FILE *f)
 {
-  char   buf1 [64], buf2 [64], buf3 [64];
   long   localElapsedTime, globalElapsedTime ;
   struct timeval currentTime;
   float  averageCallRate;
@@ -1059,7 +1055,6 @@ void CStat::displayData (FILE *f)
 
 void CStat::displayStat (FILE *f)
 {
-  char   buf1 [64], buf2 [64], buf3 [64];
   long   localElapsedTime, globalElapsedTime ;
   struct timeval currentTime;
   float  averageCallRate;
@@ -1411,8 +1406,6 @@ void CStat::dumpData ()
 
 void CStat::dumpDataRtt ()
 {
-  int L_i ;
-
   if(M_outputStreamRtt == NULL) {
     // if the file is still not opened, we opened it now
     M_outputStreamRtt = new ofstream(M_fileNameRtt);
@@ -1439,7 +1432,7 @@ void CStat::dumpDataRtt ()
     M_headerAlreadyDisplayedRtt = true;
   }
 
-  for (L_i = 0; L_i < M_counterDumpRespTime ; L_i ++) {
+  for (unsigned L_i = 0; L_i < M_counterDumpRespTime ; L_i ++) {
     (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].date   << stat_delimiter ;
     (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtt    << stat_delimiter ;
     (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtd_no << endl;
@@ -1466,7 +1459,7 @@ char* CStat::msToHHMMSS (unsigned long P_ms)
   hh = P_ms / 3600;
   mm = (P_ms - hh * 3600) / 60;
   ss = P_ms - (hh * 3600) - (mm * 60);
-  sprintf (L_time, "%2.2d:%2.2d:%2.2d", hh, mm, ss);
+  sprintf (L_time, "%2.2lu:%2.2lu:%2.2lu", hh, mm, ss);
   return (L_time);
 } /* end of msToHHMMSS */
 
@@ -1480,7 +1473,7 @@ char* CStat::msToHHMMSSmmm (unsigned long P_ms)
   mm   = (sec - hh * 3600) / 60;
   ss   = sec - (hh * 3600) - (mm * 60);
   mmm  = P_ms - (hh * 3600000) - (mm * 60000) - (ss*1000);
-  sprintf (L_time, "%2.2d:%2.2d:%2.2d:%3.3d", hh, mm, ss, mmm);
+  sprintf (L_time, "%2.2lu:%2.2lu:%2.2lu:%3.3lu", hh, mm, ss, mmm);
   return (L_time);
 } /* end of msToHHMMSS */
 

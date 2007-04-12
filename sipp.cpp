@@ -336,8 +336,6 @@ int sip_tls_verify_callback(int ok , X509_STORE_CTX *store)
   
   if (!ok) {
      X509 *cert = X509_STORE_CTX_get_current_cert(store);
-     int  depth = X509_STORE_CTX_get_error_depth(store);
-     int  err   = X509_STORE_CTX_get_error(store);
 
      X509_NAME_oneline(X509_get_issuer_name(cert),
                                    data,512);
@@ -853,12 +851,12 @@ void print_stats_in_file(FILE * f, int last)
   
   /* 1st line */
   if(total_calls < stop_after) {
-    sprintf(temp_str, "%d new calls during %d.%03d s period ",
+    sprintf(temp_str, "%lu new calls during %lu.%03lu s period ",
             total_calls - last_report_calls,
             (clock_tick-last_report_time) / 1000, 
             ((clock_tick-last_report_time) % 1000));
   } else {
-    sprintf(temp_str, "Call limit reached (-m %d), %d.%03d s period ",
+    sprintf(temp_str, "Call limit reached (-m %lu), %lu.%03lu s period ",
             stop_after,
             (clock_tick-last_report_time) / 1000, 
             ((clock_tick-last_report_time) % 1000));
@@ -913,7 +911,7 @@ void print_stats_in_file(FILE * f, int last)
 #ifdef PCAPPLAY
   /* if has media abilities */
   if (hasMedia != 0) {
-    sprintf(temp_str, "%d Total RTP pckts sent ",
+    sprintf(temp_str, "%lu Total RTP pckts sent ",
             rtp_pckts_pcap);
     if (clock_tick-last_report_time) {
        fprintf(f,"  %-38s %d.%03d last period RTP rate (kB/s)" SIPP_ENDL,
@@ -928,7 +926,7 @@ void print_stats_in_file(FILE * f, int last)
 
   /* 5th line, RTP echo statistics */
   if (rtp_echo_enabled && (media_socket > 0)) {
-    sprintf(temp_str, "%d Total echo RTP pckts 1st stream",
+    sprintf(temp_str, "%lu Total echo RTP pckts 1st stream",
             rtp_pckts);
 
     // AComment: Fix for random coredump when using RTP echo
@@ -939,7 +937,7 @@ void print_stats_in_file(FILE * f, int last)
               (rtp_bytes)%(clock_tick-last_report_time));
     }
     /* second stream statitics: */
-    sprintf(temp_str, "%d Total echo RTP pckts 2nd stream",
+    sprintf(temp_str, "%lu Total echo RTP pckts 2nd stream",
             rtp2_pckts);
 
     // AComment: Fix for random coredump when using RTP echo
@@ -970,7 +968,6 @@ void print_stats_in_file(FILE * f, int last)
     
     if(scenario[index] -> send_scheme) {
       char *dest, *src;
-      int len;
       dest = temp_str;
       src  = scenario[index] -> send_scheme;
 
@@ -1192,7 +1189,6 @@ void print_tdm_map()
 {
   int interval = 0;
   int i = 0;
-  int j = 0;
   int in_use = 0;
   interval = (tdm_map_a+1) * (tdm_map_b+1) * (tdm_map_c+1);
 
@@ -1507,7 +1503,7 @@ void ctrl_thread (void * param)
   int soc,ret;
   short prt;
   int port, try_counter;
-  unsigned char bufrcv [20], c; 
+  unsigned char bufrcv [20];
   struct sockaddr_in sin;
   
   port = DEFAULT_CTRL_SOCKET_PORT;
@@ -1529,7 +1525,7 @@ void ctrl_thread (void * param)
     port++;
   }
   if (try_counter == 60) {
-    WARNING_P3("Unable to bind remote control socket (tried UDP ports %d-%d)", 
+    WARNING_P3("Unable to bind remote control socket (tried UDP ports %d-%d): %s",
                   DEFAULT_CTRL_SOCKET_PORT, 
                   DEFAULT_CTRL_SOCKET_PORT+60, 
                   strerror(errno));
@@ -1715,10 +1711,6 @@ unsigned long get_reply_code(char *msg)
 int recv_all_tls(SSL *ssl, char *buffer, int size, int trace_id)
 {
   int    recv_size = 0;
-  char * start_buffer = buffer;
-  int    to_be_recvd = size;
-  int    part_size ;
-  int    err;
 
   recv_size = SSL_read(ssl,buffer, size);
   sip_tls_error_handling(ssl, recv_size);
@@ -1950,8 +1942,6 @@ int recv_tls_message(SSL * ssl,
 {
   int len = 0;
   int recv_size;
-  char * ctl_hdr;
-  int content_length;
 
   len = recv_size = recv_all_tls(ssl, buffer, buffer_size, 1);
 
@@ -2073,7 +2063,7 @@ int recv_tcp_message(int sock,
   return len;
 }
 
-int decompress_if_needed(int sock, char *buff,  int len, void **st)
+size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
 {
   if(compression && len) {
     if (useMessagef == 1) {	  
@@ -2093,7 +2083,7 @@ int decompress_if_needed(int sock, char *buff,  int len, void **st)
     
     int rc = comp_uncompress(st,
                              buff, 
-                             (unsigned int *)&len);
+                             &len);
     
     switch(rc) {
     case COMP_OK:
@@ -2243,7 +2233,7 @@ int send_message(int s, void ** comp_state, char * msg)
                      strlen(msg), 
                      0);
 
-   if (rc >= 0 && rc != strlen(msg))
+   if (rc >= 0 && (rc != (int)strlen(msg)))
     {
       /* Truncated message sent ... we need to store pending msg */
       int idx = pollset_find(s);
@@ -2331,7 +2321,6 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
   BIO *bio;
   SSL *ssl;
 #endif
-  int err;
   
   for((*poll_idx) = 0;
       (*poll_idx) < pollnfds;
@@ -2368,7 +2357,6 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
       
       call * recv_call = pollcalls[(*poll_idx)];
       int s = pollfiles[(*poll_idx)].fd;
-      int ss = s;
       pollfiles[(*poll_idx)].revents = 0;
 
 #ifdef __3PCC__
@@ -2442,7 +2430,7 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
 
             SSL_set_bio(ssl,bio,bio);
 
-            if ( (err = SSL_accept(ssl)) < 0 ) {
+            if ( (SSL_accept(ssl)) < 0 ) {
               if (reset_number > 0) {
                 WARNING("SSL_accept Fails - recv_message()\n");
                 start_calls = 1;
@@ -2466,7 +2454,6 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
         }
 #ifdef _USE_OPENSSL
         if ( transport == T_TLS ) {
-          int ss = s;
           ssl = ssl_list[s];
           size = recv_tls_message(ssl,
                                   buffer,
@@ -2531,7 +2518,7 @@ int recv_message(char * buffer, int buffer_size, int * poll_idx)
         
         if(size < 0) {
           WARNING_P3("Unexpected UDP recv error, idx = %d, "
-                     "socket = %d, recv_call = 0x%08x",
+                     "socket = %d, recv_call = 0x%p",
                      (*poll_idx), s, recv_call);
           ERROR_NO("Unexpected UDP recv error");
 #if 0
@@ -2907,14 +2894,13 @@ void traffic_thread(bool ipv6)
 #ifndef _USE_OPENSSL
         if (multisocket) {
           if (!socket_open) {
-             int    L_counter;
-             for (L_counter = 0; L_counter < pollnfds; L_counter++) {
+             for (int L_counter = 0; L_counter < pollnfds; L_counter++) {
                if (pollfiles[L_counter].fd != 0) { 
                   pollset_remove(L_counter);
                }
              }
 
-             for (L_counter = min_socket; L_counter < (max_multi_socket+min_socket) ; L_counter ++) {
+             for (unsigned int L_counter = min_socket; L_counter < (max_multi_socket+min_socket) ; L_counter ++) {
                 shutdown(L_counter, SHUT_RDWR);
                 close(L_counter);
              }
@@ -3403,9 +3389,8 @@ int new_socket(bool P_use_ipv6, int P_type_socket,int * P_status) {
          socket_open  = false ;
          test_socket  = false ;
 
-         int    L_counter;
          tab_multi_socket = new int [ max_multi_socket + min_socket ] ;
-         for (L_counter = 0; L_counter < (max_multi_socket + min_socket) ; L_counter ++) {
+         for (unsigned int L_counter = 0; L_counter < (max_multi_socket + min_socket) ; L_counter ++) {
            tab_multi_socket [L_counter] = 0 ;
          }
        }
@@ -3414,7 +3399,7 @@ int new_socket(bool P_use_ipv6, int P_type_socket,int * P_status) {
        tab_multi_socket [select_socket] ++;
        select_socket++;
 
-       if(select_socket == (max_multi_socket + min_socket)) {
+       if((unsigned int)select_socket == (max_multi_socket + min_socket)) {
           select_socket = min_socket ; 
         }
 
@@ -3451,11 +3436,8 @@ int delete_socket(int P_socket) {
 int main(int argc, char *argv[])
 {
   int                  argi = 0;
-  int                  index = 0;
   struct sockaddr_storage   media_sockaddr;
   pthread_t            pthread_id, pthread2_id,  pthread3_id;
-  char                *scenario_name = NULL;
-  int                  err;
   int                  L_maxSocketPresent = 0;
   unsigned int         generic_count = 0;
   bool                 slave_masterSet = false;
@@ -3533,7 +3515,7 @@ int main(int argc, char *argv[])
 #ifdef PCAPPLAY
 	    "-PCAP"
 #endif
-	    ", version %ld, built %s, %s.\n\n", 
+	    ", version %d, built %s, %s.\n\n",
 	    SIPP_VERSION, __DATE__, __TIME__); 
 
 	printf
@@ -3710,7 +3692,7 @@ int main(int argc, char *argv[])
 	  int i = find_scenario(argv[argi]);
 
 	  if (i < 0) {
-	    ERROR_P1("Invalid default scenario name '%s'.\n", scenario);
+	    ERROR_P1("Invalid default scenario name '%s'.\n", argv[argi]);
 	  }
 
 	  CStat::instance()->setFileName(argv[argi], (char*)".csv");
@@ -3721,7 +3703,7 @@ int main(int argc, char *argv[])
 	  int i = find_scenario(argv[argi]);
 
 	  if (i < 0) {
-	    ERROR_P1("Invalid default scenario name '%s'.\n", scenario);
+	    ERROR_P1("Invalid default scenario name '%s'.\n", argv[argi]);
 	  }
 
 	  fprintf(stdout, "%s", default_scenario[i]);
@@ -4222,7 +4204,6 @@ int close_connections() {
 
 int open_connections() {
   int status=0;
-  int err; 
   local_port = 0;
   
   if(!strlen(remote_host)) {
@@ -4500,7 +4481,7 @@ int open_connections() {
 
     char peripaddr[256];
     int sock;
-    for (int i = 0; i < fileContents.size(); i++) {
+    for (unsigned int i = 0; i < fileContents.size(); i++) {
       call::getIpFieldFromInputFile(0, i, peripaddr);
       map<string, int>::iterator j;
       j = map_perip_fd.find(peripaddr);
@@ -4600,7 +4581,7 @@ int open_connections() {
       }
     
       SSL_set_bio(ssl_tcp_multiplex,bio,bio);
-      if ( (err = SSL_connect(ssl_tcp_multiplex)) < 0 ) {
+      if ( (SSL_connect(ssl_tcp_multiplex)) < 0 ) {
         ERROR("Error in SSL connection \n");
       }
 
@@ -4729,6 +4710,7 @@ int * get_peer_socket(char * peer)
      else {
        ERROR_P1("get_peer_socket: Peer %s not found\n", peer);    
     }
+     return NULL;
 } 
 
 char * get_peer_addr(char * peer)
@@ -4743,6 +4725,7 @@ char * get_peer_addr(char * peer)
      else{
        ERROR_P1("get_peer_addr: Peer %s not found\n", peer);
        }
+     return NULL;
 }
 
 bool is_a_peer_socket(int peer_socket)

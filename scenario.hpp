@@ -112,7 +112,7 @@ public:
   char         * peer_src;
 
   /* If this is a recv */
-  unsigned int   recv_response;
+  int   	 recv_response;
   char         * recv_request;
   int            optional;
   int            regexp_match;
@@ -167,7 +167,7 @@ public:
 
 extern message   *   scenario[SCEN_MAX_MESSAGES];
 extern CVariable *   scenVariableTable[SCEN_VARIABLE_SIZE][SCEN_MAX_MESSAGES];
-extern int           scenario_len;
+extern int	     scenario_len;
 extern char          scenario_name[255];
 extern int           toolMode;
 

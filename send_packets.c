@@ -116,7 +116,7 @@ void do_sleep (struct timeval *, struct timeval *,
 int
 send_packets (play_args_t * play_args)
 {
-  int ret, sock, port_diff, i;
+  int ret, sock, port_diff;
   pcap_pkt *pkt_index, *pkt_max;
   uint16_t *from_port, *to_port;
   struct timeval didsleep = { 0, 0 };
@@ -127,7 +127,6 @@ send_packets (play_args_t * play_args)
   struct sockaddr_storage *to = &(play_args->to);
   struct sockaddr_storage *from = &(play_args->from);
   struct udphdr *udp;
-	struct ip6_hdr *ip6;
   struct sockaddr_in6 to6, from6;
   char buffer[PCAP_MAXPACKET];
   int temp_sum;
@@ -241,8 +240,7 @@ void do_sleep (struct timeval *time, struct timeval *last,
 	  struct timeval *didsleep, struct timeval *start)
 {
   struct timeval nap, now, delta;
-  struct timespec ignore, sleep;
-  float n;
+  struct timespec sleep;
 
   if (gettimeofday (&now, NULL) < 0)
     {
