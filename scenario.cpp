@@ -23,6 +23,7 @@
  *           Guillaume TEISSIER from FTR&D
  *           Wolfgang Beck
  *           Marc Van Diest from Belgacom
+ *	     Charles P. Wright from IBM Research
  */
 
 #include <stdlib.h>
@@ -356,6 +357,14 @@ unsigned int pause_exponential(message *msg) {
   double duration = 0;
 
   duration = gsl_ran_exponential(rng, (double)msg->pause_param);
+
+  return (unsigned int)duration;
+}
+
+unsigned int pause_weibull(message *msg) {
+  double duration;
+
+  duration = gsl_ran_weibull(rng, msg->pause_dparam, msg->pause_dparam2);
 
   return (unsigned int)duration;
 }
@@ -729,10 +738,10 @@ void load_scenario(char * filename, int deflt)
 	  init_rng();
 
           if (ptr = xp_get_value("mean")) {
-		mean = get_double(ptr, "Exp(Mean) pause");
+		mean = get_double(ptr, "Lognormal mean pause");
 	  }
           if (ptr = xp_get_value("stdev")) {
-		stdev = get_double(ptr, "Pause standard deviation");
+		stdev = get_double(ptr, "Lognormal pause standard deviation");
 	  }
 
 	  if (stdev < 0) {
@@ -760,6 +769,44 @@ void load_scenario(char * filename, int deflt)
 	  }
 
 	  scenario_duration += (int)gsl_cdf_lognormal_Pinv(0.99, mean, stdev);
+	} else if (xp_get_value("weibull")) {
+	  double lambda, k;
+	  char tmp[46];
+
+	  init_rng();
+
+          if (ptr = xp_get_value("lambda")) {
+	    lambda = get_double(ptr, "Weibull lambda");
+	  } else {
+	    ERROR("lambda and k must be specified for weibull pauses!\n");
+	  }
+          if (ptr = xp_get_value("k")) {
+	    k = get_double(ptr, "Weibull k");
+	  } else {
+	    ERROR("lambda and k must be specified for weibull pauses!\n");
+	  }
+
+	  if (lambda <= 0) {
+	    ERROR_P1("Weibull lambda must be positive: %lf\n", lambda);
+	  }
+	  if (k <= 0) {
+	    ERROR_P1("Weibull k must be positive: %lf\n", k);
+	  }
+
+          scenario[scenario_len] -> pause_dparam  = lambda;
+          scenario[scenario_len] -> pause_dparam2 = k;
+	  scenario[scenario_len] -> pause_function = pause_weibull;
+	  snprintf(tmp, sizeof(tmp), "Wb(%.2lf,%.2lf)", lambda, k);
+	  scenario[scenario_len] -> pause_desc = strdup(tmp);
+
+	  /* It is easy to shoot yourself in the foot with this distribution,
+	   * so the 99-th percentile serves as a sanity check for duration. */
+	  if (gsl_cdf_weibull_Pinv(0.99, lambda, k) > INT_MAX) {
+	    ERROR_P2("You should use different Weibull(%lf, %lf) parameters.\n"
+		"The scenario is likely to take much too long.\n", lambda, k);
+	  }
+
+	  scenario_duration += (int)gsl_cdf_weibull_Pinv(0.99, lambda, k);
 	} else if (xp_get_value("exponential")) {
 	  long mean = 0;
 	  char tmp[26];
@@ -784,7 +831,8 @@ void load_scenario(char * filename, int deflt)
 #else
 	} else if (xp_get_value("normal") ||
 		   xp_get_value("lognormal") ||
-		   xp_get_value("exponential")
+		   xp_get_value("exponential") ||
+		   xp_get_value("weibull")
 	          ) {
 	  ERROR("To use a statistically distributed pause, you must have the GNU Scientific Library.\n");
 #endif
