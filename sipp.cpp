@@ -2091,7 +2091,7 @@ size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
     
     int rc = comp_uncompress(st,
                              buff, 
-                             &len);
+                             (unsigned int *) &len);
     
     switch(rc) {
     case COMP_OK:

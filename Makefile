@@ -96,7 +96,7 @@ MFLAGS=$(MFLAGS_$(MODELNAME))
 # supress warning #829 (Implicit conversion of string literal to
 #'char *' is deprecated) since this is both common and harmless
 CFLAGS_hpux=-D__HPUX -DPROTOTYPES +W829
-CFLAGS_linux=-D__LINUX -pthread
+CFLAGS_linux=-D__LINUX -pthread 
 CFLAGS_freebsd=-D__LINUX -pthread
 CFLAGS_tru64=-D__OSF1 -pthread
 CFLAGS_SunOS=-g -D__SUNOS
@@ -106,7 +106,7 @@ CFLAGS=$(CFLAGS_$(SYSTEM)) -D__3PCC__ $(TLS) $(PCAPPLAY) $(EXTRACFLAGS)
 
 #C++ Compiler Flags
 CPPFLAGS_hpux=-AA -mt -D__HPUX +W829 
-CPPFLAGS_linux=-D__LINUX -pthread
+CPPFLAGS_linux=-D__LINUX -pthread 
 CPPFLAGS_freebsd=-D__LINUX -pthread
 CPPFLAGS_tru64=-D__OSF1 -pthread
 CPPFLAGS_SunOS=-g -D__SUNOS
