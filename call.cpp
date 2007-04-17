@@ -1095,50 +1095,123 @@ char * call::get_header_field_code(char *msg, char * name)
 
 char * call::get_last_header(char * name)
 {
-  static char last_header[MAX_HEADER_LEN * 10];
-  char * src, *dest, *ptr;
-  /* Gcc will zero extend this using memset, if we do a default initializer.
-     We don't need this behavior, because we can just use sprintf. */
-  char src_tmp[MAX_HEADER_LEN+1];
+  int len;
 
   if((!last_recv_msg) || (!strlen(last_recv_msg))) {
     return NULL;
   }
 
-  src = last_recv_msg;
-  dest = last_header;
-  snprintf(src_tmp, MAX_HEADER_LEN, "\n%s", name);
+  len = strlen(name);
+
   /* Ideally this check should be moved to the XML parser so that it is not
    * along a critical path.  We could also handle lowercasing there. */
-  if (strlen(name) > MAX_HEADER_LEN) {
+  if (len > MAX_HEADER_LEN) {
     ERROR_P2("call::get_last_header: Header to parse bigger than %d (%zu)", MAX_HEADER_LEN, strlen(name));
   }
-  while(src = strcasestr2(src, src_tmp)) {
-    src++;
-    ptr = strchr(src, '\n');
-    
-    /* Multiline headers always begin with a tab or a space
-     * on the subsequent lines */
-    while((ptr) &&
-          ((*(ptr+1) == ' ' ) ||
-           (*(ptr+1) == '\t')    )) {
-      ptr = strchr(ptr + 1, '\n'); 
+
+  if (name[len - 1] == ':') {
+    return get_header(last_recv_msg, name, false);
+  } else {
+    char with_colon[MAX_HEADER_LEN];
+    sprintf(with_colon, "%s:", name);
+    return get_header(last_recv_msg, with_colon, false);
+  }
+}
+
+char * call::get_header_content(char* message, char * name)
+{
+  return get_header(message, name, true);
+}
+
+/* If content is true, we only return the header's contents. */
+char * call::get_header(char* message, char * name, bool content)
+{
+  /* non reentrant. consider accepting char buffer as param */
+  static char last_header[MAX_HEADER_LEN * 10];
+  char * src, *dest, *start, *ptr;
+  /* Are we searching for a short form header? */
+  bool short_form = false;
+  char src_tmp[MAX_HEADER_LEN + 1];
+
+  /* returns empty string in case of error */
+  last_header[0] = '\0';
+
+  if((!message) || (!strlen(message))) {
+    return last_header;
+  }
+
+  /* for safety's sake */
+  if (NULL == name || NULL == strrchr(name, ':')) {
+    WARNING_P1("Can not searching for header (no colon): %s", name ? name : "(null)");
+    return last_header;
+  }
+
+  do
+  {
+    snprintf(src_tmp, MAX_HEADER_LEN, "\n%s", name);
+    src = message;
+    dest = last_header;
+
+    while(src = strcasestr2(src, src_tmp)) {
+      if (content) {
+	/* just want the header's content */
+	src += strlen(name);
+      } else {
+	src++;
+      }
+      ptr = strchr(src, '\n');
+
+      /* Multiline headers always begin with a tab or a space
+       * on the subsequent lines */
+      while((ptr) &&
+	  ((*(ptr+1) == ' ' ) ||
+	   (*(ptr+1) == '\t')    )) {
+	ptr = strchr(ptr + 1, '\n'); 
+      }
+
+      if(ptr) { *ptr = 0; }
+      // Add "," when several headers are present
+      if (dest != last_header) {
+	dest += sprintf(dest, ",");
+      }
+      dest += sprintf(dest, "%s", src);
+      if(ptr) { *ptr = '\n'; }
+
+      src++;
+    }
+    /* We found the header. */
+    if(dest != last_header) {
+	break;
+    }
+    /* We didn't find the header, even in its short form. */
+    if (short_form) {
+      return NULL;
     }
 
-    if(ptr) { *ptr = 0; }
-    // Add \r\n when several Via header are present (AgM) 
-    if (dest != last_header) {
-      dest += sprintf(dest, "\r\n");
+    /* We should retry with the short form. */
+    short_form = true;
+    if (!strcasecmp(name, "call-id:")) {
+      name = "i:";
+    } else if (!strcasecmp(name, "contact:")) {
+      name = "m:";
+    } else if (!strcasecmp(name, "content-encoding:")) {
+      name = "e:";
+    } else if (!strcasecmp(name, "content-length:")) {
+      name = "l:";
+    } else if (!strcasecmp(name, "content-type:")) {
+      name = "c:";
+    } else if (!strcasecmp(name, "from:")) {
+      name = "f:";
+    } else if (!strcasecmp(name, "to:")) {
+      name = "t:";
+    } else if (!strcasecmp(name, "via:")) {
+      name = "v:";
+    } else {
+      /* There is no short form to try. */
+      return NULL;
     }
-    dest += sprintf(dest, "%s", src);
-    if(ptr) { *ptr = '\n'; }
-    
-    src++;
   }
-  
-  if(dest == last_header) {
-    return NULL;
-  }
+  while (1);
 
   *(dest--) = 0;
 
@@ -1147,6 +1220,9 @@ char * call::get_last_header(char * name)
          ((*dest == ' ') || (*dest == '\r')|| (*dest == '\t'))) {
     *(dest--) = 0;
   }
+ 
+  /* Remove leading whitespaces */
+  for (start = last_header; *start == ' '; start++);
 
   /* remove enclosed CRs in multilines */
   /* don't remove enclosed CRs for multiple headers (e.g. Via) (Rhys) */
@@ -1157,83 +1233,13 @@ char * call::get_last_header(char * name)
     /* Use strlen(ptr) to include trailing zero */
     memmove(ptr, ptr+1, strlen(ptr));
   }
+
   /* Remove illegal double CR characters */
   while((ptr = strstr(last_header, "\r\r")) != NULL) {
     memmove(ptr, ptr+1, strlen(ptr));
   }
   /* Remove illegal double Newline characters */  
   while((ptr = strstr(last_header, "\n\n")) != NULL) {
-    memmove(ptr, ptr+1, strlen(ptr));
-  }
-
-  return last_header;
-}
-
-char * call::get_header_content(char* message, char * name)
-{
-  /* non reentrant. consider accepting char buffer as param */
-  static char last_header[MAX_HEADER_LEN * 10];
-  char * src, *dest, *start, *ptr;
-
-  /* returns empty string in case of error */
-  last_header[0] = '\0';
-
-  if((!message) || (!strlen(message))) {
-    return last_header;
-  }
-
-  src = message;
-  dest = last_header;
-  
-  /* for safety's sake */
-  if (NULL == name || NULL == strrchr(name, ':')) {
-      return last_header;
-  }
-
-  while(src = strcasestr2(src, name)) {
-
-      /* just want the header's content */
-      src += strlen(name);
-
-    ptr = strchr(src, '\n');
-    
-    /* Multiline headers always begin with a tab or a space
-     * on the subsequent lines */
-    while((ptr) &&
-          ((*(ptr+1) == ' ' ) ||
-           (*(ptr+1) == '\t')    )) {
-      ptr = strchr(ptr + 1, '\n'); 
-    }
-
-    if(ptr) { *ptr = 0; }
-    // Add "," when several headers are present
-    if (dest != last_header) {
-      dest += sprintf(dest, ",");
-    }
-    dest += sprintf(dest, "%s", src);
-    if(ptr) { *ptr = '\n'; }
-    
-    src++;
-  }
-  
-  if(dest == last_header) {
-    return last_header;
-  }
-
-  *(dest--) = 0;
-
-  /* Remove trailing whitespaces, tabs, and CRs */
-  while ((dest > last_header) && 
-         ((*dest == ' ') || (*dest == '\r')|| (*dest == '\t'))) {
-    *(dest--) = 0;
-  }
-  
-  /* Remove leading whitespaces */
-  for (start = last_header; *start == ' '; start++);
-
-  /* remove enclosed CRs in multilines */
-  while(ptr = strchr(start, '\r')) {
-    /* Use strlen(ptr) to include trailing zero */
     memmove(ptr, ptr+1, strlen(ptr));
   }
 

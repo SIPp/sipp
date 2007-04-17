@@ -285,6 +285,7 @@ private:
   char * get_header_field_code(char * msg, char * code);
   char * get_last_header(char * name);
   char * get_header_content(char* message, char * name);
+  char * get_header(char* message, char * name, bool content);
 
   static InputFileUsage m_usage;
 
