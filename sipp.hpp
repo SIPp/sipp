@@ -92,7 +92,7 @@
 
 /************************** Constants **************************/
 
-#define SIPP_VERSION               20070413
+#define SIPP_VERSION               20070417
 #define T_UDP                      0
 #define T_TCP                      1
 #ifdef _USE_OPENSSL
@@ -310,14 +310,14 @@ extern int           last_running_calls           _DEFVAL(0);
 extern int           last_woken_calls             _DEFVAL(0);
 extern int           last_paused_calls            _DEFVAL(0);
 extern unsigned int  open_calls_allowed           _DEFVAL(0);
-extern unsigned long last_rate_change_time        _DEFVAL(1);
-extern unsigned long last_report_time             _DEFVAL(1);
-extern unsigned long last_dump_time               _DEFVAL(1);
+extern unsigned long last_rate_change_time        _DEFVAL(0);
+extern unsigned long last_report_time             _DEFVAL(0);
+extern unsigned long last_dump_time               _DEFVAL(0);
 extern unsigned long calls_since_last_rate_change _DEFVAL(0);
 
 /********************** Clock variables ***********************/
 
-extern unsigned long clock_tick                   _DEFVAL(1);
+extern unsigned long clock_tick                   _DEFVAL(0);
 extern unsigned long scheduling_loops             _DEFVAL(0);
 extern unsigned long last_timer_cycle             _DEFVAL(0);
 
