@@ -1954,6 +1954,7 @@ char* call::createSendingMessage(char * src, int P_index)
     int    len_offset = 0;
     char   current_line[MAX_HEADER_LEN];
     char * line_mark = NULL;
+    char * tsrc;
 
     current_line[0] = '\0';
     while(*src) {
@@ -1982,7 +1983,15 @@ char* call::createSendingMessage(char * src, int P_index)
       } else if(*src == '[') {
         char keyword [KEYWORD_SIZE+1];
         src++;
+        
+        tsrc=strchr(src, '[');
         key = strchr(src, ']');
+        if ((tsrc) && (tsrc<key)){
+          memcpy(keyword, src-1,  tsrc - src + 1);
+          src=tsrc+1;
+          dest += sprintf(dest, "%s", keyword);
+        }
+        
         if((!key) || ((key - src) > KEYWORD_SIZE) || (!(key - src))){
           ERROR_P1("Syntax error or invalid [keyword] in scenario while parsing '%s'", current_line);
         }
