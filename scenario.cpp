@@ -883,14 +883,7 @@ void load_scenario(char * filename, int deflt)
       }
 #ifdef __3PCC__
       else if(!strcmp(elem, "recvCmd")) {
-        if (recv_count) {
-          if (recv_count != recv_opt_count) {
-            recv_count = 0;
-            recv_opt_count = 0;
-          } else {
-            ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
-          }
-        }
+        recv_count++;
         scenario[scenario_len]->M_type = MSG_TYPE_RECVCMD;
 
 	/* 3pcc extended mode */

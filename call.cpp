@@ -1491,8 +1491,8 @@ bool call::run()
     actionResult = executeAction(NULL, msg_index);
     return(next());
   }
-  else if(scenario[msg_index] -> send_scheme) {
 
+  else if(scenario[msg_index] -> send_scheme) {
     char * msg_snd;
     int send_status;
 
@@ -2444,6 +2444,7 @@ bool call::process_twinSippCom(char * msg)
     } else {
       return rejectCall();
     }
+    msg_index = search_index; //update the state machine
     return(next());
     
   } else {
