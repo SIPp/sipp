@@ -202,10 +202,12 @@ void screen_init(char *logfile_name, void (*exit_handler)())
   }
   screen_exit_handler = exit_handler;
 
-  /* Initializes curses and signals */
-  initscr();
-  /* Enhance performances and display */
-  noecho();
+  if (backgroundMode == false) {
+    /* Initializes curses and signals */
+    initscr();
+    /* Enhance performances and display */
+    noecho();
+  }
   
   /* Map exit handlers to curses reset procedure */
   memset(&action_quit, 0, sizeof(action_quit));
@@ -217,7 +219,9 @@ void screen_init(char *logfile_name, void (*exit_handler)())
   sigaction(SIGKILL, &action_quit, NULL);  
   sigaction(SIGXFSZ, &action_file_size_exceeded, NULL);   // avoid core dump if the max file size is exceeded
 
-  printf("\033[2J");
+  if (backgroundMode == false) {
+    screen_clear();
+  }
 }
 
 void _screen_error(char *s, int fatal)
