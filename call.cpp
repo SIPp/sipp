@@ -32,6 +32,7 @@
  *           Jan Andres from Freenet
  *           Ben Evans from Open Cloud
  *           Marc Van Diest from Belgacom
+ *           Michael Dwyer from Cibation
  */
 
 #include <iterator>
@@ -780,9 +781,9 @@ void call::connect_socket_if_needed()
              _RCAST(struct sockaddr_storage *,local_addr_storage->ai_addr)));
 
     if (use_ipv6) {
-    saddr.ss_family       = AF_INET;
-    } else {
       saddr.ss_family       = AF_INET6;
+    } else {
+      saddr.ss_family       = AF_INET;
     }
     
     if (peripsocket) {
