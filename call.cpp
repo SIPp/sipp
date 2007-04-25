@@ -2002,6 +2002,7 @@ char* call::createSendingMessage(char * src, int P_index)
         key = strchr(src, ']');
         if ((tsrc) && (tsrc<key)){
           memcpy(keyword, src-1,  tsrc - src + 1);
+          keyword[tsrc - src + 1] = 0;
           src=tsrc+1;
           dest += sprintf(dest, "%s", keyword);
         }
