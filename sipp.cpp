@@ -100,7 +100,7 @@ struct sipp_option options_table[] = {
 	{"h", NULL, SIPP_OPTION_HELP, NULL},
 	{"help", NULL, SIPP_OPTION_HELP, NULL},
 
-	{"aa", "Enable automatic 200 OK answer for INFO and NOTIFY messages.", SIPP_OPTION_SETFLAG, &auto_answer},
+	{"aa", "Enable automatic 200 OK answer for INFO, UPDATE and NOTIFY messages.", SIPP_OPTION_SETFLAG, &auto_answer},
 #ifdef _USE_OPENSSL
 	{"auth_uri", "Force the value of the URI for authentication.\n"
                      "By default, the URI is composed of remote_ip:remote_port.", SIPP_OPTION_STRING, &auth_uri},

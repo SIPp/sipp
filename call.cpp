@@ -3496,7 +3496,7 @@ int  call::checkAutomaticResponseMode(char * P_recv) {
     L_res = 2 ;
   } else if (strcmp(P_recv, "PING") == 0) {
     L_res = 3 ;
-  } else if (((strcmp(P_recv, "INFO") == 0) || (strcmp(P_recv, "NOTIFY") == 0)) 
+  } else if (((strcmp(P_recv, "INFO") == 0) || (strcmp(P_recv, "NOTIFY") == 0) || (strcmp(P_recv, "UPDATE") == 0)) 
                && (auto_answer == true)){
     L_res = 4 ;
   }
@@ -3620,8 +3620,8 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
     }
     break ;
 
-  case 4: // response for a random INFO or NOTIFY
-    // store previous last msg if msg is INFO or NOTIFY
+  case 4: // response for a random INFO, UPDATE or NOTIFY
+    // store previous last msg if msg is INFO, UPDATE or NOTIFY
     // restore last_recv_msg to previous one
     // after sending ok
     old_last_recv_msg = NULL;
@@ -3634,7 +3634,7 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
     last_recv_msg = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
     strcpy(last_recv_msg, P_recv);
 
-    WARNING_P1("Automatic response mode for an unexpected INFO or NOTIFY for call: %s", (id==NULL)?"none":id);
+    WARNING_P1("Automatic response mode for an unexpected INFO, UPDATE or NOTIFY for call: %s", (id==NULL)?"none":id);
     res = sendBuffer(createSendingMessage(
                     (char*)"SIP/2.0 200 OK\n"
                     "[last_Via:]\n"
