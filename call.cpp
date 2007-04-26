@@ -1199,7 +1199,7 @@ char * call::get_header(char* message, char * name, bool content)
     }
     /* We didn't find the header, even in its short form. */
     if (short_form) {
-      return NULL;
+      return last_header;
     }
 
     /* We should retry with the short form. */
@@ -1222,7 +1222,7 @@ char * call::get_header(char* message, char * name, bool content)
       name = "v:";
     } else {
       /* There is no short form to try. */
-      return NULL;
+      return last_header;
     }
   }
   while (1);
