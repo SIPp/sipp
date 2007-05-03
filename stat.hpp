@@ -633,6 +633,32 @@ private:
 	double lambda, k;
 	gsl_rng *rng;
 };
+
+/* Pareto distribution. */
+class CPareto : public CSample {
+public:
+	CPareto(double k, double xsubm);
+	double sample();
+	int textDescr(char *s, int len);
+	int timeDescr(char *s, int len);
+	double cdfInv(double percentile);
+protected:
+	double k, xsubm;
+	gsl_rng *rng;
+};
+
+/* Gamma distribution. */
+class CGamma : public CSample {
+public:
+	CGamma(double k, double theta);
+	double sample();
+	int textDescr(char *s, int len);
+	int timeDescr(char *s, int len);
+	double cdfInv(double percentile);
+protected:
+	double k, theta;
+	gsl_rng *rng;
+};
 #endif
 
 #endif // __STAT_H__

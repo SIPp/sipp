@@ -1712,5 +1712,62 @@ double CWeibull::cdfInv(double percentile) {
   return gsl_cdf_weibull_Pinv(percentile, lambda, k);
 }
 
+/* Pareto distribution. */
+CPareto::CPareto(double k, double xsubm) {
+  this->k = k;
+  this->xsubm = xsubm;
+  rng = gsl_init();
+}
+
+double CPareto::sample() {
+  return gsl_ran_pareto(rng, k, xsubm);
+}
+
+int CPareto::textDescr(char *s, int len) {
+  return snprintf(s, len, "P(%.3lf,%.3lf)", k, xsubm);
+}
+int CPareto::timeDescr(char *s, int len) {
+  int used = 0;
+
+  used += snprintf(s, len, "P(");
+  used += time_string(k, s + used, len - used);
+  used += snprintf(s + used, len - used, ",");
+  used += time_string(xsubm, s + used, len - used);
+  used += snprintf(s + used, len - used, ")");
+
+  return used;
+}
+double CPareto::cdfInv(double percentile) {
+  return gsl_cdf_pareto_Pinv(percentile, k, xsubm);
+}
+
+/* Gamma distribution. */
+CGamma::CGamma(double k, double theta) {
+  this->k = k;
+  this->theta = theta;
+  rng = gsl_init();
+}
+
+double CGamma::sample() {
+  return gsl_ran_gamma(rng, k, theta);
+}
+
+int CGamma::textDescr(char *s, int len) {
+  return snprintf(s, len, "G(%.3lf,%.3lf)", k, theta);
+}
+int CGamma::timeDescr(char *s, int len) {
+  int used = 0;
+
+  used += snprintf(s, len, "G(");
+  used += time_string(k, s + used, len - used);
+  used += snprintf(s + used, len - used, ",");
+  used += time_string(theta, s + used, len - used);
+  used += snprintf(s + used, len - used, ")");
+
+  return used;
+}
+double CGamma::cdfInv(double percentile) {
+  return gsl_cdf_gamma_Pinv(percentile, k, theta);
+}
 #endif
 

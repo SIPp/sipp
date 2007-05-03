@@ -878,10 +878,20 @@ CSample *parse_distribution(bool oldstyle = false) {
     double lambda = xp_get_double("lambda", "Weibull distribution");
     double k = xp_get_double("k", "Weibull distribution");
     distribution = new CWeibull(lambda, k);
+  } else if (!strcmp(distname, "pareto")) {
+    double k = xp_get_double("k", "Pareto distribution");
+    double xsubm = xp_get_double("x_m", "Pareto distribution");
+    distribution = new CPareto(k, xsubm);
+  } else if (!strcmp(distname, "gamma")) {
+    double k = xp_get_double("k", "Gamma distribution");
+    double theta = xp_get_double("theta", "Gamma distribution");
+    distribution = new CGamma(k, theta);
 #else
   } else if (!strcmp(distname, "normal")
       || !strcmp(distname, "lognormal")
-      ||!strcmp(distname, "exponential")
+      || !strcmp(distname, "exponential")
+      || !strcmp(distname, "pareto")
+      || !strcmp(distname, "gamma")
       || !strcmp(distname, "weibull")) {
     ERROR_P1("The distribution '%s' is only available with GSL.", distname);
 #endif
