@@ -212,6 +212,7 @@ public:
   bool  rejectCall();
 
   // Get parameters from a [keyword]
+  void getQuotedParam(char * dest, char * src, int * len);
   void getHexStringParam(char * dest, char * src, int * len);
   char* getKeywordParam(char * src, char * param, char * output);
  

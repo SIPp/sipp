@@ -1781,6 +1781,29 @@ int call::sendCmdBuffer(char* cmd)
   return(0);
 }
 
+void call::getQuotedParam(char * dest, char * src, int * len)
+{
+  *len=0;
+  /* Allows any hex coded string like '0x5B07F6' */
+  while (char c = *src++) {
+    switch(c) {
+      case '"':
+	*len++;
+	return;
+      case '\\':
+	c = *src++;
+	*len++;
+	if (c == 0) {
+	  return;
+	}
+	/* Fall-Through. */
+      default:
+	*dest++ = c;
+	*len++;
+    }
+  }
+}
+
 void call::getHexStringParam(char * dest, char * src, int * len)
 { 
   *len=0;
@@ -1811,17 +1834,21 @@ char* call::getKeywordParam(char * src, char * param, char * output)
       key += 2;
       getHexStringParam(output, key, &len);
       key += len * 2;
+    } else if (*key == '\"') {
+      key++;
+      getQuotedParam(output, key, &len);
+      key += len;
     } else {
       while (*key) {
         if (((key - src) > KEYWORD_SIZE) || (!(key - src))) {
           ERROR_P1("Syntax error parsing '%s' parameter", param);
         } else if (*key == ']' || *key < 33 || *key > 126) {
-          strncpy(output, tmp, key-tmp);
-          output[key-tmp] = '\0';
           break;
         }
         key++;
       }
+      strncpy(output, tmp, key-tmp);
+      output[key-tmp] = '\0';
     }
   } else {
     output[0] = '\0';
@@ -2025,6 +2052,29 @@ char* call::createSendingMessage(char * src, int P_index)
                                   tdm_map_y+(int((tdm_map_number)/(tdm_map_c+1)))%(tdm_map_b+1),
                                   tdm_map_z+(tdm_map_number)%(tdm_map_c+1)
                                   );
+	} else if(!strncmp(keyword, "fill", strlen("fill"))) {
+	  char filltext[KEYWORD_SIZE];
+	  char varName[KEYWORD_SIZE];
+	  int length = 0;
+	  int filllen = 0;
+
+	  getKeywordParam(keyword, "text=", filltext);
+	  if (filltext[0] == '\0') {
+	    strcpy(filltext, "X");
+	  }
+	  filllen = strlen(filltext);
+	  getKeywordParam(keyword, "variable=", varName);
+
+          int varId = get_long(varName, "Fill Variable");
+          if(varId < SCEN_VARIABLE_SIZE && M_callVariableTable[varId]) {
+	    length = (int) M_callVariableTable[varId]->getDouble();
+	    if (length < 0) {
+	      length = 0;
+	    }
+          }
+	  for (int i = 0, j = 0; i < length; i++, j++) {
+		*dest++ = filltext[j % filllen];
+	  }
         } else if(strstr(keyword, "$")) {
           int varId = atoi(keyword+1);
           if(varId < SCEN_VARIABLE_SIZE) {
