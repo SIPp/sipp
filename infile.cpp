@@ -135,8 +135,11 @@ int FileContents::nextLine(int userId) {
     case InputFileRandomOrder:
       return rand() % numLinesInFile;
     case InputFileSequentialOrder:
-      lineCounter = (lineCounter + 1) % numLinesInFile;
-      return lineCounter;
+      {
+	int ret = lineCounter;
+	lineCounter = (lineCounter + 1) % numLinesInFile;
+	return ret;
+      }
     case InputFileUser:
       if (userId == 0) {
 	return -1;
