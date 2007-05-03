@@ -61,6 +61,7 @@
 #include "stat.hpp"
 #include "actions.hpp"
 #include "variables.hpp"
+#include "infile.hpp"
 /* Open SSL stuff */
 #ifdef _USE_OPENSSL
 #include "sslcommon.h" 
@@ -259,9 +260,10 @@ extern char                 *tls_crl_name      _DEFVAL(DEFAULT_TLS_CRL)  ;
 #endif
 
 // extern field file management
-typedef std::vector<std::string>    IN_FILE_CONTENTS;
-extern IN_FILE_CONTENTS   fileContents;
-extern int                numLinesInFile          _DEFVAL(0);
+typedef std::map<string, FileContents *> file_map;
+extern file_map inFiles;
+extern char *ip_file _DEFVAL(NULL);
+extern char *default_file _DEFVAL(NULL);
 
 //extern int      new_socket(bool P_use_ipv6, int P_type_socket, int * P_status);
 extern struct   sipp_socket *new_sipp_socket(bool use_ipv6, int transport);

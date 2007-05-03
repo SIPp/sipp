@@ -58,7 +58,6 @@ int passwd_call_back_routine(char  *buf , int size , int flag, void *passwd)
 
 /* These could be local to main, but for the option processing table. */
 static int argiFileName;
-static int argiInputFile;
 
 /***************** Option Handling Table *****************/
 struct sipp_option {
@@ -93,6 +92,7 @@ struct sipp_option {
 #define SIPP_OPTION_TIME_MS	  24
 #define SIPP_OPTION_SLAVE_CFG     25
 #define SIPP_OPTION_3PCC_EXTENDED 26
+#define SIPP_OPTION_INPUT_FILE	  27
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
 	{"v", "Display version and copyright information.", SIPP_OPTION_VERSION, NULL},
@@ -123,7 +123,7 @@ struct sipp_option options_table[] = {
 	{"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address.\n", SIPP_OPTION_IP, local_ip},
 	{"inf", "Inject values from an external CSV file during calls into the scenarios.\n"
                 "First line of this file say whether the data is to be read in sequence (SEQUENTIAL) or random (RANDOM) order.\n"
-		"Each line corresponds to one call and has one or more ';' delimited data fields. Those fields can be referred as [field0], [field1], ... in the xml scenario file.", SIPP_OPTION_ARGI, &argiInputFile},
+		"Each line corresponds to one call and has one or more ';' delimited data fields. Those fields can be referred as [field0], [field1], ... in the xml scenario file.", SIPP_OPTION_INPUT_FILE, NULL },
 	{"ip_field", "Set which field from the injection file contains the IP address from which the client will send its messages.\n"
                      "If this option is omitted and the '-t ui' option is present, then field 0 is assumed.\n"
 		     "Use this option together with '-t ui'", SIPP_OPTION_INT, &peripfield},
@@ -2446,7 +2446,6 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
 	  delete_call(call_id);
 	  call_ptr = NULL;
 	  total_calls--;
-	  call::m_counter--;
 	}
       } else {
 	nb_out_of_the_blue++;
@@ -3557,6 +3556,17 @@ int main(int argc, char *argv[])
 	REQUIRE_ARG();
 	*((int *)option->data) = argi;
 	break;
+      case SIPP_OPTION_INPUT_FILE:
+	REQUIRE_ARG();
+	inFiles[argv[argi]] = new FileContents(argv[argi]);
+	/* By default, the first file is used for IP address input. */
+	if (!ip_file) {
+	  ip_file = argv[argi];
+	}
+	if (!default_file) {
+	  default_file = argv[argi];
+	}
+	break;
       case SIPP_OPTION_SETFLAG:
 	*((bool *)option->data) = true;
 	break;
@@ -3801,7 +3811,7 @@ int main(int argc, char *argv[])
     }
 
   if (peripsocket) {
-    if (!argiInputFile) {
+    if (!ip_file) {
       ERROR("You must use the -inf option when using -t ui.\n"
                "Use 'sipp -h' for details");
     }
@@ -3925,10 +3935,6 @@ int main(int argc, char *argv[])
     CStat::instance()->setFileName(argv[argiFileName]);
   }
 
-  if(argiInputFile) {
-    call::readInputFileContents(argv[argiInputFile]);
-  }
-  
   /* In which mode the tool is launched ? */
   computeSippMode();
 
@@ -4362,11 +4368,7 @@ int open_connections() {
 	  // IP address.
 	  // For the socket per IP mode, bind the main socket to the
 	  // first IP address specified in the inject file.
-	  if (toolMode == MODE_SERVER) {
-	    call::getIpFieldFromInputFile(peripfield, 0, peripaddr);
-	  } else {
-	    call::getIpFieldFromInputFile(0, 0, peripaddr);
-	  }
+	  inFiles[ip_file]->getField(peripfield, 0, peripaddr, sizeof(peripaddr));
 	  if (getaddrinfo(peripaddr,
 		NULL,
 		&hints,
@@ -4418,11 +4420,7 @@ int open_connections() {
         // IP address.
         // For the socket per IP mode, bind the main socket to the
         // first IP address specified in the inject file.
-        if (toolMode == MODE_SERVER) {
-          call::getIpFieldFromInputFile(peripfield, 0, peripaddr);
-        } else {
-          call::getIpFieldFromInputFile(0, 0, peripaddr);
-        }
+	inFiles[ip_file]->getField(peripfield, 0, peripaddr, sizeof(peripaddr));
         if (getaddrinfo(peripaddr,
                          NULL,
                          &hints,
@@ -4475,8 +4473,9 @@ int open_connections() {
 
     char peripaddr[256];
     struct sipp_socket *sock;
-    for (unsigned int i = 0; i < fileContents.size(); i++) {
-      call::getIpFieldFromInputFile(0, i, peripaddr);
+    unsigned int lines = inFiles[ip_file]->numLines();
+    for (unsigned int i = 0; i < lines; i++) {
+      inFiles[ip_file]->getField(peripfield, i, peripaddr, sizeof(peripaddr));
       map<string, struct sipp_socket *>::iterator j;
       j = map_perip_fd.find(peripaddr);
 

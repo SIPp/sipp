@@ -614,9 +614,6 @@ unsigned long hash(char * msg) {
 
 /******************* Call class implementation ****************/
 
-call::InputFileUsage call::m_usage   = call::InputFileSequentialOrder;
-int                  call::m_counter = 0;
-
 call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
 {
   memset(this, 0, sizeof(call));
@@ -664,14 +661,11 @@ call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
   // by default, last action result is NO_ERROR
   last_action_result = call::E_AR_NO_ERROR;
 
-  if (InputFileRandomOrder == m_usage) {
-      m_localLineNumber = rand() % numLinesInFile;
-  } else {
-      m_localLineNumber = m_counter++;
-      if (m_counter >= numLinesInFile) {
-          m_counter = 0;
-      }
-
+  m_lineNumber = new file_line_map();
+  for (file_map::iterator file_it = inFiles.begin();
+      file_it != inFiles.end();
+      file_it++) {
+    (*m_lineNumber)[file_it->first] = file_it->second->nextLine();
   }
 
 #ifdef PCAPPLAY
@@ -711,6 +705,7 @@ call::~call()
     }
   }
   if(M_callVariableTable) { delete M_callVariableTable; }
+  delete m_lineNumber;
 
   if(id) { free(id); }
   if(last_recv_msg) { free(last_recv_msg); }
@@ -724,6 +719,7 @@ call::~call()
   if(next_req_url) {
        free(next_req_url);
   }
+
 
 #ifdef _USE_OPENSSL
   if(dialog_authentication) {
@@ -752,7 +748,8 @@ void call::connect_socket_if_needed()
 	ERROR_NO("Unable to get a UDP socket");
       }
     } else {
-      getIpFieldFromInputFile(peripfield, m_localLineNumber, peripaddr);
+      char *tmp = peripaddr;
+      getFieldFromInputFile(ip_file, peripfield, tmp);
       map<string, struct sipp_socket *>::iterator i;
       i = map_perip_fd.find(peripaddr);
       if (i == map_perip_fd.end()) {
@@ -1824,7 +1821,7 @@ void call::getHexStringParam(char * dest, char * src, int * len)
   }
 }
 
-char* call::getKeywordParam(char * src, char * param, char * output)
+char* call::getKeywordParam(const char * src, char * param, char * output)
 {
   char *key, *tmp;
   int len;
@@ -2022,7 +2019,7 @@ char* call::createSendingMessage(char * src, int P_index)
           dest += sprintf(dest, "%s", service);
         } else if(!strncmp(keyword, "field", 5)) {
             char* local_dest = dest;
-            getFieldFromInputFile(keyword, m_localLineNumber, dest);
+            getFieldFromInputFile(keyword, dest);
             if (dest == local_dest && ('\r' == *(local_dest-1) || '\n' == *(local_dest-1))) {
                 /* If the line begins with a field value and there
                  * is nothing to add for this field, 
@@ -3312,129 +3309,28 @@ void call::extractSubMessage(char * msg, char * matchingString, char* result, bo
   }
 }
 
-void call::dumpFileContents(void)
+void call::getFieldFromInputFile(const char *fileName, int field, char*& dest)
 {
-    WARNING_P3("Line choosing strategy is [%s]. m_counter [%d] numLinesInFile [%d]",
-               m_usage == InputFileSequentialOrder ? "SEQUENTIAL" : "RANDOM",
-               m_counter, numLinesInFile);
-
-    for (int i(0); i < numLinesInFile && fileContents[i][0]; ++i) {
-        WARNING_P2("%dth line reads [%s]", i, fileContents[i].c_str());
-    }
+  if (inFiles.find(fileName) == inFiles.end()) {
+    ERROR_P1("Invalid injection file: %s", fileName);
+  }
+  int line = (*m_lineNumber)[fileName];
+  dest += inFiles[fileName]->getField(line, field, dest, SIPP_MAX_MSG_SIZE);
 }
 
-/* Read MAX_CHAR_BUFFER_SIZE size lines from the
- * "fileName" and populate it in the fileContents
- * vector. The file should not be more than
- * MAX_LINES_IN_FILE lines long and each line
- * should be terminated with a '\n'
- */
-
-void call::readInputFileContents(const char* fileName)
+void call::getFieldFromInputFile(const char* keyword, char*& dest)
 {
-  ifstream *inFile    = new ifstream(fileName);
-  ifstream &inFileObj = *inFile;
-  char      line[MAX_CHAR_BUFFER_SIZE];
-  
-  if (!inFile->good()) {
-    ERROR_P1("Unable to open file %s", fileName);
-    return ;
-  }
+  int field = atoi(keyword + 5 /* strlen(field) */);
+  char fileName[KEYWORD_SIZE];
 
-  numLinesInFile = 0;
-  call::m_counter = 0;
-  line[0] = '\0';
-  inFileObj.getline(line, MAX_CHAR_BUFFER_SIZE);
-
-  if (NULL != strstr(line, "RANDOM")) {
-      call::m_usage = InputFileRandomOrder;
-  } else if (NULL != strstr(line, "SEQUENTIAL")) {
-      call::m_usage = InputFileSequentialOrder;
+  getKeywordParam(keyword, "file=", fileName);
+  if (fileName[0] == '\0') {
+    getFieldFromInputFile(default_file, field, dest);
   } else {
-      // default
-      call::m_usage = InputFileSequentialOrder;
-  }
-
-  while (!inFileObj.eof()) {
-    line[0] = '\0';
-    inFileObj.getline(line, MAX_CHAR_BUFFER_SIZE);
-    if (line[0]) {
-      if ('#' != line[0]) {
-        fileContents.push_back(line);
-        numLinesInFile++; /* this counts number of valid data lines */
-      }
-    } else {
-      break;
-    }
-  }
-  // call::dumpFileContents();
-  delete inFile;
-}
- 
-void call::getFieldFromInputFile(const char* keyword, unsigned int lineNum, char*& dest)
-{
-  int nthField    = atoi(keyword+5 /*strlen("field")*/);
-  int origNth     = nthField;
-  
-  if (fileContents.size() > lineNum) {
-    const string& line = fileContents[lineNum];
-    
-    // WARNING_P3("lineNum [%d] nthField [%d] line [%s]",
-    //         lineNum, nthField, line.c_str());
-    
-    size_t pos(0), oldpos(0);
-    do {
-      oldpos = pos;
-      size_t localpos = line.find(';', oldpos);
-      
-      if (localpos != string::npos) {
-        pos = localpos + 1;
-      } else {
-        pos = localpos;
-        break;
-      }
-      
-      //string x = line.substr(oldpos, pos - oldpos);
-      // WARNING_P3("pos [%d] oldpos [%d] is [%s]", pos, oldpos, x.c_str());
-      
-      if (nthField) {
-        --nthField;
-      } else {
-        break;
-      }
-      
-    } while (oldpos != string::npos);
-    
-    if (nthField) {
-      WARNING_P1("Field %d not found in the file", origNth);
-      // field not found in line
-    } else {
-      if (string::npos != oldpos) {
-        if (string::npos != pos) {
-          // should not be decremented for fieldN
-          pos -= (oldpos + 1);
-        }
-    
-        string x = line.substr(oldpos, pos);
-        if (x.length()) {
-        dest += sprintf(dest, "%s", x.c_str());
-        }
-        
-        // WARNING_P2("nthField [%d] is [%s]", origNth, x.c_str());
-      }
-    }
-  } else {
-    // WARNING_P1("Field %d definition not found", nthField);
+    getFieldFromInputFile(fileName, field, dest);
   }
 }
 
-void call::getIpFieldFromInputFile(int fieldNr, int lineNum, char *dest)
-{
-      char keyword[10];
-      sprintf(keyword, "field%d", fieldNr);
-      char *p = dest;
-      getFieldFromInputFile(keyword, lineNum, p);
-}
 
 int  call::checkAutomaticResponseMode(char * P_recv) {
 

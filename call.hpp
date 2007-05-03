@@ -214,7 +214,7 @@ public:
   // Get parameters from a [keyword]
   void getQuotedParam(char * dest, char * src, int * len);
   void getHexStringParam(char * dest, char * src, int * len);
-  char* getKeywordParam(char * src, char * param, char * output);
+  char* getKeywordParam(const char * src, char * param, char * output);
  
   // P_index use for message index in scenario and ctrl of CRLF
   // P_index = -2 No ctrl of CRLF
@@ -245,17 +245,11 @@ public:
 
 #endif
 
-  typedef enum {
-      InputFileSequentialOrder = 0,
-      InputFileRandomOrder
-  }InputFileUsage;
-
   static void readInputFileContents(const char* fileName);
   static void dumpFileContents(void);
 
-  static void getFieldFromInputFile(const char* fieldName, unsigned int lineNum, char*& dest);
-  static void getIpFieldFromInputFile(int fieldNr, int lineNum, char *dest);
-  static int  m_counter; // used for sequential access
+  void getFieldFromInputFile(const char* fileName, int field, char*& dest);
+  void getFieldFromInputFile(const char* keyword, char*& dest);
 
   /* Associate/Dissociate this call with a socket. */
   struct sipp_socket *associate_socket(struct sipp_socket *socket);
@@ -286,9 +280,8 @@ private:
   char * get_header_content(char* message, char * name);
   char * get_header(char* message, char * name, bool content);
 
-  static InputFileUsage m_usage;
-
-  int    m_localLineNumber;
+  typedef std::map <std::string, int> file_line_map;
+  file_line_map *m_lineNumber;
 
   bool   use_ipv6;
   struct sipp_socket *call_socket;
