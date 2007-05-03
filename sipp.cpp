@@ -2398,7 +2398,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
       // Adding a new OUTGOING call !
       CStat::instance()->computeStat
 	(CStat::E_CREATE_OUTGOING_CALL);
-      call_ptr = add_call(call_id, is_ipv6);
+      call_ptr = add_call(call_id, is_ipv6, 0);
       if(!call_ptr) {
 	outbound_congestion = true;
 	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
@@ -2679,9 +2679,16 @@ void traffic_thread()
                 (!open_calls_allowed || open_calls < open_calls_allowed) &&
                 (total_calls < stop_after)) 
             {
+	      /* Associate a user with this call, if we are in users mode. */
+	      int userid = 0;
+	      if (users) {
+		userid = freeUsers.back();
+		freeUsers.pop_back();
+	      }
+
               // adding a new OUTGOING CALL
               CStat::instance()->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-              call * call_ptr = add_call(is_ipv6);
+              call * call_ptr = add_call(userid, is_ipv6);
               if(!call_ptr) {
                 outbound_congestion = true;
                 CStat::instance()->computeStat(CStat::E_CALL_FAILED);
@@ -3658,6 +3665,9 @@ int main(int argc, char *argv[])
 	REQUIRE_ARG();
 	users = open_calls_allowed = get_long(argv[argi], argv[argi - 1]);
 	open_calls_user_setting = 1;
+	for (int i = 1; i <= users; i++) {
+	  freeUsers.push_back(i);
+	}
 	break;
       case SIPP_OPTION_KEY:
 	REQUIRE_ARG();

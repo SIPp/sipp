@@ -119,7 +119,7 @@ struct sipp_socket *call::dissociate_socket() {
   return ret;
 }
 
-call * add_call(char * call_id , bool use_ipv6)
+call * add_call(char * call_id , bool use_ipv6, int userId)
 {
   call * new_call;
   unsigned int nb;
@@ -138,7 +138,7 @@ call * add_call(char * call_id , bool use_ipv6)
     }
   }
 
-  new_call = new call(call_id, use_ipv6);
+  new_call = new call(call_id, userId, use_ipv6);
 
   if(!new_call) {
     ERROR("Memory Overflow");
@@ -169,13 +169,13 @@ call * add_call(char * call_id , bool use_ipv6)
 }
 
 call * add_call(char * call_id , struct sipp_socket *socket) {
-  call *new_call = add_call(call_id, socket->ss_ipv6);
+  call *new_call = add_call(call_id, socket->ss_ipv6, 0);
   new_call->associate_socket(socket);
   return new_call;
 }
 
 
-call * add_call(bool ipv6)
+call * add_call(int userId, bool ipv6)
 {
   static char call_id[MAX_HEADER_LEN];
 
@@ -207,7 +207,7 @@ call * add_call(bool ipv6)
   }
   call_id[count] = 0;
 
-  return add_call(call_id, ipv6);
+  return add_call(call_id, ipv6, userId);
 }
 
 call * get_call(char * call_id)
@@ -614,7 +614,7 @@ unsigned long hash(char * msg) {
 
 /******************* Call class implementation ****************/
 
-call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
+call::call(char * p_id, int userId, bool ipv6) : use_ipv6(ipv6)
 {
   memset(this, 0, sizeof(call));
   id = strdup(p_id);
@@ -661,11 +661,12 @@ call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
   // by default, last action result is NO_ERROR
   last_action_result = call::E_AR_NO_ERROR;
 
+  this->userId = userId;
   m_lineNumber = new file_line_map();
   for (file_map::iterator file_it = inFiles.begin();
       file_it != inFiles.end();
       file_it++) {
-    (*m_lineNumber)[file_it->first] = file_it->second->nextLine();
+    (*m_lineNumber)[file_it->first] = file_it->second->nextLine(userId);
   }
 
 #ifdef PCAPPLAY
@@ -706,6 +707,9 @@ call::~call()
   }
   if(M_callVariableTable) { delete M_callVariableTable; }
   delete m_lineNumber;
+  if (userId) {
+    freeUsers.push_front(userId);
+  }
 
   if(id) { free(id); }
   if(last_recv_msg) { free(last_recv_msg); }
@@ -728,7 +732,7 @@ call::~call()
 #endif
   call_established= false ;
 }
- 
+
 void call::connect_socket_if_needed()
 {
   bool existing;
@@ -3315,6 +3319,9 @@ void call::getFieldFromInputFile(const char *fileName, int field, char*& dest)
     ERROR_P1("Invalid injection file: %s", fileName);
   }
   int line = (*m_lineNumber)[fileName];
+  if (line < 0) {
+    return;
+  }
   dest += inFiles[fileName]->getField(line, field, dest, SIPP_MAX_MSG_SIZE);
 }
 

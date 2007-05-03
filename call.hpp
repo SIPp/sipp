@@ -196,7 +196,7 @@ public:
   /* call to continue and mark it as failed */
   T_ActionResult last_action_result;
   
-  call(char * id, bool ipv6 = false);
+  call(char * id, int userId, bool ipv6 = false);
   ~call();
 
   /* rc == true means call not deleted by processing */
@@ -255,6 +255,9 @@ public:
   struct sipp_socket *associate_socket(struct sipp_socket *socket);
   struct sipp_socket *dissociate_socket();
 
+  /* Associate a user with this call. */
+  void setUser(int userId);
+
   /* Is this call paused or running? */
   bool running;
   /* If we are running, the iterator to remove us from the running list. */
@@ -282,6 +285,7 @@ private:
 
   typedef std::map <std::string, int> file_line_map;
   file_line_map *m_lineNumber;
+  int    userId;
 
   bool   use_ipv6;
   struct sipp_socket *call_socket;
@@ -300,8 +304,8 @@ typedef std::map<std::string, call *> call_map;
 call_map * get_calls();
 call_list * get_running_calls();
 
-call * add_call(bool ipv6);
-call * add_call(char * call_id , bool ipv6);
+call * add_call(int userId, bool ipv6);
+call * add_call(char * call_id , bool ipv6, int userId);
 call * add_call(char * call_id , struct sipp_socket *socket);
 
 call * get_call(char *);
