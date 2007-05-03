@@ -72,20 +72,8 @@
 class message {
 
 public:
-
   /* If this is a pause */
-  unsigned int		 (*pause_function)(class message *);
-  /* Type of pause:	param	param2
-   * default		length	N/A	Note that -1 signifies global duration.
-   * uniform		min	max
-   * normal		mean	st. dev
-   * lognormal		mean	st. dev (Of the pauses' logarithm.) (doubles)
-   * exponential	lambda  N/A
-   */
-  int		pause_param;
-  int		pause_param2;
-  double	pause_dparam;
-  double	pause_dparam2;
+  CSample        *pause_distribution;
   /* This string is used for the display screen. */
   char		 *pause_desc;
 
@@ -187,6 +175,7 @@ void parse_slave_cfg();
 
 void computeSippMode();
 void getActionForThisMessage();
+CSample *parse_distribution(bool oldstyle);
 int  createIntegerTable(char          * P_listeStr, 
                         unsigned int ** listeInteger, 
                         int           * sizeOfList);

@@ -1362,9 +1362,9 @@ bool call::run()
     /* Our pause is over. */
     paused_until = 0;
     return next();
-  } else if(scenario[msg_index] -> pause_function) {
+  } else if(scenario[msg_index] -> pause_distribution) {
     unsigned int pause;
-    pause  = scenario[msg_index] -> pause_function(scenario[msg_index]);
+    pause  = (int)(scenario[msg_index] -> pause_distribution -> sample());
     if (pause > INT_MAX) {
       pause = INT_MAX;
     }

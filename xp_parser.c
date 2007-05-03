@@ -236,7 +236,7 @@ void xp_root()
   xp_stack = 0;
 }
 
-char * xp_get_value(char * name)
+char * xp_get_value(const char * name)
 {
   int         index = 0;
   static char buffer[XP_MAX_FILE_LEN + 1]; 

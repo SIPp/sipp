@@ -545,6 +545,7 @@ public:
 	virtual double sample() = 0;
 	virtual int textDescr(char *s, int len) = 0;
 	virtual int timeDescr(char *s, int len) = 0;
+	virtual double cdfInv(double percentile) = 0;
 private:
 };
 
@@ -555,8 +556,20 @@ public:
 	double sample();
 	int textDescr(char *s, int len);
 	int timeDescr(char *s, int len);
+	double cdfInv(double percentile);
 private:
 	double value;
+};
+
+/* Return the default scenario duration. */
+class CDefaultPause : public CSample {
+public:
+	CDefaultPause();
+	double sample();
+	int textDescr(char *s, int len);
+	int timeDescr(char *s, int len);
+	double cdfInv(double percentile);
+private:
 };
 
 /* Uniform distribution. */
@@ -566,6 +579,7 @@ public:
 	double sample();
 	int textDescr(char *s, int len);
 	int timeDescr(char *s, int len);
+	double cdfInv(double percentile);
 private:
 	double min, max;
 };
@@ -578,6 +592,7 @@ public:
 	double sample();
 	int textDescr(char *s, int len);
 	int timeDescr(char *s, int len);
+	double cdfInv(double percentile);
 protected:
 	double mean, stdev;
 	gsl_rng *rng;
@@ -590,14 +605,17 @@ public:
 	double sample();
 	int textDescr(char *s, int len);
 	int timeDescr(char *s, int len);
+	double cdfInv(double percentile);
 };
 
 /* Exponential distribution. */
 class CExponential : public CSample {
+public:
 	CExponential(double mean);
 	double sample();
 	int textDescr(char *s, int len);
 	int timeDescr(char *s, int len);
+	double cdfInv(double percentile);
 private:
 	double mean;
 	gsl_rng *rng;
@@ -605,10 +623,12 @@ private:
 
 /* Weibull distribution. */
 class CWeibull : public CSample {
+public:
 	CWeibull(double lambda, double k);
 	double sample();
 	int textDescr(char *s, int len);
 	int timeDescr(char *s, int len);
+	double cdfInv(double percentile);
 private:
 	double lambda, k;
 	gsl_rng *rng;

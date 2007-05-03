@@ -1546,6 +1546,25 @@ int CFixed::textDescr(char *s, int len) {
 int CFixed::timeDescr(char *s, int len) {
   return time_string(value, s, len);
 }
+double CFixed::cdfInv(double percentile) {
+  return value;
+}
+
+/* Implementation of the default pause time. */
+CDefaultPause::CDefaultPause() {
+}
+double CDefaultPause::sample() {
+  return (double)duration;
+}
+int CDefaultPause::textDescr(char *s, int len) {
+  return snprintf(s, len, "%d", duration);
+}
+int CDefaultPause::timeDescr(char *s, int len) {
+  return time_string(duration, s, len);
+}
+double CDefaultPause::cdfInv(double percentile) {
+  return duration;
+}
 
 /* Implementation of a uniform distribution. */
 static bool uniform_init = false;
@@ -1569,6 +1588,9 @@ int CUniform::timeDescr(char *s, int len) {
   used += snprintf(s + used, len - used, "/");
   used += time_string(max, s + used, len - used);
   return used;
+}
+double CUniform::cdfInv(double percentile) {
+  return min + (max * percentile);
 }
 
 #ifdef HAVE_GSL
@@ -1614,6 +1636,9 @@ int CNormal::timeDescr(char *s, int len) {
 
   return used;
 }
+double CNormal::cdfInv(double percentile) {
+  return mean + gsl_cdf_gaussian_Pinv(percentile, stdev);
+}
 
 /* Lognormal distribution. */
 double CLogNormal::sample() {
@@ -1630,6 +1655,9 @@ int CLogNormal::timeDescr(char *s, int len) {
     return 0;
   s[0] = 'L';
   return 1 + this->CNormal::timeDescr(s + 1, len - 1);
+}
+double CLogNormal::cdfInv(double percentile) {
+  return gsl_cdf_lognormal_Pinv(percentile, mean, stdev);
 }
 
 /* Exponential distribution. */
@@ -1650,6 +1678,9 @@ int CExponential::timeDescr(char *s, int len) {
   used += time_string(mean, s + used, len - used);
   used += snprintf(s + used, len - used, ")");
   return used;
+}
+double CExponential::cdfInv(double percentile) {
+  return gsl_cdf_exponential_Pinv(percentile, mean);
 }
 
 /* Weibull distribution. */
@@ -1676,6 +1707,9 @@ int CWeibull::timeDescr(char *s, int len) {
   used += snprintf(s + used, len - used, ")");
 
   return used;
+}
+double CWeibull::cdfInv(double percentile) {
+  return gsl_cdf_weibull_Pinv(percentile, lambda, k);
 }
 
 #endif
