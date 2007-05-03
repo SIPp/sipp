@@ -36,8 +36,8 @@
 
 #ifdef __3PCC__
 #include <unistd.h>
-extern int           twinSippSocket;
-extern int           localTwinSippSocket;
+extern struct sipp_socket *twinSippSocket;
+extern struct sipp_socket *localTwinSippSocket;
 #endif // __3PCC__ //
 
 extern bool    timeout_exit;
@@ -108,11 +108,11 @@ void screen_exit(int rc)
 
 #ifdef __3PCC__
   if(twinSippSocket) {
-    close(twinSippSocket);
+    sipp_close_socket(twinSippSocket);
   }
 
   if(localTwinSippSocket) {
-    close(localTwinSippSocket);
+    sipp_close_socket(localTwinSippSocket);
   }
 
 #endif //__3PCC__

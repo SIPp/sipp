@@ -95,14 +95,15 @@
 #define SIPP_VERSION               20070426
 #define T_UDP                      0
 #define T_TCP                      1
-#ifdef _USE_OPENSSL
 #define T_TLS                      2
+
+#ifdef _USE_OPENSSL
 #define DEFAULT_TLS_CERT           ((char *)"cacert.pem")
 #define DEFAULT_TLS_KEY            ((char *)"cakey.pem")
 #define DEFAULT_TLS_CRL            ((char *)"")
-
 #endif
-#define TRANSPORT_TO_STRING(p)     ((p==1) ? "TCP" : ((p==2)? "TLS" :"UDP"))
+
+#define TRANSPORT_TO_STRING(p)     ((p==T_TCP) ? "TCP" : ((p==T_TLS)? "TLS" :"UDP"))
 
 #define SIPP_MAXFDS                65536
 #define SIPP_MAX_MSG_SIZE          65536
@@ -193,7 +194,7 @@ extern char               local_ip_escaped[42];
 extern bool               local_ip_is_ipv6;    
 extern int                local_port              _DEFVAL(0);
 extern int                buff_size               _DEFVAL(65535);
-extern int                tcp_readsize            _DEFVAL(4096);
+extern int                tcp_readsize            _DEFVAL(65535);
 #ifdef PCAPPLAY
 extern int                hasMedia                _DEFVAL(0);
 #endif
@@ -229,8 +230,6 @@ extern bool               extendedTwinSippMode    _DEFVAL(false);
 extern bool               backgroundMode          _DEFVAL(false);        
 extern bool               signalDump              _DEFVAL(false);        
 
-extern bool               ctrlEW                  _DEFVAL(false);
-
 extern int                currentScreenToDisplay  _DEFVAL
                                                   (DISPLAY_SCENARIO_SCREEN);
 extern int                currentRepartitionToDisplay  _DEFVAL(1);
@@ -251,8 +250,6 @@ extern unsigned int       tdm_map_h               _DEFVAL(0);
 extern bool               tdm_map[1024];
 
 #ifdef _USE_OPENSSL
-extern BIO                  *bio ;
-extern SSL                  *ssl_tcp_multiplex ;
 extern BIO                  *twinSipp_bio ;
 extern SSL                  *twinSipp_ssl ;
 extern char                 *tls_cert_name     _DEFVAL(DEFAULT_TLS_CERT) ;
@@ -266,15 +263,19 @@ typedef std::vector<std::string>    IN_FILE_CONTENTS;
 extern IN_FILE_CONTENTS   fileContents;
 extern int                numLinesInFile          _DEFVAL(0);
 
-extern int      new_socket(bool P_use_ipv6, int P_type_socket, int * P_status);
+//extern int      new_socket(bool P_use_ipv6, int P_type_socket, int * P_status);
+extern struct   sipp_socket *new_sipp_socket(bool use_ipv6, int transport);
+struct sipp_socket *new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
+struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket);
+extern int	sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr, int *port);
+extern int	sipp_connect_socket(struct sipp_socket *socket, struct sockaddr_storage *dest);
+extern void	sipp_customize_socket(struct sipp_socket *socket);
 extern int      delete_socket(int P_socket);
 extern int      min_socket          _DEFVAL(65535);
 extern int      select_socket       _DEFVAL(0);
 extern bool     socket_close        _DEFVAL(true);
 extern bool     test_socket         _DEFVAL(true);
-extern bool     socket_open         _DEFVAL(true);
 extern bool     maxSocketPresent    _DEFVAL(false);
-extern int      *tab_multi_socket;
 
 extern unsigned long getmilliseconds();
 extern unsigned long long getmicroseconds();
@@ -329,8 +330,8 @@ extern unsigned long last_timer_cycle             _DEFVAL(0);
 
 /*********************** Global Sockets  **********************/
 
-extern int           main_socket                  _DEFVAL(0);
-extern int           tcp_multiplex                _DEFVAL(0);
+extern struct sipp_socket *main_socket            _DEFVAL(0);
+extern struct sipp_socket *tcp_multiplex          _DEFVAL(0);
 extern int           media_socket                 _DEFVAL(0);
 extern int           media_socket_video           _DEFVAL(0);
 
@@ -346,10 +347,9 @@ extern int	     reset_sleep                  _DEFVAL(1000);
 
 extern struct        addrinfo * local_addr_storage;
 
-#ifdef __3PCC__
-extern int           twinSippSocket               _DEFVAL(0);
-extern int           localTwinSippSocket          _DEFVAL(0);
-extern struct        sockaddr_storage twinSipp_sockaddr;
+extern struct sipp_socket *twinSippSocket         _DEFVAL(NULL);
+extern struct sipp_socket *localTwinSippSocket    _DEFVAL(NULL);
+extern struct sockaddr_storage twinSipp_sockaddr;
 
 /* 3pcc extended mode */
 typedef struct _T_peer_infos {
@@ -357,22 +357,20 @@ typedef struct _T_peer_infos {
                int                        peer_port;
                struct sockaddr_storage    peer_sockaddr;
                char                       peer_ip[40];
-               int                        peer_socket ;
+               struct sipp_socket         *peer_socket ;
                } T_peer_infos;
 
 typedef std::map<std::string, char * > peer_addr_map;
 extern peer_addr_map peer_addrs;
 typedef std::map<std::string, T_peer_infos> peer_map;
 extern peer_map      peers;
-typedef std::map<int, std::string > peer_socket_map;
+typedef std::map<struct sipp_socket *, std::string > peer_socket_map;
 extern peer_socket_map peer_sockets;
-extern int           local_sockets[MAX_LOCAL_TWIN_SOCKETS];
+extern struct sipp_socket *local_sockets[MAX_LOCAL_TWIN_SOCKETS];
 extern int           local_nb                    _DEFVAL(0);
 extern int           peers_connected             _DEFVAL(0);
-#endif
 
-extern struct        sockaddr_storage remote_sockaddr;
-
+extern struct	     sockaddr_storage remote_sockaddr;
 extern short         use_remote_sending_addr      _DEFVAL(0);
 extern struct        sockaddr_storage remote_sending_sockaddr;
 
@@ -433,15 +431,65 @@ unsigned long get_reply_code(char *msg);
 
 /********************** Network Interfaces ********************/
 
-void sipp_customize_socket(int socket);
 int send_message(int s, void ** comp_state, char * msg);
 #ifdef _USE_OPENSSL
 int send_message_tls(SSL *s, void ** comp_state, char * msg);
 #endif
 
-void pollset_remove(int idx);
-void remove_from_pollfiles(int sock);
-int pollset_add(call * p_call, int socket);
+/* Socket Buffer Management. */
+#define NO_COPY 0
+#define DO_COPY 1
+struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy);
+void free_socketbuf(struct socketbuf *socketbuf);
+
+/* These buffers lets us read past the end of the message, and then split it if
+ * required.  This eliminates the need for reading a message octet by octet and
+ * performing a second read for the content length. */
+struct socketbuf {
+	char *buf;
+	size_t len;
+	size_t offset;
+	struct socketbuf *next;
+};
+
+/* This is an abstraction of a socket, which provides buffers for input and
+ * output. */
+struct sipp_socket {
+	int  ss_count; /* How many users are there of this socket? */
+
+	int ss_transport; /* T_TCP, T_UDP, or T_TLS. */
+	bool ss_ipv6;
+	bool ss_control; /* Is this a control socket? */
+	bool ss_call_socket; /* Is this a call socket? */
+
+	int ss_fd;	/* The underlying file descriptor for this socket. */
+	void *ss_comp_state; /* The compression state. */
+#ifdef _USE_OPENSSL
+	SSL *ss_ssl;	/* The underlying SSL descriptor for this socket. */
+	BIO *ss_bio;	/* The underlying BIO descriptor for this socket. */
+#endif
+	struct sockaddr_storage ss_remote_sockaddr; /* Who we are talking to. */
+
+
+	int ss_pollidx; /* The index of this socket in our poll structures. */
+	bool ss_congested; /* Is this socket congested? */
+	bool ss_invalid; /* Has this socket been closed remotely? */
+
+	struct socketbuf *ss_in; /* Buffered input. */
+	size_t ss_msglen;	/* Is there a complete SIP message waiting, and if so how big? */
+	struct socketbuf *ss_out; /* Buffered output. */
+};
+
+/* Write data to a socket. */
+int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flags);
+/* Mark a socket as "bad". */
+void sipp_socket_invalidate(struct sipp_socket *socket);
+/* Actually free the socket. */
+void sipp_close_socket(struct sipp_socket *socket);
+
+#define WS_EAGAIN 1 /* Return EAGAIN if there is no room for writing the message. */
+#define WS_BUFFER 2 /* Buffer the message if there is no room for writing the message. */
+
 
 #if defined (__hpux) || defined (__alpha) && !defined (__FreeBSD__)
 #define sipp_socklen_t  int
@@ -467,15 +515,16 @@ int get_decimal_from_hex(char hex);
 
 int reset_connections() ;
 int close_calls();
+int close_calls(struct sipp_socket *);
 int close_connections();
 int open_connections();
 void timeout_alarm(int);
 
 /* extended 3PCC mode */
-int * get_peer_socket(char *);
-bool is_a_peer_socket(int);
-bool is_a_local_socket(int);
-void connect_to_peer (char *, int *, sockaddr_storage *, char *, int *);
+struct sipp_socket **get_peer_socket(char *);
+bool is_a_peer_socket(struct sipp_socket *);
+bool is_a_local_socket(struct sipp_socket *);
+void connect_to_peer (char *, int *, sockaddr_storage *, char *, struct sipp_socket **);
 void connect_to_all_peers ();
 void connect_local_twin_socket(char *);
 void close_peer_sockets();

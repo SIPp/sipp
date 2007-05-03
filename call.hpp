@@ -162,15 +162,9 @@ public:
   
   char           *peer_tag;
   
-  int            call_socket;
-  int            call_remote_socket;
+  struct sipp_socket *call_remote_socket;
   int            call_port;
 
-  bool            poll_flag_write ;
-  /* Index of the socket, only if the call locally created it
-   * and must delete it on call deletion */
-  int            pollset_index;
-  
   void         * comp_state;
 
   int            deleted;
@@ -236,7 +230,7 @@ public:
 		int search_index);    // 3pcc extended mode:check if 
 				      // the twin message received
 				      // comes from the expected sender
-  int   sendBuffer(char *buf);        // send a message out of a scenario 
+  void   sendBuffer(char *buf);        // send a message out of a scenario
                                       // execution
   int   checkAutomaticResponseMode(char * P_recv);
   bool  automaticResponseMode(int P_case, char* P_recv);
@@ -261,6 +255,10 @@ public:
   static void getFieldFromInputFile(const char* fieldName, unsigned int lineNum, char*& dest);
   static void getIpFieldFromInputFile(int fieldNr, int lineNum, char *dest);
   static int  m_counter; // used for sequential access
+
+  /* Associate/Dissociate this call with a socket. */
+  struct sipp_socket *associate_socket(struct sipp_socket *socket);
+  struct sipp_socket *dissociate_socket();
 
   /* Is this call paused or running? */
   bool running;
@@ -292,6 +290,7 @@ private:
   int    m_localLineNumber;
 
   bool   use_ipv6;
+  struct sipp_socket *call_socket;
 
   void   get_remote_media_addr(char * message);
 
@@ -307,11 +306,10 @@ typedef std::map<std::string, call *> call_map;
 call_map * get_calls();
 call_list * get_running_calls();
 
-call * add_call(char * call_id , int P_pollset_indx, bool ipv6 = false);
+call * add_call(bool ipv6);
+call * add_call(char * call_id , bool ipv6);
+call * add_call(char * call_id , struct sipp_socket *socket);
 
-call * add_call(char * call_id , bool ipv6 = false);
-
-call * add_call(bool ipv6 = false);
 call * get_call(char *);
 void   delete_call(char *);
 void   delete_calls(void);
@@ -321,5 +319,11 @@ bool remove_running_call(call *call);
 int expire_paused_calls();
 int paused_calls_count();
 void remove_paused_call(call *call);
+
+typedef std::pair<struct sipp_socket *,call *> socket_call_pair;
+typedef std::multimap<struct sipp_socket *, call *> socket_call_map;
+call_list *get_calls_for_socket(struct sipp_socket *socket);
+void add_call_to_socket(struct sipp_socket *socket, call *call);
+bool remove_call_from_socket(struct sipp_socket *socket, call *call);
 
 #endif

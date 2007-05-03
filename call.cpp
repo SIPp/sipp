@@ -56,11 +56,13 @@ extern  struct pollfd        pollfiles[];
 extern  SSL_CTX             *sip_trp_ssl_ctx;
 #endif
 
-extern  map<string, int>     map_perip_fd;
+extern  map<string, struct sipp_socket *>     map_perip_fd;
 
 call_map calls;
 call_list running_calls;
 timewheel paused_calls;
+
+socket_call_map socket_to_call;
 
 #ifdef PCAPPLAY
 /* send_packets pthread wrapper */
@@ -100,7 +102,24 @@ unsigned int get_tdm_map_number(unsigned int number) {
   } 
 }
 
-call * add_call(char * call_id, bool ipv6)
+struct sipp_socket *call::associate_socket(struct sipp_socket *socket) {
+  if (socket) {
+    this->call_socket = socket;
+    add_call_to_socket(socket, this);
+  }
+  return socket;
+}
+
+struct sipp_socket *call::dissociate_socket() {
+  struct sipp_socket *ret = this->call_socket;
+
+  remove_call_from_socket(this->call_socket, this);
+  this->call_socket = NULL;
+
+  return ret;
+}
+
+call * add_call(char * call_id , bool use_ipv6)
 {
   call * new_call;
   unsigned int nb;
@@ -119,7 +138,7 @@ call * add_call(char * call_id, bool ipv6)
     }
   }
 
-  new_call = new call(call_id, ipv6);
+  new_call = new call(call_id, use_ipv6);
 
   if(!new_call) {
     ERROR("Memory Overflow");
@@ -145,28 +164,26 @@ call * add_call(char * call_id, bool ipv6)
     open_calls_peak = open_calls;
     open_calls_peak_time = clock_tick / 1000;
   }
+
   return new_call;
 }
 
-#ifdef _USE_OPENSSL
-call * add_call(char * call_id , int P_pollset_indx, bool ipv6)
-{
-  call * new_call = add_call(call_id, ipv6);
-  new_call -> pollset_index = P_pollset_indx;
+call * add_call(char * call_id , struct sipp_socket *socket) {
+  call *new_call = add_call(call_id, socket->ss_ipv6);
+  new_call->associate_socket(socket);
   return new_call;
 }
-#endif
 
 
 call * add_call(bool ipv6)
 {
   static char call_id[MAX_HEADER_LEN];
-  
+
   char * src = call_id_string;
   int count = 0;
-  
+
   if(!next_number) { next_number ++; }
-  
+
   while (*src && count < MAX_HEADER_LEN-1) {
       if (*src == '%') {
           ++src;
@@ -398,6 +415,37 @@ int timewheel::size() {
   return count;
 }
 
+/* The call must delete this list. */
+call_list *get_calls_for_socket(struct sipp_socket *socket) {
+  call_list *l = new call_list;
+
+  socket_call_map::iterator call_it = socket_to_call.find(socket);
+  while (call_it != socket_to_call.end() && call_it->first == socket) {
+	l->insert(l->end(), call_it->second);
+	call_it++;
+  }
+
+  return l;
+}
+
+void add_call_to_socket(struct sipp_socket *socket, call *call) {
+  socket_call_pair p(socket, call);
+  socket_to_call.insert(socket_call_pair(socket, call));
+}
+
+bool remove_call_from_socket(struct sipp_socket *socket, call *call) {
+  socket_call_map::iterator call_it = socket_to_call.find(socket);
+  while (call_it != socket_to_call.end() && call_it->first == socket) {
+	if (call_it->second == call) {
+	  socket_to_call.erase(call_it);
+	  return true;
+	}
+	call_it++;
+  }
+
+  return false;
+}
+
 #ifdef PCAPPLAY
 /******* Media information management *************************/
 /*
@@ -587,9 +635,6 @@ call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
   m_bio = NULL ;
 #endif
 
-  pollset_index = 0 ;
-  poll_flag_write = false ;
-
   call_remote_socket = 0;
   
   // initialising the CallVariable with the Scenario variable
@@ -658,51 +703,12 @@ call::~call()
                                    clock_tick - start_time);
   }
 
-#ifdef _USE_OPENSSL
-  
-  if ((toolMode == MODE_SERVER)  && (multisocket))  {
-   if (ssl_list[call_socket] != NULL) {
-    if((pollset_index) &&  (pollfiles[pollset_index].fd == call_socket)) {
-      SSL_set_shutdown(ssl_list[call_socket],SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
-      SSL_free(ssl_list[call_socket]);
-      ssl_list[call_socket] = NULL ;
-      pollset_remove(pollset_index);
-      shutdown(call_socket, SHUT_RDWR);
-      close(call_socket);
-     }
-   }
+  sipp_close_socket(dissociate_socket());
+  if (call_remote_socket) {
+    sipp_close_socket(call_remote_socket);
   }
 
-  if ((toolMode != MODE_SERVER) && (multisocket))  {
-    if(pollset_index ) {
-     if (ssl_list[call_socket] != NULL) {
-      // SSL_shutdown(ssl_list[call_socket]);
-      SSL_set_shutdown(ssl_list[call_socket],SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
-       SSL_free(ssl_list[call_socket]);
-       // BIO_free(m_bio);
-       // m_bio = NULL ;
-       m_ctx_ssl = NULL ;
-      }
-    }
-  }
-#endif
-  
-  if (toolMode != MODE_SERVER)   {
-  // TRACE_MSG((s,"socket close  %d at idx = %d\n", socket_close, pollset_index));
-  if(pollset_index) {
-      if (socket_close) {
-    pollset_remove(pollset_index);
-    shutdown(call_socket, SHUT_RDWR);
-    close(call_socket);
-  }
-    }
-  } else {
-    if (call_remote_socket) {
-      close(call_remote_socket);
-    }
-  }
-
-  /* Deletion of the call variable */ 
+  /* Deletion of the call variable */
   for(int i=0; i<SCEN_VARIABLE_SIZE; i++) {
     if(M_callVariableTable[i] != NULL) {
       delete M_callVariableTable[i] ;
@@ -733,46 +739,46 @@ call::~call()
  
 void call::connect_socket_if_needed()
 {
-#ifdef _USE_OPENSSL
-   int err;
-   SSL      *L_ssl_tcp_multiplex=NULL ;
-#endif
+  bool existing;
 
   if(call_socket) return;
   if(!multisocket) return;
 
   if(transport == T_UDP) {
     struct sockaddr_storage saddr;
-    sipp_socklen_t len;
-    
-    int L_status = 0 ;	   // no new socket
 
-    if(toolMode != MODE_CLIENT) return;
+    if(toolMode != MODE_CLIENT)
+      return;
 
     char peripaddr[256];
     if (!peripsocket) {
-      if ((call_socket = new_socket(use_ipv6, SOCK_DGRAM, &L_status)) == -1) {
-        ERROR_NO("Unable to get a UDP socket");
-       }
-     } else {
-       getIpFieldFromInputFile(peripfield, m_localLineNumber, peripaddr);
-       map<string, int>::iterator i;
-       i = map_perip_fd.find(peripaddr);
-       if (i == map_perip_fd.end()) {
-         // Socket does not exist
-    if ((call_socket = new_socket(use_ipv6, SOCK_DGRAM, &L_status)) == -1) {
-      ERROR_NO("Unable to get a UDP socket");
-         } else {
-           map_perip_fd[peripaddr] = call_socket;
-         }
-       } else {
-         // Socket exists already
-         call_socket = i->second;
-       }
+      if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+	ERROR_NO("Unable to get a UDP socket");
+      }
+    } else {
+      getIpFieldFromInputFile(peripfield, m_localLineNumber, peripaddr);
+      map<string, struct sipp_socket *>::iterator i;
+      i = map_perip_fd.find(peripaddr);
+      if (i == map_perip_fd.end()) {
+	// Socket does not exist
+	if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+	  ERROR_NO("Unable to get a UDP socket");
+	} else {
+	  /* Ensure that it stays persistent, because it is recorded in the map. */
+	  call_socket->ss_count++;
+	  map_perip_fd[peripaddr] = call_socket;
+	}
+      } else {
+	// Socket exists already
+	associate_socket(i->second);
+	existing = true;
+	i->second->ss_count++;
+      }
     }
-    
+    if (existing) {
+	return;
+    }
 
-    if (L_status) {
     memset(&saddr, 0, sizeof(struct sockaddr_storage));
 
     memcpy(&saddr,
@@ -808,56 +814,27 @@ void call::connect_socket_if_needed()
       }
     }
 
-    if(bind(call_socket,
-            (sockaddr *)(void *)&saddr,
-            use_ipv6 ? sizeof(struct sockaddr_in6) :
-                       sizeof(struct sockaddr_in))) {
+    if (sipp_bind_socket(call_socket, &saddr, &call_port)) {
       ERROR_NO("Unable to bind UDP socket");
     }
-    }
-    
-    if (use_ipv6) {
-      len = sizeof(struct sockaddr_in6);
-    } else {
-      len = sizeof(struct sockaddr_in);
-    }
-
-    getsockname(call_socket, 
-                (sockaddr *)(void *)&saddr,
-                &len);
-
-    if (use_ipv6) {
-      call_port =
-        ntohs((short)((_RCAST(struct sockaddr_in6 *, &saddr))->sin6_port));
-    } else {
-      call_port
-        = ntohs((short)((_RCAST(struct sockaddr_in *, &saddr))->sin_port));
-    }
-     /* Asks to receive incoming messages */
-    if (L_status) {
-     pollset_index = pollset_add(this, call_socket);
-    }
-
-  } else { /* TCP */
-
-    int L_status = 0 ;	   // no new socket
+  } else { /* TCP or TLS. */
     struct sockaddr_storage *L_dest = &remote_sockaddr;
 
-    if ((call_socket = new_socket(use_ipv6, SOCK_STREAM, &L_status)) == -1) {
+    if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
       ERROR_NO("Unable to get a TCP socket");
     }
+
+    if (existing) {
+      return;
+    }
     
-    if (L_status) {
-      sipp_customize_socket(call_socket);
+    sipp_customize_socket(call_socket);
 
-      if (use_remote_sending_addr) {
-        L_dest = &remote_sending_sockaddr;
-      }
+    if (use_remote_sending_addr) {
+      L_dest = &remote_sending_sockaddr;
+    }
 
-    if(connect(call_socket,
-                 (struct sockaddr *)(void *)L_dest,
-	        SOCK_ADDR_SIZE(&remote_sockaddr))) {
-      
+    if (sipp_connect_socket(call_socket, L_dest)) {
       if (reset_number > 0) {
         if(errno == EINVAL){
           /* This occurs sometime on HPUX but is not a true INVAL */
@@ -867,48 +844,14 @@ void call::connect_socket_if_needed()
         }
         start_calls = 1;
       } else {
-      if(errno == EINVAL){
-        /* This occurs sometime on HPUX but is not a true INVAL */
-        ERROR("Unable to connect a TCP socket, remote peer error");
-      } else {
-        ERROR_NO("Unable to connect a TCP socket");
+	if(errno == EINVAL){
+	  /* This occurs sometime on HPUX but is not a true INVAL */
+	  ERROR("Unable to connect a TCP socket, remote peer error");
+	} else {
+	  ERROR_NO("Unable to connect a TCP socket");
+	}
       }
-      }
-    } else {
-#ifdef _USE_OPENSSL
-     if ( transport == T_TLS ) {
-       m_ctx_ssl = sip_trp_ssl_ctx ;
-       
-       
-      if (!(L_ssl_tcp_multiplex = SSL_new(m_ctx_ssl))){
-            ERROR("Unable to create SSL object : Problem with SSL_new() \n");
-       }
-
-       // if ( (m_bio = BIO_new_socket(call_socket,BIO_NOCLOSE)) == NULL) {
-        
-       if ( (m_bio = BIO_new_socket(call_socket,BIO_CLOSE)) == NULL) {
-             ERROR("Unable to create BIO object:Problem with BIO_new_socket()\n");
-       }
-        
-
-       // SSL_set_fd(L_ssl_tcp_multiplex, call_socket);
-       SSL_set_bio(L_ssl_tcp_multiplex,m_bio,m_bio);
-       // SSL_set_bio(L_ssl_tcp_multiplex,bio,bio);
-
-      if ( (err = SSL_connect(L_ssl_tcp_multiplex)) < 0 ) {
-           ERROR("Error in SSL connection \n");
-  }
-       ssl_list[call_socket] = L_ssl_tcp_multiplex;
-
-  
-     }
-#endif
-
-
-  /* Asks to receive incoming messages */
-  pollset_index = pollset_add(this, call_socket);
     }
-  }
   }
 }
 
@@ -937,22 +880,8 @@ bool lost(int index)
 
 int call::send_raw(char * msg, int index) 
 {
-  void ** state;
-  int sock;
+  struct sipp_socket *sock;
   int rc;
-#ifdef _USE_OPENSSL
-  SSL *ssl;
-  // extern SSL *ssl_list[];
-#endif
-  if (useMessagef == 1) { 
-  struct timeval currentTime;
-  GET_TIME (&currentTime);
-  TRACE_MSG((s, "----------------------------------------------- %s\n"
-             "%s message sent:\n\n%s\n",
-             CStat::instance()->formatTime(&currentTime),
-             TRANSPORT_TO_STRING(transport),
-             msg));
-  }
   
   if((index!=-1) && (lost(index))) {
     TRACE_MSG((s, "%s message voluntary lost (while sending).", TRANSPORT_TO_STRING(transport)));
@@ -962,95 +891,58 @@ int call::send_raw(char * msg, int index)
     return 0;
   }
   
-  if(call_socket) {
-    state = &comp_state;
-    sock = call_socket;
+  sock = call_socket;
 
-    if ((use_remote_sending_addr) && (toolMode == MODE_SERVER)) {
-      if (!call_remote_socket) {
-        struct sockaddr_storage *L_dest = &remote_sending_sockaddr;
+  if ((use_remote_sending_addr) && (toolMode == MODE_SERVER)) {
+    if (!call_remote_socket) {
+      struct sockaddr_storage *L_dest = &remote_sending_sockaddr;
 
-        if(transport == T_UDP) {        
-        if((call_remote_socket= socket(use_ipv6 ? AF_INET6 : AF_INET,
-  				         SOCK_DGRAM,
-                            0))== -1) {
-          ERROR_NO("Unable to get a socket for rsa option");
-        }
-	  if(bind(call_remote_socket,
-                  (sockaddr *)(void *)L_dest,
-                  use_ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in))) {
-              ERROR_NO("Unable to bind UDP socket for rsa option");
-          }   
-        } else {
-	  if((call_remote_socket= socket(use_ipv6 ? AF_INET6 : AF_INET,
-		  		          SOCK_STREAM,
-					  0))== -1) {
-            ERROR_NO("Unable to get a socket for rsa option");
-	  }
-        sipp_customize_socket(call_remote_socket);
-
-        if(connect(call_remote_socket,
-               (struct sockaddr *)(void *)L_dest,
-	        SOCK_ADDR_SIZE(&remote_sockaddr))) {
-          if(errno == EINVAL){
-            /* This occurs sometime on HPUX but is not a true INVAL */
-            ERROR_P1("Unable to connect a %s socket for rsa option, remote peer error", TRANSPORT_TO_STRING(transport));
-          } else {
-            ERROR_NO("Unable to connect a socket for rsa option");
-            }
-          }
-        }
+      if((call_remote_socket= new_sipp_socket(use_ipv6, transport)) == NULL) {
+	ERROR_NO("Unable to get a socket for rsa option");
       }
-      sock=call_remote_socket ;
-    }
 
-#ifdef _USE_OPENSSL
-    ssl  = ssl_list[sock];
-    // ssl  = m_ssl;
-#endif
-  } else {
-    state = &monosocket_comp_state;
-    if(transport == T_UDP) {
-      sock = main_socket;
-    } else {
-      sock = tcp_multiplex;
-#ifdef _USE_OPENSSL
-      ssl = ssl_tcp_multiplex;
-#endif
+      if(transport == T_UDP) {
+	if(sipp_bind_socket(call_remote_socket, L_dest, NULL)) {
+	  ERROR_NO("Unable to bind UDP socket for rsa option");
+	}
+      } else {
+	sipp_customize_socket(call_remote_socket);
+
+	if (sipp_connect_socket(call_remote_socket, L_dest)) {
+	  if(errno == EINVAL){
+	    /* This occurs sometime on HPUX but is not a true INVAL */
+	    ERROR_P1("Unable to connect a %s socket for rsa option, remote peer error", TRANSPORT_TO_STRING(transport));
+	  } else {
+	    ERROR_NO("Unable to connect a socket for rsa option");
+	  }
+	}
+      }
     }
+    sock=call_remote_socket ;
   }
 
-#ifdef _USE_OPENSSL
-  if ( transport == T_TLS ) {
-    rc = send_message_tls(ssl, state, msg);
-  } else {
-#endif
-  rc = send_message(sock, state, msg);
-#ifdef _USE_OPENSSL
+  rc = write_socket(sock, msg, strlen(msg), WS_BUFFER);
+  if(rc == -1 && errno == EWOULDBLOCK) {
+    return -1;
   }
-#endif
 
-  if(rc == -1) return -1;
-
-  if(rc < -1) {
+  if(rc < 0) {
     CStat::instance()->computeStat(CStat::E_CALL_FAILED);
     CStat::instance()->computeStat(CStat::E_FAILED_CANNOT_SEND_MSG);
     delete_call(id);
   }
-  
+
   return rc; /* OK */
 }
 
 /* This method is used to send messages that are not */
 /* part of the XML scenario                          */
-int call::sendBuffer(char * msg) 
+void call::sendBuffer(char * msg)
 {
-  int rc;
-
   /* call send_raw but with a special scenario index */
-  rc=send_raw(msg, -1);
-
-  return rc;
+  if (send_raw(msg, -1) < 0) {
+    ERROR_NO("Error sending raw message");
+  }
 }
 
 
@@ -1271,7 +1163,14 @@ char * call::send_scene(int index, int *send_status)
 
   /* Socket port must be known before string substitution */
   connect_socket_if_needed();
-  
+
+  assert(call_socket);
+
+  if (call_socket->ss_congested) {
+    *send_status = -1;
+    return NULL;
+  }
+
   if(scenario[index] -> send_scheme) {
     char * dest;
     dest = createSendingMessage(scenario[index] -> send_scheme, index);
@@ -1294,8 +1193,7 @@ char * call::send_scene(int index, int *send_status)
     }
 
     if(send_status) {
-      *send_status = 
-        send_raw(msg_buffer, index);
+      *send_status = send_raw(msg_buffer, index);
     } else {
       send_raw(msg_buffer, index);
     }
@@ -1415,7 +1313,9 @@ bool call::run()
           msg_index = labelArray[scenario[last_send_index]->on_timeout];
           next_retrans = 0;
           recv_timeout = 0;
-          if (msg_index < scenario_len) return true;
+          if (msg_index < scenario_len) {
+		return true;
+	  }
 
           // here if asked to go to the last label  delete the call
           CStat::instance()->computeStat(CStat::E_CALL_FAILED);
@@ -1538,16 +1438,11 @@ bool call::run()
           incr_cseq = 1;
     }
     
-    if ((ctrlEW) || (poll_flag_write)) {
-      send_status = -1;
-    } else {
     msg_snd = send_scene(msg_index, &send_status);
-    }
-
-    if(send_status == -1) { /* Would Block on TCP */
+    if(send_status == -1 && errno == EWOULDBLOCK) {
       if (incr_cseq) --cseq;
       return true; /* No step, nothing done, retry later */
-    } else if(send_status <-1) { /* Send error */
+    } else if(send_status < 0) { /* Send error */
       return false; /* call deleted */
     }
     
@@ -1635,7 +1530,7 @@ bool call::run()
       else
         // Else use the default timeout if specified
         recv_timeout = getmilliseconds() + defl_recv_timeout;
-      return true;
+	return true;
     } else {
 	/* We are going to wait forever. */
 	if (!remove_running_call(this)) {
@@ -1699,7 +1594,6 @@ bool call::process_unexpected(char * msg)
 
 bool call::abortCall()
 {
-  int res ;
   int is_inv;
 
   char * src_send = NULL ;
@@ -1736,7 +1630,7 @@ bool call::abortCall()
         sprintf(L_param, "%s%s", L_param, "Subject: Performance Test\n");
         sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n");
 
-        res = sendBuffer(createSendingMessage((char*)(L_param), -2));
+        sendBuffer(createSendingMessage((char*)(L_param), -2));
 
       } else if (src_recv) {
         /* Call is not established and the reply is not a 4XX, 5XX */
@@ -1760,7 +1654,7 @@ bool call::abortCall()
           }
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
           sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
-          res = sendBuffer(createSendingMessage((char*)(L_param),-1));
+          sendBuffer(createSendingMessage((char*)(L_param),-1));
           
           /* Send the BYE */
           cseq = NULL;
@@ -1775,7 +1669,7 @@ bool call::abortCall()
           }
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
           sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
-          res = sendBuffer(createSendingMessage((char*)(L_param),-1));
+          sendBuffer(createSendingMessage((char*)(L_param),-1));
         } else {
           /* Send a CANCEL */
           strcpy(L_param, "CANCEL sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
@@ -1786,7 +1680,7 @@ bool call::abortCall()
 	       sprintf(L_param, "%sCSeq: 1 CANCEL\n", L_param);
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
           sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
-          res = sendBuffer(createSendingMessage((char*)(L_param),-2));
+          sendBuffer(createSendingMessage((char*)(L_param),-2));
         }
       } else {
         /* Call is not established and the reply is not a 4XX, 5XX */
@@ -1813,7 +1707,7 @@ bool call::abortCall()
       }
       sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
       sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
-      res = sendBuffer(createSendingMessage((char*)(L_param),-1));
+      sendBuffer(createSendingMessage((char*)(L_param),-1));
     }
   }
 
@@ -1830,7 +1724,6 @@ bool call::rejectCall()
 }
 
 
-#ifdef __3PCC__
 int call::sendCmdMessage(int index)
 {
   char * dest;
@@ -1840,7 +1733,7 @@ int call::sendCmdMessage(int index)
 
   /* 3pcc extended mode */
   char * peer_dest;
-  int * peer_socket; 
+  struct sipp_socket **peer_socket;
 
   if(scenario[index] -> M_sendCmdData) {
     // WARNING_P1("---PREPARING_TWIN_CMD---%s---", scenario[index] -> M_sendCmdData); 
@@ -1854,17 +1747,10 @@ int call::sendCmdMessage(int index)
     peer_dest = scenario[index]->peer_dest;
     if(peer_dest){ 
       peer_socket = get_peer_socket(peer_dest);
-         rc = send(* peer_socket,
-                   dest,
-                   strlen(dest),
-                   0);
-
-     }else {
-    rc = send(twinSippSocket, 
-              dest, 
-              strlen(dest), 
-              0);
-     } 
+      rc = write_socket(*peer_socket, dest, strlen(dest), WS_BUFFER);
+    }else {
+      rc = write_socket(twinSippSocket, dest, strlen(dest), WS_BUFFER);
+    }
     if(rc <  0) {
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
       CStat::instance()->computeStat(CStat::E_FAILED_CMD_NOT_SENT);
@@ -1877,6 +1763,7 @@ int call::sendCmdMessage(int index)
   else
     return(-1);
 }
+
 
 int call::sendCmdBuffer(char* cmd)
 {
@@ -1891,11 +1778,7 @@ int call::sendCmdBuffer(char* cmd)
 
   strcat(dest, delimitor);
 
-
-  rc = send(twinSippSocket, 
-            dest, 
-            strlen(dest), 
-            0);
+  rc = write_socket(twinSippSocket, dest, strlen(dest), WS_BUFFER);
   if(rc <  0) {
     CStat::instance()->computeStat(CStat::E_CALL_FAILED);
     CStat::instance()->computeStat(CStat::E_FAILED_CMD_NOT_SENT);
@@ -1905,8 +1788,6 @@ int call::sendCmdBuffer(char* cmd)
 
   return(0);
 }
-
-#endif
 
 void call::getHexStringParam(char * dest, char * src, int * len)
 { 
@@ -2038,10 +1919,12 @@ char* call::createSendingMessage(char * src, int P_index)
           }
         } else if(!strcmp(keyword, "server_ip")) {
           struct sockaddr_storage server_sockaddr;
+
           sipp_socklen_t len = SOCK_ADDR_SIZE(&server_sockaddr);
-          getsockname(call_socket,
+          getsockname(call_socket->ss_fd,
                 (sockaddr *)(void *)&server_sockaddr,
                 &len);
+
           if (server_sockaddr.ss_family == AF_INET6) {
             char * temp_dest;
             temp_dest = (char *) malloc(INET6_ADDRSTRLEN);
@@ -2282,7 +2165,6 @@ char* call::createSendingMessage(char * src, int P_index)
             ERROR("Could not extract method from cseq of challenge");
         }
         while(isspace(*tmp) || isdigit(*tmp)) tmp++;
-	/* This looks like it could have been be a bug, shouldn't it be method instead of &method. */
         sscanf(tmp,"%s", method);
 
         /* Need the body for auth-int calculation */
@@ -2418,6 +2300,7 @@ bool call::process_twinSippCom(char * msg)
           continue;
         }
         /* The received message is different from the expected one */
+	TRACE_MSG((s, "Unexpected control message received (I was expecting a different type of message):\n%s\n", msg));
         return rejectCall();
       } else {
         if(extendedTwinSippMode){                   // 3pcc extended mode 
@@ -2457,6 +2340,7 @@ bool call::process_twinSippCom(char * msg)
         }
       }
     } else {
+      TRACE_MSG((s, "Unexpected control message received (no such message found):\n%s\n", msg));
       return rejectCall();
     }
     msg_index = search_index; //update the state machine
@@ -2752,9 +2636,9 @@ bool call::process_incoming(char * msg)
     paused_calls.remove_paused_call(this);
     add_running_call(this);
   }
-   
-   /* Ignore the messages received during a pause if -pause_msg_ign is set */
-   if(scenario[msg_index] -> M_type == MSG_TYPE_PAUSE && pause_msg_ign) return(true);
+
+  /* Ignore the messages received during a pause if -pause_msg_ign is set */
+  if(scenario[msg_index] -> M_type == MSG_TYPE_PAUSE && pause_msg_ign) return(true);
 
   /* Authorize nop as a first command, even in server mode */
   if((msg_index == 0) && (scenario[msg_index] -> M_type == MSG_TYPE_NOP)) {
@@ -2786,7 +2670,7 @@ bool call::process_incoming(char * msg)
 
       if(status == 0) {
 	scenario[recv_retrans_send_index] -> nb_sent_retrans++;
-      } else if(status < -1) {
+      } else if(status < 0) {
 	return false;
       }
 
@@ -2875,7 +2759,7 @@ bool call::process_incoming(char * msg)
     ERROR_P1("Invalid sip message received '%s'",
              msg);
   }
-    
+
   /* Try to find it in the expected non mandatory responses
    * until the first mandatory response  in the scenario */
   for(search_index = msg_index;
@@ -2933,7 +2817,7 @@ bool call::process_incoming(char * msg)
       }
     } else {
       // call aborted by automatic response mode if needed
-      return (automaticResponseMode(L_case, msg)); 
+      return automaticResponseMode(L_case, msg);
     }
   }
 
@@ -2974,7 +2858,7 @@ bool call::process_incoming(char * msg)
       }
     }
   }
-  
+
   if (request) { // update [cseq] with received CSeq
     unsigned long int rcseq = get_cseq_value(msg);
     if (rcseq > cseq) cseq = rcseq;
@@ -3096,7 +2980,7 @@ bool call::process_incoming(char * msg)
     unsigned int candidate;
 
     if (test < SCEN_VARIABLE_SIZE && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()) {
-      WARNING_P1("Last message generates an error and will not be used for next sends (for last_ variables):\r\n%s",msg);
+      WARNING_P1("Last message generates an error and will not be used for next sends (for last_ varaiables):\r\n%s",msg);
     }
 
     /* We are just waiting for a message to be received, if any of the
@@ -3523,7 +3407,7 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
     scenario[msg_index] -> nb_unexp++;
     if (default_behavior) {
       WARNING_P1("Aborting call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
-    res = sendBuffer(createSendingMessage(
+    sendBuffer(createSendingMessage(
                     (char*)"SIP/2.0 200 OK\n"
                     "[last_Via:]\n"
                     "[last_From:]\n"
@@ -3558,7 +3442,7 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
     scenario[msg_index] -> nb_unexp++;
     if (default_behavior) {
       WARNING_P1("Aborting call on an unexpected CANCEL for call: %s", (id==NULL)?"none":id);
-    res = sendBuffer(createSendingMessage(
+    sendBuffer(createSendingMessage(
                       (char*)"SIP/2.0 200 OK\n"
                       "[last_Via:]\n"
                       "[last_From:]\n"
@@ -3593,7 +3477,7 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
    if (default_behavior) {
     WARNING_P1("Automatic response mode for an unexpected PING for call: %s", (id==NULL)?"none":id);
     count_in_stats = false; // Call must not be counted in statistics
-    res = sendBuffer(createSendingMessage(
+    sendBuffer(createSendingMessage(
                     (char*)"SIP/2.0 200 OK\n"
                     "[last_Via:]\n"
                     "[last_Call-ID:]\n"
@@ -3635,7 +3519,7 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
     strcpy(last_recv_msg, P_recv);
 
     WARNING_P1("Automatic response mode for an unexpected INFO, UPDATE or NOTIFY for call: %s", (id==NULL)?"none":id);
-    res = sendBuffer(createSendingMessage(
+    sendBuffer(createSendingMessage(
                     (char*)"SIP/2.0 200 OK\n"
                     "[last_Via:]\n"
                     "[last_Call-ID:]\n"
