@@ -167,6 +167,7 @@ public:
 
 extern message   *   scenario[SCEN_MAX_MESSAGES];
 extern CVariable *   scenVariableTable[SCEN_VARIABLE_SIZE][SCEN_MAX_MESSAGES];
+extern bool	     variableUsed[SCEN_VARIABLE_SIZE];
 extern int	     scenario_len;
 extern char          scenario_name[255];
 extern int           toolMode;
@@ -204,5 +205,6 @@ long get_long(const char *ptr, const char *what);
 long get_time(const char *ptr, const char *what, int multiplier);
 double get_double(const char *ptr, const char *what);
 bool get_bool(const char *ptr, const char *what);
+int time_string(double ms, char *res, int reslen);
 
 #endif

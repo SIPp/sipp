@@ -1083,24 +1083,24 @@ void print_variable_list()
               printf("=> Message[%d] (Receive Message) - "
                      "[%d] action(s) defined :" SIPP_ENDL,
                      i,             
-                     actions->getUsedAction());
+                     actions->getActionSize());
               break;
 #ifdef __3PCC__
             case MSG_TYPE_RECVCMD:
               printf("=> Message[%d] (Receive Command Message) - "
                      "[%d] action(s) defined :" SIPP_ENDL,
                      i,             
-                     actions->getUsedAction());
+                     actions->getActionSize());
               break;
 #endif
             default:
               printf("=> Message[%d] - [%d] action(s) defined :" SIPP_ENDL,
                      i,             
-                     actions->getUsedAction());
+                     actions->getActionSize());
               break;
             }
       
-          for(int j=0; j<actions->getUsedAction(); j++)
+          for(int j=0; j<actions->getActionSize(); j++)
             {
               action = actions->getAction(j);
               if(action != NULL)

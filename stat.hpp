@@ -41,6 +41,12 @@
 #include <fstream>
 #include <stdio.h>
 
+#ifdef HAVE_GSL
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_cdf.h>
+#endif
+
 /* For MAX_RTD_INFO_LENGTH. */
 #include "scenario.hpp"
 
@@ -530,5 +536,83 @@ private:
    */
   CStat& operator=(const CStat&);
 };
+
+/**
+ * This abstract class provides the ability to sample from a distribution.
+ */
+class CSample {
+public:
+	virtual double sample() = 0;
+	virtual int textDescr(char *s, int len) = 0;
+	virtual int timeDescr(char *s, int len) = 0;
+private:
+};
+
+/* Always return a fixed value for the sample. */
+class CFixed : public CSample {
+public:
+	CFixed(double value);
+	double sample();
+	int textDescr(char *s, int len);
+	int timeDescr(char *s, int len);
+private:
+	double value;
+};
+
+/* Uniform distribution. */
+class CUniform : public CSample {
+public:
+	CUniform(double min, double max);
+	double sample();
+	int textDescr(char *s, int len);
+	int timeDescr(char *s, int len);
+private:
+	double min, max;
+};
+
+#ifdef HAVE_GSL
+/* Normal distribution. */
+class CNormal : public CSample {
+public:
+	CNormal(double mean, double stdev);
+	double sample();
+	int textDescr(char *s, int len);
+	int timeDescr(char *s, int len);
+protected:
+	double mean, stdev;
+	gsl_rng *rng;
+};
+
+/* Lognormal distribution. */
+class CLogNormal : public CNormal {
+public:
+	CLogNormal(double mean, double stdev) : CNormal(mean, stdev) {};
+	double sample();
+	int textDescr(char *s, int len);
+	int timeDescr(char *s, int len);
+};
+
+/* Exponential distribution. */
+class CExponential : public CSample {
+	CExponential(double mean);
+	double sample();
+	int textDescr(char *s, int len);
+	int timeDescr(char *s, int len);
+private:
+	double mean;
+	gsl_rng *rng;
+};
+
+/* Weibull distribution. */
+class CWeibull : public CSample {
+	CWeibull(double lambda, double k);
+	double sample();
+	int textDescr(char *s, int len);
+	int timeDescr(char *s, int len);
+private:
+	double lambda, k;
+	gsl_rng *rng;
+};
+#endif
 
 #endif // __STAT_H__

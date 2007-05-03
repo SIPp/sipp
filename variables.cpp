@@ -32,16 +32,30 @@ __________________________________________________________________________
 
 bool CCallVariable::isSet()
 {
-  if(M_nbOfMatchingValue >= 1)
-    return(true);
-  else
-    return(false);
+  if (M_type == E_VT_REGEXP) {
+    if(M_nbOfMatchingValue >= 1)
+      return(true);
+    else
+      return(false);
+  }
+  return (M_type != E_VT_UNDEFINED);
+}
+
+bool CCallVariable::isDouble()
+{
+  return (M_type == E_VT_DOUBLE);
+}
+
+bool CCallVariable::isRegExp()
+{
+  return (M_type == E_VT_REGEXP);
 }
 
 // WARNING : setMatchingValue does't allocate the memory for the matching value
 // but the destructor free the memory
 void CCallVariable::setMatchingValue(char* P_matchingVal)
 {
+  M_type = E_VT_REGEXP;
   if(M_matchingValue != NULL) {
     delete [] M_matchingValue;    
   }
@@ -51,7 +65,24 @@ void CCallVariable::setMatchingValue(char* P_matchingVal)
 
 char* CCallVariable::getMatchingValue()
 {
+  if (M_type != E_VT_REGEXP) {
+    return NULL;
+  }
   return(M_matchingValue);
+}
+
+void CCallVariable::setDouble(double val)
+{
+  M_type = E_VT_DOUBLE;
+  M_double = val;
+}
+
+double CCallVariable::getDouble()
+{
+  if (M_type != E_VT_DOUBLE) {
+    return 0.0;
+  }
+  return(M_double);
 }
 
 
@@ -60,6 +91,7 @@ CCallVariable::CCallVariable()
 {
   M_matchingValue     = NULL;
   M_nbOfMatchingValue = 0;
+  M_type = E_VT_UNDEFINED;
 }
 
 CCallVariable::~CCallVariable()

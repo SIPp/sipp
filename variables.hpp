@@ -33,24 +33,39 @@
 #define MAX_MATCHING_EXPR 50
 #define REGEXP_PARAMS REG_EXTENDED
 
+enum T_VarType
+{
+  E_VT_REGEXP = 0,
+  E_VT_DOUBLE,
+  E_VT_UNDEFINED,
+};
+
 class CCallVariable
 {
 public:
   bool isSet();
+  bool isDouble();
+  bool isRegExp();
 
   // WARNING : setMatchingValue does't allocate the memory for the matching value
   // but the destructor free the memory
   void setMatchingValue(char* P_matchingValue);
   char* getMatchingValue();
 
+  /* When the variable is used for a double, these functions should be called. */
+  void setDouble(double val);
+  double getDouble();
+
   // constructor and destructor
   CCallVariable();
   ~CCallVariable();
 
 private:
-  char*   M_matchingValue;
-  int     M_nbOfMatchingValue;
-}; 
+  T_VarType	M_type;
+  char*		M_matchingValue;
+  int		M_nbOfMatchingValue;
+  double	M_double;
+};
 
 /**
  * This class provides some means to store the global regexp

@@ -29,6 +29,11 @@
 #include "sipp.hpp"
 #include "scenario.hpp"
 #include "screen.hpp"
+#ifdef HAVE_GSL
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_cdf.h>
+#endif
 
 /*
 ** Local definitions (macros)
@@ -1527,3 +1532,151 @@ long CStat::computeDiffTimeInMs (struct timeval* tf, struct timeval* ti)
 
 
 CStat* CStat::M_instance = NULL;
+
+/* Implementation of a fixed distribution. */
+CFixed::CFixed(double value) {
+  this->value = value;
+}
+double CFixed::sample() {
+  return value;
+}
+int CFixed::textDescr(char *s, int len) {
+  return snprintf(s, len, "%lf", value);
+}
+int CFixed::timeDescr(char *s, int len) {
+  return time_string(value, s, len);
+}
+
+/* Implementation of a uniform distribution. */
+static bool uniform_init = false;
+CUniform::CUniform(double min, double max) {
+  if (!uniform_init) {
+    uniform_init = true;
+    srand(time(NULL));
+  }
+  this->min = min;
+  this->max = max;
+}
+double CUniform::sample() {
+  double rval = ((double)rand())/((double)RAND_MAX);
+  return min + (rval * (max - min));
+}
+int CUniform::textDescr(char *s, int len) {
+  return snprintf(s, len, "%lf/%lf", min, max);
+}
+int CUniform::timeDescr(char *s, int len) {
+  int used = time_string(min, s, len);
+  used += snprintf(s + used, len - used, "/");
+  used += time_string(max, s + used, len - used);
+  return used;
+}
+
+#ifdef HAVE_GSL
+gsl_rng *gsl_init() {
+  static gsl_rng *rng = NULL;
+
+  if (rng) {
+    return rng;
+  }
+
+  gsl_rng_env_setup();
+  rng = gsl_rng_alloc(gsl_rng_default);
+  if (!rng) {
+    ERROR("Could not initialize GSL random number generator.\n");
+  }
+
+  return rng;
+}
+
+/* Normal distribution. */
+CNormal::CNormal(double mean, double stdev) {
+  this->mean = mean;
+  this->stdev = stdev;
+  rng = gsl_init();
+}
+
+double CNormal::sample() {
+  double val = gsl_ran_gaussian(rng, stdev);
+  return val + mean;
+}
+
+int CNormal::textDescr(char *s, int len) {
+  return snprintf(s, len, "N(%.3lf,%.3lf)", mean, stdev);
+}
+int CNormal::timeDescr(char *s, int len) {
+  int used = 0;
+
+  used += snprintf(s, len, "N(");
+  used += time_string(mean, s + used, len - used);
+  used += snprintf(s + used, len - used, ",");
+  used += time_string(stdev, s + used, len - used);
+  used += snprintf(s + used, len - used, ")");
+
+  return used;
+}
+
+/* Lognormal distribution. */
+double CLogNormal::sample() {
+  return gsl_ran_lognormal(rng, mean, stdev);
+}
+int CLogNormal::textDescr(char *s, int len) {
+  if (len == 0)
+    return 0;
+  s[0] = 'L';
+  return 1 + this->CNormal::textDescr(s + 1, len - 1);
+}
+int CLogNormal::timeDescr(char *s, int len) {
+  if (len == 0)
+    return 0;
+  s[0] = 'L';
+  return 1 + this->CNormal::timeDescr(s + 1, len - 1);
+}
+
+/* Exponential distribution. */
+CExponential::CExponential(double mean) {
+  this->mean = mean;
+  rng = gsl_init();
+}
+
+double CExponential::sample() {
+  return gsl_ran_exponential(rng, mean);
+}
+
+int CExponential::textDescr(char *s, int len) {
+  return snprintf(s, len, "Exp(%lf)", mean);
+}
+int CExponential::timeDescr(char *s, int len) {
+  int used = snprintf(s, len, "Exp(");
+  used += time_string(mean, s + used, len - used);
+  used += snprintf(s + used, len - used, ")");
+  return used;
+}
+
+/* Weibull distribution. */
+CWeibull::CWeibull(double lambda, double k) {
+  this->lambda = lambda;
+  this->k = k;
+  rng = gsl_init();
+}
+
+double CWeibull::sample() {
+  return gsl_ran_weibull(rng, lambda, k);
+}
+
+int CWeibull::textDescr(char *s, int len) {
+  return snprintf(s, len, "Wb(%.3lf,%.3lf)", lambda, k);
+}
+int CWeibull::timeDescr(char *s, int len) {
+  int used = 0;
+
+  used += snprintf(s, len, "Wb(");
+  used += time_string(lambda, s + used, len - used);
+  used += snprintf(s + used, len - used, ",");
+  used += time_string(k, s + used, len - used);
+  used += snprintf(s + used, len - used, ")");
+
+  return used;
+}
+
+#endif
+

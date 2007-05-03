@@ -23,6 +23,9 @@
 #ifndef _CACTIONS
 #define _CACTIONS
 
+#include "variables.hpp"
+class CSample;
+
 #ifdef PCAPPLAY
 #include "prepare_pcap.h"
 #endif
@@ -36,7 +39,9 @@ class CAction
       E_AT_ASSIGN_FROM_REGEXP,
       E_AT_CHECK,
       E_AT_ASSIGN_FROM_VALUE,
+      E_AT_ASSIGN_FROM_SAMPLE,
       E_AT_LOG_TO_FILE,
+      E_AT_LOG_VARS_TO_FILE,
       E_AT_EXECUTE_CMD,
       E_AT_EXEC_INTCMD,
 #ifdef PCAPPLAY
@@ -44,14 +49,6 @@ class CAction
       E_AT_PLAY_PCAP_VIDEO,
 #endif
       E_AT_NB_ACTION
-    };
-
-    enum T_VarType
-    {
-      E_VT_REGEXP = 0,
-      E_VT_CONST,
-      E_VT_UNDEFINED,
-      E_VT_NB_VAR_TYPE
     };
 
     enum T_LookingPlace
@@ -104,6 +101,8 @@ class CAction
     void setMessage      (char*          P_value);  /* log specific function  */
     void setCmdLine      (char*          P_value);  /* exec specific function */
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
+    void setDistribution (CSample *      P_value);  /* sample specific function  */
+    void setDoubleValue  (double         P_value);  /* assign value specific function  */
 #ifdef PCAPPLAY
     void setPcapArgs     (char *         P_value);  /* send_packets specific function */
     void setPcapArgs     (pcap_pkts   *  P_value);  /* send_packets specific function */
@@ -114,11 +113,12 @@ class CAction
     void setNbSubVarId   (int P_value);
     int  getNbSubVarId   ();
     int* getSubVarId() ;
-    
-    CAction(const CAction &P_Action);
+    CSample *getDistribution ();  /* sample specific function  */
+    double getDoubleValue ();  /* assign value specific function  */
+
     CAction();
     ~CAction();
-  
+
   private:
       T_ActionType   M_action;
       T_VarType      M_varType;
@@ -138,6 +138,10 @@ class CAction
       /* exec specific member */
       char*          M_cmdLine;
       T_IntCmdType   M_IntCmd;
+      /* sample specific member. */
+      CSample	     *M_distribution;
+      /* assign value specific member. */
+      double         M_doubleValue;
 #ifdef PCAPPLAY
       /* pcap specific member */
       pcap_pkts  *   M_pcapArgs;
@@ -148,17 +152,15 @@ class CActions
 {
   public:
     void afficheInfo();
-    void setAction(CAction P_action);
+    void setAction(CAction *P_action);
     void reset();
-    int  getUsedAction();
-    int  getMaxSize();
+    int  getActionSize();
     CAction* getAction(int i);
-    CActions(const CActions &P_Actions);
-    CActions(int P_nbAction);
+    CActions();
     ~CActions();
   
   private:
-    CAction*   M_actionList;
+    CAction ** M_actionList;
     int        M_nbAction;
     int        M_currentSettedAction;
 };

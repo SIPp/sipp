@@ -140,6 +140,7 @@ message::~message()
 
 message*      scenario[SCEN_MAX_MESSAGES];
 CVariable*    scenVariableTable[SCEN_VARIABLE_SIZE][SCEN_MAX_MESSAGES];
+bool	      variableUsed[SCEN_VARIABLE_SIZE];
 int           scenario_len = 0;
 char          scenario_name[255];
 int           toolMode  = MODE_CLIENT;
@@ -253,6 +254,38 @@ char *time_string(int ms) {
    return tmp;
 }
 
+int time_string(double ms, char *res, int reslen) {
+  if (ms < 10000) {
+    /* Less then 10 seconds we represent accurately. */
+    if ((int)(ms + 0.9999) == (int)(ms)) {
+      /* We have an integer, or close enough to it. */
+      return snprintf(res, reslen, "%dms", (int)ms);
+    } else {
+      if (ms < 1000) {
+	return snprintf(res, reslen, "%.2lfms", ms);
+      } else {
+	return snprintf(res, reslen, "%.1lfms", ms);
+      }
+    }
+  } else if (ms < 60000) {
+    /* We round to 100ms for times less than a minute. */
+    return snprintf(res, reslen, "%.1fs", ms/1000);
+  } else if (ms < 60 * 60000) {
+    /* We round to 1s for times more than a minute. */
+    int s = (unsigned int)(ms / 1000);
+    int m = s / 60;
+    s %= 60;
+    return snprintf(res, reslen, "%d:%02d", m, s);
+  } else {
+    int s = (unsigned int)(ms / 1000);
+    int m = s / 60;
+    int h = m / 60;
+    s %= 60;
+    m %= 60;
+    return snprintf(res, reslen, "%d:%02d:%02d", h, m, s);
+  }
+}
+
 char *double_time_string(double ms) {
    static char tmp[20];
 
@@ -261,7 +294,7 @@ char *double_time_string(double ms) {
    } else if (ms < 10000) {
 	snprintf(tmp, sizeof(tmp), "%.1lfms", ms);
    } else if (ms < 100000) {
-	snprintf(tmp, sizeof(tmp), "%.1lfms", ms / 1000);
+	snprintf(tmp, sizeof(tmp), "%.1lfs", ms / 1000);
    } else {
 	snprintf(tmp, sizeof(tmp), "%ds", (int)(ms/1000));
    }
@@ -410,6 +443,7 @@ void load_scenario(char * filename, int deflt)
   
   // set all variable in scenVariable table to NULL
   for(int i=0; i<SCEN_VARIABLE_SIZE; i++) { 
+    variableUsed[i] = false;
     for (int j=0; j<SCEN_MAX_MESSAGES; j++) {
       scenVariableTable[i][j] = NULL;
     }
@@ -1139,228 +1173,291 @@ void computeSippMode()
 // the scenario
 void getActionForThisMessage()
 {
-  const int     MAX_ACTIONS(100);
+  unsigned int recvScenarioLen = 0;
   char *        actionElem;
-  CActions      tmpActions(MAX_ACTIONS);
-  CAction       tmpAction;
-  int           tmpActionNumber(0);
   char *        currentRegExp = NULL;
   char *        buffer = NULL;
   unsigned int* currentTabVarId = NULL;
   int           currentNbVarId;
-  unsigned int  recvScenarioLen;
   char * ptr;
   int           sub_currentNbVarId;
 
-  tmpActions.reset();
-  
-  if(actionElem = xp_open_element(0)) {
-    if(!strcmp(actionElem, "action")) {
-      tmpActionNumber = 0;
-      recvScenarioLen = 0;
-      while(actionElem = xp_open_element(recvScenarioLen)) {
-        if(!strcmp(actionElem, "ereg")) {
-          if(ptr = xp_get_value((char *)"regexp")) {
-            // keeping regexp expression in memory
-            if(currentRegExp != NULL)
-              delete[] currentRegExp;
-            currentRegExp = new char[strlen(ptr)+1]; 
-            buffer = new char[strlen(ptr)+1]; 
-            xp_replace(ptr, buffer, "&lt;", "<");
-            xp_replace(buffer, currentRegExp, "&gt;", ">");
-            if(buffer != NULL)
-              delete[] buffer;
-            tmpAction.setVarType(CAction::E_VT_REGEXP);
-            tmpAction.setActionType(CAction::E_AT_ASSIGN_FROM_REGEXP);
-            
-             // warning - although these are detected for both msg and hdr
-           // they are only implemented for search_in="hdr"
-           if ( 0 != ( ptr = xp_get_value((char *)"case_indep") ) && 
-               0 == strcmp(ptr, "true")) tmpAction.setCaseIndep(true);
-           else tmpAction.setCaseIndep(false);
+  if(!(actionElem = xp_open_element(0))) {
+    return;
+  }
+  if(strcmp(actionElem, "action")) {
+    return;
+  }
 
-           if ( 0 != ( ptr = xp_get_value((char *)"start_line") ) && 
-               0 == strcmp(ptr, "true")) tmpAction.setHeadersOnly(true);
-           else tmpAction.setHeadersOnly(false);
+  /* We actually have an action element. */
+  if(scenario[scenario_len] != NULL) {
+    if(scenario[scenario_len]->M_actions != NULL) {
+      delete(scenario[scenario_len]->M_actions);
+    }
+    scenario[scenario_len]->M_actions = new CActions();
+  }
 
-           if ( 0 != ( ptr = xp_get_value((char *)"search_in") ) ) { 
-             tmpAction.setOccurence(1);
+  while(actionElem = xp_open_element(recvScenarioLen)) {
+    CAction *tmpAction = new CAction();
 
-             if ( 0 == strcmp(ptr, (char *)"msg") ) {
-                tmpAction.setLookingPlace(CAction::E_LP_MSG);
-               tmpAction.setLookingChar (NULL);
-              } else if (!strcmp(ptr, (char *)"hdr")) {
-               if ( 0 != ( ptr = xp_get_value((char *)"header") ) ) {
-                 if ( 0 < strlen(ptr) ) {
-                    tmpAction.setLookingPlace(CAction::E_LP_HDR);
-                    tmpAction.setLookingChar(ptr);
-                   if (0 != (ptr = xp_get_value((char *)"occurence"))) {
-                     tmpAction.setOccurence (atol(ptr));
-                  }
-                } else {
-                  tmpAction.setLookingPlace(CAction::E_LP_MSG);
-                  tmpAction.setLookingChar(NULL);
-                }
-               }
-              } else {
-                tmpAction.setLookingPlace(CAction::E_LP_MSG);
-                tmpAction.setLookingChar(NULL);
-              }
-            } else {
-              tmpAction.setLookingPlace(CAction::E_LP_MSG);
-              tmpAction.setLookingChar(NULL);
-            } // end if-else search_in
-            
-            if(ptr = xp_get_value((char *)"check_it")) {
-              if(!strcmp(ptr, (char *)"true")) {
-                tmpAction.setCheckIt(true);
-              } else {
-                tmpAction.setCheckIt(false);
-              }
-            } else {
-              tmpAction.setCheckIt(false);
-            }
-            
-            
-            if(ptr = xp_get_value((char *)"assign_to")) {
-              if(createIntegerTable(ptr, 
-                                    &currentTabVarId, 
-                                    &currentNbVarId) == 1) {
+    if(!strcmp(actionElem, "ereg")) {
+      if(!(ptr = xp_get_value((char *)"regexp"))) {
+	ERROR("'ereg' action without 'regexp' argument (mandatory)");
+      }
 
-                if(currentTabVarId[0] <  SCEN_VARIABLE_SIZE) {
-                    tmpAction.setVarId(currentTabVarId[0]);
-                    /* and creating the associated variable */
-                    if (scenVariableTable[currentTabVarId[0]][scenario_len] != NULL) {
-                      delete(scenVariableTable[currentTabVarId[0]][scenario_len]);
-                      scenVariableTable[currentTabVarId[0]][scenario_len] = NULL;
-                    }
-                    scenVariableTable[currentTabVarId[0]][scenario_len] = 
-                    new CVariable(currentRegExp);
+      // keeping regexp expression in memory
+      if(currentRegExp != NULL)
+	delete[] currentRegExp;
+      currentRegExp = new char[strlen(ptr)+1];
+      buffer = new char[strlen(ptr)+1];
+      xp_replace(ptr, buffer, "&lt;", "<");
+      xp_replace(buffer, currentRegExp, "&gt;", ">");
+      if(buffer != NULL)
+	delete[] buffer;
+      tmpAction->setVarType(E_VT_REGEXP);
+      tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_REGEXP);
 
-                    if(!(scenVariableTable[currentTabVarId[0]][scenario_len]
-                       ->isRegExpWellFormed()))
-                      ERROR_P1("Regexp '%s' is not valid in xml "
-                             "scenario file", currentRegExp); 
-                } else {
-                  ERROR("Too many call variables in the scenario. Please change '#define SCEN_VARIABLE_SIZE' in scenario.hpp and recompile SIPp");
-                }
+      // warning - although these are detected for both msg and hdr
+      // they are only implemented for search_in="hdr"
+      if ((ptr = xp_get_value((char *)"case_indep"))) {
+	tmpAction->setCaseIndep(get_bool(ptr, "case_indep"));
+      } else {
+	tmpAction->setCaseIndep(false);
+      }
 
-                if (currentNbVarId > 1 ) {
-                  sub_currentNbVarId = currentNbVarId - 1 ;
-                  tmpAction.setNbSubVarId(sub_currentNbVarId);
+      if ((ptr = xp_get_value((char *)"start_line"))) {
+	tmpAction->setHeadersOnly(get_bool(ptr, "start_line"));
+      } else {
+	tmpAction->setHeadersOnly(false);
+      }
 
-                  for(int i=1; i<= sub_currentNbVarId; i++) {
-                  if(currentTabVarId[i] <  SCEN_VARIABLE_SIZE) {
-                      tmpAction.setSubVarId(currentTabVarId[i]);
+      if ( 0 != ( ptr = xp_get_value((char *)"search_in") ) ) {
+	tmpAction->setOccurence(1);
 
-                    /* and creating the associated variable */
-                    if (scenVariableTable[currentTabVarId[i]][scenario_len] != NULL) {
-                      delete(scenVariableTable[currentTabVarId[i]][scenario_len]);
-                      scenVariableTable[currentTabVarId[i]][scenario_len] = NULL;
-                    }
-                    scenVariableTable[currentTabVarId[i]][scenario_len] = 
-                      new CVariable(currentRegExp);
+	if ( 0 == strcmp(ptr, (char *)"msg") ) {
+	  tmpAction->setLookingPlace(CAction::E_LP_MSG);
+	  tmpAction->setLookingChar (NULL);
+	} else if (!strcmp(ptr, (char *)"hdr")) {
+	  if ( 0 != ( ptr = xp_get_value((char *)"header") ) ) {
+	    if ( 0 < strlen(ptr) ) {
+	      tmpAction->setLookingPlace(CAction::E_LP_HDR);
+	      tmpAction->setLookingChar(ptr);
+	      if (0 != (ptr = xp_get_value((char *)"occurence"))) {
+		tmpAction->setOccurence (atol(ptr));
+	      }
+	    } else {
+	      tmpAction->setLookingPlace(CAction::E_LP_MSG);
+	      tmpAction->setLookingChar(NULL);
+	    }
+	  }
+	} else {
+	  tmpAction->setLookingPlace(CAction::E_LP_MSG);
+	  tmpAction->setLookingChar(NULL);
+	}
+      } else {
+	tmpAction->setLookingPlace(CAction::E_LP_MSG);
+	tmpAction->setLookingChar(NULL);
+      } // end if-else search_in
 
-                    if(!(scenVariableTable[currentTabVarId[i]][scenario_len]
-                         ->isRegExpWellFormed()))
-                      ERROR_P1("Regexp '%s' is not valid in xml "
-                               "scenario file", currentRegExp); 
-                  }
-                }
-                }
+      if(ptr = xp_get_value((char *)"check_it")) {
+	tmpAction->setCheckIt(get_bool(ptr, "check_it"));
+      } else {
+	tmpAction->setCheckIt(false);
+      }
 
-                /* the action is well formed, adding it in the */
-                /* tmpActionTable */
-                tmpActions.setAction(tmpAction);
-                tmpActionNumber++;
-                delete[] currentTabVarId;
-              }
-            } else { // end "assign_to"
-              ERROR("'ereg' action without 'assign_to' "
-                    "argument (mandatory)");
-            }
-            if(currentRegExp != NULL) {
-              delete[] currentRegExp;
-            }
-            currentRegExp = NULL;
-          } else { // end if regexp
-            ERROR("'ereg' action without 'regexp' argument (mandatory)");
-          }
-          
-        } /* end !strcmp(actionElem, "ereg") */ else if(!strcmp(actionElem, "log")) {
-          if(ptr = xp_get_value((char *)"message")) {
-            tmpAction.setActionType(CAction::E_AT_LOG_TO_FILE);
-            tmpAction.setMessage(ptr);
-            /* the action is well formed, adding it in the */
-            /* tmpActionTable */
-            tmpActions.setAction(tmpAction);
-            tmpActionNumber++;
-          }
-        } /* end !strcmp(actionElem, "log")  */ else if(!strcmp(actionElem, "exec")) {
-          if(ptr = xp_get_value((char *)"command")) {
-            tmpAction.setActionType(CAction::E_AT_EXECUTE_CMD);
-            tmpAction.setCmdLine(ptr);
-            /* the action is well formed, adding it in the */
-            /* tmpActionTable */
-            tmpActions.setAction(tmpAction);
-            tmpActionNumber++;
-          } /* end (ptr = xp_get_value("command")  */ else if(ptr = xp_get_value((char *)"int_cmd")) {
-            CAction::T_IntCmdType type(CAction::E_INTCMD_STOPCALL); /* assume the default */
+      if(!(ptr = xp_get_value((char *)"assign_to"))) {
+	ERROR("'ereg' action without 'assign_to' argument (mandatory)");
+      }
 
-            if (!strcmp(ptr, "stop_now")) {
-                type = CAction::E_INTCMD_STOP_NOW;
-            } else if (!strcmp(ptr, "stop_gracefully")) {
-                type = CAction::E_INTCMD_STOP_ALL;
-            } else if (!strcmp(ptr, "stop_call")) {
-                type = CAction::E_INTCMD_STOPCALL;
-            }
+      if(createIntegerTable(ptr, &currentTabVarId, &currentNbVarId) == 1) {
 
-            /* the action is well formed, adding it in the */
-            /* tmpActionTable */
-            tmpAction.setActionType(CAction::E_AT_EXEC_INTCMD);
-            tmpAction.setIntCmd(type);
-            tmpActions.setAction(tmpAction);
-            tmpActionNumber++;
+	if(currentTabVarId[0] <  SCEN_VARIABLE_SIZE) {
+	  tmpAction->setVarId(currentTabVarId[0]);
+	  /* and creating the associated variable */
+	  if (scenVariableTable[currentTabVarId[0]][scenario_len] != NULL) {
+	    delete(scenVariableTable[currentTabVarId[0]][scenario_len]);
+	    scenVariableTable[currentTabVarId[0]][scenario_len] = NULL;
+	  }
+	  variableUsed[currentTabVarId[0]] = true;
+	  scenVariableTable[currentTabVarId[0]][scenario_len] =
+	    new CVariable(currentRegExp);
+
+	  if(!(scenVariableTable[currentTabVarId[0]][scenario_len]
+		->isRegExpWellFormed()))
+	    ERROR_P1("Regexp '%s' is not valid in xml "
+		"scenario file", currentRegExp);
+	} else {
+	  ERROR("Too many call variables in the scenario. Please change '#define SCEN_VARIABLE_SIZE' in scenario.hpp and recompile SIPp");
+	}
+
+	if (currentNbVarId > 1 ) {
+	  sub_currentNbVarId = currentNbVarId - 1 ;
+	  tmpAction->setNbSubVarId(sub_currentNbVarId);
+
+	  for(int i=1; i<= sub_currentNbVarId; i++) {
+	    if(currentTabVarId[i] <  SCEN_VARIABLE_SIZE) {
+	      tmpAction->setSubVarId(currentTabVarId[i]);
+
+	      /* and creating the associated variable */
+	      if (scenVariableTable[currentTabVarId[i]][scenario_len] != NULL) {
+		delete(scenVariableTable[currentTabVarId[i]][scenario_len]);
+		scenVariableTable[currentTabVarId[i]][scenario_len] = NULL;
+	      }
+	      scenVariableTable[currentTabVarId[i]][scenario_len] =
+		new CVariable(currentRegExp);
+
+	      if(!(scenVariableTable[currentTabVarId[i]][scenario_len]
+		    ->isRegExpWellFormed()))
+		ERROR_P1("Regexp '%s' is not valid in xml "
+		    "scenario file", currentRegExp);
+	    }
+	  }
+	}
+
+	delete[] currentTabVarId;
+      }
+
+      if(currentRegExp != NULL) {
+	delete[] currentRegExp;
+      }
+      currentRegExp = NULL;
+    } /* end !strcmp(actionElem, "ereg") */ else if(!strcmp(actionElem, "log")) {
+      if(ptr = xp_get_value((char *)"message")) {
+	tmpAction->setActionType(CAction::E_AT_LOG_TO_FILE);
+	tmpAction->setMessage(ptr);
+      }
+    } /* end !strcmp(actionElem, "log") */ else if(!strcmp(actionElem, "logvars")) {
+      tmpAction->setActionType(CAction::E_AT_LOG_VARS_TO_FILE);
+    } /* end !strcmp(actionElem, "logvars") */ else if(!strcmp(actionElem, "assign")) {
+      if(ptr = xp_get_value((char *)"assign_to")) {
+	int var = get_long(ptr, "assignment variable ID");
+	if(var >=  SCEN_VARIABLE_SIZE) {
+	  ERROR("Too many call variables in the scenario. Please change '#define SCEN_VARIABLE_SIZE' in scenario.hpp and recompile SIPp");
+	}
+	variableUsed[var] = true;
+	tmpAction->setVarId(var);
+      } else { // end "assign_to"
+	ERROR("'assign' action without 'assign_to' argument (mandatory)");
+      }
+
+      if(!(ptr = xp_get_value((char *)"value"))) {
+	ERROR("'assign' action requires 'value' parameter");
+      }
+      double val = get_double(ptr, "assignment value");
+
+      tmpAction->setVarType(E_VT_DOUBLE);
+      tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_VALUE);
+      tmpAction->setDoubleValue(val);
+    } /* end !strcmp(actionElem, "assign") */ else if(!strcmp(actionElem, "sample")) {
+      if(ptr = xp_get_value((char *)"assign_to")) {
+	int var = get_long(ptr, "sample variable ID");
+	if(var >=  SCEN_VARIABLE_SIZE) {
+	  ERROR("Too many call variables in the scenario. Please change '#define SCEN_VARIABLE_SIZE' in scenario.hpp and recompile SIPp");
+	}
+	tmpAction->setVarId(var);
+	variableUsed[var] = true;
+      } else { // end "assign_to"
+	ERROR("'sample' action without 'assign_to' argument (mandatory)");
+      }
+
+      if(!(ptr = xp_get_value((char *)"distribution"))) {
+	ERROR("'sample' action requires 'distribution' parameter");
+      }
+      CSample *distribution = NULL;
+
+      if (!strcmp(ptr, "fixed")) {
+	double value;
+	if (ptr = xp_get_value("value")) {
+	  value = get_double(ptr, "Fixed distribution value");
+	} else {
+	  ERROR("Fixed distributions require a value parameter.");
+	}
+	distribution = new CFixed(value);
+      } else if (!strcmp(ptr, "uniform")) {
+	double min, max;
+	if (ptr = xp_get_value("min")) {
+	  min = get_double(ptr, "Uniform distribution minimum");
+	} else {
+	  ERROR("Uniform distributions require a min and max parameter.");
+	}
+	if (ptr = xp_get_value("max")) {
+	  max = get_double(ptr, "Uniform distribution minimum");
+	} else {
+	  ERROR("Uniform distributions require a min and max parameter.");
+	}
+	distribution = new CUniform(min, max);
+      } else if (!strcmp(ptr, "normal")) {
+	double mean, stdev;
+	if (ptr = xp_get_value("mean")) {
+	  mean = get_double(ptr, "Noraml distribution mean");
+	} else {
+	  ERROR("Normal distributions require a mean and stdev parameter.");
+	}
+	if (ptr = xp_get_value("stdev")) {
+	  stdev = get_double(ptr, "Normal distribution stdev");
+	} else {
+	  ERROR("Normal distributions require a mean and stdev parameter.");
+	}
+	distribution = new CNormal(mean, stdev);
+      } else {
+	ERROR_P1("Unknown distribution: %s\n", ptr);
+      }
+
+      tmpAction->setVarType(E_VT_DOUBLE);
+      tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_SAMPLE);
+      assert(distribution);
+      tmpAction->setDistribution(distribution);
+    } /* end !strcmp(actionElem, "sample")  */ else if(!strcmp(actionElem, "exec")) {
+      if(ptr = xp_get_value((char *)"command")) {
+	tmpAction->setActionType(CAction::E_AT_EXECUTE_CMD);
+	tmpAction->setCmdLine(ptr);
+	/* the action is well formed, adding it in the */
+	/* tmpActionTable */
+      } /* end (ptr = xp_get_value("command")  */ else if(ptr = xp_get_value((char *)"int_cmd")) {
+	CAction::T_IntCmdType type(CAction::E_INTCMD_STOPCALL); /* assume the default */
+
+	if (!strcmp(ptr, "stop_now")) {
+	  type = CAction::E_INTCMD_STOP_NOW;
+	} else if (!strcmp(ptr, "stop_gracefully")) {
+	  type = CAction::E_INTCMD_STOP_ALL;
+	} else if (!strcmp(ptr, "stop_call")) {
+	  type = CAction::E_INTCMD_STOPCALL;
+	}
+
+	/* the action is well formed, adding it in the */
+	/* tmpActionTable */
+	tmpAction->setActionType(CAction::E_AT_EXEC_INTCMD);
+	tmpAction->setIntCmd(type);
 #ifdef PCAPPLAY
-          } else if (ptr = xp_get_value((char *) "play_pcap_audio")) {
-            tmpAction.setPcapArgs(ptr);
-            tmpAction.setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
-            tmpActions.setAction(tmpAction);
-            tmpActionNumber++;
-            hasMedia = 1;
-          } else if (ptr = xp_get_value((char *) "play_pcap_video")) {
-            tmpAction.setPcapArgs(ptr);
-            tmpAction.setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
-            tmpActions.setAction(tmpAction);
-            tmpActionNumber++;
-            hasMedia = 1;
+      } else if (ptr = xp_get_value((char *) "play_pcap_audio")) {
+	tmpAction->setPcapArgs(ptr);
+	tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
+	hasMedia = 1;
+      } else if (ptr = xp_get_value((char *) "play_pcap_video")) {
+	tmpAction->setPcapArgs(ptr);
+	tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
+	hasMedia = 1;
 #else
-          } else if (ptr = xp_get_value((char *) "play_pcap_audio")) {
-	      ERROR("play_pcap_audio requires pcap support! Please recompile SIPp");
-          } else if (ptr = xp_get_value((char *) "play_pcap_video")) {
-	      ERROR("play_pcap_video requires pcap support! Please recompile SIPp");
+      } else if (ptr = xp_get_value((char *) "play_pcap_audio")) {
+	ERROR("play_pcap_audio requires pcap support! Please recompile SIPp");
+      } else if (ptr = xp_get_value((char *) "play_pcap_video")) {
+	ERROR("play_pcap_video requires pcap support! Please recompile SIPp");
 #endif
-          } else {
-              ERROR("illegal <exec> in the scenario\n");
-          }
-        }
-        xp_close_element();
-        recvScenarioLen++;
-      } // end while
-      
-      // creation the action list for this message
-      
-      if(tmpActionNumber != 0) {
-        if(scenario[scenario_len] != NULL) {
-          if(scenario[scenario_len]->M_actions != NULL)
-            delete(scenario[scenario_len]->M_actions);
-          scenario[scenario_len]->M_actions 
-            = new CActions(tmpActions);
-        }
-      } 
-      } // end if "action"
-      xp_close_element();
-  }// end open element
+      } else {
+	ERROR("illegal <exec> in the scenario\n");
+      }
+    } else {
+      ERROR_P1("Unknown action: %s", actionElem);
+    }
+
+    /* If the action was not well-formed, there should have already been an
+     * ERROR declaration, thus it is safe to add it here at the end of the loop. */
+    scenario[scenario_len]->M_actions->setAction(tmpAction);
+
+    xp_close_element();
+    recvScenarioLen++;
+  } // end while
+  xp_close_element();
 }
 
 // char* manipulation : create a int[] from a char*

@@ -638,18 +638,10 @@ call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
   call_remote_socket = 0;
   
   // initialising the CallVariable with the Scenario variable
-  bool test_var=false;
-  int i,j;
+  int i;
   for(i=0; i<SCEN_VARIABLE_SIZE; i++) 
     {
-      for (j=0; j<SCEN_MAX_MESSAGES; j++)
-      {
-      if(scenVariableTable[i][j] != NULL) {
-                test_var=true;
-                break;
-            }
-        }
-      if (test_var) {
+      if (variableUsed[i]) {
         M_callVariableTable[i] = new CCallVariable();
         if (M_callVariableTable[i] == NULL) {
           ERROR ("call variable allocation failed");
@@ -2038,12 +2030,11 @@ char* call::createSendingMessage(char * src, int P_index)
           if(varId < SCEN_VARIABLE_SIZE) {
             if(M_callVariableTable[varId] != NULL) {
               if(M_callVariableTable[varId]->isSet()) {
-                dest += sprintf(dest, "%s",
-                                M_callVariableTable[varId]->
-                                getMatchingValue());
-                // WARNING_P1("VARIABLE --%s--", M_callVariableTable[varId]->getMatchingValue());
-              } else {
-                dest += sprintf(dest, "%s", "");
+		if (M_callVariableTable[varId]->isRegExp()) {
+		  dest += sprintf(dest, "%s", M_callVariableTable[varId]->getMatchingValue());
+		} else if (M_callVariableTable[varId]->isDouble()) {
+		  dest += sprintf(dest, "%lf", M_callVariableTable[varId]->getDouble());
+		}
               }
             }
           }
@@ -3021,7 +3012,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
   actions = scenario[scenarioIndex]->M_actions;
   // looking for action to do on this message
   if(actions != NULL) {
-    for(int i=0; i<actions->getUsedAction(); i++) {
+    for(int i=0; i<actions->getActionSize(); i++) {
       currentAction = actions->getAction(i);
       if(currentAction != NULL) {
         if(currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_REGEXP) {
@@ -3090,11 +3081,15 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
             }
           } // end if scen variable != null
         } else /* end action == E_AT_ASSIGN_FROM_REGEXP */ 
-            if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
+            if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_VALUE) {
+	      M_callVariableTable[currentAction->getVarId()]->setDouble(currentAction->getDoubleValue());
+        } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
+	      double value = currentAction->getDistribution()->sample();
+	      M_callVariableTable[currentAction->getVarId()]->setDouble(value);
+        } else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
             LOG_MSG((s, "%s\n", x));
-        } else /* end action == E_AT_LOG_TO_FILE */ 
-            if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
+        } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
 
             if (currentAction->getCmdLine()) {
                 char* x = createSendingMessage(currentAction->getCmdLine(), -2 /* do not add crlf*/);
@@ -3126,7 +3121,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
                        break;
                 }
             }
-        } else /* end action == E_AT_LOG_TO_FILE */ 
+        } else /* end action == E_AT_EXECUTE_CMD */
             if (currentAction->getActionType() == CAction::E_AT_EXEC_INTCMD) {
                 switch (currentAction->getIntCmd())
                 {
@@ -3177,7 +3172,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
             ERROR("Can create thread to send RTP packets");
           pthread_attr_destroy(&attr);
 #endif
-        } else {// end action == E_AT_EXECUTE_CMD
+        } else {
           ERROR("call::executeAction unknown action");
         }
       } // end if current action != null

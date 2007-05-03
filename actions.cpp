@@ -69,6 +69,12 @@ void CAction::afficheInfo()
       printf("Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
   } else if (M_action == E_AT_LOG_TO_FILE) {
       printf("Type[%d] - message[%-32.32s]", M_action, M_message);
+  } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
+      char tmp[40];
+      M_distribution->textDescr(tmp, sizeof(tmp));
+      printf("Type[%d] - sample varId[%d] %s", M_action, M_varId, tmp);
+  } else if (M_action == E_AT_ASSIGN_FROM_VALUE) {
+      printf("Type[%d] - assign varId[%d] %lf", M_action, M_varId, M_doubleValue);
 #ifdef PCAPPLAY
   } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
       printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
@@ -78,7 +84,7 @@ void CAction::afficheInfo()
 
 
 CAction::T_ActionType   CAction::getActionType()   { return(M_action);       }
-CAction::T_VarType      CAction::getVarType()      { return(M_varType);      }
+T_VarType		CAction::getVarType()      { return(M_varType);      }
 CAction::T_LookingPlace CAction::getLookingPlace() { return(M_lookingPlace); }
 CAction::T_IntCmdType   CAction::getIntCmd ()      { return(M_IntCmd);       }
 
@@ -90,13 +96,15 @@ int            CAction::getVarId()        { return(M_varId);        }
 char*          CAction::getLookingChar()  { return(M_lookingChar);  }
 char*          CAction::getMessage()      { return(M_message);      }
 char*          CAction::getCmdLine()      { return(M_cmdLine);      }
+CSample*       CAction::getDistribution() { return(M_distribution); }
+double         CAction::getDoubleValue()  { return(M_doubleValue);  }
 #ifdef PCAPPLAY
 pcap_pkts  *   CAction::getPcapPkts()     { return(M_pcapArgs);     }
 #endif
 
 void CAction::setActionType   (CAction::T_ActionType   P_value) 
 { M_action       = P_value; }  
-void CAction::setVarType      (CAction::T_VarType      P_value) 
+void CAction::setVarType      (T_VarType               P_value)
 { M_varType      = P_value; }  
 void CAction::setLookingPlace (CAction::T_LookingPlace P_value) 
 { M_lookingPlace = P_value; }
@@ -113,20 +121,27 @@ void CAction::setHeadersOnly  (bool           P_value)
 void CAction::setIntCmd       (T_IntCmdType P_type) 
 { M_IntCmd       = P_type;  }
 
+/* sample specific function. */
+void CAction::setDistribution (CSample *P_value)
+{ M_distribution       = P_value; }
+/* assign from value specific function. */
+void CAction::setDoubleValue (double P_value)
+{ M_doubleValue       = P_value;  }
+
 
 void CAction::setSubVarId (int    P_value) {
    if ( M_nbSubVarId < M_maxNbSubVarId ) {
-     M_subVarId[M_nbSubVarId] = P_value; 
+     M_subVarId[M_nbSubVarId] = P_value;
      M_nbSubVarId++;
    }
 }
 
-int  CAction::getSubVarId(int P_index) { 
-    return(M_subVarId[P_index]);        
+int  CAction::getSubVarId(int P_index) {
+    return(M_subVarId[P_index]);
 }
 
-int*  CAction::getSubVarId() { 
-    return(M_subVarId);        
+int*  CAction::getSubVarId() {
+    return(M_subVarId);
 }
 
 void CAction::setNbSubVarId (int            P_value) {
@@ -228,11 +243,16 @@ void CAction::setPcapArgs (char*        P_value)
 
 void CAction::setAction(CAction P_action)
 {
+  if (P_action.getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
+    assert(P_action.getDistribution() != NULL);
+  }
   int L_i;
   setActionType   ( P_action.getActionType()   );
   setVarType      ( P_action.getVarType()      );
   setLookingPlace ( P_action.getLookingPlace() );
   setVarId        ( P_action.getVarId()        );
+  setDoubleValue  ( P_action.getDoubleValue()  );
+  setDistribution ( P_action.getDistribution() );
 
   setNbSubVarId   ( P_action.getNbSubVarId()   );
   for (L_i = 0; L_i < P_action.getNbSubVarId() ; L_i++ ) {
@@ -271,46 +291,12 @@ CAction::CAction()
   M_message      = NULL;
   M_cmdLine      = NULL;
   M_IntCmd       = E_INTCMD_INVALID;
+  M_doubleValue  = 0;
+  M_distribution = NULL;
 #ifdef PCAPPLAY
   M_pcapArgs     = NULL;
 #endif
 }
-
-CAction::CAction(const CAction &P_action)
-{
-  int L_i ;
-
-  M_lookingChar = NULL;
-  M_message     = NULL;
-  M_cmdLine     = NULL;
-  M_subVarId    = NULL;
-  M_IntCmd      = E_INTCMD_INVALID;
-#ifdef PCAPPLAY
-  M_pcapArgs    = NULL;
-#endif
-
-  // M_maxNbSubVarId = P_action.M_maxNbSubVarId ;
-  setNbSubVarId   ( P_action.M_nbSubVarId );
-  for (L_i = 0; L_i < M_maxNbSubVarId ; L_i++ ) {
-    setSubVarId (P_action.M_subVarId[L_i]);
-  }
-
-  setActionType   ( P_action.M_action       );
-  setVarType      ( P_action.M_varType      );
-  setLookingPlace ( P_action.M_lookingPlace );
-  setVarId        ( P_action.M_varId        );
-  setLookingChar  ( P_action.M_lookingChar  );
-  setCheckIt      ( P_action.M_checkIt      );
-  setCaseIndep    ( P_action.M_caseIndep    );
-  setOccurence    ( P_action.M_occurence   );
-  setHeadersOnly  ( P_action.M_headersOnly  );   
-  setMessage      ( P_action.M_message      );
-  setCmdLine      ( P_action.M_cmdLine      );
-  setIntCmd       ( P_action.M_IntCmd       );
-#ifdef PCAPPLAY
-  setPcapArgs     ( P_action.M_pcapArgs     );
-#endif
-}  
 
 CAction::~CAction()
 {
@@ -346,74 +332,68 @@ CAction::~CAction()
 
 void CActions::afficheInfo()
 {
-  printf("Action Max Size = [%d] - Action Current Setted[%d]\n", M_nbAction, M_currentSettedAction);
-  for(int i=0; i<M_currentSettedAction; i++)
+  printf("Action Size = [%d]\n", M_nbAction);
+  for(int i=0; i<M_nbAction; i++)
   {
     printf("actionlist[%d] : \n", i);
-    M_actionList[i].afficheInfo();
+    M_actionList[i]->afficheInfo();
   }
 }
 
 void CActions::reset()
 {
-  M_currentSettedAction = 0;
+  for (int i = 0; i < M_nbAction; i++) {
+    delete M_actionList[i];
+    M_actionList[i] = NULL;
+  }
+  M_nbAction = 0;
 }
 
-int CActions::getMaxSize()
+int CActions::getActionSize()
 {
   return(M_nbAction);
 }
 
-int CActions::getUsedAction()
+void CActions::setAction(CAction *P_action)
 {
-  return(M_currentSettedAction);
-}
-
-void CActions::setAction(CAction P_action)
-{
-  if(M_currentSettedAction < M_nbAction)
-  {
-    M_actionList[M_currentSettedAction].setAction(P_action);
-    M_currentSettedAction++;
+  CAction **newActions = new CAction*[M_nbAction + 1];
+  if (!newActions) {
+    ERROR("Could not allocate new action list.");
   }
+  for (int i = 0; i < M_nbAction; i++) {
+	newActions[i] = M_actionList[i];
+  }
+  if (M_actionList) {
+    delete [] M_actionList;
+  }
+  M_actionList = newActions;
+  M_actionList[M_nbAction] = P_action;
+  M_nbAction++;
 }
 
 CAction* CActions::getAction(int i)
 {
-  if(i < M_currentSettedAction)
+  if(i < M_nbAction)
   {
-    return(&M_actionList[i]);
+    return(M_actionList[i]);
   }
   else
     return(NULL);
 }
 
 
-// constructor and destructor
-
-CActions::CActions(const CActions &P_actions)
+CActions::CActions()
 {
-    M_currentSettedAction = 0;
-    M_nbAction = P_actions.M_currentSettedAction;
-    M_actionList = new CAction[M_nbAction];
-  
-    for(int i=0; i<M_nbAction; i++)
-	 {
-      setAction(P_actions.M_actionList[i]);
-	 }
-}
-  
-
-CActions::CActions(int P_nbAction)
-{
-  M_nbAction = P_nbAction;
-  M_currentSettedAction = 0;
-  M_actionList = new CAction[P_nbAction];
+  M_nbAction = 0;
+  M_actionList = NULL;
 }
 
 
 CActions::~CActions()
 {
+  for (int i = 0; i < M_nbAction; i++) {
+	delete M_actionList[i];
+  }
   delete [] M_actionList;
   M_actionList = NULL;
 }
