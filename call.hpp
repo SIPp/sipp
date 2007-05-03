@@ -181,7 +181,7 @@ public:
                                    // => init to false
 
   /* Call Variable Table */
-  CCallVariable * M_callVariableTable[SCEN_VARIABLE_SIZE];
+  CCallVariable ** M_callVariableTable;
 
   /* result of execute action */
   enum T_ActionResult

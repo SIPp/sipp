@@ -135,8 +135,9 @@ message::~message()
 /******** Global variables which compose the scenario file **********/
 
 message*      scenario[SCEN_MAX_MESSAGES];
-CVariable*    scenVariableTable[SCEN_VARIABLE_SIZE][SCEN_MAX_MESSAGES];
-bool	      variableUsed[SCEN_VARIABLE_SIZE];
+CVariable***  scenVariableTable;
+bool	      *variableUsed;
+int	      maxVariableUsed = -1;
 int           scenario_len = 0;
 char          scenario_name[255];
 int           toolMode  = MODE_CLIENT;
@@ -233,6 +234,36 @@ double xp_get_double(const char *name, const char *what) {
   return val;
 }
 
+void xp_use_var(int var) {
+  if (var > maxVariableUsed) {
+    bool *tmpUsed = new bool[var + 1];
+    int i, j;
+    CVariable ***tmpScenVars = new CVariable **[var + 1];
+    for (i = 0; i <= maxVariableUsed; i++) {
+	tmpUsed[i] = variableUsed[i];
+	tmpScenVars[i] = new CVariable * [SCEN_MAX_MESSAGES];
+	for (j = 0; j < SCEN_MAX_MESSAGES; j++) {
+	  tmpScenVars[i][j] = scenVariableTable[i][j];
+	}
+	delete scenVariableTable[i];
+    }
+    delete [] variableUsed;
+    delete [] scenVariableTable;
+    variableUsed = tmpUsed;
+    scenVariableTable = tmpScenVars;
+    for (;i <= var; i++) {
+	variableUsed[i] = false;
+	scenVariableTable[i] = new CVariable * [SCEN_MAX_MESSAGES];
+	for (j = 0; j < SCEN_MAX_MESSAGES; j++) {
+	  scenVariableTable[i][j] = NULL;
+	}
+    }
+
+    maxVariableUsed = var;
+  }
+  variableUsed[var] = true;
+}
+
 int xp_get_var(const char *name, const char *what) {
   char *ptr;
   char *helptext;
@@ -246,13 +277,14 @@ int xp_get_var(const char *name, const char *what) {
   int var = get_long(ptr, helptext);
   free(helptext);
 
-  if(var >=  SCEN_VARIABLE_SIZE) {
-    ERROR("Too many call variables in the scenario. Please change '#define SCEN_VARIABLE_SIZE' in scenario.hpp and recompile SIPp");
+  if(var < 0) {
+    ERROR("Variables must be positive integers!");
   }
-  variableUsed[var] = true;
+  xp_use_var(var);
 
   return var;
 }
+
 
 bool get_bool(const char *ptr, const char *what) {
   char *endptr;
@@ -406,13 +438,6 @@ void load_scenario(char * filename, int deflt)
     }
   }
   
-  // set all variable in scenVariable table to NULL
-  for(int i=0; i<SCEN_VARIABLE_SIZE; i++) { 
-    variableUsed[i] = false;
-    for (int j=0; j<SCEN_MAX_MESSAGES; j++) {
-      scenVariableTable[i][j] = NULL;
-    }
-  }
   elem = xp_open_element(0);
   if(strcmp("scenario", elem)) {
     ERROR("No 'scenario' section in xml scenario file");    
@@ -1078,6 +1103,7 @@ void getActionForThisMessage()
       if(!(ptr = xp_get_value((char *)"regexp"))) {
 	ERROR("'ereg' action without 'regexp' argument (mandatory)");
       }
+      int currentVarId;
 
       // keeping regexp expression in memory
       if(currentRegExp != NULL)
@@ -1139,37 +1165,33 @@ void getActionForThisMessage()
 	tmpAction->setCheckIt(false);
       }
 
-      if(!(ptr = xp_get_value((char *)"assign_to"))) {
-	ERROR("'ereg' action without 'assign_to' argument (mandatory)");
-      }
+      currentVarId = xp_get_var("assign_to", "ereg");
 
       if(createIntegerTable(ptr, &currentTabVarId, &currentNbVarId) == 1) {
+   	xp_use_var(currentTabVarId[0]);
 
-	if(currentTabVarId[0] <  SCEN_VARIABLE_SIZE) {
-	  tmpAction->setVarId(currentTabVarId[0]);
-	  /* and creating the associated variable */
-	  if (scenVariableTable[currentTabVarId[0]][scenario_len] != NULL) {
-	    delete(scenVariableTable[currentTabVarId[0]][scenario_len]);
-	    scenVariableTable[currentTabVarId[0]][scenario_len] = NULL;
-	  }
-	  variableUsed[currentTabVarId[0]] = true;
-	  scenVariableTable[currentTabVarId[0]][scenario_len] =
-	    new CVariable(currentRegExp);
-
-	  if(!(scenVariableTable[currentTabVarId[0]][scenario_len]
-		->isRegExpWellFormed()))
-	    ERROR_P1("Regexp '%s' is not valid in xml "
-		"scenario file", currentRegExp);
-	} else {
-	  ERROR("Too many call variables in the scenario. Please change '#define SCEN_VARIABLE_SIZE' in scenario.hpp and recompile SIPp");
+	tmpAction->setVarId(currentTabVarId[0]);
+	/* and creating the associated variable */
+	if (scenVariableTable[currentTabVarId[0]][scenario_len] != NULL) {
+	  delete(scenVariableTable[currentTabVarId[0]][scenario_len]);
+	  scenVariableTable[currentTabVarId[0]][scenario_len] = NULL;
 	}
+	variableUsed[currentTabVarId[0]] = true;
+	scenVariableTable[currentTabVarId[0]][scenario_len] =
+	  new CVariable(currentRegExp);
+
+	if(!(scenVariableTable[currentTabVarId[0]][scenario_len]
+	      ->isRegExpWellFormed()))
+	  ERROR_P1("Regexp '%s' is not valid in xml "
+	      "scenario file", currentRegExp);
 
 	if (currentNbVarId > 1 ) {
 	  sub_currentNbVarId = currentNbVarId - 1 ;
 	  tmpAction->setNbSubVarId(sub_currentNbVarId);
 
 	  for(int i=1; i<= sub_currentNbVarId; i++) {
-	    if(currentTabVarId[i] <  SCEN_VARIABLE_SIZE) {
+	    xp_use_var(currentTabVarId[i]);
+
 	      tmpAction->setSubVarId(currentTabVarId[i]);
 
 	      /* and creating the associated variable */
@@ -1184,7 +1206,6 @@ void getActionForThisMessage()
 		    ->isRegExpWellFormed()))
 		ERROR_P1("Regexp '%s' is not valid in xml "
 		    "scenario file", currentRegExp);
-	    }
 	  }
 	}
 

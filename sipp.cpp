@@ -1125,7 +1125,7 @@ void print_variable_list()
   printf("Setted Variable List:" SIPP_ENDL);
   found = false;
   j=0;
-  for(i=0; i<SCEN_VARIABLE_SIZE; i++) {
+  for(i=0; i<=maxVariableUsed; i++) {
     for (int j=0;j<SCEN_MAX_MESSAGES;j++)
     {
       variable = scenVariableTable[i][j];
@@ -3164,13 +3164,15 @@ void releaseGlobalAllocations()
 
   CStat::instance()->close();
 
-  for(i=0; i<SCEN_VARIABLE_SIZE; i++) {
+  for(i=0; i<=maxVariableUsed; i++) {
     for (j=0; j<SCEN_MAX_MESSAGES;j++)
     {
       if (scenVariableTable[i][j] != NULL)
         delete(scenVariableTable[i][j]);
       scenVariableTable[i][j] = NULL;
     }
+      delete scenVariableTable[i];
+      scenVariableTable[i] = NULL;
     }
   for(i=0; i<scenario_len; i++)
   {

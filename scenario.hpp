@@ -30,8 +30,6 @@
 #include "variables.hpp"
 
 
-#define SCEN_VARIABLE_SIZE 20
-
 /* MAX_RTD_INFO_LENGTH defines the number of RTD begin and end points a single
  * call can have.  If you need more than five, you can increase this number,
  * but you also need to insert entries into the E_CounterName enum in stat.hpp.
@@ -154,8 +152,9 @@ public:
 /* There are external variable containing the current scenario */
 
 extern message   *   scenario[SCEN_MAX_MESSAGES];
-extern CVariable *   scenVariableTable[SCEN_VARIABLE_SIZE][SCEN_MAX_MESSAGES];
-extern bool	     variableUsed[SCEN_VARIABLE_SIZE];
+extern CVariable *** scenVariableTable;
+extern bool	     *variableUsed;
+extern int	     maxVariableUsed;
 extern int	     scenario_len;
 extern char          scenario_name[255];
 extern int           toolMode;

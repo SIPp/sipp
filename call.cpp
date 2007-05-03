@@ -639,7 +639,10 @@ call::call(char * p_id, bool ipv6) : use_ipv6(ipv6)
   
   // initialising the CallVariable with the Scenario variable
   int i;
-  for(i=0; i<SCEN_VARIABLE_SIZE; i++) 
+  if (maxVariableUsed >= 0) {
+	M_callVariableTable = new CCallVariable *[maxVariableUsed + 1];
+  }
+  for(i=0; i<=maxVariableUsed; i++)
     {
       if (variableUsed[i]) {
         M_callVariableTable[i] = new CCallVariable();
@@ -701,12 +704,13 @@ call::~call()
   }
 
   /* Deletion of the call variable */
-  for(int i=0; i<SCEN_VARIABLE_SIZE; i++) {
+  for(int i=0; i<=maxVariableUsed; i++) {
     if(M_callVariableTable[i] != NULL) {
       delete M_callVariableTable[i] ;
       M_callVariableTable[i] = NULL;
     }
   }
+  if(M_callVariableTable) { delete M_callVariableTable; }
 
   if(id) { free(id); }
   if(last_recv_msg) { free(last_recv_msg); }
@@ -1235,7 +1239,7 @@ bool call::next()
   /* If branch needed, overwrite this default */
   if ( scenario[msg_index]->next && 
        ((test == -1) ||
-        (test < SCEN_VARIABLE_SIZE && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
+        (test <= maxVariableUsed && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
      ) {
     /* Branching possible, check the probability */
     int chance = scenario[msg_index]->chance;
@@ -2066,7 +2070,7 @@ char* call::createSendingMessage(char * src, int P_index)
 	  getKeywordParam(keyword, "variable=", varName);
 
           int varId = get_long(varName, "Fill Variable");
-          if(varId < SCEN_VARIABLE_SIZE && M_callVariableTable[varId]) {
+          if(varId <= maxVariableUsed && M_callVariableTable[varId]) {
 	    length = (int) M_callVariableTable[varId]->getDouble();
 	    if (length < 0) {
 	      length = 0;
@@ -2077,7 +2081,7 @@ char* call::createSendingMessage(char * src, int P_index)
 	  }
         } else if(strstr(keyword, "$")) {
           int varId = atoi(keyword+1);
-          if(varId < SCEN_VARIABLE_SIZE) {
+          if(varId <= maxVariableUsed) {
             if(M_callVariableTable[varId] != NULL) {
               if(M_callVariableTable[varId]->isSet()) {
 		if (M_callVariableTable[varId]->isRegExp()) {
@@ -3012,7 +3016,7 @@ bool call::process_incoming(char * msg)
   if (!(scenario[search_index] -> optional) ||
        scenario[search_index]->next && 
       ((test == -1) ||
-       (test < SCEN_VARIABLE_SIZE && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
+       (test <= maxVariableUsed && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
      ) {
     /* If we are paused, then we need to wake up so taht we properly go through the state machine. */
     paused_until = 0;
@@ -3022,7 +3026,7 @@ bool call::process_incoming(char * msg)
     unsigned int timeout = call_wake(this);
     unsigned int candidate;
 
-    if (test < SCEN_VARIABLE_SIZE && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()) {
+    if (test <= maxVariableUsed && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()) {
       WARNING_P1("Last message generates an error and will not be used for next sends (for last_ varaiables):\r\n%s",msg);
     }
 
