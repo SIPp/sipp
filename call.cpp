@@ -3014,6 +3014,8 @@ bool call::process_incoming(char * msg)
       ((test == -1) ||
        (test < SCEN_VARIABLE_SIZE && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
      ) {
+    /* If we are paused, then we need to wake up so taht we properly go through the state machine. */
+    paused_until = 0;
     msg_index = search_index;
     return next();
   } else {
