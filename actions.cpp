@@ -44,6 +44,48 @@ static const char* strIntCmd(CAction::T_IntCmdType type)
     return "invalid";
 }
 
+const char * CAction::comparatorToString(T_Comparator comp) {
+   switch(comp) {
+     case E_C_EQ:
+       return "==";
+     case E_C_NE:
+       return "!=";
+     case E_C_GT:
+       return ">";
+     case E_C_LT:
+       return "<";
+     case E_C_GEQ:
+       return ">=";
+     case E_C_LEQ:
+       return "<=";
+     default:
+       return "invalid";
+   }
+}
+
+bool CAction::compare(CCallVariable *variableTable[]) {
+  double lhs = variableTable[M_varInId] ? variableTable[M_varInId]->getDouble() : 0.0;
+  double rhs = M_doubleValue;
+
+  switch(M_comp) {
+    case E_C_EQ:
+      return lhs == rhs;
+    case E_C_NE:
+      return lhs != rhs;
+    case E_C_GT:
+      return lhs > rhs;
+    case E_C_LT:
+      return lhs < rhs;
+    case E_C_GEQ:
+      return lhs >= rhs;
+    case E_C_LEQ:
+      return lhs <= rhs;
+    default:
+      ERROR_P1("Internal error: Invalid comparison type %d", M_comp);
+      return false; /* Shut up warning. */
+  }
+}
+
 void CAction::afficheInfo()
 {
   if (M_action == E_AT_ASSIGN_FROM_REGEXP) {
@@ -75,6 +117,14 @@ void CAction::afficheInfo()
       printf("Type[%d] - sample varId[%d] %s", M_action, M_varId, tmp);
   } else if (M_action == E_AT_ASSIGN_FROM_VALUE) {
       printf("Type[%d] - assign varId[%d] %lf", M_action, M_varId, M_doubleValue);
+  } else if (M_action == E_AT_VAR_ADD) {
+      printf("Type[%d] - add varId[%d] %lf", M_action, M_varId, M_doubleValue);
+  } else if (M_action == E_AT_VAR_MULTIPLY) {
+      printf("Type[%d] - multiply varId[%d] %lf", M_action, M_varId, M_doubleValue);
+  } else if (M_action == E_AT_VAR_DIVIDE) {
+      printf("Type[%d] - divide varId[%d] %lf", M_action, M_varId, M_doubleValue);
+  } else if (M_action == E_AT_VAR_TEST) {
+      printf("Type[%d] - divide varId[%d] varInId[%d] %s %lf", M_action, M_varId, M_varInId, comparatorToString(M_comp), M_doubleValue);
 #ifdef PCAPPLAY
   } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
       printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
@@ -87,12 +137,14 @@ CAction::T_ActionType   CAction::getActionType()   { return(M_action);       }
 T_VarType		CAction::getVarType()      { return(M_varType);      }
 CAction::T_LookingPlace CAction::getLookingPlace() { return(M_lookingPlace); }
 CAction::T_IntCmdType   CAction::getIntCmd ()      { return(M_IntCmd);       }
+CAction::T_Comparator   CAction::getComparator ()  { return(M_comp);	     }
 
 bool           CAction::getCheckIt()      { return(M_checkIt);      }
 bool           CAction::getCaseIndep()    { return(M_caseIndep);    }
 bool           CAction::getHeadersOnly()  { return(M_headersOnly);  }
 int            CAction::getOccurence()    { return(M_occurence);    }
 int            CAction::getVarId()        { return(M_varId);        }
+int            CAction::getVarInId()      { return(M_varId);        }
 char*          CAction::getLookingChar()  { return(M_lookingChar);  }
 char*          CAction::getMessage()      { return(M_message);      }
 char*          CAction::getCmdLine()      { return(M_cmdLine);      }
@@ -112,14 +164,18 @@ void CAction::setCheckIt      (bool           P_value)
 { M_checkIt      = P_value; }
 void CAction::setVarId        (int            P_value) 
 { M_varId        = P_value; }
+void CAction::setVarInId      (int            P_value)
+{ M_varInId        = P_value; }
 void CAction::setCaseIndep    (bool           P_value)
 { M_caseIndep    = P_value; }
 void CAction::setOccurence   (int            P_value) 
 { M_occurence    = P_value; }
 void CAction::setHeadersOnly  (bool           P_value)
 { M_headersOnly  = P_value; }
-void CAction::setIntCmd       (T_IntCmdType P_type) 
+void CAction::setIntCmd       (T_IntCmdType P_type)
 { M_IntCmd       = P_type;  }
+void CAction::setComparator   (T_Comparator P_value)
+{ M_comp         = P_value; }
 
 /* sample specific function. */
 void CAction::setDistribution (CSample *P_value)

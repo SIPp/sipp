@@ -37,6 +37,8 @@ bool CCallVariable::isSet()
       return(true);
     else
       return(false);
+  } else if (M_type == E_VT_BOOL) {
+    return M_bool;
   }
   return (M_type != E_VT_UNDEFINED);
 }
@@ -44,6 +46,11 @@ bool CCallVariable::isSet()
 bool CCallVariable::isDouble()
 {
   return (M_type == E_VT_DOUBLE);
+}
+
+bool CCallVariable::isBool()
+{
+  return (M_type == E_VT_BOOL);
 }
 
 bool CCallVariable::isRegExp()
@@ -85,6 +92,19 @@ double CCallVariable::getDouble()
   return(M_double);
 }
 
+void CCallVariable::setBool(bool val)
+{
+  M_type = E_VT_BOOL;
+  M_bool = val;
+}
+
+bool CCallVariable::getBool()
+{
+  if (M_type != E_VT_BOOL) {
+    return false;
+  }
+  return(M_bool);
+}
 
 // Constuctor and destructor
 CCallVariable::CCallVariable()

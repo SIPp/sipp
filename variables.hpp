@@ -37,6 +37,7 @@ enum T_VarType
 {
   E_VT_REGEXP = 0,
   E_VT_DOUBLE,
+  E_VT_BOOL,
   E_VT_UNDEFINED,
 };
 
@@ -45,6 +46,7 @@ class CCallVariable
 public:
   bool isSet();
   bool isDouble();
+  bool isBool();
   bool isRegExp();
 
   // WARNING : setMatchingValue does't allocate the memory for the matching value
@@ -56,6 +58,10 @@ public:
   void setDouble(double val);
   double getDouble();
 
+  /* When the variable is used for a bool, these functions should be called. */
+  void setBool(bool val);
+  bool getBool();
+
   // constructor and destructor
   CCallVariable();
   ~CCallVariable();
@@ -65,6 +71,7 @@ private:
   char*		M_matchingValue;
   int		M_nbOfMatchingValue;
   double	M_double;
+  bool		M_bool;
 };
 
 /**

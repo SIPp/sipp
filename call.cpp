@@ -3133,10 +3133,25 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
         } else /* end action == E_AT_ASSIGN_FROM_REGEXP */ 
             if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_VALUE) {
 	      M_callVariableTable[currentAction->getVarId()]->setDouble(currentAction->getDoubleValue());
-        } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
-	      double value = currentAction->getDistribution()->sample();
-	      M_callVariableTable[currentAction->getVarId()]->setDouble(value);
-        } else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
+        } else if (currentAction->getActionType() == CAction::E_AT_VAR_ADD) {
+	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
+	  value += currentAction->getDoubleValue();
+	  M_callVariableTable[currentAction->getVarId()]->setDouble(value);
+        } else if (currentAction->getActionType() == CAction::E_AT_VAR_MULTIPLY) {
+	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
+	  value *= currentAction->getDoubleValue();
+	  M_callVariableTable[currentAction->getVarId()]->setDouble(value);
+        } else if (currentAction->getActionType() == CAction::E_AT_VAR_DIVIDE) {
+	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
+	  value /= currentAction->getDoubleValue();
+	  M_callVariableTable[currentAction->getVarId()]->setDouble(value);
+        } else if (currentAction->getActionType() == CAction::E_AT_VAR_TEST) {
+	  double value = currentAction->compare(M_callVariableTable);
+	  M_callVariableTable[currentAction->getVarId()]->setBool(value);
+	} else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
+	  double value = currentAction->getDistribution()->sample();
+	  M_callVariableTable[currentAction->getVarId()]->setDouble(value);
+	} else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
             LOG_MSG((s, "%s\n", x));
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {

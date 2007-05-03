@@ -233,6 +233,27 @@ double xp_get_double(const char *name, const char *what) {
   return val;
 }
 
+int xp_get_var(const char *name, const char *what) {
+  char *ptr;
+  char *helptext;
+
+  if (!(ptr = xp_get_value(name))) {
+    ERROR_P2("%s is missing the required '%s' variable parameter.", what, name);
+  }
+
+  helptext = (char *)malloc(100 + strlen(name) + strlen(what));
+  sprintf(helptext, "%s '%s' parameter", what, name);
+  int var = get_long(ptr, helptext);
+  free(helptext);
+
+  if(var >=  SCEN_VARIABLE_SIZE) {
+    ERROR("Too many call variables in the scenario. Please change '#define SCEN_VARIABLE_SIZE' in scenario.hpp and recompile SIPp");
+  }
+  variableUsed[var] = true;
+
+  return var;
+}
+
 bool get_bool(const char *ptr, const char *what) {
   char *endptr;
   long ret;
@@ -1181,45 +1202,66 @@ void getActionForThisMessage()
       }
     } /* end !strcmp(actionElem, "log") */ else if(!strcmp(actionElem, "logvars")) {
       tmpAction->setActionType(CAction::E_AT_LOG_VARS_TO_FILE);
-    } /* end !strcmp(actionElem, "logvars") */ else if(!strcmp(actionElem, "assign")) {
-      if(ptr = xp_get_value((char *)"assign_to")) {
-	int var = get_long(ptr, "assignment variable ID");
-	if(var >=  SCEN_VARIABLE_SIZE) {
-	  ERROR("Too many call variables in the scenario. Please change '#define SCEN_VARIABLE_SIZE' in scenario.hpp and recompile SIPp");
-	}
-	variableUsed[var] = true;
-	tmpAction->setVarId(var);
-      } else { // end "assign_to"
-	ERROR("'assign' action without 'assign_to' argument (mandatory)");
-      }
-
-      if(!(ptr = xp_get_value((char *)"value"))) {
-	ERROR("'assign' action requires 'value' parameter");
-      }
-      double val = get_double(ptr, "assignment value");
-
+    } else if(!strcmp(actionElem, "assign")) {
       tmpAction->setVarType(E_VT_DOUBLE);
+      tmpAction->setVarId(xp_get_var("assign_to", "assign"));
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_VALUE);
-      tmpAction->setDoubleValue(val);
-    } /* end !strcmp(actionElem, "assign") */ else if(!strcmp(actionElem, "sample")) {
-      if(ptr = xp_get_value((char *)"assign_to")) {
-	int var = get_long(ptr, "sample variable ID");
-	if(var >=  SCEN_VARIABLE_SIZE) {
-	  ERROR("Too many call variables in the scenario. Please change '#define SCEN_VARIABLE_SIZE' in scenario.hpp and recompile SIPp");
-	}
-	tmpAction->setVarId(var);
-	variableUsed[var] = true;
-      } else { // end "assign_to"
-	ERROR("'sample' action without 'assign_to' argument (mandatory)");
-      }
-
-      CSample *distribution = parse_distribution();
-
+      tmpAction->setDoubleValue(xp_get_double("value", "assign"));
+    } else if(!strcmp(actionElem, "add")) {
       tmpAction->setVarType(E_VT_DOUBLE);
+      tmpAction->setVarId(xp_get_var("assign_to", "add"));
+      tmpAction->setActionType(CAction::E_AT_VAR_ADD);
+      tmpAction->setDoubleValue(xp_get_double("value", "add"));
+    } else if(!strcmp(actionElem, "subtract")) {
+      tmpAction->setVarType(E_VT_DOUBLE);
+      tmpAction->setVarId(xp_get_var("assign_to", "add"));
+      tmpAction->setActionType(CAction::E_AT_VAR_ADD);
+      tmpAction->setDoubleValue(-1.0 * xp_get_double("value", "subtract"));
+    } else if(!strcmp(actionElem, "multiply")) {
+      tmpAction->setVarType(E_VT_DOUBLE);
+      tmpAction->setVarId(xp_get_var("assign_to", "multiply"));
+      tmpAction->setActionType(CAction::E_AT_VAR_MULTIPLY);
+      tmpAction->setDoubleValue(xp_get_double("value", "multiply"));
+    } else if(!strcmp(actionElem, "divide")) {
+      /* If we change this to support dividing by variables, we need to be
+       * careful about divide-by-zero cases. */
+      tmpAction->setVarType(E_VT_DOUBLE);
+      tmpAction->setVarId(xp_get_var("assign_to", "divide"));
+      tmpAction->setActionType(CAction::E_AT_VAR_DIVIDE);
+      tmpAction->setDoubleValue(xp_get_double("value", "divide"));
+      if (tmpAction->getDoubleValue() == 0.0) {
+	ERROR("divide actions can not have a value of zero!");
+      }
+    } else if(!strcmp(actionElem, "sample")) {
+      tmpAction->setVarType(E_VT_DOUBLE);
+      tmpAction->setVarId(xp_get_var("assign_to", "sample"));
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_SAMPLE);
-      assert(distribution);
-      tmpAction->setDistribution(distribution);
-    } /* end !strcmp(actionElem, "sample")  */ else if(!strcmp(actionElem, "exec")) {
+      tmpAction->setDistribution(parse_distribution());
+    } else if(!strcmp(actionElem, "test")) {
+      tmpAction->setVarType(E_VT_BOOL);
+      tmpAction->setVarId(xp_get_var("assign_to", "test"));
+      tmpAction->setVarInId(xp_get_var("variable", "test"));
+      tmpAction->setDoubleValue(xp_get_double("value", "test"));
+      tmpAction->setActionType(CAction::E_AT_VAR_TEST);
+      if (!(ptr = xp_get_value("compare"))) {
+	ERROR("test actions require a 'compare' parameter");
+      }
+      if (!strcmp(ptr, "equal")) {
+	tmpAction->setComparator(CAction::E_C_EQ);
+      } else if (!strcmp(ptr, "not_equal")) {
+	tmpAction->setComparator(CAction::E_C_NE);
+      } else if (!strcmp(ptr, "greater_than")) {
+	tmpAction->setComparator(CAction::E_C_GT);
+      } else if (!strcmp(ptr, "less_than")) {
+	tmpAction->setComparator(CAction::E_C_LT);
+      } else if (!strcmp(ptr, "greater_than_equal")) {
+	tmpAction->setComparator(CAction::E_C_GEQ);
+      } else if (!strcmp(ptr, "less_than_equal")) {
+	tmpAction->setComparator(CAction::E_C_LEQ);
+      } else {
+	ERROR_P1("Invalid 'compare' parameter: %s", ptr);
+      }
+    } else if(!strcmp(actionElem, "exec")) {
       if(ptr = xp_get_value((char *)"command")) {
 	tmpAction->setActionType(CAction::E_AT_EXECUTE_CMD);
 	tmpAction->setCmdLine(ptr);

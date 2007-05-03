@@ -44,6 +44,10 @@ class CAction
       E_AT_LOG_VARS_TO_FILE,
       E_AT_EXECUTE_CMD,
       E_AT_EXEC_INTCMD,
+      E_AT_VAR_ADD,
+      E_AT_VAR_MULTIPLY,
+      E_AT_VAR_DIVIDE,
+      E_AT_VAR_TEST,
 #ifdef PCAPPLAY
       E_AT_PLAY_PCAP_AUDIO,
       E_AT_PLAY_PCAP_VIDEO,
@@ -56,6 +60,17 @@ class CAction
       E_LP_MSG = 0,
       E_LP_HDR,
       E_LP_NB_LOOKING_PLACE
+    };
+
+    enum T_Comparator
+    {
+      E_C_EQ,
+      E_C_NE,
+      E_C_GT,
+      E_C_LT,
+      E_C_GEQ,
+      E_C_LEQ,
+      E_C_NB_COMPARATOR
     };
 
     enum T_IntCmdType
@@ -71,14 +86,18 @@ class CAction
     } T_Action;
 
     void afficheInfo();
+    const char *comparatorToString(T_Comparator comp);
+    bool compare(CCallVariable *variableTable[]);
 
     T_ActionType   getActionType();
-    T_VarType      getVarType();  
+    T_VarType      getVarType();
     T_LookingPlace getLookingPlace();
+    T_Comparator   getComparator();
     bool           getCheckIt();
     bool           getCaseIndep();
     bool           getHeadersOnly();
     int            getVarId();
+    int            getVarInId();
     int            getOccurence();
     char*          getLookingChar();
     char*          getMessage();  /* log specific function  */
@@ -89,10 +108,12 @@ class CAction
 #endif
 
     void setActionType   (T_ActionType   P_value);
-    void setVarType      (T_VarType      P_value);  
+    void setVarType      (T_VarType      P_value);
     void setLookingPlace (T_LookingPlace P_value);
+    void setComparator   (T_Comparator   P_value);
     void setCheckIt      (bool           P_value);
     void setVarId        (int            P_value);
+    void setVarInId      (int            P_value);
     void setLookingChar  (char*          P_value);
     void setAction       (CAction        P_action);
     void setCaseIndep    (bool           P_action);
@@ -123,10 +144,12 @@ class CAction
       T_ActionType   M_action;
       T_VarType      M_varType;
       T_LookingPlace M_lookingPlace;
+      T_Comparator   M_comp;
       bool           M_checkIt;
       bool           M_caseIndep;
       bool           M_headersOnly;
       int            M_varId;
+      int            M_varInId;
       int            M_occurence;
       int            M_nbSubVarId;
       int            M_maxNbSubVarId;
