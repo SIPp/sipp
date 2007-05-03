@@ -1670,7 +1670,7 @@ size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
                "Compressed message received, header :\n"
                "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x "
                "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
-               CStat::instance()->formatTime(&currentTime),
+               CStat::instance()->formatTime(&currentTime, true),
                buff[0] , buff[1] , buff[2] , buff[3],
                buff[4] , buff[5] , buff[6] , buff[7],
                buff[8] , buff[9] , buff[10], buff[11],
@@ -2016,7 +2016,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
       GET_TIME (&currentTime);
       TRACE_MSG((s, "----------------------------------------------- %s\n"
 	    "%s %smessage sent (%d bytes):\n\n%.*s\n",
-	    CStat::instance()->formatTime(&currentTime),
+	    CStat::instance()->formatTime(&currentTime, true),
 	    TRANSPORT_TO_STRING(socket->ss_transport),
 	    socket->ss_control ? "control " : "",
 	    len, len, buffer));
@@ -2031,7 +2031,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
       GET_TIME (&currentTime);
       TRACE_MSG((s, "----------------------------------------------- %s\n"
 	    "Error sending %s message:\n\n%.*s\n",
-	    CStat::instance()->formatTime(&currentTime),
+	    CStat::instance()->formatTime(&currentTime, true),
 	    TRANSPORT_TO_STRING(socket->ss_transport),
 	    len, buffer));
     }
@@ -2043,7 +2043,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
       GET_TIME (&currentTime);
       TRACE_MSG((s, "----------------------------------------------- %s\n"
 	    "Truncation sending %s message (%d of %d sent):\n\n%.*s\n",
-	    CStat::instance()->formatTime(&currentTime),
+	    CStat::instance()->formatTime(&currentTime, true),
 	    TRANSPORT_TO_STRING(socket->ss_transport),
 	    rc, len, len, buffer));
     }
@@ -2346,7 +2346,7 @@ static ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len) {
     GET_TIME (&currentTime);
     TRACE_MSG((s, "----------------------------------------------- %s\n"
 	  "%s %smessage received [%d] bytes :\n\n%s\n",
-	  CStat::instance()->formatTime(&currentTime),
+	  CStat::instance()->formatTime(&currentTime, true),
 	  TRANSPORT_TO_STRING(socket->ss_transport),
 	  socket->ss_control ? "control " : "",
 	  avail, buf));

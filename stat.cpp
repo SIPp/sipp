@@ -1492,7 +1492,7 @@ char* CStat::msToHHMMSSmmm (unsigned long P_ms)
   return (L_time);
 } /* end of msToHHMMSS */
 
-char* CStat::formatTime (struct timeval* P_tv)
+char* CStat::formatTime (struct timeval* P_tv, bool microseconds)
 {
   static char L_time [TIME_LENGTH];
   struct tm * L_currentDate;
@@ -1507,15 +1507,24 @@ char* CStat::formatTime (struct timeval* P_tv)
     } 
   else
     {
-      // SF917230 sprintf(L_time, "%4.4d-%2.2d-%2.2d %2.2d:%2.2d:%2.2d:%3.3d", 
-      sprintf(L_time, "%4.4d-%2.2d-%2.2d %2.2d:%2.2d:%2.2d", 
-              L_currentDate->tm_year + 1900,
-              L_currentDate->tm_mon + 1,
-              L_currentDate->tm_mday,
-              L_currentDate->tm_hour,
-              L_currentDate->tm_min,
-              L_currentDate->tm_sec);
-      // SF917230 (int) (P_tv->tv_usec)/1000);
+	if (microseconds) {
+	  sprintf(L_time, "%4.4d-%2.2d-%2.2d %2.2d:%2.2d:%2.2d:%03.03f",
+	      L_currentDate->tm_year + 1900,
+	      L_currentDate->tm_mon + 1,
+	      L_currentDate->tm_mday,
+	      L_currentDate->tm_hour,
+	      L_currentDate->tm_min,
+	      L_currentDate->tm_sec,
+	      (double)P_tv->tv_usec/(double)1000.0);
+	} else {
+	  sprintf(L_time, "%4.4d-%2.2d-%2.2d %2.2d:%2.2d:%2.2d",
+	      L_currentDate->tm_year + 1900,
+	      L_currentDate->tm_mon + 1,
+	      L_currentDate->tm_mday,
+	      L_currentDate->tm_hour,
+	      L_currentDate->tm_min,
+	      L_currentDate->tm_sec);
+	}
     }
   return (L_time);
 } /* end of formatTime */
