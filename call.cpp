@@ -1045,8 +1045,8 @@ char * call::get_header(char* message, char * name, bool content)
 
     while(src = strcasestr2(src, src_tmp)) {
       if (content) {
-	/* just want the header's content */
-	src += strlen(name);
+        /* just want the header's content */
+        src += strlen(name) + 1;
       } else {
 	src++;
       }
