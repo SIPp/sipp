@@ -234,6 +234,36 @@ double xp_get_double(const char *name, const char *what) {
   return val;
 }
 
+double xp_get_double(const char *name, const char *what, double defval) {
+  if (!(xp_get_value(name))) {
+    return defval;
+  }
+  return xp_get_double(name, what);
+}
+
+double xp_get_bool(const char *name, const char *what) {
+  char *ptr;
+  char *helptext;
+  bool val;
+
+  if (!(ptr = xp_get_value(name))) {
+    ERROR_P2("%s is missing the required '%s' parameter.", what, name);
+  }
+  helptext = (char *)malloc(100 + strlen(name) + strlen(what));
+  sprintf(helptext, "%s '%s' parameter", what, name);
+  val = get_bool(ptr, helptext);
+  free(helptext);
+
+  return val;
+}
+
+double xp_get_bool(const char *name, const char *what, bool defval) {
+  if (!(xp_get_value(name))) {
+    return defval;
+  }
+  return xp_get_bool(name, what);
+}
+
 void xp_use_var(int var) {
   if (var > maxVariableUsed) {
     bool *tmpUsed = new bool[var + 1];
@@ -701,8 +731,10 @@ void load_scenario(char * filename, int deflt)
 
         CSample *distribution = parse_distribution(true);
 
+	bool sanity_check = xp_get_bool("sanity_check", "pause", true);
+
 	double pause_duration = distribution->cdfInv(0.99);
-	if (pause_duration > INT_MAX) {
+	if (sanity_check && (pause_duration > INT_MAX)) {
 	  char percentile[100];
 	  char desc[100];
 
