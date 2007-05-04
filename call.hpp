@@ -112,6 +112,9 @@ public:
   int		 last_send_index;
   char         * last_send_msg;
 
+  /* How long until sending this message times out. */
+  unsigned int   send_timeout;
+
   /* Last received message (expected,  not optional, and not 
    * retransmitted) and the associated hash. Stills setted until a new
    * scenario steps sends a message */

@@ -49,6 +49,7 @@ message::message()
 
   send_scheme = NULL;
   retrans_delay = 0;
+  timeout = 0;
 
   recv_response = 0;
   recv_request = NULL;
@@ -240,6 +241,30 @@ double xp_get_double(const char *name, const char *what, double defval) {
   }
   return xp_get_double(name, what);
 }
+
+long xp_get_long(const char *name, const char *what) {
+  char *ptr;
+  char *helptext;
+  long val;
+
+  if (!(ptr = xp_get_value(name))) {
+    ERROR_P2("%s is missing the required '%s' parameter.", what, name);
+  }
+  helptext = (char *)malloc(100 + strlen(name) + strlen(what));
+  sprintf(helptext, "%s '%s' parameter", what, name);
+  val = get_long(ptr, helptext);
+  free(helptext);
+
+  return val;
+}
+
+long xp_get_long(const char *name, const char *what, long defval) {
+  if (!(xp_get_value(name))) {
+    return defval;
+  }
+  return xp_get_long(name, what);
+}
+
 
 double xp_get_bool(const char *name, const char *what) {
   char *ptr;
@@ -609,11 +634,10 @@ void load_scenario(char * filename, int deflt)
         } else {
           ERROR("No CDATA in 'send' section of xml scenario file");
         }
-      
-        if(ptr = xp_get_value((char *)"retrans")) {
-          scenario[scenario_len] -> retrans_delay = get_long(ptr, "retransmission timer");
-        }
-      
+
+	scenario[scenario_len] -> retrans_delay = xp_get_long("retrans", "retransmission timer", 0);
+	scenario[scenario_len] -> timeout = xp_get_long("timeout", "message send timeout", 0);
+
         if(ptr = xp_get_value((char *)"rtd")) {
           scenario[scenario_len] -> stop_rtd = get_rtd(ptr);
 	  rtd_stopped[scenario[scenario_len]->stop_rtd - 1] = true;
@@ -694,9 +718,7 @@ void load_scenario(char * filename, int deflt)
           }
         }
 
-        if (0 != (ptr = xp_get_value((char *)"timeout"))) {
-          scenario[scenario_len]->retrans_delay = get_long(ptr, "message timeout");
-        }
+	scenario[scenario_len]->timeout = xp_get_long("timeout", "message timeout", 0);
 
         /* record the route set  */
         /* TODO disallow optional and rrs to coexist? */

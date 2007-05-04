@@ -615,6 +615,12 @@ int CStat::computeStat (E_Action P_action)
       M_counters [CPT_PL_FailedTimeoutOnRecv]++;
       break;
 
+    case E_FAILED_TIMEOUT_ON_SEND :
+      M_counters [CPT_C_FailedTimeoutOnSend]++;
+      M_counters [CPT_PD_FailedTimeoutOnSend]++;
+      M_counters [CPT_PL_FailedTimeoutOnSend]++;
+      break;
+
     case E_OUT_OF_CALL_MSGS :
       M_counters [CPT_C_OutOfCallMsgs]++;
       M_counters [CPT_PD_OutOfCallMsgs]++;
@@ -1264,6 +1270,8 @@ void CStat::dumpData ()
                       << "FailedOutboundCongestion(C)" << stat_delimiter
                       << "FailedTimeoutOnRecv(P)" << stat_delimiter
                       << "FailedTimeoutOnRecv(C)" << stat_delimiter
+                      << "FailedTimeoutOnSend(P)" << stat_delimiter
+                      << "FailedTimeoutOnSend(C)" << stat_delimiter
                       << "OutOfCallMsgs(P)" << stat_delimiter
                       << "OutOfCallMsgs(C)" << stat_delimiter
                       << "Retransmissions(P)" << stat_delimiter
@@ -1354,6 +1362,8 @@ void CStat::dumpData ()
                     << M_counters[CPT_C_FailedOutboundCongestion]       << stat_delimiter
                     << M_counters[CPT_PL_FailedTimeoutOnRecv]           << stat_delimiter
                     << M_counters[CPT_C_FailedTimeoutOnRecv]            << stat_delimiter
+                    << M_counters[CPT_PL_FailedTimeoutOnSend]           << stat_delimiter
+                    << M_counters[CPT_C_FailedTimeoutOnSend]            << stat_delimiter
                     << M_counters[CPT_PL_OutOfCallMsgs]                 << stat_delimiter
                     << M_counters[CPT_C_OutOfCallMsgs]                  << stat_delimiter
                     << M_counters[CPT_PL_Retransmissions]               << stat_delimiter

@@ -157,6 +157,7 @@ extern int	          rate_max	          _DEFVAL(0);
 extern int                users                   _DEFVAL(0);
 extern int               rate_period_ms           _DEFVAL(DEFAULT_RATE_PERIOD_MS);
 extern unsigned long      defl_recv_timeout       _DEFVAL(0);
+extern unsigned long      defl_send_timeout       _DEFVAL(0);
 extern unsigned long      global_timeout          _DEFVAL(0);
 extern int                transport               _DEFVAL(DEFAULT_TRANSPORT);
 extern bool               retrans_enabled         _DEFVAL(1);

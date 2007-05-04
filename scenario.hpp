@@ -90,6 +90,8 @@ public:
   /* If this is a send */
   char         * send_scheme;
   unsigned int   retrans_delay;
+  /* The receive/send timeout. */
+  unsigned int   timeout;
 
  /* 3pcc extended mode: if this is a sendCmd */
   char         * peer_dest;

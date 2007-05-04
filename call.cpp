@@ -680,6 +680,7 @@ call::call(char * p_id, int userId, bool ipv6) : use_ipv6(ipv6)
 
   peer_tag = NULL;
   recv_timeout = 0;
+  send_timeout = 0;
 }
 
 call::~call()
@@ -1438,11 +1439,37 @@ bool call::run()
     msg_snd = send_scene(msg_index, &send_status);
     if(send_status == -1 && errno == EWOULDBLOCK) {
       if (incr_cseq) --cseq;
+      /* Have we set the timeout yet? */
+      if (send_timeout) {
+	/* If we have actually timed out. */
+	if (clock_tick > send_timeout) {
+	  WARNING_P2("Call-Id: %s, send timeout on message %d: aborting call",
+	      id, msg_index);
+	  CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+	  CStat::instance()->computeStat(CStat::E_FAILED_TIMEOUT_ON_SEND);
+	  if (default_behavior) {
+	    return (abortCall());
+	  } else {
+	    delete_call(id);
+	    return false;
+	  }
+	}
+      } else if (scenario[msg_index]->timeout) {
+	/* Initialize the send timeout to the per message timeout. */
+	send_timeout = clock_tick + scenario[msg_index]->timeout;
+      } else if (defl_send_timeout) {
+	/* Initialize the send timeout to the global timeout. */
+	send_timeout = clock_tick + defl_send_timeout;
+      }
       return true; /* No step, nothing done, retry later */
     } else if(send_status < 0) { /* Send error */
+      /* The timeout will not be sent, so the timeout is no longer needed. */
+      send_timeout = 0;
       return false; /* call deleted */
     }
-    
+    /* We have sent the message, so the timeout is no longer needed. */
+    send_timeout = 0;
+
     last_send_index = msg_index;
     last_send_msg = (char *) realloc(last_send_msg, strlen(msg_snd) + 1);
     strcpy(last_send_msg, msg_snd);
@@ -1520,10 +1547,10 @@ bool call::run()
         delete_call(id);
         return false;
       }
-    } else if ((scenario[msg_index]->retrans_delay) || (defl_recv_timeout)) {
-      if (scenario[msg_index]->retrans_delay)
+    } else if ((scenario[msg_index]->timeout) || (defl_recv_timeout)) {
+      if (scenario[msg_index]->timeout)
         // If timeout is specified on message receive, use it
-        recv_timeout = getmilliseconds() + scenario[msg_index]->retrans_delay;
+        recv_timeout = getmilliseconds() + scenario[msg_index]->timeout;
       else
         // Else use the default timeout if specified
         recv_timeout = getmilliseconds() + defl_recv_timeout;
@@ -3038,7 +3065,7 @@ bool call::process_incoming(char * msg)
       if(scenario[search_index] -> M_type != MSG_TYPE_RECV) {
 	break;
       }
-      candidate = scenario[search_index] -> retrans_delay;
+      candidate = scenario[search_index] -> timeout;
       if (candidate == 0) {
 	if (defl_recv_timeout == 0) {
 	  continue;
