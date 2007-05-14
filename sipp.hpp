@@ -93,7 +93,7 @@
 
 /************************** Constants **************************/
 
-#define SIPP_VERSION               20070426
+#define SIPP_VERSION               20070514
 #define T_UDP                      0
 #define T_TCP                      1
 #define T_TLS                      2
@@ -391,8 +391,10 @@ enum E_Alter_YesNo
 extern FILE * screenf                             _DEFVAL(0);
 extern FILE * logfile                             _DEFVAL(0);
 extern FILE * messagef                            _DEFVAL(0);
+extern FILE * shortmessagef                       _DEFVAL(0);
 extern FILE * timeoutf                            _DEFVAL(0);
 extern bool   useMessagef                         _DEFVAL(0);
+extern bool   useShortMessagef                    _DEFVAL(0);
 extern bool   useScreenf                          _DEFVAL(0);
 extern bool   useLogf                             _DEFVAL(0);
 extern bool   useTimeoutf                         _DEFVAL(0);
@@ -408,6 +410,15 @@ extern char * slave_cfg_file;
     fprintf arg;            \
     fflush(messagef);       \
   }                         \
+}
+
+#define TRACE_SHORTMSG(arg)  \
+{                            \
+  if(shortmessagef) {        \
+    FILE * s = shortmessagef;\
+    fprintf arg;             \
+    fflush(shortmessagef);   \
+  }                          \
 }
 
 #define LOG_MSG(arg)        \

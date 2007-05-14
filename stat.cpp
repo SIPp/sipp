@@ -1527,13 +1527,16 @@ char* CStat::formatTime (struct timeval* P_tv, bool microseconds)
 	      L_currentDate->tm_sec,
 	      (double)P_tv->tv_usec/(double)1000.0);
 	} else {
-	  sprintf(L_time, "%4.4d-%2.2d-%2.2d %2.2d:%2.2d:%2.2d",
+          sprintf(L_time, "%4.4d-%2.2d-%2.2d\t%2.2d:%2.2d:%2.2d:%3.3d\t%10.10d.%6.6d",
 	      L_currentDate->tm_year + 1900,
 	      L_currentDate->tm_mon + 1,
 	      L_currentDate->tm_mday,
 	      L_currentDate->tm_hour,
 	      L_currentDate->tm_min,
-	      L_currentDate->tm_sec);
+	      L_currentDate->tm_sec,
+              (int) (P_tv->tv_usec)/1000,
+              (long) (P_tv->tv_sec),
+              (long) (P_tv->tv_usec));       
 	}
     }
   return (L_time);

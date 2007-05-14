@@ -285,6 +285,7 @@ private:
   char * get_last_header(char * name);
   char * get_header_content(char* message, char * name);
   char * get_header(char* message, char * name, bool content);
+  char * get_first_line(char* message);
 
   typedef std::map <std::string, int> file_line_map;
   file_line_map *m_lineNumber;

@@ -880,7 +880,15 @@ int call::send_raw(char * msg, int index)
 {
   struct sipp_socket *sock;
   int rc;
-  
+ 
+  if (useShortMessagef == 1) {
+      struct timeval currentTime;
+      GET_TIME (&currentTime);
+      char* cs=get_header_content(msg,"CSeq:");
+      TRACE_SHORTMSG((s, "%s\tS\t%s\tCSeq:%s\t%s\n",
+             CStat::instance()->formatTime(&currentTime),id, cs, get_first_line(msg)));
+  }  
+ 
   if((index!=-1) && (lost(index))) {
     TRACE_MSG((s, "%s message voluntary lost (while sending).", TRANSPORT_TO_STRING(transport)));
     
@@ -1148,6 +1156,38 @@ char * call::get_header(char* message, char * name, bool content)
   }
 
   return start;
+}
+
+char * call::get_first_line(char * message)
+{
+  /* non reentrant. consider accepting char buffer as param */
+  static char last_header[MAX_HEADER_LEN * 10];
+  char * src, *dest, *ptr;
+
+  /* returns empty string in case of error */
+  memset(last_header, 0, sizeof(last_header));
+
+  if((!message) || (!strlen(message))) {
+    return last_header;
+  }
+
+  src = message;
+  dest = last_header;
+  
+  int i=0;
+  while (*src){
+    if((*src=='\n')||(*src=='\r')){
+      break;
+    }
+    else
+    {
+      last_header[i]=*src;
+    }
+    i++;
+    src++;
+  }
+  
+  return last_header;
 }
 
 char * call::send_scene(int index, int *send_status)

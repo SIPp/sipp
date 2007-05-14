@@ -222,6 +222,7 @@ struct sipp_option options_table[] = {
                       "Small values allow more precise scheduling but impacts CPU usage."
                       "If the compression is on, the value is set to 50ms. The default value is 10ms.", SIPP_OPTION_TIME_MS, &timer_resolution},
 	{"trace_msg", "Displays sent and received SIP messages in <scenario file name>_<pid>_messages.log", SIPP_OPTION_SETFLAG, &useMessagef},
+  {"trace_shortmsg", "Displays sent and received SIP messages as CSV in <scenario file name>_<pid>_shortmessages.log", SIPP_OPTION_SETFLAG, &useShortMessagef},
 	{"trace_screen", "Dump statistic screens in the <scenario_name>_<pid>_screens.log file when quitting SIPp. Useful to get a final status report in background mode (-bg option).", SIPP_OPTION_SETFLAG, &useScreenf},
 	{"trace_err", "Trace all unexpected messages in <scenario file name>_<pid>_errors.log.", SIPP_OPTION_SETFLAG, &print_all_responses},
 	{"trace_timeout", "Displays call ids for calls with timeouts in <scenario file name>_<pid>_timeout.log", SIPP_OPTION_SETFLAG, &useTimeoutf},
@@ -1482,6 +1483,107 @@ char * get_peer_tag(char *msg)
   return tag;
 }
 
+char * get_incoming_header_content(char* message, char * name)
+{
+  /* non reentrant. consider accepting char buffer as param */
+  static char last_header[MAX_HEADER_LEN * 10];
+  char * src, *dest, *ptr;
+
+  /* returns empty string in case of error */
+  memset(last_header, 0, sizeof(last_header));
+
+  if((!message) || (!strlen(message))) {
+    return last_header;
+  }
+
+  src = message;
+  dest = last_header;
+  
+  /* for safety's sake */
+  if (NULL == name || NULL == strrchr(name, ':')) {
+      return last_header;
+  }
+
+  while(src = strstr(src, name)) {
+
+      /* just want the header's content */
+      src += strlen(name);
+
+    ptr = strchr(src, '\n');
+    
+    /* Multiline headers always begin with a tab or a space
+     * on the subsequent lines */
+    while((ptr) &&
+          ((*(ptr+1) == ' ' ) ||
+           (*(ptr+1) == '\t')    )) {
+      ptr = strchr(ptr + 1, '\n'); 
+    }
+
+    if(ptr) { *ptr = 0; }
+    // Add "," when several headers are present
+    if (dest != last_header) {
+      dest += sprintf(dest, ",");
+    }
+    dest += sprintf(dest, "%s", src);
+    if(ptr) { *ptr = '\n'; }
+    
+    src++;
+  }
+  
+  if(dest == last_header) {
+    return last_header;
+  }
+
+  *(dest--) = 0;
+
+  /* Remove trailing whitespaces, tabs, and CRs */
+  while ((dest > last_header) && 
+         ((*dest == ' ') || (*dest == '\r')|| (*dest == '\t'))) {
+    *(dest--) = 0;
+  }
+
+  /* remove enclosed CRs in multilines */
+  while(ptr = strchr(last_header, '\r')) {
+    /* Use strlen(ptr) to include trailing zero */
+    memmove(ptr, ptr+1, strlen(ptr));
+  }
+
+  return last_header;
+}
+
+char * get_incoming_first_line(char * message)
+{
+  /* non reentrant. consider accepting char buffer as param */
+  static char last_header[MAX_HEADER_LEN * 10];
+  char * src, *dest, *ptr;
+
+  /* returns empty string in case of error */
+  memset(last_header, 0, sizeof(last_header));
+
+  if((!message) || (!strlen(message))) {
+    return last_header;
+  }
+
+  src = message;
+  dest = last_header;
+  
+  int i=0;
+  while (*src){
+    if((*src=='\n')||(*src=='\r')){
+      break;
+    }
+    else
+    {
+      last_header[i]=*src;
+    }
+    i++;
+    src++;
+  }
+  
+  return last_header;
+}
+
+
 char * get_call_id(char *msg)
 {
   static char call_id[MAX_HEADER_LEN];
@@ -2368,6 +2470,13 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
 
   char *call_id = get_call_id(msg);
   call *call_ptr = get_call(call_id);
+ 
+  if (useShortMessagef == 1) {
+              struct timeval currentTime;
+              GET_TIME (&currentTime);
+              TRACE_SHORTMSG((s, "%s\tS\t%s\tCSeq:%s\t%s\n",
+              CStat::instance()->formatTime(&currentTime),call_id, get_incoming_header_content(msg,"CSeq:"), get_incoming_first_line(msg)));
+          } 
 
   if(!call_ptr)
   {
@@ -3860,6 +3969,15 @@ int main(int argc, char *argv[])
     sprintf (L_file_name, "%s_%d_messages.log", scenario_file, getpid());
     messagef = fopen(L_file_name, "w");
     if(!messagef) {
+      ERROR_P1("Unable to create '%s'", L_file_name);
+    }
+  }
+  
+  if (useShortMessagef == 1) {
+    char L_file_name [MAX_PATH];
+    sprintf (L_file_name, "%s_%d_shortmessages.log", scenario_file, getpid());
+    shortmessagef = fopen(L_file_name, "w");
+    if(!shortmessagef) {
       ERROR_P1("Unable to create '%s'", L_file_name);
     }
   }
