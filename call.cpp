@@ -2006,9 +2006,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
       case E_Message_Branch:
 	/* Branch is magic cookie + call number + message index in scenario */
 	if(P_index == -2){
-	  dest += snprintf(dest, left, "z9hG4bK-%u-%u-%d", pid, number, msg_index-1);
+	  dest += snprintf(dest, left, "z9hG4bK-%u-%u-%d", pid, number, msg_index-1 + comp->offset);
 	} else {
-	  dest += snprintf(dest, left, "z9hG4bK-%u-%u-%d", pid, number, P_index);
+	  dest += snprintf(dest, left, "z9hG4bK-%u-%u-%d", pid, number, P_index + comp->offset);
 	}
 	break;
       case E_Message_Index:
