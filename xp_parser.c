@@ -261,7 +261,7 @@ char * xp_get_value(const char * name)
       if((*check != '\r') && 
          (*check != '\n') && 
          (*check != '\t') && 
-         (*check != ' ' )) { return NULL; }
+         (*check != ' ' )) { ptr += strlen(name); continue; }
     }
     else
       return(NULL);

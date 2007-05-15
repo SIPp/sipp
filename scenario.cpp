@@ -494,6 +494,9 @@ void load_scenario(char * filename, int deflt)
   }
   
   elem = xp_open_element(0);
+  if (!elem) {
+    ERROR("No element in xml scenario file");
+  }
   if(strcmp("scenario", elem)) {
     ERROR("No 'scenario' section in xml scenario file");
   }
@@ -920,6 +923,9 @@ void load_scenario(char * filename, int deflt)
 
   /* Some post-scenario loading validation. */
   validate_rtds();
+  if (scenario_len == 0) {
+    ERROR("Did not find any messages inside of scenario!");
+  }
 }
 
 CSample *parse_distribution(bool oldstyle = false) {
