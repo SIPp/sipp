@@ -193,9 +193,15 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	  char fileName[KEYWORD_SIZE];
 	  getKeywordParam(keyword, "file=", fileName);
 	  if (fileName[0] == '\0') {
+	    if (!default_file) {
+	      ERROR("No injection file was specified!\n");
+	    }
 	    newcomp->filename = strdup(default_file);
 	  } else {
 	    newcomp->filename = strdup(fileName);
+	  }
+	  if (inFiles.find(newcomp->filename) == inFiles.end()) {
+	    ERROR_P1("Invalid injection file: %s\n", fileName);
 	  }
         } else if(*keyword == '$') {
 	  newcomp->type = E_Message_Variable;
