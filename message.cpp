@@ -70,6 +70,7 @@ struct KeywordMap SimpleKeywords[] = {
   {"last_peer_tag_param", E_Message_Last_Peer_Tag_Param },
   {"routes", E_Message_Routes },
   {"tdmmap", E_Message_TDM_Map },
+  {"clock_tick", E_Message_ClockTick },
 };
 
 #define KEYWORD_SIZE 256

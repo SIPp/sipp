@@ -72,6 +72,7 @@ typedef enum {
   E_Message_Last_Header,
   E_Message_TDM_Map,
   E_Message_Authentication,
+  E_Message_ClockTick,
 } MessageCompType;
 
 class SendingMessage {
