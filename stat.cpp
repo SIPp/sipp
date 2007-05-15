@@ -1791,5 +1791,36 @@ int CGamma::timeDescr(char *s, int len) {
 double CGamma::cdfInv(double percentile) {
   return gsl_cdf_gamma_Pinv(percentile, k, theta);
 }
+
+/* NegBin distribution. */
+CNegBin::CNegBin(double p, double n) {
+  this->p = p;
+  this->n = n;
+  rng = gsl_init();
+}
+
+double CNegBin::sample() {
+  return gsl_ran_negative_binomial(rng, n, p);
+}
+
+int CNegBin::textDescr(char *s, int len) {
+  return snprintf(s, len, "NB(%.3lf,%.3lf)", p, n);
+}
+int CNegBin::timeDescr(char *s, int len) {
+  int used = 0;
+
+  used += snprintf(s, len, "NB(");
+  used += time_string(p, s + used, len - used);
+  used += snprintf(s + used, len - used, ",");
+  used += time_string(n, s + used, len - used);
+  used += snprintf(s + used, len - used, ")");
+
+  return used;
+}
+/* We really don't implement this, but should so that sanity checking will
+ * work. For now, just return zero. */
+double CNegBin::cdfInv(double percentile) {
+  return 0;
+}
 #endif
 

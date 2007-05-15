@@ -663,6 +663,19 @@ protected:
 	double k, theta;
 	gsl_rng *rng;
 };
+
+/* Negative Binomial distribution. */
+class CNegBin : public CSample {
+public:
+	CNegBin(double p, double n);
+	double sample();
+	int textDescr(char *s, int len);
+	int timeDescr(char *s, int len);
+	double cdfInv(double percentile);
+protected:
+	double p, n;
+	gsl_rng *rng;
+};
 #endif
 
 #endif // __STAT_H__

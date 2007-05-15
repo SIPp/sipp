@@ -988,12 +988,17 @@ CSample *parse_distribution(bool oldstyle = false) {
     double k = xp_get_double("k", "Gamma distribution");
     double theta = xp_get_double("theta", "Gamma distribution");
     distribution = new CGamma(k, theta);
+  } else if (!strcmp(distname, "negbin")) {
+    double n = xp_get_double("n", "Negative Binomial distribution");
+    double p = xp_get_double("p", "Negative Binomial distribution");
+    distribution = new CNegBin(n, p);
 #else
   } else if (!strcmp(distname, "normal")
       || !strcmp(distname, "lognormal")
       || !strcmp(distname, "exponential")
       || !strcmp(distname, "pareto")
       || !strcmp(distname, "gamma")
+      || !strcmp(distname, "negbin")
       || !strcmp(distname, "weibull")) {
     ERROR_P1("The distribution '%s' is only available with GSL.", distname);
 #endif
