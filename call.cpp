@@ -62,7 +62,7 @@ call_map calls;
 call_list running_calls;
 timewheel paused_calls;
 
-socket_call_map socket_to_call;
+socket_call_map_map socket_to_calls;
 
 #ifdef PCAPPLAY
 /* send_packets pthread wrapper */
@@ -415,35 +415,56 @@ int timewheel::size() {
   return count;
 }
 
-/* The call must delete this list. */
+/* The caller must delete this list. */
 call_list *get_calls_for_socket(struct sipp_socket *socket) {
   call_list *l = new call_list;
 
-  socket_call_map::iterator call_it = socket_to_call.find(socket);
-  while (call_it != socket_to_call.end() && call_it->first == socket) {
+  socket_call_map_map::iterator map_it = socket_to_calls.find(socket);
+
+  /* No map defined for this socket. */
+  if (map_it == socket_to_calls.end()) {
+    return l;
+  }
+
+  call_map *socket_call_map = map_it->second;
+  call_map::iterator call_it;
+
+  for (call_it = socket_call_map->begin();
+       call_it != socket_call_map->end();
+       call_it++) {
 	l->insert(l->end(), call_it->second);
-	call_it++;
   }
 
   return l;
 }
 
 void add_call_to_socket(struct sipp_socket *socket, call *call) {
-  socket_call_pair p(socket, call);
-  socket_to_call.insert(socket_call_pair(socket, call));
-}
-
-bool remove_call_from_socket(struct sipp_socket *socket, call *call) {
-  socket_call_map::iterator call_it = socket_to_call.find(socket);
-  while (call_it != socket_to_call.end() && call_it->first == socket) {
-	if (call_it->second == call) {
-	  socket_to_call.erase(call_it);
-	  return true;
-	}
-	call_it++;
+  socket_call_map_map::iterator map_it = socket_to_calls.find(socket);
+  /* No map defined for this socket. */
+  if (map_it == socket_to_calls.end()) {
+    socket_to_calls.insert(socket_map_pair(socket, new call_map));
+    map_it = socket_to_calls.find(socket);
+    assert(map_it != socket_to_calls.end());
   }
 
-  return false;
+  map_it->second->insert(string_call_pair(call->id, call));
+}
+
+void remove_call_from_socket(struct sipp_socket *socket, call *call) {
+  socket_call_map_map::iterator map_it = socket_to_calls.find(socket);
+  /* We must have  a map for this socket. */
+  assert(map_it != socket_to_calls.end());
+
+  call_map::iterator call_it = map_it->second->find(call->id);
+  /* And our call must exist in the map. */
+  assert(call_it != map_it->second->end());
+  map_it->second->erase(call_it);
+
+  /* If we have no more calls, we can delete this entry. */
+  if (map_it->second->begin() == map_it->second->end()) {
+    delete map_it->second;
+    socket_to_calls.erase(map_it);
+  }
 }
 
 #ifdef PCAPPLAY

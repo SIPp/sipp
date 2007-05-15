@@ -304,6 +304,7 @@ private:
 
 /* Call contexts interface */
 
+typedef std::pair<std::string, call *> string_call_pair;
 typedef std::map<std::string, call *> call_map;
 call_map * get_calls();
 call_list * get_running_calls();
@@ -322,10 +323,11 @@ int expire_paused_calls();
 int paused_calls_count();
 void remove_paused_call(call *call);
 
-typedef std::pair<struct sipp_socket *,call *> socket_call_pair;
-typedef std::multimap<struct sipp_socket *, call *> socket_call_map;
+typedef std::pair<struct sipp_socket *,call_map *> socket_map_pair;
+
+typedef std::map<struct sipp_socket *, call_map *> socket_call_map_map;
 call_list *get_calls_for_socket(struct sipp_socket *socket);
 void add_call_to_socket(struct sipp_socket *socket, call *call);
-bool remove_call_from_socket(struct sipp_socket *socket, call *call);
+void remove_call_from_socket(struct sipp_socket *socket, call *call);
 
 #endif
