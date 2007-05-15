@@ -1394,7 +1394,7 @@ void ctrl_thread (void * param)
 
   while(!feof(stdin)){
     ret = recv(soc,bufrcv,20,0);
-    if (process_key(bufrcv[0])) {
+    if ((ret > 0) && (process_key(bufrcv[0]))) {
 	return;
     }
   }
