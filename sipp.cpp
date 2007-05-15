@@ -879,12 +879,17 @@ void print_stats_in_file(FILE * f, int last)
                scenario[index] -> nb_recv_retrans,
                scenario[index] -> nb_unexp);
       }
-    } else if (scenario[index] -> pause_distribution) {
+    } else if (scenario[index] -> pause_distribution ||
+	       scenario[index] -> pause_variable) {
       char *desc = scenario[index]->pause_desc;
       if (!desc) {
 	desc = (char *)malloc(24);
-	desc[0] = '\0';
-	scenario[index]->pause_distribution->timeDescr(desc, 23);
+	if (scenario[index]->pause_distribution) {
+	  desc[0] = '\0';
+	  scenario[index]->pause_distribution->timeDescr(desc, 23);
+	} else {
+	  snprintf(desc, 23, "$%d", scenario[index]->pause_variable);
+	}
 	desc[24] = '\0';
 	scenario[index]->pause_desc = desc;
       }

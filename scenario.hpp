@@ -73,6 +73,7 @@ class message {
 public:
   /* If this is a pause */
   CSample        *pause_distribution;
+  int		 pause_variable;
   /* This string is used for the display screen. */
   char		 *pause_desc;
 

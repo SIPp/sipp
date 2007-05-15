@@ -1427,9 +1427,21 @@ bool call::run()
     /* Our pause is over. */
     paused_until = 0;
     return next();
-  } else if(scenario[msg_index] -> pause_distribution) {
+  } else if(scenario[msg_index] -> pause_distribution || scenario[msg_index]->pause_variable) {
     unsigned int pause;
-    pause  = (int)(scenario[msg_index] -> pause_distribution -> sample());
+    if (scenario[msg_index]->pause_distribution) {
+      pause  = (int)(scenario[msg_index] -> pause_distribution -> sample());
+    } else {
+      int varId = scenario[msg_index]->pause_variable;
+      if(varId <= maxVariableUsed && M_callVariableTable[varId]) {
+	pause = (int) M_callVariableTable[varId]->getDouble();
+      } else {
+	pause = 0;
+      }
+    }
+    if (pause < 0) {
+      pause = 0;
+    }
     if (pause > INT_MAX) {
       pause = INT_MAX;
     }
@@ -1438,7 +1450,7 @@ bool call::run()
     /* Increment the number of sessions in pause state */
     ++scenario[msg_index]->sessions;
     return run(); /* In case delay is 0 */
-  } 
+  }
 #ifdef __3PCC__
   else if(scenario[msg_index] -> M_type == MSG_TYPE_SENDCMD) {
     int send_status;

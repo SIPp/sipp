@@ -40,6 +40,7 @@ message::message()
 {
   //ugly memset(this, 0, sizeof(message));
   pause_distribution = NULL;
+  pause_variable = 0;
   pause_desc = NULL;
   sessions = 0;
   bShouldRecordRoutes = 0;
@@ -338,6 +339,17 @@ int xp_get_var(const char *name, const char *what) {
   xp_use_var(var);
 
   return var;
+}
+
+int xp_get_var(const char *name, const char *what, int defval) {
+  char *ptr;
+  char *helptext;
+
+  if (!(ptr = xp_get_value(name))) {
+	return defval;
+  }
+
+  return xp_get_var(name, what);
 }
 
 
@@ -750,24 +762,29 @@ void load_scenario(char * filename, int deflt)
         }
         scenario[scenario_len]->M_type = MSG_TYPE_PAUSE;
 
-        CSample *distribution = parse_distribution(true);
+	int var;
+	if ((var = xp_get_var("variable", "pause", -1)) != -1) {
+	  scenario[scenario_len]->pause_variable = var;
+	} else {
+	  CSample *distribution = parse_distribution(true);
 
-	bool sanity_check = xp_get_bool("sanity_check", "pause", true);
+	  bool sanity_check = xp_get_bool("sanity_check", "pause", true);
 
-	double pause_duration = distribution->cdfInv(0.99);
-	if (sanity_check && (pause_duration > INT_MAX)) {
-	  char percentile[100];
-	  char desc[100];
+	  double pause_duration = distribution->cdfInv(0.99);
+	  if (sanity_check && (pause_duration > INT_MAX)) {
+	    char percentile[100];
+	    char desc[100];
 
-	  distribution->timeDescr(desc, sizeof(desc));
-	  time_string(pause_duration, percentile, sizeof(percentile));
+	    distribution->timeDescr(desc, sizeof(desc));
+	    time_string(pause_duration, percentile, sizeof(percentile));
 
-	  ERROR_P2("The distribution %s has a 99th percentile of %s, which is larger than INT_MAX.  You should chose different parameters.", desc, percentile);
+	    ERROR_P2("The distribution %s has a 99th percentile of %s, which is larger than INT_MAX.  You should chose different parameters.", desc, percentile);
+	  }
+
+	  scenario[scenario_len]->pause_distribution = distribution;
+	  /* Update scenario duration with max duration */
+	  scenario_duration += (int)pause_duration;
 	}
-
-	scenario[scenario_len]->pause_distribution = distribution;
-	/* Update scenario duration with max duration */
-	scenario_duration += (int)pause_duration;
       }
       else if(!strcmp(elem, "nop")) {
 	/* Does nothing at SIP level.  This message type can be used to handle
