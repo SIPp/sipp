@@ -888,6 +888,7 @@ void print_stats_in_file(FILE * f, int last)
 	desc[0] = '\0';
 	scenario[index]->pause_distribution->timeDescr(desc, 23);
 	desc[24] = '\0';
+	scenario[index]->pause_desc = desc;
       }
       int len = strlen(desc) < 9 ? 9 : strlen(desc);
 
