@@ -48,8 +48,6 @@
 #include "sipp.hpp"
 #include "assert.h"
 
-#define KEYWORD_SIZE 256
-
 #ifdef _USE_OPENSSL
 extern  SSL                 *ssl_list[];
 extern  struct pollfd        pollfiles[];
@@ -1490,9 +1488,9 @@ bool call::run()
      */
 
     int incr_cseq = 0;
-    if (strncmp(::scenario[msg_index]->send_scheme,"ACK",3) &&
-       strncmp(::scenario[msg_index]->send_scheme,"CANCEL",6) &&
-       strncmp(::scenario[msg_index]->send_scheme,"SIP/2.0",7)) {
+    if (!scenario[msg_index]->send_scheme->isAck() &&
+        !scenario[msg_index]->send_scheme->isCancel() &&
+        !scenario[msg_index]->send_scheme->isResponse()) {
           ++cseq;
           incr_cseq = 1;
     }
@@ -1874,542 +1872,358 @@ int call::sendCmdBuffer(char* cmd)
   return(0);
 }
 
-void call::getQuotedParam(char * dest, char * src, int * len)
+char* call::createSendingMessage(SendingMessage *src, int P_index)
 {
-  *len=0;
-  /* Allows any hex coded string like '0x5B07F6' */
-  while (char c = *src++) {
-    switch(c) {
-      case '"':
-	*len++;
-	return;
-      case '\\':
-	c = *src++;
-	*len++;
-	if (c == 0) {
-	  return;
-	}
-	/* Fall-Through. */
-      default:
-	*dest++ = c;
-	*len++;
-    }
-  }
-}
-
-void call::getHexStringParam(char * dest, char * src, int * len)
-{ 
-  *len=0;
-  /* Allows any hex coded string like '0x5B07F6' */
-  while (isxdigit(*src)) {
-    int val = get_decimal_from_hex(*src);
-    src++;
-    if (isxdigit(*src)) {
-      val = (val << 4) + get_decimal_from_hex(*src);
-      src++;
-    }
-    *dest++ = val & 0xff;
-    (*len)++;
-  }
-}
-
-char* call::getKeywordParam(const char * src, char * param, char * output)
-{
-  char *key, *tmp;
-  int len;
-
-  len = 0;
-  key = NULL;
-  if(tmp = strstr(src, param)) {
-    tmp += strlen(param);
-    key = tmp;
-    if ((*key == '0') && (*(key+1) == 'x')) {
-      key += 2;
-      getHexStringParam(output, key, &len);
-      key += len * 2;
-    } else if (*key == '\"') {
-      key++;
-      getQuotedParam(output, key, &len);
-      key += len;
-    } else {
-      while (*key) {
-        if (((key - src) > KEYWORD_SIZE) || (!(key - src))) {
-          ERROR_P1("Syntax error parsing '%s' parameter", param);
-        } else if (*key == ']' || *key < 33 || *key > 126) {
-          break;
-        }
-        key++;
-      }
-      strncpy(output, tmp, key-tmp);
-      output[key-tmp] = '\0';
-    }
-  } else {
-    output[0] = '\0';
-  }
-  return key;
-}
-
-char* call::createSendingMessage(char * src, int P_index)
-{
+  char * length_marker = NULL;
+  char * auth_marker = NULL;
+  MessageComponent *auth_comp = NULL;
+  bool auth_comp_allocated = false;
+  int    len_offset = 0;
   static char msg_buffer[SIPP_MAX_MSG_SIZE+2];
- 
-  if(src != NULL) {
-    char * dest = msg_buffer;
-    char * key;
-    char * length_marker = NULL;
-    int    offset = 0;
-    int    len_offset = 0;
-    char   current_line[MAX_HEADER_LEN];
-    char * line_mark = NULL;
-    char * tsrc;
+  char *dest = msg_buffer;
+  bool supresscrlf = false;
 
-    current_line[0] = '\0';
-    while(*src) {
-      if (current_line[0] == '\0') {
-        line_mark = NULL;
-        line_mark = strchr(src, '\n');
-        if (line_mark) {
-          memcpy(current_line, src, line_mark - src);
-          current_line[line_mark-src] = '\0';
-        }
-      }
-      /* This hex encoding could be done in XML parsing, allowing us to skip
-       * these conditionals and branches. */
-      if ((*src == '\\') && (*(src+1) == 'x')) {
-        /* Allows any hex coded char like '\x5B' ([) */
-        src += 2;
-        if (isxdigit(*src)) {
-          int val = get_decimal_from_hex(*src);
-          src++;
-          if (isxdigit(*src)) {
-            val = (val << 4) + get_decimal_from_hex(*src);
-          }
-          *dest++ = val & 0xff;
-        }
-        src++;
-      } else if(*src == '[') {
-        char keyword [KEYWORD_SIZE+1];
-        src++;
-        
-        tsrc=strchr(src, '[');
-        key = strchr(src, ']');
-        if ((tsrc) && (tsrc<key)){
-          memcpy(keyword, src-1,  tsrc - src + 1);
-          keyword[tsrc - src + 1] = 0;
-          src=tsrc+1;
-          dest += sprintf(dest, "%s", keyword);
-        }
-        
-        if((!key) || ((key - src) > KEYWORD_SIZE) || (!(key - src))){
-          ERROR_P1("Syntax error or invalid [keyword] in scenario while parsing '%s'", current_line);
-        }
-        memcpy(keyword, src,  key - src);
- 
-        keyword[key - src] = 0;
-        src = key + 1;
-        // allow +/-n for numeric variables
-        if (!strstr(keyword, "authentication") && !strstr(keyword, "map") && ((key = strchr(keyword,'+')) || (key = strchr(keyword,'-'))) && isdigit(*(key+1))) {
-          offset = atoi(key);
-          *key = 0;
-        } else offset = 0;
+  *dest = '\0';
 
-        if(!strcmp(keyword, "remote_ip")) {
-          dest += sprintf(dest, "%s", remote_ip_escaped);
-        } else if(!strcmp(keyword, "remote_port")) {
-          dest += sprintf(dest, "%u", remote_port + offset);
-        } else if(!strcmp(keyword, "transport")) {
-          dest += sprintf(dest, "%s", TRANSPORT_TO_STRING(transport));
-        } else if(!strcmp(keyword, "local_ip")) {
-          dest += sprintf(dest, "%s", local_ip_escaped);
-        } else if(!strcmp(keyword, "local_ip_type")) {
-          dest += sprintf(dest, "%s", (local_ip_is_ipv6 ? "6" : "4"));
-        } else if(!strcmp(keyword, "local_port")) {
-          if((transport == T_UDP) && (multisocket) && (toolMode != MODE_SERVER)) {
-            dest += sprintf(dest, "%u", call_port + offset);
-          } else {
-            dest += sprintf(dest, "%u", local_port + offset);
-          }
-        } else if(!strcmp(keyword, "server_ip")) {
-          struct sockaddr_storage server_sockaddr;
+  for (int i = 0; i < src->numComponents(); i++) {
+    MessageComponent *comp = src->getComponent(i);
+    int left = sizeof(msg_buffer) - (dest - msg_buffer);
+    switch(comp->type) {
+      case E_Message_Literal:
+	if (supresscrlf) {
+	  char *ptr = comp->literal;
+	  while (isspace(*ptr++));
+	  dest += snprintf(dest, left, "%s", ptr);
+	  supresscrlf = false;
+	} else {
+	  dest += snprintf(dest, left, "%s", comp->literal);
+	}
+	break;
+      case E_Message_Remote_IP:
+	dest += snprintf(dest, left, "%s", remote_ip_escaped);
+	break;
+      case E_Message_Remote_Port:
+	dest += snprintf(dest, left, "%d", remote_port + comp->offset);
+	break;
+      case E_Message_Local_IP:
+	dest += snprintf(dest, left, "%s", local_ip_escaped);
+	break;
+      case E_Message_Local_Port:
+	int port;
+	if((transport == T_UDP) && (multisocket) && (toolMode != MODE_SERVER)) {
+	  port = call_port;
+	} else {
+	  port =  local_port;
+	}
+	dest += snprintf(dest, left, "%d", port + comp->offset);
+	break;
+      case E_Message_Transport:
+	dest += snprintf(dest, left, "%s", TRANSPORT_TO_STRING(transport));
+	break;
+      case E_Message_Local_IP_Type:
+	dest += snprintf(dest, left, "%s", (local_ip_is_ipv6 ? "6" : "4"));
+	break;
+      case E_Message_Server_IP: {
+	  /* We should do this conversion once per socket creation, rather than
+	   * repeating it every single time. */
+	  struct sockaddr_storage server_sockaddr;
 
-          sipp_socklen_t len = SOCK_ADDR_SIZE(&server_sockaddr);
-          getsockname(call_socket->ss_fd,
-                (sockaddr *)(void *)&server_sockaddr,
-                &len);
+	  sipp_socklen_t len = SOCK_ADDR_SIZE(&server_sockaddr);
+	  getsockname(call_socket->ss_fd,
+	      (sockaddr *)(void *)&server_sockaddr, &len);
 
-          if (server_sockaddr.ss_family == AF_INET6) {
-            char * temp_dest;
-            temp_dest = (char *) malloc(INET6_ADDRSTRLEN);
-            memset(temp_dest,0,INET6_ADDRSTRLEN);
-            inet_ntop(AF_INET6, 
-                      &((_RCAST(struct sockaddr_in6 *,&server_sockaddr))->sin6_addr),
-                      temp_dest,
-                      INET6_ADDRSTRLEN); 
-            dest += sprintf(dest, "%s",temp_dest);
-          } else {
-            dest += sprintf(dest, "%s", 
-            inet_ntoa((_RCAST(struct sockaddr_in *,&server_sockaddr))->sin_addr));
-          }          
-        } else if(!strcmp(keyword, "media_ip")) {
-          dest += sprintf(dest, "%s", media_ip_escaped);
-#ifdef PCAPPLAY
-        } else if (!strcmp(keyword, "auto_media_port")) {
-          /* to make media ports begin from true media_port exported from sipp.cpp, as number begins to 1
-           * * 4 to allow video (audio+rtcp+video+rtcp)
-           * Modulo 10000 to limit the port number
-           * -> Max 10000 concurrent RTP sessions for pcap_play 
-           */
-          int port = media_port + (4 * (number - 1)) % 10000 + offset;
-          if (strstr(current_line, "m=audio ")) {
-            if (media_ip_is_ipv6) {
-              (_RCAST(struct sockaddr_in6 *, &(play_args_a.from)))->sin6_port = port;
-            } else {
-              (_RCAST(struct sockaddr_in *, &(play_args_a.from)))->sin_port = port;
-            }
-          } else if (strstr(current_line, "m=video ")) {
-          if (media_ip_is_ipv6) {
-              (_RCAST(struct sockaddr_in6 *, &(play_args_v.from)))->sin6_port = port;
-          } else {
-              (_RCAST(struct sockaddr_in *, &(play_args_v.from)))->sin_port = port;
-            }
-          } else {
-            ERROR_P1("auto_media_port keyword with no audio or video on the current line (%s)", current_line);
-          }
-          dest += sprintf(dest, "%u", port);
-#endif
-        } else if(!strcmp(keyword, "media_port")) {
-          int port = media_port + offset;
-#ifdef PCAPPLAY
-          if (strstr(current_line, "audio")) {
-            if (media_ip_is_ipv6) {
-              (_RCAST(struct sockaddr_in6 *, &(play_args_a.from)))->sin6_port = port;
-            } else {
-              (_RCAST(struct sockaddr_in *, &(play_args_a.from)))->sin_port = port;
-            }
-          } else if (strstr(current_line, "video")) {
-          if (media_ip_is_ipv6) {
-              (_RCAST(struct sockaddr_in6 *, &(play_args_v.from)))->sin6_port = port;
-            } else {
-              (_RCAST(struct sockaddr_in *, &(play_args_v.from)))->sin_port = port;
-            }
-          } else {
-            ERROR_P1("media_port keyword with no audio or video on the current line (%s)", current_line);
-          }
-#endif
-          dest += sprintf(dest, "%u", port);
-        } else if(!strcmp(keyword, "media_ip_type")) {
-          dest += sprintf(dest, "%s", (media_ip_is_ipv6 ? "6" : "4"));
-        } else if(!strcmp(keyword, "call_number")) {
-          dest += sprintf(dest, "%u", number);
-        } else if(!strcmp(keyword, "call_id")) {
-          dest += sprintf(dest, "%s", id);
-        } else if(!strcmp(keyword, "cseq")) {
-          dest += sprintf(dest, "%u", cseq +offset);
-        } else if(!strcmp(keyword, "pid")) {
-          dest += sprintf(dest, "%u", pid);
-        } else if(!strcmp(keyword, "service")) {
-          dest += sprintf(dest, "%s", service);
-        } else if(!strncmp(keyword, "field", 5)) {
-            char* local_dest = dest;
-            getFieldFromInputFile(keyword, dest);
-            if (dest == local_dest && ('\r' == *(local_dest-1) || '\n' == *(local_dest-1))) {
-                /* If the line begins with a field value and there
-                 * is nothing to add for this field, 
-                 * Jump to the end of line in scenario. SN 
-                 */
-                while((*src) && (*src != '\n')) {
-                    src++;
-                }
-                if(*src == '\n') {
-                    src++;
-                }
-            }
-        } else if(!strcmp(keyword, "peer_tag_param")) {
-          if(peer_tag) {
-            dest += sprintf(dest, ";tag=%s", peer_tag);
-          }
-        } else if(strstr(keyword, "tdmmap")) {
-          /* keyword to generate c= line for TDM 
-           * format: g.h.i/j                    
-           * g: varies in interval a, offset x
-           * h: fix value
-           * i: varies in interval b, offset y
-           * j: varies in interval c, offset z
-           * Format: tdmmap{1-3}{0}{0-27}{1-24}
-           */
-           if (!use_tdmmap) 
-             ERROR("[tdmmap] keyword without -tdmmap parameter on command line");
-           dest += sprintf(dest, "%d.%d.%d/%d", 
-                                  tdm_map_x+(int((tdm_map_number)/((tdm_map_b+1)*(tdm_map_c+1))))%(tdm_map_a+1),
-                                  tdm_map_h,
-                                  tdm_map_y+(int((tdm_map_number)/(tdm_map_c+1)))%(tdm_map_b+1),
-                                  tdm_map_z+(tdm_map_number)%(tdm_map_c+1)
-                                  );
-	} else if(!strncmp(keyword, "fill", strlen("fill"))) {
-	  char filltext[KEYWORD_SIZE];
-	  char varName[KEYWORD_SIZE];
-	  int length = 0;
-	  int filllen = 0;
-
-	  getKeywordParam(keyword, "text=", filltext);
-	  if (filltext[0] == '\0') {
-	    strcpy(filltext, "X");
+	  if (server_sockaddr.ss_family == AF_INET6) {
+	    char * temp_dest;
+	    temp_dest = (char *) malloc(INET6_ADDRSTRLEN);
+	    memset(temp_dest,0,INET6_ADDRSTRLEN);
+	    inet_ntop(AF_INET6,
+		&((_RCAST(struct sockaddr_in6 *,&server_sockaddr))->sin6_addr),
+		temp_dest,
+		INET6_ADDRSTRLEN);
+	    dest += snprintf(dest, left, "%s",temp_dest);
+	  } else {
+	    dest += snprintf(dest, left, "%s",
+		inet_ntoa((_RCAST(struct sockaddr_in *,&server_sockaddr))->sin_addr));
 	  }
-	  filllen = strlen(filltext);
-	  getKeywordParam(keyword, "variable=", varName);
-
-          int varId = get_long(varName, "Fill Variable");
-          if(varId <= maxVariableUsed && M_callVariableTable[varId]) {
-	    length = (int) M_callVariableTable[varId]->getDouble();
-	    if (length < 0) {
-	      length = 0;
-	    }
-          }
-	  for (int i = 0, j = 0; i < length; i++, j++) {
-		*dest++ = filltext[j % filllen];
+	}
+	break;
+      case E_Message_Media_IP:
+	dest += snprintf(dest, left, "%s", media_ip_escaped);
+      case E_Message_Media_Port:
+      case E_Message_Auto_Media_Port: {
+	int port = media_port + comp->offset;
+	if (comp->type == E_Message_Auto_Media_Port) {
+	  port = media_port + (4 * (number - 1)) % 10000 + comp->offset;
+	}
+#ifdef PCAPPLAY
+	char *begin = dest;
+	while (begin > msg_buffer) {
+	  if (*begin == '\n') {
+	    break;
 	  }
-        } else if(strstr(keyword, "$")) {
-          int varId = atoi(keyword+1);
-          if(varId <= maxVariableUsed) {
-            if(M_callVariableTable[varId] != NULL) {
-              if(M_callVariableTable[varId]->isSet()) {
-		if (M_callVariableTable[varId]->isRegExp()) {
-		  dest += sprintf(dest, "%s", M_callVariableTable[varId]->getMatchingValue());
-		} else if (M_callVariableTable[varId]->isDouble()) {
-		  dest += sprintf(dest, "%lf", M_callVariableTable[varId]->getDouble());
-		}
-              }
-            }
-          }
-        } else if(strstr(keyword, "last_")) {
-          char * last_header = get_last_header(keyword+5);
-          if(last_header) {
-            dest += sprintf(dest, "%s", last_header);
-          } else {
-            /* Jump to the end of line in scenario if nothing
-             * to insert in place of this header. */
-            while((*src) && (*src != '\n')) {
-              src++;
-            }
-            if(*src == '\n') {
-              src++;
-            }
-          }
-        } else if(strstr(keyword, "routes")) {
-          if (dialog_route_set) {
-             dest += sprintf(dest, "Route: %s", dialog_route_set);
-          } else {
-             // Skip to end of line
-             while((*src) && (*src != '\n')) src++;
-             if (*src == '\n') src++;
-          }  
-#ifdef _USE_OPENSSL
-        } else if(strstr(keyword, "authentication")) {
-            /* This keyword is substituted below */
-            dest += sprintf(dest, "[%s]", keyword);
+	  begin--;
+	}
+	if (begin == msg_buffer) {
+	  ERROR("Can not find beginning of a line for the media port!\n");
+	}
+	if (strstr(begin, "audio")) {
+	  if (media_ip_is_ipv6) {
+	    (_RCAST(struct sockaddr_in6 *, &(play_args_a.from)))->sin6_port = port;
+	  } else {
+	    (_RCAST(struct sockaddr_in *, &(play_args_a.from)))->sin_port = port;
+	  }
+	} else if (strstr(begin, "video")) {
+	  if (media_ip_is_ipv6) {
+	    (_RCAST(struct sockaddr_in6 *, &(play_args_v.from)))->sin6_port = port;
+	  } else {
+	    (_RCAST(struct sockaddr_in *, &(play_args_v.from)))->sin_port = port;
+	  }
+	} else {
+	  ERROR_P1("media_port keyword with no audio or video on the current line (%s)", begin);
+	}
 #endif
-        } else if(strstr(keyword, "branch")) {
-          /* Branch is magic cookie + call number + message index in scenario */
-	    if(P_index == -2){
-	       dest += sprintf(dest, "z9hG4bK-%u-%u-%d", pid, number, msg_index-1);
-	    } else {
-	      dest += sprintf(dest, "z9hG4bK-%u-%u-%d", pid, number, P_index);
-	    }
-        } else if(strstr(keyword, "msg_index")) {
-          /* Message index in scenario */
-          dest += sprintf(dest, "%d", P_index);
-        } else if(strstr(keyword, "next_url")) {
-          if (next_req_url) {
-            dest += sprintf(dest, "%s", next_req_url);
-          }
-        } else if(strstr(keyword, "len")) {
-            length_marker = dest;
-            dest += sprintf(dest, "    ");
-            len_offset = offset;
-        } else {   // scan for the generic parameters - must be last test
-          int i = 0;
-          while (generic[i]) {
-            char *msg1 = *generic[i];
-            char *msg2 = *(generic[i] + 1);
-            if(!strcmp(keyword, msg1)) {
-              dest += sprintf(dest, "%s", msg2);
-              break;
-            }
-            ++i;
-          }
-          if (!generic[i]) {
-            ERROR_P1("Unsupported keyword '%s' in xml scenario file",
-                   keyword);
-          }
-        }
-      /* This could also be done at XML parsing time. */
-      } else if (*src == '\n') {
-        *dest++ = '\r';
-        *dest++ = *src++;
-        current_line[0] = '\0';
-      } else {
-        *dest++ = *src++;
+	dest += sprintf(dest, "%u", port);
+	break;
       }
-    }
-    *dest = 0;
-
-#ifdef _USE_OPENSSL
-    /* 
-     * The authentication substitution must be done outside the above
-     * loop because auth-int will use the body (which must have already
-     * been keyword substituted) to build the md5 hash
-     */
-
-    if(dialog_authentication && (src = strstr(msg_buffer, "[authentication"))) {
-        char * auth_marker;
-	int	   auth_marker_len;
-
-        char my_auth_user[KEYWORD_SIZE];
-        char my_auth_pass[KEYWORD_SIZE];
-        char my_aka_OP[KEYWORD_SIZE];
-        char my_aka_AMF[KEYWORD_SIZE];
-        char my_aka_K[KEYWORD_SIZE];
-        char * tmp;
-        int  authlen;
-
-        auth_marker = src;
-        auth_marker_len = strchr(src, ']') - src;
-        strcpy(my_auth_user, service);
-        strcpy(my_auth_pass, auth_password);
-        /* Look for optional username and password parameters */
-        /* add aka_OP, aka_AMF, aka_K */
-        key = getKeywordParam(src, "username=", my_auth_user);
-        memset(my_auth_pass,0,KEYWORD_SIZE);
-        key = getKeywordParam(src, "password=", my_auth_pass);
-        memset(my_aka_OP,0,KEYWORD_SIZE);
-        key = getKeywordParam(src, "aka_OP=", my_aka_OP);
-        memset(my_aka_AMF,0,KEYWORD_SIZE);
-        key = getKeywordParam(src, "aka_AMF=", my_aka_AMF);
-        memset(my_aka_K,0,KEYWORD_SIZE);
-        key = getKeywordParam(src, "aka_K=", my_aka_K);
-        if (my_aka_K[0]==0){
-            memcpy(my_aka_K,my_auth_pass,16);
-            my_aka_K[16]=0;
-        }
-       
-        /* Need the Method name from the CSeq of the Challenge */
-        char method[MAX_HEADER_LEN];
-        tmp = get_last_header("CSeq") + 5;
-        if(!tmp) {
-            ERROR("Could not extract method from cseq of challenge");
-        }
-        while(isspace(*tmp) || isdigit(*tmp)) tmp++;
-        sscanf(tmp,"%s", method);
-
-        /* Need the body for auth-int calculation */
-        char body[SIPP_MAX_MSG_SIZE];
-        memset(body, 0, sizeof(body));
-        tmp = msg_buffer;
-        while(*(tmp+4)) {
-            if (*tmp == '\r' && *(tmp + 1) == '\n' &&
-                    *(tmp + 2) == '\r' && *(tmp + 3) == '\n') {
-                sprintf(body, "%s", tmp+4);
-                break;
-            }
-            tmp++;                      
-        }
-
-        /* Build the auth credenticals */
-        char result[MAX_HEADER_LEN];
-        char uri[MAX_HEADER_LEN];
-        sprintf (uri, "%s:%d", remote_ip, remote_port);
-        if (createAuthHeader(my_auth_user, my_auth_pass, method, uri,
-                body, dialog_authentication, 
-                my_aka_OP,  
-                my_aka_AMF,  
-                my_aka_K,
-                result) == 0) {
-            ERROR_P1("%s", result);
-        }
-   
-        char tmp_buffer[SIPP_MAX_MSG_SIZE];
-        dest = strncpy(tmp_buffer, msg_buffer, src - msg_buffer);
-        dest += src - msg_buffer;
-        key = strchr(src, ']');
-        src += key - src + 1;
-
-        if (dialog_challenge_type == 401) {
-          /* Registrars use Authorization */
-          authlen = sprintf(dest, "Authorization: %s", result);
-        } else {
-          /* Proxies use Proxy-Authorization */
-          authlen = sprintf(dest, "Proxy-Authorization: %s", result);
-        }
-        dest += authlen;                 
-        if (length_marker > auth_marker) {
-          length_marker = length_marker - 1 - auth_marker_len + authlen;
-        }
-        dest += sprintf(dest, "%s", src);
-        strcpy(msg_buffer, tmp_buffer);
-	dest = msg_buffer + strlen(msg_buffer);
-    }
-#endif
-
-    // Remove all \r, \n but 1 at the end of a message to send 
-    int len = strlen(msg_buffer);
-    while ( (msg_buffer[len-1] == '\n') &&
-            (msg_buffer[len-2] == '\r') &&
-            (msg_buffer[len-3] == '\n') &&
-            (msg_buffer[len-4] == '\r')) {
-      msg_buffer[len-2] = 0;
-      len -= 2;
-    }
-
-    int    L_flag_crlf = 0 ; // don't need add crlf
-    int    L_content_length = 0;
-
-    if(P_index < 0 ) {
-      L_flag_crlf = 1 ; // Add crlf
-    } else {
-      message::ContentLengthFlag L_flag_content = scenario[P_index] -> content_length_flag ; 
-      switch (L_flag_content) {
-        case  message::ContentLengthValueZero :
-          L_flag_crlf = 1;
-          break ;
-        case  message::ContentLengthValueNoZero :
-          // the msg contains content-length field and his value is greater than 0
-          break ;
-        default :
-          // the msg does not contain content-length field
-          // control the crlf
-          L_content_length = xp_get_content_length(msg_buffer) ;
-          if( L_content_length == 0) {
-            L_flag_crlf = 1;
-          } else if (L_content_length == -1 ) {
-            // The content_length is not present: its a [len] keyword
-          } 
-          break;
+      case E_Message_Media_IP_Type:
+	dest += snprintf(dest, left, "%s", (media_ip_is_ipv6 ? "6" : "4"));
+	break;
+      case E_Message_Call_Number:
+	dest += snprintf(dest, left, "%u", number);
+	break;
+      case E_Message_Call_ID:
+	dest += snprintf(dest, left, "%s", id);
+	break;
+      case E_Message_CSEQ:
+	dest += snprintf(dest, left, "%u", cseq + comp->offset);
+	break;
+      case E_Message_PID:
+	dest += snprintf(dest, left, "%d", pid);
+	break;
+      case E_Message_Service:
+	dest += snprintf(dest, left, "%s", service);
+	break;
+      case E_Message_Branch:
+	/* Branch is magic cookie + call number + message index in scenario */
+	if(P_index == -2){
+	  dest += snprintf(dest, left, "z9hG4bK-%u-%u-%d", pid, number, msg_index-1);
+	} else {
+	  dest += snprintf(dest, left, "z9hG4bK-%u-%u-%d", pid, number, P_index);
+	}
+	break;
+      case E_Message_Index:
+	dest += snprintf(dest, left, "%d", P_index);
+	break;
+      case E_Message_Next_Url:
+	if (next_req_url) {
+	  dest += sprintf(dest, "%s", next_req_url);
+	}
+	break;
+      case E_Message_Len:
+	length_marker = dest;
+	dest += snprintf(dest, left, "     ");
+	len_offset = comp->offset;
+	break;
+      case E_Message_Authentication:
+	if (auth_marker) {
+	  ERROR("Only one [authentication] keyword is currently supported!\n");
+	}
+	auth_marker = dest;
+	dest += snprintf(dest, left, "[authentication place holder]");
+	auth_comp = comp;
+	break;
+      case E_Message_Peer_Tag_Param:
+	if(peer_tag) {
+	  dest += snprintf(dest, left, ";tag=%s", peer_tag);
+	}
+	break;
+      case E_Message_Routes:
+	if (dialog_route_set) {
+	  dest += sprintf(dest, "Route: %s", dialog_route_set);
+	} else if (*(dest - 1) == '\n') {
+	  supresscrlf = true;
+	}
+	break;
+      case E_Message_Variable: {
+	 int varId = comp->varId;
+	 if(varId <= maxVariableUsed) {
+	   if(M_callVariableTable[varId] != NULL) {
+	     if(M_callVariableTable[varId]->isSet()) {
+	       if (M_callVariableTable[varId]->isRegExp()) {
+		 dest += sprintf(dest, "%s", M_callVariableTable[varId]->getMatchingValue());
+	       } else if (M_callVariableTable[varId]->isDouble()) {
+		 dest += sprintf(dest, "%lf", M_callVariableTable[varId]->getDouble());
+	       }
+	     }
+	   }
+	 }
+	 break;
       }
-    } 
-
-    if(L_flag_crlf) {
-      // Add crlf 
-      msg_buffer[len] ='\r';
-      msg_buffer[len+1] ='\n';
-      msg_buffer[len+2] =0;
-    }
-
-    if (length_marker) {
-      key = strstr(length_marker,"\r\n\r\n");
-      if (key && dest - key > 4 && dest - key < 10004) {
-        char tmp = length_marker[4];
-        sprintf(length_marker, "%4zu", dest - key - 4 + len_offset);
-        length_marker[4] = tmp;
-      } else {
-        // Other cases: Content-Length is 0
-        sprintf(length_marker, "   0\r\n\r\n");
+      case E_Message_Fill: {
+        int varId = comp->varId;
+	int length = 0;
+	if(varId <= maxVariableUsed && M_callVariableTable[varId]) {
+	  length = (int) M_callVariableTable[varId]->getDouble();
+	  if (length < 0) {
+	    length = 0;
+	  }
+	}
+	char *filltext = comp->literal;
+	int filllen = strlen(filltext);
+	if (filllen == 0) {
+	  ERROR("Internal error: [fill] keyword has zero-length text.");
+	}
+	for (int i = 0, j = 0; i < length; i++, j++) {
+	  *dest++ = filltext[j % filllen];
+	}
+	*dest = '\0';
+	break;
       }
+      case E_Message_Injection:
+	char *orig_dest = dest;
+	getFieldFromInputFile(comp->filename, comp->field, dest);
+	/* We are injecting an authenticaiton line. */
+	if (char *tmp = strstr(orig_dest, "[authentication")) {
+	  if (auth_marker) {
+	    ERROR("Only one [authentication] keyword is currently supported!\n");
+	  }
+	  auth_marker = tmp;
+	  auth_comp = (struct MessageComponent *)calloc(1, sizeof(struct MessageComponent));
+	  if (!auth_comp) { ERROR("Out of memory!"); }
+	  auth_comp_allocated = true;
+
+	  char *tmp = strchr(auth_marker, ']');
+	  char c = *tmp;
+	  *tmp = '\0';
+	  SendingMessage::parseAuthenticationKeyword(auth_comp, auth_marker);
+	  *tmp = c;
+	}
+	if (*(dest - 1) == '\n') {
+	  supresscrlf = true;
+	}
+	break;
+      case E_Message_Last_Header:
+	char * last_header = get_last_header(comp->literal);
+	if(last_header) {
+	  dest += sprintf(dest, "%s", last_header);
+	}
+	if (*(dest - 1) == '\n') {
+	  supresscrlf = true;
+	}
+	break;
+      case E_Message_TDM_Map:
+	if (!use_tdmmap)
+	  ERROR("[tdmmap] keyword without -tdmmap parameter on command line");
+	dest += snprintf(dest, left, "%d.%d.%d/%d",
+	    tdm_map_x+(int((tdm_map_number)/((tdm_map_b+1)*(tdm_map_c+1))))%(tdm_map_a+1),
+	    tdm_map_h,
+	    tdm_map_y+(int((tdm_map_number)/(tdm_map_c+1)))%(tdm_map_b+1),
+	    tdm_map_z+(tdm_map_number)%(tdm_map_c+1)
+	    );
+	break;
     }
-  } else {
-    ERROR("Unsupported 'send' message in scenario");
   }
-  return(msg_buffer);
+  /* Need the body for length and auth-int calculation */
+  char *body;
+  if (length_marker || auth_marker) {
+    body = strstr(msg_buffer, "\r\n\r\n");
+  }
+
+  /* Fix up the length. */
+  if (length_marker) {
+    if (auth_marker > body) {
+      ERROR("The authentication keyword should appear in the message header, not the body!");
+    }
+
+    if (body && dest - body > 4 && dest - body < 100004) {
+      char tmp = length_marker[5];
+      sprintf(length_marker, "%5zu", dest - body - 4 + len_offset);
+      length_marker[5] = tmp;
+    } else {
+      // Other cases: Content-Length is 0
+      sprintf(length_marker, "    0\r\n\r\n");
+    }
+  }
+
+  /*
+   * The authentication substitution must be done outside the above
+   * loop because auth-int will use the body (which must have already
+   * been keyword substituted) to build the md5 hash
+   */
+  if (auth_marker) {
+#ifndef _USE_OPENSSL
+    ERROR("Authentication requires OpenSSL!");
+#else
+    if (!dialog_authentication) {
+      ERROR("Authentication keyword without dialog_authentication!");
+    }
+
+    int	   auth_marker_len;
+    char * tmp;
+    int  authlen;
+
+    auth_marker_len = (strchr(auth_marker, ']') + 1) - auth_marker;
+
+    /* Need the Method name from the CSeq of the Challenge */
+    char method[MAX_HEADER_LEN];
+    tmp = get_last_header("CSeq:") + 5;
+    if(!tmp) {
+      ERROR("Could not extract method from cseq of challenge");
+    }
+    while(isspace(*tmp) || isdigit(*tmp)) tmp++;
+    sscanf(tmp,"%s", method);
+
+    if (!body) {
+      body = "";
+    }
+
+    /* Determine the type of credentials. */
+    char result[MAX_HEADER_LEN];
+    if (dialog_challenge_type == 401) {
+      /* Registrars use Authorization */
+      authlen = sprintf(result, "Authorization: ");
+    } else {
+      /* Proxies use Proxy-Authorization */
+      authlen = sprintf(result, "Proxy-Authorization: ");
+    }
+
+    /* Build the auth credenticals */
+    char uri[MAX_HEADER_LEN];
+    sprintf (uri, "%s:%d", remote_ip, remote_port);
+    if (createAuthHeader(auth_comp->auth_user, auth_comp->auth_pass,
+	  method, uri, body, dialog_authentication,
+	  auth_comp->aka_OP, auth_comp->aka_AMF, auth_comp->aka_K,
+	  result + authlen) == 0) {
+      ERROR_P1("%s", result + authlen);
+    }
+    authlen = strlen(result);
+
+    /* Shift the end of the message to its rightful place. */
+    memmove(auth_marker + authlen, auth_marker + auth_marker_len, strlen(auth_marker + auth_marker_len) + 1);
+    /* Copy our result into the hole. */
+    memcpy(auth_marker, result, authlen);
+#endif
+  }
+
+  if (auth_comp_allocated) {
+    SendingMessage::freeMessageComponent(auth_comp);
+  }
+
+  return msg_buffer;
 }
+
+char* call::createSendingMessage(char *src, int P_index, bool skip_sanity)
+{
+  if (src == NULL) {
+	  ERROR("Unsupported 'send' message in scenario");
+  }
+
+  SendingMessage *msgsrc = new SendingMessage(src, skip_sanity);
+  char *msg = createSendingMessage(msgsrc, P_index);
+  delete msgsrc;
+  return msg;
+}
+
 
 
 #ifdef __3PCC__
@@ -2934,7 +2748,7 @@ bool call::process_incoming(char * msg)
           if ( (reply_code) &&
              (0 == strncmp (responsecseqmethod, "INVITE", strlen(responsecseqmethod)) ) &&
              (scenario[search_index+1]->M_type == MSG_TYPE_SEND) &&
-             (0 == strncmp(scenario[search_index+1]->send_scheme, "ACK", 3)) ) {
+             (scenario[search_index+1]->send_scheme->isAck()) ) {
             sendBuffer(createSendingMessage(scenario[search_index+1] -> send_scheme, (search_index+1)));
             return true;
           }
@@ -3247,7 +3061,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	  double value = currentAction->getDistribution()->sample();
 	  M_callVariableTable[currentAction->getVarId()]->setDouble(value);
 	} else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
-            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/, true /* skip sanity check */);
             LOG_MSG((s, "%s\n", x));
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
 
@@ -3412,20 +3226,6 @@ void call::getFieldFromInputFile(const char *fileName, int field, char*& dest)
   }
   dest += inFiles[fileName]->getField(line, field, dest, SIPP_MAX_MSG_SIZE);
 }
-
-void call::getFieldFromInputFile(const char* keyword, char*& dest)
-{
-  int field = atoi(keyword + 5 /* strlen(field) */);
-  char fileName[KEYWORD_SIZE];
-
-  getKeywordParam(keyword, "file=", fileName);
-  if (fileName[0] == '\0') {
-    getFieldFromInputFile(default_file, field, dest);
-  } else {
-    getFieldFromInputFile(fileName, field, dest);
-  }
-}
-
 
 int  call::checkAutomaticResponseMode(char * P_recv) {
 

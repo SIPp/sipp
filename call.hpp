@@ -214,15 +214,11 @@ public:
 							     int occurrence, bool headers); 
   bool  rejectCall();
 
-  // Get parameters from a [keyword]
-  void getQuotedParam(char * dest, char * src, int * len);
-  void getHexStringParam(char * dest, char * src, int * len);
-  char* getKeywordParam(const char * src, char * param, char * output);
- 
   // P_index use for message index in scenario and ctrl of CRLF
   // P_index = -2 No ctrl of CRLF
   // P_index = -1 Add crlf to end of message
-  char* createSendingMessage(char * src, int P_index);
+  char* call::createSendingMessage(SendingMessage *src, int P_index);
+  char* createSendingMessage(char * src, int P_index, bool skip_sanity = false);
 
   // method for the management of unexpected messages 
   bool  abortCall();                  // call aborted with BYE or CANCEL

@@ -495,9 +495,9 @@ void load_scenario(char * filename, int deflt)
   
   elem = xp_open_element(0);
   if(strcmp("scenario", elem)) {
-    ERROR("No 'scenario' section in xml scenario file");    
+    ERROR("No 'scenario' section in xml scenario file");
   }
-  
+
   if(xp_get_value((char *)"name")) {
     strcpy(scenario_name, xp_get_value((char *)"name"));
   } else {
@@ -506,7 +506,7 @@ void load_scenario(char * filename, int deflt)
 
   scenario_len = 0;
   scenario_file_cursor = 0;
-  
+
   while(elem = xp_open_element(scenario_file_cursor)) {
     char * ptr;
     scenario_file_cursor ++;
@@ -537,103 +537,99 @@ void load_scenario(char * filename, int deflt)
             ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
           }
         }
-        
-        scenario[scenario_len]->M_type = MSG_TYPE_SEND;
+
+	scenario[scenario_len]->M_type = MSG_TYPE_SEND;
         /* Sent messages descriptions */
-        if(ptr = xp_get_cdata()) {
-
-          char * msg;
-          int removed_clrf = 0;
-
-          while((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) ptr++;
-
-          msg = 
-            scenario[scenario_len] -> send_scheme = 
-            (char *) malloc(strlen(ptr) + 3);
-        
-
-          if(!msg) { ERROR("Memory Overflow"); }
-
-          strcpy(msg, ptr);
-          
-          //
-          // If this is a request we are sending, then copy over the method so that we can associate
-          // responses to the request
-          //
-          if (0 != strncmp (ptr, "SIP/2.0", 7) )
-          {
-            char *methodEnd = ptr;
-            int   bytesToCopy = 0;
-            while (*methodEnd != ' ') {
-              methodEnd++;
-              bytesToCopy++;
-            }
-            if (method_list_length + bytesToCopy + 1 > METHOD_LIST_LENGTH) {
-              ERROR_P2("METHOD_LIST_LENGTH in scenario.hpp is too small (currently %d, need at least %d). Please modify and recompile.", 
-                       METHOD_LIST_LENGTH,
-                       method_list_length + bytesToCopy + 1);
-            }
-            strncat (method_list, ptr, bytesToCopy);
-            method_list_length += bytesToCopy;
-            method_list[method_list_length+1] = '\0';
-          }
-
-          L_content_length = xp_get_content_length(msg); 
-          switch (L_content_length) {
-            case  -1 : 
-                  // the msg does not contain content-length field
-                  break ;
-            case  0 :
-                  scenario[scenario_len] -> content_length_flag = 
-                           message::ContentLengthValueZero;   // Initialize to No present
-                  break ;
-            default :
-                  scenario[scenario_len] -> content_length_flag = 
-                           message::ContentLengthValueNoZero;   // Initialize to No present
-                  break ;
-            
-          }
-           
-          ptr = msg + strlen(msg);
-          ptr --;
-
-          while((ptr >= msg) && 
-                ((*ptr == ' ')  || 
-                 (*ptr == '\t') || 
-                 (*ptr == '\n'))) {
-            if(*ptr == '\n') {
-              removed_clrf++;
-            }
-            *ptr-- = 0;
-          }
-        
-          if(ptr == msg) {
-            ERROR("Empty cdata in xml scenario file");    
-          }
-
-          if(!strstr(msg, "\n\n")) {
-            strcat(msg, "\n\n");
-          }
-        
-          while(ptr = strstr(msg, "\n ")) {
-            memmove(((char *)(ptr + 1)), 
-                    ((char *)(ptr + 2)), 
-                    strlen(ptr) - 1);
-          }
-        
-          while(ptr = strstr(msg, " \n")) {
-            memmove(((char *)(ptr)), 
-                    ((char *)(ptr + 1)), 
-                    strlen(ptr));
-          }
-
-          if((msg[strlen(msg) - 1] != '\n') && (removed_clrf)) {
-            strcat(msg, "\n");
-          }
-
-        } else {
+        if(!(ptr = xp_get_cdata())) {
           ERROR("No CDATA in 'send' section of xml scenario file");
         }
+
+	char * msg;
+	int removed_clrf = 0;
+
+	while((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) ptr++;
+
+	msg = (char *) malloc(strlen(ptr) + 3);
+	if(!msg) { ERROR("Memory Overflow"); }
+	strcpy(msg, ptr);
+
+
+	//
+	// If this is a request we are sending, then copy over the method so that we can associate
+	// responses to the request
+	//
+	if (0 != strncmp (ptr, "SIP/2.0", 7) )
+	{
+	  char *methodEnd = ptr;
+	  int   bytesToCopy = 0;
+	  while (*methodEnd != ' ') {
+	    methodEnd++;
+	    bytesToCopy++;
+	  }
+	  if (method_list_length + bytesToCopy + 1 > METHOD_LIST_LENGTH) {
+	    ERROR_P2("METHOD_LIST_LENGTH in scenario.hpp is too small (currently %d, need at least %d). Please modify and recompile.",
+		METHOD_LIST_LENGTH,
+		method_list_length + bytesToCopy + 1);
+	  }
+	  strncat (method_list, ptr, bytesToCopy);
+	  method_list_length += bytesToCopy;
+	  method_list[method_list_length+1] = '\0';
+	}
+
+	L_content_length = xp_get_content_length(msg);
+	switch (L_content_length) {
+	  case  -1 :
+	    // the msg does not contain content-length field
+	    break ;
+	  case  0 :
+	    scenario[scenario_len] -> content_length_flag =
+	      message::ContentLengthValueZero;   // Initialize to No present
+	    break ;
+	  default :
+	    scenario[scenario_len] -> content_length_flag =
+	      message::ContentLengthValueNoZero;   // Initialize to No present
+	    break ;
+	}
+
+	ptr = msg + strlen(msg);
+	ptr --;
+
+	while((ptr >= msg) &&
+	    ((*ptr == ' ')  ||
+	     (*ptr == '\t') ||
+	     (*ptr == '\n'))) {
+	  if(*ptr == '\n') {
+	    removed_clrf++;
+	  }
+	  *ptr-- = 0;
+	}
+
+	if(ptr == msg) {
+	  ERROR("Empty cdata in xml scenario file");
+	}
+
+	if(!strstr(msg, "\n\n")) {
+	  strcat(msg, "\n\n");
+	}
+
+	while(ptr = strstr(msg, "\n ")) {
+	  memmove(((char *)(ptr + 1)),
+	      ((char *)(ptr + 2)),
+	      strlen(ptr) - 1);
+	}
+
+	while(ptr = strstr(msg, " \n")) {
+	  memmove(((char *)(ptr)),
+	      ((char *)(ptr + 1)),
+	      strlen(ptr));
+	}
+
+	if((msg[strlen(msg) - 1] != '\n') && (removed_clrf)) {
+	  strcat(msg, "\n");
+	}
+
+	scenario[scenario_len] -> send_scheme = new SendingMessage(msg);
+	free(msg);
 
 	scenario[scenario_len] -> retrans_delay = xp_get_long("retrans", "retransmission timer", 0);
 	scenario[scenario_len] -> timeout = xp_get_long("timeout", "message send timeout", 0);
@@ -647,6 +643,7 @@ void load_scenario(char * filename, int deflt)
           scenario[scenario_len] -> start_rtd = get_rtd(ptr);
 	  rtd_started[scenario[scenario_len]->start_rtd - 1] = true;
 	}
+
         if (ptr = xp_get_value((char *)"repeat_rtd")) {
 	  if (scenario[scenario_len] -> stop_rtd) {
 	    scenario[scenario_len] -> repeat_rtd = get_bool(ptr, "repeat_rtd");
@@ -662,7 +659,6 @@ void load_scenario(char * filename, int deflt)
 #ifdef PCAPPLAY
         getActionForThisMessage();
 #endif
-
       } else if(!strcmp(elem, (char *)"recv")) {
         recv_count++;
         scenario[scenario_len]->M_type = MSG_TYPE_RECV;

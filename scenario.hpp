@@ -28,6 +28,7 @@
 #include <sys/socket.h>
 #include "actions.hpp"
 #include "variables.hpp"
+#include "message.hpp"
 
 
 /* MAX_RTD_INFO_LENGTH defines the number of RTD begin and end points a single
@@ -88,7 +89,7 @@ public:
 #endif
 
   /* If this is a send */
-  char         * send_scheme;
+  SendingMessage *send_scheme;
   unsigned int   retrans_delay;
   /* The receive/send timeout. */
   unsigned int   timeout;

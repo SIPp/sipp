@@ -24,7 +24,7 @@
 OUTPUT=sipp
 
 # C & C++ object files to be built
-OBJ= xp_parser.o scenario.o screen.o call.o comp.o sipp.o stat.o \
+OBJ= xp_parser.o message.o scenario.o screen.o call.o comp.o sipp.o stat.o \
      actions.o variables.o infile.o
 
 # Libraries directories
