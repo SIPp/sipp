@@ -1961,6 +1961,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
 	break;
       case E_Message_Media_IP:
 	dest += snprintf(dest, left, "%s", media_ip_escaped);
+	break;
       case E_Message_Media_Port:
       case E_Message_Auto_Media_Port: {
 	int port = media_port + comp->offset;
