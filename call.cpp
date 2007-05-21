@@ -2095,7 +2095,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
 	*dest = '\0';
 	break;
       }
-      case E_Message_Injection:
+      case E_Message_Injection: {
 	char *orig_dest = dest;
 	getFieldFromInputFile(comp->filename, comp->field, dest);
 	/* We are injecting an authenticaiton line. */
@@ -2118,7 +2118,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
 	  supresscrlf = true;
 	}
 	break;
-      case E_Message_Last_Header:
+      }
+      case E_Message_Last_Header: {
 	char * last_header = get_last_header(comp->literal);
 	if(last_header) {
 	  dest += sprintf(dest, "%s", last_header);
@@ -2127,6 +2128,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
 	  supresscrlf = true;
 	}
 	break;
+      }
       case E_Message_TDM_Map:
 	if (!use_tdmmap)
 	  ERROR("[tdmmap] keyword without -tdmmap parameter on command line");
