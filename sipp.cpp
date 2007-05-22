@@ -118,6 +118,7 @@ struct sipp_option options_table[] = {
 	{"buff_size", "Set the send and receive buffer size.", SIPP_OPTION_INT, &buff_size, 1},
 
 	{"cid_str", "Call ID string (default %u-%p@%s).  %u=call_number, %s=ip_address, %p=process_number, %%=% (in any order).", SIPP_OPTION_STRING, &call_id_string, 1},
+	{"cp", "Set the local control port number. Default is 8888.", SIPP_OPTION_INT, &control_port, 1},
 
 	{"d", "Controls the length of calls. More precisely, this controls the duration of 'pause' instructions in the scenario, if they do not have a 'milliseconds' section. Default value is 0 and default unit is milliseconds.", SIPP_OPTION_TIME_MS, &duration, 1},
 
@@ -1365,15 +1366,23 @@ void ctrl_thread (void * param)
 {
   int soc,ret;
   short prt;
-  int port, try_counter;
+  int port, firstport;
+  int try_counter = 60;
   unsigned char bufrcv [20];
   struct sockaddr_in sin;
-  
-  port = DEFAULT_CTRL_SOCKET_PORT;
-  try_counter = 0;
-  /* Allow 60 control sockets on the same system */
-  /* (several SIPp instances)                   */
-  while (try_counter < 60) {
+
+  if (control_port) {
+    port = control_port;
+    /* If the user specified the control port, then we must assume they know
+     * what they want, and should not cycle. */
+    try_counter = 1;
+  } else {
+    /* Allow 60 control sockets on the same system */
+    /* (several SIPp instances)                   */
+    port = DEFAULT_CTRL_SOCKET_PORT;
+  }
+  firstport = port;
+  while (try_counter) {
     prt = htons(port);
     memset(&sin,0,sizeof(struct sockaddr_in));
     soc = socket(AF_INET,SOCK_DGRAM,0);
@@ -1384,14 +1393,17 @@ void ctrl_thread (void * param)
       /* Bind successful */
       break;
     }
-    try_counter++;
+    try_counter--;
     port++;
   }
-  if (try_counter == 60) {
-    WARNING_P3("Unable to bind remote control socket (tried UDP ports %d-%d): %s",
-                  DEFAULT_CTRL_SOCKET_PORT, 
-                  DEFAULT_CTRL_SOCKET_PORT+60, 
-                  strerror(errno));
+  if (try_counter == 0) {
+    if (control_port) {
+      ERROR_P2("Unable to bind remote control socket to UDP port %d: %s",
+                  control_port, strerror(errno));
+    } else {
+      WARNING_P3("Unable to bind remote control socket (tried UDP ports %d-%d): %s",
+                  firstport, port - 1, strerror(errno));
+    }
     return;
   }
 
