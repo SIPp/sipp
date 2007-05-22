@@ -1096,6 +1096,7 @@ char * call::get_header(char* message, char * name, bool content)
 	    ((*dest == ' ') || (*dest == '\r')|| (*dest == '\t'))) {
 	  *(dest--) = 0;
 	}
+        dest++;
 
 	dest += sprintf(dest, ",");
 
