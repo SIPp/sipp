@@ -111,7 +111,7 @@ public:
     E_OUT_OF_CALL_MSGS,
     E_RETRANSMISSION,
     E_AUTO_ANSWERED,
-    E_ADD_GENERIC_COUNTER,
+    E_ADD_GENERIC_COUNTER
   };
   /**
    * Counters management

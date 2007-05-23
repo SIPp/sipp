@@ -2098,8 +2098,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
       }
       case E_Message_Injection: {
 	char *orig_dest = dest;
-	getFieldFromInputFile(comp->filename, comp->field, dest);
-	/* We are injecting an authenticaiton line. */
+	getFieldFromInputFile(comp->comp_param.field_param.filename, comp->comp_param.field_param.field, dest);
+	/* We are injecting an authentication line. */
 	if (char *tmp = strstr(orig_dest, "[authentication")) {
 	  if (auth_marker) {
 	    ERROR("Only one [authentication] keyword is currently supported!\n");
@@ -2109,7 +2109,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
 	  if (!auth_comp) { ERROR("Out of memory!"); }
 	  auth_comp_allocated = true;
 
-	  char *tmp = strchr(auth_marker, ']');
+	  tmp = strchr(auth_marker, ']');
 	  char c = *tmp;
 	  *tmp = '\0';
 	  SendingMessage::parseAuthenticationKeyword(auth_comp, auth_marker);

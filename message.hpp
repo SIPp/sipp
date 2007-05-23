@@ -72,7 +72,7 @@ typedef enum {
   E_Message_Last_Header,
   E_Message_TDM_Map,
   E_Message_Authentication,
-  E_Message_ClockTick,
+  E_Message_ClockTick
 } MessageCompType;
 
 class SendingMessage {
@@ -91,7 +91,7 @@ class SendingMessage {
     bool isCancel();
 
     static void parseAuthenticationKeyword(struct MessageComponent *dst, char *keyword);
-    static void SendingMessage::freeMessageComponent(struct MessageComponent *comp);
+    static void freeMessageComponent(struct MessageComponent *comp);
   private:
     std::vector <struct MessageComponent *> messageComponents;
 
@@ -105,7 +105,7 @@ class SendingMessage {
     // Get parameters from a [keyword]
     static void getQuotedParam(char * dest, char * src, int * len);
     static void getHexStringParam(char * dest, char * src, int * len);
-    static void getKeywordParam(const char * src, char * param, char * output);
+    static void getKeywordParam(char * src, char * param, char * output);
 };
 
 
@@ -114,7 +114,7 @@ struct MessageComponent {
   char *literal;
   int offset;
   int varId;
-  union {
+  union u {
     /* Authentication Parameters. */
     struct {
       char *auth_user;
@@ -122,13 +122,13 @@ struct MessageComponent {
       char *aka_OP;
       char *aka_AMF;
       char *aka_K;
-    };
+    } auth_param;
     /* Field Substitution. */
     struct {
       char *filename;
       int field;
-    };
-  };
+    } field_param;
+  } comp_param;
 };
 
 #endif

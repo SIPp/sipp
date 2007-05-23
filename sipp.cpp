@@ -1918,7 +1918,7 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, char *buffer, 
 	strcpy(comp_msg, buffer);
 	if(comp_compress(&socket->ss_comp_state,
 	      comp_msg,
-	      &len) != COMP_OK) {
+	      (unsigned int *) &len) != COMP_OK) {
 	  ERROR("Compression pluggin error");
 	}
 	buffer = (char *)comp_msg;
@@ -2346,7 +2346,7 @@ static int empty_socket(struct sipp_socket *socket) {
   switch(socket->ss_transport) {
     case T_TCP:
     case T_UDP:
-      ret = recvfrom(socket->ss_fd, buffer, readsize, 0, (struct sockaddr *)&socket->ss_remote_sockaddr, &addrlen);
+      ret = recvfrom(socket->ss_fd, buffer, readsize, 0, (struct sockaddr *)&socket->ss_remote_sockaddr, (int *) &addrlen);
       break;
     case T_TLS:
 #ifdef _USE_OPENSSL
@@ -3471,7 +3471,7 @@ struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket) {
   int fd;
   socklen_t addrlen = sizeof(remote_sockaddr);
 
-  if((fd = accept(accept_socket->ss_fd, (struct sockaddr *)&remote_sockaddr, &addrlen))== -1) {
+  if((fd = accept(accept_socket->ss_fd, (struct sockaddr *)&remote_sockaddr, (int *) &addrlen))== -1) {
     ERROR_P2("Unable to accept on a %s socket: %s", TRANSPORT_TO_STRING(transport), strerror(errno));
   }
 
@@ -3515,7 +3515,7 @@ int sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr,
     return 0;
   }
 
-  if ((ret = getsockname(socket->ss_fd, (sockaddr *)saddr, (socklen_t *)&len))) {
+  if ((ret = getsockname(socket->ss_fd, (sockaddr *)saddr, (int *) (socklen_t *) &len))) {
     return ret;
   }
 

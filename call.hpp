@@ -217,7 +217,7 @@ public:
   // P_index use for message index in scenario and ctrl of CRLF
   // P_index = -2 No ctrl of CRLF
   // P_index = -1 Add crlf to end of message
-  char* call::createSendingMessage(SendingMessage *src, int P_index);
+  char* createSendingMessage(SendingMessage *src, int P_index);
   char* createSendingMessage(char * src, int P_index, bool skip_sanity = false);
 
   // method for the management of unexpected messages 

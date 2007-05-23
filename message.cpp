@@ -188,7 +188,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	  newcomp->type = E_Message_Injection;
 
 	  /* Parse out the interesting things like file and number. */
-	  newcomp->field = atoi(keyword + strlen("field"));
+	  newcomp->comp_param.field_param.field = atoi(keyword + strlen("field"));
 
 	  char fileName[KEYWORD_SIZE];
 	  getKeywordParam(keyword, "file=", fileName);
@@ -196,11 +196,11 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	    if (!default_file) {
 	      ERROR("No injection file was specified!\n");
 	    }
-	    newcomp->filename = strdup(default_file);
+	    newcomp->comp_param.field_param.filename = strdup(default_file);
 	  } else {
-	    newcomp->filename = strdup(fileName);
+	    newcomp->comp_param.field_param.filename = strdup(fileName);
 	  }
-	  if (inFiles.find(newcomp->filename) == inFiles.end()) {
+	  if (inFiles.find(newcomp->comp_param.field_param.filename) == inFiles.end()) {
 	    ERROR_P1("Invalid injection file: %s\n", fileName);
 	  }
         } else if(*keyword == '$') {
@@ -374,7 +374,7 @@ void SendingMessage::getHexStringParam(char * dest, char * src, int * len)
   }
 }
 
-void SendingMessage::getKeywordParam(const char * src, char * param, char * output)
+void SendingMessage::getKeywordParam(char * src, char * param, char * output)
 {
   char *key, *tmp;
   int len;
@@ -420,33 +420,33 @@ void SendingMessage::parseAuthenticationKeyword(struct MessageComponent *dst, ch
   /* Look for optional username and password parameters */
   getKeywordParam(keyword, "username=", my_auth_user);
   getKeywordParam(keyword, "password=", my_auth_pass);
-  dst->auth_user = strdup(my_auth_user);
-  dst->auth_pass = strdup(my_auth_pass);
+  dst->comp_param.auth_param.auth_user = strdup(my_auth_user);
+  dst->comp_param.auth_param.auth_pass = strdup(my_auth_pass);
 
-  dst->aka_OP = (char *)calloc(KEYWORD_SIZE, 1);
-  dst->aka_AMF = (char *)calloc(KEYWORD_SIZE, 1);
-  dst->aka_K = (char *)calloc(KEYWORD_SIZE, 1);
+  dst->comp_param.auth_param.aka_OP = (char *)calloc(KEYWORD_SIZE, 1);
+  dst->comp_param.auth_param.aka_AMF = (char *)calloc(KEYWORD_SIZE, 1);
+  dst->comp_param.auth_param.aka_K = (char *)calloc(KEYWORD_SIZE, 1);
 
   /* add aka_OP, aka_AMF, aka_K */
-  getKeywordParam(keyword, "aka_OP=", dst->aka_OP);
-  getKeywordParam(keyword, "aka_AMF=", dst->aka_AMF);
-  getKeywordParam(keyword, "aka_K=", dst->aka_K);
-  if (dst->aka_K[0]==0){
-    memcpy(dst->aka_K,my_auth_pass,16);
-    dst->aka_K[16]=0;
+  getKeywordParam(keyword, "aka_OP=", dst->comp_param.auth_param.aka_OP);
+  getKeywordParam(keyword, "aka_AMF=", dst->comp_param.auth_param.aka_AMF);
+  getKeywordParam(keyword, "aka_K=", dst->comp_param.auth_param.aka_K);
+  if (dst->comp_param.auth_param.aka_K[0]==0){
+    memcpy(dst->comp_param.auth_param.aka_K,my_auth_pass,16);
+    dst->comp_param.auth_param.aka_K[16]=0;
   }
 }
 
 void SendingMessage::freeMessageComponent(struct MessageComponent *comp) {
   free(comp->literal);
   if (comp->type == E_Message_Authentication) {
-    free(comp->auth_user);
-    free(comp->auth_pass);
-    free(comp->aka_K);
-    free(comp->aka_AMF);
-    free(comp->aka_OP);
+    free(comp->comp_param.auth_param.auth_user);
+    free(comp->comp_param.auth_param.auth_pass);
+    free(comp->comp_param.auth_param.aka_K);
+    free(comp->comp_param.auth_param.aka_AMF);
+    free(comp->comp_param.auth_param.aka_OP);
   } else if (comp->type == E_Message_Injection) {
-    free(comp->filename);
+    free(comp->comp_param.field_param.filename);
   }
   free(comp);
 }

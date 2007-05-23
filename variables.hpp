@@ -38,7 +38,7 @@ enum T_VarType
   E_VT_REGEXP = 0,
   E_VT_DOUBLE,
   E_VT_BOOL,
-  E_VT_UNDEFINED,
+  E_VT_UNDEFINED
 };
 
 class CCallVariable
