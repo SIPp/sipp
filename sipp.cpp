@@ -2332,7 +2332,7 @@ static int check_for_message(struct sipp_socket *socket) {
 /* Pull up to tcp_readsize data bytes out of the socket into our local buffer. */
 static int empty_socket(struct sipp_socket *socket) {
   int readsize = socket->ss_transport == T_UDP ? SIPP_MAX_MSG_SIZE : tcp_readsize;
-  socklen_t addrlen = sizeof(socket->ss_remote_sockaddr);
+  sipp_socklen_t addrlen = sizeof(socket->ss_remote_sockaddr);
   struct socketbuf *socketbuf;
   char *buffer;
   int ret;
@@ -2346,7 +2346,7 @@ static int empty_socket(struct sipp_socket *socket) {
   switch(socket->ss_transport) {
     case T_TCP:
     case T_UDP:
-      ret = recvfrom(socket->ss_fd, buffer, readsize, 0, (struct sockaddr *)&socket->ss_remote_sockaddr, (int *) &addrlen);
+      ret = recvfrom(socket->ss_fd, buffer, readsize, 0, (struct sockaddr *)&socket->ss_remote_sockaddr,  &addrlen);
       break;
     case T_TLS:
 #ifdef _USE_OPENSSL
@@ -3469,9 +3469,9 @@ struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket) {
   struct sipp_socket *ret;
   struct sockaddr_storage remote_sockaddr;
   int fd;
-  socklen_t addrlen = sizeof(remote_sockaddr);
+  sipp_socklen_t addrlen = sizeof(remote_sockaddr);
 
-  if((fd = accept(accept_socket->ss_fd, (struct sockaddr *)&remote_sockaddr, (int *) &addrlen))== -1) {
+  if((fd = accept(accept_socket->ss_fd, (struct sockaddr *)&remote_sockaddr, &addrlen))== -1) {
     ERROR_P2("Unable to accept on a %s socket: %s", TRANSPORT_TO_STRING(transport), strerror(errno));
   }
 
@@ -3515,7 +3515,7 @@ int sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr,
     return 0;
   }
 
-  if ((ret = getsockname(socket->ss_fd, (sockaddr *)saddr, (int *) (socklen_t *) &len))) {
+  if ((ret = getsockname(socket->ss_fd, (sockaddr *)saddr, (sipp_socklen_t *) &len))) {
     return ret;
   }
 
