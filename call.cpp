@@ -60,7 +60,7 @@ call_map calls;
 call_list running_calls;
 timewheel paused_calls;
 
-socket_call_map_map socket_to_calls;
+ socket_call_map_map socket_to_calls;
 
 #ifdef PCAPPLAY
 /* send_packets pthread wrapper */
@@ -424,7 +424,7 @@ call_list *get_calls_for_socket(struct sipp_socket *socket) {
     return l;
   }
 
-  call_map *socket_call_map = map_it->second;
+  call_map *socket_call_map = (call_map *) map_it->second;
   call_map::iterator call_it;
 
   for (call_it = socket_call_map->begin();
@@ -445,7 +445,8 @@ void add_call_to_socket(struct sipp_socket *socket, call *call) {
     assert(map_it != socket_to_calls.end());
   }
 
-  map_it->second->insert(string_call_pair(call->id, call));
+ call_map *socket_call_map = (call_map *) map_it->second;
+ socket_call_map->insert(string_call_pair(call->id, call));
 }
 
 void remove_call_from_socket(struct sipp_socket *socket, call *call) {
@@ -453,14 +454,15 @@ void remove_call_from_socket(struct sipp_socket *socket, call *call) {
   /* We must have  a map for this socket. */
   assert(map_it != socket_to_calls.end());
 
-  call_map::iterator call_it = map_it->second->find(call->id);
+  call_map *socket_call_map = (call_map *) map_it->second;
+  call_map::iterator call_it = socket_call_map->find(call->id);
   /* And our call must exist in the map. */
-  assert(call_it != map_it->second->end());
-  map_it->second->erase(call_it);
+  assert(call_it != socket_call_map->end());
+  socket_call_map->erase(call_it);
 
   /* If we have no more calls, we can delete this entry. */
-  if (map_it->second->begin() == map_it->second->end()) {
-    delete map_it->second;
+  if (socket_call_map->begin() == socket_call_map->end()) {
+    delete socket_call_map;
     socket_to_calls.erase(map_it);
   }
 }

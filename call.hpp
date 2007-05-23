@@ -321,7 +321,7 @@ void remove_paused_call(call *call);
 
 typedef std::pair<struct sipp_socket *,call_map *> socket_map_pair;
 
-typedef std::map<struct sipp_socket *, call_map *> socket_call_map_map;
+typedef std::map<struct sipp_socket *, void *> socket_call_map_map;
 call_list *get_calls_for_socket(struct sipp_socket *socket);
 void add_call_to_socket(struct sipp_socket *socket, call *call);
 void remove_call_from_socket(struct sipp_socket *socket, call *call);
