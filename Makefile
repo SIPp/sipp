@@ -63,7 +63,7 @@ SYSTEM=$(SYSTEM_$(OSNAME))
 
 # C compiler
 CC_hpux=aCC
-CC_linux=cc  
+CC_linux=gcc  
 CC_freebsd=cc  
 CC_tru64=cc  
 CC_SunOS=gcc
@@ -73,7 +73,7 @@ CC=$(CC_$(SYSTEM))
 
 # C++ compiler mapping
 CPP_hpux=aCC  
-CPP_linux=gcc  
+CPP_linux=g++  
 CPP_freebsd=g++  
 CPP_tru64=cxx  
 CPP_SunOS=g++
@@ -145,7 +145,7 @@ LIBS_Darwin= -lcurses
 LIBS=$(LIBS_$(SYSTEM)) $(EXTRALIBS)
 
 # Include directories
-INCDIR_linux=-I. -I/opt/openssl/include
+INCDIR_linux=-I. -I/usr/include/openssl
 INCDIR_freebsd=-I. -I/opt/openssl/include
 INCDIR_hpux=-I. -I/usr/local/include -I/opt/openssl/include
 INCDIR_tru64=-I. -I/opt/openssl/include
