@@ -1212,6 +1212,28 @@ char * call::get_first_line(char * message)
   return last_header;
 }
 
+char * call::get_last_request_uri ()
+{
+     char * tmp;
+     char * tmp2;
+     char * last_request_uri;
+     int tmp_len;
+
+     char * last_To = get_last_header("To:");
+     tmp = strchr(last_To, '<');
+     tmp++;
+     tmp2 = strchr(last_To, '>');
+     tmp_len = strlen(tmp) - strlen(tmp2);
+     if(!(last_request_uri = (char *) malloc(tmp_len+1))) ERROR("Cannot allocate !\n");
+     memset(last_request_uri, 0, sizeof(last_request_uri));
+     if(tmp && (tmp_len > 0)){
+       strncpy(last_request_uri, tmp, tmp_len);
+       last_request_uri[tmp_len] = '\0';
+     }
+     return last_request_uri;
+  
+}
+
 char * call::send_scene(int index, int *send_status)
 {
   static char msg_buffer[SIPP_MAX_MSG_SIZE];
@@ -1712,11 +1734,10 @@ bool call::abortCall()
       // Answer unexpected errors (4XX, 5XX and beyond) with an ACK 
       // Contributed by F. Tarek Rogers
       if((src_recv) && (get_reply_code(src_recv) >= 400)) {
-
-        strcpy(L_param, "ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
+        strcpy(L_param,  "ACK [last_Request_URI] SIP/2.0\n");
         sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
         sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
-        sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
+        sprintf(L_param, "%s%s", L_param, "To: sut <[last_Request_URI]>[peer_tag_param]\n");
         sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
         char * cseq;
         cseq = get_header_field_code(src_recv,(char *) "CSeq:");
@@ -1740,10 +1761,10 @@ bool call::abortCall()
            * and send a BYE afterwards                           */
           ack_is_pending = false;
           /* Send an ACK */
-          strcpy(L_param, "ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
+          strcpy(L_param,  "ACK [last_Request_URI] SIP/2.0\n");
           sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
           sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
-          sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
+          sprintf(L_param, "%s%s", L_param, "To: sut <[last_Request_URI]>[peer_tag_param]\n");
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
           src_send = last_send_msg ;
           cseq = get_header_field_code(src_recv,"CSeq:");
@@ -1751,33 +1772,33 @@ bool call::abortCall()
             sprintf(L_param, "%s%s ACK\n", L_param, cseq);
           }
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
-          sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
+          sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n");
           sendBuffer(createSendingMessage((char*)(L_param),-1));
           
           /* Send the BYE */
           cseq = NULL;
-          strcpy(L_param, "BYE sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
+          strcpy(L_param,  "BYE [last_Request_URI] SIP/2.0\n");
           sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
           sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
-          sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
+          sprintf(L_param, "%s%s", L_param, "To: sut <[last_Request_URI]>[peer_tag_param]\n");
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
           cseq = compute_cseq(src_recv);
           if (cseq != NULL) {
             sprintf(L_param, "%s%s BYE\n", L_param, compute_cseq(src_recv));
           }
-          sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
+          sprintf(L_param, "%s%s", L_param,  "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
           sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
           sendBuffer(createSendingMessage((char*)(L_param),-1));
         } else {
           /* Send a CANCEL */
-          strcpy(L_param, "CANCEL sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
+          strcpy(L_param,  "CANCEL [last_Request_URI] SIP/2.0\n");
           sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
           sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
-          sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
+          sprintf(L_param, "%s%s", L_param, "To: sut <[last_Request_URI]>[peer_tag_param]\n"); 
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
 	       sprintf(L_param, "%sCSeq: 1 CANCEL\n", L_param);
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
-          sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
+          sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n");
           sendBuffer(createSendingMessage((char*)(L_param),-2));
         }
       } else {
@@ -1793,17 +1814,17 @@ bool call::abortCall()
       char   L_msg_buffer[SIPP_MAX_MSG_SIZE];
       L_msg_buffer[0] = '\0';
       char * L_param = L_msg_buffer;
-      strcpy(L_param, "BYE sip:[service]@[remote_ip]:[remote_port] SIP/2.0\n");
+      strcpy(L_param,  "BYE  [last_Request_URI] SIP/2.0\n");
       sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
       sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
-      sprintf(L_param, "%s%s", L_param, "To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]\n");
+      sprintf(L_param, "%s%s", L_param, "To: sut <[last_Request_URI]>[peer_tag_param]\n");
       sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
       char * cseq;
       cseq = compute_cseq(src_recv);
       if (cseq != NULL) {
         sprintf(L_param, "%s%s BYE\n", L_param, compute_cseq(src_recv));
       }
-      sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
+      sprintf(L_param, "%s%s", L_param,  "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
       sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
       sendBuffer(createSendingMessage((char*)(L_param),-1));
     }
@@ -2131,6 +2152,13 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
 	  supresscrlf = true;
 	}
 	break;
+      }
+      case E_Message_Last_Request_URI: {
+      char * last_to = get_last_header("To:");
+      char * last_request_uri = get_last_request_uri();
+      dest += sprintf(dest, "%s", last_request_uri);
+      free(last_request_uri);
+   break;
       }
       case E_Message_TDM_Map:
 	if (!use_tdmmap)
