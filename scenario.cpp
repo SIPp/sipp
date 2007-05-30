@@ -1038,20 +1038,28 @@ void parse_slave_cfg()
   FILE * f;
   char line[MAX_PEER_SIZE];
   char * temp_peer;
+  char * temp_host;
   char * peer_host;
 
   f = fopen(slave_cfg_file, "r");
   if(f){
      while (fgets(line, MAX_PEER_SIZE, f) != NULL)
      {
-       temp_peer = strtok(line, ";");
-       peer_host = (char *) malloc(MAX_PEER_SIZE);
-       strcpy(peer_host, strtok(NULL, ";"));
-       peer_addrs[std::string(temp_peer)] = peer_host; 
+       if(temp_peer = strtok(line, ";")){
+         if(peer_host = (char *) malloc(MAX_PEER_SIZE)){
+           if(temp_host  = strtok(NULL, ";")){
+              strcpy(peer_host, temp_host);
+              peer_addrs[std::string(temp_peer)] = peer_host;
+             }
+         }else {
+             ERROR("Cannot allocate memory!\n");
+           }
+       }
      }
-   }else{ 
+   }else{
      ERROR_P1("Can not open slave_cfg file %s\n", slave_cfg_file);
      }
+
 }
 
 // Determine in which mode the sipp tool has been 
