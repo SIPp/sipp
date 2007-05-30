@@ -3885,14 +3885,14 @@ int main(int argc, char *argv[])
 	  parse_slave_cfg();
 	  break;
 	case SIPP_OPTION_3PCC_EXTENDED:
+     REQUIRE_ARG();
+     CHECK_PASS();
 	  if(slave_masterSet){
 	    ERROR("-slave and -master options are not compatible\n");
 	  }
 	  if(twinSippMode){
 	    ERROR("-master and -slave options are not compatible with -3PCC option\n");
 	  }
-	  REQUIRE_ARG();
-	  CHECK_PASS();
 	  *((char **)option->data) = argv[argi];
 	  slave_masterSet = true;
 	  break;
