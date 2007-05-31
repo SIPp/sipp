@@ -1494,31 +1494,33 @@ int createIntegerTable(char * P_listeStr,
   char * ptr = P_listeStr;
   char * ptr_prev = P_listeStr;
   unsigned int current_int;
- 
-  if(isWellFormed(P_listeStr, sizeOfList) == 1)
-    {
-      (*listeInteger) = new unsigned int[(*sizeOfList)];
-      while((*ptr) != ('\0'))
-        {
-          if((*ptr) == ',')
-            {
-              sscanf(ptr_prev, "%u", &current_int);
-              if (nb<(*sizeOfList))
-                (*listeInteger)[nb] = current_int;
-              nb++;
-              ptr_prev = ptr+1;
-            }
-          ptr++;
-        }
 
-      // Read the last
-      sscanf(ptr_prev, "%u", &current_int); 
-      if (nb<(*sizeOfList))
-        (*listeInteger)[nb] = current_int;
-      nb++;
-      return(1);
-    }
-  return(0);
+  if(P_listeStr){ 
+   if(isWellFormed(P_listeStr, sizeOfList) == 1)
+     {
+       (*listeInteger) = new unsigned int[(*sizeOfList)];
+       while((*ptr) != ('\0'))
+         {
+           if((*ptr) == ',')
+             {
+               sscanf(ptr_prev, "%u", &current_int);
+               if (nb<(*sizeOfList))
+                 (*listeInteger)[nb] = current_int;
+               nb++;
+               ptr_prev = ptr+1;
+             } 
+           ptr++;
+         }
+
+       // Read the last
+       sscanf(ptr_prev, "%u", &current_int); 
+       if (nb<(*sizeOfList))
+         (*listeInteger)[nb] = current_int;
+       nb++;
+       return(1);
+     }
+   return(0);
+  }else return(0);
 }
 
 /* These are the names of the scenarios, they must match the default_scenario table. */
