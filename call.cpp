@@ -2239,9 +2239,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
     /* Build the auth credenticals */
     char uri[MAX_HEADER_LEN];
     sprintf (uri, "%s:%d", remote_ip, remote_port);
-    if (createAuthHeader(auth_comp->auth_user, auth_comp->auth_pass,
+    if (createAuthHeader(auth_comp->comp_param.auth_param.auth_user, auth_comp->comp_param.auth_param.auth_pass,
 	  method, uri, body, dialog_authentication,
-	  auth_comp->aka_OP, auth_comp->aka_AMF, auth_comp->aka_K,
+	  auth_comp->comp_param.auth_param.aka_OP, auth_comp->comp_param.auth_param.aka_AMF, auth_comp->comp_param.auth_param.aka_K,
 	  result + authlen) == 0) {
       ERROR_P1("%s", result + authlen);
     }
