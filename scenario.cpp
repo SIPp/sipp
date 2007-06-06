@@ -337,7 +337,6 @@ int xp_get_var(const char *name, const char *what) {
     ERROR("Variables must be positive integers!");
   }
   xp_use_var(var);
-
   return var;
 }
 
@@ -748,7 +747,6 @@ void load_scenario(char * filename, int deflt)
 	  }
 #endif
         }
-
         getActionForThisMessage();
 
       } else if(!strcmp(elem, "pause")) {
@@ -804,7 +802,6 @@ void load_scenario(char * filename, int deflt)
         if(ptr = xp_get_value((char *)"counter")) {
           scenario[scenario_len] -> counter = get_counter(ptr, "counter");
 	}
-
         getActionForThisMessage();
       }
 #ifdef __3PCC__
@@ -1166,7 +1163,7 @@ void getActionForThisMessage()
   int           currentNbVarId;
   char * ptr;
   int           sub_currentNbVarId;
-
+  
   if(!(actionElem = xp_open_element(0))) {
     return;
   }
@@ -1189,7 +1186,6 @@ void getActionForThisMessage()
       if(!(ptr = xp_get_value((char *)"regexp"))) {
 	ERROR("'ereg' action without 'regexp' argument (mandatory)");
       }
-      int currentVarId;
 
       // keeping regexp expression in memory
       if(currentRegExp != NULL)
@@ -1250,12 +1246,12 @@ void getActionForThisMessage()
       } else {
 	tmpAction->setCheckIt(false);
       }
-
-      currentVarId = xp_get_var("assign_to", "ereg");
+      if (!(ptr = xp_get_value((char *) "assign_to"))) {
+         ERROR("assign_to value is missing");
+         }
 
       if(createIntegerTable(ptr, &currentTabVarId, &currentNbVarId) == 1) {
    	xp_use_var(currentTabVarId[0]);
-
 	tmpAction->setVarId(currentTabVarId[0]);
 	/* and creating the associated variable */
 	if (scenVariableTable[currentTabVarId[0]][scenario_len] != NULL) {
@@ -1296,7 +1292,7 @@ void getActionForThisMessage()
 	}
 
 	delete[] currentTabVarId;
-      }
+      } 
 
       if(currentRegExp != NULL) {
 	delete[] currentRegExp;
@@ -1431,7 +1427,7 @@ int isWellFormed(char * P_listeStr, int * nombre)
   int sizeOf;
   bool isANumber;
 
-  (*nombre) = 0; 
+  (*nombre) = 0;
   sizeOf = strlen(P_listeStr);
   // getting the number 
   if(sizeOf > 0)
@@ -2015,7 +2011,7 @@ char * default_scenario [] = {
 "    <action>\n"
 "       <ereg regexp=\"Content-Type:.*\" \n"
 "             search_in=\"msg\"  \n"
-"             assign_to=\"1\"/> \n"
+"             assign_to=\"1\" /> \n"
 "    </action>\n"
 "  </recv>\n"
 "\n"
@@ -2031,7 +2027,7 @@ char * default_scenario [] = {
 "    <action>\n"
 "       <ereg regexp=\"Content-Type:.*\"  \n"
 "             search_in=\"msg\"  \n"
-"             assign_to=\"2\"/>\n"
+"             assign_to=\"2\" /> \n"
 "    </action>\n"
 "  \n"
 "  </recvCmd>\n"
@@ -2124,7 +2120,7 @@ char * default_scenario [] = {
 "  <action>\n"
 "       <ereg regexp=\"Content-Type:.*\"  \n"
 "             search_in=\"msg\"  \n"
-"             assign_to=\"1\"/>\n"
+"             assign_to=\"1\" /> \n"
 "  </action>\n"
 "</recvCmd>\n"
 "\n"
@@ -2152,7 +2148,7 @@ char * default_scenario [] = {
 "    <action>\n"
 "       <ereg regexp=\"Content-Type:.*\"  \n"
 "             search_in=\"msg\"  \n"
-"             assign_to=\"2\"/>\n"
+"             assign_to=\"2\" /> \n"
 "    </action>\n"
 "  </recv>\n"
 "  \n"
