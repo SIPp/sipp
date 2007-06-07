@@ -1735,9 +1735,9 @@ bool call::abortCall()
       // Contributed by F. Tarek Rogers
       if((src_recv) && (get_reply_code(src_recv) >= 400)) {
         strcpy(L_param,  "ACK [last_Request_URI] SIP/2.0\n");
-        sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
-        sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
-        sprintf(L_param, "%s%s", L_param, "To: sut <[last_Request_URI]>[peer_tag_param]\n");
+        sprintf(L_param, "%s%s", L_param, "[last_Via]\n");
+        sprintf(L_param, "%s%s", L_param, "[last_From]\n");
+        sprintf(L_param, "%s%s", L_param, "[last_To]\n");
         sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
         char * cseq;
         cseq = get_header_field_code(src_recv,(char *) "CSeq:");
@@ -1763,8 +1763,8 @@ bool call::abortCall()
           /* Send an ACK */
           strcpy(L_param,  "ACK [last_Request_URI] SIP/2.0\n");
           sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
-          sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
-          sprintf(L_param, "%s%s", L_param, "To: sut <[last_Request_URI]>[peer_tag_param]\n");
+          sprintf(L_param, "%s%s", L_param, "[last_From]\n");
+          sprintf(L_param, "%s%s", L_param, "[last_To]\n");
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
           src_send = last_send_msg ;
           cseq = get_header_field_code(src_recv,"CSeq:");
@@ -1779,8 +1779,8 @@ bool call::abortCall()
           cseq = NULL;
           strcpy(L_param,  "BYE [last_Request_URI] SIP/2.0\n");
           sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
-          sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
-          sprintf(L_param, "%s%s", L_param, "To: sut <[last_Request_URI]>[peer_tag_param]\n");
+          sprintf(L_param, "%s%s", L_param, "[last_From]\n");
+          sprintf(L_param, "%s%s", L_param, "[last_To]\n");
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
           cseq = compute_cseq(src_recv);
           if (cseq != NULL) {
@@ -1792,11 +1792,11 @@ bool call::abortCall()
         } else {
           /* Send a CANCEL */
           strcpy(L_param,  "CANCEL [last_Request_URI] SIP/2.0\n");
-          sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
-          sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
-          sprintf(L_param, "%s%s", L_param, "To: sut <[last_Request_URI]>[peer_tag_param]\n"); 
+          sprintf(L_param, "%s%s", L_param, "[last_Via]\n");
+          sprintf(L_param, "%s%s", L_param, "[last_From]\n");
+          sprintf(L_param, "%s%s", L_param, "[last_To]\n");
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
-	       sprintf(L_param, "%sCSeq: 1 CANCEL\n", L_param);
+          sprintf(L_param, "%sCSeq: 1 CANCEL\n", L_param);
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
           sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n");
           sendBuffer(createSendingMessage((char*)(L_param),-2));
@@ -1816,8 +1816,8 @@ bool call::abortCall()
       char * L_param = L_msg_buffer;
       strcpy(L_param,  "BYE  [last_Request_URI] SIP/2.0\n");
       sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
-      sprintf(L_param, "%s%s", L_param, "From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]\n");
-      sprintf(L_param, "%s%s", L_param, "To: sut <[last_Request_URI]>[peer_tag_param]\n");
+      sprintf(L_param, "%s%s", L_param, "[last_From]\n");
+      sprintf(L_param, "%s%s", L_param, "[last_To]\n");
       sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
       char * cseq;
       cseq = compute_cseq(src_recv);
@@ -2154,10 +2154,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
 	break;
       }
       case E_Message_Last_Request_URI: {
-      char * last_to = get_last_header("To:");
-      char * last_request_uri = get_last_request_uri();
-      dest += sprintf(dest, "%s", last_request_uri);
-      free(last_request_uri);
+       char * last_request_uri = get_last_request_uri();
+       dest += sprintf(dest, "%s", last_request_uri);
+       free(last_request_uri);
    break;
       }
       case E_Message_TDM_Map:
