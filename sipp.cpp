@@ -2444,6 +2444,10 @@ static ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len) {
 
   /* Update our buffer and return value. */
   buf[avail] = '\0';
+
+  /* For CMD Message the escape char is the end of message */ 
+  if((socket->ss_control) && buf[avail-1] == 27 ) buf[avail-1] = '\0';
+     
   socket->ss_in->offset += avail;
 
   /* Have we emptied the buffer? */
