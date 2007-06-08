@@ -97,6 +97,8 @@ struct sipp_option {
 #define SIPP_OPTION_SLAVE_CFG     25
 #define SIPP_OPTION_3PCC_EXTENDED 26
 #define SIPP_OPTION_INPUT_FILE	  27
+#define SIPP_OPTION_TIME_MS_LONG  28
+#define SIPP_OPTION_LONG          29
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
 	{"v", "Display version and copyright information.", SIPP_OPTION_VERSION, NULL, 0},
@@ -137,7 +139,7 @@ struct sipp_option options_table[] = {
 	      "  (3 * call_duration (s) * rate).", SIPP_OPTION_LIMIT, NULL, 1},
 
 	{"lost", "Set the number of packets to lose by default (scenario specifications override this value).", SIPP_OPTION_FLOAT, &global_lost, 1},
-	{"m", "Stop the test and exit when 'calls' calls are processed", SIPP_OPTION_INT, &stop_after, 1},
+	{"m", "Stop the test and exit when 'calls' calls are processed", SIPP_OPTION_LONG, &stop_after, 1},
 	{"mi", "Set the local media IP address", SIPP_OPTION_IP, media_ip, 1},
         {"master","3pcc extended mode: indicates the master number", SIPP_OPTION_3PCC_EXTENDED, &master_name, 1},
 	{"max_recv_loops", "Set the maximum number of messages received read per cycle. Increase this value for high traffic level.  The default value is 1000.", SIPP_OPTION_INT, &max_recv_loops, 1},
@@ -178,8 +180,8 @@ struct sipp_option options_table[] = {
 	{"rate_max", "If -rate_increase is set, then quit after the rate reaches this value.\n"
                       "Example: -rate_increase 10 -rate_max 100\n"
                       "  ==> increase calls by 10 until 100 cps is hit.", SIPP_OPTION_INT, &rate_max, 1},
-	{"recv_timeout", "Global receive timeout. Default unit is milliseconds. If the expected message is not received, the call times out and is aborted.", SIPP_OPTION_TIME_MS, &defl_recv_timeout, 1},
-	{"send_timeout", "Global send timeout. Default unit is milliseconds. If a message is not sent (due to congestion), the call times out and is aborted.", SIPP_OPTION_TIME_MS, &defl_send_timeout, 1},
+	{"recv_timeout", "Global receive timeout. Default unit is milliseconds. If the expected message is not received, the call times out and is aborted.", SIPP_OPTION_TIME_MS_LONG, &defl_recv_timeout, 1},
+	{"send_timeout", "Global send timeout. Default unit is milliseconds. If a message is not sent (due to congestion), the call times out and is aborted.", SIPP_OPTION_TIME_MS_LONG, &defl_send_timeout, 1},
 	{"reconnect_close", "Should calls be closed on reconnect?", SIPP_OPTION_BOOL, &reset_close, 1},
 	{"reconnect_sleep", "How long to sleep between the close and reconnect?", SIPP_OPTION_INT, &reset_sleep, 1},
 	{"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, NULL, 1},
@@ -187,7 +189,7 @@ struct sipp_option options_table[] = {
                      "RTP/UDP packets coming on this port + 2 are also echoed to their sender (used for sound and video echo).",
 		     SIPP_OPTION_SETFLAG, &rtp_echo_enabled, 1},
 	{"rtt_freq", "freq is mandatory. Dump response times every freq calls in the log file defined by -trace_rtt. Default value is 200.",
-		     SIPP_OPTION_INT, &report_freq_dumpRtt, 1},
+		     SIPP_OPTION_LONG, &report_freq_dumpRtt, 1},
 	{"s", "Set the username part of the resquest URI. Default is 'service'.", SIPP_OPTION_STRING, &service, 1},
 	{"sd", "Dumps a default scenario (embeded in the sipp executable)", SIPP_OPTION_SCENARIO, NULL, 0},
 	{"sf", "Loads an alternate xml scenario file.  To learn more about XML scenario syntax, use the -sd option to dump embedded scenarios. They contain all the necessary help.", SIPP_OPTION_SCENARIO, NULL, 2},
@@ -3672,16 +3674,26 @@ int main(int argc, char *argv[])
 	  CHECK_PASS();
 	  *((int *)option->data) = get_long(argv[argi], argv[argi-1]);
 	  break;
+        case SIPP_OPTION_LONG:
+          REQUIRE_ARG();
+          CHECK_PASS();
+          *((long *)option->data) = get_long(argv[argi], argv[argi-1]);
+          break; 
 	case SIPP_OPTION_TIME_SEC:
 	  REQUIRE_ARG();
 	  CHECK_PASS();
-	  *((int *)option->data) = get_time(argv[argi], argv[argi-1], 1000);
+	  *((long *)option->data) = get_time(argv[argi], argv[argi-1], 1000);
 	  break;
 	case SIPP_OPTION_TIME_MS:
 	  REQUIRE_ARG();
 	  CHECK_PASS();
 	  *((int *)option->data) = get_time(argv[argi], argv[argi-1], 1);
 	  break;
+        case SIPP_OPTION_TIME_MS_LONG:
+          REQUIRE_ARG();
+          CHECK_PASS();
+          *((long *)option->data) = get_time(argv[argi], argv[argi-1], 1);
+          break;
 	case SIPP_OPTION_BOOL:
 	  REQUIRE_ARG();
 	  CHECK_PASS();
