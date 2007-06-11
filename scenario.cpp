@@ -641,7 +641,6 @@ void load_scenario(char * filename, int deflt)
 	if((msg[strlen(msg) - 1] != '\n') && (removed_clrf)) {
 	  strcat(msg, "\n");
 	}
-
 	scenario[scenario_len] -> send_scheme = new SendingMessage(msg);
 	free(msg);
 
@@ -845,7 +844,7 @@ void load_scenario(char * filename, int deflt)
         }
 
         if(ptr = xp_get_cdata()) {
-        
+          
           char * msg;
         
           while((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) ptr++;
@@ -867,7 +866,10 @@ void load_scenario(char * filename, int deflt)
                  (*ptr == '\n'))) {
             *ptr-- = 0;
           }
-        
+                
+          if(!strstr(msg, "\n\n")) {
+             strcat(msg, "\n\n");
+            }
           if(ptr != msg) {
       
             while(ptr = strstr(msg, "\n ")) {
