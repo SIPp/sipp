@@ -2637,6 +2637,7 @@ void pollset_process()
 	  }
 
 	  struct sipp_socket *localSocket = sipp_accept_socket(sock);
+     localSocket->ss_control = 1;
 	  local_sockets[local_nb] = localSocket;
 	  local_nb++;
 	  if(!peers_connected){
