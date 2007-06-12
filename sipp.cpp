@@ -1715,71 +1715,6 @@ void free_socketbuf(struct socketbuf *socketbuf) {
   free(socketbuf);
 }
 
-void tcp_recv_error(int error, int trace_id, struct sipp_socket *sock) {
-  /* We are assuming end of connection, but in fact we could just be closed.
-   * What should we really do? */
-  if (error != 0) {
-      nb_net_recv_errors++;
-      WARNING_P2("TCP %d Recv error : sock = %p", trace_id, sock);
-      WARNING_NO("TCP Recv error");
-      return;
-  }
-
-  /* 3pcc extended mode */
-  if (extendedTwinSippMode) {
-     if(localTwinSippSocket){
-	sipp_close_socket(localTwinSippSocket);
-	localTwinSippSocket = NULL;
-     }
-     close_peer_sockets();
-     close_local_sockets();
-     free_peer_addr_map();
-     WARNING("One of the twin instances has ended -> exiting"); 
-     quitting += 20;
-     return;
-   }
-  
-  if (toolMode == MODE_3PCC_CONTROLLER_B) {
-    /* In 3PCC controller B mode, twin socket is closed at peer closing.
-     * This is a normal case: 3PCC controller B should end now */
-    if (localTwinSippSocket) {
-	sipp_close_socket(localTwinSippSocket);
-	localTwinSippSocket = NULL;
-    }
-    if (twinSippSocket){
-	sipp_close_socket(twinSippSocket);
-	twinSippSocket = NULL;
-    }
-    WARNING("3PCC controller A has ended -> exiting");
-    quitting += 20;
-    return;
-  } else
-  /* This is normal for a server to have its client close the connection */
-  if (toolMode == MODE_SERVER) {
-	WARNING("Client must have closed the connection!\n");
-	return;
-  }
-
-  WARNING_P2("TCP %d Recv error : sock = %p, "
-      "remote host closed connection",
-      trace_id, sock);
-
-#ifdef __3PCC__
-  if(sock == twinSippSocket || sock == localTwinSippSocket ) { 
-    quitting = 1;
-    if(twinSippSocket) {
-      sipp_close_socket(twinSippSocket);
-      twinSippSocket = NULL ;
-    }
-    if(localTwinSippSocket) {
-      sipp_close_socket(localTwinSippSocket);
-      localTwinSippSocket = NULL ;
-    }
-  }
-#endif
-  nb_net_recv_errors++;
-}
-
 size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
 {
   if(compression && len) {
@@ -2025,9 +1960,28 @@ static int read_error(struct sipp_socket *socket, int ret) {
   if (socket->ss_transport == T_TCP || socket->ss_transport == T_TLS) {
     if (ret == 0) {
       /* The remote side closed the connection. */
-      sipp_socket_invalidate(socket);
-      if (reset_close) {
-	close_calls(socket);
+      if(socket->ss_control) {
+        if(localTwinSippSocket) sipp_close_socket(localTwinSippSocket);
+        if (extendedTwinSippMode) {
+          close_peer_sockets();
+          close_local_sockets();
+          free_peer_addr_map();
+          WARNING("One of the twin instances has ended -> exiting");
+          quitting += 20;
+          }else if(twinSippMode) {
+           if(twinSippSocket) sipp_close_socket(twinSippSocket);
+           if(toolMode == MODE_3PCC_CONTROLLER_B) {
+             WARNING("3PCC controller A has ended -> exiting");
+             quitting += 20;
+           }else {
+             quitting = 1;
+           }
+        }
+      }else {
+        sipp_socket_invalidate(socket);
+        if (reset_close) {
+ 	      close_calls(socket);
+        }
       }
       return 0;
     }
@@ -2446,7 +2400,6 @@ static ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len) {
 
   /* Update our buffer and return value. */
   buf[avail] = '\0';
-
   /* For CMD Message the escape char is the end of message */ 
   if((socket->ss_control) && buf[avail-1] == 27 ) buf[avail-1] = '\0';
      
