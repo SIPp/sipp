@@ -480,6 +480,13 @@ void validate_rtds() {
   }
 }
 
+void init_rtds()
+{
+  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+    rtd_started[i] = rtd_stopped[i] = false;
+  }
+}
+
 /********************** Scenario File analyser **********************/
 
 void load_scenario(char * filename, int deflt)
@@ -503,7 +510,8 @@ void load_scenario(char * filename, int deflt)
       ERROR("Unable to load default xml scenario file");
     }
   }
-  
+
+  init_rtds();  
   elem = xp_open_element(0);
   if (!elem) {
     ERROR("No element in xml scenario file");

@@ -536,6 +536,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
   if (noncelen<RANDLEN+AUTNLEN) {
     sprintf(result,"createAuthHeaderAKAv1MD5 : Nonce is too short %d < %d expected \n",
     noncelen,RANDLEN+AUTNLEN);
+    if(nonce) free(nonce);
     return 0;
   }
   memcpy(rnd,nonce,RANDLEN);
@@ -590,7 +591,8 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
 
     sprintf(result, "%s,auts=\"%s\"",result,auts_hex);
   }
-
+  free(nonce);
   return 1;
 }
+
 

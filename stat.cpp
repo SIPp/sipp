@@ -86,7 +86,7 @@
   fprintf(f,"    %14.14s n >= %8d ms : %10d  %-29.29s \r\n", "", T1, V1, "")
 
 #define RESET_COUNTERS(PT)\
-  memset (PT, 0, CStat::E_NB_COUNTER * sizeof(unsigned long))
+  memset (PT, 0, CStat::E_NB_COUNTER * sizeof(unsigned long long))
 
 #define RESET_PD_COUNTERS(PT)                          \
 {                                                      \
@@ -1457,7 +1457,7 @@ void CStat::dumpDataRtt ()
     M_headerAlreadyDisplayedRtt = true;
   }
 
-  for (unsigned L_i = 0; L_i < M_counterDumpRespTime ; L_i ++) {
+  for (unsigned int L_i = 0; L_i < M_counterDumpRespTime ; L_i ++) {
     (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].date   << stat_delimiter ;
     (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtt    << stat_delimiter ;
     (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtd_no << endl;
@@ -1823,4 +1823,5 @@ double CNegBin::cdfInv(double percentile) {
   return 0;
 }
 #endif
+
 
