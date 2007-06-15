@@ -121,6 +121,7 @@
 #define DISPLAY_SECONDARY_REPARTITION_SCREEN 6
 
 #define MAX_RECV_LOOPS_PER_CYCLE   1000
+#define MAX_SCHED_LOOPS_PER_CYCLE  1000
 #define NB_UPDATE_PER_CYCLE        1
 
 #define MAX_PATH                   250
@@ -190,6 +191,7 @@ extern unsigned int       max_multi_socket        _DEFVAL
 
 extern unsigned int       timer_resolution        _DEFVAL(DEFAULT_TIMER_RESOLUTION);
 extern int                max_recv_loops          _DEFVAL(MAX_RECV_LOOPS_PER_CYCLE);
+extern int                max_sched_loops         _DEFVAL(MAX_SCHED_LOOPS_PER_CYCLE);
  
 extern char               local_ip[40];
 extern char               local_ip_escaped[42];

@@ -143,6 +143,7 @@ struct sipp_option options_table[] = {
 	{"mi", "Set the local media IP address", SIPP_OPTION_IP, media_ip, 1},
         {"master","3pcc extended mode: indicates the master number", SIPP_OPTION_3PCC_EXTENDED, &master_name, 1},
 	{"max_recv_loops", "Set the maximum number of messages received read per cycle. Increase this value for high traffic level.  The default value is 1000.", SIPP_OPTION_INT, &max_recv_loops, 1},
+	{"max_sched_loops", "Set the maximum number of calsl run per event loop. Increase this value for high traffic level.  The default value is 1000.", SIPP_OPTION_INT, &max_sched_loops, 1},
 	{"max_reconnect", "Set the the maximum number of reconnection.", SIPP_OPTION_INT, &reset_number, 1},
 	{"max_retrans", "Maximum number of UDP retransmissions before call ends on timeout.  Default is 5 for INVITE transactions and 7 for others.", SIPP_OPTION_INT, &max_udp_retrans, 1},
 	{"max_invite_retrans", "Maximum number of UDP retransmissions for invite transactions before call ends on timeout.", SIPP_OPTION_INT, &max_invite_retrans, 1},
@@ -735,6 +736,7 @@ void print_stats_in_file(FILE * f, int last)
          open_calls_peak_time);
   fprintf(f,"  %d Running, %d Paused, %d Woken up" SIPP_ENDL,
 	 last_running_calls, last_paused_calls, last_woken_calls);
+  last_woken_calls = 0;
 
   /* 3rd line (optional) */
   if( toolMode != MODE_SERVER) { 
@@ -877,9 +879,10 @@ void print_stats_in_file(FILE * f, int last)
                scenario[index]->nb_timeout,
                scenario[index]->nb_unexp);
       } else {
-        fprintf(f,"%-9ld %-9ld           %-9ld" ,
+        fprintf(f,"%-9ld %-9ld %-9ld %-9ld" ,
                scenario[index] -> nb_recv,
                scenario[index] -> nb_recv_retrans,
+               scenario[index] -> nb_timeout,
                scenario[index] -> nb_unexp);
       }
     } else if (scenario[index] -> pause_distribution ||
@@ -2761,6 +2764,7 @@ void traffic_thread()
 #endif
           )
         {
+	  int first_open_tick = clock_tick;
           while((calls_to_open--) && 
                 (!open_calls_allowed || open_calls < open_calls_allowed) &&
                 (total_calls < stop_after)) 
@@ -2801,7 +2805,7 @@ void traffic_thread()
 
 	      new_time = getmilliseconds();
 	      /* Never spend more than half of our time processing new call requests. */
-	      if (new_time > (clock_tick + (timer_resolution < 2 ? 1 : (timer_resolution / 2)))) {
+	      if (new_time > (first_open_tick + (timer_resolution < 2 ? 1 : (timer_resolution / 2)))) {
 		break;
 	      }
             }
@@ -2815,8 +2819,6 @@ void traffic_thread()
         if(total_calls >= stop_after) {
           quitting = 1;
         }
-      
-      
     } else if (quitting) {
       if (quitting > 11) {
         /* Force exit: abort all calls */
@@ -2846,51 +2848,53 @@ void traffic_thread()
       }
     }
 
-    if(compression) {
-      timer_resolution = 50;
-    }
-
     new_time = getmilliseconds();
     clock_tick = new_time;
     last_time = new_time;
 
     /* Schedule all pending calls and process their timers */
+    call_list *running_calls;
     if((clock_tick - last_timer_cycle) > timer_resolution) {
-      call_list *running_calls;
-      call_list::iterator iter;
 
       /* Just for the count. */
       running_calls = get_running_calls();
       last_running_calls = running_calls->size();
 
       /* If we have expired paused calls, move them to the run queue. */
-      last_woken_calls = expire_paused_calls();
+      last_woken_calls += expire_paused_calls();
 
-      /* Now we process calls that are on the run queue. */
-      running_calls = get_running_calls();
       last_paused_calls = paused_calls_count();
 
-      /* Workaround hpux problem with iterators. Deleting the
-       * current object when iterating breaks the iterator and
-       * leads to iterate again on the destroyed (deleted)
-       * object. Thus, we have to wait ont step befere actual
-       * deletion of the object*/
-      call * last = NULL;
-
-
-      for(iter = running_calls->begin(); iter != running_calls->end(); iter++) {
-        if(last) { last -> run(); }
-        last = *iter;
-      }
-      if(last) { last -> run(); }
-
       last_timer_cycle = clock_tick;
-
-      new_time = getmilliseconds();
-      clock_tick = new_time ;
-      last_time = new_time;
-
     }
+
+    /* We should never get so busy with running calls that we can't process some messages. */
+    int loops = max_sched_loops;
+
+    /* Now we process calls that are on the run queue. */
+    running_calls = get_running_calls();
+
+    /* Workaround hpux problem with iterators. Deleting the
+     * current object when iterating breaks the iterator and
+     * leads to iterate again on the destroyed (deleted)
+     * object. Thus, we have to wait ont step befere actual
+     * deletion of the object*/
+    call * last = NULL;
+
+    call_list::iterator iter;
+    for(iter = running_calls->begin(); iter != running_calls->end(); iter++) {
+      if(last) { last -> run(); }
+      last = *iter;
+      if (--loops <= 0) {
+	break;
+      }
+    }
+    if(last) { last -> run(); }
+
+    /* Update the clock. */
+    new_time = getmilliseconds();
+    clock_tick = new_time ;
+    last_time = new_time;
 
     /* Receive incoming messages */
     pollset_process();
