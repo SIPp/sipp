@@ -34,11 +34,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
-#ifdef __3PCC__
 #include <unistd.h>
-extern struct sipp_socket *twinSippSocket;
-extern struct sipp_socket *localTwinSippSocket;
-#endif // __3PCC__ //
 
 extern bool    timeout_exit;
 
@@ -106,17 +102,6 @@ void screen_exit(int rc)
     fflush(stderr);
   }
 
-#ifdef __3PCC__
-  if(twinSippSocket) {
-    sipp_close_socket(twinSippSocket);
-  }
-
-  if(localTwinSippSocket) {
-    sipp_close_socket(localTwinSippSocket);
-  }
-
-#endif //__3PCC__
- 
   // Get failed calls counter value before releasing objects
   counter_value_failed = CStat::instance()->GetStat (CStat::CPT_C_FailedCall);
   counter_value_success = CStat::instance()->GetStat (CStat::CPT_C_SuccessfulCall);
