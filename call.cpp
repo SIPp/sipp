@@ -1664,48 +1664,59 @@ bool call::run()
 
 bool call::process_unexpected(char * msg)
 {
+  char buffer[MAX_HEADER_LEN];
+  char *desc = buffer;
+
   scenario[msg_index] -> nb_unexp++;
-  
-  if (scenario[msg_index] -> recv_request) {
-    if (default_behavior) {
-      WARNING_P3("Aborting call on unexpected message for Call-ID '%s': while expecting '%s', received '%s' ",
-                id, scenario[msg_index] -> recv_request, msg);
+
+  if (default_behavior) {
+	desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "Aborting ");
   } else {
-      WARNING_P3("Continuing call on unexpected message for Call-ID '%s': while expecting '%s', received '%s' ",
-                  id, scenario[msg_index] -> recv_request, msg);
-    }
-  } else {
-    if (default_behavior) {
-      WARNING_P3("Aborting call on unexpected message for Call-ID '%s': while expecting '%d' response, received '%s' ", 
-                  id, scenario[msg_index] -> recv_response, msg);
+	desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "Continuing ");
+  }
+  desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "call on unexpected message for Call-Id '%s': ", id);
+
+  if (scenario[msg_index] -> M_type == MSG_TYPE_RECV) {
+    if (scenario[msg_index] -> recv_request) {
+      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting '%s' ", scenario[msg_index] -> recv_request);
     } else {
-      WARNING_P3("Continuing call on unexpected message for Call-ID '%s': while expecting '%d' response, received '%s' ", 
-                id, scenario[msg_index] -> recv_response, msg);
+      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting '%d' ", scenario[msg_index] -> recv_response);
+    }
+  } else if (scenario[msg_index] -> M_type == MSG_TYPE_SEND) {
+      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while sending ");
+  } else if (scenario[msg_index] -> M_type == MSG_TYPE_PAUSE) {
+      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while pausing ");
+  } else if (scenario[msg_index] -> M_type == MSG_TYPE_SENDCMD) {
+      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while sending command ");
+  } else if (scenario[msg_index] -> M_type == MSG_TYPE_RECVCMD) {
+      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting command ");
+  } else {
+      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while in message type %d ", scenario[msg_index]->M_type);
   }
-  }
-  
+  desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "(index %d)", msg_index);
+
+  WARNING_P2("%s, received '%s'", buffer, msg);
+
   TRACE_MSG((s, "-----------------------------------------------\n"
              "Unexpected %s message received:\n\n%s\n",
              TRANSPORT_TO_STRING(transport),
              msg));
-  
-  if (default_behavior) {
-#ifdef __3PCC__
-  // if twin socket call => reset the other part here 
-  if (twinSippSocket && (msg_index > 0)) {
-    //WARNING_P2("call-ID '%s', internal-cmd: abort_call %s",id, "");
-    sendCmdBuffer
-      (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n", -1));
-  }
-#endif /* __3PCC__ */
 
-  // usage of last_ keywords => for call aborting
-  last_recv_msg = (char *) realloc(last_recv_msg, strlen(msg) + 1);
-  strcpy(last_recv_msg, msg);
+  if (default_behavior) {
+    // if twin socket call => reset the other part here 
+    if (twinSippSocket && (msg_index > 0)) {
+      //WARNING_P2("call-ID '%s', internal-cmd: abort_call %s",id, "");
+      sendCmdBuffer
+	(createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n", -1));
+    }
+
+    // usage of last_ keywords => for call aborting
+    last_recv_msg = (char *) realloc(last_recv_msg, strlen(msg) + 1);
+    strcpy(last_recv_msg, msg);
 
     CStat::instance()->computeStat(CStat::E_CALL_FAILED);
     CStat::instance()->computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
-  return (abortCall());
+    return (abortCall());
   } else {
     // Do not abort call nor send anything in reply if default behavior is disabled
     return false;
