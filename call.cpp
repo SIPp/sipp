@@ -2596,8 +2596,8 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
   int        result;
           
   if ((reply_code) && ((scenario[index] -> recv_response) == reply_code) && \
-     (scenario[index]->recv_response_for_cseq_method_list) && \
-     (strstr(scenario[index]->recv_response_for_cseq_method_list, responsecseqmethod))) {
+     (index == 0 || ((scenario[index]->recv_response_for_cseq_method_list) && \
+     (strstr(scenario[index]->recv_response_for_cseq_method_list, responsecseqmethod))))) {
         return true;
   }   
     
