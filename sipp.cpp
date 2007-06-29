@@ -4084,7 +4084,6 @@ int main(int argc, char *argv[])
   /* In which mode the tool is launched ? */
   computeSippMode();
 
-  printf("OBO pid %d\n", getpid());
   /* checking if we need to launch the tool in background mode */ 
   if(backgroundMode == true)
     {
