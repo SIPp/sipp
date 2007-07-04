@@ -86,9 +86,10 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
     char   current_line[MAX_HEADER_LEN];
     char * line_mark = NULL;
     char * tsrc;
-
-    dest = literal = (char *)malloc(strlen(src));;
-
+    int    num_cr = get_cr_number(src);
+    
+    dest = literal = (char *)malloc(strlen(src) + num_cr);
+ 
     current_line[0] = '\0';
     *dest = 0;
 
@@ -134,7 +135,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	newcomp->literal = literal;
 	messageComponents.push_back(newcomp);
 
-	dest = literal = (char *)malloc(strlen(src));
+  dest = literal = (char *)malloc(strlen(src) + num_cr);
 	*dest = '\0';
 
 	/* Now lets determine which keyword we have. */

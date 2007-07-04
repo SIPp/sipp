@@ -199,4 +199,6 @@ double get_double(const char *ptr, const char *what);
 bool get_bool(const char *ptr, const char *what);
 int time_string(double ms, char *res, int reslen);
 
+extern int get_cr_number(char *msg);
+
 #endif

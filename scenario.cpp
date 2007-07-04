@@ -487,6 +487,17 @@ void init_rtds()
   }
 }
 
+int get_cr_number(char *src)
+{
+  int res=0;
+  char *ptr = src;
+  while(*ptr) {
+    if(*ptr == '\n') res++;
+    *ptr++;
+  }
+  return res;
+}
+
 /********************** Scenario File analyser **********************/
 
 void load_scenario(char * filename, int deflt)
