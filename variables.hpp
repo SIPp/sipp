@@ -38,6 +38,7 @@ enum T_VarType
   E_VT_REGEXP = 0,
   E_VT_DOUBLE,
   E_VT_BOOL,
+  E_VT_STRING,
   E_VT_UNDEFINED
 };
 
@@ -48,11 +49,18 @@ public:
   bool isDouble();
   bool isBool();
   bool isRegExp();
+  bool isString();
 
   // WARNING : setMatchingValue does't allocate the memory for the matching value
   // but the destructor free the memory
   void setMatchingValue(char* P_matchingValue);
   char* getMatchingValue();
+
+  /* When the variable is used for a string, these functions should be called. */
+  // WARNING : setString does't allocate the memory for the matching value
+  // but the destructor free the memory
+  void setString(char *s);
+  char *getString();
 
   /* When the variable is used for a double, these functions should be called. */
   void setDouble(double val);
@@ -61,6 +69,9 @@ public:
   /* When the variable is used for a bool, these functions should be called. */
   void setBool(bool val);
   bool getBool();
+
+  /* Cast this to a double variable, return the result in newValue. */
+  bool toDouble(double *newValue);
 
   // constructor and destructor
   CCallVariable();
@@ -71,6 +82,7 @@ private:
   char*		M_matchingValue;
   int		M_nbOfMatchingValue;
   double	M_double;
+  char*		M_stringValue;
   bool		M_bool;
 };
 

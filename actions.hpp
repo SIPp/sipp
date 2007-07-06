@@ -40,14 +40,16 @@ class CAction
       E_AT_CHECK,
       E_AT_ASSIGN_FROM_VALUE,
       E_AT_ASSIGN_FROM_SAMPLE,
+      E_AT_ASSIGN_FROM_STRING,
       E_AT_LOG_TO_FILE,
-      E_AT_LOG_VARS_TO_FILE,
       E_AT_EXECUTE_CMD,
       E_AT_EXEC_INTCMD,
       E_AT_VAR_ADD,
+      E_AT_VAR_SUBTRACT,
       E_AT_VAR_MULTIPLY,
       E_AT_VAR_DIVIDE,
       E_AT_VAR_TEST,
+      E_AT_VAR_TO_DOUBLE,
 #ifdef PCAPPLAY
       E_AT_PLAY_PCAP_AUDIO,
       E_AT_PLAY_PCAP_VIDEO,
@@ -108,7 +110,6 @@ class CAction
 #endif
 
     void setActionType   (T_ActionType   P_value);
-    void setVarType      (T_VarType      P_value);
     void setLookingPlace (T_LookingPlace P_value);
     void setComparator   (T_Comparator   P_value);
     void setCheckIt      (bool           P_value);
@@ -142,7 +143,6 @@ class CAction
 
   private:
       T_ActionType   M_action;
-      T_VarType      M_varType;
       T_LookingPlace M_lookingPlace;
       T_Comparator   M_comp;
       bool           M_checkIt;

@@ -118,6 +118,8 @@ void CAction::afficheInfo()
       printf("Type[%d] - sample varId[%d] %s", M_action, M_varId, tmp);
   } else if (M_action == E_AT_ASSIGN_FROM_VALUE) {
       printf("Type[%d] - assign varId[%d] %lf", M_action, M_varId, M_doubleValue);
+  } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
+      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, M_varId, M_message);
   } else if (M_action == E_AT_VAR_ADD) {
       printf("Type[%d] - add varId[%d] %lf", M_action, M_varId, M_doubleValue);
   } else if (M_action == E_AT_VAR_MULTIPLY) {
@@ -126,6 +128,8 @@ void CAction::afficheInfo()
       printf("Type[%d] - divide varId[%d] %lf", M_action, M_varId, M_doubleValue);
   } else if (M_action == E_AT_VAR_TEST) {
       printf("Type[%d] - divide varId[%d] varInId[%d] %s %lf", M_action, M_varId, M_varInId, comparatorToString(M_comp), M_doubleValue);
+  } else if (M_action == E_AT_VAR_TO_DOUBLE) {
+      printf("Type[%d] - toDouble varId[%d]", M_action, M_varId);
 #ifdef PCAPPLAY
   } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
       printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
@@ -135,7 +139,6 @@ void CAction::afficheInfo()
 
 
 CAction::T_ActionType   CAction::getActionType()   { return(M_action);       }
-T_VarType		CAction::getVarType()      { return(M_varType);      }
 CAction::T_LookingPlace CAction::getLookingPlace() { return(M_lookingPlace); }
 CAction::T_IntCmdType   CAction::getIntCmd ()      { return(M_IntCmd);       }
 CAction::T_Comparator   CAction::getComparator ()  { return(M_comp);	     }
@@ -145,7 +148,7 @@ bool           CAction::getCaseIndep()    { return(M_caseIndep);    }
 bool           CAction::getHeadersOnly()  { return(M_headersOnly);  }
 int            CAction::getOccurence()    { return(M_occurence);    }
 int            CAction::getVarId()        { return(M_varId);        }
-int            CAction::getVarInId()      { return(M_varId);        }
+int            CAction::getVarInId()      { return(M_varInId);      }
 char*          CAction::getLookingChar()  { return(M_lookingChar);  }
 char*          CAction::getMessage()      { return(M_message);      }
 char*          CAction::getCmdLine()      { return(M_cmdLine);      }
@@ -157,8 +160,6 @@ pcap_pkts  *   CAction::getPcapPkts()     { return(M_pcapArgs);     }
 
 void CAction::setActionType   (CAction::T_ActionType   P_value) 
 { M_action       = P_value; }  
-void CAction::setVarType      (T_VarType               P_value)
-{ M_varType      = P_value; }  
 void CAction::setLookingPlace (CAction::T_LookingPlace P_value) 
 { M_lookingPlace = P_value; }
 void CAction::setCheckIt      (bool           P_value) 
@@ -305,9 +306,9 @@ void CAction::setAction(CAction P_action)
   }
   int L_i;
   setActionType   ( P_action.getActionType()   );
-  setVarType      ( P_action.getVarType()      );
   setLookingPlace ( P_action.getLookingPlace() );
   setVarId        ( P_action.getVarId()        );
+  setVarInId      ( P_action.getVarInId()      );
   setDoubleValue  ( P_action.getDoubleValue()  );
   setDistribution ( P_action.getDistribution() );
 
@@ -333,12 +334,12 @@ CAction::CAction()
 {
   M_action       = E_AT_NO_ACTION;
   M_varId        = 0;
+  M_varInId        = 0;
 
   M_nbSubVarId    = 0;
   M_maxNbSubVarId = 0;
   M_subVarId      = NULL;
 
-  M_varType      = E_VT_UNDEFINED;
   M_checkIt      = false;
   M_lookingPlace = E_LP_MSG;
   M_lookingChar  = NULL;

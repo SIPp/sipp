@@ -1172,6 +1172,23 @@ void computeSippMode()
             "client, 3PCC controller A, 3PCC controller B).\n");
 }
 
+void handle_arithmetic(CAction *tmpAction, char *what) {
+  tmpAction->setVarId(xp_get_var("assign_to", what));
+  if (xp_get_value("value")) {
+    tmpAction->setDoubleValue(xp_get_double("value", what));
+    if (xp_get_value("variable")) {
+      ERROR_P1("Value and variable are mutually exclusive for %s action!", what);
+    }
+  } else if (xp_get_value("variable")) {
+    tmpAction->setVarInId(xp_get_var("variable", what));
+    if (xp_get_value("value")) {
+      ERROR_P1("Value and variable are mutually exclusive for %s action!", what);
+    }
+  } else {
+    ERROR_P1("No value or variable defined for %s action!", what);
+  }
+}
+
 // Action list for the message indexed by message_index in 
 // the scenario
 void getActionForThisMessage()
@@ -1217,7 +1234,6 @@ void getActionForThisMessage()
       xp_replace(buffer, currentRegExp, "&gt;", ">");
       if(buffer != NULL)
 	delete[] buffer;
-      tmpAction->setVarType(E_VT_REGEXP);
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_REGEXP);
 
       // warning - although these are detected for both msg and hdr
@@ -1324,45 +1340,44 @@ void getActionForThisMessage()
 	tmpAction->setActionType(CAction::E_AT_LOG_TO_FILE);
 	tmpAction->setMessage(ptr);
       }
-    } /* end !strcmp(actionElem, "log") */ else if(!strcmp(actionElem, "logvars")) {
-      tmpAction->setActionType(CAction::E_AT_LOG_VARS_TO_FILE);
     } else if(!strcmp(actionElem, "assign")) {
-      tmpAction->setVarType(E_VT_DOUBLE);
       tmpAction->setVarId(xp_get_var("assign_to", "assign"));
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_VALUE);
       tmpAction->setDoubleValue(xp_get_double("value", "assign"));
+    } else if(!strcmp(actionElem, "assignstr")) {
+      tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_STRING);
+      tmpAction->setVarId(xp_get_var("assign_to", "assignstr"));
+      if(ptr = xp_get_value((char *)"value")) {
+	tmpAction->setMessage(ptr);
+      } else {
+	ERROR("assignstr action without a value!\n");
+      }
     } else if(!strcmp(actionElem, "add")) {
-      tmpAction->setVarType(E_VT_DOUBLE);
-      tmpAction->setVarId(xp_get_var("assign_to", "add"));
       tmpAction->setActionType(CAction::E_AT_VAR_ADD);
-      tmpAction->setDoubleValue(xp_get_double("value", "add"));
+      handle_arithmetic(tmpAction, "add");
     } else if(!strcmp(actionElem, "subtract")) {
-      tmpAction->setVarType(E_VT_DOUBLE);
-      tmpAction->setVarId(xp_get_var("assign_to", "add"));
-      tmpAction->setActionType(CAction::E_AT_VAR_ADD);
-      tmpAction->setDoubleValue(-1.0 * xp_get_double("value", "subtract"));
+      tmpAction->setActionType(CAction::E_AT_VAR_SUBTRACT);
+      handle_arithmetic(tmpAction, "subtract");
     } else if(!strcmp(actionElem, "multiply")) {
-      tmpAction->setVarType(E_VT_DOUBLE);
-      tmpAction->setVarId(xp_get_var("assign_to", "multiply"));
       tmpAction->setActionType(CAction::E_AT_VAR_MULTIPLY);
-      tmpAction->setDoubleValue(xp_get_double("value", "multiply"));
+      handle_arithmetic(tmpAction, "multiply");
     } else if(!strcmp(actionElem, "divide")) {
-      /* If we change this to support dividing by variables, we need to be
-       * careful about divide-by-zero cases. */
-      tmpAction->setVarType(E_VT_DOUBLE);
-      tmpAction->setVarId(xp_get_var("assign_to", "divide"));
       tmpAction->setActionType(CAction::E_AT_VAR_DIVIDE);
-      tmpAction->setDoubleValue(xp_get_double("value", "divide"));
-      if (tmpAction->getDoubleValue() == 0.0) {
-	ERROR("divide actions can not have a value of zero!");
+      handle_arithmetic(tmpAction, "divide");
+      if (tmpAction->getVarInId() == 0) {
+	if (tmpAction->getDoubleValue() == 0.0) {
+	  ERROR("divide actions can not have a value of zero!");
+	}
       }
     } else if(!strcmp(actionElem, "sample")) {
-      tmpAction->setVarType(E_VT_DOUBLE);
       tmpAction->setVarId(xp_get_var("assign_to", "sample"));
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_SAMPLE);
       tmpAction->setDistribution(parse_distribution());
+    } else if(!strcmp(actionElem, "todouble")) {
+      tmpAction->setActionType(CAction::E_AT_VAR_TO_DOUBLE);
+      tmpAction->setVarId(xp_get_var("assign_to", "todouble"));
+      tmpAction->setVarInId(xp_get_var("variable", "todouble"));
     } else if(!strcmp(actionElem, "test")) {
-      tmpAction->setVarType(E_VT_BOOL);
       tmpAction->setVarId(xp_get_var("assign_to", "test"));
       tmpAction->setVarInId(xp_get_var("variable", "test"));
       tmpAction->setDoubleValue(xp_get_double("value", "test"));

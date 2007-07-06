@@ -58,6 +58,11 @@ bool CCallVariable::isRegExp()
   return (M_type == E_VT_REGEXP);
 }
 
+bool CCallVariable::isString()
+{
+  return (M_type == E_VT_STRING);
+}
+
 // WARNING : setMatchingValue does't allocate the memory for the matching value
 // but the destructor free the memory
 void CCallVariable::setMatchingValue(char* P_matchingVal)
@@ -92,6 +97,56 @@ double CCallVariable::getDouble()
   return(M_double);
 }
 
+void CCallVariable::setString(char *P_val)
+{
+  M_type = E_VT_STRING;
+  if(M_stringValue != NULL) {
+    delete [] M_stringValue;
+  }
+  M_stringValue     = P_val;
+}
+
+char *CCallVariable::getString()
+{
+  if (M_type != E_VT_STRING) {
+    return "";
+  }
+  return(M_stringValue);
+}
+
+/* Convert this variable to a double. Returns true on success, false on failure. */
+bool CCallVariable::toDouble(double *newValue)
+{
+  char *p;
+
+  switch(M_type) {
+  case E_VT_REGEXP:
+    if(M_nbOfMatchingValue < 1) {
+      return false;
+    }
+    *newValue = strtod(M_matchingValue, &p);
+    if (*p) {
+      return false;
+    }
+    break;
+  case E_VT_STRING:
+    *newValue = strtod(M_stringValue, &p);
+    if (*p) {
+      return false;
+    }
+    break;
+  case E_VT_DOUBLE:
+    *newValue = getDouble();
+    break;
+  case E_VT_BOOL:
+    *newValue = (double)getBool();
+    break;
+  default:
+    return false;
+  }
+  return true;
+}
+
 void CCallVariable::setBool(bool val)
 {
   M_type = E_VT_BOOL;
@@ -110,6 +165,7 @@ bool CCallVariable::getBool()
 CCallVariable::CCallVariable()
 {
   M_matchingValue     = NULL;
+  M_stringValue     = NULL;
   M_nbOfMatchingValue = 0;
   M_type = E_VT_UNDEFINED;
 }
@@ -120,7 +176,9 @@ CCallVariable::~CCallVariable()
     delete [] M_matchingValue;
   }
   M_matchingValue = NULL;
-  M_nbOfMatchingValue = 0;
+  if(M_stringValue != NULL) {
+    delete [] M_stringValue;
+  }
 }
 
 /*

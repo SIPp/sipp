@@ -2104,7 +2104,13 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
 		 dest += sprintf(dest, "%s", M_callVariableTable[varId]->getMatchingValue());
 	       } else if (M_callVariableTable[varId]->isDouble()) {
 		 dest += sprintf(dest, "%lf", M_callVariableTable[varId]->getDouble());
+	       } else if (M_callVariableTable[varId]->isString()) {
+		 dest += sprintf(dest, "%s", M_callVariableTable[varId]->getString());
+	       } else if (M_callVariableTable[varId]->isBool()) {
+		 dest += sprintf(dest, "true");
 	       }
+	     } else if (M_callVariableTable[varId]->isBool()) {
+	       dest += sprintf(dest, "false");
 	     }
 	   }
 	 }
@@ -3019,6 +3025,14 @@ bool call::process_incoming(char * msg)
   return true;
 }
 
+double call::get_rhs(CAction *currentAction) {
+  if (currentAction->getVarInId()) {
+    return M_callVariableTable[currentAction->getVarInId()]->getDouble();
+  } else {
+    return currentAction->getDoubleValue();
+  }
+}
+
 call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 {
   CActions*  actions;
@@ -3103,22 +3117,45 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	      M_callVariableTable[currentAction->getVarId()]->setDouble(currentAction->getDoubleValue());
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_ADD) {
 	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
-	  value += currentAction->getDoubleValue();
-	  M_callVariableTable[currentAction->getVarId()]->setDouble(value);
+	  double operand = get_rhs(currentAction);
+	  M_callVariableTable[currentAction->getVarId()]->setDouble(value + operand);
+        } else if (currentAction->getActionType() == CAction::E_AT_VAR_SUBTRACT) {
+	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
+	  double operand = get_rhs(currentAction);
+	  M_callVariableTable[currentAction->getVarId()]->setDouble(value - operand);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_MULTIPLY) {
 	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
-	  value *= currentAction->getDoubleValue();
-	  M_callVariableTable[currentAction->getVarId()]->setDouble(value);
+	  double operand = get_rhs(currentAction);
+	  M_callVariableTable[currentAction->getVarId()]->setDouble(value * operand);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_DIVIDE) {
 	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
-	  value /= currentAction->getDoubleValue();
-	  M_callVariableTable[currentAction->getVarId()]->setDouble(value);
+	  double operand = get_rhs(currentAction);
+	  if (operand == 0) {
+	    WARNING_P2("Action failure: Can not divide by zero ($%d/$%d)!\n", currentAction->getVarId(), currentAction->getVarInId());
+	  } else {
+	    M_callVariableTable[currentAction->getVarId()]->setDouble(value / operand);
+	  }
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TEST) {
 	  double value = currentAction->compare(M_callVariableTable);
 	  M_callVariableTable[currentAction->getVarId()]->setBool(value);
+        } else if (currentAction->getActionType() == CAction::E_AT_VAR_TO_DOUBLE) {
+	  double value;
+
+	  if (M_callVariableTable[currentAction->getVarInId()]->toDouble(&value)) {
+	    M_callVariableTable[currentAction->getVarId()]->setDouble(value);
+	  } else {
+	    WARNING_P2("Invalid double conversion from $%d to $%d", currentAction->getVarInId(), currentAction->getVarId());
+	  }
 	} else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
 	  double value = currentAction->getDistribution()->sample();
 	  M_callVariableTable[currentAction->getVarId()]->setDouble(value);
+	} else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_STRING) {
+            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/, true /* skip sanity check */);
+	    char *str = strdup(x);
+	    if (!str) {
+		ERROR("Out of memory duplicating string for assignment!");
+	    }
+	    M_callVariableTable[currentAction->getVarId()]->setString(str);
 	} else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/, true /* skip sanity check */);
             LOG_MSG((s, "%s\n", x));
