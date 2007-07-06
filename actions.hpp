@@ -50,6 +50,7 @@ class CAction
       E_AT_VAR_DIVIDE,
       E_AT_VAR_TEST,
       E_AT_VAR_TO_DOUBLE,
+      E_AT_VAR_STRCMP,
 #ifdef PCAPPLAY
       E_AT_PLAY_PCAP_AUDIO,
       E_AT_PLAY_PCAP_VIDEO,
@@ -125,6 +126,7 @@ class CAction
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
     void setDistribution (CSample *      P_value);  /* sample specific function  */
     void setDoubleValue  (double         P_value);  /* assign value specific function  */
+    void setStringValue  (char *         P_value);  /* strcmp value specific function  */
 #ifdef PCAPPLAY
     void setPcapArgs     (char *         P_value);  /* send_packets specific function */
     void setPcapArgs     (pcap_pkts   *  P_value);  /* send_packets specific function */
@@ -137,6 +139,7 @@ class CAction
     int* getSubVarId() ;
     CSample *getDistribution ();  /* sample specific function  */
     double getDoubleValue ();  /* assign value specific function  */
+    char * getStringValue ();  /* strcmp specific function  */
 
     CAction();
     ~CAction();
@@ -165,6 +168,8 @@ class CAction
       CSample	     *M_distribution;
       /* assign value specific member. */
       double         M_doubleValue;
+      /* strcmp specific member. */
+      char *         M_stringValue;
 #ifdef PCAPPLAY
       /* pcap specific member */
       pcap_pkts  *   M_pcapArgs;

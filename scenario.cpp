@@ -220,6 +220,16 @@ double get_double(const char *ptr, const char *what) {
   return ret;
 }
 
+char * xp_get_string(const char *name, const char *what) {
+  char *ptr;
+
+  if (!(ptr = xp_get_value(name))) {
+    ERROR_P2("%s is missing the required '%s' parameter.", what, name);
+  }
+
+  return strdup(ptr);
+}
+
 double xp_get_double(const char *name, const char *what) {
   char *ptr;
   char *helptext;
@@ -1400,6 +1410,11 @@ void getActionForThisMessage()
       } else {
 	ERROR_P1("Invalid 'compare' parameter: %s", ptr);
       }
+    } else if(!strcmp(actionElem, "strcmp")) {
+      tmpAction->setVarId(xp_get_var("assign_to", "strcmp"));
+      tmpAction->setVarInId(xp_get_var("variable", "test"));
+      tmpAction->setStringValue(xp_get_string("value", "test"));
+      tmpAction->setActionType(CAction::E_AT_VAR_STRCMP);
     } else if(!strcmp(actionElem, "exec")) {
       if(ptr = xp_get_value((char *)"command")) {
 	tmpAction->setActionType(CAction::E_AT_EXECUTE_CMD);

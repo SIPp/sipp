@@ -154,6 +154,7 @@ char*          CAction::getMessage()      { return(M_message);      }
 char*          CAction::getCmdLine()      { return(M_cmdLine);      }
 CSample*       CAction::getDistribution() { return(M_distribution); }
 double         CAction::getDoubleValue()  { return(M_doubleValue);  }
+char*          CAction::getStringValue()  { return(M_stringValue);  }
 #ifdef PCAPPLAY
 pcap_pkts  *   CAction::getPcapPkts()     { return(M_pcapArgs);     }
 #endif
@@ -186,6 +187,9 @@ void CAction::setDistribution (CSample *P_value)
 void CAction::setDoubleValue (double P_value)
 { M_doubleValue       = P_value;  }
 
+/* strcmp specific function. */
+void CAction::setStringValue (char *P_value)
+{ M_stringValue       = P_value;  }
 
 void CAction::setSubVarId (int    P_value) {
    if ( M_nbSubVarId < M_maxNbSubVarId ) {
@@ -350,6 +354,7 @@ CAction::CAction()
   M_cmdLine      = NULL;
   M_IntCmd       = E_INTCMD_INVALID;
   M_doubleValue  = 0;
+  M_stringValue  = NULL;
   M_distribution = NULL;
 #ifdef PCAPPLAY
   M_pcapArgs     = NULL;
@@ -377,6 +382,11 @@ CAction::~CAction()
   {
     delete [] M_subVarId;
     M_subVarId      = NULL;
+  }
+  if(M_stringValue != NULL)
+  {
+    delete [] M_stringValue;
+    M_stringValue      = NULL;
   }
 #ifdef PCAPPLAY
   if (M_pcapArgs != NULL) {

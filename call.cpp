@@ -3138,6 +3138,11 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TEST) {
 	  double value = currentAction->compare(M_callVariableTable);
 	  M_callVariableTable[currentAction->getVarId()]->setBool(value);
+        } else if (currentAction->getActionType() == CAction::E_AT_VAR_STRCMP) {
+	  char *rhs = M_callVariableTable[currentAction->getVarInId()]->getString();
+	  char *lhs = currentAction->getStringValue();
+	  int value = strcmp(rhs, lhs);
+	  M_callVariableTable[currentAction->getVarId()]->setDouble((double)value);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TO_DOUBLE) {
 	  double value;
 
