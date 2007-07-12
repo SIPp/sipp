@@ -3174,24 +3174,31 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
                 {
                     case -1:
                         // error when forking !
-                        ERROR("Forking error");
+                        ERROR_NO("Forking error main");
                         break;
 
                     case 0:
                         // first child process - execute the command
                        if((l_pid = fork()) < 0) {
-                         ERROR("Forking error");
+                         ERROR_NO("Forking error child");
                        } else {
-                         if( l_pid == 0)
-                         system(x); // second child runs
-                         exit(EXIT_OTHER);
+                         int ret;
+                         if(l_pid == 0){
+                         ret = system(x); // second child runs
+                         if(ret == -1) {
+                           WARNING_P1("system call error for %s",x);
+                         }else exit(EXIT_OTHER);
+                        }
                        }
                        break;
                     default:
                        // parent process continue
                        // reap first child immediately
-                       if(waitpid(l_pid, NULL, 0) != l_pid) {  
-                         ERROR("waitpid error"); 
+                       pid_t ret;
+                       while ((ret=waitpid(l_pid, NULL, 0)) != l_pid) {
+                       if (ret != -1) {
+                          ERROR_P2("waitpid returns %1d for child %1d",ret,l_pid); 
+                         }
                        }
                        break;
                 }
