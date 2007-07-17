@@ -1212,6 +1212,8 @@ char * call::get_first_line(char * message)
   return last_header;
 }
 
+/* Return the last request URI from the To header. On any error returns the
+ * empty string.  The caller must free the result. */
 char * call::get_last_request_uri ()
 {
      char * tmp;
@@ -1220,16 +1222,32 @@ char * call::get_last_request_uri ()
      int tmp_len;
 
      char * last_To = get_last_header("To:");
+     if (!last_To) {
+	return strdup("");
+     }
+
      tmp = strchr(last_To, '<');
+     if (!tmp) {
+	return strdup("");
+     }
      tmp++;
+
      tmp2 = strchr(last_To, '>');
+     if (!tmp2) {
+	return strdup("");
+     }
+
      tmp_len = strlen(tmp) - strlen(tmp2);
+     if (tmp_len < 0) {
+	return strdup("");
+     }
+
      if(!(last_request_uri = (char *) malloc(tmp_len+1))) ERROR("Cannot allocate !\n");
      memset(last_request_uri, 0, sizeof(last_request_uri));
      if(tmp && (tmp_len > 0)){
        strncpy(last_request_uri, tmp, tmp_len);
-       last_request_uri[tmp_len] = '\0';
      }
+     last_request_uri[tmp_len] = '\0';
      return last_request_uri;
   
 }
