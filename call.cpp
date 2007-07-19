@@ -1725,7 +1725,7 @@ bool call::process_unexpected(char * msg)
     if (twinSippSocket && (msg_index > 0)) {
       //WARNING_P2("call-ID '%s', internal-cmd: abort_call %s",id, "");
       sendCmdBuffer
-	(createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n", -1));
+	(createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n\n", -1));
     }
 
     // usage of last_ keywords => for call aborting
@@ -1776,7 +1776,7 @@ bool call::abortCall()
         sprintf(L_param, "%s%s", L_param, "Contact: <sip:sipp@[local_ip]:[local_port];transport=[transport]>\n");
         sprintf(L_param, "%s%s", L_param, "Max-Forwards: 70\n");
         sprintf(L_param, "%s%s", L_param, "Subject: Performance Test\n");
-        sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n");
+        sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n\n");
 
         sendBuffer(createSendingMessage((char*)(L_param), -2));
 
@@ -1801,7 +1801,7 @@ bool call::abortCall()
             sprintf(L_param, "%s%s ACK\n", L_param, cseq);
           }
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
-          sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n");
+          sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n\n");
           sendBuffer(createSendingMessage((char*)(L_param),-1));
           
           /* Send the BYE */
@@ -1816,7 +1816,7 @@ bool call::abortCall()
             sprintf(L_param, "%s%s BYE\n", L_param, compute_cseq(src_recv));
           }
           sprintf(L_param, "%s%s", L_param,  "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
-          sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
+          sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n\n");
           sendBuffer(createSendingMessage((char*)(L_param),-1));
         } else {
           /* Send a CANCEL */
@@ -1827,7 +1827,7 @@ bool call::abortCall()
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
           sprintf(L_param, "%sCSeq: 1 CANCEL\n", L_param);
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
-          sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n");
+          sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n\n");
           sendBuffer(createSendingMessage((char*)(L_param),-2));
         }
       } else {
@@ -1854,7 +1854,7 @@ bool call::abortCall()
         sprintf(L_param, "%s%s BYE\n", L_param, compute_cseq(src_recv));
       }
       sprintf(L_param, "%s%s", L_param,  "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
-      sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n");
+      sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n\n");
       sendBuffer(createSendingMessage((char*)(L_param),-1));
     }
   }
@@ -3398,14 +3398,14 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
                     "[last_Call-ID:]\n"
                     "[last_CSeq:]\n"
                     "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n"
-                    "Content-Length: 0\n"
+                    "Content-Length: 0\n\n"
                     , -1)) ;
 
 #ifdef __3PCC__
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
       res = sendCmdBuffer
-      (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n", -1));
+      (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n\n", -1));
     }
 #endif /* __3PCC__ */
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
@@ -3433,14 +3433,14 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
                       "[last_Call-ID:]\n"
                       "[last_CSeq:]\n"
                       "Contact: sip:sipp@[local_ip]:[local_port]\n"
-                      "Content-Length: 0\n"
+                      "Content-Length: 0\n\n"
                       , -1)) ;
     
 #ifdef __3PCC__
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
       res = sendCmdBuffer
-      (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n", -1));
+      (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n\n", -1));
     }
 #endif /* __3PCC__ */
     
@@ -3468,7 +3468,7 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
                     "[last_From:]\n"
                     "[last_CSeq:]\n"
                     "Contact: sip:sipp@[local_ip]:[local_port]\n"
-                    "Content-Length: 0\n"
+                    "Content-Length: 0\n\n"
                     , -1)) ;
     // Note: the call ends here but it is not marked as bad. PING is a 
     //       normal message.
@@ -3476,7 +3476,7 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
       res = sendCmdBuffer
-      (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n",-1));
+      (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n\n",-1));
     }
 #endif /* __3PCC__ */
     
@@ -3510,7 +3510,7 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
                     "[last_From:]\n"
                     "[last_CSeq:]\n"
                     "Contact: sip:sipp@[local_ip]:[local_port]\n"
-                    "Content-Length: 0\n"
+                    "Content-Length: 0\n\n"
                     , -1)) ;
 
     // restore previous last msg
