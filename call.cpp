@@ -3004,7 +3004,7 @@ bool call::process_incoming(char * msg)
       ((test == -1) ||
        (test <= maxVariableUsed && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
      ) {
-    /* If we are paused, then we need to wake up so taht we properly go through the state machine. */
+    /* If we are paused, then we need to wake up so that we properly go through the state machine. */
     paused_until = 0;
     msg_index = search_index;
     return next();
@@ -3012,8 +3012,9 @@ bool call::process_incoming(char * msg)
     unsigned int timeout = call_wake(this);
     unsigned int candidate;
 
-    if (test <= maxVariableUsed && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()) {
-      WARNING_P1("Last message generates an error and will not be used for next sends (for last_ varaiables):\r\n%s",msg);
+    if (scenario[search_index]->next && test <= maxVariableUsed && 
+       M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()) {
+      WARNING_P1("Last message generates an error and will not be used for next sends (for last_ variables):\r\n%s",msg);
     }
 
     /* We are just waiting for a message to be received, if any of the
