@@ -1051,6 +1051,7 @@ char * call::get_header(char* message, char * name, bool content)
   char * src, *dest, *start, *ptr;
   /* Are we searching for a short form header? */
   bool short_form = false;
+  bool first_time = true;
   char src_tmp[MAX_HEADER_LEN + 1];
 
   /* returns empty string in case of error */
@@ -1073,12 +1074,13 @@ char * call::get_header(char* message, char * name, bool content)
     dest = last_header;
 
     while(src = strcasestr2(src, src_tmp)) {
-      if (content) {
+      if (content || !first_time) {
         /* just want the header's content */
         src += strlen(name) + 1;
       } else {
-	src++;
+	     src++;
       }
+      first_time = false;
       ptr = strchr(src, '\n');
 
       /* Multiline headers always begin with a tab or a space
@@ -1093,7 +1095,6 @@ char * call::get_header(char* message, char * name, bool content)
       // Add "," when several headers are present
       if (dest != last_header) {
 	/* Remove trailing whitespaces, tabs, and CRs */
-	*(dest--) = 0;
 	while ((dest > last_header) &&
 	    ((*dest == ' ') || (*dest == '\r')|| (*dest == '\t'))) {
 	  *(dest--) = 0;
@@ -1102,11 +1103,6 @@ char * call::get_header(char* message, char * name, bool content)
 
 	dest += sprintf(dest, ",");
 
-	/* We only want to append the contents of the header, not its name for
-	 * the second value. */
-	if (!content) {
-	  src += strlen(name);
-	}
       }
       dest += sprintf(dest, "%s", src);
       if(ptr) { *ptr = '\n'; }
