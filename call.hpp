@@ -159,7 +159,7 @@ public:
   unsigned int   paused_until;
 
   unsigned long  start_time;
-  unsigned long  start_time_rtd[MAX_RTD_INFO_LENGTH];
+  unsigned long  long start_time_rtd[MAX_RTD_INFO_LENGTH];
 
   bool           rtd_done[MAX_RTD_INFO_LENGTH];
   
