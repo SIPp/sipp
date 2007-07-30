@@ -2295,10 +2295,20 @@ static int check_for_message(struct sipp_socket *socket) {
 /* Pull up to tcp_readsize data bytes out of the socket into our local buffer. */
 static int empty_socket(struct sipp_socket *socket) {
   int readsize = socket->ss_transport == T_UDP ? SIPP_MAX_MSG_SIZE : tcp_readsize;
-  sipp_socklen_t addrlen = sizeof(socket->ss_remote_sockaddr);
   struct socketbuf *socketbuf;
   char *buffer;
   int ret;
+  /* Where should we start sending packets to, ideally we should begin to parse
+   * the Via, Contact, and Route headers.  But for now SIPp always sends to the
+   * host specified on the command line; or for UAS mode to the address that
+   * sent the last message. */
+  struct sockaddr *new_destination = NULL;
+  sipp_socklen_t addrlen = 0;
+
+  if (toolMode == MODE_SERVER && socket->ss_transport == T_UDP) {
+    new_destination = (struct sockaddr *) &socket->ss_remote_sockaddr;
+    addrlen = sizeof(socket->ss_remote_sockaddr);
+  }
 
   buffer = (char *)malloc(readsize);
   if (!buffer) {
@@ -2309,7 +2319,7 @@ static int empty_socket(struct sipp_socket *socket) {
   switch(socket->ss_transport) {
     case T_TCP:
     case T_UDP:
-      ret = recvfrom(socket->ss_fd, buffer, readsize, 0, (struct sockaddr *)&socket->ss_remote_sockaddr,  &addrlen);
+      ret = recvfrom(socket->ss_fd, buffer, readsize, 0, new_destination,  &addrlen);
       break;
     case T_TLS:
 #ifdef _USE_OPENSSL
