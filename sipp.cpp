@@ -1604,6 +1604,8 @@ char * get_call_id(char *msg)
   char * ptr1, * ptr2, * ptr3, backup;
   bool short_form;
 
+  call_id[0] = '\0';
+
   short_form = false;
 
   ptr1 = strstr(msg, "Call-ID:");
@@ -1615,7 +1617,10 @@ char * get_call_id(char *msg)
   // For short form, we need to make sure we start from beginning of line
   // For others, no need to
   if(!ptr1) { ptr1 = strstr(msg, "\r\ni:"); short_form = true;}
-  if(!ptr1) { ERROR_P1("(1) No valid Call-ID: header in reply '%s'", msg); }
+  if(!ptr1) {
+    WARNING_P1("(1) No valid Call-ID: header in reply '%s'", msg);
+    return call_id;
+  }
   
   if (short_form) {
     ptr1 += 4;
@@ -1625,7 +1630,10 @@ char * get_call_id(char *msg)
   
   while((*ptr1 == ' ') || (*ptr1 == '\t')) { ptr1++; }
   
-  if(!(*ptr1)) { ERROR("(2) No valid Call-ID: header in reply"); }
+  if(!(*ptr1)) {
+    WARNING("(2) No valid Call-ID: header in reply");
+    return call_id;
+  }
   
   ptr2 = ptr1;
 
@@ -1637,7 +1645,10 @@ char * get_call_id(char *msg)
     ptr2 ++;
   } 
 
-  if(!*ptr2) { ERROR("(3) No valid Call-ID: header in reply"); }
+  if(!*ptr2) {
+    WARNING("(3) No valid Call-ID: header in reply");
+    return call_id;
+  }
 
   backup = *ptr2;
   *ptr2 = 0;
@@ -2440,6 +2451,10 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
   }
 
   char *call_id = get_call_id(msg);
+  if (call_id[0] == '\0') {
+    WARNING("SIP message without Call-ID discarded");
+    return;
+  }
   call *call_ptr = get_call(call_id);
  
   if (useShortMessagef == 1) {
