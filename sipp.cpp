@@ -924,18 +924,11 @@ void print_stats_in_file(FILE * f, int last)
 	fprintf(f, "        ");
       }
 
-      if(scenario[index]->retrans_delay) {
-        fprintf(f,"%-9ld %-9ld %-9ld %-9ld" ,
-               scenario[index]->nb_recv,
-               scenario[index]->nb_recv_retrans,
-               scenario[index]->nb_timeout,
-               scenario[index]->nb_unexp);
-      } else {
-        fprintf(f,"%-9ld %-9ld           %-9ld" ,
-               scenario[index] -> nb_recv,
-               scenario[index] -> nb_recv_retrans,
-               scenario[index] -> nb_unexp);
-      }
+      fprintf(f,"%-9ld %-9ld %-9ld %-9ld" ,
+	  scenario[index] -> nb_recv,
+	  scenario[index] -> nb_recv_retrans,
+	  scenario[index] -> nb_timeout,
+	  scenario[index] -> nb_unexp);
     }
     else if(scenario[index] -> M_type == MSG_TYPE_NOP) {
       fprintf(f,"              [ NOP ]              ");
