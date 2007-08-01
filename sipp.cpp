@@ -2844,6 +2844,8 @@ void traffic_thread()
       }
       /* Quitting and no more openned calls, close all */
       if(!open_calls) {
+	print_statistics(0);
+
         // Dump the latest statistics if necessary
         if(dumpInFile) {
           CStat::instance()->dumpData();
@@ -2926,7 +2928,9 @@ void traffic_thread()
         // screen at the beginning even if the report
         // period is not reach
         firstPass = false;
-        print_statistics(0);
+	if (report_freq > 0) {
+	  print_statistics(0);
+	}
         /* Dumping once to create the file on disk */
         if(dumpInFile)
           {
@@ -2939,7 +2943,7 @@ void traffic_thread()
 
       }
 
-    if((clock_tick - last_report_time) >= report_freq)
+    if(report_freq && ((clock_tick - last_report_time) >= report_freq))
       {
         print_statistics(0);
         CStat::instance()->computeStat(CStat::E_RESET_PD_COUNTERS);
