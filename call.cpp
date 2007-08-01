@@ -1833,13 +1833,16 @@ bool call::abortCall()
         /* any answer. */
         /* Do nothing ! */
       }
-    } else {
-      /* Call is established */
+    } else if (last_recv_msg) {
+      /* The call may not be established, if we haven't yet received a message,
+       * because the earlier check depends on the first message being an INVITE
+       * (although it could be something like a message message, therefore we
+       * check that we received a message. */
       char * src_recv = last_recv_msg ;
       char   L_msg_buffer[SIPP_MAX_MSG_SIZE];
       L_msg_buffer[0] = '\0';
       char * L_param = L_msg_buffer;
-      strcpy(L_param,  "BYE  [last_Request_URI] SIP/2.0\n");
+      strcpy(L_param,  "BYE [last_Request_URI] SIP/2.0\n");
       sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
       sprintf(L_param, "%s%s", L_param, "[last_From]\n");
       sprintf(L_param, "%s%s", L_param, "[last_To]\n");
