@@ -1095,10 +1095,9 @@ char * call::get_header(char* message, char * name, bool content)
       // Add "," when several headers are present
       if (dest != last_header) {
 	/* Remove trailing whitespaces, tabs, and CRs */
-	*(dest--) = 0;
 	while ((dest > last_header) &&
-	    ((*dest == ' ') || (*dest == '\r')|| (*dest == '\t'))) {
-	  *(dest--) = 0;
+	    ((*(dest-1) == ' ') || (*(dest-1) == '\r')|| (*(dest-1) == '\t'))) {
+	  *(--dest) = 0;
 	}
         dest++;
 
