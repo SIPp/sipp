@@ -51,7 +51,7 @@ FileContents::FileContents(const char *fileName) {
   } else if (NULL != strstr(line, "USER")) {
       usage = InputFileUser;
   } else {
-      usage = InputFileSequentialOrder;
+      ERROR_P2("Unknown file type (valid values are RANDOM, SEQUENTIAL, and USER) for %s:%s\n", fileName, line);
   }
 
   while (!inFile->eof()) {
