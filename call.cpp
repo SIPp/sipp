@@ -1096,13 +1096,11 @@ char * call::get_header(char* message, char * name, bool content)
       if (dest != last_header) {
 	/* Remove trailing whitespaces, tabs, and CRs */
 	while ((dest > last_header) &&
-	    ((*(dest-1) == ' ') || (*(dest-1) == '\r')|| (*(dest-1) == '\t'))) {
+	    ((*(dest-1) == ' ') || (*(dest-1) == '\r') || (*(dest-1) == '\n') || (*(dest-1) == '\t'))) {
 	  *(--dest) = 0;
 	}
-        dest++;
 
 	dest += sprintf(dest, ",");
-
       }
       dest += sprintf(dest, "%s", src);
       if(ptr) { *ptr = '\n'; }
