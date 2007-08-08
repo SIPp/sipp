@@ -3196,17 +3196,18 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
                         break;
 
                     case 0:
-                        // first child process - execute the command
+                       // first child process - execute the command
                        if((l_pid = fork()) < 0) {
                          ERROR_NO("Forking error child");
                        } else {
+                         if( l_pid == 0){
                          int ret;
-                         if(l_pid == 0){
                          ret = system(x); // second child runs
                          if(ret == -1) {
                            WARNING_P1("system call error for %s",x);
-                         }else exit(EXIT_OTHER);
+                          }
                         }
+                       exit(EXIT_OTHER); 
                        }
                        break;
                     default:
