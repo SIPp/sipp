@@ -1,9 +1,4 @@
-all: pcapplay_ossl
-
-EXTRACFLAGS=-g -DHAVE_GSL
-EXTRACPPFLAGS=-g -DHAVE_GSL
-EXTRALFLAGS=-lgsl -lgslcblas
-#EXTRALIBS=-lgsl -lgslcblas -lm
-EXTRALIBS=-static -lgsl -lgslcblas -lm
-#EXTRALIBS=-lefence -lgsl -lgslcblas -lm
-EXTRAENDLIBS=-lkrb5 -lk5crypto -lcom_err  -lresolv
+# Remove '#' if you want to enable GSL features (pause)
+#  EXTRACPPFLAGS=-DHAVE_GSL -I`if test -f /usr/local/lib/libgsl.so; then echo /usr/local; else echo ./ext; fi;`/include
+#  EXTRACFLAGS=-DHAVE_GSL -I`if test -f /usr/local/lib/libgsl.so; then echo /usr/local; else echo ./ext; fi;`/include
+#  EXTRALIBS=-L`if test -f /usr/local/lib/libgsl.so; then echo /usr/local; else echo ./ext; fi;`/lib -lgsl -lgslcblas
