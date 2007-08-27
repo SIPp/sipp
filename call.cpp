@@ -1178,7 +1178,7 @@ char * call::get_first_line(char * message)
 {
   /* non reentrant. consider accepting char buffer as param */
   static char last_header[MAX_HEADER_LEN * 10];
-  char * src, *dest, *ptr;
+  char * src, *dest;
 
   /* returns empty string in case of error */
   memset(last_header, 0, sizeof(last_header));
@@ -1842,8 +1842,8 @@ bool call::abortCall()
       char * L_param = L_msg_buffer;
       strcpy(L_param,  "BYE [last_Request_URI] SIP/2.0\n");
       sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
-      sprintf(L_param, "%s%s", L_param, "[last_From]\n");
-      sprintf(L_param, "%s%s", L_param, "[last_To]\n");
+      sprintf(L_param, "%s%s", L_param, "[last_From:]\n");
+      sprintf(L_param, "%s%s", L_param, "[last_To:]\n");
       sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
       char * cseq;
       cseq = compute_cseq(src_recv);
@@ -2978,7 +2978,7 @@ bool call::process_incoming(char * msg)
         ERROR("Couldn't find 'Proxy-Authenticate' or 'WWW-Authenticate' in 401 or 407!");
       }
 
-      dialog_authentication = (char *) calloc(1, strlen(auth) + 2);
+      dialog_authentication = (char *) realloc(dialog_authentication, strlen(auth) + 2);
       sprintf(dialog_authentication, "%s", auth);
 
       /* Store the code of the challenge for building the proper header */
