@@ -928,13 +928,9 @@ int call::send_raw(char * msg, int index)
 	ERROR_NO("Unable to get a socket for rsa option");
       }
 
-      if(transport == T_UDP) {
-	if(sipp_bind_socket(call_remote_socket, L_dest, NULL)) {
-	  ERROR_NO("Unable to bind UDP socket for rsa option");
-	}
-      } else {
-	sipp_customize_socket(call_remote_socket);
+      sipp_customize_socket(call_remote_socket);
 
+      if(transport != T_UDP) {
 	if (sipp_connect_socket(call_remote_socket, L_dest)) {
 	  if(errno == EINVAL){
 	    /* This occurs sometime on HPUX but is not a true INVAL */
