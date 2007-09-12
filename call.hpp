@@ -308,10 +308,13 @@ typedef std::map<std::string, call *> call_map;
 call_map * get_calls();
 call_list * get_running_calls();
 
+/* These are wrappers for various circumstances. */
 call * add_call(int userId, bool ipv6);
 call * add_call(char * call_id , bool ipv6, int userId);
 call * add_call(char * call_id , struct sipp_socket *socket);
 call * add_call(char * call_id , struct sipp_socket *socket, bool isAutomatic);
+/* This is the core function. */
+call * add_call(char * call_id , bool ipv6, int userId, bool isAutomatic);
 
 call * get_call(char *);
 void   delete_call(char *);

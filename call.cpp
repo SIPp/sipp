@@ -119,6 +119,11 @@ struct sipp_socket *call::dissociate_socket() {
 
 call * add_call(char * call_id , bool use_ipv6, int userId)
 {
+  add_call(call_id, use_ipv6, userId, false /* Is not automatic. */);
+}
+
+call * add_call(char * call_id , bool use_ipv6, int userId, bool isAutomatic)
+{
   call * new_call;
   unsigned int nb;
 
@@ -136,7 +141,7 @@ call * add_call(char * call_id , bool use_ipv6, int userId)
     }
   }
 
-  new_call = new call(call_id, userId, use_ipv6);
+  new_call = new call(call_id, userId, use_ipv6, isAutomatic);
 
   if(!new_call) {
     ERROR("Memory Overflow");
@@ -151,7 +156,12 @@ call * add_call(char * call_id , bool use_ipv6, int userId)
   new_call -> tdm_map_number = nb - 1;
 
   /* Vital counters update */
-  next_number++;
+  if (!isAutomatic) {
+    next_number++;
+  } else {
+    /* We do not update the call_id counter, for we create here a call */
+    /* to answer to an out of call message */
+  }
   open_calls++;
 
   /* Statistics update */
@@ -167,57 +177,15 @@ call * add_call(char * call_id , bool use_ipv6, int userId)
 }
 
 call * add_call(char * call_id , struct sipp_socket *socket) {
-  call *new_call = add_call(call_id, socket->ss_ipv6, 0);
+  call *new_call = add_call(call_id, socket->ss_ipv6, 0 /* No User. */, false /* Not Auto. */);
   new_call->associate_socket(socket);
   return new_call;
 }
 
 call * add_call(char * call_id , struct sipp_socket *socket, bool isAutomatic) {
-  call * new_call;
-  unsigned int nb; 
-  
-  if(!next_number) { next_number ++; }
-
-  if (use_tdmmap) {
-    nb = get_tdm_map_number(next_number);
-    if (nb != 0) {
-      /* Mark the entry in the list as busy */
-      tdm_map[nb - 1] = true;
-    } else {
-      /* Can't create the new call */
-      WARNING("Can't create new outgoing call: all tdm_map circuits busy");
-      return NULL;
-    }
-  }
-
-  new_call = new call(call_id, 0, socket->ss_ipv6, true);
-
-  if(!new_call) {
-    ERROR("Memory Overflow");
-  }
-  /* All calls must exist in the map. */
-  calls[std::string(call_id)] = new_call;
-  /* All calls start off in the running state. */
-  add_running_call(new_call);
-
-  new_call -> number = next_number;
-  new_call -> tdm_map_number = nb - 1;
-
-  /* Vital counters update */
-  /* We do not update the call_id counter, for we create here a call */
-  /* to answer to an out of call message */
-  open_calls++;
-
-  /* Statistics update */
-  calls_since_last_rate_change++;
-  total_calls ++;
-
-  if(open_calls > open_calls_peak) {
-    open_calls_peak = open_calls;
-    open_calls_peak_time = clock_tick / 1000;
-  }
-    new_call->associate_socket(socket);
-    return new_call;
+  call *new_call = add_call(call_id, socket->ss_ipv6, 0 /* No User. */, isAutomatic);
+  new_call->associate_socket(socket);
+  return new_call;
 }
 
 call * add_call(int userId, bool ipv6)
@@ -682,7 +650,7 @@ unsigned long hash(char * msg) {
 
 /******************* Call class implementation ****************/
 
-call::call(char * p_id, int userId, bool ipv6) : use_ipv6(ipv6)
+call::call(char * p_id, int userId, bool ipv6, bool isAutomatic) : use_ipv6(ipv6)
 {
   memset(this, 0, sizeof(call));
   id = strdup(p_id);
@@ -730,85 +698,19 @@ call::call(char * p_id, int userId, bool ipv6) : use_ipv6(ipv6)
   last_action_result = call::E_AR_NO_ERROR;
 
   this->userId = userId;
-  m_lineNumber = new file_line_map();
-  for (file_map::iterator file_it = inFiles.begin();
-      file_it != inFiles.end();
-      file_it++) {
-    (*m_lineNumber)[file_it->first] = file_it->second->nextLine(userId);
-  }
 
-#ifdef PCAPPLAY
-  memset(&(play_args_a.to), 0, sizeof(struct sockaddr_storage));
-  memset(&(play_args_v.to), 0, sizeof(struct sockaddr_storage));
-  memset(&(play_args_a.from), 0, sizeof(struct sockaddr_storage));
-  memset(&(play_args_v.from), 0, sizeof(struct sockaddr_storage));
-  hasMediaInformation = 0;
-  media_thread = 0;
-#endif
-
-  peer_tag = NULL;
-  recv_timeout = 0;
-  send_timeout = 0;
-}
-
-/* We overload the constructor to create calls to send responses to out of call*/
-/* messages in the automatic response mode. The only difference is that we don't increment */
-/* the output files line numbers */
-
-call::call(char * p_id, int userId, bool ipv6, bool isAutomatic) : use_ipv6(ipv6)
-{
-  memset(this, 0, sizeof(call));
-  id = strdup(p_id);
-  start_time = clock_tick;
-  call_established=false ;
-  count_in_stats=true ;
-  ack_is_pending=false ;
-  last_recv_msg = NULL;
-  cseq = base_cseq;
-  nb_last_delay = 0;
-  tdm_map_number = 0;
-
-#ifdef _USE_OPENSSL
-  m_ctx_ssl = NULL ;
-  m_bio = NULL ;
-#endif
-
-  call_remote_socket = 0;
-
-  // initialising the CallVariable with the Scenario variable
-  int i;
-  if (maxVariableUsed >= 0) {
-   M_callVariableTable = new CCallVariable *[maxVariableUsed + 1];
-  }
-  for(i=0; i<=maxVariableUsed; i++)
-    {
-      if (variableUsed[i]) {
-        M_callVariableTable[i] = new CCallVariable();
-        if (M_callVariableTable[i] == NULL) {
-          ERROR ("call variable allocation failed");
-        }
-      } else {
-        M_callVariableTable[i] = NULL;
-      }
+  /* For automatic answer calls to an out of call request, we must not */
+  /* increment the input files line numbers to not disturb */
+  /* the input files read mechanism (otherwise some lines risk */
+  /* to be systematically skipped */
+  if (!isAutomatic) {
+    m_lineNumber = new file_line_map();
+    for (file_map::iterator file_it = inFiles.begin();
+	file_it != inFiles.end();
+	file_it++) {
+      (*m_lineNumber)[file_it->first] = file_it->second->nextLine(userId);
     }
-
-  // If not updated by a message we use the start time
-  // information to compute rtd information
-  for (i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    start_time_rtd[i] = getmicroseconds();
-    rtd_done[i] = false;
   }
-
-  // by default, last action result is NO_ERROR
-  last_action_result = call::E_AR_NO_ERROR;
-
-  this->userId = userId;
-
-/* We create this call to send an unique 200 OK response */
-/* answering to an out of call request. We must not  */
-/* increment the input files line numbers to not disturb */
-/* the input files read mechanism (otherwise some lines risk */
-/* to be systematically skipped */
 
 #ifdef PCAPPLAY
   memset(&(play_args_a.to), 0, sizeof(struct sockaddr_storage));
