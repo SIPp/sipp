@@ -2539,20 +2539,25 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
     else // mode != from SERVER and 3PCC Controller B
     {
       // This is a message that is not relating to any known call
-      if (auto_answer == true) {
+     if (auto_answer == true) {
 	// If auto answer mode, try to answer the incoming message
 	// with automaticResponseMode
 	// call is discarded before exiting the block
-	call_ptr = add_call(call_id, socket);
-	if (call_ptr) {
-	  socket->ss_count++;
-	  call_ptr->last_recv_msg = (char *) realloc(call_ptr->last_recv_msg, strlen(msg) + 1);
-	  strcpy(call_ptr->last_recv_msg, msg);
-	  call_ptr->automaticResponseMode(4, msg);
-	  delete_call(call_id);
-	  call_ptr = NULL;
-	  total_calls--;
-	}
+      if(!get_reply_code(msg)){ 
+   	  call_ptr = add_call(call_id, socket, true);
+   	  if (call_ptr) {
+	        socket->ss_count++;
+	        call_ptr->last_recv_msg = (char *) realloc(call_ptr->last_recv_msg, strlen(msg) + 1);
+	        strcpy(call_ptr->last_recv_msg, msg);
+	        call_ptr->automaticResponseMode(5, msg);
+	        delete_call(call_id);
+	        call_ptr = NULL;
+	        total_calls--;
+      	 }
+        } else{
+          /* We received a response not relating to any known call */
+          /* Do nothing, even if in auto answer mode */
+         }
       } else {
 	nb_out_of_the_blue++;
 	CStat::instance()->computeStat

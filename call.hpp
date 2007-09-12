@@ -199,7 +199,8 @@ public:
   /* call to continue and mark it as failed */
   T_ActionResult last_action_result;
   
-  call(char * id, int userId, bool ipv6 = false);
+  call(char * id, int userId, bool ipv6);
+  call (char *id, int userId, bool ipv6 , bool isAutomatic);
   ~call();
 
   /* rc == true means call not deleted by processing */
@@ -310,6 +311,7 @@ call_list * get_running_calls();
 call * add_call(int userId, bool ipv6);
 call * add_call(char * call_id , bool ipv6, int userId);
 call * add_call(char * call_id , struct sipp_socket *socket);
+call * add_call(char * call_id , struct sipp_socket *socket, bool isAutomatic);
 
 call * get_call(char *);
 void   delete_call(char *);
