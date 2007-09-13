@@ -119,7 +119,7 @@ struct sipp_socket *call::dissociate_socket() {
 
 call * add_call(char * call_id , bool use_ipv6, int userId)
 {
-  add_call(call_id, use_ipv6, userId, false /* Is not automatic. */);
+  return add_call(call_id, use_ipv6, userId, false /* Is not automatic. */);
 }
 
 call * add_call(char * call_id , bool use_ipv6, int userId, bool isAutomatic)
