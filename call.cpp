@@ -2716,6 +2716,7 @@ bool call::process_incoming(char * msg)
 
       if(status == 0) {
 	scenario[recv_retrans_send_index] -> nb_sent_retrans++;
+	CStat::instance()->computeStat(CStat::E_RETRANSMISSION);
       } else if(status < 0) {
 	return false;
       }
