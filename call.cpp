@@ -1812,6 +1812,7 @@ bool call::abortCall()
           if (cseq != NULL) {
             sprintf(L_param, "%s%s ACK\n", L_param, cseq);
           }
+		    sprintf(L_param, "%s%s", L_param, "Max-Forwards: 70\n");
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
           sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n\n");
           sendBuffer(createSendingMessage((char*)(L_param),-1));
@@ -1827,6 +1828,7 @@ bool call::abortCall()
           if (cseq != NULL) {
             sprintf(L_param, "%s%s BYE\n", L_param, compute_cseq(src_recv));
           }
+		  sprintf(L_param, "%s%s", L_param, "Max-Forwards: 70\n");
           sprintf(L_param, "%s%s", L_param,  "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
           sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n\n");
           sendBuffer(createSendingMessage((char*)(L_param),-1));
@@ -1838,6 +1840,7 @@ bool call::abortCall()
           sprintf(L_param, "%s%s", L_param, "[last_To]\n");
           sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
           sprintf(L_param, "%sCSeq: 1 CANCEL\n", L_param);
+		    sprintf(L_param, "%s%s", L_param, "Max-Forwards: 70\n");
           sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
           sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n\n");
           sendBuffer(createSendingMessage((char*)(L_param),-2));
@@ -1868,6 +1871,7 @@ bool call::abortCall()
       if (cseq != NULL) {
         sprintf(L_param, "%s%s BYE\n", L_param, compute_cseq(src_recv));
       }
+	   sprintf(L_param, "%s%s", L_param, "Max-Forwards: 70\n");
       sprintf(L_param, "%s%s", L_param,  "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
       sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n\n");
       sendBuffer(createSendingMessage((char*)(L_param),-1));

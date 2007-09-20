@@ -22,7 +22,7 @@
  *           Frederique Aurouet	
  */
 
-#if defined( __FreeBSD__) || defined(_DARWIN)
+#if defined( __FreeBSD__) || defined(__DARWIN)
 #include <sys/types.h>
 #endif
 #include <stdlib.h>
