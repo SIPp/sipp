@@ -138,7 +138,7 @@ LFLAGS=$(LFLAGS_$(SYSTEM)) $(EXTRALFLAGS)
 LIBS_linux= -ldl -lpthread -lncurses -lstdc++ -lm -L /usr/local/lib -L /usr/lib -L /usr/lib64
 LIBS_hpux= -lcurses -lpthread -L /opt/openssl/lib -L /usr/local/lib
 LIBS_tru64= -lcurses -lpthread
-LIBS_freebsd= -lcurses -pthread
+LIBS_freebsd= -lcurses -pthread -L /usr/local/lib
 LIBS_SunOS= -lcurses -lpthread -lnsl -lsocket -lstdc++ -lm -ldl -L /usr/local/ssl/lib/
 LIBS_Cygwin= -lcurses -lpthread -lstdc++ -L /usr/lib/WpdPack/Lib
 LIBS_Darwin= -lcurses
@@ -146,7 +146,7 @@ LIBS=$(LIBS_$(SYSTEM)) $(EXTRALIBS)
 
 # Include directories
 INCDIR_linux=-I. -I/usr/include/openssl
-INCDIR_freebsd=-I. -I/opt/openssl/include
+INCDIR_freebsd=-I. -I/usr/local/include
 INCDIR_hpux=-I. -I/usr/local/include -I/opt/openssl/include
 INCDIR_tru64=-I. -I/opt/openssl/include
 INCDIR_SunOS=-I. -I/usr/local/ssl/include/
