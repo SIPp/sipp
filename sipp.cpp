@@ -3427,7 +3427,7 @@ struct sipp_socket *new_sipp_socket(bool use_ipv6, int transport) {
 struct sipp_socket *new_sipp_call_socket(bool use_ipv6, int transport, bool *existing) {
   struct sipp_socket *sock = NULL;
   static int next_socket;
-  if (call_sockets > max_multi_socket) {
+  if (call_sockets >= max_multi_socket - 1) {  // we must take the main socket into account
     /* Find an existing socket that matches transport and ipv6 parameters. */
     int first = next_socket;
     do
