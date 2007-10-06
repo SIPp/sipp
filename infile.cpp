@@ -67,6 +67,10 @@ FileContents::FileContents(const char *fileName) {
     }
   }
 
+  if (numLinesInFile == 0) {
+	ERROR_P1("Input file has zero lines: %s\n", fileName);
+  }
+
   delete inFile;
 }
 
