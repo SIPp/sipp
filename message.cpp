@@ -420,11 +420,17 @@ void SendingMessage::parseAuthenticationKeyword(struct MessageComponent *dst, ch
 
   dst->type = E_Message_Authentication;
 
-  strcpy(my_auth_user, service);
-  strcpy(my_auth_pass, auth_password);
   /* Look for optional username and password parameters */
   getKeywordParam(keyword, "username=", my_auth_user);
   getKeywordParam(keyword, "password=", my_auth_pass);
+
+  if(*my_auth_user == '\0') {
+    strcpy(my_auth_user, service);
+  }
+  if(*my_auth_pass == '\0') {
+    strcpy(my_auth_pass, auth_password);
+  }
+
   dst->comp_param.auth_param.auth_user = strdup(my_auth_user);
   dst->comp_param.auth_param.auth_pass = strdup(my_auth_pass);
 
