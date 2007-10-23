@@ -3206,7 +3206,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
 
             if (currentAction->getCmdLine()) {
-                char* x = createSendingMessage(currentAction->getCmdLine(), -2 /* do not add crlf*/);
+                char* x = createSendingMessage(currentAction->getCmdLine(), -2 /* do not add crlf*/, true /* skip sanity check. */);
                 // TRACE_MSG((s, "Trying to execute [%s]", x)); 
                 pid_t l_pid;
                 switch(l_pid = fork())
