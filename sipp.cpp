@@ -4541,7 +4541,7 @@ int open_connections() {
 	  // IP address.
 	  // For the socket per IP mode, bind the main socket to the
 	  // first IP address specified in the inject file.
-	  inFiles[ip_file]->getField(peripfield, 0, peripaddr, sizeof(peripaddr));
+	  inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
 	  if (getaddrinfo(peripaddr,
 		NULL,
 		&hints,
@@ -4593,7 +4593,7 @@ int open_connections() {
         // IP address.
         // For the socket per IP mode, bind the main socket to the
         // first IP address specified in the inject file.
-	inFiles[ip_file]->getField(peripfield, 0, peripaddr, sizeof(peripaddr));
+	inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
         if (getaddrinfo(peripaddr,
                          NULL,
                          &hints,
@@ -4648,12 +4648,12 @@ int open_connections() {
     struct sipp_socket *sock;
     unsigned int lines = inFiles[ip_file]->numLines();
     for (unsigned int i = 0; i < lines; i++) {
-      inFiles[ip_file]->getField(peripfield, i, peripaddr, sizeof(peripaddr));
+      inFiles[ip_file]->getField(i, peripfield, peripaddr, sizeof(peripaddr));
       map<string, struct sipp_socket *>::iterator j;
       j = map_perip_fd.find(peripaddr);
 
       if (j == map_perip_fd.end()) {
-        if((sock = new_sipp_socket(is_ipv6, transport))) {
+        if((sock = new_sipp_socket(is_ipv6, transport)) == NULL) {
           ERROR_NO("Unable to get server socket");
         }
 
