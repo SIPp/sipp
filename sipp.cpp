@@ -232,7 +232,7 @@ struct sipp_option options_table[] = {
   {"trace_shortmsg", "Displays sent and received SIP messages as CSV in <scenario file name>_<pid>_shortmessages.log", SIPP_OPTION_SETFLAG, &useShortMessagef, 1},
 	{"trace_screen", "Dump statistic screens in the <scenario_name>_<pid>_screens.log file when quitting SIPp. Useful to get a final status report in background mode (-bg option).", SIPP_OPTION_SETFLAG, &useScreenf, 1},
 	{"trace_err", "Trace all unexpected messages in <scenario file name>_<pid>_errors.log.", SIPP_OPTION_SETFLAG, &print_all_responses, 1},
-	{"trace_timeout", "Displays call ids for calls with timeouts in <scenario file name>_<pid>_timeout.log", SIPP_OPTION_SETFLAG, &useTimeoutf, 1},
+//	{"trace_timeout", "Displays call ids for calls with timeouts in <scenario file name>_<pid>_timeout.log", SIPP_OPTION_SETFLAG, &useTimeoutf, 1},
 	{"trace_stat", "Dumps all statistics in <scenario_name>_<pid>.csv file. Use the '-h stat' option for a detailed description of the statistics file content.", SIPP_OPTION_SETFLAG, &dumpInFile, 1},
 	{"trace_rtt", "Allow tracing of all response times in <scenario file name>_<pid>_rtt.csv.", SIPP_OPTION_SETFLAG, &dumpInRtt, 1},
 	{"trace_logs", "Allow tracing of <log> actions in <scenario file name>_<pid>_logs.log.", SIPP_OPTION_SETFLAG, &useLogf, 1},
@@ -3312,7 +3312,7 @@ void stop_all_traces()
 {
   if(messagef) messagef = NULL;
   if(logfile) logfile = NULL;
-  if(timeoutf) timeoutf = NULL;
+ // if(timeoutf) timeoutf = NULL; TODO: finish the -trace_timeout option implementation
   if(dumpInRtt) dumpInRtt = 0;
   if(dumpInFile) dumpInFile = 0;
   
@@ -4035,14 +4035,16 @@ int main(int argc, char *argv[])
     }
   }  
 
-  if (useTimeoutf == 1) {
+   // TODO: finish the -trace_timeout option implementation    
+
+ /* if (useTimeoutf == 1) {
     char L_file_name [MAX_PATH];
     sprintf (L_file_name, "%s_%d_timeout.log", scenario_file, getpid());
     timeoutf = fopen(L_file_name, "w");
     if(!timeoutf) {
       ERROR_P1("Unable to create '%s'", L_file_name);
     }
-  }
+  } */
   
   if (useLogf == 1) {
     char L_file_name [MAX_PATH];

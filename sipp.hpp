@@ -395,12 +395,12 @@ extern FILE * screenf                             _DEFVAL(0);
 extern FILE * logfile                             _DEFVAL(0);
 extern FILE * messagef                            _DEFVAL(0);
 extern FILE * shortmessagef                       _DEFVAL(0);
-extern FILE * timeoutf                            _DEFVAL(0);
+// extern FILE * timeoutf                            _DEFVAL(0);
 extern bool   useMessagef                         _DEFVAL(0);
 extern bool   useShortMessagef                    _DEFVAL(0);
 extern bool   useScreenf                          _DEFVAL(0);
 extern bool   useLogf                             _DEFVAL(0);
-extern bool   useTimeoutf                         _DEFVAL(0);
+//extern bool   useTimeoutf                         _DEFVAL(0);
 extern bool   dumpInFile                          _DEFVAL(0);
 extern bool   dumpInRtt                           _DEFVAL(0);
 extern char * scenario_file;
@@ -433,14 +433,16 @@ extern char * slave_cfg_file;
   }                         \
 }
 
-#define TRACE_TIMEOUT(arg)  \
+// TODO: finish the -trace_timeout option implementation
+
+/* #define TRACE_TIMEOUT(arg)  \
 {                           \
   if(timeoutf) {            \
     FILE * s = timeoutf;    \
     fprintf arg;            \
     fflush(timeoutf);       \
   }                         \
-}
+} */
 
 /********************* Mini-Parser Routines *******************/
 
