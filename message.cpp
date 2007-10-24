@@ -267,9 +267,9 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
       }
     }
     if (literal[0]) {
-      *dest++ = '\0';
       literal = (char *)realloc(literal, strlen(literal) + 1);
-      if (!literal) { ERROR("Out of memory!"); }
+      *dest++ = '\0';
+      if (!literal) { ERROR("Out of memory!"); } 
 
       MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
       if (!newcomp) { ERROR("Out of memory!"); }
