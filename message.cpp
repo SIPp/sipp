@@ -88,7 +88,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
     char * tsrc;
     int    num_cr = get_cr_number(src);
     
-    dest = literal = (char *)malloc(strlen(src) + num_cr);
+    dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
  
     current_line[0] = '\0';
     *dest = 0;
@@ -135,7 +135,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	newcomp->literal = literal;
 	messageComponents.push_back(newcomp);
 
-  dest = literal = (char *)malloc(strlen(src) + num_cr);
+	dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
 	*dest = '\0';
 
 	/* Now lets determine which keyword we have. */
@@ -267,8 +267,8 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
       }
     }
     if (literal[0]) {
-      literal = (char *)realloc(literal, strlen(literal) + 1);
       *dest++ = '\0';
+      literal = (char *)realloc(literal, strlen(literal) + 1);
       if (!literal) { ERROR("Out of memory!"); } 
 
       MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
