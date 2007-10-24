@@ -546,7 +546,7 @@ void timeout_alarm(int);
 struct sipp_socket **get_peer_socket(char *);
 bool is_a_peer_socket(struct sipp_socket *);
 bool is_a_local_socket(struct sipp_socket *);
-void connect_to_peer (char *, int *, sockaddr_storage *, char *, struct sipp_socket **);
+void connect_to_peer (char *, int , sockaddr_storage *, char *, struct sipp_socket **);
 void connect_to_all_peers ();
 void connect_local_twin_socket(char *);
 void close_peer_sockets();

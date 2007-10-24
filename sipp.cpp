@@ -3838,6 +3838,7 @@ int main(int argc, char *argv[])
 	  CHECK_PASS();
 	  twinSippMode = true;
 	  strcpy(twinSippHost, argv[argi]);
+     get_host_and_port(twinSippHost, twinSippHost, &twinSippPort); 
 #else
 	  ERROR("SIPp was not compiled with 3PCC enabled!");
 #endif
@@ -4727,7 +4728,7 @@ int open_connections() {
   /* Trying to connect to Twin Sipp in 3PCC mode */
   if(twinSippMode) {
     if(toolMode == MODE_3PCC_CONTROLLER_A || toolMode == MODE_3PCC_A_PASSIVE) {
-       connect_to_peer(twinSippHost, &twinSippPort, &twinSipp_sockaddr, twinSippIp, &twinSippSocket);
+       connect_to_peer(twinSippHost, twinSippPort, &twinSipp_sockaddr, twinSippIp, &twinSippSocket);
      }else if(toolMode == MODE_3PCC_CONTROLLER_B){
        connect_local_twin_socket(twinSippHost);
       }else{
@@ -4737,10 +4738,12 @@ int open_connections() {
    }else if (extendedTwinSippMode){       
      if (toolMode == MODE_MASTER || toolMode == MODE_MASTER_PASSIVE) {
        strcpy(twinSippHost,get_peer_addr(master_name));
+       get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
        connect_local_twin_socket(twinSippHost);
        connect_to_all_peers();
      }else if(toolMode == MODE_SLAVE) {
        strcpy(twinSippHost,get_peer_addr(slave_number));
+       get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
        connect_local_twin_socket(twinSippHost);
      }else{
         ERROR("extendedTwinSipp Mode enabled but toolMode is different "
@@ -4753,12 +4756,7 @@ int open_connections() {
             }
 
 
-void connect_to_peer(char *peer_host, int *peer_port, struct sockaddr_storage *peer_sockaddr, char *peer_ip, struct sipp_socket **peer_socket) {
-
-     if(strstr(peer_host, ":")) {
-              *peer_port = atol(strstr(peer_host, ":")+1);
-              *(strstr(peer_host, ":")) = 0;
-            }
+void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *peer_sockaddr, char *peer_ip, struct sipp_socket **peer_socket) {
 
           /* Resolving the  peer IP */
       printf("Resolving peer address : %s...\n",peer_host);
@@ -4787,10 +4785,10 @@ ERROR_P1("Unknown peer host '%s'.\n"
 
       if (peer_sockaddr->ss_family == AF_INET) {
        (_RCAST(struct sockaddr_in *,peer_sockaddr))->sin_port =
-         htons((short)*peer_port);
+         htons((short)peer_port);
       } else {
         (_RCAST(struct sockaddr_in6 *,peer_sockaddr))->sin6_port =
-          htons((short)*peer_port);
+          htons((short)peer_port);
         is_ipv6 = true;
       }
       strcpy(peer_ip, get_inet_address(peer_sockaddr));
@@ -4862,11 +4860,6 @@ bool is_a_peer_socket(struct sipp_socket *peer_socket)
 
 void connect_local_twin_socket(char * twinSippHost)
 {
-  if(strstr(twinSippHost, ":")) {
-    twinSippPort = atol(strstr(twinSippHost, ":")+1);
-    *(strstr(twinSippHost, ":")) = 0;
-  }
-
           /* Resolving the listener IP */
             printf("Resolving listener address : %s...\n", twinSippHost);
             struct addrinfo   hints;
@@ -4956,7 +4949,8 @@ void connect_to_all_peers(){
      T_peer_infos infos;
      for (peer_it = peers.begin(); peer_it != peers.end(); peer_it++){
          infos = peer_it->second;
-         connect_to_peer(infos.peer_host, &(infos.peer_port),&(infos.peer_sockaddr), infos.peer_ip, &(infos.peer_socket));
+         get_host_and_port(infos.peer_host, infos.peer_host, &infos.peer_port);
+         connect_to_peer(infos.peer_host, infos.peer_port,&(infos.peer_sockaddr), infos.peer_ip, &(infos.peer_socket));
          peer_sockets[infos.peer_socket] = peer_it->first;
          peers[std::string(peer_it->first)] = infos;
      }
