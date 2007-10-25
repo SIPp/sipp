@@ -1173,10 +1173,10 @@ void print_screens(void)
   print_bottom_line(   screenf, 0);
 
   currentScreenToDisplay = DISPLAY_SECONDARY_REPARTITION_SCREEN;
-  for (int i = 1; i < MAX_RTD_INFO_LENGTH; i++) {
+  for (int i = 1; i <= MAX_RTD_INFO_LENGTH; i++) {
     currentRepartitionToDisplay = i;
     print_header_line(   screenf, 0);
-    CStat::instance()->displaySecondaryRepartition(screenf, i);
+    CStat::instance()->displaySecondaryRepartition(screenf, i-1);
     print_bottom_line(   screenf, 0);
   }
 
@@ -1213,7 +1213,7 @@ void print_statistics(int last)
         print_tdm_map();
         break;
       case DISPLAY_SECONDARY_REPARTITION_SCREEN :
-	CStat::instance()->displaySecondaryRepartition(stdout, currentRepartitionToDisplay);
+	CStat::instance()->displaySecondaryRepartition(stdout, currentRepartitionToDisplay - 1);
 	break;
       case DISPLAY_SCENARIO_SCREEN :
       default:
