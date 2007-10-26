@@ -491,7 +491,7 @@ int send_nowait_tls(SSL *ssl, const void *msg, int len, int flags)
 
 int send_nowait(int s, const void *msg, int len, int flags)
 {
-#ifdef MSG_DONTWAIT
+#if defined(MSG_DONTWAIT) && !defined(__SUNOS)
   return send(s, msg, len, flags | MSG_DONTWAIT);
 #else
   int fd_flags = fcntl(s, F_GETFL , NULL);
