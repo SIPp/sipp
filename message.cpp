@@ -420,6 +420,8 @@ void SendingMessage::parseAuthenticationKeyword(struct MessageComponent *dst, ch
 
   dst->type = E_Message_Authentication;
 
+  memset(my_auth_user,0,KEYWORD_SIZE);
+  memset(my_auth_pass,0,KEYWORD_SIZE);
   /* Look for optional username and password parameters */
   getKeywordParam(keyword, "username=", my_auth_user);
   getKeywordParam(keyword, "password=", my_auth_pass);
