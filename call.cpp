@@ -1976,7 +1976,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
       case E_Message_Literal:
 	if (supresscrlf) {
 	  char *ptr = comp->literal;
-	  while (isspace(*ptr++));
+	  while (isspace(*ptr)) ptr++;
 	  dest += snprintf(dest, left, "%s", ptr);
 	  supresscrlf = false;
 	} else {
