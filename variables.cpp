@@ -108,10 +108,13 @@ void CCallVariable::setString(char *P_val)
 
 char *CCallVariable::getString()
 {
-  if (M_type != E_VT_STRING) {
+  if (M_type == E_VT_STRING) {
+    return(M_stringValue);
+  } else if (M_type == E_VT_REGEXP && M_matchingValue) {
+    return(M_matchingValue);
+  } else {
     return "";
   }
-  return(M_stringValue);
 }
 
 /* Convert this variable to a double. Returns true on success, false on failure. */
