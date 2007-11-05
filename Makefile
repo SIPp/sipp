@@ -190,8 +190,8 @@ $(OUTPUT): $(OBJ_TLS) $(OBJ_PCAPPLAY) $(OBJ)
 debug:
 	DEBUG_FLAGS="-g -pg" ; export DEBUG_FLAGS ; make all
 
-debug_tls:
-	@DEBUG_FLAGS=-g ; export DEBUG_FLAGS ; make tls
+debug_ossl:
+	@DEBUG_FLAGS=-g ; export DEBUG_FLAGS ; make ossl
 
 debug_pcap_cygwin:
 	@DEBUG_FLAGS=-g ; export DEBUG_FLAGS ; make pcapplay_ossl_cygwin
