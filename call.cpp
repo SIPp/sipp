@@ -2239,7 +2239,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
 
     if (body && dest - body > 4 && dest - body < 100004) {
       char tmp = length_marker[5];
-      sprintf(length_marker, "%5zu", dest - body - 4 + len_offset);
+      sprintf(length_marker, "%5u", dest - body - 4 + len_offset);
       length_marker[5] = tmp;
     } else {
       // Other cases: Content-Length is 0
