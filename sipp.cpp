@@ -4326,7 +4326,7 @@ int reset_connections() {
   start_calls = 1;
   reset_number--;
 
-  if (reset_number <= 0) {
+  if (reset_number < 0) {
     ERROR_NO("Max number of reconnections reached");
   }
   if (reset_close) {
