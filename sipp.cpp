@@ -4161,11 +4161,6 @@ int main(int argc, char *argv[])
   if (media_ip_escaped[0] == '\0') {
     strcpy(media_ip_escaped, local_ip);
   }
-  if (local_ip_is_ipv6) {
-    media_ip_is_ipv6 = true;
-  } else {
-    media_ip_is_ipv6 = false;
-  }
 
   /* Always create and Bind RTP socket */
   /* to avoid ICMP                     */
@@ -4194,6 +4189,8 @@ int main(int argc, char *argv[])
            SOCK_ADDR_SIZE(
              _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
     freeaddrinfo(local_addr);
+
+    if(media_sockaddr.ss_family == AF_INET6) media_ip_is_ipv6 = true;
 
     if((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
                               SOCK_DGRAM, 0)) == -1) {
