@@ -2723,6 +2723,7 @@ void traffic_thread()
   char         L_file_name [MAX_PATH];
   sprintf (L_file_name, "%s_%d_screen.log", scenario_file, getpid());
 
+
   firstPass = true;
   last_time = getmilliseconds();
  
@@ -4333,8 +4334,10 @@ int reset_connections() {
   if (status==0) {
     status = close_connections();
     if (status==0) {
-      usleep(1000 * reset_sleep);
-      status = open_connections();
+      do{
+          sleep(reset_sleep);
+          status = open_connections();
+	      }while(status == 1);
       start_calls = 0;
       WARNING("Re-connection for connections");
     }
@@ -4702,6 +4705,12 @@ int open_connections() {
     }
 
     if(sipp_connect_socket(tcp_multiplex, &remote_sockaddr)) {
+      if(reset_number >0){
+	      WARNING("Failed to reconnect\n");
+	      sipp_close_socket(main_socket);
+	      reset_number--;
+	      return 1;
+	   }else{
       if(errno == EINVAL){
         /* This occurs sometime on HPUX but is not a true INVAL */
         ERROR_NO("Unable to connect a TCP socket, remote peer error.\n"
@@ -4710,6 +4719,7 @@ int open_connections() {
         ERROR_NO("Unable to connect a TCP socket.\n"
                  "Use 'sipp -h' for details");
       }
+    }
     }
 
     sipp_customize_socket(tcp_multiplex);
