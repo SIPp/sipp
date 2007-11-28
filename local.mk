@@ -1,4 +1,7 @@
-# Remove '#' if you want to enable GSL features (pause)
-#  EXTRACPPFLAGS=-DHAVE_GSL -I`if test -f /usr/local/lib/libgsl.so; then echo /usr/local; else echo ./ext; fi;`/include
-#  EXTRACFLAGS=-DHAVE_GSL -I`if test -f /usr/local/lib/libgsl.so; then echo /usr/local; else echo ./ext; fi;`/include
-#  EXTRALIBS=-L`if test -f /usr/local/lib/libgsl.so; then echo /usr/local; else echo ./ext; fi;`/lib -lgsl -lgslcblas
+all: pcapplay_ossl
+
+EXTRACFLAGS=-g -DHAVE_GSL -DLOCAL_VERSION_EXTRA="\"-ibm2\nIncludes: $(shell quilt applied)\n\""
+EXTRACPPFLAGS=-g -DHAVE_GSL -DLOCAL_VERSION_EXTRA="\"-ibm2\nIncludes:  $(shell quilt applied )\n\""
+EXTRALFLAGS=-lgsl -lgslcblas
+EXTRALIBS=-static -lgsl -lgslcblas -lm
+EXTRAENDLIBS=-lz -lkrb5 -lk5crypto -lcom_err -lresolv -ldl -lkrb5support

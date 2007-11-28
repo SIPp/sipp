@@ -184,7 +184,7 @@ struct sipp_option options_table[] = {
 	{"recv_timeout", "Global receive timeout. Default unit is milliseconds. If the expected message is not received, the call times out and is aborted.", SIPP_OPTION_TIME_MS_LONG, &defl_recv_timeout, 1},
 	{"send_timeout", "Global send timeout. Default unit is milliseconds. If a message is not sent (due to congestion), the call times out and is aborted.", SIPP_OPTION_TIME_MS_LONG, &defl_send_timeout, 1},
 	{"reconnect_close", "Should calls be closed on reconnect?", SIPP_OPTION_BOOL, &reset_close, 1},
-	{"reconnect_sleep", "How long to sleep between the close and reconnect?", SIPP_OPTION_INT, &reset_sleep, 1},
+	{"reconnect_sleep", "How long (in milliseconds) to sleep between the close and reconnect?", SIPP_OPTION_TIME_MS, &reset_sleep, 1},
 	{"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, NULL, 1},
 	{"rtp_echo", "Enable RTP echo. RTP/UDP packets received on port defined by -mp are echoed to their sender.\n"
                      "RTP/UDP packets coming on this port + 2 are also echoed to their sender (used for sound and video echo).",
@@ -4319,6 +4319,14 @@ int main(int argc, char *argv[])
 
 }
 
+void sipp_usleep(unsigned long usec) {
+	if (usec >= 1000000) {
+		sleep(usec / 1000000);
+	}
+	usec %= 1000000;
+	usleep(usec);
+}
+
 int reset_connections() {
   int status=0;
 
@@ -4335,9 +4343,9 @@ int reset_connections() {
     status = close_connections();
     if (status==0) {
       do{
-          sleep(reset_sleep);
+          sipp_usleep(reset_sleep * 1000);
           status = open_connections();
-	      }while(status == 1);
+      }while(status == 1);
       start_calls = 0;
       WARNING("Re-connection for connections");
     }
