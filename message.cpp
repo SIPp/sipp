@@ -318,9 +318,9 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	method = NULL;
     } else {
       if (p != method) {
-	memmove(method, p, strlen(p));
+	memmove(method, p, strlen(p) + 1);
       }
-      method = (char *)realloc(method, strlen(method));
+      method = (char *)realloc(method, strlen(method) + 1);
       if (!method) { ERROR("Out of memory"); }
       ack = (!strcmp(method, "ACK"));
       cancel = (!strcmp(method, "CANCEL"));
@@ -332,6 +332,7 @@ SendingMessage::~SendingMessage() {
   for (int i = 0; i < numComponents(); i++) {
     freeMessageComponent(messageComponents[i]);
   }
+  free(method);
 }
 
 bool SendingMessage::isAck() { return ack; }
