@@ -1238,6 +1238,7 @@ void CStat::dumpData ()
                       << "CurrentTime" << stat_delimiter
                       << "ElapsedTime(P)" << stat_delimiter
                       << "ElapsedTime(C)" << stat_delimiter
+                      << "TargetRate" << stat_delimiter
                       << "CallRate(P)" << stat_delimiter
                       << "CallRate(C)" << stat_delimiter
                       << "IncomingCall(P)" << stat_delimiter
@@ -1329,6 +1330,7 @@ void CStat::dumpData ()
   (*M_outputStream) << formatTime(&currentTime)               << stat_delimiter
                     << msToHHMMSS(localElapsedTime)           << stat_delimiter;
   (*M_outputStream) << msToHHMMSS(globalElapsedTime)          << stat_delimiter
+                    << rate                                   << stat_delimiter
                     << realInstantCallRate                    << stat_delimiter
                     << averageCallRate                        << stat_delimiter
                     << M_counters[CPT_PL_IncomingCallCreated] << stat_delimiter
