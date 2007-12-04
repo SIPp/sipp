@@ -787,42 +787,21 @@ void CStat::updateRepartition(T_dynamicalRepartition* P_tabReport,
                               int P_sizeOfTab, 
                               unsigned long P_value)
 {
-  bool found;
-  int i;
+  if(P_tabReport == NULL)
+  {
+    return
+  }
 
-  if(P_tabReport != NULL)
-    {
-      i = P_sizeOfTab-2;
-      found = false;
-      while((found == false) && (i>=1))
-        {
-          if( (P_value < P_tabReport[i].borderMax) &&
-              (P_tabReport[i-1].borderMax <= P_value) )
-            {
-              found = true;
-              P_tabReport[i].nbInThisBorder ++;
-            }
-          i--;
-        }
-    
-      if(!found)
-        {
-          if(P_value < P_tabReport[0].borderMax)
-            {
-              P_tabReport[0].nbInThisBorder ++;
-            }
-          else if(P_value >= P_tabReport[P_sizeOfTab-1].borderMax)
-            {
-              P_tabReport[P_sizeOfTab-1].nbInThisBorder ++;
-            }
-          else
-            {
-              // ERROR !!!!
-              printf("\n ERROR - Unable to sort this Value in "
-                     "the repartition table! %lu \n", P_value);
-            }
-        }
+  for (int i = 0; i < P_sizeofTab - 1; i++) {
+    if (P_value < P_tabReport[i].borderMax) {
+	P_tabReport[i].nbInThisBorder++;
+	return;
     }
+  }
+
+  /* If this is not true, we never should have gotten here. */
+  assert(P_value >= P_tabReport[P_sizeOfTab-1].borderMax);
+  P_tabReport[P_sizeOfTab-1].nbInThisBorder ++;
 }
 
 
