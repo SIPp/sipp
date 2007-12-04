@@ -150,7 +150,7 @@ int            CAction::getOccurence()    { return(M_occurence);    }
 int            CAction::getVarId()        { return(M_varId);        }
 int            CAction::getVarInId()      { return(M_varInId);      }
 char*          CAction::getLookingChar()  { return(M_lookingChar);  }
-char*          CAction::getMessage()      { return(M_message);      }
+SendingMessage *CAction::getMessage()      { return(M_message);      }
 char*          CAction::getCmdLine()      { return(M_cmdLine);      }
 CSample*       CAction::getDistribution() { return(M_distribution); }
 double         CAction::getDoubleValue()  { return(M_doubleValue);  }
@@ -245,8 +245,8 @@ void CAction::setMessage  (char*          P_value)
 
   if(P_value != NULL)
   { 
-    M_message = new char[strlen(P_value)+1];
-    strcpy(M_message, P_value);
+    M_message_str = strdup(P_value);
+    M_message = new SendingMessage(P_value, true /* skip sanity */);
   }
 }
 
@@ -326,7 +326,7 @@ void CAction::setAction(CAction P_action)
   setCaseIndep    ( P_action.getCaseIndep()    ); 
   setOccurence    ( P_action.getOccurence()   );
   setHeadersOnly  ( P_action.getHeadersOnly()  );
-  setMessage      ( P_action.M_message         );
+  setMessage      ( P_action.M_message_str     );
   setCmdLine      ( P_action.M_cmdLine         );
   setIntCmd       ( P_action.M_IntCmd          );
 #ifdef PCAPPLAY
@@ -359,6 +359,8 @@ CAction::CAction()
 #ifdef PCAPPLAY
   M_pcapArgs     = NULL;
 #endif
+  M_message	 = NULL;
+  M_message_str	 = NULL;
 }
 
 CAction::~CAction()
@@ -370,8 +372,13 @@ CAction::~CAction()
   }
   if(M_message != NULL)
   {
-    delete [] M_message;
+    delete M_message;
     M_message = NULL;
+  }
+  if(M_message_str != NULL)
+  {
+    delete M_message_str;
+    M_message_str = NULL;
   }
   if(M_cmdLine != NULL)
   {

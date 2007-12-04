@@ -3190,14 +3190,14 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	  double value = currentAction->getDistribution()->sample();
 	  M_callVariableTable[currentAction->getVarId()]->setDouble(value);
 	} else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_STRING) {
-            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/, true /* skip sanity check */);
+            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
 	    char *str = strdup(x);
 	    if (!str) {
 		ERROR("Out of memory duplicating string for assignment!");
 	    }
 	    M_callVariableTable[currentAction->getVarId()]->setString(str);
 	} else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
-            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/, true /* skip sanity check */);
+            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
             LOG_MSG((s, "%s\n", x));
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
 

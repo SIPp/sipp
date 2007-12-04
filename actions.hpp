@@ -24,6 +24,7 @@
 #define _CACTIONS
 
 #include "variables.hpp"
+#include "message.hpp"
 class CSample;
 
 #ifdef PCAPPLAY
@@ -103,7 +104,7 @@ class CAction
     int            getVarInId();
     int            getOccurence();
     char*          getLookingChar();
-    char*          getMessage();  /* log specific function  */
+    SendingMessage *getMessage();  /* log specific function  */
     char*          getCmdLine();  /* exec specific function */
     T_IntCmdType   getIntCmd();   /* exec specific function */
 #ifdef PCAPPLAY
@@ -160,7 +161,8 @@ class CAction
 
       char*          M_lookingChar;
       /* log specific member  */
-      char*          M_message;
+      SendingMessage *M_message;
+      char *	     M_message_str;
       /* exec specific member */
       char*          M_cmdLine;
       T_IntCmdType   M_IntCmd;
