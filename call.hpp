@@ -234,8 +234,20 @@ public:
 				      // comes from the expected sender
   void   sendBuffer(char *buf);        // send a message out of a scenario
                                       // execution
-  int   checkAutomaticResponseMode(char * P_recv);
-  bool  automaticResponseMode(int P_case, char* P_recv);
+  /* Automatic */
+  enum T_AutoMode
+    {
+      E_AM_DEFAULT,
+      E_AM_UNEXP_BYE,
+      E_AM_UNEXP_CANCEL,
+      E_AM_PING,
+      E_AM_AA,
+      E_AM_OOCALL,
+    };
+
+  T_AutoMode  checkAutomaticResponseMode(char * P_recv);
+
+  bool  automaticResponseMode(T_AutoMode P_case, char* P_recv);
 
 #ifdef __3PCC__
   int   sendCmdMessage(int index); // 3PCC

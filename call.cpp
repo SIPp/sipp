@@ -1428,7 +1428,7 @@ bool call::run()
           // here if asked to go to the last label  delete the call
           CStat::instance()->computeStat(CStat::E_CALL_FAILED);
           CStat::instance()->computeStat(CStat::E_FAILED_MAX_UDP_RETRANS);
-          if (default_behavior) {
+          if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
             // Abort the call by sending proper SIP message
             return(abortCall());
           } else {
@@ -1439,7 +1439,7 @@ bool call::run()
       }
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
       CStat::instance()->computeStat(CStat::E_FAILED_MAX_UDP_RETRANS);
-      if (default_behavior) {
+      if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
         // Abort the call by sending proper SIP message
         WARNING_P1("Aborting call on UDP retransmission timeout for Call-ID '%s'", id);
         return(abortCall());
@@ -1569,7 +1569,7 @@ bool call::run()
 	      id, msg_index);
 	  CStat::instance()->computeStat(CStat::E_CALL_FAILED);
 	  CStat::instance()->computeStat(CStat::E_FAILED_TIMEOUT_ON_SEND);
-	  if (default_behavior) {
+	  if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
 	    return (abortCall());
 	  } else {
 	    delete_call(id);
@@ -1648,7 +1648,7 @@ bool call::run()
                    id, msg_index);
         CStat::instance()->computeStat(CStat::E_CALL_FAILED);
         CStat::instance()->computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
-        if (default_behavior) {
+        if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
           return (abortCall());
         } else {
           delete_call(id);
@@ -1663,7 +1663,7 @@ bool call::run()
       // special case - the label points to the end - finish the call
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
       CStat::instance()->computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
-      if (default_behavior) {
+      if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
         return (abortCall());
       } else {
         delete_call(id);
@@ -1695,7 +1695,7 @@ bool call::process_unexpected(char * msg)
 
   scenario[msg_index] -> nb_unexp++;
 
-  if (default_behavior) {
+  if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
 	desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "Aborting ");
   } else {
 	desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "Continuing ");
@@ -1728,7 +1728,7 @@ bool call::process_unexpected(char * msg)
              TRANSPORT_TO_STRING(transport),
              msg));
 
-  if (default_behavior) {
+  if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
       //WARNING_P2("call-ID '%s', internal-cmd: abort_call %s",id, "");
@@ -1742,7 +1742,12 @@ bool call::process_unexpected(char * msg)
 
     CStat::instance()->computeStat(CStat::E_CALL_FAILED);
     CStat::instance()->computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
-    return (abortCall());
+    if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
+      return (abortCall());
+    } else {
+      delete_call(id);
+      return false;
+    }
   } else {
     // Do not abort call nor send anything in reply if default behavior is disabled
     return false;
@@ -2676,8 +2681,6 @@ bool call::process_incoming(char * msg)
   bool            found = false;
   T_ActionResult  actionResult;
 
-  int             L_case = 0 ;
-
   if (!running) {
     paused_calls.remove_paused_call(this);
     add_running_call(this);
@@ -2858,6 +2861,7 @@ bool call::process_incoming(char * msg)
 
   /* If it is still not found, process an unexpected message */
   if(!found) {
+    T_AutoMode L_case;
     if ((L_case = checkAutomaticResponseMode(request)) == 0) {
       if (!process_unexpected(msg)) {
         return false; // Call aborted by unexpected message handling
@@ -3371,27 +3375,26 @@ void call::getFieldFromInputFile(const char *fileName, int field, char*& dest)
   dest += inFiles[fileName]->getField(line, field, dest, SIPP_MAX_MSG_SIZE);
 }
 
-int  call::checkAutomaticResponseMode(char * P_recv) {
+call::T_AutoMode call::checkAutomaticResponseMode(char * P_recv) {
 
-  int L_res = 0 ;
+  int L_res = E_AM_DEFAULT ;
 
   if (strcmp(P_recv, "BYE")==0) {
-    L_res = 1 ;
+    return E_AM_UNEXP_BYE;
   } else if (strcmp(P_recv, "CANCEL") == 0) {
-    L_res = 2 ;
+    return E_AM_UNEXP_CANCEL;
   } else if (strcmp(P_recv, "PING") == 0) {
-    L_res = 3 ;
+    return E_AM_PING;
   } else if (((strcmp(P_recv, "INFO") == 0) || (strcmp(P_recv, "NOTIFY") == 0) || (strcmp(P_recv, "UPDATE") == 0)) 
                && (auto_answer == true)){
-    L_res = 4 ;
+    return E_AM_AA;
+  } else {
+    return E_AM_DEFAULT;
   }
-
-  return (L_res) ;
-  
 }
 
 
-bool call::automaticResponseMode(int P_case, char * P_recv)
+bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
 {
 
   int res ;
@@ -3399,25 +3402,27 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
   bool last_recv_msg_saved = false;
 
   switch (P_case) {
-  case 1: // response for an unexpected BYE
+  case E_AM_UNEXP_BYE: // response for an unexpected BYE
     // usage of last_ keywords
     last_recv_msg = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
     strcpy(last_recv_msg, P_recv);
 
     // The BYE is unexpected, count it
     scenario[msg_index] -> nb_unexp++;
-    if (default_behavior) {
+    if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
       WARNING_P1("Aborting call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
-    sendBuffer(createSendingMessage(
-                    (char*)"SIP/2.0 200 OK\n"
-                    "[last_Via:]\n"
-                    "[last_From:]\n"
-                    "[last_To:]\n"
-                    "[last_Call-ID:]\n"
-                    "[last_CSeq:]\n"
-                    "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n"
-                    "Content-Length: 0\n\n"
-                    , -1)) ;
+      if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
+	sendBuffer(createSendingMessage(
+	      (char*)"SIP/2.0 200 OK\n"
+	      "[last_Via:]\n"
+	      "[last_From:]\n"
+	      "[last_To:]\n"
+	      "[last_Call-ID:]\n"
+	      "[last_CSeq:]\n"
+	      "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n"
+	      "Content-Length: 0\n\n"
+	      , -1)) ;
+      }
 
 #ifdef __3PCC__
     // if twin socket call => reset the other part here 
@@ -3434,25 +3439,27 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
     }
       break ;
       
-  case 2: // response for an unexpected cancel
+  case E_AM_UNEXP_CANCEL: // response for an unexpected cancel
     // usage of last_ keywords
     last_recv_msg = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
     strcpy(last_recv_msg, P_recv);
 
     // The CANCEL is unexpected, count it
     scenario[msg_index] -> nb_unexp++;
-    if (default_behavior) {
+    if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
       WARNING_P1("Aborting call on an unexpected CANCEL for call: %s", (id==NULL)?"none":id);
-    sendBuffer(createSendingMessage(
-                      (char*)"SIP/2.0 200 OK\n"
-                      "[last_Via:]\n"
-                      "[last_From:]\n"
-                      "[last_To:]\n"
-                      "[last_Call-ID:]\n"
-                      "[last_CSeq:]\n"
-                      "Contact: sip:sipp@[local_ip]:[local_port]\n"
-                      "Content-Length: 0\n\n"
-                      , -1)) ;
+      if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
+	sendBuffer(createSendingMessage(
+	      (char*)"SIP/2.0 200 OK\n"
+	      "[last_Via:]\n"
+	      "[last_From:]\n"
+	      "[last_To:]\n"
+	      "[last_Call-ID:]\n"
+	      "[last_CSeq:]\n"
+	      "Contact: sip:sipp@[local_ip]:[local_port]\n"
+	      "Content-Length: 0\n\n"
+	      , -1)) ;
+      }
     
 #ifdef __3PCC__
     // if twin socket call => reset the other part here 
@@ -3470,12 +3477,12 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
     }
     break ;
       
-  case 3: // response for a random ping
+  case E_AM_PING: // response for a random ping
     // usage of last_ keywords
     last_recv_msg = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
     strcpy(last_recv_msg, P_recv);
     
-   if (default_behavior) {
+   if (default_behaviors & DEFAULT_BEHAVIOR_PINGREPLY) {
     WARNING_P1("Automatic response mode for an unexpected PING for call: %s", (id==NULL)?"none":id);
     count_in_stats = false; // Call must not be counted in statistics
     sendBuffer(createSendingMessage(
@@ -3505,7 +3512,7 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
     }
     break ;
 
-  case 4: // response for a random INFO, UPDATE or NOTIFY
+  case E_AM_AA: // response for a random INFO, UPDATE or NOTIFY
     // store previous last msg if msg is INFO, UPDATE or NOTIFY
     // restore last_recv_msg to previous one
     // after sending ok
@@ -3544,7 +3551,7 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
     return true;
     break;
 
-    case 5: // response for an out of call message
+    case E_AM_OOCALL: // response for an out of call message
     old_last_recv_msg = NULL;
     if (last_recv_msg != NULL) {
       last_recv_msg_saved = true;
@@ -3585,7 +3592,6 @@ bool call::automaticResponseMode(int P_case, char * P_recv)
   }
 
   return false;
-  
 }
 
 #ifdef PCAPPLAY

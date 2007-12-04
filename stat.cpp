@@ -25,6 +25,7 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <assert.h>
 
 #include "sipp.hpp"
 #include "scenario.hpp"

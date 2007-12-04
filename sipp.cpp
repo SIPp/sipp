@@ -99,6 +99,8 @@ struct sipp_option {
 #define SIPP_OPTION_INPUT_FILE	  27
 #define SIPP_OPTION_TIME_MS_LONG  28
 #define SIPP_OPTION_LONG          29
+#define SIPP_OPTION_DEFAULTS      30
+
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
 	{"v", "Display version and copyright information.", SIPP_OPTION_VERSION, NULL, 0},
@@ -123,6 +125,14 @@ struct sipp_option options_table[] = {
 	{"cp", "Set the local control port number. Default is 8888.", SIPP_OPTION_INT, &control_port, 1},
 
 	{"d", "Controls the length of calls. More precisely, this controls the duration of 'pause' instructions in the scenario, if they do not have a 'milliseconds' section. Default value is 0 and default unit is milliseconds.", SIPP_OPTION_TIME_MS, &duration, 1},
+	{"default_behaviors", "Set the default behaviors that SIPp will use.  Possbile values are:\n"
+		"- all\tUse all default behaviors\n"
+		"- none\tUse no default behaviors\n"
+		"- bye\tSend byes for aborted calls\n"
+		"- abortunexp\tAbort calls on unexpected messages\n"
+		"- pingreply\tReply to ping requests\n"
+		"If a behavior is prefaced with a -, then it is turned off.  Example: all,-bye\n",
+		SIPP_OPTION_DEFAULTS, &default_behaviors, 1},
 
 	{"f", "Set the statistics report frequency on screen. Default is 1 and default unit is seconds.", SIPP_OPTION_TIME_SEC, &report_freq, 1},
 	{"fd", "Set the statistics dump log report frequency. Default is 60 and default unit is seconds.", SIPP_OPTION_TIME_SEC, &report_freq_dumpLog, 1},
@@ -160,7 +170,7 @@ struct sipp_option options_table[] = {
 	        "- On unexpected CANCEL send a 200 OK and close the call\n"
 	        "- On unexpected PING send a 200 OK and continue the call\n"
 	        "- On any other unexpected message, abort the call by sending a BYE or a CANCEL\n",
-		SIPP_OPTION_UNSETFLAG, &default_behavior, 1},
+		SIPP_OPTION_UNSETFLAG, &default_behaviors, 1},
 	{"nr", "Disable retransmission in UDP mode.", SIPP_OPTION_UNSETFLAG, &retrans_enabled, 1},
 
 	{"p", "Set the local port number.  Default is a random free port chosen by the system.", SIPP_OPTION_INT, &user_port, 1},
@@ -2562,7 +2572,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
 	        socket->ss_count++;
 	        call_ptr->last_recv_msg = (char *) realloc(call_ptr->last_recv_msg, strlen(msg) + 1);
 	        strcpy(call_ptr->last_recv_msg, msg);
-	        call_ptr->automaticResponseMode(5, msg);
+	        call_ptr->automaticResponseMode(call::E_AM_OOCALL, msg);
 	        delete_call(call_id);
 	        call_ptr = NULL;
 	        total_calls--;
@@ -3983,6 +3993,60 @@ int main(int argc, char *argv[])
 	  }
 	  break;
 	}
+	case SIPP_OPTION_DEFAULTS: {
+	    unsigned long *ptr = (unsigned long *)option->data;
+	    char *token;
+
+	    REQUIRE_ARG();
+	    CHECK_PASS();
+
+	    *ptr = 0;
+
+	    token = argv[argi];
+	    while ((token = strtok(token, ","))) {
+		if (!strcmp(token, "none")) {
+		  *ptr = 0;
+		} else {
+		  unsigned long mask = 0;
+		  int mode = 1;
+		  char *p = token;
+		  if (token[0] == '+') {
+		    mode = 1;
+		    p++;
+		  } else if (token[0] == '-') {
+		    mode = -1;
+		    p++;
+		  }
+		  if (!strcmp(p, "all")) {
+		    mask = DEFAULT_BEHAVIOR_ALL;
+		  } else if (!strcmp(p, "bye")) {
+		    mask = DEFAULT_BEHAVIOR_BYE;
+		  } else if (!strcmp(p, "abortunexp")) {
+		    mask = DEFAULT_BEHAVIOR_ABORTUNEXP;
+		  } else if (!strcmp(p, "pingreply")) {
+		    mask = DEFAULT_BEHAVIOR_PINGREPLY;
+		  } else {
+		    ERROR_P1("Unknown default behavior: '%s'\n", token);
+		  }
+		  switch(mode) {
+		    case 0:
+		      *ptr = mask;
+		      break;
+		    case 1:
+		      *ptr |= mask;
+		      break;
+		    case -1:
+		      *ptr &= ~mask;
+		      break;
+		    default:
+		     assert(0);
+		  }
+		}
+		token = NULL;
+	    }
+	    fprintf(stderr, "Defaults: %lu\n", *ptr);
+	  }
+	  break;
 	default:
 	  ERROR_P1("Internal error: I don't recognize the option type for %s\n", argv[argi]);
       }

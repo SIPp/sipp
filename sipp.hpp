@@ -149,6 +149,13 @@
 #define DEFAULT_MAX_MULTI_SOCKET     50000
 #define DEFAULT_CTRL_SOCKET_PORT     8888
 
+#define DEFAULT_BEHAVIOR_NONE	     0
+#define DEFAULT_BEHAVIOR_BYE	     1
+#define DEFAULT_BEHAVIOR_ABORTUNEXP  2
+#define DEFAULT_BEHAVIOR_PINGREPLY   4
+
+#define DEFAULT_BEHAVIOR_ALL	     (DEFAULT_BEHAVIOR_BYE | DEFAULT_BEHAVIOR_ABORTUNEXP | DEFAULT_BEHAVIOR_PINGREPLY)
+
 /************ User controls and command line options ***********/
 
 extern int                duration                _DEFVAL(0);
@@ -166,7 +173,7 @@ extern bool               retrans_enabled         _DEFVAL(1);
 extern int                max_udp_retrans         _DEFVAL(UDP_MAX_RETRANS);
 extern int                max_invite_retrans      _DEFVAL(UDP_MAX_RETRANS_INVITE_TRANSACTION);
 extern int                max_non_invite_retrans  _DEFVAL(UDP_MAX_RETRANS_NON_INVITE_TRANSACTION);
-extern bool               default_behavior        _DEFVAL(1);
+extern unsigned long      default_behaviors       _DEFVAL(DEFAULT_BEHAVIOR_ALL);
 extern bool               pause_msg_ign           _DEFVAL(0);
 extern int                auto_answer             _DEFVAL(0);
 extern int                multisocket             _DEFVAL(0);
