@@ -119,11 +119,11 @@ struct MessageComponent {
   union u {
     /* Authentication Parameters. */
     struct {
-      char *auth_user;
-      char *auth_pass;
-      char *aka_OP;
-      char *aka_AMF;
-      char *aka_K;
+      SendingMessage *auth_user;
+      SendingMessage *auth_pass;
+      SendingMessage *aka_OP;
+      SendingMessage *aka_AMF;
+      SendingMessage *aka_K;
     } auth_param;
     /* Field Substitution. */
     struct {

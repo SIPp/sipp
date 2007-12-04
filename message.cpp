@@ -147,8 +147,34 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
         char keyword [KEYWORD_SIZE+1];
 	src++;
 
-        tsrc=strchr(src, '[');
-        key = strchr(src, ']');
+	/* Like strchr, but don't count things in quotes. */
+	for(tsrc = src; *tsrc; tsrc++) {
+		if (*tsrc == '\"') {
+			do {
+				tsrc++;
+			} while(*tsrc && *tsrc != '\"');
+		}
+		if (*tsrc == '[')
+			break;
+	}
+	if (*tsrc != '[') {
+		tsrc = NULL;
+	}
+
+	/* Like strchr, but don't count things in quotes. */
+	for(key = src; *key; key++) {
+		if (*key == '\"') {
+			do {
+				key++;
+			} while(*key && *key != '\"');
+		}
+		if (*key == ']')
+			break;
+	}
+	if (*key != ']') {
+		key = NULL;
+	}
+
         if ((tsrc) && (tsrc<key)){
           memcpy(keyword, src-1,  tsrc - src + 1);
           src=tsrc+1;
@@ -160,17 +186,16 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
         }
         memcpy(keyword, src,  key - src);
 	keyword[key - src] = 0;
-
         src = key + 1;
         // allow +/-n for numeric variables
-        if (strncmp(keyword, "authentication", strlen("authentication")) &&
-	    strncmp(keyword, "tdmmap", strlen("tdmmap")) &&
-	    ((key = strchr(keyword,'+')) || (key = strchr(keyword,'-')))
-	    && isdigit(*(key+1))) {
-          newcomp->offset = atoi(key);
-          *key = 0;
-        } else {
-	  newcomp->offset = 0;
+	newcomp->offset = 0;
+        if ((strncmp(keyword, "authentication", strlen("authentication")) &&
+	    strncmp(keyword, "tdmmap", strlen("tdmmap"))) &&
+	    ((key = strchr(keyword,'+')) || (key = strchr(keyword,'-')))) {
+	    if (isdigit(*(key+1))) {
+	      newcomp->offset = atoi(key);
+		*key = 0;
+	    }
 	}
 
 	bool simple_keyword = false;
@@ -229,9 +254,9 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
               newcomp->type = E_Message_Last_Header;
               }
 	  newcomp->literal = strdup(keyword + strlen("last_"));
-        } else if(!strncmp(keyword, "authentication", strlen("authentication"))) {
-	  parseAuthenticationKeyword(newcomp, keyword);
-	}
+     } else if(!strncmp(keyword, "authentication", strlen("authentication"))) {
+       parseAuthenticationKeyword(newcomp, keyword);
+     }
 #ifndef PCAPPLAY
         else if(!strcmp(keyword, "auto_media_port") ||
 		  !strcmp(keyword, "media_port") ||
@@ -351,11 +376,13 @@ void SendingMessage::getQuotedParam(char * dest, char * src, int * len)
     switch(c) {
       case '"':
 	*len++;
+	*dest = '\0';
 	return;
       case '\\':
 	c = *src++;
 	*len++;
 	if (c == 0) {
+	  *dest = '\0';
 	  return;
 	}
 	/* Fall-Through. */
@@ -364,6 +391,7 @@ void SendingMessage::getQuotedParam(char * dest, char * src, int * len)
 	*len++;
     }
   }
+  *dest = '\0';
 }
 
 void SendingMessage::getHexStringParam(char * dest, char * src, int * len)
@@ -418,8 +446,9 @@ void SendingMessage::getKeywordParam(char * src, char * param, char * output)
 }
 
 void SendingMessage::parseAuthenticationKeyword(struct MessageComponent *dst, char *keyword) {
-  char my_auth_user[KEYWORD_SIZE];
-  char my_auth_pass[KEYWORD_SIZE];
+  char my_auth_user[KEYWORD_SIZE + 1];
+  char my_auth_pass[KEYWORD_SIZE + 1];
+  char my_aka[KEYWORD_SIZE + 1];
 
   dst->type = E_Message_Authentication;
 
@@ -436,31 +465,42 @@ void SendingMessage::parseAuthenticationKeyword(struct MessageComponent *dst, ch
     strcpy(my_auth_pass, auth_password);
   }
 
-  dst->comp_param.auth_param.auth_user = strdup(my_auth_user);
-  dst->comp_param.auth_param.auth_pass = strdup(my_auth_pass);
 
-  dst->comp_param.auth_param.aka_OP = (char *)calloc(KEYWORD_SIZE, 1);
-  dst->comp_param.auth_param.aka_AMF = (char *)calloc(KEYWORD_SIZE, 1);
-  dst->comp_param.auth_param.aka_K = (char *)calloc(KEYWORD_SIZE, 1);
+  dst->comp_param.auth_param.auth_user = new SendingMessage(my_auth_user, true /* skip sanity */);
+  dst->comp_param.auth_param.auth_pass = new SendingMessage(my_auth_pass, true);
 
   /* add aka_OP, aka_AMF, aka_K */
-  getKeywordParam(keyword, "aka_OP=", dst->comp_param.auth_param.aka_OP);
-  getKeywordParam(keyword, "aka_AMF=", dst->comp_param.auth_param.aka_AMF);
-  getKeywordParam(keyword, "aka_K=", dst->comp_param.auth_param.aka_K);
-  if (dst->comp_param.auth_param.aka_K[0]==0){
-    memcpy(dst->comp_param.auth_param.aka_K,my_auth_pass,16);
-    dst->comp_param.auth_param.aka_K[16]=0;
+  getKeywordParam(keyword, "aka_K=", my_aka);
+  if (my_aka[0]==0){
+    memcpy(my_aka,my_auth_pass,16);
+    my_aka[16]=0;
   }
+  dst->comp_param.auth_param.aka_K = new SendingMessage(my_aka, true);
+
+  getKeywordParam(keyword, "aka_OP=", my_aka);
+  dst->comp_param.auth_param.aka_OP = new SendingMessage(my_aka, true);
+  getKeywordParam(keyword, "aka_AMF=", my_aka);
+  dst->comp_param.auth_param.aka_AMF = new SendingMessage(my_aka, true);
 }
 
 void SendingMessage::freeMessageComponent(struct MessageComponent *comp) {
   free(comp->literal);
   if (comp->type == E_Message_Authentication) {
-    free(comp->comp_param.auth_param.auth_user);
-    free(comp->comp_param.auth_param.auth_pass);
-    free(comp->comp_param.auth_param.aka_K);
-    free(comp->comp_param.auth_param.aka_AMF);
-    free(comp->comp_param.auth_param.aka_OP);
+    if (comp->comp_param.auth_param.auth_user) {
+      delete comp->comp_param.auth_param.auth_user;
+    }
+    if (comp->comp_param.auth_param.auth_pass) {
+      delete comp->comp_param.auth_param.auth_pass;
+    }
+    if (comp->comp_param.auth_param.aka_K) {
+      delete comp->comp_param.auth_param.aka_K;
+    }
+    if (comp->comp_param.auth_param.aka_AMF) {
+      delete comp->comp_param.auth_param.aka_AMF;
+    }
+    if (comp->comp_param.auth_param.aka_OP) {
+      delete comp->comp_param.auth_param.aka_OP;
+    }
   } else if (comp->type == E_Message_Injection) {
     free(comp->comp_param.field_param.filename);
   }

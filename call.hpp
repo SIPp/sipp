@@ -221,6 +221,7 @@ public:
   // P_index = -1 Add crlf to end of message
   char* createSendingMessage(SendingMessage *src, int P_index);
   char* createSendingMessage(char * src, int P_index, bool skip_sanity = false);
+  char* createSendingMessage(SendingMessage *src, int P_index, char *msg_buffer, int buflen);
 
   // method for the management of unexpected messages 
   bool  abortCall();                  // call aborted with BYE or CANCEL
