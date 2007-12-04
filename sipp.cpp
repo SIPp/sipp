@@ -181,6 +181,7 @@ struct sipp_option options_table[] = {
 	{"rate_max", "If -rate_increase is set, then quit after the rate reaches this value.\n"
                       "Example: -rate_increase 10 -rate_max 100\n"
                       "  ==> increase calls by 10 until 100 cps is hit.", SIPP_OPTION_INT, &rate_max, 1},
+	{"no_rate_quit", "If -rate_increase is set, do not quit after the rate reaches -rate_max.", SIPP_OPTION_UNSETFLAG, &rate_quit, 1},
 	{"recv_timeout", "Global receive timeout. Default unit is milliseconds. If the expected message is not received, the call times out and is aborted.", SIPP_OPTION_TIME_MS_LONG, &defl_recv_timeout, 1},
 	{"send_timeout", "Global send timeout. Default unit is milliseconds. If a message is not sent (due to congestion), the call times out and is aborted.", SIPP_OPTION_TIME_MS_LONG, &defl_send_timeout, 1},
 	{"reconnect_close", "Should calls be closed on reconnect?", SIPP_OPTION_BOOL, &reset_close, 1},
@@ -2978,10 +2979,14 @@ void traffic_thread()
       }
       last_dump_time  = clock_tick;
       if (rate_increase) {
-	set_rate(rate + rate_increase);
+	rate += rate_increase;
 	if (rate_max && (rate > rate_max)) {
-	  quitting += 10;
+	  rate = rate_max;
+	  if (rate_quit) {
+	    quitting += 10;
+	  }
 	}
+	set_rate(rate);
       }
     }
   }
