@@ -370,6 +370,7 @@ extern bool          is_ipv6                      _DEFVAL(false);
 extern int           reset_number                 _DEFVAL(0);
 extern int	     reset_close                  _DEFVAL(1);
 extern int	     reset_sleep                  _DEFVAL(1000);
+extern bool	     sendbuffer_warn              _DEFVAL(false);
 /* A list of sockets pending reset. */
 extern set<struct sipp_socket *> sockets_pending_reset;
 

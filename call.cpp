@@ -992,7 +992,11 @@ void call::sendBuffer(char * msg)
 {
   /* call send_raw but with a special scenario index */
   if (send_raw(msg, -1) < 0) {
-    ERROR_NO("Error sending raw message");
+    if (sendbuffer_warn) {
+      ERROR_NO("Error sending raw message");
+    } else {
+      WARNING_NO("Error sending raw message");
+    }
   }
 }
 
