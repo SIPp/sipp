@@ -195,6 +195,7 @@ struct sipp_option options_table[] = {
 	{"s", "Set the username part of the resquest URI. Default is 'service'.", SIPP_OPTION_STRING, &service, 1},
 	{"sd", "Dumps a default scenario (embeded in the sipp executable)", SIPP_OPTION_SCENARIO, NULL, 0},
 	{"sf", "Loads an alternate xml scenario file.  To learn more about XML scenario syntax, use the -sd option to dump embedded scenarios. They contain all the necessary help.", SIPP_OPTION_SCENARIO, NULL, 2},
+	{"skip_rlimit", "Do not perform rlimit tuning of file descriptor limits.  Default: false.", SIPP_OPTION_SETFLAG, &skip_rlimit, 1},
 	{"slave", "3pcc extended mode: indicates the slave number", SIPP_OPTION_3PCC_EXTENDED, &slave_number, 1},
 	{"slave_cfg", "3pcc extended mode: indicates the file where the master and slave addresses are stored", SIPP_OPTION_SLAVE_CFG, NULL, 1},
 	{"sn", "Use a default scenario (embedded in the sipp executable). If this option is omitted, the Standard SipStone UAC scenario is loaded.\n"
@@ -4082,9 +4083,9 @@ int main(int argc, char *argv[])
   }
 
   /* Initialization:  boost open file limit to the max (AgM)*/
-  {
+  if (!skip_rlimit) {
     struct rlimit rlimit;
-    
+
     if (getrlimit (RLIMIT_NOFILE, &rlimit) < 0) {
       ERROR_NO("getrlimit error");
     }

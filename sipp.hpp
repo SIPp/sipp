@@ -189,6 +189,7 @@ extern unsigned long      report_freq_dumpRtt     _DEFVAL
 
 extern unsigned int       max_multi_socket        _DEFVAL
                                                 (DEFAULT_MAX_MULTI_SOCKET);
+extern bool		  skip_rlimit		  _DEFVAL(false);
 
 extern unsigned int       timer_resolution        _DEFVAL(DEFAULT_TIMER_RESOLUTION);
 extern int                max_recv_loops          _DEFVAL(MAX_RECV_LOOPS_PER_CYCLE);
