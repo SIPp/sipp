@@ -720,6 +720,7 @@ call::call(char * p_id, int userId, bool ipv6, bool isAutomatic) : use_ipv6(ipv6
   peer_tag = NULL;
   recv_timeout = 0;
   send_timeout = 0;
+  timewait = false;
 }
 
 call::~call()
@@ -1342,6 +1343,36 @@ void call::do_bookkeeping(int index) {
   }
 }
 
+bool call::terminate(CStat::E_Action reason) {
+  // Call end -> was it successful?
+  if(call::last_action_result != call::E_AR_NO_ERROR) {
+    switch(call::last_action_result) {
+      case call::E_AR_REGEXP_DOESNT_MATCH:
+	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+	CStat::instance()->computeStat(CStat::E_FAILED_REGEXP_DOESNT_MATCH);
+	break;
+      case call::E_AR_HDR_NOT_FOUND:
+	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+	CStat::instance()->computeStat(CStat::E_FAILED_REGEXP_HDR_NOT_FOUND);
+	break;
+      case call::E_AR_NO_ERROR:
+      case call::E_AR_STOP_CALL:
+	/* Do nothing. */
+	break;
+    }
+  } else {
+    if (reason == CStat::E_CALL_SUCCESSFULLY_ENDED || timewait) {
+      CStat::instance()->computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
+    } else {
+      CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+      if (reason != CStat::E_NO_ACTION) {
+	CStat::instance()->computeStat(reason);
+      }
+    }
+  }
+  delete_call(id);
+}
+
 bool call::next()
 {
   int test = scenario[msg_index]->test;
@@ -1363,26 +1394,7 @@ bool call::next()
   msg_index=new_msg_index;
   recv_timeout = 0;
   if(msg_index >= scenario_len) {
-    // Call end -> was it successful?
-    if(call::last_action_result != call::E_AR_NO_ERROR) {
-      switch(call::last_action_result) {
-        case call::E_AR_REGEXP_DOESNT_MATCH:
-          CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-          CStat::instance()->computeStat(CStat::E_FAILED_REGEXP_DOESNT_MATCH);
-          break;
-        case call::E_AR_HDR_NOT_FOUND:
-          CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-          CStat::instance()->computeStat(CStat::E_FAILED_REGEXP_HDR_NOT_FOUND);
-          break;
-	case call::E_AR_NO_ERROR:
-	case call::E_AR_STOP_CALL:
-	  /* Do nothing. */
-	  break;
-      }
-    } else {
-      CStat::instance()->computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
-    }
-    delete_call(id);
+    terminate(CStat::E_CALL_SUCCESSFULLY_ENDED);
     return false;
   }
 
@@ -1497,6 +1509,11 @@ bool call::run()
       pause = INT_MAX;
     }
     paused_until = clock_tick + pause;
+
+    /* This state is used as the last message of a scenario, just for handling
+     * final retransmissions. If the connection closes, we do not mark it is
+     * failed. */
+    this->timewait = scenario[msg_index]->timewait;
 
     /* Increment the number of sessions in pause state */
     ++scenario[msg_index]->sessions;

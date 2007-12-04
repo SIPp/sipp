@@ -70,6 +70,7 @@ message::message()
   chance = 0;/* meaning always */
   next = -1;
   on_timeout = -1;
+  timewait = false;
 
 /* 3pcc extended mode */
   peer_dest = NULL;
@@ -570,6 +571,7 @@ void load_scenario(char * filename, int deflt)
   unsigned int recv_count = 0;
   unsigned int recv_opt_count = 0;
   char * peer; 
+  bool found_timewait = false;
   memset (method_list, 0, sizeof (method_list));
 
   if (loaded) {
@@ -623,6 +625,9 @@ void load_scenario(char * filename, int deflt)
       }
       labelMap[ptr] = ::scenario_len;
     } else { /** Message Case */
+      if (found_timewait) {
+	ERROR("<timewait> can only be the last message in a scenario!\n");
+      }
       scenario[scenario_len]    = new message();
       scenario[scenario_len] -> content_length_flag = message::ContentLengthNoPresent;   // Initialize to No present
 
@@ -832,7 +837,7 @@ void load_scenario(char * filename, int deflt)
         }
         getActionForThisMessage();
 
-      } else if(!strcmp(elem, "pause")) {
+      } else if(!strcmp(elem, "pause") || !strcmp(elem, "timewait")) {
         if (recv_count) {
           if (recv_count != recv_opt_count) {
             recv_count = 0;
@@ -842,6 +847,10 @@ void load_scenario(char * filename, int deflt)
           }
         }
         scenario[scenario_len]->M_type = MSG_TYPE_PAUSE;
+	if (!strcmp(elem, "timewait")) {
+	  scenario[scenario_len]->timewait = true;
+	  found_timewait = true;
+	}
 
 	int var;
 	if ((var = xp_get_var("variable", "pause", -1)) != -1) {
@@ -987,6 +996,9 @@ void load_scenario(char * filename, int deflt)
       }
 
       if ((ptr = xp_get_value((char *)"next"))) {
+	if (found_timewait) {
+	  ERROR("next labels are not allowed in <timewait> elements.");
+	}
         nextLabels[scenario_len] = strdup(ptr);
 	scenario[scenario_len] -> test = xp_get_var("test", "test variable", -1);
 	if ( 0 != ( ptr = xp_get_value((char *)"chance") ) ) {
@@ -1003,9 +1015,12 @@ void load_scenario(char * filename, int deflt)
       }
 
       if ((ptr = xp_get_value((char *)"ontimeout"))) {
+	if (found_timewait) {
+	  ERROR("ontimeout labels are not allowed in <timewait> elements.");
+	}
 	ontimeoutLabels[scenario_len] = ptr;
       }
-     
+
       if (++scenario_len >= SCEN_MAX_MESSAGES) {
           ERROR("Too many items in xml scenario file");
       }
@@ -1918,7 +1933,7 @@ char * default_scenario [] = {
 "\n"
 "  <!-- Keep the call open for a while in case the 200 is lost to be     -->\n"
 "  <!-- able to retransmit it if we receive the BYE again.               -->\n"
-"  <pause milliseconds=\"4000\"/>\n"
+"  <timewait milliseconds=\"4000\"/>\n"
 "\n"
 "\n"
 "  <!-- definition of the response time repartition table (unit is ms)   -->\n"
@@ -2437,7 +2452,7 @@ char * default_scenario [] = {
 "\n"
 "  <!-- Keep the call open for a while in case the 200 is lost to be     -->\n"
 "  <!-- able to retransmit it if we receive the BYE again.               -->\n"
-"  <pause milliseconds=\"2000\"/>\n"
+"  <timewait milliseconds=\"2000\"/>\n"
 "\n"
 "</scenario>\n"
 "\n",
@@ -2533,7 +2548,7 @@ char * default_scenario [] = {
 "\n"
 "  <!-- Keep the call open for a while in case the 200 is lost to be     -->\n"
 "  <!-- able to retransmit it if we receive the BYE again.               -->\n"
-"  <pause milliseconds=\"2000\"/>\n"
+"  <timewait milliseconds=\"2000\"/>\n"
 "\n"
 "</scenario>\n",
 
@@ -2841,7 +2856,7 @@ char * default_scenario [] = {
 "\n"
 "  <!-- Keep the call open for a while in case the 200 is lost to be     -->\n"
 "  <!-- able to retransmit it if we receive the BYE again.               -->\n"
-"  <pause milliseconds=\"4000\"/>\n"
+"  <timewait milliseconds=\"4000\"/>\n"
 "\n"
 "  <!-- Definition of the response time repartition table (unit is ms)   -->\n"
 "  <ResponseTimeRepartition value=\"10, 20, 30, 40, 50, 100, 150, 200\"/>\n"

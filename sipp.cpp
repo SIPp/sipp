@@ -4431,16 +4431,7 @@ int close_calls() {
   while (calls->begin() != calls->end()) {
     call_ptr = (calls->begin() != calls->end()) ? (calls->begin())->second : NULL ;
     if(call_ptr) {
-      calls->erase(calls->begin());
-      if (call_ptr->running) {
-	if (!remove_running_call(call_ptr)) {
-	  ERROR("Internal error: A running call is not in the list.\n");
-	}
-      } else {
-	remove_paused_call(call_ptr);
-      }
-      delete call_ptr; 
-      open_calls--;
+      call_ptr->terminate(CStat::E_NO_ACTION);
     }
   }
   return status;
@@ -4456,15 +4447,9 @@ int close_calls(struct sipp_socket *socket) {
 
   for (call_it = calls->begin(); call_it != calls->end(); call_it++) {
     call_ptr = *call_it;
-    if (call_ptr->running) {
-      if (!remove_running_call(call_ptr)) {
-	ERROR("Internal error: A running call is not in the list.\n");
-      }
-    } else {
-      remove_paused_call(call_ptr);
+    if(call_ptr) {
+      call_ptr->terminate(CStat::E_NO_ACTION);
     }
-    delete call_ptr;
-    open_calls--;
   }
 
   delete calls;

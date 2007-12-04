@@ -26,6 +26,7 @@
 #include <sys/socket.h>
 #include <string.h>
 #include "scenario.hpp"
+#include "stat.hpp"
 #ifdef _USE_OPENSSL
 #include "sslcommon.h"
 #endif
@@ -269,12 +270,18 @@ public:
   /* Associate a user with this call. */
   void setUser(int userId);
 
+  /* Terminate this call, depending on action results and timewait. */
+  bool terminate(CStat::E_Action reason);
+
   /* Is this call paused or running? */
   bool running;
   /* If we are running, the iterator to remove us from the running list. */
   call_list::iterator runit;
   /* If we are paused, the iterator to remove us from the paused list. */
   call_list::iterator pauseit;
+
+  /* Is this call just around for final retransmissions. */
+  bool timewait;
 
 private:
   /* rc == true means call not deleted by processing */

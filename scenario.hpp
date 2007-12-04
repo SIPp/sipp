@@ -71,7 +71,8 @@ public:
   int		 pause_variable;
   /* This string is used for the display screen. */
   char		 *pause_desc;
-
+  /* Is this a final pause, intended for catching retransmissions? */
+  bool		timewait;
 
   /* Number of sessions in a pause */
   int            sessions; 
