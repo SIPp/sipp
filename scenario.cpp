@@ -103,7 +103,7 @@ message::~message()
   M_actions = NULL;
 
   if(send_scheme != NULL)
-    free (send_scheme);
+    delete send_scheme;
   send_scheme = NULL;
 
   if(recv_request != NULL)
@@ -127,11 +127,9 @@ message::~message()
      free(pause_desc);
   pause_desc = NULL;
 
-#ifdef __3PCC__
   if(M_sendCmdData != NULL)
-    delete(M_sendCmdData);
+    delete M_sendCmdData;
   M_sendCmdData = NULL;
-#endif
 }
 
 /******** Global variables which compose the scenario file **********/
@@ -889,7 +887,6 @@ void load_scenario(char * filename, int deflt)
 	}
         getActionForThisMessage();
       }
-#ifdef __3PCC__
       else if(!strcmp(elem, "recvCmd")) {
         recv_count++;
         scenario[scenario_len]->M_type = MSG_TYPE_RECVCMD;
@@ -929,51 +926,48 @@ void load_scenario(char * filename, int deflt)
 	     }
         }
 
-        if(ptr = xp_get_cdata()) {
-          
-          char * msg;
-        
-          while((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) ptr++;
-        
-          msg = 
-            scenario[scenario_len] -> M_sendCmdData = 
-            (char *) malloc(strlen(ptr) + 3);
-        
-          if(!msg) { ERROR("Memory Overflow"); }
-
-          strcpy(msg, ptr);
-        
-          ptr = msg + strlen(msg);
-          ptr --;
-        
-          while((ptr >= msg) && 
-                ((*ptr == ' ')  || 
-                 (*ptr == '\t') || 
-                 (*ptr == '\n'))) {
-            *ptr-- = 0;
-          }
-                
-          if(!strstr(msg, "\n\n")) {
-             strcat(msg, "\n\n");
-            }
-          if(ptr != msg) {
-      
-            while(ptr = strstr(msg, "\n ")) {
-              memmove(((char *)(ptr + 1)), 
-                      ((char *)(ptr + 2)), 
-                      strlen(ptr) - 1);
-            }
-        
-            while(ptr = strstr(msg, " \n")) {
-              memmove(((char *)(ptr)), 
-                      ((char *)(ptr + 1)), 
-                      strlen(ptr));
-            }
-          }
+        if(!(ptr = xp_get_cdata())) {
+          ERROR("No CDATA in 'send' section of xml scenario file");
         }
 
-      } 
-#endif
+	char * msg;
+
+	while((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) ptr++;
+
+	msg = (char *) malloc(strlen(ptr) + 3);
+	if(!msg) { ERROR("Memory Overflow"); }
+	strcpy(msg, ptr);
+
+	ptr = msg + strlen(msg);
+	ptr --;
+
+	while((ptr >= msg) &&
+	    ((*ptr == ' ')  ||
+	     (*ptr == '\t') ||
+	     (*ptr == '\n'))) {
+	  *ptr-- = 0;
+	}
+
+	if(!strstr(msg, "\n\n")) {
+	  strcat(msg, "\n\n");
+	}
+
+	if(ptr == msg) {
+	  ERROR("Empty cdata in xml scenario file");
+	}
+
+
+	while(ptr = strstr(msg, "\n ")) {
+	  memmove(((char *)(ptr + 1)), ((char *)(ptr + 2)), strlen(ptr) - 1);
+	}
+
+	while(ptr = strstr(msg, " \n")) {
+	  memmove(((char *)(ptr)), ((char *)(ptr + 1)), strlen(ptr));
+	}
+
+	scenario[scenario_len] -> M_sendCmdData = new SendingMessage(msg, true /* skip sanity */);
+	free(msg);
+      }
       else {
         ERROR_P1("Unknown element '%s' in xml scenario file", elem);
       }

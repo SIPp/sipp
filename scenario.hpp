@@ -132,11 +132,9 @@ public:
 
   int             M_type;
 
-#ifdef __3PCC__
-  char*           M_sendCmdData;
+  SendingMessage *M_sendCmdData;
   unsigned long   M_nbCmdSent;
   unsigned long   M_nbCmdRecv;
-#endif
 
   typedef enum {
       ContentLengthNoPresent = 0,
