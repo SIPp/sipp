@@ -1420,6 +1420,9 @@ void keyb_thread (void * param)
 
   while(!feof(stdin)){
     c = screen_readkey();
+    if (c == -1) {
+	return;
+    }
     if (process_key(c)) {
 	return;
     }

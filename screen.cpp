@@ -58,9 +58,15 @@ void (*screen_exit_handler)();
   gettimeofday (clock, &tzp); \
 }
 
-int  screen_readkey()
+/* ERR is actually -1, but this prevents us from needing to use curses.h in
+ * sipp.cpp. */
+int screen_readkey()
 {
-  return getch();
+  int c = getch();
+  if (c == ERR) {
+    return -1;
+  }
+  return c;
 }
 
 void screen_exit(int rc)
