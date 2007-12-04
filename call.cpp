@@ -1987,6 +1987,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index)
       case E_Message_Remote_IP:
 	dest += snprintf(dest, left, "%s", remote_ip_escaped);
 	break;
+      case E_Message_Remote_Host:
+	dest += snprintf(dest, left, "%s", remote_host);
+	break;
       case E_Message_Remote_Port:
 	dest += snprintf(dest, left, "%d", remote_port + comp->offset);
 	break;

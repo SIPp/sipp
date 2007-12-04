@@ -44,6 +44,7 @@ struct MessageComponent;
 typedef enum {
   E_Message_Literal,
   E_Message_Remote_IP,
+  E_Message_Remote_Host,
   E_Message_Remote_Port,
   E_Message_Transport,
   E_Message_Local_IP,

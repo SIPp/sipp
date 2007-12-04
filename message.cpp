@@ -46,6 +46,7 @@ struct KeywordMap {
 /* These keywords take no parameters. */
 struct KeywordMap SimpleKeywords[] = {
   {"remote_ip", E_Message_Remote_IP },
+  {"remote_host", E_Message_Remote_Host },
   {"remote_port", E_Message_Remote_Port },
   {"transport", E_Message_Transport },
   {"local_ip", E_Message_Local_IP },
