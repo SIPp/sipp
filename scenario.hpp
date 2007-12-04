@@ -66,7 +66,6 @@
 #define OPTIONAL_TRUE      1
 #define OPTIONAL_FALSE     0
 #define OPTIONAL_GLOBAL    2
-#define MAX_LABELS       100
 
 class message {
 
@@ -115,10 +114,10 @@ public:
   int		 counter;
   double         lost;
   int            crlf;
-  unsigned int   next;
+  int		 next;
   int            test;
   int            chance;/* 0=always, RAND_MAX+1=never (test rand() >= chance) */
-  unsigned int   on_timeout;
+  int		 on_timeout;
 
   /* Statistics */
   unsigned long   nb_sent;
@@ -195,7 +194,6 @@ void freeStringTable(char ** stringList, int sizeOfList);
 
 int find_scenario(const char *scenario);
 extern char * default_scenario[10];
-extern unsigned int  labelArray[MAX_LABELS];
 
 /* Useful utility functions for parsing integers, etc. */
 long get_long(const char *ptr, const char *what);

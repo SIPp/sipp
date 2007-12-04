@@ -66,8 +66,8 @@ message::message()
   crlf = 0;
   test = 0;
   chance = 0;/* meaning always */
-  next = 0;
-  on_timeout = 0;
+  next = -1;
+  on_timeout = -1;
 
 /* 3pcc extended mode */
   peer_dest = NULL;
@@ -147,9 +147,13 @@ int           scenario_len = 0;
 char          scenario_name[255];
 int           toolMode  = MODE_CLIENT;
 unsigned long scenario_duration = 0;
-unsigned int  labelArray[MAX_LABELS];
 bool	      rtd_stopped[MAX_RTD_INFO_LENGTH];
 bool	      rtd_started[MAX_RTD_INFO_LENGTH];
+/* The mapping of labels to IDs. */
+var_map	      labelMap;
+/* The string label representations. */
+char	      *nextLabels[SCEN_MAX_MESSAGES];
+char	      *ontimeoutLabels[SCEN_MAX_MESSAGES];
 
 /*************** Helper functions for various types *****************/
 long get_long(const char *ptr, const char *what) {
@@ -517,6 +521,26 @@ void validate_variable_usage() {
   }
 }
 
+/* Apply the next and ontimeout labels according to our map. */
+void apply_labels() {
+  for (int i = 0; i <= scenario_len; i++) {
+    if (nextLabels[i]) {
+      var_map::iterator label_it = labelMap.find(nextLabels[i]);
+      if (label_it == labelMap.end()) {
+	ERROR_P2("The label '%s' was not defined (index %d, next attribute)\n", nextLabels[i], i);
+      }
+      scenario[i]->next = label_it->second;
+    }
+    if (ontimeoutLabels[i]) {
+      var_map::iterator label_it = labelMap.find(ontimeoutLabels[i]);
+      if (label_it == labelMap.end()) {
+	ERROR_P2("The label '%s' was not defined (index %d, ontimeout attribute)\n", ontimeoutLabels[i], i);
+      }
+      scenario[i]->on_timeout = label_it->second;
+    }
+  }
+}
+
 void init_rtds()
 {
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
@@ -539,6 +563,7 @@ int get_cr_number(char *src)
 
 void load_scenario(char * filename, int deflt)
 {
+  static int loaded = 0;
   char * elem;
   char method_list[METHOD_LIST_LENGTH]; // hopefully the method list wont be longer than this
   char method_list_length = 0;           // Enforce length, in case...
@@ -548,6 +573,11 @@ void load_scenario(char * filename, int deflt)
   unsigned int recv_opt_count = 0;
   char * peer; 
   memset (method_list, 0, sizeof (method_list));
+
+  if (loaded) {
+    ERROR("You may only specify a single scenario!\n");
+  }
+  loaded++;
 
   if(filename) {
     if(!xp_set_xml_buffer_from_file(filename)) {
@@ -590,10 +620,10 @@ void load_scenario(char * filename, int deflt)
       CStat::instance()->setRepartitionResponseTime(ptr);
     } else if(!strcmp(elem, "label")) {
       ptr = xp_get_value((char *)"id");
-      unsigned int labelNumber = get_long(ptr, "label identifier");
-      if (labelNumber < (sizeof(labelArray)/sizeof(labelArray[0]))) {
-       labelArray[labelNumber] = ::scenario_len;
+      if (labelMap.find(ptr) != labelMap.end()) {
+	ERROR_P1("The label name '%s' is used twice.", ptr);
       }
+      labelMap[ptr] = ::scenario_len;
     } else { /** Message Case */
       scenario[scenario_len]    = new message();
       scenario[scenario_len] -> content_length_flag = message::ContentLengthNoPresent;   // Initialize to No present
@@ -957,8 +987,8 @@ void load_scenario(char * filename, int deflt)
         scenario[scenario_len] -> crlf = 1;
       }
 
-      if ( 0 != ( ptr = xp_get_value((char *)"next") ) ) {
-        scenario[scenario_len] -> next = get_long(ptr, "next jump");
+      if ((ptr = xp_get_value((char *)"next"))) {
+        nextLabels[scenario_len] = strdup(ptr);
 	scenario[scenario_len] -> test = xp_get_var("test", "test variable", -1);
 	if ( 0 != ( ptr = xp_get_value((char *)"chance") ) ) {
 	  float chance = get_double(ptr,"chance");
@@ -969,16 +999,12 @@ void load_scenario(char * filename, int deflt)
 	  scenario[scenario_len] -> chance = (int)((1.0-chance)*RAND_MAX);
 	}
 	else {
-	  scenario[scenario_len] -> chance = 0;/* always */
+	  scenario[scenario_len] -> chance = 0; /* always */
 	}
-      } else {
-        scenario[scenario_len] -> next = 0;
       }
 
-      if (0 != (ptr = xp_get_value((char *)"ontimeout")) ) {
-        if ((::scenario[scenario_len]->on_timeout = get_long(ptr, "timeout jump")) >= MAX_LABELS) {
-            ERROR_P1("Ontimeout label larger than max supported %d", MAX_LABELS-1);
-        }
+      if ((ptr = xp_get_value((char *)"ontimeout"))) {
+	ontimeoutLabels[scenario_len] = ptr;
       }
      
       if (++scenario_len >= SCEN_MAX_MESSAGES) {
@@ -987,6 +1013,9 @@ void load_scenario(char * filename, int deflt)
     } /** end * Message case */
     xp_close_element();
   } // end while
+
+  /* Patch up the labels. */
+  apply_labels();
 
   /* Some post-scenario loading validation. */
   validate_rtds();

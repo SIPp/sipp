@@ -1349,7 +1349,7 @@ bool call::next()
   /* Default without branching: use the next message */
   int new_msg_index = msg_index+1;
   /* If branch needed, overwrite this default */
-  if ( scenario[msg_index]->next && 
+  if ( (scenario[msg_index]->next >= 0) &&
        ((test == -1) ||
         (test <= maxVariableUsed && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
      ) {
@@ -1357,7 +1357,7 @@ bool call::next()
     int chance = scenario[msg_index]->chance;
     if ((chance <= 0) || (rand() > chance )) {
       /* Branch == overwrite with the 'next' attribute value */
-      new_msg_index = labelArray[scenario[msg_index]->next];
+      new_msg_index = scenario[msg_index]->next;
     }
   }
   msg_index=new_msg_index;
@@ -1415,10 +1415,10 @@ bool call::run()
     if((nb_retrans > (bInviteTransaction ? max_invite_retrans : max_non_invite_retrans)) ||
        (nb_retrans > max_udp_retrans)) {
       scenario[last_send_index] -> nb_timeout ++;
-      if (scenario[last_send_index]->on_timeout) {  // action on timeout
+      if (scenario[last_send_index]->on_timeout >= 0) {  // action on timeout
           WARNING_P3("Call-Id: %s, timeout on max UDP retrans for message %d, jumping to label %d ", 
                       id, msg_index, scenario[last_send_index]->on_timeout);
-          msg_index = labelArray[scenario[last_send_index]->on_timeout];
+          msg_index = scenario[last_send_index]->on_timeout;
           next_retrans = 0;
           recv_timeout = 0;
           if (msg_index < scenario_len) {
@@ -1642,7 +1642,7 @@ bool call::run()
       }
       recv_timeout = 0;
       ++scenario[msg_index]->nb_timeout;
-      if (scenario[msg_index]->on_timeout == 0) {
+      if (scenario[msg_index]->on_timeout < 0) {
         // if you set a timeout but not a label, the call is aborted 
         WARNING_P2("Call-Id: %s, receive timeout on message %d without label to jump to (ontimeout attribute): aborting call", 
                    id, msg_index);
@@ -1657,7 +1657,7 @@ bool call::run()
       }
       WARNING_P3("Call-Id: %s, receive timeout on message %d, jumping to label %d", 
                   id, msg_index, scenario[msg_index]->on_timeout);
-      msg_index = labelArray[scenario[msg_index]->on_timeout];
+      msg_index = scenario[msg_index]->on_timeout;
       recv_timeout = 0;
       if (msg_index < scenario_len) return true;
       // special case - the label points to the end - finish the call
