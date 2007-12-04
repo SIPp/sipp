@@ -3229,6 +3229,18 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	  char *lhs = currentAction->getStringValue();
 	  int value = strcmp(rhs, lhs);
 	  M_callVariableTable[currentAction->getVarId()]->setDouble((double)value);
+        } else if (currentAction->getActionType() == CAction::E_AT_VAR_TRIM) {
+	  char *in = M_callVariableTable[currentAction->getVarId()]->getString();
+	  char *p = in;
+	  while (isspace(*p)) {
+		p++;
+	  }
+	  char *q = strdup(p);
+	  M_callVariableTable[currentAction->getVarId()]->setString(q);
+	  int l = strlen(q);
+	  for (int i = l - 1; i >= 0 & isspace(q[i]); i--) {
+		q[i] = '\0';
+	  }
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TO_DOUBLE) {
 	  double value;
 

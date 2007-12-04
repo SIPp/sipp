@@ -126,6 +126,8 @@ void CAction::afficheInfo()
       printf("Type[%d] - multiply varId[%d] %lf", M_action, variableRevMap[M_varId], M_doubleValue);
   } else if (M_action == E_AT_VAR_DIVIDE) {
       printf("Type[%d] - divide varId[%d] %lf", M_action, variableRevMap[M_varId], M_doubleValue);
+  } else if (M_action == E_AT_VAR_TRIM) {
+      printf("Type[%d] - trim varId[%d]", M_action, variableRevMap[M_varId]);
   } else if (M_action == E_AT_VAR_TEST) {
       printf("Type[%d] - divide varId[%d] varInId[%d] %s %lf", M_action, variableRevMap[M_varId], variableRevMap[M_varInId], comparatorToString(M_comp), M_doubleValue);
   } else if (M_action == E_AT_VAR_TO_DOUBLE) {

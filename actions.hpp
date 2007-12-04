@@ -52,6 +52,7 @@ class CAction
       E_AT_VAR_TEST,
       E_AT_VAR_TO_DOUBLE,
       E_AT_VAR_STRCMP,
+      E_AT_VAR_TRIM,
 #ifdef PCAPPLAY
       E_AT_PLAY_PCAP_AUDIO,
       E_AT_PLAY_PCAP_VIDEO,

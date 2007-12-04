@@ -1490,6 +1490,9 @@ void getActionForThisMessage()
       tmpAction->setVarInId(xp_get_var("variable", "test"));
       tmpAction->setStringValue(xp_get_string("value", "test"));
       tmpAction->setActionType(CAction::E_AT_VAR_STRCMP);
+    } else if(!strcmp(actionElem, "trim")) {
+      tmpAction->setVarId(xp_get_var("assign_to", "trim"));
+      tmpAction->setActionType(CAction::E_AT_VAR_TRIM);
     } else if(!strcmp(actionElem, "exec")) {
       if(ptr = xp_get_value((char *)"command")) {
 	tmpAction->setActionType(CAction::E_AT_EXECUTE_CMD);
