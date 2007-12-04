@@ -293,7 +293,7 @@ private:
 
   int   send_raw(char * msg, int index);
   char * send_scene(int index, int *send_status);
-  void   connect_socket_if_needed();
+  bool   connect_socket_if_needed();
 
   char * compute_cseq(char * src);
   char * get_header_field_code(char * msg, char * code);

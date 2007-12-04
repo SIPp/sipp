@@ -574,6 +574,18 @@ int CStat::computeStat (E_Action P_action)
       M_counters [CPT_PL_FailedCallMaxUdpRetrans]++;
       break;
 
+    case E_FAILED_TCP_CONNECT :
+      M_counters [CPT_C_FailedCallTcpConnect]++;
+      M_counters [CPT_PD_FailedCallTcpConnect]++;
+      M_counters [CPT_PL_FailedCallTcpConnect]++;
+      break;
+
+    case E_FAILED_TCP_CLOSED :
+      M_counters [CPT_C_FailedCallTcpClosed]++;
+      M_counters [CPT_PD_FailedCallTcpClosed]++;
+      M_counters [CPT_PL_FailedCallTcpClosed]++;
+      break;
+
     case E_FAILED_UNEXPECTED_MSG :
       M_counters [CPT_C_FailedCallUnexpectedMessage]++;
       M_counters [CPT_PD_FailedCallUnexpectedMessage]++;
@@ -1256,6 +1268,10 @@ void CStat::dumpData ()
                       << "FailedCannotSendMessage(C)" << stat_delimiter
                       << "FailedMaxUDPRetrans(P)" << stat_delimiter
                       << "FailedMaxUDPRetrans(C)" << stat_delimiter
+                      << "FailedTcpConnect(P)" << stat_delimiter
+                      << "FailedTcpConnect(C)" << stat_delimiter
+                      << "FailedTcpClosed(P)" << stat_delimiter
+                      << "FailedTcpClosed(C)" << stat_delimiter
                       << "FailedUnexpectedMessage(P)" << stat_delimiter
                       << "FailedUnexpectedMessage(C)" << stat_delimiter
                       << "FailedCallRejected(P)" << stat_delimiter
@@ -1349,6 +1365,10 @@ void CStat::dumpData ()
                     << M_counters[CPT_C_FailedCallCannotSendMessage]    << stat_delimiter
                     << M_counters[CPT_PL_FailedCallMaxUdpRetrans]       << stat_delimiter
                     << M_counters[CPT_C_FailedCallMaxUdpRetrans     ]   << stat_delimiter
+                    << M_counters[CPT_PL_FailedCallTcpConnect]          << stat_delimiter
+                    << M_counters[CPT_C_FailedCallTcpConnect]           << stat_delimiter
+                    << M_counters[CPT_PL_FailedCallTcpClosed]          << stat_delimiter
+                    << M_counters[CPT_C_FailedCallTcpClosed]           << stat_delimiter
                     << M_counters[CPT_PL_FailedCallUnexpectedMessage]   << stat_delimiter
                     << M_counters[CPT_C_FailedCallUnexpectedMessage]    << stat_delimiter
                     << M_counters[CPT_PL_FailedCallCallRejected]        << stat_delimiter

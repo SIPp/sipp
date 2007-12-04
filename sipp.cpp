@@ -1849,6 +1849,7 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, char *buffer, 
 
   /* Refuse to write to invalid sockets. */
   if (socket->ss_invalid) {
+    WARNING_P2("Returning EPIPE on invalid socket: %p (%d)\n", socket, socket->ss_fd);
     errno = EPIPE;
     return -1;
   }
@@ -1937,8 +1938,10 @@ static int write_error(struct sipp_socket *socket, int ret) {
 
   if (socket->ss_transport == T_TCP && errno == EPIPE) {
     nb_net_send_errors++;
-    start_calls = 1;
-    if (reset_number > 0) {
+    close(socket->ss_fd);
+    socket->ss_fd = -1;
+    sockets_pending_reset.insert(socket);
+    if (reconnect_allowed()) {
       WARNING("Broken pipe on TCP connection, remote peer "
 	  "probably closed the socket");
     } else {
@@ -2000,17 +2003,23 @@ static int read_error(struct sipp_socket *socket, int ret) {
            }
         }
       }else {
+	/* The socket was closed "cleanly", but we may have calls that need to
+	 * be destroyed.  Also, if these calls are not complete, and attempt to
+	 * send again we may "ressurect" the socket by reconnecting it.*/
         sipp_socket_invalidate(socket);
         if (reset_close) {
- 	      close_calls(socket);
-        }
+	  close_calls(socket);
+	}
       }
       return 0;
     }
 
+    close(socket->ss_fd);
+    socket->ss_fd = -1;
+    sockets_pending_reset.insert(socket);
+
     nb_net_recv_errors++;
-    start_calls = 1;
-    if (reset_number > 0) {
+    if (reconnect_allowed()) {
       WARNING_P1("Error on TCP connection, remote peer probably closed the socket: %s", errstring);
     } else {
       ERROR_P1("Error on TCP connection, remote peer probably closed the socket: %s", errstring);
@@ -2381,6 +2390,7 @@ void sipp_socket_invalidate(struct sipp_socket *socket) {
 
   shutdown(socket->ss_fd, SHUT_RDWR);
   close(socket->ss_fd);
+  socket->ss_fd = -1;
 
   if((pollidx = socket->ss_pollidx) >= pollnfds) {
     ERROR_P2("Pollset error: index %d is greater than number of fds %d!", pollidx, pollnfds);
@@ -2678,7 +2688,7 @@ void pollset_process()
 	  }
 
 	  struct sipp_socket *localSocket = sipp_accept_socket(sock);
-     localSocket->ss_control = 1;
+	  localSocket->ss_control = 1;
 	  local_sockets[local_nb] = localSocket;
 	  local_nb++;
 	  if(!peers_connected){
@@ -2757,10 +2767,6 @@ void traffic_thread()
     clock_tick = new_time;
     last_time = new_time;
 
-    if (start_calls == 1) {
-      reset_connections();
-    }
-
     if (signalDump) {
        /* Screen dumping in a file */
        if (screenf) {
@@ -2784,7 +2790,12 @@ void traffic_thread()
        signalDump = false ;
     }
 
-    if ((!quitting) && (!paused) && (!start_calls)) {
+    while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
+	reset_connection(*(sockets_pending_reset.begin()));
+	sockets_pending_reset.erase(sockets_pending_reset.begin());
+    }
+
+    if ((!quitting) && (!paused)) {
       long l=0;
 
       if (users) {
@@ -2838,6 +2849,11 @@ void traffic_thread()
 		 }
 
                  call_ptr -> run();
+
+		 while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
+		   reset_connection(*(sockets_pending_reset.begin()));
+		   sockets_pending_reset.erase(sockets_pending_reset.begin());
+		 }
 	      }
 
 	      new_time = getmilliseconds();
@@ -2922,13 +2938,25 @@ void traffic_thread()
 
     call_list::iterator iter;
     for(iter = running_calls->begin(); iter != running_calls->end(); iter++) {
-      if(last) { last -> run(); }
+      if(last) {
+	last -> run();
+	while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
+	  reset_connection(*(sockets_pending_reset.begin()));
+	  sockets_pending_reset.erase(sockets_pending_reset.begin());
+	}
+      }
       last = *iter;
       if (--loops <= 0) {
 	break;
       }
     }
-    if(last) { last -> run(); }
+    if(last) {
+      last -> run();
+      while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
+	reset_connection(*(sockets_pending_reset.begin()));
+	sockets_pending_reset.erase(sockets_pending_reset.begin());
+      }
+    }
 
     /* Update the clock. */
     new_time = getmilliseconds();
@@ -3412,9 +3440,8 @@ static struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, in
 	return sipp_allocate_socket(use_ipv6, transport, fd, 0);
 }
 
-struct sipp_socket *new_sipp_socket(bool use_ipv6, int transport) {
+int socket_fd(bool use_ipv6, int transport) {
   int socket_type;
-  struct sipp_socket *ret;
   int fd;
 
   switch(transport) {
@@ -3433,6 +3460,13 @@ struct sipp_socket *new_sipp_socket(bool use_ipv6, int transport) {
   if((fd = socket(use_ipv6 ? AF_INET6 : AF_INET, socket_type, 0))== -1) {
     ERROR_P1("Unable to get a %s socket", TRANSPORT_TO_STRING(transport));
   }
+
+  return fd;
+}
+
+struct sipp_socket *new_sipp_socket(bool use_ipv6, int transport) {
+  struct sipp_socket *ret;
+  int fd = socket_fd(use_ipv6, transport);
 
   ret  = sipp_allocate_socket(use_ipv6, transport, fd);
   if (!ret) {
@@ -3491,6 +3525,9 @@ struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket) {
   }
 
   memcpy(&ret->ss_remote_sockaddr, &remote_sockaddr, sizeof(ret->ss_remote_sockaddr));
+  /* We should connect back to the address which connected to us if we
+   * experience a TCP failure. */
+  memcpy(&ret->ss_dest, &remote_sockaddr, sizeof(ret->ss_remote_sockaddr));
 
   if (ret->ss_transport == T_TLS) {
 #ifdef _USE_OPENSSL
@@ -3537,14 +3574,15 @@ int sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr,
   return 0;
 }
 
-int sipp_connect_socket(struct sipp_socket *socket, struct sockaddr_storage *dest) {
-  int fd;
+int sipp_do_connect_socket(struct sipp_socket *socket) {
+  int ret;
 
   assert(socket->ss_transport == T_TCP || socket->ss_transport == T_TLS);
 
-  fd = connect(socket->ss_fd, (struct sockaddr *)dest, SOCK_ADDR_SIZE(dest));
-  if (fd < 0) {
-    return fd;
+  errno = 0;
+  ret = connect(socket->ss_fd, (struct sockaddr *)&socket->ss_dest, SOCK_ADDR_SIZE(&socket->ss_dest));
+  if (ret < 0) {
+    return ret;
   }
 
   if (socket->ss_transport == T_TLS) {
@@ -3560,6 +3598,50 @@ int sipp_connect_socket(struct sipp_socket *socket, struct sockaddr_storage *des
 
   return 0;
 }
+
+int sipp_connect_socket(struct sipp_socket *socket, struct sockaddr_storage *dest) {
+  memcpy(&socket->ss_dest, dest, SOCK_ADDR_SIZE(dest));
+  return sipp_do_connect_socket(socket);
+}
+
+int sipp_reconnect_socket(struct sipp_socket *socket) {
+  assert(socket->ss_fd == -1);
+
+  socket->ss_fd = socket_fd(socket->ss_ipv6, socket->ss_transport);
+  if (socket->ss_fd == -1) {
+    ERROR_NO("Could not obtain new socket: ");
+  }
+
+  if (socket->ss_invalid) {
+#ifdef _USE_OPENSSL
+    socket->ss_ssl = NULL;
+
+    if ( transport == T_TLS ) {
+      if ((socket->ss_bio = BIO_new_socket(socket->ss_fd,BIO_NOCLOSE)) == NULL) {
+	ERROR("Unable to create BIO object:Problem with BIO_new_socket()\n");
+      }
+
+      if (!(socket->ss_ssl = SSL_new(sip_trp_ssl_ctx_client))) {
+	ERROR("Unable to create SSL object : Problem with SSL_new() \n");
+      }
+
+      SSL_set_bio(socket->ss_ssl,socket->ss_bio,socket->ss_bio);
+    }
+#endif
+
+    /* Store this socket in the tables. */
+    socket->ss_pollidx = pollnfds++;
+    sockets[socket->ss_pollidx] = socket;
+    pollfiles[socket->ss_pollidx].fd      = socket->ss_fd;
+    pollfiles[socket->ss_pollidx].events  = POLLIN | POLLERR;
+    pollfiles[socket->ss_pollidx].revents = 0;
+
+    socket->ss_invalid = false;
+  }
+
+  return sipp_do_connect_socket(socket);
+}
+
 
 /* Main */
 int main(int argc, char *argv[])
@@ -4394,53 +4476,41 @@ void sipp_usleep(unsigned long usec) {
 	usleep(usec);
 }
 
-int reset_connections() {
-  int status=0;
-
-  start_calls = 1;
-  reset_number--;
-
-  if (reset_number < 0) {
-    ERROR_NO("Max number of reconnections reached");
+bool reconnect_allowed() {
+  if (reset_number == -1) {
+    return true;
   }
-  if (reset_close) {
-    status = close_calls();
-  }
-  if (status==0) {
-    status = close_connections();
-    if (status==0) {
-      do{
-          sipp_usleep(reset_sleep * 1000);
-          status = open_connections();
-      }while(status == 1);
-      start_calls = 0;
-      WARNING("Re-connection for connections");
-    }
-  }
-
-  return status;
+  return (reset_number > 0);
 }
 
-/* Close *all* of the calls. */
-int close_calls() {
-  int status=0;
-  call_map * calls = get_calls();
-  call_map::iterator call_it;
-  call * call_ptr = NULL;
-
-  while (calls->begin() != calls->end()) {
-    call_ptr = (calls->begin() != calls->end()) ? (calls->begin())->second : NULL ;
-    if(call_ptr) {
-      call_ptr->terminate(CStat::E_NO_ACTION);
+void reset_connection(struct sipp_socket *socket) {
+  if (!reconnect_allowed()) {
+      ERROR_NO("Max number of reconnections reached");
     }
+
+  if (reset_number != -1) {
+	reset_number--;
   }
-  return status;
+
+  if (reset_close) {
+    WARNING("Closing calls, because of TCP reset or close!");
+    close_calls(socket);
+  }
+
+  /* Sleep for some period of time before the reconnection. */
+  usleep(1000 * reset_sleep);
+
+  if (sipp_reconnect_socket(socket) < 0) {
+    WARNING_NO("Could not reconnect TCP socket");
+    close_calls(socket);
+  } else {
+    WARNING("Socket required a reconnection.");
+  }
 }
 
 /* Close just those calls for a given socket (e.g., if the remote end closes
  * the connection. */
-int close_calls(struct sipp_socket *socket) {
-  int status=0;
+void close_calls(struct sipp_socket *socket) {
   call_list * calls = get_calls_for_socket(socket);
   call_list::iterator call_it;
   call * call_ptr = NULL;
@@ -4448,23 +4518,11 @@ int close_calls(struct sipp_socket *socket) {
   for (call_it = calls->begin(); call_it != calls->end(); call_it++) {
     call_ptr = *call_it;
     if(call_ptr) {
-      call_ptr->terminate(CStat::E_NO_ACTION);
+      call_ptr->terminate(CStat::E_FAILED_TCP_CLOSED);
     }
   }
 
   delete calls;
-
-  return status;
-}
-
-int close_connections() {
-  int status=0;
-
-  if (toolMode != MODE_SERVER)   {
-    sipp_close_socket(main_socket);
-    main_socket = NULL;
-  }
-  return status;
 }
 
 int open_connections() {

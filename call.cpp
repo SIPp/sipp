@@ -255,10 +255,6 @@ void delete_call(char * call_id)
 
     delete call_ptr;
     open_calls--;
-  } else {
-    if (start_calls == 0) {
-      ERROR("Call not found");
-    }
   }
 }
 
@@ -774,18 +770,18 @@ call::~call()
   call_established= false ;
 }
 
-void call::connect_socket_if_needed()
+bool call::connect_socket_if_needed()
 {
   bool existing;
 
-  if(call_socket) return;
-  if(!multisocket) return;
+  if(call_socket) return true;
+  if(!multisocket) return true;
 
   if(transport == T_UDP) {
     struct sockaddr_storage saddr;
 
     if(toolMode != MODE_CLIENT)
-      return;
+      return true;
 
     char peripaddr[256];
     if (!peripsocket) {
@@ -814,7 +810,7 @@ void call::connect_socket_if_needed()
       }
     }
     if (existing) {
-	return;
+	return true;
     }
 
     memset(&saddr, 0, sizeof(struct sockaddr_storage));
@@ -863,7 +859,7 @@ void call::connect_socket_if_needed()
     }
 
     if (existing) {
-      return;
+      return true;
     }
     
     sipp_customize_socket(call_socket);
@@ -873,14 +869,26 @@ void call::connect_socket_if_needed()
     }
 
     if (sipp_connect_socket(call_socket, L_dest)) {
-      if (reset_number > 0) {
+      if (reconnect_allowed()) {
         if(errno == EINVAL){
           /* This occurs sometime on HPUX but is not a true INVAL */
           WARNING("Unable to connect a TCP socket, remote peer error");
         } else {
           WARNING("Unable to connect a TCP socket");
         }
-        start_calls = 1;
+	/* This connection failed.  We must be in multisocket mode, because
+         * otherwise we would already have a call_socket.  This call can not
+         * succeed, but does not affect any of our other calls. We do decrement
+	 * the reconnection counter however. */
+	if (reset_number != -1) {
+	  reset_number--;
+	}
+
+	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+	CStat::instance()->computeStat(CStat::E_FAILED_TCP_CONNECT);
+	delete_call(id);
+
+	return false;
       } else {
 	if(errno == EINVAL){
 	  /* This occurs sometime on HPUX but is not a true INVAL */
@@ -891,6 +899,7 @@ void call::connect_socket_if_needed()
       }
     }
   }
+  return true;
 }
 
 bool lost(int index)
@@ -1271,7 +1280,10 @@ char * call::send_scene(int index, int *send_status)
   char *L_ptr2 ;
 
   /* Socket port must be known before string substitution */
-  connect_socket_if_needed();
+  if (!connect_socket_if_needed()) {
+    *send_status = -2;
+    return NULL;
+  }
 
   assert(call_socket);
 
@@ -1602,7 +1614,8 @@ bool call::run()
     } else if(send_status < 0) { /* Send error */
       /* The timeout will not be sent, so the timeout is no longer needed. */
       send_timeout = 0;
-      return false; /* call deleted */
+      /* The call was already deleted by connect_socket_if_needed or send_raw. */
+      return false;
     }
     /* We have sent the message, so the timeout is no longer needed. */
     send_timeout = 0;

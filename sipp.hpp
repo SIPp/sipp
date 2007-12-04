@@ -45,6 +45,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <set>
 #include <math.h>
 
 #if defined(__HPUX) || defined(__SUNOS)
@@ -284,6 +285,7 @@ struct sipp_socket *new_sipp_call_socket(bool use_ipv6, int transport, bool *exi
 struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket);
 extern int	sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr, int *port);
 extern int	sipp_connect_socket(struct sipp_socket *socket, struct sockaddr_storage *dest);
+extern int      sipp_reconnect_socket(struct sipp_socket *socket);
 extern void	sipp_customize_socket(struct sipp_socket *socket);
 extern int      delete_socket(int P_socket);
 extern int      min_socket          _DEFVAL(65535);
@@ -355,10 +357,12 @@ extern struct        sockaddr_storage   localTwin_sockaddr;
 extern int           user_port                    _DEFVAL(0);
 extern char          hostname[80];
 extern bool          is_ipv6                      _DEFVAL(false);
-extern int           start_calls                  _DEFVAL(0);
+
 extern int           reset_number                 _DEFVAL(0);
 extern int	     reset_close                  _DEFVAL(1);
 extern int	     reset_sleep                  _DEFVAL(1000);
+/* A list of sockets pending reset. */
+extern set<struct sipp_socket *> sockets_pending_reset;
 
 extern struct        addrinfo * local_addr_storage;
 
@@ -497,6 +501,7 @@ struct sipp_socket {
 	BIO *ss_bio;	/* The underlying BIO descriptor for this socket. */
 #endif
 	struct sockaddr_storage ss_remote_sockaddr; /* Who we are talking to. */
+	struct sockaddr_storage ss_dest; /* Who we are talking to. */
 
 
 	int ss_pollidx; /* The index of this socket in our poll structures. */
@@ -541,9 +546,9 @@ char *strcasestr2 ( char *__haystack, char *__needle);
 char *get_peer_addr(char *);
 int get_decimal_from_hex(char hex);
 
-int reset_connections() ;
-int close_calls();
-int close_calls(struct sipp_socket *);
+bool reconnect_allowed();
+void reset_connection(struct sipp_socket *);
+void close_calls(struct sipp_socket *);
 int close_connections();
 int open_connections();
 void timeout_alarm(int);
