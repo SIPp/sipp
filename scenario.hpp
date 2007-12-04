@@ -101,6 +101,7 @@ public:
   int   	 recv_response;
   char         * recv_request;
   int            optional;
+  bool           advance_state;
   int            regexp_match;
   regex_t      * regexp_compile;
 

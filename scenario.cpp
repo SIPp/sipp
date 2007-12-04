@@ -55,6 +55,7 @@ message::message()
   recv_response = 0;
   recv_request = NULL;
   optional = 0;
+  advance_state = true;
   regexp_match = 0;
   regexp_compile = NULL;
 
@@ -809,6 +810,10 @@ void load_scenario(char * filename, int deflt)
 	    ERROR_P1("Could not understand optional value: %s", ptr);
 	  }
         }
+	scenario[scenario_len]->advance_state = xp_get_bool("advance_state", "recv", true);
+	if (!scenario[scenario_len]->advance_state && scenario[scenario_len]->optional == OPTIONAL_FALSE) {
+	  ERROR_P1("advance_state is allowed only for optional messages (index = %d)\n", scenario_len);
+	}
 
         if (0 != (ptr = xp_get_value((char *)"regexp_match"))) {
           if(!strcmp(ptr, "true")) {

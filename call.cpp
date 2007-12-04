@@ -2680,12 +2680,12 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
 bool call::matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod)
 {         
   int        result;
-          
+
   if ((reply_code) && ((scenario[index] -> recv_response) == reply_code) && \
      (index == 0 || ((scenario[index]->recv_response_for_cseq_method_list) && \
      (strstr(scenario[index]->recv_response_for_cseq_method_list, responsecseqmethod))))) {
         return true;
-  }   
+  }
     
   if ((scenario[index] -> recv_request) && \
      (!strcmp(scenario[index] -> recv_request, request))) {
@@ -3050,6 +3050,11 @@ bool call::process_incoming(char * msg)
       dialog_challenge_type = reply_code;
   }
 #endif
+
+  /* If we are not advancing state, we should quite before we change this stuff. */
+  if (!scenario[search_index]->advance_state) {
+    return true;
+  }
 
   /* Store last received message information for all messages so that we can
    * correctly identify retransmissions, and use its body for inclusion
