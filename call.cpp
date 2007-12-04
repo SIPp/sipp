@@ -1502,7 +1502,6 @@ bool call::run()
     ++scenario[msg_index]->sessions;
     return run(); /* In case delay is 0 */
   }
-#ifdef __3PCC__
   else if(scenario[msg_index] -> M_type == MSG_TYPE_SENDCMD) {
     int send_status;
 
@@ -1519,7 +1518,6 @@ bool call::run()
     next_retrans = 0;
     return(next());
   }
-#endif
   else if(scenario[msg_index] -> M_type == MSG_TYPE_NOP) {
     do_bookkeeping(msg_index);
     actionResult = executeAction(NULL, msg_index);
@@ -1628,9 +1626,7 @@ bool call::run()
 
     return next();
   } else if (scenario[msg_index]->M_type == MSG_TYPE_RECV
-#ifdef __3PCC__
          || scenario[msg_index]->M_type == MSG_TYPE_RECVCMD
-#endif
                                                  ) {
     if (recv_timeout) {
       if(recv_timeout > clock_tick || recv_timeout > getmilliseconds()) {
@@ -2347,7 +2343,6 @@ char* call::createSendingMessage(char *src, int P_index, bool skip_sanity)
 
 
 
-#ifdef __3PCC__
 bool call::process_twinSippCom(char * msg)
 {
   int		  search_index;
@@ -2481,7 +2476,6 @@ bool call::check_peer_src(char * msg, int search_index)
   *L_ptr2 = L_backup;
   return (false);
 }
-#endif
 
 
 void call::extract_cseq_method (char* method, char* msg)
@@ -3442,13 +3436,11 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
 	      , -1)) ;
       }
 
-#ifdef __3PCC__
-    // if twin socket call => reset the other part here 
-    if (twinSippSocket && (msg_index > 0)) {
-      res = sendCmdBuffer
-      (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n\n", -1));
-    }
-#endif /* __3PCC__ */
+      // if twin socket call => reset the other part here
+      if (twinSippSocket && (msg_index > 0)) {
+	res = sendCmdBuffer
+	  (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n\n", -1));
+      }
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
       CStat::instance()->computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
       delete_call(id);
@@ -3479,13 +3471,11 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
 	      , -1)) ;
       }
     
-#ifdef __3PCC__
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
       res = sendCmdBuffer
       (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n\n", -1));
     }
-#endif /* __3PCC__ */
     
     CStat::instance()->computeStat(CStat::E_CALL_FAILED);
     CStat::instance()->computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
@@ -3515,13 +3505,11 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
                     , -1)) ;
     // Note: the call ends here but it is not marked as bad. PING is a 
     //       normal message.
-#ifdef __3PCC__
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
       res = sendCmdBuffer
       (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n\n",-1));
     }
-#endif /* __3PCC__ */
     
     CStat::instance()->computeStat(CStat::E_AUTO_ANSWERED);
     delete_call(id);

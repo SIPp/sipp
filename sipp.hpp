@@ -137,9 +137,7 @@
 #define DEFAULT_TRANSPORT            T_UDP
 #define DEFAULT_PORT                 5060  
 #define DEFAULT_MEDIA_PORT           6000
-#ifdef __3PCC__
 #define DEFAULT_3PCC_PORT            6060
-#endif
 #define DEFAULT_SERVICE              ((char *)"service")
 #define DEFAULT_AUTH_PASSWORD        ((char *)"password")
 #define DEFAULT_REPORT_FREQ          1000
@@ -232,7 +230,6 @@ extern int                paused                  _DEFVAL(0);
 extern int                lose_packets            _DEFVAL(0);
 extern double             global_lost             _DEFVAL(0.0);
 extern char               remote_host[255]; 
-#ifdef __3PCC__
 extern char               twinSippHost[255];
 extern char               twinSippIp[40];
 extern char             * master_name;
@@ -240,7 +237,6 @@ extern char             * slave_number;
 extern int                twinSippPort            _DEFVAL(DEFAULT_3PCC_PORT);
 extern bool               twinSippMode            _DEFVAL(false);
 extern bool               extendedTwinSippMode    _DEFVAL(false);
-#endif
 
 extern bool               backgroundMode          _DEFVAL(false);        
 extern bool               signalDump              _DEFVAL(false);        

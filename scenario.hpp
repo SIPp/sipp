@@ -37,10 +37,8 @@
  */
 #define MAX_RTD_INFO_LENGTH 5
 
-#ifdef __3PCC__
 #define MSG_TYPE_SENDCMD   0
 #define MSG_TYPE_RECVCMD   1
-#endif
 
 #define MSG_TYPE_SEND      2
 #define MSG_TYPE_RECV      3
@@ -52,7 +50,6 @@
 
 #define METHOD_LIST_LENGTH      255
 
-#ifdef __3PCC__
 #define MODE_3PCC_CONTROLLER_A  2
 #define MODE_3PCC_CONTROLLER_B  3   
 #define MODE_3PCC_A_PASSIVE     4
@@ -61,7 +58,6 @@
 #define MODE_MASTER             5 
 #define MODE_MASTER_PASSIVE     6
 #define MODE_SLAVE              7
-#endif
 
 #define OPTIONAL_TRUE      1
 #define OPTIONAL_FALSE     0

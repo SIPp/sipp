@@ -250,14 +250,11 @@ public:
 
   bool  automaticResponseMode(T_AutoMode P_case, char* P_recv);
 
-#ifdef __3PCC__
   int   sendCmdMessage(int index); // 3PCC
   bool  process_twinSippCom(char * msg); // 3PCC
 
   int   sendCmdBuffer(char* cmd); // for 3PCC, send a command out of a 
                                   // scenario execution
-
-#endif
 
   static void readInputFileContents(const char* fileName);
   static void dumpFileContents(void);

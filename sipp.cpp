@@ -263,13 +263,11 @@ struct sipp_option options_table[] = {
 	{"tls_key", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
 	{"tls_crl", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
 #endif
-#ifdef __3PCC__
 	{"3pcc", "Launch the tool in 3pcc mode (\"Third Party call control\"). The passed ip address is depending on the 3PCC role.\n"
                  "- When the first twin command is 'sendCmd' then this is the address of the remote twin socket.  SIPp will try to connect to this address:port to send the twin command (This instance must be started after all other 3PCC scenarii).\n"
                  "    Example: 3PCC-C-A scenario.\n"
                  "- When the first twin command is 'recvCmd' then this is the address of the local twin socket. SIPp will open this address:port to listen for twin command.\n"
 		 "    Example: 3PCC-C-B scenario.", SIPP_OPTION_3PCC, NULL, 1},
-#endif
 	{"tdmmap", "Generate and handle a table of TDM circuits.\n"
                    "A circuit must be available for the call to be placed.\n"
                    "Format: -tdmmap {0-3}{99}{5-8}{1-31}", SIPP_OPTION_TDMMAP, NULL, 1},
@@ -954,7 +952,6 @@ void print_stats_in_file(FILE * f, int last)
 	fprintf(f,"              [ NOP ]              ");
       }
     }
-#ifdef __3PCC__
     else if(scenario[index] -> M_type == MSG_TYPE_RECVCMD) {
       fprintf(f,"    [ Received Command ]         ");
       if(scenario[index]->retrans_delay) {
@@ -976,7 +973,6 @@ void print_stats_in_file(FILE * f, int last)
              "",
              "");
     }
-#endif
     else {
       ERROR("Scenario command not implemented in display\n");
     }
@@ -1038,7 +1034,6 @@ void print_bottom_line(FILE *f, int last)
       case MODE_SERVER :
         fprintf(f,"------------------------------ Sipp Server Mode -------------------------------" SIPP_ENDL);
         break;
-#ifdef __3PCC__
       case MODE_3PCC_CONTROLLER_B :
         fprintf(f,"----------------------- 3PCC Mode - Controller B side -------------------------" SIPP_ENDL);
         break;
@@ -1057,7 +1052,6 @@ void print_bottom_line(FILE *f, int last)
       case MODE_SLAVE :
         fprintf(f,"----------------------- 3PCC extended mode - Slave side -------------------------" SIPP_ENDL);
         break; 
-#endif
       case MODE_CLIENT :
       default:
         fprintf(f,"------ [+|-|*|/]: Adjust rate ---- [q]: Soft exit ---- [p]: Pause traffic -----" SIPP_ENDL);
@@ -1117,14 +1111,12 @@ void print_variable_list()
                      i,             
                      actions->getActionSize());
               break;
-#ifdef __3PCC__
             case MSG_TYPE_RECVCMD:
               printf("=> Message[%d] (Receive Command Message) - "
                      "[%d] action(s) defined :" SIPP_ENDL,
                      i,             
                      actions->getActionSize());
               break;
-#endif
             default:
               printf("=> Message[%d] - [%d] action(s) defined :" SIPP_ENDL,
                      i,             
@@ -2805,10 +2797,8 @@ void traffic_thread()
 
 
       if( (toolMode == MODE_CLIENT)
-#ifdef __3PCC__
           || (toolMode == MODE_3PCC_CONTROLLER_A)
           || (toolMode == MODE_MASTER)
-#endif
           )
         {
 	  int first_open_tick = clock_tick;
@@ -3855,7 +3845,6 @@ int main(int argc, char *argv[])
 	  generic[generic_count] = NULL;
 	  break;
 	case SIPP_OPTION_3PCC:
-#ifdef __3PCC__
 	  if(slave_masterSet){
 	    ERROR("-3PCC option is not compatible with -master and -slave options\n");
 	  }
@@ -3866,10 +3855,7 @@ int main(int argc, char *argv[])
 	  CHECK_PASS();
 	  twinSippMode = true;
 	  strcpy(twinSippHost, argv[argi]);
-     get_host_and_port(twinSippHost, twinSippHost, &twinSippPort); 
-#else
-	  ERROR("SIPp was not compiled with 3PCC enabled!");
-#endif
+	  get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
 	  break;
 	case SIPP_OPTION_SCENARIO:
 	  REQUIRE_ARG();
@@ -4821,7 +4807,6 @@ int open_connections() {
     }
   }
 
-#ifdef __3PCC__
   /* Trying to connect to Twin Sipp in 3PCC mode */
   if(twinSippMode) {
     if(toolMode == MODE_3PCC_CONTROLLER_A || toolMode == MODE_3PCC_A_PASSIVE) {
@@ -4847,7 +4832,6 @@ int open_connections() {
               "from MASTER and SLAVE\n");
      }
     }
-#endif
 
   return status;
             }

@@ -89,11 +89,9 @@ message::message()
 
   M_type = 0;
 
-#ifdef __3PCC__
   M_sendCmdData = NULL;
   M_nbCmdSent   = 0;
   M_nbCmdRecv   = 0;
-#endif
 
   content_length_flag = ContentLengthNoPresent;
 }
@@ -1182,7 +1180,6 @@ void computeSippMode()
             toolMode  = MODE_SERVER;
           isFirstMessageFound = false;
           break;
-#ifdef __3PCC__
         case MSG_TYPE_SENDCMD:
           isSendCmdFound = true;
           if(!isRecvCmdFound) {
@@ -1236,7 +1233,6 @@ void computeSippMode()
             }
           isFirstMessageFound = false;
           break;
-#endif // __3PCC__
         default:
           break;
         }
