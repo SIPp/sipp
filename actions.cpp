@@ -91,18 +91,18 @@ void CAction::afficheInfo()
 {
   if (M_action == E_AT_ASSIGN_FROM_REGEXP) {
     if(M_lookingPlace == E_LP_MSG) {
-      printf("Type[%d] - where[%s] - checkIt[%d] - varId[%d]",
+      printf("Type[%d] - where[%s] - checkIt[%d] - $%s",
              M_action,
              "Full Msg",
              M_checkIt,
-		       M_varId);
+		       variableRevMap[M_varId]);
     } else {
-      printf("Type[%d] - where[%s-%s] - checkIt[%d] - varId[%d]",
+      printf("Type[%d] - where[%s-%s] - checkIt[%d] - $%d",
              M_action,
              "Header",
              M_lookingChar,
              M_checkIt,
-		       M_varId);
+		       variableRevMap[M_varId]);
     }
   } else if (M_action == E_AT_EXECUTE_CMD) {
     if (M_cmdLine) {
@@ -115,21 +115,21 @@ void CAction::afficheInfo()
   } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
       char tmp[40];
       M_distribution->textDescr(tmp, sizeof(tmp));
-      printf("Type[%d] - sample varId[%d] %s", M_action, M_varId, tmp);
+      printf("Type[%d] - sample varId[%d] %s", M_action, variableRevMap[M_varId], tmp);
   } else if (M_action == E_AT_ASSIGN_FROM_VALUE) {
-      printf("Type[%d] - assign varId[%d] %lf", M_action, M_varId, M_doubleValue);
+      printf("Type[%d] - assign varId[%d] %lf", M_action, variableRevMap[M_varId], M_doubleValue);
   } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
-      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, M_varId, M_message);
+      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, variableRevMap[M_varId], M_message);
   } else if (M_action == E_AT_VAR_ADD) {
-      printf("Type[%d] - add varId[%d] %lf", M_action, M_varId, M_doubleValue);
+      printf("Type[%d] - add varId[%d] %lf", M_action, variableRevMap[M_varId], M_doubleValue);
   } else if (M_action == E_AT_VAR_MULTIPLY) {
-      printf("Type[%d] - multiply varId[%d] %lf", M_action, M_varId, M_doubleValue);
+      printf("Type[%d] - multiply varId[%d] %lf", M_action, variableRevMap[M_varId], M_doubleValue);
   } else if (M_action == E_AT_VAR_DIVIDE) {
-      printf("Type[%d] - divide varId[%d] %lf", M_action, M_varId, M_doubleValue);
+      printf("Type[%d] - divide varId[%d] %lf", M_action, variableRevMap[M_varId], M_doubleValue);
   } else if (M_action == E_AT_VAR_TEST) {
-      printf("Type[%d] - divide varId[%d] varInId[%d] %s %lf", M_action, M_varId, M_varInId, comparatorToString(M_comp), M_doubleValue);
+      printf("Type[%d] - divide varId[%d] varInId[%d] %s %lf", M_action, variableRevMap[M_varId], variableRevMap[M_varInId], comparatorToString(M_comp), M_doubleValue);
   } else if (M_action == E_AT_VAR_TO_DOUBLE) {
-      printf("Type[%d] - toDouble varId[%d]", M_action, M_varId);
+      printf("Type[%d] - toDouble varId[%d]", M_action, variableRevMap[M_varId]);
 #ifdef PCAPPLAY
   } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
       printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);

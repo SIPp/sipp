@@ -157,8 +157,9 @@ public:
 
 extern message   *   scenario[SCEN_MAX_MESSAGES];
 extern CVariable *** scenVariableTable;
-extern bool	     *variableUsed;
 extern int	     maxVariableUsed;
+/* This maps variable integers into their actual names. */
+extern char	     **variableRevMap;
 extern int	     scenario_len;
 extern char          scenario_name[255];
 extern int           toolMode;
@@ -186,6 +187,10 @@ int  createIntegerTable(char          * P_listeStr,
 int  isWellFormed(char * P_listeStr, 
                   int  * nombre);
 
+/* String table functions. */
+int createStringTable(char * inputString, char *** stringList, int *sizeOfList);
+void freeStringTable(char ** stringList, int sizeOfList);
+
 
 
 int find_scenario(const char *scenario);
@@ -198,6 +203,7 @@ long get_time(const char *ptr, const char *what, int multiplier);
 double get_double(const char *ptr, const char *what);
 bool get_bool(const char *ptr, const char *what);
 int time_string(double ms, char *res, int reslen);
+int get_var(const char *varName, const char *what);
 
 extern int get_cr_number(char *msg);
 

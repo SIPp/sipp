@@ -138,8 +138,11 @@ message::~message()
 
 message*      scenario[SCEN_MAX_MESSAGES];
 CVariable***  scenVariableTable;
-bool	      *variableUsed;
 int	      maxVariableUsed = -1;
+typedef std::map<std::string, int> var_map;
+var_map	      variableMap;
+char	      **variableRevMap;
+int	      *variableReferences;
 int           scenario_len = 0;
 char          scenario_name[255];
 int           toolMode  = MODE_CLIENT;
@@ -300,34 +303,60 @@ double xp_get_bool(const char *name, const char *what, bool defval) {
   return xp_get_bool(name, what);
 }
 
-void xp_use_var(int var) {
-  if (var > maxVariableUsed) {
-    bool *tmpUsed = new bool[var + 1];
-    int i, j;
-    CVariable ***tmpScenVars = new CVariable **[var + 1];
-    for (i = 0; i <= maxVariableUsed; i++) {
-	tmpUsed[i] = variableUsed[i];
-	tmpScenVars[i] = new CVariable * [SCEN_MAX_MESSAGES];
-	for (j = 0; j < SCEN_MAX_MESSAGES; j++) {
-	  tmpScenVars[i][j] = scenVariableTable[i][j];
-	}
-	delete scenVariableTable[i];
-    }
-    delete [] variableUsed;
-    delete [] scenVariableTable;
-    variableUsed = tmpUsed;
-    scenVariableTable = tmpScenVars;
-    for (;i <= var; i++) {
-	variableUsed[i] = false;
-	scenVariableTable[i] = new CVariable * [SCEN_MAX_MESSAGES];
-	for (j = 0; j < SCEN_MAX_MESSAGES; j++) {
-	  scenVariableTable[i][j] = NULL;
-	}
-    }
-
-    maxVariableUsed = var;
+int get_var(const char *varName, const char *what) {
+  /* Check the name's validity. */
+  if (varName[0] == '\0') {
+    ERROR_P1("Variable names may not be empty for %s\n", what);
   }
-  variableUsed[var] = true;
+  if (strcspn(varName, "$,") != strlen(varName)) {
+    ERROR_P1("Variable names may not contain $ or , for %s\n", what);
+  }
+
+  /* If this variable has already been used, then we have nothing to do. */
+  var_map::iterator var_it = variableMap.find(varName);
+  if (var_it != variableMap.end()) {
+    variableReferences[var_it->second]++;
+    return var_it->second;
+  }
+
+  /* Assign this variable the next slot. */
+  int varNum = maxVariableUsed > 0 ? maxVariableUsed + 1 : 1;
+
+  CVariable ***tmpScenVars = new CVariable **[varNum + 1];
+  char **tmpVariableRevMap = new char *[varNum + 1];
+  int *tmpVariableReferences = new int[varNum + 1];
+  int i;
+  for (i = 0; i <= maxVariableUsed; i++) {
+    tmpScenVars[i] = new CVariable * [SCEN_MAX_MESSAGES];
+    for (int j = 0; j < SCEN_MAX_MESSAGES; j++) {
+      tmpScenVars[i][j] = scenVariableTable[i][j];
+    }
+    delete scenVariableTable[i];
+    tmpVariableRevMap[i] = variableRevMap[i];
+    tmpVariableReferences[i] = variableReferences[i];
+  }
+  if (scenVariableTable) {
+    delete [] scenVariableTable;
+    delete [] variableRevMap;
+    delete [] variableReferences;
+  }
+  scenVariableTable = tmpScenVars;
+  variableRevMap = tmpVariableRevMap;
+  variableReferences = tmpVariableReferences;
+
+  for (; i <= varNum; i++) {
+    scenVariableTable[i] = new CVariable * [SCEN_MAX_MESSAGES];
+    for (int j = 0; j < SCEN_MAX_MESSAGES; j++) {
+      scenVariableTable[i][j] = NULL;
+    }
+  }
+
+  variableMap[varName] = varNum;
+  variableRevMap[varNum] = strdup(varName);
+  variableReferences[varNum] = 1;
+  maxVariableUsed = varNum;
+
+  return varNum;
 }
 
 int xp_get_var(const char *name, const char *what) {
@@ -338,16 +367,7 @@ int xp_get_var(const char *name, const char *what) {
     ERROR_P2("%s is missing the required '%s' variable parameter.", what, name);
   }
 
-  helptext = (char *)malloc(100 + strlen(name) + strlen(what));
-  sprintf(helptext, "%s '%s' parameter", what, name);
-  int var = get_long(ptr, helptext);
-  free(helptext);
-
-  if(var < 0) {
-    ERROR("Variables must be positive integers!");
-  }
-  xp_use_var(var);
-  return var;
+  return get_var(ptr, what);
 }
 
 int xp_get_var(const char *name, const char *what, int defval) {
@@ -360,7 +380,6 @@ int xp_get_var(const char *name, const char *what, int defval) {
 
   return xp_get_var(name, what);
 }
-
 
 bool get_bool(const char *ptr, const char *what) {
   char *endptr;
@@ -486,6 +505,14 @@ void validate_rtds() {
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     if (rtd_started[i] && !rtd_stopped[i]) {
       ERROR_P1("You have started Response Time Duration %d, but have never stopped it!", i + 1);
+    }
+  }
+}
+
+void validate_variable_usage() {
+  for (int i = 1; i <= maxVariableUsed; i++) {
+    if(variableReferences[i] == 1) {
+	ERROR_P1("Variable $%s is referenced only once!\n", variableRevMap[i]);
     }
   }
 }
@@ -932,23 +959,18 @@ void load_scenario(char * filename, int deflt)
 
       if ( 0 != ( ptr = xp_get_value((char *)"next") ) ) {
         scenario[scenario_len] -> next = get_long(ptr, "next jump");
-         if ( 0 != ( ptr = xp_get_value((char *)"test") ) ) {
-           scenario[scenario_len] -> test = get_long(ptr, "test variable");
-         }
-         else {
-           scenario[scenario_len] -> test = -1;
-         }
-         if ( 0 != ( ptr = xp_get_value((char *)"chance") ) ) {
-           float chance = get_double(ptr,"chance");
-                                     /* probability of branch to next */
-           if (( chance < 0.0 ) || (chance > 1.0 )) {
-             ERROR_P1("Chance %s not in range [0..1]", ptr);
-           }
-           scenario[scenario_len] -> chance = (int)((1.0-chance)*RAND_MAX);
-         }
-         else {
-           scenario[scenario_len] -> chance = 0;/* always */
-         }
+	scenario[scenario_len] -> test = xp_get_var("test", "test variable", -1);
+	if ( 0 != ( ptr = xp_get_value((char *)"chance") ) ) {
+	  float chance = get_double(ptr,"chance");
+	  /* probability of branch to next */
+	  if (( chance < 0.0 ) || (chance > 1.0 )) {
+	    ERROR_P1("Chance %s not in range [0..1]", ptr);
+	  }
+	  scenario[scenario_len] -> chance = (int)((1.0-chance)*RAND_MAX);
+	}
+	else {
+	  scenario[scenario_len] -> chance = 0;/* always */
+	}
       } else {
         scenario[scenario_len] -> next = 0;
       }
@@ -971,6 +993,9 @@ void load_scenario(char * filename, int deflt)
   if (scenario_len == 0) {
     ERROR("Did not find any messages inside of scenario!");
   }
+
+  /* Make sure that all variables are used more than once. */
+  validate_variable_usage();
 }
 
 CSample *parse_distribution(bool oldstyle = false) {
@@ -1211,8 +1236,8 @@ void getActionForThisMessage()
   char *        actionElem;
   char *        currentRegExp = NULL;
   char *        buffer = NULL;
-  unsigned int* currentTabVarId = NULL;
-  int           currentNbVarId;
+  char **       currentTabVarName = NULL;
+  int           currentNbVarNames;
   char * ptr;
   int           sub_currentNbVarId;
   
@@ -1298,52 +1323,47 @@ void getActionForThisMessage()
 	tmpAction->setCheckIt(false);
       }
       if (!(ptr = xp_get_value((char *) "assign_to"))) {
-         ERROR("assign_to value is missing");
-         }
+	ERROR("assign_to value is missing");
+      }
 
-      if(createIntegerTable(ptr, &currentTabVarId, &currentNbVarId) == 1) {
-   	xp_use_var(currentTabVarId[0]);
-	tmpAction->setVarId(currentTabVarId[0]);
-	/* and creating the associated variable */
-	if (scenVariableTable[currentTabVarId[0]][scenario_len] != NULL) {
-	  delete(scenVariableTable[currentTabVarId[0]][scenario_len]);
-	  scenVariableTable[currentTabVarId[0]][scenario_len] = NULL;
-	}
-	variableUsed[currentTabVarId[0]] = true;
-	scenVariableTable[currentTabVarId[0]][scenario_len] =
-	  new CVariable(currentRegExp);
+      createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
 
-	if(!(scenVariableTable[currentTabVarId[0]][scenario_len]
-	      ->isRegExpWellFormed()))
-	  ERROR_P1("Regexp '%s' is not valid in xml "
-	      "scenario file", currentRegExp);
+      int varId = get_var(currentTabVarName[0], "assign_to");
+      tmpAction->setVarId(varId);
+      /* and creating the associated variable */
+      if (scenVariableTable[varId][scenario_len] != NULL) {
+	delete(scenVariableTable[varId][scenario_len]);
+	scenVariableTable[varId][scenario_len] = NULL;
+      }
+      scenVariableTable[varId][scenario_len] = new CVariable(currentRegExp);
 
-	if (currentNbVarId > 1 ) {
-	  sub_currentNbVarId = currentNbVarId - 1 ;
-	  tmpAction->setNbSubVarId(sub_currentNbVarId);
+      if(!(scenVariableTable[varId][scenario_len]->isRegExpWellFormed()))
+	ERROR_P1("Regexp '%s' is not valid in xml "
+	    "scenario file", currentRegExp);
 
-	  for(int i=1; i<= sub_currentNbVarId; i++) {
-	    xp_use_var(currentTabVarId[i]);
+      if (currentNbVarNames > 1 ) {
+	sub_currentNbVarId = currentNbVarNames - 1 ;
+	tmpAction->setNbSubVarId(sub_currentNbVarId);
 
-	      tmpAction->setSubVarId(currentTabVarId[i]);
+	for(int i=1; i<= sub_currentNbVarId; i++) {
+	  int varId = get_var(currentTabVarName[i], "sub expression assign_to");
 
-	      /* and creating the associated variable */
-	      if (scenVariableTable[currentTabVarId[i]][scenario_len] != NULL) {
-		delete(scenVariableTable[currentTabVarId[i]][scenario_len]);
-		scenVariableTable[currentTabVarId[i]][scenario_len] = NULL;
-	      }
-	      scenVariableTable[currentTabVarId[i]][scenario_len] =
-		new CVariable(currentRegExp);
+	  tmpAction->setSubVarId(varId);
 
-	      if(!(scenVariableTable[currentTabVarId[i]][scenario_len]
-		    ->isRegExpWellFormed()))
-		ERROR_P1("Regexp '%s' is not valid in xml "
-		    "scenario file", currentRegExp);
+	  /* and creating the associated variable */
+	  if (scenVariableTable[varId][scenario_len] != NULL) {
+	    delete(scenVariableTable[varId][scenario_len]);
+	    scenVariableTable[varId][scenario_len] = NULL;
 	  }
-	}
+	  scenVariableTable[varId][scenario_len] = new CVariable(currentRegExp);
 
-	delete[] currentTabVarId;
-      } 
+	  if(!(scenVariableTable[varId][scenario_len]->isRegExpWellFormed()))
+	    ERROR_P1("Regexp '%s' is not valid in xml "
+		"scenario file", currentRegExp);
+	}
+      }
+
+      freeStringTable(currentTabVarName, currentNbVarNames);
 
       if(currentRegExp != NULL) {
 	delete[] currentRegExp;
@@ -1572,6 +1592,40 @@ int createIntegerTable(char * P_listeStr,
      }
    return(0);
   }else return(0);
+}
+
+int createStringTable(char * inputString, char *** stringList, int *sizeOfList)
+{
+  if(!inputString) {
+    return 0;
+  }
+
+  *stringList = NULL;
+  *sizeOfList = 0;
+
+  do
+  {
+    char *p = strchr(inputString, ',');
+    if (p) {
+      *p++ = '\0';
+    }
+
+    *stringList = (char **)realloc(*stringList, sizeof(char *) * (*sizeOfList + 1));
+    (*stringList)[*sizeOfList] = strdup(inputString);
+    (*sizeOfList)++;
+
+    inputString = p;
+  }
+  while (inputString);
+
+  return 1;
+}
+
+void freeStringTable(char ** stringList, int sizeOfList) {
+  for (int i = 0; i < sizeOfList; i++) {
+    free(stringList[i]);
+  }
+  free(stringList);
 }
 
 /* These are the names of the scenarios, they must match the default_scenario table. */

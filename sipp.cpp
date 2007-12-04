@@ -894,7 +894,7 @@ void print_stats_in_file(FILE * f, int last)
 	  desc[0] = '\0';
 	  scenario[index]->pause_distribution->timeDescr(desc, 23);
 	} else {
-	  snprintf(desc, 23, "$%d", scenario[index]->pause_variable);
+	  snprintf(desc, 23, "$%s", variableRevMap[scenario[index]->pause_variable]);
 	}
 	desc[24] = '\0';
 	scenario[index]->pause_desc = desc;
@@ -1148,7 +1148,6 @@ void print_variable_list()
   for(i=0; i<(scenario_len + 5 - j); i++) {
     printf(SIPP_ENDL);
   }
-  
 }
 
 /* Function to dump all available screens in a file */

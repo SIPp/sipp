@@ -676,16 +676,12 @@ call::call(char * p_id, int userId, bool ipv6, bool isAutomatic) : use_ipv6(ipv6
 	M_callVariableTable = new CCallVariable *[maxVariableUsed + 1];
   }
   for(i=0; i<=maxVariableUsed; i++)
-    {
-      if (variableUsed[i]) {
-        M_callVariableTable[i] = new CCallVariable();
-        if (M_callVariableTable[i] == NULL) {
-          ERROR ("call variable allocation failed");
-        }
-      } else {
-        M_callVariableTable[i] = NULL;
-      }
+  {
+    M_callVariableTable[i] = new CCallVariable();
+    if (M_callVariableTable[i] == NULL) {
+      ERROR ("call variable allocation failed");
     }
+  }
 
   // If not updated by a message we use the start time 
   // information to compute rtd information

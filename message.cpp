@@ -207,7 +207,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	  }
         } else if(*keyword == '$') {
 	  newcomp->type = E_Message_Variable;
-	  newcomp->varId = atoi(keyword + 1);
+	  newcomp->varId = get_var(keyword + 1, "Variable keyword");
 	} else if(!strncmp(keyword, "fill", strlen("fill"))) {
 	  newcomp->type = E_Message_Fill;
 	  char filltext[KEYWORD_SIZE];
@@ -220,7 +220,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	  getKeywordParam(keyword, "variable=", varName);
 
 	  newcomp->literal = strdup(filltext);
-     newcomp->varId = get_long(varName, "Fill Variable");
+	  newcomp->varId = get_var(varName, "Fill Variable");
      } else if(!strncmp(keyword, "last_", strlen("last_"))) {
            if(!strncmp(keyword, "last_Request_URI", strlen("last_Request_URI"))){
               newcomp->type = E_Message_Last_Request_URI;
