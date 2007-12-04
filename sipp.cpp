@@ -165,6 +165,7 @@ struct sipp_option options_table[] = {
 
 	{"p", "Set the local port number.  Default is a random free port chosen by the system.", SIPP_OPTION_INT, &user_port, 1},
 	{"pause_msg_ign", "Ignore the messages received during a pause defined in the scenario ", SIPP_OPTION_SETFLAG, &pause_msg_ign, 1},
+	{"periodic_rtd", "Reset response time partition counters each logging interval.", SIPP_OPTION_SETFLAG, &periodic_rtd, 1},
 
 	{"r", "Set the call rate (in calls per seconds).  This value can be"
 	      "changed during test by pressing '+','_','*' or '/'. Default is 10.\n"
@@ -2976,8 +2977,8 @@ void traffic_thread()
     if((clock_tick - last_dump_time) >= report_freq_dumpLog)  {
       if(dumpInFile) {
 	CStat::instance()->dumpData();
-	CStat::instance()->computeStat(CStat::E_RESET_PL_COUNTERS);
       }
+      CStat::instance()->computeStat(CStat::E_RESET_PL_COUNTERS);
       last_dump_time  = clock_tick;
       if (rate_increase) {
 	rate += rate_increase;

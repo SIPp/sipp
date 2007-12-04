@@ -434,13 +434,19 @@ private:
 
   /**
    * updateRepartition
-   * The methode look for the place to set the value passed in parameter
-   * Once found, the associeted counter is incremented
+   * The method looks for the place to set the value passed in parameter
+   * Once found, the associated counter is incremented
    */
   void  updateRepartition( T_dynamicalRepartition* tabRepart, 
                            int sizeOfTab, 
                            unsigned long value);
 
+  /**
+   * resetRepartition
+   * Zeros out all repartition counters.
+   */
+  void  resetRepartition(T_dynamicalRepartition* P_tabReport,
+                         int P_sizeOfTab);
   /**
    * displayRepartition
    * Display the repartition passed in parameter at the screen

@@ -653,6 +653,12 @@ int CStat::computeStat (E_Action P_action)
       //       "C_Stat::computeStat : RESET_PL_COUNTERS");
       RESET_PL_COUNTERS (M_counters);
       GET_TIME (&M_plStartTime);
+      if (periodic_rtd) {
+	resetRepartition(M_CallLengthRepartition, M_SizeOfCallLengthRepartition);
+	for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+	  resetRepartition(M_ResponseTimeRepartition[i], M_SizeOfResponseTimeRepartition);
+	}
+      }
       break;
      
     default :
@@ -789,10 +795,10 @@ void CStat::updateRepartition(T_dynamicalRepartition* P_tabReport,
 {
   if(P_tabReport == NULL)
   {
-    return
+    return;
   }
 
-  for (int i = 0; i < P_sizeofTab - 1; i++) {
+  for (int i = 0; i < P_sizeOfTab - 1; i++) {
     if (P_value < P_tabReport[i].borderMax) {
 	P_tabReport[i].nbInThisBorder++;
 	return;
@@ -802,6 +808,19 @@ void CStat::updateRepartition(T_dynamicalRepartition* P_tabReport,
   /* If this is not true, we never should have gotten here. */
   assert(P_value >= P_tabReport[P_sizeOfTab-1].borderMax);
   P_tabReport[P_sizeOfTab-1].nbInThisBorder ++;
+}
+
+void CStat::resetRepartition(T_dynamicalRepartition* P_tabReport,
+                              int P_sizeOfTab)
+{
+  if(P_tabReport == NULL)
+  {
+    return;
+  }
+
+  for (int i = 0; i < P_sizeOfTab; i++) {
+    P_tabReport[i].nbInThisBorder = 0;
+  }
 }
 
 
