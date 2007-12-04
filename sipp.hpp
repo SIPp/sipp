@@ -94,7 +94,16 @@
 
 /************************** Constants **************************/
 
-#define SIPP_VERSION               20071128
+#ifdef SVN_VERSION
+# ifdef LOCAL_VERSION_EXTRA
+#  define SIPP_VERSION               SVN_VERSION LOCAL_VERSION_EXTRA
+# else
+#  define SIPP_VERSION               SVN_VERSION
+# endif
+#else
+# define SIPP_VERSION               "unknown"
+#endif
+
 #define T_UDP                      0
 #define T_TCP                      1
 #define T_TLS                      2

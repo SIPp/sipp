@@ -3733,7 +3733,7 @@ int main(int argc, char *argv[])
 #ifdef PCAPPLAY
 	      "-PCAP"
 #endif
-	      ", version %d, built %s, %s.\n\n",
+	      ", version %s, built %s, %s.\n\n",
 	      SIPP_VERSION, __DATE__, __TIME__); 
 
 	  printf

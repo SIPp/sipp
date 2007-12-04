@@ -19,6 +19,8 @@
 #
 
 -include local.mk
+SVN_VERSION=$(shell if test -d .svn ; then svnversion . | sed -e 's/:/./;s/M//;s/^/svn/;' ;  else echo unknown ; fi)
+VERINFO=-DSVN_VERSION="\"$(SVN_VERSION)\""
 
 # Output binary to be built
 OUTPUT=sipp
@@ -102,7 +104,7 @@ CFLAGS_tru64=-D__OSF1 -pthread
 CFLAGS_SunOS=-g -D__SUNOS
 CFLAGS_Cygwin=-D__CYGWIN -Dsocklen_t=int
 CFLAGS_Darwin=-D__DARWIN
-CFLAGS=$(CFLAGS_$(SYSTEM)) $(TLS) $(PCAPPLAY) $(EXTRACFLAGS)
+CFLAGS=$(CFLAGS_$(SYSTEM)) $(VERINFO) $(TLS) $(PCAPPLAY) $(EXTRACFLAGS)
 
 #C++ Compiler Flags
 CPPFLAGS_hpux=-AA -mt -D__HPUX +W829 
@@ -112,7 +114,7 @@ CPPFLAGS_tru64=-D__OSF1 -pthread
 CPPFLAGS_SunOS=-g -D__SUNOS
 CPPFLAGS_Cygwin=-D__CYGWIN -Dsocklen_t=int
 CPPFLAGS_Darwin=-D__DARWIN
-CPPFLAGS=$(CPPFLAGS_$(SYSTEM)) $(TLS) $(PCAPPLAY) $(EXTRACPPFLAGS)
+CPPFLAGS=$(CPPFLAGS_$(SYSTEM)) $(VERINFO) $(TLS) $(PCAPPLAY) $(EXTRACPPFLAGS)
 
 #Linker mapping
 CCLINK_hpux=aCC
@@ -222,4 +224,3 @@ archive:
 
 .c.o:
 	$(CC) $(CFLAGS) $(MFLAGS) $(DEBUG_FLAGS) $(_HPUX_LI_FLAG) $(INCDIR) -c -o $*.o $<
-
