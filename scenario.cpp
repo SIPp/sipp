@@ -64,6 +64,8 @@ message::message()
   repeat_rtd = 0;
   lost = -1;
   crlf = 0;
+  hide = 0;
+  display_str = NULL;
   test = 0;
   chance = 0;/* meaning always */
   next = -1;
@@ -979,6 +981,11 @@ void load_scenario(char * filename, int deflt)
 
       if(ptr = xp_get_value((char *)"crlf")) {
         scenario[scenario_len] -> crlf = 1;
+      }
+
+      scenario[scenario_len] -> hide = xp_get_bool("hide", "hide", false);
+      if(ptr = xp_get_value((char *)"display")) {
+        scenario[scenario_len] -> display_str = strdup(ptr);
       }
 
       if ((ptr = xp_get_value((char *)"next"))) {

@@ -823,6 +823,10 @@ void print_stats_in_file(FILE * f, int last)
   for(index = 0;
       index < scenario_len;
       index ++) {
+
+    if(scenario[index]->hide) {
+      continue;
+    }
     
     if(SendingMessage *src = scenario[index] -> send_scheme) {
       if (src->isResponse()) {
@@ -931,7 +935,11 @@ void print_stats_in_file(FILE * f, int last)
 	  scenario[index] -> nb_unexp);
     }
     else if(scenario[index] -> M_type == MSG_TYPE_NOP) {
-      fprintf(f,"              [ NOP ]              ");
+      if (scenario[index]->display_str) {
+	fprintf(f," %s", scenario[index]->display_str);
+      } else {
+	fprintf(f,"              [ NOP ]              ");
+      }
     }
 #ifdef __3PCC__
     else if(scenario[index] -> M_type == MSG_TYPE_RECVCMD) {

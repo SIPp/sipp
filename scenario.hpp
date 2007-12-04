@@ -114,6 +114,8 @@ public:
   int		 counter;
   double         lost;
   int            crlf;
+  bool           hide;
+  char *	 display_str;
   int		 next;
   int            test;
   int            chance;/* 0=always, RAND_MAX+1=never (test rand() >= chance) */
