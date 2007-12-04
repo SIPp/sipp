@@ -1764,6 +1764,38 @@ double CPareto::cdfInv(double percentile) {
   return gsl_cdf_pareto_Pinv(percentile, k, xsubm);
 }
 
+/* Generalized Pareto distribution. */
+CGPareto::CGPareto(double shape, double scale, double location) {
+  this->shape = shape;
+  this->scale = scale;
+  this->location = location;
+  rng = gsl_init();
+}
+
+double CGPareto::sample() {
+  return cdfInv(gsl_ran_flat(rng, 0.0, 1.0));
+}
+
+int CGPareto::textDescr(char *s, int len) {
+  return snprintf(s, len, "P(%.3lf,%.3lf,%.3f)", shape, scale, location);
+}
+int CGPareto::timeDescr(char *s, int len) {
+  int used = 0;
+
+  used += snprintf(s, len, "P(");
+  used += time_string(shape, s + used, len - used);
+  used += snprintf(s + used, len - used, ",");
+  used += time_string(scale, s + used, len - used);
+  used += snprintf(s + used, len - used, ",");
+  used += time_string(location, s + used, len - used);
+  used += snprintf(s + used, len - used, ")");
+
+  return used;
+}
+double CGPareto::cdfInv(double percentile) {
+	return location + ((scale * (pow(percentile, -shape) - 1))/shape);
+}
+
 /* Gamma distribution. */
 CGamma::CGamma(double k, double theta) {
   this->k = k;

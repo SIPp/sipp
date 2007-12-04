@@ -1046,9 +1046,9 @@ CSample *parse_distribution(bool oldstyle = false) {
     } else if (ptr = xp_get_value("weibull")) {
 	distname = "weibull";
     } else if (ptr = xp_get_value("pareto")) {
-   distname = "pareto";
+      distname = "pareto";
     } else if (ptr = xp_get_value("gamma")) {
-   distname = "gamma";
+      distname = "gamma";
     } else if (ptr = xp_get_value("min")) {
 	distname = "uniform";
     } else if (ptr = xp_get_value("max")) {
@@ -1088,6 +1088,11 @@ CSample *parse_distribution(bool oldstyle = false) {
     double k = xp_get_double("k", "Pareto distribution");
     double xsubm = xp_get_double("x_m", "Pareto distribution");
     distribution = new CPareto(k, xsubm);
+  } else if (!strcmp(distname, "gpareto")) {
+    double shape = xp_get_double("shape", "Generalized Pareto distribution");
+    double scale = xp_get_double("scale", "Generalized Pareto distribution");
+    double location = xp_get_double("location", "Generalized Pareto distribution");
+    distribution = new CGPareto(shape, scale, location);
   } else if (!strcmp(distname, "gamma")) {
     double k = xp_get_double("k", "Gamma distribution");
     double theta = xp_get_double("theta", "Gamma distribution");

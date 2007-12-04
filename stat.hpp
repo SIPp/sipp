@@ -90,6 +90,7 @@ public:
    */
   enum E_Action
   {
+    E_NO_ACTION,
     E_CREATE_OUTGOING_CALL,
     E_CREATE_INCOMING_CALL,
     E_CALL_FAILED, 
@@ -656,6 +657,20 @@ protected:
 	double k, xsubm;
 	gsl_rng *rng;
 };
+
+/* Generalized Pareto distribution. */
+class CGPareto : public CSample {
+public:
+	CGPareto(double shape, double scale, double location);
+	double sample();
+	int textDescr(char *s, int len);
+	int timeDescr(char *s, int len);
+	double cdfInv(double percentile);
+protected:
+	double shape, scale, location;
+	gsl_rng *rng;
+};
+
 
 /* Gamma distribution. */
 class CGamma : public CSample {
