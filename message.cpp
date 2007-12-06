@@ -248,12 +248,14 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	  newcomp->literal = strdup(filltext);
 	  newcomp->varId = get_var(varName, "Fill Variable");
      } else if(!strncmp(keyword, "last_", strlen("last_"))) {
-           if(!strncmp(keyword, "last_Request_URI", strlen("last_Request_URI"))){
-              newcomp->type = E_Message_Last_Request_URI;
-              } else {
-              newcomp->type = E_Message_Last_Header;
-              }
-	  newcomp->literal = strdup(keyword + strlen("last_"));
+       if(!strncmp(keyword, "last_Request_URI", strlen("last_Request_URI"))){
+	 newcomp->type = E_Message_Last_Request_URI;
+       } else if(!strncmp(keyword, "last_cseq_number", strlen("last_cseq_number"))){
+	 newcomp->type = E_Message_Last_CSeq_Number;
+       } else {
+	 newcomp->type = E_Message_Last_Header;
+       }
+       newcomp->literal = strdup(keyword + strlen("last_"));
      } else if(!strncmp(keyword, "authentication", strlen("authentication"))) {
        parseAuthenticationKeyword(newcomp, keyword);
      }

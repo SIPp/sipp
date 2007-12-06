@@ -350,4 +350,8 @@ call_list *get_calls_for_socket(struct sipp_socket *socket);
 void add_call_to_socket(struct sipp_socket *socket, call *call);
 void remove_call_from_socket(struct sipp_socket *socket, call *call);
 
+/* Default Message Functions. */
+void init_default_messages();
+SendingMessage *get_default_message(const char *which);
+
 #endif

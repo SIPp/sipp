@@ -4392,6 +4392,7 @@ int main(int argc, char *argv[])
     CStat::instance()->setFileName((char*)"uac", (char*)".csv");
     sprintf(scenario_file,"uac");
   }
+  init_default_messages();
   
   if(argiFileName) {
     CStat::instance()->setFileName(argv[argiFileName]);

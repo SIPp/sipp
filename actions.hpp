@@ -106,7 +106,7 @@ class CAction
     int            getOccurence();
     char*          getLookingChar();
     SendingMessage *getMessage();  /* log specific function  */
-    char*          getCmdLine();  /* exec specific function */
+    SendingMessage *getCmdLine();  /* exec specific function */
     T_IntCmdType   getIntCmd();   /* exec specific function */
 #ifdef PCAPPLAY
     pcap_pkts     *getPcapPkts(); /* send_packets specific function */
@@ -165,7 +165,8 @@ class CAction
       SendingMessage *M_message;
       char *	     M_message_str;
       /* exec specific member */
-      char*          M_cmdLine;
+      SendingMessage *M_cmdLine;
+      char*          M_cmdLine_str;
       T_IntCmdType   M_IntCmd;
       /* sample specific member. */
       CSample	     *M_distribution;

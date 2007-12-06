@@ -1718,6 +1718,90 @@ bool call::run()
   return true;
 }
 
+char *default_message_names[] = {
+	"3pcc_abort",
+	"ack",
+	"ack2",
+	"bye",
+	"cancel",
+	"200",
+};
+char *default_message_strings[] = {
+	/* 3pcc_abort */
+	"call-id: [call_id]\ninternal-cmd: abort_call\n\n",
+	/* ack */
+        "ACK [last_Request_URI] SIP/2.0\n"
+        "[last_Via]\n"
+        "[last_From]\n"
+        "[last_To]\n"
+        "Call-ID: [call_id]\n"
+        "CSeq: [last_cseq_number] ACK\n"
+        "Contact: <sip:sipp@[local_ip]:[local_port];transport=[transport]>\n"
+        "Max-Forwards: 70\n"
+        "Subject: Performance Test\n"
+        "Content-Length: 0\n\n",
+	/* ack2, the only difference is Via, I don't quite know why. */
+        "ACK [last_Request_URI] SIP/2.0\n"
+        "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n"
+        "[last_From]\n"
+        "[last_To]\n"
+        "Call-ID: [call_id]\n"
+        "CSeq: [last_cseq_number] ACK\n"
+        "Contact: <sip:sipp@[local_ip]:[local_port];transport=[transport]>\n"
+        "Max-Forwards: 70\n"
+        "Subject: Performance Test\n"
+        "Content-Length: 0\n\n",
+	/* bye */
+        "BYE [last_Request_URI] SIP/2.0\n"
+        "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n"
+        "[last_From]\n"
+        "[last_To]\n"
+        "Call-ID: [call_id]\n"
+        "CSeq: [last_cseq_number+1] BYE\n"
+        "Max-Forwards: 70\n"
+        "Contact: <sip:sipp@[local_ip]:[local_port];transport=[transport]>\n"
+        "Content-Length: 0\n\n",
+	/* cancel */
+        "CANCEL [last_Request_URI] SIP/2.0\n"
+        "[last_Via]\n"
+        "[last_From]\n"
+        "[last_To]\n"
+        "Call-ID: [call_id]\n"
+	"CSeq: [last_cseq_number] CANCEL\n"
+        "Max-Forwards: 70\n"
+        "Contact: <sip:sipp@[local_ip]:[local_port];transport=[transport]>\n"
+        "Content-Length: 0\n\n",
+	/* 200 */
+	"SIP/2.0 200 OK\n"
+	"[last_Via:]\n"
+	"[last_From:]\n"
+	"[last_To:]\n"
+	"[last_Call-ID:]\n"
+	"[last_CSeq:]\n"
+	"Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n"
+	"Content-Length: 0\n\n"
+};
+
+SendingMessage **default_messages;
+
+void init_default_messages() {
+  int messages = sizeof(default_message_strings)/sizeof(default_message_strings[0]);
+  default_messages = new SendingMessage* [messages];
+  for (int i = 0; i < messages; i++) {
+    default_messages[i] = new SendingMessage(default_message_strings[i]);
+  }
+}
+
+SendingMessage *get_default_message(const char *which) {
+  int messages = sizeof(default_message_names)/sizeof(default_message_names[0]);
+  for (int i = 0; i < messages; i++) {
+    if (!strcmp(which, default_message_names[i])) {
+      return default_messages[i];
+    }
+  }
+  ERROR_P1("Internal Error: Unknown default message: %s!", which)
+}
+
 bool call::process_unexpected(char * msg)
 {
   char buffer[MAX_HEADER_LEN];
@@ -1761,9 +1845,7 @@ bool call::process_unexpected(char * msg)
   if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
-      //WARNING_P2("call-ID '%s', internal-cmd: abort_call %s",id, "");
-      sendCmdBuffer
-	(createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n\n", -1));
+      sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
     }
 
     // usage of last_ keywords => for call aborting
@@ -1806,22 +1888,7 @@ bool call::abortCall()
       // Answer unexpected errors (4XX, 5XX and beyond) with an ACK 
       // Contributed by F. Tarek Rogers
       if((src_recv) && (get_reply_code(src_recv) >= 400)) {
-        strcpy(L_param,  "ACK [last_Request_URI] SIP/2.0\n");
-        sprintf(L_param, "%s%s", L_param, "[last_Via]\n");
-        sprintf(L_param, "%s%s", L_param, "[last_From]\n");
-        sprintf(L_param, "%s%s", L_param, "[last_To]\n");
-        sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
-        char * cseq;
-        cseq = get_header_field_code(src_recv,(char *) "CSeq:");
-        if (cseq != NULL) {
-          sprintf(L_param, "%s%s ACK\n", L_param, cseq);
-        }
-        sprintf(L_param, "%s%s", L_param, "Contact: <sip:sipp@[local_ip]:[local_port];transport=[transport]>\n");
-        sprintf(L_param, "%s%s", L_param, "Max-Forwards: 70\n");
-        sprintf(L_param, "%s%s", L_param, "Subject: Performance Test\n");
-        sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n\n");
-
-        sendBuffer(createSendingMessage((char*)(L_param), -2));
+        sendBuffer(createSendingMessage(get_default_message("ack"), -2));
       } else if (src_recv) {
         /* Call is not established and the reply is not a 4XX, 5XX */
         /* And we already received a message. */
@@ -1832,48 +1899,13 @@ bool call::abortCall()
            * and send a BYE afterwards                           */
           ack_is_pending = false;
           /* Send an ACK */
-          strcpy(L_param,  "ACK [last_Request_URI] SIP/2.0\n");
-          sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
-          sprintf(L_param, "%s%s", L_param, "[last_From]\n");
-          sprintf(L_param, "%s%s", L_param, "[last_To]\n");
-          sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
-          src_send = last_send_msg ;
-          cseq = get_header_field_code(src_recv,"CSeq:");
-          if (cseq != NULL) {
-            sprintf(L_param, "%s%s ACK\n", L_param, cseq);
-          }
-		    sprintf(L_param, "%s%s", L_param, "Max-Forwards: 70\n");
-          sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
-          sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n\n");
-          sendBuffer(createSendingMessage((char*)(L_param),-1));
+	  sendBuffer(createSendingMessage(get_default_message("ack"), -1));
           
           /* Send the BYE */
-          cseq = NULL;
-          strcpy(L_param,  "BYE [last_Request_URI] SIP/2.0\n");
-          sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
-          sprintf(L_param, "%s%s", L_param, "[last_From]\n");
-          sprintf(L_param, "%s%s", L_param, "[last_To]\n");
-          sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
-          cseq = compute_cseq(src_recv);
-          if (cseq != NULL) {
-            sprintf(L_param, "%s%s BYE\n", L_param, compute_cseq(src_recv));
-          }
-		  sprintf(L_param, "%s%s", L_param, "Max-Forwards: 70\n");
-          sprintf(L_param, "%s%s", L_param,  "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
-          sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n\n");
-          sendBuffer(createSendingMessage((char*)(L_param),-1));
+	  sendBuffer(createSendingMessage(get_default_message("bye"), -1));
         } else {
           /* Send a CANCEL */
-          strcpy(L_param,  "CANCEL [last_Request_URI] SIP/2.0\n");
-          sprintf(L_param, "%s%s", L_param, "[last_Via]\n");
-          sprintf(L_param, "%s%s", L_param, "[last_From]\n");
-          sprintf(L_param, "%s%s", L_param, "[last_To]\n");
-          sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
-          sprintf(L_param, "%sCSeq: 1 CANCEL\n", L_param);
-		    sprintf(L_param, "%s%s", L_param, "Max-Forwards: 70\n");
-          sprintf(L_param, "%s%s", L_param, "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
-          sprintf(L_param, "%s%s", L_param, "Content-Length: 0\n\n");
-          sendBuffer(createSendingMessage((char*)(L_param),-2));
+	  sendBuffer(createSendingMessage(get_default_message("cancel"), -1));
         }
       } else {
         /* Call is not established and the reply is not a 4XX, 5XX */
@@ -1891,20 +1923,7 @@ bool call::abortCall()
       char   L_msg_buffer[SIPP_MAX_MSG_SIZE];
       L_msg_buffer[0] = '\0';
       char * L_param = L_msg_buffer;
-      strcpy(L_param,  "BYE [last_Request_URI] SIP/2.0\n");
-      sprintf(L_param, "%s%s", L_param, "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n");
-      sprintf(L_param, "%s%s", L_param, "[last_From:]\n");
-      sprintf(L_param, "%s%s", L_param, "[last_To:]\n");
-      sprintf(L_param, "%s%s", L_param, "Call-ID: [call_id]\n");
-      char * cseq;
-      cseq = compute_cseq(src_recv);
-      if (cseq != NULL) {
-        sprintf(L_param, "%s%s BYE\n", L_param, compute_cseq(src_recv));
-      }
-	   sprintf(L_param, "%s%s", L_param, "Max-Forwards: 70\n");
-      sprintf(L_param, "%s%s", L_param,  "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n");
-      sprintf(L_param, "%s%s", L_param,  "Content-Length: 0\n\n");
-      sendBuffer(createSendingMessage((char*)(L_param),-1));
+      sendBuffer(createSendingMessage(get_default_message("bye"), -1));
     }
   }
 
@@ -2249,7 +2268,20 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
        char * last_request_uri = get_last_request_uri();
        dest += sprintf(dest, "%s", last_request_uri);
        free(last_request_uri);
-   break;
+       break;
+      }
+      case E_Message_Last_CSeq_Number: {
+       int last_cseq = 0;
+
+       char *last_header = get_last_header("CSeq:");
+       if(last_header) {
+	 last_header += 5;
+	 /* Extract the integer value of the field */
+	 while(isspace(*last_header)) last_header++;
+	 sscanf(last_header,"%d", &last_cseq);
+       }
+       dest += sprintf(dest, "%d", last_cseq + comp->offset);
+       break;
       }
       case E_Message_TDM_Map:
 	if (!use_tdmmap)
@@ -2306,10 +2338,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
     /* Need the Method name from the CSeq of the Challenge */
     char method[MAX_HEADER_LEN];
-    tmp = get_last_header("CSeq:") + 5;
+    tmp = get_last_header("CSeq:");
     if(!tmp) {
       ERROR("Could not extract method from cseq of challenge");
     }
+    tmp += 5;
     while(isspace(*tmp) || isdigit(*tmp)) tmp++;
     sscanf(tmp,"%s", method);
 
@@ -2362,20 +2395,6 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
   return msg_buffer;
 }
-
-char* call::createSendingMessage(char *src, int P_index, bool skip_sanity)
-{
-  if (src == NULL) {
-	  ERROR("Unsupported 'send' message in scenario");
-  }
-
-  SendingMessage *msgsrc = new SendingMessage(src, skip_sanity);
-  char *msg = createSendingMessage(msgsrc, P_index);
-  delete msgsrc;
-  return msg;
-}
-
-
 
 bool call::process_twinSippCom(char * msg)
 {
@@ -3269,7 +3288,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
 
             if (currentAction->getCmdLine()) {
-                char* x = createSendingMessage(currentAction->getCmdLine(), -2 /* do not add crlf*/, true /* skip sanity check. */);
+                char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
                 // TRACE_MSG((s, "Trying to execute [%s]", x)); 
                 pid_t l_pid;
                 switch(l_pid = fork())
@@ -3475,22 +3494,12 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
       WARNING_P1("Aborting call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
       if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
-	sendBuffer(createSendingMessage(
-	      (char*)"SIP/2.0 200 OK\n"
-	      "[last_Via:]\n"
-	      "[last_From:]\n"
-	      "[last_To:]\n"
-	      "[last_Call-ID:]\n"
-	      "[last_CSeq:]\n"
-	      "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n"
-	      "Content-Length: 0\n\n"
-	      , -1)) ;
+	sendBuffer(createSendingMessage(get_default_message("200"), -1));
       }
 
       // if twin socket call => reset the other part here
       if (twinSippSocket && (msg_index > 0)) {
-	res = sendCmdBuffer
-	  (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n\n", -1));
+	res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
       }
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
       CStat::instance()->computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
@@ -3510,22 +3519,13 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
       WARNING_P1("Aborting call on an unexpected CANCEL for call: %s", (id==NULL)?"none":id);
       if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
-	sendBuffer(createSendingMessage(
-	      (char*)"SIP/2.0 200 OK\n"
-	      "[last_Via:]\n"
-	      "[last_From:]\n"
-	      "[last_To:]\n"
-	      "[last_Call-ID:]\n"
-	      "[last_CSeq:]\n"
-	      "Contact: sip:sipp@[local_ip]:[local_port]\n"
-	      "Content-Length: 0\n\n"
-	      , -1)) ;
+	sendBuffer(createSendingMessage(get_default_message("200"), -1));
       }
     
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
       res = sendCmdBuffer
-      (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n\n", -1));
+      (createSendingMessage(get_default_message("3pcc_abort"), -1));
     }
     
     CStat::instance()->computeStat(CStat::E_CALL_FAILED);
@@ -3544,22 +3544,12 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
    if (default_behaviors & DEFAULT_BEHAVIOR_PINGREPLY) {
     WARNING_P1("Automatic response mode for an unexpected PING for call: %s", (id==NULL)?"none":id);
     count_in_stats = false; // Call must not be counted in statistics
-    sendBuffer(createSendingMessage(
-                    (char*)"SIP/2.0 200 OK\n"
-                    "[last_Via:]\n"
-                    "[last_Call-ID:]\n"
-                    "[last_To:]\n"
-                    "[last_From:]\n"
-                    "[last_CSeq:]\n"
-                    "Contact: sip:sipp@[local_ip]:[local_port]\n"
-                    "Content-Length: 0\n\n"
-                    , -1)) ;
+    sendBuffer(createSendingMessage(get_default_message("200"), -1));
     // Note: the call ends here but it is not marked as bad. PING is a 
     //       normal message.
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
-      res = sendCmdBuffer
-      (createSendingMessage((char*)"call-id: [call_id]\ninternal-cmd: abort_call\n\n",-1));
+      res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
     }
     
     CStat::instance()->computeStat(CStat::E_AUTO_ANSWERED);
@@ -3584,16 +3574,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     strcpy(last_recv_msg, P_recv);
 
     WARNING_P1("Automatic response mode for an unexpected INFO, UPDATE or NOTIFY for call: %s", (id==NULL)?"none":id);
-    sendBuffer(createSendingMessage(
-                    (char*)"SIP/2.0 200 OK\n"
-                    "[last_Via:]\n"
-                    "[last_Call-ID:]\n"
-                    "[last_To:]\n"
-                    "[last_From:]\n"
-                    "[last_CSeq:]\n"
-                    "Contact: sip:sipp@[local_ip]:[local_port]\n"
-                    "Content-Length: 0\n\n"
-                    , -1)) ;
+    sendBuffer(createSendingMessage(get_default_message("200"), -1));
 
     // restore previous last msg
     if (last_recv_msg_saved == true) {
@@ -3620,16 +3601,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     strcpy(last_recv_msg, P_recv);
 
     WARNING("Automatic response mode for an out of call message");
-    sendBuffer(createSendingMessage(
-                    (char*)"SIP/2.0 200 OK\n"
-                    "[last_Via:]\n"
-                    "[last_Call-ID:]\n"
-                    "[last_To:]\n"
-                    "[last_From:]\n"
-                    "[last_CSeq:]\n"
-                    "Contact: sip:sipp@[local_ip]:[local_port]\n"
-                    "Content-Length: 0\n\n"
-                    , -1)) ;
+    sendBuffer(createSendingMessage(get_default_message("200"), -1));
 
     // restore previous last msg
     if (last_recv_msg_saved == true) {

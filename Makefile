@@ -19,7 +19,7 @@
 #
 
 -include local.mk
-SVN_VERSION=$(shell if test -d .svn ; then svnversion . | sed -e 's/:/./;s/M//;s/^/svn/;' ;  else echo unknown ; fi)
+SVN_VERSION=$(shell if test -d .svn ; then svnversion . | sed -e 's/^/svn/;' ;  else echo unknown ; fi)
 VERINFO=-DSVN_VERSION="\"$(SVN_VERSION)\""
 
 # Output binary to be built

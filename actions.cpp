@@ -153,7 +153,7 @@ int            CAction::getVarId()        { return(M_varId);        }
 int            CAction::getVarInId()      { return(M_varInId);      }
 char*          CAction::getLookingChar()  { return(M_lookingChar);  }
 SendingMessage *CAction::getMessage()      { return(M_message);      }
-char*          CAction::getCmdLine()      { return(M_cmdLine);      }
+SendingMessage *CAction::getCmdLine()      { return(M_cmdLine);      }
 CSample*       CAction::getDistribution() { return(M_distribution); }
 double         CAction::getDoubleValue()  { return(M_doubleValue);  }
 char*          CAction::getStringValue()  { return(M_stringValue);  }
@@ -261,9 +261,9 @@ void CAction::setCmdLine  (char*          P_value)
   }
 
   if(P_value != NULL)
-  { 
-    M_cmdLine = new char[strlen(P_value)+1];
-    strcpy(M_cmdLine, P_value);
+  {
+    M_cmdLine_str = strdup(P_value);
+    M_cmdLine = new SendingMessage(P_value, true /* skip sanity */);
   }
 }
 
@@ -329,7 +329,7 @@ void CAction::setAction(CAction P_action)
   setOccurence    ( P_action.getOccurence()   );
   setHeadersOnly  ( P_action.getHeadersOnly()  );
   setMessage      ( P_action.M_message_str     );
-  setCmdLine      ( P_action.M_cmdLine         );
+  setCmdLine      ( P_action.M_cmdLine_str     );
   setIntCmd       ( P_action.M_IntCmd          );
 #ifdef PCAPPLAY
   setPcapArgs     ( P_action.M_pcapArgs        );
@@ -363,6 +363,7 @@ CAction::CAction()
 #endif
   M_message	 = NULL;
   M_message_str	 = NULL;
+  M_cmdLine_str	 = NULL;
 }
 
 CAction::~CAction()
@@ -384,8 +385,13 @@ CAction::~CAction()
   }
   if(M_cmdLine != NULL)
   {
-    delete [] M_cmdLine;
+    delete M_cmdLine;
     M_cmdLine = NULL;
+  }
+  if(M_cmdLine_str != NULL)
+  {
+    delete M_cmdLine_str;
+    M_cmdLine_str = NULL;
   }
   if(M_subVarId != NULL)
   {

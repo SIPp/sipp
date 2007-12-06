@@ -1497,8 +1497,6 @@ void getActionForThisMessage()
       if(ptr = xp_get_value((char *)"command")) {
 	tmpAction->setActionType(CAction::E_AT_EXECUTE_CMD);
 	tmpAction->setCmdLine(ptr);
-	/* the action is well formed, adding it in the */
-	/* tmpActionTable */
       } /* end (ptr = xp_get_value("command")  */ else if(ptr = xp_get_value((char *)"int_cmd")) {
 	CAction::T_IntCmdType type(CAction::E_INTCMD_STOPCALL); /* assume the default */
 
