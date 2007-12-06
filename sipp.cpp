@@ -182,13 +182,14 @@ struct sipp_option options_table[] = {
 
 	{"r", "Set the call rate (in calls per seconds).  This value can be"
 	      "changed during test by pressing '+','_','*' or '/'. Default is 10.\n"
-	      "pressing '+' key to increase call rate by 1,\n"
-              "pressing '-' key to decrease call rate by 1,\n"
-              "pressing '*' key to increase call rate by 10,\n"
-              "pressing '/' key to decrease call rate by 10.\n"
-              "If the -rp option is used, the call rate is calculated with the period in ms given by the user.", SIPP_OPTION_FLOAT, &rate},
+	      "pressing '+' key to increase call rate by 1 * rate_scale,\n"
+              "pressing '-' key to decrease call rate by 1 * rate_scale,\n"
+              "pressing '*' key to increase call rate by 10 * rate_scale,\n"
+              "pressing '/' key to decrease call rate by 10 * rate_scale.\n"
+              "If the -rp option is used, the call rate is calculated with the period in ms given by the user.", SIPP_OPTION_FLOAT, &rate, 1},
 	{"rp", "Specify the rate period for the call rate.  Default is 1 second and default unit is milliseconds.  This allows you to have n calls every m milliseconds (by using -r n -rp m).\n"
                "Example: -r 7 -rp 2000 ==> 7 calls every 2 seconds.\n         -r 10 -rp 5s => 10 calls every 5 seconds.", SIPP_OPTION_TIME_MS, &rate_period_ms, 1},
+	{"rate_scale", "Control the units for the '+', '-', '*', and '/' keys.", SIPP_OPTION_FLOAT, &rate_scale, 1},
 	{"rate_increase", "Specify the rate increase every -fd units (default is seconds).  This allows you to increase the load for each independent logging period.\n"
                       "Example: -rate_increase 10 -fd 10s\n"
                       "  ==> increase calls by 10 every 10 seconds.", SIPP_OPTION_INT, &rate_increase, 1},
@@ -1352,22 +1353,22 @@ bool process_key(int c) {
       break;
 
     case '+':
-      set_rate(rate + 1);
+      set_rate(rate + 1 * rate_scale);
       print_statistics(0);
       break;
 
     case '-':
-      set_rate(rate - 1);
+      set_rate(rate - 1 * rate_scale);
       print_statistics(0);
       break;
 
     case '*':
-      set_rate(rate + 10);
+      set_rate(rate + 10 * rate_scale);
       print_statistics(0);
       break;
 
     case '/':
-      set_rate(rate - 10);
+      set_rate(rate - 10 * rate_scale);
       print_statistics(0);
       break;
 
@@ -1430,6 +1431,14 @@ void process_set(char *what) {
       WARNING_P1("Invalid rate value: \"%s\"", rest);
     } else {
       set_rate(drest);
+    }
+  } else if (!strcmp(what, "rate-scale")) {
+    char *end;
+    double drest = strtod(rest, &end);
+    if (*end) {
+      WARNING_P1("Invalid rate-scale value: \"%s\"", rest);
+    } else {
+      rate_scale = drest;
     }
   } else {
     WARNING_P1("Unknown set attribute: %s", what);

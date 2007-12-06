@@ -144,6 +144,7 @@
 /******************** Default parameters ***********************/
 
 #define DEFAULT_RATE                 10.0
+#define DEFAULT_RATE_SCALE           1.0
 #define DEFAULT_RATE_PERIOD_MS       1000
 #define DEFAULT_TRANSPORT            T_UDP
 #define DEFAULT_PORT                 5060  
@@ -169,6 +170,7 @@
 
 extern int                duration                _DEFVAL(0);
 extern double             rate                    _DEFVAL(DEFAULT_RATE);
+extern double             rate_scale              _DEFVAL(DEFAULT_RATE_SCALE);
 extern int	          rate_increase           _DEFVAL(0);
 extern int	          rate_max	          _DEFVAL(0);
 extern bool	          rate_quit		  _DEFVAL(true);
