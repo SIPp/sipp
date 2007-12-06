@@ -56,6 +56,9 @@ int passwd_call_back_routine(char  *buf , int size , int flag, void *passwd)
 }
 #endif
 
+int command_mode = 0;
+char *command_buffer = NULL;
+
 /* These could be local to main, but for the option processing table. */
 static int argiFileName;
 
@@ -1213,6 +1216,9 @@ void print_statistics(int last)
       printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
              "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
     }
+    if (command_mode) {
+	printf(SIPP_ENDL);
+    }
     print_header_line(stdout,last);
     switch(currentScreenToDisplay) {
       case DISPLAY_STAT_SCREEN :
@@ -1253,6 +1259,10 @@ void print_statistics(int last)
 	} else {
 	  printf("Last Error: %s" SIPP_ENDL, errstart);
 	}
+	fflush(stdout);
+    }
+    if (command_mode) {
+	printf("Command: %s", command_buffer ? command_buffer : "");
 	fflush(stdout);
     }
     if(last) { fprintf(stdout,"\n"); }
@@ -1391,6 +1401,10 @@ bool process_key(int c) {
     return false;
 }
 
+bool process_command(char *command) {
+  return false;
+}
+
 /* User interface threads */
 /* Socket control thread */
 void ctrl_thread (void * param)
@@ -1399,7 +1413,7 @@ void ctrl_thread (void * param)
   short prt;
   int port, firstport;
   int try_counter = 60;
-  unsigned char bufrcv [20];
+  unsigned char bufrcv [SIPP_MAX_MSG_SIZE];
   struct sockaddr_in sin;
 
   if (control_port) {
@@ -1439,9 +1453,25 @@ void ctrl_thread (void * param)
   }
 
   while(!feof(stdin)){
-    ret = recv(soc,bufrcv,20,0);
-    if ((ret > 0) && (process_key(bufrcv[0]))) {
-	return;
+    ret = recv(soc,bufrcv,sizeof(bufrcv) - 1,0);
+    if (ret > 0) {
+	bool quit;
+	if (bufrcv[0] == 'c') {
+	  /* No 'c', but we need one for '\0'. */
+	  char *command = (char *)malloc(ret);
+	  if (!command) {
+	    ERROR("Out of memory allocated command buffer.");
+	  }
+	  memcpy(command, bufrcv + 1, ret - 1);
+	  command[ret - 1] = '\0';
+	  quit = process_command(command);
+	  free(command);
+	} else {
+	  quit = process_key(bufrcv[0]);
+	}
+	if (quit) {
+	  return;
+	}
     }
   }
 }
@@ -1450,13 +1480,40 @@ void ctrl_thread (void * param)
 void keyb_thread (void * param)
 {
   int c;
+  char *command = NULL;
+  int command_len = 0;
 
   while(!feof(stdin)){
     c = screen_readkey();
     if (c == -1) {
 	return;
     }
-    if (process_key(c)) {
+    if (command_mode) {
+	if (c == '\n') {
+	  bool quit = process_command(command_buffer);
+	  if (quit) {
+	    return;
+	  }
+	  command_buffer[0] = '\0';
+	  command_len = 0;
+	  command_mode = 0;
+	  printf(SIPP_ENDL);
+	} else if (c == KEY_BACKSPACE || c == KEY_DC) {
+	  if (command_len > 0) {
+	    command_buffer[command_len--] = '\0';
+	  }
+	} else {
+	  command_buffer = (char *)realloc(command_buffer, command_len + 2);
+	  command_buffer[command_len++] = c;
+	  command_buffer[command_len] = '\0';
+	  putchar(c);
+	  fflush(stdout);
+	}
+    } else if (c == 'c') {
+	command_mode = 1;
+	printf("Command: ");
+	fflush(stdout);
+    } else if (process_key(c)) {
 	return;
     }
   }
