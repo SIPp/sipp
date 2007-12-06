@@ -353,5 +353,6 @@ void remove_call_from_socket(struct sipp_socket *socket, call *call);
 /* Default Message Functions. */
 void init_default_messages();
 SendingMessage *get_default_message(const char *which);
+void set_default_message(const char *which, char *message);
 
 #endif

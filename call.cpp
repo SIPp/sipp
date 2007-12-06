@@ -1802,6 +1802,17 @@ SendingMessage *get_default_message(const char *which) {
   ERROR_P1("Internal Error: Unknown default message: %s!", which)
 }
 
+void set_default_message(const char *which, char *msg) {
+  int messages = sizeof(default_message_names)/sizeof(default_message_names[0]);
+  for (int i = 0; i < messages; i++) {
+    if (!strcmp(which, default_message_names[i])) {
+      default_message_strings[i] = msg;
+      return;
+    }
+  }
+  ERROR_P1("Internal Error: Unknown default message: %s!", which)
+}
+
 bool call::process_unexpected(char * msg)
 {
   char buffer[MAX_HEADER_LEN];

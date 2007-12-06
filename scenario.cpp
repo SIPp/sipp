@@ -559,6 +559,53 @@ int get_cr_number(char *src)
   return res;
 }
 
+char *clean_cdata(char *ptr, int *removed_crlf = NULL) {
+  char * msg;
+
+  while((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) ptr++;
+
+  msg = (char *) malloc(strlen(ptr) + 3);
+  if(!msg) { ERROR("Memory Overflow"); }
+  strcpy(msg, ptr);
+
+  ptr = msg + strlen(msg);
+  ptr --;
+
+  while((ptr >= msg) &&
+      ((*ptr == ' ')  ||
+       (*ptr == '\t') ||
+       (*ptr == '\n'))) {
+    if(*ptr == '\n' && removed_crlf) {
+      *removed_crlf++;
+    }
+    *ptr-- = 0;
+  }
+
+  if(!strstr(msg, "\n\n")) {
+    strcat(msg, "\n\n");
+  }
+
+  if(ptr == msg) {
+    ERROR("Empty cdata in xml scenario file");
+  }
+  while(ptr = strstr(msg, "\n ")) {
+    memmove(ptr + 1, ptr + 2, strlen(ptr) - 1);
+  }
+  while(ptr = strstr(msg, " \n")) {
+    memmove(ptr, ptr + 1, strlen(ptr));
+  }
+  while(ptr = strstr(msg, "\n\t")) {
+    memmove(ptr + 1, ptr + 2, strlen(ptr) - 1);
+  }
+  while(ptr = strstr(msg, "\t\n")) {
+    memmove(ptr, ptr + 1, strlen(ptr));
+  }
+
+  return msg;
+}
+
+
+
 /********************** Scenario File analyser **********************/
 
 void load_scenario(char * filename, int deflt)
@@ -619,6 +666,14 @@ void load_scenario(char * filename, int deflt)
     } else if(!strcmp(elem, "ResponseTimeRepartition")) {
       ptr = xp_get_value((char *)"value");
       CStat::instance()->setRepartitionResponseTime(ptr);
+    } else if(!strcmp(elem, "DefaultMessage")) {
+      char *id = xp_get_string("id", "DefaultMessage");
+      if(!(ptr = xp_get_cdata())) {
+	ERROR("No CDATA in 'send' section of xml scenario file");
+      }
+      char *msg = clean_cdata(ptr);
+      set_default_message(id, msg);
+      free(id);
     } else if(!strcmp(elem, "label")) {
       ptr = xp_get_value((char *)"id");
       if (labelMap.find(ptr) != labelMap.end()) {
@@ -648,15 +703,8 @@ void load_scenario(char * filename, int deflt)
           ERROR("No CDATA in 'send' section of xml scenario file");
         }
 
-	char * msg;
 	int removed_clrf = 0;
-
-	while((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) ptr++;
-
-	msg = (char *) malloc(strlen(ptr) + 3);
-	if(!msg) { ERROR("Memory Overflow"); }
-	strcpy(msg, ptr);
-
+	char * msg = clean_cdata(ptr, &removed_clrf);
 
 	//
 	// If this is a request we are sending, then copy over the method so that we can associate
@@ -693,39 +741,6 @@ void load_scenario(char * filename, int deflt)
 	    scenario[scenario_len] -> content_length_flag =
 	      message::ContentLengthValueNoZero;   // Initialize to No present
 	    break ;
-	}
-
-	ptr = msg + strlen(msg);
-	ptr --;
-
-	while((ptr >= msg) &&
-	    ((*ptr == ' ')  ||
-	     (*ptr == '\t') ||
-	     (*ptr == '\n'))) {
-	  if(*ptr == '\n') {
-	    removed_clrf++;
-	  }
-	  *ptr-- = 0;
-	}
-
-	if(ptr == msg) {
-	  ERROR("Empty cdata in xml scenario file");
-	}
-
-	if(!strstr(msg, "\n\n")) {
-	  strcat(msg, "\n\n");
-	}
-
-	while(ptr = strstr(msg, "\n ")) {
-	  memmove(((char *)(ptr + 1)),
-	      ((char *)(ptr + 2)),
-	      strlen(ptr) - 1);
-	}
-
-	while(ptr = strstr(msg, " \n")) {
-	  memmove(((char *)(ptr)),
-	      ((char *)(ptr + 1)),
-	      strlen(ptr));
 	}
 
 	if((msg[strlen(msg) - 1] != '\n') && (removed_clrf)) {
@@ -943,41 +958,7 @@ void load_scenario(char * filename, int deflt)
         if(!(ptr = xp_get_cdata())) {
           ERROR("No CDATA in 'send' section of xml scenario file");
         }
-
-	char * msg;
-
-	while((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) ptr++;
-
-	msg = (char *) malloc(strlen(ptr) + 3);
-	if(!msg) { ERROR("Memory Overflow"); }
-	strcpy(msg, ptr);
-
-	ptr = msg + strlen(msg);
-	ptr --;
-
-	while((ptr >= msg) &&
-	    ((*ptr == ' ')  ||
-	     (*ptr == '\t') ||
-	     (*ptr == '\n'))) {
-	  *ptr-- = 0;
-	}
-
-	if(!strstr(msg, "\n\n")) {
-	  strcat(msg, "\n\n");
-	}
-
-	if(ptr == msg) {
-	  ERROR("Empty cdata in xml scenario file");
-	}
-
-
-	while(ptr = strstr(msg, "\n ")) {
-	  memmove(((char *)(ptr + 1)), ((char *)(ptr + 2)), strlen(ptr) - 1);
-	}
-
-	while(ptr = strstr(msg, " \n")) {
-	  memmove(((char *)(ptr)), ((char *)(ptr + 1)), strlen(ptr));
-	}
+	char *msg = clean_cdata(ptr);
 
 	scenario[scenario_len] -> M_sendCmdData = new SendingMessage(msg, true /* skip sanity */);
 	free(msg);
