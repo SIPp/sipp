@@ -1401,7 +1401,56 @@ bool process_key(int c) {
     return false;
 }
 
+void trim(char *s) {
+  char *p = s;
+  while(isspace(*p)) {
+    p++;
+  }
+  int l = strlen(p);
+  for (int i = l - 1; i >= 0 && isspace(p[i]); i--) {
+    p[i] = '\0';
+  }
+  memmove(s, p, l + 1);
+}
+
+void process_set(char *what) {
+  char *rest = strchr(what, ' ');
+  if (rest) {
+	*rest++ = '\0';
+	trim(rest);
+  } else {
+	WARNING("The set command requires two arguments (attribute and value)");
+	return;
+  }
+
+  if (!strcmp(what, "rate")) {
+    char *end;
+    double drest = strtod(rest, &end);
+    if (*end) {
+      WARNING_P1("Invalid rate value: \"%s\"", rest);
+    } else {
+      set_rate(drest);
+    }
+  } else {
+    WARNING_P1("Unknown set attribute: %s", what);
+  }
+}
+
 bool process_command(char *command) {
+  trim(command);
+
+  char *rest = strchr(command, ' ');
+  if (rest) {
+	*rest++ = '\0';
+	trim(rest);
+  }
+
+  if (!strcmp(command, "set")) {
+	process_set(rest);
+  } else {
+	WARNING_P1("Unrecognized command: \"%s\"", command);
+  }
+
   return false;
 }
 
