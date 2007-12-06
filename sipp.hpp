@@ -47,6 +47,7 @@
 #include <map>
 #include <set>
 #include <math.h>
+#include <curses.h>
 
 #if defined(__HPUX) || defined(__SUNOS)
 #include <alloca.h>
@@ -425,6 +426,8 @@ extern bool   dumpInFile                          _DEFVAL(0);
 extern bool   dumpInRtt                           _DEFVAL(0);
 extern char * scenario_file;
 extern char * slave_cfg_file;
+
+extern char   screen_last_error[32768];
 
 #define TRACE_MSG(arg)      \
 {                           \

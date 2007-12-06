@@ -39,7 +39,6 @@
 extern bool    timeout_exit;
 
 unsigned long screen_errors;
-char          screen_last_error[32768];
 char          _screen_err[32768];
 FILE        * screen_errorf = 0;
 int           screen_inited = 0;

@@ -1236,7 +1236,25 @@ void print_statistics(int last)
         break;
     }
     print_bottom_line(stdout,last);
-
+    if (!last && screen_last_error[0]) {
+	char *errstart = screen_last_error;
+	int colonsleft = 4;/* We want to skip the time. */
+	while (*errstart && colonsleft) {
+	  if (*errstart == ':') {
+		colonsleft--;
+	  }
+	  errstart++;
+	}
+	while (isspace(*errstart)) {
+	  errstart++;
+	}
+	if (strlen(errstart) > 60) {
+	  printf("Last Error: %.60s..." SIPP_ENDL, errstart);
+	} else {
+	  printf("Last Error: %s" SIPP_ENDL, errstart);
+	}
+	fflush(stdout);
+    }
     if(last) { fprintf(stdout,"\n"); }
   }
 }
