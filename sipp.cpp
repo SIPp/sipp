@@ -918,7 +918,7 @@ void print_stats_in_file(FILE * f, int last)
 	} else {
 	  snprintf(desc, 23, "$%s", variableRevMap[scenario[index]->pause_variable]);
 	}
-	desc[24] = '\0';
+	desc[23] = '\0';
 	scenario[index]->pause_desc = desc;
       }
       int len = strlen(desc) < 9 ? 9 : strlen(desc);

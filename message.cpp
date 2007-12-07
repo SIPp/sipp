@@ -343,6 +343,8 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	  ERROR("Response codes must be in the range of 100-700");
 	}
 	response = true;
+	ack = false;
+	cancel = false;
 	free(method);
 	method = NULL;
     } else {
