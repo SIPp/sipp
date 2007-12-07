@@ -710,9 +710,9 @@ void load_scenario(char * filename, int deflt)
 	// If this is a request we are sending, then copy over the method so that we can associate
 	// responses to the request
 	//
-	if (0 != strncmp (ptr, "SIP/2.0", 7) )
+	if (0 != strncmp (msg, "SIP/2.0", 7) )
 	{
-	  char *methodEnd = ptr;
+	  char *methodEnd = msg;
 	  int   bytesToCopy = 0;
 	  while (*methodEnd != ' ') {
 	    methodEnd++;
@@ -723,9 +723,10 @@ void load_scenario(char * filename, int deflt)
 		METHOD_LIST_LENGTH,
 		method_list_length + bytesToCopy + 1);
 	  }
-	  strncat (method_list, ptr, bytesToCopy);
+	  strncat (method_list, msg, bytesToCopy);
 	  method_list_length += bytesToCopy;
 	  method_list[method_list_length+1] = '\0';
+	fprintf(stderr, "Method_List: '%s'\n", method_list);
 	}
 
 	L_content_length = xp_get_content_length(msg);
