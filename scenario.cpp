@@ -726,7 +726,6 @@ void load_scenario(char * filename, int deflt)
 	  strncat (method_list, msg, bytesToCopy);
 	  method_list_length += bytesToCopy;
 	  method_list[method_list_length+1] = '\0';
-	fprintf(stderr, "Method_List: '%s'\n", method_list);
 	}
 
 	L_content_length = xp_get_content_length(msg);
