@@ -43,7 +43,11 @@ private:
 
   std::vector<std::string> fileLines;
   const char *fileName;
+  bool printfFile;
+  int printfOffset;
+  int printfMultiple;
   int numLinesInFile;
+  int realLinesInFile;
 };
 
 #endif
