@@ -2200,6 +2200,12 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
       case E_Message_ClockTick:
 	dest += snprintf(dest, left, "%lu", clock_tick);
 	break;
+      case E_Message_Users:
+	dest += snprintf(dest, left, "%d", users);
+	break;
+      case E_Message_UserID:
+	dest += snprintf(dest, left, "%d", userId);
+	break;
       case E_Message_Variable: {
 	 int varId = comp->varId;
 	 if(varId <= maxVariableUsed) {

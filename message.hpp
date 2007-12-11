@@ -75,7 +75,9 @@ typedef enum {
   E_Message_Last_CSeq_Number,
   E_Message_TDM_Map,
   E_Message_Authentication,
-  E_Message_ClockTick
+  E_Message_ClockTick,
+  E_Message_Users,
+  E_Message_UserID,
 } MessageCompType;
 
 class SendingMessage {

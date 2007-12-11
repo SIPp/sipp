@@ -73,6 +73,8 @@ struct KeywordMap SimpleKeywords[] = {
   {"routes", E_Message_Routes },
   {"tdmmap", E_Message_TDM_Map },
   {"clock_tick", E_Message_ClockTick },
+  {"users", E_Message_Users },
+  {"userid", E_Message_UserID },
 };
 
 #define KEYWORD_SIZE 256
