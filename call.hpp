@@ -20,6 +20,18 @@
 #ifndef __CALL__
 #define __CALL__
 
+#ifdef __HPUX
+#ifdef erase
+#undef erase
+#endif
+#ifdef clear
+#undef clear
+#endif
+#ifdef move
+#undef move
+#endif
+#endif
+
 #include <map>
 #include <list>
 #include <sys/types.h>
