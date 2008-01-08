@@ -501,10 +501,7 @@ call::~call()
 
   if(comp_state) { comp_free(&comp_state); }
 
-  if(count_in_stats) {
-    CStat::instance()->computeStat(CStat::E_ADD_CALL_DURATION, 
-                                   clock_tick - start_time);
-  }
+  computeStat(CStat::E_ADD_CALL_DURATION, clock_tick - start_time);
 
   if (call_remote_socket) {
     sipp_close_socket(call_remote_socket);
@@ -552,6 +549,28 @@ call::~call()
     tdm_map[this->tdm_map_number] = false;
   }
 }
+
+void call::computeStat (CStat::E_Action P_action) {
+  if (!count_in_stats) {
+    return;
+  }
+  CStat::instance()->computeStat(P_action);
+}
+
+void call::computeStat (CStat::E_Action P_action, unsigned long P_value) {
+  if (!count_in_stats) {
+    return;
+  }
+  CStat::instance()->computeStat(P_action, P_value);
+}
+
+void call::computeStat (CStat::E_Action P_action, unsigned long P_value, int which) {
+  if (!count_in_stats) {
+    return;
+  }
+  CStat::instance()->computeStat(P_action, P_value, which);
+}
+
 
 /* Dump call info to error log. */
 void call::dump() {
@@ -672,8 +691,8 @@ bool call::connect_socket_if_needed()
 	  reset_number--;
 	}
 
-	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-	CStat::instance()->computeStat(CStat::E_FAILED_TCP_CONNECT);
+	computeStat(CStat::E_CALL_FAILED);
+	computeStat(CStat::E_FAILED_TCP_CONNECT);
 	delete this;
 
 	return false;
@@ -723,7 +742,7 @@ int call::send_raw(char * msg, int index)
       GET_TIME (&currentTime);
       char* cs=get_header_content(msg,"CSeq:");
       TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
-             CStat::instance()->formatTime(&currentTime),id, cs, get_first_line(msg));
+             CStat::formatTime(&currentTime),id, cs, get_first_line(msg));
   }  
  
   if((index!=-1) && (lost(index))) {
@@ -766,8 +785,8 @@ int call::send_raw(char * msg, int index)
   }
 
   if(rc < 0) {
-    CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-    CStat::instance()->computeStat(CStat::E_FAILED_CANNOT_SEND_MSG);
+    computeStat(CStat::E_CALL_FAILED);
+    computeStat(CStat::E_FAILED_CANNOT_SEND_MSG);
     delete this;
   }
 
@@ -1120,7 +1139,7 @@ char * call::send_scene(int index, int *send_status)
 void call::do_bookkeeping(int index) {
   /* If this message increments a counter, do it now. */
   if(int counter = call_scenario->messages[index] -> counter) {
-    CStat::instance()->computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, counter - 1);
+    computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, counter - 1);
   }
 
   /* If this message can be used to compute RTD, do it now */
@@ -1133,11 +1152,11 @@ void call::do_bookkeeping(int index) {
       unsigned long long start = start_time_rtd[rtd - 1];
       unsigned long long end = getmicroseconds();
 
-      if(dumpInRtt) {
+      if(dumpInRtt && count_in_stats) {
 	CStat::instance()->computeRtt(start, end, rtd);
       }
 
-      CStat::instance()->computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
+      computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
 	  (end - start) / 1000, rtd - 1);
 
       if (!call_scenario->messages[index] -> repeat_rtd) {
@@ -1160,16 +1179,16 @@ bool call::terminate(CStat::E_Action reason) {
   if(call::last_action_result != call::E_AR_NO_ERROR) {
     switch(call::last_action_result) {
       case call::E_AR_REGEXP_DOESNT_MATCH:
-	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-	CStat::instance()->computeStat(CStat::E_FAILED_REGEXP_DOESNT_MATCH);
+	computeStat(CStat::E_CALL_FAILED);
+	computeStat(CStat::E_FAILED_REGEXP_DOESNT_MATCH);
 	if (deadcall_wait) {
 	  sprintf(reason_str, "regexp match failure at index %d", msg_index);
 	new deadcall(id, reason_str);
 	}
 	break;
       case call::E_AR_HDR_NOT_FOUND:
-	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-	CStat::instance()->computeStat(CStat::E_FAILED_REGEXP_HDR_NOT_FOUND);
+	computeStat(CStat::E_CALL_FAILED);
+	computeStat(CStat::E_FAILED_REGEXP_HDR_NOT_FOUND);
 	if (deadcall_wait) {
 	  sprintf(reason_str, "regexp header not found at index %d", msg_index);
 	new deadcall(id, reason_str);
@@ -1182,14 +1201,14 @@ bool call::terminate(CStat::E_Action reason) {
     }
   } else {
     if (reason == CStat::E_CALL_SUCCESSFULLY_ENDED || timewait) {
-      CStat::instance()->computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
+      computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
 	if (deadcall_wait) {
 	  new deadcall(id, "successful");
 	}
     } else {
-      CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+      computeStat(CStat::E_CALL_FAILED);
       if (reason != CStat::E_NO_ACTION) {
-	CStat::instance()->computeStat(reason);
+	computeStat(reason);
       }
       if (deadcall_wait) {
 	sprintf(reason_str, "failed at index %d", msg_index);
@@ -1267,8 +1286,8 @@ bool call::run()
 	  }
 
           // here if asked to go to the last label  delete the call
-          CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-          CStat::instance()->computeStat(CStat::E_FAILED_MAX_UDP_RETRANS);
+          computeStat(CStat::E_CALL_FAILED);
+          computeStat(CStat::E_FAILED_MAX_UDP_RETRANS);
           if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
             // Abort the call by sending proper SIP message
             return(abortCall());
@@ -1278,8 +1297,8 @@ bool call::run()
             return false;
           }
       }
-      CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-      CStat::instance()->computeStat(CStat::E_FAILED_MAX_UDP_RETRANS);
+      computeStat(CStat::E_CALL_FAILED);
+      computeStat(CStat::E_FAILED_MAX_UDP_RETRANS);
       if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
         // Abort the call by sending proper SIP message
         WARNING("Aborting call on UDP retransmission timeout for Call-ID '%s'", id);
@@ -1302,7 +1321,7 @@ bool call::run()
         return false;
       }
       call_scenario->messages[last_send_index] -> nb_sent_retrans++;
-      CStat::instance()->computeStat(CStat::E_RETRANSMISSION);
+      computeStat(CStat::E_RETRANSMISSION);
       next_retrans = clock_tick + nb_last_delay;
     }
   }
@@ -1410,8 +1429,8 @@ bool call::run()
 	if (clock_tick > send_timeout) {
 	  WARNING("Call-Id: %s, send timeout on message %d: aborting call",
 	      id, msg_index);
-	  CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-	  CStat::instance()->computeStat(CStat::E_FAILED_TIMEOUT_ON_SEND);
+	  computeStat(CStat::E_CALL_FAILED);
+	  computeStat(CStat::E_FAILED_TIMEOUT_ON_SEND);
 	  if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
 	    return (abortCall());
 	  } else {
@@ -1488,8 +1507,8 @@ bool call::run()
         // if you set a timeout but not a label, the call is aborted 
         WARNING("Call-Id: %s, receive timeout on message %d without label to jump to (ontimeout attribute): aborting call",
                    id, msg_index);
-        CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-        CStat::instance()->computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
+        computeStat(CStat::E_CALL_FAILED);
+        computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
         if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
           return (abortCall());
         } else {
@@ -1503,8 +1522,8 @@ bool call::run()
       recv_timeout = 0;
       if (msg_index < call_scenario->length) return true;
       // special case - the label points to the end - finish the call
-      CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-      CStat::instance()->computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
+      computeStat(CStat::E_CALL_FAILED);
+      computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
       if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
         return (abortCall());
       } else {
@@ -1682,8 +1701,8 @@ bool call::process_unexpected(char * msg)
     last_recv_msg = (char *) realloc(last_recv_msg, strlen(msg) + 1);
     strcpy(last_recv_msg, msg);
 
-    CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-    CStat::instance()->computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
+    computeStat(CStat::E_CALL_FAILED);
+    computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
     if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
       return (abortCall());
     } else {
@@ -1776,8 +1795,8 @@ bool call::abortCall()
 
 bool call::rejectCall()
 {
-  CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-  CStat::instance()->computeStat(CStat::E_FAILED_CALL_REJECTED);
+  computeStat(CStat::E_CALL_FAILED);
+  computeStat(CStat::E_FAILED_CALL_REJECTED);
   delete this;
   return false;
 }
@@ -1813,8 +1832,8 @@ int call::sendCmdMessage(int index)
       rc = write_socket(twinSippSocket, dest, strlen(dest), WS_BUFFER);
     }
     if(rc <  0) {
-      CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-      CStat::instance()->computeStat(CStat::E_FAILED_CMD_NOT_SENT);
+      computeStat(CStat::E_CALL_FAILED);
+      computeStat(CStat::E_FAILED_CMD_NOT_SENT);
       delete this;
       return(-1);
     }
@@ -1841,8 +1860,8 @@ int call::sendCmdBuffer(char* cmd)
 
   rc = write_socket(twinSippSocket, dest, strlen(dest), WS_BUFFER);
   if(rc <  0) {
-    CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-    CStat::instance()->computeStat(CStat::E_FAILED_CMD_NOT_SENT);
+    computeStat(CStat::E_CALL_FAILED);
+    computeStat(CStat::E_FAILED_CMD_NOT_SENT);
     delete this;
     return(-1);
   }
@@ -2341,7 +2360,7 @@ bool call::checkInternalCmd(char * cmd)
   if (strcmp(L_ptr1, "abort_call") == 0) {
     *L_ptr2 = L_backup;
     abortCall();
-    CStat::instance()->computeStat(CStat::E_CALL_FAILED);
+    computeStat(CStat::E_CALL_FAILED);
     return (true);
   }
 
@@ -2659,7 +2678,7 @@ bool call::process_incoming(char * msg)
 
       if(status == 0) {
 	call_scenario->messages[recv_retrans_send_index] -> nb_sent_retrans++;
-	CStat::instance()->computeStat(CStat::E_RETRANSMISSION);
+	computeStat(CStat::E_RETRANSMISSION);
       } else if(status < 0) {
 	return false;
       }
@@ -3399,8 +3418,8 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
       if (twinSippSocket && (msg_index > 0)) {
 	res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
       }
-      CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-      CStat::instance()->computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
+      computeStat(CStat::E_CALL_FAILED);
+      computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
       delete this;
     } else {
       WARNING("Continuing call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
@@ -3426,8 +3445,8 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
       (createSendingMessage(get_default_message("3pcc_abort"), -1));
     }
     
-    CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-    CStat::instance()->computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
+    computeStat(CStat::E_CALL_FAILED);
+    computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
     delete this;
     } else {
       WARNING("Continuing call on unexpected CANCEL for call: %s", (id==NULL)?"none":id);
@@ -3450,7 +3469,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
       res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
     }
     
-    CStat::instance()->computeStat(CStat::E_AUTO_ANSWERED);
+    computeStat(CStat::E_AUTO_ANSWERED);
     delete this;
     } else {
       WARNING("Do not answer on an unexpected PING for call: %s", (id==NULL)?"none":id);
@@ -3483,7 +3502,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
         old_last_recv_msg = NULL;
       }
     }
-    CStat::instance()->computeStat(CStat::E_AUTO_ANSWERED);
+    computeStat(CStat::E_AUTO_ANSWERED);
     return true;
     break;
 
@@ -3510,7 +3529,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
         old_last_recv_msg = NULL;
       }
     }
-    CStat::instance()->computeStat(CStat::E_AUTO_ANSWERED);
+    computeStat(CStat::E_AUTO_ANSWERED);
     return true;
 
     default:

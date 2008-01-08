@@ -269,6 +269,10 @@ private:
 
   bool lost(int index);
 
+  void computeStat (CStat::E_Action P_action);
+  void computeStat (CStat::E_Action P_action, unsigned long P_value);
+  void computeStat (CStat::E_Action P_action, unsigned long P_value, int which);
+
 #ifdef _USE_OPENSSL
   SSL_CTX   *m_ctx_ssl ;
   BIO       *m_bio     ;
