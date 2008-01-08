@@ -96,6 +96,11 @@ message::message()
   M_nbCmdRecv   = 0;
 
   content_length_flag = ContentLengthNoPresent;
+
+  /* How to match responses to this message. */
+  start_txn = 0;
+  response_txn = 0;
+  recv_response_for_cseq_method_list = NULL;
 }
 
 message::~message()
@@ -129,9 +134,15 @@ message::~message()
      free(pause_desc);
   pause_desc = NULL;
 
+  if (pause_distribution) {
+    delete pause_distribution;
+  }
+
   if(M_sendCmdData != NULL)
     delete M_sendCmdData;
   M_sendCmdData = NULL;
+
+  free(recv_response_for_cseq_method_list);
 }
 
 /******** Global variables which compose the scenario file **********/
@@ -154,6 +165,14 @@ var_map	      labelMap;
 /* The string label representations. */
 char	      *nextLabels[SCEN_MAX_MESSAGES];
 char	      *ontimeoutLabels[SCEN_MAX_MESSAGES];
+
+/* The mapping of transactions to IDs. */
+int           maxTxnUsed = 0;
+typedef std::map<std::string, int> txn_map;
+txn_map	      txnMap;
+char	      **txnRevMap;
+int	      *txnStarted;
+int	      *txnResponses;
 
 /*************** Helper functions for various types *****************/
 long get_long(const char *ptr, const char *what) {
@@ -318,13 +337,67 @@ double xp_get_bool(const char *name, const char *what, bool defval) {
   return xp_get_bool(name, what);
 }
 
+int get_txn(const char *txnName, const char *what, bool start) {
+  /* Check the name's validity. */
+  if (txnName[0] == '\0') {
+    ERROR("Variable names may not be empty for %s\n", what);
+  }
+  if (strcspn(txnName, "$,") != strlen(txnName)) {
+    ERROR("Variable names may not contain $ or , for %s\n", what);
+  }
+
+  /* If this transaction has already been used, then we have nothing to do. */
+  txn_map::iterator txn_it = txnMap.find(txnName);
+  if (txn_it != txnMap.end()) {
+    if (start) {
+      txnStarted[txn_it->second - 1]++;
+    } else {
+      txnResponses[txn_it->second - 1]++;
+    }
+    return txn_it->second;
+  }
+
+  /* Assign this variable the next slot. */
+  int txnNum = ++maxTxnUsed;
+
+  char **tmpTxnRevMap = new char *[txnNum];
+  int *tmpTxnStarted = new int[txnNum];
+  int *tmpTxnResponses = new int[txnNum];
+  int i;
+  for (i = 0; i < txnNum - 1; i++) {
+    tmpTxnRevMap[i] = txnRevMap[i];
+    tmpTxnStarted[i] = txnStarted[i];
+    tmpTxnResponses[i] = txnResponses[i];
+  }
+  if (txnRevMap) {
+    delete [] txnRevMap;
+    delete [] txnStarted;
+    delete [] txnResponses;
+  }
+  txnRevMap = tmpTxnRevMap;
+  txnStarted = tmpTxnStarted;
+  txnResponses = tmpTxnResponses;
+
+  txnMap[txnName] = txnNum;
+  txnRevMap[txnNum - 1] = strdup(txnName);
+  if (start) {
+    txnStarted[txnNum - 1] = 1;
+    txnResponses[txnNum - 1] = 0;
+  } else {
+    txnStarted[txnNum - 1] = 0;
+    txnResponses[txnNum - 1] = 1;
+  }
+
+  return txnNum;
+}
+
 int get_var(const char *varName, const char *what) {
   /* Check the name's validity. */
   if (varName[0] == '\0') {
-    ERROR("Variable names may not be empty for %s\n", what);
+    ERROR("Transaction names may not be empty for %s\n", what);
   }
   if (strcspn(varName, "$,") != strlen(varName)) {
-    ERROR("Variable names may not contain $ or , for %s\n", what);
+    ERROR("Transaction names may not contain $ or , for %s\n", what);
   }
 
   /* If this variable has already been used, then we have nothing to do. */
@@ -532,6 +605,16 @@ void validate_variable_usage() {
   }
 }
 
+void validate_txn_usage() {
+  for (int i = 0; i < maxTxnUsed; i++) {
+    if(txnStarted[i] == 0) {
+      ERROR("Transaction %s is never started!\n", variableRevMap[i]);
+    } else if(txnResponses[i] == 0) {
+      ERROR("Transaction %s has no responses defined!\n", variableRevMap[i]);
+    }
+  }
+}
+
 /* Apply the next and ontimeout labels according to our map. */
 void apply_labels() {
   for (int i = 0; i <= scenario_len; i++) {
@@ -623,15 +706,13 @@ void load_scenario(char * filename, int deflt)
 {
   static int loaded = 0;
   char * elem;
-  char method_list[METHOD_LIST_LENGTH]; // hopefully the method list wont be longer than this
-  char method_list_length = 0;           // Enforce length, in case...
+  char *method_list = NULL;
   unsigned int scenario_file_cursor = 0;
   int    L_content_length = 0 ;
   unsigned int recv_count = 0;
   unsigned int recv_opt_count = 0;
   char * peer; 
   bool found_timewait = false;
-  memset (method_list, 0, sizeof (method_list));
 
   if (loaded) {
     ERROR("You may only specify a single scenario!\n");
@@ -717,28 +798,6 @@ void load_scenario(char * filename, int deflt)
 	int removed_clrf = 0;
 	char * msg = clean_cdata(ptr, &removed_clrf);
 
-	//
-	// If this is a request we are sending, then copy over the method so that we can associate
-	// responses to the request
-	//
-	if (0 != strncmp (msg, "SIP/2.0", 7) )
-	{
-	  char *methodEnd = msg;
-	  int   bytesToCopy = 0;
-	  while (*methodEnd != ' ') {
-	    methodEnd++;
-	    bytesToCopy++;
-	  }
-	  if (method_list_length + bytesToCopy + 1 > METHOD_LIST_LENGTH) {
-	    ERROR("METHOD_LIST_LENGTH in scenario.hpp is too small (currently %d, need at least %d). Please modify and recompile.",
-		METHOD_LIST_LENGTH,
-		method_list_length + bytesToCopy + 1);
-	  }
-	  strncat (method_list, msg, bytesToCopy);
-	  method_list_length += bytesToCopy;
-	  method_list[method_list_length+1] = '\0';
-	}
-
 	L_content_length = xp_get_content_length(msg);
 	switch (L_content_length) {
 	  case  -1 :
@@ -759,6 +818,29 @@ void load_scenario(char * filename, int deflt)
 	}
 	scenario[scenario_len] -> send_scheme = new SendingMessage(msg);
 	free(msg);
+
+	// If this is a request we are sending, then store our transaction/method matching information.
+	if (!scenario[scenario_len]->send_scheme->isResponse()) {
+	  if (ptr = xp_get_value("start_txn")) {
+	    scenario[scenario_len]->start_txn = get_txn(ptr, "start transaction", true);
+	  } else {
+	    char *method = scenario[scenario_len]->send_scheme->getMethod();
+	    int len = method_list ? strlen(method_list) : 0;
+	    method_list = (char *)realloc(method_list, len + strlen(method) + 1);
+	    if (!method_list) {
+		ERROR_NO("Out of memory allocating method_list!");
+	    }
+	    strcpy(method_list + len, method);
+	  }
+	} else {
+	  if (ptr = xp_get_value("start_txn")) {
+	    ERROR("Responses can not start a transaction");
+	  }
+	}
+
+	if (ptr = xp_get_value("response_txn")) {
+	  ERROR("response_txn can only be used for recieved messages.");
+	}
 
 	scenario[scenario_len] -> retrans_delay = xp_get_long("retrans", "retransmission timer", 0);
 	scenario[scenario_len] -> timeout = xp_get_long("timeout", "message send timeout", 0);
@@ -785,20 +867,26 @@ void load_scenario(char * filename, int deflt)
           scenario[scenario_len] -> counter = get_counter(ptr, "counter");
 	}
 
-#ifdef PCAPPLAY
         getActionForThisMessage();
-#endif
       } else if(!strcmp(elem, (char *)"recv")) {
         recv_count++;
         scenario[scenario_len]->M_type = MSG_TYPE_RECV;
         /* Received messages descriptions */
         if(ptr = xp_get_value((char *)"response")) {
-          scenario[scenario_len] -> recv_response = get_long(ptr, "response code");
-          strcpy (scenario[scenario_len]->recv_response_for_cseq_method_list, method_list);
+          scenario[scenario_len] ->recv_response = get_long(ptr, "response code");
+	  if (method_list) {
+	    scenario[scenario_len]->recv_response_for_cseq_method_list = strdup(method_list);
+	  }
+	  if (ptr = xp_get_value("response_txn")) {
+	    scenario[scenario_len]->response_txn = get_txn(ptr, "transaction response", false);
+	  }
         }
 
         if(ptr = xp_get_value((char *)"request")) {
           scenario[scenario_len] -> recv_request = strdup(ptr);
+	  if (ptr = xp_get_value("response_txn")) {
+	    ERROR("response_txn can only be used for recieved responses.");
+	  }
         }
 
         if(ptr = xp_get_value((char *)"rtd")) {
@@ -867,7 +955,6 @@ void load_scenario(char * filename, int deflt)
 #endif
         }
         getActionForThisMessage();
-
       } else if(!strcmp(elem, "pause") || !strcmp(elem, "timewait")) {
         if (recv_count) {
           if (recv_count != recv_opt_count) {
@@ -936,7 +1023,6 @@ void load_scenario(char * filename, int deflt)
            scenario[scenario_len] ->peer_src = strdup(ptr) ;
         }
         getActionForThisMessage();
-
       } else if(!strcmp(elem, "sendCmd")) {
         if (recv_count) {
           if (recv_count != recv_opt_count) {
@@ -977,7 +1063,7 @@ void load_scenario(char * filename, int deflt)
       else {
         ERROR("Unknown element '%s' in xml scenario file", elem);
       }
-    
+
       if(ptr = xp_get_value((char *)"lost")) {
         scenario[scenario_len] -> lost = get_double(ptr, "lost percentage");
         lose_packets = 1;
@@ -1025,6 +1111,8 @@ void load_scenario(char * filename, int deflt)
     xp_close_element();
   } // end while
 
+  free(method_list);
+
   /* Patch up the labels. */
   apply_labels();
 
@@ -1036,6 +1124,9 @@ void load_scenario(char * filename, int deflt)
 
   /* Make sure that all variables are used more than once. */
   validate_variable_usage();
+
+  /* Make sure that all started transactions have responses, and vice versa. */
+  validate_txn_usage();
 }
 
 CSample *parse_distribution(bool oldstyle = false) {

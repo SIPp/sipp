@@ -48,8 +48,6 @@
 #define MODE_CLIENT        0
 #define MODE_SERVER        1
 
-#define METHOD_LIST_LENGTH      255
-
 #define MODE_3PCC_CONTROLLER_A  2
 #define MODE_3PCC_CONTROLLER_B  3   
 #define MODE_3PCC_A_PASSIVE     4
@@ -144,7 +142,9 @@ public:
   
   ContentLengthFlag   content_length_flag ;
 
-  char           recv_response_for_cseq_method_list[METHOD_LIST_LENGTH];
+  char           *recv_response_for_cseq_method_list;
+  int            start_txn;
+  int            response_txn;
 
   message();
   ~message();
@@ -162,6 +162,8 @@ extern char          scenario_name[255];
 extern int           toolMode;
 extern bool          rtd_stopped[MAX_RTD_INFO_LENGTH];
 extern bool          rtd_started[MAX_RTD_INFO_LENGTH];
+extern int	     maxTxnUsed;
+extern char	     **txnRevMap;
 
 
 extern unsigned long scenario_duration; /* include -d option if used */

@@ -262,6 +262,9 @@ private:
   /* Call Variable Table */
   CCallVariable ** M_callVariableTable;
 
+  /* Our transaction IDs. */
+  char **txnID;
+
   /* result of execute action */
   enum T_ActionResult
     {
@@ -278,7 +281,7 @@ private:
   /* rc == true means call not deleted by processing */
   void formatNextReqUrl (char* next_req_url);
   void computeRouteSetAndRemoteTargetUri (char* rrList, char* contact, bool bRequestIncoming);
-  bool matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod);
+  bool matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod, char *txn);
 
   T_ActionResult executeAction(char * msg, int scenarioIndex);
   void  extractSubMessage(char * msg, char * matchingString, char* result, bool case_indep, 
@@ -330,6 +333,7 @@ private:
   void do_bookkeeping(int index);
 
   void  extract_cseq_method (char* responseCseq, char* msg);
+  void  extract_transaction (char* txn, char* msg);
 
   int   send_raw(char * msg, int index);
   char * send_scene(int index, int *send_status);

@@ -688,6 +688,13 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : s
     }
   }
 
+  if (maxTxnUsed > 0) {
+    txnID = (char **)malloc(sizeof(char *) * maxTxnUsed);
+    memset(txnID, 0, sizeof(char *) * maxTxnUsed);
+  } else {
+    txnID = NULL;
+  }
+
   // If not updated by a message we use the start time 
   // information to compute rtd information
   for (i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
@@ -776,6 +783,11 @@ call::~call()
   if (userId) {
     freeUsers.push_front(userId);
   }
+
+  for (int i = 0; i < maxTxnUsed; i++) {
+    free(txnID[i]);
+  }
+  free(txnID);
 
   if(last_recv_msg) { free(last_recv_msg); }
   if(last_send_msg) { free(last_send_msg); }
@@ -1703,13 +1715,18 @@ bool call::run()
     last_send_msg = (char *) realloc(last_send_msg, strlen(msg_snd) + 1);
     strcpy(last_send_msg, msg_snd);
 
+    if (scenario[msg_index]->start_txn) {
+      txnID[scenario[msg_index]->start_txn - 1] = (char *)realloc(txnID[scenario[msg_index]->start_txn - 1], MAX_HEADER_LEN);
+      extract_transaction(txnID[scenario[msg_index]->start_txn - 1], last_send_msg);
+    }
+
     if(last_recv_hash) {
       /* We are sending just after msg reception. There is a great
        * chance that we will be asked to retransmit this message */
       recv_retrans_hash       = last_recv_hash;
       recv_retrans_recv_index = last_recv_index;
       recv_retrans_send_index = msg_index;
-    
+
       /* Prevent from detecting the cause relation between send and recv 
        * in the next valid send */
       last_recv_hash = 0;
@@ -2654,6 +2671,28 @@ void call::extract_cseq_method (char* method, char* msg)
   }
 }
 
+void call::extract_transaction (char* txn, char* msg)
+{
+  char *otxn = txn;
+  char *via = get_header_content(msg, "via:");
+  if (!via) {
+    txn[0] = '\0';
+    return;
+  }
+
+  char *branch = strstr(via, ";branch=");
+  if (!branch) {
+    txn[0] = '\0';
+    return;
+  }
+
+  branch += strlen(";branch=");
+  while (*branch && *branch != ';' && *branch != ',' && !isspace(*branch)) {
+    *txn++ = *branch++;
+  }
+  *txn = '\0';
+}
+
 void call::formatNextReqUrl (char* next_req_url)
 {
 
@@ -2801,36 +2840,41 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
   }
 }
 
-bool call::matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod)
-{         
+bool call::matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod, char *txn)
+{
   int        result;
 
-  if ((reply_code) && ((scenario[index] -> recv_response) == reply_code) && \
-     (index == 0 || ((scenario[index]->recv_response_for_cseq_method_list) && \
-     (strstr(scenario[index]->recv_response_for_cseq_method_list, responsecseqmethod))))) {
-        return true;
-  }
-    
-  if ((scenario[index] -> recv_request) && \
-     (!strcmp(scenario[index] -> recv_request, request))) {
-        return true;
-  } 
-  
-  if ((scenario[index] -> recv_request) && (scenario[index] -> regexp_match)) {
-  
-     if (scenario[index] -> regexp_compile == NULL) {
-        regex_t *re = new regex_t;
-        if (regcomp(re, scenario[index] -> recv_request, REG_EXTENDED|REG_NOSUB)) {
-           // regexp is not well formed
-           scenario[index] -> regexp_match = 0;
-           free(re);
-           return false;
-        }
-        scenario[index] -> regexp_compile = re;
-     }
-
-     result = regexec(scenario[index] -> regexp_compile, request, (size_t)0, NULL, 0);
-     if (!result) return true;
+  if ((scenario[index] -> recv_request)) {
+    if (scenario[index]->regexp_match) {
+      if (scenario[index] -> regexp_compile == NULL) {
+	regex_t *re = new regex_t;
+	if (regcomp(re, scenario[index] -> recv_request, REG_EXTENDED|REG_NOSUB)) {
+	  ERROR("Invalid regular expression for index %d: %s", scenario[index]->recv_request);
+	}
+	scenario[index] -> regexp_compile = re;
+      }
+      return !regexec(scenario[index] -> regexp_compile, request, (size_t)0, NULL, 0);
+    } else {
+      return !strcmp(scenario[index] -> recv_request, request);
+    }
+  } else if (scenario[index]->recv_response && (scenario[index]->recv_response == reply_code)) {
+    /* This is a potential candidate, we need to match transactions. */
+    if (scenario[index]->response_txn) {
+      if (txnID[scenario[index]->response_txn - 1] && !strcmp(txnID[scenario[index]->response_txn - 1], txn)) {
+	return true;
+      } else {
+	return false;
+      }
+    } else if (index == 0) {
+      /* Always true for the first message. */
+      return true;
+    } else if (scenario[index]->recv_response_for_cseq_method_list &&
+	strstr(scenario[index]->recv_response_for_cseq_method_list, responsecseqmethod)) {
+      /* If we do not have a transaction defined, we just check the CSEQ method. */
+      return true;
+    } else {
+      return false;
+    }
   }
 
   return false;
@@ -2841,6 +2885,7 @@ bool call::process_incoming(char * msg)
   int             reply_code;
   static char     request[65];
   char            responsecseqmethod[65];
+  char            txn[MAX_HEADER_LEN];
   unsigned long   cookie;
   char          * ptr;
   int             search_index;
@@ -2861,6 +2906,7 @@ bool call::process_incoming(char * msg)
     return next();
   }
   responsecseqmethod[0] = '\0';
+  txn[0] = '\0';
 
   if((transport == T_UDP) && (retrans_enabled)) {
     /* Detects retransmissions from peer and retransmit the
@@ -2947,6 +2993,7 @@ bool call::process_incoming(char * msg)
     request[0]=0;
     // extract the cseq method from the response
     extract_cseq_method (responsecseqmethod, msg);
+    extract_transaction (txn, msg);
   } else if(ptr = strchr(msg, ' ')) {
     if((ptr - msg) < 64) {
       memcpy(request, msg, ptr - msg);
@@ -2981,7 +3028,7 @@ bool call::process_incoming(char * msg)
   for(search_index = msg_index;
       search_index < scenario_len;
       search_index++) {
-    if(!matches_scenario(search_index, reply_code, request, responsecseqmethod)) {
+    if(!matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
       if(scenario[search_index] -> optional) {
         continue;
       }
@@ -3004,22 +3051,43 @@ bool call::process_incoming(char * msg)
         search_index >= 0;
         search_index--) {
       if (scenario[search_index]->optional == OPTIONAL_FALSE) contig = false;
-      if(matches_scenario(search_index, reply_code, request, responsecseqmethod)) {
+      if(matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
         if (contig || scenario[search_index]->optional == OPTIONAL_GLOBAL) {
          found = true;
          break;  
         } else {
-          /*
-           * we received a non mandatory msg for an old transaction (this could be due to a retransmit.
-           * If this response is for an INVITE transaction, retransmit the ACK to quench retransmits.
-           */
-          if ( (reply_code) &&
-             (0 == strncmp (responsecseqmethod, "INVITE", strlen(responsecseqmethod)) ) &&
-             (scenario[search_index+1]->M_type == MSG_TYPE_SEND) &&
-             (scenario[search_index+1]->send_scheme->isAck()) ) {
-            sendBuffer(createSendingMessage(scenario[search_index+1] -> send_scheme, (search_index+1)));
-            return true;
-          }
+	  if (int checkTxn = scenario[search_index]->response_txn) {
+	    /* This is a reply to an old transaction. */
+	    if (!strcmp(txnID[checkTxn - 1], txn)) {
+		/* This reply is provisional, so it should have no effect if we recieve it out-of-order. */
+		if (reply_code >= 100 && reply_code <= 199) {
+		  TRACE_MSG("-----------------------------------------------\n"
+		      "Ignoring provisional %s message for transaction %s:\n\n%s\n",
+		      TRANSPORT_TO_STRING(transport), txnRevMap[checkTxn - 1], msg);
+		  return true;
+		} else if (scenario[search_index + 1]->M_type == MSG_TYPE_SEND && scenario[search_index + 1]->send_scheme->isAck()) {
+		  /* This is the message before an ACK, so verify that this is an invite transaction. */
+		  if (!strcmp(responsecseqmethod, "INVITE")) {
+		    sendBuffer(createSendingMessage(scenario[search_index+1] -> send_scheme, (search_index+1)));
+		    return true;
+		  }
+		}
+		/* This is a non-provisional message for the transaction, and
+		 * we have already gotten our allowable response. */
+	    }
+	  } else {
+	    /*
+	     * we received a non mandatory msg for an old transaction (this could be due to a retransmit.
+	     * If this response is for an INVITE transaction, retransmit the ACK to quench retransmits.
+	     */
+	    if ( (reply_code) &&
+		(0 == strncmp (responsecseqmethod, "INVITE", strlen(responsecseqmethod)) ) &&
+		(scenario[search_index+1]->M_type == MSG_TYPE_SEND) &&
+		(scenario[search_index+1]->send_scheme->isAck()) ) {
+	      sendBuffer(createSendingMessage(scenario[search_index+1] -> send_scheme, (search_index+1)));
+	      return true;
+	    }
+	  }
         }
       }
     }
