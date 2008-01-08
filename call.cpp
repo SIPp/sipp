@@ -394,17 +394,10 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
   
   // initialising the CallVariable with the Scenario variable
   int i;
-  if (call_scenario->maxVariableUsed >= 0) {
-	M_callVariableTable = new CCallVariable *[call_scenario->maxVariableUsed + 1];
+  if (call_scenario->allocVars->size > 0) {
+	M_callVariableTable = new VariableTable(call_scenario->allocVars);
   } else {
 	M_callVariableTable = NULL;
-  }
-  for(i=0; i<=call_scenario->maxVariableUsed; i++)
-  {
-    M_callVariableTable[i] = new CCallVariable();
-    if (M_callVariableTable[i] == NULL) {
-      ERROR ("call variable allocation failed");
-    }
   }
 
   if (call_scenario->maxTxnUsed > 0) {
@@ -494,13 +487,7 @@ call::~call()
 
   /* Deletion of the call variable */
   if(M_callVariableTable) {
-    for(int i=0; i<=call_scenario->maxVariableUsed; i++) {
-      if(M_callVariableTable[i] != NULL) {
-	delete M_callVariableTable[i] ;
-	M_callVariableTable[i] = NULL;
-      }
-    }
-    delete [] M_callVariableTable;
+    M_callVariableTable->putTable();
   }
   if (m_lineNumber) {
     delete m_lineNumber;
@@ -1222,7 +1209,7 @@ bool call::next()
   /* If branch needed, overwrite this default */
   if ( (call_scenario->messages[msg_index]->next >= 0) &&
        ((test == -1) ||
-        (test <= call_scenario->maxVariableUsed && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
+        (test <= call_scenario->allocVars->size && M_callVariableTable->getVar(test)->isSet()))
      ) {
     /* Branching possible, check the probability */
     int chance = call_scenario->messages[msg_index]->chance;
@@ -1334,17 +1321,13 @@ bool call::run()
     /* Our pause is over. */
     paused_until = 0;
     return next();
-  } else if(curmsg -> pause_distribution || curmsg->pause_variable) {
+  } else if(curmsg -> pause_distribution || curmsg->pause_variable != -1) {
     unsigned int pause;
     if (curmsg->pause_distribution) {
       pause  = (int)(curmsg -> pause_distribution -> sample());
     } else {
       int varId = curmsg->pause_variable;
-      if(varId <= call_scenario->maxVariableUsed && M_callVariableTable[varId]) {
-	pause = (int) M_callVariableTable[varId]->getDouble();
-      } else {
-	pause = 0;
-      }
+      pause = (int) M_callVariableTable->getVar(varId)->getDouble();
     }
     if (pause < 0) {
       pause = 0;
@@ -2066,33 +2049,27 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	break;
       case E_Message_Variable: {
 	 int varId = comp->varId;
-	 if(varId <= call_scenario->maxVariableUsed) {
-	   if(M_callVariableTable[varId] != NULL) {
-	     if(M_callVariableTable[varId]->isSet()) {
-	       if (M_callVariableTable[varId]->isRegExp()) {
-		 dest += sprintf(dest, "%s", M_callVariableTable[varId]->getMatchingValue());
-	       } else if (M_callVariableTable[varId]->isDouble()) {
-		 dest += sprintf(dest, "%lf", M_callVariableTable[varId]->getDouble());
-	       } else if (M_callVariableTable[varId]->isString()) {
-		 dest += sprintf(dest, "%s", M_callVariableTable[varId]->getString());
-	       } else if (M_callVariableTable[varId]->isBool()) {
-		 dest += sprintf(dest, "true");
-	       }
-	     } else if (M_callVariableTable[varId]->isBool()) {
-	       dest += sprintf(dest, "false");
-	     }
+	 CCallVariable *var = M_callVariableTable->getVar(varId);
+	 if(var->isSet()) {
+	   if (var->isRegExp()) {
+	     dest += sprintf(dest, "%s", var->getMatchingValue());
+	   } else if (var->isDouble()) {
+	     dest += sprintf(dest, "%lf", var->getDouble());
+	   } else if (var->isString()) {
+	     dest += sprintf(dest, "%s", var->getString());
+	   } else if (var->isBool()) {
+	     dest += sprintf(dest, "true");
 	   }
+	 } else if (var->isBool()) {
+	   dest += sprintf(dest, "false");
 	 }
 	 break;
       }
       case E_Message_Fill: {
         int varId = comp->varId;
-	int length = 0;
-	if(varId <= call_scenario->maxVariableUsed && M_callVariableTable[varId]) {
-	  length = (int) M_callVariableTable[varId]->getDouble();
-	  if (length < 0) {
-	    length = 0;
-	  }
+	int length = (int) M_callVariableTable->getVar(varId)->getDouble();
+	if (length < 0) {
+	  length = 0;
 	}
 	char *filltext = comp->literal;
 	int filllen = strlen(filltext);
@@ -2855,16 +2832,16 @@ bool call::process_incoming(char * msg)
     if (call_scenario->unexpected_jump >= 0) {
       bool recursive = false;
       if (call_scenario->retaddr >= 0) {
-	if (M_callVariableTable[call_scenario->retaddr]->getDouble() != 0) {
+	if (M_callVariableTable->getVar(call_scenario->retaddr)->getDouble() != 0) {
 	  /* We are already in a jump! */
 	  recursive = true;
 	} else {
-	  M_callVariableTable[call_scenario->retaddr]->setDouble(msg_index);
+	  M_callVariableTable->getVar(call_scenario->retaddr)->setDouble(msg_index);
 	}
       }
       if (!recursive) {
 	if (call_scenario->pausedaddr >= 0) {
-	  M_callVariableTable[call_scenario->pausedaddr]->setDouble(paused_until);
+	  M_callVariableTable->getVar(call_scenario->pausedaddr)->setDouble(paused_until);
 	}
 	msg_index = call_scenario->unexpected_jump;
 	queue_up(msg);
@@ -3043,7 +3020,7 @@ bool call::process_incoming(char * msg)
   if (!(call_scenario->messages[search_index] -> optional) ||
        call_scenario->messages[search_index]->next &&
       ((test == -1) ||
-       (test <= call_scenario->maxVariableUsed && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
+       (test <= call_scenario->allocVars->size && M_callVariableTable->getVar(test)->isSet()))
      ) {
     /* If we are paused, then we need to wake up so that we properly go through the state machine. */
     paused_until = 0;
@@ -3053,8 +3030,8 @@ bool call::process_incoming(char * msg)
     unsigned int timeout = wake();
     unsigned int candidate;
 
-    if (call_scenario->messages[search_index]->next && test <= call_scenario->maxVariableUsed &&
-       M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()) {
+    if (call_scenario->messages[search_index]->next && test <= call_scenario->allocVars->size &&
+       M_callVariableTable->getVar(test)->isSet()) {
       WARNING("Last message generates an error and will not be used for next sends (for last_ variables):\r\n%s",msg);
     }
 
@@ -3084,7 +3061,7 @@ bool call::process_incoming(char * msg)
 
 double call::get_rhs(CAction *currentAction) {
   if (currentAction->getVarInId()) {
-    return M_callVariableTable[currentAction->getVarInId()]->getDouble();
+    return M_callVariableTable->getVar(currentAction->getVarInId())->getDouble();
   } else {
     return currentAction->getDoubleValue();
   }
@@ -3094,9 +3071,6 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 {
   CActions*  actions;
   CAction*   currentAction;
-  CVariable* scenVariable;
-  char       msgPart[MAX_SUB_MESSAGE_LENGTH];
-  int        currentId;
 
   actions = call_scenario->messages[scenarioIndex]->M_actions;
   // looking for action to do on this message
@@ -3105,76 +3079,43 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
       currentAction = actions->getAction(i);
       if(currentAction != NULL) {
         if(currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_REGEXP) {
-          currentId = currentAction->getVarId();
-          scenVariable = call_scenario->scenVariableTable[currentId][scenarioIndex];
-          if(scenVariable != NULL) {
-            if(currentAction->getLookingPlace() == CAction::E_LP_HDR) {
-              extractSubMessage
-                                (msg, 
-                                currentAction->getLookingChar(), 
-                                msgPart,
-                                currentAction->getCaseIndep(),
-                                currentAction->getOccurence(),
-                                currentAction->getHeadersOnly()); 
-        
-              if(strlen(msgPart) > 0) {
-          
-                scenVariable->executeRegExp(msgPart, 
-                                  M_callVariableTable,
-				  currentId,
-				  currentAction->getNbSubVarId(),
-                                  currentAction->getSubVarId());
-          
-                if( (!(M_callVariableTable[currentId]->isSet())) 
-                && (currentAction->getCheckIt() == true) ) {
-                  // the message doesn't match and the checkit 
-                  // action say it MUST match
-                  // Allow easier regexp debugging
-                  WARNING("Failed regexp match: looking "
-                  "in '%s', with regexp '%s'", 
-                  msgPart, 
-                  scenVariable->
-                  getRegularExpression());
-                  // --> Call will be marked as failed
-                  return(call::E_AR_REGEXP_DOESNT_MATCH);
-                }
-              } else {// sub part of message not found
-                if( currentAction->getCheckIt() == true ) {
-                  // the sub message is not found and the
-                  // checking action say it MUST match
-                  // --> Call will be marked as failed but 
-                  // will go on
-                  WARNING("Failed regexp match: header %s not found in message %s\n", currentAction->getLookingChar(), msg);
-                  return(call::E_AR_HDR_NOT_FOUND);
-                } 
-              }
-            } else {// we must look in the entire message
-              // WARNING("LOOKING IN MSG -%s-", msg);
-                scenVariable->executeRegExp(msg, 
-                                  M_callVariableTable,
-				  currentId,
-				  currentAction->getNbSubVarId(),
-                                  currentAction->getSubVarId());
-              if((!(M_callVariableTable[currentId]->isSet())) 
-              && (currentAction->getCheckIt() == true) ) {
-                // the message doesn't match and the checkit 
-                // action say it MUST match
-                // Allow easier regexp debugging
-                WARNING("Failed regexp match: looking in '%s'"
-                ", with regexp '%s'", 
-                msg, 
-                scenVariable->getRegularExpression());
-                // --> rejecting the call
-                return(call::E_AR_REGEXP_DOESNT_MATCH);
-              }
-            }
-          } // end if scen variable != null
+	  char msgPart[MAX_SUB_MESSAGE_LENGTH];
+
+	  /* Where to look. */
+	  char *haystack;
+
+	  if(currentAction->getLookingPlace() == CAction::E_LP_HDR) {
+	    extractSubMessage (msg,
+		currentAction->getLookingChar(),
+		msgPart,
+		currentAction->getCaseIndep(),
+		currentAction->getOccurence(),
+		currentAction->getHeadersOnly());
+	    if(currentAction->getCheckIt() == true && (strlen(msgPart) < 0)) {
+	      // the sub message is not found and the checking action say it
+	      // MUST match --> Call will be marked as failed but will go on
+	      WARNING("Failed regexp match: header %s not found in message %s\n", currentAction->getLookingChar(), msg);
+	      return(call::E_AR_HDR_NOT_FOUND);
+	    }
+	    haystack = msgPart;
+	  } else {
+	    haystack = msg;
+	  }
+	  currentAction->executeRegExp(haystack, M_callVariableTable);
+
+	  if( (!(M_callVariableTable->getVar(currentAction->getVarId())->isSet())) && (currentAction->getCheckIt() == true) ) {
+	    // the message doesn't match and the checkit action say it MUST match
+	    // Allow easier regexp debugging
+	    WARNING("Failed regexp match: looking in '%s', with regexp '%s'",
+		haystack, currentAction->getRegularExpression());
+	    return(call::E_AR_REGEXP_DOESNT_MATCH);
+	  }
         } else /* end action == E_AT_ASSIGN_FROM_REGEXP */ 
             if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_VALUE) {
 	      double operand = get_rhs(currentAction);
-	      M_callVariableTable[currentAction->getVarId()]->setDouble(operand);
+	      M_callVariableTable->getVar(currentAction->getVarId())->setDouble(operand);
         } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_INDEX) {
-	  M_callVariableTable[currentAction->getVarId()]->setDouble(msg_index);
+	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(msg_index);
         } else if (currentAction->getActionType() == CAction::E_AT_JUMP) {
 	  double operand = get_rhs(currentAction);
 	  msg_index = (int)operand - 1;
@@ -3182,41 +3123,42 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	  double operand = get_rhs(currentAction);
 	  paused_until = (int)operand;
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_ADD) {
-	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
+	  double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
 	  double operand = get_rhs(currentAction);
-	  M_callVariableTable[currentAction->getVarId()]->setDouble(value + operand);
+	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value + operand);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_SUBTRACT) {
-	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
+	  double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
 	  double operand = get_rhs(currentAction);
-	  M_callVariableTable[currentAction->getVarId()]->setDouble(value - operand);
+	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value - operand);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_MULTIPLY) {
-	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
+	  double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
 	  double operand = get_rhs(currentAction);
-	  M_callVariableTable[currentAction->getVarId()]->setDouble(value * operand);
+	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value * operand);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_DIVIDE) {
-	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
+	  double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
 	  double operand = get_rhs(currentAction);
 	  if (operand == 0) {
 	    WARNING("Action failure: Can not divide by zero ($%d/$%d)!\n", currentAction->getVarId(), currentAction->getVarInId());
 	  } else {
-	    M_callVariableTable[currentAction->getVarId()]->setDouble(value / operand);
+	    M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value / operand);
 	  }
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TEST) {
 	  double value = currentAction->compare(M_callVariableTable);
-	  M_callVariableTable[currentAction->getVarId()]->setBool(value);
+	  M_callVariableTable->getVar(currentAction->getVarId())->setBool(value);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_STRCMP) {
-	  char *rhs = M_callVariableTable[currentAction->getVarInId()]->getString();
+	  char *rhs = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
 	  char *lhs = currentAction->getStringValue();
 	  int value = strcmp(rhs, lhs);
-	  M_callVariableTable[currentAction->getVarId()]->setDouble((double)value);
+	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)value);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TRIM) {
-	  char *in = M_callVariableTable[currentAction->getVarId()]->getString();
+	  CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
+	  char *in = var->getString();
 	  char *p = in;
 	  while (isspace(*p)) {
 		p++;
 	  }
 	  char *q = strdup(p);
-	  M_callVariableTable[currentAction->getVarId()]->setString(q);
+	  var->setString(q);
 	  int l = strlen(q);
 	  for (int i = l - 1; i >= 0 & isspace(q[i]); i--) {
 		q[i] = '\0';
@@ -3224,21 +3166,21 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TO_DOUBLE) {
 	  double value;
 
-	  if (M_callVariableTable[currentAction->getVarInId()]->toDouble(&value)) {
-	    M_callVariableTable[currentAction->getVarId()]->setDouble(value);
+	  if (M_callVariableTable->getVar(currentAction->getVarInId())->toDouble(&value)) {
+	    M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
 	  } else {
 	    WARNING("Invalid double conversion from $%d to $%d", currentAction->getVarInId(), currentAction->getVarId());
 	  }
 	} else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
 	  double value = currentAction->getDistribution()->sample();
-	  M_callVariableTable[currentAction->getVarId()]->setDouble(value);
+	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
 	} else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_STRING) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
 	    char *str = strdup(x);
 	    if (!str) {
 		ERROR("Out of memory duplicating string for assignment!");
 	    }
-	    M_callVariableTable[currentAction->getVarId()]->setString(str);
+	    M_callVariableTable->getVar(currentAction->getVarId())->setString(str);
 	} else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
             LOG_MSG("%s\n", x);

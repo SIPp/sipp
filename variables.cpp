@@ -184,196 +184,166 @@ CCallVariable::~CCallVariable()
   }
 }
 
-/*
-__________________________________________________________________________
+#define LEVEL_BITS 8
 
-              C L A S S    C V a r i a b l e
-__________________________________________________________________________
-*/
-
-bool CVariable::matchRegularExpression(char* P_string)
-{
-  if(M_regExpWellFormed) {
-    if(regexec(&(M_internalRegExp), P_string, 0, NULL, 0) == 0) {
-      return(true);
-    } else {
-      return(false);
-    }
+VariableTable::VariableTable(VariableTable *parent, int size) {
+  if (parent) {
+    level = parent->level + 1;
+    assert(level < (1 << LEVEL_BITS));
+    this->parent = parent->getTable();
   } else {
-    return(false);
+    level = 0;
+    this->parent = NULL;
   }
-}
 
-void CVariable::setSubString(char** P_target, char* P_source, int P_start, int P_stop)
-{
-  int sizeOf;
-  int sourceLength;
-  size_t L_size = 0;
-
-  if(P_source != NULL) {
-    sizeOf = P_stop - P_start;
-    if(sizeOf > 0) {
-      L_size = (size_t) sizeOf;
-      L_size += 1;
-      (*P_target) = new char[L_size];
-      sourceLength = strlen(P_source);
-     
-      memcpy((*P_target), &(P_source[P_start]), sizeOf);
-
-      (*P_target)[sizeOf] = '\0';
-	 }
-  } else {
-    *P_target = NULL ;
+  count = 1;
+  this->size = size;
+  variableTable = (CCallVariable **)malloc(size * sizeof(CCallVariable *));
+  if (!variableTable) {
+    ERROR("Could not allocate variable table!");
   }
-}
-
-
-int CVariable::executeRegExp(char* P_string, 
-                             CCallVariable** P_callVarTable,
-                	     int  P_varId,
-			     int  P_nbSubVar,
-                             int  * P_subVarIdTable)
-{
-   regmatch_t pmatch[10];
-  int error;
-   int nbOfMatch = 0;
-   int L_i ;
-   CCallVariable* L_callVar ;
-   char* result = NULL ;
-   int   L_currentSubIdx = 0 ;
-
-
-   memset((void*)pmatch, 0, sizeof(regmatch_t)*10);
-
-  if(M_regExpWellFormed) {
-     error = regexec(&(M_internalRegExp), P_string, 10, pmatch, REGEXP_PARAMS);
-     if ( error == 0) {
-        L_callVar = P_callVarTable[P_varId] ;
-        for(L_i=0; L_i < 10; L_i++) {
-          if(pmatch[L_i].rm_eo == -1) break ;
- 	  setSubString(&result, P_string, 
-                       pmatch[L_i].rm_so, pmatch[L_i].rm_eo);
-          L_callVar->setMatchingValue(result);
-          if (L_currentSubIdx == P_nbSubVar) break ;
-          L_callVar = P_callVarTable[P_subVarIdTable[L_currentSubIdx]] ;
-	  L_currentSubIdx ++ ;
-
-	  /* 
-            printf(" the pmatch %d %d  \n", L_i, pmatch[L_i].rm_eo);
-            printf(" the pmatch %d %d  \n", L_i, pmatch[L_i].rm_so);
-            int L_k ;
-
-            for(L_k = pmatch[L_i].rm_so; L_k <= pmatch[L_i].rm_eo; L_k++) {
-                    printf("%c", P_string[L_k]);
-            }
-            printf("\n");
-          */
-
-		}
-	 }
-  }
-  return(nbOfMatch);
-
-}
-
-bool CVariable::extractAllMatchedExpression(char* P_string, 
-                                            char *** P_result, 
-                                            int* P_number)
-{
-  regmatch_t pmatch;
-  int error;
-  char tmpTab[MAX_MATCHING_EXPR][BUFFER_SIZE];
-  char* strBuff;
-  int currentStop;
-  int maxLength;
-  
-  if(M_regExpWellFormed) {
-
-    currentStop = 0;
-    maxLength = strlen(P_string);
-    error = regexec(&(M_internalRegExp), P_string, 1, &pmatch, REGEXP_PARAMS);
-    (*P_number) = 0;
-
-    while(error == 0) {
-      setSubString(&strBuff, P_string+currentStop, 
-                   pmatch.rm_so, pmatch.rm_eo);
-      if (strlen(strBuff) > BUFFER_SIZE) {
-        ERROR("Regular expression match size (%zu) is bigger than buffer size (%d). Change BUFFER_SIZE in call.hpp and recompile SIPp.", strlen(strBuff), BUFFER_SIZE);
-      }
-      strcpy(tmpTab[(*P_number)], strBuff);
-      delete(strBuff);
-      (*P_number)++;
-      currentStop += pmatch.rm_eo;
-      if((currentStop >= maxLength) || ((*P_number) >= MAX_MATCHING_EXPR))
-        break;
-      error = regexec(&(M_internalRegExp), 
-                      P_string+currentStop, 1, 
-                      &pmatch, REGEXP_PARAMS);
-      if(pmatch.rm_eo == pmatch.rm_so)
-        break;
+  for (int i = 0; i < size; i++) {
+    variableTable[i] = new CCallVariable();
+    if (variableTable[i] == NULL) {
+      ERROR ("Call variable allocation failed");
     }
-    if((*P_number) > 0) {
-      (*P_result) = (char**) malloc(sizeof(char*)*(*P_number));
-      for(int i=0; i<(*P_number); i++)
-        {
-          (*P_result)[i] = (char*) malloc(sizeof(char)*(maxLength+1));
-          strcpy((*P_result)[i], tmpTab[i]);
-        }
-      return(true);
-    } else {
-      return(false);
-    }
+  }
+}
+
+VariableTable::VariableTable(AllocVariableTable *src) {
+  count = 1;
+  this->level = src->level;
+  if (src->parent) {
+    this->parent = src->parent->getTable();
   } else {
-    return(false);
+    this->parent = NULL;
+  }
+  if (level > 0) {
+    assert(this->parent);
+  }
+  this->size = src->size;
+
+  variableTable = (CCallVariable **)malloc(size * sizeof(CCallVariable *));
+  if (!variableTable) {
+    ERROR("Could not allocate variable table!");
+  }
+
+  for (int i = 0; i < size; i++) {
+    variableTable[i] = new CCallVariable();
+    if (variableTable[i] == NULL) {
+      ERROR ("Call variable allocation failed");
+    }
   }
 }
 
-// selecteur et accesseur
-bool CVariable::isRegExpWellFormed()
-{
-  return(M_regExpWellFormed);
-}
-
-char* CVariable::getRegularExpression()
-{
-  return(M_regularExpression);
-}
-
-
-// Constuctor and destructor
-CVariable::CVariable(char* P_regularExpression)
-{
-  int sizeOf;
-  int errorCode;
-
-  if(P_regularExpression != NULL)
-  {
-    sizeOf = strlen(P_regularExpression);
-    M_regularExpression = new char[sizeOf+1];
-    strcpy(M_regularExpression, P_regularExpression);
+void VariableTable::expand(int size) {
+  assert(size > this->size);
+  if (size == this->size) {
+    return;
   }
 
-  // we must call regcomp to avoid a coredump on the regfree. Even if the char* P_regularExpression is null
-  errorCode = regcomp(&(M_internalRegExp), M_regularExpression, REGEXP_PARAMS);
-  if(errorCode != 0)
-  {
-    /* regerror(errorCode, &M_internalRegExp, buffer, sizeof(buffer));
-       printf("recomp error : regular expression '%s' - error '%s'\n", 
-                  M_regularExpression, 
-                  buffer); */
-    M_regExpWellFormed = false;
-   }
-   else
-   {
-     M_regExpWellFormed = true;
-   }
+  variableTable = (CCallVariable **)realloc(variableTable, size * sizeof(CCallVariable *));
+  if (!variableTable) {
+    ERROR("Could not expand variable table!");
+  }
+
+  for (int i = this->size; i < size; i++) {
+    variableTable[i] = new CCallVariable();
+    if (variableTable[i] == NULL) {
+      ERROR ("Call variable allocation failed");
+    }
+  }
+
+  this->size = size;
 }
 
-CVariable::~CVariable()
-{
-  if(M_regularExpression != NULL)
-    delete [] M_regularExpression;
-  M_regularExpression = NULL;
+VariableTable::~VariableTable() {
+  if (parent) {
+    parent->putTable();
+  }
+  free(variableTable);
+}
 
-  regfree(&(M_internalRegExp)); 
+VariableTable *VariableTable::getTable() {
+  count++;
+  return this;
+}
+
+void VariableTable::putTable() {
+  if (--count == 0) {
+    delete this;
+  }
+}
+
+CCallVariable *VariableTable::getVar(int i) {
+  int thisLevel  = i & ((1 << LEVEL_BITS) - 1);
+  assert(thisLevel <= level);
+  if (thisLevel == level) {
+	i = i >> LEVEL_BITS;
+	assert(i > 0);
+	assert(i <= size );
+	return variableTable[i - 1];
+  }
+  assert(parent);
+  return parent->getVar(i);
+}
+
+AllocVariableTable::AllocVariableTable(AllocVariableTable *av_parent) : VariableTable((VariableTable *)av_parent, 0) {
+  this->av_parent = av_parent;
+}
+
+AllocVariableTable::~AllocVariableTable() {
+  clear_str_int(variableMap);
+  clear_int_str(variableRevMap);
+  clear_int_int(variableReferences);
+}
+
+int AllocVariableTable::find(const char *varName, bool allocate) {
+  /* If this variable has already been used, then we have nothing to do. */
+  str_int_map::iterator var_it = variableMap.find(varName);
+  if (var_it != variableMap.end()) {
+    variableReferences[var_it->second]++;
+    return var_it->second;
+  }
+  if (av_parent) {
+    int ret = av_parent->find(varName, false);
+    if (ret > 0) {
+      return ret;
+    }
+  }
+
+  if (allocate) {
+    int varNum = size + 1;
+    expand(varNum);
+    varNum = (varNum << LEVEL_BITS) | level;
+    variableMap[varName] = varNum;
+    variableReferences[varNum] = 1;
+    variableRevMap[varNum] = strdup(varName);
+    return varNum;
+  }
+
+  return -1;
+}
+
+char *AllocVariableTable::getName(int i) {
+  int thisLevel  = i & (1 << LEVEL_BITS);
+  assert(thisLevel <= level);
+  if (thisLevel == level) {
+	return variableRevMap[i];
+  }
+  assert(av_parent);
+  return av_parent->getName(i);
+}
+
+void AllocVariableTable::validate() {
+  for (str_int_map::iterator var_it = variableMap.begin(); var_it != variableMap.end(); var_it++) {
+    if (variableReferences[var_it->second] < 2) {
+      const char *varName = var_it->first.c_str();
+      int varRef = variableReferences[var_it->second];
+      ERROR("Variable $%s is referenced %d times!\n", varName, varRef);
+    }
+  }
+  if (av_parent) {
+    av_parent->validate();
+  }
 }

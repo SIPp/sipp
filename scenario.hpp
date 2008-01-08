@@ -158,9 +158,6 @@ public:
   int length;
   char *name;
   int duration;
-  int maxVariableUsed;
-  int_str_map  variableRevMap;
-  CVariable *** scenVariableTable;
   int maxTxnUsed;
   int_str_map txnRevMap;
   int unexpected_jump;
@@ -174,6 +171,7 @@ public:
   int find_var(const char *varName, const char *what);
 
   CStat *stats;
+  AllocVariableTable *allocVars;
 
 private:
 

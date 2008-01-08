@@ -64,8 +64,8 @@ const char * CAction::comparatorToString(T_Comparator comp) {
    }
 }
 
-bool CAction::compare(CCallVariable *variableTable[]) {
-  double lhs = variableTable[M_varInId] ? variableTable[M_varInId]->getDouble() : 0.0;
+bool CAction::compare(VariableTable *variableTable) {
+  double lhs = variableTable->getVar(M_varInId)->getDouble();
   double rhs = M_doubleValue;
 
   switch(M_comp) {
@@ -91,18 +91,19 @@ void CAction::afficheInfo()
 {
   if (M_action == E_AT_ASSIGN_FROM_REGEXP) {
     if(M_lookingPlace == E_LP_MSG) {
-      printf("Type[%d] - where[%s] - checkIt[%d] - $%s",
+      printf("Type[%d] - regexp[%s] where[%s] - checkIt[%d] - $%s",
              M_action,
+	     M_regularExpression,
              "Full Msg",
              M_checkIt,
-		       display_scenario->variableRevMap[M_varId]);
+		       display_scenario->allocVars->getName(M_varId));
     } else {
-      printf("Type[%d] - where[%s-%s] - checkIt[%d] - $%d",
+      printf("Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - $%d",
              M_action,
+	     M_regularExpression,
              "Header",
              M_lookingChar,
-             M_checkIt,
-		       display_scenario->variableRevMap[M_varId]);
+             M_checkIt, display_scenario->allocVars->getName(M_varId));
     }
   } else if (M_action == E_AT_EXECUTE_CMD) {
     if (M_cmdLine) {
@@ -115,29 +116,29 @@ void CAction::afficheInfo()
   } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
       char tmp[40];
       M_distribution->textDescr(tmp, sizeof(tmp));
-      printf("Type[%d] - sample varId[%d] %s", M_action, display_scenario->variableRevMap[M_varId], tmp);
+      printf("Type[%d] - sample varId[%d] %s", M_action, display_scenario->allocVars->getName(M_varId), tmp);
   } else if (M_action == E_AT_ASSIGN_FROM_VALUE) {
-      printf("Type[%d] - assign varId[%d] %lf", M_action, display_scenario->variableRevMap[M_varId], M_doubleValue);
+      printf("Type[%d] - assign varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_ASSIGN_FROM_INDEX) {
-      printf("Type[%d] - assign index[%d]", M_action, display_scenario->variableRevMap[M_varId]);
+      printf("Type[%d] - assign index[%d]", M_action, display_scenario->allocVars->getName(M_varId));
   } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
-      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, display_scenario->variableRevMap[M_varId], M_message);
+      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message);
   } else if (M_action == E_AT_JUMP) {
-      printf("Type[%d] - jump varInId[%d] %lf", M_action, display_scenario->variableRevMap[M_varInId], M_doubleValue);
+      printf("Type[%d] - jump varInId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
   } else if (M_action == E_AT_PAUSE_RESTORE) {
-      printf("Type[%d] - restore pause varInId[%d] %lf", M_action, display_scenario->variableRevMap[M_varInId], M_doubleValue);
+      printf("Type[%d] - restore pause varInId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
   } else if (M_action == E_AT_VAR_ADD) {
-      printf("Type[%d] - add varId[%d] %lf", M_action, display_scenario->variableRevMap[M_varId], M_doubleValue);
+      printf("Type[%d] - add varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_VAR_MULTIPLY) {
-      printf("Type[%d] - multiply varId[%d] %lf", M_action, display_scenario->variableRevMap[M_varId], M_doubleValue);
+      printf("Type[%d] - multiply varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_VAR_DIVIDE) {
-      printf("Type[%d] - divide varId[%d] %lf", M_action, display_scenario->variableRevMap[M_varId], M_doubleValue);
+      printf("Type[%d] - divide varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_VAR_TRIM) {
-      printf("Type[%d] - trim varId[%d]", M_action, display_scenario->variableRevMap[M_varId]);
+      printf("Type[%d] - trim varId[%d]", M_action, display_scenario->allocVars->getName(M_varId));
   } else if (M_action == E_AT_VAR_TEST) {
-      printf("Type[%d] - divide varId[%d] varInId[%d] %s %lf", M_action, display_scenario->variableRevMap[M_varId], display_scenario->variableRevMap[M_varInId], comparatorToString(M_comp), M_doubleValue);
+      printf("Type[%d] - divide varId[%d] varInId[%d] %s %lf", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_varInId), comparatorToString(M_comp), M_doubleValue);
   } else if (M_action == E_AT_VAR_TO_DOUBLE) {
-      printf("Type[%d] - toDouble varId[%d]", M_action, display_scenario->variableRevMap[M_varId]);
+      printf("Type[%d] - toDouble varId[%d]", M_action, display_scenario->allocVars->getName(M_varId));
 #ifdef PCAPPLAY
   } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
       printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
@@ -260,6 +261,87 @@ void CAction::setMessage  (char*          P_value)
   }
 }
 
+void CAction::setRegExp(char *P_value) {
+  int errorCode;
+
+  M_regularExpression = strdup(P_value);
+  M_regExpSet = true;
+
+  errorCode = regcomp(&(M_internalRegExp), M_regularExpression, REGEXP_PARAMS);
+  if(errorCode != 0)
+  {
+    char buffer[MAX_HEADER_LEN];
+    regerror(errorCode, &M_internalRegExp, buffer, sizeof(buffer));
+    ERROR("recomp error : regular expression '%s' - error '%s'\n", M_regularExpression, buffer);
+  }
+}
+
+char *CAction::getRegularExpression() {
+  if (!M_regExpSet) {
+    ERROR("Trying to get a regular expression for an action that does not have one!");
+  }
+  return M_regularExpression;
+}
+
+int CAction::executeRegExp(char* P_string, VariableTable *P_callVarTable)
+{
+  regmatch_t pmatch[10];
+  int error;
+  int nbOfMatch = 0;
+  char* result = NULL ;
+
+  if (!M_regExpSet) {
+    ERROR("Trying to perform regular expression match on action that does not have one!");
+  }
+
+  if (getNbSubVarId() > 9) {
+    ERROR("You can only have nine sub expressions!");
+  }
+
+  memset((void*)pmatch, 0, sizeof(regmatch_t)*10);
+
+  error = regexec(&(M_internalRegExp), P_string, 10, pmatch, REGEXP_PARAMS);
+  if ( error == 0) {
+    CCallVariable* L_callVar = P_callVarTable->getVar(getVarId());
+
+    for(int i = 0; i <= getNbSubVarId(); i++) {
+      if(pmatch[i].rm_eo == -1) break ;
+
+      setSubString(&result, P_string, pmatch[i].rm_so, pmatch[i].rm_eo);
+      L_callVar->setMatchingValue(result);
+
+      if (i == getNbSubVarId())
+	break ;
+
+      L_callVar = P_callVarTable->getVar(getSubVarId(i));
+    }
+  }
+  return(nbOfMatch);
+}
+
+void CAction::setSubString(char** P_target, char* P_source, int P_start, int P_stop)
+{
+  int sizeOf;
+  int sourceLength;
+  size_t L_size = 0;
+
+  if(P_source != NULL) {
+    sizeOf = P_stop - P_start;
+    if(sizeOf > 0) {
+      L_size = (size_t) sizeOf;
+      L_size += 1;
+      (*P_target) = new char[L_size];
+
+      memcpy((*P_target), &(P_source[P_start]), sizeOf);
+
+      (*P_target)[sizeOf] = '\0';
+	 }
+  } else {
+    *P_target = NULL ;
+  }
+}
+
+
 void CAction::setCmdLine  (char*          P_value)
 {
   if(M_cmdLine != NULL)
@@ -342,6 +424,7 @@ void CAction::setAction(CAction P_action)
   setOccurence    ( P_action.getOccurence()   );
   setHeadersOnly  ( P_action.getHeadersOnly()  );
   setMessage      ( P_action.M_message_str     );
+  setRegExp       ( P_action.M_regularExpression);
   setCmdLine      ( P_action.M_cmdLine_str     );
   setIntCmd       ( P_action.M_IntCmd          );
 #ifdef PCAPPLAY
@@ -378,6 +461,8 @@ CAction::CAction(scenario *scenario)
   M_message_str	 = NULL;
   M_cmdLine_str	 = NULL;
   M_scenario     = scenario;
+  M_regExpSet    = false;
+  M_regularExpression = NULL;
 }
 
 CAction::~CAction()
@@ -423,6 +508,10 @@ CAction::~CAction()
     M_pcapArgs = NULL;
   }
 #endif
+  if (M_regExpSet) {
+    regfree(&M_internalRegExp);
+    free(M_regularExpression);
+  }
 }
 
 /****************************** CActions class ************************/

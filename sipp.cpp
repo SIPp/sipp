@@ -940,7 +940,7 @@ void print_stats_in_file(FILE * f, int last)
 	  desc[0] = '\0';
 	  curmsg->pause_distribution->timeDescr(desc, 23);
 	} else {
-	  snprintf(desc, 23, "$%s", display_scenario->variableRevMap[curmsg->pause_variable]);
+	  snprintf(desc, 23, "$%s", display_scenario->allocVars->getName(curmsg->pause_variable));
 	}
 	desc[23] = '\0';
 	curmsg->pause_desc = desc;
@@ -1246,74 +1246,64 @@ void print_variable_list()
 {
   CActions  * actions;
   CAction   * action;
-  CVariable * variable;
   int i,j;
+  int printed = 0;
   bool found;
 
   printf("Action defined Per Message :" SIPP_ENDL);
+  printed++;
   found = false;
   for(i=0; i<display_scenario->length; i++)
+  {
+    message *curmsg = display_scenario->messages[i];
+    actions = curmsg->M_actions;
+    if(actions != NULL)
     {
-      message *curmsg = display_scenario->messages[i];
-      actions = curmsg->M_actions;
-      if(actions != NULL)
-        {
-          switch(curmsg->M_type)
-            {
-            case MSG_TYPE_RECV:
-              printf("=> Message[%d] (Receive Message) - "
-                     "[%d] action(s) defined :" SIPP_ENDL,
-                     i,             
-                     actions->getActionSize());
-              break;
-            case MSG_TYPE_RECVCMD:
-              printf("=> Message[%d] (Receive Command Message) - "
-                     "[%d] action(s) defined :" SIPP_ENDL,
-                     i,             
-                     actions->getActionSize());
-              break;
-            default:
-              printf("=> Message[%d] - [%d] action(s) defined :" SIPP_ENDL,
-                     i,             
-                     actions->getActionSize());
-              break;
-            }
-      
-          for(int j=0; j<actions->getActionSize(); j++)
-            {
-              action = actions->getAction(j);
-              if(action != NULL)
-                {
-                  printf("   --> action[%d] = ", j);
-                  action->afficheInfo();
-                  printf(SIPP_ENDL);
-                  found = true;
-                }
-            }
-        }
-    }
-  if(!found) printf("=> No action found on any messages"SIPP_ENDL);
-  
-  printf(SIPP_ENDL);
-  printf("Setted Variable List:" SIPP_ENDL);
-  found = false;
-  j=0;
-  for(i=0; i<=display_scenario->maxVariableUsed; i++) {
-    for (int j=0;j<SCEN_MAX_MESSAGES;j++)
-    {
-      variable = display_scenario->scenVariableTable[i][j];
-      if(variable != NULL)
-        {
-          printf("=> Variable[%d] : setted regExp[%s]" SIPP_ENDL,
-                 i,
-                 variable->getRegularExpression());
-          found = true;
-          j++;
-        }
+      switch(curmsg->M_type)
+      {
+	case MSG_TYPE_RECV:
+	  printf("=> Message[%d] (Receive Message) - "
+	      "[%d] action(s) defined :" SIPP_ENDL,
+	      i,
+	      actions->getActionSize());
+	  printed++;
+	  break;
+	case MSG_TYPE_RECVCMD:
+	  printf("=> Message[%d] (Receive Command Message) - "
+	      "[%d] action(s) defined :" SIPP_ENDL,
+	      i,
+	      actions->getActionSize());
+	  printed++;
+	  break;
+	default:
+	  printf("=> Message[%d] - [%d] action(s) defined :" SIPP_ENDL,
+	      i,
+	      actions->getActionSize());
+	  printed++;
+	  break;
+      }
+
+      for(int j=0; j<actions->getActionSize(); j++)
+      {
+	action = actions->getAction(j);
+	if(action != NULL)
+	{
+	  printf("   --> action[%d] = ", j);
+	  action->afficheInfo();
+	  printf(SIPP_ENDL);
+	  printed++;
+	  found = true;
+	}
+      }
     }
   }
-  if(!found) printf("=> No variable found for this scenario"SIPP_ENDL);
-  for(i=0; i<(display_scenario->length + 5 - j); i++) {
+  if(!found) {
+	printed++;
+	printf("=> No action found on any messages"SIPP_ENDL);
+  }
+  
+  printf(SIPP_ENDL);
+  for(i=0; i<(display_scenario->length + 5 - printed); i++) {
     printf(SIPP_ENDL);
   }
 }

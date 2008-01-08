@@ -27,7 +27,9 @@
 #include <sys/types.h>
 #include <regex.h>
 
-#define SCEN_MAX_MESSAGES  500
+typedef std::map<std::string, int> str_int_map;
+typedef std::map<int, char *> int_str_map;
+typedef std::map<int, int> int_int_map;
 
 #define BUFFER_SIZE 512
 #define MAX_MATCHING_EXPR 50
@@ -86,42 +88,44 @@ private:
   bool		M_bool;
 };
 
-/**
- * This class provides some means to store the global regexp
- ***/
+class AllocVariableTable;
 
-class CVariable
+class VariableTable
 {
 public:
+	VariableTable(VariableTable *parent, int size);
+	VariableTable(AllocVariableTable *src);
+	VariableTable *getTable();
+	void putTable();
+	int size;
 
-  enum E_CallVariableAction
-  {
-    E_CV_CHECK,
-    E_CV_STORE /* TODO : define list of actions */
-  };
+	CCallVariable *getVar(int i);
+protected:
+	virtual ~VariableTable();
+	void expand(int size);
+	int count;
+	int level;
+	CCallVariable **variableTable;
+	VariableTable *parent;
+};
 
-  bool matchRegularExpression(char* P_string);
-  bool extractAllMatchedExpression(char* P_String, char *** P_Result, int* P_number);
-
-  int executeRegExp(char* P_string, 
-                    CCallVariable** P_callVarTable,
-                    int  P_varId,
-                    int  P_nbSubVar,
-                    int  * P_subVarIdTable);
-
-  bool isRegExpWellFormed();
-  char* getRegularExpression();
-
-  // constructor and destructor
-  CVariable(char* P_RegularExpression);
-  ~CVariable();
-
+class AllocVariableTable : public VariableTable
+{
+public:
+  AllocVariableTable(AllocVariableTable *av_parent);
+  ~AllocVariableTable();
+  int find(const char *name, bool allocate);
+  char *getName(int i);
+  void validate();
 private:
-  
-  char*    M_regularExpression;
-  regex_t  M_internalRegExp;
-  bool     M_regExpWellFormed;
-  void setSubString(char** P_target, char* P_source, int start, int stop);
-}; 
+  AllocVariableTable *av_parent;
+  str_int_map  variableMap;
+  int_str_map  variableRevMap;
+  int_int_map  variableReferences;
+};
+
+void clear_int_str(int_str_map m);
+void clear_str_int(str_int_map m);
+void clear_int_int(int_int_map m);
 
 #endif

@@ -67,7 +67,7 @@ message::message()
   crlf = 0;
   hide = 0;
   display_str = NULL;
-  test = 0;
+  test = -1;
   chance = 0;/* meaning always */
   next = -1;
   on_timeout = -1;
@@ -375,13 +375,7 @@ int scenario::get_txn(const char *txnName, const char *what, bool start) {
 }
 
 int scenario::find_var(const char *varName, const char *what) {
-  /* If this variable has already been used, then we have nothing to do. */
-  str_int_map::iterator var_it = variableMap.find(varName);
-  if (var_it != variableMap.end()) {
-    variableReferences[var_it->second]++;
-    return var_it->second;
-  }
-  return -1;
+  return allocVars->find(varName, false);
 }
 
 int scenario::get_var(const char *varName, const char *what) {
@@ -393,43 +387,7 @@ int scenario::get_var(const char *varName, const char *what) {
     ERROR("Transaction names may not contain $ or , for %s\n", what);
   }
 
-  /* If this variable has already been used, then we have nothing to do. */
-  str_int_map::iterator var_it = variableMap.find(varName);
-  if (var_it != variableMap.end()) {
-    variableReferences[var_it->second]++;
-    return var_it->second;
-  }
-
-  /* Assign this variable the next slot. */
-  int varNum = maxVariableUsed > 0 ? maxVariableUsed + 1 : 1;
-
-  CVariable ***tmpScenVars = new CVariable **[varNum + 1];
-  int i;
-  for (i = 0; i <= maxVariableUsed; i++) {
-    tmpScenVars[i] = new CVariable * [SCEN_MAX_MESSAGES];
-    for (int j = 0; j < SCEN_MAX_MESSAGES; j++) {
-      tmpScenVars[i][j] = scenVariableTable[i][j];
-    }
-    delete [] scenVariableTable[i];
-  }
-  if (scenVariableTable) {
-    delete [] scenVariableTable;
-  }
-  scenVariableTable = tmpScenVars;
-
-  for (; i <= varNum; i++) {
-    scenVariableTable[i] = new CVariable * [SCEN_MAX_MESSAGES];
-    for (int j = 0; j < SCEN_MAX_MESSAGES; j++) {
-      scenVariableTable[i][j] = NULL;
-    }
-  }
-
-  variableMap[varName] = varNum;
-  variableRevMap[varNum] = strdup(varName);
-  variableReferences[varNum] = 1;
-  maxVariableUsed = varNum;
-
-  return varNum;
+  return allocVars->find(varName, true);
 }
 
 int scenario::xp_get_var(const char *name, const char *what) {
@@ -583,19 +541,15 @@ void scenario::validate_rtds() {
 }
 
 void scenario::validate_variable_usage() {
-  for (int i = 1; i <= maxVariableUsed; i++) {
-    if(variableReferences[i] == 1) {
-	ERROR("Variable $%s is referenced only once!\n", variableRevMap[i]);
-    }
-  }
+  allocVars->validate();
 }
 
 void scenario::validate_txn_usage() {
   for (int i = 1; i <= maxTxnUsed; i++) {
     if(txnStarted[i] == 0) {
-      ERROR("Transaction %s is never started!\n", variableRevMap[i]);
+      ERROR("Transaction %s is never started!\n", txnRevMap[i]);
     } else if(txnResponses[i] == 0) {
-      ERROR("Transaction %s has no responses defined!\n", variableRevMap[i]);
+      ERROR("Transaction %s has no responses defined!\n", txnRevMap[i]);
     }
   }
 }
@@ -709,9 +663,9 @@ scenario::scenario(char * filename, int deflt)
   }
 
   stats = new CStat();
+  allocVars = new AllocVariableTable(NULL);
 
   init_rtds();
-  scenVariableTable = NULL;
   hidedefault = false;
 
   elem = xp_open_element(0);
@@ -731,7 +685,6 @@ scenario::scenario(char * filename, int deflt)
   length = 0;
   messages = NULL;
   duration = 0;
-  maxVariableUsed = -1;
   maxTxnUsed = 0;
   found_timewait = false;
 
@@ -1047,18 +1000,6 @@ void clear_int_int(int_int_map m) {
 }
 
 scenario::~scenario() {
-
-  for(int i=0; i<=maxVariableUsed; i++) {
-    for (int j=0; j<SCEN_MAX_MESSAGES;j++)
-    {
-      if (scenVariableTable[i][j] != NULL)
-	delete(scenVariableTable[i][j]);
-      scenVariableTable[i][j] = NULL;
-    }
-    delete [] scenVariableTable[i];
-    scenVariableTable[i] = NULL;
-  }
-
   for (int i = 0; i < length; i++) {
     delete messages[i];
   }
@@ -1068,16 +1009,13 @@ scenario::~scenario() {
 
   delete stats;
 
-  clear_int_str(variableRevMap);
   clear_int_str(txnRevMap);
   clear_int_str(nextLabels);
   clear_int_str(ontimeoutLabels);
 
   clear_str_int(labelMap);
-  clear_str_int(variableMap);
   clear_str_int(txnMap);
 
-  clear_int_int(variableReferences);
   clear_int_int(txnStarted);
   clear_int_int(txnResponses);
 }
@@ -1385,21 +1323,17 @@ void scenario::getActionForThisMessage()
 	  tmpAction->setLookingPlace(CAction::E_LP_MSG);
 	  tmpAction->setLookingChar (NULL);
 	} else if (!strcmp(ptr, (char *)"hdr")) {
-	  if ( 0 != ( ptr = xp_get_value((char *)"header") ) ) {
-	    if ( 0 < strlen(ptr) ) {
-	      tmpAction->setLookingPlace(CAction::E_LP_HDR);
-	      tmpAction->setLookingChar(ptr);
-	      if (0 != (ptr = xp_get_value((char *)"occurence"))) {
-		tmpAction->setOccurence (atol(ptr));
-	      }
-	    } else {
-	      tmpAction->setLookingPlace(CAction::E_LP_MSG);
-	      tmpAction->setLookingChar(NULL);
-	    }
+	  ptr = xp_get_value((char *)"header");
+	  if (!ptr || !strlen(ptr)) {
+	    ERROR("search_in=\"hdr\" requires header field");
+	  }
+	  tmpAction->setLookingPlace(CAction::E_LP_HDR);
+	  tmpAction->setLookingChar(ptr);
+	  if (0 != (ptr = xp_get_value((char *)"occurence"))) {
+	    tmpAction->setOccurence (atol(ptr));
 	  }
 	} else {
-	  tmpAction->setLookingPlace(CAction::E_LP_MSG);
-	  tmpAction->setLookingChar(NULL);
+	  ERROR("Unknown search_in value %s", ptr);
 	}
       } else {
 	tmpAction->setLookingPlace(CAction::E_LP_MSG);
@@ -1419,36 +1353,15 @@ void scenario::getActionForThisMessage()
 
       int varId = get_var(currentTabVarName[0], "assign_to");
       tmpAction->setVarId(varId);
-      /* and creating the associated variable */
-      if (scenVariableTable[varId][length] != NULL) {
-	delete(scenVariableTable[varId][length]);
-	scenVariableTable[varId][length] = NULL;
-      }
-      scenVariableTable[varId][length] = new CVariable(currentRegExp);
 
-      if(!(scenVariableTable[varId][length]->isRegExpWellFormed()))
-	ERROR("Regexp '%s' is not valid in xml "
-	    "scenario file", currentRegExp);
-
+      tmpAction->setRegExp(currentRegExp);
       if (currentNbVarNames > 1 ) {
 	sub_currentNbVarId = currentNbVarNames - 1 ;
 	tmpAction->setNbSubVarId(sub_currentNbVarId);
 
 	for(int i=1; i<= sub_currentNbVarId; i++) {
 	  int varId = get_var(currentTabVarName[i], "sub expression assign_to");
-
 	  tmpAction->setSubVarId(varId);
-
-	  /* and creating the associated variable */
-	  if (scenVariableTable[varId][length] != NULL) {
-	    delete(scenVariableTable[varId][length]);
-	    scenVariableTable[varId][length] = NULL;
-	  }
-	  scenVariableTable[varId][length] = new CVariable(currentRegExp);
-
-	  if(!(scenVariableTable[varId][length]->isRegExpWellFormed()))
-	    ERROR("Regexp '%s' is not valid in xml "
-		"scenario file", currentRegExp);
 	}
       }
 

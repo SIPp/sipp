@@ -95,7 +95,7 @@ class CAction
 
     void afficheInfo();
     const char *comparatorToString(T_Comparator comp);
-    bool compare(CCallVariable *variableTable[]);
+    bool compare(VariableTable *variableTable);
 
     T_ActionType   getActionType();
     T_VarType      getVarType();
@@ -108,6 +108,7 @@ class CAction
     int            getVarInId();
     int            getOccurence();
     char*          getLookingChar();
+    char*          getRegularExpression();
     SendingMessage *getMessage();  /* log specific function  */
     SendingMessage *getCmdLine();  /* exec specific function */
     T_IntCmdType   getIntCmd();   /* exec specific function */
@@ -127,6 +128,8 @@ class CAction
     void setOccurence   (int            P_value);
     void setHeadersOnly  (bool           P_value);
     void setScenario     (scenario *     P_scenario);
+    void setRegExp       (char*		 P_value);  /* ereg specific function. */
+    int  executeRegExp   (char* P_string, VariableTable *P_callVarTable);
     void setMessage      (char*          P_value);  /* log specific function  */
     void setCmdLine      (char*          P_value);  /* exec specific function */
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
@@ -180,10 +183,15 @@ class CAction
       char *         M_stringValue;
       /* what scenario we belong to. */
       scenario *     M_scenario;
+      /* Our regular expression. */
+      bool	     M_regExpSet;
+      regex_t        M_internalRegExp;
+      char *         M_regularExpression;
 #ifdef PCAPPLAY
       /* pcap specific member */
       pcap_pkts  *   M_pcapArgs;
 #endif
+      void setSubString(char** P_target, char* P_source, int P_start, int P_stop);
 };
 
 class CActions

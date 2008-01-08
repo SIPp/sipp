@@ -182,7 +182,7 @@ private:
                                    // => init to false
 
   /* Call Variable Table */
-  CCallVariable ** M_callVariableTable;
+  VariableTable *M_callVariableTable;
 
   /* Our transaction IDs. */
   char **txnID;
