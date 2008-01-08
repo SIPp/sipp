@@ -58,8 +58,6 @@ extern  SSL_CTX             *sip_trp_ssl_ctx;
 extern  map<string, struct sipp_socket *>     map_perip_fd;
 
 call_map calls;
-call_list running_calls;
-timewheel paused_calls;
 
 socket_call_map_map socket_to_calls;
 
@@ -245,34 +243,6 @@ void delete_calls(void)
   }
 }
 
-/* Routines for running calls. */
-
-/* Get the overall list of running calls. */
-call_list * get_running_calls()
-{
-  return & running_calls;
-}
-
-/* Put this call in the run queue. */
-void supercall::add_to_runqueue() {
-  this->runit = running_calls.insert(running_calls.end(), this);
-  this->running = true;
-}
-
-void supercall::add_to_paused_calls(bool increment) {
-  this->pauseit = paused_calls.add_paused_call(this, increment);
-}
-
-/* Remove this call from the run queue. */
-bool supercall::remove_from_runqueue() {
-  if (!this->running) {
-    return false;
-  }
-  running_calls.erase(this->runit);
-  this->running = false;
-  return true;
-}
-
 /* When should this call wake up? */
 unsigned int call::wake() {
   unsigned int wake = 0;
@@ -290,112 +260,6 @@ unsigned int call::wake() {
   }
 
   return wake;
-}
-
-call_list *timewheel::call2list(supercall *call) {
-  unsigned int wake = call->wake();
-  unsigned int wake_sigbits = wake;
-  unsigned int base_sigbits = wheel_base;
-
-  if (wake == 0) {
-    return &forever_list;
-  }
-
-  wake_sigbits /= LEVEL_ONE_SLOTS;
-  base_sigbits /= LEVEL_ONE_SLOTS;
-  if (wake_sigbits == base_sigbits) {
-    return &wheel_one[wake % LEVEL_ONE_SLOTS];
-  }
-  wake_sigbits /= LEVEL_TWO_SLOTS;
-  base_sigbits /= LEVEL_TWO_SLOTS;
-  if (wake_sigbits == base_sigbits) {
-    return &wheel_two[(wake / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS];
-  }
-  assert(wake_sigbits < LEVEL_THREE_SLOTS);
-  return &wheel_three[wake_sigbits];
-}
-
-int expire_paused_calls() {
-  return paused_calls.expire_paused_calls();
-}
-int paused_calls_count() {
-  return paused_calls.size();
-}
-
-/* Iterate through our sorted set of paused calls, removing those that
- * should no longer be paused, and adding them to the run queue. */
-int timewheel::expire_paused_calls() {
-  int found = 0;
-
-  while (wheel_base < clock_tick) {
-    int slot1 = wheel_base % LEVEL_ONE_SLOTS;
-
-    /* Migrate calls from slot2 when we hit 0. */
-    if (slot1 == 0) {
-      int slot2 = (wheel_base / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS;
-
-      /* If slot2 is also zero, we must migrate calls from slot3 into slot2. */
-      if (slot2 == 0) {
-	int slot3 = ((wheel_base / LEVEL_ONE_SLOTS) / LEVEL_TWO_SLOTS);
-	assert(slot3 < LEVEL_THREE_SLOTS);
-
-	for (call_list::iterator l3it = wheel_three[slot3].begin();
-	     l3it != wheel_three[slot3].end();
-	     l3it++) {
-	  /* Migrate this call to wheel two. */
-	  (*l3it)->add_to_paused_calls(false);
-        }
-
-	wheel_three[slot3].clear();
-      }
-
-      for (call_list::iterator l2it = wheel_two[slot2].begin();
-	  l2it != wheel_two[slot2].end();
-	  l2it++) {
-	/* Migrate this call to wheel one. */
-	(*l2it)->add_to_paused_calls(false);
-      }
-
-      wheel_two[slot2].clear();
-    }
-
-    found += wheel_one[slot1].size();
-    for(call_list::iterator it = wheel_one[slot1].begin();
-	it != wheel_one[slot1].end(); it++) {
-      (*it)->add_to_runqueue();
-      count--;
-    }
-    wheel_one[slot1].clear();
-
-    wheel_base++;
-  }
-
-  return found;
-}
-
-call_list::iterator timewheel::add_paused_call(supercall *call, bool increment) {
-  call_list::iterator call_it;
-  call_list *list = call2list(call);
-  call_it = list->insert(list->end(), call);
-  if (increment) {
-    count++;
-  }
-  return call_it;
-}
-
-void timewheel::remove_paused_call(supercall *call, call_list::iterator it) {
-  call_list *list = call2list(call);
-  list->erase(it);
-  count--;
-}
-
-timewheel::timewheel() {
-  count = 0;
-  wheel_base = clock_tick;
-}
-
-int timewheel::size() {
-  return count;
 }
 
 /* The caller must delete this list. */
@@ -742,7 +606,7 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : s
     /* We do not update the call_id counter, for we create here a call */
     /* to answer to an out of call message */
   }
-  add_to_runqueue();
+  setRunning();
 
   /* Vital counters update */
   open_calls++;
@@ -754,8 +618,6 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : s
 
 call::~call()
 {
-  remove_from_queues();
-
   open_calls--;
   deleted += 1;
 
@@ -826,14 +688,6 @@ supercall::supercall(char *id) {
 supercall::~supercall() {
   free(id);
   id = NULL;
-}
-
-void supercall::remove_from_queues() {
-  if (running) {
-    remove_from_runqueue();
-  } else {
-    paused_calls.remove_paused_call(this, this->pauseit);
-  }
 }
 
 bool call::connect_socket_if_needed()
@@ -1584,10 +1438,7 @@ bool call::run()
   if(paused_until) {
     /* Process a pending pause instruction until delay expiration */
     if(paused_until > clock_tick) {
-      if (!remove_from_runqueue()) {
-	ERROR("Tried to remove a running call that wasn't running!\n");
-      }
-      add_to_paused_calls(true);
+      setPaused();
       return true;
     }
     /* Our pause is over. */
@@ -1652,10 +1503,7 @@ bool call::run()
      * retransmission enabled is acknowledged */
 
     if(next_retrans) {
-      if (!remove_from_runqueue()) {
-	ERROR("Tried to remove a running call that wasn't running!\n");
-      }
-      add_to_paused_calls(true);
+      setPaused();
       return true;
     }
 
@@ -1756,10 +1604,7 @@ bool call::run()
                                                  ) {
     if (recv_timeout) {
       if(recv_timeout > clock_tick || recv_timeout > getmilliseconds()) {
-	if (!remove_from_runqueue()) {
-	  ERROR("Tried to remove a running call that wasn't running!\n");
-	}
-	add_to_paused_calls(true);
+	setPaused();
 	return true;
       }
       recv_timeout = 0;
@@ -1801,10 +1646,7 @@ bool call::run()
 	return true;
     } else {
 	/* We are going to wait forever. */
-	if (!remove_from_runqueue()) {
-	  ERROR("Tried to remove a running call that wasn't running!\n");
-	}
-	add_to_paused_calls(true);
+	setPaused();
     }
   }
   return true;
@@ -1967,6 +1809,11 @@ bool call::process_unexpected(char * msg)
     // Do not abort call nor send anything in reply if default behavior is disabled
     return false;
   }
+}
+
+void call::abort() {
+  WARNING("Aborted call with Call-ID '%s'", id);
+  abortCall();
 }
 
 bool call::abortCall()
@@ -2520,10 +2367,7 @@ bool call::process_twinSippCom(char * msg)
   bool            found = false;
   T_ActionResult  actionResult;
 
-  if (!running) {
-    paused_calls.remove_paused_call(this, this->pauseit);
-    add_to_runqueue();
-  }
+  setRunning();
 
   if (checkInternalCmd(msg) == false) {
 
@@ -2892,10 +2736,7 @@ bool call::process_incoming(char * msg)
   bool            found = false;
   T_ActionResult  actionResult;
 
-  if (!running) {
-    paused_calls.remove_paused_call(this, this->pauseit);
-    add_to_runqueue();
-  }
+  setRunning();
 
   /* Ignore the messages received during a pause if -pause_msg_ign is set */
   if(scenario[msg_index] -> M_type == MSG_TYPE_PAUSE && pause_msg_ign) return(true);
@@ -3295,10 +3136,7 @@ bool call::process_incoming(char * msg)
       }
     }
 
-    if (!remove_from_runqueue()) {
-      ERROR("Tried to remove a running call that wasn't running!\n");
-    }
-    add_to_paused_calls(true);
+    setPaused();
   }
   return true;
 }

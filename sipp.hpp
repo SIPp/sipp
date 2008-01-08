@@ -58,6 +58,7 @@
 #include "xp_parser.h"
 #include "scenario.hpp"
 #include "screen.hpp"
+#include "task.hpp"
 #include "call.hpp"
 #include "comp.h"
 #include "stat.hpp"

@@ -51,55 +51,7 @@
   extern "C" { extern int createAuthHeader(char * user, char * password, char * method, char * uri, char * msgbody, char * auth, char * aka_OP, char * aka_AMF, char * aka_K, char * result);  }
 #endif
 
-/* Forward declaration of call, so that we can define the call_list iterator
- * that is referenced from call. */
-class supercall;
-
-typedef std::list<supercall *> call_list;
-
-/* This arrangement of wheels lets us support up to 32 bit timers.
- *
- * If we were to put a minimum bound on timer_resol (or do some kind of dynamic
- * allocation), then we could reduce the level one order by a factor of
- * timer_resol. */
-#define LEVEL_ONE_ORDER 12
-#define LEVEL_TWO_ORDER 10
-#define LEVEL_THREE_ORDER 10
-#define LEVEL_ONE_SLOTS (1 << LEVEL_ONE_ORDER)
-#define LEVEL_TWO_SLOTS (1 << LEVEL_TWO_ORDER)
-#define LEVEL_THREE_SLOTS (1 << LEVEL_THREE_ORDER)
-
-/* A time wheel structure as defined in Varghese and Lauck's 1996 journal
- * article (based on their 1987 SOSP paper). */
-class timewheel {
-public:
-	timewheel();
-
-	int expire_paused_calls();
-	/* Add a paused call and increment count. */
-	call_list::iterator add_paused_call(supercall *call, bool increment);
-	void remove_paused_call(supercall *call, call_list::iterator it);
-	int size();
-
-private:
-	/* How many calls are in this wheel. */
-	int count;
-
-	unsigned int wheel_base;
-
-	/* The actual wheels. */
-	call_list wheel_one[LEVEL_ONE_SLOTS];
-	call_list wheel_two[LEVEL_TWO_SLOTS];
-	call_list wheel_three[LEVEL_THREE_SLOTS];
-
-	/* Calls that are paused indefinitely. */
-	call_list forever_list;
-
-	/* Turn a call into a list (based on wakeup). */
-	call_list *call2list(supercall *call);
-};
-
-class supercall {
+class supercall : virtual public task {
 public:
   supercall(char *id);
   virtual ~supercall();
@@ -113,32 +65,15 @@ public:
   virtual bool process_incoming(char * msg) = 0;
   virtual bool  process_twinSippCom(char * msg) = 0;
 
-  virtual bool run() = 0;
   /* Terminate this call, depending on action results and timewait. */
   virtual bool terminate(CStat::E_Action reason) = 0;
-
-  /* When should this call wake up? */
-  virtual unsigned int wake() = 0;
 
   /* Dump call info to error log. */
   virtual void dump() = 0;
 
   virtual bool  abortCall() = 0;                  // call aborted with BYE or CANCEL
 
-  /* Run and Pause Queue Maintenance. */
-  void add_to_runqueue();
-  bool remove_from_runqueue();
-  void add_to_paused_calls(bool increment);
 protected:
-  /* Is this call paused or running? */
-  bool running;
-  /* If we are running, the iterator to remove us from the running list. */
-  call_list::iterator runit;
-  /* If we are paused, the iterator to remove us from the paused list. */
-  call_list::iterator pauseit;
-  /* This must be called from the destructor. */
-  void remove_from_queues();
-
   /* What socket is this call bound to. */
   struct sipp_socket *call_socket;
 };
@@ -158,6 +93,7 @@ public:
   /* When should this call wake up? */
   virtual unsigned int wake();
   virtual bool  abortCall();                  // call aborted with BYE or CANCEL
+  virtual void abort();
 
   /* Dump call info to error log. */
   virtual void dump();
@@ -366,7 +302,6 @@ private:
 typedef std::pair<std::string, supercall *> string_call_pair;
 typedef std::map<std::string, supercall *> call_map;
 call_map * get_calls();
-call_list * get_running_calls();
 
 /* These are wrappers for various circumstances. */
 call * add_call(int userId, bool ipv6);
@@ -380,12 +315,10 @@ supercall * get_call(char *);
 void   delete_call(char *);
 void   delete_calls(void);
 
-int expire_paused_calls();
-int paused_calls_count();
-
 typedef std::pair<struct sipp_socket *,call_map *> socket_map_pair;
 
 typedef std::map<struct sipp_socket *, void *> socket_call_map_map;
+typedef std::list<supercall *> call_list;
 call_list *get_calls_for_socket(struct sipp_socket *socket);
 void add_call_to_socket(struct sipp_socket *socket, supercall *call);
 void remove_call_from_socket(struct sipp_socket *socket, supercall *call);

@@ -3237,17 +3237,17 @@ void traffic_thread()
     last_time = new_time;
 
     /* Schedule all pending calls and process their timers */
-    call_list *running_calls;
+    task_list *running_tasks;
     if((clock_tick - last_timer_cycle) > timer_resolution) {
 
       /* Just for the count. */
-      running_calls = get_running_calls();
-      last_running_calls = running_calls->size();
+      running_tasks = get_running_tasks();
+      last_running_calls = running_tasks->size();
 
       /* If we have expired paused calls, move them to the run queue. */
-      last_woken_calls += expire_paused_calls();
+      last_woken_calls += expire_paused_tasks();
 
-      last_paused_calls = paused_calls_count();
+      last_paused_calls = paused_tasks_count();
 
       last_timer_cycle = clock_tick;
     }
@@ -3256,17 +3256,17 @@ void traffic_thread()
     int loops = max_sched_loops;
 
     /* Now we process calls that are on the run queue. */
-    running_calls = get_running_calls();
+    running_tasks = get_running_tasks();
 
     /* Workaround hpux problem with iterators. Deleting the
      * current object when iterating breaks the iterator and
      * leads to iterate again on the destroyed (deleted)
      * object. Thus, we have to wait ont step befere actual
      * deletion of the object*/
-    supercall * last = NULL;
+    task * last = NULL;
 
-    call_list::iterator iter;
-    for(iter = running_calls->begin(); iter != running_calls->end(); iter++) {
+    task_list::iterator iter;
+    for(iter = running_tasks->begin(); iter != running_tasks->end(); iter++) {
       if(last) {
 	last -> run();
 	while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
