@@ -1572,6 +1572,19 @@ void process_set(char *what) {
   }
 }
 
+void process_dump(char *what) {
+  if (!strcmp(what, "calls")) {
+    call_map *calls = get_calls();
+    WARNING_P1("---- %d Active Calls ----\n", calls->size());
+    for (call_map::iterator call_it = calls->begin(); call_it != calls->end(); call_it++) {
+      call_it->second->dump();
+    }
+    WARNING("-------------------------\n");
+  } else {
+    WARNING_P1("Unknown dump type: %s", what);
+  }
+}
+
 bool process_command(char *command) {
   trim(command);
 
@@ -1583,6 +1596,8 @@ bool process_command(char *command) {
 
   if (!strcmp(command, "set")) {
 	process_set(rest);
+  } else if (!strcmp(command, "dump")) {
+	process_dump(rest);
   } else {
 	WARNING_P1("Unrecognized command: \"%s\"", command);
   }
@@ -3138,6 +3153,8 @@ void traffic_thread()
       }
       /* Quitting and no more openned calls, close all */
       if(!open_calls) {
+	/* We can have calls that do not count towards our open-call count (e.g., dead calls). */
+	delete_calls();
 	print_statistics(0);
 
         // Dump the latest statistics if necessary

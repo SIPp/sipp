@@ -238,11 +238,11 @@ void delete_calls(void)
   call_it = calls.begin();
   while (call_it != calls.end()) {
     call_ptr = (call_it != calls.end()) ? call_it->second : NULL ;
-    WARNING_P1("Aborting call with Call-Id '%s'", call_ptr->id);
-    call_ptr->abortCall();
+    if (!call_ptr->abortCall()) {
+      WARNING_P1("Aborted call with Call-Id '%s'", call_ptr->id);
+    }
     call_it = calls.begin();
   }
-
 }
 
 /* Routines for running calls. */
@@ -747,6 +747,8 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : s
 
 call::~call()
 {
+  remove_from_queues();
+
   open_calls--;
   deleted += 1;
 
@@ -800,18 +802,26 @@ call::~call()
   }
 }
 
+/* Dump call info to error log. */
+void call::dump() {
+  WARNING_P2("%s: State %d", id, msg_index);
+}
+
 supercall::supercall(char *id) {
   this->id = strdup(id);
 }
 
 supercall::~supercall() {
+  free(id);
+  id = NULL;
+}
+
+void supercall::remove_from_queues() {
   if (running) {
     remove_from_runqueue();
   } else {
     paused_calls.remove_paused_call(this, this->pauseit);
   }
-  free(id);
-  id = NULL;
 }
 
 bool call::connect_socket_if_needed()

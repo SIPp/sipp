@@ -120,6 +120,9 @@ public:
   /* When should this call wake up? */
   virtual unsigned int wake() = 0;
 
+  /* Dump call info to error log. */
+  virtual void dump() = 0;
+
   virtual bool  abortCall() = 0;                  // call aborted with BYE or CANCEL
 
   /* Run and Pause Queue Maintenance. */
@@ -133,6 +136,8 @@ protected:
   call_list::iterator runit;
   /* If we are paused, the iterator to remove us from the paused list. */
   call_list::iterator pauseit;
+  /* This must be called from the destructor. */
+  void remove_from_queues();
 
   /* What socket is this call bound to. */
   struct sipp_socket *call_socket;
@@ -153,6 +158,9 @@ public:
   /* When should this call wake up? */
   virtual unsigned int wake();
   virtual bool  abortCall();                  // call aborted with BYE or CANCEL
+
+  /* Dump call info to error log. */
+  virtual void dump();
 
   /* Automatic */
   enum T_AutoMode
