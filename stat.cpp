@@ -452,9 +452,9 @@ void CStat::setRepartitionResponseTime (char * P_listeStr)
     } else {
       ERROR("Could not create table for response time repartition '%s'\n", P_listeStr);
     }
+    delete [] listeInteger;
+    listeInteger = NULL;
   }
-  delete [] listeInteger;
-  listeInteger = NULL;
 }
 
 
