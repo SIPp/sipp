@@ -2831,8 +2831,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
    	  call_ptr = add_call(call_id, socket, true);
    	  if (call_ptr) {
 	        socket->ss_count++;
-	        call_ptr->last_recv_msg = (char *) realloc(call_ptr->last_recv_msg, strlen(msg) + 1);
-	        strcpy(call_ptr->last_recv_msg, msg);
+		call_ptr->setLastMsg(msg);
 	        call_ptr->automaticResponseMode(call::E_AM_OOCALL, msg);
 	        delete_call(call_id);
 	        call_ptr = NULL;

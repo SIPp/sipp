@@ -125,15 +125,15 @@ call * add_call(char * call_id , bool use_ipv6, int userId)
 call * add_call(char * call_id , bool use_ipv6, int userId, bool isAutomatic)
 {
   call * new_call;
-  unsigned int nb;
+  unsigned int tdmNumber;
 
   if(!next_number) { next_number ++; }
 
   if (use_tdmmap) {
-    nb = get_tdm_map_number(next_number);
-    if (nb != 0) {
+    tdmNumber = get_tdm_map_number(next_number);
+    if (tdmNumber != 0) {
       /* Mark the entry in the list as busy */
-      tdm_map[nb - 1] = true;
+      tdm_map[tdmNumber - 1] = true;
     } else {
       /* Can't create the new call */
       WARNING("Can't create new outgoing call: all tdm_map circuits busy");
@@ -141,7 +141,7 @@ call * add_call(char * call_id , bool use_ipv6, int userId, bool isAutomatic)
     }
   }
 
-  new_call = new call(call_id, userId, use_ipv6, isAutomatic);
+  new_call = new call(call_id, userId, tdmNumber - 1, use_ipv6, isAutomatic);
 
   if(!new_call) {
     ERROR("Memory Overflow");
@@ -149,19 +149,8 @@ call * add_call(char * call_id , bool use_ipv6, int userId, bool isAutomatic)
 
   /* All calls must exist in the map. */
   calls[std::string(call_id)] = new_call;
-  /* All calls start off in the running state. */
-  add_running_call(new_call);
-
-  new_call -> number = next_number;
-  new_call -> tdm_map_number = nb - 1;
 
   /* Vital counters update */
-  if (!isAutomatic) {
-    next_number++;
-  } else {
-    /* We do not update the call_id counter, for we create here a call */
-    /* to answer to an out of call message */
-  }
   open_calls++;
 
   /* Statistics update */
@@ -243,16 +232,7 @@ void delete_call(char * call_id)
   call_ptr = (call_it != calls.end()) ? call_it->second : NULL ;
 
   if(call_ptr) {
-    if (use_tdmmap)
-      tdm_map[call_ptr->tdm_map_number] = false;
     calls.erase(call_it);
-
-    if (call_ptr->running) {
-      remove_running_call(call_ptr);
-    } else {
-      paused_calls.remove_paused_call(call_ptr);
-    }
-
     delete call_ptr;
     open_calls--;
   }
@@ -282,42 +262,46 @@ call_list * get_running_calls()
 }
 
 /* Put this call in the run queue. */
-void add_running_call(call *call) {
-  call->runit = running_calls.insert(running_calls.end(), call);
-  call->running = true;
+void call::add_to_runqueue() {
+  this->runit = running_calls.insert(running_calls.end(), this);
+  this->running = true;
+}
+
+void call::add_to_paused_calls(bool increment) {
+  this->pauseit = paused_calls.add_paused_call(this, increment);
 }
 
 /* Remove this call from the run queue. */
-bool remove_running_call(call *call) {
-  if (!call->running) {
+bool call::remove_from_runqueue() {
+  if (!this->running) {
     return false;
-    }
-  running_calls.erase(call->runit);
-  call->running = false;
+  }
+  running_calls.erase(this->runit);
+  this->running = false;
   return true;
 }
 
 /* When should this call wake up? */
-unsigned int call_wake(call *call) {
+unsigned int call::wake() {
   unsigned int wake = 0;
 
-  if (call->paused_until) {
-    wake = call->paused_until;
+  if (paused_until) {
+    wake = paused_until;
   }
 
-  if (call->next_retrans && (!wake || (call->next_retrans < wake))) {
-    wake = call->next_retrans;
+  if (next_retrans && (!wake || (next_retrans < wake))) {
+    wake = next_retrans;
   }
 
-  if (call->recv_timeout && (!wake || (call->recv_timeout < wake))) {
-    wake = call->recv_timeout;
+  if (recv_timeout && (!wake || (recv_timeout < wake))) {
+    wake = recv_timeout;
   }
 
   return wake;
 }
 
 call_list *timewheel::call2list(call *call) {
-  unsigned int wake = call_wake(call);
+  unsigned int wake = call->wake();
   unsigned int wake_sigbits = wake;
   unsigned int base_sigbits = wheel_base;
 
@@ -345,10 +329,6 @@ int expire_paused_calls() {
 int paused_calls_count() {
   return paused_calls.size();
 }
-void remove_paused_call(call *call) {
-  assert(!call->running);
-  paused_calls.remove_paused_call(call);
-}
 
 /* Iterate through our sorted set of paused calls, removing those that
  * should no longer be paused, and adding them to the run queue. */
@@ -371,7 +351,7 @@ int timewheel::expire_paused_calls() {
 	     l3it != wheel_three[slot3].end();
 	     l3it++) {
 	  /* Migrate this call to wheel two. */
-	  add_paused_call(*l3it, false);
+	  (*l3it)->add_to_paused_calls(false);
         }
 
 	wheel_three[slot3].clear();
@@ -381,7 +361,7 @@ int timewheel::expire_paused_calls() {
 	  l2it != wheel_two[slot2].end();
 	  l2it++) {
 	/* Migrate this call to wheel one. */
-	add_paused_call(*l2it, false);
+	(*l2it)->add_to_paused_calls(false);
       }
 
       wheel_two[slot2].clear();
@@ -390,7 +370,7 @@ int timewheel::expire_paused_calls() {
     found += wheel_one[slot1].size();
     for(call_list::iterator it = wheel_one[slot1].begin();
 	it != wheel_one[slot1].end(); it++) {
-      add_running_call(*it);
+      (*it)->add_to_runqueue();
       count--;
     }
     wheel_one[slot1].clear();
@@ -401,17 +381,19 @@ int timewheel::expire_paused_calls() {
   return found;
 }
 
-void timewheel::add_paused_call(call *call, bool increment) {
+call_list::iterator timewheel::add_paused_call(call *call, bool increment) {
+  call_list::iterator call_it;
   call_list *list = call2list(call);
-  call->pauseit = list->insert(list->end(), call);
+  call_it = list->insert(list->end(), call);
   if (increment) {
     count++;
   }
+  return call_it;
 }
 
-void timewheel::remove_paused_call(call *call) {
+void timewheel::remove_paused_call(call *call, call_list::iterator it) {
   call_list *list = call2list(call);
-  list->erase(call->pauseit);
+  list->erase(it);
   count--;
 }
 
@@ -646,7 +628,7 @@ unsigned long hash(char * msg) {
 
 /******************* Call class implementation ****************/
 
-call::call(char * p_id, int userId, bool ipv6, bool isAutomatic) : use_ipv6(ipv6)
+call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : use_ipv6(ipv6)
 {
   memset(this, 0, sizeof(call));
   id = strdup(p_id);
@@ -717,6 +699,16 @@ call::call(char * p_id, int userId, bool ipv6, bool isAutomatic) : use_ipv6(ipv6
   recv_timeout = 0;
   send_timeout = 0;
   timewait = false;
+
+  tdm_map_number = tdmMap;
+  number = next_number;
+  if (!isAutomatic) {
+    next_number++;
+  } else {
+    /* We do not update the call_id counter, for we create here a call */
+    /* to answer to an out of call message */
+  }
+  add_to_runqueue();
 }
 
 call::~call()
@@ -768,6 +760,16 @@ call::~call()
   }
 #endif
   call_established= false ;
+
+  if (use_tdmmap) {
+    tdm_map[this->tdm_map_number] = false;
+  }
+
+  if (running) {
+    remove_from_runqueue();
+  } else {
+    paused_calls.remove_paused_call(this, this->pauseit);
+  }
 }
 
 bool call::connect_socket_if_needed()
@@ -1497,10 +1499,10 @@ bool call::run()
   if(paused_until) {
     /* Process a pending pause instruction until delay expiration */
     if(paused_until > clock_tick) {
-      if (!remove_running_call(this)) {
+      if (!remove_from_runqueue()) {
 	ERROR("Tried to remove a running call that wasn't running!\n");
       }
-      paused_calls.add_paused_call(this, true);
+      add_to_paused_calls(true);
       return true;
     }
     /* Our pause is over. */
@@ -1565,10 +1567,10 @@ bool call::run()
      * retransmission enabled is acknowledged */
 
     if(next_retrans) {
-      if (!remove_running_call(this)) {
+      if (!remove_from_runqueue()) {
 	ERROR("Tried to remove a running call that wasn't running!\n");
       }
-      paused_calls.add_paused_call(this, true);
+      add_to_paused_calls(true);
       return true;
     }
 
@@ -1664,10 +1666,10 @@ bool call::run()
                                                  ) {
     if (recv_timeout) {
       if(recv_timeout > clock_tick || recv_timeout > getmilliseconds()) {
-	if (!remove_running_call(this)) {
+	if (!remove_from_runqueue()) {
 	  ERROR("Tried to remove a running call that wasn't running!\n");
 	}
-	paused_calls.add_paused_call(this, true);
+	add_to_paused_calls(true);
 	return true;
       }
       recv_timeout = 0;
@@ -1709,10 +1711,10 @@ bool call::run()
 	return true;
     } else {
 	/* We are going to wait forever. */
-	if (!remove_running_call(this)) {
+	if (!remove_from_runqueue()) {
 	  ERROR("Tried to remove a running call that wasn't running!\n");
 	}
-	paused_calls.add_paused_call(this, true);
+	add_to_paused_calls(true);
     }
   }
   return true;
@@ -2420,8 +2422,8 @@ bool call::process_twinSippCom(char * msg)
   T_ActionResult  actionResult;
 
   if (!running) {
-    paused_calls.remove_paused_call(this);
-    add_running_call(this);
+    paused_calls.remove_paused_call(this, this->pauseit);
+    add_to_runqueue();
   }
 
   if (checkInternalCmd(msg) == false) {
@@ -2764,8 +2766,8 @@ bool call::process_incoming(char * msg)
   T_ActionResult  actionResult;
 
   if (!running) {
-    paused_calls.remove_paused_call(this);
-    add_running_call(this);
+    paused_calls.remove_paused_call(this, this->pauseit);
+    add_to_runqueue();
   }
 
   /* Ignore the messages received during a pause if -pause_msg_ign is set */
@@ -3116,7 +3118,7 @@ bool call::process_incoming(char * msg)
     msg_index = search_index;
     return next();
   } else {
-    unsigned int timeout = call_wake(this);
+    unsigned int timeout = wake();
     unsigned int candidate;
 
     if (scenario[search_index]->next && test <= maxVariableUsed && 
@@ -3143,10 +3145,10 @@ bool call::process_incoming(char * msg)
       }
     }
 
-    if (!remove_running_call(this)) {
+    if (!remove_from_runqueue()) {
       ERROR("Tried to remove a running call that wasn't running!\n");
     }
-    paused_calls.add_paused_call(this, true);
+    add_to_paused_calls(true);
   }
   return true;
 }
@@ -3492,6 +3494,10 @@ call::T_AutoMode call::checkAutomaticResponseMode(char * P_recv) {
   }
 }
 
+void call::setLastMsg(const char *msg) {
+  last_recv_msg = (char *) realloc(last_recv_msg, strlen(msg) + 1);
+  strcpy(last_recv_msg, msg);
+}
 
 bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
 {

@@ -77,8 +77,8 @@ public:
 
 	int expire_paused_calls();
 	/* Add a paused call and increment count. */
-	void add_paused_call(call *call, bool increment);
-	void remove_paused_call(call *call);
+	call_list::iterator add_paused_call(call *call, bool increment);
+	void remove_paused_call(call *call, call_list::iterator it);
 	int size();
 
 private:
@@ -101,7 +101,49 @@ private:
 
 class call {
 public:
+  call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic);
+  ~call();
+
   char         * id;
+
+  /* Associate/Dissociate this call with a socket. */
+  struct sipp_socket *associate_socket(struct sipp_socket *socket);
+  struct sipp_socket *dissociate_socket();
+
+  bool process_incoming(char * msg);
+  bool  process_twinSippCom(char * msg);
+
+  /* Automatic */
+  enum T_AutoMode
+    {
+      E_AM_DEFAULT,
+      E_AM_UNEXP_BYE,
+      E_AM_UNEXP_CANCEL,
+      E_AM_PING,
+      E_AM_AA,
+      E_AM_OOCALL,
+    };
+
+  void setLastMsg(const char *msg);
+
+  bool  automaticResponseMode(T_AutoMode P_case, char* P_recv);
+
+  bool run();
+  /* Terminate this call, depending on action results and timewait. */
+  bool terminate(CStat::E_Action reason);
+
+  /* When should this call wake up? */
+  unsigned int wake();
+
+  bool  abortCall();                  // call aborted with BYE or CANCEL
+
+  /* Run and Pause Queue Maintenance. */
+  void add_to_runqueue();
+  bool remove_from_runqueue();
+  void add_to_paused_calls(bool increment);
+  void remove_from_paused_calls(bool increment);
+
+private:
   unsigned int   number;
   unsigned int   tdm_map_number;
 
@@ -200,16 +242,10 @@ public:
   /* call to continue and mark it as failed */
   T_ActionResult last_action_result;
   
-  call(char * id, int userId, bool ipv6);
-  call (char *id, int userId, bool ipv6 , bool isAutomatic);
-  ~call();
-
   /* rc == true means call not deleted by processing */
-  bool run(); 
   void formatNextReqUrl (char* next_req_url);
   void computeRouteSetAndRemoteTargetUri (char* rrList, char* contact, bool bRequestIncoming);
   bool matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod);
-  bool process_incoming(char * msg);
 
   T_ActionResult executeAction(char * msg, int scenarioIndex);
   void  extractSubMessage(char * msg, char * matchingString, char* result, bool case_indep, 
@@ -225,7 +261,6 @@ public:
   char* createSendingMessage(SendingMessage *src, int P_index, char *msg_buffer, int buflen);
 
   // method for the management of unexpected messages 
-  bool  abortCall();                  // call aborted with BYE or CANCEL
   bool  checkInternalCmd(char* cmd);  // check of specific internal command
                                       // received from the twin socket
                                       // used for example to cancel the call
@@ -236,23 +271,10 @@ public:
 				      // comes from the expected sender
   void   sendBuffer(char *buf);        // send a message out of a scenario
                                       // execution
-  /* Automatic */
-  enum T_AutoMode
-    {
-      E_AM_DEFAULT,
-      E_AM_UNEXP_BYE,
-      E_AM_UNEXP_CANCEL,
-      E_AM_PING,
-      E_AM_AA,
-      E_AM_OOCALL,
-    };
 
   T_AutoMode  checkAutomaticResponseMode(char * P_recv);
 
-  bool  automaticResponseMode(T_AutoMode P_case, char* P_recv);
-
   int   sendCmdMessage(int index); // 3PCC
-  bool  process_twinSippCom(char * msg); // 3PCC
 
   int   sendCmdBuffer(char* cmd); // for 3PCC, send a command out of a 
                                   // scenario execution
@@ -263,15 +285,8 @@ public:
   void getFieldFromInputFile(const char* fileName, int field, char*& dest);
   void getFieldFromInputFile(const char* keyword, char*& dest);
 
-  /* Associate/Dissociate this call with a socket. */
-  struct sipp_socket *associate_socket(struct sipp_socket *socket);
-  struct sipp_socket *dissociate_socket();
-
   /* Associate a user with this call. */
   void setUser(int userId);
-
-  /* Terminate this call, depending on action results and timewait. */
-  bool terminate(CStat::E_Action reason);
 
   /* Is this call paused or running? */
   bool running;
@@ -283,7 +298,6 @@ public:
   /* Is this call just around for final retransmissions. */
   bool timewait;
 
-private:
   /* rc == true means call not deleted by processing */
   bool next();
   bool process_unexpected(char * msg);
@@ -337,11 +351,8 @@ call * get_call(char *);
 void   delete_call(char *);
 void   delete_calls(void);
 
-void add_running_call(call *call);
-bool remove_running_call(call *call);
 int expire_paused_calls();
 int paused_calls_count();
-void remove_paused_call(call *call);
 
 typedef std::pair<struct sipp_socket *,call_map *> socket_map_pair;
 
