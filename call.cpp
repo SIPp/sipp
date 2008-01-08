@@ -3128,6 +3128,11 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
         } else /* end action == E_AT_ASSIGN_FROM_REGEXP */ 
             if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_VALUE) {
 	      M_callVariableTable[currentAction->getVarId()]->setDouble(currentAction->getDoubleValue());
+        } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_INDEX) {
+	  M_callVariableTable[currentAction->getVarId()]->setDouble(msg_index);
+        } else if (currentAction->getActionType() == CAction::E_AT_JUMP) {
+	  double operand = get_rhs(currentAction);
+	  msg_index = (int)operand;
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_ADD) {
 	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
 	  double operand = get_rhs(currentAction);

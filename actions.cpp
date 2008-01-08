@@ -118,8 +118,14 @@ void CAction::afficheInfo()
       printf("Type[%d] - sample varId[%d] %s", M_action, display_scenario->variableRevMap[M_varId], tmp);
   } else if (M_action == E_AT_ASSIGN_FROM_VALUE) {
       printf("Type[%d] - assign varId[%d] %lf", M_action, display_scenario->variableRevMap[M_varId], M_doubleValue);
+  } else if (M_action == E_AT_ASSIGN_FROM_INDEX) {
+      printf("Type[%d] - assign index[%d]", M_action, display_scenario->variableRevMap[M_varId]);
   } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
       printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, display_scenario->variableRevMap[M_varId], M_message);
+  } else if (M_action == E_AT_JUMP) {
+      printf("Type[%d] - jump varInId[%d] %lf", M_action, display_scenario->variableRevMap[M_varInId], M_doubleValue);
+  } else if (M_action == E_AT_PAUSE_RESTORE) {
+      printf("Type[%d] - restore pause varInId[%d] %lf", M_action, display_scenario->variableRevMap[M_varInId], M_doubleValue);
   } else if (M_action == E_AT_VAR_ADD) {
       printf("Type[%d] - add varId[%d] %lf", M_action, display_scenario->variableRevMap[M_varId], M_doubleValue);
   } else if (M_action == E_AT_VAR_MULTIPLY) {
@@ -136,6 +142,8 @@ void CAction::afficheInfo()
   } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
       printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
 #endif
+  } else {
+      printf("Type[%d] - unknown action type ... ", M_action);
   }
 }
 
@@ -386,7 +394,7 @@ CAction::~CAction()
   }
   if(M_message_str != NULL)
   {
-    delete M_message_str;
+    free(M_message_str);
     M_message_str = NULL;
   }
   if(M_cmdLine != NULL)

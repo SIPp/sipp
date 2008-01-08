@@ -1444,7 +1444,19 @@ void scenario::getActionForThisMessage()
       if(ptr = xp_get_value((char *)"value")) {
 	tmpAction->setMessage(ptr);
       } else {
-	ERROR("assignstr action without a value!\n");
+	ERROR("assignstr action without a value!");
+      }
+    } else if(!strcmp(actionElem, "index")) {
+      tmpAction->setVarId(xp_get_var("assign_to", "index"));
+      tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_INDEX);
+    } else if(!strcmp(actionElem, "jump")) {
+      tmpAction->setActionType(CAction::E_AT_JUMP);
+      if (xp_get_value("variable")) {
+	tmpAction->setVarInId(xp_get_var("variable", "jump"));
+      } else if (xp_get_value("value")) {
+	tmpAction->setDoubleValue(xp_get_double("value", "jump"));
+      } else {
+	ERROR("Jump without a variable or a value!");
       }
     } else if(!strcmp(actionElem, "add")) {
       tmpAction->setActionType(CAction::E_AT_VAR_ADD);
