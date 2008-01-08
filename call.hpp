@@ -15,6 +15,7 @@
  *
  *  Author : Richard GAYRAUD - 04 Nov 2003
  *           From Hewlett Packard Company.
+ *	     Charles P. Wright from IBM Research
  */
 
 #ifndef __CALL__
@@ -51,34 +52,7 @@
   extern "C" { extern int createAuthHeader(char * user, char * password, char * method, char * uri, char * msgbody, char * auth, char * aka_OP, char * aka_AMF, char * aka_K, char * result);  }
 #endif
 
-class supercall : virtual public task {
-public:
-  supercall(char *id);
-  virtual ~supercall();
-
-  char         * id;
-
-  /* Associate/Dissociate this call with a socket. */
-  struct sipp_socket *associate_socket(struct sipp_socket *socket);
-  struct sipp_socket *dissociate_socket();
-
-  virtual bool process_incoming(char * msg) = 0;
-  virtual bool  process_twinSippCom(char * msg) = 0;
-
-  /* Terminate this call, depending on action results and timewait. */
-  virtual bool terminate(CStat::E_Action reason) = 0;
-
-  /* Dump call info to error log. */
-  virtual void dump() = 0;
-
-  virtual bool  abortCall() = 0;                  // call aborted with BYE or CANCEL
-
-protected:
-  /* What socket is this call bound to. */
-  struct sipp_socket *call_socket;
-};
-
-class call : public supercall {
+class call : virtual public task, virtual public listener, public virtual socketowner {
 public:
   call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic);
   ~call();
@@ -89,6 +63,7 @@ public:
   virtual bool run();
   /* Terminate this call, depending on action results and timewait. */
   virtual bool terminate(CStat::E_Action reason);
+  virtual void tcpClose();
 
   /* When should this call wake up? */
   virtual unsigned int wake();
@@ -297,12 +272,6 @@ private:
 #endif
 };
 
-/* Call contexts interface */
-
-typedef std::pair<std::string, supercall *> string_call_pair;
-typedef std::map<std::string, supercall *> call_map;
-call_map * get_calls();
-
 /* These are wrappers for various circumstances. */
 call * add_call(int userId, bool ipv6);
 call * add_call(char * call_id , bool ipv6, int userId);
@@ -310,18 +279,6 @@ call * add_call(char * call_id , struct sipp_socket *socket);
 call * add_call(char * call_id , struct sipp_socket *socket, bool isAutomatic);
 /* This is the core function. */
 call * add_call(char * call_id , bool ipv6, int userId, bool isAutomatic);
-
-supercall * get_call(char *);
-void   delete_call(char *);
-void   delete_calls(void);
-
-typedef std::pair<struct sipp_socket *,call_map *> socket_map_pair;
-
-typedef std::map<struct sipp_socket *, void *> socket_call_map_map;
-typedef std::list<supercall *> call_list;
-call_list *get_calls_for_socket(struct sipp_socket *socket);
-void add_call_to_socket(struct sipp_socket *socket, supercall *call);
-void remove_call_from_socket(struct sipp_socket *socket, supercall *call);
 
 /* Default Message Functions. */
 void init_default_messages();

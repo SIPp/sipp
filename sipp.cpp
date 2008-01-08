@@ -1582,12 +1582,13 @@ void process_set(char *what) {
 
 void process_dump(char *what) {
   if (!strcmp(what, "calls")) {
-    call_map *calls = get_calls();
+/*
     WARNING("---- %d Active Calls ----\n", calls->size());
     for (call_map::iterator call_it = calls->begin(); call_it != calls->end(); call_it++) {
       call_it->second->dump();
     }
     WARNING("-------------------------\n");
+*/
   } else {
     WARNING("Unknown dump type: %s", what);
   }
@@ -1726,7 +1727,7 @@ void handle_stdin_socket() {
     return;
   }
 
-  while (!quitting && ((c = screen_readkey()) != -1)) {
+  while (((c = screen_readkey()) != -1)) {
     chars++;
     if (command_mode) {
       if (c == '\n') {
@@ -2814,7 +2815,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
     WARNING("SIP message without Call-ID discarded");
     return;
   }
-  supercall *call_ptr = get_call(call_id);
+  listener *listener_ptr = get_listener(call_id);
  
   if (useShortMessagef == 1) {
               struct timeval currentTime;
@@ -2823,7 +2824,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
               CStat::instance()->formatTime(&currentTime),call_id, get_incoming_header_content(msg,"CSeq:"), get_incoming_first_line(msg));
           } 
 
-  if(!call_ptr)
+  if(!listener_ptr)
   {
     if(toolMode == MODE_SERVER)
     {
@@ -2836,8 +2837,8 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
       // Adding a new INCOMING call !
       CStat::instance()->computeStat(CStat::E_CREATE_INCOMING_CALL);
 
-      call_ptr = add_call(call_id, socket);
-      if(!call_ptr) {
+      listener_ptr = add_call(call_id, socket);
+      if(!listener_ptr) {
 	outbound_congestion = true;
 	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
 	CStat::instance()->computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
@@ -2852,8 +2853,8 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
       // Adding a new OUTGOING call !
       CStat::instance()->computeStat
 	(CStat::E_CREATE_OUTGOING_CALL);
-      call_ptr = add_call(call_id, is_ipv6, 0);
-      if(!call_ptr) {
+      call *new_ptr = add_call(call_id, is_ipv6, 0);
+      if(!new_ptr) {
 	outbound_congestion = true;
 	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
 	CStat::instance()->computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
@@ -2864,19 +2865,19 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
 	    (socket != localTwinSippSocket) &&
 	    (socket != twinSippSocket) &&
 	    (!is_a_local_socket(socket))) {
-	  call_ptr->associate_socket(socket);
+	  new_ptr->associate_socket(socket);
 	  socket->ss_count++;
 	} else {
 	  /* We need to hook this call up to a real *call* socket. */
 	  if (!multisocket) {
 	    switch(transport) {
 	      case T_UDP:
-		call_ptr->associate_socket(main_socket);
+		new_ptr->associate_socket(main_socket);
 		main_socket->ss_count++;
 		break;
 	      case T_TCP:
 	      case T_TLS:
-		call_ptr->associate_socket(tcp_multiplex);
+		new_ptr->associate_socket(tcp_multiplex);
 		tcp_multiplex->ss_count++;
 		break;
 	    }
@@ -2897,7 +2898,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
 	        socket->ss_count++;
 		call_ptr->setLastMsg(msg);
 	        call_ptr->automaticResponseMode(call::E_AM_OOCALL, msg);
-	        delete_call(call_id);
+	        delete call_ptr;
 	        call_ptr = NULL;
 	        total_calls--;
       	 }
@@ -2913,17 +2914,17 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
   }
 
   /* If the call was not created above, we just drop this message. */
-  if (!call_ptr) {
+  if (!listener_ptr) {
     return;
   }
 
   if((socket == localTwinSippSocket) || (socket == twinSippSocket) || (is_a_local_socket(socket)))
   {
-    call_ptr -> process_twinSippCom(msg);
+    listener_ptr -> process_twinSippCom(msg);
   }
   else
   {
-    call_ptr -> process_incoming(msg);
+    listener_ptr -> process_incoming(msg);
   }
 }
 
@@ -3199,12 +3200,12 @@ void traffic_thread()
     } else if (quitting) {
       if (quitting > 11) {
         /* Force exit: abort all calls */
-        delete_calls();
+	abort_all_tasks();
       }
       /* Quitting and no more openned calls, close all */
       if(!open_calls) {
 	/* We can have calls that do not count towards our open-call count (e.g., dead calls). */
-	delete_calls();
+	abort_all_tasks();
 	print_statistics(0);
 
         // Dump the latest statistics if necessary
@@ -4826,18 +4827,18 @@ void reset_connection(struct sipp_socket *socket) {
 /* Close just those calls for a given socket (e.g., if the remote end closes
  * the connection. */
 void close_calls(struct sipp_socket *socket) {
-  call_list * calls = get_calls_for_socket(socket);
-  call_list::iterator call_it;
-  supercall * call_ptr = NULL;
+  owner_list *owners = get_owners_for_socket(socket);
+  owner_list::iterator owner_it;
+  socketowner *owner_ptr = NULL;
 
-  for (call_it = calls->begin(); call_it != calls->end(); call_it++) {
-    call_ptr = *call_it;
-    if(call_ptr) {
-      call_ptr->terminate(CStat::E_FAILED_TCP_CLOSED);
+  for (owner_it = owners->begin(); owner_it != owners->end(); owner_it++) {
+    owner_ptr = *owner_it;
+    if(owner_ptr) {
+      owner_ptr->tcpClose();
     }
   }
 
-  delete calls;
+  delete owners;
 }
 
 int open_connections() {

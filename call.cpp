@@ -57,21 +57,12 @@ extern  SSL_CTX             *sip_trp_ssl_ctx;
 
 extern  map<string, struct sipp_socket *>     map_perip_fd;
 
-call_map calls;
-
-socket_call_map_map socket_to_calls;
-
 #ifdef PCAPPLAY
 /* send_packets pthread wrapper */
 void *send_wrapper(void *);
 #endif
 
 /************** Call map and management routines **************/
-call_map * get_calls()
-{
-  return & calls;
-}
-
 static unsigned int next_number = 1;
 
 unsigned int get_tdm_map_number(unsigned int number) {
@@ -97,23 +88,6 @@ unsigned int get_tdm_map_number(unsigned int number) {
   } else {
     return nb+1;
   } 
-}
-
-struct sipp_socket *supercall::associate_socket(struct sipp_socket *socket) {
-  if (socket) {
-    this->call_socket = socket;
-    add_call_to_socket(socket, this);
-  }
-  return socket;
-}
-
-struct sipp_socket *supercall::dissociate_socket() {
-  struct sipp_socket *ret = this->call_socket;
-
-  remove_call_from_socket(this->call_socket, this);
-  this->call_socket = NULL;
-
-  return ret;
 }
 
 call * add_call(char * call_id , bool use_ipv6, int userId)
@@ -145,9 +119,6 @@ call * add_call(char * call_id , bool use_ipv6, int userId, bool isAutomatic)
   if(!new_call) {
     ERROR("Memory Overflow");
   }
-
-  /* All calls must exist in the map. */
-  calls.insert(pair<call_map::key_type,supercall *>(call_map::key_type(call_id),new_call));
 
   /* Statistics update */
   calls_since_last_rate_change++;
@@ -203,46 +174,6 @@ call * add_call(int userId, bool ipv6)
   return add_call(call_id, ipv6, userId);
 }
 
-supercall * get_call(char * call_id)
-{
-
-  supercall * call_ptr;
-
-  call_map::iterator call_it ;
-  call_it = calls.find(call_map::key_type(call_id));
-  call_ptr = (call_it != calls.end()) ? call_it->second : NULL ;
-
-  return call_ptr;
-}
-
-void delete_call(char * call_id)
-{
-  supercall * call_ptr;
-  call_map::iterator call_it ;
-  call_it = calls.find(call_map::key_type(call_id));
-  call_ptr = (call_it != calls.end()) ? call_it->second : NULL ;
-
-  if(call_ptr) {
-    calls.erase(call_it);
-    delete call_ptr;
-  }
-}
-
-void delete_calls(void)
-{
-  supercall * call_ptr;
-  
-  call_map::iterator call_it ;
-  call_it = calls.begin();
-  while (call_it != calls.end()) {
-    call_ptr = (call_it != calls.end()) ? call_it->second : NULL ;
-    if (!call_ptr->abortCall()) {
-      WARNING("Aborted call with Call-Id '%s'", call_ptr->id);
-    }
-    call_it = calls.begin();
-  }
-}
-
 /* When should this call wake up? */
 unsigned int call::wake() {
   unsigned int wake = 0;
@@ -260,60 +191,6 @@ unsigned int call::wake() {
   }
 
   return wake;
-}
-
-/* The caller must delete this list. */
-call_list *get_calls_for_socket(struct sipp_socket *socket) {
-  call_list *l = new call_list;
-
-  socket_call_map_map::iterator map_it = socket_to_calls.find(socket);
-
-  /* No map defined for this socket. */
-  if (map_it == socket_to_calls.end()) {
-    return l;
-  }
-
-  call_map *socket_call_map = (call_map *) map_it->second;
-  call_map::iterator call_it;
-
-  for (call_it = socket_call_map->begin();
-       call_it != socket_call_map->end();
-       call_it++) {
-	l->insert(l->end(), call_it->second);
-  }
-
-  return l;
-}
-
-void add_call_to_socket(struct sipp_socket *socket, supercall *call) {
-  socket_call_map_map::iterator map_it = socket_to_calls.find(socket);
-  /* No map defined for this socket. */
-  if (map_it == socket_to_calls.end()) {
-    socket_to_calls.insert(socket_map_pair(socket, new call_map));
-    map_it = socket_to_calls.find(socket);
-    assert(map_it != socket_to_calls.end());
-  }
-
- call_map *socket_call_map = (call_map *) map_it->second;
- socket_call_map->insert(string_call_pair(call->id, call));
-}
-
-void remove_call_from_socket(struct sipp_socket *socket, supercall *call) {
-  socket_call_map_map::iterator map_it = socket_to_calls.find(socket);
-  /* We must have  a map for this socket. */
-  assert(map_it != socket_to_calls.end());
-
-  call_map *socket_call_map = (call_map *) map_it->second;
-  call_map::iterator call_it = socket_call_map->find(call->id);
-  /* And our call must exist in the map. */
-  assert(call_it != socket_call_map->end());
-  socket_call_map->erase(call_it);
-
-  /* If we have no more calls, we can delete this entry. */
-  if (socket_call_map->begin() == socket_call_map->end()) {
-    delete socket_call_map;
-    socket_to_calls.erase(map_it);
-  }
 }
 
 #ifdef PCAPPLAY
@@ -484,7 +361,7 @@ unsigned long hash(char * msg) {
 
 /******************* Call class implementation ****************/
 
-call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : supercall(p_id)
+call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : listener(p_id, true)
 {
   msg_index = 0;
   last_send_index = 0;
@@ -628,7 +505,6 @@ call::~call()
                                    clock_tick - start_time);
   }
 
-  sipp_close_socket(dissociate_socket());
   if (call_remote_socket) {
     sipp_close_socket(call_remote_socket);
   }
@@ -679,15 +555,6 @@ call::~call()
 /* Dump call info to error log. */
 void call::dump() {
   WARNING("%s: State %d", id, msg_index);
-}
-
-supercall::supercall(char *id) {
-  this->id = strdup(id);
-}
-
-supercall::~supercall() {
-  free(id);
-  id = NULL;
 }
 
 bool call::connect_socket_if_needed()
@@ -806,7 +673,7 @@ bool call::connect_socket_if_needed()
 
 	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
 	CStat::instance()->computeStat(CStat::E_FAILED_TCP_CONNECT);
-	delete_call(id);
+	delete this;
 
 	return false;
       } else {
@@ -900,7 +767,7 @@ int call::send_raw(char * msg, int index)
   if(rc < 0) {
     CStat::instance()->computeStat(CStat::E_CALL_FAILED);
     CStat::instance()->computeStat(CStat::E_FAILED_CANNOT_SEND_MSG);
-    delete_call(id);
+    delete this;
   }
 
   return rc; /* OK */
@@ -1279,9 +1146,14 @@ void call::do_bookkeeping(int index) {
   }
 }
 
+void call::tcpClose() {
+  terminate(CStat::E_FAILED_TCP_CLOSED);
+}
+
 bool call::terminate(CStat::E_Action reason) {
   char reason_str[100];
-  deadcall *deadcall_ptr = NULL;
+
+  stopListening();
 
   // Call end -> was it successful?
   if(call::last_action_result != call::E_AR_NO_ERROR) {
@@ -1291,7 +1163,7 @@ bool call::terminate(CStat::E_Action reason) {
 	CStat::instance()->computeStat(CStat::E_FAILED_REGEXP_DOESNT_MATCH);
 	if (deadcall_wait) {
 	  sprintf(reason_str, "regexp match failure at index %d", msg_index);
-	  deadcall_ptr = new deadcall(id, reason_str);
+	new deadcall(id, reason_str);
 	}
 	break;
       case call::E_AR_HDR_NOT_FOUND:
@@ -1299,7 +1171,7 @@ bool call::terminate(CStat::E_Action reason) {
 	CStat::instance()->computeStat(CStat::E_FAILED_REGEXP_HDR_NOT_FOUND);
 	if (deadcall_wait) {
 	  sprintf(reason_str, "regexp header not found at index %d", msg_index);
-	  deadcall_ptr = new deadcall(id, reason_str);
+	new deadcall(id, reason_str);
 	}
 	break;
       case call::E_AR_NO_ERROR:
@@ -1311,7 +1183,7 @@ bool call::terminate(CStat::E_Action reason) {
     if (reason == CStat::E_CALL_SUCCESSFULLY_ENDED || timewait) {
       CStat::instance()->computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
 	if (deadcall_wait) {
-	  deadcall_ptr = new deadcall(id, "successful");
+	  new deadcall(id, "successful");
 	}
     } else {
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
@@ -1320,14 +1192,11 @@ bool call::terminate(CStat::E_Action reason) {
       }
       if (deadcall_wait) {
 	sprintf(reason_str, "failed at index %d", msg_index);
-	deadcall_ptr = new deadcall(id, reason_str);
+	new deadcall(id, reason_str);
       }
     }
   }
-  delete_call(id);
-  if(deadcall_ptr) {
-    calls.insert(pair<call_map::key_type,supercall *>(call_map::key_type(deadcall_ptr->id),deadcall_ptr));
-  }
+  delete this;
 }
 
 bool call::next()
@@ -1402,7 +1271,7 @@ bool call::run()
             return(abortCall());
           } else {
             // Just delete existing call
-            delete_call(id);
+            delete this;
             return false;
           }
       }
@@ -1414,7 +1283,7 @@ bool call::run()
         return(abortCall());
       } else {
         // Just delete existing call
-        delete_call(id);
+        delete this;
         return false;
       }
     } else {
@@ -1538,7 +1407,7 @@ bool call::run()
 	  if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
 	    return (abortCall());
 	  } else {
-	    delete_call(id);
+	    delete this;
 	    return false;
 	  }
 	}
@@ -1618,7 +1487,7 @@ bool call::run()
         if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
           return (abortCall());
         } else {
-          delete_call(id);
+          delete this;
           return false;
         }
       }
@@ -1633,7 +1502,7 @@ bool call::run()
       if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
         return (abortCall());
       } else {
-        delete_call(id);
+        delete this;
         return false;
       }
     } else if ((scenario[msg_index]->timeout) || (defl_recv_timeout)) {
@@ -1802,7 +1671,7 @@ bool call::process_unexpected(char * msg)
     if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
       return (abortCall());
     } else {
-      delete_call(id);
+      delete this;
       return false;
     }
   } else {
@@ -1877,16 +1746,15 @@ bool call::abortCall()
     }
   }
 
+  stopListening();
   deadcall *deadcall_ptr = NULL;
   if (deadcall_wait) {
     char reason[100];
     sprintf(reason, "aborted at index %d", msg_index);
     deadcall_ptr = new deadcall(id, reason);
   }
-  delete_call(id);
-  if (deadcall_ptr) {
-    calls.insert(pair<call_map::key_type,supercall *>(call_map::key_type(deadcall_ptr->id),deadcall_ptr));
-  }
+  delete this;
+
   return false;
 }
 
@@ -1894,7 +1762,7 @@ bool call::rejectCall()
 {
   CStat::instance()->computeStat(CStat::E_CALL_FAILED);
   CStat::instance()->computeStat(CStat::E_FAILED_CALL_REJECTED);
-  delete_call(id);
+  delete this;
   return false;
 }
 
@@ -1929,7 +1797,7 @@ int call::sendCmdMessage(int index)
     if(rc <  0) {
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
       CStat::instance()->computeStat(CStat::E_FAILED_CMD_NOT_SENT);
-      delete_call(id);
+      delete this;
       return(-1);
     }
 
@@ -1957,7 +1825,7 @@ int call::sendCmdBuffer(char* cmd)
   if(rc <  0) {
     CStat::instance()->computeStat(CStat::E_CALL_FAILED);
     CStat::instance()->computeStat(CStat::E_FAILED_CMD_NOT_SENT);
-    delete_call(id);
+    delete this;
     return(-1);
   }
 
@@ -3514,7 +3382,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
       }
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
       CStat::instance()->computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
-      delete_call(id);
+      delete this;
     } else {
       WARNING("Continuing call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
     }
@@ -3541,7 +3409,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     
     CStat::instance()->computeStat(CStat::E_CALL_FAILED);
     CStat::instance()->computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
-    delete_call(id);
+    delete this;
     } else {
       WARNING("Continuing call on unexpected CANCEL for call: %s", (id==NULL)?"none":id);
     }
@@ -3564,7 +3432,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     }
     
     CStat::instance()->computeStat(CStat::E_AUTO_ANSWERED);
-    delete_call(id);
+    delete this;
     } else {
       WARNING("Do not answer on an unexpected PING for call: %s", (id==NULL)?"none":id);
     }

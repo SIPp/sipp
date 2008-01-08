@@ -59,6 +59,8 @@
 #include "scenario.hpp"
 #include "screen.hpp"
 #include "task.hpp"
+#include "listener.hpp"
+#include "socketowner.hpp"
 #include "call.hpp"
 #include "comp.h"
 #include "stat.hpp"
