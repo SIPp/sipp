@@ -470,6 +470,7 @@ struct socketbuf {
 	char *buf;
 	size_t len;
 	size_t offset;
+	struct sockaddr_storage addr;
 	struct socketbuf *next;
 };
 
@@ -503,7 +504,7 @@ struct sipp_socket {
 };
 
 /* Write data to a socket. */
-int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flags);
+int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
 /* Mark a socket as "bad". */
 void sipp_socket_invalidate(struct sipp_socket *socket);
 /* Actually free the socket. */

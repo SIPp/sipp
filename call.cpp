@@ -280,23 +280,19 @@ unsigned long hash(char * msg) {
 }
 
 /******************* Call class implementation ****************/
-call::call(char * p_id, int userId, bool ipv6, bool isAutomatic) : listener(p_id, true) {
-  init(main_scenario, NULL, p_id, userId, ipv6, isAutomatic);
+call::call(char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest) : listener(p_id, true) {
+  init(main_scenario, NULL, dest, p_id, userId, use_ipv6, false);
 }
 
-call::call(char *p_id, bool use_ipv6, int userId) : listener(p_id, true) {
-  init(main_scenario, NULL, p_id, userId, use_ipv6, false);
+call::call(char *p_id, struct sipp_socket *socket, struct sockaddr_storage *dest) : listener(p_id, true) {
+  init(main_scenario, socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */);
 }
 
-call::call(char *p_id, struct sipp_socket *socket) : listener(p_id, true) {
-  init(main_scenario, socket, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */);
+call::call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic) : listener(p_id, true) {
+  init(call_scenario, socket, dest, p_id, userId, ipv6, isAutomatic);
 }
 
-call::call(scenario * call_scenario, struct sipp_socket *socket, char * p_id, int userId, bool ipv6, bool isAutomatic) : listener(p_id, true) {
-  init(call_scenario, socket, p_id, userId, ipv6, isAutomatic);
-}
-
-call *call::add_call(int userId, bool ipv6)
+call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
 {
   static char call_id[MAX_HEADER_LEN];
 
@@ -328,11 +324,11 @@ call *call::add_call(int userId, bool ipv6)
   }
   call_id[count] = 0;
 
-  return new call(main_scenario, NULL, call_id, userId, ipv6, false /* Not Auto. */);
+  return new call(main_scenario, NULL, dest, call_id, userId, ipv6, false /* Not Auto. */);
 }
 
 
-void call::init(scenario * call_scenario, struct sipp_socket *socket, char * p_id, int userId, bool ipv6, bool isAutomatic)
+void call::init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic)
 {
   this->call_scenario = call_scenario;
   zombie = false;
@@ -393,6 +389,11 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, char * p_i
     socket->ss_count++;
   } else {
     call_socket = NULL;
+  }
+  if (dest) {
+    memcpy(&call_peer, dest, SOCK_ADDR_SIZE(dest));
+  } else {
+    memset(&call_peer, 0, sizeof(call_peer));
   }
   
   // initialising the CallVariable with the Scenario variable
@@ -458,21 +459,27 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, char * p_i
   send_timeout = 0;
   timewait = false;
 
-  number = next_number++;
-  if (use_tdmmap) {
-    tdm_map_number = get_tdm_map_number();
-    if (tdm_map_number == 0) {
-      /* Can't create the new call */
-      WARNING("Can't create new outgoing call: all tdm_map circuits busy");
-      computeStat(CStat::E_CALL_FAILED);
-      computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
-      this->zombie = true;
-      return;
+  if (!isAutomatic) {
+    /* Not advancing the number is safe, because for automatic calls we do not
+     * assign the identifier,  the only other place it is used is for the auto
+     * media port. */
+    number = next_number++;
+
+    if (use_tdmmap) {
+      tdm_map_number = get_tdm_map_number();
+      if (tdm_map_number == 0) {
+	/* Can't create the new call */
+	WARNING("Can't create new outgoing call: all tdm_map circuits busy");
+	computeStat(CStat::E_CALL_FAILED);
+	computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
+	this->zombie = true;
+	return;
+      }
+      /* Mark the entry in the list as busy */
+      tdm_map[tdm_map_number - 1] = true;
+    } else {
+      tdm_map_number = 0;
     }
-    /* Mark the entry in the list as busy */
-    tdm_map[tdm_map_number - 1] = true;
-  } else {
-    tdm_map_number = 0;
   }
 
   setRunning();
@@ -758,7 +765,7 @@ int call::send_raw(char * msg, int index)
     sock=call_remote_socket ;
   }
 
-  rc = write_socket(sock, msg, strlen(msg), WS_BUFFER);
+  rc = write_socket(sock, msg, strlen(msg), WS_BUFFER, &call_peer);
   if(rc == -1 && errno == EWOULDBLOCK) {
     return -1;
   }
@@ -1811,9 +1818,9 @@ int call::sendCmdMessage(int index)
     peer_dest = curmsg->peer_dest;
     if(peer_dest){
       peer_socket = get_peer_socket(peer_dest);
-      rc = write_socket(*peer_socket, dest, strlen(dest), WS_BUFFER);
+      rc = write_socket(*peer_socket, dest, strlen(dest), WS_BUFFER, &call_peer);
     }else {
-      rc = write_socket(twinSippSocket, dest, strlen(dest), WS_BUFFER);
+      rc = write_socket(twinSippSocket, dest, strlen(dest), WS_BUFFER, &call_peer);
     }
     if(rc <  0) {
       computeStat(CStat::E_CALL_FAILED);
@@ -1842,7 +1849,7 @@ int call::sendCmdBuffer(char* cmd)
 
   strcat(dest, delimitor);
 
-  rc = write_socket(twinSippSocket, dest, strlen(dest), WS_BUFFER);
+  rc = write_socket(twinSippSocket, dest, strlen(dest), WS_BUFFER, &twinSippSocket->ss_remote_sockaddr);
   if(rc <  0) {
     computeStat(CStat::E_CALL_FAILED);
     computeStat(CStat::E_FAILED_CMD_NOT_SENT);

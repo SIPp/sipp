@@ -55,11 +55,11 @@
 class call : virtual public task, virtual public listener, public virtual socketowner {
 public:
   /* These are wrappers for various circumstances, (private) init does the real work. */
-  call(char * p_id, int userId, bool ipv6, bool isAutomatic);
-  call(char *p_id, bool use_ipv6, int userId);
-  call(char *p_id, struct sipp_socket *socket);
-  static call *add_call(int userId, bool ipv6);
-  call(scenario * call_scenario, struct sipp_socket *socket, char * p_id, int userId, bool ipv6, bool isAutomatic);
+  //call(char * p_id, int userId, bool ipv6, bool isAutomatic);
+  call(char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest);
+  call(char *p_id, struct sipp_socket *socket, struct sockaddr_storage *dest);
+  static call *add_call(int userId, bool ipv6, struct sockaddr_storage *dest);
+  call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic);
 
   virtual ~call();
 
@@ -95,7 +95,9 @@ public:
 
 private:
   /* This is the core constructor function. */
-  void init(scenario * call_scenario, struct sipp_socket *socket, char * p_id, int userId, bool ipv6, bool isAutomatic);
+  void init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic);
+
+  struct sockaddr_storage call_peer;
 
   scenario *call_scenario;
   unsigned int   number;

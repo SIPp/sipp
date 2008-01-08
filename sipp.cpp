@@ -57,6 +57,8 @@ int passwd_call_back_routine(char  *buf , int size , int flag, void *passwd)
 #endif
 
 unsigned long calls_since_last_rate_change = 0;
+bool do_hide = true;
+bool show_index = false;
 
 static struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, int accepting);
 struct sipp_socket *ctrl_socket = NULL;
@@ -861,8 +863,11 @@ void print_stats_in_file(FILE * f, int last)
       index ++) {
     message *curmsg = display_scenario->messages[index];
 
-    if(curmsg->hide) {
+    if(do_hide && curmsg->hide) {
       continue;
+    }
+    if (show_index) {
+	fprintf(f, "%-02d:", index);
     }
     
     if(SendingMessage *src = curmsg -> send_scheme) {
@@ -1600,6 +1605,22 @@ void process_set(char *what) {
     } else {
 	WARNING("Unknown display scenario: %s", rest);
     }
+  } else if (!strcmp(what, "hide")) {
+    if (!strcmp(rest, "true")) {
+      do_hide = true;
+    } else if (!strcmp(rest, "false")) {
+      do_hide = false;
+    } else {
+      WARNING("Invalid bool: %s", rest);
+    }
+  } else if (!strcmp(what, "index")) {
+    if (!strcmp(rest, "true")) {
+      show_index = true;
+    } else if (!strcmp(rest, "false")) {
+      show_index = false;
+    } else {
+      WARNING("Invalid bool: %s", rest);
+    }
   } else {
     WARNING("Unknown set attribute: %s", what);
   }
@@ -2054,7 +2075,7 @@ unsigned long get_reply_code(char *msg)
 /*************************** I/O functions ***************************/
 
 /* Allocate a socket buffer. */
-struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy) {
+struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy, struct sockaddr_storage *dest) {
   struct socketbuf *socketbuf;
 
   socketbuf = (struct socketbuf *)malloc(sizeof(struct socketbuf));
@@ -2072,6 +2093,9 @@ struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy) {
   }
   socketbuf->len = size;
   socketbuf->offset = 0;
+  if (dest) {
+    memcpy(&socketbuf->addr, dest, SOCK_ADDR_SIZE(dest));
+  }
   socketbuf->next = NULL;
 
   return socketbuf;
@@ -2188,7 +2212,7 @@ void sipp_customize_socket(struct sipp_socket *socket)
   }
 }
 
-static ssize_t socket_write_primitive(struct sipp_socket *socket, char *buffer, size_t len) {
+static ssize_t socket_write_primitive(struct sipp_socket *socket, char *buffer, size_t len, struct sockaddr_storage *dest) {
   ssize_t rc;
 
   /* Refuse to write to invalid sockets. */
@@ -2230,15 +2254,8 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, char *buffer, 
 	TRACE_MSG("---\nCompressed message len: %d\n", len);
       }
 
-      {
-	// different remote sending address from received
-	struct sockaddr_storage *L_dest = &socket->ss_remote_sockaddr;
-	if (use_remote_sending_addr) {
-	  L_dest = &remote_sending_sockaddr ;
-	}
+      rc = sendto(socket->ss_fd, buffer, len, 0, (struct sockaddr *)dest, SOCK_ADDR_SIZE(dest));
 
-	rc = sendto(socket->ss_fd, buffer, len, 0, (struct sockaddr *)L_dest, SOCK_ADDR_SIZE(L_dest));
-      }
       break;
     default:
       ERROR("Internal error, unknown transport type %d\n", socket->ss_transport);
@@ -2383,7 +2400,7 @@ static int flush_socket(struct sipp_socket *socket) {
 
   while ((buf = socket->ss_out)) {
     ssize_t size = buf->len - buf->offset;
-    ret = socket_write_primitive(socket, buf->buf + buf->offset, size);
+    ret = socket_write_primitive(socket, buf->buf + buf->offset, size, &buf->addr);
     TRACE_MSG("Wrote %d of %d bytes in an output buffer.", ret, size);
     if (ret == size) {
       /* Everything is great, throw away this buffer. */
@@ -2404,12 +2421,12 @@ static int flush_socket(struct sipp_socket *socket) {
   return 0;
 }
 
-void buffer_write(struct sipp_socket *socket, char *buffer, size_t len) {
+void buffer_write(struct sipp_socket *socket, char *buffer, size_t len, struct sockaddr_storage *dest) {
   struct socketbuf *buf = socket->ss_out;
   struct socketbuf *prev = buf;
 
   if (!buf) {
-	socket->ss_out = alloc_socketbuf(buffer, len, DO_COPY);
+	socket->ss_out = alloc_socketbuf(buffer, len, DO_COPY, dest);
 	TRACE_MSG("Added first buffered message to socket %d\n", socket->ss_fd);
 	return;
   }
@@ -2419,7 +2436,7 @@ void buffer_write(struct sipp_socket *socket, char *buffer, size_t len) {
 	buf = buf->next;
   }
 
-  prev->next = alloc_socketbuf(buffer, len, DO_COPY);
+  prev->next = alloc_socketbuf(buffer, len, DO_COPY, dest);
   TRACE_MSG("Appended buffered message to socket %d\n", socket->ss_fd);
 }
 
@@ -2441,7 +2458,7 @@ void buffer_read(struct sipp_socket *socket, struct socketbuf *newbuf) {
 }
 
 /* Write data to a socket. */
-int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flags) {
+int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest) {
   int rc;
 
   if (socket->ss_out) {
@@ -2449,7 +2466,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
     TRACE_MSG("Attempted socket flush returned %d\r\n", rc);
     if (rc < 0) {
       if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
-	buffer_write(socket, buffer, len);
+	buffer_write(socket, buffer, len, dest);
 	return len;
       } else {
 	return rc;
@@ -2457,7 +2474,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
     }
   }
 
-  rc = socket_write_primitive(socket, buffer, len);
+  rc = socket_write_primitive(socket, buffer, len, dest);
 
   if (rc == len) {
     /* Everything is great. */
@@ -2473,7 +2490,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
     }
   } else if (rc <= 0) {
     if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
-      buffer_write(socket, buffer, len);
+      buffer_write(socket, buffer, len, dest);
       return len;
     }
     if (useMessagef == 1) {
@@ -2497,7 +2514,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
 	    TRANSPORT_TO_STRING(socket->ss_transport),
 	    rc, len, len, buffer);
     }
-    buffer_write(socket, buffer + rc, len - rc);
+    buffer_write(socket, buffer + rc, len - rc, dest);
   }
 
   return rc;
@@ -2670,24 +2687,18 @@ static int empty_socket(struct sipp_socket *socket) {
    * the Via, Contact, and Route headers.  But for now SIPp always sends to the
    * host specified on the command line; or for UAS mode to the address that
    * sent the last message. */
-  struct sockaddr *new_destination = NULL;
-  sipp_socklen_t addrlen = 0;
-
-  if (toolMode == MODE_SERVER && socket->ss_transport == T_UDP) {
-    new_destination = (struct sockaddr *) &socket->ss_remote_sockaddr;
-    addrlen = sizeof(socket->ss_remote_sockaddr);
-  }
+  sipp_socklen_t addrlen = sizeof(struct sockaddr_storage);
 
   buffer = (char *)malloc(readsize);
   if (!buffer) {
     ERROR("Could not allocate memory for read!");
   }
-  socketbuf = alloc_socketbuf(buffer, readsize, NO_COPY);
+  socketbuf = alloc_socketbuf(buffer, readsize, NO_COPY, NULL);
 
   switch(socket->ss_transport) {
     case T_TCP:
     case T_UDP:
-      ret = recvfrom(socket->ss_fd, buffer, readsize, 0, new_destination,  &addrlen);
+      ret = recvfrom(socket->ss_fd, buffer, readsize, 0, (struct sockaddr *)&socketbuf->addr,  &addrlen);
       break;
     case T_TLS:
 #ifdef _USE_OPENSSL
@@ -2767,7 +2778,7 @@ void sipp_close_socket (struct sipp_socket *socket) {
   free(socket);
 }
 
-static ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len) {
+static ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len, struct sockaddr_storage *src) {
   size_t avail;
 
   if (!socket->ss_msglen)
@@ -2783,12 +2794,13 @@ static ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len) {
   }
 
   memcpy(buf, socket->ss_in->buf + socket->ss_in->offset, avail);
+  memcpy(src, &socket->ss_in->addr, SOCK_ADDR_SIZE(&socket->ss_in->addr));
 
   /* Update our buffer and return value. */
   buf[avail] = '\0';
   /* For CMD Message the escape char is the end of message */ 
   if((socket->ss_control) && buf[avail-1] == 27 ) buf[avail-1] = '\0';
-     
+
   socket->ss_in->offset += avail;
 
   /* Have we emptied the buffer? */
@@ -2819,7 +2831,7 @@ static ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len) {
   return avail;
 }
 
-void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
+void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, struct sockaddr_storage *src) {
   // TRACE_MSG(" msg_size %d and pollset_index is %d \n", msg_size, pollset_index));
   if(msg_size <= 0) {
     return;
@@ -2855,8 +2867,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
 
       // Adding a new INCOMING call !
       main_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
-
-      listener_ptr = new call(call_id, socket);
+      listener_ptr = new call(call_id, socket, src);
       if (!listener_ptr) {
 	ERROR("Out of memory allocating a call!");
       }
@@ -2866,7 +2877,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
     {
       // Adding a new OUTGOING call !
       main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-      call *new_ptr = new call(call_id, is_ipv6, 0);
+      call *new_ptr = new call(call_id, is_ipv6, 0, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
       if (!new_ptr) {
 	ERROR("Out of memory allocating a call!");
       }
@@ -2904,8 +2915,9 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
 	// with automaticResponseMode
 	// call is discarded before exiting the block
 	if(!get_reply_code(msg)){
-	  ooc_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-	  call *call_ptr = new call(ooc_scenario, socket, call_id, 0 /* no user. */, socket->ss_ipv6, true);
+	  ooc_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
+	  /* This should have the real address that the message came from. */
+	  call *call_ptr = new call(ooc_scenario, socket, src, call_id, 0 /* no user. */, socket->ss_ipv6, true);
 	  if (!call_ptr) {
 	    ERROR("Out of memory allocating a call!");
 	  }
@@ -2956,10 +2968,11 @@ void pollset_process()
   while (pending_messages && (loops-- > 0)) {
     clock_tick = getmilliseconds();
     if (sockets[read_index]->ss_msglen) {
+	struct sockaddr_storage src;
 	char msg[SIPP_MAX_MSG_SIZE];
-	ssize_t len = read_message(sockets[read_index], msg, sizeof(msg));
+	ssize_t len = read_message(sockets[read_index], msg, sizeof(msg), &src);
 	if (len > 0) {
-	  process_message(sockets[read_index], msg, len);
+	  process_message(sockets[read_index], msg, len, &src);
 	} else {
 	  assert(0);
 	}
@@ -3050,11 +3063,12 @@ void pollset_process()
 
     if (sockets[read_index]->ss_msglen) {
       char msg[SIPP_MAX_MSG_SIZE];
+      struct sockaddr_storage src;
       ssize_t len;
 
-      len = read_message(sockets[read_index], msg, sizeof(msg));
+      len = read_message(sockets[read_index], msg, sizeof(msg), &src);
       if (len > 0) {
-	process_message(sockets[read_index], msg, len);
+	process_message(sockets[read_index], msg, len, &src);
       } else {
 	assert(0);
       }
@@ -3163,7 +3177,7 @@ void traffic_thread()
 
               // adding a new OUTGOING CALL
               main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-              call * call_ptr = call::add_call(userid, is_ipv6);
+              call * call_ptr = call::add_call(userid, is_ipv6, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
               if(!call_ptr) {
 		ERROR("Out of memory allocating call!");
 	      }
