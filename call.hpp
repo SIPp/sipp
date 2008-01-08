@@ -54,8 +54,14 @@
 
 class call : virtual public task, virtual public listener, public virtual socketowner {
 public:
-  call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic);
-  ~call();
+  /* These are wrappers for various circumstances, (private) init does the real work. */
+  call(char * p_id, int userId, bool ipv6, bool isAutomatic);
+  call(char *p_id, bool use_ipv6, int userId);
+  call(char *p_id, struct sipp_socket *socket);
+  static call *add_call(int userId, bool ipv6);
+  call(scenario * call_scenario, struct sipp_socket *socket, char * p_id, int userId, bool ipv6, bool isAutomatic);
+
+  virtual ~call();
 
   virtual bool process_incoming(char * msg);
   virtual bool  process_twinSippCom(char * msg);
@@ -88,11 +94,15 @@ public:
   bool  automaticResponseMode(T_AutoMode P_case, char* P_recv);
 
 private:
+  /* This is the core constructor function. */
+  void init(scenario * call_scenario, struct sipp_socket *socket, char * p_id, int userId, bool ipv6, bool isAutomatic);
+
   scenario *call_scenario;
   unsigned int   number;
   unsigned int   tdm_map_number;
 
   int		msg_index;
+  int		zombie;
 
   /* Last message sent from scenario step (retransmitions do not
    * change this index. Only message sent from the scenario
@@ -278,14 +288,6 @@ private:
   BIO       *m_bio     ;
 #endif
 };
-
-/* These are wrappers for various circumstances. */
-call * add_call(int userId, bool ipv6);
-call * add_call(char * call_id , bool ipv6, int userId);
-call * add_call(char * call_id , struct sipp_socket *socket);
-call * add_call(char * call_id , struct sipp_socket *socket, bool isAutomatic);
-/* This is the core function. */
-call * add_call(char * call_id , bool ipv6, int userId, bool isAutomatic);
 
 /* Default Message Functions. */
 void init_default_messages();

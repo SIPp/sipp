@@ -164,6 +164,7 @@ void scenario::expand(int length) {
 /******** Global variables which compose the scenario file **********/
 
 scenario      *main_scenario;
+scenario      *ooc_scenario;
 scenario      *display_scenario;
 
 int           toolMode  = MODE_CLIENT;
@@ -1767,7 +1768,8 @@ char *scenario_table[] = {
 	"3pcc-B",
 	"branchc",
 	"branchs",
-	"uac_pcap"
+	"uac_pcap",
+	"ooc_default",
 };
 
 int find_scenario(const char *scenario) {
@@ -1780,13 +1782,13 @@ int find_scenario(const char *scenario) {
     }
   }
 
+  ERROR("Invalid default scenario name '%s'.\n", scenario);
   return -1;
 }
 
 // TIP: to integrate an existing XML scenario, use the following sed line:
 // cat ../3pcc-controller-B.xml | sed -e 's/\"/\\\"/g' -e 's/\(.*\)/\"\1\\n\"/'
 char * default_scenario [] = {
-  
 /************* Default_scenario[0] ***************/
 (char *)
 "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
@@ -3086,5 +3088,55 @@ char * default_scenario [] = {
 "  <CallLengthRepartition value=\"10, 50, 100, 500, 1000, 5000, 10000\"/>\n"
 "\n"
 "</scenario>\n"
+"\n",
+"<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
+"<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\n"
 "\n"
+"<!-- This program is free software; you can redistribute it and/or      -->\n"
+"<!-- modify it under the terms of the GNU General Public License as     -->\n"
+"<!-- published by the Free Software Foundation; either version 2 of the -->\n"
+"<!-- License, or (at your option) any later version.                    -->\n"
+"<!--                                                                    -->\n"
+"<!-- This program is distributed in the hope that it will be useful,    -->\n"
+"<!-- but WITHOUT ANY WARRANTY; without even the implied warranty of     -->\n"
+"<!-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      -->\n"
+"<!-- GNU General Public License for more details.                       -->\n"
+"<!--                                                                    -->\n"
+"<!-- You should have received a copy of the GNU General Public License  -->\n"
+"<!-- along with this program; if not, write to the                      -->\n"
+"<!-- Free Software Foundation, Inc.,                                    -->\n"
+"<!-- 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA             -->\n"
+"<!--                                                                    -->\n"
+"<!--                 Sipp default 'uas' scenario.                       -->\n"
+"<!--                                                                    -->\n"
+"\n"
+"<scenario name=\"Out-of-call UAS\">\n"
+"  <recv request=\".*\" regexp_match=\"true\" />\n"
+"\n"
+"  <send>\n"
+"    <![CDATA[\n"
+"      SIP/2.0 200 OK\n"
+"      [last_Via:]\n"
+"      [last_From:]\n"
+"      [last_To:]\n"
+"      [last_Call-ID:]\n"
+"      [last_CSeq:]\n"
+"      Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n"
+"      Content-Length: 0\n"
+"\n"
+"    ]]>\n"
+"  </send>\n"
+"\n"
+"  <!-- Keep the call open for a while in case the 200 is lost to be     -->\n"
+"  <!-- able to retransmit it if we receive the BYE again.               -->\n"
+"  <timewait milliseconds=\"4000\"/>\n"
+"\n"
+"\n"
+"  <!-- definition of the response time repartition table (unit is ms)   -->\n"
+"  <ResponseTimeRepartition value=\"10, 20, 30, 40, 50, 100, 150, 200\"/>\n"
+"\n"
+"  <!-- definition of the call length repartition table (unit is ms)     -->\n"
+"  <CallLengthRepartition value=\"10, 50, 100, 500, 1000, 5000, 10000\"/>\n"
+"\n"
+"</scenario>\n",
 };

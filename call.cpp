@@ -65,7 +65,7 @@ void *send_wrapper(void *);
 /************** Call map and management routines **************/
 static unsigned int next_number = 1;
 
-unsigned int get_tdm_map_number(unsigned int number) {
+unsigned int get_tdm_map_number() {
   unsigned int nb = 0;
   unsigned int i=0;
   unsigned int interval=0;
@@ -90,93 +90,13 @@ unsigned int get_tdm_map_number(unsigned int number) {
   } 
 }
 
-call * add_call(char * call_id , bool use_ipv6, int userId)
-{
-  return add_call(call_id, use_ipv6, userId, false /* Is not automatic. */);
-}
-
-call * add_call(char * call_id , bool use_ipv6, int userId, bool isAutomatic)
-{
-  call * new_call;
-  unsigned int tdmNumber;
-
-  if(!next_number) { next_number ++; }
-
-  if (use_tdmmap) {
-    tdmNumber = get_tdm_map_number(next_number);
-    if (tdmNumber != 0) {
-      /* Mark the entry in the list as busy */
-      tdm_map[tdmNumber - 1] = true;
-    } else {
-      /* Can't create the new call */
-      WARNING("Can't create new outgoing call: all tdm_map circuits busy");
-      return NULL;
-    }
-  }
-
-  new_call = new call(call_id, userId, tdmNumber - 1, use_ipv6, isAutomatic);
-
-  if(!new_call) {
-    ERROR("Memory Overflow");
-  }
-
-  /* Statistics update */
-  calls_since_last_rate_change++;
-  total_calls ++;
-
-  return new_call;
-}
-
-call * add_call(char * call_id , struct sipp_socket *socket) {
-  call *new_call = add_call(call_id, socket->ss_ipv6, 0 /* No User. */, false /* Not Auto. */);
-  new_call->associate_socket(socket);
-  return new_call;
-}
-
-call * add_call(char * call_id , struct sipp_socket *socket, bool isAutomatic) {
-  call *new_call = add_call(call_id, socket->ss_ipv6, 0 /* No User. */, isAutomatic);
-  new_call->associate_socket(socket);
-  return new_call;
-}
-
-call * add_call(int userId, bool ipv6)
-{
-  static char call_id[MAX_HEADER_LEN];
-
-  char * src = call_id_string;
-  int count = 0;
-
-  if(!next_number) { next_number ++; }
-
-  while (*src && count < MAX_HEADER_LEN-1) {
-      if (*src == '%') {
-          ++src;
-          switch(*src++) {
-          case 'u':
-              count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1,"%u", next_number);
-              break;
-          case 'p':
-              count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1,"%u", pid);
-              break;
-          case 's':
-              count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1,"%s", local_ip);
-              break;
-          default:      // treat all unknown sequences as %%
-              call_id[count++] = '%';
-              break;
-          }
-      } else {
-        call_id[count++] = *src++;
-      }
-  }
-  call_id[count] = 0;
-
-  return add_call(call_id, ipv6, userId);
-}
-
 /* When should this call wake up? */
 unsigned int call::wake() {
   unsigned int wake = 0;
+
+  if (zombie) {
+    return wake;
+  }
 
   if (paused_until) {
     wake = paused_until;
@@ -360,10 +280,62 @@ unsigned long hash(char * msg) {
 }
 
 /******************* Call class implementation ****************/
+call::call(char * p_id, int userId, bool ipv6, bool isAutomatic) : listener(p_id, true) {
+  init(main_scenario, NULL, p_id, userId, ipv6, isAutomatic);
+}
 
-call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : listener(p_id, true)
+call::call(char *p_id, bool use_ipv6, int userId) : listener(p_id, true) {
+  init(main_scenario, NULL, p_id, userId, use_ipv6, false);
+}
+
+call::call(char *p_id, struct sipp_socket *socket) : listener(p_id, true) {
+  init(main_scenario, socket, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */);
+}
+
+call::call(scenario * call_scenario, struct sipp_socket *socket, char * p_id, int userId, bool ipv6, bool isAutomatic) : listener(p_id, true) {
+  init(call_scenario, socket, p_id, userId, ipv6, isAutomatic);
+}
+
+call *call::add_call(int userId, bool ipv6)
 {
-  call_scenario = main_scenario;
+  static char call_id[MAX_HEADER_LEN];
+
+  char * src = call_id_string;
+  int count = 0;
+
+  if(!next_number) { next_number ++; }
+
+  while (*src && count < MAX_HEADER_LEN-1) {
+      if (*src == '%') {
+          ++src;
+          switch(*src++) {
+          case 'u':
+              count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1,"%u", next_number);
+              break;
+          case 'p':
+              count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1,"%u", pid);
+              break;
+          case 's':
+              count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1,"%s", local_ip);
+              break;
+          default:      // treat all unknown sequences as %%
+              call_id[count++] = '%';
+              break;
+          }
+      } else {
+        call_id[count++] = *src++;
+      }
+  }
+  call_id[count] = 0;
+
+  return new call(main_scenario, NULL, call_id, userId, ipv6, false /* Not Auto. */);
+}
+
+
+void call::init(scenario * call_scenario, struct sipp_socket *socket, char * p_id, int userId, bool ipv6, bool isAutomatic)
+{
+  this->call_scenario = call_scenario;
+  zombie = false;
   msg_index = 0;
   last_send_index = 0;
   last_send_msg = NULL;
@@ -389,16 +361,18 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : l
 
   call_port = 0;
   comp_state = NULL;
-  deleted = 0;
 
   start_time = clock_tick;
   call_established=false ;
-  count_in_stats=true ;
+  if (isAutomatic) {
+    count_in_stats=false ;
+  } else {
+    count_in_stats=true ;
+  }
   ack_is_pending=false ;
   last_recv_msg = NULL;
   cseq = base_cseq;
   nb_last_delay = 0;
-  tdm_map_number = 0;
   use_ipv6 = ipv6;
   
 #ifdef _USE_OPENSSL
@@ -414,6 +388,12 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : l
 #endif
 
   call_remote_socket = NULL;
+  if (socket) {
+    associate_socket(socket);
+    socket->ss_count++;
+  } else {
+    call_socket = NULL;
+  }
   
   // initialising the CallVariable with the Scenario variable
   int i;
@@ -460,6 +440,8 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : l
 	file_it++) {
       (*m_lineNumber)[file_it->first] = file_it->second->nextLine(userId);
     }
+  } else {
+    m_lineNumber = NULL;
   }
 
 #ifdef PCAPPLAY
@@ -476,54 +458,74 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : l
   send_timeout = 0;
   timewait = false;
 
-  tdm_map_number = tdmMap;
-  number = next_number;
-  if (!isAutomatic) {
-    next_number++;
+  number = next_number++;
+  if (use_tdmmap) {
+    tdm_map_number = get_tdm_map_number();
+    if (tdm_map_number == 0) {
+      /* Can't create the new call */
+      WARNING("Can't create new outgoing call: all tdm_map circuits busy");
+      computeStat(CStat::E_CALL_FAILED);
+      computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
+      this->zombie = true;
+      return;
+    }
+    /* Mark the entry in the list as busy */
+    tdm_map[tdm_map_number - 1] = true;
   } else {
-    /* We do not update the call_id counter, for we create here a call */
-    /* to answer to an out of call message */
+    tdm_map_number = 0;
   }
+
   setRunning();
 
   /* Vital counters update */
-  open_calls++;
-  if(open_calls > open_calls_peak) { 
-    open_calls_peak = open_calls;
-    open_calls_peak_time = clock_tick / 1000;
+  if(count_in_stats) {
+    open_calls++;
+    if(open_calls > open_calls_peak) {
+      open_calls_peak = open_calls;
+      open_calls_peak_time = clock_tick / 1000;
+    }
+    total_calls++;
+    calls_since_last_rate_change++;
   }
 }
 
 call::~call()
 {
-  open_calls--;
-  deleted += 1;
+  if (count_in_stats) {
+    open_calls--;
+    computeStat(CStat::E_ADD_CALL_DURATION, clock_tick - start_time);
+  }
 
   if(comp_state) { comp_free(&comp_state); }
 
-  computeStat(CStat::E_ADD_CALL_DURATION, clock_tick - start_time);
 
   if (call_remote_socket) {
     sipp_close_socket(call_remote_socket);
   }
 
   /* Deletion of the call variable */
-  for(int i=0; i<=call_scenario->maxVariableUsed; i++) {
-    if(M_callVariableTable[i] != NULL) {
-      delete M_callVariableTable[i] ;
-      M_callVariableTable[i] = NULL;
+  if(M_callVariableTable) {
+    for(int i=0; i<=call_scenario->maxVariableUsed; i++) {
+      if(M_callVariableTable[i] != NULL) {
+	delete M_callVariableTable[i] ;
+	M_callVariableTable[i] = NULL;
+      }
     }
+    delete M_callVariableTable;
   }
-  if(M_callVariableTable) { delete M_callVariableTable; }
-  delete m_lineNumber;
+  if (m_lineNumber) {
+    delete m_lineNumber;
+  }
   if (userId) {
     freeUsers.push_front(userId);
   }
 
-  for (int i = 0; i < call_scenario->maxTxnUsed; i++) {
-    free(txnID[i]);
+  if (txnID) {
+    for (int i = 0; i < call_scenario->maxTxnUsed; i++) {
+      free(txnID[i]);
+    }
+    free(txnID);
   }
-  free(txnID);
 
   if(last_recv_msg) { free(last_recv_msg); }
   if(last_send_msg) { free(last_send_msg); }
@@ -543,10 +545,9 @@ call::~call()
        free(dialog_authentication);
   }
 #endif
-  call_established= false ;
 
   if (use_tdmmap) {
-    tdm_map[this->tdm_map_number] = false;
+    tdm_map[tdm_map_number] = false;
   }
 }
 
@@ -1253,6 +1254,11 @@ bool call::run()
   int             actionResult = 0;
 
   assert(running);
+
+  if (zombie) {
+    delete this;
+    return false;
+  }
 
   clock_tick = getmilliseconds();
 
@@ -3505,32 +3511,6 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     computeStat(CStat::E_AUTO_ANSWERED);
     return true;
     break;
-
-    case E_AM_OOCALL: // response for an out of call message
-    old_last_recv_msg = NULL;
-    if (last_recv_msg != NULL) {
-      last_recv_msg_saved = true;
-      old_last_recv_msg = (char *) malloc(strlen(last_recv_msg)+1);
-      strcpy(old_last_recv_msg,last_recv_msg);
-    }
-    // usage of last_ keywords
-    last_recv_msg = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
-    strcpy(last_recv_msg, P_recv);
-
-    WARNING("Automatic response mode for an out of call message");
-    sendBuffer(createSendingMessage(get_default_message("200"), -1));
-
-    // restore previous last msg
-    if (last_recv_msg_saved == true) {
-      last_recv_msg = (char *) realloc(last_recv_msg, strlen(old_last_recv_msg) + 1);
-      strcpy(last_recv_msg, old_last_recv_msg);
-      if (old_last_recv_msg != NULL) {
-        free(old_last_recv_msg);
-        old_last_recv_msg = NULL;
-      }
-    }
-    computeStat(CStat::E_AUTO_ANSWERED);
-    return true;
 
     default:
     ERROR("Internal error for automaticResponseMode - mode %d is not implemented!", P_case);

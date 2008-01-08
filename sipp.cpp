@@ -108,6 +108,7 @@ struct sipp_option {
 #define SIPP_OPTION_LONG          29
 #define SIPP_OPTION_LONG_LONG     30
 #define SIPP_OPTION_DEFAULTS      31
+#define SIPP_OPTION_OOC_SCENARIO  32
 
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
@@ -219,6 +220,8 @@ struct sipp_option options_table[] = {
 	{"s", "Set the username part of the resquest URI. Default is 'service'.", SIPP_OPTION_STRING, &service, 1},
 	{"sd", "Dumps a default scenario (embeded in the sipp executable)", SIPP_OPTION_SCENARIO, NULL, 0},
 	{"sf", "Loads an alternate xml scenario file.  To learn more about XML scenario syntax, use the -sd option to dump embedded scenarios. They contain all the necessary help.", SIPP_OPTION_SCENARIO, NULL, 2},
+	{"oocsf", "Load out-of-call scenario.", SIPP_OPTION_OOC_SCENARIO, NULL, 2},
+	{"oocsn", "Load out-of-call scenario.", SIPP_OPTION_OOC_SCENARIO, NULL, 2},
 	{"skip_rlimit", "Do not perform rlimit tuning of file descriptor limits.  Default: false.", SIPP_OPTION_SETFLAG, &skip_rlimit, 1},
 	{"slave", "3pcc extended mode: indicates the slave number", SIPP_OPTION_3PCC_EXTENDED, &slave_number, 1},
 	{"slave_cfg", "3pcc extended mode: indicates the file where the master and slave addresses are stored", SIPP_OPTION_SLAVE_CFG, NULL, 1},
@@ -1578,6 +1581,14 @@ void process_set(char *what) {
     } else {
       rate_scale = drest;
     }
+  } else if (!strcmp(what, "display")) {
+    if (!strcmp(rest, "main")) {
+      display_scenario = main_scenario;
+    } else if (!strcmp(rest, "ooc")) {
+      display_scenario = ooc_scenario;
+    } else {
+	WARNING("Unknown display scenario: %s", rest);
+    }
   } else {
     WARNING("Unknown set attribute: %s", what);
   }
@@ -2834,14 +2845,9 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
       // Adding a new INCOMING call !
       CStat::instance()->computeStat(CStat::E_CREATE_INCOMING_CALL);
 
-      listener_ptr = add_call(call_id, socket);
-      if(!listener_ptr) {
-	outbound_congestion = true;
-	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-	CStat::instance()->computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
-      } else {
-	outbound_congestion = false;
-	socket->ss_count++;
+      listener_ptr = new call(call_id, socket);
+      if (!listener_ptr) {
+	ERROR("Out of memory allocating a call!");
       }
     }
     else if(toolMode == MODE_3PCC_CONTROLLER_B || toolMode == MODE_3PCC_A_PASSIVE
@@ -2850,7 +2856,10 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
       // Adding a new OUTGOING call !
       CStat::instance()->computeStat
 	(CStat::E_CREATE_OUTGOING_CALL);
-      call *new_ptr = add_call(call_id, is_ipv6, 0);
+      call *new_ptr = new call(call_id, is_ipv6, 0);
+      if (!new_ptr) {
+	ERROR("Out of memory allocating a call!");
+      }
       if(!new_ptr) {
 	outbound_congestion = true;
 	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
@@ -2885,24 +2894,23 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
     else // mode != from SERVER and 3PCC Controller B
     {
       // This is a message that is not relating to any known call
-     if (auto_answer == true) {
+      if (auto_answer == true) {
 	// If auto answer mode, try to answer the incoming message
 	// with automaticResponseMode
 	// call is discarded before exiting the block
-      if(!get_reply_code(msg)){ 
-   	  call *call_ptr = add_call(call_id, socket, true);
-   	  if (call_ptr) {
-	        socket->ss_count++;
-		call_ptr->setLastMsg(msg);
-	        call_ptr->automaticResponseMode(call::E_AM_OOCALL, msg);
-	        delete call_ptr;
-	        call_ptr = NULL;
-	        total_calls--;
-      	 }
-        } else{
-          /* We received a response not relating to any known call */
-          /* Do nothing, even if in auto answer mode */
-         }
+	if(!get_reply_code(msg)){
+	  call *call_ptr = new call(ooc_scenario, socket, call_id, 0 /* no user. */, socket->ss_ipv6, true);
+	  if (!call_ptr) {
+	    ERROR("Out of memory allocating a call!");
+	  }
+	  /* The call itself will have no statistics. */
+	  CStat::instance()->computeStat(CStat::E_AUTO_ANSWERED);
+	  call_ptr->process_incoming(msg);
+	} else {
+	  /* We received a response not relating to any known call */
+	  /* Do nothing, even if in auto answer mode */
+	  CStat::instance()->computeStat(CStat::E_OUT_OF_CALL_MSGS);
+	}
       } else {
 	CStat::instance()->computeStat(CStat::E_OUT_OF_CALL_MSGS);
 	WARNING("Discarding message which can't be mapped to a known SIPp call:\n%s", msg);
@@ -3148,34 +3156,32 @@ void traffic_thread()
 
               // adding a new OUTGOING CALL
               CStat::instance()->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-              call * call_ptr = add_call(userid, is_ipv6);
+              call * call_ptr = call::add_call(userid, is_ipv6);
               if(!call_ptr) {
-                outbound_congestion = true;
-                CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-                CStat::instance()->computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
-              } else {
-                 outbound_congestion = false;
+		ERROR("Out of memory allocating call!");
+	      }
 
-		 if (!multisocket) {
-		   switch(transport) {
-		     case T_UDP:
-		       call_ptr->associate_socket(main_socket);
-		       main_socket->ss_count++;
-		       break;
-		     case T_TCP:
-		     case T_TLS:
-		       call_ptr->associate_socket(tcp_multiplex);
-		       tcp_multiplex->ss_count++;
-		       break;
-		   }
-		 }
+	      outbound_congestion = false;
 
-                 call_ptr -> run();
+	      if (!multisocket) {
+		switch(transport) {
+		  case T_UDP:
+		    call_ptr->associate_socket(main_socket);
+		    main_socket->ss_count++;
+		    break;
+		  case T_TCP:
+		  case T_TLS:
+		    call_ptr->associate_socket(tcp_multiplex);
+		    tcp_multiplex->ss_count++;
+		    break;
+		}
+	      }
 
-		 while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
-		   reset_connection(*(sockets_pending_reset.begin()));
-		   sockets_pending_reset.erase(sockets_pending_reset.begin());
-		 }
+	      call_ptr -> run();
+
+	      while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
+		reset_connection(*(sockets_pending_reset.begin()));
+		sockets_pending_reset.erase(sockets_pending_reset.begin());
 	      }
 
 	      new_time = getmilliseconds();
@@ -3185,9 +3191,9 @@ void traffic_thread()
 	      }
             }
 
-          if(open_calls_allowed && (open_calls >= open_calls_allowed)) {
-            set_rate(rate);
-          }
+	  if(open_calls_allowed && (open_calls >= open_calls_allowed)) {
+	    set_rate(rate);
+	  }
         }
 
         // Quit after asked number of calls is reached
@@ -4274,23 +4280,28 @@ int main(int argc, char *argv[])
 	  } else if (!strcmp(argv[argi - 1], "-sn")) {
 	    int i = find_scenario(argv[argi]);
 
-	    if (i < 0) {
-	      ERROR("Invalid default scenario name '%s'.\n", argv[argi]);
-	    }
-
 	    CStat::instance()->setFileName(argv[argi], (char*)".csv");
 	    main_scenario = new scenario(0, i);
 	    scenario_file = new char [strlen(argv[argi])+1] ;
 	    sprintf(scenario_file,"%s", argv[argi]);
 	  } else if (!strcmp(argv[argi - 1], "-sd")) {
 	    int i = find_scenario(argv[argi]);
-
-	    if (i < 0) {
-	      ERROR("Invalid default scenario name '%s'.\n", argv[argi]);
-	    }
-
 	    fprintf(stdout, "%s", default_scenario[i]);
 	    exit(EXIT_OTHER);
+	  } else {
+	    ERROR("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
+	  }
+	  break;
+	case SIPP_OPTION_OOC_SCENARIO:
+	  REQUIRE_ARG();
+	  CHECK_PASS();
+	  REQUIRE_ARG();
+	  CHECK_PASS();
+	  if (!strcmp(argv[argi - 1], "-oocsf")) {
+	    ooc_scenario = new scenario(argv[argi], 0);
+	  } else if (!strcmp(argv[argi - 1], "-oocsn")) {
+	    int i = find_scenario(argv[argi]);
+	    ooc_scenario = new scenario(0, i);
 	  } else {
 	    ERROR("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
 	  }
@@ -4568,6 +4579,9 @@ int main(int argc, char *argv[])
     main_scenario = new scenario(0, 0);
     CStat::instance()->setFileName((char*)"uac", (char*)".csv");
     sprintf(scenario_file,"uac");
+  }
+  if(!ooc_scenario) {
+    ooc_scenario = new scenario(0, find_scenario("ooc_default"));
   }
   display_scenario = main_scenario;
   init_default_messages();
