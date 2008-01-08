@@ -53,9 +53,9 @@
 
 /* Forward declaration of call, so that we can define the call_list iterator
  * that is referenced from call. */
-class call;
+class supercall;
 
-typedef std::list<call *> call_list;
+typedef std::list<supercall *> call_list;
 
 /* This arrangement of wheels lets us support up to 32 bit timers.
  *
@@ -77,8 +77,8 @@ public:
 
 	int expire_paused_calls();
 	/* Add a paused call and increment count. */
-	call_list::iterator add_paused_call(call *call, bool increment);
-	void remove_paused_call(call *call, call_list::iterator it);
+	call_list::iterator add_paused_call(supercall *call, bool increment);
+	void remove_paused_call(supercall *call, call_list::iterator it);
 	int size();
 
 private:
@@ -96,13 +96,13 @@ private:
 	call_list forever_list;
 
 	/* Turn a call into a list (based on wakeup). */
-	call_list *call2list(call *call);
+	call_list *call2list(supercall *call);
 };
 
-class call {
+class supercall {
 public:
-  call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic);
-  ~call();
+  supercall(char *id);
+  virtual ~supercall();
 
   char         * id;
 
@@ -110,8 +110,49 @@ public:
   struct sipp_socket *associate_socket(struct sipp_socket *socket);
   struct sipp_socket *dissociate_socket();
 
-  bool process_incoming(char * msg);
-  bool  process_twinSippCom(char * msg);
+  virtual bool process_incoming(char * msg) = 0;
+  virtual bool  process_twinSippCom(char * msg) = 0;
+
+  virtual bool run() = 0;
+  /* Terminate this call, depending on action results and timewait. */
+  virtual bool terminate(CStat::E_Action reason) = 0;
+
+  /* When should this call wake up? */
+  virtual unsigned int wake() = 0;
+
+  virtual bool  abortCall() = 0;                  // call aborted with BYE or CANCEL
+
+  /* Run and Pause Queue Maintenance. */
+  void add_to_runqueue();
+  bool remove_from_runqueue();
+  void add_to_paused_calls(bool increment);
+protected:
+  /* Is this call paused or running? */
+  bool running;
+  /* If we are running, the iterator to remove us from the running list. */
+  call_list::iterator runit;
+  /* If we are paused, the iterator to remove us from the paused list. */
+  call_list::iterator pauseit;
+
+  /* What socket is this call bound to. */
+  struct sipp_socket *call_socket;
+};
+
+class call : public supercall {
+public:
+  call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic);
+  ~call();
+
+  virtual bool process_incoming(char * msg);
+  virtual bool  process_twinSippCom(char * msg);
+
+  virtual bool run();
+  /* Terminate this call, depending on action results and timewait. */
+  virtual bool terminate(CStat::E_Action reason);
+
+  /* When should this call wake up? */
+  virtual unsigned int wake();
+  virtual bool  abortCall();                  // call aborted with BYE or CANCEL
 
   /* Automatic */
   enum T_AutoMode
@@ -125,23 +166,7 @@ public:
     };
 
   void setLastMsg(const char *msg);
-
   bool  automaticResponseMode(T_AutoMode P_case, char* P_recv);
-
-  bool run();
-  /* Terminate this call, depending on action results and timewait. */
-  bool terminate(CStat::E_Action reason);
-
-  /* When should this call wake up? */
-  unsigned int wake();
-
-  bool  abortCall();                  // call aborted with BYE or CANCEL
-
-  /* Run and Pause Queue Maintenance. */
-  void add_to_runqueue();
-  bool remove_from_runqueue();
-  void add_to_paused_calls(bool increment);
-  void remove_from_paused_calls(bool increment);
 
 private:
   unsigned int   number;
@@ -288,13 +313,6 @@ private:
   /* Associate a user with this call. */
   void setUser(int userId);
 
-  /* Is this call paused or running? */
-  bool running;
-  /* If we are running, the iterator to remove us from the running list. */
-  call_list::iterator runit;
-  /* If we are paused, the iterator to remove us from the paused list. */
-  call_list::iterator pauseit;
-
   /* Is this call just around for final retransmissions. */
   bool timewait;
 
@@ -322,7 +340,6 @@ private:
   int    userId;
 
   bool   use_ipv6;
-  struct sipp_socket *call_socket;
 
   void   get_remote_media_addr(char * message);
 
@@ -334,8 +351,8 @@ private:
 
 /* Call contexts interface */
 
-typedef std::pair<std::string, call *> string_call_pair;
-typedef std::map<std::string, call *> call_map;
+typedef std::pair<std::string, supercall *> string_call_pair;
+typedef std::map<std::string, supercall *> call_map;
 call_map * get_calls();
 call_list * get_running_calls();
 
@@ -347,7 +364,7 @@ call * add_call(char * call_id , struct sipp_socket *socket, bool isAutomatic);
 /* This is the core function. */
 call * add_call(char * call_id , bool ipv6, int userId, bool isAutomatic);
 
-call * get_call(char *);
+supercall * get_call(char *);
 void   delete_call(char *);
 void   delete_calls(void);
 
@@ -358,8 +375,8 @@ typedef std::pair<struct sipp_socket *,call_map *> socket_map_pair;
 
 typedef std::map<struct sipp_socket *, void *> socket_call_map_map;
 call_list *get_calls_for_socket(struct sipp_socket *socket);
-void add_call_to_socket(struct sipp_socket *socket, call *call);
-void remove_call_from_socket(struct sipp_socket *socket, call *call);
+void add_call_to_socket(struct sipp_socket *socket, supercall *call);
+void remove_call_from_socket(struct sipp_socket *socket, supercall *call);
 
 /* Default Message Functions. */
 void init_default_messages();

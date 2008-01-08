@@ -2749,7 +2749,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
     WARNING("SIP message without Call-ID discarded");
     return;
   }
-  call *call_ptr = get_call(call_id);
+  supercall *call_ptr = get_call(call_id);
  
   if (useShortMessagef == 1) {
               struct timeval currentTime;
@@ -2828,7 +2828,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
 	// with automaticResponseMode
 	// call is discarded before exiting the block
       if(!get_reply_code(msg)){ 
-   	  call_ptr = add_call(call_id, socket, true);
+   	  call *call_ptr = add_call(call_id, socket, true);
    	  if (call_ptr) {
 	        socket->ss_count++;
 		call_ptr->setLastMsg(msg);
@@ -3195,7 +3195,7 @@ void traffic_thread()
      * leads to iterate again on the destroyed (deleted)
      * object. Thus, we have to wait ont step befere actual
      * deletion of the object*/
-    call * last = NULL;
+    supercall * last = NULL;
 
     call_list::iterator iter;
     for(iter = running_calls->begin(); iter != running_calls->end(); iter++) {
@@ -4793,7 +4793,7 @@ void reset_connection(struct sipp_socket *socket) {
 void close_calls(struct sipp_socket *socket) {
   call_list * calls = get_calls_for_socket(socket);
   call_list::iterator call_it;
-  call * call_ptr = NULL;
+  supercall * call_ptr = NULL;
 
   for (call_it = calls->begin(); call_it != calls->end(); call_it++) {
     call_ptr = *call_it;

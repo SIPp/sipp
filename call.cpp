@@ -60,7 +60,7 @@ call_map calls;
 call_list running_calls;
 timewheel paused_calls;
 
- socket_call_map_map socket_to_calls;
+socket_call_map_map socket_to_calls;
 
 #ifdef PCAPPLAY
 /* send_packets pthread wrapper */
@@ -100,7 +100,7 @@ unsigned int get_tdm_map_number(unsigned int number) {
   } 
 }
 
-struct sipp_socket *call::associate_socket(struct sipp_socket *socket) {
+struct sipp_socket *supercall::associate_socket(struct sipp_socket *socket) {
   if (socket) {
     this->call_socket = socket;
     add_call_to_socket(socket, this);
@@ -108,7 +108,7 @@ struct sipp_socket *call::associate_socket(struct sipp_socket *socket) {
   return socket;
 }
 
-struct sipp_socket *call::dissociate_socket() {
+struct sipp_socket *supercall::dissociate_socket() {
   struct sipp_socket *ret = this->call_socket;
 
   remove_call_from_socket(this->call_socket, this);
@@ -148,7 +148,7 @@ call * add_call(char * call_id , bool use_ipv6, int userId, bool isAutomatic)
   }
 
   /* All calls must exist in the map. */
-  calls[std::string(call_id)] = new_call;
+  calls.insert(pair<call_map::key_type,supercall *>(call_map::key_type(call_id),new_call));
 
   /* Vital counters update */
   open_calls++;
@@ -212,10 +212,10 @@ call * add_call(int userId, bool ipv6)
   return add_call(call_id, ipv6, userId);
 }
 
-call * get_call(char * call_id)
+supercall * get_call(char * call_id)
 {
 
-  call * call_ptr;
+  supercall * call_ptr;
 
   call_map::iterator call_it ;
   call_it = calls.find(call_map::key_type(call_id));
@@ -226,7 +226,7 @@ call * get_call(char * call_id)
 
 void delete_call(char * call_id)
 {
-  call * call_ptr;
+  supercall * call_ptr;
   call_map::iterator call_it ;
   call_it = calls.find(call_map::key_type(call_id));
   call_ptr = (call_it != calls.end()) ? call_it->second : NULL ;
@@ -240,7 +240,7 @@ void delete_call(char * call_id)
 
 void delete_calls(void)
 {
-  call * call_ptr;
+  supercall * call_ptr;
   
   call_map::iterator call_it ;
   call_it = calls.begin();
@@ -262,17 +262,17 @@ call_list * get_running_calls()
 }
 
 /* Put this call in the run queue. */
-void call::add_to_runqueue() {
+void supercall::add_to_runqueue() {
   this->runit = running_calls.insert(running_calls.end(), this);
   this->running = true;
 }
 
-void call::add_to_paused_calls(bool increment) {
+void supercall::add_to_paused_calls(bool increment) {
   this->pauseit = paused_calls.add_paused_call(this, increment);
 }
 
 /* Remove this call from the run queue. */
-bool call::remove_from_runqueue() {
+bool supercall::remove_from_runqueue() {
   if (!this->running) {
     return false;
   }
@@ -300,7 +300,7 @@ unsigned int call::wake() {
   return wake;
 }
 
-call_list *timewheel::call2list(call *call) {
+call_list *timewheel::call2list(supercall *call) {
   unsigned int wake = call->wake();
   unsigned int wake_sigbits = wake;
   unsigned int base_sigbits = wheel_base;
@@ -381,7 +381,7 @@ int timewheel::expire_paused_calls() {
   return found;
 }
 
-call_list::iterator timewheel::add_paused_call(call *call, bool increment) {
+call_list::iterator timewheel::add_paused_call(supercall *call, bool increment) {
   call_list::iterator call_it;
   call_list *list = call2list(call);
   call_it = list->insert(list->end(), call);
@@ -391,7 +391,7 @@ call_list::iterator timewheel::add_paused_call(call *call, bool increment) {
   return call_it;
 }
 
-void timewheel::remove_paused_call(call *call, call_list::iterator it) {
+void timewheel::remove_paused_call(supercall *call, call_list::iterator it) {
   call_list *list = call2list(call);
   list->erase(it);
   count--;
@@ -429,7 +429,7 @@ call_list *get_calls_for_socket(struct sipp_socket *socket) {
   return l;
 }
 
-void add_call_to_socket(struct sipp_socket *socket, call *call) {
+void add_call_to_socket(struct sipp_socket *socket, supercall *call) {
   socket_call_map_map::iterator map_it = socket_to_calls.find(socket);
   /* No map defined for this socket. */
   if (map_it == socket_to_calls.end()) {
@@ -442,7 +442,7 @@ void add_call_to_socket(struct sipp_socket *socket, call *call) {
  socket_call_map->insert(string_call_pair(call->id, call));
 }
 
-void remove_call_from_socket(struct sipp_socket *socket, call *call) {
+void remove_call_from_socket(struct sipp_socket *socket, supercall *call) {
   socket_call_map_map::iterator map_it = socket_to_calls.find(socket);
   /* We must have  a map for this socket. */
   assert(map_it != socket_to_calls.end());
@@ -628,10 +628,35 @@ unsigned long hash(char * msg) {
 
 /******************* Call class implementation ****************/
 
-call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : use_ipv6(ipv6)
+call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : supercall(p_id)
 {
-  memset(this, 0, sizeof(call));
-  id = strdup(p_id);
+  msg_index = 0;
+  last_send_index = 0;
+  last_send_msg = NULL;
+
+  last_recv_hash = 0;
+  last_recv_index = 0;
+  last_recv_msg = NULL;
+
+  recv_retrans_hash = 0;
+  recv_retrans_recv_index = 0;
+  recv_retrans_send_index = 0;
+
+  dialog_route_set = NULL;
+  next_req_url = NULL;
+
+  cseq = 0;
+
+  next_retrans = 0;
+  nb_retrans = 0;
+  nb_last_delay = 0;
+
+  paused_until = 0;
+
+  call_port = 0;
+  comp_state = NULL;
+  deleted = 0;
+
   start_time = clock_tick;
   call_established=false ;
   count_in_stats=true ;
@@ -640,13 +665,21 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : u
   cseq = base_cseq;
   nb_last_delay = 0;
   tdm_map_number = 0;
+  use_ipv6 = ipv6;
   
 #ifdef _USE_OPENSSL
+  dialog_authentication = NULL;
+  dialog_challenge_type = 0;
+
   m_ctx_ssl = NULL ;
   m_bio = NULL ;
 #endif
 
-  call_remote_socket = 0;
+#ifdef PCAPPLAY
+  hasMediaInformation = 0;
+#endif
+
+  call_remote_socket = NULL;
   
   // initialising the CallVariable with the Scenario variable
   int i;
@@ -740,7 +773,6 @@ call::~call()
     freeUsers.push_front(userId);
   }
 
-  if(id) { free(id); }
   if(last_recv_msg) { free(last_recv_msg); }
   if(last_send_msg) { free(last_send_msg); }
   if(peer_tag) { free(peer_tag); }
@@ -764,12 +796,20 @@ call::~call()
   if (use_tdmmap) {
     tdm_map[this->tdm_map_number] = false;
   }
+}
 
+supercall::supercall(char *id) {
+  this->id = strdup(id);
+}
+
+supercall::~supercall() {
   if (running) {
     remove_from_runqueue();
   } else {
     paused_calls.remove_paused_call(this, this->pauseit);
   }
+  free(id);
+  id = NULL;
 }
 
 bool call::connect_socket_if_needed()
@@ -1389,6 +1429,7 @@ bool call::terminate(CStat::E_Action reason) {
     }
   }
   delete_call(id);
+  //deadcall *deadcall = new deadcall(id, 32000);
 }
 
 bool call::next()
