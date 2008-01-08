@@ -128,6 +128,7 @@ struct sipp_option options_table[] = {
 	{"cp", "Set the local control port number. Default is 8888.", SIPP_OPTION_INT, &control_port, 1},
 
 	{"d", "Controls the length of calls. More precisely, this controls the duration of 'pause' instructions in the scenario, if they do not have a 'milliseconds' section. Default value is 0 and default unit is milliseconds.", SIPP_OPTION_TIME_MS, &duration, 1},
+	{"deadcall_wait", "How long the Call-ID and final status of calls should be kept to improve message and error logs (default unit is ms).", SIPP_OPTION_TIME_MS, &deadcall_wait, 1},
 	{"default_behaviors", "Set the default behaviors that SIPp will use.  Possbile values are:\n"
 		"- all\tUse all default behaviors\n"
 		"- none\tUse no default behaviors\n"
@@ -757,20 +758,23 @@ void print_stats_in_file(FILE * f, int last)
 	 last_running_calls, last_paused_calls, last_woken_calls);
   last_woken_calls = 0;
 
-  /* 3rd line (optional) */
+  /* 3rd line dead call msgs, and optional out-of-call msg */
+  sprintf(temp_str,"%d dead call msg (discarded)", 
+      CStat::instance()->GetStat(CStat::CPT_C_DeadCallMsgs));
+  fprintf(f,"  %-37s", temp_str);
   if( toolMode != MODE_SERVER) { 
     sprintf(temp_str,"%d out-of-call msg (discarded)", 
-            nb_out_of_the_blue);
+            CStat::instance()->GetStat(CStat::CPT_C_OutOfCallMsgs));
     fprintf(f,"  %-37s", temp_str);
   }
+  fprintf(f,SIPP_ENDL);
+
   if(compression) {
     fprintf(f,"  Comp resync: %d sent, %d recv" , 
            resynch_send, resynch_recv);
-  }
-  if(compression || (toolMode != MODE_SERVER)) {
     fprintf(f,SIPP_ENDL);
   }
-  
+
   /* 4th line , sockets and optional errors */ 
   sprintf(temp_str,"%d open sockets", 
           pollnfds);
@@ -2763,7 +2767,6 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
     if(toolMode == MODE_SERVER)
     {
       if (quitting >= 1) {
-	nb_out_of_the_blue++;
 	CStat::instance()->computeStat(CStat::E_OUT_OF_CALL_MSGS);
 	TRACE_MSG((s,"Discarded message for new calls while quitting\n"));
 	return;
@@ -2842,9 +2845,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
           /* Do nothing, even if in auto answer mode */
          }
       } else {
-	nb_out_of_the_blue++;
-	CStat::instance()->computeStat
-	  (CStat::E_OUT_OF_CALL_MSGS);
+	CStat::instance()->computeStat(CStat::E_OUT_OF_CALL_MSGS);
 	WARNING_P1("Discarding message which can't be mapped to a known SIPp call:\n%s", msg);
       }
     }

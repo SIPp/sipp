@@ -46,6 +46,7 @@
 #include "send_packets.h"
 #endif
 #include "sipp.hpp"
+#include "deadcall.hpp"
 #include "assert.h"
 
 #ifdef _USE_OPENSSL
@@ -150,17 +151,9 @@ call * add_call(char * call_id , bool use_ipv6, int userId, bool isAutomatic)
   /* All calls must exist in the map. */
   calls.insert(pair<call_map::key_type,supercall *>(call_map::key_type(call_id),new_call));
 
-  /* Vital counters update */
-  open_calls++;
-
   /* Statistics update */
   calls_since_last_rate_change++;
   total_calls ++;
-
-  if(open_calls > open_calls_peak) { 
-    open_calls_peak = open_calls;
-    open_calls_peak_time = clock_tick / 1000;
-  }
 
   return new_call;
 }
@@ -234,7 +227,6 @@ void delete_call(char * call_id)
   if(call_ptr) {
     calls.erase(call_it);
     delete call_ptr;
-    open_calls--;
   }
 }
 
@@ -685,6 +677,8 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : s
   int i;
   if (maxVariableUsed >= 0) {
 	M_callVariableTable = new CCallVariable *[maxVariableUsed + 1];
+  } else {
+	M_callVariableTable = NULL;
   }
   for(i=0; i<=maxVariableUsed; i++)
   {
@@ -742,10 +736,18 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : s
     /* to answer to an out of call message */
   }
   add_to_runqueue();
+
+  /* Vital counters update */
+  open_calls++;
+  if(open_calls > open_calls_peak) { 
+    open_calls_peak = open_calls;
+    open_calls_peak_time = clock_tick / 1000;
+  }
 }
 
 call::~call()
 {
+  open_calls--;
   deleted += 1;
 
   if(comp_state) { comp_free(&comp_state); }
@@ -1402,16 +1404,27 @@ void call::do_bookkeeping(int index) {
 }
 
 bool call::terminate(CStat::E_Action reason) {
+  char reason_str[100];
+  deadcall *deadcall_ptr = NULL;
+
   // Call end -> was it successful?
   if(call::last_action_result != call::E_AR_NO_ERROR) {
     switch(call::last_action_result) {
       case call::E_AR_REGEXP_DOESNT_MATCH:
 	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
 	CStat::instance()->computeStat(CStat::E_FAILED_REGEXP_DOESNT_MATCH);
+	if (deadcall_wait) {
+	  sprintf(reason_str, "regexp match failure at index %d", msg_index);
+	  deadcall_ptr = new deadcall(id, reason_str);
+	}
 	break;
       case call::E_AR_HDR_NOT_FOUND:
 	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
 	CStat::instance()->computeStat(CStat::E_FAILED_REGEXP_HDR_NOT_FOUND);
+	if (deadcall_wait) {
+	  sprintf(reason_str, "regexp header not found at index %d", msg_index);
+	  deadcall_ptr = new deadcall(id, reason_str);
+	}
 	break;
       case call::E_AR_NO_ERROR:
       case call::E_AR_STOP_CALL:
@@ -1421,15 +1434,24 @@ bool call::terminate(CStat::E_Action reason) {
   } else {
     if (reason == CStat::E_CALL_SUCCESSFULLY_ENDED || timewait) {
       CStat::instance()->computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
+	if (deadcall_wait) {
+	  deadcall_ptr = new deadcall(id, "successful");
+	}
     } else {
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
       if (reason != CStat::E_NO_ACTION) {
 	CStat::instance()->computeStat(reason);
       }
+      if (deadcall_wait) {
+	sprintf(reason_str, "failed at index %d", msg_index);
+	deadcall_ptr = new deadcall(id, reason_str);
+      }
     }
   }
   delete_call(id);
-  //deadcall *deadcall = new deadcall(id, 32000);
+  if(deadcall_ptr) {
+    calls.insert(pair<call_map::key_type,supercall *>(call_map::key_type(deadcall_ptr->id),deadcall_ptr));
+  }
 }
 
 bool call::next()
@@ -1954,7 +1976,7 @@ bool call::abortCall()
           ack_is_pending = false;
           /* Send an ACK */
 	  sendBuffer(createSendingMessage(get_default_message("ack"), -1));
-          
+
           /* Send the BYE */
 	  sendBuffer(createSendingMessage(get_default_message("bye"), -1));
         } else {
@@ -1981,7 +2003,16 @@ bool call::abortCall()
     }
   }
 
+  deadcall *deadcall_ptr = NULL;
+  if (deadcall_wait) {
+    char reason[100];
+    sprintf(reason, "aborted at index %d", msg_index);
+    deadcall_ptr = new deadcall(id, reason);
+  }
   delete_call(id);
+  if (deadcall_ptr) {
+    calls.insert(pair<call_map::key_type,supercall *>(call_map::key_type(deadcall_ptr->id),deadcall_ptr));
+  }
   return false;
 }
 

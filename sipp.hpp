@@ -158,6 +158,7 @@
 #define DEFAULT_FREQ_DUMP_RTT        200
 #define DEFAULT_MAX_MULTI_SOCKET     50000
 #define DEFAULT_CTRL_SOCKET_PORT     8888
+#define DEFAULT_DEADCALL_WAIT	     33000
 
 #define DEFAULT_BEHAVIOR_NONE	     0
 #define DEFAULT_BEHAVIOR_BYE	     1
@@ -185,6 +186,7 @@ extern int                max_udp_retrans         _DEFVAL(UDP_MAX_RETRANS);
 extern int                max_invite_retrans      _DEFVAL(UDP_MAX_RETRANS_INVITE_TRANSACTION);
 extern int                max_non_invite_retrans  _DEFVAL(UDP_MAX_RETRANS_NON_INVITE_TRANSACTION);
 extern unsigned long      default_behaviors       _DEFVAL(DEFAULT_BEHAVIOR_ALL);
+extern unsigned long	  deadcall_wait		  _DEFVAL(DEFAULT_DEADCALL_WAIT);
 extern bool               pause_msg_ign           _DEFVAL(0);
 extern int                auto_answer             _DEFVAL(0);
 extern int                multisocket             _DEFVAL(0);
@@ -321,7 +323,6 @@ extern bool          outbound_congestion          _DEFVAL(false);
 extern unsigned int  open_calls_peak              _DEFVAL(0);
 extern unsigned long open_calls_peak_time         _DEFVAL(0);
 extern int           open_calls_user_setting      _DEFVAL(0);
-extern int           nb_out_of_the_blue           _DEFVAL(0);
 extern int           resynch_send                 _DEFVAL(0);
 extern int           resynch_recv                 _DEFVAL(0);
 extern unsigned long rtp_pckts                    _DEFVAL(0);

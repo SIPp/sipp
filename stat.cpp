@@ -640,6 +640,12 @@ int CStat::computeStat (E_Action P_action)
       M_counters [CPT_PL_OutOfCallMsgs]++;
       break;
 
+    case E_DEAD_CALL_MSGS :
+      M_counters [CPT_C_DeadCallMsgs]++;
+      M_counters [CPT_PD_DeadCallMsgs]++;
+      M_counters [CPT_PL_DeadCallMsgs]++;
+      break;
+
     case E_RETRANSMISSION :
       M_counters [CPT_C_Retransmissions]++;
       M_counters [CPT_PD_Retransmissions]++;
@@ -1297,6 +1303,8 @@ void CStat::dumpData ()
                       << "FailedTimeoutOnSend(C)" << stat_delimiter
                       << "OutOfCallMsgs(P)" << stat_delimiter
                       << "OutOfCallMsgs(C)" << stat_delimiter
+                      << "DeadCallMsgs(P)" << stat_delimiter
+                      << "DeadCallMsgs(C)" << stat_delimiter
                       << "Retransmissions(P)" << stat_delimiter
                       << "Retransmissions(C)" << stat_delimiter
                       << "AutoAnswered(P)" << stat_delimiter
@@ -1394,6 +1402,8 @@ void CStat::dumpData ()
                     << M_counters[CPT_C_FailedTimeoutOnSend]            << stat_delimiter
                     << M_counters[CPT_PL_OutOfCallMsgs]                 << stat_delimiter
                     << M_counters[CPT_C_OutOfCallMsgs]                  << stat_delimiter
+                    << M_counters[CPT_PL_DeadCallMsgs]                 << stat_delimiter
+                    << M_counters[CPT_C_DeadCallMsgs]                  << stat_delimiter
                     << M_counters[CPT_PL_Retransmissions]               << stat_delimiter
                     << M_counters[CPT_C_Retransmissions]                << stat_delimiter
                     << M_counters[CPT_PL_AutoAnswered]                  << stat_delimiter
