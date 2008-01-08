@@ -434,33 +434,6 @@ extern char * slave_cfg_file;
 
 extern char   screen_last_error[32768];
 
-#define TRACE_MSG(arg)      \
-{                           \
-  if(messagef) {            \
-    FILE * s = messagef;    \
-    fprintf arg;            \
-    fflush(messagef);       \
-  }                         \
-}
-
-#define TRACE_SHORTMSG(arg)  \
-{                            \
-  if(shortmessagef) {        \
-    FILE * s = shortmessagef;\
-    fprintf arg;             \
-    fflush(shortmessagef);   \
-  }                          \
-}
-
-#define LOG_MSG(arg)        \
-{                           \
-  if(logfile) {             \
-    FILE * s = logfile;     \
-    fprintf arg;            \
-    fflush(logfile);        \
-  }                         \
-}
-
 // TODO: finish the -trace_timeout option implementation
 
 /* #define TRACE_TIMEOUT(arg)  \
@@ -586,6 +559,17 @@ void free_peer_addr_map();
 
 #ifdef GLOBALS_FULL_DEFINITION
 #undef extern
+#endif
+
+/* THis must go after the GLOBALS_FULL_DEFINITION, because we need the extern keyword. */
+#ifdef __cplusplus
+extern "C" {
+#endif
+int TRACE_MSG(char *fmt, ...);
+int TRACE_SHORTMSG(char *fmt, ...);
+int LOG_MSG(char *fmt, ...);
+#ifdef __cplusplus
+}
 #endif
 
 #endif // __SIPP__

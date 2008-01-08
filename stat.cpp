@@ -431,7 +431,7 @@ void CStat::setRepartitionCallLength(char * P_listeStr)
                     &M_CallLengthRepartition, 
                     &M_SizeOfCallLengthRepartition);
   } else {
-    ERROR_P1("Could not create table for call length repartition '%s'\n", P_listeStr);
+    ERROR("Could not create table for call length repartition '%s'\n", P_listeStr);
   }
   delete [] listeInteger;
   listeInteger = NULL;
@@ -450,7 +450,7 @@ void CStat::setRepartitionResponseTime (char * P_listeStr)
 	  &M_ResponseTimeRepartition[i],
 	  &M_SizeOfResponseTimeRepartition);
     } else {
-      ERROR_P1("Could not create table for response time repartition '%s'\n", P_listeStr);
+      ERROR("Could not create table for response time repartition '%s'\n", P_listeStr);
     }
   }
   delete [] listeInteger;
@@ -681,7 +681,7 @@ int CStat::computeStat (E_Action P_action)
       break;
      
     default :
-      ERROR_P1("CStat::ComputeStat() - Unrecognized Action %d\n", P_action);
+      ERROR("CStat::ComputeStat() - Unrecognized Action %d\n", P_action);
       return (-1);
     } /* end switch */
   return (0);
@@ -808,7 +808,7 @@ int CStat::computeStat (E_Action P_action,
       break;
 
     default :
-      ERROR_P1("CStat::ComputeStat() - Unrecognized Action %d\n", P_action);
+      ERROR("CStat::ComputeStat() - Unrecognized Action %d\n", P_action);
       return (-1);
     } /* end switch */
   return (0);

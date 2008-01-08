@@ -29,38 +29,15 @@
 #include <stdio.h>
 
 #ifdef __cplusplus
-extern "C"
+extern "C" {
 #endif
-void _screen_error(char *s, int fatal);
-
-extern char _screen_err[32768];
-
-#define OUTPUT_P3(s, p1, p2, p3, fatal) {     \
-  sprintf(_screen_err, s, p1, p2, p3);        \
-  _screen_error((char *)_screen_err , fatal); \
+  int ERROR(const char *fmt, ...);
+  int WARNING(const char *fmt, ...);
+  int ERROR_NO(const char *fmt, ...);
+  int WARNING_NO(const char *fmt, ...);
+#ifdef __cplusplus
 }
-#define OUTPUT_P2(s, p1, p2, fatal) {     \
-  sprintf(_screen_err, s, p1, p2);        \
-  _screen_error((char *)_screen_err , fatal); \
-}
-#define OUTPUT_P1(s, p1, fatal) {     \
-  sprintf(_screen_err, s, p1);        \
-  _screen_error((char *)_screen_err , fatal); \
-}
-
-#define ERROR_P3(s, p1, p2, p3) OUTPUT_P3(s, p1, p2, p3, 1)
-#define ERROR_P2(s, p1, p2)     OUTPUT_P2(s, p1, p2, 1)
-#define ERROR_P1(s, p)          OUTPUT_P1(s, p, 1)
-#define ERROR(s)                ERROR_P1("%s", s)
-#define ERROR_NO(s) \
-        ERROR_P3("%s, errno = %d (%s)", s, errno, strerror(errno))
-
-#define WARNING_P3(s, p1, p2, p3) OUTPUT_P3(s, p1, p2, p3, 0)
-#define WARNING_P2(s, p1, p2)     OUTPUT_P2(s, p1, p2, 0)
-#define WARNING_P1(s, p)          OUTPUT_P1(s, p, 0)
-#define WARNING(s)                WARNING_P1("%s", s)
-#define WARNING_NO(s) \
-        WARNING_P3("%s, errno = %d (%s)", s, errno, strerror(errno))
+#endif
 
 #define EXIT_TEST_OK               0
 #define EXIT_TEST_FAILED           1

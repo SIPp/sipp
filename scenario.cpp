@@ -162,7 +162,7 @@ long get_long(const char *ptr, const char *what) {
 
   ret = strtol(ptr, &endptr, 0);
   if (*endptr) {
-    ERROR_P2("%s, \"%s\" is not a valid integer!\n", what, ptr);
+    ERROR("%s, \"%s\" is not a valid integer!\n", what, ptr);
   }
   return ret;
 }
@@ -179,7 +179,7 @@ long get_time(const char *ptr, const char *what, int multiplier) {
   int i;
 
   if (!isdigit(*ptr)) {
-    ERROR_P2("%s, \"%s\" is not a valid time!\n", what, ptr);
+    ERROR("%s, \"%s\" is not a valid time!\n", what, ptr);
   }
 
   for (i = 0, p = ptr; *p; p++) {
@@ -189,12 +189,12 @@ long get_time(const char *ptr, const char *what, int multiplier) {
   }
 
   if (i == 1) { /* mm:ss */
-    ERROR_P2("%s, \"%s\" mm:ss not implemented yet!\n", what, ptr);
+    ERROR("%s, \"%s\" mm:ss not implemented yet!\n", what, ptr);
   }
   else if (i == 2) { /* hh:mm:ss */
-    ERROR_P2("%s, \"%s\" hh:mm:ss not implemented yet!\n", what, ptr);
+    ERROR("%s, \"%s\" hh:mm:ss not implemented yet!\n", what, ptr);
   } else if (i != 0) {
-    ERROR_P2("%s, \"%s\" is not a valid time!\n", what, ptr);
+    ERROR("%s, \"%s\" is not a valid time!\n", what, ptr);
   }
 
   dret = strtod(ptr, &endptr);
@@ -208,7 +208,7 @@ long get_time(const char *ptr, const char *what, int multiplier) {
     } else if (!strcmp(endptr, "h")) { /* Hours. */
 	ret = (long)(dret * 60 * 60 * 1000);
     } else {
-      ERROR_P2("%s, \"%s\" is not a valid time!\n", what, ptr);
+      ERROR("%s, \"%s\" is not a valid time!\n", what, ptr);
     }
   } else {
     ret = (long)(dret * multiplier);
@@ -222,7 +222,7 @@ double get_double(const char *ptr, const char *what) {
 
   ret = strtod(ptr, &endptr);
   if (*endptr) {
-    ERROR_P2("%s, \"%s\" is not a floating point number!\n", what, ptr);
+    ERROR("%s, \"%s\" is not a floating point number!\n", what, ptr);
   }
   return ret;
 }
@@ -231,7 +231,7 @@ char * xp_get_string(const char *name, const char *what) {
   char *ptr;
 
   if (!(ptr = xp_get_value(name))) {
-    ERROR_P2("%s is missing the required '%s' parameter.", what, name);
+    ERROR("%s is missing the required '%s' parameter.", what, name);
   }
 
   return strdup(ptr);
@@ -243,7 +243,7 @@ double xp_get_double(const char *name, const char *what) {
   double val;
 
   if (!(ptr = xp_get_value(name))) {
-    ERROR_P2("%s is missing the required '%s' parameter.", what, name);
+    ERROR("%s is missing the required '%s' parameter.", what, name);
   }
   helptext = (char *)malloc(100 + strlen(name) + strlen(what));
   sprintf(helptext, "%s '%s' parameter", what, name);
@@ -266,7 +266,7 @@ long xp_get_long(const char *name, const char *what) {
   long val;
 
   if (!(ptr = xp_get_value(name))) {
-    ERROR_P2("%s is missing the required '%s' parameter.", what, name);
+    ERROR("%s is missing the required '%s' parameter.", what, name);
   }
   helptext = (char *)malloc(100 + strlen(name) + strlen(what));
   sprintf(helptext, "%s '%s' parameter", what, name);
@@ -290,7 +290,7 @@ double xp_get_bool(const char *name, const char *what) {
   bool val;
 
   if (!(ptr = xp_get_value(name))) {
-    ERROR_P2("%s is missing the required '%s' parameter.", what, name);
+    ERROR("%s is missing the required '%s' parameter.", what, name);
   }
   helptext = (char *)malloc(100 + strlen(name) + strlen(what));
   sprintf(helptext, "%s '%s' parameter", what, name);
@@ -310,10 +310,10 @@ double xp_get_bool(const char *name, const char *what, bool defval) {
 int get_var(const char *varName, const char *what) {
   /* Check the name's validity. */
   if (varName[0] == '\0') {
-    ERROR_P1("Variable names may not be empty for %s\n", what);
+    ERROR("Variable names may not be empty for %s\n", what);
   }
   if (strcspn(varName, "$,") != strlen(varName)) {
-    ERROR_P1("Variable names may not contain $ or , for %s\n", what);
+    ERROR("Variable names may not contain $ or , for %s\n", what);
   }
 
   /* If this variable has already been used, then we have nothing to do. */
@@ -368,7 +368,7 @@ int xp_get_var(const char *name, const char *what) {
   char *helptext;
 
   if (!(ptr = xp_get_value(name))) {
-    ERROR_P2("%s is missing the required '%s' variable parameter.", what, name);
+    ERROR("%s is missing the required '%s' variable parameter.", what, name);
   }
 
   return get_var(ptr, what);
@@ -398,7 +398,7 @@ bool get_bool(const char *ptr, const char *what) {
 
   ret = strtol(ptr, &endptr, 0);
   if (*endptr) {
-    ERROR_P2("%s, \"%s\" is not a valid boolean!\n", what, ptr);
+    ERROR("%s, \"%s\" is not a valid boolean!\n", what, ptr);
   }
   return ret ? true : false;
 }
@@ -479,11 +479,11 @@ int get_rtd(const char *ptr) {
 
   ret = strtol(ptr, &endptr, 0);
   if (*endptr) {
-    ERROR_P1("rtd \"%s\" is not a valid integer!\n", ptr);
+    ERROR("rtd \"%s\" is not a valid integer!\n", ptr);
   }
 
   if (ret > MAX_RTD_INFO_LENGTH) {
-    ERROR_P2("rtd %d exceeds MAX_RTD_INFO_LENGTH %d!\n", ret, MAX_RTD_INFO_LENGTH);
+    ERROR("rtd %d exceeds MAX_RTD_INFO_LENGTH %d!\n", ret, MAX_RTD_INFO_LENGTH);
   }
 
   return ret;
@@ -495,7 +495,7 @@ long get_counter(const char *ptr, const char *what) {
 
   ret = get_long(ptr, what);
   if (ret < 1 || ret > MAX_COUNTER) {
-    ERROR_P2("Counter %ld exceeds MAX_COUNTER %d!\n", ret, MAX_COUNTER);
+    ERROR("Counter %ld exceeds MAX_COUNTER %d!\n", ret, MAX_COUNTER);
   }
 
   return ret;
@@ -508,7 +508,7 @@ long get_counter(const char *ptr, const char *what) {
 void validate_rtds() {
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     if (rtd_started[i] && !rtd_stopped[i]) {
-      ERROR_P1("You have started Response Time Duration %d, but have never stopped it!", i + 1);
+      ERROR("You have started Response Time Duration %d, but have never stopped it!", i + 1);
     }
   }
 }
@@ -516,7 +516,7 @@ void validate_rtds() {
 void validate_variable_usage() {
   for (int i = 1; i <= maxVariableUsed; i++) {
     if(variableReferences[i] == 1) {
-	ERROR_P1("Variable $%s is referenced only once!\n", variableRevMap[i]);
+	ERROR("Variable $%s is referenced only once!\n", variableRevMap[i]);
     }
   }
 }
@@ -527,14 +527,14 @@ void apply_labels() {
     if (nextLabels[i]) {
       var_map::iterator label_it = labelMap.find(nextLabels[i]);
       if (label_it == labelMap.end()) {
-	ERROR_P2("The label '%s' was not defined (index %d, next attribute)\n", nextLabels[i], i);
+	ERROR("The label '%s' was not defined (index %d, next attribute)\n", nextLabels[i], i);
       }
       scenario[i]->next = label_it->second;
     }
     if (ontimeoutLabels[i]) {
       var_map::iterator label_it = labelMap.find(ontimeoutLabels[i]);
       if (label_it == labelMap.end()) {
-	ERROR_P2("The label '%s' was not defined (index %d, ontimeout attribute)\n", ontimeoutLabels[i], i);
+	ERROR("The label '%s' was not defined (index %d, ontimeout attribute)\n", ontimeoutLabels[i], i);
       }
       scenario[i]->on_timeout = label_it->second;
     }
@@ -629,7 +629,7 @@ void load_scenario(char * filename, int deflt)
 
   if(filename) {
     if(!xp_set_xml_buffer_from_file(filename)) {
-      ERROR_P1("Unable to load or parse '%s' xml scenario file", filename);
+      ERROR("Unable to load or parse '%s' xml scenario file", filename);
     }
   } else {
     if(!xp_set_xml_buffer_from_string(default_scenario[deflt])) {
@@ -677,7 +677,7 @@ void load_scenario(char * filename, int deflt)
     } else if(!strcmp(elem, "label")) {
       ptr = xp_get_value((char *)"id");
       if (labelMap.find(ptr) != labelMap.end()) {
-	ERROR_P1("The label name '%s' is used twice.", ptr);
+	ERROR("The label name '%s' is used twice.", ptr);
       }
       labelMap[ptr] = ::scenario_len;
     } else { /** Message Case */
@@ -693,7 +693,7 @@ void load_scenario(char * filename, int deflt)
             recv_count = 0;
             recv_opt_count = 0;
           } else {
-            ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
+            ERROR("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
           }
         }
 
@@ -719,7 +719,7 @@ void load_scenario(char * filename, int deflt)
 	    bytesToCopy++;
 	  }
 	  if (method_list_length + bytesToCopy + 1 > METHOD_LIST_LENGTH) {
-	    ERROR_P2("METHOD_LIST_LENGTH in scenario.hpp is too small (currently %d, need at least %d). Please modify and recompile.",
+	    ERROR("METHOD_LIST_LENGTH in scenario.hpp is too small (currently %d, need at least %d). Please modify and recompile.",
 		METHOD_LIST_LENGTH,
 		method_list_length + bytesToCopy + 1);
 	  }
@@ -822,12 +822,12 @@ void load_scenario(char * filename, int deflt)
           } else if(!strcmp(ptr, "false")) {
             scenario[scenario_len] -> optional = OPTIONAL_FALSE;
           } else {
-	    ERROR_P1("Could not understand optional value: %s", ptr);
+	    ERROR("Could not understand optional value: %s", ptr);
 	  }
         }
 	scenario[scenario_len]->advance_state = xp_get_bool("advance_state", "recv", true);
 	if (!scenario[scenario_len]->advance_state && scenario[scenario_len]->optional == OPTIONAL_FALSE) {
-	  ERROR_P1("advance_state is allowed only for optional messages (index = %d)\n", scenario_len);
+	  ERROR("advance_state is allowed only for optional messages (index = %d)\n", scenario_len);
 	}
 
         if (0 != (ptr = xp_get_value((char *)"regexp_match"))) {
@@ -863,7 +863,7 @@ void load_scenario(char * filename, int deflt)
             recv_count = 0;
             recv_opt_count = 0;
           } else {
-            ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
+            ERROR("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
           }
         }
         scenario[scenario_len]->M_type = MSG_TYPE_PAUSE;
@@ -888,7 +888,7 @@ void load_scenario(char * filename, int deflt)
 	    distribution->timeDescr(desc, sizeof(desc));
 	    time_string(pause_duration, percentile, sizeof(percentile));
 
-	    ERROR_P2("The distribution %s has a 99th percentile of %s, which is larger than INT_MAX.  You should chose different parameters.", desc, percentile);
+	    ERROR("The distribution %s has a 99th percentile of %s, which is larger than INT_MAX.  You should chose different parameters.", desc, percentile);
 	  }
 
 	  scenario[scenario_len]->pause_distribution = distribution;
@@ -932,7 +932,7 @@ void load_scenario(char * filename, int deflt)
             recv_count = 0;
             recv_opt_count = 0;
           } else {
-            ERROR_P1("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
+            ERROR("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
           }
         }
         scenario[scenario_len]->M_type = MSG_TYPE_SENDCMD;
@@ -964,7 +964,7 @@ void load_scenario(char * filename, int deflt)
 	free(msg);
       }
       else {
-        ERROR_P1("Unknown element '%s' in xml scenario file", elem);
+        ERROR("Unknown element '%s' in xml scenario file", elem);
       }
     
       if(ptr = xp_get_value((char *)"lost")) {
@@ -991,7 +991,7 @@ void load_scenario(char * filename, int deflt)
 	  float chance = get_double(ptr,"chance");
 	  /* probability of branch to next */
 	  if (( chance < 0.0 ) || (chance > 1.0 )) {
-	    ERROR_P1("Chance %s not in range [0..1]", ptr);
+	    ERROR("Chance %s not in range [0..1]", ptr);
 	  }
 	  scenario[scenario_len] -> chance = (int)((1.0-chance)*RAND_MAX);
 	}
@@ -1108,10 +1108,10 @@ CSample *parse_distribution(bool oldstyle = false) {
       || !strcmp(distname, "gamma")
       || !strcmp(distname, "negbin")
       || !strcmp(distname, "weibull")) {
-    ERROR_P1("The distribution '%s' is only available with GSL.", distname);
+    ERROR("The distribution '%s' is only available with GSL.", distname);
 #endif
   } else {
-    ERROR_P1("Unknown distribution: %s\n", ptr);
+    ERROR("Unknown distribution: %s\n", ptr);
   }
 
   return distribution;
@@ -1148,7 +1148,7 @@ void parse_slave_cfg()
        }
      }
    }else{
-     ERROR_P1("Can not open slave_cfg file %s\n", slave_cfg_file);
+     ERROR("Can not open slave_cfg file %s\n", slave_cfg_file);
      }
 
 }
@@ -1248,15 +1248,15 @@ void handle_arithmetic(CAction *tmpAction, char *what) {
   if (xp_get_value("value")) {
     tmpAction->setDoubleValue(xp_get_double("value", what));
     if (xp_get_value("variable")) {
-      ERROR_P1("Value and variable are mutually exclusive for %s action!", what);
+      ERROR("Value and variable are mutually exclusive for %s action!", what);
     }
   } else if (xp_get_value("variable")) {
     tmpAction->setVarInId(xp_get_var("variable", what));
     if (xp_get_value("value")) {
-      ERROR_P1("Value and variable are mutually exclusive for %s action!", what);
+      ERROR("Value and variable are mutually exclusive for %s action!", what);
     }
   } else {
-    ERROR_P1("No value or variable defined for %s action!", what);
+    ERROR("No value or variable defined for %s action!", what);
   }
 }
 
@@ -1370,7 +1370,7 @@ void getActionForThisMessage()
       scenVariableTable[varId][scenario_len] = new CVariable(currentRegExp);
 
       if(!(scenVariableTable[varId][scenario_len]->isRegExpWellFormed()))
-	ERROR_P1("Regexp '%s' is not valid in xml "
+	ERROR("Regexp '%s' is not valid in xml "
 	    "scenario file", currentRegExp);
 
       if (currentNbVarNames > 1 ) {
@@ -1390,7 +1390,7 @@ void getActionForThisMessage()
 	  scenVariableTable[varId][scenario_len] = new CVariable(currentRegExp);
 
 	  if(!(scenVariableTable[varId][scenario_len]->isRegExpWellFormed()))
-	    ERROR_P1("Regexp '%s' is not valid in xml "
+	    ERROR("Regexp '%s' is not valid in xml "
 		"scenario file", currentRegExp);
 	}
       }
@@ -1464,7 +1464,7 @@ void getActionForThisMessage()
       } else if (!strcmp(ptr, "less_than_equal")) {
 	tmpAction->setComparator(CAction::E_C_LEQ);
       } else {
-	ERROR_P1("Invalid 'compare' parameter: %s", ptr);
+	ERROR("Invalid 'compare' parameter: %s", ptr);
       }
     } else if(!strcmp(actionElem, "strcmp")) {
       tmpAction->setVarId(xp_get_var("assign_to", "strcmp"));
@@ -1512,7 +1512,7 @@ void getActionForThisMessage()
 	ERROR("illegal <exec> in the scenario\n");
       }
     } else {
-      ERROR_P1("Unknown action: %s", actionElem);
+      ERROR("Unknown action: %s", actionElem);
     }
 
     /* If the action was not well-formed, there should have already been an

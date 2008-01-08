@@ -218,7 +218,7 @@ send_packets (play_args_t * play_args)
 #endif
     if (ret < 0) {
       close(sock);
-      WARNING_P1("send_packets.c: sendto failed with error: %s", strerror(errno));
+      WARNING("send_packets.c: sendto failed with error: %s", strerror(errno));
       return( -1);
     }
 

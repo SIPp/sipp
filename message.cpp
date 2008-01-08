@@ -184,7 +184,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
         }
 
 	if((!key) || ((key - src) > KEYWORD_SIZE) || (!(key - src))){
-          ERROR_P1("Syntax error or invalid [keyword] in scenario while parsing '%s'", current_line);
+          ERROR("Syntax error or invalid [keyword] in scenario while parsing '%s'", current_line);
         }
         memcpy(keyword, src,  key - src);
 	keyword[key - src] = 0;
@@ -231,7 +231,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	    newcomp->comp_param.field_param.filename = strdup(fileName);
 	  }
 	  if (inFiles.find(newcomp->comp_param.field_param.filename) == inFiles.end()) {
-	    ERROR_P1("Invalid injection file: %s\n", fileName);
+	    ERROR("Invalid injection file: %s\n", fileName);
 	  }
         } else if(*keyword == '$') {
 	  newcomp->type = E_Message_Variable;
@@ -266,12 +266,12 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 		  !strcmp(keyword, "media_port") ||
 		  !strcmp(keyword, "media_ip") ||
 		  !strcmp(keyword, "media_ip_type")) {
-	  ERROR_P1("The %s keyword requires PCAPPLAY.\n", keyword);
+	  ERROR("The %s keyword requires PCAPPLAY.\n", keyword);
 	}
 #endif
 #ifndef _USE_OPENSSL
         else if(!strcmp(keyword, "authentication")) {
-	  ERROR_P1("The %s keyword requires OpenSSL.\n", keyword);
+	  ERROR("The %s keyword requires OpenSSL.\n", keyword);
 	}
 #endif
 	else {
@@ -289,7 +289,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
             ++i;
           }
           if (!generic[i]) {
-            ERROR_P1("Unsupported keyword '%s' in xml scenario file",
+            ERROR("Unsupported keyword '%s' in xml scenario file",
                    keyword);
           }
 	}
@@ -322,7 +322,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	ERROR("Can not create a message that is empty!");
     }
     if (getComponent(0)->type != E_Message_Literal) {
-	ERROR_P1("You can not use a keyword for the METHOD or to generate \"SIP/2.0\" to ensure proper [cseq] operation!\n%s\n", osrc);
+	ERROR("You can not use a keyword for the METHOD or to generate \"SIP/2.0\" to ensure proper [cseq] operation!\n%s\n", osrc);
     }
 
     char *p = method = strdup(getComponent(0)->literal);
@@ -331,7 +331,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	p++;
     }
     if (!(q = strchr(method, ' '))) {
-	ERROR_P1("You can not use a keyword for the METHOD or to generate \"SIP/2.0\" to ensure proper [cseq] operation!%s\n", osrc);
+	ERROR("You can not use a keyword for the METHOD or to generate \"SIP/2.0\" to ensure proper [cseq] operation!%s\n", osrc);
     }
     *q++ = '\0';
     while (isspace(*q)) { q++; }
@@ -339,7 +339,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	char *endptr;
 	code = strtol(q, &endptr, 10);
 	if (*endptr && !isspace(*endptr)) {
-	  ERROR_P1("Invalid reply code: %s\n", q);
+	  ERROR("Invalid reply code: %s\n", q);
 	}
 	if (code < 100 || code >= 700) {
 	  ERROR("Response codes must be in the range of 100-700");
@@ -437,7 +437,7 @@ void SendingMessage::getKeywordParam(char * src, char * param, char * output)
     } else {
       while (*key) {
         if (((key - src) > KEYWORD_SIZE) || (!(key - src))) {
-          ERROR_P1("Syntax error parsing '%s' parameter", param);
+          ERROR("Syntax error parsing '%s' parameter", param);
         } else if (*key == ']' || *key < 33 || *key > 126) {
           break;
         }

@@ -82,7 +82,7 @@ bool CAction::compare(CCallVariable *variableTable[]) {
     case E_C_LEQ:
       return lhs <= rhs;
     default:
-      ERROR_P1("Internal error: Invalid comparison type %d", M_comp);
+      ERROR("Internal error: Invalid comparison type %d", M_comp);
       return false; /* Shut up warning. */
   }
 }
@@ -299,7 +299,7 @@ void CAction::setPcapArgs (char*        P_value)
       ERROR("Play pcap error");
     }
     if (access(M_pcapArgs->file, F_OK)) {
-      ERROR_P1("Cannot read file %s\n", M_pcapArgs->file);
+      ERROR("Cannot read file %s\n", M_pcapArgs->file);
     }
   }
 }

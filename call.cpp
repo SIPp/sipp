@@ -239,7 +239,7 @@ void delete_calls(void)
   while (call_it != calls.end()) {
     call_ptr = (call_it != calls.end()) ? call_it->second : NULL ;
     if (!call_ptr->abortCall()) {
-      WARNING_P1("Aborted call with Call-Id '%s'", call_ptr->id);
+      WARNING("Aborted call with Call-Id '%s'", call_ptr->id);
     }
     call_it = calls.begin();
   }
@@ -804,7 +804,7 @@ call::~call()
 
 /* Dump call info to error log. */
 void call::dump() {
-  WARNING_P2("%s: State %d", id, msg_index);
+  WARNING("%s: State %d", id, msg_index);
 }
 
 supercall::supercall(char *id) {
@@ -988,12 +988,12 @@ int call::send_raw(char * msg, int index)
       struct timeval currentTime;
       GET_TIME (&currentTime);
       char* cs=get_header_content(msg,"CSeq:");
-      TRACE_SHORTMSG((s, "%s\tS\t%s\tCSeq:%s\t%s\n",
-             CStat::instance()->formatTime(&currentTime),id, cs, get_first_line(msg)));
+      TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
+             CStat::instance()->formatTime(&currentTime),id, cs, get_first_line(msg));
   }  
  
   if((index!=-1) && (lost(index))) {
-    TRACE_MSG((s, "%s message voluntary lost (while sending).", TRANSPORT_TO_STRING(transport)));
+    TRACE_MSG("%s message voluntary lost (while sending).", TRANSPORT_TO_STRING(transport));
     
     if(comp_state) { comp_free(&comp_state); }
     scenario[index] -> nb_lost++;
@@ -1016,7 +1016,7 @@ int call::send_raw(char * msg, int index)
 	if (sipp_connect_socket(call_remote_socket, L_dest)) {
 	  if(errno == EINVAL){
 	    /* This occurs sometime on HPUX but is not a true INVAL */
-	    ERROR_P1("Unable to connect a %s socket for rsa option, remote peer error", TRANSPORT_TO_STRING(transport));
+	    ERROR("Unable to connect a %s socket for rsa option, remote peer error", TRANSPORT_TO_STRING(transport));
 	  } else {
 	    ERROR_NO("Unable to connect a socket for rsa option");
 	  }
@@ -1108,7 +1108,7 @@ char * call::get_last_header(char * name)
   /* Ideally this check should be moved to the XML parser so that it is not
    * along a critical path.  We could also handle lowercasing there. */
   if (len > MAX_HEADER_LEN) {
-    ERROR_P2("call::get_last_header: Header to parse bigger than %d (%zu)", MAX_HEADER_LEN, strlen(name));
+    ERROR("call::get_last_header: Header to parse bigger than %d (%zu)", MAX_HEADER_LEN, strlen(name));
   }
 
   if (name[len - 1] == ':') {
@@ -1145,7 +1145,7 @@ char * call::get_header(char* message, char * name, bool content)
 
   /* for safety's sake */
   if (NULL == name || NULL == strrchr(name, ':')) {
-    WARNING_P1("Can not searching for header (no colon): %s", name ? name : "(null)");
+    WARNING("Can not searching for header (no colon): %s", name ? name : "(null)");
     return last_header;
   }
 
@@ -1502,7 +1502,7 @@ bool call::run()
   clock_tick = getmilliseconds();
 
   if(msg_index >= scenario_len) {
-    ERROR_P3("Scenario overrun for call %s (%p) (index = %d)\n",
+    ERROR("Scenario overrun for call %s (%p) (index = %d)\n",
              id, this, msg_index);
   }
 
@@ -1519,7 +1519,7 @@ bool call::run()
        (nb_retrans > max_udp_retrans)) {
       scenario[last_send_index] -> nb_timeout ++;
       if (scenario[last_send_index]->on_timeout >= 0) {  // action on timeout
-          WARNING_P3("Call-Id: %s, timeout on max UDP retrans for message %d, jumping to label %d ", 
+          WARNING("Call-Id: %s, timeout on max UDP retrans for message %d, jumping to label %d ",
                       id, msg_index, scenario[last_send_index]->on_timeout);
           msg_index = scenario[last_send_index]->on_timeout;
           next_retrans = 0;
@@ -1544,7 +1544,7 @@ bool call::run()
       CStat::instance()->computeStat(CStat::E_FAILED_MAX_UDP_RETRANS);
       if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
         // Abort the call by sending proper SIP message
-        WARNING_P1("Aborting call on UDP retransmission timeout for Call-ID '%s'", id);
+        WARNING("Aborting call on UDP retransmission timeout for Call-ID '%s'", id);
         return(abortCall());
       } else {
         // Just delete existing call
@@ -1671,7 +1671,7 @@ bool call::run()
       if (send_timeout) {
 	/* If we have actually timed out. */
 	if (clock_tick > send_timeout) {
-	  WARNING_P2("Call-Id: %s, send timeout on message %d: aborting call",
+	  WARNING("Call-Id: %s, send timeout on message %d: aborting call",
 	      id, msg_index);
 	  CStat::instance()->computeStat(CStat::E_CALL_FAILED);
 	  CStat::instance()->computeStat(CStat::E_FAILED_TIMEOUT_ON_SEND);
@@ -1749,7 +1749,7 @@ bool call::run()
       ++scenario[msg_index]->nb_timeout;
       if (scenario[msg_index]->on_timeout < 0) {
         // if you set a timeout but not a label, the call is aborted 
-        WARNING_P2("Call-Id: %s, receive timeout on message %d without label to jump to (ontimeout attribute): aborting call", 
+        WARNING("Call-Id: %s, receive timeout on message %d without label to jump to (ontimeout attribute): aborting call",
                    id, msg_index);
         CStat::instance()->computeStat(CStat::E_CALL_FAILED);
         CStat::instance()->computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
@@ -1760,7 +1760,7 @@ bool call::run()
           return false;
         }
       }
-      WARNING_P3("Call-Id: %s, receive timeout on message %d, jumping to label %d", 
+      WARNING("Call-Id: %s, receive timeout on message %d, jumping to label %d",
                   id, msg_index, scenario[msg_index]->on_timeout);
       msg_index = scenario[msg_index]->on_timeout;
       recv_timeout = 0;
@@ -1874,7 +1874,7 @@ SendingMessage *get_default_message(const char *which) {
       return default_messages[i];
     }
   }
-  ERROR_P1("Internal Error: Unknown default message: %s!", which)
+  ERROR("Internal Error: Unknown default message: %s!", which);
 }
 
 void set_default_message(const char *which, char *msg) {
@@ -1885,7 +1885,7 @@ void set_default_message(const char *which, char *msg) {
       return;
     }
   }
-  ERROR_P1("Internal Error: Unknown default message: %s!", which)
+  ERROR("Internal Error: Unknown default message: %s!", which);
 }
 
 bool call::process_unexpected(char * msg)
@@ -1921,12 +1921,12 @@ bool call::process_unexpected(char * msg)
   }
   desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "(index %d)", msg_index);
 
-  WARNING_P2("%s, received '%s'", buffer, msg);
+  WARNING("%s, received '%s'", buffer, msg);
 
-  TRACE_MSG((s, "-----------------------------------------------\n"
+  TRACE_MSG("-----------------------------------------------\n"
              "Unexpected %s message received:\n\n%s\n",
              TRANSPORT_TO_STRING(transport),
-             msg));
+             msg);
 
   if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
     // if twin socket call => reset the other part here 
@@ -2047,16 +2047,16 @@ int call::sendCmdMessage(int index)
   struct sipp_socket **peer_socket;
 
   if(scenario[index] -> M_sendCmdData) {
-    // WARNING_P1("---PREPARING_TWIN_CMD---%s---", scenario[index] -> M_sendCmdData); 
+    // WARNING("---PREPARING_TWIN_CMD---%s---", scenario[index] -> M_sendCmdData);
     dest = createSendingMessage(scenario[index] -> M_sendCmdData, -1);
     strcat(dest, delimitor);
-    //WARNING_P1("---SEND_TWIN_CMD---%s---", dest); 
+    //WARNING("---SEND_TWIN_CMD---%s---", dest);
 
     int rc;
 
     /* 3pcc extended mode */
     peer_dest = scenario[index]->peer_dest;
-    if(peer_dest){ 
+    if(peer_dest){
       peer_socket = get_peer_socket(peer_dest);
       rc = write_socket(*peer_socket, dest, strlen(dest), WS_BUFFER);
     }else {
@@ -2216,7 +2216,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	    (_RCAST(struct sockaddr_in *, &(play_args_v.from)))->sin_port = port;
 	  }
 	} else {
-	  ERROR_P1("media_port keyword with no audio or video on the current line (%s)", begin);
+	  ERROR("media_port keyword with no audio or video on the current line (%s)", begin);
 	}
 #endif
 	dest += sprintf(dest, "%u", port);
@@ -2479,7 +2479,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
     if (createAuthHeader(my_auth_user, my_auth_pass, method, uri, body, dialog_authentication,
 	  my_aka_OP, my_aka_AMF, my_aka_K, result + authlen) == 0) {
-      ERROR_P1("%s", result + authlen);
+      ERROR("%s", result + authlen);
     }
     authlen = strlen(result);
 
@@ -2518,7 +2518,7 @@ bool call::process_twinSippCom(char * msg)
           continue;
         }
         /* The received message is different from the expected one */
-	TRACE_MSG((s, "Unexpected control message received (I was expecting a different type of message):\n%s\n", msg));
+	TRACE_MSG("Unexpected control message received (I was expecting a different type of message):\n%s\n", msg);
         return rejectCall();
       } else {
         if(extendedTwinSippMode){                   // 3pcc extended mode 
@@ -2526,7 +2526,7 @@ bool call::process_twinSippCom(char * msg)
             found = true;
             break;
 	  } else{
-	    WARNING_P1("Unexpected sender for the received peer message \n%s\n", msg);
+	    WARNING("Unexpected sender for the received peer message \n%s\n", msg);
 	    return rejectCall();
 	    }
 	 }
@@ -2558,7 +2558,7 @@ bool call::process_twinSippCom(char * msg)
         }
       }
     } else {
-      TRACE_MSG((s, "Unexpected control message received (no such message found):\n%s\n", msg));
+      TRACE_MSG("Unexpected control message received (no such message found):\n%s\n", msg);
       return rejectCall();
     }
     msg_index = search_index; //update the state machine
@@ -2871,8 +2871,8 @@ bool call::process_incoming(char * msg)
       int status;
 
       if(lost(recv_retrans_recv_index)) {
-	TRACE_MSG((s, "%s message (retrans) lost (recv).",
-	      TRANSPORT_TO_STRING(transport)));
+	TRACE_MSG("%s message (retrans) lost (recv).",
+	      TRANSPORT_TO_STRING(transport));
 
 	if(comp_state) { comp_free(&comp_state); }
 	scenario[recv_retrans_recv_index] -> nb_lost++;
@@ -2968,11 +2968,11 @@ bool call::process_incoming(char * msg)
 
       reply_code = 0;
     } else {
-      ERROR_P1("SIP method too long in received message '%s'",
+      ERROR("SIP method too long in received message '%s'",
                msg);
     }
   } else {
-    ERROR_P1("Invalid sip message received '%s'",
+    ERROR("Invalid sip message received '%s'",
              msg);
   }
 
@@ -3046,8 +3046,8 @@ bool call::process_incoming(char * msg)
 
   /* Simulate loss of messages */
   if(lost(search_index)) {
-    TRACE_MSG((s, "%s message lost (recv).", 
-               TRANSPORT_TO_STRING(transport)));
+    TRACE_MSG("%s message lost (recv).",
+               TRANSPORT_TO_STRING(transport));
     if(comp_state) { comp_free(&comp_state); }
     scenario[search_index] -> nb_lost++;
     return true;
@@ -3062,8 +3062,8 @@ bool call::process_incoming(char * msg)
 
   // Action treatment
   if (found) {
-    //WARNING_P1("---EXECUTE_ACTION_ON_MSG---%s---", msg); 
-    
+    //WARNING("---EXECUTE_ACTION_ON_MSG---%s---", msg);
+
     actionResult = executeAction(msg, search_index);
 
     if(actionResult != call::E_AR_NO_ERROR) {
@@ -3128,7 +3128,7 @@ bool call::process_incoming(char * msg)
       memset(rr, 0, sizeof(rr));
       strcpy(rr, get_header_content(msg, (char*)"Record-Route:"));
 
-      // WARNING_P1("rr [%s]", rr);
+      // WARNING("rr [%s]", rr);
       char ch[MAX_HEADER_LEN];
       strcpy(ch, get_header_content(msg, (char*)"Contact:"));
 
@@ -3148,7 +3148,7 @@ bool call::process_incoming(char * msg)
       {
         computeRouteSetAndRemoteTargetUri (rr, ch, true);
       }
-      // WARNING_P1("next_req_url is [%s]", next_req_url);
+      // WARNING("next_req_url is [%s]", next_req_url);
   }
 
 #ifdef _USE_OPENSSL
@@ -3205,7 +3205,7 @@ bool call::process_incoming(char * msg)
 
     if (scenario[search_index]->next && test <= maxVariableUsed && 
        M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()) {
-      WARNING_P1("Last message generates an error and will not be used for next sends (for last_ variables):\r\n%s",msg);
+      WARNING("Last message generates an error and will not be used for next sends (for last_ variables):\r\n%s",msg);
     }
 
     /* We are just waiting for a message to be received, if any of the
@@ -3283,7 +3283,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
                   // the message doesn't match and the checkit 
                   // action say it MUST match
                   // Allow easier regexp debugging
-                  WARNING_P2("Failed regexp match: looking "
+                  WARNING("Failed regexp match: looking "
                   "in '%s', with regexp '%s'", 
                   msgPart, 
                   scenVariable->
@@ -3297,12 +3297,12 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
                   // checking action say it MUST match
                   // --> Call will be marked as failed but 
                   // will go on
-                  WARNING_P2("Failed regexp match: header %s not found in message %s\n", currentAction->getLookingChar(), msg);
+                  WARNING("Failed regexp match: header %s not found in message %s\n", currentAction->getLookingChar(), msg);
                   return(call::E_AR_HDR_NOT_FOUND);
                 } 
               }
             } else {// we must look in the entire message
-              // WARNING_P1("LOOKING IN MSG -%s-", msg);
+              // WARNING("LOOKING IN MSG -%s-", msg);
                 scenVariable->executeRegExp(msg, 
                                   M_callVariableTable,
 				  currentId,
@@ -3313,7 +3313,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
                 // the message doesn't match and the checkit 
                 // action say it MUST match
                 // Allow easier regexp debugging
-                WARNING_P2("Failed regexp match: looking in '%s'"
+                WARNING("Failed regexp match: looking in '%s'"
                 ", with regexp '%s'", 
                 msg, 
                 scenVariable->getRegularExpression());
@@ -3341,7 +3341,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
 	  double operand = get_rhs(currentAction);
 	  if (operand == 0) {
-	    WARNING_P2("Action failure: Can not divide by zero ($%d/$%d)!\n", currentAction->getVarId(), currentAction->getVarInId());
+	    WARNING("Action failure: Can not divide by zero ($%d/$%d)!\n", currentAction->getVarId(), currentAction->getVarInId());
 	  } else {
 	    M_callVariableTable[currentAction->getVarId()]->setDouble(value / operand);
 	  }
@@ -3371,7 +3371,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	  if (M_callVariableTable[currentAction->getVarInId()]->toDouble(&value)) {
 	    M_callVariableTable[currentAction->getVarId()]->setDouble(value);
 	  } else {
-	    WARNING_P2("Invalid double conversion from $%d to $%d", currentAction->getVarInId(), currentAction->getVarId());
+	    WARNING("Invalid double conversion from $%d to $%d", currentAction->getVarInId(), currentAction->getVarId());
 	  }
 	} else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
 	  double value = currentAction->getDistribution()->sample();
@@ -3385,12 +3385,12 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	    M_callVariableTable[currentAction->getVarId()]->setString(str);
 	} else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
-            LOG_MSG((s, "%s\n", x));
+            LOG_MSG("%s\n", x);
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
 
             if (currentAction->getCmdLine()) {
                 char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
-                // TRACE_MSG((s, "Trying to execute [%s]", x)); 
+                // TRACE_MSG("Trying to execute [%s]", x);
                 pid_t l_pid;
                 switch(l_pid = fork())
                 {
@@ -3408,7 +3408,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
                          int ret;
                          ret = system(x); // second child runs
                          if(ret == -1) {
-                           WARNING_P1("system call error for %s",x);
+                           WARNING("system call error for %s",x);
                           }
                         }
                        exit(EXIT_OTHER); 
@@ -3420,7 +3420,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
                        pid_t ret;
                        while ((ret=waitpid(l_pid, NULL, 0)) != l_pid) {
                        if (ret != -1) {
-                          ERROR_P2("waitpid returns %1d for child %1d",ret,l_pid); 
+                          ERROR("waitpid returns %1d for child %1d",ret,l_pid);
                          }
                        }
                        break;
@@ -3549,7 +3549,7 @@ void call::extractSubMessage(char * msg, char * matchingString, char* result, bo
 void call::getFieldFromInputFile(const char *fileName, int field, char*& dest)
 {
   if (inFiles.find(fileName) == inFiles.end()) {
-    ERROR_P1("Invalid injection file: %s", fileName);
+    ERROR("Invalid injection file: %s", fileName);
   }
   int line = (*m_lineNumber)[fileName];
   if (line < 0) {
@@ -3597,7 +3597,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     // The BYE is unexpected, count it
     scenario[msg_index] -> nb_unexp++;
     if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
-      WARNING_P1("Aborting call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
+      WARNING("Aborting call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
       if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
 	sendBuffer(createSendingMessage(get_default_message("200"), -1));
       }
@@ -3610,7 +3610,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
       CStat::instance()->computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
       delete_call(id);
     } else {
-      WARNING_P1("Continuing call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
+      WARNING("Continuing call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
     }
       break ;
       
@@ -3622,7 +3622,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     // The CANCEL is unexpected, count it
     scenario[msg_index] -> nb_unexp++;
     if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
-      WARNING_P1("Aborting call on an unexpected CANCEL for call: %s", (id==NULL)?"none":id);
+      WARNING("Aborting call on an unexpected CANCEL for call: %s", (id==NULL)?"none":id);
       if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
 	sendBuffer(createSendingMessage(get_default_message("200"), -1));
       }
@@ -3637,7 +3637,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     CStat::instance()->computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
     delete_call(id);
     } else {
-      WARNING_P1("Continuing call on unexpected CANCEL for call: %s", (id==NULL)?"none":id);
+      WARNING("Continuing call on unexpected CANCEL for call: %s", (id==NULL)?"none":id);
     }
     break ;
       
@@ -3647,7 +3647,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     strcpy(last_recv_msg, P_recv);
     
    if (default_behaviors & DEFAULT_BEHAVIOR_PINGREPLY) {
-    WARNING_P1("Automatic response mode for an unexpected PING for call: %s", (id==NULL)?"none":id);
+    WARNING("Automatic response mode for an unexpected PING for call: %s", (id==NULL)?"none":id);
     count_in_stats = false; // Call must not be counted in statistics
     sendBuffer(createSendingMessage(get_default_message("200"), -1));
     // Note: the call ends here but it is not marked as bad. PING is a 
@@ -3660,7 +3660,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     CStat::instance()->computeStat(CStat::E_AUTO_ANSWERED);
     delete_call(id);
     } else {
-      WARNING_P1("Do not answer on an unexpected PING for call: %s", (id==NULL)?"none":id);
+      WARNING("Do not answer on an unexpected PING for call: %s", (id==NULL)?"none":id);
     }
     break ;
 
@@ -3678,7 +3678,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     last_recv_msg = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
     strcpy(last_recv_msg, P_recv);
 
-    WARNING_P1("Automatic response mode for an unexpected INFO, UPDATE or NOTIFY for call: %s", (id==NULL)?"none":id);
+    WARNING("Automatic response mode for an unexpected INFO, UPDATE or NOTIFY for call: %s", (id==NULL)?"none":id);
     sendBuffer(createSendingMessage(get_default_message("200"), -1));
 
     // restore previous last msg
@@ -3721,7 +3721,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     return true;
 
     default:
-    ERROR_P1("Internal error for automaticResponseMode - mode %d is not implemented!", P_case);
+    ERROR("Internal error for automaticResponseMode - mode %d is not implemented!", P_case);
     break ;
   }
 

@@ -298,7 +298,7 @@ bool CVariable::extractAllMatchedExpression(char* P_string,
       setSubString(&strBuff, P_string+currentStop, 
                    pmatch.rm_so, pmatch.rm_eo);
       if (strlen(strBuff) > BUFFER_SIZE) {
-        ERROR_P2("Regular expression match size (%zu) is bigger than buffer size (%d). Change BUFFER_SIZE in call.hpp and recompile SIPp.", strlen(strBuff), BUFFER_SIZE);
+        ERROR("Regular expression match size (%zu) is bigger than buffer size (%d). Change BUFFER_SIZE in call.hpp and recompile SIPp.", strlen(strBuff), BUFFER_SIZE);
       }
       strcpy(tmpTab[(*P_number)], strBuff);
       delete(strBuff);

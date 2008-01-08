@@ -35,7 +35,7 @@ FileContents::FileContents(const char *fileName) {
   int virtualLines = 0;
 
   if (!inFile->good()) {
-    ERROR_P1("Unable to open file %s", fileName);
+    ERROR("Unable to open file %s", fileName);
   }
 
   this->fileName = fileName;
@@ -57,7 +57,7 @@ FileContents::FileContents(const char *fileName) {
   } else if (NULL != strstr(line, "USER")) {
       usage = InputFileUser;
   } else {
-      ERROR_P2("Unknown file type (valid values are RANDOM, SEQUENTIAL, and USER) for %s:%s\n", fileName, line);
+      ERROR("Unknown file type (valid values are RANDOM, SEQUENTIAL, and USER) for %s:%s\n", fileName, line);
   }
 
   char *useprintf;
@@ -66,16 +66,16 @@ FileContents::FileContents(const char *fileName) {
      * string for printf with the line number. */
     useprintf += strlen("PRINTF");
     if (*useprintf != '=') {
-	ERROR_P2("Invalid file printf specification (requires =) for %s:%s\n", fileName, line);
+	ERROR("Invalid file printf specification (requires =) for %s:%s\n", fileName, line);
     }
     useprintf++;
     char *endptr;
     virtualLines = strtoul(useprintf, &endptr, 0);
     if (*endptr && *endptr != '\n' && *endptr != ',') {
-      ERROR_P3("Invalid file printf specification for (invalid end character '%c') %s:%s\n", *endptr, fileName, line);
+      ERROR("Invalid file printf specification for (invalid end character '%c') %s:%s\n", *endptr, fileName, line);
     }
     if (virtualLines == 0) {
-      ERROR_P2("A printf file must have at least one virtual line %s:%s\n", fileName, line);
+      ERROR("A printf file must have at least one virtual line %s:%s\n", fileName, line);
     }
     printfFile = true;
   }
@@ -83,26 +83,26 @@ FileContents::FileContents(const char *fileName) {
   if ((useprintf = strstr(line, "PRINTFOFFSET"))) {
     useprintf += strlen("PRINTFOFFSET");
     if (*useprintf != '=') {
-	ERROR_P2("Invalid file PRINTFOFFSET specification (requires =) for %s:%s\n", fileName, line);
+	ERROR("Invalid file PRINTFOFFSET specification (requires =) for %s:%s\n", fileName, line);
     }
     useprintf++;
     char *endptr;
     printfOffset = strtoul(useprintf, &endptr, 0);
     if (*endptr && *endptr != '\n' && *endptr != ',') {
-      ERROR_P3("Invalid PRINTFOFFSET specification for (invalid end character '%c') %s:%s\n", *endptr, fileName, line);
+      ERROR("Invalid PRINTFOFFSET specification for (invalid end character '%c') %s:%s\n", *endptr, fileName, line);
     }
   }
 
   if ((useprintf = strstr(line, "PRINTFMULTIPLE"))) {
     useprintf += strlen("PRINTFMULTIPLE");
     if (*useprintf != '=') {
-	ERROR_P2("Invalid PRINTFMULTIPLE specification (requires =) for %s:%s\n", fileName, line);
+	ERROR("Invalid PRINTFMULTIPLE specification (requires =) for %s:%s\n", fileName, line);
     }
     useprintf++;
     char *endptr;
     printfMultiple = strtoul(useprintf, &endptr, 0);
     if (*endptr && *endptr != '\n' && *endptr != ',') {
-      ERROR_P3("Invalid PRINTFOFFSET specification for (invalid end character '%c') %s:%s\n", *endptr, fileName, line);
+      ERROR("Invalid PRINTFOFFSET specification for (invalid end character '%c') %s:%s\n", *endptr, fileName, line);
     }
   }
 
@@ -120,7 +120,7 @@ FileContents::FileContents(const char *fileName) {
   }
 
   if (realLinesInFile == 0) {
-	ERROR_P1("Input file has zero lines: %s\n", fileName);
+    ERROR("Input file has zero lines: %s\n", fileName);
   }
 
   if (printfFile) {
@@ -174,7 +174,7 @@ int FileContents::getField(int lineNum, int field, char *dest, int len) {
   } while (oldpos != string::npos);
 
   if (curfield) {
-      WARNING_P2("Field %d not found in the file %s", field, fileName);
+      WARNING("Field %d not found in the file %s", field, fileName);
       return 0;
   }
 
@@ -202,10 +202,10 @@ int FileContents::getField(int lineNum, int field, char *dest, int len) {
 	    i++;
 	    while (s[i] != 'd') {
 	      if (i == l) {
-		ERROR_P1("Invalid printf injection field (ran off end of line): %s", s);
+		ERROR("Invalid printf injection field (ran off end of line): %s", s);
 	      }
 	      if (!(isdigit(s[i]) || s[i] == '.' || s[i] == '-')) {
-		ERROR_P2("Invalid printf injection field (only decimal values allowed '%c'): %s", s[i], s);
+		ERROR("Invalid printf injection field (only decimal values allowed '%c'): %s", s[i], s);
 	      }
 	      i++;
 	    }
@@ -251,7 +251,7 @@ int FileContents::nextLine(int userId) {
 	return -1;
       }
       if ((userId  - 1) >= numLinesInFile) {
-	ERROR_P3("%s has only %d lines, yet user %d was requested.", fileName, numLinesInFile, userId);
+	ERROR("%s has only %d lines, yet user %d was requested.", fileName, numLinesInFile, userId);
       }
       return userId - 1;
     default:
@@ -262,16 +262,13 @@ int FileContents::nextLine(int userId) {
 
 void FileContents::dump(void)
 {
-    WARNING_P3("Line choosing strategy is [%s]. m_counter [%d] numLinesInFile [%d]",
+    WARNING("Line choosing strategy is [%s]. m_counter [%d] numLinesInFile [%d] realLinesInFile [%d]",
                usage == InputFileSequentialOrder ? "SEQUENTIAL" :
 		usage == InputFileRandomOrder ? "RANDOM" :
 		usage == InputFileUser ? "USER" : "UNKNOWN",
-               lineCounter, numLinesInFile)
-    if (printfFile) {
-	WARNING_P1("PRINTF File: realLinesInFile [%d]", realLinesInFile);
-    }
+               lineCounter, numLinesInFile, realLinesInFile);
 
     for (int i = 0; i < realLinesInFile && fileLines[i][0]; i++) {
-        WARNING_P3("%s:%d reads [%s]", fileName, i, fileLines[i].c_str());
+        WARNING("%s:%d reads [%s]", fileName, i, fileLines[i].c_str());
     }
 }

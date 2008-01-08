@@ -99,7 +99,7 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
 
   pcap = pcap_open_offline(file, errbuf);
   if (!pcap) 
-    ERROR_P1("Can't open PCAP file '%s'", file);
+    ERROR("Can't open PCAP file '%s'", file);
 
 #if HAVE_PCAP_NEXT_EX
   while (pcap_next_ex (pcap, &pkthdr, (const u_char **) &pktdata) == 1)

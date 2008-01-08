@@ -39,7 +39,6 @@
 extern bool    timeout_exit;
 
 unsigned long screen_errors;
-char          _screen_err[32768];
 FILE        * screen_errorf = 0;
 int           screen_inited = 0;
 char          screen_logfile[255];
@@ -214,7 +213,7 @@ void screen_init(char *logfile_name, void (*exit_handler)())
   }
 }
 
-void _screen_error(char *s, int fatal)
+static void _screen_error(int fatal, bool use_errno, int error, const char *fmt, va_list ap)
 {
   FILE * output;
   char * c = screen_last_error;
@@ -223,7 +222,10 @@ void _screen_error(char *s, int fatal)
   GET_TIME (&currentTime);
   
   c+= sprintf(c, "%s: ", CStat::instance()->formatTime(&currentTime));
-  c+= sprintf(c, "%s", s);
+  c+= vsprintf(c, fmt, ap);
+  if (use_errno) {
+    c += sprintf(c, ", errno = %d (%s)", error, strerror(error));
+  }
   c+= sprintf(c, ".\n");
   screen_errors++;
 
@@ -257,4 +259,34 @@ void _screen_error(char *s, int fatal)
       screen_exit(EXIT_FATAL_ERROR);
     }
   }
+}
+
+extern "C" {
+int ERROR(const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  _screen_error(true, false, 0, fmt, ap);
+  va_end(ap);
+}
+
+int ERROR_NO(const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  _screen_error(true, true, errno, fmt, ap);
+  va_end(ap);
+}
+
+int WARNING(const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  _screen_error(false, false, 0, fmt, ap);
+  va_end(ap);
+}
+
+int WARNING_NO(const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  _screen_error(false, true, errno, fmt, ap);
+  va_end(ap);
+}
 }

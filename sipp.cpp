@@ -362,10 +362,10 @@ int sip_tls_verify_callback(int ok , X509_STORE_CTX *store)
 
      X509_NAME_oneline(X509_get_issuer_name(cert),
                                    data,512);
-     WARNING_P1("TLS verification error for issuer: '%s'", data);
+     WARNING("TLS verification error for issuer: '%s'", data);
      X509_NAME_oneline(X509_get_subject_name(cert),
                                    data,512);
-     WARNING_P1("TLS verification error for subject: '%s'", data);
+     WARNING("TLS verification error for subject: '%s'", data);
   }
   return ok;
 }
@@ -425,12 +425,12 @@ static ssl_init_status FI_init_ssl_context (void)
   /*  CRL load from application specified only if specified on the command line */
   if (strlen(tls_crl_name) != 0) {
     if(sip_tls_load_crls(sip_trp_ssl_ctx,tls_crl_name) == -1) {
-      ERROR_P1("FI_init_ssl_context: Unable to load CRL file (%s)", tls_crl_name);
+      ERROR("FI_init_ssl_context: Unable to load CRL file (%s)", tls_crl_name);
       return SSL_INIT_ERROR;
     }
   
     if(sip_tls_load_crls(sip_trp_ssl_ctx_client,tls_crl_name) == -1) {
-      ERROR_P1("FI_init_ssl_context: Unable to load CRL (client) file (%s)", tls_crl_name);
+      ERROR("FI_init_ssl_context: Unable to load CRL (client) file (%s)", tls_crl_name);
       return SSL_INIT_ERROR;
     }
     /* The following call forces to process the certificates with the */
@@ -1555,7 +1555,7 @@ void process_set(char *what) {
     char *end;
     double drest = strtod(rest, &end);
     if (*end) {
-      WARNING_P1("Invalid rate value: \"%s\"", rest);
+      WARNING("Invalid rate value: \"%s\"", rest);
     } else {
       set_rate(drest);
     }
@@ -1563,25 +1563,25 @@ void process_set(char *what) {
     char *end;
     double drest = strtod(rest, &end);
     if (*end) {
-      WARNING_P1("Invalid rate-scale value: \"%s\"", rest);
+      WARNING("Invalid rate-scale value: \"%s\"", rest);
     } else {
       rate_scale = drest;
     }
   } else {
-    WARNING_P1("Unknown set attribute: %s", what);
+    WARNING("Unknown set attribute: %s", what);
   }
 }
 
 void process_dump(char *what) {
   if (!strcmp(what, "calls")) {
     call_map *calls = get_calls();
-    WARNING_P1("---- %d Active Calls ----\n", calls->size());
+    WARNING("---- %d Active Calls ----\n", calls->size());
     for (call_map::iterator call_it = calls->begin(); call_it != calls->end(); call_it++) {
       call_it->second->dump();
     }
     WARNING("-------------------------\n");
   } else {
-    WARNING_P1("Unknown dump type: %s", what);
+    WARNING("Unknown dump type: %s", what);
   }
 }
 
@@ -1599,7 +1599,7 @@ bool process_command(char *command) {
   } else if (!strcmp(command, "dump")) {
 	process_dump(rest);
   } else {
-	WARNING_P1("Unrecognized command: \"%s\"", command);
+	WARNING("Unrecognized command: \"%s\"", command);
   }
 
   return false;
@@ -1643,10 +1643,10 @@ void ctrl_thread (void * param)
   }
   if (try_counter == 0) {
     if (control_port) {
-      ERROR_P2("Unable to bind remote control socket to UDP port %d: %s",
+      ERROR("Unable to bind remote control socket to UDP port %d: %s",
                   control_port, strerror(errno));
     } else {
-      WARNING_P3("Unable to bind remote control socket (tried UDP ports %d-%d): %s",
+      WARNING("Unable to bind remote control socket (tried UDP ports %d-%d): %s",
                   firstport, port - 1, strerror(errno));
     }
     return;
@@ -1911,7 +1911,7 @@ char * get_call_id(char *msg)
   // For others, no need to
   if(!ptr1) { ptr1 = strstr(msg, "\r\ni:"); short_form = true;}
   if(!ptr1) {
-    WARNING_P1("(1) No valid Call-ID: header in reply '%s'", msg);
+    WARNING("(1) No valid Call-ID: header in reply '%s'", msg);
     return call_id;
   }
   
@@ -1960,7 +1960,7 @@ unsigned long int get_cseq_value(char *msg) {
   if(!ptr1) { ptr1 = strstr(msg, "\r\nCSEQ:"); }
   if(!ptr1) { ptr1 = strstr(msg, "\r\ncseq:"); }
   if(!ptr1) { ptr1 = strstr(msg, "\r\nCseq:"); }
-  if(!ptr1) { WARNING_P1("No valid Cseq header in request %s", msg); return 0;}
+  if(!ptr1) { WARNING("No valid Cseq header in request %s", msg); return 0;}
  
   ptr1 += 7;
  
@@ -2021,8 +2021,7 @@ size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
     if (useMessagef == 1) {	  
     struct timeval currentTime;
     GET_TIME (&currentTime);
-    TRACE_MSG((s,
-               "----------------------------------------------- %s\n"
+    TRACE_MSG("----------------------------------------------- %s\n"
                "Compressed message received, header :\n"
                "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x "
                "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
@@ -2030,7 +2029,7 @@ size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
                buff[0] , buff[1] , buff[2] , buff[3],
                buff[4] , buff[5] , buff[6] , buff[7],
                buff[8] , buff[9] , buff[10], buff[11],
-               buff[12], buff[13], buff[14], buff[15]));
+               buff[12], buff[13], buff[14], buff[15]);
     }
     
     int rc = comp_uncompress(st,
@@ -2039,12 +2038,11 @@ size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
     
     switch(rc) {
     case COMP_OK:
-      TRACE_MSG((s,"Compressed message decompressed properly.\n"));
+      TRACE_MSG("Compressed message decompressed properly.\n");
       break;
 
     case COMP_REPLY:
-      TRACE_MSG((s, 
-                 "Compressed message KO, sending a reply (resynch).\n"));
+      TRACE_MSG("Compressed message KO, sending a reply (resynch).\n");
       sendto(sock,
              buff, 
              len, 
@@ -2055,7 +2053,7 @@ size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
       return 0;
 
     case COMP_DISCARD:
-      TRACE_MSG((s, "Compressed message discarded by pluggin.\n"));
+      TRACE_MSG("Compressed message discarded by pluggin.\n");
       resynch_recv++;
       return 0;
 
@@ -2127,7 +2125,7 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, char *buffer, 
 
   /* Refuse to write to invalid sockets. */
   if (socket->ss_invalid) {
-    WARNING_P2("Returning EPIPE on invalid socket: %p (%d)\n", socket, socket->ss_fd);
+    WARNING("Returning EPIPE on invalid socket: %p (%d)\n", socket, socket->ss_fd);
     errno = EPIPE;
     return -1;
   }
@@ -2161,7 +2159,7 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, char *buffer, 
 	}
 	buffer = (char *)comp_msg;
 
-	TRACE_MSG((s, "---\nCompressed message len: %d\n", len));
+	TRACE_MSG("---\nCompressed message len: %d\n", len);
       }
 
       {
@@ -2175,7 +2173,7 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, char *buffer, 
       }
       break;
     default:
-      ERROR_P1("Internal error, unknown transport type %d\n", socket->ss_transport);
+      ERROR("Internal error, unknown transport type %d\n", socket->ss_transport);
   }
 
   return rc;
@@ -2185,9 +2183,9 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, char *buffer, 
 int enter_congestion(struct sipp_socket *socket, int again) {
   socket->ss_congested = true;
 
-  TRACE_MSG((s,"Problem %s on socket  %d and poll_idx  is %d \n",
+  TRACE_MSG("Problem %s on socket  %d and poll_idx  is %d \n",
 	again == EWOULDBLOCK ? "EWOULDBLOCK" : "EAGAIN",
-	socket->ss_fd, socket->ss_pollidx));
+	socket->ss_fd, socket->ss_pollidx);
 
   pollfiles[socket->ss_pollidx].events |= POLLOUT;
 
@@ -2235,7 +2233,7 @@ static int write_error(struct sipp_socket *socket, int ret) {
   }
 #endif
 
-  WARNING_P2("Unable to send %s message: %s", TRANSPORT_TO_STRING(socket->ss_transport), errstring);
+  WARNING("Unable to send %s message: %s", TRANSPORT_TO_STRING(socket->ss_transport), errstring);
   nb_net_send_errors++;
   return -1;
 }
@@ -2298,14 +2296,14 @@ static int read_error(struct sipp_socket *socket, int ret) {
 
     nb_net_recv_errors++;
     if (reconnect_allowed()) {
-      WARNING_P1("Error on TCP connection, remote peer probably closed the socket: %s", errstring);
+      WARNING("Error on TCP connection, remote peer probably closed the socket: %s", errstring);
     } else {
-      ERROR_P1("Error on TCP connection, remote peer probably closed the socket: %s", errstring);
+      ERROR("Error on TCP connection, remote peer probably closed the socket: %s", errstring);
     }
     return -1;
   }
 
-  WARNING_P2("Unable to receive %s message: %s", TRANSPORT_TO_STRING(socket->ss_transport), errstring);
+  WARNING("Unable to receive %s message: %s", TRANSPORT_TO_STRING(socket->ss_transport), errstring);
   nb_net_recv_errors++;
   return -1;
 }
@@ -2318,7 +2316,7 @@ static int flush_socket(struct sipp_socket *socket) {
   while ((buf = socket->ss_out)) {
     ssize_t size = buf->len - buf->offset;
     ret = socket_write_primitive(socket, buf->buf + buf->offset, size);
-    TRACE_MSG((s, "Wrote %d of %d bytes in an output buffer.", ret, size));
+    TRACE_MSG("Wrote %d of %d bytes in an output buffer.", ret, size);
     if (ret == size) {
       /* Everything is great, throw away this buffer. */
       socket->ss_out = buf->next;
@@ -2344,7 +2342,7 @@ void buffer_write(struct sipp_socket *socket, char *buffer, size_t len) {
 
   if (!buf) {
 	socket->ss_out = alloc_socketbuf(buffer, len, DO_COPY);
-	TRACE_MSG((s, "Added first buffered message to socket %d\n", socket->ss_fd));
+	TRACE_MSG("Added first buffered message to socket %d\n", socket->ss_fd);
 	return;
   }
 
@@ -2354,7 +2352,7 @@ void buffer_write(struct sipp_socket *socket, char *buffer, size_t len) {
   }
 
   prev->next = alloc_socketbuf(buffer, len, DO_COPY);
-  TRACE_MSG((s, "Appended buffered message to socket %d\n", socket->ss_fd));
+  TRACE_MSG("Appended buffered message to socket %d\n", socket->ss_fd);
 }
 
 void buffer_read(struct sipp_socket *socket, struct socketbuf *newbuf) {
@@ -2380,7 +2378,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
 
   if (socket->ss_out) {
     rc = flush_socket(socket);
-    TRACE_MSG((s, "Attempted socket flush returned %d\r\n", rc));
+    TRACE_MSG("Attempted socket flush returned %d\r\n", rc);
     if (rc < 0) {
       if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
 	buffer_write(socket, buffer, len);
@@ -2398,12 +2396,12 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
     if (useMessagef == 1) {
       struct timeval currentTime;
       GET_TIME (&currentTime);
-      TRACE_MSG((s, "----------------------------------------------- %s\n"
+      TRACE_MSG("----------------------------------------------- %s\n"
 	    "%s %smessage sent (%d bytes):\n\n%.*s\n",
 	    CStat::instance()->formatTime(&currentTime, true),
 	    TRANSPORT_TO_STRING(socket->ss_transport),
 	    socket->ss_control ? "control " : "",
-	    len, len, buffer));
+	    len, len, buffer);
     }
   } else if (rc <= 0) {
     if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
@@ -2413,11 +2411,11 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
     if (useMessagef == 1) {
       struct timeval currentTime;
       GET_TIME (&currentTime);
-      TRACE_MSG((s, "----------------------------------------------- %s\n"
+      TRACE_MSG("----------------------------------------------- %s\n"
 	    "Error sending %s message:\n\n%.*s\n",
 	    CStat::instance()->formatTime(&currentTime, true),
 	    TRANSPORT_TO_STRING(socket->ss_transport),
-	    len, buffer));
+	    len, buffer);
     }
     return write_error(socket, errno);
   } else {
@@ -2425,11 +2423,11 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
     if (useMessagef == 1) {
       struct timeval currentTime;
       GET_TIME (&currentTime);
-      TRACE_MSG((s, "----------------------------------------------- %s\n"
+      TRACE_MSG("----------------------------------------------- %s\n"
 	    "Truncation sending %s message (%d of %d sent):\n\n%.*s\n",
 	    CStat::instance()->formatTime(&currentTime, true),
 	    TRANSPORT_TO_STRING(socket->ss_transport),
-	    rc, len, len, buffer));
+	    rc, len, len, buffer);
     }
     buffer_write(socket, buffer + rc, len - rc);
   }
@@ -2671,7 +2669,7 @@ void sipp_socket_invalidate(struct sipp_socket *socket) {
   socket->ss_fd = -1;
 
   if((pollidx = socket->ss_pollidx) >= pollnfds) {
-    ERROR_P2("Pollset error: index %d is greater than number of fds %d!", pollidx, pollnfds);
+    ERROR("Pollset error: index %d is greater than number of fds %d!", pollidx, pollnfds);
   }
 
   if (socket->ss_call_socket) {
@@ -2707,7 +2705,7 @@ static ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len) {
   if (!socket->ss_msglen)
     return 0;
   if (socket->ss_msglen > len)
-    ERROR_P1("There is a message waiting in a socket that is bigger (%zd bytes) than the read size.", socket->ss_msglen);
+    ERROR("There is a message waiting in a socket that is bigger (%zd bytes) than the read size.", socket->ss_msglen);
 
   len = socket->ss_msglen;
 
@@ -2742,19 +2740,19 @@ static ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len) {
   if (useMessagef == 1) {
     struct timeval currentTime;
     GET_TIME (&currentTime);
-    TRACE_MSG((s, "----------------------------------------------- %s\n"
+    TRACE_MSG("----------------------------------------------- %s\n"
 	  "%s %smessage received [%d] bytes :\n\n%s\n",
 	  CStat::instance()->formatTime(&currentTime, true),
 	  TRANSPORT_TO_STRING(socket->ss_transport),
 	  socket->ss_control ? "control " : "",
-	  avail, buf));
+	  avail, buf);
   }
 
   return avail;
 }
 
 void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
-  // TRACE_MSG((s," msg_size %d and pollset_index is %d \n", msg_size, pollset_index));
+  // TRACE_MSG(" msg_size %d and pollset_index is %d \n", msg_size, pollset_index));
   if(msg_size <= 0) {
     return;
   }
@@ -2773,8 +2771,8 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
   if (useShortMessagef == 1) {
               struct timeval currentTime;
               GET_TIME (&currentTime);
-              TRACE_SHORTMSG((s, "%s\tS\t%s\tCSeq:%s\t%s\n",
-              CStat::instance()->formatTime(&currentTime),call_id, get_incoming_header_content(msg,"CSeq:"), get_incoming_first_line(msg)));
+              TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
+              CStat::instance()->formatTime(&currentTime),call_id, get_incoming_header_content(msg,"CSeq:"), get_incoming_first_line(msg));
           } 
 
   if(!call_ptr)
@@ -2783,7 +2781,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
     {
       if (quitting >= 1) {
 	CStat::instance()->computeStat(CStat::E_OUT_OF_CALL_MSGS);
-	TRACE_MSG((s,"Discarded message for new calls while quitting\n"));
+	TRACE_MSG("Discarded message for new calls while quitting\n");
 	return;
       }
 
@@ -2861,7 +2859,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
          }
       } else {
 	CStat::instance()->computeStat(CStat::E_OUT_OF_CALL_MSGS);
-	WARNING_P1("Discarding message which can't be mapped to a known SIPp call:\n%s", msg);
+	WARNING("Discarding message which can't be mapped to a known SIPp call:\n%s", msg);
       }
     }
   }
@@ -2931,7 +2929,7 @@ void pollset_process()
 
     if(pollfiles[poll_idx].revents & POLLOUT) {
       /* We can flush this socket. */
-      TRACE_MSG((s, "Exit problem event on socket %d \n", sock->ss_fd));
+      TRACE_MSG("Exit problem event on socket %d \n", sock->ss_fd);
       pollfiles[poll_idx].events &= ~POLLOUT;
       sock->ss_congested = false;
 
@@ -3050,7 +3048,7 @@ void traffic_thread()
          /* create the file at this occasion              */
          screenf = fopen(L_file_name, "a");
 	 if (!screenf) {
-            WARNING_P1("Unable to create '%s'", L_file_name); 
+            WARNING("Unable to create '%s'", L_file_name);
          }
 	 print_screens();
 	 fclose(screenf);
@@ -3334,7 +3332,7 @@ void rtp_echo_thread (void * param)
                   &len);
 
     if (((long)nr) < 0) {
-      WARNING_P2("%s %i", 
+      WARNING("%s %i",
                  "Error on RTP echo reception - stopping echo - errno=", 
                  errno);
       return;
@@ -3344,7 +3342,7 @@ void rtp_echo_thread (void * param)
                 len);
 
     if (ns != nr) {
-      WARNING_P2("%s %i", 
+      WARNING("%s %i",
                  "Error on RTP echo transmission - stopping echo - errno=", 
                  errno);
       return;
@@ -3745,7 +3743,7 @@ int socket_fd(bool use_ipv6, int transport) {
   }
 
   if((fd = socket(use_ipv6 ? AF_INET6 : AF_INET, socket_type, 0))== -1) {
-    ERROR_P1("Unable to get a %s socket", TRANSPORT_TO_STRING(transport));
+    ERROR("Unable to get a %s socket", TRANSPORT_TO_STRING(transport));
   }
 
   return fd;
@@ -3802,7 +3800,7 @@ struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket) {
   sipp_socklen_t addrlen = sizeof(remote_sockaddr);
 
   if((fd = accept(accept_socket->ss_fd, (struct sockaddr *)&remote_sockaddr, &addrlen))== -1) {
-    ERROR_P2("Unable to accept on a %s socket: %s", TRANSPORT_TO_STRING(transport), strerror(errno));
+    ERROR("Unable to accept on a %s socket: %s", TRANSPORT_TO_STRING(transport), strerror(errno));
   }
 
   ret  = sipp_allocate_socket(accept_socket->ss_ipv6, accept_socket->ss_transport, fd, 1);
@@ -3820,7 +3818,7 @@ struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket) {
 #ifdef _USE_OPENSSL
     int err;
     if ((err = SSL_accept(ret->ss_ssl)) < 0) {
-      ERROR_P1("Error in SSL_accept: %s\n", sip_tls_error_string(accept_socket->ss_ssl, err));
+      ERROR("Error in SSL_accept: %s\n", sip_tls_error_string(accept_socket->ss_ssl, err));
     }
 #else
     ERROR("You need to compile SIPp with TLS support");
@@ -3876,7 +3874,7 @@ int sipp_do_connect_socket(struct sipp_socket *socket) {
 #ifdef _USE_OPENSSL
     int err;
     if ((err = SSL_connect(socket->ss_ssl)) < 0) {
-      ERROR_P1("Error in SSL connection: %s\n", sip_tls_error_string(socket->ss_ssl, err));
+      ERROR("Error in SSL connection: %s\n", sip_tls_error_string(socket->ss_ssl, err));
     }
 #else
     ERROR("You need to compile SIPp with TLS support");
@@ -3986,7 +3984,7 @@ int main(int argc, char *argv[])
   init_tolower_table();
   
   /* Command line parsing */
-#define REQUIRE_ARG() if((++argi) >= argc) { ERROR_P1("Missing argument for param '%s'.\n" \
+#define REQUIRE_ARG() if((++argi) >= argc) { ERROR("Missing argument for param '%s'.\n" \
 				     "Use 'sipp -h' for details",  argv[argi - 1]); }
 #define CHECK_PASS() if (option->pass != pass) { break; }
 
@@ -3999,7 +3997,7 @@ int main(int argc, char *argv[])
 	  continue;
 	}
 	help();
-	ERROR_P1("Invalid argument: '%s'.\n"
+	ERROR("Invalid argument: '%s'.\n"
 	    "Use 'sipp -h' for details", argv[argi]);
       }
 
@@ -4111,7 +4109,7 @@ int main(int argc, char *argv[])
 	  CHECK_PASS();
 
 	  if (strlen(argv[argi]) != 2) {
-	    ERROR_P1("Invalid argument for -t param : '%s'.\n"
+	    ERROR("Invalid argument for -t param : '%s'.\n"
 		"Use 'sipp -h' for details",  argv[argi]);
 	  }
 
@@ -4135,7 +4133,7 @@ int main(int argc, char *argv[])
 	      break;
 	    case 'c':
 	      if(strlen(comp_error)) {
-		ERROR_P1("No " COMP_PLUGGIN " pluggin available:\n%s", comp_error);
+		ERROR("No " COMP_PLUGGIN " pluggin available:\n%s", comp_error);
 	      }
 	      transport = T_UDP;
 	      compression = 1;
@@ -4162,7 +4160,7 @@ int main(int argc, char *argv[])
 	  break;
 	case SIPP_OPTION_NEED_SSL:
 	  CHECK_PASS();
-	  ERROR_P1("OpenSSL is required for the %s option.", argv[argi]);
+	  ERROR("OpenSSL is required for the %s option.", argv[argi]);
 	  break;
 	case SIPP_OPTION_MAX_SOCKET:
 	  REQUIRE_ARG();
@@ -4208,7 +4206,7 @@ int main(int argc, char *argv[])
 	  CHECK_PASS();
 
 	  if (generic_count+1 >= sizeof(generic)/sizeof(generic[0])) {
-	    ERROR_P1("Too many generic parameters %d",generic_count+1);
+	    ERROR("Too many generic parameters %d",generic_count+1);
 	  }
 	  generic[generic_count++] = &argv[argi - 1];
 	  generic[generic_count] = NULL;
@@ -4238,7 +4236,7 @@ int main(int argc, char *argv[])
 	    int i = find_scenario(argv[argi]);
 
 	    if (i < 0) {
-	      ERROR_P1("Invalid default scenario name '%s'.\n", argv[argi]);
+	      ERROR("Invalid default scenario name '%s'.\n", argv[argi]);
 	    }
 
 	    CStat::instance()->setFileName(argv[argi], (char*)".csv");
@@ -4249,13 +4247,13 @@ int main(int argc, char *argv[])
 	    int i = find_scenario(argv[argi]);
 
 	    if (i < 0) {
-	      ERROR_P1("Invalid default scenario name '%s'.\n", argv[argi]);
+	      ERROR("Invalid default scenario name '%s'.\n", argv[argi]);
 	    }
 
 	    fprintf(stdout, "%s", default_scenario[i]);
 	    exit(EXIT_OTHER);
 	  } else {
-	    ERROR_P1("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
+	    ERROR("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
 	  }
 	  break;
 	case SIPP_OPTION_SLAVE_CFG: 
@@ -4308,7 +4306,7 @@ int main(int argc, char *argv[])
 		NULL,
 		&hints,
 		&local_addr) != 0) {
-	    ERROR_P1("Unknown remote host '%s'.\n"
+	    ERROR("Unknown remote host '%s'.\n"
 		"Use 'sipp -h' for details", remote_s_address);
 	  }
 
@@ -4381,7 +4379,7 @@ int main(int argc, char *argv[])
 		  } else if (!strcmp(p, "pingreply")) {
 		    mask = DEFAULT_BEHAVIOR_PINGREPLY;
 		  } else {
-		    ERROR_P1("Unknown default behavior: '%s'\n", token);
+		    ERROR("Unknown default behavior: '%s'\n", token);
 		  }
 		  switch(mode) {
 		    case 0:
@@ -4403,7 +4401,7 @@ int main(int argc, char *argv[])
 	  }
 	  break;
 	default:
-	  ERROR_P1("Internal error: I don't recognize the option type for %s\n", argv[argi]);
+	  ERROR("Internal error: I don't recognize the option type for %s\n", argv[argi]);
       }
     }
   }
@@ -4451,7 +4449,7 @@ int main(int argc, char *argv[])
     sprintf (L_file_name, "%s_%d_messages.log", scenario_file, getpid());
     messagef = fopen(L_file_name, "w");
     if(!messagef) {
-      ERROR_P1("Unable to create '%s'", L_file_name);
+      ERROR("Unable to create '%s'", L_file_name);
     }
   }
   
@@ -4460,7 +4458,7 @@ int main(int argc, char *argv[])
     sprintf (L_file_name, "%s_%d_shortmessages.log", scenario_file, getpid());
     shortmessagef = fopen(L_file_name, "w");
     if(!shortmessagef) {
-      ERROR_P1("Unable to create '%s'", L_file_name);
+      ERROR("Unable to create '%s'", L_file_name);
     }
   }
   
@@ -4469,7 +4467,7 @@ int main(int argc, char *argv[])
     sprintf (L_file_name, "%s_%d_screen.log", scenario_file, getpid());
     screenf = fopen(L_file_name, "w");
     if(!screenf) {
-      ERROR_P1("Unable to create '%s'", L_file_name);
+      ERROR("Unable to create '%s'", L_file_name);
     }
   }  
 
@@ -4480,7 +4478,7 @@ int main(int argc, char *argv[])
     sprintf (L_file_name, "%s_%d_timeout.log", scenario_file, getpid());
     timeoutf = fopen(L_file_name, "w");
     if(!timeoutf) {
-      ERROR_P1("Unable to create '%s'", L_file_name);
+      ERROR("Unable to create '%s'", L_file_name);
     }
   } */
 
@@ -4489,7 +4487,7 @@ int main(int argc, char *argv[])
     sprintf (L_file_name, "%s_%d_counts.csv", scenario_file, getpid());
     countf = fopen(L_file_name, "w");
     if(!countf) {
-      ERROR_P1("Unable to create '%s'", L_file_name);
+      ERROR("Unable to create '%s'", L_file_name);
     }
     print_count_file(countf, 1);
   }
@@ -4499,7 +4497,7 @@ int main(int argc, char *argv[])
     sprintf (L_file_name, "%s_%d_logs.log", scenario_file, getpid());
     logfile = fopen(L_file_name, "w");
     if(!logfile) {
-      ERROR_P1("Unable to create '%s'", L_file_name);
+      ERROR("Unable to create '%s'", L_file_name);
     }
   }
 
@@ -4542,7 +4540,7 @@ int main(int argc, char *argv[])
     
     rlimit.rlim_cur = rlimit.rlim_max;
     if (setrlimit (RLIMIT_NOFILE, &rlimit) < 0) {
-      ERROR_P1("Unable to increase the open file limit to FD_SETSIZE = %d",
+      ERROR("Unable to increase the open file limit to FD_SETSIZE = %d",
                FD_SETSIZE);
     }
   }
@@ -4631,7 +4629,7 @@ int main(int argc, char *argv[])
                     NULL,
                     &hints,
                     &local_addr) != 0) {
-      ERROR_P1("Unknown RTP address '%s'.\n"
+      ERROR("Unknown RTP address '%s'.\n"
                "Use 'sipp -h' for details", media_ip);
     }
 
@@ -4854,7 +4852,7 @@ int open_connections() {
                       NULL,
                       &hints,
                       &local_addr) != 0) {
-        ERROR_P1("Unknown remote host '%s'.\n"
+        ERROR("Unknown remote host '%s'.\n"
                  "Use 'sipp -h' for details", remote_host);
       }
 
@@ -4901,7 +4899,7 @@ int open_connections() {
 
     /* Resolving local IP */
     if (getaddrinfo(local_host, NULL, &hints, &local_addr) != 0) {
-      ERROR_P2("Can't get local IP address in getaddrinfo, local_host='%s', local_ip='%s'",
+      ERROR("Can't get local IP address in getaddrinfo, local_host='%s', local_ip='%s'",
 	  local_host,
 	  local_ip);
     }
@@ -4966,7 +4964,7 @@ int open_connections() {
 		NULL,
 		&hints,
 		&local_addr) != 0) {
-	    ERROR_P1("Unknown host '%s'.\n"
+	    ERROR("Unknown host '%s'.\n"
 		"Use 'sipp -h' for details", peripaddr);
 	  }
 	} else {
@@ -4974,7 +4972,7 @@ int open_connections() {
 		NULL,
 		&hints,
 		&local_addr) != 0) {
-	    ERROR_P1("Unknown host '%s'.\n"
+	    ERROR("Unknown host '%s'.\n"
 		"Use 'sipp -h' for details", peripaddr);
 	  }
 	}
@@ -5018,7 +5016,7 @@ int open_connections() {
                          NULL,
                          &hints,
                          &local_addr) != 0) {
-           ERROR_P1("Unknown host '%s'.\n"
+           ERROR("Unknown host '%s'.\n"
                     "Use 'sipp -h' for details", peripaddr);
         }
       } else {
@@ -5026,7 +5024,7 @@ int open_connections() {
                         NULL,
                         &hints,
                         &local_addr) != 0) {
-           ERROR_P1("Unknown host '%s'.\n"
+           ERROR("Unknown host '%s'.\n"
                    "Use 'sipp -h' for details", peripaddr);
         }
       }
@@ -5081,7 +5079,7 @@ int open_connections() {
                         NULL,
                         &hints,
                         &local_addr) != 0) {
-            ERROR_P1("Unknown remote host '%s'.\n"
+            ERROR("Unknown remote host '%s'.\n"
                      "Use 'sipp -h' for details", peripaddr);
           }
 
@@ -5194,7 +5192,7 @@ void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *pe
                       &hints,
                       &local_addr) != 0) {
 
-ERROR_P1("Unknown peer host '%s'.\n"
+ERROR("Unknown peer host '%s'.\n"
                        "Use 'sipp -h' for details", peer_host);
             }
 
@@ -5249,7 +5247,7 @@ struct sipp_socket **get_peer_socket(char * peer)
       return peer_socket;
      }
      else {
-       ERROR_P1("get_peer_socket: Peer %s not found\n", peer);    
+       ERROR("get_peer_socket: Peer %s not found\n", peer);
     }
    return NULL;
 }
@@ -5264,7 +5262,7 @@ char * get_peer_addr(char * peer)
        return addr;
        }
      else{
-       ERROR_P1("get_peer_addr: Peer %s not found\n", peer);
+       ERROR("get_peer_addr: Peer %s not found\n", peer);
        }
    return NULL;
 }
@@ -5296,7 +5294,7 @@ void connect_local_twin_socket(char * twinSippHost)
                            NULL,
                            &hints,
                            &local_addr) != 0) {
-               ERROR_P1("Unknown twin host '%s'.\n"
+               ERROR("Unknown twin host '%s'.\n"
                         "Use 'sipp -h' for details", twinSippHost);
                 }
              memcpy(&twinSipp_sockaddr,
@@ -5392,3 +5390,55 @@ void free_peer_addr_map() {
        free(peer_addr_it->second);
   }
 }
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+int TRACE_MSG(char *fmt, ...) {
+  int ret = 0;
+  static size_t count = 0;
+  if(messagef) {
+    va_list ap;
+    va_start(ap, fmt);
+    ret = vfprintf(messagef, fmt, ap);
+    va_end(ap);
+    fflush(messagef);
+
+    count += ret;
+  }
+  return ret;
+}
+
+int TRACE_SHORTMSG(char *fmt, ...) {
+  int ret = 0;
+  static size_t count = 0;
+  if(shortmessagef) {
+    va_list ap;
+    va_start(ap, fmt);
+    ret = vfprintf(shortmessagef, fmt, ap);
+    va_end(ap);
+    fflush(shortmessagef);
+
+    count += ret;
+  }
+  return ret;
+}
+
+int LOG_MSG(char *fmt, ...) {
+  int ret = 0;
+  static size_t count = 0;
+  if(logfile) {
+    va_list ap;
+    va_start(ap, fmt);
+    ret = vfprintf(logfile, fmt, ap);
+    va_end(ap);
+    fflush(logfile);
+
+    count += ret;
+  }
+  return ret;
+}
+
+#ifdef __cplusplus
+}
+#endif
