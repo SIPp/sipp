@@ -95,14 +95,14 @@ void CAction::afficheInfo()
              M_action,
              "Full Msg",
              M_checkIt,
-		       variableRevMap[M_varId]);
+		       display_scenario->variableRevMap[M_varId]);
     } else {
       printf("Type[%d] - where[%s-%s] - checkIt[%d] - $%d",
              M_action,
              "Header",
              M_lookingChar,
              M_checkIt,
-		       variableRevMap[M_varId]);
+		       display_scenario->variableRevMap[M_varId]);
     }
   } else if (M_action == E_AT_EXECUTE_CMD) {
     if (M_cmdLine) {
@@ -115,23 +115,23 @@ void CAction::afficheInfo()
   } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
       char tmp[40];
       M_distribution->textDescr(tmp, sizeof(tmp));
-      printf("Type[%d] - sample varId[%d] %s", M_action, variableRevMap[M_varId], tmp);
+      printf("Type[%d] - sample varId[%d] %s", M_action, display_scenario->variableRevMap[M_varId], tmp);
   } else if (M_action == E_AT_ASSIGN_FROM_VALUE) {
-      printf("Type[%d] - assign varId[%d] %lf", M_action, variableRevMap[M_varId], M_doubleValue);
+      printf("Type[%d] - assign varId[%d] %lf", M_action, display_scenario->variableRevMap[M_varId], M_doubleValue);
   } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
-      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, variableRevMap[M_varId], M_message);
+      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, display_scenario->variableRevMap[M_varId], M_message);
   } else if (M_action == E_AT_VAR_ADD) {
-      printf("Type[%d] - add varId[%d] %lf", M_action, variableRevMap[M_varId], M_doubleValue);
+      printf("Type[%d] - add varId[%d] %lf", M_action, display_scenario->variableRevMap[M_varId], M_doubleValue);
   } else if (M_action == E_AT_VAR_MULTIPLY) {
-      printf("Type[%d] - multiply varId[%d] %lf", M_action, variableRevMap[M_varId], M_doubleValue);
+      printf("Type[%d] - multiply varId[%d] %lf", M_action, display_scenario->variableRevMap[M_varId], M_doubleValue);
   } else if (M_action == E_AT_VAR_DIVIDE) {
-      printf("Type[%d] - divide varId[%d] %lf", M_action, variableRevMap[M_varId], M_doubleValue);
+      printf("Type[%d] - divide varId[%d] %lf", M_action, display_scenario->variableRevMap[M_varId], M_doubleValue);
   } else if (M_action == E_AT_VAR_TRIM) {
-      printf("Type[%d] - trim varId[%d]", M_action, variableRevMap[M_varId]);
+      printf("Type[%d] - trim varId[%d]", M_action, display_scenario->variableRevMap[M_varId]);
   } else if (M_action == E_AT_VAR_TEST) {
-      printf("Type[%d] - divide varId[%d] varInId[%d] %s %lf", M_action, variableRevMap[M_varId], variableRevMap[M_varInId], comparatorToString(M_comp), M_doubleValue);
+      printf("Type[%d] - divide varId[%d] varInId[%d] %s %lf", M_action, display_scenario->variableRevMap[M_varId], display_scenario->variableRevMap[M_varInId], comparatorToString(M_comp), M_doubleValue);
   } else if (M_action == E_AT_VAR_TO_DOUBLE) {
-      printf("Type[%d] - toDouble varId[%d]", M_action, variableRevMap[M_varId]);
+      printf("Type[%d] - toDouble varId[%d]", M_action, display_scenario->variableRevMap[M_varId]);
 #ifdef PCAPPLAY
   } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
       printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
@@ -248,7 +248,7 @@ void CAction::setMessage  (char*          P_value)
   if(P_value != NULL)
   { 
     M_message_str = strdup(P_value);
-    M_message = new SendingMessage(P_value, true /* skip sanity */);
+    M_message = new SendingMessage(M_scenario, P_value, true /* skip sanity */);
   }
 }
 
@@ -263,7 +263,7 @@ void CAction::setCmdLine  (char*          P_value)
   if(P_value != NULL)
   {
     M_cmdLine_str = strdup(P_value);
-    M_cmdLine = new SendingMessage(P_value, true /* skip sanity */);
+    M_cmdLine = new SendingMessage(M_scenario, P_value, true /* skip sanity */);
   }
 }
 
@@ -305,6 +305,10 @@ void CAction::setPcapArgs (char*        P_value)
 }
 #endif
 
+void CAction::setScenario(scenario *     P_scenario) {
+  M_scenario = P_scenario;
+}
+
 void CAction::setAction(CAction P_action)
 {
   if (P_action.getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
@@ -317,6 +321,7 @@ void CAction::setAction(CAction P_action)
   setVarInId      ( P_action.getVarInId()      );
   setDoubleValue  ( P_action.getDoubleValue()  );
   setDistribution ( P_action.getDistribution() );
+  setScenario     ( P_action.M_scenario        );
 
   setNbSubVarId   ( P_action.getNbSubVarId()   );
   for (L_i = 0; L_i < P_action.getNbSubVarId() ; L_i++ ) {
@@ -336,7 +341,7 @@ void CAction::setAction(CAction P_action)
 #endif
 }
 
-CAction::CAction()
+CAction::CAction(scenario *scenario)
 {
   M_action       = E_AT_NO_ACTION;
   M_varId        = 0;
@@ -364,6 +369,7 @@ CAction::CAction()
   M_message	 = NULL;
   M_message_str	 = NULL;
   M_cmdLine_str	 = NULL;
+  M_scenario     = scenario;
 }
 
 CAction::~CAction()

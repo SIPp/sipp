@@ -150,23 +150,71 @@ public:
   ~message();
 };
 
+typedef std::map<std::string, int> str_int_map;
+typedef std::map<int, char *> int_str_map;
+typedef std::map<int, int> int_int_map;
+
+class scenario {
+public:
+  scenario(char * filename, int deflt);
+  ~scenario();
+
+  message **messages;
+  int length;
+  char *name;
+  int duration;
+  int maxVariableUsed;
+  int_str_map  variableRevMap;
+  CVariable *** scenVariableTable;
+  int maxTxnUsed;
+  int_str_map txnRevMap;
+
+  void computeSippMode();
+
+  bool rtd_stopped[MAX_RTD_INFO_LENGTH];
+  int get_var(const char *varName, const char *what);
+
+private:
+
+  /* The mapping of labels to IDs. */
+  str_int_map labelMap;
+  /* The string label representations. */
+  int_str_map nextLabels;
+  int_str_map ontimeoutLabels;
+
+  str_int_map  variableMap;
+  int_int_map  variableReferences;
+
+  str_int_map txnMap;
+  int_int_map txnStarted;
+  int_int_map txnResponses;
+
+
+  bool found_timewait;
+  bool rtd_started[MAX_RTD_INFO_LENGTH];
+
+  void getBookKeeping();
+  void getCommonAttributes();
+  void getActionForThisMessage();
+  void handle_arithmetic(CAction *tmpAction, char *what);
+
+  void apply_labels();
+  void init_rtds();
+  void validate_rtds();
+  void validate_variable_usage();
+  void validate_txn_usage();
+
+  int get_txn(const char *txnName, const char *what, bool start);
+  int xp_get_var(const char *name, const char *what);
+  int xp_get_var(const char *name, const char *what, int defval);
+
+  void expand(int length);
+};
+
 /* There are external variable containing the current scenario */
-
-extern message   *   scenario[SCEN_MAX_MESSAGES];
-extern CVariable *** scenVariableTable;
-extern int	     maxVariableUsed;
-/* This maps variable integers into their actual names. */
-extern char	     **variableRevMap;
-extern int	     scenario_len;
-extern char          scenario_name[255];
+extern scenario      *main_scenario;
+extern scenario      *display_scenario;
 extern int           toolMode;
-extern bool          rtd_stopped[MAX_RTD_INFO_LENGTH];
-extern bool          rtd_started[MAX_RTD_INFO_LENGTH];
-extern int	     maxTxnUsed;
-extern char	     **txnRevMap;
-
-
-extern unsigned long scenario_duration; /* include -d option if used */
 
 extern message::ContentLengthFlag  content_length_flag;
 
@@ -176,7 +224,6 @@ void load_scenario(char * filename,
 /* 3pcc extended mode */
 void parse_slave_cfg();
 
-void computeSippMode();
 void getActionForThisMessage();
 CSample *parse_distribution(bool oldstyle);
 int  createIntegerTable(char          * P_listeStr, 

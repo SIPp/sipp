@@ -39,6 +39,8 @@
 
 #include <vector>
 
+class scenario;
+
 struct MessageComponent;
 
 typedef enum {
@@ -82,7 +84,7 @@ typedef enum {
 
 class SendingMessage {
   public:
-    SendingMessage(char *msg, bool skip_sanity = false);
+    SendingMessage(scenario *msg_scenario, char *msg, bool skip_sanity = false);
     ~SendingMessage();
 
     struct MessageComponent *getComponent(int);
@@ -95,7 +97,7 @@ class SendingMessage {
     bool isAck();
     bool isCancel();
 
-    static void parseAuthenticationKeyword(struct MessageComponent *dst, char *keyword);
+    static void parseAuthenticationKeyword(scenario *msg_scenario, struct MessageComponent *dst, char *keyword);
     static void freeMessageComponent(struct MessageComponent *comp);
   private:
     std::vector <struct MessageComponent *> messageComponents;
@@ -106,6 +108,8 @@ class SendingMessage {
     bool ack;
     bool cancel;
     bool response;
+
+    scenario *msg_scenario;
 
     // Get parameters from a [keyword]
     static void getQuotedParam(char * dest, char * src, int * len);

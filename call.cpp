@@ -363,6 +363,7 @@ unsigned long hash(char * msg) {
 
 call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : listener(p_id, true)
 {
+  call_scenario = main_scenario;
   msg_index = 0;
   last_send_index = 0;
   last_send_msg = NULL;
@@ -416,12 +417,12 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : l
   
   // initialising the CallVariable with the Scenario variable
   int i;
-  if (maxVariableUsed >= 0) {
-	M_callVariableTable = new CCallVariable *[maxVariableUsed + 1];
+  if (call_scenario->maxVariableUsed >= 0) {
+	M_callVariableTable = new CCallVariable *[call_scenario->maxVariableUsed + 1];
   } else {
 	M_callVariableTable = NULL;
   }
-  for(i=0; i<=maxVariableUsed; i++)
+  for(i=0; i<=call_scenario->maxVariableUsed; i++)
   {
     M_callVariableTable[i] = new CCallVariable();
     if (M_callVariableTable[i] == NULL) {
@@ -429,9 +430,9 @@ call::call(char * p_id, int userId, int tdmMap, bool ipv6, bool isAutomatic) : l
     }
   }
 
-  if (maxTxnUsed > 0) {
-    txnID = (char **)malloc(sizeof(char *) * maxTxnUsed);
-    memset(txnID, 0, sizeof(char *) * maxTxnUsed);
+  if (call_scenario->maxTxnUsed > 0) {
+    txnID = (char **)malloc(sizeof(char *) * call_scenario->maxTxnUsed);
+    memset(txnID, 0, sizeof(char *) * call_scenario->maxTxnUsed);
   } else {
     txnID = NULL;
   }
@@ -510,7 +511,7 @@ call::~call()
   }
 
   /* Deletion of the call variable */
-  for(int i=0; i<=maxVariableUsed; i++) {
+  for(int i=0; i<=call_scenario->maxVariableUsed; i++) {
     if(M_callVariableTable[i] != NULL) {
       delete M_callVariableTable[i] ;
       M_callVariableTable[i] = NULL;
@@ -522,7 +523,7 @@ call::~call()
     freeUsers.push_front(userId);
   }
 
-  for (int i = 0; i < maxTxnUsed; i++) {
+  for (int i = 0; i < call_scenario->maxTxnUsed; i++) {
     free(txnID[i]);
   }
   free(txnID);
@@ -689,15 +690,15 @@ bool call::connect_socket_if_needed()
   return true;
 }
 
-bool lost(int index)
+bool call::lost(int index)
 {
   static int inited = 0;
   double percent = global_lost;
 
   if(!lose_packets) return false;
 
-  if (scenario[index]->lost >= 0) {
-    percent = scenario[index]->lost;
+  if (call_scenario->messages[index]->lost >= 0) {
+    percent = call_scenario->messages[index]->lost;
   }
 
   if (percent == 0) {
@@ -729,7 +730,7 @@ int call::send_raw(char * msg, int index)
     TRACE_MSG("%s message voluntary lost (while sending).", TRANSPORT_TO_STRING(transport));
     
     if(comp_state) { comp_free(&comp_state); }
-    scenario[index] -> nb_lost++;
+    call_scenario->messages[index] -> nb_lost++;
     return 0;
   }
   
@@ -1083,9 +1084,9 @@ char * call::send_scene(int index, int *send_status)
     return NULL;
   }
 
-  if(scenario[index] -> send_scheme) {
+  if(call_scenario->messages[index] -> send_scheme) {
     char * dest;
-    dest = createSendingMessage(scenario[index] -> send_scheme, index);
+    dest = createSendingMessage(call_scenario->messages[index] -> send_scheme, index);
     strcpy(msg_buffer, dest);
 
     if (dest) {
@@ -1118,16 +1119,16 @@ char * call::send_scene(int index, int *send_status)
 
 void call::do_bookkeeping(int index) {
   /* If this message increments a counter, do it now. */
-  if(int counter = scenario[index] -> counter) {
+  if(int counter = call_scenario->messages[index] -> counter) {
     CStat::instance()->computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, counter - 1);
   }
 
   /* If this message can be used to compute RTD, do it now */
-  if(int rtd = scenario[index] -> start_rtd) {
+  if(int rtd = call_scenario->messages[index] -> start_rtd) {
     start_time_rtd[rtd - 1] = getmicroseconds();
   }
 
-  if(int rtd = scenario[index] -> stop_rtd) {
+  if(int rtd = call_scenario->messages[index] -> stop_rtd) {
     if (!rtd_done[rtd - 1]) {
       unsigned long long start = start_time_rtd[rtd - 1];
       unsigned long long end = getmicroseconds();
@@ -1139,7 +1140,7 @@ void call::do_bookkeeping(int index) {
       CStat::instance()->computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
 	  (end - start) / 1000, rtd - 1);
 
-      if (!scenario[index] -> repeat_rtd) {
+      if (!call_scenario->messages[index] -> repeat_rtd) {
 	rtd_done[rtd - 1] = true;
       }
     }
@@ -1201,25 +1202,25 @@ bool call::terminate(CStat::E_Action reason) {
 
 bool call::next()
 {
-  int test = scenario[msg_index]->test;
+  int test = call_scenario->messages[msg_index]->test;
   /* What is the next message index? */
   /* Default without branching: use the next message */
   int new_msg_index = msg_index+1;
   /* If branch needed, overwrite this default */
-  if ( (scenario[msg_index]->next >= 0) &&
+  if ( (call_scenario->messages[msg_index]->next >= 0) &&
        ((test == -1) ||
-        (test <= maxVariableUsed && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
+        (test <= call_scenario->maxVariableUsed && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
      ) {
     /* Branching possible, check the probability */
-    int chance = scenario[msg_index]->chance;
+    int chance = call_scenario->messages[msg_index]->chance;
     if ((chance <= 0) || (rand() > chance )) {
       /* Branch == overwrite with the 'next' attribute value */
-      new_msg_index = scenario[msg_index]->next;
+      new_msg_index = call_scenario->messages[msg_index]->next;
     }
   }
   msg_index=new_msg_index;
   recv_timeout = 0;
-  if(msg_index >= scenario_len) {
+  if(msg_index >= call_scenario->length) {
     terminate(CStat::E_CALL_SUCCESSFULLY_ENDED);
     return false;
   }
@@ -1236,10 +1237,12 @@ bool call::run()
 
   clock_tick = getmilliseconds();
 
-  if(msg_index >= scenario_len) {
+  if(msg_index >= call_scenario->length) {
     ERROR("Scenario overrun for call %s (%p) (index = %d)\n",
              id, this, msg_index);
   }
+
+  message *curmsg = call_scenario->messages[msg_index];
 
   /* Manages retransmissions or delete if max retrans reached */
   if(next_retrans && (next_retrans < clock_tick)) {
@@ -1252,14 +1255,14 @@ bool call::run()
 
     if((nb_retrans > (bInviteTransaction ? max_invite_retrans : max_non_invite_retrans)) ||
        (nb_retrans > max_udp_retrans)) {
-      scenario[last_send_index] -> nb_timeout ++;
-      if (scenario[last_send_index]->on_timeout >= 0) {  // action on timeout
+      call_scenario->messages[last_send_index] -> nb_timeout ++;
+      if (call_scenario->messages[last_send_index]->on_timeout >= 0) {  // action on timeout
           WARNING("Call-Id: %s, timeout on max UDP retrans for message %d, jumping to label %d ",
-                      id, msg_index, scenario[last_send_index]->on_timeout);
-          msg_index = scenario[last_send_index]->on_timeout;
+                      id, msg_index, call_scenario->messages[last_send_index]->on_timeout);
+          msg_index = call_scenario->messages[last_send_index]->on_timeout;
           next_retrans = 0;
           recv_timeout = 0;
-          if (msg_index < scenario_len) {
+          if (msg_index < call_scenario->length) {
 		return true;
 	  }
 
@@ -1298,7 +1301,7 @@ bool call::run()
       if(send_raw(last_send_msg, last_send_index) < -1) {
         return false;
       }
-      scenario[last_send_index] -> nb_sent_retrans++;
+      call_scenario->messages[last_send_index] -> nb_sent_retrans++;
       CStat::instance()->computeStat(CStat::E_RETRANSMISSION);
       next_retrans = clock_tick + nb_last_delay;
     }
@@ -1313,13 +1316,13 @@ bool call::run()
     /* Our pause is over. */
     paused_until = 0;
     return next();
-  } else if(scenario[msg_index] -> pause_distribution || scenario[msg_index]->pause_variable) {
+  } else if(curmsg -> pause_distribution || curmsg->pause_variable) {
     unsigned int pause;
-    if (scenario[msg_index]->pause_distribution) {
-      pause  = (int)(scenario[msg_index] -> pause_distribution -> sample());
+    if (curmsg->pause_distribution) {
+      pause  = (int)(curmsg -> pause_distribution -> sample());
     } else {
-      int varId = scenario[msg_index]->pause_variable;
-      if(varId <= maxVariableUsed && M_callVariableTable[varId]) {
+      int varId = curmsg->pause_variable;
+      if(varId <= call_scenario->maxVariableUsed && M_callVariableTable[varId]) {
 	pause = (int) M_callVariableTable[varId]->getDouble();
       } else {
 	pause = 0;
@@ -1336,13 +1339,15 @@ bool call::run()
     /* This state is used as the last message of a scenario, just for handling
      * final retransmissions. If the connection closes, we do not mark it is
      * failed. */
-    this->timewait = scenario[msg_index]->timewait;
+    this->timewait = curmsg->timewait;
 
     /* Increment the number of sessions in pause state */
-    ++scenario[msg_index]->sessions;
+    curmsg->sessions++;
+    do_bookkeeping(msg_index);
+    actionResult = executeAction(NULL, msg_index);
     return run(); /* In case delay is 0 */
   }
-  else if(scenario[msg_index] -> M_type == MSG_TYPE_SENDCMD) {
+  else if(curmsg -> M_type == MSG_TYPE_SENDCMD) {
     int send_status;
 
     if(next_retrans) {
@@ -1354,17 +1359,20 @@ bool call::run()
     if(send_status != 0) { /* Send error */
       return false; /* call deleted */
     }
-    scenario[msg_index] -> M_nbCmdSent++;
+    curmsg -> M_nbCmdSent++;
     next_retrans = 0;
+
+    do_bookkeeping(msg_index);
+    actionResult = executeAction(NULL, msg_index);
     return(next());
   }
-  else if(scenario[msg_index] -> M_type == MSG_TYPE_NOP) {
+  else if(curmsg -> M_type == MSG_TYPE_NOP) {
     do_bookkeeping(msg_index);
     actionResult = executeAction(NULL, msg_index);
     return(next());
   }
 
-  else if(scenario[msg_index] -> send_scheme) {
+  else if(curmsg -> send_scheme) {
     char * msg_snd;
     int send_status;
 
@@ -1386,9 +1394,9 @@ bool call::run()
      */
 
     int incr_cseq = 0;
-    if (!scenario[msg_index]->send_scheme->isAck() &&
-        !scenario[msg_index]->send_scheme->isCancel() &&
-        !scenario[msg_index]->send_scheme->isResponse()) {
+    if (!curmsg->send_scheme->isAck() &&
+        !curmsg->send_scheme->isCancel() &&
+        !curmsg->send_scheme->isResponse()) {
           ++cseq;
           incr_cseq = 1;
     }
@@ -1411,9 +1419,9 @@ bool call::run()
 	    return false;
 	  }
 	}
-      } else if (scenario[msg_index]->timeout) {
+      } else if (curmsg->timeout) {
 	/* Initialize the send timeout to the per message timeout. */
-	send_timeout = clock_tick + scenario[msg_index]->timeout;
+	send_timeout = clock_tick + curmsg->timeout;
       } else if (defl_send_timeout) {
 	/* Initialize the send timeout to the global timeout. */
 	send_timeout = clock_tick + defl_send_timeout;
@@ -1432,9 +1440,9 @@ bool call::run()
     last_send_msg = (char *) realloc(last_send_msg, strlen(msg_snd) + 1);
     strcpy(last_send_msg, msg_snd);
 
-    if (scenario[msg_index]->start_txn) {
-      txnID[scenario[msg_index]->start_txn - 1] = (char *)realloc(txnID[scenario[msg_index]->start_txn - 1], MAX_HEADER_LEN);
-      extract_transaction(txnID[scenario[msg_index]->start_txn - 1], last_send_msg);
+    if (curmsg->start_txn) {
+      txnID[curmsg->start_txn - 1] = (char *)realloc(txnID[curmsg->start_txn - 1], MAX_HEADER_LEN);
+      extract_transaction(txnID[curmsg->start_txn - 1], last_send_msg);
     }
 
     if(last_recv_hash) {
@@ -1450,26 +1458,24 @@ bool call::run()
     }
 
     /* Update retransmission information */
-    if(scenario[msg_index] -> retrans_delay) {
+    if(curmsg -> retrans_delay) {
       if((transport == T_UDP) && (retrans_enabled)) {
-        next_retrans = clock_tick + scenario[msg_index] -> retrans_delay;
+        next_retrans = clock_tick + curmsg -> retrans_delay;
         nb_retrans = 0;
-        nb_last_delay = scenario[msg_index]->retrans_delay;
+        nb_last_delay = curmsg->retrans_delay;
       }
     } else {
       next_retrans = 0;
     }
-    
-#ifdef PCAPPLAY
+
     actionResult = executeAction(msg_snd, msg_index);
-#endif
-    
+
     /* Update scenario statistics */
-    scenario[msg_index] -> nb_sent++;
+    curmsg -> nb_sent++;
 
     return next();
-  } else if (scenario[msg_index]->M_type == MSG_TYPE_RECV
-         || scenario[msg_index]->M_type == MSG_TYPE_RECVCMD
+  } else if (curmsg->M_type == MSG_TYPE_RECV
+         || curmsg->M_type == MSG_TYPE_RECVCMD
                                                  ) {
     if (recv_timeout) {
       if(recv_timeout > clock_tick || recv_timeout > getmilliseconds()) {
@@ -1477,8 +1483,8 @@ bool call::run()
 	return true;
       }
       recv_timeout = 0;
-      ++scenario[msg_index]->nb_timeout;
-      if (scenario[msg_index]->on_timeout < 0) {
+      curmsg->nb_timeout++;
+      if (curmsg->on_timeout < 0) {
         // if you set a timeout but not a label, the call is aborted 
         WARNING("Call-Id: %s, receive timeout on message %d without label to jump to (ontimeout attribute): aborting call",
                    id, msg_index);
@@ -1492,10 +1498,10 @@ bool call::run()
         }
       }
       WARNING("Call-Id: %s, receive timeout on message %d, jumping to label %d",
-                  id, msg_index, scenario[msg_index]->on_timeout);
-      msg_index = scenario[msg_index]->on_timeout;
+                  id, msg_index, curmsg->on_timeout);
+      msg_index = curmsg->on_timeout;
       recv_timeout = 0;
-      if (msg_index < scenario_len) return true;
+      if (msg_index < call_scenario->length) return true;
       // special case - the label points to the end - finish the call
       CStat::instance()->computeStat(CStat::E_CALL_FAILED);
       CStat::instance()->computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
@@ -1505,10 +1511,10 @@ bool call::run()
         delete this;
         return false;
       }
-    } else if ((scenario[msg_index]->timeout) || (defl_recv_timeout)) {
-      if (scenario[msg_index]->timeout)
+    } else if (curmsg->timeout || defl_recv_timeout) {
+      if (curmsg->timeout)
         // If timeout is specified on message receive, use it
-        recv_timeout = getmilliseconds() + scenario[msg_index]->timeout;
+        recv_timeout = getmilliseconds() + curmsg->timeout;
       else
         // Else use the default timeout if specified
         recv_timeout = getmilliseconds() + defl_recv_timeout;
@@ -1591,8 +1597,16 @@ void init_default_messages() {
   int messages = sizeof(default_message_strings)/sizeof(default_message_strings[0]);
   default_messages = new SendingMessage* [messages];
   for (int i = 0; i < messages; i++) {
-    default_messages[i] = new SendingMessage(default_message_strings[i]);
+    default_messages[i] = new SendingMessage(main_scenario, default_message_strings[i]);
   }
+}
+
+void free_default_messages() {
+  int messages = sizeof(default_message_strings)/sizeof(default_message_strings[0]);
+  for (int i = 0; i < messages; i++) {
+    delete default_messages[i];
+  }
+  delete [] default_messages;
 }
 
 SendingMessage *get_default_message(const char *which) {
@@ -1621,7 +1635,9 @@ bool call::process_unexpected(char * msg)
   char buffer[MAX_HEADER_LEN];
   char *desc = buffer;
 
-  scenario[msg_index] -> nb_unexp++;
+  message *curmsg = call_scenario->messages[msg_index];
+
+  curmsg->nb_unexp++;
 
   if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
 	desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "Aborting ");
@@ -1630,22 +1646,22 @@ bool call::process_unexpected(char * msg)
   }
   desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "call on unexpected message for Call-Id '%s': ", id);
 
-  if (scenario[msg_index] -> M_type == MSG_TYPE_RECV) {
-    if (scenario[msg_index] -> recv_request) {
-      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting '%s' ", scenario[msg_index] -> recv_request);
+  if (curmsg -> M_type == MSG_TYPE_RECV) {
+    if (curmsg -> recv_request) {
+      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting '%s' ", curmsg -> recv_request);
     } else {
-      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting '%d' ", scenario[msg_index] -> recv_response);
+      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting '%d' ", curmsg -> recv_response);
     }
-  } else if (scenario[msg_index] -> M_type == MSG_TYPE_SEND) {
+  } else if (curmsg -> M_type == MSG_TYPE_SEND) {
       desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while sending ");
-  } else if (scenario[msg_index] -> M_type == MSG_TYPE_PAUSE) {
+  } else if (curmsg -> M_type == MSG_TYPE_PAUSE) {
       desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while pausing ");
-  } else if (scenario[msg_index] -> M_type == MSG_TYPE_SENDCMD) {
+  } else if (curmsg -> M_type == MSG_TYPE_SENDCMD) {
       desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while sending command ");
-  } else if (scenario[msg_index] -> M_type == MSG_TYPE_RECVCMD) {
+  } else if (curmsg -> M_type == MSG_TYPE_RECVCMD) {
       desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting command ");
   } else {
-      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while in message type %d ", scenario[msg_index]->M_type);
+      desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while in message type %d ", curmsg->M_type);
   }
   desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "(index %d)", msg_index);
 
@@ -1778,16 +1794,18 @@ int call::sendCmdMessage(int index)
   char * peer_dest;
   struct sipp_socket **peer_socket;
 
-  if(scenario[index] -> M_sendCmdData) {
+  message *curmsg = call_scenario->messages[index];
+
+  if(curmsg -> M_sendCmdData) {
     // WARNING("---PREPARING_TWIN_CMD---%s---", scenario[index] -> M_sendCmdData);
-    dest = createSendingMessage(scenario[index] -> M_sendCmdData, -1);
+    dest = createSendingMessage(curmsg -> M_sendCmdData, -1);
     strcat(dest, delimitor);
     //WARNING("---SEND_TWIN_CMD---%s---", dest);
 
     int rc;
 
     /* 3pcc extended mode */
-    peer_dest = scenario[index]->peer_dest;
+    peer_dest = curmsg->peer_dest;
     if(peer_dest){
       peer_socket = get_peer_socket(peer_dest);
       rc = write_socket(*peer_socket, dest, strlen(dest), WS_BUFFER);
@@ -2024,7 +2042,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	break;
       case E_Message_Variable: {
 	 int varId = comp->varId;
-	 if(varId <= maxVariableUsed) {
+	 if(varId <= call_scenario->maxVariableUsed) {
 	   if(M_callVariableTable[varId] != NULL) {
 	     if(M_callVariableTable[varId]->isSet()) {
 	       if (M_callVariableTable[varId]->isRegExp()) {
@@ -2046,7 +2064,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
       case E_Message_Fill: {
         int varId = comp->varId;
 	int length = 0;
-	if(varId <= maxVariableUsed && M_callVariableTable[varId]) {
+	if(varId <= call_scenario->maxVariableUsed && M_callVariableTable[varId]) {
 	  length = (int) M_callVariableTable[varId]->getDouble();
 	  if (length < 0) {
 	    length = 0;
@@ -2079,7 +2097,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	  tmp = strchr(auth_marker, ']');
 	  char c = *tmp;
 	  *tmp = '\0';
-	  SendingMessage::parseAuthenticationKeyword(auth_comp, auth_marker);
+	  SendingMessage::parseAuthenticationKeyword(call_scenario, auth_comp, auth_marker);
 	  *tmp = c;
 	}
 	if (*(dest - 1) == '\n') {
@@ -2240,35 +2258,36 @@ bool call::process_twinSippCom(char * msg)
   if (checkInternalCmd(msg) == false) {
 
     for(search_index = msg_index;
-      search_index < scenario_len;
+      search_index < call_scenario->length;
       search_index++) {
-      if(scenario[search_index] -> M_type != MSG_TYPE_RECVCMD) {
-        if(scenario[search_index] -> optional) {
-          continue;
-        }
-        /* The received message is different from the expected one */
+      if(call_scenario->messages[search_index] -> M_type != MSG_TYPE_RECVCMD) {
+	if(call_scenario->messages[search_index] -> optional) {
+	  continue;
+	}
+	/* The received message is different from the expected one */
 	TRACE_MSG("Unexpected control message received (I was expecting a different type of message):\n%s\n", msg);
-        return rejectCall();
+	return rejectCall();
       } else {
-        if(extendedTwinSippMode){                   // 3pcc extended mode 
+	if(extendedTwinSippMode){                   // 3pcc extended mode
 	  if(check_peer_src(msg, search_index)){
-            found = true;
-            break;
+	    found = true;
+	    break;
 	  } else{
 	    WARNING("Unexpected sender for the received peer message \n%s\n", msg);
 	    return rejectCall();
-	    }
-	 }
-	 else {
-        found = true;
-        break;
+	  }
+	}
+	else {
+	  found = true;
+	  break;
+	}
       }
     }
-    }
-    
+
     if (found) {
-      scenario[search_index]->M_nbCmdRecv ++;
-      
+      call_scenario->messages[search_index]->M_nbCmdRecv ++;
+      do_bookkeeping(search_index);
+
       // variable treatment
       // Remove \r, \n at the end of a received command
       // (necessary for transport, to be removed for usage)
@@ -2277,7 +2296,7 @@ bool call::process_twinSippCom(char * msg)
         msg[strlen(msg)-2] = 0;
       }
       actionResult = executeAction(msg, search_index);
-      
+
       if(actionResult != call::E_AR_NO_ERROR) {
         // Store last action result if it is an error
         // and go on with the scenario
@@ -2292,7 +2311,6 @@ bool call::process_twinSippCom(char * msg)
     }
     msg_index = search_index; //update the state machine
     return(next());
-    
   } else {
     return (false);
   }
@@ -2351,7 +2369,7 @@ bool call::check_peer_src(char * msg, int search_index)
   if(!*L_ptr2) { return (false); }
   L_backup = *L_ptr2;
   *L_ptr2 = 0;
-  if (strcmp(L_ptr1, scenario[search_index] -> peer_src) == 0) {
+  if (strcmp(L_ptr1, call_scenario->messages[search_index] -> peer_src) == 0) {
     *L_ptr2 = L_backup;
     return(true);
   }
@@ -2555,24 +2573,25 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
 bool call::matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod, char *txn)
 {
   int        result;
+  message *curmsg = call_scenario->messages[index];
 
-  if ((scenario[index] -> recv_request)) {
-    if (scenario[index]->regexp_match) {
-      if (scenario[index] -> regexp_compile == NULL) {
+  if ((curmsg -> recv_request)) {
+    if (curmsg->regexp_match) {
+      if (curmsg -> regexp_compile == NULL) {
 	regex_t *re = new regex_t;
-	if (regcomp(re, scenario[index] -> recv_request, REG_EXTENDED|REG_NOSUB)) {
-	  ERROR("Invalid regular expression for index %d: %s", scenario[index]->recv_request);
+	if (regcomp(re, curmsg -> recv_request, REG_EXTENDED|REG_NOSUB)) {
+	  ERROR("Invalid regular expression for index %d: %s", curmsg->recv_request);
 	}
-	scenario[index] -> regexp_compile = re;
+	curmsg -> regexp_compile = re;
       }
-      return !regexec(scenario[index] -> regexp_compile, request, (size_t)0, NULL, 0);
+      return !regexec(curmsg -> regexp_compile, request, (size_t)0, NULL, 0);
     } else {
-      return !strcmp(scenario[index] -> recv_request, request);
+      return !strcmp(curmsg -> recv_request, request);
     }
-  } else if (scenario[index]->recv_response && (scenario[index]->recv_response == reply_code)) {
+  } else if (curmsg->recv_response && (curmsg->recv_response == reply_code)) {
     /* This is a potential candidate, we need to match transactions. */
-    if (scenario[index]->response_txn) {
-      if (txnID[scenario[index]->response_txn - 1] && !strcmp(txnID[scenario[index]->response_txn - 1], txn)) {
+    if (curmsg->response_txn) {
+      if (txnID[curmsg->response_txn - 1] && !strcmp(txnID[curmsg->response_txn - 1], txn)) {
 	return true;
       } else {
 	return false;
@@ -2580,8 +2599,8 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
     } else if (index == 0) {
       /* Always true for the first message. */
       return true;
-    } else if (scenario[index]->recv_response_for_cseq_method_list &&
-	strstr(scenario[index]->recv_response_for_cseq_method_list, responsecseqmethod)) {
+    } else if (curmsg->recv_response_for_cseq_method_list &&
+	strstr(curmsg->recv_response_for_cseq_method_list, responsecseqmethod)) {
       /* If we do not have a transaction defined, we just check the CSEQ method. */
       return true;
     } else {
@@ -2607,10 +2626,10 @@ bool call::process_incoming(char * msg)
   setRunning();
 
   /* Ignore the messages received during a pause if -pause_msg_ign is set */
-  if(scenario[msg_index] -> M_type == MSG_TYPE_PAUSE && pause_msg_ign) return(true);
+  if(call_scenario->messages[msg_index] -> M_type == MSG_TYPE_PAUSE && pause_msg_ign) return(true);
 
   /* Authorize nop as a first command, even in server mode */
-  if((msg_index == 0) && (scenario[msg_index] -> M_type == MSG_TYPE_NOP)) {
+  if((msg_index == 0) && (call_scenario->messages[msg_index] -> M_type == MSG_TYPE_NOP)) {
     actionResult = executeAction(NULL, msg_index);
     return next();
   }
@@ -2630,16 +2649,16 @@ bool call::process_incoming(char * msg)
 	      TRANSPORT_TO_STRING(transport));
 
 	if(comp_state) { comp_free(&comp_state); }
-	scenario[recv_retrans_recv_index] -> nb_lost++;
+	call_scenario->messages[recv_retrans_recv_index] -> nb_lost++;
 	return true;
       }
 
-      scenario[recv_retrans_recv_index] -> nb_recv_retrans++;
+      call_scenario->messages[recv_retrans_recv_index] -> nb_recv_retrans++;
 
       send_scene(recv_retrans_send_index, &status);
 
       if(status == 0) {
-	scenario[recv_retrans_send_index] -> nb_sent_retrans++;
+	call_scenario->messages[recv_retrans_send_index] -> nb_sent_retrans++;
 	CStat::instance()->computeStat(CStat::E_RETRANSMISSION);
       } else if(status < 0) {
 	return false;
@@ -2662,7 +2681,7 @@ bool call::process_incoming(char * msg)
        * This case can also appear in case of message duplication by
        * the network. This should not be considered as an unexpected.
        */
-      scenario[last_recv_index]->nb_recv_retrans++;
+      call_scenario->messages[last_recv_index]->nb_recv_retrans++;
       return true;
     }
   }
@@ -2735,10 +2754,10 @@ bool call::process_incoming(char * msg)
   /* Try to find it in the expected non mandatory responses
    * until the first mandatory response  in the scenario */
   for(search_index = msg_index;
-      search_index < scenario_len;
+      search_index < call_scenario->length;
       search_index++) {
     if(!matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
-      if(scenario[search_index] -> optional) {
+      if(call_scenario->messages[search_index] -> optional) {
         continue;
       }
       /* The received message is different for the expected one */
@@ -2759,25 +2778,25 @@ bool call::process_incoming(char * msg)
     for(search_index = msg_index - 1;
         search_index >= 0;
         search_index--) {
-      if (scenario[search_index]->optional == OPTIONAL_FALSE) contig = false;
+      if (call_scenario->messages[search_index]->optional == OPTIONAL_FALSE) contig = false;
       if(matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
-        if (contig || scenario[search_index]->optional == OPTIONAL_GLOBAL) {
+        if (contig || call_scenario->messages[search_index]->optional == OPTIONAL_GLOBAL) {
          found = true;
          break;  
         } else {
-	  if (int checkTxn = scenario[search_index]->response_txn) {
+	  if (int checkTxn = call_scenario->messages[search_index]->response_txn) {
 	    /* This is a reply to an old transaction. */
 	    if (!strcmp(txnID[checkTxn - 1], txn)) {
 		/* This reply is provisional, so it should have no effect if we recieve it out-of-order. */
 		if (reply_code >= 100 && reply_code <= 199) {
 		  TRACE_MSG("-----------------------------------------------\n"
 		      "Ignoring provisional %s message for transaction %s:\n\n%s\n",
-		      TRANSPORT_TO_STRING(transport), txnRevMap[checkTxn - 1], msg);
+		      TRANSPORT_TO_STRING(transport), call_scenario->txnRevMap[checkTxn - 1], msg);
 		  return true;
-		} else if (scenario[search_index + 1]->M_type == MSG_TYPE_SEND && scenario[search_index + 1]->send_scheme->isAck()) {
+		} else if (call_scenario->messages[search_index + 1]->M_type == MSG_TYPE_SEND && call_scenario->messages[search_index + 1]->send_scheme->isAck()) {
 		  /* This is the message before an ACK, so verify that this is an invite transaction. */
 		  if (!strcmp(responsecseqmethod, "INVITE")) {
-		    sendBuffer(createSendingMessage(scenario[search_index+1] -> send_scheme, (search_index+1)));
+		    sendBuffer(createSendingMessage(call_scenario->messages[search_index+1] -> send_scheme, (search_index+1)));
 		    return true;
 		  }
 		}
@@ -2791,9 +2810,9 @@ bool call::process_incoming(char * msg)
 	     */
 	    if ( (reply_code) &&
 		(0 == strncmp (responsecseqmethod, "INVITE", strlen(responsecseqmethod)) ) &&
-		(scenario[search_index+1]->M_type == MSG_TYPE_SEND) &&
-		(scenario[search_index+1]->send_scheme->isAck()) ) {
-	      sendBuffer(createSendingMessage(scenario[search_index+1] -> send_scheme, (search_index+1)));
+		(call_scenario->messages[search_index+1]->M_type == MSG_TYPE_SEND) &&
+		(call_scenario->messages[search_index+1]->send_scheme->isAck()) ) {
+	      sendBuffer(createSendingMessage(call_scenario->messages[search_index+1] -> send_scheme, (search_index+1)));
 	      return true;
 	    }
 	  }
@@ -2815,7 +2834,7 @@ bool call::process_incoming(char * msg)
     }
   }
 
-  int test = (!found) ? -1 : scenario[search_index]->test;
+  int test = (!found) ? -1 : call_scenario->messages[search_index]->test;
   /* test==0: No branching"
    * test==-1 branching without testing"
    * test>0   branching with testing
@@ -2826,7 +2845,7 @@ bool call::process_incoming(char * msg)
     TRACE_MSG("%s message lost (recv).",
                TRANSPORT_TO_STRING(transport));
     if(comp_state) { comp_free(&comp_state); }
-    scenario[search_index] -> nb_lost++;
+    call_scenario->messages[search_index] -> nb_lost++;
     return true;
   }
 
@@ -2835,7 +2854,7 @@ bool call::process_incoming(char * msg)
   do_bookkeeping(search_index);
 
   /* Increment the recv counter */
-  scenario[search_index] -> nb_recv++;
+  call_scenario->messages[search_index] -> nb_recv++;
 
   // Action treatment
   if (found) {
@@ -2896,7 +2915,7 @@ bool call::process_incoming(char * msg)
   }
 
   /* store the route set only once. TODO: does not support target refreshes!! */
-  if (scenario[search_index] -> bShouldRecordRoutes &&
+  if (call_scenario->messages[search_index] -> bShouldRecordRoutes &&
           NULL == dialog_route_set ) {
 
       next_req_url = (char*) calloc(1, MAX_HEADER_LEN);
@@ -2930,7 +2949,7 @@ bool call::process_incoming(char * msg)
 
 #ifdef _USE_OPENSSL
   /* store the authentication info */
-  if ((scenario[search_index] -> bShouldAuthenticate) && 
+  if ((call_scenario->messages[search_index] -> bShouldAuthenticate) &&
           (reply_code == 401 || reply_code == 407)) {
 
       /* is a challenge */
@@ -2953,7 +2972,7 @@ bool call::process_incoming(char * msg)
 #endif
 
   /* If we are not advancing state, we should quite before we change this stuff. */
-  if (!scenario[search_index]->advance_state) {
+  if (!call_scenario->messages[search_index]->advance_state) {
     return true;
   }
 
@@ -2967,10 +2986,10 @@ bool call::process_incoming(char * msg)
 
   /* If this was a mandatory message, or if there is an explicit next label set
    * we must update our state machine.  */
-  if (!(scenario[search_index] -> optional) ||
-       scenario[search_index]->next && 
+  if (!(call_scenario->messages[search_index] -> optional) ||
+       call_scenario->messages[search_index]->next &&
       ((test == -1) ||
-       (test <= maxVariableUsed && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
+       (test <= call_scenario->maxVariableUsed && M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()))
      ) {
     /* If we are paused, then we need to wake up so that we properly go through the state machine. */
     paused_until = 0;
@@ -2980,7 +2999,7 @@ bool call::process_incoming(char * msg)
     unsigned int timeout = wake();
     unsigned int candidate;
 
-    if (scenario[search_index]->next && test <= maxVariableUsed && 
+    if (call_scenario->messages[search_index]->next && test <= call_scenario->maxVariableUsed &&
        M_callVariableTable[test] != NULL && M_callVariableTable[test]->isSet()) {
       WARNING("Last message generates an error and will not be used for next sends (for last_ variables):\r\n%s",msg);
     }
@@ -2988,11 +3007,11 @@ bool call::process_incoming(char * msg)
     /* We are just waiting for a message to be received, if any of the
      * potential messages have a timeout we set it as our timeout. We
      * start from the next message and go until any non-receives. */
-    for(search_index++; search_index < scenario_len; search_index++) {
-      if(scenario[search_index] -> M_type != MSG_TYPE_RECV) {
+    for(search_index++; search_index < call_scenario->length; search_index++) {
+      if(call_scenario->messages[search_index] -> M_type != MSG_TYPE_RECV) {
 	break;
       }
-      candidate = scenario[search_index] -> timeout;
+      candidate = call_scenario->messages[search_index] -> timeout;
       if (candidate == 0) {
 	if (defl_recv_timeout == 0) {
 	  continue;
@@ -3025,7 +3044,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
   char       msgPart[MAX_SUB_MESSAGE_LENGTH];
   int        currentId;
 
-  actions = scenario[scenarioIndex]->M_actions;
+  actions = call_scenario->messages[scenarioIndex]->M_actions;
   // looking for action to do on this message
   if(actions != NULL) {
     for(int i=0; i<actions->getActionSize(); i++) {
@@ -3033,7 +3052,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
       if(currentAction != NULL) {
         if(currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_REGEXP) {
           currentId = currentAction->getVarId();
-          scenVariable = scenVariableTable[currentId][scenarioIndex];
+          scenVariable = call_scenario->scenVariableTable[currentId][scenarioIndex];
           if(scenVariable != NULL) {
             if(currentAction->getLookingPlace() == CAction::E_LP_HDR) {
               extractSubMessage
@@ -3369,7 +3388,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     strcpy(last_recv_msg, P_recv);
 
     // The BYE is unexpected, count it
-    scenario[msg_index] -> nb_unexp++;
+    call_scenario->messages[msg_index] -> nb_unexp++;
     if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
       WARNING("Aborting call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
       if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
@@ -3394,7 +3413,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     strcpy(last_recv_msg, P_recv);
 
     // The CANCEL is unexpected, count it
-    scenario[msg_index] -> nb_unexp++;
+    call_scenario->messages[msg_index] -> nb_unexp++;
     if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
       WARNING("Aborting call on an unexpected CANCEL for call: %s", (id==NULL)?"none":id);
       if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {

@@ -123,6 +123,7 @@ class CAction
     void setCaseIndep    (bool           P_action);
     void setOccurence   (int            P_value);
     void setHeadersOnly  (bool           P_value);
+    void setScenario     (scenario *     P_scenario);
     void setMessage      (char*          P_value);  /* log specific function  */
     void setCmdLine      (char*          P_value);  /* exec specific function */
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
@@ -143,7 +144,7 @@ class CAction
     double getDoubleValue ();  /* assign value specific function  */
     char * getStringValue ();  /* strcmp specific function  */
 
-    CAction();
+    CAction(scenario *scenario);
     ~CAction();
 
   private:
@@ -174,6 +175,8 @@ class CAction
       double         M_doubleValue;
       /* strcmp specific member. */
       char *         M_stringValue;
+      /* what scenario we belong to. */
+      scenario *     M_scenario;
 #ifdef PCAPPLAY
       /* pcap specific member */
       pcap_pkts  *   M_pcapArgs;

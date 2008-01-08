@@ -88,6 +88,7 @@ public:
   bool  automaticResponseMode(T_AutoMode P_case, char* P_recv);
 
 private:
+  scenario *call_scenario;
   unsigned int   number;
   unsigned int   tdm_map_number;
 
@@ -266,6 +267,8 @@ private:
 
   void   get_remote_media_addr(char * message);
 
+  bool lost(int index);
+
 #ifdef _USE_OPENSSL
   SSL_CTX   *m_ctx_ssl ;
   BIO       *m_bio     ;
@@ -282,6 +285,7 @@ call * add_call(char * call_id , bool ipv6, int userId, bool isAutomatic);
 
 /* Default Message Functions. */
 void init_default_messages();
+void free_default_messages();
 SendingMessage *get_default_message(const char *which);
 void set_default_message(const char *which, char *message);
 

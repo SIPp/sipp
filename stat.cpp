@@ -1051,7 +1051,7 @@ void CStat::displayData (FILE *f)
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     char s[15];
 
-    if (!rtd_stopped[i]) {
+    if (!main_scenario->rtd_stopped[i]) {
       continue;
     }
 
@@ -1068,7 +1068,7 @@ void CStat::displayData (FILE *f)
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     char s[50];
 
-    if (!rtd_stopped[i]) {
+    if (!main_scenario->rtd_stopped[i]) {
       continue;
     }
 
@@ -1176,7 +1176,7 @@ void CStat::displayStat (FILE *f)
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     char s[20];
 
-    if (!rtd_stopped[i]) {
+    if (!main_scenario->rtd_stopped[i]) {
       continue;
     }
 
@@ -1314,7 +1314,7 @@ void CStat::dumpData ()
       char s_P[30];
       char s_C[30];
 
-      if (!rtd_stopped[i]) {
+      if (!main_scenario->rtd_stopped[i]) {
 	continue;
       }
 
@@ -1340,7 +1340,7 @@ void CStat::dumpData ()
     for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
       char s[30];
 
-      if (!rtd_stopped[i]) {
+      if (!main_scenario->rtd_stopped[i]) {
 	continue;
       }
 
@@ -1411,7 +1411,7 @@ void CStat::dumpData ()
 
   // SF917289 << M_counters[CPT_C_UnexpectedMessage]    << stat_delimiter;
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    if (!rtd_stopped[i]) {
+    if (!main_scenario->rtd_stopped[i]) {
       continue;
     }
 
@@ -1450,7 +1450,7 @@ void CStat::dumpData ()
   }
 
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    if (!rtd_stopped[i]) {
+    if (!main_scenario->rtd_stopped[i]) {
       continue;
     }
     (*M_outputStream) 

@@ -145,34 +145,30 @@ message::~message()
   free(recv_response_for_cseq_method_list);
 }
 
+void scenario::expand(int length) {
+  assert(length >= this->length);
+  if (length == this->length) {
+    return;
+  }
+
+  messages = (message **)realloc(messages, sizeof(message *) * length);
+  if (!messages) {
+    ERROR("Out of memory allocating scenario messages.");
+  }
+
+  for (int i = this->length; i < length; i++) {
+    messages[i] = NULL;
+  }
+}
+
 /******** Global variables which compose the scenario file **********/
 
-message*      scenario[SCEN_MAX_MESSAGES];
-CVariable***  scenVariableTable;
-int	      maxVariableUsed = -1;
-typedef std::map<std::string, int> var_map;
-var_map	      variableMap;
-char	      **variableRevMap;
-int	      *variableReferences;
-int           scenario_len = 0;
-char          scenario_name[255];
+scenario      *main_scenario;
+scenario      *display_scenario;
+
 int           toolMode  = MODE_CLIENT;
-unsigned long scenario_duration = 0;
 bool	      rtd_stopped[MAX_RTD_INFO_LENGTH];
 bool	      rtd_started[MAX_RTD_INFO_LENGTH];
-/* The mapping of labels to IDs. */
-var_map	      labelMap;
-/* The string label representations. */
-char	      *nextLabels[SCEN_MAX_MESSAGES];
-char	      *ontimeoutLabels[SCEN_MAX_MESSAGES];
-
-/* The mapping of transactions to IDs. */
-int           maxTxnUsed = 0;
-typedef std::map<std::string, int> txn_map;
-txn_map	      txnMap;
-char	      **txnRevMap;
-int	      *txnStarted;
-int	      *txnResponses;
 
 /*************** Helper functions for various types *****************/
 long get_long(const char *ptr, const char *what) {
@@ -337,7 +333,7 @@ double xp_get_bool(const char *name, const char *what, bool defval) {
   return xp_get_bool(name, what);
 }
 
-int get_txn(const char *txnName, const char *what, bool start) {
+int scenario::get_txn(const char *txnName, const char *what, bool start) {
   /* Check the name's validity. */
   if (txnName[0] == '\0') {
     ERROR("Variable names may not be empty for %s\n", what);
@@ -347,12 +343,12 @@ int get_txn(const char *txnName, const char *what, bool start) {
   }
 
   /* If this transaction has already been used, then we have nothing to do. */
-  txn_map::iterator txn_it = txnMap.find(txnName);
+  str_int_map::iterator txn_it = txnMap.find(txnName);
   if (txn_it != txnMap.end()) {
     if (start) {
-      txnStarted[txn_it->second - 1]++;
+      txnStarted[txn_it->second]++;
     } else {
-      txnResponses[txn_it->second - 1]++;
+      txnResponses[txn_it->second]++;
     }
     return txn_it->second;
   }
@@ -360,38 +356,20 @@ int get_txn(const char *txnName, const char *what, bool start) {
   /* Assign this variable the next slot. */
   int txnNum = ++maxTxnUsed;
 
-  char **tmpTxnRevMap = new char *[txnNum];
-  int *tmpTxnStarted = new int[txnNum];
-  int *tmpTxnResponses = new int[txnNum];
-  int i;
-  for (i = 0; i < txnNum - 1; i++) {
-    tmpTxnRevMap[i] = txnRevMap[i];
-    tmpTxnStarted[i] = txnStarted[i];
-    tmpTxnResponses[i] = txnResponses[i];
-  }
-  if (txnRevMap) {
-    delete [] txnRevMap;
-    delete [] txnStarted;
-    delete [] txnResponses;
-  }
-  txnRevMap = tmpTxnRevMap;
-  txnStarted = tmpTxnStarted;
-  txnResponses = tmpTxnResponses;
-
   txnMap[txnName] = txnNum;
-  txnRevMap[txnNum - 1] = strdup(txnName);
+  txnRevMap[txnNum] = strdup(txnName);
   if (start) {
-    txnStarted[txnNum - 1] = 1;
-    txnResponses[txnNum - 1] = 0;
+    txnStarted[txnNum] = 1;
+    txnResponses[txnNum] = 0;
   } else {
-    txnStarted[txnNum - 1] = 0;
-    txnResponses[txnNum - 1] = 1;
+    txnStarted[txnNum] = 0;
+    txnResponses[txnNum] = 1;
   }
 
   return txnNum;
 }
 
-int get_var(const char *varName, const char *what) {
+int scenario::get_var(const char *varName, const char *what) {
   /* Check the name's validity. */
   if (varName[0] == '\0') {
     ERROR("Transaction names may not be empty for %s\n", what);
@@ -401,7 +379,7 @@ int get_var(const char *varName, const char *what) {
   }
 
   /* If this variable has already been used, then we have nothing to do. */
-  var_map::iterator var_it = variableMap.find(varName);
+  str_int_map::iterator var_it = variableMap.find(varName);
   if (var_it != variableMap.end()) {
     variableReferences[var_it->second]++;
     return var_it->second;
@@ -411,8 +389,6 @@ int get_var(const char *varName, const char *what) {
   int varNum = maxVariableUsed > 0 ? maxVariableUsed + 1 : 1;
 
   CVariable ***tmpScenVars = new CVariable **[varNum + 1];
-  char **tmpVariableRevMap = new char *[varNum + 1];
-  int *tmpVariableReferences = new int[varNum + 1];
   int i;
   for (i = 0; i <= maxVariableUsed; i++) {
     tmpScenVars[i] = new CVariable * [SCEN_MAX_MESSAGES];
@@ -420,17 +396,11 @@ int get_var(const char *varName, const char *what) {
       tmpScenVars[i][j] = scenVariableTable[i][j];
     }
     delete scenVariableTable[i];
-    tmpVariableRevMap[i] = variableRevMap[i];
-    tmpVariableReferences[i] = variableReferences[i];
   }
   if (scenVariableTable) {
     delete [] scenVariableTable;
-    delete [] variableRevMap;
-    delete [] variableReferences;
   }
   scenVariableTable = tmpScenVars;
-  variableRevMap = tmpVariableRevMap;
-  variableReferences = tmpVariableReferences;
 
   for (; i <= varNum; i++) {
     scenVariableTable[i] = new CVariable * [SCEN_MAX_MESSAGES];
@@ -447,7 +417,7 @@ int get_var(const char *varName, const char *what) {
   return varNum;
 }
 
-int xp_get_var(const char *name, const char *what) {
+int scenario::xp_get_var(const char *name, const char *what) {
   char *ptr;
   char *helptext;
 
@@ -458,7 +428,7 @@ int xp_get_var(const char *name, const char *what) {
   return get_var(ptr, what);
 }
 
-int xp_get_var(const char *name, const char *what, int defval) {
+int scenario::xp_get_var(const char *name, const char *what, int defval) {
   char *ptr;
   char *helptext;
 
@@ -589,7 +559,7 @@ long get_counter(const char *ptr, const char *what) {
 /* Some validation functions. */
 
 /* If you start an RTD, then you should be interested in collecting statistics for it. */
-void validate_rtds() {
+void scenario::validate_rtds() {
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     if (rtd_started[i] && !rtd_stopped[i]) {
       ERROR("You have started Response Time Duration %d, but have never stopped it!", i + 1);
@@ -597,7 +567,7 @@ void validate_rtds() {
   }
 }
 
-void validate_variable_usage() {
+void scenario::validate_variable_usage() {
   for (int i = 1; i <= maxVariableUsed; i++) {
     if(variableReferences[i] == 1) {
 	ERROR("Variable $%s is referenced only once!\n", variableRevMap[i]);
@@ -605,8 +575,8 @@ void validate_variable_usage() {
   }
 }
 
-void validate_txn_usage() {
-  for (int i = 0; i < maxTxnUsed; i++) {
+void scenario::validate_txn_usage() {
+  for (int i = 1; i <= maxTxnUsed; i++) {
     if(txnStarted[i] == 0) {
       ERROR("Transaction %s is never started!\n", variableRevMap[i]);
     } else if(txnResponses[i] == 0) {
@@ -616,26 +586,27 @@ void validate_txn_usage() {
 }
 
 /* Apply the next and ontimeout labels according to our map. */
-void apply_labels() {
-  for (int i = 0; i <= scenario_len; i++) {
-    if (nextLabels[i]) {
-      var_map::iterator label_it = labelMap.find(nextLabels[i]);
+void scenario::apply_labels() {
+  for (int i = 0; i <= length; i++) {
+    int_str_map::iterator it;
+    if ((it = nextLabels.find(i)) != nextLabels.end()) {
+      str_int_map::iterator label_it = labelMap.find(it->second);
       if (label_it == labelMap.end()) {
-	ERROR("The label '%s' was not defined (index %d, next attribute)\n", nextLabels[i], i);
+	ERROR("The label '%s' was not defined (index %d, next attribute)\n", it->second, i);
       }
-      scenario[i]->next = label_it->second;
+      messages[i]->next = label_it->second;
     }
-    if (ontimeoutLabels[i]) {
-      var_map::iterator label_it = labelMap.find(ontimeoutLabels[i]);
+    if ((it = ontimeoutLabels.find(i)) != ontimeoutLabels.end()) {
+      str_int_map::iterator label_it = labelMap.find(it->second);
       if (label_it == labelMap.end()) {
-	ERROR("The label '%s' was not defined (index %d, ontimeout attribute)\n", ontimeoutLabels[i], i);
+	ERROR("The label '%s' was not defined (index %d, ontimeout attribute)\n", it->second, i);
       }
-      scenario[i]->on_timeout = label_it->second;
+      messages[i]->on_timeout = label_it->second;
     }
   }
 }
 
-void init_rtds()
+void scenario::init_rtds()
 {
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     rtd_started[i] = rtd_stopped[i] = false;
@@ -702,9 +673,8 @@ char *clean_cdata(char *ptr, int *removed_crlf = NULL) {
 
 /********************** Scenario File analyser **********************/
 
-void load_scenario(char * filename, int deflt)
+scenario::scenario(char * filename, int deflt)
 {
-  static int loaded = 0;
   char * elem;
   char *method_list = NULL;
   unsigned int scenario_file_cursor = 0;
@@ -712,12 +682,6 @@ void load_scenario(char * filename, int deflt)
   unsigned int recv_count = 0;
   unsigned int recv_opt_count = 0;
   char * peer; 
-  bool found_timewait = false;
-
-  if (loaded) {
-    ERROR("You may only specify a single scenario!\n");
-  }
-  loaded++;
 
   if(filename) {
     if(!xp_set_xml_buffer_from_file(filename)) {
@@ -729,7 +693,8 @@ void load_scenario(char * filename, int deflt)
     }
   }
 
-  init_rtds();  
+  init_rtds();
+
   elem = xp_open_element(0);
   if (!elem) {
     ERROR("No element in xml scenario file");
@@ -738,13 +703,19 @@ void load_scenario(char * filename, int deflt)
     ERROR("No 'scenario' section in xml scenario file");
   }
 
-  if(xp_get_value((char *)"name")) {
-    strcpy(scenario_name, xp_get_value((char *)"name"));
+  if(char *ptr = xp_get_value((char *)"name")) {
+    name = strdup(ptr);
   } else {
-    scenario_name[0] = 0;
+    name = strdup("");
   }
 
-  scenario_len = 0;
+  length = 0;
+  messages = NULL;
+  duration = 0;
+  maxVariableUsed = -1;
+  maxTxnUsed = 0;
+  found_timewait = false;
+
   scenario_file_cursor = 0;
 
   while(elem = xp_open_element(scenario_file_cursor)) {
@@ -754,10 +725,11 @@ void load_scenario(char * filename, int deflt)
     if(!strcmp(elem, "CallLengthRepartition")) {
       ptr = xp_get_value((char *)"value");
       CStat::instance()->setRepartitionCallLength(ptr);
-
+      /* XXX: This should really be per scenario. */
     } else if(!strcmp(elem, "ResponseTimeRepartition")) {
       ptr = xp_get_value((char *)"value");
       CStat::instance()->setRepartitionResponseTime(ptr);
+      /* XXX: This should really be per RTD. */
     } else if(!strcmp(elem, "DefaultMessage")) {
       char *id = xp_get_string("id", "DefaultMessage");
       if(!(ptr = xp_get_cdata())) {
@@ -766,18 +738,19 @@ void load_scenario(char * filename, int deflt)
       char *msg = clean_cdata(ptr);
       set_default_message(id, msg);
       free(id);
+      /* XXX: This should really be per scenario. */
     } else if(!strcmp(elem, "label")) {
       ptr = xp_get_value((char *)"id");
       if (labelMap.find(ptr) != labelMap.end()) {
 	ERROR("The label name '%s' is used twice.", ptr);
       }
-      labelMap[ptr] = ::scenario_len;
+      labelMap[ptr] = length;
     } else { /** Message Case */
       if (found_timewait) {
 	ERROR("<timewait> can only be the last message in a scenario!\n");
       }
-      scenario[scenario_len]    = new message();
-      scenario[scenario_len] -> content_length_flag = message::ContentLengthNoPresent;   // Initialize to No present
+      expand(length + 1);
+      messages[length] = new message();
 
       if(!strcmp(elem, "send")) {
         if (recv_count) {
@@ -789,7 +762,7 @@ void load_scenario(char * filename, int deflt)
           }
         }
 
-	scenario[scenario_len]->M_type = MSG_TYPE_SEND;
+	messages[length]->M_type = MSG_TYPE_SEND;
         /* Sent messages descriptions */
         if(!(ptr = xp_get_cdata())) {
           ERROR("No CDATA in 'send' section of xml scenario file");
@@ -804,11 +777,11 @@ void load_scenario(char * filename, int deflt)
 	    // the msg does not contain content-length field
 	    break ;
 	  case  0 :
-	    scenario[scenario_len] -> content_length_flag =
+	    messages[length] -> content_length_flag =
 	      message::ContentLengthValueZero;   // Initialize to No present
 	    break ;
 	  default :
-	    scenario[scenario_len] -> content_length_flag =
+	    messages[length] -> content_length_flag =
 	      message::ContentLengthValueNoZero;   // Initialize to No present
 	    break ;
 	}
@@ -816,15 +789,15 @@ void load_scenario(char * filename, int deflt)
 	if((msg[strlen(msg) - 1] != '\n') && (removed_clrf)) {
 	  strcat(msg, "\n");
 	}
-	scenario[scenario_len] -> send_scheme = new SendingMessage(msg);
+	messages[length] -> send_scheme = new SendingMessage(this, msg);
 	free(msg);
 
 	// If this is a request we are sending, then store our transaction/method matching information.
-	if (!scenario[scenario_len]->send_scheme->isResponse()) {
+	if (!messages[length]->send_scheme->isResponse()) {
 	  if (ptr = xp_get_value("start_txn")) {
-	    scenario[scenario_len]->start_txn = get_txn(ptr, "start transaction", true);
+	    messages[length]->start_txn = get_txn(ptr, "start transaction", true);
 	  } else {
-	    char *method = scenario[scenario_len]->send_scheme->getMethod();
+	    char *method = messages[length]->send_scheme->getMethod();
 	    int len = method_list ? strlen(method_list) : 0;
 	    method_list = (char *)realloc(method_list, len + strlen(method) + 1);
 	    if (!method_list) {
@@ -842,119 +815,72 @@ void load_scenario(char * filename, int deflt)
 	  ERROR("response_txn can only be used for recieved messages.");
 	}
 
-	scenario[scenario_len] -> retrans_delay = xp_get_long("retrans", "retransmission timer", 0);
-	scenario[scenario_len] -> timeout = xp_get_long("timeout", "message send timeout", 0);
-
-        if(ptr = xp_get_value((char *)"rtd")) {
-          scenario[scenario_len] -> stop_rtd = get_rtd(ptr);
-	  rtd_stopped[scenario[scenario_len]->stop_rtd - 1] = true;
-	}
-
-        if(ptr = xp_get_value((char *)"start_rtd")) {
-          scenario[scenario_len] -> start_rtd = get_rtd(ptr);
-	  rtd_started[scenario[scenario_len]->start_rtd - 1] = true;
-	}
-
-        if (ptr = xp_get_value((char *)"repeat_rtd")) {
-	  if (scenario[scenario_len] -> stop_rtd) {
-	    scenario[scenario_len] -> repeat_rtd = get_bool(ptr, "repeat_rtd");
-	  } else {
-	    ERROR("There is a repeat_rtd element without an rtd element");
-	  }
-	}
-
-        if(ptr = xp_get_value((char *)"counter")) {
-          scenario[scenario_len] -> counter = get_counter(ptr, "counter");
-	}
-
-        getActionForThisMessage();
+	messages[length] -> retrans_delay = xp_get_long("retrans", "retransmission timer", 0);
+	messages[length] -> timeout = xp_get_long("timeout", "message send timeout", 0);
       } else if(!strcmp(elem, (char *)"recv")) {
         recv_count++;
-        scenario[scenario_len]->M_type = MSG_TYPE_RECV;
+        messages[length]->M_type = MSG_TYPE_RECV;
         /* Received messages descriptions */
         if(ptr = xp_get_value((char *)"response")) {
-          scenario[scenario_len] ->recv_response = get_long(ptr, "response code");
+          messages[length] ->recv_response = get_long(ptr, "response code");
 	  if (method_list) {
-	    scenario[scenario_len]->recv_response_for_cseq_method_list = strdup(method_list);
+	    messages[length]->recv_response_for_cseq_method_list = strdup(method_list);
 	  }
 	  if (ptr = xp_get_value("response_txn")) {
-	    scenario[scenario_len]->response_txn = get_txn(ptr, "transaction response", false);
+	    messages[length]->response_txn = get_txn(ptr, "transaction response", false);
 	  }
         }
 
         if(ptr = xp_get_value((char *)"request")) {
-          scenario[scenario_len] -> recv_request = strdup(ptr);
+          messages[length] -> recv_request = strdup(ptr);
 	  if (ptr = xp_get_value("response_txn")) {
 	    ERROR("response_txn can only be used for recieved responses.");
 	  }
         }
 
-        if(ptr = xp_get_value((char *)"rtd")) {
-          scenario[scenario_len] -> stop_rtd = get_rtd(ptr);
-	  rtd_stopped[scenario[scenario_len]->stop_rtd - 1] = true;
-	}
-
-        if(ptr = xp_get_value((char *)"start_rtd")) {
-          scenario[scenario_len] -> start_rtd = get_rtd(ptr);
-	  rtd_started[scenario[scenario_len]->start_rtd - 1] = true;
-	}
-        if (ptr = xp_get_value((char *)"repeat_rtd")) {
-	  if (scenario[scenario_len] -> stop_rtd) {
-	    scenario[scenario_len] -> repeat_rtd = get_bool(ptr, "repeat_rtd");
-	  } else {
-	    ERROR("There is a repeat_rtd element without an rtd element");
-	  }
-	}
-
-
-	if(ptr = xp_get_value((char *)"counter")) {
-	  scenario[scenario_len] -> counter = get_counter(ptr, "counter");
-	}
-
         if (0 != (ptr = xp_get_value((char *)"optional"))) {
           if(!strcmp(ptr, "true")) {
-            scenario[scenario_len] -> optional = OPTIONAL_TRUE;
+            messages[length] -> optional = OPTIONAL_TRUE;
             ++recv_opt_count;
           } else if(!strcmp(ptr, "global")) {
-            scenario[scenario_len] -> optional = OPTIONAL_GLOBAL;
+            messages[length] -> optional = OPTIONAL_GLOBAL;
             ++recv_opt_count;
           } else if(!strcmp(ptr, "false")) {
-            scenario[scenario_len] -> optional = OPTIONAL_FALSE;
+            messages[length] -> optional = OPTIONAL_FALSE;
           } else {
 	    ERROR("Could not understand optional value: %s", ptr);
 	  }
         }
-	scenario[scenario_len]->advance_state = xp_get_bool("advance_state", "recv", true);
-	if (!scenario[scenario_len]->advance_state && scenario[scenario_len]->optional == OPTIONAL_FALSE) {
-	  ERROR("advance_state is allowed only for optional messages (index = %d)\n", scenario_len);
+	messages[length]->advance_state = xp_get_bool("advance_state", "recv", true);
+	if (!messages[length]->advance_state && messages[length]->optional == OPTIONAL_FALSE) {
+	  ERROR("advance_state is allowed only for optional messages (index = %d)\n", length);
 	}
 
         if (0 != (ptr = xp_get_value((char *)"regexp_match"))) {
           if(!strcmp(ptr, "true")) {
-            scenario[scenario_len] -> regexp_match = 1;
+            messages[length] -> regexp_match = 1;
           }
         }
 
-	scenario[scenario_len]->timeout = xp_get_long("timeout", "message timeout", 0);
+	messages[length]->timeout = xp_get_long("timeout", "message timeout", 0);
 
         /* record the route set  */
         /* TODO disallow optional and rrs to coexist? */
         if(ptr = xp_get_value((char *)"rrs")) {
-	  scenario[scenario_len] -> bShouldRecordRoutes = get_bool(ptr, "record route set");
+	  messages[length] -> bShouldRecordRoutes = get_bool(ptr, "record route set");
         }
 
         /* record the authentication credentials  */
         if(ptr = xp_get_value((char *)"auth")) {
 	  bool temp = get_bool(ptr, "message authentication");
 #ifdef _USE_OPENSSL
-	  scenario[scenario_len] -> bShouldAuthenticate = temp;
+	  messages[length] -> bShouldAuthenticate = temp;
 #else
 	  if (temp) {
 	    ERROR("Authentication requires OpenSSL support!");
 	  }
 #endif
         }
-        getActionForThisMessage();
       } else if(!strcmp(elem, "pause") || !strcmp(elem, "timewait")) {
         if (recv_count) {
           if (recv_count != recv_opt_count) {
@@ -964,15 +890,15 @@ void load_scenario(char * filename, int deflt)
             ERROR("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
           }
         }
-        scenario[scenario_len]->M_type = MSG_TYPE_PAUSE;
+        messages[length]->M_type = MSG_TYPE_PAUSE;
 	if (!strcmp(elem, "timewait")) {
-	  scenario[scenario_len]->timewait = true;
+	  messages[length]->timewait = true;
 	  found_timewait = true;
 	}
 
 	int var;
 	if ((var = xp_get_var("variable", "pause", -1)) != -1) {
-	  scenario[scenario_len]->pause_variable = var;
+	  messages[length]->pause_variable = var;
 	} else {
 	  CSample *distribution = parse_distribution(true);
 
@@ -989,40 +915,24 @@ void load_scenario(char * filename, int deflt)
 	    ERROR("The distribution %s has a 99th percentile of %s, which is larger than INT_MAX.  You should chose different parameters.", desc, percentile);
 	  }
 
-	  scenario[scenario_len]->pause_distribution = distribution;
+	  messages[length]->pause_distribution = distribution;
 	  /* Update scenario duration with max duration */
-	  scenario_duration += (int)pause_duration;
+	  duration += (int)pause_duration;
 	}
       }
       else if(!strcmp(elem, "nop")) {
 	/* Does nothing at SIP level.  This message type can be used to handle
 	 * actions, increment counters, or for RTDs. */
-	scenario[scenario_len]->M_type = MSG_TYPE_NOP;
-
-        if(ptr = xp_get_value((char *)"rtd")) {
-          scenario[scenario_len] -> stop_rtd = get_rtd(ptr);
-	  rtd_stopped[scenario[scenario_len]->stop_rtd - 1] = true;
-	}
-
-        if(ptr = xp_get_value((char *)"start_rtd")) {
-          scenario[scenario_len] -> start_rtd = get_rtd(ptr);
-	  rtd_started[scenario[scenario_len]->start_rtd - 1] = true;
-	}
-
-        if(ptr = xp_get_value((char *)"counter")) {
-          scenario[scenario_len] -> counter = get_counter(ptr, "counter");
-	}
-        getActionForThisMessage();
+	messages[length]->M_type = MSG_TYPE_NOP;
       }
       else if(!strcmp(elem, "recvCmd")) {
         recv_count++;
-        scenario[scenario_len]->M_type = MSG_TYPE_RECVCMD;
+        messages[length]->M_type = MSG_TYPE_RECVCMD;
 
 	/* 3pcc extended mode */
-        if(ptr = xp_get_value((char *)"src")) { 
-           scenario[scenario_len] ->peer_src = strdup(ptr) ;
+        if(ptr = xp_get_value((char *)"src")) {
+           messages[length] ->peer_src = strdup(ptr);
         }
-        getActionForThisMessage();
       } else if(!strcmp(elem, "sendCmd")) {
         if (recv_count) {
           if (recv_count != recv_opt_count) {
@@ -1032,13 +942,13 @@ void load_scenario(char * filename, int deflt)
             ERROR("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
           }
         }
-        scenario[scenario_len]->M_type = MSG_TYPE_SENDCMD;
+        messages[length]->M_type = MSG_TYPE_SENDCMD;
         /* Sent messages descriptions */
 
 	/* 3pcc extended mode  */
 	if(ptr = xp_get_value((char *)"dest")) { 
 	   peer = strdup(ptr) ;
-	   scenario[scenario_len] ->peer_dest = peer ;
+	   messages[length] ->peer_dest = peer ;
            peer_map::iterator peer_it;
 	   peer_it = peers.find(peer_map::key_type(peer));
 	   if(peer_it == peers.end())  /* the peer (slave or master)
@@ -1049,64 +959,23 @@ void load_scenario(char * filename, int deflt)
 	     infos.peer_socket = 0;
 	     strcpy(infos.peer_host, get_peer_addr(peer));
              peers[std::string(peer)] = infos; 
-	     }
-        }
+	   }
+	}
 
         if(!(ptr = xp_get_cdata())) {
           ERROR("No CDATA in 'send' section of xml scenario file");
         }
 	char *msg = clean_cdata(ptr);
 
-	scenario[scenario_len] -> M_sendCmdData = new SendingMessage(msg, true /* skip sanity */);
+	messages[length] -> M_sendCmdData = new SendingMessage(this, msg, true /* skip sanity */);
 	free(msg);
       }
       else {
         ERROR("Unknown element '%s' in xml scenario file", elem);
       }
 
-      if(ptr = xp_get_value((char *)"lost")) {
-        scenario[scenario_len] -> lost = get_double(ptr, "lost percentage");
-        lose_packets = 1;
-      }
-
-      if(ptr = xp_get_value((char *)"crlf")) {
-        scenario[scenario_len] -> crlf = 1;
-      }
-
-      scenario[scenario_len] -> hide = xp_get_bool("hide", "hide", false);
-      if(ptr = xp_get_value((char *)"display")) {
-        scenario[scenario_len] -> display_str = strdup(ptr);
-      }
-
-      if ((ptr = xp_get_value((char *)"next"))) {
-	if (found_timewait) {
-	  ERROR("next labels are not allowed in <timewait> elements.");
-	}
-        nextLabels[scenario_len] = strdup(ptr);
-	scenario[scenario_len] -> test = xp_get_var("test", "test variable", -1);
-	if ( 0 != ( ptr = xp_get_value((char *)"chance") ) ) {
-	  float chance = get_double(ptr,"chance");
-	  /* probability of branch to next */
-	  if (( chance < 0.0 ) || (chance > 1.0 )) {
-	    ERROR("Chance %s not in range [0..1]", ptr);
-	  }
-	  scenario[scenario_len] -> chance = (int)((1.0-chance)*RAND_MAX);
-	}
-	else {
-	  scenario[scenario_len] -> chance = 0; /* always */
-	}
-      }
-
-      if ((ptr = xp_get_value((char *)"ontimeout"))) {
-	if (found_timewait) {
-	  ERROR("ontimeout labels are not allowed in <timewait> elements.");
-	}
-	ontimeoutLabels[scenario_len] = ptr;
-      }
-
-      if (++scenario_len >= SCEN_MAX_MESSAGES) {
-          ERROR("Too many items in xml scenario file");
-      }
+      getCommonAttributes();
+      length++;
     } /** end * Message case */
     xp_close_element();
   } // end while
@@ -1118,7 +987,7 @@ void load_scenario(char * filename, int deflt)
 
   /* Some post-scenario loading validation. */
   validate_rtds();
-  if (scenario_len == 0) {
+  if (length == 0) {
     ERROR("Did not find any messages inside of scenario!");
   }
 
@@ -1127,6 +996,60 @@ void load_scenario(char * filename, int deflt)
 
   /* Make sure that all started transactions have responses, and vice versa. */
   validate_txn_usage();
+
+}
+
+void clear_int_str(int_str_map m) {
+  for(int_str_map::iterator it = m.begin(); it != m.end(); it = m.begin()) {
+    free(it->second);
+    m.erase(it);
+  }
+}
+
+void clear_str_int(str_int_map m) {
+  for(str_int_map::iterator it = m.begin(); it != m.end(); it = m.begin()) {
+    m.erase(it);
+  }
+}
+
+void clear_int_int(int_int_map m) {
+  for(int_int_map::iterator it = m.begin(); it != m.end(); it = m.begin()) {
+    m.erase(it);
+  }
+}
+
+scenario::~scenario() {
+
+  for(int i=0; i<=maxVariableUsed; i++) {
+    for (int j=0; j<SCEN_MAX_MESSAGES;j++)
+    {
+      if (scenVariableTable[i][j] != NULL)
+	delete(scenVariableTable[i][j]);
+      scenVariableTable[i][j] = NULL;
+    }
+    delete scenVariableTable[i];
+    scenVariableTable[i] = NULL;
+  }
+
+  for (int i = 0; i < length; i++) {
+    delete messages[i];
+  }
+  free(messages);
+
+  free(name);
+
+  clear_int_str(variableRevMap);
+  clear_int_str(txnRevMap);
+  clear_int_str(nextLabels);
+  clear_int_str(ontimeoutLabels);
+
+  clear_str_int(labelMap);
+  clear_str_int(variableMap);
+  clear_str_int(txnMap);
+
+  clear_int_int(variableReferences);
+  clear_int_int(txnStarted);
+  clear_int_int(txnResponses);
 }
 
 CSample *parse_distribution(bool oldstyle = false) {
@@ -1257,16 +1180,16 @@ void parse_slave_cfg()
 
 // Determine in which mode the sipp tool has been 
 // launched (client, server, 3pcc client, 3pcc server, 3pcc extended master or slave)
-void computeSippMode()
+void scenario::computeSippMode()
 {
   bool isRecvCmdFound = false;
   bool isSendCmdFound = false;
   bool isFirstMessageFound = true;
 
   toolMode = -1;
-  for(int i=0; i<scenario_len; i++)
+  for(int i=0; i<length; i++)
     { 
-      switch(scenario[i] -> M_type)
+      switch(messages[i]->M_type)
         {
         case MSG_TYPE_PAUSE:
         case MSG_TYPE_NOP:
@@ -1345,7 +1268,7 @@ void computeSippMode()
             "client, 3PCC controller A, 3PCC controller B).\n");
 }
 
-void handle_arithmetic(CAction *tmpAction, char *what) {
+void scenario::handle_arithmetic(CAction *tmpAction, char *what) {
   tmpAction->setVarId(xp_get_var("assign_to", what));
   if (xp_get_value("value")) {
     tmpAction->setDoubleValue(xp_get_double("value", what));
@@ -1364,7 +1287,7 @@ void handle_arithmetic(CAction *tmpAction, char *what) {
 
 // Action list for the message indexed by message_index in 
 // the scenario
-void getActionForThisMessage()
+void scenario::getActionForThisMessage()
 {
   unsigned int recvScenarioLen = 0;
   char *        actionElem;
@@ -1383,15 +1306,13 @@ void getActionForThisMessage()
   }
 
   /* We actually have an action element. */
-  if(scenario[scenario_len] != NULL) {
-    if(scenario[scenario_len]->M_actions != NULL) {
-      delete(scenario[scenario_len]->M_actions);
-    }
-    scenario[scenario_len]->M_actions = new CActions();
+  if(messages[length]->M_actions != NULL) {
+    ERROR("Duplicate action for scenario index %d", length);
   }
+  messages[length]->M_actions = new CActions();
 
   while(actionElem = xp_open_element(recvScenarioLen)) {
-    CAction *tmpAction = new CAction();
+    CAction *tmpAction = new CAction(this);
 
     if(!strcmp(actionElem, "ereg")) {
       if(!(ptr = xp_get_value((char *)"regexp"))) {
@@ -1465,13 +1386,13 @@ void getActionForThisMessage()
       int varId = get_var(currentTabVarName[0], "assign_to");
       tmpAction->setVarId(varId);
       /* and creating the associated variable */
-      if (scenVariableTable[varId][scenario_len] != NULL) {
-	delete(scenVariableTable[varId][scenario_len]);
-	scenVariableTable[varId][scenario_len] = NULL;
+      if (scenVariableTable[varId][length] != NULL) {
+	delete(scenVariableTable[varId][length]);
+	scenVariableTable[varId][length] = NULL;
       }
-      scenVariableTable[varId][scenario_len] = new CVariable(currentRegExp);
+      scenVariableTable[varId][length] = new CVariable(currentRegExp);
 
-      if(!(scenVariableTable[varId][scenario_len]->isRegExpWellFormed()))
+      if(!(scenVariableTable[varId][length]->isRegExpWellFormed()))
 	ERROR("Regexp '%s' is not valid in xml "
 	    "scenario file", currentRegExp);
 
@@ -1485,13 +1406,13 @@ void getActionForThisMessage()
 	  tmpAction->setSubVarId(varId);
 
 	  /* and creating the associated variable */
-	  if (scenVariableTable[varId][scenario_len] != NULL) {
-	    delete(scenVariableTable[varId][scenario_len]);
-	    scenVariableTable[varId][scenario_len] = NULL;
+	  if (scenVariableTable[varId][length] != NULL) {
+	    delete(scenVariableTable[varId][length]);
+	    scenVariableTable[varId][length] = NULL;
 	  }
-	  scenVariableTable[varId][scenario_len] = new CVariable(currentRegExp);
+	  scenVariableTable[varId][length] = new CVariable(currentRegExp);
 
-	  if(!(scenVariableTable[varId][scenario_len]->isRegExpWellFormed()))
+	  if(!(scenVariableTable[varId][length]->isRegExpWellFormed()))
 	    ERROR("Regexp '%s' is not valid in xml "
 		"scenario file", currentRegExp);
 	}
@@ -1619,12 +1540,84 @@ void getActionForThisMessage()
 
     /* If the action was not well-formed, there should have already been an
      * ERROR declaration, thus it is safe to add it here at the end of the loop. */
-    scenario[scenario_len]->M_actions->setAction(tmpAction);
+    messages[length]->M_actions->setAction(tmpAction);
 
     xp_close_element();
     recvScenarioLen++;
   } // end while
   xp_close_element();
+}
+
+void scenario::getBookKeeping() {
+  char *ptr;
+
+  if(ptr = xp_get_value((char *)"rtd")) {
+    messages[length] -> stop_rtd = get_rtd(ptr);
+    rtd_stopped[messages[length]->stop_rtd - 1] = true;
+  }
+  if (ptr = xp_get_value((char *)"repeat_rtd")) {
+    if (messages[length] -> stop_rtd) {
+      messages[length] -> repeat_rtd = get_bool(ptr, "repeat_rtd");
+    } else {
+      ERROR("There is a repeat_rtd element without an rtd element");
+    }
+  }
+
+  if(ptr = xp_get_value((char *)"start_rtd")) {
+    messages[length] -> start_rtd = get_rtd(ptr);
+    rtd_started[messages[length]->start_rtd - 1] = true;
+  }
+
+  if(ptr = xp_get_value((char *)"counter")) {
+    messages[length] -> counter = get_counter(ptr, "counter");
+  }
+}
+
+void scenario::getCommonAttributes() {
+  char *ptr;
+
+  getBookKeeping();
+  getActionForThisMessage();
+
+  if(ptr = xp_get_value((char *)"lost")) {
+    messages[length] -> lost = get_double(ptr, "lost percentage");
+    lose_packets = 1;
+  }
+
+  if(ptr = xp_get_value((char *)"crlf")) {
+    messages[length] -> crlf = 1;
+  }
+
+  messages[length] -> hide = xp_get_bool("hide", "hide", false);
+  if(ptr = xp_get_value((char *)"display")) {
+    messages[length] -> display_str = strdup(ptr);
+  }
+
+  if ((ptr = xp_get_value((char *)"next"))) {
+    if (found_timewait) {
+      ERROR("next labels are not allowed in <timewait> elements.");
+    }
+    nextLabels[length] = strdup(ptr);
+    messages[length] -> test = xp_get_var("test", "test variable", -1);
+    if ( 0 != ( ptr = xp_get_value((char *)"chance") ) ) {
+      float chance = get_double(ptr,"chance");
+      /* probability of branch to next */
+      if (( chance < 0.0 ) || (chance > 1.0 )) {
+	ERROR("Chance %s not in range [0..1]", ptr);
+      }
+      messages[length] -> chance = (int)((1.0-chance)*RAND_MAX);
+    }
+    else {
+      messages[length] -> chance = 0; /* always */
+    }
+  }
+
+  if ((ptr = xp_get_value((char *)"ontimeout"))) {
+    if (found_timewait) {
+      ERROR("ontimeout labels are not allowed in <timewait> elements.");
+    }
+    ontimeoutLabels[length] = ptr;
+  }
 }
 
 // char* manipulation : create a int[] from a char*

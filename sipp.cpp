@@ -852,14 +852,15 @@ void print_stats_in_file(FILE * f, int last)
            SIPP_ENDL);
   }
   for(index = 0;
-      index < scenario_len;
+      index < display_scenario->length;
       index ++) {
+    message *curmsg = display_scenario->messages[index];
 
-    if(scenario[index]->hide) {
+    if(curmsg->hide) {
       continue;
     }
     
-    if(SendingMessage *src = scenario[index] -> send_scheme) {
+    if(SendingMessage *src = curmsg -> send_scheme) {
       if (src->isResponse()) {
 	sprintf(temp_str, "%d", src->getCode());
       } else {
@@ -871,68 +872,68 @@ void print_stats_in_file(FILE * f, int last)
       } else {
         fprintf(f,"  %10s ----------> ", temp_str);
       }
-      if (scenario[index] -> start_rtd) {
-	fprintf(f, " B-RTD%d ", scenario[index] -> start_rtd);
-      } else if (scenario[index] -> stop_rtd) {
-	fprintf(f, " E-RTD%d ", scenario[index] -> stop_rtd);
+      if (curmsg -> start_rtd) {
+	fprintf(f, " B-RTD%d ", curmsg -> start_rtd);
+      } else if (curmsg -> stop_rtd) {
+	fprintf(f, " E-RTD%d ", curmsg -> stop_rtd);
       } else {
 	fprintf(f, "        ");
       }
 
-      if(scenario[index] -> retrans_delay) {
+      if(curmsg -> retrans_delay) {
         fprintf(f,"%-9d %-9d %-9d %-9s" ,
-               scenario[index] -> nb_sent,
-               scenario[index] -> nb_sent_retrans,
-               scenario[index] -> nb_timeout,
+               curmsg -> nb_sent,
+               curmsg -> nb_sent_retrans,
+               curmsg -> nb_timeout,
                "" /* Unexpected */);
       } else {
         fprintf(f,"%-9d %-9d %-9s %-9s" ,
-               scenario[index] -> nb_sent,
-               scenario[index] -> nb_sent_retrans,
+               curmsg -> nb_sent,
+               curmsg -> nb_sent_retrans,
                "", /* Timeout. */
                "" /* Unexpected. */);
       }
-    } else if(scenario[index] -> recv_response) {
+    } else if(curmsg -> recv_response) {
       if(toolMode == MODE_SERVER) {
-	fprintf(f,"  ----------> %-10d ", scenario[index] -> recv_response);
+	fprintf(f,"  ----------> %-10d ", curmsg -> recv_response);
       } else { 
-	fprintf(f,"  %10d <---------- ", scenario[index] -> recv_response);
+	fprintf(f,"  %10d <---------- ", curmsg -> recv_response);
       }
 
-      if (scenario[index] -> start_rtd) {
-	fprintf(f, " B-RTD%d ", scenario[index] -> start_rtd);
-      } else if (scenario[index] -> stop_rtd) {
-	fprintf(f, " E-RTD%d ", scenario[index] -> stop_rtd);
+      if (curmsg -> start_rtd) {
+	fprintf(f, " B-RTD%d ", curmsg -> start_rtd);
+      } else if (curmsg -> stop_rtd) {
+	fprintf(f, " E-RTD%d ", curmsg -> stop_rtd);
       } else {
 	fprintf(f, "        ");
       }
 
-      if(scenario[index]->retrans_delay) {
+      if(curmsg->retrans_delay) {
         fprintf(f,"%-9ld %-9ld %-9ld %-9ld" ,
-               scenario[index]->nb_recv,
-               scenario[index]->nb_recv_retrans,
-               scenario[index]->nb_timeout,
-               scenario[index]->nb_unexp);
+               curmsg->nb_recv,
+               curmsg->nb_recv_retrans,
+               curmsg->nb_timeout,
+               curmsg->nb_unexp);
       } else {
         fprintf(f,"%-9ld %-9ld %-9ld %-9ld" ,
-               scenario[index] -> nb_recv,
-               scenario[index] -> nb_recv_retrans,
-               scenario[index] -> nb_timeout,
-               scenario[index] -> nb_unexp);
+               curmsg -> nb_recv,
+               curmsg -> nb_recv_retrans,
+               curmsg -> nb_timeout,
+               curmsg -> nb_unexp);
       }
-    } else if (scenario[index] -> pause_distribution ||
-	       scenario[index] -> pause_variable) {
-      char *desc = scenario[index]->pause_desc;
+    } else if (curmsg -> pause_distribution ||
+	       curmsg -> pause_variable) {
+      char *desc = curmsg->pause_desc;
       if (!desc) {
 	desc = (char *)malloc(24);
-	if (scenario[index]->pause_distribution) {
+	if (curmsg->pause_distribution) {
 	  desc[0] = '\0';
-	  scenario[index]->pause_distribution->timeDescr(desc, 23);
+	  curmsg->pause_distribution->timeDescr(desc, 23);
 	} else {
-	  snprintf(desc, 23, "$%s", variableRevMap[scenario[index]->pause_variable]);
+	  snprintf(desc, 23, "$%s", display_scenario->variableRevMap[curmsg->pause_variable]);
 	}
 	desc[23] = '\0';
-	scenario[index]->pause_desc = desc;
+	curmsg->pause_desc = desc;
       }
       int len = strlen(desc) < 9 ? 9 : strlen(desc);
 
@@ -942,54 +943,54 @@ void print_stats_in_file(FILE * f, int last)
 	fprintf(f,"       Pause [%9s]%*s", desc, 18 - len > 0 ? 18 - len : 0, "");
       }
 
-      fprintf(f,"%-9d", scenario[index]->sessions);
-      fprintf(f,"                     %-9d" , scenario[index]->nb_unexp);
-    } else if(scenario[index] -> recv_request) {
+      fprintf(f,"%-9d", curmsg->sessions);
+      fprintf(f,"                     %-9d" , curmsg->nb_unexp);
+    } else if(curmsg -> recv_request) {
       if(toolMode == MODE_SERVER) {
-	fprintf(f,"  ----------> %-10s ", scenario[index] -> recv_request);
+	fprintf(f,"  ----------> %-10s ", curmsg -> recv_request);
       } else {
-	fprintf(f,"  %10s <---------- ", scenario[index] -> recv_request);
+	fprintf(f,"  %10s <---------- ", curmsg -> recv_request);
       }
 
-      if (scenario[index] -> start_rtd) {
-	fprintf(f, " B-RTD%d ", scenario[index] -> start_rtd);
-      } else if (scenario[index] -> stop_rtd) {
-	fprintf(f, " E-RTD%d ", scenario[index] -> stop_rtd);
+      if (curmsg -> start_rtd) {
+	fprintf(f, " B-RTD%d ", curmsg -> start_rtd);
+      } else if (curmsg -> stop_rtd) {
+	fprintf(f, " E-RTD%d ", curmsg -> stop_rtd);
       } else {
 	fprintf(f, "        ");
       }
 
       fprintf(f,"%-9ld %-9ld %-9ld %-9ld" ,
-	  scenario[index] -> nb_recv,
-	  scenario[index] -> nb_recv_retrans,
-	  scenario[index] -> nb_timeout,
-	  scenario[index] -> nb_unexp);
+	  curmsg -> nb_recv,
+	  curmsg -> nb_recv_retrans,
+	  curmsg -> nb_timeout,
+	  curmsg -> nb_unexp);
     }
-    else if(scenario[index] -> M_type == MSG_TYPE_NOP) {
-      if (scenario[index]->display_str) {
-	fprintf(f," %s", scenario[index]->display_str);
+    else if(curmsg -> M_type == MSG_TYPE_NOP) {
+      if (curmsg->display_str) {
+	fprintf(f," %s", curmsg->display_str);
       } else {
 	fprintf(f,"              [ NOP ]              ");
       }
     }
-    else if(scenario[index] -> M_type == MSG_TYPE_RECVCMD) {
+    else if(curmsg -> M_type == MSG_TYPE_RECVCMD) {
       fprintf(f,"    [ Received Command ]         ");
-      if(scenario[index]->retrans_delay) {
+      if(curmsg->retrans_delay) {
         fprintf(f,"%-9ld %-9s %-9ld %-9s" ,
-                scenario[index]->M_nbCmdRecv,
+                curmsg->M_nbCmdRecv,
                 "",
-                scenario[index]->nb_timeout,
+                curmsg->nb_timeout,
                 "");
       } else {
          fprintf(f,"%-9ld %-9s           %-9s" ,
-                scenario[index] -> M_nbCmdRecv,
+                curmsg -> M_nbCmdRecv,
                 "",
                 "");
       }
-    } else if(scenario[index] -> M_type == MSG_TYPE_SENDCMD) {
+    } else if(curmsg -> M_type == MSG_TYPE_SENDCMD) {
       fprintf(f,"        [ Sent Command ]         ");
       fprintf(f,"%-9d %-9s           %-9s" ,
-             scenario[index] -> M_nbCmdSent,
+             curmsg -> M_nbCmdSent,
              "",
              "");
     }
@@ -997,14 +998,14 @@ void print_stats_in_file(FILE * f, int last)
       ERROR("Scenario command not implemented in display\n");
     }
     
-    if(lose_packets && (scenario[index] -> nb_lost)) {
+    if(lose_packets && (curmsg -> nb_lost)) {
       fprintf(f," %-9d" SIPP_ENDL,
-             scenario[index] -> nb_lost);
+             curmsg -> nb_lost);
     } else {
       fprintf(f,SIPP_ENDL);
     }
     
-    if(scenario[index] -> crlf) {
+    if(curmsg -> crlf) {
       fprintf(f,SIPP_ENDL);
     }
   }
@@ -1024,12 +1025,13 @@ void print_count_file(FILE *f, int header) {
     fprintf(f, "%s%s", CStat::instance()->msToHHMMSSmmm(globalElapsedTime), stat_delimiter);
   }
 
-  for(int index = 0; index < scenario_len; index ++) {
-    if(scenario[index]->hide) {
+  for(int index = 0; index < main_scenario->length; index ++) {
+    message *curmsg = main_scenario->messages[index];
+    if(curmsg->hide) {
       continue;
     }
 
-    if(SendingMessage *src = scenario[index] -> send_scheme) {
+    if(SendingMessage *src = curmsg -> send_scheme) {
       if(header) {
 	if (src->isResponse()) {
 	  sprintf(temp_str, "%d_%d_", index, src->getCode());
@@ -1039,25 +1041,25 @@ void print_count_file(FILE *f, int header) {
 
 	fprintf(f, "%sSent%s", temp_str, stat_delimiter);
 	fprintf(f, "%sRetrans%s", temp_str, stat_delimiter);
-	if(scenario[index] -> retrans_delay) {
+	if(curmsg -> retrans_delay) {
 	  fprintf(f, "%sTimeout%s", temp_str, stat_delimiter);
 	}
 	if(lose_packets) {
 	  fprintf(f, "%sLost%s", temp_str, stat_delimiter);
 	}
       } else {
-	fprintf(f, "%d%s", scenario[index]->nb_sent, stat_delimiter);
-	fprintf(f, "%d%s", scenario[index]->nb_sent_retrans, stat_delimiter);
-	if(scenario[index] -> retrans_delay) {
-	  fprintf(f, "%d%s", scenario[index]->nb_timeout, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->nb_sent, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->nb_sent_retrans, stat_delimiter);
+	if(curmsg -> retrans_delay) {
+	  fprintf(f, "%d%s", curmsg->nb_timeout, stat_delimiter);
 	}
 	if(lose_packets) {
-	  fprintf(f, "%d%s", scenario[index]->nb_lost, stat_delimiter);
+	  fprintf(f, "%d%s", curmsg->nb_lost, stat_delimiter);
 	}
       }
-    } else if(scenario[index] -> recv_response) {
+    } else if(curmsg -> recv_response) {
       if(header) {
-	sprintf(temp_str, "%d_%d_", index, scenario[index]->recv_response);
+	sprintf(temp_str, "%d_%d_", index, curmsg->recv_response);
 
 	fprintf(f, "%sRecv%s", temp_str, stat_delimiter);
 	fprintf(f, "%sRetrans%s", temp_str, stat_delimiter);
@@ -1067,17 +1069,17 @@ void print_count_file(FILE *f, int header) {
 	  fprintf(f, "%sLost%s", temp_str, stat_delimiter);
 	}
       } else {
-	fprintf(f, "%d%s", scenario[index]->nb_recv, stat_delimiter);
-	fprintf(f, "%d%s", scenario[index]->nb_recv_retrans, stat_delimiter);
-	fprintf(f, "%d%s", scenario[index]->nb_timeout, stat_delimiter);
-	fprintf(f, "%d%s", scenario[index]->nb_unexp, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->nb_recv, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->nb_recv_retrans, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->nb_timeout, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->nb_unexp, stat_delimiter);
 	if(lose_packets) {
-	  fprintf(f, "%d%s", scenario[index]->nb_lost, stat_delimiter);
+	  fprintf(f, "%d%s", curmsg->nb_lost, stat_delimiter);
 	}
       }
-    } else if(scenario[index] -> recv_request) {
+    } else if(curmsg -> recv_request) {
       if(header) {
-	sprintf(temp_str, "%d_%s_", index, scenario[index]->recv_request);
+	sprintf(temp_str, "%d_%s_", index, curmsg->recv_request);
 
 	fprintf(f, "%sRecv%s", temp_str, stat_delimiter);
 	fprintf(f, "%sRetrans%s", temp_str, stat_delimiter);
@@ -1087,42 +1089,42 @@ void print_count_file(FILE *f, int header) {
 	  fprintf(f, "%sLost%s", temp_str, stat_delimiter);
 	}
       } else {
-	fprintf(f, "%d%s", scenario[index]->nb_recv, stat_delimiter);
-	fprintf(f, "%d%s", scenario[index]->nb_recv_retrans, stat_delimiter);
-	fprintf(f, "%d%s", scenario[index]->nb_timeout, stat_delimiter);
-	fprintf(f, "%d%s", scenario[index]->nb_unexp, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->nb_recv, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->nb_recv_retrans, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->nb_timeout, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->nb_unexp, stat_delimiter);
 	if(lose_packets) {
-	  fprintf(f, "%d%s", scenario[index]->nb_lost, stat_delimiter);
+	  fprintf(f, "%d%s", curmsg->nb_lost, stat_delimiter);
 	}
       }
-    } else if (scenario[index] -> pause_distribution ||
-	scenario[index] -> pause_variable) {
+    } else if (curmsg -> pause_distribution ||
+	curmsg -> pause_variable) {
 
       if(header) {
 	sprintf(temp_str, "%d_Pause_", index);
 	fprintf(f, "%sSessions%s", temp_str, stat_delimiter);
 	fprintf(f, "%sUnexp%s", temp_str, stat_delimiter);
       } else {
-	fprintf(f, "%d%s", scenario[index]->sessions, stat_delimiter);
-	fprintf(f, "%d%s", scenario[index]->nb_unexp, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->sessions, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->nb_unexp, stat_delimiter);
       }
-    } else if(scenario[index] -> M_type == MSG_TYPE_NOP) {
+    } else if(curmsg -> M_type == MSG_TYPE_NOP) {
       /* No output. */
-    }  else if(scenario[index] -> M_type == MSG_TYPE_RECVCMD) {
+    }  else if(curmsg -> M_type == MSG_TYPE_RECVCMD) {
       if(header) {
 	sprintf(temp_str, "%d_RecvCmd", index);
 	fprintf(f, "%s%s", temp_str, stat_delimiter);
 	fprintf(f, "%s_Timeout%s", temp_str, stat_delimiter);
       } else {
-	fprintf(f, "%d%s", scenario[index]->M_nbCmdRecv, stat_delimiter);
-	fprintf(f, "%d%s", scenario[index]->nb_timeout, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->M_nbCmdRecv, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->nb_timeout, stat_delimiter);
       }
-    } else if(scenario[index] -> M_type == MSG_TYPE_SENDCMD) {
+    } else if(curmsg -> M_type == MSG_TYPE_SENDCMD) {
       if(header) {
 	sprintf(temp_str, "%d_SendCmd", index);
 	fprintf(f, "%s%s", temp_str);
       } else {
-	fprintf(f, "%d%s", scenario[index]->M_nbCmdSent, stat_delimiter);
+	fprintf(f, "%d%s", curmsg->M_nbCmdSent, stat_delimiter);
       }
     } else {
       ERROR("Unknown count file message type:");
@@ -1225,7 +1227,7 @@ void print_tdm_map()
   printf(SIPP_ENDL);
   printf("%d/%d circuits (%d%%) in use", in_use, interval, int(100*in_use/interval));
   printf(SIPP_ENDL);
-  for(int i=0; i<(scenario_len + 8 - int(interval/(tdm_map_c+1))); i++) {
+  for(int i=0; i<(display_scenario->length + 8 - int(interval/(tdm_map_c+1))); i++) {
     printf(SIPP_ENDL);
   }
 }
@@ -1240,12 +1242,13 @@ void print_variable_list()
 
   printf("Action defined Per Message :" SIPP_ENDL);
   found = false;
-  for(i=0; i<scenario_len; i++)
+  for(i=0; i<display_scenario->length; i++)
     {
-      actions = scenario[i]->M_actions;
+      message *curmsg = display_scenario->messages[i];
+      actions = curmsg->M_actions;
       if(actions != NULL)
         {
-          switch(scenario[i]->M_type)
+          switch(curmsg->M_type)
             {
             case MSG_TYPE_RECV:
               printf("=> Message[%d] (Receive Message) - "
@@ -1285,10 +1288,10 @@ void print_variable_list()
   printf("Setted Variable List:" SIPP_ENDL);
   found = false;
   j=0;
-  for(i=0; i<=maxVariableUsed; i++) {
+  for(i=0; i<=display_scenario->maxVariableUsed; i++) {
     for (int j=0;j<SCEN_MAX_MESSAGES;j++)
     {
-      variable = scenVariableTable[i][j];
+      variable = display_scenario->scenVariableTable[i][j];
       if(variable != NULL)
         {
           printf("=> Variable[%d] : setted regExp[%s]" SIPP_ENDL,
@@ -1300,7 +1303,7 @@ void print_variable_list()
     }
   }
   if(!found) printf("=> No variable found for this scenario"SIPP_ENDL);
-  for(i=0; i<(scenario_len + 5 - j); i++) {
+  for(i=0; i<(display_scenario->length + 5 - j); i++) {
     printf(SIPP_ENDL);
   }
 }
@@ -1422,7 +1425,7 @@ void set_rate(double new_rate)
 
   if(!open_calls_user_setting) {
 
-    int call_duration_min =  scenario_duration;
+    int call_duration_min =  display_scenario->duration;
 
     if(duration > call_duration_min) call_duration_min = duration;
 
@@ -1581,14 +1584,8 @@ void process_set(char *what) {
 }
 
 void process_dump(char *what) {
-  if (!strcmp(what, "calls")) {
-/*
-    WARNING("---- %d Active Calls ----\n", calls->size());
-    for (call_map::iterator call_it = calls->begin(); call_it != calls->end(); call_it++) {
-      call_it->second->dump();
-    }
-    WARNING("-------------------------\n");
-*/
+  if (!strcmp(what, "tasks")) {
+    dump_tasks();
   } else {
     WARNING("Unknown dump type: %s", what);
   }
@@ -3671,25 +3668,8 @@ void releaseGlobalAllocations()
 
   CStat::instance()->close();
 
-  for(i=0; i<=maxVariableUsed; i++) {
-    for (j=0; j<SCEN_MAX_MESSAGES;j++)
-    {
-      if (scenVariableTable[i][j] != NULL)
-        delete(scenVariableTable[i][j]);
-      scenVariableTable[i][j] = NULL;
-    }
-      delete scenVariableTable[i];
-      scenVariableTable[i] = NULL;
-    }
-  for(i=0; i<scenario_len; i++)
-  {
-    L_ptMsg = scenario[i];
-    if (L_ptMsg != NULL)
-    {
-      delete(L_ptMsg);
-      scenario[i] = NULL;
-    }
-  }
+  delete main_scenario;
+  free_default_messages();
 }
 
 void stop_all_traces()
@@ -4287,7 +4267,7 @@ int main(int argc, char *argv[])
 	  REQUIRE_ARG();
 	  CHECK_PASS();
 	  if (!strcmp(argv[argi - 1], "-sf")) {
-	    load_scenario(argv[argi], 0);
+	    main_scenario = new scenario(argv[argi], 0);
 	    scenario_file = new char [strlen(argv[argi])+1] ;
 	    sprintf(scenario_file,"%s", argv[argi]);
 	    CStat::instance()->setFileName(argv[argi], (char*)".csv");
@@ -4299,7 +4279,7 @@ int main(int argc, char *argv[])
 	    }
 
 	    CStat::instance()->setFileName(argv[argi], (char*)".csv");
-	    load_scenario(0, i);
+	    main_scenario = new scenario(0, i);
 	    scenario_file = new char [strlen(argv[argi])+1] ;
 	    sprintf(scenario_file,"%s", argv[argi]);
 	  } else if (!strcmp(argv[argi - 1], "-sd")) {
@@ -4584,19 +4564,20 @@ int main(int argc, char *argv[])
   }
   
   /* Load default scenario in case nothing was loaded */
-  if(!scenario_len) {
-    load_scenario(0, 0);
+  if(!main_scenario) {
+    main_scenario = new scenario(0, 0);
     CStat::instance()->setFileName((char*)"uac", (char*)".csv");
     sprintf(scenario_file,"uac");
   }
+  display_scenario = main_scenario;
   init_default_messages();
-  
+
   if(argiFileName) {
     CStat::instance()->setFileName(argv[argiFileName]);
   }
 
   /* In which mode the tool is launched ? */
-  computeSippMode();
+  main_scenario->computeSippMode();
 
   /* checking if we need to launch the tool in background mode */ 
   if(backgroundMode == true)

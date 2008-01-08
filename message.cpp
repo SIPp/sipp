@@ -79,7 +79,7 @@ struct KeywordMap SimpleKeywords[] = {
 
 #define KEYWORD_SIZE 256
 
-SendingMessage::SendingMessage(char *src, bool skip_sanity) {
+SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sanity) {
   char *osrc = src;
     char * literal;
     char * dest;
@@ -91,6 +91,8 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
     char * line_mark = NULL;
     char * tsrc;
     int    num_cr = get_cr_number(src);
+
+    this->msg_scenario = msg_scenario;
     
     dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
  
@@ -235,7 +237,10 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	  }
         } else if(*keyword == '$') {
 	  newcomp->type = E_Message_Variable;
-	  newcomp->varId = get_var(keyword + 1, "Variable keyword");
+	  if (!msg_scenario) {
+	    ERROR("SendingMessage with variable usage outside of scenario!");
+	  }
+	  newcomp->varId = msg_scenario->get_var(keyword + 1, "Variable keyword");
 	} else if(!strncmp(keyword, "fill", strlen("fill"))) {
 	  newcomp->type = E_Message_Fill;
 	  char filltext[KEYWORD_SIZE];
@@ -248,7 +253,10 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
 	  getKeywordParam(keyword, "variable=", varName);
 
 	  newcomp->literal = strdup(filltext);
-	  newcomp->varId = get_var(varName, "Fill Variable");
+	  if (!msg_scenario) {
+	    ERROR("SendingMessage with variable usage outside of scenario!");
+	  }
+	  newcomp->varId = msg_scenario->get_var(varName, "Fill Variable");
      } else if(!strncmp(keyword, "last_", strlen("last_"))) {
        if(!strncmp(keyword, "last_Request_URI", strlen("last_Request_URI"))){
 	 newcomp->type = E_Message_Last_Request_URI;
@@ -259,7 +267,7 @@ SendingMessage::SendingMessage(char *src, bool skip_sanity) {
        }
        newcomp->literal = strdup(keyword + strlen("last_"));
      } else if(!strncmp(keyword, "authentication", strlen("authentication"))) {
-       parseAuthenticationKeyword(newcomp, keyword);
+       parseAuthenticationKeyword(msg_scenario, newcomp, keyword);
      }
 #ifndef PCAPPLAY
         else if(!strcmp(keyword, "auto_media_port") ||
@@ -451,7 +459,7 @@ void SendingMessage::getKeywordParam(char * src, char * param, char * output)
   }
 }
 
-void SendingMessage::parseAuthenticationKeyword(struct MessageComponent *dst, char *keyword) {
+void SendingMessage::parseAuthenticationKeyword(scenario *msg_scenario, struct MessageComponent *dst, char *keyword) {
   char my_auth_user[KEYWORD_SIZE + 1];
   char my_auth_pass[KEYWORD_SIZE + 1];
   char my_aka[KEYWORD_SIZE + 1];
@@ -472,8 +480,8 @@ void SendingMessage::parseAuthenticationKeyword(struct MessageComponent *dst, ch
   }
 
 
-  dst->comp_param.auth_param.auth_user = new SendingMessage(my_auth_user, true /* skip sanity */);
-  dst->comp_param.auth_param.auth_pass = new SendingMessage(my_auth_pass, true);
+  dst->comp_param.auth_param.auth_user = new SendingMessage(msg_scenario, my_auth_user, true /* skip sanity */);
+  dst->comp_param.auth_param.auth_pass = new SendingMessage(msg_scenario, my_auth_pass, true);
 
   /* add aka_OP, aka_AMF, aka_K */
   getKeywordParam(keyword, "aka_K=", my_aka);
@@ -481,12 +489,12 @@ void SendingMessage::parseAuthenticationKeyword(struct MessageComponent *dst, ch
     memcpy(my_aka,my_auth_pass,16);
     my_aka[16]=0;
   }
-  dst->comp_param.auth_param.aka_K = new SendingMessage(my_aka, true);
+  dst->comp_param.auth_param.aka_K = new SendingMessage(msg_scenario, my_aka, true);
 
   getKeywordParam(keyword, "aka_OP=", my_aka);
-  dst->comp_param.auth_param.aka_OP = new SendingMessage(my_aka, true);
+  dst->comp_param.auth_param.aka_OP = new SendingMessage(msg_scenario, my_aka, true);
   getKeywordParam(keyword, "aka_AMF=", my_aka);
-  dst->comp_param.auth_param.aka_AMF = new SendingMessage(my_aka, true);
+  dst->comp_param.auth_param.aka_AMF = new SendingMessage(msg_scenario, my_aka, true);
 }
 
 void SendingMessage::freeMessageComponent(struct MessageComponent *comp) {
