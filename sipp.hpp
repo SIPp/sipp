@@ -432,18 +432,17 @@ extern bool   useCountf                           _DEFVAL(0);
 extern char * scenario_file;
 extern char * slave_cfg_file;
 
+extern unsigned long long ringbuffer_size	  _DEFVAL(0);
+extern int    ringbuffer_files			  _DEFVAL(0);
+
 extern char   screen_last_error[32768];
+extern char   screen_logfile[MAX_PATH]            _DEFVAL("");
+extern FILE   * screen_errorf			  _DEFVAL(NULL);
 
-// TODO: finish the -trace_timeout option implementation
-
-/* #define TRACE_TIMEOUT(arg)  \
-{                           \
-  if(timeoutf) {            \
-    FILE * s = timeoutf;    \
-    fprintf arg;            \
-    fflush(timeoutf);       \
-  }                         \
-} */
+void rotate_messagef();
+void rotate_shortmessagef();
+void rotate_logfile();
+void rotate_errorf();
 
 /********************* Mini-Parser Routines *******************/
 

@@ -167,6 +167,17 @@ long get_long(const char *ptr, const char *what) {
   return ret;
 }
 
+unsigned long long get_long_long(const char *ptr, const char *what) {
+  char *endptr;
+  unsigned long long ret;
+
+  ret = strtoull(ptr, &endptr, 0);
+  if (*endptr) {
+    ERROR("%s, \"%s\" is not a valid integer!\n", what, ptr);
+  }
+  return ret;
+}
+
 /* This function returns a time in milliseconds from a string.
  * The multiplier is used to convert from the default input type into
  * milliseconds.  For example, for seconds you should use 1000 and for

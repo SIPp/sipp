@@ -47,7 +47,7 @@ extern "C" {
 #define EXIT_FATAL_ERROR           -1
 
 void screen_set_exename(char * exe_name);
-void screen_init(char *logfile_name, void (*exit_handler)());
+void screen_init(void (*exit_handler)());
 void screen_clear();
 int  screen_readkey();
 void screen_exit(int rc);

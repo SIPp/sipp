@@ -195,6 +195,7 @@ extern char * default_scenario[10];
 
 /* Useful utility functions for parsing integers, etc. */
 long get_long(const char *ptr, const char *what);
+unsigned long long get_long_long(const char *ptr, const char *what);
 long get_time(const char *ptr, const char *what, int multiplier);
 double get_double(const char *ptr, const char *what);
 bool get_bool(const char *ptr, const char *what);

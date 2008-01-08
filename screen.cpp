@@ -39,9 +39,7 @@
 extern bool    timeout_exit;
 
 unsigned long screen_errors;
-FILE        * screen_errorf = 0;
 int           screen_inited = 0;
-char          screen_logfile[255];
 char          screen_exename[255];
 extern void   releaseGlobalAllocations();
 extern void   stop_all_traces();
@@ -163,7 +161,7 @@ void manage_oversized_file()
            CStat::instance()->formatTime(&currentTime));
   fflush(f);
   stop_all_traces(); 
-  screen_logfile[0] = (char)0;
+  print_all_responses = 0;
   screen_errorf = 0; 
   CStat::instance()->close();
 }
@@ -179,16 +177,11 @@ void screen_set_exename(char * exe_name)
   strcpy(screen_exename, exe_name);
 }
 
-void screen_init(char *logfile_name, void (*exit_handler)())
+void screen_init(void (*exit_handler)())
 {
   struct sigaction action_quit, action_file_size_exceeded;
   
   screen_inited = 1;
-  if (logfile_name == NULL) {
-    screen_logfile[0] = (char)0;
-  } else {
-    strcpy(screen_logfile, logfile_name);
-  }
   screen_exit_handler = exit_handler;
 
   if (backgroundMode == false) {
@@ -215,6 +208,7 @@ void screen_init(char *logfile_name, void (*exit_handler)())
 
 static void _screen_error(int fatal, bool use_errno, int error, const char *fmt, va_list ap)
 {
+  static unsigned long long count = 0;
   FILE * output;
   char * c = screen_last_error;
   struct timeval currentTime;
@@ -229,8 +223,8 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
   c+= sprintf(c, ".\n");
   screen_errors++;
 
-  if(screen_inited && (!screen_errorf) && screen_logfile[0] != (char)0) {
-    screen_errorf = fopen(screen_logfile, "w");
+  if(screen_inited && !screen_errorf && print_all_responses) {
+    rotate_errorf();
     if(!screen_errorf) {
       c += sprintf(c, "%s: Unable to create '%s': %s.\n",
                    screen_exename, screen_logfile, strerror(errno));
@@ -243,13 +237,15 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
   }
 
   if(screen_errorf) {
-    output = screen_errorf;
-    fprintf(output, "%s", screen_last_error);
-    fflush(output);
+    count += fprintf(screen_errorf, "%s", screen_last_error);
+    fflush(screen_errorf);
+    if (ringbuffer_size && count > ringbuffer_size) {
+      rotate_errorf();
+      count = 0;
+    }
   } else if (fatal) {
-    output = stderr;
-    fprintf(output, "%s", screen_last_error);
-    fflush(output);
+    fprintf(stderr, "%s", screen_last_error);
+    fflush(stderr);
   }
 
   if(fatal) {

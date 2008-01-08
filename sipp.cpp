@@ -102,7 +102,8 @@ struct sipp_option {
 #define SIPP_OPTION_INPUT_FILE	  27
 #define SIPP_OPTION_TIME_MS_LONG  28
 #define SIPP_OPTION_LONG          29
-#define SIPP_OPTION_DEFAULTS      30
+#define SIPP_OPTION_LONG_LONG     30
+#define SIPP_OPTION_DEFAULTS      31
 
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
@@ -202,6 +203,8 @@ struct sipp_option options_table[] = {
 	{"send_timeout", "Global send timeout. Default unit is milliseconds. If a message is not sent (due to congestion), the call times out and is aborted.", SIPP_OPTION_TIME_MS_LONG, &defl_send_timeout, 1},
 	{"reconnect_close", "Should calls be closed on reconnect?", SIPP_OPTION_BOOL, &reset_close, 1},
 	{"reconnect_sleep", "How long (in milliseconds) to sleep between the close and reconnect?", SIPP_OPTION_TIME_MS, &reset_sleep, 1},
+	{"ringbuffer_files", "How many error/message files should be kept after rotation?", SIPP_OPTION_INT, &ringbuffer_files, 1},
+	{"ringbuffer_size", "How large should error/message files be before they get rotated?", SIPP_OPTION_LONG_LONG, &ringbuffer_size, 1},
 	{"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, NULL, 1},
 	{"rtp_echo", "Enable RTP echo. RTP/UDP packets received on port defined by -mp are echoed to their sender.\n"
                      "RTP/UDP packets coming on this port + 2 are also echoed to their sender (used for sound and video echo).",
@@ -4049,6 +4052,11 @@ int main(int argc, char *argv[])
           CHECK_PASS();
           *((long *)option->data) = get_long(argv[argi], argv[argi-1]);
           break; 
+        case SIPP_OPTION_LONG_LONG:
+          REQUIRE_ARG();
+          CHECK_PASS();
+          *((unsigned long long *)option->data) = get_long_long(argv[argi], argv[argi-1]);
+          break;
 	case SIPP_OPTION_TIME_SEC:
 	  REQUIRE_ARG();
 	  CHECK_PASS();
@@ -4429,13 +4437,7 @@ int main(int argc, char *argv[])
     scenario_file = remove_pattern (scenario_file, (char*)".xml");
   }
 
-   if (print_all_responses) {
-      char L_file_name [MAX_PATH];
-      sprintf (L_file_name, "%s_%d_errors.log", scenario_file, getpid());
-      screen_init(L_file_name, print_last_stats);
-    } else {
-      screen_init(NULL, print_last_stats);
-    }
+   screen_init(print_last_stats);
 
 #ifdef _USE_OPENSSL
     if ((transport == T_TLS) && (FI_init_ssl_context() != SSL_INIT_NORMAL))
@@ -4445,21 +4447,11 @@ int main(int argc, char *argv[])
 #endif
 
   if (useMessagef == 1) {
-    char L_file_name [MAX_PATH];
-    sprintf (L_file_name, "%s_%d_messages.log", scenario_file, getpid());
-    messagef = fopen(L_file_name, "w");
-    if(!messagef) {
-      ERROR("Unable to create '%s'", L_file_name);
-    }
+    rotate_messagef();
   }
   
   if (useShortMessagef == 1) {
-    char L_file_name [MAX_PATH];
-    sprintf (L_file_name, "%s_%d_shortmessages.log", scenario_file, getpid());
-    shortmessagef = fopen(L_file_name, "w");
-    if(!shortmessagef) {
-      ERROR("Unable to create '%s'", L_file_name);
-    }
+    rotate_shortmessagef();
   }
   
   if (useScreenf == 1) {
@@ -4493,12 +4485,7 @@ int main(int argc, char *argv[])
   }
 
   if (useLogf == 1) {
-    char L_file_name [MAX_PATH];
-    sprintf (L_file_name, "%s_%d_logs.log", scenario_file, getpid());
-    logfile = fopen(L_file_name, "w");
-    if(!logfile) {
-      ERROR("Unable to create '%s'", L_file_name);
-    }
+    rotate_logfile();
   }
 
   if (dumpInRtt == 1) {
@@ -5396,7 +5383,7 @@ extern "C" {
 #endif
 int TRACE_MSG(char *fmt, ...) {
   int ret = 0;
-  static size_t count = 0;
+  static unsigned long long count = 0;
   if(messagef) {
     va_list ap;
     va_start(ap, fmt);
@@ -5405,13 +5392,17 @@ int TRACE_MSG(char *fmt, ...) {
     fflush(messagef);
 
     count += ret;
+    if (ringbuffer_size && count > ringbuffer_size) {
+      rotate_messagef();
+      count = 0;
+    }
   }
   return ret;
 }
 
 int TRACE_SHORTMSG(char *fmt, ...) {
   int ret = 0;
-  static size_t count = 0;
+  static unsigned long long count = 0;
   if(shortmessagef) {
     va_list ap;
     va_start(ap, fmt);
@@ -5420,13 +5411,17 @@ int TRACE_SHORTMSG(char *fmt, ...) {
     fflush(shortmessagef);
 
     count += ret;
+    if (ringbuffer_size && count > ringbuffer_size) {
+      rotate_shortmessagef();
+      count = 0;
+    }
   }
   return ret;
 }
 
 int LOG_MSG(char *fmt, ...) {
   int ret = 0;
-  static size_t count = 0;
+  static unsigned long long count = 0;
   if(logfile) {
     va_list ap;
     va_start(ap, fmt);
@@ -5435,10 +5430,105 @@ int LOG_MSG(char *fmt, ...) {
     fflush(logfile);
 
     count += ret;
+    if (ringbuffer_size && count > ringbuffer_size) {
+      rotate_messagef();
+      count = 0;
+    }
   }
   return ret;
 }
 
+// TODO: finish the -trace_timeout option implementation
+/* int TRACE_TIMEOUT(char *fmt, ...) */
+
 #ifdef __cplusplus
 }
 #endif
+
+struct logfile_id {
+  time_t start;
+  int n;
+};
+
+/* We can not use the error functions from this file, as we may be rotating the error log itself! */
+void rotatef(char *name, FILE **fptr, time_t *starttime, int *nfiles, struct logfile_id **ftimes, bool check) {
+  char L_file_name [MAX_PATH];
+  char L_rotate_file_name [MAX_PATH];
+
+  sprintf (L_file_name, "%s_%d_%s.log", scenario_file, getpid(), name);
+
+  if (ringbuffer_files > 0) {
+    if (!*ftimes) {
+	*ftimes = (struct logfile_id *)calloc(ringbuffer_files, sizeof(struct logfile_id));
+    }
+    /* We need to rotate away an existing file. */
+    if (*nfiles == ringbuffer_files) {
+      if ((*ftimes)[0].n) {
+	sprintf(L_rotate_file_name, "%s_%d_%s_%d.%d.log", scenario_file, getpid(), name, (*ftimes)[0].start, (*ftimes)[0].n);
+      } else {
+	sprintf(L_rotate_file_name, "%s_%d_%s_%d.log", scenario_file, getpid(), name, (*ftimes)[0].start);
+      }
+      unlink(L_rotate_file_name);
+      (*nfiles)--;
+      memmove(*ftimes, &((*ftimes)[1]), sizeof(struct logfile_id) * (*nfiles));
+    }
+    if (*starttime) {
+      (*ftimes)[*nfiles].start = *starttime;
+      (*ftimes)[*nfiles].n = 0;
+      /* If we have the same time, then we need to append an identifier. */
+      if (*nfiles && ((*ftimes)[*nfiles].start == (*ftimes)[*nfiles - 1].start)) {
+	  (*ftimes)[*nfiles].n = (*ftimes)[*nfiles - 1].n + 1;
+      }
+      if ((*ftimes)[*nfiles].n) {
+	sprintf(L_rotate_file_name, "%s_%d_%s_%d.%d.log", scenario_file, getpid(), name, (*ftimes)[*nfiles].start, (*ftimes)[*nfiles].n);
+      } else {
+	sprintf(L_rotate_file_name, "%s_%d_%s_%d.log", scenario_file, getpid(), name, (*ftimes)[*nfiles].start);
+      }
+      (*nfiles)++;
+      fflush(*fptr);
+      fclose(*fptr);
+      *fptr = NULL;
+      rename(L_file_name, L_rotate_file_name);
+    }
+  }
+
+  time(starttime);
+  *fptr = fopen(L_file_name, "w");
+  if(check && !*fptr) {
+    ERROR("Unable to create '%s'", L_file_name);
+  }
+}
+
+int messagef_nfiles = 0;
+struct logfile_id *messagef_times = NULL;
+
+void rotate_messagef() {
+  static time_t starttime = 0;
+  rotatef("messages", &messagef, &starttime, &messagef_nfiles, &messagef_times, true);
+}
+
+int shortmessagef_nfiles = 0;
+struct logfile_id *shortmessagef_times = NULL;
+
+void rotate_shortmessagef() {
+  static time_t starttime = 0;
+  rotatef("shortmessages", &shortmessagef, &starttime, &shortmessagef_nfiles, &shortmessagef_times, true);
+}
+
+int logfile_nfiles = 0;
+struct logfile_id *logfile_times = NULL;
+
+void rotate_logfile() {
+  static time_t starttime = 0;
+  rotatef("logs", &logfile, &starttime, &logfile_nfiles, &logfile_times, true);
+}
+
+int errorf_nfiles  = 0;
+struct logfile_id *errorf_times = NULL;
+
+void rotate_errorf() {
+  static time_t starttime = 0;
+  rotatef("errors", &screen_errorf, &starttime, &errorf_nfiles, &errorf_times, false);
+  /* If rotatef is changed, this must be changed as well. */
+  sprintf (screen_logfile, "%s_%d_errors.log", scenario_file, getpid());
+}
