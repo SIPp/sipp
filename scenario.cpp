@@ -138,6 +138,10 @@ message::~message()
     delete pause_distribution;
   }
 
+  if(display_str != NULL)
+     free(display_str);
+  display_str = NULL;
+
   if(M_sendCmdData != NULL)
     delete M_sendCmdData;
   M_sendCmdData = NULL;
@@ -370,6 +374,16 @@ int scenario::get_txn(const char *txnName, const char *what, bool start) {
   return txnNum;
 }
 
+int scenario::find_var(const char *varName, const char *what) {
+  /* If this variable has already been used, then we have nothing to do. */
+  str_int_map::iterator var_it = variableMap.find(varName);
+  if (var_it != variableMap.end()) {
+    variableReferences[var_it->second]++;
+    return var_it->second;
+  }
+  return -1;
+}
+
 int scenario::get_var(const char *varName, const char *what) {
   /* Check the name's validity. */
   if (varName[0] == '\0') {
@@ -396,7 +410,7 @@ int scenario::get_var(const char *varName, const char *what) {
     for (int j = 0; j < SCEN_MAX_MESSAGES; j++) {
       tmpScenVars[i][j] = scenVariableTable[i][j];
     }
-    delete scenVariableTable[i];
+    delete [] scenVariableTable[i];
   }
   if (scenVariableTable) {
     delete [] scenVariableTable;
@@ -697,6 +711,8 @@ scenario::scenario(char * filename, int deflt)
   stats = new CStat();
 
   init_rtds();
+  scenVariableTable = NULL;
+  hidedefault = false;
 
   elem = xp_open_element(0);
   if (!elem) {
@@ -985,6 +1001,15 @@ scenario::scenario(char * filename, int deflt)
 
   free(method_list);
 
+  str_int_map::iterator label_it = labelMap.find("_unexp.main");
+  if (label_it != labelMap.end()) {
+    unexpected_jump = label_it->second;
+  } else {
+    unexpected_jump = -1;
+  }
+  retaddr = find_var("_unexp.retaddr", "unexpected return address");
+  pausedaddr = find_var("_unexp.pausedaddr", "unexpected paused until");
+
   /* Patch up the labels. */
   apply_labels();
 
@@ -1030,7 +1055,7 @@ scenario::~scenario() {
 	delete(scenVariableTable[i][j]);
       scenVariableTable[i][j] = NULL;
     }
-    delete scenVariableTable[i];
+    delete [] scenVariableTable[i];
     scenVariableTable[i] = NULL;
   }
 
@@ -1273,8 +1298,7 @@ void scenario::computeSippMode()
             "client, 3PCC controller A, 3PCC controller B).\n");
 }
 
-void scenario::handle_arithmetic(CAction *tmpAction, char *what) {
-  tmpAction->setVarId(xp_get_var("assign_to", what));
+void scenario::handle_rhs(CAction *tmpAction, char *what) {
   if (xp_get_value("value")) {
     tmpAction->setDoubleValue(xp_get_double("value", what));
     if (xp_get_value("variable")) {
@@ -1288,6 +1312,11 @@ void scenario::handle_arithmetic(CAction *tmpAction, char *what) {
   } else {
     ERROR("No value or variable defined for %s action!", what);
   }
+}
+
+void scenario::handle_arithmetic(CAction *tmpAction, char *what) {
+  tmpAction->setVarId(xp_get_var("assign_to", what));
+  handle_rhs(tmpAction, what);
 }
 
 // Action list for the message indexed by message_index in 
@@ -1435,9 +1464,8 @@ void scenario::getActionForThisMessage()
 	tmpAction->setMessage(ptr);
       }
     } else if(!strcmp(actionElem, "assign")) {
-      tmpAction->setVarId(xp_get_var("assign_to", "assign"));
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_VALUE);
-      tmpAction->setDoubleValue(xp_get_double("value", "assign"));
+      handle_arithmetic(tmpAction, "assign");
     } else if(!strcmp(actionElem, "assignstr")) {
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_STRING);
       tmpAction->setVarId(xp_get_var("assign_to", "assignstr"));
@@ -1451,13 +1479,10 @@ void scenario::getActionForThisMessage()
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_INDEX);
     } else if(!strcmp(actionElem, "jump")) {
       tmpAction->setActionType(CAction::E_AT_JUMP);
-      if (xp_get_value("variable")) {
-	tmpAction->setVarInId(xp_get_var("variable", "jump"));
-      } else if (xp_get_value("value")) {
-	tmpAction->setDoubleValue(xp_get_double("value", "jump"));
-      } else {
-	ERROR("Jump without a variable or a value!");
-      }
+      handle_rhs(tmpAction, "jump");
+    } else if(!strcmp(actionElem, "pauserestore")) {
+      tmpAction->setActionType(CAction::E_AT_PAUSE_RESTORE);
+      handle_rhs(tmpAction, "pauserestore");
     } else if(!strcmp(actionElem, "add")) {
       tmpAction->setActionType(CAction::E_AT_VAR_ADD);
       handle_arithmetic(tmpAction, "add");
@@ -1605,7 +1630,10 @@ void scenario::getCommonAttributes() {
     messages[length] -> crlf = 1;
   }
 
-  messages[length] -> hide = xp_get_bool("hide", "hide", false);
+  if (xp_get_value("hiderest")) {
+    hidedefault = xp_get_bool("hiderest", "hiderest");
+  }
+  messages[length] -> hide = xp_get_bool("hide", "hide", hidedefault);
   if(ptr = xp_get_value((char *)"display")) {
     messages[length] -> display_str = strdup(ptr);
   }

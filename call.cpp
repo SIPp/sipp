@@ -360,16 +360,12 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
 
   start_time = clock_tick;
   call_established=false ;
-  if (isAutomatic) {
-    count_in_stats=false ;
-  } else {
-    count_in_stats=true ;
-  }
   ack_is_pending=false ;
   last_recv_msg = NULL;
   cseq = base_cseq;
   nb_last_delay = 0;
   use_ipv6 = ipv6;
+  queued_msg = NULL;
   
 #ifdef _USE_OPENSSL
   dialog_authentication = NULL;
@@ -487,9 +483,7 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
 
 call::~call()
 {
-  if (count_in_stats) {
-    computeStat(CStat::E_ADD_CALL_DURATION, clock_tick - start_time);
-  }
+  computeStat(CStat::E_ADD_CALL_DURATION, clock_tick - start_time);
 
   if(comp_state) { comp_free(&comp_state); }
 
@@ -506,7 +500,7 @@ call::~call()
 	M_callVariableTable[i] = NULL;
       }
     }
-    delete M_callVariableTable;
+    delete [] M_callVariableTable;
   }
   if (m_lineNumber) {
     delete m_lineNumber;
@@ -560,7 +554,21 @@ void call::computeStat (CStat::E_Action P_action, unsigned long P_value, int whi
 
 /* Dump call info to error log. */
 void call::dump() {
-  WARNING("%s: State %d", id, msg_index);
+  char s[MAX_HEADER_LEN];
+  sprintf(s, "%s: State %d", id, msg_index);
+  if (next_retrans) {
+    sprintf(s, "%s (next retrans %ld)", s, next_retrans);
+  }
+  if (paused_until) {
+    sprintf(s, "%s (paused until %ld)", s, paused_until);
+  }
+  if (recv_timeout) {
+    sprintf(s, "%s (recv timeout %ld)", s, recv_timeout);
+  }
+  if (send_timeout) {
+    sprintf(s, "%s (send timeout %ld)", s, send_timeout);
+  }
+  WARNING("%s", s);
 }
 
 bool call::connect_socket_if_needed()
@@ -1138,7 +1146,7 @@ void call::do_bookkeeping(int index) {
       unsigned long long start = start_time_rtd[rtd - 1];
       unsigned long long end = getmicroseconds();
 
-      if(dumpInRtt && count_in_stats) {
+      if(dumpInRtt) {
 	call_scenario->stats->computeRtt(start, end, rtd);
       }
 
@@ -1487,7 +1495,13 @@ bool call::run()
   } else if (curmsg->M_type == MSG_TYPE_RECV
          || curmsg->M_type == MSG_TYPE_RECVCMD
                                                  ) {
-    if (recv_timeout) {
+    if (queued_msg) {
+      char *msg = queued_msg;
+      queued_msg = NULL;
+      bool ret = process_incoming(msg);
+      free(msg);
+      return ret;
+    } else if (recv_timeout) {
       if(recv_timeout > clock_tick || recv_timeout > getmilliseconds()) {
 	setPaused();
 	return true;
@@ -2621,6 +2635,11 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
   return false;
 }
 
+void call::queue_up(char *msg) {
+  free(queued_msg);
+  queued_msg = strdup(msg);
+}
+
 bool call::process_incoming(char * msg)
 {
   int             reply_code;
@@ -2833,14 +2852,39 @@ bool call::process_incoming(char * msg)
 
   /* If it is still not found, process an unexpected message */
   if(!found) {
-    T_AutoMode L_case;
-    if ((L_case = checkAutomaticResponseMode(request)) == 0) {
-      if (!process_unexpected(msg)) {
-        return false; // Call aborted by unexpected message handling
+    if (call_scenario->unexpected_jump >= 0) {
+      bool recursive = false;
+      if (call_scenario->retaddr >= 0) {
+	if (M_callVariableTable[call_scenario->retaddr]->getDouble() != 0) {
+	  /* We are already in a jump! */
+	  recursive = true;
+	} else {
+	  M_callVariableTable[call_scenario->retaddr]->setDouble(msg_index);
+	}
+      }
+      if (!recursive) {
+	if (call_scenario->pausedaddr >= 0) {
+	  M_callVariableTable[call_scenario->pausedaddr]->setDouble(paused_until);
+	}
+	msg_index = call_scenario->unexpected_jump;
+	queue_up(msg);
+	paused_until = 0;
+	return run();
+      } else {
+	if (!process_unexpected(msg)) {
+	  return false; // Call aborted by unexpected message handling
+	}
       }
     } else {
-      // call aborted by automatic response mode if needed
-      return automaticResponseMode(L_case, msg);
+      T_AutoMode L_case;
+      if ((L_case = checkAutomaticResponseMode(request)) == 0) {
+	if (!process_unexpected(msg)) {
+	  return false; // Call aborted by unexpected message handling
+	}
+      } else {
+	// call aborted by automatic response mode if needed
+	return automaticResponseMode(L_case, msg);
+      }
     }
   }
 
@@ -3127,12 +3171,16 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
           } // end if scen variable != null
         } else /* end action == E_AT_ASSIGN_FROM_REGEXP */ 
             if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_VALUE) {
-	      M_callVariableTable[currentAction->getVarId()]->setDouble(currentAction->getDoubleValue());
+	      double operand = get_rhs(currentAction);
+	      M_callVariableTable[currentAction->getVarId()]->setDouble(operand);
         } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_INDEX) {
 	  M_callVariableTable[currentAction->getVarId()]->setDouble(msg_index);
         } else if (currentAction->getActionType() == CAction::E_AT_JUMP) {
 	  double operand = get_rhs(currentAction);
-	  msg_index = (int)operand;
+	  msg_index = (int)operand - 1;
+        } else if (currentAction->getActionType() == CAction::E_AT_PAUSE_RESTORE) {
+	  double operand = get_rhs(currentAction);
+	  paused_until = (int)operand;
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_ADD) {
 	  double value = M_callVariableTable[currentAction->getVarId()]->getDouble();
 	  double operand = get_rhs(currentAction);
@@ -3456,7 +3504,6 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     
    if (default_behaviors & DEFAULT_BEHAVIOR_PINGREPLY) {
     WARNING("Automatic response mode for an unexpected PING for call: %s", (id==NULL)?"none":id);
-    count_in_stats = false; // Call must not be counted in statistics
     sendBuffer(createSendingMessage(get_default_message("200"), -1));
     // Note: the call ends here but it is not marked as bad. PING is a 
     //       normal message.

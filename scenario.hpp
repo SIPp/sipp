@@ -163,11 +163,15 @@ public:
   CVariable *** scenVariableTable;
   int maxTxnUsed;
   int_str_map txnRevMap;
+  int unexpected_jump;
+  int retaddr;
+  int pausedaddr;
 
   void computeSippMode();
 
   bool rtd_stopped[MAX_RTD_INFO_LENGTH];
   int get_var(const char *varName, const char *what);
+  int find_var(const char *varName, const char *what);
 
   CStat *stats;
 
@@ -194,6 +198,7 @@ private:
   void getCommonAttributes();
   void getActionForThisMessage();
   void handle_arithmetic(CAction *tmpAction, char *what);
+  void handle_rhs(CAction *tmpAction, char *what);
 
   void apply_labels();
   void init_rtds();
@@ -206,6 +211,8 @@ private:
   int xp_get_var(const char *name, const char *what, int defval);
 
   void expand(int length);
+
+  bool hidedefault;
 };
 
 /* There are external variable containing the current scenario */

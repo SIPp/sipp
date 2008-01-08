@@ -175,8 +175,6 @@ private:
   bool           call_established; // == true when the call is established
                                    // ie ACK received or sent
                                    // => init to false
-  bool           count_in_stats;   // == true if normal call to be counted
-                                   // in statistics
   bool           ack_is_pending;   // == true if an ACK is pending
                                    // Needed to avoid abortCall sending a 
                                    // CANCEL instead of BYE in some extreme
@@ -284,6 +282,11 @@ private:
   void computeStat (CStat::E_Action P_action);
   void computeStat (CStat::E_Action P_action, unsigned long P_value);
   void computeStat (CStat::E_Action P_action, unsigned long P_value, int which);
+
+
+  void queue_up(char *msg);
+  char *queued_msg;
+
 
 #ifdef _USE_OPENSSL
   SSL_CTX   *m_ctx_ssl ;
