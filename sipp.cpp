@@ -56,6 +56,10 @@ int passwd_call_back_routine(char  *buf , int size , int flag, void *passwd)
 }
 #endif
 
+static struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, int accepting);
+struct sipp_socket *ctrl_socket = NULL;
+struct sipp_socket *stdin_socket = NULL;
+
 int command_mode = 0;
 char *command_buffer = NULL;
 
@@ -126,6 +130,7 @@ struct sipp_option options_table[] = {
 	{"buff_size", "Set the send and receive buffer size.", SIPP_OPTION_INT, &buff_size, 1},
 
 	{"cid_str", "Call ID string (default %u-%p@%s).  %u=call_number, %s=ip_address, %p=process_number, %%=% (in any order).", SIPP_OPTION_STRING, &call_id_string, 1},
+	{"ci", "Set the local control IP address", SIPP_OPTION_IP, control_ip, 1},
 	{"cp", "Set the local control port number. Default is 8888.", SIPP_OPTION_INT, &control_port, 1},
 
 	{"d", "Controls the length of calls. More precisely, this controls the duration of 'pause' instructions in the scenario, if they do not have a 'milliseconds' section. Default value is 0 and default unit is milliseconds.", SIPP_OPTION_TIME_MS, &duration, 1},
@@ -1608,16 +1613,40 @@ bool process_command(char *command) {
   return false;
 }
 
-/* User interface threads */
-/* Socket control thread */
-void ctrl_thread (void * param)
-{
-  int soc,ret;
-  short prt;
+
+int handle_ctrl_socket() {
+  unsigned char bufrcv [SIPP_MAX_MSG_SIZE];
+
+  int ret = recv(ctrl_socket->ss_fd,bufrcv,sizeof(bufrcv) - 1,0);
+  if (ret <= 0) {
+    return ret;
+  }
+
+  if (bufrcv[0] == 'c') {
+    /* No 'c', but we need one for '\0'. */
+    char *command = (char *)malloc(ret);
+    if (!command) {
+      ERROR("Out of memory allocated command buffer.");
+    }
+    memcpy(command, bufrcv + 1, ret - 1);
+    command[ret - 1] = '\0';
+    process_command(command);
+    free(command);
+  } else {
+    process_key(bufrcv[0]);
+  }
+}
+
+void setup_ctrl_socket() {
+  int ret;
   int port, firstport;
   int try_counter = 60;
-  unsigned char bufrcv [SIPP_MAX_MSG_SIZE];
-  struct sockaddr_in sin;
+  struct sockaddr_storage ctl_sa;
+
+  int sock = socket(AF_INET,SOCK_DGRAM,0);
+  if (sock == -1) {
+    ERROR_NO("Unable to create remote control socket!");
+  }
 
   if (control_port) {
     port = control_port;
@@ -1630,20 +1659,38 @@ void ctrl_thread (void * param)
     port = DEFAULT_CTRL_SOCKET_PORT;
   }
   firstport = port;
+
+  memset(&ctl_sa,0,sizeof(struct sockaddr_storage));
+  if (control_ip[0]) {
+    struct addrinfo hints;
+    struct addrinfo *addrinfo;
+
+    memset((char*)&hints, 0, sizeof(hints));
+    hints.ai_flags  = AI_PASSIVE;
+    hints.ai_family = PF_UNSPEC;
+
+    if (getaddrinfo(control_ip, NULL, &hints, &addrinfo) != 0) {
+      ERROR("Unknown control address '%s'.\n"
+	  "Use 'sipp -h' for details", control_ip);
+    }
+
+    memcpy(&ctl_sa, addrinfo->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *,addrinfo->ai_addr)));
+    freeaddrinfo(addrinfo);
+  } else {
+    ((struct sockaddr_in *)&ctl_sa)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&ctl_sa)->sin_addr.s_addr = INADDR_ANY;
+  }
+
   while (try_counter) {
-    prt = htons(port);
-    memset(&sin,0,sizeof(struct sockaddr_in));
-    soc = socket(AF_INET,SOCK_DGRAM,0);
-    sin.sin_port = prt;
-    sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = INADDR_ANY;
-    if (!bind(soc,(struct sockaddr *)&sin,sizeof(struct sockaddr_in))) {
+    ((struct sockaddr_in *)&ctl_sa)->sin_port = htons(port);
+    if (!bind(sock,(struct sockaddr *)&ctl_sa,sizeof(struct sockaddr_in))) {
       /* Bind successful */
       break;
     }
     try_counter--;
     port++;
   }
+
   if (try_counter == 0) {
     if (control_port) {
       ERROR("Unable to bind remote control socket to UDP port %d: %s",
@@ -1655,70 +1702,68 @@ void ctrl_thread (void * param)
     return;
   }
 
-  while(!feof(stdin)){
-    ret = recv(soc,bufrcv,sizeof(bufrcv) - 1,0);
-    if (ret > 0) {
-	bool quit;
-	if (bufrcv[0] == 'c') {
-	  /* No 'c', but we need one for '\0'. */
-	  char *command = (char *)malloc(ret);
-	  if (!command) {
-	    ERROR("Out of memory allocated command buffer.");
-	  }
-	  memcpy(command, bufrcv + 1, ret - 1);
-	  command[ret - 1] = '\0';
-	  quit = process_command(command);
-	  free(command);
-	} else {
-	  quit = process_key(bufrcv[0]);
-	}
-	if (quit) {
-	  return;
-	}
-    }
+  ctrl_socket = sipp_allocate_socket(0, T_UDP, sock, 0);
+  if (!ctrl_socket) {
+    ERROR_NO("Could not setup control socket!\n");
   }
 }
 
-/* KEYBOARD thread */
-void keyb_thread (void * param)
-{
-  int c;
-  char *command = NULL;
-  int command_len = 0;
+void setup_stdin_socket() {
+  fcntl(fileno(stdin), F_SETFL, fcntl(fileno(stdin), F_GETFL) | O_NONBLOCK);
+  stdin_socket = sipp_allocate_socket(0, T_UDP, fileno(stdin), 0);
+  if (!stdin_socket) {
+    ERROR_NO("Could not setup keyboard (stdin) socket!\n");
+  }
+}
 
-  while(!feof(stdin)){
-    c = screen_readkey();
-    if (c == -1) {
-	return;
-    }
+void handle_stdin_socket() {
+  int c;
+  int chars = 0;
+
+  if (feof(stdin)) {
+    sipp_close_socket(stdin_socket);
+    stdin_socket = NULL;
+    return;
+  }
+
+  while (!quitting && ((c = screen_readkey()) != -1)) {
+    chars++;
     if (command_mode) {
-	if (c == '\n') {
-	  bool quit = process_command(command_buffer);
-	  if (quit) {
-	    return;
-	  }
-	  command_buffer[0] = '\0';
-	  command_len = 0;
-	  command_mode = 0;
-	  printf(SIPP_ENDL);
-	} else if (c == KEY_BACKSPACE || c == KEY_DC) {
-	  if (command_len > 0) {
-	    command_buffer[command_len--] = '\0';
-	  }
-	} else {
-	  command_buffer = (char *)realloc(command_buffer, command_len + 2);
-	  command_buffer[command_len++] = c;
-	  command_buffer[command_len] = '\0';
-	  putchar(c);
-	  fflush(stdout);
+      if (c == '\n') {
+	bool quit = process_command(command_buffer);
+	if (quit) {
+	  return;
 	}
-    } else if (c == 'c') {
-	command_mode = 1;
-	printf("Command: ");
+	command_buffer[0] = '\0';
+	command_mode = 0;
+	printf(SIPP_ENDL);
+      } else if (c == KEY_BACKSPACE || c == KEY_DC) {
+	int command_len = strlen(command_buffer);
+	if (command_len > 0) {
+	  command_buffer[command_len--] = '\0';
+	}
+      } else {
+	int command_len = strlen(command_buffer);
+	command_buffer = (char *)realloc(command_buffer, command_len + 2);
+	command_buffer[command_len++] = c;
+	command_buffer[command_len] = '\0';
+	putchar(c);
 	fflush(stdout);
-    } else if (process_key(c)) {
-	return;
+      }
+    } else if (c == 'c') {
+      command_mode = 1;
+      command_buffer = (char *)realloc(command_buffer, 1);
+      command_buffer[0] = '\0';
+      printf("Command: ");
+      fflush(stdout);
+    } else {
+      process_key(c);
     }
+  }
+  if (chars == 0) {
+    /* We did not read any characters, even though we should have. */
+    sipp_close_socket(stdin_socket);
+    stdin_socket = NULL;
   }
 }
 
@@ -2947,6 +2992,10 @@ void pollset_process()
 	if (!new_sock) {
 	  ERROR_NO("Accepting new TCP connection.\n");
 	}
+      } else if (sock == ctrl_socket) {
+	handle_ctrl_socket();
+      } else if (sock == stdin_socket) {
+	handle_stdin_socket();
       } else if (sock == localTwinSippSocket) {
 	if (toolMode == MODE_3PCC_CONTROLLER_B) {
 	  twinSippSocket = sipp_accept_socket(sock);
@@ -3978,6 +4027,7 @@ int main(int argc, char *argv[])
   pid = getpid();
   memset(local_ip, 0, 40);
   memset(media_ip,0, 40);
+  memset(control_ip,0, 40);
   memset(media_ip_escaped,0, 42);
   
   /* Load compression pluggin if available */
@@ -4697,26 +4747,8 @@ int main(int argc, char *argv[])
   }
 
   /* Creating the remote control socket thread */
-  if (pthread_create
-      (&pthread_id,
-       NULL,
-       (void *(*)(void *)) ctrl_thread,
-       (void*)NULL) 
-      == -1) {
-    ERROR_NO("Unable to create remote control socket thread");
-  }
-
-  if( backgroundMode == false ) {
-    /* Creating the keyb thread */
-    if (pthread_create
-        (&pthread_id,
-         NULL,
-         (void *(*)(void *)) keyb_thread,
-         (void*)NULL) 
-        == -1) {
-      ERROR_NO("Unable to create recv thread");
-    }
-  }
+  setup_ctrl_socket();
+  setup_stdin_socket();
 
   if ((media_socket > 0) && (rtp_echo_enabled)) {
     if (pthread_create

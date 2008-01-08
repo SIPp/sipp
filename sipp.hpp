@@ -220,6 +220,7 @@ extern char               local_ip[40];
 extern char               local_ip_escaped[42];
 extern bool               local_ip_is_ipv6;    
 extern int                local_port              _DEFVAL(0);
+extern char               control_ip[40];
 extern int                control_port            _DEFVAL(0);
 extern int                buff_size               _DEFVAL(65535);
 extern int                tcp_readsize            _DEFVAL(65535);
