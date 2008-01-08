@@ -4036,7 +4036,8 @@ int main(int argc, char *argv[])
 
   /* Initialize our global variable structure. */
   globalVariables = new AllocVariableTable(NULL);
-  
+  userVariables = new AllocVariableTable(globalVariables);
+
   /* Command line parsing */
 #define REQUIRE_ARG() if((++argi) >= argc) { ERROR("Missing argument for param '%s'.\n" \
 				     "Use 'sipp -h' for details",  argv[argi - 1]); }
@@ -4255,9 +4256,6 @@ int main(int argc, char *argv[])
 	  CHECK_PASS();
 	  users = open_calls_allowed = get_long(argv[argi], argv[argi - 1]);
 	  open_calls_user_setting = 1;
-	  for (int i = 1; i <= users; i++) {
-	    freeUsers.push_back(i);
-	  }
 	  break;
 	case SIPP_OPTION_KEY:
 	  REQUIRE_ARG();
@@ -4599,7 +4597,12 @@ int main(int argc, char *argv[])
     ooc_scenario->stats->setFileName((char*)"ooc_default", (char*)".csv");
   }
   display_scenario = main_scenario;
+
   init_default_messages();
+  for (int i = 1; i <= users; i++) {
+    freeUsers.push_back(i);
+    userVarMap[i] = new VariableTable(userVariables);
+  }
 
   if(argiFileName) {
     main_scenario->stats->setFileName(argv[argiFileName]);

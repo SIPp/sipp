@@ -394,10 +394,34 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
   
   // initialising the CallVariable with the Scenario variable
   int i;
+  VariableTable *userVars = NULL;
+  bool putUserVars = false;
+  if (userId) {
+    int_vt_map::iterator it = userVarMap.find(userId);
+    if (it != userVarMap.end()) {
+      userVars  = it->second;
+    }
+  } else {
+    userVars = new VariableTable(userVariables);
+    /* Creating this table creates a reference to it, but if it is really used,
+     * then the refcount will be increased. */
+    putUserVars = true;
+  }
   if (call_scenario->allocVars->size > 0) {
-	M_callVariableTable = new VariableTable(call_scenario->allocVars);
+	if (userVars) {
+	  M_callVariableTable = new VariableTable(userVars, call_scenario->allocVars->size);
+	} else {
+	  M_callVariableTable = new VariableTable(userVars, call_scenario->allocVars->size);
+	}
+  } else if (userVars->size > 0) {
+	M_callVariableTable = userVars->getTable();
+  } else if (globalVariables->size > 0) {
+	M_callVariableTable = globalVariables->getTable();
   } else {
 	M_callVariableTable = NULL;
+  }
+  if (putUserVars) {
+    userVars->putTable();
   }
 
   if (call_scenario->maxTxnUsed > 0) {

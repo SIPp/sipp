@@ -663,7 +663,7 @@ scenario::scenario(char * filename, int deflt)
   }
 
   stats = new CStat();
-  allocVars = new AllocVariableTable(globalVariables);
+  allocVars = new AllocVariableTable(userVariables);
 
   init_rtds();
   hidedefault = false;
@@ -709,6 +709,17 @@ scenario::scenario(char * filename, int deflt)
       createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
       for (int i = 0; i < currentNbVarNames; i++) {
 	globalVariables->find(currentTabVarName[i], true);
+      }
+      freeStringTable(currentTabVarName, currentNbVarNames);
+    } else if(!strcmp(elem, "User")) {
+      ptr = xp_get_value((char *)"variables");
+
+      char **       currentTabVarName = NULL;
+      int           currentNbVarNames;
+
+      createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
+      for (int i = 0; i < currentNbVarNames; i++) {
+	userVariables->find(currentTabVarName[i], true);
       }
       freeStringTable(currentTabVarName, currentNbVarNames);
     } else if(!strcmp(elem, "DefaultMessage")) {
