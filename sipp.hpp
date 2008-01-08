@@ -317,15 +317,12 @@ extern unsigned long long getmicroseconds();
 
 /************************ Statistics **************************/
 
-extern unsigned long total_calls                  _DEFVAL(0);
 extern unsigned long last_report_calls            _DEFVAL(0);
 extern unsigned long nb_net_send_errors           _DEFVAL(0);
 extern unsigned long nb_net_cong                  _DEFVAL(0);
 extern unsigned long nb_net_recv_errors           _DEFVAL(0);
 extern bool          cpu_max                      _DEFVAL(false);
 extern bool          outbound_congestion          _DEFVAL(false);
-extern unsigned int  open_calls_peak              _DEFVAL(0);
-extern unsigned long open_calls_peak_time         _DEFVAL(0);
 extern int           open_calls_user_setting      _DEFVAL(0);
 extern int           resynch_send                 _DEFVAL(0);
 extern int           resynch_recv                 _DEFVAL(0);
@@ -340,7 +337,6 @@ extern unsigned long rtp2_bytes_pcap              _DEFVAL(0);
 
 /************* Rate Control & Contexts variables **************/
 
-extern unsigned int  open_calls                   _DEFVAL(0);
 extern int           last_running_calls           _DEFVAL(0);
 extern int           last_woken_calls             _DEFVAL(0);
 extern int           last_paused_calls            _DEFVAL(0);
@@ -348,7 +344,6 @@ extern unsigned int  open_calls_allowed           _DEFVAL(0);
 extern unsigned long last_rate_change_time        _DEFVAL(0);
 extern unsigned long last_report_time             _DEFVAL(0);
 extern unsigned long last_dump_time               _DEFVAL(0);
-extern unsigned long calls_since_last_rate_change _DEFVAL(0);
 
 /********************** Clock variables ***********************/
 

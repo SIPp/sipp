@@ -29,13 +29,8 @@
 #include "actions.hpp"
 #include "variables.hpp"
 #include "message.hpp"
+#include "stat.hpp"
 
-
-/* MAX_RTD_INFO_LENGTH defines the number of RTD begin and end points a single
- * call can have.  If you need more than five, you can increase this number,
- * but you also need to insert entries into the E_CounterName enum in stat.hpp.
- */
-#define MAX_RTD_INFO_LENGTH 5
 
 #define MSG_TYPE_SENDCMD   0
 #define MSG_TYPE_RECVCMD   1
@@ -173,6 +168,8 @@ public:
 
   bool rtd_stopped[MAX_RTD_INFO_LENGTH];
   int get_var(const char *varName, const char *what);
+
+  CStat *stats;
 
 private:
 

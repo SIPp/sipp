@@ -105,8 +105,8 @@ void screen_exit(int rc)
   }
 
   // Get failed calls counter value before releasing objects
-  counter_value_failed = CStat::instance()->GetStat (CStat::CPT_C_FailedCall);
-  counter_value_success = CStat::instance()->GetStat (CStat::CPT_C_SuccessfulCall);
+  counter_value_failed = display_scenario->stats->GetStat (CStat::CPT_C_FailedCall);
+  counter_value_success = display_scenario->stats->GetStat (CStat::CPT_C_SuccessfulCall);
 
   releaseGlobalAllocations();
 
@@ -158,12 +158,11 @@ void manage_oversized_file()
   fprintf(f,
           "-------------------------------------------- %s\n"
           "Max file size reached - no more logs\n",
-           CStat::instance()->formatTime(&currentTime));
+           CStat::formatTime(&currentTime));
   fflush(f);
   stop_all_traces(); 
   print_all_responses = 0;
   screen_errorf = 0; 
-  CStat::instance()->close();
 }
 
 
@@ -215,7 +214,7 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
 
   GET_TIME (&currentTime);
   
-  c+= sprintf(c, "%s: ", CStat::instance()->formatTime(&currentTime));
+  c+= sprintf(c, "%s: ", CStat::formatTime(&currentTime));
   c+= vsprintf(c, fmt, ap);
   if (use_errno) {
     c += sprintf(c, ", errno = %d (%s)", error, strerror(error));

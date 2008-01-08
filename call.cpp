@@ -476,23 +476,11 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, char * p_i
   }
 
   setRunning();
-
-  /* Vital counters update */
-  if(count_in_stats) {
-    open_calls++;
-    if(open_calls > open_calls_peak) {
-      open_calls_peak = open_calls;
-      open_calls_peak_time = clock_tick / 1000;
-    }
-    total_calls++;
-    calls_since_last_rate_change++;
-  }
 }
 
 call::~call()
 {
   if (count_in_stats) {
-    open_calls--;
     computeStat(CStat::E_ADD_CALL_DURATION, clock_tick - start_time);
   }
 
@@ -552,26 +540,16 @@ call::~call()
 }
 
 void call::computeStat (CStat::E_Action P_action) {
-  if (!count_in_stats) {
-    return;
-  }
-  CStat::instance()->computeStat(P_action);
+  call_scenario->stats->computeStat(P_action);
 }
 
 void call::computeStat (CStat::E_Action P_action, unsigned long P_value) {
-  if (!count_in_stats) {
-    return;
-  }
-  CStat::instance()->computeStat(P_action, P_value);
+  call_scenario->stats->computeStat(P_action, P_value);
 }
 
 void call::computeStat (CStat::E_Action P_action, unsigned long P_value, int which) {
-  if (!count_in_stats) {
-    return;
-  }
-  CStat::instance()->computeStat(P_action, P_value, which);
+  call_scenario->stats->computeStat(P_action, P_value, which);
 }
-
 
 /* Dump call info to error log. */
 void call::dump() {
@@ -1154,7 +1132,7 @@ void call::do_bookkeeping(int index) {
       unsigned long long end = getmicroseconds();
 
       if(dumpInRtt && count_in_stats) {
-	CStat::instance()->computeRtt(start, end, rtd);
+	call_scenario->stats->computeRtt(start, end, rtd);
       }
 
       computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
@@ -1184,7 +1162,7 @@ bool call::terminate(CStat::E_Action reason) {
 	computeStat(CStat::E_FAILED_REGEXP_DOESNT_MATCH);
 	if (deadcall_wait) {
 	  sprintf(reason_str, "regexp match failure at index %d", msg_index);
-	new deadcall(id, reason_str);
+	  new deadcall(id, reason_str);
 	}
 	break;
       case call::E_AR_HDR_NOT_FOUND:
@@ -1192,7 +1170,7 @@ bool call::terminate(CStat::E_Action reason) {
 	computeStat(CStat::E_FAILED_REGEXP_HDR_NOT_FOUND);
 	if (deadcall_wait) {
 	  sprintf(reason_str, "regexp header not found at index %d", msg_index);
-	new deadcall(id, reason_str);
+	  new deadcall(id, reason_str);
 	}
 	break;
       case call::E_AR_NO_ERROR:
@@ -1203,9 +1181,9 @@ bool call::terminate(CStat::E_Action reason) {
   } else {
     if (reason == CStat::E_CALL_SUCCESSFULLY_ENDED || timewait) {
       computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
-	if (deadcall_wait) {
-	  new deadcall(id, "successful");
-	}
+      if (deadcall_wait) {
+	new deadcall(id, "successful");
+      }
     } else {
       computeStat(CStat::E_CALL_FAILED);
       if (reason != CStat::E_NO_ACTION) {

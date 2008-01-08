@@ -694,6 +694,8 @@ scenario::scenario(char * filename, int deflt)
     }
   }
 
+  stats = new CStat();
+
   init_rtds();
 
   elem = xp_open_element(0);
@@ -725,11 +727,11 @@ scenario::scenario(char * filename, int deflt)
 
     if(!strcmp(elem, "CallLengthRepartition")) {
       ptr = xp_get_value((char *)"value");
-      CStat::instance()->setRepartitionCallLength(ptr);
+      stats->setRepartitionCallLength(ptr);
       /* XXX: This should really be per scenario. */
     } else if(!strcmp(elem, "ResponseTimeRepartition")) {
       ptr = xp_get_value((char *)"value");
-      CStat::instance()->setRepartitionResponseTime(ptr);
+      stats->setRepartitionResponseTime(ptr);
       /* XXX: This should really be per RTD. */
     } else if(!strcmp(elem, "DefaultMessage")) {
       char *id = xp_get_string("id", "DefaultMessage");
@@ -1038,6 +1040,8 @@ scenario::~scenario() {
   free(messages);
 
   free(name);
+
+  delete stats;
 
   clear_int_str(variableRevMap);
   clear_int_str(txnRevMap);

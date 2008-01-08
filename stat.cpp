@@ -87,24 +87,32 @@
   fprintf(f,"    %14.14s n >= %8d ms : %10d  %-29.29s \r\n", "", T1, V1, "")
 
 #define RESET_COUNTERS(PT)\
-  memset (PT, 0, CStat::E_NB_COUNTER * sizeof(unsigned long long))
+  memset (PT, 0, CStat::E_NB_G_COUNTER * sizeof(unsigned long long))
 
-#define RESET_PD_COUNTERS(PT)                          \
+#define RESET_PD_COUNTERS                          \
 {                                                      \
   int i;                                               \
-  for (i=CStat::CPT_PD_IncomingCallCreated;            \
-       i<=CStat::CPT_PD_AutoAnswered;                  \
+  for (i=CStat::CPT_G_PD_OutOfCallMsgs;            \
+       i<=CStat::CPT_G_PD_AutoAnswered;               \
        i++)                                            \
-    PT[i] = (unsigned long) 0;                         \
+    M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long) 0;                         \
+  for (i=CStat::CPT_PD_IncomingCallCreated;            \
+       i<=CStat::CPT_PD_Retransmissions;               \
+       i++)                                            \
+    M_counters[i] = (unsigned long) 0;                         \
 }
 
-#define RESET_PL_COUNTERS(PT)                          \
+#define RESET_PL_COUNTERS                          \
 {                                                      \
   int i;                                               \
-  for (i=CStat::CPT_PL_IncomingCallCreated;            \
-       i<=CStat::CPT_PL_AutoAnswered;                  \
+  for (i=CStat::CPT_G_PL_OutOfCallMsgs;            \
+       i<=CStat::CPT_G_PL_AutoAnswered;               \
        i++)                                            \
-    PT[i] = (unsigned long) 0;                         \
+    M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long) 0;                         \
+  for (i=CStat::CPT_PL_IncomingCallCreated;            \
+       i<=CStat::CPT_PL_Retransmissions;               \
+       i++)                                            \
+    M_counters[i] = (unsigned long) 0;                         \
 }
 
 /*
@@ -114,14 +122,9 @@
   __________________________________________________________________________
 */
 
-CStat* CStat::instance()
-{
-  if ( M_instance == NULL ) M_instance = new CStat();
-  return M_instance;
-}
+unsigned long long CStat::M_G_counters[E_NB_G_COUNTER - E_NB_COUNTER];
 
-
-void CStat::close ()
+CStat::~CStat()
 {
   int i;
 
@@ -165,15 +168,6 @@ void CStat::close ()
   M_outputStreamRtt               = NULL;
   M_fileNameRtt                   = NULL;
   M_dumpRespTime                  = NULL;
-
-  for (i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    M_ResponseTimeRepartition[i]  = NULL;
-  }
-
-  // On last position
-  if (M_instance != NULL)
-    delete M_instance;
-  M_instance                      = NULL;
 }
 
 
@@ -539,6 +533,18 @@ int CStat::computeStat (E_Action P_action)
       M_counters [CPT_PD_OutgoingCallCreated]++;
       M_counters [CPT_PL_OutgoingCallCreated]++;
       M_counters [CPT_C_CurrentCall]++;
+      if (M_counters[CPT_C_CurrentCall] > M_counters[CPT_C_CurrentCallPeak]) {
+	M_counters [CPT_C_CurrentCallPeak] = M_counters[CPT_C_CurrentCall];
+	M_counters [CPT_C_CurrentCallPeakTime] = clock_tick / 1000;
+      }
+      if (M_counters[CPT_C_CurrentCall] > M_counters[CPT_PD_CurrentCallPeak]) {
+	M_counters [CPT_PD_CurrentCallPeak] = M_counters[CPT_C_CurrentCall];
+	M_counters [CPT_PD_CurrentCallPeakTime] = clock_tick / 1000;
+      }
+      if (M_counters[CPT_C_CurrentCall] > M_counters[CPT_PL_CurrentCallPeak]) {
+	M_counters [CPT_PL_CurrentCallPeak] = M_counters[CPT_C_CurrentCall];
+	M_counters [CPT_PL_CurrentCallPeakTime] = clock_tick / 1000;
+      }
       break;
 
     case E_CREATE_INCOMING_CALL :
@@ -546,6 +552,18 @@ int CStat::computeStat (E_Action P_action)
       M_counters [CPT_PD_IncomingCallCreated]++;
       M_counters [CPT_PL_IncomingCallCreated]++;
       M_counters [CPT_C_CurrentCall]++;
+      if (M_counters[CPT_C_CurrentCall] > M_counters[CPT_C_CurrentCallPeak]) {
+	M_counters [CPT_C_CurrentCallPeak] = M_counters[CPT_C_CurrentCall];
+	M_counters [CPT_C_CurrentCallPeakTime] = clock_tick / 1000;
+      }
+      if (M_counters[CPT_C_CurrentCall] > M_counters[CPT_PD_CurrentCallPeak]) {
+	M_counters [CPT_PD_CurrentCallPeak] = M_counters[CPT_C_CurrentCall];
+	M_counters [CPT_PD_CurrentCallPeakTime] = clock_tick / 1000;
+      }
+      if (M_counters[CPT_C_CurrentCall] > M_counters[CPT_PL_CurrentCallPeak]) {
+	M_counters [CPT_PL_CurrentCallPeak] = M_counters[CPT_C_CurrentCall];
+	M_counters [CPT_PL_CurrentCallPeakTime] = clock_tick / 1000;
+      }
       break;
 
     case E_CALL_FAILED :
@@ -634,43 +652,23 @@ int CStat::computeStat (E_Action P_action)
       M_counters [CPT_PL_FailedTimeoutOnSend]++;
       break;
 
-    case E_OUT_OF_CALL_MSGS :
-      M_counters [CPT_C_OutOfCallMsgs]++;
-      M_counters [CPT_PD_OutOfCallMsgs]++;
-      M_counters [CPT_PL_OutOfCallMsgs]++;
-      break;
-
-    case E_DEAD_CALL_MSGS :
-      M_counters [CPT_C_DeadCallMsgs]++;
-      M_counters [CPT_PD_DeadCallMsgs]++;
-      M_counters [CPT_PL_DeadCallMsgs]++;
-      break;
-
     case E_RETRANSMISSION :
       M_counters [CPT_C_Retransmissions]++;
       M_counters [CPT_PD_Retransmissions]++;
       M_counters [CPT_PL_Retransmissions]++;
       break;
 
-
-    case E_AUTO_ANSWERED :
-      // Let's count the automatic answered calls
-      M_counters [CPT_C_AutoAnswered]++;
-      M_counters [CPT_PD_AutoAnswered]++;
-      M_counters [CPT_PL_AutoAnswered]++;
-      break;
-
     case E_RESET_PD_COUNTERS :
       //DEBUG (C_Debug::E_LEVEL_4, "ENTER CASE", "%s", 
       //       "CStat::computeStat : RESET_PD_COUNTERS");
-      RESET_PD_COUNTERS (M_counters);
+      RESET_PD_COUNTERS;
       GET_TIME (&M_pdStartTime);
       break;
 
     case E_RESET_PL_COUNTERS :
       //DEBUG (C_Debug::E_LEVEL_4, "ENTER CASE", "%s", 
       //       "C_Stat::computeStat : RESET_PL_COUNTERS");
-      RESET_PL_COUNTERS (M_counters);
+      RESET_PL_COUNTERS;
       GET_TIME (&M_plStartTime);
       if (periodic_rtd) {
 	resetRepartition(M_CallLengthRepartition, M_SizeOfCallLengthRepartition);
@@ -687,6 +685,35 @@ int CStat::computeStat (E_Action P_action)
   return (0);
 }
 
+int CStat::globalStat (E_Action P_action) {
+  switch (P_action)
+    {
+    case E_OUT_OF_CALL_MSGS :
+      M_G_counters [CPT_G_C_OutOfCallMsgs - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PD_OutOfCallMsgs - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PL_OutOfCallMsgs - E_NB_COUNTER - 1]++;
+      break;
+
+    case E_DEAD_CALL_MSGS :
+      M_G_counters [CPT_G_C_DeadCallMsgs - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PD_DeadCallMsgs - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PL_DeadCallMsgs - E_NB_COUNTER - 1]++;
+      break;
+
+    case E_AUTO_ANSWERED :
+      // Let's count the automatic answered calls
+      M_G_counters [CPT_G_C_AutoAnswered - 1]++;
+      M_G_counters [CPT_G_PD_AutoAnswered - 1]++;
+      M_G_counters [CPT_G_PL_AutoAnswered - 1]++;
+      break;
+    default :
+      ERROR("CStat::ComputeStat() - Unrecognized Action %d\n", P_action);
+      return (-1);
+    } /* end switch */
+  return (0);
+}
+
+
 void CStat::computeRtt (unsigned long long P_start_time, unsigned long long P_stop_time, int which) {
   M_dumpRespTime[M_counterDumpRespTime].date = (double)P_stop_time / (double)1000;
   M_dumpRespTime[M_counterDumpRespTime].rtd_no = which;
@@ -699,13 +726,13 @@ void CStat::computeRtt (unsigned long long P_start_time, unsigned long long P_st
   }
 }
 
-unsigned long long CStat::get_current_counter_call (){
-  return M_counters[CPT_C_CurrentCall];
-}
-
 unsigned long long CStat::GetStat (E_CounterName P_counter)
 {
-  return M_counters [P_counter];
+  if (P_counter < E_NB_COUNTER) {
+    return M_counters [P_counter];
+  } else {
+    return M_G_counters [P_counter - E_NB_COUNTER - 1];
+  }
 }
 
 /* Get the current start time. */
@@ -875,18 +902,6 @@ CStat::CStat ()
   init();
 }
 
-
-CStat::~CStat ()
-{
-  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    if (M_ResponseTimeRepartition[i] == NULL)
-	continue;
-    delete M_ResponseTimeRepartition[i];
-  }
-  if (M_CallLengthRepartition != NULL)
-    delete M_CallLengthRepartition;
-}
-
 char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition, 
                                 int sizeOfTab, 
                                 char * P_repartitionName)
@@ -1047,6 +1062,7 @@ void CStat::displayData (FILE *f)
   //                 M_counters[CPT_PD_UnexpectedMessage], 
   //                 M_counters[CPT_C_UnexpectedMessage]);
 
+
   DISPLAY_CROSS_LINE ();
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
     char s[15];
@@ -1088,6 +1104,7 @@ void CStat::displayData (FILE *f)
   //  DISPLAY_VAL ("NbCall Average CL(P)",
   //                 M_counters[CPT_PD_NbOfCallUsedForAverageCallLength]);
   DISPLAY_DLINE ();
+  fflush(f);
 } /* end of displayData () */
 
 
@@ -1189,6 +1206,7 @@ void CStat::displayStat (FILE *f)
   DISPLAY_TXT_COL ("Call Length", 
                    msToHHMMSSmmm( (unsigned long)computeMean(CPT_PD_AverageCallLength_Sum, CPT_PD_NbOfCallUsedForAverageCallLength ) ),
                    msToHHMMSSmmm( (unsigned long)computeMean(CPT_C_AverageCallLength_Sum, CPT_C_NbOfCallUsedForAverageCallLength) ));
+  fflush(f);
 }
 
 void CStat::displayRepartition (FILE *f)
@@ -1400,14 +1418,14 @@ void CStat::dumpData ()
                     << M_counters[CPT_C_FailedTimeoutOnRecv]            << stat_delimiter
                     << M_counters[CPT_PL_FailedTimeoutOnSend]           << stat_delimiter
                     << M_counters[CPT_C_FailedTimeoutOnSend]            << stat_delimiter
-                    << M_counters[CPT_PL_OutOfCallMsgs]                 << stat_delimiter
-                    << M_counters[CPT_C_OutOfCallMsgs]                  << stat_delimiter
-                    << M_counters[CPT_PL_DeadCallMsgs]                 << stat_delimiter
-                    << M_counters[CPT_C_DeadCallMsgs]                  << stat_delimiter
+                    << M_G_counters[CPT_G_PL_OutOfCallMsgs - E_NB_COUNTER - 1]                 << stat_delimiter
+                    << M_G_counters[CPT_G_C_OutOfCallMsgs - E_NB_COUNTER - 1]                  << stat_delimiter
+                    << M_G_counters[CPT_G_PL_DeadCallMsgs - E_NB_COUNTER - 1]                 << stat_delimiter
+                    << M_G_counters[CPT_G_C_DeadCallMsgs - E_NB_COUNTER - 1]                  << stat_delimiter
                     << M_counters[CPT_PL_Retransmissions]               << stat_delimiter
                     << M_counters[CPT_C_Retransmissions]                << stat_delimiter
-                    << M_counters[CPT_PL_AutoAnswered]                  << stat_delimiter
-                    << M_counters[CPT_C_AutoAnswered]                   << stat_delimiter;
+                    << M_G_counters[CPT_G_PL_AutoAnswered - E_NB_COUNTER - 1]                  << stat_delimiter
+                    << M_G_counters[CPT_G_C_AutoAnswered - E_NB_COUNTER - 1]                   << stat_delimiter;
 
   // SF917289 << M_counters[CPT_C_UnexpectedMessage]    << stat_delimiter;
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
@@ -1590,8 +1608,6 @@ long CStat::computeDiffTimeInMs (struct timeval* tf, struct timeval* ti)
   return (v1*1000 + v2/1000);
 }
 
-
-CStat* CStat::M_instance = NULL;
 
 /* Implementation of a fixed distribution. */
 CFixed::CFixed(double value) {

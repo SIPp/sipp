@@ -47,8 +47,11 @@
 #include <gsl/gsl_cdf.h>
 #endif
 
-/* For MAX_RTD_INFO_LENGTH. */
-#include "scenario.hpp"
+/* MAX_RTD_INFO_LENGTH defines the number of RTD begin and end points a single
+ * call can have.  If you need more than five, you can increase this number,
+ * but you also need to insert entries into the E_CounterName enum in stat.hpp.
+ */
+#define MAX_RTD_INFO_LENGTH 5
 
 using namespace std;
 
@@ -122,12 +125,15 @@ public:
    */
   enum E_CounterName
   {
+  // Per-Scenario Counters
   // Cumulative counters
   CPT_C_IncomingCallCreated,
   CPT_C_OutgoingCallCreated,
   CPT_C_SuccessfulCall,
   CPT_C_FailedCall,
   CPT_C_CurrentCall,
+  CPT_C_CurrentCallPeak,
+  CPT_C_CurrentCallPeakTime,
   CPT_C_NbOfCallUsedForAverageCallLength,
   CPT_C_AverageCallLength_Sum,
   CPT_C_AverageCallLength_Squares,
@@ -158,21 +164,20 @@ public:
   CPT_C_FailedOutboundCongestion,
   CPT_C_FailedTimeoutOnRecv,
   CPT_C_FailedTimeoutOnSend,
-  CPT_C_OutOfCallMsgs,
-  CPT_C_DeadCallMsgs,
-  CPT_C_Retransmissions,
   CPT_C_Generic,
   CPT_C_Generic_2,
   CPT_C_Generic_3,
   CPT_C_Generic_4,
   CPT_C_Generic_5, // This must match or exceed MAX_COUNTER
-  CPT_C_AutoAnswered,
+  CPT_C_Retransmissions,
 
   // Periodic Display counter
   CPT_PD_IncomingCallCreated, // must be first (RESET_PD_COUNTER macro)
   CPT_PD_OutgoingCallCreated,
   CPT_PD_SuccessfulCall,
   CPT_PD_FailedCall,
+  CPT_PD_CurrentCallPeak,
+  CPT_PD_CurrentCallPeakTime,
   CPT_PD_NbOfCallUsedForAverageCallLength,
   CPT_PD_AverageCallLength_Sum,
   CPT_PD_AverageCallLength_Squares,
@@ -203,21 +208,20 @@ public:
   CPT_PD_FailedOutboundCongestion,
   CPT_PD_FailedTimeoutOnRecv,
   CPT_PD_FailedTimeoutOnSend,
-  CPT_PD_OutOfCallMsgs,
-  CPT_PD_DeadCallMsgs,
-  CPT_PD_Retransmissions,
   CPT_PD_Generic,
   CPT_PD_Generic_2,
   CPT_PD_Generic_3,
   CPT_PD_Generic_4,
   CPT_PD_Generic_5, // This must match or exceed MAX_COUNTER
-  CPT_PD_AutoAnswered, // must be last (RESET_PD_COUNTER)
+  CPT_PD_Retransmissions,
 
   // Periodic logging counter
   CPT_PL_IncomingCallCreated, // must be first (RESET_PL_COUNTER macro)
   CPT_PL_OutgoingCallCreated,
   CPT_PL_SuccessfulCall,
   CPT_PL_FailedCall,
+  CPT_PL_CurrentCallPeak,
+  CPT_PL_CurrentCallPeakTime,
   CPT_PL_NbOfCallUsedForAverageCallLength,
   CPT_PL_AverageCallLength_Sum,
   /* The squares let us compute the standard deviation. */
@@ -249,32 +253,48 @@ public:
   CPT_PL_FailedOutboundCongestion,
   CPT_PL_FailedTimeoutOnRecv,
   CPT_PL_FailedTimeoutOnSend,
-  CPT_PL_OutOfCallMsgs,
-  CPT_PL_DeadCallMsgs,
-  CPT_PL_Retransmissions,
   CPT_PL_Generic,
   CPT_PL_Generic_2,
   CPT_PL_Generic_3,
   CPT_PL_Generic_4,
   CPT_PL_Generic_5,
-  CPT_PL_AutoAnswered, // must be last (RESET_PL_COUNTER)
+  CPT_PL_Retransmissions,
 
-  E_NB_COUNTER
+  E_NB_COUNTER,
+
+  // Global Counters
+  // Cumulative counters
+  CPT_G_C_OutOfCallMsgs,
+  CPT_G_C_DeadCallMsgs,
+  CPT_G_C_AutoAnswered,
+  // Periodic Display counter
+  CPT_G_PD_OutOfCallMsgs,
+  CPT_G_PD_DeadCallMsgs,
+  CPT_G_PD_AutoAnswered, // must be last (RESET_PD_COUNTER)
+
+  // Periodic logging counter
+  CPT_G_PL_OutOfCallMsgs,
+  CPT_G_PL_DeadCallMsgs,
+  CPT_G_PL_AutoAnswered, // must be last (RESET_PL_COUNTER)
+
+  E_NB_G_COUNTER,
+
   };
 
   /*
   ** exported methods
   */
+
   /**
-   * Get the single instance of the class.
-   *
-   * Only one instance of CStat exists in the component. This
-   * instance is automatically created the first time the instance()
-   * method is called.
-   *
-   * @return the single instance of the CStat class.
+   * Constructor.
    */
-  static CStat* instance (); 
+  CStat ();
+
+  /**
+   * Destructor.
+   */
+  ~CStat ();
+
 
   /**
    * Delete the single instance of the class.
@@ -295,15 +315,13 @@ public:
   int computeStat (E_Action P_action, unsigned long P_value);
   int computeStat (E_Action P_action, unsigned long P_value, int which);
 
+  /* This works for global counters and does not require an instance. */
+  static int globalStat (E_Action P_action);
+
   /**
    * ComputeRtt Methods are used to calculate the response time
    */
   void computeRtt ( unsigned long long P_start_time, unsigned long long P_stop_time, int which);
-
-  /**
-   * Get_current_counter_call Methods is used to get the number of current call
-   */
-  unsigned long long get_current_counter_call ();
 
   /**
    * GetStat Method is used to retrieve a counter value
@@ -384,7 +402,7 @@ public:
    *
    * @return number of ms between the 2 dates
    */
-  long computeDiffTimeInMs (struct timeval* tf, struct timeval* ti);
+  static long computeDiffTimeInMs (struct timeval* tf, struct timeval* ti);
 
   /**
    * msToHHMMSS.
@@ -396,7 +414,7 @@ public:
    *
    * @return a pointer on a static string containing formated time
    */
-  char* msToHHMMSS (unsigned long P_ms);
+  static char* msToHHMMSS (unsigned long P_ms);
 
   /**
    * msToHHMMSSmm.
@@ -408,27 +426,13 @@ public:
    *
    * @return a pointer on a static string containing formated time
    */
-  char* msToHHMMSSmmm (unsigned long P_ms);
+  static char* msToHHMMSSmmm (unsigned long P_ms);
 
 
 private:
-   
-  /** 
-   * Constructor.
-   *
-   * Made private because this is a singleton class.
-   */
-  CStat ();
-
-  /** 
-   * Destructor.
-   *
-   * Made private because this is a singleton class.
-   */
-  ~CStat ();
-
-  static CStat*            M_instance;
   unsigned long long       M_counters[E_NB_COUNTER];
+  static unsigned long long M_G_counters[E_NB_G_COUNTER - E_NB_COUNTER];
+
   T_dynamicalRepartition*  M_ResponseTimeRepartition[MAX_RTD_INFO_LENGTH];
   T_dynamicalRepartition*  M_CallLengthRepartition;
   int                      M_SizeOfResponseTimeRepartition;

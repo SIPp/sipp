@@ -56,6 +56,8 @@ int passwd_call_back_routine(char  *buf , int size , int flag, void *passwd)
 }
 #endif
 
+unsigned long calls_since_last_rate_change = 0;
+
 static struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, int accepting);
 struct sipp_socket *ctrl_socket = NULL;
 struct sipp_socket *stdin_socket = NULL;
@@ -710,12 +712,13 @@ void print_stats_in_file(FILE * f, int last)
   
   /* Header line with global parameters */
   sprintf(temp_str, "%3.1f(%d ms)/%5.3fs", rate, duration, (double)rate_period_ms / 1000.0);
+  unsigned long long total_calls = display_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + display_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated);
   if( toolMode == MODE_SERVER) {
     fprintf
       (f,
        "  Port   Total-time  Total-calls  Transport" 
        SIPP_ENDL
-       "  %-5d %6d.%02d s     %8d  %s" 
+       "  %-5d %6d.%02d s     %8llu  %s"
        SIPP_ENDL SIPP_ENDL,
        local_port,
        clock_tick / 1000, (clock_tick % 1000) / 10,
@@ -724,25 +727,24 @@ void print_stats_in_file(FILE * f, int last)
   } else {
     fprintf
       (f,
-       "  Call-rate(length)     Port   Total-time  Total-calls  Remote-host" 
-       SIPP_ENDL
-       "%19s   %-5d %6d.%02d s     %8d  %s:%d(%s)" 
-       SIPP_ENDL SIPP_ENDL,
+       "  Call-rate(length)     Port   Total-time  Total-calls  Remote-host" SIPP_ENDL
+       "%19s   %-5d %6d.%02d s     %8llu  %s:%d(%s)" SIPP_ENDL SIPP_ENDL,
        temp_str,
        local_port,
        clock_tick / 1000, (clock_tick % 1000) / 10,
        total_calls,
-       remote_ip, 
+       remote_ip,
        remote_port,
        TRANSPORT_TO_STRING(transport));
   }
   
   /* 1st line */
   if(total_calls < stop_after) {
-    sprintf(temp_str, "%lu new calls during %lu.%03lu s period ",
-            total_calls - last_report_calls,
-            (clock_tick-last_report_time) / 1000, 
-            ((clock_tick-last_report_time) % 1000));
+    sprintf(temp_str, "%llu new calls during %lu.%03lu s period ",
+	display_scenario->stats->GetStat(CStat::CPT_PD_IncomingCallCreated) +
+	display_scenario->stats->GetStat(CStat::CPT_PD_OutgoingCallCreated),
+	(clock_tick-last_report_time) / 1000,
+	((clock_tick-last_report_time) % 1000));
   } else {
     sprintf(temp_str, "Call limit reached (-m %lu), %lu.%03lu s period ",
             stop_after,
@@ -757,25 +759,25 @@ void print_stats_in_file(FILE * f, int last)
 
   /* 2nd line */
   if( toolMode == MODE_SERVER) { 
-    sprintf(temp_str, "%d calls", open_calls);
+    sprintf(temp_str, "%llu calls", display_scenario->stats->GetStat(CStat::CPT_C_CurrentCall));
   } else {
-    sprintf(temp_str, "%d calls (limit %d)", open_calls, open_calls_allowed);
+    sprintf(temp_str, "%llu calls (limit %d)", display_scenario->stats->GetStat(CStat::CPT_C_CurrentCall), open_calls_allowed);
   }
-  fprintf(f,"  %-38s Peak was %d calls, after %d s" SIPP_ENDL, 
+  fprintf(f,"  %-38s Peak was %llu calls, after %llu s" SIPP_ENDL,
          temp_str, 
-         open_calls_peak, 
-         open_calls_peak_time);
+         display_scenario->stats->GetStat(CStat::CPT_C_CurrentCallPeak),
+         display_scenario->stats->GetStat(CStat::CPT_C_CurrentCallPeakTime));
   fprintf(f,"  %d Running, %d Paused, %d Woken up" SIPP_ENDL,
 	 last_running_calls, last_paused_calls, last_woken_calls);
   last_woken_calls = 0;
 
   /* 3rd line dead call msgs, and optional out-of-call msg */
-  sprintf(temp_str,"%d dead call msg (discarded)", 
-      CStat::instance()->GetStat(CStat::CPT_C_DeadCallMsgs));
+  sprintf(temp_str,"%llu dead call msg (discarded)",
+      display_scenario->stats->GetStat(CStat::CPT_G_C_DeadCallMsgs));
   fprintf(f,"  %-37s", temp_str);
   if( toolMode != MODE_SERVER) { 
-    sprintf(temp_str,"%d out-of-call msg (discarded)", 
-            CStat::instance()->GetStat(CStat::CPT_C_OutOfCallMsgs));
+    sprintf(temp_str,"%llu out-of-call msg (discarded)",
+            display_scenario->stats->GetStat(CStat::CPT_G_C_OutOfCallMsgs));
     fprintf(f,"  %-37s", temp_str);
   }
   fprintf(f,SIPP_ENDL);
@@ -1022,10 +1024,10 @@ void print_count_file(FILE *f, int header) {
   } else {
     struct timeval currentTime, startTime;
     GET_TIME(&currentTime);
-    CStat::instance()->getStartTime(&startTime);
-    unsigned long globalElapsedTime = CStat::instance()->computeDiffTimeInMs (&currentTime, &startTime);
-    fprintf(f, "%s%s", CStat::instance()->formatTime(&currentTime), stat_delimiter);
-    fprintf(f, "%s%s", CStat::instance()->msToHHMMSSmmm(globalElapsedTime), stat_delimiter);
+    display_scenario->stats->getStartTime(&startTime);
+    unsigned long globalElapsedTime = CStat::computeDiffTimeInMs (&currentTime, &startTime);
+    fprintf(f, "%s%s", CStat::formatTime(&currentTime), stat_delimiter);
+    fprintf(f, "%s%s", CStat::msToHHMMSSmmm(globalElapsedTime), stat_delimiter);
   }
 
   for(int index = 0; index < main_scenario->length; index ++) {
@@ -1324,19 +1326,19 @@ void print_screens(void)
 
   currentScreenToDisplay = DISPLAY_STAT_SCREEN;  
   print_header_line(   screenf, 0);
-  CStat::instance()->displayStat(screenf);
+  display_scenario->stats->displayStat(screenf);
   print_bottom_line(   screenf, 0);
 
   currentScreenToDisplay = DISPLAY_REPARTITION_SCREEN;
   print_header_line(   screenf, 0);
-  CStat::instance()->displayRepartition(screenf);
+  display_scenario->stats->displayRepartition(screenf);
   print_bottom_line(   screenf, 0);
 
   currentScreenToDisplay = DISPLAY_SECONDARY_REPARTITION_SCREEN;
   for (int i = 1; i <= MAX_RTD_INFO_LENGTH; i++) {
     currentRepartitionToDisplay = i;
     print_header_line(   screenf, 0);
-    CStat::instance()->displaySecondaryRepartition(screenf, i-1);
+    display_scenario->stats->displaySecondaryRepartition(screenf, i-1);
     print_bottom_line(   screenf, 0);
   }
 
@@ -1364,10 +1366,10 @@ void print_statistics(int last)
     print_header_line(stdout,last);
     switch(currentScreenToDisplay) {
       case DISPLAY_STAT_SCREEN :
-        CStat::instance()->displayStat(stdout);
+        display_scenario->stats->displayStat(stdout);
         break;
       case DISPLAY_REPARTITION_SCREEN :
-        CStat::instance()->displayRepartition(stdout);
+        display_scenario->stats->displayRepartition(stdout);
         break;
       case DISPLAY_VARIABLE_SCREEN  :
         print_variable_list();
@@ -1376,7 +1378,7 @@ void print_statistics(int last)
         print_tdm_map();
         break;
       case DISPLAY_SECONDARY_REPARTITION_SCREEN :
-	CStat::instance()->displaySecondaryRepartition(stdout, currentRepartitionToDisplay - 1);
+	display_scenario->stats->displaySecondaryRepartition(stdout, currentRepartitionToDisplay - 1);
 	break;
       case DISPLAY_SCENARIO_SCREEN :
       default:
@@ -1580,6 +1582,15 @@ void process_set(char *what) {
       WARNING("Invalid rate-scale value: \"%s\"", rest);
     } else {
       rate_scale = drest;
+    }
+  } else if (!strcmp(what, "limit")) {
+    char *end;
+    unsigned long lrest = strtoul(rest, &end, 0);
+    if (*end) {
+      WARNING("Invalid rate-scale value: \"%s\"", rest);
+    } else {
+      open_calls_allowed = lrest;
+      open_calls_user_setting = 1;
     }
   } else if (!strcmp(what, "display")) {
     if (!strcmp(rest, "main")) {
@@ -2082,7 +2093,7 @@ size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
                "Compressed message received, header :\n"
                "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x "
                "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
-               CStat::instance()->formatTime(&currentTime, true),
+               CStat::formatTime(&currentTime, true),
                buff[0] , buff[1] , buff[2] , buff[3],
                buff[4] , buff[5] , buff[6] , buff[7],
                buff[8] , buff[9] , buff[10], buff[11],
@@ -2455,7 +2466,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
       GET_TIME (&currentTime);
       TRACE_MSG("----------------------------------------------- %s\n"
 	    "%s %smessage sent (%d bytes):\n\n%.*s\n",
-	    CStat::instance()->formatTime(&currentTime, true),
+	    CStat::formatTime(&currentTime, true),
 	    TRANSPORT_TO_STRING(socket->ss_transport),
 	    socket->ss_control ? "control " : "",
 	    len, len, buffer);
@@ -2470,7 +2481,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
       GET_TIME (&currentTime);
       TRACE_MSG("----------------------------------------------- %s\n"
 	    "Error sending %s message:\n\n%.*s\n",
-	    CStat::instance()->formatTime(&currentTime, true),
+	    CStat::formatTime(&currentTime, true),
 	    TRANSPORT_TO_STRING(socket->ss_transport),
 	    len, buffer);
     }
@@ -2482,7 +2493,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
       GET_TIME (&currentTime);
       TRACE_MSG("----------------------------------------------- %s\n"
 	    "Truncation sending %s message (%d of %d sent):\n\n%.*s\n",
-	    CStat::instance()->formatTime(&currentTime, true),
+	    CStat::formatTime(&currentTime, true),
 	    TRANSPORT_TO_STRING(socket->ss_transport),
 	    rc, len, len, buffer);
     }
@@ -2799,7 +2810,7 @@ static ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len) {
     GET_TIME (&currentTime);
     TRACE_MSG("----------------------------------------------- %s\n"
 	  "%s %smessage received [%d] bytes :\n\n%s\n",
-	  CStat::instance()->formatTime(&currentTime, true),
+	  CStat::formatTime(&currentTime, true),
 	  TRANSPORT_TO_STRING(socket->ss_transport),
 	  socket->ss_control ? "control " : "",
 	  avail, buf);
@@ -2829,7 +2840,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
               struct timeval currentTime;
               GET_TIME (&currentTime);
               TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
-              CStat::instance()->formatTime(&currentTime),call_id, get_incoming_header_content(msg,"CSeq:"), get_incoming_first_line(msg));
+              CStat::formatTime(&currentTime),call_id, get_incoming_header_content(msg,"CSeq:"), get_incoming_first_line(msg));
           } 
 
   if(!listener_ptr)
@@ -2837,13 +2848,13 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
     if(toolMode == MODE_SERVER)
     {
       if (quitting >= 1) {
-	CStat::instance()->computeStat(CStat::E_OUT_OF_CALL_MSGS);
+	CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
 	TRACE_MSG("Discarded message for new calls while quitting\n");
 	return;
       }
 
       // Adding a new INCOMING call !
-      CStat::instance()->computeStat(CStat::E_CREATE_INCOMING_CALL);
+      main_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
 
       listener_ptr = new call(call_id, socket);
       if (!listener_ptr) {
@@ -2854,39 +2865,33 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
 	|| toolMode == MODE_MASTER_PASSIVE || toolMode == MODE_SLAVE)
     {
       // Adding a new OUTGOING call !
-      CStat::instance()->computeStat
-	(CStat::E_CREATE_OUTGOING_CALL);
+      main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
       call *new_ptr = new call(call_id, is_ipv6, 0);
       if (!new_ptr) {
 	ERROR("Out of memory allocating a call!");
       }
-      if(!new_ptr) {
-	outbound_congestion = true;
-	CStat::instance()->computeStat(CStat::E_CALL_FAILED);
-	CStat::instance()->computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
+
+      outbound_congestion = false;
+      if((socket != main_socket) &&
+	  (socket != tcp_multiplex) &&
+	  (socket != localTwinSippSocket) &&
+	  (socket != twinSippSocket) &&
+	  (!is_a_local_socket(socket))) {
+	new_ptr->associate_socket(socket);
+	socket->ss_count++;
       } else {
-	outbound_congestion = false;
-	if((socket != main_socket) &&
-	    (socket != tcp_multiplex) &&
-	    (socket != localTwinSippSocket) &&
-	    (socket != twinSippSocket) &&
-	    (!is_a_local_socket(socket))) {
-	  new_ptr->associate_socket(socket);
-	  socket->ss_count++;
-	} else {
-	  /* We need to hook this call up to a real *call* socket. */
-	  if (!multisocket) {
-	    switch(transport) {
-	      case T_UDP:
-		new_ptr->associate_socket(main_socket);
-		main_socket->ss_count++;
-		break;
-	      case T_TCP:
-	      case T_TLS:
-		new_ptr->associate_socket(tcp_multiplex);
-		tcp_multiplex->ss_count++;
-		break;
-	    }
+	/* We need to hook this call up to a real *call* socket. */
+	if (!multisocket) {
+	  switch(transport) {
+	    case T_UDP:
+	      new_ptr->associate_socket(main_socket);
+	      main_socket->ss_count++;
+	      break;
+	    case T_TCP:
+	    case T_TLS:
+	      new_ptr->associate_socket(tcp_multiplex);
+	      tcp_multiplex->ss_count++;
+	      break;
 	  }
 	}
       }
@@ -2899,20 +2904,20 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size) {
 	// with automaticResponseMode
 	// call is discarded before exiting the block
 	if(!get_reply_code(msg)){
+	  ooc_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
 	  call *call_ptr = new call(ooc_scenario, socket, call_id, 0 /* no user. */, socket->ss_ipv6, true);
 	  if (!call_ptr) {
 	    ERROR("Out of memory allocating a call!");
 	  }
-	  /* The call itself will have no statistics. */
-	  CStat::instance()->computeStat(CStat::E_AUTO_ANSWERED);
+	  CStat::globalStat(CStat::E_AUTO_ANSWERED);
 	  call_ptr->process_incoming(msg);
 	} else {
 	  /* We received a response not relating to any known call */
 	  /* Do nothing, even if in auto answer mode */
-	  CStat::instance()->computeStat(CStat::E_OUT_OF_CALL_MSGS);
+	  CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
 	}
       } else {
-	CStat::instance()->computeStat(CStat::E_OUT_OF_CALL_MSGS);
+	CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
 	WARNING("Discarding message which can't be mapped to a known SIPp call:\n%s", msg);
       }
     }
@@ -3114,7 +3119,7 @@ void traffic_thread()
        }
 
        if(dumpInRtt) {
-          CStat::instance()->dumpDataRtt ();
+          main_scenario->stats->dumpDataRtt ();
        }
 
        signalDump = false ;
@@ -3127,9 +3132,11 @@ void traffic_thread()
 
     if ((!quitting) && (!paused)) {
       long l=0;
+      unsigned long long  current_calls = main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall);
+      unsigned long long total_calls = main_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + main_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated);
 
       if (users) {
-	calls_to_open = ((l = (users - open_calls)) > 0) ? l : 0;
+	calls_to_open = ((l = (users - current_calls)) > 0) ? l : 0;
       } else {
 	calls_to_open = (unsigned int)
               ((l=(long)floor(((clock_tick - last_rate_change_time) * rate/rate_period_ms)
@@ -3144,7 +3151,7 @@ void traffic_thread()
         {
 	  int first_open_tick = clock_tick;
           while((calls_to_open--) && 
-                (!open_calls_allowed || open_calls < open_calls_allowed) &&
+                (!open_calls_allowed || current_calls < open_calls_allowed) &&
                 (total_calls < stop_after)) 
             {
 	      /* Associate a user with this call, if we are in users mode. */
@@ -3155,11 +3162,13 @@ void traffic_thread()
 	      }
 
               // adding a new OUTGOING CALL
-              CStat::instance()->computeStat(CStat::E_CREATE_OUTGOING_CALL);
+              main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
               call * call_ptr = call::add_call(userid, is_ipv6);
               if(!call_ptr) {
 		ERROR("Out of memory allocating call!");
 	      }
+
+	      calls_since_last_rate_change++;
 
 	      outbound_congestion = false;
 
@@ -3191,7 +3200,7 @@ void traffic_thread()
 	      }
             }
 
-	  if(open_calls_allowed && (open_calls >= open_calls_allowed)) {
+	  if(open_calls_allowed && (current_calls >= open_calls_allowed)) {
 	    set_rate(rate);
 	  }
         }
@@ -3206,21 +3215,21 @@ void traffic_thread()
 	abort_all_tasks();
       }
       /* Quitting and no more openned calls, close all */
-      if(!open_calls) {
+      if(!main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall)) {
 	/* We can have calls that do not count towards our open-call count (e.g., dead calls). */
 	abort_all_tasks();
 	print_statistics(0);
 
         // Dump the latest statistics if necessary
         if(dumpInFile) {
-          CStat::instance()->dumpData();
+          main_scenario->stats->dumpData();
         }
 	if (useCountf) {
 	  print_count_file(countf, 0);
 	}
 
         if(dumpInRtt) {
-          CStat::instance()->dumpDataRtt();
+          main_scenario->stats->dumpDataRtt();
         }
 
         /* Screen dumping in a file if asked */
@@ -3314,7 +3323,7 @@ void traffic_thread()
         /* Dumping once to create the file on disk */
         if(dumpInFile)
           {
-            CStat::instance()->dumpData();
+            main_scenario->stats->dumpData();
           }
 
 	if (useCountf) {
@@ -3323,7 +3332,7 @@ void traffic_thread()
 
         if(dumpInRtt)
           {
-            CStat::instance()->dumpDataRtt();
+            main_scenario->stats->dumpDataRtt();
           }
 
       }
@@ -3331,9 +3340,8 @@ void traffic_thread()
     if(report_freq && ((clock_tick - last_report_time) >= report_freq))
       {
         print_statistics(0);
-        CStat::instance()->computeStat(CStat::E_RESET_PD_COUNTERS);
+        display_scenario->stats->computeStat(CStat::E_RESET_PD_COUNTERS);
         last_report_time  = clock_tick;
-        last_report_calls = total_calls;
         scheduling_loops = 0;
       }
 
@@ -3342,12 +3350,12 @@ void traffic_thread()
     // the current time !
     if((clock_tick - last_dump_time) >= report_freq_dumpLog)  {
       if(dumpInFile) {
-	CStat::instance()->dumpData();
+	main_scenario->stats->dumpData();
       }
       if (useCountf) {
 	print_count_file(countf, 0);
       }
-      CStat::instance()->computeStat(CStat::E_RESET_PL_COUNTERS);
+      main_scenario->stats->computeStat(CStat::E_RESET_PL_COUNTERS);
       last_dump_time  = clock_tick;
       if (rate_increase) {
 	rate += rate_increase;
@@ -3672,9 +3680,8 @@ void releaseGlobalAllocations()
   int i,j;
   message * L_ptMsg = NULL;
 
-  CStat::instance()->close();
-
   delete main_scenario;
+  delete ooc_scenario;
   free_default_messages();
 }
 
@@ -4276,14 +4283,14 @@ int main(int argc, char *argv[])
 	    main_scenario = new scenario(argv[argi], 0);
 	    scenario_file = new char [strlen(argv[argi])+1] ;
 	    sprintf(scenario_file,"%s", argv[argi]);
-	    CStat::instance()->setFileName(argv[argi], (char*)".csv");
+	    main_scenario->stats->setFileName(argv[argi], (char*)".csv");
 	  } else if (!strcmp(argv[argi - 1], "-sn")) {
 	    int i = find_scenario(argv[argi]);
 
-	    CStat::instance()->setFileName(argv[argi], (char*)".csv");
 	    main_scenario = new scenario(0, i);
 	    scenario_file = new char [strlen(argv[argi])+1] ;
 	    sprintf(scenario_file,"%s", argv[argi]);
+	    main_scenario->stats->setFileName(argv[argi], (char*)".csv");
 	  } else if (!strcmp(argv[argi - 1], "-sd")) {
 	    int i = find_scenario(argv[argi]);
 	    fprintf(stdout, "%s", default_scenario[i]);
@@ -4531,7 +4538,7 @@ int main(int argc, char *argv[])
   }
 
   if (dumpInRtt == 1) {
-     CStat::instance()->initRtt((char*)scenario_file, (char*)".csv",
+     main_scenario->stats->initRtt((char*)scenario_file, (char*)".csv",
                                 report_freq_dumpRtt);
   }
 
@@ -4577,17 +4584,18 @@ int main(int argc, char *argv[])
   /* Load default scenario in case nothing was loaded */
   if(!main_scenario) {
     main_scenario = new scenario(0, 0);
-    CStat::instance()->setFileName((char*)"uac", (char*)".csv");
+    main_scenario->stats->setFileName((char*)"uac", (char*)".csv");
     sprintf(scenario_file,"uac");
   }
   if(!ooc_scenario) {
     ooc_scenario = new scenario(0, find_scenario("ooc_default"));
+    ooc_scenario->stats->setFileName((char*)"ooc_default", (char*)".csv");
   }
   display_scenario = main_scenario;
   init_default_messages();
 
   if(argiFileName) {
-    CStat::instance()->setFileName(argv[argiFileName]);
+    main_scenario->stats->setFileName(argv[argiFileName]);
   }
 
   /* In which mode the tool is launched ? */
