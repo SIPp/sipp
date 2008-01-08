@@ -145,10 +145,6 @@ public:
   ~message();
 };
 
-typedef std::map<std::string, int> str_int_map;
-typedef std::map<int, char *> int_str_map;
-typedef std::map<int, int> int_int_map;
-
 class scenario {
 public:
   scenario(char * filename, int deflt);
@@ -180,9 +176,6 @@ private:
   /* The string label representations. */
   int_str_map nextLabels;
   int_str_map ontimeoutLabels;
-
-  str_int_map  variableMap;
-  int_int_map  variableReferences;
 
   str_int_map txnMap;
   int_int_map txnStarted;

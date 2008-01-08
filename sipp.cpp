@@ -932,7 +932,7 @@ void print_stats_in_file(FILE * f, int last)
                curmsg -> nb_unexp);
       }
     } else if (curmsg -> pause_distribution ||
-	       curmsg -> pause_variable) {
+	       (curmsg -> pause_variable != -1)) {
       char *desc = curmsg->pause_desc;
       if (!desc) {
 	desc = (char *)malloc(24);
@@ -4033,6 +4033,9 @@ int main(int argc, char *argv[])
 
   /* Initialize the tolower table. */
   init_tolower_table();
+
+  /* Initialize our global variable structure. */
+  globalVariables = new AllocVariableTable(NULL);
   
   /* Command line parsing */
 #define REQUIRE_ARG() if((++argi) >= argc) { ERROR("Missing argument for param '%s'.\n" \

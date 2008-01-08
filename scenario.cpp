@@ -40,7 +40,7 @@ message::message()
 {
   //ugly memset(this, 0, sizeof(message));
   pause_distribution = NULL;
-  pause_variable = 0;
+  pause_variable = -1;
   pause_desc = NULL;
   sessions = 0;
   bShouldRecordRoutes = 0;
@@ -663,7 +663,7 @@ scenario::scenario(char * filename, int deflt)
   }
 
   stats = new CStat();
-  allocVars = new AllocVariableTable(NULL);
+  allocVars = new AllocVariableTable(globalVariables);
 
   init_rtds();
   hidedefault = false;
@@ -697,11 +697,20 @@ scenario::scenario(char * filename, int deflt)
     if(!strcmp(elem, "CallLengthRepartition")) {
       ptr = xp_get_value((char *)"value");
       stats->setRepartitionCallLength(ptr);
-      /* XXX: This should really be per scenario. */
     } else if(!strcmp(elem, "ResponseTimeRepartition")) {
       ptr = xp_get_value((char *)"value");
       stats->setRepartitionResponseTime(ptr);
-      /* XXX: This should really be per RTD. */
+    } else if(!strcmp(elem, "Global")) {
+      ptr = xp_get_value((char *)"variables");
+
+      char **       currentTabVarName = NULL;
+      int           currentNbVarNames;
+
+      createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
+      for (int i = 0; i < currentNbVarNames; i++) {
+	globalVariables->find(currentTabVarName[i], true);
+      }
+      freeStringTable(currentTabVarName, currentNbVarNames);
     } else if(!strcmp(elem, "DefaultMessage")) {
       char *id = xp_get_string("id", "DefaultMessage");
       if(!(ptr = xp_get_cdata())) {
@@ -1007,6 +1016,7 @@ scenario::~scenario() {
 
   free(name);
 
+  allocVars->putTable();
   delete stats;
 
   clear_int_str(txnRevMap);

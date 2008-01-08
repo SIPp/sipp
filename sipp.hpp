@@ -296,6 +296,7 @@ extern char *default_file _DEFVAL(NULL);
 
 // free user id list
 extern list<int> freeUsers;
+extern AllocVariableTable *globalVariables       _DEFVAL(NULL);
 
 //extern int      new_socket(bool P_use_ipv6, int P_type_socket, int * P_status);
 extern struct   sipp_socket *new_sipp_socket(bool use_ipv6, int transport);

@@ -1208,8 +1208,7 @@ bool call::next()
   int new_msg_index = msg_index+1;
   /* If branch needed, overwrite this default */
   if ( (call_scenario->messages[msg_index]->next >= 0) &&
-       ((test == -1) ||
-        (test <= call_scenario->allocVars->size && M_callVariableTable->getVar(test)->isSet()))
+       ((test == -1) || M_callVariableTable->getVar(test)->isSet())
      ) {
     /* Branching possible, check the probability */
     int chance = call_scenario->messages[msg_index]->chance;
@@ -3020,8 +3019,7 @@ bool call::process_incoming(char * msg)
    * we must update our state machine.  */
   if (!(call_scenario->messages[search_index] -> optional) ||
        call_scenario->messages[search_index]->next &&
-      ((test == -1) ||
-       (test <= call_scenario->allocVars->size && M_callVariableTable->getVar(test)->isSet()))
+       ((test == -1) || (M_callVariableTable->getVar(test)->isSet()))
      ) {
     /* If we are paused, then we need to wake up so that we properly go through the state machine. */
     paused_until = 0;
@@ -3031,8 +3029,7 @@ bool call::process_incoming(char * msg)
     unsigned int timeout = wake();
     unsigned int candidate;
 
-    if (call_scenario->messages[search_index]->next && test <= call_scenario->allocVars->size &&
-       M_callVariableTable->getVar(test)->isSet()) {
+    if (call_scenario->messages[search_index]->next && M_callVariableTable->getVar(test)->isSet()) {
       WARNING("Last message generates an error and will not be used for next sends (for last_ variables):\r\n%s",msg);
     }
 
