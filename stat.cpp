@@ -702,6 +702,13 @@ unsigned long long CStat::GetStat (E_CounterName P_counter)
   return M_counters [P_counter];
 }
 
+/* Get the current start time. */
+void CStat::getStartTime(struct timeval *t)
+{
+  memcpy(t, &M_startTime, sizeof(M_startTime));
+}
+
+
 /* Use the short form standard deviation formula given the sum of the squares
  * and the sum. */
 double CStat::computeStdev(E_CounterName P_SumCounter,

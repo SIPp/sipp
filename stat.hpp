@@ -308,6 +308,9 @@ public:
    **/
   unsigned long long GetStat (E_CounterName P_counter);
   
+  /* Get the current start time. */
+  void getStartTime(struct timeval *t);
+
   /**
    * formatTime.
    *
@@ -366,6 +369,43 @@ public:
    * initialize the class variable member
    */
   int init();
+
+  /**
+   * computeDiffTimeInMs.
+   *
+   * This method calculates elaped time in ms
+   *
+   * @param tf = final date
+   * @param ti = initial date
+   *
+   * @return number of ms between the 2 dates
+   */
+  long computeDiffTimeInMs (struct timeval* tf, struct timeval* ti);
+
+  /**
+   * msToHHMMSS.
+   *
+   * This converts an unsigned long containing a number of ms
+   * into a string expressing the same value in format HH:MM:SS.
+   *
+   * @param P_ms.
+   *
+   * @return a pointer on a static string containing formated time
+   */
+  char* msToHHMMSS (unsigned long P_ms);
+
+  /**
+   * msToHHMMSSmm.
+   *
+   * This converts an unsigned long containing a number of ms
+   * into a string expressing the same value in format HH:MM:SS:mmm.
+   *
+   * @param P_ms.
+   *
+   * @return a pointer on a static string containing formated time
+   */
+  char* msToHHMMSSmmm (unsigned long P_ms);
+
 
 private:
    
@@ -505,42 +545,6 @@ private:
    */
   double computeMean(E_CounterName P_SumCounter,
                              E_CounterName P_NbOfCallUsed);
-  /**
-   * computeDiffTimeInMs.
-   *
-   * This method calculates elaped time in ms
-   *
-   * @param tf = final date
-   * @param ti = initial date
-   * 
-   * @return number of ms between the 2 dates
-   */
-  long computeDiffTimeInMs (struct timeval* tf, struct timeval* ti);
-  
-  /**
-   * msToHHMMSS.
-   *
-   * This converts an unsigned long containing a number of ms
-   * into a string expressing the same value in format HH:MM:SS.
-   *
-   * @param P_ms.
-   * 
-   * @return a pointer on a static string containing formated time
-   */
-  char* msToHHMMSS (unsigned long P_ms);
-  
-  /**
-   * msToHHMMSSmm.
-   *
-   * This converts an unsigned long containing a number of ms
-   * into a string expressing the same value in format HH:MM:SS:mmm.
-   *
-   * @param P_ms.
-   * 
-   * @return a pointer on a static string containing formated time
-   */
-  char* msToHHMMSSmmm (unsigned long P_ms);
-  
   /**
    * Effective C++
    *

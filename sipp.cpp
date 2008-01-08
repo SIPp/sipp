@@ -254,6 +254,7 @@ struct sipp_option options_table[] = {
 	{"trace_err", "Trace all unexpected messages in <scenario file name>_<pid>_errors.log.", SIPP_OPTION_SETFLAG, &print_all_responses, 1},
 //	{"trace_timeout", "Displays call ids for calls with timeouts in <scenario file name>_<pid>_timeout.log", SIPP_OPTION_SETFLAG, &useTimeoutf, 1},
 	{"trace_stat", "Dumps all statistics in <scenario_name>_<pid>.csv file. Use the '-h stat' option for a detailed description of the statistics file content.", SIPP_OPTION_SETFLAG, &dumpInFile, 1},
+	{"trace_counts", "Dumps individual message counts in a CSV file.", SIPP_OPTION_SETFLAG, &useCountf, 1},
 	{"trace_rtt", "Allow tracing of all response times in <scenario file name>_<pid>_rtt.csv.", SIPP_OPTION_SETFLAG, &dumpInRtt, 1},
 	{"trace_logs", "Allow tracing of <log> actions in <scenario file name>_<pid>_logs.log.", SIPP_OPTION_SETFLAG, &useLogf, 1},
 
@@ -995,6 +996,128 @@ void print_stats_in_file(FILE * f, int last)
       fprintf(f,SIPP_ENDL);
     }
   }
+}
+
+void print_count_file(FILE *f, int header) {
+  char temp_str[256];
+
+  if (header) {
+    fprintf(f, "CurrentTime%sElapsedTime%s", stat_delimiter, stat_delimiter);
+  } else {
+    struct timeval currentTime, startTime;
+    GET_TIME(&currentTime);
+    CStat::instance()->getStartTime(&startTime);
+    unsigned long globalElapsedTime = CStat::instance()->computeDiffTimeInMs (&currentTime, &startTime);
+    fprintf(f, "%s%s", CStat::instance()->formatTime(&currentTime), stat_delimiter);
+    fprintf(f, "%s%s", CStat::instance()->msToHHMMSSmmm(globalElapsedTime), stat_delimiter);
+  }
+
+  for(int index = 0; index < scenario_len; index ++) {
+    if(scenario[index]->hide) {
+      continue;
+    }
+
+    if(SendingMessage *src = scenario[index] -> send_scheme) {
+      if(header) {
+	if (src->isResponse()) {
+	  sprintf(temp_str, "%d_%d_", index, src->getCode());
+	} else {
+	  sprintf(temp_str, "%d_%s_", index, src->getMethod());
+	}
+
+	fprintf(f, "%sSent%s", temp_str, stat_delimiter);
+	fprintf(f, "%sRetrans%s", temp_str, stat_delimiter);
+	if(scenario[index] -> retrans_delay) {
+	  fprintf(f, "%sTimeout%s", temp_str, stat_delimiter);
+	}
+	if(lose_packets) {
+	  fprintf(f, "%sLost%s", temp_str, stat_delimiter);
+	}
+      } else {
+	fprintf(f, "%d%s", scenario[index]->nb_sent, stat_delimiter);
+	fprintf(f, "%d%s", scenario[index]->nb_sent_retrans, stat_delimiter);
+	if(scenario[index] -> retrans_delay) {
+	  fprintf(f, "%d%s", scenario[index]->nb_timeout, stat_delimiter);
+	}
+	if(lose_packets) {
+	  fprintf(f, "%d%s", scenario[index]->nb_lost, stat_delimiter);
+	}
+      }
+    } else if(scenario[index] -> recv_response) {
+      if(header) {
+	sprintf(temp_str, "%d_%d_", index, scenario[index]->recv_response);
+
+	fprintf(f, "%sRecv%s", temp_str, stat_delimiter);
+	fprintf(f, "%sRetrans%s", temp_str, stat_delimiter);
+	fprintf(f, "%sTimeout%s", temp_str, stat_delimiter);
+	fprintf(f, "%sUnexp%s", temp_str, stat_delimiter);
+	if(lose_packets) {
+	  fprintf(f, "%sLost%s", temp_str, stat_delimiter);
+	}
+      } else {
+	fprintf(f, "%d%s", scenario[index]->nb_recv, stat_delimiter);
+	fprintf(f, "%d%s", scenario[index]->nb_recv_retrans, stat_delimiter);
+	fprintf(f, "%d%s", scenario[index]->nb_timeout, stat_delimiter);
+	fprintf(f, "%d%s", scenario[index]->nb_unexp, stat_delimiter);
+	if(lose_packets) {
+	  fprintf(f, "%d%s", scenario[index]->nb_lost, stat_delimiter);
+	}
+      }
+    } else if(scenario[index] -> recv_request) {
+      if(header) {
+	sprintf(temp_str, "%d_%s_", index, scenario[index]->recv_request);
+
+	fprintf(f, "%sRecv%s", temp_str, stat_delimiter);
+	fprintf(f, "%sRetrans%s", temp_str, stat_delimiter);
+	fprintf(f, "%sTimeout%s", temp_str, stat_delimiter);
+	fprintf(f, "%sUnexp%s", temp_str, stat_delimiter);
+	if(lose_packets) {
+	  fprintf(f, "%sLost%s", temp_str, stat_delimiter);
+	}
+      } else {
+	fprintf(f, "%d%s", scenario[index]->nb_recv, stat_delimiter);
+	fprintf(f, "%d%s", scenario[index]->nb_recv_retrans, stat_delimiter);
+	fprintf(f, "%d%s", scenario[index]->nb_timeout, stat_delimiter);
+	fprintf(f, "%d%s", scenario[index]->nb_unexp, stat_delimiter);
+	if(lose_packets) {
+	  fprintf(f, "%d%s", scenario[index]->nb_lost, stat_delimiter);
+	}
+      }
+    } else if (scenario[index] -> pause_distribution ||
+	scenario[index] -> pause_variable) {
+
+      if(header) {
+	sprintf(temp_str, "%d_Pause_", index);
+	fprintf(f, "%sSessions%s", temp_str, stat_delimiter);
+	fprintf(f, "%sUnexp%s", temp_str, stat_delimiter);
+      } else {
+	fprintf(f, "%d%s", scenario[index]->sessions, stat_delimiter);
+	fprintf(f, "%d%s", scenario[index]->nb_unexp, stat_delimiter);
+      }
+    } else if(scenario[index] -> M_type == MSG_TYPE_NOP) {
+      /* No output. */
+    }  else if(scenario[index] -> M_type == MSG_TYPE_RECVCMD) {
+      if(header) {
+	sprintf(temp_str, "%d_RecvCmd", index);
+	fprintf(f, "%s%s", temp_str, stat_delimiter);
+	fprintf(f, "%s_Timeout%s", temp_str, stat_delimiter);
+      } else {
+	fprintf(f, "%d%s", scenario[index]->M_nbCmdRecv, stat_delimiter);
+	fprintf(f, "%d%s", scenario[index]->nb_timeout, stat_delimiter);
+      }
+    } else if(scenario[index] -> M_type == MSG_TYPE_SENDCMD) {
+      if(header) {
+	sprintf(temp_str, "%d_SendCmd", index);
+	fprintf(f, "%s%s", temp_str);
+      } else {
+	fprintf(f, "%d%s", scenario[index]->M_nbCmdSent, stat_delimiter);
+      }
+    } else {
+      ERROR("Unknown count file message type:");
+    }
+  }
+  fprintf(f, "\n");
+  fflush(f);
 }
 
 void print_header_line(FILE *f, int last)
@@ -3021,6 +3144,9 @@ void traffic_thread()
         if(dumpInFile) {
           CStat::instance()->dumpData();
         }
+	if (useCountf) {
+	  print_count_file(countf, 0);
+	}
 
         if(dumpInRtt) {
           CStat::instance()->dumpDataRtt();
@@ -3119,6 +3245,11 @@ void traffic_thread()
           {
             CStat::instance()->dumpData();
           }
+
+	if (useCountf) {
+	    print_count_file(countf, 0);
+	}
+
         if(dumpInRtt)
           {
             CStat::instance()->dumpDataRtt();
@@ -3141,6 +3272,9 @@ void traffic_thread()
     if((clock_tick - last_dump_time) >= report_freq_dumpLog)  {
       if(dumpInFile) {
 	CStat::instance()->dumpData();
+      }
+      if (useCountf) {
+	print_count_file(countf, 0);
       }
       CStat::instance()->computeStat(CStat::E_RESET_PL_COUNTERS);
       last_dump_time  = clock_tick;
@@ -4332,7 +4466,17 @@ int main(int argc, char *argv[])
       ERROR_P1("Unable to create '%s'", L_file_name);
     }
   } */
-  
+
+  if (useCountf == 1) {
+    char L_file_name [MAX_PATH];
+    sprintf (L_file_name, "%s_%d_counts.csv", scenario_file, getpid());
+    countf = fopen(L_file_name, "w");
+    if(!countf) {
+      ERROR_P1("Unable to create '%s'", L_file_name);
+    }
+    print_count_file(countf, 1);
+  }
+
   if (useLogf == 1) {
     char L_file_name [MAX_PATH];
     sprintf (L_file_name, "%s_%d_logs.log", scenario_file, getpid());
