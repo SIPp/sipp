@@ -2636,8 +2636,9 @@ bool call::process_incoming(char * msg)
 
   /* Authorize nop as a first command, even in server mode */
   if((msg_index == 0) && (call_scenario->messages[msg_index] -> M_type == MSG_TYPE_NOP)) {
-    actionResult = executeAction(NULL, msg_index);
-    return next();
+    queue_up (msg);
+    paused_until = 0;
+    return run();
   }
   responsecseqmethod[0] = '\0';
   txn[0] = '\0';
