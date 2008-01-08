@@ -1,13 +1,4 @@
-all: pcapplay_ossl
-
-#EXTRACFLAGS=-g -DHAVE_GSL -DLOCAL_VERSION_EXTRA="\"-ibm1\nIncludes: $(shell quilt applied)\n\""
-#EXTRACPPFLAGS=-g -DHAVE_GSL -DLOCAL_VERSION_EXTRA="\"-ibm1\nIncludes:  $(shell quilt applied )\n\""
-#EXTRACFLAGS=-g -DHAVE_GSL -DLOCAL_VERSION_EXTRA="\"-ibm1\"" -D_GNU_SOURCE -D__USE_LARGEFILE64 -D_FILE_OFFSET_BITS=64
-#EXTRACPPFLAGS=-g -DHAVE_GSL -DLOCAL_VERSION_EXTRA="\"-ibm1\"" -D_GNU_SOURCE -D__USE_LARGEFILE64 -D_FILE_OFFSET_BITS=64
-
-PATCHES=$(shell quilt applied |sed -e 's/^patches\///;s/\.diff//')
-EXTRACFLAGS=-g -DHAVE_GSL -DLOCAL_VERSION_EXTRA="\"-ibm4 (with $(PATCHES))\"" -D__USE_LARGEFILE64 -D_FILE_OFFSET_BITS=64
-EXTRACPPFLAGS=-g -DHAVE_GSL -DLOCAL_VERSION_EXTRA="\"-ibm4 (with $(PATCHES))\"" -D__USE_LARGEFILE64 -D_FILE_OFFSET_BITS=64
-#EXTRALIBS=-static -lgsl -lgslcblas -lm
-EXTRALIBS=-lgsl -lgslcblas -lm
-EXTRAENDLIBS=-lz -lkrb5 -lk5crypto -lcom_err -lresolv -ldl -lkrb5support
+# Remove '#' if you want to enable GSL features (pause)
+#  EXTRACPPFLAGS=-DHAVE_GSL -I`if test -f /usr/local/lib/libgsl.so; then echo /usr/local; else echo ./ext; fi;`/include
+#  EXTRACFLAGS=-DHAVE_GSL -I`if test -f /usr/local/lib/libgsl.so; then echo /usr/local; else echo ./ext; fi;`/include
+#  EXTRALIBS=-L`if test -f /usr/local/lib/libgsl.so; then echo /usr/local; else echo ./ext; fi;`/lib -lgsl -lgslcblas
