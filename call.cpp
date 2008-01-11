@@ -337,12 +337,12 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
   last_send_msg = NULL;
 
   last_recv_hash = 0;
-  last_recv_index = 0;
+  last_recv_index = -1;
   last_recv_msg = NULL;
 
   recv_retrans_hash = 0;
-  recv_retrans_recv_index = 0;
-  recv_retrans_send_index = 0;
+  recv_retrans_recv_index = -1;
+  recv_retrans_send_index = -1;
 
   dialog_route_set = NULL;
   next_req_url = NULL;
@@ -1108,34 +1108,32 @@ char * call::send_scene(int index, int *send_status)
     return NULL;
   }
 
-  if(call_scenario->messages[index] -> send_scheme) {
-    char * dest;
-    dest = createSendingMessage(call_scenario->messages[index] -> send_scheme, index);
-    strcpy(msg_buffer, dest);
+  assert(call_scenario->messages[index]->send_scheme);
 
-    if (dest) {
-      L_ptr1=msg_name ;
-      L_ptr2=msg_buffer ;
-      while ((*L_ptr2 != ' ') && (*L_ptr2 != '\n') && (*L_ptr2 != '\t'))  {
-        *L_ptr1 = *L_ptr2;
-        L_ptr1 ++;
-        L_ptr2 ++;
-      }
-      *L_ptr1 = '\0' ;
-    }
+  char * dest;
+  dest = createSendingMessage(call_scenario->messages[index] -> send_scheme, index);
+  strcpy(msg_buffer, dest);
 
-    if (strcmp(msg_name,"ACK") == 0) {
-      call_established = true ;
-      ack_is_pending = false ;
+  if (dest) {
+    L_ptr1=msg_name ;
+    L_ptr2=msg_buffer ;
+    while ((*L_ptr2 != ' ') && (*L_ptr2 != '\n') && (*L_ptr2 != '\t'))  {
+      *L_ptr1 = *L_ptr2;
+      L_ptr1 ++;
+      L_ptr2 ++;
     }
+    *L_ptr1 = '\0' ;
+  }
 
-    if(send_status) {
-      *send_status = send_raw(msg_buffer, index);
-    } else {
-      send_raw(msg_buffer, index);
-    }
+  if (strcmp(msg_name,"ACK") == 0) {
+    call_established = true ;
+    ack_is_pending = false ;
+  }
+
+  if(send_status) {
+    *send_status = send_raw(msg_buffer, index);
   } else {
-    ERROR("Unsupported 'send' message in scenario");
+    send_raw(msg_buffer, index);
   }
 
   return msg_buffer;
@@ -1469,7 +1467,7 @@ bool call::run()
       extract_transaction(txnID[curmsg->start_txn - 1], last_send_msg);
     }
 
-    if(last_recv_hash) {
+    if(last_recv_index >= 0) {
       /* We are sending just after msg reception. There is a great
        * chance that we will be asked to retransmit this message */
       recv_retrans_hash       = last_recv_hash;
@@ -2670,7 +2668,7 @@ bool call::process_incoming(char * msg)
     /* Detects retransmissions from peer and retransmit the
      * message which was sent just after this one was received */
     cookie = hash(msg);
-    if(recv_retrans_hash == cookie) {
+    if((recv_retrans_recv_index >= 0) && (recv_retrans_hash == cookie)) {
 
       int status;
 
@@ -2697,7 +2695,7 @@ bool call::process_incoming(char * msg)
       return true;
     }
 
-    if(last_recv_hash == cookie) {
+    if((last_recv_index >= 0) && (last_recv_hash == cookie)) {
       /* This one has already been received, but not processed
        * yet => (has not triggered something yet) so we can discard.
        *
