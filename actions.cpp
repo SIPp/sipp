@@ -121,6 +121,8 @@ void CAction::afficheInfo()
       printf("Type[%d] - assign varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_ASSIGN_FROM_INDEX) {
       printf("Type[%d] - assign index[%d]", M_action, display_scenario->allocVars->getName(M_varId));
+  } else if (M_action == E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
+      printf("Type[%d] - assign gettimeofday[%d, %d]", M_action, display_scenario->allocVars->getName(M_varId));
   } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
       printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message);
   } else if (M_action == E_AT_JUMP) {

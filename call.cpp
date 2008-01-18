@@ -3136,6 +3136,11 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	      M_callVariableTable->getVar(currentAction->getVarId())->setDouble(operand);
         } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_INDEX) {
 	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(msg_index);
+        } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
+	  struct timeval tv;
+	  gettimeofday(&tv, NULL);
+	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)tv.tv_sec);
+	  M_callVariableTable->getVar(currentAction->getSubVarId(0))->setDouble((double)tv.tv_usec);
         } else if (currentAction->getActionType() == CAction::E_AT_JUMP) {
 	  double operand = get_rhs(currentAction);
 	  msg_index = (int)operand - 1;

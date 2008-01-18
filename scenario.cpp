@@ -1408,6 +1408,24 @@ void scenario::getActionForThisMessage()
       } else {
 	ERROR("assignstr action without a value!");
       }
+    } else if(!strcmp(actionElem, "gettimeofday")) {
+      tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY);
+
+      if (!(ptr = xp_get_value((char *) "assign_to"))) {
+	ERROR("assign_to value is missing");
+      }
+      createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
+      if (currentNbVarNames != 2 ) {
+	ERROR("The gettimeofday action requires two output variables!");
+      }
+      tmpAction->setNbSubVarId(1);
+
+      int varId = get_var(currentTabVarName[0], "gettimeofday seconds assign_to");
+      tmpAction->setVarId(varId);
+      varId = get_var(currentTabVarName[1], "gettimeofday useconds assign_to");
+      tmpAction->setSubVarId(varId);
+
+      freeStringTable(currentTabVarName, currentNbVarNames);
     } else if(!strcmp(actionElem, "index")) {
       tmpAction->setVarId(xp_get_var("assign_to", "index"));
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_INDEX);
