@@ -2896,6 +2896,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 	  }
 	}
       }
+      listener_ptr = new_ptr;
     }
     else // mode != from SERVER and 3PCC Controller B
     {
