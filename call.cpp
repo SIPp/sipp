@@ -2062,6 +2062,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
       case E_Message_ClockTick:
 	dest += snprintf(dest, left, "%lu", clock_tick);
 	break;
+      case E_Message_Timestamp:
+	struct timeval currentTime;
+	gettimeofday(&currentTime, NULL);
+	dest += snprintf(dest, left, "%s", CStat::formatTime(&currentTime));
+	break;
       case E_Message_Users:
 	dest += snprintf(dest, left, "%d", users);
 	break;
@@ -2137,6 +2142,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	}
 	break;
       }
+      case E_Message_Last_Message:
+        if(last_recv_msg && strlen(last_recv_msg)) {
+	  dest += sprintf(dest, "%s", last_recv_msg);
+	}
+	break;
       case E_Message_Last_Request_URI: {
        char * last_request_uri = get_last_request_uri();
        dest += sprintf(dest, "%s", last_request_uri);

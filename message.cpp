@@ -70,11 +70,15 @@ struct KeywordMap SimpleKeywords[] = {
   {"len", E_Message_Len },
   {"peer_tag_param", E_Message_Peer_Tag_Param },
   {"last_peer_tag_param", E_Message_Last_Peer_Tag_Param },
+  {"last_Request_URI", E_Message_Last_Request_URI },
+  {"last_cseq_number", E_Message_Last_CSeq_Number },
+  {"last_message", E_Message_Last_Message },
   {"routes", E_Message_Routes },
   {"tdmmap", E_Message_TDM_Map },
   {"clock_tick", E_Message_ClockTick },
   {"users", E_Message_Users },
   {"userid", E_Message_UserID },
+  {"timestamp", E_Message_Timestamp },
 };
 
 #define KEYWORD_SIZE 256
@@ -258,13 +262,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 	  }
 	  newcomp->varId = msg_scenario->get_var(varName, "Fill Variable");
      } else if(!strncmp(keyword, "last_", strlen("last_"))) {
-       if(!strncmp(keyword, "last_Request_URI", strlen("last_Request_URI"))){
-	 newcomp->type = E_Message_Last_Request_URI;
-       } else if(!strncmp(keyword, "last_cseq_number", strlen("last_cseq_number"))){
-	 newcomp->type = E_Message_Last_CSeq_Number;
-       } else {
-	 newcomp->type = E_Message_Last_Header;
-       }
+       newcomp->type = E_Message_Last_Header;
        newcomp->literal = strdup(keyword + strlen("last_"));
      } else if(!strncmp(keyword, "authentication", strlen("authentication"))) {
        parseAuthenticationKeyword(msg_scenario, newcomp, keyword);

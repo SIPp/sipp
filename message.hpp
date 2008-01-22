@@ -75,11 +75,13 @@ typedef enum {
   E_Message_Last_Header,
   E_Message_Last_Request_URI,
   E_Message_Last_CSeq_Number,
+  E_Message_Last_Message,
   E_Message_TDM_Map,
   E_Message_Authentication,
   E_Message_ClockTick,
   E_Message_Users,
   E_Message_UserID,
+  E_Message_Timestamp,
 } MessageCompType;
 
 class SendingMessage {
