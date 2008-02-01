@@ -188,6 +188,8 @@ struct sipp_option options_table[] = {
 		SIPP_OPTION_UNSETFLAG, &default_behaviors, 1},
 	{"nr", "Disable retransmission in UDP mode.", SIPP_OPTION_UNSETFLAG, &retrans_enabled, 1},
 
+	{"nostdin", "Disable stdin.\n", SIPP_OPTION_SETFLAG, &nostdin, 1},
+
 	{"p", "Set the local port number.  Default is a random free port chosen by the system.", SIPP_OPTION_INT, &user_port, 1},
 	{"pause_msg_ign", "Ignore the messages received during a pause defined in the scenario ", SIPP_OPTION_SETFLAG, &pause_msg_ign, 1},
 	{"periodic_rtd", "Reset response time partition counters each logging interval.", SIPP_OPTION_SETFLAG, &periodic_rtd, 1},
@@ -1616,6 +1618,97 @@ void process_set(char *what) {
   }
 }
 
+void process_trace(char *what) {
+  bool on = false;
+  char *rest = strchr(what, ' ');
+  if (rest) {
+	*rest++ = '\0';
+	trim(rest);
+  } else {
+	WARNING("The trace command requires two arguments (log and [on|off])");
+	return;
+  }
+
+  if (!strcmp(rest, "on")) {
+	on = true;
+  }
+  else if (!strcmp(rest, "off")) {
+	on = false;
+  }
+  else if (!strcmp(rest, "true")) {
+	on = true;
+  }
+  else if (!strcmp(rest, "false")) {
+	on = false;
+  }
+  else {
+	WARNING("The trace command's second argument must be on or off.");
+	return;
+  }
+
+  if (!strcmp(what, "error")) {
+    if (on == !!print_all_responses) {
+      return;
+    }
+    if (on) {
+      print_all_responses = 1;
+    } else {
+      print_all_responses = 0;
+      if (screen_errorf) {
+	fflush(screen_errorf);
+	fclose(screen_errorf);
+	screen_errorf = NULL;
+	errorf_overwrite = false;
+      }
+    }
+  } else if (!strcmp(what, "logs")) {
+    if (on == !!logfile) {
+      return;
+    }
+    if (on) {
+      useLogf = 1;
+      rotate_logfile();
+    } else {
+      useLogf = 0;
+      fflush(logfile);
+      fclose(logfile);
+      logfile = NULL;
+      logfile_overwrite = false;
+    }
+  } else if (!strcmp(what, "messages")) {
+    if (on == !!messagef) {
+      return;
+    }
+    if (on) {
+      useMessagef = 1;
+      rotate_messagef();
+    } else {
+      useMessagef = 0;
+      fflush(messagef);
+      fclose(messagef);
+      messagef = NULL;
+      messagef_overwrite = false;
+    }
+  } else if (!strcmp(what, "shortmessages")) {
+    if (on == !!shortmessagef) {
+      return;
+    }
+
+    if (on) {
+      useShortMessagef = 1;
+      rotate_shortmessagef();
+    } else {
+      useShortMessagef = 0;
+      fflush(shortmessagef);
+      fclose(shortmessagef);
+      shortmessagef = NULL;
+      shortmessagef_overwrite = false;
+    }
+  } else {
+    WARNING("Unknown log file: %s", what);
+  }
+}
+
 void process_dump(char *what) {
   if (!strcmp(what, "tasks")) {
     dump_tasks();
@@ -1635,6 +1728,8 @@ bool process_command(char *command) {
 
   if (!strcmp(command, "set")) {
 	process_set(rest);
+  } else if (!strcmp(command, "trace")) {
+	process_trace(rest);
   } else if (!strcmp(command, "dump")) {
 	process_dump(rest);
   } else {
@@ -4763,7 +4858,9 @@ int main(int argc, char *argv[])
 
   /* Creating the remote control socket thread */
   setup_ctrl_socket();
-  setup_stdin_socket();
+  if (!nostdin) {
+    setup_stdin_socket();
+  }
 
   if ((media_socket > 0) && (rtp_echo_enabled)) {
     if (pthread_create
@@ -5498,7 +5595,7 @@ struct logfile_id {
 };
 
 /* We can not use the error functions from this file, as we may be rotating the error log itself! */
-void rotatef(char *name, FILE **fptr, time_t *starttime, int *nfiles, struct logfile_id **ftimes, bool check) {
+void rotatef(char *name, FILE **fptr, time_t *starttime, int *nfiles, struct logfile_id **ftimes, bool check, bool *overwrite) {
   char L_file_name [MAX_PATH];
   char L_rotate_file_name [MAX_PATH];
 
@@ -5540,7 +5637,12 @@ void rotatef(char *name, FILE **fptr, time_t *starttime, int *nfiles, struct log
   }
 
   time(starttime);
-  *fptr = fopen(L_file_name, "w");
+  if (*overwrite) {
+    *fptr = fopen(L_file_name, "w");
+  } else {
+    *fptr = fopen(L_file_name, "a");
+    *overwrite = true;
+  }
   if(check && !*fptr) {
     ERROR("Unable to create '%s'", L_file_name);
   }
@@ -5551,7 +5653,7 @@ struct logfile_id *messagef_times = NULL;
 
 void rotate_messagef() {
   static time_t starttime = 0;
-  rotatef("messages", &messagef, &starttime, &messagef_nfiles, &messagef_times, true);
+  rotatef("messages", &messagef, &starttime, &messagef_nfiles, &messagef_times, true, &messagef_overwrite);
 }
 
 int shortmessagef_nfiles = 0;
@@ -5559,7 +5661,7 @@ struct logfile_id *shortmessagef_times = NULL;
 
 void rotate_shortmessagef() {
   static time_t starttime = 0;
-  rotatef("shortmessages", &shortmessagef, &starttime, &shortmessagef_nfiles, &shortmessagef_times, true);
+  rotatef("shortmessages", &shortmessagef, &starttime, &shortmessagef_nfiles, &shortmessagef_times, true, &shortmessagef_overwrite);
 }
 
 int logfile_nfiles = 0;
@@ -5567,7 +5669,7 @@ struct logfile_id *logfile_times = NULL;
 
 void rotate_logfile() {
   static time_t starttime = 0;
-  rotatef("logs", &logfile, &starttime, &logfile_nfiles, &logfile_times, true);
+  rotatef("logs", &logfile, &starttime, &logfile_nfiles, &logfile_times, true, &logfile_overwrite);
 }
 
 int errorf_nfiles  = 0;
@@ -5575,7 +5677,7 @@ struct logfile_id *errorf_times = NULL;
 
 void rotate_errorf() {
   static time_t starttime = 0;
-  rotatef("errors", &screen_errorf, &starttime, &errorf_nfiles, &errorf_times, false);
+  rotatef("errors", &screen_errorf, &starttime, &errorf_nfiles, &errorf_times, false, &errorf_overwrite);
   /* If rotatef is changed, this must be changed as well. */
   sprintf (screen_logfile, "%s_%d_errors.log", scenario_file, getpid());
 }

@@ -257,6 +257,7 @@ extern int                twinSippPort            _DEFVAL(DEFAULT_3PCC_PORT);
 extern bool               twinSippMode            _DEFVAL(false);
 extern bool               extendedTwinSippMode    _DEFVAL(false);
 
+extern bool               nostdin                 _DEFVAL(false);        
 extern bool               backgroundMode          _DEFVAL(false);        
 extern bool               signalDump              _DEFVAL(false);        
 
@@ -428,6 +429,11 @@ extern bool   useMessagef                         _DEFVAL(0);
 extern bool   useShortMessagef                    _DEFVAL(0);
 extern bool   useScreenf                          _DEFVAL(0);
 extern bool   useLogf                             _DEFVAL(0);
+// should we overwrite the existing files?
+extern bool   messagef_overwrite		  _DEFVAL(true);
+extern bool   shortmessagef_overwrite		  _DEFVAL(true);
+extern bool   errorf_overwrite			  _DEFVAL(true);
+extern bool   logfile_overwrite			  _DEFVAL(true);
 //extern bool   useTimeoutf                         _DEFVAL(0);
 extern bool   dumpInFile                          _DEFVAL(0);
 extern bool   dumpInRtt                           _DEFVAL(0);
