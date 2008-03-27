@@ -1631,6 +1631,9 @@ void init_default_messages() {
 
 void free_default_messages() {
   int messages = sizeof(default_message_strings)/sizeof(default_message_strings[0]);
+  if (!default_messages) {
+    return;
+  }
   for (int i = 0; i < messages; i++) {
     delete default_messages[i];
   }

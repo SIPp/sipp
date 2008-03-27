@@ -499,11 +499,7 @@ CAction::~CAction()
     delete [] M_subVarId;
     M_subVarId      = NULL;
   }
-  if(M_stringValue != NULL)
-  {
-    delete [] M_stringValue;
-    M_stringValue      = NULL;
-  }
+  free(M_stringValue);
 #ifdef PCAPPLAY
   if (M_pcapArgs != NULL) {
     free(M_pcapArgs);
@@ -513,6 +509,9 @@ CAction::~CAction()
   if (M_regExpSet) {
     regfree(&M_internalRegExp);
     free(M_regularExpression);
+  }
+  if (M_distribution) {
+    delete M_distribution;
   }
 }
 

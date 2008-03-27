@@ -100,9 +100,7 @@ double CCallVariable::getDouble()
 void CCallVariable::setString(char *P_val)
 {
   M_type = E_VT_STRING;
-  if(M_stringValue != NULL) {
-    delete [] M_stringValue;
-  }
+  free(M_stringValue);
   M_stringValue     = P_val;
 }
 
@@ -179,9 +177,7 @@ CCallVariable::~CCallVariable()
     delete [] M_matchingValue;
   }
   M_matchingValue = NULL;
-  if(M_stringValue != NULL) {
-    delete [] M_stringValue;
-  }
+  free(M_stringValue);
 }
 
 #define LEVEL_BITS 8
@@ -260,6 +256,9 @@ void VariableTable::expand(int size) {
 VariableTable::~VariableTable() {
   if (parent) {
     parent->putTable();
+  }
+  for (int i = 0; i < size; i++) {
+    delete variableTable[i];
   }
   free(variableTable);
 }

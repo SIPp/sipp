@@ -105,8 +105,12 @@ void screen_exit(int rc)
   }
 
   // Get failed calls counter value before releasing objects
-  counter_value_failed = display_scenario->stats->GetStat (CStat::CPT_C_FailedCall);
-  counter_value_success = display_scenario->stats->GetStat (CStat::CPT_C_SuccessfulCall);
+  if (display_scenario) {
+    counter_value_failed = display_scenario->stats->GetStat (CStat::CPT_C_FailedCall);
+    counter_value_success = display_scenario->stats->GetStat (CStat::CPT_C_SuccessfulCall);
+  } else {
+    rc = EXIT_TEST_FAILED;
+  }
 
   releaseGlobalAllocations();
 

@@ -707,6 +707,11 @@ void print_stats_in_file(FILE * f, int last)
 
 #define SIPP_ENDL "\r\n"
 
+  /* We are not initialized yet. */
+  if (!display_scenario) {
+    return;
+  }
+
   /* Optional timestamp line for files only */
   if(f != stdout) {
     time_t tim;
@@ -1347,7 +1352,7 @@ void print_statistics(int last)
 {
   static int first = 1;
 
-  if(backgroundMode == false) {
+  if(backgroundMode == false && display_scenario) {
     if(!last) {
       screen_clear();
     }
@@ -3775,6 +3780,13 @@ void print_last_stats()
   print_statistics(1);
 }
 
+void freeInFiles() {
+  for (file_map::iterator file_it = inFiles.begin(); file_it != inFiles.end(); file_it++) {
+    delete file_it->second;
+    //inFiles.erase(file_it->first);
+  }
+}
+
 void releaseGlobalAllocations()
 {
   int i,j;
@@ -3783,6 +3795,9 @@ void releaseGlobalAllocations()
   delete main_scenario;
   delete ooc_scenario;
   free_default_messages();
+  freeInFiles();
+  delete globalVariables;
+  delete userVariables;
 }
 
 void stop_all_traces()
