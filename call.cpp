@@ -168,48 +168,36 @@ uint8_t get_remote_ipv6_media(char *msg, struct in6_addr addr)
 }
 
 /*
- * Look for "m=audio " pattern in the message and extract the following value
- * which should be port number
+ * Look for "m=audio " or "m=video " pattern in the message and extract the
+ * following value which should be port number
  */
-uint16_t get_remote_audio_port_media(char *msg)
+#define PAT_AUDIO 1
+#define PAT_VIDEO 2
+uint16_t get_remote_port_media(char *msg, int pattype)
 {
-    char pattern[] = "m=audio ";
+    char *pattern;
     char *begin, *end;
     char number[6];
+
+    if (pattype == PAT_AUDIO) {
+      pattern = "m=audio ";
+    } else if (pattype == PAT_VIDEO) {
+      pattern = "m=video ";
+    } else {
+	ERROR("Internal error: Undefined media pattern %d\n", 3);
+    }
+
     begin = strstr(msg, pattern);
     if (!begin) {
       /* m=audio not found */
       return 0;
     }
-    begin += sizeof("m=audio ") - 1;
+    begin += strlen(pattern) - 1;
     end = strstr(begin, "\r\n");
     if (!end)
-      ERROR("get_remote_audio_port_media: no CRLF found");
+      ERROR("get_remote_port_media: no CRLF found");
     memset(number, 0, sizeof(number));
     strncpy(number, begin, sizeof(number) - 1);
-    return atoi(number);
-}
-
-/*
- * Look for "m=video " pattern in the message and extract the following value
- * which should be port number
- */
-uint16_t get_remote_video_port_media(char *msg)
-{
-    char pattern[] = "m=video ";
-    char *begin, *end;
-    char number[5];
-    begin = strstr(msg, pattern);
-    if (!begin) {
-      /* m=video not found */
-      return 0;
-    }
-    begin += sizeof("m=video ") - 1;
-    end = strstr(begin, "\r\n");
-    if (!end)
-      ERROR("get_remote_video_port_media: no CRLF found");
-    memset(number, 0, 5);
-    strncpy(number, begin, end - begin);
     return atoi(number);
 }
 
@@ -221,7 +209,7 @@ void call::get_remote_media_addr(char *msg) {
   if (media_ip_is_ipv6) {
   struct in6_addr ip_media;
     if (get_remote_ipv6_media(msg, ip_media)) {
-      audio_port = get_remote_audio_port_media(msg);
+      audio_port = get_remote_port_media(msg, PAT_AUDIO);
       if (audio_port) {
         /* We have audio in the SDP: set the to_audio addr */
         (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_flowinfo = 0;
@@ -230,7 +218,7 @@ void call::get_remote_media_addr(char *msg) {
         (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_port = audio_port;
         (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_addr = ip_media;
       }
-      video_port = get_remote_video_port_media(msg);
+      video_port = get_remote_port_media(msg, PAT_VIDEO);
       if (video_port) {
         /* We have video in the SDP: set the to_video addr */
         (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_flowinfo = 0;
@@ -246,14 +234,14 @@ void call::get_remote_media_addr(char *msg) {
     uint32_t ip_media;
     ip_media = get_remote_ip_media(msg);
     if (ip_media != INADDR_NONE) {
-      audio_port = get_remote_audio_port_media(msg);
+      audio_port = get_remote_port_media(msg, PAT_AUDIO);
       if (audio_port) {
         /* We have audio in the SDP: set the to_audio addr */
         (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_family = AF_INET;
         (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_port = audio_port;
         (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_addr.s_addr = ip_media;
       }
-      video_port = get_remote_video_port_media(msg);
+      video_port = get_remote_port_media(msg, PAT_VIDEO);
       if (video_port) {
         /* We have video in the SDP: set the to_video addr */
         (_RCAST(struct sockaddr_in *, &(play_args_v.to)))->sin_family = AF_INET;
