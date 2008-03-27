@@ -178,7 +178,7 @@ extern double             rate_scale              _DEFVAL(DEFAULT_RATE_SCALE);
 extern int	          rate_increase           _DEFVAL(0);
 extern int	          rate_max	          _DEFVAL(0);
 extern bool	          rate_quit		  _DEFVAL(true);
-extern int                users                   _DEFVAL(0);
+extern int                users                   _DEFVAL(-1);
 extern int               rate_period_ms           _DEFVAL(DEFAULT_RATE_PERIOD_MS);
 extern unsigned long      defl_recv_timeout       _DEFVAL(0);
 extern unsigned long      defl_send_timeout       _DEFVAL(0);
@@ -297,6 +297,7 @@ extern char *default_file _DEFVAL(NULL);
 
 // free user id list
 extern list<int> freeUsers;
+extern list<int> retiredUsers;
 extern AllocVariableTable *globalVariables       _DEFVAL(NULL);
 extern AllocVariableTable *userVariables         _DEFVAL(NULL);
 typedef std::map<int, VariableTable *> int_vt_map;

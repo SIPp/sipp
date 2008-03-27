@@ -47,6 +47,7 @@ class CAction
       E_AT_JUMP,
       E_AT_PAUSE_RESTORE,
       E_AT_LOG_TO_FILE,
+      E_AT_LOG_WARNING,
       E_AT_EXECUTE_CMD,
       E_AT_EXEC_INTCMD,
       E_AT_VAR_ADD,

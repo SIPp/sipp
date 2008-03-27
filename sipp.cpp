@@ -720,7 +720,11 @@ void print_stats_in_file(FILE * f, int last)
   }
   
   /* Header line with global parameters */
-  sprintf(temp_str, "%3.1f(%d ms)/%5.3fs", rate, duration, (double)rate_period_ms / 1000.0);
+  if (users >= 0) {
+    sprintf(temp_str, "%d (%d ms)", users, duration);
+  } else {
+    sprintf(temp_str, "%3.1f(%d ms)/%5.3fs", rate, duration, (double)rate_period_ms / 1000.0);
+  }
   unsigned long long total_calls = display_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + display_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated);
   if( toolMode == MODE_SERVER) {
     fprintf
@@ -734,9 +738,12 @@ void print_stats_in_file(FILE * f, int last)
        total_calls,
        TRANSPORT_TO_STRING(transport));
   } else {
-    fprintf
-      (f,
-       "  Call-rate(length)     Port   Total-time  Total-calls  Remote-host" SIPP_ENDL
+    if (users >= 0) {
+      fprintf(f, "     Users (length)");
+    } else {
+      fprintf(f, "  Call-rate(length)");
+    }
+    fprintf(f, "   Port   Total-time  Total-calls  Remote-host" SIPP_ENDL
        "%19s   %-5d %6d.%02d s     %8llu  %s:%d(%s)" SIPP_ENDL SIPP_ENDL,
        temp_str,
        local_port,
@@ -1445,6 +1452,41 @@ void set_rate(double new_rate)
   }
 }
 
+void set_users(int new_users)
+{
+  if (new_users < 0) {
+    new_users = 0;
+  }
+  assert(users >= 0);
+
+  if(toolMode == MODE_SERVER) {
+    rate = 0;
+    open_calls_allowed = 0;
+  }
+
+  if (users < new_users ) {
+    while (users < new_users) {
+      int userid;
+      if (!retiredUsers.empty()) {
+	userid = retiredUsers.back();
+	retiredUsers.pop_back();
+      } else {
+	userid = users + 1;
+	userVarMap[userid] = new VariableTable(userVariables);
+      }
+      freeUsers.push_front(userid);
+      users++;
+    }
+  }
+
+  users = open_calls_allowed = new_users;
+
+  last_rate_change_time = clock_tick;
+  calls_since_last_rate_change = 0;
+
+  assert(open_calls_user_setting);
+}
+
 void sipp_sigusr1(int /* not used */)
 {
   /* Smooth exit: do not place any new calls and exit */
@@ -1498,29 +1540,49 @@ bool process_key(int c) {
       break;
 
     case '+':
-      set_rate(rate + 1 * rate_scale);
+      if (users >= 0) {
+	set_users((int)(users + 1 * rate_scale));
+      } else {
+	set_rate(rate + 1 * rate_scale);
+      }
       print_statistics(0);
       break;
 
     case '-':
-      set_rate(rate - 1 * rate_scale);
+      if (users >= 0) {
+	set_users((int)(users - 1 * rate_scale));
+      } else {
+	set_rate(rate - 1 * rate_scale);
+      }
       print_statistics(0);
       break;
 
     case '*':
-      set_rate(rate + 10 * rate_scale);
+      if (users >= 0) {
+	set_users((int)(users + 10 * rate_scale));
+      } else {
+	set_rate(rate + 10 * rate_scale);
+      }
       print_statistics(0);
       break;
 
     case '/':
-      set_rate(rate - 10 * rate_scale);
+      if (users >= 0) {
+	set_users((int)(users - 10 * rate_scale));
+      } else {
+	set_rate(rate - 10 * rate_scale);
+      }
       print_statistics(0);
       break;
 
     case 'p':
       if(paused) { 
 	paused = 0;
-	set_rate(rate);
+	if (users >= 0) {
+	  set_users(users);
+	} else {
+	  set_rate(rate);
+	}
       } else {
 	paused = 1;
       }
@@ -1572,7 +1634,10 @@ void process_set(char *what) {
   if (!strcmp(what, "rate")) {
     char *end;
     double drest = strtod(rest, &end);
-    if (*end) {
+
+    if (users >= 0) {
+      WARNING("Rates can not be set in a user-based benchmark.");
+    } else if (*end) {
       WARNING("Invalid rate value: \"%s\"", rest);
     } else {
       set_rate(drest);
@@ -1584,6 +1649,19 @@ void process_set(char *what) {
       WARNING("Invalid rate-scale value: \"%s\"", rest);
     } else {
       rate_scale = drest;
+    }
+  } else if (!strcmp(what, "users")) {
+    char *end;
+    int urest = strtol(rest, &end, 0);
+
+    if (users < 0) {
+      WARNING("Users can not be changed at run time for a rate-based benchmark.");
+    } else if (*end) {
+      WARNING("Invalid users value: \"%s\"", rest);
+    } else if (urest < 0) {
+      WARNING("Invalid users value: \"%s\"", rest);
+    } else {
+      set_users(urest);
     }
   } else if (!strcmp(what, "limit")) {
     char *end;
@@ -3240,7 +3318,7 @@ void traffic_thread()
       unsigned long long  current_calls = main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall);
       unsigned long long total_calls = main_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + main_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated);
 
-      if (users) {
+      if (users >= 0) {
 	calls_to_open = ((l = (users - current_calls)) > 0) ? l : 0;
       } else {
 	calls_to_open = (unsigned int)
@@ -3261,7 +3339,7 @@ void traffic_thread()
             {
 	      /* Associate a user with this call, if we are in users mode. */
 	      int userid = 0;
-	      if (users) {
+	      if (users >= 0) {
 		userid = freeUsers.back();
 		freeUsers.pop_back();
 	      }
@@ -3783,7 +3861,13 @@ void print_last_stats()
 void freeInFiles() {
   for (file_map::iterator file_it = inFiles.begin(); file_it != inFiles.end(); file_it++) {
     delete file_it->second;
-    //inFiles.erase(file_it->first);
+  }
+}
+
+void freeUserVarMap() {
+  for (int_vt_map::iterator vt_it = userVarMap.begin(); vt_it != userVarMap.end(); vt_it++) {
+    vt_it->second->putTable();
+    userVarMap[vt_it->first] = NULL;
   }
 }
 
@@ -3796,8 +3880,8 @@ void releaseGlobalAllocations()
   delete ooc_scenario;
   free_default_messages();
   freeInFiles();
+  freeUserVarMap();
   delete globalVariables;
-  delete userVariables;
 }
 
 void stop_all_traces()

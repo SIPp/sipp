@@ -1394,9 +1394,18 @@ void scenario::getActionForThisMessage()
       currentRegExp = NULL;
     } /* end !strcmp(actionElem, "ereg") */ else if(!strcmp(actionElem, "log")) {
       if(ptr = xp_get_value((char *)"message")) {
-	tmpAction->setActionType(CAction::E_AT_LOG_TO_FILE);
 	tmpAction->setMessage(ptr);
+      } else {
+	ERROR("Log message without a message!");
       }
+      tmpAction->setActionType(CAction::E_AT_LOG_TO_FILE);
+    } else if(!strcmp(actionElem, "warning")) {
+      if(ptr = xp_get_value((char *)"message")) {
+	tmpAction->setMessage(ptr);
+      } else {
+	ERROR("Warning message without a message!");
+      }
+      tmpAction->setActionType(CAction::E_AT_LOG_WARNING);
     } else if(!strcmp(actionElem, "assign")) {
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_VALUE);
       handle_arithmetic(tmpAction, "assign");

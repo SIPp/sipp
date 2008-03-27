@@ -113,6 +113,8 @@ void CAction::afficheInfo()
       printf("Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
   } else if (M_action == E_AT_LOG_TO_FILE) {
       printf("Type[%d] - message[%-32.32s]", M_action, M_message);
+  } else if (M_action == E_AT_LOG_WARNING) {
+      printf("Type[%d] - warning[%-32.32s]", M_action, M_message);
   } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
       char tmp[40];
       M_distribution->textDescr(tmp, sizeof(tmp));

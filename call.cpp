@@ -517,7 +517,11 @@ call::~call()
     delete m_lineNumber;
   }
   if (userId) {
-    freeUsers.push_front(userId);
+    if (call_scenario->stats->GetStat(CStat::CPT_C_CurrentCall) >= open_calls_allowed) {
+      retiredUsers.push_front(userId);
+    } else {
+      freeUsers.push_front(userId);
+    }
   }
 
   if (txnID) {
@@ -3222,6 +3226,9 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	} else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
             LOG_MSG("%s\n", x);
+	} else if (currentAction->getActionType() == CAction::E_AT_LOG_WARNING) {
+            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            WARNING("%s", x);
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
 
             if (currentAction->getCmdLine()) {

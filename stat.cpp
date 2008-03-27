@@ -1379,9 +1379,13 @@ void CStat::dumpData ()
   (*M_outputStream) << formatTime(&M_plStartTime)             << stat_delimiter;
   (*M_outputStream) << formatTime(&currentTime)               << stat_delimiter
                     << msToHHMMSS(localElapsedTime)           << stat_delimiter;
-  (*M_outputStream) << msToHHMMSS(globalElapsedTime)          << stat_delimiter
-                    << rate                                   << stat_delimiter
-                    << realInstantCallRate                    << stat_delimiter
+  (*M_outputStream) << msToHHMMSS(globalElapsedTime)          << stat_delimiter;
+  if (users >= 0) {
+    (*M_outputStream) << users                                << stat_delimiter;
+  } else {
+    (*M_outputStream) << rate                                 << stat_delimiter;
+  }
+  (*M_outputStream) << realInstantCallRate                    << stat_delimiter
                     << averageCallRate                        << stat_delimiter
                     << M_counters[CPT_PL_IncomingCallCreated] << stat_delimiter
                     << M_counters[CPT_C_IncomingCallCreated]  << stat_delimiter
