@@ -173,10 +173,12 @@ int FileContents::getField(int lineNum, int field, char *dest, int len) {
     curfield --;
   } while (oldpos != string::npos);
 
+
   if (curfield) {
       WARNING("Field %d not found in the file %s", field, fileName);
       return 0;
   }
+
 
   if (string::npos == oldpos) {
     return 0;
@@ -223,6 +225,7 @@ int FileContents::getField(int lineNum, int field, char *dest, int len) {
 	  dest[copied++] = s[i];
 	}
       }
+      dest[copied] = '\0';
       return copied;
     } else {
       return snprintf(dest, len, "%s", x.c_str());
