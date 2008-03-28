@@ -1492,6 +1492,15 @@ void scenario::getActionForThisMessage()
       } else {
 	ERROR("Invalid 'compare' parameter: %s", ptr);
       }
+    } else if(!strcmp(actionElem, "verifyauth")) {
+#ifdef _USE_OPENSSL
+      tmpAction->setVarId(xp_get_var("assign_to", "verifyauth"));
+      tmpAction->setMessage(xp_get_string("username", "verifyauth"), 0);
+      tmpAction->setMessage(xp_get_string("password", "verifyauth"), 1);
+      tmpAction->setActionType(CAction::E_AT_VERIFY_AUTH);
+#else
+      ERROR("The verifyauth action requires OpenSSL support.");
+#endif
     } else if(!strcmp(actionElem, "strcmp")) {
       tmpAction->setVarId(xp_get_var("assign_to", "strcmp"));
       tmpAction->setVarInId(xp_get_var("variable", "test"));

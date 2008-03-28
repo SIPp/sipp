@@ -3146,6 +3146,40 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	  gettimeofday(&tv, NULL);
 	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)tv.tv_sec);
 	  M_callVariableTable->getVar(currentAction->getSubVarId(0))->setDouble((double)tv.tv_usec);
+#ifdef _USE_OPENSSL
+        } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_AUTH) {
+	  bool result;
+	  char *lf;
+	  char *end;
+
+	  lf = strchr(msg, '\n');
+	  end = strchr(msg, ' ');
+
+	  if (!lf || !end) {
+	    result = false;
+	  } else if (lf < end) {
+	    result = false;
+	  } else {
+	    char *auth = get_header(msg, "Authorization:", true);
+	    char *method = (char *)malloc(end - msg + 1);
+	    strncpy(method, msg, end - msg);
+	    method[end - msg] = '\0';
+
+	    /* Generate the username to verify it against. */
+            char *tmp = createSendingMessage(currentAction->getMessage(0), -2 /* do not add crlf*/);
+	    char *username = strdup(tmp);
+	    /* Generate the password to verify it against. */
+            tmp= createSendingMessage(currentAction->getMessage(1), -2 /* do not add crlf*/);
+	    char *password = strdup(tmp);
+
+	    result = verifyAuthHeader(username, password, method, auth);
+
+	    free(username);
+	    free(password);
+	  }
+
+	  M_callVariableTable->getVar(currentAction->getVarId())->setBool(result);
+#endif
         } else if (currentAction->getActionType() == CAction::E_AT_JUMP) {
 	  double operand = get_rhs(currentAction);
 	  msg_index = (int)operand - 1;

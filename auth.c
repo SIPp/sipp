@@ -318,6 +318,83 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
     return 1;
 }
 
+int verifyAuthHeader(char * user, char * password, char * method, char * auth) {
+  char algo[MAX_HEADER_LEN];
+  char result[HASH_HEX_SIZE];
+  char response[HASH_HEX_SIZE + 2];
+  char realm[MAX_HEADER_LEN];
+  char nonce[MAX_HEADER_LEN];
+  char uri[MAX_HEADER_LEN];
+  char *start, *end;
+  int len;
+
+  if ((start = stristr(auth, "Digest")) == NULL) {
+    WARNING("verifyAuthHeader: authentication must be digest is %s", auth);
+    return 0;
+  }
+
+  len = getAuthParameter("algorithm", auth, algo, sizeof(algo));
+  if (algo[0] == '\0') {
+    strcpy(algo, "MD5");
+  }
+  if (strncasecmp(algo, "MD5", 3)==0) {
+    getAuthParameter("realm", auth, realm, sizeof(realm));
+    getAuthParameter("uri", auth, uri, sizeof(uri));
+    getAuthParameter("nonce", auth, nonce, sizeof(nonce));
+    createAuthResponseMD5(user,password,strlen(password),method,uri,realm,nonce,result);
+    getAuthParameter("response", auth, response, sizeof(response));
+    return !strcmp(result, response);
+  }else{
+    WARNING("createAuthHeader: authentication must use MD5 or AKAv1-MD5, value is '%s'", algo);
+    return 0;
+  }
+}
+
+int createAuthResponseMD5(char * user, char * password, int password_len, char * method,
+                     char * uri, char * realm, char *nonce, char * result) {
+    unsigned char ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
+    unsigned char resp[MD5_HASH_SIZE];
+    unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
+    char tmp[MAX_HEADER_LEN];
+    char *start, *end;
+    MD5_CTX Md5Ctx;
+
+    // Load in A1 
+    MD5_Init(&Md5Ctx);
+    MD5_Update(&Md5Ctx, user, strlen(user));
+    MD5_Update(&Md5Ctx, ":", 1);
+    MD5_Update(&Md5Ctx, realm, strlen(realm));
+    MD5_Update(&Md5Ctx, ":", 1);
+    MD5_Update(&Md5Ctx, password, password_len);
+    MD5_Final(ha1, &Md5Ctx);
+    hashToHex(&ha1[0], &ha1_hex[0]);
+
+    if (auth_uri) {
+      sprintf(tmp, "sip:%s", auth_uri);
+    } else {
+      strcpy(tmp, uri);
+    }
+
+    // Load in A2 
+    MD5_Init(&Md5Ctx);
+    MD5_Update(&Md5Ctx, method, strlen(method));
+    MD5_Update(&Md5Ctx, ":", 1);
+    MD5_Update(&Md5Ctx, tmp, strlen(tmp));
+    MD5_Final(ha2, &Md5Ctx);
+    hashToHex(&ha2[0], &ha2_hex[0]);
+
+    MD5_Init(&Md5Ctx);
+    MD5_Update(&Md5Ctx, &ha1_hex, HASH_HEX_SIZE);
+    MD5_Update(&Md5Ctx, ":", 1);
+    MD5_Update(&Md5Ctx, nonce, strlen(nonce));
+    MD5_Update(&Md5Ctx, ":", 1);
+    MD5_Update(&Md5Ctx, &ha2_hex, HASH_HEX_SIZE);
+    MD5_Final(resp, &Md5Ctx);
+    hashToHex(&resp[0], result);
+
+    return 1;
+}
+
 
 /*"
 ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";*/
