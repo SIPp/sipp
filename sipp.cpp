@@ -4502,8 +4502,6 @@ int main(int argc, char *argv[])
 	case SIPP_OPTION_OOC_SCENARIO:
 	  REQUIRE_ARG();
 	  CHECK_PASS();
-	  REQUIRE_ARG();
-	  CHECK_PASS();
 	  if (!strcmp(argv[argi - 1], "-oocsf")) {
 	    ooc_scenario = new scenario(argv[argi], 0);
 	  } else if (!strcmp(argv[argi - 1], "-oocsn")) {
