@@ -194,6 +194,10 @@ VariableTable::VariableTable(VariableTable *parent, int size) {
 
   count = 1;
   this->size = size;
+  if (size == 0) {
+    variableTable = NULL;
+    return;
+  }
   variableTable = (CCallVariable **)malloc(size * sizeof(CCallVariable *));
   if (!variableTable) {
     ERROR("Could not allocate variable table!");
@@ -218,6 +222,10 @@ VariableTable::VariableTable(AllocVariableTable *src) {
     assert(this->parent);
   }
   this->size = src->size;
+  if (size == 0) {
+    variableTable = NULL;
+    return;
+  }
 
   variableTable = (CCallVariable **)malloc(size * sizeof(CCallVariable *));
   if (!variableTable) {
