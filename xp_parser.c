@@ -279,8 +279,36 @@ char * xp_get_value(const char * name)
           (*ptr ==  ' ')    ) { ptr ++; }
     ptr++;
     if(*ptr) {
-      while((*ptr) && ((*ptr!='"') || (*(ptr-1)=='\\'))) {
-        buffer[index++] = *ptr++;
+      while(*ptr) {
+	if (*ptr == '\\') {
+	  ptr++;
+	  switch(*ptr) {
+	    case '\\':
+	      buffer[index++] = '\\';
+	      break;
+	    case '"':
+	      buffer[index++] = '"';
+	      break;
+	    case 'n':
+	      buffer[index++] = '\n';
+	      break;
+	    case 't':
+	      buffer[index++] = '\t';
+	      break;
+	    case 'r':
+	      buffer[index++] = '\r';
+	      break;
+	    default:
+	      buffer[index++] = '\\';
+	      buffer[index++] = *ptr;
+	      break;
+	  }
+	  ptr++;
+	} else if (*ptr=='"') {
+	  break;
+	} else {
+	  buffer[index++] = *ptr++;
+	}
         if(index > XP_MAX_FILE_LEN) return NULL;
       }
       buffer[index] = 0;
