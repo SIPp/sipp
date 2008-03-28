@@ -241,8 +241,7 @@ private:
   static void readInputFileContents(const char* fileName);
   static void dumpFileContents(void);
 
-  void getFieldFromInputFile(const char* fileName, int field, char*& dest);
-  void getFieldFromInputFile(const char* keyword, char*& dest);
+  void getFieldFromInputFile(const char* fileName, int field, SendingMessage *line, char*& dest);
 
   /* Associate a user with this call. */
   void setUser(int userId);

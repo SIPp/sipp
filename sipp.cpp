@@ -113,6 +113,7 @@ struct sipp_option {
 #define SIPP_OPTION_LONG_LONG     30
 #define SIPP_OPTION_DEFAULTS      31
 #define SIPP_OPTION_OOC_SCENARIO  32
+#define SIPP_OPTION_INDEX_FILE    33
 
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
@@ -156,9 +157,12 @@ struct sipp_option options_table[] = {
 	{"inf", "Inject values from an external CSV file during calls into the scenarios.\n"
                 "First line of this file say whether the data is to be read in sequence (SEQUENTIAL) or random (RANDOM) order.\n"
 		"Each line corresponds to one call and has one or more ';' delimited data fields. Those fields can be referred as [field0], [field1], ... in the xml scenario file.", SIPP_OPTION_INPUT_FILE, NULL, 1},
+	{"infindex", "file field\nCreate an index of file using field.  For example -inf users.csv -infindex users.csv 0 creates an index on the first key.", SIPP_OPTION_INDEX_FILE, NULL, 1 },
+
 	{"ip_field", "Set which field from the injection file contains the IP address from which the client will send its messages.\n"
                      "If this option is omitted and the '-t ui' option is present, then field 0 is assumed.\n"
 		     "Use this option together with '-t ui'", SIPP_OPTION_INT, &peripfield, 1},
+
 
 	{"l", "Set the maximum number of simultaneous calls. Once this limit is reached, traffic is decreased until the number of open calls goes down. Default:\n"
 	      "  (3 * call_duration (s) * rate).", SIPP_OPTION_LIMIT, NULL, 1},
@@ -4349,6 +4353,34 @@ int main(int argc, char *argv[])
 	  }
 	  if (!default_file) {
 	    default_file = argv[argi];
+	  }
+	  break;
+	case SIPP_OPTION_INDEX_FILE:
+	  REQUIRE_ARG();
+	  REQUIRE_ARG();
+	  CHECK_PASS();
+	  {
+	    char *fileName = argv[argi - 1];
+	    char *endptr;
+	    char tmp[SIPP_MAX_MSG_SIZE];
+	    int field;
+
+	    if (inFiles.find(fileName) == inFiles.end()) {
+	      ERROR("Could not find file for -infindex: %s", argv[argi - 1]);
+	    }
+
+	    field = strtoul(argv[argi], &endptr, 0);
+	    if (*endptr) {
+	      ERROR("Invalid field specification for -infindex: %s", argv[argi]);
+	    }
+
+	    infIndex[fileName] = new str_int_map;
+
+	    for (int line = 0; line < inFiles[fileName]->numLines(); line++) {
+	      inFiles[fileName]->getField(line, field, tmp, SIPP_MAX_MSG_SIZE);
+	      str_int_map *indmap = infIndex[fileName];
+	      indmap->insert(pair<str_int_map::key_type,int>(str_int_map::key_type(tmp), line));
+	    }
 	  }
 	  break;
 	case SIPP_OPTION_SETFLAG:

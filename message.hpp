@@ -138,6 +138,7 @@ struct MessageComponent {
     struct {
       char *filename;
       int field;
+      SendingMessage *line;
     } field_param;
   } comp_param;
 };

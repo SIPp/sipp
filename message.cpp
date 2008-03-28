@@ -239,6 +239,13 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 	  if (inFiles.find(newcomp->comp_param.field_param.filename) == inFiles.end()) {
 	    ERROR("Invalid injection file: %s\n", fileName);
 	  }
+
+	  char line[KEYWORD_SIZE];
+	  getKeywordParam(keyword, "line=", line);
+	  if (line[0]) {
+	    /* Turn this into a new message component. */
+	    newcomp->comp_param.field_param.line = new SendingMessage(msg_scenario, line, true);
+	  }
         } else if(*keyword == '$') {
 	  newcomp->type = E_Message_Variable;
 	  if (!msg_scenario) {

@@ -47,6 +47,7 @@ class CAction
       E_AT_ASSIGN_FROM_INDEX,
       E_AT_ASSIGN_FROM_GETTIMEOFDAY,
       E_AT_JUMP,
+      E_AT_LOOKUP,
       E_AT_PAUSE_RESTORE,
       E_AT_LOG_TO_FILE,
       E_AT_LOG_WARNING,

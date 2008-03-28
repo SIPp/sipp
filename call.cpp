@@ -594,7 +594,7 @@ bool call::connect_socket_if_needed()
       }
     } else {
       char *tmp = peripaddr;
-      getFieldFromInputFile(ip_file, peripfield, tmp);
+      getFieldFromInputFile(ip_file, peripfield, NULL, tmp);
       map<string, struct sipp_socket *>::iterator i;
       i = map_perip_fd.find(peripaddr);
       if (i == map_perip_fd.end()) {
@@ -2105,7 +2105,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
       }
       case E_Message_Injection: {
 	char *orig_dest = dest;
-	getFieldFromInputFile(comp->comp_param.field_param.filename, comp->comp_param.field_param.field, dest);
+	getFieldFromInputFile(comp->comp_param.field_param.filename, comp->comp_param.field_param.field, comp->comp_param.field_param.line, dest);
 	/* We are injecting an authentication line. */
 	if (char *tmp = strstr(orig_dest, "[authentication")) {
 	  if (auth_marker) {
@@ -3146,6 +3146,19 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	  gettimeofday(&tv, NULL);
 	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)tv.tv_sec);
 	  M_callVariableTable->getVar(currentAction->getSubVarId(0))->setDouble((double)tv.tv_usec);
+        } else if (currentAction->getActionType() == CAction::E_AT_LOOKUP) {
+	  /* Create strings from the sending messages. */
+	  char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
+	  char *key = strdup(createSendingMessage(currentAction->getMessage(1), -2));
+	  double value = -1;
+
+	  str_int_map::iterator index_it = infIndex[file]->find(key);
+	  if (index_it != infIndex[file]->end()) {
+		value = index_it->second;
+	  }
+	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
+	  free(file);
+	  free(key);
 #ifdef _USE_OPENSSL
         } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_AUTH) {
 	  bool result;
@@ -3411,12 +3424,24 @@ void call::extractSubMessage(char * msg, char * matchingString, char* result, bo
   }
 }
 
-void call::getFieldFromInputFile(const char *fileName, int field, char*& dest)
+void call::getFieldFromInputFile(const char *fileName, int field, SendingMessage *lineMsg, char*& dest)
 {
   if (inFiles.find(fileName) == inFiles.end()) {
     ERROR("Invalid injection file: %s", fileName);
   }
   int line = (*m_lineNumber)[fileName];
+  if (lineMsg) {
+	char lineBuffer[20];
+	char *endptr;
+	createSendingMessage(lineMsg, -2, lineBuffer, sizeof(lineBuffer));
+	line = (int) strtod(lineBuffer, &endptr);
+	if (*endptr != 0) {
+	  ERROR("Invalid line number generated: '%s'", lineBuffer);
+	}
+	if (line > inFiles[fileName]->numLines()) {
+	  line = -1;
+	}
+  }
   if (line < 0) {
     return;
   }

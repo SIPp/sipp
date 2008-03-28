@@ -1501,6 +1501,11 @@ void scenario::getActionForThisMessage()
 #else
       ERROR("The verifyauth action requires OpenSSL support.");
 #endif
+    } else if(!strcmp(actionElem, "lookup")) {
+      tmpAction->setVarId(xp_get_var("assign_to", "lookup"));
+      tmpAction->setMessage(xp_get_string("file", "lookup"), 0);
+      tmpAction->setMessage(xp_get_string("key", "lookup"), 1);
+      tmpAction->setActionType(CAction::E_AT_LOOKUP);
     } else if(!strcmp(actionElem, "strcmp")) {
       tmpAction->setVarId(xp_get_var("assign_to", "strcmp"));
       tmpAction->setVarInId(xp_get_var("variable", "test"));
