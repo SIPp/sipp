@@ -31,6 +31,8 @@ class CSample;
 #include "prepare_pcap.h"
 #endif
 
+#define MAX_ACTION_MESSAGE 2
+
 class CAction
 {
   public:
@@ -111,7 +113,7 @@ class CAction
     int            getOccurence();
     char*          getLookingChar();
     char*          getRegularExpression();
-    SendingMessage *getMessage();  /* log specific function  */
+    SendingMessage *getMessage(int n = 0);  /* log specific function  */
     SendingMessage *getCmdLine();  /* exec specific function */
     T_IntCmdType   getIntCmd();   /* exec specific function */
 #ifdef PCAPPLAY
@@ -132,7 +134,7 @@ class CAction
     void setScenario     (scenario *     P_scenario);
     void setRegExp       (char*		 P_value);  /* ereg specific function. */
     int  executeRegExp   (char* P_string, VariableTable *P_callVarTable);
-    void setMessage      (char*          P_value);  /* log specific function  */
+    void setMessage      (char*          P_value, int n = 0);  /* log specific function  */
     void setCmdLine      (char*          P_value);  /* exec specific function */
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
     void setDistribution (CSample *      P_value);  /* sample specific function  */
@@ -171,8 +173,8 @@ class CAction
 
       char*          M_lookingChar;
       /* log specific member  */
-      SendingMessage *M_message;
-      char *	     M_message_str;
+      SendingMessage *M_message[MAX_ACTION_MESSAGE];
+      char *	     M_message_str[MAX_ACTION_MESSAGE];
       /* exec specific member */
       SendingMessage *M_cmdLine;
       char*          M_cmdLine_str;

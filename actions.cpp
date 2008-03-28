@@ -112,9 +112,9 @@ void CAction::afficheInfo()
   } else if (M_action == E_AT_EXEC_INTCMD) {
       printf("Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
   } else if (M_action == E_AT_LOG_TO_FILE) {
-      printf("Type[%d] - message[%-32.32s]", M_action, M_message);
+      printf("Type[%d] - message[%-32.32s]", M_action, M_message[0]);
   } else if (M_action == E_AT_LOG_WARNING) {
-      printf("Type[%d] - warning[%-32.32s]", M_action, M_message);
+      printf("Type[%d] - warning[%-32.32s]", M_action, M_message[0]);
   } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
       char tmp[40];
       M_distribution->textDescr(tmp, sizeof(tmp));
@@ -126,7 +126,7 @@ void CAction::afficheInfo()
   } else if (M_action == E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
       printf("Type[%d] - assign gettimeofday[%d, %d]", M_action, display_scenario->allocVars->getName(M_varId));
   } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
-      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message);
+      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message[0]);
   } else if (M_action == E_AT_JUMP) {
       printf("Type[%d] - jump varInId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
   } else if (M_action == E_AT_PAUSE_RESTORE) {
@@ -165,7 +165,7 @@ int            CAction::getOccurence()    { return(M_occurence);    }
 int            CAction::getVarId()        { return(M_varId);        }
 int            CAction::getVarInId()      { return(M_varInId);      }
 char*          CAction::getLookingChar()  { return(M_lookingChar);  }
-SendingMessage *CAction::getMessage()      { return(M_message);      }
+SendingMessage *CAction::getMessage(int n)      { return(M_message[n]);      }
 SendingMessage *CAction::getCmdLine()      { return(M_cmdLine);      }
 CSample*       CAction::getDistribution() { return(M_distribution); }
 double         CAction::getDoubleValue()  { return(M_doubleValue);  }
@@ -250,18 +250,20 @@ void CAction::setLookingChar  (char*          P_value)
   }
 }
 
-void CAction::setMessage  (char*          P_value)
+void CAction::setMessage  (char*          P_value, int n)
 {
-  if(M_message != NULL)
+  if(M_message[n] != NULL)
   {
-    delete [] M_message;
-    M_message = NULL;
+    delete M_message[n];
+    M_message[n] = NULL;
   }
+  free(M_message_str[n]);
+  M_message_str[n] = NULL;
 
   if(P_value != NULL)
   { 
-    M_message_str = strdup(P_value);
-    M_message = new SendingMessage(M_scenario, P_value, true /* skip sanity */);
+    M_message_str[n] = strdup(P_value);
+    M_message[n] = new SendingMessage(M_scenario, P_value, true /* skip sanity */);
   }
 }
 
@@ -427,7 +429,9 @@ void CAction::setAction(CAction P_action)
   setCaseIndep    ( P_action.getCaseIndep()    ); 
   setOccurence    ( P_action.getOccurence()   );
   setHeadersOnly  ( P_action.getHeadersOnly()  );
-  setMessage      ( P_action.M_message_str     );
+  for (L_i = 0; L_i < MAX_ACTION_MESSAGE; L_i++) {
+    setMessage(P_action.M_message_str[L_i], L_i);
+  }
   setRegExp       ( P_action.M_regularExpression);
   setCmdLine      ( P_action.M_cmdLine_str     );
   setIntCmd       ( P_action.M_IntCmd          );
@@ -452,7 +456,10 @@ CAction::CAction(scenario *scenario)
   M_caseIndep    = false;
   M_occurence    = 1;
   M_headersOnly  = true;   
-  M_message      = NULL;
+  for (int i = 0; i < MAX_ACTION_MESSAGE; i++) {
+    M_message[i]   = NULL;
+    M_message_str[i] = NULL;
+  }
   M_cmdLine      = NULL;
   M_IntCmd       = E_INTCMD_INVALID;
   M_doubleValue  = 0;
@@ -461,8 +468,6 @@ CAction::CAction(scenario *scenario)
 #ifdef PCAPPLAY
   M_pcapArgs     = NULL;
 #endif
-  M_message	 = NULL;
-  M_message_str	 = NULL;
   M_cmdLine_str	 = NULL;
   M_scenario     = scenario;
   M_regExpSet    = false;
@@ -476,15 +481,14 @@ CAction::~CAction()
     delete [] M_lookingChar;
     M_lookingChar = NULL;
   }
-  if(M_message != NULL)
-  {
-    delete M_message;
-    M_message = NULL;
-  }
-  if(M_message_str != NULL)
-  {
-    free(M_message_str);
-    M_message_str = NULL;
+  for (int i = 0; i < MAX_ACTION_MESSAGE; i++) {
+    if(M_message[i] != NULL)
+    {
+      delete M_message[i];
+      M_message[i] = NULL;
+    }
+    free(M_message_str[i]);
+    M_message_str[i] = NULL;
   }
   if(M_cmdLine != NULL)
   {
