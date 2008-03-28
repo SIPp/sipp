@@ -177,6 +177,39 @@ int createAuthHeader(char * user, char * password, char * method,
 }
 
 
+int getAuthParameter(char *name, char *header, char *result, int len) {
+  char *start, *end;
+
+  start = stristr(header, name);
+  if (!start) {
+    result[0] = '\0';
+    return 0;
+  }
+  start += strlen(name);
+  if (*start++ != '=') {
+    return getAuthParameter(name, start, result, len);
+  }
+  if (*start == '"') {
+    start++;
+    end = start;
+    while (*end != '"' && *end) {
+	end++;
+    }
+  } else {
+    end = start + strcspn(start, " ,\"\r\n");
+  }
+
+  if (end - start >= len) {
+    strncpy(result, start, len - 1);
+    result[len - 1] = '\0';
+  } else {
+    strncpy(result, start, end - start);
+    result[end - start] = '\0';
+  }
+
+  return end - start;
+}
+
 int createAuthHeaderMD5(char * user, char * password, int password_len, char * method,
                      char * uri, char * msgbody, char * auth, 
                      char * algo, char * result) {
@@ -193,38 +226,21 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
 
     // Extract the Auth Type - If not present, using 'none' 
     cnonce[0] = '\0';
-    authtype[0] = '\0';
-    if ((start = stristr(auth, "qop=")) != NULL) {
-        start = start + strlen("qop=");
-        if (*start == '"') { start++; }
-        end = start + strcspn(start, " ,\"\r\n");
-        strncpy(authtype, start, end - start);
-        authtype[end - start] ='\0';
+    if (getAuthParameter("qop", auth, authtype, sizeof(authtype))) {
         sprintf(cnonce, "%x", rand());
         sprintf(nc, "%08x", mync);
     }
 
     // Extract the Opaque value - if present
-    opaque[0] = '\0';
-    if ((start = stristr(auth, "opaque=")) != NULL) {
-        start = start + strlen("opaque=");
-        if (*start == '"') { start++; }
-        end = start + strcspn(start, " ,\"\r\n");
-        strncpy(opaque, start, end - start);
-        opaque[end - start] ='\0';
+    if (getAuthParameter("opaque", auth, opaque, sizeof(opaque))) {
         has_opaque = 1;
     }
 
     // Extract the Realm 
-    if ((start = stristr(auth, "realm=")) == NULL) {
+    if (!getAuthParameter("realm", auth, tmp, sizeof(tmp))) {
         sprintf(result, "createAuthHeaderMD5: couldn't parse realm in '%s'", auth);
         return 0;
     }
-    start = start + strlen("realm=");
-    if (*start == '"') { start++; }       
-    end = start + strcspn(start, ",\"\r\n");
-    strncpy(tmp, start, end - start);
-    tmp[end - start] ='\0';
 
     // Load in A1 
     MD5_Init(&Md5Ctx);
@@ -271,15 +287,10 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
     sprintf(result, "%s,uri=\"%s\"",result,tmp);
 
     // Extract the Nonce 
-    if ((start = stristr(auth, "nonce=")) == NULL) {
+    if (!getAuthParameter("nonce", auth, tmp, sizeof(tmp))) {
         sprintf(result, "createAuthHeader: couldn't parse nonce");
         return 0;
     }
-    start = start + strlen("nonce=");
-    if (*start == '"') { start++; }
-    end = start + strcspn(start, " ,\"\r\n");
-    strncpy(tmp, start, end - start);
-    tmp[end - start] ='\0';
 
     MD5_Init(&Md5Ctx);
     MD5_Update(&Md5Ctx, &ha1_hex, HASH_HEX_SIZE);
