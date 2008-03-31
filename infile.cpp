@@ -71,7 +71,7 @@ FileContents::FileContents(const char *fileName) {
     useprintf++;
     char *endptr;
     virtualLines = strtoul(useprintf, &endptr, 0);
-    if (*endptr && *endptr != '\n' && *endptr != ',') {
+    if (*endptr && *endptr != '\r' && *endptr != '\n' && *endptr != ',') {
       ERROR("Invalid file printf specification for (invalid end character '%c') %s:%s\n", *endptr, fileName, line);
     }
     if (virtualLines == 0) {
