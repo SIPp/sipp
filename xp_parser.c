@@ -73,6 +73,43 @@ int xp_replace(char *source, char *dest, char *search, char *replace)
   return number;
 }
 
+/* This finds the end of something like <send foo="bar">, and does not recurse
+ * into other elements. */
+char * xp_find_start_tag_end(char *ptr)
+{
+  char *optr = ptr;
+  while(*ptr) {
+    if (*ptr == '<') {
+      if ((strstr(ptr,"<!--") == ptr)) {
+        char * comment_end = strstr(ptr, "-->");
+        if(!comment_end) return NULL;
+        ptr = comment_end + 3;
+      } else {
+	return NULL;
+      }
+    } else  if((*ptr == '/') && (*(ptr+1) == '>')) {
+      return ptr;
+    } else if (*ptr == '"') {
+      ptr++;
+      while(*ptr) {
+	if (*ptr == '\\') {
+	  ptr += 2;
+	} else if (*ptr=='"') {
+	  ptr++;
+	  break;
+	} else {
+	  ptr++;
+	}
+      }
+    } else if (*ptr == '>') {
+      return ptr;
+    } else {
+      ptr++;
+    }
+  }
+  return ptr;
+}
+
 char * xp_find_local_end()
 {
   char * ptr = xp_position[xp_stack];
@@ -101,6 +138,16 @@ char * xp_find_local_end()
     } else  if((*ptr == '/') && (*(ptr+1) == '>')) {
       level --;
       if(level < 0) return ptr;
+    } else if (*ptr == '"') {
+      ptr++;
+      while(*ptr) {
+	if (*ptr == '\\') {
+	  ptr ++; /* Skip the slash. */
+	} else if (*ptr=='"') {
+	  break;
+	}
+	ptr++;
+      }
     }
     ptr++;
   }
@@ -191,7 +238,7 @@ char * xp_open_element(int index)
           if(index) {
             index--;
           } else {
-            char * end = strchr(ptr, '>');
+            char * end = xp_find_start_tag_end(ptr + 1);
             char * p;
             if(!end) return NULL;
 
@@ -242,7 +289,7 @@ char * xp_get_value(const char * name)
   static char buffer[XP_MAX_FILE_LEN + 1]; 
   char      * ptr, *end, *check;
   
-  end = strchr(xp_position[xp_stack], '>');
+  end = xp_find_start_tag_end(xp_position[xp_stack] + 1);
   if(!end) return NULL;
 
   ptr = xp_position[xp_stack];
