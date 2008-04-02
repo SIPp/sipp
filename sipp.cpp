@@ -155,8 +155,8 @@ struct sipp_option options_table[] = {
 
 	{"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address.\n", SIPP_OPTION_IP, local_ip, 1},
 	{"inf", "Inject values from an external CSV file during calls into the scenarios.\n"
-                "First line of this file say whether the data is to be read in sequence (SEQUENTIAL) or random (RANDOM) order.\n"
-		"Each line corresponds to one call and has one or more ';' delimited data fields. Those fields can be referred as [field0], [field1], ... in the xml scenario file.", SIPP_OPTION_INPUT_FILE, NULL, 1},
+                "First line of this file say whether the data is to be read in sequence (SEQUENTIAL), random (RANDOM), or user (USER) order.\n"
+		"Each line corresponds to one call and has one or more ';' delimited data fields. Those fields can be referred as [field0], [field1], ... in the xml scenario file.  Several CSV files can be used simultaneously (syntax: -inf f1.csv -inf f2.csv ...)", SIPP_OPTION_INPUT_FILE, NULL, 1},
 	{"infindex", "file field\nCreate an index of file using field.  For example -inf users.csv -infindex users.csv 0 creates an index on the first key.", SIPP_OPTION_INDEX_FILE, NULL, 1 },
 
 	{"ip_field", "Set which field from the injection file contains the IP address from which the client will send its messages.\n"
@@ -260,7 +260,7 @@ struct sipp_option options_table[] = {
               "- l1: TLS with one socket,\n"
               "- ln: TLS with one socket per call,\n"
               "- c1: u1 + compression (only if compression plugin loaded),\n"
-              "- cn: un + compression (only if compression plugin loaded).\n"
+              "- cn: un + compression (only if compression plugin loaded).  This plugin is not provided with sipp.\n"
 	      , SIPP_OPTION_TRANSPORT, NULL, 1},
 
 	{"timeout", "Global timeout. Default unit is seconds.  If this option is set, SIPp quits after nb units (-timeout 20s quits after 20 seconds).", SIPP_OPTION_TIME_SEC, &global_timeout, 1},
@@ -1768,7 +1768,7 @@ void process_trace(char *what) {
     }
     if (on) {
       useMessagef = 1;
-      rotate_messagef();
+      rotate_logfile();
     } else {
       useMessagef = 0;
       fflush(messagef);
