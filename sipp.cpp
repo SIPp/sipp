@@ -177,6 +177,7 @@ struct sipp_option options_table[] = {
 	{"max_retrans", "Maximum number of UDP retransmissions before call ends on timeout.  Default is 5 for INVITE transactions and 7 for others.", SIPP_OPTION_INT, &max_udp_retrans, 1},
 	{"max_invite_retrans", "Maximum number of UDP retransmissions for invite transactions before call ends on timeout.", SIPP_OPTION_INT, &max_invite_retrans, 1},
 	{"max_non_invite_retrans", "Maximum number of UDP retransmissions for non-invite transactions before call ends on timeout.", SIPP_OPTION_INT, &max_non_invite_retrans, 1},
+	{"max_log_size", "What is the limit for error and message log file sizes.", SIPP_OPTION_LONG_LONG, &max_log_size, 1},
 	{"max_socket", "Set the max number of sockets to open simultaneously. This option is significant if you use one socket per call. Once this limit is reached, traffic is distributed over the sockets already opened. Default value is 50000", SIPP_OPTION_MAX_SOCKET, NULL, 1},
 
 	{"mb", "Set the RTP echo buffer size (default: 2048).", SIPP_OPTION_INT, &media_bufsize, 1},
@@ -4704,6 +4705,10 @@ int main(int argc, char *argv[])
     }
   }
 
+  if (ringbuffer_size && max_log_size) {
+    ERROR("Ring Buffer options and maximum log size are mutually exclusive.");
+  }
+
   if (global_lost) {
     lose_packets = 1;
   }
@@ -5665,6 +5670,12 @@ int TRACE_MSG(char *fmt, ...) {
     fflush(messagef);
 
     count += ret;
+
+    if (max_log_size && count > max_log_size) {
+      fclose(messagef);
+      messagef = NULL;
+    }
+
     if (ringbuffer_size && count > ringbuffer_size) {
       rotate_messagef();
       count = 0;
@@ -5684,6 +5695,12 @@ int TRACE_SHORTMSG(char *fmt, ...) {
     fflush(shortmessagef);
 
     count += ret;
+
+    if (max_log_size && count > max_log_size) {
+      fclose(shortmessagef);
+      shortmessagef = NULL;
+    }
+
     if (ringbuffer_size && count > ringbuffer_size) {
       rotate_shortmessagef();
       count = 0;
@@ -5703,6 +5720,12 @@ int LOG_MSG(char *fmt, ...) {
     fflush(logfile);
 
     count += ret;
+
+    if (max_log_size && count > max_log_size) {
+      fclose(logfile);
+      logfile = NULL;
+    }
+
     if (ringbuffer_size && count > ringbuffer_size) {
       rotate_messagef();
       count = 0;

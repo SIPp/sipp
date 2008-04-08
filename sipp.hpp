@@ -444,6 +444,7 @@ extern bool   useCountf                           _DEFVAL(0);
 extern char * scenario_file;
 extern char * slave_cfg_file;
 
+extern unsigned long long max_log_size		  _DEFVAL(0);
 extern unsigned long long ringbuffer_size	  _DEFVAL(0);
 extern int    ringbuffer_files			  _DEFVAL(0);
 
