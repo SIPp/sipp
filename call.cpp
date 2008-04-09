@@ -3546,7 +3546,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
       res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
     }
     
-    computeStat(CStat::E_AUTO_ANSWERED);
+    CStat::globalStat(CStat::E_AUTO_ANSWERED);
     delete this;
     } else {
       WARNING("Do not answer on an unexpected PING for call: %s", (id==NULL)?"none":id);
@@ -3579,7 +3579,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
         old_last_recv_msg = NULL;
       }
     }
-    computeStat(CStat::E_AUTO_ANSWERED);
+    CStat::globalStat(CStat::E_AUTO_ANSWERED);
     return true;
     break;
 
