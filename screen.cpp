@@ -34,6 +34,10 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#ifdef __SUNOS
+#include<stdarg.h>
+#endif
+
 #include <unistd.h>
 
 extern bool    timeout_exit;

@@ -25,7 +25,7 @@
 #define __STAT_H__
 
 
-#define TIME_LENGTH 32
+#define TIME_LENGTH 64
 #define DEFAULT_FILE_NAME (char*)"dumpFile"
 #define DEFAULT_EXTENSION (char*)".csv"
 

@@ -1951,7 +1951,13 @@ void handle_stdin_socket() {
 	command_buffer[0] = '\0';
 	command_mode = 0;
 	printf(SIPP_ENDL);
-      } else if (c == KEY_BACKSPACE || c == KEY_DC) {
+      }
+#ifndef __SUNOS
+      else if (c == KEY_BACKSPACE || c == KEY_DC)
+#else
+      else if (c == 14)
+#endif
+      {
 	int command_len = strlen(command_buffer);
 	if (command_len > 0) {
 	  command_buffer[command_len--] = '\0';
@@ -4935,7 +4941,7 @@ int main(int argc, char *argv[])
     }
 
     int try_counter;
-    int max_tries = user_media_port ? 1 : 10;
+    int max_tries = user_media_port ? 1 : 100;
     media_port = user_media_port ? user_media_port : DEFAULT_MEDIA_PORT;
     for (try_counter = 0; try_counter < max_tries; try_counter++) {
 

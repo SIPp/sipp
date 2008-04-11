@@ -47,7 +47,11 @@
 #include <map>
 #include <set>
 #include <math.h>
+#ifndef __SUNOS
 #include <curses.h>
+#else
+#include <stdarg.h>
+#endif
 
 #if defined(__HPUX) || defined(__SUNOS)
 #include <alloca.h>
