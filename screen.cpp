@@ -250,6 +250,15 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
       rotate_errorf();
       count = 0;
     }
+    if (max_log_size && count > max_log_size) {
+      print_all_responses = 0;
+      if (screen_errorf) {
+	fflush(screen_errorf);
+	fclose(screen_errorf);
+	screen_errorf = NULL;
+	errorf_overwrite = false;
+      }
+    }
   } else if (fatal) {
     fprintf(stderr, "%s", screen_last_error);
     fflush(stderr);
