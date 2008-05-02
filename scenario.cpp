@@ -1636,7 +1636,7 @@ void scenario::getCommonAttributes() {
     if (found_timewait) {
       ERROR("ontimeout labels are not allowed in <timewait> elements.");
     }
-    ontimeoutLabels[length] = ptr;
+    ontimeoutLabels[length] = strdup(ptr);
   }
 }
 
