@@ -106,15 +106,13 @@ void CAction::afficheInfo()
              M_checkIt, display_scenario->allocVars->getName(M_varId));
     }
   } else if (M_action == E_AT_EXECUTE_CMD) {
-    if (M_cmdLine) {
-        printf("Type[%d] - command[%-32.32s]", M_action, M_cmdLine);
-    }
+    printf("Type[%d] - command[%-32.32s]", M_action, M_message_str[0]);
   } else if (M_action == E_AT_EXEC_INTCMD) {
       printf("Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
   } else if (M_action == E_AT_LOG_TO_FILE) {
-      printf("Type[%d] - message[%-32.32s]", M_action, M_message[0]);
+      printf("Type[%d] - message[%-32.32s]", M_action, M_message_str[0]);
   } else if (M_action == E_AT_LOG_WARNING) {
-      printf("Type[%d] - warning[%-32.32s]", M_action, M_message[0]);
+      printf("Type[%d] - warning[%-32.32s]", M_action, M_message_str[0]);
   } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
       char tmp[40];
       M_distribution->textDescr(tmp, sizeof(tmp));
@@ -126,7 +124,7 @@ void CAction::afficheInfo()
   } else if (M_action == E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
       printf("Type[%d] - assign gettimeofday[%d, %d]", M_action, display_scenario->allocVars->getName(M_varId));
   } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
-      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message[0]);
+      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message_str[0]);
   } else if (M_action == E_AT_JUMP) {
       printf("Type[%d] - jump varInId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
   } else if (M_action == E_AT_PAUSE_RESTORE) {
@@ -166,7 +164,6 @@ int            CAction::getVarId()        { return(M_varId);        }
 int            CAction::getVarInId()      { return(M_varInId);      }
 char*          CAction::getLookingChar()  { return(M_lookingChar);  }
 SendingMessage *CAction::getMessage(int n)      { return(M_message[n]);      }
-SendingMessage *CAction::getCmdLine()      { return(M_cmdLine);      }
 CSample*       CAction::getDistribution() { return(M_distribution); }
 double         CAction::getDoubleValue()  { return(M_doubleValue);  }
 char*          CAction::getStringValue()  { return(M_stringValue);  }
@@ -348,21 +345,6 @@ void CAction::setSubString(char** P_target, char* P_source, int P_start, int P_s
 }
 
 
-void CAction::setCmdLine  (char*          P_value)
-{
-  if(M_cmdLine != NULL)
-  {
-    delete [] M_cmdLine;
-    M_cmdLine = NULL;
-  }
-
-  if(P_value != NULL)
-  {
-    M_cmdLine_str = strdup(P_value);
-    M_cmdLine = new SendingMessage(M_scenario, P_value, true /* skip sanity */);
-  }
-}
-
 #ifdef PCAPPLAY
 void CAction::setPcapArgs (pcap_pkts  *  P_value)
 {
@@ -433,7 +415,6 @@ void CAction::setAction(CAction P_action)
     setMessage(P_action.M_message_str[L_i], L_i);
   }
   setRegExp       ( P_action.M_regularExpression);
-  setCmdLine      ( P_action.M_cmdLine_str     );
   setIntCmd       ( P_action.M_IntCmd          );
 #ifdef PCAPPLAY
   setPcapArgs     ( P_action.M_pcapArgs        );
@@ -460,7 +441,6 @@ CAction::CAction(scenario *scenario)
     M_message[i]   = NULL;
     M_message_str[i] = NULL;
   }
-  M_cmdLine      = NULL;
   M_IntCmd       = E_INTCMD_INVALID;
   M_doubleValue  = 0;
   M_stringValue  = NULL;
@@ -468,7 +448,6 @@ CAction::CAction(scenario *scenario)
 #ifdef PCAPPLAY
   M_pcapArgs     = NULL;
 #endif
-  M_cmdLine_str	 = NULL;
   M_scenario     = scenario;
   M_regExpSet    = false;
   M_regularExpression = NULL;
@@ -489,16 +468,6 @@ CAction::~CAction()
     }
     free(M_message_str[i]);
     M_message_str[i] = NULL;
-  }
-  if(M_cmdLine != NULL)
-  {
-    delete M_cmdLine;
-    M_cmdLine = NULL;
-  }
-  if(M_cmdLine_str != NULL)
-  {
-    delete M_cmdLine_str;
-    M_cmdLine_str = NULL;
   }
   if(M_subVarId != NULL)
   {

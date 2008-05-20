@@ -116,7 +116,6 @@ class CAction
     char*          getLookingChar();
     char*          getRegularExpression();
     SendingMessage *getMessage(int n = 0);  /* log specific function  */
-    SendingMessage *getCmdLine();  /* exec specific function */
     T_IntCmdType   getIntCmd();   /* exec specific function */
 #ifdef PCAPPLAY
     pcap_pkts     *getPcapPkts(); /* send_packets specific function */
@@ -137,7 +136,6 @@ class CAction
     void setRegExp       (char*		 P_value);  /* ereg specific function. */
     int  executeRegExp   (char* P_string, VariableTable *P_callVarTable);
     void setMessage      (char*          P_value, int n = 0);  /* log specific function  */
-    void setCmdLine      (char*          P_value);  /* exec specific function */
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
     void setDistribution (CSample *      P_value);  /* sample specific function  */
     void setDoubleValue  (double         P_value);  /* assign value specific function  */
@@ -178,8 +176,6 @@ class CAction
       SendingMessage *M_message[MAX_ACTION_MESSAGE];
       char *	     M_message_str[MAX_ACTION_MESSAGE];
       /* exec specific member */
-      SendingMessage *M_cmdLine;
-      char*          M_cmdLine_str;
       T_IntCmdType   M_IntCmd;
       /* sample specific member. */
       CSample	     *M_distribution;

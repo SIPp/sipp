@@ -3265,45 +3265,42 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
             WARNING("%s", x);
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
+             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+	     // TRACE_MSG("Trying to execute [%s]", x);
+	     pid_t l_pid;
+	     switch(l_pid = fork())
+	     {
+	       case -1:
+		 // error when forking !
+		 ERROR_NO("Forking error main");
+		 break;
 
-            if (currentAction->getCmdLine()) {
-                char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
-                // TRACE_MSG("Trying to execute [%s]", x);
-                pid_t l_pid;
-                switch(l_pid = fork())
-                {
-                    case -1:
-                        // error when forking !
-                        ERROR_NO("Forking error main");
-                        break;
-
-                    case 0:
-                       // first child process - execute the command
-                       if((l_pid = fork()) < 0) {
-                         ERROR_NO("Forking error child");
-                       } else {
-                         if( l_pid == 0){
-                         int ret;
-                         ret = system(x); // second child runs
-                         if(ret == -1) {
-                           WARNING("system call error for %s",x);
-                          }
-                        }
-                       exit(EXIT_OTHER); 
-                       }
-                       break;
-                    default:
-                       // parent process continue
-                       // reap first child immediately
-                       pid_t ret;
-                       while ((ret=waitpid(l_pid, NULL, 0)) != l_pid) {
-                       if (ret != -1) {
-                          ERROR("waitpid returns %1d for child %1d",ret,l_pid);
-                         }
-                       }
-                       break;
-                }
-            }
+	       case 0:
+		 // first child process - execute the command
+		 if((l_pid = fork()) < 0) {
+		   ERROR_NO("Forking error child");
+		 } else {
+		   if( l_pid == 0){
+		     int ret;
+		     ret = system(x); // second child runs
+		     if(ret == -1) {
+		       WARNING("system call error for %s",x);
+		     }
+		   }
+		   exit(EXIT_OTHER); 
+		 }
+		 break;
+	       default:
+		 // parent process continue
+		 // reap first child immediately
+		 pid_t ret;
+		 while ((ret=waitpid(l_pid, NULL, 0)) != l_pid) {
+		   if (ret != -1) {
+		     ERROR("waitpid returns %1d for child %1d",ret,l_pid);
+		   }
+		 }
+		 break;
+	     }
         } else /* end action == E_AT_EXECUTE_CMD */
             if (currentAction->getActionType() == CAction::E_AT_EXEC_INTCMD) {
                 switch (currentAction->getIntCmd())
