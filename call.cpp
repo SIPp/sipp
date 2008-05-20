@@ -177,7 +177,7 @@ uint16_t get_remote_port_media(char *msg, int pattype)
 {
     char *pattern;
     char *begin, *end;
-    char number[6];
+    char number[7];
 
     if (pattype == PAT_AUDIO) {
       pattern = "m=audio ";
