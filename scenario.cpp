@@ -1406,6 +1406,13 @@ void scenario::getActionForThisMessage()
 	ERROR("Warning message without a message!");
       }
       tmpAction->setActionType(CAction::E_AT_LOG_WARNING);
+    } else if(!strcmp(actionElem, "error")) {
+      if(ptr = xp_get_value((char *)"message")) {
+	tmpAction->setMessage(ptr);
+      } else {
+	ERROR("Error message without a message!");
+      }
+      tmpAction->setActionType(CAction::E_AT_LOG_ERROR);
     } else if(!strcmp(actionElem, "assign")) {
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_VALUE);
       handle_arithmetic(tmpAction, "assign");

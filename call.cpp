@@ -3264,6 +3264,9 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	} else if (currentAction->getActionType() == CAction::E_AT_LOG_WARNING) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
             WARNING("%s", x);
+	} else if (currentAction->getActionType() == CAction::E_AT_LOG_ERROR) {
+            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            ERROR("%s", x);
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
              char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
 	     // TRACE_MSG("Trying to execute [%s]", x);
