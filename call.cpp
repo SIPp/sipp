@@ -1253,7 +1253,7 @@ bool call::run()
     return false;
   }
 
-  clock_tick = getmilliseconds();
+  getmilliseconds();
 
   if(msg_index >= call_scenario->length) {
     ERROR("Scenario overrun for call %s (%p) (index = %d)\n",
@@ -1498,7 +1498,7 @@ bool call::run()
       free(msg);
       return ret;
     } else if (recv_timeout) {
-      if(recv_timeout > clock_tick || recv_timeout > getmilliseconds()) {
+      if(recv_timeout > getmilliseconds()) {
 	setPaused();
 	return true;
       }
@@ -3151,6 +3151,10 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	  char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
 	  char *key = strdup(createSendingMessage(currentAction->getMessage(1), -2));
 	  double value = -1;
+
+	  if (infIndex.find(file_index::key_type(file)) == infIndex.end()) {
+		ERROR("Invalid Index File: %s", file);
+	  }
 
 	  str_int_map::iterator index_it = infIndex[file]->find(key);
 	  if (index_it != infIndex[file]->end()) {

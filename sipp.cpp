@@ -340,6 +340,8 @@ unsigned long long getmicroseconds()
   if (!VI_micro_base) VI_micro_base = VI_micro - 1;
   VI_micro = VI_micro - VI_micro_base;
 
+  clock_tick = VI_micro / 1000LL;
+
   return VI_micro;
 }
 
@@ -3130,7 +3132,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
   }
 }
 
-void pollset_process()
+void pollset_process(int wait)
 {
   int rs; /* Number of times to execute recv().
 	     For TCP with 1 socket per call:
@@ -3146,7 +3148,7 @@ void pollset_process()
 
   /* We need to process any messages that we have left over. */
   while (pending_messages && (loops-- > 0)) {
-    clock_tick = getmilliseconds();
+    getmilliseconds();
     if (sockets[read_index]->ss_msglen) {
 	struct sockaddr_storage src;
 	char msg[SIPP_MAX_MSG_SIZE];
@@ -3166,7 +3168,7 @@ void pollset_process()
   }
 
   /* Get socket events. */
-  rs = poll(pollfiles, pollnfds,  1);
+  rs = poll(pollfiles, pollnfds, wait ? 1 : 0);
   if((rs < 0) && (errno == EINTR)) {
     return;
   }
@@ -3239,7 +3241,7 @@ void pollset_process()
 
   /* We need to process any new messages that we read. */
   while (pending_messages && (loops-- > 0)) {
-    clock_tick = getmilliseconds();
+    getmilliseconds();
 
     if (sockets[read_index]->ss_msglen) {
       char msg[SIPP_MAX_MSG_SIZE];
@@ -3269,32 +3271,42 @@ void timeout_alarm(int param){
 void traffic_thread()
 {
   unsigned int calls_to_open = 0;
-  unsigned int new_time;
-  unsigned int last_time;
-  bool         firstPass;
 
   /* create the file */
   char         L_file_name [MAX_PATH];
   sprintf (L_file_name, "%s_%d_screen.log", scenario_file, getpid());
 
+  getmilliseconds();
 
-  firstPass = true;
-  last_time = getmilliseconds();
- 
   /* Arm the global timer if needed */
   if (global_timeout > 0) { 
     signal(SIGALRM, timeout_alarm);
     alarm(global_timeout / 1000);
   }
-  
+
+  // Dump (to create file on disk) and showing screen at the beginning even if
+  // the report period is not reached
+  if (report_freq > 0) {
+    print_statistics(0);
+  }
+  /* Dumping once to create the file on disk */
+  if(dumpInFile)
+  {
+    main_scenario->stats->dumpData();
+  }
+
+  if (useCountf) {
+    print_count_file(countf, 0);
+  }
+
+  if(dumpInRtt)
+  {
+    main_scenario->stats->dumpDataRtt();
+  }
+
   while(1) {
-    scheduling_loops ++;
-
-    /* update local time, except if resetted*/
-    new_time = getmilliseconds();
-
-    clock_tick = new_time;
-    last_time = new_time;
+    scheduling_loops++;
+    getmilliseconds();
 
     if (signalDump) {
        /* Screen dumping in a file */
@@ -3387,9 +3399,7 @@ void traffic_thread()
 		sockets_pending_reset.erase(sockets_pending_reset.begin());
 	      }
 
-	      new_time = getmilliseconds();
-	      /* Never spend more than half of our time processing new call requests. */
-	      if (new_time > (first_open_tick + (timer_resolution < 2 ? 1 : (timer_resolution / 2)))) {
+	      if (getmilliseconds() > (first_open_tick + (timer_resolution < 2 ? 1 : (timer_resolution / 2)))) {
 		break;
 	      }
             }
@@ -3421,7 +3431,6 @@ void traffic_thread()
 	if (useCountf) {
 	  print_count_file(countf, 0);
 	}
-
         if(dumpInRtt) {
           main_scenario->stats->dumpDataRtt();
         }
@@ -3439,9 +3448,7 @@ void traffic_thread()
       }
     }
 
-    new_time = getmilliseconds();
-    clock_tick = new_time;
-    last_time = new_time;
+    getmilliseconds();
 
     /* Schedule all pending calls and process their timers */
     task_list *running_tasks;
@@ -3495,41 +3502,10 @@ void traffic_thread()
     }
 
     /* Update the clock. */
-    new_time = getmilliseconds();
-    clock_tick = new_time ;
-    last_time = new_time;
-
+    getmilliseconds();
     /* Receive incoming messages */
-    pollset_process();
-    new_time = getmilliseconds();
-    clock_tick = new_time ;
-    last_time = new_time;
-
-    if(firstPass)
-      {
-        // dumping (to create file on disk) and showing 
-        // screen at the beginning even if the report
-        // period is not reach
-        firstPass = false;
-	if (report_freq > 0) {
-	  print_statistics(0);
-	}
-        /* Dumping once to create the file on disk */
-        if(dumpInFile)
-          {
-            main_scenario->stats->dumpData();
-          }
-
-	if (useCountf) {
-	    print_count_file(countf, 0);
-	}
-
-        if(dumpInRtt)
-          {
-            main_scenario->stats->dumpDataRtt();
-          }
-
-      }
+    pollset_process(loops > 0);
+    getmilliseconds();
 
     if(report_freq && ((clock_tick - last_report_time) >= report_freq))
       {
@@ -3539,9 +3515,7 @@ void traffic_thread()
         scheduling_loops = 0;
       }
 
-    // FIXME - Should we recompute time ? print stat take 
-    // a lot of time, so the clock_time is no more 
-    // the current time !
+    getmilliseconds();
     if((clock_tick - last_dump_time) >= report_freq_dumpLog)  {
       if(dumpInFile) {
 	main_scenario->stats->dumpData();
@@ -3550,7 +3524,7 @@ void traffic_thread()
 	print_count_file(countf, 0);
       }
       main_scenario->stats->computeStat(CStat::E_RESET_PL_COUNTERS);
-      last_dump_time  = clock_tick;
+      last_dump_time = clock_tick;
       if (rate_increase) {
 	rate += rate_increase;
 	if (rate_max && (rate > rate_max)) {
