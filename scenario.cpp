@@ -401,6 +401,27 @@ int scenario::xp_get_var(const char *name, const char *what) {
   return get_var(ptr, what);
 }
 
+int xp_get_optional(const char *name, const char *what) {
+  char *ptr = xp_get_value(name);
+
+  if (!(ptr = xp_get_value(name))) {
+    return OPTIONAL_FALSE;
+  }
+
+  if(!strcmp(ptr, "true")) {
+    return OPTIONAL_TRUE;
+  } else if(!strcmp(ptr, "global")) {
+    return OPTIONAL_GLOBAL;
+  } else if(!strcmp(ptr, "false")) {
+    return OPTIONAL_FALSE;
+  } else {
+    ERROR("Could not understand optional value for %s: %s", what, ptr);
+  }
+
+  return OPTIONAL_FALSE;
+}
+
+
 int scenario::xp_get_var(const char *name, const char *what, int defval) {
   char *ptr;
   char *helptext;
@@ -830,19 +851,10 @@ scenario::scenario(char * filename, int deflt)
 	  }
         }
 
-        if (0 != (ptr = xp_get_value((char *)"optional"))) {
-          if(!strcmp(ptr, "true")) {
-            messages[length] -> optional = OPTIONAL_TRUE;
-            ++recv_opt_count;
-          } else if(!strcmp(ptr, "global")) {
-            messages[length] -> optional = OPTIONAL_GLOBAL;
-            ++recv_opt_count;
-          } else if(!strcmp(ptr, "false")) {
-            messages[length] -> optional = OPTIONAL_FALSE;
-          } else {
-	    ERROR("Could not understand optional value: %s", ptr);
-	  }
-        }
+	messages[length]->optional = xp_get_optional("optional", "recv");
+	if (messages[length]->optional) {
+	  ++recv_opt_count;
+	}
 	messages[length]->advance_state = xp_get_bool("advance_state", "recv", true);
 	if (!messages[length]->advance_state && messages[length]->optional == OPTIONAL_FALSE) {
 	  ERROR("advance_state is allowed only for optional messages (index = %d)\n", length);
@@ -920,11 +932,17 @@ scenario::scenario(char * filename, int deflt)
       else if(!strcmp(elem, "recvCmd")) {
         recv_count++;
         messages[length]->M_type = MSG_TYPE_RECVCMD;
+	messages[length]->optional = xp_get_optional("optional", "recv");
+	if (messages[length]->optional) {
+	  ++recv_opt_count;
+	}
 
 	/* 3pcc extended mode */
         if(ptr = xp_get_value((char *)"src")) {
            messages[length] ->peer_src = strdup(ptr);
-        }
+        } else if (extendedTwinSippMode) {
+	  ERROR("You must specify a 'src' for recvCmd when using extended 3pcc mode!");
+	}
       } else if(!strcmp(elem, "sendCmd")) {
         if (recv_count) {
           if (recv_count != recv_opt_count) {
@@ -952,10 +970,12 @@ scenario::scenario(char * filename, int deflt)
 	     strcpy(infos.peer_host, get_peer_addr(peer));
              peers[std::string(peer)] = infos; 
 	   }
+	} else if (twinSippMode) {
+	  ERROR("You must specify a 'dest' for sendCmd with extended 3pcc mode!");
 	}
 
         if(!(ptr = xp_get_cdata())) {
-          ERROR("No CDATA in 'send' section of xml scenario file");
+          ERROR("No CDATA in 'sendCmd' section of xml scenario file");
         }
 	char *msg = clean_cdata(ptr);
 
