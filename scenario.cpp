@@ -1328,9 +1328,7 @@ void scenario::getActionForThisMessage()
     CAction *tmpAction = new CAction(this);
 
     if(!strcmp(actionElem, "ereg")) {
-      if(!(ptr = xp_get_value((char *)"regexp"))) {
-	ERROR("'ereg' action without 'regexp' argument (mandatory)");
-      }
+      ptr = xp_get_string("regexp", "ereg");
 
       // keeping regexp expression in memory
       if(currentRegExp != NULL)
@@ -1345,17 +1343,8 @@ void scenario::getActionForThisMessage()
 
       // warning - although these are detected for both msg and hdr
       // they are only implemented for search_in="hdr"
-      if ((ptr = xp_get_value((char *)"case_indep"))) {
-	tmpAction->setCaseIndep(get_bool(ptr, "case_indep"));
-      } else {
-	tmpAction->setCaseIndep(false);
-      }
-
-      if ((ptr = xp_get_value((char *)"start_line"))) {
-	tmpAction->setHeadersOnly(get_bool(ptr, "start_line"));
-      } else {
-	tmpAction->setHeadersOnly(false);
-      }
+      tmpAction->setCaseIndep(xp_get_bool("case_indep", "ereg", false));
+      tmpAction->setHeadersOnly(xp_get_bool("start_line", "ereg", false));
 
       if ( 0 != ( ptr = xp_get_value((char *)"search_in") ) ) {
 	tmpAction->setOccurence(1);
@@ -1381,11 +1370,8 @@ void scenario::getActionForThisMessage()
 	tmpAction->setLookingChar(NULL);
       } // end if-else search_in
 
-      if(ptr = xp_get_value((char *)"check_it")) {
-	tmpAction->setCheckIt(get_bool(ptr, "check_it"));
-      } else {
-	tmpAction->setCheckIt(false);
-      }
+      tmpAction->setCheckIt(xp_get_bool("check_it", "ereg", false));
+
       if (!(ptr = xp_get_value((char *) "assign_to"))) {
 	ERROR("assign_to value is missing");
       }
@@ -1413,25 +1399,13 @@ void scenario::getActionForThisMessage()
       }
       currentRegExp = NULL;
     } /* end !strcmp(actionElem, "ereg") */ else if(!strcmp(actionElem, "log")) {
-      if(ptr = xp_get_value((char *)"message")) {
-	tmpAction->setMessage(ptr);
-      } else {
-	ERROR("Log message without a message!");
-      }
+      tmpAction->setMessage(xp_get_string("message", "log"));
       tmpAction->setActionType(CAction::E_AT_LOG_TO_FILE);
     } else if(!strcmp(actionElem, "warning")) {
-      if(ptr = xp_get_value((char *)"message")) {
-	tmpAction->setMessage(ptr);
-      } else {
-	ERROR("Warning message without a message!");
-      }
+      tmpAction->setMessage(xp_get_string("message", "warning"));
       tmpAction->setActionType(CAction::E_AT_LOG_WARNING);
     } else if(!strcmp(actionElem, "error")) {
-      if(ptr = xp_get_value((char *)"message")) {
-	tmpAction->setMessage(ptr);
-      } else {
-	ERROR("Error message without a message!");
-      }
+      tmpAction->setMessage(xp_get_string("message", "error"));
       tmpAction->setActionType(CAction::E_AT_LOG_ERROR);
     } else if(!strcmp(actionElem, "assign")) {
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_VALUE);
@@ -1439,11 +1413,7 @@ void scenario::getActionForThisMessage()
     } else if(!strcmp(actionElem, "assignstr")) {
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_STRING);
       tmpAction->setVarId(xp_get_var("assign_to", "assignstr"));
-      if(ptr = xp_get_value((char *)"value")) {
-	tmpAction->setMessage(ptr);
-      } else {
-	ERROR("assignstr action without a value!");
-      }
+      tmpAction->setMessage(xp_get_string("value", "assignstr"));
     } else if(!strcmp(actionElem, "gettimeofday")) {
       tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY);
 
@@ -1501,9 +1471,7 @@ void scenario::getActionForThisMessage()
       tmpAction->setVarInId(xp_get_var("variable", "test"));
       tmpAction->setDoubleValue(xp_get_double("value", "test"));
       tmpAction->setActionType(CAction::E_AT_VAR_TEST);
-      if (!(ptr = xp_get_value("compare"))) {
-	ERROR("test actions require a 'compare' parameter");
-      }
+      ptr = xp_get_string("compare", "test");
       if (!strcmp(ptr, "equal")) {
 	tmpAction->setComparator(CAction::E_C_EQ);
       } else if (!strcmp(ptr, "not_equal")) {
