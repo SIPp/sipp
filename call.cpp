@@ -1258,6 +1258,12 @@ bool call::run()
 
   message *curmsg = call_scenario->messages[msg_index];
 
+  if (curmsg->condexec != -1) {
+    if (!M_callVariableTable->getVar(curmsg->condexec)->isSet()) {
+     return next();
+    }
+  }
+
   /* Manages retransmissions or delete if max retrans reached */
   if(next_retrans && (next_retrans < clock_tick)) {
     nb_retrans++;

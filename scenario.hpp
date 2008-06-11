@@ -110,6 +110,7 @@ public:
   char *	 display_str;
   int		 next;
   int            test;
+  int            condexec;
   int            chance;/* 0=always, RAND_MAX+1=never (test rand() >= chance) */
   int		 on_timeout;
 

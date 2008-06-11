@@ -1642,6 +1642,8 @@ void scenario::getCommonAttributes() {
     messages[length] -> display_str = strdup(ptr);
   }
 
+  messages[length] -> condexec = xp_get_var("condexec", "condexec variable", -1);
+
   if ((ptr = xp_get_value((char *)"next"))) {
     if (found_timewait) {
       ERROR("next labels are not allowed in <timewait> elements.");
