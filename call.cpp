@@ -505,11 +505,7 @@ call::~call()
     delete m_lineNumber;
   }
   if (userId) {
-    if (call_scenario->stats->GetStat(CStat::CPT_C_CurrentCall) >= open_calls_allowed) {
-      retiredUsers.push_front(userId);
-    } else {
-      freeUsers.push_front(userId);
-    }
+    opentask::freeUser(userId);
   }
 
   if (txnID) {

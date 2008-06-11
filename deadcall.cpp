@@ -97,10 +97,6 @@ bool deadcall::run() {
   }
 }
 
-void deadcall::abort() {
-  delete this;
-}
-
 unsigned int deadcall::wake() {
   return expiration;
 }

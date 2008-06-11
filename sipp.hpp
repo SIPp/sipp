@@ -71,6 +71,7 @@
 #include "actions.hpp"
 #include "variables.hpp"
 #include "infile.hpp"
+#include "opentask.hpp"
 /* Open SSL stuff */
 #ifdef _USE_OPENSSL
 #include "sslcommon.h" 
@@ -249,7 +250,7 @@ extern int                print_all_responses     _DEFVAL(0);
 extern unsigned long      stop_after              _DEFVAL(0xffffffff);
 extern int                quitting                _DEFVAL(0);
 extern int                interrupt               _DEFVAL(0);
-extern int                paused                  _DEFVAL(0);
+extern bool               paused                  _DEFVAL(false);
 extern int                lose_packets            _DEFVAL(0);
 extern double             global_lost             _DEFVAL(0.0);
 extern char               remote_host[255]; 
@@ -353,7 +354,6 @@ extern int           last_running_calls           _DEFVAL(0);
 extern int           last_woken_calls             _DEFVAL(0);
 extern int           last_paused_calls            _DEFVAL(0);
 extern unsigned int  open_calls_allowed           _DEFVAL(0);
-extern unsigned long last_rate_change_time        _DEFVAL(0);
 extern unsigned long last_report_time             _DEFVAL(0);
 extern unsigned long last_dump_time               _DEFVAL(0);
 

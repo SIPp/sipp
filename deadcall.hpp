@@ -13,8 +13,6 @@ public:
   /* When should this call wake up? */
   virtual unsigned int wake();
 
-  virtual void abort();
-
   /* Dump call info to error log. */
   virtual void dump();
 

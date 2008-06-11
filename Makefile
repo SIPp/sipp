@@ -27,7 +27,8 @@ OUTPUT=sipp
 
 # C & C++ object files to be built
 OBJ= xp_parser.o message.o scenario.o screen.o call.o comp.o sipp.o stat.o \
-     actions.o variables.o infile.o deadcall.o task.o socketowner.o listener.o
+     actions.o variables.o infile.o deadcall.o task.o socketowner.o listener.o \
+     opentask.o
 
 # Libraries directories
 LIBDIR_linux=

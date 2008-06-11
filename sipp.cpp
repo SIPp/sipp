@@ -56,7 +56,6 @@ int passwd_call_back_routine(char  *buf , int size , int flag, void *passwd)
 }
 #endif
 
-unsigned long calls_since_last_rate_change = 0;
 bool do_hide = true;
 bool show_index = false;
 
@@ -1429,71 +1428,6 @@ void print_statistics(int last)
   }
 }
 
-void set_rate(double new_rate)
-{
-  if(toolMode == MODE_SERVER) {
-    rate = 0;
-    open_calls_allowed = 0;
-  }
-
-  rate = new_rate;
-  if(rate < 0) {
-    rate = 0;
-  }
-
-  last_rate_change_time = clock_tick;
-  calls_since_last_rate_change = 0;
-
-  if(!open_calls_user_setting) {
-
-    int call_duration_min =  display_scenario->duration;
-
-    if(duration > call_duration_min) call_duration_min = duration;
-
-    if(call_duration_min < 1000) call_duration_min = 1000;
-
-    open_calls_allowed = (int)((3.0 * rate * call_duration_min) / (double)rate_period_ms);
-    if(!open_calls_allowed) {
-      open_calls_allowed = 1;
-    }
-  }
-}
-
-void set_users(int new_users)
-{
-  if (new_users < 0) {
-    new_users = 0;
-  }
-  assert(users >= 0);
-
-  if(toolMode == MODE_SERVER) {
-    rate = 0;
-    open_calls_allowed = 0;
-  }
-
-  if (users < new_users ) {
-    while (users < new_users) {
-      int userid;
-      if (!retiredUsers.empty()) {
-	userid = retiredUsers.back();
-	retiredUsers.pop_back();
-      } else {
-	userid = users + 1;
-	userVarMap[userid] = new VariableTable(userVariables);
-      }
-      freeUsers.push_front(userid);
-      users++;
-    }
-  }
-
-  users = open_calls_allowed = new_users;
-
-  last_rate_change_time = clock_tick;
-  calls_since_last_rate_change = 0;
-
-  assert(open_calls_user_setting);
-}
-
 void sipp_sigusr1(int /* not used */)
 {
   /* Smooth exit: do not place any new calls and exit */
@@ -1548,50 +1482,45 @@ bool process_key(int c) {
 
     case '+':
       if (users >= 0) {
-	set_users((int)(users + 1 * rate_scale));
+	opentask::set_users((int)(users + 1 * rate_scale));
       } else {
-	set_rate(rate + 1 * rate_scale);
+	opentask::set_rate(rate + 1 * rate_scale);
       }
       print_statistics(0);
       break;
 
     case '-':
       if (users >= 0) {
-	set_users((int)(users - 1 * rate_scale));
+	opentask::set_users((int)(users - 1 * rate_scale));
       } else {
-	set_rate(rate - 1 * rate_scale);
+	opentask::set_rate(rate - 1 * rate_scale);
       }
       print_statistics(0);
       break;
 
     case '*':
       if (users >= 0) {
-	set_users((int)(users + 10 * rate_scale));
+	opentask::set_users((int)(users + 10 * rate_scale));
       } else {
-	set_rate(rate + 10 * rate_scale);
+	opentask::set_rate(rate + 10 * rate_scale);
       }
       print_statistics(0);
       break;
 
     case '/':
       if (users >= 0) {
-	set_users((int)(users - 10 * rate_scale));
+	opentask::set_users((int)(users - 10 * rate_scale));
       } else {
-	set_rate(rate - 10 * rate_scale);
+	opentask::set_rate(rate - 10 * rate_scale);
       }
       print_statistics(0);
       break;
 
     case 'p':
       if(paused) { 
-	paused = 0;
-	if (users >= 0) {
-	  set_users(users);
-	} else {
-	  set_rate(rate);
-	}
+	opentask::set_paused(false);
       } else {
-	paused = 1;
+	opentask::set_paused(true);
       }
       print_statistics(0);
       break;
@@ -1647,7 +1576,7 @@ void process_set(char *what) {
     } else if (*end) {
       WARNING("Invalid rate value: \"%s\"", rest);
     } else {
-      set_rate(drest);
+      opentask::set_rate(drest);
     }
   } else if (!strcmp(what, "rate-scale")) {
     char *end;
@@ -1668,7 +1597,7 @@ void process_set(char *what) {
     } else if (urest < 0) {
       WARNING("Invalid users value: \"%s\"", rest);
     } else {
-      set_users(urest);
+      opentask::set_users(urest);
     }
   } else if (!strcmp(what, "limit")) {
     char *end;
@@ -3270,8 +3199,6 @@ void timeout_alarm(int param){
 
 void traffic_thread()
 {
-  unsigned int calls_to_open = 0;
-
   /* create the file */
   char         L_file_name [MAX_PATH];
   sprintf (L_file_name, "%s_%d_screen.log", scenario_file, getpid());
@@ -3336,84 +3263,7 @@ void traffic_thread()
 	sockets_pending_reset.erase(sockets_pending_reset.begin());
     }
 
-    if ((!quitting) && (!paused)) {
-      long l=0;
-      unsigned long long  current_calls = main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall);
-      unsigned long long total_calls = main_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + main_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated);
-
-      if (users >= 0) {
-	calls_to_open = ((l = (users - current_calls)) > 0) ? l : 0;
-      } else {
-	calls_to_open = (unsigned int)
-              ((l=(long)floor(((clock_tick - last_rate_change_time) * rate/rate_period_ms)
-              - calls_since_last_rate_change))>0?l:0);
-      }
-
-
-      if( (toolMode == MODE_CLIENT)
-          || (toolMode == MODE_3PCC_CONTROLLER_A)
-          || (toolMode == MODE_MASTER)
-          )
-        {
-	  int first_open_tick = clock_tick;
-          while((calls_to_open--) && 
-                (!open_calls_allowed || current_calls < open_calls_allowed) &&
-                (total_calls < stop_after)) 
-            {
-	      /* Associate a user with this call, if we are in users mode. */
-	      int userid = 0;
-	      if (users >= 0) {
-		userid = freeUsers.back();
-		freeUsers.pop_back();
-	      }
-
-              // adding a new OUTGOING CALL
-              main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-              call * call_ptr = call::add_call(userid, is_ipv6, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
-              if(!call_ptr) {
-		ERROR("Out of memory allocating call!");
-	      }
-
-	      calls_since_last_rate_change++;
-
-	      outbound_congestion = false;
-
-	      if (!multisocket) {
-		switch(transport) {
-		  case T_UDP:
-		    call_ptr->associate_socket(main_socket);
-		    main_socket->ss_count++;
-		    break;
-		  case T_TCP:
-		  case T_TLS:
-		    call_ptr->associate_socket(tcp_multiplex);
-		    tcp_multiplex->ss_count++;
-		    break;
-		}
-	      }
-
-	      call_ptr -> run();
-
-	      while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
-		reset_connection(*(sockets_pending_reset.begin()));
-		sockets_pending_reset.erase(sockets_pending_reset.begin());
-	      }
-
-	      if (getmilliseconds() > (first_open_tick + (timer_resolution < 2 ? 1 : (timer_resolution / 2)))) {
-		break;
-	      }
-            }
-
-	  if(open_calls_allowed && (current_calls >= open_calls_allowed)) {
-	    set_rate(rate);
-	  }
-        }
-
-        // Quit after asked number of calls is reached
-        if(total_calls >= stop_after) {
-          quitting = 1;
-        }
-    } else if (quitting) {
+    if (quitting) {
       if (quitting > 11) {
         /* Force exit: abort all calls */
 	abort_all_tasks();
@@ -3504,7 +3354,7 @@ void traffic_thread()
     /* Update the clock. */
     getmilliseconds();
     /* Receive incoming messages */
-    pollset_process(loops > 0);
+    pollset_process(running_tasks->size() == 0);
     getmilliseconds();
 
     if(report_freq && ((clock_tick - last_report_time) >= report_freq))
@@ -3533,7 +3383,7 @@ void traffic_thread()
 	    quitting += 10;
 	  }
 	}
-	set_rate(rate);
+	opentask::set_rate(rate);
       }
     }
   }
@@ -4852,8 +4702,12 @@ int main(int argc, char *argv[])
     }
 	 
   /* Setting the rate and its dependant params (open_calls_allowed) */
-  set_rate(rate);
-	 
+  /* If we are a client, then create the task to open new calls. */
+  if ((toolMode == MODE_CLIENT) || (toolMode == MODE_3PCC_CONTROLLER_A) || (toolMode == MODE_MASTER)) {
+    opentask::initialize();
+    opentask::set_rate(rate);
+  }
+
   if (toolMode == MODE_SERVER) {
     reset_number = 0;
   }
@@ -4998,7 +4852,7 @@ int main(int argc, char *argv[])
         == -1) {
       ERROR_NO("Unable to create second RTP echo thread");
       }
-    } 
+    }
 
   traffic_thread();
 

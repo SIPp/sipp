@@ -80,7 +80,7 @@ public:
   virtual bool run() = 0;
 
   /* Our abort action. */
-  virtual void abort() = 0;
+  virtual void abort();
 
   /* Dump task info to error log. */
   virtual void dump() = 0;
