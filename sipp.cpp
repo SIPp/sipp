@@ -3224,23 +3224,8 @@ void traffic_thread()
 
   // Dump (to create file on disk) and showing screen at the beginning even if
   // the report period is not reached
-  if (report_freq > 0) {
-    print_statistics(0);
-  }
-  /* Dumping once to create the file on disk */
-  if(dumpInFile)
-  {
-    main_scenario->stats->dumpData();
-  }
-
-  if (useCountf) {
-    print_count_file(countf, 0);
-  }
-
-  if(dumpInRtt)
-  {
-    main_scenario->stats->dumpDataRtt();
-  }
+  stattask::report();
+  screentask::report(false);
 
   while(1) {
     scheduling_loops++;
@@ -3283,27 +3268,13 @@ void traffic_thread()
       if(!main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall)) {
 	/* We can have calls that do not count towards our open-call count (e.g., dead calls). */
 	abort_all_tasks();
-	print_statistics(0);
-
-        // Dump the latest statistics if necessary
-        if(dumpInFile) {
-          main_scenario->stats->dumpData();
-        }
-	if (useCountf) {
-	  print_count_file(countf, 0);
-	}
-        if(dumpInRtt) {
-          main_scenario->stats->dumpDataRtt();
-        }
-
-        /* Screen dumping in a file if asked */
-        if(screenf) {
-          print_screens();
-        }
 
 	for (int i = 0; i < pollnfds; i++) {
 	  sipp_close_socket(sockets[i]);
 	}
+
+	screentask::report(true);
+	stattask::report();
 
         screen_exit(EXIT_TEST_RES_UNKNOWN);
       }
@@ -3366,37 +3337,6 @@ void traffic_thread()
     getmilliseconds();
     /* Receive incoming messages */
     pollset_process(running_tasks->size() == 0);
-    getmilliseconds();
-
-    if(report_freq && ((clock_tick - last_report_time) >= report_freq))
-      {
-        print_statistics(0);
-        display_scenario->stats->computeStat(CStat::E_RESET_PD_COUNTERS);
-        last_report_time  = clock_tick;
-        scheduling_loops = 0;
-      }
-
-    getmilliseconds();
-    if((clock_tick - last_dump_time) >= report_freq_dumpLog)  {
-      if(dumpInFile) {
-	main_scenario->stats->dumpData();
-      }
-      if (useCountf) {
-	print_count_file(countf, 0);
-      }
-      main_scenario->stats->computeStat(CStat::E_RESET_PL_COUNTERS);
-      last_dump_time = clock_tick;
-      if (rate_increase) {
-	rate += rate_increase;
-	if (rate_max && (rate > rate_max)) {
-	  rate = rate_max;
-	  if (rate_quit) {
-	    quitting += 10;
-	  }
-	}
-	opentask::set_rate(rate);
-      }
-    }
   }
 }
 
@@ -3702,6 +3642,9 @@ void print_last_stats()
   // and print statistics screen
   currentScreenToDisplay = DISPLAY_STAT_SCREEN;
   print_statistics(1);
+  if (main_scenario) {
+    stattask::report();
+  }
 }
 
 void freeInFiles() {
@@ -4708,7 +4651,12 @@ int main(int argc, char *argv[])
           exit(EXIT_OTHER);
         }
     }
-	 
+
+  /* Create the statistics reporting task. */
+  stattask::initialize();
+  /* Create the screen update task. */
+  screentask::initialize();
+
   /* Setting the rate and its dependant params (open_calls_allowed) */
   /* If we are a client, then create the task to open new calls. */
   if (creationMode == MODE_CLIENT) {

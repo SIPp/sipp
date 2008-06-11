@@ -72,6 +72,7 @@
 #include "variables.hpp"
 #include "infile.hpp"
 #include "opentask.hpp"
+#include "reporttask.hpp"
 /* Open SSL stuff */
 #ifdef _USE_OPENSSL
 #include "sslcommon.h" 
@@ -455,10 +456,16 @@ extern char   screen_last_error[32768];
 extern char   screen_logfile[MAX_PATH]            _DEFVAL("");
 extern FILE   * screen_errorf			  _DEFVAL(NULL);
 
+/* Log Rotation Functions. */
 void rotate_messagef();
 void rotate_shortmessagef();
 void rotate_logfile();
 void rotate_errorf();
+
+/* Screen/Statistics Printing Functions. */
+void print_statistics(int last);
+void print_count_file(FILE *f, int header);
+
 
 /********************* Mini-Parser Routines *******************/
 
