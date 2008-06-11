@@ -3095,303 +3095,355 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 
   actions = call_scenario->messages[scenarioIndex]->M_actions;
   // looking for action to do on this message
-  if(actions != NULL) {
-    for(int i=0; i<actions->getActionSize(); i++) {
-      currentAction = actions->getAction(i);
-      if(currentAction != NULL) {
-        if(currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_REGEXP) {
-	  char msgPart[MAX_SUB_MESSAGE_LENGTH];
+  if(actions == NULL) {
+    return(call::E_AR_NO_ERROR);
+  }
 
-	  /* Where to look. */
-	  char *haystack;
+  for(int i=0; i<actions->getActionSize(); i++) {
+    currentAction = actions->getAction(i);
+    if(currentAction == NULL) {
+      continue;
+    }
 
-	  if(currentAction->getLookingPlace() == CAction::E_LP_HDR) {
-	    extractSubMessage (msg,
-		currentAction->getLookingChar(),
-		msgPart,
-		currentAction->getCaseIndep(),
-		currentAction->getOccurence(),
-		currentAction->getHeadersOnly());
-	    if(currentAction->getCheckIt() == true && (strlen(msgPart) < 0)) {
-	      // the sub message is not found and the checking action say it
-	      // MUST match --> Call will be marked as failed but will go on
-	      WARNING("Failed regexp match: header %s not found in message %s\n", currentAction->getLookingChar(), msg);
-	      return(call::E_AR_HDR_NOT_FOUND);
-	    }
-	    haystack = msgPart;
-	  } else {
-	    haystack = msg;
-	  }
-	  currentAction->executeRegExp(haystack, M_callVariableTable);
+    if(currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_REGEXP) {
+      char msgPart[MAX_SUB_MESSAGE_LENGTH];
 
-	  if( (!(M_callVariableTable->getVar(currentAction->getVarId())->isSet())) && (currentAction->getCheckIt() == true) ) {
-	    // the message doesn't match and the checkit action say it MUST match
-	    // Allow easier regexp debugging
-	    WARNING("Failed regexp match: looking in '%s', with regexp '%s'",
-		haystack, currentAction->getRegularExpression());
-	    return(call::E_AR_REGEXP_DOESNT_MATCH);
-	  }
-        } else /* end action == E_AT_ASSIGN_FROM_REGEXP */ 
-            if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_VALUE) {
-	      double operand = get_rhs(currentAction);
-	      M_callVariableTable->getVar(currentAction->getVarId())->setDouble(operand);
-        } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_INDEX) {
-	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(msg_index);
-        } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
-	  struct timeval tv;
-	  gettimeofday(&tv, NULL);
-	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)tv.tv_sec);
-	  M_callVariableTable->getVar(currentAction->getSubVarId(0))->setDouble((double)tv.tv_usec);
-        } else if (currentAction->getActionType() == CAction::E_AT_LOOKUP) {
-	  /* Create strings from the sending messages. */
-	  char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
-	  char *key = strdup(createSendingMessage(currentAction->getMessage(1), -2));
+      /* Where to look. */
+      char *haystack;
 
-	  if (inFiles.find(file) == inFiles.end()) {
-	    ERROR("Invalid injection file for insert: %s", file);
-	  }
+      if(currentAction->getLookingPlace() == CAction::E_LP_HDR) {
+	extractSubMessage (msg,
+	    currentAction->getLookingChar(),
+	    msgPart,
+	    currentAction->getCaseIndep(),
+	    currentAction->getOccurence(),
+	    currentAction->getHeadersOnly());
+	if(currentAction->getCheckIt() == true && (strlen(msgPart) < 0)) {
+	  // the sub message is not found and the checking action say it
+	  // MUST match --> Call will be marked as failed but will go on
+	  WARNING("Failed regexp match: header %s not found in message %s\n", currentAction->getLookingChar(), msg);
+	  return(call::E_AR_HDR_NOT_FOUND);
+	}
+	haystack = msgPart;
+      } else {
+	haystack = msg;
+      }
+      currentAction->executeRegExp(haystack, M_callVariableTable);
 
-	  double value = inFiles[file]->lookup(key);
+      if( (!(M_callVariableTable->getVar(currentAction->getVarId())->isSet())) && (currentAction->getCheckIt() == true) ) {
+	// the message doesn't match and the checkit action say it MUST match
+	// Allow easier regexp debugging
+	WARNING("Failed regexp match: looking in '%s', with regexp '%s'",
+	    haystack, currentAction->getRegularExpression());
+	return(call::E_AR_REGEXP_DOESNT_MATCH);
+      }
+    } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_VALUE) {
+      double operand = get_rhs(currentAction);
+      M_callVariableTable->getVar(currentAction->getVarId())->setDouble(operand);
+    } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_INDEX) {
+      M_callVariableTable->getVar(currentAction->getVarId())->setDouble(msg_index);
+    } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
+      struct timeval tv;
+      gettimeofday(&tv, NULL);
+      M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)tv.tv_sec);
+      M_callVariableTable->getVar(currentAction->getSubVarId(0))->setDouble((double)tv.tv_usec);
+    } else if (currentAction->getActionType() == CAction::E_AT_LOOKUP) {
+      /* Create strings from the sending messages. */
+      char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
+      char *key = strdup(createSendingMessage(currentAction->getMessage(1), -2));
 
-	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
-	  free(file);
-	  free(key);
-        } else if (currentAction->getActionType() == CAction::E_AT_INSERT) {
-	  /* Create strings from the sending messages. */
-	  char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
-	  char *value = strdup(createSendingMessage(currentAction->getMessage(1), -2));
+      if (inFiles.find(file) == inFiles.end()) {
+	ERROR("Invalid injection file for insert: %s", file);
+      }
 
-	  if (inFiles.find(file) == inFiles.end()) {
-	    ERROR("Invalid injection file for insert: %s", file);
-	  }
+      double value = inFiles[file]->lookup(key);
 
-	  inFiles[file]->insert(value);
+      M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
+      free(file);
+      free(key);
+    } else if (currentAction->getActionType() == CAction::E_AT_INSERT) {
+      /* Create strings from the sending messages. */
+      char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
+      char *value = strdup(createSendingMessage(currentAction->getMessage(1), -2));
 
-	  free(file);
-	  free(value);
-        } else if (currentAction->getActionType() == CAction::E_AT_REPLACE) {
-	  /* Create strings from the sending messages. */
-	  char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
-	  char *line = strdup(createSendingMessage(currentAction->getMessage(1), -2));
-	  char *value = strdup(createSendingMessage(currentAction->getMessage(2), -2));
+      if (inFiles.find(file) == inFiles.end()) {
+	ERROR("Invalid injection file for insert: %s", file);
+      }
 
-	  if (inFiles.find(file) == inFiles.end()) {
-	    ERROR("Invalid injection file for replace: %s", file);
-	  }
+      inFiles[file]->insert(value);
 
-	  char *endptr;
-	  int lineNum = (int)strtod(line, &endptr);
-	  if (*endptr) {
-	    ERROR("Invalid line number for replace: %s", line);
-	  }
+      free(file);
+      free(value);
+    } else if (currentAction->getActionType() == CAction::E_AT_REPLACE) {
+      /* Create strings from the sending messages. */
+      char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
+      char *line = strdup(createSendingMessage(currentAction->getMessage(1), -2));
+      char *value = strdup(createSendingMessage(currentAction->getMessage(2), -2));
 
-	  inFiles[file]->replace(lineNum, value);
+      if (inFiles.find(file) == inFiles.end()) {
+	ERROR("Invalid injection file for replace: %s", file);
+      }
 
-	  free(file);
-	  free(line);
-	  free(value);
+      char *endptr;
+      int lineNum = (int)strtod(line, &endptr);
+      if (*endptr) {
+	ERROR("Invalid line number for replace: %s", line);
+      }
+
+      inFiles[file]->replace(lineNum, value);
+
+      free(file);
+      free(line);
+      free(value);
+    } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST) {
+      /* Change the destination for this call. */
+      char *s_host = strdup(createSendingMessage(currentAction->getMessage(0), -2));
+      char *s_port = strdup(createSendingMessage(currentAction->getMessage(1), -2));
+      char *s_protocol = strdup(createSendingMessage(currentAction->getMessage(2), -2));
+
+      char *endptr;
+      int port = (int)strtod(s_port, &endptr);
+      if (*endptr) {
+	ERROR("Invalid line number for replace: %s", s_port);
+      }
+
+      int protocol;
+      if (!strcmp(s_protocol, "udp")) {
+	protocol = T_UDP;
+      } else if (!strcmp(s_protocol, "tcp")) {
+	protocol = T_TCP;
+      } else if (!strcmp(s_protocol, "tls")) {
+	protocol = T_TLS;
+      } else {
+	ERROR("Unknown transport for setdest: '%s'", s_protocol);
+      }
+
+      if (protocol != T_UDP) {
+	ERROR("The only supported protocol for changing destination is currently UDP.");
+      }
+
+      struct addrinfo   hints;
+      struct addrinfo * local_addr;
+      memset((char*)&hints, 0, sizeof(hints));
+      hints.ai_flags  = AI_PASSIVE;
+      hints.ai_family = PF_UNSPEC;
+      is_ipv6 = false;
+
+      if (getaddrinfo(s_host, NULL, &hints, &local_addr) != 0) {
+	ERROR("Unknown host '%s' for setdest", s_host);
+      }
+      if (_RCAST(struct sockaddr_storage *, local_addr->ai_addr)->ss_family != call_peer.ss_family) {
+	ERROR("Can not switch between IPv4 and IPV6 using setdest!");
+      }
+      memcpy(&call_peer, local_addr->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
+      if (call_peer.ss_family == AF_INET) {
+	(_RCAST(struct sockaddr_in *,&call_peer))->sin_port = htons(port);
+      } else {
+	(_RCAST(struct sockaddr_in6 *,&call_peer))->sin6_port = htons(port);
+      }
+
+      free(s_host);
+      free(s_port);
+      free(s_protocol);
 #ifdef _USE_OPENSSL
-        } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_AUTH) {
-	  bool result;
-	  char *lf;
-	  char *end;
+    } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_AUTH) {
+      bool result;
+      char *lf;
+      char *end;
 
-	  lf = strchr(msg, '\n');
-	  end = strchr(msg, ' ');
+      lf = strchr(msg, '\n');
+      end = strchr(msg, ' ');
 
-	  if (!lf || !end) {
-	    result = false;
-	  } else if (lf < end) {
-	    result = false;
-	  } else {
-	    char *auth = get_header(msg, "Authorization:", true);
-	    char *method = (char *)malloc(end - msg + 1);
-	    strncpy(method, msg, end - msg);
-	    method[end - msg] = '\0';
+      if (!lf || !end) {
+	result = false;
+      } else if (lf < end) {
+	result = false;
+      } else {
+	char *auth = get_header(msg, "Authorization:", true);
+	char *method = (char *)malloc(end - msg + 1);
+	strncpy(method, msg, end - msg);
+	method[end - msg] = '\0';
 
-	    /* Generate the username to verify it against. */
-            char *tmp = createSendingMessage(currentAction->getMessage(0), -2 /* do not add crlf*/);
-	    char *username = strdup(tmp);
-	    /* Generate the password to verify it against. */
-            tmp= createSendingMessage(currentAction->getMessage(1), -2 /* do not add crlf*/);
-	    char *password = strdup(tmp);
+	/* Generate the username to verify it against. */
+	char *tmp = createSendingMessage(currentAction->getMessage(0), -2 /* do not add crlf*/);
+	char *username = strdup(tmp);
+	/* Generate the password to verify it against. */
+	tmp= createSendingMessage(currentAction->getMessage(1), -2 /* do not add crlf*/);
+	char *password = strdup(tmp);
 
-	    result = verifyAuthHeader(username, password, method, auth);
+	result = verifyAuthHeader(username, password, method, auth);
 
-	    free(username);
-	    free(password);
-	  }
+	free(username);
+	free(password);
+      }
 
-	  M_callVariableTable->getVar(currentAction->getVarId())->setBool(result);
+      M_callVariableTable->getVar(currentAction->getVarId())->setBool(result);
 #endif
-        } else if (currentAction->getActionType() == CAction::E_AT_JUMP) {
-	  double operand = get_rhs(currentAction);
-	  msg_index = (int)operand - 1;
-        } else if (currentAction->getActionType() == CAction::E_AT_PAUSE_RESTORE) {
-	  double operand = get_rhs(currentAction);
-	  paused_until = (int)operand;
-        } else if (currentAction->getActionType() == CAction::E_AT_VAR_ADD) {
-	  double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
-	  double operand = get_rhs(currentAction);
-	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value + operand);
-        } else if (currentAction->getActionType() == CAction::E_AT_VAR_SUBTRACT) {
-	  double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
-	  double operand = get_rhs(currentAction);
-	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value - operand);
-        } else if (currentAction->getActionType() == CAction::E_AT_VAR_MULTIPLY) {
-	  double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
-	  double operand = get_rhs(currentAction);
-	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value * operand);
-        } else if (currentAction->getActionType() == CAction::E_AT_VAR_DIVIDE) {
-	  double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
-	  double operand = get_rhs(currentAction);
-	  if (operand == 0) {
-	    WARNING("Action failure: Can not divide by zero ($%d/$%d)!\n", currentAction->getVarId(), currentAction->getVarInId());
-	  } else {
-	    M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value / operand);
-	  }
-        } else if (currentAction->getActionType() == CAction::E_AT_VAR_TEST) {
-	  double value = currentAction->compare(M_callVariableTable);
-	  M_callVariableTable->getVar(currentAction->getVarId())->setBool(value);
-        } else if (currentAction->getActionType() == CAction::E_AT_VAR_STRCMP) {
-	  char *rhs = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
-	  char *lhs = currentAction->getStringValue();
-	  int value = strcmp(rhs, lhs);
-	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)value);
-        } else if (currentAction->getActionType() == CAction::E_AT_VAR_TRIM) {
-	  CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
-	  char *in = var->getString();
-	  char *p = in;
-	  while (isspace(*p)) {
-		p++;
-	  }
-	  char *q = strdup(p);
-	  var->setString(q);
-	  int l = strlen(q);
-	  for (int i = l - 1; i >= 0 & isspace(q[i]); i--) {
-		q[i] = '\0';
-	  }
-        } else if (currentAction->getActionType() == CAction::E_AT_VAR_TO_DOUBLE) {
-	  double value;
+    } else if (currentAction->getActionType() == CAction::E_AT_JUMP) {
+      double operand = get_rhs(currentAction);
+      msg_index = (int)operand - 1;
+    } else if (currentAction->getActionType() == CAction::E_AT_PAUSE_RESTORE) {
+      double operand = get_rhs(currentAction);
+      paused_until = (int)operand;
+    } else if (currentAction->getActionType() == CAction::E_AT_VAR_ADD) {
+      double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
+      double operand = get_rhs(currentAction);
+      M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value + operand);
+    } else if (currentAction->getActionType() == CAction::E_AT_VAR_SUBTRACT) {
+      double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
+      double operand = get_rhs(currentAction);
+      M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value - operand);
+    } else if (currentAction->getActionType() == CAction::E_AT_VAR_MULTIPLY) {
+      double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
+      double operand = get_rhs(currentAction);
+      M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value * operand);
+    } else if (currentAction->getActionType() == CAction::E_AT_VAR_DIVIDE) {
+      double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
+      double operand = get_rhs(currentAction);
+      if (operand == 0) {
+	WARNING("Action failure: Can not divide by zero ($%d/$%d)!\n", currentAction->getVarId(), currentAction->getVarInId());
+      } else {
+	M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value / operand);
+      }
+    } else if (currentAction->getActionType() == CAction::E_AT_VAR_TEST) {
+      double value = currentAction->compare(M_callVariableTable);
+      M_callVariableTable->getVar(currentAction->getVarId())->setBool(value);
+    } else if (currentAction->getActionType() == CAction::E_AT_VAR_STRCMP) {
+      char *rhs = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
+      char *lhs = currentAction->getStringValue();
+      int value = strcmp(rhs, lhs);
+      M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)value);
+    } else if (currentAction->getActionType() == CAction::E_AT_VAR_TRIM) {
+      CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
+      char *in = var->getString();
+      char *p = in;
+      while (isspace(*p)) {
+	p++;
+      }
+      char *q = strdup(p);
+      var->setString(q);
+      int l = strlen(q);
+      for (int i = l - 1; i >= 0 & isspace(q[i]); i--) {
+	q[i] = '\0';
+      }
+    } else if (currentAction->getActionType() == CAction::E_AT_VAR_TO_DOUBLE) {
+      double value;
 
-	  if (M_callVariableTable->getVar(currentAction->getVarInId())->toDouble(&value)) {
-	    M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
+      if (M_callVariableTable->getVar(currentAction->getVarInId())->toDouble(&value)) {
+	M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
+      } else {
+	WARNING("Invalid double conversion from $%d to $%d", currentAction->getVarInId(), currentAction->getVarId());
+      }
+    } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
+      double value = currentAction->getDistribution()->sample();
+      M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
+    } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_STRING) {
+      char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+      char *str = strdup(x);
+      if (!str) {
+	ERROR("Out of memory duplicating string for assignment!");
+      }
+      M_callVariableTable->getVar(currentAction->getVarId())->setString(str);
+    } else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
+      char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+      LOG_MSG("%s\n", x);
+    } else if (currentAction->getActionType() == CAction::E_AT_LOG_WARNING) {
+      char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+      WARNING("%s", x);
+    } else if (currentAction->getActionType() == CAction::E_AT_LOG_ERROR) {
+      char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+      ERROR("%s", x);
+    } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
+      char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+      // TRACE_MSG("Trying to execute [%s]", x);
+      pid_t l_pid;
+      switch(l_pid = fork())
+      {
+	case -1:
+	  // error when forking !
+	  ERROR_NO("Forking error main");
+	  break;
+
+	case 0:
+	  // first child process - execute the command
+	  if((l_pid = fork()) < 0) {
+	    ERROR_NO("Forking error child");
 	  } else {
-	    WARNING("Invalid double conversion from $%d to $%d", currentAction->getVarInId(), currentAction->getVarId());
-	  }
-	} else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
-	  double value = currentAction->getDistribution()->sample();
-	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
-	} else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_STRING) {
-            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
-	    char *str = strdup(x);
-	    if (!str) {
-		ERROR("Out of memory duplicating string for assignment!");
+	    if( l_pid == 0){
+	      int ret;
+	      ret = system(x); // second child runs
+	      if(ret == -1) {
+		WARNING("system call error for %s",x);
+	      }
 	    }
-	    M_callVariableTable->getVar(currentAction->getVarId())->setString(str);
-	} else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
-            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
-            LOG_MSG("%s\n", x);
-	} else if (currentAction->getActionType() == CAction::E_AT_LOG_WARNING) {
-            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
-            WARNING("%s", x);
-	} else if (currentAction->getActionType() == CAction::E_AT_LOG_ERROR) {
-            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
-            ERROR("%s", x);
-        } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
-             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
-	     // TRACE_MSG("Trying to execute [%s]", x);
-	     pid_t l_pid;
-	     switch(l_pid = fork())
-	     {
-	       case -1:
-		 // error when forking !
-		 ERROR_NO("Forking error main");
-		 break;
-
-	       case 0:
-		 // first child process - execute the command
-		 if((l_pid = fork()) < 0) {
-		   ERROR_NO("Forking error child");
-		 } else {
-		   if( l_pid == 0){
-		     int ret;
-		     ret = system(x); // second child runs
-		     if(ret == -1) {
-		       WARNING("system call error for %s",x);
-		     }
-		   }
-		   exit(EXIT_OTHER); 
-		 }
-		 break;
-	       default:
-		 // parent process continue
-		 // reap first child immediately
-		 pid_t ret;
-		 while ((ret=waitpid(l_pid, NULL, 0)) != l_pid) {
-		   if (ret != -1) {
-		     ERROR("waitpid returns %1d for child %1d",ret,l_pid);
-		   }
-		 }
-		 break;
-	     }
-        } else /* end action == E_AT_EXECUTE_CMD */
-            if (currentAction->getActionType() == CAction::E_AT_EXEC_INTCMD) {
-                switch (currentAction->getIntCmd())
-                {
-                    case CAction::E_INTCMD_STOP_ALL:
-                        quitting = 1;
-                        break;
-                    case CAction::E_INTCMD_STOP_NOW:
-                        screen_exit(EXIT_TEST_RES_INTERNAL);
-                        break;
-                    case CAction::E_INTCMD_STOPCALL:
-                    default:
-                        return(call::E_AR_STOP_CALL);
-                        break;
-                }
+	    exit(EXIT_OTHER); 
+	  }
+	  break;
+	default:
+	  // parent process continue
+	  // reap first child immediately
+	  pid_t ret;
+	  while ((ret=waitpid(l_pid, NULL, 0)) != l_pid) {
+	    if (ret != -1) {
+	      ERROR("waitpid returns %1d for child %1d",ret,l_pid);
+	    }
+	  }
+	  break;
+      }
+    } else if (currentAction->getActionType() == CAction::E_AT_EXEC_INTCMD) {
+      switch (currentAction->getIntCmd())
+      {
+	case CAction::E_INTCMD_STOP_ALL:
+	  quitting = 1;
+	  break;
+	case CAction::E_INTCMD_STOP_NOW:
+	  screen_exit(EXIT_TEST_RES_INTERNAL);
+	  break;
+	case CAction::E_INTCMD_STOPCALL:
+	default:
+	  return(call::E_AR_STOP_CALL);
+	  break;
+      }
 #ifdef PCAPPLAY
-        } else if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
-                   (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO)) {
-          play_args_t *play_args;
-          if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) {
-            play_args = &(this->play_args_a);
-          } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) {
-            play_args = &(this->play_args_v);
-          }
-          play_args->pcap = currentAction->getPcapPkts();
-          /* port number is set in [auto_]media_port interpolation */
-          if (media_ip_is_ipv6) {
-            struct sockaddr_in6 *from = (struct sockaddr_in6 *)(void *) &(play_args->from);
-            from->sin6_family = AF_INET6;
-            inet_pton(AF_INET6, media_ip, &(from->sin6_addr));
-          }
-          else {
-            struct sockaddr_in *from = (struct sockaddr_in *)(void *) &(play_args->from);
-            from->sin_family = AF_INET;
-            from->sin_addr.s_addr = inet_addr(media_ip);
-          }
-          /* Create a thread to send RTP packets */
-          pthread_attr_t attr;
-          pthread_attr_init(&attr);
+    } else if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
+	(currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO)) {
+      play_args_t *play_args;
+      if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) {
+	play_args = &(this->play_args_a);
+      } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) {
+	play_args = &(this->play_args_v);
+      }
+      play_args->pcap = currentAction->getPcapPkts();
+      /* port number is set in [auto_]media_port interpolation */
+      if (media_ip_is_ipv6) {
+	struct sockaddr_in6 *from = (struct sockaddr_in6 *)(void *) &(play_args->from);
+	from->sin6_family = AF_INET6;
+	inet_pton(AF_INET6, media_ip, &(from->sin6_addr));
+      }
+      else {
+	struct sockaddr_in *from = (struct sockaddr_in *)(void *) &(play_args->from);
+	from->sin_family = AF_INET;
+	from->sin_addr.s_addr = inet_addr(media_ip);
+      }
+      /* Create a thread to send RTP packets */
+      pthread_attr_t attr;
+      pthread_attr_init(&attr);
 #ifndef PTHREAD_STACK_MIN
 #define PTHREAD_STACK_MIN	16384
 #endif
-          //pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN);
-          pthread_attr_setdetachstate(&attr,
-				PTHREAD_CREATE_DETACHED);
-          int ret = pthread_create(&media_thread, &attr, send_wrapper,
-		       (void *) play_args);
-          if(ret)
-            ERROR("Can create thread to send RTP packets");
-          pthread_attr_destroy(&attr);
+      //pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN);
+      pthread_attr_setdetachstate(&attr,
+	  PTHREAD_CREATE_DETACHED);
+      int ret = pthread_create(&media_thread, &attr, send_wrapper,
+	  (void *) play_args);
+      if(ret)
+	ERROR("Can create thread to send RTP packets");
+      pthread_attr_destroy(&attr);
 #endif
-        } else {
-          ERROR("call::executeAction unknown action");
-        }
-      } // end if current action != null
-    } // end for
-  }
+    } else {
+      ERROR("call::executeAction unknown action");
+    }
+  } // end for
   return(call::E_AR_NO_ERROR);
 }
 
