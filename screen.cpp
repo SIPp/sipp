@@ -220,6 +220,8 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
   char * c = screen_last_error;
   struct timeval currentTime;
 
+  CStat::globalStat(fatal ? CStat::E_FATAL_ERRORS : CStat::E_WARNING);
+
   GET_TIME (&currentTime);
   
   c+= sprintf(c, "%s: ", CStat::formatTime(&currentTime));

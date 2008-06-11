@@ -87,7 +87,7 @@
   fprintf(f,"    %14.14s n >= %8d ms : %10d  %-29.29s \r\n", "", T1, V1, "")
 
 #define RESET_COUNTERS(PT)\
-  memset (PT, 0, CStat::E_NB_G_COUNTER * sizeof(unsigned long long))
+  memset (PT, 0, CStat::E_NB_COUNTER * sizeof(unsigned long long))
 
 #define RESET_PD_COUNTERS                          \
 {                                                      \
@@ -698,6 +698,18 @@ int CStat::globalStat (E_Action P_action) {
       M_G_counters [CPT_G_C_DeadCallMsgs - E_NB_COUNTER - 1]++;
       M_G_counters [CPT_G_PD_DeadCallMsgs - E_NB_COUNTER - 1]++;
       M_G_counters [CPT_G_PL_DeadCallMsgs - E_NB_COUNTER - 1]++;
+      break;
+
+    case E_FATAL_ERRORS :
+      M_G_counters [CPT_G_C_FatalErrors - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PD_FatalErrors - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PL_FatalErrors - E_NB_COUNTER - 1]++;
+      break;
+
+    case E_WARNING :
+      M_G_counters [CPT_G_C_Warnings - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PD_Warnings - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PL_Warnings - E_NB_COUNTER - 1]++;
       break;
 
     case E_AUTO_ANSWERED :
@@ -1326,7 +1338,11 @@ void CStat::dumpData ()
                       << "Retransmissions(P)" << stat_delimiter
                       << "Retransmissions(C)" << stat_delimiter
                       << "AutoAnswered(P)" << stat_delimiter
-                      << "AutoAnswered(C)" << stat_delimiter;
+                      << "AutoAnswered(C)" << stat_delimiter
+                      << "Warnings(P)" << stat_delimiter
+                      << "Warnings(C)" << stat_delimiter
+                      << "FatalErrors(P)" << stat_delimiter
+                      << "FatalErrors(C)" << stat_delimiter;
 
     for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
       char s_P[30];
@@ -1422,14 +1438,18 @@ void CStat::dumpData ()
                     << M_counters[CPT_C_FailedTimeoutOnRecv]            << stat_delimiter
                     << M_counters[CPT_PL_FailedTimeoutOnSend]           << stat_delimiter
                     << M_counters[CPT_C_FailedTimeoutOnSend]            << stat_delimiter
-                    << M_G_counters[CPT_G_PL_OutOfCallMsgs - E_NB_COUNTER - 1]                 << stat_delimiter
-                    << M_G_counters[CPT_G_C_OutOfCallMsgs - E_NB_COUNTER - 1]                  << stat_delimiter
+                    << M_G_counters[CPT_G_PL_OutOfCallMsgs - E_NB_COUNTER - 1]                << stat_delimiter
+                    << M_G_counters[CPT_G_C_OutOfCallMsgs - E_NB_COUNTER - 1]                 << stat_delimiter
                     << M_G_counters[CPT_G_PL_DeadCallMsgs - E_NB_COUNTER - 1]                 << stat_delimiter
                     << M_G_counters[CPT_G_C_DeadCallMsgs - E_NB_COUNTER - 1]                  << stat_delimiter
                     << M_counters[CPT_PL_Retransmissions]               << stat_delimiter
                     << M_counters[CPT_C_Retransmissions]                << stat_delimiter
                     << M_G_counters[CPT_G_PL_AutoAnswered - E_NB_COUNTER - 1]                  << stat_delimiter
-                    << M_G_counters[CPT_G_C_AutoAnswered - E_NB_COUNTER - 1]                   << stat_delimiter;
+                    << M_G_counters[CPT_G_C_AutoAnswered - E_NB_COUNTER - 1]                   << stat_delimiter
+                    << M_G_counters[CPT_G_PL_Warnings - E_NB_COUNTER - 1]                  << stat_delimiter
+                    << M_G_counters[CPT_G_C_Warnings - E_NB_COUNTER - 1]                   << stat_delimiter
+                    << M_G_counters[CPT_G_PL_FatalErrors - E_NB_COUNTER - 1]                  << stat_delimiter
+                    << M_G_counters[CPT_G_C_FatalErrors - E_NB_COUNTER - 1]                   << stat_delimiter;
 
   // SF917289 << M_counters[CPT_C_UnexpectedMessage]    << stat_delimiter;
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {

@@ -116,6 +116,8 @@ public:
     E_FAILED_TIMEOUT_ON_SEND,
     E_OUT_OF_CALL_MSGS,
     E_DEAD_CALL_MSGS,
+    E_FATAL_ERRORS,
+    E_WARNING,
     E_RETRANSMISSION,
     E_AUTO_ANSWERED,
     E_ADD_GENERIC_COUNTER
@@ -266,15 +268,21 @@ public:
   // Cumulative counters
   CPT_G_C_OutOfCallMsgs,
   CPT_G_C_DeadCallMsgs,
+  CPT_G_C_FatalErrors,
+  CPT_G_C_Warnings,
   CPT_G_C_AutoAnswered,
   // Periodic Display counter
   CPT_G_PD_OutOfCallMsgs,
   CPT_G_PD_DeadCallMsgs,
+  CPT_G_PD_FatalErrors,
+  CPT_G_PD_Warnings,
   CPT_G_PD_AutoAnswered, // must be last (RESET_PD_COUNTER)
 
   // Periodic logging counter
   CPT_G_PL_OutOfCallMsgs,
   CPT_G_PL_DeadCallMsgs,
+  CPT_G_PL_FatalErrors,
+  CPT_G_PL_Warnings,
   CPT_G_PL_AutoAnswered, // must be last (RESET_PL_COUNTER)
 
   E_NB_G_COUNTER,
