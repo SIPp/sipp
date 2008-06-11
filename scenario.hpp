@@ -43,6 +43,7 @@
 #define MODE_CLIENT        0
 #define MODE_SERVER        1
 
+#define MODE_3PCC_NONE		0
 #define MODE_3PCC_CONTROLLER_A  2
 #define MODE_3PCC_CONTROLLER_B  3   
 #define MODE_3PCC_A_PASSIVE     4
@@ -210,7 +211,9 @@ private:
 extern scenario      *main_scenario;
 extern scenario      *ooc_scenario;
 extern scenario      *display_scenario;
-extern int           toolMode;
+extern int           creationMode;
+extern int           sendMode;
+extern int           thirdPartyMode;
 
 extern message::ContentLengthFlag  content_length_flag;
 

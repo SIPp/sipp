@@ -580,7 +580,7 @@ bool call::connect_socket_if_needed()
   if(transport == T_UDP) {
     struct sockaddr_storage saddr;
 
-    if(toolMode != MODE_CLIENT)
+    if(creationMode != MODE_CLIENT)
       return true;
 
     char peripaddr[256];
@@ -748,7 +748,7 @@ int call::send_raw(char * msg, int index)
   
   sock = call_socket;
 
-  if ((use_remote_sending_addr) && (toolMode == MODE_SERVER)) {
+  if ((use_remote_sending_addr) && (creationMode == MODE_SERVER)) {
     if (!call_remote_socket) {
       struct sockaddr_storage *L_dest = &remote_sending_sockaddr;
 
@@ -1732,7 +1732,7 @@ bool call::abortCall()
   } else {
     is_inv = false;
   }  
-  if ((toolMode != MODE_SERVER) && (msg_index > 0)) {
+  if ((creationMode != MODE_SERVER) && (msg_index > 0)) {
     if ((call_established == false) && (is_inv)) {
       src_recv = last_recv_msg ;
       char   L_msg_buffer[SIPP_MAX_MSG_SIZE];
@@ -1915,7 +1915,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	break;
       case E_Message_Local_Port:
 	int port;
-	if((transport == T_UDP) && (multisocket) && (toolMode != MODE_SERVER)) {
+	if((transport == T_UDP) && (multisocket) && (creationMode != MODE_SERVER)) {
 	  port = call_port;
 	} else {
 	  port =  local_port;
@@ -3180,7 +3180,7 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	  }
 
 	  char *endptr;
-	  int lineNum = strtol(line, &endptr, 0);
+	  int lineNum = (int)strtod(line, &endptr);
 	  if (*endptr) {
 	    ERROR("Invalid line number for replace: %s", line);
 	  }

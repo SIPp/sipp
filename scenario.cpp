@@ -171,7 +171,14 @@ scenario      *main_scenario;
 scenario      *ooc_scenario;
 scenario      *display_scenario;
 
-int           toolMode  = MODE_CLIENT;
+/* This mode setting refers to whether we open calls autonomously (MODE_CLIENT)
+ * or in response to requests (MODE_SERVER). */
+int           creationMode  = MODE_CLIENT;
+/* Send mode. Do we send to a fixed address or to the last one we got. */
+int           sendMode  = MODE_CLIENT;
+/* This describes what our 3PCC behavior is. */
+int	      thirdPartyMode = MODE_3PCC_NONE;
+
 bool	      rtd_stopped[MAX_RTD_INFO_LENGTH];
 bool	      rtd_started[MAX_RTD_INFO_LENGTH];
 
@@ -1193,9 +1200,13 @@ void scenario::computeSippMode()
 {
   bool isRecvCmdFound = false;
   bool isSendCmdFound = false;
-  bool isFirstMessageFound = true;
 
-  toolMode = -1;
+  creationMode = -1;
+  sendMode = -1;
+  thirdPartyMode = MODE_3PCC_NONE;
+
+  assert(length > 0);
+
   for(int i=0; i<length; i++)
     { 
       switch(messages[i]->M_type)
@@ -1204,77 +1215,86 @@ void scenario::computeSippMode()
         case MSG_TYPE_NOP:
 	  /* Allow pauses or nops to go first. */
 	  continue;
-        case MSG_TYPE_SEND: 
-          if(isFirstMessageFound)
-            toolMode  = MODE_CLIENT;
-          isFirstMessageFound = false;
+        case MSG_TYPE_SEND:
+	  if (sendMode == -1) {
+	    sendMode = MODE_CLIENT;
+	  }
+	  if (creationMode == -1) {
+	    creationMode = MODE_CLIENT;
+	  }
           break;
 
         case MSG_TYPE_RECV:
-          if(isFirstMessageFound)
-            toolMode  = MODE_SERVER;
-          isFirstMessageFound = false;
+	  if (sendMode == -1) {
+	    sendMode = MODE_SERVER;
+	  }
+	  if (creationMode == -1) {
+	    creationMode = MODE_SERVER;
+	  }
           break;
         case MSG_TYPE_SENDCMD:
           isSendCmdFound = true;
+	  if (creationMode == -1) {
+	    creationMode = MODE_CLIENT;
+	  }
           if(!isRecvCmdFound) {
-            if (false == isFirstMessageFound && toolMode == MODE_SERVER) {
+            if (creationMode == MODE_SERVER) {
               /*
                * If it is a server already, then start it in
                * 3PCC A passive mode
                */
 	       if(twinSippMode){
-              toolMode = MODE_3PCC_A_PASSIVE;
+		 thirdPartyMode = MODE_3PCC_A_PASSIVE;
 	       }else if (extendedTwinSippMode){
-		  toolMode = MODE_MASTER_PASSIVE;
+		 thirdPartyMode = MODE_MASTER_PASSIVE;
                }
             } else {
 	        if(twinSippMode){
-              toolMode = MODE_3PCC_CONTROLLER_A;
-                 }else if (extendedTwinSippMode){
-                   toolMode = MODE_MASTER;
-                 } 
+		  thirdPartyMode = MODE_3PCC_CONTROLLER_A;
+		}else if (extendedTwinSippMode){
+		  thirdPartyMode = MODE_MASTER;
+		}
             }
-            if((toolMode == MODE_MASTER_PASSIVE || toolMode == MODE_MASTER) && !master_name){
+            if((thirdPartyMode == MODE_MASTER_PASSIVE || thirdPartyMode == MODE_MASTER) && !master_name){
               ERROR("Inconsistency between command line and scenario: master scenario but -master option not set\n");
             }
             if(!twinSippMode && !extendedTwinSippMode)
               ERROR("sendCmd message found in scenario but no twin sipp"
                     " address has been passed! Use -3pcc option or 3pcc extended mode.\n");
-            return;
           }
-          isFirstMessageFound = false;
           break;
 
         case MSG_TYPE_RECVCMD:
+	  if (creationMode == -1) {
+	    creationMode = MODE_SERVER;
+	  }
           isRecvCmdFound = true;
           if(!isSendCmdFound)
             {
               if(twinSippMode){
-              toolMode  = MODE_3PCC_CONTROLLER_B;
+		thirdPartyMode = MODE_3PCC_CONTROLLER_B;
               } else if(extendedTwinSippMode){
-	         toolMode = MODE_SLAVE;
+		thirdPartyMode = MODE_SLAVE;
                  if(!slave_number) {
-                    ERROR("Inconsistency between command line and scenario: slave scenario but -slave option not set\n");
-                   }else{
-                    toolMode = MODE_SLAVE;
-                   } 
+		   ERROR("Inconsistency between command line and scenario: slave scenario but -slave option not set\n");
+		 }else{
+		   thirdPartyMode = MODE_SLAVE;
+		 }
               }
               if(!twinSippMode && !extendedTwinSippMode)
-                ERROR("sendCmd message found in scenario but no "
+                ERROR("recvCmd message found in scenario but no "
                       "twin sipp address has been passed! Use "
                       "-3pcc option\n");
-              return;
             }
-          isFirstMessageFound = false;
           break;
         default:
           break;
         }
     }
-    if(toolMode == -1)
-      ERROR("Unable to determine mode of the tool (server, "
-            "client, 3PCC controller A, 3PCC controller B).\n");
+    if(creationMode == -1)
+      ERROR("Unable to determine creation mode of the tool (server, client)\n");
+    if(sendMode == -1)
+      ERROR("Unable to determine send mode of the tool (server, client)\n");
 }
 
 void scenario::handle_rhs(CAction *tmpAction, char *what) {

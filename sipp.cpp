@@ -732,7 +732,7 @@ void print_stats_in_file(FILE * f, int last)
     sprintf(temp_str, "%3.1f(%d ms)/%5.3fs", rate, duration, (double)rate_period_ms / 1000.0);
   }
   unsigned long long total_calls = display_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + display_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated);
-  if( toolMode == MODE_SERVER) {
+  if( creationMode == MODE_SERVER) {
     fprintf
       (f,
        "  Port   Total-time  Total-calls  Transport" 
@@ -744,6 +744,7 @@ void print_stats_in_file(FILE * f, int last)
        total_calls,
        TRANSPORT_TO_STRING(transport));
   } else {
+    assert(creationMode == MODE_CLIENT);
     if (users >= 0) {
       fprintf(f, "     Users (length)");
     } else {
@@ -780,7 +781,7 @@ void print_stats_in_file(FILE * f, int last)
          (clock_tick-last_report_time) / divisor);
 
   /* 2nd line */
-  if( toolMode == MODE_SERVER) { 
+  if( creationMode == MODE_SERVER) {
     sprintf(temp_str, "%llu calls", display_scenario->stats->GetStat(CStat::CPT_C_CurrentCall));
   } else {
     sprintf(temp_str, "%llu calls (limit %d)", display_scenario->stats->GetStat(CStat::CPT_C_CurrentCall), open_calls_allowed);
@@ -797,7 +798,7 @@ void print_stats_in_file(FILE * f, int last)
   sprintf(temp_str,"%llu dead call msg (discarded)",
       display_scenario->stats->GetStat(CStat::CPT_G_C_DeadCallMsgs));
   fprintf(f,"  %-37s", temp_str);
-  if( toolMode != MODE_SERVER) { 
+  if( creationMode == MODE_CLIENT) {
     sprintf(temp_str,"%llu out-of-call msg (discarded)",
             display_scenario->stats->GetStat(CStat::CPT_G_C_OutOfCallMsgs));
     fprintf(f,"  %-37s", temp_str);
@@ -897,7 +898,7 @@ void print_stats_in_file(FILE * f, int last)
 	sprintf(temp_str, "%s", src->getMethod());
       }
 
-      if(toolMode == MODE_SERVER) {
+      if(creationMode == MODE_SERVER) {
         fprintf(f,"  <---------- %-10s ", temp_str);
       } else {
         fprintf(f,"  %10s ----------> ", temp_str);
@@ -924,7 +925,7 @@ void print_stats_in_file(FILE * f, int last)
                "" /* Unexpected. */);
       }
     } else if(curmsg -> recv_response) {
-      if(toolMode == MODE_SERVER) {
+      if(creationMode == MODE_SERVER) {
 	fprintf(f,"  ----------> %-10d ", curmsg -> recv_response);
       } else { 
 	fprintf(f,"  %10d <---------- ", curmsg -> recv_response);
@@ -967,7 +968,7 @@ void print_stats_in_file(FILE * f, int last)
       }
       int len = strlen(desc) < 9 ? 9 : strlen(desc);
 
-      if(toolMode == MODE_SERVER) {
+      if(creationMode == MODE_SERVER) {
 	fprintf(f,"  [%9s] Pause%*s", desc, 23 - len > 0 ? 23 - len : 0, "");
       } else {
 	fprintf(f,"       Pause [%9s]%*s", desc, 18 - len > 0 ? 18 - len : 0, "");
@@ -976,7 +977,7 @@ void print_stats_in_file(FILE * f, int last)
       fprintf(f,"%-9d", curmsg->sessions);
       fprintf(f,"                     %-9d" , curmsg->nb_unexp);
     } else if(curmsg -> recv_request) {
-      if(toolMode == MODE_SERVER) {
+      if(creationMode == MODE_SERVER) {
 	fprintf(f,"  ----------> %-10s ", curmsg -> recv_request);
       } else {
 	fprintf(f,"  %10s <---------- ", curmsg -> recv_request);
@@ -1203,22 +1204,28 @@ void print_bottom_line(FILE *f, int last)
   } else if(outbound_congestion) {
     fprintf(f,"------------------------------ OUTBOUND CONGESTION -----------------------------" SIPP_ENDL);
   } else {
-    switch(toolMode)
-      {
-      case MODE_SERVER :
-        fprintf(f,"------------------------------ Sipp Server Mode -------------------------------" SIPP_ENDL);
-        break;
-      case MODE_3PCC_CONTROLLER_B :
-        fprintf(f,"----------------------- 3PCC Mode - Controller B side -------------------------" SIPP_ENDL);
-        break;
-      case MODE_3PCC_A_PASSIVE :
-        fprintf(f,"------------------ 3PCC Mode - Controller A side (passive) --------------------" SIPP_ENDL);
+    if (creationMode == MODE_CLIENT) {
+      switch(thirdPartyMode) {
+      case MODE_MASTER :
+        fprintf(f,"-----------------------3PCC extended mode - Master side -------------------------" SIPP_ENDL);
         break;
       case MODE_3PCC_CONTROLLER_A :
         fprintf(f,"----------------------- 3PCC Mode - Controller A side -------------------------" SIPP_ENDL);
         break;
-      case MODE_MASTER :
-        fprintf(f,"-----------------------3PCC extended mode - Master side -------------------------" SIPP_ENDL);
+      case MODE_3PCC_CONTROLLER_B :
+        fprintf(f,"----------------------- 3PCC Mode - Controller B side -------------------------" SIPP_ENDL);
+        break;
+      case MODE_3PCC_NONE:
+	fprintf(f,"------ [+|-|*|/]: Adjust rate ---- [q]: Soft exit ---- [p]: Pause traffic -----" SIPP_ENDL);
+	break;
+      default:
+	ERROR("Internal error: creationMode=%d, thirdPartyMode=%d", creationMode, thirdPartyMode);
+      }
+    } else {
+      assert(creationMode == MODE_SERVER);
+      switch(thirdPartyMode) {
+      case MODE_3PCC_A_PASSIVE :
+        fprintf(f,"------------------ 3PCC Mode - Controller A side (passive) --------------------" SIPP_ENDL);
         break;
       case MODE_MASTER_PASSIVE :
         fprintf(f,"------------------ 3PCC extended mode - Master side (passive) --------------------" SIPP_ENDL);
@@ -1226,11 +1233,13 @@ void print_bottom_line(FILE *f, int last)
       case MODE_SLAVE :
         fprintf(f,"----------------------- 3PCC extended mode - Slave side -------------------------" SIPP_ENDL);
         break; 
-      case MODE_CLIENT :
+      case MODE_3PCC_NONE:
+        fprintf(f,"------------------------------ Sipp Server Mode -------------------------------" SIPP_ENDL);
+	break;
       default:
-        fprintf(f,"------ [+|-|*|/]: Adjust rate ---- [q]: Soft exit ---- [p]: Pause traffic -----" SIPP_ENDL);
-        break;
+	ERROR("Internal error: creationMode=%d, thirdPartyMode=%d", creationMode, thirdPartyMode);
       }
+    }
   }
   fprintf(f,SIPP_ENDL);
   fflush(stdout);
@@ -1602,8 +1611,10 @@ void process_set(char *what) {
   } else if (!strcmp(what, "limit")) {
     char *end;
     unsigned long lrest = strtoul(rest, &end, 0);
-    if (*end) {
-      WARNING("Invalid rate-scale value: \"%s\"", rest);
+    if (users >= 0) {
+      WARNING("Can not set call limit for a user-based benchmark.");
+    } else if (*end) {
+      WARNING("Invalid limit value: \"%s\"", rest);
     } else {
       open_calls_allowed = lrest;
       open_calls_user_setting = 1;
@@ -2466,7 +2477,7 @@ static int read_error(struct sipp_socket *socket, int ret) {
           quitting += 20;
           }else if(twinSippMode) {
            if(twinSippSocket) sipp_close_socket(twinSippSocket);
-           if(toolMode == MODE_3PCC_CONTROLLER_B) {
+           if(thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
              WARNING("3PCC controller A has ended -> exiting");
              quitting += 20;
            }else {
@@ -2967,7 +2978,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 
   if(!listener_ptr)
   {
-    if(toolMode == MODE_SERVER)
+    if(creationMode == MODE_SERVER)
     {
       if (quitting >= 1) {
 	CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
@@ -2982,8 +2993,8 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 	ERROR("Out of memory allocating a call!");
       }
     }
-    else if(toolMode == MODE_3PCC_CONTROLLER_B || toolMode == MODE_3PCC_A_PASSIVE
-	|| toolMode == MODE_MASTER_PASSIVE || toolMode == MODE_SLAVE)
+    else if(thirdPartyMode == MODE_3PCC_CONTROLLER_B || thirdPartyMode == MODE_3PCC_A_PASSIVE
+	|| thirdPartyMode == MODE_MASTER_PASSIVE || thirdPartyMode == MODE_SLAVE)
     {
       // Adding a new OUTGOING call !
       main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
@@ -3132,7 +3143,7 @@ void pollset_process(int wait)
       } else if (sock == stdin_socket) {
 	handle_stdin_socket();
       } else if (sock == localTwinSippSocket) {
-	if (toolMode == MODE_3PCC_CONTROLLER_B) {
+	if (thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
 	  twinSippSocket = sipp_accept_socket(sock);
 	  if (!twinSippMode) {
 	    ERROR_NO("Accepting new TCP connection on Twin SIPp Socket.\n");
@@ -4300,6 +4311,9 @@ int main(int argc, char *argv[])
 	case SIPP_OPTION_LIMIT:
 	  REQUIRE_ARG();
 	  CHECK_PASS();
+	  if (users >= 0) {
+	    ERROR("Can not set open call limit (-l) when -users is specified.");
+	  }
 	  open_calls_allowed = get_long(argv[argi], argv[argi - 1]);
 	  open_calls_user_setting = 1;
 	  break;
@@ -4697,12 +4711,12 @@ int main(int argc, char *argv[])
 	 
   /* Setting the rate and its dependant params (open_calls_allowed) */
   /* If we are a client, then create the task to open new calls. */
-  if ((toolMode == MODE_CLIENT) || (toolMode == MODE_3PCC_CONTROLLER_A) || (toolMode == MODE_MASTER)) {
+  if (creationMode == MODE_CLIENT) {
     opentask::initialize();
     opentask::set_rate(rate);
   }
 
-  if (toolMode == MODE_SERVER) {
+  if (creationMode == MODE_SERVER) {
     reset_number = 0;
   }
    
@@ -4919,7 +4933,7 @@ int open_connections() {
   local_port = 0;
   
   if(!strlen(remote_host)) {
-    if((toolMode != MODE_SERVER)) {
+    if((sendMode != MODE_SERVER)) {
       ERROR("Missing remote host parameter. This scenario requires it");
     }
   } else {
@@ -5147,7 +5161,7 @@ int open_connections() {
 
   // Create additional server sockets when running in socket per
   // IP address mode.
-  if (peripsocket && toolMode == MODE_SERVER) {
+  if (peripsocket && sendMode == MODE_SERVER) {
     struct sockaddr_storage server_sockaddr;
     struct addrinfo * local_addr;
     struct addrinfo   hints;
@@ -5201,7 +5215,7 @@ int open_connections() {
   }
 
   if((!multisocket) && (transport == T_TCP || transport == T_TLS) &&
-   (toolMode != MODE_SERVER)) {
+   (sendMode != MODE_SERVER)) {
     if((tcp_multiplex = new_sipp_socket(local_ip_is_ipv6, transport)) == NULL) {
       ERROR_NO("Unable to get a TCP socket");
     }
@@ -5241,26 +5255,26 @@ int open_connections() {
 
   /* Trying to connect to Twin Sipp in 3PCC mode */
   if(twinSippMode) {
-    if(toolMode == MODE_3PCC_CONTROLLER_A || toolMode == MODE_3PCC_A_PASSIVE) {
+    if(thirdPartyMode == MODE_3PCC_CONTROLLER_A || thirdPartyMode == MODE_3PCC_A_PASSIVE) {
        connect_to_peer(twinSippHost, twinSippPort, &twinSipp_sockaddr, twinSippIp, &twinSippSocket);
-     }else if(toolMode == MODE_3PCC_CONTROLLER_B){
+     }else if(thirdPartyMode == MODE_3PCC_CONTROLLER_B){
        connect_local_twin_socket(twinSippHost);
       }else{
-       ERROR("TwinSipp Mode enabled but toolMode is different "
+       ERROR("TwinSipp Mode enabled but thirdPartyMode is different "
               "from 3PCC_CONTROLLER_B and 3PCC_CONTROLLER_A\n");
       }
    }else if (extendedTwinSippMode){       
-     if (toolMode == MODE_MASTER || toolMode == MODE_MASTER_PASSIVE) {
+     if (thirdPartyMode == MODE_MASTER || thirdPartyMode == MODE_MASTER_PASSIVE) {
        strcpy(twinSippHost,get_peer_addr(master_name));
        get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
        connect_local_twin_socket(twinSippHost);
        connect_to_all_peers();
-     }else if(toolMode == MODE_SLAVE) {
+     }else if(thirdPartyMode == MODE_SLAVE) {
        strcpy(twinSippHost,get_peer_addr(slave_number));
        get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
        connect_local_twin_socket(twinSippHost);
      }else{
-        ERROR("extendedTwinSipp Mode enabled but toolMode is different "
+        ERROR("extendedTwinSipp Mode enabled but thirdPartyMode is different "
               "from MASTER and SLAVE\n");
      }
     }
