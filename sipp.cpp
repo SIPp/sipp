@@ -113,6 +113,7 @@ struct sipp_option {
 #define SIPP_OPTION_DEFAULTS      31
 #define SIPP_OPTION_OOC_SCENARIO  32
 #define SIPP_OPTION_INDEX_FILE    33
+#define SIPP_OPTION_VAR		  34
 
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
@@ -302,6 +303,7 @@ struct sipp_option options_table[] = {
                    "A circuit must be available for the call to be placed.\n"
                    "Format: -tdmmap {0-3}{99}{5-8}{1-31}", SIPP_OPTION_TDMMAP, NULL, 1},
 	{"key", "keyword value\nSet the generic parameter named \"keyword\" to \"value\".", SIPP_OPTION_KEY, NULL, 1},
+	{"set", "variable value\nSet the global variable parameter named \"variable\" to \"value\".", SIPP_OPTION_VAR, NULL, 3},
 };
 
 struct sipp_option *find_option(const char *option) {
@@ -4027,7 +4029,7 @@ int main(int argc, char *argv[])
 				     "Use 'sipp -h' for details",  argv[argi - 1]); }
 #define CHECK_PASS() if (option->pass != pass) { break; }
 
-  for (int pass = 0; pass <= 2; pass++) {
+  for (int pass = 0; pass <= 3; pass++) {
     for(argi = 1; argi < argc; argi++) {
       struct sipp_option *option = find_option(argv[argi]);
       if (!option) {
@@ -4276,6 +4278,19 @@ int main(int argc, char *argv[])
 	  }
 	  generic[generic_count++] = &argv[argi - 1];
 	  generic[generic_count] = NULL;
+	  break;
+	case SIPP_OPTION_VAR:
+	  REQUIRE_ARG();
+	  REQUIRE_ARG();
+	  CHECK_PASS();
+
+	  {
+	    int varId = globalVariables->find(argv[argi  - 1], false);
+	    if (varId == -1) {
+		ERROR("Can not set the global variable %s, because it does not exist.", argv[argi - 1]);
+	    }
+	    globalVariables->getVar(varId)->setString(strdup(argv[argi]));
+	  }
 	  break;
 	case SIPP_OPTION_3PCC:
 	  if(slave_masterSet){
