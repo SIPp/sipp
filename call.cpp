@@ -3146,19 +3146,50 @@ call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
 	  /* Create strings from the sending messages. */
 	  char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
 	  char *key = strdup(createSendingMessage(currentAction->getMessage(1), -2));
-	  double value = -1;
 
-	  if (infIndex.find(file_index::key_type(file)) == infIndex.end()) {
-		ERROR("Invalid Index File: %s", file);
+	  if (inFiles.find(file) == inFiles.end()) {
+	    ERROR("Invalid injection file for insert: %s", file);
 	  }
 
-	  str_int_map::iterator index_it = infIndex[file]->find(key);
-	  if (index_it != infIndex[file]->end()) {
-		value = index_it->second;
-	  }
+	  double value = inFiles[file]->lookup(key);
+
 	  M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
 	  free(file);
 	  free(key);
+        } else if (currentAction->getActionType() == CAction::E_AT_INSERT) {
+	  /* Create strings from the sending messages. */
+	  char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
+	  char *value = strdup(createSendingMessage(currentAction->getMessage(1), -2));
+
+	  if (inFiles.find(file) == inFiles.end()) {
+	    ERROR("Invalid injection file for insert: %s", file);
+	  }
+
+	  inFiles[file]->insert(value);
+
+	  free(file);
+	  free(value);
+        } else if (currentAction->getActionType() == CAction::E_AT_REPLACE) {
+	  /* Create strings from the sending messages. */
+	  char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
+	  char *line = strdup(createSendingMessage(currentAction->getMessage(1), -2));
+	  char *value = strdup(createSendingMessage(currentAction->getMessage(2), -2));
+
+	  if (inFiles.find(file) == inFiles.end()) {
+	    ERROR("Invalid injection file for replace: %s", file);
+	  }
+
+	  char *endptr;
+	  int lineNum = strtol(line, &endptr, 0);
+	  if (*endptr) {
+	    ERROR("Invalid line number for replace: %s", line);
+	  }
+
+	  inFiles[file]->replace(lineNum, value);
+
+	  free(file);
+	  free(line);
+	  free(value);
 #ifdef _USE_OPENSSL
         } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_AUTH) {
 	  bool result;

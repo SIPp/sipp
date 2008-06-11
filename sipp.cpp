@@ -4205,13 +4205,7 @@ int main(int argc, char *argv[])
 	      ERROR("Invalid field specification for -infindex: %s", argv[argi]);
 	    }
 
-	    infIndex[fileName] = new str_int_map;
-
-	    for (int line = 0; line < inFiles[fileName]->numLines(); line++) {
-	      inFiles[fileName]->getField(line, field, tmp, SIPP_MAX_MSG_SIZE);
-	      str_int_map *indmap = infIndex[fileName];
-	      indmap->insert(pair<str_int_map::key_type,int>(str_int_map::key_type(tmp), line));
-	    }
+	    inFiles[fileName]->index(field);
 	  }
 	  break;
 	case SIPP_OPTION_SETFLAG:

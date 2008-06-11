@@ -1501,6 +1501,15 @@ void scenario::getActionForThisMessage()
       tmpAction->setMessage(xp_get_string("file", "lookup"), 0);
       tmpAction->setMessage(xp_get_string("key", "lookup"), 1);
       tmpAction->setActionType(CAction::E_AT_LOOKUP);
+    } else if(!strcmp(actionElem, "insert")) {
+      tmpAction->setMessage(xp_get_string("file", "insert"), 0);
+      tmpAction->setMessage(xp_get_string("value", "insert"), 1);
+      tmpAction->setActionType(CAction::E_AT_INSERT);
+    } else if(!strcmp(actionElem, "replace")) {
+      tmpAction->setMessage(xp_get_string("file", "replace"), 0);
+      tmpAction->setMessage(xp_get_string("line", "replace"), 1);
+      tmpAction->setMessage(xp_get_string("value", "replace"), 2);
+      tmpAction->setActionType(CAction::E_AT_REPLACE);
     } else if(!strcmp(actionElem, "strcmp")) {
       tmpAction->setVarId(xp_get_var("assign_to", "strcmp"));
       tmpAction->setVarInId(xp_get_var("variable", "test"));

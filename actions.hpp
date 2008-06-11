@@ -31,7 +31,7 @@ class CSample;
 #include "prepare_pcap.h"
 #endif
 
-#define MAX_ACTION_MESSAGE 2
+#define MAX_ACTION_MESSAGE 3
 
 class CAction
 {
@@ -48,6 +48,8 @@ class CAction
       E_AT_ASSIGN_FROM_GETTIMEOFDAY,
       E_AT_JUMP,
       E_AT_LOOKUP,
+      E_AT_INSERT,
+      E_AT_REPLACE,
       E_AT_PAUSE_RESTORE,
       E_AT_LOG_TO_FILE,
       E_AT_LOG_WARNING,

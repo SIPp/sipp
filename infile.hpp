@@ -32,7 +32,14 @@ public:
   int numLines();
   int nextLine(int userId);
   void dump();
+  void index(int field);
+  int lookup(char *key);
+  int insert(char *value);
+  int replace(int line, char *value);
 private:
+  void reIndex(int line);
+  void deIndex(int line);
+
   typedef enum {
     InputFileSequentialOrder = 0,
     InputFileRandomOrder,
@@ -48,6 +55,9 @@ private:
   int printfMultiple;
   int numLinesInFile;
   int realLinesInFile;
+
+  int indexField;
+  str_int_map *indexMap;
 };
 
 #endif

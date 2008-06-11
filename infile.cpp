@@ -130,6 +130,9 @@ FileContents::FileContents(const char *fileName) {
   }
 
   delete inFile;
+
+  indexMap = NULL;
+  indexField = -1;
 }
 
 int FileContents::getLine(int line, char *dest, int len) {
@@ -274,4 +277,92 @@ void FileContents::dump(void)
     for (int i = 0; i < realLinesInFile && fileLines[i][0]; i++) {
         WARNING("%s:%d reads [%s]", fileName, i, fileLines[i].c_str());
     }
+}
+
+void FileContents::index(int field) {
+  char tmp[SIPP_MAX_MSG_SIZE];
+  this->indexField = field;
+
+  indexMap = new str_int_map;
+  for (int line = 0; line < numLines(); line++) {
+    reIndex(line);
+  }
+}
+
+int FileContents::lookup(char *key) {
+  if (indexField == -1) {
+    ERROR("Invalid Index File: %s", fileName);
+  }
+  if (!indexMap) {
+    ERROR("Invalid Index File: %s", fileName);
+  }
+
+  str_int_map::iterator index_it = indexMap->find(key);
+  if (index_it == indexMap->end()) {
+    WARNING("'%s' Not Found\n", key);
+    return -1;
+  }
+  return index_it->second;
+}
+
+
+int FileContents::insert(char *value) {
+  if (printfFile) {
+    ERROR("Can not insert or replace into a printf file: %s", fileName);
+  }
+  fileLines.push_back(value);
+  realLinesInFile++;
+  numLinesInFile++;
+  if (indexField != -1) {
+    reIndex(realLinesInFile - 1);
+  }
+  char line[1024];
+  getLine(realLinesInFile - 1, line, sizeof(line));
+  char tmp[1024];
+  getField(realLinesInFile - 1, 0, tmp, sizeof(tmp));
+}
+
+int FileContents::replace(int line, char *value) {
+  if (printfFile) {
+    ERROR("Can not insert or replace into a printf file: %s", fileName);
+  }
+  if (line >= realLinesInFile || line < 0) {
+    ERROR("Invalid line number (%d) for file: %s (%d lines)", line, fileName, realLinesInFile);
+  }
+  deIndex(line);
+  fileLines[line] = value;
+  reIndex(line);
+}
+
+void FileContents::reIndex(int line) {
+  if (indexField == -1) {
+    return;
+  }
+  assert(line >= 0);
+  assert(line < realLinesInFile);
+
+  char tmp[SIPP_MAX_MSG_SIZE];
+  getField(line, indexField, tmp, SIPP_MAX_MSG_SIZE);
+  str_int_map::iterator index_it = indexMap->find(str_int_map::key_type(tmp));
+  if (index_it != indexMap->end()) {
+    indexMap->erase(index_it);
+  }
+  indexMap->insert(pair<str_int_map::key_type,int>(str_int_map::key_type(tmp), line));
+}
+
+void FileContents::deIndex(int line) {
+  if (indexField == -1) {
+    return;
+  }
+  assert(line >= 0);
+  assert(line < realLinesInFile);
+
+  char tmp[SIPP_MAX_MSG_SIZE];
+  getField(line, indexField, tmp, SIPP_MAX_MSG_SIZE);
+  str_int_map::iterator index_it = indexMap->find(str_int_map::key_type(tmp));
+  if (index_it != indexMap->end()) {
+    if (index_it->second == line) {
+      indexMap->erase(index_it);
+    }
+  }
 }
