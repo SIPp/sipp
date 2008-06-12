@@ -144,18 +144,21 @@ public:
   char           *recv_response_for_cseq_method_list;
   int            start_txn;
   int            response_txn;
+  int            index;
+  const char *         desc;
 
-  message();
+  message(int index, const char *desc);
   ~message();
 };
+
+typedef std::vector<message *> msgvec;
 
 class scenario {
 public:
   scenario(char * filename, int deflt);
   ~scenario();
 
-  message **messages;
-  int length;
+  msgvec messages;
   char *name;
   int duration;
   int maxTxnUsed;
@@ -186,13 +189,14 @@ private:
   bool found_timewait;
   bool rtd_started[MAX_RTD_INFO_LENGTH];
 
-  void getBookKeeping();
+  void getBookKeeping(message *message);
   void getCommonAttributes(message *message);
-  void getActionForThisMessage();
+  void getActionForThisMessage(message *message);
+  void parseAction(CActions *actions);
   void handle_arithmetic(CAction *tmpAction, char *what);
   void handle_rhs(CAction *tmpAction, char *what);
 
-  void apply_labels();
+  void apply_labels(msgvec v, str_int_map labels);
   void init_rtds();
   void validate_rtds();
   void validate_variable_usage();
@@ -202,7 +206,6 @@ private:
   int xp_get_var(const char *name, const char *what);
   int xp_get_var(const char *name, const char *what, int defval);
 
-  void expand(int length);
 
   bool hidedefault;
 };

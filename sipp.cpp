@@ -882,7 +882,7 @@ void print_stats_in_file(FILE * f, int last)
            SIPP_ENDL);
   }
   for(index = 0;
-      index < display_scenario->length;
+      index < display_scenario->messages.size();
       index ++) {
     message *curmsg = display_scenario->messages[index];
 
@@ -1058,7 +1058,7 @@ void print_count_file(FILE *f, int header) {
     fprintf(f, "%s%s", CStat::msToHHMMSSmmm(globalElapsedTime), stat_delimiter);
   }
 
-  for(int index = 0; index < main_scenario->length; index ++) {
+  for(int index = 0; index < main_scenario->messages.size(); index ++) {
     message *curmsg = main_scenario->messages[index];
     if(curmsg->hide) {
       continue;
@@ -1268,7 +1268,7 @@ void print_tdm_map()
   printf(SIPP_ENDL);
   printf("%d/%d circuits (%d%%) in use", in_use, interval, int(100*in_use/interval));
   printf(SIPP_ENDL);
-  for(int i=0; i<(display_scenario->length + 8 - int(interval/(tdm_map_c+1))); i++) {
+  for(int i=0; i<(display_scenario->messages.size() + 8 - int(interval/(tdm_map_c+1))); i++) {
     printf(SIPP_ENDL);
   }
 }
@@ -1284,7 +1284,7 @@ void print_variable_list()
   printf("Action defined Per Message :" SIPP_ENDL);
   printed++;
   found = false;
-  for(i=0; i<display_scenario->length; i++)
+  for(i=0; i<display_scenario->messages.size(); i++)
   {
     message *curmsg = display_scenario->messages[i];
     actions = curmsg->M_actions;
@@ -1334,7 +1334,7 @@ void print_variable_list()
   }
   
   printf(SIPP_ENDL);
-  for(i=0; i<(display_scenario->length + 5 - printed); i++) {
+  for(i=0; i<(display_scenario->messages.size() + 5 - printed); i++) {
     printf(SIPP_ENDL);
   }
 }

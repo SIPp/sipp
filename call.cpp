@@ -1229,7 +1229,7 @@ bool call::next()
   }
   msg_index=new_msg_index;
   recv_timeout = 0;
-  if(msg_index >= call_scenario->length) {
+  if(msg_index >= call_scenario->messages.size()) {
     terminate(CStat::E_CALL_SUCCESSFULLY_ENDED);
     return false;
   }
@@ -1251,7 +1251,7 @@ bool call::run()
 
   getmilliseconds();
 
-  if(msg_index >= call_scenario->length) {
+  if(msg_index >= call_scenario->messages.size()) {
     ERROR("Scenario overrun for call %s (%p) (index = %d)\n",
              id, this, msg_index);
   }
@@ -1282,7 +1282,7 @@ bool call::run()
           msg_index = call_scenario->messages[last_send_index]->on_timeout;
           next_retrans = 0;
           recv_timeout = 0;
-          if (msg_index < call_scenario->length) {
+          if (msg_index < call_scenario->messages.size()) {
 		return true;
 	  }
 
@@ -1523,7 +1523,7 @@ bool call::run()
                   id, msg_index, curmsg->on_timeout);
       msg_index = curmsg->on_timeout;
       recv_timeout = 0;
-      if (msg_index < call_scenario->length) return true;
+      if (msg_index < call_scenario->messages.size()) return true;
       // special case - the label points to the end - finish the call
       computeStat(CStat::E_CALL_FAILED);
       computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
@@ -2287,7 +2287,7 @@ bool call::process_twinSippCom(char * msg)
   if (checkInternalCmd(msg) == false) {
 
     for(search_index = msg_index;
-      search_index < call_scenario->length;
+      search_index < call_scenario->messages.size();
       search_index++) {
       if(call_scenario->messages[search_index] -> M_type != MSG_TYPE_RECVCMD) {
 	if(call_scenario->messages[search_index] -> optional) {
@@ -2789,7 +2789,7 @@ bool call::process_incoming(char * msg)
   /* Try to find it in the expected non mandatory responses
    * until the first mandatory response  in the scenario */
   for(search_index = msg_index;
-      search_index < call_scenario->length;
+      search_index < call_scenario->messages.size();
       search_index++) {
     if(!matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
       if(call_scenario->messages[search_index] -> optional) {
@@ -3065,7 +3065,7 @@ bool call::process_incoming(char * msg)
     /* We are just waiting for a message to be received, if any of the
      * potential messages have a timeout we set it as our timeout. We
      * start from the next message and go until any non-receives. */
-    for(search_index++; search_index < call_scenario->length; search_index++) {
+    for(search_index++; search_index < call_scenario->messages.size(); search_index++) {
       if(call_scenario->messages[search_index] -> M_type != MSG_TYPE_RECV) {
 	break;
       }
