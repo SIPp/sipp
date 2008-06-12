@@ -1127,18 +1127,18 @@ char * call::send_scene(int index, int *send_status)
   return msg_buffer;
 }
 
-void call::do_bookkeeping(int index) {
+void call::do_bookkeeping(message *curmsg) {
   /* If this message increments a counter, do it now. */
-  if(int counter = call_scenario->messages[index] -> counter) {
+  if(int counter = curmsg -> counter) {
     computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, counter - 1);
   }
 
   /* If this message can be used to compute RTD, do it now */
-  if(int rtd = call_scenario->messages[index] -> start_rtd) {
+  if(int rtd = curmsg -> start_rtd) {
     start_time_rtd[rtd - 1] = getmicroseconds();
   }
 
-  if(int rtd = call_scenario->messages[index] -> stop_rtd) {
+  if(int rtd = curmsg -> stop_rtd) {
     if (!rtd_done[rtd - 1]) {
       unsigned long long start = start_time_rtd[rtd - 1];
       unsigned long long end = getmicroseconds();
@@ -1150,7 +1150,7 @@ void call::do_bookkeeping(int index) {
       computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
 	  (end - start) / 1000, rtd - 1);
 
-      if (!call_scenario->messages[index] -> repeat_rtd) {
+      if (!curmsg -> repeat_rtd) {
 	rtd_done[rtd - 1] = true;
       }
     }
@@ -1237,10 +1237,227 @@ bool call::next()
   return run();
 }
 
+bool call::executeMessage(message *curmsg) {
+  if(curmsg -> pause_distribution || curmsg->pause_variable != -1) {
+    unsigned int pause;
+    if (curmsg->pause_distribution) {
+      pause  = (int)(curmsg -> pause_distribution -> sample());
+    } else {
+      int varId = curmsg->pause_variable;
+      pause = (int) M_callVariableTable->getVar(varId)->getDouble();
+    }
+    if (pause < 0) {
+      pause = 0;
+    }
+    if (pause > INT_MAX) {
+      pause = INT_MAX;
+    }
+    paused_until = clock_tick + pause;
+
+    /* This state is used as the last message of a scenario, just for handling
+     * final retransmissions. If the connection closes, we do not mark it is
+     * failed. */
+    this->timewait = curmsg->timewait;
+
+    /* Increment the number of sessions in pause state */
+    curmsg->sessions++;
+    do_bookkeeping(curmsg);
+    executeAction(NULL, curmsg);
+    return run(); /* In case delay is 0 */
+  }
+  else if(curmsg -> M_type == MSG_TYPE_SENDCMD) {
+    int send_status;
+
+    if(next_retrans) {
+      return true;
+    }
+
+    send_status = sendCmdMessage(curmsg);
+
+    if(send_status != 0) { /* Send error */
+      return false; /* call deleted */
+    }
+    curmsg -> M_nbCmdSent++;
+    next_retrans = 0;
+
+    do_bookkeeping(curmsg);
+    executeAction(NULL, curmsg);
+    return(next());
+  }
+  else if(curmsg -> M_type == MSG_TYPE_NOP) {
+    do_bookkeeping(curmsg);
+    executeAction(NULL, curmsg);
+    return(next());
+  }
+
+  else if(curmsg -> send_scheme) {
+    char * msg_snd;
+    int send_status;
+
+    /* Do not send a new message until the previous one which had
+     * retransmission enabled is acknowledged */
+
+    if(next_retrans) {
+      setPaused();
+      return true;
+    }
+
+    /* Handle counters and RTDs for this message. */
+    do_bookkeeping(curmsg);
+
+    /* decide whether to increment cseq or not 
+     * basically increment for anything except response, ACK or CANCEL 
+     * Note that cseq is only used by the [cseq] keyword, and
+     * not by default
+     */
+
+    int incr_cseq = 0;
+    if (!curmsg->send_scheme->isAck() &&
+        !curmsg->send_scheme->isCancel() &&
+        !curmsg->send_scheme->isResponse()) {
+          ++cseq;
+          incr_cseq = 1;
+    }
+    
+    msg_snd = send_scene(msg_index, &send_status);
+    if(send_status == -1 && errno == EWOULDBLOCK) {
+      if (incr_cseq) --cseq;
+      /* Have we set the timeout yet? */
+      if (send_timeout) {
+	/* If we have actually timed out. */
+	if (clock_tick > send_timeout) {
+	  WARNING("Call-Id: %s, send timeout on message %s:%d: aborting call",
+	      id, curmsg->desc, curmsg->index);
+	  computeStat(CStat::E_CALL_FAILED);
+	  computeStat(CStat::E_FAILED_TIMEOUT_ON_SEND);
+	  if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
+	    return (abortCall());
+	  } else {
+	    delete this;
+	    return false;
+	  }
+	}
+      } else if (curmsg->timeout) {
+	/* Initialize the send timeout to the per message timeout. */
+	send_timeout = clock_tick + curmsg->timeout;
+      } else if (defl_send_timeout) {
+	/* Initialize the send timeout to the global timeout. */
+	send_timeout = clock_tick + defl_send_timeout;
+      }
+      return true; /* No step, nothing done, retry later */
+    } else if(send_status < 0) { /* Send error */
+      /* The timeout will not be sent, so the timeout is no longer needed. */
+      send_timeout = 0;
+      /* The call was already deleted by connect_socket_if_needed or send_raw. */
+      return false;
+    }
+    /* We have sent the message, so the timeout is no longer needed. */
+    send_timeout = 0;
+
+    last_send_index = curmsg->index;
+    last_send_msg = (char *) realloc(last_send_msg, strlen(msg_snd) + 1);
+    strcpy(last_send_msg, msg_snd);
+
+    if (curmsg->start_txn) {
+      txnID[curmsg->start_txn - 1] = (char *)realloc(txnID[curmsg->start_txn - 1], MAX_HEADER_LEN);
+      extract_transaction(txnID[curmsg->start_txn - 1], last_send_msg);
+    }
+
+    if(last_recv_index >= 0) {
+      /* We are sending just after msg reception. There is a great
+       * chance that we will be asked to retransmit this message */
+      recv_retrans_hash       = last_recv_hash;
+      recv_retrans_recv_index = last_recv_index;
+      recv_retrans_send_index = curmsg->index;
+
+      /* Prevent from detecting the cause relation between send and recv 
+       * in the next valid send */
+      last_recv_hash = 0;
+    }
+
+    /* Update retransmission information */
+    if(curmsg -> retrans_delay) {
+      if((transport == T_UDP) && (retrans_enabled)) {
+        next_retrans = clock_tick + curmsg -> retrans_delay;
+        nb_retrans = 0;
+        nb_last_delay = curmsg->retrans_delay;
+      }
+    } else {
+      next_retrans = 0;
+    }
+
+    executeAction(msg_snd, curmsg);
+
+    /* Update scenario statistics */
+    curmsg -> nb_sent++;
+
+    return next();
+  } else if (curmsg->M_type == MSG_TYPE_RECV
+         || curmsg->M_type == MSG_TYPE_RECVCMD
+                                                 ) {
+    if (queued_msg) {
+      char *msg = queued_msg;
+      queued_msg = NULL;
+      bool ret = process_incoming(msg);
+      free(msg);
+      return ret;
+    } else if (recv_timeout) {
+      if(recv_timeout > getmilliseconds()) {
+	setPaused();
+	return true;
+      }
+      recv_timeout = 0;
+      curmsg->nb_timeout++;
+      if (curmsg->on_timeout < 0) {
+        // if you set a timeout but not a label, the call is aborted 
+        WARNING("Call-Id: %s, receive timeout on message %s:%d without label to jump to (ontimeout attribute): aborting call",
+                   id, curmsg->desc, curmsg->index);
+        computeStat(CStat::E_CALL_FAILED);
+        computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
+        if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
+          return (abortCall());
+        } else {
+          delete this;
+          return false;
+        }
+      }
+      WARNING("Call-Id: %s, receive timeout on message %s:%d, jumping to label %d",
+                  id, curmsg->desc, curmsg->index, curmsg->on_timeout);
+      /* FIXME: We should do something like set index here, but it probably
+       * does not matter too much as only nops are allowed in the init stanza. */
+      msg_index = curmsg->on_timeout;
+      recv_timeout = 0;
+      if (msg_index < call_scenario->messages.size()) return true;
+      // special case - the label points to the end - finish the call
+      computeStat(CStat::E_CALL_FAILED);
+      computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
+      if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
+        return (abortCall());
+      } else {
+        delete this;
+        return false;
+      }
+    } else if (curmsg->timeout || defl_recv_timeout) {
+      if (curmsg->timeout)
+        // If timeout is specified on message receive, use it
+        recv_timeout = getmilliseconds() + curmsg->timeout;
+      else
+        // Else use the default timeout if specified
+        recv_timeout = getmilliseconds() + defl_recv_timeout;
+	return true;
+    } else {
+	/* We are going to wait forever. */
+	setPaused();
+    }
+  } else {
+    WARNING("Unknown message type at %s:%d: %d", curmsg->desc, curmsg->index, curmsg->M_type);
+  }
+  return true;
+}
+
 bool call::run()
 {
   bool            bInviteTransaction = false;
-  int             actionResult = 0;
 
   assert(running);
 
@@ -1336,217 +1553,8 @@ bool call::run()
     /* Our pause is over. */
     paused_until = 0;
     return next();
-  } else if(curmsg -> pause_distribution || curmsg->pause_variable != -1) {
-    unsigned int pause;
-    if (curmsg->pause_distribution) {
-      pause  = (int)(curmsg -> pause_distribution -> sample());
-    } else {
-      int varId = curmsg->pause_variable;
-      pause = (int) M_callVariableTable->getVar(varId)->getDouble();
-    }
-    if (pause < 0) {
-      pause = 0;
-    }
-    if (pause > INT_MAX) {
-      pause = INT_MAX;
-    }
-    paused_until = clock_tick + pause;
-
-    /* This state is used as the last message of a scenario, just for handling
-     * final retransmissions. If the connection closes, we do not mark it is
-     * failed. */
-    this->timewait = curmsg->timewait;
-
-    /* Increment the number of sessions in pause state */
-    curmsg->sessions++;
-    do_bookkeeping(msg_index);
-    actionResult = executeAction(NULL, msg_index);
-    return run(); /* In case delay is 0 */
   }
-  else if(curmsg -> M_type == MSG_TYPE_SENDCMD) {
-    int send_status;
-
-    if(next_retrans) {
-      return true;
-    }
-
-    send_status = sendCmdMessage(msg_index);
-
-    if(send_status != 0) { /* Send error */
-      return false; /* call deleted */
-    }
-    curmsg -> M_nbCmdSent++;
-    next_retrans = 0;
-
-    do_bookkeeping(msg_index);
-    actionResult = executeAction(NULL, msg_index);
-    return(next());
-  }
-  else if(curmsg -> M_type == MSG_TYPE_NOP) {
-    do_bookkeeping(msg_index);
-    actionResult = executeAction(NULL, msg_index);
-    return(next());
-  }
-
-  else if(curmsg -> send_scheme) {
-    char * msg_snd;
-    int send_status;
-
-    /* Do not send a new message until the previous one which had
-     * retransmission enabled is acknowledged */
-
-    if(next_retrans) {
-      setPaused();
-      return true;
-    }
-
-    /* Handle counters and RTDs for this message. */
-    do_bookkeeping(msg_index);
-
-    /* decide whether to increment cseq or not 
-     * basically increment for anything except response, ACK or CANCEL 
-     * Note that cseq is only used by the [cseq] keyword, and
-     * not by default
-     */
-
-    int incr_cseq = 0;
-    if (!curmsg->send_scheme->isAck() &&
-        !curmsg->send_scheme->isCancel() &&
-        !curmsg->send_scheme->isResponse()) {
-          ++cseq;
-          incr_cseq = 1;
-    }
-    
-    msg_snd = send_scene(msg_index, &send_status);
-    if(send_status == -1 && errno == EWOULDBLOCK) {
-      if (incr_cseq) --cseq;
-      /* Have we set the timeout yet? */
-      if (send_timeout) {
-	/* If we have actually timed out. */
-	if (clock_tick > send_timeout) {
-	  WARNING("Call-Id: %s, send timeout on message %d: aborting call",
-	      id, msg_index);
-	  computeStat(CStat::E_CALL_FAILED);
-	  computeStat(CStat::E_FAILED_TIMEOUT_ON_SEND);
-	  if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
-	    return (abortCall());
-	  } else {
-	    delete this;
-	    return false;
-	  }
-	}
-      } else if (curmsg->timeout) {
-	/* Initialize the send timeout to the per message timeout. */
-	send_timeout = clock_tick + curmsg->timeout;
-      } else if (defl_send_timeout) {
-	/* Initialize the send timeout to the global timeout. */
-	send_timeout = clock_tick + defl_send_timeout;
-      }
-      return true; /* No step, nothing done, retry later */
-    } else if(send_status < 0) { /* Send error */
-      /* The timeout will not be sent, so the timeout is no longer needed. */
-      send_timeout = 0;
-      /* The call was already deleted by connect_socket_if_needed or send_raw. */
-      return false;
-    }
-    /* We have sent the message, so the timeout is no longer needed. */
-    send_timeout = 0;
-
-    last_send_index = msg_index;
-    last_send_msg = (char *) realloc(last_send_msg, strlen(msg_snd) + 1);
-    strcpy(last_send_msg, msg_snd);
-
-    if (curmsg->start_txn) {
-      txnID[curmsg->start_txn - 1] = (char *)realloc(txnID[curmsg->start_txn - 1], MAX_HEADER_LEN);
-      extract_transaction(txnID[curmsg->start_txn - 1], last_send_msg);
-    }
-
-    if(last_recv_index >= 0) {
-      /* We are sending just after msg reception. There is a great
-       * chance that we will be asked to retransmit this message */
-      recv_retrans_hash       = last_recv_hash;
-      recv_retrans_recv_index = last_recv_index;
-      recv_retrans_send_index = msg_index;
-
-      /* Prevent from detecting the cause relation between send and recv 
-       * in the next valid send */
-      last_recv_hash = 0;
-    }
-
-    /* Update retransmission information */
-    if(curmsg -> retrans_delay) {
-      if((transport == T_UDP) && (retrans_enabled)) {
-        next_retrans = clock_tick + curmsg -> retrans_delay;
-        nb_retrans = 0;
-        nb_last_delay = curmsg->retrans_delay;
-      }
-    } else {
-      next_retrans = 0;
-    }
-
-    actionResult = executeAction(msg_snd, msg_index);
-
-    /* Update scenario statistics */
-    curmsg -> nb_sent++;
-
-    return next();
-  } else if (curmsg->M_type == MSG_TYPE_RECV
-         || curmsg->M_type == MSG_TYPE_RECVCMD
-                                                 ) {
-    if (queued_msg) {
-      char *msg = queued_msg;
-      queued_msg = NULL;
-      bool ret = process_incoming(msg);
-      free(msg);
-      return ret;
-    } else if (recv_timeout) {
-      if(recv_timeout > getmilliseconds()) {
-	setPaused();
-	return true;
-      }
-      recv_timeout = 0;
-      curmsg->nb_timeout++;
-      if (curmsg->on_timeout < 0) {
-        // if you set a timeout but not a label, the call is aborted 
-        WARNING("Call-Id: %s, receive timeout on message %d without label to jump to (ontimeout attribute): aborting call",
-                   id, msg_index);
-        computeStat(CStat::E_CALL_FAILED);
-        computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
-        if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
-          return (abortCall());
-        } else {
-          delete this;
-          return false;
-        }
-      }
-      WARNING("Call-Id: %s, receive timeout on message %d, jumping to label %d",
-                  id, msg_index, curmsg->on_timeout);
-      msg_index = curmsg->on_timeout;
-      recv_timeout = 0;
-      if (msg_index < call_scenario->messages.size()) return true;
-      // special case - the label points to the end - finish the call
-      computeStat(CStat::E_CALL_FAILED);
-      computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
-      if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
-        return (abortCall());
-      } else {
-        delete this;
-        return false;
-      }
-    } else if (curmsg->timeout || defl_recv_timeout) {
-      if (curmsg->timeout)
-        // If timeout is specified on message receive, use it
-        recv_timeout = getmilliseconds() + curmsg->timeout;
-      else
-        // Else use the default timeout if specified
-        recv_timeout = getmilliseconds() + defl_recv_timeout;
-	return true;
-    } else {
-	/* We are going to wait forever. */
-	setPaused();
-    }
-  }
-  return true;
+  return executeMessage(curmsg);
 }
 
 char *default_message_names[] = {
@@ -1808,7 +1816,7 @@ bool call::rejectCall()
 }
 
 
-int call::sendCmdMessage(int index)
+int call::sendCmdMessage(message *curmsg)
 {
   char * dest;
   char delimitor[2];
@@ -1818,8 +1826,6 @@ int call::sendCmdMessage(int index)
   /* 3pcc extended mode */
   char * peer_dest;
   struct sipp_socket **peer_socket;
-
-  message *curmsg = call_scenario->messages[index];
 
   if(curmsg -> M_sendCmdData) {
     // WARNING("---PREPARING_TWIN_CMD---%s---", scenario[index] -> M_sendCmdData);
@@ -2315,7 +2321,7 @@ bool call::process_twinSippCom(char * msg)
 
     if (found) {
       call_scenario->messages[search_index]->M_nbCmdRecv ++;
-      do_bookkeeping(search_index);
+      do_bookkeeping(call_scenario->messages[search_index]);
 
       // variable treatment
       // Remove \r, \n at the end of a received command
@@ -2324,7 +2330,7 @@ bool call::process_twinSippCom(char * msg)
       (msg[strlen(msg)-2] == '\r') ) {
         msg[strlen(msg)-2] = 0;
       }
-      actionResult = executeAction(msg, search_index);
+      actionResult = executeAction(msg, call_scenario->messages[search_index]);
 
       if(actionResult != call::E_AR_NO_ERROR) {
         // Store last action result if it is an error
@@ -2911,7 +2917,7 @@ bool call::process_incoming(char * msg)
 
 
   /* Handle counters and RTDs for this message. */
-  do_bookkeeping(search_index);
+  do_bookkeeping(call_scenario->messages[search_index]);
 
   /* Increment the recv counter */
   call_scenario->messages[search_index] -> nb_recv++;
@@ -2920,7 +2926,7 @@ bool call::process_incoming(char * msg)
   if (found) {
     //WARNING("---EXECUTE_ACTION_ON_MSG---%s---", msg);
 
-    actionResult = executeAction(msg, search_index);
+    actionResult = executeAction(msg, call_scenario->messages[search_index]);
 
     if(actionResult != call::E_AR_NO_ERROR) {
       // Store last action result if it is an error
@@ -3094,12 +3100,12 @@ double call::get_rhs(CAction *currentAction) {
   }
 }
 
-call::T_ActionResult call::executeAction(char * msg, int scenarioIndex)
+call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 {
   CActions*  actions;
   CAction*   currentAction;
 
-  actions = call_scenario->messages[scenarioIndex]->M_actions;
+  actions = curmsg->M_actions;
   // looking for action to do on this message
   if(actions == NULL) {
     return(call::E_AR_NO_ERROR);

@@ -206,7 +206,8 @@ private:
   void computeRouteSetAndRemoteTargetUri (char* rrList, char* contact, bool bRequestIncoming);
   bool matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod, char *txn);
 
-  T_ActionResult executeAction(char * msg, int scenarioIndex);
+  bool executeMessage(message *curmsg);
+  T_ActionResult executeAction(char * msg, message *message);
   void  extractSubMessage(char * msg, char * matchingString, char* result, bool case_indep, 
 							     int occurrence, bool headers); 
   bool  rejectCall();
@@ -233,7 +234,7 @@ private:
 
   T_AutoMode  checkAutomaticResponseMode(char * P_recv);
 
-  int   sendCmdMessage(int index); // 3PCC
+  int   sendCmdMessage(message *curmsg); // 3PCC
 
   int   sendCmdBuffer(char* cmd); // for 3PCC, send a command out of a 
                                   // scenario execution
@@ -252,7 +253,7 @@ private:
   /* rc == true means call not deleted by processing */
   bool next();
   bool process_unexpected(char * msg);
-  void do_bookkeeping(int index);
+  void do_bookkeeping(message *curmsg);
 
   void  extract_cseq_method (char* responseCseq, char* msg);
   void  extract_transaction (char* txn, char* msg);
