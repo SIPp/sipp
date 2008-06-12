@@ -746,6 +746,29 @@ scenario::scenario(char * filename, int deflt)
 	ERROR("The label name '%s' is used twice.", ptr);
       }
       labelMap[ptr] = messages.size() - 1;
+    } else if (!strcmp(elem, "init")) {
+      /* We have an init section, which must be full of nops or labels. */
+      int nop_cursor = 0;
+      char *initelem;
+      while ((initelem = xp_open_element(nop_cursor++))) {
+	if (!strcmp(initelem, "nop")) {
+	  /* We should parse this. */
+	  message *nopmsg = new message(initmessages.size(), "scenario initialization");
+	  initmessages.push_back(nopmsg);
+	  nopmsg->M_type = MSG_TYPE_NOP;
+	  getCommonAttributes(nopmsg);
+	} else if (!strcmp(initelem, "label")) {
+	  /* Add an init label. */
+	  ptr = xp_get_value((char *)"id");
+	  if (initLabelMap.find(ptr) != initLabelMap.end()) {
+	    ERROR("The label name '%s' is used twice.", ptr);
+	  }
+	  initLabelMap[ptr] = initmessages.size() - 1;
+	} else {
+	  ERROR("Invalid element in an init stanza: '%s'", initelem);
+	}
+	xp_close_element();
+      }
     } else { /** Message Case */
       if (found_timewait) {
 	ERROR("<timewait> can only be the last message in a scenario!\n");
@@ -991,7 +1014,10 @@ scenario::scenario(char * filename, int deflt)
   pausedaddr = find_var("_unexp.pausedaddr", "unexpected paused until");
 
   /* Patch up the labels. */
+  fprintf(stderr, "Applying regular.");
   apply_labels(messages, labelMap);
+  fprintf(stderr, "Applying init.");
+  apply_labels(initmessages, initLabelMap);
 
   /* Some post-scenario loading validation. */
   validate_rtds();
@@ -1040,6 +1066,7 @@ scenario::~scenario() {
   clear_int_str(txnRevMap);
 
   clear_str_int(labelMap);
+  clear_str_int(initLabelMap);
   clear_str_int(txnMap);
 
   clear_int_int(txnStarted);

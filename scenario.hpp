@@ -159,6 +159,7 @@ public:
   ~scenario();
 
   msgvec messages;
+  msgvec initmessages;
   char *name;
   int duration;
   int maxTxnUsed;
@@ -180,6 +181,7 @@ private:
 
   /* The mapping of labels to IDs. */
   str_int_map labelMap;
+  str_int_map initLabelMap;
 
   str_int_map txnMap;
   int_int_map txnStarted;
