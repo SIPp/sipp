@@ -158,6 +158,8 @@ public:
   scenario(char * filename, int deflt);
   ~scenario();
 
+  void runInit();
+
   msgvec messages;
   msgvec initmessages;
   char *name;

@@ -60,7 +60,7 @@ public:
   call(char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest);
   call(char *p_id, struct sipp_socket *socket, struct sockaddr_storage *dest);
   static call *add_call(int userId, bool ipv6, struct sockaddr_storage *dest);
-  call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic);
+  call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
 
   virtual ~call();
 
@@ -96,7 +96,9 @@ public:
 
 private:
   /* This is the core constructor function. */
-  void init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic);
+  void init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
+  /* This this call for initialization? */
+  bool initCall;
 
   struct sockaddr_storage call_peer;
 

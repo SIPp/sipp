@@ -3041,7 +3041,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 	if(!get_reply_code(msg)){
 	  ooc_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
 	  /* This should have the real address that the message came from. */
-	  call *call_ptr = new call(ooc_scenario, socket, src, call_id, 0 /* no user. */, socket->ss_ipv6, true);
+	  call *call_ptr = new call(ooc_scenario, socket, src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
 	  if (!call_ptr) {
 	    ERROR("Out of memory allocating a call!");
 	  }
@@ -4634,6 +4634,10 @@ int main(int argc, char *argv[])
     main_scenario->stats->setFileName(argv[argiFileName]);
   }
 
+  /* Now Initialize the scenarios. */
+  main_scenario->runInit();
+  ooc_scenario->runInit();
+
   /* In which mode the tool is launched ? */
   main_scenario->computeSippMode();
 
@@ -4666,6 +4670,7 @@ int main(int argc, char *argv[])
           exit(EXIT_OTHER);
         }
     }
+
 
   /* Create the statistics reporting task. */
   stattask::initialize();

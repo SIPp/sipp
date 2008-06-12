@@ -745,7 +745,7 @@ scenario::scenario(char * filename, int deflt)
       if (labelMap.find(ptr) != labelMap.end()) {
 	ERROR("The label name '%s' is used twice.", ptr);
       }
-      labelMap[ptr] = messages.size() - 1;
+      labelMap[ptr] = messages.size();
     } else if (!strcmp(elem, "init")) {
       /* We have an init section, which must be full of nops or labels. */
       int nop_cursor = 0;
@@ -763,7 +763,7 @@ scenario::scenario(char * filename, int deflt)
 	  if (initLabelMap.find(ptr) != initLabelMap.end()) {
 	    ERROR("The label name '%s' is used twice.", ptr);
 	  }
-	  initLabelMap[ptr] = initmessages.size() - 1;
+	  initLabelMap[ptr] = initmessages.size();
 	} else {
 	  ERROR("Invalid element in an init stanza: '%s'", initelem);
 	}
@@ -1014,9 +1014,7 @@ scenario::scenario(char * filename, int deflt)
   pausedaddr = find_var("_unexp.pausedaddr", "unexpected paused until");
 
   /* Patch up the labels. */
-  fprintf(stderr, "Applying regular.");
   apply_labels(messages, labelMap);
-  fprintf(stderr, "Applying init.");
   apply_labels(initmessages, initLabelMap);
 
   /* Some post-scenario loading validation. */
@@ -1031,6 +1029,14 @@ scenario::scenario(char * filename, int deflt)
   /* Make sure that all started transactions have responses, and vice versa. */
   validate_txn_usage();
 
+}
+
+void scenario::runInit() {
+  call *initcall;
+  if (initmessages.size() > 0) {
+    initcall = new call(main_scenario, NULL, NULL, "///main-init", 0, false, false, true);
+    initcall->run();
+  }
 }
 
 void clear_int_str(int_str_map m) {
@@ -1212,8 +1218,10 @@ void scenario::computeSippMode()
 
   assert(messages.size() > 0);
 
+  fprintf(stderr, "Message size %d /init %d\n", messages.size(), initmessages.size());
   for(int i=0; i<messages.size(); i++)
     { 
+      fprintf(stderr, "Message type %d %d\n", i, messages[i]->M_type);
       switch(messages[i]->M_type)
         {
         case MSG_TYPE_PAUSE:

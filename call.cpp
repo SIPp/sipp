@@ -269,15 +269,15 @@ unsigned long hash(char * msg) {
 
 /******************* Call class implementation ****************/
 call::call(char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest) : listener(p_id, true) {
-  init(main_scenario, NULL, dest, p_id, userId, use_ipv6, false);
+  init(main_scenario, NULL, dest, p_id, userId, use_ipv6, false, false);
 }
 
 call::call(char *p_id, struct sipp_socket *socket, struct sockaddr_storage *dest) : listener(p_id, true) {
-  init(main_scenario, socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */);
+  init(main_scenario, socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
 }
 
-call::call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic) : listener(p_id, true) {
-  init(call_scenario, socket, dest, p_id, userId, ipv6, isAutomatic);
+call::call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true) {
+  init(call_scenario, socket, dest, p_id, userId, ipv6, isAutomatic, isInitialization);
 }
 
 call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
@@ -312,11 +312,11 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
   }
   call_id[count] = 0;
 
-  return new call(main_scenario, NULL, dest, call_id, userId, ipv6, false /* Not Auto. */);
+  return new call(main_scenario, NULL, dest, call_id, userId, ipv6, false /* Not Auto. */, false);
 }
 
 
-void call::init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic)
+void call::init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall)
 {
   this->call_scenario = call_scenario;
   zombie = false;
@@ -445,6 +445,7 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
   } else {
     m_lineNumber = NULL;
   }
+  this->initCall = isInitCall;
 
 #ifdef PCAPPLAY
   memset(&(play_args_a.to), 0, sizeof(struct sockaddr_storage));
@@ -540,14 +541,23 @@ call::~call()
 }
 
 void call::computeStat (CStat::E_Action P_action) {
+  if (initCall) {
+    return;
+  }
   call_scenario->stats->computeStat(P_action);
 }
 
 void call::computeStat (CStat::E_Action P_action, unsigned long P_value) {
+  if (initCall) {
+    return;
+  }
   call_scenario->stats->computeStat(P_action, P_value);
 }
 
 void call::computeStat (CStat::E_Action P_action, unsigned long P_value, int which) {
+  if (initCall) {
+    return;
+  }
   call_scenario->stats->computeStat(P_action, P_value, which);
 }
 
@@ -1172,7 +1182,7 @@ bool call::terminate(CStat::E_Action reason) {
       case call::E_AR_REGEXP_DOESNT_MATCH:
 	computeStat(CStat::E_CALL_FAILED);
 	computeStat(CStat::E_FAILED_REGEXP_DOESNT_MATCH);
-	if (deadcall_wait) {
+	if (deadcall_wait && !initCall) {
 	  sprintf(reason_str, "regexp match failure at index %d", msg_index);
 	  new deadcall(id, reason_str);
 	}
@@ -1180,7 +1190,7 @@ bool call::terminate(CStat::E_Action reason) {
       case call::E_AR_HDR_NOT_FOUND:
 	computeStat(CStat::E_CALL_FAILED);
 	computeStat(CStat::E_FAILED_REGEXP_HDR_NOT_FOUND);
-	if (deadcall_wait) {
+	if (deadcall_wait && !initCall) {
 	  sprintf(reason_str, "regexp header not found at index %d", msg_index);
 	  new deadcall(id, reason_str);
 	}
@@ -1193,7 +1203,7 @@ bool call::terminate(CStat::E_Action reason) {
   } else {
     if (reason == CStat::E_CALL_SUCCESSFULLY_ENDED || timewait) {
       computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
-      if (deadcall_wait) {
+      if (deadcall_wait && !initCall) {
 	new deadcall(id, "successful");
       }
     } else {
@@ -1201,7 +1211,7 @@ bool call::terminate(CStat::E_Action reason) {
       if (reason != CStat::E_NO_ACTION) {
 	computeStat(reason);
       }
-      if (deadcall_wait) {
+      if (deadcall_wait && !initCall) {
 	sprintf(reason_str, "failed at index %d", msg_index);
 	new deadcall(id, reason_str);
       }
@@ -1212,24 +1222,29 @@ bool call::terminate(CStat::E_Action reason) {
 
 bool call::next()
 {
-  int test = call_scenario->messages[msg_index]->test;
+  msgvec * msgs = &call_scenario->messages;
+  if (initCall) {
+    msgs = &call_scenario->initmessages;
+  }
+
+  int test = (*msgs)[msg_index]->test;
   /* What is the next message index? */
   /* Default without branching: use the next message */
   int new_msg_index = msg_index+1;
   /* If branch needed, overwrite this default */
-  if ( (call_scenario->messages[msg_index]->next >= 0) &&
+  if ( ((*msgs)[msg_index]->next >= 0) &&
        ((test == -1) || M_callVariableTable->getVar(test)->isSet())
      ) {
     /* Branching possible, check the probability */
-    int chance = call_scenario->messages[msg_index]->chance;
+    int chance = (*msgs)[msg_index]->chance;
     if ((chance <= 0) || (rand() > chance )) {
       /* Branch == overwrite with the 'next' attribute value */
-      new_msg_index = call_scenario->messages[msg_index]->next;
+      new_msg_index = (*msgs)[msg_index]->next;
     }
   }
   msg_index=new_msg_index;
   recv_timeout = 0;
-  if(msg_index >= call_scenario->messages.size()) {
+  if(msg_index >= (*msgs).size()) {
     terminate(CStat::E_CALL_SUCCESSFULLY_ENDED);
     return false;
   }
@@ -1468,12 +1483,19 @@ bool call::run()
 
   getmilliseconds();
 
-  if(msg_index >= call_scenario->messages.size()) {
-    ERROR("Scenario overrun for call %s (%p) (index = %d)\n",
-             id, this, msg_index);
+  message *curmsg;
+  if (initCall) {
+    if(msg_index >= call_scenario->initmessages.size()) {
+      ERROR("Scenario initialization overrun for call %s (%p) (index = %d)\n", id, this, msg_index);
+    }
+    curmsg = call_scenario->initmessages[msg_index];
+  } else {
+    if(msg_index >= call_scenario->messages.size()) {
+      ERROR("Scenario overrun for call %s (%p) (index = %d)\n", id, this, msg_index);
+    }
+    curmsg = call_scenario->messages[msg_index];
   }
 
-  message *curmsg = call_scenario->messages[msg_index];
 
   if (curmsg->condexec != -1) {
     if (!M_callVariableTable->getVar(curmsg->condexec)->isSet()) {
@@ -1797,7 +1819,7 @@ bool call::abortCall()
 
   stopListening();
   deadcall *deadcall_ptr = NULL;
-  if (deadcall_wait) {
+  if (deadcall_wait && !initCall) {
     char reason[100];
     sprintf(reason, "aborted at index %d", msg_index);
     deadcall_ptr = new deadcall(id, reason);
