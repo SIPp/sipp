@@ -109,10 +109,12 @@ public:
   bool           hide;
   char *	 display_str;
   int		 next;
+  char *         nextLabel;
   int            test;
   int            condexec;
   int            chance;/* 0=always, RAND_MAX+1=never (test rand() >= chance) */
   int		 on_timeout;
+  char *         onTimeoutLabel;
 
   /* Statistics */
   unsigned long   nb_sent;
@@ -175,9 +177,6 @@ private:
 
   /* The mapping of labels to IDs. */
   str_int_map labelMap;
-  /* The string label representations. */
-  int_str_map nextLabels;
-  int_str_map ontimeoutLabels;
 
   str_int_map txnMap;
   int_int_map txnStarted;
@@ -188,7 +187,7 @@ private:
   bool rtd_started[MAX_RTD_INFO_LENGTH];
 
   void getBookKeeping();
-  void getCommonAttributes();
+  void getCommonAttributes(message *message);
   void getActionForThisMessage();
   void handle_arithmetic(CAction *tmpAction, char *what);
   void handle_rhs(CAction *tmpAction, char *what);

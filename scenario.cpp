@@ -70,7 +70,9 @@ message::message()
   test = -1;
   chance = 0;/* meaning always */
   next = -1;
+  nextLabel = NULL;
   on_timeout = -1;
+  onTimeoutLabel = NULL;
   timewait = false;
 
 /* 3pcc extended mode */
@@ -581,19 +583,18 @@ void scenario::validate_txn_usage() {
 
 /* Apply the next and ontimeout labels according to our map. */
 void scenario::apply_labels() {
-  for (int i = 0; i <= length; i++) {
-    int_str_map::iterator it;
-    if ((it = nextLabels.find(i)) != nextLabels.end()) {
-      str_int_map::iterator label_it = labelMap.find(it->second);
+  for (int i = 0; i < length; i++) {
+    if (messages[i]->nextLabel) {
+      str_int_map::iterator label_it = labelMap.find(messages[i]->nextLabel);
       if (label_it == labelMap.end()) {
-	ERROR("The label '%s' was not defined (index %d, next attribute)\n", it->second, i);
+	ERROR("The label '%s' was not defined (index %d, next attribute)\n", messages[i]->nextLabel, i);
       }
       messages[i]->next = label_it->second;
     }
-    if ((it = ontimeoutLabels.find(i)) != ontimeoutLabels.end()) {
-      str_int_map::iterator label_it = labelMap.find(it->second);
+    if (messages[i]->onTimeoutLabel) {
+      str_int_map::iterator label_it = labelMap.find(messages[i]->onTimeoutLabel);
       if (label_it == labelMap.end()) {
-	ERROR("The label '%s' was not defined (index %d, ontimeout attribute)\n", it->second, i);
+	ERROR("The label '%s' was not defined (index %d, ontimeout attribute)\n", messages[i]->onTimeoutLabel, i);
       }
       messages[i]->on_timeout = label_it->second;
     }
@@ -990,7 +991,7 @@ scenario::scenario(char * filename, int deflt)
         ERROR("Unknown element '%s' in xml scenario file", elem);
       }
 
-      getCommonAttributes();
+      getCommonAttributes(messages[length]);
       length++;
     } /** end * Message case */
     xp_close_element();
@@ -1055,8 +1056,6 @@ scenario::~scenario() {
   delete stats;
 
   clear_int_str(txnRevMap);
-  clear_int_str(nextLabels);
-  clear_int_str(ontimeoutLabels);
 
   clear_str_int(labelMap);
   clear_str_int(txnMap);
@@ -1616,47 +1615,47 @@ void scenario::getBookKeeping() {
   }
 }
 
-void scenario::getCommonAttributes() {
+void scenario::getCommonAttributes(message *message) {
   char *ptr;
 
   getBookKeeping();
   getActionForThisMessage();
 
   if(ptr = xp_get_value((char *)"lost")) {
-    messages[length] -> lost = get_double(ptr, "lost percentage");
+    message -> lost = get_double(ptr, "lost percentage");
     lose_packets = 1;
   }
 
   if(ptr = xp_get_value((char *)"crlf")) {
-    messages[length] -> crlf = 1;
+    message -> crlf = 1;
   }
 
   if (xp_get_value("hiderest")) {
     hidedefault = xp_get_bool("hiderest", "hiderest");
   }
-  messages[length] -> hide = xp_get_bool("hide", "hide", hidedefault);
+  message -> hide = xp_get_bool("hide", "hide", hidedefault);
   if(ptr = xp_get_value((char *)"display")) {
-    messages[length] -> display_str = strdup(ptr);
+    message -> display_str = strdup(ptr);
   }
 
-  messages[length] -> condexec = xp_get_var("condexec", "condexec variable", -1);
+  message -> condexec = xp_get_var("condexec", "condexec variable", -1);
 
   if ((ptr = xp_get_value((char *)"next"))) {
     if (found_timewait) {
       ERROR("next labels are not allowed in <timewait> elements.");
     }
-    nextLabels[length] = strdup(ptr);
-    messages[length] -> test = xp_get_var("test", "test variable", -1);
+    message -> nextLabel = strdup(ptr);
+    message -> test = xp_get_var("test", "test variable", -1);
     if ( 0 != ( ptr = xp_get_value((char *)"chance") ) ) {
       float chance = get_double(ptr,"chance");
       /* probability of branch to next */
       if (( chance < 0.0 ) || (chance > 1.0 )) {
 	ERROR("Chance %s not in range [0..1]", ptr);
       }
-      messages[length] -> chance = (int)((1.0-chance)*RAND_MAX);
+      message -> chance = (int)((1.0-chance)*RAND_MAX);
     }
     else {
-      messages[length] -> chance = 0; /* always */
+      message -> chance = 0; /* always */
     }
   }
 
@@ -1664,7 +1663,7 @@ void scenario::getCommonAttributes() {
     if (found_timewait) {
       ERROR("ontimeout labels are not allowed in <timewait> elements.");
     }
-    ontimeoutLabels[length] = strdup(ptr);
+    message -> onTimeoutLabel = strdup(ptr);
   }
 }
 
