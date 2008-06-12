@@ -179,9 +179,6 @@ int           sendMode  = MODE_CLIENT;
 /* This describes what our 3PCC behavior is. */
 int	      thirdPartyMode = MODE_3PCC_NONE;
 
-bool	      rtd_stopped[MAX_RTD_INFO_LENGTH];
-bool	      rtd_started[MAX_RTD_INFO_LENGTH];
-
 /*************** Helper functions for various types *****************/
 long get_long(const char *ptr, const char *what) {
   char *endptr;
