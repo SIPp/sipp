@@ -72,7 +72,9 @@ socketowner::socketowner() {
 }
 
 socketowner::~socketowner() {
-  sipp_close_socket(dissociate_socket());
+  if (this->call_socket) {
+    sipp_close_socket(dissociate_socket());
+  }
 }
 
 void socketowner::add_owner_to_socket(struct sipp_socket *socket) {
