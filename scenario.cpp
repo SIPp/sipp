@@ -732,6 +732,20 @@ scenario::scenario(char * filename, int deflt)
 	userVariables->find(currentTabVarName[i], true);
       }
       freeStringTable(currentTabVarName, currentNbVarNames);
+    } else if(!strcmp(elem, "Reference")) {
+      ptr = xp_get_value((char *)"variables");
+
+      char **       currentTabVarName = NULL;
+      int           currentNbVarNames;
+
+      createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
+      for (int i = 0; i < currentNbVarNames; i++) {
+	int id = allocVars->find(currentTabVarName[i], false);
+	if (id == -1) {
+	  ERROR("Could not reference non-existant variable '%s'", currentTabVarName[i]);
+	}
+      }
+      freeStringTable(currentTabVarName, currentNbVarNames);
     } else if(!strcmp(elem, "DefaultMessage")) {
       char *id = xp_get_string("id", "DefaultMessage");
       if(!(ptr = xp_get_cdata())) {
