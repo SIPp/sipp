@@ -1218,10 +1218,8 @@ void scenario::computeSippMode()
 
   assert(messages.size() > 0);
 
-  fprintf(stderr, "Message size %d /init %d\n", messages.size(), initmessages.size());
   for(int i=0; i<messages.size(); i++)
     { 
-      fprintf(stderr, "Message type %d %d\n", i, messages[i]->M_type);
       switch(messages[i]->M_type)
         {
         case MSG_TYPE_PAUSE:
