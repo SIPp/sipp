@@ -69,6 +69,7 @@ message::message(int index, const char *desc)
   hide = 0;
   display_str = NULL;
   test = -1;
+  condexec = -1;
   chance = 0;/* meaning always */
   next = -1;
   nextLabel = NULL;

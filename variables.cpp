@@ -333,7 +333,7 @@ int AllocVariableTable::find(const char *varName, bool allocate) {
 }
 
 char *AllocVariableTable::getName(int i) {
-  int thisLevel  = i & (1 << LEVEL_BITS);
+  int thisLevel  = i & ((1 << LEVEL_BITS) - 1);
   assert(thisLevel <= level);
   if (thisLevel == level) {
 	return variableRevMap[i];
