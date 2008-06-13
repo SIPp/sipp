@@ -234,33 +234,37 @@ char * xp_open_element(int index)
         level--;
         if(level < 0) return NULL;
       } else {
-        if(level==0) {
-          if(index) {
-            index--;
-          } else {
-            char * end = xp_find_start_tag_end(ptr + 1);
-            char * p;
-            if(!end) return NULL;
+	if(level==0) {
+	  if (index) {
+	    index --;
+	  } else {
+	    char * end = xp_find_start_tag_end(ptr + 1);
+	    char * p;
+	    if(!end) return NULL;
 
-            p = strchr(ptr, ' ');
-            if(p && (p < end))  { end = p; }
-            p = strchr(ptr, '\t');
-            if(p && (p < end))  { end = p; }
-            p = strchr(ptr, '\r');
-            if(p && (p < end))  { end = p; }
-            p = strchr(ptr, '\n');
-            if(p && (p < end))  { end = p; }
-            p = strchr(ptr, '/');
-            if(p && (p < end))  { end = p; }
+	    p = strchr(ptr, ' ');
+	    if(p && (p < end))  { end = p; }
+	    p = strchr(ptr, '\t');
+	    if(p && (p < end))  { end = p; }
+	    p = strchr(ptr, '\r');
+	    if(p && (p < end))  { end = p; }
+	    p = strchr(ptr, '\n');
+	    if(p && (p < end))  { end = p; }
+	    p = strchr(ptr, '/');
+	    if(p && (p < end))  { end = p; }
 
-            memcpy(name, ptr + 1, end-ptr-1);
-            name[end-ptr-1] = 0;
-            
-            xp_position[++xp_stack] = end;
-            return name;
-          }
-        }
-        level ++;
+	    memcpy(name, ptr + 1, end-ptr-1);
+	    name[end-ptr-1] = 0;
+
+	    xp_position[++xp_stack] = end;
+	    return name;
+	  }
+	}
+
+	/* We want to skip over this particular element .*/
+	ptr = xp_find_start_tag_end(ptr + 1);
+	if (ptr) ptr--;
+	level ++;
       }
     } else if((*ptr == '/') && (*(ptr+1) == '>')) {
       level --;
