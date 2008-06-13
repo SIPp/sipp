@@ -2114,6 +2114,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	 } else if (var->isBool()) {
 	   dest += sprintf(dest, "false");
 	 }
+	 if (*(dest - 1) == '\n') {
+	   supresscrlf = true;
+	 }
 	 break;
       }
       case E_Message_Fill: {
