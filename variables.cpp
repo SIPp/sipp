@@ -342,6 +342,16 @@ char *AllocVariableTable::getName(int i) {
   return av_parent->getName(i);
 }
 
+void AllocVariableTable::dump() {
+  if (av_parent) {
+    av_parent->dump();
+  }
+  WARNING("%d level %d variables:", variableMap.size(), level);
+  for (str_int_map::iterator i = variableMap.begin(); i != variableMap.end(); i++) {
+	WARNING("%s", i->first.c_str());
+  }
+}
+
 void AllocVariableTable::validate() {
   for (str_int_map::iterator var_it = variableMap.begin(); var_it != variableMap.end(); var_it++) {
     if (variableReferences[var_it->second] < 2) {

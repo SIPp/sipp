@@ -1744,6 +1744,8 @@ void process_trace(char *what) {
 void process_dump(char *what) {
   if (!strcmp(what, "tasks")) {
     dump_tasks();
+  } else if (!strcmp(what, "variables")) {
+    display_scenario->allocVars->dump();
   } else {
     WARNING("Unknown dump type: %s", what);
   }
@@ -4287,6 +4289,7 @@ int main(int argc, char *argv[])
 	  {
 	    int varId = globalVariables->find(argv[argi  - 1], false);
 	    if (varId == -1) {
+		globalVariables->dump();
 		ERROR("Can not set the global variable %s, because it does not exist.", argv[argi - 1]);
 	    }
 	    globalVariables->getVar(varId)->setString(strdup(argv[argi]));
