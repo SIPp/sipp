@@ -1093,6 +1093,8 @@ char * call::send_scene(int index, int *send_status)
   char *L_ptr1 ;
   char *L_ptr2 ;
 
+  assert(send_status);
+
   /* Socket port must be known before string substitution */
   if (!connect_socket_if_needed()) {
     *send_status = -2;
@@ -1128,11 +1130,7 @@ char * call::send_scene(int index, int *send_status)
     ack_is_pending = false ;
   }
 
-  if(send_status) {
-    *send_status = send_raw(msg_buffer, index);
-  } else {
-    send_raw(msg_buffer, index);
-  }
+  *send_status = send_raw(msg_buffer, index);
 
   return msg_buffer;
 }
@@ -2723,7 +2721,7 @@ bool call::process_incoming(char * msg)
 
       send_scene(recv_retrans_send_index, &status);
 
-      if(status == 0) {
+      if(status >= 0) {
 	call_scenario->messages[recv_retrans_send_index] -> nb_sent_retrans++;
 	computeStat(CStat::E_RETRANSMISSION);
       } else if(status < 0) {
