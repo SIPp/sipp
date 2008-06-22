@@ -114,6 +114,7 @@ struct sipp_option {
 #define SIPP_OPTION_OOC_SCENARIO  32
 #define SIPP_OPTION_INDEX_FILE    33
 #define SIPP_OPTION_VAR		  34
+#define SIPP_OPTION_RTCHECK	  35
 
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
@@ -168,6 +169,7 @@ struct sipp_option options_table[] = {
 	      "  (3 * call_duration (s) * rate).", SIPP_OPTION_LIMIT, NULL, 1},
 
 	{"lost", "Set the number of packets to lose by default (scenario specifications override this value).", SIPP_OPTION_FLOAT, &global_lost, 1},
+	{"rtcheck", "Select the retransmisison detection method: full (default) or loose.", SIPP_OPTION_RTCHECK, &rtcheck, 1},
 	{"m", "Stop the test and exit when 'calls' calls are processed", SIPP_OPTION_LONG, &stop_after, 1},
 	{"mi", "Set the local media IP address (default: local primary host IP address)", SIPP_OPTION_IP, media_ip, 1},
         {"master","3pcc extended mode: indicates the master number", SIPP_OPTION_3PCC_EXTENDED, &master_name, 1},
@@ -4355,8 +4357,8 @@ int main(int argc, char *argv[])
 	  parse_slave_cfg();
 	  break;
 	case SIPP_OPTION_3PCC_EXTENDED:
-     REQUIRE_ARG();
-     CHECK_PASS();
+	  REQUIRE_ARG();
+	  CHECK_PASS();
 	  if(slave_masterSet){
 	    ERROR("-slave and -master options are not compatible\n");
 	  }
@@ -4414,6 +4416,17 @@ int main(int argc, char *argv[])
 	  freeaddrinfo(local_addr);
 	  break;
 	}
+	case SIPP_OPTION_RTCHECK:
+	  REQUIRE_ARG();
+	  CHECK_PASS();
+	  if (!strcmp(argv[argi], "full")) {
+	    *((int *)option->data) = RTCHECK_FULL;
+	  } else if (!strcmp(argv[argi], "loose")) {
+	    *((int *)option->data) = RTCHECK_LOOSE;
+	  } else {
+	    ERROR("Unknown retransmission detection method: %s\n", argv[argi]);
+	  }
+	  break;
 	case SIPP_OPTION_TDMMAP: {
           REQUIRE_ARG();
 	  CHECK_PASS();

@@ -191,6 +191,7 @@ extern unsigned long      defl_send_timeout       _DEFVAL(0);
 extern unsigned long      global_timeout          _DEFVAL(0);
 extern int                transport               _DEFVAL(DEFAULT_TRANSPORT);
 extern bool               retrans_enabled         _DEFVAL(1);
+extern int                rtcheck	          _DEFVAL(RTCHECK_FULL);
 extern int                max_udp_retrans         _DEFVAL(UDP_MAX_RETRANS);
 extern int                max_invite_retrans      _DEFVAL(UDP_MAX_RETRANS_INVITE_TRANSACTION);
 extern int                max_non_invite_retrans  _DEFVAL(UDP_MAX_RETRANS_NON_INVITE_TRANSACTION);

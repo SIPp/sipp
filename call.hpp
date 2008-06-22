@@ -46,6 +46,10 @@
 #define DEFAULT_T2_TIMER_VALUE  4000
 #define SIP_TRANSACTION_TIMEOUT 32000
 
+/* Retransmission check methods. */
+#define RTCHECK_FULL	1
+#define RTCHECK_LOOSE	2
+
 #ifdef __HPUX
   extern int createAuthHeader(char * user, char * password, char * method, char * uri, char * msgbody, char * auth, char * aka_OP, char * aka_AMF, char * aka_K, char * result);
 #else
@@ -271,6 +275,7 @@ private:
   char * get_header(char* message, char * name, bool content);
   char * get_first_line(char* message);
   char * get_last_request_uri();
+  unsigned long hash(char * msg);
 
   typedef std::map <std::string, int> file_line_map;
   file_line_map *m_lineNumber;

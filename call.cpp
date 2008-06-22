@@ -257,12 +257,46 @@ void call::get_remote_media_addr(char *msg) {
 
 /******* Very simple hash for retransmission detection  *******/
 
-unsigned long hash(char * msg) {
+unsigned long call::hash(char * msg) {
   unsigned long hash = 0;
   int c;
 
-  while (c = *msg++)
-    hash = c + (hash << 6) + (hash << 16) - hash;
+  if (rtcheck == RTCHECK_FULL) {
+    while (c = *msg++)
+      hash = c + (hash << 6) + (hash << 16) - hash;
+  } else if (rtcheck == RTCHECK_LOOSE) {
+    /* Based on section 11.5 (bullet 2) of RFC2543 we only take into account
+     * the To, From, Call-ID, and CSeq values. */
+      char *hdr = get_header_content(msg,"To:");
+      while (c = *hdr++)
+	hash = c + (hash << 6) + (hash << 16) - hash;
+      hdr = get_header_content(msg,"From:");
+      while (c = *hdr++)
+	hash = c + (hash << 6) + (hash << 16) - hash;
+      hdr = get_header_content(msg,"Call-ID:");
+      while (c = *hdr++)
+	hash = c + (hash << 6) + (hash << 16) - hash;
+      hdr = get_header_content(msg,"CSeq:");
+      while (c = *hdr++)
+	hash = c + (hash << 6) + (hash << 16) - hash;
+      /* For responses, we should also consider the code and body (if any),
+       * because they are not nearly as well defined as the request retransmission. */
+      if (!strncmp(msg, "SIP/2.0", strlen("SIP/2.0"))) {
+	/* Add the first line into the hash. */
+	hdr = msg + strlen("SIP/2.0");
+	while ((c = *hdr++) && (c != '\r'))
+	  hash = c + (hash << 6) + (hash << 16) - hash;
+	/* Add the body (if any) into the hash. */
+	hdr = strstr(msg, "\r\n\r\n");
+	if (hdr) {
+	  hdr += strlen("\r\n\r\n");
+	  while (c = *hdr++)
+	    hash = c + (hash << 6) + (hash << 16) - hash;
+	}
+      }
+  } else {
+    ERROR("Internal error: Invalid rtcheck %d\n", rtcheck);
+  }
 
   return hash;
 }
