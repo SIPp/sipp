@@ -430,15 +430,18 @@ enum E_Alter_YesNo
 extern FILE * screenf                             _DEFVAL(0);
 extern FILE * logfile                             _DEFVAL(0);
 extern FILE * messagef                            _DEFVAL(0);
+extern FILE * calldebugf                          _DEFVAL(0);
 extern FILE * shortmessagef                       _DEFVAL(0);
 extern FILE * countf                              _DEFVAL(0);
 // extern FILE * timeoutf                            _DEFVAL(0);
 extern bool   useMessagef                         _DEFVAL(0);
+extern bool   useCallDebugf                       _DEFVAL(0);
 extern bool   useShortMessagef                    _DEFVAL(0);
 extern bool   useScreenf                          _DEFVAL(0);
 extern bool   useLogf                             _DEFVAL(0);
 // should we overwrite the existing files?
 extern bool   messagef_overwrite		  _DEFVAL(true);
+extern bool   calldebugf_overwrite		  _DEFVAL(true);
 extern bool   shortmessagef_overwrite		  _DEFVAL(true);
 extern bool   errorf_overwrite			  _DEFVAL(true);
 extern bool   logfile_overwrite			  _DEFVAL(true);
@@ -459,6 +462,7 @@ extern FILE   * screen_errorf			  _DEFVAL(NULL);
 
 /* Log Rotation Functions. */
 void rotate_messagef();
+void rotate_calldebugf();
 void rotate_shortmessagef();
 void rotate_logfile();
 void rotate_errorf();
@@ -590,6 +594,7 @@ void free_peer_addr_map();
 extern "C" {
 #endif
 int TRACE_MSG(char *fmt, ...);
+int TRACE_CALLDEBUG(char *fmt, ...);
 int TRACE_SHORTMSG(char *fmt, ...);
 int LOG_MSG(char *fmt, ...);
 #ifdef __cplusplus

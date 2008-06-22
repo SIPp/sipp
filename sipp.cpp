@@ -278,6 +278,7 @@ struct sipp_option options_table[] = {
 	{"trace_screen", "Dump statistic screens in the <scenario_name>_<pid>_screens.log file when quitting SIPp. Useful to get a final status report in background mode (-bg option).", SIPP_OPTION_SETFLAG, &useScreenf, 1},
 	{"trace_err", "Trace all unexpected messages in <scenario file name>_<pid>_errors.log.", SIPP_OPTION_SETFLAG, &print_all_responses, 1},
 //	{"trace_timeout", "Displays call ids for calls with timeouts in <scenario file name>_<pid>_timeout.log", SIPP_OPTION_SETFLAG, &useTimeoutf, 1},
+	{"trace_calldebug", "Dumps debugging information about aborted calls to <scenario_name>_<pid>_calldebug.log file.", SIPP_OPTION_SETFLAG, &useCallDebugf, 1},
 	{"trace_stat", "Dumps all statistics in <scenario_name>_<pid>.csv file. Use the '-h stat' option for a detailed description of the statistics file content.", SIPP_OPTION_SETFLAG, &dumpInFile, 1},
 	{"trace_counts", "Dumps individual message counts in a CSV file.", SIPP_OPTION_SETFLAG, &useCountf, 1},
 	{"trace_rtt", "Allow tracing of all response times in <scenario file name>_<pid>_rtt.csv.", SIPP_OPTION_SETFLAG, &dumpInRtt, 1},
@@ -4549,6 +4550,10 @@ int main(int argc, char *argv[])
   if (useShortMessagef == 1) {
     rotate_shortmessagef();
   }
+
+  if (useCallDebugf) {
+    rotate_calldebugf();
+  }
   
   if (useScreenf == 1) {
     char L_file_name [MAX_PATH];
@@ -5560,6 +5565,31 @@ int LOG_MSG(char *fmt, ...) {
   return ret;
 }
 
+int TRACE_CALLDEBUG(char *fmt, ...) {
+  int ret = 0;
+  static unsigned long long count = 0;
+  if(calldebugf) {
+    va_list ap;
+    va_start(ap, fmt);
+    ret = vfprintf(calldebugf, fmt, ap);
+    va_end(ap);
+    fflush(calldebugf);
+
+    count += ret;
+
+    if (max_log_size && count > max_log_size) {
+      fclose(calldebugf);
+      calldebugf = NULL;
+    }
+
+    if (ringbuffer_size && count > ringbuffer_size) {
+      rotate_calldebugf();
+      count = 0;
+    }
+  }
+  return ret;
+}
+
 // TODO: finish the -trace_timeout option implementation
 /* int TRACE_TIMEOUT(char *fmt, ...) */
 
@@ -5625,6 +5655,15 @@ void rotatef(char *name, FILE **fptr, time_t *starttime, int *nfiles, struct log
     ERROR("Unable to create '%s'", L_file_name);
   }
 }
+
+int calldebugf_nfiles = 0;
+struct logfile_id *calldebugf_times = NULL;
+
+void rotate_calldebugf() {
+  static time_t starttime = 0;
+  rotatef("calldebug", &calldebugf, &starttime, &calldebugf_nfiles, &calldebugf_times, true, &calldebugf_overwrite);
+}
+
 
 int messagef_nfiles = 0;
 struct logfile_id *messagef_times = NULL;

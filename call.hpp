@@ -300,7 +300,12 @@ private:
   SSL_CTX   *m_ctx_ssl ;
   BIO       *m_bio     ;
 #endif
+
+  int callDebug(char *fmt, ...);
+  typedef std::vector <std::string> stringvec;
+  stringvec debugInfo;
 };
+
 
 /* Default Message Functions. */
 void init_default_messages();

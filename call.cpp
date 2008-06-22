@@ -518,7 +518,37 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
     }
   }
 
+  callDebug("Starting call %s\n", id);
+
   setRunning();
+}
+
+int call::callDebug(char *fmt, ...) {
+    va_list ap;
+
+    if (!useCallDebugf) {
+      return 0;
+    }
+
+    /* First we figure out how much to allocate. */
+    va_start(ap, fmt);
+    int ret = vsnprintf(NULL, 0, fmt, ap);
+    va_end(ap);
+
+    char *msg = (char *)malloc(ret + 1);
+    if (!msg) {
+      ERROR("Could not allocate buffer (%d bytes) for callDebug file!", ret + 1);
+    }
+
+    va_start(ap, fmt);
+    ret = vsnprintf(msg, ret + 1, fmt, ap);
+    va_end(ap);
+
+    debugInfo.push_back(std::string(msg));
+
+    free(msg);
+
+    return ret;
 }
 
 call::~call()
@@ -572,6 +602,8 @@ call::~call()
   if (use_tdmmap) {
     tdm_map[tdm_map_number] = false;
   }
+
+  debugInfo.clear();
 }
 
 void call::computeStat (CStat::E_Action P_action) {
@@ -1846,6 +1878,12 @@ bool call::abortCall()
       L_msg_buffer[0] = '\0';
       char * L_param = L_msg_buffer;
       sendBuffer(createSendingMessage(get_default_message("bye"), -1));
+    }
+  }
+
+  if (useCallDebugf) {
+    for (stringvec::iterator i = debugInfo.begin(); i != debugInfo.end(); i++) {
+      TRACE_CALLDEBUG("%s", i->c_str());
     }
   }
 
