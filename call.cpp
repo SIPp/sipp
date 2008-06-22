@@ -546,6 +546,10 @@ int call::callDebug(char *fmt, ...) {
 
     debugInfo.push_back(std::string(msg));
 
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    debugTime.push_back(now);
+
     free(msg);
 
     return ret;
@@ -604,6 +608,7 @@ call::~call()
   }
 
   debugInfo.clear();
+  debugTime.clear();
 }
 
 void call::computeStat (CStat::E_Action P_action) {
@@ -805,6 +810,8 @@ int call::send_raw(char * msg, int index)
 {
   struct sipp_socket *sock;
   int rc;
+
+  callDebug("Sending %s message for call %s (index %d, hash %u):\n%s\n\n", TRANSPORT_TO_STRING(transport), id, index, hash(msg), msg);
  
   if (useShortMessagef == 1) {
       struct timeval currentTime;
@@ -816,6 +823,7 @@ int call::send_raw(char * msg, int index)
  
   if((index!=-1) && (lost(index))) {
     TRACE_MSG("%s message voluntary lost (while sending).", TRANSPORT_TO_STRING(transport));
+    callDebug("%s message voluntary lost (while sending) (index %d, hash %u).\n", TRANSPORT_TO_STRING(transport), index, hash(msg));
     
     if(comp_state) { comp_free(&comp_state); }
     call_scenario->messages[index] -> nb_lost++;
@@ -1342,6 +1350,7 @@ bool call::executeMessage(message *curmsg) {
     curmsg->sessions++;
     do_bookkeeping(curmsg);
     executeAction(NULL, curmsg);
+    callDebug("Pausing call until %d (is now %d).\n", paused_until, clock_tick);
     return run(); /* In case delay is 0 */
   }
   else if(curmsg -> M_type == MSG_TYPE_SENDCMD) {
@@ -1364,6 +1373,7 @@ bool call::executeMessage(message *curmsg) {
     return(next());
   }
   else if(curmsg -> M_type == MSG_TYPE_NOP) {
+    callDebug("Executing NOP at index %d.\n", curmsg->index);
     do_bookkeeping(curmsg);
     executeAction(NULL, curmsg);
     return(next());
@@ -1410,7 +1420,7 @@ bool call::executeMessage(message *curmsg) {
 	  computeStat(CStat::E_CALL_FAILED);
 	  computeStat(CStat::E_FAILED_TIMEOUT_ON_SEND);
 	  if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
-	    return (abortCall());
+	    return (abortCall(true));
 	  } else {
 	    delete this;
 	    return false;
@@ -1448,6 +1458,8 @@ bool call::executeMessage(message *curmsg) {
       recv_retrans_hash       = last_recv_hash;
       recv_retrans_recv_index = last_recv_index;
       recv_retrans_send_index = curmsg->index;
+
+      callDebug("Set Retransmission Hash: %u (recv index %d, send index %d)\n", recv_retrans_hash, recv_retrans_recv_index, recv_retrans_send_index);
 
       /* Prevent from detecting the cause relation between send and recv 
        * in the next valid send */
@@ -1494,7 +1506,7 @@ bool call::executeMessage(message *curmsg) {
         computeStat(CStat::E_CALL_FAILED);
         computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
         if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
-          return (abortCall());
+          return (abortCall(true));
         } else {
           delete this;
           return false;
@@ -1511,7 +1523,7 @@ bool call::executeMessage(message *curmsg) {
       computeStat(CStat::E_CALL_FAILED);
       computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
       if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
-        return (abortCall());
+        return (abortCall(true));
       } else {
         delete this;
         return false;
@@ -1560,9 +1572,11 @@ bool call::run()
     curmsg = call_scenario->messages[msg_index];
   }
 
+  callDebug("Processing message %d of type %d for call %s.\n", msg_index, curmsg->M_type, id);
 
   if (curmsg->condexec != -1) {
     if (!M_callVariableTable->getVar(curmsg->condexec)->isSet()) {
+      callDebug("Conditional variable not set, so skipping message %d.\n", msg_index);
      return next();
     }
   }
@@ -1576,8 +1590,11 @@ bool call::run()
       bInviteTransaction = true;
     }
 
-    if((nb_retrans > (bInviteTransaction ? max_invite_retrans : max_non_invite_retrans)) ||
-       (nb_retrans > max_udp_retrans)) {
+    int rtAllowed = min(bInviteTransaction ? max_invite_retrans : max_non_invite_retrans, max_udp_retrans);
+
+    callDebug("Retransmisison required (%d retransmissions, max %d)\n", nb_retrans, rtAllowed);
+
+    if(nb_retrans > rtAllowed) {
       call_scenario->messages[last_send_index] -> nb_timeout ++;
       if (call_scenario->messages[last_send_index]->on_timeout >= 0) {  // action on timeout
           WARNING("Call-Id: %s, timeout on max UDP retrans for message %d, jumping to label %d ",
@@ -1594,7 +1611,7 @@ bool call::run()
           computeStat(CStat::E_FAILED_MAX_UDP_RETRANS);
           if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
             // Abort the call by sending proper SIP message
-            return(abortCall());
+            return(abortCall(true));
           } else {
             // Just delete existing call
             delete this;
@@ -1606,7 +1623,7 @@ bool call::run()
       if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
         // Abort the call by sending proper SIP message
         WARNING("Aborting call on UDP retransmission timeout for Call-ID '%s'", id);
-        return(abortCall());
+        return(abortCall(true));
       } else {
         // Just delete existing call
         delete this;
@@ -1633,10 +1650,12 @@ bool call::run()
   if(paused_until) {
     /* Process a pending pause instruction until delay expiration */
     if(paused_until > clock_tick) {
+      callDebug("Call is paused until %d (now %d).\n", paused_until, clock_tick);
       setPaused();
       return true;
     }
     /* Our pause is over. */
+    callDebug("Pause complete, waking up.\n");
     paused_until = 0;
     return next();
   }
@@ -1791,6 +1810,9 @@ bool call::process_unexpected(char * msg)
              TRANSPORT_TO_STRING(transport),
              msg);
 
+  callDebug("Unexpected %s message received (index %d, hash %u):\n\n%s\n",
+             TRANSPORT_TO_STRING(transport), msg_index, hash(msg), msg);
+
   if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
@@ -1804,7 +1826,7 @@ bool call::process_unexpected(char * msg)
     computeStat(CStat::E_CALL_FAILED);
     computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
     if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
-      return (abortCall());
+      return (abortCall(true));
     } else {
       delete this;
       return false;
@@ -1817,15 +1839,17 @@ bool call::process_unexpected(char * msg)
 
 void call::abort() {
   WARNING("Aborted call with Call-ID '%s'", id);
-  abortCall();
+  abortCall(false);
 }
 
-bool call::abortCall()
+bool call::abortCall(bool writeLog)
 {
   int is_inv;
 
   char * src_send = NULL ;
   char * src_recv = NULL ;
+
+  callDebug("Aborting call %s (index %d).\n", id, index);
 
   if (last_send_msg != NULL) {
     is_inv = !strncmp(last_send_msg, "INVITE", 6);
@@ -1881,9 +1905,12 @@ bool call::abortCall()
     }
   }
 
-  if (useCallDebugf) {
-    for (stringvec::iterator i = debugInfo.begin(); i != debugInfo.end(); i++) {
-      TRACE_CALLDEBUG("%s", i->c_str());
+  if (writeLog && useCallDebugf) {
+    TRACE_CALLDEBUG ("-------------------------------------------------------------------------------\n", id);
+    TRACE_CALLDEBUG ("Call debugging information for call %s:\n", id);
+    assert(debugInfo.size() == debugTime.size());
+    for (int i = 0; i < debugInfo.size(); i++) {
+      TRACE_CALLDEBUG("%s %s", CStat::formatTime(&debugTime[i]), debugInfo[i].c_str());
     }
   }
 
@@ -2383,6 +2410,8 @@ bool call::process_twinSippCom(char * msg)
   bool            found = false;
   T_ActionResult  actionResult;
 
+  callDebug("Processing incoming command for call-ID %s:\n%s\n\n", id, msg);
+
   setRunning();
 
   if (checkInternalCmd(msg) == false) {
@@ -2396,6 +2425,7 @@ bool call::process_twinSippCom(char * msg)
 	}
 	/* The received message is different from the expected one */
 	TRACE_MSG("Unexpected control message received (I was expecting a different type of message):\n%s\n", msg);
+	callDebug("Unexpected control message received (I was expecting a different type of message):\n%s\n\n", msg);
 	return rejectCall();
       } else {
 	if(extendedTwinSippMode){                   // 3pcc extended mode
@@ -2437,6 +2467,7 @@ bool call::process_twinSippCom(char * msg)
       }
     } else {
       TRACE_MSG("Unexpected control message received (no such message found):\n%s\n", msg);
+      callDebug("Unexpected control message received (no such message found):\n%s\n\n", msg);
       return rejectCall();
     }
     msg_index = search_index; //update the state machine
@@ -2470,7 +2501,7 @@ bool call::checkInternalCmd(char * cmd)
 
   if (strcmp(L_ptr1, "abort_call") == 0) {
     *L_ptr2 = L_backup;
-    abortCall();
+    abortCall(true);
     computeStat(CStat::E_CALL_FAILED);
     return (true);
   }
@@ -2758,6 +2789,8 @@ bool call::process_incoming(char * msg)
   bool            found = false;
   T_ActionResult  actionResult;
 
+  callDebug("Processing %d byte incoming message for call-ID %s (hash %u):\n%s\n\n", strlen(msg), id, hash(msg), msg);
+
   setRunning();
 
   /* Ignore the messages received during a pause if -pause_msg_ign is set */
@@ -2783,6 +2816,7 @@ bool call::process_incoming(char * msg)
       if(lost(recv_retrans_recv_index)) {
 	TRACE_MSG("%s message (retrans) lost (recv).",
 	      TRANSPORT_TO_STRING(transport));
+	callDebug("%s message (retrans) lost (recv) (hash %u)\n", TRANSPORT_TO_STRING(transport), hash(msg));
 
 	if(comp_state) { comp_free(&comp_state); }
 	call_scenario->messages[recv_retrans_recv_index] -> nb_lost++;
@@ -2928,6 +2962,8 @@ bool call::process_incoming(char * msg)
 		  TRACE_MSG("-----------------------------------------------\n"
 		      "Ignoring provisional %s message for transaction %s:\n\n%s\n",
 		      TRANSPORT_TO_STRING(transport), call_scenario->txnRevMap[checkTxn - 1], msg);
+		  callDebug("Ignoring provisional %s message for transaction %s (hash %u):\n\n%s\n",
+		      TRANSPORT_TO_STRING(transport), call_scenario->txnRevMap[checkTxn - 1], hash(msg), msg);
 		  return true;
 		} else if (call_scenario->messages[search_index + 1]->M_type == MSG_TYPE_SEND && call_scenario->messages[search_index + 1]->send_scheme->isAck()) {
 		  /* This is the message before an ACK, so verify that this is an invite transaction. */
@@ -3005,6 +3041,8 @@ bool call::process_incoming(char * msg)
   if(lost(search_index)) {
     TRACE_MSG("%s message lost (recv).",
                TRANSPORT_TO_STRING(transport));
+    callDebug("%s message lost (recv) (hash %u).\n",
+               TRANSPORT_TO_STRING(transport), hash(msg));
     if(comp_state) { comp_free(&comp_state); }
     call_scenario->messages[search_index] -> nb_lost++;
     return true;
@@ -3142,6 +3180,7 @@ bool call::process_incoming(char * msg)
    * in our messages. */
   last_recv_index = search_index;
   last_recv_hash = cookie;
+  callDebug("Set Last Recv Hash: %u (recv index %d)\n", last_recv_hash, last_recv_index);
   last_recv_msg = (char *) realloc(last_recv_msg, strlen(msg) + 1);
   strcpy(last_recv_msg, msg);
 

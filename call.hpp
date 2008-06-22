@@ -78,7 +78,7 @@ public:
 
   /* When should this call wake up? */
   virtual unsigned int wake();
-  virtual bool  abortCall();                  // call aborted with BYE or CANCEL
+  virtual bool  abortCall(bool writeLog); // call aborted with BYE or CANCEL
   virtual void abort();
 
   /* Dump call info to error log. */
@@ -303,7 +303,9 @@ private:
 
   int callDebug(char *fmt, ...);
   typedef std::vector <std::string> stringvec;
+  typedef std::vector <struct timeval> timevec;
   stringvec debugInfo;
+  timevec debugTime;
 };
 
 
