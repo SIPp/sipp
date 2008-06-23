@@ -1575,8 +1575,12 @@ bool call::run()
   callDebug("Processing message %d of type %d for call %s.\n", msg_index, curmsg->M_type, id);
 
   if (curmsg->condexec != -1) {
-    if (!M_callVariableTable->getVar(curmsg->condexec)->isSet()) {
-      callDebug("Conditional variable not set, so skipping message %d.\n", msg_index);
+    bool exec = M_callVariableTable->getVar(curmsg->condexec)->isSet();
+    if (curmsg->condexec_inverse) {
+	exec = !exec;
+    }
+    if (!exec) {
+     callDebug("Conditional variable %s %s set, so skipping message %d.\n", call_scenario->allocVars->getName(curmsg->condexec), curmsg->condexec_inverse ? "" : "not", msg_index);
      return next();
     }
   }

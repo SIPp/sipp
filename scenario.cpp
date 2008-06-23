@@ -70,6 +70,7 @@ message::message(int index, const char *desc)
   display_str = NULL;
   test = -1;
   condexec = -1;
+  condexec_inverse = false;
   chance = 0;/* meaning always */
   next = -1;
   nextLabel = NULL;
@@ -705,13 +706,13 @@ scenario::scenario(char * filename, int deflt)
     scenario_file_cursor ++;
 
     if(!strcmp(elem, "CallLengthRepartition")) {
-      ptr = xp_get_value((char *)"value");
+      ptr = xp_get_string("value", "CallLengthRepartition");
       stats->setRepartitionCallLength(ptr);
     } else if(!strcmp(elem, "ResponseTimeRepartition")) {
-      ptr = xp_get_value((char *)"value");
+      ptr = xp_get_string("value", "ResponseTimeRepartition");
       stats->setRepartitionResponseTime(ptr);
     } else if(!strcmp(elem, "Global")) {
-      ptr = xp_get_value((char *)"variables");
+      ptr = xp_get_string("variables", "Global");
 
       char **       currentTabVarName = NULL;
       int           currentNbVarNames;
@@ -722,7 +723,7 @@ scenario::scenario(char * filename, int deflt)
       }
       freeStringTable(currentTabVarName, currentNbVarNames);
     } else if(!strcmp(elem, "User")) {
-      ptr = xp_get_value((char *)"variables");
+      ptr = xp_get_string("variables", "User");
 
       char **       currentTabVarName = NULL;
       int           currentNbVarNames;
@@ -733,7 +734,7 @@ scenario::scenario(char * filename, int deflt)
       }
       freeStringTable(currentTabVarName, currentNbVarNames);
     } else if(!strcmp(elem, "Reference")) {
-      ptr = xp_get_value((char *)"variables");
+      ptr = xp_get_string("variables", "Reference");
 
       char **       currentTabVarName = NULL;
       int           currentNbVarNames;
@@ -756,7 +757,7 @@ scenario::scenario(char * filename, int deflt)
       free(id);
       /* XXX: This should really be per scenario. */
     } else if(!strcmp(elem, "label")) {
-      ptr = xp_get_value((char *)"id");
+      ptr = xp_get_string("id", "label");
       if (labelMap.find(ptr) != labelMap.end()) {
 	ERROR("The label name '%s' is used twice.", ptr);
       }
@@ -1675,6 +1676,7 @@ void scenario::getCommonAttributes(message *message) {
   }
 
   message -> condexec = xp_get_var("condexec", "condexec variable", -1);
+  message -> condexec_inverse = xp_get_bool("condexec_inverse", "condexec_inverse", false);
 
   if ((ptr = xp_get_value((char *)"next"))) {
     if (found_timewait) {
