@@ -299,7 +299,6 @@ int FileContents::lookup(char *key) {
 
   str_int_map::iterator index_it = indexMap->find(key);
   if (index_it == indexMap->end()) {
-    WARNING("'%s' Not Found\n", key);
     return -1;
   }
   return index_it->second;
