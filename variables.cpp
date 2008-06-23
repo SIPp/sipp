@@ -39,6 +39,8 @@ bool CCallVariable::isSet()
       return(false);
   } else if (M_type == E_VT_BOOL) {
     return M_bool;
+  } else if (M_type == E_VT_DOUBLE) {
+    return M_double;
   }
   return (M_type != E_VT_UNDEFINED);
 }
