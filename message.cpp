@@ -79,6 +79,7 @@ struct KeywordMap SimpleKeywords[] = {
   {"users", E_Message_Users },
   {"userid", E_Message_UserID },
   {"timestamp", E_Message_Timestamp },
+  {"sipp_version", E_Message_SippVersion },
 };
 
 #define KEYWORD_SIZE 256

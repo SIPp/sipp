@@ -82,6 +82,7 @@ typedef enum {
   E_Message_Users,
   E_Message_UserID,
   E_Message_Timestamp,
+  E_Message_SippVersion,
 } MessageCompType;
 
 class SendingMessage {

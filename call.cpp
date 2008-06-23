@@ -2195,6 +2195,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
       case E_Message_UserID:
 	dest += snprintf(dest, left, "%d", userId);
 	break;
+      case E_Message_SippVersion:
+	dest += snprintf(dest, left, "%s", SIPP_VERSION);
+	break;
       case E_Message_Variable: {
 	 int varId = comp->varId;
 	 CCallVariable *var = M_callVariableTable->getVar(varId);
