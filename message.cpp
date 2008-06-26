@@ -85,7 +85,7 @@ struct KeywordMap SimpleKeywords[] = {
 #define KEYWORD_SIZE 256
 
 SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sanity) {
-  char *osrc = src;
+    char *osrc = src;
     char * literal;
     char * dest;
     char * key;
@@ -162,6 +162,9 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 			do {
 				tsrc++;
 			} while(*tsrc && *tsrc != '\"');
+			if (!*tsrc) {
+				break;
+			}
 		}
 		if (*tsrc == '[')
 			break;
