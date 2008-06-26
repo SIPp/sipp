@@ -110,6 +110,8 @@ task_list *timewheel::task2list(task *task) {
   unsigned int wake_sigbits = wake;
   unsigned int base_sigbits = wheel_base;
 
+  assert(wheel_base <= clock_tick);
+
   if (wake == 0) {
     return &forever_list;
   }
