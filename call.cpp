@@ -49,6 +49,8 @@
 #include "deadcall.hpp"
 #include "assert.h"
 
+#define callDebug(args...) do { if (useCallDebugf) { _callDebug( args ); } } while (0)
+
 #ifdef _USE_OPENSSL
 extern  SSL                 *ssl_list[];
 extern  struct pollfd        pollfiles[];
@@ -354,6 +356,10 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
 {
   this->call_scenario = call_scenario;
   zombie = false;
+
+  debugBuffer = NULL;
+  debugLength = 0;
+
   msg_index = 0;
   last_send_index = 0;
   last_send_msg = NULL;
@@ -523,7 +529,7 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
   setRunning();
 }
 
-int call::callDebug(char *fmt, ...) {
+int call::_callDebug(char *fmt, ...) {
     va_list ap;
 
     if (!useCallDebugf) {
@@ -535,22 +541,18 @@ int call::callDebug(char *fmt, ...) {
     int ret = vsnprintf(NULL, 0, fmt, ap);
     va_end(ap);
 
-    char *msg = (char *)malloc(ret + 1);
-    if (!msg) {
-      ERROR("Could not allocate buffer (%d bytes) for callDebug file!", ret + 1);
+    debugBuffer = (char *)realloc(debugBuffer, debugLength + ret + TIME_LENGTH + 2);
+    if (!debugBuffer) {
+      ERROR("Could not allocate buffer (%d bytes) for callDebug file!", debugLength + ret + TIME_LENGTH + 2);
     }
-
-    va_start(ap, fmt);
-    ret = vsnprintf(msg, ret + 1, fmt, ap);
-    va_end(ap);
-
-    debugInfo.push_back(std::string(msg));
 
     struct timeval now;
     gettimeofday(&now, NULL);
-    debugTime.push_back(now);
+    debugLength += snprintf(debugBuffer + debugLength, TIME_LENGTH + 2, "%s ", CStat::formatTime(&now));
 
-    free(msg);
+    va_start(ap, fmt);
+    debugLength += vsnprintf(debugBuffer + debugLength, ret + 1, fmt, ap);
+    va_end(ap);
 
     return ret;
 }
@@ -607,8 +609,7 @@ call::~call()
     tdm_map[tdm_map_number] = false;
   }
 
-  debugInfo.clear();
-  debugTime.clear();
+  free(debugBuffer);
 }
 
 void call::computeStat (CStat::E_Action P_action) {
@@ -1351,7 +1352,8 @@ bool call::executeMessage(message *curmsg) {
     do_bookkeeping(curmsg);
     executeAction(NULL, curmsg);
     callDebug("Pausing call until %d (is now %d).\n", paused_until, clock_tick);
-    return run(); /* In case delay is 0 */
+    setPaused();
+    return true;
   }
   else if(curmsg -> M_type == MSG_TYPE_SENDCMD) {
     int send_status;
@@ -1575,7 +1577,7 @@ bool call::run()
     curmsg = call_scenario->messages[msg_index];
   }
 
-  callDebug("Processing message %d of type %d for call %s.\n", msg_index, curmsg->M_type, id);
+  callDebug("Processing message %d of type %d for call %s at %u.\n", msg_index, curmsg->M_type, id, clock_tick);
 
   if (curmsg->condexec != -1) {
     bool exec = M_callVariableTable->getVar(curmsg->condexec)->isSet();
@@ -1659,6 +1661,7 @@ bool call::run()
     if(paused_until > clock_tick) {
       callDebug("Call is paused until %d (now %d).\n", paused_until, clock_tick);
       setPaused();
+      callDebug("Running: %d (wake %d).\n", running, wake());
       return true;
     }
     /* Our pause is over. */
@@ -1915,10 +1918,7 @@ bool call::abortCall(bool writeLog)
   if (writeLog && useCallDebugf) {
     TRACE_CALLDEBUG ("-------------------------------------------------------------------------------\n", id);
     TRACE_CALLDEBUG ("Call debugging information for call %s:\n", id);
-    assert(debugInfo.size() == debugTime.size());
-    for (int i = 0; i < debugInfo.size(); i++) {
-      TRACE_CALLDEBUG("%s %s", CStat::formatTime(&debugTime[i]), debugInfo[i].c_str());
-    }
+    TRACE_CALLDEBUG("%s", debugBuffer);
   }
 
   stopListening();
@@ -2799,6 +2799,7 @@ bool call::process_incoming(char * msg)
   bool            found = false;
   T_ActionResult  actionResult;
 
+  getmilliseconds();
   callDebug("Processing %d byte incoming message for call-ID %s (hash %u):\n%s\n\n", strlen(msg), id, hash(msg), msg);
 
   setRunning();

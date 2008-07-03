@@ -307,11 +307,9 @@ private:
   BIO       *m_bio     ;
 #endif
 
-  int callDebug(char *fmt, ...);
-  typedef std::vector <std::string> stringvec;
-  typedef std::vector <struct timeval> timevec;
-  stringvec debugInfo;
-  timevec debugTime;
+  int _callDebug(char *fmt, ...);
+  char *debugBuffer;
+  int debugLength;
 };
 
 
