@@ -113,45 +113,29 @@ message::~message()
 {
   if(M_actions != NULL)
     delete(M_actions);
-  M_actions = NULL;
 
   if(send_scheme != NULL)
     delete send_scheme;
-  send_scheme = NULL;
 
   if(recv_request != NULL)
     free (recv_request);
-  recv_request = NULL;
 
   if(regexp_compile != NULL)
     regfree(regexp_compile);
     free(regexp_compile);
-  regexp_compile = NULL;
 
-  if(peer_dest != NULL)
-     free (peer_dest);
-  peer_dest = NULL; 
-
-  if(peer_src != NULL)
-     delete (peer_src);
-  peer_src = NULL;
-
-  if(pause_desc != NULL)
-     free(pause_desc);
-  pause_desc = NULL;
 
   if (pause_distribution) {
     delete pause_distribution;
   }
 
-  if(display_str != NULL)
-     free(display_str);
-  display_str = NULL;
-
   if(M_sendCmdData != NULL)
     delete M_sendCmdData;
-  M_sendCmdData = NULL;
 
+  free(display_str);
+  free(peer_dest);
+  free(peer_src);
+  free(pause_desc);
   free(recv_response_for_cseq_method_list);
 }
 
