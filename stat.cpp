@@ -1652,6 +1652,9 @@ long CStat::computeDiffTimeInMs (struct timeval* tf, struct timeval* ti)
   return (v1*1000 + v2/1000);
 }
 
+CSample::~CSample() {
+}
+
 
 /* Implementation of a fixed distribution. */
 CFixed::CFixed(double value) {

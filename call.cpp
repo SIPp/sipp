@@ -264,22 +264,22 @@ unsigned long call::hash(char * msg) {
   int c;
 
   if (rtcheck == RTCHECK_FULL) {
-    while (c = *msg++)
+    while ((c = *msg++))
       hash = c + (hash << 6) + (hash << 16) - hash;
   } else if (rtcheck == RTCHECK_LOOSE) {
     /* Based on section 11.5 (bullet 2) of RFC2543 we only take into account
      * the To, From, Call-ID, and CSeq values. */
       char *hdr = get_header_content(msg,"To:");
-      while (c = *hdr++)
+      while ((c = *hdr++))
 	hash = c + (hash << 6) + (hash << 16) - hash;
       hdr = get_header_content(msg,"From:");
-      while (c = *hdr++)
+      while ((c = *hdr++))
 	hash = c + (hash << 6) + (hash << 16) - hash;
       hdr = get_header_content(msg,"Call-ID:");
-      while (c = *hdr++)
+      while ((c = *hdr++))
 	hash = c + (hash << 6) + (hash << 16) - hash;
       hdr = get_header_content(msg,"CSeq:");
-      while (c = *hdr++)
+      while ((c = *hdr++))
 	hash = c + (hash << 6) + (hash << 16) - hash;
       /* For responses, we should also consider the code and body (if any),
        * because they are not nearly as well defined as the request retransmission. */
@@ -292,7 +292,7 @@ unsigned long call::hash(char * msg) {
 	hdr = strstr(msg, "\r\n\r\n");
 	if (hdr) {
 	  hdr += strlen("\r\n\r\n");
-	  while (c = *hdr++)
+	  while ((c = *hdr++))
 	    hash = c + (hash << 6) + (hash << 16) - hash;
 	}
       }
@@ -580,7 +580,7 @@ call::~call()
   }
 
   if (transactions) {
-    for (int i = 0; i < call_scenario->transactions.size(); i++) {
+    for (unsigned int i = 0; i < call_scenario->transactions.size(); i++) {
       free(transactions[i].txnID);
     }
     free(transactions);
@@ -638,16 +638,16 @@ void call::dump() {
   char s[MAX_HEADER_LEN];
   sprintf(s, "%s: State %d", id, msg_index);
   if (next_retrans) {
-    sprintf(s, "%s (next retrans %ld)", s, next_retrans);
+    sprintf(s, "%s (next retrans %u)", s, next_retrans);
   }
   if (paused_until) {
-    sprintf(s, "%s (paused until %ld)", s, paused_until);
+    sprintf(s, "%s (paused until %u)", s, paused_until);
   }
   if (recv_timeout) {
-    sprintf(s, "%s (recv timeout %ld)", s, recv_timeout);
+    sprintf(s, "%s (recv timeout %u)", s, recv_timeout);
   }
   if (send_timeout) {
-    sprintf(s, "%s (send timeout %ld)", s, send_timeout);
+    sprintf(s, "%s (send timeout %u)", s, send_timeout);
   }
   WARNING("%s", s);
 }
@@ -986,7 +986,7 @@ char * call::get_header(char* message, char * name, bool content)
     src = message;
     dest = last_header;
 
-    while(src = strcasestr2(src, src_tmp)) {
+    while((src = strcasestr2(src, src_tmp))) {
       if (content || !first_time) {
         /* just want the header's content */
         src += strlen(name) + 1;
@@ -1244,7 +1244,7 @@ void call::tcpClose() {
   terminate(CStat::E_FAILED_TCP_CLOSED);
 }
 
-bool call::terminate(CStat::E_Action reason) {
+void call::terminate(CStat::E_Action reason) {
   char reason_str[100];
 
   stopListening();
@@ -1317,7 +1317,7 @@ bool call::next()
   }
   msg_index=new_msg_index;
   recv_timeout = 0;
-  if(msg_index >= (*msgs).size()) {
+  if(msg_index >= (int)((*msgs).size())) {
     terminate(CStat::E_CALL_SUCCESSFULLY_ENDED);
     return false;
   }
@@ -1523,7 +1523,7 @@ bool call::executeMessage(message *curmsg) {
        * does not matter too much as only nops are allowed in the init stanza. */
       msg_index = curmsg->on_timeout;
       recv_timeout = 0;
-      if (msg_index < call_scenario->messages.size()) return true;
+      if (msg_index < (int)call_scenario->messages.size()) return true;
       // special case - the label points to the end - finish the call
       computeStat(CStat::E_CALL_FAILED);
       computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
@@ -1566,12 +1566,12 @@ bool call::run()
 
   message *curmsg;
   if (initCall) {
-    if(msg_index >= call_scenario->initmessages.size()) {
+    if(msg_index >= (int)call_scenario->initmessages.size()) {
       ERROR("Scenario initialization overrun for call %s (%p) (index = %d)\n", id, this, msg_index);
     }
     curmsg = call_scenario->initmessages[msg_index];
   } else {
-    if(msg_index >= call_scenario->messages.size()) {
+    if(msg_index >= (int)call_scenario->messages.size()) {
       ERROR("Scenario overrun for call %s (%p) (index = %d)\n", id, this, msg_index);
     }
     curmsg = call_scenario->messages[msg_index];
@@ -1611,7 +1611,7 @@ bool call::run()
           msg_index = call_scenario->messages[last_send_index]->on_timeout;
           next_retrans = 0;
           recv_timeout = 0;
-          if (msg_index < call_scenario->messages.size()) {
+          if (msg_index < (int)call_scenario->messages.size()) {
 		return true;
 	  }
 
@@ -1856,7 +1856,6 @@ bool call::abortCall(bool writeLog)
 {
   int is_inv;
 
-  char * src_send = NULL ;
   char * src_recv = NULL ;
 
   callDebug("Aborting call %s (index %d).\n", id, index);
@@ -1871,7 +1870,6 @@ bool call::abortCall(bool writeLog)
       src_recv = last_recv_msg ;
       char   L_msg_buffer[SIPP_MAX_MSG_SIZE];
       L_msg_buffer[0] = '\0';
-      char * L_param = L_msg_buffer;
 
       // Answer unexpected errors (4XX, 5XX and beyond) with an ACK 
       // Contributed by F. Tarek Rogers
@@ -1881,8 +1879,6 @@ bool call::abortCall(bool writeLog)
         /* Call is not established and the reply is not a 4XX, 5XX */
         /* And we already received a message. */
         if (ack_is_pending == true) {
-          char * cseq = NULL;
-
           /* If an ACK is expected from the other side, send it
            * and send a BYE afterwards                           */
           ack_is_pending = false;
@@ -1907,10 +1903,8 @@ bool call::abortCall(bool writeLog)
        * because the earlier check depends on the first message being an INVITE
        * (although it could be something like a message message, therefore we
        * check that we received a message. */
-      char * src_recv = last_recv_msg ;
       char   L_msg_buffer[SIPP_MAX_MSG_SIZE];
       L_msg_buffer[0] = '\0';
-      char * L_param = L_msg_buffer;
       sendBuffer(createSendingMessage(get_default_message("bye"), -1));
     }
   }
@@ -2427,7 +2421,7 @@ bool call::process_twinSippCom(char * msg)
   if (checkInternalCmd(msg) == false) {
 
     for(search_index = msg_index;
-      search_index < call_scenario->messages.size();
+      search_index < (int)call_scenario->messages.size();
       search_index++) {
       if(call_scenario->messages[search_index] -> M_type != MSG_TYPE_RECVCMD) {
 	if(call_scenario->messages[search_index] -> optional) {
@@ -2553,10 +2547,10 @@ bool call::check_peer_src(char * msg, int search_index)
 void call::extract_cseq_method (char* method, char* msg)
 {
   char* cseq ;
-  if (cseq = strstr (msg, "CSeq"))
+  if ((cseq = strstr (msg, "CSeq")))
   {
     char * value ;
-    if ( value = strchr (cseq,  ':'))
+    if (( value = strchr (cseq,  ':')))
     {
       value++;
       while ( isspace(*value)) value++;  // ignore any white spaces after the :
@@ -2574,7 +2568,6 @@ void call::extract_cseq_method (char* method, char* msg)
 
 void call::extract_transaction (char* txn, char* msg)
 {
-  char *otxn = txn;
   char *via = get_header_content(msg, "via:");
   if (!via) {
     txn[0] = '\0';
@@ -2743,7 +2736,6 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
 
 bool call::matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod, char *txn)
 {
-  int        result;
   message *curmsg = call_scenario->messages[index];
 
   if ((curmsg -> recv_request)) {
@@ -2903,7 +2895,7 @@ bool call::process_incoming(char * msg)
     // extract the cseq method from the response
     extract_cseq_method (responsecseqmethod, msg);
     extract_transaction (txn, msg);
-  } else if(ptr = strchr(msg, ' ')) {
+  } else if((ptr = strchr(msg, ' '))) {
     if((ptr - msg) < 64) {
       memcpy(request, msg, ptr - msg);
       request[ptr - msg] = 0;
@@ -2935,7 +2927,7 @@ bool call::process_incoming(char * msg)
   /* Try to find it in the expected non mandatory responses
    * until the first mandatory response  in the scenario */
   for(search_index = msg_index;
-      search_index < call_scenario->messages.size();
+      search_index < (int)call_scenario->messages.size();
       search_index++) {
     if(!matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
       if(call_scenario->messages[search_index] -> optional) {
@@ -3234,7 +3226,7 @@ bool call::process_incoming(char * msg)
     /* We are just waiting for a message to be received, if any of the
      * potential messages have a timeout we set it as our timeout. We
      * start from the next message and go until any non-receives. */
-    for(search_index++; search_index < call_scenario->messages.size(); search_index++) {
+    for(search_index++; search_index < (int)call_scenario->messages.size(); search_index++) {
       if(call_scenario->messages[search_index] -> M_type != MSG_TYPE_RECV) {
 	break;
       }
@@ -3707,9 +3699,6 @@ void call::getFieldFromInputFile(const char *fileName, int field, SendingMessage
 }
 
 call::T_AutoMode call::checkAutomaticResponseMode(char * P_recv) {
-
-  int L_res = E_AM_DEFAULT ;
-
   if (strcmp(P_recv, "BYE")==0) {
     return E_AM_UNEXP_BYE;
   } else if (strcmp(P_recv, "CANCEL") == 0) {

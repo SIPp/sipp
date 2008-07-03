@@ -216,7 +216,6 @@ void screen_init(void (*exit_handler)())
 static void _screen_error(int fatal, bool use_errno, int error, const char *fmt, va_list ap)
 {
   static unsigned long long count = 0;
-  FILE * output;
   char * c = screen_last_error;
   struct timeval currentTime;
 
@@ -276,28 +275,29 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
 }
 
 extern "C" {
-int ERROR(const char *fmt, ...) {
+void ERROR(const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   _screen_error(true, false, 0, fmt, ap);
   va_end(ap);
+  assert(0);
 }
 
-int ERROR_NO(const char *fmt, ...) {
+void ERROR_NO(const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   _screen_error(true, true, errno, fmt, ap);
   va_end(ap);
 }
 
-int WARNING(const char *fmt, ...) {
+void WARNING(const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   _screen_error(false, false, 0, fmt, ap);
   va_end(ap);
 }
 
-int WARNING_NO(const char *fmt, ...) {
+void WARNING_NO(const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   _screen_error(false, true, errno, fmt, ap);

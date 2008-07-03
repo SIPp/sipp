@@ -31,6 +31,7 @@
 #include <ctype.h>
 #include <openssl/md5.h>
 #include "milenage.h"
+#include "screen.hpp"
 
 #define MAX_HEADER_LEN  2049
 #define MD5_HASH_SIZE 16
@@ -219,7 +220,6 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
     unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
     unsigned char resp_hex[HASH_HEX_SIZE+1], body_hex[HASH_HEX_SIZE+1];
     char tmp[MAX_HEADER_LEN], authtype[16], cnonce[32], nc[32], opaque[64];
-    char *start, *end;
     static unsigned int mync = 1;
     int has_opaque = 0;
     MD5_CTX Md5Ctx;
@@ -318,45 +318,12 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
     return 1;
 }
 
-int verifyAuthHeader(char * user, char * password, char * method, char * auth) {
-  char algo[MAX_HEADER_LEN];
-  char result[HASH_HEX_SIZE];
-  char response[HASH_HEX_SIZE + 2];
-  char realm[MAX_HEADER_LEN];
-  char nonce[MAX_HEADER_LEN];
-  char uri[MAX_HEADER_LEN];
-  char *start, *end;
-  int len;
-
-  if ((start = stristr(auth, "Digest")) == NULL) {
-    WARNING("verifyAuthHeader: authentication must be digest is %s", auth);
-    return 0;
-  }
-
-  len = getAuthParameter("algorithm", auth, algo, sizeof(algo));
-  if (algo[0] == '\0') {
-    strcpy(algo, "MD5");
-  }
-  if (strncasecmp(algo, "MD5", 3)==0) {
-    getAuthParameter("realm", auth, realm, sizeof(realm));
-    getAuthParameter("uri", auth, uri, sizeof(uri));
-    getAuthParameter("nonce", auth, nonce, sizeof(nonce));
-    createAuthResponseMD5(user,password,strlen(password),method,uri,realm,nonce,result);
-    getAuthParameter("response", auth, response, sizeof(response));
-    return !strcmp(result, response);
-  }else{
-    WARNING("createAuthHeader: authentication must use MD5 or AKAv1-MD5, value is '%s'", algo);
-    return 0;
-  }
-}
-
 int createAuthResponseMD5(char * user, char * password, int password_len, char * method,
-                     char * uri, char * realm, char *nonce, char * result) {
+                     char * uri, char * realm, char *nonce, unsigned char * result) {
     unsigned char ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
     unsigned char resp[MD5_HASH_SIZE];
     unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
     char tmp[MAX_HEADER_LEN];
-    char *start, *end;
     MD5_CTX Md5Ctx;
 
     // Load in A1 
@@ -394,6 +361,39 @@ int createAuthResponseMD5(char * user, char * password, int password_len, char *
 
     return 1;
 }
+
+int verifyAuthHeader(char * user, char * password, char * method, char * auth) {
+  char algo[MAX_HEADER_LEN];
+  unsigned char result[HASH_HEX_SIZE];
+  char response[HASH_HEX_SIZE + 2];
+  char realm[MAX_HEADER_LEN];
+  char nonce[MAX_HEADER_LEN];
+  char uri[MAX_HEADER_LEN];
+  char *start;
+  int len;
+
+  if ((start = stristr(auth, "Digest")) == NULL) {
+    WARNING("verifyAuthHeader: authentication must be digest is %s", auth);
+    return 0;
+  }
+
+  len = getAuthParameter("algorithm", auth, algo, sizeof(algo));
+  if (algo[0] == '\0') {
+    strcpy(algo, "MD5");
+  }
+  if (strncasecmp(algo, "MD5", 3)==0) {
+    getAuthParameter("realm", auth, realm, sizeof(realm));
+    getAuthParameter("uri", auth, uri, sizeof(uri));
+    getAuthParameter("nonce", auth, nonce, sizeof(nonce));
+    createAuthResponseMD5(user,password,strlen(password),method,uri,realm,nonce,result);
+    getAuthParameter("response", auth, response, sizeof(response));
+    return !strcmp((char *)result, response);
+  }else{
+    WARNING("createAuthHeader: authentication must use MD5 or AKAv1-MD5, value is '%s'", algo);
+    return 0;
+  }
+}
+
 
 
 /*"

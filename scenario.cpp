@@ -386,7 +386,6 @@ int scenario::get_var(const char *varName, const char *what) {
 
 int scenario::xp_get_var(const char *name, const char *what) {
   char *ptr;
-  char *helptext;
 
   if (!(ptr = xp_get_value(name))) {
     ERROR("%s is missing the required '%s' variable parameter.", what, name);
@@ -418,7 +417,6 @@ int xp_get_optional(const char *name, const char *what) {
 
 int scenario::xp_get_var(const char *name, const char *what, int defval) {
   char *ptr;
-  char *helptext;
 
   if (!(ptr = xp_get_value(name))) {
 	return defval;
@@ -560,7 +558,7 @@ void scenario::validate_variable_usage() {
 }
 
 void scenario::validate_txn_usage() {
-  for (int i = 0; i < transactions.size(); i++) {
+  for (unsigned int i = 0; i < transactions.size(); i++) {
     if(transactions[i].started == 0) {
       ERROR("Transaction %s is never started!\n", transactions[i].name);
     } else if(transactions[i].responses == 0) {
@@ -577,7 +575,7 @@ void scenario::validate_txn_usage() {
 
 /* Apply the next and ontimeout labels according to our map. */
 void scenario::apply_labels(msgvec v, str_int_map labels) {
-  for (int i = 0; i < v.size(); i++) {
+  for (unsigned int i = 0; i < v.size(); i++) {
     if (v[i]->nextLabel) {
       str_int_map::iterator label_it = labels.find(v[i]->nextLabel);
       if (label_it == labels.end()) {
@@ -642,16 +640,16 @@ char *clean_cdata(char *ptr, int *removed_crlf = NULL) {
   if(ptr == msg) {
     ERROR("Empty cdata in xml scenario file");
   }
-  while(ptr = strstr(msg, "\n ")) {
+  while ((ptr = strstr(msg, "\n "))) {
     memmove(ptr + 1, ptr + 2, strlen(ptr) - 1);
   }
-  while(ptr = strstr(msg, " \n")) {
+  while ((ptr = strstr(msg, " \n"))) {
     memmove(ptr, ptr + 1, strlen(ptr));
   }
-  while(ptr = strstr(msg, "\n\t")) {
+  while ((ptr = strstr(msg, "\n\t"))) {
     memmove(ptr + 1, ptr + 2, strlen(ptr) - 1);
   }
-  while(ptr = strstr(msg, "\t\n")) {
+  while ((ptr = strstr(msg, "\t\n"))) {
     memmove(ptr, ptr + 1, strlen(ptr));
   }
 
@@ -707,7 +705,7 @@ scenario::scenario(char * filename, int deflt)
 
   scenario_file_cursor = 0;
 
-  while(elem = xp_open_element(scenario_file_cursor)) {
+  while ((elem = xp_open_element(scenario_file_cursor))) {
     char * ptr;
     scenario_file_cursor ++;
 
@@ -846,12 +844,12 @@ scenario::scenario(char * filename, int deflt)
 	  bool isInvite = !strcmp(method, "INVITE");
 	  bool isAck = !strcmp(method, "ACK");
 
-	  if (ptr = xp_get_value("start_txn")) {
+	  if ((ptr = xp_get_value("start_txn"))) {
 	    if (isAck) {
 		ERROR("An ACK message can not start a transaction!");
 	    }
 	    curmsg->start_txn = get_txn(ptr, "start transaction", true, isInvite, false);
-	  } else if (ptr = xp_get_value("ack_txn")) {
+	  } else if ((ptr = xp_get_value("ack_txn"))) {
 	    if (!isAck) {
 		ERROR("The ack_txn attribute is valid only for ACK messages!");
 	    }
@@ -865,15 +863,15 @@ scenario::scenario(char * filename, int deflt)
 	    strcpy(method_list + len, method);
 	  }
 	} else {
-	  if (ptr = xp_get_value("start_txn")) {
+	  if ((ptr = xp_get_value("start_txn"))) {
 	    ERROR("Responses can not start a transaction");
 	  }
-	  if (ptr = xp_get_value("ack_txn")) {
+	  if ((ptr = xp_get_value("ack_txn"))) {
 	    ERROR("Responses can not ACK a transaction");
 	  }
 	}
 
-	if (ptr = xp_get_value("response_txn")) {
+	if ((ptr = xp_get_value("response_txn"))) {
 	  ERROR("response_txn can only be used for recieved messages.");
 	}
 
@@ -883,19 +881,19 @@ scenario::scenario(char * filename, int deflt)
         recv_count++;
         curmsg->M_type = MSG_TYPE_RECV;
         /* Received messages descriptions */
-        if(ptr = xp_get_value((char *)"response")) {
+        if((ptr = xp_get_value((char *)"response"))) {
           curmsg ->recv_response = get_long(ptr, "response code");
 	  if (method_list) {
 	    curmsg->recv_response_for_cseq_method_list = strdup(method_list);
 	  }
-	  if (ptr = xp_get_value("response_txn")) {
+	  if ((ptr = xp_get_value("response_txn"))) {
 	    curmsg->response_txn = get_txn(ptr, "transaction response", false, false, false);
 	  }
         }
 
-        if(ptr = xp_get_value((char *)"request")) {
+        if((ptr = xp_get_value((char *)"request"))) {
           curmsg -> recv_request = strdup(ptr);
-	  if (ptr = xp_get_value("response_txn")) {
+	  if ((ptr = xp_get_value("response_txn"))) {
 	    ERROR("response_txn can only be used for recieved responses.");
 	  }
         }
@@ -919,12 +917,12 @@ scenario::scenario(char * filename, int deflt)
 
         /* record the route set  */
         /* TODO disallow optional and rrs to coexist? */
-        if(ptr = xp_get_value((char *)"rrs")) {
+        if((ptr = xp_get_value((char *)"rrs"))) {
 	  curmsg -> bShouldRecordRoutes = get_bool(ptr, "record route set");
         }
 
         /* record the authentication credentials  */
-        if(ptr = xp_get_value((char *)"auth")) {
+        if((ptr = xp_get_value((char *)"auth"))) {
 	  bool temp = get_bool(ptr, "message authentication");
 #ifdef _USE_OPENSSL
 	  curmsg -> bShouldAuthenticate = temp;
@@ -987,7 +985,7 @@ scenario::scenario(char * filename, int deflt)
 	}
 
 	/* 3pcc extended mode */
-        if(ptr = xp_get_value((char *)"src")) {
+        if((ptr = xp_get_value((char *)"src"))) {
            curmsg ->peer_src = strdup(ptr);
         } else if (extendedTwinSippMode) {
 	  ERROR("You must specify a 'src' for recvCmd when using extended 3pcc mode!");
@@ -1005,7 +1003,7 @@ scenario::scenario(char * filename, int deflt)
         /* Sent messages descriptions */
 
 	/* 3pcc extended mode  */
-	if(ptr = xp_get_value((char *)"dest")) { 
+	if((ptr = xp_get_value((char *)"dest"))) { 
 	   peer = strdup(ptr) ;
 	   curmsg ->peer_dest = peer ;
            peer_map::iterator peer_it;
@@ -1107,7 +1105,7 @@ scenario::~scenario() {
   allocVars->putTable();
   delete stats;
 
-  for (int i = 0; i < transactions.size(); i++) {
+  for (unsigned int i = 0; i < transactions.size(); i++) {
     free(transactions[i].name);
   }
   transactions.clear();
@@ -1126,23 +1124,23 @@ CSample *parse_distribution(bool oldstyle = false) {
     if (!oldstyle) {
       ERROR("statistically distributed actions or pauses requires 'distribution' parameter");
     }
-    if (ptr = xp_get_value("normal")) {
+    if ((ptr = xp_get_value("normal"))) {
 	distname = "normal";
-    } else if (ptr = xp_get_value("exponential")) {
+    } else if ((ptr = xp_get_value("exponential"))) {
 	distname = "exponential";
-    } else if (ptr = xp_get_value("lognormal")) {
+    } else if ((ptr = xp_get_value("lognormal"))) {
 	distname = "lognormal";
-    } else if (ptr = xp_get_value("weibull")) {
+    } else if ((ptr = xp_get_value("weibull"))) {
 	distname = "weibull";
-    } else if (ptr = xp_get_value("pareto")) {
+    } else if ((ptr = xp_get_value("pareto"))) {
       distname = "pareto";
-    } else if (ptr = xp_get_value("gamma")) {
+    } else if ((ptr = xp_get_value("gamma"))) {
       distname = "gamma";
-    } else if (ptr = xp_get_value("min")) {
+    } else if ((ptr = xp_get_value("min"))) {
 	distname = "uniform";
-    } else if (ptr = xp_get_value("max")) {
+    } else if ((ptr = xp_get_value("max"))) {
 	distname = "uniform";
-    } else if (ptr = xp_get_value("milliseconds")) {
+    } else if ((ptr = xp_get_value("milliseconds"))) {
 	double val = get_double(ptr, "Pause milliseconds");
 	return new CFixed(val);
     } else {
@@ -1226,9 +1224,9 @@ void parse_slave_cfg()
   if(f){
      while (fgets(line, MAX_PEER_SIZE, f) != NULL)
      {
-       if(temp_peer = strtok(line, ";")){
-         if(peer_host = (char *) malloc(MAX_PEER_SIZE)){
-           if(temp_host  = strtok(NULL, ";")){
+       if((temp_peer = strtok(line, ";"))) {
+         if((peer_host = (char *) malloc(MAX_PEER_SIZE))){
+           if((temp_host  = strtok(NULL, ";"))){
               strcpy(peer_host, temp_host);
               peer_addrs[std::string(temp_peer)] = peer_host;
              }
@@ -1256,8 +1254,8 @@ void scenario::computeSippMode()
 
   assert(messages.size() > 0);
 
-  for(int i=0; i<messages.size(); i++)
-    { 
+  for(unsigned int i=0; i<messages.size(); i++)
+    {
       switch(messages[i]->M_type)
         {
         case MSG_TYPE_PAUSE:
@@ -1377,7 +1375,7 @@ void scenario::parseAction(CActions *actions) {
   char * ptr;
   int           sub_currentNbVarId;
 
-  while(actionElem = xp_open_element(recvScenarioLen)) {
+  while((actionElem = xp_open_element(recvScenarioLen))) {
     CAction *tmpAction = new CAction(this);
 
     if(!strcmp(actionElem, "ereg")) {
@@ -1577,10 +1575,10 @@ void scenario::parseAction(CActions *actions) {
       tmpAction->setVarId(xp_get_var("assign_to", "trim"));
       tmpAction->setActionType(CAction::E_AT_VAR_TRIM);
     } else if(!strcmp(actionElem, "exec")) {
-      if(ptr = xp_get_value((char *)"command")) {
+      if((ptr = xp_get_value((char *)"command"))) {
 	tmpAction->setActionType(CAction::E_AT_EXECUTE_CMD);
 	tmpAction->setMessage(ptr);
-      } /* end (ptr = xp_get_value("command")  */ else if(ptr = xp_get_value((char *)"int_cmd")) {
+      } /* end (ptr = xp_get_value("command")  */ else if((ptr = xp_get_value((char *)"int_cmd"))) {
 	CAction::T_IntCmdType type(CAction::E_INTCMD_STOPCALL); /* assume the default */
 
 	if (!strcmp(ptr, "stop_now")) {
@@ -1596,18 +1594,18 @@ void scenario::parseAction(CActions *actions) {
 	tmpAction->setActionType(CAction::E_AT_EXEC_INTCMD);
 	tmpAction->setIntCmd(type);
 #ifdef PCAPPLAY
-      } else if (ptr = xp_get_value((char *) "play_pcap_audio")) {
+      } else if ((ptr = xp_get_value((char *) "play_pcap_audio"))) {
 	tmpAction->setPcapArgs(ptr);
 	tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
 	hasMedia = 1;
-      } else if (ptr = xp_get_value((char *) "play_pcap_video")) {
+      } else if ((ptr = xp_get_value((char *) "play_pcap_video"))) {
 	tmpAction->setPcapArgs(ptr);
 	tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
 	hasMedia = 1;
 #else
-      } else if (ptr = xp_get_value((char *) "play_pcap_audio")) {
+      } else if ((ptr = xp_get_value((char *) "play_pcap_audio"))) {
 	ERROR("play_pcap_audio requires pcap support! Please recompile SIPp");
-      } else if (ptr = xp_get_value((char *) "play_pcap_video")) {
+      } else if ((ptr = xp_get_value((char *) "play_pcap_video"))) {
 	ERROR("play_pcap_video requires pcap support! Please recompile SIPp");
 #endif
       } else {
@@ -1652,11 +1650,11 @@ void scenario::getActionForThisMessage(message *message)
 void scenario::getBookKeeping(message *message) {
   char *ptr;
 
-  if(ptr = xp_get_value((char *)"rtd")) {
+  if((ptr = xp_get_value((char *)"rtd"))) {
     message -> stop_rtd = get_rtd(ptr);
     rtd_stopped[message->stop_rtd - 1] = true;
   }
-  if (ptr = xp_get_value((char *)"repeat_rtd")) {
+  if ((ptr = xp_get_value((char *)"repeat_rtd"))) {
     if (message -> stop_rtd) {
       message-> repeat_rtd = get_bool(ptr, "repeat_rtd");
     } else {
@@ -1664,12 +1662,12 @@ void scenario::getBookKeeping(message *message) {
     }
   }
 
-  if(ptr = xp_get_value((char *)"start_rtd")) {
+  if((ptr = xp_get_value((char *)"start_rtd"))) {
     message -> start_rtd = get_rtd(ptr);
     rtd_started[message->start_rtd - 1] = true;
   }
 
-  if(ptr = xp_get_value((char *)"counter")) {
+  if((ptr = xp_get_value((char *)"counter"))) {
     message -> counter = get_counter(ptr, "counter");
   }
 }
@@ -1680,12 +1678,12 @@ void scenario::getCommonAttributes(message *message) {
   getBookKeeping(message);
   getActionForThisMessage(message);
 
-  if(ptr = xp_get_value((char *)"lost")) {
+  if((ptr = xp_get_value((char *)"lost"))) {
     message -> lost = get_double(ptr, "lost percentage");
     lose_packets = 1;
   }
 
-  if(ptr = xp_get_value((char *)"crlf")) {
+  if((ptr = xp_get_value((char *)"crlf"))) {
     message -> crlf = 1;
   }
 
@@ -1693,7 +1691,7 @@ void scenario::getCommonAttributes(message *message) {
     hidedefault = xp_get_bool("hiderest", "hiderest");
   }
   message -> hide = xp_get_bool("hide", "hide", hidedefault);
-  if(ptr = xp_get_value((char *)"display")) {
+  if((ptr = xp_get_value((char *)"display"))) {
     message -> display_str = strdup(ptr);
   }
 

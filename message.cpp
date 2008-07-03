@@ -69,7 +69,6 @@ struct KeywordMap SimpleKeywords[] = {
   {"next_url", E_Message_Next_Url },
   {"len", E_Message_Len },
   {"peer_tag_param", E_Message_Peer_Tag_Param },
-  {"last_peer_tag_param", E_Message_Last_Peer_Tag_Param },
   {"last_Request_URI", E_Message_Last_Request_URI },
   {"last_cseq_number", E_Message_Last_CSeq_Number },
   {"last_message", E_Message_Last_Message },
@@ -89,9 +88,6 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
     char * literal;
     char * dest;
     char * key;
-    char * length_marker = NULL;
-    int    offset = 0;
-    int    len_offset = 0;
     char   current_line[MAX_HEADER_LEN];
     char * line_mark = NULL;
     char * tsrc;
@@ -211,7 +207,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 	}
 
 	bool simple_keyword = false;
-	for (int i = 0; i < sizeof(SimpleKeywords)/sizeof(SimpleKeywords[0]); i++) {
+	for (unsigned int i = 0; i < sizeof(SimpleKeywords)/sizeof(SimpleKeywords[0]); i++) {
 	  if (!strcmp(keyword, SimpleKeywords[i].keyword)) {
 		newcomp->type = SimpleKeywords[i].type;
 		simple_keyword = true;
@@ -440,7 +436,7 @@ void SendingMessage::getKeywordParam(char * src, char * param, char * output)
 
   len = 0;
   key = NULL;
-  if(tmp = strstr(src, param)) {
+  if ((tmp = strstr(src, param))) {
     tmp += strlen(param);
     key = tmp;
     if ((*key == '0') && (*(key+1) == 'x')) {

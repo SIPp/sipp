@@ -79,7 +79,7 @@ public:
 
   virtual bool run();
   /* Terminate this call, depending on action results and timewait. */
-  virtual bool terminate(CStat::E_Action reason);
+  virtual void terminate(CStat::E_Action reason);
   virtual void tcpClose();
 
   /* When should this call wake up? */

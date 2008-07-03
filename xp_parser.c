@@ -77,7 +77,6 @@ int xp_replace(char *source, char *dest, char *search, char *replace)
  * into other elements. */
 char * xp_find_start_tag_end(char *ptr)
 {
-  char *optr = ptr;
   while(*ptr) {
     if (*ptr == '<') {
       if ((strstr(ptr,"<!--") == ptr)) {
