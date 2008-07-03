@@ -105,6 +105,7 @@ message::message(int index, const char *desc)
   /* How to match responses to this message. */
   start_txn = 0;
   response_txn = 0;
+  ack_txn = 0;
   recv_response_for_cseq_method_list = NULL;
 }
 
@@ -331,7 +332,7 @@ double xp_get_bool(const char *name, const char *what, bool defval) {
   return xp_get_bool(name, what);
 }
 
-int scenario::get_txn(const char *txnName, const char *what, bool start) {
+int scenario::get_txn(const char *txnName, const char *what, bool start, bool isInvite, bool isAck) {
   /* Check the name's validity. */
   if (txnName[0] == '\0') {
     ERROR("Variable names may not be empty for %s\n", what);
@@ -344,25 +345,41 @@ int scenario::get_txn(const char *txnName, const char *what, bool start) {
   str_int_map::iterator txn_it = txnMap.find(txnName);
   if (txn_it != txnMap.end()) {
     if (start) {
-      txnStarted[txn_it->second]++;
+      /* We need to fill in the invite field. */
+      transactions[txn_it->second - 1].started++;
+    } else if (isAck) {
+      transactions[txn_it->second - 1].acks++;
     } else {
-      txnResponses[txn_it->second]++;
+      transactions[txn_it->second - 1].responses++;
     }
     return txn_it->second;
   }
 
   /* Assign this variable the next slot. */
-  int txnNum = ++maxTxnUsed;
+  struct txnControlInfo transaction;
 
-  txnMap[txnName] = txnNum;
-  txnRevMap[txnNum] = strdup(txnName);
+  transaction.name = strdup(txnName);
   if (start) {
-    txnStarted[txnNum] = 1;
-    txnResponses[txnNum] = 0;
+    transaction.started = 1;
+    transaction.responses = 0;
+    transaction.acks = 0;
+    transaction.isInvite = isInvite;
+  } else if (isAck) {
+    /* Does not start or respond to this txn. */
+    transaction.started = 0;
+    transaction.responses = 0;
+    transaction.acks = 1;
+    transaction.isInvite = false;
   } else {
-    txnStarted[txnNum] = 0;
-    txnResponses[txnNum] = 1;
+    transaction.started = 0;
+    transaction.responses = 1;
+    transaction.acks = 0;
+    transaction.isInvite = false;
   }
+
+  transactions.push_back(transaction);
+  int txnNum = transactions.size();
+  txnMap[txnName] = txnNum;
 
   return txnNum;
 }
@@ -559,11 +576,17 @@ void scenario::validate_variable_usage() {
 }
 
 void scenario::validate_txn_usage() {
-  for (int i = 1; i <= maxTxnUsed; i++) {
-    if(txnStarted[i] == 0) {
-      ERROR("Transaction %s is never started!\n", txnRevMap[i]);
-    } else if(txnResponses[i] == 0) {
-      ERROR("Transaction %s has no responses defined!\n", txnRevMap[i]);
+  for (int i = 0; i < transactions.size(); i++) {
+    if(transactions[i].started == 0) {
+      ERROR("Transaction %s is never started!\n", transactions[i].name);
+    } else if(transactions[i].responses == 0) {
+      ERROR("Transaction %s has no responses defined!\n", transactions[i].name);
+    }
+    if (transactions[i].isInvite && transactions[i].acks == 0) {
+      ERROR("Transaction %s is an INVITE transaction without an ACK!\n", transactions[i].name);
+    }
+    if (!transactions[i].isInvite && (transactions[i].acks > 0)) {
+      ERROR("Transaction %s is a non-INVITE transaction with an ACK!\n", transactions[i].name);
     }
   }
 }
@@ -696,7 +719,6 @@ scenario::scenario(char * filename, int deflt)
   }
 
   duration = 0;
-  maxTxnUsed = 0;
   found_timewait = false;
 
   scenario_file_cursor = 0;
@@ -829,15 +851,28 @@ scenario::scenario(char * filename, int deflt)
 	if((msg[strlen(msg) - 1] != '\n') && (removed_clrf)) {
 	  strcat(msg, "\n");
 	}
+	char *tsrc = msg;
+	while(*tsrc++);
 	curmsg -> send_scheme = new SendingMessage(this, msg);
 	free(msg);
 
 	// If this is a request we are sending, then store our transaction/method matching information.
 	if (!curmsg->send_scheme->isResponse()) {
+	  char *method = curmsg->send_scheme->getMethod();
+	  bool isInvite = !strcmp(method, "INVITE");
+	  bool isAck = !strcmp(method, "ACK");
+
 	  if (ptr = xp_get_value("start_txn")) {
-	    curmsg->start_txn = get_txn(ptr, "start transaction", true);
+	    if (isAck) {
+		ERROR("An ACK message can not start a transaction!");
+	    }
+	    curmsg->start_txn = get_txn(ptr, "start transaction", true, isInvite, false);
+	  } else if (ptr = xp_get_value("ack_txn")) {
+	    if (!isAck) {
+		ERROR("The ack_txn attribute is valid only for ACK messages!");
+	    }
+	    curmsg->ack_txn = get_txn(ptr, "ack transaction", false, false, true);
 	  } else {
-	    char *method = curmsg->send_scheme->getMethod();
 	    int len = method_list ? strlen(method_list) : 0;
 	    method_list = (char *)realloc(method_list, len + strlen(method) + 1);
 	    if (!method_list) {
@@ -848,6 +883,9 @@ scenario::scenario(char * filename, int deflt)
 	} else {
 	  if (ptr = xp_get_value("start_txn")) {
 	    ERROR("Responses can not start a transaction");
+	  }
+	  if (ptr = xp_get_value("ack_txn")) {
+	    ERROR("Responses can not ACK a transaction");
 	  }
 	}
 
@@ -867,7 +905,7 @@ scenario::scenario(char * filename, int deflt)
 	    curmsg->recv_response_for_cseq_method_list = strdup(method_list);
 	  }
 	  if (ptr = xp_get_value("response_txn")) {
-	    curmsg->response_txn = get_txn(ptr, "transaction response", false);
+	    curmsg->response_txn = get_txn(ptr, "transaction response", false, false, false);
 	  }
         }
 
@@ -1085,14 +1123,14 @@ scenario::~scenario() {
   allocVars->putTable();
   delete stats;
 
-  clear_int_str(txnRevMap);
+  for (int i = 0; i < transactions.size(); i++) {
+    free(transactions[i].name);
+  }
+  transactions.clear();
 
   clear_str_int(labelMap);
   clear_str_int(initLabelMap);
   clear_str_int(txnMap);
-
-  clear_int_int(txnStarted);
-  clear_int_int(txnResponses);
 }
 
 CSample *parse_distribution(bool oldstyle = false) {

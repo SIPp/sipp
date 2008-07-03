@@ -57,6 +57,12 @@
   extern "C" { int verifyAuthHeader(char * user, char * password, char * method, char * auth); }
 #endif
 
+struct txnInstanceInfo {
+  char *txnID;
+  unsigned long txnResp;
+  int ackIndex;
+};
+
 class call : virtual public task, virtual public listener, public virtual socketowner {
 public:
   /* These are wrappers for various circumstances, (private) init does the real work. */
@@ -192,7 +198,7 @@ private:
   VariableTable *M_callVariableTable;
 
   /* Our transaction IDs. */
-  char **txnID;
+  struct txnInstanceInfo *transactions;
 
   /* result of execute action */
   enum T_ActionResult

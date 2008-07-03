@@ -446,11 +446,11 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
     userVars->putTable();
   }
 
-  if (call_scenario->maxTxnUsed > 0) {
-    txnID = (char **)malloc(sizeof(char *) * call_scenario->maxTxnUsed);
-    memset(txnID, 0, sizeof(char *) * call_scenario->maxTxnUsed);
+  if (call_scenario->transactions.size() > 0) {
+    transactions = (struct txnInstanceInfo *)malloc(sizeof(txnInstanceInfo) * call_scenario->transactions.size());
+    memset(transactions, 0, sizeof(struct txnInstanceInfo) * call_scenario->transactions.size());
   } else {
-    txnID = NULL;
+    transactions = NULL;
   }
 
   // If not updated by a message we use the start time 
@@ -577,11 +577,11 @@ call::~call()
     opentask::freeUser(userId);
   }
 
-  if (txnID) {
-    for (int i = 0; i < call_scenario->maxTxnUsed; i++) {
-      free(txnID[i]);
+  if (transactions) {
+    for (int i = 0; i < call_scenario->transactions.size(); i++) {
+      free(transactions[i].txnID);
     }
-    free(txnID);
+    free(transactions);
   }
 
   if(last_recv_msg) { free(last_recv_msg); }
@@ -1448,8 +1448,11 @@ bool call::executeMessage(message *curmsg) {
     strcpy(last_send_msg, msg_snd);
 
     if (curmsg->start_txn) {
-      txnID[curmsg->start_txn - 1] = (char *)realloc(txnID[curmsg->start_txn - 1], MAX_HEADER_LEN);
-      extract_transaction(txnID[curmsg->start_txn - 1], last_send_msg);
+      transactions[curmsg->start_txn - 1].txnID = (char *)realloc(transactions[curmsg->start_txn - 1].txnID, MAX_HEADER_LEN);
+      extract_transaction(transactions[curmsg->start_txn - 1].txnID, last_send_msg);
+    }
+    if (curmsg->ack_txn) {
+      transactions[curmsg->ack_txn - 1].ackIndex = curmsg->index;
     }
 
     if(last_recv_index >= 0) {
@@ -2759,7 +2762,7 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
   } else if (curmsg->recv_response && (curmsg->recv_response == reply_code)) {
     /* This is a potential candidate, we need to match transactions. */
     if (curmsg->response_txn) {
-      if (txnID[curmsg->response_txn - 1] && !strcmp(txnID[curmsg->response_txn - 1], txn)) {
+      if (transactions[curmsg->response_txn - 1].txnID && !strcmp(transactions[curmsg->response_txn - 1].txnID, txn)) {
 	return true;
       } else {
 	return false;
@@ -2963,24 +2966,37 @@ bool call::process_incoming(char * msg)
         } else {
 	  if (int checkTxn = call_scenario->messages[search_index]->response_txn) {
 	    /* This is a reply to an old transaction. */
-	    if (!strcmp(txnID[checkTxn - 1], txn)) {
+	    if (!strcmp(transactions[checkTxn - 1].txnID, txn)) {
 		/* This reply is provisional, so it should have no effect if we recieve it out-of-order. */
 		if (reply_code >= 100 && reply_code <= 199) {
 		  TRACE_MSG("-----------------------------------------------\n"
 		      "Ignoring provisional %s message for transaction %s:\n\n%s\n",
-		      TRANSPORT_TO_STRING(transport), call_scenario->txnRevMap[checkTxn - 1], msg);
+		      TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, msg);
 		  callDebug("Ignoring provisional %s message for transaction %s (hash %u):\n\n%s\n",
-		      TRANSPORT_TO_STRING(transport), call_scenario->txnRevMap[checkTxn - 1], hash(msg), msg);
+		      TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
 		  return true;
-		} else if (call_scenario->messages[search_index + 1]->M_type == MSG_TYPE_SEND && call_scenario->messages[search_index + 1]->send_scheme->isAck()) {
+		} else if (int ackIndex = transactions[checkTxn - 1].ackIndex) {
 		  /* This is the message before an ACK, so verify that this is an invite transaction. */
-		  if (!strcmp(responsecseqmethod, "INVITE")) {
-		    sendBuffer(createSendingMessage(call_scenario->messages[search_index+1] -> send_scheme, (search_index+1)));
+		  assert (call_scenario->transactions[checkTxn - 1].isInvite);
+		  sendBuffer(createSendingMessage(call_scenario->messages[ackIndex] -> send_scheme, ackIndex));
+		  return true;
+		} else {
+		  assert (!call_scenario->transactions[checkTxn - 1].isInvite);
+		  /* This is a non-provisional message for the transaction, and
+		   * we have already gotten our allowable response.  Just make sure
+		   * that it is not a retransmission of the final response. */
+		  if (transactions[checkTxn - 1].txnResp == hash(msg)) {
+		    /* We have gotten this retransmission out-of-order, let's just ignore it. */
+		    TRACE_MSG("-----------------------------------------------\n"
+			"Ignoring final %s message for transaction %s:\n\n%s\n",
+			TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, msg);
+		    callDebug("Ignoring final %s message for transaction %s (hash %u):\n\n%s\n",
+			TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
+		    WARNING("Ignoring final %s message for transaction %s (hash %u):\n\n%s\n",
+			TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
 		    return true;
 		  }
 		}
-		/* This is a non-provisional message for the transaction, and
-		 * we have already gotten our allowable response. */
 	    }
 	  } else {
 	    /*
@@ -3053,6 +3069,11 @@ bool call::process_incoming(char * msg)
     if(comp_state) { comp_free(&comp_state); }
     call_scenario->messages[search_index] -> nb_lost++;
     return true;
+  }
+
+  /* If we are part of a transaction, mark this as the final response. */
+  if (int checkTxn = call_scenario->messages[search_index]->response_txn) {
+    transactions[checkTxn - 1].txnResp = hash(msg);
   }
 
 

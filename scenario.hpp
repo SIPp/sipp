@@ -144,6 +144,7 @@ public:
 
   char           *recv_response_for_cseq_method_list;
   int            start_txn;
+  int            ack_txn;
   int            response_txn;
   int            index;
   const char *         desc;
@@ -153,6 +154,16 @@ public:
 };
 
 typedef std::vector<message *> msgvec;
+
+struct txnControlInfo {
+  char *name;
+  bool isInvite;
+  int acks;
+  int started;
+  int responses;
+};
+typedef std::vector<txnControlInfo> txnvec;
+
 
 class scenario {
 public:
@@ -165,8 +176,7 @@ public:
   msgvec initmessages;
   char *name;
   int duration;
-  int maxTxnUsed;
-  int_str_map txnRevMap;
+  txnvec transactions;
   int unexpected_jump;
   int retaddr;
   int pausedaddr;
@@ -187,9 +197,6 @@ private:
   str_int_map initLabelMap;
 
   str_int_map txnMap;
-  int_int_map txnStarted;
-  int_int_map txnResponses;
-
 
   bool found_timewait;
   bool rtd_started[MAX_RTD_INFO_LENGTH];
@@ -207,7 +214,7 @@ private:
   void validate_variable_usage();
   void validate_txn_usage();
 
-  int get_txn(const char *txnName, const char *what, bool start);
+  int get_txn(const char *txnName, const char *what, bool start, bool isInvite, bool isAck);
   int xp_get_var(const char *name, const char *what);
   int xp_get_var(const char *name, const char *what, int defval);
 
