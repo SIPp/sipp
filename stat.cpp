@@ -694,6 +694,18 @@ int CStat::globalStat (E_Action P_action) {
       M_G_counters [CPT_G_PL_OutOfCallMsgs - E_NB_COUNTER - 1]++;
       break;
 
+    case E_WATCHDOG_MAJOR :
+      M_G_counters [CPT_G_C_WatchdogMajor - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PD_WatchdogMajor - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PL_WatchdogMajor - E_NB_COUNTER - 1]++;
+      break;
+
+    case E_WATCHDOG_MINOR :
+      M_G_counters [CPT_G_C_WatchdogMinor - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PD_WatchdogMinor - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PL_WatchdogMinor - E_NB_COUNTER - 1]++;
+      break;
+
     case E_DEAD_CALL_MSGS :
       M_G_counters [CPT_G_C_DeadCallMsgs - E_NB_COUNTER - 1]++;
       M_G_counters [CPT_G_PD_DeadCallMsgs - E_NB_COUNTER - 1]++;
@@ -1342,7 +1354,11 @@ void CStat::dumpData ()
                       << "Warnings(P)" << stat_delimiter
                       << "Warnings(C)" << stat_delimiter
                       << "FatalErrors(P)" << stat_delimiter
-                      << "FatalErrors(C)" << stat_delimiter;
+                      << "FatalErrors(C)" << stat_delimiter
+		      << "WatchdogMajor(P)" << stat_delimiter
+		      << "WatchdogMajor(C)" << stat_delimiter
+		      << "WatchdogMinor(P)" << stat_delimiter
+		      << "WatchdogMinor(C)" << stat_delimiter;
 
     for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
       char s_P[30];
@@ -1449,7 +1465,11 @@ void CStat::dumpData ()
                     << M_G_counters[CPT_G_PL_Warnings - E_NB_COUNTER - 1]                  << stat_delimiter
                     << M_G_counters[CPT_G_C_Warnings - E_NB_COUNTER - 1]                   << stat_delimiter
                     << M_G_counters[CPT_G_PL_FatalErrors - E_NB_COUNTER - 1]                  << stat_delimiter
-                    << M_G_counters[CPT_G_C_FatalErrors - E_NB_COUNTER - 1]                   << stat_delimiter;
+		    << M_G_counters[CPT_G_C_FatalErrors - E_NB_COUNTER - 1]                   << stat_delimiter
+		    << M_G_counters[CPT_G_PL_WatchdogMajor - E_NB_COUNTER - 1]                  << stat_delimiter
+		    << M_G_counters[CPT_G_C_WatchdogMajor - E_NB_COUNTER - 1]                   << stat_delimiter
+		    << M_G_counters[CPT_G_PL_WatchdogMinor - E_NB_COUNTER - 1]                  << stat_delimiter
+		    << M_G_counters[CPT_G_C_WatchdogMinor - E_NB_COUNTER - 1]                   << stat_delimiter;
 
   // SF917289 << M_counters[CPT_C_UnexpectedMessage]    << stat_delimiter;
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {

@@ -115,6 +115,8 @@ public:
     E_FAILED_TIMEOUT_ON_RECV,
     E_FAILED_TIMEOUT_ON_SEND,
     E_OUT_OF_CALL_MSGS,
+    E_WATCHDOG_MAJOR,
+    E_WATCHDOG_MINOR,
     E_DEAD_CALL_MSGS,
     E_FATAL_ERRORS,
     E_WARNING,
@@ -270,12 +272,16 @@ public:
   CPT_G_C_DeadCallMsgs,
   CPT_G_C_FatalErrors,
   CPT_G_C_Warnings,
+  CPT_G_C_WatchdogMajor,
+  CPT_G_C_WatchdogMinor,
   CPT_G_C_AutoAnswered,
   // Periodic Display counter
   CPT_G_PD_OutOfCallMsgs,
   CPT_G_PD_DeadCallMsgs,
   CPT_G_PD_FatalErrors,
   CPT_G_PD_Warnings,
+  CPT_G_PD_WatchdogMajor,
+  CPT_G_PD_WatchdogMinor,
   CPT_G_PD_AutoAnswered, // must be last (RESET_PD_COUNTER)
 
   // Periodic logging counter
@@ -283,6 +289,8 @@ public:
   CPT_G_PL_DeadCallMsgs,
   CPT_G_PL_FatalErrors,
   CPT_G_PL_Warnings,
+  CPT_G_PL_WatchdogMajor,
+  CPT_G_PL_WatchdogMinor,
   CPT_G_PL_AutoAnswered, // must be last (RESET_PL_COUNTER)
 
   E_NB_G_COUNTER,

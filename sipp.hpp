@@ -73,6 +73,7 @@
 #include "infile.hpp"
 #include "opentask.hpp"
 #include "reporttask.hpp"
+#include "watchdog.hpp"
 /* Open SSL stuff */
 #ifdef _USE_OPENSSL
 #include "sslcommon.h" 
@@ -363,6 +364,13 @@ extern unsigned long last_dump_time               _DEFVAL(0);
 extern unsigned long clock_tick                   _DEFVAL(0);
 extern unsigned long scheduling_loops             _DEFVAL(0);
 extern unsigned long last_timer_cycle             _DEFVAL(0);
+
+extern unsigned long watchdog_interval		  _DEFVAL(400);
+extern unsigned long watchdog_minor_threshold	  _DEFVAL(500);
+extern unsigned long watchdog_minor_maxtriggers	  _DEFVAL(120);
+extern unsigned long watchdog_major_threshold	  _DEFVAL(3000);
+extern unsigned long watchdog_major_maxtriggers	  _DEFVAL(10);
+extern unsigned long watchdog_reset		  _DEFVAL(600000);
 
 #define GET_TIME(clock)       \
 {                             \

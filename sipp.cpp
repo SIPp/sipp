@@ -286,6 +286,13 @@ struct sipp_option options_table[] = {
 
 	{"users", "Instead of starting calls at a fixed rate, begin 'users' calls at startup, and keep the number of calls constant.", SIPP_OPTION_USERS, NULL, 1},
 
+	{"watchdog_interval", "Set gap between watchdog timer firings.  Default is 400.", SIPP_OPTION_TIME_MS, &watchdog_interval, 1},
+	{"watchdog_reset", "If the watchdog timer has not fired in more than this time period, then reset the max triggers counters.  Default is 10 minutes.", SIPP_OPTION_TIME_MS, &watchdog_reset, 1},
+	{"watchdog_minor_threshold", "If it has been longer than this period between watchdog executions count a minor trip.  Default is 500.", SIPP_OPTION_TIME_MS, &watchdog_minor_threshold, 1},
+	{"watchdog_major_threshold", "If it has been longer than this period between watchdog executions count a major trip.  Default is 3000.", SIPP_OPTION_TIME_MS, &watchdog_major_threshold, 1},
+	{"watchdog_major_maxtriggers", "How many times the major watchdog timer can be tripped before the test is terminated.  Default is 10.", SIPP_OPTION_INT, &watchdog_major_maxtriggers, 1},
+	{"watchdog_minor_maxtriggers", "How many times the minor watchdog timer can be tripped before the test is terminated.  Default is 120.", SIPP_OPTION_INT, &watchdog_minor_maxtriggers, 1},
+
 #ifdef _USE_OPENSSL
 	{"ap", "Set the password for authentication challenges. Default is 'password", SIPP_OPTION_STRING, &auth_password, 1},
 	{"tls_cert", "Set the name for TLS Certificate file. Default is 'cacert.pem", SIPP_OPTION_STRING, &tls_cert_name, 1},
@@ -4697,6 +4704,10 @@ int main(int argc, char *argv[])
   stattask::initialize();
   /* Create the screen update task. */
   screentask::initialize();
+  /* Create a watchdog task. */
+  if (watchdog_interval) {
+    new watchdog(watchdog_interval, watchdog_reset, watchdog_major_threshold, watchdog_major_maxtriggers, watchdog_minor_threshold, watchdog_minor_maxtriggers);
+  }
 
   /* Setting the rate and its dependant params (open_calls_allowed) */
   /* If we are a client, then create the task to open new calls. */
@@ -4708,10 +4719,9 @@ int main(int argc, char *argv[])
   if (creationMode == MODE_SERVER) {
     reset_number = 0;
   }
-   
+
   open_connections();
-   
-   
+
   /* Defaults for media sockets */
   if (media_ip[0] == '\0') {
       strcpy(media_ip, local_ip);
