@@ -1858,7 +1858,7 @@ bool call::abortCall(bool writeLog)
 
   char * src_recv = NULL ;
 
-  callDebug("Aborting call %s (index %d).\n", id, index);
+  callDebug("Aborting call %s (index %d).\n", id, msg_index);
 
   if (last_send_msg != NULL) {
     is_inv = !strncmp(last_send_msg, "INVITE", 6);
