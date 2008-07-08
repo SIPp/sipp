@@ -3364,25 +3364,25 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
       free(value);
     } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST) {
       /* Change the destination for this call. */
-      char *s_host = strdup(createSendingMessage(currentAction->getMessage(0), -2));
-      char *s_port = strdup(createSendingMessage(currentAction->getMessage(1), -2));
-      char *s_protocol = strdup(createSendingMessage(currentAction->getMessage(2), -2));
+      char *str_host = strdup(createSendingMessage(currentAction->getMessage(0), -2));
+      char *str_port = strdup(createSendingMessage(currentAction->getMessage(1), -2));
+      char *str_protocol = strdup(createSendingMessage(currentAction->getMessage(2), -2));
 
       char *endptr;
-      int port = (int)strtod(s_port, &endptr);
+      int port = (int)strtod(str_port, &endptr);
       if (*endptr) {
-	ERROR("Invalid line number for replace: %s", s_port);
+	ERROR("Invalid line number for replace: %s", str_port);
       }
 
       int protocol;
-      if (!strcmp(s_protocol, "udp")) {
+      if (!strcmp(str_protocol, "udp")) {
 	protocol = T_UDP;
-      } else if (!strcmp(s_protocol, "tcp")) {
+      } else if (!strcmp(str_protocol, "tcp")) {
 	protocol = T_TCP;
-      } else if (!strcmp(s_protocol, "tls")) {
+      } else if (!strcmp(str_protocol, "tls")) {
 	protocol = T_TLS;
       } else {
-	ERROR("Unknown transport for setdest: '%s'", s_protocol);
+	ERROR("Unknown transport for setdest: '%s'", str_protocol);
       }
 
       if (protocol != T_UDP) {
@@ -3396,8 +3396,8 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
       hints.ai_family = PF_UNSPEC;
       is_ipv6 = false;
 
-      if (getaddrinfo(s_host, NULL, &hints, &local_addr) != 0) {
-	ERROR("Unknown host '%s' for setdest", s_host);
+      if (getaddrinfo(str_host, NULL, &hints, &local_addr) != 0) {
+	ERROR("Unknown host '%s' for setdest", str_host);
       }
       if (_RCAST(struct sockaddr_storage *, local_addr->ai_addr)->ss_family != call_peer.ss_family) {
 	ERROR("Can not switch between IPv4 and IPV6 using setdest!");
@@ -3409,9 +3409,9 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 	(_RCAST(struct sockaddr_in6 *,&call_peer))->sin6_port = htons(port);
       }
 
-      free(s_host);
-      free(s_port);
-      free(s_protocol);
+      free(str_host);
+      free(str_port);
+      free(str_protocol);
 #ifdef _USE_OPENSSL
     } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_AUTH) {
       bool result;
