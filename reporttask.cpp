@@ -74,6 +74,7 @@ bool screentask::run() {
   }
 
   setPaused();
+  return true;
 }
 
 unsigned int screentask::wake() {
@@ -108,6 +109,7 @@ bool stattask::run() {
     report();
   }
   setPaused();
+  return true;
 }
 
 unsigned int stattask::wake() {

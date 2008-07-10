@@ -98,7 +98,7 @@ void CAction::afficheInfo()
              M_checkIt,
 		       display_scenario->allocVars->getName(M_varId));
     } else {
-      printf("Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - $%d",
+      printf("Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - $%s",
              M_action,
 	     M_regularExpression,
              "Header",
@@ -118,31 +118,31 @@ void CAction::afficheInfo()
   } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
       char tmp[40];
       M_distribution->textDescr(tmp, sizeof(tmp));
-      printf("Type[%d] - sample varId[%d] %s", M_action, display_scenario->allocVars->getName(M_varId), tmp);
+      printf("Type[%d] - sample varId[%s] %s", M_action, display_scenario->allocVars->getName(M_varId), tmp);
   } else if (M_action == E_AT_ASSIGN_FROM_VALUE) {
-      printf("Type[%d] - assign varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+      printf("Type[%d] - assign varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_ASSIGN_FROM_INDEX) {
-      printf("Type[%d] - assign index[%d]", M_action, display_scenario->allocVars->getName(M_varId));
+      printf("Type[%d] - assign index[%s]", M_action, display_scenario->allocVars->getName(M_varId));
   } else if (M_action == E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
-      printf("Type[%d] - assign gettimeofday[%d, %d]", M_action, display_scenario->allocVars->getName(M_varId));
+      printf("Type[%d] - assign gettimeofday[%s, %s]", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_subVarId[0]));
   } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
-      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message_str[0]);
+      printf("Type[%d] - string assign varId[%s] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message_str[0]);
   } else if (M_action == E_AT_JUMP) {
-      printf("Type[%d] - jump varInId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
+      printf("Type[%d] - jump varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
   } else if (M_action == E_AT_PAUSE_RESTORE) {
-      printf("Type[%d] - restore pause varInId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
+      printf("Type[%d] - restore pause varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
   } else if (M_action == E_AT_VAR_ADD) {
-      printf("Type[%d] - add varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+      printf("Type[%d] - add varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_VAR_MULTIPLY) {
-      printf("Type[%d] - multiply varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+      printf("Type[%d] - multiply varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_VAR_DIVIDE) {
-      printf("Type[%d] - divide varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+      printf("Type[%d] - divide varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_VAR_TRIM) {
-      printf("Type[%d] - trim varId[%d]", M_action, display_scenario->allocVars->getName(M_varId));
+      printf("Type[%d] - trim varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
   } else if (M_action == E_AT_VAR_TEST) {
-      printf("Type[%d] - divide varId[%d] varInId[%d] %s %lf", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_varInId), comparatorToString(M_comp), M_doubleValue);
+      printf("Type[%d] - divide varId[%s] varInId[%s] %s %lf", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_varInId), comparatorToString(M_comp), M_doubleValue);
   } else if (M_action == E_AT_VAR_TO_DOUBLE) {
-      printf("Type[%d] - toDouble varId[%d]", M_action, display_scenario->allocVars->getName(M_varId));
+      printf("Type[%d] - toDouble varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
 #ifdef PCAPPLAY
   } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
       printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
@@ -327,7 +327,6 @@ int CAction::executeRegExp(char* P_string, VariableTable *P_callVarTable)
 void CAction::setSubString(char** P_target, char* P_source, int P_start, int P_stop)
 {
   int sizeOf;
-  int sourceLength;
   size_t L_size = 0;
 
   if(P_source != NULL) {

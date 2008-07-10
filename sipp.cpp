@@ -719,7 +719,6 @@ bool sipMsgCheck (const char *P_msg, int P_msgSize, struct sipp_socket *socket) 
 
 void print_stats_in_file(FILE * f, int last)
 {
-  int index;
   static char temp_str[256];
   int divisor;
 
@@ -749,7 +748,7 @@ void print_stats_in_file(FILE * f, int last)
       (f,
        "  Port   Total-time  Total-calls  Transport" 
        SIPP_ENDL
-       "  %-5d %6d.%02d s     %8llu  %s"
+       "  %-5d %6lu.%02lu s     %8llu  %s"
        SIPP_ENDL SIPP_ENDL,
        local_port,
        clock_tick / 1000, (clock_tick % 1000) / 10,
@@ -763,7 +762,7 @@ void print_stats_in_file(FILE * f, int last)
       fprintf(f, "  Call-rate(length)");
     }
     fprintf(f, "   Port   Total-time  Total-calls  Remote-host" SIPP_ENDL
-       "%19s   %-5d %6d.%02d s     %8llu  %s:%d(%s)" SIPP_ENDL SIPP_ENDL,
+       "%19s   %-5d %6lu.%02lu s     %8llu  %s:%d(%s)" SIPP_ENDL SIPP_ENDL,
        temp_str,
        local_port,
        clock_tick / 1000, (clock_tick % 1000) / 10,
@@ -787,7 +786,7 @@ void print_stats_in_file(FILE * f, int last)
             ((clock_tick-last_report_time) % 1000));
   }
   divisor = scheduling_loops; if(!divisor) { divisor = 1; }
-  fprintf(f,"  %-38s %d ms scheduler resolution" 
+  fprintf(f,"  %-38s %lu ms scheduler resolution" 
          SIPP_ENDL,
          temp_str,
          (clock_tick-last_report_time) / divisor);
@@ -828,7 +827,7 @@ void print_stats_in_file(FILE * f, int last)
           pollnfds);
   fprintf(f,"  %-38s", temp_str);
   if(nb_net_recv_errors || nb_net_send_errors || nb_net_cong) {
-    fprintf(f,"  %d/%d/%d %s errors (send/recv/cong)" SIPP_ENDL,
+    fprintf(f,"  %lu/%lu/%lu %s errors (send/recv/cong)" SIPP_ENDL,
            nb_net_send_errors, 
            nb_net_recv_errors,
            nb_net_cong,
@@ -843,7 +842,7 @@ void print_stats_in_file(FILE * f, int last)
     sprintf(temp_str, "%lu Total RTP pckts sent ",
             rtp_pckts_pcap);
     if (clock_tick-last_report_time) {
-       fprintf(f,"  %-38s %d.%03d last period RTP rate (kB/s)" SIPP_ENDL,
+       fprintf(f,"  %-38s %lu.%03lu last period RTP rate (kB/s)" SIPP_ENDL,
               temp_str,
               (rtp_bytes_pcap)/(clock_tick-last_report_time),
               (rtp_bytes_pcap)%(clock_tick-last_report_time));
@@ -860,7 +859,7 @@ void print_stats_in_file(FILE * f, int last)
 
     // AComment: Fix for random coredump when using RTP echo
     if (clock_tick-last_report_time) {
-       fprintf(f,"  %-38s %d.%03d last period RTP rate (kB/s)" SIPP_ENDL,
+       fprintf(f,"  %-38s %lu.%03lu last period RTP rate (kB/s)" SIPP_ENDL,
               temp_str,
               (rtp_bytes)/(clock_tick-last_report_time),
               (rtp_bytes)%(clock_tick-last_report_time));
@@ -871,7 +870,7 @@ void print_stats_in_file(FILE * f, int last)
 
     // AComment: Fix for random coredump when using RTP echo
     if (clock_tick-last_report_time) {
-      fprintf(f,"  %-38s %d.%03d last period RTP rate (kB/s)" SIPP_ENDL,
+      fprintf(f,"  %-38s %lu.%03lu last period RTP rate (kB/s)" SIPP_ENDL,
 	      temp_str,
 	      (rtp2_bytes)/(clock_tick-last_report_time),
 	      (rtp2_bytes)%(clock_tick-last_report_time));
@@ -891,7 +890,7 @@ void print_stats_in_file(FILE * f, int last)
            "Messages  Retrans   Timeout   Unexp.    Lost" 
            SIPP_ENDL);
   }
-  for(index = 0;
+  for(unsigned long index = 0;
       index < display_scenario->messages.size();
       index ++) {
     message *curmsg = display_scenario->messages[index];
@@ -900,7 +899,7 @@ void print_stats_in_file(FILE * f, int last)
       continue;
     }
     if (show_index) {
-	fprintf(f, "%-02d:", index);
+	fprintf(f, "%-2lu:", index);
     }
     
     if(SendingMessage *src = curmsg -> send_scheme) {
@@ -924,13 +923,13 @@ void print_stats_in_file(FILE * f, int last)
       }
 
       if(curmsg -> retrans_delay) {
-        fprintf(f,"%-9d %-9d %-9d %-9s" ,
+        fprintf(f,"%-9lu %-9lu %-9lu %-9s" ,
                curmsg -> nb_sent,
                curmsg -> nb_sent_retrans,
                curmsg -> nb_timeout,
                "" /* Unexpected */);
       } else {
-        fprintf(f,"%-9d %-9d %-9s %-9s" ,
+        fprintf(f,"%-9lu %-9lu %-9s %-9s" ,
                curmsg -> nb_sent,
                curmsg -> nb_sent_retrans,
                "", /* Timeout. */
@@ -987,7 +986,7 @@ void print_stats_in_file(FILE * f, int last)
       }
 
       fprintf(f,"%-9d", curmsg->sessions);
-      fprintf(f,"                     %-9d" , curmsg->nb_unexp);
+      fprintf(f,"                     %-9lu" , curmsg->nb_unexp);
     } else if(curmsg -> recv_request) {
       if(creationMode == MODE_SERVER) {
 	fprintf(f,"  ----------> %-10s ", curmsg -> recv_request);
@@ -1032,7 +1031,7 @@ void print_stats_in_file(FILE * f, int last)
       }
     } else if(curmsg -> M_type == MSG_TYPE_SENDCMD) {
       fprintf(f,"        [ Sent Command ]         ");
-      fprintf(f,"%-9d %-9s           %-9s" ,
+      fprintf(f,"%-9lu %-9s           %-9s" ,
              curmsg -> M_nbCmdSent,
              "",
              "");
@@ -1042,7 +1041,7 @@ void print_stats_in_file(FILE * f, int last)
     }
     
     if(lose_packets && (curmsg -> nb_lost)) {
-      fprintf(f," %-9d" SIPP_ENDL,
+      fprintf(f," %-9lu" SIPP_ENDL,
              curmsg -> nb_lost);
     } else {
       fprintf(f,SIPP_ENDL);
@@ -1068,7 +1067,7 @@ void print_count_file(FILE *f, int header) {
     fprintf(f, "%s%s", CStat::msToHHMMSSmmm(globalElapsedTime), stat_delimiter);
   }
 
-  for(int index = 0; index < main_scenario->messages.size(); index ++) {
+  for(unsigned int index = 0; index < main_scenario->messages.size(); index ++) {
     message *curmsg = main_scenario->messages[index];
     if(curmsg->hide) {
       continue;
@@ -1091,18 +1090,18 @@ void print_count_file(FILE *f, int header) {
 	  fprintf(f, "%sLost%s", temp_str, stat_delimiter);
 	}
       } else {
-	fprintf(f, "%d%s", curmsg->nb_sent, stat_delimiter);
-	fprintf(f, "%d%s", curmsg->nb_sent_retrans, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->nb_sent, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->nb_sent_retrans, stat_delimiter);
 	if(curmsg -> retrans_delay) {
-	  fprintf(f, "%d%s", curmsg->nb_timeout, stat_delimiter);
+	  fprintf(f, "%lu%s", curmsg->nb_timeout, stat_delimiter);
 	}
 	if(lose_packets) {
-	  fprintf(f, "%d%s", curmsg->nb_lost, stat_delimiter);
+	  fprintf(f, "%lu%s", curmsg->nb_lost, stat_delimiter);
 	}
       }
     } else if(curmsg -> recv_response) {
       if(header) {
-	sprintf(temp_str, "%d_%d_", index, curmsg->recv_response);
+	sprintf(temp_str, "%u_%d_", index, curmsg->recv_response);
 
 	fprintf(f, "%sRecv%s", temp_str, stat_delimiter);
 	fprintf(f, "%sRetrans%s", temp_str, stat_delimiter);
@@ -1112,17 +1111,17 @@ void print_count_file(FILE *f, int header) {
 	  fprintf(f, "%sLost%s", temp_str, stat_delimiter);
 	}
       } else {
-	fprintf(f, "%d%s", curmsg->nb_recv, stat_delimiter);
-	fprintf(f, "%d%s", curmsg->nb_recv_retrans, stat_delimiter);
-	fprintf(f, "%d%s", curmsg->nb_timeout, stat_delimiter);
-	fprintf(f, "%d%s", curmsg->nb_unexp, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->nb_recv, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->nb_recv_retrans, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->nb_timeout, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->nb_unexp, stat_delimiter);
 	if(lose_packets) {
-	  fprintf(f, "%d%s", curmsg->nb_lost, stat_delimiter);
+	  fprintf(f, "%lu%s", curmsg->nb_lost, stat_delimiter);
 	}
       }
     } else if(curmsg -> recv_request) {
       if(header) {
-	sprintf(temp_str, "%d_%s_", index, curmsg->recv_request);
+	sprintf(temp_str, "%u_%s_", index, curmsg->recv_request);
 
 	fprintf(f, "%sRecv%s", temp_str, stat_delimiter);
 	fprintf(f, "%sRetrans%s", temp_str, stat_delimiter);
@@ -1132,12 +1131,12 @@ void print_count_file(FILE *f, int header) {
 	  fprintf(f, "%sLost%s", temp_str, stat_delimiter);
 	}
       } else {
-	fprintf(f, "%d%s", curmsg->nb_recv, stat_delimiter);
-	fprintf(f, "%d%s", curmsg->nb_recv_retrans, stat_delimiter);
-	fprintf(f, "%d%s", curmsg->nb_timeout, stat_delimiter);
-	fprintf(f, "%d%s", curmsg->nb_unexp, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->nb_recv, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->nb_recv_retrans, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->nb_timeout, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->nb_unexp, stat_delimiter);
 	if(lose_packets) {
-	  fprintf(f, "%d%s", curmsg->nb_lost, stat_delimiter);
+	  fprintf(f, "%lu%s", curmsg->nb_lost, stat_delimiter);
 	}
       }
     } else if (curmsg -> pause_distribution ||
@@ -1149,7 +1148,7 @@ void print_count_file(FILE *f, int header) {
 	fprintf(f, "%sUnexp%s", temp_str, stat_delimiter);
       } else {
 	fprintf(f, "%d%s", curmsg->sessions, stat_delimiter);
-	fprintf(f, "%d%s", curmsg->nb_unexp, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->nb_unexp, stat_delimiter);
       }
     } else if(curmsg -> M_type == MSG_TYPE_NOP) {
       /* No output. */
@@ -1159,15 +1158,15 @@ void print_count_file(FILE *f, int header) {
 	fprintf(f, "%s%s", temp_str, stat_delimiter);
 	fprintf(f, "%s_Timeout%s", temp_str, stat_delimiter);
       } else {
-	fprintf(f, "%d%s", curmsg->M_nbCmdRecv, stat_delimiter);
-	fprintf(f, "%d%s", curmsg->nb_timeout, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->M_nbCmdRecv, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->nb_timeout, stat_delimiter);
       }
     } else if(curmsg -> M_type == MSG_TYPE_SENDCMD) {
       if(header) {
 	sprintf(temp_str, "%d_SendCmd", index);
-	fprintf(f, "%s%s", temp_str);
+	fprintf(f, "%s%s", temp_str, stat_delimiter);
       } else {
-	fprintf(f, "%d%s", curmsg->M_nbCmdSent, stat_delimiter);
+	fprintf(f, "%lu%s", curmsg->M_nbCmdSent, stat_delimiter);
       }
     } else {
       ERROR("Unknown count file message type:");
@@ -1278,7 +1277,7 @@ void print_tdm_map()
   printf(SIPP_ENDL);
   printf("%d/%d circuits (%d%%) in use", in_use, interval, int(100*in_use/interval));
   printf(SIPP_ENDL);
-  for(int i=0; i<(display_scenario->messages.size() + 8 - int(interval/(tdm_map_c+1))); i++) {
+  for(unsigned int i=0; i<(display_scenario->messages.size() + 8 - int(interval/(tdm_map_c+1))); i++) {
     printf(SIPP_ENDL);
   }
 }
@@ -1287,14 +1286,13 @@ void print_variable_list()
 {
   CActions  * actions;
   CAction   * action;
-  int i,j;
   int printed = 0;
   bool found;
 
   printf("Action defined Per Message :" SIPP_ENDL);
   printed++;
   found = false;
-  for(i=0; i<display_scenario->messages.size(); i++)
+  for(unsigned int i=0; i<display_scenario->messages.size(); i++)
   {
     message *curmsg = display_scenario->messages[i];
     actions = curmsg->M_actions;
@@ -1344,7 +1342,7 @@ void print_variable_list()
   }
   
   printf(SIPP_ENDL);
-  for(i=0; i<(display_scenario->messages.size() + 5 - printed); i++) {
+  for(unsigned int i=0; i<(display_scenario->messages.size() + 5 - printed); i++) {
     printf(SIPP_ENDL);
   }
 }
@@ -1805,10 +1803,10 @@ int handle_ctrl_socket() {
   } else {
     process_key(bufrcv[0]);
   }
+  return 0;
 }
 
 void setup_ctrl_socket() {
-  int ret;
   int port, firstport;
   int try_counter = 60;
   struct sockaddr_storage ctl_sa;
@@ -2035,7 +2033,7 @@ char * get_incoming_header_content(char* message, char * name)
       return last_header;
   }
 
-  while(src = strstr(src, name)) {
+  while((src = strstr(src, name))) {
 
       /* just want the header's content */
       src += strlen(name);
@@ -2074,7 +2072,7 @@ char * get_incoming_header_content(char* message, char * name)
   }
 
   /* remove enclosed CRs in multilines */
-  while(ptr = strchr(last_header, '\r')) {
+  while((ptr = strchr(last_header, '\r'))) {
     /* Use strlen(ptr) to include trailing zero */
     memmove(ptr, ptr+1, strlen(ptr));
   }
@@ -2086,7 +2084,7 @@ char * get_incoming_first_line(char * message)
 {
   /* non reentrant. consider accepting char buffer as param */
   static char last_header[MAX_HEADER_LEN * 10];
-  char * src, *dest, *ptr;
+  char * src, *dest;
 
   /* returns empty string in case of error */
   memset(last_header, 0, sizeof(last_header));
@@ -3676,9 +3674,6 @@ void freeUserVarMap() {
 
 void releaseGlobalAllocations()
 {
-  int i,j;
-  message * L_ptMsg = NULL;
-
   delete main_scenario;
   delete ooc_scenario;
   free_default_messages();
@@ -3981,7 +3976,7 @@ int main(int argc, char *argv[])
 {
   int                  argi = 0;
   struct sockaddr_storage   media_sockaddr;
-  pthread_t            pthread_id, pthread2_id,  pthread3_id;
+  pthread_t            pthread2_id,  pthread3_id;
   int                  L_maxSocketPresent = 0;
   unsigned int         generic_count = 0;
   bool                 slave_masterSet = false;
@@ -4161,7 +4156,6 @@ int main(int argc, char *argv[])
 	  {
 	    char *fileName = argv[argi - 1];
 	    char *endptr;
-	    char tmp[SIPP_MAX_MSG_SIZE];
 	    int field;
 
 	    if (inFiles.find(fileName) == inFiles.end()) {
@@ -5626,9 +5620,9 @@ void rotatef(char *name, FILE **fptr, time_t *starttime, int *nfiles, struct log
     /* We need to rotate away an existing file. */
     if (*nfiles == ringbuffer_files) {
       if ((*ftimes)[0].n) {
-	sprintf(L_rotate_file_name, "%s_%d_%s_%d.%d.log", scenario_file, getpid(), name, (*ftimes)[0].start, (*ftimes)[0].n);
+	sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log", scenario_file, getpid(), name, (*ftimes)[0].start, (*ftimes)[0].n);
       } else {
-	sprintf(L_rotate_file_name, "%s_%d_%s_%d.log", scenario_file, getpid(), name, (*ftimes)[0].start);
+	sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log", scenario_file, getpid(), name, (*ftimes)[0].start);
       }
       unlink(L_rotate_file_name);
       (*nfiles)--;
@@ -5642,9 +5636,9 @@ void rotatef(char *name, FILE **fptr, time_t *starttime, int *nfiles, struct log
 	  (*ftimes)[*nfiles].n = (*ftimes)[*nfiles - 1].n + 1;
       }
       if ((*ftimes)[*nfiles].n) {
-	sprintf(L_rotate_file_name, "%s_%d_%s_%d.%d.log", scenario_file, getpid(), name, (*ftimes)[*nfiles].start, (*ftimes)[*nfiles].n);
+	sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log", scenario_file, getpid(), name, (*ftimes)[*nfiles].start, (*ftimes)[*nfiles].n);
       } else {
-	sprintf(L_rotate_file_name, "%s_%d_%s_%d.log", scenario_file, getpid(), name, (*ftimes)[*nfiles].start);
+	sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log", scenario_file, getpid(), name, (*ftimes)[*nfiles].start);
       }
       (*nfiles)++;
       fflush(*fptr);

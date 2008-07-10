@@ -280,7 +280,6 @@ void FileContents::dump(void)
 }
 
 void FileContents::index(int field) {
-  char tmp[SIPP_MAX_MSG_SIZE];
   this->indexField = field;
 
   indexMap = new str_int_map;
@@ -305,7 +304,7 @@ int FileContents::lookup(char *key) {
 }
 
 
-int FileContents::insert(char *value) {
+void FileContents::insert(char *value) {
   if (printfFile) {
     ERROR("Can not insert or replace into a printf file: %s", fileName);
   }
@@ -321,7 +320,7 @@ int FileContents::insert(char *value) {
   getField(realLinesInFile - 1, 0, tmp, sizeof(tmp));
 }
 
-int FileContents::replace(int line, char *value) {
+void FileContents::replace(int line, char *value) {
   if (printfFile) {
     ERROR("Can not insert or replace into a printf file: %s", fileName);
   }

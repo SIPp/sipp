@@ -17,6 +17,6 @@ public:
   virtual void dump();
 
 protected:
-  int expiration;
+  unsigned long expiration;
   char *reason;
 };

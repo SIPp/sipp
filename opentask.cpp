@@ -155,6 +155,8 @@ bool opentask::run() {
       quitting = 1;
       return false;
     }
+
+    return true;
 }
 
 void opentask::set_paused(bool new_paused)

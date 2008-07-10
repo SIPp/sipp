@@ -82,9 +82,9 @@
 #define DISPLAY_INFO(T1)\
   fprintf(f,"  %-77.77s \r\n", T1)
 #define DISPLAY_REPART(T1, T2, V1)\
-  fprintf(f,"    %8d ms <= n <  %8d ms : %10d  %-29.29s \r\n", T1, T2, V1, "")
+  fprintf(f,"    %8d ms <= n <  %8d ms : %10lu  %-29.29s \r\n", T1, T2, V1, "")
 #define DISPLAY_LAST_REPART(T1, V1)\
-  fprintf(f,"    %14.14s n >= %8d ms : %10d  %-29.29s \r\n", "", T1, V1, "")
+  fprintf(f,"    %14.14s n >= %8d ms : %10lu  %-29.29s \r\n", "", T1, V1, "")
 
 #define RESET_COUNTERS(PT)\
   memset (PT, 0, CStat::E_NB_COUNTER * sizeof(unsigned long long))
@@ -1627,7 +1627,7 @@ char* CStat::formatTime (struct timeval* P_tv, bool microseconds)
 	      L_currentDate->tm_sec,
 	      (double)P_tv->tv_usec/(double)1000.0);
 	} else {
-          sprintf(L_time, "%4.4d-%2.2d-%2.2d\t%2.2d:%2.2d:%2.2d:%3.3d\t%10.10d.%6.6d",
+          sprintf(L_time, "%4.4d-%2.2d-%2.2d\t%2.2d:%2.2d:%2.2d:%3.3d\t%10.10ld.%6.6ld",
 	      L_currentDate->tm_year + 1900,
 	      L_currentDate->tm_mon + 1,
 	      L_currentDate->tm_mday,
@@ -1636,7 +1636,7 @@ char* CStat::formatTime (struct timeval* P_tv, bool microseconds)
 	      L_currentDate->tm_sec,
               (int) (P_tv->tv_usec)/1000,
               (long) (P_tv->tv_sec),
-              (long) (P_tv->tv_usec));       
+              (long) (P_tv->tv_usec));
 	}
     }
   return (L_time);

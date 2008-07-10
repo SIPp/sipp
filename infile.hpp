@@ -34,8 +34,8 @@ public:
   void dump();
   void index(int field);
   int lookup(char *key);
-  int insert(char *value);
-  int replace(int line, char *value);
+  void insert(char *value);
+  void replace(int line, char *value);
 private:
   void reIndex(int line);
   void deIndex(int line);

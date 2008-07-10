@@ -73,6 +73,7 @@ bool watchdog::run() {
 
   last_fire = clock_tick;
   setPaused();
+  return true;
 }
 
 unsigned int watchdog::wake() {

@@ -49,8 +49,8 @@ private:
   int major_threshold;
   int minor_maxtriggers;
   int major_maxtriggers;
-  int last_fire;
-  int last_trigger;
+  unsigned long last_fire;
+  unsigned long last_trigger;
   int major_triggers;
   int minor_triggers;
 };
