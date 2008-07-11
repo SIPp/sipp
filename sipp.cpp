@@ -4138,15 +4138,25 @@ int main(int argc, char *argv[])
 	  *((int *)option->data) = argi;
 	  break;
 	case SIPP_OPTION_INPUT_FILE:
-	  REQUIRE_ARG();
-	  CHECK_PASS();
-	  inFiles[argv[argi]] = new FileContents(argv[argi]);
-	  /* By default, the first file is used for IP address input. */
-	  if (!ip_file) {
-	    ip_file = argv[argi];
-	  }
-	  if (!default_file) {
-	    default_file = argv[argi];
+	  {
+	    REQUIRE_ARG();
+	    CHECK_PASS();
+	    FileContents *data = new FileContents(argv[argi]);
+	    char *name = argv[argi];
+	    if (strrchr(name, '/')) {
+	      name = strrchr(name, '/') + 1;
+	    } else if (strrchr(name, '\\')) {
+	      name = strrchr(name, '\\') + 1;
+	    }
+	    assert(name);
+	    inFiles[name] = data;
+	    /* By default, the first file is used for IP address input. */
+	    if (!ip_file) {
+	      ip_file = name;
+	    }
+	    if (!default_file) {
+	      default_file = name;
+	    }
 	  }
 	  break;
 	case SIPP_OPTION_INDEX_FILE:
