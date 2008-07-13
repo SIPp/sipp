@@ -530,15 +530,16 @@ int get_rtd(const char *ptr) {
 }
 
 /* Get a counter */
-long get_counter(const char *ptr, const char *what) {
-  long ret;
-
-  ret = get_long(ptr, what);
-  if (ret < 1 || ret > MAX_COUNTER) {
-    ERROR("Counter %ld exceeds MAX_COUNTER %d!\n", ret, MAX_COUNTER);
+int scenario::get_counter(const char *ptr, const char *what) {
+  /* Check the name's validity. */
+  if (ptr[0] == '\0') {
+    ERROR("Counter names names may not be empty for %s\n", what);
+  }
+  if (strcspn(ptr, "$,") != strlen(ptr)) {
+    ERROR("Counter names may not contain $ or , for %s\n", what);
   }
 
-  return ret;
+  return stats->findCounter(ptr, true);
 }
 
 

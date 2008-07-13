@@ -100,6 +100,9 @@
        i<=CStat::CPT_PD_Retransmissions;               \
        i++)                                            \
     M_counters[i] = (unsigned long) 0;                         \
+  for (unsigned int j=0;j<M_genericMap.size(); j++) { \
+	M_genericCounters[j * GENERIC_TYPES + GENERIC_PD] = 0; \
+  } \
 }
 
 #define RESET_PL_COUNTERS                          \
@@ -113,6 +116,9 @@
        i<=CStat::CPT_PL_Retransmissions;               \
        i++)                                            \
     M_counters[i] = (unsigned long) 0;                         \
+  for (unsigned int j=0;j<M_genericMap.size(); j++) { \
+	M_genericCounters[j * GENERIC_TYPES + GENERIC_PL] = 0; \
+  } \
 }
 
 /*
@@ -811,6 +817,48 @@ int CStat::computeStat (E_Action P_action,
   return computeStat(P_action, P_value, 0);
 }
 
+int CStat::findCounter(const char *counter, bool alloc) {
+  str_int_map::iterator it = M_genericMap.find(str_int_map::key_type(counter));
+  if (it != M_genericMap.end()) {
+    return it->second;
+  }
+  if (!alloc) {
+    return -1;
+  }
+  int ret = M_genericMap.size() + 1;
+  M_genericMap[str_int_map::key_type(counter)] = ret;
+
+  bool numeric = true;
+  const char *p = counter;
+  while (*p) {
+	if (!isdigit(*p)) {
+	  numeric = false;
+	  break;
+	}
+	p++;
+  }
+  if (numeric) {
+    char *s = new char[20];
+    snprintf(s, 20, "GenericCounter%s", counter);
+    M_revGenericMap[ret] = s;
+    M_genericDisplay[ret] = strdup(counter);
+  } else {
+    M_revGenericMap[ret] = strdup(counter);
+    M_genericDisplay[ret] = strdup(counter);
+  }
+
+
+  M_genericCounters = (unsigned long long *)realloc(M_genericCounters, sizeof(unsigned long long) * 3 * M_genericMap.size());
+  if (!M_genericCounters) {
+    ERROR("Could not allocate generic counters!\n");
+  }
+  M_genericCounters[(ret - 1) * GENERIC_TYPES + GENERIC_C] = 0;
+  M_genericCounters[(ret - 1) * GENERIC_TYPES + GENERIC_PD] = 0;
+  M_genericCounters[(ret - 1)* GENERIC_TYPES + GENERIC_PL] = 0;
+
+  return ret;
+}
+
 int CStat::computeStat (E_Action P_action,
                         unsigned long P_value,
 			int which)
@@ -836,9 +884,9 @@ int CStat::computeStat (E_Action P_action,
 
 
     case E_ADD_GENERIC_COUNTER :
-      M_counters [CPT_C_Generic + which] += P_value;
-      M_counters [CPT_PD_Generic + which] += P_value;
-      M_counters [CPT_PL_Generic + which] += P_value;
+      M_genericCounters[which * GENERIC_TYPES + GENERIC_C] += P_value;
+      M_genericCounters[which * GENERIC_TYPES + GENERIC_PD] += P_value;
+      M_genericCounters[which * GENERIC_TYPES + GENERIC_PL] += P_value;
       break;
 
     case E_ADD_RESPONSE_TIME_DURATION :
@@ -1057,22 +1105,15 @@ void CStat::displayData (FILE *f)
                  M_counters[CPT_C_OutgoingCallCreated]);
   DISPLAY_PERIO ("Current Call",       M_counters[CPT_C_CurrentCall]);
 
-  bool first = true;
-  for (int i = 0; i < MAX_COUNTER; i++) {
-    char s[20];
-
-    if (M_counters[CPT_C_Generic + i] == 0) {
-      continue;
-    }
-
-    if (first) {
+  if (M_genericMap.size()) {
       DISPLAY_CROSS_LINE ();
-      first = false;
-    }
+  }
+  for (unsigned int i = 1; i < M_genericMap.size() + 1; i++) {
+    char *s = (char *)malloc(20 + strlen(M_genericDisplay[i]));
+    sprintf(s, "Counter %s", M_genericDisplay[i]);
 
-    sprintf(s, "Generic counter %d", i + 1);
-
-    DISPLAY_2VAL(s, M_counters[CPT_PD_Generic + i], M_counters[CPT_C_Generic + i]);
+    DISPLAY_2VAL(s, M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_PD], M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_C]);
+    free(s);
   }
 
   DISPLAY_CROSS_LINE ();
@@ -1184,22 +1225,15 @@ void CStat::displayStat (FILE *f)
   DISPLAY_PERIO ("Current Call",
                  M_counters[CPT_C_CurrentCall]);
 
-  bool first = true;
-  for (int i = 0; i < MAX_COUNTER; i++) {
-    char s[20];
-
-    if (M_counters[CPT_C_Generic + i] == 0) {
-      continue;
-    }
-
-    if (first) {
+  if (M_genericMap.size()) {
       DISPLAY_CROSS_LINE ();
-      first = false;
-    }
+  }
+  for (unsigned int i = 1; i < M_genericMap.size() + 1; i++) {
+    char *s = (char *)malloc(20 + strlen(M_genericDisplay[i]));
+    sprintf(s, "Counter %s", M_genericDisplay[i]);
 
-    sprintf(s, "Generic counter %d", i + 1);
-
-    DISPLAY_2VAL(s, M_counters[CPT_PD_Generic + i], M_counters[CPT_C_Generic + i]);
+    DISPLAY_2VAL(s, M_genericCounters[(i - 1)* GENERIC_TYPES + GENERIC_PD], M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_C]);
+    free(s);
   }
 
   DISPLAY_CROSS_LINE ();
@@ -1383,9 +1417,9 @@ void CStat::dumpData ()
                       << "CallLength(C)" << stat_delimiter;
     (*M_outputStream) << "CallLengthStDev(P)" << stat_delimiter
                       << "CallLengthStDev(C)" << stat_delimiter;
-    for (int i = 0; i < MAX_COUNTER; i++) {
-      (*M_outputStream) << "GenericCounter" << (i + 1) << "(P)" << stat_delimiter;
-      (*M_outputStream) << "GenericCounter" << (i + 1) << "(C)" << stat_delimiter;
+    for (unsigned int i = 1; i < M_genericMap.size() + 1; i++) {
+      (*M_outputStream) << M_revGenericMap[i] << "(P)" << stat_delimiter;
+      (*M_outputStream) << M_revGenericMap[i] << "(C)" << stat_delimiter;
     }
     for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
       char s[30];
@@ -1506,9 +1540,9 @@ void CStat::dumpData ()
 				   CPT_C_NbOfCallUsedForAverageCallLength,
 				   CPT_C_AverageCallLength_Squares )) << stat_delimiter;
 
-  for (int i = 0; i < MAX_COUNTER; i++) {
-    (*M_outputStream) << M_counters[CPT_PL_Generic + i] << stat_delimiter;
-    (*M_outputStream) << M_counters[CPT_C_Generic + i] << stat_delimiter;
+  for (unsigned int i = 0; i < M_genericMap.size(); i++) {
+    (*M_outputStream) << M_genericCounters[GENERIC_TYPES * i + GENERIC_PL] << stat_delimiter;
+    (*M_outputStream) << M_genericCounters[GENERIC_TYPES * i + GENERIC_C] << stat_delimiter;
   }
 
   for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {

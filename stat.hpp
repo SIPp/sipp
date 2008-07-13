@@ -32,7 +32,6 @@
 #define MAX_REPARTITION_HEADER_LENGTH 1024
 #define MAX_REPARTITION_INFO_LENGTH   1024
 #define MAX_CHAR_BUFFER_SIZE          1024
-#define MAX_COUNTER		      5
 
 #include <ctime> 
 #include <sys/time.h> 
@@ -46,6 +45,8 @@
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_cdf.h>
 #endif
+
+#include "variables.hpp"
 
 /* MAX_RTD_INFO_LENGTH defines the number of RTD begin and end points a single
  * call can have.  If you need more than five, you can increase this number,
@@ -168,11 +169,6 @@ public:
   CPT_C_FailedOutboundCongestion,
   CPT_C_FailedTimeoutOnRecv,
   CPT_C_FailedTimeoutOnSend,
-  CPT_C_Generic,
-  CPT_C_Generic_2,
-  CPT_C_Generic_3,
-  CPT_C_Generic_4,
-  CPT_C_Generic_5, // This must match or exceed MAX_COUNTER
   CPT_C_Retransmissions,
 
   // Periodic Display counter
@@ -212,11 +208,6 @@ public:
   CPT_PD_FailedOutboundCongestion,
   CPT_PD_FailedTimeoutOnRecv,
   CPT_PD_FailedTimeoutOnSend,
-  CPT_PD_Generic,
-  CPT_PD_Generic_2,
-  CPT_PD_Generic_3,
-  CPT_PD_Generic_4,
-  CPT_PD_Generic_5, // This must match or exceed MAX_COUNTER
   CPT_PD_Retransmissions,
 
   // Periodic logging counter
@@ -257,11 +248,6 @@ public:
   CPT_PL_FailedOutboundCongestion,
   CPT_PL_FailedTimeoutOnRecv,
   CPT_PL_FailedTimeoutOnSend,
-  CPT_PL_Generic,
-  CPT_PL_Generic_2,
-  CPT_PL_Generic_3,
-  CPT_PL_Generic_4,
-  CPT_PL_Generic_5,
   CPT_PL_Retransmissions,
 
   E_NB_COUNTER,
@@ -444,10 +430,22 @@ public:
    */
   static char* msToHHMMSSmmm (unsigned long P_ms);
 
+  /* Get a counter ID by name. */
+  int findCounter(const char *counter, bool alloc);
 
 private:
   unsigned long long       M_counters[E_NB_COUNTER];
   static unsigned long long M_G_counters[E_NB_G_COUNTER - E_NB_COUNTER];
+
+#define GENERIC_C 0
+#define GENERIC_PD 1
+#define GENERIC_PL 2
+#define GENERIC_TYPES 3
+  unsigned long long	   *M_genericCounters;
+
+  str_int_map		   M_genericMap;
+  int_str_map		   M_revGenericMap;
+  int_str_map		   M_genericDisplay;
 
   T_dynamicalRepartition*  M_ResponseTimeRepartition[MAX_RTD_INFO_LENGTH];
   T_dynamicalRepartition*  M_CallLengthRepartition;

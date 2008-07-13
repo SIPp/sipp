@@ -185,6 +185,7 @@ public:
 
   bool rtd_stopped[MAX_RTD_INFO_LENGTH];
   int get_var(const char *varName, const char *what);
+  int get_counter(const char *varName, const char *what);
   int find_var(const char *varName, const char *what);
 
   CStat *stats;

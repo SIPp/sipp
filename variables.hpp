@@ -24,6 +24,8 @@
 #ifndef _CVARIABLE
 #define _CVARIABLE
 
+#include <string>
+#include <map>
 #include <sys/types.h>
 #include <regex.h>
 
