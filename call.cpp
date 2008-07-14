@@ -33,6 +33,7 @@
  *           Ben Evans from Open Cloud
  *           Marc Van Diest from Belgacom
  *           Michael Dwyer from Cibation
+ *           Roland Meub
  */
 
 #include <iterator>
@@ -1445,9 +1446,8 @@ bool call::executeMessage(message *curmsg) {
       }
       return true; /* No step, nothing done, retry later */
     } else if(send_status < 0) { /* Send error */
-      /* The timeout will not be sent, so the timeout is no longer needed. */
-      send_timeout = 0;
-      /* The call was already deleted by connect_socket_if_needed or send_raw. */
+      /* The call was already deleted by connect_socket_if_needed or send_raw,
+       * so we should no longer access members. */
       return false;
     }
     /* We have sent the message, so the timeout is no longer needed. */
