@@ -965,6 +965,7 @@ CStat::CStat ()
   M_SizeOfResponseTimeRepartition = 0;
   M_SizeOfCallLengthRepartition   = 0;
   M_fileNameRtt = NULL;
+  M_genericCounters = NULL;
   M_time_ref = 0.0                   ;
   M_dumpRespTime = NULL              ;
   M_counterDumpRespTime = 0          ; 
