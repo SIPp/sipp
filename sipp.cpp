@@ -2215,6 +2215,7 @@ struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy, struct so
   if (!socketbuf) {
 	ERROR("Could not allocate socket buffer!\n");
   }
+  memset(socketbuf, 0, sizeof(struct socketbuf));
   if (copy) {
     socketbuf->buf = (char *)malloc(size);
     if (!socketbuf->buf) {
