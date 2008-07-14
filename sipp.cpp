@@ -1369,10 +1369,9 @@ void print_screens(void)
   print_bottom_line(   screenf, 0);
 
   currentScreenToDisplay = DISPLAY_SECONDARY_REPARTITION_SCREEN;
-  for (int i = 1; i <= MAX_RTD_INFO_LENGTH; i++) {
-    currentRepartitionToDisplay = i;
+  for (currentRepartitionToDisplay = 2; currentRepartitionToDisplay <= display_scenario->stats->nRtds(); currentRepartitionToDisplay++) {
     print_header_line(   screenf, 0);
-    display_scenario->stats->displaySecondaryRepartition(screenf, i-1);
+    display_scenario->stats->displayRtdRepartition(screenf, currentRepartitionToDisplay);
     print_bottom_line(   screenf, 0);
   }
 
@@ -1412,7 +1411,7 @@ void print_statistics(int last)
         print_tdm_map();
         break;
       case DISPLAY_SECONDARY_REPARTITION_SCREEN :
-	display_scenario->stats->displaySecondaryRepartition(stdout, currentRepartitionToDisplay - 1);
+	display_scenario->stats->displayRtdRepartition(stdout, currentRepartitionToDisplay);
 	break;
       case DISPLAY_SCENARIO_SCREEN :
       default:
@@ -1495,7 +1494,7 @@ bool process_key(int c) {
     case '8':
     case '9':
       currentScreenToDisplay = DISPLAY_SECONDARY_REPARTITION_SCREEN;
-      currentRepartitionToDisplay = (c - '6') + 1;
+      currentRepartitionToDisplay = (c - '6') + 2;
       print_statistics(0);
       break;
 
@@ -3300,6 +3299,9 @@ void traffic_thread()
 
 	screentask::report(true);
 	stattask::report();
+	if (screenf) {
+	  print_screens();
+	}
 
         screen_exit(EXIT_TEST_RES_UNKNOWN);
       }

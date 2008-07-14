@@ -48,12 +48,6 @@
 
 #include "variables.hpp"
 
-/* MAX_RTD_INFO_LENGTH defines the number of RTD begin and end points a single
- * call can have.  If you need more than five, you can increase this number,
- * but you also need to insert entries into the E_CounterName enum in stat.hpp.
- */
-#define MAX_RTD_INFO_LENGTH 5
-
 using namespace std;
 
 /*
@@ -142,21 +136,6 @@ public:
   CPT_C_NbOfCallUsedForAverageCallLength,
   CPT_C_AverageCallLength_Sum,
   CPT_C_AverageCallLength_Squares,
-  CPT_C_NbOfCallUsedForAverageResponseTime,
-  CPT_C_NbOfCallUsedForAverageResponseTime_2,
-  CPT_C_NbOfCallUsedForAverageResponseTime_3,
-  CPT_C_NbOfCallUsedForAverageResponseTime_4,
-  CPT_C_NbOfCallUsedForAverageResponseTime_5, // This must match or exceed MAX_RTD_INFO
-  CPT_C_AverageResponseTime_Sum,
-  CPT_C_AverageResponseTime_Sum_2,
-  CPT_C_AverageResponseTime_Sum_3,
-  CPT_C_AverageResponseTime_Sum_4,
-  CPT_C_AverageResponseTime_Sum_5, // This must match or exceed MAX_RTD_INFO
-  CPT_C_AverageResponseTime_Squares,
-  CPT_C_AverageResponseTime_Squares_2,
-  CPT_C_AverageResponseTime_Squares_3,
-  CPT_C_AverageResponseTime_Squares_4,
-  CPT_C_AverageResponseTime_Squares_5,
   CPT_C_FailedCallCannotSendMessage,
   CPT_C_FailedCallMaxUdpRetrans,
   CPT_C_FailedCallTcpConnect,
@@ -379,8 +358,7 @@ public:
   void displayData (FILE *f);
   void displayStat(FILE *f);
   void displayRepartition(FILE *f);
-  void displaySecondaryRepartition (FILE *f, int which);
-
+  void displayRtdRepartition (FILE *f, int which);
 
   /**
    * Dump data periodically in the file M_FileName
@@ -432,6 +410,9 @@ public:
 
   /* Get a counter ID by name. */
   int findCounter(const char *counter, bool alloc);
+  int findRtd(const char *name, bool start);
+  void validateRtds();
+  int nRtds();
 
 private:
   unsigned long long       M_counters[E_NB_COUNTER];
@@ -447,7 +428,18 @@ private:
   int_str_map		   M_revGenericMap;
   int_str_map		   M_genericDisplay;
 
-  T_dynamicalRepartition*  M_ResponseTimeRepartition[MAX_RTD_INFO_LENGTH];
+  str_int_map		   rtd_started;
+  str_int_map		   rtd_stopped;
+
+#define RTD_COUNT 0
+#define RTD_SUM 1
+#define RTD_SUMSQ 2
+#define RTD_TYPES 3
+  unsigned long long	   *M_rtdInfo;
+  str_int_map		   M_rtdMap;
+  int_str_map		   M_revRtdMap;
+
+  T_dynamicalRepartition** M_ResponseTimeRepartition;
   T_dynamicalRepartition*  M_CallLengthRepartition;
   int                      M_SizeOfResponseTimeRepartition;
   int                      M_SizeOfCallLengthRepartition;
@@ -567,6 +559,10 @@ private:
    */
   double computeMean(E_CounterName P_SumCounter,
                              E_CounterName P_NbOfCallUsed);
+
+  double computeRtdMean(int which, int type);
+  double computeRtdStdev(int which, int type);
+
   /**
    * Effective C++
    *

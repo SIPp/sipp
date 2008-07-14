@@ -172,10 +172,9 @@ private:
   unsigned int   paused_until;
 
   unsigned long  start_time;
-  unsigned long  long start_time_rtd[MAX_RTD_INFO_LENGTH];
+  unsigned long long *start_time_rtd;
+  bool           *rtd_done;
 
-  bool           rtd_done[MAX_RTD_INFO_LENGTH];
-  
   char           *peer_tag;
   
   struct sipp_socket *call_remote_socket;

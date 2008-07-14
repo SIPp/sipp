@@ -461,7 +461,15 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
 
   // If not updated by a message we use the start time 
   // information to compute rtd information
-  for (i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+  start_time_rtd = (unsigned long long *)malloc(sizeof(unsigned long long) * call_scenario->stats->nRtds());
+  if (!start_time_rtd) {
+    ERROR("Could not allocate RTD times!");
+  }
+  rtd_done = (bool *)malloc(sizeof(bool) * call_scenario->stats->nRtds());
+  if (!start_time_rtd) {
+    ERROR("Could not allocate RTD done!");
+  }
+  for (i = 0; i < call_scenario->stats->nRtds(); i++) {
     start_time_rtd[i] = getmicroseconds();
     rtd_done[i] = false;
   }

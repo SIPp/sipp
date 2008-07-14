@@ -183,9 +183,9 @@ public:
 
   void computeSippMode();
 
-  bool rtd_stopped[MAX_RTD_INFO_LENGTH];
   int get_var(const char *varName, const char *what);
   int get_counter(const char *varName, const char *what);
+  int get_rtd(const char *ptr, bool start);
   int find_var(const char *varName, const char *what);
 
   CStat *stats;
@@ -200,7 +200,6 @@ private:
   str_int_map txnMap;
 
   bool found_timewait;
-  bool rtd_started[MAX_RTD_INFO_LENGTH];
 
   void getBookKeeping(message *message);
   void getCommonAttributes(message *message);
@@ -210,8 +209,6 @@ private:
   void handle_rhs(CAction *tmpAction, char *what);
 
   void apply_labels(msgvec v, str_int_map labels);
-  void init_rtds();
-  void validate_rtds();
   void validate_variable_usage();
   void validate_txn_usage();
 

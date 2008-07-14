@@ -508,25 +508,14 @@ char *double_time_string(double ms) {
 
 /* For backwards compatibility, we assign "true" to slot 1, false to 0, and
  * allow other valid integers. */
-int get_rtd(const char *ptr) {
-  char *endptr;
-  int ret;
-
-  if(!strcmp(ptr, (char *)"true"))
-    return 1;
+int scenario::get_rtd(const char *ptr, bool start) {
   if(!strcmp(ptr, (char *)"false"))
     return 0;
 
-  ret = strtol(ptr, &endptr, 0);
-  if (*endptr) {
-    ERROR("rtd \"%s\" is not a valid integer!\n", ptr);
-  }
+  if(!strcmp(ptr, (char *)"true"))
+    return stats->findRtd("1", start);
 
-  if (ret > MAX_RTD_INFO_LENGTH) {
-    ERROR("rtd %d exceeds MAX_RTD_INFO_LENGTH %d!\n", ret, MAX_RTD_INFO_LENGTH);
-  }
-
-  return ret;
+  return stats->findRtd(ptr, start);
 }
 
 /* Get a counter */
@@ -544,15 +533,6 @@ int scenario::get_counter(const char *ptr, const char *what) {
 
 
 /* Some validation functions. */
-
-/* If you start an RTD, then you should be interested in collecting statistics for it. */
-void scenario::validate_rtds() {
-  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    if (rtd_started[i] && !rtd_stopped[i]) {
-      ERROR("You have started Response Time Duration %d, but have never stopped it!", i + 1);
-    }
-  }
-}
 
 void scenario::validate_variable_usage() {
   allocVars->validate();
@@ -591,13 +571,6 @@ void scenario::apply_labels(msgvec v, str_int_map labels) {
       }
       v[i]->on_timeout = label_it->second;
     }
-  }
-}
-
-void scenario::init_rtds()
-{
-  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    rtd_started[i] = rtd_stopped[i] = false;
   }
 }
 
@@ -684,7 +657,6 @@ scenario::scenario(char * filename, int deflt)
   stats = new CStat();
   allocVars = new AllocVariableTable(userVariables);
 
-  init_rtds();
   hidedefault = false;
 
   elem = xp_open_element(0);
@@ -1055,10 +1027,7 @@ scenario::scenario(char * filename, int deflt)
   apply_labels(initmessages, initLabelMap);
 
   /* Some post-scenario loading validation. */
-  validate_rtds();
-  if (messages.size() == 0) {
-    ERROR("Did not find any messages inside of scenario!");
-  }
+  stats->validateRtds();
 
   /* Make sure that all variables are used more than once. */
   validate_variable_usage();
@@ -1066,6 +1035,9 @@ scenario::scenario(char * filename, int deflt)
   /* Make sure that all started transactions have responses, and vice versa. */
   validate_txn_usage();
 
+  if (messages.size() == 0) {
+    ERROR("Did not find any messages inside of scenario!");
+  }
 }
 
 void scenario::runInit() {
@@ -1652,8 +1624,7 @@ void scenario::getBookKeeping(message *message) {
   char *ptr;
 
   if((ptr = xp_get_value((char *)"rtd"))) {
-    message -> stop_rtd = get_rtd(ptr);
-    rtd_stopped[message->stop_rtd - 1] = true;
+    message -> stop_rtd = get_rtd(ptr, false);
   }
   if ((ptr = xp_get_value((char *)"repeat_rtd"))) {
     if (message -> stop_rtd) {
@@ -1664,8 +1635,7 @@ void scenario::getBookKeeping(message *message) {
   }
 
   if((ptr = xp_get_value((char *)"start_rtd"))) {
-    message -> start_rtd = get_rtd(ptr);
-    rtd_started[message->start_rtd - 1] = true;
+    message -> start_rtd = get_rtd(ptr, true);
   }
 
   if((ptr = xp_get_value((char *)"counter"))) {

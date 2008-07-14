@@ -103,6 +103,11 @@
   for (unsigned int j=0;j<M_genericMap.size(); j++) { \
 	M_genericCounters[j * GENERIC_TYPES + GENERIC_PD] = 0; \
   } \
+  for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
+	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT] = 0; \
+	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUM] = 0; \
+	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUMSQ] = 0; \
+  } \
 }
 
 #define RESET_PL_COUNTERS                          \
@@ -119,6 +124,11 @@
   for (unsigned int j=0;j<M_genericMap.size(); j++) { \
 	M_genericCounters[j * GENERIC_TYPES + GENERIC_PL] = 0; \
   } \
+  for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
+	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_COUNT] = 0; \
+	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUM] = 0; \
+	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUMSQ] = 0; \
+  } \
 }
 
 /*
@@ -134,7 +144,7 @@ CStat::~CStat()
 {
   int i;
 
-  for (i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+  for (i = 0; i < nRtds(); i++) {
     if (M_ResponseTimeRepartition[i] != NULL) {
       delete [] M_ResponseTimeRepartition[i];
     }
@@ -443,7 +453,7 @@ void CStat::setRepartitionResponseTime (char * P_listeStr)
   int sizeOfListe;
   int i;
 
-  for (i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+  for (i = 0; i < nRtds(); i++) {
     if(createIntegerTable(P_listeStr, &listeInteger, &sizeOfListe) == 1) {
       initRepartition(listeInteger,
 	  sizeOfListe,
@@ -470,7 +480,7 @@ void CStat::setRepartitionCallLength(unsigned int* repartition,
 void CStat::setRepartitionResponseTime(unsigned int* repartition, 
                                        int nombre)
 {
-  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+  for (int i = 0; i < nRtds(); i++) {
     initRepartition(repartition,
                     nombre,
                     &M_ResponseTimeRepartition[i],
@@ -678,7 +688,7 @@ int CStat::computeStat (E_Action P_action)
       GET_TIME (&M_plStartTime);
       if (periodic_rtd) {
 	resetRepartition(M_CallLengthRepartition, M_SizeOfCallLengthRepartition);
-	for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
+	for (int i = 0; i < nRtds(); i++) {
 	  resetRepartition(M_ResponseTimeRepartition[i], M_SizeOfResponseTimeRepartition);
 	}
       }
@@ -777,7 +787,7 @@ void CStat::getStartTime(struct timeval *t)
 double CStat::computeStdev(E_CounterName P_SumCounter,
 			 E_CounterName P_NbOfCallUsed,
 			 E_CounterName P_Squares) {
-  if (M_counters[P_NbOfCallUsed] == 0)
+  if (M_counters[P_NbOfCallUsed] <= 0)
     return 0.0;
 
   double numerator = ((double)(M_counters[P_NbOfCallUsed]) * (double)(M_counters[P_Squares])) - ((double)(M_counters[P_SumCounter] * M_counters[P_SumCounter]));
@@ -791,6 +801,29 @@ double CStat::computeMean(E_CounterName P_SumCounter,
   if (M_counters[P_NbOfCallUsed] == 0)
     return 0.0;
   return ((double)(M_counters[P_SumCounter]) / (double)(M_counters[P_NbOfCallUsed]));
+}
+
+double CStat::computeRtdMean(int which, int type) {
+  unsigned long long count = M_rtdInfo[((which - 1) * RTD_TYPES * GENERIC_TYPES) + (type * RTD_TYPES) +  RTD_COUNT];
+  unsigned long long sum = M_rtdInfo[((which - 1) * RTD_TYPES * GENERIC_TYPES) + (type * RTD_TYPES) +  RTD_SUM];
+
+  if (count == 0)
+    return 0.0;
+  return ((double)(sum) / (double)(count));
+}
+
+double CStat::computeRtdStdev(int which, int type) {
+  unsigned long long count = M_rtdInfo[((which - 1) * RTD_TYPES * GENERIC_TYPES) + (type * RTD_TYPES) +  RTD_COUNT];
+  unsigned long long sum = M_rtdInfo[((which - 1) * RTD_TYPES * GENERIC_TYPES) + (type * RTD_TYPES) +  RTD_SUM];
+  unsigned long long sumsq = M_rtdInfo[((which - 1) * RTD_TYPES * GENERIC_TYPES) + (type * RTD_TYPES) +  RTD_SUMSQ];
+
+  if (count <= 1)
+    return 0.0;
+
+  double numerator = ((double)count * (double)sumsq) - (double)(sum * sum);
+  double denominator = (double)(count) * ((double)(count) - 1.0);
+
+  return sqrt(numerator/denominator);
 }
 
 void CStat::updateAverageCounter(E_CounterName P_SumCounter,
@@ -848,7 +881,7 @@ int CStat::findCounter(const char *counter, bool alloc) {
   }
 
 
-  M_genericCounters = (unsigned long long *)realloc(M_genericCounters, sizeof(unsigned long long) * 3 * M_genericMap.size());
+  M_genericCounters = (unsigned long long *)realloc(M_genericCounters, sizeof(unsigned long long) * GENERIC_TYPES * M_genericMap.size());
   if (!M_genericCounters) {
     ERROR("Could not allocate generic counters!\n");
   }
@@ -857,6 +890,67 @@ int CStat::findCounter(const char *counter, bool alloc) {
   M_genericCounters[(ret - 1)* GENERIC_TYPES + GENERIC_PL] = 0;
 
   return ret;
+}
+
+int CStat::findRtd(const char *name, bool start) {
+  str_int_map::iterator it = M_rtdMap.find(str_int_map::key_type(name));
+  if (it != M_rtdMap.end()) {
+    if (start) {
+      rtd_started[it->first] = true;
+    } else {
+      rtd_stopped[it->first] = true;
+    }
+    return it->second;
+  }
+
+  int ret = M_rtdMap.size() + 1;
+  M_rtdMap[str_int_map::key_type(name)] = ret;
+
+  M_revRtdMap[ret] = strdup(name);
+
+
+  M_rtdInfo = (unsigned long long *)realloc(M_rtdInfo, sizeof(unsigned long long) * RTD_TYPES * GENERIC_TYPES * M_rtdMap.size());
+  if (!M_rtdInfo) {
+    ERROR("Could not allocate RTD info!\n");
+  }
+  M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) +  RTD_COUNT] = 0;
+  M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) +  RTD_SUM] = 0;
+  M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) +  RTD_SUMSQ] = 0;
+
+  M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) +  RTD_COUNT] = 0;
+  M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) +  RTD_SUM] = 0;
+  M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) +  RTD_SUMSQ] = 0;
+
+  M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PL * RTD_TYPES) +  RTD_COUNT] = 0;
+  M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PL * RTD_TYPES) +  RTD_SUM] = 0;
+  M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PL * RTD_TYPES) +  RTD_SUMSQ] = 0;
+
+  M_ResponseTimeRepartition = (T_dynamicalRepartition **)realloc(M_ResponseTimeRepartition, sizeof(T_dynamicalRepartition *) * M_rtdMap.size());
+  if (!M_ResponseTimeRepartition) {
+    ERROR("Could not allocate RTD info!\n");
+  }
+  M_ResponseTimeRepartition[ret - 1] = NULL;
+
+  if (start) {
+    rtd_started[name] = true;
+  } else {
+    rtd_stopped[name] = true;
+  }
+  return ret;
+}
+
+int CStat::nRtds() {
+  return M_rtdMap.size();
+}
+
+/* If you start an RTD, then you should be interested in collecting statistics for it. */
+void CStat::validateRtds() {
+  for (str_int_map::iterator it = rtd_started.begin(); it != rtd_started.end(); it++) {
+    str_int_map::iterator stopit = rtd_stopped.find(it->first);
+    if (stopit == rtd_stopped.end() || !stopit->second) {
+      ERROR("You have started Response Time Duration %s, but have never stopped it!", it->first.c_str());
+    }
+  }
 }
 
 int CStat::computeStat (E_Action P_action,
@@ -891,19 +985,20 @@ int CStat::computeStat (E_Action P_action,
 
     case E_ADD_RESPONSE_TIME_DURATION :
       // Updating Cumulative Counter
-      updateAverageCounter((E_CounterName)(CPT_C_AverageResponseTime_Sum + which),
-                           (E_CounterName)(CPT_C_NbOfCallUsedForAverageResponseTime + which),
-                           (E_CounterName)(CPT_C_AverageResponseTime_Squares + which), P_value);
-      updateRepartition(M_ResponseTimeRepartition[which], 
-                        M_SizeOfResponseTimeRepartition, P_value);
+      M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_COUNT]++;
+      M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUM] += P_value;
+      M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] += (P_value * P_value);
+      updateRepartition(M_ResponseTimeRepartition[which], M_SizeOfResponseTimeRepartition, P_value);
+
       // Updating Periodical Diplayed counter
-      updateAverageCounter((E_CounterName)(CPT_PD_AverageResponseTime_Sum + which),
-                           (E_CounterName)(CPT_PD_NbOfCallUsedForAverageResponseTime + which),
-                           (E_CounterName)(CPT_PD_AverageResponseTime_Squares + which), P_value);
+      M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT]++;
+      M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUM] += P_value;
+      M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUMSQ] += (P_value * P_value);
+
       // Updating Periodical Logging counter
-      updateAverageCounter((E_CounterName)(CPT_PL_AverageResponseTime_Sum + which),
-                           (E_CounterName)(CPT_PL_NbOfCallUsedForAverageResponseTime + which),
-                           (E_CounterName)(CPT_PL_AverageResponseTime_Squares + which), P_value);
+      M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_COUNT]++;
+      M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUM] += P_value;
+      M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUMSQ] += (P_value * P_value);
       break;
 
     default :
@@ -958,9 +1053,7 @@ CStat::CStat ()
   M_fileName = new char[L_size];
   strcpy(M_fileName, DEFAULT_FILE_NAME);
   strcat(M_fileName, DEFAULT_EXTENSION);
-  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    M_ResponseTimeRepartition[i] = NULL;
-  }
+  M_ResponseTimeRepartition = NULL;
   M_CallLengthRepartition   = NULL;
   M_SizeOfResponseTimeRepartition = 0;
   M_SizeOfCallLengthRepartition   = 0;
@@ -1130,33 +1223,26 @@ void CStat::displayData (FILE *f)
 
 
   DISPLAY_CROSS_LINE ();
-  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    char s[15];
+  for (int i = 1; i <= nRtds(); i++) {
+    char s[80];
 
-    if (!main_scenario->rtd_stopped[i]) {
-      continue;
-    }
+    /* Skip if we aren't stopped. */
+    assert(rtd_stopped[M_revRtdMap[i]] == true);
 
-    sprintf(s, "Response Time %d", i + 1);
+    sprintf(s, "Response Time %s", M_revRtdMap[i]);
     DISPLAY_TXT_COL (s,
-	msToHHMMSSmmm( (unsigned long)computeMean((E_CounterName)(CPT_PD_AverageResponseTime_Sum + i), (E_CounterName)(CPT_PD_NbOfCallUsedForAverageResponseTime + i)) ),
-	msToHHMMSSmmm( (unsigned long)computeMean((E_CounterName)(CPT_C_AverageResponseTime_Sum + i), (E_CounterName)(CPT_C_NbOfCallUsedForAverageResponseTime + i)) ) );
+	msToHHMMSSmmm( (unsigned long)computeRtdMean(i, GENERIC_PD)),
+	msToHHMMSSmmm( (unsigned long)computeRtdMean(i, GENERIC_C)));
   }
-  DISPLAY_TXT_COL ("Call Length", 
+/* I Broke this!
+  DISPLAY_TXT_COL ("Call Length",
                    msToHHMMSSmmm( (unsigned long)computeMean(CPT_PD_AverageCallLength_Sum, CPT_PD_NbOfCallUsedForAverageCallLength)),
                    msToHHMMSSmmm( (unsigned long)computeMean(CPT_C_AverageCallLength_Sum, CPT_C_NbOfCallUsedForAverageCallLength) ));
+*/
   DISPLAY_CROSS_LINE ();
 
-  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    char s[50];
-
-    if (!main_scenario->rtd_stopped[i]) {
-      continue;
-    }
-
-    sprintf(s, "Average Response Time Repartition, %d", i + 1);
-    DISPLAY_INFO(s);
-    displayRepartition(f, M_ResponseTimeRepartition[i], M_SizeOfResponseTimeRepartition);
+  for (int i = 1; i <= nRtds(); i++) {
+    displayRtdRepartition(f, i);
   }
   DISPLAY_INFO("Average Call Length Repartition");
   displayRepartition(f, M_CallLengthRepartition, M_SizeOfCallLengthRepartition);
@@ -1249,18 +1335,13 @@ void CStat::displayStat (FILE *f)
   //               M_counters[CPT_C_UnexpectedMessage]);
 
   DISPLAY_CROSS_LINE ();
-  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    char s[20];
+  for (int i = 1; i <= nRtds(); i++) {
+    char s[80];
 
-    if (!main_scenario->rtd_stopped[i]) {
-      continue;
-    }
-
-
-    sprintf(s, "Response Time %d", i + 1);
+    sprintf(s, "Response Time %s", M_revRtdMap[i]);
     DISPLAY_TXT_COL (s,
-	msToHHMMSSmmm( (unsigned long)computeMean((E_CounterName)(CPT_PD_AverageResponseTime_Sum + i), (E_CounterName)(CPT_PD_NbOfCallUsedForAverageResponseTime + i)) ),
-	msToHHMMSSmmm( (unsigned long)computeMean((E_CounterName)(CPT_C_AverageResponseTime_Sum + i), (E_CounterName)(CPT_C_NbOfCallUsedForAverageResponseTime + i))));
+	msToHHMMSSmmm( (unsigned long)computeRtdMean(i, GENERIC_PD)),
+	msToHHMMSSmmm( (unsigned long)computeRtdMean(i, GENERIC_C)));
   }
   DISPLAY_TXT_COL ("Call Length", 
                    msToHHMMSSmmm( (unsigned long)computeMean(CPT_PD_AverageCallLength_Sum, CPT_PD_NbOfCallUsedForAverageCallLength ) ),
@@ -1270,21 +1351,25 @@ void CStat::displayStat (FILE *f)
 
 void CStat::displayRepartition (FILE *f)
 {
-  DISPLAY_INFO("Average Response Time Repartition");
-  displayRepartition(f,
-                     M_ResponseTimeRepartition[0], 
-                     M_SizeOfResponseTimeRepartition);
+  displayRtdRepartition(f, 1);
   DISPLAY_INFO("Average Call Length Repartition");
   displayRepartition(f,
                      M_CallLengthRepartition, 
                      M_SizeOfCallLengthRepartition);
 }
 
-void CStat::displaySecondaryRepartition (FILE *f, int which)
+void CStat::displayRtdRepartition (FILE *f, int which)
 {
-  DISPLAY_INFO("Average Response Time Repartition");
+  if (which > nRtds()) {
+    DISPLAY_INFO ("  <No repartion defined>");
+    return;
+  }
+
+  char s[80];
+  snprintf(s, sizeof(s), "Average Response Time Repartition %s", M_revRtdMap[which]);
+  DISPLAY_INFO(s);
   displayRepartition(f,
-                     M_ResponseTimeRepartition[which],
+                     M_ResponseTimeRepartition[which - 1],
                      M_SizeOfResponseTimeRepartition);
 }
 
@@ -1395,21 +1480,17 @@ void CStat::dumpData ()
 		      << "WatchdogMinor(P)" << stat_delimiter
 		      << "WatchdogMinor(C)" << stat_delimiter;
 
-    for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-      char s_P[30];
-      char s_C[30];
+    for (int i = 1; i <= nRtds(); i++) {
+      char s_P[80];
+      char s_C[80];
 
-      if (!main_scenario->rtd_stopped[i]) {
-	continue;
-      }
-
-      sprintf(s_P, "ResponseTime%d(P)%s", i + 1, stat_delimiter);
-      sprintf(s_C, "ResponseTime%d(C)%s", i + 1, stat_delimiter);
+      sprintf(s_P, "ResponseTime%s(P)%s", M_revRtdMap[i], stat_delimiter);
+      sprintf(s_C, "ResponseTime%s(C)%s", M_revRtdMap[i], stat_delimiter);
 
       (*M_outputStream) << s_P << s_C;
 
-      sprintf(s_P, "ResponseTime%dStDev(P)%s", i + 1, stat_delimiter);
-      sprintf(s_C, "ResponseTime%dStDev(C)%s", i + 1, stat_delimiter);
+      sprintf(s_P, "ResponseTime%sStDev(P)%s", M_revRtdMap[i], stat_delimiter);
+      sprintf(s_C, "ResponseTime%sStDev(C)%s", M_revRtdMap[i], stat_delimiter);
 
       (*M_outputStream) << s_P << s_C;
     }
@@ -1422,15 +1503,11 @@ void CStat::dumpData ()
       (*M_outputStream) << M_revGenericMap[i] << "(P)" << stat_delimiter;
       (*M_outputStream) << M_revGenericMap[i] << "(C)" << stat_delimiter;
     }
-    for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-      char s[30];
+    for (int i = 1; i <= nRtds(); i++) {
+      char s[80];
 
-      if (!main_scenario->rtd_stopped[i]) {
-	continue;
-      }
-
-      sprintf(s, "ResponseTimeRepartition%d", i + 1);
-      (*M_outputStream) << sRepartitionHeader(M_ResponseTimeRepartition[i],
+      sprintf(s, "ResponseTimeRepartition%s", M_revRtdMap[i]);
+      (*M_outputStream) << sRepartitionHeader(M_ResponseTimeRepartition[i - 1],
 					      M_SizeOfResponseTimeRepartition,
 					      s);
     }
@@ -1507,26 +1584,11 @@ void CStat::dumpData ()
 		    << M_G_counters[CPT_G_C_WatchdogMinor - E_NB_COUNTER - 1]                   << stat_delimiter;
 
   // SF917289 << M_counters[CPT_C_UnexpectedMessage]    << stat_delimiter;
-  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    if (!main_scenario->rtd_stopped[i]) {
-      continue;
-    }
-
-    (*M_outputStream) 
-      << msToHHMMSSmmm( (unsigned long)computeMean((E_CounterName)(CPT_PL_AverageResponseTime_Sum + i),
-				    (E_CounterName)(CPT_PL_NbOfCallUsedForAverageResponseTime + i))) << stat_delimiter;
-    (*M_outputStream) 
-      << msToHHMMSSmmm( (unsigned long)computeMean((E_CounterName)(CPT_C_AverageResponseTime_Sum + i),
-				    (E_CounterName)(CPT_C_NbOfCallUsedForAverageResponseTime + i))) << stat_delimiter;
-
-    (*M_outputStream)
-      << msToHHMMSSmmm( (unsigned long)computeStdev((E_CounterName)(CPT_PL_AverageResponseTime_Sum + i),
-				     (E_CounterName)(CPT_PL_NbOfCallUsedForAverageResponseTime + i),
-				     (E_CounterName)(CPT_PL_AverageResponseTime_Squares + i)) ) << stat_delimiter;
-    (*M_outputStream)
-      << msToHHMMSSmmm( (unsigned long)computeStdev((E_CounterName)(CPT_C_AverageResponseTime_Sum + i),
-				     (E_CounterName)(CPT_C_NbOfCallUsedForAverageResponseTime + i),
-				     (E_CounterName)(CPT_C_AverageResponseTime_Squares + i)) ) << stat_delimiter;
+  for (int i = 1; i <= nRtds(); i++) {
+    (*M_outputStream) << msToHHMMSSmmm( (unsigned long)computeRtdMean(i, GENERIC_PL)) << stat_delimiter;
+    (*M_outputStream) << msToHHMMSSmmm( (unsigned long)computeRtdMean(i, GENERIC_C)) << stat_delimiter;
+    (*M_outputStream) << msToHHMMSSmmm( (unsigned long)computeRtdStdev(i, GENERIC_PL)) << stat_delimiter;
+    (*M_outputStream) << msToHHMMSSmmm( (unsigned long)computeRtdStdev(i, GENERIC_C)) << stat_delimiter;
   }
   (*M_outputStream) 
     << msToHHMMSSmmm( (unsigned long)computeMean(CPT_PL_AverageCallLength_Sum, CPT_PL_NbOfCallUsedForAverageCallLength) ) << stat_delimiter;
@@ -1546,10 +1608,7 @@ void CStat::dumpData ()
     (*M_outputStream) << M_genericCounters[GENERIC_TYPES * i + GENERIC_C] << stat_delimiter;
   }
 
-  for (int i = 0; i < MAX_RTD_INFO_LENGTH; i++) {
-    if (!main_scenario->rtd_stopped[i]) {
-      continue;
-    }
+  for (int i = 0; i < nRtds(); i++) {
     (*M_outputStream) 
       << sRepartitionInfo(M_ResponseTimeRepartition[i], 
                           M_SizeOfResponseTimeRepartition);
