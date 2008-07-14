@@ -2917,7 +2917,8 @@ static ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len, s
   if (!socket->ss_msglen)
     return 0;
   if (socket->ss_msglen > len)
-    ERROR("There is a message waiting in a socket that is bigger (%zd bytes) than the read size.", socket->ss_msglen);
+    ERROR("There is a message waiting in sockfd(%d) that is bigger (%d bytes) than the read size.",
+           socket->ss_fd, socket->ss_msglen);
 
   len = socket->ss_msglen;
 
@@ -3796,6 +3797,27 @@ struct sipp_socket *new_sipp_socket(bool use_ipv6, int transport) {
   struct sipp_socket *ret;
   int fd = socket_fd(use_ipv6, transport);
 
+#if defined(__SUNOS)
+  if (fd < 256)
+  {
+    int newfd = fcntl(fd, F_DUPFD, 256);
+    if (newfd <= 0)
+    {
+      // Typically, (24)(Too many open files) is the error here
+      WARNING("Unable to get a different %s socket, errno=%d(%s)",
+              TRANSPORT_TO_STRING(transport), errno, strerror(errno));
+
+      // Keep the original socket fd.
+      newfd = fd;
+    }
+    else
+    {
+      close(fd);
+    }
+    fd = newfd;
+  }
+#endif
+
   ret  = sipp_allocate_socket(use_ipv6, transport, fd);
   if (!ret) {
     close(fd);
@@ -3845,6 +3867,28 @@ struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket) {
   if((fd = accept(accept_socket->ss_fd, (struct sockaddr *)&remote_sockaddr, &addrlen))== -1) {
     ERROR("Unable to accept on a %s socket: %s", TRANSPORT_TO_STRING(transport), strerror(errno));
   }
+
+#if defined(__SUNOS)
+  if (fd < 256)
+  {
+    int newfd = fcntl(fd, F_DUPFD, 256);
+    if (newfd <= 0)
+    {
+      // Typically, (24)(Too many open files) is the error here
+      WARNING("Unable to get a different %s socket, errno=%d(%s)",
+               TRANSPORT_TO_STRING(transport), errno, strerror(errno));
+
+      // Keep the original socket fd.
+      newfd = fd;
+    }
+    else
+    {
+      close(fd);
+    }
+    fd = newfd;
+  }
+#endif
+
 
   ret  = sipp_allocate_socket(accept_socket->ss_ipv6, accept_socket->ss_transport, fd, 1);
   if (!ret) {
