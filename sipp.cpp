@@ -3182,6 +3182,13 @@ void pollset_process(int wait)
       } else {
 	if ((ret = empty_socket(sock)) <= 0) {
 	  read_error(sock, ret);
+	  /* If read_error() then the poll_idx now belongs
+	   * to the newest/last socket added to the sockets[].
+	   * Need to re-do the same poll_idx for the "new" socket. */
+	  poll_idx--;
+	  events++;
+	  rs--;
+	  continue;
 	}
       }
       events++;
@@ -3191,6 +3198,10 @@ void pollset_process(int wait)
     if (events) {
       rs--;
     }
+  }
+
+  if (read_index >= pollnfds) {
+    read_index = 0;
   }
 
   /* We need to process any new messages that we read. */
