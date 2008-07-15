@@ -3342,9 +3342,9 @@ void traffic_thread()
     for(iter = running_tasks->begin(); iter != running_tasks->end(); iter++) {
       if(last) {
 	last -> run();
-	while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
-	  reset_connection(*(sockets_pending_reset.begin()));
-	  sockets_pending_reset.erase(sockets_pending_reset.begin());
+	if (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
+	  last = NULL;
+	  break;
 	}
       }
       last = *iter;
@@ -3354,10 +3354,10 @@ void traffic_thread()
     }
     if(last) {
       last -> run();
-      while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
-	reset_connection(*(sockets_pending_reset.begin()));
-	sockets_pending_reset.erase(sockets_pending_reset.begin());
-      }
+    }
+    while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
+      reset_connection(*(sockets_pending_reset.begin()));
+      sockets_pending_reset.erase(sockets_pending_reset.begin());
     }
 
     /* Update the clock. */
