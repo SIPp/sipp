@@ -685,9 +685,11 @@ scenario::scenario(char * filename, int deflt)
     if(!strcmp(elem, "CallLengthRepartition")) {
       ptr = xp_get_string("value", "CallLengthRepartition");
       stats->setRepartitionCallLength(ptr);
+      free(ptr);
     } else if(!strcmp(elem, "ResponseTimeRepartition")) {
       ptr = xp_get_string("value", "ResponseTimeRepartition");
       stats->setRepartitionResponseTime(ptr);
+      free(ptr);
     } else if(!strcmp(elem, "Global")) {
       ptr = xp_get_string("variables", "Global");
 
@@ -699,6 +701,7 @@ scenario::scenario(char * filename, int deflt)
 	globalVariables->find(currentTabVarName[i], true);
       }
       freeStringTable(currentTabVarName, currentNbVarNames);
+      free(ptr);
     } else if(!strcmp(elem, "User")) {
       ptr = xp_get_string("variables", "User");
 
@@ -710,6 +713,7 @@ scenario::scenario(char * filename, int deflt)
 	userVariables->find(currentTabVarName[i], true);
       }
       freeStringTable(currentTabVarName, currentNbVarNames);
+      free(ptr);
     } else if(!strcmp(elem, "Reference")) {
       ptr = xp_get_string("variables", "Reference");
 
@@ -724,6 +728,7 @@ scenario::scenario(char * filename, int deflt)
 	}
       }
       freeStringTable(currentTabVarName, currentNbVarNames);
+      free(ptr);
     } else if(!strcmp(elem, "DefaultMessage")) {
       char *id = xp_get_string("id", "DefaultMessage");
       if(!(ptr = xp_get_cdata())) {
@@ -739,6 +744,7 @@ scenario::scenario(char * filename, int deflt)
 	ERROR("The label name '%s' is used twice.", ptr);
       }
       labelMap[ptr] = messages.size();
+      free(ptr);
     } else if (!strcmp(elem, "init")) {
       /* We have an init section, which must be full of nops or labels. */
       int nop_cursor = 0;
@@ -1370,6 +1376,7 @@ void scenario::parseAction(CActions *actions) {
       tmpAction->setCaseIndep(xp_get_bool("case_indep", "ereg", false));
       tmpAction->setHeadersOnly(xp_get_bool("start_line", "ereg", false));
 
+      free(ptr);
       if ( 0 != ( ptr = xp_get_value((char *)"search_in") ) ) {
 	tmpAction->setOccurence(1);
 
@@ -1511,6 +1518,7 @@ void scenario::parseAction(CActions *actions) {
       } else {
 	ERROR("Invalid 'compare' parameter: %s", ptr);
       }
+      free(ptr);
     } else if(!strcmp(actionElem, "verifyauth")) {
 #ifdef _USE_OPENSSL
       tmpAction->setVarId(xp_get_var("assign_to", "verifyauth"));

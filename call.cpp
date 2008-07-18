@@ -617,7 +617,9 @@ call::~call()
   if (use_tdmmap) {
     tdm_map[tdm_map_number] = false;
   }
-
+  
+  free(start_time_rtd);
+  free(rtd_done);
   free(debugBuffer);
 }
 

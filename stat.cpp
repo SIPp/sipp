@@ -149,6 +149,7 @@ CStat::~CStat()
       delete [] M_ResponseTimeRepartition[i];
     }
   }
+  free(M_ResponseTimeRepartition);
 
   if (M_CallLengthRepartition != NULL)
     delete [] M_CallLengthRepartition;
@@ -174,6 +175,10 @@ CStat::~CStat()
    if(M_dumpRespTime != NULL)
      delete [] M_dumpRespTime ;
 
+  free(M_rtdInfo);
+  for (int_str_map::iterator i = M_revRtdMap.begin(); i != M_revRtdMap.end(); ++i) {
+		 free(i->second);
+  }
 
   M_SizeOfResponseTimeRepartition = 0;
   M_SizeOfCallLengthRepartition   = 0;
@@ -1064,7 +1069,8 @@ CStat::CStat ()
   M_counterDumpRespTime = 0          ; 
   M_dumpRespTime = NULL;
   M_fileNameRtt  = NULL;
-
+  M_rtdInfo = NULL;
+		 
   init();
 }
 
