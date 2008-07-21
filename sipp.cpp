@@ -2475,7 +2475,9 @@ static int read_error(struct sipp_socket *socket, int ret) {
 #endif
 
   /* We have only non-blocking reads, so this should not occur. */
-  assert(errno != EAGAIN);
+  if (ret < 0) {
+    assert(errno != EAGAIN);
+  }
 
   if (socket->ss_transport == T_TCP || socket->ss_transport == T_TLS) {
     if (ret == 0) {
