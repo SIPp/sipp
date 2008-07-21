@@ -29,6 +29,7 @@
  *           Clement Chen
  *           Wolfgang Beck
  *           Charles P Wright from IBM Research
+ *           Martin Van Leeuwen
  */
 
 #define GLOBALS_FULL_DEFINITION
@@ -3180,14 +3181,16 @@ void pollset_process(int wait)
 	}
       } else {
 	if ((ret = empty_socket(sock)) <= 0) {
-	  read_error(sock, ret);
-	  /* If read_error() then the poll_idx now belongs
-	   * to the newest/last socket added to the sockets[].
-	   * Need to re-do the same poll_idx for the "new" socket. */
-	  poll_idx--;
-	  events++;
-	  rs--;
-	  continue;
+	  ret = read_error(sock, ret);
+	  if (ret == 0) {
+	    /* If read_error() then the poll_idx now belongs
+	     * to the newest/last socket added to the sockets[].
+	     * Need to re-do the same poll_idx for the "new" socket. */
+	    poll_idx--;
+	    events++;
+	    rs--;
+	    continue;
+	  }
 	}
       }
       events++;
