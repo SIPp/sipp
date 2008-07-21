@@ -3148,7 +3148,7 @@ bool call::process_incoming(char * msg)
   if (call_scenario->messages[search_index] -> bShouldRecordRoutes &&
           NULL == dialog_route_set ) {
 
-      next_req_url = (char*) calloc(1, MAX_HEADER_LEN);
+      next_req_url = (char*) realloc(next_req_url, MAX_HEADER_LEN);
 
       char rr[MAX_HEADER_LEN];
       memset(rr, 0, sizeof(rr));
