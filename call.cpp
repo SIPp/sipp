@@ -2247,6 +2247,23 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	*dest = '\0';
 	break;
       }
+      case E_Message_File: {
+        char buffer[MAX_HEADER_LEN];
+	createSendingMessage(comp->comp_param.filename, -2, buffer, sizeof(buffer));
+	FILE *f = fopen(buffer, "r");
+	if (!f) {
+	  ERROR("Could not open '%s': %s\n", buffer, strerror(errno));
+	}
+	int ret;
+	while ((ret = fread(dest, 1, left, f)) > 0) {
+		left -= ret;
+	}
+	if (ret < 0) {
+	  ERROR("Error reading '%s': %s\n", buffer, strerror(errno));
+	}
+	fclose(f);
+	break;
+      }
       case E_Message_Injection: {
 	char *orig_dest = dest;
 	getFieldFromInputFile(comp->comp_param.field_param.filename, comp->comp_param.field_param.field, comp->comp_param.field_param.line, dest);

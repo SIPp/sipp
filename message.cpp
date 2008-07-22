@@ -246,6 +246,17 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 	    /* Turn this into a new message component. */
 	    newcomp->comp_param.field_param.line = new SendingMessage(msg_scenario, line, true);
 	  }
+        } else if(!strncmp(keyword, "file", strlen("file"))) {
+	  newcomp->type = E_Message_File;
+
+	  /* Parse out the interesting things like file and number. */
+	  char fileName[KEYWORD_SIZE];
+	  getKeywordParam(keyword, "name=", fileName);
+	  if (fileName[0] == '\0') {
+	    ERROR("No name specified for 'file' keyword!\n");
+	  }
+	  /* Turn this into a new message component. */
+	  newcomp->comp_param.filename = new SendingMessage(msg_scenario, fileName, true);
         } else if(*keyword == '$') {
 	  newcomp->type = E_Message_Variable;
 	  if (!msg_scenario) {

@@ -82,6 +82,7 @@ typedef enum {
   E_Message_UserID,
   E_Message_Timestamp,
   E_Message_SippVersion,
+  E_Message_File,
 } MessageCompType;
 
 class SendingMessage {
@@ -140,6 +141,7 @@ struct MessageComponent {
       int field;
       SendingMessage *line;
     } field_param;
+    SendingMessage *filename;
   } comp_param;
 };
 
