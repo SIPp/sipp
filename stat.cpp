@@ -177,7 +177,7 @@ CStat::~CStat()
 
   free(M_rtdInfo);
   for (int_str_map::iterator i = M_revRtdMap.begin(); i != M_revRtdMap.end(); ++i) {
-		 free(i->second);
+    free(i->second);
   }
 
   M_SizeOfResponseTimeRepartition = 0;
@@ -1649,7 +1649,7 @@ void CStat::dumpDataRtt ()
       }
 #endif
   }
-  
+
   if(M_headerAlreadyDisplayedRtt == false) {
     (*M_outputStreamRtt) << "Date_ms" << stat_delimiter
       << "response_time_ms" << stat_delimiter
@@ -1660,16 +1660,16 @@ void CStat::dumpDataRtt ()
   for (unsigned int L_i = 0; L_i < M_counterDumpRespTime ; L_i ++) {
     (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].date   << stat_delimiter ;
     (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtt    << stat_delimiter ;
-    (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtd_no << endl;
+    (*M_outputStreamRtt) <<  M_revRtdMap[M_dumpRespTime[L_i].rtd_no] << endl;
     (*M_outputStreamRtt).flush();
     M_dumpRespTime[L_i].date = 0.0;
     M_dumpRespTime[L_i].rtt = 0.0;
     M_dumpRespTime[L_i].rtd_no = 0;
   }
-      
+
   // flushing the output file
   (*M_outputStreamRtt).flush();
-        
+
   M_counterDumpRespTime = 0;
 }
 
