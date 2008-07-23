@@ -2994,22 +2994,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 
   if(!listener_ptr)
   {
-    if(creationMode == MODE_SERVER)
-    {
-      if (quitting >= 1) {
-	CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
-	TRACE_MSG("Discarded message for new calls while quitting\n");
-	return;
-      }
-
-      // Adding a new INCOMING call !
-      main_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
-      listener_ptr = new call(call_id, socket, src);
-      if (!listener_ptr) {
-	ERROR("Out of memory allocating a call!");
-      }
-    }
-    else if(thirdPartyMode == MODE_3PCC_CONTROLLER_B || thirdPartyMode == MODE_3PCC_A_PASSIVE
+    if(thirdPartyMode == MODE_3PCC_CONTROLLER_B || thirdPartyMode == MODE_3PCC_A_PASSIVE
 	|| thirdPartyMode == MODE_MASTER_PASSIVE || thirdPartyMode == MODE_SLAVE)
     {
       // Adding a new OUTGOING call !
@@ -3044,6 +3029,21 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 	}
       }
       listener_ptr = new_ptr;
+    }
+    else if(creationMode == MODE_SERVER)
+    {
+      if (quitting >= 1) {
+	CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
+	TRACE_MSG("Discarded message for new calls while quitting\n");
+	return;
+      }
+
+      // Adding a new INCOMING call !
+      main_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
+      listener_ptr = new call(call_id, socket, src);
+      if (!listener_ptr) {
+	ERROR("Out of memory allocating a call!");
+      }
     }
     else // mode != from SERVER and 3PCC Controller B
     {
