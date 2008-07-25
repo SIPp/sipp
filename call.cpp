@@ -868,10 +868,10 @@ int call::send_raw(char * msg, int index)
 	if (!multisocket) {
 	  main_remote_socket = call_remote_socket;
 	}
-      } else {
-	assert(!multisocket);
-	assert(main_remote_socket);
-	call_remote_socket = associate_socket(main_remote_socket);
+      }
+
+      if (!multisocket) {
+	call_remote_socket = main_remote_socket;
 	main_remote_socket->ss_count++;
       }
     }
