@@ -327,19 +327,16 @@ int CAction::executeRegExp(char* P_string, VariableTable *P_callVarTable)
 void CAction::setSubString(char** P_target, char* P_source, int P_start, int P_stop)
 {
   int sizeOf;
-  size_t L_size = 0;
 
   if(P_source != NULL) {
     sizeOf = P_stop - P_start;
-    if(sizeOf > 0) {
-      L_size = (size_t) sizeOf;
-      L_size += 1;
-      (*P_target) = new char[L_size];
+    (*P_target) = new char[sizeOf + 1];
 
+    if (sizeOf > 0) {
       memcpy((*P_target), &(P_source[P_start]), sizeOf);
+    }
 
-      (*P_target)[sizeOf] = '\0';
-	 }
+    (*P_target)[sizeOf] = '\0';
   } else {
     *P_target = NULL ;
   }
