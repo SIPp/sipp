@@ -3020,7 +3020,6 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 	if (!multisocket) {
 	  switch(transport) {
 	    case T_UDP:
-	      WARNING("Connecting main socket: %p\n", main_socket);
 	      new_ptr->associate_socket(main_socket);
 	      main_socket->ss_count++;
 	      break;
@@ -3810,7 +3809,6 @@ int socket_fd(bool use_ipv6, int transport) {
   }
 
   if((fd = socket(use_ipv6 ? AF_INET6 : AF_INET, socket_type, 0))== -1) {
-    assert(0);
     ERROR("Unable to get a %s socket (3)", TRANSPORT_TO_STRING(transport));
   }
 

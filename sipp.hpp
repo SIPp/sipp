@@ -381,8 +381,9 @@ extern unsigned long watchdog_reset		  _DEFVAL(600000);
 
 /*********************** Global Sockets  **********************/
 
-extern struct sipp_socket *main_socket            _DEFVAL(0);
-extern struct sipp_socket *tcp_multiplex          _DEFVAL(0);
+extern struct sipp_socket *main_socket            _DEFVAL(NULL);
+extern struct sipp_socket *main_remote_socket     _DEFVAL(NULL);
+extern struct sipp_socket *tcp_multiplex          _DEFVAL(NULL);
 extern int           media_socket                 _DEFVAL(0);
 extern int           media_socket_video           _DEFVAL(0);
 

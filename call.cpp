@@ -846,27 +846,39 @@ int call::send_raw(char * msg, int index)
 
   if ((use_remote_sending_addr) && (sendMode == MODE_SERVER)) {
     if (!call_remote_socket) {
-      struct sockaddr_storage *L_dest = &remote_sending_sockaddr;
+      if (multisocket || !main_remote_socket) {
+	struct sockaddr_storage *L_dest = &remote_sending_sockaddr;
 
-      if((call_remote_socket= new_sipp_socket(use_ipv6, transport)) == NULL) {
-	ERROR_NO("Unable to get a socket for rsa option");
-      }
+	if((call_remote_socket= new_sipp_socket(use_ipv6, transport)) == NULL) {
+	  ERROR_NO("Unable to get a socket for rsa option");
+	}
 
-      sipp_customize_socket(call_remote_socket);
+	sipp_customize_socket(call_remote_socket);
 
-      if(transport != T_UDP) {
-	if (sipp_connect_socket(call_remote_socket, L_dest)) {
-	  if(errno == EINVAL){
-	    /* This occurs sometime on HPUX but is not a true INVAL */
-	    ERROR("Unable to connect a %s socket for rsa option, remote peer error", TRANSPORT_TO_STRING(transport));
-	  } else {
-	    ERROR_NO("Unable to connect a socket for rsa option");
+	if(transport != T_UDP) {
+	  if (sipp_connect_socket(call_remote_socket, L_dest)) {
+	    if(errno == EINVAL){
+	      /* This occurs sometime on HPUX but is not a true INVAL */
+	      ERROR("Unable to connect a %s socket for rsa option, remote peer error", TRANSPORT_TO_STRING(transport));
+	    } else {
+	      ERROR_NO("Unable to connect a socket for rsa option");
+	    }
 	  }
 	}
+	if (!multisocket) {
+	  main_remote_socket = call_remote_socket;
+	}
+      } else {
+	assert(!multisocket);
+	assert(main_remote_socket);
+	call_remote_socket = associate_socket(main_remote_socket);
+	main_remote_socket->ss_count++;
       }
     }
     sock=call_remote_socket ;
   }
+
+  assert(sock);
 
   rc = write_socket(sock, msg, strlen(msg), WS_BUFFER, &call_peer);
   if(rc == -1 && errno == EWOULDBLOCK) {
