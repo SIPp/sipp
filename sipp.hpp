@@ -187,6 +187,7 @@ extern int	          rate_max	          _DEFVAL(0);
 extern bool	          rate_quit		  _DEFVAL(true);
 extern int                users                   _DEFVAL(-1);
 extern int               rate_period_ms           _DEFVAL(DEFAULT_RATE_PERIOD_MS);
+extern int                sleeptime               _DEFVAL(0);
 extern unsigned long      defl_recv_timeout       _DEFVAL(0);
 extern unsigned long      defl_send_timeout       _DEFVAL(0);
 extern unsigned long      global_timeout          _DEFVAL(0);

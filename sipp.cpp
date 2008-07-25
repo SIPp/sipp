@@ -37,6 +37,8 @@
 #include "sipp.hpp"
 #include "assert.h"
 
+void sipp_usleep(unsigned long usec);
+
 #ifdef _USE_OPENSSL
 SSL_CTX  *sip_trp_ssl_ctx = NULL; /* For SSL cserver context */
 SSL_CTX  *sip_trp_ssl_ctx_client = NULL; /* For SSL cserver context */
@@ -221,6 +223,7 @@ struct sipp_option options_table[] = {
 	{"no_rate_quit", "If -rate_increase is set, do not quit after the rate reaches -rate_max.", SIPP_OPTION_UNSETFLAG, &rate_quit, 1},
 	{"recv_timeout", "Global receive timeout. Default unit is milliseconds. If the expected message is not received, the call times out and is aborted.", SIPP_OPTION_TIME_MS_LONG, &defl_recv_timeout, 1},
 	{"send_timeout", "Global send timeout. Default unit is milliseconds. If a message is not sent (due to congestion), the call times out and is aborted.", SIPP_OPTION_TIME_MS_LONG, &defl_send_timeout, 1},
+	{"sleep", "How long to sleep for at startup. Default unit is seconds.", SIPP_OPTION_TIME_SEC, &sleeptime, 1},
 	{"reconnect_close", "Should calls be closed on reconnect?", SIPP_OPTION_BOOL, &reset_close, 1},
 	{"reconnect_sleep", "How long (in milliseconds) to sleep between the close and reconnect?", SIPP_OPTION_TIME_MS, &reset_sleep, 1},
 	{"ringbuffer_files", "How many error/message files should be kept after rotation?", SIPP_OPTION_INT, &ringbuffer_files, 1},
@@ -3017,6 +3020,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 	if (!multisocket) {
 	  switch(transport) {
 	    case T_UDP:
+	      WARNING("Connecting main socket: %p\n", main_socket);
 	      new_ptr->associate_socket(main_socket);
 	      main_socket->ss_count++;
 	      break;
@@ -3806,7 +3810,8 @@ int socket_fd(bool use_ipv6, int transport) {
   }
 
   if((fd = socket(use_ipv6 ? AF_INET6 : AF_INET, socket_type, 0))== -1) {
-    ERROR("Unable to get a %s socket", TRANSPORT_TO_STRING(transport));
+    assert(0);
+    ERROR("Unable to get a %s socket (3)", TRANSPORT_TO_STRING(transport));
   }
 
   return fd;
@@ -4699,7 +4704,7 @@ int main(int argc, char *argv[])
 	  FD_SETSIZE;
 #endif
     }
-    
+
     rlimit.rlim_cur = rlimit.rlim_max;
     if (setrlimit (RLIMIT_NOFILE, &rlimit) < 0) {
       ERROR("Unable to increase the open file limit to FD_SETSIZE = %d",
@@ -4766,6 +4771,7 @@ int main(int argc, char *argv[])
         }
     }
 
+    sipp_usleep(sleeptime * 1000);
 
   /* Create the statistics reporting task. */
   stattask::initialize();
