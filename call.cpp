@@ -673,13 +673,13 @@ bool call::connect_socket_if_needed()
   if(transport == T_UDP) {
     struct sockaddr_storage saddr;
 
-    if(creationMode != MODE_CLIENT)
+    if(sendMode != MODE_CLIENT)
       return true;
 
     char peripaddr[256];
     if (!peripsocket) {
       if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
-	ERROR_NO("Unable to get a UDP socket");
+	 ERROR_NO("Unable to get a UDP socket (1)");
       }
     } else {
       char *tmp = peripaddr;
@@ -689,7 +689,7 @@ bool call::connect_socket_if_needed()
       if (i == map_perip_fd.end()) {
 	// Socket does not exist
 	if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
-	  ERROR_NO("Unable to get a UDP socket");
+	  ERROR_NO("Unable to get a UDP socket (2)");
 	} else {
 	  /* Ensure that it stays persistent, because it is recorded in the map. */
 	  call_socket->ss_count++;
@@ -844,7 +844,7 @@ int call::send_raw(char * msg, int index)
   
   sock = call_socket;
 
-  if ((use_remote_sending_addr) && (creationMode == MODE_SERVER)) {
+  if ((use_remote_sending_addr) && (sendMode == MODE_SERVER)) {
     if (!call_remote_socket) {
       struct sockaddr_storage *L_dest = &remote_sending_sockaddr;
 
@@ -2057,7 +2057,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	break;
       case E_Message_Local_Port:
 	int port;
-	if((transport == T_UDP) && (multisocket) && (creationMode != MODE_SERVER)) {
+	if((transport == T_UDP) && (multisocket) && (sendMode != MODE_SERVER)) {
 	  port = call_port;
 	} else {
 	  port =  local_port;
@@ -2257,6 +2257,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	int ret;
 	while ((ret = fread(dest, 1, left, f)) > 0) {
 		left -= ret;
+		dest += ret;
 	}
 	if (ret < 0) {
 	  ERROR("Error reading '%s': %s\n", buffer, strerror(errno));
