@@ -1060,12 +1060,16 @@ void print_stats_in_file(FILE * f, int last)
 void print_count_file(FILE *f, int header) {
   char temp_str[256];
 
+  if (!main_scenario || (!header && !main_scenario->stats)) {
+	return;
+  }
+
   if (header) {
     fprintf(f, "CurrentTime%sElapsedTime%s", stat_delimiter, stat_delimiter);
   } else {
     struct timeval currentTime, startTime;
     GET_TIME(&currentTime);
-    display_scenario->stats->getStartTime(&startTime);
+    main_scenario->stats->getStartTime(&startTime);
     unsigned long globalElapsedTime = CStat::computeDiffTimeInMs (&currentTime, &startTime);
     fprintf(f, "%s%s", CStat::formatTime(&currentTime), stat_delimiter);
     fprintf(f, "%s%s", CStat::msToHHMMSSmmm(globalElapsedTime), stat_delimiter);
