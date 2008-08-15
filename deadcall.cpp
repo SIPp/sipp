@@ -62,7 +62,7 @@ deadcall::~deadcall() {
   free(reason);
 }
 
-bool deadcall::process_incoming(char * msg) {
+bool deadcall::process_incoming(char * msg, struct sockaddr_storage *src) {
   char buffer[MAX_HEADER_LEN];
 
   CStat::globalStat(CStat::E_DEAD_CALL_MSGS);

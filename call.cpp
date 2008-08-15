@@ -2819,7 +2819,7 @@ void call::queue_up(char *msg) {
   queued_msg = strdup(msg);
 }
 
-bool call::process_incoming(char * msg)
+bool call::process_incoming(char * msg, struct sockaddr_storage *src)
 {
   int             reply_code;
   static char     request[65];
@@ -2838,6 +2838,11 @@ bool call::process_incoming(char * msg)
 
   /* Ignore the messages received during a pause if -pause_msg_ign is set */
   if(call_scenario->messages[msg_index] -> M_type == MSG_TYPE_PAUSE && pause_msg_ign) return(true);
+
+  /* Get our destination if we have none. */
+  if (call_peer.ss_family == AF_UNSPEC && src) {
+    memcpy(&call_peer, src, SOCK_ADDR_SIZE(src));
+  }
 
   /* Authorize nop as a first command, even in server mode */
   if((msg_index == 0) && (call_scenario->messages[msg_index] -> M_type == MSG_TYPE_NOP)) {

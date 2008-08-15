@@ -3067,7 +3067,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 	    ERROR("Out of memory allocating a call!");
 	  }
 	  CStat::globalStat(CStat::E_AUTO_ANSWERED);
-	  call_ptr->process_incoming(msg);
+	  call_ptr->process_incoming(msg, src);
 	} else {
 	  /* We received a response not relating to any known call */
 	  /* Do nothing, even if in auto answer mode */
@@ -3091,7 +3091,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
   }
   else
   {
-    listener_ptr -> process_incoming(msg);
+    listener_ptr -> process_incoming(msg, src);
   }
 }
 
