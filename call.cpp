@@ -2351,6 +2351,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
   char *body;
   if (length_marker || auth_marker) {
     body = strstr(msg_buffer, "\r\n\r\n");
+    if (body) {
+	body += strlen("\r\n\r\n");
+    }
   }
 
   /* Fix up the length. */
