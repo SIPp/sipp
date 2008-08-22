@@ -3340,8 +3340,21 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 	  return(call::E_AR_HDR_NOT_FOUND);
 	}
 	haystack = msgPart;
-      } else {
+      } else if(currentAction->getLookingPlace() == CAction::E_LP_BODY) {
+	haystack = strstr(msg, "\r\n\r\n");
+	if (!haystack) {
+	  if (currentAction->getCheckIt() == true) {
+	    WARNING("Failed regexp match: body not found in message %s\n", msg);
+	    return(call::E_AR_HDR_NOT_FOUND);
+	  }
+	  msgPart[0] = '\0';
+	  haystack = msgPart;
+	}
+	haystack += strlen("\r\n\r\n");
+      } else if(currentAction->getLookingPlace() == CAction::E_LP_MSG) {
 	haystack = msg;
+      } else {
+	ERROR("Invalid looking place: %d\n", currentAction->getLookingPlace());
       }
       currentAction->executeRegExp(haystack, M_callVariableTable);
 

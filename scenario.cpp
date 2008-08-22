@@ -1383,6 +1383,9 @@ void scenario::parseAction(CActions *actions) {
 	if ( 0 == strcmp(ptr, (char *)"msg") ) {
 	  tmpAction->setLookingPlace(CAction::E_LP_MSG);
 	  tmpAction->setLookingChar (NULL);
+	} else if ( 0 == strcmp(ptr, (char *)"body") ) {
+	  tmpAction->setLookingPlace(CAction::E_LP_BODY);
+	  tmpAction->setLookingChar (NULL);
 	} else if (!strcmp(ptr, (char *)"hdr")) {
 	  ptr = xp_get_value((char *)"header");
 	  if (!ptr || !strlen(ptr)) {
