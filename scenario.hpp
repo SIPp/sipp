@@ -207,6 +207,7 @@ private:
   void parseAction(CActions *actions);
   void handle_arithmetic(CAction *tmpAction, char *what);
   void handle_rhs(CAction *tmpAction, char *what);
+  void checkOptionalRecv(char *elem, unsigned int scenario_file_cursor);
 
   void apply_labels(msgvec v, str_int_map labels);
   void validate_variable_usage();
@@ -216,8 +217,8 @@ private:
   int xp_get_var(const char *name, const char *what);
   int xp_get_var(const char *name, const char *what, int defval);
 
-
   bool hidedefault;
+  bool last_recv_optional;
 };
 
 /* There are external variable containing the current scenario */

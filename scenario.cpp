@@ -634,15 +634,22 @@ char *clean_cdata(char *ptr, int *removed_crlf = NULL) {
 
 /********************** Scenario File analyser **********************/
 
+void scenario::checkOptionalRecv(char *elem, unsigned int scenario_file_cursor) {
+  if (last_recv_optional) {
+    ERROR("<recv> before <%s> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", elem, scenario_file_cursor);
+  }
+  last_recv_optional = false;
+}
+
 scenario::scenario(char * filename, int deflt)
 {
   char * elem;
   char *method_list = NULL;
   unsigned int scenario_file_cursor = 0;
   int    L_content_length = 0 ;
-  unsigned int recv_count = 0;
-  unsigned int recv_opt_count = 0;
   char * peer; 
+
+  last_recv_optional = false;
 
   if(filename) {
     if(!xp_set_xml_buffer_from_file(filename)) {
@@ -776,15 +783,7 @@ scenario::scenario(char * filename, int deflt)
       messages.push_back(curmsg);
 
       if(!strcmp(elem, "send")) {
-        if (recv_count) {
-          if (recv_count != recv_opt_count) {
-            recv_count = 0;
-            recv_opt_count = 0;
-          } else {
-            ERROR("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
-          }
-        }
-
+	checkOptionalRecv(elem, scenario_file_cursor);
 	curmsg->M_type = MSG_TYPE_SEND;
         /* Sent messages descriptions */
         if(!(ptr = xp_get_cdata())) {
@@ -857,7 +856,6 @@ scenario::scenario(char * filename, int deflt)
 	curmsg -> retrans_delay = xp_get_long("retrans", "retransmission timer", 0);
 	curmsg -> timeout = xp_get_long("timeout", "message send timeout", 0);
       } else if(!strcmp(elem, (char *)"recv")) {
-        recv_count++;
         curmsg->M_type = MSG_TYPE_RECV;
         /* Received messages descriptions */
         if((ptr = xp_get_value((char *)"response"))) {
@@ -878,9 +876,7 @@ scenario::scenario(char * filename, int deflt)
         }
 
 	curmsg->optional = xp_get_optional("optional", "recv");
-	if (curmsg->optional) {
-	  ++recv_opt_count;
-	}
+	last_recv_optional = curmsg->optional;
 	curmsg->advance_state = xp_get_bool("advance_state", "recv", true);
 	if (!curmsg->advance_state && curmsg->optional == OPTIONAL_FALSE) {
 	  ERROR("advance_state is allowed only for optional messages (index = %d)\n", messages.size() - 1);
@@ -912,14 +908,7 @@ scenario::scenario(char * filename, int deflt)
 #endif
         }
       } else if(!strcmp(elem, "pause") || !strcmp(elem, "timewait")) {
-        if (recv_count) {
-          if (recv_count != recv_opt_count) {
-            recv_count = 0;
-            recv_opt_count = 0;
-          } else {
-            ERROR("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
-          }
-        }
+	checkOptionalRecv(elem, scenario_file_cursor);
         curmsg->M_type = MSG_TYPE_PAUSE;
 	if (!strcmp(elem, "timewait")) {
 	  curmsg->timewait = true;
@@ -951,17 +940,15 @@ scenario::scenario(char * filename, int deflt)
 	}
       }
       else if(!strcmp(elem, "nop")) {
+	checkOptionalRecv(elem, scenario_file_cursor);
 	/* Does nothing at SIP level.  This message type can be used to handle
 	 * actions, increment counters, or for RTDs. */
 	curmsg->M_type = MSG_TYPE_NOP;
       }
       else if(!strcmp(elem, "recvCmd")) {
-        recv_count++;
         curmsg->M_type = MSG_TYPE_RECVCMD;
 	curmsg->optional = xp_get_optional("optional", "recv");
-	if (curmsg->optional) {
-	  ++recv_opt_count;
-	}
+	last_recv_optional = curmsg->optional;
 
 	/* 3pcc extended mode */
         if((ptr = xp_get_value((char *)"src"))) {
@@ -970,14 +957,7 @@ scenario::scenario(char * filename, int deflt)
 	  ERROR("You must specify a 'src' for recvCmd when using extended 3pcc mode!");
 	}
       } else if(!strcmp(elem, "sendCmd")) {
-        if (recv_count) {
-          if (recv_count != recv_opt_count) {
-            recv_count = 0;
-            recv_opt_count = 0;
-          } else {
-            ERROR("<recv> before <send> sequence without a mandatory message. Please remove one 'optional=true' (element %d).", scenario_file_cursor);
-          }
-        }
+	checkOptionalRecv(elem, scenario_file_cursor);
         curmsg->M_type = MSG_TYPE_SENDCMD;
         /* Sent messages descriptions */
 
