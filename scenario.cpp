@@ -24,6 +24,7 @@
  *           Wolfgang Beck
  *           Marc Van Diest from Belgacom
  *	     Charles P. Wright from IBM Research
+ *	     Michael Stovenour
  */
 
 #include <stdlib.h>
@@ -602,7 +603,7 @@ char *clean_cdata(char *ptr, int *removed_crlf = NULL) {
        (*ptr == '\t') ||
        (*ptr == '\n'))) {
     if(*ptr == '\n' && removed_crlf) {
-      *removed_crlf++;
+      (*removed_crlf)++;
     }
     *ptr-- = 0;
   }
