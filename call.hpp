@@ -205,6 +205,7 @@ private:
       E_AR_NO_ERROR = 0,
       E_AR_REGEXP_DOESNT_MATCH,
       E_AR_STOP_CALL,
+      E_AR_CONNECT_FAILED,
       E_AR_HDR_NOT_FOUND
     };
 

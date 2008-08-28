@@ -1291,6 +1291,14 @@ void call::terminate(CStat::E_Action reason) {
 	  new deadcall(id, reason_str);
 	}
 	break;
+      case E_AR_CONNECT_FAILED:
+	computeStat(CStat::E_CALL_FAILED);
+	computeStat(CStat::E_FAILED_TCP_CONNECT);
+	if (deadcall_wait && !initCall) {
+	  sprintf(reason_str, "connection failed %d", msg_index);
+	  new deadcall(id, reason_str);
+	}
+	break;
       case call::E_AR_NO_ERROR:
       case call::E_AR_STOP_CALL:
 	/* Do nothing. */
@@ -2511,7 +2519,10 @@ bool call::process_twinSippCom(char * msg)
         call::last_action_result = actionResult;
         if (actionResult == E_AR_STOP_CALL) {
             return rejectCall();
-        }
+        } else if (actionResult == E_AR_CONNECT_FAILED) {
+	  terminate(CStat::E_FAILED_TCP_CONNECT);
+	  return false;
+	}
       }
     } else {
       TRACE_MSG("Unexpected control message received (no such message found):\n%s\n", msg);
@@ -3137,6 +3148,9 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
       call::last_action_result = actionResult;
       if (actionResult == E_AR_STOP_CALL) {
           return rejectCall();
+      } else if (actionResult == E_AR_CONNECT_FAILED) {
+	  terminate(CStat::E_FAILED_TCP_CONNECT);
+	  return false;
       }
     }
   }
@@ -3442,22 +3456,35 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
       char *endptr;
       int port = (int)strtod(str_port, &endptr);
       if (*endptr) {
-	ERROR("Invalid line number for replace: %s", str_port);
+	ERROR("Invalid port for setdest: %s", str_port);
       }
 
       int protocol;
-      if (!strcmp(str_protocol, "udp")) {
+      if (!strcmp(str_protocol, "udp") || !strcmp(str_protocol, "UDP")) {
 	protocol = T_UDP;
-      } else if (!strcmp(str_protocol, "tcp")) {
+      } else if (!strcmp(str_protocol, "tcp") || !strcmp(str_protocol, "TCP")) {
 	protocol = T_TCP;
-      } else if (!strcmp(str_protocol, "tls")) {
+      } else if (!strcmp(str_protocol, "tls") || !strcmp(str_protocol, "TLS")) {
 	protocol = T_TLS;
       } else {
 	ERROR("Unknown transport for setdest: '%s'", str_protocol);
       }
 
-      if (protocol != T_UDP) {
-	ERROR("The only supported protocol for changing destination is currently UDP.");
+      if (protocol != call_socket->ss_transport) {
+	  ERROR("Can not switch protocols during setdest.");
+      }
+
+      if (protocol == T_UDP) {
+	/* Nothing to do. */
+      } else if (protocol == T_TLS) {
+	ERROR("Changing destinations is not supported for TLS.");
+      } else if (protocol == T_TCP) {
+	if (!multisocket) {
+	  ERROR("Changing destinations for TCP requires multisocket mode.");
+	}
+	if (call_socket->ss_count > 1) {
+	  ERROR("Can not change destinations for a TCP socket that has more than one user.");
+	}
       }
 
       struct addrinfo   hints;
@@ -3479,10 +3506,42 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
       } else {
 	(_RCAST(struct sockaddr_in6 *,&call_peer))->sin6_port = htons(port);
       }
+      memcpy(&call_socket->ss_dest, &call_peer, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *,&call_peer)));
 
       free(str_host);
       free(str_port);
       free(str_protocol);
+
+      if (protocol == T_TCP) {
+	close(call_socket->ss_fd);
+	call_socket->ss_fd = -1;
+	if (sipp_reconnect_socket(call_socket)) {
+	  if (reconnect_allowed()) {
+	    if(errno == EINVAL){
+	      /* This occurs sometime on HPUX but is not a true INVAL */
+	      WARNING("Unable to connect a TCP socket, remote peer error");
+	    } else {
+	      WARNING("Unable to connect a TCP socket");
+	    }
+	    /* This connection failed.  We must be in multisocket mode, because
+	     * otherwise we would already have a call_socket.  This call can not
+	     * succeed, but does not affect any of our other calls. We do decrement
+	     * the reconnection counter however. */
+	    if (reset_number != -1) {
+	      reset_number--;
+	    }
+
+	    return E_AR_CONNECT_FAILED;
+	  } else {
+	    if(errno == EINVAL){
+	      /* This occurs sometime on HPUX but is not a true INVAL */
+	      ERROR("Unable to connect a TCP socket, remote peer error");
+	    } else {
+	      ERROR_NO("Unable to connect a TCP socket");
+	    }
+	  }
+	}
+      }
 #ifdef _USE_OPENSSL
     } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_AUTH) {
       bool result;
