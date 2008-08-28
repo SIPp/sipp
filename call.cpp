@@ -3515,6 +3515,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
       if (protocol == T_TCP) {
 	close(call_socket->ss_fd);
 	call_socket->ss_fd = -1;
+	call_socket->ss_changed_dest = true;
 	if (sipp_reconnect_socket(call_socket)) {
 	  if (reconnect_allowed()) {
 	    if(errno == EINVAL){

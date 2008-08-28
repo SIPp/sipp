@@ -522,6 +522,7 @@ struct sipp_socket {
 	bool ss_ipv6;
 	bool ss_control; /* Is this a control socket? */
 	bool ss_call_socket; /* Is this a call socket? */
+	bool ss_changed_dest; /* Has the destination changed from default. */
 
 	int ss_fd;	/* The underlying file descriptor for this socket. */
 	void *ss_comp_state; /* The compression state. */

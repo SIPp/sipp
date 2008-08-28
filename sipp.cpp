@@ -3755,6 +3755,7 @@ static struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, in
   ret->ss_fd = fd;
   ret->ss_comp_state = NULL;
   ret->ss_count = 1;
+  ret->ss_changed_dest = false;
 
   /* Initialize all sockets with our destination address. */
   memcpy(&ret->ss_remote_sockaddr, &remote_sockaddr, sizeof(ret->ss_remote_sockaddr));
@@ -3864,6 +3865,17 @@ struct sipp_socket *new_sipp_call_socket(bool use_ipv6, int transport, bool *exi
       next_socket = (next_socket + 1) % pollnfds;
 
       if (sockets[test_socket]->ss_call_socket) {
+	/* Here we need to check that the address is the default. */
+	if (sockets[test_socket]->ss_ipv6 != use_ipv6) {
+	  continue;
+	}
+	if (sockets[test_socket]->ss_transport != transport) {
+	  continue;
+	}
+	if (sockets[test_socket]->ss_changed_dest) {
+	  continue;
+	}
+
 	sock = sockets[test_socket];
 	sock->ss_count++;
 	*existing = true;
