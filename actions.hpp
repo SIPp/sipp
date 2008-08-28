@@ -78,6 +78,7 @@ class CAction
       E_LP_MSG = 0,
       E_LP_HDR,
       E_LP_BODY,
+      E_LP_VAR,
       E_LP_NB_LOOKING_PLACE
     };
 

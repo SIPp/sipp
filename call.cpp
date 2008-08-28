@@ -3354,6 +3354,15 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 	haystack += strlen("\r\n\r\n");
       } else if(currentAction->getLookingPlace() == CAction::E_LP_MSG) {
 	haystack = msg;
+      } else if(currentAction->getLookingPlace() == CAction::E_LP_VAR) {
+	/* Get the input variable. */
+	haystack = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
+	if (!haystack) {
+	  if (currentAction->getCheckIt() == true) {
+	    WARNING("Failed regexp match: variable $%d not set\n", currentAction->getVarInId());
+	    return(call::E_AR_HDR_NOT_FOUND);
+	  }
+	}
       } else {
 	ERROR("Invalid looking place: %d\n", currentAction->getLookingPlace());
       }

@@ -1367,6 +1367,9 @@ void scenario::parseAction(CActions *actions) {
 	} else if ( 0 == strcmp(ptr, (char *)"body") ) {
 	  tmpAction->setLookingPlace(CAction::E_LP_BODY);
 	  tmpAction->setLookingChar (NULL);
+	} else if (!strcmp(ptr, (char *)"var")) {
+	  tmpAction->setVarInId(xp_get_var("variable", "ereg"));
+	  tmpAction->setLookingPlace(CAction::E_LP_VAR);
 	} else if (!strcmp(ptr, (char *)"hdr")) {
 	  ptr = xp_get_value((char *)"header");
 	  if (!ptr || !strlen(ptr)) {
