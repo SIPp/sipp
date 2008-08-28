@@ -3863,7 +3863,6 @@ struct sipp_socket *new_sipp_call_socket(bool use_ipv6, int transport, bool *exi
       int test_socket = next_socket;
       next_socket = (next_socket + 1) % pollnfds;
 
-      assert(sockets[test_socket]->ss_call_socket >= 0);
       if (sockets[test_socket]->ss_call_socket) {
 	sock = sockets[test_socket];
 	sock->ss_count++;

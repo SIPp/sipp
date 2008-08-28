@@ -140,8 +140,8 @@ private:
    * a cause relationship, so the next time this cookie will be recvd,
    * we will retransmit the same message we sent this time */
   unsigned long  recv_retrans_hash;
-  unsigned int   recv_retrans_recv_index;
-  unsigned int   recv_retrans_send_index;
+  int   recv_retrans_recv_index;
+  int   recv_retrans_send_index;
   unsigned int   recv_timeout;
 
   /* holds the route set */
