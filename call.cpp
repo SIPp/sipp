@@ -34,6 +34,7 @@
  *           Marc Van Diest from Belgacom
  *           Michael Dwyer from Cibation
  *           Roland Meub
+ *           Andy Aicken
  */
 
 #include <iterator>
@@ -364,6 +365,7 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
   msg_index = 0;
   last_send_index = 0;
   last_send_msg = NULL;
+  last_send_len = 0;
 
   last_recv_hash = 0;
   last_recv_index = -1;
@@ -818,7 +820,7 @@ bool call::lost(int index)
   return (((double)rand() / (double)RAND_MAX) < (percent / 100.0));
 }
 
-int call::send_raw(char * msg, int index) 
+int call::send_raw(char * msg, int index, int len) 
 {
   struct sipp_socket *sock;
   int rc;
@@ -878,9 +880,14 @@ int call::send_raw(char * msg, int index)
     sock=call_remote_socket ;
   }
 
+  // If the length hasn't been explicitly specified, treat the message as a string
+  if (len==0) {
+    len = strlen(msg);
+  }
+  
   assert(sock);
 
-  rc = write_socket(sock, msg, strlen(msg), WS_BUFFER, &call_peer);
+  rc = write_socket(sock, msg, len, WS_BUFFER, &call_peer);
   if(rc == -1 && errno == EWOULDBLOCK) {
     return -1;
   }
@@ -896,10 +903,10 @@ int call::send_raw(char * msg, int index)
 
 /* This method is used to send messages that are not */
 /* part of the XML scenario                          */
-void call::sendBuffer(char * msg)
+void call::sendBuffer(char * msg, int len)
 {
   /* call send_raw but with a special scenario index */
-  if (send_raw(msg, -1) < 0) {
+  if (send_raw(msg, -1, len) < 0) {
     if (sendbuffer_warn) {
       ERROR_NO("Error sending raw message");
     } else {
@@ -1182,10 +1189,8 @@ char * call::get_last_request_uri ()
   
 }
 
-char * call::send_scene(int index, int *send_status)
+char * call::send_scene(int index, int *send_status, int *len)
 {
-  static char msg_buffer[SIPP_MAX_MSG_SIZE];
-
 #define MAX_MSG_NAME_SIZE 30
   static char msg_name[MAX_MSG_NAME_SIZE];
   char *L_ptr1 ;
@@ -1209,12 +1214,11 @@ char * call::send_scene(int index, int *send_status)
   assert(call_scenario->messages[index]->send_scheme);
 
   char * dest;
-  dest = createSendingMessage(call_scenario->messages[index] -> send_scheme, index);
-  strcpy(msg_buffer, dest);
+  dest = createSendingMessage(call_scenario->messages[index] -> send_scheme, index, len);
 
   if (dest) {
     L_ptr1=msg_name ;
-    L_ptr2=msg_buffer ;
+    L_ptr2=dest ;
     while ((*L_ptr2 != ' ') && (*L_ptr2 != '\n') && (*L_ptr2 != '\t'))  {
       *L_ptr1 = *L_ptr2;
       L_ptr1 ++;
@@ -1228,9 +1232,9 @@ char * call::send_scene(int index, int *send_status)
     ack_is_pending = false ;
   }
 
-  *send_status = send_raw(msg_buffer, index);
+  *send_status = send_raw(dest, index, *len);
 
-  return msg_buffer;
+  return dest;
 }
 
 void call::do_bookkeeping(message *curmsg) {
@@ -1414,6 +1418,7 @@ bool call::executeMessage(message *curmsg) {
 
   else if(curmsg -> send_scheme) {
     char * msg_snd;
+    int msgLen;
     int send_status;
 
     /* Do not send a new message until the previous one which had
@@ -1441,7 +1446,7 @@ bool call::executeMessage(message *curmsg) {
           incr_cseq = 1;
     }
     
-    msg_snd = send_scene(msg_index, &send_status);
+    msg_snd = send_scene(msg_index, &send_status, &msgLen);
     if(send_status == -1 && errno == EWOULDBLOCK) {
       if (incr_cseq) --cseq;
       /* Have we set the timeout yet? */
@@ -1476,8 +1481,10 @@ bool call::executeMessage(message *curmsg) {
     send_timeout = 0;
 
     last_send_index = curmsg->index;
-    last_send_msg = (char *) realloc(last_send_msg, strlen(msg_snd) + 1);
-    strcpy(last_send_msg, msg_snd);
+    last_send_len = msgLen;
+    last_send_msg = (char *) realloc(last_send_msg, msgLen+1);
+    memcpy(last_send_msg, msg_snd, msgLen);
+    last_send_msg[msgLen] = '\0';
 
     if (curmsg->start_txn) {
       transactions[curmsg->start_txn - 1].txnID = (char *)realloc(transactions[curmsg->start_txn - 1].txnID, MAX_HEADER_LEN);
@@ -1677,7 +1684,7 @@ bool call::run()
           nb_last_delay = DEFAULT_T2_TIMER_VALUE;
       }
       }
-      if(send_raw(last_send_msg, last_send_index) < -1) {
+      if(send_raw(last_send_msg, last_send_index, last_send_len) < -1) {
         return false;
       }
       call_scenario->messages[last_send_index] -> nb_sent_retrans++;
@@ -2032,12 +2039,12 @@ int call::sendCmdBuffer(char* cmd)
 }
 
 
-char* call::createSendingMessage(SendingMessage *src, int P_index) {
+char* call::createSendingMessage(SendingMessage *src, int P_index, int *msgLen) {
   static char msg_buffer[SIPP_MAX_MSG_SIZE+2];
-  return createSendingMessage(src, P_index, msg_buffer, sizeof(msg_buffer));
+  return createSendingMessage(src, P_index, msg_buffer, sizeof(msg_buffer), msgLen);
 }
 
-char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buffer, int buf_len)
+char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buffer, int buf_len, int *msgLen)
 {
   char * length_marker = NULL;
   char * auth_marker = NULL;
@@ -2060,7 +2067,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	  dest += snprintf(dest, left, "%s", ptr);
 	  supresscrlf = false;
 	} else {
-	  dest += snprintf(dest, left, "%s", comp->literal);
+	  memcpy(dest, comp->literal, comp->literalLen);
+	  dest += comp->literalLen;
+          *dest = '\0';
 	}
 	break;
       case E_Message_Remote_IP:
@@ -2457,6 +2466,10 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     SendingMessage::freeMessageComponent(auth_comp);
   }
 
+  if (msgLen != NULL) {
+    *msgLen = dest - msg_buffer;
+  }
+   
   return msg_buffer;
 }
 
@@ -2888,7 +2901,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
 
       call_scenario->messages[recv_retrans_recv_index] -> nb_recv_retrans++;
 
-      send_scene(recv_retrans_send_index, &status);
+      send_scene(recv_retrans_send_index, &status, NULL);
 
       if(status >= 0) {
 	call_scenario->messages[recv_retrans_send_index] -> nb_sent_retrans++;

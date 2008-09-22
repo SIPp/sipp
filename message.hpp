@@ -32,6 +32,7 @@
  *           Jan Andres from Freenet
  *           Ben Evans from Open Cloud
  *           Marc Van Diest from Belgacom
+ *           Andy Aicken
  */
 
 #ifndef __MESSAGE__
@@ -124,6 +125,7 @@ class SendingMessage {
 struct MessageComponent {
   MessageCompType type;
   char *literal;
+  int literalLen;
   int offset;
   int varId;
   union u {

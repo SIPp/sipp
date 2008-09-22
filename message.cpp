@@ -33,6 +33,7 @@
  *           Ben Evans from Open Cloud
  *           Marc Van Diest from Belgacom
  *	     Stefan Esser
+ *           Andy Aicken
  */
 
 #include "sipp.hpp"
@@ -86,6 +87,7 @@ struct KeywordMap SimpleKeywords[] = {
 SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sanity) {
     char *osrc = src;
     char * literal;
+    int    literalLen;
     char * dest;
     char * key;
     char   current_line[MAX_HEADER_LEN];
@@ -96,6 +98,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
     this->msg_scenario = msg_scenario;
     
     dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
+    literalLen = 0;
  
     current_line[0] = '\0';
     *dest = 0;
@@ -132,7 +135,8 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
       } else {
 	/* We have found a keyword, store the literal that we have been generating. */
 	*dest = '\0';
-	literal = (char *)realloc(literal, strlen(literal) + 1);
+        literalLen = dest - literal;
+        literal = (char *)realloc(literal, literalLen);
 	if (!literal) { ERROR("Out of memory!"); }
 
 	MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
@@ -140,9 +144,11 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 
 	newcomp->type = E_Message_Literal;
 	newcomp->literal = literal;
+	newcomp->literalLen = literalLen; // length without the terminator 
 	messageComponents.push_back(newcomp);
 
 	dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
+	literalLen = 0;
 	*dest = '\0';
 
 	/* Now lets determine which keyword we have. */
@@ -275,6 +281,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 	  getKeywordParam(keyword, "variable=", varName);
 
 	  newcomp->literal = strdup(filltext);
+	  newcomp->literalLen = strlen(newcomp->literal);
 	  if (!msg_scenario) {
 	    ERROR("SendingMessage with variable usage outside of scenario!");
 	  }
@@ -282,6 +289,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
      } else if(!strncmp(keyword, "last_", strlen("last_"))) {
        newcomp->type = E_Message_Last_Header;
        newcomp->literal = strdup(keyword + strlen("last_"));
+       newcomp->literalLen = strlen(newcomp->literal);
      } else if(!strncmp(keyword, "authentication", strlen("authentication"))) {
        parseAuthenticationKeyword(msg_scenario, newcomp, keyword);
      }
@@ -308,6 +316,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
             if(!strcmp(keyword, msg1)) {
 	      newcomp->type = E_Message_Literal;
 	      newcomp->literal = strdup(msg2);
+	      newcomp->literalLen = strlen(newcomp->literal);
               break;
             }
             ++i;
@@ -323,7 +332,8 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
     }
     if (literal[0]) {
       *dest++ = '\0';
-      literal = (char *)realloc(literal, strlen(literal) + 1);
+      literalLen = dest - literal;
+      literal = (char *)realloc(literal, literalLen);
       if (!literal) { ERROR("Out of memory!"); } 
 
       MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
@@ -331,6 +341,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 
       newcomp->type = E_Message_Literal;
       newcomp->literal = literal;
+      newcomp->literalLen = literalLen-1;
       messageComponents.push_back(newcomp);
     } else {
       free(literal);

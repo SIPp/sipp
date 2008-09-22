@@ -16,6 +16,7 @@
  *  Author : Richard GAYRAUD - 04 Nov 2003
  *           From Hewlett Packard Company.
  *	     Charles P. Wright from IBM Research
+ *           Andy Aicken
  */
 
 #ifndef __CALL__
@@ -124,6 +125,7 @@ private:
    * are kept in this index.) */
   int		 last_send_index;
   char         * last_send_msg;
+  int        last_send_len;
 
   /* How long until sending this message times out. */
   unsigned int   send_timeout;
@@ -228,9 +230,9 @@ private:
   // P_index use for message index in scenario and ctrl of CRLF
   // P_index = -2 No ctrl of CRLF
   // P_index = -1 Add crlf to end of message
-  char* createSendingMessage(SendingMessage *src, int P_index);
+  char* createSendingMessage(SendingMessage *src, int P_index, int *msgLen=NULL);
   char* createSendingMessage(char * src, int P_index, bool skip_sanity = false);
-  char* createSendingMessage(SendingMessage *src, int P_index, char *msg_buffer, int buflen);
+  char* createSendingMessage(SendingMessage *src, int P_index, char *msg_buffer, int buflen, int *msgLen=NULL);
 
   // method for the management of unexpected messages 
   bool  checkInternalCmd(char* cmd);  // check of specific internal command
@@ -241,7 +243,7 @@ private:
 		int search_index);    // 3pcc extended mode:check if 
 				      // the twin message received
 				      // comes from the expected sender
-  void   sendBuffer(char *buf);        // send a message out of a scenario
+  void   sendBuffer(char *buf, int len = 0);     // send a message out of a scenario
                                       // execution
 
   T_AutoMode  checkAutomaticResponseMode(char * P_recv);
@@ -270,8 +272,8 @@ private:
   void  extract_cseq_method (char* responseCseq, char* msg);
   void  extract_transaction (char* txn, char* msg);
 
-  int   send_raw(char * msg, int index);
-  char * send_scene(int index, int *send_status);
+  int   send_raw(char * msg, int index, int len);
+  char * send_scene(int index, int *send_status, int *msgLen);
   bool   connect_socket_if_needed();
 
   char * compute_cseq(char * src);
