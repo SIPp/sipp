@@ -3470,6 +3470,18 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 	ERROR("Unknown transport for setdest: '%s'", str_protocol);
       }
 
+      if (!call_socket && protocol == T_TCP && transport == T_TCP) {
+	bool existing;
+	if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+	  ERROR_NO("Unable to get a TCP socket");
+	}
+
+	if (!existing) {
+	  sipp_customize_socket(call_socket);
+	}
+      }
+
+
       if (protocol != call_socket->ss_transport) {
 	  ERROR("Can not switch protocols during setdest.");
       }
