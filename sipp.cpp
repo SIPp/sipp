@@ -30,6 +30,7 @@
  *           Wolfgang Beck
  *           Charles P Wright from IBM Research
  *           Martin Van Leeuwen
+ *           Andy Aicken
  */
 
 #define GLOBALS_FULL_DEFINITION
@@ -4407,9 +4408,12 @@ int main(int argc, char *argv[])
 	  REQUIRE_ARG();
 	  CHECK_PASS();
 	  if (!strcmp(argv[argi - 1], "-sf")) {
-	    main_scenario = new scenario(argv[argi], 0);
 	    scenario_file = new char [strlen(argv[argi])+1] ;
 	    sprintf(scenario_file,"%s", argv[argi]);
+	    if (useLogf == 1) {
+	      rotate_logfile();
+	    }
+	    main_scenario = new scenario(argv[argi], 0);
 	    main_scenario->stats->setFileName(argv[argi], (char*)".csv");
 	  } else if (!strcmp(argv[argi - 1], "-sn")) {
 	    int i = find_scenario(argv[argi]);
@@ -4675,10 +4679,6 @@ int main(int argc, char *argv[])
       ERROR("Unable to create '%s'", L_file_name);
     }
     print_count_file(countf, 1);
-  }
-
-  if (useLogf == 1) {
-    rotate_logfile();
   }
 
   if (dumpInRtt == 1) {
