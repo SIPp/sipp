@@ -4802,10 +4802,6 @@ int main(int argc, char *argv[])
     opentask::set_rate(rate);
   }
 
-  if (creationMode == MODE_SERVER) {
-    reset_number = 0;
-  }
-
   open_connections();
 
   /* Defaults for media sockets */
