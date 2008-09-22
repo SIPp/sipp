@@ -196,6 +196,9 @@ debug:
 debug_ossl:
 	@DEBUG_FLAGS=-g ; export DEBUG_FLAGS ; $(MAKE) ossl
 
+debug_pcap:
+	@DEBUG_FLAGS=-g ; export DEBUG_FLAGS ; make pcapplay
+
 debug_pcap_cygwin:
 	@DEBUG_FLAGS=-g ; export DEBUG_FLAGS ; $(MAKE) pcapplay_ossl_cygwin
 
