@@ -134,25 +134,29 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
         *dest++ = *src++;
       } else {
 	/* We have found a keyword, store the literal that we have been generating. */
-	*dest = '\0';
         literalLen = dest - literal;
-        literal = (char *)realloc(literal, literalLen);
-	if (!literal) { ERROR("Out of memory!"); }
+	if (literalLen) {
+	  *dest = '\0';
+	  literal = (char *)realloc(literal, literalLen);
+	  if (!literal) { ERROR("Out of memory!"); }
 
-	MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
-	if (!newcomp) { ERROR("Out of memory!"); }
+	  MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
+	  if (!newcomp) { ERROR("Out of memory!"); }
 
-	newcomp->type = E_Message_Literal;
-	newcomp->literal = literal;
-	newcomp->literalLen = literalLen; // length without the terminator 
-	messageComponents.push_back(newcomp);
+	  newcomp->type = E_Message_Literal;
+	  newcomp->literal = literal;
+	  newcomp->literalLen = literalLen; // length without the terminator 
+	  messageComponents.push_back(newcomp);
+	} else {
+	  free(literal);
+	}
 
 	dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
 	literalLen = 0;
 	*dest = '\0';
 
 	/* Now lets determine which keyword we have. */
-	newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
+	MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
 	if (!newcomp) { ERROR("Out of memory!"); }
 
         char keyword [KEYWORD_SIZE+1];
