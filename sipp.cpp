@@ -1233,9 +1233,6 @@ void print_bottom_line(FILE *f, int last)
       case MODE_3PCC_CONTROLLER_A :
         fprintf(f,"----------------------- 3PCC Mode - Controller A side -------------------------" SIPP_ENDL);
         break;
-      case MODE_3PCC_CONTROLLER_B :
-        fprintf(f,"----------------------- 3PCC Mode - Controller B side -------------------------" SIPP_ENDL);
-        break;
       case MODE_3PCC_NONE:
 	fprintf(f,"------ [+|-|*|/]: Adjust rate ---- [q]: Soft exit ---- [p]: Pause traffic -----" SIPP_ENDL);
 	break;
@@ -1247,6 +1244,9 @@ void print_bottom_line(FILE *f, int last)
       switch(thirdPartyMode) {
       case MODE_3PCC_A_PASSIVE :
         fprintf(f,"------------------ 3PCC Mode - Controller A side (passive) --------------------" SIPP_ENDL);
+        break;
+      case MODE_3PCC_CONTROLLER_B :
+        fprintf(f,"----------------------- 3PCC Mode - Controller B side -------------------------" SIPP_ENDL);
         break;
       case MODE_MASTER_PASSIVE :
         fprintf(f,"------------------ 3PCC extended mode - Master side (passive) --------------------" SIPP_ENDL);

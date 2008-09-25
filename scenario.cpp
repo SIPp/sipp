@@ -977,7 +977,7 @@ scenario::scenario(char * filename, int deflt)
 	     strcpy(infos.peer_host, get_peer_addr(peer));
              peers[std::string(peer)] = infos; 
 	   }
-	} else if (twinSippMode) {
+	} else if (extendedTwinSippMode) {
 	  ERROR("You must specify a 'dest' for sendCmd with extended 3pcc mode!");
 	}
 
