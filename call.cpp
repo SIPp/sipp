@@ -1195,6 +1195,7 @@ char * call::send_scene(int index, int *send_status, int *len)
   static char msg_name[MAX_MSG_NAME_SIZE];
   char *L_ptr1 ;
   char *L_ptr2 ;
+  int uselen = 0;
 
   assert(send_status);
 
@@ -1212,6 +1213,10 @@ char * call::send_scene(int index, int *send_status, int *len)
   }
 
   assert(call_scenario->messages[index]->send_scheme);
+
+  if (!len) {
+	len = &uselen;
+  }
 
   char * dest;
   dest = createSendingMessage(call_scenario->messages[index] -> send_scheme, index, len);
@@ -2382,12 +2387,16 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
     if (body && dest - body > 4 && dest - body < 100004) {
       char tmp = length_marker[5];
-      sprintf(length_marker, "%5u", dest - body - 4 + len_offset);
+      sprintf(length_marker, "%5u", (unsigned)(dest - body - 4 + len_offset));
       length_marker[5] = tmp;
     } else {
       // Other cases: Content-Length is 0
       sprintf(length_marker, "    0\r\n\r\n");
     }
+  }
+
+  if (msgLen) {
+    *msgLen = dest - msg_buffer;
   }
 
   /*
@@ -2459,6 +2468,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     memmove(auth_marker + authlen, auth_marker + auth_marker_len, strlen(auth_marker + auth_marker_len) + 1);
     /* Copy our result into the hole. */
     memcpy(auth_marker, result, authlen);
+    if (msgLen) {
+	*msgLen += (authlen -  auth_marker_len);
+    }
 #endif
   }
 
@@ -2466,10 +2478,6 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     SendingMessage::freeMessageComponent(auth_comp);
   }
 
-  if (msgLen != NULL) {
-    *msgLen = dest - msg_buffer;
-  }
-   
   return msg_buffer;
 }
 

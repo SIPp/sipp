@@ -137,7 +137,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
         literalLen = dest - literal;
 	if (literalLen) {
 	  *dest = '\0';
-	  literal = (char *)realloc(literal, literalLen);
+	  literal = (char *)realloc(literal, literalLen + 1);
 	  if (!literal) { ERROR("Out of memory!"); }
 
 	  MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
