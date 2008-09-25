@@ -272,6 +272,7 @@ struct sipp_option options_table[] = {
 	      , SIPP_OPTION_TRANSPORT, NULL, 1},
 
 	{"timeout", "Global timeout. Default unit is seconds.  If this option is set, SIPp quits after nb units (-timeout 20s quits after 20 seconds).", SIPP_OPTION_TIME_SEC, &global_timeout, 1},
+	{"timeout_error", "SIPp fails if the global timeout is reached is set (-timeout option required).", SIPP_OPTION_SETFLAG, &timeout_error, 1},
 	{"timer_resol", "Set the timer resolution. Default unit is milliseconds.  This option has an impact on timers precision."
                       "Small values allow more precise scheduling but impacts CPU usage."
                       "If the compression is on, the value is set to 50ms. The default value is 10ms.", SIPP_OPTION_TIME_MS, &timer_resolution, 1},
@@ -3239,6 +3240,9 @@ void pollset_process(int wait)
 }
 
 void timeout_alarm(int param){
+  if (timeout_error) {
+    ERROR("%s timed out after '%.3lf' seconds", scenario_file, ((double)clock_tick / 1000LL));
+  }
   quitting = 1;
   timeout_exit = true;
 }

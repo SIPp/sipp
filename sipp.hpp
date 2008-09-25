@@ -216,6 +216,7 @@ extern bool		  periodic_rtd		  _DEFVAL(false);
 extern char		* stat_delimiter          _DEFVAL(";");
 
 extern bool               timeout_exit            _DEFVAL(false);
+extern bool               timeout_error           _DEFVAL(false);
 
 extern unsigned long      report_freq_dumpRtt     _DEFVAL
                                                 (DEFAULT_FREQ_DUMP_RTT);
