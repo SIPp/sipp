@@ -168,9 +168,9 @@ void manage_oversized_file()
           "Max file size reached - no more logs\n",
            CStat::formatTime(&currentTime));
   fflush(f);
-  stop_all_traces(); 
+  stop_all_traces();
   print_all_responses = 0;
-  screen_errorf = 0; 
+  error_lfi.fptr = NULL;
 }
 
 
@@ -231,33 +231,33 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
   c+= sprintf(c, ".\n");
   screen_errors++;
 
-  if(screen_inited && !screen_errorf && print_all_responses) {
+  if(screen_inited && !error_lfi.fptr && print_all_responses) {
     rotate_errorf();
-    if(!screen_errorf) {
+    if(!error_lfi.fptr) {
       c += sprintf(c, "%s: Unable to create '%s': %s.\n",
                    screen_exename, screen_logfile, strerror(errno));
       screen_exit(EXIT_FATAL_ERROR);
     } else {
-      fprintf(screen_errorf, "%s: The following events occured:\n",
+      fprintf(error_lfi.fptr, "%s: The following events occured:\n",
               screen_exename);
-      fflush(screen_errorf);
+      fflush(error_lfi.fptr);
     }
   }
 
-  if(screen_errorf) {
-    count += fprintf(screen_errorf, "%s", screen_last_error);
-    fflush(screen_errorf);
+  if(error_lfi.fptr) {
+    count += fprintf(error_lfi.fptr, "%s", screen_last_error);
+    fflush(error_lfi.fptr);
     if (ringbuffer_size && count > ringbuffer_size) {
       rotate_errorf();
       count = 0;
     }
     if (max_log_size && count > max_log_size) {
       print_all_responses = 0;
-      if (screen_errorf) {
-	fflush(screen_errorf);
-	fclose(screen_errorf);
-	screen_errorf = NULL;
-	errorf_overwrite = false;
+      if (error_lfi.fptr) {
+	fflush(error_lfi.fptr);
+	fclose(error_lfi.fptr);
+	error_lfi.fptr = NULL;
+	error_lfi.overwrite = false;
       }
     }
   } else if (fatal) {

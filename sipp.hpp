@@ -439,10 +439,6 @@ enum E_Alter_YesNo
 /************************** Trace Files ***********************/
 
 extern FILE * screenf                             _DEFVAL(0);
-extern FILE * logfile                             _DEFVAL(0);
-extern FILE * messagef                            _DEFVAL(0);
-extern FILE * calldebugf                          _DEFVAL(0);
-extern FILE * shortmessagef                       _DEFVAL(0);
 extern FILE * countf                              _DEFVAL(0);
 // extern FILE * timeoutf                            _DEFVAL(0);
 extern bool   useMessagef                         _DEFVAL(0);
@@ -450,12 +446,6 @@ extern bool   useCallDebugf                       _DEFVAL(0);
 extern bool   useShortMessagef                    _DEFVAL(0);
 extern bool   useScreenf                          _DEFVAL(0);
 extern bool   useLogf                             _DEFVAL(0);
-// should we overwrite the existing files?
-extern bool   messagef_overwrite		  _DEFVAL(true);
-extern bool   calldebugf_overwrite		  _DEFVAL(true);
-extern bool   shortmessagef_overwrite		  _DEFVAL(true);
-extern bool   errorf_overwrite			  _DEFVAL(true);
-extern bool   logfile_overwrite			  _DEFVAL(true);
 //extern bool   useTimeoutf                         _DEFVAL(0);
 extern bool   dumpInFile                          _DEFVAL(0);
 extern bool   dumpInRtt                           _DEFVAL(0);
@@ -469,13 +459,39 @@ extern int    ringbuffer_files			  _DEFVAL(0);
 
 extern char   screen_last_error[32768];
 extern char   screen_logfile[MAX_PATH]            _DEFVAL("");
-extern FILE   * screen_errorf			  _DEFVAL(NULL);
 
 /* Log Rotation Functions. */
-void rotate_messagef();
-void rotate_calldebugf();
-void rotate_shortmessagef();
-void rotate_logfile();
+struct logfile_id {
+  time_t start;
+  int n;
+};
+
+struct logfile_info {
+	char *name;
+	bool check;
+	FILE *fptr;
+	int nfiles;
+	struct logfile_id *ftimes;
+	char file_name[MAX_PATH];
+	bool overwrite;
+	bool fixedname;
+	time_t starttime;
+	unsigned int count;
+};
+
+#ifdef GLOBALS_FULL_DEFINITION
+#define LOGFILE(name, s, check) \
+	struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0};
+#else
+#define LOGFILE(name, s, check) \
+	extern struct logfile_info name;
+#endif
+LOGFILE(calldebug_lfi, "calldebug", true);
+LOGFILE(message_lfi, "messages", true);
+LOGFILE(shortmessage_lfi, "shortmessages", true);
+LOGFILE(log_lfi, "logs", true);
+LOGFILE(error_lfi, "errors", false);
+
 void rotate_errorf();
 
 /* Screen/Statistics Printing Functions. */

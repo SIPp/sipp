@@ -40,6 +40,11 @@
 
 void sipp_usleep(unsigned long usec);
 
+void rotate_messagef();
+void rotate_calldebugf();
+void rotate_shortmessagef();
+void rotate_logfile();
+
 #ifdef _USE_OPENSSL
 SSL_CTX  *sip_trp_ssl_ctx = NULL; /* For SSL cserver context */
 SSL_CTX  *sip_trp_ssl_ctx_client = NULL; /* For SSL cserver context */
@@ -1667,6 +1672,15 @@ void process_set(char *what) {
   }
 }
 
+void log_off(struct logfile_info *lfi) {
+  if (lfi->fptr) {
+    fflush(lfi->fptr);
+    fclose(lfi->fptr);
+    lfi->fptr = NULL;
+    lfi->overwrite = false;
+  }
+}
+
 void process_trace(char *what) {
   bool on = false;
   char *rest = strchr(what, ' ');
@@ -1703,15 +1717,10 @@ void process_trace(char *what) {
       print_all_responses = 1;
     } else {
       print_all_responses = 0;
-      if (screen_errorf) {
-	fflush(screen_errorf);
-	fclose(screen_errorf);
-	screen_errorf = NULL;
-	errorf_overwrite = false;
-      }
+      log_off(&error_lfi);
     }
   } else if (!strcmp(what, "logs")) {
-    if (on == !!logfile) {
+    if (on == !!log_lfi.fptr) {
       return;
     }
     if (on) {
@@ -1719,13 +1728,10 @@ void process_trace(char *what) {
       rotate_logfile();
     } else {
       useLogf = 0;
-      fflush(logfile);
-      fclose(logfile);
-      logfile = NULL;
-      logfile_overwrite = false;
+      log_off(&log_lfi);
     }
   } else if (!strcmp(what, "messages")) {
-    if (on == !!messagef) {
+    if (on == !!message_lfi.fptr) {
       return;
     }
     if (on) {
@@ -1733,13 +1739,10 @@ void process_trace(char *what) {
       rotate_logfile();
     } else {
       useMessagef = 0;
-      fflush(messagef);
-      fclose(messagef);
-      messagef = NULL;
-      messagef_overwrite = false;
+      log_off(&message_lfi);
     }
   } else if (!strcmp(what, "shortmessages")) {
-    if (on == !!shortmessagef) {
+    if (on == !!shortmessage_lfi.fptr) {
       return;
     }
 
@@ -1748,10 +1751,7 @@ void process_trace(char *what) {
       rotate_shortmessagef();
     } else {
       useShortMessagef = 0;
-      fflush(shortmessagef);
-      fclose(shortmessagef);
-      shortmessagef = NULL;
-      shortmessagef_overwrite = false;
+      log_off(&shortmessage_lfi);
     }
   } else {
     WARNING("Unknown log file: %s", what);
@@ -3716,12 +3716,10 @@ void releaseGlobalAllocations()
 
 void stop_all_traces()
 {
-  if(messagef) messagef = NULL;
-  if(logfile) logfile = NULL;
- // if(timeoutf) timeoutf = NULL; TODO: finish the -trace_timeout option implementation
+  message_lfi.fptr = NULL;
+  log_lfi.fptr = NULL;
   if(dumpInRtt) dumpInRtt = 0;
   if(dumpInFile) dumpInFile = 0;
-  
 }
 
 char* remove_pattern(char* P_buffer, char* P_extensionPattern) {
@@ -5583,214 +5581,152 @@ void free_peer_addr_map() {
   }
 }
 
+void rotatef(struct logfile_info *lfi) {
+  char L_rotate_file_name [MAX_PATH];
+
+  sprintf (lfi->file_name, "%s_%d_%s.log", scenario_file, getpid(), lfi->name);
+
+  if (ringbuffer_files > 0) {
+    if (!lfi->ftimes) {
+	lfi->ftimes = (struct logfile_id *)calloc(ringbuffer_files, sizeof(struct logfile_id));
+    }
+    /* We need to rotate away an existing file. */
+    if (lfi->nfiles == ringbuffer_files) {
+      if ((lfi->ftimes)[0].n) {
+	sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log", scenario_file, getpid(), lfi->name, (lfi->ftimes)[0].start, (lfi->ftimes)[0].n);
+      } else {
+	sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log", scenario_file, getpid(), lfi->name, (lfi->ftimes)[0].start);
+      }
+      unlink(L_rotate_file_name);
+      lfi->nfiles--;
+      memmove(lfi->ftimes, &((lfi->ftimes)[1]), sizeof(struct logfile_id) * (lfi->nfiles));
+    }
+    if (lfi->starttime) {
+      (lfi->ftimes)[lfi->nfiles].start = lfi->starttime;
+      (lfi->ftimes)[lfi->nfiles].n = 0;
+      /* If we have the same time, then we need to append an identifier. */
+      if (lfi->nfiles && ((lfi->ftimes)[lfi->nfiles].start == (lfi->ftimes)[lfi->nfiles - 1].start)) {
+	  (lfi->ftimes)[lfi->nfiles].n = (lfi->ftimes)[lfi->nfiles - 1].n + 1;
+      }
+      if ((lfi->ftimes)[lfi->nfiles].n) {
+	sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log", scenario_file, getpid(), lfi->name, (lfi->ftimes)[lfi->nfiles].start, (lfi->ftimes)[lfi->nfiles].n);
+      } else {
+	sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log", scenario_file, getpid(), lfi->name, (lfi->ftimes)[lfi->nfiles].start);
+      }
+      lfi->nfiles++;
+      fflush(lfi->fptr);
+      fclose(lfi->fptr);
+      lfi->fptr = NULL;
+      rename(lfi->file_name, L_rotate_file_name);
+    }
+  }
+
+  time(&lfi->starttime);
+  if (lfi->overwrite) {
+    lfi->fptr = fopen(lfi->file_name, "w");
+  } else {
+    lfi->fptr = fopen(lfi->file_name, "a");
+    lfi->overwrite = true;
+  }
+  if(lfi->check && !lfi->fptr) {
+    /* We can not use the error functions from this function, as we may be rotating the error log itself! */
+    ERROR("Unable to create '%s'", lfi->file_name);
+  }
+}
+
+void rotate_calldebugf() {
+  rotatef(&calldebug_lfi);
+}
+
+void rotate_messagef() {
+  rotatef(&message_lfi);
+}
+
+
+void rotate_shortmessagef() {
+  rotatef(&shortmessage_lfi);
+}
+
+
+void rotate_logfile() {
+  rotatef(&log_lfi);
+}
+
+void rotate_errorf() {
+  rotatef(&error_lfi);
+  strcpy(screen_logfile, error_lfi.file_name);
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-int TRACE_MSG(char *fmt, ...) {
+int _trace (struct logfile_info *lfi, char *fmt, va_list ap) {
   int ret = 0;
-  static unsigned long long count = 0;
-  if(messagef) {
-    va_list ap;
-    va_start(ap, fmt);
-    ret = vfprintf(messagef, fmt, ap);
-    va_end(ap);
-    fflush(messagef);
+  if(lfi->fptr) {
+    ret = vfprintf(lfi->fptr, fmt, ap);
+    fflush(lfi->fptr);
 
-    count += ret;
+    lfi->count += ret;
 
-    if (max_log_size && count > max_log_size) {
-      fclose(messagef);
-      messagef = NULL;
+    if (max_log_size && lfi->count > max_log_size) {
+      fclose(lfi->fptr);
+      lfi->fptr = NULL;
     }
 
-    if (ringbuffer_size && count > ringbuffer_size) {
-      rotate_messagef();
-      count = 0;
+    if (ringbuffer_size && lfi->count > ringbuffer_size) {
+      rotatef(lfi);
+      lfi->count = 0;
     }
   }
+  return ret;
+}
+
+
+int TRACE_MSG(char *fmt, ...) {
+  int ret;
+  va_list ap;
+
+  va_start(ap, fmt);
+  ret = _trace(&message_lfi, fmt, ap);
+  va_end(ap);
+
   return ret;
 }
 
 int TRACE_SHORTMSG(char *fmt, ...) {
-  int ret = 0;
-  static unsigned long long count = 0;
-  if(shortmessagef) {
-    va_list ap;
-    va_start(ap, fmt);
-    ret = vfprintf(shortmessagef, fmt, ap);
-    va_end(ap);
-    fflush(shortmessagef);
+  int ret;
+  va_list ap;
 
-    count += ret;
+  va_start(ap, fmt);
+  ret = _trace(&shortmessage_lfi, fmt, ap);
+  va_end(ap);
 
-    if (max_log_size && count > max_log_size) {
-      fclose(shortmessagef);
-      shortmessagef = NULL;
-    }
-
-    if (ringbuffer_size && count > ringbuffer_size) {
-      rotate_shortmessagef();
-      count = 0;
-    }
-  }
   return ret;
 }
 
 int LOG_MSG(char *fmt, ...) {
-  int ret = 0;
-  static unsigned long long count = 0;
-  if(logfile) {
-    va_list ap;
-    va_start(ap, fmt);
-    ret = vfprintf(logfile, fmt, ap);
-    va_end(ap);
-    fflush(logfile);
+  int ret;
+  va_list ap;
 
-    count += ret;
+  va_start(ap, fmt);
+  ret = _trace(&log_lfi, fmt, ap);
+  va_end(ap);
 
-    if (max_log_size && count > max_log_size) {
-      fclose(logfile);
-      logfile = NULL;
-    }
-
-    if (ringbuffer_size && count > ringbuffer_size) {
-      rotate_messagef();
-      count = 0;
-    }
-  }
   return ret;
 }
 
 int TRACE_CALLDEBUG(char *fmt, ...) {
-  int ret = 0;
-  static unsigned long long count = 0;
-  if(calldebugf) {
-    va_list ap;
-    va_start(ap, fmt);
-    ret = vfprintf(calldebugf, fmt, ap);
-    va_end(ap);
-    fflush(calldebugf);
+  int ret;
+  va_list ap;
 
-    count += ret;
+  va_start(ap, fmt);
+  ret = _trace(&calldebug_lfi, fmt, ap);
+  va_end(ap);
 
-    if (max_log_size && count > max_log_size) {
-      fclose(calldebugf);
-      calldebugf = NULL;
-    }
-
-    if (ringbuffer_size && count > ringbuffer_size) {
-      rotate_calldebugf();
-      count = 0;
-    }
-  }
   return ret;
 }
-
-// TODO: finish the -trace_timeout option implementation
-/* int TRACE_TIMEOUT(char *fmt, ...) */
 
 #ifdef __cplusplus
 }
 #endif
 
-struct logfile_id {
-  time_t start;
-  int n;
-};
-
-/* We can not use the error functions from this file, as we may be rotating the error log itself! */
-void rotatef(char *name, FILE **fptr, time_t *starttime, int *nfiles, struct logfile_id **ftimes, bool check, bool *overwrite) {
-  char L_file_name [MAX_PATH];
-  char L_rotate_file_name [MAX_PATH];
-
-  sprintf (L_file_name, "%s_%d_%s.log", scenario_file, getpid(), name);
-
-  if (ringbuffer_files > 0) {
-    if (!*ftimes) {
-	*ftimes = (struct logfile_id *)calloc(ringbuffer_files, sizeof(struct logfile_id));
-    }
-    /* We need to rotate away an existing file. */
-    if (*nfiles == ringbuffer_files) {
-      if ((*ftimes)[0].n) {
-	sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log", scenario_file, getpid(), name, (*ftimes)[0].start, (*ftimes)[0].n);
-      } else {
-	sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log", scenario_file, getpid(), name, (*ftimes)[0].start);
-      }
-      unlink(L_rotate_file_name);
-      (*nfiles)--;
-      memmove(*ftimes, &((*ftimes)[1]), sizeof(struct logfile_id) * (*nfiles));
-    }
-    if (*starttime) {
-      (*ftimes)[*nfiles].start = *starttime;
-      (*ftimes)[*nfiles].n = 0;
-      /* If we have the same time, then we need to append an identifier. */
-      if (*nfiles && ((*ftimes)[*nfiles].start == (*ftimes)[*nfiles - 1].start)) {
-	  (*ftimes)[*nfiles].n = (*ftimes)[*nfiles - 1].n + 1;
-      }
-      if ((*ftimes)[*nfiles].n) {
-	sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log", scenario_file, getpid(), name, (*ftimes)[*nfiles].start, (*ftimes)[*nfiles].n);
-      } else {
-	sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log", scenario_file, getpid(), name, (*ftimes)[*nfiles].start);
-      }
-      (*nfiles)++;
-      fflush(*fptr);
-      fclose(*fptr);
-      *fptr = NULL;
-      rename(L_file_name, L_rotate_file_name);
-    }
-  }
-
-  time(starttime);
-  if (*overwrite) {
-    *fptr = fopen(L_file_name, "w");
-  } else {
-    *fptr = fopen(L_file_name, "a");
-    *overwrite = true;
-  }
-  if(check && !*fptr) {
-    ERROR("Unable to create '%s'", L_file_name);
-  }
-}
-
-int calldebugf_nfiles = 0;
-struct logfile_id *calldebugf_times = NULL;
-
-void rotate_calldebugf() {
-  static time_t starttime = 0;
-  rotatef("calldebug", &calldebugf, &starttime, &calldebugf_nfiles, &calldebugf_times, true, &calldebugf_overwrite);
-}
-
-
-int messagef_nfiles = 0;
-struct logfile_id *messagef_times = NULL;
-
-void rotate_messagef() {
-  static time_t starttime = 0;
-  rotatef("messages", &messagef, &starttime, &messagef_nfiles, &messagef_times, true, &messagef_overwrite);
-}
-
-int shortmessagef_nfiles = 0;
-struct logfile_id *shortmessagef_times = NULL;
-
-void rotate_shortmessagef() {
-  static time_t starttime = 0;
-  rotatef("shortmessages", &shortmessagef, &starttime, &shortmessagef_nfiles, &shortmessagef_times, true, &shortmessagef_overwrite);
-}
-
-int logfile_nfiles = 0;
-struct logfile_id *logfile_times = NULL;
-
-void rotate_logfile() {
-  static time_t starttime = 0;
-  rotatef("logs", &logfile, &starttime, &logfile_nfiles, &logfile_times, true, &logfile_overwrite);
-}
-
-int errorf_nfiles  = 0;
-struct logfile_id *errorf_times = NULL;
-
-void rotate_errorf() {
-  static time_t starttime = 0;
-  rotatef("errors", &screen_errorf, &starttime, &errorf_nfiles, &errorf_times, false, &errorf_overwrite);
-  /* If rotatef is changed, this must be changed as well. */
-  sprintf (screen_logfile, "%s_%d_errors.log", scenario_file, getpid());
-}
