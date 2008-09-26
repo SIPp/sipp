@@ -124,6 +124,8 @@ struct sipp_option {
 #define SIPP_OPTION_INDEX_FILE    33
 #define SIPP_OPTION_VAR		  34
 #define SIPP_OPTION_RTCHECK	  35
+#define SIPP_OPTION_LFNAME	  36
+#define SIPP_OPTION_LFOVERWRITE	  37
 
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
@@ -145,6 +147,9 @@ struct sipp_option options_table[] = {
 	{"bind_local", "Bind socket to local IP address, i.e. the local IP address is used as the source IP address.  If SIPp runs in server mode it will only listen on the local IP address instead of all IP addresses.", SIPP_OPTION_SETFLAG, &bind_local, 1},
 	{"buff_size", "Set the send and receive buffer size.", SIPP_OPTION_INT, &buff_size, 1},
 
+	{"calldebug_file", "Set the name of the call debug file.", SIPP_OPTION_LFNAME, &calldebug_lfi, 1},
+	{"calldebug_overwrite", "Overwrite the call debug file (default true).", SIPP_OPTION_LFOVERWRITE, &calldebug_lfi, 1},
+
 	{"cid_str", "Call ID string (default %u-%p@%s).  %u=call_number, %s=ip_address, %p=process_number, %%=% (in any order).", SIPP_OPTION_STRING, &call_id_string, 1},
 	{"ci", "Set the local control IP address", SIPP_OPTION_IP, control_ip, 1},
 	{"cp", "Set the local control port number. Default is 8888.", SIPP_OPTION_INT, &control_port, 1},
@@ -159,6 +164,9 @@ struct sipp_option options_table[] = {
 		"- pingreply\tReply to ping requests\n"
 		"If a behavior is prefaced with a -, then it is turned off.  Example: all,-bye\n",
 		SIPP_OPTION_DEFAULTS, &default_behaviors, 1},
+
+	{"error_file", "Set the name of the error log file.", SIPP_OPTION_LFNAME, &error_lfi, 1},
+	{"error_overwrite", "Overwrite the error log file (default true).", SIPP_OPTION_LFOVERWRITE, &error_lfi, 1},
 
 	{"f", "Set the statistics report frequency on screen. Default is 1 and default unit is seconds.", SIPP_OPTION_TIME_SEC, &report_freq, 1},
 	{"fd", "Set the statistics dump log report frequency. Default is 60 and default unit is seconds.", SIPP_OPTION_TIME_SEC, &report_freq_dumpLog, 1},
@@ -177,6 +185,9 @@ struct sipp_option options_table[] = {
 	{"l", "Set the maximum number of simultaneous calls. Once this limit is reached, traffic is decreased until the number of open calls goes down. Default:\n"
 	      "  (3 * call_duration (s) * rate).", SIPP_OPTION_LIMIT, NULL, 1},
 
+	{"log_file", "Set the name of the log actions log file.", SIPP_OPTION_LFNAME, &log_lfi, 1},
+	{"log_overwrite", "Overwrite the log actions log file (default true).", SIPP_OPTION_LFOVERWRITE, &log_lfi, 1},
+
 	{"lost", "Set the number of packets to lose by default (scenario specifications override this value).", SIPP_OPTION_FLOAT, &global_lost, 1},
 	{"rtcheck", "Select the retransmisison detection method: full (default) or loose.", SIPP_OPTION_RTCHECK, &rtcheck, 1},
 	{"m", "Stop the test and exit when 'calls' calls are processed", SIPP_OPTION_LONG, &stop_after, 1},
@@ -192,6 +203,8 @@ struct sipp_option options_table[] = {
 	{"max_socket", "Set the max number of sockets to open simultaneously. This option is significant if you use one socket per call. Once this limit is reached, traffic is distributed over the sockets already opened. Default value is 50000", SIPP_OPTION_MAX_SOCKET, NULL, 1},
 
 	{"mb", "Set the RTP echo buffer size (default: 2048).", SIPP_OPTION_INT, &media_bufsize, 1},
+	{"message_file", "Set the name of the message log file.", SIPP_OPTION_LFNAME, &message_lfi, 1},
+	{"message_overwrite", "Overwrite the message log file (default true).", SIPP_OPTION_LFOVERWRITE, &message_lfi, 1},
 	{"mp", "Set the local RTP echo port number. Default is 6000.", SIPP_OPTION_INT, &user_media_port, 1},
 
 	{"nd", "No Default. Disable all default behavior of SIPp which are the following:\n"
@@ -243,6 +256,8 @@ struct sipp_option options_table[] = {
 	{"s", "Set the username part of the resquest URI. Default is 'service'.", SIPP_OPTION_STRING, &service, 1},
 	{"sd", "Dumps a default scenario (embeded in the sipp executable)", SIPP_OPTION_SCENARIO, NULL, 0},
 	{"sf", "Loads an alternate xml scenario file.  To learn more about XML scenario syntax, use the -sd option to dump embedded scenarios. They contain all the necessary help.", SIPP_OPTION_SCENARIO, NULL, 2},
+	{"shortmessage_file", "Set the name of the short message log file.", SIPP_OPTION_LFNAME, &shortmessage_lfi, 1},
+	{"shortmessage_overwrite", "Overwrite the short message log file (default true).", SIPP_OPTION_LFOVERWRITE, &shortmessage_lfi, 1},
 	{"oocsf", "Load out-of-call scenario.", SIPP_OPTION_OOC_SCENARIO, NULL, 2},
 	{"oocsn", "Load out-of-call scenario.", SIPP_OPTION_OOC_SCENARIO, NULL, 2},
 	{"skip_rlimit", "Do not perform rlimit tuning of file descriptor limits.  Default: false.", SIPP_OPTION_SETFLAG, &skip_rlimit, 1},
@@ -4598,6 +4613,17 @@ int main(int argc, char *argv[])
 	    }
 	    fprintf(stderr, "Defaults: %lu\n", *ptr);
 	  }
+	case SIPP_OPTION_LFNAME:
+	  REQUIRE_ARG();
+	  CHECK_PASS();
+	  ((struct logfile_info*)option->data)->fixedname = true;
+	  strcpy(((struct logfile_info*)option->data)->file_name, argv[argi]);
+	  break;
+	case SIPP_OPTION_LFOVERWRITE:
+	  REQUIRE_ARG();
+	  CHECK_PASS();
+	  ((struct logfile_info*)option->data)->fixedname = true;
+	  ((struct logfile_info*)option->data)->overwrite = get_bool(argv[argi], argv[argi-1]);
 	  break;
 	default:
 	  ERROR("Internal error: I don't recognize the option type for %s\n", argv[argi]);
@@ -5584,7 +5610,9 @@ void free_peer_addr_map() {
 void rotatef(struct logfile_info *lfi) {
   char L_rotate_file_name [MAX_PATH];
 
-  sprintf (lfi->file_name, "%s_%d_%s.log", scenario_file, getpid(), lfi->name);
+  if (!lfi->fixedname) {
+    sprintf (lfi->file_name, "%s_%d_%s.log", scenario_file, getpid(), lfi->name);
+  }
 
   if (ringbuffer_files > 0) {
     if (!lfi->ftimes) {
