@@ -2925,6 +2925,12 @@ void sipp_socket_invalidate(struct sipp_socket *socket) {
   pollfiles[pollidx] = pollfiles[pollnfds];
   sockets[pollidx] = sockets[pollnfds];
   sockets[pollidx]->ss_pollidx = pollidx;
+  sockets[pollnfds] = NULL;
+
+  if (socket->ss_msglen)
+  {
+     pending_messages--;
+  }
 }
 
 void sipp_close_socket (struct sipp_socket *socket) {
