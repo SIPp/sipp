@@ -65,6 +65,10 @@ extern  map<string, struct sipp_socket *>     map_perip_fd;
 /* send_packets pthread wrapper */
 void *send_wrapper(void *);
 #endif
+int call::dynamicId       = 0;
+int call::maxDynamicId    = 10000+2000*4;      // FIXME both param to be in command line !!!!
+int call::startDynamicId  = 10000;             // FIXME both param to be in command line !!!!
+int call::stepDynamicId   = 4;                // FIXME both param to be in command line !!!!
 
 /************** Call map and management routines **************/
 static unsigned int next_number = 1;
@@ -2173,6 +2177,12 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
       case E_Message_Call_Number:
 	dest += snprintf(dest, left, "%u", number);
 	break;
+      case E_Message_DynamicId:
+        dest += snprintf(dest, left, "%u", call::dynamicId);
+        // increment at each request
+        dynamicId += stepDynamicId;
+        if ( this->dynamicId > maxDynamicId ) { call::dynamicId = call::startDynamicId; } ;
+      break;
       case E_Message_Call_ID:
 	dest += snprintf(dest, left, "%s", id);
 	break;

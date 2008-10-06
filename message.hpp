@@ -59,6 +59,7 @@ typedef enum {
   E_Message_Media_Port,
   E_Message_Media_IP_Type,
   E_Message_Call_Number,
+  E_Message_DynamicId,   // general usage, global, autoincrementing and wrapping counter
   E_Message_Call_ID,
   E_Message_CSEQ,
   E_Message_PID,

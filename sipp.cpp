@@ -20,6 +20,7 @@
  *           David MANSUTTI
  *           Francois-Xavier Kowalski
  *           Gerard Lyonnaz
+ *           Francois Draperi (for dynamic_id)
  *           From Hewlett Packard Company.
  *           F. Tarek Rogers
  *           Peter Higginson
@@ -340,6 +341,9 @@ struct sipp_option options_table[] = {
                    "Format: -tdmmap {0-3}{99}{5-8}{1-31}", SIPP_OPTION_TDMMAP, NULL, 1},
 	{"key", "keyword value\nSet the generic parameter named \"keyword\" to \"value\".", SIPP_OPTION_KEY, NULL, 1},
 	{"set", "variable value\nSet the global variable parameter named \"variable\" to \"value\".", SIPP_OPTION_VAR, NULL, 3},
+	{"dynamicStart", "variable value\nSet the start offset of dynamic_id varaiable",  SIPP_OPTION_INT, &startDynamicId, 1},
+	{"dynamicMax",   "variable value\nSet the maximum of dynamic_id variable     ",   SIPP_OPTION_INT, &maxDynamicId,   1},
+	{"dynamicStep",  "variable value\nSet the increment of dynamic_id variable",      SIPP_OPTION_INT, &stepDynamicId,  1}
 };
 
 struct sipp_option *find_option(const char *option) {
@@ -2620,6 +2624,10 @@ void buffer_read(struct sipp_socket *socket, struct socketbuf *newbuf) {
 /* Write data to a socket. */
 int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest) {
   int rc;
+  if ( socket == NULL ) {
+    //FIX coredump when trying to send data but no master yet ... ( for example after unexpected mesdsage)
+    return 0;
+  }
 
   if (socket->ss_out) {
     rc = flush_socket(socket);
@@ -4780,6 +4788,13 @@ int main(int argc, char *argv[])
   if(argiFileName) {
     main_scenario->stats->setFileName(argv[argiFileName]);
   }
+ 
+  // setup option form cmd line
+  call::maxDynamicId   = maxDynamicId;
+  call::startDynamicId = startDynamicId;
+  call::dynamicId      = startDynamicId;
+  call::stepDynamicId  = stepDynamicId;
+
 
   /* Now Initialize the scenarios. */
   main_scenario->runInit();

@@ -61,6 +61,7 @@ struct KeywordMap SimpleKeywords[] = {
   {"media_port", E_Message_Media_Port },
   {"media_ip_type", E_Message_Media_IP_Type },
   {"call_number", E_Message_Call_Number },
+  {"dynamic_id", E_Message_DynamicId }, // wrapping global counter
   {"call_id", E_Message_Call_ID },
   {"cseq", E_Message_CSEQ },
   {"pid", E_Message_PID },
