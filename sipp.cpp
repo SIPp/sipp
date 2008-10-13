@@ -3145,7 +3145,7 @@ void pollset_process(int wait)
   }
 
   /* We need to process any messages that we have left over. */
-  while (pending_messages && (loops-- > 0)) {
+  while (pending_messages && (loops > 0)) {
     getmilliseconds();
     if (sockets[read_index]->ss_msglen) {
 	struct sockaddr_storage src;
@@ -3156,6 +3156,7 @@ void pollset_process(int wait)
 	} else {
 	  assert(0);
 	}
+	loops--;
       }
     read_index = (read_index + 1) % pollnfds;
   }
@@ -3251,7 +3252,7 @@ void pollset_process(int wait)
   }
 
   /* We need to process any new messages that we read. */
-  while (pending_messages && (loops-- > 0)) {
+  while (pending_messages && (loops > 0)) {
     getmilliseconds();
 
     if (sockets[read_index]->ss_msglen) {
@@ -3265,6 +3266,7 @@ void pollset_process(int wait)
       } else {
 	assert(0);
       }
+      loops--;
     }
     read_index = (read_index + 1) % pollnfds;
   }
