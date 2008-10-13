@@ -3140,6 +3140,10 @@ void pollset_process(int wait)
   /* What index should we try reading from? */
   static int read_index;
 
+  if (read_index >= pollnfds) {
+    read_index = 0;
+  }
+
   /* We need to process any messages that we have left over. */
   while (pending_messages && (loops-- > 0)) {
     getmilliseconds();
