@@ -3078,7 +3078,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 
       // Adding a new INCOMING call !
       main_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
-      listener_ptr = new call(call_id, socket, src);
+      listener_ptr = new call(call_id, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src);
       if (!listener_ptr) {
 	ERROR("Out of memory allocating a call!");
       }
@@ -3093,7 +3093,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 	if(!get_reply_code(msg)){
 	  ooc_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
 	  /* This should have the real address that the message came from. */
-	  call *call_ptr = new call(ooc_scenario, socket, src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
+	  call *call_ptr = new call(ooc_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
 	  if (!call_ptr) {
 	    ERROR("Out of memory allocating a call!");
 	  }
