@@ -66,6 +66,7 @@ class CAction
       E_AT_VAR_TRIM,
       E_AT_VERIFY_AUTH,
       E_AT_SET_DEST,
+      E_AT_CLOSE_CON,
 #ifdef PCAPPLAY
       E_AT_PLAY_PCAP_AUDIO,
       E_AT_PLAY_PCAP_VIDEO,

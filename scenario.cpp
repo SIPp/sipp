@@ -1534,6 +1534,8 @@ void scenario::parseAction(CActions *actions) {
       tmpAction->setMessage(xp_get_string("port", actionElem), 1);
       tmpAction->setMessage(xp_get_string("protocol", actionElem), 2);
       tmpAction->setActionType(CAction::E_AT_SET_DEST);
+    } else if(!strcmp(actionElem, "closecon")) {
+      tmpAction->setActionType(CAction::E_AT_CLOSE_CON);
     } else if(!strcmp(actionElem, "strcmp")) {
       tmpAction->setVarId(xp_get_var("assign_to", "strcmp"));
       tmpAction->setVarInId(xp_get_var("variable", "test"));

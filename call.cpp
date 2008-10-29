@@ -3482,6 +3482,12 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
       free(file);
       free(line);
       free(value);
+    } else if (currentAction->getActionType() == CAction::E_AT_CLOSE_CON) {
+      if (call_socket) {
+	sipp_socket_invalidate(call_socket);
+	sipp_close_socket(call_socket);
+	call_socket = NULL;
+      }
     } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST) {
       /* Change the destination for this call. */
       char *str_host = strdup(createSendingMessage(currentAction->getMessage(0), -2));
