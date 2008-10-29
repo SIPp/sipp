@@ -85,6 +85,7 @@ typedef enum {
   E_Message_Timestamp,
   E_Message_SippVersion,
   E_Message_File,
+  E_Message_Custom,
 } MessageCompType;
 
 class SendingMessage {
@@ -122,6 +123,12 @@ class SendingMessage {
     static void getKeywordParam(char * src, char * param, char * output);
 };
 
+/* Custom Keyword Function Type. */
+struct MessageComponent;
+class call;
+typedef int (*customKeyword)(call *, struct MessageComponent *, char *, int);
+/* Custom Keyword Registration Function. */
+int registerKeyword(char *keyword, customKeyword fxn);
 
 struct MessageComponent {
   MessageCompType type;
@@ -145,6 +152,7 @@ struct MessageComponent {
       SendingMessage *line;
     } field_param;
     SendingMessage *filename;
+    customKeyword fxn;
   } comp_param;
 };
 

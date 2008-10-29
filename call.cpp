@@ -2343,6 +2343,10 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	}
 	break;
       }
+      case E_Message_Custom: {
+	dest += comp->comp_param.fxn(this, comp, dest, left);
+	break;
+      }
       case E_Message_Last_Message:
         if(last_recv_msg && strlen(last_recv_msg)) {
 	  dest += sprintf(dest, "%s", last_recv_msg);

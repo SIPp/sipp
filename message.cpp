@@ -44,6 +44,9 @@ struct KeywordMap {
 	MessageCompType type;
 };
 
+typedef std::map<std::string, customKeyword> kw_map;
+kw_map keyword_map;
+
 /* These keywords take no parameters. */
 struct KeywordMap SimpleKeywords[] = {
   {"remote_ip", E_Message_Remote_IP },
@@ -215,6 +218,24 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 	      newcomp->offset = atoi(key);
 		*key = 0;
 	    }
+	}
+
+	char *spc = NULL;
+	char ospc;
+	if ((spc = strchr(keyword, ' '))) {
+		ospc = *spc;
+		*spc = '\0';
+	}
+	kw_map::iterator it = keyword_map.find(keyword);
+	if (spc) {
+	  *spc = ospc;
+	}
+
+	if (it != keyword_map.end()) {
+	  newcomp->type = E_Message_Custom;
+	  newcomp->comp_param.fxn = it->second;
+	  messageComponents.push_back(newcomp);
+	  continue;
 	}
 
 	bool simple_keyword = false;
@@ -558,4 +579,13 @@ int SendingMessage::numComponents() {
 }
 struct MessageComponent *SendingMessage::getComponent(int i) {
   return messageComponents[i];
+}
+
+/* This is very simplistic and does not yet allow any arguments, but it is a start. */
+int registerKeyword(char *keyword, customKeyword fxn) {
+	if (keyword_map.find(keyword) != keyword_map.end()) {
+		ERROR("Can not register keyword '%s', already registered!\n", keyword);
+	}
+	keyword_map[keyword] = fxn;
+	return 0;
 }

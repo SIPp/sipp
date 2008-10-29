@@ -162,6 +162,8 @@ private:
   /* cseq value for [cseq] keyword */
   unsigned int   cseq;
 
+  const char *getLastReceived() { return last_recv_msg; };
+
 #ifdef PCAPPLAY
   int hasMediaInformation;
   pthread_t media_thread;
