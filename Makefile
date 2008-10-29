@@ -228,3 +228,7 @@ archive:
 
 .c.o:
 	$(CC) $(CFLAGS) $(MFLAGS) $(DEBUG_FLAGS) $(_HPUX_LI_FLAG) $(INCDIR) -c -o $*.o $<
+
+fortune.so: fortune.cpp
+	g++ -fPIC $(CPPFLAGS) $(MFLAGS) $(DEBUG_FLAGS) $(_HPUX_LI_FLAG) $(INCDIR) -c -o fortune.o $<
+	gcc -shared -Wl,-soname,fortune.so -o $@ fortune.o

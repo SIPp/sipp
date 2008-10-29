@@ -36,6 +36,7 @@
 
 #define GLOBALS_FULL_DEFINITION
 
+#include <dlfcn.h>
 #include "sipp.hpp"
 #include "assert.h"
 
@@ -127,6 +128,7 @@ struct sipp_option {
 #define SIPP_OPTION_RTCHECK	  35
 #define SIPP_OPTION_LFNAME	  36
 #define SIPP_OPTION_LFOVERWRITE	  37
+#define SIPP_OPTION_PLUGIN	  38
 
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
@@ -223,6 +225,7 @@ struct sipp_option options_table[] = {
 	{"p", "Set the local port number.  Default is a random free port chosen by the system.", SIPP_OPTION_INT, &user_port, 1},
 	{"pause_msg_ign", "Ignore the messages received during a pause defined in the scenario ", SIPP_OPTION_SETFLAG, &pause_msg_ign, 1},
 	{"periodic_rtd", "Reset response time partition counters each logging interval.", SIPP_OPTION_SETFLAG, &periodic_rtd, 1},
+	{"plugin", "Load a plugin.", SIPP_OPTION_PLUGIN, NULL, 1},
 
 	{"r", "Set the call rate (in calls per seconds).  This value can be"
 	      "changed during test by pressing '+','_','*' or '/'. Default is 10.\n"
@@ -4644,6 +4647,31 @@ int main(int argc, char *argv[])
 	  CHECK_PASS();
 	  ((struct logfile_info*)option->data)->fixedname = true;
 	  ((struct logfile_info*)option->data)->overwrite = get_bool(argv[argi], argv[argi-1]);
+	  break;
+	case SIPP_OPTION_PLUGIN: {
+	    void *handle;
+	    char *error;
+	    int (*init)();
+	    int ret;
+
+	    REQUIRE_ARG();
+	    CHECK_PASS();
+
+	    handle = dlopen(argv[argi], RTLD_NOW);
+	    if (!handle) {
+	      ERROR("Could not open plugin %s: %s", argv[argi], dlerror());
+	    }
+
+	    init = (int (*)())dlsym(handle, "init");
+	    if((error = (char *) dlerror())) {
+	      ERROR("Could not locate init function in %s: %s", argv[argi], dlerror());
+	    }
+
+	    ret = init();
+	    if (ret != 0) {
+	      ERROR("Plugin %s initialization failed.", argv[argi]);
+	    }
+	  }
 	  break;
 	default:
 	  ERROR("Internal error: I don't recognize the option type for %s\n", argv[argi]);
