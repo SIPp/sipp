@@ -1790,6 +1790,14 @@ void process_dump(char *what) {
   }
 }
 
+void process_reset(char *what) {
+  if (!strcmp(what, "stats")) {
+    main_scenario->stats->computeStat(CStat::E_RESET_C_COUNTERS);
+  } else {
+    WARNING("Unknown reset type: %s", what);
+  }
+}
+
 bool process_command(char *command) {
   trim(command);
 
@@ -1805,6 +1813,8 @@ bool process_command(char *command) {
 	process_trace(rest);
   } else if (!strcmp(command, "dump")) {
 	process_dump(rest);
+  } else if (!strcmp(command, "reset")) {
+	process_reset(rest);
   } else {
 	WARNING("Unrecognized command: \"%s\"", command);
   }

@@ -89,6 +89,27 @@
 #define RESET_COUNTERS(PT)\
   memset (PT, 0, CStat::E_NB_COUNTER * sizeof(unsigned long long))
 
+#define RESET_C_COUNTERS                          \
+{                                                      \
+  int i;                                               \
+  for (i=CStat::CPT_G_C_OutOfCallMsgs;            \
+       i<=CStat::CPT_G_C_AutoAnswered;               \
+       i++)                                            \
+    M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long) 0;                         \
+  for (i=CStat::CPT_C_IncomingCallCreated;            \
+       i<=CStat::CPT_C_Retransmissions;               \
+       i++)                                            \
+    M_counters[i] = (unsigned long) 0;                         \
+  for (unsigned int j=0;j<M_genericMap.size(); j++) { \
+	M_genericCounters[j * GENERIC_TYPES + GENERIC_C] = 0; \
+  } \
+  for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
+	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_COUNT] = 0; \
+	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUM] = 0; \
+	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] = 0; \
+  } \
+}
+
 #define RESET_PD_COUNTERS                          \
 {                                                      \
   int i;                                               \
@@ -677,6 +698,11 @@ int CStat::computeStat (E_Action P_action)
       M_counters [CPT_C_Retransmissions]++;
       M_counters [CPT_PD_Retransmissions]++;
       M_counters [CPT_PL_Retransmissions]++;
+      break;
+
+    case E_RESET_C_COUNTERS :
+      RESET_C_COUNTERS;
+      GET_TIME (&M_startTime);
       break;
 
     case E_RESET_PD_COUNTERS :
