@@ -3348,6 +3348,9 @@ void traffic_thread()
 	sockets_pending_reset.erase(sockets_pending_reset.begin());
     }
 
+    if ((main_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + main_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated)) >= stop_after) {
+	quitting = 1;
+    }
     if (quitting) {
       if (quitting > 11) {
         /* Force exit: abort all calls */
