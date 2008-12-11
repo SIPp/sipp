@@ -104,6 +104,7 @@ public:
 
   void setLastMsg(const char *msg);
   bool  automaticResponseMode(T_AutoMode P_case, char* P_recv);
+  const char *getLastReceived() { return last_recv_msg; };
 
 private:
   /* This is the core constructor function. */
@@ -161,8 +162,6 @@ private:
 
   /* cseq value for [cseq] keyword */
   unsigned int   cseq;
-
-  const char *getLastReceived() { return last_recv_msg; };
 
 #ifdef PCAPPLAY
   int hasMediaInformation;
