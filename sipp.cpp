@@ -4647,7 +4647,7 @@ int main(int argc, char *argv[])
 		}
 		token = NULL;
 	    }
-	    fprintf(stderr, "Defaults: %lu\n", *ptr);
+	    break;
 	  }
 	case SIPP_OPTION_LFNAME:
 	  REQUIRE_ARG();
