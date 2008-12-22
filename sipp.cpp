@@ -2648,6 +2648,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
     if (rc < 0) {
       if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
 	buffer_write(socket, buffer, len, dest);
+	enter_congestion(socket, errno);
 	return len;
       } else {
 	return rc;
@@ -2672,6 +2673,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
   } else if (rc <= 0) {
     if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
       buffer_write(socket, buffer, len, dest);
+      enter_congestion(socket, errno);
       return len;
     }
     if (useMessagef == 1) {
@@ -2696,6 +2698,7 @@ int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flag
 	    rc, len, len, buffer);
     }
     buffer_write(socket, buffer + rc, len - rc, dest);
+    enter_congestion(socket, errno);
   }
 
   return rc;
