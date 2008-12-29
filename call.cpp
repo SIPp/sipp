@@ -35,6 +35,7 @@
  *           Michael Dwyer from Cibation
  *           Roland Meub
  *           Andy Aicken
+ *	     Martin H. VanLeeuwen
  */
 
 #include <iterator>
@@ -578,8 +579,7 @@ call::~call()
 
   if(comp_state) { comp_free(&comp_state); }
 
-
-  if (call_remote_socket) {
+  if (call_remote_socket && (call_remote_socket != main_remote_socket)) {
     sipp_close_socket(call_remote_socket);
   }
 
