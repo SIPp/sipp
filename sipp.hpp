@@ -221,7 +221,7 @@ extern bool               timeout_error           _DEFVAL(false);
 extern unsigned long      report_freq_dumpRtt     _DEFVAL
                                                 (DEFAULT_FREQ_DUMP_RTT);
 
-extern unsigned int       max_multi_socket        _DEFVAL
+extern int		  max_multi_socket        _DEFVAL
                                                 (DEFAULT_MAX_MULTI_SOCKET);
 extern bool		  skip_rlimit		  _DEFVAL(false);
 

@@ -725,7 +725,6 @@ int get_decimal_from_hex(char hex) {
 /******************** Recv Poll Processing *********************/
 
 int                  pollnfds;
-unsigned int	     call_sockets;
 struct pollfd        pollfiles[SIPP_MAXFDS];
 struct sipp_socket  *sockets[SIPP_MAXFDS];
 
@@ -2935,10 +2934,6 @@ void sipp_socket_invalidate(struct sipp_socket *socket) {
     ERROR("Pollset error: index %d is greater than number of fds %d!", pollidx, pollnfds);
   }
 
-  if (socket->ss_call_socket) {
-    call_sockets--;
-  }
-
   socket->ss_invalid = true;
   socket->ss_pollidx = -1;
 
@@ -3913,7 +3908,7 @@ struct sipp_socket *new_sipp_socket(bool use_ipv6, int transport) {
 struct sipp_socket *new_sipp_call_socket(bool use_ipv6, int transport, bool *existing) {
   struct sipp_socket *sock = NULL;
   static int next_socket;
-  if (call_sockets >= max_multi_socket - 1) {  // we must take the main socket into account
+  if (pollnfds >= max_multi_socket) {  // we must take the main socket into account
     /* Find an existing socket that matches transport and ipv6 parameters. */
     int first = next_socket;
     do
@@ -3946,7 +3941,6 @@ struct sipp_socket *new_sipp_call_socket(bool use_ipv6, int transport, bool *exi
   } else {
     sock = new_sipp_socket(use_ipv6, transport);
     sock->ss_call_socket = true;
-    call_sockets++;
     *existing = false;
   }
   return sock;
@@ -4792,7 +4786,7 @@ int main(int argc, char *argv[])
 
     if (rlimit.rlim_max >
 #ifndef __CYGWIN
-       ((L_maxSocketPresent) ?  max_multi_socket : FD_SETSIZE)
+       ((L_maxSocketPresent) ?  (unsigned int)max_multi_socket : FD_SETSIZE)
 #else
        FD_SETSIZE
 #endif
@@ -4803,7 +4797,7 @@ int main(int argc, char *argv[])
 
       rlimit.rlim_max =
 #ifndef __CYGWIN
-          (L_maxSocketPresent) ?  max_multi_socket+min_socket : FD_SETSIZE ;
+          (L_maxSocketPresent) ?  (unsigned int)max_multi_socket+min_socket : FD_SETSIZE ;
 #else
 
 	  FD_SETSIZE;
