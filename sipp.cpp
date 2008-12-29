@@ -32,6 +32,7 @@
  *           Charles P Wright from IBM Research
  *           Martin Van Leeuwen
  *           Andy Aicken
+ *	     Michael Hirschbichler
  */
 
 #define GLOBALS_FULL_DEFINITION
@@ -3042,7 +3043,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
   if (useShortMessagef == 1) {
               struct timeval currentTime;
               GET_TIME (&currentTime);
-              TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
+              TRACE_SHORTMSG("%s\tR\t%s\tCSeq:%s\t%s\n",
               CStat::formatTime(&currentTime),call_id, get_incoming_header_content(msg,"CSeq:"), get_incoming_first_line(msg));
           } 
 
