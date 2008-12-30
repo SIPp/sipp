@@ -42,6 +42,7 @@
 #include <ctype.h>
 #include <signal.h>
 #include <time.h>
+#include <limits.h>
 #include <vector>
 #include <string>
 #include <map>
