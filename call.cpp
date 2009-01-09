@@ -3661,7 +3661,12 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
       M_callVariableTable->getVar(currentAction->getVarId())->setBool(value);
     } else if (currentAction->getActionType() == CAction::E_AT_VAR_STRCMP) {
       char *rhs = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
-      char *lhs = currentAction->getStringValue();
+      char *lhs;
+      if (currentAction->getVarIn2Id()) {
+	lhs = M_callVariableTable->getVar(currentAction->getVarIn2Id())->getString();
+      } else {
+	lhs = currentAction->getStringValue();
+      }
       int value = strcmp(rhs, lhs);
       M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)value);
     } else if (currentAction->getActionType() == CAction::E_AT_VAR_TRIM) {

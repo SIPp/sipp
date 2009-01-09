@@ -66,7 +66,7 @@ const char * CAction::comparatorToString(T_Comparator comp) {
 
 bool CAction::compare(VariableTable *variableTable) {
   double lhs = variableTable->getVar(M_varInId)->getDouble();
-  double rhs = M_doubleValue;
+  double rhs = M_varIn2Id ? variableTable->getVar(M_varIn2Id)->getDouble() : M_doubleValue;
 
   switch(M_comp) {
     case E_C_EQ:
@@ -164,6 +164,7 @@ bool           CAction::getHeadersOnly()  { return(M_headersOnly);  }
 int            CAction::getOccurence()    { return(M_occurence);    }
 int            CAction::getVarId()        { return(M_varId);        }
 int            CAction::getVarInId()      { return(M_varInId);      }
+int            CAction::getVarIn2Id()      { return(M_varIn2Id);      }
 char*          CAction::getLookingChar()  { return(M_lookingChar);  }
 SendingMessage *CAction::getMessage(int n)      { return(M_message[n]);      }
 CSample*       CAction::getDistribution() { return(M_distribution); }
@@ -183,6 +184,8 @@ void CAction::setVarId        (int            P_value)
 { M_varId        = P_value; }
 void CAction::setVarInId      (int            P_value)
 { M_varInId        = P_value; }
+void CAction::setVarIn2Id      (int            P_value)
+{ M_varIn2Id        = P_value; }
 void CAction::setCaseIndep    (bool           P_value)
 { M_caseIndep    = P_value; }
 void CAction::setOccurence   (int            P_value) 
@@ -424,6 +427,7 @@ CAction::CAction(scenario *scenario)
   M_action       = E_AT_NO_ACTION;
   M_varId        = 0;
   M_varInId        = 0;
+  M_varIn2Id        = 0;
 
   M_nbSubVarId    = 0;
   M_maxNbSubVarId = 0;

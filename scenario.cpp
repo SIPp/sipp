@@ -1487,7 +1487,14 @@ void scenario::parseAction(CActions *actions) {
     } else if(!strcmp(actionElem, "test")) {
       tmpAction->setVarId(xp_get_var("assign_to", "test"));
       tmpAction->setVarInId(xp_get_var("variable", "test"));
-      tmpAction->setDoubleValue(xp_get_double("value", "test"));
+      if (xp_get_value("value")) {
+	tmpAction->setDoubleValue(xp_get_double("value", "test"));
+	if (xp_get_value("variable2")) {
+	  ERROR("Can not have both a value and a variable2 for test!");
+	}
+      } else {
+	tmpAction->setVarIn2Id(xp_get_var("variable2", "test"));
+      }
       tmpAction->setActionType(CAction::E_AT_VAR_TEST);
       ptr = xp_get_string("compare", "test");
       if (!strcmp(ptr, "equal")) {
@@ -1538,8 +1545,15 @@ void scenario::parseAction(CActions *actions) {
       tmpAction->setActionType(CAction::E_AT_CLOSE_CON);
     } else if(!strcmp(actionElem, "strcmp")) {
       tmpAction->setVarId(xp_get_var("assign_to", "strcmp"));
-      tmpAction->setVarInId(xp_get_var("variable", "test"));
-      tmpAction->setStringValue(xp_get_string("value", "test"));
+      tmpAction->setVarInId(xp_get_var("variable", "strcmp"));
+      if (xp_get_value("value")) {
+	tmpAction->setStringValue(xp_get_string("value", "strcmp"));
+	if (xp_get_value("variable2")) {
+	  ERROR("Can not have both a value and a variable2 for strcmp!");
+	}
+      } else {
+	tmpAction->setVarIn2Id(xp_get_var("variable2", "strcmp"));
+      }
       tmpAction->setActionType(CAction::E_AT_VAR_STRCMP);
     } else if(!strcmp(actionElem, "trim")) {
       tmpAction->setVarId(xp_get_var("assign_to", "trim"));

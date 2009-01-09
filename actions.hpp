@@ -119,6 +119,7 @@ class CAction
     bool           getHeadersOnly();
     int            getVarId();
     int            getVarInId();
+    int            getVarIn2Id();
     int            getOccurence();
     char*          getLookingChar();
     char*          getRegularExpression();
@@ -134,6 +135,7 @@ class CAction
     void setCheckIt      (bool           P_value);
     void setVarId        (int            P_value);
     void setVarInId      (int            P_value);
+    void setVarIn2Id      (int            P_value);
     void setLookingChar  (char*          P_value);
     void setAction       (CAction        P_action);
     void setCaseIndep    (bool           P_action);
@@ -173,6 +175,7 @@ class CAction
       bool           M_headersOnly;
       int            M_varId;
       int            M_varInId;
+      int            M_varIn2Id;
       int            M_occurence;
       int            M_nbSubVarId;
       int            M_maxNbSubVarId;
