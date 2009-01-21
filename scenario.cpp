@@ -1380,6 +1380,9 @@ void scenario::parseAction(CActions *actions) {
 	  if (0 != (ptr = xp_get_value((char *)"occurence"))) {
 	    tmpAction->setOccurence (atol(ptr));
 	  }
+	  if (0 != (ptr = xp_get_value((char *)"occurrence"))) {
+	    tmpAction->setOccurence (atol(ptr));
+	  }
 	} else {
 	  ERROR("Unknown search_in value %s", ptr);
 	}
