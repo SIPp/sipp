@@ -1104,23 +1104,28 @@ char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
                                 int sizeOfTab, 
                                 char * P_repartitionName)
 {
-  static char  repartitionHeader[MAX_REPARTITION_HEADER_LENGTH];
+  static char *repartitionHeader = NULL;
   char buffer[MAX_CHAR_BUFFER_SIZE];
+  int dlen = strlen(stat_delimiter);
 
   if(tabRepartition != NULL)
     {
+      repartitionHeader = (char *)realloc(repartitionHeader, strlen(P_repartitionName) + dlen + 1);
       sprintf(repartitionHeader, "%s%s", P_repartitionName, stat_delimiter);
       for(int i=0; i<(sizeOfTab-1); i++)
-        {   
+        {
           sprintf(buffer, "<%d%s", tabRepartition[i].borderMax, stat_delimiter);
+	  repartitionHeader = (char *)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
           strcat(repartitionHeader, buffer);
         }
       sprintf(buffer, ">=%d%s", tabRepartition[sizeOfTab-1].borderMax, stat_delimiter);
+      repartitionHeader = (char *)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
       strcat(repartitionHeader, buffer);
     }
   else
     {
-      repartitionHeader[0] = '\0';
+      repartitionHeader = (char *)realloc(repartitionHeader, 2);
+      strcpy(repartitionHeader, "");
     }
 
   return(repartitionHeader);
@@ -1129,23 +1134,28 @@ char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
 char* CStat::sRepartitionInfo(T_dynamicalRepartition * tabRepartition, 
                               int sizeOfTab)
 {
-  static char repartitionInfo[MAX_REPARTITION_INFO_LENGTH];
+  static char *repartitionInfo;
   char buffer[MAX_CHAR_BUFFER_SIZE];
+  int dlen = strlen(stat_delimiter);
 
   if(tabRepartition != NULL)
     {
       // if a repartition is present, this field match the repartition name
+      repartitionInfo = (char *)realloc(repartitionInfo, dlen + 1);
       sprintf(repartitionInfo, stat_delimiter);
       for(int i=0; i<(sizeOfTab-1); i++)
         {   
           sprintf(buffer, "%lu%s", tabRepartition[i].nbInThisBorder, stat_delimiter);
+	  repartitionInfo = (char *)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
           strcat(repartitionInfo, buffer);
         }
       sprintf(buffer, "%lu%s", tabRepartition[sizeOfTab-1].nbInThisBorder, stat_delimiter);
+      repartitionInfo = (char *)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
       strcat(repartitionInfo, buffer);
     }
   else
     {
+      repartitionInfo = (char *)realloc(repartitionInfo, 2);
       repartitionInfo[0] = '\0';
     }
 

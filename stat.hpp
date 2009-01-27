@@ -29,8 +29,6 @@
 #define DEFAULT_FILE_NAME (char*)"dumpFile"
 #define DEFAULT_EXTENSION (char*)".csv"
 
-#define MAX_REPARTITION_HEADER_LENGTH 1024
-#define MAX_REPARTITION_INFO_LENGTH   1024
 #define MAX_CHAR_BUFFER_SIZE          1024
 
 #include <ctime> 
