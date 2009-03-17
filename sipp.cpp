@@ -2600,7 +2600,6 @@ static int flush_socket(struct sipp_socket *socket) {
 
 void buffer_write(struct sipp_socket *socket, char *buffer, size_t len, struct sockaddr_storage *dest) {
   struct socketbuf *buf = socket->ss_out;
-  struct socketbuf *prev = buf;
 
   if (!buf) {
 	socket->ss_out = alloc_socketbuf(buffer, len, DO_COPY, dest);
@@ -2609,11 +2608,10 @@ void buffer_write(struct sipp_socket *socket, char *buffer, size_t len, struct s
   }
 
   while(buf->next) {
-	prev = buf;
 	buf = buf->next;
   }
 
-  prev->next = alloc_socketbuf(buffer, len, DO_COPY, dest);
+  buf->next = alloc_socketbuf(buffer, len, DO_COPY, dest);
   TRACE_MSG("Appended buffered message to socket %d\n", socket->ss_fd);
 }
 
