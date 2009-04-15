@@ -115,6 +115,7 @@ class CAction
     T_LookingPlace getLookingPlace();
     T_Comparator   getComparator();
     bool           getCheckIt();
+    bool           getCheckItInverse();
     bool           getCaseIndep();
     bool           getHeadersOnly();
     int            getVarId();
@@ -133,6 +134,7 @@ class CAction
     void setLookingPlace (T_LookingPlace P_value);
     void setComparator   (T_Comparator   P_value);
     void setCheckIt      (bool           P_value);
+    void setCheckItInverse (bool           P_value);
     void setVarId        (int            P_value);
     void setVarInId      (int            P_value);
     void setVarIn2Id      (int            P_value);
@@ -171,6 +173,7 @@ class CAction
       T_LookingPlace M_lookingPlace;
       T_Comparator   M_comp;
       bool           M_checkIt;
+      bool           M_checkItInverse;
       bool           M_caseIndep;
       bool           M_headersOnly;
       int            M_varId;

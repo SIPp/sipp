@@ -1296,6 +1296,14 @@ void call::terminate(CStat::E_Action reason) {
 	  new deadcall(id, reason_str);
 	}
 	break;
+            case call::E_AR_REGEXP_SHOULDNT_MATCH:
+                computeStat(CStat::E_CALL_FAILED);
+                computeStat(CStat::E_FAILED_REGEXP_SHOULDNT_MATCH);
+                if (deadcall_wait && !initCall) {
+                    sprintf(reason_str, "regexp matched, but shouldn't at index %d", msg_index);
+                    new deadcall(id, reason_str);
+                }
+                break;
       case call::E_AR_HDR_NOT_FOUND:
 	computeStat(CStat::E_CALL_FAILED);
 	computeStat(CStat::E_FAILED_REGEXP_HDR_NOT_FOUND);
@@ -3423,6 +3431,13 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 	WARNING("Failed regexp match: looking in '%s', with regexp '%s'",
 	    haystack, currentAction->getRegularExpression());
 	return(call::E_AR_REGEXP_DOESNT_MATCH);
+            } else if ( ((M_callVariableTable->getVar(currentAction->getVarId())->isSet())) &&
+                        (currentAction->getCheckItInverse() == true) )
+            {
+                // The inverse of the above
+                WARNING("Regexp matched but should not: looking in '%s', with regexp '%s'",
+                        haystack, currentAction->getRegularExpression());
+                return(call::E_AR_REGEXP_SHOULDNT_MATCH);
       }
     } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_VALUE) {
       double operand = get_rhs(currentAction);

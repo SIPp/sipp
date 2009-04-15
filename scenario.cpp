@@ -1391,7 +1391,14 @@ void scenario::parseAction(CActions *actions) {
 	tmpAction->setLookingChar(NULL);
       } // end if-else search_in
 
+      if (xp_get_value("check_it")) {
       tmpAction->setCheckIt(xp_get_bool("check_it", "ereg", false));
+          if (xp_get_value("check_it_inverse")) {
+              ERROR("Can not have both check_it and check_it_inverse for ereg!");
+          }
+      } else {
+          tmpAction->setCheckItInverse(xp_get_bool("check_it_inverse", "ereg", false));
+      }
 
       if (!(ptr = xp_get_value((char *) "assign_to"))) {
 	ERROR("assign_to value is missing");

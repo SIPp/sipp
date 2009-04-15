@@ -91,19 +91,21 @@ void CAction::afficheInfo()
 {
   if (M_action == E_AT_ASSIGN_FROM_REGEXP) {
     if(M_lookingPlace == E_LP_MSG) {
-      printf("Type[%d] - regexp[%s] where[%s] - checkIt[%d] - $%s",
+            printf("Type[%d] - regexp[%s] where[%s] - checkIt[%d] - checkItInverse[%d] - $%s",
              M_action,
 	     M_regularExpression,
              "Full Msg",
              M_checkIt,
+                   M_checkItInverse,
 		       display_scenario->allocVars->getName(M_varId));
     } else {
-      printf("Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - $%s",
+            printf("Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - checkItInverse[%d] - $%s",
              M_action,
 	     M_regularExpression,
              "Header",
              M_lookingChar,
-             M_checkIt, display_scenario->allocVars->getName(M_varId));
+                   M_checkIt,
+                   M_checkItInverse, display_scenario->allocVars->getName(M_varId));
     }
   } else if (M_action == E_AT_EXECUTE_CMD) {
     printf("Type[%d] - command[%-32.32s]", M_action, M_message_str[0]);
@@ -159,6 +161,7 @@ CAction::T_IntCmdType   CAction::getIntCmd ()      { return(M_IntCmd);       }
 CAction::T_Comparator   CAction::getComparator ()  { return(M_comp);	     }
 
 bool           CAction::getCheckIt()      { return(M_checkIt);      }
+bool           CAction::getCheckItInverse() { return(M_checkItInverse);      }
 bool           CAction::getCaseIndep()    { return(M_caseIndep);    }
 bool           CAction::getHeadersOnly()  { return(M_headersOnly);  }
 int            CAction::getOccurence()    { return(M_occurence);    }
@@ -180,6 +183,8 @@ void CAction::setLookingPlace (CAction::T_LookingPlace P_value)
 { M_lookingPlace = P_value; }
 void CAction::setCheckIt      (bool           P_value) 
 { M_checkIt      = P_value; }
+void CAction::setCheckItInverse      (bool           P_value) 
+{ M_checkItInverse      = P_value; }
 void CAction::setVarId        (int            P_value) 
 { M_varId        = P_value; }
 void CAction::setVarInId      (int            P_value)
@@ -409,6 +414,7 @@ void CAction::setAction(CAction P_action)
 
   setLookingChar  ( P_action.getLookingChar()  );
   setCheckIt      ( P_action.getCheckIt()      );
+    setCheckItInverse      ( P_action.getCheckItInverse()      );
   setCaseIndep    ( P_action.getCaseIndep()    ); 
   setOccurence    ( P_action.getOccurence()   );
   setHeadersOnly  ( P_action.getHeadersOnly()  );
@@ -434,6 +440,7 @@ CAction::CAction(scenario *scenario)
   M_subVarId      = NULL;
 
   M_checkIt      = false;
+    M_checkItInverse      = false;
   M_lookingPlace = E_LP_MSG;
   M_lookingChar  = NULL;
   M_caseIndep    = false;

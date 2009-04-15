@@ -670,6 +670,12 @@ int CStat::computeStat (E_Action P_action)
       M_counters [CPT_PL_FailedCallRegexpDoesntMatch]++;
       break;
 
+    case E_FAILED_REGEXP_SHOULDNT_MATCH :
+      M_counters [CPT_C_FailedCallRegexpShouldntMatch]++;
+      M_counters [CPT_PD_FailedCallRegexpShouldntMatch]++;
+      M_counters [CPT_PL_FailedCallRegexpShouldntMatch]++;
+      break;
+
     case E_FAILED_REGEXP_HDR_NOT_FOUND :
       M_counters [CPT_C_FailedCallRegexpHdrNotFound]++;
       M_counters [CPT_PD_FailedCallRegexpHdrNotFound]++;
@@ -1497,6 +1503,8 @@ void CStat::dumpData ()
                       << "FailedCmdNotSent(C)" << stat_delimiter
                       << "FailedRegexpDoesntMatch(P)" << stat_delimiter
                       << "FailedRegexpDoesntMatch(C)" << stat_delimiter
+                      << "FailedRegexpShouldntMatch(P)" << stat_delimiter
+                      << "FailedRegexpShouldntMatch(C)" << stat_delimiter
                       << "FailedRegexpHdrNotFound(P)" << stat_delimiter
                       << "FailedRegexpHdrNotFound(C)" << stat_delimiter
                       << "FailedOutboundCongestion(P)" << stat_delimiter
@@ -1600,6 +1608,8 @@ void CStat::dumpData ()
                     << M_counters[CPT_C_FailedCallCmdNotSent]           << stat_delimiter
                     << M_counters[CPT_PL_FailedCallRegexpDoesntMatch]   << stat_delimiter
                     << M_counters[CPT_C_FailedCallRegexpDoesntMatch]    << stat_delimiter
+                    << M_counters[CPT_PL_FailedCallRegexpShouldntMatch] << stat_delimiter
+                    << M_counters[CPT_C_FailedCallRegexpShouldntMatch]  << stat_delimiter
                     << M_counters[CPT_PL_FailedCallRegexpHdrNotFound]   << stat_delimiter
                     << M_counters[CPT_C_FailedCallRegexpHdrNotFound]    << stat_delimiter
                     << M_counters[CPT_PL_FailedOutboundCongestion]      << stat_delimiter
