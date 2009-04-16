@@ -1902,8 +1902,8 @@ void setup_ctrl_socket() {
 
   if (try_counter == 0) {
     if (control_port) {
-      ERROR("Unable to bind remote control socket to UDP port %d: %s",
-                  control_port, strerror(errno));
+      ERROR_NO("Unable to bind remote control socket to UDP port %d",
+                  control_port);
     } else {
       WARNING("Unable to bind remote control socket (tried UDP ports %d-%d): %s",
                   firstport, port - 1, strerror(errno));
@@ -3622,6 +3622,7 @@ void help()
      "   97: exit on internal command. Calls may have been processed\n"
      "   99: Normal exit without calls processed\n"
      "   -1: Fatal error\n"
+     "   -2: Fatal error binding a socket\n"
      "\n"
      "\n"
      "Example:\n"

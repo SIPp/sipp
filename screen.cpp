@@ -267,10 +267,18 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
 
   if(fatal) {
     if(!screen_inited) {
+      if(error == EADDRINUSE) {
+        exit(EXIT_BIND_ERROR);
+      } else {
       exit(EXIT_FATAL_ERROR);
+      }
+    } else {
+      if(error == EADDRINUSE) {
+        screen_exit(EXIT_BIND_ERROR);
     } else {
       screen_exit(EXIT_FATAL_ERROR);
     }
+  }
   }
 }
 

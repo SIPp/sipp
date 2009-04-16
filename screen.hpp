@@ -45,6 +45,7 @@ extern "C" {
 #define EXIT_TEST_RES_UNKNOWN      98
 #define EXIT_OTHER                 99
 #define EXIT_FATAL_ERROR           -1
+#define EXIT_BIND_ERROR            -2
 
 void screen_set_exename(char * exe_name);
 void screen_init(void (*exit_handler)());
