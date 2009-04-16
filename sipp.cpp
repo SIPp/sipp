@@ -4468,11 +4468,12 @@ int main(int argc, char *argv[])
 	  if (!strcmp(argv[argi - 1], "-sf")) {
 	    scenario_file = new char [strlen(argv[argi])+1] ;
 	    sprintf(scenario_file,"%s", argv[argi]);
+	    scenario_file = remove_pattern (scenario_file, (char*)".xml");
 	    if (useLogf == 1) {
 	      rotate_logfile();
 	    }
 	    main_scenario = new scenario(argv[argi], 0);
-	    main_scenario->stats->setFileName(argv[argi], (char*)".csv");
+	    main_scenario->stats->setFileName(scenario_file, (char*)".csv");
 	  } else if (!strcmp(argv[argi - 1], "-sn")) {
 	    int i = find_scenario(argv[argi]);
 
@@ -4720,8 +4721,6 @@ int main(int argc, char *argv[])
   if (scenario_file == NULL) {
     scenario_file = new char [ 5 ] ;
     sprintf(scenario_file, "%s", "sipp");
-  } else {
-    scenario_file = remove_pattern (scenario_file, (char*)".xml");
   }
 
    screen_init(print_last_stats);
