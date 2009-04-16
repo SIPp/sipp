@@ -3536,14 +3536,19 @@ char *wrap(const char *in, int offset, int size) {
         }
       } else {
         int m;
+        int move_back = 0;
 
-        out[j] = '\0';
         //printf("Before wrapping (pos = %d, k = %d, j = %d):\n%-*s%s\n", pos, k, j, offset, "", out);
 
         out[k] = '\n';
         pos = j - k;
+        // move_back is used to step back in the in and out buffers when a
+        // word is longer than useoffset.
+        if (i > (k + useoffset)) {
+          move_back = i - (k + useoffset);
+          i -= move_back;
+        }
         k++;
-        out[j] = '\0';
         out = (char *)realloc(out, alloced += useoffset);
         if (!out) {
           ERROR_NO("realloc");
@@ -3554,8 +3559,7 @@ char *wrap(const char *in, int offset, int size) {
           }
           out[k + m] = ' ';
         }
-        j += useoffset;
-        out[j] = '\0';
+        j += useoffset - move_back;
         //printf("After wrapping (pos = %d, k = %d):\n%-*s%s\n", pos, k, offset, "", out);
       }
     }
