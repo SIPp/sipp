@@ -54,6 +54,7 @@
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 #include "send_packets.h"
 #include "prepare_pcap.h"
@@ -112,6 +113,14 @@ void hexdump(char *p, int s) {
 /*Safe threaded version*/
 void do_sleep (struct timeval *, struct timeval *,
                struct timeval *, struct timeval *);
+void send_packets_cleanup(void *arg)
+{
+  int sock = (int) arg;
+
+  // Close send socket
+  close(sock);
+}
+
 
 int
 send_packets (play_args_t * play_args)
@@ -171,6 +180,13 @@ send_packets (play_args_t * play_args)
     memcpy(&(from6.sin6_addr.s6_addr), &(((struct sockaddr_in6 *)(void *) from)->sin6_addr.s6_addr), sizeof(from6.sin6_addr.s6_addr));
   }
 	
+
+  /* Ensure the sender socket is closed when the thread exits - this
+   * allows the thread to be cancelled cleanly.
+   */
+  pthread_cleanup_push(send_packets_cleanup, ((void *) sock));
+
+
   while (pkt_index < pkt_max) {
     memcpy(udp, pkt_index->data, pkt_index->pktlen);
     port_diff = ntohs (udp->uh_dport) - pkts->base;
@@ -228,7 +244,8 @@ send_packets (play_args_t * play_args)
     pkt_index++;
 	}
 
-  close(sock);
+  /* Closing the socket is handled by pthread_cleanup_push()/pthread_cleanup_pop() */
+  pthread_cleanup_pop(1);
   return 0;
 }
 

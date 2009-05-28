@@ -624,6 +624,14 @@ call::~call()
     tdm_map[tdm_map_number] = false;
   }
   
+# ifdef PCAPPLAY
+  if (media_thread != 0) {
+    pthread_cancel(media_thread);
+    pthread_join(media_thread, NULL);
+  }
+#endif
+
+
   free(start_time_rtd);
   free(rtd_done);
   free(debugBuffer);
@@ -3803,8 +3811,12 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 #define PTHREAD_STACK_MIN	16384
 #endif
       //pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN);
-      pthread_attr_setdetachstate(&attr,
-	  PTHREAD_CREATE_DETACHED);
+      if (media_thread != 0) {
+        // If a media_thread is already active, kill it before starting a new one
+        pthread_cancel(media_thread);
+        pthread_join(media_thread, NULL);
+        media_thread = 0;
+      }
       int ret = pthread_create(&media_thread, &attr, send_wrapper,
 	  (void *) play_args);
       if(ret)
