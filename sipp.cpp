@@ -4937,7 +4937,10 @@ int main(int argc, char *argv[])
       ERROR("Unknown RTP address '%s'.\n"
                "Use 'sipp -h' for details", media_ip);
     }
-
+    
+    memset(&media_sockaddr,0,sizeof(struct sockaddr_storage));
+    media_sockaddr.ss_family = local_addr->ai_addr->sa_family;
+    
     memcpy(&media_sockaddr,
            local_addr->ai_addr,
            SOCK_ADDR_SIZE(
@@ -5203,12 +5206,10 @@ int open_connections() {
 	  get_inet_address(
 	    _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
     } else {
-      if (!(local_sockaddr.ss_family == AF_INET6)) {
-	memcpy(&local_sockaddr,
-	    local_addr->ai_addr,
-	    SOCK_ADDR_SIZE(
-	      _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
-      }
+          memcpy(&local_sockaddr,
+	  local_addr->ai_addr,
+	  SOCK_ADDR_SIZE(
+	  _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
     }
     freeaddrinfo(local_addr);
 

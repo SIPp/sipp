@@ -151,13 +151,13 @@ uint32_t get_remote_ip_media(char *msg)
  * Look for "c=IN IP6 " pattern in the message and extract the following value
  * which should be IPv6 address
  */
-uint8_t get_remote_ipv6_media(char *msg, struct in6_addr addr)
+uint8_t get_remote_ipv6_media(char *msg, struct in6_addr *addr)
 {
     char pattern[] = "c=IN IP6 ";
     char *begin, *end;
     char ip[128];
 
-    memset(&addr, 0, sizeof(addr));
+    memset(addr, 0, sizeof(*addr));
     memset(ip, 0, 128);
 
     begin = strstr(msg, pattern);
@@ -170,7 +170,7 @@ uint8_t get_remote_ipv6_media(char *msg, struct in6_addr addr)
     if (!end)
       return 0;
     strncpy(ip, begin, end - begin);
-    if (!inet_pton(AF_INET6, ip, &addr)) {
+    if (!inet_pton(AF_INET6, ip, addr)) {
       return 0;
     }
     return 1;
@@ -217,7 +217,7 @@ void call::get_remote_media_addr(char *msg) {
   uint16_t video_port, audio_port;
   if (media_ip_is_ipv6) {
   struct in6_addr ip_media;
-    if (get_remote_ipv6_media(msg, ip_media)) {
+    if (get_remote_ipv6_media(msg, &ip_media)) {
       audio_port = get_remote_port_media(msg, PAT_AUDIO);
       if (audio_port) {
         /* We have audio in the SDP: set the to_audio addr */
