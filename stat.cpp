@@ -779,9 +779,9 @@ int CStat::globalStat (E_Action P_action) {
 
     case E_AUTO_ANSWERED :
       // Let's count the automatic answered calls
-      M_G_counters [CPT_G_C_AutoAnswered - 1]++;
-      M_G_counters [CPT_G_PD_AutoAnswered - 1]++;
-      M_G_counters [CPT_G_PL_AutoAnswered - 1]++;
+      M_G_counters [CPT_G_C_AutoAnswered - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PD_AutoAnswered - E_NB_COUNTER - 1]++;
+      M_G_counters [CPT_G_PL_AutoAnswered - E_NB_COUNTER - 1]++;
       break;
     default :
       ERROR("CStat::ComputeStat() - Unrecognized Action %d\n", P_action);
