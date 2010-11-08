@@ -1702,11 +1702,11 @@ bool call::run()
       }
     } else {
       nb_last_delay *= 2;
-      if (DEFAULT_T2_TIMER_VALUE < nb_last_delay)
+      if (global_t2 < nb_last_delay)
       {
         if (!bInviteTransaction)
         {
-          nb_last_delay = DEFAULT_T2_TIMER_VALUE;
+          nb_last_delay = global_t2;
       }
       }
       if(send_raw(last_send_msg, last_send_index, last_send_len) < -1) {
@@ -3235,8 +3235,8 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
       /*
        * We are here due to a provisional response for non INVITE. Update our next retransmit.
        */
-      next_retrans = clock_tick + DEFAULT_T2_TIMER_VALUE;
-      nb_last_delay = DEFAULT_T2_TIMER_VALUE;
+      next_retrans = clock_tick + global_t2;
+      nb_last_delay = global_t2;
 
     }
   }
