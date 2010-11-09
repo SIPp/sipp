@@ -111,8 +111,11 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
       if (current_line[0] == '\0') {
         line_mark = strchr(src, '\n');
         if (line_mark) {
-          memcpy(current_line, src, line_mark - src);
-          current_line[line_mark-src] = '\0';
+          int header_len =  line_mark - src;
+          if (header_len > MAX_HEADER_LEN-1)
+              header_len = MAX_HEADER_LEN-1;
+          memcpy(current_line, src, header_len);
+          current_line[header_len] = '\0';
         }
       }
 
