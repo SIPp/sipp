@@ -4202,7 +4202,7 @@ int main(int argc, char *argv[])
 	  }
 	  exit(EXIT_OTHER);
 	case SIPP_OPTION_VERSION:
-	  printf("\n SIPp v3.1"
+	  printf("\n SIPp v3.2"
 #ifdef _USE_OPENSSL
 	      "-TLS"
 #endif
