@@ -153,7 +153,7 @@ INCDIR_freebsd=-I. -I/usr/local/include
 INCDIR_hpux=-I. -I/usr/local/include -I/opt/openssl/include
 INCDIR_tru64=-I. -I/opt/openssl/include
 INCDIR_SunOS=-I. -I/usr/local/ssl/include/
-INCDIR_Cygwin=-I. -I/usr/include/openssl -I/usr/include -I/usr/lib/WpdPack/Include
+INCDIR_Cygwin=-I. -I/usr/include/openssl -I/usr/include -I/usr/include/ncurses -I/usr/lib/WpdPack/Include
 INCDIR_Darwin=-I. -I/usr/local/ssl/include
 INCDIR=$(INCDIR_$(SYSTEM)) 
 
