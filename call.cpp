@@ -1208,6 +1208,8 @@ char * call::send_scene(int index, int *send_status, int *len)
   char *L_ptr1 ;
   char *L_ptr2 ;
   int uselen = 0;
+  int tmplen;
+  char *hdrbdry;
 
   assert(send_status);
 
@@ -1247,6 +1249,16 @@ char * call::send_scene(int index, int *send_status, int *len)
   if (strcmp(msg_name,"ACK") == 0) {
     call_established = true ;
     ack_is_pending = false ;
+  }
+
+  /* Fix: Remove extra "\r\n" if message body ends with "\r\n\r\n" */
+  tmplen = (*len) - 1;
+  if ((dest[tmplen] == dest[tmplen-2] && dest[tmplen] == '\n')
+      && (dest[tmplen-1] == dest[tmplen-3] && dest[tmplen-1] == '\r'))  {
+    hdrbdry = strstr(dest, "\r\n\r\n");
+    if (NULL != hdrbdry &&  hdrbdry != dest+(tmplen-3))  {
+        *len = (*len) - 2;
+    }
   }
 
   *send_status = send_raw(dest, index, *len);
