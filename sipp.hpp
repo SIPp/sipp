@@ -210,6 +210,7 @@ extern bool               bind_local              _DEFVAL(false);
 extern void             * monosocket_comp_state   _DEFVAL(0);
 extern char             * service                 _DEFVAL(DEFAULT_SERVICE);
 extern char             * auth_password           _DEFVAL(DEFAULT_AUTH_PASSWORD);
+extern char             * auth_username           _DEFVAL(0);
 extern unsigned long      report_freq             _DEFVAL(DEFAULT_REPORT_FREQ);
 extern unsigned long      report_freq_dumpLog     _DEFVAL
                                                 (DEFAULT_REPORT_FREQ_DUMP_LOG);

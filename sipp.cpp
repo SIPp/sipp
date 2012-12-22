@@ -139,13 +139,10 @@ struct sipp_option options_table[] = {
 	{"help", NULL, SIPP_OPTION_HELP, NULL, 0},
 
 	{"aa", "Enable automatic 200 OK answer for INFO, UPDATE and NOTIFY messages.", SIPP_OPTION_SETFLAG, &auto_answer, 1},
-#ifdef _USE_OPENSSL
 	{"auth_uri", "Force the value of the URI for authentication.\n"
                      "By default, the URI is composed of remote_ip:remote_port.", SIPP_OPTION_STRING, &auth_uri, 1},
-#else
-	{"auth_uri", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
-#endif
-
+    {"au", "Set authorization username for authentication challenges. Default is taken from -s argument", SIPP_OPTION_STRING, &auth_username, 1},
+	{"ap", "Set the password for authentication challenges. Default is 'password'", SIPP_OPTION_STRING, &auth_password, 1},
 	{"base_cseq", "Start value of [cseq] for each call.", SIPP_OPTION_CSEQ, NULL, 1},
 	{"bg", "Launch SIPp in background mode.", SIPP_OPTION_SETFLAG, &backgroundMode, 1},
 	{"bind_local", "Bind socket to local IP address, i.e. the local IP address is used as the source IP address.  If SIPp runs in server mode it will only listen on the local IP address instead of all IP addresses.", SIPP_OPTION_SETFLAG, &bind_local, 1},
@@ -327,12 +324,10 @@ struct sipp_option options_table[] = {
 	{"watchdog_minor_maxtriggers", "How many times the minor watchdog timer can be tripped before the test is terminated.  Default is 120.", SIPP_OPTION_INT, &watchdog_minor_maxtriggers, 1},
 
 #ifdef _USE_OPENSSL
-	{"ap", "Set the password for authentication challenges. Default is 'password", SIPP_OPTION_STRING, &auth_password, 1},
 	{"tls_cert", "Set the name for TLS Certificate file. Default is 'cacert.pem", SIPP_OPTION_STRING, &tls_cert_name, 1},
 	{"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem'", SIPP_OPTION_STRING, &tls_key_name, 1},
 	{"tls_crl", "Set the name for Certificate Revocation List file. If not specified, X509 CRL is not activated.", SIPP_OPTION_STRING, &tls_crl_name, 1},
 #else
-	{"ap", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
 	{"tls_cert", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
 	{"tls_key", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
 	{"tls_crl", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},

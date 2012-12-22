@@ -330,11 +330,6 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 	  ERROR("The %s keyword requires PCAPPLAY.\n", keyword);
 	}
 #endif
-#ifndef _USE_OPENSSL
-        else if(!strcmp(keyword, "authentication")) {
-	  ERROR("The %s keyword requires OpenSSL.\n", keyword);
-	}
-#endif
 	else {
 	  // scan for the generic parameters - must be last test
 
@@ -529,7 +524,7 @@ void SendingMessage::parseAuthenticationKeyword(scenario *msg_scenario, struct M
   getKeywordParam(keyword, "password=", my_auth_pass);
 
   if(*my_auth_user == '\0') {
-    strcpy(my_auth_user, service);
+    strcpy(my_auth_user, auth_username ? auth_username : service);
   }
   if(*my_auth_pass == '\0') {
     strcpy(my_auth_pass, auth_password);

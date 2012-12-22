@@ -171,11 +171,9 @@ private:
 #endif
 
   
-#ifdef _USE_OPENSSL
   /* holds the auth header and if the challenge was 401 or 407 */
   char         * dialog_authentication;
   int            dialog_challenge_type;
-#endif
 
   unsigned int   next_retrans;
   int   	 nb_retrans;

@@ -26,9 +26,10 @@ VERINFO=-DSVN_VERSION="\"$(SVN_VERSION)\""
 OUTPUT=sipp
 
 # C & C++ object files to be built
-OBJ= xp_parser.o message.o scenario.o screen.o call.o comp.o sipp.o stat.o \
-     actions.o variables.o infile.o deadcall.o task.o socketowner.o listener.o \
-     opentask.o reporttask.o watchdog.o
+OBJ= rijndael.o md5.o milenage.o auth.o xp_parser.o message.o scenario.o \
+	 screen.o call.o comp.o sipp.o stat.o actions.o variables.o infile.o \
+	 deadcall.o task.o socketowner.o listener.o opentask.o reporttask.o \
+	 watchdog.o
 
 # Libraries directories
 LIBDIR_linux=
@@ -159,23 +160,23 @@ INCDIR=$(INCDIR_$(SYSTEM))
 
 -include local.mk
 
-# Building without TLS and authentication (no openssl pre-requisite)
+# Building without TLS (no openssl pre-requisite)
 all:
 	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` $(OUTPUT)
 
 unittest:
 	$(MAKE) UNITTEST="-DSIPP_UNITTEST" OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` $(OUTPUT)
 
-# Building with TLS and authentication
+# Building with TLS
 ossl:
-	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_TLS="auth.o sslinit.o sslthreadsafe.o  milenage.o rijndael.o" TLS_LIBS="-lssl -lcrypto" TLS="-D_USE_OPENSSL -DOPENSSL_NO_KRB5" $(OUTPUT)
+	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_TLS="sslinit.o sslthreadsafe.o" TLS_LIBS="-lssl -lcrypto" TLS="-D_USE_OPENSSL -DOPENSSL_NO_KRB5" $(OUTPUT)
 
 #Building with PCAP play
 pcapplay:
 	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_PCAPPLAY="send_packets.o prepare_pcap.o" PCAPPLAY_LIBS="-lpcap" PCAPPLAY="-DPCAPPLAY" $(OUTPUT)
 
 pcapplay_ossl:
-	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_TLS="auth.o sslinit.o sslthreadsafe.o  milenage.o rijndael.o" TLS_LIBS="-lssl -lcrypto" TLS="-D_USE_OPENSSL -DOPENSSL_NO_KRB5"  OBJ_PCAPPLAY="send_packets.o prepare_pcap.o" PCAPPLAY_LIBS="-lpcap `if test -f ./ext; then echo -L./ext/lib; fi;`" PCAPPLAY="-DPCAPPLAY `if test -f ./ext; then echo -I./ext/include; fi;`" $(OUTPUT)
+	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_TLS="sslinit.o sslthreadsafe.o" TLS_LIBS="-lssl -lcrypto" TLS="-D_USE_OPENSSL -DOPENSSL_NO_KRB5"  OBJ_PCAPPLAY="send_packets.o prepare_pcap.o" PCAPPLAY_LIBS="-lpcap `if test -f ./ext; then echo -L./ext/lib; fi;`" PCAPPLAY="-DPCAPPLAY `if test -f ./ext; then echo -I./ext/include; fi;`" $(OUTPUT)
 
 pcapplay_hp_li_ia:
 	@_HPUX_LI_FLAG=-D_HPUX_LI ; export _HPUX_LI_FLAG ; $(MAKE) pcapplay
@@ -187,7 +188,7 @@ pcapplay_cygwin:
 	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_PCAPPLAY="send_packets.o prepare_pcap.o" PCAPPLAY_LIBS="-lwpcap" PCAPPLAY="-DPCAPPLAY" $(OUTPUT)
 
 pcapplay_ossl_cygwin:
-	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_TLS="auth.o sslinit.o sslthreadsafe.o  milenage.o rijndael.o" TLS_LIBS="-lssl -lcrypto" TLS="-D_USE_OPENSSL -DOPENSSL_NO_KRB5"  OBJ_PCAPPLAY="send_packets.o prepare_pcap.o" PCAPPLAY_LIBS="-lwpcap" PCAPPLAY="-DPCAPPLAY" $(OUTPUT)
+	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_TLS="sslinit.o sslthreadsafe.o" TLS_LIBS="-lssl -lcrypto" TLS="-D_USE_OPENSSL -DOPENSSL_NO_KRB5"  OBJ_PCAPPLAY="send_packets.o prepare_pcap.o" PCAPPLAY_LIBS="-lwpcap" PCAPPLAY="-DPCAPPLAY" $(OUTPUT)
 
 $(OUTPUT): $(OBJ_TLS) $(OBJ_PCAPPLAY) $(OBJ)
 	$(CCLINK) $(LFLAGS) $(MFLAGS) $(LIBDIR_$(SYSTEM)) \

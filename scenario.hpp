@@ -74,10 +74,8 @@ public:
   /* should collect route set? */
   bool           bShouldRecordRoutes;
 
-#ifdef _USE_OPENSSL
   /* should collect authentication info? */
   bool           bShouldAuthenticate;
-#endif
 
   /* If this is a send */
   SendingMessage *send_scheme;

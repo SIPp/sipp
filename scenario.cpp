@@ -46,9 +46,7 @@ message::message(int index, const char *desc)
   pause_desc = NULL;
   sessions = 0;
   bShouldRecordRoutes = 0;
-#ifdef _USE_OPENSSL
   bShouldAuthenticate = 0;
-#endif
 
   send_scheme = NULL;
   retrans_delay = 0;
@@ -900,13 +898,7 @@ scenario::scenario(char * filename, int deflt)
         /* record the authentication credentials  */
         if((ptr = xp_get_value((char *)"auth"))) {
 	  bool temp = get_bool(ptr, "message authentication");
-#ifdef _USE_OPENSSL
 	  curmsg -> bShouldAuthenticate = temp;
-#else
-	  if (temp) {
-	    ERROR("Authentication requires OpenSSL support!");
-	  }
-#endif
         }
       } else if(!strcmp(elem, "pause") || !strcmp(elem, "timewait")) {
 	checkOptionalRecv(elem, scenario_file_cursor);
@@ -1524,14 +1516,10 @@ void scenario::parseAction(CActions *actions) {
       }
       free(ptr);
     } else if(!strcmp(actionElem, "verifyauth")) {
-#ifdef _USE_OPENSSL
       tmpAction->setVarId(xp_get_var("assign_to", "verifyauth"));
       tmpAction->setMessage(xp_get_string("username", "verifyauth"), 0);
       tmpAction->setMessage(xp_get_string("password", "verifyauth"), 1);
       tmpAction->setActionType(CAction::E_AT_VERIFY_AUTH);
-#else
-      ERROR("The verifyauth action requires OpenSSL support.");
-#endif
     } else if(!strcmp(actionElem, "lookup")) {
       tmpAction->setVarId(xp_get_var("assign_to", "lookup"));
       tmpAction->setMessage(xp_get_string("file", "lookup"), 0);

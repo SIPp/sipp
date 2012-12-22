@@ -403,10 +403,10 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
   use_ipv6 = ipv6;
   queued_msg = NULL;
   
-#ifdef _USE_OPENSSL
   dialog_authentication = NULL;
   dialog_challenge_type = 0;
 
+#ifdef _USE_OPENSSL
   m_ctx_ssl = NULL ;
   m_bio = NULL ;
 #endif
@@ -614,11 +614,9 @@ call::~call()
   }
 
 
-#ifdef _USE_OPENSSL
   if(dialog_authentication) {
        free(dialog_authentication);
   }
-#endif
 
   if (use_tdmmap) {
     tdm_map[tdm_map_number] = false;
@@ -2448,9 +2446,6 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
    * been keyword substituted) to build the md5 hash
    */
   if (auth_marker) {
-#ifndef _USE_OPENSSL
-    ERROR("Authentication requires OpenSSL!");
-#else
     if (!dialog_authentication) {
       ERROR("Authentication keyword without dialog_authentication!");
     }
@@ -2514,7 +2509,6 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     if (msgLen) {
 	*msgLen += (authlen -  auth_marker_len);
     }
-#endif
   }
 
   if (auth_comp_allocated) {
@@ -3294,7 +3288,6 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
       // WARNING("next_req_url is [%s]", next_req_url);
   }
 
-#ifdef _USE_OPENSSL
   /* store the authentication info */
   if ((call_scenario->messages[search_index] -> bShouldAuthenticate) &&
           (reply_code == 401 || reply_code == 407)) {
@@ -3316,7 +3309,6 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
       /* Store the code of the challenge for building the proper header */
       dialog_challenge_type = reply_code;
   }
-#endif
 
   /* If we are not advancing state, we should quite before we change this stuff. */
   if (!call_scenario->messages[search_index]->advance_state) {
@@ -3632,7 +3624,6 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 	  }
 	}
       }
-#ifdef _USE_OPENSSL
     } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_AUTH) {
       bool result;
       char *lf;
@@ -3665,7 +3656,6 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
       }
 
       M_callVariableTable->getVar(currentAction->getVarId())->setBool(result);
-#endif
     } else if (currentAction->getActionType() == CAction::E_AT_JUMP) {
       double operand = get_rhs(currentAction);
       msg_index = (int)operand - 1;

@@ -29,7 +29,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include <openssl/md5.h>
+#include "md5.h"
 #include "milenage.h"
 #include "screen.hpp"
 
@@ -90,10 +90,11 @@ int createAuthHeaderAKAv1MD5(char * user, char * OP,
 
 /* This function is from RFC 2617 Section 5 */
 
-void hashToHex (unsigned char *_b, unsigned char *_h)
+void hashToHex (md5_byte_t *_b_raw, unsigned char *_h)
 {
     unsigned short i;
     unsigned char j;
+    unsigned char *_b = (unsigned char *) _b_raw;
 
     for (i = 0; i < MD5_HASH_SIZE; i++) {
         j = (_b[i] >> 4) & 0xf;
@@ -215,14 +216,14 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
                      char * uri, char * msgbody, char * auth, 
                      char * algo, char * result) {
                      	
-    unsigned char ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
-    unsigned char resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE]; 
+    md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
+    md5_byte_t resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE];
     unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
     unsigned char resp_hex[HASH_HEX_SIZE+1], body_hex[HASH_HEX_SIZE+1];
     char tmp[MAX_HEADER_LEN], authtype[16], cnonce[32], nc[32], opaque[64];
     static unsigned int mync = 1;
     int has_opaque = 0;
-    MD5_CTX Md5Ctx;
+    md5_state_t Md5Ctx;
 
     // Extract the Auth Type - If not present, using 'none' 
     cnonce[0] = '\0';
@@ -243,19 +244,16 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
     }
 
     // Load in A1 
-    MD5_Init(&Md5Ctx);
-    MD5_Update(&Md5Ctx, user, strlen(user));
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, tmp, strlen(tmp));
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, password, password_len);
-    MD5_Final(ha1, &Md5Ctx);
+    md5_init(&Md5Ctx);
+    md5_append(&Md5Ctx, user, strlen(user));
+    md5_append(&Md5Ctx, ":", 1);
+    md5_append(&Md5Ctx, tmp, strlen(tmp));
+    md5_append(&Md5Ctx, ":", 1);
+    md5_append(&Md5Ctx, password, password_len);
+    md5_finish(&Md5Ctx, ha1);
     hashToHex(&ha1[0], &ha1_hex[0]);
 
     sprintf(result, "Digest username=\"%s\",realm=\"%s\"",user,tmp);
-    if (cnonce[0] != '\0') {
-        sprintf(result, "%s,cnonce=\"%s\",nc=%s,qop=%s",result,cnonce,nc,authtype);
-    }
 
     // Construct the URI 
     if (auth_uri == NULL) {
@@ -266,24 +264,28 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
 
     // If using Auth-Int make a hash of the body - which is NULL for REG 
     if (stristr(authtype, "auth-int") != NULL) {
-        MD5_Init(&Md5Ctx);
-        MD5_Update(&Md5Ctx, msgbody, strlen(msgbody));
-        MD5_Final(body, &Md5Ctx);
+        md5_init(&Md5Ctx);
+        md5_append(&Md5Ctx, msgbody, strlen(msgbody));
+        md5_finish(&Md5Ctx, body);
         hashToHex(&body[0], &body_hex[0]);
+        sprintf(authtype, "auth-int");
     }
 
     // Load in A2 
-    MD5_Init(&Md5Ctx);
-    MD5_Update(&Md5Ctx, method, strlen(method));
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, tmp, strlen(tmp));
+    md5_init(&Md5Ctx);
+    md5_append(&Md5Ctx, method, strlen(method));
+    md5_append(&Md5Ctx, ":", 1);
+    md5_append(&Md5Ctx, tmp, strlen(tmp));
     if (stristr(authtype, "auth-int") != NULL) {
-        MD5_Update(&Md5Ctx, ":", 1);
-        MD5_Update(&Md5Ctx, &body_hex, HASH_HEX_SIZE);
+        md5_append(&Md5Ctx, ":", 1);
+        md5_append(&Md5Ctx, (md5_byte_t *) &body_hex, HASH_HEX_SIZE);
     }
-    MD5_Final(ha2, &Md5Ctx);
+    md5_finish(&Md5Ctx, ha2);
     hashToHex(&ha2[0], &ha2_hex[0]);
 
+    if (cnonce[0] != '\0') {
+        sprintf(result, "%s,cnonce=\"%s\",nc=%s,qop=%s",result,cnonce,nc,authtype);
+    }
     sprintf(result, "%s,uri=\"%s\"",result,tmp);
 
     // Extract the Nonce 
@@ -292,21 +294,21 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
         return 0;
     }
 
-    MD5_Init(&Md5Ctx);
-    MD5_Update(&Md5Ctx, &ha1_hex, HASH_HEX_SIZE);
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, tmp, strlen(tmp));
+    md5_init(&Md5Ctx);
+    md5_append(&Md5Ctx, (md5_byte_t *) &ha1_hex, HASH_HEX_SIZE);
+    md5_append(&Md5Ctx, ":", 1);
+    md5_append(&Md5Ctx, tmp, strlen(tmp));
     if (cnonce[0] != '\0') {
-        MD5_Update(&Md5Ctx, ":", 1);
-        MD5_Update(&Md5Ctx, nc, strlen(nc));
-        MD5_Update(&Md5Ctx, ":", 1);
-        MD5_Update(&Md5Ctx, cnonce, strlen(cnonce));
-        MD5_Update(&Md5Ctx, ":", 1);
-        MD5_Update(&Md5Ctx, authtype, strlen(authtype));
+        md5_append(&Md5Ctx, ":", 1);
+        md5_append(&Md5Ctx, nc, strlen(nc));
+        md5_append(&Md5Ctx, ":", 1);
+        md5_append(&Md5Ctx, cnonce, strlen(cnonce));
+        md5_append(&Md5Ctx, ":", 1);
+        md5_append(&Md5Ctx, authtype, strlen(authtype));
     }
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, &ha2_hex, HASH_HEX_SIZE);
-    MD5_Final(resp, &Md5Ctx);
+    md5_append(&Md5Ctx, ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) &ha2_hex, HASH_HEX_SIZE);
+    md5_finish(&Md5Ctx, resp);
     hashToHex(&resp[0], &resp_hex[0]);
 
     sprintf(result, "%s,nonce=\"%s\",response=\"%s\",algorithm=%s",result,tmp,resp_hex,algo);
@@ -320,20 +322,20 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
 
 int createAuthResponseMD5(char * user, char * password, int password_len, char * method,
                      char * uri, char * realm, char *nonce, unsigned char * result) {
-    unsigned char ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
-    unsigned char resp[MD5_HASH_SIZE];
+    md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
+    md5_byte_t resp[MD5_HASH_SIZE];
     unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
     char tmp[MAX_HEADER_LEN];
-    MD5_CTX Md5Ctx;
+    md5_state_t Md5Ctx;
 
     // Load in A1 
-    MD5_Init(&Md5Ctx);
-    MD5_Update(&Md5Ctx, user, strlen(user));
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, realm, strlen(realm));
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, password, password_len);
-    MD5_Final(ha1, &Md5Ctx);
+    md5_init(&Md5Ctx);
+    md5_append(&Md5Ctx, user, strlen(user));
+    md5_append(&Md5Ctx, ":", 1);
+    md5_append(&Md5Ctx, realm, strlen(realm));
+    md5_append(&Md5Ctx, ":", 1);
+    md5_append(&Md5Ctx, password, password_len);
+    md5_finish(&Md5Ctx, ha1);
     hashToHex(&ha1[0], &ha1_hex[0]);
 
     if (auth_uri) {
@@ -343,20 +345,20 @@ int createAuthResponseMD5(char * user, char * password, int password_len, char *
     }
 
     // Load in A2 
-    MD5_Init(&Md5Ctx);
-    MD5_Update(&Md5Ctx, method, strlen(method));
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, tmp, strlen(tmp));
-    MD5_Final(ha2, &Md5Ctx);
+    md5_init(&Md5Ctx);
+    md5_append(&Md5Ctx, method, strlen(method));
+    md5_append(&Md5Ctx, ":", 1);
+    md5_append(&Md5Ctx, tmp, strlen(tmp));
+    md5_finish(&Md5Ctx, ha2);
     hashToHex(&ha2[0], &ha2_hex[0]);
 
-    MD5_Init(&Md5Ctx);
-    MD5_Update(&Md5Ctx, &ha1_hex, HASH_HEX_SIZE);
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, nonce, strlen(nonce));
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, &ha2_hex, HASH_HEX_SIZE);
-    MD5_Final(resp, &Md5Ctx);
+    md5_init(&Md5Ctx);
+    md5_append(&Md5Ctx, (md5_byte_t *) &ha1_hex, HASH_HEX_SIZE);
+    md5_append(&Md5Ctx, ":", 1);
+    md5_append(&Md5Ctx, nonce, strlen(nonce));
+    md5_append(&Md5Ctx, ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) &ha2_hex, HASH_HEX_SIZE);
+    md5_finish(&Md5Ctx, resp);
     hashToHex(&resp[0], result);
 
     return 1;
