@@ -61,7 +61,9 @@ unsigned int opentask::wake() {
     return 0;
   } else {
     /* We need to compute when the next call is going to be opened. */
-    return (unsigned long) (last_rate_change_time + ((calls_since_last_rate_change + 1) / (rate/rate_period_ms)));
+    return (unsigned long)
+        MAX(last_rate_change_time + (calls_since_last_rate_change /
+                MAX(rate/MAX(rate_period_ms, 1), 1)), 1);
   }
 }
 
