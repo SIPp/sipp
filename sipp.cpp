@@ -3334,7 +3334,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
     {
       // Adding a new OUTGOING call !
       main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-      call *new_ptr = new call(call_id, is_ipv6, 0, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
+      call *new_ptr = new call(call_id, local_ip_is_ipv6, 0, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
       if (!new_ptr) {
 	ERROR("Out of memory allocating a call!");
       }

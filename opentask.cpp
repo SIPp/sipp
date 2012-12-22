@@ -118,7 +118,7 @@ bool opentask::run() {
 
       // adding a new OUTGOING CALL
       main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-      call * call_ptr = call::add_call(userid, is_ipv6, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
+      call * call_ptr = call::add_call(userid, local_ip_is_ipv6, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
       if(!call_ptr) {
 	ERROR("Out of memory allocating call!");
       }
