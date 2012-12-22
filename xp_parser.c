@@ -218,17 +218,17 @@ char * xp_open_element(int index)
           (strstr(ptr,"<![CDATA[") == ptr)) {
         char * cdata_end = strstr(ptr, "]]>");
         if(!cdata_end) return NULL;
-        ptr = cdata_end + 3;
+        ptr = cdata_end + 2;
       } else if ((*(ptr+1) == '!') && 
           (*(ptr+2) == '-') &&
           (strstr(ptr,"<!--") == ptr)) {
         char * comment_end = strstr(ptr, "-->");
         if(!comment_end) return NULL;
-        ptr = comment_end + 3;
+        ptr = comment_end + 2;
       } else if (strstr(ptr,"<!DOCTYPE") == ptr) {
         char * doctype_end = strstr(ptr, ">");
         if(!doctype_end) return NULL;
-        ptr = doctype_end + 2;
+        ptr = doctype_end;
       } else if(*(ptr+1) == '/') {
         level--;
         if(level < 0) return NULL;
