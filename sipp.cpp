@@ -622,7 +622,7 @@ char * get_inet_address(struct sockaddr_storage * addr)
   return ip_addr;
 }
 
-void get_host_and_port(char * addr, char * host, int * port)
+void get_host_and_port(const char * addr, char * host, int * port)
 {
   /* Separate the port number (if any) from the host name.
    * Thing is, the separator is a colon (':').  The colon may also exist
@@ -630,31 +630,60 @@ void get_host_and_port(char * addr, char * host, int * port)
    * RFC 2732).  If that's the case, then we need to skip past the IPv6
    * address, which should be contained within square brackets ('[',']').
    */
-  char *p;
-  p = strchr( addr, '[' );                      /* Look for '['.            */
-  if( p != NULL ) {                             /* If found, look for ']'.  */
-    p = strchr( p, ']' );
+  const char *has_brackets;
+  int len;
+
+  has_brackets = strchr(addr, '[');
+  if (has_brackets != NULL) {
+    has_brackets = strchr(has_brackets, ']');
   }
-  if( p == NULL ) {                             /* If '['..']' not found,   */
-    p = addr;                                   /* scan the whole string.   */
+  if (has_brackets == NULL) {
+    /* addr is not a []-enclosed IPv6 address, but might still be IPv6 (without
+     * a port), or IPv4 or a hostname (with or without a port) */
+    char *first_colon_location;
+    char *second_colon_location;
+
+    len = strlen(addr) + 1;
+    memmove(host, addr, len);
+
+    first_colon_location = strchr(host, ':');
+    if (first_colon_location == NULL) {
+      /* No colon - just set the port to 0 */
+      *port = 0;
+    } else {
+      second_colon_location = strchr(first_colon_location + 1, ':');
+      if (second_colon_location != NULL) {
+        /* Found a second colon in addr - so this is an IPv6 address
+         * without a port. Set the port to 0 */
+        *port = 0;
+      } else {
+        /* IPv4 address or hostname with a colon in it - convert the colon to
+         * a NUL terminator, and set the value after it as the port */
+        *first_colon_location = '\0';
+        *port = atol(first_colon_location + 1);
+      }
+    }
+
   } else {                                      /* If '['..']' found,       */
-    char *p1;                                   /* extract the remote_host  */
-    char *p2;
-    p1 = strchr( addr, '[' );
-    p2 = strchr( addr, ']' );
-    *p2 = '\0';
-    strcpy(host, p1 + 1);
-    *p2 = ']';
-  }
-  /* Starting at <p>, which is either the start of the host substring
-   * or the end of the IPv6 address, find the last colon character.
-   */
-  p = strchr( p, ':' );
-  if( NULL != p ) {
-    *p = '\0';
-    *port = atol(p + 1);
-  } else {
-    *port = 0;
+    const char *initial_bracket;                /* extract the remote_host  */
+    char *second_bracket;
+    char *colon_before_port;
+
+    initial_bracket = strchr( addr, '[' );
+    initial_bracket++; /* Step forward one character */
+    len = strlen(initial_bracket) + 1;
+    memmove(host, initial_bracket, len);
+
+    second_bracket = strchr( host, ']' );
+    *second_bracket = '\0';
+
+    /* Check for a port specified after the ] */
+    colon_before_port = strchr(second_bracket + 1, ':');
+    if (colon_before_port != NULL) {
+      *port = atol(colon_before_port + 1);
+    } else {
+      *port = 0;
+    }
   }
 }
 
@@ -4113,6 +4142,42 @@ int sipp_reconnect_socket(struct sipp_socket *socket) {
   return sipp_do_connect_socket(socket);
 }
 
+#ifdef SIPP_UNITTEST
+
+int main()
+{
+    /* Unit testing function */
+    char ipv6_addr_brackets[] = "[fe80::92a4:deff:fe74:7af5]";
+    char ipv6_addr_port[] = "[fe80::92a4:deff:fe74:7af5]:999";
+    char ipv6_addr[] = "fe80::92a4:deff:fe74:7af5";
+    char ipv4_addr_port[] = "127.0.0.1:999";
+    char ipv4_addr[] = "127.0.0.1";
+    char hostname_port[] = "sipp.sf.net:999";
+    char hostname[] = "sipp.sf.net";
+    int port_result = -1;
+    char host_result[255];
+    char orig_addr[255];
+
+#define TEST_GET_HOST_AND_PORT(VAR, EXPECTED_HOST, EXPECTED_PORT) {\
+    strcpy(host_result,""); \
+    strcpy(orig_addr,VAR); \
+    get_host_and_port(VAR, host_result, &port_result); \
+    if ((strcmp(host_result, EXPECTED_HOST) != 0) || (port_result != EXPECTED_PORT)) \
+    {fprintf(stderr, "get_host_and_port fails for address %s - results are %s and %d, expected %s and %d\n", orig_addr, host_result, port_result, EXPECTED_HOST, EXPECTED_PORT);};\
+}
+
+    TEST_GET_HOST_AND_PORT(ipv6_addr, "fe80::92a4:deff:fe74:7af5", 0)
+    TEST_GET_HOST_AND_PORT(ipv6_addr_brackets, "fe80::92a4:deff:fe74:7af5", 0)
+    TEST_GET_HOST_AND_PORT(ipv6_addr_port, "fe80::92a4:deff:fe74:7af5", 999)
+    TEST_GET_HOST_AND_PORT(ipv4_addr, "127.0.0.1", 0)
+    TEST_GET_HOST_AND_PORT(ipv4_addr_port, "127.0.0.1", 999)
+    TEST_GET_HOST_AND_PORT(hostname, "sipp.sf.net", 0)
+    TEST_GET_HOST_AND_PORT(hostname_port, "sipp.sf.net", 999)
+
+    return 0;
+}
+
+#else
 
 /* Main */
 int main(int argc, char *argv[])
@@ -5057,6 +5122,8 @@ int main(int argc, char *argv[])
   }
 
 }
+
+#endif
 
 void sipp_usleep(unsigned long usec) {
 	if (usec >= 1000000) {

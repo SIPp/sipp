@@ -105,7 +105,7 @@ CFLAGS_tru64=-D__OSF1 -pthread
 CFLAGS_SunOS=${DEBUG_FLAGS} -D__SUNOS
 CFLAGS_Cygwin=-D__CYGWIN -Dsocklen_t=int
 CFLAGS_Darwin=-D__DARWIN
-CFLAGS=$(CFLAGS_$(SYSTEM)) $(VERINFO) $(TLS) $(PCAPPLAY) $(EXTRACFLAGS)
+CFLAGS=$(CFLAGS_$(SYSTEM)) $(VERINFO) $(TLS) $(PCAPPLAY) $(EXTRACFLAGS) $(UNITTEST)
 
 #C++ Compiler Flags
 CPPFLAGS_hpux=-AA -mt -D__HPUX -D_INCLUDE_LONGLONG -DNOMACROS +W829  
@@ -115,7 +115,7 @@ CPPFLAGS_tru64=-D__OSF1 -pthread
 CPPFLAGS_SunOS=${DEBUG_FLAGS} -D__SUNOS
 CPPFLAGS_Cygwin=-D__CYGWIN -Dsocklen_t=int
 CPPFLAGS_Darwin=-D__DARWIN
-CPPFLAGS=$(CPPFLAGS_$(SYSTEM)) $(VERINFO) $(TLS) $(PCAPPLAY) $(EXTRACPPFLAGS)
+CPPFLAGS=$(CPPFLAGS_$(SYSTEM)) $(VERINFO) $(TLS) $(PCAPPLAY) $(EXTRACPPFLAGS) $(UNITTEST)
 
 #Linker mapping
 CCLINK_hpux=aCC
@@ -162,6 +162,9 @@ INCDIR=$(INCDIR_$(SYSTEM))
 # Building without TLS and authentication (no openssl pre-requisite)
 all:
 	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` $(OUTPUT)
+
+unittest:
+	$(MAKE) UNITTEST="-DSIPP_UNITTEST" OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` $(OUTPUT)
 
 # Building with TLS and authentication
 ossl:
