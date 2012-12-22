@@ -134,6 +134,7 @@ bool opentask::run() {
 	    main_socket->ss_count++;
 	    break;
 	  case T_TCP:
+	  case T_SCTP:
 	  case T_TLS:
 	    call_ptr->associate_socket(tcp_multiplex);
 	    tcp_multiplex->ss_count++;

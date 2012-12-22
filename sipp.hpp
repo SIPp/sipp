@@ -31,6 +31,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#ifdef USE_SCTP
+#include <netinet/sctp.h>
+#endif
 #include <sys/time.h>
 #include <sys/poll.h>
 #include <sys/resource.h>
@@ -119,6 +122,7 @@
 #define T_UDP                      0
 #define T_TCP                      1
 #define T_TLS                      2
+#define T_SCTP                     3
 
 #ifdef _USE_OPENSSL
 #define DEFAULT_TLS_CERT           ((char *)"cacert.pem")
@@ -126,7 +130,7 @@
 #define DEFAULT_TLS_CRL            ((char *)"")
 #endif
 
-#define TRANSPORT_TO_STRING(p)     ((p==T_TCP) ? "TCP" : ((p==T_TLS)? "TLS" :"UDP"))
+#define TRANSPORT_TO_STRING(p)     ((p==T_TCP) ? "TCP" : ((p==T_TLS)? "TLS" : ((p==T_UDP)? "UDP" : "SCTP")))
 
 #define SIPP_MAXFDS                65536
 #define SIPP_MAX_MSG_SIZE          65536
@@ -237,6 +241,14 @@ extern char               local_ip[40];
 extern char               local_ip_escaped[42];
 extern bool               local_ip_is_ipv6;    
 extern int                local_port              _DEFVAL(0);
+#ifdef USE_SCTP
+extern char               multihome_ip[40];
+extern int                heartbeat               _DEFVAL(0);
+extern int                assocmaxret             _DEFVAL(0);
+extern int                pathmaxret              _DEFVAL(0);
+extern int                pmtu              _DEFVAL(0);
+extern bool               gracefulclose           _DEFVAL(true);
+#endif
 extern char               control_ip[40];
 extern int                control_port            _DEFVAL(0);
 extern int                buff_size               _DEFVAL(65535);
@@ -542,6 +554,11 @@ struct socketbuf {
 	struct socketbuf *next;
 };
 
+#ifdef USE_SCTP
+#define SCTP_DOWN 0
+#define SCTP_CONNECTING 1
+#define SCTP_UP 2
+#endif
 /* This is an abstraction of a socket, which provides buffers for input and
  * output. */
 struct sipp_socket {
@@ -570,6 +587,9 @@ struct sipp_socket {
 	struct socketbuf *ss_in; /* Buffered input. */
 	size_t ss_msglen;	/* Is there a complete SIP message waiting, and if so how big? */
 	struct socketbuf *ss_out; /* Buffered output. */
+#ifdef USE_SCTP
+  int sctpstate;
+#endif
 };
 
 /* Write data to a socket. */

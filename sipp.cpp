@@ -130,6 +130,7 @@ struct sipp_option {
 #define SIPP_OPTION_LFNAME	  36
 #define SIPP_OPTION_LFOVERWRITE	  37
 #define SIPP_OPTION_PLUGIN	  38
+#define SIPP_OPTION_NEED_SCTP	  39
 
 /* Put Each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
@@ -289,6 +290,8 @@ struct sipp_option options_table[] = {
               "- tn: TCP with one socket per call,\n"
               "- l1: TLS with one socket,\n"
               "- ln: TLS with one socket per call,\n"
+              "- s1: SCTP with one socket (default),\n"
+              "- sn: SCTP with one socket per call,\n"
               "- c1: u1 + compression (only if compression plugin loaded),\n"
               "- cn: un + compression (only if compression plugin loaded).  This plugin is not provided with sipp.\n"
 	      , SIPP_OPTION_TRANSPORT, NULL, 1},
@@ -342,6 +345,21 @@ struct sipp_option options_table[] = {
                    "Format: -tdmmap {0-3}{99}{5-8}{1-31}", SIPP_OPTION_TDMMAP, NULL, 1},
 	{"key", "keyword value\nSet the generic parameter named \"keyword\" to \"value\".", SIPP_OPTION_KEY, NULL, 1},
 	{"set", "variable value\nSet the global variable parameter named \"variable\" to \"value\".", SIPP_OPTION_VAR, NULL, 3},
+#ifdef USE_SCTP
+	{"multihome", "Set multihome address for SCTP", SIPP_OPTION_IP, multihome_ip, 1},
+	{"heartbeat", "Set heartbeat interval in ms for SCTP", SIPP_OPTION_INT, &heartbeat, 1},
+	{"assocmaxret", "Set association max retransmit counter for SCTP", SIPP_OPTION_INT, &assocmaxret, 1},
+	{"pathmaxret", "Set path max retransmit counter for SCTP", SIPP_OPTION_INT, &pathmaxret, 1},
+	{"pmtu", "Set path MTU for SCTP", SIPP_OPTION_INT, &pmtu, 1},
+	{"gracefulclose", "If true, SCTP association will be closed with SHUTDOWN (default).\n If false, SCTP association will be closed by ABORT.\n", SIPP_OPTION_BOOL, &gracefulclose, 1},
+#else
+	{"multihome", NULL, SIPP_OPTION_NEED_SCTP, NULL, 1},
+	{"heartbeat", NULL, SIPP_OPTION_NEED_SCTP, NULL, 1},
+	{"assocmaxret", NULL, SIPP_OPTION_NEED_SCTP, NULL, 1},
+	{"pathmaxret", NULL, SIPP_OPTION_NEED_SCTP, NULL, 1},
+	{"pmtu", NULL, SIPP_OPTION_NEED_SCTP, NULL, 1},
+	{"gracefulclose", NULL, SIPP_OPTION_NEED_SCTP, NULL, 1},
+#endif
 	{"dynamicStart", "variable value\nSet the start offset of dynamic_id varaiable",  SIPP_OPTION_INT, &startDynamicId, 1},
 	{"dynamicMax",   "variable value\nSet the maximum of dynamic_id variable     ",   SIPP_OPTION_INT, &maxDynamicId,   1},
 	{"dynamicStep",  "variable value\nSet the increment of dynamic_id variable",      SIPP_OPTION_INT, &stepDynamicId,  1}
@@ -596,6 +614,34 @@ int send_nowait(int s, const void *msg, int len, int flags)
   return rc;
 #endif 
 }
+
+#ifdef USE_SCTP
+int send_sctp_nowait(int s, const void *msg, int len, int flags)
+{
+  struct sctp_sndrcvinfo sinfo;
+  memset(&sinfo, 0, sizeof(sinfo));
+  sinfo.sinfo_flags = SCTP_UNORDERED; // according to RFC4168 5.1
+  sinfo.sinfo_stream = 0;
+
+#if defined(MSG_DONTWAIT) && !defined(__SUNOS)
+  return sctp_send(s, msg, len, &sinfo, flags | MSG_DONTWAIT);
+#else
+  int fd_flags = fcntl(s, F_GETFL, NULL);
+  int initial_fd_flags;
+  int rc;
+
+  initial_fd_flags = fd_flags;
+  fd_flags |= O_NONBLOCK;
+  fcntl(s, F_SETFL , fd_flags);
+
+  rc = sctp_send(s, msg, len, &sinfo, flags);
+
+  fcntl(s, F_SETFL, initial_fd_flags);
+
+  return rc;
+#endif
+}
+#endif
 
 char * get_inet_address(struct sockaddr_storage * addr)
 {
@@ -2359,12 +2405,51 @@ size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
   return len;
 }
 
+#ifdef USE_SCTP
+void sipp_sctp_peer_params(struct sipp_socket *socket)
+{
+  if (heartbeat > 0 || pathmaxret > 0)
+  {
+   struct sctp_paddrparams peerparam;
+   memset(&peerparam, 0, sizeof(peerparam));
+
+   sockaddr* addresses;
+   int addresscount = sctp_getpaddrs(socket->ss_fd, 0, &addresses);
+   if (addresscount < 1) WARNING("sctp_getpaddrs, errno=%d", errno);
+
+   for (int i = 0; i < addresscount; i++)
+   {
+     memset(&peerparam.spp_address, 0, sizeof(peerparam.spp_address));
+     struct sockaddr_storage* peeraddress = (struct sockaddr_storage*) &addresses[i];
+     memcpy(&peerparam.spp_address, peeraddress, SOCK_ADDR_SIZE(peeraddress));
+
+     peerparam.spp_hbinterval = heartbeat;
+     peerparam.spp_pathmaxrxt = pathmaxret;
+     if (heartbeat > 0) peerparam.spp_flags = SPP_HB_ENABLE;
+
+     if (pmtu > 0) {
+         peerparam.spp_pathmtu = pmtu;
+         peerparam.spp_flags |= SPP_PMTUD_DISABLE;
+     }
+
+     if (setsockopt(socket->ss_fd, IPPROTO_SCTP, SCTP_PEER_ADDR_PARAMS,
+                 &peerparam, sizeof(peerparam)) == -1) {
+      sctp_freepaddrs(addresses);
+      WARNING("setsockopt(SCTP_PEER_ADDR_PARAMS) failed, errno=%d", errno);
+     }
+    }
+    sctp_freepaddrs(addresses);
+  }
+}
+#endif
+
 void sipp_customize_socket(struct sipp_socket *socket)
 {
   unsigned int buffsize = buff_size;
 
   /* Allows fast TCP reuse of the socket */
-  if (socket->ss_transport == T_TCP || socket->ss_transport == T_TLS ) {
+  if (socket->ss_transport == T_TCP || socket->ss_transport == T_TLS ||
+          socket->ss_transport == T_SCTP) {
     int sock_opt = 1;
 
     if (setsockopt(socket->ss_fd, SOL_SOCKET, SO_REUSEADDR, (void *)&sock_opt,
@@ -2372,14 +2457,48 @@ void sipp_customize_socket(struct sipp_socket *socket)
       ERROR_NO("setsockopt(SO_REUSEADDR) failed");
     }
 
+#ifdef USE_SCTP
+    if (socket->ss_transport == T_SCTP)
+    {
+       struct sctp_event_subscribe event;
+       memset(&event, 0, sizeof(event));
+       event.sctp_data_io_event = 1;
+       event.sctp_association_event = 1;
+       event.sctp_shutdown_event = 1;
+       if (setsockopt(socket->ss_fd,IPPROTO_SCTP, SCTP_EVENTS, &event,
+                   sizeof(event)) == -1) {
+        ERROR_NO("setsockopt(SCTP_EVENTS) failed, errno=%d",errno);
+       }
+
+       if (assocmaxret > 0)
+       {
+        struct sctp_assocparams associnfo;
+        memset(&associnfo, 0, sizeof(associnfo));
+        associnfo.sasoc_asocmaxrxt = assocmaxret;
+        if (setsockopt(socket->ss_fd, IPPROTO_SCTP, SCTP_ASSOCINFO, &associnfo,
+                    sizeof(associnfo)) == -1) {
+          WARNING("setsockopt(SCTP_ASSOCINFO) failed, errno=%d", errno);
+        }
+       }
+
+       if (setsockopt(socket->ss_fd, IPPROTO_SCTP, SCTP_NODELAY,
+                   (void *)&sock_opt, sizeof (sock_opt)) == -1) {
+        WARNING("setsockopt(SCTP_NODELAY) failed, errno=%d", errno);
+       }
+    }
+#endif
+
 #ifndef SOL_TCP
 #define SOL_TCP 6
 #endif
+    if (socket->ss_transport != T_SCTP)
+    {
     if (setsockopt(socket->ss_fd, SOL_TCP, TCP_NODELAY, (void *)&sock_opt,
                     sizeof (sock_opt)) == -1) {
       {
         ERROR_NO("setsockopt(TCP_NODELAY) failed");
       }
+    }
     }
 
     {
@@ -2438,6 +2557,27 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, char *buffer, 
       rc = -1;
 #endif
       break;
+    case T_SCTP:
+#ifdef USE_SCTP
+     {
+      TRACE_MSG("socket_write_primitive %d\n", socket->sctpstate);
+      if (socket->sctpstate == SCTP_DOWN)
+      {
+       errno = EPIPE;
+       return -1;
+      }
+      else if (socket->sctpstate == SCTP_CONNECTING)
+      {
+       errno = EWOULDBLOCK;
+       return -1;
+      }
+      rc = send_sctp_nowait(socket->ss_fd, buffer, len, 0);
+     }
+#else
+      errno = EOPNOTSUPP;
+      rc = -1;
+#endif
+      break;
     case T_TCP:
       rc = send_nowait(socket->ss_fd, buffer, len, 0);
       break;
@@ -2465,7 +2605,7 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, char *buffer, 
   return rc;
 }
 
-/* This socket is congestion, mark its as such and add it to the poll files. */
+/* This socket is congested, mark it as such and add it to the poll files. */
 int enter_congestion(struct sipp_socket *socket, int again) {
   socket->ss_congested = true;
 
@@ -2475,7 +2615,11 @@ int enter_congestion(struct sipp_socket *socket, int again) {
 
   pollfiles[socket->ss_pollidx].events |= POLLOUT;
 
-  nb_net_cong++;
+#ifdef USE_SCTP
+  if (!(socket->ss_transport == T_SCTP &&
+              socket->sctpstate == SCTP_CONNECTING))
+#endif
+    nb_net_cong++;
   return -1;
 }
 
@@ -2498,7 +2642,8 @@ static int write_error(struct sipp_socket *socket, int ret) {
     return enter_congestion(socket, again);
   }
 
-  if (socket->ss_transport == T_TCP && errno == EPIPE) {
+  if ((socket->ss_transport == T_TCP || socket->ss_transport == T_SCTP)
+          && errno == EPIPE) {
     nb_net_send_errors++;
     close(socket->ss_fd);
     socket->ss_fd = -1;
@@ -2604,7 +2749,7 @@ static int flush_socket(struct sipp_socket *socket) {
   while ((buf = socket->ss_out)) {
     ssize_t size = buf->len - buf->offset;
     ret = socket_write_primitive(socket, buf->buf + buf->offset, size, &buf->addr);
-    TRACE_MSG("Wrote %d of %d bytes in an output buffer.", ret, size);
+    TRACE_MSG("Wrote %d of %d bytes in an output buffer.\n", ret, size);
     if (ret == size) {
       /* Everything is great, throw away this buffer. */
       socket->ss_out = buf->next;
@@ -2780,7 +2925,7 @@ static int check_for_message(struct sipp_socket *socket) {
   if (!socketbuf)
     return 0;
 
-  if (socket->ss_transport == T_UDP) {
+  if (socket->ss_transport == T_UDP || socket->ss_transport == T_SCTP) {
     return socketbuf->len;
   }
 
@@ -2884,9 +3029,90 @@ static int check_for_message(struct sipp_socket *socket) {
   while (1);
 }
 
+#ifdef USE_SCTP
+static void handleSCTPNotify(struct sipp_socket* socket,char* buffer)
+{
+ union sctp_notification *notifMsg;
+
+ notifMsg = (union sctp_notification *)buffer;
+
+ TRACE_MSG("SCTP Notification: %d\n",
+            ntohs(notifMsg->sn_header.sn_type));
+ if (notifMsg->sn_header.sn_type == SCTP_ASSOC_CHANGE)
+ {
+   TRACE_MSG("SCTP_ASSOC_CHANGE\n");
+   if (notifMsg->sn_assoc_change.sac_state == SCTP_COMM_UP)
+   {
+     TRACE_MSG("SCTP_COMM_UP\n");
+     socket->sctpstate = SCTP_UP;
+     sipp_sctp_peer_params(socket);
+
+     /* Send SCTP message right after association is up */
+     socket->ss_congested = false;
+     flush_socket(socket);
+     return -2;
+   }
+   else
+   {
+      TRACE_MSG("else: %d\n",notifMsg->sn_assoc_change.sac_state);
+      return 0;
+   }
+ }
+ else if (notifMsg->sn_header.sn_type == SCTP_SHUTDOWN_EVENT)
+ {
+   TRACE_MSG("SCTP_SHUTDOWN_EVENT\n");
+   return 0;
+ }
+ return -2;
+}
+
+void set_multihome_addr(struct sipp_socket* socket,int port)
+{
+  if (strlen(multihome_ip)>0)
+  {
+     struct addrinfo * multi_addr;
+     struct addrinfo   hints;
+     memset((char*)&hints, 0, sizeof(hints));
+     hints.ai_flags  = AI_PASSIVE;
+     hints.ai_family = PF_UNSPEC;
+
+     if (getaddrinfo(multihome_ip, NULL, &hints, &multi_addr) != 0)
+     {
+      ERROR("Can't get multihome IP address in getaddrinfo, multihome_ip='%s'",multihome_ip);
+     }
+
+     struct sockaddr_storage secondaryaddress;
+     memset(&secondaryaddress, 0, sizeof(secondaryaddress));
+
+     memcpy(&secondaryaddress, multi_addr->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *,multi_addr->ai_addr)));
+     freeaddrinfo(multi_addr);
+
+     if (port>0)
+     {
+      if (secondaryaddress.ss_family==AF_INET) ((struct sockaddr_in*)&secondaryaddress)->sin_port=htons(port);
+      else if (secondaryaddress.ss_family==AF_INET6) ((struct sockaddr_in6*)&secondaryaddress)->sin6_port=htons(port);
+     }
+
+     int ret = sctp_bindx(socket->ss_fd, (struct sockaddr *) &secondaryaddress,
+             1, SCTP_BINDX_ADD_ADDR);
+     if (ret < 0)
+     {
+      WARNING("Can't bind to multihome address, errno='%d'", errno);
+     }
+  }
+}
+#endif
+
 /* Pull up to tcp_readsize data bytes out of the socket into our local buffer. */
 static int empty_socket(struct sipp_socket *socket) {
-  int readsize = socket->ss_transport == T_UDP ? SIPP_MAX_MSG_SIZE : tcp_readsize;
+
+  int readsize=0;
+  if (socket->ss_transport == T_UDP || socket->ss_transport == T_SCTP) {
+      readsize = SIPP_MAX_MSG_SIZE;
+  } else {
+      readsize = tcp_readsize;
+  }
+
   struct socketbuf *socketbuf;
   char *buffer;
   int ret;
@@ -2913,6 +3139,25 @@ static int empty_socket(struct sipp_socket *socket) {
       /* XXX: Check for clean shutdown. */
 #else
       ERROR("TLS support is not enabled!");
+#endif
+      break;
+    case T_SCTP:
+#ifdef USE_SCTP
+      struct sctp_sndrcvinfo recvinfo;
+      memset(&recvinfo, 0, sizeof(recvinfo));
+      int msg_flags = 0;
+
+      ret = sctp_recvmsg(socket->ss_fd, (void*)buffer, readsize,
+              (struct sockaddr *) &socketbuf->addr, &addrlen, &recvinfo, &msg_flags);
+
+      if (MSG_NOTIFICATION & msg_flags)
+      {
+       errno = 0;
+       handleSCTPNotify(socket, buffer);
+       ret = -2;
+      }
+#else
+      ERROR("SCTP support is not enabled!");
 #endif
       break;
   }
@@ -2951,6 +3196,17 @@ void sipp_socket_invalidate(struct sipp_socket *socket) {
 #endif
 
   shutdown(socket->ss_fd, SHUT_RDWR);
+
+#ifdef USE_SCTP
+  if (socket->ss_transport==T_SCTP && !gracefulclose)
+  {
+   struct linger ling={1,0};
+   if (setsockopt (socket->ss_fd, SOL_SOCKET, SO_LINGER, &ling, sizeof (ling)) < 0) {
+        WARNING("Unable to set SO_LINGER option for SCTP close");
+      }
+  }
+#endif
+
   close(socket->ss_fd);
   socket->ss_fd = -1;
 
@@ -2974,6 +3230,12 @@ void sipp_socket_invalidate(struct sipp_socket *socket) {
   {
      pending_messages--;
   }
+
+#ifdef USE_SCTP
+  if (socket->ss_transport == T_SCTP) {
+      socket->sctpstate=SCTP_DOWN;
+  }
+#endif
 }
 
 void sipp_close_socket (struct sipp_socket *socket) {
@@ -3094,6 +3356,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 	      main_socket->ss_count++;
 	      break;
 	    case T_TCP:
+	    case T_SCTP:
 	    case T_TLS:
 	      new_ptr->associate_socket(tcp_multiplex);
 	      tcp_multiplex->ss_count++;
@@ -3242,7 +3505,14 @@ void pollset_process(int wait)
 
     assert(sock);
 
-    if(pollfiles[poll_idx].revents & POLLOUT) {
+    if(pollfiles[poll_idx].revents & POLLOUT)
+    {
+
+#ifdef USE_SCTP
+      if (transport == T_SCTP && sock->sctpstate != SCTP_UP) ;
+      else
+#endif
+      {
       /* We can flush this socket. */
       TRACE_MSG("Exit problem event on socket %d \n", sock->ss_fd);
       pollfiles[poll_idx].events &= ~POLLOUT;
@@ -3251,10 +3521,11 @@ void pollset_process(int wait)
       flush_socket(sock);
       events++;
     }
+    }
 
     if(pollfiles[poll_idx].revents & POLLIN) {
       /* We can empty this socket. */
-      if ((transport == T_TCP || transport == T_TLS) && sock == main_socket) {
+      if ((transport == T_TCP || transport == T_TLS || transport == T_SCTP) && sock == main_socket) {
 	struct sipp_socket *new_sock = sipp_accept_socket(sock);
 	if (!new_sock) {
 	  ERROR_NO("Accepting new TCP connection.\n");
@@ -3286,8 +3557,14 @@ void pollset_process(int wait)
 	    connect_to_all_peers();
 	  }
 	}
-      } else {
+      }
+      else {
 	if ((ret = empty_socket(sock)) <= 0) {
+#ifdef USE_SCTP
+	        if (sock->ss_transport==T_SCTP && ret==-2) ;
+          else
+#endif
+          {
 	  ret = read_error(sock, ret);
 	  if (ret == 0) {
 	    /* If read_error() then the poll_idx now belongs
@@ -3300,6 +3577,7 @@ void pollset_process(int wait)
 	  }
 	}
       }
+         }
       events++;
     }
 
@@ -3913,11 +4191,21 @@ static struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, in
 
 int socket_fd(bool use_ipv6, int transport) {
   int socket_type;
+  int protocol=0;
   int fd;
 
   switch(transport) {
     case T_UDP:
       socket_type = SOCK_DGRAM;
+      protocol=IPPROTO_UDP;
+      break;
+    case T_SCTP:
+#ifndef USE_SCTP
+      ERROR("You do not have SCTP support enabled!\n");
+#else
+      socket_type = SOCK_STREAM;
+      protocol=IPPROTO_SCTP;
+#endif
       break;
     case T_TLS:
 #ifndef _USE_OPENSSL
@@ -3928,7 +4216,7 @@ int socket_fd(bool use_ipv6, int transport) {
       break;
   }
 
-  if((fd = socket(use_ipv6 ? AF_INET6 : AF_INET, socket_type, 0))== -1) {
+  if((fd = socket(use_ipv6 ? AF_INET6 : AF_INET, socket_type, protocol))== -1) {
     ERROR("Unable to get a %s socket (3)", TRANSPORT_TO_STRING(transport));
   }
 
@@ -4070,6 +4358,21 @@ int sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr,
   int ret;
   int len;
 
+
+#ifdef USE_SCTP
+  if (transport==T_SCTP && multisocket==1 && *port==-1)
+  {
+   if (socket->ss_ipv6)
+   {
+    (_RCAST(struct sockaddr_in6 *, saddr))->sin6_port=0;
+   }
+   else
+   {
+    (_RCAST(struct sockaddr_in *, saddr))->sin_port=0;
+   }
+  }
+#endif
+
   if (socket->ss_ipv6) {
     len = sizeof(struct sockaddr_in6);
   } else {
@@ -4094,13 +4397,33 @@ int sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr,
     *port = ntohs((short)((_RCAST(struct sockaddr_in *, saddr))->sin_port));
   }
 
+#ifdef USE_SCTP
+  bool isany=false;
+
+  if (socket->ss_ipv6) {
+    if (memcmp(&(_RCAST(struct sockaddr_in6 *, saddr)->sin6_addr),&in6addr_any,sizeof(in6_addr))==0) isany=true;
+  } else {
+    isany= (_RCAST(struct sockaddr_in *, saddr)->sin_addr.s_addr==INADDR_ANY);
+  }
+
+  if (transport==T_SCTP && !isany) set_multihome_addr(socket,*port);
+#endif
+
   return 0;
 }
 
 int sipp_do_connect_socket(struct sipp_socket *socket) {
   int ret;
 
-  assert(socket->ss_transport == T_TCP || socket->ss_transport == T_TLS);
+  assert(socket->ss_transport == T_TCP || socket->ss_transport == T_TLS || socket->ss_transport == T_SCTP);
+
+#ifdef USE_SCTP
+  if (socket->ss_transport==T_SCTP)
+  {
+   int port=-1;
+   sipp_bind_socket(socket, &local_sockaddr, &port);
+  }
+#endif
 
   errno = 0;
   ret = connect(socket->ss_fd, (struct sockaddr *)&socket->ss_dest, SOCK_ADDR_SIZE(&socket->ss_dest));
@@ -4118,6 +4441,12 @@ int sipp_do_connect_socket(struct sipp_socket *socket) {
     ERROR("You need to compile SIPp with TLS support");
 #endif
   }
+
+#ifdef USE_SCTP
+     if (socket->ss_transport == T_SCTP) {
+         socket->sctpstate = SCTP_CONNECTING;
+     }
+#endif
 
   return 0;
 }
@@ -4248,6 +4577,9 @@ int main(int argc, char *argv[])
   
   pid = getpid();
   memset(local_ip, 0, 40);
+#ifdef USE_SCTP
+  memset(multihome_ip, 0, 40);
+#endif
   memset(media_ip,0, 40);
   memset(control_ip,0, 40);
   memset(media_ip_escaped,0, 42);
@@ -4435,6 +4767,13 @@ int main(int argc, char *argv[])
 	    case 't':
 	      transport = T_TCP;
 	      break;
+	    case 's':
+#ifdef USE_SCTP
+	      transport = T_SCTP;
+#else
+	      ERROR("To use SCTP transport you must compile SIPp with lksctp");
+#endif
+	      break;
 	    case 'l':
 #ifdef _USE_OPENSSL
 	      transport = T_TLS;
@@ -4472,6 +4811,10 @@ int main(int argc, char *argv[])
 	  if (peripsocket && transport != T_UDP) {
 	    ERROR("You can only use a perip socket with UDP!\n");
 	  }
+	  break;
+  case SIPP_OPTION_NEED_SCTP:
+	  CHECK_PASS();
+	  ERROR("SCTP support is required for the %s option.", argv[argi]);
 	  break;
 	case SIPP_OPTION_NEED_SSL:
 	  CHECK_PASS();
@@ -5498,7 +5841,7 @@ int open_connections() {
     }
   }
 
-  if((!multisocket) && (transport == T_TCP || transport == T_TLS) &&
+  if((!multisocket) && (transport == T_TCP || transport == T_TLS || transport == T_SCTP) &&
    (sendMode != MODE_SERVER)) {
     if((tcp_multiplex = new_sipp_socket(local_ip_is_ipv6, transport)) == NULL) {
       ERROR_NO("Unable to get a TCP socket");
@@ -5508,6 +5851,7 @@ int open_connections() {
     if (use_remote_sending_addr) {
         remote_sockaddr = remote_sending_sockaddr ;
     }
+    sipp_customize_socket(tcp_multiplex);
 
     if(sipp_connect_socket(tcp_multiplex, &remote_sockaddr)) {
       if(reset_number >0){
@@ -5527,11 +5871,10 @@ int open_connections() {
     }
     }
 
-    sipp_customize_socket(tcp_multiplex);
   }
 
 
-  if(transport == T_TCP || transport == T_TLS) {
+  if(transport == T_TCP || transport == T_TLS || transport == T_SCTP) {
     if(listen(main_socket->ss_fd, 100)) {
       ERROR_NO("Unable to listen main socket");
     }

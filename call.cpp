@@ -787,11 +787,11 @@ bool call::connect_socket_if_needed()
     if (sipp_bind_socket(call_socket, &saddr, &call_port)) {
       ERROR_NO("Unable to bind UDP socket");
     }
-  } else { /* TCP or TLS. */
+  } else { /* TCP, SCTP or TLS. */
     struct sockaddr_storage *L_dest = &remote_sockaddr;
 
     if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
-      ERROR_NO("Unable to get a TCP socket");
+      ERROR_NO("Unable to get a TCP/SCTP/TLS socket");
     }
 
     if (existing) {
@@ -808,9 +808,9 @@ bool call::connect_socket_if_needed()
       if (reconnect_allowed()) {
         if(errno == EINVAL){
           /* This occurs sometime on HPUX but is not a true INVAL */
-          WARNING("Unable to connect a TCP socket, remote peer error");
+          WARNING("Unable to connect a TCP/SCTP/TLS socket, remote peer error");
         } else {
-          WARNING("Unable to connect a TCP socket");
+          WARNING("Unable to connect a TCP/SCTP/TLS socket");
         }
 	/* This connection failed.  We must be in multisocket mode, because
          * otherwise we would already have a call_socket.  This call can not
@@ -828,9 +828,9 @@ bool call::connect_socket_if_needed()
       } else {
 	if(errno == EINVAL){
 	  /* This occurs sometime on HPUX but is not a true INVAL */
-	  ERROR("Unable to connect a TCP socket, remote peer error");
+	  ERROR("Unable to connect a TCP/SCTP/TLS socket, remote peer error");
 	} else {
-	  ERROR_NO("Unable to connect a TCP socket");
+	  ERROR_NO("Unable to connect a TCP/SCTP/TLS socket");
 	}
       }
     }
@@ -3566,14 +3566,23 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 	protocol = T_TCP;
       } else if (!strcmp(str_protocol, "tls") || !strcmp(str_protocol, "TLS")) {
 	protocol = T_TLS;
+      } else if (!strcmp(str_protocol, "sctp") || !strcmp(str_protocol, "SCTP")) {
+	protocol = T_SCTP;
       } else {
 	ERROR("Unknown transport for setdest: '%s'", str_protocol);
       }
 
-      if (!call_socket && protocol == T_TCP && transport == T_TCP) {
+      if (!call_socket && ((protocol == T_TCP && transport == T_TCP) ||
+                           (protocol == T_SCTP && transport == T_SCTP))) {
 	bool existing;
 	if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
-	  ERROR_NO("Unable to get a TCP socket");
+      switch (protocol) {
+        case T_SCTP:
+	      ERROR_NO("Unable to get a SCTP socket");
+          break;
+        default:
+	      ERROR_NO("Unable to get a TCP socket");
+      }
 	}
 
 	if (!existing) {
@@ -3590,12 +3599,12 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 	/* Nothing to do. */
       } else if (protocol == T_TLS) {
 	ERROR("Changing destinations is not supported for TLS.");
-      } else if (protocol == T_TCP) {
+      } else if (protocol == T_TCP || protocol == T_SCTP) {
 	if (!multisocket) {
-	  ERROR("Changing destinations for TCP requires multisocket mode.");
+	  ERROR("Changing destinations for TCP or SCTP requires multisocket mode.");
 	}
 	if (call_socket->ss_count > 1) {
-	  ERROR("Can not change destinations for a TCP socket that has more than one user.");
+	  ERROR("Can not change destinations for a TCP/SCTP socket that has more than one user.");
 	}
       }
 
@@ -3624,7 +3633,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
       free(str_port);
       free(str_protocol);
 
-      if (protocol == T_TCP) {
+      if (protocol == T_TCP || protocol == T_SCTP) {
 	close(call_socket->ss_fd);
 	call_socket->ss_fd = -1;
 	call_socket->ss_changed_dest = true;
@@ -3632,9 +3641,9 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 	  if (reconnect_allowed()) {
 	    if(errno == EINVAL){
 	      /* This occurs sometime on HPUX but is not a true INVAL */
-	      WARNING("Unable to connect a TCP socket, remote peer error");
+	      WARNING("Unable to connect a TCP/SCTP/TLS socket, remote peer error");
 	    } else {
-	      WARNING("Unable to connect a TCP socket");
+	      WARNING("Unable to connect a TCP/SCTP/TLS socket");
 	    }
 	    /* This connection failed.  We must be in multisocket mode, because
 	     * otherwise we would already have a call_socket.  This call can not
@@ -3648,9 +3657,9 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 	  } else {
 	    if(errno == EINVAL){
 	      /* This occurs sometime on HPUX but is not a true INVAL */
-	      ERROR("Unable to connect a TCP socket, remote peer error");
+	      ERROR("Unable to connect a TCP/SCTP/TLS socket, remote peer error");
 	    } else {
-	      ERROR_NO("Unable to connect a TCP socket");
+	      ERROR_NO("Unable to connect a TCP/SCTP/TLS socket");
 	    }
 	  }
 	}

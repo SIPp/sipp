@@ -106,7 +106,7 @@ CFLAGS_tru64=-D__OSF1 -pthread
 CFLAGS_SunOS=${DEBUG_FLAGS} -D__SUNOS
 CFLAGS_Cygwin=-D__CYGWIN -Dsocklen_t=int
 CFLAGS_Darwin=-D__DARWIN
-CFLAGS=$(CFLAGS_$(SYSTEM)) $(VERINFO) $(TLS) $(PCAPPLAY) $(EXTRACFLAGS) $(UNITTEST)
+CFLAGS=$(CFLAGS_$(SYSTEM)) $(VERINFO) $(TLS) $(SCTP) $(PCAPPLAY) $(EXTRACFLAGS) $(UNITTEST)
 
 #C++ Compiler Flags
 CPPFLAGS_hpux=-AA -mt -D__HPUX -D_INCLUDE_LONGLONG -DNOMACROS +W829  
@@ -116,7 +116,7 @@ CPPFLAGS_tru64=-D__OSF1 -pthread
 CPPFLAGS_SunOS=${DEBUG_FLAGS} -D__SUNOS
 CPPFLAGS_Cygwin=-D__CYGWIN -Dsocklen_t=int
 CPPFLAGS_Darwin=-D__DARWIN
-CPPFLAGS=$(CPPFLAGS_$(SYSTEM)) $(VERINFO) $(TLS) $(PCAPPLAY) $(EXTRACPPFLAGS) $(UNITTEST)
+CPPFLAGS=$(CPPFLAGS_$(SYSTEM)) $(VERINFO) $(TLS) $(SCTP) $(PCAPPLAY) $(EXTRACPPFLAGS) $(UNITTEST)
 
 #Linker mapping
 CCLINK_hpux=aCC
@@ -171,12 +171,22 @@ unittest:
 ossl:
 	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_TLS="sslinit.o sslthreadsafe.o" TLS_LIBS="-lssl -lcrypto" TLS="-D_USE_OPENSSL -DOPENSSL_NO_KRB5" $(OUTPUT)
 
+# Building with SCTP
+sctp:
+	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` SCTP_LIBS="-lsctp" SCTP="-DUSE_SCTP" $(OUTPUT)
+
+sctp_ossl:
+	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_TLS="sslinit.o sslthreadsafe.o" TLS_LIBS="-lssl -lcrypto" TLS="-D_USE_OPENSSL -DOPENSSL_NO_KRB5" SCTP_LIBS="-lsctp" SCTP="-DUSE_SCTP" $(OUTPUT)
+
 #Building with PCAP play
 pcapplay:
 	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_PCAPPLAY="send_packets.o prepare_pcap.o" PCAPPLAY_LIBS="-lpcap" PCAPPLAY="-DPCAPPLAY" $(OUTPUT)
 
 pcapplay_ossl:
 	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` OBJ_TLS="sslinit.o sslthreadsafe.o" TLS_LIBS="-lssl -lcrypto" TLS="-D_USE_OPENSSL -DOPENSSL_NO_KRB5"  OBJ_PCAPPLAY="send_packets.o prepare_pcap.o" PCAPPLAY_LIBS="-lpcap `if test -f ./ext; then echo -L./ext/lib; fi;`" PCAPPLAY="-DPCAPPLAY `if test -f ./ext; then echo -I./ext/include; fi;`" $(OUTPUT)
+
+pcapplay_sctp_ossl:
+	$(MAKE) OSNAME=`uname|sed -e "s/CYGWIN.*/CYGWIN/"` MODELNAME=`uname -m|sed "s/Power Macintosh/ppc/"` SCTP_LIBS="lsctp" SCTP="-DUSE_SCTP" OBJ_TLS="sslinit.o sslthreadsafe.o" TLS_LIBS="-lssl -lcrypto" TLS="-D_USE_OPENSSL -DOPENSSL_NO_KRB5"  OBJ_PCAPPLAY="send_packets.o prepare_pcap.o" PCAPPLAY_LIBS="-lpcap `if test -f ./ext; then echo -L./ext/lib; fi;`" PCAPPLAY="-DPCAPPLAY `if test -f ./ext; then echo -I./ext/include; fi;`" $(OUTPUT)
 
 pcapplay_hp_li_ia:
 	@_HPUX_LI_FLAG=-D_HPUX_LI ; export _HPUX_LI_FLAG ; $(MAKE) pcapplay
@@ -192,7 +202,7 @@ pcapplay_ossl_cygwin:
 
 $(OUTPUT): $(OBJ_TLS) $(OBJ_PCAPPLAY) $(OBJ)
 	$(CCLINK) $(LFLAGS) $(MFLAGS) $(LIBDIR_$(SYSTEM)) \
-	$(DEBUG_FLAGS) -o $@ $(OBJ_TLS) $(OBJ_PCAPPLAY) $(OBJ) $(LIBS) $(TLS_LIBS) $(PCAPPLAY_LIBS) $(EXTRAENDLIBS)
+	$(DEBUG_FLAGS) -o $@ $(OBJ_TLS) $(OBJ_PCAPPLAY) $(OBJ) $(LIBS) $(TLS_LIBS) $(PCAPPLAY_LIBS) $(SCTP_LIBS) $(EXTRAENDLIBS)
 
 debug:
 	DEBUG_FLAGS="-g -pg" ; export DEBUG_FLAGS ; $(MAKE) all
