@@ -1120,11 +1120,11 @@ char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
       sprintf(repartitionHeader, "%s%s", P_repartitionName, stat_delimiter);
       for(int i=0; i<(sizeOfTab-1); i++)
         {
-          sprintf(buffer, "<%d%s", tabRepartition[i].borderMax, stat_delimiter);
+          sprintf(buffer, "%s_<%d%s", P_repartitionName, tabRepartition[i].borderMax, stat_delimiter);
 	  repartitionHeader = (char *)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
           strcat(repartitionHeader, buffer);
         }
-      sprintf(buffer, ">=%d%s", tabRepartition[sizeOfTab-1].borderMax, stat_delimiter);
+      sprintf(buffer, "%s_>=%d%s", P_repartitionName, tabRepartition[sizeOfTab-1].borderMax, stat_delimiter);
       repartitionHeader = (char *)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
       strcat(repartitionHeader, buffer);
     }
