@@ -850,7 +850,7 @@ scenario::scenario(char * filename, int deflt)
 	}
 
 	if ((ptr = xp_get_value("response_txn"))) {
-	  ERROR("response_txn can only be used for recieved messages.");
+	  ERROR("response_txn can only be used for received messages.");
 	}
 
 	curmsg -> retrans_delay = xp_get_long("retrans", "retransmission timer", 0);
@@ -871,7 +871,7 @@ scenario::scenario(char * filename, int deflt)
         if((ptr = xp_get_value((char *)"request"))) {
           curmsg -> recv_request = strdup(ptr);
 	  if ((ptr = xp_get_value("response_txn"))) {
-	    ERROR("response_txn can only be used for recieved responses.");
+	    ERROR("response_txn can only be used for received responses.");
 	  }
         }
 
@@ -2035,7 +2035,7 @@ char * default_scenario [] = {
 "  <!-- are also discarded.                                              -->\n"
 "  <!--                                                                  -->\n"
 "  <!-- If the specified header was present several times in the         -->\n"
-"  <!-- message, all occurences are concatenated (CRLF seperated)        -->\n"
+"  <!-- message, all occurences are concatenated (CRLF separated)        -->\n"
 "  <!-- to be used in place of the '[last_*]' keyword.                   -->\n"
 "\n"
 "  <send>\n"

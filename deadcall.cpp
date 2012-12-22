@@ -74,7 +74,7 @@ bool deadcall::process_incoming(char * msg, struct sockaddr_storage *src) {
   WARNING("%s, received '%s'", buffer, msg);
 
   TRACE_MSG("-----------------------------------------------\n"
-             "Dead call %s recieved a %s message:\n\n%s\n",
+             "Dead call %s received a %s message:\n\n%s\n",
 	     id, TRANSPORT_TO_STRING(transport), msg);
 
   expiration = clock_tick + deadcall_wait;
