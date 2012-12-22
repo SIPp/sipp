@@ -3121,20 +3121,47 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
     else // mode != from SERVER and 3PCC Controller B
     {
       // This is a message that is not relating to any known call
-      if (auto_answer == true) {
-	// If auto answer mode, try to answer the incoming message
-	// with automaticResponseMode
-	// call is discarded before exiting the block
+      if (ooc_scenario) {
 	if(!get_reply_code(msg)){
-	  ooc_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
-	  /* This should have the real address that the message came from. */
-	  call *call_ptr = new call(ooc_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
-	  if (!call_ptr) {
-	    ERROR("Out of memory allocating a call!");
+        char *msg_start = strdup(msg);
+        char *msg_start_end = msg_start;
+        while (!isspace(*msg_start_end) && (*msg_start_end != '\0')) {
+            msg_start_end++;
+        }
+        *msg_start_end = '\0';
+	    ooc_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
+        WARNING("Received out-of-call %s message, using the out-of-call scenario", msg_start);
+        free(msg_start);
+	    /* This should have the real address that the message came from. */
+	    call *call_ptr = new call(ooc_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
+	    if (!call_ptr) {
+	      ERROR("Out of memory allocating a call!");
+	    }
+	    CStat::globalStat(CStat::E_AUTO_ANSWERED);
+	    call_ptr->process_incoming(msg, src);
+	  } else {
+	    /* We received a response not relating to any known call */
+	    /* Do nothing, even if in auto answer mode */
+	    CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
+	  }
+    } else if (auto_answer &&
+              ((strstr(msg, "NOTIFY") == msg)  ||
+               (strstr(msg, "INFO")   == msg)  ||
+               (strstr(msg, "UPDATE") == msg))) {
+	  // If auto answer mode, try to answer the incoming message
+	  // with automaticResponseMode
+	  // call is discarded before exiting the block
+	  if(!get_reply_code(msg)){
+	    aa_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
+	    /* This should have the real address that the message came from. */
+	    call *call_ptr = new call(aa_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
+	    if (!call_ptr) {
+	     ERROR("Out of memory allocating a call!");
 	  }
 	  CStat::globalStat(CStat::E_AUTO_ANSWERED);
 	  call_ptr->process_incoming(msg, src);
 	} else {
+      fprintf(stderr, "%s", msg);
 	  /* We received a response not relating to any known call */
 	  /* Do nothing, even if in auto answer mode */
 	  CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
@@ -3792,6 +3819,7 @@ void releaseGlobalAllocations()
 {
   delete main_scenario;
   delete ooc_scenario;
+  delete aa_scenario;
   free_default_messages();
   freeInFiles();
   freeUserVarMap();
@@ -4887,11 +4915,15 @@ int main(int argc, char *argv[])
     main_scenario->stats->setFileName((char*)"uac", (char*)".csv");
     sprintf(scenario_file,"uac");
   }
+  /*
   if(!ooc_scenario) {
     ooc_scenario = new scenario(0, find_scenario("ooc_default"));
     ooc_scenario->stats->setFileName((char*)"ooc_default", (char*)".csv");
   }
+  */
   display_scenario = main_scenario;
+  aa_scenario = new scenario(0, find_scenario("ooc_dummy"));
+  aa_scenario->stats->setFileName((char*)"ooc_dummy", (char*)".csv");
 
   init_default_messages();
   for (int i = 1; i <= users; i++) {
@@ -4912,10 +4944,15 @@ int main(int argc, char *argv[])
 
   /* Now Initialize the scenarios. */
   main_scenario->runInit();
-  ooc_scenario->runInit();
+  if(ooc_scenario) {
+    ooc_scenario->runInit();
+  }
 
   /* In which mode the tool is launched ? */
   main_scenario->computeSippMode();
+  if (ooc_scenario && sendMode == MODE_SERVER) {
+      ERROR("SIPp cannot use out-of-call scenarios when running in server mode");
+  }
 
   /* checking if we need to launch the tool in background mode */ 
   if(backgroundMode == true)

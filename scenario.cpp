@@ -142,6 +142,7 @@ message::~message()
 
 scenario      *main_scenario;
 scenario      *ooc_scenario;
+scenario      *aa_scenario;
 scenario      *display_scenario;
 
 /* This mode setting refers to whether we open calls autonomously (MODE_CLIENT)
@@ -1854,6 +1855,7 @@ char *scenario_table[] = {
 	"branchs",
 	"uac_pcap",
 	"ooc_default",
+	"ooc_dummy",
 };
 
 int find_scenario(const char *scenario) {
@@ -3223,4 +3225,37 @@ char * default_scenario [] = {
 "  <CallLengthRepartition value=\"10, 50, 100, 500, 1000, 5000, 10000\"/>\n"
 "\n"
 "</scenario>\n",
+"<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
+"<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\n"
+"\n"
+"<!-- This program is free software; you can redistribute it and/or      -->\n"
+"<!-- modify it under the terms of the GNU General Public License as     -->\n"
+"<!-- published by the Free Software Foundation; either version 2 of the -->\n"
+"<!-- License, or (at your option) any later version.                    -->\n"
+"<!--                                                                    -->\n"
+"<!-- This program is distributed in the hope that it will be useful,    -->\n"
+"<!-- but WITHOUT ANY WARRANTY; without even the implied warranty of     -->\n"
+"<!-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      -->\n"
+"<!-- GNU General Public License for more details.                       -->\n"
+"<!--                                                                    -->\n"
+"<!-- You should have received a copy of the GNU General Public License  -->\n"
+"<!-- along with this program; if not, write to the                      -->\n"
+"<!-- Free Software Foundation, Inc.,                                    -->\n"
+"<!-- 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA             -->\n"
+"<!--                                                                    -->\n"
+"<!--                 Sipp default 'uas' scenario.                       -->\n"
+"<!--                                                                    -->\n"
+"\n"
+"<scenario name=\"Out-of-call UAS\">\n"
+"  <recv request=\"DUMMY\" />\n"
+"\n"
+"  <!-- definition of the response time repartition table (unit is ms)   -->\n"
+"  <ResponseTimeRepartition value=\"10, 20, 30, 40, 50, 100, 150, 200\"/>\n"
+"\n"
+"  <!-- definition of the call length repartition table (unit is ms)     -->\n"
+"  <CallLengthRepartition value=\"10, 50, 100, 500, 1000, 5000, 10000\"/>\n"
+"\n"
+"</scenario>\n",
+
+
 };
