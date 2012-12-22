@@ -37,7 +37,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <xp_parser.h>
+#include "xp_parser.h"
 
 /************* Constants and Global variables ***********/
 
