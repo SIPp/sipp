@@ -133,17 +133,28 @@ uint32_t get_remote_ip_media(char *msg)
     char pattern[] = "c=IN IP4 ";
     char *begin, *end;
     char ip[32];
-    begin = strstr(msg, pattern);
+    char *my_msg = strdup(msg);
+
+    if (!my_msg) {
+        return INADDR_NONE;
+    }
+    begin = strstr(my_msg, pattern);
     if (!begin) {
+      free(my_msg);
       /* Can't find what we're looking at -> return no address */
       return INADDR_NONE;
     }
     begin += sizeof("c=IN IP4 ") - 1;
     end = strstr(begin, "\r\n");
-    if (!end)
+    if (!end) {
+      free(my_msg);
       return INADDR_NONE;
+    }
+    *end = '\0';
     memset(ip, 0, 32);
-    strncpy(ip, begin, end - begin);
+    strncpy(ip, begin, sizeof(ip) - 1);
+    ip[sizeof(ip) - 1] = '\0';
+    free(my_msg);
     return inet_addr(ip);
 }
 
@@ -156,20 +167,30 @@ uint8_t get_remote_ipv6_media(char *msg, struct in6_addr *addr)
     char pattern[] = "c=IN IP6 ";
     char *begin, *end;
     char ip[128];
+    char *my_msg = strdup(msg);
 
     memset(addr, 0, sizeof(*addr));
     memset(ip, 0, 128);
 
-    begin = strstr(msg, pattern);
+    if (!my_msg) {
+        return 0;
+    }
+    begin = strstr(my_msg,pattern);
     if (!begin) {
+      free(my_msg);
       /* Can't find what we're looking at -> return no address */
       return 0;
     }
     begin += sizeof("c=IN IP6 ") - 1;
     end = strstr(begin, "\r\n");
-    if (!end)
+    if (!end) {
+      free(my_msg);
       return 0;
-    strncpy(ip, begin, end - begin);
+    }
+    *end = '\0';
+    strncpy(ip, begin, sizeof(ip) -1);
+    ip[sizeof(ip) - 1] = '\0';
+    free(my_msg);
     if (!inet_pton(AF_INET6, ip, addr)) {
       return 0;
     }
@@ -196,17 +217,27 @@ uint16_t get_remote_port_media(char *msg, int pattype)
 	ERROR("Internal error: Undefined media pattern %d\n", 3);
     }
 
-    begin = strstr(msg, pattern);
+    char *my_msg = strdup(msg);
+    if (!my_msg) {
+        return 0;
+    }
+    begin = strstr(my_msg, pattern);
     if (!begin) {
+      free(my_msg);
       /* m=audio not found */
       return 0;
     }
     begin += strlen(pattern) - 1;
     end = strstr(begin, "\r\n");
-    if (!end)
+    if (!end) {
+      free(my_msg);
       ERROR("get_remote_port_media: no CRLF found");
+    }
+    *end = '\0';
     memset(number, 0, sizeof(number));
     strncpy(number, begin, sizeof(number) - 1);
+    number[sizeof(number) - 1] = '\0';
+    free(my_msg);
     return atoi(number);
 }
 

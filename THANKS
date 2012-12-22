@@ -23,6 +23,7 @@ Rob Day
 Dmitry Semyonov
 Jordan Walbesser
 Ken Crowell
+Peter Lemenkov
 
 SIPp also uses code originally by Aaron Turner (send_packets.c) and L Peter
 Deutsch (md5.c).
