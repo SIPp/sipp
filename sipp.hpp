@@ -32,7 +32,9 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #ifdef USE_SCTP
+#ifndef __DARWIN
 #include <netinet/sctp.h>
+#endif
 #endif
 #include <sys/time.h>
 #include <sys/poll.h>

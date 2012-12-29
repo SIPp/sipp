@@ -1,12 +1,12 @@
 # ======================== initialization ===============================
 
-AC_INIT([SIPp], [3.1], [sipp-users@lists.sourceforge.net], [sipp])
+AC_INIT([SIPp], [3.3], [sipp-users@lists.sourceforge.net], [sipp])
 
 AC_CANONICAL_TARGET
 
 AC_CONFIG_SRCDIR([sipp.cpp])
 AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE([foreign dist-xz])
+AM_INIT_AUTOMAKE([foreign])
 
 AC_ARG_WITH([openssl],AC_HELP_STRING([--with-openssl], [build with OpenSSL support]), [openssl="$withval"],[openssl="no"])
 AC_ARG_WITH([pcap],AC_HELP_STRING([--with-pcap], [build with pcap support]), [pcap="$withval"],[pcap="no"])
@@ -115,7 +115,7 @@ AM_CONDITIONAL(HAVE_OPENSSL, test "$openssl" = "yes")
 
 # Conditional build with SCTP
 if test "$sctp" = 'yes'; then
-	AC_CHECK_HEADERS([netinet/sctp.h],,[AC_MSG_ERROR([<netinet/sctp.h> header missing])])
+	AC_CHECK_HEADERS([netinet/sctp.h],,[AC_MSG_WARN([<netinet/sctp.h> header missing, but this is acceptable on Mac OS X Lion])])
 	AC_SEARCH_LIBS([sctp_send],[sctp],,[AC_MSG_ERROR([SCTP library missing])])
 	AC_SEARCH_LIBS([sctp_getpaddrs],[sctp],,[AC_MSG_ERROR([SCTP library missing])])
 	AC_SEARCH_LIBS([sctp_freepaddrs],[sctp],,[AC_MSG_ERROR([SCTP library missing])])
@@ -128,10 +128,10 @@ AM_CONDITIONAL(HAVE_SCTP, test "$sctp" = "yes")
 # Conditional build with pcap
 if test "$pcap" = 'yes'; then
 	AC_CHECK_HEADERS([pcap.h],,[AC_MSG_ERROR([<pcap.h> header missing])])
-	AC_CHECK_LIB([pcap], [pcap_open_offline],,[AC_MSG_ERROR([pcap library missing])])
-	AC_CHECK_LIB([pcap], [pcap_next],,[AC_MSG_ERROR([pcap library missing])])
-	AC_CHECK_LIB([pcap], [pcap_next_ex],,[AC_MSG_ERROR([pcap library missing])])
-	AC_CHECK_LIB([pcap], [pcap_close],,[AC_MSG_ERROR([pcap library missing])])
+	AC_SEARCH_LIBS([pcap_open_offline],[pcap,wpcap],,[AC_MSG_ERROR([pcap library missing])])
+	AC_SEARCH_LIBS([pcap_next],[pcap,wpcap],,[AC_MSG_ERROR([pcap library missing])])
+	AC_SEARCH_LIBS([pcap_next_ex],[pcap,wpcap],,[AC_MSG_ERROR([pcap library missing])])
+	AC_SEARCH_LIBS([pcap_close],[pcap,wpcap],,[AC_MSG_ERROR([pcap library missing])])
 fi
 # For Makefile.am
 AM_CONDITIONAL(HAVE_PCAP, test "$pcap" = "yes")

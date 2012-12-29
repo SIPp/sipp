@@ -17,7 +17,7 @@ DEFS += -DSIPP_UNITTEST
 endif
 
 if HAVE_SCTP
-DEFS += -ggdb -DUSE_SCTP
+DEFS += -DUSE_SCTP
 endif
 
 sipp_SOURCES = comp.c \

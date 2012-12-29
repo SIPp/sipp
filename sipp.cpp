@@ -3030,7 +3030,7 @@ static int check_for_message(struct sipp_socket *socket) {
 }
 
 #ifdef USE_SCTP
-static void handleSCTPNotify(struct sipp_socket* socket,char* buffer)
+static int handleSCTPNotify(struct sipp_socket* socket,char* buffer)
 {
  union sctp_notification *notifMsg;
 

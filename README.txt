@@ -1,35 +1,34 @@
-#  This program is free software; you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2 of the License, or
-#  (at your option) any later version.
+#   SIPp - a SIP protocol test tool
+#   Copyright (C) 2003,2004,2005,2006 - The Authors
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
 #
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
 #
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software
-#  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-#
-#  Copyright (C) 2003,2004,2005,2006 - The Authors
-#
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 BUILDING
 ********
 
-This is the Sipp package. Please refer to the http://sipp.sourceforge.net/
-WEB page for details and download of the last version.
+This is the SIPp package. Please refer to the http://sipp.sourceforge.net/
+webpage for details and download of the last version.
 
-Normally, you should be able to build Sipp by just typing "make" in the
-current diractory. Then "sipp -h" will give you access to the online help.
+Normally, you should be able to build SIPp by just typing 
+"autoreconf -ivf; ./configure --with-pcap --with-sctp; make" in the
+current directory. Then "sipp -h" will give you access to the online help.
 
 CONTRIBUTING
 ************
 
-Sipp is free software, under the terms of the GPL licence (please the the
+SIPp is free software, under the terms of the GPL licence (see the
 LICENCE.txt file for details). You can contribute to the development 
-of Sipp and contact us via Sourceforge to integrate your changes. If you 
+of SIPp and contact us via Sourceforge to integrate your changes. If you 
 make changes in Sipp, *PLEASE* follow a few coding rules:
 
   - Use 80 columns code,
@@ -48,7 +47,7 @@ make changes in Sipp, *PLEASE* follow a few coding rules:
   - Use "{" in if conditions even if there is only one instruction
     (see example above).
 
-  - Do not use std C++ libs if something euivalent exists in libc
+  - Do not use std C++ libs if something equivalent exists in libc
     (better portability). (e.g. prefer "printf" to "cout <<" ).
 
   - Check your changes can be compiled on:
@@ -61,6 +60,7 @@ make changes in Sipp, *PLEASE* follow a few coding rules:
 
 Thanks,
 
+  Rob Day <rkd@rkd.me.uk>
   ojacques@users.sourceforge.net
   richard_gayraud@users.sourceforge.net
 
