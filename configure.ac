@@ -41,8 +41,9 @@ case "$host" in
 		CPPFLAGS="$CPPFLAGS -D__SUNOS"
 		;;
 	*-cygwin*)
-		CFLAGS="$CFLAGS -D__CYGWIN"
-		CPPFLAGS="$CPPFLAGS -D__CYGWIN"
+		CFLAGS="$CFLAGS -D__CYGWIN -I /usr/include/ncurses -I /usr/lib/WpdPack/Include -I /usr/include/SctpDrv"
+		CPPFLAGS="$CPPFLAGS -D__CYGWIN -I /usr/include/ncurses -I /usr/lib/WpdPack/Include -I /usr/include/SctpDrv"
+                LDFLAGS="$LDFLAGS -L /usr/lib/WpdPack/Lib -L /usr/lib/SctpDrv"
 		;;
 	*-tru64*)
 		CFLAGS="$CFLAGS -D__OSF1"
@@ -116,11 +117,10 @@ AM_CONDITIONAL(HAVE_OPENSSL, test "$openssl" = "yes")
 # Conditional build with SCTP
 if test "$sctp" = 'yes'; then
 	AC_CHECK_HEADERS([netinet/sctp.h],,[AC_MSG_WARN([<netinet/sctp.h> header missing, but this is acceptable on Mac OS X Lion])])
-	AC_SEARCH_LIBS([sctp_send],[sctp],,[AC_MSG_ERROR([SCTP library missing])])
-	AC_SEARCH_LIBS([sctp_getpaddrs],[sctp],,[AC_MSG_ERROR([SCTP library missing])])
-	AC_SEARCH_LIBS([sctp_freepaddrs],[sctp],,[AC_MSG_ERROR([SCTP library missing])])
-	AC_SEARCH_LIBS([sctp_bindx],[sctp],,[AC_MSG_ERROR([SCTP library missing])])
-	AC_SEARCH_LIBS([sctp_recvmsg],[sctp],,[AC_MSG_ERROR([SCTP library missing])])
+	AC_SEARCH_LIBS([sctp_send],[sctp sctpsp],,[AC_MSG_ERROR([SCTP library missing])])
+	AC_SEARCH_LIBS([sctp_freepaddrs],[sctp sctpsp],,[AC_MSG_ERROR([SCTP library missing])])
+	AC_SEARCH_LIBS([sctp_bindx],[sctp sctpsp],,[AC_MSG_ERROR([SCTP library missing])])
+	AC_SEARCH_LIBS([sctp_recvmsg],[sctp sctpsp],,[AC_MSG_ERROR([SCTP library missing])])
 fi
 # For Makefile.am
 AM_CONDITIONAL(HAVE_SCTP, test "$sctp" = "yes")
@@ -128,10 +128,10 @@ AM_CONDITIONAL(HAVE_SCTP, test "$sctp" = "yes")
 # Conditional build with pcap
 if test "$pcap" = 'yes'; then
 	AC_CHECK_HEADERS([pcap.h],,[AC_MSG_ERROR([<pcap.h> header missing])])
-	AC_SEARCH_LIBS([pcap_open_offline],[pcap,wpcap],,[AC_MSG_ERROR([pcap library missing])])
-	AC_SEARCH_LIBS([pcap_next],[pcap,wpcap],,[AC_MSG_ERROR([pcap library missing])])
-	AC_SEARCH_LIBS([pcap_next_ex],[pcap,wpcap],,[AC_MSG_ERROR([pcap library missing])])
-	AC_SEARCH_LIBS([pcap_close],[pcap,wpcap],,[AC_MSG_ERROR([pcap library missing])])
+	AC_SEARCH_LIBS([pcap_open_offline],[pcap wpcap],,[AC_MSG_ERROR([pcap library missing])])
+	AC_SEARCH_LIBS([pcap_next],[pcap wpcap],,[AC_MSG_ERROR([pcap library missing])])
+	AC_SEARCH_LIBS([pcap_next_ex],[pcap wpcap],,[AC_MSG_ERROR([pcap library missing])])
+	AC_SEARCH_LIBS([pcap_close],[pcap wpcap],,[AC_MSG_ERROR([pcap library missing])])
 fi
 # For Makefile.am
 AM_CONDITIONAL(HAVE_PCAP, test "$pcap" = "yes")
