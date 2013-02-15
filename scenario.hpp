@@ -203,8 +203,8 @@ private:
   void getCommonAttributes(message *message);
   void getActionForThisMessage(message *message);
   void parseAction(CActions *actions);
-  void handle_arithmetic(CAction *tmpAction, char *what);
-  void handle_rhs(CAction *tmpAction, char *what);
+  void handle_arithmetic(CAction *tmpAction, const char *what);
+  void handle_rhs(CAction *tmpAction, const char *what);
   void checkOptionalRecv(char *elem, unsigned int scenario_file_cursor);
 
   void apply_labels(msgvec v, str_int_map labels);
@@ -252,7 +252,7 @@ void freeStringTable(char ** stringList, int sizeOfList);
 
 
 int find_scenario(const char *scenario);
-extern char * default_scenario[12];
+extern const char * default_scenario[12];
 
 /* Useful utility functions for parsing integers, etc. */
 long get_long(const char *ptr, const char *what);
@@ -263,6 +263,6 @@ bool get_bool(const char *ptr, const char *what);
 int time_string(double ms, char *res, int reslen);
 int get_var(const char *varName, const char *what);
 
-extern int get_cr_number(char *msg);
+extern int get_cr_number(const char *msg);
 
 #endif

@@ -203,10 +203,10 @@ uint8_t get_remote_ipv6_media(char *msg, struct in6_addr *addr)
  */
 #define PAT_AUDIO 1
 #define PAT_VIDEO 2
-uint16_t get_remote_port_media(char *msg, int pattype)
+uint16_t get_remote_port_media(const char *msg, int pattype)
 {
-    char *pattern;
-    char *begin, *end;
+    const char *pattern;
+    const char *begin, *end;
     char number[7];
 
     if (pattype == PAT_AUDIO) {
@@ -297,7 +297,7 @@ void call::get_remote_media_addr(char *msg) {
 
 /******* Very simple hash for retransmission detection  *******/
 
-unsigned long call::hash(char * msg) {
+unsigned long call::hash(const char * msg) {
   unsigned long hash = 0;
   int c;
 
@@ -307,7 +307,7 @@ unsigned long call::hash(char * msg) {
   } else if (rtcheck == RTCHECK_LOOSE) {
     /* Based on section 11.5 (bullet 2) of RFC2543 we only take into account
      * the To, From, Call-ID, and CSeq values. */
-      char *hdr = get_header_content(msg,"To:");
+      const char *hdr = get_header_content(msg,"To:");
       while ((c = *hdr++))
 	hash = c + (hash << 6) + (hash << 16) - hash;
       hdr = get_header_content(msg,"From:");
@@ -342,15 +342,15 @@ unsigned long call::hash(char * msg) {
 }
 
 /******************* Call class implementation ****************/
-call::call(char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest) : listener(p_id, true) {
+call::call(const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest) : listener(p_id, true) {
   init(main_scenario, NULL, dest, p_id, userId, use_ipv6, false, false);
 }
 
-call::call(char *p_id, struct sipp_socket *socket, struct sockaddr_storage *dest) : listener(p_id, true) {
+call::call(const char *p_id, struct sipp_socket *socket, struct sockaddr_storage *dest) : listener(p_id, true) {
   init(main_scenario, socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
 }
 
-call::call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true) {
+call::call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true) {
   init(call_scenario, socket, dest, p_id, userId, ipv6, isAutomatic, isInitialization);
 }
 
@@ -358,7 +358,7 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
 {
   static char call_id[MAX_HEADER_LEN];
 
-  char * src = call_id_string;
+  const char * src = call_id_string;
   int count = 0;
 
   if(!next_number) { next_number ++; }
@@ -390,7 +390,7 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
 }
 
 
-void call::init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall)
+void call::init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall)
 {
   this->call_scenario = call_scenario;
   zombie = false;
@@ -576,7 +576,7 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
   setRunning();
 }
 
-int call::_callDebug(char *fmt, ...) {
+int call::_callDebug(const char *fmt, ...) {
     va_list ap;
 
     if (!useCallDebugf) {
@@ -861,7 +861,7 @@ bool call::lost(int index)
   return (((double)rand() / (double)RAND_MAX) < (percent / 100.0));
 }
 
-int call::send_raw(char * msg, int index, int len) 
+int call::send_raw(const char * msg, int index, int len) 
 {
   struct sipp_socket *sock;
   int rc;
@@ -871,7 +871,7 @@ int call::send_raw(char * msg, int index, int len)
   if (useShortMessagef == 1) {
       struct timeval currentTime;
       GET_TIME (&currentTime);
-      char* cs=get_header_content(msg,"CSeq:");
+      const char * cs=get_header_content(msg,"CSeq:");
       TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
              CStat::formatTime(&currentTime),id, cs, get_first_line(msg));
   }  
@@ -978,10 +978,10 @@ char * call::compute_cseq(char * src)
     return cseq;
 }
 
-char * call::get_header_field_code(char *msg, char * name)
+char * call::get_header_field_code(const char *msg, const char * name)
 {
   static char code[MAX_HEADER_LEN];
-  char * last_header;
+  const char * last_header;
   int i;
 
     last_header = NULL;
@@ -997,7 +997,7 @@ char * call::get_header_field_code(char *msg, char * name)
     return code;
 }
 
-char * call::get_last_header(char * name)
+char * call::get_last_header(const char * name)
 {
   int len;
 
@@ -1022,17 +1022,17 @@ char * call::get_last_header(char * name)
   }
 }
 
-char * call::get_header_content(char* message, char * name)
+char * call::get_header_content(const char* message, const char * name)
 {
   return get_header(message, name, true);
 }
 
 /* If content is true, we only return the header's contents. */
-char * call::get_header(char* message, char * name, bool content)
+char * call::get_header(const char* message, const char * name, bool content)
 {
   /* non reentrant. consider accepting char buffer as param */
   static char last_header[MAX_HEADER_LEN * 10];
-  char * src, *dest, *start, *ptr;
+  char *src, *dest, *start, *ptr;
   /* Are we searching for a short form header? */
   bool short_form = false;
   bool first_time = true;
@@ -1054,7 +1054,7 @@ char * call::get_header(char* message, char * name, bool content)
   do
   {
     snprintf(src_tmp, MAX_HEADER_LEN, "\n%s", name);
-    src = message;
+    src = const_cast<char*>(message); /* BUG.. but won't fix right now */
     dest = last_header;
 
     while((src = strcasestr2(src, src_tmp))) {
@@ -1158,11 +1158,11 @@ char * call::get_header(char* message, char * name, bool content)
   return start;
 }
 
-char * call::get_first_line(char * message)
+char * call::get_first_line(const char * message)
 {
   /* non reentrant. consider accepting char buffer as param */
   static char last_header[MAX_HEADER_LEN * 10];
-  char * src, *dest;
+  const char * src;
 
   /* returns empty string in case of error */
   memset(last_header, 0, sizeof(last_header));
@@ -1172,7 +1172,6 @@ char * call::get_first_line(char * message)
   }
 
   src = message;
-  dest = last_header;
   
   int i=0;
   while (*src){
@@ -1775,7 +1774,7 @@ bool call::run()
   return executeMessage(curmsg);
 }
 
-char *default_message_names[] = {
+const char *default_message_names[] = {
 	"3pcc_abort",
 	"ack",
 	"ack2",
@@ -1783,7 +1782,7 @@ char *default_message_names[] = {
 	"cancel",
 	"200",
 };
-char *default_message_strings[] = {
+const char *default_message_strings[] = {
 	/* 3pcc_abort */
 	"call-id: [call_id]\ninternal-cmd: abort_call\n\n",
 	/* ack */
@@ -1845,7 +1844,7 @@ void init_default_messages() {
   int messages = sizeof(default_message_strings)/sizeof(default_message_strings[0]);
   default_messages = new SendingMessage* [messages];
   for (int i = 0; i < messages; i++) {
-    default_messages[i] = new SendingMessage(main_scenario, default_message_strings[i]);
+    default_messages[i] = new SendingMessage(main_scenario, const_cast<char*>(default_message_strings[i])); /* BUG */
   }
 }
 

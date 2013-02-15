@@ -40,7 +40,7 @@
 #include "message.hpp"
 
 struct KeywordMap {
-	char *keyword;
+	const char *keyword;
 	MessageCompType type;
 };
 
@@ -475,7 +475,7 @@ void SendingMessage::getHexStringParam(char * dest, char * src, int * len)
   }
 }
 
-void SendingMessage::getKeywordParam(char * src, char * param, char * output)
+void SendingMessage::getKeywordParam(char * src, const char * param, char * output)
 {
   char *key, *tmp;
   int len;

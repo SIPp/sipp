@@ -113,7 +113,7 @@ char *CCallVariable::getString()
   } else if (M_type == E_VT_REGEXP && M_matchingValue) {
     return(M_matchingValue);
   } else {
-    return "";
+    return const_cast<char*>(""); /* BUG BUT NOT SO SERIOUS */
   }
 }
 

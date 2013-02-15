@@ -50,9 +50,9 @@ char * xp_position [XP_MAX_STACK_LEN];
 int    xp_stack    = 0;
 
 /****************** Internal routines ********************/
-int xp_replace(char *source, char *dest, char *search, char *replace)
+int xp_replace(const char *source, char *dest, const char *search, const char *replace)
 {
-  char *position;
+  const char *position;
   char *occurances;
   int number = 0;
 
@@ -155,7 +155,7 @@ char * xp_find_local_end()
 
 /********************* Interface routines ********************/
 
-int xp_set_xml_buffer_from_string(char * str)
+int xp_set_xml_buffer_from_string(const char * str)
 {
   size_t len = strlen(str);
 
@@ -174,7 +174,7 @@ int xp_set_xml_buffer_from_string(char * str)
   return 1;
 }
 
-int xp_set_xml_buffer_from_file(char * filename)
+int xp_set_xml_buffer_from_file(const char * filename)
 {
   FILE * f = fopen(filename, "rb");
   int index = 0;
@@ -371,8 +371,8 @@ char * xp_get_value(const char * name)
 char * xp_get_cdata()
 {
   static char buffer[XP_MAX_FILE_LEN + 1]; 
-  char      * end = xp_find_local_end();
-  char      * ptr;
+  const char *end = xp_find_local_end();
+  const char *ptr;
   
   ptr = strstr(xp_position[xp_stack],"<![CDATA[");
   if(!ptr) { return NULL; }
@@ -386,9 +386,9 @@ char * xp_get_cdata()
   return buffer;
 }
 
-int xp_get_content_length(char * P_buffer) 
+int xp_get_content_length(const char * P_buffer) 
 {
-  char * L_ctl_hdr;
+  const char * L_ctl_hdr;
   int    L_content_length = -1 ; 
   unsigned char   short_form;
 

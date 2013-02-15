@@ -68,10 +68,10 @@ class call : virtual public task, virtual public listener, public virtual socket
 public:
   /* These are wrappers for various circumstances, (private) init does the real work. */
   //call(char * p_id, int userId, bool ipv6, bool isAutomatic);
-  call(char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest);
-  call(char *p_id, struct sipp_socket *socket, struct sockaddr_storage *dest);
+  call(const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest);
+  call(const char *p_id, struct sipp_socket *socket, struct sockaddr_storage *dest);
   static call *add_call(int userId, bool ipv6, struct sockaddr_storage *dest);
-  call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
+  call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
 
   virtual ~call();
 
@@ -108,7 +108,7 @@ public:
 
 private:
   /* This is the core constructor function. */
-  void init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
+  void init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
   /* This this call for initialization? */
   bool initCall;
 
@@ -281,18 +281,18 @@ private:
   void  extract_cseq_method (char* responseCseq, char* msg);
   void  extract_transaction (char* txn, char* msg);
 
-  int   send_raw(char * msg, int index, int len);
+  int   send_raw(const char * msg, int index, int len);
   char * send_scene(int index, int *send_status, int *msgLen);
   bool   connect_socket_if_needed();
 
   char * compute_cseq(char * src);
-  char * get_header_field_code(char * msg, char * code);
-  char * get_last_header(char * name);
-  char * get_header_content(char* message, char * name);
-  char * get_header(char* message, char * name, bool content);
-  char * get_first_line(char* message);
+  char * get_header_field_code(const char * msg, const char * code);
+  char * get_last_header(const char * name);
+  char * get_header_content(const char * message, const char * name);
+  char * get_header(const char * message, const char * name, bool content);
+  char * get_first_line(const char * message);
   char * get_last_request_uri();
-  unsigned long hash(char * msg);
+  unsigned long hash(const char * msg);
 
   typedef std::map <std::string, int> file_line_map;
   file_line_map *m_lineNumber;
@@ -318,7 +318,7 @@ private:
   BIO       *m_bio     ;
 #endif
 
-  int _callDebug(char *fmt, ...);
+  int _callDebug(const char *fmt, ...);
   char *debugBuffer;
   int debugLength;
 };

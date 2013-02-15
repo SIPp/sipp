@@ -31,7 +31,7 @@
 
 class listener {
 public:
-  listener(char *id, bool listening);
+  listener(const char *id, bool listening);
   virtual ~listener();
   char *getId();
   virtual bool process_incoming(char * msg, struct sockaddr_storage *src) = 0;
@@ -46,6 +46,6 @@ protected:
 };
 
 typedef std::map<std::string, listener *> listener_map;
-listener * get_listener(char *);
+listener * get_listener(const char *);
 
 #endif

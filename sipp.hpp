@@ -214,14 +214,14 @@ extern int                peripsocket             _DEFVAL(0);
 extern int                peripfield              _DEFVAL(0);
 extern bool               bind_local              _DEFVAL(false);
 extern void             * monosocket_comp_state   _DEFVAL(0);
-extern char             * service                 _DEFVAL(DEFAULT_SERVICE);
-extern char             * auth_password           _DEFVAL(DEFAULT_AUTH_PASSWORD);
-extern char             * auth_username           _DEFVAL(0);
+extern const char       * service                 _DEFVAL(DEFAULT_SERVICE);
+extern const char       * auth_password           _DEFVAL(DEFAULT_AUTH_PASSWORD);
+extern const char       * auth_username           _DEFVAL(0);
 extern unsigned long      report_freq             _DEFVAL(DEFAULT_REPORT_FREQ);
 extern unsigned long      report_freq_dumpLog     _DEFVAL
                                                 (DEFAULT_REPORT_FREQ_DUMP_LOG);
-extern bool		  periodic_rtd		  _DEFVAL(false);
-extern char		* stat_delimiter          _DEFVAL(";");
+extern bool		          periodic_rtd            _DEFVAL(false);
+extern const char		* stat_delimiter          _DEFVAL(";");
 
 extern bool               timeout_exit            _DEFVAL(false);
 extern bool               timeout_error           _DEFVAL(false);
@@ -294,7 +294,7 @@ extern int                currentScreenToDisplay  _DEFVAL
 extern int                currentRepartitionToDisplay  _DEFVAL(1);
 extern unsigned int       base_cseq               _DEFVAL(0);
 extern char             * auth_uri                _DEFVAL(0);
-extern char             * call_id_string          _DEFVAL("%u-%p@%s");
+extern const char       * call_id_string          _DEFVAL("%u-%p@%s");
 extern char             **generic[100];
 
 /* TDM map */
@@ -493,7 +493,7 @@ struct logfile_id {
 };
 
 struct logfile_info {
-	char *name;
+	const char *name;
 	bool check;
 	FILE *fptr;
 	int nfiles;
@@ -595,7 +595,7 @@ struct sipp_socket {
 };
 
 /* Write data to a socket. */
-int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
+int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
 /* Mark a socket as "bad". */
 void sipp_socket_invalidate(struct sipp_socket *socket);
 /* Actually free the socket. */
@@ -623,7 +623,7 @@ void sipp_close_socket(struct sipp_socket *socket);
 
 /********************* Utilities functions  *******************/
 
-char *strcasestr2 ( char *__haystack, char *__needle);
+char *strcasestr2 ( char *__haystack, const char *__needle);
 char *get_peer_addr(char *);
 int get_decimal_from_hex(char hex);
 
@@ -655,10 +655,10 @@ void free_peer_addr_map();
 #ifdef __cplusplus
 extern "C" {
 #endif
-int TRACE_MSG(char *fmt, ...);
-int TRACE_CALLDEBUG(char *fmt, ...);
-int TRACE_SHORTMSG(char *fmt, ...);
-int LOG_MSG(char *fmt, ...);
+int TRACE_MSG(const char *fmt, ...);
+int TRACE_CALLDEBUG(const char *fmt, ...);
+int TRACE_SHORTMSG(const char *fmt, ...);
+int LOG_MSG(const char *fmt, ...);
 #ifdef __cplusplus
 }
 #endif

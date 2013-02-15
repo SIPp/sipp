@@ -2,7 +2,7 @@
 
 class deadcall : public virtual task, public virtual listener {
 public:
-  deadcall(char *id, char * reason);
+  deadcall(const char *id, const char * reason);
   ~deadcall();
 
   virtual bool process_incoming(char * msg, struct sockaddr_storage *);

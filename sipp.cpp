@@ -746,7 +746,7 @@ unsigned char inline mytolower(unsigned char c) {
   return tolower_table[c];
 }
 
-char * strcasestr2(char *s, char *find) {
+char * strcasestr2(char *s, const char *find) {
   char c, sc;
   size_t len;
 
@@ -764,7 +764,7 @@ char * strcasestr2(char *s, char *find) {
   return ((char *)s);
 }
 
-char * strncasestr(char *s, char *find, size_t n) {
+char * strncasestr(char *s, const char *find, size_t n) {
   char *end = s + n;
   char c, sc;
   size_t len;
@@ -2125,7 +2125,7 @@ char * get_peer_tag(char *msg)
   return tag;
 }
 
-char * get_incoming_header_content(char* message, char * name)
+char * get_incoming_header_content(char* message, const char * name)
 {
   /* non reentrant. consider accepting char buffer as param */
   static char last_header[MAX_HEADER_LEN * 10];
@@ -2532,7 +2532,7 @@ void sipp_customize_socket(struct sipp_socket *socket)
   }
 }
 
-static ssize_t socket_write_primitive(struct sipp_socket *socket, char *buffer, size_t len, struct sockaddr_storage *dest) {
+static ssize_t socket_write_primitive(struct sipp_socket *socket, const char *buffer, size_t len, struct sockaddr_storage *dest) {
   ssize_t rc;
 
   /* Refuse to write to invalid sockets. */
@@ -2769,11 +2769,11 @@ static int flush_socket(struct sipp_socket *socket) {
   return 0;
 }
 
-void buffer_write(struct sipp_socket *socket, char *buffer, size_t len, struct sockaddr_storage *dest) {
+void buffer_write(struct sipp_socket *socket, const char *buffer, size_t len, struct sockaddr_storage *dest) {
   struct socketbuf *buf = socket->ss_out;
 
   if (!buf) {
-	socket->ss_out = alloc_socketbuf(buffer, len, DO_COPY, dest);
+	socket->ss_out = alloc_socketbuf(const_cast<char*>(buffer), len, DO_COPY, dest); /* NO BUG BECAUSE OF DO_COPY */
 	TRACE_MSG("Added first buffered message to socket %d\n", socket->ss_fd);
 	return;
   }
@@ -2782,7 +2782,7 @@ void buffer_write(struct sipp_socket *socket, char *buffer, size_t len, struct s
 	buf = buf->next;
   }
 
-  buf->next = alloc_socketbuf(buffer, len, DO_COPY, dest);
+  buf->next = alloc_socketbuf(const_cast<char*>(buffer), len, DO_COPY, dest); /* NO BUG BECAUSE OF DO_COPY */
   TRACE_MSG("Appended buffered message to socket %d\n", socket->ss_fd);
 }
 
@@ -2804,7 +2804,7 @@ void buffer_read(struct sipp_socket *socket, struct socketbuf *newbuf) {
 }
 
 /* Write data to a socket. */
-int write_socket(struct sipp_socket *socket, char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest) {
+int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest) {
   int rc;
   if ( socket == NULL ) {
     //FIX coredump when trying to send data but no master yet ... ( for example after unexpected mesdsage)
@@ -6209,7 +6209,7 @@ void rotate_errorf() {
 #ifdef __cplusplus
 extern "C" {
 #endif
-int _trace (struct logfile_info *lfi, char *fmt, va_list ap) {
+int _trace (struct logfile_info *lfi, const char *fmt, va_list ap) {
   int ret = 0;
   if(lfi->fptr) {
     ret = vfprintf(lfi->fptr, fmt, ap);
@@ -6231,7 +6231,7 @@ int _trace (struct logfile_info *lfi, char *fmt, va_list ap) {
 }
 
 
-int TRACE_MSG(char *fmt, ...) {
+int TRACE_MSG(const char *fmt, ...) {
   int ret;
   va_list ap;
 
@@ -6242,7 +6242,7 @@ int TRACE_MSG(char *fmt, ...) {
   return ret;
 }
 
-int TRACE_SHORTMSG(char *fmt, ...) {
+int TRACE_SHORTMSG(const char *fmt, ...) {
   int ret;
   va_list ap;
 
@@ -6253,7 +6253,7 @@ int TRACE_SHORTMSG(char *fmt, ...) {
   return ret;
 }
 
-int LOG_MSG(char *fmt, ...) {
+int LOG_MSG(const char *fmt, ...) {
   int ret;
   va_list ap;
 
@@ -6264,7 +6264,7 @@ int LOG_MSG(char *fmt, ...) {
   return ret;
 }
 
-int TRACE_CALLDEBUG(char *fmt, ...) {
+int TRACE_CALLDEBUG(const char *fmt, ...) {
   int ret;
   va_list ap;
 

@@ -574,10 +574,10 @@ void scenario::apply_labels(msgvec v, str_int_map labels) {
   }
 }
 
-int get_cr_number(char *src)
+int get_cr_number(const char *src)
 {
   int res=0;
-  char *ptr = src;
+  const char *ptr = src;
   while(*ptr) {
     if(*ptr == '\n') res++;
     *ptr++;
@@ -1070,7 +1070,7 @@ scenario::~scenario() {
 
 CSample *parse_distribution(bool oldstyle = false) {
   CSample *distribution;
-  char *distname;
+  const char *distname;
   char *ptr;
 
   if(!(distname = xp_get_value("distribution"))) {
@@ -1297,7 +1297,7 @@ void scenario::computeSippMode()
       ERROR("Unable to determine send mode of the tool (server, client)\n");
 }
 
-void scenario::handle_rhs(CAction *tmpAction, char *what) {
+void scenario::handle_rhs(CAction *tmpAction, const char *what) {
   if (xp_get_value("value")) {
     tmpAction->setDoubleValue(xp_get_double("value", what));
     if (xp_get_value("variable")) {
@@ -1313,7 +1313,7 @@ void scenario::handle_rhs(CAction *tmpAction, char *what) {
   }
 }
 
-void scenario::handle_arithmetic(CAction *tmpAction, char *what) {
+void scenario::handle_arithmetic(CAction *tmpAction, const char *what) {
   tmpAction->setVarId(xp_get_var("assign_to", what));
   handle_rhs(tmpAction, what);
 }
@@ -1843,7 +1843,7 @@ void freeStringTable(char ** stringList, int sizeOfList) {
 }
 
 /* These are the names of the scenarios, they must match the default_scenario table. */
-char *scenario_table[] = {
+const char *scenario_table[] = {
 	"uac",
 	"uas",
 	"regexp",
@@ -1874,9 +1874,8 @@ int find_scenario(const char *scenario) {
 
 // TIP: to integrate an existing XML scenario, use the following sed line:
 // cat ../3pcc-controller-B.xml | sed -e 's/\"/\\\"/g' -e 's/\(.*\)/\"\1\\n\"/'
-char * default_scenario [] = {
+const char * default_scenario [] = {
 /************* Default_scenario[0] ***************/
-(char *)
 "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
 "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\n"
 "\n"
@@ -1998,7 +1997,6 @@ char * default_scenario [] = {
 , 
 
 /************* Default_scenario[1] ***************/
-(char *)
 "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
 "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\n"
 "\n"
@@ -2116,7 +2114,6 @@ char * default_scenario [] = {
 "\n",
 
 /************* Default_scenario[2] ***************/
-(char *)
 "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
 "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\n"
 "\n"
@@ -2273,7 +2270,6 @@ char * default_scenario [] = {
 "\n",
 
 /************* Default_scenario[3] ***************/
-(char*)
 "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
 "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\n"
 "\n"
@@ -2400,7 +2396,6 @@ char * default_scenario [] = {
 "\n",
 
 /************* Default_scenario[4] ***************/
-(char*) 
 "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
 "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\n"
 "\n"
@@ -2532,7 +2527,6 @@ char * default_scenario [] = {
 "\n",
 
 /************* Default_scenario[5] ***************/
-(char*) 
 "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
 "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\n"
 "\n"
@@ -2628,7 +2622,6 @@ char * default_scenario [] = {
 "\n",
 
 /************* Default_scenario[6] ***************/
-(char*) 
 "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
 "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\n"
 "\n"
@@ -2723,7 +2716,6 @@ char * default_scenario [] = {
 "</scenario>\n",
 
 /************* Default_scenario[7] ***************/
-(char*)
 "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
 "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\n"
 "\n"
@@ -2873,7 +2865,6 @@ char * default_scenario [] = {
 "\n",
 
 /************* Default_scenario[8] ***************/
-(char*)
 "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
 "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\n"
 "\n"
@@ -3042,7 +3033,6 @@ char * default_scenario [] = {
  * dumped it and passed it with -sf. */
 
 /************* Default_scenario[9] ***************/
-(char*)
 "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
 "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\n"
 "\n"
