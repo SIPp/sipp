@@ -29,7 +29,7 @@ if HAVE_GSL
 DEFS += -DHAVE_GSL
 endif
 
-sipp_SOURCES = actions.cpp \
+common_SOURCES = actions.cpp \
 	       auth.c \
 	       comp.c \
 	       comp.h \
@@ -39,6 +39,8 @@ sipp_SOURCES = actions.cpp \
 	       infile.hpp \
 	       listener.cpp \
 	       listener.hpp \
+	       logger.cpp \
+	       logger.hpp \
 	       md5.c \
 	       md5.h \
 	       message.cpp \
@@ -55,8 +57,6 @@ sipp_SOURCES = actions.cpp \
 	       scenario.hpp \
 	       screen.cpp \
 	       screen.hpp \
-	       sipp.cpp \
-	       sipp.hpp \
 	       socketowner.cpp \
 	       socketowner.hpp \
 	       stat.cpp \
@@ -72,6 +72,11 @@ sipp_SOURCES = actions.cpp \
 	       $(ssl_SOURCES) \
 	       $(pcap_SOURCES)
 
+sipp_SOURCES = $(common_SOURCES) \
+	       sipp.cpp \
+	       sipp.hpp
+
 sipp_CFLAGS = $(AM_CFLAGS) @GSL_CFLAGS@
 sipp_CXXFLAGS = $(AM_CXXFLAGS) @GSL_CXXFLAGS@
 sipp_LDADD = @LIBOBJS@ @GSL_LIBS@
+
