@@ -588,6 +588,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
   /* compute XMAC */
   f1(k,rnd,sqn,(unsigned char *) aka_AMF,xmac,op);
   if (memcmp(mac,xmac,MACLEN)!=0) {
+    free(nonce);
     sprintf(result,"createAuthHeaderAKAv1MD5 : MAC != eXpectedMAC -> Server might not know the secret (man-in-the-middle attack?) \n");
     return 0;
   }
@@ -603,6 +604,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
     resuf = createAuthHeaderMD5(user, (char *) res, RESLEN, method, uri, msgbody, auth, algo, result);   
     if (resuf == 0) {
         sprintf(result,"createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
+        free(nonce);
         return 0;
     }
   } else {
@@ -617,6 +619,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
     resuf = createAuthHeaderMD5(user,"",0,method,uri,msgbody,auth,algo,result);
     if (resuf == 0) {
         sprintf(result,"createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
+        free(nonce);
         return 0;
     }
   }
