@@ -29,6 +29,14 @@ MUTEX_TYPE *mutex_buf  = NULL ;
 void
 locking_function ( int mode, int n, const char *file, int line)
 {
+
+ /* file and line are needed because this is a callback with a defined
+  * interface, but we don't need them - cast them to void to suppress the
+  * warnings */
+
+ (void)file;
+ (void)line;
+
  if (mode & CRYPTO_LOCK)
     MUTEX_LOCK(mutex_buf[n]);
         else
