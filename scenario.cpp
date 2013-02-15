@@ -1183,13 +1183,16 @@ void parse_slave_cfg()
               peer_addrs[std::string(temp_peer)] = peer_host;
              }
          }else {
+             fclose(f);
              ERROR("Cannot allocate memory!\n");
+             return;
            }
        }
      }
    }else{
      ERROR("Can not open slave_cfg file %s\n", slave_cfg_file);
      }
+  fclose(f);
 
 }
 
