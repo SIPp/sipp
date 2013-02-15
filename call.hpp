@@ -129,6 +129,7 @@ private:
 
   int		msg_index;
   int		zombie;
+  char *    realloc_ptr;
 
   /* Last message sent from scenario step (retransmitions do not
    * change this index. Only message sent from the scenario

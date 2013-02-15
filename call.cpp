@@ -1531,7 +1531,14 @@ bool call::executeMessage(message *curmsg) {
 
     last_send_index = curmsg->index;
     last_send_len = msgLen;
-    last_send_msg = (char *) realloc(last_send_msg, msgLen+1);
+    realloc_ptr = (char *) realloc(last_send_msg, msgLen+1);
+    if (realloc_ptr) {
+        last_send_msg = realloc_ptr;
+    } else {
+        free(last_send_msg);
+        ERROR("Out of memory!");
+        return false;
+    }
     memcpy(last_send_msg, msg_snd, msgLen);
     last_send_msg[msgLen] = '\0';
 
@@ -1920,7 +1927,15 @@ bool call::process_unexpected(char * msg)
     }
 
     // usage of last_ keywords => for call aborting
-    last_recv_msg = (char *) realloc(last_recv_msg, strlen(msg) + 1);
+    realloc_ptr = (char *) realloc(last_recv_msg, strlen(msg) + 1);
+    if (realloc_ptr) {
+        last_recv_msg = realloc_ptr;
+    } else {
+        free(last_recv_msg);
+        ERROR("Out of memory!");
+        return false;
+    }
+
     strcpy(last_recv_msg, msg);
 
     computeStat(CStat::E_CALL_FAILED);
@@ -3272,7 +3287,15 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
   if (call_scenario->messages[search_index] -> bShouldRecordRoutes &&
           NULL == dialog_route_set ) {
 
-      next_req_url = (char*) realloc(next_req_url, MAX_HEADER_LEN);
+      realloc_ptr = (char*) realloc(next_req_url, MAX_HEADER_LEN);
+    if (realloc_ptr) {
+        next_req_url = realloc_ptr;
+    } else {
+        free(next_req_url);
+        ERROR("Out of memory!");
+        return false;
+    }
+
 
       char rr[MAX_HEADER_LEN];
       memset(rr, 0, sizeof(rr));
@@ -3316,7 +3339,16 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
         ERROR("Couldn't find 'Proxy-Authenticate' or 'WWW-Authenticate' in 401 or 407!");
       }
 
-      dialog_authentication = (char *) realloc(dialog_authentication, strlen(auth) + 2);
+      realloc_ptr = (char *) realloc(dialog_authentication, strlen(auth) + 2);
+    if (realloc_ptr) {
+        dialog_authentication = realloc_ptr;
+    } else {
+        free(dialog_authentication);
+        ERROR("Out of memory!");
+        return false;
+    }
+
+
       sprintf(dialog_authentication, "%s", auth);
 
       /* Store the code of the challenge for building the proper header */
@@ -3334,7 +3366,16 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
   last_recv_index = search_index;
   last_recv_hash = cookie;
   callDebug("Set Last Recv Hash: %u (recv index %d)\n", last_recv_hash, last_recv_index);
-  last_recv_msg = (char *) realloc(last_recv_msg, strlen(msg) + 1);
+  realloc_ptr = (char *) realloc(last_recv_msg, strlen(msg) + 1);
+    if (realloc_ptr) {
+        last_recv_msg = realloc_ptr;
+    } else {
+        free(last_recv_msg);
+        ERROR("Out of memory!");
+        return false;
+    }
+
+
   strcpy(last_recv_msg, msg);
 
   /* If this was a mandatory message, or if there is an explicit next label set
@@ -3955,7 +3996,15 @@ call::T_AutoMode call::checkAutomaticResponseMode(char * P_recv) {
 }
 
 void call::setLastMsg(const char *msg) {
-  last_recv_msg = (char *) realloc(last_recv_msg, strlen(msg) + 1);
+  realloc_ptr = (char *) realloc(last_recv_msg, strlen(msg) + 1);
+    if (realloc_ptr) {
+        last_recv_msg = realloc_ptr;
+    } else {
+        free(last_recv_msg);
+        ERROR("Out of memory!");
+        return;
+    }
+
   strcpy(last_recv_msg, msg);
 }
 
@@ -3969,7 +4018,16 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
   switch (P_case) {
   case E_AM_UNEXP_BYE: // response for an unexpected BYE
     // usage of last_ keywords
-    last_recv_msg = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
+    realloc_ptr = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
+    if (realloc_ptr) {
+        last_recv_msg = realloc_ptr;
+    } else {
+        free(last_recv_msg);
+        ERROR("Out of memory!");
+        return false;
+    }
+
+
     strcpy(last_recv_msg, P_recv);
 
     // The BYE is unexpected, count it
@@ -3997,7 +4055,16 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
       
   case E_AM_UNEXP_CANCEL: // response for an unexpected cancel
     // usage of last_ keywords
-    last_recv_msg = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
+    realloc_ptr = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
+    if (realloc_ptr) {
+        last_recv_msg = realloc_ptr;
+    } else {
+        free(last_recv_msg);
+        ERROR("Out of memory!");
+        return false;
+    }
+
+
     strcpy(last_recv_msg, P_recv);
 
     // The CANCEL is unexpected, count it
@@ -4026,7 +4093,16 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
       
   case E_AM_PING: // response for a random ping
     // usage of last_ keywords
-    last_recv_msg = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
+    realloc_ptr = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
+    if (realloc_ptr) {
+        last_recv_msg = realloc_ptr;
+    } else {
+        free(last_recv_msg);
+        ERROR("Out of memory!");
+        return false;
+    }
+
+
     strcpy(last_recv_msg, P_recv);
     
    if (default_behaviors & DEFAULT_BEHAVIOR_PINGREPLY) {
@@ -4060,7 +4136,17 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
       strcpy(old_last_recv_msg,last_recv_msg);
     }
     // usage of last_ keywords
-    last_recv_msg = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
+    realloc_ptr = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
+    if (realloc_ptr) {
+        last_recv_msg = realloc_ptr;
+    } else {
+        free(last_recv_msg);
+        free(old_last_recv_msg);
+        ERROR("Out of memory!");
+        return false;
+    }
+
+
     strcpy(last_recv_msg, P_recv);
 
     WARNING("Automatic response mode for an unexpected INFO, UPDATE or NOTIFY for call: %s", (id==NULL)?"none":id);
@@ -4068,7 +4154,16 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
 
     // restore previous last msg
     if (last_recv_msg_saved == true) {
-      last_recv_msg = (char *) realloc(last_recv_msg, strlen(old_last_recv_msg) + 1);
+      realloc_ptr = (char *) realloc(last_recv_msg, strlen(old_last_recv_msg) + 1);
+    if (realloc_ptr) {
+        last_recv_msg = realloc_ptr;
+    } else {
+        free(last_recv_msg);
+        ERROR("Out of memory!");
+        return false;
+    }
+
+
       strcpy(last_recv_msg, old_last_recv_msg);
       if (old_last_recv_msg != NULL) {
         free(old_last_recv_msg);
