@@ -78,13 +78,13 @@ SQN sqn_he={0x00,0x00,0x00,0x00,0x00,0x00};
 
 
 int createAuthHeaderMD5(char * user, char * password, int password_len, char * method,
-                     char * uri, char * msgbody, char * auth, 
+                     char * uri, const char * msgbody, char * auth, 
                      char * algo, char * result);
 int createAuthHeaderAKAv1MD5(char * user, char * OP,
                              char * AMF,
                              char * K,
                              char * method,
-                             char * uri, char * msgbody, char * auth, char *algo,
+                             char * uri, const char * msgbody, char * auth, char *algo,
                              char * result);
 
 
@@ -140,7 +140,7 @@ char *stristr (const char *s1, const char *s2) {
 }
 
 int createAuthHeader(char * user, char * password, char * method,
-                     char * uri, char * msgbody, char * auth, 
+                     char * uri, const char * msgbody, char * auth, 
                      char * aka_OP,
                      char * aka_AMF,
                      char * aka_K,
@@ -213,7 +213,7 @@ int getAuthParameter(char *name, char *header, char *result, int len) {
 }
 
 int createAuthHeaderMD5(char * user, char * password, int password_len, char * method,
-                     char * uri, char * msgbody, char * auth, 
+                     char * uri, const char * msgbody, char * auth, 
                      char * algo, char * result) {
                      	
     md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
@@ -528,7 +528,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
                      char * aka_AMF, 
                      char * aka_K, 
                      char * method,
-                     char * uri, char * msgbody, char * auth, char *algo,
+                     char * uri, const char * msgbody, char * auth, char *algo,
                      char * result) {
                      	
   char tmp[MAX_HEADER_LEN];

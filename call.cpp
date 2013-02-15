@@ -2439,7 +2439,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
   }
   /* Need the body for length and auth-int calculation */
   char *body;
-  char *auth_body = NULL;
+  const char *auth_body = NULL;
   if (length_marker || auth_marker) {
     body = strstr(msg_buffer, "\r\n\r\n");
     if (body) {

@@ -52,9 +52,9 @@
 #define RTCHECK_LOOSE	2
 
 #ifdef __HPUX
-  extern int createAuthHeader(char * user, char * password, char * method, char * uri, char * msgbody, char * auth, char * aka_OP, char * aka_AMF, char * aka_K, char * result);
+  extern int createAuthHeader(char * user, char * password, char * method, char * uri, const char * msgbody, char * auth, char * aka_OP, char * aka_AMF, char * aka_K, char * result);
 #else
-  extern "C" { extern int createAuthHeader(char * user, char * password, char * method, char * uri, char * msgbody, char * auth, char * aka_OP, char * aka_AMF, char * aka_K, char * result);  }
+  extern "C" { extern int createAuthHeader(char * user, char * password, char * method, char * uri, const char * msgbody, char * auth, char * aka_OP, char * aka_AMF, char * aka_K, char * result);  }
   extern "C" { int verifyAuthHeader(char * user, char * password, char * method, char * auth); }
 #endif
 
