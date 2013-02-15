@@ -631,7 +631,8 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
     }
     auts_hex[AUTS64LEN-1]=0;
 
-    sprintf(result, "%s,auts=\"%s\"",result,auts_hex);
+    sprintf(tmp, "%s,auts=\"%s\"",result,auts_hex);
+    strcat(result,tmp);
   }
   free(nonce);
   return 1;
