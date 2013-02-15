@@ -54,12 +54,6 @@
 
 #define callDebug(args...) do { if (useCallDebugf) { _callDebug( args ); } } while (0)
 
-#ifdef _USE_OPENSSL
-extern  SSL                 *ssl_list[];
-extern  struct pollfd        pollfiles[];
-extern  SSL_CTX             *sip_trp_ssl_ctx;
-#endif
-
 extern  map<string, struct sipp_socket *>     map_perip_fd;
 
 #ifdef PCAPPLAY
