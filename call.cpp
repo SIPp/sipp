@@ -232,7 +232,7 @@ uint16_t get_remote_port_media(const char *msg, int pattype)
     if (!end) {
       free(my_msg);
       ERROR("get_remote_port_media: no CRLF found");
-      return;
+      return 0;
     }
     *end = '\0';
     memset(number, 0, sizeof(number));
