@@ -1,15 +1,20 @@
 bin_PROGRAMS = sipp
 
+EXTRA_DIST = fortune.cpp pcap tools LICENSE.txt MEDIA.txt README.txt THANKS sipp.dtd
+
 if HAVE_OPENSSL
 DEFS += -D_USE_OPENSSL
-ssl_SOURCES = sslinit.c \
+ssl_SOURCES = sslcommon.h \
+	      sslinit.c \
 	      sslthreadsafe.c
 endif
 
 if HAVE_PCAP
 DEFS += -DPCAPPLAY
 pcap_SOURCES = prepare_pcap.c \
-	       send_packets.c
+	       prepare_pcap.h \
+	       send_packets.c \
+	       send_packets.h
 endif
 
 if HAVE_UNITTEST
@@ -20,31 +25,48 @@ if HAVE_SCTP
 DEFS += -DUSE_SCTP
 endif
 
-sipp_SOURCES = comp.c \
-	       xp_parser.c \
-	       actions.cpp \
+sipp_SOURCES = actions.cpp \
+	       auth.c \
+	       comp.c \
+	       comp.h \
 	       call.cpp \
 	       deadcall.cpp \
 	       infile.cpp \
+	       infile.hpp \
 	       listener.cpp \
+	       listener.hpp \
+	       md5.c \
+	       md5.h \
 	       message.cpp \
-	       opentask.cpp \
-	       reporttask.cpp \
-	       scenario.cpp \
-	       screen.cpp \
-	       sipp.cpp \
-	       socketowner.cpp \
-	       stat.cpp \
-	       task.cpp \
-	       variables.cpp \
-	       watchdog.cpp \
-		   md5.c \
-           auth.c \
+	       message.hpp \
 	       milenage.c \
+	       milenage.h \
+	       opentask.cpp \
+	       opentask.hpp \
+	       reporttask.cpp \
+	       reporttask.hpp \
 	       rijndael.c \
+	       rijndael.h \
+	       scenario.cpp \
+	       scenario.hpp \
+	       screen.cpp \
+	       screen.hpp \
+	       sipp.cpp \
+	       sipp.hpp \
+	       socketowner.cpp \
+	       socketowner.hpp \
+	       stat.cpp \
+	       stat.hpp \
+	       task.cpp \
+	       task.hpp \
+	       variables.cpp \
+	       variables.hpp \
+	       watchdog.cpp \
+	       watchdog.hpp \
+	       xp_parser.c \
+	       xp_parser.h \
 	       $(ssl_SOURCES) \
 	       $(pcap_SOURCES)
 
 sipp_LDADD = @LIBOBJS@
 
-#	       fortune.cpp
