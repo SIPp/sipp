@@ -911,7 +911,7 @@ void print_stats_in_file(FILE * f)
   if( creationMode == MODE_SERVER) {
     sprintf(temp_str, "%llu calls", display_scenario->stats->GetStat(CStat::CPT_C_CurrentCall));
   } else {
-    sprintf(temp_str, "%llu calls (limit %d)", display_scenario->stats->GetStat(CStat::CPT_C_CurrentCall), open_calls_allowed);
+    sprintf(temp_str, "%llu calls (limit %u)", display_scenario->stats->GetStat(CStat::CPT_C_CurrentCall), open_calls_allowed);
   }
   fprintf(f,"  %-38s Peak was %llu calls, after %llu s" SIPP_ENDL,
          temp_str, 
@@ -1066,19 +1066,11 @@ void print_stats_in_file(FILE * f)
 	fprintf(f, "        ");
       }
 
-      if(curmsg->retrans_delay) {
         fprintf(f,"%-9ld %-9ld %-9ld %-9ld" ,
                curmsg->nb_recv,
                curmsg->nb_recv_retrans,
                curmsg->nb_timeout,
                curmsg->nb_unexp);
-      } else {
-        fprintf(f,"%-9ld %-9ld %-9ld %-9ld" ,
-               curmsg -> nb_recv,
-               curmsg -> nb_recv_retrans,
-               curmsg -> nb_timeout,
-               curmsg -> nb_unexp);
-      }
     } else if (curmsg -> pause_distribution ||
 	       (curmsg -> pause_variable != -1)) {
       char *desc = curmsg->pause_desc;
@@ -1196,9 +1188,9 @@ void print_count_file(FILE *f, int header) {
     if(SendingMessage *src = curmsg -> send_scheme) {
       if(header) {
 	if (src->isResponse()) {
-	  sprintf(temp_str, "%d_%d_", index, src->getCode());
+	  sprintf(temp_str, "%u_%d_", index, src->getCode());
 	} else {
-	  sprintf(temp_str, "%d_%s_", index, src->getMethod());
+	  sprintf(temp_str, "%u_%s_", index, src->getMethod());
 	}
 
 	fprintf(f, "%sSent%s", temp_str, stat_delimiter);
@@ -1263,7 +1255,7 @@ void print_count_file(FILE *f, int header) {
 	curmsg -> pause_variable) {
 
       if(header) {
-	sprintf(temp_str, "%d_Pause_", index);
+	sprintf(temp_str, "%u_Pause_", index);
 	fprintf(f, "%sSessions%s", temp_str, stat_delimiter);
 	fprintf(f, "%sUnexp%s", temp_str, stat_delimiter);
       } else {
@@ -1274,7 +1266,7 @@ void print_count_file(FILE *f, int header) {
       /* No output. */
     }  else if(curmsg -> M_type == MSG_TYPE_RECVCMD) {
       if(header) {
-	sprintf(temp_str, "%d_RecvCmd", index);
+	sprintf(temp_str, "%u_RecvCmd", index);
 	fprintf(f, "%s%s", temp_str, stat_delimiter);
 	fprintf(f, "%s_Timeout%s", temp_str, stat_delimiter);
       } else {
@@ -1283,7 +1275,7 @@ void print_count_file(FILE *f, int header) {
       }
     } else if(curmsg -> M_type == MSG_TYPE_SENDCMD) {
       if(header) {
-	sprintf(temp_str, "%d_SendCmd", index);
+	sprintf(temp_str, "%u_SendCmd", index);
 	fprintf(f, "%s%s", temp_str, stat_delimiter);
       } else {
 	fprintf(f, "%lu%s", curmsg->M_nbCmdSent, stat_delimiter);
@@ -1378,10 +1370,9 @@ void print_bottom_line(FILE *f, int last)
 
 void print_tdm_map()
 {
-  int interval = 0;
   int i = 0;
   int in_use = 0;
-  interval = (tdm_map_a+1) * (tdm_map_b+1) * (tdm_map_c+1);
+  int interval = (tdm_map_a+1) * (tdm_map_b+1) * (tdm_map_c+1);
 
   printf("TDM Circuits in use:"  SIPP_ENDL);
   while (i<interval) {
@@ -1421,21 +1412,21 @@ void print_variable_list()
       switch(curmsg->M_type)
       {
 	case MSG_TYPE_RECV:
-	  printf("=> Message[%d] (Receive Message) - "
+	  printf("=> Message[%u] (Receive Message) - "
 	      "[%d] action(s) defined :" SIPP_ENDL,
 	      i,
 	      actions->getActionSize());
 	  printed++;
 	  break;
 	case MSG_TYPE_RECVCMD:
-	  printf("=> Message[%d] (Receive Command Message) - "
+	  printf("=> Message[%u] (Receive Command Message) - "
 	      "[%d] action(s) defined :" SIPP_ENDL,
 	      i,
 	      actions->getActionSize());
 	  printed++;
 	  break;
 	default:
-	  printf("=> Message[%d] - [%d] action(s) defined :" SIPP_ENDL,
+	  printf("=> Message[%u] - [%d] action(s) defined :" SIPP_ENDL,
 	      i,
 	      actions->getActionSize());
 	  printed++;
@@ -2042,7 +2033,14 @@ void handle_stdin_socket() {
 	}
       } else {
 	int command_len = strlen(command_buffer);
-	command_buffer = (char *)realloc(command_buffer, command_len + 2);
+    char *realloc_ptr = (char *)realloc(command_buffer, command_len + 2);
+    if (realloc_ptr) {
+        command_buffer = realloc_ptr;
+    } else {
+        free(command_buffer);
+        ERROR("Out of memory");
+        return;
+    }
 	command_buffer[command_len++] = c;
 	command_buffer[command_len] = '\0';
 	putchar(c);
@@ -2050,7 +2048,14 @@ void handle_stdin_socket() {
       }
     } else if (c == 'c') {
       command_mode = 1;
-      command_buffer = (char *)realloc(command_buffer, 1);
+    char *realloc_ptr = (char *)realloc(command_buffer, 1);
+    if (realloc_ptr) {
+        command_buffer = realloc_ptr;
+    } else {
+        free(command_buffer);
+        ERROR("Out of memory");
+        return;
+    }
       command_buffer[0] = '\0';
       printf("Command: ");
       fflush(stdout);
@@ -2121,10 +2126,8 @@ char * get_peer_tag(char *msg)
 
   ptr ++;
 
-  while((*ptr)         && 
-        (*ptr != ' ')  && 
+  while((*ptr != ' ')  && 
         (*ptr != ';')  && 
-        (*ptr != '\t') && 
         (*ptr != '\t') && 
         (*ptr != '\r') &&  
         (*ptr != '\n') && 
@@ -3772,7 +3775,7 @@ void traffic_thread()
     /* Update the clock. */
     getmilliseconds();
     /* Receive incoming messages */
-    pollset_process(running_tasks->size() == 0);
+    pollset_process(running_tasks->empty());
   }
 }
 
@@ -4151,9 +4154,7 @@ char* remove_pattern(char* P_buffer, char* P_extensionPattern) {
 }
 
 static struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, int accepting) {
-  struct sipp_socket *ret = NULL;
-
-  ret = (struct sipp_socket *)malloc(sizeof(struct sipp_socket));
+  struct sipp_socket *ret = (struct sipp_socket *)malloc(sizeof(struct sipp_socket));
   if (!ret) {
     ERROR("Could not allocate a sipp_socket structure.");
   }

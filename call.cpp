@@ -44,13 +44,13 @@
 #include <iostream>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <assert.h>
 
 #ifdef PCAPPLAY
 #include "send_packets.h"
 #endif
 #include "sipp.hpp"
 #include "deadcall.hpp"
-#include "assert.h"
 
 #define callDebug(args...) do { if (useCallDebugf) { _callDebug( args ); } } while (0)
 
@@ -476,11 +476,7 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
     putUserVars = true;
   }
   if (call_scenario->allocVars->size > 0) {
-	if (userVars) {
 	  M_callVariableTable = new VariableTable(userVars, call_scenario->allocVars->size);
-	} else {
-	  M_callVariableTable = new VariableTable(userVars, call_scenario->allocVars->size);
-	}
   } else if (userVars->size > 0) {
 	M_callVariableTable = userVars->getTable();
   } else if (globalVariables->size > 0) {
@@ -1207,7 +1203,7 @@ char * call::get_last_request_uri ()
      }
 
      if(!(last_request_uri = (char *) malloc(tmp_len+1))) ERROR("Cannot allocate !\n");
-     memset(last_request_uri, 0, sizeof(last_request_uri));
+     memset(last_request_uri, 0, sizeof(*last_request_uri));
      if(tmp && (tmp_len > 0)){
        strncpy(last_request_uri, tmp, tmp_len);
      }
