@@ -197,7 +197,7 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
 }
 
 void free_pkts(pcap_pkts *pkts) {
-  pcap_pkt *pkt_index;
+  pcap_pkt *pkt_index = 0;
   while (pkt_index < pkts->max) {
     free(pkt_index->data);
   }

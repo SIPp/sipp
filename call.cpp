@@ -206,7 +206,7 @@ uint8_t get_remote_ipv6_media(char *msg, struct in6_addr *addr)
 uint16_t get_remote_port_media(const char *msg, int pattype)
 {
     const char *pattern;
-    const char *begin, *end;
+    char *begin, *end;
     char number[7];
 
     if (pattype == PAT_AUDIO) {
@@ -956,28 +956,6 @@ void call::sendBuffer(char * msg, int len)
   }
 }
 
-
-char * call::compute_cseq(char * src)
-{
-  static char cseq[MAX_HEADER_LEN];
-
-    /* If we find a CSeq in incoming msg */
-  char * last_header = get_last_header("CSeq:");
-    if(last_header) {
-      int i;
-      /* Extract the integer value of the last CSeq */
-      last_header = strstr(last_header, ":");
-      last_header++;
-      while(isspace(*last_header)) last_header++;
-      sscanf(last_header,"%d", &i);
-      /* Add 1 to the last CSeq value */
-      sprintf(cseq, "%s%d",  "CSeq: ", (i+1));
-    } else {
-      sprintf(cseq, "%s",  "CSeq: 2");
-    }
-    return cseq;
-}
-
 char * call::get_header_field_code(const char *msg, const char * name)
 {
   static char code[MAX_HEADER_LEN];
@@ -1054,7 +1032,7 @@ char * call::get_header(const char* message, const char * name, bool content)
   do
   {
     snprintf(src_tmp, MAX_HEADER_LEN, "\n%s", name);
-    src = const_cast<char*>(message); /* BUG.. but won't fix right now */
+    src = strdup(message);
     dest = last_header;
 
     while((src = strcasestr2(src, src_tmp))) {
@@ -1097,6 +1075,7 @@ char * call::get_header(const char* message, const char * name, bool content)
     }
     /* We didn't find the header, even in its short form. */
     if (short_form) {
+      free(src);
       return last_header;
     }
 
@@ -1120,6 +1099,7 @@ char * call::get_header(const char* message, const char * name, bool content)
       name = "v:";
     } else {
       /* There is no short form to try. */
+      free(src);
       return last_header;
     }
   }
@@ -1155,6 +1135,7 @@ char * call::get_header(const char* message, const char * name, bool content)
     memmove(ptr, ptr+1, strlen(ptr));
   }
 
+  free(src);
   return start;
 }
 
@@ -1433,9 +1414,6 @@ bool call::executeMessage(message *curmsg) {
     } else {
       int varId = curmsg->pause_variable;
       pause = (int) M_callVariableTable->getVar(varId)->getDouble();
-    }
-    if (pause < 0) {
-      pause = 0;
     }
     if (pause > INT_MAX) {
       pause = INT_MAX;
@@ -1884,6 +1862,7 @@ bool call::process_unexpected(char * msg)
 {
   char buffer[MAX_HEADER_LEN];
   char *desc = buffer;
+  int res = 0;
 
   message *curmsg = call_scenario->messages[msg_index];
 
@@ -1928,7 +1907,10 @@ bool call::process_unexpected(char * msg)
   if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
-      sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
+      res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
+      if (res) {
+          WARNING("sendCmdBuffer returned %d", res);
+      }
     }
 
     // usage of last_ keywords => for call aborting
@@ -1970,8 +1952,6 @@ bool call::abortCall(bool writeLog)
   if ((creationMode != MODE_SERVER) && (msg_index > 0)) {
     if ((call_established == false) && (is_inv)) {
       src_recv = last_recv_msg ;
-      char   L_msg_buffer[SIPP_MAX_MSG_SIZE];
-      L_msg_buffer[0] = '\0';
 
       // Answer unexpected errors (4XX, 5XX and beyond) with an ACK 
       // Contributed by F. Tarek Rogers
@@ -2005,8 +1985,6 @@ bool call::abortCall(bool writeLog)
        * because the earlier check depends on the first message being an INVITE
        * (although it could be something like a message message, therefore we
        * check that we received a message. */
-      char   L_msg_buffer[SIPP_MAX_MSG_SIZE];
-      L_msg_buffer[0] = '\0';
       sendBuffer(createSendingMessage(get_default_message("bye"), -1));
     }
   }
@@ -2018,11 +1996,10 @@ bool call::abortCall(bool writeLog)
   }
 
   stopListening();
-  deadcall *deadcall_ptr = NULL;
   if (deadcall_wait && !initCall) {
     char reason[100];
     sprintf(reason, "aborted at index %d", msg_index);
-    deadcall_ptr = new deadcall(id, reason);
+    new deadcall(id, reason);
   }
   delete this;
 
@@ -2497,7 +2474,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     sscanf(tmp,"%s", method);
 
     if (!auth_body) {
-      auth_body = "";
+      strcpy(auth_body, "");
     }
 
     /* Determine the type of credentials. */
@@ -2928,7 +2905,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
   static char     request[65];
   char            responsecseqmethod[65];
   char            txn[MAX_HEADER_LEN];
-  unsigned long   cookie;
+  unsigned long   cookie = 0;
   char          * ptr;
   int             search_index;
   bool            found = false;
@@ -3055,9 +3032,9 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
       /* In case of INVITE or re-INVITE, ACK or PRACK
          get the media info if needed (= we got a pcap
          play action) */
-      if ((strncmp(request, "INVITE", 6) == 0) 
+      if (((strncmp(request, "INVITE", 6) == 0)
        || (strncmp(request, "ACK", 3) == 0) 
-       || (strncmp(request, "PRACK", 5) == 0)     		
+       || (strncmp(request, "PRACK", 5) == 0))
        && (hasMedia == 1)) 
         get_remote_media_addr(msg);
 #endif
@@ -3243,7 +3220,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     }
   }
 
-  if (request) { // update [cseq] with received CSeq
+  if (*request) { // update [cseq] with received CSeq
     unsigned long int rcseq = get_cseq_value(msg);
     if (rcseq > cseq) cseq = rcseq;
   }
@@ -3356,9 +3333,9 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
 
   /* If this was a mandatory message, or if there is an explicit next label set
    * we must update our state machine.  */
-  if (!(call_scenario->messages[search_index] -> optional) ||
-       call_scenario->messages[search_index]->next &&
-       ((test == -1) || (M_callVariableTable->getVar(test)->isSet()))
+  if ((!(call_scenario->messages[search_index] -> optional)
+           || call_scenario->messages[search_index]->next)
+        && (((test == -1) || (M_callVariableTable->getVar(test)->isSet())))
      ) {
     /* If we are paused, then we need to wake up so that we properly go through the state machine. */
     paused_until = 0;
@@ -3434,7 +3411,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 	    currentAction->getCaseIndep(),
 	    currentAction->getOccurence(),
 	    currentAction->getHeadersOnly());
-	if(currentAction->getCheckIt() == true && (strlen(msgPart) < 0)) {
+	if(currentAction->getCheckIt() == true && (strlen(msgPart) == 0)) {
 	  // the sub message is not found and the checking action say it
 	  // MUST match --> Call will be marked as failed but will go on
 	  WARNING("Failed regexp match: header %s not found in message %s\n", currentAction->getLookingChar(), msg);
@@ -3744,7 +3721,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
       char *q = strdup(p);
       var->setString(q);
       int l = strlen(q);
-      for (int i = l - 1; i >= 0 & isspace(q[i]); i--) {
+      for (int i = l - 1; (i >= 0) && isspace(q[i]); i--) {
 	q[i] = '\0';
       }
     } else if (currentAction->getActionType() == CAction::E_AT_VAR_TO_DOUBLE) {
@@ -3828,7 +3805,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 #ifdef PCAPPLAY
     } else if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
 	(currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO)) {
-      play_args_t *play_args;
+      play_args_t *play_args = 0;
       if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) {
 	play_args = &(this->play_args_a);
       } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) {
@@ -3999,7 +3976,10 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
 
       // if twin socket call => reset the other part here
       if (twinSippSocket && (msg_index > 0)) {
-	res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
+          res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
+          if (res) {
+              WARNING("sendCmdBuffer returned %d", res);
+          }
       }
       computeStat(CStat::E_CALL_FAILED);
       computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
@@ -4024,8 +4004,10 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
-      res = sendCmdBuffer
-      (createSendingMessage(get_default_message("3pcc_abort"), -1));
+      res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
+      if (res) {
+          WARNING("sendCmdBuffer returned %d", res);
+      }
     }
     
     computeStat(CStat::E_CALL_FAILED);
@@ -4049,6 +4031,9 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
     // if twin socket call => reset the other part here 
     if (twinSippSocket && (msg_index > 0)) {
       res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
+      if (res) {
+          WARNING("sendCmdBuffer returned %d", res);
+      }
     }
     
     CStat::globalStat(CStat::E_AUTO_ANSWERED);

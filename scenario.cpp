@@ -368,7 +368,7 @@ int scenario::get_txn(const char *txnName, const char *what, bool start, bool is
   return txnNum;
 }
 
-int scenario::find_var(const char *varName, const char *what) {
+int scenario::find_var(const char *varName) {
   return allocVars->find(varName, false);
 }
 
@@ -577,10 +577,9 @@ void scenario::apply_labels(msgvec v, str_int_map labels) {
 int get_cr_number(const char *src)
 {
   int res=0;
-  const char *ptr = src;
-  while(*ptr) {
-    if(*ptr == '\n') res++;
-    *ptr++;
+  while(*src) {
+    if(*src == '\n') res++;
+    src++;
   }
   return res;
 }
@@ -999,8 +998,8 @@ scenario::scenario(char * filename, int deflt)
   } else {
     unexpected_jump = -1;
   }
-  retaddr = find_var("_unexp.retaddr", "unexpected return address");
-  pausedaddr = find_var("_unexp.pausedaddr", "unexpected paused until");
+  retaddr = find_var("_unexp.retaddr");
+  pausedaddr = find_var("_unexp.pausedaddr");
 
   /* Patch up the labels. */
   apply_labels(messages, labelMap);
@@ -1071,7 +1070,7 @@ scenario::~scenario() {
 CSample *parse_distribution(bool oldstyle = false) {
   CSample *distribution;
   const char *distname;
-  char *ptr;
+  char *ptr = 0;
 
   if(!(distname = xp_get_value("distribution"))) {
     if (!oldstyle) {

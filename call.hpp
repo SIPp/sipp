@@ -285,7 +285,6 @@ private:
   char * send_scene(int index, int *send_status, int *msgLen);
   bool   connect_socket_if_needed();
 
-  char * compute_cseq(char * src);
   char * get_header_field_code(const char * msg, const char * code);
   char * get_last_header(const char * name);
   char * get_header_content(const char * message, const char * name);

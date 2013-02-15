@@ -115,10 +115,10 @@ void do_sleep (struct timeval *, struct timeval *,
                struct timeval *, struct timeval *);
 void send_packets_cleanup(void *arg)
 {
-  int sock = (int) arg;
+  int * sock = (int *) arg;
 
   // Close send socket
-  close(sock);
+  close(*sock);
 }
 
 
@@ -184,7 +184,7 @@ send_packets (play_args_t * play_args)
   /* Ensure the sender socket is closed when the thread exits - this
    * allows the thread to be cancelled cleanly.
    */
-  pthread_cleanup_push(send_packets_cleanup, ((void *) sock));
+  pthread_cleanup_push(send_packets_cleanup, ((void *) &sock));
 
 
   while (pkt_index < pkt_max) {

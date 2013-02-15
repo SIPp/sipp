@@ -246,11 +246,11 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
 
     // Load in A1 
     md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, user, strlen(user));
-    md5_append(&Md5Ctx, ":", 1);
-    md5_append(&Md5Ctx, tmp, strlen(tmp));
-    md5_append(&Md5Ctx, ":", 1);
-    md5_append(&Md5Ctx, password, password_len);
+    md5_append(&Md5Ctx, (md5_byte_t *) user, strlen(user));
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) password, password_len);
     md5_finish(&Md5Ctx, ha1);
     hashToHex(&ha1[0], &ha1_hex[0]);
 
@@ -266,7 +266,7 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
     // If using Auth-Int make a hash of the body - which is NULL for REG 
     if (stristr(authtype, "auth-int") != NULL) {
         md5_init(&Md5Ctx);
-        md5_append(&Md5Ctx, msgbody, strlen(msgbody));
+        md5_append(&Md5Ctx, (md5_byte_t *) msgbody, strlen(msgbody));
         md5_finish(&Md5Ctx, body);
         hashToHex(&body[0], &body_hex[0]);
         sprintf(authtype, "auth-int");
@@ -274,11 +274,11 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
 
     // Load in A2 
     md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, method, strlen(method));
-    md5_append(&Md5Ctx, ":", 1);
-    md5_append(&Md5Ctx, tmp, strlen(tmp));
+    md5_append(&Md5Ctx, (md5_byte_t *) method, strlen(method));
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
     if (stristr(authtype, "auth-int") != NULL) {
-        md5_append(&Md5Ctx, ":", 1);
+        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
         md5_append(&Md5Ctx, (md5_byte_t *) &body_hex, HASH_HEX_SIZE);
     }
     md5_finish(&Md5Ctx, ha2);
@@ -299,17 +299,17 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
 
     md5_init(&Md5Ctx);
     md5_append(&Md5Ctx, (md5_byte_t *) &ha1_hex, HASH_HEX_SIZE);
-    md5_append(&Md5Ctx, ":", 1);
-    md5_append(&Md5Ctx, tmp, strlen(tmp));
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
     if (cnonce[0] != '\0') {
-        md5_append(&Md5Ctx, ":", 1);
-        md5_append(&Md5Ctx, nc, strlen(nc));
-        md5_append(&Md5Ctx, ":", 1);
-        md5_append(&Md5Ctx, cnonce, strlen(cnonce));
-        md5_append(&Md5Ctx, ":", 1);
-        md5_append(&Md5Ctx, authtype, strlen(authtype));
+        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+        md5_append(&Md5Ctx, (md5_byte_t *) nc, strlen(nc));
+        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+        md5_append(&Md5Ctx, (md5_byte_t *) cnonce, strlen(cnonce));
+        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+        md5_append(&Md5Ctx, (md5_byte_t *) authtype, strlen(authtype));
     }
-    md5_append(&Md5Ctx, ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
     md5_append(&Md5Ctx, (md5_byte_t *) &ha2_hex, HASH_HEX_SIZE);
     md5_finish(&Md5Ctx, resp);
     hashToHex(&resp[0], &resp_hex[0]);
@@ -335,11 +335,11 @@ int createAuthResponseMD5(char * user, char * password, int password_len, char *
 
     // Load in A1 
     md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, user, strlen(user));
-    md5_append(&Md5Ctx, ":", 1);
-    md5_append(&Md5Ctx, realm, strlen(realm));
-    md5_append(&Md5Ctx, ":", 1);
-    md5_append(&Md5Ctx, password, password_len);
+    md5_append(&Md5Ctx, (md5_byte_t *) user, strlen(user));
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) realm, strlen(realm));
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) password, password_len);
     md5_finish(&Md5Ctx, ha1);
     hashToHex(&ha1[0], &ha1_hex[0]);
 
@@ -351,17 +351,17 @@ int createAuthResponseMD5(char * user, char * password, int password_len, char *
 
     // Load in A2 
     md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, method, strlen(method));
-    md5_append(&Md5Ctx, ":", 1);
-    md5_append(&Md5Ctx, tmp, strlen(tmp));
+    md5_append(&Md5Ctx, (md5_byte_t *) method, strlen(method));
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
     md5_finish(&Md5Ctx, ha2);
     hashToHex(&ha2[0], &ha2_hex[0]);
 
     md5_init(&Md5Ctx);
     md5_append(&Md5Ctx, (md5_byte_t *) &ha1_hex, HASH_HEX_SIZE);
-    md5_append(&Md5Ctx, ":", 1);
-    md5_append(&Md5Ctx, nonce, strlen(nonce));
-    md5_append(&Md5Ctx, ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) nonce, strlen(nonce));
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
     md5_append(&Md5Ctx, (md5_byte_t *) &ha2_hex, HASH_HEX_SIZE);
     md5_finish(&Md5Ctx, resp);
     hashToHex(&resp[0], result);
@@ -377,14 +377,13 @@ int verifyAuthHeader(char * user, char * password, char * method, char * auth) {
   char nonce[MAX_HEADER_LEN];
   char uri[MAX_HEADER_LEN];
   char *start;
-  int len;
 
   if ((start = stristr(auth, "Digest")) == NULL) {
     WARNING("verifyAuthHeader: authentication must be digest is %s", auth);
     return 0;
   }
 
-  len = getAuthParameter("algorithm", auth, algo, sizeof(algo));
+  getAuthParameter("algorithm", auth, algo, sizeof(algo));
   if (algo[0] == '\0') {
     strcpy(algo, "MD5");
   }
@@ -479,7 +478,8 @@ static int base64_val(char x)\
 
 char * base64_decode_string( const char *buf, unsigned int len, int *newlen )
 {
-	int i,j,x1,x2,x3,x4;
+    unsigned long i;
+	int j,x1,x2,x3,x4;
 	char *out;
 	out = (char *)malloc( ( len * 3/4 ) + 8 );
 	for(i=0,j=0;i+3<len;i+=4){
@@ -598,7 +598,6 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
   int has_auts = 0, resuf = 1;
   char *nonce64, *nonce;
   int noncelen;
-  RESHEX resp_hex;
   AMF amf;
   OP op;
   RAND rnd;
@@ -625,7 +624,6 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
   tmp[end - start] ='\0';
 
   /* Compute the AKA RES */
-  resp_hex[0]=0;
   nonce64 = tmp;
   nonce = base64_decode_string(nonce64,end-start,&noncelen);
   if (noncelen<RANDLEN+AUTNLEN) {
@@ -653,7 +651,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
   f1(k,rnd,sqn,(unsigned char *) aka_AMF,xmac,op);
   if (memcmp(mac,xmac,MACLEN)!=0) {
     sprintf(result,"createAuthHeaderAKAv1MD5 : MAC != eXpectedMAC -> Server might not know the secret (man-in-the-middle attack?) \n");
-    //return 0;
+    return 0;
   }
 
   /* Check SQN, compute AUTS if needed and authorization parameter */
@@ -665,6 +663,10 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
     has_auts = 0;
     /* RES has to be used as password to compute response */
     resuf = createAuthHeaderMD5(user, (char *) res, RESLEN, method, uri, msgbody, auth, algo, result);   
+    if (resuf == 0) {
+        sprintf(result,"createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
+        return 0;
+    }
   } else {
     sqn_ms[5] = sqn_he[5] + 1;
     f5star(k, rnd, ak, op);
@@ -674,7 +676,11 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
     has_auts = 1;
     /* When re-synchronisation occurs an empty password has to be used */
     /* to compute MD5 response (Cf. rfc 3310 section 3.2) */
-    resuf=createAuthHeaderMD5(user,"",0,method,uri,msgbody,auth,algo,result);
+    resuf = createAuthHeaderMD5(user,"",0,method,uri,msgbody,auth,algo,result);
+    if (resuf == 0) {
+        sprintf(result,"createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
+        return 0;
+    }
   }
   if (has_auts) {
     /* Format data for output in the SIP message */

@@ -36,6 +36,7 @@
  */
 
 #define GLOBALS_FULL_DEFINITION
+#define NOTLAST 0
 
 #include <dlfcn.h>
 #include "sipp.hpp"
@@ -806,7 +807,7 @@ map<string, struct sipp_socket *>     map_perip_fd;
 
 /***************** Check of the message received ***************/
 
-bool sipMsgCheck (const char *P_msg, int P_msgSize, struct sipp_socket *socket) {
+bool sipMsgCheck (const char *P_msg, struct sipp_socket *socket) {
   const char C_sipHeader[] = "SIP/2.0" ;
 
   if (socket == twinSippSocket || socket == localTwinSippSocket ||
@@ -822,7 +823,7 @@ bool sipMsgCheck (const char *P_msg, int P_msgSize, struct sipp_socket *socket) 
 
 /************** Statistics display & User control *************/
 
-void print_stats_in_file(FILE * f, int last)
+void print_stats_in_file(FILE * f)
 {
   static char temp_str[256];
   int divisor;
@@ -1285,7 +1286,7 @@ void print_count_file(FILE *f, int header) {
   fflush(f);
 }
 
-void print_header_line(FILE *f, int last)
+void print_header_line(FILE *f)
 {  
   switch(currentScreenToDisplay)
     {
@@ -1463,25 +1464,25 @@ void print_screens(void)
   int oldRepartition = currentRepartitionToDisplay;
 
   currentScreenToDisplay = DISPLAY_SCENARIO_SCREEN;  
-  print_header_line(   screenf, 0);
-  print_stats_in_file( screenf, 0);
-  print_bottom_line(   screenf, 0);
+  print_header_line(   screenf);
+  print_stats_in_file( screenf);
+  print_bottom_line(   screenf, NOTLAST);
 
   currentScreenToDisplay = DISPLAY_STAT_SCREEN;  
-  print_header_line(   screenf, 0);
+  print_header_line(   screenf);
   display_scenario->stats->displayStat(screenf);
-  print_bottom_line(   screenf, 0);
+  print_bottom_line(   screenf, NOTLAST);
 
   currentScreenToDisplay = DISPLAY_REPARTITION_SCREEN;
-  print_header_line(   screenf, 0);
+  print_header_line(   screenf);
   display_scenario->stats->displayRepartition(screenf);
-  print_bottom_line(   screenf, 0);
+  print_bottom_line(   screenf, NOTLAST);
 
   currentScreenToDisplay = DISPLAY_SECONDARY_REPARTITION_SCREEN;
   for (currentRepartitionToDisplay = 2; currentRepartitionToDisplay <= display_scenario->stats->nRtds(); currentRepartitionToDisplay++) {
-    print_header_line(   screenf, 0);
+    print_header_line(   screenf);
     display_scenario->stats->displayRtdRepartition(screenf, currentRepartitionToDisplay);
-    print_bottom_line(   screenf, 0);
+    print_bottom_line(   screenf, NOTLAST);
   }
 
   currentScreenToDisplay = oldScreen;
@@ -1505,7 +1506,7 @@ void print_statistics(int last)
     if (command_mode) {
 	printf(SIPP_ENDL);
     }
-    print_header_line(stdout,last);
+    print_header_line(stdout);
     switch(currentScreenToDisplay) {
       case DISPLAY_STAT_SCREEN :
         display_scenario->stats->displayStat(stdout);
@@ -1524,7 +1525,7 @@ void print_statistics(int last)
 	break;
       case DISPLAY_SCENARIO_SCREEN :
       default:
-        print_stats_in_file(stdout, last);
+        print_stats_in_file(stdout);
         break;
     }
     print_bottom_line(stdout,last);
@@ -2197,7 +2198,7 @@ char * get_incoming_first_line(char * message)
 {
   /* non reentrant. consider accepting char buffer as param */
   static char last_header[MAX_HEADER_LEN * 10];
-  char * src, *dest;
+  char * src;
 
   /* returns empty string in case of error */
   memset(last_header, 0, sizeof(last_header));
@@ -2207,7 +2208,6 @@ char * get_incoming_first_line(char * message)
   }
 
   src = message;
-  dest = last_header;
   
   int i=0;
   while (*src){
@@ -3115,7 +3115,7 @@ static int empty_socket(struct sipp_socket *socket) {
 
   struct socketbuf *socketbuf;
   char *buffer;
-  int ret;
+  int ret = -1;
   /* Where should we start sending packets to, ideally we should begin to parse
    * the Via, Contact, and Route headers.  But for now SIPp always sends to the
    * host specified on the command line; or for UAS mode to the address that
@@ -3308,7 +3308,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
   if(msg_size <= 0) {
     return;
   }
-  if (sipMsgCheck(msg, msg_size, socket) == false) {
+  if (sipMsgCheck(msg, socket) == false) {
     WARNING("non SIP message discarded");
     return;
   }
@@ -3777,6 +3777,10 @@ void rtp_echo_thread (void * param)
    sigset_t              mask;
    sigfillset(&mask); /* Mask all allowed signals */
    rc = pthread_sigmask(SIG_BLOCK, &mask, NULL);
+   if (rc) {
+       WARNING("pthread_sigmask returned %d", rc);
+       return;
+   }
 
   for (;;) {
     len = sizeof(remote_rtp_addr);
@@ -4190,7 +4194,7 @@ static struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, in
 }
 
 int socket_fd(bool use_ipv6, int transport) {
-  int socket_type;
+  int socket_type = -1;
   int protocol=0;
   int fd;
 

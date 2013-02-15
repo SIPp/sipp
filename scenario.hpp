@@ -184,7 +184,7 @@ public:
   int get_var(const char *varName, const char *what);
   int get_counter(const char *varName, const char *what);
   int get_rtd(const char *ptr, bool start);
-  int find_var(const char *varName, const char *what);
+  int find_var(const char *varName);
 
   CStat *stats;
   AllocVariableTable *allocVars;

@@ -375,6 +375,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
     if (skip_sanity) {
       cancel = response = ack = false;
       method = NULL;
+      free(osrc);
       return;
     }
 
@@ -418,7 +419,8 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
       ack = (!strcmp(method, "ACK"));
       cancel = (!strcmp(method, "CANCEL"));
       response = false;
-    }
+    };
+    free(osrc);
 }
 
 SendingMessage::~SendingMessage() {
@@ -426,7 +428,6 @@ SendingMessage::~SendingMessage() {
     freeMessageComponent(messageComponents[i]);
   }
   free(method);
-  free(src);
 }
 
 bool SendingMessage::isAck() { return ack; }
@@ -442,12 +443,12 @@ void SendingMessage::getQuotedParam(char * dest, char * src, int * len)
   while (char c = *src++) {
     switch(c) {
       case '"':
-	*len++;
+	(*len)++;
 	*dest = '\0';
 	return;
       case '\\':
 	c = *src++;
-	*len++;
+	(*len)++;
 	if (c == 0) {
 	  *dest = '\0';
 	  return;
@@ -455,7 +456,7 @@ void SendingMessage::getQuotedParam(char * dest, char * src, int * len)
 	/* Fall-Through. */
       default:
 	*dest++ = c;
-	*len++;
+	(*len)++;
     }
   }
   *dest = '\0';
