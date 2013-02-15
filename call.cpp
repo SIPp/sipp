@@ -2474,7 +2474,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     sscanf(tmp,"%s", method);
 
     if (!auth_body) {
-      strcpy(auth_body, "");
+      auth_body = "";
     }
 
     /* Determine the type of credentials. */

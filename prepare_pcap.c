@@ -196,10 +196,3 @@ int prepare_pkts(char *file, pcap_pkts *pkts) {
   return 0;
 }
 
-void free_pkts(pcap_pkts *pkts) {
-  pcap_pkt *pkt_index = 0;
-  while (pkt_index < pkts->max) {
-    free(pkt_index->data);
-  }
-  free(pkts->pkts);
-}

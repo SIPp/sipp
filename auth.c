@@ -522,68 +522,6 @@ char * base64_decode_string( const char *buf, unsigned int len, int *newlen )
 }
 
 char base64[64]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-char * base64_encode_string( const char *buf, unsigned int len, int *newlen )
-{
-	int i,k;
-	int triplets,rest;
-	char *out,*ptr;	
-
-	triplets = len/3;
-	rest = len%3;
-	out = (char *)malloc( ( triplets * 4 ) + 8 );
-	
-	ptr = out;
-	for(i=0;i<triplets*3;i+=3){
-		k = (((unsigned char) buf[i])&0xFC)>>2;
-		*ptr=base64[k];ptr++;
-
-		k = (((unsigned char) buf[i])&0x03)<<4;
-		k |=(((unsigned char) buf[i+1])&0xF0)>>4;
-		*ptr=base64[k];ptr++;
-
-		k = (((unsigned char) buf[i+1])&0x0F)<<2;
-		k |=(((unsigned char) buf[i+2])&0xC0)>>6;
-		*ptr=base64[k];ptr++;
-
-		k = (((unsigned char) buf[i+2])&0x3F);
-		*ptr=base64[k];ptr++;
-	}
-	i=triplets*3;
-	switch(rest){
-		case 0:
-			break;
-		case 1:
-			k = (((unsigned char) buf[i])&0xFC)>>2;
-			*ptr=base64[k];ptr++;
-
-			k = (((unsigned char) buf[i])&0x03)<<4;
-			*ptr=base64[k];ptr++;
-
-			*ptr='=';ptr++;
-
-			*ptr='=';ptr++;
-			break;
-		case 2:
-			k = (((unsigned char) buf[i])&0xFC)>>2;
-			*ptr=base64[k];ptr++;
-
-			k = (((unsigned char) buf[i])&0x03)<<4;
-			k |=(((unsigned char) buf[i+1])&0xF0)>>4;
-			*ptr=base64[k];ptr++;
-
-			k = (((unsigned char) buf[i+1])&0x0F)<<2;
-			*ptr=base64[k];ptr++;
-
-			*ptr='=';ptr++;
-			break;
-	}
-	// fprintf(stderr,"base64=%.*s >> %d\n",ptr-out,out,ptr-out);
-	*newlen = ptr-out;
-	return out;
-}
-
-
-
 
 char hexa[16]="0123456789abcdef";
 int createAuthHeaderAKAv1MD5(char * user, char * aka_OP, 
