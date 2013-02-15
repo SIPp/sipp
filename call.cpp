@@ -1844,7 +1844,7 @@ void init_default_messages() {
   int messages = sizeof(default_message_strings)/sizeof(default_message_strings[0]);
   default_messages = new SendingMessage* [messages];
   for (int i = 0; i < messages; i++) {
-    default_messages[i] = new SendingMessage(main_scenario, const_cast<char*>(default_message_strings[i])); /* BUG */
+    default_messages[i] = new SendingMessage(main_scenario, const_cast<char*>(default_message_strings[i]));
   }
 }
 
