@@ -61,6 +61,8 @@ common_SOURCES = actions.cpp \
 	       socketowner.hpp \
 	       stat.cpp \
 	       stat.hpp \
+	       strings.cpp \
+	       strings.hpp \
 	       task.cpp \
 	       task.hpp \
 	       variables.cpp \

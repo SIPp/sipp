@@ -561,9 +561,9 @@ void sipp_close_socket(struct sipp_socket *socket);
 
 /********************* Utilities functions  *******************/
 
-char *strcasestr2 ( char *__haystack, const char *__needle);
+#include "strings.hpp"
+
 char *get_peer_addr(char *);
-int get_decimal_from_hex(char hex);
 
 bool reconnect_allowed();
 void reset_connection(struct sipp_socket *);
