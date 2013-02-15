@@ -189,7 +189,7 @@ int xp_set_xml_buffer_from_file(const char * filename)
       xp_file[index++] = 0;
       xp_stack = 0;
       xp_position[xp_stack] = xp_file;
-      fclose(f)
+      fclose(f);
       return 0;
     }
   }
