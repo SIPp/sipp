@@ -3781,7 +3781,7 @@ void traffic_thread()
 
 void rtp_echo_thread (void * param)
 {
-  char *msg = (char*)alloca(media_bufsize);
+  char msg[media_bufsize];
   size_t nr, ns;
   sipp_socklen_t len;
   struct sockaddr_storage remote_rtp_addr;
