@@ -65,6 +65,8 @@ common_SOURCES = actions.cpp \
 	       strings.hpp \
 	       task.cpp \
 	       task.hpp \
+	       time.cpp \
+	       time.hpp \
 	       variables.cpp \
 	       variables.hpp \
 	       watchdog.cpp \

@@ -43,8 +43,6 @@
 #include "logger.hpp"
 #include "assert.h"
 
-void sipp_usleep(unsigned long usec);
-
 #ifdef _USE_OPENSSL
 SSL_CTX  *sip_trp_ssl_ctx = NULL; /* For SSL cserver context */
 SSL_CTX  *sip_trp_ssl_ctx_client = NULL; /* For SSL cserver context */
@@ -419,30 +417,6 @@ struct sipp_option *find_option(const char *option) {
 
     return NULL;
 };
-
-/***************** System Portability Features *****************/
-
-unsigned long long getmicroseconds()
-{
-    struct timeval LS_system_time;
-    unsigned long long VI_micro;
-    static unsigned long long VI_micro_base = 0;
-
-    gettimeofday(&LS_system_time, NULL);
-    VI_micro = (((unsigned long long) LS_system_time.tv_sec) * 1000000LL) + LS_system_time.tv_usec;
-    if (!VI_micro_base) VI_micro_base = VI_micro - 1;
-    VI_micro = VI_micro - VI_micro_base;
-
-    clock_tick = VI_micro / 1000LL;
-
-    return VI_micro;
-}
-
-unsigned long getmilliseconds()
-{
-    return getmicroseconds() / 1000LL;
-}
-
 
 #ifdef _USE_OPENSSL
 /****** SSL error handling                         *************/
@@ -4687,15 +4661,6 @@ int main(int argc, char *argv[])
 }
 
 #endif
-
-void sipp_usleep(unsigned long usec)
-{
-    if (usec >= 1000000) {
-        sleep(usec / 1000000);
-    }
-    usec %= 1000000;
-    usleep(usec);
-}
 
 bool reconnect_allowed()
 {

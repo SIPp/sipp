@@ -347,8 +347,7 @@ extern bool     socket_close        _DEFVAL(true);
 extern bool     test_socket         _DEFVAL(true);
 extern bool     maxSocketPresent    _DEFVAL(false);
 
-extern unsigned long getmilliseconds();
-extern unsigned long long getmicroseconds();
+#include "time.hpp"
 
 /************************ Statistics **************************/
 
