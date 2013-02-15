@@ -54,16 +54,24 @@ void opentask::dump() {
 }
 
 unsigned int opentask::wake() {
+  float ms_per_call;
   if (paused) {
     return 0;
   } else if (users >= 0) {
     /* We need to wait until another call is terminated. */
     return 0;
   } else {
-    /* We need to compute when the next call is going to be opened. */
-    return (unsigned long)
-        MAX(last_rate_change_time + (calls_since_last_rate_change /
-                MAX(rate/MAX(rate_period_ms, 1), 1)), 1);
+    ms_per_call = rate_period_ms/MAX(rate, 1);
+    /* We need to compute when the next call is going to be opened. 
+     * The current time is the time when the rate last changed, plus
+     * the number of calls since then multiplied by the number of milliseconds
+     * between each call.
+     *
+     * We then add the number of milliseconds between each call to that 
+     * figure.*/
+
+    return (unsigned long) last_rate_change_time +
+        (calls_since_last_rate_change * ms_per_call) + ms_per_call;
   }
 }
 
@@ -96,11 +104,20 @@ bool opentask::run() {
     calls_to_open = stop_after - total_calls;
   }
 
+    /* We base our scheduling on the number of calls made since the last rate
+     * change, but if we reduce the number of calls we open in order to keep
+     * within the limit, that throws this calculation off and brings CPU% up to
+     * 100%. To avoid this, we increment calls_since_last_rate_change here. */
+
+    calls_since_last_rate_change += calls_to_open;
+
   if (open_calls_allowed && (current_calls + calls_to_open > open_calls_allowed)) {
+
     calls_to_open = open_calls_allowed - current_calls;
+
   }
 
-  if (calls_to_open < 0) {
+  if (calls_to_open <= 0) {
     calls_to_open = 0;
   }
 
@@ -122,8 +139,6 @@ bool opentask::run() {
       if(!call_ptr) {
 	ERROR("Out of memory allocating call!");
       }
-
-      calls_since_last_rate_change++;
 
       outbound_congestion = false;
 
