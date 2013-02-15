@@ -226,11 +226,10 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
     md5_byte_t resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE];
     unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
     unsigned char resp_hex[HASH_HEX_SIZE+1], body_hex[HASH_HEX_SIZE+1];
-    char tmp[MAX_HEADER_LEN], authtype[16], cnonce[32], nc[32], opaque[64];
+    char tmp[MAX_HEADER_LEN], tmp2[MAX_HEADER_LEN], authtype[16], cnonce[32], nc[32], opaque[64];
     static unsigned int mync = 1;
     int has_opaque = 0;
     md5_state_t Md5Ctx;
-    char tmpbuf[2048];
 
     // Extract the Auth Type - If not present, using 'none'
     cnonce[0] = '\0';
@@ -291,11 +290,11 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
     hashToHex(&ha2[0], &ha2_hex[0]);
 
     if (cnonce[0] != '\0') {
-        snprintf(tmpbuf, 2048, ",cnonce=\"%s\",nc=%s,qop=%s",cnonce,nc,authtype);
-        strcat(result,tmpbuf);
+        snprintf(tmp2, sizeof(tmp2), ",cnonce=\"%s\",nc=%s,qop=%s",cnonce,nc,authtype);
+        strcat(result,tmp2);
     }
-    snprintf(tmpbuf, 2048, ",uri=\"%s\"",tmp);
-    strcat(result,tmpbuf);
+    snprintf(tmp2, sizeof(tmp2), ",uri=\"%s\"",tmp);
+    strcat(result,tmp2);
 
     // Extract the Nonce
     if (!getAuthParameter("nonce", auth, tmp, sizeof(tmp))) {
@@ -320,12 +319,12 @@ int createAuthHeaderMD5(char * user, char * password, int password_len, char * m
     md5_finish(&Md5Ctx, resp);
     hashToHex(&resp[0], &resp_hex[0]);
 
-    snprintf(tmpbuf, 2048, ",nonce=\"%s\",response=\"%s\",algorithm=%s",tmp,resp_hex,algo);
-    strcat(result,tmpbuf);
+    snprintf(tmp2, sizeof(tmp2), ",nonce=\"%s\",response=\"%s\",algorithm=%s",tmp,resp_hex,algo);
+    strcat(result,tmp2);
 
     if (has_opaque) {
-        snprintf(tmpbuf, 2048, ",opaque=\"%s\"",opaque);
-        strcat(result,tmpbuf);
+        snprintf(tmp2, sizeof(tmp2), ",opaque=\"%s\"",opaque);
+        strcat(result,tmp2);
     }
 
     return 1;
