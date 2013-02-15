@@ -1,22 +1,23 @@
 #include "call.hpp"
 
-class deadcall : public virtual task, public virtual listener {
+class deadcall : public virtual task, public virtual listener
+{
 public:
-  deadcall(const char *id, const char * reason);
-  ~deadcall();
+    deadcall(const char *id, const char * reason);
+    ~deadcall();
 
-  virtual bool process_incoming(char * msg, struct sockaddr_storage *);
-  virtual bool  process_twinSippCom(char * msg);
+    virtual bool process_incoming(char * msg, struct sockaddr_storage *);
+    virtual bool  process_twinSippCom(char * msg);
 
-  virtual bool run();
+    virtual bool run();
 
-  /* When should this call wake up? */
-  virtual unsigned int wake();
+    /* When should this call wake up? */
+    virtual unsigned int wake();
 
-  /* Dump call info to error log. */
-  virtual void dump();
+    /* Dump call info to error log. */
+    virtual void dump();
 
 protected:
-  unsigned long expiration;
-  char *reason;
+    unsigned long expiration;
+    char *reason;
 };

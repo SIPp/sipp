@@ -20,45 +20,48 @@
 #define SSL_MAIN
 #include "sslcommon.h"
 
-int init_OpenSSL(void) {
-  if (!Thread_setup() || !SSL_library_init() ) {
-    return (-1) ;
-  }
-  SSL_load_error_strings();
-  return 1;
-}
-
-
-SSL_CTX *setup_ssl_context(SSL_METHOD *method) {
-  SSL_CTX *ctx;
-
-  if ((ctx = SSL_CTX_new(method)) == NULL) {
-    SSL_ERROR();
-  }
-
-  return ctx;
-}
-
-int  SSL_ERROR(void) {
-  int                   flags;
-  int                   line;
-  const char            *data;
-  const char            *file;
-  unsigned long         code;
-
-  code = ERR_get_error_line_data(&file,&line,&data,&flags);
-  while (code) {
-    char temp_buffer[1024];
-
-    sprintf(temp_buffer,"Error code: %lu in %s Line %d.\n",code,file,line);
-    /*WARNING("SSL Error : %s\n",temp_buffer);*/
-
-    if (data && (flags & ERR_TXT_STRING)) {
-      sprintf(temp_buffer,"Error data : %s\n",data);
-      /*WARNING("SSL Error : %s\n",temp_buffer);*/
+int init_OpenSSL(void)
+{
+    if (!Thread_setup() || !SSL_library_init() ) {
+        return (-1) ;
     }
+    SSL_load_error_strings();
+    return 1;
+}
+
+
+SSL_CTX *setup_ssl_context(SSL_METHOD *method)
+{
+    SSL_CTX *ctx;
+
+    if ((ctx = SSL_CTX_new(method)) == NULL) {
+        SSL_ERROR();
+    }
+
+    return ctx;
+}
+
+int  SSL_ERROR(void)
+{
+    int                   flags;
+    int                   line;
+    const char            *data;
+    const char            *file;
+    unsigned long         code;
+
     code = ERR_get_error_line_data(&file,&line,&data,&flags);
-  }
-  return 1;
+    while (code) {
+        char temp_buffer[1024];
+
+        sprintf(temp_buffer,"Error code: %lu in %s Line %d.\n",code,file,line);
+        /*WARNING("SSL Error : %s\n",temp_buffer);*/
+
+        if (data && (flags & ERR_TXT_STRING)) {
+            sprintf(temp_buffer,"Error data : %s\n",data);
+            /*WARNING("SSL Error : %s\n",temp_buffer);*/
+        }
+        code = ERR_get_error_line_data(&file,&line,&data,&flags);
+    }
+    return 1;
 }
 

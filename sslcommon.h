@@ -43,24 +43,24 @@ extern "C" {
 #endif
 
 #ifndef SSL_MAIN
-  extern
+    extern
 #endif
-  int init_OpenSSL(void);
+    int init_OpenSSL(void);
 
 #ifndef SSL_MAIN
-  extern
+    extern
 #endif
-  int Thread_setup(void);
+    int Thread_setup(void);
 
 #ifndef SSL_MAIN
-  extern
+    extern
 #endif
-  SSL_CTX *setup_ssl_context(SSL_METHOD *);
+    SSL_CTX *setup_ssl_context(SSL_METHOD *);
 
 #ifndef SSL_MAIN
-  extern
+    extern
 #endif
-  int SSL_ERROR(void);
+    int SSL_ERROR(void);
 
 #ifndef SSL_MAIN
 //  extern

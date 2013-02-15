@@ -28,28 +28,34 @@
 
 char * comp_load()
 {
-  void *handle;
-  char *error;
+    void *handle;
+    char *error;
 
-  comp_error[0] = 0;
-  
-  handle = dlopen(COMP_PLUGGIN, RTLD_LAZY);
-  if (!handle) {
-    strcpy(comp_error, dlerror());
-    return comp_error;
-  }
-  
-  *(void **)(&comp_compress) = dlsym(handle, "comp_compress");
-  if((error = (char *) dlerror()))
-    { strcpy(comp_error, error); return comp_error; }
-  
-  *(void **)(&comp_uncompress) = dlsym(handle, "comp_uncompress");
-  if((error = (char *) dlerror()))
-    { strcpy(comp_error, error); return comp_error; }
-  
-  *(void **)(&comp_free) = dlsym(handle, "comp_free");
-  if((error = (char *) dlerror()))
-    { strcpy(comp_error, error); return comp_error; }
-  
-  return 0;
+    comp_error[0] = 0;
+
+    handle = dlopen(COMP_PLUGGIN, RTLD_LAZY);
+    if (!handle) {
+        strcpy(comp_error, dlerror());
+        return comp_error;
+    }
+
+    *(void **)(&comp_compress) = dlsym(handle, "comp_compress");
+    if((error = (char *) dlerror())) {
+        strcpy(comp_error, error);
+        return comp_error;
+    }
+
+    *(void **)(&comp_uncompress) = dlsym(handle, "comp_uncompress");
+    if((error = (char *) dlerror())) {
+        strcpy(comp_error, error);
+        return comp_error;
+    }
+
+    *(void **)(&comp_free) = dlsym(handle, "comp_free");
+    if((error = (char *) dlerror())) {
+        strcpy(comp_error, error);
+        return comp_error;
+    }
+
+    return 0;
 }

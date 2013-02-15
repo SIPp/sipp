@@ -36,23 +36,24 @@
 
 #include "task.hpp"
 
-class watchdog : public task {
+class watchdog : public task
+{
 public:
-  unsigned int wake();
-  watchdog(int interval, int reset, int major_threshold, int major_maxtriggers, int minor_threshold, int minor_maxtriggers);
-  bool run();
-  void dump();
+    unsigned int wake();
+    watchdog(int interval, int reset, int major_threshold, int major_maxtriggers, int minor_threshold, int minor_maxtriggers);
+    bool run();
+    void dump();
 private:
-  int interval;
-  int reset_interval;
-  int minor_threshold;
-  int major_threshold;
-  int minor_maxtriggers;
-  int major_maxtriggers;
-  unsigned long last_fire;
-  unsigned long last_trigger;
-  int major_triggers;
-  int minor_triggers;
+    int interval;
+    int reset_interval;
+    int minor_threshold;
+    int major_threshold;
+    int minor_maxtriggers;
+    int major_maxtriggers;
+    unsigned long last_fire;
+    unsigned long last_trigger;
+    int major_triggers;
+    int minor_triggers;
 };
 
 #endif

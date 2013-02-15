@@ -27,8 +27,7 @@
 #define u_int16_t uint16_t
 #define u_int32_t uint32_t
 
-struct iphdr
-  {
+struct iphdr {
 #ifdef _HPUX_LI
     unsigned int ihl:4;
     unsigned int version:4;
@@ -46,34 +45,32 @@ struct iphdr
     u_int32_t saddr;
     u_int32_t daddr;
     /*The options start here. */
-  };
-   
+};
+
 #endif
 
-typedef struct
-{
-  u_char *data;
-  u_long pktlen;
-  struct timeval ts;
-  int partial_check;
+typedef struct {
+    u_char *data;
+    u_long pktlen;
+    struct timeval ts;
+    int partial_check;
 } pcap_pkt;
 
 #define PCAP_MAXPACKET	1500
-typedef struct
-{
-  char *file;
-  u_int16_t base;
-  u_long max_length;
-  pcap_pkt *max;
-  pcap_pkt *pkts;
+typedef struct {
+    char *file;
+    u_int16_t base;
+    u_long max_length;
+    pcap_pkt *max;
+    pcap_pkt *pkts;
 } pcap_pkts;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-int check(u_int16_t *, int);
-u_int16_t checksum_carry(int);
-int prepare_pkts(char *, pcap_pkts *);
+    int check(u_int16_t *, int);
+    u_int16_t checksum_carry(int);
+    int prepare_pkts(char *, pcap_pkts *);
 #ifdef __cplusplus
 }
 #endif

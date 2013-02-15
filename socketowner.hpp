@@ -21,26 +21,27 @@
 #ifndef __SOCKETOWNER__
 #define __SOCKETOWNER__
 
-class socketowner {
+class socketowner
+{
 public:
-  socketowner();
-  virtual ~socketowner();
+    socketowner();
+    virtual ~socketowner();
 
-  /* Associate/Dissociate this call with a socket. */
-  struct sipp_socket *associate_socket(struct sipp_socket *socket);
-  struct sipp_socket *dissociate_socket();
+    /* Associate/Dissociate this call with a socket. */
+    struct sipp_socket *associate_socket(struct sipp_socket *socket);
+    struct sipp_socket *dissociate_socket();
 
-  /* Notification of TCP Close events. */
-  virtual void tcpClose() = 0;
+    /* Notification of TCP Close events. */
+    virtual void tcpClose() = 0;
 protected:
-  /* What socket is this call bound to. */
-  struct sipp_socket *call_socket;
-  unsigned long ownerid;
-  static unsigned long nextownerid;
+    /* What socket is this call bound to. */
+    struct sipp_socket *call_socket;
+    unsigned long ownerid;
+    static unsigned long nextownerid;
 
 private:
-  void add_owner_to_socket(struct sipp_socket *socket);
-  void remove_owner_from_socket(struct sipp_socket *socket);
+    void add_owner_to_socket(struct sipp_socket *socket);
+    void remove_owner_from_socket(struct sipp_socket *socket);
 };
 
 typedef std::map<unsigned long, socketowner *> owner_map;

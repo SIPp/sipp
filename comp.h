@@ -26,32 +26,32 @@
 extern "C" {
 #endif
 
-  char * comp_load();
+    char * comp_load();
 
 #ifndef COMP_MAIN
-  extern 
+    extern
 #endif
-  int (*comp_compress) (void         ** state,
-                        char          * msg,
-                        unsigned int  * msg_len);
-  
-#ifndef COMP_MAIN
-  extern 
-#endif
-  int (*comp_uncompress) (void            ** state,
-                          char             * msg,
-                          unsigned int     * msg_len);
+    int (*comp_compress) (void         ** state,
+                          char          * msg,
+                          unsigned int  * msg_len);
 
 #ifndef COMP_MAIN
-  extern 
+    extern
 #endif
-
-  void (*comp_free) (void ** state);
+    int (*comp_uncompress) (void            ** state,
+                            char             * msg,
+                            unsigned int     * msg_len);
 
 #ifndef COMP_MAIN
-  extern 
+    extern
 #endif
-  char comp_error[255];
+
+    void (*comp_free) (void ** state);
+
+#ifndef COMP_MAIN
+    extern
+#endif
+    char comp_error[255];
 
 #ifdef __hpux
 #define COMP_PLUGGIN "sippcomp.sl"
@@ -64,7 +64,7 @@ extern "C" {
 #define COMP_REPLY    2
 
 #define COMP_KO      -1
-  
+
 #ifdef __cplusplus
 }
 #endif

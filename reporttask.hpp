@@ -36,26 +36,28 @@
 
 #include "task.hpp"
 
-class screentask : public task {
+class screentask : public task
+{
 public:
-  unsigned int wake();
-  static void report(bool last);
-  static void initialize();
-  bool run();
-  void dump();
+    unsigned int wake();
+    static void report(bool last);
+    static void initialize();
+    bool run();
+    void dump();
 private:
-  static class screentask *instance;
+    static class screentask *instance;
 };
 
-class stattask : public task {
+class stattask : public task
+{
 public:
-  unsigned int wake();
-  static void report();
-  static void initialize();
-  bool run();
-  void dump();
+    unsigned int wake();
+    static void report();
+    static void initialize();
+    bool run();
+    void dump();
 private:
-  static class stattask *instance;
+    static class stattask *instance;
 };
 
 #endif

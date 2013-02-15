@@ -20,7 +20,7 @@
  */
 
 /****
- * Screen.hpp : Simple curses & logfile encapsulation 
+ * Screen.hpp : Simple curses & logfile encapsulation
  */
 
 #ifndef __SCREEN_H__
@@ -31,10 +31,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-  void ERROR(const char *fmt, ...) __attribute__ ((noreturn));
-  void WARNING(const char *fmt, ...);
-  void ERROR_NO(const char *fmt, ...);
-  void WARNING_NO(const char *fmt, ...);
+    void ERROR(const char *fmt, ...) __attribute__ ((noreturn));
+    void WARNING(const char *fmt, ...);
+    void ERROR_NO(const char *fmt, ...);
+    void WARNING_NO(const char *fmt, ...);
 #ifdef __cplusplus
 }
 #endif

@@ -35,83 +35,93 @@
 class stattask *stattask::instance = NULL;
 class screentask *screentask::instance = NULL;
 
-void stattask::initialize() {
-  assert(instance == NULL);
-  if (dumpInFile || useCountf || rate_increase) {
-    instance = new stattask();
-  }
+void stattask::initialize()
+{
+    assert(instance == NULL);
+    if (dumpInFile || useCountf || rate_increase) {
+        instance = new stattask();
+    }
 }
 
-void screentask::initialize() {
-  assert(instance == NULL);
-  if (report_freq) {
-    instance = new screentask();
-  }
+void screentask::initialize()
+{
+    assert(instance == NULL);
+    if (report_freq) {
+        instance = new screentask();
+    }
 }
 
-void stattask::dump() {
-  WARNING("Statistics reporting task.");
+void stattask::dump()
+{
+    WARNING("Statistics reporting task.");
 }
-void screentask::dump() {
-  WARNING("Screen update task.");
+void screentask::dump()
+{
+    WARNING("Screen update task.");
 }
 
-void screentask::report(bool last) {
+void screentask::report(bool last)
+{
     print_statistics(last);
     display_scenario->stats->computeStat(CStat::E_RESET_PD_COUNTERS);
     last_report_time  = getmilliseconds();
     scheduling_loops = 0;
 }
 
-bool screentask::run() {
-  if (quitting > 11) {
-    delete this;
-    return false;
-  }
+bool screentask::run()
+{
+    if (quitting > 11) {
+        delete this;
+        return false;
+    }
 
-  if (getmilliseconds() - last_report_time >= report_freq) {
-    report(false);
-  }
+    if (getmilliseconds() - last_report_time >= report_freq) {
+        report(false);
+    }
 
-  setPaused();
-  return true;
+    setPaused();
+    return true;
 }
 
-unsigned int screentask::wake() {
-  return last_report_time + report_freq;
+unsigned int screentask::wake()
+{
+    return last_report_time + report_freq;
 }
 
-void stattask::report() {
+void stattask::report()
+{
     if(dumpInFile) {
-      main_scenario->stats->dumpData();
+        main_scenario->stats->dumpData();
     }
     if (useCountf) {
-      print_count_file(countf, 0);
+        print_count_file(countf, 0);
     }
 
     main_scenario->stats->computeStat(CStat::E_RESET_PL_COUNTERS);
     last_dump_time = clock_tick;
 }
 
-bool stattask::run() {
-  /* Statistics Logs. */
-  if((getmilliseconds() - last_dump_time) >= report_freq_dumpLog)  {
-    if (rate_increase) {
-      rate += rate_increase;
-      if (rate_max && (rate > rate_max)) {
-	rate = rate_max;
-	if (rate_quit) {
-	  quitting += 10;
-	}
-      }
-      opentask::set_rate(rate);
+bool stattask::run()
+{
+    /* Statistics Logs. */
+    if((getmilliseconds() - last_dump_time) >= report_freq_dumpLog)  {
+        if (rate_increase) {
+            rate += rate_increase;
+            if (rate_max && (rate > rate_max)) {
+                rate = rate_max;
+                if (rate_quit) {
+                    quitting += 10;
+                }
+            }
+            opentask::set_rate(rate);
+        }
+        report();
     }
-    report();
-  }
-  setPaused();
-  return true;
+    setPaused();
+    return true;
 }
 
-unsigned int stattask::wake() {
-  return last_dump_time + report_freq_dumpLog;
+unsigned int stattask::wake()
+{
+    return last_dump_time + report_freq_dumpLog;
 }

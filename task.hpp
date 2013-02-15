@@ -45,71 +45,73 @@ typedef std::list<task *> task_list;
 
 /* A time wheel structure as defined in Varghese and Lauck's 1996 journal
  * article (based on their 1987 SOSP paper). */
-class timewheel {
+class timewheel
+{
 public:
-	timewheel();
+    timewheel();
 
-	int expire_paused_tasks();
-	/* Add a paused task and increment count. */
-	void add_paused_task(task *task, bool increment);
-	void remove_paused_task(task *task);
-	int size();
+    int expire_paused_tasks();
+    /* Add a paused task and increment count. */
+    void add_paused_task(task *task, bool increment);
+    void remove_paused_task(task *task);
+    int size();
 private:
-	/* How many task are in this wheel. */
-	int count;
+    /* How many task are in this wheel. */
+    int count;
 
-	unsigned int wheel_base;
+    unsigned int wheel_base;
 
-	/* The actual wheels. */
-	task_list wheel_one[LEVEL_ONE_SLOTS];
-	task_list wheel_two[LEVEL_TWO_SLOTS];
-	task_list wheel_three[LEVEL_THREE_SLOTS];
+    /* The actual wheels. */
+    task_list wheel_one[LEVEL_ONE_SLOTS];
+    task_list wheel_two[LEVEL_TWO_SLOTS];
+    task_list wheel_three[LEVEL_THREE_SLOTS];
 
-	/* Calls that are paused indefinitely. */
-	task_list forever_list;
+    /* Calls that are paused indefinitely. */
+    task_list forever_list;
 
-	/* Turn a task into a list (based on wakeup). */
-	task_list *task2list(task *task);
+    /* Turn a task into a list (based on wakeup). */
+    task_list *task2list(task *task);
 };
 
-class task {
+class task
+{
 public:
-  task();
-  virtual ~task();
+    task();
+    virtual ~task();
 
-  virtual bool run() = 0;
+    virtual bool run() = 0;
 
-  /* Our abort action. */
-  virtual void abort();
+    /* Our abort action. */
+    virtual void abort();
 
-  /* Dump task info to error log. */
-  virtual void dump() = 0;
+    /* Dump task info to error log. */
+    virtual void dump() = 0;
 
 protected:
-  /* Wake this up, if we are not already awake. */
-  void setRunning();
-  /* Put us to sleep (we must be running). */
-  void setPaused();
-  /* When should this task wake up? */
-  virtual unsigned int wake() = 0;
-  /* Is this task paused or running? */
-  bool running;
+    /* Wake this up, if we are not already awake. */
+    void setRunning();
+    /* Put us to sleep (we must be running). */
+    void setPaused();
+    /* When should this task wake up? */
+    virtual unsigned int wake() = 0;
+    /* Is this task paused or running? */
+    bool running;
 private:
-  /* Run and Pause Queue Maintenance. */
-  void add_to_runqueue();
-  bool remove_from_runqueue();
-  void add_to_paused_tasks(bool increment);
+    /* Run and Pause Queue Maintenance. */
+    void add_to_runqueue();
+    bool remove_from_runqueue();
+    void add_to_paused_tasks(bool increment);
 
-  /* This is for our complete task list. */
-  task_list::iterator taskit;
-  /* If we are running, the iterator to remove us from the running list. */
-  task_list::iterator runit;
-  /* If we are paused, the iterator to remove us from the paused list. */
-  task_list::iterator pauseit;
-  /* The list that we are stored in (only when paused) . */
-  task_list *pauselist;
-  /* The timing wheel is our friend so that it can update our list pointer. */
-  friend class timewheel;
+    /* This is for our complete task list. */
+    task_list::iterator taskit;
+    /* If we are running, the iterator to remove us from the running list. */
+    task_list::iterator runit;
+    /* If we are paused, the iterator to remove us from the paused list. */
+    task_list::iterator pauseit;
+    /* The list that we are stored in (only when paused) . */
+    task_list *pauselist;
+    /* The timing wheel is our friend so that it can update our list pointer. */
+    friend class timewheel;
 };
 
 task_list * get_running_tasks();

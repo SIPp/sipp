@@ -82,7 +82,7 @@
 #include "watchdog.hpp"
 /* Open SSL stuff */
 #ifdef _USE_OPENSSL
-#include "sslcommon.h" 
+#include "sslcommon.h"
 #endif
 
 
@@ -96,9 +96,9 @@
 #endif
 #endif
 
-/* 
+/*
  * If this files is included in the Main, then extern definitions
- * are removed, and the _DEFAULT macro becomes '= value;'. Else 
+ * are removed, and the _DEFAULT macro becomes '= value;'. Else
  * extern definition does not contain default values assignment
  */
 
@@ -156,7 +156,7 @@
 
 #define MAX_PEER_SIZE              4096  /* 3pcc extended mode: max size of peer names */
 #define MAX_LOCAL_TWIN_SOCKETS     10    /*3pcc extended mode:max number of peers from which 
-                                           cmd messages are received */
+cmd messages are received */
 
 /******************** Default parameters ***********************/
 
@@ -164,7 +164,7 @@
 #define DEFAULT_RATE_SCALE           1.0
 #define DEFAULT_RATE_PERIOD_MS       1000
 #define DEFAULT_TRANSPORT            T_UDP
-#define DEFAULT_PORT                 5060  
+#define DEFAULT_PORT                 5060
 #define DEFAULT_MEDIA_PORT           6000
 #define DEFAULT_3PCC_PORT            6060
 #define DEFAULT_SERVICE              ((char *)"service")
@@ -219,7 +219,7 @@ extern const char       * auth_password           _DEFVAL(DEFAULT_AUTH_PASSWORD)
 extern const char       * auth_username           _DEFVAL(0);
 extern unsigned long      report_freq             _DEFVAL(DEFAULT_REPORT_FREQ);
 extern unsigned long      report_freq_dumpLog     _DEFVAL
-                                                (DEFAULT_REPORT_FREQ_DUMP_LOG);
+(DEFAULT_REPORT_FREQ_DUMP_LOG);
 extern bool		          periodic_rtd            _DEFVAL(false);
 extern const char		* stat_delimiter          _DEFVAL(";");
 
@@ -227,21 +227,21 @@ extern bool               timeout_exit            _DEFVAL(false);
 extern bool               timeout_error           _DEFVAL(false);
 
 extern unsigned long      report_freq_dumpRtt     _DEFVAL
-                                                (DEFAULT_FREQ_DUMP_RTT);
+(DEFAULT_FREQ_DUMP_RTT);
 
 extern int		  max_multi_socket        _DEFVAL
-                                                (DEFAULT_MAX_MULTI_SOCKET);
+(DEFAULT_MAX_MULTI_SOCKET);
 extern bool		  skip_rlimit		  _DEFVAL(false);
 
 extern unsigned int       timer_resolution        _DEFVAL(DEFAULT_TIMER_RESOLUTION);
 extern int                max_recv_loops          _DEFVAL(MAX_RECV_LOOPS_PER_CYCLE);
 extern int                max_sched_loops         _DEFVAL(MAX_SCHED_LOOPS_PER_CYCLE);
- 
+
 extern unsigned int       global_t2               _DEFVAL(DEFAULT_T2_TIMER_VALUE);
- 
+
 extern char               local_ip[40];
 extern char               local_ip_escaped[42];
-extern bool               local_ip_is_ipv6;    
+extern bool               local_ip_is_ipv6;
 extern int                local_port              _DEFVAL(0);
 #ifdef USE_SCTP
 extern char               multihome_ip[40];
@@ -264,7 +264,7 @@ extern char               media_ip_escaped[42];
 extern int                user_media_port         _DEFVAL(0);
 extern int                media_port              _DEFVAL(0);
 extern size_t             media_bufsize           _DEFVAL(2048);
-extern bool               media_ip_is_ipv6;    
+extern bool               media_ip_is_ipv6;
 extern char               remote_ip[40];
 extern char               remote_ip_escaped[42];
 extern int                remote_port             _DEFVAL(DEFAULT_PORT);
@@ -276,7 +276,7 @@ extern int                interrupt               _DEFVAL(0);
 extern bool               paused                  _DEFVAL(false);
 extern int                lose_packets            _DEFVAL(0);
 extern double             global_lost             _DEFVAL(0.0);
-extern char               remote_host[255]; 
+extern char               remote_host[255];
 extern char               twinSippHost[255];
 extern char               twinSippIp[40];
 extern char             * master_name;
@@ -285,12 +285,12 @@ extern int                twinSippPort            _DEFVAL(DEFAULT_3PCC_PORT);
 extern bool               twinSippMode            _DEFVAL(false);
 extern bool               extendedTwinSippMode    _DEFVAL(false);
 
-extern bool               nostdin                 _DEFVAL(false);        
-extern bool               backgroundMode          _DEFVAL(false);        
-extern bool               signalDump              _DEFVAL(false);        
+extern bool               nostdin                 _DEFVAL(false);
+extern bool               backgroundMode          _DEFVAL(false);
+extern bool               signalDump              _DEFVAL(false);
 
 extern int                currentScreenToDisplay  _DEFVAL
-                                                  (DISPLAY_SCENARIO_SCREEN);
+(DISPLAY_SCENARIO_SCREEN);
 extern int                currentRepartitionToDisplay  _DEFVAL(1);
 extern unsigned int       base_cseq               _DEFVAL(0);
 extern char             * auth_uri                _DEFVAL(0);
@@ -394,7 +394,7 @@ extern unsigned long watchdog_reset		  _DEFVAL(600000);
 
 
 /********************* dynamic Id ************************* */
-extern  int maxDynamicId    _DEFVAL(12000);  // max value for dynamicId; this value is reached 
+extern  int maxDynamicId    _DEFVAL(12000);  // max value for dynamicId; this value is reached
 extern  int startDynamicId  _DEFVAL(10000);  // offset for first dynamicId  FIXME:in CmdLine
 extern  int stepDynamicId   _DEFVAL(4);      // step of increment for dynamicId
 
@@ -435,12 +435,12 @@ extern struct sockaddr_storage twinSipp_sockaddr;
 
 /* 3pcc extended mode */
 typedef struct _T_peer_infos {
-               char                       peer_host[40];
-               int                        peer_port;
-               struct sockaddr_storage    peer_sockaddr;
-               char                       peer_ip[40];
-               struct sipp_socket         *peer_socket ;
-               } T_peer_infos;
+    char                       peer_host[40];
+    int                        peer_port;
+    struct sockaddr_storage    peer_sockaddr;
+    char                       peer_ip[40];
+    struct sipp_socket         *peer_socket ;
+} T_peer_infos;
 
 typedef std::map<std::string, char * > peer_addr_map;
 extern peer_addr_map peer_addrs;
@@ -456,11 +456,10 @@ extern struct	     sockaddr_storage remote_sockaddr;
 extern short         use_remote_sending_addr      _DEFVAL(0);
 extern struct        sockaddr_storage remote_sending_sockaddr;
 
-enum E_Alter_YesNo
-  {
+enum E_Alter_YesNo {
     E_ALTER_YES=0,
     E_ALTER_NO
-  };
+};
 
 /************************** Trace Files ***********************/
 
@@ -488,21 +487,21 @@ extern char   screen_logfile[MAX_PATH]            _DEFVAL("");
 
 /* Log Rotation Functions. */
 struct logfile_id {
-  time_t start;
-  int n;
+    time_t start;
+    int n;
 };
 
 struct logfile_info {
-	const char *name;
-	bool check;
-	FILE *fptr;
-	int nfiles;
-	struct logfile_id *ftimes;
-	char file_name[MAX_PATH];
-	bool overwrite;
-	bool fixedname;
-	time_t starttime;
-	unsigned int count;
+    const char *name;
+    bool check;
+    FILE *fptr;
+    int nfiles;
+    struct logfile_id *ftimes;
+    char file_name[MAX_PATH];
+    bool overwrite;
+    bool fixedname;
+    time_t starttime;
+    unsigned int count;
 };
 
 #ifdef GLOBALS_FULL_DEFINITION
@@ -549,11 +548,11 @@ void free_socketbuf(struct socketbuf *socketbuf);
  * required.  This eliminates the need for reading a message octet by octet and
  * performing a second read for the content length. */
 struct socketbuf {
-	char *buf;
-	size_t len;
-	size_t offset;
-	struct sockaddr_storage addr;
-	struct socketbuf *next;
+    char *buf;
+    size_t len;
+    size_t offset;
+    struct sockaddr_storage addr;
+    struct socketbuf *next;
 };
 
 #ifdef USE_SCTP
@@ -564,33 +563,33 @@ struct socketbuf {
 /* This is an abstraction of a socket, which provides buffers for input and
  * output. */
 struct sipp_socket {
-	int  ss_count; /* How many users are there of this socket? */
+    int  ss_count; /* How many users are there of this socket? */
 
-	int ss_transport; /* T_TCP, T_UDP, or T_TLS. */
-	bool ss_ipv6;
-	bool ss_control; /* Is this a control socket? */
-	bool ss_call_socket; /* Is this a call socket? */
-	bool ss_changed_dest; /* Has the destination changed from default. */
+    int ss_transport; /* T_TCP, T_UDP, or T_TLS. */
+    bool ss_ipv6;
+    bool ss_control; /* Is this a control socket? */
+    bool ss_call_socket; /* Is this a call socket? */
+    bool ss_changed_dest; /* Has the destination changed from default. */
 
-	int ss_fd;	/* The underlying file descriptor for this socket. */
-	void *ss_comp_state; /* The compression state. */
+    int ss_fd;	/* The underlying file descriptor for this socket. */
+    void *ss_comp_state; /* The compression state. */
 #ifdef _USE_OPENSSL
-	SSL *ss_ssl;	/* The underlying SSL descriptor for this socket. */
-	BIO *ss_bio;	/* The underlying BIO descriptor for this socket. */
+    SSL *ss_ssl;	/* The underlying SSL descriptor for this socket. */
+    BIO *ss_bio;	/* The underlying BIO descriptor for this socket. */
 #endif
-	struct sockaddr_storage ss_remote_sockaddr; /* Who we are talking to. */
-	struct sockaddr_storage ss_dest; /* Who we are talking to. */
+    struct sockaddr_storage ss_remote_sockaddr; /* Who we are talking to. */
+    struct sockaddr_storage ss_dest; /* Who we are talking to. */
 
 
-	int ss_pollidx; /* The index of this socket in our poll structures. */
-	bool ss_congested; /* Is this socket congested? */
-	bool ss_invalid; /* Has this socket been closed remotely? */
+    int ss_pollidx; /* The index of this socket in our poll structures. */
+    bool ss_congested; /* Is this socket congested? */
+    bool ss_invalid; /* Has this socket been closed remotely? */
 
-	struct socketbuf *ss_in; /* Buffered input. */
-	size_t ss_msglen;	/* Is there a complete SIP message waiting, and if so how big? */
-	struct socketbuf *ss_out; /* Buffered output. */
+    struct socketbuf *ss_in; /* Buffered input. */
+    size_t ss_msglen;	/* Is there a complete SIP message waiting, and if so how big? */
+    struct socketbuf *ss_out; /* Buffered output. */
 #ifdef USE_SCTP
-  int sctpstate;
+    int sctpstate;
 #endif
 };
 
@@ -655,10 +654,10 @@ void free_peer_addr_map();
 #ifdef __cplusplus
 extern "C" {
 #endif
-int TRACE_MSG(const char *fmt, ...);
-int TRACE_CALLDEBUG(const char *fmt, ...);
-int TRACE_SHORTMSG(const char *fmt, ...);
-int LOG_MSG(const char *fmt, ...);
+    int TRACE_MSG(const char *fmt, ...);
+    int TRACE_CALLDEBUG(const char *fmt, ...);
+    int TRACE_SHORTMSG(const char *fmt, ...);
+    int LOG_MSG(const char *fmt, ...);
 #ifdef __cplusplus
 }
 #endif

@@ -36,27 +36,28 @@
 
 #include "task.hpp"
 
-class opentask : public task {
+class opentask : public task
+{
 public:
-  static void initialize();
-  static void set_rate(double new_rate);
-  static void set_users(int new_users);
-  static void set_paused(bool paused);
-  static void freeUser(int userId);
+    static void initialize();
+    static void set_rate(double new_rate);
+    static void set_users(int new_users);
+    static void set_paused(bool paused);
+    static void freeUser(int userId);
 
-  bool run();
-  void dump();
+    bool run();
+    void dump();
 
 protected:
-  unsigned int wake();
+    unsigned int wake();
 
 private:
-  opentask();
-  virtual ~opentask();
+    opentask();
+    virtual ~opentask();
 
-  static class opentask *instance;
-  static unsigned long calls_since_last_rate_change;
-  static unsigned long last_rate_change_time;
+    static class opentask *instance;
+    static unsigned long calls_since_last_rate_change;
+    static unsigned long last_rate_change_time;
 };
 
 #endif

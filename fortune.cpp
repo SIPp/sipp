@@ -21,65 +21,67 @@
 #include "sipp.hpp"
 
 /* This is a fun sample of creating your own extensible keyword. */
-int fortune(call *call, MessageComponent *comp, char *buf, int len) {
-	int pipes[2];
-	char localbuf[SIPP_MAX_MSG_SIZE];
-	char *p = localbuf;
-	int ret;
-	int written = 0;
+int fortune(call *call, MessageComponent *comp, char *buf, int len)
+{
+    int pipes[2];
+    char localbuf[SIPP_MAX_MSG_SIZE];
+    char *p = localbuf;
+    int ret;
+    int written = 0;
 
-	if (pipe(pipes) == -1) {
-		ERROR("Could not create pipes!\n");
-	}
+    if (pipe(pipes) == -1) {
+        ERROR("Could not create pipes!\n");
+    }
 
-	switch (fork()) {
-	case -1:
-		ERROR("Fork failed: %s\n", strerror(errno));
-	case 0:
-		/* We are the child. */
-		close(pipes[0]);
-		dup2(pipes[1], fileno(stdout));
-		dup2(pipes[1], fileno(stderr));
-		close(fileno(stdin));
-		system("/usr/bin/fortune");
-		exit (127);
-	default:
-		/* We are the parent*/
-		close(pipes[1]);
-		while ((ret = read(pipes[0], p, sizeof(localbuf) - (p - localbuf))) > 0) {
-			p += ret;
-		}
-		*p = '\0';
-		close(pipes[0]);
+    switch (fork()) {
+    case -1:
+        ERROR("Fork failed: %s\n", strerror(errno));
+    case 0:
+        /* We are the child. */
+        close(pipes[0]);
+        dup2(pipes[1], fileno(stdout));
+        dup2(pipes[1], fileno(stderr));
+        close(fileno(stdin));
+        system("/usr/bin/fortune");
+        exit (127);
+    default:
+        /* We are the parent*/
+        close(pipes[1]);
+        while ((ret = read(pipes[0], p, sizeof(localbuf) - (p - localbuf))) > 0) {
+            p += ret;
+        }
+        *p = '\0';
+        close(pipes[0]);
 
-		if (len > p - localbuf) {
-			len = p -localbuf;
-		}
+        if (len > p - localbuf) {
+            len = p -localbuf;
+        }
 
-		p = localbuf;
-		while(len-- > 0) {
-			if (*p == '\n') {
-				if (len < 3) {
-					break;
-				}
-				*buf++ = '\r';
-				*buf++ = '\n';
-				*buf++ = ' ';
-				written += 3;
-				p++;
-			} else {
-				*buf++ = *p++;
-				written++;
-			}
-		}
-		break;
-	}
+        p = localbuf;
+        while(len-- > 0) {
+            if (*p == '\n') {
+                if (len < 3) {
+                    break;
+                }
+                *buf++ = '\r';
+                *buf++ = '\n';
+                *buf++ = ' ';
+                written += 3;
+                p++;
+            } else {
+                *buf++ = *p++;
+                written++;
+            }
+        }
+        break;
+    }
 
-	return written;
+    return written;
 }
 
 /* On initialization we register our keywords. */
-extern "C" int init(void) {
-	registerKeyword("fortune", fortune);
-	return 0;
+extern "C" int init(void)
+{
+    registerKeyword("fortune", fortune);
+    return 0;
 }
