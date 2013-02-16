@@ -57,6 +57,8 @@ common_SOURCES = actions.cpp \
 	       scenario.hpp \
 	       screen.cpp \
 	       screen.hpp \
+	       socket.cpp \
+	       socket.hpp \
 	       socketowner.cpp \
 	       socketowner.hpp \
 	       stat.cpp \
