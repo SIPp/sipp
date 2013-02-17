@@ -1,5 +1,9 @@
 bin_PROGRAMS = sipp
 
+TESTS = sipp_unittest
+
+noinst_PROGRAMS = $(TESTS)
+
 EXTRA_DIST = fortune.cpp pcap tools LICENSE.txt MEDIA.txt README.txt THANKS sipp.dtd
 
 if HAVE_OPENSSL
@@ -15,10 +19,6 @@ pcap_SOURCES = prepare_pcap.c \
 	       prepare_pcap.h \
 	       send_packets.c \
 	       send_packets.h
-endif
-
-if HAVE_UNITTEST
-DEFS += -DSIPP_UNITTEST
 endif
 
 if HAVE_SCTP
@@ -88,3 +88,8 @@ sipp_CFLAGS = $(AM_CFLAGS) @GSL_CFLAGS@
 sipp_CXXFLAGS = $(AM_CXXFLAGS) @GSL_CXXFLAGS@
 sipp_LDADD = @LIBOBJS@ @GSL_LIBS@
 
+sipp_unittest_SOURCES = $(common_SOURCES) sipp_unittest.cpp
+
+sipp_unittest_CFLAGS = $(AM_CFLAGS) @GSL_CFLAGS@
+sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) @GSL_CXXFLAGS@
+sipp_unittest_LDADD = @LIBOBJS@ @GSL_LIBS@

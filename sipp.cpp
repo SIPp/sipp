@@ -1071,44 +1071,6 @@ char* remove_pattern(char* P_buffer, char* P_extensionPattern)
     return P_buffer ;
 }
 
-
-#ifdef SIPP_UNITTEST
-
-int main()
-{
-    /* Unit testing function */
-    char ipv6_addr_brackets[] = "[fe80::92a4:deff:fe74:7af5]";
-    char ipv6_addr_port[] = "[fe80::92a4:deff:fe74:7af5]:999";
-    char ipv6_addr[] = "fe80::92a4:deff:fe74:7af5";
-    char ipv4_addr_port[] = "127.0.0.1:999";
-    char ipv4_addr[] = "127.0.0.1";
-    char hostname_port[] = "sipp.sf.net:999";
-    char hostname[] = "sipp.sf.net";
-    int port_result = -1;
-    char host_result[255];
-    char orig_addr[255];
-
-#define TEST_GET_HOST_AND_PORT(VAR, EXPECTED_HOST, EXPECTED_PORT) {\
-    strcpy(host_result,""); \
-    strcpy(orig_addr,VAR); \
-    get_host_and_port(VAR, host_result, &port_result); \
-    if ((strcmp(host_result, EXPECTED_HOST) != 0) || (port_result != EXPECTED_PORT)) \
-    {fprintf(stderr, "get_host_and_port fails for address %s - results are %s and %d, expected %s and %d\n", orig_addr, host_result, port_result, EXPECTED_HOST, EXPECTED_PORT);};\
-}
-
-    TEST_GET_HOST_AND_PORT(ipv6_addr, "fe80::92a4:deff:fe74:7af5", 0)
-    TEST_GET_HOST_AND_PORT(ipv6_addr_brackets, "fe80::92a4:deff:fe74:7af5", 0)
-    TEST_GET_HOST_AND_PORT(ipv6_addr_port, "fe80::92a4:deff:fe74:7af5", 999)
-    TEST_GET_HOST_AND_PORT(ipv4_addr, "127.0.0.1", 0)
-    TEST_GET_HOST_AND_PORT(ipv4_addr_port, "127.0.0.1", 999)
-    TEST_GET_HOST_AND_PORT(hostname, "sipp.sf.net", 0)
-    TEST_GET_HOST_AND_PORT(hostname_port, "sipp.sf.net", 999)
-
-    return 0;
-}
-
-#else
-
 /* Main */
 int main(int argc, char *argv[])
 {
@@ -2072,6 +2034,3 @@ int main(int argc, char *argv[])
     }
 
 }
-
-#endif
-
