@@ -25,6 +25,10 @@ if HAVE_SCTP
 DEFS += -DUSE_SCTP
 endif
 
+if HAVE_GSL
+DEFS += -DHAVE_GSL
+endif
+
 sipp_SOURCES = actions.cpp \
 	       auth.c \
 	       comp.c \
@@ -68,5 +72,6 @@ sipp_SOURCES = actions.cpp \
 	       $(ssl_SOURCES) \
 	       $(pcap_SOURCES)
 
-sipp_LDADD = @LIBOBJS@
-
+sipp_CFLAGS = $(AM_CFLAGS) @GSL_CFLAGS@
+sipp_CXXFLAGS = $(AM_CXXFLAGS) @GSL_CXXFLAGS@
+sipp_LDADD = @LIBOBJS@ @GSL_LIBS@

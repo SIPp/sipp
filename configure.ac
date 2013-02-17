@@ -12,6 +12,7 @@ AC_ARG_WITH([openssl],AC_HELP_STRING([--with-openssl], [build with OpenSSL suppo
 AC_ARG_WITH([pcap],AC_HELP_STRING([--with-pcap], [build with pcap support]), [pcap="$withval"],[pcap="no"])
 AC_ARG_WITH([unittest],AC_HELP_STRING([--with-unittest], [build with unit testing framework]), [unittest="$withval"],[unittest="no"])
 AC_ARG_WITH([sctp],AC_HELP_STRING([--with-sctp], [build with SCTP support]), [sctp="$withval"],[sctp="no"])
+AC_ARG_WITH([gsl],AC_HELP_STRING([--with-gsl], [build with GSL (GNU Scientific Library) support]), [gsl="$withval"],[gsl="no"])
 
 # ==================== basic compiler settings ==========================
 
@@ -136,6 +137,25 @@ fi
 # For Makefile.am
 AM_CONDITIONAL(HAVE_PCAP, test "$pcap" = "yes")
 AM_CONDITIONAL(HAVE_UNITTEST, test "$unittest" = "yes")
+
+# Conditional build with pcap
+if test "$gsl" = 'yes'; then
+	AC_CHECK_HEADERS([gsl/gsl_randist.h],,[AC_MSG_ERROR([<gsl/gsl_randist.h> header missing])])
+	AC_CHECK_HEADERS([gsl/gsl_rng.h],,[AC_MSG_ERROR([<gsl/gsl_rng.h> header missing])])
+	AC_CHECK_HEADERS([gsl/gsl_cdf.h],,[AC_MSG_ERROR([<gsl/gsl_cdf.h> header missing])])
+	AC_CHECK_LIB([gsl], [gsl_rng_alloc],
+		     [
+		      GSL_CFLAGS=`pkg-config gsl --cflags`
+		      GSL_CXXFLAGS=`pkg-config gsl --cflags`
+		      GSL_LIBS=`pkg-config gsl --libs`
+		      AC_SUBST([GSL_CFLAGS])
+		      AC_SUBST([GSL_CXXFLAGS])
+		      AC_SUBST([GSL_LIBS])
+		      ]
+		     ,[AC_MSG_ERROR([gsl library missing])])
+fi
+# For Makefile.am
+AM_CONDITIONAL(HAVE_GSL, test "$gsl" = "yes")
 
 # ==================== checks for header files ==========================
 
