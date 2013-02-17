@@ -1050,40 +1050,6 @@ void print_last_stats()
     }
 }
 
-void freeInFiles()
-{
-    for (file_map::iterator file_it = inFiles.begin(); file_it != inFiles.end(); file_it++) {
-        delete file_it->second;
-    }
-}
-
-void freeUserVarMap()
-{
-    for (int_vt_map::iterator vt_it = userVarMap.begin(); vt_it != userVarMap.end(); vt_it++) {
-        vt_it->second->putTable();
-        userVarMap[vt_it->first] = NULL;
-    }
-}
-
-void releaseGlobalAllocations()
-{
-    delete main_scenario;
-    delete ooc_scenario;
-    delete aa_scenario;
-    free_default_messages();
-    freeInFiles();
-    freeUserVarMap();
-    delete globalVariables;
-}
-
-void stop_all_traces()
-{
-    message_lfi.fptr = NULL;
-    log_lfi.fptr = NULL;
-    if(dumpInRtt) dumpInRtt = 0;
-    if(dumpInFile) dumpInFile = 0;
-}
-
 char* remove_pattern(char* P_buffer, char* P_extensionPattern)
 {
 

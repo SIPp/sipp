@@ -45,8 +45,6 @@ extern bool    timeout_exit;
 unsigned long screen_errors;
 int           screen_inited = 0;
 char          screen_exename[255];
-extern void   releaseGlobalAllocations();
-extern void   stop_all_traces();
 extern bool   backgroundMode;
 
 void (*screen_exit_handler)();
@@ -58,6 +56,14 @@ void (*screen_exit_handler)();
   gettimeofday (clock, &tzp); \
 }
 
+void stop_all_traces()
+{
+    message_lfi.fptr = NULL;
+    log_lfi.fptr = NULL;
+    if(dumpInRtt) dumpInRtt = 0;
+    if(dumpInFile) dumpInFile = 0;
+}
+
 /* ERR is actually -1, but this prevents us from needing to use curses.h in
  * sipp.cpp. */
 int screen_readkey()
@@ -67,6 +73,32 @@ int screen_readkey()
         return -1;
     }
     return c;
+}
+
+void freeInFiles()
+{
+    for (file_map::iterator file_it = inFiles.begin(); file_it != inFiles.end(); file_it++) {
+        delete file_it->second;
+    }
+}
+
+void freeUserVarMap()
+{
+    for (int_vt_map::iterator vt_it = userVarMap.begin(); vt_it != userVarMap.end(); vt_it++) {
+        vt_it->second->putTable();
+        userVarMap[vt_it->first] = NULL;
+    }
+}
+
+void releaseGlobalAllocations()
+{
+    delete main_scenario;
+    delete ooc_scenario;
+    delete aa_scenario;
+    free_default_messages();
+    freeInFiles();
+    freeUserVarMap();
+    delete globalVariables;
 }
 
 void screen_exit(int rc)
