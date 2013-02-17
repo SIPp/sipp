@@ -55,6 +55,8 @@ common_SOURCES = actions.cpp \
 	       rijndael.h \
 	       scenario.cpp \
 	       scenario.hpp \
+	       sip_parser.cpp \
+	       sip_parser.hpp \
 	       screen.cpp \
 	       screen.hpp \
 	       socket.cpp \
