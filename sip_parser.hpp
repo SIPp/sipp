@@ -25,4 +25,7 @@
 
 #define MAX_HEADER_LEN 2049
 
+char * get_header_content(const char * message, const char * name);
+char * get_header(const char * message, const char * name, bool content);
+char * get_first_line(const char * message);
 #endif /* __SIPP_SIP_PARSER_H__ */

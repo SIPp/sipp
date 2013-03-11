@@ -294,9 +294,6 @@ private:
 
     char * get_header_field_code(const char * msg, const char * code);
     char * get_last_header(const char * name);
-    char * get_header_content(const char * message, const char * name);
-    char * get_header(const char * message, const char * name, bool content);
-    char * get_first_line(const char * message);
     char * get_last_request_uri();
     unsigned long hash(const char * msg);
 

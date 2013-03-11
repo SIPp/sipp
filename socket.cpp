@@ -264,8 +264,8 @@ char *command_buffer = NULL;
 
 extern char * get_call_id(char *msg);
 extern bool sipMsgCheck (const char *P_msg, struct sipp_socket *socket);
-extern char * get_incoming_header_content(char* message, const char * name);
-extern char * get_incoming_first_line(char * message);
+extern char * get_header_content(char* message, const char * name);
+extern char * get_first_line(char * message);
 
 #ifdef _USE_OPENSSL
 SSL_CTX  *sip_trp_ssl_ctx = NULL; /* For SSL cserver context */

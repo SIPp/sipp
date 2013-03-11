@@ -39,6 +39,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "screen.hpp"
+#include "strings.hpp"
 #include "sip_parser.hpp"
 
 /*************************** Mini SIP parser ***************************/
@@ -114,60 +115,112 @@ char * get_peer_tag(char *msg)
     return tag;
 }
 
-char * get_incoming_header_content(char* message, const char * name)
+char * get_header_content(const char* message, const char * name)
+{
+    return get_header(message, name, true);
+}
+
+/* If content is true, we only return the header's contents. */
+char * get_header(const char* message, const char * name, bool content)
 {
     /* non reentrant. consider accepting char buffer as param */
     static char last_header[MAX_HEADER_LEN * 10];
-    char * src, *dest, *ptr;
+    char *src, *dest, *start, *ptr;
+    /* Are we searching for a short form header? */
+    bool short_form = false;
+    bool first_time = true;
+    char src_tmp[MAX_HEADER_LEN + 1];
 
     /* returns empty string in case of error */
-    memset(last_header, 0, sizeof(last_header));
+    last_header[0] = '\0';
 
     if((!message) || (!strlen(message))) {
         return last_header;
     }
 
-    src = message;
-    dest = last_header;
-
     /* for safety's sake */
     if (NULL == name || NULL == strrchr(name, ':')) {
+        WARNING("Can not searching for header (no colon): %s", name ? name : "(null)");
         return last_header;
     }
 
-    while((src = strstr(src, name))) {
+    do {
+        snprintf(src_tmp, MAX_HEADER_LEN, "\n%s", name);
+        src = strdup(message);
+        dest = last_header;
 
-        /* just want the header's content */
-        src += strlen(name);
+        while((src = strcasestr2(src, src_tmp))) {
+            if (content || !first_time) {
+                /* just want the header's content */
+                src += strlen(name) + 1;
+            } else {
+                src++;
+            }
+            first_time = false;
+            ptr = strchr(src, '\n');
 
-        ptr = strchr(src, '\n');
+            /* Multiline headers always begin with a tab or a space
+             * on the subsequent lines */
+            while((ptr) &&
+                    ((*(ptr+1) == ' ' ) ||
+                     (*(ptr+1) == '\t')    )) {
+                ptr = strchr(ptr + 1, '\n');
+            }
 
-        /* Multiline headers always begin with a tab or a space
-         * on the subsequent lines */
-        while((ptr) &&
-                ((*(ptr+1) == ' ' ) ||
-                 (*(ptr+1) == '\t')    )) {
-            ptr = strchr(ptr + 1, '\n');
+            if(ptr) {
+                *ptr = 0;
+            }
+            // Add "," when several headers are present
+            if (dest != last_header) {
+                /* Remove trailing whitespaces, tabs, and CRs */
+                while ((dest > last_header) &&
+                        ((*(dest-1) == ' ') || (*(dest-1) == '\r') || (*(dest-1) == '\n') || (*(dest-1) == '\t'))) {
+                    *(--dest) = 0;
+                }
+
+                dest += sprintf(dest, ",");
+            }
+            dest += sprintf(dest, "%s", src);
+            if(ptr) {
+                *ptr = '\n';
+            }
+
+            src++;
+        }
+        /* We found the header. */
+        if(dest != last_header) {
+            break;
+        }
+        /* We didn't find the header, even in its short form. */
+        if (short_form) {
+            free(src);
+            return last_header;
         }
 
-        if(ptr) {
-            *ptr = 0;
+        /* We should retry with the short form. */
+        short_form = true;
+        if (!strcasecmp(name, "call-id:")) {
+            name = "i:";
+        } else if (!strcasecmp(name, "contact:")) {
+            name = "m:";
+        } else if (!strcasecmp(name, "content-encoding:")) {
+            name = "e:";
+        } else if (!strcasecmp(name, "content-length:")) {
+            name = "l:";
+        } else if (!strcasecmp(name, "content-type:")) {
+            name = "c:";
+        } else if (!strcasecmp(name, "from:")) {
+            name = "f:";
+        } else if (!strcasecmp(name, "to:")) {
+            name = "t:";
+        } else if (!strcasecmp(name, "via:")) {
+            name = "v:";
+        } else {
+            /* There is no short form to try. */
+            free(src);
+            return last_header;
         }
-        // Add "," when several headers are present
-        if (dest != last_header) {
-            dest += sprintf(dest, ",");
-        }
-        dest += sprintf(dest, "%s", src);
-        if(ptr) {
-            *ptr = '\n';
-        }
-
-        src++;
-    }
-
-    if(dest == last_header) {
-        return last_header;
-    }
+    } while (1);
 
     *(dest--) = 0;
 
@@ -177,20 +230,37 @@ char * get_incoming_header_content(char* message, const char * name)
         *(dest--) = 0;
     }
 
+    /* Remove leading whitespaces */
+    for (start = last_header; *start == ' '; start++);
+
     /* remove enclosed CRs in multilines */
-    while((ptr = strchr(last_header, '\r'))) {
+    /* don't remove enclosed CRs for multiple headers (e.g. Via) (Rhys) */
+    while((ptr = strstr(last_header, "\r\n")) != NULL
+            && (   *(ptr + 2) == ' '
+                   || *(ptr + 2) == '\r'
+                   || *(ptr + 2) == '\t') ) {
         /* Use strlen(ptr) to include trailing zero */
         memmove(ptr, ptr+1, strlen(ptr));
     }
 
-    return last_header;
+    /* Remove illegal double CR characters */
+    while((ptr = strstr(last_header, "\r\r")) != NULL) {
+        memmove(ptr, ptr+1, strlen(ptr));
+    }
+    /* Remove illegal double Newline characters */
+    while((ptr = strstr(last_header, "\n\n")) != NULL) {
+        memmove(ptr, ptr+1, strlen(ptr));
+    }
+
+    free(src);
+    return start;
 }
 
-char * get_incoming_first_line(char * message)
+char * get_first_line(const char * message)
 {
     /* non reentrant. consider accepting char buffer as param */
     static char last_header[MAX_HEADER_LEN * 10];
-    char * src;
+    const char * src;
 
     /* returns empty string in case of error */
     memset(last_header, 0, sizeof(last_header));
@@ -214,7 +284,6 @@ char * get_incoming_first_line(char * message)
 
     return last_header;
 }
-
 
 char * get_call_id(char *msg)
 {
