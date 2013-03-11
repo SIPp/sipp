@@ -885,14 +885,6 @@ int call::send_raw(const char * msg, int index, int len)
 
     callDebug("Sending %s message for call %s (index %d, hash %u):\n%s\n\n", TRANSPORT_TO_STRING(transport), id, index, hash(msg), msg);
 
-    if (useShortMessagef == 1) {
-        struct timeval currentTime;
-        GET_TIME (&currentTime);
-        const char * cs=get_header_content(msg,"CSeq:");
-        TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
-                       CStat::formatTime(&currentTime),id, cs, get_first_line(msg));
-    }
-
     if((index!=-1) && (lost(index))) {
         TRACE_MSG("%s message voluntary lost (while sending).", TRANSPORT_TO_STRING(transport));
         callDebug("%s message voluntary lost (while sending) (index %d, hash %u).\n", TRANSPORT_TO_STRING(transport), index, hash(msg));

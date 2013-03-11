@@ -645,7 +645,7 @@ void print_count_file(FILE *f, int header)
         main_scenario->stats->getStartTime(&startTime);
         unsigned long globalElapsedTime = CStat::computeDiffTimeInMs (&currentTime, &startTime);
         fprintf(f, "%s%s", CStat::formatTime(&currentTime), stat_delimiter);
-        fprintf(f, "%s%s", CStat::msToHHMMSSmmm(globalElapsedTime), stat_delimiter);
+        fprintf(f, "%s%s", CStat::msToHHMMSSus(globalElapsedTime), stat_delimiter);
     }
 
     for(unsigned int index = 0; index < main_scenario->messages.size(); index ++) {

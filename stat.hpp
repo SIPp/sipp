@@ -323,7 +323,7 @@ public:
      * @param P_tv.
      * @return a pointer on a static string containing formated time
      */
-    static char* formatTime (struct timeval* P_tv, bool microseconds = false);
+    static char* formatTime (struct timeval* P_tv);
 
     /**
      * setRepartitionCallLength
@@ -406,7 +406,7 @@ public:
      *
      * @return a pointer on a static string containing formated time
      */
-    static char* msToHHMMSSmmm (unsigned long P_ms);
+    static char* msToHHMMSSus (unsigned long P_ms);
 
     /* Get a counter ID by name. */
     int findCounter(const char *counter, bool alloc);

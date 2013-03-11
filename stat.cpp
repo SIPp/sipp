@@ -1188,8 +1188,8 @@ void CStat::displayData (FILE *f)
     DISPLAY_CROSS_LINE();
 
     DISPLAY_TXT_COL ("Elapsed Time",
-                     msToHHMMSSmmm(localElapsedTime),
-                     msToHHMMSSmmm(globalElapsedTime));
+                     msToHHMMSSus(localElapsedTime),
+                     msToHHMMSSus(globalElapsedTime));
 
     DISPLAY_VAL_RATEF_COL ("Call Rate",
                            realInstantCallRate,
@@ -1238,13 +1238,13 @@ void CStat::displayData (FILE *f)
 
         sprintf(s, "Response Time %s", M_revRtdMap[i]);
         DISPLAY_TXT_COL (s,
-                         msToHHMMSSmmm( (unsigned long)computeRtdMean(i, GENERIC_PD)),
-                         msToHHMMSSmmm( (unsigned long)computeRtdMean(i, GENERIC_C)));
+                         msToHHMMSSus( (unsigned long)computeRtdMean(i, GENERIC_PD)),
+                         msToHHMMSSus( (unsigned long)computeRtdMean(i, GENERIC_C)));
     }
     /* I Broke this!
       DISPLAY_TXT_COL ("Call Length",
-                       msToHHMMSSmmm( (unsigned long)computeMean(CPT_PD_AverageCallLength_Sum, CPT_PD_NbOfCallUsedForAverageCallLength)),
-                       msToHHMMSSmmm( (unsigned long)computeMean(CPT_C_AverageCallLength_Sum, CPT_C_NbOfCallUsedForAverageCallLength) ));
+                       msToHHMMSSus( (unsigned long)computeMean(CPT_PD_AverageCallLength_Sum, CPT_PD_NbOfCallUsedForAverageCallLength)),
+                       msToHHMMSSus( (unsigned long)computeMean(CPT_C_AverageCallLength_Sum, CPT_C_NbOfCallUsedForAverageCallLength) ));
     */
     DISPLAY_CROSS_LINE ();
 
@@ -1302,8 +1302,8 @@ void CStat::displayStat (FILE *f)
     DISPLAY_CROSS_LINE();
 
     DISPLAY_TXT_COL ("Elapsed Time",
-                     msToHHMMSSmmm(localElapsedTime),
-                     msToHHMMSSmmm(globalElapsedTime));
+                     msToHHMMSSus(localElapsedTime),
+                     msToHHMMSSus(globalElapsedTime));
 
     DISPLAY_VAL_RATEF_COL ("Call Rate",  realInstantCallRate, averageCallRate);
     DISPLAY_CROSS_LINE ();
@@ -1347,12 +1347,12 @@ void CStat::displayStat (FILE *f)
 
         sprintf(s, "Response Time %s", M_revRtdMap[i]);
         DISPLAY_TXT_COL (s,
-                         msToHHMMSSmmm( (unsigned long)computeRtdMean(i, GENERIC_PD)),
-                         msToHHMMSSmmm( (unsigned long)computeRtdMean(i, GENERIC_C)));
+                         msToHHMMSSus( (unsigned long)computeRtdMean(i, GENERIC_PD)),
+                         msToHHMMSSus( (unsigned long)computeRtdMean(i, GENERIC_C)));
     }
     DISPLAY_TXT_COL ("Call Length",
-                     msToHHMMSSmmm( (unsigned long)computeMean(CPT_PD_AverageCallLength_Sum, CPT_PD_NbOfCallUsedForAverageCallLength ) ),
-                     msToHHMMSSmmm( (unsigned long)computeMean(CPT_C_AverageCallLength_Sum, CPT_C_NbOfCallUsedForAverageCallLength) ));
+                     msToHHMMSSus( (unsigned long)computeMean(CPT_PD_AverageCallLength_Sum, CPT_PD_NbOfCallUsedForAverageCallLength ) ),
+                     msToHHMMSSus( (unsigned long)computeMean(CPT_C_AverageCallLength_Sum, CPT_C_NbOfCallUsedForAverageCallLength) ));
     fflush(f);
 }
 
@@ -1595,21 +1595,21 @@ void CStat::dumpData ()
 
     // SF917289 << M_counters[CPT_C_UnexpectedMessage]    << stat_delimiter;
     for (int i = 1; i <= nRtds(); i++) {
-        (*M_outputStream) << msToHHMMSSmmm( (unsigned long)computeRtdMean(i, GENERIC_PL)) << stat_delimiter;
-        (*M_outputStream) << msToHHMMSSmmm( (unsigned long)computeRtdMean(i, GENERIC_C)) << stat_delimiter;
-        (*M_outputStream) << msToHHMMSSmmm( (unsigned long)computeRtdStdev(i, GENERIC_PL)) << stat_delimiter;
-        (*M_outputStream) << msToHHMMSSmmm( (unsigned long)computeRtdStdev(i, GENERIC_C)) << stat_delimiter;
+        (*M_outputStream) << msToHHMMSSus( (unsigned long)computeRtdMean(i, GENERIC_PL)) << stat_delimiter;
+        (*M_outputStream) << msToHHMMSSus( (unsigned long)computeRtdMean(i, GENERIC_C)) << stat_delimiter;
+        (*M_outputStream) << msToHHMMSSus( (unsigned long)computeRtdStdev(i, GENERIC_PL)) << stat_delimiter;
+        (*M_outputStream) << msToHHMMSSus( (unsigned long)computeRtdStdev(i, GENERIC_C)) << stat_delimiter;
     }
     (*M_outputStream)
-            << msToHHMMSSmmm( (unsigned long)computeMean(CPT_PL_AverageCallLength_Sum, CPT_PL_NbOfCallUsedForAverageCallLength) ) << stat_delimiter;
+            << msToHHMMSSus( (unsigned long)computeMean(CPT_PL_AverageCallLength_Sum, CPT_PL_NbOfCallUsedForAverageCallLength) ) << stat_delimiter;
     (*M_outputStream)
-            << msToHHMMSSmmm( (unsigned long)computeMean(CPT_C_AverageCallLength_Sum, CPT_C_NbOfCallUsedForAverageCallLength) ) << stat_delimiter;
+            << msToHHMMSSus( (unsigned long)computeMean(CPT_C_AverageCallLength_Sum, CPT_C_NbOfCallUsedForAverageCallLength) ) << stat_delimiter;
     (*M_outputStream)
-            << msToHHMMSSmmm( (unsigned long)computeStdev(CPT_PL_AverageCallLength_Sum,
+            << msToHHMMSSus( (unsigned long)computeStdev(CPT_PL_AverageCallLength_Sum,
                               CPT_PL_NbOfCallUsedForAverageCallLength,
                               CPT_PL_AverageCallLength_Squares )) << stat_delimiter;
     (*M_outputStream)
-            << msToHHMMSSmmm( (unsigned long)computeStdev(CPT_C_AverageCallLength_Sum,
+            << msToHHMMSSus( (unsigned long)computeStdev(CPT_C_AverageCallLength_Sum,
                               CPT_C_NbOfCallUsedForAverageCallLength,
                               CPT_C_AverageCallLength_Squares )) << stat_delimiter;
 
@@ -1691,21 +1691,21 @@ char* CStat::msToHHMMSS (unsigned long P_ms)
     return (L_time);
 } /* end of msToHHMMSS */
 
-char* CStat::msToHHMMSSmmm (unsigned long P_ms)
+char* CStat::msToHHMMSSus (unsigned long P_ms)
 {
     static char L_time [TIME_LENGTH];
-    unsigned long sec, hh, mm, ss, mmm;
+    unsigned long sec, hh, mm, ss, us;
 
     sec  = P_ms / 1000;
     hh   = sec / 3600;
     mm   = (sec - hh * 3600) / 60;
     ss   = sec - (hh * 3600) - (mm * 60);
-    mmm  = P_ms - (hh * 3600000) - (mm * 60000) - (ss*1000);
-    sprintf (L_time, "%2.2lu:%2.2lu:%2.2lu:%3.3lu", hh, mm, ss, mmm);
+    us  = 1000*(P_ms - (hh * 3600000) - (mm * 60000) - (ss*1000));
+    sprintf (L_time, "%2.2lu:%2.2lu:%2.2lu:%06lu", hh, mm, ss, us);
     return (L_time);
-} /* end of msToHHMMSS */
+} /* end of msToHHMMSSus */
 
-char* CStat::formatTime (struct timeval* P_tv, bool microseconds)
+char* CStat::formatTime (struct timeval* P_tv)
 {
     static char L_time [TIME_LENGTH];
     struct tm * L_currentDate;
@@ -1717,27 +1717,14 @@ char* CStat::formatTime (struct timeval* P_tv, bool microseconds)
     if (L_currentDate == NULL) {
         memset (L_time, 0, TIME_LENGTH);
     } else {
-        if (microseconds) {
-            sprintf(L_time, "%4.4d-%2.2d-%2.2d %2.2d:%2.2d:%2.2d:%03.03f",
+            sprintf(L_time, "%4.4d-%2.2d-%2.2d %2.2d:%2.2d:%2.2d:%06d",
                     L_currentDate->tm_year + 1900,
                     L_currentDate->tm_mon + 1,
                     L_currentDate->tm_mday,
                     L_currentDate->tm_hour,
                     L_currentDate->tm_min,
                     L_currentDate->tm_sec,
-                    (double)P_tv->tv_usec/(double)1000.0);
-        } else {
-            sprintf(L_time, "%4.4d-%2.2d-%2.2d\t%2.2d:%2.2d:%2.2d:%3.3d\t%10.10ld.%6.6ld",
-                    L_currentDate->tm_year + 1900,
-                    L_currentDate->tm_mon + 1,
-                    L_currentDate->tm_mday,
-                    L_currentDate->tm_hour,
-                    L_currentDate->tm_min,
-                    L_currentDate->tm_sec,
-                    (int) (P_tv->tv_usec)/1000,
-                    (long) (P_tv->tv_sec),
-                    (long) (P_tv->tv_usec));
-        }
+                    P_tv->tv_usec);
     }
     return (L_time);
 } /* end of formatTime */

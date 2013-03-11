@@ -1024,17 +1024,6 @@ ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len, struct s
         pending_messages--;
     }
 
-    if (useMessagef == 1) {
-        struct timeval currentTime;
-        GET_TIME (&currentTime);
-        TRACE_MSG("----------------------------------------------- %s\n"
-                  "%s %smessage received [%d] bytes :\n\n%s\n",
-                  CStat::formatTime(&currentTime, true),
-                  TRANSPORT_TO_STRING(socket->ss_transport),
-                  socket->ss_control ? "control " : "",
-                  avail, buf);
-    }
-
     return avail;
 }
 
@@ -1055,12 +1044,21 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
         return;
     }
     listener *listener_ptr = get_listener(call_id);
+    struct timeval currentTime;
+    GET_TIME (&currentTime);
 
     if (useShortMessagef == 1) {
-        struct timeval currentTime;
-        GET_TIME (&currentTime);
         TRACE_SHORTMSG("%s\tR\t%s\tCSeq:%s\t%s\n",
                        CStat::formatTime(&currentTime),call_id, get_incoming_header_content(msg,"CSeq:"), get_incoming_first_line(msg));
+    }
+
+    if (useMessagef == 1) {
+        TRACE_MSG("----------------------------------------------- %s\n"
+                  "%s %smessage received [%d] bytes :\n\n%s\n",
+                  CStat::formatTime(&currentTime),
+                  TRANSPORT_TO_STRING(socket->ss_transport),
+                  socket->ss_control ? "control " : "",
+                  msg_size, msg);
     }
 
     if(!listener_ptr) {
@@ -1576,7 +1574,7 @@ size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
                       "Compressed message received, header :\n"
                       "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x "
                       "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
-                      CStat::formatTime(&currentTime, true),
+                      CStat::formatTime(&currentTime),
                       buff[0] , buff[1] , buff[2] , buff[3],
                       buff[4] , buff[5] , buff[6] , buff[7],
                       buff[8] , buff[9] , buff[10], buff[11],
@@ -2249,19 +2247,28 @@ int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, in
     }
 
     rc = socket_write_primitive(socket, buffer, len, dest);
+    struct timeval currentTime;
+    GET_TIME (&currentTime);
 
     if (rc == len) {
         /* Everything is great. */
         if (useMessagef == 1) {
-            struct timeval currentTime;
-            GET_TIME (&currentTime);
             TRACE_MSG("----------------------------------------------- %s\n"
                       "%s %smessage sent (%d bytes):\n\n%.*s\n",
-                      CStat::formatTime(&currentTime, true),
+                      CStat::formatTime(&currentTime),
                       TRANSPORT_TO_STRING(socket->ss_transport),
                       socket->ss_control ? "control " : "",
                       len, len, buffer);
         }
+
+        if (useShortMessagef == 1) {
+            char *msg = strdup(buffer);
+            char *call_id = get_call_id(msg);
+            TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
+                           CStat::formatTime(&currentTime), call_id, get_incoming_header_content(msg,"CSeq:"), get_incoming_first_line(msg));
+            free(msg);
+        }
+
     } else if (rc <= 0) {
         if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
             buffer_write(socket, buffer, len, dest);
@@ -2269,11 +2276,9 @@ int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, in
             return len;
         }
         if (useMessagef == 1) {
-            struct timeval currentTime;
-            GET_TIME (&currentTime);
             TRACE_MSG("----------------------------------------------- %s\n"
                       "Error sending %s message:\n\n%.*s\n",
-                      CStat::formatTime(&currentTime, true),
+                      CStat::formatTime(&currentTime),
                       TRANSPORT_TO_STRING(socket->ss_transport),
                       len, buffer);
         }
@@ -2281,11 +2286,9 @@ int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, in
     } else {
         /* We have a truncated message, which must be handled internally to the write function. */
         if (useMessagef == 1) {
-            struct timeval currentTime;
-            GET_TIME (&currentTime);
             TRACE_MSG("----------------------------------------------- %s\n"
                       "Truncation sending %s message (%d of %d sent):\n\n%.*s\n",
-                      CStat::formatTime(&currentTime, true),
+                      CStat::formatTime(&currentTime),
                       TRANSPORT_TO_STRING(socket->ss_transport),
                       rc, len, len, buffer);
         }
