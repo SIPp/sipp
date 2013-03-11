@@ -203,7 +203,7 @@ uint16_t get_remote_port_media(const char *msg, int pattype)
 {
     const char *pattern;
     char *begin, *end;
-    char number[7];
+    char number[6];
 
     if (pattype == PAT_AUDIO) {
         pattern = "m=audio ";
@@ -223,7 +223,7 @@ uint16_t get_remote_port_media(const char *msg, int pattype)
         /* m=audio not found */
         return 0;
     }
-    begin += strlen(pattern) - 1;
+    begin += strlen(pattern);
     end = strstr(begin, "\r\n");
     if (!end) {
         free(my_msg);
