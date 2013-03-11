@@ -264,8 +264,6 @@ char *command_buffer = NULL;
 
 extern char * get_call_id(char *msg);
 extern bool sipMsgCheck (const char *P_msg, struct sipp_socket *socket);
-extern char * get_header_content(char* message, const char * name);
-extern char * get_first_line(char * message);
 
 #ifdef _USE_OPENSSL
 SSL_CTX  *sip_trp_ssl_ctx = NULL; /* For SSL cserver context */
@@ -285,9 +283,7 @@ int passwd_call_back_routine(char  *buf , int size , int flag, void *passwd)
     buf[size - 1] = '\0';
     return(strlen(buf));
 }
-#endif
 
-#ifdef _USE_OPENSSL
 /****** SSL error handling                         *************/
 const char *sip_tls_error_string(SSL *ssl, int size)
 {
@@ -312,6 +308,8 @@ const char *sip_tls_error_string(SSL *ssl, int size)
     }
     return "Unknown SSL Error.";
 }
+
+#endif
 
 char * get_inet_address(struct sockaddr_storage * addr)
 {
@@ -1049,7 +1047,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 
     if (useShortMessagef == 1) {
         TRACE_SHORTMSG("%s\tR\t%s\tCSeq:%s\t%s\n",
-                       CStat::formatTime(&currentTime),call_id, get_incoming_header_content(msg,"CSeq:"), get_incoming_first_line(msg));
+                       CStat::formatTime(&currentTime),call_id, get_header_content(msg,"CSeq:"), get_first_line(msg));
     }
 
     if (useMessagef == 1) {
@@ -1757,7 +1755,6 @@ int enter_congestion(struct sipp_socket *socket, int again)
     return -1;
 }
 
-
 static int write_error(struct sipp_socket *socket, int ret)
 {
     const char *errstring = strerror(errno);
@@ -1912,6 +1909,8 @@ void buffer_read(struct sipp_socket *socket, struct socketbuf *newbuf)
 
     prev->next = newbuf;
 }
+
+#ifdef _USE_OPENSSL
 
 /****** Certificate Verification Callback FACILITY *************/
 int sip_tls_verify_callback(int ok , X509_STORE_CTX *store)
@@ -2265,7 +2264,7 @@ int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, in
             char *msg = strdup(buffer);
             char *call_id = get_call_id(msg);
             TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
-                           CStat::formatTime(&currentTime), call_id, get_incoming_header_content(msg,"CSeq:"), get_incoming_first_line(msg));
+                           CStat::formatTime(&currentTime), call_id, get_header_content(msg,"CSeq:"), get_first_line(msg));
             free(msg);
         }
 

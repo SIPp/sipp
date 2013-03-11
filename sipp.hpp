@@ -71,6 +71,7 @@
 #include "task.hpp"
 #include "listener.hpp"
 #include "socketowner.hpp"
+#include "socket.hpp"
 #include "call.hpp"
 #include "comp.h"
 #include "variables.hpp"
@@ -468,95 +469,6 @@ int get_method(char *msg);
 char * get_peer_tag(char *msg);
 unsigned long int get_cseq_value(char *msg);
 unsigned long get_reply_code(char *msg);
-
-/********************** Network Interfaces ********************/
-
-int send_message(int s, void ** comp_state, char * msg);
-#ifdef _USE_OPENSSL
-int send_message_tls(SSL *s, void ** comp_state, char * msg);
-#endif
-
-/* Socket Buffer Management. */
-#define NO_COPY 0
-#define DO_COPY 1
-struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy);
-void free_socketbuf(struct socketbuf *socketbuf);
-
-/* These buffers lets us read past the end of the message, and then split it if
- * required.  This eliminates the need for reading a message octet by octet and
- * performing a second read for the content length. */
-struct socketbuf {
-    char *buf;
-    size_t len;
-    size_t offset;
-    struct sockaddr_storage addr;
-    struct socketbuf *next;
-};
-
-#ifdef USE_SCTP
-#define SCTP_DOWN 0
-#define SCTP_CONNECTING 1
-#define SCTP_UP 2
-#endif
-/* This is an abstraction of a socket, which provides buffers for input and
- * output. */
-struct sipp_socket {
-    int  ss_count; /* How many users are there of this socket? */
-
-    int ss_transport; /* T_TCP, T_UDP, or T_TLS. */
-    bool ss_ipv6;
-    bool ss_control; /* Is this a control socket? */
-    bool ss_call_socket; /* Is this a call socket? */
-    bool ss_changed_dest; /* Has the destination changed from default. */
-
-    int ss_fd;	/* The underlying file descriptor for this socket. */
-    void *ss_comp_state; /* The compression state. */
-#ifdef _USE_OPENSSL
-    SSL *ss_ssl;	/* The underlying SSL descriptor for this socket. */
-    BIO *ss_bio;	/* The underlying BIO descriptor for this socket. */
-#endif
-    struct sockaddr_storage ss_remote_sockaddr; /* Who we are talking to. */
-    struct sockaddr_storage ss_dest; /* Who we are talking to. */
-
-
-    int ss_pollidx; /* The index of this socket in our poll structures. */
-    bool ss_congested; /* Is this socket congested? */
-    bool ss_invalid; /* Has this socket been closed remotely? */
-
-    struct socketbuf *ss_in; /* Buffered input. */
-    size_t ss_msglen;	/* Is there a complete SIP message waiting, and if so how big? */
-    struct socketbuf *ss_out; /* Buffered output. */
-#ifdef USE_SCTP
-    int sctpstate;
-#endif
-};
-
-/* Write data to a socket. */
-int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
-/* Mark a socket as "bad". */
-void sipp_socket_invalidate(struct sipp_socket *socket);
-/* Actually free the socket. */
-void sipp_close_socket(struct sipp_socket *socket);
-
-#define WS_EAGAIN 1 /* Return EAGAIN if there is no room for writing the message. */
-#define WS_BUFFER 2 /* Buffer the message if there is no room for writing the message. */
-
-
-#if defined (__hpux) || defined (__alpha) && !defined (__FreeBSD__)
-#define sipp_socklen_t  int
-#else
-#define sipp_socklen_t  socklen_t
-#endif
-
-#define SOCK_ADDR_SIZE(a) \
-  (((a)->ss_family == AF_INET) ? sizeof(struct sockaddr_in) \
-                               : sizeof(struct sockaddr_in6))
-
-#if defined(__cplusplus) && defined (__hpux)
-#define _RCAST(type, val) (reinterpret_cast<type> (val))
-#else
-#define _RCAST(type, val) ((type)(val))
-#endif
 
 /********************* Utilities functions  *******************/
 
