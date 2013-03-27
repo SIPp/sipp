@@ -38,7 +38,7 @@ class screentask *screentask::instance = NULL;
 void stattask::initialize()
 {
     assert(instance == NULL);
-    if (dumpInFile || useCountf || rate_increase) {
+    if (dumpInFile || useCountf || useErrorCodesf || rate_increase) {
         instance = new stattask();
     }
 }
@@ -95,6 +95,10 @@ void stattask::report()
     }
     if (useCountf) {
         print_count_file(countf, 0);
+    }
+
+    if (useErrorCodesf) {
+        print_error_codes_file(codesf);
     }
 
     main_scenario->stats->computeStat(CStat::E_RESET_PL_COUNTERS);

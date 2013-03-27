@@ -16,8 +16,10 @@
 
 extern FILE * screenf                             _DEFVAL(0);
 extern FILE * countf                              _DEFVAL(0);
+extern FILE * codesf                              _DEFVAL(0);
 // extern FILE * timeoutf                            _DEFVAL(0);
 extern bool   useMessagef                         _DEFVAL(0);
+extern bool   useErrorCodesf                      _DEFVAL(0);
 extern bool   useCallDebugf                       _DEFVAL(0);
 extern bool   useShortMessagef                    _DEFVAL(0);
 extern bool   useScreenf                          _DEFVAL(0);
@@ -84,6 +86,7 @@ void rotate_calldebugf();
 /* Screen/Statistics Printing Functions. */
 void print_statistics(int last);
 void print_count_file(FILE *f, int header);
+void print_error_codes_file(FILE *f);
 
 /* This must go after the GLOBALS_FULL_DEFINITION, because we need the extern keyword. */
 /*#ifdef __cplusplus

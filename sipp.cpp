@@ -310,6 +310,7 @@ struct sipp_option options_table[] = {
     {"trace_shortmsg", "Displays sent and received SIP messages as CSV in <scenario file name>_<pid>_shortmessages.log", SIPP_OPTION_SETFLAG, &useShortMessagef, 1},
     {"trace_screen", "Dump statistic screens in the <scenario_name>_<pid>_screens.log file when quitting SIPp. Useful to get a final status report in background mode (-bg option).", SIPP_OPTION_SETFLAG, &useScreenf, 1},
     {"trace_err", "Trace all unexpected messages in <scenario file name>_<pid>_errors.log.", SIPP_OPTION_SETFLAG, &print_all_responses, 1},
+    {"trace_error_codes", "Dumps the SIP response codes of unexpected messages to <scenario file name>_<pid>_error_codes.log.", SIPP_OPTION_SETFLAG, &useErrorCodesf, 1},
 //	{"trace_timeout", "Displays call ids for calls with timeouts in <scenario file name>_<pid>_timeout.log", SIPP_OPTION_SETFLAG, &useTimeoutf, 1},
     {"trace_calldebug", "Dumps debugging information about aborted calls to <scenario_name>_<pid>_calldebug.log file.", SIPP_OPTION_SETFLAG, &useCallDebugf, 1},
     {"trace_stat", "Dumps all statistics in <scenario_name>_<pid>.csv file. Use the '-h stat' option for a detailed description of the statistics file content.", SIPP_OPTION_SETFLAG, &dumpInFile, 1},
@@ -1746,6 +1747,16 @@ int main(int argc, char *argv[])
         }
         print_count_file(countf, 1);
     }
+
+    if (useErrorCodesf == 1) {
+        char L_file_name [MAX_PATH];
+        sprintf (L_file_name, "%s_%d_error_codes.csv", scenario_file, getpid());
+        codesf = fopen(L_file_name, "w");
+        if(!codesf) {
+            ERROR("Unable to create '%s'", L_file_name);
+        }
+    }
+
 
     if (dumpInRtt == 1) {
         main_scenario->stats->initRtt((char*)scenario_file, (char*)".csv",

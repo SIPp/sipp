@@ -757,6 +757,30 @@ void print_count_file(FILE *f, int header)
     fflush(f);
 }
 
+void print_error_codes_file(FILE *f)
+{
+    if (!main_scenario || !main_scenario->stats) {
+        return;
+    }
+
+    // Print time and elapsed time to file
+    struct timeval currentTime, startTime;
+    GET_TIME(&currentTime);
+    main_scenario->stats->getStartTime(&startTime);
+    unsigned long globalElapsedTime = CStat::computeDiffTimeInMs (&currentTime, &startTime);
+    fprintf(f, "%s%s", CStat::formatTime(&currentTime), stat_delimiter);
+    fprintf(f, "%s%s", CStat::msToHHMMSSus(globalElapsedTime), stat_delimiter);
+
+    // Print comma-separated list of all error codes seen since the last time this function was called
+    for (; main_scenario->stats->error_codes.size() != 0;) {
+	    fprintf(f, "%d,", main_scenario->stats->error_codes[main_scenario->stats->error_codes.size() -1]);
+	    main_scenario->stats->error_codes.pop_back();
+    }
+
+    fprintf(f, "\n");
+    fflush(f);
+}
+
 /* Function to dump all available screens in a file */
 void print_screens(void)
 {

@@ -1755,6 +1755,10 @@ bool call::process_unexpected(char * msg)
     callDebug("Unexpected %s message received (index %d, hash %u):\n\n%s\n",
               TRANSPORT_TO_STRING(transport), msg_index, hash(msg), msg);
 
+    if (get_reply_code(msg)) {
+        this->call_scenario->stats->error_codes.push_back(get_reply_code(msg));
+    }
+
     if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
         // if twin socket call => reset the other part here
         if (twinSippSocket && (msg_index > 0)) {

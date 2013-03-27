@@ -224,6 +224,8 @@ int CStat::init ()
     M_outputStreamRtt = NULL;
     M_headerAlreadyDisplayedRtt = false;
 
+    std::vector<int> error_codes(0);
+
     return(1);
 }
 

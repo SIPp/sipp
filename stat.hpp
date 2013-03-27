@@ -32,6 +32,8 @@
 #define MAX_CHAR_BUFFER_SIZE          1024
 
 #include <ctime>
+#include <vector>
+#include <string>
 #include <sys/time.h>
 #include <time.h>
 #include <iostream>
@@ -63,6 +65,8 @@ __________________________________________________________________________
 class CStat
 {
 public:
+
+    std::vector<int> error_codes;
 
     /*
      * This struct is used for repartition table
