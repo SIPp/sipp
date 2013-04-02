@@ -122,9 +122,7 @@ void send_packets_cleanup(void *arg)
     close(*sock);
 }
 
-
-int
-send_packets (play_args_t * play_args)
+int send_packets (play_args_t * play_args)
 {
     int ret, sock, port_diff;
     pcap_pkt *pkt_index, *pkt_max;
@@ -140,6 +138,7 @@ send_packets (play_args_t * play_args)
     struct sockaddr_in6 to6, from6;
     char buffer[PCAP_MAXPACKET];
     int temp_sum;
+    int len;
 
 #ifndef MSG_DONTWAIT
     int fd_flags;
@@ -151,6 +150,7 @@ send_packets (play_args_t * play_args)
             ERROR("Can't create raw socket (need to run as root?)");
         }
         from_port = &(((struct sockaddr_in6 *)(void *) from )->sin6_port);
+        len = sizeof(struct sockaddr_in6);
         to_port = &(((struct sockaddr_in6 *)(void *) to )->sin6_port);
     } else {
         sock = socket(PF_INET, SOCK_RAW, IPPROTO_UDP);
@@ -158,7 +158,14 @@ send_packets (play_args_t * play_args)
             ERROR("Can't create raw socket (need to run as root?)");
         }
         from_port = &(((struct sockaddr_in *)(void *) from )->sin_port);
+        len = sizeof(struct sockaddr_in);
         to_port = &(((struct sockaddr_in *)(void *) to )->sin_port);
+    }
+
+
+    if ((ret = bind(sock, (struct sockaddr *)(void *)from, len))) {
+        ERROR("Can't bind media raw socket");
+        return ret;
     }
 
 #ifndef MSG_DONTWAIT
@@ -291,5 +298,3 @@ void do_sleep (struct timeval *time, struct timeval *last,
         while ((nanosleep (&sleep, &sleep) == -1) && (errno == -EINTR));
     }
 }
-
-

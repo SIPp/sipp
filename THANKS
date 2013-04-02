@@ -25,11 +25,12 @@ Jordan Walbesser
 Ken Crowell
 Peter Lemenkov
 Menyus Hegedűs
+Mitko Mitev
 
 SIPp also uses code originally by Aaron Turner (send_packets.c) and L Peter
 Deutsch (md5.c).
 
-The following people have contributed useful bug reports to SIPp:
+The following people have contributed to SIPp in other useful ways (bug reports, testing, etc.):
 Paul Belanger
 Jan Stanek
 Enrico Hartung
