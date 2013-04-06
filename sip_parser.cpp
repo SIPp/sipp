@@ -125,11 +125,11 @@ char * get_header(const char* message, const char * name, bool content)
 {
     /* non reentrant. consider accepting char buffer as param */
     static char last_header[MAX_HEADER_LEN * 10];
-    char *src, *dest, *start, *ptr;
+    char *src, *src_orig, *dest, *start, *ptr;
     /* Are we searching for a short form header? */
     bool short_form = false;
     bool first_time = true;
-    char src_tmp[MAX_HEADER_LEN + 1];
+    char header_with_newline[MAX_HEADER_LEN + 1];
 
     /* returns empty string in case of error */
     last_header[0] = '\0';
@@ -140,27 +140,34 @@ char * get_header(const char* message, const char * name, bool content)
 
     /* for safety's sake */
     if (NULL == name || NULL == strrchr(name, ':')) {
-        WARNING("Can not searching for header (no colon): %s", name ? name : "(null)");
+        WARNING("Can not search for header (no colon): %s", name ? name : "(null)");
         return last_header;
     }
 
+    src_orig = strdup(message);
+
     do {
-        snprintf(src_tmp, MAX_HEADER_LEN, "\n%s", name);
-        src = strdup(message);
+        /* We want to start from the beginning of the message each time
+         * through this loop, because we may be searching for a short form. */
+        src = src_orig;
+
+        snprintf(header_with_newline, MAX_HEADER_LEN, "\n%s", name);
         dest = last_header;
 
-        while((src = strcasestr2(src, src_tmp))) {
+        while((src = strcasestr2(src, header_with_newline))) {
             if (content || !first_time) {
-                /* just want the header's content */
+                /* Just want the header's content, so skip over the header
+                 * and newline */
                 src += strlen(name) + 1;
             } else {
+                /* Just skip the newline */
                 src++;
             }
             first_time = false;
             ptr = strchr(src, '\n');
 
             /* Multiline headers always begin with a tab or a space
-             * on the subsequent lines */
+             * on the subsequent lines. Skip those lines. */
             while((ptr) &&
                     ((*(ptr+1) == ' ' ) ||
                      (*(ptr+1) == '\t')    )) {
@@ -174,7 +181,10 @@ char * get_header(const char* message, const char * name, bool content)
             if (dest != last_header) {
                 /* Remove trailing whitespaces, tabs, and CRs */
                 while ((dest > last_header) &&
-                        ((*(dest-1) == ' ') || (*(dest-1) == '\r') || (*(dest-1) == '\n') || (*(dest-1) == '\t'))) {
+                        ((*(dest-1) == ' ')  ||
+                         (*(dest-1) == '\r') ||
+                         (*(dest-1) == '\n') ||
+                         (*(dest-1) == '\t'))) {
                     *(--dest) = 0;
                 }
 
@@ -193,7 +203,7 @@ char * get_header(const char* message, const char * name, bool content)
         }
         /* We didn't find the header, even in its short form. */
         if (short_form) {
-            free(src);
+            free(src_orig);
             return last_header;
         }
 
@@ -217,7 +227,7 @@ char * get_header(const char* message, const char * name, bool content)
             name = "v:";
         } else {
             /* There is no short form to try. */
-            free(src);
+            free(src_orig);
             return last_header;
         }
     } while (1);
@@ -252,7 +262,7 @@ char * get_header(const char* message, const char * name, bool content)
         memmove(ptr, ptr+1, strlen(ptr));
     }
 
-    free(src);
+    free(src_orig);
     return start;
 }
 
