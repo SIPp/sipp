@@ -21,8 +21,11 @@ sipp_unittest
 sipp_unittest.*
 stamp-h1
 test-driver
-test-suite.log
+*.log
 *.csv
 vim_ctags
 *.xml
 stamp-h.in
+*.orig
+*.rej
+*.patch
