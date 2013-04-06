@@ -323,7 +323,7 @@ public:
      * @param P_tv.
      * @return a pointer on a static string containing formated time
      */
-    static char* formatTime (struct timeval* P_tv);
+    static char* formatTime (struct timeval* P_tv, bool with_epoch = false);
 
     /**
      * setRepartitionCallLength

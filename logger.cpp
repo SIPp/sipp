@@ -261,7 +261,7 @@ void print_statistics(int last)
         print_bottom_line(stdout,last);
         if (!last && screen_last_error[0]) {
             char *errstart = screen_last_error;
-            int colonsleft = 4;/* We want to skip the time. */
+            int colonsleft = 3;/* We want to skip the time. */
             while (*errstart && colonsleft) {
                 if (*errstart == ':') {
                     colonsleft--;
