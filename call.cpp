@@ -2511,7 +2511,8 @@ bool call::process_twinSippCom(char * msg)
                 search_index < (int)call_scenario->messages.size();
                 search_index++) {
             if(call_scenario->messages[search_index] -> M_type != MSG_TYPE_RECVCMD) {
-                if(call_scenario->messages[search_index] -> optional) {
+                if ((call_scenario->messages[search_index] -> optional) ||
+                    (call_scenario->messages[search_index] -> M_type == MSG_TYPE_NOP)) {
                     continue;
                 }
                 /* The received message is different from the expected one */
