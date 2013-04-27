@@ -2657,8 +2657,8 @@ void call::extract_cseq_method (char* method, char* msg)
         if (( value = strchr (cseq,  ':'))) {
             value++;
             while ( isspace(*value)) value++;  // ignore any white spaces after the :
-            while ( !isspace(*value)) value++;  // ignore the CSEQ numnber
-            value++;
+            while ( !isspace(*value)) value++;  // ignore the CSEQ number
+            while ( isspace(*value)) value++;  // ignore spaces after CSEQ number
             char *end = value;
             int nbytes = 0;
             /* A '\r' terminates the line, so we want to catch that too. */
