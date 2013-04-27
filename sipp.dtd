@@ -21,6 +21,7 @@
 <!ATTLIST exec command CDATA >
 <!ATTLIST exec int_cmd (stop_now|stop_gracefully|stop_call) "stop_call" >
 <!ATTLIST exec play_pcap CDATA >
+<!ATTLIST exec rtp_stream CDATA >
 
 <!ELEMENT pause EMPTY >
 <!ATTLIST pause milliseconds NMTOKEN #IMPLIED >

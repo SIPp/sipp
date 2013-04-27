@@ -10,6 +10,7 @@ AM_INIT_AUTOMAKE([foreign])
 
 AC_ARG_WITH([openssl],AC_HELP_STRING([--with-openssl], [build with OpenSSL support]), [openssl="$withval"],[openssl="no"])
 AC_ARG_WITH([pcap],AC_HELP_STRING([--with-pcap], [build with pcap support]), [pcap="$withval"],[pcap="no"])
+AC_ARG_WITH([rtpstream],AC_HELP_STRING([--with-rtpstream], [build with RTP streaming support]), [rtp="$withval"],[rtp="no"])
 AC_ARG_WITH([sctp],AC_HELP_STRING([--with-sctp], [build with SCTP support]), [sctp="$withval"],[sctp="no"])
 AC_ARG_WITH([gsl],AC_HELP_STRING([--with-gsl], [build with GSL (GNU Scientific Library) support]), [gsl="$withval"],[gsl="no"])
 
@@ -135,6 +136,8 @@ if test "$pcap" = 'yes'; then
 fi
 # For Makefile.am
 AM_CONDITIONAL(HAVE_PCAP, test "$pcap" = "yes")
+
+AM_CONDITIONAL(HAVE_RTP, test "$rtp" = "yes")
 
 # Conditional build with pcap
 if test "$gsl" = 'yes'; then

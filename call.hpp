@@ -35,6 +35,9 @@
 #ifdef PCAPPLAY
 #include "send_packets.h"
 #endif
+#ifdef RTP_STREAM
+#include "rtpstream.hpp"
+#endif
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -178,6 +181,9 @@ private:
     play_args_t play_args_v;
 #endif
 
+#ifdef RTP_STREAM
+  rtpstream_callinfo_t rtpstream_callinfo;
+#endif
 
     /* holds the auth header and if the challenge was 401 or 407 */
     char         * dialog_authentication;
@@ -304,6 +310,10 @@ private:
     bool   use_ipv6;
 
     void   get_remote_media_addr(char * message);
+
+#ifdef RTP_STREAM
+  void   extract_rtp_remote_addr (char * message);
+#endif
 
     bool lost(int index);
 

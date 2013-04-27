@@ -1624,6 +1624,17 @@ void scenario::parseAction(CActions *actions)
             } else if ((ptr = xp_get_value((char *) "play_pcap_video"))) {
                 ERROR("play_pcap_video requires pcap support! Please recompile SIPp");
 #endif
+#ifdef RTP_STREAM
+      } else if ((ptr = xp_get_value((char *) "rtp_stream"))) {
+	if (!strcmp(ptr, "pause")) {
+         tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PAUSE);
+	} else if (!strcmp(ptr, "resume")) {
+         tmpAction->setActionType(CAction::E_AT_RTP_STREAM_RESUME);
+        } else {
+         tmpAction->setRTPStreamActInfo(ptr);
+	 tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PLAY);
+        }
+#endif
             } else {
                 ERROR("illegal <exec> in the scenario\n");
             }

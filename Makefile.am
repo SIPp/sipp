@@ -21,6 +21,11 @@ pcap_SOURCES = prepare_pcap.c \
 	       send_packets.h
 endif
 
+if HAVE_RTP
+DEFS += -DRTP_STREAM
+rtp_SOURCES = rtpstream.cpp rtpstream.hpp
+endif
+
 if HAVE_SCTP
 DEFS += -DUSE_SCTP
 endif
@@ -78,7 +83,8 @@ common_SOURCES = actions.cpp \
 	       xp_parser.c \
 	       xp_parser.h \
 	       $(ssl_SOURCES) \
-	       $(pcap_SOURCES)
+	       $(pcap_SOURCES) \
+		   $(rtp_SOURCES)
 
 sipp_SOURCES = $(common_SOURCES) \
 	       sipp.cpp \

@@ -292,6 +292,79 @@ void call::get_remote_media_addr(char *msg)
 
 #endif
 
+#ifdef RTP_STREAM
+/******* Extract RTP remote media infomartion from SDP  *******/
+/***** Similar to the routines used by the PCAP play code *****/
+
+#define SDP_IPADDR_PREFIX    "\nc=IN IP"
+#define SDP_AUDIOPORT_PREFIX "\nm=audio"
+#define SDP_VIDEOPORT_PREFIX "\nm=video"
+void call::extract_rtp_remote_addr (char * msg)
+{
+  char   *search;
+  char   *copy;
+  char   ip_addr[128];
+  int    ip_ver;
+  int    audio_port= 0;
+  int    video_port= 0;
+
+  /* Look for start of message body
+  search= strstr(msg,"\r\n\r\n");
+  if (!search) {
+    ERROR("extract_rtp_remote_addr: SDP message body not found");
+  }
+  msg= search+2;	/* skip past header. point to blank line before body */
+  /* Now search for IP address field */
+  search= strstr(msg,SDP_IPADDR_PREFIX);
+  if (search) {
+    search+= strlen(SDP_IPADDR_PREFIX);
+    /* Get IP version number from c= */
+    if (*search=='4') {
+      ip_ver= 4;
+    } else if (*search=='6') {
+      ip_ver= 6;
+    } else {
+      ip_ver= 0;
+      ERROR("extract_rtp_remote_addr: invalid IP version '%c' in SDP message body",*search);
+    }
+    search++;
+    copy= ip_addr;
+    while ( (*search==' ') || (*search=='\t') ) {
+      search++;
+    }
+    while (!( (*search==' ') || (*search=='\t') || (*search=='\r') || (*search=='\n') )) {
+      *(copy++)= *(search++);
+    }
+    *copy= 0;
+  } else {
+    ERROR("extract_rtp_remote_addr: no IP address found in SDP message body");
+    *ip_addr= 0;
+  }
+  /* Now try to find the port number for the audio stream */
+  search= strstr(msg,SDP_AUDIOPORT_PREFIX);
+  if (search) {
+    search+= strlen(SDP_AUDIOPORT_PREFIX);
+    while ( (*search==' ') || (*search=='\t') ) {
+      search++;
+    }
+    sscanf (search,"%d",&audio_port);
+  }
+  /* And find the port number for the video stream */
+  search= strstr(msg,SDP_VIDEOPORT_PREFIX);
+  if (search) {
+    search+= strlen(SDP_VIDEOPORT_PREFIX);
+    while ( (*search==' ') || (*search=='\t') ) {
+      search++;
+    }
+    sscanf (search,"%d",&video_port);
+  }
+  if ((audio_port==0)&&(video_port==0)) {
+    ERROR("extract_rtp_remote_addr: no m=audio or m=video line found in SDP message body");
+  }
+  rtpstream_set_remote (&rtpstream_callinfo,ip_ver,ip_addr,audio_port,video_port);
+}
+#endif
+
 /******* Very simple hash for retransmission detection  *******/
 
 unsigned long call::hash(const char * msg)
@@ -443,6 +516,10 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
 #ifdef _USE_OPENSSL
     m_ctx_ssl = NULL ;
     m_bio = NULL ;
+#endif
+#ifdef RTP_STREAM
+  /* check and warn on rtpstream_new_call result? -> error alloc'ing mem */
+  rtpstream_new_call (&rtpstream_callinfo);
 #endif
 
 #ifdef PCAPPLAY
@@ -652,6 +729,9 @@ call::~call()
         free(next_req_url);
     }
 
+#ifdef RTP_STREAM
+  rtpstream_end_call (&rtpstream_callinfo);
+#endif
 
     if(dialog_authentication) {
         free(dialog_authentication);
@@ -2068,6 +2148,28 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             dest += sprintf(dest, "%u", port);
             break;
         }
+#ifdef RTP_STREAM
+      case E_Message_RTPStream_Audio_Port:
+        {
+          int temp_audio_port= rtpstream_get_audioport (&rtpstream_callinfo);
+          if (!temp_audio_port) {
+            /* Make this a warning instead? */
+            ERROR("cannot assign a free audio port to this call - using 0 for [rtpstream_audio_port]");
+          }
+          dest += snprintf(dest, left, "%d",temp_audio_port);
+        }
+        break;
+      case E_Message_RTPStream_Video_Port:
+        {
+          int temp_video_port= rtpstream_get_videoport (&rtpstream_callinfo);
+          if (!temp_video_port) {
+            /* Make this a warning instead? */
+            ERROR("cannot assign a free video port to this call - using 0 for [rtpstream_video_port]");
+          }
+          dest += snprintf(dest, left, "%d",temp_video_port);
+        }
+        break;
+#endif
         case E_Message_Media_IP_Type:
             dest += snprintf(dest, left, "%s", (media_ip_is_ipv6 ? "6" : "4"));
             break;
@@ -2840,6 +2942,13 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
             return true;
         }
     }
+ 
+#ifdef RTP_STREAM
+  /* Check if message has a SDP in it; and extract media information. */
+  if (!strcmp(get_header_content(msg, (char*)"Content-Type:"),"application/sdp")) {
+    extract_rtp_remote_addr(msg);
+  }
+#endif
 
     /* Is it a response ? */
     if((msg[0] == 'S') &&
@@ -3718,8 +3827,17 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             int ret = pthread_create(&media_thread, &attr, send_wrapper,
                                      (void *) play_args);
             if(ret)
-                ERROR("Can create thread to send RTP packets");
+                ERROR("Can't create thread to send RTP packets");
             pthread_attr_destroy(&attr);
+#endif
+
+#ifdef RTP_STREAM
+    } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSE) {
+      rtpstream_pause (&rtpstream_callinfo);
+    } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUME) {
+      rtpstream_resume (&rtpstream_callinfo);
+    } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
+      rtpstream_play (&rtpstream_callinfo,currentAction->getRTPStreamActInfo());
 #endif
         } else {
             ERROR("call::executeAction unknown action");

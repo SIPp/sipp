@@ -30,6 +30,9 @@ class CSample;
 #ifdef PCAPPLAY
 #include "prepare_pcap.h"
 #endif
+#ifdef RTP_STREAM
+#include "rtpstream.hpp"
+#endif
 
 #define MAX_ACTION_MESSAGE 3
 
@@ -69,6 +72,11 @@ public:
 #ifdef PCAPPLAY
         E_AT_PLAY_PCAP_AUDIO,
         E_AT_PLAY_PCAP_VIDEO,
+#endif
+#ifdef RTP_STREAM
+      E_AT_RTP_STREAM_PAUSE,
+      E_AT_RTP_STREAM_RESUME,
+      E_AT_RTP_STREAM_PLAY,
 #endif
         E_AT_NB_ACTION
     };
@@ -124,6 +132,9 @@ public:
 #ifdef PCAPPLAY
     pcap_pkts     *getPcapPkts(); /* send_packets specific function */
 #endif
+#ifdef RTP_STREAM
+    rtpstream_actinfo_t *getRTPStreamActInfo(); /* return stored rtp stream playback params */
+#endif
 
     void setActionType   (T_ActionType   P_value);
     void setLookingPlace (T_LookingPlace P_value);
@@ -149,6 +160,10 @@ public:
 #ifdef PCAPPLAY
     void setPcapArgs     (char *         P_value);  /* send_packets specific function */
     void setPcapArgs     (pcap_pkts   *  P_value);  /* send_packets specific function */
+#endif
+#ifdef RTP_STREAM
+    void setRTPStreamActInfo (char      *P_value);  /* parse rtp stream playback values from string */
+    void setRTPStreamActInfo (rtpstream_actinfo_t *P_value); /* copy stored rtp stream playback params */
 #endif
 
     void setSubVarId     (int P_value);
@@ -200,6 +215,9 @@ private:
 #ifdef PCAPPLAY
     /* pcap specific member */
     pcap_pkts  *   M_pcapArgs;
+#endif
+#ifdef RTP_STREAM
+      rtpstream_actinfo_t M_rtpstream_actinfo;
 #endif
     void setSubString(char** P_target, char* P_source, int P_start, int P_stop);
 };
