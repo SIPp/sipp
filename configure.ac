@@ -36,6 +36,7 @@ case "$host" in
 	*-freebsd*)
 		CFLAGS="$CFLAGS -D__LINUX -I/usr/local/include"
 		CPPFLAGS="$CPPFLAGS -D__LINUX -I/usr/local/include"
+        LDFLAGS="$LDFLAGS -L/usr/local/lib"
 		;;
 	*-sunos*)
 		CFLAGS="$CFLAGS -D__SUNOS"
@@ -44,7 +45,7 @@ case "$host" in
 	*-cygwin*)
 		CFLAGS="$CFLAGS -D__CYGWIN -I /usr/include/ncurses -I /usr/lib/WpdPack/Include -I /usr/include/SctpDrv"
 		CPPFLAGS="$CPPFLAGS -D__CYGWIN -I /usr/include/ncurses -I /usr/lib/WpdPack/Include -I /usr/include/SctpDrv"
-                LDFLAGS="$LDFLAGS -L /usr/lib/WpdPack/Lib -L /usr/lib/SctpDrv"
+        LDFLAGS="$LDFLAGS -L /usr/lib/WpdPack/Lib -L /usr/lib/SctpDrv"
 		;;
 	*-tru64*)
 		CFLAGS="$CFLAGS -D__OSF1"
