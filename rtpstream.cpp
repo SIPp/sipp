@@ -16,7 +16,6 @@
  *  Author : Deon van der Westhuysen - June 2012 - Vodacom PTY LTD
  */
 #include <stdlib.h>
-#include <malloc.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>

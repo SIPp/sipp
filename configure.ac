@@ -34,8 +34,8 @@ case "$host" in
 		CPPFLAGS="$CPPFLAGS -D__HPUX"
 		;;
 	*-freebsd*)
-		CFLAGS="$CFLAGS -D__LINUX"
-		CPPFLAGS="$CPPFLAGS -D__LINUX"
+		CFLAGS="$CFLAGS -D__LINUX -I/usr/local/include"
+		CPPFLAGS="$CPPFLAGS -D__LINUX -I/usr/local/include"
 		;;
 	*-sunos*)
 		CFLAGS="$CFLAGS -D__SUNOS"
@@ -144,6 +144,8 @@ if test "$gsl" = 'yes'; then
 	AC_CHECK_HEADERS([gsl/gsl_randist.h],,[AC_MSG_ERROR([<gsl/gsl_randist.h> header missing])])
 	AC_CHECK_HEADERS([gsl/gsl_rng.h],,[AC_MSG_ERROR([<gsl/gsl_rng.h> header missing])])
 	AC_CHECK_HEADERS([gsl/gsl_cdf.h],,[AC_MSG_ERROR([<gsl/gsl_cdf.h> header missing])])
+	AC_CHECK_LIB([m],[cos])
+	AC_CHECK_LIB([gslcblas], [cblas_dgemm])
 	AC_CHECK_LIB([gsl], [gsl_rng_alloc],
 		     [
 		      GSL_CFLAGS=`pkg-config gsl --cflags`
