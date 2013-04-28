@@ -49,8 +49,14 @@ struct sipp_socket *stdin_socket = NULL;
 
 /******************** Recv Poll Processing *********************/
 
-int                  pollnfds;
+int pollnfds;
+#ifdef HAVE_EPOLL
+int epollfd;
+struct epoll_event   epollfiles[SIPP_MAXFDS];
+struct epoll_event*  epollevents;
+#else
 struct pollfd        pollfiles[SIPP_MAXFDS];
+#endif
 struct sipp_socket  *sockets[SIPP_MAXFDS];
 
 int pending_messages = 0;
@@ -928,6 +934,14 @@ void sipp_socket_invalidate(struct sipp_socket *socket)
     }
 #endif
 
+    /* In some error conditions, the socket FD has already been closed - if it hasn't, do so now. */
+    if (socket->ss_fd != -1) {
+#ifdef HAVE_EPOLL
+        int rc = epoll_ctl(epollfd, EPOLL_CTL_DEL, socket->ss_fd, NULL);
+        if (rc == -1) {
+            WARNING_NO("Failed to delete FD from epoll");
+        }
+#endif
     shutdown(socket->ss_fd, SHUT_RDWR);
 
 #ifdef USE_SCTP
@@ -939,8 +953,9 @@ void sipp_socket_invalidate(struct sipp_socket *socket)
     }
 #endif
 
-    close(socket->ss_fd);
+    sipp_abort_connection(socket->ss_fd);
     socket->ss_fd = -1;
+  }
 
     if((pollidx = socket->ss_pollidx) >= pollnfds) {
         ERROR("Pollset error: index %d is greater than number of fds %d!", pollidx, pollnfds);
@@ -953,7 +968,20 @@ void sipp_socket_invalidate(struct sipp_socket *socket)
     assert(pollnfds > 0);
 
     pollnfds--;
+#ifdef HAVE_EPOLL
+    if (pollidx < pollnfds) {
+        epollfiles[pollidx] = epollfiles[pollnfds];
+        epollfiles[pollidx].data.u32 = pollidx;
+        if (sockets[pollnfds]->ss_fd != -1) {
+            int rc = epoll_ctl(epollfd, EPOLL_CTL_MOD, sockets[pollnfds]->ss_fd, &epollfiles[pollidx]);
+            if (rc == -1) {
+                WARNING_NO("Failed to update FD within epoll");
+            }
+        }
+    }
+#else 
     pollfiles[pollidx] = pollfiles[pollnfds];
+#endif
     sockets[pollidx] = sockets[pollnfds];
     sockets[pollidx]->ss_pollidx = pollidx;
     sockets[pollnfds] = NULL;
@@ -969,6 +997,21 @@ void sipp_socket_invalidate(struct sipp_socket *socket)
 #endif
 }
 
+void sipp_abort_connection(int fd) {
+    /* Disable linger - we'll send a RST when we close. */
+    struct linger flush;
+    flush.l_onoff = 1;
+    flush.l_linger = 0;
+    setsockopt(fd, SOL_SOCKET, SO_LINGER, &flush, sizeof(flush));
+
+    /* Mark the socket as non-blocking.  It's not clear whether this is required but can't hurt. */
+    int flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+    /* Actually close the socket. */
+    close(fd);
+}
+
 void sipp_close_socket (struct sipp_socket *socket)
 {
     int count = --socket->ss_count;
@@ -978,6 +1021,7 @@ void sipp_close_socket (struct sipp_socket *socket)
     }
 
     sipp_socket_invalidate(socket);
+    sockets_pending_reset.erase(socket);
     free(socket);
 }
 
@@ -1032,7 +1076,10 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
         return;
     }
     if (sipMsgCheck(msg, socket) == false) {
-        WARNING("non SIP message discarded");
+        if ((msg_size != 4) ||
+            (memcmp(msg, "\r\n\r\n", 4) != 0)) {
+            WARNING("non SIP message discarded: \"%.*s\"", msg_size, msg);
+        }
         return;
     }
 
@@ -1217,9 +1264,18 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
     /* Store this socket in the tables. */
     ret->ss_pollidx = pollnfds++;
     sockets[ret->ss_pollidx] = ret;
-    pollfiles[ret->ss_pollidx].fd      = ret->ss_fd;
-    pollfiles[ret->ss_pollidx].events  = POLLIN | POLLERR;
-    pollfiles[ret->ss_pollidx].revents = 0;
+#ifdef HAVE_EPOLL
+    epollfiles[ret->ss_pollidx].data.u32 = ret->ss_pollidx;
+    epollfiles[ret->ss_pollidx].events   = EPOLLIN;
+    int rc = epoll_ctl(epollfd, EPOLL_CTL_ADD, ret->ss_fd, &epollfiles[ret->ss_pollidx]);
+    if (rc == -1) {
+        ERROR_NO("Failed to add FD to epoll");
+    }
+#else
+     pollfiles[ret->ss_pollidx].fd      = ret->ss_fd;
+     pollfiles[ret->ss_pollidx].events  = POLLIN | POLLERR;
+     pollfiles[ret->ss_pollidx].revents = 0;
+#endif
 
     return ret;
 }
@@ -1452,11 +1508,22 @@ int sipp_do_connect_socket(struct sipp_socket *socket)
     }
 #endif
 
+    int flags = fcntl(socket->ss_fd, F_GETFL, 0);
+    fcntl(socket->ss_fd, F_SETFL, flags | O_NONBLOCK);
+
     errno = 0;
     ret = connect(socket->ss_fd, (struct sockaddr *)&socket->ss_dest, SOCK_ADDR_SIZE(&socket->ss_dest));
     if (ret < 0) {
-        return ret;
+        if (errno == EINPROGRESS) {
+            /* Block this socket until the connect completes - this is very similar to entering congestion, but we don't want to increment congestion statistics. */
+            enter_congestion(socket, 0);
+            nb_net_cong--;
+        } else {
+            return ret;
+        }
     }
+
+    fcntl(socket->ss_fd, F_SETFL, flags);
 
     if (socket->ss_transport == T_TLS) {
 #ifdef _USE_OPENSSL
@@ -1486,8 +1553,13 @@ int sipp_connect_socket(struct sipp_socket *socket, struct sockaddr_storage *des
 
 int sipp_reconnect_socket(struct sipp_socket *socket)
 {
-    assert(socket->ss_fd == -1);
-
+    if ((!socket->ss_invalid) &&
+        (socket->ss_fd != -1)) {
+        WARNING("When reconnecting socket, already have file descriptor %d", socket->ss_fd);
+        sipp_abort_connection(socket->ss_fd);
+        socket->ss_fd = -1;
+    }
+ 
     socket->ss_fd = socket_fd(socket->ss_ipv6, socket->ss_transport);
     if (socket->ss_fd == -1) {
         ERROR_NO("Could not obtain new socket: ");
@@ -1513,13 +1585,24 @@ int sipp_reconnect_socket(struct sipp_socket *socket)
         /* Store this socket in the tables. */
         socket->ss_pollidx = pollnfds++;
         sockets[socket->ss_pollidx] = socket;
+#ifdef HAVE_EPOLL
+        epollfiles[socket->ss_pollidx].data.u32 = socket->ss_pollidx;
+        epollfiles[socket->ss_pollidx].events   = EPOLLIN;
+#else
         pollfiles[socket->ss_pollidx].fd      = socket->ss_fd;
         pollfiles[socket->ss_pollidx].events  = POLLIN | POLLERR;
         pollfiles[socket->ss_pollidx].revents = 0;
+#endif
 
         socket->ss_invalid = false;
     }
 
+#ifdef HAVE_EPOLL
+    int rc = epoll_ctl(epollfd, EPOLL_CTL_ADD, socket->ss_fd, &epollfiles[socket->ss_pollidx]);
+    if (rc == -1) {
+        ERROR_NO("Failed to add FD to epoll");
+    }
+#endif
     return sipp_do_connect_socket(socket);
 }
 
@@ -1738,20 +1821,28 @@ void sipp_customize_socket(struct sipp_socket *socket)
 /* This socket is congested, mark it as such and add it to the poll files. */
 int enter_congestion(struct sipp_socket *socket, int again)
 {
-	extern struct pollfd        pollfiles[SIPP_MAXFDS];
+    if (!socket->ss_congested) {
+      nb_net_cong++;
+    }
     socket->ss_congested = true;
 
     TRACE_MSG("Problem %s on socket  %d and poll_idx  is %d \n",
               again == EWOULDBLOCK ? "EWOULDBLOCK" : "EAGAIN",
               socket->ss_fd, socket->ss_pollidx);
-
-    pollfiles[socket->ss_pollidx].events |= POLLOUT;
-
+#ifdef HAVE_EPOLL
+    epollfiles[socket->ss_pollidx].events |= EPOLLOUT;
+    int rc = epoll_ctl(epollfd, EPOLL_CTL_MOD, socket->ss_fd, &epollfiles[socket->ss_pollidx]);
+    if (rc == -1) {
+        WARNING_NO("Failed to set EPOLLOUT");
+    }
+#else
+     pollfiles[socket->ss_pollidx].events |= POLLOUT;
+#endif
+ 
 #ifdef USE_SCTP
     if (!(socket->ss_transport == T_SCTP &&
             socket->sctpstate == SCTP_CONNECTING))
 #endif
-        nb_net_cong++;
     return -1;
 }
 
@@ -1777,7 +1868,7 @@ static int write_error(struct sipp_socket *socket, int ret)
     if ((socket->ss_transport == T_TCP || socket->ss_transport == T_SCTP)
             && errno == EPIPE) {
         nb_net_send_errors++;
-        close(socket->ss_fd);
+        sipp_abort_connection(socket->ss_fd);
         socket->ss_fd = -1;
         sockets_pending_reset.insert(socket);
         if (reconnect_allowed()) {
@@ -1856,7 +1947,7 @@ int read_error(struct sipp_socket *socket, int ret)
             return 0;
         }
 
-        close(socket->ss_fd);
+        sipp_abort_connection(socket->ss_fd);
         socket->ss_fd = -1;
         sockets_pending_reset.insert(socket);
 

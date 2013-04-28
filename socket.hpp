@@ -125,6 +125,8 @@ struct sipp_socket {
 int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
 /* Mark a socket as "bad". */
 void sipp_socket_invalidate(struct sipp_socket *socket);
+/* Abort a connection - close the socket quickly. */
+void sipp_abort_connection(int fd);
 /* Actually free the socket. */
 void sipp_close_socket(struct sipp_socket *socket);
 

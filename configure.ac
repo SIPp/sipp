@@ -161,6 +161,13 @@ fi
 # For Makefile.am
 AM_CONDITIONAL(HAVE_GSL, test "$gsl" = "yes")
 
+AX_HAVE_EPOLL([AX_CONFIG_FEATURE_ENABLE(epoll)],
+    [AX_CONFIG_FEATURE_DISABLE(epoll)])
+AX_CONFIG_FEATURE([epoll], [This platform supports epoll(7)],
+    [HAVE_EPOLL], [This platform supports epoll(7).],
+    [epoll="yes"], [epoll="no"])
+
+AM_CONDITIONAL(HAVE_EPOLL, test "$epoll" = "yes")
 # ==================== checks for header files ==========================
 
 AC_FUNC_ALLOCA

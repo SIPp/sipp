@@ -1020,8 +1020,8 @@ int call::send_raw(const char * msg, int index, int len)
     assert(sock);
 
     rc = write_socket(sock, msg, len, WS_BUFFER, &call_peer);
-    if(rc == -1 && errno == EWOULDBLOCK) {
-        return -1;
+    if(rc < 0 && errno == EWOULDBLOCK) {
+        return rc;
     }
 
     if(rc < 0) {
@@ -1150,11 +1150,6 @@ char * call::send_scene(int index, int *send_status, int *len)
     }
 
     assert(call_socket);
-
-    if (call_socket->ss_congested) {
-        *send_status = -1;
-        return NULL;
-    }
 
     assert(call_scenario->messages[index]->send_scheme);
 
@@ -1413,7 +1408,7 @@ bool call::executeMessage(message *curmsg)
         }
 
         msg_snd = send_scene(msg_index, &send_status, &msgLen);
-        if(send_status == -1 && errno == EWOULDBLOCK) {
+        if(send_status < 0 && errno == EWOULDBLOCK) {
             if (incr_cseq) --cseq;
             /* Have we set the timeout yet? */
             if (send_timeout) {

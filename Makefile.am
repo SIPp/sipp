@@ -34,6 +34,10 @@ if HAVE_GSL
 DEFS += -DHAVE_GSL
 endif
 
+if HAVE_EPOLL
+DEFS += -DHAVE_EPOLL
+endif
+
 common_SOURCES = actions.cpp \
 	       auth.c \
 	       comp.c \

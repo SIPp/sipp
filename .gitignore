@@ -2,7 +2,6 @@
 *~
 .deps/
 Makefile
-Makefile.in
 aclocal.m4
 autom4te.cache/
 config.guess
@@ -11,7 +10,6 @@ config.h.in
 config.log
 config.status
 config.sub
-configure
 depcomp
 install-sh
 missing
