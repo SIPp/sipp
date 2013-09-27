@@ -4,8 +4,8 @@ AC_INIT([SIPp], [3.3], [sipp-users@lists.sourceforge.net], [sipp])
 
 AC_CANONICAL_TARGET
 
-AC_CONFIG_SRCDIR([sipp.cpp])
-AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_SRCDIR([src/sipp.cpp])
+AC_CONFIG_HEADERS([include/config.h])
 AM_INIT_AUTOMAKE([foreign])
 
 AC_ARG_WITH([openssl],AC_HELP_STRING([--with-openssl], [build with OpenSSL support]), [openssl="$withval"],[openssl="no"])
