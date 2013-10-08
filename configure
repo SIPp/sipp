@@ -750,6 +750,7 @@ with_rtpstream
 with_sctp
 with_gsl
 enable_dependency_tracking
+enable_epoll
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1384,6 +1385,7 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
+  --enable-epoll          This platform supports epoll(7)
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -7552,11 +7554,103 @@ else
 fi
 
 
-AX_HAVE_EPOLL(AX_CONFIG_FEATURE_ENABLE(epoll),
-    AX_CONFIG_FEATURE_DISABLE(epoll))
-AX_CONFIG_FEATURE(epoll, This platform supports epoll(7),
-    HAVE_EPOLL, This platform supports epoll(7).,
-    epoll="yes", epoll="no")
+  ax_have_epoll_cppflags="${CPPFLAGS}"
+  ac_fn_c_check_header_mongrel "$LINENO" "linux/version.h" "ac_cv_header_linux_version_h" "$ac_includes_default"
+if test "x$ac_cv_header_linux_version_h" = xyes; then :
+  CPPFLAGS="${CPPFLAGS} -DHAVE_LINUX_VERSION_H"
+fi
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Linux epoll(7) interface" >&5
+$as_echo_n "checking for Linux epoll(7) interface... " >&6; }
+  if ${ax_cv_have_epoll+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+      #include <sys/epoll.h>
+#ifdef HAVE_LINUX_VERSION_H
+#  include <linux/version.h>
+#  if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,45)
+#    error linux kernel version is too old to have epoll
+#  endif
+#endif
+
+int
+main ()
+{
+int fd, rc;
+struct epoll_event ev;
+fd = epoll_create(128);
+rc = epoll_wait(fd, &ev, 1, 0);
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ax_cv_have_epoll=yes
+else
+  ax_cv_have_epoll=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+
+  CPPFLAGS="${ax_have_epoll_cppflags}"
+  if test "${ax_cv_have_epoll}" = "yes"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+   ax_config_feature_epoll=yes
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+   ax_config_feature_epoll=no
+
+fi
+
+
+# Check whether --enable-epoll was given.
+if test "${enable_epoll+set}" = set; then :
+  enableval=$enable_epoll;
+case "${enableval}" in
+   yes)
+     ax_config_feature_epoll="yes"
+     ;;
+   no)
+     ax_config_feature_epoll="no"
+     ;;
+   *)
+     as_fn_error $? "bad value ${enableval} for feature --epoll" "$LINENO" 5
+     ;;
+esac
+
+fi
+
+
+if test "$ax_config_feature_epoll" = yes; then :
+     $as_echo "#define HAVE_EPOLL 1" >>confdefs.h
+
+  epoll="yes"
+  if test "$ax_config_feature_verbose" = yes; then :
+       { $as_echo "$as_me:${as_lineno-$LINENO}: Feature epoll is enabled" >&5
+$as_echo "$as_me: Feature epoll is enabled" >&6;}
+
+fi
+
+else
+     epoll="no"
+  if test "$ax_config_feature_verbose" = yes; then :
+       { $as_echo "$as_me:${as_lineno-$LINENO}: Feature epoll is disabled" >&5
+$as_echo "$as_me: Feature epoll is disabled" >&6;}
+
+fi
+
+fi
+
+
+
+
 
  if test "$epoll" = "yes"; then
   HAVE_EPOLL_TRUE=
