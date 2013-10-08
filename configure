@@ -2981,7 +2981,7 @@ fi
 if test "${with_rtpstream+set}" = set; then :
   withval=$with_rtpstream; rtp="$withval"
 else
-  rtp="no"
+  rtp="yes"
 fi
 
 
