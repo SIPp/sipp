@@ -4,26 +4,31 @@ TESTS = sipp_unittest
 
 noinst_PROGRAMS = $(TESTS)
 
+AM_CFLAGS=-I./include
+AM_CPPFLAGS=$(AM_CFLAGS)
+
 EXTRA_DIST = fortune.cpp pcap tools LICENSE.txt MEDIA.txt README.txt THANKS sipp.dtd
 
 if HAVE_OPENSSL
 DEFS += -D_USE_OPENSSL
-ssl_SOURCES = sslcommon.h \
-	      sslinit.c \
-	      sslthreadsafe.c
+ssl_incl = include/sslcommon.h
+ssl_SOURCES = $(ssl_incl) \
+              src/sslinit.c \
+	      src/sslthreadsafe.c
 endif
 
 if HAVE_PCAP
 DEFS += -DPCAPPLAY
-pcap_SOURCES = prepare_pcap.c \
-	       prepare_pcap.h \
-	       send_packets.c \
-	       send_packets.h
+pcap_incl = include/prepare_pcap.h \
+	       include/send_packets.h
+pcap_SOURCES = $(pcap_incl) \
+               src/prepare_pcap.c \
+	       src/send_packets.c
 endif
 
 if HAVE_RTP
 DEFS += -DRTP_STREAM
-rtp_SOURCES = rtpstream.cpp rtpstream.hpp
+rtp_SOURCES = src/rtpstream.cpp include/rtpstream.hpp
 endif
 
 if HAVE_SCTP
@@ -38,67 +43,69 @@ if HAVE_EPOLL
 DEFS += -DHAVE_EPOLL
 endif
 
-common_SOURCES = actions.cpp \
-	       auth.c \
-	       comp.c \
-	       comp.h \
-	       call.cpp \
-	       deadcall.cpp \
-	       infile.cpp \
-	       infile.hpp \
-	       listener.cpp \
-	       listener.hpp \
-	       logger.cpp \
-	       logger.hpp \
-	       md5.c \
-	       md5.h \
-	       message.cpp \
-	       message.hpp \
-	       milenage.c \
-	       milenage.h \
-	       opentask.cpp \
-	       opentask.hpp \
-	       reporttask.cpp \
-	       reporttask.hpp \
-	       rijndael.c \
-	       rijndael.h \
-	       scenario.cpp \
-	       scenario.hpp \
-	       sip_parser.cpp \
-	       sip_parser.hpp \
-	       screen.cpp \
-	       screen.hpp \
-	       socket.cpp \
-	       socket.hpp \
-	       socketowner.cpp \
-	       socketowner.hpp \
-	       stat.cpp \
-	       stat.hpp \
-	       strings.cpp \
-	       strings.hpp \
-	       task.cpp \
-	       task.hpp \
-	       time.cpp \
-	       time.hpp \
-	       variables.cpp \
-	       variables.hpp \
-	       watchdog.cpp \
-	       watchdog.hpp \
-	       xp_parser.c \
-	       xp_parser.h \
+common_incl = include/comp.h \
+	        include/infile.hpp \
+	        include/listener.hpp \
+	        include/logger.hpp \
+	        include/md5.h \
+	        include/message.hpp \
+	        include/milenage.h \
+	        include/opentask.hpp \
+	        include/reporttask.hpp \
+	        include/rijndael.h \
+	        include/scenario.hpp \
+	        include/sip_parser.hpp \
+	        include/screen.hpp \
+	        include/socket.hpp \
+	        include/socketowner.hpp \
+	        include/stat.hpp \
+	        include/strings.hpp \
+	        include/task.hpp \
+	        include/time.hpp \
+	        include/variables.hpp \
+	        include/watchdog.hpp \
+	        include/xp_parser.h
+
+common_SOURCES = src/actions.cpp \
+	       src/auth.c \
+	       src/comp.c \
+	       src/call.cpp \
+	       src/deadcall.cpp \
+	       src/infile.cpp \
+	       src/listener.cpp \
+	       src/logger.cpp \
+	       src/md5.c \
+	       src/message.cpp \
+	       src/milenage.c \
+	       src/opentask.cpp \
+	       src/reporttask.cpp \
+	       src/rijndael.c \
+	       src/scenario.cpp \
+	       src/sip_parser.cpp \
+	       src/screen.cpp \
+	       src/socket.cpp \
+	       src/socketowner.cpp \
+	       src/stat.cpp \
+	       src/strings.cpp \
+	       src/task.cpp \
+	       src/time.cpp \
+	       src/variables.cpp \
+	       src/watchdog.cpp \
+	       src/xp_parser.c \
+	       $(common_incl) \
 	       $(ssl_SOURCES) \
 	       $(pcap_SOURCES) \
 		   $(rtp_SOURCES)
 
 sipp_SOURCES = $(common_SOURCES) \
-	       sipp.cpp \
-	       sipp.hpp
+	       src/sipp.cpp \
+	       include/sipp.hpp
 
 sipp_CFLAGS = $(AM_CFLAGS) @GSL_CFLAGS@
 sipp_CXXFLAGS = $(AM_CXXFLAGS) @GSL_CXXFLAGS@
 sipp_LDADD = @LIBOBJS@ @GSL_LIBS@
 
-sipp_unittest_SOURCES = $(common_SOURCES) sipp_unittest.cpp
+sipp_unittest_SOURCES = $(common_SOURCES) src/sipp_unittest.cpp
 
 sipp_unittest_CFLAGS = $(AM_CFLAGS) @GSL_CFLAGS@
 sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) @GSL_CXXFLAGS@

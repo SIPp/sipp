@@ -281,6 +281,7 @@ void print_statistics(int last)
             } else {
                 printf("Last Error: %s" SIPP_ENDL, errstart);
             }
+            sipp_usleep(100);
             fflush(stdout);
         }
         if (command_mode) {
@@ -456,7 +457,7 @@ void print_stats_in_file(FILE * f)
        * will be saved and reused in the case where last_tick==last_report_time
        */
       last_rtpstream_rate_out= ((double)TempBytes)/(last_tick-last_report_time);
-      /* Potential race condition betwen multiple threads updating the 
+      /* Potential race condition betwen multiple threads updating the
        * rtpstream_bytes value. We subtract the saved TempBytes value
        * rather than setting it to zero to minimise the chances of missing
        * an update to rtpstream_bytes [update between printing stats and
