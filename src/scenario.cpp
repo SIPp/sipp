@@ -1620,12 +1620,12 @@ void scenario::parseAction(CActions *actions)
                 hasMedia = 1;
 #else
             } else if ((ptr = xp_get_value((char *) "play_pcap_audio"))) {
-                ERROR("play_pcap_audio requires pcap support! Please recompile SIPp");
+        ERROR("Scenario specifies a play_pcap_audio action, but this version of SIPp does not have PCAP support");
             } else if ((ptr = xp_get_value((char *) "play_pcap_video"))) {
-                ERROR("play_pcap_video requires pcap support! Please recompile SIPp");
+        ERROR("Scenario specifies a play_pcap_video action, but this version of SIPp does not have PCAP support");
 #endif
-#ifdef RTP_STREAM
       } else if ((ptr = xp_get_value((char *) "rtp_stream"))) {
+#ifdef RTP_STREAM
 	if (!strcmp(ptr, "pause")) {
          tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PAUSE);
 	} else if (!strcmp(ptr, "resume")) {
@@ -1634,6 +1634,8 @@ void scenario::parseAction(CActions *actions)
          tmpAction->setRTPStreamActInfo(ptr);
 	 tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PLAY);
         }
+#else
+        ERROR("Scenario specifies a rtp_stream action, but this version of SIPp does not have RTP stream support");
 #endif
             } else {
                 ERROR("illegal <exec> in the scenario\n");
