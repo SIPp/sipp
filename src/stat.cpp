@@ -1112,7 +1112,7 @@ char* CStat::sRepartitionInfo(T_dynamicalRepartition * tabRepartition,
     if(tabRepartition != NULL) {
         // if a repartition is present, this field match the repartition name
         repartitionInfo = (char *)realloc(repartitionInfo, dlen + 1);
-        sprintf(repartitionInfo, stat_delimiter);
+        sprintf(repartitionInfo, "%s", stat_delimiter);
         for(int i=0; i<(sizeOfTab-1); i++) {
             sprintf(buffer, "%lu%s", tabRepartition[i].nbInThisBorder, stat_delimiter);
             repartitionInfo = (char *)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
