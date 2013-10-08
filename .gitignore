@@ -5,16 +5,11 @@ Makefile
 aclocal.m4
 autom4te.cache/
 config.h
-config.h.in
 config.log
 config.status
-depcomp
-install-sh
-missing
 sipp
 sipp-*.tar.gz
 sipp_unittest
-sipp_unittest.*
 stamp-h1
 test-driver
 *.log
