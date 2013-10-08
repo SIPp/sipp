@@ -1258,8 +1258,8 @@ int main(int argc, char *argv[])
 #ifdef RTP_STREAM
                        "-RTPSTREAM"
 #endif
-                       ", version %s, built %s, %s.\n\n",
-                       SIPP_VERSION, __DATE__, __TIME__);
+                       " built %s, %s.\n\n",
+                       __DATE__, __TIME__);
 
                 printf
                 (" This program is free software; you can redistribute it and/or\n"
