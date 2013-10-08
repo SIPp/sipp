@@ -1,6 +1,6 @@
 # ======================== initialization ===============================
 
-AC_INIT([SIPp], [3.3], [sipp-users@lists.sourceforge.net], [sipp])
+AC_INIT([SIPp], [3.3.990], [sipp-users@lists.sourceforge.net], [sipp])
 
 AC_CANONICAL_TARGET
 

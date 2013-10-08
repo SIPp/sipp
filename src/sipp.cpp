@@ -127,7 +127,7 @@ struct sipp_option options_table[] = {
         "- '3pcc-A'   : A side.\n"
         "- '3pcc-B'   : B side.\n", SIPP_OPTION_SCENARIO, NULL, 2
     },
-    
+
     {"", "IP, port and protocol options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
         {
         "t", "Set the transport mode:\n"
@@ -158,7 +158,7 @@ struct sipp_option options_table[] = {
     {"reconnect_close", "Should calls be closed on reconnect?", SIPP_OPTION_BOOL, &reset_close, 1},
     {"reconnect_sleep", "How long (in milliseconds) to sleep between the close and reconnect?", SIPP_OPTION_TIME_MS, &reset_sleep, 1},
     {"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, NULL, 1},
-    
+
    #ifdef _USE_OPENSSL
     {"tls_cert", "Set the name for TLS Certificate file. Default is 'cacert.pem", SIPP_OPTION_STRING, &tls_cert_name, 1},
     {"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem'", SIPP_OPTION_STRING, &tls_key_name, 1},
@@ -168,7 +168,7 @@ struct sipp_option options_table[] = {
     {"tls_key", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
     {"tls_crl", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
 #endif
-    
+
 #ifdef USE_SCTP
     {"multihome", "Set multihome address for SCTP", SIPP_OPTION_IP, multihome_ip, 1},
     {"heartbeat", "Set heartbeat interval in ms for SCTP", SIPP_OPTION_INT, &heartbeat, 1},
@@ -185,7 +185,7 @@ struct sipp_option options_table[] = {
     {"gracefulclose", NULL, SIPP_OPTION_NEED_SCTP, NULL, 1},
 #endif
 
-    
+
    {"", "SIPp overall behavior options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
    {"v", "Display version and copyright information.", SIPP_OPTION_VERSION, NULL, 0},
    {"bg", "Launch SIPp in background mode.", SIPP_OPTION_SETFLAG, &backgroundMode, 1},
@@ -205,7 +205,7 @@ struct sipp_option options_table[] = {
    {"dynamicMax",   "variable value\nSet the maximum of dynamic_id variable     ",   SIPP_OPTION_INT, &maxDynamicId,   1},
    {"dynamicStep",  "variable value\nSet the increment of dynamic_id variable",      SIPP_OPTION_INT, &stepDynamicId,  1},
 
-   
+
     {"", "Call behavior options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"aa", "Enable automatic 200 OK answer for INFO, UPDATE and NOTIFY messages.", SIPP_OPTION_SETFLAG, &auto_answer, 1},
     {"base_cseq", "Start value of [cseq] for each call.", SIPP_OPTION_CSEQ, NULL, 1},
@@ -235,7 +235,7 @@ struct sipp_option options_table[] = {
      SIPP_OPTION_UNSETFLAG, &default_behaviors, 1},
     {"pause_msg_ign", "Ignore the messages received during a pause defined in the scenario ", SIPP_OPTION_SETFLAG, &pause_msg_ign, 1},
 
-     
+
     {"", "Injection file options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"inf", "Inject values from an external CSV file during calls into the scenarios.\n"
      "First line of this file say whether the data is to be read in sequence (SEQUENTIAL), random (RANDOM), or user (USER) order.\n"
@@ -245,7 +245,7 @@ struct sipp_option options_table[] = {
      "If this option is omitted and the '-t ui' option is present, then field 0 is assumed.\n"
      "Use this option together with '-t ui'", SIPP_OPTION_INT, &peripfield, 1},
 
-    
+
     {"", "RTP behaviour options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"mi", "Set the local media IP address (default: local primary host IP address)", SIPP_OPTION_IP, media_ip, 1},
     {"rtp_echo", "Enable RTP echo. RTP/UDP packets received on port defined by -mp are echoed to their sender.\n"
@@ -260,7 +260,7 @@ struct sipp_option options_table[] = {
 	{"rtp_threadtasks", "RTP number of playback tasks per thread.", SIPP_OPTION_INT, &rtp_tasks_per_thread, 1},
 	{"rtp_buffsize", "Set the rtp socket send/receive buffer size.", SIPP_OPTION_INT, &rtp_buffsize, 1},
 #endif
-    
+
     {"", "Call rate options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"r", "Set the call rate (in calls per seconds).  This value can be"
      "changed during test by pressing '+','_','*' or '/'. Default is 10.\n"
@@ -286,7 +286,7 @@ struct sipp_option options_table[] = {
     {"m", "Stop the test and exit when 'calls' calls are processed", SIPP_OPTION_LONG, &stop_after, 1},
     {"users", "Instead of starting calls at a fixed rate, begin 'users' calls at startup, and keep the number of calls constant.", SIPP_OPTION_USERS, NULL, 1},
 
-    
+
     {"", "Retransmission and timeout options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"recv_timeout", "Global receive timeout. Default unit is milliseconds. If the expected message is not received, the call times out and is aborted.", SIPP_OPTION_TIME_MS_LONG, &defl_recv_timeout, 1},
     {"send_timeout", "Global send timeout. Default unit is milliseconds. If a message is not sent (due to congestion), the call times out and is aborted.", SIPP_OPTION_TIME_MS_LONG, &defl_send_timeout, 1},
@@ -297,9 +297,9 @@ struct sipp_option options_table[] = {
     {"max_non_invite_retrans", "Maximum number of UDP retransmissions for non-invite transactions before call ends on timeout.", SIPP_OPTION_INT, &max_non_invite_retrans, 1},
     {"nr", "Disable retransmission in UDP mode.", SIPP_OPTION_UNSETFLAG, &retrans_enabled, 1},
     {"rtcheck", "Select the retransmission detection method: full (default) or loose.", SIPP_OPTION_RTCHECK, &rtcheck, 1},
-    {"T2", "Global T2-timer in milli seconds", SIPP_OPTION_TIME_MS, &global_t2, 1},    
-    
-   
+    {"T2", "Global T2-timer in milli seconds", SIPP_OPTION_TIME_MS, &global_t2, 1},
+
+
     {"", "Third-party call control options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"3pcc", "Launch the tool in 3pcc mode (\"Third Party call control\"). The passed IP address depends on the 3PCC role.\n"
      "- When the first twin command is 'sendCmd' then this is the address of the remote twin socket.  SIPp will try to connect to this address:port to send the twin command (This instance must be started after all other 3PCC scenarios).\n"
@@ -316,7 +316,7 @@ struct sipp_option options_table[] = {
      "If the compression is on, the value is set to 50ms. The default value is 10ms.", SIPP_OPTION_TIME_MS, &timer_resolution, 1},
     {"max_recv_loops", "Set the maximum number of messages received read per cycle. Increase this value for high traffic level.  The default value is 1000.", SIPP_OPTION_INT, &max_recv_loops, 1},
     {"max_sched_loops", "Set the maximum number of calls run per event loop. Increase this value for high traffic level.  The default value is 1000.", SIPP_OPTION_INT, &max_sched_loops, 1},
-    
+
     {"watchdog_interval", "Set gap between watchdog timer firings.  Default is 400.", SIPP_OPTION_TIME_MS, &watchdog_interval, 1},
     {"watchdog_reset", "If the watchdog timer has not fired in more than this time period, then reset the max triggers counters.  Default is 10 minutes.", SIPP_OPTION_TIME_MS, &watchdog_reset, 1},
     {"watchdog_minor_threshold", "If it has been longer than this period between watchdog executions count a minor trip.  Default is 500.", SIPP_OPTION_TIME_MS, &watchdog_minor_threshold, 1},
@@ -324,7 +324,7 @@ struct sipp_option options_table[] = {
     {"watchdog_major_maxtriggers", "How many times the major watchdog timer can be tripped before the test is terminated.  Default is 10.", SIPP_OPTION_INT, &watchdog_major_maxtriggers, 1},
     {"watchdog_minor_maxtriggers", "How many times the minor watchdog timer can be tripped before the test is terminated.  Default is 120.", SIPP_OPTION_INT, &watchdog_minor_maxtriggers, 1},
 
-    
+
     {"", "Tracing, logging and statistics options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"f", "Set the statistics report frequency on screen. Default is 1 and default unit is seconds.", SIPP_OPTION_TIME_SEC, &report_freq, 1},
 
@@ -333,7 +333,7 @@ struct sipp_option options_table[] = {
     {"stf", "Set the file name to use to dump statistics", SIPP_OPTION_ARGI, &argiFileName, 1},
     {"fd", "Set the statistics dump log report frequency. Default is 60 and default unit is seconds.", SIPP_OPTION_TIME_SEC, &report_freq_dumpLog, 1},
     {"periodic_rtd", "Reset response time partition counters each logging interval.", SIPP_OPTION_SETFLAG, &periodic_rtd, 1},
-    
+
     {"trace_msg", "Displays sent and received SIP messages in <scenario file name>_<pid>_messages.log", SIPP_OPTION_SETFLAG, &useMessagef, 1},
     {"message_file", "Set the name of the message log file.", SIPP_OPTION_LFNAME, &message_lfi, 1},
     {"message_overwrite", "Overwrite the message log file (default true).", SIPP_OPTION_LFOVERWRITE, &message_lfi, 1},
@@ -343,7 +343,7 @@ struct sipp_option options_table[] = {
     {"shortmessage_overwrite", "Overwrite the short message log file (default true).", SIPP_OPTION_LFOVERWRITE, &shortmessage_lfi, 1},
 
     {"trace_counts", "Dumps individual message counts in a CSV file.", SIPP_OPTION_SETFLAG, &useCountf, 1},
-    
+
     {"trace_err", "Trace all unexpected messages in <scenario file name>_<pid>_errors.log.", SIPP_OPTION_SETFLAG, &print_all_responses, 1},
     {"error_file", "Set the name of the error log file.", SIPP_OPTION_LFNAME, &error_lfi, 1},
     {"error_overwrite", "Overwrite the error log file (default true).", SIPP_OPTION_LFOVERWRITE, &error_lfi, 1},
@@ -623,7 +623,7 @@ void pollset_process(int wait)
     }
   }
 #else
- 
+
         if (events) {
             rs--;
         }
@@ -1245,7 +1245,7 @@ int main(int argc, char *argv[])
                 }
                 exit(EXIT_OTHER);
             case SIPP_OPTION_VERSION:
-                printf("\n SIPp v3.4-early"
+                printf("\n SIPp v3.4-beta1 (aka v3.3.990)"
 #ifdef _USE_OPENSSL
                        "-TLS"
 #endif
