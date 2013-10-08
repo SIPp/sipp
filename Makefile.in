@@ -94,6 +94,7 @@ am__sipp_SOURCES_DIST = src/actions.cpp src/auth.c src/comp.c \
 	include/socket.hpp include/socketowner.hpp include/stat.hpp \
 	include/strings.hpp include/task.hpp include/time.hpp \
 	include/variables.hpp include/watchdog.hpp include/xp_parser.h \
+	include/actions.hpp include/call.hpp include/deadcall.hpp \
 	include/sslcommon.h src/sslinit.c src/sslthreadsafe.c \
 	include/prepare_pcap.h include/send_packets.h \
 	src/prepare_pcap.c src/send_packets.c src/rtpstream.cpp \
@@ -140,6 +141,7 @@ am__sipp_unittest_SOURCES_DIST = src/actions.cpp src/auth.c src/comp.c \
 	include/socket.hpp include/socketowner.hpp include/stat.hpp \
 	include/strings.hpp include/task.hpp include/time.hpp \
 	include/variables.hpp include/watchdog.hpp include/xp_parser.h \
+	include/actions.hpp include/call.hpp include/deadcall.hpp \
 	include/sslcommon.h src/sslinit.c src/sslthreadsafe.c \
 	include/prepare_pcap.h include/send_packets.h \
 	src/prepare_pcap.c src/send_packets.c src/rtpstream.cpp \
@@ -327,7 +329,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CFLAGS = -I./include
 AM_CPPFLAGS = $(AM_CFLAGS)
-EXTRA_DIST = fortune.cpp pcap tools LICENSE.txt MEDIA.txt README.txt THANKS sipp.dtd
+EXTRA_DIST = src/fortune.cpp pcap LICENSE.txt README.txt THANKS sipp.dtd sipp.1 cpplint.py auto-generate-files.sh
 @HAVE_OPENSSL_TRUE@ssl_incl = include/sslcommon.h
 @HAVE_OPENSSL_TRUE@ssl_SOURCES = $(ssl_incl) \
 @HAVE_OPENSSL_TRUE@              src/sslinit.c \
@@ -362,7 +364,10 @@ common_incl = include/comp.h \
 	        include/time.hpp \
 	        include/variables.hpp \
 	        include/watchdog.hpp \
-	        include/xp_parser.h
+	        include/xp_parser.h \
+	        include/actions.hpp \
+	        include/call.hpp \
+	        include/deadcall.hpp
 
 common_SOURCES = src/actions.cpp \
 	       src/auth.c \

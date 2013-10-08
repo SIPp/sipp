@@ -7,7 +7,7 @@ noinst_PROGRAMS = $(TESTS)
 AM_CFLAGS=-I./include
 AM_CPPFLAGS=$(AM_CFLAGS)
 
-EXTRA_DIST = fortune.cpp pcap tools LICENSE.txt MEDIA.txt README.txt THANKS sipp.dtd
+EXTRA_DIST = src/fortune.cpp pcap LICENSE.txt README.txt THANKS sipp.dtd sipp.1 cpplint.py auto-generate-files.sh
 
 if HAVE_OPENSSL
 DEFS += -D_USE_OPENSSL
@@ -64,7 +64,10 @@ common_incl = include/comp.h \
 	        include/time.hpp \
 	        include/variables.hpp \
 	        include/watchdog.hpp \
-	        include/xp_parser.h
+	        include/xp_parser.h \
+	        include/actions.hpp \
+	        include/call.hpp \
+	        include/deadcall.hpp
 
 common_SOURCES = src/actions.cpp \
 	       src/auth.c \
