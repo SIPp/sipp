@@ -41,23 +41,23 @@ message::message(int index, const char *desc)
 {
     this->index = index;
     this->desc = desc;
-    pause_distribution = NULL;
+    pause_distribution = NULL; // delete on exit
     pause_variable = -1;
-    pause_desc = NULL;
+    pause_desc = NULL; // free on exit
     sessions = 0;
     bShouldRecordRoutes = 0;
     bShouldAuthenticate = 0;
 
-    send_scheme = NULL;
+    send_scheme = NULL; // delete on exit
     retrans_delay = 0;
     timeout = 0;
 
     recv_response = 0;
-    recv_request = NULL;
+    recv_request = NULL; // free on exit
     optional = 0;
     advance_state = true;
     regexp_match = 0;
-    regexp_compile = NULL;
+    regexp_compile = NULL; // regfree (if not NULL) and free on exit
 
     /* Anyway */
     start_rtd = 0;
@@ -66,20 +66,20 @@ message::message(int index, const char *desc)
     lost = -1;
     crlf = 0;
     hide = 0;
-    display_str = NULL;
+    display_str = NULL; // free on exit
     test = -1;
     condexec = -1;
     condexec_inverse = false;
     chance = 0;/* meaning always */
     next = -1;
-    nextLabel = NULL;
+    nextLabel = NULL; // free on exit
     on_timeout = -1;
-    onTimeoutLabel = NULL;
+    onTimeoutLabel = NULL; // free on exit
     timewait = false;
 
     /* 3pcc extended mode */
-    peer_dest = NULL;
-    peer_src = NULL;
+    peer_dest = NULL; // free on exit
+    peer_src = NULL; // free on exit
 
     /* Statistics */
     nb_sent = 0;
@@ -91,11 +91,11 @@ message::message(int index, const char *desc)
     nb_lost = 0;
     counter = 0;
 
-    M_actions = NULL;
+    M_actions = NULL; // delete on exit
 
     M_type = 0;
 
-    M_sendCmdData = NULL;
+    M_sendCmdData = NULL; // delete on exit
     M_nbCmdSent   = 0;
     M_nbCmdRecv   = 0;
 
@@ -105,37 +105,30 @@ message::message(int index, const char *desc)
     start_txn = 0;
     response_txn = 0;
     ack_txn = 0;
-    recv_response_for_cseq_method_list = NULL;
+    recv_response_for_cseq_method_list = NULL; // free on exit
 }
 
 message::~message()
 {
-    if(M_actions != NULL)
-        delete(M_actions);
+  delete(pause_distribution);
+  free(pause_desc);
+  delete(send_scheme);
+  free(recv_request);
+  if (regexp_compile != NULL) {
+    regfree(regexp_compile);
+  }
+  free(regexp_compile);
 
-    if(send_scheme != NULL)
-        delete send_scheme;
+  free(display_str);
+  free(nextLabel);
+  free(onTimeoutLabel);
 
-    if(recv_request != NULL)
-        free (recv_request);
+  free(peer_dest);
+  free(peer_src);
 
-    if(regexp_compile != NULL)
-        regfree(regexp_compile);
-    free(regexp_compile);
-
-
-    if (pause_distribution) {
-        delete pause_distribution;
-    }
-
-    if(M_sendCmdData != NULL)
-        delete M_sendCmdData;
-
-    free(display_str);
-    free(peer_dest);
-    free(peer_src);
-    free(pause_desc);
-    free(recv_response_for_cseq_method_list);
+  delete(M_actions);
+  delete(M_sendCmdData);
+  free(recv_response_for_cseq_method_list);
 }
 
 /******** Global variables which compose the scenario file **********/
@@ -1551,9 +1544,14 @@ void scenario::parseAction(CActions *actions)
             free(ptr);
         } else if(!strcmp(actionElem, "verifyauth")) {
             tmpAction->setVarId(xp_get_var("assign_to", "verifyauth"));
-            tmpAction->setMessage(xp_get_string("username", "verifyauth"), 0);
-            tmpAction->setMessage(xp_get_string("password", "verifyauth"), 1);
+            char* username_ptr = xp_get_string("username", "verifyauth");
+            char* password_ptr = xp_get_string("password", "verifyauth");
+            tmpAction->setMessage(username_ptr, 0);
+            tmpAction->setMessage(password_ptr, 1);
             tmpAction->setActionType(CAction::E_AT_VERIFY_AUTH);
+            free(username_ptr);
+            free(password_ptr);
+            username_ptr = password_ptr = NULL;
         } else if(!strcmp(actionElem, "lookup")) {
             tmpAction->setVarId(xp_get_var("assign_to", "lookup"));
             tmpAction->setMessage(xp_get_string("file", "lookup"), 0);
@@ -1727,12 +1725,12 @@ void scenario::getCommonAttributes(message *message)
     message -> condexec = xp_get_var("condexec", "condexec variable", -1);
     message -> condexec_inverse = xp_get_bool("condexec_inverse", "condexec_inverse", false);
 
-    if ((ptr = xp_get_value((char *)"next"))) {
+    if ((ptr = xp_get_value("next"))) {
         if (found_timewait) {
             ERROR("next labels are not allowed in <timewait> elements.");
         }
-        message -> nextLabel = strdup(ptr);
-        message -> test = xp_get_var("test", "test variable", -1);
+        message->nextLabel = strdup(ptr);
+        message->test = xp_get_var("test", "test variable", -1);
         if ( 0 != ( ptr = xp_get_value((char *)"chance") ) ) {
             float chance = get_double(ptr,"chance");
             /* probability of branch to next */
