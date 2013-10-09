@@ -182,17 +182,6 @@ task_list *timewheel::task2list(task *task)
                                 (wheel_base / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS)));
   bool fits_in_third_wheel = (slot_in_third_wheel < LEVEL_THREE_SLOTS);
 
-  fprintf(stderr, "wake %ud, base %ud, ticks until wake %ud, slots %ud %ud %ud, fits %d %d %d\n",
-          wake,
-          wheel_base,
-          time_until_wake,
-          slot_in_first_wheel,
-          slot_in_second_wheel,
-          slot_in_third_wheel,
-          fits_in_first_wheel,
-          fits_in_second_wheel,
-          fits_in_third_wheel);
-
     if (fits_in_first_wheel) {
         return &wheel_one[slot_in_first_wheel];
     } else if (fits_in_second_wheel) {
@@ -209,14 +198,12 @@ task_list *timewheel::task2list(task *task)
  * should no longer be paused, and adding them to the run queue. */
 int timewheel::expire_paused_tasks()
 {
-  fprintf(stderr, "Beginning expire_paused_tasks at %lud\n", clock_tick);
     int found = 0;
 
     // This while loop counts up from the wheel_base (i.e. the time
     // this function last ran) to the current scheduler time (i.e. clock_tick).
     while (wheel_base < clock_tick) {
         int slot1 = wheel_base % LEVEL_ONE_SLOTS;
-        fprintf(stderr, "Looking in slot %d of wheel 1\n", slot1);
 
         /* If slot1 is 0 (i.e. wheel_base is a multiple of 4096ms),
          * we need to repopulate the first timer wheel with the
@@ -265,7 +252,6 @@ int timewheel::expire_paused_tasks()
         scheduled to fire in the 1ms interval represented by
         wheel_base) onto a run queue. */
         found += wheel_one[slot1].size();
-        fprintf(stderr, "Found %d tasks to run so far\n", found);
         for(task_list::iterator it = wheel_one[slot1].begin();
                 it != wheel_one[slot1].end(); it++) {
             (*it)->add_to_runqueue();
