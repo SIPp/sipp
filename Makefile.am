@@ -67,10 +67,11 @@ common_incl = include/comp.h \
 	        include/xp_parser.h \
 	        include/actions.hpp \
 	        include/call.hpp \
+	        include/auth.hpp \
 	        include/deadcall.hpp
 
 common_SOURCES = src/actions.cpp \
-	       src/auth.c \
+	       src/auth.cpp \
 	       src/comp.c \
 	       src/call.cpp \
 	       src/deadcall.cpp \

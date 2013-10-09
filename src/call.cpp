@@ -50,6 +50,7 @@
 #include "send_packets.h"
 #endif
 #include "sipp.hpp"
+#include "auth.hpp"
 #include "deadcall.hpp"
 
 #define callDebug(args...) do { if (useCallDebugf) { _callDebug( args ); } } while (0)
@@ -2938,7 +2939,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
             return true;
         }
     }
- 
+
 #ifdef RTP_STREAM
   /* Check if message has a SDP in it; and extract media information. */
   if (!strcmp(get_header_content(msg, (char*)"Content-Type:"),"application/sdp")) {
@@ -3656,6 +3657,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 
                 free(username);
                 free(password);
+                free(method);
             }
 
             M_callVariableTable->getVar(currentAction->getVarId())->setBool(result);

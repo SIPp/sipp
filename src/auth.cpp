@@ -29,9 +29,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+extern "C" {
 #include "md5.h"
 #include "milenage.h"
+}
 #include "screen.hpp"
+#include "logger.hpp"
+#include "auth.hpp"
 
 #define MAX_HEADER_LEN  2049
 #define MD5_HASH_SIZE 16
@@ -71,15 +75,21 @@ typedef char RESHEX[RESHEXLEN];
 #define OPLEN 16
 typedef u_char OP[OPLEN];
 
-AMF amfstar="\0\0";
+AMF amfstar="\0";
 SQN sqn_he= {0x00,0x00,0x00,0x00,0x00,0x00};
 
 /* end AKA */
 
 
-int createAuthHeaderMD5(char * user, char * password, int password_len, char * method,
-                        char * uri, const char * msgbody, char * auth,
-                        char * algo, char * result);
+int createAuthHeaderMD5(const char* user,
+                        const char* password,
+                        int password_len,
+                        const char* method,
+                        const char * uri,
+                        const char* msgbody,
+                        const char* auth,
+                        const char* algo,
+                        char* result);
 int createAuthHeaderAKAv1MD5(char * user, char * OP,
                              char * AMF,
                              char * K,
@@ -183,7 +193,7 @@ int createAuthHeader(char * user, char * password, char * method,
 }
 
 
-int getAuthParameter(char *name, char *header, char *result, int len)
+int getAuthParameter(const char *name, const char *header, char *result, int len)
 {
     char *start, *end;
 
@@ -217,9 +227,15 @@ int getAuthParameter(char *name, char *header, char *result, int len)
     return end - start;
 }
 
-int createAuthHeaderMD5(char * user, char * password, int password_len, char * method,
-                        char * uri, const char * msgbody, char * auth,
-                        char * algo, char * result)
+int createAuthHeaderMD5(const char* user,
+                        const char* password,
+                        int password_len,
+                        const char* method,
+                        const char* uri,
+                        const char* msgbody,
+                        const char* auth,
+                        const char* algo,
+                        char* result)
 {
 
     md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
@@ -378,8 +394,8 @@ int createAuthResponseMD5(char * user, char * password, int password_len, char *
 int verifyAuthHeader(char * user, char * password, char * method, char * auth)
 {
     char algo[MAX_HEADER_LEN];
-    unsigned char result[HASH_HEX_SIZE];
-    char response[HASH_HEX_SIZE + 2];
+    unsigned char result[HASH_HEX_SIZE + 1];
+    char response[HASH_HEX_SIZE + 1];
     char realm[MAX_HEADER_LEN];
     char nonce[MAX_HEADER_LEN];
     char uri[MAX_HEADER_LEN];
@@ -400,6 +416,15 @@ int verifyAuthHeader(char * user, char * password, char * method, char * auth)
         getAuthParameter("nonce", auth, nonce, sizeof(nonce));
         createAuthResponseMD5(user,password,strlen(password),method,uri,realm,nonce,result);
         getAuthParameter("response", auth, response, sizeof(response));
+        TRACE_CALLDEBUG("Processing verifyauth command - user %s, password %s, method %s, uri %s, realm %s, nonce %s, result expected %s, response from user %s\n",
+                user,
+                password,
+                method,
+                uri,
+                realm,
+                nonce,
+                (char*)result,
+                response);
         return !strcmp((char *)result, response);
     } else {
         WARNING("createAuthHeader: authentication must use MD5 or AKAv1-MD5, value is '%s'", algo);
@@ -592,9 +617,9 @@ char * base64_decode_string( const char *buf, unsigned int len, int *newlen )
     return out;
 }
 
-char base64[64]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+char base64[65]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-char hexa[16]="0123456789abcdef";
+char hexa[17]="0123456789abcdef";
 int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
                              char * aka_AMF,
                              char * aka_K,
