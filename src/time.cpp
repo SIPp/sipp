@@ -41,30 +41,39 @@
 #include <unistd.h>
 #include "time.hpp"
 #include "sipp.hpp"
+#define MICROSECONDS_PER_SECOND 1000000LL
+#define MILLISECONDS_PER_MICROSECOND 1000LL
 
-/***************** System Portability Features *****************/
-
+// Returns the number of microseconds that have passed since SIPp
+// started. Also updates the current clock_tick.
 unsigned long long getmicroseconds()
 {
-    struct timeval LS_system_time;
-    unsigned long long VI_micro;
-    static unsigned long long VI_micro_base = 0;
+    struct timeval time;
+    unsigned long long microseconds;
+    static unsigned long long start_time = 0;
 
-    gettimeofday(&LS_system_time, NULL);
-    VI_micro = (((unsigned long long) LS_system_time.tv_sec) * 1000000LL) + LS_system_time.tv_usec;
-    if (!VI_micro_base) VI_micro_base = VI_micro - 1;
-    VI_micro = VI_micro - VI_micro_base;
+    gettimeofday(&time, NULL);
+    microseconds = (MICROSECONDS_PER_SECOND * time.tv_sec) + time.tv_usec;
+    if (start_time == 0) {
+      start_time = microseconds - 1;
+    }
+    microseconds = microseconds - start_time;
 
-    clock_tick = VI_micro / 1000LL;
+    // Static global from sipp.hpp
+    clock_tick = microseconds / MILLISECONDS_PER_MICROSECOND;
 
-    return VI_micro;
+    return microseconds;
 }
 
+// Returns the number of milliseconds that have passed since SIPp
+// started. Also updates the current clock_tick.
 unsigned long getmilliseconds()
 {
-    return getmicroseconds() / 1000LL;
+    return getmicroseconds() / MILLISECONDS_PER_MICROSECOND;
 }
 
+// Sleeps for the given number of microseconds. Avoids the potential
+// EINVAL when using usleep() to sleep for a second or more.
 void sipp_usleep(unsigned long usec)
 {
     if (usec >= 1000000) {
@@ -73,5 +82,3 @@ void sipp_usleep(unsigned long usec)
     usec %= 1000000;
     usleep(usec);
 }
-
-/***************** System Portability Features *****************/
