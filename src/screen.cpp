@@ -237,7 +237,6 @@ void screen_init(void (*exit_handler)())
     (*(void **)(&(action_file_size_exceeded.sa_handler)))=(void *)manage_oversized_file;
     sigaction(SIGTERM, &action_quit, NULL);
     sigaction(SIGINT, &action_quit, NULL);
-    sigaction(SIGKILL, &action_quit, NULL);
     sigaction(SIGXFSZ, &action_file_size_exceeded, NULL);   // avoid core dump if the max file size is exceeded
 
     if (backgroundMode == false) {
