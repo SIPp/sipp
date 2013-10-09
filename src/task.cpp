@@ -49,6 +49,41 @@ task_list all_tasks;
 task_list running_tasks;
 timewheel paused_tasks;
 
+/* Get the overall list of running tasks. */
+task_list* get_running_tasks()
+{
+    return &running_tasks;
+}
+
+void abort_all_tasks()
+{
+    for (task_list::iterator task_it = all_tasks.begin();
+         task_it != all_tasks.end();
+         task_it = all_tasks.begin()) {
+        (*task_it)->abort();
+    }
+}
+
+void dump_tasks()
+{
+    WARNING("---- %d Active Tasks ----\n", all_tasks.size());
+    for (task_list::iterator task_it = all_tasks.begin();
+         task_it != all_tasks.end();
+         task_it++) {
+        (*task_it)->dump();
+    }
+}
+
+int expire_paused_tasks()
+{
+    return paused_tasks.expire_paused_tasks();
+}
+int paused_tasks_count()
+{
+    return paused_tasks.size();
+}
+
+// Methods for the task class
 
 task::task()
 {
@@ -78,6 +113,10 @@ void task::add_to_paused_tasks(bool increment)
     paused_tasks.add_paused_task(this, increment);
 }
 
+void task::recalculate_wheel() {
+  add_to_paused_tasks(false);
+}
+
 /* Remove this task from the run queue. */
 bool task::remove_from_runqueue()
 {
@@ -89,79 +128,113 @@ bool task::remove_from_runqueue()
     return true;
 }
 
-/* Get the overall list of running tasks. */
-task_list * get_running_tasks()
+void task::setRunning()
 {
-    return & running_tasks;
-}
-
-void abort_all_tasks()
-{
-    for (task_list::iterator task_it = all_tasks.begin();
-            task_it != all_tasks.end(); task_it = all_tasks.begin()) {
-        (*task_it)->abort();
+    if (!running) {
+        paused_tasks.remove_paused_task(this);
+        add_to_runqueue();
     }
 }
 
-void dump_tasks()
+void task::setPaused()
 {
-    WARNING("---- %d Active Tasks ----\n", all_tasks.size());
-    for (task_list::iterator task_it = all_tasks.begin();
-            task_it != all_tasks.end(); task_it++) {
-        (*task_it)->dump();
+    if (running) {
+        if (!remove_from_runqueue()) {
+            WARNING("Tried to remove a running call that wasn't running!\n");
+            assert(0);
+        }
+    } else {
+        paused_tasks.remove_paused_task(this);
     }
+    assert(running == false);
+    add_to_paused_tasks(true);
 }
 
+void task::abort()
+{
+    delete this;
+}
+
+// Methods for the timewheel class
+
+// Based on the time a given task should next be woken up, finds the
+// correct time wheel for it and returns a list of other tasks
+// occuring at that point.
 task_list *timewheel::task2list(task *task)
 {
-    unsigned int wake = task->wake();
-    unsigned int wake_sigbits = wake;
-    unsigned int base_sigbits = wheel_base;
+  unsigned int wake = task->wake();
 
-    assert(wheel_base <= clock_tick);
-
-    if (wake == 0) {
+  if (wake == 0) {
         return &forever_list;
-    }
+  }
 
-    wake_sigbits /= LEVEL_ONE_SLOTS;
-    base_sigbits /= LEVEL_ONE_SLOTS;
-    if (wake_sigbits == base_sigbits) {
-        return &wheel_one[wake % LEVEL_ONE_SLOTS];
-    }
-    wake_sigbits /= LEVEL_TWO_SLOTS;
-    base_sigbits /= LEVEL_TWO_SLOTS;
-    if (wake_sigbits == base_sigbits) {
-        return &wheel_two[(wake / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS];
-    }
-    assert(wake_sigbits < LEVEL_THREE_SLOTS);
-    return &wheel_three[wake_sigbits];
-}
+  assert(wake >= wheel_base);
+  assert(wheel_base <= clock_tick);
 
-int expire_paused_tasks()
-{
-    return paused_tasks.expire_paused_tasks();
-}
-int paused_tasks_count()
-{
-    return paused_tasks.size();
+  unsigned int time_until_wake = wake - wheel_base;
+
+  unsigned int slot_in_first_wheel = wake % LEVEL_ONE_SLOTS;
+  unsigned int slot_in_second_wheel = (wake / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS;
+  unsigned int slot_in_third_wheel = (wake / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS));
+
+  bool fits_in_first_wheel = ((wake / LEVEL_ONE_SLOTS) == (wheel_base / LEVEL_ONE_SLOTS));
+  bool fits_in_second_wheel = ((wake / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS)) ==
+                                (wheel_base / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS)));
+  bool fits_in_third_wheel = (slot_in_third_wheel < LEVEL_THREE_SLOTS);
+
+  fprintf(stderr, "wake %ud, base %ud, ticks until wake %ud, slots %ud %ud %ud, fits %d %d %d\n",
+          wake,
+          wheel_base,
+          time_until_wake,
+          slot_in_first_wheel,
+          slot_in_second_wheel,
+          slot_in_third_wheel,
+          fits_in_first_wheel,
+          fits_in_second_wheel,
+          fits_in_third_wheel);
+
+    if (fits_in_first_wheel) {
+        return &wheel_one[slot_in_first_wheel];
+    } else if (fits_in_second_wheel) {
+        return &wheel_two[slot_in_second_wheel];
+    } else if (fits_in_third_wheel) {
+      return &wheel_three[slot_in_third_wheel];
+    } else{
+      ERROR("Attempted to schedule a task too far in the future");
+      return NULL;
+    }
 }
 
 /* Iterate through our sorted set of paused tasks, removing those that
  * should no longer be paused, and adding them to the run queue. */
 int timewheel::expire_paused_tasks()
 {
+  fprintf(stderr, "Beginning expire_paused_tasks at %lud\n", clock_tick);
     int found = 0;
 
+    // This while loop counts up from the wheel_base (i.e. the time
+    // this function last ran) to the current scheduler time (i.e. clock_tick).
     while (wheel_base < clock_tick) {
         int slot1 = wheel_base % LEVEL_ONE_SLOTS;
+        fprintf(stderr, "Looking in slot %d of wheel 1\n", slot1);
 
-        /* Migrate tasks from slot2 when we hit 0. */
+        /* If slot1 is 0 (i.e. wheel_base is a multiple of 4096ms),
+         * we need to repopulate the first timer wheel with the
+         * contents of the first available slot of the second wheel. */
         if (slot1 == 0) {
+
+          /* slot2 represents the slot in the second timer wheel
+           * containing the tasks for the next ~4s. So when
+           * wheel_base is 4096, wheel2[1] will be moved into wheel 1,
+           * when wheel_base of 8192 wheel2[2] will be moved into
+           * wheel 1, etc. */
             int slot2 = (wheel_base / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS;
 
             /* If slot2 is also zero, we must migrate tasks from slot3 into slot2. */
             if (slot2 == 0) {
+              /* Same logic above, except that each slot of wheel3
+                contains the next 69 minutes of tasks, enough to
+                completely fill wheel 2. */
                 int slot3 = ((wheel_base / LEVEL_ONE_SLOTS) / LEVEL_TWO_SLOTS);
                 assert(slot3 < LEVEL_THREE_SLOTS);
 
@@ -169,36 +242,47 @@ int timewheel::expire_paused_tasks()
                         l3it != wheel_three[slot3].end();
                         l3it++) {
                     /* Migrate this task to wheel two. */
-                    (*l3it)->add_to_paused_tasks(false);
+                  (*l3it)->recalculate_wheel();
                 }
 
                 wheel_three[slot3].clear();
             }
 
+            /* Repopulate wheel 1 from wheel 2 (which will now be full
+               of the tasks pulled from wheel 3, if that was
+               necessary) */
             for (task_list::iterator l2it = wheel_two[slot2].begin();
                     l2it != wheel_two[slot2].end();
                     l2it++) {
                 /* Migrate this task to wheel one. */
-                (*l2it)->add_to_paused_tasks(false);
+              (*l2it)->recalculate_wheel();
             }
 
             wheel_two[slot2].clear();
         }
 
+        /* Move tasks from the current slot of wheel 1 (i.e. the tasks
+        scheduled to fire in the 1ms interval represented by
+        wheel_base) onto a run queue. */
         found += wheel_one[slot1].size();
+        fprintf(stderr, "Found %d tasks to run so far\n", found);
         for(task_list::iterator it = wheel_one[slot1].begin();
                 it != wheel_one[slot1].end(); it++) {
             (*it)->add_to_runqueue();
+            // Decrement the total number of tasks in this wheel.
             count--;
         }
         wheel_one[slot1].clear();
 
-        wheel_base++;
+        wheel_base++; // Move wheel_base to the next 1ms interval
     }
 
     return found;
 }
 
+// Adds a task to the correct timewheel. When increment is false, does
+// not increment the count of tasks owned by this timewheel, and so
+// can be used for recalculating the wheel of an existing task.
 void timewheel::add_paused_task(task *task, bool increment)
 {
     task_list::iterator task_it;
@@ -233,29 +317,3 @@ int timewheel::size()
     return count;
 }
 
-void task::setRunning()
-{
-    if (!running) {
-        paused_tasks.remove_paused_task(this);
-        add_to_runqueue();
-    }
-}
-
-void task::setPaused()
-{
-    if (running) {
-        if (!remove_from_runqueue()) {
-            WARNING("Tried to remove a running call that wasn't running!\n");
-            assert(0);
-        }
-    } else {
-        paused_tasks.remove_paused_task(this);
-    }
-    assert(running == false);
-    add_to_paused_tasks(true);
-}
-
-void task::abort()
-{
-    delete this;
-}

@@ -61,7 +61,13 @@ private:
 
     unsigned int wheel_base;
 
-    /* The actual wheels. */
+    /* The actual wheels. This is a variation on having one wheel for
+     * seconds, another for minutes and a third for hours - in this
+     * model, the first wheel holds tasks that should be scheduled in
+     * the next 2^12ms (~4s), the second wheel holds tasks that
+     * should be scheduled between 2^12 and 2^22ms (~4s-~69m), and
+     * the third wheel holds tasks that should be scheduled between
+     * 2^22ms and 2^32ms (~69m-~8 years). */
     task_list wheel_one[LEVEL_ONE_SLOTS];
     task_list wheel_two[LEVEL_TWO_SLOTS];
     task_list wheel_three[LEVEL_THREE_SLOTS];
@@ -101,6 +107,7 @@ private:
     void add_to_runqueue();
     bool remove_from_runqueue();
     void add_to_paused_tasks(bool increment);
+    void recalculate_wheel();
 
     /* This is for our complete task list. */
     task_list::iterator taskit;
