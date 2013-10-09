@@ -52,33 +52,74 @@ watchdog::watchdog(int interval, int reset_interval, int major_threshold, int ma
 
 bool watchdog::run()
 {
-    getmilliseconds();
-    if (last_fire + this->major_threshold < clock_tick) {
+  getmilliseconds();
+
+  int expected_major_trigger_time = last_fire + this->major_threshold;
+  int expected_minor_trigger_time = last_fire + this->minor_threshold;
+
+  bool major_watchdog_tripped = clock_tick > expected_major_trigger_time;
+  bool minor_watchdog_tripped = clock_tick > expected_minor_trigger_time;
+
+    // Check if either watchdog has taken longer than expected to run,
+    // and if so, warn that we are overloaded.
+    if (major_watchdog_tripped) {
+        major_triggers++;
         CStat::globalStat(CStat::E_WATCHDOG_MAJOR);
         last_trigger = clock_tick;
-        WARNING("The major watchdog timer %dms has been tripped (%d), %d trips remaining.", major_threshold, clock_tick - last_fire, major_maxtriggers - major_triggers);
-        if ((this->major_maxtriggers != -1) && (++major_triggers > this->major_maxtriggers)) {
-            ERROR("The watchdog timer has tripped the major threshold of %dms too many times (%d out of %d allowed) (%d out of %d minor %dms timeouts tripped)\n", major_threshold, major_triggers, major_maxtriggers, minor_threshold, minor_triggers, minor_maxtriggers);
-        }
-    } else if (last_fire + this->minor_threshold < clock_tick) {
+        WARNING("Overload warning: the major watchdog timer %dms has been tripped (%d), %d trips remaining.",
+                major_threshold,
+                clock_tick - last_fire,
+                major_maxtriggers - major_triggers);
+    } else if (minor_watchdog_tripped) {
+        minor_triggers++;
         last_trigger = clock_tick;
         CStat::globalStat(CStat::E_WATCHDOG_MINOR);
-        WARNING("The minor watchdog timer %dms has been tripped (%d), %d trips remaining.", minor_threshold, clock_tick - last_fire, minor_maxtriggers - minor_triggers);
-        if ((this->minor_maxtriggers != -1) && (++minor_triggers > this->minor_maxtriggers)) {
-            ERROR("The watchdog timer has tripped the minor threshold of %dms too many times (%d out of %d allowed) (%d out of %d major %dms timeouts tripped)\n", minor_threshold, minor_triggers, minor_maxtriggers, major_threshold, major_triggers, major_maxtriggers);
-        }
+        WARNING("Overload warning: the minor watchdog timer %dms has been tripped (%d), %d trips remaining.",
+                minor_threshold,
+                clock_tick - last_fire,
+                minor_maxtriggers - minor_triggers);
     }
 
-    if (reset_interval && (major_triggers || minor_triggers) && (last_trigger + reset_interval < clock_tick)) {
-        WARNING("Resetting watchdog timer trigger counts, as it has not been triggered in over %dms.", clock_tick - last_trigger);
-        major_triggers = minor_triggers = 0;
+    bool major_watchdog_failure = ((this->major_maxtriggers != -1) &&
+                                   (major_triggers > this->major_maxtriggers));
+    bool minor_watchdog_failure = ((this->minor_maxtriggers != -1) &&
+                                   (minor_triggers > this->minor_maxtriggers));
+
+    // If the watchdogs have tripped too many times, end the SIPp run.
+    if (major_watchdog_failure) {
+        ERROR("Overload error: the watchdog timer has tripped the major threshold of %dms too many times (%d out of %d allowed) (%d out of %d minor %dms timeouts tripped)\n",
+              major_threshold,
+              major_triggers,
+              major_maxtriggers,
+              minor_triggers,
+              minor_maxtriggers,
+              minor_threshold);
+    } else if (minor_watchdog_failure) {
+        ERROR("Overload error: the watchdog timer has tripped the minor threshold of %dms too many times (%d out of %d allowed) (%d out of %d major %dms timeouts tripped)\n",
+              minor_threshold,
+              minor_triggers,
+              minor_maxtriggers,
+              major_triggers,
+              major_maxtriggers,
+              major_threshold);
+    }
+
+
+
+    if ((reset_interval > 0) &&
+        (major_triggers || minor_triggers) &&
+        (clock_tick > (last_trigger + reset_interval))) {
+      WARNING("Resetting watchdog timer trigger counts, as it has not been triggered in over %dms.",
+              clock_tick - last_trigger);
+      major_triggers = minor_triggers = 0;
     }
 
     last_fire = clock_tick;
-    setPaused();
+    setPaused(); // Return this task to a paused state
     return true;
 }
 
+// Returns the clock_tick when this task should next run
 unsigned int watchdog::wake()
 {
     return last_fire + interval;
