@@ -82,23 +82,24 @@ PROGRAMS = $(bin_PROGRAMS) $(noinst_PROGRAMS)
 am__sipp_SOURCES_DIST = src/actions.cpp src/auth.cpp src/comp.c \
 	src/call.cpp src/deadcall.cpp src/infile.cpp src/listener.cpp \
 	src/logger.cpp src/md5.c src/message.cpp src/milenage.c \
-	src/opentask.cpp src/reporttask.cpp src/rijndael.c \
+	src/call_generation_task.cpp src/reporttask.cpp src/rijndael.c \
 	src/scenario.cpp src/sip_parser.cpp src/screen.cpp \
 	src/socket.cpp src/socketowner.cpp src/stat.cpp \
 	src/strings.cpp src/task.cpp src/time.cpp src/variables.cpp \
 	src/watchdog.cpp src/xp_parser.c include/comp.h \
 	include/infile.hpp include/listener.hpp include/logger.hpp \
 	include/md5.h include/message.hpp include/milenage.h \
-	include/opentask.hpp include/reporttask.hpp include/rijndael.h \
-	include/scenario.hpp include/sip_parser.hpp include/screen.hpp \
-	include/socket.hpp include/socketowner.hpp include/stat.hpp \
-	include/strings.hpp include/task.hpp include/time.hpp \
-	include/variables.hpp include/watchdog.hpp include/xp_parser.h \
-	include/actions.hpp include/call.hpp include/deadcall.hpp \
-	include/sslcommon.h src/sslinit.c src/sslthreadsafe.c \
-	include/prepare_pcap.h include/send_packets.h \
-	src/prepare_pcap.c src/send_packets.c src/rtpstream.cpp \
-	include/rtpstream.hpp src/sipp.cpp include/sipp.hpp
+	include/call_generation_task.hpp include/reporttask.hpp \
+	include/rijndael.h include/scenario.hpp include/sip_parser.hpp \
+	include/screen.hpp include/socket.hpp include/socketowner.hpp \
+	include/stat.hpp include/strings.hpp include/task.hpp \
+	include/time.hpp include/variables.hpp include/watchdog.hpp \
+	include/xp_parser.h include/actions.hpp include/call.hpp \
+	include/auth.hpp include/deadcall.hpp include/sslcommon.h \
+	src/sslinit.c src/sslthreadsafe.c include/prepare_pcap.h \
+	include/send_packets.h src/prepare_pcap.c src/send_packets.c \
+	src/rtpstream.cpp include/rtpstream.hpp src/sipp.cpp \
+	include/sipp.hpp
 am__objects_1 =
 @HAVE_OPENSSL_TRUE@am__objects_2 = $(am__objects_1) \
 @HAVE_OPENSSL_TRUE@	sipp-sslinit.$(OBJEXT) \
@@ -112,7 +113,7 @@ am__objects_5 = sipp-actions.$(OBJEXT) sipp-auth.$(OBJEXT) \
 	sipp-deadcall.$(OBJEXT) sipp-infile.$(OBJEXT) \
 	sipp-listener.$(OBJEXT) sipp-logger.$(OBJEXT) \
 	sipp-md5.$(OBJEXT) sipp-message.$(OBJEXT) \
-	sipp-milenage.$(OBJEXT) sipp-opentask.$(OBJEXT) \
+	sipp-milenage.$(OBJEXT) sipp-call_generation_task.$(OBJEXT) \
 	sipp-reporttask.$(OBJEXT) sipp-rijndael.$(OBJEXT) \
 	sipp-scenario.$(OBJEXT) sipp-sip_parser.$(OBJEXT) \
 	sipp-screen.$(OBJEXT) sipp-socket.$(OBJEXT) \
@@ -129,23 +130,23 @@ sipp_LINK = $(CXXLD) $(sipp_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) \
 am__sipp_unittest_SOURCES_DIST = src/actions.cpp src/auth.cpp \
 	src/comp.c src/call.cpp src/deadcall.cpp src/infile.cpp \
 	src/listener.cpp src/logger.cpp src/md5.c src/message.cpp \
-	src/milenage.c src/opentask.cpp src/reporttask.cpp \
+	src/milenage.c src/call_generation_task.cpp src/reporttask.cpp \
 	src/rijndael.c src/scenario.cpp src/sip_parser.cpp \
 	src/screen.cpp src/socket.cpp src/socketowner.cpp src/stat.cpp \
 	src/strings.cpp src/task.cpp src/time.cpp src/variables.cpp \
 	src/watchdog.cpp src/xp_parser.c include/comp.h \
 	include/infile.hpp include/listener.hpp include/logger.hpp \
 	include/md5.h include/message.hpp include/milenage.h \
-	include/opentask.hpp include/reporttask.hpp include/rijndael.h \
-	include/scenario.hpp include/sip_parser.hpp include/screen.hpp \
-	include/socket.hpp include/socketowner.hpp include/stat.hpp \
-	include/strings.hpp include/task.hpp include/time.hpp \
-	include/variables.hpp include/watchdog.hpp include/xp_parser.h \
-	include/actions.hpp include/call.hpp include/deadcall.hpp \
-	include/sslcommon.h src/sslinit.c src/sslthreadsafe.c \
-	include/prepare_pcap.h include/send_packets.h \
-	src/prepare_pcap.c src/send_packets.c src/rtpstream.cpp \
-	include/rtpstream.hpp src/sipp_unittest.cpp
+	include/call_generation_task.hpp include/reporttask.hpp \
+	include/rijndael.h include/scenario.hpp include/sip_parser.hpp \
+	include/screen.hpp include/socket.hpp include/socketowner.hpp \
+	include/stat.hpp include/strings.hpp include/task.hpp \
+	include/time.hpp include/variables.hpp include/watchdog.hpp \
+	include/xp_parser.h include/actions.hpp include/call.hpp \
+	include/auth.hpp include/deadcall.hpp include/sslcommon.h \
+	src/sslinit.c src/sslthreadsafe.c include/prepare_pcap.h \
+	include/send_packets.h src/prepare_pcap.c src/send_packets.c \
+	src/rtpstream.cpp include/rtpstream.hpp src/sipp_unittest.cpp
 @HAVE_OPENSSL_TRUE@am__objects_6 = $(am__objects_1) \
 @HAVE_OPENSSL_TRUE@	sipp_unittest-sslinit.$(OBJEXT) \
 @HAVE_OPENSSL_TRUE@	sipp_unittest-sslthreadsafe.$(OBJEXT)
@@ -161,7 +162,7 @@ am__objects_9 = sipp_unittest-actions.$(OBJEXT) \
 	sipp_unittest-logger.$(OBJEXT) sipp_unittest-md5.$(OBJEXT) \
 	sipp_unittest-message.$(OBJEXT) \
 	sipp_unittest-milenage.$(OBJEXT) \
-	sipp_unittest-opentask.$(OBJEXT) \
+	sipp_unittest-call_generation_task.$(OBJEXT) \
 	sipp_unittest-reporttask.$(OBJEXT) \
 	sipp_unittest-rijndael.$(OBJEXT) \
 	sipp_unittest-scenario.$(OBJEXT) \
@@ -350,7 +351,7 @@ common_incl = include/comp.h \
 	        include/md5.h \
 	        include/message.hpp \
 	        include/milenage.h \
-	        include/opentask.hpp \
+	        include/call_generation_task.hpp \
 	        include/reporttask.hpp \
 	        include/rijndael.h \
 	        include/scenario.hpp \
@@ -367,6 +368,7 @@ common_incl = include/comp.h \
 	        include/xp_parser.h \
 	        include/actions.hpp \
 	        include/call.hpp \
+	        include/auth.hpp \
 	        include/deadcall.hpp
 
 common_SOURCES = src/actions.cpp \
@@ -380,7 +382,7 @@ common_SOURCES = src/actions.cpp \
 	       src/md5.c \
 	       src/message.cpp \
 	       src/milenage.c \
-	       src/opentask.cpp \
+	       src/call_generation_task.cpp \
 	       src/reporttask.cpp \
 	       src/rijndael.c \
 	       src/scenario.cpp \
@@ -523,6 +525,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-actions.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-auth.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-call.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-call_generation_task.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-comp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-deadcall.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-infile.Po@am__quote@
@@ -531,7 +534,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-md5.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-message.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-milenage.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-opentask.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-prepare_pcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-reporttask.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp-rijndael.Po@am__quote@
@@ -555,6 +557,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-actions.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-auth.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-call.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-call_generation_task.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-comp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-deadcall.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-infile.Po@am__quote@
@@ -563,7 +566,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-md5.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-message.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-milenage.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-opentask.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-prepare_pcap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-reporttask.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sipp_unittest-rijndael.Po@am__quote@
@@ -977,19 +979,19 @@ sipp-message.obj: src/message.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c -o sipp-message.obj `if test -f 'src/message.cpp'; then $(CYGPATH_W) 'src/message.cpp'; else $(CYGPATH_W) '$(srcdir)/src/message.cpp'; fi`
 
-sipp-opentask.o: src/opentask.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -MT sipp-opentask.o -MD -MP -MF $(DEPDIR)/sipp-opentask.Tpo -c -o sipp-opentask.o `test -f 'src/opentask.cpp' || echo '$(srcdir)/'`src/opentask.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sipp-opentask.Tpo $(DEPDIR)/sipp-opentask.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/opentask.cpp' object='sipp-opentask.o' libtool=no @AMDEPBACKSLASH@
+sipp-call_generation_task.o: src/call_generation_task.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -MT sipp-call_generation_task.o -MD -MP -MF $(DEPDIR)/sipp-call_generation_task.Tpo -c -o sipp-call_generation_task.o `test -f 'src/call_generation_task.cpp' || echo '$(srcdir)/'`src/call_generation_task.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sipp-call_generation_task.Tpo $(DEPDIR)/sipp-call_generation_task.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/call_generation_task.cpp' object='sipp-call_generation_task.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c -o sipp-opentask.o `test -f 'src/opentask.cpp' || echo '$(srcdir)/'`src/opentask.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c -o sipp-call_generation_task.o `test -f 'src/call_generation_task.cpp' || echo '$(srcdir)/'`src/call_generation_task.cpp
 
-sipp-opentask.obj: src/opentask.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -MT sipp-opentask.obj -MD -MP -MF $(DEPDIR)/sipp-opentask.Tpo -c -o sipp-opentask.obj `if test -f 'src/opentask.cpp'; then $(CYGPATH_W) 'src/opentask.cpp'; else $(CYGPATH_W) '$(srcdir)/src/opentask.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sipp-opentask.Tpo $(DEPDIR)/sipp-opentask.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/opentask.cpp' object='sipp-opentask.obj' libtool=no @AMDEPBACKSLASH@
+sipp-call_generation_task.obj: src/call_generation_task.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -MT sipp-call_generation_task.obj -MD -MP -MF $(DEPDIR)/sipp-call_generation_task.Tpo -c -o sipp-call_generation_task.obj `if test -f 'src/call_generation_task.cpp'; then $(CYGPATH_W) 'src/call_generation_task.cpp'; else $(CYGPATH_W) '$(srcdir)/src/call_generation_task.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sipp-call_generation_task.Tpo $(DEPDIR)/sipp-call_generation_task.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/call_generation_task.cpp' object='sipp-call_generation_task.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c -o sipp-opentask.obj `if test -f 'src/opentask.cpp'; then $(CYGPATH_W) 'src/opentask.cpp'; else $(CYGPATH_W) '$(srcdir)/src/opentask.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c -o sipp-call_generation_task.obj `if test -f 'src/call_generation_task.cpp'; then $(CYGPATH_W) 'src/call_generation_task.cpp'; else $(CYGPATH_W) '$(srcdir)/src/call_generation_task.cpp'; fi`
 
 sipp-reporttask.o: src/reporttask.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -MT sipp-reporttask.o -MD -MP -MF $(DEPDIR)/sipp-reporttask.Tpo -c -o sipp-reporttask.o `test -f 'src/reporttask.cpp' || echo '$(srcdir)/'`src/reporttask.cpp
@@ -1299,19 +1301,19 @@ sipp_unittest-message.obj: src/message.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o sipp_unittest-message.obj `if test -f 'src/message.cpp'; then $(CYGPATH_W) 'src/message.cpp'; else $(CYGPATH_W) '$(srcdir)/src/message.cpp'; fi`
 
-sipp_unittest-opentask.o: src/opentask.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT sipp_unittest-opentask.o -MD -MP -MF $(DEPDIR)/sipp_unittest-opentask.Tpo -c -o sipp_unittest-opentask.o `test -f 'src/opentask.cpp' || echo '$(srcdir)/'`src/opentask.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sipp_unittest-opentask.Tpo $(DEPDIR)/sipp_unittest-opentask.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/opentask.cpp' object='sipp_unittest-opentask.o' libtool=no @AMDEPBACKSLASH@
+sipp_unittest-call_generation_task.o: src/call_generation_task.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT sipp_unittest-call_generation_task.o -MD -MP -MF $(DEPDIR)/sipp_unittest-call_generation_task.Tpo -c -o sipp_unittest-call_generation_task.o `test -f 'src/call_generation_task.cpp' || echo '$(srcdir)/'`src/call_generation_task.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sipp_unittest-call_generation_task.Tpo $(DEPDIR)/sipp_unittest-call_generation_task.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/call_generation_task.cpp' object='sipp_unittest-call_generation_task.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o sipp_unittest-opentask.o `test -f 'src/opentask.cpp' || echo '$(srcdir)/'`src/opentask.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o sipp_unittest-call_generation_task.o `test -f 'src/call_generation_task.cpp' || echo '$(srcdir)/'`src/call_generation_task.cpp
 
-sipp_unittest-opentask.obj: src/opentask.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT sipp_unittest-opentask.obj -MD -MP -MF $(DEPDIR)/sipp_unittest-opentask.Tpo -c -o sipp_unittest-opentask.obj `if test -f 'src/opentask.cpp'; then $(CYGPATH_W) 'src/opentask.cpp'; else $(CYGPATH_W) '$(srcdir)/src/opentask.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sipp_unittest-opentask.Tpo $(DEPDIR)/sipp_unittest-opentask.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/opentask.cpp' object='sipp_unittest-opentask.obj' libtool=no @AMDEPBACKSLASH@
+sipp_unittest-call_generation_task.obj: src/call_generation_task.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT sipp_unittest-call_generation_task.obj -MD -MP -MF $(DEPDIR)/sipp_unittest-call_generation_task.Tpo -c -o sipp_unittest-call_generation_task.obj `if test -f 'src/call_generation_task.cpp'; then $(CYGPATH_W) 'src/call_generation_task.cpp'; else $(CYGPATH_W) '$(srcdir)/src/call_generation_task.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/sipp_unittest-call_generation_task.Tpo $(DEPDIR)/sipp_unittest-call_generation_task.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/call_generation_task.cpp' object='sipp_unittest-call_generation_task.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o sipp_unittest-opentask.obj `if test -f 'src/opentask.cpp'; then $(CYGPATH_W) 'src/opentask.cpp'; else $(CYGPATH_W) '$(srcdir)/src/opentask.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o sipp_unittest-call_generation_task.obj `if test -f 'src/call_generation_task.cpp'; then $(CYGPATH_W) 'src/call_generation_task.cpp'; else $(CYGPATH_W) '$(srcdir)/src/call_generation_task.cpp'; fi`
 
 sipp_unittest-reporttask.o: src/reporttask.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT sipp_unittest-reporttask.o -MD -MP -MF $(DEPDIR)/sipp_unittest-reporttask.Tpo -c -o sipp_unittest-reporttask.o `test -f 'src/reporttask.cpp' || echo '$(srcdir)/'`src/reporttask.cpp
