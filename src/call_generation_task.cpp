@@ -32,55 +32,63 @@
  */
 #include "sipp.hpp"
 
-class opentask *opentask::instance = NULL;
-unsigned long opentask::calls_since_last_rate_change = 0;
-unsigned long opentask::last_rate_change_time = 0;
+class CallGenerationTask *CallGenerationTask::instance = NULL;
+unsigned long CallGenerationTask::calls_since_last_rate_change = 0;
+unsigned long CallGenerationTask::last_rate_change_time = 0;
 
-void opentask::initialize()
+void CallGenerationTask::initialize()
 {
     assert(instance == NULL);
-    instance = new opentask();
+    instance = new CallGenerationTask();
 }
 
-opentask::opentask()
+CallGenerationTask::CallGenerationTask()
 {
     setRunning();
 }
 
-opentask::~opentask()
+CallGenerationTask::~CallGenerationTask()
 {
     instance = NULL;
 }
 
-void opentask::dump()
+void CallGenerationTask::dump()
 {
     WARNING("Uniform rate call generation task: %d", rate);
 }
 
-unsigned int opentask::wake()
-{
-    float ms_per_call;
-    if (paused) {
-        return 0;
-    } else if (users >= 0) {
-        /* We need to wait until another call is terminated. */
-        return 0;
+unsigned int CallGenerationTask::wake() {
+    int retval;
+    if (paused || (users >= 0)) {
+        // When paused or when we're doing user-based rather than
+        // rate-based calls, return a sentinel value to indicate that
+        // this task should wait forever before rescheduling.
+        retval = DONT_RESCHEDULE;
     } else {
-        ms_per_call = rate_period_ms/MAX(rate, 1);
-        /* We need to compute when the next call is going to be opened.
-         * The current time is the time when the rate last changed, plus
-         * the number of calls since then multiplied by the number of milliseconds
-         * between each call.
+        float ms_per_call = rate_period_ms/MAX(rate, 1);
+        /* We need to compute when the next call is going to be
+         * opened. The current time is the time when the rate last
+         * changed, plus the number of calls since then multiplied by
+         * the number of milliseconds between each call.
          *
          * We then add the number of milliseconds between each call to that
-         * figure.*/
+         * figure. */
 
-        return (unsigned long) last_rate_change_time +
-               (calls_since_last_rate_change * ms_per_call) + ms_per_call;
-    }
+        retval = (unsigned long) last_rate_change_time +
+            (calls_since_last_rate_change * ms_per_call) + ms_per_call;
+
+        /* On startup, when last_rate_change_time is 0, this
+        calculation can be 0 (if we're opening multiple calls per ms).
+        But 0 indicates that we should wait forever, so avoid that and
+        return 1 instead. */
+        if (retval == 0 /* DONT_RESCHEDULE */) {
+          retval = 1;
+        }
+  }
+  return retval;
 }
 
-bool opentask::run()
+bool CallGenerationTask::run()
 {
     int calls_to_open = 0;
 
@@ -99,11 +107,12 @@ bool opentask::run()
     unsigned long long total_calls = main_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + main_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated);
 
     if (users >= 0) {
-        calls_to_open = ((l = (users - current_calls)) > 0) ? l : 0;
+        calls_to_open = users - current_calls;
     } else {
-        calls_to_open = (unsigned int)
-                        ((l=(long)floor(((clock_tick - last_rate_change_time) * rate/rate_period_ms)
-                                        - calls_since_last_rate_change))>0?l:0);
+        float calls_per_ms = rate/rate_period_ms;
+        unsigned int ms_since_last_rate_change = clock_tick - last_rate_change_time;
+        unsigned int expected_total_calls = ms_since_last_rate_change * calls_per_ms;
+        calls_to_open = expected_total_calls - calls_since_last_rate_change;
     }
 
     if (total_calls + calls_to_open > stop_after) {
@@ -118,9 +127,7 @@ bool opentask::run()
     calls_since_last_rate_change += calls_to_open;
 
     if (open_calls_allowed && (current_calls + calls_to_open > open_calls_allowed)) {
-
         calls_to_open = open_calls_allowed - current_calls;
-
     }
 
     if (calls_to_open <= 0) {
@@ -138,9 +145,11 @@ bool opentask::run()
             freeUsers.pop_back();
         }
 
-        // adding a new OUTGOING CALL
+        // Adding a new outgoing call
         main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-        call * call_ptr = call::add_call(userid, local_ip_is_ipv6, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
+        call* call_ptr = call::add_call(userid,
+                                         local_ip_is_ipv6,
+                                         use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
         if(!call_ptr) {
             ERROR("Out of memory allocating call!");
         }
@@ -161,16 +170,18 @@ bool opentask::run()
                 break;
             }
         }
+        // We shouldn't run for more than 1ms, so as not to tie up the scheduler
         if (getmilliseconds() > start_clock) {
             break;
         }
     }
 
-    /* We can pause. */
     if (calls_to_open <= 0) {
         setPaused();
     } else {
-        /* Stay running. */
+        // We stopped before opening all the calls we needed to so as
+        // not to tie up the scheduler - don't pause this task, so
+        // that it gets rescheduled ASAP and can continue.
     }
 
     // Quit after asked number of calls is reached
@@ -182,7 +193,7 @@ bool opentask::run()
     return true;
 }
 
-void opentask::set_paused(bool new_paused)
+void CallGenerationTask::set_paused(bool new_paused)
 {
     if (!instance) {
         /* Doesn't do anything, we must be in server mode. */
@@ -201,7 +212,7 @@ void opentask::set_paused(bool new_paused)
     paused = new_paused;
 }
 
-void opentask::set_rate(double new_rate)
+void CallGenerationTask::set_rate(double new_rate)
 {
     if (!instance) {
         /* Doesn't do anything, we must be in server mode. */
@@ -217,11 +228,17 @@ void opentask::set_rate(double new_rate)
 
     if(!open_calls_user_setting) {
 
+        // Calculate the maximum number of open calls from the rate
+        // and the call duration, unless the user has set a fixed value.
         int call_duration_min =  main_scenario->duration;
 
-        if(duration > call_duration_min) call_duration_min = duration;
+        if (duration > call_duration_min) {
+            call_duration_min = duration;
+        }
 
-        if(call_duration_min < 1000) call_duration_min = 1000;
+        if (call_duration_min < 1000) {
+            call_duration_min = 1000;
+        }
 
         open_calls_allowed = (int)((3.0 * rate * call_duration_min) / (double)rate_period_ms);
         if(!open_calls_allowed) {
@@ -230,7 +247,7 @@ void opentask::set_rate(double new_rate)
     }
 }
 
-void opentask::set_users(int new_users)
+void CallGenerationTask::set_users(int new_users)
 {
     if (!instance) {
         /* Doesn't do anything, we must be in server mode. */
@@ -242,19 +259,17 @@ void opentask::set_users(int new_users)
     }
     assert(users >= 0);
 
-    if (users < new_users ) {
-        while (users < new_users) {
-            int userid;
-            if (!retiredUsers.empty()) {
-                userid = retiredUsers.back();
-                retiredUsers.pop_back();
-            } else {
-                userid = users + 1;
-                userVarMap[userid] = new VariableTable(userVariables);
-            }
-            freeUsers.push_front(userid);
-            users++;
+    while (users < new_users) {
+        int userid;
+        if (!retiredUsers.empty()) {
+            userid = retiredUsers.back();
+            retiredUsers.pop_back();
+        } else {
+            userid = users + 1;
+            userVarMap[userid] = new VariableTable(userVariables);
         }
+        freeUsers.push_front(userid);
+        users++;
     }
 
     users = open_calls_allowed = new_users;
@@ -267,7 +282,7 @@ void opentask::set_users(int new_users)
     instance->setRunning();
 }
 
-void opentask::freeUser(int userId)
+void CallGenerationTask::free_user(int userId)
 {
     if (main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall) > open_calls_allowed) {
         retiredUsers.push_front(userId);

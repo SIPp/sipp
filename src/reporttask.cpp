@@ -117,7 +117,7 @@ bool stattask::run()
                     quitting += 10;
                 }
             }
-            opentask::set_rate(rate);
+            CallGenerationTask::set_rate(rate);
         }
         report();
     }

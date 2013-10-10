@@ -1975,8 +1975,8 @@ int main(int argc, char *argv[])
     /* Setting the rate and its dependant params (open_calls_allowed) */
     /* If we are a client, then create the task to open new calls. */
     if (creationMode == MODE_CLIENT) {
-        opentask::initialize();
-        opentask::set_rate(rate);
+        CallGenerationTask::initialize();
+        CallGenerationTask::set_rate(rate);
     }
 
 #ifdef HAVE_EPOLL

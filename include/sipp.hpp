@@ -80,7 +80,7 @@
 #include "stat.hpp"
 #include "actions.hpp"
 #include "infile.hpp"
-#include "opentask.hpp"
+#include "call_generation_task.hpp"
 #include "reporttask.hpp"
 #include "watchdog.hpp"
 /* Open SSL stuff */
@@ -158,7 +158,7 @@
 #define MAX_PATH                   250
 
 #define MAX_PEER_SIZE              4096  /* 3pcc extended mode: max size of peer names */
-#define MAX_LOCAL_TWIN_SOCKETS     10    /*3pcc extended mode:max number of peers from which 
+#define MAX_LOCAL_TWIN_SOCKETS     10    /*3pcc extended mode:max number of peers from which
 cmd messages are received */
 
 /******************** Default parameters ***********************/

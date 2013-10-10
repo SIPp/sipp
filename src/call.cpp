@@ -702,7 +702,7 @@ call::~call()
         delete m_lineNumber;
     }
     if (userId) {
-        opentask::freeUser(userId);
+        CallGenerationTask::free_user(userId);
     }
 
     if (transactions) {

@@ -31,19 +31,19 @@
  *           Charles P Wright from IBM Research
  */
 
-#ifndef OPENTASK_HPP
-#define OPENTASK_HPP
+#ifndef CALLGENERATIONTASK_HPP
+#define CALLGENERATIONTASK_HPP
 
 #include "task.hpp"
+#define DONT_RESCHEDULE 0
 
-class opentask : public task
-{
+class CallGenerationTask : public task {
 public:
     static void initialize();
     static void set_rate(double new_rate);
     static void set_users(int new_users);
     static void set_paused(bool paused);
-    static void freeUser(int userId);
+    static void free_user(int userId);
 
     bool run();
     void dump();
@@ -52,10 +52,10 @@ protected:
     unsigned int wake();
 
 private:
-    opentask();
-    virtual ~opentask();
+    CallGenerationTask();
+    virtual ~CallGenerationTask();
 
-    static class opentask *instance;
+    static class CallGenerationTask *instance;
     static unsigned long calls_since_last_rate_change;
     static unsigned long last_rate_change_time;
 };

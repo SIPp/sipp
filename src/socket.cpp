@@ -85,7 +85,7 @@ void process_set(char *what)
         } else if (*end) {
             WARNING("Invalid rate value: \"%s\"", rest);
         } else {
-            opentask::set_rate(drest);
+            CallGenerationTask::set_rate(drest);
         }
     } else if (!strcmp(what, "rate-scale")) {
         char *end;
@@ -106,7 +106,7 @@ void process_set(char *what)
         } else if (urest < 0) {
             WARNING("Invalid users value: \"%s\"", rest);
         } else {
-            opentask::set_users(urest);
+            CallGenerationTask::set_users(urest);
         }
     } else if (!strcmp(what, "limit")) {
         char *end;
@@ -381,45 +381,45 @@ bool process_key(int c)
 
     case '+':
         if (users >= 0) {
-            opentask::set_users((int)(users + 1 * rate_scale));
+            CallGenerationTask::set_users((int)(users + 1 * rate_scale));
         } else {
-            opentask::set_rate(rate + 1 * rate_scale);
+            CallGenerationTask::set_rate(rate + 1 * rate_scale);
         }
         print_statistics(0);
         break;
 
     case '-':
         if (users >= 0) {
-            opentask::set_users((int)(users - 1 * rate_scale));
+            CallGenerationTask::set_users((int)(users - 1 * rate_scale));
         } else {
-            opentask::set_rate(rate - 1 * rate_scale);
+            CallGenerationTask::set_rate(rate - 1 * rate_scale);
         }
         print_statistics(0);
         break;
 
     case '*':
         if (users >= 0) {
-            opentask::set_users((int)(users + 10 * rate_scale));
+            CallGenerationTask::set_users((int)(users + 10 * rate_scale));
         } else {
-            opentask::set_rate(rate + 10 * rate_scale);
+            CallGenerationTask::set_rate(rate + 10 * rate_scale);
         }
         print_statistics(0);
         break;
 
     case '/':
         if (users >= 0) {
-            opentask::set_users((int)(users - 10 * rate_scale));
+            CallGenerationTask::set_users((int)(users - 10 * rate_scale));
         } else {
-            opentask::set_rate(rate - 10 * rate_scale);
+            CallGenerationTask::set_rate(rate - 10 * rate_scale);
         }
         print_statistics(0);
         break;
 
     case 'p':
         if(paused) {
-            opentask::set_paused(false);
+            CallGenerationTask::set_paused(false);
         } else {
-            opentask::set_paused(true);
+            CallGenerationTask::set_paused(true);
         }
         print_statistics(0);
         break;
@@ -987,7 +987,7 @@ void sipp_socket_invalidate(struct sipp_socket *socket)
             }
         }
     }
-#else 
+#else
     pollfiles[pollidx] = pollfiles[pollnfds];
 #endif
     sockets[pollidx] = sockets[pollnfds];
@@ -1567,7 +1567,7 @@ int sipp_reconnect_socket(struct sipp_socket *socket)
         sipp_abort_connection(socket->ss_fd);
         socket->ss_fd = -1;
     }
- 
+
     socket->ss_fd = socket_fd(socket->ss_ipv6, socket->ss_transport);
     if (socket->ss_fd == -1) {
         ERROR_NO("Could not obtain new socket: ");
@@ -1846,7 +1846,7 @@ int enter_congestion(struct sipp_socket *socket, int again)
 #else
      pollfiles[socket->ss_pollidx].events |= POLLOUT;
 #endif
- 
+
 #ifdef USE_SCTP
     if (!(socket->ss_transport == T_SCTP &&
             socket->sctpstate == SCTP_CONNECTING))
