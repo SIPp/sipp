@@ -1624,6 +1624,7 @@ void scenario::parseAction(CActions *actions)
 #endif
       } else if ((ptr = xp_get_value((char *) "rtp_stream"))) {
 #ifdef RTP_STREAM
+        hasMedia = 1;
 	if (!strcmp(ptr, "pause")) {
          tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PAUSE);
 	} else if (!strcmp(ptr, "resume")) {
