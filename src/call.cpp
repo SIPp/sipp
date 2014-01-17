@@ -2942,7 +2942,8 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
 
 #ifdef RTP_STREAM
   /* Check if message has a SDP in it; and extract media information. */
-  if (!strcmp(get_header_content(msg, (char*)"Content-Type:"),"application/sdp")) {
+  if (!strcmp(get_header_content(msg, (char*)"Content-Type:"),"application/sdp") &&
+          (hasMedia == 1)) {
     extract_rtp_remote_addr(msg);
   }
 #endif
