@@ -1328,10 +1328,18 @@ bool call::next()
 
 bool call::executeMessage(message *curmsg)
 {
-    if(curmsg -> pause_distribution || curmsg->pause_variable != -1) {
+    if (curmsg->pause_distribution || curmsg->pause_variable != -1) {
         unsigned int pause;
         if (curmsg->pause_distribution) {
-            pause  = (int)(curmsg -> pause_distribution -> sample());
+            double actualpause = curmsg->pause_distribution->sample();
+            if (actualpause < 1) {
+                // Protect against distribution samples that give
+                // negative results (and so pause for ~50 hours when
+                // cast to a unsigned int).
+                pause = 0;
+            } else {
+                pause  = (unsigned int)actualpause;
+            };
         } else {
             int varId = curmsg->pause_variable;
             pause = (int) M_callVariableTable->getVar(varId)->getDouble();
