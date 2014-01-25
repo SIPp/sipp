@@ -3916,6 +3916,9 @@ void call::extractSubMessage(char * msg, char * matchingString, char* result, bo
 
 void call::getFieldFromInputFile(const char *fileName, int field, SendingMessage *lineMsg, char*& dest)
 {
+    if (m_lineNumber == NULL) {
+        ERROR("Automatic calls (created by -aa, -oocsn or -oocsf) cannot use input files!");
+    }
     if (inFiles.find(fileName) == inFiles.end()) {
         ERROR("Invalid injection file: %s", fileName);
     }
