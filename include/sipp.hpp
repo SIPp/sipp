@@ -265,7 +265,7 @@ extern char               control_ip[40];
 extern int                control_port            _DEFVAL(0);
 extern int                buff_size               _DEFVAL(65535);
 extern int                tcp_readsize            _DEFVAL(65535);
-#ifdef PCAPPLAY
+#if defined(PCAPPLAY) || defined(RTP_STREAM)
 extern int                hasMedia                _DEFVAL(0);
 #endif
 #ifdef RTP_STREAM
