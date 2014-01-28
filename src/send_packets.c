@@ -147,19 +147,20 @@ int send_packets (play_args_t * play_args)
     if (media_ip_is_ipv6) {
         sock = socket(PF_INET6, SOCK_RAW, IPPROTO_UDP);
         if (sock < 0) {
-            ERROR("Can't create raw socket (need to run as root?)");
+            ERROR("Can't create raw IPv6 socket (need to run as root?): %s", strerror(errno));
         }
         from_port = &(((struct sockaddr_in6 *)(void *) from )->sin6_port);
         len = sizeof(struct sockaddr_in6);
         to_port = &(((struct sockaddr_in6 *)(void *) to )->sin6_port);
     } else {
         sock = socket(PF_INET, SOCK_RAW, IPPROTO_UDP);
-        if (sock < 0) {
-            ERROR("Can't create raw socket (need to run as root?)");
-        }
         from_port = &(((struct sockaddr_in *)(void *) from )->sin_port);
         len = sizeof(struct sockaddr_in);
         to_port = &(((struct sockaddr_in *)(void *) to )->sin_port);
+        if (sock < 0) {
+            ERROR("Can't create raw IPv4 socket (need to run as root?): %s", strerror(errno));
+            return ret;
+        }
     }
 
 
