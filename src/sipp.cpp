@@ -1849,11 +1849,10 @@ int main(int argc, char *argv[])
                                       report_freq_dumpRtt);
     }
 
-    if ((maxSocketPresent) && (max_multi_socket > FD_SETSIZE) ) {
-        L_maxSocketPresent = 1;
-    }
-
-    /* Initialization:  boost open file limit to the max (AgM)*/
+    // Check the soft limit on the number of open files,
+	// error out if this does not allow us to open the
+	// required number of signalling channels, and warn
+	// if this may not allow enough media channels.
     if (!skip_rlimit) {
         struct rlimit rlimit;
 
@@ -1861,31 +1860,13 @@ int main(int argc, char *argv[])
             ERROR_NO("getrlimit error");
         }
 
-        if (rlimit.rlim_max >
-#ifndef __CYGWIN
-                ((L_maxSocketPresent) ?  (unsigned int)max_multi_socket : FD_SETSIZE)
-#else
-                FD_SETSIZE
-#endif
-           ) {
-            fprintf (stderr, "Warning: open file limit > FD_SETSIZE; "
-                     "limiting max. # of open files to FD_SETSIZE = %d\n",
-                     FD_SETSIZE);
+	    if (max_multi_socket > rlimit.rlim_cur) {
+	        ERROR("Maximum number of open sockets (%d) should be less than the maximum number of open files (%d). Tune this with the `ulimit` command or the -max_socket option", max_multi_socket, rlimit.rlim_cur);
+	    }
 
-            rlimit.rlim_max =
-#ifndef __CYGWIN
-                (L_maxSocketPresent) ?  (unsigned int)max_multi_socket+min_socket : FD_SETSIZE ;
-#else
-
-                FD_SETSIZE;
-#endif
-        }
-
-        rlimit.rlim_cur = rlimit.rlim_max;
-        if (setrlimit (RLIMIT_NOFILE, &rlimit) < 0) {
-            ERROR("Unable to increase the open file limit to FD_SETSIZE = %d",
-                  FD_SETSIZE);
-        }
+	    if ((open_calls_allowed + max_multi_socket) > rlimit.rlim_cur) {
+	        WARNING("Maximum number of open sockets (%d) plus number of open calls (%d) should be less than the maximum number of open files (%d) to allow for media support. Tune this with the `ulimit` command, the -l option or the -max_socket option", max_multi_socket, open_calls_allowed, rlimit.rlim_cur);
+	    }
     }
 
     /* Load default scenario in case nothing was loaded */

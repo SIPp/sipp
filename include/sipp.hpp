@@ -88,17 +88,6 @@
 #include "sslcommon.h"
 #endif
 
-
-#ifndef __CYGWIN
-#ifndef FD_SETSIZE
-#define FD_SETSIZE 65000
-#endif
-#else
-#ifndef FD_SETSIZE
-#define FD_SETSIZE 1024
-#endif
-#endif
-
 /*
  * If this files is included in the Main, then extern definitions
  * are removed, and the _DEFAULT macro becomes '= value;'. Else
