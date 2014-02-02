@@ -1727,7 +1727,7 @@ char* CStat::formatTime (struct timeval* P_tv, bool with_epoch)
                     L_currentDate->tm_hour,
                     L_currentDate->tm_min,
                     L_currentDate->tm_sec,
-                    P_tv->tv_usec);
+                    (long)P_tv->tv_usec);
         } else {
             sprintf(L_time, "%4.4d-%2.2d-%2.2d\t%2.2d:%2.2d:%2.2d.%06ld\t%10.10ld.%06ld",
                     L_currentDate->tm_year + 1900,
@@ -1736,9 +1736,9 @@ char* CStat::formatTime (struct timeval* P_tv, bool with_epoch)
                     L_currentDate->tm_hour,
                     L_currentDate->tm_min,
                     L_currentDate->tm_sec,
-                    P_tv->tv_usec,
+                    (long)P_tv->tv_usec,
                     P_tv->tv_sec,
-                    P_tv->tv_usec);
+                    (long)P_tv->tv_usec);
         }
     }
     return (L_time);

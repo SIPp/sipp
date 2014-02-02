@@ -473,7 +473,7 @@ void print_stats_in_file(FILE * f)
     fprintf(f,"  %-38s %.3f kB/s RTP OUT" SIPP_ENDL,
               temp_str,last_rtpstream_rate_out);
 
-    sprintf(temp_str, "%d RTP sending threads active",rtpstream_numthreads);
+    sprintf(temp_str, "%lu RTP sending threads active",rtpstream_numthreads);
     fprintf(f,"  %-38s %.3f kB/s RTP IN" SIPP_ENDL,
               temp_str,last_rtpstream_rate_in);
   }
