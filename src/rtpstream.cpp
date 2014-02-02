@@ -703,14 +703,14 @@ int rtpstream_get_localport (int *rtpsocket, int *rtcpsocket)
   if ((media_ip_is_ipv6?
        inet_pton(AF_INET6,media_ip,&((_RCAST(struct sockaddr_in6 *,&address))->sin6_addr)):
        inet_pton(AF_INET,media_ip,&((_RCAST(struct sockaddr_in *,&address))->sin_addr)))!=1) {
-    /* error converting media ip. */
+	WARNING("Could not set up media IP for RTP streaming");
     return 0;
   }
 
   /* create new UDP listen socket */
   *rtpsocket= socket(media_ip_is_ipv6?PF_INET6:PF_INET,SOCK_DGRAM,0);
   if (*rtpsocket==-1) {
-    /* error opening RTP socket */
+    WARNING("Could not open socket for RTP streaming: %s", strerror(errno));
     return 0;
   }
 
@@ -742,12 +742,14 @@ int rtpstream_get_localport (int *rtpsocket, int *rtcpsocket)
   if (tries==BIND_MAX_TRIES) {
     close (*rtpsocket);
     *rtpsocket= -1;
+    WARNING("Could not bind port for RTP streaming after %d tries", tries);
     return 0;
   }
 
   if (!rtpstream_setsocketoptions (*rtpsocket)) {
     close (*rtpsocket);
     *rtpsocket= -1;
+    WARNING("Could not set socket options for RTP streaming");
     return 0;
   }
 
