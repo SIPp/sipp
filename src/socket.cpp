@@ -1277,7 +1277,11 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
     epollfiles[ret->ss_pollidx].events   = EPOLLIN;
     int rc = epoll_ctl(epollfd, EPOLL_CTL_ADD, ret->ss_fd, &epollfiles[ret->ss_pollidx]);
     if (rc == -1) {
-        ERROR_NO("Failed to add FD to epoll");
+        if (errno == EPERM) {
+            WARNING("Attempted to use epoll on a file that does not support it - this may happen when stdin/stdout is redirected to /dev/null");
+        } else { 
+            ERROR_NO("Failed to add FD to epoll");
+        }
     }
 #else
      pollfiles[ret->ss_pollidx].fd      = ret->ss_fd;

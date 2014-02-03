@@ -1850,23 +1850,24 @@ int main(int argc, char *argv[])
     }
 
     // Check the soft limit on the number of open files,
-	// error out if this does not allow us to open the
-	// required number of signalling channels, and warn
-	// if this may not allow enough media channels.
+    // error out if this does not allow us to open the
+    // required number of signalling channels, and warn
+    // if this may not allow enough media channels.
     if (!skip_rlimit) {
         struct rlimit rlimit;
+        int max_sockets_needed = multisocket ? max_multi_socket : 1; 
 
         if (getrlimit (RLIMIT_NOFILE, &rlimit) < 0) {
             ERROR_NO("getrlimit error");
         }
 
-	    if (max_multi_socket > rlimit.rlim_cur) {
-	        ERROR("Maximum number of open sockets (%d) should be less than the maximum number of open files (%d). Tune this with the `ulimit` command or the -max_socket option", max_multi_socket, rlimit.rlim_cur);
-	    }
+        if (max_sockets_needed > rlimit.rlim_cur) {
+            ERROR("Maximum number of open sockets (%d) should be less than the maximum number of open files (%d). Tune this with the `ulimit` command or the -max_socket option", max_sockets_needed, rlimit.rlim_cur);
+        }
 
-	    if ((open_calls_allowed + max_multi_socket) > rlimit.rlim_cur) {
-	        WARNING("Maximum number of open sockets (%d) plus number of open calls (%d) should be less than the maximum number of open files (%d) to allow for media support. Tune this with the `ulimit` command, the -l option or the -max_socket option", max_multi_socket, open_calls_allowed, rlimit.rlim_cur);
-	    }
+        if ((open_calls_allowed + max_sockets_needed) > rlimit.rlim_cur) {
+            WARNING("Maximum number of open sockets (%d) plus number of open calls (%d) should be less than the maximum number of open files (%d) to allow for media support. Tune this with the `ulimit` command, the -l option or the -max_socket option", max_sockets_needed, open_calls_allowed, rlimit.rlim_cur);
+        }
     }
 
     /* Load default scenario in case nothing was loaded */
