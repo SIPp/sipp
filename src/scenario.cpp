@@ -439,10 +439,10 @@ bool get_bool(const char *ptr, const char *what)
     char *endptr;
     long ret;
 
-    if (!strcmp(ptr, "true")) {
+    if (!strcasecmp(ptr, "true")) {
         return true;
     }
-    if (!strcmp(ptr, "false")) {
+    if (!strcasecmp(ptr, "false")) {
         return false;
     }
 
