@@ -24,6 +24,10 @@ Normally, you should be able to build SIPp by just typing "./configure
 --with-pcap --with-sctp; make" in the current directory. Then "sipp
 -h" will give you access to the online help.
 
+If you checked out the source through a VCS, you may need to "touch
+Makefile.am; sleep 1; touch Makefile.in" before running configure and
+make.
+
 CONTRIBUTING
 ************
 
