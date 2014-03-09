@@ -31,11 +31,13 @@ SIPp is free software, under the terms of the GPL licence (see the LICENCE.txt f
   - Please stay conformant with the current indentation style (2 spaces
     indent, standard Emacs-like indentation). Examples:
 
-    if (condition) {
-      f();
-    } else {
-      g();
-    }
+```
+if (condition) {
+  f();
+} else {
+  g();
+}
+```
 
   - Use "{" in if conditions even if there is only one instruction
     (see example above).
