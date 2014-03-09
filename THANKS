@@ -30,8 +30,7 @@ Matt Williams
 Richard Brady
 Natanael Copa
 
-SIPp also uses code originally by Aaron Turner (send_packets.c) and L Peter
-Deutsch (md5.c).
+SIPp also uses code originally by Aaron Turner (send_packets.c) and L Peter Deutsch (md5.c).
 
 The following people have contributed to SIPp in other useful ways (bug reports, testing, etc.):
 Paul Belanger
@@ -40,3 +39,8 @@ Enrico Hartung
 Daniel Swärd
 Paul D Smith
 Ferenc Wágner
+Walter Doekes
+Carlo R. Carrano
+Kayode Olajide
+Daniel Goepp
+Vijay Goje
