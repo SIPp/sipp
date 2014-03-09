@@ -860,12 +860,14 @@ int rtpstream_get_videoport (rtpstream_callinfo_t *callinfo)
 /* code checked */
 void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, char *ip_addr, int audio_port, int video_port)
 {
-  struct sockaddr_storage   address;
-  struct in_addr            *ip4_addr;
-  struct in6_addr           *ip6_addr;
-  taskentry_t               *taskinfo;
-  int                       count;
-  int                       nonzero_ip;
+    struct sockaddr_storage   audio_address;
+    struct sockaddr_storage   video_address;
+
+    struct in_addr            *ip4_addr;
+    struct in6_addr           *ip6_addr;
+    taskentry_t               *taskinfo;
+    int                       count;
+    int                       nonzero_ip;
 
   debugprint ("rtpstream_set_remote callinfo=%p, ip_ver %d ip_addr %s audio %d video %d\n",callinfo,ip_ver,ip_addr,audio_port,video_port);
 
@@ -884,16 +886,26 @@ void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, char *ip_
   memset(&address,0,sizeof(address));
   if (media_ip_is_ipv6) {
     /* process ipv6 address */
-    address.ss_family= AF_INET6;
-    ip6_addr= &((_RCAST(struct sockaddr_in6 *,&address))->sin6_addr);
+    audio_address.ss_family= AF_INET6;
+    video_address.ss_family= AF_INET6;
+    ip6_addr= &((_RCAST(struct sockaddr_in6 *,&audio_address))->sin6_addr);
     if (inet_pton(AF_INET6,ip_addr,ip6_addr)==1) {
       for (count=0;count<sizeof(*ip6_addr);count++) {
         if (((char*)ip6_addr)[count]) {
           nonzero_ip= 1;
           break;
-		}
-	  }
-	}
+        }
+    }
+    }
+    ip6_addr= &((_RCAST(struct sockaddr_in6 *,&video_address))->sin6_addr);
+    if (inet_pton(AF_INET6,ip_addr,ip6_addr)==1) {
+      for (count=0;count<sizeof(*ip6_addr);count++) {
+        if (((char*)ip6_addr)[count]) {
+          nonzero_ip= 1;
+          break;
+        }
+    }
+    }
   } else {
     /* process ipv4 address */
     address.ss_family= AF_INET;

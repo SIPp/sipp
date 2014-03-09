@@ -120,22 +120,59 @@ unsigned int call::wake()
 }
 
 #ifdef PCAPPLAY
+#define PAT_AUDIO 1
+#define PAT_VIDEO 2
+
+char* get_cxn_info(char* msg, char* pattern, int pattype) {
+    char* end_media_pattern = "m=";
+    char* ret_cxn = NULL;
+    char* media_cxn_start = NULL;
+    char* media_pattern = NULL;
+    if (pattype == PAT_AUDIO) {
+        media_cxn_start = strstr(msg, "m=audio");
+    } else if (pattype == PAT_VIDEO) {
+        media_cxn_start = strstr(msg, "m=video");
+    } 
+
+    char* session_cxn = strstr(msg, pattern);
+    char* first_media_block = strstr(msg, end_media_pattern);
+    // Check against media_cxn_end to ensure we're not taking
+    // connection information from the first m= block
+    if ((first_media_block == NULL) || (session_cxn < first_media_block)) {
+        ret_cxn = session_cxn;
+    }
+    
+    if (media_cxn_start) {
+        char* media_cxn_end = strstr(media_cxn_start+2, end_media_pattern);
+        char* media_cxn = strstr(media_cxn_start, pattern);
+        
+        // Check against media_cxn_end to ensure we're not taking
+        // connection information from the next m= block
+        if ((media_cxn_end == NULL) || (media_cxn < media_cxn_end)) {
+            ret_cxn = media_cxn;
+        }
+    }
+    return ret_cxn;
+}
+
 /******* Media information management *************************/
 /*
  * Look for "c=IN IP4 " pattern in the message and extract the following value
  * which should be IP address
  */
-uint32_t get_remote_ip_media(char *msg)
+uint32_t get_remote_ip_media(char *msg, int pattype)
 {
     char pattern[] = "c=IN IP4 ";
-    char *begin, *end;
+    char *begin, *end, *session_cxn, *first_media_block = NULL;
     char ip[32];
     char *my_msg = strdup(msg);
 
     if (!my_msg) {
         return INADDR_NONE;
     }
-    begin = strstr(my_msg, pattern);
+    
+    begin = get_cxn_info(my_msg, pattern, pattype);
+    
     if (!begin) {
         free(my_msg);
         /* Can't find what we're looking at -> return no address */
@@ -159,7 +196,7 @@ uint32_t get_remote_ip_media(char *msg)
  * Look for "c=IN IP6 " pattern in the message and extract the following value
  * which should be IPv6 address
  */
-uint8_t get_remote_ipv6_media(char *msg, struct in6_addr *addr)
+uint8_t get_remote_ipv6_media(char *msg, struct in6_addr *addr, int pattype)
 {
     char pattern[] = "c=IN IP6 ";
     char *begin, *end;
@@ -172,7 +209,9 @@ uint8_t get_remote_ipv6_media(char *msg, struct in6_addr *addr)
     if (!my_msg) {
         return 0;
     }
-    begin = strstr(my_msg,pattern);
+
+    begin = get_cxn_info(my_msg, pattern, pattype);
+
     if (!begin) {
         free(my_msg);
         /* Can't find what we're looking at -> return no address */
@@ -198,8 +237,6 @@ uint8_t get_remote_ipv6_media(char *msg, struct in6_addr *addr)
  * Look for "m=audio " or "m=video " pattern in the message and extract the
  * following value which should be port number
  */
-#define PAT_AUDIO 1
-#define PAT_VIDEO 2
 uint16_t get_remote_port_media(const char *msg, int pattype)
 {
     const char *pattern;
@@ -246,8 +283,9 @@ void call::get_remote_media_addr(char *msg)
 {
     uint16_t video_port, audio_port;
     if (media_ip_is_ipv6) {
-        struct in6_addr ip_media;
-        if (get_remote_ipv6_media(msg, &ip_media)) {
+        struct in6_addr ip_audio_media;
+        struct in6_addr ip_video_media;
+        if (get_remote_ipv6_media(msg, &ip_audio_media, PAT_AUDIO)) {
             audio_port = get_remote_port_media(msg, PAT_AUDIO);
             if (audio_port) {
                 /* We have audio in the SDP: set the to_audio addr */
@@ -255,8 +293,10 @@ void call::get_remote_media_addr(char *msg)
                 (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_scope_id = 0;
                 (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_family = AF_INET6;
                 (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_port = audio_port;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_addr = ip_media;
+                (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_addr = ip_audio_media;
             }
+        }
+        if (get_remote_ipv6_media(msg, &ip_video_media), PAT_VIDEO) {
             video_port = get_remote_port_media(msg, PAT_VIDEO);
             if (video_port) {
                 /* We have video in the SDP: set the to_video addr */
@@ -264,27 +304,31 @@ void call::get_remote_media_addr(char *msg)
                 (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_scope_id = 0;
                 (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_family = AF_INET6;
                 (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_port = video_port;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_addr = ip_media;
+                (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_addr = ip_video_media;
             }
             hasMediaInformation = 1;
         }
     } else {
-        uint32_t ip_media;
-        ip_media = get_remote_ip_media(msg);
-        if (ip_media != INADDR_NONE) {
+        uint32_t ip_audio_media;
+        uint32_t ip_video_media;
+        ip_audio_media = get_remote_ip_media(msg, PAT_AUDIO);
+        if (ip_audio_media != INADDR_NONE) {
             audio_port = get_remote_port_media(msg, PAT_AUDIO);
             if (audio_port) {
                 /* We have audio in the SDP: set the to_audio addr */
                 (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_family = AF_INET;
                 (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_port = audio_port;
-                (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_addr.s_addr = ip_media;
+                (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_addr.s_addr = ip_audio_media;
             }
+        }
+        ip_video_media = get_remote_ip_media(msg, PAT_VIDEO);
+        if (ip_video_media != INADDR_NONE) {
             video_port = get_remote_port_media(msg, PAT_VIDEO);
             if (video_port) {
                 /* We have video in the SDP: set the to_video addr */
                 (_RCAST(struct sockaddr_in *, &(play_args_v.to)))->sin_family = AF_INET;
                 (_RCAST(struct sockaddr_in *, &(play_args_v.to)))->sin_port = video_port;
-                (_RCAST(struct sockaddr_in *, &(play_args_v.to)))->sin_addr.s_addr = ip_media;
+                (_RCAST(struct sockaddr_in *, &(play_args_v.to)))->sin_addr.s_addr = ip_video_media;
             }
             hasMediaInformation = 1;
         }
@@ -300,69 +344,80 @@ void call::get_remote_media_addr(char *msg)
 #define SDP_IPADDR_PREFIX    "\nc=IN IP"
 #define SDP_AUDIOPORT_PREFIX "\nm=audio"
 #define SDP_VIDEOPORT_PREFIX "\nm=video"
+
+bool extract_cxn_info(const char* msg, int pattype, int& ip_ver, char* ip_addr, int ip_addr_len) {
+    char* search = get_cxn_info(msg, SDP_IPADDR_PREFIX, pattype);
+    if (search) {
+        search += strlen(SDP_IPADDR_PREFIX);
+        /* Get IP version number from c= */
+        if (*search=='4') {
+            ip_ver= 4;
+        } else if (*search=='6') {
+            ip_ver= 6;
+        } else {
+            ip_ver= 0;
+            WARNING("extract_rtp_remote_addr: invalid IP version '%c' in SDP message body", *search);
+        }
+        search++;
+        while ( (*search==' ') || (*search=='\t') ) {
+            search++;
+        }
+        while ((ip_addr_len > 1) &&
+                (!( (*search==' ') || (*search=='\t') || (*search=='\r') || (*search=='\n') )) {
+            *(ip_addr++)= *(search++);
+            ip_addr_len--;
+        }
+    } else {
+        WARNING("extract_rtp_remote_addr: no IP address found in SDP message body");
+    }
+    *ip_addr = 0;
+    return ((ip_ver != 0) && (strlen(ip_addr) != 0))
+}
+
 void call::extract_rtp_remote_addr (char * msg)
 {
-  char   *search;
-  char   *copy;
-  char   ip_addr[128];
-  int    ip_ver;
-  int    audio_port= 0;
-  int    video_port= 0;
+    char   *search;
+    char   *copy;
+    bool has_audio = false;
+    bool has_video = false;
+    char   audio_ip_addr[128];
+    char   video_ip_addr[128];
+    int    audio_ip_ver;
+    int    video_ip_ver;
+    int    audio_port= 0;
+    int    video_port= 0;
 
-  /* Look for start of message body
-  search= strstr(msg,"\r\n\r\n");
-  if (!search) {
-    ERROR("extract_rtp_remote_addr: SDP message body not found");
-  }
-  msg= search+2;	/* skip past header. point to blank line before body */
-  /* Now search for IP address field */
-  search= strstr(msg,SDP_IPADDR_PREFIX);
-  if (search) {
-    search+= strlen(SDP_IPADDR_PREFIX);
-    /* Get IP version number from c= */
-    if (*search=='4') {
-      ip_ver= 4;
-    } else if (*search=='6') {
-      ip_ver= 6;
-    } else {
-      ip_ver= 0;
-      ERROR("extract_rtp_remote_addr: invalid IP version '%c' in SDP message body",*search);
+    has_audio = extract_cxn_info(msg, PAT_AUDIO, audio_ip_ver, audio_ip_addr, 128);
+    has_video = extract_cxn_info(msg, PAT_VIDEO, video_ip_ver, video_ip_addr, 128);
+    if (!has_audio && !has_video) {
     }
-    search++;
-    copy= ip_addr;
-    while ( (*search==' ') || (*search=='\t') ) {
-      search++;
+    if (has_audio) {
+        /* Now try to find the port number for the audio stream */
+        search= strstr(msg,SDP_AUDIOPORT_PREFIX);
+        if (search) {
+            search+= strlen(SDP_AUDIOPORT_PREFIX);
+            while ( (*search==' ') || (*search=='\t') ) {
+                search++;
+            }
+            sscanf (search,"%d",&audio_port);
+        }
     }
-    while (!( (*search==' ') || (*search=='\t') || (*search=='\r') || (*search=='\n') )) {
-      *(copy++)= *(search++);
+    
+    if (has_video) {
+        /* And find the port number for the video stream */
+        search= strstr(msg,SDP_VIDEOPORT_PREFIX);
+        if (search) {
+            search+= strlen(SDP_VIDEOPORT_PREFIX);
+            while ( (*search==' ') || (*search=='\t') ) {
+                search++;
+            }
+            sscanf (search,"%d",&video_port);
+        }
     }
-    *copy= 0;
-  } else {
-    ERROR("extract_rtp_remote_addr: no IP address found in SDP message body");
-    *ip_addr= 0;
-  }
-  /* Now try to find the port number for the audio stream */
-  search= strstr(msg,SDP_AUDIOPORT_PREFIX);
-  if (search) {
-    search+= strlen(SDP_AUDIOPORT_PREFIX);
-    while ( (*search==' ') || (*search=='\t') ) {
-      search++;
+    if ((audio_port == 0) && (video_port == 0)) {
+      ERROR("extract_rtp_remote_addr: no m=audio or m=video line found in SDP message body");
     }
-    sscanf (search,"%d",&audio_port);
-  }
-  /* And find the port number for the video stream */
-  search= strstr(msg,SDP_VIDEOPORT_PREFIX);
-  if (search) {
-    search+= strlen(SDP_VIDEOPORT_PREFIX);
-    while ( (*search==' ') || (*search=='\t') ) {
-      search++;
-    }
-    sscanf (search,"%d",&video_port);
-  }
-  if ((audio_port==0)&&(video_port==0)) {
-    ERROR("extract_rtp_remote_addr: no m=audio or m=video line found in SDP message body");
-  }
-  rtpstream_set_remote (&rtpstream_callinfo,ip_ver,ip_addr,audio_port,video_port);
+    rtpstream_set_remote (&rtpstream_callinfo,ip_ver,ip_addr,audio_port,video_port);
 }
 #endif
 
