@@ -51,7 +51,7 @@ static int stdin_mode;
 
 /******************** Recv Poll Processing *********************/
 
-int pollnfds;
+unsigned pollnfds;
 #ifdef HAVE_EPOLL
 int epollfd;
 struct epoll_event   epollfiles[SIPP_MAXFDS];

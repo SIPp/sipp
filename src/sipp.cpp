@@ -1854,7 +1854,7 @@ int main(int argc, char *argv[])
     // if this may not allow enough media channels.
     if (!skip_rlimit) {
         struct rlimit rlimit;
-        int max_sockets_needed = multisocket ? max_multi_socket : 1; 
+        unsigned max_sockets_needed = multisocket ? max_multi_socket : 1; 
 
         if (getrlimit (RLIMIT_NOFILE, &rlimit) < 0) {
             ERROR_NO("getrlimit error");

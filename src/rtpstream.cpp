@@ -863,7 +863,7 @@ void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, char *ip_
   struct in_addr            *ip4_addr;
   struct in6_addr           *ip6_addr;
   taskentry_t               *taskinfo;
-  int                       count;
+  unsigned                  count;
   int                       nonzero_ip;
 
   debugprint ("rtpstream_set_remote callinfo=%p, ip_ver %d ip_addr %s audio %d video %d\n",callinfo,ip_ver,ip_addr,audio_port,video_port);
