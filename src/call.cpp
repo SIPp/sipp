@@ -309,7 +309,7 @@ void call::extract_rtp_remote_addr (char * msg)
   int    audio_port= 0;
   int    video_port= 0;
 
-  /* Look for start of message body
+  /* Look for start of message body */
   search= strstr(msg,"\r\n\r\n");
   if (!search) {
     ERROR("extract_rtp_remote_addr: SDP message body not found");
