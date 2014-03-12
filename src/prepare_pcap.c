@@ -37,11 +37,9 @@
  * made available by the platform, as we had no problems to get them on all supported platforms.
  */
 
-typedef struct _ether_hdr {
-    char ether_dst[6];
-    char ether_src[6];
+typedef struct _ether_type_hdr {
     u_int16_t ether_type; /* we only need the type, so we can determine, if the next header is IPv4 or IPv6 */
-} ether_hdr;
+} ether_type_hdr;
 
 typedef struct _ipv6_hdr {
     char dontcare[6];
@@ -95,7 +93,8 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
     u_int16_t base = 0xffff;
     u_long pktlen;
     pcap_pkt *pkt_index;
-    ether_hdr *ethhdr;
+    size_t ether_type_offset;
+    ether_type_hdr *ethhdr;
     struct iphdr *iphdr;
     ipv6_hdr *ip6hdr;
     struct udphdr *udphdr;
@@ -105,6 +104,19 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
     pcap = pcap_open_offline(file, errbuf);
     if (!pcap)
         ERROR("Can't open PCAP file '%s'", file);
+
+    switch (pcap_datalink(pcap)) {
+    case DLT_EN10MB:
+        /* srcmac[6], dstmac[6], ethertype[2] */
+        ether_type_offset = 12;
+        break;
+    case DLT_LINUX_SLL:
+        /* some_stuff[14], ethertype[2] */
+        ether_type_offset = 14;
+        break;
+    default:
+        ERROR("Unsupported link-type %d", pcap_datalink(pcap));
+    }
 
 #if HAVE_PCAP_NEXT_EX
     while (pcap_next_ex (pcap, &pkthdr, (const u_char **) &pktdata) == 1) {
@@ -118,10 +130,12 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
         ERROR("Can't allocate memory for pcap pkthdr");
     while ((pktdata = (u_char *) pcap_next (pcap, pkthdr)) != NULL) {
 #endif
-        ethhdr = (ether_hdr *)pktdata;
+        if (pkthdr->len != pkthdr->caplen)
+            ERROR("You've got truncated packets. Re-do dump with -s0");
+        ethhdr = (ether_type_hdr *)(pktdata + ether_type_offset);
         if (ntohs(ethhdr->ether_type) != 0x0800 /* IPv4 */
                 && ntohs(ethhdr->ether_type) != 0x86dd) { /* IPv6 */
-            fprintf(stderr, "Ignoring non IP{4,6} packet!\n");
+            WARNING("Ignoring non IP{4,6} packet!");
             continue;
         }
         iphdr = (struct iphdr *)((char *)ethhdr + sizeof(*ethhdr));
@@ -130,14 +144,14 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
             pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*ip6hdr);
             ip6hdr = (ipv6_hdr *)(void *) iphdr;
             if (ip6hdr->nxt_header != IPPROTO_UDP) {
-                fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
+                WARNING("prepare_pcap.c: Ignoring non UDP packet!");
                 continue;
             }
             udphdr = (struct udphdr *)((char *)ip6hdr + sizeof(*ip6hdr));
         } else {
             //ipv4
             if (iphdr->protocol != IPPROTO_UDP) {
-                fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
+                WARNING("prepare_pcap.c: Ignoring non UDP packet!");
                 continue;
             }
 #if defined(__DARWIN) || defined(__CYGWIN) || defined(__FreeBSD__)
@@ -193,9 +207,23 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
     pkts->max = pkts->pkts + n_pkts;
     pkts->max_length = max_length;
     pkts->base = base;
-    fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %ld\nbase port %d\n", file, n_pkts, max_length, base);
+    //fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %ld\nbase port %d\n", file, n_pkts, max_length, base);
     pcap_close(pcap);
 
     return 0;
 }
 
+/* TODO: right now we leak pkts when shutting down.
+ * But, we can't clean this up after send_packets, because it may get reused.
+ * Furthermore, there is a nasty memcpy that copies the pcap_pkts buffer for
+ * further use. That means that (a) this memory should stay alive until the
+ * end of the app and (b) it should not be freed multiple times. */
+void free_pkts(pcap_pkts *pkts)
+{
+    pcap_pkt *pkt_index = pkts->pkts;
+    while (pkt_index < pkts->max) {
+        free(pkt_index->data);
+        pkt_index++;
+    }
+    free(pkts->pkts);
+}

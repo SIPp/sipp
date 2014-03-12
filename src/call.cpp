@@ -244,11 +244,12 @@ uint16_t get_remote_port_media(const char *msg, int pattype)
  */
 void call::get_remote_media_addr(char *msg)
 {
-    uint16_t video_port, audio_port;
+    uint16_t audio_port = get_remote_port_media(msg, PAT_AUDIO);
+    uint16_t video_port = get_remote_port_media(msg, PAT_VIDEO);
+
     if (media_ip_is_ipv6) {
         struct in6_addr ip_media;
         if (get_remote_ipv6_media(msg, &ip_media)) {
-            audio_port = get_remote_port_media(msg, PAT_AUDIO);
             if (audio_port) {
                 /* We have audio in the SDP: set the to_audio addr */
                 (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_flowinfo = 0;
@@ -257,7 +258,6 @@ void call::get_remote_media_addr(char *msg)
                 (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_port = htons(audio_port);
                 (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_addr = ip_media;
             }
-            video_port = get_remote_port_media(msg, PAT_VIDEO);
             if (video_port) {
                 /* We have video in the SDP: set the to_video addr */
                 (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_flowinfo = 0;
@@ -272,14 +272,12 @@ void call::get_remote_media_addr(char *msg)
         uint32_t ip_media;
         ip_media = get_remote_ip_media(msg);
         if (ip_media != INADDR_NONE) {
-            audio_port = get_remote_port_media(msg, PAT_AUDIO);
             if (audio_port) {
                 /* We have audio in the SDP: set the to_audio addr */
                 (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_family = AF_INET;
                 (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_port = htons(audio_port);
                 (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_addr.s_addr = ip_media;
             }
-            video_port = get_remote_port_media(msg, PAT_VIDEO);
             if (video_port) {
                 /* We have video in the SDP: set the to_video addr */
                 (_RCAST(struct sockaddr_in *, &(play_args_v.to)))->sin_family = AF_INET;
@@ -288,6 +286,13 @@ void call::get_remote_media_addr(char *msg)
             }
             hasMediaInformation = 1;
         }
+    }
+
+    if (audio_port) {
+	play_args_a.sock = media_socket;
+    }
+    if (video_port) {
+	play_args_v.sock = media_socket_video;
     }
 }
 
@@ -616,6 +621,7 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
     memset(&(play_args_v.to), 0, sizeof(struct sockaddr_storage));
     memset(&(play_args_a.from), 0, sizeof(struct sockaddr_storage));
     memset(&(play_args_v.from), 0, sizeof(struct sockaddr_storage));
+    play_args_a.sock = play_args_v.sock = -1;
     hasMediaInformation = 0;
     media_thread = 0;
 #endif

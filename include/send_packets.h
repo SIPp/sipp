@@ -114,6 +114,7 @@ typedef struct {
     /* Used in send_packets thread */
     struct sockaddr_storage to;
     struct sockaddr_storage from;
+    int sock;
 } play_args_t;
 
 #ifdef __cplusplus
