@@ -170,7 +170,6 @@ void rtpstream_process_task_flags (taskentry_t *taskinfo)
 {
   if (taskinfo->flags&TI_RECONNECTSOCKET) {
     int remote_addr_len;
-	int rc;
 
 	remote_addr_len= media_ip_is_ipv6?sizeof(struct sockaddr_in6):sizeof(struct sockaddr_in);
 
@@ -182,11 +181,11 @@ void rtpstream_process_task_flags (taskentry_t *taskinfo)
 	if (!(taskinfo->flags&TI_NULL_AUDIOIP))
 	{
       if (taskinfo->audio_rtcp_socket!=-1) {
-        rc= connect (taskinfo->audio_rtcp_socket,(struct sockaddr *)&(taskinfo->remote_audio_rtcp_addr),remote_addr_len);
+        connect (taskinfo->audio_rtcp_socket,(struct sockaddr *)&(taskinfo->remote_audio_rtcp_addr),remote_addr_len);
 	  }
 
       if (taskinfo->audio_rtp_socket!=-1) {
-        rc= connect (taskinfo->audio_rtp_socket,(struct sockaddr *)&(taskinfo->remote_audio_rtp_addr),remote_addr_len);
+        connect (taskinfo->audio_rtp_socket,(struct sockaddr *)&(taskinfo->remote_audio_rtp_addr),remote_addr_len);
 	  }
 	}
 
@@ -194,10 +193,10 @@ void rtpstream_process_task_flags (taskentry_t *taskinfo)
 	if (!(taskinfo->flags&TI_NULL_VIDEOIP))
 	{
       if (taskinfo->video_rtcp_socket!=-1) {
-        rc= connect (taskinfo->video_rtcp_socket,(struct sockaddr *)&(taskinfo->remote_video_rtcp_addr),remote_addr_len);
+        connect (taskinfo->video_rtcp_socket,(struct sockaddr *)&(taskinfo->remote_video_rtcp_addr),remote_addr_len);
 	  }
       if (taskinfo->video_rtp_socket!=-1) {
-        rc= connect (taskinfo->video_rtp_socket,(struct sockaddr *)&(taskinfo->remote_video_rtp_addr),remote_addr_len);
+        connect (taskinfo->video_rtp_socket,(struct sockaddr *)&(taskinfo->remote_video_rtp_addr),remote_addr_len);
 	  }
 	}
 

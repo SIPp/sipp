@@ -1161,7 +1161,6 @@ int main(int argc, char *argv[])
     int                  argi = 0;
     struct sockaddr_storage   media_sockaddr;
     pthread_t            pthread2_id,  pthread3_id;
-    int                  L_maxSocketPresent = 0;
     unsigned int         generic_count = 0;
     bool                 slave_masterSet = false;
 

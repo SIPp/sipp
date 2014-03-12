@@ -171,8 +171,6 @@ task_list *timewheel::task2list(task *task)
   assert(wake >= wheel_base);
   assert(wheel_base <= clock_tick);
 
-  unsigned int time_until_wake = wake - wheel_base;
-
   unsigned int slot_in_first_wheel = wake % LEVEL_ONE_SLOTS;
   unsigned int slot_in_second_wheel = (wake / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS;
   unsigned int slot_in_third_wheel = (wake / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS));

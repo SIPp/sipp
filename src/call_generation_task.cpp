@@ -102,7 +102,6 @@ bool CallGenerationTask::run()
         return true;
     }
 
-    long l=0;
     unsigned long long current_calls = main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall);
     unsigned long long total_calls = main_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + main_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated);
 
