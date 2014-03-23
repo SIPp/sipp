@@ -170,7 +170,7 @@ void rtpstream_process_task_flags (taskentry_t *taskinfo)
 {
   if (taskinfo->flags&TI_RECONNECTSOCKET) {
     int remote_addr_len;
-	int rc;
+    int rc;
 
 	remote_addr_len= media_ip_is_ipv6?sizeof(struct sockaddr_in6):sizeof(struct sockaddr_in);
 
@@ -178,28 +178,55 @@ void rtpstream_process_task_flags (taskentry_t *taskinfo)
     /* may want to leave this out -- low chance of race condition */
     pthread_mutex_lock (&(taskinfo->mutex));
 
-	/* If we have valid ip and port numbers for audio rtp stream */
-	if (!(taskinfo->flags&TI_NULL_AUDIOIP))
-	{
-      if (taskinfo->audio_rtcp_socket!=-1) {
-        rc= connect (taskinfo->audio_rtcp_socket,(struct sockaddr *)&(taskinfo->remote_audio_rtcp_addr),remote_addr_len);
-	  }
+    /* If we have valid ip and port numbers for audio rtp stream */
+    if (!(taskinfo->flags & TI_NULL_AUDIOIP))
+    {
+      if (taskinfo->audio_rtcp_socket != -1) {
+        rc = connect(taskinfo->audio_rtcp_socket, (struct sockaddr *)&taskinfo->remote_audio_rtcp_addr,
+                     remote_addr_len);
+        if (rc < 0) {
+          debugprint("closing audio rtcp socket %d due to error %d in rtpstream_process_task_flags taskinfo=%p\n",
+                     taskinfo->audio_rtcp_socket, errno, taskinfo);
+          close(taskinfo->audio_rtcp_socket);
+          taskinfo->audio_rtcp_socket = -1;
+        }
+      }
 
-      if (taskinfo->audio_rtp_socket!=-1) {
-        rc= connect (taskinfo->audio_rtp_socket,(struct sockaddr *)&(taskinfo->remote_audio_rtp_addr),remote_addr_len);
-	  }
-	}
+      if (taskinfo->audio_rtp_socket != -1) {
+        rc = connect(taskinfo->audio_rtp_socket, (struct sockaddr *)&taskinfo->remote_audio_rtp_addr, remote_addr_len);
+        if (rc < 0) {
+          debugprint("closing audio rtp socket %d due to error %d in rtpstream_process_task_flags taskinfo=%p\n",
+                     taskinfo->audio_rtp_socket, errno, taskinfo);
+          close(taskinfo->audio_rtp_socket);
+          taskinfo->audio_rtp_socket = -1;
+        }
+      }
+    }
 
     /* If we have valid ip and port numbers for video rtp stream */
-	if (!(taskinfo->flags&TI_NULL_VIDEOIP))
-	{
-      if (taskinfo->video_rtcp_socket!=-1) {
-        rc= connect (taskinfo->video_rtcp_socket,(struct sockaddr *)&(taskinfo->remote_video_rtcp_addr),remote_addr_len);
-	  }
-      if (taskinfo->video_rtp_socket!=-1) {
-        rc= connect (taskinfo->video_rtp_socket,(struct sockaddr *)&(taskinfo->remote_video_rtp_addr),remote_addr_len);
-	  }
-	}
+    if (!(taskinfo->flags & TI_NULL_VIDEOIP))
+    {
+      if (taskinfo->video_rtcp_socket != -1) {
+        rc = connect(taskinfo->video_rtcp_socket, (struct sockaddr *)&taskinfo->remote_video_rtcp_addr,
+                     remote_addr_len);
+        if (rc < 0) {
+          debugprint("closing video rtcp socket %d due to error %d in rtpstream_process_task_flags taskinfo=%p\n",
+                     taskinfo->video_rtcp_socket, errno, taskinfo);
+          close(taskinfo->video_rtcp_socket);
+          taskinfo->video_rtcp_socket = -1;
+        }
+      }
+      if (taskinfo->video_rtp_socket != -1) {
+        rc = connect(taskinfo->video_rtp_socket, (struct sockaddr *)&taskinfo->remote_video_rtp_addr,
+                     remote_addr_len);
+        if (rc < 0) {
+          debugprint("closing video rtp socket %d due to error %d in rtpstream_process_task_flags taskinfo=%p\n",
+                     taskinfo->video_rtp_socket, errno, taskinfo);
+          close(taskinfo->video_rtp_socket);
+          taskinfo->video_rtp_socket = -1;
+        }
+      }
+    }
 
     taskinfo->flags&= ~TI_RECONNECTSOCKET;
     pthread_mutex_unlock (&(taskinfo->mutex));
@@ -304,7 +331,8 @@ unsigned long rtpstream_playrtptask (taskentry_t *taskinfo, unsigned long  timen
             next_wake= timenow_ms+2; /* retry after short sleep */
 		  } else {
             /* this looks like a permanent error  - should we ignore ENETUNREACH? */
-            debugprint ("closing rtp socket %d due to error %drtpstream_new_call callinfo=%p\n",taskinfo->audio_rtp_socket,errno);
+            debugprint ("closing rtp socket %d due to error %d in rtpstream_new_call taskinfo=%p\n",
+                        taskinfo->audio_rtp_socket, errno, taskinfo);
             close (taskinfo->audio_rtp_socket);
             taskinfo->audio_rtp_socket= -1;
 		  }
@@ -864,7 +892,7 @@ void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, char *ip_
   struct in_addr            *ip4_addr;
   struct in6_addr           *ip6_addr;
   taskentry_t               *taskinfo;
-  int                       count;
+  unsigned                  count;
   int                       nonzero_ip;
 
   debugprint ("rtpstream_set_remote callinfo=%p, ip_ver %d ip_addr %s audio %d video %d\n",callinfo,ip_ver,ip_addr,audio_port,video_port);

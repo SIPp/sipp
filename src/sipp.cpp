@@ -1161,7 +1161,6 @@ int main(int argc, char *argv[])
     int                  argi = 0;
     struct sockaddr_storage   media_sockaddr;
     pthread_t            pthread2_id,  pthread3_id;
-    int                  L_maxSocketPresent = 0;
     unsigned int         generic_count = 0;
     bool                 slave_masterSet = false;
 
@@ -1855,7 +1854,7 @@ int main(int argc, char *argv[])
     // if this may not allow enough media channels.
     if (!skip_rlimit) {
         struct rlimit rlimit;
-        int max_sockets_needed = multisocket ? max_multi_socket : 1; 
+        unsigned max_sockets_needed = multisocket ? max_multi_socket : 1; 
 
         if (getrlimit (RLIMIT_NOFILE, &rlimit) < 0) {
             ERROR_NO("getrlimit error");

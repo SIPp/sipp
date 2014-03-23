@@ -54,8 +54,8 @@ bool watchdog::run()
 {
   getmilliseconds();
 
-  int expected_major_trigger_time = last_fire + this->major_threshold;
-  int expected_minor_trigger_time = last_fire + this->minor_threshold;
+  unsigned expected_major_trigger_time = last_fire + this->major_threshold;
+  unsigned expected_minor_trigger_time = last_fire + this->minor_threshold;
 
   bool major_watchdog_tripped = clock_tick > expected_major_trigger_time;
   bool minor_watchdog_tripped = clock_tick > expected_minor_trigger_time;
