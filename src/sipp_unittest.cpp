@@ -125,8 +125,8 @@ TEST(DigestAuth, BasicVerification) {
                            "opaque=\"5ccc069c403ebaf9f0171e9517f40e41\""));
     char result[255];
     createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, NULL, NULL, NULL, result);
-    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result));
     EXPECT_STREQ("Digest username=\"testuser\",realm=\"testrealm@host.com\",uri=\"sip:sip:example.com\",nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\",response=\"db94e01e92f2b09a52a234eeca8b90f7\",algorithm=MD5,opaque=\"5ccc069c403ebaf9f0171e9517f40e41\"", result);
+    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header);
 }
 
@@ -137,7 +137,16 @@ TEST(DigestAuth, qop) {
                            "qop=\"auth,auth-int\",\r\n"
                            "nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\"\r\n,"
                            "opaque=\"5ccc069c403ebaf9f0171e9517f40e41\""));
-    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, NULL, NULL, NULL, result);
-    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result));
+    createAuthHeader("testuser",
+                     "secret",
+                     "REGISTER",
+                     "sip:example.com",
+                     "hello world",
+                     header,
+                     NULL,
+                     NULL,
+                     NULL,
+                     result);
+    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header); 
 }

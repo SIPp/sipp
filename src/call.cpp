@@ -2400,6 +2400,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             auth_body += strlen("\r\n\r\n");
         }
     }
+    if (!auth_body) {
+        auth_body = "";
+    }
 
     /* Fix up the length. */
     if (length_marker) {
@@ -2446,10 +2449,6 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         tmp += 5;
         while(isspace(*tmp) || isdigit(*tmp)) tmp++;
         sscanf(tmp,"%s", method);
-
-        if (!auth_body) {
-            auth_body = "";
-        }
 
         /* Determine the type of credentials. */
         char result[MAX_HEADER_LEN];
@@ -3661,8 +3660,18 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 /* Generate the password to verify it against. */
                 tmp= createSendingMessage(currentAction->getMessage(1), -2 /* do not add crlf*/);
                 char *password = strdup(tmp);
+                /* Need the body for length and auth-int calculation */
+                char *body;
+                const char *auth_body = NULL;
+                body = strstr(msg, "\r\n\r\n");
+                if (body) {
+                    auth_body = body;
+                    auth_body += strlen("\r\n\r\n");
+                } else {
+                    auth_body = "";
+                }
 
-                result = verifyAuthHeader(username, password, method, auth);
+                result = verifyAuthHeader(username, password, method, auth, auth_body);
 
                 free(username);
                 free(password);
