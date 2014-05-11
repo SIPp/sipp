@@ -296,7 +296,7 @@ int createAuthResponseMD5(const char* user,
     md5_init(&Md5Ctx);
     md5_append(&Md5Ctx, (md5_byte_t *) &ha1_hex, HASH_HEX_SIZE);
     md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
+    md5_append(&Md5Ctx, (md5_byte_t *) nonce, strlen(nonce));
     if (cnonce[0] != '\0') {
         md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
         md5_append(&Md5Ctx, (md5_byte_t *) nc, strlen(nc));
