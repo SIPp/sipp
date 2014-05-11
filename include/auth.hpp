@@ -16,3 +16,4 @@
 
 int createAuthHeader(char * user, char * password, char * method, char * uri, const char * msgbody, char * auth, char * aka_OP, char * aka_AMF, char * aka_K, char * result);
 int verifyAuthHeader(char * user, char * password, char * method, char * auth);
+int getAuthParameter(const char *name, const char *header, char *result, int len);

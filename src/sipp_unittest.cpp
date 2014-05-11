@@ -34,43 +34,80 @@
  *           Andy Aicken
  *	     Michael Hirschbichler
  */
-
 #define GLOBALS_FULL_DEFINITION
-#define NOTLAST 0
 
-#include <dlfcn.h>
 #include "sipp.hpp"
-#include "assert.h"
+#include "auth.hpp"
+#include "gtest/gtest.h"
 
-int main()
-{
-    /* Unit testing function */
-    char ipv6_addr_brackets[] = "[fe80::92a4:deff:fe74:7af5]";
-    char ipv6_addr_port[] = "[fe80::92a4:deff:fe74:7af5]:999";
-    char ipv6_addr[] = "fe80::92a4:deff:fe74:7af5";
-    char ipv4_addr_port[] = "127.0.0.1:999";
-    char ipv4_addr[] = "127.0.0.1";
-    char hostname_port[] = "sipp.sf.net:999";
-    char hostname[] = "sipp.sf.net";
+TEST(GetHostAndPort, IPv6) {
     int port_result = -1;
     char host_result[255];
-    char orig_addr[255];
-
-#define TEST_GET_HOST_AND_PORT(VAR, EXPECTED_HOST, EXPECTED_PORT) {\
-    strcpy(host_result,""); \
-    strcpy(orig_addr,VAR); \
-    get_host_and_port(VAR, host_result, &port_result); \
-    if ((strcmp(host_result, EXPECTED_HOST) != 0) || (port_result != EXPECTED_PORT)) \
-    {fprintf(stderr, "get_host_and_port fails for address %s - results are %s and %d, expected %s and %d\n", orig_addr, host_result, port_result, EXPECTED_HOST, EXPECTED_PORT);};\
+    get_host_and_port("fe80::92a4:deff:fe74:7af5", host_result, &port_result);
+    EXPECT_EQ(0, port_result);
+    EXPECT_STREQ("fe80::92a4:deff:fe74:7af5", host_result);
 }
 
-    TEST_GET_HOST_AND_PORT(ipv6_addr, "fe80::92a4:deff:fe74:7af5", 0)
-    TEST_GET_HOST_AND_PORT(ipv6_addr_brackets, "fe80::92a4:deff:fe74:7af5", 0)
-    TEST_GET_HOST_AND_PORT(ipv6_addr_port, "fe80::92a4:deff:fe74:7af5", 999)
-    TEST_GET_HOST_AND_PORT(ipv4_addr, "127.0.0.1", 0)
-    TEST_GET_HOST_AND_PORT(ipv4_addr_port, "127.0.0.1", 999)
-    TEST_GET_HOST_AND_PORT(hostname, "sipp.sf.net", 0)
-    TEST_GET_HOST_AND_PORT(hostname_port, "sipp.sf.net", 999)
+TEST(GetHostAndPort, IPv6Brackets) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("[fe80::92a4:deff:fe74:7af5]", host_result, &port_result);
+    EXPECT_EQ(0, port_result);
+    EXPECT_STREQ("fe80::92a4:deff:fe74:7af5", host_result);
+}
 
-    return 0;
+TEST(GetHostAndPort, IPv6BracketsAndPort) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("[fe80::92a4:deff:fe74:7af5]:999", host_result, &port_result);
+    EXPECT_EQ(999, port_result);
+    EXPECT_STREQ("fe80::92a4:deff:fe74:7af5", host_result);
+}
+
+TEST(GetHostAndPort, IPv4) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("127.0.0.1", host_result, &port_result);
+    EXPECT_EQ(0, port_result);
+    EXPECT_STREQ("127.0.0.1", host_result);
+}
+
+TEST(GetHostAndPort, IPv4AndPort) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("127.0.0.1:999", host_result, &port_result);
+    EXPECT_EQ(999, port_result);
+    EXPECT_STREQ("127.0.0.1", host_result);
+}
+
+TEST(GetHostAndPort, DNS) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("sipp.sf.net", host_result, &port_result);
+    EXPECT_EQ(0, port_result);
+    EXPECT_STREQ("sipp.sf.net", host_result);
+}
+
+TEST(GetHostAndPort, DNSAndPort) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("sipp.sf.net:999", host_result, &port_result);
+    EXPECT_EQ(999, port_result);
+    EXPECT_STREQ("sipp.sf.net", host_result);
+}
+
+TEST(DigestAuth, nonce) {
+    char nonce[40];
+    getAuthParameter("nonce", " Authorization: Digest cnonce=\"c7e1249f\",nonce=\"a6ca2bf13de1433183f7c48781bd9304\"", nonce, sizeof(nonce));
+    EXPECT_STREQ("a6ca2bf13de1433183f7c48781bd9304", nonce);
+    getAuthParameter("nonce", " Authorization: Digest nonce=\"a6ca2bf13de1433183f7c48781bd9304\", cnonce=\"c7e1249f\"", nonce, sizeof(nonce));
+    EXPECT_STREQ("a6ca2bf13de1433183f7c48781bd9304", nonce);
+}
+
+TEST(DigestAuth, cnonce) {
+    char cnonce[10];
+    getAuthParameter("cnonce", " Authorization: Digest cnonce=\"c7e1249f\",nonce=\"a6ca2bf13de1433183f7c48781bd9304\"", cnonce, sizeof(cnonce));
+    EXPECT_STREQ("c7e1249f", cnonce);
+    getAuthParameter("cnonce", " Authorization: Digest nonce=\"a6ca2bf13de1433183f7c48781bd9304\", cnonce=\"c7e1249f\"", cnonce, sizeof(cnonce));
+    EXPECT_STREQ("c7e1249f", cnonce);
 }
