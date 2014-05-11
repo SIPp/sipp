@@ -177,7 +177,7 @@ am__sipp_unittest_SOURCES_DIST = src/actions.cpp src/auth.cpp \
 	src/sslinit.c src/sslthreadsafe.c include/prepare_pcap.h \
 	include/send_packets.h src/prepare_pcap.c src/send_packets.c \
 	src/rtpstream.cpp include/rtpstream.hpp src/sipp_unittest.cpp \
-	./gtest-1.7.0/src/gtest-all.cc ./gtest-1.7.0/src/gtest_main.cc
+	./gtest/src/gtest-all.cc ./gtest/src/gtest_main.cc
 @HAVE_OPENSSL_TRUE@am__objects_6 = $(am__objects_1) \
 @HAVE_OPENSSL_TRUE@	src/sipp_unittest-sslinit.$(OBJEXT) \
 @HAVE_OPENSSL_TRUE@	src/sipp_unittest-sslthreadsafe.$(OBJEXT)
@@ -214,8 +214,8 @@ am__objects_9 = src/sipp_unittest-actions.$(OBJEXT) \
 	$(am__objects_6) $(am__objects_7) $(am__objects_8)
 am_sipp_unittest_OBJECTS = $(am__objects_9) \
 	src/sipp_unittest-sipp_unittest.$(OBJEXT) \
-	./gtest-1.7.0/src/sipp_unittest-gtest-all.$(OBJEXT) \
-	./gtest-1.7.0/src/sipp_unittest-gtest_main.$(OBJEXT)
+	./gtest/src/sipp_unittest-gtest-all.$(OBJEXT) \
+	./gtest/src/sipp_unittest-gtest_main.$(OBJEXT)
 sipp_unittest_OBJECTS = $(am_sipp_unittest_OBJECTS)
 sipp_unittest_DEPENDENCIES = @LIBOBJS@
 sipp_unittest_LINK = $(CXXLD) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) \
@@ -622,7 +622,7 @@ target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-AM_CFLAGS = -I./include -I./gtest-1.7.0/include/ -I./gtest-1.7.0/
+AM_CFLAGS = -I./include
 AM_CPPFLAGS = $(AM_CFLAGS)
 EXTRA_DIST = src/fortune.cpp pcap LICENSE.txt README.txt THANKS sipp.dtd sipp.1 cpplint.py auto-generate-files.sh
 @HAVE_OPENSSL_TRUE@ssl_incl = include/sslcommon.h
@@ -705,11 +705,11 @@ sipp_CXXFLAGS = $(AM_CXXFLAGS) @GSL_CXXFLAGS@
 sipp_LDADD = @LIBOBJS@ @GSL_LIBS@
 sipp_unittest_SOURCES = $(common_SOURCES) \
 	src/sipp_unittest.cpp \
-	./gtest-1.7.0/src/gtest-all.cc \
-	./gtest-1.7.0/src/gtest_main.cc
+	./gtest/src/gtest-all.cc \
+	./gtest/src/gtest_main.cc
 
-sipp_unittest_CFLAGS = $(AM_CFLAGS) @GSL_CFLAGS@
-sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) @GSL_CXXFLAGS@
+sipp_unittest_CFLAGS = $(AM_CFLAGS) -I./gtest/include -I./gtest @GSL_CFLAGS@
+sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) -I./gtest/include -I./gtest @GSL_CXXFLAGS@
 sipp_unittest_LDADD = @LIBOBJS@ @GSL_LIBS@
 all: all-am
 
@@ -947,18 +947,16 @@ src/sipp_unittest-rtpstream.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
 src/sipp_unittest-sipp_unittest.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
-gtest-1.7.0/src/$(am__dirstamp):
-	@$(MKDIR_P) ./gtest-1.7.0/src
-	@: > gtest-1.7.0/src/$(am__dirstamp)
-gtest-1.7.0/src/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) ./gtest-1.7.0/src/$(DEPDIR)
-	@: > gtest-1.7.0/src/$(DEPDIR)/$(am__dirstamp)
-./gtest-1.7.0/src/sipp_unittest-gtest-all.$(OBJEXT):  \
-	gtest-1.7.0/src/$(am__dirstamp) \
-	gtest-1.7.0/src/$(DEPDIR)/$(am__dirstamp)
-./gtest-1.7.0/src/sipp_unittest-gtest_main.$(OBJEXT):  \
-	gtest-1.7.0/src/$(am__dirstamp) \
-	gtest-1.7.0/src/$(DEPDIR)/$(am__dirstamp)
+gtest/src/$(am__dirstamp):
+	@$(MKDIR_P) ./gtest/src
+	@: > gtest/src/$(am__dirstamp)
+gtest/src/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) ./gtest/src/$(DEPDIR)
+	@: > gtest/src/$(DEPDIR)/$(am__dirstamp)
+./gtest/src/sipp_unittest-gtest-all.$(OBJEXT):  \
+	gtest/src/$(am__dirstamp) gtest/src/$(DEPDIR)/$(am__dirstamp)
+./gtest/src/sipp_unittest-gtest_main.$(OBJEXT):  \
+	gtest/src/$(am__dirstamp) gtest/src/$(DEPDIR)/$(am__dirstamp)
 
 sipp_unittest$(EXEEXT): $(sipp_unittest_OBJECTS) $(sipp_unittest_DEPENDENCIES) $(EXTRA_sipp_unittest_DEPENDENCIES) 
 	@rm -f sipp_unittest$(EXEEXT)
@@ -966,14 +964,14 @@ sipp_unittest$(EXEEXT): $(sipp_unittest_OBJECTS) $(sipp_unittest_DEPENDENCIES) $
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
-	-rm -f ./gtest-1.7.0/src/*.$(OBJEXT)
+	-rm -f ./gtest/src/*.$(OBJEXT)
 	-rm -f src/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest-all.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest_main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./gtest/src/$(DEPDIR)/sipp_unittest-gtest-all.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./gtest/src/$(DEPDIR)/sipp_unittest-gtest_main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-actions.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-auth.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-call.Po@am__quote@
@@ -1967,33 +1965,33 @@ src/sipp_unittest-sipp_unittest.obj: src/sipp_unittest.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp_unittest-sipp_unittest.obj `if test -f 'src/sipp_unittest.cpp'; then $(CYGPATH_W) 'src/sipp_unittest.cpp'; else $(CYGPATH_W) '$(srcdir)/src/sipp_unittest.cpp'; fi`
 
-./gtest-1.7.0/src/sipp_unittest-gtest-all.o: ./gtest-1.7.0/src/gtest-all.cc
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT ./gtest-1.7.0/src/sipp_unittest-gtest-all.o -MD -MP -MF ./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest-all.Tpo -c -o ./gtest-1.7.0/src/sipp_unittest-gtest-all.o `test -f './gtest-1.7.0/src/gtest-all.cc' || echo '$(srcdir)/'`./gtest-1.7.0/src/gtest-all.cc
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) ./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest-all.Tpo ./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest-all.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='./gtest-1.7.0/src/gtest-all.cc' object='./gtest-1.7.0/src/sipp_unittest-gtest-all.o' libtool=no @AMDEPBACKSLASH@
+./gtest/src/sipp_unittest-gtest-all.o: ./gtest/src/gtest-all.cc
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT ./gtest/src/sipp_unittest-gtest-all.o -MD -MP -MF ./gtest/src/$(DEPDIR)/sipp_unittest-gtest-all.Tpo -c -o ./gtest/src/sipp_unittest-gtest-all.o `test -f './gtest/src/gtest-all.cc' || echo '$(srcdir)/'`./gtest/src/gtest-all.cc
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) ./gtest/src/$(DEPDIR)/sipp_unittest-gtest-all.Tpo ./gtest/src/$(DEPDIR)/sipp_unittest-gtest-all.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='./gtest/src/gtest-all.cc' object='./gtest/src/sipp_unittest-gtest-all.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o ./gtest-1.7.0/src/sipp_unittest-gtest-all.o `test -f './gtest-1.7.0/src/gtest-all.cc' || echo '$(srcdir)/'`./gtest-1.7.0/src/gtest-all.cc
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o ./gtest/src/sipp_unittest-gtest-all.o `test -f './gtest/src/gtest-all.cc' || echo '$(srcdir)/'`./gtest/src/gtest-all.cc
 
-./gtest-1.7.0/src/sipp_unittest-gtest-all.obj: ./gtest-1.7.0/src/gtest-all.cc
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT ./gtest-1.7.0/src/sipp_unittest-gtest-all.obj -MD -MP -MF ./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest-all.Tpo -c -o ./gtest-1.7.0/src/sipp_unittest-gtest-all.obj `if test -f './gtest-1.7.0/src/gtest-all.cc'; then $(CYGPATH_W) './gtest-1.7.0/src/gtest-all.cc'; else $(CYGPATH_W) '$(srcdir)/./gtest-1.7.0/src/gtest-all.cc'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) ./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest-all.Tpo ./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest-all.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='./gtest-1.7.0/src/gtest-all.cc' object='./gtest-1.7.0/src/sipp_unittest-gtest-all.obj' libtool=no @AMDEPBACKSLASH@
+./gtest/src/sipp_unittest-gtest-all.obj: ./gtest/src/gtest-all.cc
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT ./gtest/src/sipp_unittest-gtest-all.obj -MD -MP -MF ./gtest/src/$(DEPDIR)/sipp_unittest-gtest-all.Tpo -c -o ./gtest/src/sipp_unittest-gtest-all.obj `if test -f './gtest/src/gtest-all.cc'; then $(CYGPATH_W) './gtest/src/gtest-all.cc'; else $(CYGPATH_W) '$(srcdir)/./gtest/src/gtest-all.cc'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) ./gtest/src/$(DEPDIR)/sipp_unittest-gtest-all.Tpo ./gtest/src/$(DEPDIR)/sipp_unittest-gtest-all.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='./gtest/src/gtest-all.cc' object='./gtest/src/sipp_unittest-gtest-all.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o ./gtest-1.7.0/src/sipp_unittest-gtest-all.obj `if test -f './gtest-1.7.0/src/gtest-all.cc'; then $(CYGPATH_W) './gtest-1.7.0/src/gtest-all.cc'; else $(CYGPATH_W) '$(srcdir)/./gtest-1.7.0/src/gtest-all.cc'; fi`
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o ./gtest/src/sipp_unittest-gtest-all.obj `if test -f './gtest/src/gtest-all.cc'; then $(CYGPATH_W) './gtest/src/gtest-all.cc'; else $(CYGPATH_W) '$(srcdir)/./gtest/src/gtest-all.cc'; fi`
 
-./gtest-1.7.0/src/sipp_unittest-gtest_main.o: ./gtest-1.7.0/src/gtest_main.cc
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT ./gtest-1.7.0/src/sipp_unittest-gtest_main.o -MD -MP -MF ./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest_main.Tpo -c -o ./gtest-1.7.0/src/sipp_unittest-gtest_main.o `test -f './gtest-1.7.0/src/gtest_main.cc' || echo '$(srcdir)/'`./gtest-1.7.0/src/gtest_main.cc
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) ./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest_main.Tpo ./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest_main.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='./gtest-1.7.0/src/gtest_main.cc' object='./gtest-1.7.0/src/sipp_unittest-gtest_main.o' libtool=no @AMDEPBACKSLASH@
+./gtest/src/sipp_unittest-gtest_main.o: ./gtest/src/gtest_main.cc
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT ./gtest/src/sipp_unittest-gtest_main.o -MD -MP -MF ./gtest/src/$(DEPDIR)/sipp_unittest-gtest_main.Tpo -c -o ./gtest/src/sipp_unittest-gtest_main.o `test -f './gtest/src/gtest_main.cc' || echo '$(srcdir)/'`./gtest/src/gtest_main.cc
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) ./gtest/src/$(DEPDIR)/sipp_unittest-gtest_main.Tpo ./gtest/src/$(DEPDIR)/sipp_unittest-gtest_main.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='./gtest/src/gtest_main.cc' object='./gtest/src/sipp_unittest-gtest_main.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o ./gtest-1.7.0/src/sipp_unittest-gtest_main.o `test -f './gtest-1.7.0/src/gtest_main.cc' || echo '$(srcdir)/'`./gtest-1.7.0/src/gtest_main.cc
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o ./gtest/src/sipp_unittest-gtest_main.o `test -f './gtest/src/gtest_main.cc' || echo '$(srcdir)/'`./gtest/src/gtest_main.cc
 
-./gtest-1.7.0/src/sipp_unittest-gtest_main.obj: ./gtest-1.7.0/src/gtest_main.cc
-@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT ./gtest-1.7.0/src/sipp_unittest-gtest_main.obj -MD -MP -MF ./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest_main.Tpo -c -o ./gtest-1.7.0/src/sipp_unittest-gtest_main.obj `if test -f './gtest-1.7.0/src/gtest_main.cc'; then $(CYGPATH_W) './gtest-1.7.0/src/gtest_main.cc'; else $(CYGPATH_W) '$(srcdir)/./gtest-1.7.0/src/gtest_main.cc'; fi`
-@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) ./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest_main.Tpo ./gtest-1.7.0/src/$(DEPDIR)/sipp_unittest-gtest_main.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='./gtest-1.7.0/src/gtest_main.cc' object='./gtest-1.7.0/src/sipp_unittest-gtest_main.obj' libtool=no @AMDEPBACKSLASH@
+./gtest/src/sipp_unittest-gtest_main.obj: ./gtest/src/gtest_main.cc
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT ./gtest/src/sipp_unittest-gtest_main.obj -MD -MP -MF ./gtest/src/$(DEPDIR)/sipp_unittest-gtest_main.Tpo -c -o ./gtest/src/sipp_unittest-gtest_main.obj `if test -f './gtest/src/gtest_main.cc'; then $(CYGPATH_W) './gtest/src/gtest_main.cc'; else $(CYGPATH_W) '$(srcdir)/./gtest/src/gtest_main.cc'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) ./gtest/src/$(DEPDIR)/sipp_unittest-gtest_main.Tpo ./gtest/src/$(DEPDIR)/sipp_unittest-gtest_main.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='./gtest/src/gtest_main.cc' object='./gtest/src/sipp_unittest-gtest_main.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o ./gtest-1.7.0/src/sipp_unittest-gtest_main.obj `if test -f './gtest-1.7.0/src/gtest_main.cc'; then $(CYGPATH_W) './gtest-1.7.0/src/gtest_main.cc'; else $(CYGPATH_W) '$(srcdir)/./gtest-1.7.0/src/gtest_main.cc'; fi`
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o ./gtest/src/sipp_unittest-gtest_main.obj `if test -f './gtest/src/gtest_main.cc'; then $(CYGPATH_W) './gtest/src/gtest_main.cc'; else $(CYGPATH_W) '$(srcdir)/./gtest/src/gtest_main.cc'; fi`
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -2426,8 +2424,8 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
-	-rm -f gtest-1.7.0/src/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gtest-1.7.0/src/$(am__dirstamp)
+	-rm -f gtest/src/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gtest/src/$(am__dirstamp)
 	-rm -f src/$(DEPDIR)/$(am__dirstamp)
 	-rm -f src/$(am__dirstamp)
 
@@ -2441,7 +2439,7 @@ clean-am: clean-binPROGRAMS clean-generic clean-noinstPROGRAMS \
 
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf ./gtest-1.7.0/src/$(DEPDIR) src/$(DEPDIR)
+	-rm -rf ./gtest/src/$(DEPDIR) src/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-hdr distclean-tags
@@ -2489,7 +2487,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf ./gtest-1.7.0/src/$(DEPDIR) src/$(DEPDIR)
+	-rm -rf ./gtest/src/$(DEPDIR) src/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
