@@ -14,6 +14,15 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-int createAuthHeader(char * user, char * password, char * method, char * uri, const char * msgbody, char * auth, char * aka_OP, char * aka_AMF, char * aka_K, char * result);
-int verifyAuthHeader(char * user, char * password, char * method, char * auth);
+int createAuthHeader(char* user,
+                     char* password,
+                     char* method,
+                     char* uri,
+                     const char* msgbody,
+                     char* auth,
+                     char* aka_OP,
+                     char* aka_AMF,
+                     char* aka_K,
+                     char* result);
+int verifyAuthHeader(const char * user, const char * password, const char * method, const char * auth, const char* msgbody);
 int getAuthParameter(const char *name, const char *header, char *result, int len);

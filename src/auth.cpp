@@ -199,13 +199,16 @@ int getAuthParameter(const char *name, const char *header, char *result, int len
 
     start = stristr(header, name);
     while (start) {
-        // Ensure that the preceding character is "," or " " - this
+        // Ensure that the preceding character is "," or whitespace - this
         // stops us finding "cnonce" when we search for "nonce".
-        if ((*(start-1) == ',') || (*(start-1) == ' ')) {
+        char preceding_char = start[-1];
+        if ((preceding_char == ',')
+            || isspace(preceding_char)) {
             break;
         }
         start = stristr(start+1, name);
-    };
+    }
+    
     if (!start) {
         result[0] = '\0';
         return 0;
@@ -235,6 +238,82 @@ int getAuthParameter(const char *name, const char *header, char *result, int len
     return end - start;
 }
 
+int createAuthResponseMD5(const char* user,
+                          const char* password,
+                          int password_len,
+                          const char* method,
+                          const char* uri,
+                          const char* authtype,
+                          const char* msgbody,
+                          const char* realm,
+                          const char* nonce,
+                          const char* cnonce,
+                          const char* nc,
+                          unsigned char* result)
+{
+    md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
+    md5_byte_t resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE];
+    unsigned char resp_hex[HASH_HEX_SIZE+1], body_hex[HASH_HEX_SIZE+1];
+    unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
+    char tmp[MAX_HEADER_LEN];
+    md5_state_t Md5Ctx;
+    const char* authint = "auth-int";
+
+    // Load in A1
+    md5_init(&Md5Ctx);
+    md5_append(&Md5Ctx, (md5_byte_t *) user, strlen(user));
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) realm, strlen(realm));
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) password, password_len);
+    md5_finish(&Md5Ctx, ha1);
+    hashToHex(&ha1[0], &ha1_hex[0]);
+
+    if (auth_uri) {
+        sprintf(tmp, "sip:%s", auth_uri);
+    } else {
+        strcpy(tmp, uri);
+    }
+    // If using Auth-Int make a hash of the body - which is NULL for REG
+    if (stristr(authtype, "auth-int") != NULL) {
+        md5_init(&Md5Ctx);
+        md5_append(&Md5Ctx, (md5_byte_t *) msgbody, strlen(msgbody));
+        md5_finish(&Md5Ctx, body);
+        hashToHex(&body[0], &body_hex[0]);
+    }
+
+    // Load in A2
+    md5_init(&Md5Ctx);
+    md5_append(&Md5Ctx, (md5_byte_t *) method, strlen(method));
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
+    if (stristr(authtype, "auth-int") != NULL) {
+        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+        md5_append(&Md5Ctx, (md5_byte_t *) &body_hex, HASH_HEX_SIZE);
+    }
+    md5_finish(&Md5Ctx, ha2);
+    hashToHex(&ha2[0], &ha2_hex[0]);
+
+    md5_init(&Md5Ctx);
+    md5_append(&Md5Ctx, (md5_byte_t *) &ha1_hex, HASH_HEX_SIZE);
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) nonce, strlen(nonce));
+    if (cnonce[0] != '\0') {
+        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+        md5_append(&Md5Ctx, (md5_byte_t *) nc, strlen(nc));
+        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+        md5_append(&Md5Ctx, (md5_byte_t *) cnonce, strlen(cnonce));
+        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+        md5_append(&Md5Ctx, (md5_byte_t *) authint, strlen(authint));
+    }
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
+    md5_append(&Md5Ctx, (md5_byte_t *) &ha2_hex, HASH_HEX_SIZE);
+    md5_finish(&Md5Ctx, resp);
+    hashToHex(&resp[0], result);
+
+    return 1;
+}
+
 int createAuthHeaderMD5(const char* user,
                         const char* password,
                         int password_len,
@@ -250,7 +329,15 @@ int createAuthHeaderMD5(const char* user,
     md5_byte_t resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE];
     unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
     unsigned char resp_hex[HASH_HEX_SIZE+1], body_hex[HASH_HEX_SIZE+1];
-    char tmp[MAX_HEADER_LEN], tmp2[MAX_HEADER_LEN], authtype[16], cnonce[32], nc[32], opaque[64];
+    char tmp[MAX_HEADER_LEN],
+        tmp2[MAX_HEADER_LEN],
+        realm[MAX_HEADER_LEN],
+        sipuri[MAX_HEADER_LEN],
+        nonce[MAX_HEADER_LEN],
+        authtype[16],
+        cnonce[32],
+        nc[32],
+        opaque[64];
     static unsigned int mync = 1;
     int has_opaque = 0;
     md5_state_t Md5Ctx;
@@ -268,82 +355,47 @@ int createAuthHeaderMD5(const char* user,
     }
 
     // Extract the Realm
-    if (!getAuthParameter("realm", auth, tmp, sizeof(tmp))) {
+    if (!getAuthParameter("realm", auth, realm, sizeof(realm))) {
         sprintf(result, "createAuthHeaderMD5: couldn't parse realm in '%s'", auth);
         return 0;
     }
 
-    // Load in A1
-    md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, (md5_byte_t *) user, strlen(user));
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) password, password_len);
-    md5_finish(&Md5Ctx, ha1);
-    hashToHex(&ha1[0], &ha1_hex[0]);
-
-    sprintf(result, "Digest username=\"%s\",realm=\"%s\"",user,tmp);
+    sprintf(result, "Digest username=\"%s\",realm=\"%s\"",user,realm);
 
     // Construct the URI
     if (auth_uri == NULL) {
-        sprintf(tmp, "sip:%s", uri);
+        sprintf(sipuri, "sip:%s", uri);
     } else {
-        sprintf(tmp, "sip:%s", auth_uri);
+        sprintf(sipuri, "sip:%s", auth_uri);
     }
-
-    // If using Auth-Int make a hash of the body - which is NULL for REG
-    if (stristr(authtype, "auth-int") != NULL) {
-        md5_init(&Md5Ctx);
-        md5_append(&Md5Ctx, (md5_byte_t *) msgbody, strlen(msgbody));
-        md5_finish(&Md5Ctx, body);
-        hashToHex(&body[0], &body_hex[0]);
-        sprintf(authtype, "auth-int");
-    }
-
-    // Load in A2
-    md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, (md5_byte_t *) method, strlen(method));
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
-    if (stristr(authtype, "auth-int") != NULL) {
-        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-        md5_append(&Md5Ctx, (md5_byte_t *) &body_hex, HASH_HEX_SIZE);
-    }
-    md5_finish(&Md5Ctx, ha2);
-    hashToHex(&ha2[0], &ha2_hex[0]);
 
     if (cnonce[0] != '\0') {
-        snprintf(tmp2, sizeof(tmp2), ",cnonce=\"%s\",nc=%s,qop=%s",cnonce,nc,authtype);
-        strcat(result,tmp2);
+        snprintf(tmp, sizeof(tmp), ",cnonce=\"%s\",nc=%s,qop=\"%s\"",cnonce,nc,authtype);
+        strcat(result,tmp);
     }
-    snprintf(tmp2, sizeof(tmp2), ",uri=\"%s\"",tmp);
-    strcat(result,tmp2);
+    snprintf(tmp, sizeof(tmp), ",uri=\"%s\"",sipuri);
+    strcat(result,tmp);
 
     // Extract the Nonce
-    if (!getAuthParameter("nonce", auth, tmp, sizeof(tmp))) {
+    if (!getAuthParameter("nonce", auth, nonce, sizeof(nonce))) {
         sprintf(result, "createAuthHeader: couldn't parse nonce");
         return 0;
     }
 
-    md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, (md5_byte_t *) &ha1_hex, HASH_HEX_SIZE);
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
-    if (cnonce[0] != '\0') {
-        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-        md5_append(&Md5Ctx, (md5_byte_t *) nc, strlen(nc));
-        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-        md5_append(&Md5Ctx, (md5_byte_t *) cnonce, strlen(cnonce));
-        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-        md5_append(&Md5Ctx, (md5_byte_t *) authtype, strlen(authtype));
-    }
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) &ha2_hex, HASH_HEX_SIZE);
-    md5_finish(&Md5Ctx, resp);
-    hashToHex(&resp[0], &resp_hex[0]);
+    createAuthResponseMD5(user,
+                          password,
+                          strlen(password),
+                          method,
+                          sipuri,
+                          authtype,
+                          msgbody,
+                          realm,
+                          nonce,
+                          cnonce,
+                          nc,
+                          &resp_hex[0]);
 
-    snprintf(tmp2, sizeof(tmp2), ",nonce=\"%s\",response=\"%s\",algorithm=%s",tmp,resp_hex,algo);
+    snprintf(tmp2, sizeof(tmp2), ",nonce=\"%s\",response=\"%s\",algorithm=%s",nonce,resp_hex,algo);
     strcat(result,tmp2);
 
     if (has_opaque) {
@@ -354,58 +406,16 @@ int createAuthHeaderMD5(const char* user,
     return 1;
 }
 
-int createAuthResponseMD5(char * user, char * password, int password_len, char * method,
-                          char * uri, char * realm, char *nonce, unsigned char * result)
-{
-    md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
-    md5_byte_t resp[MD5_HASH_SIZE];
-    unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
-    char tmp[MAX_HEADER_LEN];
-    md5_state_t Md5Ctx;
-
-    // Load in A1
-    md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, (md5_byte_t *) user, strlen(user));
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) realm, strlen(realm));
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) password, password_len);
-    md5_finish(&Md5Ctx, ha1);
-    hashToHex(&ha1[0], &ha1_hex[0]);
-
-    if (auth_uri) {
-        sprintf(tmp, "sip:%s", auth_uri);
-    } else {
-        strcpy(tmp, uri);
-    }
-
-    // Load in A2
-    md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, (md5_byte_t *) method, strlen(method));
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
-    md5_finish(&Md5Ctx, ha2);
-    hashToHex(&ha2[0], &ha2_hex[0]);
-
-    md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, (md5_byte_t *) &ha1_hex, HASH_HEX_SIZE);
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) nonce, strlen(nonce));
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) &ha2_hex, HASH_HEX_SIZE);
-    md5_finish(&Md5Ctx, resp);
-    hashToHex(&resp[0], result);
-
-    return 1;
-}
-
-int verifyAuthHeader(char * user, char * password, char * method, char * auth)
+int verifyAuthHeader(const char * user, const char * password, const char * method, const char * auth, const char* msgbody)
 {
     char algo[MAX_HEADER_LEN];
     unsigned char result[HASH_HEX_SIZE + 1];
     char response[HASH_HEX_SIZE + 1];
     char realm[MAX_HEADER_LEN];
     char nonce[MAX_HEADER_LEN];
+    char cnonce[MAX_HEADER_LEN];
+    char authtype[MAX_HEADER_LEN];
+    char nc[MAX_HEADER_LEN];
     char uri[MAX_HEADER_LEN];
     char *start;
 
@@ -422,7 +432,21 @@ int verifyAuthHeader(char * user, char * password, char * method, char * auth)
         getAuthParameter("realm", auth, realm, sizeof(realm));
         getAuthParameter("uri", auth, uri, sizeof(uri));
         getAuthParameter("nonce", auth, nonce, sizeof(nonce));
-        createAuthResponseMD5(user,password,strlen(password),method,uri,realm,nonce,result);
+        getAuthParameter("cnonce", auth, cnonce, sizeof(cnonce));
+        getAuthParameter("nc", auth, nc, sizeof(nc));
+        getAuthParameter("qop", auth, authtype, sizeof(authtype));
+        createAuthResponseMD5(user,
+                              password,
+                              strlen(password),
+                              method,
+                              uri,
+                              authtype,
+                              msgbody,
+                              realm,
+                              nonce,
+                              cnonce,
+                              nc,
+                              result);
         getAuthParameter("response", auth, response, sizeof(response));
         TRACE_CALLDEBUG("Processing verifyauth command - user %s, password %s, method %s, uri %s, realm %s, nonce %s, result expected %s, response from user %s\n",
                 user,
