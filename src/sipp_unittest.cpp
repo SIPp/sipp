@@ -117,3 +117,25 @@ TEST(DigestAuth, MissingParameter) {
     getAuthParameter("cnonce", " Authorization: Digest nonce=\"a6ca2bf13de1433183f7c48781bd9304\"", cnonce, sizeof(cnonce));
     EXPECT_EQ('\0', cnonce[0]);
 }
+
+TEST(DigestAuth, BasicVerification) {
+    char* header = strdup(("Digest \r\n"
+                           "realm=\"testrealm@host.com\",\r\n"
+                           "nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\"\r\n,"
+                           "opaque=\"5ccc069c403ebaf9f0171e9517f40e41\""));
+    char result[255];
+    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, NULL, NULL, NULL, result);
+    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result));
+}
+
+TEST(DigestAuth, qop) {
+    char* header = strdup(("Digest \r\n"
+                           "realm=\"testrealm@host.com\",\r\n"
+                           "qop=\"auth,auth-int\",\r\n"
+                           "nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\"\r\n,"
+                           "opaque=\"5ccc069c403ebaf9f0171e9517f40e41\""));
+    char result[255];
+    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, NULL, NULL, NULL, result);
+    EXPECT_STREQ("Digest username=\"testuser\",realm=\"testrealm@host.com\",cnonce=\"6b8b4567\",nc=00000001,qop=auth-int,uri=\"sip:sip:example.com\",nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\",response=\"5da32917daacbb17fa8b8df9b5cd7f5a\",algorithm=MD5,opaque=\"5ccc069c403ebaf9f0171e9517f40e41\"", result);
+    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result));
+}
