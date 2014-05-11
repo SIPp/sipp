@@ -28,7 +28,7 @@ I try and be responsive to issues raised on Github, and there's [a reasonably ac
 
 SIPp is free software, under the terms of the GPL licence (see the LICENCE.txt file for details). You can contribute to the development of SIPp and use the standard Github fork/pull request method to integrate your changes integrate your changes. If you make changes in SIPp, *PLEASE* follow a few coding rules:
 
-  - Please stay conformant with the current indentation style (2 spaces
+  - Please stay conformant with the current indentation style (4 spaces
     indent, standard Emacs-like indentation). Examples:
 
 ```
