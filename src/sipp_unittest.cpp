@@ -111,3 +111,9 @@ TEST(DigestAuth, cnonce) {
     getAuthParameter("cnonce", " Authorization: Digest nonce=\"a6ca2bf13de1433183f7c48781bd9304\", cnonce=\"c7e1249f\"", cnonce, sizeof(cnonce));
     EXPECT_STREQ("c7e1249f", cnonce);
 }
+
+TEST(DigestAuth, MissingParameter) {
+    char cnonce[10];
+    getAuthParameter("cnonce", " Authorization: Digest nonce=\"a6ca2bf13de1433183f7c48781bd9304\"", cnonce, sizeof(cnonce));
+    EXPECT_EQ('\0', cnonce[0]);
+}
