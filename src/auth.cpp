@@ -199,9 +199,11 @@ int getAuthParameter(const char *name, const char *header, char *result, int len
 
     start = stristr(header, name);
     while (start) {
-        // Ensure that the preceding character is "," or " " - this
+        // Ensure that the preceding character is "," or whitespace - this
         // stops us finding "cnonce" when we search for "nonce".
-        if ((*(start-1) == ',') || (*(start-1) == ' ')) {
+        char preceding_char = *(start-1);
+        if ((preceding_char == ',')
+            || isspace(preceding_char)) {
             break;
         }
         start = stristr(start+1, name);
