@@ -982,7 +982,10 @@ void sipp_socket_invalidate(struct sipp_socket *socket)
         epollfiles[pollidx].data.u32 = pollidx;
         if (sockets[pollnfds]->ss_fd != -1) {
             int rc = epoll_ctl(epollfd, EPOLL_CTL_MOD, sockets[pollnfds]->ss_fd, &epollfiles[pollidx]);
-            if (rc == -1) {
+            if ((rc == -1) && (errno != 1)) {
+                // Ignore "Operation not supported"  errors -
+                // otherwise we get log spam when redirecting stdout
+                // to /dev/null
                 WARNING_NO("Failed to update FD within epoll");
             }
         }
@@ -1278,7 +1281,9 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
     int rc = epoll_ctl(epollfd, EPOLL_CTL_ADD, ret->ss_fd, &epollfiles[ret->ss_pollidx]);
     if (rc == -1) {
         if (errno == EPERM) {
-            WARNING("Attempted to use epoll on a file that does not support it - this may happen when stdin/stdout is redirected to /dev/null");
+            // Attempted to use epoll on a file that does not support
+            // it - this may happen legitimately when stdin/stdout is
+            // redirected to /dev/null, so don't warn
         } else { 
             ERROR_NO("Failed to add FD to epoll");
         }
