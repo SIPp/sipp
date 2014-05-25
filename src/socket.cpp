@@ -982,7 +982,7 @@ void sipp_socket_invalidate(struct sipp_socket *socket)
         epollfiles[pollidx].data.u32 = pollidx;
         if (sockets[pollnfds]->ss_fd != -1) {
             int rc = epoll_ctl(epollfd, EPOLL_CTL_MOD, sockets[pollnfds]->ss_fd, &epollfiles[pollidx]);
-            if ((rc == -1) && (errno != 1)) {
+            if ((rc == -1) && (errno != EPERM)) {
                 // Ignore "Operation not supported"  errors -
                 // otherwise we get log spam when redirecting stdout
                 // to /dev/null
