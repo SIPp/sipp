@@ -238,9 +238,8 @@ int send_packets (play_args_t * play_args)
         }
 #endif
         if (ret < 0) {
-            close(sock);
             WARNING("send_packets.c: sendto failed with error: %s", strerror(errno));
-            return( -1);
+            break;
         }
 
         rtp_pckts_pcap++;
@@ -251,7 +250,7 @@ int send_packets (play_args_t * play_args)
 
     /* Closing the socket is handled by pthread_cleanup_push()/pthread_cleanup_pop() */
     pthread_cleanup_pop(1);
-    return 0;
+    return (ret < 0) ? ret : 0;
 }
 
 /*
