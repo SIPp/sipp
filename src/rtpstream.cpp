@@ -755,11 +755,9 @@ int rtpstream_get_localport (int *rtpsocket, int *rtcpsocket)
     }
 
     if (media_ip_is_ipv6) {
-      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port =
-        htons((short)port_number);
+      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port = htons((unsigned short)port_number);
     } else {
-      (_RCAST(struct sockaddr_in *,&address))->sin_port=
-        htons((short)port_number);
+      (_RCAST(struct sockaddr_in *,&address))->sin_port = htons((unsigned short)port_number);
     }
     if (bind(*rtpsocket,(sockaddr *)(void *)&address,
          SOCK_ADDR_SIZE(&address)) == 0) {
@@ -786,11 +784,9 @@ int rtpstream_get_localport (int *rtpsocket, int *rtcpsocket)
   if (*rtcpsocket!=-1) {
     /* try to bind it to our preferred address */
     if (media_ip_is_ipv6) {
-      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port =
-        htons((short)port_number+1);
+      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port = htons((unsigned short)port_number + 1);
     } else {
-      (_RCAST(struct sockaddr_in *,&address))->sin_port=
-        htons((short)port_number+1);
+      (_RCAST(struct sockaddr_in *,&address))->sin_port = htons((unsigned short)port_number + 1);
     }
     if (bind(*rtcpsocket,(sockaddr *)(void *)&address,
          SOCK_ADDR_SIZE(&address))) {
@@ -953,45 +949,45 @@ void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, char *ip_
   /* Audio */
   if (audio_port) {
     if (media_ip_is_ipv6) {
-      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port= htons((short)audio_port);
+      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port = htons((unsigned short)audio_port);
     } else {
-      (_RCAST(struct sockaddr_in *,&address))->sin_port= htons((short)audio_port);
+      (_RCAST(struct sockaddr_in *,&address))->sin_port = htons((unsigned short)audio_port);
     }
     memcpy (&(taskinfo->remote_audio_rtp_addr),&address,sizeof(address));
 
     if (media_ip_is_ipv6) {
-      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port= htons((short)audio_port+1);
+      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port = htons((unsigned short)audio_port + 1);
     } else {
-      (_RCAST(struct sockaddr_in *,&address))->sin_port= htons((short)audio_port+1);
+      (_RCAST(struct sockaddr_in *,&address))->sin_port = htons((unsigned short)audio_port + 1);
     }
     memcpy (&(taskinfo->remote_audio_rtcp_addr),&address,sizeof(address));
 
-    taskinfo->flags&= ~TI_NULL_AUDIOIP;
+    taskinfo->flags &= ~TI_NULL_AUDIOIP;
   }
 
   /* Video */
   if (video_port) {
     if (media_ip_is_ipv6) {
-      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port= htons((short)video_port);
+      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port = htons((unsigned short)video_port);
     } else {
-      (_RCAST(struct sockaddr_in *,&address))->sin_port= htons((short)video_port);
+      (_RCAST(struct sockaddr_in *,&address))->sin_port = htons((unsigned short)video_port);
     }
     memcpy (&(taskinfo->remote_video_rtp_addr),&address,sizeof(address));
 
     if (media_ip_is_ipv6) {
-      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port= htons((short)video_port+1);
+      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port = htons((unsigned short)video_port + 1);
     } else {
-      (_RCAST(struct sockaddr_in *,&address))->sin_port= htons((short)video_port+1);
+      (_RCAST(struct sockaddr_in *,&address))->sin_port = htons((unsigned short)video_port + 1);
     }
     memcpy (&(taskinfo->remote_video_rtcp_addr),&address,sizeof(address));
 
-	taskinfo->flags&= ~TI_NULL_VIDEOIP;
+    taskinfo->flags &= ~TI_NULL_VIDEOIP;
   }
 
   /* ok, we are done with the shared memory objects. let go mutex */
   pthread_mutex_unlock (&(taskinfo->mutex));
 
-  taskinfo->flags|= TI_RECONNECTSOCKET;
+  taskinfo->flags |= TI_RECONNECTSOCKET;
 
   /* may want to start a playback (listen) task here if no task running? */
   /* only makes sense if we decide to send 0-filled packets on idle */

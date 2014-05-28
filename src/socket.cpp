@@ -514,7 +514,7 @@ void setup_ctrl_socket()
     }
 
     while (try_counter) {
-        ((struct sockaddr_in *)&ctl_sa)->sin_port = htons(port);
+        ((struct sockaddr_in *)&ctl_sa)->sin_port = htons((unsigned short)port);
         if (!bind(sock,(struct sockaddr *)&ctl_sa,sizeof(struct sockaddr_in))) {
             /* Bind successful */
             break;
@@ -816,7 +816,7 @@ static int handleSCTPNotify(struct sipp_socket* socket,char* buffer)
     return -2;
 }
 
-void set_multihome_addr(struct sipp_socket* socket,int port)
+void set_multihome_addr(struct sipp_socket* socket, int port)
 {
     if (strlen(multihome_ip)>0) {
         struct addrinfo * multi_addr;
@@ -836,8 +836,10 @@ void set_multihome_addr(struct sipp_socket* socket,int port)
         freeaddrinfo(multi_addr);
 
         if (port>0) {
-            if (secondaryaddress.ss_family==AF_INET) ((struct sockaddr_in*)&secondaryaddress)->sin_port=htons(port);
-            else if (secondaryaddress.ss_family==AF_INET6) ((struct sockaddr_in6*)&secondaryaddress)->sin6_port=htons(port);
+            if (secondaryaddress.ss_family==AF_INET)
+		    ((struct sockaddr_in*)&secondaryaddress)->sin_port = htons((unsigned short)port);
+            else if (secondaryaddress.ss_family==AF_INET6)
+		    ((struct sockaddr_in6*)&secondaryaddress)->sin6_port = htons((unsigned short)port);
         }
 
         int ret = sctp_bindx(socket->ss_fd, (struct sockaddr *) &secondaryaddress,
@@ -1466,9 +1468,9 @@ int sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr,
 #ifdef USE_SCTP
     if (transport==T_SCTP && multisocket==1 && *port==-1) {
         if (socket->ss_ipv6) {
-            (_RCAST(struct sockaddr_in6 *, saddr))->sin6_port=0;
+            (_RCAST(struct sockaddr_in6 *, saddr))->sin6_port = 0;
         } else {
-            (_RCAST(struct sockaddr_in *, saddr))->sin_port=0;
+            (_RCAST(struct sockaddr_in *, saddr))->sin_port = 0;
         }
     }
 #endif
@@ -1492,9 +1494,9 @@ int sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr,
     }
 
     if (socket->ss_ipv6) {
-        *port = ntohs((short)((_RCAST(struct sockaddr_in6 *, saddr))->sin6_port));
+        *port = ntohs((_RCAST(struct sockaddr_in6 *, saddr))->sin6_port);
     } else {
-        *port = ntohs((short)((_RCAST(struct sockaddr_in *, saddr))->sin_port));
+        *port = ntohs((_RCAST(struct sockaddr_in *, saddr))->sin_port);
     }
 
 #ifdef USE_SCTP
@@ -2505,11 +2507,11 @@ int open_connections()
             strcpy(remote_ip, get_inet_address(&remote_sockaddr));
             if (remote_sockaddr.ss_family == AF_INET) {
                 (_RCAST(struct sockaddr_in *, &remote_sockaddr))->sin_port =
-                    htons((short)remote_port);
+                    htons((unsigned short)remote_port);
                 strcpy(remote_ip_escaped, remote_ip);
             } else {
                 (_RCAST(struct sockaddr_in6 *, &remote_sockaddr))->sin6_port =
-                    htons((short)remote_port);
+                    htons((unsigned short)remote_port);
                 sprintf(remote_ip_escaped, "[%s]", remote_ip);
             }
             fprintf(stderr,"Done.\n");
@@ -2619,11 +2621,11 @@ int open_connections()
                 freeaddrinfo(local_addr);
             }
             if (local_ip_is_ipv6) {
-                (_RCAST(struct sockaddr_in6 *, &local_sockaddr))->sin6_port
-                    = htons((short)l_port);
+                (_RCAST(struct sockaddr_in6 *, &local_sockaddr))->sin6_port =
+                    htons((unsigned short)l_port);
             } else {
-                (_RCAST(struct sockaddr_in *, &local_sockaddr))->sin_port
-                    = htons((short)l_port);
+                (_RCAST(struct sockaddr_in *, &local_sockaddr))->sin_port =
+                    htons((unsigned short)l_port);
             }
             if(sipp_bind_socket(main_socket, &local_sockaddr, &local_port) == 0) {
                 break;
@@ -2672,11 +2674,11 @@ int open_connections()
         }
 
         if (local_ip_is_ipv6) {
-            (_RCAST(struct sockaddr_in6 *, &local_sockaddr))->sin6_port
-                = htons((short)user_port);
+            (_RCAST(struct sockaddr_in6 *, &local_sockaddr))->sin6_port =
+                htons((unsigned short)user_port);
         } else {
-            (_RCAST(struct sockaddr_in *, &local_sockaddr))->sin_port
-                = htons((short)user_port);
+            (_RCAST(struct sockaddr_in *, &local_sockaddr))->sin_port =
+                htons((unsigned short)user_port);
         }
         if(sipp_bind_socket(main_socket, &local_sockaddr, &local_port)) {
             ERROR_NO("Unable to bind main socket");
@@ -2726,11 +2728,11 @@ int open_connections()
                 freeaddrinfo(local_addr);
 
                 if (is_ipv6) {
-                    (_RCAST(struct sockaddr_in6 *, &server_sockaddr))->sin6_port
-                        = htons((short)local_port);
+                    (_RCAST(struct sockaddr_in6 *, &server_sockaddr))->sin6_port =
+                        htons((unsigned short)local_port);
                 } else {
-                    (_RCAST(struct sockaddr_in *, &server_sockaddr))->sin_port
-                        = htons((short)local_port);
+                    (_RCAST(struct sockaddr_in *, &server_sockaddr))->sin_port =
+                        htons((unsigned short)local_port);
                 }
 
                 sipp_customize_socket(sock);
@@ -2842,10 +2844,10 @@ void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *pe
 
     if (peer_sockaddr->ss_family == AF_INET) {
         (_RCAST(struct sockaddr_in *,peer_sockaddr))->sin_port =
-            htons((short)peer_port);
+            htons((unsigned short)peer_port);
     } else {
         (_RCAST(struct sockaddr_in6 *,peer_sockaddr))->sin6_port =
-            htons((short)peer_port);
+            htons((unsigned short)peer_port);
         is_ipv6 = true;
     }
     strcpy(peer_ip, get_inet_address(peer_sockaddr));
@@ -2938,10 +2940,10 @@ void connect_local_twin_socket(char * twinSippHost)
 
     if (twinSipp_sockaddr.ss_family == AF_INET) {
         (_RCAST(struct sockaddr_in *,&twinSipp_sockaddr))->sin_port =
-            htons((short)twinSippPort);
+            htons((unsigned short)twinSippPort);
     } else {
         (_RCAST(struct sockaddr_in6 *,&twinSipp_sockaddr))->sin6_port =
-            htons((short)twinSippPort);
+            htons((unsigned short)twinSippPort);
         is_ipv6 = true;
     }
     strcpy(twinSippIp, get_inet_address(&twinSipp_sockaddr));
@@ -2954,11 +2956,11 @@ void connect_local_twin_socket(char * twinSippHost)
     if (!is_ipv6) {
         localTwin_sockaddr.ss_family = AF_INET;
         (_RCAST(struct sockaddr_in *,&localTwin_sockaddr))->sin_port =
-            htons((short)twinSippPort);
+            htons((unsigned short)twinSippPort);
     } else {
         localTwin_sockaddr.ss_family = AF_INET6;
         (_RCAST(struct sockaddr_in6 *,&localTwin_sockaddr))->sin6_port =
-            htons((short)twinSippPort);
+            htons((unsigned short)twinSippPort);
     }
 
     // add socket option to allow the use of it without the TCP timeout

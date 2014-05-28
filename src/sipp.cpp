@@ -1622,10 +1622,10 @@ int main(int argc, char *argv[])
 
                 if (remote_sending_sockaddr.ss_family == AF_INET) {
                     (_RCAST(struct sockaddr_in *, &remote_sending_sockaddr))->sin_port =
-                        htons((short)remote_s_p);
+                        htons((unsigned short)remote_s_p);
                 } else {
                     (_RCAST(struct sockaddr_in6 *, &remote_sending_sockaddr))->sin6_port =
-                        htons((short)remote_s_p);
+                        htons((unsigned short)remote_s_p);
                 }
                 use_remote_sending_addr = 1 ;
 
@@ -2033,10 +2033,10 @@ int main(int argc, char *argv[])
 
             if (media_sockaddr.ss_family == AF_INET) {
                 (_RCAST(struct sockaddr_in *,&media_sockaddr))->sin_port =
-                    htons((short)media_port);
+                    htons((unsigned short)media_port);
             } else {
                 (_RCAST(struct sockaddr_in6 *,&media_sockaddr))->sin6_port =
-                    htons((short)media_port);
+                    htons((unsigned short)media_port);
                 media_ip_is_ipv6 = true;
             }
             strcpy(media_ip_escaped, media_ip);
@@ -2063,11 +2063,11 @@ int main(int argc, char *argv[])
 
         if (media_sockaddr.ss_family == AF_INET) {
             (_RCAST(struct sockaddr_in *,&media_sockaddr))->sin_port =
-                htons((short)media_port+2);
+                htons((unsigned short)media_port + 2);
             strcpy(media_ip_escaped, media_ip);
         } else {
             (_RCAST(struct sockaddr_in6 *,&media_sockaddr))->sin6_port =
-                htons((short)media_port+2);
+                htons((unsigned short)media_port+2);
             media_ip_is_ipv6 = true;
             strcpy(media_ip_escaped, media_ip);
         }
