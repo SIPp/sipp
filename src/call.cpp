@@ -3440,16 +3440,15 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             } else {
                 ERROR("Invalid looking place: %d\n", currentAction->getLookingPlace());
             }
-            currentAction->executeRegExp(haystack, M_callVariableTable);
+            bool did_match = (currentAction->executeRegExp(haystack, M_callVariableTable) > 0);
 
-            if( (!(M_callVariableTable->getVar(currentAction->getVarId())->isSet())) && (currentAction->getCheckIt() == true) ) {
+            if (!did_match && currentAction->getCheckIt()) {
                 // the message doesn't match and the checkit action say it MUST match
                 // Allow easier regexp debugging
                 WARNING("Failed regexp match: looking in '%s', with regexp '%s'",
                         haystack, currentAction->getRegularExpression());
                 return(call::E_AR_REGEXP_DOESNT_MATCH);
-            } else if ( ((M_callVariableTable->getVar(currentAction->getVarId())->isSet())) &&
-                        (currentAction->getCheckItInverse() == true) ) {
+            } else if (did_match && currentAction->getCheckItInverse()) {
                 // The inverse of the above
                 WARNING("Regexp matched but should not: looking in '%s', with regexp '%s'",
                         haystack, currentAction->getRegularExpression());
