@@ -1975,7 +1975,9 @@ int main(int argc, char *argv[])
         strcpy(media_ip, local_ip);
     }
     if (media_ip_escaped[0] == '\0') {
-        strcpy(media_ip_escaped, local_ip);
+        // Use get_host_and_port to remove square brackets from an
+        // IPv6 address
+        get_host_and_port(local_ip, media_ip_escaped, NULL);
     }
     if (local_ip_is_ipv6) {
         media_ip_is_ipv6 = true;
@@ -2039,7 +2041,9 @@ int main(int argc, char *argv[])
                     htons((short)media_port);
                 media_ip_is_ipv6 = true;
             }
-            strcpy(media_ip_escaped, media_ip);
+            // Use get_host_and_port to remove square brackets from an
+            // IPv6 address
+            get_host_and_port(media_ip, media_ip_escaped, NULL);
 
             if(bind(media_socket,
                     (sockaddr *)(void *)&media_sockaddr,
@@ -2064,12 +2068,16 @@ int main(int argc, char *argv[])
         if (media_sockaddr.ss_family == AF_INET) {
             (_RCAST(struct sockaddr_in *,&media_sockaddr))->sin_port =
                 htons((short)media_port+2);
-            strcpy(media_ip_escaped, media_ip);
+            // Use get_host_and_port to remove square brackets from an
+            // IPv6 address
+            get_host_and_port(media_ip, media_ip_escaped, NULL);
         } else {
             (_RCAST(struct sockaddr_in6 *,&media_sockaddr))->sin6_port =
                 htons((short)media_port+2);
             media_ip_is_ipv6 = true;
-            strcpy(media_ip_escaped, media_ip);
+            // Use get_host_and_port to remove square brackets from an
+            // IPv6 address
+            get_host_and_port(media_ip, media_ip_escaped, NULL);
         }
 
         if(bind(media_socket_video,

@@ -50,7 +50,8 @@ void get_host_and_port(const char * addr, char * host, int * port)
      */
     const char *has_brackets;
     int len;
-
+    int port_result = 0;
+    
     has_brackets = strchr(addr, '[');
     if (has_brackets != NULL) {
         has_brackets = strchr(has_brackets, ']');
@@ -67,18 +68,18 @@ void get_host_and_port(const char * addr, char * host, int * port)
         first_colon_location = strchr(host, ':');
         if (first_colon_location == NULL) {
             /* No colon - just set the port to 0 */
-            *port = 0;
+            port_result = 0;
         } else {
             second_colon_location = strchr(first_colon_location + 1, ':');
             if (second_colon_location != NULL) {
                 /* Found a second colon in addr - so this is an IPv6 address
                  * without a port. Set the port to 0 */
-                *port = 0;
+                port_result = 0;
             } else {
                 /* IPv4 address or hostname with a colon in it - convert the colon to
                  * a NUL terminator, and set the value after it as the port */
                 *first_colon_location = '\0';
-                *port = atol(first_colon_location + 1);
+                port_result = atol(first_colon_location + 1);
             }
         }
 
@@ -98,10 +99,15 @@ void get_host_and_port(const char * addr, char * host, int * port)
         /* Check for a port specified after the ] */
         colon_before_port = strchr(second_bracket + 1, ':');
         if (colon_before_port != NULL) {
-            *port = atol(colon_before_port + 1);
+            port_result = atol(colon_before_port + 1);
         } else {
-            *port = 0;
+            port_result = 0;
         }
+    }
+
+    // Set the port argument if it wasn't NULL
+    if (port != NULL) {
+        *port = port_result;
     }
 }
 
