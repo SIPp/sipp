@@ -42,25 +42,30 @@
 #include "time.hpp"
 #include "sipp.hpp"
 #define MICROSECONDS_PER_SECOND 1000000LL
-#define MILLISECONDS_PER_MICROSECOND 1000LL
+#define MICROSECONDS_PER_MILLISECOND 1000LL
+#define NANOSECONDS_PER_MICROSECOND 1000LL
 
 // Returns the number of microseconds that have passed since SIPp
 // started. Also updates the current clock_tick.
 unsigned long long getmicroseconds()
 {
-    struct timeval time;
+    struct timespec time;
     unsigned long long microseconds;
     static unsigned long long start_time = 0;
 
-    gettimeofday(&time, NULL);
-    microseconds = (MICROSECONDS_PER_SECOND * time.tv_sec) + time.tv_usec;
+#if defined(CLOCK_MONOTONIC_COARSE)
+    clock_gettime(CLOCK_MONOTONIC_COARSE, &time);
+#else
+    clock_gettime(CLOCK_MONOTONIC, &time);
+#endif
+    microseconds = (MICROSECONDS_PER_SECOND * time.tv_sec) + (time.tv_nsec / NANOSECONDS_PER_MICROSECOND);
     if (start_time == 0) {
       start_time = microseconds - 1;
     }
     microseconds = microseconds - start_time;
 
     // Static global from sipp.hpp
-    clock_tick = microseconds / MILLISECONDS_PER_MICROSECOND;
+    clock_tick = microseconds / MICROSECONDS_PER_MILLISECOND;
 
     return microseconds;
 }
@@ -69,7 +74,7 @@ unsigned long long getmicroseconds()
 // started. Also updates the current clock_tick.
 unsigned long getmilliseconds()
 {
-    return getmicroseconds() / MILLISECONDS_PER_MICROSECOND;
+    return getmicroseconds() / MICROSECONDS_PER_MILLISECOND;
 }
 
 // Sleeps for the given number of microseconds. Avoids the potential
