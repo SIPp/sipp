@@ -169,7 +169,10 @@ task_list *timewheel::task2list(task *task)
   }
 
   assert(wake >= wheel_base);
-  assert(wheel_base <= clock_tick);
+  if (wheel_base > clock_tick) {
+      ERROR("wheel_base is %lu, clock_tick is %lu - expected wheel_base to be less than or equal to clock_tick", wheel_base, clock_tick);
+      assert(wheel_base <= clock_tick);
+  }
 
   unsigned int slot_in_first_wheel = wake % LEVEL_ONE_SLOTS;
   unsigned int slot_in_second_wheel = (wake / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS;
