@@ -80,6 +80,12 @@ TEST(GetHostAndPort, IPv4AndPort) {
     EXPECT_STREQ("127.0.0.1", host_result);
 }
 
+TEST(GetHostAndPort, IgnorePort) {
+    char host_result[255];
+    get_host_and_port("127.0.0.1", host_result, NULL);
+    EXPECT_STREQ("127.0.0.1", host_result);
+}
+
 TEST(GetHostAndPort, DNS) {
     int port_result = -1;
     char host_result[255];
