@@ -150,6 +150,8 @@ void CAction::afficheInfo()
 #ifdef PCAPPLAY
     } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_IMAGE) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
         printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
+  } else if (M_action == E_AT_PLAY_DTMF) {
+      printf("Type[%d] - play DTMF digits [%s]", M_action, M_message_str[0]);
 #endif
 
 #ifdef RTP_STREAM
