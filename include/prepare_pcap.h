@@ -71,6 +71,7 @@ extern "C" {
     int check(u_int16_t *, int);
     u_int16_t checksum_carry(int);
     int prepare_pkts(char *, pcap_pkts *);
+    int prepare_dtmf(char *, pcap_pkts *, u_int16_t start_seq_no);
 #ifdef __cplusplus
 }
 #endif
