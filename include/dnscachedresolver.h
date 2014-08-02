@@ -73,7 +73,7 @@ private:
 class DnsCachedResolver
 {
 public:
-  DnsCachedResolver(const std::string& dns_server);
+  DnsCachedResolver();
   ~DnsCachedResolver();
 
   /// Queries a single DNS record.

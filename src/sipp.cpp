@@ -1166,7 +1166,7 @@ int main(int argc, char *argv[])
 
     generic[0] = NULL;
 
-    dns_resolver = new BaseResolver(NULL);
+    dns_resolver = new BaseResolver();
     
     /* At least one argument is needed */
     if(argc < 2) {

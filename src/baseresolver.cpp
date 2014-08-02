@@ -46,16 +46,19 @@
 //#include "sas.h"
 //#include "sasevent.h"
 
-BaseResolver::BaseResolver(DnsCachedResolver* dns_client) :
+BaseResolver::BaseResolver() :
   _srv_factory(),
   _srv_cache(),
-  _blacklist(),
-  _dns_client(dns_client)
+  _blacklist()
 {
+    _dns_client = new DnsCachedResolver();
+    create_srv_cache();
+    create_blacklist();
 }
 
 BaseResolver::~BaseResolver()
 {
+    delete _dns_client;
 }
 
 /// Creates the cache for storing SRV results and selectors.
@@ -314,9 +317,9 @@ void BaseResolver::a_resolve(const std::string& hostname,
   // Do A/AAAA lookup.
   DnsResult result = _dns_client->dns_query(hostname, (af == AF_INET) ? ns_t_a : ns_t_aaaa);
   ttl = result.ttl();
-
+  
   // Randomize the records in the result.
-//  LOG_DEBUG("Found %ld A/AAAA records, randomizing", result.records().size());
+  printf("Found %ld A/AAAA records, randomizing", result.records().size());
   std::random_shuffle(result.records().begin(), result.records().end());
 
   // Loop through the records in the result picking non-blacklisted targets.

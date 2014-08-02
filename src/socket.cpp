@@ -1253,6 +1253,7 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
     int ttl;
     dns_resolver->a_resolve(remote_host, AF_INET, remote_port, transport, 1, targets, ttl);
 
+    assert(!targets.empty());
     sockaddr_storage* remote_sockaddr = targets.front().to_sockaddr_storage();
     /* Initialize all sockets with our destination address. */
     memcpy(&ret->ss_remote_sockaddr, remote_sockaddr, sizeof(ret->ss_remote_sockaddr));
@@ -1536,7 +1537,14 @@ int sipp_do_connect_socket(struct sipp_socket *socket)
     fcntl(socket->ss_fd, F_SETFL, flags | O_NONBLOCK);
 
     errno = 0;
+
     ret = connect(socket->ss_fd, (struct sockaddr *)&socket->ss_dest, SOCK_ADDR_SIZE(&socket->ss_dest));
+    printf("port is %us\n", ((struct sockaddr_in*)&socket->ss_dest)->sin_port);
+    sleep(30);
+    
+
+    ERROR_NO("result of connect is %d\n", ret);
+    
     if (ret < 0) {
         if (errno == EINPROGRESS) {
             /* Block this socket until the connect completes - this is very similar to entering congestion, but we don't want to increment congestion statistics. */
@@ -2238,6 +2246,9 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, const char *bu
         rc = send_nowait(socket->ss_fd, buffer, len, 0);
         break;
     case T_UDP:
+        assert(AF_INET == ((struct sockaddr*)dest)->sa_family);
+        assert(5060 == (unsigned short)((struct sockaddr_in*)dest)->sin_port);
+
         rc = sendto(socket->ss_fd, buffer, len, 0, (struct sockaddr *)dest, SOCK_ADDR_SIZE(dest));
 
         break;

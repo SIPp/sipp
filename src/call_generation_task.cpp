@@ -148,7 +148,9 @@ bool CallGenerationTask::run()
         main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
         std::vector<AddrInfo> targets;
         int ttl;
+        printf("remote port %d\n", remote_port);
         dns_resolver->a_resolve(remote_host, AF_INET, remote_port, transport, 1, targets, ttl);
+        printf("resolved port %d\n", targets.front().port);
         
         call* call_ptr = call::add_call(userid,
                                         local_ip_is_ipv6,

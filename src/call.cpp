@@ -907,6 +907,7 @@ bool call::connect_socket_if_needed()
         }
 
         sipp_customize_socket(call_socket);
+        assert(5060 == (unsigned short)((struct sockaddr_in*)L_dest)->sin_port);
 
         if (sipp_connect_socket(call_socket, L_dest)) {
             if (reconnect_allowed()) {

@@ -357,7 +357,7 @@ void print_stats_in_file(FILE * f)
                 local_port,
                 clock_tick / 1000, (clock_tick % 1000) / 10,
                 total_calls,
-                remote_ip,
+                remote_host,
                 remote_port,
                 TRANSPORT_TO_STRING(transport));
     }
