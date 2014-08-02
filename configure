@@ -4899,6 +4899,53 @@ else
   as_fn_error $? "ncurses library missing" "$LINENO" 5
 fi
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for ares_query in -lcares" >&5
+$as_echo_n "checking for ares_query in -lcares... " >&6; }
+if ${ac_cv_lib_cares_ares_query+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcares  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char ares_query ();
+int
+main ()
+{
+return ares_query ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_cares_ares_query=yes
+else
+  ac_cv_lib_cares_ares_query=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_cares_ares_query" >&5
+$as_echo "$ac_cv_lib_cares_ares_query" >&6; }
+if test "x$ac_cv_lib_cares_ares_query" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBCARES 1
+_ACEOF
+
+  LIBS="-lcares $LIBS"
+
+else
+  as_fn_error $? "ares library missing" "$LINENO" 5
+fi
+
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pthread_mutex_init in -lpthread" >&5
 $as_echo_n "checking for pthread_mutex_init in -lpthread... " >&6; }
 if ${ac_cv_lib_pthread_pthread_mutex_init+:} false; then :
@@ -6686,6 +6733,7 @@ if test "$ac_res" != no; then :
   test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
 
 fi
+
 
 
 # For Linux, SunOS and Cygwin

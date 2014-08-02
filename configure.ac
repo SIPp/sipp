@@ -55,6 +55,7 @@ esac
 
 # ==================== checks for libraries =============================
 AC_CHECK_LIB(curses,initscr,,[AC_MSG_ERROR([ncurses library missing])])
+AC_CHECK_LIB(cares,ares_query,,[AC_MSG_ERROR([ares library missing])])
 AC_CHECK_LIB(pthread, pthread_mutex_init, THREAD_LIBS="-lpthread",
                AC_MSG_ERROR(pthread library needed!))
 
@@ -98,6 +99,7 @@ AC_SEARCH_LIBS([getaddrinfo], [socket])
 AC_SEARCH_LIBS([listen], [socket])
 AC_SEARCH_LIBS([recvfrom], [socket])
 AC_SEARCH_LIBS([shutdown], [socket])
+
 
 # For Linux, SunOS and Cygwin
 #AC_CHECK_LIB(stdc++,main,,[AC_MSG_ERROR([stdc++ library missing])])

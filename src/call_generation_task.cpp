@@ -146,9 +146,13 @@ bool CallGenerationTask::run()
 
         // Adding a new outgoing call
         main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
+        std::vector<AddrInfo> targets;
+        int ttl;
+        dns_resolver->a_resolve(remote_host, AF_INET, remote_port, transport, 1, targets, ttl);
+        
         call* call_ptr = call::add_call(userid,
-                                         local_ip_is_ipv6,
-                                         use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
+                                        local_ip_is_ipv6,
+                                        targets.front());
         if(!call_ptr) {
             ERROR("Out of memory allocating call!");
         }

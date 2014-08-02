@@ -68,8 +68,10 @@ public:
     /* These are wrappers for various circumstances, (private) init does the real work. */
     //call(char * p_id, int userId, bool ipv6, bool isAutomatic);
     call(const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest);
+    call(const char *p_id, bool use_ipv6, int userId, AddrInfo dest);
     call(const char *p_id, struct sipp_socket *socket, struct sockaddr_storage *dest);
     static call *add_call(int userId, bool ipv6, struct sockaddr_storage *dest);
+    static call *add_call(int userId, bool ipv6, AddrInfo dest);
     call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
 
     virtual ~call();

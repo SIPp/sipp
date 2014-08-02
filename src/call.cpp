@@ -414,6 +414,11 @@ unsigned long call::hash(const char * msg)
 }
 
 /******************* Call class implementation ****************/
+call::call(const char *p_id, bool use_ipv6, int userId, AddrInfo dest) : listener(p_id, true)
+{
+    init(main_scenario, NULL, dest.to_sockaddr_storage(), p_id, userId, use_ipv6, false, false);
+}
+
 call::call(const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest) : listener(p_id, true)
 {
     init(main_scenario, NULL, dest, p_id, userId, use_ipv6, false, false);
@@ -428,6 +433,12 @@ call::call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr
 {
     init(call_scenario, socket, dest, p_id, userId, ipv6, isAutomatic, isInitialization);
 }
+
+call *call::add_call(int userId, bool ipv6, AddrInfo dest)
+{
+    return add_call(userId, ipv6, dest.to_sockaddr_storage());
+}
+
 
 call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
 {
@@ -686,10 +697,6 @@ call::~call()
 {
     computeStat(CStat::E_ADD_CALL_DURATION, clock_tick - start_time);
 
-    if(comp_state) {
-        comp_free(&comp_state);
-    }
-
     if (call_remote_socket && (call_remote_socket != main_remote_socket)) {
         sipp_close_socket(call_remote_socket);
     }
@@ -825,8 +832,7 @@ bool call::connect_socket_if_needed()
         } else {
             char *tmp = peripaddr;
             getFieldFromInputFile(ip_file, peripfield, NULL, tmp);
-            map<string, struct sipp_socket *>::iterator i;
-            i = map_perip_fd.find(peripaddr);
+            auto i = map_perip_fd.find(peripaddr);
             if (i == map_perip_fd.end()) {
                 // Socket does not exist
                 if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
@@ -886,7 +892,11 @@ bool call::connect_socket_if_needed()
             ERROR_NO("Unable to bind UDP socket");
         }
     } else { /* TCP, SCTP or TLS. */
-        struct sockaddr_storage *L_dest = &remote_sockaddr;
+        std::vector<AddrInfo> targets;
+        int ttl;
+        dns_resolver->a_resolve(remote_host, AF_INET, remote_port, transport, 1, targets, ttl);
+        
+        struct sockaddr_storage *L_dest = targets.front().to_sockaddr_storage();
 
         if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
             ERROR_NO("Unable to get a TCP/SCTP/TLS socket");
@@ -898,38 +908,25 @@ bool call::connect_socket_if_needed()
 
         sipp_customize_socket(call_socket);
 
-        if (use_remote_sending_addr) {
-            L_dest = &remote_sending_sockaddr;
-        }
-
         if (sipp_connect_socket(call_socket, L_dest)) {
             if (reconnect_allowed()) {
-                if(errno == EINVAL) {
-                    /* This occurs sometime on HPUX but is not a true INVAL */
-                    WARNING("Unable to connect a TCP/SCTP/TLS socket, remote peer error");
-                } else {
-                    WARNING("Unable to connect a TCP/SCTP/TLS socket");
-                }
+                WARNING("Unable to connect a TCP/SCTP/TLS socket");
                 /* This connection failed.  We must be in multisocket mode, because
-                     * otherwise we would already have a call_socket.  This call can not
-                     * succeed, but does not affect any of our other calls. We do decrement
+                 * otherwise we would already have a call_socket.  This call can not
+                 * succeed, but does not affect any of our other calls. We do decrement
                  * the reconnection counter however. */
                 if (reset_number != -1) {
                     reset_number--;
                 }
 
+                // SRV ENHANCEMENT - blacklist here too
                 computeStat(CStat::E_CALL_FAILED);
                 computeStat(CStat::E_FAILED_TCP_CONNECT);
                 delete this;
 
                 return false;
             } else {
-                if(errno == EINVAL) {
-                    /* This occurs sometime on HPUX but is not a true INVAL */
-                    ERROR("Unable to connect a TCP/SCTP/TLS socket, remote peer error");
-                } else {
-                    ERROR_NO("Unable to connect a TCP/SCTP/TLS socket");
-                }
+                ERROR_NO("Unable to connect a TCP/SCTP/TLS socket");
             }
         }
     }
@@ -970,48 +967,11 @@ int call::send_raw(const char * msg, int index, int len)
         TRACE_MSG("%s message voluntary lost (while sending).", TRANSPORT_TO_STRING(transport));
         callDebug("%s message voluntary lost (while sending) (index %d, hash %u).\n", TRANSPORT_TO_STRING(transport), index, hash(msg));
 
-        if(comp_state) {
-            comp_free(&comp_state);
-        }
         call_scenario->messages[index] -> nb_lost++;
         return 0;
     }
 
     sock = call_socket;
-
-    if ((use_remote_sending_addr) && (sendMode == MODE_SERVER)) {
-        if (!call_remote_socket) {
-            if (multisocket || !main_remote_socket) {
-                struct sockaddr_storage *L_dest = &remote_sending_sockaddr;
-
-                if((call_remote_socket= new_sipp_socket(use_ipv6, transport)) == NULL) {
-                    ERROR_NO("Unable to get a socket for rsa option");
-                }
-
-                sipp_customize_socket(call_remote_socket);
-
-                if(transport != T_UDP) {
-                    if (sipp_connect_socket(call_remote_socket, L_dest)) {
-                        if(errno == EINVAL) {
-                            /* This occurs sometime on HPUX but is not a true INVAL */
-                            ERROR("Unable to connect a %s socket for rsa option, remote peer error", TRANSPORT_TO_STRING(transport));
-                        } else {
-                            ERROR_NO("Unable to connect a socket for rsa option");
-                        }
-                    }
-                }
-                if (!multisocket) {
-                    main_remote_socket = call_remote_socket;
-                }
-            }
-
-            if (!multisocket) {
-                call_remote_socket = main_remote_socket;
-                main_remote_socket->ss_count++;
-            }
-        }
-        sock=call_remote_socket ;
-    }
 
     // If the length hasn't been explicitly specified, treat the message as a string
     if (len==0) {
@@ -1026,6 +986,8 @@ int call::send_raw(const char * msg, int index, int len)
     }
 
     if(rc < 0) {
+        // SRV ENHANCEMENT - blacklist here too
+
         computeStat(CStat::E_CALL_FAILED);
         computeStat(CStat::E_FAILED_CANNOT_SEND_MSG);
         delete this;
@@ -1262,6 +1224,8 @@ void call::terminate(CStat::E_Action reason)
             }
             break;
         case E_AR_CONNECT_FAILED:
+            // SRV ENHANCEMENT - blacklist here too
+
             computeStat(CStat::E_CALL_FAILED);
             computeStat(CStat::E_FAILED_TCP_CONNECT);
             if (deadcall_wait && !initCall) {
@@ -1427,6 +1391,8 @@ bool call::executeMessage(message *curmsg)
                             id, curmsg->desc, curmsg->index);
                     computeStat(CStat::E_CALL_FAILED);
                     computeStat(CStat::E_FAILED_TIMEOUT_ON_SEND);
+                    // SRV ENHANCEMENT - blacklist here too
+
                     if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
                         return (abortCall(true));
                     } else {
@@ -1524,6 +1490,8 @@ bool call::executeMessage(message *curmsg)
                         id, curmsg->desc, curmsg->index);
                 computeStat(CStat::E_CALL_FAILED);
                 computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
+                // SRV ENHANCEMENT - blacklist here too
+
                 if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
                     return (abortCall(true));
                 } else {
@@ -1541,6 +1509,8 @@ bool call::executeMessage(message *curmsg)
             // special case - the label points to the end - finish the call
             computeStat(CStat::E_CALL_FAILED);
             computeStat(CStat::E_FAILED_TIMEOUT_ON_RECV);
+            // SRV ENHANCEMENT - blacklist here too
+
             if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
                 return (abortCall(true));
             } else {
@@ -1631,6 +1601,8 @@ bool call::run()
                 // here if asked to go to the last label  delete the call
                 computeStat(CStat::E_CALL_FAILED);
                 computeStat(CStat::E_FAILED_MAX_UDP_RETRANS);
+                // SRV ENHANCEMENT - blacklist here too
+
                 if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
                     // Abort the call by sending proper SIP message
                     return(abortCall(true));
@@ -1640,6 +1612,8 @@ bool call::run()
                     return false;
                 }
             }
+
+            // SRV ENHANCEMENT - blacklist here too
             computeStat(CStat::E_CALL_FAILED);
             computeStat(CStat::E_FAILED_MAX_UDP_RETRANS);
             if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
@@ -1864,6 +1838,7 @@ bool call::process_unexpected(char * msg)
 
         strcpy(last_recv_msg, msg);
 
+        // SRV ENHANCEMENT - blacklist here too
         computeStat(CStat::E_CALL_FAILED);
         computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
         if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
@@ -1892,6 +1867,8 @@ bool call::abortCall(bool writeLog)
 
     callDebug("Aborting call %s (index %d).\n", id, msg_index);
 
+    // SRV ENHANCEMENT - blacklist the AddrInfo if we abort the call
+    
     if (last_send_msg != NULL) {
         is_inv = !strncmp(last_send_msg, "INVITE", 6);
     } else {
@@ -2907,9 +2884,6 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
                           TRANSPORT_TO_STRING(transport));
                 callDebug("%s message (retrans) lost (recv) (hash %u)\n", TRANSPORT_TO_STRING(transport), hash(msg));
 
-                if(comp_state) {
-                    comp_free(&comp_state);
-                }
                 call_scenario->messages[recv_retrans_recv_index] -> nb_lost++;
                 return true;
             }
@@ -3157,9 +3131,6 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
                   TRANSPORT_TO_STRING(transport));
         callDebug("%s message lost (recv) (hash %u).\n",
                   TRANSPORT_TO_STRING(transport), hash(msg));
-        if(comp_state) {
-            comp_free(&comp_state);
-        }
         call_scenario->messages[search_index] -> nb_lost++;
         return true;
     }
@@ -3604,18 +3575,17 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             free(str_port);
             free(str_protocol);
 
+            // SRV ENHANCEMENT - we should invalidate our AddrInfo so
+            // we don't blacklist it if we fail to talk to the setdest
+            // location
+            
             if (protocol == T_TCP || protocol == T_SCTP) {
                 close(call_socket->ss_fd);
                 call_socket->ss_fd = -1;
                 call_socket->ss_changed_dest = true;
                 if (sipp_reconnect_socket(call_socket)) {
                     if (reconnect_allowed()) {
-                        if(errno == EINVAL) {
-                            /* This occurs sometime on HPUX but is not a true INVAL */
-                            WARNING("Unable to connect a TCP/SCTP/TLS socket, remote peer error");
-                        } else {
-                            WARNING("Unable to connect a TCP/SCTP/TLS socket");
-                        }
+                        WARNING("Unable to connect a TCP/SCTP/TLS socket");
                         /* This connection failed.  We must be in multisocket mode, because
                          * otherwise we would already have a call_socket.  This call can not
                          * succeed, but does not affect any of our other calls. We do decrement
@@ -3626,12 +3596,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 
                         return E_AR_CONNECT_FAILED;
                     } else {
-                        if(errno == EINVAL) {
-                            /* This occurs sometime on HPUX but is not a true INVAL */
-                            ERROR("Unable to connect a TCP/SCTP/TLS socket, remote peer error");
-                        } else {
-                            ERROR_NO("Unable to connect a TCP/SCTP/TLS socket");
-                        }
+                        ERROR_NO("Unable to connect a TCP/SCTP/TLS socket");
                     }
                 }
             }
@@ -4016,6 +3981,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
                     WARNING("sendCmdBuffer returned %d", res);
                 }
             }
+            // SRV ENHANCEMENT - blacklist here too
             computeStat(CStat::E_CALL_FAILED);
             computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
             delete this;
@@ -4053,6 +4019,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
                     WARNING("sendCmdBuffer returned %d", res);
                 }
             }
+            // SRV ENHANCEMENT - blacklist here too
 
             computeStat(CStat::E_CALL_FAILED);
             computeStat(CStat::E_FAILED_UNEXPECTED_MSG);

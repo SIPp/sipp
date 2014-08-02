@@ -113,7 +113,8 @@ am__sipp_SOURCES_DIST = src/actions.cpp src/auth.cpp src/comp.c \
 	src/scenario.cpp src/sip_parser.cpp src/screen.cpp \
 	src/socket.cpp src/socketowner.cpp src/stat.cpp \
 	src/strings.cpp src/task.cpp src/time.cpp src/variables.cpp \
-	src/watchdog.cpp src/xp_parser.c include/comp.h \
+	src/watchdog.cpp src/xp_parser.c src/dnscachedresolver.cpp \
+	src/dnsparser.cpp src/baseresolver.cpp include/comp.h \
 	include/infile.hpp include/listener.hpp include/logger.hpp \
 	include/md5.h include/message.hpp include/milenage.h \
 	include/call_generation_task.hpp include/reporttask.hpp \
@@ -150,6 +151,8 @@ am__objects_5 = src/sipp-actions.$(OBJEXT) src/sipp-auth.$(OBJEXT) \
 	src/sipp-strings.$(OBJEXT) src/sipp-task.$(OBJEXT) \
 	src/sipp-time.$(OBJEXT) src/sipp-variables.$(OBJEXT) \
 	src/sipp-watchdog.$(OBJEXT) src/sipp-xp_parser.$(OBJEXT) \
+	src/sipp-dnscachedresolver.$(OBJEXT) \
+	src/sipp-dnsparser.$(OBJEXT) src/sipp-baseresolver.$(OBJEXT) \
 	$(am__objects_1) $(am__objects_2) $(am__objects_3) \
 	$(am__objects_4)
 am_sipp_OBJECTS = $(am__objects_5) src/sipp-sipp.$(OBJEXT)
@@ -164,7 +167,8 @@ am__sipp_unittest_SOURCES_DIST = src/actions.cpp src/auth.cpp \
 	src/rijndael.c src/scenario.cpp src/sip_parser.cpp \
 	src/screen.cpp src/socket.cpp src/socketowner.cpp src/stat.cpp \
 	src/strings.cpp src/task.cpp src/time.cpp src/variables.cpp \
-	src/watchdog.cpp src/xp_parser.c include/comp.h \
+	src/watchdog.cpp src/xp_parser.c src/dnscachedresolver.cpp \
+	src/dnsparser.cpp src/baseresolver.cpp include/comp.h \
 	include/infile.hpp include/listener.hpp include/logger.hpp \
 	include/md5.h include/message.hpp include/milenage.h \
 	include/call_generation_task.hpp include/reporttask.hpp \
@@ -210,7 +214,10 @@ am__objects_9 = src/sipp_unittest-actions.$(OBJEXT) \
 	src/sipp_unittest-time.$(OBJEXT) \
 	src/sipp_unittest-variables.$(OBJEXT) \
 	src/sipp_unittest-watchdog.$(OBJEXT) \
-	src/sipp_unittest-xp_parser.$(OBJEXT) $(am__objects_1) \
+	src/sipp_unittest-xp_parser.$(OBJEXT) \
+	src/sipp_unittest-dnscachedresolver.$(OBJEXT) \
+	src/sipp_unittest-dnsparser.$(OBJEXT) \
+	src/sipp_unittest-baseresolver.$(OBJEXT) $(am__objects_1) \
 	$(am__objects_6) $(am__objects_7) $(am__objects_8)
 am_sipp_unittest_OBJECTS = $(am__objects_9) \
 	src/sipp_unittest-sipp_unittest.$(OBJEXT) \
@@ -623,7 +630,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CFLAGS = -I./include
-AM_CPPFLAGS = $(AM_CFLAGS)
+AM_CPPFLAGS = $(AM_CFLAGS) -std=c++0x
 EXTRA_DIST = src/fortune.cpp pcap LICENSE.txt README.txt THANKS sipp.dtd sipp.1 cpplint.py auto-generate-files.sh
 @HAVE_OPENSSL_TRUE@ssl_incl = include/sslcommon.h
 @HAVE_OPENSSL_TRUE@ssl_SOURCES = $(ssl_incl) \
@@ -691,6 +698,9 @@ common_SOURCES = src/actions.cpp \
 	       src/variables.cpp \
 	       src/watchdog.cpp \
 	       src/xp_parser.c \
+               src/dnscachedresolver.cpp \
+               src/dnsparser.cpp \
+               src/baseresolver.cpp \
 	       $(common_incl) \
 	       $(ssl_SOURCES) \
 	       $(pcap_SOURCES) \
@@ -867,6 +877,12 @@ src/sipp-watchdog.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
 src/sipp-xp_parser.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
+src/sipp-dnscachedresolver.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
+src/sipp-dnsparser.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
+src/sipp-baseresolver.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
 src/sipp-sslinit.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
 src/sipp-sslthreadsafe.$(OBJEXT): src/$(am__dirstamp) \
@@ -935,6 +951,12 @@ src/sipp_unittest-watchdog.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
 src/sipp_unittest-xp_parser.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
+src/sipp_unittest-dnscachedresolver.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
+src/sipp_unittest-dnsparser.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
+src/sipp_unittest-baseresolver.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
 src/sipp_unittest-sslinit.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
 src/sipp_unittest-sslthreadsafe.$(OBJEXT): src/$(am__dirstamp) \
@@ -974,10 +996,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./gtest/src/$(DEPDIR)/sipp_unittest-gtest_main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-actions.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-auth.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-baseresolver.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-call.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-call_generation_task.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-comp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-deadcall.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-dnscachedresolver.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-dnsparser.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-infile.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-listener.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-logger.Po@am__quote@
@@ -1006,10 +1031,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp-xp_parser.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-actions.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-auth.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-baseresolver.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-call.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-call_generation_task.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-comp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-deadcall.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-dnscachedresolver.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-dnsparser.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-infile.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-listener.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-logger.Po@am__quote@
@@ -1615,6 +1643,48 @@ src/sipp-watchdog.obj: src/watchdog.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp-watchdog.obj `if test -f 'src/watchdog.cpp'; then $(CYGPATH_W) 'src/watchdog.cpp'; else $(CYGPATH_W) '$(srcdir)/src/watchdog.cpp'; fi`
 
+src/sipp-dnscachedresolver.o: src/dnscachedresolver.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -MT src/sipp-dnscachedresolver.o -MD -MP -MF src/$(DEPDIR)/sipp-dnscachedresolver.Tpo -c -o src/sipp-dnscachedresolver.o `test -f 'src/dnscachedresolver.cpp' || echo '$(srcdir)/'`src/dnscachedresolver.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp-dnscachedresolver.Tpo src/$(DEPDIR)/sipp-dnscachedresolver.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/dnscachedresolver.cpp' object='src/sipp-dnscachedresolver.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp-dnscachedresolver.o `test -f 'src/dnscachedresolver.cpp' || echo '$(srcdir)/'`src/dnscachedresolver.cpp
+
+src/sipp-dnscachedresolver.obj: src/dnscachedresolver.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -MT src/sipp-dnscachedresolver.obj -MD -MP -MF src/$(DEPDIR)/sipp-dnscachedresolver.Tpo -c -o src/sipp-dnscachedresolver.obj `if test -f 'src/dnscachedresolver.cpp'; then $(CYGPATH_W) 'src/dnscachedresolver.cpp'; else $(CYGPATH_W) '$(srcdir)/src/dnscachedresolver.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp-dnscachedresolver.Tpo src/$(DEPDIR)/sipp-dnscachedresolver.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/dnscachedresolver.cpp' object='src/sipp-dnscachedresolver.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp-dnscachedresolver.obj `if test -f 'src/dnscachedresolver.cpp'; then $(CYGPATH_W) 'src/dnscachedresolver.cpp'; else $(CYGPATH_W) '$(srcdir)/src/dnscachedresolver.cpp'; fi`
+
+src/sipp-dnsparser.o: src/dnsparser.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -MT src/sipp-dnsparser.o -MD -MP -MF src/$(DEPDIR)/sipp-dnsparser.Tpo -c -o src/sipp-dnsparser.o `test -f 'src/dnsparser.cpp' || echo '$(srcdir)/'`src/dnsparser.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp-dnsparser.Tpo src/$(DEPDIR)/sipp-dnsparser.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/dnsparser.cpp' object='src/sipp-dnsparser.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp-dnsparser.o `test -f 'src/dnsparser.cpp' || echo '$(srcdir)/'`src/dnsparser.cpp
+
+src/sipp-dnsparser.obj: src/dnsparser.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -MT src/sipp-dnsparser.obj -MD -MP -MF src/$(DEPDIR)/sipp-dnsparser.Tpo -c -o src/sipp-dnsparser.obj `if test -f 'src/dnsparser.cpp'; then $(CYGPATH_W) 'src/dnsparser.cpp'; else $(CYGPATH_W) '$(srcdir)/src/dnsparser.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp-dnsparser.Tpo src/$(DEPDIR)/sipp-dnsparser.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/dnsparser.cpp' object='src/sipp-dnsparser.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp-dnsparser.obj `if test -f 'src/dnsparser.cpp'; then $(CYGPATH_W) 'src/dnsparser.cpp'; else $(CYGPATH_W) '$(srcdir)/src/dnsparser.cpp'; fi`
+
+src/sipp-baseresolver.o: src/baseresolver.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -MT src/sipp-baseresolver.o -MD -MP -MF src/$(DEPDIR)/sipp-baseresolver.Tpo -c -o src/sipp-baseresolver.o `test -f 'src/baseresolver.cpp' || echo '$(srcdir)/'`src/baseresolver.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp-baseresolver.Tpo src/$(DEPDIR)/sipp-baseresolver.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/baseresolver.cpp' object='src/sipp-baseresolver.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp-baseresolver.o `test -f 'src/baseresolver.cpp' || echo '$(srcdir)/'`src/baseresolver.cpp
+
+src/sipp-baseresolver.obj: src/baseresolver.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -MT src/sipp-baseresolver.obj -MD -MP -MF src/$(DEPDIR)/sipp-baseresolver.Tpo -c -o src/sipp-baseresolver.obj `if test -f 'src/baseresolver.cpp'; then $(CYGPATH_W) 'src/baseresolver.cpp'; else $(CYGPATH_W) '$(srcdir)/src/baseresolver.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp-baseresolver.Tpo src/$(DEPDIR)/sipp-baseresolver.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/baseresolver.cpp' object='src/sipp-baseresolver.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp-baseresolver.obj `if test -f 'src/baseresolver.cpp'; then $(CYGPATH_W) 'src/baseresolver.cpp'; else $(CYGPATH_W) '$(srcdir)/src/baseresolver.cpp'; fi`
+
 src/sipp-rtpstream.o: src/rtpstream.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -MT src/sipp-rtpstream.o -MD -MP -MF src/$(DEPDIR)/sipp-rtpstream.Tpo -c -o src/sipp-rtpstream.o `test -f 'src/rtpstream.cpp' || echo '$(srcdir)/'`src/rtpstream.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp-rtpstream.Tpo src/$(DEPDIR)/sipp-rtpstream.Po
@@ -1936,6 +2006,48 @@ src/sipp_unittest-watchdog.obj: src/watchdog.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/watchdog.cpp' object='src/sipp_unittest-watchdog.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp_unittest-watchdog.obj `if test -f 'src/watchdog.cpp'; then $(CYGPATH_W) 'src/watchdog.cpp'; else $(CYGPATH_W) '$(srcdir)/src/watchdog.cpp'; fi`
+
+src/sipp_unittest-dnscachedresolver.o: src/dnscachedresolver.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT src/sipp_unittest-dnscachedresolver.o -MD -MP -MF src/$(DEPDIR)/sipp_unittest-dnscachedresolver.Tpo -c -o src/sipp_unittest-dnscachedresolver.o `test -f 'src/dnscachedresolver.cpp' || echo '$(srcdir)/'`src/dnscachedresolver.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp_unittest-dnscachedresolver.Tpo src/$(DEPDIR)/sipp_unittest-dnscachedresolver.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/dnscachedresolver.cpp' object='src/sipp_unittest-dnscachedresolver.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp_unittest-dnscachedresolver.o `test -f 'src/dnscachedresolver.cpp' || echo '$(srcdir)/'`src/dnscachedresolver.cpp
+
+src/sipp_unittest-dnscachedresolver.obj: src/dnscachedresolver.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT src/sipp_unittest-dnscachedresolver.obj -MD -MP -MF src/$(DEPDIR)/sipp_unittest-dnscachedresolver.Tpo -c -o src/sipp_unittest-dnscachedresolver.obj `if test -f 'src/dnscachedresolver.cpp'; then $(CYGPATH_W) 'src/dnscachedresolver.cpp'; else $(CYGPATH_W) '$(srcdir)/src/dnscachedresolver.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp_unittest-dnscachedresolver.Tpo src/$(DEPDIR)/sipp_unittest-dnscachedresolver.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/dnscachedresolver.cpp' object='src/sipp_unittest-dnscachedresolver.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp_unittest-dnscachedresolver.obj `if test -f 'src/dnscachedresolver.cpp'; then $(CYGPATH_W) 'src/dnscachedresolver.cpp'; else $(CYGPATH_W) '$(srcdir)/src/dnscachedresolver.cpp'; fi`
+
+src/sipp_unittest-dnsparser.o: src/dnsparser.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT src/sipp_unittest-dnsparser.o -MD -MP -MF src/$(DEPDIR)/sipp_unittest-dnsparser.Tpo -c -o src/sipp_unittest-dnsparser.o `test -f 'src/dnsparser.cpp' || echo '$(srcdir)/'`src/dnsparser.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp_unittest-dnsparser.Tpo src/$(DEPDIR)/sipp_unittest-dnsparser.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/dnsparser.cpp' object='src/sipp_unittest-dnsparser.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp_unittest-dnsparser.o `test -f 'src/dnsparser.cpp' || echo '$(srcdir)/'`src/dnsparser.cpp
+
+src/sipp_unittest-dnsparser.obj: src/dnsparser.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT src/sipp_unittest-dnsparser.obj -MD -MP -MF src/$(DEPDIR)/sipp_unittest-dnsparser.Tpo -c -o src/sipp_unittest-dnsparser.obj `if test -f 'src/dnsparser.cpp'; then $(CYGPATH_W) 'src/dnsparser.cpp'; else $(CYGPATH_W) '$(srcdir)/src/dnsparser.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp_unittest-dnsparser.Tpo src/$(DEPDIR)/sipp_unittest-dnsparser.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/dnsparser.cpp' object='src/sipp_unittest-dnsparser.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp_unittest-dnsparser.obj `if test -f 'src/dnsparser.cpp'; then $(CYGPATH_W) 'src/dnsparser.cpp'; else $(CYGPATH_W) '$(srcdir)/src/dnsparser.cpp'; fi`
+
+src/sipp_unittest-baseresolver.o: src/baseresolver.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT src/sipp_unittest-baseresolver.o -MD -MP -MF src/$(DEPDIR)/sipp_unittest-baseresolver.Tpo -c -o src/sipp_unittest-baseresolver.o `test -f 'src/baseresolver.cpp' || echo '$(srcdir)/'`src/baseresolver.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp_unittest-baseresolver.Tpo src/$(DEPDIR)/sipp_unittest-baseresolver.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/baseresolver.cpp' object='src/sipp_unittest-baseresolver.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp_unittest-baseresolver.o `test -f 'src/baseresolver.cpp' || echo '$(srcdir)/'`src/baseresolver.cpp
+
+src/sipp_unittest-baseresolver.obj: src/baseresolver.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT src/sipp_unittest-baseresolver.obj -MD -MP -MF src/$(DEPDIR)/sipp_unittest-baseresolver.Tpo -c -o src/sipp_unittest-baseresolver.obj `if test -f 'src/baseresolver.cpp'; then $(CYGPATH_W) 'src/baseresolver.cpp'; else $(CYGPATH_W) '$(srcdir)/src/baseresolver.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp_unittest-baseresolver.Tpo src/$(DEPDIR)/sipp_unittest-baseresolver.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/baseresolver.cpp' object='src/sipp_unittest-baseresolver.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp_unittest-baseresolver.obj `if test -f 'src/baseresolver.cpp'; then $(CYGPATH_W) 'src/baseresolver.cpp'; else $(CYGPATH_W) '$(srcdir)/src/baseresolver.cpp'; fi`
 
 src/sipp_unittest-rtpstream.o: src/rtpstream.cpp
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT src/sipp_unittest-rtpstream.o -MD -MP -MF src/$(DEPDIR)/sipp_unittest-rtpstream.Tpo -c -o src/sipp_unittest-rtpstream.o `test -f 'src/rtpstream.cpp' || echo '$(srcdir)/'`src/rtpstream.cpp

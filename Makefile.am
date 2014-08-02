@@ -5,7 +5,7 @@ TESTS = sipp_unittest
 noinst_PROGRAMS = $(TESTS)
 
 AM_CFLAGS=-I./include
-AM_CPPFLAGS=$(AM_CFLAGS)
+AM_CPPFLAGS=$(AM_CFLAGS) -std=c++0x
 
 EXTRA_DIST = src/fortune.cpp pcap LICENSE.txt README.txt THANKS sipp.dtd sipp.1 cpplint.py auto-generate-files.sh
 
@@ -96,6 +96,9 @@ common_SOURCES = src/actions.cpp \
 	       src/variables.cpp \
 	       src/watchdog.cpp \
 	       src/xp_parser.c \
+               src/dnscachedresolver.cpp \
+               src/dnsparser.cpp \
+               src/baseresolver.cpp \
 	       $(common_incl) \
 	       $(ssl_SOURCES) \
 	       $(pcap_SOURCES) \
