@@ -2476,42 +2476,26 @@ int open_connections()
 
         /* Resolving the remote IP */
         {
-            struct addrinfo   hints;
-            struct addrinfo * local_addr;
-
-            fprintf(stderr,"Resolving remote host '%s'... ", remote_host);
-
-            memset((char*)&hints, 0, sizeof(hints));
-            hints.ai_flags  = AI_PASSIVE;
-            hints.ai_family = PF_UNSPEC;
-
-            /* FIXME: add DNS SRV support using liburli? */
-            if (getaddrinfo(remote_host,
-                            NULL,
-                            &hints,
-                            &local_addr) != 0) {
-                ERROR("Unknown remote host '%s'.\n"
-                      "Use 'sipp -h' for details", remote_host);
-            }
-
+            std::vector<AddrInfo> targets;
+            int ttl;
+            (new BaseResolver())->srv_resolve(remote_host, AF_INET, T_TCP, 1, targets, ttl);
+            sockaddr_storage* addr = targets.front().to_sockaddr_storage();
             memset(&remote_sockaddr, 0, sizeof( remote_sockaddr ));
             memcpy(&remote_sockaddr,
-                   local_addr->ai_addr,
-                   SOCK_ADDR_SIZE(
-                       _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
-
-            freeaddrinfo(local_addr);
+                   addr,
+                   SOCK_ADDR_SIZE(addr));
+                       
 
             strcpy(remote_ip, get_inet_address(&remote_sockaddr));
             if (remote_sockaddr.ss_family == AF_INET) {
-                (_RCAST(struct sockaddr_in *, &remote_sockaddr))->sin_port =
-                    htons((short)remote_port);
+//                (_RCAST(struct sockaddr_in *, &remote_sockaddr))->sin_port =
+                //                  htons((short)remote_port);
                 strcpy(remote_ip_escaped, remote_ip);
             } else {
-                (_RCAST(struct sockaddr_in6 *, &remote_sockaddr))->sin6_port =
-                    htons((short)remote_port);
+                // (_RCAST(struct sockaddr_in6 *, &remote_sockaddr))->sin6_port =
+                //  htons((short)remote_port);
                 sprintf(remote_ip_escaped, "[%s]", remote_ip);
-            }
+                }
             fprintf(stderr,"Done.\n");
         }
     }

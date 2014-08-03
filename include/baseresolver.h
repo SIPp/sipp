@@ -109,7 +109,7 @@ struct AddrInfo
         if (address.af == AF_INET) {
             sockaddr_in inet4;
             inet4.sin_family = AF_INET;
-            inet4.sin_port = (unsigned short)port;
+            inet4.sin_port = htons((short)port);
             inet4.sin_addr = address.addr.ipv4;
             memcpy(&sipp_ss, &inet4, sizeof(inet4));
         }
