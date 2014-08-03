@@ -1122,10 +1122,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
                 || thirdPartyMode == MODE_MASTER_PASSIVE || thirdPartyMode == MODE_SLAVE) {
             // Adding a new OUTGOING call !
             main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-            std::vector<AddrInfo> targets;
-            int ttl;
-            dns_resolver->a_resolve(remote_host, AF_INET, remote_port, transport, 1, targets, ttl);
-            call *new_ptr = new call(call_id, local_ip_is_ipv6, 0, targets.front()); // RKD
+            call *new_ptr = new call(call_id, local_ip_is_ipv6, 0, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
             if (!new_ptr) {
                 ERROR("Out of memory allocating a call!");
             }
@@ -1165,7 +1162,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 
             // Adding a new INCOMING call !
             main_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
-            listener_ptr = new call(call_id, socket, src);
+            listener_ptr = new call(call_id, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src);
             if (!listener_ptr) {
                 ERROR("Out of memory allocating a call!");
             }
@@ -1183,7 +1180,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
                     WARNING("Received out-of-call %s message, using the out-of-call scenario", msg_start);
                     free(msg_start);
                     /* This should have the real address that the message came from. */
-                    call *call_ptr = new call(ooc_scenario, socket, src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
+                    call *call_ptr = new call(ooc_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
                     if (!call_ptr) {
                         ERROR("Out of memory allocating a call!");
                     }
@@ -1204,7 +1201,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
                 if(!get_reply_code(msg)) {
                     aa_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
                     /* This should have the real address that the message came from. */
-                    call *call_ptr = new call(aa_scenario, socket, src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
+                    call *call_ptr = new call(aa_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
                     if (!call_ptr) {
                         ERROR("Out of memory allocating a call!");
                     }
@@ -1246,17 +1243,12 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
     ret->ss_control = false;
     ret->ss_ipv6 = use_ipv6;
     ret->ss_fd = fd;
+    ret->ss_comp_state = NULL;
     ret->ss_count = 1;
     ret->ss_changed_dest = false;
 
-    std::vector<AddrInfo> targets;
-    int ttl;
-    dns_resolver->a_resolve(remote_host, AF_INET, remote_port, transport, 1, targets, ttl);
-
-    assert(!targets.empty());
-    sockaddr_storage* remote_sockaddr = targets.front().to_sockaddr_storage();
     /* Initialize all sockets with our destination address. */
-    memcpy(&ret->ss_remote_sockaddr, remote_sockaddr, sizeof(ret->ss_remote_sockaddr));
+    memcpy(&ret->ss_remote_sockaddr, &remote_sockaddr, sizeof(ret->ss_remote_sockaddr));
 
 #ifdef _USE_OPENSSL
     ret->ss_ssl = NULL;
@@ -1537,21 +1529,13 @@ int sipp_do_connect_socket(struct sipp_socket *socket)
     fcntl(socket->ss_fd, F_SETFL, flags | O_NONBLOCK);
 
     errno = 0;
-
     ret = connect(socket->ss_fd, (struct sockaddr *)&socket->ss_dest, SOCK_ADDR_SIZE(&socket->ss_dest));
-    printf("port is %us\n", ((struct sockaddr_in*)&socket->ss_dest)->sin_port);
-    sleep(30);
-    
-
-    ERROR_NO("result of connect is %d\n", ret);
-    
     if (ret < 0) {
         if (errno == EINPROGRESS) {
             /* Block this socket until the connect completes - this is very similar to entering congestion, but we don't want to increment congestion statistics. */
             enter_congestion(socket, 0);
             nb_net_cong--;
         } else {
-            // SRV ENHANCEMENT - If we fail to connect, blacklist the address
             return ret;
         }
     }
@@ -1676,6 +1660,57 @@ void free_socketbuf(struct socketbuf *socketbuf)
 {
     free(socketbuf->buf);
     free(socketbuf);
+}
+
+size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
+{
+    if(compression && len) {
+        if (useMessagef == 1) {
+            struct timeval currentTime;
+            GET_TIME (&currentTime);
+            TRACE_MSG("----------------------------------------------- %s\n"
+                      "Compressed message received, header :\n"
+                      "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x "
+                      "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
+                      CStat::formatTime(&currentTime, true),
+                      buff[0] , buff[1] , buff[2] , buff[3],
+                      buff[4] , buff[5] , buff[6] , buff[7],
+                      buff[8] , buff[9] , buff[10], buff[11],
+                      buff[12], buff[13], buff[14], buff[15]);
+        }
+
+        int rc = comp_uncompress(st,
+                                 buff,
+                                 (unsigned int *) &len);
+
+        switch(rc) {
+        case COMP_OK:
+            TRACE_MSG("Compressed message decompressed properly.\n");
+            break;
+
+        case COMP_REPLY:
+            TRACE_MSG("Compressed message KO, sending a reply (resynch).\n");
+            sendto(sock,
+                   buff,
+                   len,
+                   0,
+                   (sockaddr *)(void *)&remote_sockaddr,
+                   SOCK_ADDR_SIZE(&remote_sockaddr));
+            resynch_send++;
+            return 0;
+
+        case COMP_DISCARD:
+            TRACE_MSG("Compressed message discarded by pluggin.\n");
+            resynch_recv++;
+            return 0;
+
+        default:
+        case COMP_KO:
+            ERROR("Compression pluggin error");
+            return 0;
+        }
+    }
+    return len;
 }
 
 #ifdef USE_SCTP
@@ -1869,7 +1904,6 @@ static int write_error(struct sipp_socket *socket, int ret)
     }
 #endif
 
-    // SRV ENHANCEMENT - blacklist here
     WARNING("Unable to send %s message: %s", TRANSPORT_TO_STRING(socket->ss_transport), errstring);
     nb_net_send_errors++;
     return -1;
@@ -1943,7 +1977,6 @@ int read_error(struct sipp_socket *socket, int ret)
         return -1;
     }
 
-    // SRV ENHANCEMENT - blacklist here
     WARNING("Unable to receive %s message: %s", TRANSPORT_TO_STRING(socket->ss_transport), errstring);
     nb_net_recv_errors++;
     return -1;
@@ -2246,8 +2279,18 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, const char *bu
         rc = send_nowait(socket->ss_fd, buffer, len, 0);
         break;
     case T_UDP:
-        assert(AF_INET == ((struct sockaddr*)dest)->sa_family);
-        assert(5060 == (unsigned short)((struct sockaddr_in*)dest)->sin_port);
+        if(compression) {
+            static char comp_msg[SIPP_MAX_MSG_SIZE];
+            strcpy(comp_msg, buffer);
+            if(comp_compress(&socket->ss_comp_state,
+                             comp_msg,
+                             (unsigned int *) &len) != COMP_OK) {
+                ERROR("Compression pluggin error");
+            }
+            buffer = (char *)comp_msg;
+
+            TRACE_MSG("---\nCompressed message len: %d\n", len);
+        }
 
         rc = sendto(socket->ss_fd, buffer, len, 0, (struct sockaddr *)dest, SOCK_ADDR_SIZE(dest));
 
@@ -2415,7 +2458,6 @@ void close_calls(struct sipp_socket *socket)
     delete owners;
 }
 
-
 int open_connections()
 {
     int status=0;
@@ -2432,6 +2474,46 @@ int open_connections()
             remote_port = temp_remote_port;
         }
 
+        /* Resolving the remote IP */
+        {
+            struct addrinfo   hints;
+            struct addrinfo * local_addr;
+
+            fprintf(stderr,"Resolving remote host '%s'... ", remote_host);
+
+            memset((char*)&hints, 0, sizeof(hints));
+            hints.ai_flags  = AI_PASSIVE;
+            hints.ai_family = PF_UNSPEC;
+
+            /* FIXME: add DNS SRV support using liburli? */
+            if (getaddrinfo(remote_host,
+                            NULL,
+                            &hints,
+                            &local_addr) != 0) {
+                ERROR("Unknown remote host '%s'.\n"
+                      "Use 'sipp -h' for details", remote_host);
+            }
+
+            memset(&remote_sockaddr, 0, sizeof( remote_sockaddr ));
+            memcpy(&remote_sockaddr,
+                   local_addr->ai_addr,
+                   SOCK_ADDR_SIZE(
+                       _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
+
+            freeaddrinfo(local_addr);
+
+            strcpy(remote_ip, get_inet_address(&remote_sockaddr));
+            if (remote_sockaddr.ss_family == AF_INET) {
+                (_RCAST(struct sockaddr_in *, &remote_sockaddr))->sin_port =
+                    htons((short)remote_port);
+                strcpy(remote_ip_escaped, remote_ip);
+            } else {
+                (_RCAST(struct sockaddr_in6 *, &remote_sockaddr))->sin6_port =
+                    htons((short)remote_port);
+                sprintf(remote_ip_escaped, "[%s]", remote_ip);
+            }
+            fprintf(stderr,"Done.\n");
+        }
     }
 
     if(gethostname(hostname,64) != 0) {
@@ -2667,15 +2749,13 @@ int open_connections()
             ERROR_NO("Unable to get a TCP socket");
         }
 
+        /* OJA FIXME: is it correct? */
+        if (use_remote_sending_addr) {
+            remote_sockaddr = remote_sending_sockaddr ;
+        }
         sipp_customize_socket(tcp_multiplex);
 
-        main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-        std::vector<AddrInfo> targets;
-        int ttl;
-        dns_resolver->a_resolve(remote_host, AF_INET, remote_port, transport, 1, targets, ttl);
-
-        sockaddr_storage* remote_sockaddr = targets.front().to_sockaddr_storage();
-        if(sipp_connect_socket(tcp_multiplex, remote_sockaddr)) { // RKD
+        if(sipp_connect_socket(tcp_multiplex, &remote_sockaddr)) {
             if(reset_number >0) {
                 WARNING("Failed to reconnect\n");
                 sipp_close_socket(main_socket);

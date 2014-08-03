@@ -68,6 +68,7 @@
 /* Sipp includes */
 
 #include "xp_parser.h"
+#include "comp.h"
 #include "scenario.hpp"
 #include "screen.hpp"
 #include "task.hpp"
@@ -339,7 +340,6 @@ typedef std::map<int, VariableTable *> int_vt_map;
 extern int_vt_map          userVarMap;
 
 //extern int      new_socket(bool P_use_ipv6, int P_type_socket, int * P_status);
-
 extern struct   sipp_socket *new_sipp_socket(bool use_ipv6, int transport);
 struct sipp_socket *new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
 struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket);
@@ -353,7 +353,6 @@ extern int      select_socket       _DEFVAL(0);
 extern bool     socket_close        _DEFVAL(true);
 extern bool     test_socket         _DEFVAL(true);
 extern bool     maxSocketPresent    _DEFVAL(false);
-extern BaseResolver* dns_resolver;
 
 #include "time.hpp"
 
@@ -466,7 +465,9 @@ extern struct sipp_socket *local_sockets[MAX_LOCAL_TWIN_SOCKETS];
 extern int           local_nb                    _DEFVAL(0);
 extern int           peers_connected             _DEFVAL(0);
 
-extern std::string remote_address;
+extern struct	     sockaddr_storage remote_sockaddr;
+extern short         use_remote_sending_addr      _DEFVAL(0);
+extern struct        sockaddr_storage remote_sending_sockaddr;
 
 enum E_Alter_YesNo {
     E_ALTER_YES=0,

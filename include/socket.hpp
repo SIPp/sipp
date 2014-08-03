@@ -20,7 +20,6 @@
 
 #ifndef __SIPP_SOCKET_H__
 #define __SIPP_SOCKET_H__
-
 #include "baseresolver.h"
 
 #ifdef _USE_OPENSSL
@@ -102,13 +101,14 @@ struct sipp_socket {
     bool ss_changed_dest; /* Has the destination changed from default. */
 
     int ss_fd;	/* The underlying file descriptor for this socket. */
+    void *ss_comp_state; /* The compression state. */
 #ifdef _USE_OPENSSL
     SSL *ss_ssl;	/* The underlying SSL descriptor for this socket. */
     BIO *ss_bio;	/* The underlying BIO descriptor for this socket. */
 #endif
     struct sockaddr_storage ss_remote_sockaddr; /* Who we are talking to. */
     struct sockaddr_storage ss_dest; /* Who we are talking to. */
-    AddrInfo addr_info;    
+
 
     int ss_pollidx; /* The index of this socket in our poll structures. */
     bool ss_congested; /* Is this socket congested? */
