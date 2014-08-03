@@ -2488,14 +2488,10 @@ int open_connections()
 
             strcpy(remote_ip, get_inet_address(&remote_sockaddr));
             if (remote_sockaddr.ss_family == AF_INET) {
-//                (_RCAST(struct sockaddr_in *, &remote_sockaddr))->sin_port =
-                //                  htons((short)remote_port);
                 strcpy(remote_ip_escaped, remote_ip);
             } else {
-                // (_RCAST(struct sockaddr_in6 *, &remote_sockaddr))->sin6_port =
-                //  htons((short)remote_port);
                 sprintf(remote_ip_escaped, "[%s]", remote_ip);
-                }
+            }
             fprintf(stderr,"Done.\n");
         }
     }

@@ -886,8 +886,12 @@ bool call::connect_socket_if_needed()
             ERROR_NO("Unable to bind UDP socket");
         }
     } else { /* TCP, SCTP or TLS. */
-        struct sockaddr_storage *L_dest = &remote_sockaddr;
 
+        std::vector<AddrInfo> targets;
+        int ttl;
+        (new BaseResolver())->srv_resolve(remote_host, AF_INET, T_TCP, 1, targets, ttl);
+        sockaddr_storage* destination = targets.front().to_sockaddr_storage();
+        
         if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
             ERROR_NO("Unable to get a TCP/SCTP/TLS socket");
         }
@@ -899,10 +903,10 @@ bool call::connect_socket_if_needed()
         sipp_customize_socket(call_socket);
 
         if (use_remote_sending_addr) {
-            L_dest = &remote_sending_sockaddr;
+            //L_dest = &remote_sending_sockaddr;
         }
 
-        if (sipp_connect_socket(call_socket, L_dest)) {
+        if (sipp_connect_socket(call_socket, destination)) {
             if (reconnect_allowed()) {
                 if(errno == EINVAL) {
                     /* This occurs sometime on HPUX but is not a true INVAL */
