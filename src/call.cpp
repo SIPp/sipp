@@ -889,7 +889,7 @@ bool call::connect_socket_if_needed()
 
         std::vector<AddrInfo> targets;
         int ttl;
-        (new BaseResolver())->srv_resolve(remote_host, AF_INET, T_TCP, 1, targets, ttl);
+        dns_resolver->srv_resolve(remote_host, AF_INET, T_TCP, 1, targets, ttl);
         sockaddr_storage* destination = targets.front().to_sockaddr_storage();
         
         if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
@@ -922,6 +922,7 @@ bool call::connect_socket_if_needed()
                     reset_number--;
                 }
 
+                dns_resolver->blacklist(targets.front(), 30);
                 computeStat(CStat::E_CALL_FAILED);
                 computeStat(CStat::E_FAILED_TCP_CONNECT);
                 delete this;

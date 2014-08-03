@@ -1165,7 +1165,8 @@ int main(int argc, char *argv[])
     bool                 slave_masterSet = false;
 
     generic[0] = NULL;
-
+    dns_resolver = new BaseResolver();
+    
     /* At least one argument is needed */
     if(argc < 2) {
         help();

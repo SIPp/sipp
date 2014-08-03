@@ -2478,7 +2478,7 @@ int open_connections()
         {
             std::vector<AddrInfo> targets;
             int ttl;
-            (new BaseResolver())->srv_resolve(remote_host, AF_INET, T_TCP, 1, targets, ttl);
+            dns_resolver->srv_resolve(remote_host, AF_INET, T_TCP, 1, targets, ttl);
             sockaddr_storage* addr = targets.front().to_sockaddr_storage();
             memset(&remote_sockaddr, 0, sizeof( remote_sockaddr ));
             memcpy(&remote_sockaddr,

@@ -238,6 +238,7 @@ extern int                max_sched_loops         _DEFVAL(MAX_SCHED_LOOPS_PER_CY
 
 extern unsigned int       global_t2               _DEFVAL(DEFAULT_T2_TIMER_VALUE);
 
+extern BaseResolver* dns_resolver;
 extern char               local_ip[40];
 extern char               local_ip_escaped[42];
 extern bool               local_ip_is_ipv6;
