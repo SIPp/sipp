@@ -77,7 +77,7 @@ DnsResult::~DnsResult()
 {
   while (!_records.empty())
   {
-    delete _records.back();
+      //delete _records.back();
     _records.pop_back();
   }
 }
