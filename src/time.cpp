@@ -39,6 +39,10 @@
 #include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
 #include "time.hpp"
 #include "sipp.hpp"
 #define MICROSECONDS_PER_SECOND 1000000LL
@@ -60,8 +64,8 @@ unsigned long long getmicroseconds()
     host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &cclock);
     clock_get_time(cclock, &mts);
     mach_port_deallocate(mach_task_self(), cclock);
-    time->tv_sec = mts.tv_sec;
-    time->tv_nsec = mts.tv_nsec;
+    time.tv_sec = mts.tv_sec;
+    time.tv_nsec = mts.tv_nsec;
 #else
 #if defined(CLOCK_MONOTONIC_COARSE)
     clock_gettime(CLOCK_MONOTONIC_COARSE, &time);
