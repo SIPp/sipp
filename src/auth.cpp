@@ -76,25 +76,29 @@ typedef char RESHEX[RESHEXLEN];
 typedef u_char OP[OPLEN];
 
 AMF amfstar="\0";
-SQN sqn_he= {0x00,0x00,0x00,0x00,0x00,0x00};
+SQN sqn_he= {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 /* end AKA */
 
 
-int createAuthHeaderMD5(const char* user,
-                        const char* password,
+int createAuthHeaderMD5(const char *user,
+                        const char *password,
                         int password_len,
-                        const char* method,
-                        const char * uri,
-                        const char* msgbody,
-                        const char* auth,
-                        const char* algo,
-                        char* result);
-int createAuthHeaderAKAv1MD5(char * user, char * OP,
-                             char * AMF,
-                             char * K,
-                             char * method,
-                             char * uri, const char * msgbody, char * auth, char *algo,
+                        const char *method,
+                        const char *uri,
+                        const char *msgbody,
+                        const char *auth,
+                        const char *algo,
+                        char *result);
+int createAuthHeaderAKAv1MD5(const char *user,
+                             const char *OP,
+                             const char *AMF,
+                             const char *K,
+                             const char *method,
+                             const char *uri,
+                             const char *msgbody,
+                             const char *auth,
+                             const char *algo,
                              char * result);
 
 
@@ -150,12 +154,12 @@ char *stristr (const char *s1, const char *s2)
     return 0;
 }
 
-int createAuthHeader(char * user, char * password, char * method,
-                     char * uri, const char * msgbody, char * auth,
-                     char * aka_OP,
-                     char * aka_AMF,
-                     char * aka_K,
-                     char * result)
+int createAuthHeader(const char *user, const char *password, const char *method,
+                     const char *uri, const char *msgbody, const char *auth,
+                     const char *aka_OP,
+                     const char *aka_AMF,
+                     const char *aka_K,
+                     char *result)
 {
 
     char algo[32]="MD5";
@@ -178,12 +182,11 @@ int createAuthHeader(char * user, char * password, char * method,
     }
 
     if (strncasecmp(algo, "MD5", 3)==0) {
-        return createAuthHeaderMD5(user,password,strlen(password),method,uri,msgbody,auth,algo,result);
+        return createAuthHeaderMD5(user, password, strlen(password), method,
+                                   uri, msgbody, auth, algo, result);
     } else if (strncasecmp(algo, "AKAv1-MD5", 9)==0) {
-        return createAuthHeaderAKAv1MD5(user, aka_OP,
-                                        aka_AMF,
-                                        aka_K,
-                                        method,uri,msgbody,auth,algo,result);
+        return createAuthHeaderAKAv1MD5(user, aka_OP, aka_AMF, aka_K, method,
+                                        uri, msgbody, auth, algo, result);
     } else {
         sprintf(result, "createAuthHeader: authentication must use MD5 or AKAv1-MD5");
         return 0;
@@ -238,18 +241,18 @@ int getAuthParameter(const char *name, const char *header, char *result, int len
     return end - start;
 }
 
-int createAuthResponseMD5(const char* user,
-                          const char* password,
+int createAuthResponseMD5(const char *user,
+                          const char *password,
                           int password_len,
-                          const char* method,
-                          const char* uri,
-                          const char* authtype,
-                          const char* msgbody,
-                          const char* realm,
-                          const char* nonce,
-                          const char* cnonce,
-                          const char* nc,
-                          unsigned char* result)
+                          const char *method,
+                          const char *uri,
+                          const char *authtype,
+                          const char *msgbody,
+                          const char *realm,
+                          const char *nonce,
+                          const char *cnonce,
+                          const char *nc,
+                          unsigned char *result)
 {
     md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
     md5_byte_t resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE];
@@ -257,7 +260,7 @@ int createAuthResponseMD5(const char* user,
     unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
     char tmp[MAX_HEADER_LEN];
     md5_state_t Md5Ctx;
-    const char* authint = "auth-int";
+    const char authint[] = "auth-int";
 
     // Load in A1
     md5_init(&Md5Ctx);
@@ -314,15 +317,15 @@ int createAuthResponseMD5(const char* user,
     return 1;
 }
 
-int createAuthHeaderMD5(const char* user,
-                        const char* password,
+int createAuthHeaderMD5(const char *user,
+                        const char *password,
                         int password_len,
-                        const char* method,
-                        const char* uri,
-                        const char* msgbody,
-                        const char* auth,
-                        const char* algo,
-                        char* result)
+                        const char *method,
+                        const char *uri,
+                        const char *msgbody,
+                        const char *auth,
+                        const char *algo,
+                        char *result)
 {
 
     md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
@@ -360,7 +363,7 @@ int createAuthHeaderMD5(const char* user,
         return 0;
     }
 
-    sprintf(result, "Digest username=\"%s\",realm=\"%s\"",user,realm);
+    sprintf(result, "Digest username=\"%s\",realm=\"%s\"", user, realm);
 
     // Construct the URI
     if (auth_uri == NULL) {
@@ -370,11 +373,11 @@ int createAuthHeaderMD5(const char* user,
     }
 
     if (cnonce[0] != '\0') {
-        snprintf(tmp, sizeof(tmp), ",cnonce=\"%s\",nc=%s,qop=\"%s\"",cnonce,nc,authtype);
-        strcat(result,tmp);
+        snprintf(tmp, sizeof(tmp), ",cnonce=\"%s\",nc=%s,qop=\"%s\"", cnonce, nc, authtype);
+        strcat(result, tmp);
     }
-    snprintf(tmp, sizeof(tmp), ",uri=\"%s\"",sipuri);
-    strcat(result,tmp);
+    snprintf(tmp, sizeof(tmp), ",uri=\"%s\"", sipuri);
+    strcat(result, tmp);
 
     // Extract the Nonce
     if (!getAuthParameter("nonce", auth, nonce, sizeof(nonce))) {
@@ -395,18 +398,18 @@ int createAuthHeaderMD5(const char* user,
                           nc,
                           &resp_hex[0]);
 
-    snprintf(tmp2, sizeof(tmp2), ",nonce=\"%s\",response=\"%s\",algorithm=%s",nonce,resp_hex,algo);
-    strcat(result,tmp2);
+    snprintf(tmp2, sizeof(tmp2), ",nonce=\"%s\",response=\"%s\",algorithm=%s", nonce, resp_hex, algo);
+    strcat(result, tmp2);
 
     if (has_opaque) {
-        snprintf(tmp2, sizeof(tmp2), ",opaque=\"%s\"",opaque);
-        strcat(result,tmp2);
+        snprintf(tmp2, sizeof(tmp2), ",opaque=\"%s\"", opaque);
+        strcat(result, tmp2);
     }
 
     return 1;
 }
 
-int verifyAuthHeader(const char * user, const char * password, const char * method, const char * auth, const char* msgbody)
+int verifyAuthHeader(const char *user, const char *password, const char *method, const char *auth, const char *msgbody)
 {
     char algo[MAX_HEADER_LEN];
     unsigned char result[HASH_HEX_SIZE + 1];
@@ -604,13 +607,13 @@ static int base64_val(char x) {
     return 0;
 }
 
-char * base64_decode_string( const char *buf, unsigned int len, int *newlen )
+char *base64_decode_string(const char *buf, unsigned int len, int *newlen)
 {
     unsigned long i;
-    int j,x1,x2,x3,x4;
+    int j, x1, x2, x3, x4;
     char *out;
     out = (char *)malloc( ( len * 3/4 ) + 8 );
-    for(i=0,j=0; i+3<len; i+=4) {
+    for(i=0, j=0; i + 3 < len; i += 4) {
         x1=base64_val(buf[i]);
         x2=base64_val(buf[i+1]);
         x3=base64_val(buf[i+2]);
@@ -652,12 +655,11 @@ char * base64_decode_string( const char *buf, unsigned int len, int *newlen )
 char base64[65]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 char hexa[17]="0123456789abcdef";
-int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
-                             char * aka_AMF,
-                             char * aka_K,
-                             char * method,
-                             char * uri, const char * msgbody, char * auth, char *algo,
-                             char * result)
+int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP,
+                             const char *aka_AMF, const char *aka_K,
+                             const char *method, const char *uri,
+                             const char *msgbody, const char *auth,
+                             const char *algo, char *result)
 {
 
     char tmp[MAX_HEADER_LEN];
@@ -670,7 +672,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
     RAND rnd;
     AUTS auts_bin;
     AUTS64 auts_hex;
-    MAC mac,xmac;
+    MAC mac, xmac;
     SQN sqn, sqnxoraka, sqn_ms;
     K k;
     RES res;
@@ -694,33 +696,34 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
 
     /* Compute the AKA RES */
     nonce64 = tmp;
-    nonce = base64_decode_string(nonce64,end-start,&noncelen);
-    if (noncelen<RANDLEN+AUTNLEN) {
-        sprintf(result,"createAuthHeaderAKAv1MD5 : Nonce is too short %d < %d expected \n",
-                noncelen,RANDLEN+AUTNLEN);
-        if(nonce) free(nonce);
+    nonce = base64_decode_string(nonce64, end-start, &noncelen);
+    if (noncelen < RANDLEN + AUTNLEN) {
+        sprintf(result, "createAuthHeaderAKAv1MD5 : Nonce is too short %d < %d expected \n",
+                noncelen, RANDLEN + AUTNLEN);
+        if (nonce)
+            free(nonce);
         return 0;
     }
-    memcpy(rnd,nonce,RANDLEN);
-    memcpy(sqnxoraka,nonce+RANDLEN,SQNLEN);
-    memcpy(mac,nonce+RANDLEN+SQNLEN+AMFLEN,MACLEN);
-    memcpy(k,aka_K,KLEN);
-    memcpy(amf,aka_AMF,AMFLEN);
-    memcpy(op,aka_OP,OPLEN);
+    memcpy(rnd, nonce, RANDLEN);
+    memcpy(sqnxoraka, nonce + RANDLEN, SQNLEN);
+    memcpy(mac, nonce + RANDLEN + SQNLEN + AMFLEN, MACLEN);
+    memcpy(k, aka_K, KLEN);
+    memcpy(amf, aka_AMF, AMFLEN);
+    memcpy(op, aka_OP, OPLEN);
 
     /* Compute the AK, response and keys CK IK */
-    f2345(k,rnd,res,ck,ik,ak,op);
-    res[RESLEN]='\0';
+    f2345(k, rnd, res, ck, ik, ak, op);
+    res[RESLEN] = '\0';
 
     /* Compute sqn encoded in AUTN */
     for (i=0; i < SQNLEN; i++)
         sqn[i] = sqnxoraka[i] ^ ak[i];
 
     /* compute XMAC */
-    f1(k,rnd,sqn,(unsigned char *) aka_AMF,xmac,op);
-    if (memcmp(mac,xmac,MACLEN)!=0) {
+    f1(k, rnd, sqn, (unsigned char *) aka_AMF, xmac, op);
+    if (memcmp(mac, xmac, MACLEN) != 0) {
         free(nonce);
-        sprintf(result,"createAuthHeaderAKAv1MD5 : MAC != eXpectedMAC -> Server might not know the secret (man-in-the-middle attack?) \n");
+        sprintf(result, "createAuthHeaderAKAv1MD5 : MAC != eXpectedMAC -> Server might not know the secret (man-in-the-middle attack?) \n");
         return 0;
     }
 
@@ -734,7 +737,7 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
         /* RES has to be used as password to compute response */
         resuf = createAuthHeaderMD5(user, (char *) res, RESLEN, method, uri, msgbody, auth, algo, result);
         if (resuf == 0) {
-            sprintf(result,"createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
+            sprintf(result, "createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
             free(nonce);
             return 0;
         }
@@ -747,9 +750,9 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
         has_auts = 1;
         /* When re-synchronisation occurs an empty password has to be used */
         /* to compute MD5 response (Cf. rfc 3310 section 3.2) */
-        resuf = createAuthHeaderMD5(user,"",0,method,uri,msgbody,auth,algo,result);
+        resuf = createAuthHeaderMD5(user, "", 0, method, uri, msgbody, auth, algo, result);
         if (resuf == 0) {
-            sprintf(result,"createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
+            sprintf(result, "createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
             free(nonce);
             return 0;
         }
@@ -762,8 +765,8 @@ int createAuthHeaderAKAv1MD5(char * user, char * aka_OP,
         }
         auts_hex[AUTS64LEN-1]=0;
 
-        sprintf(tmp, "%s,auts=\"%s\"",result,auts_hex);
-        strcat(result,tmp);
+        sprintf(tmp, "%s,auts=\"%s\"", result, auts_hex);
+        strcat(result, tmp);
     }
     free(nonce);
     return 1;
