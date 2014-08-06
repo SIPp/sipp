@@ -65,6 +65,16 @@ int pending_messages = 0;
 
 map<string, struct sipp_socket *>     map_perip_fd;
 
+AddrInfo get_target() {
+    std::vector<AddrInfo> targets;
+    int ttl;
+    dns_resolver->srv_resolve(remote_host, AF_INET, T_TCP, 1, targets, ttl);
+    if (targets.empty()) {
+        ERROR("Could not resolve remote hostname");
+    }
+    return targets.front();
+}
+
 void process_set(char *what)
 {
     char *rest = strchr(what, ' ');
@@ -1247,8 +1257,8 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
     ret->ss_count = 1;
     ret->ss_changed_dest = false;
 
+    ret->retarget();
     /* Initialize all sockets with our destination address. */
-    memcpy(&ret->ss_remote_sockaddr, &remote_sockaddr, sizeof(ret->ss_remote_sockaddr));
 
 #ifdef _USE_OPENSSL
     ret->ss_ssl = NULL;
@@ -1614,6 +1624,9 @@ int sipp_reconnect_socket(struct sipp_socket *socket)
         socket->ss_invalid = false;
     }
 
+    // Redo DNS resolution
+    socket->retarget();
+
 #ifdef HAVE_EPOLL
     int rc = epoll_ctl(epollfd, EPOLL_CTL_ADD, socket->ss_fd, &epollfiles[socket->ss_pollidx]);
     if (rc == -1) {
@@ -1885,6 +1898,7 @@ static int write_error(struct sipp_socket *socket, int ret)
     if ((socket->ss_transport == T_TCP || socket->ss_transport == T_SCTP)
             && errno == EPIPE) {
         nb_net_send_errors++;
+        dns_resolver->blacklist(socket->ss_addrinfo, 30);
         sipp_abort_connection(socket->ss_fd);
         socket->ss_fd = -1;
         sockets_pending_reset.insert(socket);
@@ -1964,6 +1978,7 @@ int read_error(struct sipp_socket *socket, int ret)
             return 0;
         }
 
+        dns_resolver->blacklist(socket->ss_addrinfo, 30);
         sipp_abort_connection(socket->ss_fd);
         socket->ss_fd = -1;
         sockets_pending_reset.insert(socket);
@@ -2476,15 +2491,13 @@ int open_connections()
 
         /* Resolving the remote IP */
         {
-            std::vector<AddrInfo> targets;
-            int ttl;
-            dns_resolver->srv_resolve(remote_host, AF_INET, T_TCP, 1, targets, ttl);
-            sockaddr_storage* addr = targets.front().to_sockaddr_storage();
+            AddrInfo target = get_target();
+            sockaddr_storage* addr = target.to_sockaddr_storage();
             memset(&remote_sockaddr, 0, sizeof( remote_sockaddr ));
             memcpy(&remote_sockaddr,
                    addr,
                    SOCK_ADDR_SIZE(addr));
-                       
+
 
             strcpy(remote_ip, get_inet_address(&remote_sockaddr));
             if (remote_sockaddr.ss_family == AF_INET) {

@@ -89,6 +89,8 @@ struct socketbuf {
 #define SCTP_CONNECTING 1
 #define SCTP_UP 2
 #endif
+AddrInfo get_target();
+
 /* This is an abstraction of a socket, which provides buffers for input and
  * output. */
 struct sipp_socket {
@@ -101,6 +103,7 @@ struct sipp_socket {
     bool ss_changed_dest; /* Has the destination changed from default. */
 
     int ss_fd;	/* The underlying file descriptor for this socket. */
+    AddrInfo ss_addrinfo;
     void *ss_comp_state; /* The compression state. */
 #ifdef _USE_OPENSSL
     SSL *ss_ssl;	/* The underlying SSL descriptor for this socket. */
@@ -120,6 +123,13 @@ struct sipp_socket {
 #ifdef USE_SCTP
     int sctpstate;
 #endif
+
+    void retarget() {
+        if (!ss_changed_dest) {
+            ss_addrinfo = get_target();
+            memcpy(&ss_remote_sockaddr, ss_addrinfo.to_sockaddr_storage(), sizeof(ss_remote_sockaddr));
+        }
+    }
 };
 
 /* Write data to a socket. */
