@@ -32,7 +32,7 @@
  *           Charles P Wright from IBM Research
  *           Martin Van Leeuwen
  *           Andy Aicken
- *	     Michael Hirschbichler
+ *           Michael Hirschbichler
  */
 
 #include <stdlib.h>
@@ -1518,9 +1518,20 @@ int sipp_do_connect_socket(struct sipp_socket *socket)
 
     assert(socket->ss_transport == T_TCP || socket->ss_transport == T_TLS || socket->ss_transport == T_SCTP);
 
+    if (socket->ss_transport == T_TCP || socket->ss_transport == T_TLS) {
+        struct sockaddr_storage local_without_port;
+        int port = -1;
+        memcpy(&local_without_port, &local_sockaddr, sizeof(struct sockaddr_storage));
+        if (local_ip_is_ipv6) {
+            (_RCAST(struct sockaddr_in6 *, &local_without_port))->sin6_port = htons(0);
+        } else {
+            (_RCAST(struct sockaddr_in *, &local_without_port))->sin_port = htons(0);
+        }
+        sipp_bind_socket(socket, &local_without_port, &port);
+    }
 #ifdef USE_SCTP
-    if (socket->ss_transport==T_SCTP) {
-        int port=-1;
+    if (socket->ss_transport == T_SCTP) {
+        int port = -1;
         sipp_bind_socket(socket, &local_sockaddr, &port);
     }
 #endif
