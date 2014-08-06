@@ -306,9 +306,8 @@ const char *sip_tls_error_string(SSL *ssl, int size)
         return "SSL_read returned SSL_ERROR_WANT_READ";
     case SSL_ERROR_WANT_X509_LOOKUP:
         return "SSL_read returned SSL_ERROR_WANT_X509_LOOKUP";
-        break;
     case SSL_ERROR_SYSCALL:
-        if(size<0) { /* not EOF */
+        if (size < 0) { /* not EOF */
             return strerror(errno);
         } else { /* EOF */
             return "SSL socket closed on SSL_read";
@@ -416,7 +415,7 @@ bool process_key(int c)
         break;
 
     case 'p':
-        if(paused) {
+        if (paused) {
             CallGenerationTask::set_paused(false);
         } else {
             CallGenerationTask::set_paused(true);
@@ -448,7 +447,7 @@ int handle_ctrl_socket()
 {
     unsigned char bufrcv [SIPP_MAX_MSG_SIZE];
 
-    int ret = recv(ctrl_socket->ss_fd,bufrcv,sizeof(bufrcv) - 1,0);
+    int ret = recv(ctrl_socket->ss_fd, bufrcv, sizeof(bufrcv) - 1, 0);
     if (ret <= 0) {
         return ret;
     }
@@ -475,7 +474,7 @@ void setup_ctrl_socket()
     int try_counter = 60;
     struct sockaddr_storage ctl_sa;
 
-    int sock = socket(AF_INET,SOCK_DGRAM,0);
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock == -1) {
         ERROR_NO("Unable to create remote control socket!");
     }
@@ -492,7 +491,7 @@ void setup_ctrl_socket()
     }
     firstport = port;
 
-    memset(&ctl_sa,0,sizeof(struct sockaddr_storage));
+    memset(&ctl_sa, 0, sizeof(struct sockaddr_storage));
     if (control_ip[0]) {
         struct addrinfo hints;
         struct addrinfo *addrinfo;
@@ -506,7 +505,7 @@ void setup_ctrl_socket()
                   "Use 'sipp -h' for details", control_ip);
         }
 
-        memcpy(&ctl_sa, addrinfo->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *,addrinfo->ai_addr)));
+        memcpy(&ctl_sa, addrinfo->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *, addrinfo->ai_addr)));
         freeaddrinfo(addrinfo);
     } else {
         ((struct sockaddr_in *)&ctl_sa)->sin_family = AF_INET;
@@ -515,7 +514,7 @@ void setup_ctrl_socket()
 
     while (try_counter) {
         ((struct sockaddr_in *)&ctl_sa)->sin_port = htons(port);
-        if (!bind(sock,(struct sockaddr *)&ctl_sa,sizeof(struct sockaddr_in))) {
+        if (!bind(sock, (struct sockaddr *)&ctl_sa, sizeof(struct sockaddr_in))) {
             /* Bind successful */
             break;
         }
@@ -755,7 +754,7 @@ static int check_for_message(struct sipp_socket *socket)
     }
 
     /* Skip spaces. */
-    while(isspace(*l)) {
+    while (isspace(*l)) {
         if (*l == '\r' || *l == '\n') {
             /* We ran into an end-of-line, so there is no content-length. */
             return len + 1;
@@ -786,7 +785,7 @@ static int check_for_message(struct sipp_socket *socket)
 }
 
 #ifdef USE_SCTP
-static int handleSCTPNotify(struct sipp_socket* socket,char* buffer)
+static int handleSCTPNotify(struct sipp_socket* socket, char* buffer)
 {
     union sctp_notification *notifMsg;
 
@@ -806,7 +805,7 @@ static int handleSCTPNotify(struct sipp_socket* socket,char* buffer)
             flush_socket(socket);
             return -2;
         } else {
-            TRACE_MSG("else: %d\n",notifMsg->sn_assoc_change.sac_state);
+            TRACE_MSG("else: %d\n", notifMsg->sn_assoc_change.sac_state);
             return 0;
         }
     } else if (notifMsg->sn_header.sn_type == SCTP_SHUTDOWN_EVENT) {
@@ -816,7 +815,7 @@ static int handleSCTPNotify(struct sipp_socket* socket,char* buffer)
     return -2;
 }
 
-void set_multihome_addr(struct sipp_socket* socket,int port)
+void set_multihome_addr(struct sipp_socket* socket, int port)
 {
     if (strlen(multihome_ip)>0) {
         struct addrinfo * multi_addr;
@@ -826,13 +825,13 @@ void set_multihome_addr(struct sipp_socket* socket,int port)
         hints.ai_family = PF_UNSPEC;
 
         if (getaddrinfo(multihome_ip, NULL, &hints, &multi_addr) != 0) {
-            ERROR("Can't get multihome IP address in getaddrinfo, multihome_ip='%s'",multihome_ip);
+            ERROR("Can't get multihome IP address in getaddrinfo, multihome_ip='%s'", multihome_ip);
         }
 
         struct sockaddr_storage secondaryaddress;
         memset(&secondaryaddress, 0, sizeof(secondaryaddress));
 
-        memcpy(&secondaryaddress, multi_addr->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *,multi_addr->ai_addr)));
+        memcpy(&secondaryaddress, multi_addr->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *, multi_addr->ai_addr)));
         freeaddrinfo(multi_addr);
 
         if (port>0) {
@@ -954,7 +953,7 @@ void sipp_socket_invalidate(struct sipp_socket *socket)
 
 #ifdef USE_SCTP
     if (socket->ss_transport==T_SCTP && !gracefulclose) {
-        struct linger ling= {1,0};
+        struct linger ling= {1, 0};
         if (setsockopt (socket->ss_fd, SOL_SOCKET, SO_LINGER, &ling, sizeof (ling)) < 0) {
             WARNING("Unable to set SO_LINGER option for SCTP close");
         }
@@ -965,7 +964,7 @@ void sipp_socket_invalidate(struct sipp_socket *socket)
     socket->ss_fd = -1;
   }
 
-    if((pollidx = socket->ss_pollidx) >= pollnfds) {
+    if ((pollidx = socket->ss_pollidx) >= pollnfds) {
         ERROR("Pollset error: index %d is greater than number of fds %d!", pollidx, pollnfds);
     }
 
@@ -1059,7 +1058,8 @@ ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len, struct s
     /* Update our buffer and return value. */
     buf[avail] = '\0';
     /* For CMD Message the escape char is the end of message */
-    if((socket->ss_control) && buf[avail-1] == 27 ) buf[avail-1] = '\0';
+    if ((socket->ss_control) && buf[avail-1] == 27)
+        buf[avail-1] = '\0';
 
     socket->ss_in->offset += avail;
 
@@ -1083,7 +1083,7 @@ ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len, struct s
 void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, struct sockaddr_storage *src)
 {
     // TRACE_MSG(" msg_size %d and pollset_index is %d \n", msg_size, pollset_index));
-    if(msg_size <= 0) {
+    if (msg_size <= 0) {
         return;
     }
     if (sipMsgCheck(msg, socket) == false) {
@@ -1105,7 +1105,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 
     if (useShortMessagef == 1) {
         TRACE_SHORTMSG("%s\tR\t%s\tCSeq:%s\t%s\n",
-                       CStat::formatTime(&currentTime),call_id, get_header_content(msg,"CSeq:"), get_first_line(msg));
+                       CStat::formatTime(&currentTime), call_id, get_header_content(msg, "CSeq:"), get_first_line(msg));
     }
 
     if (useMessagef == 1) {
@@ -1117,9 +1117,9 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
                   msg_size, msg);
     }
 
-    if(!listener_ptr) {
-        if(thirdPartyMode == MODE_3PCC_CONTROLLER_B || thirdPartyMode == MODE_3PCC_A_PASSIVE
-                || thirdPartyMode == MODE_MASTER_PASSIVE || thirdPartyMode == MODE_SLAVE) {
+    if (!listener_ptr) {
+        if (thirdPartyMode == MODE_3PCC_CONTROLLER_B || thirdPartyMode == MODE_3PCC_A_PASSIVE ||
+                thirdPartyMode == MODE_MASTER_PASSIVE || thirdPartyMode == MODE_SLAVE) {
             // Adding a new OUTGOING call !
             main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
             call *new_ptr = new call(call_id, local_ip_is_ipv6, 0, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
@@ -1128,7 +1128,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
             }
 
             outbound_congestion = false;
-            if((socket != main_socket) &&
+            if ((socket != main_socket) &&
                     (socket != tcp_multiplex) &&
                     (socket != localTwinSippSocket) &&
                     (socket != twinSippSocket) &&
@@ -1153,7 +1153,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
                 }
             }
             listener_ptr = new_ptr;
-        } else if(creationMode == MODE_SERVER) {
+        } else if (creationMode == MODE_SERVER) {
             if (quitting >= 1) {
                 CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
                 TRACE_MSG("Discarded message for new calls while quitting\n");
@@ -1169,7 +1169,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
         } else { // mode != from SERVER and 3PCC Controller B
             // This is a message that is not relating to any known call
             if (ooc_scenario) {
-                if(!get_reply_code(msg)) {
+                if (!get_reply_code(msg)) {
                     char *msg_start = strdup(msg);
                     char *msg_start_end = msg_start;
                     while (!isspace(*msg_start_end) && (*msg_start_end != '\0')) {
@@ -1198,7 +1198,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
                 // If auto answer mode, try to answer the incoming message
                 // with automaticResponseMode
                 // call is discarded before exiting the block
-                if(!get_reply_code(msg)) {
+                if (!get_reply_code(msg)) {
                     aa_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
                     /* This should have the real address that the message came from. */
                     call *call_ptr = new call(aa_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
@@ -1225,7 +1225,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
         return;
     }
 
-    if((socket == localTwinSippSocket) || (socket == twinSippSocket) || (is_a_local_socket(socket))) {
+    if ((socket == localTwinSippSocket) || (socket == twinSippSocket) || (is_a_local_socket(socket))) {
         listener_ptr -> process_twinSippCom(msg);
     } else {
         listener_ptr -> process_incoming(msg, src);
@@ -1254,7 +1254,7 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
     ret->ss_ssl = NULL;
 
     if ( transport == T_TLS ) {
-        if ((ret->ss_bio = BIO_new_socket(fd,BIO_NOCLOSE)) == NULL) {
+        if ((ret->ss_bio = BIO_new_socket(fd, BIO_NOCLOSE)) == NULL) {
             ERROR("Unable to create BIO object:Problem with BIO_new_socket()\n");
         }
 
@@ -1262,7 +1262,7 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
             ERROR("Unable to create SSL object : Problem with SSL_new() \n");
         }
 
-        SSL_set_bio(ret->ss_ssl,ret->ss_bio,ret->ss_bio);
+        SSL_set_bio(ret->ss_ssl, ret->ss_bio, ret->ss_bio);
     }
 #endif
 
@@ -1304,20 +1304,20 @@ static struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, in
 int socket_fd(bool use_ipv6, int transport)
 {
     int socket_type = -1;
-    int protocol=0;
+    int protocol = 0;
     int fd;
 
     switch(transport) {
     case T_UDP:
         socket_type = SOCK_DGRAM;
-        protocol=IPPROTO_UDP;
+        protocol = IPPROTO_UDP;
         break;
     case T_SCTP:
 #ifndef USE_SCTP
         ERROR("You do not have SCTP support enabled!\n");
 #else
         socket_type = SOCK_STREAM;
-        protocol=IPPROTO_SCTP;
+        protocol = IPPROTO_SCTP;
 #endif
         break;
     case T_TLS:
@@ -1329,7 +1329,7 @@ int socket_fd(bool use_ipv6, int transport)
         break;
     }
 
-    if((fd = socket(use_ipv6 ? AF_INET6 : AF_INET, socket_type, protocol))== -1) {
+    if ((fd = socket(use_ipv6 ? AF_INET6 : AF_INET, socket_type, protocol))== -1) {
         ERROR("Unable to get a %s socket (3)", TRANSPORT_TO_STRING(transport));
     }
 
@@ -1410,7 +1410,7 @@ struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket) {
     int fd;
     sipp_socklen_t addrlen = sizeof(remote_sockaddr);
 
-    if((fd = accept(accept_socket->ss_fd, (struct sockaddr *)&remote_sockaddr, &addrlen))== -1) {
+    if ((fd = accept(accept_socket->ss_fd, (struct sockaddr *)&remote_sockaddr, &addrlen))== -1) {
         ERROR("Unable to accept on a %s socket: %s", TRANSPORT_TO_STRING(transport), strerror(errno));
     }
 
@@ -1479,7 +1479,7 @@ int sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr,
         len = sizeof(struct sockaddr_in);
     }
 
-    if((ret = bind(socket->ss_fd, (sockaddr *)saddr, len))) {
+    if ((ret = bind(socket->ss_fd, (sockaddr *)saddr, len))) {
         return ret;
     }
 
@@ -1498,15 +1498,18 @@ int sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr,
     }
 
 #ifdef USE_SCTP
-    bool isany=false;
-
-    if (socket->ss_ipv6) {
-        if (memcmp(&(_RCAST(struct sockaddr_in6 *, saddr)->sin6_addr),&in6addr_any,sizeof(in6_addr))==0) isany=true;
-    } else {
-        isany= (_RCAST(struct sockaddr_in *, saddr)->sin_addr.s_addr==INADDR_ANY);
+    if (transport == T_SCTP) {
+        bool isany = false;
+        if (socket->ss_ipv6) {
+            if (memcmp(&(_RCAST(struct sockaddr_in6 *, saddr)->sin6_addr), &in6addr_any, sizeof(in6_addr)) == 0)
+                isany = true;
+        } else {
+            isany = (_RCAST(struct sockaddr_in *, saddr)->sin_addr.s_addr == INADDR_ANY);
+        }
+        if (!isany) {
+            set_multihome_addr(socket, *port);
+        }
     }
-
-    if (transport==T_SCTP && !isany) set_multihome_addr(socket,*port);
 #endif
 
     return 0;
@@ -1587,7 +1590,7 @@ int sipp_reconnect_socket(struct sipp_socket *socket)
         socket->ss_ssl = NULL;
 
         if ( transport == T_TLS ) {
-            if ((socket->ss_bio = BIO_new_socket(socket->ss_fd,BIO_NOCLOSE)) == NULL) {
+            if ((socket->ss_bio = BIO_new_socket(socket->ss_fd, BIO_NOCLOSE)) == NULL) {
                 ERROR("Unable to create BIO object:Problem with BIO_new_socket()\n");
             }
 
@@ -1595,7 +1598,7 @@ int sipp_reconnect_socket(struct sipp_socket *socket)
                 ERROR("Unable to create SSL object : Problem with SSL_new() \n");
             }
 
-            SSL_set_bio(socket->ss_ssl,socket->ss_bio,socket->ss_bio);
+            SSL_set_bio(socket->ss_ssl, socket->ss_bio, socket->ss_bio);
         }
 #endif
 
@@ -1664,7 +1667,7 @@ void free_socketbuf(struct socketbuf *socketbuf)
 
 size_t decompress_if_needed(int sock, char *buff,  size_t len, void **st)
 {
-    if(compression && len) {
+    if (compression && len) {
         if (useMessagef == 1) {
             struct timeval currentTime;
             GET_TIME (&currentTime);
@@ -1770,9 +1773,9 @@ void sipp_customize_socket(struct sipp_socket *socket)
             event.sctp_data_io_event = 1;
             event.sctp_association_event = 1;
             event.sctp_shutdown_event = 1;
-            if (setsockopt(socket->ss_fd,IPPROTO_SCTP, SCTP_EVENTS, &event,
+            if (setsockopt(socket->ss_fd, IPPROTO_SCTP, SCTP_EVENTS, &event,
                            sizeof(event)) == -1) {
-                ERROR_NO("setsockopt(SCTP_EVENTS) failed, errno=%d",errno);
+                ERROR_NO("setsockopt(SCTP_EVENTS) failed, errno=%d", errno);
             }
 
             if (assocmaxret > 0) {
@@ -1817,7 +1820,7 @@ void sipp_customize_socket(struct sipp_socket *socket)
     }
 
     /* Increase buffer sizes for this sockets */
-    if(setsockopt(socket->ss_fd,
+    if (setsockopt(socket->ss_fd,
                   SOL_SOCKET,
                   SO_SNDBUF,
                   &buffsize,
@@ -1826,7 +1829,7 @@ void sipp_customize_socket(struct sipp_socket *socket)
     }
 
     buffsize = buff_size;
-    if(setsockopt(socket->ss_fd,
+    if (setsockopt(socket->ss_fd,
                   SOL_SOCKET,
                   SO_RCVBUF,
                   &buffsize,
@@ -1878,7 +1881,7 @@ static int write_error(struct sipp_socket *socket, int ret)
     }
 #endif
 
-    if(again) {
+    if (again) {
         return enter_congestion(socket, again);
     }
 
@@ -1935,17 +1938,19 @@ int read_error(struct sipp_socket *socket, int ret)
     if (socket->ss_transport == T_TCP || socket->ss_transport == T_TLS) {
         if (ret == 0) {
             /* The remote side closed the connection. */
-            if(socket->ss_control) {
-                if(localTwinSippSocket) sipp_close_socket(localTwinSippSocket);
+            if (socket->ss_control) {
+                if (localTwinSippSocket)
+                    sipp_close_socket(localTwinSippSocket);
                 if (extendedTwinSippMode) {
                     close_peer_sockets();
                     close_local_sockets();
                     free_peer_addr_map();
                     WARNING("One of the twin instances has ended -> exiting");
                     quitting += 20;
-                } else if(twinSippMode) {
-                    if(twinSippSocket) sipp_close_socket(twinSippSocket);
-                    if(thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
+                } else if (twinSippMode) {
+                    if (twinSippSocket)
+                        sipp_close_socket(twinSippSocket);
+                    if (thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
                         WARNING("3PCC controller A has ended -> exiting");
                         quitting += 20;
                     } else {
@@ -1992,7 +1997,7 @@ void buffer_write(struct sipp_socket *socket, const char *buffer, size_t len, st
         return;
     }
 
-    while(buf->next) {
+    while (buf->next) {
         buf = buf->next;
     }
 
@@ -2010,7 +2015,7 @@ void buffer_read(struct sipp_socket *socket, struct socketbuf *newbuf)
         return;
     }
 
-    while(buf->next) {
+    while (buf->next) {
         prev = buf;
         buf = buf->next;
     }
@@ -2029,10 +2034,10 @@ int sip_tls_verify_callback(int ok , X509_STORE_CTX *store)
         X509 *cert = X509_STORE_CTX_get_current_cert(store);
 
         X509_NAME_oneline(X509_get_issuer_name(cert),
-                          data,512);
+                          data, 512);
         WARNING("TLS verification error for issuer: '%s'", data);
         X509_NAME_oneline(X509_get_subject_name(cert),
-                          data,512);
+                          data, 512);
         WARNING("TLS verification error for subject: '%s'", data);
     }
     return ok;
@@ -2050,18 +2055,18 @@ int sip_tls_load_crls( SSL_CTX *ctx , char *crlfile)
     }
 
     /* Add lookup file to X509_STORE */
-    if (!(lookup = X509_STORE_add_lookup(store,X509_LOOKUP_file()))) {
+    if (!(lookup = X509_STORE_add_lookup(store, X509_LOOKUP_file()))) {
         return (-1);
     }
 
     /* Add the CRLS to the lookpup object */
-    if (X509_load_crl_file(lookup,crlfile,X509_FILETYPE_PEM) != 1) {
+    if (X509_load_crl_file(lookup, crlfile, X509_FILETYPE_PEM) != 1) {
         return (-1);
     }
 
     /* Set the flags of the store so that CRLS's are consulted */
 #if OPENSSL_VERSION_NUMBER >= 0x00907000L
-    X509_STORE_set_flags( store,X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
+    X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
 #else
 #warning This version of OpenSSL (<0.9.7) cannot handle CRL files in capath
     ERROR("This version of OpenSSL (<0.9.7) cannot handle CRL files in capath");
@@ -2091,12 +2096,12 @@ ssl_init_status FI_init_ssl_context (void)
 
     /*  CRL load from application specified only if specified on the command line */
     if (strlen(tls_crl_name) != 0) {
-        if(sip_tls_load_crls(sip_trp_ssl_ctx,tls_crl_name) == -1) {
+        if (sip_tls_load_crls(sip_trp_ssl_ctx, tls_crl_name) == -1) {
             ERROR("FI_init_ssl_context: Unable to load CRL file (%s)", tls_crl_name);
             return SSL_INIT_ERROR;
         }
 
-        if(sip_tls_load_crls(sip_trp_ssl_ctx_client,tls_crl_name) == -1) {
+        if (sip_tls_load_crls(sip_trp_ssl_ctx_client, tls_crl_name) == -1) {
             ERROR("FI_init_ssl_context: Unable to load CRL (client) file (%s)", tls_crl_name);
             return SSL_INIT_ERROR;
         }
@@ -2168,15 +2173,15 @@ int send_nowait_tls(SSL *ssl, const void *msg, int len, int flags)
     if ( (fd = SSL_get_fd(ssl)) == -1 ) {
         return (-1);
     }
-    fd_flags = fcntl(fd, F_GETFL , NULL);
+    fd_flags = fcntl(fd, F_GETFL, NULL);
     initial_fd_flags = fd_flags;
     fd_flags |= O_NONBLOCK;
-    fcntl(fd, F_SETFL , fd_flags);
-    rc = SSL_write(ssl,msg,len);
+    fcntl(fd, F_SETFL, fd_flags);
+    rc = SSL_write(ssl, msg, len);
     if ( rc <= 0 ) {
         return(rc);
     }
-    fcntl(fd, F_SETFL , initial_fd_flags);
+    fcntl(fd, F_SETFL, initial_fd_flags);
     return rc;
 }
 #endif
@@ -2274,15 +2279,16 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, const char *bu
     errno = EOPNOTSUPP;
     rc = -1;
 #endif
-    break;
+        break;
     case T_TCP:
         rc = send_nowait(socket->ss_fd, buffer, len, 0);
         break;
+
     case T_UDP:
-        if(compression) {
+        if (compression) {
             static char comp_msg[SIPP_MAX_MSG_SIZE];
             strcpy(comp_msg, buffer);
-            if(comp_compress(&socket->ss_comp_state,
+            if (comp_compress(&socket->ss_comp_state,
                              comp_msg,
                              (unsigned int *) &len) != COMP_OK) {
                 ERROR("Compression pluggin error");
@@ -2293,8 +2299,8 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, const char *bu
         }
 
         rc = sendto(socket->ss_fd, buffer, len, 0, (struct sockaddr *)dest, SOCK_ADDR_SIZE(dest));
-
         break;
+
     default:
         ERROR("Internal error, unknown transport type %d\n", socket->ss_transport);
     }
@@ -2372,7 +2378,7 @@ int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, in
             char *msg = strdup(buffer);
             char *call_id = get_call_id(msg);
             TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
-                           CStat::formatTime(&currentTime), call_id, get_header_content(msg,"CSeq:"), get_first_line(msg));
+                           CStat::formatTime(&currentTime), call_id, get_header_content(msg, "CSeq:"), get_first_line(msg));
             free(msg);
         }
 
@@ -2450,7 +2456,7 @@ void close_calls(struct sipp_socket *socket)
 
     for (owner_it = owners->begin(); owner_it != owners->end(); owner_it++) {
         owner_ptr = *owner_it;
-        if(owner_ptr) {
+        if (owner_ptr) {
             owner_ptr->tcpClose();
         }
     }
@@ -2463,8 +2469,8 @@ int open_connections()
     int status=0;
     local_port = 0;
 
-    if(!strlen(remote_host)) {
-        if((sendMode != MODE_SERVER)) {
+    if (!strlen(remote_host)) {
+        if ((sendMode != MODE_SERVER)) {
             ERROR("Missing remote host parameter. This scenario requires it");
         }
     } else {
@@ -2479,7 +2485,7 @@ int open_connections()
             struct addrinfo   hints;
             struct addrinfo * local_addr;
 
-            fprintf(stderr,"Resolving remote host '%s'... ", remote_host);
+            fprintf(stderr, "Resolving remote host '%s'... ", remote_host);
 
             memset((char*)&hints, 0, sizeof(hints));
             hints.ai_flags  = AI_PASSIVE;
@@ -2498,7 +2504,7 @@ int open_connections()
             memcpy(&remote_sockaddr,
                    local_addr->ai_addr,
                    SOCK_ADDR_SIZE(
-                       _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
+                       _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
 
             freeaddrinfo(local_addr);
 
@@ -2512,12 +2518,12 @@ int open_connections()
                     htons((short)remote_port);
                 sprintf(remote_ip_escaped, "[%s]", remote_ip);
             }
-            fprintf(stderr,"Done.\n");
+            fprintf(stderr, "Done.\n");
         }
     }
 
-    if(gethostname(hostname,64) != 0) {
-        ERROR_NO("Can't get local hostname in 'gethostname(hostname,64)'");
+    if (gethostname(hostname, 64) != 0) {
+        ERROR_NO("Can't get local hostname in 'gethostname(hostname, 64)'");
     }
 
     {
@@ -2544,7 +2550,7 @@ int open_connections()
         // store local addr info for rsa option
         getaddrinfo(local_host, NULL, &hints, &local_addr_storage);
 
-        memset(&local_sockaddr,0,sizeof(struct sockaddr_storage));
+        memset(&local_sockaddr, 0, sizeof(struct sockaddr_storage));
         local_sockaddr.ss_family = local_addr->ai_addr->sa_family;
 
         if (!strlen(local_ip)) {
@@ -2555,7 +2561,7 @@ int open_connections()
             memcpy(&local_sockaddr,
                    local_addr->ai_addr,
                    SOCK_ADDR_SIZE(
-                       _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
+                       _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
         }
         freeaddrinfo(local_addr);
 
@@ -2576,11 +2582,11 @@ int open_connections()
 
     /* Trying to bind local port */
     char peripaddr[256];
-    if(!user_port) {
+    if (!user_port) {
         unsigned short l_port;
-        for(l_port = DEFAULT_PORT;
-                l_port < (DEFAULT_PORT + 60);
-                l_port++) {
+        for (l_port = DEFAULT_PORT;
+             l_port < (DEFAULT_PORT + 60);
+             l_port++) {
 
             // Bind socket to local_ip
             if (bind_local || peripsocket) {
@@ -2625,14 +2631,14 @@ int open_connections()
                 (_RCAST(struct sockaddr_in *, &local_sockaddr))->sin_port
                     = htons((short)l_port);
             }
-            if(sipp_bind_socket(main_socket, &local_sockaddr, &local_port) == 0) {
+            if (sipp_bind_socket(main_socket, &local_sockaddr, &local_port) == 0) {
                 break;
             }
         }
     }
 
-    if(!local_port) {
-        /* Not already binded, use user_port of 0 to leave
+    if (!local_port) {
+        /* Not already bound, use user_port of 0 to leave
          * the system choose a port. */
 
         if (bind_local || peripsocket) {
@@ -2678,7 +2684,7 @@ int open_connections()
             (_RCAST(struct sockaddr_in *, &local_sockaddr))->sin_port
                 = htons((short)user_port);
         }
-        if(sipp_bind_socket(main_socket, &local_sockaddr, &local_port)) {
+        if (sipp_bind_socket(main_socket, &local_sockaddr, &local_port)) {
             ERROR_NO("Unable to bind main socket");
         }
     }
@@ -2707,7 +2713,7 @@ int open_connections()
             j = map_perip_fd.find(peripaddr);
 
             if (j == map_perip_fd.end()) {
-                if((sock = new_sipp_socket(is_ipv6, transport)) == NULL) {
+                if ((sock = new_sipp_socket(is_ipv6, transport)) == NULL) {
                     ERROR_NO("Unable to get server socket");
                 }
 
@@ -2734,7 +2740,7 @@ int open_connections()
                 }
 
                 sipp_customize_socket(sock);
-                if(sipp_bind_socket(sock, &server_sockaddr, NULL)) {
+                if (sipp_bind_socket(sock, &server_sockaddr, NULL)) {
                     ERROR_NO("Unable to bind server socket");
                 }
 
@@ -2743,26 +2749,26 @@ int open_connections()
         }
     }
 
-    if((!multisocket) && (transport == T_TCP || transport == T_TLS || transport == T_SCTP) &&
+    if ((!multisocket) && (transport == T_TCP || transport == T_TLS || transport == T_SCTP) &&
             (sendMode != MODE_SERVER)) {
-        if((tcp_multiplex = new_sipp_socket(local_ip_is_ipv6, transport)) == NULL) {
+        if ((tcp_multiplex = new_sipp_socket(local_ip_is_ipv6, transport)) == NULL) {
             ERROR_NO("Unable to get a TCP socket");
         }
 
         /* OJA FIXME: is it correct? */
         if (use_remote_sending_addr) {
-            remote_sockaddr = remote_sending_sockaddr ;
+            remote_sockaddr = remote_sending_sockaddr;
         }
         sipp_customize_socket(tcp_multiplex);
 
-        if(sipp_connect_socket(tcp_multiplex, &remote_sockaddr)) {
-            if(reset_number >0) {
+        if (sipp_connect_socket(tcp_multiplex, &remote_sockaddr)) {
+            if (reset_number > 0) {
                 WARNING("Failed to reconnect\n");
                 sipp_close_socket(main_socket);
                 reset_number--;
                 return 1;
             } else {
-                if(errno == EINVAL) {
+                if (errno == EINVAL) {
                     /* This occurs sometime on HPUX but is not a true INVAL */
                     ERROR_NO("Unable to connect a TCP socket, remote peer error.\n"
                              "Use 'sipp -h' for details");
@@ -2776,17 +2782,17 @@ int open_connections()
     }
 
 
-    if(transport == T_TCP || transport == T_TLS || transport == T_SCTP) {
-        if(listen(main_socket->ss_fd, 100)) {
+    if (transport == T_TCP || transport == T_TLS || transport == T_SCTP) {
+        if (listen(main_socket->ss_fd, 100)) {
             ERROR_NO("Unable to listen main socket");
         }
     }
 
     /* Trying to connect to Twin Sipp in 3PCC mode */
-    if(twinSippMode) {
-        if(thirdPartyMode == MODE_3PCC_CONTROLLER_A || thirdPartyMode == MODE_3PCC_A_PASSIVE) {
+    if (twinSippMode) {
+        if (thirdPartyMode == MODE_3PCC_CONTROLLER_A || thirdPartyMode == MODE_3PCC_A_PASSIVE) {
             connect_to_peer(twinSippHost, twinSippPort, &twinSipp_sockaddr, twinSippIp, &twinSippSocket);
-        } else if(thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
+        } else if (thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
             connect_local_twin_socket(twinSippHost);
         } else {
             ERROR("TwinSipp Mode enabled but thirdPartyMode is different "
@@ -2794,12 +2800,12 @@ int open_connections()
         }
     } else if (extendedTwinSippMode) {
         if (thirdPartyMode == MODE_MASTER || thirdPartyMode == MODE_MASTER_PASSIVE) {
-            strcpy(twinSippHost,get_peer_addr(master_name));
+            strcpy(twinSippHost, get_peer_addr(master_name));
             get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
             connect_local_twin_socket(twinSippHost);
             connect_to_all_peers();
-        } else if(thirdPartyMode == MODE_SLAVE) {
-            strcpy(twinSippHost,get_peer_addr(slave_number));
+        } else if (thirdPartyMode == MODE_SLAVE) {
+            strcpy(twinSippHost, get_peer_addr(slave_number));
             get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
             connect_local_twin_socket(twinSippHost);
         } else {
@@ -2816,7 +2822,7 @@ void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *pe
 {
 
     /* Resolving the  peer IP */
-    printf("Resolving peer address : %s...\n",peer_host);
+    printf("Resolving peer address : %s...\n", peer_host);
     struct addrinfo   hints;
     struct addrinfo * local_addr;
     memset((char*)&hints, 0, sizeof(hints));
@@ -2836,28 +2842,28 @@ void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *pe
     memcpy(peer_sockaddr,
            local_addr->ai_addr,
            SOCK_ADDR_SIZE(
-               _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
+               _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
 
     freeaddrinfo(local_addr);
 
     if (peer_sockaddr->ss_family == AF_INET) {
-        (_RCAST(struct sockaddr_in *,peer_sockaddr))->sin_port =
+        (_RCAST(struct sockaddr_in *, peer_sockaddr))->sin_port =
             htons((short)peer_port);
     } else {
-        (_RCAST(struct sockaddr_in6 *,peer_sockaddr))->sin6_port =
+        (_RCAST(struct sockaddr_in6 *, peer_sockaddr))->sin6_port =
             htons((short)peer_port);
         is_ipv6 = true;
     }
     strcpy(peer_ip, get_inet_address(peer_sockaddr));
-    if((*peer_socket = new_sipp_socket(is_ipv6, T_TCP)) == NULL) {
+    if ((*peer_socket = new_sipp_socket(is_ipv6, T_TCP)) == NULL) {
         ERROR_NO("Unable to get a twin sipp TCP socket");
     }
 
     /* Mark this as a control socket. */
     (*peer_socket)->ss_control = 1;
 
-    if(sipp_connect_socket(*peer_socket, peer_sockaddr)) {
-        if(errno == EINVAL) {
+    if (sipp_connect_socket(*peer_socket, peer_sockaddr)) {
+        if (errno == EINVAL) {
             /* This occurs sometime on HPUX but is not a true INVAL */
             ERROR_NO("Unable to connect a twin sipp TCP socket\n "
                      ", remote peer error.\n"
@@ -2877,7 +2883,7 @@ struct sipp_socket **get_peer_socket(char * peer) {
     T_peer_infos infos;
     peer_map::iterator peer_it;
     peer_it = peers.find(peer_map::key_type(peer));
-    if(peer_it != peers.end()) {
+    if (peer_it != peers.end()) {
         infos = peer_it->second;
         peer_socket = &(infos.peer_socket);
         return peer_socket;
@@ -2892,7 +2898,7 @@ char * get_peer_addr(char * peer)
     char * addr;
     peer_addr_map::iterator peer_addr_it;
     peer_addr_it = peer_addrs.find(peer_addr_map::key_type(peer));
-    if(peer_addr_it != peer_addrs.end()) {
+    if (peer_addr_it != peer_addrs.end()) {
         addr =  peer_addr_it->second;
         return addr;
     } else {
@@ -2905,7 +2911,7 @@ bool is_a_peer_socket(struct sipp_socket *peer_socket)
 {
     peer_socket_map::iterator peer_socket_it;
     peer_socket_it = peer_sockets.find(peer_socket_map::key_type(peer_socket));
-    if(peer_socket_it == peer_sockets.end()) {
+    if (peer_socket_it == peer_sockets.end()) {
         return false;
     } else {
         return true;
@@ -2934,44 +2940,44 @@ void connect_local_twin_socket(char * twinSippHost)
     memcpy(&twinSipp_sockaddr,
            local_addr->ai_addr,
            SOCK_ADDR_SIZE(
-               _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
+               _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
 
     if (twinSipp_sockaddr.ss_family == AF_INET) {
-        (_RCAST(struct sockaddr_in *,&twinSipp_sockaddr))->sin_port =
+        (_RCAST(struct sockaddr_in *, &twinSipp_sockaddr))->sin_port =
             htons((short)twinSippPort);
     } else {
-        (_RCAST(struct sockaddr_in6 *,&twinSipp_sockaddr))->sin6_port =
+        (_RCAST(struct sockaddr_in6 *, &twinSipp_sockaddr))->sin6_port =
             htons((short)twinSippPort);
         is_ipv6 = true;
     }
     strcpy(twinSippIp, get_inet_address(&twinSipp_sockaddr));
 
-    if((localTwinSippSocket = new_sipp_socket(is_ipv6, T_TCP)) == NULL) {
+    if ((localTwinSippSocket = new_sipp_socket(is_ipv6, T_TCP)) == NULL) {
         ERROR_NO("Unable to get a listener TCP socket ");
     }
 
     memset(&localTwin_sockaddr, 0, sizeof(struct sockaddr_storage));
     if (!is_ipv6) {
         localTwin_sockaddr.ss_family = AF_INET;
-        (_RCAST(struct sockaddr_in *,&localTwin_sockaddr))->sin_port =
+        (_RCAST(struct sockaddr_in *, &localTwin_sockaddr))->sin_port =
             htons((short)twinSippPort);
     } else {
         localTwin_sockaddr.ss_family = AF_INET6;
-        (_RCAST(struct sockaddr_in6 *,&localTwin_sockaddr))->sin6_port =
+        (_RCAST(struct sockaddr_in6 *, &localTwin_sockaddr))->sin6_port =
             htons((short)twinSippPort);
     }
 
     // add socket option to allow the use of it without the TCP timeout
     // This allows to re-start the controller B (or slave) without timeout after its exit
     int reuse = 1;
-    setsockopt(localTwinSippSocket->ss_fd,SOL_SOCKET,SO_REUSEADDR,(int *)&reuse,sizeof(reuse));
+    setsockopt(localTwinSippSocket->ss_fd, SOL_SOCKET, SO_REUSEADDR, (int *)&reuse, sizeof(reuse));
     sipp_customize_socket(localTwinSippSocket);
 
-    if(sipp_bind_socket(localTwinSippSocket, &localTwin_sockaddr, 0)) {
+    if (sipp_bind_socket(localTwinSippSocket, &localTwin_sockaddr, 0)) {
         ERROR_NO("Unable to bind twin sipp socket ");
     }
 
-    if(listen(localTwinSippSocket->ss_fd, 100)) {
+    if (listen(localTwinSippSocket->ss_fd, 100)) {
         ERROR_NO("Unable to listen twin sipp socket in ");
     }
 }
@@ -2981,10 +2987,10 @@ void close_peer_sockets()
     peer_map::iterator peer_it;
     T_peer_infos infos;
 
-    for(peer_it = peers.begin(); peer_it != peers.end(); peer_it++) {
+    for (peer_it = peers.begin(); peer_it != peers.end(); peer_it++) {
         infos = peer_it->second;
         sipp_close_socket(infos.peer_socket);
-        infos.peer_socket = NULL ;
+        infos.peer_socket = NULL;
         peers[std::string(peer_it->first)] = infos;
     }
 
@@ -3006,7 +3012,7 @@ void connect_to_all_peers()
     for (peer_it = peers.begin(); peer_it != peers.end(); peer_it++) {
         infos = peer_it->second;
         get_host_and_port(infos.peer_host, infos.peer_host, &infos.peer_port);
-        connect_to_peer(infos.peer_host, infos.peer_port,&(infos.peer_sockaddr), infos.peer_ip, &(infos.peer_socket));
+        connect_to_peer(infos.peer_host, infos.peer_port, &(infos.peer_sockaddr), infos.peer_ip, &(infos.peer_socket));
         peer_sockets[infos.peer_socket] = peer_it->first;
         peers[std::string(peer_it->first)] = infos;
     }
@@ -3016,7 +3022,8 @@ void connect_to_all_peers()
 bool is_a_local_socket(struct sipp_socket *s)
 {
     for (int i = 0; i< local_nb + 1; i++) {
-        if(local_sockets[i] == s) return true;
+        if (local_sockets[i] == s)
+            return true;
     }
     return (false);
 }
@@ -3033,15 +3040,15 @@ void free_peer_addr_map()
 
 bool sipMsgCheck (const char *P_msg, struct sipp_socket *socket)
 {
-    const char C_sipHeader[] = "SIP/2.0" ;
+    const char C_sipHeader[] = "SIP/2.0";
 
     if (socket == twinSippSocket || socket == localTwinSippSocket ||
             is_a_peer_socket(socket) || is_a_local_socket(socket))
         return true;
 
     if (strstr(P_msg, C_sipHeader) !=  NULL) {
-        return true ;
+        return true;
     }
 
-    return false ;
+    return false;
 }
