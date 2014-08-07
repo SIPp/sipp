@@ -63,6 +63,9 @@ AC_SEARCH_LIBS([dlopen], [dl])
 AC_SEARCH_LIBS([dlerror], [dl])
 AC_SEARCH_LIBS([dlsym], [dl])
 
+# For glibc pre-2.17 we need -rt
+AC_SEARCH_LIBS([clock_gettime], [rt])
+
 # For SunOS
 AC_SEARCH_LIBS([inet_addr], [nsl])
 AC_SEARCH_LIBS([inet_ntoa], [nsl])
