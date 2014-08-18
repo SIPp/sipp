@@ -29,6 +29,7 @@ Mitko Mitev
 Matt Williams
 Richard Brady
 Natanael Copa
+Walter Doekes
 
 SIPp also uses code originally by Aaron Turner (send_packets.c) and L Peter Deutsch (md5.c).
 
@@ -39,7 +40,6 @@ Enrico Hartung
 Daniel Swärd
 Paul D Smith
 Ferenc Wágner
-Walter Doekes
 Carlo R. Carrano
 Kayode Olajide
 Daniel Goepp
