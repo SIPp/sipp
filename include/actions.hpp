@@ -124,7 +124,7 @@ public:
     int            getVarId();
     int            getVarInId();
     int            getVarIn2Id();
-    int            getOccurence();
+    int            getOccurrence();
     char*          getLookingChar();
     char*          getRegularExpression();
     SendingMessage *getMessage(int n = 0);  /* log specific function  */
@@ -147,7 +147,7 @@ public:
     void setLookingChar  (char*          P_value);
     void setAction       (CAction        P_action);
     void setCaseIndep    (bool           P_action);
-    void setOccurence   (int            P_value);
+    void setOccurrence   (int            P_value);
     void setHeadersOnly  (bool           P_value);
     void setScenario     (scenario *     P_scenario);
     void setRegExp       (char*		 P_value);  /* ereg specific function. */
@@ -189,7 +189,7 @@ private:
     int            M_varId;
     int            M_varInId;
     int            M_varIn2Id;
-    int            M_occurence;
+    int            M_occurrence;
     int            M_nbSubVarId;
     int            M_maxNbSubVarId;
     int *          M_subVarId;

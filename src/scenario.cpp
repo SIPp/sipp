@@ -23,8 +23,8 @@
  *           Guillaume TEISSIER from FTR&D
  *           Wolfgang Beck
  *           Marc Van Diest from Belgacom
- *	     Charles P. Wright from IBM Research
- *	     Michael Stovenour
+ *	         Charles P. Wright from IBM Research
+ *	         Michael Stovenour
  */
 
 #include <stdlib.h>
@@ -982,7 +982,7 @@ scenario::scenario(char * filename, int deflt)
                     peer_it = peers.find(peer_map::key_type(peer));
                     if(peer_it == peers.end())  /* the peer (slave or master)
 					  has not been added in the map
-					  (first occurence in the scenario) */
+					  (first occurrence in the scenario) */
                     {
                         T_peer_infos infos;
                         infos.peer_socket = 0;
@@ -1378,7 +1378,7 @@ void scenario::parseAction(CActions *actions)
 
             free(ptr);
             if ( 0 != ( ptr = xp_get_value((char *)"search_in") ) ) {
-                tmpAction->setOccurence(1);
+                tmpAction->setOccurrence(1);
 
                 if ( 0 == strcmp(ptr, (char *)"msg") ) {
                     tmpAction->setLookingPlace(CAction::E_LP_MSG);
@@ -1396,11 +1396,11 @@ void scenario::parseAction(CActions *actions)
                     }
                     tmpAction->setLookingPlace(CAction::E_LP_HDR);
                     tmpAction->setLookingChar(ptr);
-                    if (0 != (ptr = xp_get_value((char *)"occurence"))) {
-                        tmpAction->setOccurence (atol(ptr));
-                    }
                     if (0 != (ptr = xp_get_value((char *)"occurrence"))) {
-                        tmpAction->setOccurence (atol(ptr));
+                        tmpAction->setOccurrence(atol(ptr));
+                    } else if (0 != (ptr = xp_get_value((char *)"occurence"))) {
+                        /* old misspelling */
+                        tmpAction->setOccurrence(atol(ptr));
                     }
                 } else {
                     ERROR("Unknown search_in value %s", ptr);
@@ -2067,7 +2067,7 @@ const char * default_scenario [] = {
     "  <!-- are also discarded.                                              -->\n"
     "  <!--                                                                  -->\n"
     "  <!-- If the specified header was present several times in the         -->\n"
-    "  <!-- message, all occurences are concatenated (CRLF separated)        -->\n"
+    "  <!-- message, all occurrences are concatenated (CRLF separated)       -->\n"
     "  <!-- to be used in place of the '[last_*]' keyword.                   -->\n"
     "\n"
     "  <send>\n"
@@ -3280,6 +3280,4 @@ const char * default_scenario [] = {
     "  <CallLengthRepartition value=\"10, 50, 100, 500, 1000, 5000, 10000\"/>\n"
     "\n"
     "</scenario>\n",
-
-
 };

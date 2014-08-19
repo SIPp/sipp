@@ -199,9 +199,9 @@ bool           CAction::getHeadersOnly()
 {
     return(M_headersOnly);
 }
-int            CAction::getOccurence()
+int            CAction::getOccurrence()
 {
-    return(M_occurence);
+    return(M_occurrence);
 }
 int            CAction::getVarId()
 {
@@ -277,9 +277,9 @@ void CAction::setCaseIndep    (bool           P_value)
 {
     M_caseIndep    = P_value;
 }
-void CAction::setOccurence   (int            P_value)
+void CAction::setOccurrence   (int            P_value)
 {
-    M_occurence    = P_value;
+    M_occurrence    = P_value;
 }
 void CAction::setHeadersOnly  (bool           P_value)
 {
@@ -586,7 +586,7 @@ void CAction::setAction(CAction P_action)
     setCheckIt      ( P_action.getCheckIt()      );
     setCheckItInverse      ( P_action.getCheckItInverse()      );
     setCaseIndep    ( P_action.getCaseIndep()    );
-    setOccurence    ( P_action.getOccurence()   );
+    setOccurrence   ( P_action.getOccurrence()   );
     setHeadersOnly  ( P_action.getHeadersOnly()  );
     for (L_i = 0; L_i < MAX_ACTION_MESSAGE; L_i++) {
         setMessage(P_action.M_message_str[L_i], L_i);
@@ -617,7 +617,7 @@ CAction::CAction(scenario *scenario)
     M_lookingPlace = E_LP_MSG;
     M_lookingChar  = NULL;
     M_caseIndep    = false;
-    M_occurence    = 1;
+    M_occurrence   = 1;
     M_headersOnly  = true;
     for (int i = 0; i < MAX_ACTION_MESSAGE; i++) {
         M_message[i]   = NULL;

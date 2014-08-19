@@ -35,7 +35,7 @@
  *           Michael Dwyer from Cibation
  *           Roland Meub
  *           Andy Aicken
- *	     Martin H. VanLeeuwen
+ *	         Martin H. VanLeeuwen
  */
 
 #include <iterator>
@@ -3406,7 +3406,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                                    currentAction->getLookingChar(),
                                    msgPart,
                                    currentAction->getCaseIndep(),
-                                   currentAction->getOccurence(),
+                                   currentAction->getOccurrence(),
                                    currentAction->getHeadersOnly());
                 if(currentAction->getCheckIt() == true && (strlen(msgPart) == 0)) {
                     // the sub message is not found and the checking action say it
