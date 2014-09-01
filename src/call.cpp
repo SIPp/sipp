@@ -1094,7 +1094,7 @@ char * call::get_last_header(const char * name)
 
 /* Return the last request URI from the To header. On any error returns the
  * empty string.  The caller must free the result. */
-char * call::get_last_request_uri ()
+char * call::get_last_request_uri()
 {
     char * tmp;
     char * tmp2;
@@ -1122,14 +1122,17 @@ char * call::get_last_request_uri ()
         return strdup("");
     }
 
-    if(!(last_request_uri = (char *) malloc(tmp_len+1))) ERROR("Cannot allocate !\n");
-    memset(last_request_uri, 0, sizeof(*last_request_uri));
-    if(tmp && (tmp_len > 0)) {
+    if (!(last_request_uri = (char *)malloc(tmp_len + 1))) {
+        ERROR("Cannot allocate !\n");
+    }
+
+    last_request_uri[0] = '\0';
+    if (tmp && (tmp_len > 0)) {
         strncpy(last_request_uri, tmp, tmp_len);
     }
     last_request_uri[tmp_len] = '\0';
-    return last_request_uri;
 
+    return last_request_uri;
 }
 
 char * call::send_scene(int index, int *send_status, int *len)
