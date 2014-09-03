@@ -3988,7 +3988,7 @@ call::T_AutoMode call::checkAutomaticResponseMode(char * P_recv)
         return E_AM_UNEXP_CANCEL;
     } else if (strcmp(P_recv, "PING") == 0) {
         return E_AM_PING;
-    } else if (((strcmp(P_recv, "INFO") == 0) || (strcmp(P_recv, "NOTIFY") == 0) || (strcmp(P_recv, "UPDATE") == 0))
+    } else if (((strcmp(P_recv, "INFO") == 0) || (strcmp(P_recv, "NOTIFY") == 0) || (strcmp(P_recv, "UPDATE") == 0) || (strcmp(P_recv, "OPTIONS") == 0))
                && (auto_answer == true)) {
         return E_AM_AA;
     } else {
