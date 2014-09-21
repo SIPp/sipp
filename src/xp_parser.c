@@ -39,21 +39,24 @@
 
 #include "xp_parser.h"
 
+#define strstartswith(haystack, needle) \
+    (!strncmp(haystack, needle, sizeof(needle) - 1))
+
 /************* Constants and Global variables ***********/
 
 #define XP_MAX_NAME_LEN   256
 #define XP_MAX_FILE_LEN   65536
 #define XP_MAX_STACK_LEN  256
 
-char   xp_file     [XP_MAX_FILE_LEN + 1];
-char * xp_position [XP_MAX_STACK_LEN];
-int    xp_stack    = 0;
+char  xp_file     [XP_MAX_FILE_LEN + 1];
+char *xp_position [XP_MAX_STACK_LEN];
+int   xp_stack    = 0;
 
 /****************** Internal routines ********************/
 int xp_replace(const char *source, char *dest, const char *search, const char *replace)
 {
     const char *position;
-    char *occurances;
+    char *occurrences;
     int number = 0;
 
     if (!source || !dest || !search || !replace) {
@@ -61,12 +64,12 @@ int xp_replace(const char *source, char *dest, const char *search, const char *r
     }
     dest[0] = '\0';
     position = source;
-    occurances = strstr(position, search);
-    while (occurances) {
-        strncat(dest, position, occurances - position);
+    occurrences = strstr(position, search);
+    while (occurrences) {
+        strncat(dest, position, occurrences - position);
         strcat(dest, replace);
-        position = occurances + strlen(search);
-        occurances = strstr(position, search);
+        position = occurrences + strlen(search);
+        occurrences = strstr(position, search);
         number++;
     }
     strcat(dest, position);
@@ -75,25 +78,26 @@ int xp_replace(const char *source, char *dest, const char *search, const char *r
 
 /* This finds the end of something like <send foo="bar">, and does not recurse
  * into other elements. */
-char * xp_find_start_tag_end(char *ptr)
+char *xp_find_start_tag_end(char *ptr)
 {
-    while(*ptr) {
+    while (*ptr) {
         if (*ptr == '<') {
-            if ((strstr(ptr,"<!--") == ptr)) {
-                char * comment_end = strstr(ptr, "-->");
-                if(!comment_end) return NULL;
+            if (strstartswith(ptr, "<!--")) {
+                char *comment_end = strstr(ptr, "-->");
+                if (!comment_end)
+                    return NULL;
                 ptr = comment_end + 3;
             } else {
                 return NULL;
             }
-        } else  if((*ptr == '/') && (*(ptr+1) == '>')) {
+        } else if ((*ptr == '/') && (*(ptr+1) == '>')) {
             return ptr;
         } else if (*ptr == '"') {
             ptr++;
-            while(*ptr) {
+            while (*ptr) {
                 if (*ptr == '\\') {
                     ptr += 2;
-                } else if (*ptr=='"') {
+                } else if (*ptr == '"') {
                     ptr++;
                     break;
                 } else {
@@ -109,40 +113,40 @@ char * xp_find_start_tag_end(char *ptr)
     return ptr;
 }
 
-char * xp_find_local_end()
+char *xp_find_local_end()
 {
-    char * ptr = xp_position[xp_stack];
+    char *ptr = xp_position[xp_stack];
     int level = 0;
 
-    while(*ptr) {
+    while (*ptr) {
         if (*ptr == '<') {
-            if ((*(ptr+1) == '!') &&
-                    (*(ptr+2) == '[') &&
-                    (strstr(ptr,"<![CDATA[") == ptr)) {
-                char * cdata_end = strstr(ptr, "]]>");
-                if(!cdata_end) return NULL;
+            if (strstartswith(ptr, "<![CDATA[")) {
+                char *cdata_end = strstr(ptr, "]]>");
+                if (!cdata_end)
+                    return NULL;
                 ptr = cdata_end + 3;
-            } else if ((*(ptr+1) == '!') &&
-                       (*(ptr+2) == '-') &&
-                       (strstr(ptr,"<!--") == ptr)) {
-                char * comment_end = strstr(ptr, "-->");
-                if(!comment_end) return NULL;
+            } else if (strstartswith(ptr, "<!--")) {
+                char *comment_end = strstr(ptr, "-->");
+                if (!comment_end)
+                    return NULL;
                 ptr = comment_end + 3;
-            } else if(*(ptr+1) == '/') {
+            } else if (*(ptr+1) == '/') {
                 level--;
-                if(level < 0) return ptr;
+                if (level < 0)
+                    return ptr;
             } else {
-                level ++;
+                level++;
             }
-        } else  if((*ptr == '/') && (*(ptr+1) == '>')) {
-            level --;
-            if(level < 0) return ptr;
+        } else if ((*ptr == '/') && (*(ptr+1) == '>')) {
+            level--;
+            if (level < 0)
+                return ptr;
         } else if (*ptr == '"') {
             ptr++;
-            while(*ptr) {
+            while (*ptr) {
                 if (*ptr == '\\') {
-                    ptr ++; /* Skip the slash. */
-                } else if (*ptr=='"') {
+                    ptr++; /* Skip the slash. */
+                } else if (*ptr == '"') {
                     break;
                 }
                 ptr++;
@@ -155,11 +159,11 @@ char * xp_find_local_end()
 
 /********************* Interface routines ********************/
 
-int xp_set_xml_buffer_from_string(const char * str)
+int xp_set_xml_buffer_from_string(const char *str)
 {
     size_t len = strlen(str);
 
-    if(len > XP_MAX_FILE_LEN) {
+    if (len > XP_MAX_FILE_LEN) {
         return 0;
     }
 
@@ -167,27 +171,31 @@ int xp_set_xml_buffer_from_string(const char * str)
     xp_stack = 0;
     xp_position[xp_stack] = xp_file;
 
-    if(strstr(xp_position[xp_stack], "<?xml") != xp_position[xp_stack]) return 0;
-    if(!strstr(xp_position[xp_stack], "?>")) return 0;
+    if (!strstartswith(xp_position[xp_stack], "<?xml"))
+        return 0;
+    if (!strstr(xp_position[xp_stack], "?>"))
+        return 0;
     xp_position[xp_stack] = xp_position[xp_stack] + 2;
 
     return 1;
 }
 
-int xp_set_xml_buffer_from_file(const char * filename)
+int xp_set_xml_buffer_from_file(const char *filename)
 {
-    FILE * f = fopen(filename, "rb");
+    FILE *f = fopen(filename, "rb");
+    char *pos;
     int index = 0;
     int c;
 
-    if(!f) {
+    if (!f) {
         return 0;
     }
 
-    while((c = fgetc(f)) != EOF) {
-        if(c == '\r') continue;
+    while ((c = fgetc(f)) != EOF) {
+        if (c == '\r')
+            continue;
         xp_file[index++] = c;
-        if(index >= XP_MAX_FILE_LEN) {
+        if (index >= XP_MAX_FILE_LEN) {
             xp_file[index++] = 0;
             xp_stack = 0;
             xp_position[xp_stack] = xp_file;
@@ -201,67 +209,74 @@ int xp_set_xml_buffer_from_file(const char * filename)
     xp_stack = 0;
     xp_position[xp_stack] = xp_file;
 
-    if(strstr(xp_position[xp_stack], "<?xml") != xp_position[xp_stack]) return 0;
-    if(!strstr(xp_position[xp_stack], "?>")) return 0;
-    xp_position[xp_stack] = xp_position[xp_stack] + 2;
+    if (!strstartswith(xp_position[xp_stack], "<?xml"))
+        return 0;
+    if (!(pos = strstr(xp_position[xp_stack], "?>")))
+        return 0;
+    xp_position[xp_stack] = pos + 2;
 
     return 1;
 }
 
-char * xp_open_element(int index)
+char *xp_open_element(int index)
 {
-    char * ptr = xp_position[xp_stack];
+    char *ptr = xp_position[xp_stack];
     int level = 0;
     static char name[XP_MAX_NAME_LEN];
 
-    while(*ptr) {
+    while (*ptr) {
         if (*ptr == '<') {
             if ((*(ptr+1) == '!') &&
                     (*(ptr+2) == '[') &&
-                    (strstr(ptr,"<![CDATA[") == ptr)) {
-                char * cdata_end = strstr(ptr, "]]>");
-                if(!cdata_end) return NULL;
+                    (strstr(ptr, "<![CDATA[") == ptr)) {
+                char *cdata_end = strstr(ptr, "]]>");
+                if (!cdata_end)
+                    return NULL;
                 ptr = cdata_end + 2;
             } else if ((*(ptr+1) == '!') &&
                        (*(ptr+2) == '-') &&
-                       (strstr(ptr,"<!--") == ptr)) {
-                char * comment_end = strstr(ptr, "-->");
-                if(!comment_end) return NULL;
+                       (strstr(ptr, "<!--") == ptr)) {
+                char *comment_end = strstr(ptr, "-->");
+                if (!comment_end)
+                    return NULL;
                 ptr = comment_end + 2;
-            } else if (strstr(ptr,"<!DOCTYPE") == ptr) {
-                char * doctype_end = strstr(ptr, ">");
-                if(!doctype_end) return NULL;
+            } else if (strstartswith(ptr, "<!DOCTYPE")) {
+                char *doctype_end = strstr(ptr, ">");
+                if (!doctype_end)
+                    return NULL;
                 ptr = doctype_end;
-            } else if(*(ptr+1) == '/') {
+            } else if (*(ptr+1) == '/') {
                 level--;
-                if(level < 0) return NULL;
+                if (level < 0)
+                    return NULL;
             } else {
-                if(level==0) {
+                if (level == 0) {
                     if (index) {
-                        index --;
+                        index--;
                     } else {
-                        char * end = xp_find_start_tag_end(ptr + 1);
-                        char * p;
-                        if(!end) return NULL;
-
+                        char *end = xp_find_start_tag_end(ptr + 1);
+                        char *p;
+                        if (!end) {
+                            return NULL;
+                        }
                         p = strchr(ptr, ' ');
-                        if(p && (p < end))  {
+                        if (p && (p < end))  {
                             end = p;
                         }
                         p = strchr(ptr, '\t');
-                        if(p && (p < end))  {
+                        if (p && (p < end))  {
                             end = p;
                         }
                         p = strchr(ptr, '\r');
-                        if(p && (p < end))  {
+                        if (p && (p < end))  {
                             end = p;
                         }
                         p = strchr(ptr, '\n');
-                        if(p && (p < end))  {
+                        if (p && (p < end))  {
                             end = p;
                         }
                         p = strchr(ptr, '/');
-                        if(p && (p < end))  {
+                        if (p && (p < end))  {
                             end = p;
                         }
 
@@ -275,12 +290,14 @@ char * xp_open_element(int index)
 
                 /* We want to skip over this particular element .*/
                 ptr = xp_find_start_tag_end(ptr + 1);
-                if (ptr) ptr--;
-                level ++;
+                if (ptr)
+                    ptr--;
+                level++;
             }
-        } else if((*ptr == '/') && (*(ptr+1) == '>')) {
-            level --;
-            if(level < 0) return NULL;
+        } else if ((*ptr == '/') && (*(ptr+1) == '>')) {
+            level--;
+            if (level < 0)
+                return NULL;
         }
         ptr++;
     }
@@ -289,7 +306,7 @@ char * xp_open_element(int index)
 
 void xp_close_element()
 {
-    if(xp_stack) {
+    if (xp_stack) {
         xp_stack--;
     }
 }
@@ -299,28 +316,31 @@ void xp_root()
     xp_stack = 0;
 }
 
-char * xp_get_value(const char * name)
+char *xp_get_value(const char *name)
 {
     int         index = 0;
     static char buffer[XP_MAX_FILE_LEN + 1];
-    char      * ptr, *end, *check;
+    char       *ptr, *end, *check;
 
     end = xp_find_start_tag_end(xp_position[xp_stack] + 1);
-    if(!end) return NULL;
+    if (!end)
+        return NULL;
 
     ptr = xp_position[xp_stack];
 
-    while(*ptr) {
+    while (*ptr) {
         ptr = strstr(ptr, name);
 
-        if(!ptr) return NULL;
-        if(ptr > end) return NULL;
+        if (!ptr)
+            return NULL;
+        if (ptr > end)
+            return NULL;
         // FIXME: potential BUG in parser: we must retrieve full word,
         // so the use of strstr as it is is not enough.
         // we should check that the retrieved word is not a piece of another one.
-        check = ptr-1;
-        if(check >= xp_position[xp_stack]) {
-            if((*check != '\r') &&
+        check = ptr - 1;
+        if (check >= xp_position[xp_stack]) {
+            if ((*check != '\r') &&
                     (*check != '\n') &&
                     (*check != '\t') &&
                     (*check != ' ' )) {
@@ -331,23 +351,24 @@ char * xp_get_value(const char * name)
             return(NULL);
 
         ptr += strlen(name);
-        while((*ptr == '\r') ||
+        while ((*ptr == '\r') ||
                 (*ptr == '\n') ||
                 (*ptr == '\t') ||
                 (*ptr == ' ' )    ) {
-            ptr ++;
+            ptr++;
         }
-        if(*ptr != '=') continue;
-        ptr ++;
-        while((*ptr == '\r') ||
+        if (*ptr != '=')
+            continue;
+        ptr++;
+        while ((*ptr == '\r') ||
                 (*ptr == '\n') ||
                 (*ptr == '\t') ||
                 (*ptr ==  ' ')    ) {
-            ptr ++;
+            ptr++;
         }
         ptr++;
-        if(*ptr) {
-            while(*ptr) {
+        if (*ptr) {
+            while (*ptr) {
                 if (*ptr == '\\') {
                     ptr++;
                     switch(*ptr) {
@@ -372,12 +393,13 @@ char * xp_get_value(const char * name)
                         break;
                     }
                     ptr++;
-                } else if (*ptr=='"') {
+                } else if (*ptr == '"') {
                     break;
                 } else {
                     buffer[index++] = *ptr++;
                 }
-                if(index > XP_MAX_FILE_LEN) return NULL;
+                if (index > XP_MAX_FILE_LEN)
+                    return NULL;
             }
             buffer[index] = 0;
             return buffer;
@@ -386,61 +408,64 @@ char * xp_get_value(const char * name)
     return NULL;
 }
 
-char * xp_get_cdata()
+char *xp_get_cdata()
 {
     static char buffer[XP_MAX_FILE_LEN + 1];
     const char *end = xp_find_local_end();
     const char *ptr;
 
-    ptr = strstr(xp_position[xp_stack],"<![CDATA[");
-    if(!ptr) {
+    ptr = strstr(xp_position[xp_stack], "<![CDATA[");
+    if (!ptr) {
         return NULL;
     }
     ptr += 9;
-    if(ptr > end) return NULL;
+    if (ptr > end)
+        return NULL;
     end = strstr(ptr, "]]>");
-    if(!end) {
+    if (!end) {
         return NULL;
     }
-    if((end -ptr) > XP_MAX_FILE_LEN) return NULL;
-    memcpy(buffer, ptr, (end-ptr));
+    if ((end - ptr) > XP_MAX_FILE_LEN)
+        return NULL;
+    memcpy(buffer, ptr, (end - ptr));
     buffer[end-ptr] = 0;
     return buffer;
 }
 
-int xp_get_content_length(const char * P_buffer)
+int xp_get_content_length(const char *P_buffer)
 {
-    const char * L_ctl_hdr;
-    int    L_content_length = -1 ;
-    unsigned char   short_form;
+    const char *L_ctl_hdr;
+    int L_content_length = -1;
+    unsigned char short_form;
 
     short_form = 0;
 
     L_ctl_hdr = strstr(P_buffer, "\nContent-Length:");
-    if(!L_ctl_hdr) {
+    if (!L_ctl_hdr) {
         L_ctl_hdr = strstr(P_buffer, "\nContent-length:");
     }
-    if(!L_ctl_hdr) {
+    if (!L_ctl_hdr) {
         L_ctl_hdr = strstr(P_buffer, "\ncontent-Length:");
     }
-    if(!L_ctl_hdr) {
+    if (!L_ctl_hdr) {
         L_ctl_hdr = strstr(P_buffer, "\ncontent-length:");
     }
-    if(!L_ctl_hdr) {
+    if (!L_ctl_hdr) {
         L_ctl_hdr = strstr(P_buffer, "\nCONTENT-LENGTH:");
     }
-    if(!L_ctl_hdr) {
+    if (!L_ctl_hdr) {
         L_ctl_hdr = strstr(P_buffer, "\nl:");
         short_form = 1;
     }
 
-    if( L_ctl_hdr ) {
+    if (L_ctl_hdr) {
         if (short_form) {
             L_ctl_hdr += 3;
         } else {
             L_ctl_hdr += 16;
         }
-        while(isspace(*L_ctl_hdr)) L_ctl_hdr++;
+        while (isspace(*L_ctl_hdr))
+            L_ctl_hdr++;
         sscanf(L_ctl_hdr, "%d", &L_content_length);
     }
     // L_content_length = -1 the message does not contain content-length

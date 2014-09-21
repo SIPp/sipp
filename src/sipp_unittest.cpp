@@ -156,3 +156,86 @@ TEST(DigestAuth, qop) {
     EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header); 
 }
+
+TEST(xp_parser, set_xml_buffer_from_string__good) {
+    int res;
+    int i;
+    const char *buffers[] = {
+        ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
+         "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\r\n"
+         "<!-- quick comment.. -->\r\n"
+         "<scenario name=\"Some Scenario\">\e\n"
+         "  <send retrans=\"500\"/>\r\n"
+         "</scenario>\r\n"), // 1
+        ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+         "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">"
+         "<!-- quick comment.. -->"
+         "<scenario name=\"Some Scenario\">"
+         "  <send retrans=\"500\"/>"
+         "</scenario>"), // 2
+        ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+         "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">"
+         "<scenario name=\"Some Scenario\">"
+         "  <send retrans=\"500\"/>"
+         "</scenario>"), // 3
+        ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+         "<scenario name=\"Some Scenario\">"
+         "  <send retrans=\"500\"/>"
+         "</scenario>"), // 4
+        NULL
+    };
+
+    for (i = 0; buffers[i]; ++i) {
+        const char *elem, *prop;
+
+        res = xp_set_xml_buffer_from_string(buffers[i]);
+        EXPECT_EQ(i + 1, res * (i + 1));  // res == 1
+        if (!res)
+            continue;
+
+        elem = xp_open_element(0);
+        EXPECT_STREQ("scenario", elem);
+
+        prop = xp_get_value("name");
+        EXPECT_STREQ("Some Scenario", prop);
+    }
+}
+
+TEST(xp_parser, set_xml_buffer_from_string__bad) {
+    int res;
+    int i;
+    const char *buffers[] = {
+        // No <?xml
+        ("<!DOCTYPE scenario SYSTEM \"sipp.dtd\">"
+         "<!-- quick comment.. -->"
+         "<scenario name=\"Some Scenario\">"
+         "  <send retrans=\"500\"/>"
+         "</scenario>"), // -1
+        // Missing ?>
+        ("<?xml version=\"1.0\" encoding=\"UTF-8\""
+         "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">"
+         "<scenario name=\"Some Scenario\">"
+         "  <send retrans=\"500\"/>"
+         "</scenario>"), // -2
+        // Not even a DOCTYPE.
+        ("<scenario name=\"Some Scenario\">"
+         "  <send retrans=\"500\"/>"
+         "</scenario>"), // -3
+        NULL
+    };
+
+    for (i = 0; buffers[i]; ++i) {
+        const char *elem, *prop;
+
+        res = xp_set_xml_buffer_from_string(buffers[i]);
+        EXPECT_EQ(-1 - i, (res - 1) * (i + 1)); // res == 0
+        if (!res)
+            continue;
+
+        elem = xp_open_element(0);
+        EXPECT_STREQ("scenario", elem);
+
+        prop = xp_get_value("name");
+        EXPECT_STREQ("Some Scenario", prop);
+    }
+}
