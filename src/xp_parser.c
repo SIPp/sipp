@@ -79,7 +79,7 @@ char * xp_find_start_tag_end(char *ptr)
 {
     while(*ptr) {
         if (*ptr == '<') {
-            if ((strstr(ptr,"<!--") == ptr)) {
+            if (!strncmp(ptr, "<!--", strlen("<!--"))) {
                 char * comment_end = strstr(ptr, "-->");
                 if(!comment_end) return NULL;
                 ptr = comment_end + 3;
@@ -116,15 +116,11 @@ char * xp_find_local_end()
 
     while(*ptr) {
         if (*ptr == '<') {
-            if ((*(ptr+1) == '!') &&
-                    (*(ptr+2) == '[') &&
-                    (strstr(ptr,"<![CDATA[") == ptr)) {
+            if (!strncmp(ptr,"<![CDATA[", strlen("<![CDATA["))) {
                 char * cdata_end = strstr(ptr, "]]>");
                 if(!cdata_end) return NULL;
                 ptr = cdata_end + 3;
-            } else if ((*(ptr+1) == '!') &&
-                       (*(ptr+2) == '-') &&
-                       (strstr(ptr,"<!--") == ptr)) {
+            } else if (!strncmp(ptr, "<!--", strlen("<!--"))) {
                 char * comment_end = strstr(ptr, "-->");
                 if(!comment_end) return NULL;
                 ptr = comment_end + 3;
@@ -167,7 +163,7 @@ int xp_set_xml_buffer_from_string(const char * str)
     xp_stack = 0;
     xp_position[xp_stack] = xp_file;
 
-    if(strstr(xp_position[xp_stack], "<?xml") != xp_position[xp_stack]) return 0;
+    if(strncmp(xp_position[xp_stack], "<?xml", strlen("<?xml"))) return 0;
     if(!strstr(xp_position[xp_stack], "?>")) return 0;
     xp_position[xp_stack] = xp_position[xp_stack] + 2;
 
@@ -201,7 +197,7 @@ int xp_set_xml_buffer_from_file(const char * filename)
     xp_stack = 0;
     xp_position[xp_stack] = xp_file;
 
-    if(strstr(xp_position[xp_stack], "<?xml") != xp_position[xp_stack]) return 0;
+    if(strncmp(xp_position[xp_stack], "<?xml", strlen("<?xml"))) return 0;
     if(!strstr(xp_position[xp_stack], "?>")) return 0;
     xp_position[xp_stack] = xp_position[xp_stack] + 2;
 
