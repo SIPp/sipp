@@ -2819,8 +2819,10 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
 
 bool call::matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod, char *txn)
 {
+	bool result = false;
     message *curmsg = call_scenario->messages[index];
-
+	*reason = '\0';
+	
     if ((curmsg -> recv_request)) {
         if (curmsg->regexp_match) {
             if (curmsg -> regexp_compile == NULL) {
@@ -2830,10 +2832,40 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
                 }
                 curmsg -> regexp_compile = re;
             }
-            return !regexec(curmsg -> regexp_compile, request, (size_t)0, NULL, 0);
-        } else {
-            return !strcmp(curmsg -> recv_request, request);
+			
+            result = !regexec(curmsg -> regexp_compile, request, (size_t)0, NULL, 0);
+			if(!result) {
+				sprintf(reason, "Regular expression match failed for index %d: %s", index, curmsg->recv_request);
+			}
+		} else {
+            result = !strcmp(curmsg -> recv_request, request);
+			if(!*request) {
+				sprintf(reason, "Response '%d' does not match expected request '%s'", reply_code, curmsg->recv_request);
+			} else if(!result) {
+				sprintf(reason, "Request '%s' does not match expected request '%s'", request, curmsg->recv_request);
+			}
         }
+		
+		if (result && curmsg->isUseTxn()) {
+			// use_txn on received request => verify branches match
+			DEBUG("Request matches: verify txn.branch");
+			TransactionState &txn = ds->get_transaction(curmsg->getTransactionName(), index); // reports error if not found.
+			if (curmsg->isAck() && txn.isLastResponseCode2xx()) {
+				// 2xx-triggered ACK => new transaction (branch) expected.
+				DEBUG("2xx-triggered ACK => new transaction (branch) expected.");
+				if (!strcmp(txn.getBranch().c_str(), branch)) {
+					WARNING("2xx-triggered ACK => new transaction (branch) expected, yet branches match.  Both branches = '%s'", branch);
+				}
+			} else {
+				// CANCEL, >=300 ACK, response, retransmitted request => branches better match
+				if (!strcmp(txn.getBranch().c_str(), branch)) {
+					result = true;
+				} else {
+					sprintf(reason, "Transaction '%s' requires branch '%s' and current packet has mismatching branch of '%s'", 
+					curmsg->getTransactionName().c_str(), txn.getBranch().c_str(), branch);
+				} 
+			}
+		}
     } else if (curmsg->recv_response && (curmsg->recv_response == reply_code)) {
         /* This is a potential candidate, we need to match transactions. */
         if (curmsg->response_txn) {
