@@ -177,7 +177,8 @@ am__sipp_unittest_SOURCES_DIST = src/actions.cpp src/auth.cpp \
 	src/sslinit.c src/sslthreadsafe.c include/prepare_pcap.h \
 	include/send_packets.h src/prepare_pcap.c src/send_packets.c \
 	src/rtpstream.cpp include/rtpstream.hpp src/sipp_unittest.cpp \
-	./gtest/src/gtest-all.cc ./gtest/src/gtest_main.cc
+	src/xp_parser_ut.cpp ./gtest/src/gtest-all.cc \
+	./gtest/src/gtest_main.cc
 @HAVE_OPENSSL_TRUE@am__objects_6 = $(am__objects_1) \
 @HAVE_OPENSSL_TRUE@	src/sipp_unittest-sslinit.$(OBJEXT) \
 @HAVE_OPENSSL_TRUE@	src/sipp_unittest-sslthreadsafe.$(OBJEXT)
@@ -214,6 +215,7 @@ am__objects_9 = src/sipp_unittest-actions.$(OBJEXT) \
 	$(am__objects_6) $(am__objects_7) $(am__objects_8)
 am_sipp_unittest_OBJECTS = $(am__objects_9) \
 	src/sipp_unittest-sipp_unittest.$(OBJEXT) \
+	src/sipp_unittest-xp_parser_ut.$(OBJEXT) \
 	./gtest/src/sipp_unittest-gtest-all.$(OBJEXT) \
 	./gtest/src/sipp_unittest-gtest_main.$(OBJEXT)
 sipp_unittest_OBJECTS = $(am_sipp_unittest_OBJECTS)
@@ -705,11 +707,12 @@ sipp_CXXFLAGS = $(AM_CXXFLAGS) @GSL_CXXFLAGS@
 sipp_LDADD = @LIBOBJS@ @GSL_LIBS@
 sipp_unittest_SOURCES = $(common_SOURCES) \
 	src/sipp_unittest.cpp \
+	src/xp_parser_ut.cpp \
 	./gtest/src/gtest-all.cc \
 	./gtest/src/gtest_main.cc
 
-sipp_unittest_CFLAGS = $(AM_CFLAGS) -I./gtest/include -I./gtest @GSL_CFLAGS@
-sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) -I./gtest/include -I./gtest @GSL_CXXFLAGS@
+sipp_unittest_CFLAGS = $(AM_CFLAGS) -DGTEST=1 -I./gtest/include -I./gtest @GSL_CFLAGS@
+sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) -DGTEST=1 -I./gtest/include -I./gtest @GSL_CXXFLAGS@
 sipp_unittest_LDADD = @LIBOBJS@ @GSL_LIBS@
 all: all-am
 
@@ -947,6 +950,8 @@ src/sipp_unittest-rtpstream.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
 src/sipp_unittest-sipp_unittest.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
+src/sipp_unittest-xp_parser_ut.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
 gtest/src/$(am__dirstamp):
 	@$(MKDIR_P) ./gtest/src
 	@: > gtest/src/$(am__dirstamp)
@@ -1036,6 +1041,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-variables.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-watchdog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-xp_parser.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/sipp_unittest-xp_parser_ut.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -1964,6 +1970,20 @@ src/sipp_unittest-sipp_unittest.obj: src/sipp_unittest.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/sipp_unittest.cpp' object='src/sipp_unittest-sipp_unittest.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp_unittest-sipp_unittest.obj `if test -f 'src/sipp_unittest.cpp'; then $(CYGPATH_W) 'src/sipp_unittest.cpp'; else $(CYGPATH_W) '$(srcdir)/src/sipp_unittest.cpp'; fi`
+
+src/sipp_unittest-xp_parser_ut.o: src/xp_parser_ut.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT src/sipp_unittest-xp_parser_ut.o -MD -MP -MF src/$(DEPDIR)/sipp_unittest-xp_parser_ut.Tpo -c -o src/sipp_unittest-xp_parser_ut.o `test -f 'src/xp_parser_ut.cpp' || echo '$(srcdir)/'`src/xp_parser_ut.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp_unittest-xp_parser_ut.Tpo src/$(DEPDIR)/sipp_unittest-xp_parser_ut.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/xp_parser_ut.cpp' object='src/sipp_unittest-xp_parser_ut.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp_unittest-xp_parser_ut.o `test -f 'src/xp_parser_ut.cpp' || echo '$(srcdir)/'`src/xp_parser_ut.cpp
+
+src/sipp_unittest-xp_parser_ut.obj: src/xp_parser_ut.cpp
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT src/sipp_unittest-xp_parser_ut.obj -MD -MP -MF src/$(DEPDIR)/sipp_unittest-xp_parser_ut.Tpo -c -o src/sipp_unittest-xp_parser_ut.obj `if test -f 'src/xp_parser_ut.cpp'; then $(CYGPATH_W) 'src/xp_parser_ut.cpp'; else $(CYGPATH_W) '$(srcdir)/src/xp_parser_ut.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/sipp_unittest-xp_parser_ut.Tpo src/$(DEPDIR)/sipp_unittest-xp_parser_ut.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='src/xp_parser_ut.cpp' object='src/sipp_unittest-xp_parser_ut.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -c -o src/sipp_unittest-xp_parser_ut.obj `if test -f 'src/xp_parser_ut.cpp'; then $(CYGPATH_W) 'src/xp_parser_ut.cpp'; else $(CYGPATH_W) '$(srcdir)/src/xp_parser_ut.cpp'; fi`
 
 ./gtest/src/sipp_unittest-gtest-all.o: ./gtest/src/gtest-all.cc
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sipp_unittest_CXXFLAGS) $(CXXFLAGS) -MT ./gtest/src/sipp_unittest-gtest-all.o -MD -MP -MF ./gtest/src/$(DEPDIR)/sipp_unittest-gtest-all.Tpo -c -o ./gtest/src/sipp_unittest-gtest-all.o `test -f './gtest/src/gtest-all.cc' || echo '$(srcdir)/'`./gtest/src/gtest-all.cc

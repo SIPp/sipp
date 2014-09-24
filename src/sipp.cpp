@@ -35,11 +35,11 @@
  *	     Michael Hirschbichler
  */
 
-#define GLOBALS_FULL_DEFINITION
-#define NOTLAST 0
-
 #include <dlfcn.h>
+
+#define GLOBALS_FULL_DEFINITION
 #include "sipp.hpp"
+
 #include "sip_parser.hpp"
 #include "socket.hpp"
 #include "logger.hpp"

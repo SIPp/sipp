@@ -195,3 +195,69 @@ void trim(char *s)
 }
 
 
+#ifdef GTEST
+#include "gtest/gtest.h"
+
+TEST(GetHostAndPort, IPv6) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("fe80::92a4:deff:fe74:7af5", host_result, &port_result);
+    EXPECT_EQ(0, port_result);
+    EXPECT_STREQ("fe80::92a4:deff:fe74:7af5", host_result);
+}
+
+TEST(GetHostAndPort, IPv6Brackets) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("[fe80::92a4:deff:fe74:7af5]", host_result, &port_result);
+    EXPECT_EQ(0, port_result);
+    EXPECT_STREQ("fe80::92a4:deff:fe74:7af5", host_result);
+}
+
+TEST(GetHostAndPort, IPv6BracketsAndPort) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("[fe80::92a4:deff:fe74:7af5]:999", host_result, &port_result);
+    EXPECT_EQ(999, port_result);
+    EXPECT_STREQ("fe80::92a4:deff:fe74:7af5", host_result);
+}
+
+TEST(GetHostAndPort, IPv4) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("127.0.0.1", host_result, &port_result);
+    EXPECT_EQ(0, port_result);
+    EXPECT_STREQ("127.0.0.1", host_result);
+}
+
+TEST(GetHostAndPort, IPv4AndPort) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("127.0.0.1:999", host_result, &port_result);
+    EXPECT_EQ(999, port_result);
+    EXPECT_STREQ("127.0.0.1", host_result);
+}
+
+TEST(GetHostAndPort, IgnorePort) {
+    char host_result[255];
+    get_host_and_port("127.0.0.1", host_result, NULL);
+    EXPECT_STREQ("127.0.0.1", host_result);
+}
+
+TEST(GetHostAndPort, DNS) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("sipp.sf.net", host_result, &port_result);
+    EXPECT_EQ(0, port_result);
+    EXPECT_STREQ("sipp.sf.net", host_result);
+}
+
+TEST(GetHostAndPort, DNSAndPort) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("sipp.sf.net:999", host_result, &port_result);
+    EXPECT_EQ(999, port_result);
+    EXPECT_STREQ("sipp.sf.net", host_result);
+}
+
+#endif //GTEST

@@ -471,4 +471,3 @@ int xp_get_content_length(const char *P_buffer)
     // L_content_length = -1 the message does not contain content-length
     return (L_content_length);
 }
-
