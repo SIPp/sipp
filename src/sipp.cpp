@@ -1783,8 +1783,6 @@ int main(int argc, char *argv[])
         sprintf(scenario_file, "%s", "sipp");
     }
 
-    screen_init(print_last_stats);
-
 #ifdef _USE_OPENSSL
     if ((transport == T_TLS) && (FI_init_ssl_context() != SSL_INIT_NORMAL)) {
         ERROR("FI_init_ssl_context() failed");
@@ -1913,6 +1911,8 @@ int main(int argc, char *argv[])
     if (ooc_scenario && sendMode == MODE_SERVER) {
         ERROR("SIPp cannot use out-of-call scenarios when running in server mode");
     }
+
+    screen_init(print_last_stats);
 
     /* checking if we need to launch the tool in background mode */
     if(backgroundMode == true) {
