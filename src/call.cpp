@@ -3683,6 +3683,9 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             M_callVariableTable->getVar(currentAction->getVarId())->setBool(result);
         } else if (currentAction->getActionType() == CAction::E_AT_JUMP) {
             double operand = get_rhs(currentAction);
+            if (msg_index == ((int)operand)) {
+                ERROR("Jump statement at index %d jumps to itself and causes an infinite loop", msg_index);
+            }
             msg_index = (int)operand - 1;
         } else if (currentAction->getActionType() == CAction::E_AT_PAUSE_RESTORE) {
             double operand = get_rhs(currentAction);
