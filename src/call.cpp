@@ -1304,14 +1304,14 @@ bool call::next()
         msgs = &call_scenario->initmessages;
     }
 
-    int test = (*msgs)[msg_index]->test;
+    int test;
     /* What is the next message index? */
     /* Default without branching: use the next message */
-    int new_msg_index = msg_index+1;
+    int new_msg_index = msg_index + 1;
     /* If branch needed, overwrite this default */
-    if ( ((*msgs)[msg_index]->next >= 0) &&
-            ((test == -1) || M_callVariableTable->getVar(test)->isSet())
-       ) {
+    if (msg_index >= 0 && ((*msgs)[msg_index]->next >= 0) &&
+            (((test = ((*msgs)[msg_index]->test)) == -1) ||
+             M_callVariableTable->getVar(test)->isSet())) {
         /* Branching possible, check the probability */
         int chance = (*msgs)[msg_index]->chance;
         if ((chance <= 0) || (rand() > chance )) {
@@ -1319,9 +1319,9 @@ bool call::next()
             new_msg_index = (*msgs)[msg_index]->next;
         }
     }
-    msg_index=new_msg_index;
+    msg_index = new_msg_index;
     recv_timeout = 0;
-    if(msg_index >= (int)((*msgs).size())) {
+    if (msg_index >= (int)((*msgs).size())) {
         terminate(CStat::E_CALL_SUCCESSFULLY_ENDED);
         return false;
     }
@@ -3687,6 +3687,11 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 ERROR("Jump statement at index %d jumps to itself and causes an infinite loop", msg_index);
             }
             msg_index = (int)operand - 1;
+            /* -1 is allowed to go to the first label, but watch out
+             * when using msg_index. */
+            if (msg_index < -1 || msg_index >= (int)call_scenario->messages.size()) {
+                ERROR("Jump statement out of range (not 0 <= %d <= %d)", msg_index + 1, call_scenario->messages.size());
+            }
         } else if (currentAction->getActionType() == CAction::E_AT_PAUSE_RESTORE) {
             double operand = get_rhs(currentAction);
             paused_until = (int)operand;
