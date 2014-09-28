@@ -150,8 +150,8 @@ public:
     void setOccurrence   (int            P_value);
     void setHeadersOnly  (bool           P_value);
     void setScenario     (scenario *     P_scenario);
-    void setRegExp       (char*		 P_value);  /* ereg specific function. */
-    int  executeRegExp   (char* P_string, VariableTable *P_callVarTable);
+    void setRegExp       (const char*		 P_value);  /* ereg specific function. */
+    int  executeRegExp   (const char* P_string, VariableTable *P_callVarTable);
     void setMessage      (char*          P_value, int n = 0);  /* log specific function  */
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
     void setDistribution (CSample *      P_value);  /* sample specific function  */
@@ -219,7 +219,7 @@ private:
 #ifdef RTP_STREAM
       rtpstream_actinfo_t M_rtpstream_actinfo;
 #endif
-    void setSubString(char** P_target, char* P_source, int P_start, int P_stop);
+    void setSubString(char** P_target, const char* P_source, int P_start, int P_stop);
 };
 
 class CActions
