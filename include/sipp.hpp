@@ -294,6 +294,7 @@ extern bool               extendedTwinSippMode    _DEFVAL(false);
 
 extern bool               nostdin                 _DEFVAL(false);
 extern bool               backgroundMode          _DEFVAL(false);
+extern bool               noscreenMode            _DEFVAL(false);
 extern bool               signalDump              _DEFVAL(false);
 
 extern int                currentScreenToDisplay  _DEFVAL

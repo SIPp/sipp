@@ -65,6 +65,7 @@ message::message(int index, const char *desc)
     repeat_rtd = 0;
     lost = -1;
     crlf = 0;
+    skipsdp = 0;
     hide = 0;
     display_str = NULL; // free on exit
     test = -1;
@@ -1713,6 +1714,10 @@ void scenario::getCommonAttributes(message *message)
 
     if((ptr = xp_get_value((char *)"crlf"))) {
         message -> crlf = 1;
+    }
+
+    if((ptr = xp_get_value((char *)"skipsdp"))) {
+    message -> skipsdp = 1;
     }
 
     if (xp_get_value("hiderest")) {
