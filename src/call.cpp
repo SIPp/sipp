@@ -1326,7 +1326,7 @@ bool call::next()
         return false;
     }
 
-    return run();
+    return true;
 }
 
 bool call::executeMessage(message *curmsg)
