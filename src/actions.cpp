@@ -373,7 +373,7 @@ void CAction::setMessage  (char*          P_value, int n)
     }
 }
 
-void CAction::setRegExp(char *P_value)
+void CAction::setRegExp(const char *P_value)
 {
     int errorCode;
 
@@ -396,7 +396,7 @@ char *CAction::getRegularExpression()
     return M_regularExpression;
 }
 
-int CAction::executeRegExp(char* P_string, VariableTable *P_callVarTable)
+int CAction::executeRegExp(const char* P_string, VariableTable *P_callVarTable)
 {
     regmatch_t pmatch[10];
     int error;
@@ -416,12 +416,13 @@ int CAction::executeRegExp(char* P_string, VariableTable *P_callVarTable)
     error = regexec(&(M_internalRegExp), P_string, 10, pmatch, REGEXP_PARAMS);
     if ( error == 0) {
         CCallVariable* L_callVar = P_callVarTable->getVar(getVarId());
-
+        
         for(int i = 0; i <= getNbSubVarId(); i++) {
             if(pmatch[i].rm_eo == -1) break ;
 
             setSubString(&result, P_string, pmatch[i].rm_so, pmatch[i].rm_eo);
             L_callVar->setMatchingValue(result);
+            nbOfMatch++;
 
             if (i == getNbSubVarId())
                 break ;
@@ -432,7 +433,7 @@ int CAction::executeRegExp(char* P_string, VariableTable *P_callVarTable)
     return(nbOfMatch);
 }
 
-void CAction::setSubString(char** P_target, char* P_source, int P_start, int P_stop)
+void CAction::setSubString(char** P_target, const char* P_source, int P_start, int P_stop)
 {
     int sizeOf;
 
@@ -740,3 +741,55 @@ CActions::~CActions()
     delete [] M_actionList;
     M_actionList = NULL;
 }
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+
+TEST(actions, MatchingRegexp) {
+    AllocVariableTable vt(NULL);
+    int id = vt.find("1", true);
+    int sub1_id = vt.find("2", true);
+    int sub2_id = vt.find("3", true);
+    int sub3_id = vt.find("4", true);
+    int sub4_id = vt.find("5", true);
+    CAction re(NULL);
+    re.setVarId(id);
+    re.setNbSubVarId(4);
+    re.setSubVarId(sub1_id);
+    re.setSubVarId(sub2_id);
+    re.setSubVarId(sub3_id);
+    re.setSubVarId(sub4_id);
+    re.setRegExp("(.+)(o) (.+)(d)");
+    int results = re.executeRegExp("hello world", &vt);
+
+    ASSERT_EQ(5, results);
+    ASSERT_STREQ("hello world", vt.getVar(id)->getString());
+    ASSERT_STREQ("hell", vt.getVar(sub1_id)->getString());
+    ASSERT_STREQ("o", vt.getVar(sub2_id)->getString());
+    ASSERT_STREQ("worl", vt.getVar(sub3_id)->getString());
+    ASSERT_STREQ("d", vt.getVar(sub4_id)->getString());
+}
+
+TEST(actions, NonMatchingRegexp) {
+    AllocVariableTable vt(NULL);
+    int id = vt.find("1", true);
+    int sub1_id = vt.find("2", true);
+    int sub2_id = vt.find("3", true);
+    int sub3_id = vt.find("4", true);
+    int sub4_id = vt.find("5", true);
+    CAction re(NULL);
+    re.setVarId(id);
+    re.setNbSubVarId(4);
+    re.setSubVarId(sub1_id);
+    re.setSubVarId(sub2_id);
+    re.setSubVarId(sub3_id);
+    re.setSubVarId(sub4_id);
+    re.setRegExp("(.+)(o) (.+)(d)");
+    int results = re.executeRegExp("", &vt);
+
+    ASSERT_EQ(0, results);
+    ASSERT_STREQ("", vt.getVar(id)->getString());
+    ASSERT_STREQ("", vt.getVar(sub1_id)->getString());
+}
+
+#endif
