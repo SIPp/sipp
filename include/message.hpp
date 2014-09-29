@@ -83,6 +83,7 @@ typedef enum {
     E_Message_Users,
     E_Message_UserID,
     E_Message_Timestamp,
+    E_Message_Date,
     E_Message_SippVersion,
     E_Message_File,
     E_Message_Custom,
