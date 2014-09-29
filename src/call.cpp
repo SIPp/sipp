@@ -2258,9 +2258,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             struct tm *tm;
 
             t = time(NULL);
-            tm = localtime(&t);
+            tm = gmtime(&t);
 
-            strftime(buf, 256, "%a, %d %b %Y %T %z", tm);
+            strftime(buf, 256, "%a, %d %b %Y %T %Z", tm);
             dest += snprintf(dest, left, "%s", buf);
             break;
         case E_Message_Users:
