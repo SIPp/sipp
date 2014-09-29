@@ -1508,6 +1508,12 @@ bool call::executeMessage(message *curmsg)
     } else if (curmsg->M_type == MSG_TYPE_RECV
                || curmsg->M_type == MSG_TYPE_RECVCMD
               ) {
+#ifdef PCAPPLAY
+        /* Disable sdp detection  */
+        if(hasMedia == 1 && curmsg->skipsdp == 1){
+            hasMedia = 0;
+        } 
+#endif
         if (queued_msg) {
             char *msg = queued_msg;
             queued_msg = NULL;
