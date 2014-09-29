@@ -2252,6 +2252,17 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             gettimeofday(&currentTime, NULL);
             dest += snprintf(dest, left, "%s", CStat::formatTime(&currentTime));
             break;
+        case E_Message_Date:
+            char buf[256];
+            time_t t;
+            struct tm *tm;
+
+            t = time(NULL);
+            tm = localtime(&t);
+
+            strftime(buf, 256, "%a, %d %b %Y %T %z", tm);
+            dest += snprintf(dest, left, "%s", buf);
+            break;
         case E_Message_Users:
             dest += snprintf(dest, left, "%d", users);
             break;

@@ -87,6 +87,7 @@ struct KeywordMap SimpleKeywords[] = {
     {"users", E_Message_Users },
     {"userid", E_Message_UserID },
     {"timestamp", E_Message_Timestamp },
+    {"date", E_Message_Date },
     {"sipp_version", E_Message_SippVersion },
 };
 
