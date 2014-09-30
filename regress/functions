@@ -1,0 +1,54 @@
+# vim: set syn=sh ts=8 sw=4 sts=4 et ai:
+
+init() {
+    # Jump into the directory where the test is.
+    cd "`dirname "$0"`"
+
+    # Print a nice message.
+    echo -n "Testing `basename \`pwd\``: "
+}
+
+get_root() {
+    tmp=`pwd`
+    while ! test -x "$tmp/sipp"; do
+        tmp=`dirname "$tmp"`
+        test "$tmp" = "/" && break
+    done
+    test -x "$tmp/sipp" || exit 1
+    echo "$tmp"
+}
+
+sipp() {
+    exec `get_root`/sipp "$@"
+}
+
+sippbg() {
+    sipp -nostdin -trace_err "$@" >/dev/null 2>&1 </dev/null &
+    pid=$!
+    sleep 1
+    if ! kill -0 "$pid"; then
+        echo "sipp $@: startup failure" >&1
+        exit 1
+    fi
+}
+
+cleanup() {
+    if pgrep -P$$ >/dev/null; then
+        pkill -P$$
+        wait
+    fi
+}
+
+ok() {
+    echo "."
+    cleanup
+}
+
+fail() {
+    echo "failed"
+    cleanup
+    exit 1
+}
+
+# Workaround when no term is set.
+export TERM=dumb

@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Don't run from anywhere else than here!
+cd `dirname "$0"`
+
+# Cleanup test remnants.
+find . -name '*.log' | xargs --no-run-if-empty -d\\n rm -v
+echo
+
+echo "== RUNNING TESTS =="
+for path in github-*; do
+    $path/run
+done
