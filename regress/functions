@@ -23,13 +23,21 @@ sipp() {
 }
 
 sippbg() {
-    sipp -nostdin -trace_err "$@" >/dev/null 2>&1 </dev/null &
+    temp=`mktemp`
+    sipp -nostdin "$@" >$temp 2>&1 </dev/null &
     pid=$!
     sleep 1
-    if ! kill -0 "$pid"; then
-        echo "sipp $@: startup failure" >&1
-        exit 1
+    if ! kill -0 $pid 2>/dev/null; then
+        wait $pid
+        ret=$?
+        if test $ret -ne 0; then
+            echo "sipp $@: startup failure, got $ret:" >&2
+            cat $temp
+            rm $temp
+            exit 1
+        fi
     fi
+    rm $temp
 }
 
 cleanup() {
@@ -42,12 +50,25 @@ cleanup() {
 ok() {
     echo "."
     cleanup
+    exit 0
 }
 
 fail() {
     echo "failed"
     cleanup
     exit 1
+}
+
+unexpected_ok() {
+    echo "unexpected success"
+    cleanup
+    exit 1
+}
+
+expected_fail() {
+    echo "x"
+    cleanup
+    exit 0
 }
 
 # Workaround when no term is set.
