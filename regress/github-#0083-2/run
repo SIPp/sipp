@@ -7,8 +7,44 @@ nc -v -l 5070 >tmp.log 2>&1 </dev/zero &
 sleep 1
 sippbg -m 1 -sn uac -i 127.0.3.1 -t t1 -p 5071 127.0.2.1:5070
 
-if grep -i 'connection.*accepted' tmp.log | grep -q '[^0-9]5071[^0-9]'; then
+nc_sport=`grep -i 'connection.*accepted' tmp.log | sed -e 's/.*sport \([0-9]*\).*/\1/'`
+via_sport=`grep ^Via: tmp.log | sed -e 's/.*:\([0-9]*\);.*/\1/'`
+if test $nc_sport = $via_sport; then
     unexpected_ok
 else
     expected_fail
 fi
+
+
+# This is disabled, because it broke github-#0098.
+#
+# From 807a97fc3ef97811c393266ce57ff8c5afd185d9 Mon Sep 17 00:00:00 2001
+# From: Walter Doekes <walter+github@wjd.nu>
+# Date: Wed, 6 Aug 2014 09:30:48 +0200
+# Subject: [PATCH] Also update local_port value after binding a TCP socket.
+# 
+# The [local_port] will hold the random port that was bound to.
+# ---
+#  src/socket.cpp | 3 +--
+#  1 file changed, 1 insertion(+), 2 deletions(-)
+# 
+# diff --git a/src/socket.cpp b/src/socket.cpp
+# index 9214a2d..74c77b6 100644
+# --- a/src/socket.cpp
+# +++ b/src/socket.cpp
+# @@ -1520,14 +1520,13 @@ int sipp_do_connect_socket(struct sipp_socket *socket)
+#  
+#      if (socket->ss_transport == T_TCP || socket->ss_transport == T_TLS) {
+#          struct sockaddr_storage local_without_port;
+# -        int port = -1;
+#          memcpy(&local_without_port, &local_sockaddr, sizeof(struct sockaddr_storage));
+#          if (local_ip_is_ipv6) {
+#              (_RCAST(struct sockaddr_in6 *, &local_without_port))->sin6_port = htons(0);
+#          } else {
+#              (_RCAST(struct sockaddr_in *, &local_without_port))->sin_port = htons(0);
+#          }
+# -        sipp_bind_socket(socket, &local_without_port, &port);
+# +        sipp_bind_socket(socket, &local_without_port, &local_port);
+#      }
+#  #ifdef USE_SCTP
+#      if (socket->ss_transport == T_SCTP) {
