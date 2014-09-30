@@ -361,16 +361,9 @@ unsigned long get_reply_code(char *msg)
 static const char *internal_find_header(const char *msg, const char *name, const char *shortname,
         bool content)
 {
-    const char *ptr;
+    const char *ptr = msg;
     int namelen = strlen(name);
     int shortnamelen = shortname ? strlen(shortname) : 0;
-
-    /* Seek past request/response line */
-    ptr = strchr(msg, '\n');
-    if (!ptr || ptr == msg || ptr[-1] != '\r') {
-        return NULL;
-    }
-    ++ptr;
 
     while (1) {
         int is_short = 0;
@@ -557,6 +550,28 @@ TEST(Parser, get_call_id_short_2) {
     /* The WS surrounding the colon belongs with HCOLON, but the
      * trailing WS does not. */
     EXPECT_STREQ("testshort2 \t ", get_call_id("...\r\nI:\r\n \r\n \t testshort2 \t \r\n\r\n"));
+}
+
+/* The 3pcc-A script sends "invalid" SIP that is parsed by this
+ * sip_parser.  We must accept headers without any leading request/
+ * response line:
+ *
+ *   <sendCmd>
+ *     <![CDATA[
+ *       Call-ID: [call_id]
+ *       [$1]
+ *     ]]>
+ *   </sendCmd>
+ */
+TEST(Parser, get_call_id_github_101) {
+    const char *input =
+        "Call-ID: 1-18220@127.0.0.1\r\n"
+        "Content-Type: application/sdp\r\n"
+        "Content-Length:   129\r\n\r\n"
+        "v=0\r\no=user1 53655765 2353687637 IN IP4 127.0.0.1\r\n"
+        "s=-\r\nc=IN IP4 127.0.0.1\r\nt=0 0\r\n"
+        "m=audio 6000 RTP/AVP 0\r\na=rtpmap:0 PCMU/8000";
+    EXPECT_STREQ("1-18220@127.0.0.1", get_call_id(input));
 }
 
 #endif //GTEST
