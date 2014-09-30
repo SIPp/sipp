@@ -62,12 +62,13 @@ fail() {
 unexpected_ok() {
     echo "unexpected success"
     cleanup
-    exit 1
+    exit 2
 }
 
 expected_fail() {
     echo "x"
     cleanup
+    test -n "$VERBOSE_EXITSTATUS" && exit 3
     exit 0
 }
 
