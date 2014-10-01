@@ -504,7 +504,7 @@ void pollset_process(int wait)
 #endif
             {
                 /* We can flush this socket. */
-                TRACE_MSG("Exit problem event on socket %d \n", sock->ss_fd);
+                TRACE_MSG("Exit problem event on socket %d\n", sock->ss_fd);
 #ifdef HAVE_EPOLL
                 epollfiles[poll_idx].events &= ~EPOLLOUT;
                 int rc = epoll_ctl(epollfd, EPOLL_CTL_MOD, sock->ss_fd, &epollfiles[poll_idx]);
@@ -530,7 +530,7 @@ void pollset_process(int wait)
             if ((transport == T_TCP || transport == T_TLS || transport == T_SCTP) && sock == main_socket) {
                 struct sipp_socket *new_sock = sipp_accept_socket(sock);
                 if (!new_sock) {
-                    ERROR_NO("Accepting new TCP connection.\n");
+                    ERROR_NO("Accepting new TCP connection.");
                 }
             } else if (sock == ctrl_socket) {
                 handle_ctrl_socket();
@@ -540,7 +540,7 @@ void pollset_process(int wait)
                 if (thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
                     twinSippSocket = sipp_accept_socket(sock);
                     if (!twinSippMode) {
-                        ERROR_NO("Accepting new TCP connection on Twin SIPp Socket.\n");
+                        ERROR_NO("Accepting new TCP connection on Twin SIPp Socket.");
                     }
                     twinSippSocket->ss_control = 1;
                 } else {
@@ -548,7 +548,7 @@ void pollset_process(int wait)
                       which will be used for reading the infos sent by this remote
                       twin sipp instance (slave or master) */
                     if(local_nb == MAX_LOCAL_TWIN_SOCKETS) {
-                        ERROR("Max number of twin instances reached\n");
+                        ERROR("Max number of twin instances reached");
                     }
 
                     struct sipp_socket *localSocket = sipp_accept_socket(sock);
@@ -1218,7 +1218,7 @@ int main(int argc, char *argv[])
     userVariables = new AllocVariableTable(globalVariables);
 
     /* Command line parsing */
-#define REQUIRE_ARG() if((++argi) >= argc) { ERROR("Missing argument for param '%s'.\n" \
+#define REQUIRE_ARG() if((++argi) >= argc) { ERROR("Missing argument for param '%s'." \
 				     "Use 'sipp -h' for details",  argv[argi - 1]); }
 #define CHECK_PASS() if (option->pass != pass) { break; }
 
@@ -1436,7 +1436,7 @@ int main(int argc, char *argv[])
                 }
 
                 if (peripsocket && transport != T_UDP) {
-                    ERROR("You can only use a perip socket with UDP!\n");
+                    ERROR("You can only use a perip socket with UDP!");
                 }
                 break;
             case SIPP_OPTION_NEED_SCTP:
@@ -1511,10 +1511,10 @@ int main(int argc, char *argv[])
                 break;
             case SIPP_OPTION_3PCC:
                 if(slave_masterSet) {
-                    ERROR("-3PCC option is not compatible with -master and -slave options\n");
+                    ERROR("-3PCC option is not compatible with -master and -slave options");
                 }
                 if(extendedTwinSippMode) {
-                    ERROR("-3pcc and -slave_cfg options are not compatible\n");
+                    ERROR("-3pcc and -slave_cfg options are not compatible");
                 }
                 REQUIRE_ARG();
                 CHECK_PASS();
@@ -1546,7 +1546,7 @@ int main(int argc, char *argv[])
                     fprintf(stdout, "%s", default_scenario[i]);
                     exit(EXIT_OTHER);
                 } else {
-                    ERROR("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
+                    ERROR("Internal error, I don't recognize %s as a scenario option", argv[argi] - 1);
                 }
                 break;
             case SIPP_OPTION_OOC_SCENARIO:
@@ -1558,14 +1558,14 @@ int main(int argc, char *argv[])
                     int i = find_scenario(argv[argi]);
                     ooc_scenario = new scenario(0, i);
                 } else {
-                    ERROR("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
+                    ERROR("Internal error, I don't recognize %s as a scenario option", argv[argi] - 1);
                 }
                 break;
             case SIPP_OPTION_SLAVE_CFG:
                 REQUIRE_ARG();
                 CHECK_PASS();
                 if(twinSippMode) {
-                    ERROR("-slave_cfg and -3pcc options are not compatible\n");
+                    ERROR("-slave_cfg and -3pcc options are not compatible");
                 }
                 extendedTwinSippMode = true;
                 slave_cfg_file = new char [strlen(argv[argi])+1] ;
@@ -1576,10 +1576,10 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 if(slave_masterSet) {
-                    ERROR("-slave and -master options are not compatible\n");
+                    ERROR("-slave and -master options are not compatible");
                 }
                 if(twinSippMode) {
-                    ERROR("-master and -slave options are not compatible with -3PCC option\n");
+                    ERROR("-master and -slave options are not compatible with -3PCC option");
                 }
                 *((char **)option->data) = argv[argi];
                 slave_masterSet = true;
@@ -1640,7 +1640,7 @@ int main(int argc, char *argv[])
                 } else if (!strcmp(argv[argi], "loose")) {
                     *((int *)option->data) = RTCHECK_LOOSE;
                 } else {
-                    ERROR("Unknown retransmission detection method: %s\n", argv[argi]);
+                    ERROR("Unknown retransmission detection method: %s", argv[argi]);
                 }
                 break;
             case SIPP_OPTION_TDMMAP: {
@@ -1695,7 +1695,7 @@ int main(int argc, char *argv[])
                         } else if (!strcmp(p, "pingreply")) {
                             mask = DEFAULT_BEHAVIOR_PINGREPLY;
                         } else {
-                            ERROR("Unknown default behavior: '%s'\n", token);
+                            ERROR("Unknown default behavior: '%s'", token);
                         }
                         switch(mode) {
                         case 0:
@@ -1753,13 +1753,13 @@ int main(int argc, char *argv[])
             }
             break;
             default:
-                ERROR("Internal error: I don't recognize the option type for %s\n", argv[argi]);
+                ERROR("Internal error: I don't recognize the option type for %s", argv[argi]);
             }
         }
     }
 
     if((extendedTwinSippMode && !slave_masterSet) || (!extendedTwinSippMode && slave_masterSet)) {
-        ERROR("-slave_cfg option must be used with -slave or -master option\n");
+        ERROR("-slave_cfg option must be used with -slave or -master option");
     }
 
     if (peripsocket) {

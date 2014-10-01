@@ -193,7 +193,7 @@ void manage_oversized_file()
 
     sprintf (L_file_name, "%s_%d_traces_oversized.log", scenario_file, getpid());
     f = fopen(L_file_name, "w");
-    if(!f) ERROR_NO("Unable to open special error file\n");
+    if(!f) ERROR_NO("Unable to open special error file");
     GET_TIME (&currentTime);
     fprintf(f,
             "-------------------------------------------- %s\n"
@@ -274,7 +274,7 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
                          screen_exename, screen_logfile, strerror(errno));
             screen_exit(EXIT_FATAL_ERROR);
         } else {
-            fprintf(error_lfi.fptr, "%s: The following events occured:\n",
+            fprintf(error_lfi.fptr, "%s: The following events occurred:\n",
                     screen_exename);
             fflush(error_lfi.fptr);
         }

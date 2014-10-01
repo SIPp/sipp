@@ -438,7 +438,7 @@ void CStat::setRepartitionCallLength(char * P_listeStr)
                         &M_CallLengthRepartition,
                         &M_SizeOfCallLengthRepartition);
     } else {
-        ERROR("Could not create table for call length repartition '%s'\n", P_listeStr);
+        ERROR("Could not create table for call length repartition '%s'", P_listeStr);
     }
     delete [] listeInteger;
     listeInteger = NULL;
@@ -457,7 +457,7 @@ void CStat::setRepartitionResponseTime (char * P_listeStr)
                             &M_ResponseTimeRepartition[i],
                             &M_SizeOfResponseTimeRepartition);
         } else {
-            ERROR("Could not create table for response time repartition '%s'\n", P_listeStr);
+            ERROR("Could not create table for response time repartition '%s'", P_listeStr);
         }
         delete [] listeInteger;
         listeInteger = NULL;
@@ -697,7 +697,7 @@ int CStat::computeStat (E_Action P_action)
         break;
 
     default :
-        ERROR("CStat::ComputeStat() - Unrecognized Action %d\n", P_action);
+        ERROR("CStat::ComputeStat() - Unrecognized Action %d", P_action);
         return (-1);
     } /* end switch */
     return (0);
@@ -749,7 +749,7 @@ int CStat::globalStat (E_Action P_action)
         M_G_counters [CPT_G_PL_AutoAnswered - E_NB_COUNTER - 1]++;
         break;
     default :
-        ERROR("CStat::ComputeStat() - Unrecognized Action %d\n", P_action);
+        ERROR("CStat::ComputeStat() - Unrecognized Action %d", P_action);
         return (-1);
     } /* end switch */
     return (0);
@@ -889,7 +889,7 @@ int CStat::findCounter(const char *counter, bool alloc)
 
     M_genericCounters = (unsigned long long *)realloc(M_genericCounters, sizeof(unsigned long long) * GENERIC_TYPES * M_genericMap.size());
     if (!M_genericCounters) {
-        ERROR("Could not allocate generic counters!\n");
+        ERROR("Could not allocate generic counters!");
     }
     M_genericCounters[(ret - 1) * GENERIC_TYPES + GENERIC_C] = 0;
     M_genericCounters[(ret - 1) * GENERIC_TYPES + GENERIC_PD] = 0;
@@ -918,7 +918,7 @@ int CStat::findRtd(const char *name, bool start)
 
     M_rtdInfo = (unsigned long long *)realloc(M_rtdInfo, sizeof(unsigned long long) * RTD_TYPES * GENERIC_TYPES * M_rtdMap.size());
     if (!M_rtdInfo) {
-        ERROR("Could not allocate RTD info!\n");
+        ERROR("Could not allocate RTD info!");
     }
     M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) +  RTD_COUNT] = 0;
     M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) +  RTD_SUM] = 0;
@@ -934,7 +934,7 @@ int CStat::findRtd(const char *name, bool start)
 
     M_ResponseTimeRepartition = (T_dynamicalRepartition **)realloc(M_ResponseTimeRepartition, sizeof(T_dynamicalRepartition *) * M_rtdMap.size());
     if (!M_ResponseTimeRepartition) {
-        ERROR("Could not allocate RTD info!\n");
+        ERROR("Could not allocate RTD info!");
     }
     M_ResponseTimeRepartition[ret - 1] = NULL;
 
@@ -1010,7 +1010,7 @@ int CStat::computeStat (E_Action P_action,
         break;
 
     default :
-        ERROR("CStat::ComputeStat() - Unrecognized Action %d\n", P_action);
+        ERROR("CStat::ComputeStat() - Unrecognized Action %d", P_action);
         return (-1);
     } /* end switch */
     return (0);
@@ -1856,7 +1856,7 @@ gsl_rng *gsl_init()
     gsl_rng_env_setup();
     rng = gsl_rng_alloc(gsl_rng_default);
     if (!rng) {
-        ERROR("Could not initialize GSL random number generator.\n");
+        ERROR("Could not initialize GSL random number generator.");
     }
 
     return rng;

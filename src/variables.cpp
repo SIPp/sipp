@@ -373,7 +373,7 @@ void AllocVariableTable::validate()
             const char *varName = var_it->first.c_str();
             int varRef = variableReferences[var_it->second];
             if (strcmp(varName, "_") != 0) {
-                ERROR("Variable $%s is referenced %d times!\n", varName, varRef);
+                ERROR("Variable $%s is referenced %d times!", varName, varRef);
             }
         }
     }

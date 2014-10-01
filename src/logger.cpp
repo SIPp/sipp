@@ -235,7 +235,8 @@ void print_statistics(int last)
 
         if(first) {
             first = 0;
-            printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+            printf("\r"
+                   "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
                    "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
         }
         if (command_mode) {
@@ -287,8 +288,8 @@ void print_statistics(int last)
             printf("Command: %s", command_buffer ? command_buffer : "");
             fflush(stdout);
         }
-        if(last) {
-            fprintf(stdout,"\n");
+        if (last) {
+            printf(SIPP_ENDL);
         }
     }
 }
@@ -652,7 +653,7 @@ void print_stats_in_file(FILE * f)
                     "",
                     "");
         } else {
-            ERROR("Scenario command not implemented in display\n");
+            ERROR("Scenario command not implemented in display");
         }
 
         if(lose_packets && (curmsg -> nb_lost)) {

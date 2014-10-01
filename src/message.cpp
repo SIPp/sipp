@@ -278,14 +278,14 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
                 getKeywordParam(keyword, "file=", fileName);
                 if (fileName[0] == '\0') {
                     if (!default_file) {
-                        ERROR("No injection file was specified!\n");
+                        ERROR("No injection file was specified!");
                     }
                     newcomp->comp_param.field_param.filename = strdup(default_file);
                 } else {
                     newcomp->comp_param.field_param.filename = strdup(fileName);
                 }
                 if (inFiles.find(newcomp->comp_param.field_param.filename) == inFiles.end()) {
-                    ERROR("Invalid injection file: %s\n", fileName);
+                    ERROR("Invalid injection file: %s", fileName);
                 }
 
                 char line[KEYWORD_SIZE];
@@ -301,7 +301,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
                 char fileName[KEYWORD_SIZE];
                 getKeywordParam(keyword, "name=", fileName);
                 if (fileName[0] == '\0') {
-                    ERROR("No name specified for 'file' keyword!\n");
+                    ERROR("No name specified for 'file' keyword!");
                 }
                 /* Turn this into a new message component. */
                 newcomp->comp_param.filename = new SendingMessage(msg_scenario, fileName, true);
@@ -337,7 +337,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
             }
 #ifndef PCAPPLAY
        else if(!strcmp(keyword, "auto_media_port")) {
-                ERROR("The %s keyword requires PCAPPLAY.\n", keyword);
+                ERROR("The %s keyword requires PCAPPLAY.", keyword);
             }
 #endif
             else {
@@ -396,7 +396,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
         ERROR("Can not create a message that is empty!");
     }
     if (getComponent(0)->type != E_Message_Literal) {
-        ERROR("You can not use a keyword for the METHOD or to generate \"SIP/2.0\" to ensure proper [cseq] operation!\n%s\n", osrc);
+        ERROR("You can not use a keyword for the METHOD or to generate \"SIP/2.0\" to ensure proper [cseq] operation!\n%s", osrc);
     }
 
     char *p = method = strdup(getComponent(0)->literal);
@@ -405,7 +405,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
         p++;
     }
     if (!(q = strchr(method, ' '))) {
-        ERROR("You can not use a keyword for the METHOD or to generate \"SIP/2.0\" to ensure proper [cseq] operation!%s\n", osrc);
+        ERROR("You can not use a keyword for the METHOD or to generate \"SIP/2.0\" to ensure proper [cseq] operation!%s", osrc);
     }
     *q++ = '\0';
     while (isspace(*q)) {
@@ -415,7 +415,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
         char *endptr;
         code = strtol(q, &endptr, 10);
         if (*endptr && !isspace(*endptr)) {
-            ERROR("Invalid reply code: %s\n", q);
+            ERROR("Invalid reply code: %s", q);
         }
         if (code < 100 || code >= 700) {
             ERROR("Response codes must be in the range of 100-700");
@@ -622,7 +622,7 @@ struct MessageComponent *SendingMessage::getComponent(int i) {
 int registerKeyword(char *keyword, customKeyword fxn)
 {
     if (keyword_map.find(keyword) != keyword_map.end()) {
-        ERROR("Can not register keyword '%s', already registered!\n", keyword);
+        ERROR("Can not register keyword '%s', already registered!", keyword);
     }
     keyword_map[keyword] = fxn;
     return 0;

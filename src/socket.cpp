@@ -555,7 +555,7 @@ void setup_ctrl_socket()
 
     ctrl_socket = sipp_allocate_socket(0, T_UDP, sock, 0);
     if (!ctrl_socket) {
-        ERROR_NO("Could not setup control socket!\n");
+        ERROR_NO("Could not setup control socket!");
     }
 }
 
@@ -570,7 +570,7 @@ void setup_stdin_socket()
     atexit(reset_stdin);
     stdin_socket = sipp_allocate_socket(0, T_UDP, fileno(stdin), 0);
     if (!stdin_socket) {
-        ERROR_NO("Could not setup keyboard (stdin) socket!\n");
+        ERROR_NO("Could not setup keyboard (stdin) socket!");
     }
 }
 
@@ -1275,11 +1275,11 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
 
     if ( transport == T_TLS ) {
         if ((ret->ss_bio = BIO_new_socket(fd, BIO_NOCLOSE)) == NULL) {
-            ERROR("Unable to create BIO object:Problem with BIO_new_socket()\n");
+            ERROR("Unable to create BIO object:Problem with BIO_new_socket()");
         }
 
         if (!(ret->ss_ssl = SSL_new(accepting ? sip_trp_ssl_ctx : sip_trp_ssl_ctx_client))) {
-            ERROR("Unable to create SSL object : Problem with SSL_new() \n");
+            ERROR("Unable to create SSL object : Problem with SSL_new()");
         }
 
         SSL_set_bio(ret->ss_ssl, ret->ss_bio, ret->ss_bio);
@@ -1334,7 +1334,7 @@ int socket_fd(bool use_ipv6, int transport)
         break;
     case T_SCTP:
 #ifndef USE_SCTP
-        ERROR("You do not have SCTP support enabled!\n");
+        ERROR("You do not have SCTP support enabled!");
 #else
         socket_type = SOCK_STREAM;
         protocol = IPPROTO_SCTP;
@@ -1342,7 +1342,7 @@ int socket_fd(bool use_ipv6, int transport)
         break;
     case T_TLS:
 #ifndef _USE_OPENSSL
-        ERROR("You do not have TLS support enabled!\n");
+        ERROR("You do not have TLS support enabled!");
 #endif
     case T_TCP:
         socket_type = SOCK_STREAM;
@@ -1467,7 +1467,7 @@ struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket) {
 #ifdef _USE_OPENSSL
         int err;
         if ((err = SSL_accept(ret->ss_ssl)) < 0) {
-            ERROR("Error in SSL_accept: %s\n", sip_tls_error_string(accept_socket->ss_ssl, err));
+            ERROR("Error in SSL_accept: %s", sip_tls_error_string(accept_socket->ss_ssl, err));
         }
 #else
         ERROR("You need to compile SIPp with TLS support");
@@ -1580,7 +1580,7 @@ int sipp_do_connect_socket(struct sipp_socket *socket)
 #ifdef _USE_OPENSSL
         int err;
         if ((err = SSL_connect(socket->ss_ssl)) < 0) {
-            ERROR("Error in SSL connection: %s\n", sip_tls_error_string(socket->ss_ssl, err));
+            ERROR("Error in SSL connection: %s", sip_tls_error_string(socket->ss_ssl, err));
         }
 #else
         ERROR("You need to compile SIPp with TLS support");
@@ -1622,11 +1622,11 @@ int sipp_reconnect_socket(struct sipp_socket *socket)
 
         if ( transport == T_TLS ) {
             if ((socket->ss_bio = BIO_new_socket(socket->ss_fd, BIO_NOCLOSE)) == NULL) {
-                ERROR("Unable to create BIO object:Problem with BIO_new_socket()\n");
+                ERROR("Unable to create BIO object:Problem with BIO_new_socket()");
             }
 
             if (!(socket->ss_ssl = SSL_new(sip_trp_ssl_ctx_client))) {
-                ERROR("Unable to create SSL object : Problem with SSL_new() \n");
+                ERROR("Unable to create SSL object : Problem with SSL_new()");
             }
 
             SSL_set_bio(socket->ss_ssl, socket->ss_bio, socket->ss_bio);
@@ -1667,13 +1667,13 @@ struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy, struct so
 
     socketbuf = (struct socketbuf *)malloc(sizeof(struct socketbuf));
     if (!socketbuf) {
-        ERROR("Could not allocate socket buffer!\n");
+        ERROR("Could not allocate socket buffer!");
     }
     memset(socketbuf, 0, sizeof(struct socketbuf));
     if (copy) {
         socketbuf->buf = (char *)malloc(size);
         if (!socketbuf->buf) {
-            ERROR("Could not allocate socket buffer data!\n");
+            ERROR("Could not allocate socket buffer data!");
         }
         memcpy(socketbuf->buf, buffer, size);
     } else {
@@ -2273,7 +2273,7 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, const char *bu
 
     /* Refuse to write to invalid sockets. */
     if (socket->ss_invalid) {
-        WARNING("Returning EPIPE on invalid socket: %p (%d)\n", socket, socket->ss_fd);
+        WARNING("Returning EPIPE on invalid socket: %p (%d)", socket, socket->ss_fd);
         errno = EPIPE;
         return -1;
     }
@@ -2333,7 +2333,7 @@ static ssize_t socket_write_primitive(struct sipp_socket *socket, const char *bu
         break;
 
     default:
-        ERROR("Internal error, unknown transport type %d\n", socket->ss_transport);
+        ERROR("Internal error, unknown transport type %d", socket->ss_transport);
     }
 
     return rc;
@@ -2794,7 +2794,7 @@ int open_connections()
 
         if (sipp_connect_socket(tcp_multiplex, &remote_sockaddr)) {
             if (reset_number > 0) {
-                WARNING("Failed to reconnect\n");
+                WARNING("Failed to reconnect");
                 sipp_close_socket(main_socket);
                 reset_number--;
                 return 1;
@@ -2827,7 +2827,7 @@ int open_connections()
             connect_local_twin_socket(twinSippHost);
         } else {
             ERROR("TwinSipp Mode enabled but thirdPartyMode is different "
-                  "from 3PCC_CONTROLLER_B and 3PCC_CONTROLLER_A\n");
+                  "from 3PCC_CONTROLLER_B and 3PCC_CONTROLLER_A");
         }
     } else if (extendedTwinSippMode) {
         if (thirdPartyMode == MODE_MASTER || thirdPartyMode == MODE_MASTER_PASSIVE) {
@@ -2841,7 +2841,7 @@ int open_connections()
             connect_local_twin_socket(twinSippHost);
         } else {
             ERROR("extendedTwinSipp Mode enabled but thirdPartyMode is different "
-                  "from MASTER and SLAVE\n");
+                  "from MASTER and SLAVE");
         }
     }
 
@@ -2919,7 +2919,7 @@ struct sipp_socket **get_peer_socket(char * peer) {
         peer_socket = &(infos.peer_socket);
         return peer_socket;
     } else {
-        ERROR("get_peer_socket: Peer %s not found\n", peer);
+        ERROR("get_peer_socket: Peer %s not found", peer);
     }
     return NULL;
 }
@@ -2933,7 +2933,7 @@ char * get_peer_addr(char * peer)
         addr =  peer_addr_it->second;
         return addr;
     } else {
-        ERROR("get_peer_addr: Peer %s not found\n", peer);
+        ERROR("get_peer_addr: Peer %s not found", peer);
     }
     return NULL;
 }

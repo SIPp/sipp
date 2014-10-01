@@ -54,11 +54,11 @@ int  SSL_ERROR(void)
         char temp_buffer[1024];
 
         sprintf(temp_buffer,"Error code: %lu in %s Line %d.\n",code,file,line);
-        /*WARNING("SSL Error : %s\n",temp_buffer);*/
+        /*WARNING("SSL Error : %s",temp_buffer);*/
 
         if (data && (flags & ERR_TXT_STRING)) {
             sprintf(temp_buffer,"Error data : %s\n",data);
-            /*WARNING("SSL Error : %s\n",temp_buffer);*/
+            /*WARNING("SSL Error : %s",temp_buffer);*/
         }
         code = ERR_get_error_line_data(&file,&line,&data,&flags);
     }

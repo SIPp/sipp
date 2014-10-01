@@ -211,7 +211,7 @@ uint16_t get_remote_port_media(const char *msg, int pattype)
     } else if (pattype == PAT_VIDEO) {
         pattern = "m=video ";
     } else {
-        ERROR("Internal error: Undefined media pattern %d\n", 3);
+        ERROR("Internal error: Undefined media pattern %d", 3);
     }
 
     char *my_msg = strdup(msg);
@@ -407,7 +407,7 @@ unsigned long call::hash(const char * msg)
             }
         }
     } else {
-        ERROR("Internal error: Invalid rtcheck %d\n", rtcheck);
+        ERROR("Internal error: Invalid rtcheck %d", rtcheck);
     }
 
     return hash;
@@ -1123,7 +1123,7 @@ char * call::get_last_request_uri()
     }
 
     if (!(last_request_uri = (char *)malloc(tmp_len + 1))) {
-        ERROR("Cannot allocate !\n");
+        ERROR("Cannot allocate !");
     }
 
     last_request_uri[0] = '\0';
@@ -1584,12 +1584,12 @@ bool call::run()
     message *curmsg;
     if (initCall) {
         if(msg_index >= (int)call_scenario->initmessages.size()) {
-            ERROR("Scenario initialization overrun for call %s (%p) (index = %d)\n", id, this, msg_index);
+            ERROR("Scenario initialization overrun for call %s (%p) (index = %d)", id, this, msg_index);
         }
         curmsg = call_scenario->initmessages[msg_index];
     } else {
         if(msg_index >= (int)call_scenario->messages.size()) {
-            ERROR("Scenario overrun for call %s (%p) (index = %d)\n", id, this, msg_index);
+            ERROR("Scenario overrun for call %s (%p) (index = %d)", id, this, msg_index);
         }
         curmsg = call_scenario->messages[msg_index];
     }
@@ -2134,7 +2134,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 begin--;
             }
             if (begin == msg_buffer) {
-                ERROR("Can not find beginning of a line for the media port!\n");
+                ERROR("Can not find beginning of a line for the media port!");
             }
             if (strstr(begin, "audio")) {
                 if (media_ip_is_ipv6) {
@@ -2226,7 +2226,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         case E_Message_Authentication:
             if (auth_marker) {
-                ERROR("Only one [authentication] keyword is currently supported!\n");
+                ERROR("Only one [authentication] keyword is currently supported!");
             }
             auth_marker = dest;
             dest += snprintf(dest, left, "[authentication place holder]");
@@ -2315,7 +2315,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             createSendingMessage(comp->comp_param.filename, -2, buffer, sizeof(buffer));
             FILE *f = fopen(buffer, "r");
             if (!f) {
-                ERROR("Could not open '%s': %s\n", buffer, strerror(errno));
+                ERROR("Could not open '%s': %s", buffer, strerror(errno));
             }
             int ret;
             while ((ret = fread(dest, 1, left, f)) > 0) {
@@ -2323,7 +2323,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 dest += ret;
             }
             if (ret < 0) {
-                ERROR("Error reading '%s': %s\n", buffer, strerror(errno));
+                ERROR("Error reading '%s': %s", buffer, strerror(errno));
             }
             fclose(f);
             break;
@@ -2334,7 +2334,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             /* We are injecting an authentication line. */
             if (char *tmp = strstr(orig_dest, "[authentication")) {
                 if (auth_marker) {
-                    ERROR("Only one [authentication] keyword is currently supported!\n");
+                    ERROR("Only one [authentication] keyword is currently supported!");
                 }
                 auth_marker = tmp;
                 auth_comp = (struct MessageComponent *)calloc(1, sizeof(struct MessageComponent));
@@ -3452,7 +3452,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                     }
                 }
             } else {
-                ERROR("Invalid looking place: %d\n", currentAction->getLookingPlace());
+                ERROR("Invalid looking place: %d", currentAction->getLookingPlace());
             }
             bool did_match = (currentAction->executeRegExp(haystack, M_callVariableTable) > 0);
 
