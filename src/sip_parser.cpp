@@ -563,7 +563,7 @@ TEST(Parser, get_call_id_short_2) {
  *     ]]>
  *   </sendCmd>
  */
-TEST(Parser, get_call_id_github_101) {
+TEST(Parser, get_call_id_github_0101) { // github-#0101
     const char *input =
         "Call-ID: 1-18220@127.0.0.1\r\n"
         "Content-Type: application/sdp\r\n"

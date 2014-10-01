@@ -1,5 +1,6 @@
 #!/bin/sh
-# vim: set ts=8 sw=4 sts=4 et ai:
+# This regression test is a part of SIPp.
+# Author: Walter Doekes, OSSO B.V., 2014
 
 # Don't run from anywhere else than here!
 cd `dirname "$0"`
@@ -39,3 +40,5 @@ echo
 test $fail -ne 0 && exit 1
 test $unexpected_ok -ne 0 && exit 2
 exit 0
+
+# vim: set ts=8 sw=4 sts=4 et ai:
