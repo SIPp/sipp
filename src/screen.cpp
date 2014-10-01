@@ -228,6 +228,11 @@ void screen_init(void (*exit_handler)())
         initscr();
         /* Enhance performances and display */
         noecho();
+        /* logger.cpp counts on line buffering to properly print out the
+         * information on the screen. On the Mac OSX stdout is not
+         * always line-buffered by default and this causes issue.
+         * See github-#0076. */
+        setlinebuf(stdout);
     }
 
     /* Map exit handlers to curses reset procedure */

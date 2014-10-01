@@ -281,7 +281,6 @@ void print_statistics(int last)
             } else {
                 printf("Last Error: %s" SIPP_ENDL, errstart);
             }
-            sipp_usleep(100);
             fflush(stdout);
         }
         if (command_mode) {
