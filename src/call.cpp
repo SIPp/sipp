@@ -1508,12 +1508,6 @@ bool call::executeMessage(message *curmsg)
     } else if (curmsg->M_type == MSG_TYPE_RECV
                || curmsg->M_type == MSG_TYPE_RECVCMD
               ) {
-#ifdef PCAPPLAY
-        /* Disable sdp detection  */
-        if(hasMedia == 1 && curmsg->skipsdp == 1){
-            hasMedia = 0;
-        } 
-#endif
         if (queued_msg) {
             char *msg = queued_msg;
             queued_msg = NULL;
@@ -2885,6 +2879,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     callDebug("Processing %d byte incoming message for call-ID %s (hash %u):\n%s\n\n", strlen(msg), id, hash(msg), msg);
 
     setRunning();
+    message *curmsg = call_scenario->messages[msg_index];
 
     /* Ignore the messages received during a pause if -pause_msg_ign is set */
     if(call_scenario->messages[msg_index] -> M_type == MSG_TYPE_PAUSE && pause_msg_ign) return(true);
@@ -2959,7 +2954,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
 #ifdef RTP_STREAM
   /* Check if message has a SDP in it; and extract media information. */
   if (!strcmp(get_header_content(msg, (char*)"Content-Type:"),"application/sdp") &&
-          (hasMedia == 1)) {
+          (hasMedia == 1) && (curmsg->skipsdp == 0) ) {
     extract_rtp_remote_addr(msg);
   }
 #endif
@@ -2979,7 +2974,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
                 return false; // Call aborted by unexpected message handling
             }
 #ifdef PCAPPLAY
-        } else if ((hasMedia == 1) && *(strstr(msg, "\r\n\r\n")+4) != '\0') {
+        } else if ((hasMedia == 1) && (curmsg->skipsdp == 0) && *(strstr(msg, "\r\n\r\n")+4) != '\0') {
             /* Get media info if we find something like an SDP */
             get_remote_media_addr(msg);
 #endif
@@ -3017,7 +3012,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
             if (((strncmp(request, "INVITE", 6) == 0)
                     || (strncmp(request, "ACK", 3) == 0)
                     || (strncmp(request, "PRACK", 5) == 0))
-                    && (hasMedia == 1))
+                    && (hasMedia == 1) && (curmsg->skipsdp == 0))
                 get_remote_media_addr(msg);
 #endif
 
