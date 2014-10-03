@@ -9,18 +9,26 @@ init() {
     echo -n "Testing `basename \`pwd\``: "
 }
 
-get_root() {
-    tmp=`pwd`
-    while ! test -x "$tmp/sipp"; do
-        tmp=`dirname "$tmp"`
-        test "$tmp" = "/" && break
-    done
-    test -x "$tmp/sipp" || exit 1
-    echo "$tmp"
+# Allow SIPP=/path/to/sipp to override autodetection.  Please use an
+# absolute path.  This allows you to test a different version.
+get_sipp() {
+    if test -z "$SIPP"; then
+        # The cd in init() jumps to the directory where the test lives.
+        # We traverse upwards in the directory until we find the sipp
+        # binary.
+        tmp=`pwd`
+        while ! test -x "$tmp/sipp"; do
+            tmp=`dirname "$tmp"`
+            test "$tmp" = "/" && break
+        done
+        test -x "$tmp/sipp" || exit 1
+        SIPP="$tmp/sipp"
+    fi
+    echo "$SIPP"
 }
 
 sipp() {
-    exec `get_root`/sipp "$@"
+    exec "`get_sipp`" "$@"
 }
 
 sippbg() {

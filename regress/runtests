@@ -31,8 +31,8 @@ done
 
 echo "=="
 echo -n "$ok success"
-test $fail -ne 0 && echo -n ", $fail failure"
-test $unexpected_ok -ne 0 && echo -n ", $unexpected_ok unexpected success"
+test $fail -ne 0 && echo -n ", $fail FAILURE"
+test $unexpected_ok -ne 0 && echo -n ", $unexpected_ok UNEXPECTED SUCCESS"
 test $expected_fail -ne 0 && echo -n ", $expected_fail expected failure"
 echo
 
