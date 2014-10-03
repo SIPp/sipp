@@ -228,12 +228,12 @@ void print_statistics(int last)
     extern int command_mode;
     extern char *command_buffer;
 
-    if(backgroundMode == false && display_scenario) {
-        if(!last) {
+    if (backgroundMode == false && display_scenario) {
+        if (!last) {
             screen_clear();
         }
 
-        if(first) {
+        if (first) {
             first = 0;
             printf("\r"
                    "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
@@ -264,7 +264,7 @@ void print_statistics(int last)
             print_stats_in_file(stdout);
             break;
         }
-        print_bottom_line(stdout,last);
+        print_bottom_line(stdout, last);
         if (!last && screen_last_error[0]) {
             char *errstart = screen_last_error;
             int colonsleft = 3;/* We want to skip the time. */
@@ -282,15 +282,15 @@ void print_statistics(int last)
             } else {
                 printf("Last Error: %s" SIPP_ENDL, errstart);
             }
-            fflush(stdout);
         }
         if (command_mode) {
             printf("Command: %s", command_buffer ? command_buffer : "");
-            fflush(stdout);
         }
         if (last) {
             printf(SIPP_ENDL);
         }
+        fflush(stdout);
+        refresh();
     }
 }
 
