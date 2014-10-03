@@ -3343,10 +3343,9 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
 
     /* If this was a mandatory message, or if there is an explicit next label set
      * we must update our state machine.  */
-    if ((!(call_scenario->messages[search_index] -> optional)
-            || call_scenario->messages[search_index]->next)
-            && (((test == -1) || (M_callVariableTable->getVar(test)->isSet())))
-       ) {
+    if (!call_scenario->messages[search_index]->optional ||
+            (call_scenario->messages[search_index]->next &&
+             (test == -1 || M_callVariableTable->getVar(test)->isSet()))) {
         /* If we are paused, then we need to wake up so that we properly go through the state machine. */
         paused_until = 0;
         msg_index = search_index;
