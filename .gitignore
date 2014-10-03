@@ -14,8 +14,10 @@ test-driver
 *.log
 *.csv
 vim_ctags
-*.xml
 stamp-h.in
 *.orig
 *.rej
 *.patch
+
+# Ignore *.xml in root dir, but not in regression tests dir.
+/*.xml
