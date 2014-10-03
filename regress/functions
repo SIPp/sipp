@@ -1,4 +1,5 @@
-# vim: set syn=sh ts=8 sw=4 sts=4 et ai:
+# This regression test is a part of SIPp.
+# Author: Walter Doekes, OSSO B.V., 2014
 
 init() {
     # Jump into the directory where the test is.
@@ -62,14 +63,17 @@ fail() {
 unexpected_ok() {
     echo "unexpected success"
     cleanup
-    exit 1
+    exit 2
 }
 
 expected_fail() {
     echo "x"
     cleanup
+    test -n "$VERBOSE_EXITSTATUS" && exit 3
     exit 0
 }
 
-# Workaround when no term is set.
+# Workaround when no term is set. See also github-#0075.
 export TERM=dumb
+
+# vim: set syn=sh ts=8 sw=4 sts=4 et ai:
