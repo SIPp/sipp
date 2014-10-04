@@ -356,6 +356,8 @@ struct sipp_option options_table[] = {
     {"calldebug_overwrite", "Overwrite the call debug file (default true).", SIPP_OPTION_LFOVERWRITE, &calldebug_lfi, 1},
 
     {"trace_screen", "Dump statistic screens in the <scenario_name>_<pid>_screens.log file when quitting SIPp. Useful to get a final status report in background mode (-bg option).", SIPP_OPTION_SETFLAG, &useScreenf, 1},
+    {"screen_file", "Set the name of the screen file.", SIPP_OPTION_LFNAME, &screen_lfi, 1},
+    {"screen_overwrite", "Overwrite the screen file (default true).", SIPP_OPTION_LFOVERWRITE, &screen_lfi, 1},
 
     {"trace_rtt", "Allow tracing of all response times in <scenario file name>_<pid>_rtt.csv.", SIPP_OPTION_SETFLAG, &dumpInRtt, 1},
     {"rtt_freq", "freq is mandatory. Dump response times every freq calls in the log file defined by -trace_rtt. Default value is 200.",
@@ -698,18 +700,13 @@ void traffic_thread()
 
         if (signalDump) {
             /* Screen dumping in a file */
-            if (screenf) {
+            if (useScreenf == 1) {
                 print_screens();
             } else {
                 /* If the -trace_screen option has not been set, */
                 /* create the file at this occasion              */
-                screenf = fopen(L_file_name, "a");
-                if (!screenf) {
-                    WARNING("Unable to create '%s'", L_file_name);
-                }
+                rotate_screenf();
                 print_screens();
-                fclose(screenf);
-                screenf = 0;
             }
 
             if(dumpInRtt) {
@@ -745,7 +742,7 @@ void traffic_thread()
 
                 screentask::report(true);
                 stattask::report();
-                if (screenf) {
+                if (useScreenf == 1) {
                     print_screens();
                 }
 
@@ -1802,12 +1799,7 @@ int main(int argc, char *argv[])
     }
 
     if (useScreenf == 1) {
-        char L_file_name [MAX_PATH];
-        sprintf (L_file_name, "%s_%d_screen.log", scenario_file, getpid());
-        screenf = fopen(L_file_name, "w");
-        if(!screenf) {
-            ERROR("Unable to create '%s'", L_file_name);
-        }
+        rotate_screenf();
     }
 
     // TODO: finish the -trace_timeout option implementation
