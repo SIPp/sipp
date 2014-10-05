@@ -73,6 +73,7 @@ void log_off(struct logfile_info *lfi);
 #endif
 LOGFILE(calldebug_lfi, "calldebug", true);
 LOGFILE(message_lfi, "messages", true);
+LOGFILE(screen_lfi, "screen", true);
 LOGFILE(shortmessage_lfi, "shortmessages", true);
 LOGFILE(log_lfi, "logs", true);
 LOGFILE(error_lfi, "errors", false);
@@ -81,6 +82,7 @@ void rotate_logfile();
 void rotate_shortmessagef();
 void rotate_errorf();
 void rotate_messagef();
+void rotate_screenf();
 void rotate_calldebugf();
 
 /* Screen/Statistics Printing Functions. */

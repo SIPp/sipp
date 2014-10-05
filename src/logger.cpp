@@ -828,25 +828,25 @@ void print_screens(void)
     int oldRepartition = currentRepartitionToDisplay;
 
     currentScreenToDisplay = DISPLAY_SCENARIO_SCREEN;
-    print_header_line(   screenf);
-    print_stats_in_file( screenf);
-    print_bottom_line(   screenf, NOTLAST);
+    print_header_line(   screen_lfi.fptr);
+    print_stats_in_file( screen_lfi.fptr);
+    print_bottom_line(   screen_lfi.fptr, NOTLAST);
 
     currentScreenToDisplay = DISPLAY_STAT_SCREEN;
-    print_header_line(   screenf);
-    display_scenario->stats->displayStat(screenf);
-    print_bottom_line(   screenf, NOTLAST);
+    print_header_line(   screen_lfi.fptr);
+    display_scenario->stats->displayStat(screen_lfi.fptr);
+    print_bottom_line(   screen_lfi.fptr, NOTLAST);
 
     currentScreenToDisplay = DISPLAY_REPARTITION_SCREEN;
-    print_header_line(   screenf);
-    display_scenario->stats->displayRepartition(screenf);
-    print_bottom_line(   screenf, NOTLAST);
+    print_header_line(   screen_lfi.fptr);
+    display_scenario->stats->displayRepartition(screen_lfi.fptr);
+    print_bottom_line(   screen_lfi.fptr, NOTLAST);
 
     currentScreenToDisplay = DISPLAY_SECONDARY_REPARTITION_SCREEN;
     for (currentRepartitionToDisplay = 2; currentRepartitionToDisplay <= display_scenario->stats->nRtds(); currentRepartitionToDisplay++) {
-        print_header_line(   screenf);
-        display_scenario->stats->displayRtdRepartition(screenf, currentRepartitionToDisplay);
-        print_bottom_line(   screenf, NOTLAST);
+        print_header_line(   screen_lfi.fptr);
+        display_scenario->stats->displayRtdRepartition(screen_lfi.fptr, currentRepartitionToDisplay);
+        print_bottom_line(   screen_lfi.fptr, NOTLAST);
     }
 
     currentScreenToDisplay = oldScreen;
@@ -907,6 +907,11 @@ void rotatef(struct logfile_info *lfi)
         /* We can not use the error functions from this function, as we may be rotating the error log itself! */
         ERROR("Unable to create '%s'", lfi->file_name);
     }
+}
+
+void rotate_screenf()
+{
+    rotatef(&screen_lfi);
 }
 
 void rotate_calldebugf()
