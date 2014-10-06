@@ -51,6 +51,7 @@ common_incl = include/comp.h \
 	        include/message.hpp \
 	        include/milenage.h \
 	        include/call_generation_task.hpp \
+	        include/ratetask.hpp \
 	        include/reporttask.hpp \
 	        include/rijndael.h \
 	        include/scenario.hpp \
@@ -82,6 +83,7 @@ common_SOURCES = src/actions.cpp \
 	       src/message.cpp \
 	       src/milenage.c \
 	       src/call_generation_task.cpp \
+	       src/ratetask.cpp \
 	       src/reporttask.cpp \
 	       src/rijndael.c \
 	       src/scenario.cpp \
