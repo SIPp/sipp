@@ -135,8 +135,8 @@ if test "$pcap" = 'yes'; then
 	AC_CHECK_HEADERS([pcap.h],,[AC_MSG_ERROR([<pcap.h> header missing])])
 	AC_SEARCH_LIBS([pcap_open_offline],[pcap wpcap],,[AC_MSG_ERROR([pcap library missing])])
 	AC_SEARCH_LIBS([pcap_next],[pcap wpcap],,[AC_MSG_ERROR([pcap library missing])])
-	AC_SEARCH_LIBS([pcap_next_ex],[pcap wpcap],,[AC_MSG_ERROR([pcap library missing])])
 	AC_SEARCH_LIBS([pcap_close],[pcap wpcap],,[AC_MSG_ERROR([pcap library missing])])
+	AC_CHECK_LIB([pcap], [pcap_next_ex], AC_DEFINE_UNQUOTED(HAVE_PCAP_NEXT_EX, 1, [pcap has pcap_next_ex]))
 fi
 # For Makefile.am
 AM_CONDITIONAL(HAVE_PCAP, test "$pcap" = "yes")
