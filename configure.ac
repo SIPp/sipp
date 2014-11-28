@@ -138,8 +138,8 @@ if test "$pcap" = 'yes'; then
 	AC_CHECK_HEADERS([pcap.h],,[AC_MSG_ERROR([<pcap.h> header missing])])
 	AC_SEARCH_LIBS([pcap_open_offline],[pcap wpcap],,[AC_MSG_ERROR([pcap library missing])])
 	AC_SEARCH_LIBS([pcap_next],[pcap wpcap],,[AC_MSG_ERROR([pcap library missing])])
-	AC_SEARCH_LIBS([pcap_next_ex],[pcap wpcap],,[AC_MSG_ERROR([pcap library missing])])
 	AC_SEARCH_LIBS([pcap_close],[pcap wpcap],,[AC_MSG_ERROR([pcap library missing])])
+	AC_CHECK_LIB([pcap], [pcap_next_ex], AC_DEFINE_UNQUOTED(HAVE_PCAP_NEXT_EX, 1, [pcap has pcap_next_ex]))
 fi
 # For Makefile.am
 AM_CONDITIONAL(HAVE_PCAP, test "$pcap" = "yes")
@@ -167,13 +167,22 @@ fi
 # For Makefile.am
 AM_CONDITIONAL(HAVE_GSL, test "$gsl" = "yes")
 
-AX_HAVE_EPOLL([AX_CONFIG_FEATURE_ENABLE(epoll)],
-    [AX_CONFIG_FEATURE_DISABLE(epoll)])
-AX_CONFIG_FEATURE([epoll], [This platform supports epoll(7)],
-    [HAVE_EPOLL], [This platform supports epoll(7).],
-    [epoll="yes"], [epoll="no"])
+AC_MSG_CHECKING([for linux epoll(4)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM(
+	[
+	#ifndef __linux__
+	#error This is not Linux
+	#endif
+	#include <sys/epoll.h>
+	],
+	[epoll_create(1);])],
+	[epoll=yes],
+	[epoll=no])
+AC_MSG_RESULT([$epoll])
 
+# For Makefile.am
 AM_CONDITIONAL(HAVE_EPOLL, test "$epoll" = "yes")
+
 # ==================== checks for header files ==========================
 
 AC_FUNC_ALLOCA
