@@ -3,7 +3,10 @@
 AC_INIT([SIPp], [3.4.1], [sipp-users@lists.sourceforge.net], [sipp])
 
 # Load non-standard m4 files from ./m4/*.m4.
-AC_CONFIG_MACRO_DIRS([m4])
+#AC_CONFIG_MACRO_DIRS([m4])
+
+m4_include([m4/ax_config_feature.m4])
+m4_include([m4/ax_have_epoll.m4])
 
 AC_CANONICAL_TARGET
 
