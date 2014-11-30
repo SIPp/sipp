@@ -525,6 +525,8 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
 
 #ifdef PCAPPLAY
     hasMediaInformation = 0;
+    play_args_a.last_seq_no = 1200;
+    play_args_v.last_seq_no = 2400;
 #endif
 
     call_remote_socket = NULL;
@@ -3829,14 +3831,36 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             }
 #ifdef PCAPPLAY
         } else if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
-                   (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO)) {
+                   (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) ||
+                   (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
             play_args_t *play_args = 0;
-            if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) {
+            if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO ||
+             (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
+
                 play_args = &(this->play_args_a);
             } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) {
                 play_args = &(this->play_args_v);
             }
-            play_args->pcap = currentAction->getPcapPkts();
+
+            // existing media thread could be using play_args, so we have to kill it before modifying parameters
+            if (media_thread != 0) {
+              // If a media_thread is already active, kill it before starting a new one
+              pthread_cancel(media_thread);
+              pthread_join(media_thread, NULL);
+              media_thread = 0;
+            }
+
+
+            if (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF) {
+              char * digits = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+              play_args->pcap = (pcap_pkts *) malloc(sizeof(pcap_pkts));
+      	      play_args->last_seq_no += parse_dtmf_play_args(digits, play_args->pcap, play_args->last_seq_no);
+	      play_args->free_pcap_when_done = 1;
+            } else {
+	      play_args->pcap = currentAction->getPcapPkts();
+              play_args->free_pcap_when_done = 0;
+            }
+
             /* port number is set in [auto_]media_port interpolation */
             if (media_ip_is_ipv6) {
                 struct sockaddr_in6 *from = (struct sockaddr_in6 *)(void *) &(play_args->from);
@@ -3853,13 +3877,6 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 #ifndef PTHREAD_STACK_MIN
 #define PTHREAD_STACK_MIN	16384
 #endif
-            //pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN);
-            if (media_thread != 0) {
-                // If a media_thread is already active, kill it before starting a new one
-                pthread_cancel(media_thread);
-                pthread_join(media_thread, NULL);
-                media_thread = 0;
-            }
             int ret = pthread_create(&media_thread, &attr, send_wrapper,
                                      (void *) play_args);
             if(ret)
