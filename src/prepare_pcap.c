@@ -15,6 +15,10 @@
  *
  *  Author : Guillaume TEISSIER from FTR&D 02/02/2006
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <pcap.h>
 #include <stdlib.h>
 #include <netinet/in.h>
@@ -198,4 +202,3 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
 
     return 0;
 }
-
