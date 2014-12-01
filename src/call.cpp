@@ -1849,8 +1849,9 @@ bool call::process_unexpected(char * msg)
         // if twin socket call => reset the other part here
         if (twinSippSocket && (msg_index > 0)) {
             res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
-            if (res) {
+            if (res < 0) {
                 WARNING("sendCmdBuffer returned %d", res);
+                return false;
             }
         }
 
