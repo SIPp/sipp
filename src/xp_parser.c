@@ -290,8 +290,9 @@ char *xp_open_element(int index)
 
                 /* We want to skip over this particular element .*/
                 ptr = xp_find_start_tag_end(ptr + 1);
-                if (ptr)
-                    ptr--;
+                if (!ptr)
+                    return NULL;
+                ptr--;
                 level++;
             }
         } else if ((*ptr == '/') && (*(ptr+1) == '>')) {
