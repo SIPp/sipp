@@ -252,7 +252,9 @@ bool process_command(char *command)
         trim(rest);
     }
 
-    if (!strcmp(command, "set")) {
+    if (!rest) {
+        WARNING("The %s command requires at least one argument", command);
+    } else if (!strcmp(command, "set")) {
         process_set(rest);
     } else if (!strcmp(command, "trace")) {
         process_trace(rest);
@@ -1304,7 +1306,7 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
             // Attempted to use epoll on a file that does not support
             // it - this may happen legitimately when stdin/stdout is
             // redirected to /dev/null, so don't warn
-        } else { 
+        } else {
             ERROR_NO("Failed to add FD to epoll");
         }
     }
