@@ -2620,8 +2620,8 @@ bool call::checkInternalCmd(char * cmd)
 
     if (strcmp(L_ptr1, "abort_call") == 0) {
         *L_ptr2 = L_backup;
-        abortCall(true);
         computeStat(CStat::E_CALL_FAILED);
+        abortCall(true);
         return (true);
     }
 
