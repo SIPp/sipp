@@ -265,8 +265,8 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
     if(screen_inited && !error_lfi.fptr && print_all_responses) {
         rotate_errorf();
         if(!error_lfi.fptr) {
-            c += sprintf(c, "%s: Unable to create '%s': %s.\n",
-                         screen_exename, screen_logfile, strerror(errno));
+            sprintf(c, "%s: Unable to create '%s': %s.\n",
+                    screen_exename, screen_logfile, strerror(errno));
             screen_exit(EXIT_FATAL_ERROR);
         } else {
             fprintf(error_lfi.fptr, "%s: The following events occured:\n",

@@ -109,7 +109,6 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
     this->msg_scenario = msg_scenario;
 
     dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
-    literalLen = 0;
 
     current_line[0] = '\0';
     *dest = 0;
@@ -170,7 +169,6 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
             }
 
             dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
-            literalLen = 0;
             *dest = '\0';
 
             /* Now lets determine which keyword we have. */
@@ -524,11 +522,9 @@ void SendingMessage::getKeywordParam(char * src, const char * param, char * outp
         if ((*key == '0') && (*(key+1) == 'x')) {
             key += 2;
             getHexStringParam(output, key, &len);
-            key += len * 2;
         } else if (*key == '\"') {
             key++;
             getQuotedParam(output, key, &len);
-            key += len;
         } else {
             while (*key) {
                 if (((key - src) > KEYWORD_SIZE) || (!(key - src))) {

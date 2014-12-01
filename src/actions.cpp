@@ -519,7 +519,6 @@ void CAction::setRTPStreamActInfo (char      *P_value)
       *(NextComma++)= 0;
     }  
     M_rtpstream_actinfo.payload_type= atoi(ParamString);
-    ParamString= NextComma;
   }
 
   /* Setup based on what we know of payload types */

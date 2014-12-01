@@ -405,7 +405,7 @@ int xp_get_optional(const char *name, const char *what)
 {
     char *ptr = xp_get_value(name);
 
-    if (!(ptr = xp_get_value(name))) {
+    if (!ptr) {
         return OPTIONAL_FALSE;
     }
 

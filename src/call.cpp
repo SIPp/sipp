@@ -325,7 +325,6 @@ void call::extract_rtp_remote_addr (char * msg)
     } else if (*search=='6') {
       ip_ver= 6;
     } else {
-      ip_ver= 0;
       ERROR("extract_rtp_remote_addr: invalid IP version '%c' in SDP message body",*search);
     }
     search++;
@@ -1830,7 +1829,7 @@ bool call::process_unexpected(char * msg)
     } else {
         desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while in message type %d ", curmsg->M_type);
     }
-    desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "(index %d)", msg_index);
+    snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "(index %d)", msg_index);
 
     WARNING("%s, received '%s'", buffer, msg);
 
