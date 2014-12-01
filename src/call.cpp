@@ -3836,12 +3836,16 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 #ifdef PCAPPLAY
         } else if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
                    (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO)) {
-            play_args_t *play_args = 0;
+            play_args_t *play_args = NULL;
             if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) {
                 play_args = &(this->play_args_a);
             } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) {
                 play_args = &(this->play_args_v);
             }
+
+            if (!play_args)
+                ERROR("Can't find pcap data to play");
+
             play_args->pcap = currentAction->getPcapPkts();
             /* port number is set in [auto_]media_port interpolation */
             if (media_ip_is_ipv6) {
