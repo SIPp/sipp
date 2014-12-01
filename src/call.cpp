@@ -3577,6 +3577,9 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 }
             }
 
+            if (!call_socket) {
+                ERROR("Unable to get a socket");
+            }
 
             if (protocol != call_socket->ss_transport) {
                 ERROR("Can not switch protocols during setdest.");
