@@ -329,6 +329,7 @@ extern "C" {
         va_start(ap, fmt);
         _screen_error(true, true, errno, fmt, ap);
         va_end(ap);
+        assert(0);
     }
 
     void WARNING(const char *fmt, ...)
