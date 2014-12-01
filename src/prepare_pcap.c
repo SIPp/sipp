@@ -196,6 +196,10 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
     fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %ld\nbase port %d\n", file, n_pkts, max_length, base);
     pcap_close(pcap);
 
+#ifndef HAVE_PCAP_NEXT_EX
+    free(pkthdr);
+#endif
+
     return 0;
 }
 
