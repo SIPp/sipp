@@ -1163,16 +1163,19 @@ char * call::send_scene(int index, int *send_status, int *len)
     char * dest;
     dest = createSendingMessage(call_scenario->messages[index] -> send_scheme, index, len);
 
-    if (dest) {
-        L_ptr1=msg_name ;
-        L_ptr2=dest ;
-        while ((*L_ptr2 != ' ') && (*L_ptr2 != '\n') && (*L_ptr2 != '\t'))  {
-            *L_ptr1 = *L_ptr2;
-            L_ptr1 ++;
-            L_ptr2 ++;
-        }
-        *L_ptr1 = '\0' ;
+    if (!dest) {
+        *send_status = -2;
+        return NULL;
     }
+
+    L_ptr1=msg_name ;
+    L_ptr2=dest ;
+    while ((*L_ptr2 != ' ') && (*L_ptr2 != '\n') && (*L_ptr2 != '\t'))  {
+        *L_ptr1 = *L_ptr2;
+        L_ptr1 ++;
+        L_ptr2 ++;
+    }
+    *L_ptr1 = '\0' ;
 
     if (strcmp(msg_name,"ACK") == 0) {
         call_established = true ;
