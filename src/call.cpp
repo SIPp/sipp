@@ -2097,7 +2097,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
              * repeating it every single time. */
             struct sockaddr_storage server_sockaddr;
 
-            sipp_socklen_t len = SOCK_ADDR_SIZE(&server_sockaddr);
+            sipp_socklen_t len = sizeof(server_sockaddr);
             getsockname(call_socket->ss_fd,
                         (sockaddr *)(void *)&server_sockaddr, &len);
 
