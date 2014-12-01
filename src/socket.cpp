@@ -2913,13 +2913,10 @@ void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *pe
 
 struct sipp_socket **get_peer_socket(char * peer) {
     struct sipp_socket **peer_socket;
-    T_peer_infos infos;
     peer_map::iterator peer_it;
     peer_it = peers.find(peer_map::key_type(peer));
     if (peer_it != peers.end()) {
-        infos = peer_it->second;
-        peer_socket = &(infos.peer_socket);
-        return peer_socket;
+        return &peer_it->second.peer_socket;
     } else {
         ERROR("get_peer_socket: Peer %s not found\n", peer);
     }
