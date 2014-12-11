@@ -1037,5 +1037,3 @@ AC_SUBST([am__tar])
 AC_SUBST([am__untar])
 ]) # _AM_PROG_TAR
 
-m4_include([m4/ax_config_feature.m4])
-m4_include([m4/ax_have_epoll.m4])
