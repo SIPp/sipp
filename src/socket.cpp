@@ -300,19 +300,14 @@ SSL_CTX  *twinSipp_sip_trp_ssl_ctx_client = NULL; /* For SSL cserver context */
 
 #define CALL_BACK_USER_DATA "ksgr"
 
-int passwd_call_back_routine(char  *buf , int size , int flag, void *passwd)
+int passwd_call_back_routine(char *buf, int size, int /*flag*/, void *passwd)
 {
-
-    /* We need the flag parameter as this is a callback with defined arguments, but
-     * we don't use it. Cast to void to avoid warnings. */
-    (void)flag;
-
     strncpy(buf, (char *)(passwd), size);
     buf[size - 1] = '\0';
     return(strlen(buf));
 }
 
-/****** SSL error handling                         *************/
+/****** SSL error handling *************/
 const char *sip_tls_error_string(SSL *ssl, int size)
 {
     int err;
@@ -2190,13 +2185,8 @@ ssl_init_status FI_init_ssl_context (void)
     return SSL_INIT_NORMAL;
 }
 
-int send_nowait_tls(SSL *ssl, const void *msg, int len, int flags)
+int send_nowait_tls(SSL *ssl, const void *msg, int len, int /*flags*/)
 {
-
-    /* We need the flags parameter as this is a callback with defined arguments,
-     * but we don't use it. Cast to void to avoid warnings. */
-    (void)flags;
-
     int initial_fd_flags;
     int rc;
     int fd;

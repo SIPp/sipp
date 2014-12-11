@@ -660,12 +660,8 @@ void pollset_process(int wait)
 #endif
 }
 
-void timeout_alarm(int param)
+void timeout_alarm(int /*param*/)
 {
-    /* We need the param parameter as this is a callback with defined arguments,
-     * but we don't use it. Cast to void to avoid warnings. */
-    (void)param;
-
     if (timeout_error) {
         ERROR("%s timed out after '%.3lf' seconds", scenario_file, ((double)clock_tick / 1000LL));
     }

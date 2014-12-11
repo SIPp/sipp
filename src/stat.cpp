@@ -1776,13 +1776,8 @@ int CFixed::timeDescr(char *s, int len)
 {
     return time_string(value, s, len);
 }
-double CFixed::cdfInv(double percentile)
+double CFixed::cdfInv(double /*percentile*/)
 {
-
-    // We want the percentile parameter, as it means we have a consistent
-    // interface - cast it to void to suppress warnings.
-    (void)percentile;
-
     return value;
 }
 
@@ -1802,13 +1797,8 @@ int CDefaultPause::timeDescr(char *s, int len)
 {
     return time_string(duration, s, len);
 }
-double CDefaultPause::cdfInv(double percentile)
+double CDefaultPause::cdfInv(double /*percentile*/)
 {
-
-    // We want the percentile parameter, as it means we have a consistent
-    // interface - cast it to void to suppress warnings.
-    (void)percentile;
-
     return duration;
 }
 

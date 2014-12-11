@@ -2295,7 +2295,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 # Load non-standard m4 files from ./m4/*.m4.
 # AC_CONFIG_MACRO_DIR([m4]) does not work on pre-1.13 aclocal, so we
-# include them by hand.
+# have to include all files by hand.
 # ===========================================================================
 #     http://www.gnu.org/software/autoconf-archive/ax_config_feature.html
 # ===========================================================================

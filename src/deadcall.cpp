@@ -64,14 +64,9 @@ deadcall::~deadcall()
     free(reason);
 }
 
-bool deadcall::process_incoming(char * msg, struct sockaddr_storage *src)
+bool deadcall::process_incoming(char * msg, struct sockaddr_storage * /*src*/)
 {
     char buffer[MAX_HEADER_LEN];
-
-    // We want the src parameter, as it means we have a consistent
-    // interface - cast it to void to suppress warnings.
-
-    (void)src;
 
     CStat::globalStat(CStat::E_DEAD_CALL_MSGS);
 
