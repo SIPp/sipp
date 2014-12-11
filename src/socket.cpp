@@ -1102,9 +1102,11 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
         return;
     }
     if (sipMsgCheck(msg, socket) == false) {
-        if ((msg_size != 4) ||
-            (memcmp(msg, "\r\n\r\n", 4) != 0)) {
-            WARNING("non SIP message discarded: \"%.*s\"", msg_size, msg);
+        if (msg_size == 4 &&
+                (memcmp(msg, "\r\n\r\n", 4) == 0 || memcmp(msg, "\x00\x00\x00\x00", 4) == 0)) {
+            /* Common keepalives */;
+        } else {
+            WARNING("non SIP message discarded: \"%.*s\" (%zu)", msg_size, msg, msg_size);
         }
         return;
     }
