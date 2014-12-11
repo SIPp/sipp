@@ -217,7 +217,7 @@ struct sipp_option options_table[] = {
     {"au", "Set authorization username for authentication challenges. Default is taken from -s argument", SIPP_OPTION_STRING, &auth_username, 1},
     {"ap", "Set the password for authentication challenges. Default is 'password'", SIPP_OPTION_STRING, &auth_password, 1},
     {"s", "Set the username part of the request URI. Default is 'service'.", SIPP_OPTION_STRING, &service, 1},
-    {"default_behaviors", "Set the default behaviors that SIPp will use.  Possbile values are:\n"
+    {"default_behaviors", "Set the default behaviors that SIPp will use.  Possible values are:\n"
      "- all\tUse all default behaviors\n"
      "- none\tUse no default behaviors\n"
      "- bye\tSend byes for aborted calls\n"
