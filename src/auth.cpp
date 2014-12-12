@@ -185,6 +185,10 @@ int createAuthHeader(const char *user, const char *password, const char *method,
         return createAuthHeaderMD5(user, password, strlen(password), method,
                                    uri, msgbody, auth, algo, result);
     } else if (strncasecmp(algo, "AKAv1-MD5", 9)==0) {
+        if (!aka_K) {
+            sprintf(result, "createAuthHeader: AKAv1-MD5 authentication requires a key");
+            return 0;
+        }
         return createAuthHeaderAKAv1MD5(user, aka_OP, aka_AMF, aka_K, method,
                                         uri, msgbody, auth, algo, result);
     } else {

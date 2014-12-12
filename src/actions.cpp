@@ -377,10 +377,13 @@ void CAction::setRegExp(const char *P_value)
 {
     int errorCode;
 
+    if (M_regularExpression)
+        free(M_regularExpression);
+
     M_regularExpression = strdup(P_value);
     M_regExpSet = true;
 
-    errorCode = regcomp(&(M_internalRegExp), M_regularExpression, REGEXP_PARAMS);
+    errorCode = regcomp(&M_internalRegExp, P_value, REGEXP_PARAMS);
     if(errorCode != 0) {
         char buffer[MAX_HEADER_LEN];
         regerror(errorCode, &M_internalRegExp, buffer, sizeof(buffer));
@@ -413,7 +416,7 @@ int CAction::executeRegExp(const char* P_string, VariableTable *P_callVarTable)
 
     memset((void*)pmatch, 0, sizeof(regmatch_t)*10);
 
-    error = regexec(&(M_internalRegExp), P_string, 10, pmatch, REGEXP_PARAMS);
+    error = regexec(&M_internalRegExp, P_string, 10, pmatch, REGEXP_PARAMS);
     if ( error == 0) {
         CCallVariable* L_callVar = P_callVarTable->getVar(getVarId());
         
@@ -519,7 +522,6 @@ void CAction::setRTPStreamActInfo (char      *P_value)
       *(NextComma++)= 0;
     }  
     M_rtpstream_actinfo.payload_type= atoi(ParamString);
-    ParamString= NextComma;
   }
 
   /* Setup based on what we know of payload types */

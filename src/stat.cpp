@@ -329,14 +329,12 @@ void CStat::setFileName(char * P_name, char * P_extension)
                 if(sizeOfExtension > 0) {
                     if(M_fileName != NULL)
                         delete [] M_fileName;
-                    sizeOf += sizeOfExtension;
                     M_fileName = new char[MAX_PATH];
                     sprintf(M_fileName, "%s_%d_", P_name, getpid());
                     strcat(M_fileName, P_extension);
                 } else {
                     if(M_fileName != NULL)
                         delete [] M_fileName;
-                    sizeOf += strlen(DEFAULT_EXTENSION);
                     M_fileName = new char[MAX_PATH];
                     sprintf(M_fileName, "%s_%d_", P_name, getpid());
                     strcat(M_fileName, DEFAULT_EXTENSION);
@@ -344,7 +342,6 @@ void CStat::setFileName(char * P_name, char * P_extension)
             } else {
                 if(M_fileName != NULL)
                     delete [] M_fileName;
-                sizeOf += strlen(DEFAULT_EXTENSION);
                 M_fileName = new char[MAX_PATH];
                 sprintf(M_fileName, "%s_%d_", P_name, getpid());
                 strcat(M_fileName, DEFAULT_EXTENSION);

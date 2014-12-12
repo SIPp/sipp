@@ -325,7 +325,6 @@ void call::extract_rtp_remote_addr (char * msg)
     } else if (*search=='6') {
       ip_ver= 6;
     } else {
-      ip_ver= 0;
       ERROR("extract_rtp_remote_addr: invalid IP version '%c' in SDP message body",*search);
     }
     search++;
@@ -1164,16 +1163,19 @@ char * call::send_scene(int index, int *send_status, int *len)
     char * dest;
     dest = createSendingMessage(call_scenario->messages[index] -> send_scheme, index, len);
 
-    if (dest) {
-        L_ptr1=msg_name ;
-        L_ptr2=dest ;
-        while ((*L_ptr2 != ' ') && (*L_ptr2 != '\n') && (*L_ptr2 != '\t'))  {
-            *L_ptr1 = *L_ptr2;
-            L_ptr1 ++;
-            L_ptr2 ++;
-        }
-        *L_ptr1 = '\0' ;
+    if (!dest) {
+        *send_status = -2;
+        return NULL;
     }
+
+    L_ptr1=msg_name ;
+    L_ptr2=dest ;
+    while ((*L_ptr2 != ' ') && (*L_ptr2 != '\n') && (*L_ptr2 != '\t'))  {
+        *L_ptr1 = *L_ptr2;
+        L_ptr1 ++;
+        L_ptr2 ++;
+    }
+    *L_ptr1 = '\0' ;
 
     if (strcmp(msg_name,"ACK") == 0) {
         call_established = true ;
@@ -1830,7 +1832,7 @@ bool call::process_unexpected(char * msg)
     } else {
         desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while in message type %d ", curmsg->M_type);
     }
-    desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "(index %d)", msg_index);
+    snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "(index %d)", msg_index);
 
     WARNING("%s, received '%s'", buffer, msg);
 
@@ -1850,8 +1852,9 @@ bool call::process_unexpected(char * msg)
         // if twin socket call => reset the other part here
         if (twinSippSocket && (msg_index > 0)) {
             res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
-            if (res) {
+            if (res < 0) {
                 WARNING("sendCmdBuffer returned %d", res);
+                return false;
             }
         }
 
@@ -2097,7 +2100,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
              * repeating it every single time. */
             struct sockaddr_storage server_sockaddr;
 
-            sipp_socklen_t len = SOCK_ADDR_SIZE(&server_sockaddr);
+            sipp_socklen_t len = sizeof(server_sockaddr);
             getsockname(call_socket->ss_fd,
                         (sockaddr *)(void *)&server_sockaddr, &len);
 
@@ -2620,8 +2623,8 @@ bool call::checkInternalCmd(char * cmd)
 
     if (strcmp(L_ptr1, "abort_call") == 0) {
         *L_ptr2 = L_backup;
-        abortCall(true);
         computeStat(CStat::E_CALL_FAILED);
+        abortCall(true);
         return (true);
     }
 
@@ -3574,6 +3577,9 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 }
             }
 
+            if (!call_socket) {
+                ERROR("Unable to get a socket");
+            }
 
             if (protocol != call_socket->ss_transport) {
                 ERROR("Can not switch protocols during setdest.");
@@ -3830,12 +3836,16 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 #ifdef PCAPPLAY
         } else if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
                    (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO)) {
-            play_args_t *play_args = 0;
+            play_args_t *play_args = NULL;
             if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) {
                 play_args = &(this->play_args_a);
             } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) {
                 play_args = &(this->play_args_v);
             }
+
+            if (!play_args)
+                ERROR("Can't find pcap data to play");
+
             play_args->pcap = currentAction->getPcapPkts();
             /* port number is set in [auto_]media_port interpolation */
             if (media_ip_is_ipv6) {

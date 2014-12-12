@@ -252,7 +252,9 @@ bool process_command(char *command)
         trim(rest);
     }
 
-    if (!strcmp(command, "set")) {
+    if (!rest) {
+        WARNING("The %s command requires at least one argument", command);
+    } else if (!strcmp(command, "set")) {
         process_set(rest);
     } else if (!strcmp(command, "trace")) {
         process_trace(rest);
@@ -1301,7 +1303,7 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
             // Attempted to use epoll on a file that does not support
             // it - this may happen legitimately when stdin/stdout is
             // redirected to /dev/null, so don't warn
-        } else { 
+        } else {
             ERROR_NO("Failed to add FD to epoll");
         }
     }
@@ -2903,13 +2905,10 @@ void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *pe
 
 struct sipp_socket **get_peer_socket(char * peer) {
     struct sipp_socket **peer_socket;
-    T_peer_infos infos;
     peer_map::iterator peer_it;
     peer_it = peers.find(peer_map::key_type(peer));
     if (peer_it != peers.end()) {
-        infos = peer_it->second;
-        peer_socket = &(infos.peer_socket);
-        return peer_socket;
+        return &peer_it->second.peer_socket;
     } else {
         ERROR("get_peer_socket: Peer %s not found\n", peer);
     }
