@@ -4,7 +4,7 @@ TESTS = sipp_unittest
 
 noinst_PROGRAMS = $(TESTS)
 
-AM_CFLAGS=-I./include
+AM_CFLAGS=-I$(srcdir)/include
 AM_CPPFLAGS=$(AM_CFLAGS)
 
 EXTRA_DIST = src/fortune.cpp pcap LICENSE.txt README.txt THANKS sipp.dtd sipp.1 cpplint.py auto-generate-files.sh
@@ -115,6 +115,6 @@ sipp_unittest_SOURCES = $(common_SOURCES) \
 	./gtest/src/gtest-all.cc \
 	./gtest/src/gtest_main.cc
 
-sipp_unittest_CFLAGS = $(AM_CFLAGS) -DGTEST=1 -I./gtest/include -I./gtest @GSL_CFLAGS@
-sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) -DGTEST=1 -I./gtest/include -I./gtest @GSL_CXXFLAGS@
+sipp_unittest_CFLAGS = $(AM_CFLAGS) -DGTEST=1 -I$(srcdir)/gtest/include -I$(srcdir)/gtest @GSL_CFLAGS@
+sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) -DGTEST=1 -I$(srcdir)/gtest/include -I$(srcdir)/gtest @GSL_CXXFLAGS@
 sipp_unittest_LDADD = @LIBOBJS@ @GSL_LIBS@
