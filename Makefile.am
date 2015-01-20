@@ -7,7 +7,8 @@ noinst_PROGRAMS = $(TESTS)
 AM_CFLAGS=-I$(srcdir)/include
 AM_CPPFLAGS=$(AM_CFLAGS)
 
-EXTRA_DIST = src/fortune.cpp pcap LICENSE.txt README.txt THANKS sipp.dtd sipp.1 cpplint.py auto-generate-files.sh
+CLEANFILES =
+EXTRA_DIST = src/fortune.cpp pcap LICENSE.txt README.txt THANKS sipp.dtd cpplint.py
 
 if HAVE_OPENSSL
 DEFS += -D_USE_OPENSSL
@@ -118,3 +119,15 @@ sipp_unittest_SOURCES = $(common_SOURCES) \
 sipp_unittest_CFLAGS = $(AM_CFLAGS) -DGTEST=1 -I$(srcdir)/gtest/include -I$(srcdir)/gtest @GSL_CFLAGS@
 sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) -DGTEST=1 -I$(srcdir)/gtest/include -I$(srcdir)/gtest @GSL_CXXFLAGS@
 sipp_unittest_LDADD = @LIBOBJS@ @GSL_LIBS@
+
+if HAVE_HELP2MAN
+man_MANS = sipp.1
+CLEANFILES += $(man_MANS)
+
+sipp.1: ./sipp $(sipp_SOURCES)
+	$(HELP2MAN) --output=$@ --no-info \
+		--name='SIP testing tool and traffic generator' \
+		./sipp
+else
+	@echo "Warning: help2man not available, no man page is created."
+endif

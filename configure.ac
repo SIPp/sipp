@@ -20,6 +20,13 @@ AC_ARG_WITH([rtpstream],AC_HELP_STRING([--with-rtpstream], [build with RTP strea
 AC_ARG_WITH([sctp],AC_HELP_STRING([--with-sctp], [build with SCTP support]), [sctp="$withval"],[sctp="no"])
 AC_ARG_WITH([gsl],AC_HELP_STRING([--with-gsl], [build with GSL (GNU Scientific Library) support]), [gsl="$withval"],[gsl="no"])
 
+AC_PATH_PROG([HELP2MAN], help2man)
+AM_CONDITIONAL([HAVE_HELP2MAN], [test -n "$HELP2MAN"])
+if test x"$HELP2MAN" = x; then
+	AC_MSG_WARN([cannot find help2man, you will not be able to generate
+		manpages])
+fi
+
 # ==================== basic compiler settings ==========================
 
 AC_PROG_CC
