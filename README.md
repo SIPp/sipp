@@ -1,5 +1,5 @@
 SIPp - a SIP protocol test tool
-Copyright (C) 2003-2014 - The Authors
+Copyright (C) 2003-2015 - The Authors
 
 This program is free software: you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -23,7 +23,7 @@ This is the SIPp package. Please refer to the
 Normally, you should be able to build SIPp by using the provided build
 script: `build.sh`. This:
 * checks out the gtest submodule
-* updates the timestamps on the build files, to avoid dependency issues
+* generates autotools files
 * runs configure
 * builds and runs the test suite
 * builds SIPp
@@ -47,7 +47,7 @@ your changes integrate your changes. If you make changes in SIPp,
 *PLEASE* follow a few coding rules:
 
   - SIPp uses GNU autotools, so changes to the build process should be
-    done by editing configure.ac and Makefile.in, then regenerating the
+    done by editing configure.ac and Makefile.am. Then regenerate the
     files with `autoreconf -ivf`. (You will need your distribution's
     `autotools` and `autoconf-archive` packages installed for this.)
 
