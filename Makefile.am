@@ -8,7 +8,7 @@ AM_CFLAGS=-I./include
 AM_CPPFLAGS=$(AM_CFLAGS)
 
 CLEANFILES =
-EXTRA_DIST = src/fortune.cpp pcap LICENSE.txt README.txt THANKS sipp.dtd sipp.1 cpplint.py auto-generate-files.sh
+EXTRA_DIST = src/fortune.cpp pcap LICENSE.txt README.txt THANKS sipp.dtd cpplint.py
 
 if HAVE_OPENSSL
 DEFS += -D_USE_OPENSSL
