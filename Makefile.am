@@ -9,13 +9,12 @@ AM_CPPFLAGS=$(AM_CFLAGS)
 
 CLEANFILES =
 EXTRA_DIST = \
-	src/fortune.cpp \
-	pcap \
-	LICENSE.txt \
-	README.txt \
-	THANKS \
-	sipp.dtd \
-	cpplint.py
+	$(srcdir)/src/fortune.cpp \
+	$(srcdir)/LICENSE.txt \
+	$(srcdir)/README.md \
+	$(srcdir)/THANKS \
+	$(srcdir)/sipp.dtd \
+	$(srcdir)/cpplint.py
 
 if HAVE_OPENSSL
 DEFS += -D_USE_OPENSSL
@@ -128,12 +127,42 @@ sipp_CFLAGS = $(AM_CFLAGS) @GSL_CFLAGS@
 sipp_CXXFLAGS = $(AM_CXXFLAGS) @GSL_CXXFLAGS@
 sipp_LDADD = @LIBOBJS@ @GSL_LIBS@
 
+gtest_SOURCES = \
+	gtest/include/gtest/gtest-death-test.h \
+	gtest/include/gtest/gtest-message.h \
+	gtest/include/gtest/gtest-param-test.h \
+	gtest/include/gtest/gtest-printers.h \
+	gtest/include/gtest/gtest-spi.h \
+	gtest/include/gtest/gtest-test-part.h \
+	gtest/include/gtest/gtest-typed-test.h \
+	gtest/include/gtest/gtest.h \
+	gtest/include/gtest/gtest_pred_impl.h \
+	gtest/include/gtest/gtest_prod.h \
+	gtest/include/gtest/internal/gtest-death-test-internal.h \
+	gtest/include/gtest/internal/gtest-filepath.h \
+	gtest/include/gtest/internal/gtest-internal.h \
+	gtest/include/gtest/internal/gtest-linked_ptr.h \
+	gtest/include/gtest/internal/gtest-param-util-generated.h \
+	gtest/include/gtest/internal/gtest-param-util.h \
+	gtest/include/gtest/internal/gtest-port.h \
+	gtest/include/gtest/internal/gtest-string.h \
+	gtest/include/gtest/internal/gtest-tuple.h \
+	gtest/include/gtest/internal/gtest-type-util.h \
+	gtest/src/gtest-death-test.cc \
+	gtest/src/gtest-filepath.cc \
+	gtest/src/gtest-internal-inl.h \
+	gtest/src/gtest-port.cc \
+	gtest/src/gtest-printers.cc \
+	gtest/src/gtest-test-part.cc \
+	gtest/src/gtest-typed-test.cc \
+	gtest/src/gtest.cc \
+	gtest/src/gtest_main.cc
+
 sipp_unittest_SOURCES = \
 	$(common_SOURCES) \
 	src/sipp_unittest.cpp \
 	src/xp_parser_ut.cpp \
-	./gtest/src/gtest-all.cc \
-	./gtest/src/gtest_main.cc
+	$(gtest_SOURCES)
 
 sipp_unittest_CFLAGS = $(AM_CFLAGS) -DGTEST=1 -I$(srcdir)/gtest/include -I$(srcdir)/gtest @GSL_CFLAGS@
 sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) -DGTEST=1 -I$(srcdir)/gtest/include -I$(srcdir)/gtest @GSL_CXXFLAGS@
