@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-int   xp_replace(const char *source, char *dest, const char *search, const char *replace);
+int   xp_unescape(const char *source, char *dest);
 int   xp_set_xml_buffer_from_string(const char *str);
 int   xp_set_xml_buffer_from_file(const char *filename);
 char *xp_open_element(int index);
