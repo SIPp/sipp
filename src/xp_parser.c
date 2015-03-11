@@ -53,6 +53,7 @@ char *xp_position [XP_MAX_STACK_LEN];
 int   xp_stack    = 0;
 
 /****************** Internal routines ********************/
+
 static const char *xp_find_escape(const char *escape, size_t len)
 {
     static struct escape {
@@ -73,6 +74,94 @@ static const char *xp_find_escape(const char *escape, size_t len)
     }
     return NULL;
 }
+
+/* This finds the end of something like <send foo="bar">, and does not recurse
+ * into other elements. */
+static char *xp_find_start_tag_end(char *ptr)
+{
+    while (*ptr) {
+        if (*ptr == '<') {
+            if (strstartswith(ptr, "<!--")) {
+                char *comment_end = strstr(ptr, "-->");
+                if (!comment_end)
+                    return NULL;
+                ptr = comment_end + 3;
+            } else {
+                return NULL;
+            }
+        } else if ((*ptr == '/') && (*(ptr+1) == '>')) {
+            return ptr;
+        } else if (*ptr == '"') {
+            ptr++;
+            while (*ptr) {
+                if (*ptr == '\\') {
+                    ptr += 2;
+                } else if (*ptr == '"') {
+                    ptr++;
+                    break;
+                } else {
+                    ptr++;
+                }
+            }
+        } else if (*ptr == '>') {
+            return ptr;
+        } else {
+            ptr++;
+        }
+    }
+    return ptr;
+}
+
+static char *xp_find_local_end()
+{
+    char *ptr = xp_position[xp_stack];
+    int level = 0;
+
+    while (*ptr) {
+        if (*ptr == '<') {
+            if (strstartswith(ptr, "<![CDATA[")) {
+                char *cdata_end = strstr(ptr, "]]>");
+                if (!cdata_end)
+                    return NULL;
+                ptr = cdata_end + 3;
+            } else if (strstartswith(ptr, "<!--")) {
+                char *comment_end = strstr(ptr, "-->");
+                if (!comment_end)
+                    return NULL;
+                ptr = comment_end + 3;
+            } else if (*(ptr+1) == '/') {
+                level--;
+                if (level < 0)
+                    return ptr;
+            } else {
+                level++;
+            }
+        } else if ((*ptr == '/') && (*(ptr+1) == '>')) {
+            level--;
+            if (level < 0)
+                return ptr;
+        } else if (*ptr == '"') {
+            ptr++;
+            while (*ptr) {
+                if (*ptr == '\\') {
+                    ptr++; /* Skip the slash. */
+                } else if (*ptr == '"') {
+                    break;
+                }
+                ptr++;
+            }
+        }
+        ptr++;
+    }
+    return ptr;
+}
+
+static void xp_root()
+{
+    xp_stack = 0;
+}
+
+/********************* Interface routines ********************/
 
 int xp_unescape(const char *source, char *dest)
 {
@@ -121,89 +210,6 @@ int xp_unescape(const char *source, char *dest)
     to[0] = '\0';
     return to - dest;
 }
-
-/* This finds the end of something like <send foo="bar">, and does not recurse
- * into other elements. */
-char *xp_find_start_tag_end(char *ptr)
-{
-    while (*ptr) {
-        if (*ptr == '<') {
-            if (strstartswith(ptr, "<!--")) {
-                char *comment_end = strstr(ptr, "-->");
-                if (!comment_end)
-                    return NULL;
-                ptr = comment_end + 3;
-            } else {
-                return NULL;
-            }
-        } else if ((*ptr == '/') && (*(ptr+1) == '>')) {
-            return ptr;
-        } else if (*ptr == '"') {
-            ptr++;
-            while (*ptr) {
-                if (*ptr == '\\') {
-                    ptr += 2;
-                } else if (*ptr == '"') {
-                    ptr++;
-                    break;
-                } else {
-                    ptr++;
-                }
-            }
-        } else if (*ptr == '>') {
-            return ptr;
-        } else {
-            ptr++;
-        }
-    }
-    return ptr;
-}
-
-char *xp_find_local_end()
-{
-    char *ptr = xp_position[xp_stack];
-    int level = 0;
-
-    while (*ptr) {
-        if (*ptr == '<') {
-            if (strstartswith(ptr, "<![CDATA[")) {
-                char *cdata_end = strstr(ptr, "]]>");
-                if (!cdata_end)
-                    return NULL;
-                ptr = cdata_end + 3;
-            } else if (strstartswith(ptr, "<!--")) {
-                char *comment_end = strstr(ptr, "-->");
-                if (!comment_end)
-                    return NULL;
-                ptr = comment_end + 3;
-            } else if (*(ptr+1) == '/') {
-                level--;
-                if (level < 0)
-                    return ptr;
-            } else {
-                level++;
-            }
-        } else if ((*ptr == '/') && (*(ptr+1) == '>')) {
-            level--;
-            if (level < 0)
-                return ptr;
-        } else if (*ptr == '"') {
-            ptr++;
-            while (*ptr) {
-                if (*ptr == '\\') {
-                    ptr++; /* Skip the slash. */
-                } else if (*ptr == '"') {
-                    break;
-                }
-                ptr++;
-            }
-        }
-        ptr++;
-    }
-    return ptr;
-}
-
-/********************* Interface routines ********************/
 
 int xp_set_xml_buffer_from_string(const char *str)
 {
@@ -356,11 +362,6 @@ void xp_close_element()
     if (xp_stack) {
         xp_stack--;
     }
-}
-
-void xp_root()
-{
-    xp_stack = 0;
 }
 
 char *xp_get_value(const char *name)
