@@ -1349,7 +1349,6 @@ void scenario::parseAction(CActions *actions)
     char *        actionElem;
     unsigned int recvScenarioLen = 0;
     char *        currentRegExp = NULL;
-    char *        buffer = NULL;
     char **       currentTabVarName = NULL;
     int           currentNbVarNames;
     char * ptr;
@@ -1365,11 +1364,7 @@ void scenario::parseAction(CActions *actions)
             if(currentRegExp != NULL)
                 delete[] currentRegExp;
             currentRegExp = new char[strlen(ptr)+1];
-            buffer = new char[strlen(ptr)+1];
-            xp_replace(ptr, buffer, "&lt;", "<");
-            xp_replace(buffer, currentRegExp, "&gt;", ">");
-            if(buffer != NULL)
-                delete[] buffer;
+            xp_unescape(ptr, currentRegExp);
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_REGEXP);
 
             // warning - although these are detected for both msg and hdr

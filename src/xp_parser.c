@@ -53,27 +53,73 @@ char *xp_position [XP_MAX_STACK_LEN];
 int   xp_stack    = 0;
 
 /****************** Internal routines ********************/
-int xp_replace(const char *source, char *dest, const char *search, const char *replace)
+static const char *xp_find_escape(const char *escape, size_t len)
 {
-    const char *position;
-    char *occurrences;
-    int number = 0;
+    static struct escape {
+        const char *name;
+        const char *value;
+    } html_escapes[] = {
+        { "amp", "&" },
+        { "gt", ">" },
+        { "lt", "<" },
+        { "quot", "\"" },
+        { NULL, NULL }
+    };
 
-    if (!source || !dest || !search || !replace) {
+    struct escape *n;
+    for (n = html_escapes; n->name; ++n) {
+        if (strncmp(escape, n->name, len) == 0)
+            return n->value;
+    }
+    return NULL;
+}
+
+int xp_unescape(const char *source, char *dest)
+{
+    if (!source || !dest) {
         return -1;
     }
-    dest[0] = '\0';
-    position = source;
-    occurrences = strstr(position, search);
-    while (occurrences) {
-        strncat(dest, position, occurrences - position);
-        strcat(dest, replace);
-        position = occurrences + strlen(search);
-        occurrences = strstr(position, search);
-        number++;
+
+    const char *from = source;
+    char *to = dest;
+    size_t pos = strcspn(from, "&");
+
+    for (; from[pos] != '\0'; pos = strcspn(from, "&")) {
+        const char c = from[pos];
+
+        memcpy(to, from, pos);
+        to += pos;
+        from += pos + 1;
+
+        if (c != '&')
+            continue;
+
+        size_t term = strcspn(from, ";");
+        if (from[term] == '\0') {
+            *to++ = '&';
+            pos = term;
+            break;
+        }
+
+        const char *escape = xp_find_escape(from, term);
+        if (!escape) {
+            *to++ = '&';
+            continue;
+        }
+
+        size_t escape_len = strlen(escape);
+        memcpy(to, escape, escape_len);
+        to += escape_len;
+        from += term + 1;
     }
-    strcat(dest, position);
-    return number;
+
+    if (pos) {
+        memcpy(to, from, pos);
+        to += pos;
+    }
+
+    to[0] = '\0';
+    return to - dest;
 }
 
 /* This finds the end of something like <send foo="bar">, and does not recurse
