@@ -279,7 +279,7 @@ struct sipp_option options_table[] = {
     {"rate_max", "If -rate_increase is set, then quit after the rate reaches this value.\n"
      "Example: -rate_increase 10 -rate_max 100\n"
      "  ==> increase calls by 10 until 100 cps is hit.", SIPP_OPTION_INT, &rate_max, 1},
-    {"rate_interval", "Set the interval by which the call rate is increased. Default is 60 and default unit is seconds.", SIPP_OPTION_TIME_SEC, &rate_increase_freq, 1},
+    {"rate_interval", "Set the interval by which the call rate is increased. Defaults to the value of -fd.", SIPP_OPTION_TIME_SEC, &rate_increase_freq, 1},
     {"no_rate_quit", "If -rate_increase is set, do not quit after the rate reaches -rate_max.", SIPP_OPTION_UNSETFLAG, &rate_quit, 1},
 
     {"l", "Set the maximum number of simultaneous calls. Once this limit is reached, traffic is decreased until the number of open calls goes down. Default:\n"
@@ -1833,6 +1833,10 @@ int main(int argc, char *argv[])
     if (dumpInRtt == 1) {
         main_scenario->stats->initRtt((char*)scenario_file, (char*)".csv",
                                       report_freq_dumpRtt);
+    }
+
+    if (rate_increase_freq == 0) {
+        rate_increase_freq = report_freq_dumpLog;
     }
 
     // Check the soft limit on the number of open files,

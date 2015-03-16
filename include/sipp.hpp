@@ -163,7 +163,7 @@ cmd messages are received */
 #define DEFAULT_SERVICE              ((char *)"service")
 #define DEFAULT_AUTH_PASSWORD        ((char *)"password")
 #define DEFAULT_REPORT_FREQ          1000
-#define DEFAULT_RATE_INCR_FREQ       60000
+#define DEFAULT_RATE_INCR_FREQ       0
 #define DEFAULT_REPORT_FREQ_DUMP_LOG 60000
 #define DEFAULT_TIMER_RESOLUTION     1
 #define DEFAULT_FREQ_DUMP_RTT        200
