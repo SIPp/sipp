@@ -82,6 +82,7 @@
 #include "infile.hpp"
 #include "call_generation_task.hpp"
 #include "reporttask.hpp"
+#include "ratetask.hpp"
 #include "watchdog.hpp"
 /* Open SSL stuff */
 #ifdef _USE_OPENSSL
@@ -162,6 +163,7 @@ cmd messages are received */
 #define DEFAULT_SERVICE              ((char *)"service")
 #define DEFAULT_AUTH_PASSWORD        ((char *)"password")
 #define DEFAULT_REPORT_FREQ          1000
+#define DEFAULT_RATE_INCR_FREQ       0
 #define DEFAULT_REPORT_FREQ_DUMP_LOG 60000
 #define DEFAULT_TIMER_RESOLUTION     1
 #define DEFAULT_FREQ_DUMP_RTT        200
@@ -190,6 +192,7 @@ extern double             rate                    _DEFVAL(DEFAULT_RATE);
 extern double             rate_scale              _DEFVAL(DEFAULT_RATE_SCALE);
 extern int	          rate_increase           _DEFVAL(0);
 extern int	          rate_max	          _DEFVAL(0);
+extern unsigned long      rate_increase_freq      _DEFVAL(DEFAULT_RATE_INCR_FREQ);
 extern bool	          rate_quit		  _DEFVAL(true);
 extern int                users                   _DEFVAL(-1);
 extern int               rate_period_ms           _DEFVAL(DEFAULT_RATE_PERIOD_MS);
@@ -391,6 +394,7 @@ extern int           last_paused_calls            _DEFVAL(0);
 extern unsigned int  open_calls_allowed           _DEFVAL(0);
 extern unsigned long last_report_time             _DEFVAL(0);
 extern unsigned long last_dump_time               _DEFVAL(0);
+extern unsigned long last_rate_increase_time      _DEFVAL(0);
 
 /********************** Clock variables ***********************/
 

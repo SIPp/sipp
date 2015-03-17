@@ -38,7 +38,7 @@ class screentask *screentask::instance = NULL;
 void stattask::initialize()
 {
     assert(instance == NULL);
-    if (dumpInFile || useCountf || useErrorCodesf || rate_increase) {
+    if (dumpInFile || useCountf || useErrorCodesf) {
         instance = new stattask();
     }
 }
@@ -109,16 +109,6 @@ bool stattask::run()
 {
     /* Statistics Logs. */
     if((getmilliseconds() - last_dump_time) >= report_freq_dumpLog)  {
-        if (rate_increase) {
-            rate += rate_increase;
-            if (rate_max && (rate > rate_max)) {
-                rate = rate_max;
-                if (rate_quit) {
-                    quitting += 10;
-                }
-            }
-            CallGenerationTask::set_rate(rate);
-        }
         report();
     }
     setPaused();
@@ -129,3 +119,4 @@ unsigned int stattask::wake()
 {
     return last_dump_time + report_freq_dumpLog;
 }
+

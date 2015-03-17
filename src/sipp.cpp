@@ -273,12 +273,13 @@ struct sipp_option options_table[] = {
      "Example: -r 7 -rp 2000 ==> 7 calls every 2 seconds.\n         -r 10 -rp 5s => 10 calls every 5 seconds.", SIPP_OPTION_TIME_MS, &rate_period_ms, 1},
     {"rate_scale", "Control the units for the '+', '-', '*', and '/' keys.", SIPP_OPTION_FLOAT, &rate_scale, 1},
 
-    {"rate_increase", "Specify the rate increase every -fd units (default is seconds).  This allows you to increase the load for each independent logging period.\n"
-     "Example: -rate_increase 10 -fd 10s\n"
+    {"rate_increase", "Specify the rate increase every -rate_interval units (default is seconds).  This allows you to increase the load for each independent logging period.\n"
+     "Example: -rate_increase 10 -rate_interval 10s\n"
      "  ==> increase calls by 10 every 10 seconds.", SIPP_OPTION_INT, &rate_increase, 1},
     {"rate_max", "If -rate_increase is set, then quit after the rate reaches this value.\n"
      "Example: -rate_increase 10 -rate_max 100\n"
      "  ==> increase calls by 10 until 100 cps is hit.", SIPP_OPTION_INT, &rate_max, 1},
+    {"rate_interval", "Set the interval by which the call rate is increased. Defaults to the value of -fd.", SIPP_OPTION_TIME_SEC, &rate_increase_freq, 1},
     {"no_rate_quit", "If -rate_increase is set, do not quit after the rate reaches -rate_max.", SIPP_OPTION_UNSETFLAG, &rate_quit, 1},
 
     {"l", "Set the maximum number of simultaneous calls. Once this limit is reached, traffic is decreased until the number of open calls goes down. Default:\n"
@@ -1834,6 +1835,10 @@ int main(int argc, char *argv[])
                                       report_freq_dumpRtt);
     }
 
+    if (rate_increase_freq == 0) {
+        rate_increase_freq = report_freq_dumpLog;
+    }
+
     // Check the soft limit on the number of open files,
     // error out if this does not allow us to open the
     // required number of signalling channels, and warn
@@ -1936,6 +1941,8 @@ int main(int argc, char *argv[])
     stattask::initialize();
     /* Create the screen update task. */
     screentask::initialize();
+    /* Create the rate increase task. */
+    ratetask::initialize();
     /* Create a watchdog task. */
     if (watchdog_interval) {
         new watchdog(watchdog_interval, watchdog_reset, watchdog_major_threshold, watchdog_major_maxtriggers, watchdog_minor_threshold, watchdog_minor_maxtriggers);
