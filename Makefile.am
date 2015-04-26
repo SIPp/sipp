@@ -2,7 +2,7 @@ bin_PROGRAMS = sipp
 
 TESTS = sipp_unittest
 
-noinst_PROGRAMS = $(TESTS)
+check_PROGRAMS = $(TESTS)
 
 AM_CFLAGS=-I$(srcdir)/include
 AM_CPPFLAGS=$(AM_CFLAGS)
