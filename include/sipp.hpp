@@ -307,6 +307,8 @@ extern char             * auth_uri                _DEFVAL(0);
 extern const char       * call_id_string          _DEFVAL("%u-%p@%s");
 extern char             **generic[100];
 
+extern bool   callidSlash                         _DEFVAL(0);
+
 /* TDM map */
 extern bool               use_tdmmap              _DEFVAL(false);
 extern unsigned int       tdm_map_a               _DEFVAL(0);
