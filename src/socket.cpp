@@ -289,7 +289,7 @@ static const char *get_trimmed_call_id(const char *msg)
      */
     const char *call_id = get_call_id(msg);
     const char *slashes = strstr(call_id, "///");
-    if (slashes) {
+    if ((!callidSlash) && slashes) {
         return slashes + 3;
     }
     return call_id;
