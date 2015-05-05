@@ -23,8 +23,8 @@
  *           Guillaume TEISSIER from FTR&D
  *           Wolfgang Beck
  *           Marc Van Diest from Belgacom
- *	         Charles P. Wright from IBM Research
- *	         Michael Stovenour
+ *           Charles P. Wright from IBM Research
+ *           Michael Stovenour
  */
 
 #include <stdlib.h>
@@ -140,11 +140,11 @@ scenario      *display_scenario;
 
 /* This mode setting refers to whether we open calls autonomously (MODE_CLIENT)
  * or in response to requests (MODE_SERVER). */
-int           creationMode  = MODE_CLIENT;
+int creationMode  = MODE_CLIENT;
 /* Send mode. Do we send to a fixed address or to the last one we got. */
-int           sendMode  = MODE_CLIENT;
+int sendMode  = MODE_CLIENT;
 /* This describes what our 3PCC behavior is. */
-int	      thirdPartyMode = MODE_3PCC_NONE;
+int thirdPartyMode = MODE_3PCC_NONE;
 
 /*************** Helper functions for various types *****************/
 long get_long(const char *ptr, const char *what)
@@ -974,15 +974,16 @@ scenario::scenario(char * filename, int deflt)
                 curmsg->M_type = MSG_TYPE_SENDCMD;
                 /* Sent messages descriptions */
 
-                /* 3pcc extended mode  */
+                /* 3pcc extended mode */
                 if((ptr = xp_get_value((char *)"dest"))) {
                     peer = strdup(ptr) ;
                     curmsg ->peer_dest = peer ;
                     peer_map::iterator peer_it;
                     peer_it = peers.find(peer_map::key_type(peer));
-                    if(peer_it == peers.end())  /* the peer (slave or master)
-					  has not been added in the map
-					  (first occurrence in the scenario) */
+                    if(peer_it == peers.end())
+                        /* the peer (slave or master)
+                        has not been added in the map
+                        (first occurrence in the scenario) */
                     {
                         T_peer_infos infos;
                         infos.peer_socket = 0;
@@ -1614,23 +1615,23 @@ void scenario::parseAction(CActions *actions)
                 hasMedia = 1;
 #else
             } else if ((ptr = xp_get_value((char *) "play_pcap_audio"))) {
-        ERROR("Scenario specifies a play_pcap_audio action, but this version of SIPp does not have PCAP support");
+                ERROR("Scenario specifies a play_pcap_audio action, but this version of SIPp does not have PCAP support");
             } else if ((ptr = xp_get_value((char *) "play_pcap_video"))) {
-        ERROR("Scenario specifies a play_pcap_video action, but this version of SIPp does not have PCAP support");
+                ERROR("Scenario specifies a play_pcap_video action, but this version of SIPp does not have PCAP support");
 #endif
-      } else if ((ptr = xp_get_value((char *) "rtp_stream"))) {
+            } else if ((ptr = xp_get_value((char *) "rtp_stream"))) {
 #ifdef RTP_STREAM
-        hasMedia = 1;
-	if (!strcmp(ptr, "pause")) {
-         tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PAUSE);
-	} else if (!strcmp(ptr, "resume")) {
-         tmpAction->setActionType(CAction::E_AT_RTP_STREAM_RESUME);
-        } else {
-         tmpAction->setRTPStreamActInfo(ptr);
-	 tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PLAY);
-        }
+                hasMedia = 1;
+                if (!strcmp(ptr, "pause")) {
+                    tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PAUSE);
+                } else if (!strcmp(ptr, "resume")) {
+                    tmpAction->setActionType(CAction::E_AT_RTP_STREAM_RESUME);
+                } else {
+                    tmpAction->setRTPStreamActInfo(ptr);
+                    tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PLAY);
+                }
 #else
-        ERROR("Scenario specifies a rtp_stream action, but this version of SIPp does not have RTP stream support");
+                ERROR("Scenario specifies a rtp_stream action, but this version of SIPp does not have RTP stream support");
 #endif
             } else {
                 ERROR("illegal <exec> in the scenario\n");
