@@ -41,11 +41,9 @@
  * made available by the platform, as we had no problems to get them on all supported platforms.
  */
 
-typedef struct _ether_hdr {
-    char ether_dst[6];
-    char ether_src[6];
+typedef struct _ether_type_hdr {
     u_int16_t ether_type; /* we only need the type, so we can determine, if the next header is IPv4 or IPv6 */
-} ether_hdr;
+} ether_type_hdr;
 
 typedef struct _ipv6_hdr {
     char dontcare[6];
@@ -99,7 +97,9 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
     u_int16_t base = 0xffff;
     u_long pktlen;
     pcap_pkt *pkt_index;
-    ether_hdr *ethhdr;
+    size_t ether_type_offset;
+    ether_type_hdr *ethhdr;
+
     struct iphdr *iphdr;
     ipv6_hdr *ip6hdr;
     struct udphdr *udphdr;
@@ -109,6 +109,19 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
     pcap = pcap_open_offline(file, errbuf);
     if (!pcap)
         ERROR("Can't open PCAP file '%s'", file);
+
+    switch (pcap_datalink(pcap)) {
+    case DLT_EN10MB:
+        /* srcmac[6], dstmac[6], ethertype[2] */
+        ether_type_offset = 12;
+        break;
+    case DLT_LINUX_SLL:
+        /* some_stuff[14], ethertype[2] */
+        ether_type_offset = 14;
+        break;
+    default:
+        ERROR("Unsupported link-type %d", pcap_datalink(pcap));
+    }
 
 #if HAVE_PCAP_NEXT_EX
     while (pcap_next_ex (pcap, &pkthdr, (const u_char **) &pktdata) == 1) {
@@ -122,7 +135,10 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
         ERROR("Can't allocate memory for pcap pkthdr");
     while ((pktdata = (u_char *) pcap_next (pcap, pkthdr)) != NULL) {
 #endif
-        ethhdr = (ether_hdr *)pktdata;
+        if (pkthdr->len != pkthdr->caplen) {
+            ERROR("You got truncated packets. Please create a new dump with -s0");
+        }
+        ethhdr = (ether_type_hdr *)(pktdata + ether_type_offset);
         if (ntohs(ethhdr->ether_type) != 0x0800 /* IPv4 */
                 && ntohs(ethhdr->ether_type) != 0x86dd) { /* IPv6 */
             fprintf(stderr, "Ignoring non IP{4,6} packet!\n");
