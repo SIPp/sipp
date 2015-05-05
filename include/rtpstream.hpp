@@ -34,7 +34,7 @@ struct rtpstream_callinfo_t
 struct rtpstream_actinfo_t
 {
  char   filename[RTPSTREAM_MAX_FILENAMELEN];
- int	loop_count;
+ int    loop_count;
  int    bytes_per_packet;
  int    ms_per_packet;
  int    ticks_per_packet; /* need rework for 11.025 sample rate */

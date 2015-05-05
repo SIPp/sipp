@@ -18,7 +18,6 @@
  *            Olivier JACQUES
  *            Richard GAYRAUD
  *            From Hewlett Packard Company.
- *
  */
 
 #ifndef __STAT_H__
@@ -29,7 +28,7 @@
 #define DEFAULT_FILE_NAME (char*)"dumpFile"
 #define DEFAULT_EXTENSION (char*)".csv"
 
-#define MAX_CHAR_BUFFER_SIZE          1024
+#define MAX_CHAR_BUFFER_SIZE 1024
 
 #include <ctime>
 #include <vector>
@@ -354,7 +353,7 @@ public:
     /* define the file name to use to dump statistic in file */
     void setFileName                (char * name);
     void setFileName                (char * name, char * extension);
-    void initRtt             (char * name, char * extension, unsigned long P_value);
+    void initRtt                    (char * name, char * extension, unsigned long P_value);
 
     /**
      * Display data periodically updated on screen.
@@ -419,29 +418,29 @@ public:
     int nRtds();
 
 private:
-    unsigned long long       M_counters[E_NB_COUNTER];
+    unsigned long long        M_counters[E_NB_COUNTER];
     static unsigned long long M_G_counters[E_NB_G_COUNTER - E_NB_COUNTER];
 
 #define GENERIC_C 0
 #define GENERIC_PD 1
 #define GENERIC_PL 2
 #define GENERIC_TYPES 3
-    unsigned long long	   *M_genericCounters;
+    unsigned long long           *M_genericCounters;
 
-    str_int_map		   M_genericMap;
-    int_str_map		   M_revGenericMap;
-    int_str_map		   M_genericDisplay;
+    str_int_map                   M_genericMap;
+    int_str_map                   M_revGenericMap;
+    int_str_map                   M_genericDisplay;
 
-    str_int_map		   rtd_started;
-    str_int_map		   rtd_stopped;
+    str_int_map                   rtd_started;
+    str_int_map                   rtd_stopped;
 
 #define RTD_COUNT 0
 #define RTD_SUM 1
 #define RTD_SUMSQ 2
 #define RTD_TYPES 3
-    unsigned long long	   *M_rtdInfo;
-    str_int_map		   M_rtdMap;
-    int_str_map		   M_revRtdMap;
+    unsigned long long           *M_rtdInfo;
+    str_int_map                   M_rtdMap;
+    int_str_map                   M_revRtdMap;
 
     T_dynamicalRepartition** M_ResponseTimeRepartition;
     T_dynamicalRepartition*  M_CallLengthRepartition;

@@ -18,7 +18,6 @@
  *            Olivier JACQUES
  *            Richard GAYRAUD
  *            From Hewlett Packard Company.
- *
  */
 
 #ifndef _CVARIABLE
@@ -81,12 +80,12 @@ public:
     ~CCallVariable();
 
 private:
-    T_VarType	M_type;
-    char*		M_matchingValue;
-    int		M_nbOfMatchingValue;
-    double	M_double;
-    char*		M_stringValue;
-    bool		M_bool;
+    T_VarType   M_type;
+    char*       M_matchingValue;
+    int         M_nbOfMatchingValue;
+    double      M_double;
+    char*       M_stringValue;
+    bool        M_bool;
 };
 
 class AllocVariableTable;

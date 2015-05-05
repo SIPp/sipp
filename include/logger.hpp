@@ -24,16 +24,16 @@ extern bool   useCallDebugf                       _DEFVAL(0);
 extern bool   useShortMessagef                    _DEFVAL(0);
 extern bool   useScreenf                          _DEFVAL(0);
 extern bool   useLogf                             _DEFVAL(0);
-//extern bool   useTimeoutf                         _DEFVAL(0);
+// extern bool   useTimeoutf                         _DEFVAL(0);
 extern bool   dumpInFile                          _DEFVAL(0);
 extern bool   dumpInRtt                           _DEFVAL(0);
 extern bool   useCountf                           _DEFVAL(0);
 extern char * scenario_file;
 extern char * slave_cfg_file;
 
-extern unsigned long long max_log_size		  _DEFVAL(0);
-extern unsigned long long ringbuffer_size	  _DEFVAL(0);
-extern int    ringbuffer_files			  _DEFVAL(0);
+extern unsigned long long max_log_size            _DEFVAL(0);
+extern unsigned long long ringbuffer_size         _DEFVAL(0);
+extern int    ringbuffer_files                    _DEFVAL(0);
 
 extern char   screen_last_error[32768];
 extern char   screen_logfile[MAX_PATH]            _DEFVAL("");
@@ -66,10 +66,10 @@ void log_off(struct logfile_info *lfi);
 
 #ifdef GLOBALS_FULL_DEFINITION
 #define LOGFILE(name, s, check) \
-	struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0};
+        struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0};
 #else
 #define LOGFILE(name, s, check) \
-	extern struct logfile_info name;
+        extern struct logfile_info name;
 #endif
 LOGFILE(calldebug_lfi, "calldebug", true);
 LOGFILE(message_lfi, "messages", true);

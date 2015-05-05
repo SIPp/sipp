@@ -19,7 +19,7 @@
  *           Peter Higginson
  *           JPeG
  *           Guillaume TEISSIER from FTR&D
-*/
+ */
 
 #ifndef __SCENARIO__
 #define __SCENARIO__
@@ -43,7 +43,7 @@
 #define MODE_CLIENT        0
 #define MODE_SERVER        1
 
-#define MODE_3PCC_NONE		0
+#define MODE_3PCC_NONE                0
 #define MODE_3PCC_CONTROLLER_A  2
 #define MODE_3PCC_CONTROLLER_B  3
 #define MODE_3PCC_A_PASSIVE     4
@@ -63,11 +63,11 @@ class message
 public:
     /* If this is a pause */
     CSample        *pause_distribution;
-    int		 pause_variable;
+    int            pause_variable;
     /* This string is used for the display screen. */
-    char		 *pause_desc;
+    char           *pause_desc;
     /* Is this a final pause, intended for catching retransmissions? */
-    bool		timewait;
+    bool           timewait;
 
     /* Number of sessions in a pause */
     int            sessions;
@@ -91,7 +91,7 @@ public:
     char         * peer_src;
 
     /* If this is a recv */
-    int   	 recv_response;
+    int            recv_response;
     char         * recv_request;
     int            optional;
     bool           advance_state;
@@ -102,18 +102,18 @@ public:
     int            start_rtd;
     int            stop_rtd;
     bool           repeat_rtd;
-    int		 counter;
+    int            counter;
     double         lost;
     int            crlf;
     bool           hide;
-    char *	 display_str;
-    int		 next;
+    char *         display_str;
+    int            next;
     char *         nextLabel;
     int            test;
     int            condexec;
     bool           condexec_inverse;
     int            chance;/* 0=always, RAND_MAX+1=never (test rand() >= chance) */
-    int		 on_timeout;
+    int            on_timeout;
     char *         onTimeoutLabel;
 
     /* Statistics */
@@ -146,7 +146,7 @@ public:
     int            ack_txn;
     int            response_txn;
     int            index;
-    const char *         desc;
+    const char *   desc;
 
     message(int index, const char *desc);
     ~message();

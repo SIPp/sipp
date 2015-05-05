@@ -55,4 +55,3 @@ void screen_exit(int rc);
 void screen_sigusr1(int /* not used */);
 
 #endif // __SCREEN_H__
-

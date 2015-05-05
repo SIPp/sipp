@@ -29,7 +29,7 @@ enum ssl_init_status {
     SSL_INIT_ERROR   /* 1   Unspecified error    */
 };
 
-extern  SSL_CTX             *sip_trp_ssl_ctx;
+extern  SSL_CTX  *sip_trp_ssl_ctx;
 extern  SSL_CTX  *sip_trp_ssl_ctx_client;
 
 const char *sip_tls_error_string(SSL *ssl, int size);
@@ -93,17 +93,17 @@ struct socketbuf {
 struct sipp_socket {
     int  ss_count; /* How many users are there of this socket? */
 
-    int ss_transport; /* T_TCP, T_UDP, or T_TLS. */
+    int ss_transport;   /* T_TCP, T_UDP, or T_TLS. */
     bool ss_ipv6;
-    bool ss_control; /* Is this a control socket? */
+    bool ss_control;    /* Is this a control socket? */
     bool ss_call_socket; /* Is this a call socket? */
     bool ss_changed_dest; /* Has the destination changed from default. */
 
-    int ss_fd;	/* The underlying file descriptor for this socket. */
+    int ss_fd;          /* The underlying file descriptor for this socket. */
     void *ss_comp_state; /* The compression state. */
 #ifdef _USE_OPENSSL
-    SSL *ss_ssl;	/* The underlying SSL descriptor for this socket. */
-    BIO *ss_bio;	/* The underlying BIO descriptor for this socket. */
+    SSL *ss_ssl;        /* The underlying SSL descriptor for this socket. */
+    BIO *ss_bio;        /* The underlying BIO descriptor for this socket. */
 #endif
     struct sockaddr_storage ss_remote_sockaddr; /* Who we are talking to. */
     struct sockaddr_storage ss_dest; /* Who we are talking to. */
@@ -114,7 +114,7 @@ struct sipp_socket {
     bool ss_invalid; /* Has this socket been closed remotely? */
 
     struct socketbuf *ss_in; /* Buffered input. */
-    size_t ss_msglen;	/* Is there a complete SIP message waiting, and if so how big? */
+    size_t ss_msglen;        /* Is there a complete SIP message waiting, and if so how big? */
     struct socketbuf *ss_out; /* Buffered output. */
 #ifdef USE_SCTP
     int sctpstate;

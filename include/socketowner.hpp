@@ -15,7 +15,7 @@
  *
  *  Author : Richard GAYRAUD - 04 Nov 2003
  *           From Hewlett Packard Company.
- *	     Charles P. Wright from IBM Research
+ *           Charles P. Wright from IBM Research
  */
 
 #ifndef __SOCKETOWNER__

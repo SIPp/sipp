@@ -140,18 +140,18 @@ public:
     void setLookingPlace (T_LookingPlace P_value);
     void setComparator   (T_Comparator   P_value);
     void setCheckIt      (bool           P_value);
-    void setCheckItInverse (bool           P_value);
+    void setCheckItInverse (bool         P_value);
     void setVarId        (int            P_value);
     void setVarInId      (int            P_value);
-    void setVarIn2Id      (int            P_value);
+    void setVarIn2Id      (int           P_value);
     void setLookingChar  (char*          P_value);
     void setAction       (CAction        P_action);
     void setCaseIndep    (bool           P_action);
     void setOccurrence   (int            P_value);
     void setHeadersOnly  (bool           P_value);
     void setScenario     (scenario *     P_scenario);
-    void setRegExp       (const char*		 P_value);  /* ereg specific function. */
-    int  executeRegExp   (const char* P_string, VariableTable *P_callVarTable);
+    void setRegExp       (const char*    P_value);  /* ereg specific function. */
+    int  executeRegExp   (const char*    P_string, VariableTable *P_callVarTable);
     void setMessage      (char*          P_value, int n = 0);  /* log specific function  */
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
     void setDistribution (CSample *      P_value);  /* sample specific function  */
@@ -194,14 +194,14 @@ private:
     int            M_maxNbSubVarId;
     int *          M_subVarId;
 
-    char*          M_lookingChar;
+    char *         M_lookingChar;
     /* log specific member  */
-    SendingMessage *M_message[MAX_ACTION_MESSAGE];
-    char *	     M_message_str[MAX_ACTION_MESSAGE];
+    SendingMessage * M_message[MAX_ACTION_MESSAGE];
+    char *         M_message_str[MAX_ACTION_MESSAGE];
     /* exec specific member */
     T_IntCmdType   M_IntCmd;
     /* sample specific member. */
-    CSample	     *M_distribution;
+    CSample *      M_distribution;
     /* assign value specific member. */
     double         M_doubleValue;
     /* strcmp specific member. */
@@ -209,12 +209,12 @@ private:
     /* what scenario we belong to. */
     scenario *     M_scenario;
     /* Our regular expression. */
-    bool	     M_regExpSet;
+    bool           M_regExpSet;
     regex_t        M_internalRegExp;
     char *         M_regularExpression;
 #ifdef PCAPPLAY
     /* pcap specific member */
-    pcap_pkts  *   M_pcapArgs;
+    pcap_pkts *    M_pcapArgs;
 #endif
 #ifdef RTP_STREAM
       rtpstream_actinfo_t M_rtpstream_actinfo;
