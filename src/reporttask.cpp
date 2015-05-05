@@ -119,4 +119,3 @@ unsigned int stattask::wake()
 {
     return last_dump_time + report_freq_dumpLog;
 }
-

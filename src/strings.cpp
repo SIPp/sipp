@@ -32,7 +32,7 @@
  *           Charles P Wright from IBM Research
  *           Martin Van Leeuwen
  *           Andy Aicken
- *	     Michael Hirschbichler
+ *           Michael Hirschbichler
  */
 
 #include <strings.h>
@@ -51,7 +51,7 @@ void get_host_and_port(const char * addr, char * host, int * port)
     const char *has_brackets;
     int len;
     int port_result = 0;
-    
+
     has_brackets = strchr(addr, '[');
     if (has_brackets != NULL) {
         has_brackets = strchr(has_brackets, ']');

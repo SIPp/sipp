@@ -32,7 +32,7 @@
  *           Charles P Wright from IBM Research
  *           Martin Van Leeuwen
  *           Andy Aicken
- *	     Michael Hirschbichler
+ *           Michael Hirschbichler
  */
 
 #include <dlfcn.h>
@@ -63,45 +63,45 @@ struct sipp_option {
     int pass;
 };
 
-#define SIPP_OPTION_HELP	   1
-#define SIPP_OPTION_INT		   2
-#define SIPP_OPTION_SETFLAG	   3
-#define SIPP_OPTION_UNSETFLAG	   4
-#define SIPP_OPTION_STRING	   5
-#define SIPP_OPTION_ARGI 	   6
-#define SIPP_OPTION_TIME_SEC	   7
-#define SIPP_OPTION_FLOAT	   8
-#define SIPP_OPTION_BOOL	  10
-#define SIPP_OPTION_VERSION	  11
-#define SIPP_OPTION_TRANSPORT	  12
-#define SIPP_OPTION_NEED_SSL	  13
-#define SIPP_OPTION_IP		  14
-#define SIPP_OPTION_MAX_SOCKET	  15
-#define SIPP_OPTION_CSEQ	  16
-#define SIPP_OPTION_SCENARIO	  17
-#define SIPP_OPTION_RSA		  18
-#define SIPP_OPTION_LIMIT	  19
-#define SIPP_OPTION_USERS	  20
-#define SIPP_OPTION_KEY		  21
-#define SIPP_OPTION_3PCC	  22
-#define SIPP_OPTION_TDMMAP	  23
-#define SIPP_OPTION_TIME_MS	  24
+#define SIPP_OPTION_HELP           1
+#define SIPP_OPTION_INT            2
+#define SIPP_OPTION_SETFLAG        3
+#define SIPP_OPTION_UNSETFLAG      4
+#define SIPP_OPTION_STRING         5
+#define SIPP_OPTION_ARGI           6
+#define SIPP_OPTION_TIME_SEC       7
+#define SIPP_OPTION_FLOAT          8
+#define SIPP_OPTION_BOOL          10
+#define SIPP_OPTION_VERSION       11
+#define SIPP_OPTION_TRANSPORT     12
+#define SIPP_OPTION_NEED_SSL      13
+#define SIPP_OPTION_IP            14
+#define SIPP_OPTION_MAX_SOCKET    15
+#define SIPP_OPTION_CSEQ          16
+#define SIPP_OPTION_SCENARIO      17
+#define SIPP_OPTION_RSA           18
+#define SIPP_OPTION_LIMIT         19
+#define SIPP_OPTION_USERS         20
+#define SIPP_OPTION_KEY           21
+#define SIPP_OPTION_3PCC          22
+#define SIPP_OPTION_TDMMAP        23
+#define SIPP_OPTION_TIME_MS       24
 #define SIPP_OPTION_SLAVE_CFG     25
 #define SIPP_OPTION_3PCC_EXTENDED 26
-#define SIPP_OPTION_INPUT_FILE	  27
+#define SIPP_OPTION_INPUT_FILE    27
 #define SIPP_OPTION_TIME_MS_LONG  28
 #define SIPP_OPTION_LONG          29
 #define SIPP_OPTION_LONG_LONG     30
 #define SIPP_OPTION_DEFAULTS      31
 #define SIPP_OPTION_OOC_SCENARIO  32
 #define SIPP_OPTION_INDEX_FILE    33
-#define SIPP_OPTION_VAR		  34
-#define SIPP_OPTION_RTCHECK	  35
-#define SIPP_OPTION_LFNAME	  36
-#define SIPP_OPTION_LFOVERWRITE	  37
-#define SIPP_OPTION_PLUGIN	  38
-#define SIPP_OPTION_NEED_SCTP	  39
-#define SIPP_HELP_TEXT_HEADER	  255
+#define SIPP_OPTION_VAR           34
+#define SIPP_OPTION_RTCHECK       35
+#define SIPP_OPTION_LFNAME        36
+#define SIPP_OPTION_LFOVERWRITE   37
+#define SIPP_OPTION_PLUGIN        38
+#define SIPP_OPTION_NEED_SCTP     39
+#define SIPP_HELP_TEXT_HEADER    255
 
 /* Put each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
@@ -255,11 +255,11 @@ struct sipp_option options_table[] = {
     {"mb", "Set the RTP echo buffer size (default: 2048).", SIPP_OPTION_INT, &media_bufsize, 1},
     {"mp", "Set the local RTP echo port number. Default is 6000.", SIPP_OPTION_INT, &user_media_port, 1},
 #ifdef RTP_STREAM
-	{"min_rtp_port", "Minimum port number for RTP socket range.", SIPP_OPTION_INT, &min_rtp_port, 1},
-	{"max_rtp_port", "Maximum port number for RTP socket range.", SIPP_OPTION_INT, &max_rtp_port, 1},
-	{"rtp_payload", "RTP default payload type.", SIPP_OPTION_INT, &rtp_default_payload, 1},
-	{"rtp_threadtasks", "RTP number of playback tasks per thread.", SIPP_OPTION_INT, &rtp_tasks_per_thread, 1},
-	{"rtp_buffsize", "Set the rtp socket send/receive buffer size.", SIPP_OPTION_INT, &rtp_buffsize, 1},
+    {"min_rtp_port", "Minimum port number for RTP socket range.", SIPP_OPTION_INT, &min_rtp_port, 1},
+    {"max_rtp_port", "Maximum port number for RTP socket range.", SIPP_OPTION_INT, &max_rtp_port, 1},
+    {"rtp_payload", "RTP default payload type.", SIPP_OPTION_INT, &rtp_default_payload, 1},
+    {"rtp_threadtasks", "RTP number of playback tasks per thread.", SIPP_OPTION_INT, &rtp_tasks_per_thread, 1},
+    {"rtp_buffsize", "Set the rtp socket send/receive buffer size.", SIPP_OPTION_INT, &rtp_buffsize, 1},
 #endif
 
     {"", "Call rate options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
@@ -351,7 +351,7 @@ struct sipp_option options_table[] = {
     {"error_overwrite", "Overwrite the error log file (default true).", SIPP_OPTION_LFOVERWRITE, &error_lfi, 1},
 
     {"trace_error_codes", "Dumps the SIP response codes of unexpected messages to <scenario file name>_<pid>_error_codes.log.", SIPP_OPTION_SETFLAG, &useErrorCodesf, 1},
-//	{"trace_timeout", "Displays call ids for calls with timeouts in <scenario file name>_<pid>_timeout.log", SIPP_OPTION_SETFLAG, &useTimeoutf, 1},
+//     {"trace_timeout", "Displays call ids for calls with timeouts in <scenario file name>_<pid>_timeout.log", SIPP_OPTION_SETFLAG, &useTimeoutf, 1},
 
     {"trace_calldebug", "Dumps debugging information about aborted calls to <scenario_name>_<pid>_calldebug.log file.", SIPP_OPTION_SETFLAG, &useCallDebugf, 1},
     {"calldebug_file", "Set the name of the call debug file.", SIPP_OPTION_LFNAME, &calldebug_lfi, 1},
@@ -430,11 +430,11 @@ void sipp_sigusr2(int /* not used */)
 void pollset_process(int wait)
 {
     int rs; /* Number of times to execute recv().
-	     For TCP with 1 socket per call:
-	         no. of events returned by poll
-	     For UDP and TCP with 1 global socket:
-	         recv_count is a flag that stays up as
-	         long as there's data to read */
+            For TCP with 1 socket per call:
+                no. of events returned by poll
+            For UDP and TCP with 1 global socket:
+                recv_count is a flag that stays up as
+                long as there's data to read */
 
     /* What index should we try reading from? */
     static int read_index;
@@ -1214,7 +1214,7 @@ int main(int argc, char *argv[])
 
     /* Command line parsing */
 #define REQUIRE_ARG() if((++argi) >= argc) { ERROR("Missing argument for param '%s'.\n" \
-				     "Use 'sipp -h' for details",  argv[argi - 1]); }
+                                                   "Use 'sipp -h' for details",  argv[argi - 1]); }
 #define CHECK_PASS() if (option->pass != pass) { break; }
 
     for (int pass = 0; pass <= 3; pass++) {
@@ -1846,7 +1846,7 @@ int main(int argc, char *argv[])
     // if this may not allow enough media channels.
     if (!skip_rlimit) {
         struct rlimit rlimit;
-        unsigned max_sockets_needed = multisocket ? max_multi_socket : 1; 
+        unsigned max_sockets_needed = multisocket ? max_multi_socket : 1;
 
         if (getrlimit (RLIMIT_NOFILE, &rlimit) < 0) {
             ERROR_NO("getrlimit error");

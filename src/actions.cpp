@@ -419,7 +419,7 @@ int CAction::executeRegExp(const char* P_string, VariableTable *P_callVarTable)
     error = regexec(&M_internalRegExp, P_string, 10, pmatch, REGEXP_PARAMS);
     if ( error == 0) {
         CCallVariable* L_callVar = P_callVarTable->getVar(getVarId());
-        
+
         for(int i = 0; i <= getNbSubVarId(); i++) {
             if(pmatch[i].rm_eo == -1) break ;
 
@@ -491,8 +491,8 @@ void CAction::setPcapArgs (char*        P_value)
 #ifdef RTP_STREAM
 void CAction::setRTPStreamActInfo (char      *P_value)
 {
-  char	*ParamString;
-  char	*NextComma;
+  char *ParamString;
+  char *NextComma;
 
   if (strlen(P_value)>=sizeof (M_rtpstream_actinfo.filename)) {
     ERROR("Filename %s is too long, maximum supported length %d\n",P_value,
@@ -509,7 +509,7 @@ void CAction::setRTPStreamActInfo (char      *P_value)
     NextComma= strchr (ParamString,',');
     if (NextComma) {
       *(NextComma++)= 0;
-    }  
+    }
     M_rtpstream_actinfo.loop_count= atoi(ParamString);
     ParamString= NextComma;
   }
@@ -520,7 +520,7 @@ void CAction::setRTPStreamActInfo (char      *P_value)
     NextComma= strchr (ParamString,',');
     if (NextComma) {
       *(NextComma++)= 0;
-    }  
+    }
     M_rtpstream_actinfo.payload_type= atoi(ParamString);
   }
 
@@ -556,7 +556,7 @@ void CAction::setRTPStreamActInfo (char      *P_value)
 void CAction::setRTPStreamActInfo (rtpstream_actinfo_t *P_value)
 {
   /* At this stage the entire rtpstream action info structure can simply be */
-  /* copied. No members need to be individually duplicated/processed.       */ 
+  /* copied. No members need to be individually duplicated/processed.       */
   memcpy (&M_rtpstream_actinfo,P_value,sizeof(M_rtpstream_actinfo));
 }
 #endif

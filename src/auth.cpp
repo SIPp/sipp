@@ -13,7 +13,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- *  Author : F. Tarek Rogers 		- 01 Sept 2004
+ *  Author : F. Tarek Rogers    - 01 Sept 2004
  *           Russell Roy
  *           Wolfgang Beck
  *           Dragos Vingarzan   - 02 February 2006 vingarzan@gmail.com

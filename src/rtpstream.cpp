@@ -43,7 +43,7 @@ void debugprint (const char *Format,...)
 #define TI_NULLIP                     (TI_NULL_AUDIOIP|TI_NULL_VIDEOIP)
 #define TI_PAUSERTP                   0x04
 #define TI_ECHORTP                    0x08  /* Not currently implemented */
-#define TI_KILLTASK		              0x10
+#define TI_KILLTASK                   0x10
 #define TI_RECONNECTSOCKET            0x20
 #define TI_PLAYFILE                   0x40
 #define TI_CONFIGFLAGS                (TI_KILLTASK|TI_RECONNECTSOCKET|TI_PLAYFILE)
@@ -122,7 +122,7 @@ struct cached_file_t
 {
   char   filename[RTPSTREAM_MAX_FILENAMELEN];
   char   *bytes;
-  int	 filesize;
+  int    filesize;
 };
 
 cached_file_t  *cached_files= NULL;
@@ -172,7 +172,7 @@ void rtpstream_process_task_flags (taskentry_t *taskinfo)
     int remote_addr_len;
     int rc;
 
-	remote_addr_len= media_ip_is_ipv6?sizeof(struct sockaddr_in6):sizeof(struct sockaddr_in);
+    remote_addr_len = media_ip_is_ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
 
     /* enter critical section to lock address updates */
     /* may want to leave this out -- low chance of race condition */
@@ -305,7 +305,7 @@ unsigned long rtpstream_playrtptask (taskentry_t *taskinfo, unsigned long  timen
       if (taskinfo->flags&(TI_NULL_AUDIOIP|TI_PAUSERTP)) {
         /* when paused, set timestamp so stream appears to be up to date */
         taskinfo->last_timestamp= target_timestamp;
-	  }     
+      }
       if (taskinfo->last_timestamp<target_timestamp) {
         /* need to send rtp payload - build rtp packet header... */
         ((rtp_header_t*)udp_buffer)->flags= htons(0x8000|taskinfo->payload_type);
@@ -314,32 +314,32 @@ unsigned long rtpstream_playrtptask (taskentry_t *taskinfo, unsigned long  timen
         ((rtp_header_t*)udp_buffer)->ssrc_id= htonl(taskinfo->ssrc_id);
         /* add payload data to the packet - handle buffer wraparound */
         if (taskinfo->file_bytes_left>=taskinfo->bytes_per_packet) {
-          /* no need for fancy acrobatics */ 
+          /* no need for fancy acrobatics */
           memcpy (udp_buffer+sizeof(rtp_header_t),taskinfo->current_file_bytes,taskinfo->bytes_per_packet);
         } else {
           /* copy from end and then begining of file. does not handle the */
           /* case where file is shorter than the packet length!! */
-          memcpy (udp_buffer+sizeof(rtp_header_t),taskinfo->current_file_bytes,taskinfo->file_bytes_left); 
+          memcpy (udp_buffer+sizeof(rtp_header_t),taskinfo->current_file_bytes,taskinfo->file_bytes_left);
           memcpy (udp_buffer+sizeof(rtp_header_t)+taskinfo->file_bytes_left,
-                  taskinfo->file_bytes_start,taskinfo->bytes_per_packet-taskinfo->file_bytes_left); 
+                  taskinfo->file_bytes_start,taskinfo->bytes_per_packet-taskinfo->file_bytes_left);
         }
         /* now send the actual packet */
-		rc= send (taskinfo->audio_rtp_socket,udp_buffer,taskinfo->bytes_per_packet+sizeof(rtp_header_t),0);
+        rc = send (taskinfo->audio_rtp_socket,udp_buffer,taskinfo->bytes_per_packet+sizeof(rtp_header_t),0);
         if (rc<0) {
           /* handle sending errors */
           if ((errno==EAGAIN)||(errno==EWOULDBLOCK)||(errno==EINTR)) {
             next_wake= timenow_ms+2; /* retry after short sleep */
-		  } else {
+          } else {
             /* this looks like a permanent error  - should we ignore ENETUNREACH? */
             debugprint ("closing rtp socket %d due to error %d in rtpstream_new_call taskinfo=%p\n",
                         taskinfo->audio_rtp_socket, errno, taskinfo);
             close (taskinfo->audio_rtp_socket);
             taskinfo->audio_rtp_socket= -1;
-		  }
+          }
         } else {
           /* statistics - only count successful sends */
           rtpstream_bytes_out+= taskinfo->bytes_per_packet+sizeof(rtp_header_t);
-		  rtpstream_pckts++;
+          rtpstream_pckts++;
           /* advance playback pointer to next packet */
           taskinfo->seq++;
           /* must change if timer ticks per packet can be fractional */
@@ -358,7 +358,7 @@ unsigned long rtpstream_playrtptask (taskentry_t *taskinfo, unsigned long  timen
           if (taskinfo->last_timestamp<target_timestamp) {
             /* no sleep if we are behind */
             next_wake= timenow_ms;
-		  }
+          }
         }
       }
     } else {
@@ -386,7 +386,7 @@ void *rtpstream_playback_thread (void *params)
   unsigned long  timenow_ms;
   unsigned long  waketime_ms;
   int            sleeptime_us;
- 
+
   rtpstream_numthreads++; /* perhaps wrap this in a mutex? */
 
   while (!threaddata->exit_flag) {
@@ -411,31 +411,31 @@ void *rtpstream_playback_thread (void *params)
       }
 
       /* should we update current time inbetween tasks? */
-	  if (taskinfo->nextwake_ms<=timenow_ms) {
-        /* task needs to execute now */	  
+      if (taskinfo->nextwake_ms<=timenow_ms) {
+        /* task needs to execute now */
         taskinfo->nextwake_ms= rtpstream_playrtptask (taskinfo,timenow_ms);
-	  }
+      }
       if (waketime_ms>taskinfo->nextwake_ms) {
         waketime_ms= taskinfo->nextwake_ms;
-	  }
+      }
     }
-	/* sleep until next iteration of playback loop */
+    /* sleep until next iteration of playback loop */
     sleeptime_us= (waketime_ms-getmilliseconds())*1000;
     if (sleeptime_us>0) {
       usleep (sleeptime_us);
-	}
+    }
   }
 
-  /* Free all task and thread resources and exit the thread */ 
+  /* Free all task and thread resources and exit the thread */
   for (taskindex=0;taskindex<threaddata->num_tasks;taskindex++) {
     /* check if we should delete this thread, else let owner call clear it */
     /* small chance of race condition in this code */
     taskinfo= (&threaddata->tasklist)[taskindex];
-	if (taskinfo->flags&TI_KILLTASK) {
+    if (taskinfo->flags&TI_KILLTASK) {
       rtpstream_free_taskinfo (taskinfo);
-	} else {
+    } else {
       taskinfo->parent_thread= NULL; /* no longer associated with a thread */
-	}
+    }
   }
   pthread_mutex_destroy(&(threaddata->tasklist_mutex));
   free (threaddata);
@@ -555,7 +555,7 @@ void rtpstream_stop_task (rtpstream_callinfo_t *callinfo)
           threadlist= (threaddata_t **) realloc (ready_threads,sizeof(*ready_threads)*ready_threads_max);
           if (!threadlist) {
             /* could not allocate bigger block... reset max threads */
-            /* this is a problem - ready thread gets "lost" on busy list */		    
+            /* this is a problem - ready thread gets "lost" on busy list */
             ready_threads_max-= RTPSTREAM_THREADBLOCKSIZE;
           } else {
             ready_threads= threadlist;
@@ -633,9 +633,9 @@ int rtpstream_cache_file (char *filename)
 {
   int           count= 0;
   cached_file_t *newcachelist;
-  char			*filecontents;
+  char          *filecontents;
   struct stat   statbuffer;
-  FILE			*f;
+  FILE          *f;
 
   debugprint ("rtpstream_cache_file filename=%s\n",filename);
 
@@ -643,7 +643,7 @@ int rtpstream_cache_file (char *filename)
   /* could use a binary (or avl) tree but number of files should  */
   /* be small and doesn't really justify the effort.              */
   while (count<num_cached_files) {
-    if (!strcmp(cached_files[count].filename,filename))	{
+    if (!strcmp(cached_files[count].filename,filename)) {
       /* found the file already loaded. just return index */
       return count;
     }
@@ -731,7 +731,7 @@ int rtpstream_get_localport (int *rtpsocket, int *rtcpsocket)
   if ((media_ip_is_ipv6?
        inet_pton(AF_INET6,media_ip,&((_RCAST(struct sockaddr_in6 *,&address))->sin6_addr)):
        inet_pton(AF_INET,media_ip,&((_RCAST(struct sockaddr_in *,&address))->sin_addr)))!=1) {
-	WARNING("Could not set up media IP for RTP streaming");
+    WARNING("Could not set up media IP for RTP streaming");
     return 0;
   }
 
@@ -840,7 +840,7 @@ int rtpstream_get_audioport (rtpstream_callinfo_t *callinfo)
     }
   }
 
-  /* make sure the new socket gets bound to destination address (if any) */   
+  /* make sure the new socket gets bound to destination address (if any) */
   callinfo->taskinfo->flags|= TI_RECONNECTSOCKET;
 
   return callinfo->audioport;
@@ -879,7 +879,7 @@ int rtpstream_get_videoport (rtpstream_callinfo_t *callinfo)
     }
   }
 
-  /* make sure the new socket gets bound to destination address (if any) */   
+  /* make sure the new socket gets bound to destination address (if any) */
   callinfo->taskinfo->flags|= TI_RECONNECTSOCKET;
 
   return callinfo->videoport;
@@ -905,7 +905,7 @@ void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, char *ip_
 
   nonzero_ip= 0;
   taskinfo->flags|= TI_NULLIP;   /// TODO: this (may) cause a gap in playback, if playback thread gets to exec while this is set and before new IP is checked.
-  
+
   /* test that media ip address version match remote ip address version? */
 
   /* initialise address family and IP address for remote socket */
@@ -919,9 +919,9 @@ void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, char *ip_
         if (((char*)ip6_addr)[count]) {
           nonzero_ip= 1;
           break;
-		}
-	  }
-	}
+        }
+      }
+    }
   } else {
     /* process ipv4 address */
     address.ss_family= AF_INET;
@@ -931,9 +931,9 @@ void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, char *ip_
         if (((char*)ip4_addr)[count]) {
           nonzero_ip= 1;
           break;
-		}
-	  }
-	}
+        }
+      }
+    }
   }
 
   if (!nonzero_ip) {
@@ -985,7 +985,7 @@ void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, char *ip_
     }
     memcpy (&(taskinfo->remote_video_rtcp_addr),&address,sizeof(address));
 
-	taskinfo->flags&= ~TI_NULL_VIDEOIP;
+    taskinfo->flags&= ~TI_NULL_VIDEOIP;
   }
 
   /* ok, we are done with the shared memory objects. let go mutex */
@@ -1060,17 +1060,17 @@ void rtpstream_shutdown (void)
   if (ready_threads) {
     for (count=0;count<num_ready_threads;count++) {
       ready_threads[count]->exit_flag= 1;
-	}
-	free (ready_threads);
-	ready_threads= NULL;
+    }
+    free (ready_threads);
+    ready_threads= NULL;
   }
 
   if (busy_threads) {
     for (count=0;count<num_busy_threads;count++) {
       busy_threads[count]->exit_flag= 1;
-	}
-	free (busy_threads);
-	busy_threads= NULL;
+    }
+    free(busy_threads);
+    busy_threads = NULL;
   }
 
   /* first make sure no playback threads are accessing the file buffers */

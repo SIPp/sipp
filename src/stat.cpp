@@ -101,12 +101,12 @@
        i++)                                            \
     M_counters[i] = (unsigned long) 0;                         \
   for (unsigned int j=0;j<M_genericMap.size(); j++) { \
-	M_genericCounters[j * GENERIC_TYPES + GENERIC_C] = 0; \
+    M_genericCounters[j * GENERIC_TYPES + GENERIC_C] = 0; \
   } \
   for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_COUNT] = 0; \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUM] = 0; \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_COUNT] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUM] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] = 0; \
   } \
 }
 
@@ -122,12 +122,12 @@
        i++)                                            \
     M_counters[i] = (unsigned long) 0;                         \
   for (unsigned int j=0;j<M_genericMap.size(); j++) { \
-	M_genericCounters[j * GENERIC_TYPES + GENERIC_PD] = 0; \
+    M_genericCounters[j * GENERIC_TYPES + GENERIC_PD] = 0; \
   } \
   for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT] = 0; \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUM] = 0; \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUMSQ] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUM] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUMSQ] = 0; \
   } \
 }
 
@@ -143,12 +143,12 @@
        i++)                                            \
     M_counters[i] = (unsigned long) 0;                         \
   for (unsigned int j=0;j<M_genericMap.size(); j++) { \
-	M_genericCounters[j * GENERIC_TYPES + GENERIC_PL] = 0; \
+    M_genericCounters[j * GENERIC_TYPES + GENERIC_PL] = 0; \
   } \
   for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_COUNT] = 0; \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUM] = 0; \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUMSQ] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_COUNT] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUM] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUMSQ] = 0; \
   } \
 }
 
@@ -2111,5 +2111,3 @@ double CNegBin::cdfInv(double percentile)
     return 0;
 }
 #endif
-
-

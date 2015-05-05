@@ -32,7 +32,7 @@
  *           Charles P Wright from IBM Research
  *           Martin Van Leeuwen
  *           Andy Aicken
- *	     Michael Hirschbichler
+ *           Michael Hirschbichler
  */
 
 #include <stdarg.h>
@@ -813,8 +813,8 @@ void print_error_codes_file(FILE *f)
 
     // Print comma-separated list of all error codes seen since the last time this function was called
     for (; main_scenario->stats->error_codes.size() != 0;) {
-	    fprintf(f, "%d,", main_scenario->stats->error_codes[main_scenario->stats->error_codes.size() -1]);
-	    main_scenario->stats->error_codes.pop_back();
+        fprintf(f, "%d,", main_scenario->stats->error_codes[main_scenario->stats->error_codes.size() - 1]);
+        main_scenario->stats->error_codes.pop_back();
     }
 
     fprintf(f, "\n");

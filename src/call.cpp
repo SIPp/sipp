@@ -35,7 +35,7 @@
  *           Michael Dwyer from Cibation
  *           Roland Meub
  *           Andy Aicken
- *	         Martin H. VanLeeuwen
+ *           Martin H. VanLeeuwen
  */
 
 #include <iterator>
@@ -314,7 +314,7 @@ void call::extract_rtp_remote_addr (char * msg)
   if (!search) {
     ERROR("extract_rtp_remote_addr: SDP message body not found");
   }
-  msg= search+2;	/* skip past header. point to blank line before body */
+  msg = search + 2; /* skip past header. point to blank line before body */
   /* Now search for IP address field */
   search= strstr(msg,SDP_IPADDR_PREFIX);
   if (search) {
@@ -2451,7 +2451,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             ERROR("Authentication keyword without dialog_authentication!");
         }
 
-        int	   auth_marker_len;
+        int  auth_marker_len;
         char * tmp;
         int  authlen;
 
@@ -2517,7 +2517,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
 bool call::process_twinSippCom(char * msg)
 {
-    int		  search_index;
+    int             search_index;
     bool            found = false;
     T_ActionResult  actionResult;
 
@@ -3861,7 +3861,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             pthread_attr_t attr;
             pthread_attr_init(&attr);
 #ifndef PTHREAD_STACK_MIN
-#define PTHREAD_STACK_MIN	16384
+#define PTHREAD_STACK_MIN  16384
 #endif
             //pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN);
             if (media_thread != 0) {
