@@ -260,7 +260,7 @@ int createAuthResponseMD5(const char *user,
 {
     md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
     md5_byte_t resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE];
-    unsigned char resp_hex[HASH_HEX_SIZE+1], body_hex[HASH_HEX_SIZE+1];
+    unsigned char body_hex[HASH_HEX_SIZE+1];
     unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
     char tmp[MAX_HEADER_LEN];
     md5_state_t Md5Ctx;
@@ -331,10 +331,7 @@ int createAuthHeaderMD5(const char *user,
                         char *result)
 {
 
-    md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
-    md5_byte_t resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE];
-    unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
-    unsigned char resp_hex[HASH_HEX_SIZE+1], body_hex[HASH_HEX_SIZE+1];
+    unsigned char resp_hex[HASH_HEX_SIZE+1];
     char tmp[MAX_HEADER_LEN],
         tmp2[MAX_HEADER_LEN],
         realm[MAX_HEADER_LEN],
@@ -346,7 +343,6 @@ int createAuthHeaderMD5(const char *user,
         opaque[64];
     static unsigned int mync = 1;
     int has_opaque = 0;
-    md5_state_t Md5Ctx;
 
     // Extract the Auth Type - If not present, using 'none'
     cnonce[0] = '\0';

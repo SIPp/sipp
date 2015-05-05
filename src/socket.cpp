@@ -51,7 +51,7 @@ static int stdin_mode;
 
 /******************** Recv Poll Processing *********************/
 
-unsigned pollnfds;
+int pollnfds;
 #ifdef HAVE_EPOLL
 int epollfd;
 struct epoll_event   epollfiles[SIPP_MAXFDS];
@@ -2904,7 +2904,6 @@ void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *pe
 }
 
 struct sipp_socket **get_peer_socket(char * peer) {
-    struct sipp_socket **peer_socket;
     peer_map::iterator peer_it;
     peer_it = peers.find(peer_map::key_type(peer));
     if (peer_it != peers.end()) {

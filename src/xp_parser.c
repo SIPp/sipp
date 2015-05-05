@@ -156,11 +156,6 @@ static char *xp_find_local_end()
     return ptr;
 }
 
-static void xp_root()
-{
-    xp_stack = 0;
-}
-
 /********************* Interface routines ********************/
 
 int xp_unescape(const char *source, char *dest)
