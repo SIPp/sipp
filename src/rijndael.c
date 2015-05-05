@@ -18,10 +18,10 @@
  *
 *-----------------------------------------------------------------*/
 
-#define LITTLE_ENDIAN	/* For INTEL architecture */
+#define LITTLE_ENDIAN   /* For INTEL architecture */
 
 typedef unsigned char   u8;
-typedef unsigned int	 u32;
+typedef unsigned int    u32;
 
 /* Circular byte rotates of 32 bit values */
 
@@ -37,7 +37,7 @@ typedef unsigned int	 u32;
 #define byte3(x)    ((u8)(x >> 24))
 
 
-/* Put or get a 32 bit u32 (v) in machine order from a byte	*
+/* Put or get a 32 bit u32 (v) in machine order from a byte *
  * address in (x)                                           */
 
 #ifdef  LITTLE_ENDIAN
@@ -350,7 +350,7 @@ static u32 fl_tab[4][256] = {
 
 /*----------------- The workspace ------------------------------*/
 
-static u32 Ekey[44];	/* The expanded key */
+static u32 Ekey[44];    /* The expanded key */
 
 /*------ The round Function.  4 table lookups and 4 Exors ------*/
 #define f_rnd(x, n)                     \
@@ -388,8 +388,8 @@ static u32 Ekey[44];	/* The expanded key */
 void RijndaelKeySchedule(u8 key[16])
 {
     u32  t;
-    u32  *ek=Ekey,	    /* pointer to the expanded key   */
-          *rc=rnd_con;   /* pointer to the round constant */
+    u32  *ek=Ekey,      /* pointer to the expanded key   */
+          *rc=rnd_con;  /* pointer to the round constant */
 
     Ekey[0] = u32_in(key     );
     Ekey[1] = u32_in(key +  4);

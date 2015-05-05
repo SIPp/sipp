@@ -27,7 +27,7 @@
 
   This code implements the MD5 Algorithm defined in RFC 1321, whose
   text is available at
-	http://www.ietf.org/rfc/rfc1321.txt
+        http://www.ietf.org/rfc/rfc1321.txt
   The code is derived from the text of the RFC, including the test suite
   (section A.5) but excluding the rest of Appendix A.  It does not include
   any code or documentation that is identified in the RFC as being
@@ -38,14 +38,14 @@
   that follows (in reverse chronological order):
 
   2002-04-13 lpd Clarified derivation from RFC 1321; now handles byte order
-	either statically or dynamically; added missing #include <string.h>
-	in library.
+        either statically or dynamically; added missing #include <string.h>
+        in library.
   2002-03-11 lpd Corrected argument list for main(), and added int return
-	type, in test program and T value program.
+        type, in test program and T value program.
   2002-02-21 lpd Added missing #include <stdio.h> in test program.
   2000-07-03 lpd Patched to eliminate warnings about "constant is
-	unsigned in ANSI C, signed in traditional"; made test program
-	self-checking.
+        unsigned in ANSI C, signed in traditional"; made test program
+        self-checking.
   1999-11-04 lpd Edited comments slightly for automatic TOC extraction.
   1999-10-18 lpd Fixed typo in header comment (ansi2knr rather than md5).
   1999-05-03 lpd Original version.
@@ -54,7 +54,7 @@
 #include "md5.h"
 #include <string.h>
 
-#undef BYTE_ORDER	/* 1 = big-endian, -1 = little-endian, 0 = unknown */
+#undef BYTE_ORDER /* 1 = big-endian, -1 = little-endian, 0 = unknown */
 #ifdef ARCH_IS_BIG_ENDIAN
 #  define BYTE_ORDER (ARCH_IS_BIG_ENDIAN ? 1 : -1)
 #else
@@ -62,15 +62,15 @@
 #endif
 
 #define T_MASK ((md5_word_t)~0)
-#define T1 /* 0xd76aa478 */ (T_MASK ^ 0x28955b87)
-#define T2 /* 0xe8c7b756 */ (T_MASK ^ 0x173848a9)
-#define T3    0x242070db
-#define T4 /* 0xc1bdceee */ (T_MASK ^ 0x3e423111)
-#define T5 /* 0xf57c0faf */ (T_MASK ^ 0x0a83f050)
-#define T6    0x4787c62a
-#define T7 /* 0xa8304613 */ (T_MASK ^ 0x57cfb9ec)
-#define T8 /* 0xfd469501 */ (T_MASK ^ 0x02b96afe)
-#define T9    0x698098d8
+#define  T1 /* 0xd76aa478 */ (T_MASK ^ 0x28955b87)
+#define  T2 /* 0xe8c7b756 */ (T_MASK ^ 0x173848a9)
+#define  T3    0x242070db
+#define  T4 /* 0xc1bdceee */ (T_MASK ^ 0x3e423111)
+#define  T5 /* 0xf57c0faf */ (T_MASK ^ 0x0a83f050)
+#define  T6    0x4787c62a
+#define  T7 /* 0xa8304613 */ (T_MASK ^ 0x57cfb9ec)
+#define  T8 /* 0xfd469501 */ (T_MASK ^ 0x02b96afe)
+#define  T9    0x698098d8
 #define T10 /* 0x8b44f7af */ (T_MASK ^ 0x74bb0850)
 #define T11 /* 0xffff5bb1 */ (T_MASK ^ 0x0000a44e)
 #define T12 /* 0x895cd7be */ (T_MASK ^ 0x76a32841)
@@ -155,7 +155,7 @@ md5_process(md5_state_t *pms, const md5_byte_t *data /*[64]*/)
 
         if (*((const md5_byte_t *)&w)) /* dynamic little-endian */
 #endif
-#if BYTE_ORDER <= 0		/* little-endian */
+#if BYTE_ORDER <= 0             /* little-endian */
         {
             /*
              * On little-endian machines, we can process properly aligned
@@ -172,9 +172,9 @@ md5_process(md5_state_t *pms, const md5_byte_t *data /*[64]*/)
         }
 #endif
 #if BYTE_ORDER == 0
-        else			/* dynamic big-endian */
+        else                    /* dynamic big-endian */
 #endif
-#if BYTE_ORDER >= 0		/* big-endian */
+#if BYTE_ORDER >= 0             /* big-endian */
         {
             /*
              * On big-endian machines, we must arrange the bytes in the
@@ -184,9 +184,9 @@ md5_process(md5_state_t *pms, const md5_byte_t *data /*[64]*/)
             int i;
 
 #  if BYTE_ORDER == 0
-            X = xbuf;		/* (dynamic only) */
+            X = xbuf;           /* (dynamic only) */
 #  else
-#    define xbuf X		/* (static only) */
+#    define xbuf X              /* (static only) */
 #  endif
             for (i = 0; i < 16; ++i, xp += 4)
                 xbuf[i] = xp[0] + (xp[1] << 8) + (xp[2] << 16) + (xp[3] << 24);

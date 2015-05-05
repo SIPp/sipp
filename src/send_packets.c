@@ -294,7 +294,7 @@ void do_sleep (struct timeval *time, struct timeval *last,
         timersub (didsleep, &delta, &nap);
 
         sleep.tv_sec = nap.tv_sec;
-        sleep.tv_nsec = nap.tv_usec * 1000;	/* convert ms to ns */
+        sleep.tv_nsec = nap.tv_usec * 1000; /* convert ms to ns */
 
         while ((nanosleep (&sleep, &sleep) == -1) && (errno == -EINTR));
     }

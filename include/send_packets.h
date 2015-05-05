@@ -53,59 +53,59 @@ inline void float2timer (float time, struct timeval *tvp);
 #endif
 /* zero out a timer */
 #ifndef timerclear
-#define timerclear(tvp)		(tvp)->tv_sec = (tvp)->tv_usec = 0
+#define timerclear(tvp)         (tvp)->tv_sec = (tvp)->tv_usec = 0
 #endif
 /* is timer non-zero? */
 #ifndef timerisset
-#define timerisset(tvp)		((tvp)->tv_sec || (tvp)->tv_usec)
+#define timerisset(tvp)         ((tvp)->tv_sec || (tvp)->tv_usec)
 #endif
 /* add tvp and uvp and store in vvp */
 #ifndef timeradd
-#define timeradd(tvp, uvp, vvp)                     \
-	do {                                \
-		(vvp)->tv_sec = (tvp)->tv_sec + (uvp)->tv_sec;      \
-		(vvp)->tv_usec = (tvp)->tv_usec + (uvp)->tv_usec;   \
-		if ((vvp)->tv_usec >= 1000000) {            \
-			(vvp)->tv_sec++;                \
-			(vvp)->tv_usec -= 1000000;          \
-		}                           \
-	} while (0)
+#define timeradd(tvp, uvp, vvp) \
+        do {                                                        \
+                (vvp)->tv_sec = (tvp)->tv_sec + (uvp)->tv_sec;      \
+                (vvp)->tv_usec = (tvp)->tv_usec + (uvp)->tv_usec;   \
+                if ((vvp)->tv_usec >= 1000000) {                    \
+                        (vvp)->tv_sec++;                            \
+                        (vvp)->tv_usec -= 1000000;                  \
+                }                                                   \
+        } while (0)
 #endif
 /* subtract uvp from tvp and store in vvp */
 #ifndef timersub
-#define	timersub(tvp, uvp, vvp)						\
-	do {								\
-		(vvp)->tv_sec = (tvp)->tv_sec - (uvp)->tv_sec;		\
-		(vvp)->tv_usec = (tvp)->tv_usec - (uvp)->tv_usec;	\
-		if ((vvp)->tv_usec < 0) {				\
-			(vvp)->tv_sec--;				\
-			(vvp)->tv_usec += 1000000;			\
-		}							\
-	} while (0)
+#define timersub(tvp, uvp, vvp)                                     \
+        do {                                                        \
+                (vvp)->tv_sec = (tvp)->tv_sec - (uvp)->tv_sec;      \
+                (vvp)->tv_usec = (tvp)->tv_usec - (uvp)->tv_usec;   \
+                if ((vvp)->tv_usec < 0) {                           \
+                        (vvp)->tv_sec--;                            \
+                        (vvp)->tv_usec += 1000000;                  \
+                }                                                   \
+        } while (0)
 #endif
 /* compare tvp and uvp using cmp */
 #ifndef timercmp
-#define timercmp(tvp, uvp, cmp)				\
-	(((tvp)->tv_sec == (uvp)->tv_sec) ?		\
-	((tvp)->tv_usec cmp (uvp)->tv_usec) :		\
-	((tvp)->tv_sec cmp (uvp)->tv_sec))
+#define timercmp(tvp, uvp, cmp)                                     \
+        (((tvp)->tv_sec == (uvp)->tv_sec) ?                         \
+        ((tvp)->tv_usec cmp (uvp)->tv_usec) :                       \
+        ((tvp)->tv_sec cmp (uvp)->tv_sec))
 #endif
 /* multiply tvp by x and store in uvp */
-#define timermul(tvp, uvp, x)						\
-	do {								\
-		(uvp)->tv_sec = (tvp)->tv_sec * x;			\
-		(uvp)->tv_usec = (tvp)->tv_usec * x;			\
-		while((uvp)->tv_usec > 1000000) {			\
-			(uvp)->tv_sec++;				\
-			(uvp)->tv_usec -= 1000000;			\
-		}							\
-	} while(0)
+#define timermul(tvp, uvp, x)                                       \
+        do {                                                        \
+                (uvp)->tv_sec = (tvp)->tv_sec * x;                  \
+                (uvp)->tv_usec = (tvp)->tv_usec * x;                \
+                while((uvp)->tv_usec > 1000000) {                   \
+                        (uvp)->tv_sec++;                            \
+                        (uvp)->tv_usec -= 1000000;                  \
+                }                                                   \
+        } while(0)
 /* device tvp by x.  store in tvp */
-#define timerdiv2(tvp, x)						\
-	do {								\
-		(tvp)->tv_sec = (tvp)->tv_sec / x;			\
-		(tvp)->tv_usec = (tvp)->tv_usec / x;			\
-	} while(0)
+#define timerdiv2(tvp, x)                                           \
+        do {                                                        \
+                (tvp)->tv_sec = (tvp)->tv_sec / x;                  \
+                (tvp)->tv_usec = (tvp)->tv_usec / x;                \
+        } while(0)
 
 /* call specific vars for RTP sending */
 typedef struct {

@@ -16,7 +16,7 @@
  *  Author : Guillaume TEISSIER from FTR&D 02/02/2006
  */
 #ifndef PREPARE_PCAP_H
-#define PREPARE_PCAP_H	1
+#define PREPARE_PCAP_H 1
 #include <pcap.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
@@ -56,7 +56,7 @@ typedef struct {
     int partial_check;
 } pcap_pkt;
 
-#define PCAP_MAXPACKET	1500
+#define PCAP_MAXPACKET 1500
 typedef struct {
     char *file;
     u_int16_t base;
