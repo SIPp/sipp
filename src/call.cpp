@@ -3826,7 +3826,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 quitting = 1;
                 break;
             case CAction::E_INTCMD_STOP_NOW:
-                screen_exit(EXIT_TEST_RES_INTERNAL);
+                sipp_exit(EXIT_TEST_RES_INTERNAL);
                 break;
             case CAction::E_INTCMD_STOPCALL:
             default:

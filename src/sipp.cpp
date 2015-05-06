@@ -744,7 +744,7 @@ void traffic_thread()
                     print_screens();
                 }
 
-                screen_exit(EXIT_TEST_RES_UNKNOWN);
+                sipp_exit(EXIT_TEST_RES_UNKNOWN);
             }
         }
 
@@ -1127,6 +1127,139 @@ void print_last_stats()
     if (main_scenario) {
         stattask::report();
     }
+}
+
+void stop_all_traces()
+{
+    message_lfi.fptr = NULL;
+    log_lfi.fptr = NULL;
+    dumpInRtt = 0;
+    dumpInFile = 0;
+}
+
+void freeInFiles()
+{
+    for (file_map::iterator file_it = inFiles.begin(); file_it != inFiles.end(); file_it++) {
+        delete file_it->second;
+    }
+}
+
+void freeUserVarMap()
+{
+    for (int_vt_map::iterator vt_it = userVarMap.begin(); vt_it != userVarMap.end(); vt_it++) {
+        vt_it->second->putTable();
+        userVarMap[vt_it->first] = NULL;
+    }
+}
+
+void manage_oversized_file(int signum)
+{
+    FILE *f;
+    char L_file_name[MAX_PATH];
+    struct timeval currentTime;
+    static int managing = 0;
+
+    // we can receive this signal more than once
+    if (managing) {
+        return;
+    }
+    managing = 1;
+
+    snprintf(L_file_name, MAX_PATH, "%s_%d_traces_oversized.log", scenario_file, getpid());
+    f = fopen(L_file_name, "w");
+    if (!f) {
+        ERROR_NO("Unable to open oversized log file\n");
+    }
+
+    GET_TIME(&currentTime);
+    fprintf(f,
+            "-------------------------------------------- %s\n"
+            "Max file size reached - no more logs\n",
+            CStat::formatTime(&currentTime));
+
+    fflush(f);
+    stop_all_traces();
+    print_all_responses = 0;
+    error_lfi.fptr = NULL;
+}
+
+void releaseGlobalAllocations()
+{
+    delete main_scenario;
+    delete ooc_scenario;
+    delete aa_scenario;
+    free_default_messages();
+    freeInFiles();
+    freeUserVarMap();
+    delete globalVariables;
+}
+
+void sipp_exit(int rc)
+{
+    unsigned long counter_value_failed = 0;
+    unsigned long counter_value_success = 0;
+
+    /* Some signals may be delivered twice during exit() execution,
+       and we must prevent all this from beeing done twice */
+
+    {
+        static int already_exited = 0;
+        if (already_exited) {
+            return;
+        }
+        already_exited = 1;
+    }
+
+    screen_exit();
+    print_last_stats();
+    screen_show_errors();
+
+    // Get failed calls counter value before releasing objects
+    if (display_scenario) {
+        counter_value_failed = display_scenario->stats->GetStat(CStat::CPT_C_FailedCall);
+        counter_value_success = display_scenario->stats->GetStat(CStat::CPT_C_SuccessfulCall);
+    } else {
+        rc = EXIT_TEST_FAILED;
+    }
+
+    releaseGlobalAllocations();
+
+    if (rc != EXIT_TEST_RES_UNKNOWN) {
+        // Exit is not a normal exit. Just use the passed exit code.
+        exit(rc);
+    } else {
+        // Normal exit: we need to determine if the calls were all
+        // successful or not. In order to compute the return code, get
+        // the counter of failed calls. If there is 0 failed calls,
+        // then everything is OK!
+        if (counter_value_failed == 0) {
+            if (timeout_exit && counter_value_success < 1) {
+                exit(EXIT_TEST_RES_INTERNAL);
+            } else {
+                exit(EXIT_TEST_OK);
+            }
+        } else {
+            exit(EXIT_TEST_FAILED);
+        }
+    }
+}
+
+static void sipp_sighandler(int signum)
+{
+    sipp_exit(EXIT_TEST_RES_UNKNOWN);
+}
+
+static void sighandle_set()
+{
+    struct sigaction action_quit = {};
+    struct sigaction action_file_size_exceeded = {};
+
+    action_quit.sa_handler = sipp_sighandler;
+    action_file_size_exceeded.sa_handler = manage_oversized_file;
+
+    sigaction(SIGTERM, &action_quit, NULL);
+    sigaction(SIGINT, &action_quit, NULL);
+    sigaction(SIGXFSZ, &action_file_size_exceeded, NULL);  // avoid core dump if the max file size is exceeded
 }
 
 char* remove_pattern(char* P_buffer, char* P_extensionPattern)
@@ -1910,7 +2043,9 @@ int main(int argc, char *argv[])
         nostdout = true;
 
     if (!nostdout)
-        screen_init(print_last_stats);
+        screen_init();
+
+    sighandle_set();
 
     /* checking if we need to launch the tool in background mode */
     if(backgroundMode == true) {

@@ -479,6 +479,8 @@ enum E_Alter_YesNo {
 
 #include "strings.hpp"
 
+void sipp_exit(int rc);
+
 char *get_peer_addr(char *);
 
 bool reconnect_allowed();

@@ -48,10 +48,10 @@ extern "C" {
 #define EXIT_BIND_ERROR            -2
 
 void screen_set_exename(char * exe_name);
-void screen_init(void (*exit_handler)());
+void screen_init();
 void screen_clear();
 int  screen_readkey();
-void screen_exit(int rc);
-void screen_sigusr1(int /* not used */);
+void screen_exit();
+void screen_show_errors();
 
 #endif // __SCREEN_H__
