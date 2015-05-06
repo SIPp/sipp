@@ -1906,7 +1906,11 @@ int main(int argc, char *argv[])
         ERROR("SIPp cannot use out-of-call scenarios when running in server mode");
     }
 
-    screen_init(print_last_stats);
+    if (!isatty(fileno(stdout)))
+        nostdout = true;
+
+    if (!nostdout)
+        screen_init(print_last_stats);
 
     /* checking if we need to launch the tool in background mode */
     if(backgroundMode == true) {
