@@ -117,7 +117,7 @@ void screen_init()
 static void _screen_error(int fatal, bool use_errno, int error, const char *fmt, va_list ap)
 {
     static unsigned long long count = 0;
-    char * c = screen_last_error;
+    char *c = screen_last_error;
     struct timeval currentTime;
 
     CStat::globalStat(fatal ? CStat::E_FATAL_ERRORS : CStat::E_WARNING);
@@ -132,9 +132,9 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
     c+= sprintf(c, ".\n");
     screen_errors++;
 
-    if(screen_inited && !error_lfi.fptr && print_all_responses) {
+    if (!error_lfi.fptr && print_all_responses) {
         rotate_errorf();
-        if(!error_lfi.fptr) {
+        if (screen_inited && !error_lfi.fptr) {
             sprintf(c, "%s: Unable to create '%s': %s.\n",
                     screen_exename, screen_logfile, strerror(errno));
             sipp_exit(EXIT_FATAL_ERROR);
@@ -145,7 +145,7 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
         }
     }
 
-    if(error_lfi.fptr) {
+    if (error_lfi.fptr) {
         count += fprintf(error_lfi.fptr, "%s", screen_last_error);
         fflush(error_lfi.fptr);
         if (ringbuffer_size && count > ringbuffer_size) {
@@ -166,15 +166,15 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
         fflush(stderr);
     }
 
-    if(fatal) {
-        if(!screen_inited) {
-            if(error == EADDRINUSE) {
+    if (fatal) {
+        if (!screen_inited) {
+            if (error == EADDRINUSE) {
                 exit(EXIT_BIND_ERROR);
             } else {
                 exit(EXIT_FATAL_ERROR);
             }
         } else {
-            if(error == EADDRINUSE) {
+            if (error == EADDRINUSE) {
                 sipp_exit(EXIT_BIND_ERROR);
             } else {
                 sipp_exit(EXIT_FATAL_ERROR);
