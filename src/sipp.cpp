@@ -1241,7 +1241,9 @@ int main(int argc, char *argv[])
                 }
                 exit(EXIT_OTHER);
             case SIPP_OPTION_VERSION:
-                printf("\n SIPp v3.5.0-rc1"
+                printf("\n %s.\n\n",
+                       /* SIPp v1.2.3-TLS-PCAP built YMD, HMS */
+                       "SIPp v" SIPP_VERSION
 #ifdef _USE_OPENSSL
                        "-TLS"
 #endif
@@ -1254,8 +1256,7 @@ int main(int argc, char *argv[])
 #ifdef RTP_STREAM
                        "-RTPSTREAM"
 #endif
-                       " built %s, %s.\n\n",
-                       __DATE__, __TIME__);
+                       " built " __DATE__ ", " __TIME__);
 
                 printf
                 (" This program is free software; you can redistribute it and/or\n"
