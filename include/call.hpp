@@ -168,6 +168,7 @@ private:
     int hasMediaInformation;
     pthread_t media_thread;
     play_args_t play_args_a;
+    play_args_t play_args_i;
     play_args_t play_args_v;
 #endif
 

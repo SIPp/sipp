@@ -141,7 +141,8 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
         ethhdr = (ether_type_hdr *)(pktdata + ether_type_offset);
         if (ntohs(ethhdr->ether_type) != 0x0800 /* IPv4 */
                 && ntohs(ethhdr->ether_type) != 0x86dd) { /* IPv6 */
-            fprintf(stderr, "Ignoring non IP{4,6} packet!\n");
+            fprintf(stderr, "Ignoring non IP{4,6} packet, got ether_type %hu!\n",
+                    ntohs(ethhdr->ether_type));
             continue;
         }
         iphdr = (struct iphdr *)((char *)ethhdr + sizeof(*ethhdr));
