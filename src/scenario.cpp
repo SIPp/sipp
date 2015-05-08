@@ -1608,6 +1608,9 @@ void scenario::parseAction(CActions *actions)
             } else if ((ptr = xp_get_value((char *) "play_pcap_audio"))) {
                 tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
+            } else if ((ptr = xp_get_value((char *) "play_pcap_image"))) {
+                tmpAction->setPcapArgs(ptr);
+                tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_IMAGE);
                 hasMedia = 1;
             } else if ((ptr = xp_get_value((char *) "play_pcap_video"))) {
                 tmpAction->setPcapArgs(ptr);
@@ -1616,6 +1619,8 @@ void scenario::parseAction(CActions *actions)
 #else
             } else if ((ptr = xp_get_value((char *) "play_pcap_audio"))) {
                 ERROR("Scenario specifies a play_pcap_audio action, but this version of SIPp does not have PCAP support");
+            } else if ((ptr = xp_get_value((char *) "play_pcap_image"))) {
+                ERROR("Scenario specifies a play_pcap_image action, but this version of SIPp does not have PCAP support");
             } else if ((ptr = xp_get_value((char *) "play_pcap_video"))) {
                 ERROR("Scenario specifies a play_pcap_video action, but this version of SIPp does not have PCAP support");
 #endif

@@ -199,8 +199,8 @@ int send_packets (play_args_t * play_args)
         memcpy(udp, pkt_index->data, pkt_index->pktlen);
         port_diff = ntohs (udp->uh_dport) - pkts->base;
         // modify UDP ports
-        udp->uh_sport = htons(port_diff + *from_port);
-        udp->uh_dport = htons(port_diff + *to_port);
+        udp->uh_sport = htons(port_diff + ntohs(*from_port));
+        udp->uh_dport = htons(port_diff + ntohs(*to_port));
 
         if (!media_ip_is_ipv6) {
             temp_sum = checksum_carry(pkt_index->partial_check + check((u_int16_t *) &(((struct sockaddr_in *)(void *) from)->sin_addr.s_addr), 4) + check((u_int16_t *) &(((struct sockaddr_in *)(void *) to)->sin_addr.s_addr), 4) + check((u_int16_t *) &udp->uh_sport, 4));
