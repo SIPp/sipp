@@ -159,7 +159,7 @@ struct sipp_option options_table[] = {
     {"reconnect_sleep", "How long (in milliseconds) to sleep between the close and reconnect?", SIPP_OPTION_TIME_MS, &reset_sleep, 1},
     {"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, NULL, 1},
 
-   #ifdef _USE_OPENSSL
+#ifdef _USE_OPENSSL
     {"tls_cert", "Set the name for TLS Certificate file. Default is 'cacert.pem", SIPP_OPTION_STRING, &tls_cert_name, 1},
     {"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem'", SIPP_OPTION_STRING, &tls_key_name, 1},
     {"tls_crl", "Set the name for Certificate Revocation List file. If not specified, X509 CRL is not activated.", SIPP_OPTION_STRING, &tls_crl_name, 1},
@@ -423,7 +423,7 @@ void sipp_sigusr1(int /* not used */)
 void sipp_sigusr2(int /* not used */)
 {
     if (!signalDump) {
-        signalDump = true ;
+        signalDump = true;
     }
 }
 
@@ -503,7 +503,7 @@ void pollset_process(int wait)
 #endif
 
 #ifdef USE_SCTP
-            if (transport == T_SCTP && sock->sctpstate != SCTP_UP) ;
+            if (transport == T_SCTP && sock->sctpstate != SCTP_UP);
             else
 #endif
             {
@@ -566,7 +566,7 @@ void pollset_process(int wait)
             } else {
                 if ((ret = empty_socket(sock)) <= 0) {
 #ifdef USE_SCTP
-                    if (sock->ss_transport==T_SCTP && ret==-2) ;
+                    if (sock->ss_transport == T_SCTP && ret == -2);
                     else
 #endif
                     {
@@ -594,46 +594,48 @@ void pollset_process(int wait)
                 }
             events++;
         }
-    /* Here the logic diverges; if we're using epoll, we want to stay in the
-     * for-each-socket loop and handle messages on that socket. If we're not using
-     * epoll, we want to wait until after that loop, and spin through our
-     * pending_messages queue again. */
+
+        /* Here the logic diverges; if we're using epoll, we want to stay in the
+         * for-each-socket loop and handle messages on that socket. If we're not using
+         * epoll, we want to wait until after that loop, and spin through our
+         * pending_messages queue again. */
 
 #ifdef HAVE_EPOLL
-    int old_pollnfds = pollnfds;
-    getmilliseconds();
-    /* Keep processing messages until this socket is freed (changing the number of file descriptors) or we run out of messages. */
-    while ((pollnfds == old_pollnfds) &&
-           (sock->ss_msglen)) {
-      char msg[SIPP_MAX_MSG_SIZE];
-      struct sockaddr_storage src;
-      ssize_t len;
+        int old_pollnfds = pollnfds;
+        getmilliseconds();
+        /* Keep processing messages until this socket is freed (changing the number of file descriptors) or we run out of messages. */
+        while ((pollnfds == old_pollnfds) &&
+                (sock->ss_msglen)) {
+            char msg[SIPP_MAX_MSG_SIZE];
+            struct sockaddr_storage src;
+            ssize_t len;
 
-      len = read_message(sock, msg, sizeof(msg), &src);
-      if (len > 0) {
-        process_message(sock, msg, len, &src);
-      } else {
-        assert(0);
-      }
-    }
-
-    if (pollnfds != old_pollnfds) {
-      /* Processing messages has changed the number of pollnfds, so update any remaining events */
-      for (int event_idx2 = event_idx + 1; event_idx2 < rs; event_idx2++) {
-        if (epollevents[event_idx2].data.u32 == pollnfds) {
-          epollevents[event_idx2].data.u32 = poll_idx;
+            len = read_message(sock, msg, sizeof(msg), &src);
+            if (len > 0) {
+                process_message(sock, msg, len, &src);
+            } else {
+                assert(0);
+            }
         }
-      }
-    }
-  }
+
+        if (pollnfds != old_pollnfds) {
+            /* Processing messages has changed the number of pollnfds, so update any remaining events */
+            for (int event_idx2 = event_idx + 1; event_idx2 < rs; event_idx2++) {
+                if (epollevents[event_idx2].data.u32 == pollnfds) {
+                    epollevents[event_idx2].data.u32 = poll_idx;
+                }
+            }
+        }
 #else
 
         if (events) {
             rs--;
         }
-    pollfiles[poll_idx].revents = 0;
+        pollfiles[poll_idx].revents = 0;
+#endif
     }
 
+#ifndef HAVE_EPOLL
     if (read_index >= pollnfds) {
         read_index = 0;
     }
@@ -711,7 +713,7 @@ void traffic_thread()
                 main_scenario->stats->dumpDataRtt ();
             }
 
-            signalDump = false ;
+            signalDump = false;
         }
 
         while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
@@ -1135,19 +1137,19 @@ char* remove_pattern(char* P_buffer, char* P_extensionPattern)
     char *L_ptr = P_buffer;
 
     if (P_extensionPattern == NULL) {
-        return P_buffer ;
+        return P_buffer;
     }
 
     if (P_buffer == NULL) {
-        return P_buffer ;
+        return P_buffer;
     }
 
-    L_ptr = strstr(P_buffer, P_extensionPattern) ;
+    L_ptr = strstr(P_buffer, P_extensionPattern);
     if (L_ptr != NULL) {
-        *L_ptr = '\0' ;
+        *L_ptr = '\0';
     }
 
-    return P_buffer ;
+    return P_buffer;
 }
 
 /* Main */
@@ -1446,7 +1448,7 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 max_multi_socket = get_long(argv[argi], argv[argi - 1]);
-                maxSocketPresent = true ;
+                maxSocketPresent = true;
                 break;
             case SIPP_OPTION_CSEQ:
                 REQUIRE_ARG();
@@ -1521,9 +1523,9 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 if (!strcmp(argv[argi - 1], "-sf")) {
-                    scenario_file = new char [strlen(argv[argi])+1] ;
-                    sprintf(scenario_file,"%s", argv[argi]);
-                    scenario_file = remove_pattern (scenario_file, (char*)".xml");
+                    scenario_file = new char [strlen(argv[argi]) + 1];
+                    sprintf(scenario_file, "%s", argv[argi]);
+                    scenario_file = remove_pattern(scenario_file, (char*)".xml");
                     if (useLogf == 1) {
                         rotate_logfile();
                     }
@@ -1533,7 +1535,7 @@ int main(int argc, char *argv[])
                     int i = find_scenario(argv[argi]);
 
                     main_scenario = new scenario(0, i);
-                    scenario_file = new char [strlen(argv[argi])+1] ;
+                    scenario_file = new char [strlen(argv[argi]) + 1];
                     sprintf(scenario_file,"%s", argv[argi]);
                     main_scenario->stats->setFileName(argv[argi], (char*)".csv");
                 } else if (!strcmp(argv[argi - 1], "-sd")) {
@@ -1563,7 +1565,7 @@ int main(int argc, char *argv[])
                     ERROR("-slave_cfg and -3pcc options are not compatible\n");
                 }
                 extendedTwinSippMode = true;
-                slave_cfg_file = new char [strlen(argv[argi])+1] ;
+                slave_cfg_file = new char [strlen(argv[argi]) + 1];
                 sprintf(slave_cfg_file,"%s", argv[argi]);
                 parse_slave_cfg();
                 break;
@@ -1582,12 +1584,12 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_RSA: {
                 REQUIRE_ARG();
                 CHECK_PASS();
-                char *remote_s_address ;
+                char *remote_s_address;
                 int   remote_s_p = DEFAULT_PORT;
                 int   temp_remote_s_p;
 
                 temp_remote_s_p = 0;
-                remote_s_address = argv[argi] ;
+                remote_s_address = argv[argi];
                 get_host_and_port(remote_s_address, remote_s_address, &temp_remote_s_p);
                 if (temp_remote_s_p != 0) {
                     remote_s_p = temp_remote_s_p;
@@ -1622,7 +1624,7 @@ int main(int argc, char *argv[])
                     (_RCAST(struct sockaddr_in6 *, &remote_sending_sockaddr))->sin6_port =
                         htons((short)remote_s_p);
                 }
-                use_remote_sending_addr = 1 ;
+                use_remote_sending_addr = 1;
 
                 freeaddrinfo(local_addr);
                 break;
@@ -1774,7 +1776,7 @@ int main(int argc, char *argv[])
 
     /* trace file setting */
     if (scenario_file == NULL) {
-        scenario_file = new char [ 5 ] ;
+        scenario_file = new char [5];
         sprintf(scenario_file, "%s", "sipp");
     }
 
@@ -2124,8 +2126,8 @@ int main(int argc, char *argv[])
 #endif
 
     if (scenario_file != NULL) {
-        delete [] scenario_file ;
-        scenario_file = NULL ;
+        delete [] scenario_file;
+        scenario_file = NULL;
     }
 
 }
