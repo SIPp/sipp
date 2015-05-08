@@ -46,6 +46,7 @@ unsigned long screen_errors;
 int           screen_inited = 0;
 char          screen_exename[255];
 extern bool   backgroundMode;
+extern bool   noscreenMode;
 
 void (*screen_exit_handler)();
 
@@ -117,7 +118,7 @@ void screen_exit(int rc)
         already_exited = 1;
     }
 
-    if( backgroundMode == false )
+    if(backgroundMode == false && noscreenMode == false)
         endwin();
 
     if(screen_exit_handler) {
@@ -223,7 +224,7 @@ void screen_init(void (*exit_handler)())
     screen_inited = 1;
     screen_exit_handler = exit_handler;
 
-    if (backgroundMode == false) {
+    if(backgroundMode == false && noscreenMode == false) {
         /* Initializes curses and signals */
         initscr();
         /* Enhance performances and display */
@@ -239,7 +240,7 @@ void screen_init(void (*exit_handler)())
     sigaction(SIGINT, &action_quit, NULL);
     sigaction(SIGXFSZ, &action_file_size_exceeded, NULL);   // avoid core dump if the max file size is exceeded
 
-    if (backgroundMode == false) {
+    if(backgroundMode == false && noscreenMode == false) {
         screen_clear();
     }
 }

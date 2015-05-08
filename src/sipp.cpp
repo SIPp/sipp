@@ -190,6 +190,7 @@ struct sipp_option options_table[] = {
    {"v", "Display version and copyright information.", SIPP_OPTION_VERSION, NULL, 0},
    {"bg", "Launch SIPp in background mode.", SIPP_OPTION_SETFLAG, &backgroundMode, 1},
    {"nostdin", "Disable stdin.\n", SIPP_OPTION_SETFLAG, &nostdin, 1},
+   {"noscreen", "Disable status and result screen.", SIPP_OPTION_SETFLAG, &noscreenMode, 1},
    {"plugin", "Load a plugin.", SIPP_OPTION_PLUGIN, NULL, 1},
    {"sleep", "How long to sleep for at startup. Default unit is seconds.", SIPP_OPTION_TIME_SEC, &sleeptime, 1},
    {"skip_rlimit", "Do not perform rlimit tuning of file descriptor limits.  Default: false.", SIPP_OPTION_SETFLAG, &skip_rlimit, 1},

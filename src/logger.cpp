@@ -228,7 +228,7 @@ void print_statistics(int last)
     extern int command_mode;
     extern char *command_buffer;
 
-    if(backgroundMode == false && display_scenario) {
+    if(backgroundMode == false && noscreenMode == false && display_scenario) {
         if(!last) {
             screen_clear();
         }
