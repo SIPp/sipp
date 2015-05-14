@@ -4168,8 +4168,8 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
         }
         break ;
 
-    case E_AM_AA: // response for a random INFO, UPDATE or NOTIFY
-        // store previous last msg if msg is INFO, UPDATE or NOTIFY
+    case E_AM_AA: // response for a random INFO, NOTIFY, OPTIONS or UPDATE
+        // store previous last msg if msg is INFO, NOTIFY, OPTIONS or UPDATE
         // restore last_recv_msg to previous one
         // after sending ok
         old_last_recv_msg = NULL;
@@ -4192,7 +4192,8 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
 
         strcpy(last_recv_msg, P_recv);
 
-        WARNING("Automatic response mode for an unexpected INFO, UPDATE or NOTIFY for call: %s", (id==NULL)?"none":id);
+        WARNING("Automatic response mode for an unexpected INFO, NOTIFY, OPTIONS or UPDATE for call: %s",
+                (id == NULL) ? "none" : id);
         sendBuffer(createSendingMessage(get_default_message("200"), -1));
 
         // restore previous last msg
