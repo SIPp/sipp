@@ -1213,6 +1213,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
             } else if (auto_answer &&
                        ((strstr(msg, "NOTIFY") == msg)  ||
                         (strstr(msg, "INFO")   == msg)  ||
+                        (strstr(msg, "OPTIONS")   == msg)  ||
                         (strstr(msg, "UPDATE") == msg))) {
                 // If auto answer mode, try to answer the incoming message
                 // with automaticResponseMode
