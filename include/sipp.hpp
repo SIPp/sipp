@@ -288,6 +288,7 @@ extern bool               twinSippMode            _DEFVAL(false);
 extern bool               extendedTwinSippMode    _DEFVAL(false);
 
 extern bool               nostdin                 _DEFVAL(false);
+extern bool               nostdout                _DEFVAL(false);
 extern bool               backgroundMode          _DEFVAL(false);
 extern bool               signalDump              _DEFVAL(false);
 
@@ -477,6 +478,8 @@ enum E_Alter_YesNo {
 /********************* Utilities functions  *******************/
 
 #include "strings.hpp"
+
+void sipp_exit(int rc);
 
 char *get_peer_addr(char *);
 

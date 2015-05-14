@@ -229,11 +229,11 @@ void print_statistics(int last)
     extern char *command_buffer;
 
     if(backgroundMode == false && display_scenario) {
-        if(!last) {
+        if (!nostdout && !last) {
             screen_clear();
         }
 
-        if(first) {
+        if (!nostdout && first) {
             first = 0;
             printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
                    "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
