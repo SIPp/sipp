@@ -234,7 +234,7 @@ struct sipp_option options_table[] = {
      "- On any other unexpected message, abort the call by sending a BYE or a CANCEL\n",
      SIPP_OPTION_UNSETFLAG, &default_behaviors, 1},
     {"pause_msg_ign", "Ignore the messages received during a pause defined in the scenario ", SIPP_OPTION_SETFLAG, &pause_msg_ign, 1},
-    {"callid_slash", "Allow triple-slash in SIP Call-IDs.", SIPP_OPTION_SETFLAG, &callidSlash, 1},
+    {"callid_slash_ign", "Don't treat a triple-slash in Call-IDs as indicating an extra SIPp prefix.", SIPP_OPTION_SETFLAG, &callidSlash, 1},
 
 
     {"", "Injection file options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
