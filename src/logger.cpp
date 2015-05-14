@@ -228,12 +228,12 @@ void print_statistics(int last)
     extern int command_mode;
     extern char *command_buffer;
 
-    if(backgroundMode == false && display_scenario) {
-        if (!nostdout && !last) {
+    if (backgroundMode == false && display_scenario) {
+        if (use_curses && !last) {
             screen_clear();
         }
 
-        if (!nostdout && first) {
+        if (use_curses && first) {
             first = 0;
             printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
                    "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");

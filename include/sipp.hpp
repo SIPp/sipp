@@ -288,7 +288,7 @@ extern bool               twinSippMode            _DEFVAL(false);
 extern bool               extendedTwinSippMode    _DEFVAL(false);
 
 extern bool               nostdin                 _DEFVAL(false);
-extern bool               nostdout                _DEFVAL(false);
+extern bool               use_curses              _DEFVAL(true);
 extern bool               backgroundMode          _DEFVAL(false);
 extern bool               signalDump              _DEFVAL(false);
 

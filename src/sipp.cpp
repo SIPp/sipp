@@ -2043,17 +2043,17 @@ int main(int argc, char *argv[])
     }
 
     if (!isatty(fileno(stdout)))
-        nostdout = true;
+        use_curses = false;
 
-    if (!nostdout)
+    if (use_curses)
         screen_init();
 
     sighandle_set();
 
     /* checking if we need to launch the tool in background mode */
-    if(backgroundMode == true) {
+    if (backgroundMode == true) {
         pid_t l_pid;
-        switch(l_pid = fork()) {
+        switch (l_pid = fork()) {
         case -1:
             // error when forking !
             ERROR_NO("Forking error");
