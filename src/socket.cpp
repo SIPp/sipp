@@ -1211,8 +1211,9 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
                     CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
                 }
             } else if (auto_answer &&
-                       ((strstr(msg, "NOTIFY") == msg)  ||
-                        (strstr(msg, "INFO")   == msg)  ||
+                       ((strstr(msg, "INFO") == msg) ||
+                        (strstr(msg, "NOTIFY") == msg) ||
+                        (strstr(msg, "OPTIONS") == msg) ||
                         (strstr(msg, "UPDATE") == msg))) {
                 // If auto answer mode, try to answer the incoming message
                 // with automaticResponseMode
