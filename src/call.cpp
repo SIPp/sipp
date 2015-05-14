@@ -2085,7 +2085,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     bool auth_comp_allocated = false;
     int    len_offset = 0;
     char *dest = msg_buffer;
-    bool supresscrlf = false;
+    bool suppresscrlf = false;
 
     *dest = '\0';
 
@@ -2094,11 +2094,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         int left = buf_len - (dest - msg_buffer);
         switch(comp->type) {
         case E_Message_Literal:
-            if (supresscrlf) {
+            if (suppresscrlf) {
                 char *ptr = comp->literal;
                 while (isspace(*ptr)) ptr++;
                 dest += snprintf(dest, left, "%s", ptr);
-                supresscrlf = false;
+                suppresscrlf = false;
             } else {
                 memcpy(dest, comp->literal, comp->literalLen);
                 dest += comp->literalLen;
@@ -2280,7 +2280,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if (dialog_route_set) {
                 dest += sprintf(dest, "Route: %s", dialog_route_set);
             } else if (*(dest - 1) == '\n') {
-                supresscrlf = true;
+                suppresscrlf = true;
             }
             break;
         case E_Message_ClockTick:
@@ -2328,7 +2328,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 dest += sprintf(dest, "false");
             }
             if (*(dest - 1) == '\n') {
-                supresscrlf = true;
+                suppresscrlf = true;
             }
             break;
         }
@@ -2389,7 +2389,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 *tmp = c;
             }
             if (*(dest - 1) == '\n') {
-                supresscrlf = true;
+                suppresscrlf = true;
             }
             break;
         }
@@ -2399,7 +2399,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 dest += sprintf(dest, "%s", last_header);
             }
             if (*(dest - 1) == '\n') {
-                supresscrlf = true;
+                suppresscrlf = true;
             }
             break;
         }
