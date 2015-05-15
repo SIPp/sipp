@@ -148,7 +148,7 @@ uint32_t get_remote_ip_media(char *msg)
         /* Can't find what we're looking at -> return no address */
         return INADDR_NONE;
     }
-    begin += sizeof("c=IN IP4 ") - 1;
+    begin += sizeof(pattern) - 1;
     end = find_sdp_eol(begin);
     if (!end) {
         free(my_msg);
@@ -185,7 +185,7 @@ uint8_t get_remote_ipv6_media(char *msg, struct in6_addr *addr)
         /* Can't find what we're looking at -> return no address */
         return 0;
     }
-    begin += sizeof("c=IN IP6 ") - 1;
+    begin += sizeof(pattern) - 1;
     end = find_sdp_eol(begin);
     if (!end) {
         free(my_msg);
