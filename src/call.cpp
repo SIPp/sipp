@@ -42,6 +42,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <cstring>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <assert.h>
@@ -119,6 +120,12 @@ unsigned int call::wake()
     return wake;
 }
 
+static char* find_sdp_eol(char* line)
+{
+    char* end = &line[strcspn(line, "\r\n")];
+    return end[0] == '\0' ? NULL : end;
+}
+
 #ifdef PCAPPLAY
 /******* Media information management *************************/
 /*
@@ -141,8 +148,8 @@ uint32_t get_remote_ip_media(char *msg)
         /* Can't find what we're looking at -> return no address */
         return INADDR_NONE;
     }
-    begin += sizeof("c=IN IP4 ") - 1;
-    end = strstr(begin, "\r\n");
+    begin += sizeof(pattern) - 1;
+    end = find_sdp_eol(begin);
     if (!end) {
         free(my_msg);
         return INADDR_NONE;
@@ -178,8 +185,8 @@ uint8_t get_remote_ipv6_media(char *msg, struct in6_addr *addr)
         /* Can't find what we're looking at -> return no address */
         return 0;
     }
-    begin += sizeof("c=IN IP6 ") - 1;
-    end = strstr(begin, "\r\n");
+    begin += sizeof(pattern) - 1;
+    end = find_sdp_eol(begin);
     if (!end) {
         free(my_msg);
         return 0;
@@ -230,7 +237,7 @@ uint16_t get_remote_port_media(const char *msg, enum media_ptn pattype)
         return 0;
     }
     begin += strlen(pattern);
-    end = strstr(begin, "\r\n");
+    end = find_sdp_eol(begin);
     if (!end) {
         free(my_msg);
         ERROR("get_remote_port_media: no CRLF found");
