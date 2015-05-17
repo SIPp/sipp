@@ -55,15 +55,13 @@ your changes integrate your changes. If you make changes in SIPp,
     indent, standard Emacs-like indentation). Examples:
 
 ```
-if (condition) {
-  f();
+if (condition) {        /* "{" even if only one instruction */
+    f();                /* 4 space indents */
 } else {
-  g();
+    char* p = ptr;      /* C++-style pointer declaration placement */
+    g(p);
 }
 ```
-
-  - Use "{" in if conditions even if there is only one instruction
-    (see example above).
 
   - If possible, check your changes can be compiled on:
       - Linux,
