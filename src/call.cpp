@@ -70,7 +70,7 @@ int call::stepDynamicId   = 4;                // FIXME both param to be in comma
 /************** Call map and management routines **************/
 static unsigned int next_number = 1;
 
-unsigned int get_tdm_map_number()
+static unsigned int get_tdm_map_number()
 {
     unsigned int nb = 0;
     unsigned int i=0;

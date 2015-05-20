@@ -18,10 +18,9 @@
  *
 *-----------------------------------------------------------------*/
 
-#define LITTLE_ENDIAN   /* For INTEL architecture */
+#include "rijndael.h"
 
-typedef unsigned char   u8;
-typedef unsigned int    u32;
+#define LITTLE_ENDIAN   /* For INTEL architecture */
 
 /* Circular byte rotates of 32 bit values */
 

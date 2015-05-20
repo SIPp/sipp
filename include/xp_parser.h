@@ -23,14 +23,14 @@
 extern "C" {
 #endif
 
-int   xp_unescape(const char *source, char *dest);
-int   xp_set_xml_buffer_from_string(const char *str);
-int   xp_set_xml_buffer_from_file(const char *filename);
-char *xp_open_element(int index);
-void  xp_close_element();
-char *xp_get_value(const char *name);
-char *xp_get_cdata();
-int   xp_get_content_length(const char *P_buffer);
+int xp_unescape(const char *source, char *dest);
+int xp_set_xml_buffer_from_string(const char *str);
+int xp_set_xml_buffer_from_file(const char *filename);
+char* xp_open_element(int index);
+void xp_close_element(void);
+char* xp_get_value(const char *name);
+char* xp_get_cdata(void);
+int xp_get_content_length(const char *P_buffer);
 
 #ifdef __cplusplus
 }

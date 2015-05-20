@@ -18,9 +18,10 @@
 #ifndef RIJNDAEL_H
 #define RIJNDAEL_H
 
+typedef unsigned char   u8;
+typedef unsigned int    u32;
 
 void RijndaelKeySchedule( u8 key[16] );
 void RijndaelEncrypt( u8 input[16], u8 output[16] );
-
 
 #endif

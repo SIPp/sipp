@@ -376,7 +376,7 @@ struct sipp_option options_table[] = {
 
 };
 
-struct sipp_option *find_option(const char *option) {
+static struct sipp_option *find_option(const char* option) {
     int i;
     int max = sizeof(options_table)/sizeof(options_table[0]);
 
@@ -414,20 +414,20 @@ extern int pending_messages;
 
 /************** Statistics display & User control *************/
 
-void sipp_sigusr1(int /* not used */)
+static void sipp_sigusr1(int /* not used */)
 {
     /* Smooth exit: do not place any new calls and exit */
     quitting+=10;
 }
 
-void sipp_sigusr2(int /* not used */)
+static void sipp_sigusr2(int /* not used */)
 {
     if (!signalDump) {
         signalDump = true;
     }
 }
 
-void pollset_process(int wait)
+static void pollset_process(int wait)
 {
     int rs; /* Number of times to execute recv().
             For TCP with 1 socket per call:
@@ -675,7 +675,7 @@ void timeout_alarm(int /*param*/)
 
 /* Send loop & trafic generation*/
 
-void traffic_thread()
+static void traffic_thread()
 {
     /* create the file */
     char         L_file_name [MAX_PATH];
@@ -813,7 +813,7 @@ void traffic_thread()
 /*************** RTP ECHO THREAD ***********************/
 /* param is a pointer to RTP socket */
 
-void rtp_echo_thread (void * param)
+static void rtp_echo_thread(void* param)
 {
     char msg[media_bufsize];
     size_t nr, ns;
@@ -867,7 +867,7 @@ void rtp_echo_thread (void * param)
 }
 
 /* Wrap the help text. */
-char *wrap(const char *in, int offset, int size)
+static char* wrap(const char* in, int offset, int size)
 {
     int pos = 0;
     int i, j;
@@ -950,7 +950,7 @@ char *wrap(const char *in, int offset, int size)
 }
 
 /* Help screen */
-void help()
+static void help()
 {
     int i, max;
 
@@ -1017,7 +1017,7 @@ void help()
 }
 
 
-void help_stats()
+static void help_stats()
 {
     printf(
         "\n"
@@ -1118,7 +1118,7 @@ void help_stats()
 
 /************* exit handler *****************/
 
-void print_last_stats()
+static void print_last_stats()
 {
     interrupt = 1;
     // print last current screen
@@ -1131,7 +1131,7 @@ void print_last_stats()
     }
 }
 
-void stop_all_traces()
+static void stop_all_traces()
 {
     message_lfi.fptr = NULL;
     log_lfi.fptr = NULL;
@@ -1139,14 +1139,14 @@ void stop_all_traces()
     dumpInFile = 0;
 }
 
-void freeInFiles()
+static void freeInFiles()
 {
     for (file_map::iterator file_it = inFiles.begin(); file_it != inFiles.end(); file_it++) {
         delete file_it->second;
     }
 }
 
-void freeUserVarMap()
+static void freeUserVarMap()
 {
     for (int_vt_map::iterator vt_it = userVarMap.begin(); vt_it != userVarMap.end(); vt_it++) {
         vt_it->second->putTable();
@@ -1154,7 +1154,7 @@ void freeUserVarMap()
     }
 }
 
-void manage_oversized_file(int signum)
+static void manage_oversized_file(int signum)
 {
     FILE *f;
     char L_file_name[MAX_PATH];
@@ -1185,7 +1185,7 @@ void manage_oversized_file(int signum)
     error_lfi.fptr = NULL;
 }
 
-void releaseGlobalAllocations()
+static void releaseGlobalAllocations()
 {
     delete main_scenario;
     delete ooc_scenario;
@@ -1264,7 +1264,7 @@ static void sighandle_set()
     sigaction(SIGXFSZ, &action_file_size_exceeded, NULL);  // avoid core dump if the max file size is exceeded
 }
 
-char* remove_pattern(char* P_buffer, char* P_extensionPattern)
+static char* remove_pattern(char* P_buffer, char* P_extensionPattern)
 {
 
     char *L_ptr = P_buffer;

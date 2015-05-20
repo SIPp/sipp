@@ -853,7 +853,7 @@ void print_screens(void)
     currentRepartitionToDisplay = oldRepartition;
 }
 
-void rotatef(struct logfile_info *lfi)
+static void rotatef(struct logfile_info* lfi)
 {
     char L_rotate_file_name [MAX_PATH];
 
@@ -948,7 +948,7 @@ extern "C" {
 #endif
  * w
 */
-    int _trace (struct logfile_info *lfi, const char *fmt, va_list ap)
+    static int _trace(struct logfile_info* lfi, const char* fmt, va_list ap)
     {
         int ret = 0;
         if(lfi->fptr) {

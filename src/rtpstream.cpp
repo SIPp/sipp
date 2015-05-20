@@ -29,7 +29,7 @@
 #include "rtpstream.hpp"
 
 /* stub to add extra debugging/logging... */
-void debugprint (const char *Format,...)
+static void debugprint(const char *Format, ...)
 {
 }
 
@@ -141,7 +141,7 @@ unsigned int  global_ssrc_id= 0xCA110000;
 //===================================================================================================
 
 /* code checked */
-void rtpstream_free_taskinfo (taskentry_t *taskinfo)
+static void rtpstream_free_taskinfo(taskentry_t* taskinfo)
 {
   if (taskinfo) {
     /* close sockets associated with this call */
@@ -166,7 +166,7 @@ void rtpstream_free_taskinfo (taskentry_t *taskinfo)
 }
 
 /* code checked */
-void rtpstream_process_task_flags (taskentry_t *taskinfo)
+static void rtpstream_process_task_flags(taskentry_t* taskinfo)
 {
   if (taskinfo->flags&TI_RECONNECTSOCKET) {
     int remote_addr_len;
@@ -251,7 +251,7 @@ void rtpstream_process_task_flags (taskentry_t *taskinfo)
 }
 
 /**** todo - check code ****/
-unsigned long rtpstream_playrtptask (taskentry_t *taskinfo, unsigned long  timenow_ms)
+static unsigned long rtpstream_playrtptask (taskentry_t *taskinfo, unsigned long  timenow_ms)
 {
   char                 udp_buffer[MAX_UDP_RECV_BUFFER];
   int                  rc;
@@ -377,7 +377,7 @@ unsigned long rtpstream_playrtptask (taskentry_t *taskinfo, unsigned long  timen
 
 
 /* code checked */
-void *rtpstream_playback_thread (void *params)
+static void* rtpstream_playback_thread(void* params)
 {
   threaddata_t   *threaddata= (threaddata_t *) params;
   taskentry_t    *taskinfo;
@@ -445,7 +445,7 @@ void *rtpstream_playback_thread (void *params)
 }
 
 /* code checked */
-int rtpstream_start_task (rtpstream_callinfo_t *callinfo)
+static int rtpstream_start_task (rtpstream_callinfo_t *callinfo)
 {
   int           ready_index;
   int           allocsize;
@@ -536,7 +536,7 @@ int rtpstream_start_task (rtpstream_callinfo_t *callinfo)
 }
 
 /* code checked */
-void rtpstream_stop_task (rtpstream_callinfo_t *callinfo)
+static void rtpstream_stop_task(rtpstream_callinfo_t* callinfo)
 {
   threaddata_t  **threadlist;
   taskentry_t   *taskinfo= callinfo->taskinfo;
@@ -689,7 +689,7 @@ int rtpstream_cache_file (char *filename)
   return num_cached_files++;
 }
 
-int rtpstream_setsocketoptions (int sock)
+static int rtpstream_setsocketoptions (int sock)
 {
   /* set socket non-blocking */
   int flags= fcntl(sock,F_GETFL,0);
@@ -712,7 +712,7 @@ int rtpstream_setsocketoptions (int sock)
 }
 
 /* code checked */
-int rtpstream_get_localport (int *rtpsocket, int *rtcpsocket)
+static int rtpstream_get_localport (int *rtpsocket, int *rtcpsocket)
 {
   int                       port_number;
   int                       tries;
