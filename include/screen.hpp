@@ -31,10 +31,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    void ERROR(const char *fmt, ...) __attribute__ ((noreturn));
-    void WARNING(const char *fmt, ...);
-    void ERROR_NO(const char *fmt, ...) __attribute__ ((noreturn));
-    void WARNING_NO(const char *fmt, ...);
+    void ERROR(const char *fmt, ...) __attribute__ ((format(printf, 1, 2), noreturn));
+    void WARNING(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+    void ERROR_NO(const char *fmt, ...) __attribute__ ((format(printf, 1, 2), noreturn));
+    void WARNING_NO(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 #ifdef __cplusplus
 }
 #endif
