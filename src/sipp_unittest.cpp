@@ -20,3 +20,11 @@
 #include "sipp.hpp"
 
 #include "gtest/gtest.h"
+
+/* Quickfix to fix unittests that depend on sipp_exit availability,
+ * now that sipp_exit has been moved into sipp.cpp which is not
+ * included. */
+void sipp_exit(int rc)
+{
+    exit(rc);
+}
