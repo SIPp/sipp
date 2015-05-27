@@ -4093,6 +4093,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
                 res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
                 if (res) {
                     WARNING("sendCmdBuffer returned %d", res);
+                    return false;
                 }
             }
             computeStat(CStat::E_CALL_FAILED);
@@ -4130,6 +4131,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
                 res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
                 if (res) {
                     WARNING("sendCmdBuffer returned %d", res);
+                    return false;
                 }
             }
 
@@ -4165,6 +4167,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
                 res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
                 if (res) {
                     WARNING("sendCmdBuffer returned %d", res);
+                    return false;
                 }
             }
 
