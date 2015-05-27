@@ -105,6 +105,7 @@ public:
     int            counter;
     double         lost;
     int            crlf;
+    int            skipsdp;
     bool           hide;
     char *         display_str;
     int            next;
