@@ -2744,9 +2744,12 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
               strlen(msg), id, hash(msg), msg);
 
     setRunning();
+    message *curmsg = call_scenario->messages[msg_index];
 
     /* Ignore the messages received during a pause if -pause_msg_ign is set */
-    if(call_scenario->messages[msg_index] -> M_type == MSG_TYPE_PAUSE && pause_msg_ign) return(true);
+    if (curmsg->M_type == MSG_TYPE_PAUSE && pause_msg_ign) {
+        return true;
+    }
 
     /* Get our destination if we have none. */
     if (call_peer.ss_family == AF_UNSPEC && src) {
@@ -2754,8 +2757,8 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
     }
 
     /* Authorize nop as a first command, even in server mode */
-    if((msg_index == 0) && (call_scenario->messages[msg_index] -> M_type == MSG_TYPE_NOP)) {
-        queue_up (msg);
+    if (msg_index == 0 && curmsg->M_type == MSG_TYPE_NOP) {
+        queue_up(msg);
         paused_until = 0;
         return run();
     }
@@ -2822,8 +2825,8 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 
 #ifdef RTP_STREAM
     /* Check if message has a SDP in it; and extract media information. */
-    if (!strcmp(get_header_content(msg, (char*)"Content-Type:"), "application/sdp") &&
-            hasMedia == 1) {
+    if (!strcmp(get_header_content(msg, "Content-Type:"), "application/sdp") &&
+            hasMedia == 1 && !curmsg->ignoresdp) {
         extract_rtp_remote_addr(msg);
     }
 #endif
@@ -2843,7 +2846,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                 return false; // Call aborted by unexpected message handling
             }
 #ifdef PCAPPLAY
-        } else if ((hasMedia == 1) && *(strstr(msg, "\r\n\r\n")+4) != '\0') {
+        } else if (hasMedia == 1 && !curmsg->ignoresdp && *(strstr(msg, "\r\n\r\n") + 4) != '\0') {
             /* Get media info if we find something like an SDP */
             get_remote_media_addr(msg);
 #endif
@@ -2881,8 +2884,9 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
             if (((strncmp(request, "INVITE", 6) == 0)
                     || (strncmp(request, "ACK", 3) == 0)
                     || (strncmp(request, "PRACK", 5) == 0))
-                    && (hasMedia == 1))
+                    && hasMedia == 1 && !curmsg->ignoresdp) {
                 get_remote_media_addr(msg);
+            }
 #endif
 
             reply_code = 0;

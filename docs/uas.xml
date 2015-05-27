@@ -23,6 +23,9 @@
   <!-- By adding rrs="true" (Record Route Sets), the route sets         -->
   <!-- are saved and used for following messages sent. Useful to test   -->
   <!-- against stateful SIP proxies/B2BUAs.                             -->
+  <!-- Adding ignoresdp="true" here would ignore the SDP data: that     -->
+  <!-- can be useful if you want to reject reINVITEs and keep the       -->
+  <!-- media stream flowing.                                            -->
   <recv request="INVITE" crlf="true">
   </recv>
 

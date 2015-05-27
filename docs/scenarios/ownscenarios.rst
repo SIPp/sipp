@@ -261,9 +261,16 @@ List of commands with their attributes
         the scenario.
       - ::
 
-            <recv response="100" optional="true">
+          <recv response="100" optional="true">
 
-          The 100 SIP message can be received without being considered as "unexpected".
+        The 100 SIP message can be received without being considered as "unexpected".
+    * -
+      - ``ignoresdp``
+      - Ignore SDP from received message, when set to true. It will allow you
+        to reject newly negotiated streams while keeping the old media flowing.
+      - ::
+
+          <recv request="INVITE" ignoresdp="true">
     * -
       - ``rrs``
       - R ecord R oute S et. if this attribute is set to "true", then the
@@ -271,7 +278,7 @@ List of commands with their attributes
         recalled using the ``[routes]`` keyword.
       - ::
 
-          <recv response="100" rrs="true">.
+          <recv response="100" rrs="true">
     * -
       - ``auth``
       - Authentication. if this attribute is set to "true", then the
@@ -279,7 +286,7 @@ List of commands with their attributes
         used to build the [authentication] keyword.
       - ::
 
-          <recv response="407" auth="true">.
+          <recv response="407" auth="true">
     * -
       - ``lost``
       - Emulate packet lost. The value is specified as a
@@ -288,7 +295,7 @@ List of commands with their attributes
 
           <recv lost="10">
 
-              10% of the message received are thrown away.
+        10% of the message received are thrown away.
     * -
       - ``timeout``
       - Specify a timeout while waiting for a message. If the
@@ -534,21 +541,21 @@ List of commands with their attributes
       - Specify the name of globally scoped variables.
       - ::
 
-          <Globals variables="foo,bar" />.
+          <Globals variables="foo,bar"/>
 
     * - **<User>**
       - ``variables``
       - Specify the name of user-scoped variables.
       - ::
 
-          <User variables="foo,bar" />
+          <User variables="foo,bar"/>
 
     * - **<Reference>**
       - ``variables``
       - Suppresses warnings about unused variables.
       - ::
 
-          <Reference variables="dummy" />
+          <Reference variables="dummy"/>
 
 
 There are not so many commands: send, recv, sendCmd, recvCmd, pause,
