@@ -65,6 +65,7 @@ message::message(int index, const char *desc)
     repeat_rtd = 0;
     lost = -1;
     crlf = 0;
+    ignoresdp = false;
     hide = 0;
     display_str = NULL; // free on exit
     test = -1;
@@ -1714,6 +1715,10 @@ void scenario::getCommonAttributes(message *message)
         message -> crlf = 1;
     }
 
+    if ((ptr = xp_get_value("ignoresdp"))) {
+        message->ignoresdp = get_bool(ptr, "ignoresdp");
+    }
+
     if (xp_get_value("hiderest")) {
         hidedefault = xp_get_bool("hiderest", "hiderest");
     }
@@ -2055,6 +2060,9 @@ const char * default_scenario [] = {
     "  <!-- By adding rrs=\"true\" (Record Route Sets), the route sets         -->\n"
     "  <!-- are saved and used for following messages sent. Useful to test   -->\n"
     "  <!-- against stateful SIP proxies/B2BUAs.                             -->\n"
+    "  <!-- Adding ignoresdp=\"true\" here would ignore the SDP data: that     -->\n"
+    "  <!-- can be useful if you want to reject reINVITEs and keep the       -->\n"
+    "  <!-- media stream flowing.                                            -->\n"
     "  <recv request=\"INVITE\" crlf=\"true\">\n"
     "  </recv>\n"
     "\n"
