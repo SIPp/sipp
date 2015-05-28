@@ -134,14 +134,16 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
 
     if (!error_lfi.fptr && print_all_responses) {
         rotate_errorf();
-        if (screen_inited && !error_lfi.fptr) {
-            sprintf(c, "%s: Unable to create '%s': %s.\n",
-                    screen_exename, screen_logfile, strerror(errno));
-            sipp_exit(EXIT_FATAL_ERROR);
-        } else {
+        if (error_lfi.fptr) {
             fprintf(error_lfi.fptr, "%s: The following events occured:\n",
                     screen_exename);
             fflush(error_lfi.fptr);
+        } else {
+            if (screen_inited) {
+                sprintf(c, "%s: Unable to create '%s': %s.\n",
+                        screen_exename, screen_logfile, strerror(errno));
+            }
+            sipp_exit(EXIT_FATAL_ERROR);
         }
     }
 
