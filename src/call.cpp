@@ -2148,18 +2148,13 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             getsockname(call_socket->ss_fd,
                         (sockaddr *)(void *)&server_sockaddr, &len);
 
-            if (server_sockaddr.ss_family == AF_INET6) {
-                char temp_dest[INET6_ADDRSTRLEN]; /* fits both INET and INET6 */
-                temp_dest[0] = temp_dest[INET6_ADDRSTRLEN - 1] = '\0';
-                inet_ntop(AF_INET6,
-                          &((_RCAST(struct sockaddr_in6 *,&server_sockaddr))->sin6_addr),
-                          temp_dest,
-                          INET6_ADDRSTRLEN);
-                dest += snprintf(dest, left, "%s",temp_dest);
-            } else {
-                dest += snprintf(dest, left, "%s",
-                                 inet_ntoa((_RCAST(struct sockaddr_in *,&server_sockaddr))->sin_addr));
+            char address[INET6_ADDRSTRLEN];
+            if (getnameinfo(_RCAST(sockaddr*, &server_sockaddr), len, address, sizeof(address),
+                            NULL, 0, NI_NUMERICHOST) < 0) {
+                ERROR_NO("Unable to get socket name information");
             }
+
+            dest += snprintf(dest, left, "%s", address);
         }
         break;
         case E_Message_Media_IP:
