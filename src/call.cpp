@@ -120,13 +120,13 @@ unsigned int call::wake()
     return wake;
 }
 
+#ifdef PCAPPLAY
 static char* find_sdp_eol(char* line)
 {
     char* end = &line[strcspn(line, "\r\n")];
     return end[0] == '\0' ? NULL : end;
 }
 
-#ifdef PCAPPLAY
 /******* Media information management *************************/
 /*
  * Look for "c=IN IP4 " pattern in the message and extract the following value
