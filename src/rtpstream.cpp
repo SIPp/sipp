@@ -251,122 +251,126 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo)
 }
 
 /**** todo - check code ****/
-static unsigned long rtpstream_playrtptask (taskentry_t *taskinfo, unsigned long  timenow_ms)
+static unsigned long rtpstream_playrtptask(taskentry_t *taskinfo, unsigned long  timenow_ms)
 {
-  char                 udp_buffer[MAX_UDP_RECV_BUFFER];
-  int                  rc;
-  unsigned long        next_wake;
-  unsigned long long   target_timestamp;
+    int rc;
+    unsigned long next_wake;
+    unsigned long long target_timestamp;
 
-  /* OK, now to play - sockets are supposed to be non-blocking */
-  /* no support for video stream at this stage. will need some work */
+    union {
+        rtp_header_t hdr;
+        char buffer[MAX_UDP_RECV_BUFFER];
+    } udp;
 
-  next_wake= timenow_ms+100; /* default next wakeup time */
+    /* OK, now to play - sockets are supposed to be non-blocking */
+    /* no support for video stream at this stage. will need some work */
 
-  if (taskinfo->audio_rtcp_socket!=-1) {
-    /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
-    while ((rc= recv (taskinfo->audio_rtcp_socket,udp_buffer,sizeof(udp_buffer),0))>=0) {
-      /*
-       * rtpstream_bytes_in+= rc;
-       */
-    }
-  }
+    next_wake = timenow_ms + 100; /* default next wakeup time */
 
-  if (taskinfo->video_rtp_socket!=-1) {
-    /* just keep listening on rtp socket (is this really required?) - ignore any errors */
-    while ((rc= recv (taskinfo->video_rtp_socket,udp_buffer,sizeof(udp_buffer),0))>=0) {
-      /*
-       * rtpstream_bytes_in+= rc;
-       */
-    }
-  }
-
-  if (taskinfo->video_rtcp_socket!=-1) {
-    /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
-    while ((rc= recv (taskinfo->video_rtcp_socket,udp_buffer,sizeof(udp_buffer),0))>=0) {
-      /*
-       * rtpstream_bytes_in+= rc;
-       */
-    }
-  }
-
-  if (taskinfo->audio_rtp_socket!=-1) {
-    /* this is temp code - will have to reorganize if/when we include echo functionality */
-    /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
-    while ((rc= recv (taskinfo->audio_rtp_socket,udp_buffer,sizeof(udp_buffer),0))>=0) {
-      /* for now we will just ignore any received data or receive errors */
-      /* separate code path for RTP echo */
-      rtpstream_bytes_in+= rc;
-    }
-    /* are we playing back an audio file? */
-    if (taskinfo->loop_count) {
-      target_timestamp= timenow_ms*taskinfo->timeticks_per_ms;
-      next_wake= timenow_ms+taskinfo->ms_per_packet-timenow_ms%taskinfo->ms_per_packet;
-      if (taskinfo->flags&(TI_NULL_AUDIOIP|TI_PAUSERTP)) {
-        /* when paused, set timestamp so stream appears to be up to date */
-        taskinfo->last_timestamp= target_timestamp;
-      }
-      if (taskinfo->last_timestamp<target_timestamp) {
-        /* need to send rtp payload - build rtp packet header... */
-        ((rtp_header_t*)udp_buffer)->flags= htons(0x8000|taskinfo->payload_type);
-        ((rtp_header_t*)udp_buffer)->seq= htons(taskinfo->seq);
-        ((rtp_header_t*)udp_buffer)->timestamp= htonl((uint32_t) (taskinfo->last_timestamp & 0XFFFFFFFF));
-        ((rtp_header_t*)udp_buffer)->ssrc_id= htonl(taskinfo->ssrc_id);
-        /* add payload data to the packet - handle buffer wraparound */
-        if (taskinfo->file_bytes_left>=taskinfo->bytes_per_packet) {
-          /* no need for fancy acrobatics */
-          memcpy (udp_buffer+sizeof(rtp_header_t),taskinfo->current_file_bytes,taskinfo->bytes_per_packet);
-        } else {
-          /* copy from end and then begining of file. does not handle the */
-          /* case where file is shorter than the packet length!! */
-          memcpy (udp_buffer+sizeof(rtp_header_t),taskinfo->current_file_bytes,taskinfo->file_bytes_left);
-          memcpy (udp_buffer+sizeof(rtp_header_t)+taskinfo->file_bytes_left,
-                  taskinfo->file_bytes_start,taskinfo->bytes_per_packet-taskinfo->file_bytes_left);
+    if (taskinfo->audio_rtcp_socket != -1) {
+        /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
+        while ((rc = recv(taskinfo->audio_rtcp_socket, udp.buffer, sizeof(udp), 0)) >= 0) {
+            /*
+             * rtpstream_bytes_in+= rc;
+             */
         }
-        /* now send the actual packet */
-        rc = send (taskinfo->audio_rtp_socket,udp_buffer,taskinfo->bytes_per_packet+sizeof(rtp_header_t),0);
-        if (rc<0) {
-          /* handle sending errors */
-          if ((errno==EAGAIN)||(errno==EWOULDBLOCK)||(errno==EINTR)) {
-            next_wake= timenow_ms+2; /* retry after short sleep */
-          } else {
-            /* this looks like a permanent error  - should we ignore ENETUNREACH? */
-            debugprint ("closing rtp socket %d due to error %d in rtpstream_new_call taskinfo=%p\n",
-                        taskinfo->audio_rtp_socket, errno, taskinfo);
-            close (taskinfo->audio_rtp_socket);
-            taskinfo->audio_rtp_socket= -1;
-          }
-        } else {
-          /* statistics - only count successful sends */
-          rtpstream_bytes_out+= taskinfo->bytes_per_packet+sizeof(rtp_header_t);
-          rtpstream_pckts++;
-          /* advance playback pointer to next packet */
-          taskinfo->seq++;
-          /* must change if timer ticks per packet can be fractional */
-          taskinfo->last_timestamp+= taskinfo->timeticks_per_packet;
-          taskinfo->file_bytes_left-= taskinfo->bytes_per_packet;
-          if (taskinfo->file_bytes_left>0) {
-            taskinfo->current_file_bytes+= taskinfo->bytes_per_packet;
-          } else {
-            taskinfo->current_file_bytes= taskinfo->file_bytes_start-taskinfo->file_bytes_left;
-            taskinfo->file_bytes_left+= taskinfo->file_num_bytes;
-            if (taskinfo->loop_count>0) {
-              /* one less loop to play. -1 (infinite loops) will stay as is */
-              taskinfo->loop_count--;
+    }
+
+    if (taskinfo->video_rtp_socket != -1) {
+        /* just keep listening on rtp socket (is this really required?) - ignore any errors */
+        while ((rc = recv(taskinfo->video_rtcp_socket, udp.buffer, sizeof(udp), 0)) >= 0) {
+            /*
+             * rtpstream_bytes_in += rc;
+             */
+        }
+    }
+
+    if (taskinfo->video_rtcp_socket != -1) {
+        /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
+        while ((rc = recv(taskinfo->video_rtcp_socket, udp.buffer, sizeof(udp), 0)) >= 0) {
+            /*
+             * rtpstream_bytes_in+= rc;
+             */
+        }
+    }
+
+    if (taskinfo->audio_rtp_socket != -1) {
+        /* this is temp code - will have to reorganize if/when we include echo functionality */
+        /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
+        while ((rc = recv(taskinfo->audio_rtcp_socket, udp.buffer, sizeof(udp), 0)) >= 0) {
+            /* for now we will just ignore any received data or receive errors */
+            /* separate code path for RTP echo */
+            rtpstream_bytes_in += rc;
+        }
+        /* are we playing back an audio file? */
+        if (taskinfo->loop_count) {
+            target_timestamp = timenow_ms * taskinfo->timeticks_per_ms;
+            next_wake = timenow_ms + taskinfo->ms_per_packet - timenow_ms % taskinfo->ms_per_packet;
+            if (taskinfo->flags & (TI_NULL_AUDIOIP|TI_PAUSERTP)) {
+                /* when paused, set timestamp so stream appears to be up to date */
+                taskinfo->last_timestamp = target_timestamp;
             }
-          }
-          if (taskinfo->last_timestamp<target_timestamp) {
-            /* no sleep if we are behind */
-            next_wake= timenow_ms;
-          }
+            if (taskinfo->last_timestamp < target_timestamp) {
+                /* need to send rtp payload - build rtp packet header... */
+                udp.hdr.flags = htons(0x8000 | taskinfo->payload_type);
+                udp.hdr.seq = htons(taskinfo->seq);
+                udp.hdr.timestamp = htonl((uint32_t)(taskinfo->last_timestamp & 0XFFFFFFFF));
+                udp.hdr.ssrc_id = htonl(taskinfo->ssrc_id);
+                /* add payload data to the packet - handle buffer wraparound */
+                if (taskinfo->file_bytes_left >= taskinfo->bytes_per_packet) {
+                    /* no need for fancy acrobatics */
+                    memcpy(udp.buffer + sizeof(rtp_header_t), taskinfo->current_file_bytes, taskinfo->bytes_per_packet);
+                } else {
+                    /* copy from end and then begining of file. does not handle the */
+                    /* case where file is shorter than the packet length!! */
+                    memcpy(udp.buffer + sizeof(rtp_header_t), taskinfo->current_file_bytes, taskinfo->file_bytes_left);
+                    memcpy(udp.buffer + sizeof(rtp_header_t) + taskinfo->file_bytes_left,
+                           taskinfo->file_bytes_start, taskinfo->bytes_per_packet-taskinfo->file_bytes_left);
+                }
+                /* now send the actual packet */
+                rc = send(taskinfo->audio_rtp_socket, udp.buffer, taskinfo->bytes_per_packet + sizeof(rtp_header_t), 0);
+                if (rc < 0) {
+                    /* handle sending errors */
+                    if ((errno==EAGAIN) || (errno==EWOULDBLOCK) || (errno==EINTR)) {
+                        next_wake= timenow_ms + 2; /* retry after short sleep */
+                    } else {
+                        /* this looks like a permanent error  - should we ignore ENETUNREACH? */
+                        debugprint("closing rtp socket %d due to error %d in rtpstream_new_call taskinfo=%p\n",
+                                   taskinfo->audio_rtp_socket, errno, taskinfo);
+                        close(taskinfo->audio_rtp_socket);
+                        taskinfo->audio_rtp_socket= -1;
+                    }
+                } else {
+                    /* statistics - only count successful sends */
+                    rtpstream_bytes_out += taskinfo->bytes_per_packet + sizeof(rtp_header_t);
+                    rtpstream_pckts++;
+                    /* advance playback pointer to next packet */
+                    taskinfo->seq++;
+                    /* must change if timer ticks per packet can be fractional */
+                    taskinfo->last_timestamp += taskinfo->timeticks_per_packet;
+                    taskinfo->file_bytes_left -= taskinfo->bytes_per_packet;
+                    if (taskinfo->file_bytes_left > 0) {
+                        taskinfo->current_file_bytes += taskinfo->bytes_per_packet;
+                    } else {
+                        taskinfo->current_file_bytes = taskinfo->file_bytes_start-taskinfo->file_bytes_left;
+                        taskinfo->file_bytes_left += taskinfo->file_num_bytes;
+                        if (taskinfo->loop_count > 0) {
+                            /* one less loop to play. -1 (infinite loops) will stay as is */
+                            taskinfo->loop_count--;
+                        }
+                    }
+                    if (taskinfo->last_timestamp < target_timestamp) {
+                        /* no sleep if we are behind */
+                        next_wake= timenow_ms;
+                    }
+                }
+            }
+        } else {
+            /* not busy playing back a file -  put possible rtp echo code here. */
         }
-      }
-    } else {
-      /* not busy playing back a file -  put possible rtp echo code here. */
     }
-  }
 
-  return next_wake;
+    return next_wake;
 }
 
 
