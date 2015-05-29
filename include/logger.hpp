@@ -66,10 +66,10 @@ void log_off(struct logfile_info *lfi);
 
 #ifdef GLOBALS_FULL_DEFINITION
 #define LOGFILE(name, s, check) \
-        struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0};
+        struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0}
 #else
 #define LOGFILE(name, s, check) \
-        extern struct logfile_info name;
+        extern struct logfile_info name
 #endif
 LOGFILE(calldebug_lfi, "calldebug", true);
 LOGFILE(message_lfi, "messages", true);

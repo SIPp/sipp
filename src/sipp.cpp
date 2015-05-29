@@ -396,7 +396,7 @@ static struct sipp_option *find_option(const char* option) {
     }
 
     return NULL;
-};
+}
 
 /******************** Recv Poll Processing *********************/
 
