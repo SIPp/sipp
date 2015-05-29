@@ -1059,7 +1059,7 @@ ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len, struct s
     if (!socket->ss_msglen)
         return 0;
     if (socket->ss_msglen > len)
-        ERROR("There is a message waiting in sockfd(%d) that is bigger (%d bytes) than the read size.",
+        ERROR("There is a message waiting in sockfd(%d) that is bigger (%zu bytes) than the read size.",
               socket->ss_fd, socket->ss_msglen);
 
     len = socket->ss_msglen;
@@ -1108,7 +1108,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
                 (memcmp(msg, "\r\n\r\n", 4) == 0 || memcmp(msg, "\x00\x00\x00\x00", 4) == 0)) {
             /* Common keepalives */;
         } else {
-            WARNING("non SIP message discarded: \"%.*s\" (%zu)", msg_size, msg, msg_size);
+            WARNING("non SIP message discarded: \"%.*s\" (%zu)", (int)msg_size, msg, msg_size);
         }
         return;
     }
@@ -1129,7 +1129,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
 
     if (useMessagef == 1) {
         TRACE_MSG("----------------------------------------------- %s\n"
-                  "%s %smessage received [%d] bytes :\n\n%s\n",
+                  "%s %smessage received [%zu] bytes :\n\n%s\n",
                   CStat::formatTime(&currentTime, true),
                   TRANSPORT_TO_STRING(socket->ss_transport),
                   socket->ss_control ? "control " : "",
@@ -2321,7 +2321,7 @@ static ssize_t socket_write_primitive(struct sipp_socket* socket, const char* bu
             }
             buffer = (char *)comp_msg;
 
-            TRACE_MSG("---\nCompressed message len: %d\n", len);
+            TRACE_MSG("---\nCompressed message len: %zu\n", len);
         }
 
         rc = sendto(socket->ss_fd, buffer, len, 0, (struct sockaddr *)dest, SOCK_ADDR_SIZE(dest));
@@ -2343,7 +2343,7 @@ int flush_socket(struct sipp_socket *socket)
     while ((buf = socket->ss_out)) {
         ssize_t size = buf->len - buf->offset;
         ret = socket_write_primitive(socket, buf->buf + buf->offset, size, &buf->addr);
-        TRACE_MSG("Wrote %d of %d bytes in an output buffer.\n", ret, size);
+        TRACE_MSG("Wrote %d of %zu bytes in an output buffer.\n", ret, size);
         if (ret == size) {
             /* Everything is great, throw away this buffer. */
             socket->ss_out = buf->next;
@@ -2393,11 +2393,11 @@ int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, in
         /* Everything is great. */
         if (useMessagef == 1) {
             TRACE_MSG("----------------------------------------------- %s\n"
-                      "%s %smessage sent (%d bytes):\n\n%.*s\n",
+                      "%s %smessage sent (%zu bytes):\n\n%.*s\n",
                       CStat::formatTime(&currentTime, true),
                       TRANSPORT_TO_STRING(socket->ss_transport),
                       socket->ss_control ? "control " : "",
-                      len, len, buffer);
+                      len, (int)len, buffer);
         }
 
         if (useShortMessagef == 1) {
@@ -2419,17 +2419,17 @@ int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, in
                       "Error sending %s message:\n\n%.*s\n",
                       CStat::formatTime(&currentTime, true),
                       TRANSPORT_TO_STRING(socket->ss_transport),
-                      len, buffer);
+                      (int)len, buffer);
         }
         return write_error(socket, errno);
     } else {
         /* We have a truncated message, which must be handled internally to the write function. */
         if (useMessagef == 1) {
             TRACE_MSG("----------------------------------------------- %s\n"
-                      "Truncation sending %s message (%d of %d sent):\n\n%.*s\n",
+                      "Truncation sending %s message (%d of %zu sent):\n\n%.*s\n",
                       CStat::formatTime(&currentTime, true),
                       TRANSPORT_TO_STRING(socket->ss_transport),
-                      rc, len, len, buffer);
+                      rc, len, (int)len, buffer);
         }
         buffer_write(socket, buffer + rc, len - rc, dest);
         enter_congestion(socket, errno);

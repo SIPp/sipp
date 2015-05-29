@@ -1007,11 +1007,11 @@ int call::send_raw(const char * msg, int index, int len)
     struct sipp_socket *sock;
     int rc;
 
-    callDebug("Sending %s message for call %s (index %d, hash %u):\n%s\n\n", TRANSPORT_TO_STRING(transport), id, index, hash(msg), msg);
+    callDebug("Sending %s message for call %s (index %d, hash %lu):\n%s\n\n", TRANSPORT_TO_STRING(transport), id, index, hash(msg), msg);
 
     if((index!=-1) && (lost(index))) {
         TRACE_MSG("%s message voluntary lost (while sending).", TRANSPORT_TO_STRING(transport));
-        callDebug("%s message voluntary lost (while sending) (index %d, hash %u).\n", TRANSPORT_TO_STRING(transport), index, hash(msg));
+        callDebug("%s message voluntary lost (while sending) (index %d, hash %lu).\n", TRANSPORT_TO_STRING(transport), index, hash(msg));
 
         if(comp_state) {
             comp_free(&comp_state);
@@ -1407,7 +1407,7 @@ bool call::executeMessage(message *curmsg)
         curmsg->sessions++;
         do_bookkeeping(curmsg);
         executeAction(NULL, curmsg);
-        callDebug("Pausing call until %d (is now %d).\n", paused_until, clock_tick);
+        callDebug("Pausing call until %d (is now %ld).\n", paused_until, clock_tick);
         setPaused();
         return true;
     } else if(curmsg -> M_type == MSG_TYPE_SENDCMD) {
@@ -1527,7 +1527,7 @@ bool call::executeMessage(message *curmsg)
             recv_retrans_recv_index = last_recv_index;
             recv_retrans_send_index = curmsg->index;
 
-            callDebug("Set Retransmission Hash: %u (recv index %d, send index %d)\n", recv_retrans_hash, recv_retrans_recv_index, recv_retrans_send_index);
+            callDebug("Set Retransmission Hash: %lu (recv index %d, send index %d)\n", recv_retrans_hash, recv_retrans_recv_index, recv_retrans_send_index);
 
             /* Prevent from detecting the cause relation between send and recv
              * in the next valid send */
@@ -1640,7 +1640,7 @@ bool call::run()
         curmsg = call_scenario->messages[msg_index];
     }
 
-    callDebug("Processing message %d of type %d for call %s at %u.\n", msg_index, curmsg->M_type, id, clock_tick);
+    callDebug("Processing message %d of type %d for call %s at %lu.\n", msg_index, curmsg->M_type, id, clock_tick);
 
     if (curmsg->condexec != -1) {
         bool exec = M_callVariableTable->getVar(curmsg->condexec)->isSet();
@@ -1719,7 +1719,7 @@ bool call::run()
     if(paused_until) {
         /* Process a pending pause instruction until delay expiration */
         if(paused_until > clock_tick) {
-            callDebug("Call is paused until %d (now %d).\n", paused_until, clock_tick);
+            callDebug("Call is paused until %d (now %ld).\n", paused_until, clock_tick);
             setPaused();
             callDebug("Running: %d (wake %d).\n", running, wake());
             return true;
@@ -1885,7 +1885,7 @@ bool call::process_unexpected(char * msg)
               TRANSPORT_TO_STRING(transport),
               msg);
 
-    callDebug("Unexpected %s message received (index %d, hash %u):\n\n%s\n",
+    callDebug("Unexpected %s message received (index %d, hash %lu):\n\n%s\n",
               TRANSPORT_TO_STRING(transport), msg_index, hash(msg), msg);
 
     if (get_reply_code(msg)) {
@@ -1988,7 +1988,7 @@ bool call::abortCall(bool writeLog)
     }
 
     if (writeLog && useCallDebugf) {
-        TRACE_CALLDEBUG ("-------------------------------------------------------------------------------\n", id);
+        TRACE_CALLDEBUG ("-------------------------------------------------------------------------------\n");
         TRACE_CALLDEBUG ("Call debugging information for call %s:\n", id);
         TRACE_CALLDEBUG("%s", debugBuffer);
     }
@@ -2883,7 +2883,7 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
             if (curmsg -> regexp_compile == NULL) {
                 regex_t *re = new regex_t;
                 if (regcomp(re, curmsg -> recv_request, REG_EXTENDED|REG_NOSUB)) {
-                    ERROR("Invalid regular expression for index %d: %s", curmsg->recv_request);
+                    ERROR("Invalid regular expression for index %d: %s", index, curmsg->recv_request);
                 }
                 curmsg -> regexp_compile = re;
             }
@@ -2933,7 +2933,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     T_ActionResult  actionResult;
 
     getmilliseconds();
-    callDebug("Processing %d byte incoming message for call-ID %s (hash %u):\n%s\n\n", strlen(msg), id, hash(msg), msg);
+    callDebug("Processing %zu byte incoming message for call-ID %s (hash %lu):\n%s\n\n", strlen(msg), id, hash(msg), msg);
 
     setRunning();
 
@@ -2965,7 +2965,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
             if(lost(recv_retrans_recv_index)) {
                 TRACE_MSG("%s message (retrans) lost (recv).",
                           TRANSPORT_TO_STRING(transport));
-                callDebug("%s message (retrans) lost (recv) (hash %u)\n", TRANSPORT_TO_STRING(transport), hash(msg));
+                callDebug("%s message (retrans) lost (recv) (hash %lu)\n", TRANSPORT_TO_STRING(transport), hash(msg));
 
                 if(comp_state) {
                     comp_free(&comp_state);
@@ -3123,7 +3123,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
                                 TRACE_MSG("-----------------------------------------------\n"
                                           "Ignoring provisional %s message for transaction %s:\n\n%s\n",
                                           TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, msg);
-                                callDebug("Ignoring provisional %s message for transaction %s (hash %u):\n\n%s\n",
+                                callDebug("Ignoring provisional %s message for transaction %s (hash %lu):\n\n%s\n",
                                           TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
                                 return true;
                             } else if (int ackIndex = transactions[checkTxn - 1].ackIndex) {
@@ -3141,9 +3141,9 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
                                     TRACE_MSG("-----------------------------------------------\n"
                                               "Ignoring final %s message for transaction %s:\n\n%s\n",
                                               TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, msg);
-                                    callDebug("Ignoring final %s message for transaction %s (hash %u):\n\n%s\n",
+                                    callDebug("Ignoring final %s message for transaction %s (hash %lu):\n\n%s\n",
                                               TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
-                                    WARNING("Ignoring final %s message for transaction %s (hash %u):\n\n%s\n",
+                                    WARNING("Ignoring final %s message for transaction %s (hash %lu):\n\n%s\n",
                                             TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
                                     return true;
                                 }
@@ -3215,7 +3215,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     if(lost(search_index)) {
         TRACE_MSG("%s message lost (recv).",
                   TRANSPORT_TO_STRING(transport));
-        callDebug("%s message lost (recv) (hash %u).\n",
+        callDebug("%s message lost (recv) (hash %lu).\n",
                   TRANSPORT_TO_STRING(transport), hash(msg));
         if(comp_state) {
             comp_free(&comp_state);
@@ -3374,7 +3374,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
      * in our messages. */
     last_recv_index = search_index;
     last_recv_hash = cookie;
-    callDebug("Set Last Recv Hash: %u (recv index %d)\n", last_recv_hash, last_recv_index);
+    callDebug("Set Last Recv Hash: %lu (recv index %d)\n", last_recv_hash, last_recv_index);
     realloc_ptr = (char *) realloc(last_recv_msg, strlen(msg) + 1);
     if (realloc_ptr) {
         last_recv_msg = realloc_ptr;
@@ -3749,7 +3749,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             /* -1 is allowed to go to the first label, but watch out
              * when using msg_index. */
             if (msg_index < -1 || msg_index >= (int)call_scenario->messages.size()) {
-                ERROR("Jump statement out of range (not 0 <= %d <= %d)", msg_index + 1, call_scenario->messages.size());
+                ERROR("Jump statement out of range (not 0 <= %d <= %zu)", msg_index + 1, call_scenario->messages.size());
             }
         } else if (currentAction->getActionType() == CAction::E_AT_PAUSE_RESTORE) {
             double operand = get_rhs(currentAction);

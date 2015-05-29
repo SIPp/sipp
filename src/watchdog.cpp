@@ -66,7 +66,7 @@ bool watchdog::run()
         major_triggers++;
         CStat::globalStat(CStat::E_WATCHDOG_MAJOR);
         last_trigger = clock_tick;
-        WARNING("Overload warning: the major watchdog timer %dms has been tripped (%d), %d trips remaining.",
+        WARNING("Overload warning: the major watchdog timer %dms has been tripped (%lu), %d trips remaining.",
                 major_threshold,
                 clock_tick - last_fire,
                 major_maxtriggers - major_triggers);
@@ -74,7 +74,7 @@ bool watchdog::run()
         minor_triggers++;
         last_trigger = clock_tick;
         CStat::globalStat(CStat::E_WATCHDOG_MINOR);
-        WARNING("Overload warning: the minor watchdog timer %dms has been tripped (%d), %d trips remaining.",
+        WARNING("Overload warning: the minor watchdog timer %dms has been tripped (%lu), %d trips remaining.",
                 minor_threshold,
                 clock_tick - last_fire,
                 minor_maxtriggers - minor_triggers);
@@ -109,7 +109,7 @@ bool watchdog::run()
     if ((reset_interval > 0) &&
         (major_triggers || minor_triggers) &&
         (clock_tick > (last_trigger + reset_interval))) {
-      WARNING("Resetting watchdog timer trigger counts, as it has not been triggered in over %dms.",
+      WARNING("Resetting watchdog timer trigger counts, as it has not been triggered in over %lums.",
               clock_tick - last_trigger);
       major_triggers = minor_triggers = 0;
     }

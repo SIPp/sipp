@@ -66,7 +66,7 @@ void abort_all_tasks()
 
 void dump_tasks()
 {
-    WARNING("---- %d Active Tasks ----\n", all_tasks.size());
+    WARNING("---- %zu Active Tasks ----\n", all_tasks.size());
     for (task_list::iterator task_it = all_tasks.begin();
          task_it != all_tasks.end();
          task_it++) {

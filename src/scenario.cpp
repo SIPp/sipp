@@ -900,7 +900,7 @@ scenario::scenario(char * filename, int deflt)
                 last_recv_optional = curmsg->optional;
                 curmsg->advance_state = xp_get_bool("advance_state", "recv", true);
                 if (!curmsg->advance_state && curmsg->optional == OPTIONAL_FALSE) {
-                    ERROR("advance_state is allowed only for optional messages (index = %d)\n", messages.size() - 1);
+                    ERROR("advance_state is allowed only for optional messages (index = %zu)\n", messages.size() - 1);
                 }
 
                 if (0 != (ptr = xp_get_value((char *)"regexp_match"))) {
