@@ -400,7 +400,7 @@ static struct sipp_option *find_option(const char* option) {
 
 /******************** Recv Poll Processing *********************/
 
-extern int pollnfds;
+extern unsigned pollnfds;
 #ifdef HAVE_EPOLL
 extern int epollfd;
 extern struct epoll_event   epollfiles[SIPP_MAXFDS];
@@ -602,7 +602,7 @@ static void pollset_process(int wait)
          * pending_messages queue again. */
 
 #ifdef HAVE_EPOLL
-        int old_pollnfds = pollnfds;
+        unsigned old_pollnfds = pollnfds;
         getmilliseconds();
         /* Keep processing messages until this socket is freed (changing the number of file descriptors) or we run out of messages. */
         while ((pollnfds == old_pollnfds) &&
@@ -737,7 +737,7 @@ static void traffic_thread()
 #ifdef RTP_STREAM
                 rtpstream_shutdown();
 #endif
-                for (int i = 0; i < pollnfds; i++) {
+                for (unsigned i = 0; i < pollnfds; i++) {
                     sipp_close_socket(sockets[i]);
                 }
 
