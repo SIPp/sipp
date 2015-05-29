@@ -2268,7 +2268,7 @@ static ssize_t socket_write_primitive(struct sipp_socket* socket, const char* bu
 
     /* Refuse to write to invalid sockets. */
     if (socket->ss_invalid) {
-        WARNING("Returning EPIPE on invalid socket: %p (%d)\n", socket, socket->ss_fd);
+        WARNING("Returning EPIPE on invalid socket: %p (%d)\n", _RCAST(void*, socket), socket->ss_fd);
         errno = EPIPE;
         return -1;
     }

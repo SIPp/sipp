@@ -1630,12 +1630,12 @@ bool call::run()
     message *curmsg;
     if (initCall) {
         if(msg_index >= (int)call_scenario->initmessages.size()) {
-            ERROR("Scenario initialization overrun for call %s (%p) (index = %d)\n", id, this, msg_index);
+            ERROR("Scenario initialization overrun for call %s (%p) (index = %d)\n", id, _RCAST(void*, this), msg_index);
         }
         curmsg = call_scenario->initmessages[msg_index];
     } else {
         if(msg_index >= (int)call_scenario->messages.size()) {
-            ERROR("Scenario overrun for call %s (%p) (index = %d)\n", id, this, msg_index);
+            ERROR("Scenario overrun for call %s (%p) (index = %d)\n", id, _RCAST(void*, this), msg_index);
         }
         curmsg = call_scenario->messages[msg_index];
     }
