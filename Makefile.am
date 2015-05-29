@@ -5,7 +5,7 @@ TESTS = sipp_unittest
 check_PROGRAMS = $(TESTS)
 
 AM_CFLAGS=-I$(srcdir)/include
-AM_CPPFLAGS=$(AM_CFLAGS)
+AM_CXXFLAGS=$(AM_CFLAGS)
 
 CLEANFILES =
 EXTRA_DIST = \
