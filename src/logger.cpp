@@ -212,7 +212,7 @@ void print_variable_list()
     }
     if(!found) {
         printed++;
-        printf("=> No action found on any messages"SIPP_ENDL);
+        printf("=> No action found on any messages" SIPP_ENDL);
     }
 
     printf(SIPP_ENDL);
