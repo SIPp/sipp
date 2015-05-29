@@ -436,9 +436,10 @@ static void pollset_process(int wait)
                 recv_count is a flag that stays up as
                 long as there's data to read */
 
+#ifndef HAVE_EPOLL
     /* What index should we try reading from? */
     static int read_index;
-#ifndef HAVE_EPOLL
+
     int loops = max_recv_loops;
 
     // If not using epoll, we have a queue of pending messages to spin through.
