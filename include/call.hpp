@@ -322,7 +322,7 @@ private:
     BIO *m_bio;
 #endif
 
-    int _callDebug(const char *fmt, ...);
+    int _callDebug(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
     char *debugBuffer;
     int debugLength;
 };

@@ -26,7 +26,7 @@
 #include <dlfcn.h>
 #include <string.h>
 
-char * comp_load()
+char * comp_load(void)
 {
     void *handle;
     char *error;

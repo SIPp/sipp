@@ -26,7 +26,7 @@
 extern "C" {
 #endif
 
-    char * comp_load();
+    char* comp_load(void);
 
 #ifndef COMP_MAIN
     extern

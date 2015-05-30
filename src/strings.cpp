@@ -35,6 +35,7 @@
  *           Michael Hirschbichler
  */
 
+#include "strings.hpp"
 #include <strings.h>
 #include <string.h>
 #include <stdlib.h>

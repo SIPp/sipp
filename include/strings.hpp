@@ -21,6 +21,8 @@
 #ifndef __SIPP_STRINGS_H__
 #define __SIPP_STRINGS_H__
 
+#include <cstddef>
+
 char *strcasestr2 (char *__haystack, const char *__needle);
 char *strncasestr (char *s, const char *find, size_t n);
 void init_tolower_table();

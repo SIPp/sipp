@@ -232,7 +232,7 @@ double get_double(const char *ptr, const char *what)
     return ret;
 }
 
-char * xp_get_string(const char *name, const char *what)
+static char* xp_get_string(const char *name, const char *what)
 {
     char *ptr;
 
@@ -243,7 +243,7 @@ char * xp_get_string(const char *name, const char *what)
     return strdup(ptr);
 }
 
-double xp_get_double(const char *name, const char *what)
+static double xp_get_double(const char *name, const char *what)
 {
     char *ptr;
     char *helptext;
@@ -260,7 +260,7 @@ double xp_get_double(const char *name, const char *what)
     return val;
 }
 
-double xp_get_double(const char *name, const char *what, double defval)
+static double xp_get_double(const char *name, const char *what, double defval)
 {
     if (!(xp_get_value(name))) {
         return defval;
@@ -268,7 +268,7 @@ double xp_get_double(const char *name, const char *what, double defval)
     return xp_get_double(name, what);
 }
 
-long xp_get_long(const char *name, const char *what)
+static long xp_get_long(const char *name, const char *what)
 {
     char *ptr;
     char *helptext;
@@ -285,7 +285,7 @@ long xp_get_long(const char *name, const char *what)
     return val;
 }
 
-long xp_get_long(const char *name, const char *what, long defval)
+static long xp_get_long(const char *name, const char *what, long defval)
 {
     if (!(xp_get_value(name))) {
         return defval;
@@ -294,7 +294,7 @@ long xp_get_long(const char *name, const char *what, long defval)
 }
 
 
-double xp_get_bool(const char *name, const char *what)
+static double xp_get_bool(const char *name, const char *what)
 {
     char *ptr;
     char *helptext;
@@ -311,7 +311,7 @@ double xp_get_bool(const char *name, const char *what)
     return val;
 }
 
-double xp_get_bool(const char *name, const char *what, bool defval)
+static double xp_get_bool(const char *name, const char *what, bool defval)
 {
     if (!(xp_get_value(name))) {
         return defval;
@@ -401,7 +401,7 @@ int scenario::xp_get_var(const char *name, const char *what)
     return get_var(ptr, what);
 }
 
-int xp_get_optional(const char *name, const char *what)
+static int xp_get_optional(const char *name, const char *what)
 {
     char *ptr = xp_get_value(name);
 
@@ -454,7 +454,7 @@ bool get_bool(const char *ptr, const char *what)
 }
 
 /* Pretty print a time. */
-char *time_string(int ms)
+static char* time_string(int ms)
 {
     static char tmp[20];
 
@@ -502,7 +502,7 @@ int time_string(double ms, char *res, int reslen)
     }
 }
 
-char *double_time_string(double ms)
+static char* double_time_string(double ms)
 {
     static char tmp[20];
 
@@ -602,7 +602,7 @@ int get_cr_number(const char *src)
     return res;
 }
 
-char *clean_cdata(char *ptr, int *removed_crlf = NULL)
+static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
 {
     char * msg;
 
@@ -900,7 +900,7 @@ scenario::scenario(char * filename, int deflt)
                 last_recv_optional = curmsg->optional;
                 curmsg->advance_state = xp_get_bool("advance_state", "recv", true);
                 if (!curmsg->advance_state && curmsg->optional == OPTIONAL_FALSE) {
-                    ERROR("advance_state is allowed only for optional messages (index = %d)\n", messages.size() - 1);
+                    ERROR("advance_state is allowed only for optional messages (index = %zu)\n", messages.size() - 1);
                 }
 
                 if (0 != (ptr = xp_get_value((char *)"regexp_match"))) {

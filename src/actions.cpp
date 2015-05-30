@@ -495,8 +495,8 @@ void CAction::setRTPStreamActInfo (char      *P_value)
   char *NextComma;
 
   if (strlen(P_value)>=sizeof (M_rtpstream_actinfo.filename)) {
-    ERROR("Filename %s is too long, maximum supported length %d\n",P_value,
-          sizeof (M_rtpstream_actinfo.filename)-1);
+    ERROR("Filename %s is too long, maximum supported length %zu\n", P_value,
+          sizeof(M_rtpstream_actinfo.filename) - 1);
   }
   strcpy (M_rtpstream_actinfo.filename,P_value);
   ParamString= strchr(M_rtpstream_actinfo.filename,',');

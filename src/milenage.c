@@ -18,6 +18,8 @@
 #include "milenage.h"
 #include "rijndael.h"
 
+#include <stdint.h>
+
 /*--------------------------- prototypes --------------------------*/
 
 
@@ -32,15 +34,15 @@
  *
  *-----------------------------------------------------------------*/
 
-void f1    ( u8 k[16], u8 rand[16], u8 sqn[6], u8 amf[2],
-             u8 mac_a[8], u8 op[16] )
+void f1(uint8_t k[16], uint8_t rand[16], uint8_t sqn[6], uint8_t amf[2],
+        uint8_t mac_a[8], uint8_t op[16])
 {
-    u8 op_c[16];
-    u8 temp[16];
-    u8 in1[16];
-    u8 out1[16];
-    u8 rijndaelInput[16];
-    u8 i;
+    uint8_t op_c[16];
+    uint8_t temp[16];
+    uint8_t in1[16];
+    uint8_t out1[16];
+    uint8_t rijndaelInput[16];
+    uint8_t i;
 
     RijndaelKeySchedule( k );
 
@@ -91,14 +93,14 @@ void f1    ( u8 k[16], u8 rand[16], u8 sqn[6], u8 amf[2],
  *
  *-----------------------------------------------------------------*/
 
-void f2345 ( u8 k[16], u8 rand[16],
-             u8 res[8], u8 ck[16], u8 ik[16], u8 ak[6], u8 op[16] )
+void f2345(uint8_t k[16], uint8_t rand[16],
+           uint8_t res[8], uint8_t ck[16], uint8_t ik[16], uint8_t ak[6], uint8_t op[16])
 {
-    u8 op_c[16];
-    u8 temp[16];
-    u8 out[16];
-    u8 rijndaelInput[16];
-    u8 i;
+    uint8_t op_c[16];
+    uint8_t temp[16];
+    uint8_t out[16];
+    uint8_t rijndaelInput[16];
+    uint8_t i;
 
     RijndaelKeySchedule( k );
 
@@ -169,15 +171,15 @@ void f2345 ( u8 k[16], u8 rand[16],
  *
  *-----------------------------------------------------------------*/
 
-void f1star( u8 k[16], u8 rand[16], u8 sqn[6], u8 amf[2],
-             u8 mac_s[8], u8 op[16] )
+void f1star(uint8_t k[16], uint8_t rand[16], uint8_t sqn[6], uint8_t amf[2],
+            uint8_t mac_s[8], uint8_t op[16])
 {
-    u8 op_c[16];
-    u8 temp[16];
-    u8 in1[16];
-    u8 out1[16];
-    u8 rijndaelInput[16];
-    u8 i;
+    uint8_t op_c[16];
+    uint8_t temp[16];
+    uint8_t in1[16];
+    uint8_t out1[16];
+    uint8_t rijndaelInput[16];
+    uint8_t i;
 
     RijndaelKeySchedule( k );
 
@@ -227,14 +229,14 @@ void f1star( u8 k[16], u8 rand[16], u8 sqn[6], u8 amf[2],
  *
  *-----------------------------------------------------------------*/
 
-void f5star( u8 k[16], u8 rand[16],
-             u8 ak[6], u8 op[16] )
+void f5star(uint8_t k[16], uint8_t rand[16],
+            uint8_t ak[6], uint8_t op[16])
 {
-    u8 op_c[16];
-    u8 temp[16];
-    u8 out[16];
-    u8 rijndaelInput[16];
-    u8 i;
+    uint8_t op_c[16];
+    uint8_t temp[16];
+    uint8_t out[16];
+    uint8_t rijndaelInput[16];
+    uint8_t i;
 
     RijndaelKeySchedule( k );
 
@@ -268,9 +270,9 @@ void f5star( u8 k[16], u8 rand[16],
     already been performed.
  *-----------------------------------------------------------------*/
 
-void ComputeOPc( u8 op_c[16], u8 op[16] )
+void ComputeOPc(uint8_t op_c[16], uint8_t op[16])
 {
-    u8 i;
+    uint8_t i;
 
     RijndaelEncrypt( op, op_c );
     for (i=0; i<16; i++)

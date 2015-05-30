@@ -93,6 +93,19 @@ struct KeywordMap SimpleKeywords[] = {
 
 #define KEYWORD_SIZE 256
 
+static char* quoted_strchr(const char* s, int c)
+{
+    const char* p;
+
+    for (p = s; *p && *p != c; p++) {
+        if (*p == '"') {
+            p += strspn(p, "\"");
+        }
+    }
+
+    return *p ? const_cast<char*>(p) : NULL;
+}
+
 SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool skip_sanity)
 {
     char * src = strdup(const_src);
@@ -180,36 +193,8 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
             char keyword [KEYWORD_SIZE+1];
             src++;
 
-            /* Like strchr, but don't count things in quotes. */
-            for(tsrc = src; *tsrc; tsrc++) {
-                if (*tsrc == '\"') {
-                    do {
-                        tsrc++;
-                    } while(*tsrc && *tsrc != '\"');
-                    if (!*tsrc) {
-                        break;
-                    }
-                }
-                if (*tsrc == '[')
-                    break;
-            }
-            if (*tsrc != '[') {
-                tsrc = NULL;
-            }
-
-            /* Like strchr, but don't count things in quotes. */
-            for(key = src; *key; key++) {
-                if (*key == '\"') {
-                    do {
-                        key++;
-                    } while(*key && *key != '\"');
-                }
-                if (*key == ']')
-                    break;
-            }
-            if (*key != ']') {
-                key = NULL;
-            }
+            tsrc = quoted_strchr(src, '[');
+            key = quoted_strchr(src, ']');
 
             if ((tsrc) && (tsrc<key)) {
                 memcpy(keyword, src-1,  tsrc - src + 1);

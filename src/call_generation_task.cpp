@@ -54,7 +54,7 @@ CallGenerationTask::~CallGenerationTask()
 
 void CallGenerationTask::dump()
 {
-    WARNING("Uniform rate call generation task: %d", rate);
+    WARNING("Uniform rate call generation task: %f", rate);
 }
 
 unsigned int CallGenerationTask::wake() {

@@ -18,9 +18,9 @@
 #ifndef RIJNDAEL_H
 #define RIJNDAEL_H
 
+#include <stdint.h>
 
-void RijndaelKeySchedule( u8 key[16] );
-void RijndaelEncrypt( u8 input[16], u8 output[16] );
-
+void RijndaelKeySchedule(uint8_t key[16]);
+void RijndaelEncrypt(uint8_t input[16], uint8_t output[16]);
 
 #endif

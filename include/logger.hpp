@@ -66,10 +66,10 @@ void log_off(struct logfile_info *lfi);
 
 #ifdef GLOBALS_FULL_DEFINITION
 #define LOGFILE(name, s, check) \
-        struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0};
+        struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0}
 #else
 #define LOGFILE(name, s, check) \
-        extern struct logfile_info name;
+        extern struct logfile_info name
 #endif
 LOGFILE(calldebug_lfi, "calldebug", true);
 LOGFILE(message_lfi, "messages", true);
@@ -87,21 +87,13 @@ void rotate_calldebugf();
 
 /* Screen/Statistics Printing Functions. */
 void print_statistics(int last);
-void print_count_file(FILE *f, int header);
-void print_error_codes_file(FILE *f);
+void print_count_file(FILE* f, int header);
+void print_error_codes_file(FILE* f);
 
 /* This must go after the GLOBALS_FULL_DEFINITION, because we need the extern keyword. */
-/*#ifdef __cplusplus
-extern "C" {
-#endif
-*/
-    int TRACE_MSG(const char *fmt, ...);
-    int TRACE_CALLDEBUG(const char *fmt, ...);
-    int TRACE_SHORTMSG(const char *fmt, ...);
-    int LOG_MSG(const char *fmt, ...);
-    /*
-#ifdef __cplusplus
-}
-#endif
-*/
+int TRACE_MSG(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+int TRACE_CALLDEBUG(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+int TRACE_SHORTMSG(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+int LOG_MSG(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+
 #endif /* __SIPP_LOGGER_H__ */

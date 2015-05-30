@@ -352,7 +352,7 @@ char *xp_open_element(int index)
     return NULL;
 }
 
-void xp_close_element()
+void xp_close_element(void)
 {
     if (xp_stack) {
         xp_stack--;
@@ -451,7 +451,7 @@ char *xp_get_value(const char *name)
     return NULL;
 }
 
-char *xp_get_cdata()
+char* xp_get_cdata(void)
 {
     static char buffer[XP_MAX_FILE_LEN + 1];
     const char *end = xp_find_local_end();

@@ -18,10 +18,11 @@
  *
 *-----------------------------------------------------------------*/
 
-#define LITTLE_ENDIAN   /* For INTEL architecture */
+#include "rijndael.h"
 
-typedef unsigned char   u8;
-typedef unsigned int    u32;
+#include <stdint.h>
+
+#define LITTLE_ENDIAN   /* For INTEL architecture */
 
 /* Circular byte rotates of 32 bit values */
 
@@ -29,48 +30,48 @@ typedef unsigned int    u32;
 #define rot2(x) ((x << 16) | (x >> 16))
 #define rot3(x) ((x << 24) | (x >>  8))
 
-/* Extract a byte from a 32-bit u32 */
+/* Extract a byte from a 32-bit uint32_t */
 
-#define byte0(x)    ((u8)(x))
-#define byte1(x)    ((u8)(x >>  8))
-#define byte2(x)    ((u8)(x >> 16))
-#define byte3(x)    ((u8)(x >> 24))
+#define byte0(x)    ((uint8_t)(x))
+#define byte1(x)    ((uint8_t)(x >>  8))
+#define byte2(x)    ((uint8_t)(x >> 16))
+#define byte3(x)    ((uint8_t)(x >> 24))
 
 
-/* Put or get a 32 bit u32 (v) in machine order from a byte *
+/* Put or get a 32 bit uint32_t (v) in machine order from a byte *
  * address in (x)                                           */
 
 #ifdef  LITTLE_ENDIAN
 
-#define u32_in(x)     (*(u32*)(x))
-#define u32_out(x,y)  (*(u32*)(x) = y)
+#define u32_in(x)     (*(uint32_t*)(x))
+#define u32_out(x,y)  (*(uint32_t*)(x) = y)
 
 #else
 
 /* Invert byte order in a 32 bit variable */
 
-__inline u32 byte_swap(const u32 x)
+__inline uint32_t byte_swap(const uint32_t x)
 {
     return rot1(x) & 0x00ff00ff | rot3(x) & 0xff00ff00;
 }
-__inline u32 u32_in(const u8 x[])
+__inline uint32_t u32_in(const uint8_t x[])
 {
-    return byte_swap(*(u32*)x);
+    return byte_swap(*(uint32_t*)x);
 };
-__inline void u32_out(u8 x[], const u32 v)
+__inline void u32_out(uint8_t x[], const uint32_t v)
 {
-    *(u32*)x = byte_swap(v);
+    *(uint32_t*)x = byte_swap(v);
 };
 
 #endif
 
 /*--------------- The lookup tables ----------------------------*/
 
-static u32 rnd_con[10] = {
+static uint32_t rnd_con[10] = {
     0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36
 };
 
-static u32 ft_tab[4][256] = {
+static uint32_t ft_tab[4][256] = {
     {
         0xA56363C6,0x847C7CF8,0x997777EE,0x8D7B7BF6,0x0DF2F2FF,0xBD6B6BD6,0xB16F6FDE,0x54C5C591,
         0x50303060,0x03010102,0xA96767CE,0x7D2B2B56,0x19FEFEE7,0x62D7D7B5,0xE6ABAB4D,0x9A7676EC,
@@ -209,7 +210,7 @@ static u32 ft_tab[4][256] = {
     }
 };
 
-static u32 fl_tab[4][256] = {
+static uint32_t fl_tab[4][256] = {
     {
         0x00000063,0x0000007C,0x00000077,0x0000007B,0x000000F2,0x0000006B,0x0000006F,0x000000C5,
         0x00000030,0x00000001,0x00000067,0x0000002B,0x000000FE,0x000000D7,0x000000AB,0x00000076,
@@ -350,7 +351,7 @@ static u32 fl_tab[4][256] = {
 
 /*----------------- The workspace ------------------------------*/
 
-static u32 Ekey[44];    /* The expanded key */
+static uint32_t Ekey[44];    /* The expanded key */
 
 /*------ The round Function.  4 table lookups and 4 Exors ------*/
 #define f_rnd(x, n)                     \
@@ -385,10 +386,10 @@ static u32 Ekey[44];    /* The expanded key */
  * RijndaelKeySchedule
  *   Initialise the key schedule from a supplied key
  */
-void RijndaelKeySchedule(u8 key[16])
+void RijndaelKeySchedule(uint8_t key[16])
 {
-    u32  t;
-    u32  *ek=Ekey,      /* pointer to the expanded key   */
+    uint32_t  t;
+    uint32_t  *ek=Ekey,      /* pointer to the expanded key   */
           *rc=rnd_con;  /* pointer to the round constant */
 
     Ekey[0] = u32_in(key     );
@@ -410,9 +411,9 @@ void RijndaelKeySchedule(u8 key[16])
  * RijndaelEncrypt
  *   Encrypt an input block
  */
-void RijndaelEncrypt(u8 in[16], u8 out[16])
+void RijndaelEncrypt(uint8_t in[16], uint8_t out[16])
 {
-    u32    b0[4], b1[4], *kp = Ekey;
+    uint32_t    b0[4], b1[4], *kp = Ekey;
 
     b0[0] = u32_in(in     ) ^ *kp++;
     b0[1] = u32_in(in +  4) ^ *kp++;
