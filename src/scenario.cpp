@@ -599,14 +599,17 @@ int get_cr_number(const char *src)
     return res;
 }
 
-static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
+static char* clean_cdata(char *ptr)
 {
-    char * msg;
+    char* msg;
+    int removed_crlf = 0;
 
-    while((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) ptr++;
+    while (*ptr == ' ' || *ptr == '\t' || *ptr == '\n') {
+        ptr++;
+    }
 
-    msg = (char *) malloc(strlen(ptr) + 3);
-    if(!msg) {
+    msg = (char*)malloc(strlen(ptr) + 3);
+    if (!msg) {
         ERROR("Memory Overflow");
     }
     strcpy(msg, ptr);
@@ -614,22 +617,15 @@ static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
     ptr = msg + strlen(msg);
     ptr --;
 
-    while((ptr >= msg) &&
-            ((*ptr == ' ')  ||
-             (*ptr == '\t') ||
-             (*ptr == '\n'))) {
-        if(*ptr == '\n' && removed_crlf) {
-            (*removed_crlf)++;
+    while (ptr >= msg && (*ptr == ' ' || *ptr == '\t' || *ptr == '\n')) {
+        if (*ptr == '\n') {
+            removed_crlf++;
         }
         *ptr-- = 0;
     }
 
-    if(!strstr(msg, "\n\n")) {
-        strcat(msg, "\n\n");
-    }
-
-    if(ptr == msg) {
-        ERROR("Empty cdata in xml scenario file");
+    if (ptr == msg) {
+        ERROR("Empty CDATA in xml scenario file");
     }
     while ((ptr = strstr(msg, "\n "))) {
         memmove(ptr + 1, ptr + 2, strlen(ptr) - 1);
@@ -642,6 +638,16 @@ static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
     }
     while ((ptr = strstr(msg, "\t\n"))) {
         memmove(ptr, ptr + 1, strlen(ptr));
+    }
+
+    /* Re-add our removed LFs. */
+    while (removed_crlf--) {
+        strcat(msg, "\n");
+    }
+    /* A SIP message must contain a double CRLF to signify EOH.
+     * (We translate single LFs to CRLFs later on.) */
+    while (!strstr(msg, "\n\n")) {
+        strcat(msg, "\n");
     }
 
     return msg;
@@ -759,7 +765,7 @@ scenario::scenario(char * filename, int deflt)
             if(!(ptr = xp_get_cdata())) {
                 ERROR("No CDATA in 'send' section of xml scenario file");
             }
-            char *msg = clean_cdata(ptr);
+            char* msg = clean_cdata(ptr);
             set_default_message(id, msg);
             free(id);
             /* XXX: This should really be per scenario. */
@@ -808,8 +814,7 @@ scenario::scenario(char * filename, int deflt)
                     ERROR("No CDATA in 'send' section of xml scenario file");
                 }
 
-                int removed_clrf = 0;
-                char * msg = clean_cdata(ptr, &removed_clrf);
+                char* msg = clean_cdata(ptr);
 
                 L_content_length = xp_get_content_length(msg);
                 switch (L_content_length) {
@@ -826,9 +831,6 @@ scenario::scenario(char * filename, int deflt)
                     break ;
                 }
 
-                if((msg[strlen(msg) - 1] != '\n') && (removed_clrf)) {
-                    strcat(msg, "\n");
-                }
                 char *tsrc = msg;
                 while(*tsrc++);
                 curmsg -> send_scheme = new SendingMessage(this, msg);
@@ -994,7 +996,7 @@ scenario::scenario(char * filename, int deflt)
                 if(!(ptr = xp_get_cdata())) {
                     ERROR("No CDATA in 'sendCmd' section of xml scenario file");
                 }
-                char *msg = clean_cdata(ptr);
+                char* msg = clean_cdata(ptr);
 
                 curmsg -> M_sendCmdData = new SendingMessage(this, msg, true /* skip sanity */);
                 free(msg);

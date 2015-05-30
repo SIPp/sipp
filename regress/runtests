@@ -9,6 +9,8 @@ cd `dirname "$0"`
 find . -name '*.log' | xargs --no-run-if-empty -d\\n rm -v
 echo
 
+# Export custom location SIPP binary if supplied.
+export SIPP
 # Set flag that we want verbose exit codes.
 export VERBOSE_EXITSTATUS=1
 
