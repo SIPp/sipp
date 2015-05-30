@@ -314,7 +314,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t *taskinfo, unsigned long 
                 /* need to send rtp payload - build rtp packet header... */
                 udp.hdr.flags = htons(0x8000 | taskinfo->payload_type);
                 udp.hdr.seq = htons(taskinfo->seq);
-                udp.hdr.timestamp = htonl((uint32_t)(taskinfo->last_timestamp & 0XFFFFFFFF));
+                udp.hdr.timestamp = htonl((uint32_t)(taskinfo->last_timestamp & 0xFFFFFFFF));
                 udp.hdr.ssrc_id = htonl(taskinfo->ssrc_id);
                 /* add payload data to the packet - handle buffer wraparound */
                 if (taskinfo->file_bytes_left >= taskinfo->bytes_per_packet) {
@@ -331,7 +331,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t *taskinfo, unsigned long 
                 rc = send(taskinfo->audio_rtp_socket, udp.buffer, taskinfo->bytes_per_packet + sizeof(rtp_header_t), 0);
                 if (rc < 0) {
                     /* handle sending errors */
-                    if ((errno==EAGAIN) || (errno==EWOULDBLOCK) || (errno==EINTR)) {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
                         next_wake= timenow_ms + 2; /* retry after short sleep */
                     } else {
                         /* this looks like a permanent error  - should we ignore ENETUNREACH? */

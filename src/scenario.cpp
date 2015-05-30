@@ -232,7 +232,7 @@ double get_double(const char *ptr, const char *what)
     return ret;
 }
 
-static char * xp_get_string(const char *name, const char *what)
+static char* xp_get_string(const char *name, const char *what)
 {
     char *ptr;
 
@@ -454,7 +454,7 @@ bool get_bool(const char *ptr, const char *what)
 }
 
 /* Pretty print a time. */
-static char *time_string(int ms)
+static char* time_string(int ms)
 {
     static char tmp[20];
 
@@ -502,7 +502,7 @@ int time_string(double ms, char *res, int reslen)
     }
 }
 
-static char *double_time_string(double ms)
+static char* double_time_string(double ms)
 {
     static char tmp[20];
 
@@ -602,7 +602,7 @@ int get_cr_number(const char *src)
     return res;
 }
 
-static char *clean_cdata(char *ptr, int *removed_crlf = NULL)
+static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
 {
     char * msg;
 

@@ -31,7 +31,7 @@ TEST(xp_parser, set_xml_buffer_from_string__good) {
         ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
          "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\r\n"
          "<!-- quick comment.. -->\r\n"
-         "<scenario name=\"Some Scenario\">\e\n"
+         "<scenario name=\"Some Scenario\">\r\n"
          "  <send retrans=\"500\"/>\r\n"
          "</scenario>\r\n"), // 1
         ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"

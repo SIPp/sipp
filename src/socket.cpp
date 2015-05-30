@@ -2262,7 +2262,8 @@ int send_sctp_nowait(int s, const void *msg, int len, int flags)
 }
 #endif
 
-static ssize_t socket_write_primitive(struct sipp_socket* socket, const char* buffer, size_t len, struct sockaddr_storage* dest)
+static ssize_t socket_write_primitive(struct sipp_socket* socket, const char* buffer, size_t len,
+                                      struct sockaddr_storage* dest)
 {
     ssize_t rc;
 

@@ -104,7 +104,7 @@ int createAuthHeaderAKAv1MD5(const char *user,
 
 /* This function is from RFC 2617 Section 5 */
 
-static void hashToHex(md5_byte_t *_b_raw, unsigned char *_h)
+static void hashToHex(md5_byte_t* _b_raw, unsigned char* _h)
 {
     unsigned short i;
     unsigned char j;
@@ -127,7 +127,7 @@ static void hashToHex(md5_byte_t *_b_raw, unsigned char *_h)
     _h[HASH_HEX_SIZE] = '\0';
 }
 
-static char *stristr (const char *s1, const char *s2)
+static char *stristr(const char* s1, const char* s2)
 {
     char *cp = (char*) s1;
     char *p1, *p2, *endp;
@@ -245,18 +245,18 @@ int getAuthParameter(const char *name, const char *header, char *result, int len
     return end - start;
 }
 
-static int createAuthResponseMD5(const char *user,
-                                 const char *password,
+static int createAuthResponseMD5(const char* user,
+                                 const char* password,
                                  int password_len,
-                                 const char *method,
-                                 const char *uri,
-                                 const char *authtype,
-                                 const char *msgbody,
-                                 const char *realm,
-                                 const char *nonce,
-                                 const char *cnonce,
-                                 const char *nc,
-                                 unsigned char *result)
+                                 const char* method,
+                                 const char* uri,
+                                 const char* authtype,
+                                 const char* msgbody,
+                                 const char* realm,
+                                 const char* nonce,
+                                 const char* cnonce,
+                                 const char* nc,
+                                 unsigned char* result)
 {
     md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
     md5_byte_t resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE];

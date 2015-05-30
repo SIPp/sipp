@@ -1007,11 +1007,13 @@ int call::send_raw(const char * msg, int index, int len)
     struct sipp_socket *sock;
     int rc;
 
-    callDebug("Sending %s message for call %s (index %d, hash %lu):\n%s\n\n", TRANSPORT_TO_STRING(transport), id, index, hash(msg), msg);
+    callDebug("Sending %s message for call %s (index %d, hash %lu):\n%s\n\n",
+              TRANSPORT_TO_STRING(transport), id, index, hash(msg), msg);
 
     if((index!=-1) && (lost(index))) {
         TRACE_MSG("%s message voluntary lost (while sending).", TRANSPORT_TO_STRING(transport));
-        callDebug("%s message voluntary lost (while sending) (index %d, hash %lu).\n", TRANSPORT_TO_STRING(transport), index, hash(msg));
+        callDebug("%s message voluntary lost (while sending) (index %d, hash %lu).\n",
+                  TRANSPORT_TO_STRING(transport), index, hash(msg));
 
         if(comp_state) {
             comp_free(&comp_state);
@@ -1527,7 +1529,8 @@ bool call::executeMessage(message *curmsg)
             recv_retrans_recv_index = last_recv_index;
             recv_retrans_send_index = curmsg->index;
 
-            callDebug("Set Retransmission Hash: %lu (recv index %d, send index %d)\n", recv_retrans_hash, recv_retrans_recv_index, recv_retrans_send_index);
+            callDebug("Set Retransmission Hash: %lu (recv index %d, send index %d)\n",
+                      recv_retrans_hash, recv_retrans_recv_index, recv_retrans_send_index);
 
             /* Prevent from detecting the cause relation between send and recv
              * in the next valid send */
@@ -2928,7 +2931,8 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     T_ActionResult  actionResult;
 
     getmilliseconds();
-    callDebug("Processing %zu byte incoming message for call-ID %s (hash %lu):\n%s\n\n", strlen(msg), id, hash(msg), msg);
+    callDebug("Processing %zu byte incoming message for call-ID %s (hash %lu):\n%s\n\n",
+              strlen(msg), id, hash(msg), msg);
 
     setRunning();
 
@@ -3744,7 +3748,8 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             /* -1 is allowed to go to the first label, but watch out
              * when using msg_index. */
             if (msg_index < -1 || msg_index >= (int)call_scenario->messages.size()) {
-                ERROR("Jump statement out of range (not 0 <= %d <= %zu)", msg_index + 1, call_scenario->messages.size());
+                ERROR("Jump statement out of range (not 0 <= %d <= %zu)",
+                      msg_index + 1, call_scenario->messages.size());
             }
         } else if (currentAction->getActionType() == CAction::E_AT_PAUSE_RESTORE) {
             double operand = get_rhs(currentAction);
