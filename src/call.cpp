@@ -53,6 +53,7 @@
 #include "sipp.hpp"
 #include "auth.hpp"
 #include "deadcall.hpp"
+#include "config.h"
 
 #define callDebug(args...) do { if (useCallDebugf) { _callDebug( args ); } } while (0)
 
@@ -2314,7 +2315,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             dest += snprintf(dest, left, "%d", userId);
             break;
         case E_Message_SippVersion:
-            dest += snprintf(dest, left, "%s", SIPP_VERSION);
+            dest += snprintf(dest, left, "%s", VERSION);
             break;
         case E_Message_Variable: {
             int varId = comp->varId;

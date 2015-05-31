@@ -104,8 +104,6 @@
 
 /************************** Constants **************************/
 
-#define SIPP_VERSION               "3.5.0-rc1" /* don't forget to update configure.ac */
-
 #define T_UDP                      0
 #define T_TCP                      1
 #define T_TLS                      2
