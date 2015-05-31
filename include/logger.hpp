@@ -28,7 +28,6 @@ extern bool   useLogf                             _DEFVAL(0);
 extern bool   dumpInFile                          _DEFVAL(0);
 extern bool   dumpInRtt                           _DEFVAL(0);
 extern bool   useCountf                           _DEFVAL(0);
-extern char * scenario_file;
 extern char * slave_cfg_file;
 
 extern unsigned long long max_log_size            _DEFVAL(0);

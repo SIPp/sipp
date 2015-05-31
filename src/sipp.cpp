@@ -1256,25 +1256,24 @@ static void sighandle_set()
     sigaction(SIGXFSZ, &action_file_size_exceeded, NULL);  // avoid core dump if the max file size is exceeded
 }
 
-static char* remove_pattern(char* P_buffer, char* P_extensionPattern)
+static void set_scenario(const char* name)
 {
+    free(scenario_file);
+    free(scenario_path);
 
-    char *L_ptr = P_buffer;
-
-    if (P_extensionPattern == NULL) {
-        return P_buffer;
+    const char* ext = strrchr(name, '.');
+    if (ext && strcmp(ext, ".xml") == 0) {
+        scenario_file = strndup(name, ext - name);
+    } else {
+        scenario_file = strdup(name);
     }
 
-    if (P_buffer == NULL) {
-        return P_buffer;
+    const char* sep = strrchr(scenario_file, '/');
+    if (sep) {
+        scenario_path = strndup(scenario_file, sep - scenario_file);
+    } else {
+        scenario_path = NULL;
     }
-
-    L_ptr = strstr(P_buffer, P_extensionPattern);
-    if (L_ptr != NULL) {
-        *L_ptr = '\0';
-    }
-
-    return P_buffer;
 }
 
 /* Main */
@@ -1638,9 +1637,7 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 if (!strcmp(argv[argi - 1], "-sf")) {
-                    scenario_file = new char [strlen(argv[argi]) + 1];
-                    sprintf(scenario_file, "%s", argv[argi]);
-                    scenario_file = remove_pattern(scenario_file, (char*)".xml");
+                    set_scenario(argv[argi]);
                     if (useLogf == 1) {
                         rotate_logfile();
                     }
@@ -1650,8 +1647,7 @@ int main(int argc, char *argv[])
                     int i = find_scenario(argv[argi]);
 
                     main_scenario = std::unique_ptr<scenario>(new scenario(0, i));
-                    scenario_file = new char [strlen(argv[argi]) + 1];
-                    sprintf(scenario_file,"%s", argv[argi]);
+                    set_scenario(argv[argi]);
                     main_scenario->stats->setFileName(argv[argi], (char*)".csv");
                 } else if (!strcmp(argv[argi - 1], "-sd")) {
                     int i = find_scenario(argv[argi]);
@@ -1890,8 +1886,7 @@ int main(int argc, char *argv[])
 
     /* trace file setting */
     if (scenario_file == NULL) {
-        scenario_file = new char [5];
-        sprintf(scenario_file, "%s", "sipp");
+        set_scenario("sipp");
     }
 
 #ifdef _USE_OPENSSL
@@ -2228,9 +2223,6 @@ int main(int argc, char *argv[])
     free(epollevents);
 #endif
 
-    if (scenario_file != NULL) {
-        delete [] scenario_file;
-        scenario_file = NULL;
-    }
-
+    free(scenario_file);
+    scenario_file = NULL;
 }

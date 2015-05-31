@@ -317,8 +317,10 @@ extern SSL              * twinSipp_ssl;
 extern const char       * tls_cert_name           _DEFVAL(DEFAULT_TLS_CERT);
 extern const char       * tls_key_name            _DEFVAL(DEFAULT_TLS_KEY);
 extern const char       * tls_crl_name            _DEFVAL(DEFAULT_TLS_CRL);
-
 #endif
+
+extern char*              scenario_file           _DEFVAL(NULL);
+extern char*              scenario_path           _DEFVAL(NULL);
 
 // extern field file management
 typedef std::map<string, FileContents *> file_map;
