@@ -34,13 +34,6 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*Map linux structure fields to BSD ones*/
-#ifdef __LINUX
-#define __BSD_SOURCE
-#define _BSD_SOURCE
-#define __FAVOR_BSD
-#endif /*__LINUX*/
-
 #include <pcap.h>
 #include <unistd.h>
 #include <stdlib.h>
