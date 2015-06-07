@@ -243,8 +243,8 @@ struct sipp_option options_table[] = {
      "Each line corresponds to one call and has one or more ';' delimited data fields. Those fields can be referred as [field0], [field1], ... in the xml scenario file.  Several CSV files can be used simultaneously (syntax: -inf f1.csv -inf f2.csv ...)", SIPP_OPTION_INPUT_FILE, NULL, 1},
     {"infindex", "file field\nCreate an index of file using field.  For example -inf users.csv -infindex users.csv 0 creates an index on the first key.", SIPP_OPTION_INDEX_FILE, NULL, 1 },
     {"ip_field", "Set which field from the injection file contains the IP address from which the client will send its messages.\n"
-     "If this option is omitted and the '-t ui' option is present, then field 0 is assumed.\n"
-     "Use this option together with '-t ui'", SIPP_OPTION_INT, &peripfield, 1},
+     "If this option is omitted and the '-t ui' or '-t ti' option is present, then field 0 is assumed.\n"
+     "Use this option together with '-t ui' or '-t ti'", SIPP_OPTION_INT, &peripfield, 1},
 
 
     {"", "RTP behaviour options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
@@ -1567,9 +1567,6 @@ int main(int argc, char *argv[])
                     break;
                 }
 
-                if (peripsocket && transport != T_UDP) {
-                    ERROR("You can only use a perip socket with UDP!\n");
-                }
                 break;
             case SIPP_OPTION_NEED_SCTP:
                 CHECK_PASS();
@@ -1896,7 +1893,7 @@ int main(int argc, char *argv[])
 
     if (peripsocket) {
         if (!ip_file) {
-            ERROR("You must use the -inf option when using -t ui.\n"
+            ERROR("You must use the -inf option when using -t ui or -t ti.\n"
                   "Use 'sipp -h' for details");
         }
     }

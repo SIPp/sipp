@@ -941,6 +941,40 @@ bool call::connect_socket_if_needed()
 
         sipp_customize_socket(call_socket);
 
+        if (peripsocket) {
+            struct sockaddr_storage saddr;
+            char peripaddr[256];
+            char *tmp = peripaddr;
+            getFieldFromInputFile(ip_file, peripfield, NULL, tmp);
+            printf("Binding to %s\n", peripaddr);
+            struct addrinfo * h ;
+            struct addrinfo   hints;
+            memset((char*)&hints, 0, sizeof(hints));
+            hints.ai_flags  = AI_PASSIVE;
+            hints.ai_family = PF_UNSPEC;
+            getaddrinfo(peripaddr,
+                        NULL,
+                        &hints,
+                        &h);
+            memcpy(&saddr,
+                   h->ai_addr,
+                   SOCK_ADDR_SIZE(
+                       _RCAST(struct sockaddr_storage *,h->ai_addr)));
+
+            if (use_ipv6) {
+                (_RCAST(struct sockaddr_in6 *, &saddr))->sin6_port = htons(0);
+            } else {
+                (_RCAST(struct sockaddr_in *, &saddr))->sin_port = htons(0);
+            }
+            int port = -1;
+            int ret = sipp_bind_socket(call_socket, &saddr, &port);
+             if (ret != 0) {
+              WARNING_NO("Could not bind to %s: %d", peripaddr, ret);
+            }
+             printf("Successfuly bound %s port %d\n", peripaddr, port);
+        }
+
+
         if (use_remote_sending_addr) {
             L_dest = &remote_sending_sockaddr;
         }
@@ -975,6 +1009,7 @@ bool call::connect_socket_if_needed()
                 }
             }
         }
+
     }
     return true;
 }

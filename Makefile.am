@@ -4,7 +4,7 @@ TESTS = sipp_unittest
 
 check_PROGRAMS = $(TESTS)
 
-AM_CFLAGS=-I$(srcdir)/include -Wall -pedantic -std=gnu11
+AM_CFLAGS=-I$(srcdir)/include -Wall -pedantic -std=c99
 AM_CXXFLAGS=-I$(srcdir)/include -Wall -pedantic -std=c++11
 
 CLEANFILES =
