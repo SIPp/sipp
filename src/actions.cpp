@@ -162,89 +162,9 @@ void CAction::afficheInfo()
     }
 }
 
-CAction::T_ActionType CAction::getActionType()
-{
-    return M_action;
-}
-
-CAction::T_LookingPlace CAction::getLookingPlace()
-{
-    return M_lookingPlace;
-}
-
-CAction::T_IntCmdType CAction::getIntCmd()
-{
-    return M_IntCmd;
-}
-
-CAction::T_Comparator CAction::getComparator()
-{
-    return M_comp;
-}
-
-bool CAction::getCheckIt()
-{
-    return M_checkIt;
-}
-
-bool CAction::getCheckItInverse()
-{
-    return M_checkItInverse;
-}
-
-bool CAction::getCaseIndep()
-{
-    return M_caseIndep;
-}
-
-bool CAction::getHeadersOnly()
-{
-    return M_headersOnly;
-}
-
-int CAction::getOccurrence()
-{
-    return M_occurrence;
-}
-
-int CAction::getVarId()
-{
-    return M_varId;
-}
-
-int CAction::getVarInId()
-{
-    return M_varInId;
-}
-
-int CAction::getVarIn2Id()
-{
-    return M_varIn2Id;
-}
-
-char* CAction::getLookingChar()
-{
-    return M_lookingChar;
-}
-
 SendingMessage* CAction::getMessage(int n)
 {
     return M_message[n];
-}
-
-CSample* CAction::getDistribution()
-{
-    return M_distribution;
-}
-
-double CAction::getDoubleValue()
-{
-    return M_doubleValue;
-}
-
-char* CAction::getStringValue()
-{
-    return M_stringValue;
 }
 
 #ifdef PCAPPLAY
@@ -260,84 +180,6 @@ rtpstream_actinfo_t* CAction::getRTPStreamActInfo()
     return &M_rtpstream_actinfo;
 }
 #endif
-
-void CAction::setActionType(CAction::T_ActionType P_value)
-{
-    M_action = P_value;
-}
-
-void CAction::setLookingPlace(CAction::T_LookingPlace P_value)
-{
-    M_lookingPlace = P_value;
-}
-
-void CAction::setCheckIt(bool P_value)
-{
-    M_checkIt = P_value;
-}
-
-void CAction::setCheckItInverse(bool P_value)
-{
-    M_checkItInverse = P_value;
-}
-
-void CAction::setVarId(int P_value)
-{
-    M_varId = P_value;
-}
-
-void CAction::setVarInId(int P_value)
-{
-    M_varInId = P_value;
-}
-
-void CAction::setVarIn2Id(int P_value)
-{
-    M_varIn2Id = P_value;
-}
-
-void CAction::setCaseIndep(bool P_value)
-{
-    M_caseIndep = P_value;
-}
-
-void CAction::setOccurrence(int P_value)
-{
-    M_occurrence = P_value;
-}
-
-void CAction::setHeadersOnly(bool P_value)
-{
-    M_headersOnly = P_value;
-}
-
-void CAction::setIntCmd(T_IntCmdType P_type)
-{
-    M_IntCmd = P_type;
-}
-
-void CAction::setComparator(T_Comparator P_value)
-{
-    M_comp = P_value;
-}
-
-/* sample specific function. */
-void CAction::setDistribution(CSample* P_value)
-{
-    M_distribution = P_value;
-}
-
-/* assign from value specific function. */
-void CAction::setDoubleValue(double P_value)
-{
-    M_doubleValue = P_value;
-}
-
-/* strcmp specific function. */
-void CAction::setStringValue(char* P_value)
-{
-    M_stringValue = P_value;
-}
 
 void CAction::setSubVarId(int P_value)
 {
@@ -367,11 +209,11 @@ void CAction::setNbSubVarId(int P_value)
     M_subVarId = new int[M_maxNbSubVarId];
     M_nbSubVarId = 0 ;
 }
-int  CAction::getNbSubVarId ()
+
+int CAction::getNbSubVarId()
 {
     return M_nbSubVarId;
 }
-
 
 void CAction::setLookingChar(char* P_value)
 {
@@ -446,7 +288,7 @@ int CAction::executeRegExp(const char* P_string, VariableTable* P_callVarTable)
 
     error = regexec(&M_internalRegExp, P_string, 10, pmatch, REGEXP_PARAMS);
     if (error == 0) {
-        CCallVariable* L_callVar = P_callVarTable->getVar(getVarId());
+        CCallVariable* L_callVar = P_callVarTable->getVar(M_varId);
 
         for (int i = 0; i <= getNbSubVarId(); i++) {
             if(pmatch[i].rm_eo == -1) break ;
@@ -590,42 +432,37 @@ void CAction::setRTPStreamActInfo (rtpstream_actinfo_t* P_value)
 }
 #endif
 
-void CAction::setScenario(scenario* P_scenario)
-{
-    M_scenario = P_scenario;
-}
-
 void CAction::setAction(CAction P_action)
 {
-    if (P_action.getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
-        assert(P_action.getDistribution() != NULL);
+    if (P_action.M_action == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
+        assert(P_action.M_distribution != NULL);
     }
     int L_i;
-    setActionType(P_action.getActionType());
-    setLookingPlace(P_action.getLookingPlace());
-    setVarId(P_action.getVarId());
-    setVarInId(P_action.getVarInId());
-    setDoubleValue(P_action.getDoubleValue());
-    setDistribution(P_action.getDistribution());
-    setScenario(P_action.M_scenario);
+    M_action = P_action.M_action;
+    M_lookingPlace = P_action.M_lookingPlace;
+    M_varId = P_action.M_varId;
+    M_varInId = P_action.M_varInId;
+    M_doubleValue = P_action.M_doubleValue;
+    M_distribution = P_action.M_distribution;
+    M_scenario = P_action.M_scenario;
 
     setNbSubVarId(P_action.getNbSubVarId());
     for (L_i = 0; L_i < P_action.getNbSubVarId(); L_i++ ){
         setSubVarId(P_action.getSubVarId(L_i));
     }
 
-    setLookingChar(P_action.getLookingChar());
-    setCheckIt(P_action.getCheckIt());
-    setCheckItInverse(P_action.getCheckItInverse());
-    setCaseIndep(P_action.getCaseIndep());
-    setOccurrence(P_action.getOccurrence());
-    setHeadersOnly(P_action.getHeadersOnly());
+    setLookingChar(P_action.M_lookingChar);
+    M_checkIt = P_action.M_checkIt;
+    M_checkItInverse = P_action.M_checkItInverse;
+    M_caseIndep = P_action.M_caseIndep;
+    M_occurrence = P_action.M_occurrence;
+    M_headersOnly = P_action.M_headersOnly;
 
     for (L_i = 0; L_i < MAX_ACTION_MESSAGE; L_i++){
         setMessage(P_action.M_message_str[L_i], L_i);
     }
     setRegExp(P_action.M_regularExpression);
-    setIntCmd(P_action.M_IntCmd);
+    M_IntCmd = P_action.M_IntCmd;
 #ifdef PCAPPLAY
     setPcapArgs(P_action.M_pcapArgs);
 #endif
@@ -785,7 +622,7 @@ TEST(actions, MatchingRegexp) {
     int sub3_id = vt.find("4", true);
     int sub4_id = vt.find("5", true);
     CAction re(NULL);
-    re.setVarId(id);
+    re.M_varId = id;
     re.setNbSubVarId(4);
     re.setSubVarId(sub1_id);
     re.setSubVarId(sub2_id);
@@ -810,7 +647,7 @@ TEST(actions, NonMatchingRegexp) {
     int sub3_id = vt.find("4", true);
     int sub4_id = vt.find("5", true);
     CAction re(NULL);
-    re.setVarId(id);
+    re.M_varId = id;
     re.setNbSubVarId(4);
     re.setSubVarId(sub1_id);
     re.setSubVarId(sub2_id);

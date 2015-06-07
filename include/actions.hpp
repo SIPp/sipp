@@ -75,9 +75,9 @@ public:
         E_AT_PLAY_PCAP_VIDEO,
 #endif
 #ifdef RTP_STREAM
-      E_AT_RTP_STREAM_PAUSE,
-      E_AT_RTP_STREAM_RESUME,
-      E_AT_RTP_STREAM_PLAY,
+        E_AT_RTP_STREAM_PAUSE,
+        E_AT_RTP_STREAM_RESUME,
+        E_AT_RTP_STREAM_PLAY,
 #endif
         E_AT_NB_ACTION
     };
@@ -114,111 +114,81 @@ public:
     const char *comparatorToString(T_Comparator comp);
     bool compare(VariableTable *variableTable);
 
-    T_ActionType   getActionType();
-    T_VarType      getVarType();
-    T_LookingPlace getLookingPlace();
-    T_Comparator   getComparator();
-    bool           getCheckIt();
-    bool           getCheckItInverse();
-    bool           getCaseIndep();
-    bool           getHeadersOnly();
-    int            getVarId();
-    int            getVarInId();
-    int            getVarIn2Id();
-    int            getOccurrence();
-    char*          getLookingChar();
-    char*          getRegularExpression();
-    SendingMessage *getMessage(int n = 0);  /* log specific function  */
-    T_IntCmdType   getIntCmd();   /* exec specific function */
+    char* getRegularExpression();
+    SendingMessage* getMessage(int n = 0);  /* log specific function  */
 #ifdef PCAPPLAY
-    pcap_pkts     *getPcapPkts(); /* send_packets specific function */
+    pcap_pkts* getPcapPkts(); /* send_packets specific function */
 #endif
 #ifdef RTP_STREAM
-    rtpstream_actinfo_t *getRTPStreamActInfo(); /* return stored rtp stream playback params */
+    rtpstream_actinfo_t* getRTPStreamActInfo(); /* return stored rtp stream playback params */
 #endif
 
-    void setActionType   (T_ActionType   P_value);
-    void setLookingPlace (T_LookingPlace P_value);
-    void setComparator   (T_Comparator   P_value);
-    void setCheckIt      (bool           P_value);
-    void setCheckItInverse (bool         P_value);
-    void setVarId        (int            P_value);
-    void setVarInId      (int            P_value);
-    void setVarIn2Id      (int           P_value);
-    void setLookingChar  (char*          P_value);
-    void setAction       (CAction        P_action);
-    void setCaseIndep    (bool           P_action);
-    void setOccurrence   (int            P_value);
-    void setHeadersOnly  (bool           P_value);
-    void setScenario     (scenario *     P_scenario);
-    void setRegExp       (const char*    P_value);  /* ereg specific function. */
-    int  executeRegExp   (const char*    P_string, VariableTable *P_callVarTable);
-    void setMessage      (char*          P_value, int n = 0);  /* log specific function  */
-    void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
-    void setDistribution (CSample *      P_value);  /* sample specific function  */
-    void setDoubleValue  (double         P_value);  /* assign value specific function  */
-    void setStringValue  (char *         P_value);  /* strcmp value specific function  */
+    void setLookingChar(char* P_value);
+    void setAction(CAction P_action);
+    void setRegExp(const char* P_value);  /* ereg specific function. */
+    int executeRegExp(const char* P_string, VariableTable* P_callVarTable);
+    void setMessage(char* P_value, int n = 0);  /* log specific function  */
 #ifdef PCAPPLAY
-    void setPcapArgs     (char *         P_value);  /* send_packets specific function */
-    void setPcapArgs     (pcap_pkts   *  P_value);  /* send_packets specific function */
+    void setPcapArgs(char* P_value);  /* send_packets specific function */
+    void setPcapArgs(pcap_pkts* P_value);  /* send_packets specific function */
 #endif
 #ifdef RTP_STREAM
-    void setRTPStreamActInfo (char      *P_value);  /* parse rtp stream playback values from string */
-    void setRTPStreamActInfo (rtpstream_actinfo_t *P_value); /* copy stored rtp stream playback params */
+    void setRTPStreamActInfo(char* P_value);  /* parse rtp stream playback values from string */
+    void setRTPStreamActInfo(rtpstream_actinfo_t* P_value); /* copy stored rtp stream playback params */
 #endif
 
-    void setSubVarId     (int P_value);
-    int  getSubVarId     (int P_index);
-    void setNbSubVarId   (int P_value);
-    int  getNbSubVarId   ();
-    int* getSubVarId() ;
-    CSample *getDistribution ();  /* sample specific function  */
-    double getDoubleValue ();  /* assign value specific function  */
-    char * getStringValue ();  /* strcmp specific function  */
+    void setSubVarId(int P_value);
+    int getSubVarId(int P_index);
+    void setNbSubVarId(int P_value);
+    int getNbSubVarId();
+    int* getSubVarId();
 
     CAction(scenario *scenario);
     ~CAction();
 
-private:
-    T_ActionType   M_action;
+    T_ActionType M_action;
     T_LookingPlace M_lookingPlace;
-    T_Comparator   M_comp;
-    bool           M_checkIt;
-    bool           M_checkItInverse;
-    bool           M_caseIndep;
-    bool           M_headersOnly;
-    int            M_varId;
-    int            M_varInId;
-    int            M_varIn2Id;
-    int            M_occurrence;
-    int            M_nbSubVarId;
-    int            M_maxNbSubVarId;
-    int *          M_subVarId;
+    T_Comparator M_comp;
+    bool M_checkIt;
+    bool M_checkItInverse;
+    bool M_caseIndep;
+    bool M_headersOnly;
+    int M_varId;
+    int M_varInId;
+    int M_varIn2Id;
+    int M_occurrence;
+    char* M_lookingChar;
+    T_IntCmdType M_IntCmd;
 
-    char *         M_lookingChar;
-    /* log specific member  */
-    SendingMessage * M_message[MAX_ACTION_MESSAGE];
-    char *         M_message_str[MAX_ACTION_MESSAGE];
-    /* exec specific member */
-    T_IntCmdType   M_IntCmd;
     /* sample specific member. */
-    CSample *      M_distribution;
+    CSample* M_distribution;
+
     /* assign value specific member. */
-    double         M_doubleValue;
+    double M_doubleValue;
     /* strcmp specific member. */
-    char *         M_stringValue;
+    char* M_stringValue;
+
     /* what scenario we belong to. */
-    scenario *     M_scenario;
+    scenario* M_scenario;
+
+private:
+    int M_nbSubVarId;
+    int M_maxNbSubVarId;
+    int* M_subVarId;
+
+    /* log specific member  */
+    SendingMessage* M_message[MAX_ACTION_MESSAGE];
+    char* M_message_str[MAX_ACTION_MESSAGE];
     /* Our regular expression. */
-    bool           M_regExpSet;
-    regex_t        M_internalRegExp;
-    char *         M_regularExpression;
+    bool M_regExpSet;
+    regex_t M_internalRegExp;
+    char* M_regularExpression;
 #ifdef PCAPPLAY
     /* pcap specific member */
-    pcap_pkts *    M_pcapArgs;
+    pcap_pkts* M_pcapArgs;
 #endif
 #ifdef RTP_STREAM
-      rtpstream_actinfo_t M_rtpstream_actinfo;
+    rtpstream_actinfo_t M_rtpstream_actinfo;
 #endif
     void setSubString(char** P_target, const char* P_source, int P_start, int P_stop);
 };
@@ -227,9 +197,9 @@ class CActions
 {
 public:
     void afficheInfo();
-    void setAction(CAction *P_action);
+    void setAction(CAction* P_action);
     void reset();
-    int  getActionSize();
+    int getActionSize();
     CAction* getAction(int i);
     CActions();
     ~CActions();

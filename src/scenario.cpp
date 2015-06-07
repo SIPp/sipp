@@ -1325,12 +1325,12 @@ void scenario::computeSippMode()
 void scenario::handle_rhs(CAction *tmpAction, const char *what)
 {
     if (xp_get_value("value")) {
-        tmpAction->setDoubleValue(xp_get_double("value", what));
+        tmpAction->M_doubleValue = xp_get_double("value", what);
         if (xp_get_value("variable")) {
             ERROR("Value and variable are mutually exclusive for %s action!", what);
         }
     } else if (xp_get_value("variable")) {
-        tmpAction->setVarInId(xp_get_var("variable", what));
+        tmpAction->M_varInId = xp_get_var("variable", what);
         if (xp_get_value("value")) {
             ERROR("Value and variable are mutually exclusive for %s action!", what);
         }
@@ -1341,7 +1341,7 @@ void scenario::handle_rhs(CAction *tmpAction, const char *what)
 
 void scenario::handle_arithmetic(CAction *tmpAction, const char *what)
 {
-    tmpAction->setVarId(xp_get_var("assign_to", what));
+    tmpAction->M_varId = xp_get_var("assign_to", what);
     handle_rhs(tmpAction, what);
 }
 
@@ -1366,54 +1366,54 @@ void scenario::parseAction(CActions *actions)
                 delete[] currentRegExp;
             currentRegExp = new char[strlen(ptr)+1];
             xp_unescape(ptr, currentRegExp);
-            tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_REGEXP);
+            tmpAction->M_action = CAction::E_AT_ASSIGN_FROM_REGEXP;
 
             // warning - although these are detected for both msg and hdr
             // they are only implemented for search_in="hdr"
-            tmpAction->setCaseIndep(xp_get_bool("case_indep", "ereg", false));
-            tmpAction->setHeadersOnly(xp_get_bool("start_line", "ereg", false));
+            tmpAction->M_caseIndep = xp_get_bool("case_indep", "ereg", false);
+            tmpAction->M_headersOnly = xp_get_bool("start_line", "ereg", false);
 
             free(ptr);
             if ( 0 != ( ptr = xp_get_value((char *)"search_in") ) ) {
-                tmpAction->setOccurrence(1);
+                tmpAction->M_occurrence = 1;
 
                 if ( 0 == strcmp(ptr, (char *)"msg") ) {
-                    tmpAction->setLookingPlace(CAction::E_LP_MSG);
+                    tmpAction->M_lookingPlace = CAction::E_LP_MSG;
                     tmpAction->setLookingChar (NULL);
                 } else if ( 0 == strcmp(ptr, (char *)"body") ) {
-                    tmpAction->setLookingPlace(CAction::E_LP_BODY);
+                    tmpAction->M_lookingPlace = CAction::E_LP_BODY;
                     tmpAction->setLookingChar (NULL);
                 } else if (!strcmp(ptr, (char *)"var")) {
-                    tmpAction->setVarInId(xp_get_var("variable", "ereg"));
-                    tmpAction->setLookingPlace(CAction::E_LP_VAR);
+                    tmpAction->M_varInId = xp_get_var("variable", "ereg");
+                    tmpAction->M_lookingPlace = CAction::E_LP_VAR;
                 } else if (!strcmp(ptr, (char *)"hdr")) {
                     ptr = xp_get_value((char *)"header");
                     if (!ptr || !strlen(ptr)) {
                         ERROR("search_in=\"hdr\" requires header field");
                     }
-                    tmpAction->setLookingPlace(CAction::E_LP_HDR);
+                    tmpAction->M_lookingPlace = CAction::E_LP_HDR;
                     tmpAction->setLookingChar(ptr);
                     if (0 != (ptr = xp_get_value((char *)"occurrence"))) {
-                        tmpAction->setOccurrence(atol(ptr));
+                        tmpAction->M_occurrence = atol(ptr);
                     } else if (0 != (ptr = xp_get_value((char *)"occurence"))) {
                         /* old misspelling */
-                        tmpAction->setOccurrence(atol(ptr));
+                        tmpAction->M_occurrence = atol(ptr);
                     }
                 } else {
                     ERROR("Unknown search_in value %s", ptr);
                 }
             } else {
-                tmpAction->setLookingPlace(CAction::E_LP_MSG);
+                tmpAction->M_lookingPlace = CAction::E_LP_MSG;
                 tmpAction->setLookingChar(NULL);
             } // end if-else search_in
 
             if (xp_get_value("check_it")) {
-                tmpAction->setCheckIt(xp_get_bool("check_it", "ereg", false));
+                tmpAction->M_checkIt = xp_get_bool("check_it", "ereg", false);
                 if (xp_get_value("check_it_inverse")) {
                     ERROR("Can not have both check_it and check_it_inverse for ereg!");
                 }
             } else {
-                tmpAction->setCheckItInverse(xp_get_bool("check_it_inverse", "ereg", false));
+                tmpAction->M_checkItInverse = xp_get_bool("check_it_inverse", "ereg", false);
             }
 
             if (!(ptr = xp_get_value((char *) "assign_to"))) {
@@ -1423,7 +1423,7 @@ void scenario::parseAction(CActions *actions)
             createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
 
             int varId = get_var(currentTabVarName[0], "assign_to");
-            tmpAction->setVarId(varId);
+            tmpAction->M_varId = varId;
 
             tmpAction->setRegExp(currentRegExp);
             if (currentNbVarNames > 1 ) {
@@ -1444,22 +1444,22 @@ void scenario::parseAction(CActions *actions)
             currentRegExp = NULL;
         } /* end !strcmp(actionElem, "ereg") */ else if(!strcmp(actionElem, "log")) {
             tmpAction->setMessage(xp_get_string("message", "log"));
-            tmpAction->setActionType(CAction::E_AT_LOG_TO_FILE);
+            tmpAction->M_action = CAction::E_AT_LOG_TO_FILE;
         } else if(!strcmp(actionElem, "warning")) {
             tmpAction->setMessage(xp_get_string("message", "warning"));
-            tmpAction->setActionType(CAction::E_AT_LOG_WARNING);
+            tmpAction->M_action = CAction::E_AT_LOG_WARNING;
         } else if(!strcmp(actionElem, "error")) {
             tmpAction->setMessage(xp_get_string("message", "error"));
-            tmpAction->setActionType(CAction::E_AT_LOG_ERROR);
+            tmpAction->M_action = CAction::E_AT_LOG_ERROR;
         } else if(!strcmp(actionElem, "assign")) {
-            tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_VALUE);
+            tmpAction->M_action = CAction::E_AT_ASSIGN_FROM_VALUE;
             handle_arithmetic(tmpAction, "assign");
         } else if(!strcmp(actionElem, "assignstr")) {
-            tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_STRING);
-            tmpAction->setVarId(xp_get_var("assign_to", "assignstr"));
+            tmpAction->M_action = CAction::E_AT_ASSIGN_FROM_STRING;
+            tmpAction->M_varId = xp_get_var("assign_to", "assignstr");
             tmpAction->setMessage(xp_get_string("value", "assignstr"));
         } else if(!strcmp(actionElem, "gettimeofday")) {
-            tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY);
+            tmpAction->M_action = CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY;
 
             if (!(ptr = xp_get_value((char *) "assign_to"))) {
                 ERROR("assign_to value is missing");
@@ -1471,123 +1471,123 @@ void scenario::parseAction(CActions *actions)
             tmpAction->setNbSubVarId(1);
 
             int varId = get_var(currentTabVarName[0], "gettimeofday seconds assign_to");
-            tmpAction->setVarId(varId);
+            tmpAction->M_varId = varId;
             varId = get_var(currentTabVarName[1], "gettimeofday useconds assign_to");
             tmpAction->setSubVarId(varId);
 
             freeStringTable(currentTabVarName, currentNbVarNames);
         } else if(!strcmp(actionElem, "index")) {
-            tmpAction->setVarId(xp_get_var("assign_to", "index"));
-            tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_INDEX);
+            tmpAction->M_varId = xp_get_var("assign_to", "index");
+            tmpAction->M_action = CAction::E_AT_ASSIGN_FROM_INDEX;
         } else if(!strcmp(actionElem, "jump")) {
-            tmpAction->setActionType(CAction::E_AT_JUMP);
+            tmpAction->M_action = CAction::E_AT_JUMP;
             handle_rhs(tmpAction, "jump");
         } else if(!strcmp(actionElem, "pauserestore")) {
-            tmpAction->setActionType(CAction::E_AT_PAUSE_RESTORE);
+            tmpAction->M_action = CAction::E_AT_PAUSE_RESTORE;
             handle_rhs(tmpAction, "pauserestore");
         } else if(!strcmp(actionElem, "add")) {
-            tmpAction->setActionType(CAction::E_AT_VAR_ADD);
+            tmpAction->M_action = CAction::E_AT_VAR_ADD;
             handle_arithmetic(tmpAction, "add");
         } else if(!strcmp(actionElem, "subtract")) {
-            tmpAction->setActionType(CAction::E_AT_VAR_SUBTRACT);
+            tmpAction->M_action = CAction::E_AT_VAR_SUBTRACT;
             handle_arithmetic(tmpAction, "subtract");
         } else if(!strcmp(actionElem, "multiply")) {
-            tmpAction->setActionType(CAction::E_AT_VAR_MULTIPLY);
+            tmpAction->M_action = CAction::E_AT_VAR_MULTIPLY;
             handle_arithmetic(tmpAction, "multiply");
         } else if(!strcmp(actionElem, "divide")) {
-            tmpAction->setActionType(CAction::E_AT_VAR_DIVIDE);
+            tmpAction->M_action = CAction::E_AT_VAR_DIVIDE;
             handle_arithmetic(tmpAction, "divide");
-            if (tmpAction->getVarInId() == 0) {
-                if (tmpAction->getDoubleValue() == 0.0) {
+            if (tmpAction->M_varInId == 0) {
+                if (tmpAction->M_doubleValue == 0.0) {
                     ERROR("divide actions can not have a value of zero!");
                 }
             }
         } else if(!strcmp(actionElem, "sample")) {
-            tmpAction->setVarId(xp_get_var("assign_to", "sample"));
-            tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_SAMPLE);
-            tmpAction->setDistribution(parse_distribution());
+            tmpAction->M_varId = xp_get_var("assign_to", "sample");
+            tmpAction->M_action = CAction::E_AT_ASSIGN_FROM_SAMPLE;
+            tmpAction->M_distribution = parse_distribution();
         } else if(!strcmp(actionElem, "todouble")) {
-            tmpAction->setActionType(CAction::E_AT_VAR_TO_DOUBLE);
-            tmpAction->setVarId(xp_get_var("assign_to", "todouble"));
-            tmpAction->setVarInId(xp_get_var("variable", "todouble"));
+            tmpAction->M_action = CAction::E_AT_VAR_TO_DOUBLE;
+            tmpAction->M_varId = xp_get_var("assign_to", "todouble");
+            tmpAction->M_varInId = xp_get_var("variable", "todouble");
         } else if(!strcmp(actionElem, "test")) {
-            tmpAction->setVarId(xp_get_var("assign_to", "test"));
-            tmpAction->setVarInId(xp_get_var("variable", "test"));
+            tmpAction->M_varId = xp_get_var("assign_to", "test");
+            tmpAction->M_varInId = xp_get_var("variable", "test");
             if (xp_get_value("value")) {
-                tmpAction->setDoubleValue(xp_get_double("value", "test"));
+                tmpAction->M_doubleValue = xp_get_double("value", "test");
                 if (xp_get_value("variable2")) {
                     ERROR("Can not have both a value and a variable2 for test!");
                 }
             } else {
-                tmpAction->setVarIn2Id(xp_get_var("variable2", "test"));
+                tmpAction->M_varIn2Id = xp_get_var("variable2", "test");
             }
-            tmpAction->setActionType(CAction::E_AT_VAR_TEST);
+            tmpAction->M_action = CAction::E_AT_VAR_TEST;
             ptr = xp_get_string("compare", "test");
             if (!strcmp(ptr, "equal")) {
-                tmpAction->setComparator(CAction::E_C_EQ);
+                tmpAction->M_comp = CAction::E_C_EQ;
             } else if (!strcmp(ptr, "not_equal")) {
-                tmpAction->setComparator(CAction::E_C_NE);
+                tmpAction->M_comp = CAction::E_C_NE;
             } else if (!strcmp(ptr, "greater_than")) {
-                tmpAction->setComparator(CAction::E_C_GT);
+                tmpAction->M_comp = CAction::E_C_GT;
             } else if (!strcmp(ptr, "less_than")) {
-                tmpAction->setComparator(CAction::E_C_LT);
+                tmpAction->M_comp = CAction::E_C_LT;
             } else if (!strcmp(ptr, "greater_than_equal")) {
-                tmpAction->setComparator(CAction::E_C_GEQ);
+                tmpAction->M_comp = CAction::E_C_GEQ;
             } else if (!strcmp(ptr, "less_than_equal")) {
-                tmpAction->setComparator(CAction::E_C_LEQ);
+                tmpAction->M_comp = CAction::E_C_LEQ;
             } else {
                 ERROR("Invalid 'compare' parameter: %s", ptr);
             }
             free(ptr);
         } else if(!strcmp(actionElem, "verifyauth")) {
-            tmpAction->setVarId(xp_get_var("assign_to", "verifyauth"));
+            tmpAction->M_varId = xp_get_var("assign_to", "verifyauth");
             char* username_ptr = xp_get_string("username", "verifyauth");
             char* password_ptr = xp_get_string("password", "verifyauth");
             tmpAction->setMessage(username_ptr, 0);
             tmpAction->setMessage(password_ptr, 1);
-            tmpAction->setActionType(CAction::E_AT_VERIFY_AUTH);
+            tmpAction->M_action = CAction::E_AT_VERIFY_AUTH;
             free(username_ptr);
             free(password_ptr);
             username_ptr = password_ptr = NULL;
         } else if(!strcmp(actionElem, "lookup")) {
-            tmpAction->setVarId(xp_get_var("assign_to", "lookup"));
+            tmpAction->M_varId = xp_get_var("assign_to", "lookup");
             tmpAction->setMessage(xp_get_string("file", "lookup"), 0);
             tmpAction->setMessage(xp_get_string("key", "lookup"), 1);
-            tmpAction->setActionType(CAction::E_AT_LOOKUP);
+            tmpAction->M_action = CAction::E_AT_LOOKUP;
         } else if(!strcmp(actionElem, "insert")) {
             tmpAction->setMessage(xp_get_string("file", "insert"), 0);
             tmpAction->setMessage(xp_get_string("value", "insert"), 1);
-            tmpAction->setActionType(CAction::E_AT_INSERT);
+            tmpAction->M_action = CAction::E_AT_INSERT;
         } else if(!strcmp(actionElem, "replace")) {
             tmpAction->setMessage(xp_get_string("file", "replace"), 0);
             tmpAction->setMessage(xp_get_string("line", "replace"), 1);
             tmpAction->setMessage(xp_get_string("value", "replace"), 2);
-            tmpAction->setActionType(CAction::E_AT_REPLACE);
+            tmpAction->M_action = CAction::E_AT_REPLACE;
         } else if(!strcmp(actionElem, "setdest")) {
             tmpAction->setMessage(xp_get_string("host", actionElem), 0);
             tmpAction->setMessage(xp_get_string("port", actionElem), 1);
             tmpAction->setMessage(xp_get_string("protocol", actionElem), 2);
-            tmpAction->setActionType(CAction::E_AT_SET_DEST);
+            tmpAction->M_action = CAction::E_AT_SET_DEST;
         } else if(!strcmp(actionElem, "closecon")) {
-            tmpAction->setActionType(CAction::E_AT_CLOSE_CON);
+            tmpAction->M_action = CAction::E_AT_CLOSE_CON;
         } else if(!strcmp(actionElem, "strcmp")) {
-            tmpAction->setVarId(xp_get_var("assign_to", "strcmp"));
-            tmpAction->setVarInId(xp_get_var("variable", "strcmp"));
+            tmpAction->M_varId = xp_get_var("assign_to", "strcmp");
+            tmpAction->M_varInId = xp_get_var("variable", "strcmp");
             if (xp_get_value("value")) {
-                tmpAction->setStringValue(xp_get_string("value", "strcmp"));
+                tmpAction->M_stringValue = xp_get_string("value", "strcmp");
                 if (xp_get_value("variable2")) {
                     ERROR("Can not have both a value and a variable2 for strcmp!");
                 }
             } else {
-                tmpAction->setVarIn2Id(xp_get_var("variable2", "strcmp"));
+                tmpAction->M_varIn2Id = xp_get_var("variable2", "strcmp");
             }
-            tmpAction->setActionType(CAction::E_AT_VAR_STRCMP);
+            tmpAction->M_action = CAction::E_AT_VAR_STRCMP;
         } else if(!strcmp(actionElem, "trim")) {
-            tmpAction->setVarId(xp_get_var("assign_to", "trim"));
-            tmpAction->setActionType(CAction::E_AT_VAR_TRIM);
+            tmpAction->M_varId = xp_get_var("assign_to", "trim");
+            tmpAction->M_action = CAction::E_AT_VAR_TRIM;
         } else if(!strcmp(actionElem, "exec")) {
             if((ptr = xp_get_value((char *)"command"))) {
-                tmpAction->setActionType(CAction::E_AT_EXECUTE_CMD);
+                tmpAction->M_action = CAction::E_AT_EXECUTE_CMD;
                 tmpAction->setMessage(ptr);
             } /* end (ptr = xp_get_value("command")  */ else if((ptr = xp_get_value((char *)"int_cmd"))) {
                 CAction::T_IntCmdType type(CAction::E_INTCMD_STOPCALL); /* assume the default */
@@ -1602,19 +1602,19 @@ void scenario::parseAction(CActions *actions)
 
                 /* the action is well formed, adding it in the */
                 /* tmpActionTable */
-                tmpAction->setActionType(CAction::E_AT_EXEC_INTCMD);
-                tmpAction->setIntCmd(type);
+                tmpAction->M_action = CAction::E_AT_EXEC_INTCMD;
+                tmpAction->M_IntCmd = type;
 #ifdef PCAPPLAY
             } else if ((ptr = xp_get_value((char *) "play_pcap_audio"))) {
                 tmpAction->setPcapArgs(ptr);
-                tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
+                tmpAction->M_action = CAction::E_AT_PLAY_PCAP_AUDIO;
             } else if ((ptr = xp_get_value((char *) "play_pcap_image"))) {
                 tmpAction->setPcapArgs(ptr);
-                tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_IMAGE);
+                tmpAction->M_action = CAction::E_AT_PLAY_PCAP_IMAGE;
                 hasMedia = 1;
             } else if ((ptr = xp_get_value((char *) "play_pcap_video"))) {
                 tmpAction->setPcapArgs(ptr);
-                tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
+                tmpAction->M_action = CAction::E_AT_PLAY_PCAP_VIDEO;
                 hasMedia = 1;
 #else
             } else if ((ptr = xp_get_value((char *) "play_pcap_audio"))) {
@@ -1628,12 +1628,12 @@ void scenario::parseAction(CActions *actions)
 #ifdef RTP_STREAM
                 hasMedia = 1;
                 if (!strcmp(ptr, "pause")) {
-                    tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PAUSE);
+                    tmpAction->M_action = CAction::E_AT_RTP_STREAM_PAUSE;
                 } else if (!strcmp(ptr, "resume")) {
-                    tmpAction->setActionType(CAction::E_AT_RTP_STREAM_RESUME);
+                    tmpAction->M_action = CAction::E_AT_RTP_STREAM_RESUME;
                 } else {
                     tmpAction->setRTPStreamActInfo(ptr);
-                    tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PLAY);
+                    tmpAction->M_action = CAction::E_AT_RTP_STREAM_PLAY;
                 }
 #else
                 ERROR("Scenario specifies a rtp_stream action, but this version of SIPp does not have RTP stream support");
