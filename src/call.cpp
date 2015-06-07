@@ -946,7 +946,6 @@ bool call::connect_socket_if_needed()
             char peripaddr[256];
             char *tmp = peripaddr;
             getFieldFromInputFile(ip_file, peripfield, NULL, tmp);
-            printf("Binding to %s\n", peripaddr);
             struct addrinfo * h ;
             struct addrinfo   hints;
             memset((char*)&hints, 0, sizeof(hints));
@@ -971,7 +970,6 @@ bool call::connect_socket_if_needed()
              if (ret != 0) {
               WARNING_NO("Could not bind to %s: %d", peripaddr, ret);
             }
-             printf("Successfuly bound %s port %d\n", peripaddr, port);
         }
 
 
