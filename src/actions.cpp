@@ -477,14 +477,15 @@ CAction::~CAction()
         delete [] M_lookingChar;
         M_lookingChar = NULL;
     }
-    for (int i = 0; i < MAX_ACTION_MESSAGE; i++) {
-        if(M_message[i] != NULL) {
-            delete M_message[i];
-            M_message[i] = NULL;
-        }
-        free(M_message_str[i]);
-        M_message_str[i] = NULL;
+
+    for (auto msg : M_message) {
+        delete msg;
     }
+
+    for (auto msg : M_message_str) {
+        free(msg);
+    }
+
     if(M_subVarId != NULL) {
         delete [] M_subVarId;
         M_subVarId = NULL;

@@ -24,6 +24,7 @@
 #define _CACTIONS
 
 #include <vector>
+#include <cstring>
 
 #include "variables.hpp"
 #include "message.hpp"
@@ -142,7 +143,41 @@ public:
 #endif
 
 #ifdef RTP_STREAM
-        memset(&M_rtpstream_actinfo, 0, sizeof(M_rtpstream_actinfo));
+        std::memset(&M_rtpstream_actinfo, 0, sizeof(M_rtpstream_actinfo));
+#endif
+    }
+
+    CAction(const CAction& other)
+      : M_action(other.M_action),
+        M_lookingPlace(other.M_lookingPlace),
+        M_checkIt(other.M_checkIt),
+        M_checkItInverse(other.M_checkItInverse),
+        M_caseIndep(other.M_caseIndep),
+        M_headersOnly(other.M_headersOnly),
+        M_varId(other.M_varId),
+        M_varInId(other.M_varInId),
+        M_varIn2Id(other.M_varIn2Id),
+        M_occurrence(other.M_occurrence),
+        M_lookingChar(other.M_lookingChar),
+        M_IntCmd(other.M_IntCmd),
+        M_distribution(other.M_distribution),
+        M_doubleValue(other.M_doubleValue),
+        M_stringValue(other.M_stringValue),
+        M_scenario(other.M_scenario),
+        M_nbSubVarId(other.M_nbSubVarId),
+        M_maxNbSubVarId(other.M_maxNbSubVarId),
+        M_subVarId(other.M_subVarId),
+        M_message(other.M_message),
+        M_message_str(other.M_message_str),
+        M_regExpSet(other.M_regExpSet),
+        M_regularExpression(other.M_regularExpression)
+    {
+#ifdef PCAPPLAY
+        M_pcapArgs = other.M_pcapArgs;
+#endif
+
+#ifdef RTP_STREAM
+        M_rtpstream_actinfo = other.M_rtpstream_actinfo;
 #endif
     }
 
@@ -157,6 +192,7 @@ public:
 #ifdef PCAPPLAY
     pcap_pkts* getPcapPkts(); /* send_packets specific function */
 #endif
+
 #ifdef RTP_STREAM
     rtpstream_actinfo_t* getRTPStreamActInfo(); /* return stored rtp stream playback params */
 #endif
