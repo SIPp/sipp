@@ -140,7 +140,7 @@ public:
         M_message_str.reserve(MAX_ACTION_MESSAGE);
 
 #ifdef PCAPPLAY
-        M_pcapArgs = NULL;
+        std::memset(&M_pcapArgs, 0, sizeof(pcap_pkts));
 #endif
 
 #ifdef RTP_STREAM
@@ -175,7 +175,6 @@ public:
     void setMessage(char* P_value, int n = 0);  /* log specific function  */
 #ifdef PCAPPLAY
     void setPcapArgs(char* P_value);  /* send_packets specific function */
-    void setPcapArgs(pcap_pkts* P_value);  /* send_packets specific function */
 #endif
 #ifdef RTP_STREAM
     void setRTPStreamActInfo(char* P_value);  /* parse rtp stream playback values from string */
@@ -228,7 +227,7 @@ private:
     char* M_regularExpression;
 #ifdef PCAPPLAY
     /* pcap specific member */
-    pcap_pkts* M_pcapArgs;
+    pcap_pkts M_pcapArgs;
 #endif
 #ifdef RTP_STREAM
     rtpstream_actinfo_t M_rtpstream_actinfo;

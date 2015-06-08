@@ -145,7 +145,7 @@ void CAction::afficheInfo()
         printf("Type[%d] - toDouble varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
 #ifdef PCAPPLAY
     } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_IMAGE) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
-        printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
+        printf("Type[%d] - file[%s]", M_action, M_pcapArgs.file);
 #endif
 
 #ifdef RTP_STREAM
@@ -170,7 +170,7 @@ SendingMessage* CAction::getMessage(int n)
 #ifdef PCAPPLAY
 pcap_pkts* CAction::getPcapPkts()
 {
-    return M_pcapArgs;
+    return &M_pcapArgs;
 }
 #endif
 
@@ -319,33 +319,15 @@ void CAction::setSubString(char** P_target, const char* P_source, int P_start, i
 
 
 #ifdef PCAPPLAY
-void CAction::setPcapArgs(pcap_pkts* P_value)
-{
-    if (M_pcapArgs != NULL) {
-        free(M_pcapArgs);
-        M_pcapArgs = NULL;
-    }
-
-    if (P_value != NULL) {
-        M_pcapArgs = (pcap_pkts*)malloc(sizeof(*M_pcapArgs));
-        memcpy(M_pcapArgs, P_value, sizeof(*M_pcapArgs));
-    }
-}
-
 void CAction::setPcapArgs(char* P_value)
 {
-    if (M_pcapArgs != NULL) {
-        free(M_pcapArgs);
-        M_pcapArgs = NULL;
-    }
-
     if (P_value != NULL) {
-        M_pcapArgs = (pcap_pkts*)malloc(sizeof(*M_pcapArgs));
-        if (parse_play_args(P_value, M_pcapArgs) == -1) {
+        std::memset(&M_pcapArgs, 0, sizeof(pcap_pkts));
+        if (parse_play_args(P_value, &M_pcapArgs) == -1) {
             ERROR("Play pcap error");
         }
-        if (access(M_pcapArgs->file, F_OK)) {
-            ERROR("Cannot read file %s\n", M_pcapArgs->file);
+        if (access(M_pcapArgs.file, F_OK)) {
+            ERROR("Cannot read file %s\n", M_pcapArgs.file);
         }
     }
 }
@@ -431,10 +413,6 @@ CAction::~CAction()
     delete [] M_subVarId;
     delete M_distribution;
     free(M_stringValue);
-
-#ifdef PCAPPLAY
-    free(M_pcapArgs);
-#endif
 
     if (M_regExpSet) {
         regfree(&M_internalRegExp);
