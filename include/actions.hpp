@@ -110,6 +110,45 @@ public:
     typedef struct _T_Action {
     } T_Action;
 
+    CAction(scenario* scenario)
+      : M_action(E_AT_NO_ACTION),
+        M_lookingPlace(E_LP_MSG),
+        M_checkIt(false),
+        M_checkItInverse(false),
+        M_caseIndep(false),
+        M_headersOnly(true),
+        M_varId(0),
+        M_varInId(0),
+        M_varIn2Id(0),
+        M_occurrence(1),
+        M_lookingChar(NULL),
+        M_IntCmd(E_INTCMD_INVALID),
+        M_distribution(NULL),
+        M_doubleValue(0),
+        M_stringValue(NULL),
+        M_scenario(scenario),
+        M_nbSubVarId(0),
+        M_maxNbSubVarId(0),
+        M_subVarId(NULL),
+        M_regExpSet(false),
+        M_regularExpression(NULL)
+    {
+        for (int i = 0; i < MAX_ACTION_MESSAGE; i++) {
+            M_message[i] = NULL;
+            M_message_str[i] = NULL;
+        }
+
+#ifdef PCAPPLAY
+        M_pcapArgs = NULL;
+#endif
+
+#ifdef RTP_STREAM
+        memset(&M_rtpstream_actinfo, 0, sizeof(M_rtpstream_actinfo));
+#endif
+    }
+
+    ~CAction();
+
     void afficheInfo();
     const char *comparatorToString(T_Comparator comp);
     bool compare(VariableTable *variableTable);
@@ -142,9 +181,6 @@ public:
     void setNbSubVarId(int P_value);
     int getNbSubVarId();
     int* getSubVarId();
-
-    CAction(scenario *scenario);
-    ~CAction();
 
     T_ActionType M_action;
     T_LookingPlace M_lookingPlace;

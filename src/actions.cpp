@@ -471,45 +471,6 @@ void CAction::setAction(CAction P_action)
 #endif
 }
 
-CAction::CAction(scenario* scenario)
-{
-    M_action = E_AT_NO_ACTION;
-    M_varId = 0;
-    M_varInId = 0;
-    M_varIn2Id = 0;
-
-    M_nbSubVarId = 0;
-    M_maxNbSubVarId = 0;
-    M_subVarId = NULL;
-
-    M_checkIt = false;
-    M_checkItInverse = false;
-    M_lookingPlace = E_LP_MSG;
-    M_lookingChar = NULL;
-    M_caseIndep = false;
-    M_occurrence = 1;
-    M_headersOnly = true;
-    for (int i = 0; i < MAX_ACTION_MESSAGE; i++) {
-        M_message[i] = NULL;
-        M_message_str[i] = NULL;
-    }
-    M_IntCmd = E_INTCMD_INVALID;
-    M_doubleValue = 0;
-    M_stringValue = NULL;
-    M_distribution = NULL;
-#ifdef PCAPPLAY
-    M_pcapArgs = NULL;
-#endif
-
-#ifdef RTP_STREAM
-    memset(&M_rtpstream_actinfo, 0, sizeof(M_rtpstream_actinfo));
-#endif
-
-    M_scenario = scenario;
-    M_regExpSet = false;
-    M_regularExpression = NULL;
-}
-
 CAction::~CAction()
 {
     if(M_lookingChar != NULL) {
