@@ -434,10 +434,10 @@ void CAction::setRTPStreamActInfo (rtpstream_actinfo_t* P_value)
 
 CAction::~CAction()
 {
-    if(M_lookingChar != NULL) {
-        delete [] M_lookingChar;
-        M_lookingChar = NULL;
-    }
+    delete [] M_lookingChar;
+    delete [] M_subVarId;
+    delete M_distribution;
+    free(M_stringValue);
 
     for (auto msg : M_message) {
         delete msg;
@@ -447,23 +447,13 @@ CAction::~CAction()
         free(msg);
     }
 
-    if(M_subVarId != NULL) {
-        delete [] M_subVarId;
-        M_subVarId = NULL;
-    }
-    free(M_stringValue);
 #ifdef PCAPPLAY
-    if (M_pcapArgs != NULL) {
-        free(M_pcapArgs);
-        M_pcapArgs = NULL;
-    }
+    free(M_pcapArgs);
 #endif
+
     if (M_regExpSet) {
         regfree(&M_internalRegExp);
         free(M_regularExpression);
-    }
-    if (M_distribution) {
-        delete M_distribution;
     }
 }
 
