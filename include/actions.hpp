@@ -23,6 +23,8 @@
 #ifndef _CACTIONS
 #define _CACTIONS
 
+#include <vector>
+
 #include "variables.hpp"
 #include "message.hpp"
 class CSample;
@@ -127,13 +129,13 @@ public:
         M_nbSubVarId(0),
         M_maxNbSubVarId(0),
         M_subVarId(NULL),
+        M_message(),
+        M_message_str(),
         M_regExpSet(false),
         M_regularExpression(NULL)
     {
-        for (int i = 0; i < MAX_ACTION_MESSAGE; i++) {
-            M_message[i] = NULL;
-            M_message_str[i] = NULL;
-        }
+        M_message.reserve(MAX_ACTION_MESSAGE);
+        M_message_str.reserve(MAX_ACTION_MESSAGE);
 
 #ifdef PCAPPLAY
         M_pcapArgs = NULL;
@@ -210,8 +212,9 @@ private:
     int* M_subVarId;
 
     /* log specific member  */
-    SendingMessage* M_message[MAX_ACTION_MESSAGE];
-    char* M_message_str[MAX_ACTION_MESSAGE];
+    std::vector<SendingMessage*> M_message;
+    std::vector<char*> M_message_str;
+
     /* Our regular expression. */
     bool M_regExpSet;
     regex_t M_internalRegExp;
