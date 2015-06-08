@@ -432,45 +432,6 @@ void CAction::setRTPStreamActInfo (rtpstream_actinfo_t* P_value)
 }
 #endif
 
-void CAction::setAction(CAction P_action)
-{
-    if (P_action.M_action == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
-        assert(P_action.M_distribution != NULL);
-    }
-    int L_i;
-    M_action = P_action.M_action;
-    M_lookingPlace = P_action.M_lookingPlace;
-    M_varId = P_action.M_varId;
-    M_varInId = P_action.M_varInId;
-    M_doubleValue = P_action.M_doubleValue;
-    M_distribution = P_action.M_distribution;
-    M_scenario = P_action.M_scenario;
-
-    setNbSubVarId(P_action.getNbSubVarId());
-    for (L_i = 0; L_i < P_action.getNbSubVarId(); L_i++ ){
-        setSubVarId(P_action.getSubVarId(L_i));
-    }
-
-    setLookingChar(P_action.M_lookingChar);
-    M_checkIt = P_action.M_checkIt;
-    M_checkItInverse = P_action.M_checkItInverse;
-    M_caseIndep = P_action.M_caseIndep;
-    M_occurrence = P_action.M_occurrence;
-    M_headersOnly = P_action.M_headersOnly;
-
-    for (L_i = 0; L_i < MAX_ACTION_MESSAGE; L_i++){
-        setMessage(P_action.M_message_str[L_i], L_i);
-    }
-    setRegExp(P_action.M_regularExpression);
-    M_IntCmd = P_action.M_IntCmd;
-#ifdef PCAPPLAY
-    setPcapArgs(P_action.M_pcapArgs);
-#endif
-#ifdef RTP_STREAM
-  setRTPStreamActInfo(&P_action.M_rtpstream_actinfo);
-#endif
-}
-
 CAction::~CAction()
 {
     if(M_lookingChar != NULL) {

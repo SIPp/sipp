@@ -198,7 +198,6 @@ public:
 #endif
 
     void setLookingChar(char* P_value);
-    void setAction(CAction P_action);
     void setRegExp(const char* P_value);  /* ereg specific function. */
     int executeRegExp(const char* P_string, VariableTable* P_callVarTable);
     void setMessage(char* P_value, int n = 0);  /* log specific function  */
