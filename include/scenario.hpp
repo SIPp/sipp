@@ -205,8 +205,8 @@ private:
     void getCommonAttributes(message *message);
     void getActionForThisMessage(message *message);
     void parseAction(std::vector<CAction>& actions);
-    void handle_arithmetic(CAction *tmpAction, const char *what);
-    void handle_rhs(CAction *tmpAction, const char *what);
+    void handle_arithmetic(CAction& tmpAction, const char* what);
+    void handle_rhs(CAction& tmpAction, const char* what);
     void checkOptionalRecv(char *elem, unsigned int scenario_file_cursor);
 
     void apply_labels(msgvec v, str_int_map labels);

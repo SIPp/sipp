@@ -3427,12 +3427,12 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     return true;
 }
 
-double call::get_rhs(CAction *currentAction)
+double call::get_rhs(CAction& currentAction)
 {
-    if (currentAction->M_varInId) {
-        return M_callVariableTable->getVar(currentAction->M_varInId)->getDouble();
+    if (currentAction.M_varInId) {
+        return M_callVariableTable->getVar(currentAction.M_varInId)->getDouble();
     } else {
-        return currentAction->M_doubleValue;
+        return currentAction.M_doubleValue;
     }
 }
 
@@ -3506,7 +3506,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 return(call::E_AR_REGEXP_SHOULDNT_MATCH);
             }
         } else if (currentAction.M_action == CAction::E_AT_ASSIGN_FROM_VALUE) {
-            double operand = get_rhs(&currentAction);
+            double operand = get_rhs(currentAction);
             M_callVariableTable->getVar(currentAction.M_varId)->setDouble(operand);
         } else if (currentAction.M_action == CAction::E_AT_ASSIGN_FROM_INDEX) {
             M_callVariableTable->getVar(currentAction.M_varId)->setDouble(msg_index);
@@ -3733,7 +3733,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 
             M_callVariableTable->getVar(currentAction.M_varId)->setBool(result);
         } else if (currentAction.M_action == CAction::E_AT_JUMP) {
-            double operand = get_rhs(&currentAction);
+            double operand = get_rhs(currentAction);
             if (msg_index == ((int)operand)) {
                 ERROR("Jump statement at index %d jumps to itself and causes an infinite loop", msg_index);
             }
@@ -3745,23 +3745,23 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                       msg_index + 1, call_scenario->messages.size());
             }
         } else if (currentAction.M_action == CAction::E_AT_PAUSE_RESTORE) {
-            double operand = get_rhs(&currentAction);
+            double operand = get_rhs(currentAction);
             paused_until = (int)operand;
         } else if (currentAction.M_action == CAction::E_AT_VAR_ADD) {
             double value = M_callVariableTable->getVar(currentAction.M_varId)->getDouble();
-            double operand = get_rhs(&currentAction);
+            double operand = get_rhs(currentAction);
             M_callVariableTable->getVar(currentAction.M_varId)->setDouble(value + operand);
         } else if (currentAction.M_action == CAction::E_AT_VAR_SUBTRACT) {
             double value = M_callVariableTable->getVar(currentAction.M_varId)->getDouble();
-            double operand = get_rhs(&currentAction);
+            double operand = get_rhs(currentAction);
             M_callVariableTable->getVar(currentAction.M_varId)->setDouble(value - operand);
         } else if (currentAction.M_action == CAction::E_AT_VAR_MULTIPLY) {
             double value = M_callVariableTable->getVar(currentAction.M_varId)->getDouble();
-            double operand = get_rhs(&currentAction);
+            double operand = get_rhs(currentAction);
             M_callVariableTable->getVar(currentAction.M_varId)->setDouble(value * operand);
         } else if (currentAction.M_action == CAction::E_AT_VAR_DIVIDE) {
             double value = M_callVariableTable->getVar(currentAction.M_varId)->getDouble();
-            double operand = get_rhs(&currentAction);
+            double operand = get_rhs(currentAction);
             if (operand == 0) {
                 WARNING("Action failure: Can not divide by zero ($%d/$%d)!\n", currentAction.M_varId, currentAction.M_varInId);
             } else {

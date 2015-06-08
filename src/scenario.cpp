@@ -1319,15 +1319,15 @@ void scenario::computeSippMode()
         ERROR("Unable to determine send mode of the tool (server, client)\n");
 }
 
-void scenario::handle_rhs(CAction *tmpAction, const char *what)
+void scenario::handle_rhs(CAction& tmpAction, const char* what)
 {
     if (xp_get_value("value")) {
-        tmpAction->M_doubleValue = xp_get_double("value", what);
+        tmpAction.M_doubleValue = xp_get_double("value", what);
         if (xp_get_value("variable")) {
             ERROR("Value and variable are mutually exclusive for %s action!", what);
         }
     } else if (xp_get_value("variable")) {
-        tmpAction->M_varInId = xp_get_var("variable", what);
+        tmpAction.M_varInId = xp_get_var("variable", what);
         if (xp_get_value("value")) {
             ERROR("Value and variable are mutually exclusive for %s action!", what);
         }
@@ -1336,9 +1336,9 @@ void scenario::handle_rhs(CAction *tmpAction, const char *what)
     }
 }
 
-void scenario::handle_arithmetic(CAction *tmpAction, const char *what)
+void scenario::handle_arithmetic(CAction& tmpAction, const char* what)
 {
-    tmpAction->M_varId = xp_get_var("assign_to", what);
+    tmpAction.M_varId = xp_get_var("assign_to", what);
     handle_rhs(tmpAction, what);
 }
 
@@ -1450,7 +1450,7 @@ void scenario::parseAction(std::vector<CAction>& actions)
             tmpAction.M_action = CAction::E_AT_LOG_ERROR;
         } else if(!strcmp(actionElem, "assign")) {
             tmpAction.M_action = CAction::E_AT_ASSIGN_FROM_VALUE;
-            handle_arithmetic(&tmpAction, "assign");
+            handle_arithmetic(tmpAction, "assign");
         } else if(!strcmp(actionElem, "assignstr")) {
             tmpAction.M_action = CAction::E_AT_ASSIGN_FROM_STRING;
             tmpAction.M_varId = xp_get_var("assign_to", "assignstr");
@@ -1478,22 +1478,22 @@ void scenario::parseAction(std::vector<CAction>& actions)
             tmpAction.M_action = CAction::E_AT_ASSIGN_FROM_INDEX;
         } else if(!strcmp(actionElem, "jump")) {
             tmpAction.M_action = CAction::E_AT_JUMP;
-            handle_rhs(&tmpAction, "jump");
+            handle_rhs(tmpAction, "jump");
         } else if(!strcmp(actionElem, "pauserestore")) {
             tmpAction.M_action = CAction::E_AT_PAUSE_RESTORE;
-            handle_rhs(&tmpAction, "pauserestore");
+            handle_rhs(tmpAction, "pauserestore");
         } else if(!strcmp(actionElem, "add")) {
             tmpAction.M_action = CAction::E_AT_VAR_ADD;
-            handle_arithmetic(&tmpAction, "add");
+            handle_arithmetic(tmpAction, "add");
         } else if(!strcmp(actionElem, "subtract")) {
             tmpAction.M_action = CAction::E_AT_VAR_SUBTRACT;
-            handle_arithmetic(&tmpAction, "subtract");
+            handle_arithmetic(tmpAction, "subtract");
         } else if(!strcmp(actionElem, "multiply")) {
             tmpAction.M_action = CAction::E_AT_VAR_MULTIPLY;
-            handle_arithmetic(&tmpAction, "multiply");
+            handle_arithmetic(tmpAction, "multiply");
         } else if(!strcmp(actionElem, "divide")) {
             tmpAction.M_action = CAction::E_AT_VAR_DIVIDE;
-            handle_arithmetic(&tmpAction, "divide");
+            handle_arithmetic(tmpAction, "divide");
             if (tmpAction.M_varInId == 0) {
                 if (tmpAction.M_doubleValue == 0.0) {
                     ERROR("divide actions can not have a value of zero!");
