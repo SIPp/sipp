@@ -326,9 +326,6 @@ void CAction::setPcapArgs(char* P_value)
         if (parse_play_args(P_value, &M_pcapArgs) == -1) {
             ERROR("Play pcap error");
         }
-        if (access(M_pcapArgs.file, F_OK)) {
-            ERROR("Cannot read file %s\n", M_pcapArgs.file);
-        }
     }
 }
 #endif
