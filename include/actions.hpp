@@ -107,9 +107,6 @@ public:
         E_INTCMD_STOP_NOW
     };
 
-    typedef struct _T_Action {
-    } T_Action;
-
     CAction(scenario* scenario)
       : M_action(E_AT_NO_ACTION),
         M_lookingPlace(E_LP_MSG),
