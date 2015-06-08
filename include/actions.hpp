@@ -147,41 +147,12 @@ public:
 #endif
     }
 
-    CAction(const CAction& other)
-      : M_action(other.M_action),
-        M_lookingPlace(other.M_lookingPlace),
-        M_checkIt(other.M_checkIt),
-        M_checkItInverse(other.M_checkItInverse),
-        M_caseIndep(other.M_caseIndep),
-        M_headersOnly(other.M_headersOnly),
-        M_varId(other.M_varId),
-        M_varInId(other.M_varInId),
-        M_varIn2Id(other.M_varIn2Id),
-        M_occurrence(other.M_occurrence),
-        M_lookingChar(other.M_lookingChar),
-        M_IntCmd(other.M_IntCmd),
-        M_distribution(other.M_distribution),
-        M_doubleValue(other.M_doubleValue),
-        M_stringValue(other.M_stringValue),
-        M_scenario(other.M_scenario),
-        M_nbSubVarId(other.M_nbSubVarId),
-        M_maxNbSubVarId(other.M_maxNbSubVarId),
-        M_subVarId(other.M_subVarId),
-        M_message(other.M_message),
-        M_message_str(other.M_message_str),
-        M_regExpSet(other.M_regExpSet),
-        M_regularExpression(other.M_regularExpression)
-    {
-#ifdef PCAPPLAY
-        M_pcapArgs = other.M_pcapArgs;
-#endif
-
-#ifdef RTP_STREAM
-        M_rtpstream_actinfo = other.M_rtpstream_actinfo;
-#endif
-    }
-
+    CAction(const CAction& other) = default;
+    CAction(CAction&& other) noexcept = default;
     ~CAction();
+
+    CAction& operator=(const CAction& other) = default;
+    CAction& operator=(CAction&& other) = default;
 
     void afficheInfo();
     const char *comparatorToString(T_Comparator comp);
@@ -262,22 +233,6 @@ private:
     rtpstream_actinfo_t M_rtpstream_actinfo;
 #endif
     void setSubString(char** P_target, const char* P_source, int P_start, int P_stop);
-};
-
-class CActions
-{
-public:
-    void afficheInfo();
-    void setAction(CAction* P_action);
-    void reset();
-    int getActionSize();
-    CAction* getAction(int i);
-    CActions();
-    ~CActions();
-
-private:
-    CAction ** M_actionList;
-    int        M_nbAction;
 };
 
 #endif
