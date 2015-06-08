@@ -24,6 +24,7 @@
 #define _CACTIONS
 
 #include <vector>
+#include <string>
 #include <cstring>
 
 #include "variables.hpp"
@@ -218,8 +219,8 @@ private:
     int* M_subVarId;
 
     /* log specific member  */
-    std::vector<SendingMessage*> M_message;
-    std::vector<char*> M_message_str;
+    std::vector<SendingMessage> M_message;
+    std::vector<std::string> M_message_str;
 
     /* Our regular expression. */
     bool M_regExpSet;

@@ -106,15 +106,15 @@ void CAction::afficheInfo()
                    M_checkItInverse, display_scenario->allocVars->getName(M_varId));
         }
     } else if (M_action == E_AT_EXECUTE_CMD) {
-        printf("Type[%d] - command[%-32.32s]", M_action, M_message_str[0]);
+        printf("Type[%d] - command[%-32.32s]", M_action, M_message_str[0].c_str());
     } else if (M_action == E_AT_EXEC_INTCMD) {
         printf("Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
     } else if (M_action == E_AT_LOG_TO_FILE) {
-        printf("Type[%d] - message[%-32.32s]", M_action, M_message_str[0]);
+        printf("Type[%d] - message[%-32.32s]", M_action, M_message_str[0].c_str());
     } else if (M_action == E_AT_LOG_WARNING) {
-        printf("Type[%d] - warning[%-32.32s]", M_action, M_message_str[0]);
+        printf("Type[%d] - warning[%-32.32s]", M_action, M_message_str[0].c_str());
     } else if (M_action == E_AT_LOG_ERROR) {
-        printf("Type[%d] - error[%-32.32s]", M_action, M_message_str[0]);
+        printf("Type[%d] - error[%-32.32s]", M_action, M_message_str[0].c_str());
     } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
         char tmp[40];
         M_distribution->textDescr(tmp, sizeof(tmp));
@@ -126,7 +126,7 @@ void CAction::afficheInfo()
     } else if (M_action == E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
         printf("Type[%d] - assign gettimeofday[%s, %s]", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_subVarId[0]));
     } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
-        printf("Type[%d] - string assign varId[%s] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message_str[0]);
+        printf("Type[%d] - string assign varId[%s] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message_str[0].c_str());
     } else if (M_action == E_AT_JUMP) {
         printf("Type[%d] - jump varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
     } else if (M_action == E_AT_PAUSE_RESTORE) {
@@ -164,7 +164,7 @@ void CAction::afficheInfo()
 
 SendingMessage* CAction::getMessage(int n)
 {
-    return M_message[n];
+    return &M_message[n];
 }
 
 #ifdef PCAPPLAY
@@ -230,16 +230,9 @@ void CAction::setLookingChar(char* P_value)
 
 void CAction::setMessage(char* P_value, int n)
 {
-    if (M_message[n] != NULL) {
-        delete M_message[n];
-        M_message[n] = NULL;
-    }
-    free(M_message_str[n]);
-    M_message_str[n] = NULL;
-
     if (P_value != NULL) {
-        M_message_str[n] = strdup(P_value);
-        M_message[n] = new SendingMessage(M_scenario, P_value, true /* skip sanity */);
+        M_message_str[n] = std::string(P_value);
+        M_message[n] = SendingMessage(M_scenario, P_value, true /* skip sanity */);
     }
 }
 
@@ -438,14 +431,6 @@ CAction::~CAction()
     delete [] M_subVarId;
     delete M_distribution;
     free(M_stringValue);
-
-    for (auto msg : M_message) {
-        delete msg;
-    }
-
-    for (auto msg : M_message_str) {
-        free(msg);
-    }
 
 #ifdef PCAPPLAY
     free(M_pcapArgs);
