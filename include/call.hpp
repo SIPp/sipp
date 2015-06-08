@@ -238,7 +238,7 @@ private:
     void  extractSubMessage(char * msg, char * matchingString, char* result, bool case_indep,
                             int occurrence, bool headers);
     bool  rejectCall();
-    double get_rhs(CAction& currentAction);
+    double get_rhs(const CAction& currentAction);
 
     // P_index use for message index in scenario and ctrl of CRLF
     // P_index = -2 No ctrl of CRLF

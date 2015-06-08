@@ -155,11 +155,11 @@ public:
     CAction& operator=(const CAction& other) = default;
     CAction& operator=(CAction&& other) = default;
 
-    void afficheInfo();
-    const char *comparatorToString(T_Comparator comp);
-    bool compare(VariableTable *variableTable);
+    void afficheInfo() const;
+    const char *comparatorToString(T_Comparator comp) const;
+    bool compare(VariableTable *variableTable) const;
 
-    char* getRegularExpression();
+    char* getRegularExpression() const;
     SendingMessage* getMessage(int n = 0);  /* log specific function  */
 #ifdef PCAPPLAY
     pcap_pkts* getPcapPkts(); /* send_packets specific function */
@@ -182,10 +182,10 @@ public:
 #endif
 
     void setSubVarId(int P_value);
-    int getSubVarId(int P_index);
+    int getSubVarId(int P_index) const;
     void setNbSubVarId(int P_value);
-    int getNbSubVarId();
-    int* getSubVarId();
+    int getNbSubVarId() const;
+    int* getSubVarId() const;
 
     T_ActionType M_action;
     T_LookingPlace M_lookingPlace;

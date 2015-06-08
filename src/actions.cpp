@@ -42,7 +42,7 @@ static const char* strIntCmd(CAction::T_IntCmdType type)
     }
 }
 
-const char* CAction::comparatorToString(T_Comparator comp)
+const char* CAction::comparatorToString(T_Comparator comp) const
 {
     switch(comp) {
     case E_C_EQ:
@@ -62,7 +62,7 @@ const char* CAction::comparatorToString(T_Comparator comp)
     }
 }
 
-bool CAction::compare(VariableTable* variableTable)
+bool CAction::compare(VariableTable* variableTable) const
 {
     double lhs = variableTable->getVar(M_varInId)->getDouble();
     double rhs = M_varIn2Id ? variableTable->getVar(M_varIn2Id)->getDouble() : M_doubleValue;
@@ -85,7 +85,7 @@ bool CAction::compare(VariableTable* variableTable)
     }
 }
 
-void CAction::afficheInfo()
+void CAction::afficheInfo() const
 {
     if (M_action == E_AT_ASSIGN_FROM_REGEXP) {
         if(M_lookingPlace == E_LP_MSG) {
@@ -189,12 +189,12 @@ void CAction::setSubVarId(int P_value)
     }
 }
 
-int CAction::getSubVarId(int P_index)
+int CAction::getSubVarId(int P_index) const
 {
     return M_subVarId[P_index];
 }
 
-int* CAction::getSubVarId()
+int* CAction::getSubVarId() const
 {
     return M_subVarId;
 }
@@ -207,7 +207,7 @@ void CAction::setNbSubVarId(int P_value)
     M_nbSubVarId = 0;
 }
 
-int CAction::getNbSubVarId()
+int CAction::getNbSubVarId() const
 {
     return M_nbSubVarId;
 }
@@ -249,7 +249,7 @@ void CAction::setRegExp(const char* P_value)
     }
 }
 
-char* CAction::getRegularExpression()
+char* CAction::getRegularExpression() const
 {
     if (!M_regExpSet) {
         ERROR("Trying to get a regular expression for an action that does not have one!");

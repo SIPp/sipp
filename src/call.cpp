@@ -3427,7 +3427,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     return true;
 }
 
-double call::get_rhs(CAction& currentAction)
+double call::get_rhs(const CAction& currentAction)
 {
     if (currentAction.M_varInId) {
         return M_callVariableTable->getVar(currentAction.M_varInId)->getDouble();

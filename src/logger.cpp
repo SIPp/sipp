@@ -195,7 +195,7 @@ void print_variable_list()
             }
 
             int j = 0;
-            for (CAction& action : actions) {
+            for (const CAction& action : actions) {
                 printf("   --> action[%d] = ", j++);
                 action.afficheInfo();
                 printf(SIPP_ENDL);
