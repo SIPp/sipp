@@ -202,12 +202,9 @@ int* CAction::getSubVarId()
 void CAction::setNbSubVarId(int P_value)
 {
     M_maxNbSubVarId = P_value;
-    if (M_subVarId != NULL) {
-        delete [] M_subVarId;
-        M_subVarId      = NULL;
-    }
+    delete [] M_subVarId;
     M_subVarId = new int[M_maxNbSubVarId];
-    M_nbSubVarId = 0 ;
+    M_nbSubVarId = 0;
 }
 
 int CAction::getNbSubVarId()
@@ -217,10 +214,8 @@ int CAction::getNbSubVarId()
 
 void CAction::setLookingChar(char* P_value)
 {
-    if (M_lookingChar != NULL) {
-        delete [] M_lookingChar;
-        M_lookingChar = NULL;
-    }
+    delete [] M_lookingChar;
+    M_lookingChar = NULL;
 
     if (P_value != NULL) {
         M_lookingChar = new char[strlen(P_value) + 1];
