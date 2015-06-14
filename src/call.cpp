@@ -866,8 +866,7 @@ bool call::connect_socket_if_needed()
                 ERROR_NO("Unable to get a UDP socket (1)");
             }
         } else {
-            char* tmp = peripaddr;
-            getFieldFromInputFile(ip_file, peripfield, NULL, tmp);
+            getFieldFromInputFile(ip_file, peripfield, NULL, peripaddr, sizeof(peripaddr));
             auto ii = map_perip_fd.find(peripaddr);
             if (ii == map_perip_fd.end()) {
                 // Socket does not exist
@@ -922,8 +921,7 @@ bool call::connect_socket_if_needed()
         if (peripsocket) {
             struct sockaddr_storage saddr;
             char peripaddr[256];
-            char* tmp;
-            getFieldFromInputFile(ip_file, peripfield, NULL, tmp);
+            getFieldFromInputFile(ip_file, peripfield, NULL, peripaddr, sizeof(peripaddr));
             fill_sockaddr_from_ip(&saddr, peripaddr, use_ipv6);
             int port = -1;
             int ret = sipp_bind_socket(call_socket, &saddr, &port);
@@ -2366,10 +2364,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         }
         case E_Message_Injection: {
-            char *orig_dest = dest;
-            getFieldFromInputFile(comp->comp_param.field_param.filename, comp->comp_param.field_param.field, comp->comp_param.field_param.line, dest);
+            int read = getFieldFromInputFile(comp->comp_param.field_param.filename, comp->comp_param.field_param.field, comp->comp_param.field_param.line, dest);
             /* We are injecting an authentication line. */
-            if (char *tmp = strstr(orig_dest, "[authentication")) {
+            if (char *tmp = strstr(dest, "[authentication")) {
                 if (auth_marker) {
                     ERROR("Only one [authentication] keyword is currently supported!\n");
                 }
@@ -2386,7 +2383,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 SendingMessage::parseAuthenticationKeyword(call_scenario, auth_comp, auth_marker);
                 *tmp = c;
             }
-            if (*(dest - 1) == '\n') {
+            if (*(dest + read - 1) == '\n') {
                 suppresscrlf = true;
             }
             break;
@@ -3988,7 +3985,7 @@ void call::extractSubMessage(char * msg, char * matchingString, char* result, bo
     }
 }
 
-void call::getFieldFromInputFile(const char *fileName, int field, SendingMessage *lineMsg, char*& dest)
+int call::getFieldFromInputFile(const char *fileName, int field, SendingMessage *lineMsg, char* dest, int dest_size)
 {
     if (m_lineNumber == NULL) {
         ERROR("Automatic calls (created by -aa, -oocsn or -oocsf) cannot use input files!");
@@ -4010,9 +4007,9 @@ void call::getFieldFromInputFile(const char *fileName, int field, SendingMessage
         }
     }
     if (line < 0) {
-        return;
+        return 0;
     }
-    dest += inFiles[fileName]->getField(line, field, dest, SIPP_MAX_MSG_SIZE);
+    return inFiles[fileName]->getField(line, field, dest, dest_size);
 }
 
 call::T_AutoMode call::checkAutomaticResponseMode(char * P_recv)
