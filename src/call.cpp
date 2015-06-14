@@ -855,7 +855,7 @@ bool call::connect_socket_if_needed()
     if(!multisocket) return true;
 
     if(transport == T_UDP) {
-        struct sockaddr_storage saddr;
+        struct sockaddr_storage saddr = {0,};
 
         if(sendMode != MODE_CLIENT)
             return true;
@@ -866,11 +866,10 @@ bool call::connect_socket_if_needed()
                 ERROR_NO("Unable to get a UDP socket (1)");
             }
         } else {
-            char *tmp = peripaddr;
+            char* tmp = peripaddr;
             getFieldFromInputFile(ip_file, peripfield, NULL, tmp);
-            map<string, struct sipp_socket *>::iterator i;
-            i = map_perip_fd.find(peripaddr);
-            if (i == map_perip_fd.end()) {
+            auto ii = map_perip_fd.find(peripaddr);
+            if (ii == map_perip_fd.end()) {
                 // Socket does not exist
                 if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
                     ERROR_NO("Unable to get a UDP socket (2)");
@@ -881,21 +880,14 @@ bool call::connect_socket_if_needed()
                 }
             } else {
                 // Socket exists already
-                associate_socket(i->second);
+                associate_socket(ii->second);
                 existing = true;
-                i->second->ss_count++;
+                ii->second->ss_count++;
             }
         }
         if (existing) {
             return true;
         }
-
-        memset(&saddr, 0, sizeof(struct sockaddr_storage));
-
-        memcpy(&saddr,
-               local_addr_storage->ai_addr,
-               SOCK_ADDR_SIZE(
-                   _RCAST(struct sockaddr_storage *,local_addr_storage->ai_addr)));
 
         if (use_ipv6) {
             saddr.ss_family       = AF_INET6;
@@ -904,27 +896,13 @@ bool call::connect_socket_if_needed()
         }
 
         if (peripsocket) {
-            struct addrinfo * h ;
-            struct addrinfo   hints;
-            memset((char*)&hints, 0, sizeof(hints));
-            hints.ai_flags  = AI_PASSIVE;
-            hints.ai_family = PF_UNSPEC;
-            getaddrinfo(peripaddr,
-                        NULL,
-                        &hints,
-                        &h);
+            fill_sockaddr_from_ip(&saddr, peripaddr, use_ipv6);
+        } else {
             memcpy(&saddr,
-                   h->ai_addr,
-                   SOCK_ADDR_SIZE(
-                       _RCAST(struct sockaddr_storage *,h->ai_addr)));
-
-            if (use_ipv6) {
-                (_RCAST(struct sockaddr_in6 *, &saddr))->sin6_port = htons(local_port);
-            } else {
-                (_RCAST(struct sockaddr_in *, &saddr))->sin_port = htons(local_port);
-            }
+                    local_addr_storage->ai_addr,
+                    SOCK_ADDR_SIZE(
+                        _RCAST(struct sockaddr_storage *,local_addr_storage->ai_addr)));
         }
-
         if (sipp_bind_socket(call_socket, &saddr, &call_port)) {
             ERROR_NO("Unable to bind UDP socket");
         }
@@ -944,31 +922,13 @@ bool call::connect_socket_if_needed()
         if (peripsocket) {
             struct sockaddr_storage saddr;
             char peripaddr[256];
-            char *tmp = peripaddr;
+            char* tmp;
             getFieldFromInputFile(ip_file, peripfield, NULL, tmp);
-            struct addrinfo * h ;
-            struct addrinfo   hints;
-            memset((char*)&hints, 0, sizeof(hints));
-            hints.ai_flags  = AI_PASSIVE;
-            hints.ai_family = PF_UNSPEC;
-            getaddrinfo(peripaddr,
-                        NULL,
-                        &hints,
-                        &h);
-            memcpy(&saddr,
-                   h->ai_addr,
-                   SOCK_ADDR_SIZE(
-                       _RCAST(struct sockaddr_storage *,h->ai_addr)));
-
-            if (use_ipv6) {
-                (_RCAST(struct sockaddr_in6 *, &saddr))->sin6_port = htons(0);
-            } else {
-                (_RCAST(struct sockaddr_in *, &saddr))->sin_port = htons(0);
-            }
+            fill_sockaddr_from_ip(&saddr, peripaddr, use_ipv6);
             int port = -1;
             int ret = sipp_bind_socket(call_socket, &saddr, &port);
-             if (ret != 0) {
-              WARNING_NO("Could not bind to %s: %d", peripaddr, ret);
+            if (ret != 0) {
+                WARNING_NO("Could not bind to %s: %d", peripaddr, ret);
             }
         }
 
@@ -3673,11 +3633,8 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 }
             }
 
-            struct addrinfo   hints;
+            struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC};
             struct addrinfo * local_addr;
-            memset((char*)&hints, 0, sizeof(hints));
-            hints.ai_flags  = AI_PASSIVE;
-            hints.ai_family = PF_UNSPEC;
             is_ipv6 = false;
 
             if (getaddrinfo(str_host, NULL, &hints, &local_addr) != 0) {

@@ -1567,6 +1567,9 @@ int main(int argc, char *argv[])
                     break;
                 }
 
+                if (peripsocket && transport != T_UDP && transport != T_TCP) {
+                    ERROR("You can only use a perip socket with TCP or UDP!\n");
+                }
                 break;
             case SIPP_OPTION_NEED_SCTP:
                 CHECK_PASS();
@@ -1726,14 +1729,10 @@ int main(int argc, char *argv[])
                 if (temp_remote_s_p != 0) {
                     remote_s_p = temp_remote_s_p;
                 }
-                struct addrinfo   hints;
+                struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC};
                 struct addrinfo * local_addr;
 
                 printf("Resolving remote sending address %s...\n", remote_s_address);
-
-                memset((char*)&hints, 0, sizeof(hints));
-                hints.ai_flags  = AI_PASSIVE;
-                hints.ai_family = PF_UNSPEC;
 
                 /* FIXME: add DNS SRV support using liburli? */
                 if (getaddrinfo(remote_s_address,
@@ -2131,12 +2130,8 @@ int main(int argc, char *argv[])
     /* to avoid ICMP                     */
     if (1) {
         /* retrieve RTP local addr */
-        struct addrinfo   hints;
+        struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC};
         struct addrinfo * local_addr;
-
-        memset((char*)&hints, 0, sizeof(hints));
-        hints.ai_flags  = AI_PASSIVE;
-        hints.ai_family = PF_UNSPEC;
 
         /* Resolving local IP */
         if (getaddrinfo(media_ip,
