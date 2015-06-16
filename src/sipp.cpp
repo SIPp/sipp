@@ -1293,8 +1293,7 @@ int main(int argc, char *argv[])
     }
     {
         /* Ignore the SIGPIPE signal */
-        struct sigaction action_pipe;
-        memset(&action_pipe, 0, sizeof(action_pipe));
+        struct sigaction action_pipe = {};
         action_pipe.sa_handler=SIG_IGN;
         sigaction(SIGPIPE, &action_pipe, NULL);
 
@@ -1304,14 +1303,12 @@ int main(int argc, char *argv[])
 #endif
 
         /* sig usr1 management */
-        struct sigaction action_usr1;
-        memset(&action_usr1, 0, sizeof(action_usr1));
+        struct sigaction action_usr1 = {};
         action_usr1.sa_handler = sipp_sigusr1;
         sigaction(SIGUSR1, &action_usr1, NULL);
 
         /* sig usr2 management */
-        struct sigaction action_usr2;
-        memset(&action_usr2, 0, sizeof(action_usr2));
+        struct sigaction action_usr2 = {};
         action_usr2.sa_handler = sipp_sigusr2;
         sigaction(SIGUSR2, &action_usr2, NULL);
     }
@@ -1319,13 +1316,6 @@ int main(int argc, char *argv[])
     screen_set_exename((char *)"sipp");
 
     pid = getpid();
-    memset(local_ip, 0, 40);
-#ifdef USE_SCTP
-    memset(multihome_ip, 0, 40);
-#endif
-    memset(media_ip,0, 40);
-    memset(control_ip,0, 40);
-    memset(media_ip_escaped,0, 42);
 
     /* Load compression pluggin if available */
     comp_load();

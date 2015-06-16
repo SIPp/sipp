@@ -233,12 +233,12 @@ extern int                max_sched_loops         _DEFVAL(MAX_SCHED_LOOPS_PER_CY
 
 extern unsigned int       global_t2               _DEFVAL(DEFAULT_T2_TIMER_VALUE);
 
-extern char               local_ip[40];
-extern char               local_ip_escaped[42];
-extern bool               local_ip_is_ipv6;
+extern char               local_ip[40]            _DEFVAL({});
+extern char               local_ip_escaped[42]    _DEFVAL({});
+extern bool               local_ip_is_ipv6        _DEFVAL({});
 extern int                local_port              _DEFVAL(0);
 #ifdef USE_SCTP
-extern char               multihome_ip[40];
+extern char               multihome_ip[40]        _DEFVAL({});
 extern int                heartbeat               _DEFVAL(0);
 extern int                assocmaxret             _DEFVAL(0);
 extern int                pathmaxret              _DEFVAL(0);
@@ -261,14 +261,14 @@ extern int                rtp_buffsize            _DEFVAL(65535);
 #endif
 
 extern bool               rtp_echo_enabled        _DEFVAL(0);
-extern char               media_ip[40];
-extern char               media_ip_escaped[42];
+extern char               media_ip[40]            _DEFVAL({});
+extern char               media_ip_escaped[42]    _DEFVAL({});
 extern int                user_media_port         _DEFVAL(0);
 extern int                media_port              _DEFVAL(0);
 extern size_t             media_bufsize           _DEFVAL(2048);
 extern bool               media_ip_is_ipv6;
-extern char               remote_ip[40];
-extern char               remote_ip_escaped[42];
+extern char               remote_ip[40]           _DEFVAL({});
+extern char               remote_ip_escaped[42]   _DEFVAL({});
 extern int                remote_port             _DEFVAL(DEFAULT_PORT);
 extern unsigned int       pid                     _DEFVAL(0);
 extern bool               print_all_responses     _DEFVAL(false);
