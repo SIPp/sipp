@@ -4,8 +4,7 @@
 /************************** Trace Files ***********************/
 
 #include <time.h>
-
-#define MAX_PATH                   250
+#include "sipp.hpp"
 
 #ifdef GLOBALS_FULL_DEFINITION
 #define extern

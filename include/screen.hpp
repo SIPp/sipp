@@ -39,6 +39,8 @@ extern "C" {
 }
 #endif
 
+#define MAX_PATH                   250
+
 #define EXIT_TEST_OK               0
 #define EXIT_TEST_FAILED           1
 #define EXIT_TEST_RES_INTERNAL     97

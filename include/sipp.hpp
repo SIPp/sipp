@@ -135,8 +135,6 @@
 #define MAX_SCHED_LOOPS_PER_CYCLE  1000
 #define NB_UPDATE_PER_CYCLE        1
 
-#define MAX_PATH                   250
-
 #define MAX_PEER_SIZE              4096  /* 3pcc extended mode: max size of peer names */
 #define MAX_LOCAL_TWIN_SOCKETS     10    /*3pcc extended mode:max number of peers from which
 cmd messages are received */

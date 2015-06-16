@@ -53,8 +53,6 @@
 #include "prepare_pcap.h"
 #include "screen.hpp"
 
-#define MAX_PATH 250
-
 extern char* scenario_path;
 extern volatile unsigned long rtp_pckts_pcap;
 extern volatile unsigned long rtp_bytes_pcap;
