@@ -1313,7 +1313,7 @@ int main(int argc, char *argv[])
         sigaction(SIGUSR2, &action_usr2, NULL);
     }
 
-    screen_set_exename((char *)"sipp");
+    screen_set_exename("sipp");
 
     pid = getpid();
 

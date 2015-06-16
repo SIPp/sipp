@@ -96,7 +96,7 @@ void screen_clear()
     printf("\033[2J");
 }
 
-void screen_set_exename(char * exe_name)
+void screen_set_exename(const char* exe_name)
 {
     strcpy(screen_exename, exe_name);
 }
