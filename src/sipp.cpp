@@ -401,11 +401,11 @@ static struct sipp_option *find_option(const char* option) {
 
 /******************** Recv Poll Processing *********************/
 
-extern unsigned pollnfds;
+extern size_t pollnfds;
 #ifdef HAVE_EPOLL
 extern int epollfd;
 extern struct epoll_event   epollfiles[SIPP_MAXFDS];
-extern struct epoll_event*  epollevents;
+extern std::vector<struct epoll_event> epollevents;
 #else
 extern struct pollfd        pollfiles[SIPP_MAXFDS];
 #endif
@@ -475,7 +475,7 @@ static void pollset_process(int wait)
 #ifdef HAVE_EPOLL
     /* Ignore the wait parameter and always wait - when establishing TCP
      * connections, the alternative is that we tight-loop. */
-    rs = epoll_wait(epollfd, epollevents, max_recv_loops, 1);
+    rs = epoll_wait(epollfd, epollevents.data(), max_recv_loops, 1);
     // If we're receiving as many epollevents as possible, flag CPU congestion
     cpu_max = (rs > (max_recv_loops - 2));
 #else
@@ -487,10 +487,10 @@ static void pollset_process(int wait)
 
     /* We need to flush all sockets and pull data into all of our buffers. */
 #ifdef HAVE_EPOLL
-    for (int event_idx = 0; event_idx < rs; event_idx++) {
-        int poll_idx = (int)epollevents[event_idx].data.u32;
+    for (size_t event_idx = 0; event_idx < rs; event_idx++) {
+        size_t poll_idx = epollevents[event_idx].data.u32;
 #else
-    for (int poll_idx = 0; rs > 0 && poll_idx < pollnfds; poll_idx++) {
+    for (size_t poll_idx = 0; rs > 0 && poll_idx < pollnfds; poll_idx++) {
 #endif
         struct sipp_socket *sock = sockets[poll_idx];
         int events = 0;
@@ -2085,7 +2085,7 @@ int main(int argc, char *argv[])
     }
 
 #ifdef HAVE_EPOLL
-    epollevents = (struct epoll_event*)malloc(sizeof(struct epoll_event) * max_recv_loops);
+    epollevents.reserve(max_recv_loops);
     epollfd = epoll_create(SIPP_MAXFDS);
     if (epollfd == -1) {
         ERROR_NO("Failed to open epoll FD");
@@ -2225,7 +2225,6 @@ int main(int argc, char *argv[])
 
 #ifdef HAVE_EPOLL
     close(epollfd);
-    free(epollevents);
 #endif
 
     if (scenario_file != NULL) {
