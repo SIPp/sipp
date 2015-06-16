@@ -2159,18 +2159,13 @@ int main(int argc, char *argv[])
                    _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
         freeaddrinfo(local_addr);
 
-        if((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
-                                  SOCK_DGRAM, 0)) == -1) {
-            char msg[512];
-            sprintf(msg, "Unable to get the audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
-            ERROR_NO(msg);
+        if ((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0)) == -1) {
+            ERROR_NO("Unable to get the audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
         }
+
         /* create a second socket for video */
-        if((media_socket_video = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
-                                        SOCK_DGRAM, 0)) == -1) {
-            char msg[512];
-            sprintf(msg, "Unable to get the video RTP socket (IP=%s, port=%d)", media_ip, media_port+2);
-            ERROR_NO(msg);
+        if ((media_socket_video = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0)) == -1) {
+            ERROR_NO("Unable to get the video RTP socket (IP=%s, port=%d)", media_ip, media_port + 2);
         }
 
         int try_counter;
@@ -2200,9 +2195,7 @@ int main(int argc, char *argv[])
         }
 
         if (try_counter >= max_tries) {
-            char msg[512];
-            sprintf(msg, "Unable to bind audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
-            ERROR_NO(msg);
+            ERROR_NO("Unable to bind audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
         }
 
         /*---------------------------------------------------------
@@ -2228,9 +2221,7 @@ int main(int argc, char *argv[])
         if(bind(media_socket_video,
                 (sockaddr *)(void *)&media_sockaddr,
                 SOCK_ADDR_SIZE(&media_sockaddr))) {
-            char msg[512];
-            sprintf(msg, "Unable to bind video RTP socket (IP=%s, port=%d)", media_ip, media_port+2);
-            ERROR_NO(msg);
+            ERROR_NO("Unable to bind video RTP socket (IP=%s, port=%d)", media_ip, media_port + 2);
         }
         /* Second socket bound */
     }
