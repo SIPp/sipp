@@ -36,6 +36,7 @@
  */
 
 #include <dlfcn.h>
+#include <thread>
 
 #define GLOBALS_FULL_DEFINITION
 #include "sipp.hpp"
@@ -814,9 +815,8 @@ static void traffic_thread()
 /*************** RTP ECHO THREAD ***********************/
 /* param is a pointer to RTP socket */
 
-static void rtp_echo_thread(void* param)
+static void rtp_echo_thread(int fd)
 {
-    int fd = *reinterpret_cast<int*>(param);
     union {
         struct sockaddr sa;
         struct sockaddr_storage ss;
@@ -1281,7 +1281,6 @@ int main(int argc, char *argv[])
 {
     int                  argi = 0;
     struct sockaddr_storage   media_sockaddr;
-    pthread_t            pthread2_id,  pthread3_id;
     unsigned int         generic_count = 0;
     bool                 slave_masterSet = false;
 
@@ -2222,27 +2221,13 @@ int main(int argc, char *argv[])
         setup_stdin_socket();
     }
 
-    if ((media_socket > 0) && (rtp_echo_enabled)) {
-        if (pthread_create
-                (&pthread2_id,
-                 NULL,
-                 (void *(*)(void *)) rtp_echo_thread,
-                 (void*)&media_socket)
-                == -1) {
-            ERROR_NO("Unable to create RTP echo thread");
+    if (rtp_echo_enabled) {
+        if (media_socket > 0) {
+            std::thread(rtp_echo_thread, media_socket);
         }
-    }
 
-
-    /* Creating second RTP echo thread for video */
-    if ((media_socket_video > 0) && (rtp_echo_enabled)) {
-        if (pthread_create
-                (&pthread3_id,
-                 NULL,
-                 (void *(*)(void *)) rtp_echo_thread,
-                 (void*)&media_socket_video)
-                == -1) {
-            ERROR_NO("Unable to create second RTP echo thread");
+        if (media_socket_video > 0) {
+            std::thread(rtp_echo_thread, media_socket_video);
         }
     }
 
