@@ -1728,8 +1728,7 @@ int main(int argc, char *argv[])
 
                 memcpy(&remote_sending_sockaddr,
                        local_addr->ai_addr,
-                       SOCK_ADDR_SIZE(
-                           _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
+                       local_addr->ai_addrlen);
 
                 if (remote_sending_sockaddr.ss_family == AF_INET) {
                     (_RCAST(struct sockaddr_in *, &remote_sending_sockaddr))->sin_port =
@@ -2134,8 +2133,7 @@ int main(int argc, char *argv[])
 
         memcpy(&media_sockaddr,
                local_addr->ai_addr,
-               SOCK_ADDR_SIZE(
-                   _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
+               local_addr->ai_addrlen);
         freeaddrinfo(local_addr);
 
         if ((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0)) == -1) {
@@ -2165,8 +2163,8 @@ int main(int argc, char *argv[])
             get_host_and_port(media_ip, media_ip_escaped, NULL);
 
             if(bind(media_socket,
-                    (sockaddr *)(void *)&media_sockaddr,
-                    SOCK_ADDR_SIZE(&media_sockaddr)) == 0) {
+                    _RCAST(sockaddr*, &media_sockaddr),
+                    sizeof(media_sockaddr)) == 0) {
                 break;
             }
 
@@ -2198,8 +2196,8 @@ int main(int argc, char *argv[])
         }
 
         if(bind(media_socket_video,
-                (sockaddr *)(void *)&media_sockaddr,
-                SOCK_ADDR_SIZE(&media_sockaddr))) {
+                _RCAST(sockaddr*, &media_sockaddr),
+                sizeof(media_sockaddr))) {
             ERROR_NO("Unable to bind video RTP socket (IP=%s, port=%d)", media_ip, media_port + 2);
         }
         /* Second socket bound */

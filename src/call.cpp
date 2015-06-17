@@ -581,7 +581,7 @@ void call::init(scenario* call_scenario, struct sipp_socket* socket, struct sock
         call_socket = NULL;
     }
     if (dest) {
-        memcpy(&call_peer, dest, SOCK_ADDR_SIZE(dest));
+        memcpy(&call_peer, dest, sizeof(call_peer));
     } else {
         memset(&call_peer, 0, sizeof(call_peer));
     }
@@ -883,8 +883,7 @@ bool call::connect_socket_if_needed()
         memset(&saddr, 0, sizeof(struct sockaddr_storage));
         memcpy(&saddr,
                local_addr_storage->ai_addr,
-               SOCK_ADDR_SIZE(
-                   _RCAST(struct sockaddr_storage*,local_addr_storage->ai_addr)));
+               local_addr_storage->ai_addrlen);
 
         if (use_ipv6) {
             saddr.ss_family = AF_INET6;
@@ -904,8 +903,7 @@ bool call::connect_socket_if_needed()
                         &h);
             memcpy(&saddr,
                    h->ai_addr,
-                   SOCK_ADDR_SIZE(
-                       _RCAST(struct sockaddr_storage*, h->ai_addr)));
+                   h->ai_addrlen);
 
             if (use_ipv6) {
                 (_RCAST(struct sockaddr_in6*, &saddr))->sin6_port = htons(local_port);
@@ -2944,7 +2942,7 @@ bool call::process_incoming(char* msg, struct sockaddr_storage *src)
 
     /* Get our destination if we have none. */
     if (call_peer.ss_family == AF_UNSPEC && src) {
-        memcpy(&call_peer, src, SOCK_ADDR_SIZE(src));
+        memcpy(&call_peer, src, sizeof(call_peer));
     }
 
     /* Authorize nop as a first command, even in server mode */
@@ -3651,13 +3649,13 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
             if (_RCAST(struct sockaddr_storage *, local_addr->ai_addr)->ss_family != call_peer.ss_family) {
                 ERROR("Can not switch between IPv4 and IPV6 using setdest!");
             }
-            memcpy(&call_peer, local_addr->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
+            memcpy(&call_peer, local_addr->ai_addr, local_addr->ai_addrlen);
             if (call_peer.ss_family == AF_INET) {
                 (_RCAST(struct sockaddr_in*, &call_peer))->sin_port = htons(port);
             } else {
                 (_RCAST(struct sockaddr_in6*, &call_peer))->sin6_port = htons(port);
             }
-            memcpy(&call_socket->ss_dest, &call_peer, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *,&call_peer)));
+            memcpy(&call_socket->ss_dest, &call_peer, sizeof(call_peer));
 
             free(str_host);
             free(str_port);
