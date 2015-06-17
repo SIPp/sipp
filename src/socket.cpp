@@ -512,7 +512,7 @@ void setup_ctrl_socket()
                   "Use 'sipp -h' for details", control_ip);
         }
 
-        memcpy(&ctl_sa, addrinfo->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *, addrinfo->ai_addr)));
+        memcpy(&ctl_sa, addrinfo->ai_addr, addrinfo->ai_addrlen);
         freeaddrinfo(addrinfo);
     } else {
         ((struct sockaddr_in *)&ctl_sa)->sin_family = AF_INET;
@@ -838,7 +838,7 @@ void set_multihome_addr(struct sipp_socket* socket, int port)
         struct sockaddr_storage secondaryaddress;
         memset(&secondaryaddress, 0, sizeof(secondaryaddress));
 
-        memcpy(&secondaryaddress, multi_addr->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *, multi_addr->ai_addr)));
+        memcpy(&secondaryaddress, multi_addr->ai_addr, multi_addr->ai_addrlen);
         freeaddrinfo(multi_addr);
 
         if (port>0) {
@@ -1060,7 +1060,7 @@ ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len, struct s
     }
 
     memcpy(buf, socket->ss_in->buf + socket->ss_in->offset, avail);
-    memcpy(src, &socket->ss_in->addr, SOCK_ADDR_SIZE(&socket->ss_in->addr));
+    memcpy(src, &socket->ss_in->addr, sizeof(socket->ss_in->addr));
 
     /* Update our buffer and return value. */
     buf[avail] = '\0';
@@ -1553,7 +1553,7 @@ static int sipp_do_connect_socket(struct sipp_socket* socket)
     fcntl(socket->ss_fd, F_SETFL, flags | O_NONBLOCK);
 
     errno = 0;
-    ret = connect(socket->ss_fd, (struct sockaddr *)&socket->ss_dest, SOCK_ADDR_SIZE(&socket->ss_dest));
+    ret = connect(socket->ss_fd, _RCAST(struct sockaddr *, &socket->ss_dest), sizeof(socket->ss_dest));
     if (ret < 0) {
         if (errno == EINPROGRESS) {
             /* Block this socket until the connect completes - this is very similar to entering congestion, but we don't want to increment congestion statistics. */
@@ -1588,7 +1588,7 @@ static int sipp_do_connect_socket(struct sipp_socket* socket)
 
 int sipp_connect_socket(struct sipp_socket *socket, struct sockaddr_storage *dest)
 {
-    memcpy(&socket->ss_dest, dest, SOCK_ADDR_SIZE(dest));
+    memcpy(&socket->ss_dest, dest, sizeof(*dest));
     return sipp_do_connect_socket(socket);
 }
 
@@ -1672,7 +1672,7 @@ struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy, struct so
     socketbuf->len = size;
     socketbuf->offset = 0;
     if (dest) {
-        memcpy(&socketbuf->addr, dest, SOCK_ADDR_SIZE(dest));
+        memcpy(&socketbuf->addr, dest, sizeof(*dest));
     }
     socketbuf->next = NULL;
 
@@ -1700,7 +1700,7 @@ void sipp_sctp_peer_params(struct sipp_socket *socket)
         for (int i = 0; i < addresscount; i++) {
             memset(&peerparam.spp_address, 0, sizeof(peerparam.spp_address));
             struct sockaddr_storage* peeraddress = (struct sockaddr_storage*) &addresses[i];
-            memcpy(&peerparam.spp_address, peeraddress, SOCK_ADDR_SIZE(peeraddress));
+            memcpy(&peerparam.spp_address, peeraddress, sizeof(*peeraddress));
 
             peerparam.spp_hbinterval = heartbeat;
             peerparam.spp_pathmaxrxt = pathmaxret;
@@ -2264,7 +2264,7 @@ static ssize_t socket_write_primitive(struct sipp_socket* socket, const char* bu
             TRACE_MSG("---\nCompressed message len: %zu\n", len);
         }
 
-        rc = sendto(socket->ss_fd, buffer, len, 0, (struct sockaddr *)dest, SOCK_ADDR_SIZE(dest));
+        rc = sendto(socket->ss_fd, buffer, len, 0, _RCAST(struct sockaddr*, dest), sizeof(*dest));
         break;
 
     default:
@@ -2467,8 +2467,7 @@ int open_connections()
             }
 
             memset(&remote_sockaddr, 0, sizeof( remote_sockaddr ));
-            memcpy(&remote_sockaddr, local_addr->ai_addr,
-                   SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage*, local_addr->ai_addr)));
+            memcpy(&remote_sockaddr, local_addr->ai_addr, local_addr->ai_addrlen);
             freeaddrinfo(local_addr);
 
             get_inet_address(&remote_sockaddr, remote_ip, sizeof(remote_ip));
@@ -2522,8 +2521,7 @@ int open_connections()
         } else {
             memcpy(&local_sockaddr,
                    local_addr->ai_addr,
-                   SOCK_ADDR_SIZE(
-                       _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
+                   local_addr->ai_addrlen);
         }
         freeaddrinfo(local_addr);
 
@@ -2582,8 +2580,7 @@ int open_connections()
                 }
                 memcpy(&local_sockaddr,
                        local_addr->ai_addr,
-                       SOCK_ADDR_SIZE(
-                           _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
+                       local_addr->ai_addrlen);
                 freeaddrinfo(local_addr);
             }
             if (local_ip_is_ipv6) {
@@ -2634,8 +2631,7 @@ int open_connections()
             }
             memcpy(&local_sockaddr,
                    local_addr->ai_addr,
-                   SOCK_ADDR_SIZE(
-                       _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
+                   local_addr->ai_addrlen);
             freeaddrinfo(local_addr);
         }
 
@@ -2689,8 +2685,7 @@ int open_connections()
 
                 memcpy(&server_sockaddr,
                        local_addr->ai_addr,
-                       SOCK_ADDR_SIZE(
-                           _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
+                       local_addr->ai_addrlen);
                 freeaddrinfo(local_addr);
 
                 if (is_ipv6) {
@@ -2822,8 +2817,7 @@ void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *pe
 
     memcpy(peer_sockaddr,
            local_addr->ai_addr,
-           SOCK_ADDR_SIZE(
-               _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
+           local_addr->ai_addrlen);
 
     freeaddrinfo(local_addr);
 
@@ -2915,10 +2909,7 @@ void connect_local_twin_socket(char * twinSippHost)
         ERROR("Unknown twin host '%s'.\n"
               "Use 'sipp -h' for details", twinSippHost);
     }
-    memcpy(&twinSipp_sockaddr,
-           local_addr->ai_addr,
-           SOCK_ADDR_SIZE(
-               _RCAST(struct sockaddr_storage*, local_addr->ai_addr)));
+    memcpy(&twinSipp_sockaddr, local_addr->ai_addr, local_addr->ai_addrlen);
     freeaddrinfo(local_addr);
 
     if (twinSipp_sockaddr.ss_family == AF_INET) {
