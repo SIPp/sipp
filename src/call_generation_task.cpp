@@ -65,7 +65,7 @@ unsigned int CallGenerationTask::wake() {
         // this task should wait forever before rescheduling.
         retval = DONT_RESCHEDULE;
     } else {
-        float ms_per_call = rate_period_ms/MAX(rate, 1);
+        float ms_per_call = rate_period_ms / std::max(rate, 1.0);
         /* We need to compute when the next call is going to be
          * opened. The current time is the time when the rate last
          * changed, plus the number of calls since then multiplied by
