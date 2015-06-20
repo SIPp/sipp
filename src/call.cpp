@@ -888,19 +888,19 @@ bool call::connect_socket_if_needed()
             return true;
         }
 
-        if (use_ipv6) {
-            saddr.ss_family       = AF_INET6;
-        } else {
-            saddr.ss_family       = AF_INET;
-        }
-
         if (peripsocket) {
-            fill_sockaddr_from_ip(&saddr, peripaddr, use_ipv6);
+            fill_sockaddr_from_ip(&saddr, peripaddr, use_ipv6 ? AF_INET6 : AF_INET);
         } else {
             memcpy(&saddr,
                     local_addr_storage->ai_addr,
                     SOCK_ADDR_SIZE(
                         _RCAST(struct sockaddr_storage *,local_addr_storage->ai_addr)));
+        
+            if (use_ipv6) {
+                saddr.ss_family       = AF_INET6;
+            } else {
+                saddr.ss_family       = AF_INET;
+            }
         }
         if (sipp_bind_socket(call_socket, &saddr, &call_port)) {
             ERROR_NO("Unable to bind UDP socket");
@@ -922,7 +922,7 @@ bool call::connect_socket_if_needed()
             struct sockaddr_storage saddr;
             char peripaddr[256];
             getFieldFromInputFile(ip_file, peripfield, NULL, peripaddr, sizeof(peripaddr));
-            fill_sockaddr_from_ip(&saddr, peripaddr, use_ipv6);
+            fill_sockaddr_from_ip(&saddr, peripaddr, use_ipv6 ? AF_INET6 : AF_INET);
             int port = -1;
             int ret = sipp_bind_socket(call_socket, &saddr, &port);
             if (ret != 0) {
@@ -3630,22 +3630,21 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 }
             }
 
-            struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC};
-            struct addrinfo * local_addr;
-            is_ipv6 = false;
+            struct sockaddr_storage new_peer = {0,};
 
-            if (getaddrinfo(str_host, NULL, &hints, &local_addr) != 0) {
+            if (!fill_sockaddr_from_ip(&new_peer, str_host, AF_UNSPEC)) {
                 ERROR("Unknown host '%s' for setdest", str_host);
             }
-            if (_RCAST(struct sockaddr_storage *, local_addr->ai_addr)->ss_family != call_peer.ss_family) {
+            if (new_peer.ss_family != call_peer.ss_family) {
                 ERROR("Can not switch between IPv4 and IPV6 using setdest!");
             }
-            memcpy(&call_peer, local_addr->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
-            if (call_peer.ss_family == AF_INET) {
-                (_RCAST(struct sockaddr_in *,&call_peer))->sin_port = htons(port);
+            if (new_peer.ss_family == AF_INET) {
+                printf("Call peer is IPv4, setting port to %d\n", port);
+                (_RCAST(struct sockaddr_in *,&new_peer))->sin_port = htons(port);
             } else {
-                (_RCAST(struct sockaddr_in6 *,&call_peer))->sin6_port = htons(port);
+                (_RCAST(struct sockaddr_in6 *,&new_peer))->sin6_port = htons(port);
             }
+            call_peer = new_peer;
             memcpy(&call_socket->ss_dest, &call_peer, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *,&call_peer)));
 
             free(str_host);

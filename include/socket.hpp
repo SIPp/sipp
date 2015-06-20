@@ -50,7 +50,7 @@ void setup_ctrl_socket();
 void setup_stdin_socket();
 
 char * get_inet_address(struct sockaddr_storage * addr);
-bool fill_sockaddr_from_ip(struct sockaddr_storage* saddr, char* ip, bool use_ipv6);
+bool fill_sockaddr_from_ip(struct sockaddr_storage* saddr, char* ip, int address_family);
 
 int handle_ctrl_socket();
 void handle_stdin_socket();

@@ -1729,25 +1729,15 @@ int main(int argc, char *argv[])
                 if (temp_remote_s_p != 0) {
                     remote_s_p = temp_remote_s_p;
                 }
-                struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC};
-                struct addrinfo * local_addr;
 
                 printf("Resolving remote sending address %s...\n", remote_s_address);
-
                 /* FIXME: add DNS SRV support using liburli? */
-                if (getaddrinfo(remote_s_address,
-                                NULL,
-                                &hints,
-                                &local_addr) != 0) {
-                    ERROR("Unknown remote host '%s'.\n"
-                          "Use 'sipp -h' for details", remote_s_address);
+                if (!fill_sockaddr_from_ip(&remote_sending_sockaddr, remote_s_address, AF_UNSPEC)) {
+                    ERROR_NO("Unknown remote host '%s'.\n"
+                             "Use 'sipp -h' for details", remote_s_address);
                 }
 
-                memcpy(&remote_sending_sockaddr,
-                       local_addr->ai_addr,
-                       SOCK_ADDR_SIZE(
-                           _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
-
+                printf("Remote address family is %s...\n", remote_sending_sockaddr.ss_family);
                 if (remote_sending_sockaddr.ss_family == AF_INET) {
                     (_RCAST(struct sockaddr_in *, &remote_sending_sockaddr))->sin_port =
                         htons((short)remote_s_p);
@@ -1757,7 +1747,6 @@ int main(int argc, char *argv[])
                 }
                 use_remote_sending_addr = 1;
 
-                freeaddrinfo(local_addr);
                 break;
             }
             case SIPP_OPTION_RTCHECK:
@@ -2130,26 +2119,10 @@ int main(int argc, char *argv[])
     /* to avoid ICMP                     */
     if (1) {
         /* retrieve RTP local addr */
-        struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC};
-        struct addrinfo * local_addr;
-
-        /* Resolving local IP */
-        if (getaddrinfo(media_ip,
-                        NULL,
-                        &hints,
-                        &local_addr) != 0) {
+        if (!fill_sockaddr_from_ip(&media_sockaddr, media_ip, AF_UNSPEC)) {
             ERROR("Unknown RTP address '%s'.\n"
                   "Use 'sipp -h' for details", media_ip);
         }
-
-        memset(&media_sockaddr,0,sizeof(struct sockaddr_storage));
-        media_sockaddr.ss_family = local_addr->ai_addr->sa_family;
-
-        memcpy(&media_sockaddr,
-               local_addr->ai_addr,
-               SOCK_ADDR_SIZE(
-                   _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
-        freeaddrinfo(local_addr);
 
         if((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
                                   SOCK_DGRAM, 0)) == -1) {

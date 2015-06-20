@@ -489,7 +489,7 @@ void setup_ctrl_socket()
 {
     int port, firstport;
     int try_counter = 60;
-    struct sockaddr_storage ctl_sa;
+    struct sockaddr_storage ctl_sa = {0,};
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock == -1) {
@@ -508,18 +508,11 @@ void setup_ctrl_socket()
     }
     firstport = port;
 
-    memset(&ctl_sa, 0, sizeof(struct sockaddr_storage));
     if (control_ip[0]) {
-        struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC,};
-        struct addrinfo *addrinfo;
-
-        if (getaddrinfo(control_ip, NULL, &hints, &addrinfo) != 0) {
+        if (!fill_sockaddr_from_ip(&ctl_sa, control_ip, AF_UNSPEC)) {
             ERROR("Unknown control address '%s'.\n"
                   "Use 'sipp -h' for details", control_ip);
         }
-
-        memcpy(&ctl_sa, addrinfo->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *, addrinfo->ai_addr)));
-        freeaddrinfo(addrinfo);
     } else {
         ((struct sockaddr_in *)&ctl_sa)->sin_family = AF_INET;
         ((struct sockaddr_in *)&ctl_sa)->sin_addr.s_addr = INADDR_ANY;
@@ -831,22 +824,17 @@ static int handleSCTPNotify(struct sipp_socket* socket, char* buffer)
 void set_multihome_addr(struct sipp_socket* socket, int port)
 {
     if (strlen(multihome_ip)>0) {
-        struct addrinfo* multi_addr;
-        struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC,};
-
-        if (getaddrinfo(multihome_ip, NULL, &hints, &multi_addr) != 0) {
+        struct sockaddr_storage secondaryaddress = {0,};
+        if (!fill_sockaddr_from_ip(&secondaryaddress, multihome_ip, AF_UNSPEC)) {
             ERROR("Can't get multihome IP address in getaddrinfo, multihome_ip='%s'", multihome_ip);
         }
 
-        struct sockaddr_storage secondaryaddress;
-        memset(&secondaryaddress, 0, sizeof(secondaryaddress));
-
-        memcpy(&secondaryaddress, multi_addr->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *, multi_addr->ai_addr)));
-        freeaddrinfo(multi_addr);
-
-        if (port>0) {
-            if (secondaryaddress.ss_family==AF_INET) ((struct sockaddr_in*)&secondaryaddress)->sin_port=htons(port);
-            else if (secondaryaddress.ss_family==AF_INET6) ((struct sockaddr_in6*)&secondaryaddress)->sin6_port=htons(port);
+        if (port > 0) {
+            if (secondaryaddress.ss_family == AF_INET) {
+                ((struct sockaddr_in*)&secondaryaddress)->sin_port = htons(port);
+            } else if (secondaryaddress.ss_family == AF_INET6) {
+                ((struct sockaddr_in6*)&secondaryaddress)->sin6_port=htons(port);
+            }
         }
 
         int ret = sctp_bindx(socket->ss_fd, (struct sockaddr *) &secondaryaddress,
@@ -2502,37 +2490,22 @@ int open_connections()
 
         /* Resolving the remote IP */
         {
-            struct addrinfo  hints = {AI_PASSIVE, AF_UNSPEC,};
-            struct addrinfo * local_addr;
-
             fprintf(stderr, "Resolving remote host '%s'... ", remote_host);
 
-            /* FIXME: add DNS SRV support using liburli? */
-            if (getaddrinfo(remote_host,
-                            NULL,
-                            &hints,
-                            &local_addr) != 0) {
+            if (!fill_sockaddr_from_ip(&remote_sockaddr, remote_host, AF_UNSPEC)) {
                 ERROR("Unknown remote host '%s'.\n"
                       "Use 'sipp -h' for details", remote_host);
             }
 
-            memset(&remote_sockaddr, 0, sizeof( remote_sockaddr ));
-            memcpy(&remote_sockaddr,
-                   local_addr->ai_addr,
-                   SOCK_ADDR_SIZE(
-                       _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
-
-            freeaddrinfo(local_addr);
-
             strcpy(remote_ip, get_inet_address(&remote_sockaddr));
             if (remote_sockaddr.ss_family == AF_INET) {
-                (_RCAST(struct sockaddr_in *, &remote_sockaddr))->sin_port =
-                    htons((short)remote_port);
                 strcpy(remote_ip_escaped, remote_ip);
+                (_RCAST(struct sockaddr_in *, &remote_sockaddr))->sin_port =
+                                      htons((short)remote_port);
             } else {
-                (_RCAST(struct sockaddr_in6 *, &remote_sockaddr))->sin6_port =
-                    htons((short)remote_port);
                 sprintf(remote_ip_escaped, "[%s]", remote_ip);
+                (_RCAST(struct sockaddr_in6 *, &remote_sockaddr))->sin6_port =
+                                      htons((short)remote_port);
             }
             fprintf(stderr, "Done.\n");
         }
@@ -2614,13 +2587,13 @@ int open_connections()
             // For the socket per IP mode, bind the main socket to the
             // first IP address specified in the inject file.
             inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
-            if (!fill_sockaddr_from_ip(&local_sockaddr, peripaddr, local_ip_is_ipv6))
+            if (!fill_sockaddr_from_ip(&local_sockaddr, peripaddr, local_ip_is_ipv6 ? AF_INET6 : AF_INET))
             {
                 ERROR("Unknown host '%s'.\n"
                         "Use 'sipp -h' for details", peripaddr);
             }
         } else if (bind_local) {
-            if (!fill_sockaddr_from_ip(&local_sockaddr, local_ip, local_ip_is_ipv6))
+            if (!fill_sockaddr_from_ip(&local_sockaddr, local_ip, local_ip_is_ipv6 ? AF_INET6 : AF_INET))
             {
                 ERROR("Unknown host '%s'.\n"
                         "Use 'sipp -h' for details", peripaddr);
@@ -2654,7 +2627,7 @@ int open_connections()
                     ERROR_NO("Unable to get server socket");
                 }
 
-                if (!fill_sockaddr_from_ip(&server_sockaddr, peripaddr, is_ipv6)) {
+                if (!fill_sockaddr_from_ip(&server_sockaddr, peripaddr, is_ipv6 ? AF_INET6 : AF_INET)) {
                     ERROR("Unknown remote host '%s'.\n"
                           "Use 'sipp -h' for details", peripaddr);
                 }
@@ -2743,34 +2716,17 @@ void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *pe
 
     /* Resolving the  peer IP */
     printf("Resolving peer address : %s...\n", peer_host);
-    struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC,};
-    struct addrinfo * local_addr;
-    is_ipv6 = false;
-    /* Resolving twin IP */
-    if (getaddrinfo(peer_host,
-                    NULL,
-                    &hints,
-                    &local_addr) != 0) {
-
+    if (!fill_sockaddr_from_ip(peer_sockaddr, peer_host, AF_UNSPEC))
+    {
         ERROR("Unknown peer host '%s'.\n"
               "Use 'sipp -h' for details", peer_host);
     }
-
-    memcpy(peer_sockaddr,
-           local_addr->ai_addr,
-           SOCK_ADDR_SIZE(
-               _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
-
-    freeaddrinfo(local_addr);
-
     if (peer_sockaddr->ss_family == AF_INET) {
-        (_RCAST(struct sockaddr_in *, peer_sockaddr))->sin_port =
-            htons((short)peer_port);
+        is_ipv6 = true;
     } else {
-        (_RCAST(struct sockaddr_in6 *, peer_sockaddr))->sin6_port =
-            htons((short)peer_port);
         is_ipv6 = true;
     }
+
     strcpy(peer_ip, get_inet_address(peer_sockaddr));
     if ((*peer_socket = new_sipp_socket(is_ipv6, T_TCP)) == NULL) {
         ERROR_NO("Unable to get a twin sipp TCP socket");
@@ -2835,31 +2791,17 @@ void connect_local_twin_socket(char * twinSippHost)
 {
     /* Resolving the listener IP */
     printf("Resolving listener address : %s...\n", twinSippHost);
-    struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC,};
-    struct addrinfo * local_addr;
-    is_ipv6 = false;
-
-    /* Resolving twin IP */
-    if (getaddrinfo(twinSippHost,
-                    NULL,
-                    &hints,
-                    &local_addr) != 0) {
-        ERROR("Unknown twin host '%s'.\n"
+    if (!fill_sockaddr_from_ip(&twinSipp_sockaddr, twinSippHost, AF_UNSPEC))
+    {
+        ERROR("Unknown peer host '%s'.\n"
               "Use 'sipp -h' for details", twinSippHost);
     }
-    memcpy(&twinSipp_sockaddr,
-           local_addr->ai_addr,
-           SOCK_ADDR_SIZE(
-               _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
-
     if (twinSipp_sockaddr.ss_family == AF_INET) {
-        (_RCAST(struct sockaddr_in *, &twinSipp_sockaddr))->sin_port =
-            htons((short)twinSippPort);
+        is_ipv6 = true;
     } else {
-        (_RCAST(struct sockaddr_in6 *, &twinSipp_sockaddr))->sin6_port =
-            htons((short)twinSippPort);
         is_ipv6 = true;
     }
+    
     strcpy(twinSippIp, get_inet_address(&twinSipp_sockaddr));
 
     if ((localTwinSippSocket = new_sipp_socket(is_ipv6, T_TCP)) == NULL) {
@@ -2963,11 +2905,11 @@ bool sipMsgCheck (const char *P_msg, struct sipp_socket *socket)
     return false;
 }
 
-bool fill_sockaddr_from_ip(struct sockaddr_storage* saddr, char* ip, bool use_ipv6)
+bool fill_sockaddr_from_ip(struct sockaddr_storage* saddr, char* ip, int af_hint)
 {
     struct addrinfo* h ;
-    struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC,};
-    if (!getaddrinfo(ip, NULL, &hints, &h))
+    struct addrinfo hints = {AI_PASSIVE, af_hint,};
+    if (getaddrinfo(ip, NULL, &hints, &h) != 0)
     {
         return false;
     }
@@ -2976,7 +2918,7 @@ bool fill_sockaddr_from_ip(struct sockaddr_storage* saddr, char* ip, bool use_ip
             SOCK_ADDR_SIZE(
                 _RCAST(struct sockaddr_storage *,h->ai_addr)));
 
-    if (use_ipv6) {
+    if (h->ai_family == AF_INET6) {
         (_RCAST(struct sockaddr_in6 *, saddr))->sin6_port = htons(local_port);
         saddr->ss_family       = AF_INET6;
     } else {
