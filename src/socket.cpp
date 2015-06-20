@@ -2521,7 +2521,15 @@ int open_connections()
         struct addrinfo  hints = {AI_PASSIVE, AF_UNSPEC,};
 
         if (!strlen(local_ip)) {
-            local_host = (char *)hostname;
+            if (sendMode == MODE_CLIENT) {
+                if (remote_sockaddr.ss_family == AF_INET) {
+                    local_host = strdup("0.0.0.0");
+                } else {
+                    local_host = strdup("::");
+                }
+            } else {
+                 local_host = (char *)hostname;
+            }
         } else {
             local_host = (char *)local_ip;
         }
