@@ -31,6 +31,10 @@ sipp() {
     exec "`get_sipp`" "$@"
 }
 
+sippfg() {
+    "`get_sipp`" -nostdin "$@"
+}
+
 sippbg() {
     temp=`mktemp`
     sipp -nostdin "$@" >$temp 2>&1 </dev/null &
@@ -63,7 +67,7 @@ ok() {
 }
 
 fail() {
-    echo "failed"
+    test -z "$@" && echo "failed" || echo "failed ($@)"
     cleanup
     exit 1
 }

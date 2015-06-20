@@ -1,0 +1,20 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Author: Walter Doekes, OSSO B.V., 2015
+. "`dirname "$0"`/../functions"; init
+
+sippfg -m 1 -sn uac '127.0.0.1:5071' -p 5070 -timeout 1 -timeout_error 2>&1 |
+        grep -q 'Unable to send UDP'
+if test $? -ne 0; then
+    true
+else
+    fail 'unable to send UDP for IPv4'
+fi
+
+sippfg -m 1 -sn uac '[::1]:5071' -p 5070 -timeout 1 -timeout_error 2>&1 |
+        grep -q 'Unable to send UDP.*family not supported'
+if test $? -ne 0; then
+    ok
+else
+    fail 'unable to send UDP for IPv6'
+fi
