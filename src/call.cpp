@@ -65,7 +65,7 @@ extern map<string, struct sipp_socket*> map_perip_fd;
 void* send_wrapper(void*);
 #endif
 int call::dynamicId = 0;
-int call::maxDynamicId = 10000+2000*4;      // FIXME both param to be in command line !!!!
+int call::maxDynamicId = 12000;             // FIXME both param to be in command line !!!!
 int call::startDynamicId = 10000;           // FIXME both param to be in command line !!!!
 int call::stepDynamicId = 4;                // FIXME both param to be in command line !!!!
 
