@@ -1710,62 +1710,6 @@ void scenario::getCommonAttributes(message *message)
     }
 }
 
-// char* manipulation : create a int[] from a char*
-// test first is the char* is formed by int separeted by coma
-// and then create the table
-
-int isWellFormed(char * P_listeStr, int * nombre)
-{
-    char * ptr = P_listeStr;
-    int sizeOf;
-    bool isANumber;
-
-    (*nombre) = 0;
-    sizeOf = strlen(P_listeStr);
-    // getting the number
-    if(sizeOf > 0) {
-        // is the string well formed ? [0-9] [,]
-        isANumber = false;
-        for(int i=0; i<=sizeOf; i++) {
-            switch(ptr[i]) {
-            case ',':
-                if(isANumber == false) {
-                    return(0);
-                } else {
-                    (*nombre)++;
-                }
-                isANumber = false;
-                break;
-            case '0':
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':
-                isANumber = true;
-                break;
-            case '\t':
-            case ' ' :
-                break;
-            case '\0':
-                if(isANumber == false) {
-                    return(0);
-                } else {
-                    (*nombre)++;
-                }
-                break;
-            default:
-                return(0);
-            }
-        } // end for
-    }
-    return(1);
-}
-
 int createIntegerTable(char * P_listeStr,
                        unsigned int ** listeInteger,
                        int * sizeOfList)
@@ -1776,7 +1720,7 @@ int createIntegerTable(char * P_listeStr,
     unsigned int current_int;
 
     if(P_listeStr) {
-        if(isWellFormed(P_listeStr, sizeOfList) == 1) {
+        if (is_well_formed(P_listeStr, sizeOfList) == 1) {
             (*listeInteger) = new unsigned int[(*sizeOfList)];
             while((*ptr) != ('\0')) {
                 if((*ptr) == ',') {

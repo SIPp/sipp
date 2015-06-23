@@ -244,9 +244,6 @@ int  createIntegerTable(char          * P_listeStr,
                         unsigned int ** listeInteger,
                         int           * sizeOfList);
 
-int  isWellFormed(char * P_listeStr,
-                  int  * nombre);
-
 /* String table functions. */
 int createStringTable(char * inputString, char *** stringList, int *sizeOfList);
 void freeStringTable(char ** stringList, int sizeOfList);

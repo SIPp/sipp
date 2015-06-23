@@ -494,15 +494,6 @@ private:
                             int * sizeOfList);
 
     /**
-     * isWellFormed
-     * this method check if the char* passed in parameter in really a list of
-     * integer separated with comma.
-     * if yes, it's return true (1)
-     * else, it's return false (0)
-     */
-    int  isWellFormed(char * P_listeStr, int * nombre);
-
-    /**
      * updateRepartition
      * The method looks for the place to set the value passed in parameter
      * Once found, the associated counter is incremented
@@ -748,5 +739,14 @@ protected:
     gsl_rng *rng;
 };
 #endif
+
+/**
+ * is_well_formed
+ * this method check if the char* passed in parameter in really a list of
+ * integer separated with comma.
+ * if yes, it's return true (1)
+ * else, it's return false (0)
+ */
+int is_well_formed(const char* data, int* count);
 
 #endif // __STAT_H__
