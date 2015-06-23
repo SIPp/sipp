@@ -128,9 +128,7 @@ public:
         M_doubleValue(0),
         M_stringValue(NULL),
         M_scenario(scenario),
-        M_nbSubVarId(0),
-        M_maxNbSubVarId(0),
-        M_subVarId(NULL),
+        M_subVarId(),
         M_message(),
         M_message_str(),
         M_regExpSet(false),
@@ -152,7 +150,6 @@ public:
     CAction(CAction&& other) noexcept : CAction(other) {
         other.M_regExpSet = false;
         other.M_lookingChar = NULL;
-        other.M_subVarId = NULL;
         other.M_distribution = NULL;
         other.M_stringValue = NULL;
     };
@@ -192,7 +189,6 @@ public:
     int getSubVarId(int P_index) const;
     void setNbSubVarId(int P_value);
     int getNbSubVarId() const;
-    int* getSubVarId() const;
 
     T_ActionType M_action;
     T_LookingPlace M_lookingPlace;
@@ -220,9 +216,7 @@ public:
     scenario* M_scenario;
 
 private:
-    int M_nbSubVarId;
-    int M_maxNbSubVarId;
-    int* M_subVarId;
+    std::vector<int> M_subVarId;
 
     /* log specific member  */
     std::vector<SendingMessage> M_message;

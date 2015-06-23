@@ -184,10 +184,7 @@ rtpstream_actinfo_t* CAction::getRTPStreamActInfo()
 
 void CAction::setSubVarId(int P_value)
 {
-    if (M_nbSubVarId < M_maxNbSubVarId) {
-        M_subVarId[M_nbSubVarId] = P_value;
-        M_nbSubVarId++;
-    }
+    M_subVarId.push_back(P_value);
 }
 
 int CAction::getSubVarId(int P_index) const
@@ -195,22 +192,10 @@ int CAction::getSubVarId(int P_index) const
     return M_subVarId[P_index];
 }
 
-int* CAction::getSubVarId() const
-{
-    return M_subVarId;
-}
-
 void CAction::setNbSubVarId(int P_value)
 {
-    M_maxNbSubVarId = P_value;
-    delete [] M_subVarId;
-    M_subVarId = new int[M_maxNbSubVarId];
-    M_nbSubVarId = 0;
-}
-
-int CAction::getNbSubVarId() const
-{
-    return M_nbSubVarId;
+    M_subVarId.clear();
+    M_subVarId.reserve(P_value);
 }
 
 void CAction::setLookingChar(char* P_value)
@@ -267,7 +252,7 @@ int CAction::executeRegExp(const char* P_string, VariableTable* P_callVarTable)
         ERROR("Trying to perform regular expression match on action that does not have one!");
     }
 
-    if (getNbSubVarId() > 9) {
+    if (M_subVarId.size() > 9) {
         ERROR("You can only have nine sub expressions!");
     }
 
@@ -277,15 +262,16 @@ int CAction::executeRegExp(const char* P_string, VariableTable* P_callVarTable)
     if (error == 0) {
         CCallVariable* L_callVar = P_callVarTable->getVar(M_varId);
 
-        for (int i = 0; i <= getNbSubVarId(); i++) {
-            if(pmatch[i].rm_eo == -1) break ;
+        for (int i = 0; i <= M_subVarId.size(); i++) {
+            if (pmatch[i].rm_eo == -1)
+                break;
 
             setSubString(&result, P_string, pmatch[i].rm_so, pmatch[i].rm_eo);
             L_callVar->setMatchingValue(result);
             nbOfMatch++;
 
-            if (i == getNbSubVarId())
-                break ;
+            if (i == M_subVarId.size())
+                break;
 
             L_callVar = P_callVarTable->getVar(getSubVarId(i));
         }
@@ -401,7 +387,6 @@ void CAction::setRTPStreamActInfo (rtpstream_actinfo_t* P_value)
 CAction::~CAction()
 {
     delete [] M_lookingChar;
-    delete [] M_subVarId;
     delete M_distribution;
     free(M_stringValue);
 
