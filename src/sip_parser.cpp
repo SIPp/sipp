@@ -80,7 +80,8 @@ char * get_peer_tag(const char *msg)
     /* Find start of header */
     to_hdr = internal_find_header(msg, "To", "t", true);
     if (!to_hdr) {
-        ERROR("No valid To: header in reply");
+        WARNING("No valid To: header in reply");
+        return NULL;
     }
 
     /* Skip past display-name */
