@@ -204,9 +204,9 @@ struct sipp_option options_table[] = {
    {"tdmmap", "Generate and handle a table of TDM circuits.\n"
     "A circuit must be available for the call to be placed.\n"
     "Format: -tdmmap {0-3}{99}{5-8}{1-31}", SIPP_OPTION_TDMMAP, NULL, 1},
-   {"dynamicStart", "variable value\nSet the start offset of dynamic_id variable",  SIPP_OPTION_INT, &startDynamicId, 1},
-   {"dynamicMax",   "variable value\nSet the maximum of dynamic_id variable     ",   SIPP_OPTION_INT, &maxDynamicId,   1},
-   {"dynamicStep",  "variable value\nSet the increment of dynamic_id variable",      SIPP_OPTION_INT, &stepDynamicId,  1},
+   {"dynamicStart", "variable value\nSet the start offset of dynamic_id variable",  SIPP_OPTION_INT, &call::startDynamicId, 1},
+   {"dynamicMax",   "variable value\nSet the maximum of dynamic_id variable     ",   SIPP_OPTION_INT, &call::maxDynamicId,   1},
+   {"dynamicStep",  "variable value\nSet the increment of dynamic_id variable",      SIPP_OPTION_INT, &call::stepDynamicId,  1},
 
 
     {"", "Call behavior options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
@@ -2010,11 +2010,7 @@ int main(int argc, char *argv[])
     }
 
     // setup option form cmd line
-    call::maxDynamicId   = maxDynamicId;
-    call::startDynamicId = startDynamicId;
-    call::dynamicId      = startDynamicId;
-    call::stepDynamicId  = stepDynamicId;
-
+    call::dynamicId = call::startDynamicId;
 
     /* Now Initialize the scenarios. */
     main_scenario->runInit();
