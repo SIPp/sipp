@@ -463,6 +463,10 @@ private:
     unsigned int             M_counterDumpRespTime       ;
     unsigned long            M_report_freq_dumpRtt       ;
 
+    void resetCCounters();
+    void resetPDCounters();
+    void resetPLCounters();
+
     /**
      * initRepartition
      * This methode is used to create the repartition table with a table of
