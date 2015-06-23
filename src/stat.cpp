@@ -70,70 +70,58 @@
 #define DISPLAY_LAST_REPART(T1, V1)\
   fprintf(f,"    %14.14s n >= %8d ms : %10lu  %-29.29s \r\n", "", T1, V1, "")
 
-#define RESET_COUNTERS(PT)\
-  memset (PT, 0, CStat::E_NB_COUNTER * sizeof(unsigned long long))
-
-#define RESET_C_COUNTERS                          \
-{                                                      \
-  int i;                                               \
-  for (i=CStat::CPT_G_C_OutOfCallMsgs;            \
-       i<=CStat::CPT_G_C_AutoAnswered;               \
-       i++)                                            \
-    M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long) 0;                         \
-  for (i=CStat::CPT_C_IncomingCallCreated;            \
-       i<=CStat::CPT_C_Retransmissions;               \
-       i++)                                            \
-    M_counters[i] = (unsigned long) 0;                         \
-  for (unsigned int j=0;j<M_genericMap.size(); j++) { \
-    M_genericCounters[j * GENERIC_TYPES + GENERIC_C] = 0; \
-  } \
-  for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_COUNT] = 0; \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUM] = 0; \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] = 0; \
-  } \
+void CStat::resetCCounters()
+{
+    for (int i = CStat::CPT_G_C_OutOfCallMsgs; i <= CStat::CPT_G_C_AutoAnswered; i++) {
+        M_G_counters[i - E_NB_COUNTER - 1] = 0L;
+    }
+    for (int i = CStat::CPT_C_IncomingCallCreated; i <= CStat::CPT_C_Retransmissions; i++) {
+        M_counters[i] = 0L;
+    }
+    for (size_t j = 0; j < M_genericMap.size(); j++) {
+        M_genericCounters[j * GENERIC_TYPES + GENERIC_C] = 0;
+    }
+    for (size_t j = 0; j < M_rtdMap.size(); j++) {
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_COUNT] = 0;
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUM] = 0;
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] = 0;
+    }
 }
 
-#define RESET_PD_COUNTERS                          \
-{                                                      \
-  int i;                                               \
-  for (i=CStat::CPT_G_PD_OutOfCallMsgs;            \
-       i<=CStat::CPT_G_PD_AutoAnswered;               \
-       i++)                                            \
-    M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long) 0;                         \
-  for (i=CStat::CPT_PD_IncomingCallCreated;            \
-       i<=CStat::CPT_PD_Retransmissions;               \
-       i++)                                            \
-    M_counters[i] = (unsigned long) 0;                         \
-  for (unsigned int j=0;j<M_genericMap.size(); j++) { \
-    M_genericCounters[j * GENERIC_TYPES + GENERIC_PD] = 0; \
-  } \
-  for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT] = 0; \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUM] = 0; \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUMSQ] = 0; \
-  } \
+void CStat::resetPDCounters()
+{
+    for (int i = CStat::CPT_G_PD_OutOfCallMsgs; i <= CStat::CPT_G_PD_AutoAnswered; i++) {
+        M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long) 0;
+    }
+    for (int i = CStat::CPT_PD_IncomingCallCreated; i <= CStat::CPT_PD_Retransmissions; i++) {
+        M_counters[i] = (unsigned long) 0;
+    }
+    for (size_t j = 0; j < M_genericMap.size(); j++) {
+        M_genericCounters[j * GENERIC_TYPES + GENERIC_PD] = 0;
+    }
+    for (size_t j = 0; j < M_rtdMap.size(); j++) {
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT] = 0;
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUM] = 0;
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUMSQ] = 0;
+    }
 }
 
-#define RESET_PL_COUNTERS                          \
-{                                                      \
-  int i;                                               \
-  for (i=CStat::CPT_G_PL_OutOfCallMsgs;            \
-       i<=CStat::CPT_G_PL_AutoAnswered;               \
-       i++)                                            \
-    M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long) 0;                         \
-  for (i=CStat::CPT_PL_IncomingCallCreated;            \
-       i<=CStat::CPT_PL_Retransmissions;               \
-       i++)                                            \
-    M_counters[i] = (unsigned long) 0;                         \
-  for (unsigned int j=0;j<M_genericMap.size(); j++) { \
-    M_genericCounters[j * GENERIC_TYPES + GENERIC_PL] = 0; \
-  } \
-  for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_COUNT] = 0; \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUM] = 0; \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUMSQ] = 0; \
-  } \
+void CStat::resetPLCounters()
+{
+    for (int i = CStat::CPT_G_PL_OutOfCallMsgs; i <= CStat::CPT_G_PL_AutoAnswered; i++) {
+        M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long) 0;
+    }
+    for (int i = CStat::CPT_PL_IncomingCallCreated; i <= CStat::CPT_PL_Retransmissions; i++) {
+        M_counters[i] = (unsigned long) 0;
+    }
+    for (size_t j = 0; j < M_genericMap.size(); j++) {
+        M_genericCounters[j * GENERIC_TYPES + GENERIC_PL] = 0;
+    }
+    for (size_t j = 0; j < M_rtdMap.size(); j++) {
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_COUNT] = 0;
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUM] = 0;
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUMSQ] = 0;
+    }
 }
 
 /*
@@ -198,7 +186,7 @@ CStat::~CStat()
 int CStat::init ()
 {
     // reset of all counter
-    RESET_COUNTERS(M_counters);
+    memset(M_counters, 0, CStat::E_NB_COUNTER * sizeof(unsigned long long));
     GET_TIME (&M_startTime);
     memcpy   (&M_pdStartTime, &M_startTime, sizeof (struct timeval));
     memcpy   (&M_plStartTime, &M_startTime, sizeof (struct timeval));
@@ -653,21 +641,21 @@ int CStat::computeStat (E_Action P_action)
         break;
 
     case E_RESET_C_COUNTERS :
-        RESET_C_COUNTERS;
+        resetCCounters();
         GET_TIME (&M_startTime);
         break;
 
     case E_RESET_PD_COUNTERS :
         //DEBUG (C_Debug::E_LEVEL_4, "ENTER CASE", "%s",
         //       "CStat::computeStat : RESET_PD_COUNTERS");
-        RESET_PD_COUNTERS;
+        resetPDCounters();
         GET_TIME (&M_pdStartTime);
         break;
 
     case E_RESET_PL_COUNTERS :
         //DEBUG (C_Debug::E_LEVEL_4, "ENTER CASE", "%s",
         //       "C_Stat::computeStat : RESET_PL_COUNTERS");
-        RESET_PL_COUNTERS;
+        resetPLCounters();
         GET_TIME (&M_plStartTime);
         if (periodic_rtd) {
             resetRepartition(M_CallLengthRepartition, M_SizeOfCallLengthRepartition);
