@@ -269,96 +269,38 @@ int CStat::createIntegerTable(char * P_listeStr,
 }
 
 
+static void set_filename(char** field, const char* name, const char* extension)
+{
+    if (!name || !name[0]) {
+        WARNING("New filename is NULL, keeping the default: %s", DEFAULT_FILE_NAME);
+        return;
+    }
+    if (!extension || !extension[0]) {
+        extension = DEFAULT_EXTENSION;
+    }
+
+    delete [] *field;
+    *field = new char[MAX_PATH];
+    snprintf(*field, MAX_PATH, "%s_%d_%s", name, getpid(), extension);
+}
+
+
 void CStat::setFileName(const char* name, const char* extension)
 {
-    int sizeOf, sizeOfExtension;
-
-    if (name != NULL) {
-        // +6 for PID
-        sizeOf = strlen(name) + 6;
-        if (sizeOf > 0) {
-            if (extension != NULL) {
-                sizeOfExtension = strlen(extension);
-                if (sizeOfExtension > 0) {
-                    if (M_fileName != NULL)
-                        delete [] M_fileName;
-                    M_fileName = new char[MAX_PATH];
-                    sprintf(M_fileName, "%s_%d_", name, getpid());
-                    strcat(M_fileName, extension);
-                } else {
-                    if (M_fileName != NULL)
-                        delete [] M_fileName;
-                    M_fileName = new char[MAX_PATH];
-                    sprintf(M_fileName, "%s_%d_", name, getpid());
-                    strcat(M_fileName, DEFAULT_EXTENSION);
-                }
-            } else {
-                if (M_fileName != NULL)
-                    delete [] M_fileName;
-                M_fileName = new char[MAX_PATH];
-                sprintf(M_fileName, "%s_%d_", name, getpid());
-                strcat(M_fileName, DEFAULT_EXTENSION);
-            }
-        } else {
-            cerr << "new file name length is null - "
-                 << "keeping the default filename : "
-                 << DEFAULT_FILE_NAME << endl;
-        }
-    } else {
-        cerr << "new file name is NULL ! - keeping the default filename : "
-             << DEFAULT_FILE_NAME << endl;
-    }
+    set_filename(&M_fileName, name, extension);
 }
 
 
 void CStat::setFileName(const char* name)
 {
-    int sizeOf;
-
-    if (name != NULL) {
-        sizeOf = strlen(name);
-        if (sizeOf > 0) {
-            if (M_fileName != NULL)
-                delete [] M_fileName;
-            M_fileName = new char[sizeOf+1];
-            strcpy(M_fileName, name);
-        } else {
-            cerr << "new file name length is null - "
-                 "keeping the default filename : "
-                 << DEFAULT_FILE_NAME << endl;
-        }
-    } else {
-        cerr << "new file name is NULL ! - keeping the default filename : "
-             << DEFAULT_FILE_NAME << endl;
-    }
+    set_filename(&M_fileName, name, NULL);
 }
 
 
 void CStat::initRtt(const char* name, const char* extension,
                     unsigned long report_freq_dumpRtt)
 {
-    int sizeOf, sizeOfExtension;
-
-    if (name != NULL) {
-        sizeOf = strlen(name) ;
-        if (sizeOf > 0) {
-            //  4 for '_rtt' and 6 for pid
-            sizeOf += 10 ;
-            sizeOfExtension = strlen(extension);
-            if (M_fileNameRtt != NULL)
-                delete [] M_fileNameRtt;
-            sizeOf += sizeOfExtension;
-            M_fileNameRtt = new char[sizeOf+1];
-            sprintf (M_fileNameRtt, "%s_%d_rtt%s", name, getpid(),extension);
-        } else {
-            cerr << "new file name length is null - "
-                 << "keeping the default filename : "
-                 << DEFAULT_FILE_NAME << endl;
-        }
-    } else {
-        cerr << "new file name is NULL ! - keeping the default filename : "
-             << DEFAULT_FILE_NAME << endl;
-    }
+    set_filename(&M_fileNameRtt, name, extension);
 
     // initiate the table dump response time
     M_report_freq_dumpRtt = report_freq_dumpRtt ;
