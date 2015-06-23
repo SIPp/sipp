@@ -183,15 +183,14 @@ int CStat::init ()
 }
 
 
-int CStat::isWellFormed(char * P_listeStr,
-                        int * nombre)
+static int is_well_formed(char* data, int* count)
 {
-    char * ptr = P_listeStr;
+    char * ptr = data;
     int sizeOf;
     bool isANumber;
 
-    (*nombre) = 0;
-    sizeOf = strlen(P_listeStr);
+    (*count) = 0;
+    sizeOf = strlen(data);
     // getting the number
     if(sizeOf > 0) {
         // is the string well formed ? [0-9] [,]
@@ -202,7 +201,7 @@ int CStat::isWellFormed(char * P_listeStr,
                 if(isANumber == false) {
                     return(0);
                 } else {
-                    (*nombre)++;
+                    (*count)++;
                 }
                 isANumber = false;
                 break;
@@ -225,7 +224,7 @@ int CStat::isWellFormed(char * P_listeStr,
                 if(isANumber == false) {
                     return(0);
                 } else {
-                    (*nombre)++;
+                    (*count)++;
                 }
                 break;
             default:
@@ -234,6 +233,12 @@ int CStat::isWellFormed(char * P_listeStr,
         } // enf for
     }
     return(1);
+}
+
+
+int CStat::isWellFormed(char* P_listeStr, int* nombre)
+{
+    return is_well_formed(P_listeStr, nombre);
 }
 
 
@@ -2004,5 +2009,49 @@ int CNegBin::timeDescr(char *s, int len)
 double CNegBin::cdfInv(double percentile)
 {
     return 0;
+}
+#endif
+
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+
+TEST(utility, isWellFormed) {
+    int count;
+
+    ASSERT_EQ(1, is_well_formed(NULL, &count));
+    ASSERT_EQ(count, 0);
+    ASSERT_EQ(1, is_well_formed("", &count));
+    ASSERT_EQ(count, 0);
+    ASSERT_EQ(1, is_well_formed("1", &count));
+    ASSERT_EQ(count, 1);
+    ASSERT_EQ(1, is_well_formed("1,23", &count));
+    ASSERT_EQ(count, 2);
+    ASSERT_EQ(1, is_well_formed("1,23,345", &count));
+    ASSERT_EQ(count, 3);
+    ASSERT_EQ(1, is_well_formed("1,23,345,6789", &count));
+    ASSERT_EQ(count, 4);
+
+    ASSERT_EQ(0, is_well_formed("123,abc", &count));
+    ASSERT_EQ(count, 1);
+
+    // Whitespace is allowed between numbers
+    ASSERT_EQ(1, is_well_formed("\t1, 23,   345,\t6789     ", &count));
+    ASSERT_EQ(count, 4);
+
+    // Whitespace is apparently allowed between digits, and only the
+    // first digit is parsed
+    ASSERT_EQ(1, is_well_formed("1 3   4 6", &count));
+    ASSERT_EQ(count, 1);
+
+    // Stray commas aren't valid, they must seperate numbers
+    ASSERT_EQ(0, is_well_formed("1,", &count));
+    ASSERT_EQ(count, 1);
+    ASSERT_EQ(0, is_well_formed(",", &count));
+    ASSERT_EQ(count, 0);
+
+    // Here because of the explicit '\0' handling / strlen call
+    ASSERT_EQ(1, is_well_formed("1,23\0,345,6789,", &count));
+    ASSERT_EQ(count, 2);
 }
 #endif
