@@ -316,34 +316,34 @@ int CStat::createIntegerTable(char * P_listeStr,
 }
 
 
-void CStat::setFileName(char * P_name, char * P_extension)
+void CStat::setFileName(const char* name, const char* extension)
 {
     int sizeOf, sizeOfExtension;
 
-    if(P_name != NULL) {
+    if (name != NULL) {
         // +6 for PID
-        sizeOf = strlen(P_name) + 6;
-        if(sizeOf > 0) {
-            if(P_extension != NULL) {
-                sizeOfExtension = strlen(P_extension);
-                if(sizeOfExtension > 0) {
-                    if(M_fileName != NULL)
+        sizeOf = strlen(name) + 6;
+        if (sizeOf > 0) {
+            if (extension != NULL) {
+                sizeOfExtension = strlen(extension);
+                if (sizeOfExtension > 0) {
+                    if (M_fileName != NULL)
                         delete [] M_fileName;
                     M_fileName = new char[MAX_PATH];
-                    sprintf(M_fileName, "%s_%d_", P_name, getpid());
-                    strcat(M_fileName, P_extension);
+                    sprintf(M_fileName, "%s_%d_", name, getpid());
+                    strcat(M_fileName, extension);
                 } else {
-                    if(M_fileName != NULL)
+                    if (M_fileName != NULL)
                         delete [] M_fileName;
                     M_fileName = new char[MAX_PATH];
-                    sprintf(M_fileName, "%s_%d_", P_name, getpid());
+                    sprintf(M_fileName, "%s_%d_", name, getpid());
                     strcat(M_fileName, DEFAULT_EXTENSION);
                 }
             } else {
-                if(M_fileName != NULL)
+                if (M_fileName != NULL)
                     delete [] M_fileName;
                 M_fileName = new char[MAX_PATH];
-                sprintf(M_fileName, "%s_%d_", P_name, getpid());
+                sprintf(M_fileName, "%s_%d_", name, getpid());
                 strcat(M_fileName, DEFAULT_EXTENSION);
             }
         } else {
@@ -358,17 +358,17 @@ void CStat::setFileName(char * P_name, char * P_extension)
 }
 
 
-void CStat::setFileName(char * P_name)
+void CStat::setFileName(const char* name)
 {
     int sizeOf;
 
-    if(P_name != NULL) {
-        sizeOf = strlen(P_name);
-        if(sizeOf > 0) {
-            if(M_fileName != NULL)
+    if (name != NULL) {
+        sizeOf = strlen(name);
+        if (sizeOf > 0) {
+            if (M_fileName != NULL)
                 delete [] M_fileName;
             M_fileName = new char[sizeOf+1];
-            strcpy(M_fileName, P_name);
+            strcpy(M_fileName, name);
         } else {
             cerr << "new file name length is null - "
                  "keeping the default filename : "
@@ -381,22 +381,22 @@ void CStat::setFileName(char * P_name)
 }
 
 
-void CStat::initRtt(char * P_name, char * P_extension,
-                    unsigned long P_report_freq_dumpRtt)
+void CStat::initRtt(const char* name, const char* extension,
+                    unsigned long report_freq_dumpRtt)
 {
     int sizeOf, sizeOfExtension;
 
-    if(P_name != NULL) {
-        sizeOf = strlen(P_name) ;
-        if(sizeOf > 0) {
+    if (name != NULL) {
+        sizeOf = strlen(name) ;
+        if (sizeOf > 0) {
             //  4 for '_rtt' and 6 for pid
             sizeOf += 10 ;
-            sizeOfExtension = strlen(P_extension);
-            if(M_fileNameRtt != NULL)
+            sizeOfExtension = strlen(extension);
+            if (M_fileNameRtt != NULL)
                 delete [] M_fileNameRtt;
             sizeOf += sizeOfExtension;
             M_fileNameRtt = new char[sizeOf+1];
-            sprintf (M_fileNameRtt, "%s_%d_rtt%s", P_name, getpid(),P_extension);
+            sprintf (M_fileNameRtt, "%s_%d_rtt%s", name, getpid(),extension);
         } else {
             cerr << "new file name length is null - "
                  << "keeping the default filename : "
@@ -408,16 +408,16 @@ void CStat::initRtt(char * P_name, char * P_extension,
     }
 
     // initiate the table dump response time
-    M_report_freq_dumpRtt = P_report_freq_dumpRtt ;
+    M_report_freq_dumpRtt = report_freq_dumpRtt ;
 
-    M_dumpRespTime = new T_value_rtt [P_report_freq_dumpRtt] ;
+    M_dumpRespTime = new T_value_rtt [report_freq_dumpRtt] ;
 
-    if ( M_dumpRespTime == NULL ) {
+    if (M_dumpRespTime == NULL) {
         cerr << "Memory allocation failure" << endl;
         exit(EXIT_FATAL_ERROR);
     }
 
-    for (unsigned L_i = 0 ; L_i < P_report_freq_dumpRtt; L_i ++) {
+    for (unsigned L_i = 0 ; L_i < report_freq_dumpRtt; L_i ++) {
         M_dumpRespTime[L_i].date = 0.0;
         M_dumpRespTime[L_i].rtd_no = 0;
         M_dumpRespTime[L_i].rtt = 0.0;
@@ -1074,7 +1074,7 @@ CStat::CStat ()
 
 char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
                                 int sizeOfTab,
-                                char * P_repartitionName)
+                                const char * P_repartitionName)
 {
     static char *repartitionHeader = NULL;
     char buffer[MAX_CHAR_BUFFER_SIZE];
@@ -1520,7 +1520,7 @@ void CStat::dumpData ()
         }
         (*M_outputStream) << sRepartitionHeader(M_CallLengthRepartition,
                                                 M_SizeOfCallLengthRepartition,
-                                                (char*) "CallLengthRepartition");
+                                                "CallLengthRepartition");
         (*M_outputStream) << endl;
         M_headerAlreadyDisplayed = true;
     }

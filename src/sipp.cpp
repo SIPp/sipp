@@ -1256,7 +1256,7 @@ static void sighandle_set()
     sigaction(SIGXFSZ, &action_file_size_exceeded, NULL);  // avoid core dump if the max file size is exceeded
 }
 
-static char* remove_pattern(char* P_buffer, char* P_extensionPattern)
+static char* remove_pattern(char* P_buffer, const char* P_extensionPattern)
 {
 
     char *L_ptr = P_buffer;
@@ -1640,19 +1640,20 @@ int main(int argc, char *argv[])
                 if (!strcmp(argv[argi - 1], "-sf")) {
                     scenario_file = new char [strlen(argv[argi]) + 1];
                     sprintf(scenario_file, "%s", argv[argi]);
-                    scenario_file = remove_pattern(scenario_file, (char*)".xml");
+                    scenario_file = remove_pattern(scenario_file, ".xml");
                     if (useLogf == 1) {
                         rotate_logfile();
                     }
                     main_scenario = std::unique_ptr<scenario>(new scenario(argv[argi], 0));
                     main_scenario->stats->setFileName(scenario_file, (char*)".csv");
+                    main_scenario->stats->setFileName(scenario_file, ".csv");
                 } else if (!strcmp(argv[argi - 1], "-sn")) {
                     int i = find_scenario(argv[argi]);
 
                     main_scenario = std::unique_ptr<scenario>(new scenario(0, i));
                     scenario_file = new char [strlen(argv[argi]) + 1];
                     sprintf(scenario_file,"%s", argv[argi]);
-                    main_scenario->stats->setFileName(argv[argi], (char*)".csv");
+                    main_scenario->stats->setFileName(argv[argi], ".csv");
                 } else if (!strcmp(argv[argi - 1], "-sd")) {
                     int i = find_scenario(argv[argi]);
                     fprintf(stdout, "%s", default_scenario[i]);
@@ -1952,7 +1953,7 @@ int main(int argc, char *argv[])
 
 
     if (dumpInRtt == 1) {
-        main_scenario->stats->initRtt((char*)scenario_file, (char*)".csv",
+        main_scenario->stats->initRtt(scenario_file, ".csv",
                                       report_freq_dumpRtt);
     }
 
@@ -1990,18 +1991,18 @@ int main(int argc, char *argv[])
     /* Load default scenario in case nothing was loaded */
     if(!main_scenario) {
         main_scenario = std::unique_ptr<scenario>(new scenario(0, 0));
-        main_scenario->stats->setFileName((char*)"uac", (char*)".csv");
+        main_scenario->stats->setFileName("uac", ".csv");
         sprintf(scenario_file,"uac");
     }
     /*
     if(!ooc_scenario) {
       ooc_scenario = std::unique_ptr<scenario>(new scenario(0, find_scenario("ooc_default")));
-      ooc_scenario->stats->setFileName((char*)"ooc_default", (char*)".csv");
+      ooc_scenario->stats->setFileName("ooc_default", ".csv");
     }
     */
     display_scenario = main_scenario.get();
     aa_scenario = std::unique_ptr<scenario>(new scenario(0, find_scenario("ooc_dummy")));
-    aa_scenario->stats->setFileName((char*)"ooc_dummy", (char*)".csv");
+    aa_scenario->stats->setFileName("ooc_dummy", ".csv");
 
     init_default_messages();
     for (int i = 1; i <= users; i++) {
