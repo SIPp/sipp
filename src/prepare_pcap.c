@@ -42,21 +42,21 @@
  */
 
 typedef struct _ether_type_hdr {
-    u_int16_t ether_type; /* we only need the type, so we can determine, if the next header is IPv4 or IPv6 */
+    uint16_t ether_type; /* we only need the type, so we can determine, if the next header is IPv4 or IPv6 */
 } ether_type_hdr;
 
 typedef struct _ipv6_hdr {
     char dontcare[6];
-    u_int8_t nxt_header; /* we only need the next header, so we can determine, if the next header is UDP or not */
+    uint8_t nxt_header; /* we only need the next header, so we can determine, if the next header is UDP or not */
     char dontcare2[33];
 } ipv6_hdr;
 
 
 #ifdef __HPUX
-int check(u_int16_t *buffer, int len)
+int check(uint16_t *buffer, int len)
 {
 #else
-inline int check(u_int16_t *buffer, int len)
+inline int check(uint16_t *buffer, int len)
 {
 #endif
     int sum;
@@ -67,16 +67,16 @@ inline int check(u_int16_t *buffer, int len)
         sum += *buffer++;
 
     if (len & 1) {
-        sum += htons( (*(const u_int8_t *)buffer) << 8);
+        sum += htons( (*(const uint8_t *)buffer) << 8);
     }
     return sum;
 }
 
 #ifdef __HPUX
-u_int16_t checksum_carry(int s)
+uint16_t checksum_carry(int s)
 {
 #else
-inline u_int16_t checksum_carry(int s)
+inline uint16_t checksum_carry(int s)
 {
 #endif
     int s_c = (s >> 16) + (s & 0xffff);
@@ -91,11 +91,11 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
 {
     pcap_t *pcap;
     struct pcap_pkthdr *pkthdr = NULL;
-    u_char *pktdata = NULL;
+    uint8_t *pktdata = NULL;
     int n_pkts = 0;
-    u_long max_length = 0;
-    u_int16_t base = 0xffff;
-    u_long pktlen;
+    uint64_t max_length = 0;
+    uint16_t base = 0xffff;
+    uint64_t pktlen;
     pcap_pkt *pkt_index;
     size_t ether_type_offset;
     ether_type_hdr *ethhdr;
@@ -124,7 +124,7 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
     }
 
 #if HAVE_PCAP_NEXT_EX
-    while (pcap_next_ex (pcap, &pkthdr, (const u_char **) &pktdata) == 1) {
+    while (pcap_next_ex (pcap, &pkthdr, (const uint8_t **) &pktdata) == 1) {
 #else
 #ifdef __HPUX
     pkthdr = (pcap_pkthdr *) malloc (sizeof (*pkthdr));
@@ -133,7 +133,7 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
 #endif
     if (!pkthdr)
         ERROR("Can't allocate memory for pcap pkthdr");
-    while ((pktdata = (u_char *) pcap_next (pcap, pkthdr)) != NULL) {
+    while ((pktdata = (uint8_t *) pcap_next (pcap, pkthdr)) != NULL) {
 #endif
         if (pkthdr->len != pkthdr->caplen) {
             ERROR("You got truncated packets. Please create a new dump with -s0");
@@ -148,7 +148,7 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
         iphdr = (struct iphdr *)((char *)ethhdr + sizeof(*ethhdr));
         if (iphdr && iphdr->version == 6) {
             //ipv6
-            pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*ip6hdr);
+            pktlen = (uint64_t) pkthdr->len - sizeof(*ethhdr) - sizeof(*ip6hdr);
             ip6hdr = (ipv6_hdr *)(void *) iphdr;
             if (ip6hdr->nxt_header != IPPROTO_UDP) {
                 fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
@@ -163,13 +163,13 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
             }
 #if defined(__DARWIN) || defined(__CYGWIN) || defined(__FreeBSD__)
             udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2) + 4);
-            pktlen = (u_long)(ntohs(udphdr->uh_ulen));
+            pktlen = (uint64_t)(ntohs(udphdr->uh_ulen));
 #elif defined ( __HPUX)
             udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2));
-            pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*iphdr);
+            pktlen = (uint64_t) pkthdr->len - sizeof(*ethhdr) - sizeof(*iphdr);
 #else
             udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2));
-            pktlen = (u_long)(ntohs(udphdr->len));
+            pktlen = (uint64_t)(ntohs(udphdr->len));
 #endif
         }
         if (pktlen > PCAP_MAXPACKET) {
@@ -196,9 +196,9 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
         // not including port that will be changed
         // when sending RTP
 #if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
-        pkt_index->partial_check = check((u_int16_t *) &udphdr->uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+        pkt_index->partial_check = check((uint16_t *) &udphdr->uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 #else
-        pkt_index->partial_check = check((u_int16_t *) &udphdr->len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+        pkt_index->partial_check = check((uint16_t *) &udphdr->len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 #endif
         if (max_length < pktlen)
             max_length = pktlen;

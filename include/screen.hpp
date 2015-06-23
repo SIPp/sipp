@@ -47,7 +47,7 @@ extern "C" {
 #define EXIT_FATAL_ERROR           -1
 #define EXIT_BIND_ERROR            -2
 
-void screen_set_exename(char * exe_name);
+void screen_set_exename(const char* exe_name);
 void screen_init();
 void screen_clear();
 int  screen_readkey();

@@ -25,12 +25,12 @@
 #define __SCENARIO__
 
 #include <map>
+#include <vector>
 #include <sys/socket.h>
 #include "actions.hpp"
 #include "variables.hpp"
 #include "message.hpp"
 #include "stat.hpp"
-
 
 #define MSG_TYPE_SENDCMD   0
 #define MSG_TYPE_RECVCMD   1
@@ -125,7 +125,7 @@ public:
     unsigned long   nb_unexp;
     unsigned long   nb_lost;
 
-    CActions*       M_actions;
+    std::vector<CAction> M_actions;
 
     int             M_type;
 
@@ -204,9 +204,9 @@ private:
     void getBookKeeping(message *message);
     void getCommonAttributes(message *message);
     void getActionForThisMessage(message *message);
-    void parseAction(CActions *actions);
-    void handle_arithmetic(CAction *tmpAction, const char *what);
-    void handle_rhs(CAction *tmpAction, const char *what);
+    void parseAction(std::vector<CAction>& actions);
+    void handle_arithmetic(CAction& tmpAction, const char* what);
+    void handle_rhs(CAction& tmpAction, const char* what);
     void checkOptionalRecv(char *elem, unsigned int scenario_file_cursor);
 
     void apply_labels(msgvec v, str_int_map labels);

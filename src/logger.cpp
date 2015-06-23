@@ -163,8 +163,6 @@ void print_tdm_map()
 
 void print_variable_list()
 {
-    CActions  * actions;
-    CAction   * action;
     int printed = 0;
     bool found;
 
@@ -173,40 +171,36 @@ void print_variable_list()
     found = false;
     for(unsigned int i=0; i<display_scenario->messages.size(); i++) {
         message *curmsg = display_scenario->messages[i];
-        actions = curmsg->M_actions;
-        if(actions != NULL) {
+        std::vector<CAction>& actions = curmsg->M_actions;
+
+        if(!actions.empty()) {
             switch(curmsg->M_type) {
             case MSG_TYPE_RECV:
                 printf("=> Message[%u] (Receive Message) - "
-                       "[%d] action(s) defined :" SIPP_ENDL,
-                       i,
-                       actions->getActionSize());
+                       "[%zu] action(s) defined :" SIPP_ENDL,
+                       i, actions.size());
                 printed++;
                 break;
             case MSG_TYPE_RECVCMD:
                 printf("=> Message[%u] (Receive Command Message) - "
-                       "[%d] action(s) defined :" SIPP_ENDL,
-                       i,
-                       actions->getActionSize());
+                       "[%zu] action(s) defined :" SIPP_ENDL,
+                       i, actions.size());
                 printed++;
                 break;
             default:
-                printf("=> Message[%u] - [%d] action(s) defined :" SIPP_ENDL,
-                       i,
-                       actions->getActionSize());
+                printf("=> Message[%u] - [%zu] action(s) defined :" SIPP_ENDL,
+                       i, actions.size());
                 printed++;
                 break;
             }
 
-            for(int j=0; j<actions->getActionSize(); j++) {
-                action = actions->getAction(j);
-                if(action != NULL) {
-                    printf("   --> action[%d] = ", j);
-                    action->afficheInfo();
-                    printf(SIPP_ENDL);
-                    printed++;
-                    found = true;
-                }
+            int j = 0;
+            for (const CAction& action : actions) {
+                printf("   --> action[%d] = ", j++);
+                action.afficheInfo();
+                printf(SIPP_ENDL);
+                printed++;
+                found = true;
             }
         }
     }

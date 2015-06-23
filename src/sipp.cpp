@@ -36,6 +36,7 @@
  */
 
 #include <dlfcn.h>
+#include <thread>
 
 #define GLOBALS_FULL_DEFINITION
 #include "sipp.hpp"
@@ -400,11 +401,11 @@ static struct sipp_option *find_option(const char* option) {
 
 /******************** Recv Poll Processing *********************/
 
-extern unsigned pollnfds;
+extern size_t pollnfds;
 #ifdef HAVE_EPOLL
 extern int epollfd;
 extern struct epoll_event   epollfiles[SIPP_MAXFDS];
-extern struct epoll_event*  epollevents;
+extern std::vector<struct epoll_event> epollevents;
 #else
 extern struct pollfd        pollfiles[SIPP_MAXFDS];
 #endif
@@ -474,7 +475,7 @@ static void pollset_process(int wait)
 #ifdef HAVE_EPOLL
     /* Ignore the wait parameter and always wait - when establishing TCP
      * connections, the alternative is that we tight-loop. */
-    rs = epoll_wait(epollfd, epollevents, max_recv_loops, 1);
+    rs = epoll_wait(epollfd, epollevents.data(), max_recv_loops, 1);
     // If we're receiving as many epollevents as possible, flag CPU congestion
     cpu_max = (rs > (max_recv_loops - 2));
 #else
@@ -486,10 +487,10 @@ static void pollset_process(int wait)
 
     /* We need to flush all sockets and pull data into all of our buffers. */
 #ifdef HAVE_EPOLL
-    for (int event_idx = 0; event_idx < rs; event_idx++) {
-        int poll_idx = (int)epollevents[event_idx].data.u32;
+    for (size_t event_idx = 0; event_idx < rs; event_idx++) {
+        size_t poll_idx = epollevents[event_idx].data.u32;
 #else
-    for (int poll_idx = 0; rs > 0 && poll_idx < pollnfds; poll_idx++) {
+    for (size_t poll_idx = 0; rs > 0 && poll_idx < pollnfds; poll_idx++) {
 #endif
         struct sipp_socket *sock = sockets[poll_idx];
         int events = 0;
@@ -814,49 +815,38 @@ static void traffic_thread()
 /*************** RTP ECHO THREAD ***********************/
 /* param is a pointer to RTP socket */
 
-static void rtp_echo_thread(void* param)
+static void rtp_echo_thread(int fd)
 {
-    char msg[media_bufsize];
-    size_t nr, ns;
-    sipp_socklen_t len;
-    struct sockaddr_storage remote_rtp_addr;
+    union {
+        struct sockaddr sa;
+        struct sockaddr_storage ss;
+    } remote_rtp_addr;
+    sipp_socklen_t len = sizeof(remote_rtp_addr);
+    sigset_t mask;
+    std::vector<char> msg;
 
-
-    int                   rc;
-    sigset_t              mask;
-    sigfillset(&mask); /* Mask all allowed signals */
-    rc = pthread_sigmask(SIG_BLOCK, &mask, NULL);
-    if (rc) {
-        WARNING("pthread_sigmask returned %d", rc);
+    sigfillset(&mask);
+    if (pthread_sigmask(SIG_BLOCK, &mask, NULL) < 0) {
+        WARNING_NO("pthread_sigmask failed");
         return;
     }
 
+    msg.reserve(media_bufsize);
+
     for (;;) {
-        len = sizeof(remote_rtp_addr);
-        nr = recvfrom(*(int *)param,
-                      msg,
-                      media_bufsize, 0,
-                      (sockaddr *)(void *) &remote_rtp_addr,
-                      &len);
-
-        if (((long)nr) < 0) {
-            WARNING("%s %i",
-                    "Error on RTP echo reception - stopping echo - errno=",
-                    errno);
+        ssize_t nr = recvfrom(fd, msg.data(), media_bufsize, 0, &remote_rtp_addr.sa, &len);
+        if (nr < 0) {
+            WARNING_NO("Error on RTP echo reception - stopping echo");
             return;
         }
-        ns = sendto(*(int *)param, msg, nr,
-                    0, (sockaddr *)(void *) &remote_rtp_addr,
-                    len);
 
+        ssize_t ns = sendto(fd, msg.data(), nr, 0, &remote_rtp_addr.sa, len);
         if (ns != nr) {
-            WARNING("%s %i",
-                    "Error on RTP echo transmission - stopping echo - errno=",
-                    errno);
+            WARNING_NO("Error on RTP echo transmission - stopping echo");
             return;
         }
 
-        if (*(int *)param==media_socket) {
+        if (fd == media_socket) {
             rtp_pckts++;
             rtp_bytes += ns;
         } else {
@@ -1291,7 +1281,6 @@ int main(int argc, char *argv[])
 {
     int                  argi = 0;
     struct sockaddr_storage   media_sockaddr;
-    pthread_t            pthread2_id,  pthread3_id;
     unsigned int         generic_count = 0;
     bool                 slave_masterSet = false;
 
@@ -1304,8 +1293,7 @@ int main(int argc, char *argv[])
     }
     {
         /* Ignore the SIGPIPE signal */
-        struct sigaction action_pipe;
-        memset(&action_pipe, 0, sizeof(action_pipe));
+        struct sigaction action_pipe = {};
         action_pipe.sa_handler=SIG_IGN;
         sigaction(SIGPIPE, &action_pipe, NULL);
 
@@ -1315,28 +1303,19 @@ int main(int argc, char *argv[])
 #endif
 
         /* sig usr1 management */
-        struct sigaction action_usr1;
-        memset(&action_usr1, 0, sizeof(action_usr1));
+        struct sigaction action_usr1 = {};
         action_usr1.sa_handler = sipp_sigusr1;
         sigaction(SIGUSR1, &action_usr1, NULL);
 
         /* sig usr2 management */
-        struct sigaction action_usr2;
-        memset(&action_usr2, 0, sizeof(action_usr2));
+        struct sigaction action_usr2 = {};
         action_usr2.sa_handler = sipp_sigusr2;
         sigaction(SIGUSR2, &action_usr2, NULL);
     }
 
-    screen_set_exename((char *)"sipp");
+    screen_set_exename("sipp");
 
     pid = getpid();
-    memset(local_ip, 0, 40);
-#ifdef USE_SCTP
-    memset(multihome_ip, 0, 40);
-#endif
-    memset(media_ip,0, 40);
-    memset(control_ip,0, 40);
-    memset(media_ip_escaped,0, 42);
 
     /* Load compression pluggin if available */
     comp_load();
@@ -1749,8 +1728,7 @@ int main(int argc, char *argv[])
 
                 memcpy(&remote_sending_sockaddr,
                        local_addr->ai_addr,
-                       SOCK_ADDR_SIZE(
-                           _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
+                       local_addr->ai_addrlen);
 
                 if (remote_sending_sockaddr.ss_family == AF_INET) {
                     (_RCAST(struct sockaddr_in *, &remote_sending_sockaddr))->sin_port =
@@ -2106,7 +2084,7 @@ int main(int argc, char *argv[])
     }
 
 #ifdef HAVE_EPOLL
-    epollevents = (struct epoll_event*)malloc(sizeof(struct epoll_event) * max_recv_loops);
+    epollevents.reserve(max_recv_loops);
     epollfd = epoll_create(SIPP_MAXFDS);
     if (epollfd == -1) {
         ERROR_NO("Failed to open epoll FD");
@@ -2155,22 +2133,16 @@ int main(int argc, char *argv[])
 
         memcpy(&media_sockaddr,
                local_addr->ai_addr,
-               SOCK_ADDR_SIZE(
-                   _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
+               local_addr->ai_addrlen);
         freeaddrinfo(local_addr);
 
-        if((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
-                                  SOCK_DGRAM, 0)) == -1) {
-            char msg[512];
-            sprintf(msg, "Unable to get the audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
-            ERROR_NO(msg);
+        if ((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0)) == -1) {
+            ERROR_NO("Unable to get the audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
         }
+
         /* create a second socket for video */
-        if((media_socket_video = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
-                                        SOCK_DGRAM, 0)) == -1) {
-            char msg[512];
-            sprintf(msg, "Unable to get the video RTP socket (IP=%s, port=%d)", media_ip, media_port+2);
-            ERROR_NO(msg);
+        if ((media_socket_video = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0)) == -1) {
+            ERROR_NO("Unable to get the video RTP socket (IP=%s, port=%d)", media_ip, media_port + 2);
         }
 
         int try_counter;
@@ -2191,8 +2163,8 @@ int main(int argc, char *argv[])
             get_host_and_port(media_ip, media_ip_escaped, NULL);
 
             if(bind(media_socket,
-                    (sockaddr *)(void *)&media_sockaddr,
-                    SOCK_ADDR_SIZE(&media_sockaddr)) == 0) {
+                    _RCAST(sockaddr*, &media_sockaddr),
+                    sizeof(media_sockaddr)) == 0) {
                 break;
             }
 
@@ -2200,9 +2172,7 @@ int main(int argc, char *argv[])
         }
 
         if (try_counter >= max_tries) {
-            char msg[512];
-            sprintf(msg, "Unable to bind audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
-            ERROR_NO(msg);
+            ERROR_NO("Unable to bind audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
         }
 
         /*---------------------------------------------------------
@@ -2226,11 +2196,9 @@ int main(int argc, char *argv[])
         }
 
         if(bind(media_socket_video,
-                (sockaddr *)(void *)&media_sockaddr,
-                SOCK_ADDR_SIZE(&media_sockaddr))) {
-            char msg[512];
-            sprintf(msg, "Unable to bind video RTP socket (IP=%s, port=%d)", media_ip, media_port+2);
-            ERROR_NO(msg);
+                _RCAST(sockaddr*, &media_sockaddr),
+                sizeof(media_sockaddr))) {
+            ERROR_NO("Unable to bind video RTP socket (IP=%s, port=%d)", media_ip, media_port + 2);
         }
         /* Second socket bound */
     }
@@ -2241,27 +2209,13 @@ int main(int argc, char *argv[])
         setup_stdin_socket();
     }
 
-    if ((media_socket > 0) && (rtp_echo_enabled)) {
-        if (pthread_create
-                (&pthread2_id,
-                 NULL,
-                 (void *(*)(void *)) rtp_echo_thread,
-                 (void*)&media_socket)
-                == -1) {
-            ERROR_NO("Unable to create RTP echo thread");
+    if (rtp_echo_enabled) {
+        if (media_socket > 0) {
+            std::thread(rtp_echo_thread, media_socket);
         }
-    }
 
-
-    /* Creating second RTP echo thread for video */
-    if ((media_socket_video > 0) && (rtp_echo_enabled)) {
-        if (pthread_create
-                (&pthread3_id,
-                 NULL,
-                 (void *(*)(void *)) rtp_echo_thread,
-                 (void*)&media_socket_video)
-                == -1) {
-            ERROR_NO("Unable to create second RTP echo thread");
+        if (media_socket_video > 0) {
+            std::thread(rtp_echo_thread, media_socket_video);
         }
     }
 
@@ -2269,7 +2223,6 @@ int main(int argc, char *argv[])
 
 #ifdef HAVE_EPOLL
     close(epollfd);
-    free(epollevents);
 #endif
 
     if (scenario_file != NULL) {

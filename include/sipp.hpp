@@ -112,9 +112,9 @@
 #define T_SCTP                     3
 
 #ifdef _USE_OPENSSL
-#define DEFAULT_TLS_CERT           ((char *)"cacert.pem")
-#define DEFAULT_TLS_KEY            ((char *)"cakey.pem")
-#define DEFAULT_TLS_CRL            ((char *)"")
+#define DEFAULT_TLS_CERT           "cacert.pem"
+#define DEFAULT_TLS_KEY            "cakey.pem"
+#define DEFAULT_TLS_CRL            ""
 #endif
 
 #define TRANSPORT_TO_STRING(p)     ((p==T_TCP) ? "TCP" : ((p==T_TLS)? "TLS" : ((p==T_UDP)? "UDP" : "SCTP")))
@@ -152,8 +152,8 @@ cmd messages are received */
 #define DEFAULT_PORT                 5060
 #define DEFAULT_MEDIA_PORT           6000
 #define DEFAULT_3PCC_PORT            6060
-#define DEFAULT_SERVICE              ((char *)"service")
-#define DEFAULT_AUTH_PASSWORD        ((char *)"password")
+#define DEFAULT_SERVICE              "service"
+#define DEFAULT_AUTH_PASSWORD        "password"
 #define DEFAULT_REPORT_FREQ          1000
 #define DEFAULT_RATE_INCR_FREQ       0
 #define DEFAULT_REPORT_FREQ_DUMP_LOG 60000
@@ -233,12 +233,12 @@ extern int                max_sched_loops         _DEFVAL(MAX_SCHED_LOOPS_PER_CY
 
 extern unsigned int       global_t2               _DEFVAL(DEFAULT_T2_TIMER_VALUE);
 
-extern char               local_ip[40];
-extern char               local_ip_escaped[42];
-extern bool               local_ip_is_ipv6;
+extern char               local_ip[40]            _DEFVAL({});
+extern char               local_ip_escaped[42]    _DEFVAL({});
+extern bool               local_ip_is_ipv6        _DEFVAL({});
 extern int                local_port              _DEFVAL(0);
 #ifdef USE_SCTP
-extern char               multihome_ip[40];
+extern char               multihome_ip[40]        _DEFVAL({});
 extern int                heartbeat               _DEFVAL(0);
 extern int                assocmaxret             _DEFVAL(0);
 extern int                pathmaxret              _DEFVAL(0);
@@ -261,14 +261,14 @@ extern int                rtp_buffsize            _DEFVAL(65535);
 #endif
 
 extern bool               rtp_echo_enabled        _DEFVAL(0);
-extern char               media_ip[40];
-extern char               media_ip_escaped[42];
+extern char               media_ip[40]            _DEFVAL({});
+extern char               media_ip_escaped[42]    _DEFVAL({});
 extern int                user_media_port         _DEFVAL(0);
 extern int                media_port              _DEFVAL(0);
 extern size_t             media_bufsize           _DEFVAL(2048);
 extern bool               media_ip_is_ipv6;
-extern char               remote_ip[40];
-extern char               remote_ip_escaped[42];
+extern char               remote_ip[40]           _DEFVAL({});
+extern char               remote_ip_escaped[42]   _DEFVAL({});
 extern int                remote_port             _DEFVAL(DEFAULT_PORT);
 extern unsigned int       pid                     _DEFVAL(0);
 extern bool               print_all_responses     _DEFVAL(false);
@@ -316,9 +316,9 @@ extern bool               tdm_map[1024];
 #ifdef _USE_OPENSSL
 extern BIO              * twinSipp_bio;
 extern SSL              * twinSipp_ssl;
-extern char             * tls_cert_name           _DEFVAL(DEFAULT_TLS_CERT);
-extern char             * tls_key_name            _DEFVAL(DEFAULT_TLS_KEY);
-extern char             * tls_crl_name            _DEFVAL(DEFAULT_TLS_CRL);
+extern const char       * tls_cert_name           _DEFVAL(DEFAULT_TLS_CERT);
+extern const char       * tls_key_name            _DEFVAL(DEFAULT_TLS_KEY);
+extern const char       * tls_crl_name            _DEFVAL(DEFAULT_TLS_CRL);
 
 #endif
 
