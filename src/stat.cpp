@@ -135,51 +135,32 @@ unsigned long long CStat::M_G_counters[E_NB_G_COUNTER - E_NB_COUNTER];
 
 CStat::~CStat()
 {
-    int i;
-
-    for (i = 0; i < nRtds(); i++) {
+    for (int i = 0; i < nRtds(); i++) {
         if (M_ResponseTimeRepartition[i] != NULL) {
             delete [] M_ResponseTimeRepartition[i];
         }
     }
-    free(M_ResponseTimeRepartition);
 
-    if (M_CallLengthRepartition != NULL)
-        delete [] M_CallLengthRepartition;
+    free(M_ResponseTimeRepartition);
+    delete [] M_CallLengthRepartition;
+    delete [] M_fileName;
+    delete [] M_fileNameRtt;
+    delete [] M_dumpRespTime ;
 
     if(M_outputStream != NULL) {
         M_outputStream->close();
         delete M_outputStream;
     }
 
-    if(M_fileName != NULL)
-        delete [] M_fileName;
-
     if(M_outputStreamRtt != NULL) {
         M_outputStreamRtt->close();
         delete M_outputStreamRtt;
     }
-    if(M_fileNameRtt != NULL)
-        delete [] M_fileNameRtt;
-
-
-    if(M_dumpRespTime != NULL)
-        delete [] M_dumpRespTime ;
 
     free(M_rtdInfo);
     for (int_str_map::iterator i = M_revRtdMap.begin(); i != M_revRtdMap.end(); ++i) {
         free(i->second);
     }
-
-    M_SizeOfResponseTimeRepartition = 0;
-    M_SizeOfCallLengthRepartition   = 0;
-    M_CallLengthRepartition         = NULL;
-    M_fileName                      = NULL;
-    M_outputStream                  = NULL;
-
-    M_outputStreamRtt               = NULL;
-    M_fileNameRtt                   = NULL;
-    M_dumpRespTime                  = NULL;
 }
 
 
