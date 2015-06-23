@@ -46,6 +46,7 @@
 #include "logger.hpp"
 #include "assert.h"
 #include "config.h"
+#include "version.h"
 
 extern struct sipp_socket *ctrl_socket;
 extern struct sipp_socket *stdin_socket;
@@ -1357,7 +1358,7 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_VERSION:
                 printf("\n %s.\n\n",
                        /* SIPp v1.2.3-TLS-PCAP built YMD, HMS */
-                       "SIPp v" VERSION
+                       "SIPp " SIPP_VERSION
 #ifdef _USE_OPENSSL
                        "-TLS"
 #endif

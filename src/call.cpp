@@ -54,6 +54,7 @@
 #include "auth.hpp"
 #include "deadcall.hpp"
 #include "config.h"
+#include "version.h"
 
 #define callDebug(args...) do { if (useCallDebugf) { _callDebug( args ); } } while (0)
 
@@ -2308,7 +2309,8 @@ char* call::createSendingMessage(SendingMessage* src, int P_index, char* msg_buf
             dest += snprintf(dest, left, "%d", userId);
             break;
         case E_Message_SippVersion:
-            dest += snprintf(dest, left, "%s", VERSION);
+            /* Drop the initial "v" from the VERSION string for legacy reasons. */
+            dest += snprintf(dest, left, "%s", (const char*)VERSION + 1);
             break;
         case E_Message_Variable: {
             int varId = comp->varId;

@@ -1,0 +1,7 @@
+git_version = $(shell git describe --tags --always 2>/dev/null || cat .version 2>/dev/null)
+file_version = $(shell cat .version 2>/dev/null)
+ifneq ($(git_version),$(file_version))
+    $(shell echo 'Updating include/version.h' >&2)
+    $(shell echo '#define SIPP_VERSION "$(git_version)"' >include/version.h)
+    $(shell echo '$(git_version)' >.version)
+endif
