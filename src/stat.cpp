@@ -183,62 +183,41 @@ int CStat::init ()
 }
 
 
-static int is_well_formed(char* data, int* count)
+int is_well_formed(const char* data, int* count)
 {
-    char * ptr = data;
-    int sizeOf;
-    bool isANumber;
-
-    (*count) = 0;
-    sizeOf = strlen(data);
-    // getting the number
-    if(sizeOf > 0) {
-        // is the string well formed ? [0-9] [,]
-        isANumber = false;
-        for(int i=0; i<=sizeOf; i++) {
-            switch(ptr[i]) {
-            case ',':
-                if(isANumber == false) {
-                    return(0);
-                } else {
-                    (*count)++;
-                }
-                isANumber = false;
-                break;
-            case '0':
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':
-                isANumber = true;
-                break;
-            case '\t':
-            case ' ' :
-                break;
-            case '\0':
-                if(isANumber == false) {
-                    return(0);
-                } else {
-                    (*count)++;
-                }
-                break;
-            default:
-                return(0);
-            }
-        } // enf for
+    *count = 0;
+    if (!data || !data[0]) {
+        return 1;
     }
-    return(1);
-}
 
+    bool in_number = false;
+    for (const char *p = data; *p; ++p) {
+        switch (*p) {
+        case ',':
+            if (!in_number) {
+                return 0;
+            }
+            (*count)++;
+            in_number = false;
+            break;
+        case '\t':
+        case ' ' :
+            break;
+        default:
+            if (!std::isdigit(*p)) {
+                return 0;
+            }
+            in_number = true;
+            break;
+        }
+    }
 
-int CStat::isWellFormed(char* P_listeStr, int* nombre)
-{
-    return is_well_formed(P_listeStr, nombre);
+    if (!in_number) {
+        return 0;
+    }
+
+    (*count)++;
+    return 1;
 }
 
 
@@ -251,7 +230,7 @@ int CStat::createIntegerTable(char * P_listeStr,
     char * ptr_prev = P_listeStr;
     unsigned int current_int;
 
-    if(isWellFormed(P_listeStr, sizeOfList) == 1) {
+    if (is_well_formed(P_listeStr, sizeOfList) == 1) {
         (*listeInteger) = new unsigned int[(*sizeOfList)];
         while((*ptr) != ('\0')) {
             if((*ptr) == ',') {
@@ -2016,7 +1995,7 @@ double CNegBin::cdfInv(double percentile)
 #ifdef GTEST
 #include "gtest/gtest.h"
 
-TEST(utility, isWellFormed) {
+TEST(utility, is_well_formed) {
     int count;
 
     ASSERT_EQ(1, is_well_formed(NULL, &count));
