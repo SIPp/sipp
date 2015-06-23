@@ -1,3 +1,5 @@
+@AM_GIT_VERSION@
+
 bin_PROGRAMS = sipp
 
 TESTS = sipp_unittest
@@ -126,6 +128,10 @@ sipp_SOURCES = \
 sipp_CFLAGS = $(AM_CFLAGS) @GSL_CFLAGS@
 sipp_CXXFLAGS = $(AM_CXXFLAGS) @GSL_CXXFLAGS@
 sipp_LDADD = @LIBOBJS@ @GSL_LIBS@
+
+# call.cpp and sipp.cpp use version.h; see AM_GIT_VERSION.
+src/call.cpp: include/version.h
+src/sipp.cpp: include/version.h
 
 gtest_SOURCES = \
 	gtest/include/gtest/gtest-death-test.h \
