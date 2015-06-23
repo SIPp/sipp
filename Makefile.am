@@ -177,5 +177,6 @@ sipp.1: ./sipp $(sipp_SOURCES)
 		--name='SIP testing tool and traffic generator' \
 		./sipp
 else
+sipp.1:
 	@echo "Warning: help2man not available, no man page is created."
 endif
