@@ -1841,7 +1841,6 @@ int main(int argc, char *argv[])
                 break;
             case SIPP_OPTION_PLUGIN: {
                 void *handle;
-                char *error;
                 int (*init)();
                 int ret;
 
@@ -1854,8 +1853,13 @@ int main(int argc, char *argv[])
                 }
 
                 init = (int (*)())dlsym(handle, "init");
-                if((error = (char *) dlerror())) {
-                    ERROR("Could not locate init function in %s: %s", argv[argi], dlerror());
+                if (!init) {
+                    const char *message = dlerror();
+                    if (message) {
+                        ERROR("Could not locate init function in %s: %s", argv[argi], message);
+                    } else {
+                        ERROR("Found init function in %s is NULL", argv[argi]);
+                    }
                 }
 
                 ret = init();
