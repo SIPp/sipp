@@ -53,6 +53,26 @@ sippbg() {
     rm $temp
 }
 
+tcplisten() {
+    port="$1"
+    perl -e '
+        use Socket;$|=1;(socket(S,PF_INET,SOCK_STREAM,6)&&
+        setsockopt(S,SOL_SOCKET,SO_REUSEADDR,1)&&
+        bind(S,pack_sockaddr_in('$port',"\0\0\0\0"))&&
+        listen(S,1)&&($sa=accept(N,S))&&(($port,$ia)=
+        unpack_sockaddr_in($sa))&&($ia=inet_ntoa($ia))&&
+        print "Connection from $ia:$port\n")||die($!);
+        close(S);while(1){recv(N,$o,2048,0);print "$o";}'
+}
+
+#udplisten() {
+#    port="$1"
+#    perl -e '
+#        use Socket;(socket(S,PF_INET,SOCK_DGRAM,17)&&
+#        bind(S,pack_sockaddr_in('$port',"\x7f\0\0\1"))&&
+#        listen(S,1)&&recv(S,$o,2048,0)&&print "$o\n")||die($!);'
+#}
+
 cleanup() {
     if pgrep -P$$ >/dev/null; then
         pkill -P$$

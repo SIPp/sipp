@@ -3,15 +3,15 @@
 # Author: Walter Doekes, OSSO B.V., 2014
 . "`dirname "$0"`/../functions"; init
 
-# BSD-netcat does not take -p when listening. Take input from /dev/zero
-# so we stay alive instead of EOF.
-nc -v -l 5070 >tmp.log 2>&1 </dev/zero &
+tcplisten 5070 >tmp.log 2>&1 &
+pid=$!
 sleep 1
 sippbg -m 1 -sn uac -i 127.0.3.1 -t t1 -p 5071 127.0.2.1:5070
+kill -9 $pid
 
-nc_sport=`grep -i 'connection.*accepted' tmp.log | sed -e 's/.*sport \([0-9]*\).*/\1/'`
+conn_sport=`sed -ne 's/^Connection from.*://p' tmp.log`
 via_sport=`grep ^Via: tmp.log | sed -e 's/.*:\([0-9]*\);.*/\1/'`
-if test $nc_sport = $via_sport; then
+if test $conn_sport = $via_sport; then
     unexpected_ok
 else
     expected_fail
