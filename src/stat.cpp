@@ -44,8 +44,6 @@
 ** Warning! All DISPLAY_ macros must be called where f FILE is
 **          defined. This is to allow printing to stdout or a file.
 */
-#define DISPLAY_LINE()\
-  fprintf(f," ------------------------------------------------------------------------------ \r\n")
 #define DISPLAY_DLINE()\
   fprintf(f,"================================================================================\r\n")
 #define DISPLAY_CROSS_LINE()\
@@ -63,20 +61,6 @@
   fprintf(f,"  %-22.22s |                           | %8llu                 \r\n", T1, V1)
 #define DISPLAY_PERIO(T1, V1)\
   fprintf(f,"  %-22.22s | %8llu                  |                          \r\n", T1, V1)
-#define DISPLAY_VALF(T1, V1)\
-  fprintf(f,"  %-22.22s | %8.3f ms                                          \r\n", T1, V1)
-#define DISPLAY_VAL_RATEF(T1, V1)\
-  fprintf(f,"  %-22.22s | %8.3f cps                                         \r\n", T1, V1)
-#define DISPLAY_VAL_RATE(T1, V1)\
-  fprintf(f,"  %-22.22s | %8d cps                                         \r\n", T1, V1)
-#define DISPLAY_VAL(T1, V1)\
-  fprintf(f,"  %-22.22s : %8d                                             \r\n", T1, V1)
-#define DISPLAY_2VALF(T1, V1, T2, V2)\
-  fprintf(f,"  %-22.22s : %8.2f  | %-7.7s : %8.2f                       \r\n", T1, V1, T2, V2)
-#define DISPLAY_3VAL(T1, V1, T2, V2, T3, V3)\
-  fprintf(f,"  %-22.22s : %8d  | %-7.7s : %8d  | %-12.12s : %5d \r\n", T1, V1, T2, V2, T3, V3)
-#define DISPLAY_3VALF(T1, V1, T2, V2, T3, V3)\
-  fprintf(f,"  %-22.22s : %8.3f  | %-7.7s : %8.3f  | %-12.12s : %5.1f \r\n", T1, V1, T2, V2, T3, V3)
 #define DISPLAY_TXT(T1, V1)\
   fprintf(f,"  %-22.22s | %-52.52s \r\n", T1, V1)
 #define DISPLAY_INFO(T1)\
