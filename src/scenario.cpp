@@ -257,14 +257,6 @@ static double xp_get_double(const char *name, const char *what)
     return val;
 }
 
-static double xp_get_double(const char *name, const char *what, double defval)
-{
-    if (!(xp_get_value(name))) {
-        return defval;
-    }
-    return xp_get_double(name, what);
-}
-
 static long xp_get_long(const char *name, const char *what)
 {
     char *ptr;
@@ -450,22 +442,6 @@ bool get_bool(const char *ptr, const char *what)
     return ret ? true : false;
 }
 
-/* Pretty print a time. */
-static char* time_string(int ms)
-{
-    static char tmp[20];
-
-    if (ms < 10000) {
-        snprintf(tmp, sizeof(tmp), "%dms", ms);
-    } else if (ms < 100000) {
-        snprintf(tmp, sizeof(tmp), "%.1fs", ((float)ms)/1000);
-    } else {
-        snprintf(tmp, sizeof(tmp), "%ds", ms/1000);
-    }
-
-    return tmp;
-}
-
 int time_string(double ms, char *res, int reslen)
 {
     if (ms < 10000) {
@@ -497,23 +473,6 @@ int time_string(double ms, char *res, int reslen)
         m %= 60;
         return snprintf(res, reslen, "%d:%02d:%02d", h, m, s);
     }
-}
-
-static char* double_time_string(double ms)
-{
-    static char tmp[20];
-
-    if (ms < 1000) {
-        snprintf(tmp, sizeof(tmp), "%.2lfms", ms);
-    } else if (ms < 10000) {
-        snprintf(tmp, sizeof(tmp), "%.1lfms", ms);
-    } else if (ms < 100000) {
-        snprintf(tmp, sizeof(tmp), "%.1lfs", ms / 1000);
-    } else {
-        snprintf(tmp, sizeof(tmp), "%ds", (int)(ms/1000));
-    }
-
-    return tmp;
 }
 
 /* For backwards compatibility, we assign "true" to slot 1, false to 0, and
