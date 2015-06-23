@@ -38,72 +38,72 @@
 /************************ Class Constructor *************************/
 
 message::message(int index, const char *desc)
-{
-    this->index = index;
-    this->desc = desc;
-    pause_distribution = NULL; // delete on exit
-    pause_variable = -1;
-    pause_desc = NULL; // free on exit
-    sessions = 0;
-    bShouldRecordRoutes = 0;
-    bShouldAuthenticate = 0;
+  : pause_distribution(NULL), // delete on exit
+    pause_variable(-1),
+    pause_desc(NULL), // free on exit
+    timewait(false),
+    sessions(0),
+    bShouldRecordRoutes(0),
+    bShouldAuthenticate(0),
 
-    send_scheme = NULL; // delete on exit
-    retrans_delay = 0;
-    timeout = 0;
-
-    recv_response = 0;
-    recv_request = NULL; // free on exit
-    optional = 0;
-    advance_state = true;
-    regexp_match = 0;
-    regexp_compile = NULL; // regfree (if not NULL) and free on exit
-
-    /* Anyway */
-    start_rtd = 0;
-    stop_rtd  = 0;
-    repeat_rtd = 0;
-    lost = -1;
-    crlf = 0;
-    hide = 0;
-    display_str = NULL; // free on exit
-    test = -1;
-    condexec = -1;
-    condexec_inverse = false;
-    chance = 0;/* meaning always */
-    next = -1;
-    nextLabel = NULL; // free on exit
-    on_timeout = -1;
-    onTimeoutLabel = NULL; // free on exit
-    timewait = false;
+    send_scheme(NULL), // delete on exit
+    retrans_delay(0),
 
     /* 3pcc extended mode */
-    peer_dest = NULL; // free on exit
-    peer_src = NULL; // free on exit
+    peer_dest(NULL), // free on exit
+    peer_src(NULL), // free on exit
+
+    recv_response(0),
+    recv_request(NULL), // free on exit
+    optional(0),
+    advance_state(true),
+    regexp_match(0),
+    regexp_compile(NULL), // regfree (if not NULL) and free on exit
+
+    /* Anyway */
+    start_rtd(0),
+    stop_rtd (0),
+    repeat_rtd(0),
+    counter(0),
+    lost(-1),
+    crlf(0),
+    hide(0),
+    display_str(NULL), // free on exit
+    next(-1),
+    nextLabel(NULL), // free on exit
+    test(-1),
+    condexec(-1),
+    condexec_inverse(false),
+    chance(0),/* meaning always */
+    on_timeout(-1),
+    onTimeoutLabel(NULL), // free on exit
 
     /* Statistics */
-    nb_sent = 0;
-    nb_recv = 0;
-    nb_sent_retrans = 0;
-    nb_recv_retrans = 0;
-    nb_timeout = 0;
-    nb_unexp = 0;
-    nb_lost = 0;
-    counter = 0;
+    nb_sent(0),
+    nb_recv(0),
+    nb_sent_retrans(0),
+    nb_recv_retrans(0),
+    nb_timeout(0),
+    nb_unexp(0),
+    nb_lost(0),
 
-    M_type = 0;
+    M_type(0),
 
-    M_sendCmdData = NULL; // delete on exit
-    M_nbCmdSent   = 0;
-    M_nbCmdRecv   = 0;
+    M_sendCmdData(NULL), // delete on exit
+    M_nbCmdSent  (0),
+    M_nbCmdRecv  (0),
 
-    content_length_flag = ContentLengthNoPresent;
+    content_length_flag(ContentLengthNoPresent),
 
     /* How to match responses to this message. */
-    start_txn = 0;
-    response_txn = 0;
-    ack_txn = 0;
-    recv_response_for_cseq_method_list = NULL; // free on exit
+    recv_response_for_cseq_method_list(NULL), // free on exit
+    start_txn(0),
+    ack_txn(0),
+    response_txn(0),
+    index(index),
+    desc(desc)
+{
+    timeout = 0;
 }
 
 message::~message()
