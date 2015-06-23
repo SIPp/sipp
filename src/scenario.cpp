@@ -479,10 +479,10 @@ int time_string(double ms, char *res, int reslen)
  * allow other valid integers. */
 int scenario::get_rtd(const char *ptr, bool start)
 {
-    if(!strcmp(ptr, (char *)"false"))
+    if(!strcmp(ptr, "false"))
         return 0;
 
-    if(!strcmp(ptr, (char *)"true"))
+    if(!strcmp(ptr, "true"))
         return stats->findRtd("1", start);
 
     return stats->findRtd(ptr, start);
@@ -564,7 +564,7 @@ static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
 
     while((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) ptr++;
 
-    msg = (char *) malloc(strlen(ptr) + 3);
+    msg = (char *)malloc(strlen(ptr) + 3);
     if(!msg) {
         ERROR("Memory Overflow");
     }
@@ -651,7 +651,7 @@ scenario::scenario(char * filename, int deflt)
         ERROR("No 'scenario' section in xml scenario file");
     }
 
-    if(char *ptr = xp_get_value((char *)"name")) {
+    if(char *ptr = xp_get_value("name")) {
         name = strdup(ptr);
     } else {
         name = strdup("");
@@ -742,7 +742,7 @@ scenario::scenario(char * filename, int deflt)
                     getCommonAttributes(nopmsg);
                 } else if (!strcmp(initelem, "label")) {
                     /* Add an init label. */
-                    ptr = xp_get_value((char *)"id");
+                    ptr = xp_get_value("id");
                     if (initLabelMap.find(ptr) != initLabelMap.end()) {
                         ERROR("The label name '%s' is used twice.", ptr);
                     }
@@ -832,10 +832,10 @@ scenario::scenario(char * filename, int deflt)
 
                 curmsg -> retrans_delay = xp_get_long("retrans", "retransmission timer", 0);
                 curmsg -> timeout = xp_get_long("timeout", "message send timeout", 0);
-            } else if(!strcmp(elem, (char *)"recv")) {
+            } else if(!strcmp(elem, "recv")) {
                 curmsg->M_type = MSG_TYPE_RECV;
                 /* Received messages descriptions */
-                if((ptr = xp_get_value((char *)"response"))) {
+                if((ptr = xp_get_value("response"))) {
                     curmsg ->recv_response = get_long(ptr, "response code");
                     if (method_list) {
                         curmsg->recv_response_for_cseq_method_list = strdup(method_list);
@@ -845,7 +845,7 @@ scenario::scenario(char * filename, int deflt)
                     }
                 }
 
-                if((ptr = xp_get_value((char *)"request"))) {
+                if((ptr = xp_get_value("request"))) {
                     curmsg -> recv_request = strdup(ptr);
                     if ((ptr = xp_get_value("response_txn"))) {
                         ERROR("response_txn can only be used for received responses.");
@@ -859,7 +859,7 @@ scenario::scenario(char * filename, int deflt)
                     ERROR("advance_state is allowed only for optional messages (index = %zu)\n", messages.size() - 1);
                 }
 
-                if (0 != (ptr = xp_get_value((char *)"regexp_match"))) {
+                if (0 != (ptr = xp_get_value("regexp_match"))) {
                     if(!strcmp(ptr, "true")) {
                         curmsg -> regexp_match = 1;
                     }
@@ -869,12 +869,12 @@ scenario::scenario(char * filename, int deflt)
 
                 /* record the route set  */
                 /* TODO disallow optional and rrs to coexist? */
-                if((ptr = xp_get_value((char *)"rrs"))) {
+                if((ptr = xp_get_value("rrs"))) {
                     curmsg -> bShouldRecordRoutes = get_bool(ptr, "record route set");
                 }
 
                 /* record the authentication credentials  */
-                if((ptr = xp_get_value((char *)"auth"))) {
+                if((ptr = xp_get_value("auth"))) {
                     bool temp = get_bool(ptr, "message authentication");
                     curmsg -> bShouldAuthenticate = temp;
                 }
@@ -920,7 +920,7 @@ scenario::scenario(char * filename, int deflt)
                 last_recv_optional = curmsg->optional;
 
                 /* 3pcc extended mode */
-                if((ptr = xp_get_value((char *)"src"))) {
+                if((ptr = xp_get_value("src"))) {
                     curmsg ->peer_src = strdup(ptr);
                 } else if (extendedTwinSippMode) {
                     ERROR("You must specify a 'src' for recvCmd when using extended 3pcc mode!");
@@ -931,7 +931,7 @@ scenario::scenario(char * filename, int deflt)
                 /* Sent messages descriptions */
 
                 /* 3pcc extended mode */
-                if((ptr = xp_get_value((char *)"dest"))) {
+                if((ptr = xp_get_value("dest"))) {
                     peer = strdup(ptr) ;
                     curmsg ->peer_dest = peer ;
                     peer_map::iterator peer_it;
@@ -1330,28 +1330,28 @@ void scenario::parseAction(std::vector<CAction>& actions)
             tmpAction.M_headersOnly = xp_get_bool("start_line", "ereg", false);
 
             free(ptr);
-            if ( 0 != ( ptr = xp_get_value((char *)"search_in") ) ) {
+            if ( 0 != ( ptr = xp_get_value("search_in") ) ) {
                 tmpAction.M_occurrence = 1;
 
-                if ( 0 == strcmp(ptr, (char *)"msg") ) {
+                if ( 0 == strcmp(ptr, "msg") ) {
                     tmpAction.M_lookingPlace = CAction::E_LP_MSG;
                     tmpAction.setLookingChar (NULL);
-                } else if ( 0 == strcmp(ptr, (char *)"body") ) {
+                } else if ( 0 == strcmp(ptr, "body") ) {
                     tmpAction.M_lookingPlace = CAction::E_LP_BODY;
                     tmpAction.setLookingChar (NULL);
-                } else if (!strcmp(ptr, (char *)"var")) {
+                } else if (!strcmp(ptr, "var")) {
                     tmpAction.M_varInId = xp_get_var("variable", "ereg");
                     tmpAction.M_lookingPlace = CAction::E_LP_VAR;
-                } else if (!strcmp(ptr, (char *)"hdr")) {
-                    ptr = xp_get_value((char *)"header");
+                } else if (!strcmp(ptr, "hdr")) {
+                    ptr = xp_get_value("header");
                     if (!ptr || !strlen(ptr)) {
                         ERROR("search_in=\"hdr\" requires header field");
                     }
                     tmpAction.M_lookingPlace = CAction::E_LP_HDR;
                     tmpAction.setLookingChar(ptr);
-                    if (0 != (ptr = xp_get_value((char *)"occurrence"))) {
+                    if (0 != (ptr = xp_get_value("occurrence"))) {
                         tmpAction.M_occurrence = atol(ptr);
-                    } else if (0 != (ptr = xp_get_value((char *)"occurence"))) {
+                    } else if (0 != (ptr = xp_get_value("occurence"))) {
                         /* old misspelling */
                         tmpAction.M_occurrence = atol(ptr);
                     }
@@ -1372,7 +1372,7 @@ void scenario::parseAction(std::vector<CAction>& actions)
                 tmpAction.M_checkItInverse = xp_get_bool("check_it_inverse", "ereg", false);
             }
 
-            if (!(ptr = xp_get_value((char *) "assign_to"))) {
+            if (!(ptr = xp_get_value("assign_to"))) {
                 ERROR("assign_to value is missing");
             }
 
@@ -1417,7 +1417,7 @@ void scenario::parseAction(std::vector<CAction>& actions)
         } else if(!strcmp(actionElem, "gettimeofday")) {
             tmpAction.M_action = CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY;
 
-            if (!(ptr = xp_get_value((char *) "assign_to"))) {
+            if (!(ptr = xp_get_value("assign_to"))) {
                 ERROR("assign_to value is missing");
             }
             createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
@@ -1542,10 +1542,10 @@ void scenario::parseAction(std::vector<CAction>& actions)
             tmpAction.M_varId = xp_get_var("assign_to", "trim");
             tmpAction.M_action = CAction::E_AT_VAR_TRIM;
         } else if(!strcmp(actionElem, "exec")) {
-            if((ptr = xp_get_value((char *)"command"))) {
+            if((ptr = xp_get_value("command"))) {
                 tmpAction.M_action = CAction::E_AT_EXECUTE_CMD;
                 tmpAction.setMessage(ptr);
-            } /* end (ptr = xp_get_value("command")  */ else if((ptr = xp_get_value((char *)"int_cmd"))) {
+            } /* end (ptr = xp_get_value("command")  */ else if((ptr = xp_get_value("int_cmd"))) {
                 CAction::T_IntCmdType type(CAction::E_INTCMD_STOPCALL); /* assume the default */
 
                 if (!strcmp(ptr, "stop_now")) {
@@ -1561,26 +1561,26 @@ void scenario::parseAction(std::vector<CAction>& actions)
                 tmpAction.M_action = CAction::E_AT_EXEC_INTCMD;
                 tmpAction.M_IntCmd = type;
 #ifdef PCAPPLAY
-            } else if ((ptr = xp_get_value((char *) "play_pcap_audio"))) {
+            } else if ((ptr = xp_get_value("play_pcap_audio"))) {
                 tmpAction.setPcapArgs(ptr);
                 tmpAction.M_action = CAction::E_AT_PLAY_PCAP_AUDIO;
-            } else if ((ptr = xp_get_value((char *) "play_pcap_image"))) {
+            } else if ((ptr = xp_get_value("play_pcap_image"))) {
                 tmpAction.setPcapArgs(ptr);
                 tmpAction.M_action = CAction::E_AT_PLAY_PCAP_IMAGE;
                 hasMedia = 1;
-            } else if ((ptr = xp_get_value((char *) "play_pcap_video"))) {
+            } else if ((ptr = xp_get_value("play_pcap_video"))) {
                 tmpAction.setPcapArgs(ptr);
                 tmpAction.M_action = CAction::E_AT_PLAY_PCAP_VIDEO;
                 hasMedia = 1;
 #else
-            } else if ((ptr = xp_get_value((char *) "play_pcap_audio"))) {
+            } else if ((ptr = xp_get_value("play_pcap_audio"))) {
                 ERROR("Scenario specifies a play_pcap_audio action, but this version of SIPp does not have PCAP support");
-            } else if ((ptr = xp_get_value((char *) "play_pcap_image"))) {
+            } else if ((ptr = xp_get_value("play_pcap_image"))) {
                 ERROR("Scenario specifies a play_pcap_image action, but this version of SIPp does not have PCAP support");
-            } else if ((ptr = xp_get_value((char *) "play_pcap_video"))) {
+            } else if ((ptr = xp_get_value("play_pcap_video"))) {
                 ERROR("Scenario specifies a play_pcap_video action, but this version of SIPp does not have PCAP support");
 #endif
-            } else if ((ptr = xp_get_value((char *) "rtp_stream"))) {
+            } else if ((ptr = xp_get_value("rtp_stream"))) {
 #ifdef RTP_STREAM
                 hasMedia = 1;
                 if (!strcmp(ptr, "pause")) {
@@ -1637,10 +1637,10 @@ void scenario::getBookKeeping(message *message)
 {
     char *ptr;
 
-    if((ptr = xp_get_value((char *)"rtd"))) {
+    if((ptr = xp_get_value("rtd"))) {
         message -> stop_rtd = get_rtd(ptr, false);
     }
-    if ((ptr = xp_get_value((char *)"repeat_rtd"))) {
+    if ((ptr = xp_get_value("repeat_rtd"))) {
         if (message -> stop_rtd) {
             message-> repeat_rtd = get_bool(ptr, "repeat_rtd");
         } else {
@@ -1648,11 +1648,11 @@ void scenario::getBookKeeping(message *message)
         }
     }
 
-    if((ptr = xp_get_value((char *)"start_rtd"))) {
+    if((ptr = xp_get_value("start_rtd"))) {
         message -> start_rtd = get_rtd(ptr, true);
     }
 
-    if((ptr = xp_get_value((char *)"counter"))) {
+    if((ptr = xp_get_value("counter"))) {
         message -> counter = get_counter(ptr, "counter");
     }
 }
@@ -1664,12 +1664,12 @@ void scenario::getCommonAttributes(message *message)
     getBookKeeping(message);
     getActionForThisMessage(message);
 
-    if((ptr = xp_get_value((char *)"lost"))) {
+    if((ptr = xp_get_value("lost"))) {
         message -> lost = get_double(ptr, "lost percentage");
         lose_packets = 1;
     }
 
-    if((ptr = xp_get_value((char *)"crlf"))) {
+    if((ptr = xp_get_value("crlf"))) {
         message -> crlf = 1;
     }
 
@@ -1677,7 +1677,7 @@ void scenario::getCommonAttributes(message *message)
         hidedefault = xp_get_bool("hiderest", "hiderest");
     }
     message -> hide = xp_get_bool("hide", "hide", hidedefault);
-    if((ptr = xp_get_value((char *)"display"))) {
+    if((ptr = xp_get_value("display"))) {
         message -> display_str = strdup(ptr);
     }
 
@@ -1690,7 +1690,7 @@ void scenario::getCommonAttributes(message *message)
         }
         message->nextLabel = strdup(ptr);
         message->test = xp_get_var("test", "test variable", -1);
-        if ( 0 != ( ptr = xp_get_value((char *)"chance") ) ) {
+        if ( 0 != ( ptr = xp_get_value("chance") ) ) {
             float chance = get_double(ptr,"chance");
             /* probability of branch to next */
             if (( chance < 0.0 ) || (chance > 1.0 )) {
@@ -1702,7 +1702,7 @@ void scenario::getCommonAttributes(message *message)
         }
     }
 
-    if ((ptr = xp_get_value((char *)"ontimeout"))) {
+    if ((ptr = xp_get_value("ontimeout"))) {
         if (found_timewait) {
             ERROR("ontimeout labels are not allowed in <timewait> elements.");
         }

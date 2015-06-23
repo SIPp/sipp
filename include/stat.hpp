@@ -25,8 +25,8 @@
 
 
 #define TIME_LENGTH 64
-#define DEFAULT_FILE_NAME (char*)"dumpFile"
-#define DEFAULT_EXTENSION (char*)".csv"
+#define DEFAULT_FILE_NAME "dumpFile"
+#define DEFAULT_EXTENSION ".csv"
 
 #define MAX_CHAR_BUFFER_SIZE 1024
 
@@ -351,9 +351,9 @@ public:
     void setRepartitionResponseTime (char * liste);
 
     /* define the file name to use to dump statistic in file */
-    void setFileName                (char * name);
-    void setFileName                (char * name, char * extension);
-    void initRtt                    (char * name, char * extension, unsigned long P_value);
+    void setFileName(const char* name);
+    void setFileName(const char* name, const char* extension);
+    void initRtt(const char* name, const char* extension, unsigned long report_freq_dumpRtt);
 
     /**
      * Display data periodically updated on screen.
@@ -527,7 +527,7 @@ private:
      */
     char* sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
                              int sizeOfTab,
-                             char* P_repartitionName);
+                             const char* P_repartitionName);
 
     /**
      * sRepartitionInfo
