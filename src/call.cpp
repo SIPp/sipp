@@ -2955,6 +2955,11 @@ bool call::process_incoming(char* msg, struct sockaddr_storage *src)
     responsecseqmethod[0] = '\0';
     txn[0] = '\0';
 
+    /* Check that we have a To:-header */
+    if (!get_header(msg, "To:", false)[0] && !process_unexpected(msg)) {
+        return false;
+    }
+
     if ((transport == T_UDP) && (retrans_enabled)) {
         /* Detects retransmissions from peer and retransmit the
          * message which was sent just after this one was received */
