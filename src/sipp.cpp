@@ -2233,5 +2233,4 @@ int main(int argc, char *argv[])
         delete [] scenario_file;
         scenario_file = NULL;
     }
-
 }

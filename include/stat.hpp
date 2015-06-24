@@ -72,10 +72,14 @@ public:
      * border max is the max value allow for this range
      * nbInThisBorder is the counter of value in this range
      */
-    typedef struct _T_dynamicalRepartition {
-        unsigned int  borderMax;
+    struct T_dynamicalRepartition {
+        unsigned int borderMax;
         unsigned long nbInThisBorder;
-    } T_dynamicalRepartition;
+
+        T_dynamicalRepartition(int max) : borderMax(max), nbInThisBorder(0) {};
+    };
+
+    typedef std::vector<T_dynamicalRepartition> repartition_list;
 
     typedef struct _T_value_rtt {
         double  date ;
@@ -442,8 +446,8 @@ private:
     str_int_map                   M_rtdMap;
     int_str_map                   M_revRtdMap;
 
-    T_dynamicalRepartition** M_ResponseTimeRepartition;
-    T_dynamicalRepartition*  M_CallLengthRepartition;
+    std::vector<repartition_list> M_ResponseTimeRepartition;
+    repartition_list M_CallLengthRepartition;
     int                      M_SizeOfResponseTimeRepartition;
     int                      M_SizeOfCallLengthRepartition;
     struct timeval           M_startTime;
@@ -468,58 +472,36 @@ private:
     void resetPLCounters();
 
     /**
-     * initRepartition
-     * This methode is used to create the repartition table with a table of
-     * unsigned int the reparition is created like following, with Vi the given
-     * value in the table
-     * 0    <= x <  V1
-     * V1   <= x <  V2
-     *  ...
-     * Vn-1 <= x <  Vn
-     *         x >= Vn
-     * So the repartition table have the size n+1 if the given table has a size
-     * of n */
-    void  initRepartition(unsigned int* repartition, int nombre,
-                          T_dynamicalRepartition ** tabRepartition, int* nbTab);
-
-    /**
      * updateRepartition
      * The method looks for the place to set the value passed in parameter
      * Once found, the associated counter is incremented
      */
-    void  updateRepartition( T_dynamicalRepartition* tabRepart,
-                             int sizeOfTab,
-                             unsigned long value);
+    void updateRepartition(repartition_list& tab, unsigned long value);
 
     /**
      * resetRepartition
      * Zeros out all repartition counters.
      */
-    void  resetRepartition(T_dynamicalRepartition* P_tabReport,
-                           int P_sizeOfTab);
+    void resetRepartition(repartition_list& tab);
+
     /**
      * displayRepartition
      * Display the repartition passed in parameter at the screen
      */
-    void  displayRepartition(FILE *f,
-                             T_dynamicalRepartition * tabRepartition,
-                             int sizeOfTab);
+    void displayRepartition(FILE *f, const repartition_list& tab);
 
     /**
      * sRepartitionHeader
      * return a string with the range description of the given repartition
      */
-    char* sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
-                             int sizeOfTab,
-                             const char* P_repartitionName);
+    char* sRepartitionHeader(const repartition_list& tab, const char* name);
 
     /**
      * sRepartitionInfo
      * return a string with the number of value in the differente range of the
      * given repartition
      */
-    char* sRepartitionInfo(T_dynamicalRepartition * tabRepartition,
-                           int sizeOfTab);
+    char* sRepartitionInfo(const repartition_list& tab);
 
     /**
      * UpdateAverageCounter
