@@ -610,6 +610,27 @@ static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
 
 /********************** Scenario File analyser **********************/
 
+static std::vector<std::string> string_table(char* input)
+{
+    std::vector<std::string> table;
+
+    if (!input || !input[0]) {
+        return table;
+    }
+
+    do {
+        char *p = strchr(input, ',');
+        if (p) {
+            *p++ = '\0';
+        }
+
+        table.push_back(std::string(input));
+        input = p;
+    } while (input);
+
+    return table;
+}
+
 void scenario::checkOptionalRecv(char *elem, unsigned int scenario_file_cursor)
 {
     if (last_recv_optional) {
@@ -677,41 +698,29 @@ scenario::scenario(char * filename, int deflt)
         } else if(!strcmp(elem, "Global")) {
             ptr = xp_get_string("variables", "Global");
 
-            char **       currentTabVarName = NULL;
-            int           currentNbVarNames;
-
-            createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
-            for (int i = 0; i < currentNbVarNames; i++) {
-                globalVariables->find(currentTabVarName[i], true);
+            auto table = string_table(ptr);
+            for (const std::string& varname : table) {
+                globalVariables->find(varname.c_str(), true);
             }
-            freeStringTable(currentTabVarName, currentNbVarNames);
             free(ptr);
         } else if(!strcmp(elem, "User")) {
             ptr = xp_get_string("variables", "User");
 
-            char **       currentTabVarName = NULL;
-            int           currentNbVarNames;
-
-            createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
-            for (int i = 0; i < currentNbVarNames; i++) {
-                userVariables->find(currentTabVarName[i], true);
+            auto table = string_table(ptr);
+            for (const std::string& varname : table) {
+                userVariables->find(varname.c_str(), true);
             }
-            freeStringTable(currentTabVarName, currentNbVarNames);
             free(ptr);
         } else if(!strcmp(elem, "Reference")) {
             ptr = xp_get_string("variables", "Reference");
 
-            char **       currentTabVarName = NULL;
-            int           currentNbVarNames;
-
-            createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
-            for (int i = 0; i < currentNbVarNames; i++) {
-                int id = allocVars->find(currentTabVarName[i], false);
+            auto table = string_table(ptr);
+            for (const std::string& varname : table) {
+                int id = allocVars->find(varname.c_str(), false);
                 if (id == -1) {
-                    ERROR("Could not reference non-existant variable '%s'", currentTabVarName[i]);
+                    ERROR("Could not reference non-existant variable '%s'", varname.c_str());
                 }
             }
-            freeStringTable(currentTabVarName, currentNbVarNames);
             free(ptr);
         } else if(!strcmp(elem, "DefaultMessage")) {
             char *id = xp_get_string("id", "DefaultMessage");
@@ -1306,8 +1315,6 @@ void scenario::parseAction(std::vector<CAction>& actions)
     char* actionElem;
     unsigned int recvScenarioLen = 0;
     char* currentRegExp = NULL;
-    char** currentTabVarName = NULL;
-    int currentNbVarNames;
     char* ptr;
     int sub_currentNbVarId;
 
@@ -1376,23 +1383,21 @@ void scenario::parseAction(std::vector<CAction>& actions)
                 ERROR("assign_to value is missing");
             }
 
-            createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
+            auto table = string_table(ptr);
 
-            int varId = get_var(currentTabVarName[0], "assign_to");
+            int varId = get_var(table[0].c_str(), "assign_to");
             tmpAction.M_varId = varId;
 
             tmpAction.setRegExp(currentRegExp);
-            if (currentNbVarNames > 1 ) {
-                sub_currentNbVarId = currentNbVarNames - 1 ;
+            if (table.size() > 1 ) {
+                sub_currentNbVarId = table.size() - 1;
                 tmpAction.setNbSubVarId(sub_currentNbVarId);
 
                 for(int i=1; i<= sub_currentNbVarId; i++) {
-                    int varId = get_var(currentTabVarName[i], "sub expression assign_to");
+                    int varId = get_var(table[i].c_str(), "sub expression assign_to");
                     tmpAction.setSubVarId(varId);
                 }
             }
-
-            freeStringTable(currentTabVarName, currentNbVarNames);
 
             if(currentRegExp != NULL) {
                 delete[] currentRegExp;
@@ -1420,18 +1425,16 @@ void scenario::parseAction(std::vector<CAction>& actions)
             if (!(ptr = xp_get_value("assign_to"))) {
                 ERROR("assign_to value is missing");
             }
-            createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
-            if (currentNbVarNames != 2 ) {
+            auto table = string_table(ptr);
+            if (table.size() != 2 ) {
                 ERROR("The gettimeofday action requires two output variables!");
             }
             tmpAction.setNbSubVarId(1);
 
-            int varId = get_var(currentTabVarName[0], "gettimeofday seconds assign_to");
+            int varId = get_var(table[0].c_str(), "gettimeofday seconds assign_to");
             tmpAction.M_varId = varId;
-            varId = get_var(currentTabVarName[1], "gettimeofday useconds assign_to");
+            varId = get_var(table[1].c_str(), "gettimeofday useconds assign_to");
             tmpAction.setSubVarId(varId);
-
-            freeStringTable(currentTabVarName, currentNbVarNames);
         } else if(!strcmp(actionElem, "index")) {
             tmpAction.M_varId = xp_get_var("assign_to", "index");
             tmpAction.M_action = CAction::E_AT_ASSIGN_FROM_INDEX;
@@ -1708,39 +1711,6 @@ void scenario::getCommonAttributes(message *message)
         }
         message -> onTimeoutLabel = strdup(ptr);
     }
-}
-
-int createStringTable(char * inputString, char *** stringList, int *sizeOfList)
-{
-    if(!inputString) {
-        return 0;
-    }
-
-    *stringList = NULL;
-    *sizeOfList = 0;
-
-    do {
-        char *p = strchr(inputString, ',');
-        if (p) {
-            *p++ = '\0';
-        }
-
-        *stringList = (char **)realloc(*stringList, sizeof(char *) * (*sizeOfList + 1));
-        (*stringList)[*sizeOfList] = strdup(inputString);
-        (*sizeOfList)++;
-
-        inputString = p;
-    } while (inputString);
-
-    return 1;
-}
-
-void freeStringTable(char ** stringList, int sizeOfList)
-{
-    for (int i = 0; i < sizeOfList; i++) {
-        free(stringList[i]);
-    }
-    free(stringList);
 }
 
 /* These are the names of the scenarios, they must match the default_scenario table. */
@@ -3149,3 +3119,37 @@ const char * default_scenario [] = {
     "\n"
     "</scenario>\n",
 };
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+#include "gmock/gmock.h"
+
+using ::testing::ElementsAre;
+using ::testing::IsEmpty;
+
+TEST(utility, string_table) {
+    // string_table, as it is currently implement, overwrites the input
+    // buffer, so we can't test it against string literals.
+    auto string_table_alloc = [](const char *input) {
+        char *buffer = strdup(input);
+        auto table = string_table(buffer);
+        free(buffer);
+        return table;
+    };
+
+    ASSERT_THAT(string_table_alloc("abc"), ElementsAre("abc"));
+    ASSERT_THAT(string_table_alloc("abc,123"), ElementsAre("abc", "123"));
+
+    // Whitespace should be preserved
+    ASSERT_THAT(string_table_alloc("\tfirst, second,thi rd,fourth    "),
+                ElementsAre("\tfirst",
+                            " second",
+                            "thi rd",
+                            "fourth    "));
+
+    // Empty and invalid strings should return an empty vector
+    ASSERT_THAT(string_table(NULL), IsEmpty());
+    ASSERT_THAT(string_table_alloc(""), IsEmpty());
+    ASSERT_THAT(string_table_alloc(","), ElementsAre("", ""));
+}
+#endif
