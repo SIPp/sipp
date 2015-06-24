@@ -483,17 +483,6 @@ private:
                           T_dynamicalRepartition ** tabRepartition, int* nbTab);
 
     /**
-     * createIntegerTable
-     * this method try to create a table of unsigned int with the list of char*
-     * passed in parameters
-     * if it succed, it's return true (1)
-     * else it's return false (0)
-     */
-    int  createIntegerTable(char * P_listeStr,
-                            unsigned int ** listeInteger,
-                            int * sizeOfList);
-
-    /**
      * updateRepartition
      * The method looks for the place to set the value passed in parameter
      * Once found, the associated counter is incremented
@@ -748,5 +737,6 @@ protected:
  * else, it's return false (0)
  */
 int is_well_formed(const char* data, int* count);
+
 
 #endif // __STAT_H__

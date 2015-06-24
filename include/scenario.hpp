@@ -241,9 +241,6 @@ void parse_slave_cfg();
 
 void getActionForThisMessage();
 CSample *parse_distribution(bool oldstyle);
-int  createIntegerTable(char          * P_listeStr,
-                        unsigned int ** listeInteger,
-                        int           * sizeOfList);
 
 /* String table functions. */
 int createStringTable(char * inputString, char *** stringList, int *sizeOfList);
