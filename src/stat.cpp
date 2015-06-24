@@ -24,6 +24,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <vector>
 #include <iomanip>
 #include <assert.h>
 
@@ -221,35 +222,33 @@ int is_well_formed(const char* data, int* count)
 }
 
 
-int CStat::createIntegerTable(char * P_listeStr,
-                              unsigned int ** listeInteger,
-                              int * sizeOfList)
+static std::vector<unsigned int> integer_table(const char* data)
 {
-    int nb=0;
-    char * ptr = P_listeStr;
-    char * ptr_prev = P_listeStr;
+    const char* ptr = data;
+    const char* ptr_prev = data;
     unsigned int current_int;
+    std::vector<unsigned int> list;
+    int count = 0, ret;
 
-    if (is_well_formed(P_listeStr, sizeOfList) == 1) {
-        (*listeInteger) = new unsigned int[(*sizeOfList)];
-        while((*ptr) != ('\0')) {
-            if((*ptr) == ',') {
+    ret = is_well_formed(data, &count);
+
+    if (ret == 1 && count > 0) {
+        while (*ptr) {
+            if (*ptr == ',') {
                 sscanf(ptr_prev, "%u", &current_int);
-                if (nb<(*sizeOfList))
-                    (*listeInteger)[nb] = current_int;
-                nb++;
-                ptr_prev = ptr+1;
+                list.push_back(current_int);
+                ptr_prev = ptr + 1;
             }
             ptr++;
         }
+
         // on lit le dernier
         sscanf(ptr_prev, "%u", &current_int);
-        if (nb<(*sizeOfList))
-            (*listeInteger)[nb] = current_int;
-        nb++;
-        return(1);
+        list.push_back(current_int);
+        ptr_prev = ptr + 1;
     }
-    return(0);
+
+    return list;
 }
 
 
@@ -305,38 +304,29 @@ void CStat::initRtt(const char* name, const char* extension,
 
 void CStat::setRepartitionCallLength(char * P_listeStr)
 {
-    unsigned int * listeInteger;
-    int sizeOfListe;
-
-    if(createIntegerTable(P_listeStr, &listeInteger, &sizeOfListe) == 1) {
-        initRepartition(listeInteger,
-                        sizeOfListe,
+    auto table = integer_table(P_listeStr);
+    if (!table.empty()) {
+        initRepartition(table.data(),
+                        table.size(),
                         &M_CallLengthRepartition,
                         &M_SizeOfCallLengthRepartition);
     } else {
         ERROR("Could not create table for call length repartition '%s'\n", P_listeStr);
     }
-    delete [] listeInteger;
-    listeInteger = NULL;
 }
 
 void CStat::setRepartitionResponseTime (char * P_listeStr)
 {
-    unsigned int * listeInteger;
-    int sizeOfListe;
-    int i;
-
-    for (i = 0; i < nRtds(); i++) {
-        if(createIntegerTable(P_listeStr, &listeInteger, &sizeOfListe) == 1) {
-            initRepartition(listeInteger,
-                            sizeOfListe,
+    auto table = integer_table(P_listeStr);
+    for (int i = 0; i < nRtds(); i++) {
+        if (!table.empty()) {
+            initRepartition(table.data(),
+                            table.size(),
                             &M_ResponseTimeRepartition[i],
                             &M_SizeOfResponseTimeRepartition);
         } else {
             ERROR("Could not create table for response time repartition '%s'\n", P_listeStr);
         }
-        delete [] listeInteger;
-        listeInteger = NULL;
     }
 }
 
@@ -1994,6 +1984,10 @@ double CNegBin::cdfInv(double percentile)
 
 #ifdef GTEST
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+
+using ::testing::ElementsAre;
+using ::testing::IsEmpty;
 
 TEST(utility, is_well_formed) {
     int count;
@@ -2032,5 +2026,22 @@ TEST(utility, is_well_formed) {
     // Here because of the explicit '\0' handling / strlen call
     ASSERT_EQ(1, is_well_formed("1,23\0,345,6789,", &count));
     ASSERT_EQ(count, 2);
+}
+
+TEST(utility, integer_table) {
+    ASSERT_THAT(integer_table("1"), ElementsAre(1));
+    ASSERT_THAT(integer_table("1,23"), ElementsAre(1, 23));
+
+    // Whitespace is allowed between numbers
+    ASSERT_THAT(integer_table("\t1, 23,   345,\t6789     "), ElementsAre(1, 23, 345, 6789));
+
+    // Whitespace is apparently allowed between digits, and only the
+    // first digit is parsed
+    ASSERT_THAT(integer_table("1 3   4 6"), ElementsAre(1));
+
+    // Empty and invalid strings should return an empty vector
+    ASSERT_THAT(integer_table(NULL), IsEmpty());
+    ASSERT_THAT(integer_table(""), IsEmpty());
+    ASSERT_THAT(integer_table(","), IsEmpty());
 }
 #endif

@@ -1710,40 +1710,6 @@ void scenario::getCommonAttributes(message *message)
     }
 }
 
-int createIntegerTable(char * P_listeStr,
-                       unsigned int ** listeInteger,
-                       int * sizeOfList)
-{
-    int nb=0;
-    char * ptr = P_listeStr;
-    char * ptr_prev = P_listeStr;
-    unsigned int current_int;
-
-    if(P_listeStr) {
-        if (is_well_formed(P_listeStr, sizeOfList) == 1) {
-            (*listeInteger) = new unsigned int[(*sizeOfList)];
-            while((*ptr) != ('\0')) {
-                if((*ptr) == ',') {
-                    sscanf(ptr_prev, "%u", &current_int);
-                    if (nb<(*sizeOfList))
-                        (*listeInteger)[nb] = current_int;
-                    nb++;
-                    ptr_prev = ptr+1;
-                }
-                ptr++;
-            }
-
-            // Read the last
-            sscanf(ptr_prev, "%u", &current_int);
-            if (nb<(*sizeOfList))
-                (*listeInteger)[nb] = current_int;
-            nb++;
-            return(1);
-        }
-        return(0);
-    } else return(0);
-}
-
 int createStringTable(char * inputString, char *** stringList, int *sizeOfList)
 {
     if(!inputString) {
