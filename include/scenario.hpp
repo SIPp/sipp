@@ -242,12 +242,6 @@ void parse_slave_cfg();
 void getActionForThisMessage();
 CSample *parse_distribution(bool oldstyle);
 
-/* String table functions. */
-int createStringTable(char * inputString, char *** stringList, int *sizeOfList);
-void freeStringTable(char ** stringList, int sizeOfList);
-
-
-
 int find_scenario(const char *scenario);
 extern const char * default_scenario[12];
 
