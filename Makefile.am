@@ -134,26 +134,6 @@ src/call.cpp: include/version.h
 src/sipp.cpp: include/version.h
 
 gtest_SOURCES = \
-	gtest/include/gtest/gtest-death-test.h \
-	gtest/include/gtest/gtest-message.h \
-	gtest/include/gtest/gtest-param-test.h \
-	gtest/include/gtest/gtest-printers.h \
-	gtest/include/gtest/gtest-spi.h \
-	gtest/include/gtest/gtest-test-part.h \
-	gtest/include/gtest/gtest-typed-test.h \
-	gtest/include/gtest/gtest.h \
-	gtest/include/gtest/gtest_pred_impl.h \
-	gtest/include/gtest/gtest_prod.h \
-	gtest/include/gtest/internal/gtest-death-test-internal.h \
-	gtest/include/gtest/internal/gtest-filepath.h \
-	gtest/include/gtest/internal/gtest-internal.h \
-	gtest/include/gtest/internal/gtest-linked_ptr.h \
-	gtest/include/gtest/internal/gtest-param-util-generated.h \
-	gtest/include/gtest/internal/gtest-param-util.h \
-	gtest/include/gtest/internal/gtest-port.h \
-	gtest/include/gtest/internal/gtest-string.h \
-	gtest/include/gtest/internal/gtest-tuple.h \
-	gtest/include/gtest/internal/gtest-type-util.h \
 	gtest/src/gtest-death-test.cc \
 	gtest/src/gtest-filepath.cc \
 	gtest/src/gtest-internal-inl.h \
@@ -162,7 +142,9 @@ gtest_SOURCES = \
 	gtest/src/gtest-test-part.cc \
 	gtest/src/gtest-typed-test.cc \
 	gtest/src/gtest.cc \
-	gtest/src/gtest_main.cc
+	gtest/src/gtest_main.cc \
+	gmock/src/gmock-internal-utils.cc \
+	gmock/src/gmock-matchers.cc
 
 sipp_unittest_SOURCES = \
 	$(common_SOURCES) \
@@ -170,8 +152,20 @@ sipp_unittest_SOURCES = \
 	src/xp_parser_ut.cpp \
 	$(gtest_SOURCES)
 
-sipp_unittest_CFLAGS = $(AM_CFLAGS) -DGTEST=1 -I$(srcdir)/gtest/include -I$(srcdir)/gtest @GSL_CFLAGS@
-sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) -DGTEST=1 -I$(srcdir)/gtest/include -I$(srcdir)/gtest @GSL_CXXFLAGS@
+sipp_unittest_CFLAGS = $(AM_CFLAGS) -DGTEST=1 \
+	-I$(srcdir)/gtest/include \
+	-I$(srcdir)/gmock/include \
+	-I$(srcdir)/gtest \
+	-I$(srcdir)/gmock \
+	@GSL_CFLAGS@
+
+sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) -DGTEST=1 \
+	-I$(srcdir)/gtest/include \
+	-I$(srcdir)/gmock/include \
+	-I$(srcdir)/gtest \
+	-I$(srcdir)/gmock \
+	@GSL_CXXFLAGS@
+
 sipp_unittest_LDADD = @LIBOBJS@ @GSL_LIBS@
 
 if HAVE_HELP2MAN

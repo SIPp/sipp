@@ -21,3 +21,7 @@
 	path = gtest
 	url = https://chromium.googlesource.com/external/googletest
 	ignore = dirty
+[submodule "gmock"]
+	path = gmock
+	url = https://chromium.googlesource.com/external/googlemock
+	ignore = dirty
