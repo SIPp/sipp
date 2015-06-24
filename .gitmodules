@@ -20,3 +20,4 @@
 	#
 	path = gtest
 	url = https://chromium.googlesource.com/external/googletest
+	ignore = dirty
