@@ -575,7 +575,7 @@ public:
     virtual int textDescr(char *s, int len) = 0;
     virtual int timeDescr(char *s, int len) = 0;
     virtual double cdfInv(double percentile) = 0;
-    virtual ~CSample();
+    virtual ~CSample() {};
 private:
 };
 
