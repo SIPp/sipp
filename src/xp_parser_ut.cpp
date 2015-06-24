@@ -109,56 +109,56 @@ TEST(xp_parser, set_xml_buffer_from_string__bad) {
 
 TEST(xp_unescape, empty) {
     char buffer[] = "";
-    char dst[strlen(buffer) + 1];
+    char dst[sizeof(buffer)];
     xp_unescape(buffer, dst);
     EXPECT_STREQ("", dst);
 }
 
 TEST(xp_unescape, noop) {
     char buffer[] = "<xml>no escape sequences</xml>";
-    char dst[strlen(buffer) + 1];
+    char dst[sizeof(buffer)];
     xp_unescape(buffer, dst);
     EXPECT_STREQ("<xml>no escape sequences</xml>", dst);
 }
 
 TEST(xp_unescape, begin_and_end) {
     char buffer[] = "&lt;xml>this &amp;&amp; that</xml&gt;";
-    char dst[strlen(buffer) + 1];
+    char dst[sizeof(buffer)];
     xp_unescape(buffer, dst);
     EXPECT_STREQ("<xml>this && that</xml>", dst);
 }
 
 TEST(xp_unescape, single_double_quote) {
     char buffer[] = "&quot;";
-    char dst[strlen(buffer) + 1];
+    char dst[sizeof(buffer)];
     xp_unescape(buffer, dst);
     EXPECT_STREQ("\"", dst);
 }
 
 TEST(xp_unescape, escaped_escape) {
     char buffer[] = "&amp;amp;";
-    char dst[strlen(buffer) + 1];
+    char dst[sizeof(buffer)];
     xp_unescape(buffer, dst);
     EXPECT_STREQ("&amp;", dst);
 }
 
 TEST(xp_unescape, unclosed_escape) {
     char buffer[] = "&lt; &amp &amp";
-    char dst[strlen(buffer) + 1];
+    char dst[sizeof(buffer)];
     xp_unescape(buffer, dst);
     EXPECT_STREQ("< &amp &amp", dst);
 }
 
 TEST(xp_unescape, late_closed_escape) {
     char buffer[] = "&lt; &amp &amp; &gt;";
-    char dst[strlen(buffer) + 1];
+    char dst[sizeof(buffer)];
     xp_unescape(buffer, dst);
     EXPECT_STREQ("< &amp & >", dst);
 }
 
 TEST(xp_unescape, unknown_escape) {
     char buffer[] = "&lt;&garbage;&gt;";
-    char dst[strlen(buffer) + 1];
+    char dst[sizeof(buffer)];
     xp_unescape(buffer, dst);
     EXPECT_STREQ("<&garbage;>", dst);
 }
