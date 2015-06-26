@@ -68,13 +68,13 @@
 #define DISPLAY_INFO(T1)\
   fprintf(f,"  %-77.77s \r\n", T1)
 #define DISPLAY_REPART(T1, T2, V1)\
-  fprintf(f,"    %8d ms <= n <  %8d ms : %10lu  %-29.29s \r\n", T1, T2, V1, "")
+  fprintf(f,"    %8zu ms <= n <  %8zu ms : %10zu  %-29.29s \r\n", T1, T2, V1, "")
 #define DISPLAY_LAST_REPART(T1, V1)\
-  fprintf(f,"    %14.14s n >= %8d ms : %10lu  %-29.29s \r\n", "", T1, V1, "")
+  fprintf(f,"    %14.14s n >= %8zu ms : %10zu  %-29.29s \r\n", "", T1, V1, "")
 
-bool operator==(const CStat::T_dynamicalRepartition& lhs, const CStat::T_dynamicalRepartition& rhs)
+bool operator==(const repartition& lhs, const repartition& rhs)
 {
-    return lhs.borderMax == rhs.borderMax && lhs.nbInThisBorder == rhs.nbInThisBorder;
+    return lhs.max == rhs.max && lhs.count == rhs.count;
 }
 
 void CStat::resetCCounters()
@@ -244,20 +244,20 @@ static std::vector<unsigned int> integer_table(const char* data)
     return list;
 }
 
-static CStat::repartition_list make_repartitions(std::vector<unsigned int>& repartitions)
+static repartition_list make_repartitions(std::vector<unsigned int>& repartitions)
 {
-    CStat::repartition_list tab;
+    repartition_list tab;
     if (repartitions.empty()) {
         return tab;
     }
 
     // copying the repartition table in the local table
     for (const unsigned int& value : repartitions) {
-        tab.push_back(CStat::T_dynamicalRepartition(value));
+        tab.push_back(repartition(value));
     }
 
-    std::sort(tab.begin(), tab.end(), [](const CStat::T_dynamicalRepartition& a, const CStat::T_dynamicalRepartition& b) -> bool {
-        return a.borderMax < b.borderMax;
+    std::sort(tab.begin(), tab.end(), [](const repartition& a, const repartition& b) -> bool {
+        return a.max < b.max;
     });
 
     // setting the range for max <= value < infinity
@@ -265,32 +265,32 @@ static CStat::repartition_list make_repartitions(std::vector<unsigned int>& repa
     return tab;
 }
 
-static void reset_repartition(CStat::repartition_list& tab)
+static void reset_repartition(repartition_list& tab)
 {
     for (auto& node : tab) {
-        node.nbInThisBorder = 0;
+        node.count = 0;
     }
 }
 
-static void update_repartition(CStat::repartition_list &tab, unsigned long value)
+static void update_repartition(repartition_list &tab, unsigned long value)
 {
     if (tab.empty()) {
         return;
     }
 
     for (auto& node : tab) {
-        if (value < node.borderMax) {
-            ++node.nbInThisBorder;
+        if (value < node.max) {
+            ++node.count;
             return;
         }
     }
 
     /* If this is not true, we never should have gotten here. */
-    assert(value >= tab.back().borderMax);
-    tab.back().nbInThisBorder++;
+    assert(value >= tab.back().max);
+    tab.back().count++;
 }
 
-static char* repartition_header(const CStat::repartition_list& tab,
+static char* repartition_header(const repartition_list& tab,
                                 const char* name)
 {
     static char *repartitionHeader = NULL;
@@ -301,11 +301,11 @@ static char* repartition_header(const CStat::repartition_list& tab,
         repartitionHeader = (char*)realloc(repartitionHeader, strlen(name) + dlen + 1);
         sprintf(repartitionHeader, "%s%s", name, stat_delimiter);
         for (auto& node : tab) {
-            sprintf(buffer, "%s_<%d%s", name, node.borderMax, stat_delimiter);
+            sprintf(buffer, "%s_<%zu%s", name, node.max, stat_delimiter);
             repartitionHeader = (char*)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
             strcat(repartitionHeader, buffer);
         }
-        sprintf(buffer, "%s_>=%d%s", name, tab.back().borderMax, stat_delimiter);
+        sprintf(buffer, "%s_>=%zu%s", name, tab.back().max, stat_delimiter);
         repartitionHeader = (char*)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
         strcat(repartitionHeader, buffer);
     } else {
@@ -316,7 +316,7 @@ static char* repartition_header(const CStat::repartition_list& tab,
     return repartitionHeader;
 }
 
-static char* repartition_info(const CStat::repartition_list& tab)
+static char* repartition_info(const repartition_list& tab)
 {
     static char* repartitionInfo;
     char buffer[MAX_CHAR_BUFFER_SIZE];
@@ -327,11 +327,11 @@ static char* repartition_info(const CStat::repartition_list& tab)
         repartitionInfo = (char*)realloc(repartitionInfo, dlen + 1);
         sprintf(repartitionInfo, "%s", stat_delimiter);
         for (auto& node : tab) {
-            sprintf(buffer, "%lu%s", node.nbInThisBorder, stat_delimiter);
+            sprintf(buffer, "%lu%s", node.count, stat_delimiter);
             repartitionInfo = (char*)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
             strcat(repartitionInfo, buffer);
         }
-        sprintf(buffer, "%lu%s", tab.back().nbInThisBorder, stat_delimiter);
+        sprintf(buffer, "%lu%s", tab.back().count, stat_delimiter);
         repartitionInfo = (char*)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
         strcat(repartitionInfo, buffer);
     } else {
@@ -342,19 +342,19 @@ static char* repartition_info(const CStat::repartition_list& tab)
     return repartitionInfo;
 }
 
-static void display_repartition(FILE* f, const CStat::repartition_list& tab)
+static void display_repartition(FILE* f, const repartition_list& tab)
 {
     if (!tab.empty()) {
         auto it = tab.begin();
-        DISPLAY_REPART(0, it->borderMax, it->nbInThisBorder);
+        DISPLAY_REPART(0L, it->max, it->count);
 
         ++it;
         for (; it != tab.end() - 1; ++it) {
-            DISPLAY_REPART(it[-1].borderMax,
-                           it->borderMax,
-                           it->nbInThisBorder);
+            DISPLAY_REPART(it[-1].max,
+                           it->max,
+                           it->count);
         }
-        DISPLAY_LAST_REPART(it->borderMax, it->nbInThisBorder);
+        DISPLAY_LAST_REPART(it->max, it->count);
     } else {
         DISPLAY_INFO("  <No repartion defined>");
     }
@@ -1901,38 +1901,38 @@ TEST(utility, make_repartitions) {
     /* <ResponseTimeRepartition value="10, 20, 30, 40, 50, 100, 150, 200"/>\n */
     auto data = integer_table("10,20,30,40,50,100,150,200");
     ASSERT_THAT(make_repartitions(data),
-                ElementsAre(CStat::T_dynamicalRepartition(10),
-                            CStat::T_dynamicalRepartition(20),
-                            CStat::T_dynamicalRepartition(30),
-                            CStat::T_dynamicalRepartition(40),
-                            CStat::T_dynamicalRepartition(50),
-                            CStat::T_dynamicalRepartition(100),
-                            CStat::T_dynamicalRepartition(150),
-                            CStat::T_dynamicalRepartition(200),
-                            CStat::T_dynamicalRepartition(200)));
+                ElementsAre(repartition(10),
+                            repartition(20),
+                            repartition(30),
+                            repartition(40),
+                            repartition(50),
+                            repartition(100),
+                            repartition(150),
+                            repartition(200),
+                            repartition(200)));
 
     /* <CallLengthRepartition value="10, 50, 100, 500, 1000, 5000, 10000"/> */
     data = integer_table("10,50,100,500,1000,5000,10000");
     ASSERT_THAT(make_repartitions(data),
-                ElementsAre(CStat::T_dynamicalRepartition(10),
-                            CStat::T_dynamicalRepartition(50),
-                            CStat::T_dynamicalRepartition(100),
-                            CStat::T_dynamicalRepartition(500),
-                            CStat::T_dynamicalRepartition(1000),
-                            CStat::T_dynamicalRepartition(5000),
-                            CStat::T_dynamicalRepartition(10000),
-                            CStat::T_dynamicalRepartition(10000)));
+                ElementsAre(repartition(10),
+                            repartition(50),
+                            repartition(100),
+                            repartition(500),
+                            repartition(1000),
+                            repartition(5000),
+                            repartition(10000),
+                            repartition(10000)));
 
     /* The repartition array should be sorted */
     data = integer_table("10000,5000,1000,500,100,50,10");
     ASSERT_THAT(make_repartitions(data),
-                ElementsAre(CStat::T_dynamicalRepartition(10),
-                            CStat::T_dynamicalRepartition(50),
-                            CStat::T_dynamicalRepartition(100),
-                            CStat::T_dynamicalRepartition(500),
-                            CStat::T_dynamicalRepartition(1000),
-                            CStat::T_dynamicalRepartition(5000),
-                            CStat::T_dynamicalRepartition(10000),
-                            CStat::T_dynamicalRepartition(10000)));
+                ElementsAre(repartition(10),
+                            repartition(50),
+                            repartition(100),
+                            repartition(500),
+                            repartition(1000),
+                            repartition(5000),
+                            repartition(10000),
+                            repartition(10000)));
 }
 #endif

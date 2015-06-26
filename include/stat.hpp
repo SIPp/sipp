@@ -49,6 +49,14 @@
 
 using namespace std;
 
+struct repartition {
+    size_t max;
+    size_t count;
+    repartition(size_t max) : max(max), count(0) {};
+};
+
+typedef std::vector<repartition> repartition_list;
+
 /*
 __________________________________________________________________________
 
@@ -72,15 +80,6 @@ public:
      * border max is the max value allow for this range
      * nbInThisBorder is the counter of value in this range
      */
-    struct T_dynamicalRepartition {
-        unsigned int borderMax;
-        unsigned long nbInThisBorder;
-
-        T_dynamicalRepartition(int max) : borderMax(max), nbInThisBorder(0) {};
-    };
-
-    typedef std::vector<T_dynamicalRepartition> repartition_list;
-
     typedef struct _T_value_rtt {
         double  date ;
         int  rtd_no ;
