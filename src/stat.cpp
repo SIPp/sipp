@@ -267,8 +267,96 @@ static CStat::repartition_list make_repartitions(std::vector<unsigned int>& repa
 
 static void reset_repartition(CStat::repartition_list& tab)
 {
-    for (auto& value : tab) {
-        value.nbInThisBorder = 0;
+    for (auto& node : tab) {
+        node.nbInThisBorder = 0;
+    }
+}
+
+static void update_repartition(CStat::repartition_list &tab, unsigned long value)
+{
+    if (tab.empty()) {
+        return;
+    }
+
+    for (auto& node : tab) {
+        if (value < node.borderMax) {
+            ++node.nbInThisBorder;
+            return;
+        }
+    }
+
+    /* If this is not true, we never should have gotten here. */
+    assert(value >= tab.back().borderMax);
+    tab.back().nbInThisBorder++;
+}
+
+static char* repartition_header(const CStat::repartition_list& tab,
+                                const char* name)
+{
+    static char *repartitionHeader = NULL;
+    char buffer[MAX_CHAR_BUFFER_SIZE];
+    int dlen = strlen(stat_delimiter);
+
+    if (!tab.empty()) {
+        repartitionHeader = (char*)realloc(repartitionHeader, strlen(name) + dlen + 1);
+        sprintf(repartitionHeader, "%s%s", name, stat_delimiter);
+        for (auto& node : tab) {
+            sprintf(buffer, "%s_<%d%s", name, node.borderMax, stat_delimiter);
+            repartitionHeader = (char*)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
+            strcat(repartitionHeader, buffer);
+        }
+        sprintf(buffer, "%s_>=%d%s", name, tab.back().borderMax, stat_delimiter);
+        repartitionHeader = (char*)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
+        strcat(repartitionHeader, buffer);
+    } else {
+        repartitionHeader = (char*)realloc(repartitionHeader, 2);
+        strcpy(repartitionHeader, "");
+    }
+
+    return repartitionHeader;
+}
+
+static char* repartition_info(const CStat::repartition_list& tab)
+{
+    static char* repartitionInfo;
+    char buffer[MAX_CHAR_BUFFER_SIZE];
+    int dlen = strlen(stat_delimiter);
+
+    if (!tab.empty()) {
+        // if a repartition is present, this field match the repartition name
+        repartitionInfo = (char*)realloc(repartitionInfo, dlen + 1);
+        sprintf(repartitionInfo, "%s", stat_delimiter);
+        for (auto& node : tab) {
+            sprintf(buffer, "%lu%s", node.nbInThisBorder, stat_delimiter);
+            repartitionInfo = (char*)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
+            strcat(repartitionInfo, buffer);
+        }
+        sprintf(buffer, "%lu%s", tab.back().nbInThisBorder, stat_delimiter);
+        repartitionInfo = (char*)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
+        strcat(repartitionInfo, buffer);
+    } else {
+        repartitionInfo = (char*)realloc(repartitionInfo, 2);
+        repartitionInfo[0] = '\0';
+    }
+
+    return repartitionInfo;
+}
+
+static void display_repartition(FILE* f, const CStat::repartition_list& tab)
+{
+    if (!tab.empty()) {
+        auto it = tab.begin();
+        DISPLAY_REPART(0, it->borderMax, it->nbInThisBorder);
+
+        ++it;
+        for (; it != tab.end() - 1; ++it) {
+            DISPLAY_REPART(it[-1].borderMax,
+                           it->borderMax,
+                           it->nbInThisBorder);
+        }
+        DISPLAY_LAST_REPART(it->borderMax, it->nbInThisBorder);
+    } else {
+        DISPLAY_INFO("  <No repartion defined>");
     }
 }
 
@@ -762,7 +850,7 @@ int CStat::computeStat(E_Action P_action,
         updateAverageCounter(CPT_C_AverageCallLength_Sum,
                              CPT_C_NbOfCallUsedForAverageCallLength,
                              CPT_C_AverageCallLength_Squares, P_value);
-        updateRepartition(M_CallLengthRepartition, P_value);
+        update_repartition(M_CallLengthRepartition, P_value);
         // Updating Periodical Diplayed counter
         updateAverageCounter(CPT_PD_AverageCallLength_Sum,
                              CPT_PD_NbOfCallUsedForAverageCallLength,
@@ -782,7 +870,7 @@ int CStat::computeStat(E_Action P_action,
         M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_COUNT]++;
         M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUM] += P_value;
         M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] += (P_value * P_value);
-        updateRepartition(M_ResponseTimeRepartition[which], P_value);
+        update_repartition(M_ResponseTimeRepartition[which], P_value);
 
         // Updating Periodical Diplayed counter
         M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT]++;
@@ -801,24 +889,6 @@ int CStat::computeStat(E_Action P_action,
     return 0;
 }
 
-
-void CStat::updateRepartition(CStat::repartition_list &tab, unsigned long P_value)
-{
-    if (tab.empty()) {
-        return;
-    }
-
-    for (auto& value : tab) {
-        if (P_value < value.borderMax) {
-            value.nbInThisBorder++;
-            return;
-        }
-    }
-
-    /* If this is not true, we never should have gotten here. */
-    assert(P_value >= tab.back().borderMax);
-    tab.back().nbInThisBorder++;
-}
 
 CStat::CStat ()
 {
@@ -841,77 +911,6 @@ CStat::CStat ()
     M_rtdInfo = NULL;
 
     init();
-}
-
-char* CStat::sRepartitionHeader(const CStat::repartition_list& tab,
-                                const char* P_repartitionName)
-{
-    static char *repartitionHeader = NULL;
-    char buffer[MAX_CHAR_BUFFER_SIZE];
-    int dlen = strlen(stat_delimiter);
-
-    if (!tab.empty()) {
-        repartitionHeader = (char*)realloc(repartitionHeader, strlen(P_repartitionName) + dlen + 1);
-        sprintf(repartitionHeader, "%s%s", P_repartitionName, stat_delimiter);
-        for (auto& value : tab) {
-            sprintf(buffer, "%s_<%d%s", P_repartitionName, value.borderMax, stat_delimiter);
-            repartitionHeader = (char*)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
-            strcat(repartitionHeader, buffer);
-        }
-        sprintf(buffer, "%s_>=%d%s", P_repartitionName, tab.back().borderMax, stat_delimiter);
-        repartitionHeader = (char*)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
-        strcat(repartitionHeader, buffer);
-    } else {
-        repartitionHeader = (char*)realloc(repartitionHeader, 2);
-        strcpy(repartitionHeader, "");
-    }
-
-    return repartitionHeader;
-}
-
-char* CStat::sRepartitionInfo(const CStat::repartition_list& tab)
-{
-    static char* repartitionInfo;
-    char buffer[MAX_CHAR_BUFFER_SIZE];
-    int dlen = strlen(stat_delimiter);
-
-    if (!tab.empty()) {
-        // if a repartition is present, this field match the repartition name
-        repartitionInfo = (char*)realloc(repartitionInfo, dlen + 1);
-        sprintf(repartitionInfo, "%s", stat_delimiter);
-        for (auto& value : tab) {
-            sprintf(buffer, "%lu%s", value.nbInThisBorder, stat_delimiter);
-            repartitionInfo = (char*)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
-            strcat(repartitionInfo, buffer);
-        }
-        sprintf(buffer, "%lu%s", tab.back().nbInThisBorder, stat_delimiter);
-        repartitionInfo = (char*)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
-        strcat(repartitionInfo, buffer);
-    } else {
-        repartitionInfo = (char*)realloc(repartitionInfo, 2);
-        repartitionInfo[0] = '\0';
-    }
-
-    return repartitionInfo;
-}
-
-
-void CStat::displayRepartition(FILE* f, const CStat::repartition_list& tab)
-{
-    if (!tab.empty()) {
-        auto it = tab.begin();
-        DISPLAY_REPART(0, it->borderMax, it->nbInThisBorder);
-
-        ++it;
-        for (; it != tab.end() - 1; ++it) {
-            DISPLAY_REPART(it[-1].borderMax,
-                           it->borderMax,
-                           it->nbInThisBorder);
-        }
-        DISPLAY_LAST_REPART(it->borderMax, it->nbInThisBorder);
-    } else {
-        DISPLAY_INFO("  <No repartion defined>");
-    }
 }
 
 void CStat::displayData(FILE* f)
@@ -1010,7 +1009,7 @@ void CStat::displayData(FILE* f)
         displayRtdRepartition(f, i);
     }
     DISPLAY_INFO("Average Call Length Repartition");
-    displayRepartition(f, M_CallLengthRepartition);
+    display_repartition(f, M_CallLengthRepartition);
 
     //  DISPLAY_VAL("NbCall Average RT(P)",
     //              M_counters[CPT_PD_NbOfCallUsedForAverageResponseTime]);
@@ -1111,7 +1110,7 @@ void CStat::displayRepartition(FILE* f)
 {
     displayRtdRepartition(f, 1);
     DISPLAY_INFO("Average Call Length Repartition");
-    displayRepartition(f, M_CallLengthRepartition);
+    display_repartition(f, M_CallLengthRepartition);
 }
 
 void CStat::displayRtdRepartition(FILE* f, int which)
@@ -1124,7 +1123,7 @@ void CStat::displayRtdRepartition(FILE* f, int which)
     char s[80];
     snprintf(s, sizeof(s), "Average Response Time Repartition %s", M_revRtdMap[which]);
     DISPLAY_INFO(s);
-    displayRepartition(f, M_ResponseTimeRepartition[which - 1]);
+    display_repartition(f, M_ResponseTimeRepartition[which - 1]);
 }
 
 void CStat::dumpData()
@@ -1253,9 +1252,9 @@ void CStat::dumpData()
             char s[80];
 
             sprintf(s, "ResponseTimeRepartition%s", M_revRtdMap[i]);
-            *M_outputStream << sRepartitionHeader(M_ResponseTimeRepartition[i - 1], s);
+            *M_outputStream << repartition_header(M_ResponseTimeRepartition[i - 1], s);
         }
-        *M_outputStream << sRepartitionHeader(M_CallLengthRepartition,
+        *M_outputStream << repartition_header(M_CallLengthRepartition,
                                               "CallLengthRepartition");
         *M_outputStream << endl;
         M_headerAlreadyDisplayed = true;
@@ -1350,9 +1349,9 @@ void CStat::dumpData()
     }
 
     for (int i = 0; i < nRtds(); i++) {
-        *M_outputStream << sRepartitionInfo(M_ResponseTimeRepartition[i]);
+        *M_outputStream << repartition_info(M_ResponseTimeRepartition[i]);
     }
-    *M_outputStream << sRepartitionInfo(M_CallLengthRepartition);
+    *M_outputStream << repartition_info(M_CallLengthRepartition);
     *M_outputStream << endl;
 
     // flushing the output file to let the tail -f working !
