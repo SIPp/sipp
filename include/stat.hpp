@@ -275,12 +275,12 @@ public:
     /**
      * Constructor.
      */
-    CStat ();
+    CStat();
 
     /**
      * Destructor.
      */
-    ~CStat ();
+    ~CStat();
 
 
     /**
@@ -372,11 +372,6 @@ public:
     void dumpData ();
 
     void dumpDataRtt ();
-
-    /**
-     * initialize the class variable member
-     */
-    int init();
 
     /**
      * computeDiffTimeInMs.
