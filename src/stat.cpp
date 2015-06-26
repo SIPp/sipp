@@ -290,56 +290,55 @@ static void update_repartition(repartition_list &tab, unsigned long value)
     tab.back().count++;
 }
 
-static char* repartition_header(const repartition_list& tab,
-                                const char* name)
+static __attribute__((format(printf, 1, 2))) std::string string_format(const char *fmt, ...)
 {
-    static char *repartitionHeader = NULL;
-    char buffer[MAX_CHAR_BUFFER_SIZE];
-    int dlen = strlen(stat_delimiter);
+    va_list ap;
+    std::string str;
 
-    if (!tab.empty()) {
-        repartitionHeader = (char*)realloc(repartitionHeader, strlen(name) + dlen + 1);
-        sprintf(repartitionHeader, "%s%s", name, stat_delimiter);
-        for (auto& node : tab) {
-            sprintf(buffer, "%s_<%zu%s", name, node.max, stat_delimiter);
-            repartitionHeader = (char*)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
-            strcat(repartitionHeader, buffer);
-        }
-        sprintf(buffer, "%s_>=%zu%s", name, tab.back().max, stat_delimiter);
-        repartitionHeader = (char*)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
-        strcat(repartitionHeader, buffer);
-    } else {
-        repartitionHeader = (char*)realloc(repartitionHeader, 2);
-        strcpy(repartitionHeader, "");
+    va_start(ap, fmt);
+    int len = vsnprintf(const_cast<char*>(str.data()), str.size(), fmt, ap);
+    va_end(ap);
+
+    if (len < 0) {
+        ERROR_NO("Failed to format string");
+    } else if (len >= str.size()) {
+        str.reserve(len + 1);
+
+        va_start(ap, fmt);
+        vsnprintf(const_cast<char*>(str.data()), str.size(), fmt, ap);
+        va_end(ap);
     }
 
-    return repartitionHeader;
+    return str;
 }
 
-static char* repartition_info(const repartition_list& tab)
+static std::string repartition_header(const repartition_list& tab,
+                                      const std::string& name)
 {
-    static char* repartitionInfo;
-    char buffer[MAX_CHAR_BUFFER_SIZE];
-    int dlen = strlen(stat_delimiter);
-
-    if (!tab.empty()) {
-        // if a repartition is present, this field match the repartition name
-        repartitionInfo = (char*)realloc(repartitionInfo, dlen + 1);
-        sprintf(repartitionInfo, "%s", stat_delimiter);
-        for (auto& node : tab) {
-            sprintf(buffer, "%lu%s", node.count, stat_delimiter);
-            repartitionInfo = (char*)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
-            strcat(repartitionInfo, buffer);
-        }
-        sprintf(buffer, "%lu%s", tab.back().count, stat_delimiter);
-        repartitionInfo = (char*)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
-        strcat(repartitionInfo, buffer);
-    } else {
-        repartitionInfo = (char*)realloc(repartitionInfo, 2);
-        repartitionInfo[0] = '\0';
+    if (tab.empty()) {
+        return "";
     }
 
-    return repartitionInfo;
+    std::string header;
+    for (auto& node : tab) {
+        header += string_format("%s_<%zu%s", name.c_str(), node.max, stat_delimiter);
+    }
+
+    return header + string_format("%s_>=%zu%s", name.c_str(), tab.back().max, stat_delimiter);
+}
+
+static std::string repartition_info(const repartition_list& tab)
+{
+    if (tab.empty()) {
+        return "";
+    }
+
+    std::string header;
+    for (auto& node : tab) {
+        header += string_format("%lu%s", node.count, stat_delimiter);
+    }
+
+    return header + string_format("%lu%s", tab.back().count, stat_delimiter);
 }
 
 static void display_repartition(FILE* f, const repartition_list& tab)
