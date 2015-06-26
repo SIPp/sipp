@@ -265,6 +265,13 @@ static CStat::repartition_list make_repartitions(std::vector<unsigned int>& repa
     return tab;
 }
 
+static void reset_repartition(CStat::repartition_list& tab)
+{
+    for (auto& value : tab) {
+        value.nbInThisBorder = 0;
+    }
+}
+
 static void set_filename(char** field, const char* name, const char* extension)
 {
     if (!name || !name[0]) {
@@ -488,9 +495,9 @@ int CStat::computeStat(E_Action P_action)
         resetPLCounters();
         GET_TIME(&M_plStartTime);
         if (periodic_rtd) {
-            resetRepartition(M_CallLengthRepartition);
+            reset_repartition(M_CallLengthRepartition);
             for (int i = 0; i < nRtds(); i++) {
-                resetRepartition(M_ResponseTimeRepartition[i]);
+                reset_repartition(M_ResponseTimeRepartition[i]);
             }
         }
         break;
@@ -811,13 +818,6 @@ void CStat::updateRepartition(CStat::repartition_list &tab, unsigned long P_valu
     /* If this is not true, we never should have gotten here. */
     assert(P_value >= tab.back().borderMax);
     tab.back().nbInThisBorder++;
-}
-
-void CStat::resetRepartition(CStat::repartition_list& tab)
-{
-    for (auto& value : tab) {
-        value.nbInThisBorder = 0;
-    }
 }
 
 CStat::CStat ()
