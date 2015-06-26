@@ -472,32 +472,6 @@ private:
     void resetPLCounters();
 
     /**
-     * updateRepartition
-     * The method looks for the place to set the value passed in parameter
-     * Once found, the associated counter is incremented
-     */
-    void updateRepartition(repartition_list& tab, unsigned long value);
-
-    /**
-     * displayRepartition
-     * Display the repartition passed in parameter at the screen
-     */
-    void displayRepartition(FILE *f, const repartition_list& tab);
-
-    /**
-     * sRepartitionHeader
-     * return a string with the range description of the given repartition
-     */
-    char* sRepartitionHeader(const repartition_list& tab, const char* name);
-
-    /**
-     * sRepartitionInfo
-     * return a string with the number of value in the differente range of the
-     * given repartition
-     */
-    char* sRepartitionInfo(const repartition_list& tab);
-
-    /**
      * UpdateAverageCounter
      * This methode compute the real moyenne with the passed value on the given
      * counter
