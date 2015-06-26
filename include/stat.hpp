@@ -421,8 +421,8 @@ public:
     int nRtds();
 
 private:
-    unsigned long long        M_counters[E_NB_COUNTER];
-    static unsigned long long M_G_counters[E_NB_G_COUNTER - E_NB_COUNTER];
+    std::array<unsigned long long, E_NB_COUNTER> M_counters;
+    static std::array<unsigned long long, E_NB_G_COUNTER - E_NB_COUNTER> M_G_counters;
 
 #define GENERIC_C 0
 #define GENERIC_PD 1
