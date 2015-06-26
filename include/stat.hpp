@@ -479,12 +479,6 @@ private:
     void updateRepartition(repartition_list& tab, unsigned long value);
 
     /**
-     * resetRepartition
-     * Zeros out all repartition counters.
-     */
-    void resetRepartition(repartition_list& tab);
-
-    /**
      * displayRepartition
      * Display the repartition passed in parameter at the screen
      */
