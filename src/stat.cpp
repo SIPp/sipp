@@ -140,42 +140,6 @@ void CStat::resetPLCounters()
   __________________________________________________________________________
 */
 
-CStat::~CStat()
-{
-    delete [] M_dumpRespTime ;
-
-    if(M_outputStream != NULL) {
-        M_outputStream->close();
-        delete M_outputStream;
-    }
-
-    if(M_outputStreamRtt != NULL) {
-        M_outputStreamRtt->close();
-        delete M_outputStreamRtt;
-    }
-
-    free(M_rtdInfo);
-    for (int_str_map::iterator i = M_revRtdMap.begin(); i != M_revRtdMap.end(); ++i) {
-        free(i->second);
-    }
-}
-
-int CStat::init()
-{
-    // reset of all counter
-    std::fill(M_counters.begin(), M_counters.end(), 0);
-    GET_TIME(&M_startTime);
-    memcpy(&M_pdStartTime, &M_startTime, sizeof (struct timeval));
-    memcpy(&M_plStartTime, &M_startTime, sizeof (struct timeval));
-    M_outputStream = NULL;
-    M_headerAlreadyDisplayed = false;
-
-    M_outputStreamRtt = NULL;
-    M_headerAlreadyDisplayedRtt = false;
-
-    return 1;
-}
-
 int is_well_formed(const char* data, int* count)
 {
     *count = 0;
@@ -884,20 +848,46 @@ int CStat::computeStat(E_Action P_action,
     return 0;
 }
 
-
 CStat::CStat()
-  : M_fileName(string_format("%s_%s", DEFAULT_FILE_NAME, DEFAULT_EXTENSION)),
+  : M_counters({}),
+    M_genericCounters(NULL),
+    M_rtdInfo(NULL),
     M_SizeOfResponseTimeRepartition(0),
     M_SizeOfCallLengthRepartition(0),
+    M_headerAlreadyDisplayed(false),
+    M_fileName(string_format("%s_%s", DEFAULT_FILE_NAME, DEFAULT_EXTENSION)),
+    M_outputStream(NULL),
+    M_headerAlreadyDisplayedRtt(false),
     M_fileNameRtt(),
-    M_genericCounters(NULL),
+    M_outputStreamRtt(NULL),
     M_time_ref(0.0),
     M_dumpRespTime(NULL),
-    M_counterDumpRespTime(0),
-    M_dumpRespTime(NULL),
-    M_rtdInfo(NULL)
+    M_counterDumpRespTime(0)
 {
-    init();
+    // reset of all counter
+    GET_TIME(&M_startTime);
+    M_pdStartTime = M_startTime;
+    M_plStartTime = M_startTime;
+}
+
+CStat::~CStat()
+{
+    delete [] M_dumpRespTime;
+
+    if (M_outputStream != NULL) {
+        M_outputStream->close();
+        delete M_outputStream;
+    }
+
+    if (M_outputStreamRtt != NULL) {
+        M_outputStreamRtt->close();
+        delete M_outputStreamRtt;
+    }
+
+    free(M_rtdInfo);
+    for (auto& item :  M_revRtdMap) {
+        free(item.second);
+    }
 }
 
 void CStat::displayData(FILE* f)
