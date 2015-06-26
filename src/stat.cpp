@@ -77,6 +77,8 @@ bool operator==(const repartition& lhs, const repartition& rhs)
     return lhs.max == rhs.max && lhs.count == rhs.count;
 }
 
+std::array<unsigned long long, CStat::E_NB_G_COUNTER - CStat::E_NB_COUNTER> CStat::M_G_counters = {};
+
 void CStat::resetCCounters()
 {
     for (int i = CStat::CPT_G_C_OutOfCallMsgs; i <= CStat::CPT_G_C_AutoAnswered; i++) {
@@ -138,8 +140,6 @@ void CStat::resetPLCounters()
   __________________________________________________________________________
 */
 
-unsigned long long CStat::M_G_counters[E_NB_G_COUNTER - E_NB_COUNTER];
-
 CStat::~CStat()
 {
     delete [] M_fileName;
@@ -165,7 +165,7 @@ CStat::~CStat()
 int CStat::init()
 {
     // reset of all counter
-    memset(M_counters, 0, CStat::E_NB_COUNTER * sizeof(unsigned long long));
+    std::fill(M_counters.begin(), M_counters.end(), 0);
     GET_TIME(&M_startTime);
     memcpy(&M_pdStartTime, &M_startTime, sizeof (struct timeval));
     memcpy(&M_plStartTime, &M_startTime, sizeof (struct timeval));
