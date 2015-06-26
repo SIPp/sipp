@@ -454,11 +454,11 @@ private:
     struct timeval           M_plStartTime;
 
     bool                     M_headerAlreadyDisplayed;
-    char*                    M_fileName;
+    std::string M_fileName;
     ofstream*                M_outputStream;
 
     bool                     M_headerAlreadyDisplayedRtt ;
-    char*                    M_fileNameRtt               ;
+    std::string M_fileNameRtt;
     ofstream*                M_outputStreamRtt           ;
     double                   M_time_ref                  ;
 

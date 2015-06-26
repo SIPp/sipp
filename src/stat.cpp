@@ -142,8 +142,6 @@ void CStat::resetPLCounters()
 
 CStat::~CStat()
 {
-    delete [] M_fileName;
-    delete [] M_fileNameRtt;
     delete [] M_dumpRespTime ;
 
     if(M_outputStream != NULL) {
@@ -359,35 +357,33 @@ static void display_repartition(FILE* f, const repartition_list& tab)
     }
 }
 
-static void set_filename(char** field, const char* name, const char* extension)
+static std::string set_filename(std::string const& name, std::string const& extension)
 {
-    if (!name || !name[0]) {
+    if (name.empty()) {
         WARNING("New filename is NULL, keeping the default: %s", DEFAULT_FILE_NAME);
-        return;
-    }
-    if (!extension || !extension[0]) {
-        extension = DEFAULT_EXTENSION;
+        return std::string("");
     }
 
-    delete [] *field;
-    *field = new char[MAX_PATH];
-    snprintf(*field, MAX_PATH, "%s_%d_%s", name, getpid(), extension);
+    if (extension.empty()) {
+        return string_format("%s_%d_%s", name.c_str(), getpid(), DEFAULT_EXTENSION);
+    }
+    return string_format("%s_%d_%s", name.c_str(), getpid(), extension.c_str());
 }
 
 void CStat::setFileName(const char* name, const char* extension)
 {
-    set_filename(&M_fileName, name, extension);
+    M_fileName = set_filename(name, extension);
 }
 
 void CStat::setFileName(const char* name)
 {
-    set_filename(&M_fileName, name, NULL);
+    M_fileName = set_filename(name, NULL);
 }
 
 void CStat::initRtt(const char* name, const char* extension,
                     unsigned long report_freq_dumpRtt)
 {
-    set_filename(&M_fileNameRtt, name, extension);
+    M_fileNameRtt = set_filename(name, extension);
 
     // initiate the table dump response time
     M_report_freq_dumpRtt = report_freq_dumpRtt ;
@@ -891,26 +887,18 @@ int CStat::computeStat(E_Action P_action,
 }
 
 
-CStat::CStat ()
+CStat::CStat()
+  : M_fileName(string_format("%s_%s", DEFAULT_FILE_NAME, DEFAULT_EXTENSION)),
+    M_SizeOfResponseTimeRepartition(0),
+    M_SizeOfCallLengthRepartition(0),
+    M_fileNameRtt(),
+    M_genericCounters(NULL),
+    M_time_ref(0.0),
+    M_dumpRespTime(NULL),
+    M_counterDumpRespTime(0),
+    M_dumpRespTime(NULL),
+    M_rtdInfo(NULL)
 {
-    size_t L_size = 0;
-    L_size += strlen(DEFAULT_FILE_NAME) ;
-    L_size += strlen(DEFAULT_EXTENSION) ;
-    L_size += 1 ;
-    M_fileName = new char[L_size];
-    strcpy(M_fileName, DEFAULT_FILE_NAME);
-    strcat(M_fileName, DEFAULT_EXTENSION);
-    M_SizeOfResponseTimeRepartition = 0;
-    M_SizeOfCallLengthRepartition  = 0;
-    M_fileNameRtt = NULL;
-    M_genericCounters = NULL;
-    M_time_ref = 0.0                   ;
-    M_dumpRespTime = NULL              ;
-    M_counterDumpRespTime = 0          ;
-    M_dumpRespTime = NULL;
-    M_fileNameRtt  = NULL;
-    M_rtdInfo = NULL;
-
     init();
 }
 
@@ -1152,12 +1140,12 @@ void CStat::dumpData()
         M_headerAlreadyDisplayed = false;
 
         if (M_outputStream == NULL) {
-            ERROR_NO("Unable to open stat file %s!", M_fileName);
+            ERROR_NO("Unable to open stat file %s!", M_fileName.c_str());
         }
 
 #ifndef __osf__
         if (!M_outputStream->is_open()) {
-            ERROR_NO("Unable to open stat file %s!", M_fileName);
+            ERROR_NO("Unable to open stat file %s!", M_fileName.c_str());
         }
 #endif
 
@@ -1368,12 +1356,12 @@ void CStat::dumpDataRtt ()
         M_headerAlreadyDisplayedRtt = false;
 
         if (M_outputStreamRtt == NULL) {
-            ERROR_NO("Unable to open rtt file %s!", M_fileNameRtt);
+            ERROR_NO("Unable to open rtt file %s!", M_fileNameRtt.c_str());
         }
 
 #ifndef __osf__
         if(!M_outputStreamRtt->is_open()) {
-            ERROR_NO("Unable to open rtt file %s!", M_fileNameRtt);
+            ERROR_NO("Unable to open rtt file %s!", M_fileNameRtt.c_str());
         }
 #endif
     }
