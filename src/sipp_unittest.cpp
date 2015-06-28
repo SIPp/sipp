@@ -20,6 +20,12 @@
 #include "sipp.hpp"
 
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+#include <string.h>
+
+namespace testing {
+    std::string FLAGS_gmock_verbose = "verbose";
+}
 
 /* Quickfix to fix unittests that depend on sipp_exit availability,
  * now that sipp_exit has been moved into sipp.cpp which is not
