@@ -2516,14 +2516,22 @@ int open_connections()
     }
 
     {
-        char            * local_host = NULL;
-        struct addrinfo * local_addr;
-        struct addrinfo  hints = {AI_PASSIVE, AF_UNSPEC,};
+        const char* local_host = NULL;
+        struct addrinfo* local_addr;
+        struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC,};
 
         if (!strlen(local_ip)) {
-            local_host = (char *)hostname;
+            if (sendMode == MODE_CLIENT) {
+                if (remote_sockaddr.ss_family == AF_INET) {
+                    local_host = "0.0.0.0";
+                } else {
+                    local_host = "::";
+                }
+            } else {
+                 local_host = hostname;
+            }
         } else {
-            local_host = (char *)local_ip;
+            local_host = local_ip;
         }
 
         /* Resolving local IP */
