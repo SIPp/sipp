@@ -85,6 +85,37 @@ inline uint16_t checksum_carry(int s)
 
 char errbuf[PCAP_ERRBUF_SIZE];
 
+/* get bytes to EtherType block
+*/
+size_t get_ethertype_block_offset(int link, const uint8_t* pktdata)
+{
+    uint8_t offset = 0;
+    uint16_t eth_type = 0;
+    const uint8_t vlan_tag_offset = 4;
+    if (link == DLT_EN10MB) {
+        /* srcmac[6], dstmac[6], ethertype[2] */
+        offset = 12;
+    }
+    else if (link == DLT_LINUX_SLL) {
+        /* some_stuff[14], ethertype[2] */
+        offset = 14;
+    } else {
+        ERROR("Unsupported link-type %d", link);         
+    }
+    memcpy(&eth_type, pktdata + offset, sizeof(eth_type));
+    eth_type = ntohs(eth_type);
+    if ((eth_type != 0x0800 ) && (eth_type != 0x86dd)) {
+        /* check if Ethernet 802.1Q VLAN */
+        if (eth_type == 0x8100) {
+            /* vlan_tag[4] */
+            offset += vlan_tag_offset;
+        } else {
+            ERROR("Unsupported ethernet type %d", eth_type);
+        }
+    }
+    return offset;
+}
+
 /* prepare a pcap file
  */
 int prepare_pkts(char *file, pcap_pkts *pkts)
@@ -93,11 +124,12 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
     struct pcap_pkthdr *pkthdr = NULL;
     uint8_t *pktdata = NULL;
     int n_pkts = 0;
+    int datalink = 0;
     uint64_t max_length = 0;
+    size_t ether_type_offset = 0;
     uint16_t base = 0xffff;
     uint64_t pktlen;
     pcap_pkt *pkt_index;
-    size_t ether_type_offset;
     ether_type_hdr *ethhdr;
 
     struct iphdr *iphdr;
@@ -109,20 +141,7 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
     pcap = pcap_open_offline(file, errbuf);
     if (!pcap)
         ERROR_NO("Can't open PCAP file '%s'", file);
-
-    switch (pcap_datalink(pcap)) {
-    case DLT_EN10MB:
-        /* srcmac[6], dstmac[6], ethertype[2] */
-        ether_type_offset = 12;
-        break;
-    case DLT_LINUX_SLL:
-        /* some_stuff[14], ethertype[2] */
-        ether_type_offset = 14;
-        break;
-    default:
-        ERROR("Unsupported link-type %d", pcap_datalink(pcap));
-    }
-
+    datalink = pcap_datalink(pcap);  
 #if HAVE_PCAP_NEXT_EX
     while (pcap_next_ex (pcap, &pkthdr, (const uint8_t **) &pktdata) == 1) {
 #else
@@ -137,6 +156,9 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
 #endif
         if (pkthdr->len != pkthdr->caplen) {
             ERROR("You got truncated packets. Please create a new dump with -s0");
+        }
+        if (!ether_type_offset) {
+            ether_type_offset = get_ethertype_block_offset(datalink, (const uint8_t *)pktdata);
         }
         ethhdr = (ether_type_hdr *)(pktdata + ether_type_offset);
         if (ntohs(ethhdr->ether_type) != 0x0800 /* IPv4 */
