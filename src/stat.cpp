@@ -140,15 +140,15 @@ void CStat::resetPLCounters()
   __________________________________________________________________________
 */
 
-int is_well_formed(const char* data, int* count)
+int is_well_formed(std::string const &data, int* count)
 {
     *count = 0;
-    if (!data || !data[0]) {
+    if (data.empty()) {
         return 1;
     }
 
     bool in_number = false;
-    for (const char *p = data; *p; ++p) {
+    for (auto p = data.begin(); p != data.end(); ++p) {
         switch (*p) {
         case ',':
             if (!in_number) {
@@ -177,30 +177,27 @@ int is_well_formed(const char* data, int* count)
     return 1;
 }
 
-static std::vector<unsigned int> integer_table(const char* data)
+static std::vector<unsigned int> integer_table(std::string const& data)
 {
-    const char* ptr = data;
-    const char* ptr_prev = data;
     unsigned int current_int;
     std::vector<unsigned int> list;
-    int count = 0, ret;
 
+    int count = 0, ret;
     ret = is_well_formed(data, &count);
 
     if (ret == 1 && count > 0) {
-        while (*ptr) {
-            if (*ptr == ',') {
-                sscanf(ptr_prev, "%u", &current_int);
-                list.push_back(current_int);
-                ptr_prev = ptr + 1;
-            }
-            ptr++;
+        std::string::size_type pos, offset = 0;
+
+        while ((pos = data.find(',', offset)) != std::string::npos) {
+            std::string token = data.substr(offset, pos - offset);
+            sscanf(token.c_str(), "%u", &current_int);
+            list.emplace_back(current_int);
+            offset = ++pos;
         }
 
-        // on lit le dernier
-        sscanf(ptr_prev, "%u", &current_int);
-        list.push_back(current_int);
-        ptr_prev = ptr + 1;
+        std::string token = data.substr(offset);
+        sscanf(token.c_str(), "%u", &current_int);
+        list.emplace_back(current_int);
     }
 
     return list;
@@ -1805,8 +1802,6 @@ using ::testing::IsEmpty;
 TEST(utility, is_well_formed) {
     int count;
 
-    ASSERT_EQ(1, is_well_formed(NULL, &count));
-    ASSERT_EQ(count, 0);
     ASSERT_EQ(1, is_well_formed("", &count));
     ASSERT_EQ(count, 0);
     ASSERT_EQ(1, is_well_formed("1", &count));
@@ -1853,7 +1848,6 @@ TEST(utility, integer_table) {
     ASSERT_THAT(integer_table("1 3   4 6"), ElementsAre(1));
 
     // Empty and invalid strings should return an empty vector
-    ASSERT_THAT(integer_table(NULL), IsEmpty());
     ASSERT_THAT(integer_table(""), IsEmpty());
     ASSERT_THAT(integer_table(","), IsEmpty());
 }
