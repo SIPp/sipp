@@ -311,9 +311,9 @@ AllocVariableTable::AllocVariableTable(AllocVariableTable *av_parent) : Variable
 
 AllocVariableTable::~AllocVariableTable()
 {
-    clear_str_int(variableMap);
-    clear_int_str(variableRevMap);
-    clear_int_int(variableReferences);
+    variableMap.clear();
+    variableRevMap.clear();
+    variableReferences.clear();
 }
 
 int AllocVariableTable::find(const char *varName, bool allocate)
@@ -344,12 +344,12 @@ int AllocVariableTable::find(const char *varName, bool allocate)
     return -1;
 }
 
-char *AllocVariableTable::getName(int i)
+const char *AllocVariableTable::getName(int i)
 {
     int thisLevel  = i & ((1 << LEVEL_BITS) - 1);
     assert(thisLevel <= level);
     if (thisLevel == level) {
-        return variableRevMap[i];
+        return variableRevMap[i].c_str();
     }
     assert(av_parent);
     return av_parent->getName(i);

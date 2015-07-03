@@ -1013,28 +1013,6 @@ void scenario::runInit()
     }
 }
 
-void clear_int_str(int_str_map m)
-{
-    for(int_str_map::iterator it = m.begin(); it != m.end(); it = m.begin()) {
-        free(it->second);
-        m.erase(it);
-    }
-}
-
-void clear_str_int(str_int_map m)
-{
-    for(str_int_map::iterator it = m.begin(); it != m.end(); it = m.begin()) {
-        m.erase(it);
-    }
-}
-
-void clear_int_int(int_int_map m)
-{
-    for(int_int_map::iterator it = m.begin(); it != m.end(); it = m.begin()) {
-        m.erase(it);
-    }
-}
-
 scenario::~scenario()
 {
     for (msgvec::iterator i = messages.begin(); i != messages.end(); i++) {
@@ -1052,9 +1030,9 @@ scenario::~scenario()
     }
     transactions.clear();
 
-    clear_str_int(labelMap);
-    clear_str_int(initLabelMap);
-    clear_str_int(txnMap);
+    labelMap.clear();
+    initLabelMap.clear();
+    txnMap.clear();
 }
 
 CSample *parse_distribution(bool oldstyle = false)
