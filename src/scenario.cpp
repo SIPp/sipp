@@ -610,25 +610,20 @@ static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
 
 /********************** Scenario File analyser **********************/
 
-static std::vector<std::string> string_table(char* input)
+static std::vector<std::string> string_table(std::string const& data)
 {
-    std::vector<std::string> table;
+    std::vector<std::string> list;
 
-    if (!input || !input[0]) {
-        return table;
+    if (!data.empty()) {
+        std::string::size_type pos, offset = 0;
+        while ((pos = data.find(',', offset)) != std::string::npos) {
+            list.emplace_back(data.substr(offset, pos - offset));
+            offset = ++pos;
+        }
+        list.emplace_back(data.substr(offset));
     }
 
-    do {
-        char *p = strchr(input, ',');
-        if (p) {
-            *p++ = '\0';
-        }
-
-        table.push_back(std::string(input));
-        input = p;
-    } while (input);
-
-    return table;
+    return list;
 }
 
 void scenario::checkOptionalRecv(char *elem, unsigned int scenario_file_cursor)
@@ -3106,28 +3101,18 @@ using ::testing::ElementsAre;
 using ::testing::IsEmpty;
 
 TEST(utility, string_table) {
-    // string_table, as it is currently implement, overwrites the input
-    // buffer, so we can't test it against string literals.
-    auto string_table_alloc = [](const char *input) {
-        char *buffer = strdup(input);
-        auto table = string_table(buffer);
-        free(buffer);
-        return table;
-    };
-
-    ASSERT_THAT(string_table_alloc("abc"), ElementsAre("abc"));
-    ASSERT_THAT(string_table_alloc("abc,123"), ElementsAre("abc", "123"));
+    ASSERT_THAT(string_table("abc"), ElementsAre("abc"));
+    ASSERT_THAT(string_table("abc,123"), ElementsAre("abc", "123"));
 
     // Whitespace should be preserved
-    ASSERT_THAT(string_table_alloc("\tfirst, second,thi rd,fourth    "),
+    ASSERT_THAT(string_table("\tfirst, second,thi rd,fourth    "),
                 ElementsAre("\tfirst",
                             " second",
                             "thi rd",
                             "fourth    "));
 
     // Empty and invalid strings should return an empty vector
-    ASSERT_THAT(string_table(NULL), IsEmpty());
-    ASSERT_THAT(string_table_alloc(""), IsEmpty());
-    ASSERT_THAT(string_table_alloc(","), ElementsAre("", ""));
+    ASSERT_THAT(string_table(""), IsEmpty());
+    ASSERT_THAT(string_table(","), ElementsAre("", ""));
 }
 #endif
