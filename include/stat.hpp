@@ -411,7 +411,7 @@ public:
 
     /* Get a counter ID by name. */
     int findCounter(const char *counter);
-    int findRtd(const char *name, bool start);
+    int findRtd(std::string const& name, bool start);
     void validateRtds();
     int nRtds();
 
@@ -436,7 +436,7 @@ private:
 #define RTD_SUM 1
 #define RTD_SUMSQ 2
 #define RTD_TYPES 3
-    unsigned long long           *M_rtdInfo;
+    std::vector<unsigned long long> M_rtdInfo;
     str_int_map                   M_rtdMap;
     int_str_map                   M_revRtdMap;
 

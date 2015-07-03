@@ -739,7 +739,7 @@ int CStat::findCounter(const char* counter)
     return ret;
 }
 
-int CStat::findRtd(const char* name, bool start)
+int CStat::findRtd(std::string const& name, bool start)
 {
     str_int_map::iterator it = M_rtdMap.find(str_int_map::key_type(name));
     if (it != M_rtdMap.end()) {
@@ -752,14 +752,10 @@ int CStat::findRtd(const char* name, bool start)
     }
 
     int ret = M_rtdMap.size() + 1;
-    M_rtdMap[str_int_map::key_type(name)] = ret;
+    M_rtdMap.emplace(name, ret);
+    M_revRtdMap.emplace(ret, name);
+    M_rtdInfo.resize(sizeof(unsigned long long) * RTD_TYPES * GENERIC_TYPES * M_rtdMap.size());
 
-    M_revRtdMap[ret] = strdup(name);
-
-    M_rtdInfo = (unsigned long long*)realloc(M_rtdInfo, sizeof(unsigned long long) * RTD_TYPES * GENERIC_TYPES * M_rtdMap.size());
-    if (!M_rtdInfo) {
-        ERROR("Could not allocate RTD info!\n");
-    }
     M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) +  RTD_COUNT] = 0;
     M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) +  RTD_SUM] = 0;
     M_rtdInfo[((ret - 1) * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) +  RTD_SUMSQ] = 0;
@@ -848,7 +844,7 @@ int CStat::computeStat(E_Action P_action,
 CStat::CStat()
   : M_counters({}),
     M_genericCounters(NULL),
-    M_rtdInfo(NULL),
+    M_rtdInfo(),
     M_SizeOfResponseTimeRepartition(0),
     M_SizeOfCallLengthRepartition(0),
     M_headerAlreadyDisplayed(false),
@@ -880,8 +876,6 @@ CStat::~CStat()
         M_outputStreamRtt->close();
         delete M_outputStreamRtt;
     }
-
-    free(M_rtdInfo);
 }
 
 void CStat::displayData(FILE* f)
