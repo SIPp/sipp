@@ -410,7 +410,7 @@ public:
     static char* msToHHMMSSus (unsigned long P_ms);
 
     /* Get a counter ID by name. */
-    int findCounter(const char *counter, bool alloc);
+    int findCounter(const char *counter);
     int findRtd(const char *name, bool start);
     void validateRtds();
     int nRtds();

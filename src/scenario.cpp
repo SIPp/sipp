@@ -499,7 +499,7 @@ int scenario::get_counter(const char *ptr, const char *what)
         ERROR("Counter names may not contain $ or , for %s\n", what);
     }
 
-    return stats->findCounter(ptr, true);
+    return stats->findCounter(ptr);
 }
 
 
