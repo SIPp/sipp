@@ -680,7 +680,7 @@ protected:
  * if yes, it's return true (1)
  * else, it's return false (0)
  */
-int is_well_formed(const char* data, int* count);
+int is_well_formed(std::string const& data, int* count);
 
 
 #endif // __STAT_H__
