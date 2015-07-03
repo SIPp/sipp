@@ -3383,17 +3383,7 @@ bool call::process_incoming(char* msg, struct sockaddr_storage *src)
     last_recv_index = search_index;
     last_recv_hash = cookie;
     callDebug("Set Last Recv Hash: %lu (recv index %d)\n", last_recv_hash, last_recv_index);
-    realloc_ptr = (char*)realloc(last_recv_msg, strlen(msg) + 1);
-    if (realloc_ptr) {
-        last_recv_msg = realloc_ptr;
-    } else {
-        free(last_recv_msg);
-        ERROR("Out of memory!");
-        return false;
-    }
-
-
-    strcpy(last_recv_msg, msg);
+    setLastMsg(msg);
 
     /* If this was a mandatory message, or if there is an explicit next label set
      * we must update our state machine.  */
@@ -4069,16 +4059,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char*  P_recv)
     switch (P_case) {
     case E_AM_UNEXP_BYE: // response for an unexpected BYE
         // usage of last_ keywords
-        realloc_ptr = (char*)realloc(last_recv_msg, strlen(P_recv) + 1);
-        if (realloc_ptr) {
-            last_recv_msg = realloc_ptr;
-        } else {
-            free(last_recv_msg);
-            ERROR("Out of memory!");
-            return false;
-        }
-
-        strcpy(last_recv_msg, P_recv);
+        setLastMsg(P_recv);
 
         // The BYE is unexpected, count it
         call_scenario->messages[msg_index]->nb_unexp++;
