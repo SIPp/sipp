@@ -28,6 +28,12 @@ class FileContents
 {
 public:
     FileContents(const char *file);
+
+    FileContents(const FileContents& other) = default;
+    FileContents(FileContents&& other) noexcept = default;
+    FileContents& operator=(const FileContents& other) = default;
+    FileContents& operator=(FileContents&& other) = default;
+
     int getLine(int line, char *dest, int len);
     int getField(int line, int field, char *dest, int len);
     int numLines();

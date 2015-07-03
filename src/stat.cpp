@@ -884,9 +884,6 @@ CStat::~CStat()
     }
 
     free(M_rtdInfo);
-    for (auto& item :  M_revRtdMap) {
-        free(item.second);
-    }
 }
 
 void CStat::displayData(FILE* f)
@@ -943,11 +940,10 @@ void CStat::displayData(FILE* f)
         DISPLAY_CROSS_LINE();
     }
     for (unsigned int i = 1; i < M_genericMap.size() + 1; i++) {
-        char* s = (char *)malloc(20 + strlen(M_genericDisplay[i]));
-        sprintf(s, "Counter %s", M_genericDisplay[i]);
-
-        DISPLAY_2VAL(s, M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_PD], M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_C]);
-        free(s);
+        std::string s = string_format("Counter %s", M_genericDisplay[i].c_str());
+        DISPLAY_2VAL(s.c_str(),
+                     M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_PD],
+                     M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_C]);
     }
 
     DISPLAY_CROSS_LINE();
@@ -969,7 +965,7 @@ void CStat::displayData(FILE* f)
         /* Skip if we aren't stopped. */
         assert(rtd_stopped[M_revRtdMap[i]] == true);
 
-        sprintf(s, "Response Time %s", M_revRtdMap[i]);
+        sprintf(s, "Response Time %s", M_revRtdMap[i].c_str());
         DISPLAY_TXT_COL(s,
                         msToHHMMSSus((unsigned long)computeRtdMean(i, GENERIC_PD)),
                         msToHHMMSSus((unsigned long)computeRtdMean(i, GENERIC_C)));
@@ -1049,13 +1045,10 @@ void CStat::displayStat (FILE *f)
         DISPLAY_CROSS_LINE ();
     }
     for (unsigned int i = 1; i < M_genericMap.size() + 1; i++) {
-        char* s = (char*)malloc(20 + strlen(M_genericDisplay[i]));
-        sprintf(s, "Counter %s", M_genericDisplay[i]);
-
-        DISPLAY_2VAL(s,
+        std::string s = string_format("Counter %s", M_genericDisplay[i].c_str());
+        DISPLAY_2VAL(s.c_str(),
                      M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_PD],
                      M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_C]);
-        free(s);
     }
 
     DISPLAY_CROSS_LINE ();
@@ -1073,7 +1066,7 @@ void CStat::displayStat (FILE *f)
     for (int i = 1; i <= nRtds(); i++) {
         char s[80];
 
-        sprintf(s, "Response Time %s", M_revRtdMap[i]);
+        sprintf(s, "Response Time %s", M_revRtdMap[i].c_str());
         DISPLAY_TXT_COL(s,
                         msToHHMMSSus((unsigned long)computeRtdMean(i, GENERIC_PD)),
                         msToHHMMSSus((unsigned long)computeRtdMean(i, GENERIC_C)));
@@ -1099,7 +1092,7 @@ void CStat::displayRtdRepartition(FILE* f, int which)
     }
 
     char s[80];
-    snprintf(s, sizeof(s), "Average Response Time Repartition %s", M_revRtdMap[which]);
+    snprintf(s, sizeof(s), "Average Response Time Repartition %s", M_revRtdMap[which].c_str());
     DISPLAY_INFO(s);
     display_repartition(f, M_ResponseTimeRepartition.at(which - 1));
 }
@@ -1207,13 +1200,13 @@ void CStat::dumpData()
             char s_P[80];
             char s_C[80];
 
-            sprintf(s_P, "ResponseTime%s(P)%s", M_revRtdMap[i], stat_delimiter);
-            sprintf(s_C, "ResponseTime%s(C)%s", M_revRtdMap[i], stat_delimiter);
+            sprintf(s_P, "ResponseTime%s(P)%s", M_revRtdMap[i].c_str(), stat_delimiter);
+            sprintf(s_C, "ResponseTime%s(C)%s", M_revRtdMap[i].c_str(), stat_delimiter);
 
             *M_outputStream << s_P << s_C;
 
-            sprintf(s_P, "ResponseTime%sStDev(P)%s", M_revRtdMap[i], stat_delimiter);
-            sprintf(s_C, "ResponseTime%sStDev(C)%s", M_revRtdMap[i], stat_delimiter);
+            sprintf(s_P, "ResponseTime%sStDev(P)%s", M_revRtdMap[i].c_str(), stat_delimiter);
+            sprintf(s_C, "ResponseTime%sStDev(C)%s", M_revRtdMap[i].c_str(), stat_delimiter);
 
             *M_outputStream << s_P << s_C;
         }
@@ -1229,7 +1222,7 @@ void CStat::dumpData()
         for (int i = 1; i <= nRtds(); i++) {
             char s[80];
 
-            sprintf(s, "ResponseTimeRepartition%s", M_revRtdMap[i]);
+            sprintf(s, "ResponseTimeRepartition%s", M_revRtdMap[i].c_str());
             *M_outputStream << repartition_header(M_ResponseTimeRepartition[i - 1], s);
         }
         *M_outputStream << repartition_header(M_CallLengthRepartition,

@@ -1132,13 +1132,6 @@ static void stop_all_traces()
     dumpInFile = 0;
 }
 
-static void freeInFiles()
-{
-    for (file_map::iterator file_it = inFiles.begin(); file_it != inFiles.end(); file_it++) {
-        delete file_it->second;
-    }
-}
-
 static void freeUserVarMap()
 {
     for (int_vt_map::iterator vt_it = userVarMap.begin(); vt_it != userVarMap.end(); vt_it++) {
@@ -1183,7 +1176,6 @@ static void releaseGlobalAllocations()
     main_scenario.release();
     ooc_scenario.release();
     aa_scenario.release();
-    freeInFiles();
     freeUserVarMap();
     delete globalVariables;
 }
@@ -1443,7 +1435,6 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_INPUT_FILE: {
                 REQUIRE_ARG();
                 CHECK_PASS();
-                FileContents *data = new FileContents(argv[argi]);
                 char *name = argv[argi];
                 if (strrchr(name, '/')) {
                     name = strrchr(name, '/') + 1;
@@ -1451,7 +1442,7 @@ int main(int argc, char *argv[])
                     name = strrchr(name, '\\') + 1;
                 }
                 assert(name);
-                inFiles[name] = data;
+                inFiles.emplace(name, argv[argi]);
                 /* By default, the first file is used for IP address input. */
                 if (!ip_file) {
                     ip_file = name;
@@ -1470,7 +1461,8 @@ int main(int argc, char *argv[])
                     char *endptr;
                     int field;
 
-                    if (inFiles.find(fileName) == inFiles.end()) {
+                    const auto& entry = inFiles.find(fileName);
+                    if (entry == inFiles.end()) {
                         ERROR("Could not find file for -infindex: %s", argv[argi - 1]);
                     }
 
@@ -1479,7 +1471,7 @@ int main(int argc, char *argv[])
                         ERROR("Invalid field specification for -infindex: %s", argv[argi]);
                     }
 
-                    inFiles[fileName]->index(field);
+                    entry->second.index(field);
                 }
                 break;
             case SIPP_OPTION_SETFLAG:

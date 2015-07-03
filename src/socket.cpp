@@ -2626,7 +2626,8 @@ int open_connections()
                     // IP address.
                     // For the socket per IP mode, bind the main socket to the
                     // first IP address specified in the inject file.
-                    inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
+                    auto& infile = inFiles.find(ip_file)->second;
+                    infile.getField(0, peripfield, peripaddr, sizeof(peripaddr));
                     if (getaddrinfo(peripaddr,
                                     NULL,
                                     &hints,
@@ -2677,7 +2678,8 @@ int open_connections()
                 // IP address.
                 // For the socket per IP mode, bind the main socket to the
                 // first IP address specified in the inject file.
-                inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
+                auto& infile = inFiles.find(ip_file)->second;
+                infile.getField(0, peripfield, peripaddr, sizeof(peripaddr));
                 if (getaddrinfo(peripaddr,
                                 NULL,
                                 &hints,
@@ -2729,9 +2731,10 @@ int open_connections()
 
         char peripaddr[256];
         struct sipp_socket *sock;
-        unsigned int lines = inFiles[ip_file]->numLines();
+        auto& infile = inFiles.find(ip_file)->second;
+        unsigned int lines = infile.numLines();
         for (unsigned int i = 0; i < lines; i++) {
-            inFiles[ip_file]->getField(i, peripfield, peripaddr, sizeof(peripaddr));
+            infile.getField(i, peripfield, peripaddr, sizeof(peripaddr));
             map<string, struct sipp_socket *>::iterator j;
             j = map_perip_fd.find(peripaddr);
 

@@ -649,10 +649,8 @@ void call::init(scenario* call_scenario, struct sipp_socket* socket, struct sock
     /* to be systematically skipped */
     if (!isAutomatic) {
         m_lineNumber = new file_line_map();
-        for (file_map::iterator file_it = inFiles.begin();
-                file_it != inFiles.end();
-                file_it++) {
-            (*m_lineNumber)[file_it->first] = file_it->second->nextLine(userId);
+        for (auto& entry : inFiles) {
+            (*m_lineNumber)[entry.first] = entry.second.nextLine(userId);
         }
     } else {
         m_lineNumber = NULL;
@@ -3514,39 +3512,38 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
             M_callVariableTable->getVar(currentAction.getSubVarId(0))->setDouble((double)tv.tv_usec);
         } else if (currentAction.M_action == CAction::E_AT_LOOKUP) {
             /* Create strings from the sending messages. */
-            char* file = strdup(createSendingMessage(currentAction.getMessage(0), -2));
+            std::string file = strdup(createSendingMessage(currentAction.getMessage(0), -2));
             char* key = strdup(createSendingMessage(currentAction.getMessage(1), -2));
 
-            if (inFiles.find(file) == inFiles.end()) {
-                ERROR("Invalid injection file for insert: %s", file);
+            const auto& entry = inFiles.find(file);
+            if (entry == inFiles.end()) {
+                ERROR("Invalid injection file for insert: %s", file.c_str());
             }
 
-            double value = inFiles[file]->lookup(key);
-
+            double value = entry->second.lookup(key);
             M_callVariableTable->getVar(currentAction.M_varId)->setDouble(value);
-            free(file);
             free(key);
         } else if (currentAction.M_action == CAction::E_AT_INSERT) {
             /* Create strings from the sending messages. */
-            char* file = strdup(createSendingMessage(currentAction.getMessage(0), -2));
+            std::string file = strdup(createSendingMessage(currentAction.getMessage(0), -2));
             char* value = strdup(createSendingMessage(currentAction.getMessage(1), -2));
 
-            if (inFiles.find(file) == inFiles.end()) {
-                ERROR("Invalid injection file for insert: %s", file);
+            const auto& entry = inFiles.find(file);
+            if (entry == inFiles.end()) {
+                ERROR("Invalid injection file for insert: %s", file.c_str());
             }
 
-            inFiles[file]->insert(value);
-
-            free(file);
+            entry->second.insert(value);
             free(value);
         } else if (currentAction.M_action == CAction::E_AT_REPLACE) {
             /* Create strings from the sending messages. */
-            char* file = strdup(createSendingMessage(currentAction.getMessage(0), -2));
+            std::string file = strdup(createSendingMessage(currentAction.getMessage(0), -2));
             char* line = strdup(createSendingMessage(currentAction.getMessage(1), -2));
             char* value = strdup(createSendingMessage(currentAction.getMessage(2), -2));
 
-            if (inFiles.find(file) == inFiles.end()) {
-                ERROR("Invalid injection file for replace: %s", file);
+            const auto& entry = inFiles.find(file);
+            if (entry == inFiles.end()) {
+                ERROR("Invalid injection file for insert: %s", file.c_str());
             }
 
             char* endptr;
@@ -3555,9 +3552,7 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
                 ERROR("Invalid line number for replace: %s", line);
             }
 
-            inFiles[file]->replace(lineNum, value);
-
-            free(file);
+            entry->second.replace(lineNum, value);
             free(line);
             free(value);
         } else if (currentAction.M_action == CAction::E_AT_CLOSE_CON) {
@@ -3993,9 +3988,12 @@ void call::getFieldFromInputFile(const char* fileName, int field, std::shared_pt
     if (m_lineNumber == NULL) {
         ERROR("Automatic calls (created by -aa, -oocsn or -oocsf) cannot use input files!");
     }
+
     if (inFiles.find(fileName) == inFiles.end()) {
         ERROR("Invalid injection file: %s", fileName);
     }
+
+    auto& file = inFiles.find(fileName)->second;
     int line = (*m_lineNumber)[fileName];
     if (lineMsg) {
         char lineBuffer[20];
@@ -4005,14 +4003,14 @@ void call::getFieldFromInputFile(const char* fileName, int field, std::shared_pt
         if (*endptr != 0) {
             ERROR("Invalid line number generated: '%s'", lineBuffer);
         }
-        if (line > inFiles[fileName]->numLines()) {
+        if (line > file.numLines()) {
             line = -1;
         }
     }
     if (line < 0) {
         return;
     }
-    dest += inFiles[fileName]->getField(line, field, dest, SIPP_MAX_MSG_SIZE);
+    dest += file.getField(line, field, dest, SIPP_MAX_MSG_SIZE);
 }
 
 call::T_AutoMode call::checkAutomaticResponseMode(char* P_recv)

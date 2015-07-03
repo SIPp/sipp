@@ -321,9 +321,9 @@ extern const char       * tls_crl_name            _DEFVAL(DEFAULT_TLS_CRL);
 #endif
 
 // extern field file management
-typedef std::map<string, FileContents *> file_map;
+typedef std::map<std::string, FileContents> file_map;
 extern file_map inFiles;
-typedef std::map<string, str_int_map *> file_index;
+typedef std::map<std::string, str_int_map> file_index;
 extern char *ip_file _DEFVAL(NULL);
 extern char *default_file _DEFVAL(NULL);
 
