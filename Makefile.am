@@ -142,7 +142,6 @@ gtest_SOURCES = \
 	gtest/src/gtest-test-part.cc \
 	gtest/src/gtest-typed-test.cc \
 	gtest/src/gtest.cc \
-	gtest/src/gtest_main.cc \
 	gmock/src/gmock-internal-utils.cc \
 	gmock/src/gmock-matchers.cc
 
