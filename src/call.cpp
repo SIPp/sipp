@@ -139,7 +139,7 @@ static void getsockaddr(std::string const &host, std::string const &service,
     std::memcpy(ss, res->ai_addr, res->ai_addrlen);
 }
 
-static std::string parse_sdp_msg(std::string const &pattern, std::string const &msg)
+static std::string parse_sdp_field(std::string const &pattern, std::string const &msg)
 {
     std::string::size_type begin, end;
 
@@ -157,30 +157,36 @@ static std::string parse_sdp_msg(std::string const &pattern, std::string const &
     return msg.substr(begin, end - begin);
 }
 
+static struct sdp_info parse_sdp_msg(std::string const &msg)
+{
+    struct sdp_info info = {};
+    info.host = parse_sdp_field(media_ip_is_ipv6 ? "c=IN IP6 " : "c=IN IP4 ", msg);
+
+    if (!info.host.empty()) {
+        info.audio_port = parse_sdp_field("m=audio ", msg);
+        info.image_port = parse_sdp_field("m=image ", msg);
+        info.video_port = parse_sdp_field("m=video ", msg);
+    }
+
+    return info;
+}
+
 /*
  * IPv{4,6} compliant
  */
-void call::get_remote_media_addr(std::string const& msg)
+void call::get_remote_media_addr(struct sdp_info const& info)
 {
-    std::string port, host = parse_sdp_msg(media_ip_is_ipv6 ? "c=IN IP6 " : "c=IN IP4 ", msg);
-    if (host.empty()) {
-        return;
-    }
-
     hasMediaInformation = 1;
-    port = parse_sdp_msg("m=audio ", msg);
-    if (!port.empty()) {
-        getsockaddr(host, port, &play_args_a.to, media_ip_is_ipv6);
+    if (!info.audio_port.empty()) {
+        getsockaddr(info.host, info.audio_port, &play_args_a.to, media_ip_is_ipv6);
     }
 
-    port = parse_sdp_msg("m=image ", msg);
-    if (!port.empty()) {
-        getsockaddr(host, port, &play_args_i.to, media_ip_is_ipv6);
+    if (!info.image_port.empty()) {
+        getsockaddr(info.host, info.image_port, &play_args_i.to, media_ip_is_ipv6);
     }
 
-    port = parse_sdp_msg("m=video ", msg);
-    if (!port.empty()) {
-        getsockaddr(host, port, &play_args_v.to, media_ip_is_ipv6);
+    if (!info.video_port.empty()) {
+        getsockaddr(info.host, info.video_port, &play_args_v.to, media_ip_is_ipv6);
     }
 }
 
@@ -190,86 +196,22 @@ void call::get_remote_media_addr(std::string const& msg)
 /******* Extract RTP remote media infomartion from SDP  *******/
 /***** Similar to the routines used by the PCAP play code *****/
 
-#define SDP_IPADDR_PREFIX    "\nc = IN IP"
-#define SDP_AUDIOPORT_PREFIX "\nm = audio"
-#define SDP_IMAGEPORT_PREFIX "\nm = image"
-#define SDP_VIDEOPORT_PREFIX "\nm = video"
-
-void call::extract_rtp_remote_addr(char* msg)
+void call::extract_rtp_remote_addr(struct sdp_info const& info)
 {
-    char* search;
-    char* copy;
-    char ip_addr[128];
-    int ip_ver;
-    int audio_port = 0;
-    int image_port = 0;
-    int video_port = 0;
+    int audio_port = std::stoi(info.audio_port);
+    int image_port = std::stoi(info.image_port);
+    int video_port = std::stoi(info.video_port);
 
-    /* Look for start of message body */
-    search = strstr(msg, "\r\n\r\n");
-    if (!search) {
-        ERROR("extract_rtp_remote_addr: SDP message body not found");
-    }
-    msg = search + 2; /* skip past header. point to blank line before body */
-    /* Now search for IP address field */
-    search = strstr(msg, SDP_IPADDR_PREFIX);
-    if (search) {
-        search += strlen(SDP_IPADDR_PREFIX);
-        /* Get IP version number from c = */
-        if (*search == '4') {
-            ip_ver = 4;
-        } else if (*search == '6') {
-            ip_ver = 6;
-        } else {
-            ERROR("extract_rtp_remote_addr: invalid IP version '%c' in SDP message body",*search);
-        }
-        search++;
-        copy = ip_addr;
-        while ((*search == ' ') || (*search == '\t')) {
-            search++;
-        }
-        while (!((*search == ' ') || (*search == '\t') || (*search == '\r') || (*search == '\n'))) {
-            *(copy++) = *(search++);
-        }
-        *copy = 0;
-    } else {
-        ERROR("extract_rtp_remote_addr: no IP address found in SDP message body");
-        *ip_addr = 0;
-    }
-    /* Now try to find the port number for the audio stream */
-    search = strstr(msg, SDP_AUDIOPORT_PREFIX);
-    if (search) {
-        search+= strlen(SDP_AUDIOPORT_PREFIX);
-        while ((*search ==' ') || (*search =='\t')) {
-            search++;
-        }
-        sscanf(search, "%d",&audio_port);
-    }
-    /* And find the port number for the image stream */
-    search = strstr(msg, SDP_IMAGEPORT_PREFIX);
-    if (search) {
-        search+= strlen(SDP_IMAGEPORT_PREFIX);
-        while ((*search ==' ') || (*search =='\t')) {
-            search++;
-        }
-        sscanf(search, "%d",&image_port);
-    }
-    /* And find the port number for the video stream */
-    search = strstr(msg, SDP_VIDEOPORT_PREFIX);
-    if (search) {
-        search+= strlen(SDP_VIDEOPORT_PREFIX);
-        while ((*search ==' ') || (*search =='\t')) {
-            search++;
-        }
-        sscanf(search, "%d",&video_port);
-    }
     if (audio_port == 0 && image_port == 0 && video_port == 0) {
         ERROR("extract_rtp_remote_addr: no m = audio, m = image or m = video line found in SDP message body");
     }
+
     /* If we get an image_port only, we won't set anything useful.
      * We cannot use rtpstream for udptl/t38 data because it has
      * non-linear timing and data size. */
-    rtpstream_set_remote(&rtpstream_callinfo, ip_ver, ip_addr, audio_port, video_port);
+    // XXX: the ipver field isn't used beyond a single debug message
+    rtpstream_set_remote(&rtpstream_callinfo, media_ip_is_ipv6 ? 6 : 4,
+                         info.host.c_str(), audio_port, video_port);
 }
 #endif
 
@@ -2857,11 +2799,15 @@ bool call::process_incoming(char* msg, struct sockaddr_storage *src)
         }
     }
 
-#ifdef RTP_STREAM
     /* Check if message has a SDP in it; and extract media information. */
-    if (!strcmp(get_header_content(msg, (char*)"Content-Type:"),"application/sdp") &&
-        (hasMedia == 1)) {
-        extract_rtp_remote_addr(msg);
+#if (defined PCAP_PLAY || defined RTP_STREAM)
+    struct sdp_info info;
+    if (hasMedia && strcmp(get_header_content(msg, "Content-Type:"), "application/sdp") == 0) {
+        info = parse_sdp_msg(msg);
+
+#ifdef RTP_STREAM
+        extract_rtp_remote_addr(info);
+#endif
     }
 #endif
 
@@ -2880,9 +2826,8 @@ bool call::process_incoming(char* msg, struct sockaddr_storage *src)
                 return false; // Call aborted by unexpected message handling
             }
 #ifdef PCAPPLAY
-        } else if ((hasMedia == 1) && *(strstr(msg, "\r\n\r\n") + 4) != '\0') {
-            /* Get media info if we find something like an SDP */
-            get_remote_media_addr(msg);
+        } else if (hasMedia) {
+            get_remote_media_addr(info);
 #endif
         }
         /* It is a response: update peer_tag */
@@ -2919,7 +2864,7 @@ bool call::process_incoming(char* msg, struct sockaddr_storage *src)
                     || (strncmp(request, "ACK", 3) == 0)
                     || (strncmp(request, "PRACK", 5) == 0))
                     && (hasMedia == 1))
-                get_remote_media_addr(msg);
+                get_remote_media_addr(info);
 #endif
 
             reply_code = 0;
@@ -4087,7 +4032,11 @@ public:
     mockcall(bool is_ipv6) : listener("//testing", true), call("///testing", is_ipv6, 0, NULL) {}
 
     /* Helpers to poke at call internals */
-    void parse_media_addr(std::string const& msg) { get_remote_media_addr(msg); }
+    void parse_media_addr(std::string const& msg) {
+        auto info = parse_sdp_msg(msg);
+        get_remote_media_addr(info);
+    }
+
     bool has_media() { return hasMediaInformation; }
 
     template<typename T>
@@ -4128,17 +4077,17 @@ const std::string test_sdp_v6 = "v=0\r\n"
                                 "a=rtpmap:0 PCMU/8000\r\n";
 
 TEST(sdp, parse_valid_sdp_msg) {
-    ASSERT_EQ(parse_sdp_msg("c=IN IP4 ", test_sdp_v4), "127.0.0.1");
-    ASSERT_EQ(parse_sdp_msg("c=IN IP6 ", test_sdp_v6), "::1");
-    ASSERT_EQ(parse_sdp_msg("m=audio ", test_sdp_v4), "12345");
-    ASSERT_EQ(parse_sdp_msg("m=audio ", test_sdp_v6), "12345");
+    ASSERT_EQ(parse_sdp_field("c=IN IP4 ", test_sdp_v4), "127.0.0.1");
+    ASSERT_EQ(parse_sdp_field("c=IN IP6 ", test_sdp_v6), "::1");
+    ASSERT_EQ(parse_sdp_field("m=audio ", test_sdp_v4), "12345");
+    ASSERT_EQ(parse_sdp_field("m=audio ", test_sdp_v6), "12345");
 }
 
 TEST(sdp, parse_invalid_sdp_msg) {
-    ASSERT_EQ(parse_sdp_msg("c=IN IP4 ", test_sdp_v6), "");
-    ASSERT_EQ(parse_sdp_msg("c=IN IP6 ", test_sdp_v4), "");
-    ASSERT_EQ(parse_sdp_msg("m=video ", test_sdp_v6), "");
-    ASSERT_EQ(parse_sdp_msg("m=video ", test_sdp_v4), "");
+    ASSERT_EQ(parse_sdp_field("c=IN IP4 ", test_sdp_v6), "");
+    ASSERT_EQ(parse_sdp_field("c=IN IP6 ", test_sdp_v4), "");
+    ASSERT_EQ(parse_sdp_field("m=video ", test_sdp_v6), "");
+    ASSERT_EQ(parse_sdp_field("m=video ", test_sdp_v4), "");
 }
 
 TEST(sdp, good_remote_media_addr_v4) {
