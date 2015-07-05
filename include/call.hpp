@@ -59,6 +59,10 @@ struct txnInstanceInfo {
     int ackIndex;
 };
 
+struct sdp_info {
+    std::string host, audio_port, image_port, video_port;
+};
+
 class call : virtual public task, virtual public listener, public virtual socketowner
 {
 public:
@@ -293,10 +297,10 @@ protected:
 
     bool use_ipv6;
 
-    void get_remote_media_addr(std::string const& msg);
+    void get_remote_media_addr(struct sdp_info const& info);
 
 #ifdef RTP_STREAM
-    void extract_rtp_remote_addr(char* message);
+    void extract_rtp_remote_addr(struct sdp_info const& info);
 #endif
 
     bool lost(int index);
