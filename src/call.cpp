@@ -263,19 +263,177 @@ unsigned long call::hash(const char* msg)
 }
 
 /******************* Call class implementation ****************/
-call::call(const char* p_id, bool use_ipv6, int userId, struct sockaddr_storage* dest) : listener(p_id, true)
-{
-    init(main_scenario.get(), NULL, dest, p_id, userId, use_ipv6, false, false);
-}
+call::call(const char* p_id, bool use_ipv6, int userId, struct sockaddr_storage* dest) : call(main_scenario.get(), NULL, dest, p_id, userId, use_ipv6, false, false) {}
 
-call::call(const char* p_id, struct sipp_socket* socket, struct sockaddr_storage* dest) : listener(p_id, true)
-{
-    init(main_scenario.get(), socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
-}
+call::call(const char* p_id, struct sipp_socket* socket, struct sockaddr_storage* dest) : call(main_scenario.get(), socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false) {}
 
-call::call(scenario* call_scenario, struct sipp_socket* socket, struct sockaddr_storage* dest, const char* p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true)
+call::call(scenario* call_scenario, struct sipp_socket* socket, struct sockaddr_storage* dest, const char* p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization)
+  : listener(p_id, true),
+    initCall(isInitialization),
+    call_scenario(call_scenario),
+    msg_index(0),
+    zombie(false),
+    last_send_index(0),
+    last_send_msg(NULL),
+    last_send_len(0),
+    send_timeout(0),
+    last_recv_hash(0),
+    last_recv_index(-1),
+    last_recv_msg(NULL),
+    recv_retrans_hash(0),
+    recv_retrans_recv_index(-1),
+    recv_retrans_send_index(-1),
+    recv_timeout(0),
+    dialog_route_set(NULL),
+    next_req_url(NULL),
+    cseq(base_cseq),
+
+#ifdef PCAPPLAY
+    hasMediaInformation(0),
+    media_thread(),
+    play_args_a({}),
+    play_args_i({}),
+    play_args_v({}),
+#endif
+
+    dialog_authentication(NULL),
+    dialog_challenge_type(0),
+    next_retrans(0),
+    nb_retrans(0),
+    nb_last_delay(0),
+    paused_until(0),
+    start_time(clock_tick),
+    peer_tag(NULL),
+    call_remote_socket(NULL),
+    call_port(0),
+    comp_state(NULL),
+    call_established(false),
+    ack_is_pending(false),
+    last_action_result(call::E_AR_NO_ERROR),
+    timewait(false),
+    userId(userId),
+    use_ipv6(ipv6),
+    queued_msg(NULL),
+
+#ifdef _USE_OPENSSL
+    m_ctx_ssl(NULL),
+    m_bio(NULL),
+#endif
+
+    debugBuffer(NULL),
+    debugLength(0)
+
 {
-    init(call_scenario, socket, dest, p_id, userId, ipv6, isAutomatic, isInitialization);
+#ifdef RTP_STREAM
+    /* check and warn on rtpstream_new_call result?->error alloc'ing mem */
+    rtpstream_new_call(&rtpstream_callinfo);
+#endif
+
+    if (socket) {
+        associate_socket(socket);
+        socket->ss_count++;
+    } else {
+        call_socket = NULL;
+    }
+
+    if (dest) {
+        std::memcpy(&call_peer, dest, sizeof(call_peer));
+    } else {
+        std::memset(&call_peer, 0, sizeof(call_peer));
+    }
+
+    // initialising the CallVariable with the Scenario variable
+    int i;
+    VariableTable *userVars = NULL;
+    bool putUserVars = false;
+    if (userId) {
+        const auto& it = userVarMap.find(userId);
+        if (it != userVarMap.end()) {
+            userVars = it->second;
+        }
+    } else {
+        userVars = new VariableTable(userVariables);
+        /* Creating this table creates a reference to it, but if it is really used,
+         * then the refcount will be increased. */
+        putUserVars = true;
+    }
+
+    if (call_scenario->allocVars->size > 0) {
+        M_callVariableTable = new VariableTable(userVars, call_scenario->allocVars->size);
+    } else if (userVars->size > 0) {
+        M_callVariableTable = userVars->getTable();
+    } else if (globalVariables->size > 0) {
+        M_callVariableTable = globalVariables->getTable();
+    } else {
+        M_callVariableTable = NULL;
+    }
+
+    if (putUserVars) {
+        userVars->putTable();
+    }
+
+    if (call_scenario->transactions.size() > 0) {
+        transactions = (struct txnInstanceInfo*)malloc(sizeof(txnInstanceInfo) * call_scenario->transactions.size());
+        memset(transactions, 0, sizeof(struct txnInstanceInfo) * call_scenario->transactions.size());
+    } else {
+        transactions = NULL;
+    }
+
+    // If not updated by a message we use the start time
+    // information to compute rtd information
+    start_time_rtd = (unsigned long long*)malloc(sizeof(unsigned long long) * call_scenario->stats->nRtds());
+    if (!start_time_rtd) {
+        ERROR("Could not allocate RTD times!");
+    }
+
+    rtd_done = (bool*)malloc(sizeof(bool) * call_scenario->stats->nRtds());
+    if (!start_time_rtd) {
+        ERROR("Could not allocate RTD done!");
+    }
+
+    for (i = 0; i < call_scenario->stats->nRtds(); i++) {
+        start_time_rtd[i] = getmicroseconds();
+        rtd_done[i] = false;
+    }
+
+    /* For automatic answer calls to an out of call request, we must not */
+    /* increment the input files line numbers to not disturb */
+    /* the input files read mechanism (otherwise some lines risk */
+    /* to be systematically skipped */
+    if (!isAutomatic) {
+        m_lineNumber = new file_line_map();
+        for (auto& entry : inFiles) {
+            (*m_lineNumber)[entry.first] = entry.second.nextLine(userId);
+        }
+    } else {
+        m_lineNumber = NULL;
+    }
+
+    if (!isAutomatic) {
+        /* Not advancing the number is safe, because for automatic calls we do not
+         * assign the identifier,  the only other place it is used is for the auto
+         * media port. */
+        number = next_number++;
+
+        if (use_tdmmap) {
+            tdm_map_number = get_tdm_map_number();
+            if (tdm_map_number == 0) {
+                /* Can't create the new call */
+                WARNING("Can't create new outgoing call: all tdm_map circuits busy");
+                computeStat(CStat::E_CALL_FAILED);
+                computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
+                this->zombie = true;
+                return;
+            }
+            /* Mark the entry in the list as busy */
+            tdm_map[tdm_map_number - 1] = true;
+        } else {
+            tdm_map_number = 0;
+        }
+    }
+
+    callDebug("Starting call %s\n", id);
+    setRunning();
 }
 
 call *call::add_call(int userId, bool ipv6, struct sockaddr_storage* dest)
@@ -315,192 +473,6 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage* dest)
     return new call(main_scenario.get(), NULL, dest, call_id, userId, ipv6, false /* Not Auto. */, false);
 }
 
-
-void call::init(scenario* call_scenario, struct sipp_socket* socket, struct sockaddr_storage* dest, const char* p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall)
-{
-    this->call_scenario = call_scenario;
-    zombie = false;
-
-    debugBuffer = NULL;
-    debugLength = 0;
-
-    msg_index = 0;
-    last_send_index = 0;
-    last_send_msg = NULL;
-    last_send_len = 0;
-
-    last_recv_hash = 0;
-    last_recv_index = -1;
-    last_recv_msg = NULL;
-
-    recv_retrans_hash = 0;
-    recv_retrans_recv_index = -1;
-    recv_retrans_send_index = -1;
-
-    dialog_route_set = NULL;
-    next_req_url = NULL;
-
-    cseq = 0;
-
-    next_retrans = 0;
-    nb_retrans = 0;
-    nb_last_delay = 0;
-
-    paused_until = 0;
-
-    call_port = 0;
-    comp_state = NULL;
-
-    start_time = clock_tick;
-    call_established = false;
-    ack_is_pending = false;
-    last_recv_msg = NULL;
-    cseq = base_cseq;
-    nb_last_delay = 0;
-    use_ipv6 = ipv6;
-    queued_msg = NULL;
-
-    dialog_authentication = NULL;
-    dialog_challenge_type = 0;
-
-#ifdef _USE_OPENSSL
-    m_ctx_ssl = NULL;
-    m_bio = NULL;
-#endif
-#ifdef RTP_STREAM
-    /* check and warn on rtpstream_new_call result?->error alloc'ing mem */
-    rtpstream_new_call (&rtpstream_callinfo);
-#endif
-
-#ifdef PCAPPLAY
-    hasMediaInformation = 0;
-#endif
-
-    call_remote_socket = NULL;
-    if (socket) {
-        associate_socket(socket);
-        socket->ss_count++;
-    } else {
-        call_socket = NULL;
-    }
-    if (dest) {
-        memcpy(&call_peer, dest, sizeof(call_peer));
-    } else {
-        memset(&call_peer, 0, sizeof(call_peer));
-    }
-
-    // initialising the CallVariable with the Scenario variable
-    int i;
-    VariableTable *userVars = NULL;
-    bool putUserVars = false;
-    if (userId) {
-        int_vt_map::iterator it = userVarMap.find(userId);
-        if (it != userVarMap.end()) {
-            userVars  = it->second;
-        }
-    } else {
-        userVars = new VariableTable(userVariables);
-        /* Creating this table creates a reference to it, but if it is really used,
-         * then the refcount will be increased. */
-        putUserVars = true;
-    }
-    if (call_scenario->allocVars->size > 0) {
-        M_callVariableTable = new VariableTable(userVars, call_scenario->allocVars->size);
-    } else if (userVars->size > 0) {
-        M_callVariableTable = userVars->getTable();
-    } else if (globalVariables->size > 0) {
-        M_callVariableTable = globalVariables->getTable();
-    } else {
-        M_callVariableTable = NULL;
-    }
-    if (putUserVars) {
-        userVars->putTable();
-    }
-
-    if (call_scenario->transactions.size() > 0) {
-        transactions = (struct txnInstanceInfo*)malloc(sizeof(txnInstanceInfo) * call_scenario->transactions.size());
-        memset(transactions, 0, sizeof(struct txnInstanceInfo) * call_scenario->transactions.size());
-    } else {
-        transactions = NULL;
-    }
-
-    // If not updated by a message we use the start time
-    // information to compute rtd information
-    start_time_rtd = (unsigned long long*)malloc(sizeof(unsigned long long) * call_scenario->stats->nRtds());
-    if (!start_time_rtd) {
-        ERROR("Could not allocate RTD times!");
-    }
-    rtd_done = (bool*)malloc(sizeof(bool) * call_scenario->stats->nRtds());
-    if (!start_time_rtd) {
-        ERROR("Could not allocate RTD done!");
-    }
-    for (i = 0; i < call_scenario->stats->nRtds(); i++) {
-        start_time_rtd[i] = getmicroseconds();
-        rtd_done[i] = false;
-    }
-
-    // by default, last action result is NO_ERROR
-    last_action_result = call::E_AR_NO_ERROR;
-
-    this->userId = userId;
-
-    /* For automatic answer calls to an out of call request, we must not */
-    /* increment the input files line numbers to not disturb */
-    /* the input files read mechanism (otherwise some lines risk */
-    /* to be systematically skipped */
-    if (!isAutomatic) {
-        m_lineNumber = new file_line_map();
-        for (auto& entry : inFiles) {
-            (*m_lineNumber)[entry.first] = entry.second.nextLine(userId);
-        }
-    } else {
-        m_lineNumber = NULL;
-    }
-    this->initCall = isInitCall;
-
-#ifdef PCAPPLAY
-    memset(&play_args_a.to, 0, sizeof(struct sockaddr_storage));
-    memset(&play_args_i.to, 0, sizeof(struct sockaddr_storage));
-    memset(&play_args_v.to, 0, sizeof(struct sockaddr_storage));
-    memset(&play_args_a.from, 0, sizeof(struct sockaddr_storage));
-    memset(&play_args_i.from, 0, sizeof(struct sockaddr_storage));
-    memset(&play_args_v.from, 0, sizeof(struct sockaddr_storage));
-    hasMediaInformation = 0;
-    media_thread = 0;
-#endif
-
-    peer_tag = NULL;
-    recv_timeout = 0;
-    send_timeout = 0;
-    timewait = false;
-
-    if (!isAutomatic) {
-        /* Not advancing the number is safe, because for automatic calls we do not
-         * assign the identifier,  the only other place it is used is for the auto
-         * media port. */
-        number = next_number++;
-
-        if (use_tdmmap) {
-            tdm_map_number = get_tdm_map_number();
-            if (tdm_map_number == 0) {
-                /* Can't create the new call */
-                WARNING("Can't create new outgoing call: all tdm_map circuits busy");
-                computeStat(CStat::E_CALL_FAILED);
-                computeStat(CStat::E_FAILED_OUTBOUND_CONGESTION);
-                this->zombie = true;
-                return;
-            }
-            /* Mark the entry in the list as busy */
-            tdm_map[tdm_map_number - 1] = true;
-        } else {
-            tdm_map_number = 0;
-        }
-    }
-
-    callDebug("Starting call %s\n", id);
-
-    setRunning();
-}
 
 int call::_callDebug(const char* fmt, ...)
 {
@@ -568,7 +540,7 @@ call::~call()
     free(next_req_url);
 
 #ifdef RTP_STREAM
-    rtpstream_end_call (&rtpstream_callinfo);
+    rtpstream_end_call(&rtpstream_callinfo);
 #endif
 
     free(dialog_authentication);
@@ -2840,6 +2812,7 @@ bool call::process_incoming(char* msg, struct sockaddr_storage *src)
                 free(peer_tag);
             }
             peer_tag = strdup(ptr);
+
             if (!peer_tag) {
                 ERROR("Out of memory allocating peer tag.");
             }
