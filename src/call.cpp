@@ -4029,7 +4029,7 @@ void *send_wrapper(void *arg)
 
 class mockcall : public call {
 public:
-    mockcall(bool is_ipv6) : listener("//testing", true), call("///testing", is_ipv6, 0, NULL) {}
+    mockcall(bool is_ipv6) : listener("//testing", true), call("//testing", is_ipv6, 0, NULL) {}
 
     /* Helpers to poke at call internals */
     void parse_media_addr(std::string const& msg) {
@@ -4091,6 +4091,8 @@ TEST(sdp, parse_invalid_sdp_msg) {
 }
 
 TEST(sdp, good_remote_media_addr_v4) {
+    media_ip_is_ipv6 = false;
+
     struct sockaddr_in reference;
     reference.sin_family = AF_INET;
     reference.sin_port = htons(12345);
