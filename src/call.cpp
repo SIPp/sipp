@@ -56,7 +56,7 @@
 #include "config.h"
 #include "version.h"
 
-#define callDebug(args...) do { if (useCallDebugf) { _callDebug( args ); } } while (0)
+#define callDebug(...) do { if (useCallDebugf) { _callDebug( __VA_ARGS__ ); } } while (0)
 
 extern map<string, struct sipp_socket*> map_perip_fd;
 
@@ -65,7 +65,7 @@ extern map<string, struct sipp_socket*> map_perip_fd;
 void* send_wrapper(void*);
 #endif
 int call::dynamicId = 0;
-int call::maxDynamicId = 10000+2000*4;      // FIXME both param to be in command line !!!!
+int call::maxDynamicId = 12000;             // FIXME both param to be in command line !!!!
 int call::startDynamicId = 10000;           // FIXME both param to be in command line !!!!
 int call::stepDynamicId = 4;                // FIXME both param to be in command line !!!!
 
@@ -123,205 +123,70 @@ unsigned int call::wake()
 }
 
 #ifdef PCAPPLAY
-static char* find_sdp_eol(const char* line)
-{
-    const char* end = &line[strcspn(line, "\r\n")];
-    return end[0] == '\0' ? NULL : const_cast<char*>(end);
-}
-
 /******* Media information management *************************/
-/*
- * Look for "c=IN IP4 " pattern in the message and extract the following value
- * which should be IP address
- */
-uint32_t get_remote_ip_media(char* msg)
-{
-    char pattern[] = "c=IN IP4 ";
-    char* begin;
-    char* end;
-    char ip[32];
-    char* my_msg = strdup(msg);
 
-    if (!my_msg) {
-        return INADDR_NONE;
+static void getsockaddr(std::string const &host, std::string const &service,
+                        struct sockaddr_storage *ss, bool is_ipv6)
+{
+    const struct addrinfo hints = {AI_NUMERICHOST | AI_NUMERICSERV, is_ipv6 ? AF_INET6 : AF_INET};
+    struct addrinfo* res;
+
+    int error = getaddrinfo(host.c_str(), service.c_str(), &hints, &res);
+    if (error) {
+        ERROR("%s", gai_strerror(error));
     }
-    begin = strstr(my_msg, pattern);
-    if (!begin) {
-        free(my_msg);
-        /* Can't find what we're looking at -> return no address */
-        return INADDR_NONE;
-    }
-    begin += sizeof(pattern) - 1;
-    end = find_sdp_eol(begin);
-    if (!end) {
-        free(my_msg);
-        return INADDR_NONE;
-    }
-    *end = '\0';
-    memset(ip, 0, 32);
-    strncpy(ip, begin, sizeof(ip) - 1);
-    ip[sizeof(ip) - 1] = '\0';
-    free(my_msg);
-    return inet_addr(ip);
+
+    std::memcpy(ss, res->ai_addr, res->ai_addrlen);
 }
 
-/*
- * Look for "c=IN IP6 " pattern in the message and extract the following value
- * which should be IPv6 address
- */
-uint8_t get_remote_ipv6_media(char* msg, struct in6_addr* addr)
+static std::string parse_sdp_field(std::string const &pattern, std::string const &msg)
 {
-    char pattern[] = "c=IN IP6 ";
-    char* begin;
-    char* end;
-    char ip[128];
-    char* my_msg = strdup(msg);
+    std::string::size_type begin, end;
 
-    memset(addr, 0, sizeof(*addr));
-    memset(ip, 0, 128);
+    begin = msg.find(pattern);
+    if (begin == std::string::npos) {
+        return "";
+    }
 
-    if (!my_msg) {
-        return 0;
+    begin += pattern.size();
+    end = msg.find_first_of(" \r\n", begin);
+    if (end == std::string::npos || begin == end) {
+        return "";
     }
-    begin = strstr(my_msg, pattern);
-    if (!begin) {
-        free(my_msg);
-        /* Can't find what we're looking at -> return no address */
-        return 0;
-    }
-    begin += sizeof(pattern) - 1;
-    end = find_sdp_eol(begin);
-    if (!end) {
-        free(my_msg);
-        return 0;
-    }
-    *end = '\0';
-    strncpy(ip, begin, sizeof(ip) -1);
-    ip[sizeof(ip) - 1] = '\0';
-    free(my_msg);
-    if (!inet_pton(AF_INET6, ip, addr)) {
-        return 0;
-    }
-    return 1;
+
+    return msg.substr(begin, end - begin);
 }
 
-/*
- * Look for "m=audio ", "m=image " or "m=video " pattern in the message
- * and extract the following value which should be port number.
- */
-enum media_ptn {
-    PAT_AUDIO,
-    PAT_IMAGE,
-    PAT_VIDEO
-};
-
-uint16_t get_remote_port_media(const char* msg, enum media_ptn pattype)
+static struct sdp_info parse_sdp_msg(std::string const &msg)
 {
-    const char*pattern;
-    char* begin;
-    char* end;
-    char number[6];
+    struct sdp_info info = {};
+    info.host = parse_sdp_field(media_ip_is_ipv6 ? "c=IN IP6 " : "c=IN IP4 ", msg);
 
-    if (pattype == PAT_AUDIO) {
-        pattern = "m=audio ";
-    } else if (pattype == PAT_IMAGE) {
-        pattern = "m=image ";
-    } else if (pattype == PAT_VIDEO) {
-        pattern = "m=video ";
-    } else {
-        ERROR("Internal error: Undefined media pattern %d\n", 3);
+    if (!info.host.empty()) {
+        info.audio_port = parse_sdp_field("m=audio ", msg);
+        info.image_port = parse_sdp_field("m=image ", msg);
+        info.video_port = parse_sdp_field("m=video ", msg);
     }
 
-    char* my_msg = strdup(msg);
-    if (!my_msg) {
-        return 0;
-    }
-    begin = strstr(my_msg, pattern);
-    if (!begin) {
-        free(my_msg);
-        /* m=audio not found */
-        return 0;
-    }
-    begin += strlen(pattern);
-    end = find_sdp_eol(begin);
-    if (!end) {
-        free(my_msg);
-        ERROR("get_remote_port_media: no CRLF found");
-        return 0;
-    }
-    *end = '\0';
-    memset(number, 0, sizeof(number));
-    strncpy(number, begin, sizeof(number) - 1);
-    number[sizeof(number) - 1] = '\0';
-    free(my_msg);
-    return atoi(number);
+    return info;
 }
 
 /*
  * IPv{4,6} compliant
  */
-void call::get_remote_media_addr(char* msg)
+void call::get_remote_media_addr(struct sdp_info const& info)
 {
-    uint16_t audio_port, image_port, video_port;
-    if (media_ip_is_ipv6) {
-        struct in6_addr ip_media;
-        if (get_remote_ipv6_media(msg, &ip_media)) {
-            audio_port = get_remote_port_media(msg, PAT_AUDIO);
-            if (audio_port) {
-                /* We have audio in the SDP: set the to_audio addr */
-                (_RCAST(struct sockaddr_in6*, &(play_args_a.to)))->sin6_flowinfo = 0;
-                (_RCAST(struct sockaddr_in6*, &(play_args_a.to)))->sin6_scope_id = 0;
-                (_RCAST(struct sockaddr_in6*, &(play_args_a.to)))->sin6_family = AF_INET6;
-                (_RCAST(struct sockaddr_in6*, &(play_args_a.to)))->sin6_port = htons(audio_port);
-                (_RCAST(struct sockaddr_in6*, &(play_args_a.to)))->sin6_addr = ip_media;
-            }
-            image_port = get_remote_port_media(msg, PAT_IMAGE);
-            if (image_port) {
-                /* We have image in the SDP: set the to_image addr */
-                (_RCAST(struct sockaddr_in6*, &(play_args_i.to)))->sin6_flowinfo = 0;
-                (_RCAST(struct sockaddr_in6*, &(play_args_i.to)))->sin6_scope_id = 0;
-                (_RCAST(struct sockaddr_in6*, &(play_args_i.to)))->sin6_family = AF_INET6;
-                (_RCAST(struct sockaddr_in6*, &(play_args_i.to)))->sin6_port = htons(image_port);
-                (_RCAST(struct sockaddr_in6*, &(play_args_i.to)))->sin6_addr = ip_media;
-            }
-            video_port = get_remote_port_media(msg, PAT_VIDEO);
-            if (video_port) {
-                /* We have video in the SDP: set the to_video addr */
-                (_RCAST(struct sockaddr_in6*, &(play_args_v.to)))->sin6_flowinfo = 0;
-                (_RCAST(struct sockaddr_in6*, &(play_args_v.to)))->sin6_scope_id = 0;
-                (_RCAST(struct sockaddr_in6*, &(play_args_v.to)))->sin6_family = AF_INET6;
-                (_RCAST(struct sockaddr_in6*, &(play_args_v.to)))->sin6_port = htons(video_port);
-                (_RCAST(struct sockaddr_in6*, &(play_args_v.to)))->sin6_addr = ip_media;
-            }
-            hasMediaInformation = 1;
-        }
-    } else {
-        uint32_t ip_media;
-        ip_media = get_remote_ip_media(msg);
-        if (ip_media != INADDR_NONE) {
-            audio_port = get_remote_port_media(msg, PAT_AUDIO);
-            if (audio_port) {
-                /* We have audio in the SDP: set the to_audio addr */
-                (_RCAST(struct sockaddr_in*, &(play_args_a.to)))->sin_family = AF_INET;
-                (_RCAST(struct sockaddr_in*, &(play_args_a.to)))->sin_port = htons(audio_port);
-                (_RCAST(struct sockaddr_in*, &(play_args_a.to)))->sin_addr.s_addr = ip_media;
-            }
-            image_port = get_remote_port_media(msg, PAT_IMAGE);
-            if (image_port) {
-                /* We have image in the SDP: set the to_image addr */
-                (_RCAST(struct sockaddr_in*, &(play_args_i.to)))->sin_family = AF_INET;
-                (_RCAST(struct sockaddr_in*, &(play_args_i.to)))->sin_port = htons(image_port);
-                (_RCAST(struct sockaddr_in*, &(play_args_i.to)))->sin_addr.s_addr = ip_media;
-            }
-            video_port = get_remote_port_media(msg, PAT_VIDEO);
-            if (video_port) {
-                /* We have video in the SDP: set the to_video addr */
-                (_RCAST(struct sockaddr_in*, &(play_args_v.to)))->sin_family = AF_INET;
-                (_RCAST(struct sockaddr_in*, &(play_args_v.to)))->sin_port = htons(video_port);
-                (_RCAST(struct sockaddr_in*, &(play_args_v.to)))->sin_addr.s_addr = ip_media;
-            }
-            hasMediaInformation = 1;
-        }
+    hasMediaInformation = 1;
+    if (!info.audio_port.empty()) {
+        getsockaddr(info.host, info.audio_port, &play_args_a.to, media_ip_is_ipv6);
+    }
+
+    if (!info.image_port.empty()) {
+        getsockaddr(info.host, info.image_port, &play_args_i.to, media_ip_is_ipv6);
+    }
+
+    if (!info.video_port.empty()) {
+        getsockaddr(info.host, info.video_port, &play_args_v.to, media_ip_is_ipv6);
     }
 }
 
@@ -331,86 +196,22 @@ void call::get_remote_media_addr(char* msg)
 /******* Extract RTP remote media infomartion from SDP  *******/
 /***** Similar to the routines used by the PCAP play code *****/
 
-#define SDP_IPADDR_PREFIX    "\nc = IN IP"
-#define SDP_AUDIOPORT_PREFIX "\nm = audio"
-#define SDP_IMAGEPORT_PREFIX "\nm = image"
-#define SDP_VIDEOPORT_PREFIX "\nm = video"
-
-void call::extract_rtp_remote_addr(char* msg)
+void call::extract_rtp_remote_addr(struct sdp_info const& info)
 {
-    char* search;
-    char* copy;
-    char ip_addr[128];
-    int ip_ver;
-    int audio_port = 0;
-    int image_port = 0;
-    int video_port = 0;
+    int audio_port = std::stoi(info.audio_port);
+    int image_port = std::stoi(info.image_port);
+    int video_port = std::stoi(info.video_port);
 
-    /* Look for start of message body */
-    search = strstr(msg, "\r\n\r\n");
-    if (!search) {
-        ERROR("extract_rtp_remote_addr: SDP message body not found");
-    }
-    msg = search + 2; /* skip past header. point to blank line before body */
-    /* Now search for IP address field */
-    search = strstr(msg, SDP_IPADDR_PREFIX);
-    if (search) {
-        search += strlen(SDP_IPADDR_PREFIX);
-        /* Get IP version number from c = */
-        if (*search == '4') {
-            ip_ver = 4;
-        } else if (*search == '6') {
-            ip_ver = 6;
-        } else {
-            ERROR("extract_rtp_remote_addr: invalid IP version '%c' in SDP message body",*search);
-        }
-        search++;
-        copy = ip_addr;
-        while ((*search == ' ') || (*search == '\t')) {
-            search++;
-        }
-        while (!((*search == ' ') || (*search == '\t') || (*search == '\r') || (*search == '\n'))) {
-            *(copy++) = *(search++);
-        }
-        *copy = 0;
-    } else {
-        ERROR("extract_rtp_remote_addr: no IP address found in SDP message body");
-        *ip_addr = 0;
-    }
-    /* Now try to find the port number for the audio stream */
-    search = strstr(msg, SDP_AUDIOPORT_PREFIX);
-    if (search) {
-        search+= strlen(SDP_AUDIOPORT_PREFIX);
-        while ((*search ==' ') || (*search =='\t')) {
-            search++;
-        }
-        sscanf(search, "%d",&audio_port);
-    }
-    /* And find the port number for the image stream */
-    search = strstr(msg, SDP_IMAGEPORT_PREFIX);
-    if (search) {
-        search+= strlen(SDP_IMAGEPORT_PREFIX);
-        while ((*search ==' ') || (*search =='\t')) {
-            search++;
-        }
-        sscanf(search, "%d",&image_port);
-    }
-    /* And find the port number for the video stream */
-    search = strstr(msg, SDP_VIDEOPORT_PREFIX);
-    if (search) {
-        search+= strlen(SDP_VIDEOPORT_PREFIX);
-        while ((*search ==' ') || (*search =='\t')) {
-            search++;
-        }
-        sscanf(search, "%d",&video_port);
-    }
     if (audio_port == 0 && image_port == 0 && video_port == 0) {
         ERROR("extract_rtp_remote_addr: no m = audio, m = image or m = video line found in SDP message body");
     }
+
     /* If we get an image_port only, we won't set anything useful.
      * We cannot use rtpstream for udptl/t38 data because it has
      * non-linear timing and data size. */
-    rtpstream_set_remote(&rtpstream_callinfo, ip_ver, ip_addr, audio_port, video_port);
+    // XXX: the ipver field isn't used beyond a single debug message
+    rtpstream_set_remote(&rtpstream_callinfo, media_ip_is_ipv6 ? 6 : 4,
+                         info.host.c_str(), audio_port, video_port);
 }
 #endif
 
@@ -649,10 +450,8 @@ void call::init(scenario* call_scenario, struct sipp_socket* socket, struct sock
     /* to be systematically skipped */
     if (!isAutomatic) {
         m_lineNumber = new file_line_map();
-        for (file_map::iterator file_it = inFiles.begin();
-                file_it != inFiles.end();
-                file_it++) {
-            (*m_lineNumber)[file_it->first] = file_it->second->nextLine(userId);
+        for (auto& entry : inFiles) {
+            (*m_lineNumber)[entry.first] = entry.second.nextLine(userId);
         }
     } else {
         m_lineNumber = NULL;
@@ -3014,11 +2813,15 @@ bool call::process_incoming(char* msg, struct sockaddr_storage *src)
         }
     }
 
-#ifdef RTP_STREAM
     /* Check if message has a SDP in it; and extract media information. */
-    if (!strcmp(get_header_content(msg, (char*)"Content-Type:"),"application/sdp") &&
-        (hasMedia == 1)) {
-        extract_rtp_remote_addr(msg);
+#if (defined PCAP_PLAY || defined RTP_STREAM)
+    struct sdp_info info;
+    if (hasMedia && strcmp(get_header_content(msg, "Content-Type:"), "application/sdp") == 0) {
+        info = parse_sdp_msg(msg);
+
+#ifdef RTP_STREAM
+        extract_rtp_remote_addr(info);
+#endif
     }
 #endif
 
@@ -3037,9 +2840,8 @@ bool call::process_incoming(char* msg, struct sockaddr_storage *src)
                 return false; // Call aborted by unexpected message handling
             }
 #ifdef PCAPPLAY
-        } else if ((hasMedia == 1) && *(strstr(msg, "\r\n\r\n") + 4) != '\0') {
-            /* Get media info if we find something like an SDP */
-            get_remote_media_addr(msg);
+        } else if (hasMedia) {
+            get_remote_media_addr(info);
 #endif
         }
         /* It is a response: update peer_tag */
@@ -3076,7 +2878,7 @@ bool call::process_incoming(char* msg, struct sockaddr_storage *src)
                     || (strncmp(request, "ACK", 3) == 0)
                     || (strncmp(request, "PRACK", 5) == 0))
                     && (hasMedia == 1))
-                get_remote_media_addr(msg);
+                get_remote_media_addr(info);
 #endif
 
             reply_code = 0;
@@ -3385,17 +3187,7 @@ bool call::process_incoming(char* msg, struct sockaddr_storage *src)
     last_recv_index = search_index;
     last_recv_hash = cookie;
     callDebug("Set Last Recv Hash: %lu (recv index %d)\n", last_recv_hash, last_recv_index);
-    realloc_ptr = (char*)realloc(last_recv_msg, strlen(msg) + 1);
-    if (realloc_ptr) {
-        last_recv_msg = realloc_ptr;
-    } else {
-        free(last_recv_msg);
-        ERROR("Out of memory!");
-        return false;
-    }
-
-
-    strcpy(last_recv_msg, msg);
+    setLastMsg(msg);
 
     /* If this was a mandatory message, or if there is an explicit next label set
      * we must update our state machine.  */
@@ -3528,39 +3320,38 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
             M_callVariableTable->getVar(currentAction.getSubVarId(0))->setDouble((double)tv.tv_usec);
         } else if (currentAction.M_action == CAction::E_AT_LOOKUP) {
             /* Create strings from the sending messages. */
-            char* file = strdup(createSendingMessage(currentAction.getMessage(0), -2));
+            std::string file = strdup(createSendingMessage(currentAction.getMessage(0), -2));
             char* key = strdup(createSendingMessage(currentAction.getMessage(1), -2));
 
-            if (inFiles.find(file) == inFiles.end()) {
-                ERROR("Invalid injection file for insert: %s", file);
+            const auto& entry = inFiles.find(file);
+            if (entry == inFiles.end()) {
+                ERROR("Invalid injection file for insert: %s", file.c_str());
             }
 
-            double value = inFiles[file]->lookup(key);
-
+            double value = entry->second.lookup(key);
             M_callVariableTable->getVar(currentAction.M_varId)->setDouble(value);
-            free(file);
             free(key);
         } else if (currentAction.M_action == CAction::E_AT_INSERT) {
             /* Create strings from the sending messages. */
-            char* file = strdup(createSendingMessage(currentAction.getMessage(0), -2));
+            std::string file = strdup(createSendingMessage(currentAction.getMessage(0), -2));
             char* value = strdup(createSendingMessage(currentAction.getMessage(1), -2));
 
-            if (inFiles.find(file) == inFiles.end()) {
-                ERROR("Invalid injection file for insert: %s", file);
+            const auto& entry = inFiles.find(file);
+            if (entry == inFiles.end()) {
+                ERROR("Invalid injection file for insert: %s", file.c_str());
             }
 
-            inFiles[file]->insert(value);
-
-            free(file);
+            entry->second.insert(value);
             free(value);
         } else if (currentAction.M_action == CAction::E_AT_REPLACE) {
             /* Create strings from the sending messages. */
-            char* file = strdup(createSendingMessage(currentAction.getMessage(0), -2));
+            std::string file = strdup(createSendingMessage(currentAction.getMessage(0), -2));
             char* line = strdup(createSendingMessage(currentAction.getMessage(1), -2));
             char* value = strdup(createSendingMessage(currentAction.getMessage(2), -2));
 
-            if (inFiles.find(file) == inFiles.end()) {
-                ERROR("Invalid injection file for replace: %s", file);
+            const auto& entry = inFiles.find(file);
+            if (entry == inFiles.end()) {
+                ERROR("Invalid injection file for insert: %s", file.c_str());
             }
 
             char* endptr;
@@ -3569,9 +3360,7 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
                 ERROR("Invalid line number for replace: %s", line);
             }
 
-            inFiles[file]->replace(lineNum, value);
-
-            free(file);
+            entry->second.replace(lineNum, value);
             free(line);
             free(value);
         } else if (currentAction.M_action == CAction::E_AT_CLOSE_CON) {
@@ -4007,9 +3796,12 @@ void call::getFieldFromInputFile(const char* fileName, int field, SendingMessage
     if (m_lineNumber == NULL) {
         ERROR("Automatic calls (created by -aa, -oocsn or -oocsf) cannot use input files!");
     }
+
     if (inFiles.find(fileName) == inFiles.end()) {
         ERROR("Invalid injection file: %s", fileName);
     }
+
+    auto& file = inFiles.find(fileName)->second;
     int line = (*m_lineNumber)[fileName];
     if (lineMsg) {
         char lineBuffer[20];
@@ -4019,14 +3811,14 @@ void call::getFieldFromInputFile(const char* fileName, int field, SendingMessage
         if (*endptr != 0) {
             ERROR("Invalid line number generated: '%s'", lineBuffer);
         }
-        if (line > inFiles[fileName]->numLines()) {
+        if (line > file.numLines()) {
             line = -1;
         }
     }
     if (line < 0) {
         return;
     }
-    dest += inFiles[fileName]->getField(line, field, dest, SIPP_MAX_MSG_SIZE);
+    dest += file.getField(line, field, dest, SIPP_MAX_MSG_SIZE);
 }
 
 call::T_AutoMode call::checkAutomaticResponseMode(char* P_recv)
@@ -4071,16 +3863,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char*  P_recv)
     switch (P_case) {
     case E_AM_UNEXP_BYE: // response for an unexpected BYE
         // usage of last_ keywords
-        realloc_ptr = (char*)realloc(last_recv_msg, strlen(P_recv) + 1);
-        if (realloc_ptr) {
-            last_recv_msg = realloc_ptr;
-        } else {
-            free(last_recv_msg);
-            ERROR("Out of memory!");
-            return false;
-        }
-
-        strcpy(last_recv_msg, P_recv);
+        setLastMsg(P_recv);
 
         // The BYE is unexpected, count it
         call_scenario->messages[msg_index]->nb_unexp++;
@@ -4251,4 +4034,100 @@ void *send_wrapper(void *arg)
     pthread_exit(NULL);
     return NULL;
 }
+#endif
+
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+#include "gtest/gtest.h"
+
+class mockcall : public call {
+public:
+    mockcall(bool is_ipv6) : listener("//testing", true), call("///testing", is_ipv6, 0, NULL) {}
+
+    /* Helpers to poke at call internals */
+    void parse_media_addr(std::string const& msg) {
+        auto info = parse_sdp_msg(msg);
+        get_remote_media_addr(info);
+    }
+
+    bool has_media() { return hasMediaInformation; }
+
+    template<typename T>
+    T get_audio_addr() {
+        T sa;
+        std::memcpy(&sa, &play_args_a.to, sizeof(T));
+        return sa;
+    }
+};
+
+bool operator==(const struct sockaddr_in& a, const struct sockaddr_in &b) {
+    return a.sin_family == b.sin_family
+        && a.sin_port == b.sin_port
+        && std::memcmp(&a.sin_addr, &b.sin_addr, sizeof(in_addr)) == 0;
+}
+
+bool operator==(const struct sockaddr_in6& a, const struct sockaddr_in6 &b) {
+    return a.sin6_family == b.sin6_family
+        && a.sin6_port == b.sin6_port
+        && std::memcmp(&a.sin6_addr, &b.sin6_addr, sizeof(in_addr)) == 0;
+}
+
+#ifdef PCAPPLAY
+const std::string test_sdp_v4 = "v=0\r\n"
+                                "o=user1 53655765 2353687637 IN IP4 127.0.0.1\r\n"
+                                "s=-\r\n"
+                                "c=IN IP4 127.0.0.1\r\n"
+                                "t=0 0\r\n"
+                                "m=audio 12345 RTP/AVP 0\r\n"
+                                "a=rtpmap:0 PCMU/8000\r\n";
+
+const std::string test_sdp_v6 = "v=0\r\n"
+                                "o=user1 53655765 2353687637 IN IP6 ::1\r\n"
+                                "s=-\r\n"
+                                "c=IN IP6 ::1\r\n"
+                                "t=0 0\r\n"
+                                "m=audio 12345 RTP/AVP 0\r\n"
+                                "a=rtpmap:0 PCMU/8000\r\n";
+
+TEST(sdp, parse_valid_sdp_msg) {
+    ASSERT_EQ(parse_sdp_field("c=IN IP4 ", test_sdp_v4), "127.0.0.1");
+    ASSERT_EQ(parse_sdp_field("c=IN IP6 ", test_sdp_v6), "::1");
+    ASSERT_EQ(parse_sdp_field("m=audio ", test_sdp_v4), "12345");
+    ASSERT_EQ(parse_sdp_field("m=audio ", test_sdp_v6), "12345");
+}
+
+TEST(sdp, parse_invalid_sdp_msg) {
+    ASSERT_EQ(parse_sdp_field("c=IN IP4 ", test_sdp_v6), "");
+    ASSERT_EQ(parse_sdp_field("c=IN IP6 ", test_sdp_v4), "");
+    ASSERT_EQ(parse_sdp_field("m=video ", test_sdp_v6), "");
+    ASSERT_EQ(parse_sdp_field("m=video ", test_sdp_v4), "");
+}
+
+TEST(sdp, good_remote_media_addr_v4) {
+    struct sockaddr_in reference;
+    reference.sin_family = AF_INET;
+    reference.sin_port = htons(12345);
+    inet_pton(AF_INET, "127.0.0.1", &reference.sin_addr);
+
+    mockcall call(false);
+    call.parse_media_addr(test_sdp_v4);
+    ASSERT_EQ(call.has_media(), true);
+    ASSERT_EQ(reference, call.get_audio_addr<struct sockaddr_in>());
+}
+
+TEST(sdp, good_remote_media_addr_v6) {
+    media_ip_is_ipv6 = true;
+
+    struct sockaddr_in6 reference;
+    reference.sin6_family = AF_INET6;
+    reference.sin6_port = htons(12345);
+    inet_pton(AF_INET6, "::1", &reference.sin6_addr);
+
+    mockcall call(true);
+    call.parse_media_addr(test_sdp_v6);
+    ASSERT_EQ(call.has_media(), true);
+    ASSERT_EQ(reference, call.get_audio_addr<struct sockaddr_in6>());
+}
+#endif
 #endif

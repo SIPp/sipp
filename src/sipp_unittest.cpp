@@ -27,6 +27,16 @@ namespace testing {
     std::string FLAGS_gmock_verbose = "verbose";
 }
 
+int main(int argc, char* argv[])
+{
+    globalVariables = new AllocVariableTable(NULL);
+    userVariables = new AllocVariableTable(globalVariables);
+    main_scenario = new scenario(0, 0);
+
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+
 /* Quickfix to fix unittests that depend on sipp_exit availability,
  * now that sipp_exit has been moved into sipp.cpp which is not
  * included. */

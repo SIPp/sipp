@@ -25,8 +25,8 @@
 
 
 #define TIME_LENGTH 64
-#define DEFAULT_FILE_NAME (char*)"dumpFile"
-#define DEFAULT_EXTENSION (char*)".csv"
+#define DEFAULT_FILE_NAME "dumpFile"
+#define DEFAULT_EXTENSION ".csv"
 
 #define MAX_CHAR_BUFFER_SIZE 1024
 
@@ -48,6 +48,14 @@
 #include "variables.hpp"
 
 using namespace std;
+
+struct repartition {
+    size_t max;
+    size_t count;
+    repartition(size_t max) : max(max), count(0) {};
+};
+
+typedef std::vector<repartition> repartition_list;
 
 /*
 __________________________________________________________________________
@@ -72,11 +80,6 @@ public:
      * border max is the max value allow for this range
      * nbInThisBorder is the counter of value in this range
      */
-    typedef struct _T_dynamicalRepartition {
-        unsigned int  borderMax;
-        unsigned long nbInThisBorder;
-    } T_dynamicalRepartition;
-
     typedef struct _T_value_rtt {
         double  date ;
         int  rtd_no ;
@@ -272,12 +275,12 @@ public:
     /**
      * Constructor.
      */
-    CStat ();
+    CStat();
 
     /**
      * Destructor.
      */
-    ~CStat ();
+    ~CStat();
 
 
     /**
@@ -351,9 +354,9 @@ public:
     void setRepartitionResponseTime (char * liste);
 
     /* define the file name to use to dump statistic in file */
-    void setFileName                (char * name);
-    void setFileName                (char * name, char * extension);
-    void initRtt                    (char * name, char * extension, unsigned long P_value);
+    void setFileName(const char* name);
+    void setFileName(const char* name, const char* extension);
+    void initRtt(const char* name, const char* extension, unsigned long report_freq_dumpRtt);
 
     /**
      * Display data periodically updated on screen.
@@ -369,11 +372,6 @@ public:
     void dumpData ();
 
     void dumpDataRtt ();
-
-    /**
-     * initialize the class variable member
-     */
-    int init();
 
     /**
      * computeDiffTimeInMs.
@@ -412,14 +410,14 @@ public:
     static char* msToHHMMSSus (unsigned long P_ms);
 
     /* Get a counter ID by name. */
-    int findCounter(const char *counter, bool alloc);
-    int findRtd(const char *name, bool start);
+    int findCounter(const char *counter);
+    int findRtd(std::string const& name, bool start);
     void validateRtds();
     int nRtds();
 
 private:
-    unsigned long long        M_counters[E_NB_COUNTER];
-    static unsigned long long M_G_counters[E_NB_G_COUNTER - E_NB_COUNTER];
+    std::array<unsigned long long, E_NB_COUNTER> M_counters;
+    static std::array<unsigned long long, E_NB_G_COUNTER - E_NB_COUNTER> M_G_counters;
 
 #define GENERIC_C 0
 #define GENERIC_PD 1
@@ -438,12 +436,12 @@ private:
 #define RTD_SUM 1
 #define RTD_SUMSQ 2
 #define RTD_TYPES 3
-    unsigned long long           *M_rtdInfo;
+    std::vector<unsigned long long> M_rtdInfo;
     str_int_map                   M_rtdMap;
     int_str_map                   M_revRtdMap;
 
-    T_dynamicalRepartition** M_ResponseTimeRepartition;
-    T_dynamicalRepartition*  M_CallLengthRepartition;
+    std::vector<repartition_list> M_ResponseTimeRepartition;
+    repartition_list M_CallLengthRepartition;
     int                      M_SizeOfResponseTimeRepartition;
     int                      M_SizeOfCallLengthRepartition;
     struct timeval           M_startTime;
@@ -451,11 +449,11 @@ private:
     struct timeval           M_plStartTime;
 
     bool                     M_headerAlreadyDisplayed;
-    char*                    M_fileName;
+    std::string M_fileName;
     ofstream*                M_outputStream;
 
     bool                     M_headerAlreadyDisplayedRtt ;
-    char*                    M_fileNameRtt               ;
+    std::string M_fileNameRtt;
     ofstream*                M_outputStreamRtt           ;
     double                   M_time_ref                  ;
 
@@ -463,79 +461,9 @@ private:
     unsigned int             M_counterDumpRespTime       ;
     unsigned long            M_report_freq_dumpRtt       ;
 
-    /**
-     * initRepartition
-     * This methode is used to create the repartition table with a table of
-     * unsigned int the reparition is created like following, with Vi the given
-     * value in the table
-     * 0    <= x <  V1
-     * V1   <= x <  V2
-     *  ...
-     * Vn-1 <= x <  Vn
-     *         x >= Vn
-     * So the repartition table have the size n+1 if the given table has a size
-     * of n */
-    void  initRepartition(unsigned int* repartition, int nombre,
-                          T_dynamicalRepartition ** tabRepartition, int* nbTab);
-
-    /**
-     * createIntegerTable
-     * this method try to create a table of unsigned int with the list of char*
-     * passed in parameters
-     * if it succed, it's return true (1)
-     * else it's return false (0)
-     */
-    int  createIntegerTable(char * P_listeStr,
-                            unsigned int ** listeInteger,
-                            int * sizeOfList);
-
-    /**
-     * isWellFormed
-     * this method check if the char* passed in parameter in really a list of
-     * integer separated with comma.
-     * if yes, it's return true (1)
-     * else, it's return false (0)
-     */
-    int  isWellFormed(char * P_listeStr, int * nombre);
-
-    /**
-     * updateRepartition
-     * The method looks for the place to set the value passed in parameter
-     * Once found, the associated counter is incremented
-     */
-    void  updateRepartition( T_dynamicalRepartition* tabRepart,
-                             int sizeOfTab,
-                             unsigned long value);
-
-    /**
-     * resetRepartition
-     * Zeros out all repartition counters.
-     */
-    void  resetRepartition(T_dynamicalRepartition* P_tabReport,
-                           int P_sizeOfTab);
-    /**
-     * displayRepartition
-     * Display the repartition passed in parameter at the screen
-     */
-    void  displayRepartition(FILE *f,
-                             T_dynamicalRepartition * tabRepartition,
-                             int sizeOfTab);
-
-    /**
-     * sRepartitionHeader
-     * return a string with the range description of the given repartition
-     */
-    char* sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
-                             int sizeOfTab,
-                             char* P_repartitionName);
-
-    /**
-     * sRepartitionInfo
-     * return a string with the number of value in the differente range of the
-     * given repartition
-     */
-    char* sRepartitionInfo(T_dynamicalRepartition * tabRepartition,
-                           int sizeOfTab);
+    void resetCCounters();
+    void resetPDCounters();
+    void resetPLCounters();
 
     /**
      * UpdateAverageCounter
@@ -591,7 +519,7 @@ public:
     virtual int textDescr(char *s, int len) = 0;
     virtual int timeDescr(char *s, int len) = 0;
     virtual double cdfInv(double percentile) = 0;
-    virtual ~CSample();
+    virtual ~CSample() {};
 private:
 };
 
@@ -744,5 +672,15 @@ protected:
     gsl_rng *rng;
 };
 #endif
+
+/**
+ * is_well_formed
+ * this method check if the char* passed in parameter in really a list of
+ * integer separated with comma.
+ * if yes, it's return true (1)
+ * else, it's return false (0)
+ */
+int is_well_formed(std::string const& data, int* count);
+
 
 #endif // __STAT_H__

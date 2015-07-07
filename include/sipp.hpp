@@ -321,9 +321,9 @@ extern const char       * tls_crl_name            _DEFVAL(DEFAULT_TLS_CRL);
 #endif
 
 // extern field file management
-typedef std::map<string, FileContents *> file_map;
+typedef std::map<std::string, FileContents> file_map;
 extern file_map inFiles;
-typedef std::map<string, str_int_map *> file_index;
+typedef std::map<std::string, str_int_map> file_index;
 extern char *ip_file _DEFVAL(NULL);
 extern char *default_file _DEFVAL(NULL);
 
@@ -401,12 +401,6 @@ extern unsigned long watchdog_minor_maxtriggers   _DEFVAL(120);
 extern unsigned long watchdog_major_threshold     _DEFVAL(3000);
 extern unsigned long watchdog_major_maxtriggers   _DEFVAL(10);
 extern unsigned long watchdog_reset               _DEFVAL(600000);
-
-
-/********************* dynamic Id ************************* */
-extern  int maxDynamicId    _DEFVAL(12000);  // max value for dynamicId; this value is reached
-extern  int startDynamicId  _DEFVAL(10000);  // offset for first dynamicId  FIXME:in CmdLine
-extern  int stepDynamicId   _DEFVAL(4);      // step of increment for dynamicId
 
 
 

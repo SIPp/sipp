@@ -59,6 +59,10 @@ struct txnInstanceInfo {
     int ackIndex;
 };
 
+struct sdp_info {
+    std::string host, audio_port, image_port, video_port;
+};
+
 class call : virtual public task, virtual public listener, public virtual socketowner
 {
 public:
@@ -108,7 +112,7 @@ public:
     static int stepDynamicId;   // step of increment for dynamicId
     static int dynamicId;       // a counter for general use, incrementing  by  stepDynamicId starting at startDynamicId  wrapping at maxDynamicId  GLOBALY
 
-private:
+protected:
     /* This is the core constructor function. */
     void init(scenario* call_scenario, struct sipp_socket* socket, struct sockaddr_storage* dest, const char* p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
     /* This this call for initialization? */
@@ -293,10 +297,10 @@ private:
 
     bool use_ipv6;
 
-    void get_remote_media_addr(char* message);
+    void get_remote_media_addr(struct sdp_info const& info);
 
 #ifdef RTP_STREAM
-    void extract_rtp_remote_addr(char* message);
+    void extract_rtp_remote_addr(struct sdp_info const& info);
 #endif
 
     bool lost(int index);

@@ -47,7 +47,7 @@ void rtpstream_shutdown (void);
 
 int rtpstream_get_audioport (rtpstream_callinfo_t *callinfo);
 int rtpstream_get_videoport (rtpstream_callinfo_t *callinfo);
-void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, char *ip_addr,
+void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, const char *ip_addr,
                            int audio_port, int video_port);
 
 int rtpstream_cache_file (char *filename);

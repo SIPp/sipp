@@ -204,9 +204,9 @@ struct sipp_option options_table[] = {
    {"tdmmap", "Generate and handle a table of TDM circuits.\n"
     "A circuit must be available for the call to be placed.\n"
     "Format: -tdmmap {0-3}{99}{5-8}{1-31}", SIPP_OPTION_TDMMAP, NULL, 1},
-   {"dynamicStart", "variable value\nSet the start offset of dynamic_id variable",  SIPP_OPTION_INT, &startDynamicId, 1},
-   {"dynamicMax",   "variable value\nSet the maximum of dynamic_id variable     ",   SIPP_OPTION_INT, &maxDynamicId,   1},
-   {"dynamicStep",  "variable value\nSet the increment of dynamic_id variable",      SIPP_OPTION_INT, &stepDynamicId,  1},
+   {"dynamicStart", "variable value\nSet the start offset of dynamic_id variable",  SIPP_OPTION_INT, &call::startDynamicId, 1},
+   {"dynamicMax",   "variable value\nSet the maximum of dynamic_id variable     ",   SIPP_OPTION_INT, &call::maxDynamicId,   1},
+   {"dynamicStep",  "variable value\nSet the increment of dynamic_id variable",      SIPP_OPTION_INT, &call::stepDynamicId,  1},
 
 
     {"", "Call behavior options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
@@ -1132,13 +1132,6 @@ static void stop_all_traces()
     dumpInFile = 0;
 }
 
-static void freeInFiles()
-{
-    for (file_map::iterator file_it = inFiles.begin(); file_it != inFiles.end(); file_it++) {
-        delete file_it->second;
-    }
-}
-
 static void freeUserVarMap()
 {
     for (int_vt_map::iterator vt_it = userVarMap.begin(); vt_it != userVarMap.end(); vt_it++) {
@@ -1184,7 +1177,6 @@ static void releaseGlobalAllocations()
     delete ooc_scenario;
     delete aa_scenario;
     free_default_messages();
-    freeInFiles();
     freeUserVarMap();
     delete globalVariables;
 }
@@ -1257,7 +1249,7 @@ static void sighandle_set()
     sigaction(SIGXFSZ, &action_file_size_exceeded, NULL);  // avoid core dump if the max file size is exceeded
 }
 
-static char* remove_pattern(char* P_buffer, char* P_extensionPattern)
+static char* remove_pattern(char* P_buffer, const char* P_extensionPattern)
 {
 
     char *L_ptr = P_buffer;
@@ -1444,7 +1436,6 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_INPUT_FILE: {
                 REQUIRE_ARG();
                 CHECK_PASS();
-                FileContents *data = new FileContents(argv[argi]);
                 char *name = argv[argi];
                 if (strrchr(name, '/')) {
                     name = strrchr(name, '/') + 1;
@@ -1452,7 +1443,7 @@ int main(int argc, char *argv[])
                     name = strrchr(name, '\\') + 1;
                 }
                 assert(name);
-                inFiles[name] = data;
+                inFiles.emplace(name, argv[argi]);
                 /* By default, the first file is used for IP address input. */
                 if (!ip_file) {
                     ip_file = name;
@@ -1471,7 +1462,8 @@ int main(int argc, char *argv[])
                     char *endptr;
                     int field;
 
-                    if (inFiles.find(fileName) == inFiles.end()) {
+                    const auto& entry = inFiles.find(fileName);
+                    if (entry == inFiles.end()) {
                         ERROR("Could not find file for -infindex: %s", argv[argi - 1]);
                     }
 
@@ -1480,7 +1472,7 @@ int main(int argc, char *argv[])
                         ERROR("Invalid field specification for -infindex: %s", argv[argi]);
                     }
 
-                    inFiles[fileName]->index(field);
+                    entry->second.index(field);
                 }
                 break;
             case SIPP_OPTION_SETFLAG:
@@ -1641,19 +1633,19 @@ int main(int argc, char *argv[])
                 if (!strcmp(argv[argi - 1], "-sf")) {
                     scenario_file = new char [strlen(argv[argi]) + 1];
                     sprintf(scenario_file, "%s", argv[argi]);
-                    scenario_file = remove_pattern(scenario_file, (char*)".xml");
+                    scenario_file = remove_pattern(scenario_file, ".xml");
                     if (useLogf == 1) {
                         rotate_logfile();
                     }
                     main_scenario = new scenario(argv[argi], 0);
-                    main_scenario->stats->setFileName(scenario_file, (char*)".csv");
+                    main_scenario->stats->setFileName(scenario_file, ".csv");
                 } else if (!strcmp(argv[argi - 1], "-sn")) {
                     int i = find_scenario(argv[argi]);
 
                     main_scenario = new scenario(0, i);
                     scenario_file = new char [strlen(argv[argi]) + 1];
                     sprintf(scenario_file,"%s", argv[argi]);
-                    main_scenario->stats->setFileName(argv[argi], (char*)".csv");
+                    main_scenario->stats->setFileName(argv[argi], ".csv");
                 } else if (!strcmp(argv[argi - 1], "-sd")) {
                     int i = find_scenario(argv[argi]);
                     fprintf(stdout, "%s", default_scenario[i]);
@@ -1841,7 +1833,6 @@ int main(int argc, char *argv[])
                 break;
             case SIPP_OPTION_PLUGIN: {
                 void *handle;
-                char *error;
                 int (*init)();
                 int ret;
 
@@ -1854,8 +1845,13 @@ int main(int argc, char *argv[])
                 }
 
                 init = (int (*)())dlsym(handle, "init");
-                if((error = (char *) dlerror())) {
-                    ERROR("Could not locate init function in %s: %s", argv[argi], dlerror());
+                if (!init) {
+                    const char *message = dlerror();
+                    if (message) {
+                        ERROR("Could not locate init function in %s: %s", argv[argi], message);
+                    } else {
+                        ERROR("Found init function in %s is NULL", argv[argi]);
+                    }
                 }
 
                 ret = init();
@@ -1949,7 +1945,7 @@ int main(int argc, char *argv[])
 
 
     if (dumpInRtt == 1) {
-        main_scenario->stats->initRtt((char*)scenario_file, (char*)".csv",
+        main_scenario->stats->initRtt(scenario_file, ".csv",
                                       report_freq_dumpRtt);
     }
 
@@ -1987,18 +1983,18 @@ int main(int argc, char *argv[])
     /* Load default scenario in case nothing was loaded */
     if(!main_scenario) {
         main_scenario = new scenario(0, 0);
-        main_scenario->stats->setFileName((char*)"uac", (char*)".csv");
+        main_scenario->stats->setFileName("uac", ".csv");
         sprintf(scenario_file,"uac");
     }
     /*
     if(!ooc_scenario) {
       ooc_scenario = new scenario(0, find_scenario("ooc_default"));
-      ooc_scenario->stats->setFileName((char*)"ooc_default", (char*)".csv");
+      ooc_scenario->stats->setFileName("ooc_default", ".csv");
     }
     */
     display_scenario = main_scenario;
     aa_scenario = new scenario(0, find_scenario("ooc_dummy"));
-    aa_scenario->stats->setFileName((char*)"ooc_dummy", (char*)".csv");
+    aa_scenario->stats->setFileName("ooc_dummy", ".csv");
 
     init_default_messages();
     for (int i = 1; i <= users; i++) {
@@ -2011,11 +2007,7 @@ int main(int argc, char *argv[])
     }
 
     // setup option form cmd line
-    call::maxDynamicId   = maxDynamicId;
-    call::startDynamicId = startDynamicId;
-    call::dynamicId      = startDynamicId;
-    call::stepDynamicId  = stepDynamicId;
-
+    call::dynamicId = call::startDynamicId;
 
     /* Now Initialize the scenarios. */
     main_scenario->runInit();
