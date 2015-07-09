@@ -2211,13 +2211,14 @@ int main(int argc, char *argv[])
         setup_stdin_socket();
     }
 
+    std::thread echo_audio, echo_video;
     if (rtp_echo_enabled) {
         if (media_socket > 0) {
-            std::thread(rtp_echo_thread, media_socket);
+            echo_audio = std::thread(rtp_echo_thread, media_socket);
         }
 
         if (media_socket_video > 0) {
-            std::thread(rtp_echo_thread, media_socket_video);
+            echo_video = std::thread(rtp_echo_thread, media_socket_video);
         }
     }
 
