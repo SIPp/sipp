@@ -151,6 +151,10 @@ public:
     CAction(const CAction& other) = default;
     CAction(CAction&& other) noexcept : CAction(other) {
         other.M_regExpSet = false;
+        other.M_lookingChar = NULL;
+        other.M_subVarId = NULL;
+        other.M_distribution = NULL;
+        other.M_stringValue = NULL;
     };
 
     ~CAction();
