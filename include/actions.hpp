@@ -149,7 +149,10 @@ public:
     }
 
     CAction(const CAction& other) = default;
-    CAction(CAction&& other) noexcept = default;
+    CAction(CAction&& other) noexcept : CAction(other) {
+        other.M_regExpSet = false;
+    };
+
     ~CAction();
 
     CAction& operator=(const CAction& other) = default;

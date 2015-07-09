@@ -27,6 +27,7 @@
 #include "prepare_pcap.h"
 #endif
 
+
 static const char* strIntCmd(CAction::T_IntCmdType type)
 {
     switch (type) {
@@ -235,9 +236,7 @@ void CAction::setRegExp(const char* P_value)
 {
     int errorCode;
 
-    if (M_regularExpression)
-        free(M_regularExpression);
-
+    free(M_regularExpression);
     M_regularExpression = strdup(P_value);
     M_regExpSet = true;
 

@@ -1644,7 +1644,7 @@ void scenario::parseAction(std::vector<CAction>& actions)
 
         /* If the action was not well-formed, there should have already been an
          * ERROR declaration, thus it is safe to add it here at the end of the loop. */
-        actions.push_back(std::move(tmpAction));
+        actions.emplace_back(tmpAction);
 
         xp_close_element();
         recvScenarioLen++;
