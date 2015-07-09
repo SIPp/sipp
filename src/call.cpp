@@ -464,12 +464,12 @@ unsigned long call::hash(const char* msg)
 /******************* Call class implementation ****************/
 call::call(const char* p_id, bool use_ipv6, int userId, struct sockaddr_storage* dest) : listener(p_id, true)
 {
-    init(main_scenario, NULL, dest, p_id, userId, use_ipv6, false, false);
+    init(main_scenario.get(), NULL, dest, p_id, userId, use_ipv6, false, false);
 }
 
 call::call(const char* p_id, struct sipp_socket* socket, struct sockaddr_storage* dest) : listener(p_id, true)
 {
-    init(main_scenario, socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
+    init(main_scenario.get(), socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
 }
 
 call::call(scenario* call_scenario, struct sipp_socket* socket, struct sockaddr_storage* dest, const char* p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true)
@@ -511,7 +511,7 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage* dest)
     }
     call_id[count] = 0;
 
-    return new call(main_scenario, NULL, dest, call_id, userId, ipv6, false /* Not Auto. */, false);
+    return new call(main_scenario.get(), NULL, dest, call_id, userId, ipv6, false /* Not Auto. */, false);
 }
 
 
@@ -1199,8 +1199,7 @@ char* call::send_scene(int index, int* send_status, int*len)
         len = &uselen;
     }
 
-    char* dest;
-    dest = createSendingMessage(call_scenario->messages[index]->send_scheme, index, len);
+    char* dest = createSendingMessage(call_scenario->messages[index]->send_scheme, index, len);
 
     if (!dest) {
         *send_status = -2;
@@ -1793,30 +1792,17 @@ const char* default_message_strings[] = {
     "Content-Length: 0\n\n"
 };
 
-SendingMessage** default_messages;
+std::vector<std::shared_ptr<SendingMessage> > default_messages;
 
 void init_default_messages()
 {
     int messages = sizeof(default_message_strings) / sizeof(default_message_strings[0]);
-    default_messages = new SendingMessage* [messages];
     for (int i = 0; i < messages; i++) {
-        default_messages[i] = new SendingMessage(main_scenario, const_cast<char*>(default_message_strings[i]));
+        default_messages.emplace_back(new SendingMessage(main_scenario.get(), const_cast<char*>(default_message_strings[i])));
     }
 }
 
-void free_default_messages()
-{
-    int messages = sizeof(default_message_strings) / sizeof(default_message_strings[0]);
-    if (!default_messages) {
-        return;
-    }
-    for (int i = 0; i < messages; i++) {
-        delete default_messages[i];
-    }
-    delete [] default_messages;
-}
-
-SendingMessage* get_default_message(const char* which)
+std::shared_ptr<SendingMessage> get_default_message(const char* which)
 {
     int messages = sizeof(default_message_names) / sizeof(default_message_names[0]);
     for (int i = 0; i < messages; i++) {
@@ -2074,13 +2060,13 @@ int call::sendCmdBuffer(char* cmd)
     return 0;
 }
 
-char* call::createSendingMessage(SendingMessage* src, int P_index, int* msgLen)
+char* call::createSendingMessage(std::shared_ptr<SendingMessage> src, int P_index, int* msgLen)
 {
     static char msg_buffer[SIPP_MAX_MSG_SIZE + 2];
     return createSendingMessage(src, P_index, msg_buffer, sizeof(msg_buffer), msgLen);
 }
 
-char* call::createSendingMessage(SendingMessage* src, int P_index, char* msg_buffer, int buf_len, int* msgLen)
+char* call::createSendingMessage(std::shared_ptr<SendingMessage> src, int P_index, char* msg_buffer, int buf_len, int* msgLen)
 {
     char* length_marker = NULL;
     char* auth_marker = NULL;
@@ -3465,7 +3451,7 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
 
             if (currentAction.M_lookingPlace == CAction::E_LP_HDR) {
                 extractSubMessage(msg,
-                                  currentAction.M_lookingChar,
+                                  currentAction.M_lookingChar.c_str(),
                                   msgPart,
                                   currentAction.M_caseIndep,
                                   currentAction.M_occurrence,
@@ -3473,7 +3459,7 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
                 if (currentAction.M_checkIt == true && (strlen(msgPart) == 0)) {
                     // the sub message is not found and the checking action say it
                     // MUST match --> Call will be marked as failed but will go on
-                    WARNING("Failed regexp match: header %s not found in message %s\n", currentAction.M_lookingChar, msg);
+                    WARNING("Failed regexp match: header %s not found in message %s\n", currentAction.M_lookingChar.c_str(), msg);
                     return call::E_AR_HDR_NOT_FOUND;
                 }
                 haystack = msgPart;
@@ -3782,12 +3768,12 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
             double value = currentAction.compare(M_callVariableTable);
             M_callVariableTable->getVar(currentAction.M_varId)->setBool(value);
         } else if (currentAction.M_action == CAction::E_AT_VAR_STRCMP) {
-            char* rhs = M_callVariableTable->getVar(currentAction.M_varInId)->getString();
-            char* lhs;
+            const char* rhs = M_callVariableTable->getVar(currentAction.M_varInId)->getString();
+            const char* lhs;
             if (currentAction.M_varIn2Id) {
                 lhs = M_callVariableTable->getVar(currentAction.M_varIn2Id)->getString();
             } else {
-                lhs = currentAction.M_stringValue;
+                lhs = currentAction.M_stringValue.c_str();
             }
             int value = strcmp(rhs, lhs);
             M_callVariableTable->getVar(currentAction.M_varId)->setDouble((double)value);
@@ -3941,10 +3927,10 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
     return call::E_AR_NO_ERROR;
 }
 
-void call::extractSubMessage(char* msg, char* matchingString, char* result, bool case_indep, int occurrence, bool headers)
+void call::extractSubMessage(const char* msg, const char* matchingString, char* result, bool case_indep, int occurrence, bool headers)
 {
-    char* ptr;
-    char* ptr1;
+    const char* ptr;
+    const char* ptr1;
     int sizeOf;
     int i = 0;
     int len = strlen(matchingString);
@@ -4002,7 +3988,7 @@ void call::extractSubMessage(char* msg, char* matchingString, char* result, bool
     }
 }
 
-void call::getFieldFromInputFile(const char* fileName, int field, SendingMessage* lineMsg, char*& dest)
+void call::getFieldFromInputFile(const char* fileName, int field, std::shared_ptr<SendingMessage> lineMsg, char*& dest)
 {
     if (m_lineNumber == NULL) {
         ERROR("Automatic calls (created by -aa, -oocsn or -oocsf) cannot use input files!");
