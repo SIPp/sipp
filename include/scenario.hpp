@@ -26,6 +26,7 @@
 
 #include <map>
 #include <vector>
+#include <memory>
 #include <sys/socket.h>
 #include "actions.hpp"
 #include "variables.hpp"
@@ -222,10 +223,10 @@ private:
 };
 
 /* There are external variable containing the current scenario */
-extern scenario      *main_scenario;
-extern scenario      *ooc_scenario;
-extern scenario      *aa_scenario;
-extern scenario      *display_scenario;
+extern std::unique_ptr<scenario> main_scenario;
+extern std::unique_ptr<scenario> ooc_scenario;
+extern std::unique_ptr<scenario> aa_scenario;
+extern scenario* display_scenario;
 extern int           creationMode;
 extern int           sendMode;
 extern int           thirdPartyMode;

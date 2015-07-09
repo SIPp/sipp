@@ -464,12 +464,12 @@ unsigned long call::hash(const char* msg)
 /******************* Call class implementation ****************/
 call::call(const char* p_id, bool use_ipv6, int userId, struct sockaddr_storage* dest) : listener(p_id, true)
 {
-    init(main_scenario, NULL, dest, p_id, userId, use_ipv6, false, false);
+    init(main_scenario.get(), NULL, dest, p_id, userId, use_ipv6, false, false);
 }
 
 call::call(const char* p_id, struct sipp_socket* socket, struct sockaddr_storage* dest) : listener(p_id, true)
 {
-    init(main_scenario, socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
+    init(main_scenario.get(), socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
 }
 
 call::call(scenario* call_scenario, struct sipp_socket* socket, struct sockaddr_storage* dest, const char* p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true)
@@ -511,7 +511,7 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage* dest)
     }
     call_id[count] = 0;
 
-    return new call(main_scenario, NULL, dest, call_id, userId, ipv6, false /* Not Auto. */, false);
+    return new call(main_scenario.get(), NULL, dest, call_id, userId, ipv6, false /* Not Auto. */, false);
 }
 
 
@@ -1800,7 +1800,7 @@ void init_default_messages()
     int messages = sizeof(default_message_strings) / sizeof(default_message_strings[0]);
     default_messages = new SendingMessage* [messages];
     for (int i = 0; i < messages; i++) {
-        default_messages[i] = new SendingMessage(main_scenario, const_cast<char*>(default_message_strings[i]));
+        default_messages[i] = new SendingMessage(main_scenario.get(), const_cast<char*>(default_message_strings[i]));
     }
 }
 

@@ -130,10 +130,10 @@ message::~message()
 
 /******** Global variables which compose the scenario file **********/
 
-scenario      *main_scenario;
-scenario      *ooc_scenario;
-scenario      *aa_scenario;
-scenario      *display_scenario;
+std::unique_ptr<scenario> main_scenario;
+std::unique_ptr<scenario> ooc_scenario;
+std::unique_ptr<scenario> aa_scenario;
+scenario* display_scenario;
 
 /* This mode setting refers to whether we open calls autonomously (MODE_CLIENT)
  * or in response to requests (MODE_SERVER). */
@@ -1040,7 +1040,7 @@ void scenario::runInit()
 {
     call *initcall;
     if (initmessages.size() > 0) {
-        initcall = new call(main_scenario, NULL, NULL, "///main-init", 0, false, false, true);
+        initcall = new call(main_scenario.get(), NULL, NULL, "///main-init", 0, false, false, true);
         initcall->run();
     }
 }
