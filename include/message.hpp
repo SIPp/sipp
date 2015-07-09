@@ -145,19 +145,19 @@ struct MessageComponent {
     union u {
         /* Authentication Parameters. */
         struct {
-            SendingMessage *auth_user;
-            SendingMessage *auth_pass;
-            SendingMessage *aka_OP;
-            SendingMessage *aka_AMF;
-            SendingMessage *aka_K;
+            std::shared_ptr<SendingMessage> auth_user;
+            std::shared_ptr<SendingMessage> auth_pass;
+            std::shared_ptr<SendingMessage> aka_OP;
+            std::shared_ptr<SendingMessage> aka_AMF;
+            std::shared_ptr<SendingMessage> aka_K;
         } auth_param;
         /* Field Substitution. */
         struct {
             char *filename;
             int field;
-            SendingMessage *line;
+            std::shared_ptr<SendingMessage> line;
         } field_param;
-        SendingMessage *filename;
+        std::shared_ptr<SendingMessage> filename;
         customKeyword fxn;
     } comp_param;
 };

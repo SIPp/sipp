@@ -163,9 +163,9 @@ void CAction::afficheInfo() const
     }
 }
 
-SendingMessage* CAction::getMessage(int n)
+std::shared_ptr<SendingMessage> CAction::getMessage(int n)
 {
-    return &M_message[n];
+    return M_message[n];
 }
 
 #ifdef PCAPPLAY
@@ -211,7 +211,7 @@ void CAction::setMessage(char* P_value, int n)
         /* we can ignore the index (for now) because messages are always
          * pushed in order anyways */
         M_message_str.emplace_back(P_value);
-        M_message.emplace_back(M_scenario.get(), P_value, true /* skip sanity */);
+        M_message.emplace_back(new SendingMessage(M_scenario.get(), P_value, true /* skip sanity */));
     }
 }
 

@@ -1183,7 +1183,6 @@ static void releaseGlobalAllocations()
     main_scenario.release();
     ooc_scenario.release();
     aa_scenario.release();
-    free_default_messages();
     freeInFiles();
     freeUserVarMap();
     delete globalVariables;

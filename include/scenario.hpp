@@ -80,7 +80,7 @@ public:
     bool           bShouldAuthenticate;
 
     /* If this is a send */
-    SendingMessage *send_scheme;
+    std::shared_ptr<SendingMessage> send_scheme;
     unsigned int   retrans_delay;
     /* The receive/send timeout. */
     unsigned int   timeout;
@@ -130,7 +130,7 @@ public:
 
     int             M_type;
 
-    SendingMessage *M_sendCmdData;
+    std::shared_ptr<SendingMessage> M_sendCmdData;
     unsigned long   M_nbCmdSent;
     unsigned long   M_nbCmdRecv;
 

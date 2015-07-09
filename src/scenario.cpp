@@ -110,7 +110,6 @@ message::~message()
 {
   delete(pause_distribution);
   free(pause_desc);
-  delete(send_scheme);
   free(recv_request);
   if (regexp_compile != NULL) {
     regfree(regexp_compile);
@@ -124,7 +123,6 @@ message::~message()
   free(peer_dest);
   free(peer_src);
 
-  delete(M_sendCmdData);
   free(recv_response_for_cseq_method_list);
 }
 
@@ -831,7 +829,7 @@ scenario::scenario(char * filename, int deflt)
                 }
                 char *tsrc = msg;
                 while(*tsrc++);
-                curmsg -> send_scheme = new SendingMessage(this, msg);
+                curmsg -> send_scheme = std::shared_ptr<SendingMessage>(new SendingMessage(this, msg));
                 free(msg);
 
                 // If this is a request we are sending, then store our transaction/method matching information.
@@ -996,7 +994,7 @@ scenario::scenario(char * filename, int deflt)
                 }
                 char *msg = clean_cdata(ptr);
 
-                curmsg -> M_sendCmdData = new SendingMessage(this, msg, true /* skip sanity */);
+                curmsg -> M_sendCmdData = std::shared_ptr<SendingMessage>(new SendingMessage(this, msg, true /* skip sanity */));
                 free(msg);
             } else {
                 ERROR("Unknown element '%s' in xml scenario file", elem);
@@ -1443,18 +1441,24 @@ void scenario::parseAction(std::vector<CAction>& actions)
             tmpAction.setMessage(xp_get_string("message", "log"));
             tmpAction.M_action = CAction::E_AT_LOG_TO_FILE;
         } else if(!strcmp(actionElem, "warning")) {
-            tmpAction.setMessage(xp_get_string("message", "warning"));
+            ptr = xp_get_string("message", "warning");
+            tmpAction.setMessage(ptr);
             tmpAction.M_action = CAction::E_AT_LOG_WARNING;
+            free(ptr);
         } else if(!strcmp(actionElem, "error")) {
-            tmpAction.setMessage(xp_get_string("message", "error"));
+            ptr = xp_get_string("message", "error");
+            tmpAction.setMessage(ptr);
             tmpAction.M_action = CAction::E_AT_LOG_ERROR;
+            free(ptr);
         } else if(!strcmp(actionElem, "assign")) {
             tmpAction.M_action = CAction::E_AT_ASSIGN_FROM_VALUE;
             handle_arithmetic(tmpAction, "assign");
         } else if(!strcmp(actionElem, "assignstr")) {
             tmpAction.M_action = CAction::E_AT_ASSIGN_FROM_STRING;
             tmpAction.M_varId = xp_get_var("assign_to", "assignstr");
-            tmpAction.setMessage(xp_get_string("value", "assignstr"));
+            ptr = xp_get_string("value", "assignstr");
+            tmpAction.setMessage(ptr);
+            free(ptr);
         } else if(!strcmp(actionElem, "gettimeofday")) {
             tmpAction.M_action = CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY;
 
@@ -1571,7 +1575,9 @@ void scenario::parseAction(std::vector<CAction>& actions)
             tmpAction.M_varId = xp_get_var("assign_to", "strcmp");
             tmpAction.M_varInId = xp_get_var("variable", "strcmp");
             if (xp_get_value("value")) {
-                tmpAction.M_stringValue = xp_get_string("value", "strcmp");
+                ptr = xp_get_string("value", "strcmp");
+                tmpAction.M_stringValue = ptr;
+                free(ptr);
                 if (xp_get_value("variable2")) {
                     ERROR("Can not have both a value and a variable2 for strcmp!");
                 }

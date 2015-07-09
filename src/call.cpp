@@ -1199,8 +1199,7 @@ char* call::send_scene(int index, int* send_status, int*len)
         len = &uselen;
     }
 
-    char* dest;
-    dest = createSendingMessage(call_scenario->messages[index]->send_scheme, index, len);
+    char* dest = createSendingMessage(call_scenario->messages[index]->send_scheme, index, len);
 
     if (!dest) {
         *send_status = -2;
@@ -1793,30 +1792,17 @@ const char* default_message_strings[] = {
     "Content-Length: 0\n\n"
 };
 
-SendingMessage** default_messages;
+std::vector<std::shared_ptr<SendingMessage> > default_messages;
 
 void init_default_messages()
 {
     int messages = sizeof(default_message_strings) / sizeof(default_message_strings[0]);
-    default_messages = new SendingMessage* [messages];
     for (int i = 0; i < messages; i++) {
-        default_messages[i] = new SendingMessage(main_scenario.get(), const_cast<char*>(default_message_strings[i]));
+        default_messages.emplace_back(new SendingMessage(main_scenario.get(), const_cast<char*>(default_message_strings[i])));
     }
 }
 
-void free_default_messages()
-{
-    int messages = sizeof(default_message_strings) / sizeof(default_message_strings[0]);
-    if (!default_messages) {
-        return;
-    }
-    for (int i = 0; i < messages; i++) {
-        delete default_messages[i];
-    }
-    delete [] default_messages;
-}
-
-SendingMessage* get_default_message(const char* which)
+std::shared_ptr<SendingMessage> get_default_message(const char* which)
 {
     int messages = sizeof(default_message_names) / sizeof(default_message_names[0]);
     for (int i = 0; i < messages; i++) {
@@ -2074,13 +2060,13 @@ int call::sendCmdBuffer(char* cmd)
     return 0;
 }
 
-char* call::createSendingMessage(SendingMessage* src, int P_index, int* msgLen)
+char* call::createSendingMessage(std::shared_ptr<SendingMessage> src, int P_index, int* msgLen)
 {
     static char msg_buffer[SIPP_MAX_MSG_SIZE + 2];
     return createSendingMessage(src, P_index, msg_buffer, sizeof(msg_buffer), msgLen);
 }
 
-char* call::createSendingMessage(SendingMessage* src, int P_index, char* msg_buffer, int buf_len, int* msgLen)
+char* call::createSendingMessage(std::shared_ptr<SendingMessage> src, int P_index, char* msg_buffer, int buf_len, int* msgLen)
 {
     char* length_marker = NULL;
     char* auth_marker = NULL;
@@ -4002,7 +3988,7 @@ void call::extractSubMessage(const char* msg, const char* matchingString, char* 
     }
 }
 
-void call::getFieldFromInputFile(const char* fileName, int field, SendingMessage* lineMsg, char*& dest)
+void call::getFieldFromInputFile(const char* fileName, int field, std::shared_ptr<SendingMessage> lineMsg, char*& dest)
 {
     if (m_lineNumber == NULL) {
         ERROR("Automatic calls (created by -aa, -oocsn or -oocsf) cannot use input files!");

@@ -148,7 +148,7 @@ public:
     bool compare(VariableTable *variableTable) const;
 
     const char* getRegularExpression() const;
-    SendingMessage* getMessage(int n = 0);  /* log specific function  */
+    std::shared_ptr<SendingMessage> getMessage(int n = 0); /* log specific function */
 #ifdef PCAPPLAY
     pcap_pkts* getPcapPkts(); /* send_packets specific function */
 #endif
@@ -203,7 +203,7 @@ private:
     std::vector<int> M_subVarId;
 
     /* log specific member  */
-    std::vector<SendingMessage> M_message;
+    std::vector<std::shared_ptr<SendingMessage> > M_message;
     std::vector<std::string> M_message_str;
 
     /* Our regular expression. */

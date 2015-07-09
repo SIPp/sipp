@@ -237,9 +237,9 @@ private:
     // P_index use for message index in scenario and ctrl of CRLF
     // P_index = -2 No ctrl of CRLF
     // P_index = -1 Add crlf to end of message
-    char* createSendingMessage(SendingMessage* src, int P_index, int* msgLen = NULL);
+    char* createSendingMessage(std::shared_ptr<SendingMessage> src, int P_index, int* msgLen = NULL);
     char* createSendingMessage(char* src, int P_index, bool skip_sanity = false);
-    char* createSendingMessage(SendingMessage* src, int P_index, char* msg_buffer, int buflen, int* msgLen = NULL);
+    char* createSendingMessage(std::shared_ptr<SendingMessage> src, int P_index, char* msg_buffer, int buf_len, int* msgLen = NULL);
 
     // method for the management of unexpected messages
     bool checkInternalCmd(char* cmd);  // check of specific internal command
@@ -262,7 +262,7 @@ private:
     static void readInputFileContents(const char* fileName);
     static void dumpFileContents(void);
 
-    void getFieldFromInputFile(const char* fileName, int field, SendingMessage* line, char*& dest);
+    void getFieldFromInputFile(const char* fileName, int field, std::shared_ptr<SendingMessage> lineMsg, char*& dest);
 
     /* Associate a user with this call. */
     void setUser(int userId);
@@ -322,7 +322,7 @@ private:
 /* Default Message Functions. */
 void init_default_messages();
 void free_default_messages();
-SendingMessage* get_default_message(const char* which);
+std::shared_ptr<SendingMessage> get_default_message(const char* which);
 void set_default_message(const char* which, char* message);
 
 #endif
