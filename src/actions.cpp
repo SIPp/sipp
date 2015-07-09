@@ -92,7 +92,7 @@ void CAction::afficheInfo() const
         if(M_lookingPlace == E_LP_MSG) {
             printf("Type[%d] - regexp[%s] where[%s] - checkIt[%d] - checkItInverse[%d] - $%s",
                    M_action,
-                   M_regularExpression,
+                   M_regularExpression.c_str(),
                    "Full Msg",
                    M_checkIt,
                    M_checkItInverse,
@@ -100,9 +100,9 @@ void CAction::afficheInfo() const
         } else {
             printf("Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - checkItInverse[%d] - $%s",
                    M_action,
-                   M_regularExpression,
+                   M_regularExpression.c_str(),
                    "Header",
-                   M_lookingChar,
+                   M_lookingChar.c_str(),
                    M_checkIt,
                    M_checkItInverse, display_scenario->allocVars->getName(M_varId));
         }
@@ -200,20 +200,18 @@ void CAction::setNbSubVarId(int P_value)
 
 void CAction::setLookingChar(char* P_value)
 {
-    delete [] M_lookingChar;
-    M_lookingChar = NULL;
-
     if (P_value != NULL) {
-        M_lookingChar = new char[strlen(P_value) + 1];
-        strcpy(M_lookingChar, P_value);
+        M_lookingChar = P_value;
     }
 }
 
 void CAction::setMessage(char* P_value, int n)
 {
     if (P_value != NULL) {
-        M_message_str[n] = std::string(P_value);
-        M_message[n] = SendingMessage(M_scenario, P_value, true /* skip sanity */);
+        /* we can ignore the index (for now) because messages are always
+         * pushed in order anyways */
+        M_message_str.emplace_back(P_value);
+        M_message.emplace_back(M_scenario.get(), P_value, true /* skip sanity */);
     }
 }
 
@@ -221,24 +219,23 @@ void CAction::setRegExp(const char* P_value)
 {
     int errorCode;
 
-    free(M_regularExpression);
-    M_regularExpression = strdup(P_value);
+    M_regularExpression = P_value;
     M_regExpSet = true;
 
     errorCode = regcomp(&M_internalRegExp, P_value, REGEXP_PARAMS);
     if (errorCode != 0) {
         char buffer[MAX_HEADER_LEN];
         regerror(errorCode, &M_internalRegExp, buffer, sizeof(buffer));
-        ERROR("recomp error : regular expression '%s' - error '%s'\n", M_regularExpression, buffer);
+        ERROR("recomp error : regular expression '%s' - error '%s'\n", M_regularExpression.c_str(), buffer);
     }
 }
 
-char* CAction::getRegularExpression() const
+const char* CAction::getRegularExpression() const
 {
     if (!M_regExpSet) {
         ERROR("Trying to get a regular expression for an action that does not have one!");
     }
-    return M_regularExpression;
+    return M_regularExpression.c_str();
 }
 
 int CAction::executeRegExp(const char* P_string, VariableTable* P_callVarTable)
@@ -383,18 +380,6 @@ void CAction::setRTPStreamActInfo (rtpstream_actinfo_t* P_value)
     memcpy(&M_rtpstream_actinfo, P_value, sizeof(M_rtpstream_actinfo));
 }
 #endif
-
-CAction::~CAction()
-{
-    delete [] M_lookingChar;
-    delete M_distribution;
-    free(M_stringValue);
-
-    if (M_regExpSet) {
-        regfree(&M_internalRegExp);
-        free(M_regularExpression);
-    }
-}
 
 #ifdef GTEST
 #include "gtest/gtest.h"

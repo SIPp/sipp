@@ -1502,7 +1502,7 @@ void scenario::parseAction(std::vector<CAction>& actions)
         } else if(!strcmp(actionElem, "sample")) {
             tmpAction.M_varId = xp_get_var("assign_to", "sample");
             tmpAction.M_action = CAction::E_AT_ASSIGN_FROM_SAMPLE;
-            tmpAction.M_distribution = parse_distribution();
+            tmpAction.M_distribution = std::unique_ptr<CSample>(parse_distribution());
         } else if(!strcmp(actionElem, "todouble")) {
             tmpAction.M_action = CAction::E_AT_VAR_TO_DOUBLE;
             tmpAction.M_varId = xp_get_var("assign_to", "todouble");

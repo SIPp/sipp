@@ -229,7 +229,7 @@ private:
 
     bool executeMessage(message* curmsg);
     T_ActionResult executeAction(char* msg, message* message);
-    void extractSubMessage(char* msg, char* matchingString, char* result, bool case_indep,
+    void extractSubMessage(const char* msg, const char* matchingString, char* result, bool case_indep,
                            int occurrence, bool headers);
     bool rejectCall();
     double get_rhs(const CAction& currentAction);

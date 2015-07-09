@@ -117,26 +117,23 @@ public:
         M_checkIt(false),
         M_checkItInverse(false),
         M_caseIndep(false),
-        M_headersOnly(true),
+        M_headersOnly(),
         M_varId(0),
         M_varInId(0),
         M_varIn2Id(0),
         M_occurrence(1),
-        M_lookingChar(NULL),
+        M_lookingChar(),
         M_IntCmd(E_INTCMD_INVALID),
-        M_distribution(NULL),
+        M_distribution(),
         M_doubleValue(0),
-        M_stringValue(NULL),
+        M_stringValue(),
         M_scenario(scenario),
         M_subVarId(),
         M_message(),
         M_message_str(),
         M_regExpSet(false),
-        M_regularExpression(NULL)
+        M_regularExpression()
     {
-        M_message.reserve(MAX_ACTION_MESSAGE);
-        M_message_str.reserve(MAX_ACTION_MESSAGE);
-
 #ifdef PCAPPLAY
         std::memset(&M_pcapArgs, 0, sizeof(pcap_pkts));
 #endif
@@ -146,24 +143,11 @@ public:
 #endif
     }
 
-    CAction(const CAction& other) = default;
-    CAction(CAction&& other) noexcept : CAction(other) {
-        other.M_regExpSet = false;
-        other.M_lookingChar = NULL;
-        other.M_distribution = NULL;
-        other.M_stringValue = NULL;
-    };
-
-    ~CAction();
-
-    CAction& operator=(const CAction& other) = default;
-    CAction& operator=(CAction&& other) = default;
-
     void afficheInfo() const;
     const char *comparatorToString(T_Comparator comp) const;
     bool compare(VariableTable *variableTable) const;
 
-    char* getRegularExpression() const;
+    const char* getRegularExpression() const;
     SendingMessage* getMessage(int n = 0);  /* log specific function  */
 #ifdef PCAPPLAY
     pcap_pkts* getPcapPkts(); /* send_packets specific function */
@@ -201,19 +185,19 @@ public:
     int M_varInId;
     int M_varIn2Id;
     int M_occurrence;
-    char* M_lookingChar;
+    std::string M_lookingChar;
     T_IntCmdType M_IntCmd;
 
     /* sample specific member. */
-    CSample* M_distribution;
+    std::shared_ptr<CSample> M_distribution;
 
     /* assign value specific member. */
     double M_doubleValue;
     /* strcmp specific member. */
-    char* M_stringValue;
+    std::string M_stringValue;
 
     /* what scenario we belong to. */
-    scenario* M_scenario;
+    std::shared_ptr<scenario> M_scenario;
 
 private:
     std::vector<int> M_subVarId;
@@ -225,7 +209,7 @@ private:
     /* Our regular expression. */
     bool M_regExpSet;
     regex_t M_internalRegExp;
-    char* M_regularExpression;
+    std::string M_regularExpression;
 #ifdef PCAPPLAY
     /* pcap specific member */
     pcap_pkts M_pcapArgs;

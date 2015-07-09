@@ -3465,7 +3465,7 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
 
             if (currentAction.M_lookingPlace == CAction::E_LP_HDR) {
                 extractSubMessage(msg,
-                                  currentAction.M_lookingChar,
+                                  currentAction.M_lookingChar.c_str(),
                                   msgPart,
                                   currentAction.M_caseIndep,
                                   currentAction.M_occurrence,
@@ -3473,7 +3473,7 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
                 if (currentAction.M_checkIt == true && (strlen(msgPart) == 0)) {
                     // the sub message is not found and the checking action say it
                     // MUST match --> Call will be marked as failed but will go on
-                    WARNING("Failed regexp match: header %s not found in message %s\n", currentAction.M_lookingChar, msg);
+                    WARNING("Failed regexp match: header %s not found in message %s\n", currentAction.M_lookingChar.c_str(), msg);
                     return call::E_AR_HDR_NOT_FOUND;
                 }
                 haystack = msgPart;
@@ -3782,12 +3782,12 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
             double value = currentAction.compare(M_callVariableTable);
             M_callVariableTable->getVar(currentAction.M_varId)->setBool(value);
         } else if (currentAction.M_action == CAction::E_AT_VAR_STRCMP) {
-            char* rhs = M_callVariableTable->getVar(currentAction.M_varInId)->getString();
-            char* lhs;
+            const char* rhs = M_callVariableTable->getVar(currentAction.M_varInId)->getString();
+            const char* lhs;
             if (currentAction.M_varIn2Id) {
                 lhs = M_callVariableTable->getVar(currentAction.M_varIn2Id)->getString();
             } else {
-                lhs = currentAction.M_stringValue;
+                lhs = currentAction.M_stringValue.c_str();
             }
             int value = strcmp(rhs, lhs);
             M_callVariableTable->getVar(currentAction.M_varId)->setDouble((double)value);
@@ -3941,10 +3941,10 @@ call::T_ActionResult call::executeAction(char* msg, message*curmsg)
     return call::E_AR_NO_ERROR;
 }
 
-void call::extractSubMessage(char* msg, char* matchingString, char* result, bool case_indep, int occurrence, bool headers)
+void call::extractSubMessage(const char* msg, const char* matchingString, char* result, bool case_indep, int occurrence, bool headers)
 {
-    char* ptr;
-    char* ptr1;
+    const char* ptr;
+    const char* ptr1;
     int sizeOf;
     int i = 0;
     int len = strlen(matchingString);
