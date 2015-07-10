@@ -121,9 +121,9 @@ static void process_set(char* what)
         }
     } else if (!strcmp(what, "display")) {
         if (!strcmp(rest, "main")) {
-            display_scenario = main_scenario.get();
+            display_scenario = main_scenario;
         } else if (!strcmp(rest, "ooc")) {
-            display_scenario = ooc_scenario.get();
+            display_scenario = ooc_scenario;
         } else {
             WARNING("Unknown display scenario: %s", rest);
         }
@@ -1199,7 +1199,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
                     WARNING("Received out-of-call %s message, using the out-of-call scenario", msg_start);
                     free(msg_start);
                     /* This should have the real address that the message came from. */
-                    call *call_ptr = new call(ooc_scenario.get(), socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
+                    call *call_ptr = new call(ooc_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
                     if (!call_ptr) {
                         ERROR("Out of memory allocating a call!");
                     }
@@ -1221,7 +1221,7 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
                 if (!get_reply_code(msg)) {
                     aa_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
                     /* This should have the real address that the message came from. */
-                    call *call_ptr = new call(aa_scenario.get(), socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
+                    call *call_ptr = new call(aa_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
                     if (!call_ptr) {
                         ERROR("Out of memory allocating a call!");
                     }

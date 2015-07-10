@@ -275,7 +275,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
                 getKeywordParam(keyword, "line=", line);
                 if (line[0]) {
                     /* Turn this into a new message component. */
-                    newcomp->comp_param.field_param.line = std::shared_ptr<SendingMessage>(new SendingMessage(msg_scenario, line, true));
+                    newcomp->comp_param.field_param.line = new SendingMessage(msg_scenario, line, true);
                 }
             } else if(!strncmp(keyword, "file", strlen("file"))) {
                 newcomp->type = E_Message_File;
@@ -287,7 +287,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
                     ERROR("No name specified for 'file' keyword!\n");
                 }
                 /* Turn this into a new message component. */
-                newcomp->comp_param.filename = std::shared_ptr<SendingMessage>(new SendingMessage(msg_scenario, fileName, true));
+                newcomp->comp_param.filename = new SendingMessage(msg_scenario, fileName, true);
             } else if(*keyword == '$') {
                 newcomp->type = E_Message_Variable;
                 if (!msg_scenario) {
@@ -549,8 +549,8 @@ void SendingMessage::parseAuthenticationKeyword(scenario *msg_scenario, struct M
     }
 
 
-    dst->comp_param.auth_param.auth_user = std::shared_ptr<SendingMessage>(new SendingMessage(msg_scenario, my_auth_user, true /* skip sanity */));
-    dst->comp_param.auth_param.auth_pass = std::shared_ptr<SendingMessage>(new SendingMessage(msg_scenario, my_auth_pass, true));
+    dst->comp_param.auth_param.auth_user = new SendingMessage(msg_scenario, my_auth_user, true /* skip sanity */);
+    dst->comp_param.auth_param.auth_pass = new SendingMessage(msg_scenario, my_auth_pass, true);
 
     /* add aka_OP, aka_AMF, aka_K */
     getKeywordParam(keyword, "aka_K=", my_aka);
@@ -558,17 +558,36 @@ void SendingMessage::parseAuthenticationKeyword(scenario *msg_scenario, struct M
         memcpy(my_aka,my_auth_pass,16);
         my_aka[16]=0;
     }
-    dst->comp_param.auth_param.aka_K = std::shared_ptr<SendingMessage>(new SendingMessage(msg_scenario, my_aka, true));
+    dst->comp_param.auth_param.aka_K = new SendingMessage(msg_scenario, my_aka, true);
 
     getKeywordParam(keyword, "aka_OP=", my_aka);
-    dst->comp_param.auth_param.aka_OP = std::shared_ptr<SendingMessage>(new SendingMessage(msg_scenario, my_aka, true));
+    dst->comp_param.auth_param.aka_OP = new SendingMessage(msg_scenario, my_aka, true);
     getKeywordParam(keyword, "aka_AMF=", my_aka);
-    dst->comp_param.auth_param.aka_AMF = std::shared_ptr<SendingMessage>(new SendingMessage(msg_scenario, my_aka, true));
+    dst->comp_param.auth_param.aka_AMF = new SendingMessage(msg_scenario, my_aka, true);
 }
 
 void SendingMessage::freeMessageComponent(struct MessageComponent *comp)
 {
     free(comp->literal);
+    if (comp->type == E_Message_Authentication) {
+        if (comp->comp_param.auth_param.auth_user) {
+            delete comp->comp_param.auth_param.auth_user;
+        }
+        if (comp->comp_param.auth_param.auth_pass) {
+            delete comp->comp_param.auth_param.auth_pass;
+        }
+        if (comp->comp_param.auth_param.aka_K) {
+            delete comp->comp_param.auth_param.aka_K;
+        }
+        if (comp->comp_param.auth_param.aka_AMF) {
+            delete comp->comp_param.auth_param.aka_AMF;
+        }
+        if (comp->comp_param.auth_param.aka_OP) {
+            delete comp->comp_param.auth_param.aka_OP;
+        }
+    } else if (comp->type == E_Message_Injection) {
+        free(comp->comp_param.field_param.filename);
+    }
     free(comp);
 }
 

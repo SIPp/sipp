@@ -1180,9 +1180,10 @@ static void manage_oversized_file(int signum)
 
 static void releaseGlobalAllocations()
 {
-    main_scenario.release();
-    ooc_scenario.release();
-    aa_scenario.release();
+    delete main_scenario;
+    delete ooc_scenario;
+    delete aa_scenario;
+    free_default_messages();
     freeInFiles();
     freeUserVarMap();
     delete globalVariables;
@@ -1641,12 +1642,12 @@ int main(int argc, char *argv[])
                     if (useLogf == 1) {
                         rotate_logfile();
                     }
-                    main_scenario = std::unique_ptr<scenario>(new scenario(argv[argi], 0));
+                    main_scenario = new scenario(argv[argi], 0);
                     main_scenario->stats->setFileName(scenario_file, (char*)".csv");
                 } else if (!strcmp(argv[argi - 1], "-sn")) {
                     int i = find_scenario(argv[argi]);
 
-                    main_scenario = std::unique_ptr<scenario>(new scenario(0, i));
+                    main_scenario = new scenario(0, i);
                     set_scenario(argv[argi]);
                     main_scenario->stats->setFileName(argv[argi], (char*)".csv");
                 } else if (!strcmp(argv[argi - 1], "-sd")) {
@@ -1661,10 +1662,10 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 if (!strcmp(argv[argi - 1], "-oocsf")) {
-                    ooc_scenario = std::unique_ptr<scenario>(new scenario(argv[argi], 0));
+                    ooc_scenario = new scenario(argv[argi], 0);
                 } else if (!strcmp(argv[argi - 1], "-oocsn")) {
                     int i = find_scenario(argv[argi]);
-                    ooc_scenario = std::unique_ptr<scenario>(new scenario(0, i));
+                    ooc_scenario = new scenario(0, i);
                 } else {
                     ERROR("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
                 }
@@ -1980,18 +1981,18 @@ int main(int argc, char *argv[])
 
     /* Load default scenario in case nothing was loaded */
     if(!main_scenario) {
-        main_scenario = std::unique_ptr<scenario>(new scenario(0, 0));
+        main_scenario = new scenario(0, 0);
         main_scenario->stats->setFileName((char*)"uac", (char*)".csv");
         sprintf(scenario_file,"uac");
     }
     /*
     if(!ooc_scenario) {
-      ooc_scenario = std::unique_ptr<scenario>(new scenario(0, find_scenario("ooc_default")));
+      ooc_scenario = new scenario(0, find_scenario("ooc_default"));
       ooc_scenario->stats->setFileName((char*)"ooc_default", (char*)".csv");
     }
     */
-    display_scenario = main_scenario.get();
-    aa_scenario = std::unique_ptr<scenario>(new scenario(0, find_scenario("ooc_dummy")));
+    display_scenario = main_scenario;
+    aa_scenario = new scenario(0, find_scenario("ooc_dummy"));
     aa_scenario->stats->setFileName((char*)"ooc_dummy", (char*)".csv");
 
     init_default_messages();

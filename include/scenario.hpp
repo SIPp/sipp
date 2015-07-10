@@ -26,7 +26,6 @@
 
 #include <map>
 #include <vector>
-#include <memory>
 #include <sys/socket.h>
 #include "actions.hpp"
 #include "variables.hpp"
@@ -80,7 +79,7 @@ public:
     bool           bShouldAuthenticate;
 
     /* If this is a send */
-    std::shared_ptr<SendingMessage> send_scheme;
+    SendingMessage *send_scheme;
     unsigned int   retrans_delay;
     /* The receive/send timeout. */
     unsigned int   timeout;
@@ -130,7 +129,7 @@ public:
 
     int             M_type;
 
-    std::shared_ptr<SendingMessage> M_sendCmdData;
+    SendingMessage *M_sendCmdData;
     unsigned long   M_nbCmdSent;
     unsigned long   M_nbCmdRecv;
 
@@ -223,10 +222,10 @@ private:
 };
 
 /* There are external variable containing the current scenario */
-extern std::unique_ptr<scenario> main_scenario;
-extern std::unique_ptr<scenario> ooc_scenario;
-extern std::unique_ptr<scenario> aa_scenario;
-extern scenario* display_scenario;
+extern scenario      *main_scenario;
+extern scenario      *ooc_scenario;
+extern scenario      *aa_scenario;
+extern scenario      *display_scenario;
 extern int           creationMode;
 extern int           sendMode;
 extern int           thirdPartyMode;

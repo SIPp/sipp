@@ -92,7 +92,7 @@ void CAction::afficheInfo() const
         if(M_lookingPlace == E_LP_MSG) {
             printf("Type[%d] - regexp[%s] where[%s] - checkIt[%d] - checkItInverse[%d] - $%s",
                    M_action,
-                   M_regularExpression.c_str(),
+                   M_regularExpression,
                    "Full Msg",
                    M_checkIt,
                    M_checkItInverse,
@@ -100,9 +100,9 @@ void CAction::afficheInfo() const
         } else {
             printf("Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - checkItInverse[%d] - $%s",
                    M_action,
-                   M_regularExpression.c_str(),
+                   M_regularExpression,
                    "Header",
-                   M_lookingChar.c_str(),
+                   M_lookingChar,
                    M_checkIt,
                    M_checkItInverse, display_scenario->allocVars->getName(M_varId));
         }
@@ -163,9 +163,9 @@ void CAction::afficheInfo() const
     }
 }
 
-std::shared_ptr<SendingMessage> CAction::getMessage(int n)
+SendingMessage* CAction::getMessage(int n)
 {
-    return M_message[n];
+    return &M_message[n];
 }
 
 #ifdef PCAPPLAY
@@ -184,7 +184,10 @@ rtpstream_actinfo_t* CAction::getRTPStreamActInfo()
 
 void CAction::setSubVarId(int P_value)
 {
-    M_subVarId.push_back(P_value);
+    if (M_nbSubVarId < M_maxNbSubVarId) {
+        M_subVarId[M_nbSubVarId] = P_value;
+        M_nbSubVarId++;
+    }
 }
 
 int CAction::getSubVarId(int P_index) const
@@ -192,26 +195,40 @@ int CAction::getSubVarId(int P_index) const
     return M_subVarId[P_index];
 }
 
+int* CAction::getSubVarId() const
+{
+    return M_subVarId;
+}
+
 void CAction::setNbSubVarId(int P_value)
 {
-    M_subVarId.clear();
-    M_subVarId.reserve(P_value);
+    M_maxNbSubVarId = P_value;
+    delete [] M_subVarId;
+    M_subVarId = new int[M_maxNbSubVarId];
+    M_nbSubVarId = 0;
+}
+
+int CAction::getNbSubVarId() const
+{
+    return M_nbSubVarId;
 }
 
 void CAction::setLookingChar(char* P_value)
 {
+    delete [] M_lookingChar;
+    M_lookingChar = NULL;
+
     if (P_value != NULL) {
-        M_lookingChar = P_value;
+        M_lookingChar = new char[strlen(P_value) + 1];
+        strcpy(M_lookingChar, P_value);
     }
 }
 
 void CAction::setMessage(char* P_value, int n)
 {
     if (P_value != NULL) {
-        /* we can ignore the index (for now) because messages are always
-         * pushed in order anyways */
-        M_message_str.emplace_back(P_value);
-        M_message.emplace_back(new SendingMessage(M_scenario.get(), P_value, true /* skip sanity */));
+        M_message_str[n] = std::string(P_value);
+        M_message[n] = SendingMessage(M_scenario, P_value, true /* skip sanity */);
     }
 }
 
@@ -219,23 +236,24 @@ void CAction::setRegExp(const char* P_value)
 {
     int errorCode;
 
-    M_regularExpression = P_value;
+    free(M_regularExpression);
+    M_regularExpression = strdup(P_value);
     M_regExpSet = true;
 
     errorCode = regcomp(&M_internalRegExp, P_value, REGEXP_PARAMS);
     if (errorCode != 0) {
         char buffer[MAX_HEADER_LEN];
         regerror(errorCode, &M_internalRegExp, buffer, sizeof(buffer));
-        ERROR("recomp error : regular expression '%s' - error '%s'\n", M_regularExpression.c_str(), buffer);
+        ERROR("recomp error : regular expression '%s' - error '%s'\n", M_regularExpression, buffer);
     }
 }
 
-const char* CAction::getRegularExpression() const
+char* CAction::getRegularExpression() const
 {
     if (!M_regExpSet) {
         ERROR("Trying to get a regular expression for an action that does not have one!");
     }
-    return M_regularExpression.c_str();
+    return M_regularExpression;
 }
 
 int CAction::executeRegExp(const char* P_string, VariableTable* P_callVarTable)
@@ -249,7 +267,7 @@ int CAction::executeRegExp(const char* P_string, VariableTable* P_callVarTable)
         ERROR("Trying to perform regular expression match on action that does not have one!");
     }
 
-    if (M_subVarId.size() > 9) {
+    if (getNbSubVarId() > 9) {
         ERROR("You can only have nine sub expressions!");
     }
 
@@ -259,16 +277,15 @@ int CAction::executeRegExp(const char* P_string, VariableTable* P_callVarTable)
     if (error == 0) {
         CCallVariable* L_callVar = P_callVarTable->getVar(M_varId);
 
-        for (int i = 0; i <= M_subVarId.size(); i++) {
-            if (pmatch[i].rm_eo == -1)
-                break;
+        for (int i = 0; i <= getNbSubVarId(); i++) {
+            if(pmatch[i].rm_eo == -1) break ;
 
             setSubString(&result, P_string, pmatch[i].rm_so, pmatch[i].rm_eo);
             L_callVar->setMatchingValue(result);
             nbOfMatch++;
 
-            if (i == M_subVarId.size())
-                break;
+            if (i == getNbSubVarId())
+                break ;
 
             L_callVar = P_callVarTable->getVar(getSubVarId(i));
         }
@@ -380,6 +397,19 @@ void CAction::setRTPStreamActInfo (rtpstream_actinfo_t* P_value)
     memcpy(&M_rtpstream_actinfo, P_value, sizeof(M_rtpstream_actinfo));
 }
 #endif
+
+CAction::~CAction()
+{
+    delete [] M_lookingChar;
+    delete [] M_subVarId;
+    delete M_distribution;
+    free(M_stringValue);
+
+    if (M_regExpSet) {
+        regfree(&M_internalRegExp);
+        free(M_regularExpression);
+    }
+}
 
 #ifdef GTEST
 #include "gtest/gtest.h"

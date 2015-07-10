@@ -523,7 +523,7 @@ void print_stats_in_file(FILE * f)
             fprintf(f, "%-2lu:", index);
         }
 
-        if (auto src = curmsg->send_scheme) {
+        if(SendingMessage *src = curmsg -> send_scheme) {
             if (src->isResponse()) {
                 sprintf(temp_str, "%d", src->getCode());
             } else {
@@ -688,7 +688,7 @@ void print_count_file(FILE *f, int header)
             continue;
         }
 
-        if (auto src = curmsg->send_scheme) {
+        if(SendingMessage *src = curmsg -> send_scheme) {
             if(header) {
                 if (src->isResponse()) {
                     sprintf(temp_str, "%u_%d_", index, src->getCode());
