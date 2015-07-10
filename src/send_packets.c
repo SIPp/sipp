@@ -53,6 +53,7 @@
 #include "prepare_pcap.h"
 #include "screen.hpp"
 
+extern char* scenario_path;
 extern volatile unsigned long rtp_pckts_pcap;
 extern volatile unsigned long rtp_bytes_pcap;
 extern int media_ip_is_ipv6;
@@ -86,11 +87,29 @@ float2timer (float time, struct timeval *tvp)
     tvp->tv_usec = n * 100000;
 }
 
-/* buffer should be "file_name" */
-int
-parse_play_args (char *buffer, pcap_pkts *pkts)
+static char* find_file(const char* filename)
 {
-    pkts->file = strdup (buffer);
+    if (filename[0] == '/' || !scenario_path) {
+        return strdup(filename);
+    }
+
+    char *fullpath = malloc(MAX_PATH);
+    snprintf(fullpath, MAX_PATH, "%s/%s", scenario_path, filename);
+
+    if (access(fullpath, R_OK) < 0) {
+        free(fullpath);
+        WARNING("SIPp now prefers looking for pcap files next to the scenario. "
+                "%s couldn't be found next to the scenario, falling back to "
+                "using the current working directory", filename);
+        return strdup(filename);
+    }
+
+    return fullpath;
+}
+
+int parse_play_args(const char* filename, pcap_pkts* pkts)
+{
+    pkts->file = find_file(filename);
     prepare_pkts(pkts->file, pkts);
     return 1;
 }
