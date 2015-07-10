@@ -163,6 +163,8 @@ void print_tdm_map()
 
 void print_variable_list()
 {
+    CActions  * actions;
+    CAction   * action;
     int printed = 0;
     bool found;
 
@@ -171,36 +173,40 @@ void print_variable_list()
     found = false;
     for(unsigned int i=0; i<display_scenario->messages.size(); i++) {
         message *curmsg = display_scenario->messages[i];
-        std::vector<CAction>& actions = curmsg->M_actions;
-
-        if(!actions.empty()) {
+        actions = curmsg->M_actions;
+        if(actions != NULL) {
             switch(curmsg->M_type) {
             case MSG_TYPE_RECV:
                 printf("=> Message[%u] (Receive Message) - "
-                       "[%zu] action(s) defined :" SIPP_ENDL,
-                       i, actions.size());
+                       "[%d] action(s) defined :" SIPP_ENDL,
+                       i,
+                       actions->getActionSize());
                 printed++;
                 break;
             case MSG_TYPE_RECVCMD:
                 printf("=> Message[%u] (Receive Command Message) - "
-                       "[%zu] action(s) defined :" SIPP_ENDL,
-                       i, actions.size());
+                       "[%d] action(s) defined :" SIPP_ENDL,
+                       i,
+                       actions->getActionSize());
                 printed++;
                 break;
             default:
-                printf("=> Message[%u] - [%zu] action(s) defined :" SIPP_ENDL,
-                       i, actions.size());
+                printf("=> Message[%u] - [%d] action(s) defined :" SIPP_ENDL,
+                       i,
+                       actions->getActionSize());
                 printed++;
                 break;
             }
 
-            int j = 0;
-            for (const CAction& action : actions) {
-                printf("   --> action[%d] = ", j++);
-                action.afficheInfo();
-                printf(SIPP_ENDL);
-                printed++;
-                found = true;
+            for(int j=0; j<actions->getActionSize(); j++) {
+                action = actions->getAction(j);
+                if(action != NULL) {
+                    printf("   --> action[%d] = ", j);
+                    action->afficheInfo();
+                    printf(SIPP_ENDL);
+                    printed++;
+                    found = true;
+                }
             }
         }
     }

@@ -21,9 +21,12 @@
 #include <netinet/in.h>
 #include <netinet/udp.h>
 #include <time.h>
-#include <stdint.h>
 
 #if defined(__HPUX) || defined(__DARWIN) || defined(__CYGWIN) || defined(__FreeBSD__)
+#define u_int8_t uint8_t
+#define u_int16_t uint16_t
+#define u_int32_t uint32_t
+
 struct iphdr {
 #ifdef _HPUX_LI
     unsigned int ihl:4;
@@ -32,23 +35,23 @@ struct iphdr {
     unsigned int version:4;
     unsigned int ihl:4;
 #endif
-    uint8_t tos;
-    uint16_t tot_len;
-    uint16_t id;
-    uint16_t frag_off;
-    uint8_t ttl;
-    uint8_t protocol;
-    uint16_t check;
-    uint32_t saddr;
-    uint32_t daddr;
+    u_int8_t tos;
+    u_int16_t tot_len;
+    u_int16_t id;
+    u_int16_t frag_off;
+    u_int8_t ttl;
+    u_int8_t protocol;
+    u_int16_t check;
+    u_int32_t saddr;
+    u_int32_t daddr;
     /*The options start here. */
 };
 
 #endif
 
 typedef struct {
-    uint8_t *data;
-    uint64_t pktlen;
+    u_char *data;
+    u_long pktlen;
     struct timeval ts;
     int partial_check;
 } pcap_pkt;
@@ -56,8 +59,8 @@ typedef struct {
 #define PCAP_MAXPACKET 1500
 typedef struct {
     char *file;
-    uint16_t base;
-    uint64_t max_length;
+    u_int16_t base;
+    u_long max_length;
     pcap_pkt *max;
     pcap_pkt *pkts;
 } pcap_pkts;
@@ -65,8 +68,8 @@ typedef struct {
 #ifdef __cplusplus
 extern "C" {
 #endif
-    int check(uint16_t *, int);
-    uint16_t checksum_carry(int);
+    int check(u_int16_t *, int);
+    u_int16_t checksum_carry(int);
     int prepare_pkts(char *, pcap_pkts *);
 #ifdef __cplusplus
 }
