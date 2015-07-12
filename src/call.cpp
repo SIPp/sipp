@@ -915,16 +915,15 @@ bool call::connect_socket_if_needed()
                         NULL,
                         &hints,
                         &h);
-            memcpy(&saddr,
-                   h->ai_addr,
-                   SOCK_ADDR_SIZE(
-                       _RCAST(struct sockaddr_storage *,h->ai_addr)));
+            memcpy(&saddr, h->ai_addr,
+                   SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage*, h->ai_addr)));
 
             if (use_ipv6) {
-                (_RCAST(struct sockaddr_in6 *, &saddr))->sin6_port = htons(local_port);
+                (_RCAST(struct sockaddr_in6*, &saddr))->sin6_port = htons(local_port);
             } else {
-                (_RCAST(struct sockaddr_in *, &saddr))->sin_port = htons(local_port);
+                (_RCAST(struct sockaddr_in*, &saddr))->sin_port = htons(local_port);
             }
+            freeaddrinfo(h);
         }
 
         if (sipp_bind_socket(call_socket, &saddr, &call_port)) {
@@ -3661,13 +3660,17 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             if (_RCAST(struct sockaddr_storage *, local_addr->ai_addr)->ss_family != call_peer.ss_family) {
                 ERROR("Can not switch between IPv4 and IPV6 using setdest!");
             }
-            memcpy(&call_peer, local_addr->ai_addr, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
+            memcpy(&call_peer, local_addr->ai_addr,
+                   SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage*, local_addr->ai_addr)));
+            freeaddrinfo(local_addr);
+
             if (call_peer.ss_family == AF_INET) {
-                (_RCAST(struct sockaddr_in *,&call_peer))->sin_port = htons(port);
+                (_RCAST(struct sockaddr_in*, &call_peer))->sin_port = htons(port);
             } else {
-                (_RCAST(struct sockaddr_in6 *,&call_peer))->sin6_port = htons(port);
+                (_RCAST(struct sockaddr_in6*, &call_peer))->sin6_port = htons(port);
             }
-            memcpy(&call_socket->ss_dest, &call_peer, SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage *,&call_peer)));
+            memcpy(&call_socket->ss_dest, &call_peer,
+                   SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage*, &call_peer)));
 
             free(str_host);
             free(str_port);
