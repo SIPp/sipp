@@ -42,21 +42,21 @@
  */
 
 typedef struct _ether_type_hdr {
-    u_int16_t ether_type; /* we only need the type, so we can determine, if the next header is IPv4 or IPv6 */
+    uint16_t ether_type; /* we only need the type, so we can determine, if the next header is IPv4 or IPv6 */
 } ether_type_hdr;
 
 typedef struct _ipv6_hdr {
     char dontcare[6];
-    u_int8_t nxt_header; /* we only need the next header, so we can determine, if the next header is UDP or not */
+    uint8_t nxt_header; /* we only need the next header, so we can determine, if the next header is UDP or not */
     char dontcare2[33];
 } ipv6_hdr;
 
 
 #ifdef __HPUX
-int check(u_int16_t *buffer, int len)
+int check(uint16_t *buffer, int len)
 {
 #else
-inline int check(u_int16_t *buffer, int len)
+inline int check(uint16_t *buffer, int len)
 {
 #endif
     int sum;
@@ -67,16 +67,16 @@ inline int check(u_int16_t *buffer, int len)
         sum += *buffer++;
 
     if (len & 1) {
-        sum += htons( (*(const u_int8_t *)buffer) << 8);
+        sum += htons((*(const uint8_t*)buffer) << 8);
     }
     return sum;
 }
 
 #ifdef __HPUX
-u_int16_t checksum_carry(int s)
+uint16_t checksum_carry(int s)
 {
 #else
-inline u_int16_t checksum_carry(int s)
+inline uint16_t checksum_carry(int s)
 {
 #endif
     int s_c = (s >> 16) + (s & 0xffff);
@@ -85,59 +85,84 @@ inline u_int16_t checksum_carry(int s)
 
 char errbuf[PCAP_ERRBUF_SIZE];
 
+/* get octet offset to EtherType block
+*/
+size_t get_ethertype_offset(int link, const uint8_t* pktdata)
+{
+    uint8_t offset = 0;
+    uint16_t eth_type = 0;
+    const uint8_t vlan_tag_offset = 4;
+
+    /* http://www.tcpdump.org/linktypes.html */
+    if (link == DLT_EN10MB) {
+        /* srcmac[6], dstmac[6], ethertype[2] */
+        offset = 12;
+    } else if (link == DLT_LINUX_SLL) {
+        /* http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html */
+        /* pkttype[2], arphrd_type[2], lladdrlen[2], lladdr[8], ethertype[2] */
+        offset = 14;
+    } else {
+        ERROR("Unsupported link-type %d", link);
+    }
+
+    memcpy(&eth_type, pktdata + offset, sizeof(eth_type));
+    eth_type = ntohs(eth_type);
+    if (eth_type != 0x0800 && eth_type != 0x86dd) {
+        /* check if Ethernet 802.1Q VLAN */
+        if (eth_type == 0x8100) {
+            /* vlan_tag[4] */
+            offset += vlan_tag_offset;
+        } else {
+            ERROR("Unsupported ethernet type %d", eth_type);
+        }
+    }
+    return offset;
+}
+
 /* prepare a pcap file
  */
 int prepare_pkts(char *file, pcap_pkts *pkts)
 {
-    pcap_t *pcap;
-    struct pcap_pkthdr *pkthdr = NULL;
-    u_char *pktdata = NULL;
+    pcap_t* pcap;
+#ifdef HAVE_PCAP_NEXT_EX
+    struct pcap_pkthdr* pkthdr = NULL;
+#else
+    struct pcap_pkthdr pkthdr_storage;
+    struct pcap_pkthdr* pkthdr = &pkthdr_storage;
+#endif
+    const uint8_t* pktdata = NULL;
     int n_pkts = 0;
-    u_long max_length = 0;
-    u_int16_t base = 0xffff;
-    u_long pktlen;
-    pcap_pkt *pkt_index;
-    size_t ether_type_offset;
-    ether_type_hdr *ethhdr;
+    uint64_t max_length = 0;
+    size_t ether_type_offset = 0;
+    uint16_t base = 0xffff;
+    uint64_t pktlen;
+    pcap_pkt* pkt_index;
+    ether_type_hdr* ethhdr;
 
-    struct iphdr *iphdr;
-    ipv6_hdr *ip6hdr;
-    struct udphdr *udphdr;
+    struct iphdr* iphdr;
+    ipv6_hdr* ip6hdr;
+    struct udphdr* udphdr;
 
     pkts->pkts = NULL;
 
     pcap = pcap_open_offline(file, errbuf);
     if (!pcap)
         ERROR_NO("Can't open PCAP file '%s'", file);
-
-    switch (pcap_datalink(pcap)) {
-    case DLT_EN10MB:
-        /* srcmac[6], dstmac[6], ethertype[2] */
-        ether_type_offset = 12;
-        break;
-    case DLT_LINUX_SLL:
-        /* some_stuff[14], ethertype[2] */
-        ether_type_offset = 14;
-        break;
-    default:
-        ERROR("Unsupported link-type %d", pcap_datalink(pcap));
-    }
-
-#if HAVE_PCAP_NEXT_EX
-    while (pcap_next_ex (pcap, &pkthdr, (const u_char **) &pktdata) == 1) {
+#ifdef HAVE_PCAP_NEXT_EX
+    while (pcap_next_ex(pcap, &pkthdr, &pktdata) == 1) {
 #else
-#ifdef __HPUX
-    pkthdr = (pcap_pkthdr *) malloc (sizeof (*pkthdr));
-#else
-    pkthdr = malloc (sizeof (*pkthdr));
-#endif
-    if (!pkthdr)
-        ERROR("Can't allocate memory for pcap pkthdr");
-    while ((pktdata = (u_char *) pcap_next (pcap, pkthdr)) != NULL) {
+    while ((pktdata = pcap_next(pcap, pkthdr)) != NULL) {
 #endif
         if (pkthdr->len != pkthdr->caplen) {
             ERROR("You got truncated packets. Please create a new dump with -s0");
         }
+
+        /* Determine offset from packet to ether type only once. */
+        if (!ether_type_offset) {
+            int datalink = pcap_datalink(pcap);
+            ether_type_offset = get_ethertype_offset(datalink, pktdata);
+        }
+
         ethhdr = (ether_type_hdr *)(pktdata + ether_type_offset);
         if (ntohs(ethhdr->ether_type) != 0x0800 /* IPv4 */
                 && ntohs(ethhdr->ether_type) != 0x86dd) { /* IPv6 */
@@ -145,16 +170,16 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
                     ntohs(ethhdr->ether_type));
             continue;
         }
-        iphdr = (struct iphdr *)((char *)ethhdr + sizeof(*ethhdr));
+        iphdr = (struct iphdr*)((char*)ethhdr + sizeof(*ethhdr));
         if (iphdr && iphdr->version == 6) {
             //ipv6
-            pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*ip6hdr);
-            ip6hdr = (ipv6_hdr *)(void *) iphdr;
+            pktlen = (uint64_t)pkthdr->len - sizeof(*ethhdr) - sizeof(*ip6hdr);
+            ip6hdr = (ipv6_hdr*)(void*)iphdr;
             if (ip6hdr->nxt_header != IPPROTO_UDP) {
                 fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
                 continue;
             }
-            udphdr = (struct udphdr *)((char *)ip6hdr + sizeof(*ip6hdr));
+            udphdr = (struct udphdr*)((char*)ip6hdr + sizeof(*ip6hdr));
         } else {
             //ipv4
             if (iphdr->protocol != IPPROTO_UDP) {
@@ -162,20 +187,20 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
                 continue;
             }
 #if defined(__DARWIN) || defined(__CYGWIN) || defined(__FreeBSD__)
-            udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2) + 4);
-            pktlen = (u_long)(ntohs(udphdr->uh_ulen));
+            udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2) + 4);
+            pktlen = (uint64_t)(ntohs(udphdr->uh_ulen));
 #elif defined ( __HPUX)
-            udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2));
-            pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*iphdr);
+            udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2));
+            pktlen = (uint64_t) pkthdr->len - sizeof(*ethhdr) - sizeof(*iphdr);
 #else
-            udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2));
-            pktlen = (u_long)(ntohs(udphdr->len));
+            udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2));
+            pktlen = (uint64_t)(ntohs(udphdr->len));
 #endif
         }
         if (pktlen > PCAP_MAXPACKET) {
             ERROR("Packet size is too big! Recompile with bigger PCAP_MAXPACKET in prepare_pcap.h");
         }
-        pkts->pkts = (pcap_pkt *) realloc(pkts->pkts, sizeof(*(pkts->pkts)) * (n_pkts + 1));
+        pkts->pkts = (pcap_pkt *)realloc(pkts->pkts, sizeof(*(pkts->pkts)) * (n_pkts + 1));
         if (!pkts->pkts)
             ERROR("Can't re-allocate memory for pcap pkt");
         pkt_index = pkts->pkts + n_pkts;
@@ -196,9 +221,9 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
         // not including port that will be changed
         // when sending RTP
 #if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
-        pkt_index->partial_check = check((u_int16_t *) &udphdr->uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+        pkt_index->partial_check = check((uint16_t*)&udphdr->uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 #else
-        pkt_index->partial_check = check((u_int16_t *) &udphdr->len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+        pkt_index->partial_check = check((uint16_t*)&udphdr->len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 #endif
         if (max_length < pktlen)
             max_length = pktlen;
@@ -216,10 +241,6 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
     pkts->base = base;
     fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %ld\nbase port %d\n", file, n_pkts, max_length, base);
     pcap_close(pcap);
-
-#ifndef HAVE_PCAP_NEXT_EX
-    free(pkthdr);
-#endif
 
     return 0;
 }
