@@ -748,8 +748,7 @@ static void traffic_thread()
                 if (useScreenf == 1) {
                     print_screens();
                 }
-
-                sipp_exit(EXIT_TEST_RES_UNKNOWN);
+                break;
             }
         }
 
@@ -818,7 +817,7 @@ static void traffic_thread()
 
 static void rtp_echo_thread(void* param)
 {
-    char msg[media_bufsize];
+    char* msg = (char*)alloca(media_bufsize);
     size_t nr, ns;
     sipp_socklen_t len;
     struct sockaddr_storage remote_rtp_addr;
@@ -838,7 +837,7 @@ static void rtp_echo_thread(void* param)
         nr = recvfrom(*(int *)param,
                       msg,
                       media_bufsize, 0,
-                      (sockaddr *)(void *) &remote_rtp_addr,
+                      (sockaddr*)&remote_rtp_addr,
                       &len);
 
         if (((long)nr) < 0) {
@@ -848,7 +847,7 @@ static void rtp_echo_thread(void* param)
             return;
         }
         ns = sendto(*(int *)param, msg, nr,
-                    0, (sockaddr *)(void *) &remote_rtp_addr,
+                    0, (sockaddr*)&remote_rtp_addr,
                     len);
 
         if (ns != nr) {
@@ -1196,6 +1195,7 @@ static void releaseGlobalAllocations()
     free_default_messages();
     freeInFiles();
     freeUserVarMap();
+    delete userVariables;
     delete globalVariables;
 }
 
@@ -1218,6 +1218,17 @@ void sipp_exit(int rc)
     screen_exit();
     print_last_stats();
     screen_show_errors();
+
+    /* Close open files. */
+    struct logfile_info** logfile_ptr;
+    struct logfile_info* logfiles[] = {
+        &screen_lfi, &calldebug_lfi, &message_lfi, &shortmessage_lfi, &log_lfi, &error_lfi, NULL};
+    for (logfile_ptr = logfiles; *logfile_ptr; ++logfile_ptr) {
+        if ((*logfile_ptr)->fptr) {
+            fclose((*logfile_ptr)->fptr);
+            (*logfile_ptr)->fptr = NULL;
+        }
+    }
 
     // Get failed calls counter value before releasing objects
     if (display_scenario) {
@@ -1292,7 +1303,7 @@ int main(int argc, char *argv[])
 {
     int                  argi = 0;
     struct sockaddr_storage   media_sockaddr;
-    pthread_t            pthread2_id,  pthread3_id;
+    pthread_t pthread2_id = 0, pthread3_id = 0;
     unsigned int         generic_count = 0;
     bool                 slave_masterSet = false;
 
@@ -1328,19 +1339,16 @@ int main(int argc, char *argv[])
         sigaction(SIGUSR2, &action_usr2, NULL);
     }
 
-    screen_set_exename((char *)"sipp");
+    screen_set_exename("sipp");
 
     pid = getpid();
     memset(local_ip, 0, 40);
 #ifdef USE_SCTP
     memset(multihome_ip, 0, 40);
 #endif
-    memset(media_ip,0, 40);
-    memset(control_ip,0, 40);
-    memset(media_ip_escaped,0, 42);
-
-    /* Load compression pluggin if available */
-    comp_load();
+    memset(media_ip, 0, 40);
+    memset(control_ip, 0, 40);
+    memset(media_ip_escaped, 0, 42);
 
     /* Initialize the tolower table. */
     init_tolower_table();
@@ -1547,7 +1555,7 @@ int main(int argc, char *argv[])
                     break;
                 case 'c':
                     if(strlen(comp_error)) {
-                        ERROR("No " COMP_PLUGGIN " pluggin available:\n%s", comp_error);
+                        ERROR("No " COMP_PLUGGIN " plugin available:\n%s", comp_error);
                     }
                     transport = T_UDP;
                     compression = 1;
@@ -1751,11 +1759,9 @@ int main(int argc, char *argv[])
                            _RCAST(struct sockaddr_storage *, local_addr->ai_addr)));
 
                 if (remote_sending_sockaddr.ss_family == AF_INET) {
-                    (_RCAST(struct sockaddr_in *, &remote_sending_sockaddr))->sin_port =
-                        htons((short)remote_s_p);
+                    (_RCAST(struct sockaddr_in*, &remote_sending_sockaddr))->sin_port = htons(remote_s_p);
                 } else {
-                    (_RCAST(struct sockaddr_in6 *, &remote_sending_sockaddr))->sin6_port =
-                        htons((short)remote_s_p);
+                    (_RCAST(struct sockaddr_in6*, &remote_sending_sockaddr))->sin6_port = htons(remote_s_p);
                 }
                 use_remote_sending_addr = 1;
 
@@ -1858,22 +1864,24 @@ int main(int argc, char *argv[])
                 ((struct logfile_info*)option->data)->overwrite = get_bool(argv[argi], argv[argi-1]);
                 break;
             case SIPP_OPTION_PLUGIN: {
-                void *handle;
-                char *error;
-                int (*init)();
                 int ret;
 
                 REQUIRE_ARG();
                 CHECK_PASS();
 
-                handle = dlopen(argv[argi], RTLD_NOW);
+                void* handle = dlopen(argv[argi], RTLD_NOW);
                 if (!handle) {
                     ERROR("Could not open plugin %s: %s", argv[argi], dlerror());
                 }
 
-                init = (int (*)())dlsym(handle, "init");
-                if((error = (char *) dlerror())) {
-                    ERROR("Could not locate init function in %s: %s", argv[argi], dlerror());
+                int (*init)();
+                void* funcptr = dlsym(handle, "init");
+                /* http://stackoverflow.com/questions/1096341/function-pointers-casting-in-c */
+                *reinterpret_cast<void**>(&init) = funcptr; // yuck
+
+                const char* error;
+                if ((error = dlerror())) {
+                    ERROR("Could not locate init function in %s: %s", argv[argi], error);
                 }
 
                 ret = init();
@@ -1886,6 +1894,11 @@ int main(int argc, char *argv[])
                 ERROR("Internal error: I don't recognize the option type for %s\n", argv[argi]);
             }
         }
+    }
+
+    /* Load compression plugin if needed/available. */
+    if (compression) {
+        comp_load();
     }
 
     if((extendedTwinSippMode && !slave_masterSet) || (!extendedTwinSippMode && slave_masterSet)) {
@@ -2158,16 +2171,12 @@ int main(int argc, char *argv[])
 
         if((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
                                   SOCK_DGRAM, 0)) == -1) {
-            char msg[512];
-            sprintf(msg, "Unable to get the audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
-            ERROR_NO(msg);
+            ERROR_NO("Unable to get the audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
         }
         /* create a second socket for video */
         if((media_socket_video = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
                                         SOCK_DGRAM, 0)) == -1) {
-            char msg[512];
-            sprintf(msg, "Unable to get the video RTP socket (IP=%s, port=%d)", media_ip, media_port+2);
-            ERROR_NO(msg);
+            ERROR_NO("Unable to get the video RTP socket (IP=%s, port=%d)", media_ip, media_port + 2);
         }
 
         int try_counter;
@@ -2176,11 +2185,9 @@ int main(int argc, char *argv[])
         for (try_counter = 0; try_counter < max_tries; try_counter++) {
 
             if (media_sockaddr.ss_family == AF_INET) {
-                (_RCAST(struct sockaddr_in *,&media_sockaddr))->sin_port =
-                    htons((short)media_port);
+                (_RCAST(struct sockaddr_in *,&media_sockaddr))->sin_port = htons(media_port);
             } else {
-                (_RCAST(struct sockaddr_in6 *,&media_sockaddr))->sin6_port =
-                    htons((short)media_port);
+                (_RCAST(struct sockaddr_in6 *,&media_sockaddr))->sin6_port = htons(media_port);
                 media_ip_is_ipv6 = true;
             }
             // Use get_host_and_port to remove square brackets from an
@@ -2188,7 +2195,7 @@ int main(int argc, char *argv[])
             get_host_and_port(media_ip, media_ip_escaped, NULL);
 
             if(bind(media_socket,
-                    (sockaddr *)(void *)&media_sockaddr,
+                    (sockaddr*)&media_sockaddr,
                     SOCK_ADDR_SIZE(&media_sockaddr)) == 0) {
                 break;
             }
@@ -2197,9 +2204,7 @@ int main(int argc, char *argv[])
         }
 
         if (try_counter >= max_tries) {
-            char msg[512];
-            sprintf(msg, "Unable to bind audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
-            ERROR_NO(msg);
+            ERROR_NO("Unable to bind audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
         }
 
         /*---------------------------------------------------------
@@ -2208,14 +2213,12 @@ int main(int argc, char *argv[])
         ----------------------------------------------------------*/
 
         if (media_sockaddr.ss_family == AF_INET) {
-            (_RCAST(struct sockaddr_in *,&media_sockaddr))->sin_port =
-                htons((short)media_port+2);
+            (_RCAST(struct sockaddr_in*, &media_sockaddr))->sin_port = htons(media_port + 2);
             // Use get_host_and_port to remove square brackets from an
             // IPv6 address
             get_host_and_port(media_ip, media_ip_escaped, NULL);
         } else {
-            (_RCAST(struct sockaddr_in6 *,&media_sockaddr))->sin6_port =
-                htons((short)media_port+2);
+            (_RCAST(struct sockaddr_in6*, &media_sockaddr))->sin6_port = htons(media_port + 2);
             media_ip_is_ipv6 = true;
             // Use get_host_and_port to remove square brackets from an
             // IPv6 address
@@ -2223,16 +2226,14 @@ int main(int argc, char *argv[])
         }
 
         if(bind(media_socket_video,
-                (sockaddr *)(void *)&media_sockaddr,
+                (sockaddr*)&media_sockaddr,
                 SOCK_ADDR_SIZE(&media_sockaddr))) {
-            char msg[512];
-            sprintf(msg, "Unable to bind video RTP socket (IP=%s, port=%d)", media_ip, media_port+2);
-            ERROR_NO(msg);
+            ERROR_NO("Unable to bind video RTP socket (IP=%s, port=%d)", media_ip, media_port + 2);
         }
         /* Second socket bound */
     }
 
-    /* Creating the remote control socket thread */
+    /* Creating the remote control socket thread. */
     setup_ctrl_socket();
     if (!nostdin) {
         setup_stdin_socket();
@@ -2243,20 +2244,19 @@ int main(int argc, char *argv[])
                 (&pthread2_id,
                  NULL,
                  (void *(*)(void *)) rtp_echo_thread,
-                 (void*)&media_socket)
+                 &media_socket)
                 == -1) {
             ERROR_NO("Unable to create RTP echo thread");
         }
     }
 
-
-    /* Creating second RTP echo thread for video */
+    /* Creating second RTP echo thread for video. */
     if ((media_socket_video > 0) && (rtp_echo_enabled)) {
         if (pthread_create
                 (&pthread3_id,
                  NULL,
                  (void *(*)(void *)) rtp_echo_thread,
-                 (void*)&media_socket_video)
+                 &media_socket_video)
                 == -1) {
             ERROR_NO("Unable to create second RTP echo thread");
         }
@@ -2264,11 +2264,34 @@ int main(int argc, char *argv[])
 
     traffic_thread();
 
+    /* Cancel and join other threads. */
+    if (pthread2_id) {
+        pthread_cancel(pthread2_id);
+    }
+    if (pthread3_id) {
+        pthread_cancel(pthread3_id);
+    }
+    if (pthread2_id) {
+        pthread_join(pthread2_id, NULL);
+    }
+    if (pthread3_id) {
+        pthread_join(pthread3_id, NULL);
+    }
+
+    if (!nostdin) {
+        sipp_close_socket(stdin_socket);
+    }
+    sipp_close_socket(ctrl_socket);
+
 #ifdef HAVE_EPOLL
     close(epollfd);
     free(epollevents);
 #endif
 
+    if (local_addr_storage) {
+        freeaddrinfo(local_addr_storage);
+    }
     free(scenario_file);
-    scenario_file = NULL;
+
+    sipp_exit(EXIT_TEST_RES_UNKNOWN);
 }

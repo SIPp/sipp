@@ -49,8 +49,6 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
 void setup_ctrl_socket();
 void setup_stdin_socket();
 
-char * get_inet_address(struct sockaddr_storage * addr);
-
 int handle_ctrl_socket();
 void handle_stdin_socket();
 void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, struct sockaddr_storage *src);
