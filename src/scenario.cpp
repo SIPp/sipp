@@ -1443,13 +1443,19 @@ void scenario::parseAction(CActions *actions)
             }
             currentRegExp = NULL;
         } /* end !strcmp(actionElem, "ereg") */ else if(!strcmp(actionElem, "log")) {
-            tmpAction->setMessage(xp_get_string("message", "log"));
+            ptr = xp_get_string("message", "log");
+            tmpAction->setMessage(ptr);
+            free(ptr);
             tmpAction->setActionType(CAction::E_AT_LOG_TO_FILE);
         } else if(!strcmp(actionElem, "warning")) {
-            tmpAction->setMessage(xp_get_string("message", "warning"));
+            ptr = xp_get_string("message", "warning");
+            tmpAction->setMessage(ptr);
+            free(ptr);
             tmpAction->setActionType(CAction::E_AT_LOG_WARNING);
         } else if(!strcmp(actionElem, "error")) {
-            tmpAction->setMessage(xp_get_string("message", "error"));
+            ptr = xp_get_string("message", "error");
+            tmpAction->setMessage(ptr);
+            free(ptr);
             tmpAction->setActionType(CAction::E_AT_LOG_ERROR);
         } else if(!strcmp(actionElem, "assign")) {
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_VALUE);
@@ -1457,7 +1463,9 @@ void scenario::parseAction(CActions *actions)
         } else if(!strcmp(actionElem, "assignstr")) {
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_STRING);
             tmpAction->setVarId(xp_get_var("assign_to", "assignstr"));
-            tmpAction->setMessage(xp_get_string("value", "assignstr"));
+            ptr = xp_get_string("value", "assignstr");
+            tmpAction->setMessage(ptr);
+            free(ptr);
         } else if(!strcmp(actionElem, "gettimeofday")) {
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY);
 
