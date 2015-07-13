@@ -37,6 +37,7 @@
 #include <pcap.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <netinet/udp.h>
 #if defined(__DARWIN) || defined(__CYGWIN) || defined(__FreeBSD__)
 #include <netinet/in.h>
@@ -56,7 +57,7 @@
 extern char* scenario_path;
 extern volatile unsigned long rtp_pckts_pcap;
 extern volatile unsigned long rtp_bytes_pcap;
-extern int media_ip_is_ipv6;
+extern bool media_ip_is_ipv6;
 
 inline void
 timerdiv (struct timeval *tvp, float div)
