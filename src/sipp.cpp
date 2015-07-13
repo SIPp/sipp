@@ -678,7 +678,7 @@ void timeout_alarm(int /*param*/)
 
 /* Send loop & trafic generation*/
 
-static void traffic_thread()
+static bool traffic_thread()
 {
     /* create the file */
     char         L_file_name [MAX_PATH];
@@ -748,7 +748,7 @@ static void traffic_thread()
                 if (useScreenf == 1) {
                     print_screens();
                 }
-                break;
+                return false;
             }
         }
 
@@ -810,6 +810,7 @@ static void traffic_thread()
         /* Receive incoming messages */
         pollset_process(running_tasks->empty());
     }
+    return true;
 }
 
 /*************** RTP ECHO THREAD ***********************/
@@ -2262,7 +2263,12 @@ int main(int argc, char *argv[])
         }
     }
 
-    traffic_thread();
+    if (traffic_thread()) {
+        if (!nostdin) {
+            sipp_close_socket(stdin_socket);
+        }
+        sipp_close_socket(ctrl_socket);
+    }
 
     /* Cancel and join other threads. */
     if (pthread2_id) {
@@ -2277,11 +2283,6 @@ int main(int argc, char *argv[])
     if (pthread3_id) {
         pthread_join(pthread3_id, NULL);
     }
-
-    if (!nostdin) {
-        sipp_close_socket(stdin_socket);
-    }
-    sipp_close_socket(ctrl_socket);
 
 #ifdef HAVE_EPOLL
     close(epollfd);
