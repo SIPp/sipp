@@ -663,7 +663,7 @@ CAction::~CAction()
     free(M_stringValue);
 #ifdef PCAPPLAY
     if (M_pcapArgs != NULL) {
-        free(M_pcapArgs);
+        free_pcaps(M_pcapArgs);
         M_pcapArgs = NULL;
     }
 #endif

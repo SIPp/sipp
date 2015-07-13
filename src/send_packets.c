@@ -115,6 +115,17 @@ int parse_play_args(const char* filename, pcap_pkts* pkts)
     return 1;
 }
 
+void free_pcaps(pcap_pkts *pkts)
+{
+    for (pcap_pkt *it = pkts->pkts; it != pkts->max; ++it) {
+        free(it->data);
+    }
+
+    free(pkts->pkts);
+    free(pkts->file);
+    free(pkts);
+}
+
 void hexdump(char *p, int s)
 {
     int i;
