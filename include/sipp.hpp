@@ -98,8 +98,14 @@
 #ifdef GLOBALS_FULL_DEFINITION
 #define extern
 #define _DEFVAL(value) = value
+#define extern_c
 #else
 #define _DEFVAL(value)
+#ifdef __cplusplus
+#define extern_c extern "C"
+#else
+#define extern_c
+#endif
 #endif
 
 /************************** Constants **************************/
@@ -262,7 +268,7 @@ extern char               media_ip_escaped[42];
 extern int                user_media_port         _DEFVAL(0);
 extern int                media_port              _DEFVAL(0);
 extern size_t             media_bufsize           _DEFVAL(2048);
-extern bool               media_ip_is_ipv6;
+extern_c bool             media_ip_is_ipv6        _DEFVAL(false);
 extern char               remote_ip[40];
 extern char               remote_ip_escaped[42];
 extern int                remote_port             _DEFVAL(DEFAULT_PORT);
@@ -319,7 +325,7 @@ extern char             * tls_crl_name            _DEFVAL(DEFAULT_TLS_CRL);
 #endif
 
 extern char*              scenario_file           _DEFVAL(NULL);
-extern char*              scenario_path           _DEFVAL(NULL);
+extern_c char*              scenario_path         _DEFVAL(NULL);
 
 // extern field file management
 typedef std::map<string, FileContents *> file_map;
@@ -366,8 +372,8 @@ extern int           resynch_send                 _DEFVAL(0);
 extern int           resynch_recv                 _DEFVAL(0);
 extern unsigned long rtp_pckts                    _DEFVAL(0);
 extern unsigned long rtp_bytes                    _DEFVAL(0);
-extern unsigned long rtp_pckts_pcap               _DEFVAL(0);
-extern unsigned long rtp_bytes_pcap               _DEFVAL(0);
+extern_c unsigned long rtp_pckts_pcap             _DEFVAL(0);
+extern_c unsigned long rtp_bytes_pcap             _DEFVAL(0);
 extern unsigned long rtp2_pckts                   _DEFVAL(0);
 extern unsigned long rtp2_bytes                   _DEFVAL(0);
 extern unsigned long rtp2_pckts_pcap              _DEFVAL(0);
