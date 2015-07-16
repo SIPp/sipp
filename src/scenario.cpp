@@ -286,7 +286,7 @@ static long xp_get_long(const char *name, const char *what, long defval)
 }
 
 
-static double xp_get_bool(const char *name, const char *what)
+static bool xp_get_bool(const char *name, const char *what)
 {
     char *ptr;
     char *helptext;
@@ -303,7 +303,7 @@ static double xp_get_bool(const char *name, const char *what)
     return val;
 }
 
-static double xp_get_bool(const char *name, const char *what, bool defval)
+static bool xp_get_bool(const char *name, const char *what, bool defval)
 {
     if (!(xp_get_value(name))) {
         return defval;
