@@ -1829,8 +1829,8 @@ int enter_congestion(struct sipp_socket *socket, int again)
 #endif
 
 #ifdef USE_SCTP
-    if (!(socket->ss_transport == T_SCTP &&
-            socket->sctpstate == SCTP_CONNECTING))
+    if (socket->ss_transport == T_SCTP && socket->sctpstate == SCTP_CONNECTING)
+        return 0;
 #endif
     return -1;
 }
