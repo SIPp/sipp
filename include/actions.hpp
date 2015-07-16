@@ -237,7 +237,6 @@ public:
 private:
     CAction ** M_actionList;
     int        M_nbAction;
-    int        M_currentSettedAction;
 };
 
 #endif
