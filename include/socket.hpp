@@ -21,7 +21,7 @@
 #ifndef __SIPP_SOCKET_H__
 #define __SIPP_SOCKET_H__
 
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
 #include "sslcommon.h"
 
 enum ssl_init_status {
@@ -60,7 +60,7 @@ void buffer_write(struct sipp_socket *socket, const char *buffer, size_t len, st
 /********************** Network Interfaces ********************/
 
 int send_message(int s, void ** comp_state, char * msg);
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
 int send_message_tls(SSL *s, void ** comp_state, char * msg);
 #endif
 
@@ -99,7 +99,7 @@ struct sipp_socket {
 
     int ss_fd;          /* The underlying file descriptor for this socket. */
     void *ss_comp_state; /* The compression state. */
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
     SSL *ss_ssl;        /* The underlying SSL descriptor for this socket. */
     BIO *ss_bio;        /* The underlying BIO descriptor for this socket. */
 #endif

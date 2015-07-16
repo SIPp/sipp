@@ -85,7 +85,7 @@
 #include "ratetask.hpp"
 #include "watchdog.hpp"
 /* Open SSL stuff */
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
 #include "sslcommon.h"
 #endif
 
@@ -115,7 +115,7 @@
 #define T_TLS                      2
 #define T_SCTP                     3
 
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
 #define DEFAULT_TLS_CERT           "cacert.pem"
 #define DEFAULT_TLS_KEY            "cakey.pem"
 #define DEFAULT_TLS_CRL            ""
@@ -315,7 +315,7 @@ extern unsigned int       tdm_map_z               _DEFVAL(0);
 extern unsigned int       tdm_map_h               _DEFVAL(0);
 extern bool               tdm_map[1024];
 
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
 extern BIO              * twinSipp_bio;
 extern SSL              * twinSipp_ssl;
 extern const char       * tls_cert_name           _DEFVAL(DEFAULT_TLS_CERT);

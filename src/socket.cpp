@@ -295,7 +295,7 @@ static const char* get_trimmed_call_id(const char* msg)
     return call_id;
 }
 
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
 SSL_CTX  *sip_trp_ssl_ctx = NULL; /* For SSL cserver context */
 SSL_CTX  *sip_trp_ssl_ctx_client = NULL; /* For SSL cserver context */
 SSL_CTX  *twinSipp_sip_trp_ssl_ctx_client = NULL; /* For SSL cserver context */
@@ -886,7 +886,7 @@ int empty_socket(struct sipp_socket *socket)
         ret = recvfrom(socket->ss_fd, buffer, readsize, 0, (struct sockaddr *)&socketbuf->addr,  &addrlen);
         break;
     case T_TLS:
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
         ret = SSL_read(socket->ss_ssl, buffer, readsize);
         /* XXX: Check for clean shutdown. */
 #else
@@ -940,7 +940,7 @@ void sipp_socket_invalidate(struct sipp_socket *socket)
         return;
     }
 
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
     if (SSL *ssl = socket->ss_ssl) {
         SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
         SSL_free(ssl);
@@ -1259,7 +1259,7 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
     /* Initialize all sockets with our destination address. */
     memcpy(&ret->ss_remote_sockaddr, &remote_sockaddr, sizeof(ret->ss_remote_sockaddr));
 
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
     ret->ss_ssl = NULL;
 
     if ( transport == T_TLS ) {
@@ -1330,7 +1330,7 @@ static int socket_fd(bool use_ipv6, int transport)
 #endif
         break;
     case T_TLS:
-#ifndef _USE_OPENSSL
+#ifndef USE_OPENSSL
         ERROR("You do not have TLS support enabled!\n");
 #endif
     case T_TCP:
@@ -1453,7 +1453,7 @@ struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket) {
     memcpy(&ret->ss_dest, &remote_sockaddr, sizeof(ret->ss_remote_sockaddr));
 
     if (ret->ss_transport == T_TLS) {
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
         int err;
         if ((err = SSL_accept(ret->ss_ssl)) < 0) {
             ERROR("Error in SSL_accept: %s\n", sip_tls_error_string(accept_socket->ss_ssl, err));
@@ -1566,7 +1566,7 @@ static int sipp_do_connect_socket(struct sipp_socket* socket)
     fcntl(socket->ss_fd, F_SETFL, flags);
 
     if (socket->ss_transport == T_TLS) {
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
         int err;
         if ((err = SSL_connect(socket->ss_ssl)) < 0) {
             ERROR("Error in SSL connection: %s\n", sip_tls_error_string(socket->ss_ssl, err));
@@ -1606,7 +1606,7 @@ int sipp_reconnect_socket(struct sipp_socket *socket)
     }
 
     if (socket->ss_invalid) {
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
         socket->ss_ssl = NULL;
 
         if ( transport == T_TLS ) {
@@ -1870,7 +1870,7 @@ static int write_error(struct sipp_socket* socket, int ret)
         return -1;
     }
 
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
     if (socket->ss_transport == T_TLS) {
         errstring = sip_tls_error_string(socket->ss_ssl, ret);
     }
@@ -1884,7 +1884,7 @@ static int write_error(struct sipp_socket* socket, int ret)
 int read_error(struct sipp_socket *socket, int ret)
 {
     const char *errstring = strerror(errno);
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
     if (socket->ss_transport == T_TLS) {
         errstring = sip_tls_error_string(socket->ss_ssl, ret);
     }
@@ -1992,7 +1992,7 @@ void buffer_read(struct sipp_socket *socket, struct socketbuf *newbuf)
     prev->next = newbuf;
 }
 
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
 
 /****** Certificate Verification Callback FACILITY *************/
 int sip_tls_verify_callback(int ok , X509_STORE_CTX *store)
@@ -2220,7 +2220,7 @@ static ssize_t socket_write_primitive(struct sipp_socket* socket, const char* bu
 
     switch(socket->ss_transport) {
     case T_TLS:
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
         rc = send_nowait_tls(socket->ss_ssl, buffer, len, 0);
 #else
         errno = EOPNOTSUPP;

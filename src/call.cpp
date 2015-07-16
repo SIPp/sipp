@@ -557,7 +557,7 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
     dialog_authentication = NULL;
     dialog_challenge_type = 0;
 
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
     m_ctx_ssl = NULL ;
     m_bio = NULL ;
 #endif

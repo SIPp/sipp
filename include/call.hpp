@@ -29,7 +29,7 @@
 #include <string.h>
 #include "scenario.hpp"
 #include "stat.hpp"
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
 #include "sslcommon.h"
 #endif
 #ifdef PCAPPLAY
@@ -317,7 +317,7 @@ private:
     char *queued_msg;
 
 
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
     SSL_CTX *m_ctx_ssl;
     BIO *m_bio;
 #endif

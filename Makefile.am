@@ -19,7 +19,7 @@ EXTRA_DIST = \
 	$(srcdir)/cpplint.py
 
 if HAVE_OPENSSL
-DEFS += -D_USE_OPENSSL
+DEFS += -DUSE_OPENSSL
 ssl_incl = \
 	include/sslcommon.h
 ssl_SOURCES = \
