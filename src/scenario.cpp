@@ -1416,7 +1416,7 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setCheckItInverse(xp_get_bool("check_it_inverse", "ereg", false));
             }
 
-            if (!(ptr = xp_get_value((char *) "assign_to"))) {
+            if (!(ptr = xp_get_value("assign_to"))) {
                 ERROR("assign_to value is missing");
             }
 
@@ -1469,7 +1469,7 @@ void scenario::parseAction(CActions *actions)
         } else if(!strcmp(actionElem, "gettimeofday")) {
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY);
 
-            if (!(ptr = xp_get_value((char *) "assign_to"))) {
+            if (!(ptr = xp_get_value("assign_to"))) {
                 ERROR("assign_to value is missing");
             }
             createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
@@ -1613,27 +1613,27 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setActionType(CAction::E_AT_EXEC_INTCMD);
                 tmpAction->setIntCmd(type);
 #ifdef PCAPPLAY
-            } else if ((ptr = xp_get_value((char *) "play_pcap_audio"))) {
+            } else if ((ptr = xp_get_value("play_pcap_audio"))) {
                 tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
                 hasMedia = 1;
-            } else if ((ptr = xp_get_value((char *) "play_pcap_image"))) {
+            } else if ((ptr = xp_get_value("play_pcap_image"))) {
                 tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_IMAGE);
                 hasMedia = 1;
-            } else if ((ptr = xp_get_value((char *) "play_pcap_video"))) {
+            } else if ((ptr = xp_get_value("play_pcap_video"))) {
                 tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
                 hasMedia = 1;
 #else
-            } else if ((ptr = xp_get_value((char *) "play_pcap_audio"))) {
+            } else if ((ptr = xp_get_value("play_pcap_audio"))) {
                 ERROR("Scenario specifies a play_pcap_audio action, but this version of SIPp does not have PCAP support");
-            } else if ((ptr = xp_get_value((char *) "play_pcap_image"))) {
+            } else if ((ptr = xp_get_value("play_pcap_image"))) {
                 ERROR("Scenario specifies a play_pcap_image action, but this version of SIPp does not have PCAP support");
-            } else if ((ptr = xp_get_value((char *) "play_pcap_video"))) {
+            } else if ((ptr = xp_get_value("play_pcap_video"))) {
                 ERROR("Scenario specifies a play_pcap_video action, but this version of SIPp does not have PCAP support");
 #endif
-            } else if ((ptr = xp_get_value((char *) "rtp_stream"))) {
+            } else if ((ptr = xp_get_value("rtp_stream"))) {
 #ifdef RTP_STREAM
                 hasMedia = 1;
                 if (!strcmp(ptr, "pause")) {

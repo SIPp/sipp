@@ -2064,7 +2064,7 @@ int sip_tls_verify_callback(int ok , X509_STORE_CTX *store)
 }
 
 /***********  Load the CRL's into SSL_CTX **********************/
-int sip_tls_load_crls( SSL_CTX *ctx , char *crlfile)
+static int sip_tls_load_crls(SSL_CTX* ctx , const char* crlfile)
 {
     X509_STORE          *store;
     X509_LOOKUP         *lookup;

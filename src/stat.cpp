@@ -1074,7 +1074,7 @@ CStat::CStat ()
 
 char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
                                 int sizeOfTab,
-                                char * P_repartitionName)
+                                const char * P_repartitionName)
 {
     static char *repartitionHeader = NULL;
     char buffer[MAX_CHAR_BUFFER_SIZE];
@@ -1520,7 +1520,7 @@ void CStat::dumpData ()
         }
         (*M_outputStream) << sRepartitionHeader(M_CallLengthRepartition,
                                                 M_SizeOfCallLengthRepartition,
-                                                (char*) "CallLengthRepartition");
+                                                "CallLengthRepartition");
         (*M_outputStream) << endl;
         M_headerAlreadyDisplayed = true;
     }

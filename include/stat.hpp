@@ -527,7 +527,7 @@ private:
      */
     char* sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
                              int sizeOfTab,
-                             char* P_repartitionName);
+                             const char* P_repartitionName);
 
     /**
      * sRepartitionInfo

@@ -116,9 +116,9 @@
 #define T_SCTP                     3
 
 #ifdef _USE_OPENSSL
-#define DEFAULT_TLS_CERT           ((char *)"cacert.pem")
-#define DEFAULT_TLS_KEY            ((char *)"cakey.pem")
-#define DEFAULT_TLS_CRL            ((char *)"")
+#define DEFAULT_TLS_CERT           "cacert.pem"
+#define DEFAULT_TLS_KEY            "cakey.pem"
+#define DEFAULT_TLS_CRL            ""
 #endif
 
 #define TRANSPORT_TO_STRING(p)     ((p==T_TCP) ? "TCP" : ((p==T_TLS)? "TLS" : ((p==T_UDP)? "UDP" : "SCTP")))
@@ -154,8 +154,8 @@ cmd messages are received */
 #define DEFAULT_PORT                 5060
 #define DEFAULT_MEDIA_PORT           6000
 #define DEFAULT_3PCC_PORT            6060
-#define DEFAULT_SERVICE              ((char *)"service")
-#define DEFAULT_AUTH_PASSWORD        ((char *)"password")
+#define DEFAULT_SERVICE              "service"
+#define DEFAULT_AUTH_PASSWORD        "password"
 #define DEFAULT_REPORT_FREQ          1000
 #define DEFAULT_RATE_INCR_FREQ       0
 #define DEFAULT_REPORT_FREQ_DUMP_LOG 60000
@@ -318,9 +318,9 @@ extern bool               tdm_map[1024];
 #ifdef _USE_OPENSSL
 extern BIO              * twinSipp_bio;
 extern SSL              * twinSipp_ssl;
-extern char             * tls_cert_name           _DEFVAL(DEFAULT_TLS_CERT);
-extern char             * tls_key_name            _DEFVAL(DEFAULT_TLS_KEY);
-extern char             * tls_crl_name            _DEFVAL(DEFAULT_TLS_CRL);
+extern const char       * tls_cert_name           _DEFVAL(DEFAULT_TLS_CERT);
+extern const char       * tls_key_name            _DEFVAL(DEFAULT_TLS_KEY);
+extern const char       * tls_crl_name            _DEFVAL(DEFAULT_TLS_CRL);
 
 #endif
 
