@@ -1685,57 +1685,6 @@ void free_socketbuf(struct socketbuf *socketbuf)
     free(socketbuf);
 }
 
-static size_t decompress_if_needed(int sock, char* buff, size_t len, void** st)
-{
-    if (compression && len) {
-        if (useMessagef == 1) {
-            struct timeval currentTime;
-            GET_TIME (&currentTime);
-            TRACE_MSG("----------------------------------------------- %s\n"
-                      "Compressed message received, header :\n"
-                      "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x "
-                      "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
-                      CStat::formatTime(&currentTime, true),
-                      buff[0] , buff[1] , buff[2] , buff[3],
-                      buff[4] , buff[5] , buff[6] , buff[7],
-                      buff[8] , buff[9] , buff[10], buff[11],
-                      buff[12], buff[13], buff[14], buff[15]);
-        }
-
-        int rc = comp_uncompress(st,
-                                 buff,
-                                 (unsigned int *) &len);
-
-        switch(rc) {
-        case COMP_OK:
-            TRACE_MSG("Compressed message decompressed properly.\n");
-            break;
-
-        case COMP_REPLY:
-            TRACE_MSG("Compressed message KO, sending a reply (resynch).\n");
-            sendto(sock,
-                   buff,
-                   len,
-                   0,
-                   (sockaddr *)(void *)&remote_sockaddr,
-                   SOCK_ADDR_SIZE(&remote_sockaddr));
-            resynch_send++;
-            return 0;
-
-        case COMP_DISCARD:
-            TRACE_MSG("Compressed message discarded by plugin.\n");
-            resynch_recv++;
-            return 0;
-
-        default:
-        case COMP_KO:
-            ERROR("Compression plugin error");
-            return 0;
-        }
-    }
-    return len;
-}
-
 #ifdef USE_SCTP
 void sipp_sctp_peer_params(struct sipp_socket *socket)
 {
