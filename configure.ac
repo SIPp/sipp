@@ -21,6 +21,14 @@ AC_ARG_WITH([rtpstream],AC_HELP_STRING([--with-rtpstream], [build with RTP strea
 AC_ARG_WITH([sctp],AC_HELP_STRING([--with-sctp], [build with SCTP support]), [sctp="$withval"],[sctp="no"])
 AC_ARG_WITH([gsl],AC_HELP_STRING([--with-gsl], [build with GSL (GNU Scientific Library) support]), [gsl="$withval"],[gsl="no"])
 
+AC_ARG_ENABLE([epoll],
+              AC_HELP_STRING([--enable-epoll], [build with epoll backend]),
+              [case "$enableval" in
+                 yes | no) epoll="$enableval" ;;
+                 *)        AC_MSG_ERROR(bad value $enableval for --enable-epoll) ;;
+               esac],
+              [epoll="yes"])
+
 AC_PATH_PROG([HELP2MAN], help2man)
 AM_CONDITIONAL([HAVE_HELP2MAN], [test -n "$HELP2MAN"])
 if test x"$HELP2MAN" = x; then
@@ -177,11 +185,13 @@ fi
 # For Makefile.am
 AM_CONDITIONAL(HAVE_GSL, test "$gsl" = "yes")
 
-AX_HAVE_EPOLL([AX_CONFIG_FEATURE_ENABLE(epoll)],
-    [AX_CONFIG_FEATURE_DISABLE(epoll)])
-AX_CONFIG_FEATURE([epoll], [This platform supports epoll(7)],
-    [HAVE_EPOLL], [This platform supports epoll(7).],
-    [epoll="yes"], [epoll="no"])
+if test "$epoll" = 'yes'; then
+    AX_HAVE_EPOLL([AX_CONFIG_FEATURE_ENABLE(epoll)],
+        [AX_CONFIG_FEATURE_DISABLE(epoll)])
+    AX_CONFIG_FEATURE([epoll], [This platform supports epoll(7)],
+        [HAVE_EPOLL], [This platform supports epoll(7).],
+        [epoll="yes"], [epoll="no"])
+fi
 
 AM_CONDITIONAL(HAVE_EPOLL, test "$epoll" = "yes")
 # ==================== checks for header files ==========================
