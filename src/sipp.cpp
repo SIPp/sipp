@@ -440,7 +440,7 @@ static void pollset_process(int wait)
 
 #ifndef HAVE_EPOLL
     /* What index should we try reading from? */
-    static int read_index;
+    static size_t read_index;
 
     int loops = max_recv_loops;
 
@@ -491,7 +491,7 @@ static void pollset_process(int wait)
     for (int event_idx = 0; event_idx < rs; event_idx++) {
         int poll_idx = (int)epollevents[event_idx].data.u32;
 #else
-    for (int poll_idx = 0; rs > 0 && poll_idx < pollnfds; poll_idx++) {
+    for (size_t poll_idx = 0; rs > 0 && poll_idx < pollnfds; poll_idx++) {
 #endif
         struct sipp_socket *sock = sockets[poll_idx];
         int events = 0;
