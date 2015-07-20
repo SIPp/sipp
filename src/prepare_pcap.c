@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
+
 #if defined(__HPUX) || defined(__CYGWIN) || defined(__FreeBSD__)
 #include <netinet/in_systm.h>
 #endif
@@ -34,6 +35,7 @@
 
 #include "prepare_pcap.h"
 #include "screen.hpp"
+#include "endian.h"
 
 /* We define our own structures for Ethernet Header and IPv6 Header as they are not available on CYGWIN.
  * We only need the fields, which are necessary to determine the type of the next header.
@@ -85,14 +87,79 @@ inline uint16_t checksum_carry(int s)
 
 char errbuf[PCAP_ERRBUF_SIZE];
 
+/* get octet offset to EtherType block in 802.11 frame
+*/
+size_t get_802_11_ethertype_offset(int link, const uint8_t* pktdata)
+{
+    size_t offset = 0;
+    /* get RadioTap header length
+    */
+    if (link == DLT_IEEE802_11_RADIO) {
+        uint16_t rdtap_hdr_len = 0;
+        /* http://www.radiotap.org */
+        /* rdtap_version[1], pad[1], rdtap_hdr_len[2], rdtap_flds[4] */
+        memcpy(&rdtap_hdr_len, pktdata + 2, sizeof(rdtap_hdr_len));
+        /* http://radiotap.org */
+        /* all data fields in the radiotap header are to be specified in little-endian order */
+        rdtap_hdr_len = le16toh(rdtap_hdr_len);
+        offset += rdtap_hdr_len;
+    }
+    /* 2 bits */
+    uint8_t frame_type = 0;
+    /* 4 bits */
+    uint8_t frame_sub_type = 0;
+    /* Frame Control Field */
+    uint16_t frame_ctl_fld;
+    memcpy(&frame_ctl_fld, pktdata + offset, sizeof(frame_ctl_fld));
+    /* extract frame type and subtype from Frame Control Field
+    */
+    frame_type = frame_sub_type = frame_ctl_fld>>8;
+    frame_type = frame_type>>2 & 0x03; 
+    frame_sub_type >>= 4;
+    if (frame_type < 0x02) {
+        /* Control or Management frame, so ignore it and try to get EtherType from next one
+        */
+        offset = 0;
+    } else if (frame_type == 0x02) {
+        /* only Data frames carry the relevant payload and EtherType
+        */
+        if (frame_sub_type < 0x04
+            || (frame_sub_type > 0x07 && frame_sub_type < 0x0c)) {
+            /* MAC header of a Data frame is at least 24 and at most 36 octets long                         
+            */
+            size_t mac_hdr_len = 24;
+            uint8_t llc_hdr[8] = { 0x00 };
+            while (mac_hdr_len <= 36) {
+                /* attempt to get Logical-Link Control header */
+                /* dsap[1],ssap[1],ctrl_fld[1],org_code[3],ethertype[2] */
+                memcpy(llc_hdr, pktdata + offset + mac_hdr_len, sizeof(llc_hdr));
+                /* Check if Logical-Link Control header 
+                */
+                if (llc_hdr[0] == 0xaa && llc_hdr[1] == 0xaa && llc_hdr[2] == 0x03) {
+                    /* get EtherType and convert to host byte-order
+                    */
+                    offset += mac_hdr_len + (sizeof(llc_hdr) - sizeof(eth_type));
+                    break;
+                }
+                mac_hdr_len++;
+            }
+        } else {
+            /* could be Null Data frame, so ignore it and try to get EtherType from next one */
+            offset = 0;
+        }
+    } else {
+        ERROR("Unsupported frame type %d", frame_type);
+    }
+    return offset;
+}
+
 /* get octet offset to EtherType block
 */
 size_t get_ethertype_offset(int link, const uint8_t* pktdata)
 {
-    uint8_t offset = 0;
+    uint8_t is_LE_encoded = 0;
     uint16_t eth_type = 0;
-    const uint8_t vlan_tag_offset = 4;
-
+    size_t offset = 0;
     /* http://www.tcpdump.org/linktypes.html */
     if (link == DLT_EN10MB) {
         /* srcmac[6], dstmac[6], ethertype[2] */
@@ -101,19 +168,28 @@ size_t get_ethertype_offset(int link, const uint8_t* pktdata)
         /* http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html */
         /* pkttype[2], arphrd_type[2], lladdrlen[2], lladdr[8], ethertype[2] */
         offset = 14;
+    } else if (link == DLT_IEEE802_11
+               || link == DLT_IEEE802_11_RADIO) {
+        offset = get_802_11_ethertype_offset(link, pktdata);
+        /* multi-octet fields in 802.11 frame are to be specified in little-endian order */
+        is_LE_encoded = 1;
     } else {
         ERROR("Unsupported link-type %d", link);
     }
 
-    memcpy(&eth_type, pktdata + offset, sizeof(eth_type));
-    eth_type = ntohs(eth_type);
-    if (eth_type != 0x0800 && eth_type != 0x86dd) {
-        /* check if Ethernet 802.1Q VLAN */
-        if (eth_type == 0x8100) {
-            /* vlan_tag[4] */
-            offset += vlan_tag_offset;
-        } else {
-            ERROR("Unsupported ethernet type %d", eth_type);
+    if (offset) {
+        /* get EtherType and convert to host byte order 
+        */
+        memcpy(&eth_type, pktdata + offset, sizeof(eth_type));
+        eth_type = (is_LE_encoded) ? le16toh(eth_type) : ntohs(eth_type);
+        if (eth_type != 0x0800 && eth_type != 0x86dd) {
+            /* check if Ethernet 802.1Q VLAN */
+            if (eth_type == 0x8100) {
+                /* vlan_tag[4] */
+                offset += 4;
+            } else {
+                ERROR("Unsupported ethernet type %d", eth_type);
+            }
         }
     }
     return offset;
