@@ -42,6 +42,8 @@
 #include "socket.hpp"
 #include "logger.hpp"
 
+#include <limits>
+
 extern bool do_hide;
 extern bool show_index;
 
@@ -65,6 +67,29 @@ struct sipp_socket  *sockets[SIPP_MAXFDS];
 int pending_messages = 0;
 
 map<string, struct sipp_socket *>     map_perip_fd;
+
+int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
+                    short port, int flags, int family)
+{
+    int error = 0;
+    const struct addrinfo hints = {flags, family};
+    struct addrinfo* res;
+
+    if (port) {
+        char service[std::numeric_limits<short>::digits10 + 1];
+        snprintf(service, sizeof(service), "%d", port);
+        error = getaddrinfo(host, service, &hints, &res);
+    } else {
+        error = getaddrinfo(host, NULL, &hints, &res);
+    }
+
+    if (error == 0) {
+        memcpy(ss, res->ai_addr, res->ai_addrlen);
+        freeaddrinfo(res);
+    }
+
+    return error;
+}
 
 static void process_set(char* what)
 {
@@ -500,20 +525,11 @@ void setup_ctrl_socket()
 
     memset(&ctl_sa, 0, sizeof(struct sockaddr_storage));
     if (control_ip[0]) {
-        struct addrinfo hints;
-        struct addrinfo *addrinfo;
-
-        memset((char*)&hints, 0, sizeof(hints));
-        hints.ai_flags  = AI_PASSIVE;
-        hints.ai_family = PF_UNSPEC;
-
-        if (getaddrinfo(control_ip, NULL, &hints, &addrinfo) != 0) {
-            ERROR("Unknown control address '%s'.\n"
-                  "Use 'sipp -h' for details", control_ip);
+        int error = gai_getsockaddr(&ctl_sa, control_ip, 0, AI_PASSIVE, AF_UNSPEC);
+        if (error != 0) {
+            ERROR("Failed to resolve control address '%s': %s.\n"
+                  "Use 'sipp -h' for details", control_ip, gai_strerror(error));
         }
-
-        memcpy(&ctl_sa, addrinfo->ai_addr, addrinfo->ai_addrlen);
-        freeaddrinfo(addrinfo);
     } else {
         ((struct sockaddr_in *)&ctl_sa)->sin_family = AF_INET;
         ((struct sockaddr_in *)&ctl_sa)->sin_addr.s_addr = INADDR_ANY;
@@ -825,25 +841,13 @@ static int handleSCTPNotify(struct sipp_socket* socket, char* buffer)
 void set_multihome_addr(struct sipp_socket* socket, int port)
 {
     if (strlen(multihome_ip)>0) {
-        struct addrinfo * multi_addr;
-        struct addrinfo   hints;
-        memset((char*)&hints, 0, sizeof(hints));
-        hints.ai_flags  = AI_PASSIVE;
-        hints.ai_family = PF_UNSPEC;
-
-        if (getaddrinfo(multihome_ip, NULL, &hints, &multi_addr) != 0) {
-            ERROR("Can't get multihome IP address in getaddrinfo, multihome_ip='%s'", multihome_ip);
-        }
-
         struct sockaddr_storage secondaryaddress;
-        memset(&secondaryaddress, 0, sizeof(secondaryaddress));
 
-        memcpy(&secondaryaddress, multi_addr->ai_addr, multi_addr->ai_addrlen);
-        freeaddrinfo(multi_addr);
-
-        if (port>0) {
-            if (secondaryaddress.ss_family==AF_INET) ((struct sockaddr_in*)&secondaryaddress)->sin_port=htons(port);
-            else if (secondaryaddress.ss_family==AF_INET6) ((struct sockaddr_in6*)&secondaryaddress)->sin6_port=htons(port);
+        int error = gai_getsockaddr(&secondaryaddress, multihome_ip,
+                                    port, AI_PASSIVE, AF_UNSPEC);
+        if (error != 0) {
+            ERROR("Can't get multihome IP address '%s': %s.\n",
+                  multihome_ip, gai_strerror(error));
         }
 
         int ret = sctp_bindx(socket->ss_fd, (struct sockaddr *) &secondaryaddress,
@@ -2448,90 +2452,47 @@ int open_connections()
 
         /* Resolving the remote IP */
         {
-            struct addrinfo   hints;
-            struct addrinfo * local_addr;
-
-            fprintf(stderr, "Resolving remote host '%s'... ", remote_host);
-
-            memset((char*)&hints, 0, sizeof(hints));
-            hints.ai_flags  = AI_PASSIVE;
-            hints.ai_family = PF_UNSPEC;
-
-            /* FIXME: add DNS SRV support using liburli? */
-            if (getaddrinfo(remote_host,
-                            NULL,
-                            &hints,
-                            &local_addr) != 0) {
-                ERROR("Unknown remote host '%s'.\n"
-                      "Use 'sipp -h' for details", remote_host);
+            int error = gai_getsockaddr(&remote_sockaddr, remote_host, remote_port,
+                                        AI_PASSIVE, AF_UNSPEC);
+            if (error != 0) {
+                ERROR("Unknown remote host '%s': %s.\n"
+                      "Use 'sipp -h' for details", remote_host, gai_strerror(error));
             }
-
-            memset(&remote_sockaddr, 0, sizeof( remote_sockaddr ));
-            memcpy(&remote_sockaddr, local_addr->ai_addr, local_addr->ai_addrlen);
-            freeaddrinfo(local_addr);
 
             get_inet_address(&remote_sockaddr, remote_ip, sizeof(remote_ip));
             if (remote_sockaddr.ss_family == AF_INET) {
-                (_RCAST(struct sockaddr_in *, &remote_sockaddr))->sin_port =
-                    htons((short)remote_port);
                 strcpy(remote_ip_escaped, remote_ip);
             } else {
-                (_RCAST(struct sockaddr_in6 *, &remote_sockaddr))->sin6_port =
-                    htons((short)remote_port);
                 sprintf(remote_ip_escaped, "[%s]", remote_ip);
             }
             fprintf(stderr, "Done.\n");
         }
     }
 
-    if (gethostname(hostname, 64) != 0) {
-        ERROR_NO("Can't get local hostname in 'gethostname(hostname, 64)'");
-    }
-
     {
-        const char* local_host = NULL;
-        struct addrinfo* local_addr;
-        struct addrinfo hints = {AI_PASSIVE, AF_UNSPEC,};
+        const char* node;
 
-        if (!strlen(local_ip)) {
-            if (sendMode == MODE_CLIENT) {
-                if (remote_sockaddr.ss_family == AF_INET) {
-                    local_host = "0.0.0.0";
-                } else {
-                    local_host = "::";
-                }
-            } else {
-                 local_host = hostname;
+        if (local_ip[0]) {
+            node = local_ip;
+        } else if (sendMode == MODE_SERVER) {
+            if (gethostname(hostname, 64) != 0) {
+                ERROR_NO("Can't get local hostname in 'gethostname(hostname, 64)'");
             }
+            node = hostname;
         } else {
-            local_host = local_ip;
+            node = NULL;
         }
-
-        memset((char*)&hints, 0, sizeof(hints));
-        hints.ai_flags  = AI_PASSIVE;
-        hints.ai_family = PF_UNSPEC;
 
         /* Resolving local IP */
-        if (getaddrinfo(local_host, NULL, &hints, &local_addr) != 0) {
-            ERROR("Can't get local IP address in getaddrinfo, local_host='%s', local_ip='%s'",
-                  local_host,
-                  local_ip);
+        int error = gai_getsockaddr(&local_sockaddr, node, 0, AI_PASSIVE, AF_UNSPEC);
+        if (error != 0) {
+            ERROR("Can't get local IP address in getaddrinfo, local_host='%s', local_ip='%s': %s",
+                  node, local_ip, gai_strerror(error));
         }
-        // store local addr info for rsa option
-        getaddrinfo(local_host, NULL, &hints, &local_addr_storage);
 
-        memset(&local_sockaddr, 0, sizeof(struct sockaddr_storage));
-        local_sockaddr.ss_family = local_addr->ai_addr->sa_family;
-
-        if (!strlen(local_ip)) {
-            get_inet_address(_RCAST(struct sockaddr_storage*, local_addr->ai_addr),
-			     local_ip, sizeof(local_ip));
-        } else {
-            memcpy(&local_sockaddr,
-                   local_addr->ai_addr,
-                   local_addr->ai_addrlen);
+        if (!local_ip[0]) {
+            get_inet_address(&local_sockaddr, local_ip, sizeof(local_ip));
         }
-        freeaddrinfo(local_addr);
 
         if (local_sockaddr.ss_family == AF_INET6) {
             local_ip_is_ipv6 = true;
@@ -2558,45 +2519,24 @@ int open_connections()
 
             // Bind socket to local_ip
             if (bind_local || peripsocket) {
-                struct addrinfo * local_addr;
-                struct addrinfo   hints;
-                memset((char*)&hints, 0, sizeof(hints));
-                hints.ai_flags  = AI_PASSIVE;
-                hints.ai_family = PF_UNSPEC;
-
+                int error = 0;
                 if (peripsocket) {
                     // On some machines it fails to bind to the self computed local
                     // IP address.
                     // For the socket per IP mode, bind the main socket to the
                     // first IP address specified in the inject file.
                     inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
-                    if (getaddrinfo(peripaddr,
-                                    NULL,
-                                    &hints,
-                                    &local_addr) != 0) {
-                        ERROR("Unknown host '%s'.\n"
-                              "Use 'sipp -h' for details", peripaddr);
-                    }
+                    error = gai_getsockaddr(&local_sockaddr, peripaddr, l_port,
+                                            AI_PASSIVE, AF_UNSPEC);
                 } else {
-                    if (getaddrinfo(local_ip,
-                                    NULL,
-                                    &hints,
-                                    &local_addr) != 0) {
-                        ERROR("Unknown host '%s'.\n"
-                              "Use 'sipp -h' for details", peripaddr);
-                    }
+                    error = gai_getsockaddr(&local_sockaddr, local_ip, l_port,
+                                            AI_PASSIVE, AF_UNSPEC);
                 }
-                memcpy(&local_sockaddr,
-                       local_addr->ai_addr,
-                       local_addr->ai_addrlen);
-                freeaddrinfo(local_addr);
-            }
-            if (local_ip_is_ipv6) {
-                (_RCAST(struct sockaddr_in6 *, &local_sockaddr))->sin6_port
-                    = htons((short)l_port);
-            } else {
-                (_RCAST(struct sockaddr_in *, &local_sockaddr))->sin_port
-                    = htons((short)l_port);
+
+                if (error != 0) {
+                    ERROR("Unknown host '%s': %s.\n"
+                          "Use 'sipp -h' for details", peripaddr, gai_strerror(error));
+                }
             }
             if (sipp_bind_socket(main_socket, &local_sockaddr, &local_port) == 0) {
                 break;
@@ -2609,47 +2549,26 @@ int open_connections()
          * the system choose a port. */
 
         if (bind_local || peripsocket) {
-            struct addrinfo * local_addr;
-            struct addrinfo   hints;
-            memset((char*)&hints, 0, sizeof(hints));
-            hints.ai_flags  = AI_PASSIVE;
-            hints.ai_family = PF_UNSPEC;
-
+            int error = 0;
             if (peripsocket) {
                 // On some machines it fails to bind to the self computed local
                 // IP address.
                 // For the socket per IP mode, bind the main socket to the
                 // first IP address specified in the inject file.
                 inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
-                if (getaddrinfo(peripaddr,
-                                NULL,
-                                &hints,
-                                &local_addr) != 0) {
-                    ERROR("Unknown host '%s'.\n"
-                          "Use 'sipp -h' for details", peripaddr);
-                }
+                error = gai_getsockaddr(&local_sockaddr, peripaddr, user_port,
+                                        AI_PASSIVE, AF_UNSPEC);
             } else {
-                if (getaddrinfo(local_ip,
-                                NULL,
-                                &hints,
-                                &local_addr) != 0) {
-                    ERROR("Unknown host '%s'.\n"
-                          "Use 'sipp -h' for details", peripaddr);
-                }
+                error = gai_getsockaddr(&local_sockaddr, local_ip, user_port,
+                                        AI_PASSIVE, AF_UNSPEC);
             }
-            memcpy(&local_sockaddr,
-                   local_addr->ai_addr,
-                   local_addr->ai_addrlen);
-            freeaddrinfo(local_addr);
+
+            if (error != 0) {
+                ERROR("Unknown host '%s': %s.\n"
+                      "Use 'sipp -h' for details", peripaddr, gai_strerror(error));
+            }
         }
 
-        if (local_ip_is_ipv6) {
-            (_RCAST(struct sockaddr_in6 *, &local_sockaddr))->sin6_port
-                = htons((short)user_port);
-        } else {
-            (_RCAST(struct sockaddr_in *, &local_sockaddr))->sin_port
-                = htons((short)user_port);
-        }
         if (sipp_bind_socket(main_socket, &local_sockaddr, &local_port)) {
             ERROR_NO("Unable to bind main socket");
         }
@@ -2664,11 +2583,6 @@ int open_connections()
     // IP address mode.
     if (peripsocket && sendMode == MODE_SERVER) {
         struct sockaddr_storage server_sockaddr;
-        struct addrinfo * local_addr;
-        struct addrinfo   hints;
-        memset((char*)&hints, 0, sizeof(hints));
-        hints.ai_flags  = AI_PASSIVE;
-        hints.ai_family = PF_UNSPEC;
 
         char peripaddr[256];
         struct sipp_socket *sock;
@@ -2683,25 +2597,11 @@ int open_connections()
                     ERROR_NO("Unable to get server socket");
                 }
 
-                if (getaddrinfo(peripaddr,
-                                NULL,
-                                &hints,
-                                &local_addr) != 0) {
-                    ERROR("Unknown remote host '%s'.\n"
-                          "Use 'sipp -h' for details", peripaddr);
-                }
-
-                memcpy(&server_sockaddr,
-                       local_addr->ai_addr,
-                       local_addr->ai_addrlen);
-                freeaddrinfo(local_addr);
-
-                if (is_ipv6) {
-                    (_RCAST(struct sockaddr_in6 *, &server_sockaddr))->sin6_port
-                        = htons((short)local_port);
-                } else {
-                    (_RCAST(struct sockaddr_in *, &server_sockaddr))->sin_port
-                        = htons((short)local_port);
+                int error = gai_getsockaddr(&server_sockaddr, peripaddr, local_port,
+                                            AI_PASSIVE, AF_UNSPEC);
+                if (error != 0) {
+                    ERROR("Unknown remote host '%s': %s.\n"
+                          "Use 'sipp -h' for details", peripaddr, gai_strerror(error));
                 }
 
                 sipp_customize_socket(sock);
@@ -2807,37 +2707,17 @@ void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *pe
 
     /* Resolving the  peer IP */
     printf("Resolving peer address : %s...\n", peer_host);
-    struct addrinfo   hints;
-    struct addrinfo * local_addr;
-    memset((char*)&hints, 0, sizeof(hints));
-    hints.ai_flags  = AI_PASSIVE;
-    hints.ai_family = PF_UNSPEC;
-    is_ipv6 = false;
+
     /* Resolving twin IP */
-    if (getaddrinfo(peer_host,
-                    NULL,
-                    &hints,
-                    &local_addr) != 0) {
-
-        ERROR("Unknown peer host '%s'.\n"
-              "Use 'sipp -h' for details", peer_host);
+    int error = gai_getsockaddr(peer_sockaddr, peer_host, peer_port,
+                                AI_PASSIVE, AF_UNSPEC);
+    if (error != 0) {
+        ERROR("Unknown peer host '%s': %s.\n"
+              "Use 'sipp -h' for details", peer_host, gai_strerror(error));
     }
 
-    memcpy(peer_sockaddr,
-           local_addr->ai_addr,
-           local_addr->ai_addrlen);
-
-    freeaddrinfo(local_addr);
-
-    if (peer_sockaddr->ss_family == AF_INET) {
-        (_RCAST(struct sockaddr_in *, peer_sockaddr))->sin_port =
-            htons((short)peer_port);
-    } else {
-        (_RCAST(struct sockaddr_in6 *, peer_sockaddr))->sin6_port =
-            htons((short)peer_port);
-        is_ipv6 = true;
-    }
     get_inet_address(peer_sockaddr, peer_ip, sizeof(peer_ip));
+    is_ipv6 = peer_sockaddr->ss_family == AF_INET6;
 
     if ((*peer_socket = new_sipp_socket(is_ipv6, T_TCP)) == NULL) {
         ERROR_NO("Unable to get a twin sipp TCP socket");
@@ -2902,47 +2782,19 @@ void connect_local_twin_socket(char * twinSippHost)
 {
     /* Resolving the listener IP */
     printf("Resolving listener address : %s...\n", twinSippHost);
-    struct addrinfo   hints;
-    struct addrinfo * local_addr;
-    memset((char*)&hints, 0, sizeof(hints));
-    hints.ai_flags  = AI_PASSIVE;
-    hints.ai_family = PF_UNSPEC;
-    is_ipv6 = false;
 
-    /* Resolving twin IP */
-    if (getaddrinfo(twinSippHost,
-                    NULL,
-                    &hints,
-                    &local_addr) != 0) {
-        ERROR("Unknown twin host '%s'.\n"
-              "Use 'sipp -h' for details", twinSippHost);
+    int error = gai_getsockaddr(&twinSipp_sockaddr, twinSippHost, twinSippPort,
+                                AI_PASSIVE, AF_UNSPEC);
+    if (error != 0) {
+        ERROR("Unknown twin host '%s': %s.\n"
+              "Use 'sipp -h' for details", twinSippHost, gai_strerror(error));
     }
-    memcpy(&twinSipp_sockaddr, local_addr->ai_addr, local_addr->ai_addrlen);
-    freeaddrinfo(local_addr);
 
-    if (twinSipp_sockaddr.ss_family == AF_INET) {
-        (_RCAST(struct sockaddr_in *, &twinSipp_sockaddr))->sin_port =
-            htons((short)twinSippPort);
-    } else {
-        (_RCAST(struct sockaddr_in6 *, &twinSipp_sockaddr))->sin6_port =
-            htons((short)twinSippPort);
-        is_ipv6 = true;
-    }
     get_inet_address(&twinSipp_sockaddr, twinSippIp, sizeof(twinSippIp));
+    is_ipv6 = twinSipp_sockaddr.ss_family == AF_INET6;
 
     if ((localTwinSippSocket = new_sipp_socket(is_ipv6, T_TCP)) == NULL) {
         ERROR_NO("Unable to get a listener TCP socket ");
-    }
-
-    memset(&localTwin_sockaddr, 0, sizeof(struct sockaddr_storage));
-    if (!is_ipv6) {
-        localTwin_sockaddr.ss_family = AF_INET;
-        (_RCAST(struct sockaddr_in *, &localTwin_sockaddr))->sin_port =
-            htons((short)twinSippPort);
-    } else {
-        localTwin_sockaddr.ss_family = AF_INET6;
-        (_RCAST(struct sockaddr_in6 *, &localTwin_sockaddr))->sin6_port =
-            htons((short)twinSippPort);
     }
 
     // add socket option to allow the use of it without the TCP timeout

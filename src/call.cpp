@@ -904,23 +904,7 @@ bool call::connect_socket_if_needed()
         }
 
         if (peripsocket) {
-            struct addrinfo * h ;
-            struct addrinfo   hints;
-            memset((char*)&hints, 0, sizeof(hints));
-            hints.ai_flags  = AI_PASSIVE;
-            hints.ai_family = PF_UNSPEC;
-            getaddrinfo(peripaddr,
-                        NULL,
-                        &hints,
-                        &h);
-            memcpy(&saddr, h->ai_addr, h->ai_addrlen);
-
-            if (use_ipv6) {
-                (_RCAST(struct sockaddr_in6*, &saddr))->sin6_port = htons(local_port);
-            } else {
-                (_RCAST(struct sockaddr_in*, &saddr))->sin_port = htons(local_port);
-            }
-            freeaddrinfo(h);
+            gai_getsockaddr(&saddr, peripaddr, local_port, AI_PASSIVE, AF_UNSPEC);
         }
 
         if (sipp_bind_socket(call_socket, &saddr, &call_port)) {
@@ -3644,27 +3628,10 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 }
             }
 
-            struct addrinfo   hints;
-            struct addrinfo * local_addr;
-            memset((char*)&hints, 0, sizeof(hints));
-            hints.ai_flags  = AI_PASSIVE;
-            hints.ai_family = PF_UNSPEC;
             is_ipv6 = false;
-
-            if (getaddrinfo(str_host, NULL, &hints, &local_addr) != 0) {
-                ERROR("Unknown host '%s' for setdest", str_host);
-            }
-            if (_RCAST(struct sockaddr_storage *, local_addr->ai_addr)->ss_family != call_peer.ss_family) {
-                ERROR("Can not switch between IPv4 and IPV6 using setdest!");
-            }
-
-            memcpy(&call_peer, local_addr->ai_addr, local_addr->ai_addrlen);
-            freeaddrinfo(local_addr);
-
-            if (call_peer.ss_family == AF_INET) {
-                (_RCAST(struct sockaddr_in*, &call_peer))->sin_port = htons(port);
-            } else {
-                (_RCAST(struct sockaddr_in6*, &call_peer))->sin6_port = htons(port);
+            int error = gai_getsockaddr(&call_peer, str_host, port, AI_PASSIVE, call_peer.ss_family);
+            if (error != 0) {
+                ERROR("Unknown host '%s' for setdest: %s", str_host, gai_strerror(error));
             }
 
             memcpy(&call_socket->ss_dest, &call_peer, sizeof(call_peer));

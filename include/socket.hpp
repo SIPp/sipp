@@ -144,5 +144,6 @@ void sipp_close_socket(struct sipp_socket *socket);
 #define _RCAST(type, val) ((type)(val))
 #endif
 
+int gai_getsockaddr(struct sockaddr_storage* ss, const char* host, short port, int flags, int family);
 
 #endif /* __SIPP_SOCKET_H__ */
