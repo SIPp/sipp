@@ -99,11 +99,12 @@ static char* quoted_strchr(const char* s, int c)
 
     for (p = s; *p && *p != c; p++) {
         if (*p == '"') {
-            p += strspn(p, "\"");
+            p++;
+            p += strcspn(p, "\"");
         }
     }
 
-    return *p ? const_cast<char*>(p) : NULL;
+    return *p == c ? const_cast<char*>(p) : NULL;
 }
 
 SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool skip_sanity)
