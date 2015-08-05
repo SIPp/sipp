@@ -1,3 +1,8 @@
+<a href="https://scan.coverity.com/projects/5988">
+  <img alt="Coverity Scan Build Status"
+       src="https://scan.coverity.com/projects/5988/badge.svg"/>
+</a>
+
 SIPp - a SIP protocol test tool
 Copyright (C) 2003-2015 - The Authors
 
