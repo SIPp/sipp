@@ -543,10 +543,11 @@ void SendingMessage::parseAuthenticationKeyword(scenario *msg_scenario, struct M
     getKeywordParam(keyword, "password=", my_auth_pass);
 
     if(*my_auth_user == '\0') {
-        strcpy(my_auth_user, auth_username ? auth_username : service);
+        strncpy(my_auth_user, auth_username ? auth_username : service,
+                sizeof(my_auth_user) - 1);
     }
     if(*my_auth_pass == '\0') {
-        strcpy(my_auth_pass, auth_password);
+        strncpy(my_auth_pass, auth_password, sizeof(my_auth_pass) - 1);
     }
 
 

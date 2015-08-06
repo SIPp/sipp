@@ -101,7 +101,7 @@ void screen_clear()
 
 void screen_set_exename(const char* exe_name)
 {
-    strcpy(screen_exename, exe_name);
+    strncpy(screen_exename, exe_name, sizeof(screen_exename) - 1);
 }
 
 void screen_init()

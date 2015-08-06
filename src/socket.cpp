@@ -2252,7 +2252,7 @@ static ssize_t socket_write_primitive(struct sipp_socket* socket, const char* bu
     case T_UDP:
         if (compression) {
             static char comp_msg[SIPP_MAX_MSG_SIZE];
-            strcpy(comp_msg, buffer);
+            strncpy(comp_msg, buffer, sizeof(comp_msg) - 1);
             if (comp_compress(&socket->ss_comp_state,
                              comp_msg,
                              (unsigned int *) &len) != COMP_OK) {
@@ -2780,12 +2780,12 @@ int open_connections()
         }
     } else if (extendedTwinSippMode) {
         if (thirdPartyMode == MODE_MASTER || thirdPartyMode == MODE_MASTER_PASSIVE) {
-            strcpy(twinSippHost, get_peer_addr(master_name));
+            strncpy(twinSippHost, get_peer_addr(master_name), sizeof(twinSippHost) - 1);
             get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
             connect_local_twin_socket(twinSippHost);
             connect_to_all_peers();
         } else if (thirdPartyMode == MODE_SLAVE) {
-            strcpy(twinSippHost, get_peer_addr(slave_number));
+            strncpy(twinSippHost, get_peer_addr(slave_number), sizeof(twinSippHost) - 1);
             get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
             connect_local_twin_socket(twinSippHost);
         } else {

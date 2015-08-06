@@ -278,7 +278,7 @@ static int createAuthResponseMD5(const char* user,
     if (auth_uri) {
         sprintf(tmp, "sip:%s", auth_uri);
     } else {
-        strcpy(tmp, uri);
+        strncpy(tmp, uri, sizeof(tmp) - 1);
     }
     // If using Auth-Int make a hash of the body - which is NULL for REG
     if (stristr(authtype, "auth-int") != NULL) {

@@ -947,7 +947,7 @@ scenario::scenario(char * filename, int deflt)
                     {
                         T_peer_infos infos = {};
                         infos.peer_socket = 0;
-                        strcpy(infos.peer_host, get_peer_addr(peer));
+                        strncpy(infos.peer_host, get_peer_addr(peer), sizeof(infos.peer_host) - 1);
                         peers[std::string(peer)] = infos;
                     }
                 } else if (extendedTwinSippMode) {

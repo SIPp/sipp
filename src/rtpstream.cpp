@@ -688,7 +688,8 @@ int rtpstream_cache_file (char *filename)
     cached_files= newcachelist;
   }
   cached_files[num_cached_files].bytes= filecontents;
-  strcpy(cached_files[num_cached_files].filename,filename);
+  strncpy(cached_files[num_cached_files].filename,filename,
+          sizeof(cached_files[num_cached_files].filename) - 1);
   cached_files[num_cached_files].filesize=statbuffer.st_size;
   return num_cached_files++;
 }

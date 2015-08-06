@@ -2767,7 +2767,7 @@ void call::formatNextReqUrl (char* next_req_url)
     if (actual_req_url) {
         /* using a temporary buffer */
         char tempBuffer[MAX_HEADER_LEN];
-        strcpy(tempBuffer, actual_req_url + 1);
+        strncpy(tempBuffer, actual_req_url + 1, sizeof(tempBuffer) - 1);
         actual_req_url = strrchr(tempBuffer, '>');
         *actual_req_url = '\0';
         strcpy(next_req_url, tempBuffer);
@@ -2817,7 +2817,7 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
                 isFirst = false;
                 if (NULL == strstr (pointer, ";lr")) {
                     /* bottom most RR is the next_req_url */
-                    strcpy (targetURI, pointer + 1);
+                    strncpy(targetURI, pointer + 1, sizeof(targetURI) - 1);
                     bCopyContactToRR = true;
                 } else {
                     /* the hop is a loose router. Thus, the target URI should be the
@@ -3316,11 +3316,11 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
 
         char rr[MAX_HEADER_LEN];
         memset(rr, 0, sizeof(rr));
-        strcpy(rr, get_header_content(msg, (char*)"Record-Route:"));
+        strncpy(rr, get_header_content(msg, (char*)"Record-Route:"), sizeof(rr) - 1);
 
         // WARNING("rr [%s]", rr);
         char ch[MAX_HEADER_LEN];
-        strcpy(ch, get_header_content(msg, (char*)"Contact:"));
+        strncpy(ch, get_header_content(msg, (char*)"Contact:"), sizeof(rr) - 1);
 
         /* decorate the contact with '<' and '>' if it does not have it */
         char* contDecorator = strchr(ch, '<');
@@ -3346,9 +3346,9 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
         /* is a challenge */
         char auth[MAX_HEADER_LEN];
         memset(auth, 0, sizeof(auth));
-        strcpy(auth, get_header_content(msg, (char*)"Proxy-Authenticate:"));
+        strncpy(auth, get_header_content(msg, (char*)"Proxy-Authenticate:"), sizeof(auth) - 1);
         if (auth[0] == 0) {
-            strcpy(auth, get_header_content(msg, (char*)"WWW-Authenticate:"));
+            strncpy(auth, get_header_content(msg, (char*)"WWW-Authenticate:"), sizeof(auth) - 1);
         }
         if (auth[0] == 0) {
             ERROR("Couldn't find 'Proxy-Authenticate' or 'WWW-Authenticate' in 401 or 407!");

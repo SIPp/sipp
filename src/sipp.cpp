@@ -1368,7 +1368,7 @@ int main(int argc, char *argv[])
             struct sipp_option *option = find_option(argv[argi]);
             if (!option) {
                 if((argv[argi])[0] != '-') {
-                    strcpy(remote_host, argv[argi]);
+                    strncpy(remote_host, argv[argi], sizeof(remote_host) - 1);
                     continue;
                 }
                 help();
