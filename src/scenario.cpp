@@ -945,7 +945,7 @@ scenario::scenario(char * filename, int deflt)
                         has not been added in the map
                         (first occurrence in the scenario) */
                     {
-                        T_peer_infos infos;
+                        T_peer_infos infos = {};
                         infos.peer_socket = 0;
                         strcpy(infos.peer_host, get_peer_addr(peer));
                         peers[std::string(peer)] = infos;
