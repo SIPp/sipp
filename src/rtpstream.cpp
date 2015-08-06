@@ -278,7 +278,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t *taskinfo, unsigned long 
 
     if (taskinfo->video_rtp_socket != -1) {
         /* just keep listening on rtp socket (is this really required?) - ignore any errors */
-        while ((rc = recv(taskinfo->video_rtcp_socket, udp.buffer, sizeof(udp), 0)) >= 0) {
+        while ((rc = recv(taskinfo->video_rtp_socket, udp.buffer, sizeof(udp), 0)) >= 0) {
             /*
              * rtpstream_bytes_in += rc;
              */
@@ -297,7 +297,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t *taskinfo, unsigned long 
     if (taskinfo->audio_rtp_socket != -1) {
         /* this is temp code - will have to reorganize if/when we include echo functionality */
         /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
-        while ((rc = recv(taskinfo->audio_rtcp_socket, udp.buffer, sizeof(udp), 0)) >= 0) {
+        while ((rc = recv(taskinfo->audio_rtp_socket, udp.buffer, sizeof(udp), 0)) >= 0) {
             /* for now we will just ignore any received data or receive errors */
             /* separate code path for RTP echo */
             rtpstream_bytes_in += rc;
