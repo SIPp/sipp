@@ -266,7 +266,7 @@ struct sipp_option options_table[] = {
 
     {"", "Call rate options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"r", "Set the call rate (in calls per seconds).  This value can be"
-     "changed during test by pressing '+','_','*' or '/'. Default is 10.\n"
+     "changed during test by pressing '+', '_', '*' or '/'. Default is 10.\n"
      "pressing '+' key to increase call rate by 1 * rate_scale,\n"
      "pressing '-' key to decrease call rate by 1 * rate_scale,\n"
      "pressing '*' key to increase call rate by 10 * rate_scale,\n"
@@ -451,7 +451,7 @@ static void pollset_process(int wait)
     }
 
     /* We need to process any messages that we have left over. */
-    while (pending_messages && (loops > 0)) {
+    while (pending_messages && loops > 0) {
         getmilliseconds();
         if (sockets[read_index]->ss_msglen) {
             struct sockaddr_storage src;
@@ -482,7 +482,7 @@ static void pollset_process(int wait)
 #else
     rs = poll(pollfiles, pollnfds, wait ? 1 : 0);
 #endif
-    if((rs < 0) && (errno == EINTR)) {
+    if (rs < 0 && errno == EINTR) {
         return;
     }
 
@@ -551,10 +551,10 @@ static void pollset_process(int wait)
                     }
                     twinSippSocket->ss_control = 1;
                 } else {
-                    /*3pcc extended mode: open a local socket
-                      which will be used for reading the infos sent by this remote
-                      twin sipp instance (slave or master) */
-                    if(local_nb == MAX_LOCAL_TWIN_SOCKETS) {
+                    /* 3pcc extended mode: open a local socket
+                       which will be used for reading the infos sent by this remote
+                       twin sipp instance (slave or master) */
+                    if (local_nb == MAX_LOCAL_TWIN_SOCKETS) {
                         ERROR("Max number of twin instances reached\n");
                     }
 
@@ -562,7 +562,7 @@ static void pollset_process(int wait)
                     localSocket->ss_control = 1;
                     local_sockets[local_nb] = localSocket;
                     local_nb++;
-                    if(!peers_connected) {
+                    if (!peers_connected) {
                         connect_to_all_peers();
                     }
                 }
@@ -573,28 +573,28 @@ static void pollset_process(int wait)
                     else
 #endif
                     {
-            ret = read_error(sock, ret);
-            if (ret == 0) {
-              /* If read_error() then the poll_idx now belongs
-               * to the newest/last socket added to the sockets[].
-               * Need to re-do the same poll_idx for the "new" socket.
-               * We do this differently when using epoll. */
+                        ret = read_error(sock, ret);
+                        if (ret == 0) {
+                            /* If read_error() then the poll_idx now belongs
+                             * to the newest/last socket added to the sockets[].
+                             * Need to re-do the same poll_idx for the "new" socket.
+                             * We do this differently when using epoll. */
 #ifdef HAVE_EPOLL
-              for (int event_idx2 = event_idx + 1; event_idx2 < rs; event_idx2++) {
-                if (epollevents[event_idx2].data.u32 == pollnfds) {
-                  epollevents[event_idx2].data.u32 = poll_idx;
-                }
-              }
+                            for (int event_idx2 = event_idx + 1; event_idx2 < rs; event_idx2++) {
+                                if (epollevents[event_idx2].data.u32 == pollnfds) {
+                                    epollevents[event_idx2].data.u32 = poll_idx;
+                                }
+                            }
 #else
-              poll_idx--;
-              events++;
-              rs--;
+                            poll_idx--;
+                            events++;
+                            rs--;
 #endif
-              continue;
-            }
-          }
-        }
+                            continue;
+                        }
+                    }
                 }
+            }
             events++;
         }
 
@@ -681,8 +681,8 @@ void timeout_alarm(int /*param*/)
 static bool traffic_thread()
 {
     /* create the file */
-    char         L_file_name [MAX_PATH];
-    sprintf (L_file_name, "%s_%d_screen.log", scenario_file, getpid());
+    char L_file_name[MAX_PATH];
+    sprintf(L_file_name, "%s_%d_screen.log", scenario_file, getpid());
 
     getmilliseconds();
 
@@ -697,7 +697,7 @@ static bool traffic_thread()
     stattask::report();
     screentask::report(false);
 
-    while(1) {
+    while (1) {
         scheduling_loops++;
         getmilliseconds();
 
@@ -712,8 +712,8 @@ static bool traffic_thread()
                 print_screens();
             }
 
-            if(dumpInRtt) {
-                main_scenario->stats->dumpDataRtt ();
+            if (dumpInRtt) {
+                main_scenario->stats->dumpDataRtt();
             }
 
             signalDump = false;
@@ -733,7 +733,7 @@ static bool traffic_thread()
                 abort_all_tasks();
             }
             /* Quitting and no more openned calls, close all */
-            if(!main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall)) {
+            if (!main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall)) {
                 /* We can have calls that do not count towards our open-call count (e.g., dead calls). */
                 abort_all_tasks();
 #ifdef RTP_STREAM
@@ -756,7 +756,7 @@ static bool traffic_thread()
 
         /* Schedule all pending calls and process their timers */
         task_list *running_tasks;
-        if((clock_tick - last_timer_cycle) > timer_resolution) {
+        if ((clock_tick - last_timer_cycle) > timer_resolution) {
 
             /* Just for the count. */
             running_tasks = get_running_tasks();
@@ -785,7 +785,7 @@ static bool traffic_thread()
 
         task_list::iterator iter;
         for(iter = running_tasks->begin(); iter != running_tasks->end(); iter++) {
-            if(last) {
+            if (last) {
                 last -> run();
                 if (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
                     last = NULL;
@@ -797,7 +797,7 @@ static bool traffic_thread()
                 break;
             }
         }
-        if(last) {
+        if (last) {
             last -> run();
         }
         while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
@@ -835,11 +835,8 @@ static void rtp_echo_thread(void* param)
 
     for (;;) {
         len = sizeof(remote_rtp_addr);
-        nr = recvfrom(*(int *)param,
-                      msg,
-                      media_bufsize, 0,
-                      (sockaddr*)&remote_rtp_addr,
-                      &len);
+        nr = recvfrom(*(int*)param, msg, media_bufsize, 0,
+                      (sockaddr*)&remote_rtp_addr, &len);
 
         if (((long)nr) < 0) {
             WARNING("%s %i",
@@ -847,9 +844,8 @@ static void rtp_echo_thread(void* param)
                     errno);
             return;
         }
-        ns = sendto(*(int *)param, msg, nr,
-                    0, (sockaddr*)&remote_rtp_addr,
-                    len);
+        ns = sendto(*(int*)param, msg, nr, 0,
+                    (sockaddr*)&remote_rtp_addr, len);
 
         if (ns != nr) {
             WARNING("%s %i",
@@ -858,7 +854,7 @@ static void rtp_echo_thread(void* param)
             return;
         }
 
-        if (*(int *)param==media_socket) {
+        if (*(int*)param == media_socket) {
             rtp_pckts++;
             rtp_bytes += ns;
         } else {
@@ -876,7 +872,7 @@ static char* wrap(const char* in, int offset, int size)
     int i, j;
     int l = strlen(in);
     int alloced = l + 1;
-    char *out = (char *)malloc(alloced);
+    char* out = (char*)malloc(alloced);
     int indent = 0;
 
     if (!out) {
@@ -886,7 +882,7 @@ static char* wrap(const char* in, int offset, int size)
     for (i = j = 0; i < l; i++) {
         out[j++] = in[i];
         if (in[i] == '\n') {
-            out = (char *)realloc(out, alloced += offset);
+            out = (char*)realloc(out, alloced += offset);
             if (!out) {
                 ERROR_NO("realloc");
             }
@@ -913,7 +909,7 @@ static char* wrap(const char* in, int offset, int size)
             if (k == 0 || out[k] == '\n') {
                 pos = 0;
                 out[j++] = '\n';
-                out = (char *)realloc(out, alloced += useoffset);
+                out = (char*)realloc(out, alloced += useoffset);
                 if (!out) {
                     ERROR_NO("realloc");
                 }
@@ -933,7 +929,7 @@ static char* wrap(const char* in, int offset, int size)
                     i -= move_back;
                 }
                 k++;
-                out = (char *)realloc(out, alloced += useoffset);
+                out = (char*)realloc(out, alloced += useoffset);
                 if (!out) {
                     ERROR_NO("realloc");
                 }
@@ -976,7 +972,7 @@ static void help()
     /* We automatically generate the help messages based on the options array.
      * This should hopefully encourage people to write help text when they
      * introduce a new option and keep the code a bit cleaner. */
-    max = sizeof(options_table)/sizeof(options_table[0]);
+    max = sizeof(options_table) / sizeof(options_table[0]);
     for (i = 0; i < max; i++) {
         char *formatted;
         if (!options_table[i].help) {
@@ -986,7 +982,7 @@ static void help()
         if (options_table[i].type == SIPP_HELP_TEXT_HEADER) {
             printf("\n*** %s\n\n", formatted);
         } else {
-        printf("   -%-16s: %s\n", options_table[i].option, formatted);
+            printf("   -%-16s: %s\n", options_table[i].option, formatted);
         }
         free(formatted);
     }
@@ -1311,7 +1307,7 @@ int main(int argc, char *argv[])
     generic[0] = NULL;
 
     /* At least one argument is needed */
-    if(argc < 2) {
+    if (argc < 2) {
         help();
         exit(EXIT_OTHER);
     }
@@ -1359,15 +1355,15 @@ int main(int argc, char *argv[])
     userVariables = new AllocVariableTable(globalVariables);
 
     /* Command line parsing */
-#define REQUIRE_ARG() if((++argi) >= argc) { ERROR("Missing argument for param '%s'.\n" \
-                                                   "Use 'sipp -h' for details",  argv[argi - 1]); }
+#define REQUIRE_ARG() if ((++argi) >= argc) { \
+    ERROR("Missing argument for param '%s'.\nUse 'sipp -h' for details",  argv[argi - 1]); }
 #define CHECK_PASS() if (option->pass != pass) { break; }
 
     for (int pass = 0; pass <= 3; pass++) {
         for(argi = 1; argi < argc; argi++) {
             struct sipp_option *option = find_option(argv[argi]);
             if (!option) {
-                if((argv[argi])[0] != '-') {
+                if (argv[argi][0] != '-') {
                     strncpy(remote_host, argv[argi], sizeof(remote_host) - 1);
                     continue;
                 }
@@ -1378,7 +1374,7 @@ int main(int argc, char *argv[])
 
             switch(option->type) {
             case SIPP_OPTION_HELP:
-                if(((argi+1) < argc) && (!strcmp(argv[argi+1], "stat"))) {
+                if (argi + 1 < argc && !strcmp(argv[argi + 1], "stat")) {
                     help_stats();
                 } else {
                     help();
@@ -1423,52 +1419,52 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_INT:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                *((int *)option->data) = get_long(argv[argi], argv[argi-1]);
+                *((int*)option->data) = get_long(argv[argi], argv[argi-1]);
                 break;
             case SIPP_OPTION_LONG:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                *((long *)option->data) = get_long(argv[argi], argv[argi-1]);
+                *((long*)option->data) = get_long(argv[argi], argv[argi-1]);
                 break;
             case SIPP_OPTION_LONG_LONG:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                *((unsigned long long *)option->data) = get_long_long(argv[argi], argv[argi-1]);
+                *((unsigned long long*)option->data) = get_long_long(argv[argi], argv[argi-1]);
                 break;
             case SIPP_OPTION_TIME_SEC:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                *((long *)option->data) = get_time(argv[argi], argv[argi-1], 1000);
+                *((long*)option->data) = get_time(argv[argi], argv[argi-1], 1000);
                 break;
             case SIPP_OPTION_TIME_MS:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                *((int *)option->data) = get_time(argv[argi], argv[argi-1], 1);
+                *((int*)option->data) = get_time(argv[argi], argv[argi-1], 1);
                 break;
             case SIPP_OPTION_TIME_MS_LONG:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                *((long *)option->data) = get_time(argv[argi], argv[argi-1], 1);
+                *((long*)option->data) = get_time(argv[argi], argv[argi-1], 1);
                 break;
             case SIPP_OPTION_BOOL:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                *((bool *)option->data) = get_bool(argv[argi], argv[argi-1]);
+                *((bool*)option->data) = get_bool(argv[argi], argv[argi - 1]);
                 break;
             case SIPP_OPTION_FLOAT:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                *((double *)option->data) = get_double(argv[argi], argv[argi-1]);
+                *((double*)option->data) = get_double(argv[argi], argv[argi - 1]);
                 break;
             case SIPP_OPTION_STRING:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                *((char **)option->data) = argv[argi];
+                *((char**)option->data) = argv[argi];
                 break;
             case SIPP_OPTION_ARGI:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                *((int *)option->data) = argi;
+                *((int*)option->data) = argi;
                 break;
             case SIPP_OPTION_INPUT_FILE: {
                 REQUIRE_ARG();
@@ -1514,11 +1510,11 @@ int main(int argc, char *argv[])
                 break;
             case SIPP_OPTION_SETFLAG:
                 CHECK_PASS();
-                *((bool *)option->data) = true;
+                *((bool*)option->data) = true;
                 break;
             case SIPP_OPTION_UNSETFLAG:
                 CHECK_PASS();
-                *((bool *)option->data) = false;
+                *((bool*)option->data) = false;
                 break;
             case SIPP_OPTION_TRANSPORT:
                 REQUIRE_ARG();
@@ -1546,16 +1542,16 @@ int main(int argc, char *argv[])
                 case 'l':
 #ifdef USE_OPENSSL
                     transport = T_TLS;
-                    if ( init_OpenSSL() != 1) {
+                    if (init_OpenSSL() != 1) {
                         printf("OpenSSL Initialization problem\n");
-                        exit ( -1);
+                        exit(-1);
                     }
 #else
                     ERROR("To use a TLS transport you must compile SIPp with OpenSSL");
 #endif
                     break;
                 case 'c':
-                    if(strlen(comp_error)) {
+                    if (strlen(comp_error)) {
                         ERROR("No " COMP_PLUGGIN " plugin available:\n%s", comp_error);
                     }
                     transport = T_UDP;
@@ -1603,7 +1599,7 @@ int main(int argc, char *argv[])
                 break;
             case SIPP_OPTION_IP: {
                 int dummy_port;
-                char *ptr = (char *)option->data;
+                char* ptr = (char*)option->data;
                 REQUIRE_ARG();
                 CHECK_PASS();
 
@@ -1631,8 +1627,8 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
 
-                if (generic_count+1 >= sizeof(generic)/sizeof(generic[0])) {
-                    ERROR("Too many generic parameters %d",generic_count+1);
+                if (generic_count + 1 >= sizeof(generic)/sizeof(generic[0])) {
+                    ERROR("Too many generic parameters %d",generic_count + 1);
                 }
                 generic[generic_count++] = &argv[argi - 1];
                 generic[generic_count] = NULL;
@@ -1652,10 +1648,10 @@ int main(int argc, char *argv[])
                 }
                 break;
             case SIPP_OPTION_3PCC:
-                if(slave_masterSet) {
+                if (slave_masterSet) {
                     ERROR("-3PCC option is not compatible with -master and -slave options\n");
                 }
-                if(extendedTwinSippMode) {
+                if (extendedTwinSippMode) {
                     ERROR("-3pcc and -slave_cfg options are not compatible\n");
                 }
                 REQUIRE_ARG();
@@ -1673,13 +1669,13 @@ int main(int argc, char *argv[])
                         rotate_logfile();
                     }
                     main_scenario = new scenario(argv[argi], 0);
-                    main_scenario->stats->setFileName(scenario_file, (char*)".csv");
+                    main_scenario->stats->setFileName(scenario_file, ".csv");
                 } else if (!strcmp(argv[argi - 1], "-sn")) {
                     int i = find_scenario(argv[argi]);
 
                     main_scenario = new scenario(0, i);
                     set_scenario(argv[argi]);
-                    main_scenario->stats->setFileName(argv[argi], (char*)".csv");
+                    main_scenario->stats->setFileName(argv[argi], ".csv");
                 } else if (!strcmp(argv[argi - 1], "-sd")) {
                     int i = find_scenario(argv[argi]);
                     fprintf(stdout, "%s", default_scenario[i]);
@@ -1703,7 +1699,7 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_SLAVE_CFG:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                if(twinSippMode) {
+                if (twinSippMode) {
                     ERROR("-slave_cfg and -3pcc options are not compatible\n");
                 }
                 extendedTwinSippMode = true;
@@ -1714,13 +1710,13 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_3PCC_EXTENDED:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                if(slave_masterSet) {
+                if (slave_masterSet) {
                     ERROR("-slave and -master options are not compatible\n");
                 }
-                if(twinSippMode) {
+                if (twinSippMode) {
                     ERROR("-master and -slave options are not compatible with -3PCC option\n");
                 }
-                *((char **)option->data) = argv[argi];
+                *((char**)option->data) = argv[argi];
                 slave_masterSet = true;
                 break;
             case SIPP_OPTION_RSA: {
@@ -1773,9 +1769,9 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 if (!strcmp(argv[argi], "full")) {
-                    *((int *)option->data) = RTCHECK_FULL;
+                    *((int*)option->data) = RTCHECK_FULL;
                 } else if (!strcmp(argv[argi], "loose")) {
-                    *((int *)option->data) = RTCHECK_LOOSE;
+                    *((int*)option->data) = RTCHECK_LOOSE;
                 } else {
                     ERROR("Unknown retransmission detection method: %s\n", argv[argi]);
                 }
@@ -1800,7 +1796,7 @@ int main(int argc, char *argv[])
                 break;
             }
             case SIPP_OPTION_DEFAULTS: {
-                unsigned long *ptr = (unsigned long *)option->data;
+                unsigned long *ptr = (unsigned long*)option->data;
                 char *token;
 
                 REQUIRE_ARG();
@@ -1862,7 +1858,7 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 ((struct logfile_info*)option->data)->fixedname = true;
-                ((struct logfile_info*)option->data)->overwrite = get_bool(argv[argi], argv[argi-1]);
+                ((struct logfile_info*)option->data)->overwrite = get_bool(argv[argi], argv[argi - 1]);
                 break;
             case SIPP_OPTION_PLUGIN: {
                 int ret;
@@ -1902,7 +1898,7 @@ int main(int argc, char *argv[])
         comp_load();
     }
 
-    if((extendedTwinSippMode && !slave_masterSet) || (!extendedTwinSippMode && slave_masterSet)) {
+    if ((extendedTwinSippMode && !slave_masterSet) || (!extendedTwinSippMode && slave_masterSet)) {
         ERROR("-slave_cfg option must be used with -slave or -master option\n");
     }
 
@@ -1952,18 +1948,18 @@ int main(int argc, char *argv[])
 
     /* if (useTimeoutf == 1) {
        char L_file_name [MAX_PATH];
-       sprintf (L_file_name, "%s_%d_timeout.log", scenario_file, getpid());
+       sprintf(L_file_name, "%s_%d_timeout.log", scenario_file, getpid());
        timeoutf = fopen(L_file_name, "w");
-       if(!timeoutf) {
+       if (!timeoutf) {
          ERROR("Unable to create '%s'", L_file_name);
        }
      } */
 
     if (useCountf == 1) {
         char L_file_name [MAX_PATH];
-        sprintf (L_file_name, "%s_%d_counts.csv", scenario_file, getpid());
+        sprintf(L_file_name, "%s_%d_counts.csv", scenario_file, getpid());
         countf = fopen(L_file_name, "w");
-        if(!countf) {
+        if (!countf) {
             ERROR("Unable to create '%s'", L_file_name);
         }
         print_count_file(countf, 1);
@@ -1971,9 +1967,9 @@ int main(int argc, char *argv[])
 
     if (useErrorCodesf == 1) {
         char L_file_name [MAX_PATH];
-        sprintf (L_file_name, "%s_%d_error_codes.csv", scenario_file, getpid());
+        sprintf(L_file_name, "%s_%d_error_codes.csv", scenario_file, getpid());
         codesf = fopen(L_file_name, "w");
-        if(!codesf) {
+        if (!codesf) {
             ERROR("Unable to create '%s'", L_file_name);
         }
     }
@@ -2016,20 +2012,20 @@ int main(int argc, char *argv[])
     }
 
     /* Load default scenario in case nothing was loaded */
-    if(!main_scenario) {
+    if (!main_scenario) {
         main_scenario = new scenario(0, 0);
-        main_scenario->stats->setFileName((char*)"uac", (char*)".csv");
+        main_scenario->stats->setFileName("uac", ".csv");
         sprintf(scenario_file,"uac");
     }
     /*
-    if(!ooc_scenario) {
+    if (!ooc_scenario) {
       ooc_scenario = new scenario(0, find_scenario("ooc_default"));
       ooc_scenario->stats->setFileName((char*)"ooc_default", (char*)".csv");
     }
     */
     display_scenario = main_scenario;
     aa_scenario = new scenario(0, find_scenario("ooc_dummy"));
-    aa_scenario->stats->setFileName((char*)"ooc_dummy", (char*)".csv");
+    aa_scenario->stats->setFileName("ooc_dummy", ".csv");
 
     init_default_messages();
     for (int i = 1; i <= users; i++) {
@@ -2037,7 +2033,7 @@ int main(int argc, char *argv[])
         userVarMap[i] = new VariableTable(userVariables);
     }
 
-    if(argiFileName) {
+    if (argiFileName) {
         main_scenario->stats->setFileName(argv[argiFileName]);
     }
 
@@ -2050,7 +2046,7 @@ int main(int argc, char *argv[])
 
     /* Now Initialize the scenarios. */
     main_scenario->runInit();
-    if(ooc_scenario) {
+    if (ooc_scenario) {
         ooc_scenario->runInit();
     }
 
@@ -2170,14 +2166,16 @@ int main(int argc, char *argv[])
                    _RCAST(struct sockaddr_storage *,local_addr->ai_addr)));
         freeaddrinfo(local_addr);
 
-        if((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
-                                  SOCK_DGRAM, 0)) == -1) {
-            ERROR_NO("Unable to get the audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
+        if ((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
+                                   SOCK_DGRAM, 0)) == -1) {
+            ERROR_NO("Unable to get the audio RTP socket (IP=%s, port=%d)",
+                     media_ip, media_port);
         }
         /* create a second socket for video */
-        if((media_socket_video = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
-                                        SOCK_DGRAM, 0)) == -1) {
-            ERROR_NO("Unable to get the video RTP socket (IP=%s, port=%d)", media_ip, media_port + 2);
+        if ((media_socket_video = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
+                                         SOCK_DGRAM, 0)) == -1) {
+            ERROR_NO("Unable to get the video RTP socket (IP=%s, port=%d)",
+                     media_ip, media_port + 2);
         }
 
         int try_counter;
@@ -2186,18 +2184,17 @@ int main(int argc, char *argv[])
         for (try_counter = 0; try_counter < max_tries; try_counter++) {
 
             if (media_sockaddr.ss_family == AF_INET) {
-                (_RCAST(struct sockaddr_in *,&media_sockaddr))->sin_port = htons(media_port);
+                (_RCAST(struct sockaddr_in*, &media_sockaddr))->sin_port = htons(media_port);
             } else {
-                (_RCAST(struct sockaddr_in6 *,&media_sockaddr))->sin6_port = htons(media_port);
+                (_RCAST(struct sockaddr_in6*, &media_sockaddr))->sin6_port = htons(media_port);
                 media_ip_is_ipv6 = true;
             }
             // Use get_host_and_port to remove square brackets from an
             // IPv6 address
             get_host_and_port(media_ip, media_ip_escaped, NULL);
 
-            if(bind(media_socket,
-                    (sockaddr*)&media_sockaddr,
-                    SOCK_ADDR_SIZE(&media_sockaddr)) == 0) {
+            if (bind(media_socket, (sockaddr*)&media_sockaddr,
+                     SOCK_ADDR_SIZE(&media_sockaddr)) == 0) {
                 break;
             }
 
@@ -2226,10 +2223,10 @@ int main(int argc, char *argv[])
             get_host_and_port(media_ip, media_ip_escaped, NULL);
         }
 
-        if(bind(media_socket_video,
-                (sockaddr*)&media_sockaddr,
-                SOCK_ADDR_SIZE(&media_sockaddr))) {
-            ERROR_NO("Unable to bind video RTP socket (IP=%s, port=%d)", media_ip, media_port + 2);
+        if (bind(media_socket_video, (sockaddr*)&media_sockaddr,
+                 SOCK_ADDR_SIZE(&media_sockaddr))) {
+            ERROR_NO("Unable to bind video RTP socket (IP=%s, port=%d)",
+                     media_ip, media_port + 2);
         }
         /* Second socket bound */
     }

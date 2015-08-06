@@ -955,20 +955,20 @@ void sipp_socket_invalidate(struct sipp_socket *socket)
             WARNING_NO("Failed to delete FD from epoll");
         }
 #endif
-    shutdown(socket->ss_fd, SHUT_RDWR);
+        shutdown(socket->ss_fd, SHUT_RDWR);
 
 #ifdef USE_SCTP
-    if (socket->ss_transport==T_SCTP && !gracefulclose) {
-        struct linger ling= {1, 0};
-        if (setsockopt (socket->ss_fd, SOL_SOCKET, SO_LINGER, &ling, sizeof (ling)) < 0) {
-            WARNING("Unable to set SO_LINGER option for SCTP close");
+        if (socket->ss_transport == T_SCTP && !gracefulclose) {
+            struct linger ling = {1, 0};
+            if (setsockopt(socket->ss_fd, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling)) < 0) {
+                WARNING("Unable to set SO_LINGER option for SCTP close");
+            }
         }
-    }
 #endif
 
-    sipp_abort_connection(socket->ss_fd);
-    socket->ss_fd = -1;
-  }
+        sipp_abort_connection(socket->ss_fd);
+        socket->ss_fd = -1;
+    }
 
     if ((pollidx = socket->ss_pollidx) >= pollnfds) {
         ERROR("Pollset error: index %d is greater than number of fds %d!", pollidx, pollnfds);
@@ -1008,7 +1008,7 @@ void sipp_socket_invalidate(struct sipp_socket *socket)
 
 #ifdef USE_SCTP
     if (socket->ss_transport == T_SCTP) {
-        socket->sctpstate=SCTP_DOWN;
+        socket->sctpstate = SCTP_DOWN;
     }
 #endif
 }
@@ -1609,7 +1609,7 @@ int sipp_reconnect_socket(struct sipp_socket *socket)
 #ifdef USE_OPENSSL
         socket->ss_ssl = NULL;
 
-        if ( transport == T_TLS ) {
+        if (transport == T_TLS) {
             if ((socket->ss_bio = BIO_new_socket(socket->ss_fd, BIO_NOCLOSE)) == NULL) {
                 ERROR("Unable to create BIO object:Problem with BIO_new_socket()\n");
             }

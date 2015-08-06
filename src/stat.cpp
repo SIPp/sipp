@@ -316,7 +316,7 @@ int CStat::createIntegerTable(char * P_listeStr,
 }
 
 
-void CStat::setFileName(char * P_name, char * P_extension)
+void CStat::setFileName(const char* P_name, const char* P_extension)
 {
     int sizeOf, sizeOfExtension;
 
@@ -358,7 +358,7 @@ void CStat::setFileName(char * P_name, char * P_extension)
 }
 
 
-void CStat::setFileName(char * P_name)
+void CStat::setFileName(const char* P_name)
 {
     int sizeOf;
 
@@ -381,7 +381,7 @@ void CStat::setFileName(char * P_name)
 }
 
 
-void CStat::initRtt(char * P_name, char * P_extension,
+void CStat::initRtt(const char* P_name, const char* P_extension,
                     unsigned long P_report_freq_dumpRtt)
 {
     int sizeOf, sizeOfExtension;

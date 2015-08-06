@@ -351,9 +351,9 @@ public:
     void setRepartitionResponseTime (char * liste);
 
     /* define the file name to use to dump statistic in file */
-    void setFileName                (char * name);
-    void setFileName                (char * name, char * extension);
-    void initRtt                    (char * name, char * extension, unsigned long P_value);
+    void setFileName(const char* name);
+    void setFileName(const char* name, const char* extension);
+    void initRtt(const char* name, const char* extension, unsigned long P_value);
 
     /**
      * Display data periodically updated on screen.
