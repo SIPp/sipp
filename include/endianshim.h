@@ -1,5 +1,5 @@
-#ifndef ENDIAN_H
-#define ENDIAN_H 1
+#ifndef ENDIANSHIM_H
+#define ENDIANSHIM_H 1
 
 #if defined(__CYGWIN) || defined(__LINUX)
 #include <endian.h>
@@ -22,4 +22,4 @@
 #define le16toh(x) bswap_16(x)
 #endif
 
-#endif /* ENDIAN_H */
+#endif /* ENDIANSHIM_H */
