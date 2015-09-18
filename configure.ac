@@ -6,7 +6,9 @@ AC_INIT([SIPp], [3.5.0-rc1], [sipp-users@lists.sourceforge.net], [sipp])
 # AC_CONFIG_MACRO_DIR([m4]) does not work on pre-1.13 aclocal, so we
 # have to include all files by hand.
 m4_include([m4/am_git_version.m4])
+m4_include([m4/ax_check_compile_flag.m4])
 m4_include([m4/ax_config_feature.m4])
+m4_include([m4/ax_cxx_compile_stdcxx_11.m4])
 m4_include([m4/ax_have_epoll.m4])
 
 AC_CANONICAL_TARGET
@@ -40,6 +42,11 @@ fi
 AC_PROG_CC
 AC_PROG_CXX
 AC_HEADER_STDC
+
+AX_CXX_COMPILE_STDCXX_11(noext,optional)
+AX_CHECK_COMPILE_FLAG([-std=gnu11],
+                      [CFLAGS+=" -std=gnu11"],
+                      [])
 
 case "$host" in
     *-linux*)

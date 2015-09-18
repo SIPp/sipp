@@ -50,9 +50,9 @@
 #include <fcntl.h>
 #include <pthread.h>
 
+#include "defines.h"
 #include "send_packets.h"
 #include "prepare_pcap.h"
-#include "screen.hpp"
 
 extern char* scenario_path;
 extern volatile unsigned long rtp_pckts_pcap;
@@ -90,11 +90,12 @@ float2timer (float time, struct timeval *tvp)
 
 static char* find_file(const char* filename)
 {
+    char *fullpath;
     if (filename[0] == '/' || !scenario_path) {
         return strdup(filename);
     }
 
-    char *fullpath = malloc(MAX_PATH);
+    fullpath = malloc(MAX_PATH);
     snprintf(fullpath, MAX_PATH, "%s/%s", scenario_path, filename);
 
     if (access(fullpath, R_OK) < 0) {
@@ -117,7 +118,8 @@ int parse_play_args(const char* filename, pcap_pkts* pkts)
 
 void free_pcaps(pcap_pkts *pkts)
 {
-    for (pcap_pkt *it = pkts->pkts; it != pkts->max; ++it) {
+    pcap_pkt *it;
+    for (it = pkts->pkts; it != pkts->max; ++it) {
         free(it->data);
     }
 
@@ -135,14 +137,14 @@ void hexdump(char *p, int s)
     fprintf(stderr, "\n");
 }
 
-/*Safe threaded version*/
+/* Safe threaded version */
 void do_sleep (struct timeval *, struct timeval *,
                struct timeval *, struct timeval *);
 void send_packets_cleanup(void *arg)
 {
     int * sock = (int *) arg;
 
-    // Close send socket
+    /* Close send socket */
     close(*sock);
 }
 
@@ -221,25 +223,50 @@ int send_packets (play_args_t * play_args)
 
     while (pkt_index < pkt_max) {
         memcpy(udp, pkt_index->data, pkt_index->pktlen);
-        port_diff = ntohs (udp->uh_dport) - pkts->base;
-        // modify UDP ports
+#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
+        port_diff = ntohs(udp->uh_dport) - pkts->base;
+        /* modify UDP ports */
         udp->uh_sport = htons(port_diff + ntohs(*from_port));
         udp->uh_dport = htons(port_diff + ntohs(*to_port));
 
         if (!media_ip_is_ipv6) {
-            temp_sum = checksum_carry(pkt_index->partial_check + check((u_int16_t *) &(((struct sockaddr_in *)(void *) from)->sin_addr.s_addr), 4) + check((u_int16_t *) &(((struct sockaddr_in *)(void *) to)->sin_addr.s_addr), 4) + check((u_int16_t *) &udp->uh_sport, 4));
+            temp_sum = checksum_carry(
+                    pkt_index->partial_check +
+                    check((u_int16_t *) &(((struct sockaddr_in *)(void *) from)->sin_addr.s_addr), 4) +
+                    check((u_int16_t *) &(((struct sockaddr_in *)(void *) to)->sin_addr.s_addr), 4) +
+                    check((u_int16_t *) &udp->uh_sport, 4));
         } else {
-            temp_sum = checksum_carry(pkt_index->partial_check + check((u_int16_t *) &(from6.sin6_addr.s6_addr), 16) + check((u_int16_t *) &(to6.sin6_addr.s6_addr), 16) + check((u_int16_t *) &udp->uh_sport, 4));
+            temp_sum = checksum_carry(
+                    pkt_index->partial_check +
+                    check((u_int16_t *) &(from6.sin6_addr.s6_addr), 16) +
+                    check((u_int16_t *) &(to6.sin6_addr.s6_addr), 16) +
+                    check((u_int16_t *) &udp->uh_sport, 4));
         }
-
-#ifndef _HPUX_LI
-#ifdef __HPUX
+#if !defined(_HPUX_LI) && defined(__HPUX)
         udp->uh_sum = (temp_sum>>16)+((temp_sum & 0xffff)<<16);
 #else
         udp->uh_sum = temp_sum;
 #endif
 #else
-        udp->uh_sum = temp_sum;
+        port_diff = ntohs(udp->dest) - pkts->base;
+        /* modify UDP ports */
+        udp->source = htons(port_diff + ntohs(*from_port));
+        udp->dest = htons(port_diff + ntohs(*to_port));
+
+        if (!media_ip_is_ipv6) {
+            temp_sum = checksum_carry(
+                    pkt_index->partial_check +
+                    check((u_int16_t *) &(((struct sockaddr_in *)(void *) from)->sin_addr.s_addr), 4) +
+                    check((u_int16_t *) &(((struct sockaddr_in *)(void *) to)->sin_addr.s_addr), 4) +
+                    check((u_int16_t *) &udp->source, 4));
+        } else {
+            temp_sum = checksum_carry(
+                    pkt_index->partial_check +
+                    check((u_int16_t *) &(from6.sin6_addr.s6_addr), 16) +
+                    check((u_int16_t *) &(to6.sin6_addr.s6_addr), 16) +
+                    check((u_int16_t *) &udp->source, 4));
+        }
+        udp->check = temp_sum;
 #endif
 
         do_sleep ((struct timeval *) &pkt_index->ts, &last, &didsleep,

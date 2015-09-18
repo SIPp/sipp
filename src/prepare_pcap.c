@@ -33,9 +33,9 @@
 #endif
 #include <string.h>
 
+#include "defines.h"
 #include "endianshim.h"
 #include "prepare_pcap.h"
-#include "screen.hpp"
 
 /* We define our own structures for Ethernet Header and IPv6 Header as they are not available on CYGWIN.
  * We only need the fields, which are necessary to determine the type of the next header.
@@ -246,7 +246,7 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
         }
         iphdr = (struct iphdr*)((char*)ethhdr + sizeof(*ethhdr));
         if (iphdr && iphdr->version == 6) {
-            //ipv6
+            /* ipv6 */
             pktlen = (uint64_t)pkthdr->len - sizeof(*ethhdr) - sizeof(*ip6hdr);
             ip6hdr = (ipv6_hdr*)(void*)iphdr;
             if (ip6hdr->nxt_header != IPPROTO_UDP) {
@@ -255,7 +255,7 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
             }
             udphdr = (struct udphdr*)((char*)ip6hdr + sizeof(*ip6hdr));
         } else {
-            //ipv4
+            /* ipv4 */
             if (iphdr->protocol != IPPROTO_UDP) {
                 fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
                 continue;
@@ -291,9 +291,9 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
         udphdr->check = 0;
 #endif
 
-        // compute a partial udp checksum
-        // not including port that will be changed
-        // when sending RTP
+        /* compute a partial udp checksum */
+        /* not including port that will be changed */
+        /* when sending RTP */
 #if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
         pkt_index->partial_check = check((uint16_t*)&udphdr->uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 #else

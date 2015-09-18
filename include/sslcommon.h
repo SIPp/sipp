@@ -62,11 +62,6 @@ extern "C" {
 #endif
     int SSL_ERROR(void);
 
-#ifndef SSL_MAIN
-//  extern
-#endif
-//    int createAuthHeader(char * user, char * password, char * method, char * uri, char * msgbody, char * auth, char * result);
-
 #ifdef __cplusplus
 }
 #endif

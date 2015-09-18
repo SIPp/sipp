@@ -28,26 +28,7 @@
 
 #include <stdio.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-    void ERROR(const char *fmt, ...) __attribute__ ((format(printf, 1, 2), noreturn));
-    void WARNING(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
-    void ERROR_NO(const char *fmt, ...) __attribute__ ((format(printf, 1, 2), noreturn));
-    void WARNING_NO(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
-#ifdef __cplusplus
-}
-#endif
-
-#define MAX_PATH                   250
-
-#define EXIT_TEST_OK               0
-#define EXIT_TEST_FAILED           1
-#define EXIT_TEST_RES_INTERNAL     97
-#define EXIT_TEST_RES_UNKNOWN      98
-#define EXIT_OTHER                 99
-#define EXIT_FATAL_ERROR           -1
-#define EXIT_BIND_ERROR            -2
+#include "defines.h"
 
 void screen_set_exename(const char* exe_name);
 void screen_init();

@@ -160,15 +160,22 @@ static char *xp_find_local_end()
 
 int xp_unescape(const char *source, char *dest)
 {
+    const char *from;
+    char *to;
+    size_t pos;
+
     if (!source || !dest) {
         return -1;
     }
 
-    const char *from = source;
-    char *to = dest;
-    size_t pos = strcspn(from, "&");
+    from = source;
+    to = dest;
+    pos = strcspn(from, "&");
 
     for (; from[pos] != '\0'; pos = strcspn(from, "&")) {
+        size_t term;
+        size_t escape_len;
+        const char *escape;
         const char c = from[pos];
 
         memcpy(to, from, pos);
@@ -178,20 +185,20 @@ int xp_unescape(const char *source, char *dest)
         if (c != '&')
             continue;
 
-        size_t term = strcspn(from, ";");
+        term = strcspn(from, ";");
         if (from[term] == '\0') {
             *to++ = '&';
             pos = term;
             break;
         }
 
-        const char *escape = xp_find_escape(from, term);
+        escape = xp_find_escape(from, term);
         if (!escape) {
             *to++ = '&';
             continue;
         }
 
-        size_t escape_len = strlen(escape);
+        escape_len = strlen(escape);
         memcpy(to, escape, escape_len);
         to += escape_len;
         from += term + 1;
@@ -361,9 +368,9 @@ void xp_close_element(void)
 
 char *xp_get_value(const char *name)
 {
-    int         index = 0;
+    int index = 0;
     static char buffer[XP_MAX_FILE_LEN + 1];
-    char       *ptr, *end, *check;
+    char *ptr, *end, *check;
 
     end = xp_find_start_tag_end(xp_position[xp_stack] + 1);
     if (!end)
@@ -378,9 +385,10 @@ char *xp_get_value(const char *name)
             return NULL;
         if (ptr > end)
             return NULL;
-        // FIXME: potential BUG in parser: we must retrieve full word,
-        // so the use of strstr as it is is not enough.
-        // we should check that the retrieved word is not a piece of another one.
+        /* FIXME: potential BUG in parser: we must retrieve full word,
+         * so the use of strstr as it is is not enough.
+         * we should check that the retrieved word is not a piece of
+         * another one. */
         check = ptr - 1;
         if (check >= xp_position[xp_stack]) {
             if ((*check != '\r') &&
@@ -511,6 +519,6 @@ int xp_get_content_length(const char *P_buffer)
             L_ctl_hdr++;
         sscanf(L_ctl_hdr, "%d", &L_content_length);
     }
-    // L_content_length = -1 the message does not contain content-length
+    /* L_content_length = -1 the message does not contain content-length */
     return (L_content_length);
 }
