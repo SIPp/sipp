@@ -766,7 +766,7 @@ static int rtpstream_get_localport (int *rtpsocket, int *rtcpsocket)
       (_RCAST(struct sockaddr_in *,&address))->sin_port=
         htons((short)port_number);
     }
-    if (bind(*rtpsocket,(sockaddr *)(void *)&address,
+    if (::bind(*rtpsocket,(sockaddr *)(void *)&address,
          SOCK_ADDR_SIZE(&address)) == 0) {
       break;
     }
@@ -797,7 +797,7 @@ static int rtpstream_get_localport (int *rtpsocket, int *rtcpsocket)
       (_RCAST(struct sockaddr_in *,&address))->sin_port=
         htons((short)port_number+1);
     }
-    if (bind(*rtcpsocket,(sockaddr *)(void *)&address,
+    if (::bind(*rtcpsocket,(sockaddr *)(void *)&address,
          SOCK_ADDR_SIZE(&address))) {
       /* could not bind the rtcp socket to required port. so we delete it */
       close (*rtcpsocket);
