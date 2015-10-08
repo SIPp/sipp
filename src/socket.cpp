@@ -520,7 +520,7 @@ void setup_ctrl_socket()
 
     while (try_counter) {
         ((struct sockaddr_in *)&ctl_sa)->sin_port = htons(port);
-        if (!bind(sock, (struct sockaddr *)&ctl_sa, sizeof(struct sockaddr_in))) {
+        if (!::bind(sock, (struct sockaddr *)&ctl_sa, sizeof(struct sockaddr_in))) {
             /* Bind successful */
             break;
         }
@@ -1488,7 +1488,7 @@ int sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr,
         len = sizeof(struct sockaddr_in);
     }
 
-    if ((ret = bind(socket->ss_fd, (sockaddr *)saddr, len))) {
+    if ((ret = ::bind(socket->ss_fd, (sockaddr *)saddr, len))) {
         return ret;
     }
 
