@@ -172,7 +172,7 @@ man_MANS = sipp.1
 CLEANFILES += $(man_MANS)
 
 sipp.1: ./sipp $(sipp_SOURCES)
-	$(HELP2MAN) --output=$@ --no-info \
+	$(HELP2MAN) --output=$@ -v "-v" --no-info \
 		--name='SIP testing tool and traffic generator' \
 		./sipp
 else
