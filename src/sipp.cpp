@@ -260,6 +260,7 @@ struct sipp_option options_table[] = {
     {"min_rtp_port", "Minimum port number for RTP socket range.", SIPP_OPTION_INT, &min_rtp_port, 1},
     {"max_rtp_port", "Maximum port number for RTP socket range.", SIPP_OPTION_INT, &max_rtp_port, 1},
     {"rtp_payload", "RTP default payload type.", SIPP_OPTION_INT, &rtp_default_payload, 1},
+    {"rtp_pcap_audio", "RTP pcap file.", SIPP_OPTION_INT, &rtp_pcap_audio_file, 1},
     {"rtp_threadtasks", "RTP number of playback tasks per thread.", SIPP_OPTION_INT, &rtp_tasks_per_thread, 1},
     {"rtp_buffsize", "Set the rtp socket send/receive buffer size.", SIPP_OPTION_INT, &rtp_buffsize, 1},
 #endif

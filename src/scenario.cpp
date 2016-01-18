@@ -1574,7 +1574,7 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setIntCmd(type);
 #ifdef PCAPPLAY
             } else if ((ptr = xp_get_value("play_pcap_audio"))) {
-                tmpAction->setPcapArgs(ptr);
+                tmpAction->setPcapArgs(play_pcap_audio ? play_pcap_audio : ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
                 hasMedia = 1;
             } else if ((ptr = xp_get_value("play_pcap_image"))) {
