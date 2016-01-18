@@ -260,6 +260,9 @@ extern int                max_rtp_port            _DEFVAL(DEFAULT_MAX_RTP_PORT);
 extern int                rtp_default_payload     _DEFVAL(DEFAULT_RTP_PAYLOAD);
 extern int                rtp_tasks_per_thread    _DEFVAL(DEFAULT_RTP_THREADTASKS);
 extern int                rtp_buffsize            _DEFVAL(65535);
+extern char              * rtp_pcap_audio_file;
+extern char              * rtp_pcap_image_file;
+extern char              * rtp_pcap_video_file;
 #endif
 
 extern bool               rtp_echo_enabled        _DEFVAL(0);
