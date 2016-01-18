@@ -264,6 +264,12 @@ struct sipp_option options_table[] = {
     {"rtp_buffsize", "Set the rtp socket send/receive buffer size.", SIPP_OPTION_INT, &rtp_buffsize, 1},
 #endif
 
+#ifdef PCAPPLAY
+    {"rtp_pcap_audio", "RTP pcap audio file.", SIPP_OPTION_STRING, &rtp_pcap_audio_file, 1},
+    {"rtp_pcap_image", "RTP pcap image file.", SIPP_OPTION_STRING, &rtp_pcap_image_file, 1},
+    {"rtp_pcap_video", "RTP pcap video file.", SIPP_OPTION_STRING, &rtp_pcap_video_file, 1},
+#endif
+
     {"", "Call rate options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"r", "Set the call rate (in calls per seconds).  This value can be"
      "changed during test by pressing '+', '_', '*' or '/'. Default is 10.\n"

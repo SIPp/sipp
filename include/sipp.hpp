@@ -253,6 +253,9 @@ extern int                buff_size               _DEFVAL(65535);
 extern int                tcp_readsize            _DEFVAL(65535);
 #if defined(PCAPPLAY) || defined(RTP_STREAM)
 extern int                hasMedia                _DEFVAL(0);
+extern char              * rtp_pcap_audio_file;
+extern char              * rtp_pcap_image_file;
+extern char              * rtp_pcap_video_file;
 #endif
 #ifdef RTP_STREAM
 extern int                min_rtp_port            _DEFVAL(DEFAULT_MIN_RTP_PORT);
