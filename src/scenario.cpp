@@ -1574,15 +1574,15 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setIntCmd(type);
 #ifdef PCAPPLAY
             } else if ((ptr = xp_get_value("play_pcap_audio"))) {
-                tmpAction->setPcapArgs(play_pcap_audio ? play_pcap_audio : ptr);
+                tmpAction->setPcapArgs(rtp_pcap_audio_file ? rtp_pcap_audio_file : ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
                 hasMedia = 1;
             } else if ((ptr = xp_get_value("play_pcap_image"))) {
-                tmpAction->setPcapArgs(ptr);
+                tmpAction->setPcapArgs(rtp_pcap_image_file ? rtp_pcap_image_file : ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_IMAGE);
                 hasMedia = 1;
             } else if ((ptr = xp_get_value("play_pcap_video"))) {
-                tmpAction->setPcapArgs(ptr);
+                tmpAction->setPcapArgs(rtp_pcap_video_file ? rtp_pcap_video_file : ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
                 hasMedia = 1;
 #else
