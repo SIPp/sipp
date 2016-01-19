@@ -232,6 +232,31 @@ double get_double(const char *ptr, const char *what)
     return ret;
 }
 
+/* Return static buffer to xml value, as with xp_get_value().
+ * If the value is enclosed in [brackets], it is assumed to be
+ * a command-line supplied keyword value (-key). */
+static const char* xp_get_keyword_value(const char *name)
+{
+    const char* ptr = xp_get_value(name);
+    size_t len;
+
+    if (ptr && ptr[0] == '[' && (len = strlen(ptr)) && ptr[len - 1] == ']') {
+        int i = 0;
+        len -= 2; /* without the brackets */
+        while (generic[i]) {
+            const char* keyword = *generic[i];
+            if (strncmp(ptr + 1, keyword, len) == 0 && strlen(keyword) == len) {
+                const char* value = *(generic[i] + 1);
+                return strdup(value);
+            }
+            ++i;
+        }
+        ERROR("%s \"%s\" looks like a keyword value, but keyword not supplied!\n", name, ptr);
+    }
+
+    return ptr;
+}
+
 static char* xp_get_string(const char *name, const char *what)
 {
     char *ptr;
@@ -1575,15 +1600,15 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setActionType(CAction::E_AT_EXEC_INTCMD);
                 tmpAction->setIntCmd(type);
 #ifdef PCAPPLAY
-            } else if ((cptr = xp_get_value("play_pcap_audio"))) {
+            } else if ((cptr = xp_get_keyword_value("play_pcap_audio"))) {
                 tmpAction->setPcapArgs(cptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
                 hasMedia = 1;
-            } else if ((cptr = xp_get_value("play_pcap_image"))) {
+            } else if ((cptr = xp_get_keyword_value("play_pcap_image"))) {
                 tmpAction->setPcapArgs(cptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_IMAGE);
                 hasMedia = 1;
-            } else if ((cptr = xp_get_value("play_pcap_video"))) {
+            } else if ((cptr = xp_get_keyword_value("play_pcap_video"))) {
                 tmpAction->setPcapArgs(cptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
                 hasMedia = 1;
