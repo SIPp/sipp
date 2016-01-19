@@ -320,7 +320,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
                 parseAuthenticationKeyword(msg_scenario, newcomp, keyword);
             }
 #ifndef PCAPPLAY
-       else if(!strcmp(keyword, "auto_media_port")) {
+            else if(!strcmp(keyword, "auto_media_port")) {
                 ERROR("The %s keyword requires PCAPPLAY.\n", keyword);
             }
 #endif
