@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario>
+  <recv request="NOTIFY"/>
+
+  <!-- Observe how the CDATA is cut short (no trailing linefeeds).
+       Here we *want* SIPp to add 2x CRLF. -->
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=TAG
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: sip:sipp@127.0.0.1:5070
+      Max-Forwards: 70
+      X-Last-Header: missing-crlf]]></send>
+
+  <recv request="NOTIFY"/>
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=TAG
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: sip:sipp@127.0.0.1:5070
+      Max-Forwards: 70
+
+    ]]>
+
+  <timewait milliseconds="500"/>
+</scenario>

@@ -1,0 +1,38 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Author: Walter Doekes, OSSO B.V., 2015
+. "`dirname "$0"`/../functions"; init
+
+# Test that the NOTIFY sent contains exactly 4 bytes of body and not
+# an additional CRLF pair.
+sippbg -m 1 -sf uas.xml -i 127.0.0.1 -p 5070 -trace_msg -message_file from-uac.log
+sippbg -m 1 -sf uac.xml -i 127.0.0.1 127.0.0.1:5070 -trace_msg -message_file from-uas.log
+job2=$!
+
+# This should surely finish quickly.
+if kill -0 $job2 2>/dev/null; then
+    fail
+fi
+
+# Grep the log file for 0x01 0x02 0x03 0x04 without any trailing CRLF.
+if cat -A from-uac.log | tr -d '\n' | grep -qF '$Content-Length: 4^M$^M$^A^B^C^D$----'; then
+    true  # pass
+else
+    fail "unexpected CRLFs in SIP body"
+fi
+
+# Grep the log file for X-Last-Header and check that it has trailing
+# CRLF CRLF (1).
+if cat -A from-uas.log | tr -d '\n' | grep -qF '$X-Last-Header: missing-crlf^M$^M$$'; then
+    true  # pass
+else
+    fail "missing CRLFs in SIP header"
+fi
+
+# Grep the log file for X-Last-Header and check that it has trailing
+# CRLF CRLF (2).
+if cat -A from-uac.log | tr -d '\n' | grep -qF '$X-Last-Header: an-extra-crlf^M$^M$$'; then
+    ok
+else
+    fail "too many CRLFs in SIP header"
+fi
