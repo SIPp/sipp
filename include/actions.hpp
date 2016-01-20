@@ -145,7 +145,7 @@ public:
     void setVarId        (int            P_value);
     void setVarInId      (int            P_value);
     void setVarIn2Id      (int           P_value);
-    void setLookingChar  (char*          P_value);
+    void setLookingChar(const char* P_value);
     void setAction       (CAction        P_action);
     void setCaseIndep    (bool           P_action);
     void setOccurrence   (int            P_value);
@@ -159,11 +159,11 @@ public:
     void setDoubleValue  (double         P_value);  /* assign value specific function  */
     void setStringValue  (char *         P_value);  /* strcmp value specific function  */
 #ifdef PCAPPLAY
-    void setPcapArgs     (char *         P_value);  /* send_packets specific function */
+    void setPcapArgs(const char* P_value);          /* send_packets specific function */
     void setPcapArgs     (pcap_pkts   *  P_value);  /* send_packets specific function */
 #endif
 #ifdef RTP_STREAM
-    void setRTPStreamActInfo (char      *P_value);  /* parse rtp stream playback values from string */
+    void setRTPStreamActInfo(const char* P_value);  /* parse rtp stream playback values from string */
     void setRTPStreamActInfo (rtpstream_actinfo_t *P_value); /* copy stored rtp stream playback params */
 #endif
 

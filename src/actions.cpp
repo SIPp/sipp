@@ -346,7 +346,7 @@ int  CAction::getNbSubVarId ()
 }
 
 
-void CAction::setLookingChar  (char*          P_value)
+void CAction::setLookingChar(const char* P_value)
 {
     if(M_lookingChar != NULL) {
         delete [] M_lookingChar;
@@ -468,7 +468,7 @@ void CAction::setPcapArgs (pcap_pkts  *  P_value)
     }
 }
 
-void CAction::setPcapArgs (char*        P_value)
+void CAction::setPcapArgs(const char* P_value)
 {
     if(M_pcapArgs != NULL) {
         free(M_pcapArgs);
@@ -488,7 +488,7 @@ void CAction::setPcapArgs (char*        P_value)
 #endif
 
 #ifdef RTP_STREAM
-void CAction::setRTPStreamActInfo (char      *P_value)
+void CAction::setRTPStreamActInfo(const char* P_value)
 {
   char *ParamString;
   char *NextComma;
