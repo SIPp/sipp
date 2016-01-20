@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario>
+  <!-- Here we want exactly two CRLFs. -->
+  <send retrans="500">
+    <![CDATA[
+
+      NOTIFY sip:127.0.0.1:5070 SIP/2.0
+      Via: SIP/2.0/UDP 127.0.0.1:5070;branch=[branch]
+      From: sip:127.0.0.1:5060;tag=TAG
+      To: sip:127.0.0.1:5070
+      Call-ID: [call_id]
+      CSeq: 3 NOTIFY
+      Contact: sip:sipp@127.0.0.1:5060
+      Max-Forwards: 70
+      Event: telephone-event
+      Content-Type: audio/telephone-event
+      Content-Length: 0]]></send>
+</scenario>
