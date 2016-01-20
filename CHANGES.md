@@ -1,5 +1,5 @@
-Features added since 3.5.0
-==========================
+Features added in 3.5.0-rc2
+===========================
 
 * `<exec play_pcap_audio="..."/>` and friends:
   - If the argument is not an absolute path, the pcap is searched next
@@ -10,8 +10,10 @@ Features added since 3.5.0
     option. Example: `<exec play_pcap_audio="[file1]"/>` with option
     `-key file1 /path/to/pcap`.
 
+* Various...
 
-Bugs fixed since 3.5.0
-======================
 
-* Example
+Bugs fixed in 3.5.0-rc2
+=======================
+
+* A few...
