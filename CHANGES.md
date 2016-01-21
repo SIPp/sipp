@@ -1,4 +1,4 @@
-Features added in 3.5.0-rc2
+Features added in 3.5.0-rc3
 ===========================
 
 * `<exec play_pcap_audio="..."/>` and friends:
@@ -13,7 +13,7 @@ Features added in 3.5.0-rc2
 * Various...
 
 
-Bugs fixed in 3.5.0-rc2
+Bugs fixed in 3.5.0-rc3
 =======================
 
 * A few...
