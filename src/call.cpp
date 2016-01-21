@@ -590,7 +590,7 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
     if (userId) {
         int_vt_map::iterator it = userVarMap.find(userId);
         if (it != userVarMap.end()) {
-            userVars  = it->second;
+            userVars = it->second;
         }
     } else {
         userVars = new VariableTable(userVariables);
@@ -600,7 +600,7 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
     }
     if (call_scenario->allocVars->size > 0) {
         M_callVariableTable = new VariableTable(userVars, call_scenario->allocVars->size);
-    } else if (userVars->size > 0) {
+    } else if (userVars && userVars->size > 0) {
         M_callVariableTable = userVars->getTable();
     } else if (globalVariables->size > 0) {
         M_callVariableTable = globalVariables->getTable();
