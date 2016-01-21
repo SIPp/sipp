@@ -35,7 +35,8 @@ script: `build.sh`. This:
 
 `build.sh` passes its arguments through to the configure script, so you
 can enable SSL, PCAP and SCTP support by calling `./build.sh
---with-pcap --with-sctp --with-openssl`.
+--with-pcap --with-sctp --with-openssl` or `./build.sh --full` to enable
+all optional features.
 
 # Support
 

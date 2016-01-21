@@ -232,6 +232,7 @@ double get_double(const char *ptr, const char *what)
     return ret;
 }
 
+#ifdef PCAPPLAY
 /* Return static buffer to xml value, as with xp_get_value().
  * If the value is enclosed in [brackets], it is assumed to be
  * a command-line supplied keyword value (-key). */
@@ -256,6 +257,7 @@ static const char* xp_get_keyword_value(const char *name)
 
     return ptr;
 }
+#endif
 
 static char* xp_get_string(const char *name, const char *what)
 {

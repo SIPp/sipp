@@ -19,9 +19,9 @@ AM_INIT_AUTOMAKE([foreign subdir-objects])
 
 AC_ARG_WITH([openssl],AC_HELP_STRING([--with-openssl], [build with OpenSSL support]), [openssl="$withval"],[openssl="no"])
 AC_ARG_WITH([pcap],AC_HELP_STRING([--with-pcap], [build with pcap support]), [pcap="$withval"],[pcap="no"])
-AC_ARG_WITH([rtpstream],AC_HELP_STRING([--with-rtpstream], [build with RTP streaming support]), [rtp="$withval"],[rtp="yes"])
 AC_ARG_WITH([sctp],AC_HELP_STRING([--with-sctp], [build with SCTP support]), [sctp="$withval"],[sctp="no"])
 AC_ARG_WITH([gsl],AC_HELP_STRING([--with-gsl], [build with GSL (GNU Scientific Library) support]), [gsl="$withval"],[gsl="no"])
+AC_ARG_WITH([rtpstream],AC_HELP_STRING([--without-rtpstream], [build without RTP streaming support]), [rtp="$withval"],[rtp="yes"])
 
 AC_ARG_ENABLE([epoll],
               AC_HELP_STRING([--enable-epoll], [build with epoll backend]),
