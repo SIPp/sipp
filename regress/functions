@@ -40,7 +40,7 @@ sippbg() {
     sipp -nostdin "$@" >$temp 2>&1 </dev/null &
     pid=$!
     sleep 1
-    if ! kill -0 $pid 2>/dev/null; then
+    if ! /bin/kill -0 $pid 2>/dev/null; then
         wait $pid
         ret=$?
         if test $ret -ne 0; then
@@ -74,10 +74,9 @@ tcplisten() {
 #}
 
 cleanup() {
-    if pgrep -P$$ >/dev/null; then
-        pkill -P$$
-        wait
-    fi
+    # Kill all of our children, if there are any.
+    pkill -P$$
+    wait
 }
 
 ok() {

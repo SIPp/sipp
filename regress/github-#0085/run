@@ -10,7 +10,7 @@ sippbg -sf uac.xml -i 127.0.0.1 -m 1 127.0.0.1:5070
 job2=$!
 
 # If job2 did not finish, we have failure.
-if kill -0 $job2 2>/dev/null; then
+if /bin/kill -0 $job2 2>/dev/null; then
     fail
 fi
 
@@ -25,7 +25,7 @@ job2=$!
 
 # If job2 did not finish, it is waiting for job1 to send a 200. This
 # is expected behaviour.
-if kill -0 $job2 2>/dev/null; then
+if /bin/kill -0 $job2 2>/dev/null; then
     ok
 else
     fail
