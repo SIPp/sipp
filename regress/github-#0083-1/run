@@ -12,5 +12,5 @@ kill -9 $pid
 if grep -q '^Connection from 127.0.3.1:' tmp.log; then
     ok
 else
-    fail
+    fail "broken by 337f5c0cd (?)"
 fi
