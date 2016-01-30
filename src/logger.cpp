@@ -868,9 +868,14 @@ static void rotatef(struct logfile_info* lfi)
         /* We need to rotate away an existing file. */
         if (lfi->nfiles == ringbuffer_files) {
             if ((lfi->ftimes)[0].n) {
-                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log", scenario_file, getpid(), lfi->name, (lfi->ftimes)[0].start, (lfi->ftimes)[0].n);
+                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log",
+                        scenario_file, getpid(), lfi->name,
+                        (unsigned long)(lfi->ftimes)[0].start,
+                        (lfi->ftimes)[0].n);
             } else {
-                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log", scenario_file, getpid(), lfi->name, (lfi->ftimes)[0].start);
+                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log",
+                        scenario_file, getpid(), lfi->name,
+                        (unsigned long)(lfi->ftimes)[0].start);
             }
             unlink(L_rotate_file_name);
             lfi->nfiles--;
@@ -884,9 +889,14 @@ static void rotatef(struct logfile_info* lfi)
                 (lfi->ftimes)[lfi->nfiles].n = (lfi->ftimes)[lfi->nfiles - 1].n + 1;
             }
             if ((lfi->ftimes)[lfi->nfiles].n) {
-                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log", scenario_file, getpid(), lfi->name, (lfi->ftimes)[lfi->nfiles].start, (lfi->ftimes)[lfi->nfiles].n);
+                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log",
+                        scenario_file, getpid(), lfi->name,
+                        (unsigned long)(lfi->ftimes)[lfi->nfiles].start,
+                        (lfi->ftimes)[lfi->nfiles].n);
             } else {
-                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log", scenario_file, getpid(), lfi->name, (lfi->ftimes)[lfi->nfiles].start);
+                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log",
+                        scenario_file, getpid(), lfi->name,
+                        (unsigned long)(lfi->ftimes)[lfi->nfiles].start);
             }
             lfi->nfiles++;
             fflush(lfi->fptr);

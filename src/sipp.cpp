@@ -1999,7 +1999,7 @@ int main(int argc, char *argv[])
         if (max_sockets_needed > rlimit.rlim_cur) {
             ERROR("Maximum number of open sockets (%d) should be less than the maximum number "
                   "of open files (%lu). Tune this with the `ulimit` command or the -max_socket "
-                  "option", max_sockets_needed, rlimit.rlim_cur);
+                  "option", max_sockets_needed, (unsigned long)rlimit.rlim_cur);
         }
 
         if ((open_calls_allowed + max_sockets_needed) > rlimit.rlim_cur) {
@@ -2007,7 +2007,7 @@ int main(int argc, char *argv[])
                     "should be less than the maximum number of open files (%lu) to "
                     "allow for media support. Tune this with the `ulimit` command, "
                     "the -l option or the -max_socket option",
-                    max_sockets_needed, open_calls_allowed, rlimit.rlim_cur);
+                    max_sockets_needed, open_calls_allowed, (unsigned long)rlimit.rlim_cur);
         }
     }
 

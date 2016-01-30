@@ -1734,7 +1734,7 @@ char* CStat::formatTime (struct timeval* P_tv, bool with_epoch)
                     L_currentDate->tm_min,
                     L_currentDate->tm_sec,
                     (long)P_tv->tv_usec,
-                    P_tv->tv_sec,
+                    (long)P_tv->tv_sec, /* time_t is int on some bsds */
                     (long)P_tv->tv_usec);
         }
     }
