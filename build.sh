@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e  # abort on error
 
+MAKE=`which gmake make 2>/dev/null | head -n1`  # prefer GNU make
+test -z "$MAKE" && echo "No (g)make found" >&2 && exit 1
+
 git submodule update --init
 autoreconf -vifs
 
@@ -15,9 +18,9 @@ else
     ./configure "$@"
 fi
 
-make clean
+"$MAKE" clean
 
-make sipp_unittest
+"$MAKE" sipp_unittest
 ./sipp_unittest
 
-make
+"$MAKE"
