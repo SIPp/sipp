@@ -1,6 +1,6 @@
 # ======================== initialization ===============================
 
-AC_INIT([SIPp], [3.5.0-rc2], [sipp-users@lists.sourceforge.net], [sipp])
+AC_INIT([SIPp], [3.5.0-rc4], [sipp-users@lists.sourceforge.net], [sipp])
 
 # Load non-standard m4 files from ./m4/*.m4.
 # AC_CONFIG_MACRO_DIR([m4]) does not work on pre-1.13 aclocal, so we
