@@ -1,5 +1,5 @@
-Features added in 3.5.0-rc4
-===========================
+Features added in 3.5.0
+=======================
 
 * Clean up source code, fix typo's, alter warning and error messages,
   fix pedantic coding style. Add gtest framework and tests. Add regression
@@ -26,8 +26,8 @@ Features added in 3.5.0-rc4
     `-key file1 /path/to/pcap`.
 
 
-Bugs fixed in 3.5.0-rc4
-=======================
+Bugs fixed in 3.5.0
+===================
 
 * Start SDP search in body instead of in header. Fix IPv6 media address in SDP.
 * Allow single CR and single LF in SDP.

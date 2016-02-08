@@ -44,6 +44,12 @@ I try and be responsive to issues raised on Github, and there's [a
 reasonably active mailing
 list](https://lists.sourceforge.net/lists/listinfo/sipp-users).
 
+# Making a release
+
+* Update CHANGES.md and configure.ac. Tag release.
+* Download zip, `autoreconf -vif`, copy sipp.1, copy include/version.h.
+* Create tgz. Upload to github as "binary".
+
 # Contributing
 
 SIPp is free software, under the terms of the GPL licence (see the
