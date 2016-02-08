@@ -104,6 +104,13 @@ expected_fail() {
     exit 0
 }
 
+skip() {
+    echo "skipped ($@)"
+    cleanup
+    test -n "$VERBOSE_EXITSTATUS" && exit 4
+    exit 0
+}
+
 # Workaround when no term is set. See also github-#0075.
 export TERM=dumb
 

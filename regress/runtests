@@ -19,6 +19,7 @@ ok=0
 fail=0
 unexpected_ok=0
 expected_fail=0
+skip=0
 for path in github-*; do
     $path/run
     ret=$?
@@ -27,12 +28,14 @@ for path in github-*; do
       1) fail=$((fail+1)) ;;
       2) unexpected_ok=$((unexpected_ok+1)) ;;
       3) expected_fail=$((expected_fail+1)) ;;
+      4) skip=$((skip+1)) ;;
       *) echo "Unexpected return value: $ret" >&2 && exit 1
     esac
 done
 
 echo "=="
 echo -n "$ok success"
+test $skip -ne 0 && echo -n ", $skip skipped"
 test $fail -ne 0 && echo -n ", $fail FAILURE"
 test $unexpected_ok -ne 0 && echo -n ", $unexpected_ok UNEXPECTED SUCCESS"
 test $expected_fail -ne 0 && echo -n ", $expected_fail expected failure"
