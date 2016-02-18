@@ -1,3 +1,11 @@
+Bugs fixed in 3.5.1
+===================
+
+* Fix qop-value in authorization Digest. It can only hold a single value
+  (auth, auth-int, ...) and does not take double quotes, in contrast to
+  the challenge. Some servers returned a 400 upon receiving this.
+  (Issue #191, reported by @artlov.)
+
 Features added in 3.5.0
 =======================
 

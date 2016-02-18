@@ -347,6 +347,12 @@ int createAuthHeaderMD5(const char *user,
     // Extract the Auth Type - If not present, using 'none'
     cnonce[0] = '\0';
     if (getAuthParameter("qop", auth, authtype, sizeof(authtype))) {
+        // Sloppy auth type recognition (may be "auth,auth-int")
+        if (stristr(authtype, "auth-int")) {
+            strncpy(authtype, "auth-int", sizeof(authtype) - 1);
+        } else if (stristr(authtype, "auth")) {
+            strncpy(authtype, "auth", sizeof(authtype) - 1);
+        }
         sprintf(cnonce, "%x", rand());
         sprintf(nc, "%08x", mync);
     }
@@ -372,7 +378,19 @@ int createAuthHeaderMD5(const char *user,
     }
 
     if (cnonce[0] != '\0') {
-        snprintf(tmp, sizeof(tmp), ",cnonce=\"%s\",nc=%s,qop=\"%s\"", cnonce, nc, authtype);
+        // No double quotes around nc and qop (RFC3261):
+        //
+        // dig-resp = username / realm / nonce / digest-uri / dresponse
+        //             / algorithm / cnonce / opaque / message-qop
+        // message-qop = "qop" EQUAL ("auth" / "auth-int" / token)
+        // nonce-count =  "nc" EQUAL 8LHEX
+        //
+        // The digest challenge does have double quotes however:
+        //
+        // digest-cln = realm / domain / nonce / opaque / stale / algorithm
+        //                / qop-options / auth-param
+        // qop-options = "qop" EQUAL LDQUOT qop-value *("," qop-value) RDQUOT
+        snprintf(tmp, sizeof(tmp), ",cnonce=\"%s\",nc=%s,qop=%s", cnonce, nc, authtype);
         strcat(result, tmp);
     }
     snprintf(tmp, sizeof(tmp), ",uri=\"%s\"", sipuri);
@@ -826,6 +844,7 @@ TEST(DigestAuth, qop) {
                      NULL,
                      NULL,
                      result);
+    EXPECT_EQ(1, !!strstr(result, ",qop=auth-int,")); // no double quotes around qop-value
     EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header);
 }
