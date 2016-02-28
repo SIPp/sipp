@@ -46,7 +46,7 @@ list](https://lists.sourceforge.net/lists/listinfo/sipp-users).
 
 # Making a release
 
-* Update CHANGES.md and configure.ac. Tag release.
+* Update CHANGES.md. Tag release.
 * Download zip, `autoreconf -vif`, copy sipp.1, copy include/version.h.
 * Create tgz. Upload to github as "binary".
 
