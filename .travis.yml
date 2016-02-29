@@ -1,0 +1,27 @@
+language: c
+compiler:
+        - gcc
+        - clang
+
+notifications:
+        email: false
+
+python:
+        - "2.7"
+
+sudo: required
+
+before_install:
+        - sudo apt-get -qq update
+        - sudo apt-get install -y libpcap-dev libsctp-dev libncurses5-dev libssl-dev libgsl0-dev
+
+before_script:
+        - git submodule update --init
+        - autoreconf -vifs
+        - ./configure --with-gsl --with-openssl --with-pcap --with-rtpstream --with-sctp
+
+
+script:
+        - make
+        - make check
+
