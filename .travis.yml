@@ -20,8 +20,6 @@ before_script:
         - autoreconf -vifs
         - ./configure --with-gsl --with-openssl --with-pcap --with-rtpstream --with-sctp
 
-
 script:
         - make
         - make check
-
