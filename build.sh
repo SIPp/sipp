@@ -26,8 +26,8 @@ fi
 
 # Optional: for git checkout only.
 if test -f gtest/gtest.h; then
-	"$MAKE" sipp_unittest
+	"$MAKE" -j3 sipp_unittest
 	./sipp_unittest
 fi
 
-"$MAKE"
+"$MAKE" -j3
