@@ -1,10 +1,14 @@
+<a href="https://travis-ci.org/SIPp/sipp">
+  <img alt="Travis Build Status"
+       src="https://api.travis-ci.org/SIPp/sipp.svg"/>
+</a>
 <a href="https://scan.coverity.com/projects/5988">
   <img alt="Coverity Scan Build Status"
        src="https://scan.coverity.com/projects/5988/badge.svg"/>
 </a>
 
 SIPp - a SIP protocol test tool
-Copyright (C) 2003-2015 - The Authors
+Copyright (C) 2003-2016 - The Authors
 
 This program is free software: you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
