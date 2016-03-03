@@ -261,8 +261,7 @@ public:
         CPT_G_PL_WatchdogMinor,
         CPT_G_PL_AutoAnswered, // must be last (RESET_PL_COUNTER)
 
-        E_NB_G_COUNTER,
-
+        E_NB_G_COUNTER
     };
 
     /*
