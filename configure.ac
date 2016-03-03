@@ -43,7 +43,9 @@ AC_PROG_CC
 AC_PROG_CXX
 AC_HEADER_STDC
 
-AX_CXX_COMPILE_STDCXX_11(noext,optional)
+# Prefer ext (gnu++11) over noext (c++11) because on some platforms the
+# noext (stricter) mode disables non-posix features like stdio fileno().
+AX_CXX_COMPILE_STDCXX_11(ext,optional)
 AX_CHECK_COMPILE_FLAG([-std=gnu11],
                       [CFLAGS+=" -std=gnu11"],
                       [])

@@ -5,6 +5,7 @@ Bugs fixed in 3.5.1
   (auth, auth-int, ...) and does not take double quotes, in contrast to
   the challenge. Some servers returned a 400 upon receiving this.
   (Issue #191, reported by @artlov.)
+* Fix compile error on Cygwin. (Issue #193, reported by @Gankarloo.)
 
 Features added in 3.5.0
 =======================
