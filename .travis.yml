@@ -1,13 +1,10 @@
-language: c
+language: cpp
 compiler:
     - gcc
     - clang
 
 notifications:
     email: false
-
-python:
-    - "2.7"
 
 sudo: required
 
