@@ -86,10 +86,11 @@ typedef enum {
     E_Message_Date,
     E_Message_SippVersion,
     E_Message_File,
-    E_Message_Custom,
+    E_Message_Custom
 #ifdef RTP_STREAM
-  E_Message_RTPStream_Audio_Port,
-  E_Message_RTPStream_Video_Port,
+    ,
+    E_Message_RTPStream_Audio_Port,
+    E_Message_RTPStream_Video_Port
 #endif
 } MessageCompType;
 

@@ -97,7 +97,7 @@ public:
         E_AM_UNEXP_CANCEL,
         E_AM_PING,
         E_AM_AA,
-        E_AM_OOCALL,
+        E_AM_OOCALL
     };
 
     void setLastMsg(const char *msg);

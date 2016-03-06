@@ -228,6 +228,45 @@ AC_FUNC_FORK
 #AC_FUNC_STRTOD
 AC_CHECK_FUNCS([alarm dup2 floor gethostname gettimeofday inet_ntoa memmove memset pow regcomp socket sqrt strcasecmp strchr strcspn strdup strerror strncasecmp strrchr strstr strtol strtoul strtoull])
 
+# ==================== check for clang/gmock workaround =================
+
+# clang++ falls over the use of is_default_constructible, suggesting
+# is_nothrow_constructible instead.
+#
+# ./gmock/include/gmock/gmock-actions.h:107:19: error: no template named
+#       'is_default_constructible' in namespace 'std'; did you mean
+#       'is_nothrow_constructible'?
+#         T, ::std::is_default_constructible<T>::value>::Get();
+#            ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~
+#                   is_nothrow_constructible
+# /usr/include/c++/4.6/type_traits:705:12: note:
+#       'is_nothrow_constructible' declared here
+#
+AC_DEFUN([AX_CXX_HAS_IS_DEFAULT_CONSTRUCTIBLE], [dnl
+  AC_LANG_PUSH([C++])dnl
+  ac_success=no
+  AC_CACHE_CHECK(whether $CXX supports is_default_constructible (used by gmock),
+  ax_cv_cxx_has_is_default_constructible,
+  [AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+#include <type_traits>
+template <class T>
+void test_is_default_constructible() {
+    static_assert(std::is_default_constructible<T>::value, "");
+}
+int main() {
+    test_is_default_constructible<int>();
+    return 0;
+}
+])],
+    [ax_cv_cxx_has_is_default_constructible=yes],
+    [ax_cv_cxx_has_is_default_constructible=no])])
+  if test x$ax_cv_cxx_has_is_default_constructible = xno; then
+    CPPFLAGS="$CPPFLAGS -Dis_default_constructible=is_nothrow_constructible"
+  fi
+  AC_LANG_POP([C++])
+])
+AX_CXX_HAS_IS_DEFAULT_CONSTRUCTIBLE()
+
 # ==================== generate files ===================================
 
 AC_CONFIG_FILES([Makefile])
