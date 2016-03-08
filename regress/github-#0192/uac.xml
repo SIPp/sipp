@@ -20,7 +20,7 @@
       s=-
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
-      m=audio [media_port] RTP/AVP 8 0
+      m=audio [rtpstream_audio_port] RTP/AVP 8 0
       a=rtpmap:8 PCMA/8000
       a=rtpmap:0 PCMU/8000
 
