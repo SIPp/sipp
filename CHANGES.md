@@ -7,6 +7,7 @@ Bugs fixed in 3.5.1
   (Issue #191, reported by @artlov.)
 * Fix compile error on Cygwin. (Issue #193, reported by @Gankarloo.)
 
+
 Features added in 3.5.0
 =======================
 
