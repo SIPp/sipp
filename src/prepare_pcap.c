@@ -420,6 +420,14 @@ int prepare_dtmf(const char* digits, pcap_pkts* pkts, u_int16_t start_seq_no)
             uc_digit = 10;
         } else if (*digit == '#') {
             uc_digit = 11;
+        } else if (*digit == 'A') {
+            uc_digit = 12;
+        } else if (*digit == 'B') {
+            uc_digit = 13;
+        } else if (*digit == 'C') {
+            uc_digit = 14;
+        } else if (*digit == 'D') {
+            uc_digit = 15;
         } else {
             continue;
         }
