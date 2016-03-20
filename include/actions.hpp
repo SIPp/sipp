@@ -73,6 +73,7 @@ public:
         E_AT_PLAY_PCAP_AUDIO,
         E_AT_PLAY_PCAP_IMAGE,
         E_AT_PLAY_PCAP_VIDEO,
+        E_AT_PLAY_DTMF,
 #endif
 #ifdef RTP_STREAM
       E_AT_RTP_STREAM_PAUSE,

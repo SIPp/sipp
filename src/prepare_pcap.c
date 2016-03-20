@@ -195,7 +195,7 @@ size_t get_ethertype_offset(int link, const uint8_t* pktdata)
 
 /* prepare a pcap file
  */
-int prepare_pkts(char *file, pcap_pkts *pkts)
+int prepare_pkts(const char* file, pcap_pkts* pkts)
 {
     pcap_t* pcap;
 #ifdef HAVE_PCAP_NEXT_EX
@@ -317,4 +317,187 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
     pcap_close(pcap);
 
     return 0;
+}
+
+struct rtphdr {
+    unsigned char csicnt:4;
+    unsigned int extension:1;
+    unsigned int  padding:1;
+    unsigned char version:2;
+
+    unsigned char payload_type:7;
+    unsigned int marker:1;
+
+    u_int16_t seqno;
+    u_int32_t timestamp;
+    u_int32_t ssrcid;
+};
+
+struct rtpevent {
+    unsigned char event_id;
+
+    unsigned char volume:6;
+    unsigned int reserved:1;
+    unsigned int end_of_event:1;
+
+    u_int16_t duration;
+};
+
+struct dtmfpacket {
+    struct udphdr udp;
+    struct rtphdr rtp;
+    struct rtpevent dtmf;
+};
+
+static u_long dtmf_ssrcid = 0x01020304;
+
+void fill_default_dtmf(struct dtmfpacket* dtmfpacket, int marker, int seqno, int ts,
+                       char digit, int eoe, int duration)
+{
+    u_long pktlen = sizeof(struct dtmfpacket);
+
+#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
+    dtmfpacket->udp.uh_ulen = htons(pktlen);
+    dtmfpacket->udp.uh_sum = 0 ;
+    dtmfpacket->udp.uh_sport = 0;
+    dtmfpacket->udp.uh_dport = 0;
+#else
+    dtmfpacket->udp.len = htons(pktlen);
+    dtmfpacket->udp.check = 0;
+    dtmfpacket->udp.source = 0;
+    dtmfpacket->udp.dest = 0;
+#endif
+    dtmfpacket->rtp.version = 2;
+    dtmfpacket->rtp.padding = 0;
+    dtmfpacket->rtp.extension = 0;
+    dtmfpacket->rtp.csicnt = 0;
+    dtmfpacket->rtp.marker = marker;
+    dtmfpacket->rtp.payload_type = 0x60;
+    dtmfpacket->rtp.seqno = htons(seqno);
+    dtmfpacket->rtp.timestamp = htonl(ts);
+    dtmfpacket->rtp.ssrcid = dtmf_ssrcid;
+
+    dtmfpacket->dtmf.event_id = digit;
+    dtmfpacket->dtmf.end_of_event = eoe;
+    dtmfpacket->dtmf.volume = 10;
+    dtmfpacket->dtmf.duration = htons(duration * 8);
+}
+
+/* prepare a dtmf pcap
+ */
+int prepare_dtmf(const char* digits, pcap_pkts* pkts, u_int16_t start_seq_no)
+{
+    unsigned long tone_len = 200;
+    const u_long pktlen = sizeof(struct dtmfpacket);
+    pcap_pkt* pkt_index;
+    int n_pkts = 0;
+    int n_digits = 0;
+    const char* digit;
+    int i;
+
+    dtmf_ssrcid++;
+
+    pkts->pkts = NULL;
+
+    char* comma = strchr(digits, ',');
+    if (comma) {
+        tone_len = atol(comma + 1);
+        if (tone_len < 50 || tone_len > 2000) {
+            tone_len = 200;
+        }
+        *comma = '\0';
+    }
+
+    for (digit = digits; *digit; digit++) {
+        unsigned char uc_digit;
+        struct dtmfpacket * dtmfpacket;
+        unsigned long cur_tone_len = 0;
+        unsigned long ts;
+
+        if (*digit >= '0' && *digit <= '9') {
+            uc_digit = *digit - '0';
+        } else if (*digit == '*') {
+            uc_digit = 10;
+        } else if (*digit == '#') {
+            uc_digit = 11;
+        } else if (*digit == 'A') {
+            uc_digit = 12;
+        } else if (*digit == 'B') {
+            uc_digit = 13;
+        } else if (*digit == 'C') {
+            uc_digit = 14;
+        } else if (*digit == 'D') {
+            uc_digit = 15;
+        } else {
+            continue;
+        }
+
+        while (cur_tone_len < tone_len) {
+            ts = (n_digits + 1) * tone_len * 2 + cur_tone_len;
+
+            pkts->pkts = realloc(pkts->pkts, sizeof(*pkts->pkts) * (n_pkts + 1));
+            if (!pkts->pkts) {
+                ERROR("Can't re-allocate memory for dtmf pcap pkt");
+            }
+
+            pkt_index = pkts->pkts + n_pkts;
+            pkt_index->pktlen = pktlen;
+            pkt_index->ts.tv_sec = ts / 1000;
+            pkt_index->ts.tv_usec = (ts % 1000) * 1000;
+            pkt_index->data = malloc(pktlen);
+            if (!pkt_index->data) {
+                ERROR("Can't allocate memory for pcap pkt data");
+            }
+
+            dtmfpacket = (struct dtmfpacket*)pkt_index->data;
+            fill_default_dtmf(dtmfpacket, n_pkts == 0,
+                              n_pkts + start_seq_no, n_digits * tone_len * 2 + 24000,
+                              uc_digit, 0, cur_tone_len);
+
+#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
+            pkt_index->partial_check = check(&dtmfpacket->udp.uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+#else
+            pkt_index->partial_check = check(&dtmfpacket->udp.len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+#endif
+            n_pkts++;
+            cur_tone_len += 20;
+        }
+
+        for (i = 0; i < 3; i++) {
+            ts = (n_digits + 1) * tone_len * 2 + tone_len + i + 1;
+            pkts->pkts = realloc(pkts->pkts, sizeof(*pkts->pkts) * (n_pkts + 1));
+            if (!pkts->pkts) {
+                ERROR("Can't re-allocate memory for dtmf pcap pkt");
+            }
+
+            pkt_index = pkts->pkts + n_pkts;
+            pkt_index->pktlen = pktlen;
+            pkt_index->ts.tv_sec = ts / 1000;
+            pkt_index->ts.tv_usec = (ts % 1000) * 1000;
+            pkt_index->data = malloc(pktlen);
+            if (!pkt_index->data) {
+                ERROR("Can't allocate memory for pcap pkt data");
+            }
+
+            dtmfpacket = (struct dtmfpacket*)pkt_index->data;
+            fill_default_dtmf(dtmfpacket, 0,
+                              n_pkts + start_seq_no, n_digits * tone_len * 2 + 24000,
+                              uc_digit, 1, tone_len);
+
+#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
+            pkt_index->partial_check = check(&dtmfpacket->udp.uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+#else
+            pkt_index->partial_check = check(&dtmfpacket->udp.len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+#endif
+            n_pkts++;
+        }
+
+        n_digits++;
+    }
+
+    pkts->max = pkts->pkts + n_pkts;
+    pkts->max_length = pktlen;
+    pkts->base = 0;
+
+    return n_pkts;
 }
