@@ -28,6 +28,7 @@ test-driver
 *.log
 *.csv
 vim_ctags
+compile_commands.json
 .*.sw?
 stamp-h.in
 *.orig
