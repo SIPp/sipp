@@ -138,15 +138,12 @@ void sipp_close_socket(struct sipp_socket *socket);
 #define sipp_socklen_t  socklen_t
 #endif
 
-#define SOCK_ADDR_SIZE(a) \
-  (((a)->ss_family == AF_INET) ? sizeof(struct sockaddr_in) \
-                               : sizeof(struct sockaddr_in6))
-
 #if defined(__cplusplus) && defined (__hpux)
 #define _RCAST(type, val) (reinterpret_cast<type> (val))
 #else
 #define _RCAST(type, val) ((type)(val))
 #endif
 
+int gai_getsockaddr(struct sockaddr_storage* ss, const char* host, short port, int flags, int family);
 
 #endif /* __SIPP_SOCKET_H__ */
