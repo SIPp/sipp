@@ -90,6 +90,20 @@ int gai_getsockaddr(struct sockaddr_storage *ss, const char *host,
     return error;
 }
 
+void sockaddr_update_port(struct sockaddr_storage *ss, short port)
+{
+    switch (ss->ss_family) {
+    case AF_INET:
+	_RCAST(struct sockaddr_in *, ss)->sin_port = htons(port);
+	break;
+    case AF_INET6:
+	_RCAST(struct sockaddr_in6 *, ss)->sin6_port = htons(port);
+	break;
+    default:
+	ERROR("Unsupported family type");
+    }
+}
+
 static void process_set(char* what)
 {
     char *rest = strchr(what, ' ');
@@ -2552,13 +2566,7 @@ int open_connections()
                     }
                 }
             }
-            if (local_ip_is_ipv6) {
-                (_RCAST(struct sockaddr_in6*, &local_sockaddr))->sin6_port
-                    = htons((short)l_port);
-            } else {
-                (_RCAST(struct sockaddr_in*, &local_sockaddr))->sin_port
-                    = htons((short)l_port);
-            }
+	    sockaddr_update_port(&local_sockaddr, l_port);
             if (sipp_bind_socket(main_socket, &local_sockaddr, &local_port) == 0) {
                 break;
             }
@@ -2590,13 +2598,7 @@ int open_connections()
             }
         }
 
-        if (local_ip_is_ipv6) {
-            (_RCAST(struct sockaddr_in6 *, &local_sockaddr))->sin6_port
-                = htons((short)user_port);
-        } else {
-            (_RCAST(struct sockaddr_in *, &local_sockaddr))->sin_port
-                = htons((short)user_port);
-        }
+	sockaddr_update_port(&local_sockaddr, user_port);
         if (sipp_bind_socket(main_socket, &local_sockaddr, &local_port)) {
             ERROR_NO("Unable to bind main socket");
         }
@@ -2831,15 +2833,8 @@ void connect_local_twin_socket(char * twinSippHost)
     }
 
     memset(&localTwin_sockaddr, 0, sizeof(struct sockaddr_storage));
-    if (!is_ipv6) {
-        localTwin_sockaddr.ss_family = AF_INET;
-        (_RCAST(struct sockaddr_in *, &localTwin_sockaddr))->sin_port =
-            htons((short)twinSippPort);
-    } else {
-        localTwin_sockaddr.ss_family = AF_INET6;
-        (_RCAST(struct sockaddr_in6 *, &localTwin_sockaddr))->sin6_port =
-            htons((short)twinSippPort);
-    }
+    localTwin_sockaddr.ss_family = is_ipv6 ? AF_INET6 : AF_INET;
+    sockaddr_update_port(&localTwin_sockaddr, twinSippPort);
 
     // add socket option to allow the use of it without the TCP timeout
     // This allows to re-start the controller B (or slave) without timeout after its exit

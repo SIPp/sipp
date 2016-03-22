@@ -2162,12 +2162,8 @@ int main(int argc, char *argv[])
         media_port = user_media_port ? user_media_port : DEFAULT_MEDIA_PORT;
         for (try_counter = 0; try_counter < max_tries; try_counter++) {
 
-            if (media_sockaddr.ss_family == AF_INET) {
-                (_RCAST(struct sockaddr_in*, &media_sockaddr))->sin_port = htons(media_port);
-            } else {
-                (_RCAST(struct sockaddr_in6*, &media_sockaddr))->sin6_port = htons(media_port);
-                media_ip_is_ipv6 = true;
-            }
+	    sockaddr_update_port(&media_sockaddr, media_port);
+	    media_ip_is_ipv6 = media_sockaddr.ss_family == AF_INET6;
             // Use get_host_and_port to remove square brackets from an
             // IPv6 address
             get_host_and_port(media_ip, media_ip_escaped, NULL);
@@ -2189,18 +2185,12 @@ int main(int argc, char *argv[])
            (+1 is reserved for RTCP)
         ----------------------------------------------------------*/
 
-        if (media_sockaddr.ss_family == AF_INET) {
-            (_RCAST(struct sockaddr_in*, &media_sockaddr))->sin_port = htons(media_port + 2);
-            // Use get_host_and_port to remove square brackets from an
-            // IPv6 address
-            get_host_and_port(media_ip, media_ip_escaped, NULL);
-        } else {
-            (_RCAST(struct sockaddr_in6*, &media_sockaddr))->sin6_port = htons(media_port + 2);
-            media_ip_is_ipv6 = true;
-            // Use get_host_and_port to remove square brackets from an
-            // IPv6 address
-            get_host_and_port(media_ip, media_ip_escaped, NULL);
-        }
+	sockaddr_update_port(&media_sockaddr, media_port + 2);
+	media_ip_is_ipv6 = media_sockaddr.ss_family == AF_INET6;
+
+	// Use get_host_and_port to remove square brackets from an
+	// IPv6 address
+	get_host_and_port(media_ip, media_ip_escaped, NULL);
 
         if (::bind(media_socket_video, (sockaddr*)&media_sockaddr,
                    sizeof(media_sockaddr))) {
