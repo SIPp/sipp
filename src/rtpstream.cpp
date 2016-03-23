@@ -39,14 +39,12 @@ static void debugprint(const char* format, ...)
 #define MAX_UDP_RECV_BUFFER           8192
 
 #define TI_NULL_AUDIOIP               0x01
-#define TI_NULL_VIDEOIP               0x02
-#define TI_NULLIP                     (TI_NULL_AUDIOIP|TI_NULL_VIDEOIP)
+#define TI_NULLIP                     (TI_NULL_AUDIOIP)
 #define TI_PAUSERTP                   0x04
 #define TI_ECHORTP                    0x08  /* Not currently implemented */
 #define TI_KILLTASK                   0x10
-#define TI_RECONNECTSOCKET            0x20
 #define TI_PLAYFILE                   0x40
-#define TI_CONFIGFLAGS                (TI_KILLTASK|TI_RECONNECTSOCKET|TI_PLAYFILE)
+#define TI_CONFIGFLAGS                (TI_KILLTASK|TI_PLAYFILE)
 
 struct rtp_header_t
 {
@@ -90,15 +88,9 @@ struct taskentry_t
     int                  new_timeticks_per_packet;
     /* sockets for audio/video rtp_rtcp */
     int                  audio_rtp_socket;
-    int                  audio_rtcp_socket;
-    int                  video_rtp_socket;
-    int                  video_rtcp_socket;
 
     /* rtp peer address structures */
     struct sockaddr_storage    remote_audio_rtp_addr;
-    struct sockaddr_storage    remote_audio_rtcp_addr;
-    struct sockaddr_storage    remote_video_rtp_addr;
-    struct sockaddr_storage    remote_video_rtcp_addr;
 
     /* we will have a mutex per call. should we consider refactoring to */
     /* share mutexes across calls? makes the per-call code more complex */
@@ -144,23 +136,8 @@ unsigned int  global_ssrc_id = 0xCA110000;
 static void rtpstream_free_taskinfo(taskentry_t* taskinfo)
 {
     if (taskinfo) {
-        /* close sockets associated with this call */
-        if (taskinfo->audio_rtp_socket != -1) {
-            close(taskinfo->audio_rtp_socket);
-        }
-        if (taskinfo->audio_rtcp_socket != -1) {
-            close(taskinfo->audio_rtcp_socket);
-        }
-        if (taskinfo->video_rtp_socket != -1) {
-            close(taskinfo->video_rtp_socket);
-        }
-        if (taskinfo->video_rtcp_socket != -1) {
-            close(taskinfo->video_rtcp_socket);
-        }
-
         /* cleanup pthread library structure */
         pthread_mutex_destroy(&(taskinfo->mutex));
-
         free(taskinfo);
     }
 }
@@ -168,69 +145,6 @@ static void rtpstream_free_taskinfo(taskentry_t* taskinfo)
 /* code checked */
 static void rtpstream_process_task_flags(taskentry_t* taskinfo)
 {
-    if (taskinfo->flags & TI_RECONNECTSOCKET) {
-        int remote_addr_len;
-        int rc;
-
-        remote_addr_len = media_ip_is_ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-
-        /* enter critical section to lock address updates */
-        /* may want to leave this out -- low chance of race condition */
-        pthread_mutex_lock(&(taskinfo->mutex));
-
-        /* If we have valid ip and port numbers for audio rtp stream */
-        if (!(taskinfo->flags & TI_NULL_AUDIOIP))
-        {
-            if (taskinfo->audio_rtcp_socket != -1) {
-                rc = connect(taskinfo->audio_rtcp_socket, (struct sockaddr *)&taskinfo->remote_audio_rtcp_addr,
-                             remote_addr_len);
-                if (rc < 0) {
-                    debugprint("closing audio rtcp socket %d due to error %d in rtpstream_process_task_flags taskinfo=%p\n",
-                               taskinfo->audio_rtcp_socket, errno, taskinfo);
-                    close(taskinfo->audio_rtcp_socket);
-                    taskinfo->audio_rtcp_socket = -1;
-                }
-            }
-
-            if (taskinfo->audio_rtp_socket != -1) {
-                rc = connect(taskinfo->audio_rtp_socket, (struct sockaddr *)&taskinfo->remote_audio_rtp_addr, remote_addr_len);
-                if (rc < 0) {
-                    debugprint("closing audio rtp socket %d due to error %d in rtpstream_process_task_flags taskinfo=%p\n",
-                               taskinfo->audio_rtp_socket, errno, taskinfo);
-                    close(taskinfo->audio_rtp_socket);
-                    taskinfo->audio_rtp_socket = -1;
-                }
-            }
-        }
-
-        /* If we have valid ip and port numbers for video rtp stream */
-        if (!(taskinfo->flags & TI_NULL_VIDEOIP))
-        {
-            if (taskinfo->video_rtcp_socket != -1) {
-                rc = connect(taskinfo->video_rtcp_socket, (struct sockaddr *)&taskinfo->remote_video_rtcp_addr,
-                             remote_addr_len);
-                if (rc < 0) {
-                    debugprint("closing video rtcp socket %d due to error %d in rtpstream_process_task_flags taskinfo=%p\n",
-                               taskinfo->video_rtcp_socket, errno, taskinfo);
-                    close(taskinfo->video_rtcp_socket);
-                    taskinfo->video_rtcp_socket = -1;
-                }
-            }
-            if (taskinfo->video_rtp_socket != -1) {
-                rc = connect(taskinfo->video_rtp_socket, (struct sockaddr *)&taskinfo->remote_video_rtp_addr,
-                             remote_addr_len);
-                if (rc < 0) {
-                    debugprint("closing video rtp socket %d due to error %d in rtpstream_process_task_flags taskinfo=%p\n",
-                               taskinfo->video_rtp_socket, errno, taskinfo);
-                    close(taskinfo->video_rtp_socket);
-                    taskinfo->video_rtp_socket = -1;
-                }
-            }
-        }
-
-        taskinfo->flags &= ~TI_RECONNECTSOCKET;
-        pthread_mutex_unlock (&(taskinfo->mutex));
-    }
     if (taskinfo->flags & TI_PLAYFILE) {
         /* copy playback information */
         taskinfo->loop_count = taskinfo->new_loop_count;
@@ -243,9 +157,9 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo)
         taskinfo->ms_per_packet = taskinfo->new_ms_per_packet;
         taskinfo->bytes_per_packet = taskinfo->new_bytes_per_packet;
         taskinfo->timeticks_per_packet = taskinfo->new_timeticks_per_packet;
-        taskinfo->timeticks_per_ms = taskinfo->timeticks_per_packet / taskinfo->ms_per_packet;
+        taskinfo->timeticks_per_ms = taskinfo->timeticks_per_packet/taskinfo->ms_per_packet;
 
-        taskinfo->last_timestamp = getmilliseconds() * taskinfo->timeticks_per_ms;
+        taskinfo->last_timestamp = getmilliseconds()*taskinfo->timeticks_per_ms;
         taskinfo->flags &= ~TI_PLAYFILE;
     }
 }
@@ -267,41 +181,11 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo, unsigned long 
 
     next_wake = timenow_ms + 100; /* default next wakeup time */
 
-    if (taskinfo->audio_rtcp_socket != -1) {
-        /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
-        while ((rc = recv(taskinfo->audio_rtcp_socket, udp.buffer, sizeof(udp), 0)) >= 0) {
-            /*
-             * rtpstream_bytes_in+= rc;
-             */
-        }
-    }
-
-    if (taskinfo->video_rtp_socket != -1) {
-        /* just keep listening on rtp socket (is this really required?) - ignore any errors */
-        while ((rc = recv(taskinfo->video_rtp_socket, udp.buffer, sizeof(udp), 0)) >= 0) {
-            /*
-             * rtpstream_bytes_in += rc;
-             */
-        }
-    }
-
-    if (taskinfo->video_rtcp_socket != -1) {
-        /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
-        while ((rc = recv(taskinfo->video_rtcp_socket, udp.buffer, sizeof(udp), 0)) >= 0) {
-            /*
-             * rtpstream_bytes_in+= rc;
-             */
-        }
-    }
-
     if (taskinfo->audio_rtp_socket != -1) {
-        /* this is temp code - will have to reorganize if/when we include echo functionality */
-        /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
-        while ((rc = recv(taskinfo->audio_rtp_socket, udp.buffer, sizeof(udp), 0)) >= 0) {
-            /* for now we will just ignore any received data or receive errors */
-            /* separate code path for RTP echo */
-            rtpstream_bytes_in += rc;
-        }
+        /* if/when we include echo functionality, we'll have to read
+         * from the audio_rtp_socket too, and check by peer address if
+         * it is "our" traffic */
+
         /* are we playing back an audio file? */
         if (taskinfo->loop_count) {
             target_timestamp = timenow_ms * taskinfo->timeticks_per_ms;
@@ -311,6 +195,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo, unsigned long 
                 taskinfo->last_timestamp = target_timestamp;
             }
             if (taskinfo->last_timestamp < target_timestamp) {
+
                 /* need to send rtp payload - build rtp packet header... */
                 udp.hdr.flags = htons(0x8000 | taskinfo->payload_type);
                 udp.hdr.seq = htons(taskinfo->seq);
@@ -327,8 +212,15 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo, unsigned long 
                     memcpy(udp.buffer + sizeof(rtp_header_t) + taskinfo->file_bytes_left,
                            taskinfo->file_bytes_start, taskinfo->bytes_per_packet - taskinfo->file_bytes_left);
                 }
+
                 /* now send the actual packet */
-                rc = send(taskinfo->audio_rtp_socket, udp.buffer, taskinfo->bytes_per_packet + sizeof(rtp_header_t), 0);
+                size_t packet_len = taskinfo->bytes_per_packet + sizeof(rtp_header_t);
+                socklen_t remote_addr_len = (media_ip_is_ipv6 ?
+                                             sizeof(struct sockaddr_in6) :
+                                             sizeof(struct sockaddr_in));
+                rc = sendto(taskinfo->audio_rtp_socket, udp.buffer, packet_len, 0,
+                            (struct sockaddr*)&taskinfo->remote_audio_rtp_addr, remote_addr_len);
+
                 if (rc < 0) {
                     /* handle sending errors */
                     if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
@@ -594,14 +486,14 @@ static void rtpstream_stop_task(rtpstream_callinfo_t* callinfo)
 /* code checked */
 int rtpstream_new_call(rtpstream_callinfo_t* callinfo)
 {
-    debugprint ("rtpstream_new_call callinfo=%p\n", callinfo);
+    debugprint("rtpstream_new_call callinfo=%p\n", callinfo);
 
-    taskentry_t   *taskinfo;
+    taskentry_t* taskinfo;
 
     /* general init */
     memset(callinfo, 0, sizeof(*callinfo));
 
-    taskinfo = (taskentry_t *) malloc(sizeof(*taskinfo));
+    taskinfo= (taskentry_t *) malloc(sizeof(*taskinfo));
     if (!taskinfo) {
         /* cannot allocate taskinfo memory - bubble error up */
         return 0;
@@ -612,9 +504,6 @@ int rtpstream_new_call(rtpstream_callinfo_t* callinfo)
     taskinfo->flags = TI_NULLIP;
     /* socket descriptors */
     taskinfo->audio_rtp_socket = -1;
-    taskinfo->audio_rtcp_socket = -1;
-    taskinfo->video_rtp_socket = -1;
-    taskinfo->video_rtcp_socket = -1;
     /* rtp stream members */
     taskinfo->ssrc_id = global_ssrc_id++;
     /* pthread mutexes */
@@ -694,190 +583,6 @@ int rtpstream_cache_file(char* filename)
     return num_cached_files++;
 }
 
-static int rtpstream_setsocketoptions(int sock)
-{
-    /* set socket non-blocking */
-    int flags = fcntl(sock, F_GETFL, 0);
-    if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) == -1) {
-        return 0;
-    }
-
-    /* set buffer size */
-    unsigned int buffsize = rtp_buffsize;
-
-    /* Increase buffer sizes for this sockets */
-    if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char*)&buffsize, sizeof(buffsize))) {
-        return 0;
-    }
-    if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char*)&buffsize, sizeof(buffsize))) {
-        return 0;
-    }
-
-    return 1; /* success */
-}
-
-/* code checked */
-static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
-{
-    int                       port_number;
-    int                       tries;
-    struct sockaddr_storage   address;
-
-    debugprint("rtpstream_get_localport\n");
-
-    if (next_rtp_port < min_rtp_port) {
-        /* initialise RTP port number counter */
-        next_rtp_port = min_rtp_port;
-    }
-
-    /* initialise address family and IP address for media socket */
-    memset(&address, 0, sizeof(address));
-    address.ss_family = media_ip_is_ipv6 ? AF_INET6 : AF_INET;
-    if ((media_ip_is_ipv6 ?
-            inet_pton(AF_INET6, media_ip, &((_RCAST(struct sockaddr_in6 *, &address))->sin6_addr)) :
-            inet_pton(AF_INET, media_ip, &((_RCAST(struct sockaddr_in *, &address))->sin_addr))) != 1) {
-        WARNING("Could not set up media IP for RTP streaming");
-        return 0;
-    }
-
-    /* create new UDP listen socket */
-    *rtpsocket = socket(media_ip_is_ipv6 ? PF_INET6 : PF_INET, SOCK_DGRAM, 0);
-    if (*rtpsocket == -1) {
-        WARNING("Could not open socket for RTP streaming: %s", strerror(errno));
-        return 0;
-    }
-
-    for (tries = 0; tries < BIND_MAX_TRIES; tries++) {
-        /* try a sequence of port numbers until we find one where we can bind    */
-        /* should normally be the first port we try, unless we have long-running */
-        /* calls or somebody else is nicking ports.                              */
-
-        port_number = next_rtp_port;
-        /* skip rtp ports in multples of 2 (allow for rtp plus rtcp) */
-        next_rtp_port += 2;
-        if (next_rtp_port > (max_rtp_port - 1)) {
-            next_rtp_port = min_rtp_port;
-        }
-
-        sockaddr_update_port(&address, port_number);
-        if (::bind(*rtpsocket, (sockaddr *)(void *)&address,
-                   sizeof(address)) == 0) {
-            break;
-        }
-    }
-    /* Exit here if we didn't get a suitable port for rtp stream */
-    if (tries == BIND_MAX_TRIES) {
-        close(*rtpsocket);
-        *rtpsocket = -1;
-        WARNING("Could not bind port for RTP streaming after %d tries", tries);
-        return 0;
-    }
-
-    if (!rtpstream_setsocketoptions (*rtpsocket)) {
-        close(*rtpsocket);
-        *rtpsocket = -1;
-        WARNING("Could not set socket options for RTP streaming");
-        return 0;
-    }
-
-    /* create socket for rtcp - ignore any errors */
-    *rtcpsocket = socket(media_ip_is_ipv6 ? PF_INET6 : PF_INET, SOCK_DGRAM, 0);
-    if (*rtcpsocket != -1) {
-        /* try to bind it to our preferred address */
-        sockaddr_update_port(&address, port_number + 1);
-        if (::bind(*rtcpsocket, (sockaddr *)(void *)&address,
-                   sizeof(address)) == 0) {
-            /* could not bind the rtcp socket to required port. so we delete it */
-            close(*rtcpsocket);
-            *rtcpsocket = -1;
-        }
-        if (!rtpstream_setsocketoptions (*rtcpsocket)) {
-            close(*rtcpsocket);
-            *rtcpsocket = -1;
-        }
-    }
-
-    return port_number;
-}
-
-/* code checked */
-int rtpstream_get_audioport(rtpstream_callinfo_t* callinfo)
-{
-    debugprint("rtpstream_get_audioport callinfo=%p", callinfo);
-
-    int   rtp_socket;
-    int   rtcp_socket;
-
-    if (!callinfo->taskinfo) {
-        return 0;
-    }
-
-    if (callinfo->audioport) {
-        /* already a port assigned to this call */
-        debugprint(" ==> %d\n", callinfo->audioport);
-        return callinfo->audioport;
-    }
-
-    callinfo->audioport = rtpstream_get_localport(&rtp_socket, &rtcp_socket);
-    debugprint(" ==> %d\n", callinfo->audioport);
-
-    /* assign rtp and rtcp sockets to callinfo. must assign rtcp socket first */
-    callinfo->taskinfo->audio_rtcp_socket = rtcp_socket;
-    callinfo->taskinfo->audio_rtp_socket = rtp_socket;
-
-    /* start playback task if not already started */
-    if (!callinfo->taskinfo->parent_thread) {
-        if (!rtpstream_start_task(callinfo)) {
-            /* error starting playback task */
-            return 0;
-        }
-    }
-
-    /* make sure the new socket gets bound to destination address (if any) */
-    callinfo->taskinfo->flags |= TI_RECONNECTSOCKET;
-
-    return callinfo->audioport;
-}
-
-/* code checked */
-int rtpstream_get_videoport(rtpstream_callinfo_t* callinfo)
-{
-    debugprint("rtpstream_get_videoport callinfo=%p", callinfo);
-
-    int   rtp_socket;
-    int   rtcp_socket;
-
-    if (!callinfo->taskinfo) {
-        return 0;
-    }
-
-    if (callinfo->videoport) {
-        /* already a port assigned to this call */
-        debugprint(" ==> %d\n", callinfo->videoport);
-        return callinfo->videoport;
-    }
-
-    callinfo->videoport = rtpstream_get_localport(&rtp_socket, &rtcp_socket);
-    debugprint(" ==> %d\n", callinfo->videoport);
-
-    /* assign rtp and rtcp sockets to callinfo. must assign rtcp socket first */
-    callinfo->taskinfo->video_rtcp_socket = rtcp_socket;
-    callinfo->taskinfo->video_rtp_socket = rtp_socket;
-
-    /* start playback task if not already started */
-    if (!callinfo->taskinfo->parent_thread) {
-        if (!rtpstream_start_task(callinfo)) {
-            /* error starting playback task */
-            return 0;
-        }
-    }
-
-    /* make sure the new socket gets bound to destination address (if any) */
-    callinfo->taskinfo->flags |= TI_RECONNECTSOCKET;
-
-    return callinfo->videoport;
-}
-
 /* code checked */
 void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, char* ip_addr,
                           int audio_port, int video_port)
@@ -889,6 +594,8 @@ void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, char* ip_a
     unsigned                  count;
     int                       nonzero_ip;
 
+    /* observe that we rely on ip_ver being in sync with media_ip_is_ipv6 */
+    /* we never alloc a socket here, we reuse the global media socket */
     debugprint("rtpstream_set_remote callinfo=%p, ip_ver %d ip_addr %s audio %d video %d\n",
                callinfo, ip_ver, ip_addr, audio_port, video_port);
 
@@ -941,36 +648,16 @@ void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, char* ip_a
 
     /* clear out existing addresses  */
     memset(&(taskinfo->remote_audio_rtp_addr), 0, sizeof(taskinfo->remote_audio_rtp_addr));
-    memset(&(taskinfo->remote_audio_rtcp_addr), 0, sizeof(taskinfo->remote_audio_rtcp_addr));
-    memset(&(taskinfo->remote_video_rtp_addr), 0, sizeof(taskinfo->remote_video_rtp_addr));
-    memset(&(taskinfo->remote_video_rtcp_addr), 0, sizeof(taskinfo->remote_video_rtcp_addr));
 
     /* Audio */
     if (audio_port) {
         sockaddr_update_port(&address, audio_port);
         memcpy(&(taskinfo->remote_audio_rtp_addr), &address, sizeof(address));
-
-        sockaddr_update_port(&address, audio_port + 1);
-        memcpy(&(taskinfo->remote_audio_rtcp_addr), &address, sizeof(address));
-
         taskinfo->flags &= ~TI_NULL_AUDIOIP;
-    }
-
-    /* Video */
-    if (video_port) {
-        sockaddr_update_port(&address, video_port);
-        memcpy(&(taskinfo->remote_video_rtp_addr), &address, sizeof(address));
-
-        sockaddr_update_port(&address, video_port + 1);
-        memcpy(&(taskinfo->remote_video_rtcp_addr), &address, sizeof(address));
-
-        taskinfo->flags &= ~TI_NULL_VIDEOIP;
     }
 
     /* ok, we are done with the shared memory objects. let go mutex */
     pthread_mutex_unlock (&(taskinfo->mutex));
-
-    taskinfo->flags |= TI_RECONNECTSOCKET;
 
     /* may want to start a playback (listen) task here if no task running? */
     /* only makes sense if we decide to send 0-filled packets on idle */
@@ -993,7 +680,15 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
     }
 
     /* make sure we have an open socket from which to play the audio file */
-    rtpstream_get_audioport(callinfo);
+    taskinfo->audio_rtp_socket = media_socket;
+
+    /* start playback task if not already started */
+    if (!taskinfo->parent_thread) {
+        if (!rtpstream_start_task(callinfo)) {
+            /* error starting playback task */
+            return;
+        }
+    }
 
     /* save file parameter in taskinfo structure */
     taskinfo->new_loop_count = actioninfo->loop_count;

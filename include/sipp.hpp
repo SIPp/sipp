@@ -255,8 +255,6 @@ extern int                tcp_readsize            _DEFVAL(65535);
 extern int                hasMedia                _DEFVAL(0);
 #endif
 #ifdef RTP_STREAM
-extern int                min_rtp_port            _DEFVAL(DEFAULT_MIN_RTP_PORT);
-extern int                max_rtp_port            _DEFVAL(DEFAULT_MAX_RTP_PORT);
 extern int                rtp_default_payload     _DEFVAL(DEFAULT_RTP_PAYLOAD);
 extern int                rtp_tasks_per_thread    _DEFVAL(DEFAULT_RTP_THREADTASKS);
 extern int                rtp_buffsize            _DEFVAL(65535);

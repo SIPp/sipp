@@ -62,6 +62,7 @@ struct KeywordMap SimpleKeywords[] = {
     {"auto_media_port", E_Message_Auto_Media_Port },
 #endif
 #ifdef RTP_STREAM
+    /* Legacy since 3.6-dev. Actually uses media_port. */
     {"rtpstream_audio_port", E_Message_RTPStream_Audio_Port },
     {"rtpstream_video_port", E_Message_RTPStream_Video_Port },
 #endif

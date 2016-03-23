@@ -2182,24 +2182,10 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         }
 #ifdef RTP_STREAM
-        case E_Message_RTPStream_Audio_Port: {
-            int temp_audio_port = rtpstream_get_audioport(&rtpstream_callinfo);
-            if (!temp_audio_port) {
-                /* Make this a warning instead? */
-                ERROR("cannot assign a free audio port to this call - using 0 for [rtpstream_audio_port]");
-            }
-            dest += snprintf(dest, left, "%d", temp_audio_port);
+        case E_Message_RTPStream_Audio_Port: /* DEPRECATED */
+        case E_Message_RTPStream_Video_Port: /* DEPRECATED */
+            dest += sprintf(dest, "%u", media_port);
             break;
-        }
-        case E_Message_RTPStream_Video_Port: {
-            int temp_video_port = rtpstream_get_videoport(&rtpstream_callinfo);
-            if (!temp_video_port) {
-                /* Make this a warning instead? */
-                ERROR("cannot assign a free video port to this call - using 0 for [rtpstream_video_port]");
-            }
-            dest += snprintf(dest, left, "%d", temp_video_port);
-            break;
-        }
 #endif
         case E_Message_Media_IP_Type:
             dest += snprintf(dest, left, "%s", (media_ip_is_ipv6 ? "6" : "4"));
