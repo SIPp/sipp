@@ -2162,7 +2162,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if (begin == msg_buffer) {
                 ERROR("Can not find beginning of a line for the media port!\n");
             }
-            play_args_t *play_args = NULL;
+            play_args_t* play_args = NULL;
             if (strstr(begin, "audio")) {
                 play_args = &play_args_a;
             } else if (strstr(begin, "image")) {
@@ -3844,7 +3844,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                    (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_IMAGE) ||
                    (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) ||
                    (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
-            play_args_t *play_args = 0;
+            play_args_t* play_args = 0;
             if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
                 (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
                 play_args = &(this->play_args_a);
@@ -3865,7 +3865,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             }
 
             if (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF) {
-                char * digits = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+                char* digits = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf */);
                 play_args->pcap = (pcap_pkts *) malloc(sizeof(pcap_pkts));
                 play_args->last_seq_no += parse_dtmf_play_args(digits, play_args->pcap, play_args->last_seq_no);
                 play_args->free_pcap_when_done = 1;
@@ -3876,11 +3876,11 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 
             /* port number is set in [auto_]media_port interpolation */
             if (media_ip_is_ipv6) {
-                struct sockaddr_in6 *from = (struct sockaddr_in6 *)(void *) &(play_args->from);
+                struct sockaddr_in6* from = (struct sockaddr_in6*) &(play_args->from);
                 from->sin6_family = AF_INET6;
                 inet_pton(AF_INET6, media_ip, &(from->sin6_addr));
             } else {
-                struct sockaddr_in *from = (struct sockaddr_in *)(void *) &(play_args->from);
+                struct sockaddr_in* from = (struct sockaddr_in*) &(play_args->from);
                 from->sin_family = AF_INET;
                 from->sin_addr.s_addr = inet_addr(media_ip);
             }
@@ -3890,10 +3890,10 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 #ifndef PTHREAD_STACK_MIN
 #define PTHREAD_STACK_MIN  16384
 #endif
-            int ret = pthread_create(&media_thread, &attr, send_wrapper,
-                                     (void *) play_args);
-            if(ret)
+            int ret = pthread_create(&media_thread, &attr, send_wrapper, play_args);
+            if (ret) {
                 ERROR("Can't create thread to send RTP packets");
+            }
             pthread_attr_destroy(&attr);
 #endif
 

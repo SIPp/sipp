@@ -12,6 +12,26 @@ Changes in 3.6.0
   @atsakiridis.)
 
 
+Features added in 3.6.0
+=======================
+
+* Added `play_dtmf` code originally from
+  https://sourceforge.net/p/sipp/patches/50/ (Dmitry Kunilov), then
+  pull #82 (@horacimacias) and then #141 (@vodik). Compile with
+  pcap-play support, and use it by adding `<exec play_dtmf="1234*#"/>`
+  similar to how you use `play_pcap_audio`.
+  - Add RTP payload 96 in your SDP:
+    m=audio [media_port] RTP/AVP 96 0
+    a=rtpmap:0 PCMU/8000
+    a=rtpmap:96 telephone-event/8000
+    a=fmtp:96 0-16
+  - Exec syntax is `<exec play_dtmf="digits[,length]"/>` where digits
+    can be one or more of "0123456789#*ABCD" and length defaults to 200
+    and must be between 50 and 2000.
+  - Instead of digits a `[field...]` keyword is also accepted.
+  - Make sure you add enough `<pause/>` after `play_dtmf`.
+
+
 Bugs fixed in 3.5.1
 ===================
 
