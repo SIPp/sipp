@@ -44,112 +44,118 @@
 ** Warning! All DISPLAY_ macros must be called where f FILE is
 **          defined. This is to allow printing to stdout or a file.
 */
-#define DISPLAY_LINE()\
-  fprintf(f," ------------------------------------------------------------------------------ \r\n")
-#define DISPLAY_DLINE()\
-  fprintf(f,"================================================================================\r\n")
-#define DISPLAY_CROSS_LINE()\
-  fprintf(f,"-------------------------+---------------------------+--------------------------\r\n")
+#define DISPLAY_LINE() \
+    fprintf(f," ------------------------------------------------------------------------------ \r\n")
+#define DISPLAY_DLINE() \
+    fprintf(f,"================================================================================\r\n")
+#define DISPLAY_CROSS_LINE() \
+    fprintf(f,"-------------------------+---------------------------+--------------------------\r\n")
 
-#define DISPLAY_HEADER()\
-  fprintf(f,"  Counter Name           | Periodic value            | Cumulative value\r\n")
-#define DISPLAY_TXT_COL(T1, V1, V2)\
-  fprintf(f,"  %-22.22s | %-25.25s |", T1, V1); fprintf(f," %-24.24s \r\n", V2)
-#define DISPLAY_VAL_RATEF_COL(T1, V1, V2)\
-  fprintf(f,"  %-22.22s | %8.3f cps              | %8.3f cps             \r\n", T1, V1, V2)
-#define DISPLAY_2VAL(T1, V1, V2)\
-  fprintf(f,"  %-22.22s | %8llu                  | %8llu                 \r\n", T1, V1, V2)
-#define DISPLAY_CUMUL(T1, V1)\
-  fprintf(f,"  %-22.22s |                           | %8llu                 \r\n", T1, V1)
-#define DISPLAY_PERIO(T1, V1)\
-  fprintf(f,"  %-22.22s | %8llu                  |                          \r\n", T1, V1)
-#define DISPLAY_VALF(T1, V1)\
-  fprintf(f,"  %-22.22s | %8.3f ms                                          \r\n", T1, V1)
-#define DISPLAY_VAL_RATEF(T1, V1)\
-  fprintf(f,"  %-22.22s | %8.3f cps                                         \r\n", T1, V1)
-#define DISPLAY_VAL_RATE(T1, V1)\
-  fprintf(f,"  %-22.22s | %8d cps                                         \r\n", T1, V1)
-#define DISPLAY_VAL(T1, V1)\
-  fprintf(f,"  %-22.22s : %8d                                             \r\n", T1, V1)
-#define DISPLAY_2VALF(T1, V1, T2, V2)\
-  fprintf(f,"  %-22.22s : %8.2f  | %-7.7s : %8.2f                       \r\n", T1, V1, T2, V2)
-#define DISPLAY_3VAL(T1, V1, T2, V2, T3, V3)\
-  fprintf(f,"  %-22.22s : %8d  | %-7.7s : %8d  | %-12.12s : %5d \r\n", T1, V1, T2, V2, T3, V3)
-#define DISPLAY_3VALF(T1, V1, T2, V2, T3, V3)\
-  fprintf(f,"  %-22.22s : %8.3f  | %-7.7s : %8.3f  | %-12.12s : %5.1f \r\n", T1, V1, T2, V2, T3, V3)
-#define DISPLAY_TXT(T1, V1)\
-  fprintf(f,"  %-22.22s | %-52.52s \r\n", T1, V1)
-#define DISPLAY_INFO(T1)\
-  fprintf(f,"  %-77.77s \r\n", T1)
-#define DISPLAY_REPART(T1, T2, V1)\
-  fprintf(f,"    %8d ms <= n <  %8d ms : %10lu  %-29.29s \r\n", T1, T2, V1, "")
-#define DISPLAY_LAST_REPART(T1, V1)\
-  fprintf(f,"    %14.14s n >= %8d ms : %10lu  %-29.29s \r\n", "", T1, V1, "")
+#define DISPLAY_HEADER() \
+    fprintf(f,"  Counter Name           | Periodic value            | Cumulative value\r\n")
+#define DISPLAY_TXT_COL(T1, V1, V2) \
+    fprintf(f,"  %-22.22s | %-25.25s |", T1, V1); fprintf(f," %-24.24s \r\n", V2)
+#define DISPLAY_VAL_RATEF_COL(T1, V1, V2) \
+    fprintf(f,"  %-22.22s | %8.3f cps              | %8.3f cps             \r\n", T1, V1, V2)
+#define DISPLAY_2VAL(T1, V1, V2) \
+    fprintf(f,"  %-22.22s | %8llu                  | %8llu                 \r\n", T1, V1, V2)
+#define DISPLAY_CUMUL(T1, V1) \
+    fprintf(f,"  %-22.22s |                          | %8llu                 \r\n", T1, V1)
+#define DISPLAY_PERIO(T1, V1) \
+    fprintf(f,"  %-22.22s | %8llu                  |                          \r\n", T1, V1)
+#define DISPLAY_VALF(T1, V1) \
+    fprintf(f,"  %-22.22s | %8.3f ms                                          \r\n", T1, V1)
+#define DISPLAY_VAL_RATEF(T1, V1) \
+    fprintf(f,"  %-22.22s | %8.3f cps                                         \r\n", T1, V1)
+#define DISPLAY_VAL_RATE(T1, V1) \
+    fprintf(f,"  %-22.22s | %8d cps                                         \r\n", T1, V1)
+#define DISPLAY_VAL(T1, V1) \
+    fprintf(f,"  %-22.22s : %8d                                             \r\n", T1, V1)
+#define DISPLAY_2VALF(T1, V1, T2, V2) \
+    fprintf(f,"  %-22.22s : %8.2f  | %-7.7s : %8.2f                       \r\n", T1, V1, T2, V2)
+#define DISPLAY_3VAL(T1, V1, T2, V2, T3, V3) \
+    fprintf(f,"  %-22.22s : %8d  | %-7.7s : %8d  | %-12.12s : %5d \r\n", T1, V1, T2, V2, T3, V3)
+#define DISPLAY_3VALF(T1, V1, T2, V2, T3, V3) \
+    fprintf(f,"  %-22.22s : %8.3f  | %-7.7s : %8.3f  | %-12.12s : %5.1f \r\n", T1, V1, T2, V2, T3, V3)
+#define DISPLAY_TXT(T1, V1) \
+    fprintf(f,"  %-22.22s | %-52.52s \r\n", T1, V1)
+#define DISPLAY_INFO(T1) \
+    fprintf(f,"  %-77.77s \r\n", T1)
+#define DISPLAY_REPART(T1, T2, V1) \
+    fprintf(f,"    %8d ms <= n <  %8d ms : %10lu  %-29.29s \r\n", T1, T2, V1, "")
+#define DISPLAY_LAST_REPART(T1, V1) \
+    fprintf(f,"    %14.14s n >= %8d ms : %10lu  %-29.29s \r\n", "", T1, V1, "")
 
-#define RESET_COUNTERS(PT)\
-  memset (PT, 0, CStat::E_NB_COUNTER * sizeof(unsigned long long))
+#define RESET_COUNTERS(PT) \
+    memset (PT, 0, CStat::E_NB_COUNTER * sizeof(unsigned long long))
 
-#define RESET_C_COUNTERS                          \
-{                                                      \
-  int i;                                               \
-  for (i=CStat::CPT_G_C_OutOfCallMsgs;            \
-       i<=CStat::CPT_G_C_AutoAnswered;               \
-       i++)                                            \
-    M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long) 0;                         \
-  for (i=CStat::CPT_C_IncomingCallCreated;            \
-       i<=CStat::CPT_C_Retransmissions;               \
-       i++)                                            \
-    M_counters[i] = (unsigned long) 0;                         \
-  for (unsigned int j=0;j<M_genericMap.size(); j++) { \
-    M_genericCounters[j * GENERIC_TYPES + GENERIC_C] = 0; \
-  } \
-  for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_COUNT] = 0; \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUM] = 0; \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] = 0; \
-  } \
+#define RESET_C_COUNTERS \
+{ \
+    int i; \
+    for (i = CStat::CPT_G_C_OutOfCallMsgs; \
+         i <= CStat::CPT_G_C_AutoAnswered; \
+         i++) { \
+        M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long)0; \
+    } \
+    for (i = CStat::CPT_C_IncomingCallCreated; \
+         i <= CStat::CPT_C_Retransmissions; \
+         i++) { \
+        M_counters[i] = (unsigned long)0; \
+    } \
+    for (unsigned int j = 0; j < M_genericMap.size(); j++) { \
+        M_genericCounters[j * GENERIC_TYPES + GENERIC_C] = 0; \
+    } \
+    for (unsigned int j = 0; j < M_rtdMap.size(); j++) { \
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_COUNT] = 0; \
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUM] = 0; \
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] = 0; \
+    } \
 }
 
-#define RESET_PD_COUNTERS                          \
-{                                                      \
-  int i;                                               \
-  for (i=CStat::CPT_G_PD_OutOfCallMsgs;            \
-       i<=CStat::CPT_G_PD_AutoAnswered;               \
-       i++)                                            \
-    M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long) 0;                         \
-  for (i=CStat::CPT_PD_IncomingCallCreated;            \
-       i<=CStat::CPT_PD_Retransmissions;               \
-       i++)                                            \
-    M_counters[i] = (unsigned long) 0;                         \
-  for (unsigned int j=0;j<M_genericMap.size(); j++) { \
-    M_genericCounters[j * GENERIC_TYPES + GENERIC_PD] = 0; \
-  } \
-  for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT] = 0; \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUM] = 0; \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUMSQ] = 0; \
-  } \
+#define RESET_PD_COUNTERS \
+{ \
+    int i; \
+    for (i = CStat::CPT_G_PD_OutOfCallMsgs; \
+         i <= CStat::CPT_G_PD_AutoAnswered; \
+         i++) { \
+        M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long)0; \
+    } \
+    for (i = CStat::CPT_PD_IncomingCallCreated; \
+         i <= CStat::CPT_PD_Retransmissions; \
+         i++) { \
+        M_counters[i] = (unsigned long)0; \
+    } \
+    for (unsigned int j = 0; j < M_genericMap.size(); j++) { \
+        M_genericCounters[j * GENERIC_TYPES + GENERIC_PD] = 0; \
+    } \
+    for (unsigned int j = 0; j < M_rtdMap.size(); j++) { \
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT] = 0; \
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUM] = 0; \
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUMSQ] = 0; \
+    } \
 }
 
-#define RESET_PL_COUNTERS                          \
-{                                                      \
-  int i;                                               \
-  for (i=CStat::CPT_G_PL_OutOfCallMsgs;            \
-       i<=CStat::CPT_G_PL_AutoAnswered;               \
-       i++)                                            \
-    M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long) 0;                         \
-  for (i=CStat::CPT_PL_IncomingCallCreated;            \
-       i<=CStat::CPT_PL_Retransmissions;               \
-       i++)                                            \
-    M_counters[i] = (unsigned long) 0;                         \
-  for (unsigned int j=0;j<M_genericMap.size(); j++) { \
-    M_genericCounters[j * GENERIC_TYPES + GENERIC_PL] = 0; \
-  } \
-  for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_COUNT] = 0; \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUM] = 0; \
-    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUMSQ] = 0; \
-  } \
+#define RESET_PL_COUNTERS \
+{ \
+    int i; \
+    for (i = CStat::CPT_G_PL_OutOfCallMsgs; \
+         i <= CStat::CPT_G_PL_AutoAnswered; \
+         i++) { \
+        M_G_counters[i - E_NB_COUNTER - 1] = (unsigned long)0; \
+    } \
+    for (i = CStat::CPT_PL_IncomingCallCreated; \
+         i <= CStat::CPT_PL_Retransmissions; \
+         i++) { \
+        M_counters[i] = (unsigned long)0; \
+    } \
+    for (unsigned int j = 0; j < M_genericMap.size(); j++) { \
+        M_genericCounters[j * GENERIC_TYPES + GENERIC_PL] = 0; \
+    } \
+    for (unsigned int j = 0; j < M_rtdMap.size(); j++) { \
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_COUNT] = 0; \
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUM] = 0; \
+        M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUMSQ] = 0; \
+    } \
 }
 
 /*

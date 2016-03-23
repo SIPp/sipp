@@ -173,7 +173,7 @@ private:
 #endif
 
 #ifdef RTP_STREAM
-  rtpstream_callinfo_t rtpstream_callinfo;
+    rtpstream_callinfo_t rtpstream_callinfo;
 #endif
 
     /* holds the auth header and if the challenge was 401 or 407 */
@@ -303,7 +303,7 @@ private:
     void   get_remote_media_addr(char * message);
 
 #ifdef RTP_STREAM
-  void   extract_rtp_remote_addr (char * message);
+    void extract_rtp_remote_addr(char* message);
 #endif
 
     bool lost(int index);

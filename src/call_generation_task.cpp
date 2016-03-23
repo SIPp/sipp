@@ -57,7 +57,8 @@ void CallGenerationTask::dump()
     WARNING("Uniform rate call generation task: %f", rate);
 }
 
-unsigned int CallGenerationTask::wake() {
+unsigned int CallGenerationTask::wake()
+{
     int retval;
     if (paused || (users >= 0)) {
         // When paused or when we're doing user-based rather than
@@ -82,10 +83,10 @@ unsigned int CallGenerationTask::wake() {
         But 0 indicates that we should wait forever, so avoid that and
         return 1 instead. */
         if (retval == 0 /* DONT_RESCHEDULE */) {
-          retval = 1;
+            retval = 1;
         }
-  }
-  return retval;
+    }
+    return retval;
 }
 
 bool CallGenerationTask::run()

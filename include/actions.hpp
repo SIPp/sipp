@@ -76,9 +76,9 @@ public:
         E_AT_PLAY_DTMF,
 #endif
 #ifdef RTP_STREAM
-      E_AT_RTP_STREAM_PAUSE,
-      E_AT_RTP_STREAM_RESUME,
-      E_AT_RTP_STREAM_PLAY,
+        E_AT_RTP_STREAM_PAUSE,
+        E_AT_RTP_STREAM_RESUME,
+        E_AT_RTP_STREAM_PLAY,
 #endif
         E_AT_NB_ACTION
     };
@@ -165,7 +165,7 @@ public:
 #endif
 #ifdef RTP_STREAM
     void setRTPStreamActInfo(const char* P_value);  /* parse rtp stream playback values from string */
-    void setRTPStreamActInfo (rtpstream_actinfo_t *P_value); /* copy stored rtp stream playback params */
+    void setRTPStreamActInfo(rtpstream_actinfo_t* P_value); /* copy stored rtp stream playback params */
 #endif
 
     void setSubVarId     (int P_value);
@@ -219,7 +219,7 @@ private:
     pcap_pkts *    M_pcapArgs;
 #endif
 #ifdef RTP_STREAM
-      rtpstream_actinfo_t M_rtpstream_actinfo;
+    rtpstream_actinfo_t M_rtpstream_actinfo;
 #endif
     void setSubString(char** P_target, const char* P_source, int P_start, int P_stop);
 };

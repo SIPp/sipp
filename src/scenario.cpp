@@ -61,7 +61,7 @@ message::message(int index, const char *desc)
 
     /* Anyway */
     start_rtd = 0;
-    stop_rtd  = 0;
+    stop_rtd = 0;
     repeat_rtd = 0;
     lost = -1;
     crlf = 0;
@@ -96,8 +96,8 @@ message::message(int index, const char *desc)
     M_type = 0;
 
     M_sendCmdData = NULL; // delete on exit
-    M_nbCmdSent   = 0;
-    M_nbCmdRecv   = 0;
+    M_nbCmdSent = 0;
+    M_nbCmdRecv = 0;
 
     content_length_flag = ContentLengthNoPresent;
 
@@ -110,25 +110,25 @@ message::message(int index, const char *desc)
 
 message::~message()
 {
-  delete(pause_distribution);
-  free(pause_desc);
-  delete(send_scheme);
-  free(recv_request);
-  if (regexp_compile != NULL) {
-    regfree(regexp_compile);
-  }
-  free(regexp_compile);
+    delete(pause_distribution);
+    free(pause_desc);
+    delete(send_scheme);
+    free(recv_request);
+    if (regexp_compile != NULL) {
+        regfree(regexp_compile);
+    }
+    free(regexp_compile);
 
-  free(display_str);
-  free(nextLabel);
-  free(onTimeoutLabel);
+    free(display_str);
+    free(nextLabel);
+    free(onTimeoutLabel);
 
-  free(peer_dest);
-  free(peer_src);
+    free(peer_dest);
+    free(peer_src);
 
-  delete(M_actions);
-  delete(M_sendCmdData);
-  free(recv_response_for_cseq_method_list);
+    delete(M_actions);
+    delete(M_sendCmdData);
+    free(recv_response_for_cseq_method_list);
 }
 
 /******** Global variables which compose the scenario file **********/
@@ -140,9 +140,9 @@ scenario      *display_scenario;
 
 /* This mode setting refers to whether we open calls autonomously (MODE_CLIENT)
  * or in response to requests (MODE_SERVER). */
-int creationMode  = MODE_CLIENT;
+int creationMode = MODE_CLIENT;
 /* Send mode. Do we send to a fixed address or to the last one we got. */
-int sendMode  = MODE_CLIENT;
+int sendMode = MODE_CLIENT;
 /* This describes what our 3PCC behavior is. */
 int thirdPartyMode = MODE_3PCC_NONE;
 
