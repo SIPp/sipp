@@ -32,9 +32,9 @@ enum ssl_init_status {
 extern  SSL_CTX  *sip_trp_ssl_ctx;
 extern  SSL_CTX  *sip_trp_ssl_ctx_client;
 
-int gai_getsockaddr(struct sockaddr_storage *ss, const char *host,
+int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
                     short port, int flags, int family);
-void sockaddr_update_port(struct sockaddr_storage *ss, short port);
+void sockaddr_update_port(struct sockaddr_storage* ss, short port);
 
 const char *sip_tls_error_string(SSL *ssl, int size);
 ssl_init_status FI_init_ssl_context (void);

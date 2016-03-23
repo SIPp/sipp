@@ -2161,9 +2161,8 @@ int main(int argc, char *argv[])
         int max_tries = user_media_port ? 1 : 100;
         media_port = user_media_port ? user_media_port : DEFAULT_MEDIA_PORT;
         for (try_counter = 0; try_counter < max_tries; try_counter++) {
+            sockaddr_update_port(&media_sockaddr, media_port);
 
-	    sockaddr_update_port(&media_sockaddr, media_port);
-	    media_ip_is_ipv6 = media_sockaddr.ss_family == AF_INET6;
             // Use get_host_and_port to remove square brackets from an
             // IPv6 address
             get_host_and_port(media_ip, media_ip_escaped, NULL);
@@ -2185,12 +2184,11 @@ int main(int argc, char *argv[])
            (+1 is reserved for RTCP)
         ----------------------------------------------------------*/
 
-	sockaddr_update_port(&media_sockaddr, media_port + 2);
-	media_ip_is_ipv6 = media_sockaddr.ss_family == AF_INET6;
+        sockaddr_update_port(&media_sockaddr, media_port + 2);
 
-	// Use get_host_and_port to remove square brackets from an
-	// IPv6 address
-	get_host_and_port(media_ip, media_ip_escaped, NULL);
+        // Use get_host_and_port to remove square brackets from an
+        // IPv6 address
+        get_host_and_port(media_ip, media_ip_escaped, NULL);
 
         if (::bind(media_socket_video, (sockaddr*)&media_sockaddr,
                    sizeof(media_sockaddr))) {

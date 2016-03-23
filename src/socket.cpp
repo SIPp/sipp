@@ -67,12 +67,12 @@ int pending_messages = 0;
 
 map<string, struct sipp_socket *>     map_perip_fd;
 
-int gai_getsockaddr(struct sockaddr_storage *ss, const char *host,
+int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
                     short port, int flags, int family)
 {
     int error = 0;
     const struct addrinfo hints = {flags, family,};
-    struct addrinfo *res;
+    struct addrinfo* res;
 
     if (port) {
         char service[std::numeric_limits<short>::digits10 + 1];
@@ -90,17 +90,17 @@ int gai_getsockaddr(struct sockaddr_storage *ss, const char *host,
     return error;
 }
 
-void sockaddr_update_port(struct sockaddr_storage *ss, short port)
+void sockaddr_update_port(struct sockaddr_storage* ss, short port)
 {
     switch (ss->ss_family) {
     case AF_INET:
-	_RCAST(struct sockaddr_in *, ss)->sin_port = htons(port);
-	break;
+        _RCAST(struct sockaddr_in*, ss)->sin_port = htons(port);
+        break;
     case AF_INET6:
-	_RCAST(struct sockaddr_in6 *, ss)->sin6_port = htons(port);
-	break;
+        _RCAST(struct sockaddr_in6*, ss)->sin6_port = htons(port);
+        break;
     default:
-	ERROR("Unsupported family type");
+        ERROR("Unsupported family type");
     }
 }
 
@@ -2566,7 +2566,7 @@ int open_connections()
                     }
                 }
             }
-	    sockaddr_update_port(&local_sockaddr, l_port);
+            sockaddr_update_port(&local_sockaddr, l_port);
             if (sipp_bind_socket(main_socket, &local_sockaddr, &local_port) == 0) {
                 break;
             }
@@ -2598,7 +2598,7 @@ int open_connections()
             }
         }
 
-	sockaddr_update_port(&local_sockaddr, user_port);
+        sockaddr_update_port(&local_sockaddr, user_port);
         if (sipp_bind_socket(main_socket, &local_sockaddr, &local_port)) {
             ERROR_NO("Unable to bind main socket");
         }
