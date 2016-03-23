@@ -21,3 +21,4 @@ script:
     - make -j2
     - make -j2 check
     - ./regress/runtests
+    - ./validate-src.sh
