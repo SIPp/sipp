@@ -68,7 +68,7 @@ int pending_messages = 0;
 map<string, struct sipp_socket *>     map_perip_fd;
 
 int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
-                    short port, int flags, int family)
+                    unsigned short port, int flags, int family)
 {
     int error = 0;
     const struct addrinfo hints = {flags, family,};
@@ -85,6 +85,8 @@ int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
     if (error == 0) {
         memcpy(ss, res->ai_addr, res->ai_addrlen);
         freeaddrinfo(res);
+    } else {
+        WARNING("getaddrinfo failed: %s", gai_strerror(error));
     }
 
     return error;
