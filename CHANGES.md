@@ -1,3 +1,17 @@
+Changes in 3.6.0
+================
+
+* Removed unused RTPStream code concerning video streams. Also
+  consolidated the rtpstream audio port usage to reuse the global
+  `[media_port]` instead of the `[rtpstream_audio_port]`.
+  Also the `-min_rtp_port` and `-max_rtp_port` options have been
+  removed. Advantages: cleaner code, fewer scenario variables.
+  Drawbacks: possible ICMP port unreachable messages for RCTP and video.
+  Also, no easy way to discern different streams if you want to bombard
+  a single UAS with multiple RTP streams. (Issue #192, reported by
+  @atsakiridis.)
+
+
 Bugs fixed in 3.5.1
 ===================
 
