@@ -1732,36 +1732,17 @@ int main(int argc, char *argv[])
                 if (temp_remote_s_p != 0) {
                     remote_s_p = temp_remote_s_p;
                 }
-                struct addrinfo   hints;
-                struct addrinfo * local_addr;
 
                 printf("Resolving remote sending address %s...\n", remote_s_address);
 
-                memset((char*)&hints, 0, sizeof(hints));
-                hints.ai_flags  = AI_PASSIVE;
-                hints.ai_family = PF_UNSPEC;
-
                 /* FIXME: add DNS SRV support using liburli? */
-                if (getaddrinfo(remote_s_address,
-                                NULL,
-                                &hints,
-                                &local_addr) != 0) {
+                if (gai_getsockaddr(&remote_sending_sockaddr, remote_s_address, remote_s_p,
+                                    AI_PASSIVE, AF_UNSPEC) != 0) {
                     ERROR("Unknown remote host '%s'.\n"
                           "Use 'sipp -h' for details", remote_s_address);
                 }
 
-                memcpy(&remote_sending_sockaddr,
-                       local_addr->ai_addr,
-                       local_addr->ai_addrlen);
-
-                if (remote_sending_sockaddr.ss_family == AF_INET) {
-                    (_RCAST(struct sockaddr_in*, &remote_sending_sockaddr))->sin_port = htons(remote_s_p);
-                } else {
-                    (_RCAST(struct sockaddr_in6*, &remote_sending_sockaddr))->sin6_port = htons(remote_s_p);
-                }
                 use_remote_sending_addr = 1;
-
-                freeaddrinfo(local_addr);
                 break;
             }
             case SIPP_OPTION_RTCHECK:
@@ -2180,13 +2161,8 @@ int main(int argc, char *argv[])
         int max_tries = user_media_port ? 1 : 100;
         media_port = user_media_port ? user_media_port : DEFAULT_MEDIA_PORT;
         for (try_counter = 0; try_counter < max_tries; try_counter++) {
+            sockaddr_update_port(&media_sockaddr, media_port);
 
-            if (media_sockaddr.ss_family == AF_INET) {
-                (_RCAST(struct sockaddr_in*, &media_sockaddr))->sin_port = htons(media_port);
-            } else {
-                (_RCAST(struct sockaddr_in6*, &media_sockaddr))->sin6_port = htons(media_port);
-                media_ip_is_ipv6 = true;
-            }
             // Use get_host_and_port to remove square brackets from an
             // IPv6 address
             get_host_and_port(media_ip, media_ip_escaped, NULL);
@@ -2208,18 +2184,11 @@ int main(int argc, char *argv[])
            (+1 is reserved for RTCP)
         ----------------------------------------------------------*/
 
-        if (media_sockaddr.ss_family == AF_INET) {
-            (_RCAST(struct sockaddr_in*, &media_sockaddr))->sin_port = htons(media_port + 2);
-            // Use get_host_and_port to remove square brackets from an
-            // IPv6 address
-            get_host_and_port(media_ip, media_ip_escaped, NULL);
-        } else {
-            (_RCAST(struct sockaddr_in6*, &media_sockaddr))->sin6_port = htons(media_port + 2);
-            media_ip_is_ipv6 = true;
-            // Use get_host_and_port to remove square brackets from an
-            // IPv6 address
-            get_host_and_port(media_ip, media_ip_escaped, NULL);
-        }
+        sockaddr_update_port(&media_sockaddr, media_port + 2);
+
+        // Use get_host_and_port to remove square brackets from an
+        // IPv6 address
+        get_host_and_port(media_ip, media_ip_escaped, NULL);
 
         if (::bind(media_socket_video, (sockaddr*)&media_sockaddr,
                    sizeof(media_sockaddr))) {

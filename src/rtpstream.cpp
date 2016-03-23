@@ -759,13 +759,7 @@ static int rtpstream_get_localport (int *rtpsocket, int *rtcpsocket)
       next_rtp_port= min_rtp_port;
     }
 
-    if (media_ip_is_ipv6) {
-      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port =
-        htons((short)port_number);
-    } else {
-      (_RCAST(struct sockaddr_in *,&address))->sin_port=
-        htons((short)port_number);
-    }
+    sockaddr_update_port(&address, port_number);
     if (::bind(*rtpsocket,(sockaddr *)(void *)&address,
                sizeof(address)) == 0) {
       break;
@@ -790,13 +784,7 @@ static int rtpstream_get_localport (int *rtpsocket, int *rtcpsocket)
   *rtcpsocket= socket(media_ip_is_ipv6?PF_INET6:PF_INET,SOCK_DGRAM,0);
   if (*rtcpsocket!=-1) {
     /* try to bind it to our preferred address */
-    if (media_ip_is_ipv6) {
-      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port =
-        htons((short)port_number+1);
-    } else {
-      (_RCAST(struct sockaddr_in *,&address))->sin_port=
-        htons((short)port_number+1);
-    }
+    sockaddr_update_port(&address, port_number + 1);
     if (::bind(*rtcpsocket,(sockaddr *)(void *)&address,
                sizeof(address)) == 0) {
       /* could not bind the rtcp socket to required port. so we delete it */
@@ -959,18 +947,10 @@ void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, char *ip_
 
   /* Audio */
   if (audio_port) {
-    if (media_ip_is_ipv6) {
-      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port= htons((short)audio_port);
-    } else {
-      (_RCAST(struct sockaddr_in *,&address))->sin_port= htons((short)audio_port);
-    }
+    sockaddr_update_port(&address, audio_port);
     memcpy (&(taskinfo->remote_audio_rtp_addr),&address,sizeof(address));
 
-    if (media_ip_is_ipv6) {
-      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port= htons((short)audio_port+1);
-    } else {
-      (_RCAST(struct sockaddr_in *,&address))->sin_port= htons((short)audio_port+1);
-    }
+    sockaddr_update_port(&address, audio_port + 1);
     memcpy (&(taskinfo->remote_audio_rtcp_addr),&address,sizeof(address));
 
     taskinfo->flags&= ~TI_NULL_AUDIOIP;
@@ -978,18 +958,10 @@ void rtpstream_set_remote (rtpstream_callinfo_t *callinfo, int ip_ver, char *ip_
 
   /* Video */
   if (video_port) {
-    if (media_ip_is_ipv6) {
-      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port= htons((short)video_port);
-    } else {
-      (_RCAST(struct sockaddr_in *,&address))->sin_port= htons((short)video_port);
-    }
+    sockaddr_update_port(&address, video_port);
     memcpy (&(taskinfo->remote_video_rtp_addr),&address,sizeof(address));
 
-    if (media_ip_is_ipv6) {
-      (_RCAST(struct sockaddr_in6 *,&address))->sin6_port= htons((short)video_port+1);
-    } else {
-      (_RCAST(struct sockaddr_in *,&address))->sin_port= htons((short)video_port+1);
-    }
+    sockaddr_update_port(&address, video_port + 1);
     memcpy (&(taskinfo->remote_video_rtcp_addr),&address,sizeof(address));
 
     taskinfo->flags&= ~TI_NULL_VIDEOIP;
