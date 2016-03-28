@@ -1,6 +1,7 @@
 *.o
 *~
 .*.sw*
+.autoclean
 .deps/
 .version
 Makefile

@@ -40,6 +40,7 @@ Bugs fixed in 3.5.1
   the challenge. Some servers returned a 400 upon receiving this.
   (Issue #191, reported by @artlov.)
 * Fix compile error on Cygwin. (Issue #193, reported by @Gankarloo.)
+* Recompile entire source after a reconfigure.
 
 
 Features added in 3.5.0
