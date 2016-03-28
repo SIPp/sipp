@@ -167,6 +167,12 @@ sipp_unittest_CXXFLAGS = $(AM_CXXFLAGS) -DGTEST=1 \
 
 sipp_unittest_LDADD = @LIBOBJS@ @GSL_LIBS@
 
+# Ensure that after a reconfigure the source is cleaned.
+.autoclean: Makefile
+	make clean
+	echo > .autoclean
+BUILT_SOURCES = .autoclean
+
 if HAVE_HELP2MAN
 man_MANS = sipp.1
 CLEANFILES += $(man_MANS)
