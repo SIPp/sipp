@@ -31,6 +31,10 @@ sipp() {
     exec "`get_sipp`" "$@"
 }
 
+sippversion() {
+    "`get_sipp`" -v | sed -e 's/^ //;/SIPp/!d;s/ built.*//'
+}
+
 sippfg() {
     "`get_sipp`" -nostdin "$@"
 }
