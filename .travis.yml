@@ -1,12 +1,31 @@
+# Config
+
 language: cpp
-compiler:
-    - gcc
-    - clang
 
 notifications:
     email: false
 
 sudo: required
+
+
+# Build matrix
+
+compiler:
+    - gcc
+    - clang
+
+env:
+    - CONFOPTS="--with-gsl --with-openssl --with-pcap --with-rtpstream --with-sctp"
+
+matrix:
+    include:
+        - compiler: gcc
+          env: CONFOPTS=""
+        - compiler: gcc
+          env: CONFOPTS="--with-openssl --without-pcap --without-rtpstream"
+
+
+# Build steps
 
 before_install:
     - sudo apt-get -qq update
@@ -15,7 +34,7 @@ before_install:
 before_script:
     - git submodule update --init
     - autoreconf -vifs
-    - ./configure --with-gsl --with-openssl --with-pcap --with-rtpstream --with-sctp
+    - ./configure $CONFOPTS
 
 script:
     - make -j2
