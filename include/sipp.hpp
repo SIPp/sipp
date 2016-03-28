@@ -72,8 +72,8 @@
 #include "screen.hpp"
 #include "task.hpp"
 #include "listener.hpp"
-#include "socketowner.hpp"
 #include "socket.hpp"
+#include "socketowner.hpp"
 #include "call.hpp"
 #include "comp.h"
 #include "variables.hpp"
@@ -340,14 +340,13 @@ extern AllocVariableTable *userVariables          _DEFVAL(NULL);
 typedef std::map<int, VariableTable *> int_vt_map;
 extern int_vt_map         userVarMap;
 
-//extern int      new_socket(bool P_use_ipv6, int P_type_socket, int * P_status);
-extern struct   sipp_socket *new_sipp_socket(bool use_ipv6, int transport);
-struct sipp_socket *new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
-struct sipp_socket *sipp_accept_socket(struct sipp_socket *accept_socket);
-extern int      sipp_bind_socket(struct sipp_socket *socket, struct sockaddr_storage *saddr, int *port);
-extern int      sipp_connect_socket(struct sipp_socket *socket, struct sockaddr_storage *dest);
-extern int      sipp_reconnect_socket(struct sipp_socket *socket);
-extern void     sipp_customize_socket(struct sipp_socket *socket);
+extern SIPpSocket* new_sipp_socket(bool use_ipv6, int transport);
+SIPpSocket *new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
+SIPpSocket *sipp_accept_socket(SIPpSocket *accept_socket);
+extern int      sipp_bind_socket(SIPpSocket *socket, struct sockaddr_storage *saddr, int *port);
+extern int      sipp_connect_socket(SIPpSocket *socket, struct sockaddr_storage *dest);
+extern int      sipp_reconnect_socket(SIPpSocket *socket);
+extern void     sipp_customize_socket(SIPpSocket *socket);
 extern int      delete_socket(int P_socket);
 extern int      min_socket          _DEFVAL(65535);
 extern int      select_socket       _DEFVAL(0);
@@ -423,9 +422,9 @@ extern  int stepDynamicId   _DEFVAL(4);      // step of increment for dynamicId
 
 /*********************** Global Sockets  **********************/
 
-extern struct sipp_socket *main_socket            _DEFVAL(NULL);
-extern struct sipp_socket *main_remote_socket     _DEFVAL(NULL);
-extern struct sipp_socket *tcp_multiplex          _DEFVAL(NULL);
+extern SIPpSocket *main_socket            _DEFVAL(NULL);
+extern SIPpSocket *main_remote_socket     _DEFVAL(NULL);
+extern SIPpSocket *tcp_multiplex          _DEFVAL(NULL);
 extern int           media_socket                 _DEFVAL(0);
 extern int           media_socket_video           _DEFVAL(0);
 
@@ -440,12 +439,12 @@ extern bool          reset_close                  _DEFVAL(true);
 extern int           reset_sleep                  _DEFVAL(1000);
 extern bool          sendbuffer_warn              _DEFVAL(false);
 /* A list of sockets pending reset. */
-extern set<struct sipp_socket *> sockets_pending_reset;
+extern set<SIPpSocket *> sockets_pending_reset;
 
 extern struct addrinfo *local_addr_storage;
 
-extern struct sipp_socket *twinSippSocket         _DEFVAL(NULL);
-extern struct sipp_socket *localTwinSippSocket    _DEFVAL(NULL);
+extern SIPpSocket *twinSippSocket         _DEFVAL(NULL);
+extern SIPpSocket *localTwinSippSocket    _DEFVAL(NULL);
 extern struct sockaddr_storage twinSipp_sockaddr;
 
 /* 3pcc extended mode */
@@ -454,16 +453,16 @@ typedef struct _T_peer_infos {
     int                       peer_port;
     struct sockaddr_storage   peer_sockaddr;
     char                      peer_ip[40];
-    struct sipp_socket        *peer_socket;
+    SIPpSocket        *peer_socket;
 } T_peer_infos;
 
 typedef std::map<std::string, char * > peer_addr_map;
 extern peer_addr_map peer_addrs;
 typedef std::map<std::string, T_peer_infos> peer_map;
 extern peer_map      peers;
-typedef std::map<struct sipp_socket *, std::string > peer_socket_map;
+typedef std::map<SIPpSocket *, std::string > peer_socket_map;
 extern peer_socket_map peer_sockets;
-extern struct sipp_socket *local_sockets[MAX_LOCAL_TWIN_SOCKETS];
+extern SIPpSocket *local_sockets[MAX_LOCAL_TWIN_SOCKETS];
 extern int           local_nb                    _DEFVAL(0);
 extern int           peers_connected             _DEFVAL(0);
 
@@ -487,17 +486,17 @@ void sipp_exit(int rc);
 char *get_peer_addr(char *);
 
 bool reconnect_allowed();
-void reset_connection(struct sipp_socket *);
-void close_calls(struct sipp_socket *);
+void reset_connection(SIPpSocket *);
+void close_calls(SIPpSocket *);
 int close_connections();
 int open_connections();
 void timeout_alarm(int);
 
 /* extended 3PCC mode */
-struct sipp_socket **get_peer_socket(char *);
-bool is_a_peer_socket(struct sipp_socket *);
-bool is_a_local_socket(struct sipp_socket *);
-void connect_to_peer (char *, int , sockaddr_storage *, char *, struct sipp_socket **);
+SIPpSocket **get_peer_socket(char *);
+bool is_a_peer_socket(SIPpSocket *);
+bool is_a_local_socket(SIPpSocket *);
+void connect_to_peer (char *, int , sockaddr_storage *, char *, SIPpSocket **);
 void connect_to_all_peers ();
 void connect_local_twin_socket(char *);
 void close_peer_sockets();

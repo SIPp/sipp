@@ -58,7 +58,7 @@
 
 #define callDebug(...) do { if (useCallDebugf) { _callDebug( __VA_ARGS__ ); } } while (0)
 
-extern  map<string, struct sipp_socket *>     map_perip_fd;
+extern  map<string, SIPpSocket *>     map_perip_fd;
 
 #ifdef PCAPPLAY
 /* send_packets pthread wrapper */
@@ -272,12 +272,12 @@ call::call(const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage 
     init(main_scenario, NULL, dest, p_id, userId, use_ipv6, false, false);
 }
 
-call::call(const char *p_id, struct sipp_socket *socket, struct sockaddr_storage *dest) : listener(p_id, true)
+call::call(const char *p_id, SIPpSocket *socket, struct sockaddr_storage *dest) : listener(p_id, true)
 {
     init(main_scenario, socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
 }
 
-call::call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true)
+call::call(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true)
 {
     init(call_scenario, socket, dest, p_id, userId, ipv6, isAutomatic, isInitialization);
 }
@@ -320,7 +320,7 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
 }
 
 
-void call::init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall)
+void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall)
 {
     this->call_scenario = call_scenario;
     zombie = false;
@@ -548,7 +548,7 @@ call::~call()
     }
 
     if (call_remote_socket && (call_remote_socket != main_remote_socket)) {
-        sipp_close_socket(call_remote_socket);
+        call_remote_socket->close();
     }
 
     /* Deletion of the call variable */
@@ -682,7 +682,7 @@ bool call::connect_socket_if_needed()
         } else {
             char *tmp = peripaddr;
             getFieldFromInputFile(ip_file, peripfield, NULL, tmp);
-            map<string, struct sipp_socket *>::iterator i;
+            map<string, SIPpSocket *>::iterator i;
             i = map_perip_fd.find(peripaddr);
             if (i == map_perip_fd.end()) {
                 // Socket does not exist
@@ -737,7 +737,7 @@ bool call::connect_socket_if_needed()
             L_dest = &remote_sending_sockaddr;
         }
 
-        if (sipp_connect_socket(call_socket, L_dest)) {
+        if (call_socket->connect(L_dest)) {
             if (reconnect_allowed()) {
                 if(errno == EINVAL) {
                     /* This occurs sometime on HPUX but is not a true INVAL */
@@ -796,7 +796,7 @@ bool call::lost(int index)
 
 int call::send_raw(const char * msg, int index, int len)
 {
-    struct sipp_socket *sock;
+    SIPpSocket *sock;
     int rc;
 
     callDebug("Sending %s message for call %s (index %d, hash %lu):\n%s\n\n",
@@ -828,7 +828,7 @@ int call::send_raw(const char * msg, int index, int len)
                 sipp_customize_socket(call_remote_socket);
 
                 if(transport != T_UDP) {
-                    if (sipp_connect_socket(call_remote_socket, L_dest)) {
+                    if (call_remote_socket->connect(L_dest)) {
                         if(errno == EINVAL) {
                             /* This occurs sometime on HPUX but is not a true INVAL */
                             ERROR("Unable to connect a %s socket for rsa option, remote peer error", TRANSPORT_TO_STRING(transport));
@@ -857,7 +857,7 @@ int call::send_raw(const char * msg, int index, int len)
 
     assert(sock);
 
-    rc = write_socket(sock, msg, len, WS_BUFFER, &call_peer);
+    rc = sock->write(msg, len, WS_BUFFER, &call_peer);
     if(rc < 0 && errno == EWOULDBLOCK) {
         return rc;
     }
@@ -1817,7 +1817,7 @@ int call::sendCmdMessage(message *curmsg)
 
     /* 3pcc extended mode */
     char * peer_dest;
-    struct sipp_socket **peer_socket;
+    SIPpSocket **peer_socket;
 
     if(curmsg -> M_sendCmdData) {
         // WARNING("---PREPARING_TWIN_CMD---%s---", scenario[index] -> M_sendCmdData);
@@ -1831,9 +1831,9 @@ int call::sendCmdMessage(message *curmsg)
         peer_dest = curmsg->peer_dest;
         if(peer_dest) {
             peer_socket = get_peer_socket(peer_dest);
-            rc = write_socket(*peer_socket, dest, strlen(dest), WS_BUFFER, &call_peer);
+            rc = (*peer_socket)->write(dest, strlen(dest), WS_BUFFER, &call_peer);
         } else {
-            rc = write_socket(twinSippSocket, dest, strlen(dest), WS_BUFFER, &call_peer);
+            rc = twinSippSocket->write(dest, strlen(dest), WS_BUFFER, &call_peer);
         }
         if(rc <  0) {
             computeStat(CStat::E_CALL_FAILED);
@@ -1861,7 +1861,7 @@ int call::sendCmdBuffer(char* cmd)
 
     strcat(dest, delimitor);
 
-    rc = write_socket(twinSippSocket, dest, strlen(dest), WS_BUFFER, &twinSippSocket->ss_remote_sockaddr);
+    rc = twinSippSocket->write(dest, strlen(dest), WS_BUFFER, &twinSippSocket->ss_remote_sockaddr);
     if(rc <  0) {
         computeStat(CStat::E_CALL_FAILED);
         computeStat(CStat::E_FAILED_CMD_NOT_SENT);
@@ -3354,8 +3354,8 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             free(value);
         } else if (currentAction->getActionType() == CAction::E_AT_CLOSE_CON) {
             if (call_socket) {
-                sipp_socket_invalidate(call_socket);
-                sipp_close_socket(call_socket);
+                call_socket->invalidate();
+                call_socket->close();
                 call_socket = NULL;
             }
         } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST) {

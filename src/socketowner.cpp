@@ -47,7 +47,7 @@
 
 socket_owner_map_map socket_to_owners;
 
-struct sipp_socket *socketowner::associate_socket(struct sipp_socket *socket) {
+SIPpSocket *socketowner::associate_socket(SIPpSocket *socket) {
     if (socket) {
         this->call_socket = socket;
         add_owner_to_socket(socket);
@@ -55,8 +55,8 @@ struct sipp_socket *socketowner::associate_socket(struct sipp_socket *socket) {
     return socket;
 }
 
-struct sipp_socket *socketowner::dissociate_socket() {
-    struct sipp_socket *ret = this->call_socket;
+SIPpSocket *socketowner::dissociate_socket() {
+    SIPpSocket *ret = this->call_socket;
 
     remove_owner_from_socket(this->call_socket);
     this->call_socket = NULL;
@@ -75,11 +75,11 @@ socketowner::socketowner()
 socketowner::~socketowner()
 {
     if (this->call_socket) {
-        sipp_close_socket(dissociate_socket());
+        dissociate_socket()->close();
     }
 }
 
-void socketowner::add_owner_to_socket(struct sipp_socket *socket)
+void socketowner::add_owner_to_socket(SIPpSocket *socket)
 {
     socket_owner_map_map::iterator map_it = socket_to_owners.find(socket);
     /* No map defined for this socket. */
@@ -93,7 +93,7 @@ void socketowner::add_owner_to_socket(struct sipp_socket *socket)
     socket_owner_map->insert(long_owner_pair(this->ownerid, this));
 }
 
-void socketowner::remove_owner_from_socket(struct sipp_socket *socket)
+void socketowner::remove_owner_from_socket(SIPpSocket *socket)
 {
     socket_owner_map_map::iterator map_it = socket_to_owners.find(socket);
     /* We must have  a map for this socket. */
@@ -113,7 +113,7 @@ void socketowner::remove_owner_from_socket(struct sipp_socket *socket)
 }
 
 /* The caller must delete this list. */
-owner_list *get_owners_for_socket(struct sipp_socket *socket)
+owner_list *get_owners_for_socket(SIPpSocket *socket)
 {
     owner_list *l = new owner_list;
 

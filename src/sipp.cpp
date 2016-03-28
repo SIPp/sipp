@@ -47,8 +47,8 @@
 #include "config.h"
 #include "version.h"
 
-extern struct sipp_socket *ctrl_socket;
-extern struct sipp_socket *stdin_socket;
+extern SIPpSocket *ctrl_socket;
+extern SIPpSocket *stdin_socket;
 
 /* These could be local to main, but for the option processing table. */
 static int argiFileName;
@@ -408,7 +408,7 @@ extern struct epoll_event*  epollevents;
 #else
 extern struct pollfd        pollfiles[SIPP_MAXFDS];
 #endif
-extern struct sipp_socket  *sockets[SIPP_MAXFDS];
+extern SIPpSocket  *sockets[SIPP_MAXFDS];
 
 extern int pending_messages;
 
@@ -491,7 +491,7 @@ static void pollset_process(int wait)
 #else
     for (size_t poll_idx = 0; rs > 0 && poll_idx < pollnfds; poll_idx++) {
 #endif
-        struct sipp_socket *sock = sockets[poll_idx];
+        SIPpSocket *sock = sockets[poll_idx];
         int events = 0;
         int ret = 0;
 
@@ -521,7 +521,7 @@ static void pollset_process(int wait)
 #endif
                 sock->ss_congested = false;
 
-                flush_socket(sock);
+                sock->flush();
                 events++;
             }
         }
@@ -533,7 +533,7 @@ static void pollset_process(int wait)
 #endif
             /* We can empty this socket. */
             if ((transport == T_TCP || transport == T_TLS || transport == T_SCTP) && sock == main_socket) {
-                struct sipp_socket *new_sock = sipp_accept_socket(sock);
+                SIPpSocket *new_sock = sipp_accept_socket(sock);
                 if (!new_sock) {
                     ERROR_NO("Accepting new TCP connection.\n");
                 }
@@ -556,7 +556,7 @@ static void pollset_process(int wait)
                         ERROR("Max number of twin instances reached\n");
                     }
 
-                    struct sipp_socket *localSocket = sipp_accept_socket(sock);
+                    SIPpSocket *localSocket = sipp_accept_socket(sock);
                     localSocket->ss_control = 1;
                     local_sockets[local_nb] = localSocket;
                     local_nb++;
@@ -718,7 +718,7 @@ static bool traffic_thread()
         }
 
         while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
-            reset_connection(*(sockets_pending_reset.begin()));
+            (*(sockets_pending_reset.begin()))->reset_connection();
             sockets_pending_reset.erase(sockets_pending_reset.begin());
         }
 
@@ -738,7 +738,7 @@ static bool traffic_thread()
                 rtpstream_shutdown();
 #endif
                 for (unsigned i = 0; i < pollnfds; i++) {
-                    sipp_close_socket(sockets[i]);
+                    sockets[i]->close();
                 }
 
                 screentask::report(true);
@@ -799,7 +799,7 @@ static bool traffic_thread()
             last -> run();
         }
         while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
-            reset_connection(*(sockets_pending_reset.begin()));
+            (*(sockets_pending_reset.begin()))->reset_connection();
             sockets_pending_reset.erase(sockets_pending_reset.begin());
         }
 
@@ -2227,9 +2227,9 @@ int main(int argc, char *argv[])
 
     if (traffic_thread()) {
         if (!nostdin) {
-            sipp_close_socket(stdin_socket);
+            stdin_socket->close();
         }
-        sipp_close_socket(ctrl_socket);
+        ctrl_socket->close();
     }
 
     /* Cancel and join other threads. */
