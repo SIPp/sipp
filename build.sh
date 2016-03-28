@@ -22,8 +22,6 @@ else
     ./configure "$@"
 fi
 
-"$MAKE" clean
-
 # Optional: for git checkout only.
 if test -f gtest/gtest.h; then
 	"$MAKE" -j3 sipp_unittest

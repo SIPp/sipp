@@ -5,10 +5,13 @@ language: cpp
 notifications:
     email: false
 
+# https://docs.travis-ci.com/user/ci-environment/
+# Use Trusty so we get a newer compiler which support c++11.
 sudo: required
+dist: trusty
 
 
-# Build matrix
+# Build matrix (2x compiler, 1x confopts)
 
 compiler:
     - gcc
@@ -16,6 +19,8 @@ compiler:
 
 env:
     - CONFOPTS="--with-gsl --with-openssl --with-pcap --with-rtpstream --with-sctp"
+
+# Extend build matrix
 
 matrix:
     include:
