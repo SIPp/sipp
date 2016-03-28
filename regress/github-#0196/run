@@ -8,6 +8,10 @@
 #
 . "`dirname "$0"`/../functions"; init
 
+if ! sippversion | grep -q RTPSTREAM; then
+    skip "requires RTPSTREAM"
+fi
+
 uac_media_port=5072  # client port
 uas_media_port=5071  # server port
 
