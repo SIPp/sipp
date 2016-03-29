@@ -1447,7 +1447,7 @@ SIPpSocket* SIPpSocket::accept() {
 #ifdef USE_OPENSSL
         int err;
         if ((err = SSL_accept(ss_ssl)) < 0) {
-            ERROR("Error in SSL_accept: %s\n", sip_tls_error_string(accept_socket->ss_ssl, err));
+            ERROR("Error in SSL_accept: %s\n", sip_tls_error_string(ss_ssl, err));
         }
 #else
         ERROR("You need to compile SIPp with TLS support");
@@ -1874,7 +1874,7 @@ int SIPpSocket::read_error(int ret)
     const char *errstring = strerror(errno);
 #ifdef USE_OPENSSL
     if (ss_transport == T_TLS) {
-        errstring = sip_tls_error_string(socket->ss_ssl, ret);
+        errstring = sip_tls_error_string(ss_ssl, ret);
     }
 #endif
 
@@ -2208,7 +2208,7 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
     switch(ss_transport) {
     case T_TLS:
 #ifdef USE_OPENSSL
-        rc = send_nowait_tls(socket->ss_ssl, buffer, len, 0);
+        rc = send_nowait_tls(ss_ssl, buffer, len, 0);
 #else
         errno = EOPNOTSUPP;
         rc = -1;
