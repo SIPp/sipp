@@ -676,7 +676,7 @@ bool call::connect_socket_if_needed()
 
         char peripaddr[256];
         if (!peripsocket) {
-            if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+            if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
                 ERROR_NO("Unable to get a UDP socket (1)");
             }
         } else {
@@ -686,7 +686,7 @@ bool call::connect_socket_if_needed()
             i = map_perip_fd.find(peripaddr);
             if (i == map_perip_fd.end()) {
                 // Socket does not exist
-                if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+                if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
                     ERROR_NO("Unable to get a UDP socket (2)");
                 } else {
                     /* Ensure that it stays persistent, because it is recorded in the map. */
@@ -723,7 +723,7 @@ bool call::connect_socket_if_needed()
     } else { /* TCP, SCTP or TLS. */
         struct sockaddr_storage *L_dest = &remote_sockaddr;
 
-        if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+        if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
             ERROR_NO("Unable to get a TCP/SCTP/TLS socket");
         }
 
@@ -3386,7 +3386,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             if (!call_socket && ((protocol == T_TCP && transport == T_TCP) ||
                                  (protocol == T_SCTP && transport == T_SCTP))) {
                 bool existing;
-                if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+                if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
                     switch (protocol) {
                     case T_SCTP:
                         ERROR_NO("Unable to get a SCTP socket");
@@ -3442,7 +3442,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 close(call_socket->ss_fd);
                 call_socket->ss_fd = -1;
                 call_socket->ss_changed_dest = true;
-                if (sipp_reconnect_socket(call_socket)) {
+                if (call_socket->reconnect()) {
                     if (reconnect_allowed()) {
                         if(errno == EINVAL) {
                             /* This occurs sometime on HPUX but is not a true INVAL */

@@ -53,7 +53,7 @@ static int stdin_mode;
 
 /******************** Recv Poll Processing *********************/
 
-int pollnfds;
+unsigned pollnfds;
 #ifdef HAVE_EPOLL
 int epollfd;
 struct epoll_event   epollfiles[SIPP_MAXFDS];
@@ -715,16 +715,16 @@ static void merge_socketbufs(struct socketbuf* socketbuf)
 /* Check for a message in the socket and return the length of the first
  * message.  If this is UDP, the only check is if we have buffers.  If this is
  * TCP or TLS we need to parse out the content-length. */
-static int check_for_message(SIPpSocket* socket)
+int SIPpSocket::check_for_message()
 {
-    struct socketbuf *socketbuf = socket->ss_in;
-    int state = socket->ss_control ? CFM_CONTROL : CFM_NORMAL;
+    struct socketbuf *socketbuf = ss_in;
+    int state = ss_control ? CFM_CONTROL : CFM_NORMAL;
     const char *l;
 
     if (!socketbuf)
         return 0;
 
-    if (socket->ss_transport == T_UDP || socket->ss_transport == T_SCTP) {
+    if (ss_transport == T_UDP || ss_transport == T_SCTP) {
         return socketbuf->len;
     }
 
@@ -827,7 +827,7 @@ static int check_for_message(SIPpSocket* socket)
 }
 
 #ifdef USE_SCTP
-static int handleSCTPNotify(SIPpSocket* socket, char* buffer)
+int SIPpSocket::handleSCTPNotify(char* buffer)
 {
     union sctp_notification *notifMsg;
 
@@ -839,12 +839,12 @@ static int handleSCTPNotify(SIPpSocket* socket, char* buffer)
         TRACE_MSG("SCTP_ASSOC_CHANGE\n");
         if (notifMsg->sn_assoc_change.sac_state == SCTP_COMM_UP) {
             TRACE_MSG("SCTP_COMM_UP\n");
-            socket->sctpstate = SCTP_UP;
-            sipp_sctp_peer_params(socket);
+            sctpstate = SCTP_UP;
+            sipp_sctp_peer_params();
 
             /* Send SCTP message right after association is up */
-            socket->ss_congested = false;
-            flush_socket(socket);
+            ss_congested = false;
+            flush();
             return -2;
         } else {
             TRACE_MSG("else: %d\n", notifMsg->sn_assoc_change.sac_state);
@@ -876,11 +876,11 @@ void set_multihome_addr(SIPpSocket* socket, int port)
 #endif
 
 /* Pull up to tcp_readsize data bytes out of the socket into our local buffer. */
-int empty_socket(SIPpSocket *socket)
+int SIPpSocket::empty()
 {
 
     int readsize=0;
-    if (socket->ss_transport == T_UDP || socket->ss_transport == T_SCTP) {
+    if (ss_transport == T_UDP || ss_transport == T_SCTP) {
         readsize = SIPP_MAX_MSG_SIZE;
     } else {
         readsize = tcp_readsize;
@@ -901,14 +901,14 @@ int empty_socket(SIPpSocket *socket)
     }
     socketbuf = alloc_socketbuf(buffer, readsize, NO_COPY, NULL);
 
-    switch(socket->ss_transport) {
+    switch(ss_transport) {
     case T_TCP:
     case T_UDP:
-        ret = recvfrom(socket->ss_fd, buffer, readsize, 0, (struct sockaddr *)&socketbuf->addr,  &addrlen);
+        ret = recvfrom(ss_fd, buffer, readsize, 0, (struct sockaddr *)&socketbuf->addr,  &addrlen);
         break;
     case T_TLS:
 #ifdef USE_OPENSSL
-        ret = SSL_read(socket->ss_ssl, buffer, readsize);
+        ret = SSL_read(ss_ssl, buffer, readsize);
         /* XXX: Check for clean shutdown. */
 #else
         ERROR("TLS support is not enabled!");
@@ -920,12 +920,12 @@ int empty_socket(SIPpSocket *socket)
         memset(&recvinfo, 0, sizeof(recvinfo));
         int msg_flags = 0;
 
-        ret = sctp_recvmsg(socket->ss_fd, (void*)buffer, readsize,
+        ret = sctp_recvmsg(ss_fd, (void*)buffer, readsize,
                            (struct sockaddr *) &socketbuf->addr, &addrlen, &recvinfo, &msg_flags);
 
         if (MSG_NOTIFICATION & msg_flags) {
             errno = 0;
-            handleSCTPNotify(socket, buffer);
+            handleSCTPNotify(buffer);
             ret = -2;
         }
 #else
@@ -940,12 +940,12 @@ int empty_socket(SIPpSocket *socket)
 
     socketbuf->len = ret;
 
-    buffer_read(socket, socketbuf);
+    buffer_read(socketbuf);
 
     /* Do we have a complete SIP message? */
-    if (!socket->ss_msglen) {
-        if (int msg_len = check_for_message(socket)) {
-            socket->ss_msglen = msg_len;
+    if (!ss_msglen) {
+        if (int msg_len = check_for_message()) {
+            ss_msglen = msg_len;
             pending_messages++;
         }
     }
@@ -955,7 +955,7 @@ int empty_socket(SIPpSocket *socket)
 
 void SIPpSocket::invalidate()
 {
-    int pollidx;
+    unsigned pollidx;
 
     if (ss_invalid) {
         return;
@@ -987,8 +987,7 @@ void SIPpSocket::invalidate()
         }
 #endif
 
-        sipp_abort_connection(ss_fd);
-        ss_fd = -1;
+        abort();
     }
 
     if ((pollidx = ss_pollidx) >= pollnfds) {
@@ -1034,19 +1033,20 @@ void SIPpSocket::invalidate()
 #endif
 }
 
-void sipp_abort_connection(int fd) {
+void SIPpSocket::abort() {
     /* Disable linger - we'll send a RST when we close. */
     struct linger flush;
     flush.l_onoff = 1;
     flush.l_linger = 0;
-    setsockopt(fd, SOL_SOCKET, SO_LINGER, &flush, sizeof(flush));
+    setsockopt(ss_fd, SOL_SOCKET, SO_LINGER, &flush, sizeof(flush));
 
     /* Mark the socket as non-blocking.  It's not clear whether this is required but can't hurt. */
-    int flags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    int flags = fcntl(ss_fd, F_GETFL, 0);
+    fcntl(ss_fd, F_SETFL, flags | O_NONBLOCK);
 
     /* Actually close the socket. */
-    close(fd);
+    close();
+    ss_fd = -1;
 }
 
 void SIPpSocket::close()
@@ -1060,45 +1060,45 @@ void SIPpSocket::close()
     }
 }
 
-ssize_t read_message(SIPpSocket *socket, char *buf, size_t len, struct sockaddr_storage *src)
+ssize_t SIPpSocket::read_message(char *buf, size_t len, struct sockaddr_storage *src)
 {
     size_t avail;
 
-    if (!socket->ss_msglen)
+    if (!ss_msglen)
         return 0;
-    if (socket->ss_msglen > len)
+    if (ss_msglen > len)
         ERROR("There is a message waiting in sockfd(%d) that is bigger (%zu bytes) than the read size.",
-              socket->ss_fd, socket->ss_msglen);
+              ss_fd, ss_msglen);
 
-    len = socket->ss_msglen;
+    len = ss_msglen;
 
-    avail = socket->ss_in->len - socket->ss_in->offset;
+    avail = ss_in->len - ss_in->offset;
     if (avail > len) {
         avail = len;
     }
 
-    memcpy(buf, socket->ss_in->buf + socket->ss_in->offset, avail);
-    memcpy(src, &socket->ss_in->addr, sizeof(socket->ss_in->addr));
+    memcpy(buf, ss_in->buf + ss_in->offset, avail);
+    memcpy(src, &ss_in->addr, sizeof(ss_in->addr));
 
     /* Update our buffer and return value. */
     buf[avail] = '\0';
     /* For CMD Message the escape char is the end of message */
-    if ((socket->ss_control) && buf[avail-1] == 27)
+    if ((ss_control) && buf[avail-1] == 27)
         buf[avail-1] = '\0';
 
-    socket->ss_in->offset += avail;
+    ss_in->offset += avail;
 
     /* Have we emptied the buffer? */
-    if (socket->ss_in->offset == socket->ss_in->len) {
-        struct socketbuf *next = socket->ss_in->next;
-        free_socketbuf(socket->ss_in);
-        socket->ss_in = next;
+    if (ss_in->offset == ss_in->len) {
+        struct socketbuf *next = ss_in->next;
+        free_socketbuf(ss_in);
+        ss_in = next;
     }
 
-    if (int msg_len = check_for_message(socket)) {
-        socket->ss_msglen = msg_len;
+    if (int msg_len = check_for_message()) {
+        ss_msglen = msg_len;
     } else {
-        socket->ss_msglen = 0;
+        ss_msglen = 0;
         pending_messages--;
     }
 
@@ -1267,12 +1267,12 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
   ss_control(false),
   ss_fd(fd),
   ss_comp_state(NULL),
-  ss_in(NULL),
-  ss_out(NULL),
-  ss_msglen(0),
+  ss_changed_dest(false),
   ss_congested(false),
   ss_invalid(false),
-  ss_changed_dest(false)
+  ss_in(NULL),
+  ss_out(NULL),
+  ss_msglen(0)
 {
     /* Initialize all sockets with our destination address. */
     memcpy(&ss_remote_sockaddr, &remote_sockaddr, sizeof(ss_remote_sockaddr));
@@ -1366,7 +1366,7 @@ SIPpSocket *new_sipp_socket(bool use_ipv6, int transport) {
     return ret;
 }
 
-SIPpSocket *new_sipp_call_socket(bool use_ipv6, int transport, bool *existing) {
+SIPpSocket* SIPpSocket::new_sipp_call_socket(bool use_ipv6, int transport, bool *existing) {
     SIPpSocket *sock = NULL;
     static int next_socket;
     if (pollnfds >= max_multi_socket) {  // we must take the main socket into account
@@ -1405,13 +1405,13 @@ SIPpSocket *new_sipp_call_socket(bool use_ipv6, int transport, bool *existing) {
     return sock;
 }
 
-SIPpSocket *sipp_accept_socket(SIPpSocket *accept_socket) {
+SIPpSocket* SIPpSocket::accept() {
     SIPpSocket *ret;
     struct sockaddr_storage remote_sockaddr;
     int fd;
     sipp_socklen_t addrlen = sizeof(remote_sockaddr);
 
-    if ((fd = accept(accept_socket->ss_fd, (struct sockaddr *)&remote_sockaddr, &addrlen))== -1) {
+    if ((fd = ::accept(ss_fd, (struct sockaddr *)&remote_sockaddr, &addrlen))== -1) {
         ERROR("Unable to accept on a %s socket: %s", TRANSPORT_TO_STRING(transport), strerror(errno));
     }
 
@@ -1433,9 +1433,9 @@ SIPpSocket *sipp_accept_socket(SIPpSocket *accept_socket) {
 #endif
 
 
-    ret = new SIPpSocket(accept_socket->ss_ipv6, accept_socket->ss_transport, fd, 1);
+    ret = new SIPpSocket(ss_ipv6, ss_transport, fd, 1);
     if (!ret) {
-        close(fd);
+        ::close(fd);
         ERROR_NO("Could not allocate new socket!");
     }
 
@@ -1582,59 +1582,58 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 }
 
 
-int sipp_reconnect_socket(SIPpSocket *socket)
+int SIPpSocket::reconnect()
 {
-    if ((!socket->ss_invalid) &&
-        (socket->ss_fd != -1)) {
-        WARNING("When reconnecting socket, already have file descriptor %d", socket->ss_fd);
-        sipp_abort_connection(socket->ss_fd);
-        socket->ss_fd = -1;
+    if ((!ss_invalid) &&
+        (ss_fd != -1)) {
+        WARNING("When reconnecting socket, already have file descriptor %d", ss_fd);
+        abort();
     }
 
-    socket->ss_fd = socket_fd(socket->ss_ipv6, socket->ss_transport);
-    if (socket->ss_fd == -1) {
+    ss_fd = socket_fd(ss_ipv6, ss_transport);
+    if (ss_fd == -1) {
         ERROR_NO("Could not obtain new socket: ");
     }
 
-    if (socket->ss_invalid) {
+    if (ss_invalid) {
 #ifdef USE_OPENSSL
-        socket->ss_ssl = NULL;
+        ss_ssl = NULL;
 
         if (transport == T_TLS) {
-            if ((socket->ss_bio = BIO_new_socket(socket->ss_fd, BIO_NOCLOSE)) == NULL) {
+            if ((ss_bio = BIO_new_socket(ss_fd, BIO_NOCLOSE)) == NULL) {
                 ERROR("Unable to create BIO object:Problem with BIO_new_socket()\n");
             }
 
-            if (!(socket->ss_ssl = SSL_new(sip_trp_ssl_ctx_client))) {
+            if (!(ss_ssl = SSL_new(sip_trp_ssl_ctx_client))) {
                 ERROR("Unable to create SSL object : Problem with SSL_new() \n");
             }
 
-            SSL_set_bio(socket->ss_ssl, socket->ss_bio, socket->ss_bio);
+            SSL_set_bio(ss_ssl, ss_bio, ss_bio);
         }
 #endif
 
         /* Store this socket in the tables. */
-        socket->ss_pollidx = pollnfds++;
-        sockets[socket->ss_pollidx] = socket;
+        ss_pollidx = pollnfds++;
+        sockets[ss_pollidx] = this;
 #ifdef HAVE_EPOLL
-        epollfiles[socket->ss_pollidx].data.u32 = socket->ss_pollidx;
-        epollfiles[socket->ss_pollidx].events   = EPOLLIN;
+        epollfiles[ss_pollidx].data.u32 = ss_pollidx;
+        epollfiles[ss_pollidx].events   = EPOLLIN;
 #else
-        pollfiles[socket->ss_pollidx].fd      = socket->ss_fd;
-        pollfiles[socket->ss_pollidx].events  = POLLIN | POLLERR;
-        pollfiles[socket->ss_pollidx].revents = 0;
+        pollfiles[ss_pollidx].fd      = ss_fd;
+        pollfiles[ss_pollidx].events  = POLLIN | POLLERR;
+        pollfiles[ss_pollidx].revents = 0;
 #endif
 
-        socket->ss_invalid = false;
+        ss_invalid = false;
     }
 
 #ifdef HAVE_EPOLL
-    int rc = epoll_ctl(epollfd, EPOLL_CTL_ADD, socket->ss_fd, &epollfiles[socket->ss_pollidx]);
+    int rc = epoll_ctl(epollfd, EPOLL_CTL_ADD, ss_fd, &epollfiles[ss_pollidx]);
     if (rc == -1) {
         ERROR_NO("Failed to add FD to epoll");
     }
 #endif
-    return socket->connect();
+    return connect();
 }
 
 
@@ -1677,7 +1676,7 @@ void free_socketbuf(struct socketbuf *socketbuf)
 }
 
 #ifdef USE_SCTP
-void sipp_sctp_peer_params(SIPpSocket *socket)
+void SIPpSocket::sipp_sctp_peer_params()
 {
     if (heartbeat > 0 || pathmaxret > 0) {
         struct sctp_paddrparams peerparam;
@@ -1701,7 +1700,7 @@ void sipp_sctp_peer_params(SIPpSocket *socket)
                 peerparam.spp_flags |= SPP_PMTUD_DISABLE;
             }
 
-            if (setsockopt(socket->ss_fd, IPPROTO_SCTP, SCTP_PEER_ADDR_PARAMS,
+            if (setsockopt(ss_fd, IPPROTO_SCTP, SCTP_PEER_ADDR_PARAMS,
                            &peerparam, sizeof(peerparam)) == -1) {
                 sctp_freepaddrs(addresses);
                 WARNING("setsockopt(SCTP_PEER_ADDR_PARAMS) failed, errno=%d", errno);
@@ -1826,7 +1825,7 @@ int SIPpSocket::enter_congestion(int again)
     return -1;
 }
 
-static int write_error(SIPpSocket* socket, int ret)
+int SIPpSocket::write_error(int ret)
 {
     const char *errstring = strerror(errno);
 
@@ -1842,15 +1841,14 @@ static int write_error(SIPpSocket* socket, int ret)
 #endif
 
     if (again) {
-        return socket->enter_congestion(again);
+        return enter_congestion(again);
     }
 
-    if ((socket->ss_transport == T_TCP || socket->ss_transport == T_SCTP)
+    if ((ss_transport == T_TCP || ss_transport == T_SCTP)
             && errno == EPIPE) {
         nb_net_send_errors++;
-        sipp_abort_connection(socket->ss_fd);
-        socket->ss_fd = -1;
-        sockets_pending_reset.insert(socket);
+        abort();
+        sockets_pending_reset.insert(this);
         if (reconnect_allowed()) {
             WARNING("Broken pipe on TCP connection, remote peer "
                     "probably closed the socket");
@@ -1862,21 +1860,21 @@ static int write_error(SIPpSocket* socket, int ret)
     }
 
 #ifdef USE_OPENSSL
-    if (socket->ss_transport == T_TLS) {
-        errstring = sip_tls_error_string(socket->ss_ssl, ret);
+    if (ss_transport == T_TLS) {
+        errstring = sip_tls_error_string(ss_ssl, ret);
     }
 #endif
 
-    WARNING("Unable to send %s message: %s", TRANSPORT_TO_STRING(socket->ss_transport), errstring);
+    WARNING("Unable to send %s message: %s", TRANSPORT_TO_STRING(ss_transport), errstring);
     nb_net_send_errors++;
     return -1;
 }
 
-int read_error(SIPpSocket *socket, int ret)
+int SIPpSocket::read_error(int ret)
 {
     const char *errstring = strerror(errno);
 #ifdef USE_OPENSSL
-    if (socket->ss_transport == T_TLS) {
+    if (ss_transport == T_TLS) {
         errstring = sip_tls_error_string(socket->ss_ssl, ret);
     }
 #endif
@@ -1895,10 +1893,10 @@ int read_error(SIPpSocket *socket, int ret)
         assert(errno != EAGAIN);
     }
 
-    if (socket->ss_transport == T_TCP || socket->ss_transport == T_TLS) {
+    if (ss_transport == T_TCP || ss_transport == T_TLS) {
         if (ret == 0) {
             /* The remote side closed the connection. */
-            if (socket->ss_control) {
+            if (ss_control) {
                 if (localTwinSippSocket)
                     localTwinSippSocket->close();
                 if (extendedTwinSippMode) {
@@ -1921,17 +1919,16 @@ int read_error(SIPpSocket *socket, int ret)
                 /* The socket was closed "cleanly", but we may have calls that need to
                  * be destroyed.  Also, if these calls are not complete, and attempt to
                  * send again we may "ressurect" the socket by reconnecting it.*/
-                socket->invalidate();
+                invalidate();
                 if (reset_close) {
-                    socket->close_calls();
+                    close_calls();
                 }
             }
             return 0;
         }
 
-        sipp_abort_connection(socket->ss_fd);
-        socket->ss_fd = -1;
-        sockets_pending_reset.insert(socket);
+        abort();
+        sockets_pending_reset.insert(this);
 
         nb_net_recv_errors++;
         if (reconnect_allowed()) {
@@ -1942,18 +1939,18 @@ int read_error(SIPpSocket *socket, int ret)
         return -1;
     }
 
-    WARNING("Unable to receive %s message: %s", TRANSPORT_TO_STRING(socket->ss_transport), errstring);
+    WARNING("Unable to receive %s message: %s", TRANSPORT_TO_STRING(ss_transport), errstring);
     nb_net_recv_errors++;
     return -1;
 }
 
-void buffer_write(SIPpSocket *socket, const char *buffer, size_t len, struct sockaddr_storage *dest)
+void SIPpSocket::buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest)
 {
-    struct socketbuf *buf = socket->ss_out;
+    struct socketbuf *buf = ss_out;
 
     if (!buf) {
-        socket->ss_out = alloc_socketbuf(const_cast<char*>(buffer), len, DO_COPY, dest); /* NO BUG BECAUSE OF DO_COPY */
-        TRACE_MSG("Added first buffered message to socket %d\n", socket->ss_fd);
+        ss_out = alloc_socketbuf(const_cast<char*>(buffer), len, DO_COPY, dest); /* NO BUG BECAUSE OF DO_COPY */
+        TRACE_MSG("Added first buffered message to socket %d\n", ss_fd);
         return;
     }
 
@@ -1962,16 +1959,16 @@ void buffer_write(SIPpSocket *socket, const char *buffer, size_t len, struct soc
     }
 
     buf->next = alloc_socketbuf(const_cast<char*>(buffer), len, DO_COPY, dest); /* NO BUG BECAUSE OF DO_COPY */
-    TRACE_MSG("Appended buffered message to socket %d\n", socket->ss_fd);
+    TRACE_MSG("Appended buffered message to socket %d\n", ss_fd);
 }
 
-void buffer_read(SIPpSocket *socket, struct socketbuf *newbuf)
+void SIPpSocket::buffer_read(struct socketbuf *newbuf)
 {
-    struct socketbuf *buf = socket->ss_in;
+    struct socketbuf *buf = ss_in;
     struct socketbuf *prev = buf;
 
     if (!buf) {
-        socket->ss_in = newbuf;
+        ss_in = newbuf;
         return;
     }
 
@@ -2280,7 +2277,7 @@ int SIPpSocket::flush()
             free_socketbuf(buf);
         } else if (ret <= 0) {
             /* Handle connection closes and errors. */
-            return write_error(this, ret);
+            return write_error(ret);
         } else {
             /* We have written more of the partial buffer. */
             buf->offset += ret;
@@ -2303,7 +2300,7 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
         TRACE_MSG("Attempted socket flush returned %d\r\n", rc);
         if (rc < 0) {
             if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
-                buffer_write(this, buffer, len, dest);
+                buffer_write(buffer, len, dest);
                 return len;
             } else {
                 return rc;
@@ -2336,7 +2333,7 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
 
     } else if (rc <= 0) {
         if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
-            buffer_write(this, buffer, len, dest);
+            buffer_write(buffer, len, dest);
             enter_congestion(errno);
             return len;
         }
@@ -2347,7 +2344,7 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
                       TRANSPORT_TO_STRING(ss_transport),
                       (int)len, buffer);
         }
-        return write_error(this, errno);
+        return write_error(errno);
     } else {
         /* We have a truncated message, which must be handled internally to the write function. */
         if (useMessagef == 1) {
@@ -2357,7 +2354,7 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
                       TRANSPORT_TO_STRING(ss_transport),
                       rc, len, (int)len, buffer);
         }
-        buffer_write(this, buffer + rc, len - rc, dest);
+        buffer_write(buffer + rc, len - rc, dest);
         enter_congestion(errno);
     }
 
@@ -2390,7 +2387,7 @@ void SIPpSocket::reset_connection()
     /* Sleep for some period of time before the reconnection. */
     usleep(1000 * reset_sleep);
 
-    if (sipp_reconnect_socket(this) < 0) {
+    if (reconnect() < 0) {
         WARNING_NO("Could not reconnect TCP socket");
         close_calls();
     } else {
@@ -2876,6 +2873,246 @@ void free_peer_addr_map()
         free(peer_addr_it->second);
     }
 }
+
+void SIPpSocket::pollset_process(int wait)
+{
+    int rs; /* Number of times to execute recv().
+            For TCP with 1 socket per call:
+                no. of events returned by poll
+            For UDP and TCP with 1 global socket:
+                recv_count is a flag that stays up as
+                long as there's data to read */
+
+#ifndef HAVE_EPOLL
+    /* What index should we try reading from? */
+    static size_t read_index;
+
+    int loops = max_recv_loops;
+
+    // If not using epoll, we have a queue of pending messages to spin through.
+
+    if (read_index >= pollnfds) {
+        read_index = 0;
+    }
+
+    /* We need to process any messages that we have left over. */
+    while (pending_messages && loops > 0) {
+        getmilliseconds();
+        if (sockets[read_index]->ss_msglen) {
+            struct sockaddr_storage src;
+            char msg[SIPP_MAX_MSG_SIZE];
+            ssize_t len = read_message(sockets[read_index], msg, sizeof(msg), &src);
+            if (len > 0) {
+                process_message(sockets[read_index], msg, len, &src);
+            } else {
+                assert(0);
+            }
+            loops--;
+        }
+        read_index = (read_index + 1) % pollnfds;
+    }
+
+    /* Don't read more data if we still have some left over. */
+    if (pending_messages) {
+        return;
+    }
+#endif
+    /* Get socket events. */
+#ifdef HAVE_EPOLL
+    /* Ignore the wait parameter and always wait - when establishing TCP
+     * connections, the alternative is that we tight-loop. */
+    rs = epoll_wait(epollfd, epollevents, max_recv_loops, 1);
+    // If we're receiving as many epollevents as possible, flag CPU congestion
+    cpu_max = (rs > (max_recv_loops - 2));
+#else
+    rs = poll(pollfiles, pollnfds, wait ? 1 : 0);
+#endif
+    if (rs < 0 && errno == EINTR) {
+        return;
+    }
+
+    /* We need to flush all sockets and pull data into all of our buffers. */
+#ifdef HAVE_EPOLL
+    for (int event_idx = 0; event_idx < rs; event_idx++) {
+        int poll_idx = (int)epollevents[event_idx].data.u32;
+#else
+    for (size_t poll_idx = 0; rs > 0 && poll_idx < pollnfds; poll_idx++) {
+#endif
+        SIPpSocket *sock = sockets[poll_idx];
+        int events = 0;
+        int ret = 0;
+
+        assert(sock);
+
+#ifdef HAVE_EPOLL
+        if (epollevents[event_idx].events & EPOLLOUT) {
+#else
+        if (pollfiles[poll_idx].revents & POLLOUT) {
+#endif
+
+#ifdef USE_SCTP
+            if (transport == T_SCTP && sock->sctpstate != SCTP_UP);
+            else
+#endif
+            {
+                /* We can flush this socket. */
+                TRACE_MSG("Exit problem event on socket %d \n", sock->ss_fd);
+#ifdef HAVE_EPOLL
+                epollfiles[poll_idx].events &= ~EPOLLOUT;
+                int rc = epoll_ctl(epollfd, EPOLL_CTL_MOD, sock->ss_fd, &epollfiles[poll_idx]);
+                if (rc == -1) {
+                    ERROR_NO("Failed to clear EPOLLOUT");
+                }
+#else
+                pollfiles[poll_idx].events &= ~POLLOUT;
+#endif
+                sock->ss_congested = false;
+
+                sock->flush();
+                events++;
+            }
+        }
+
+#ifdef HAVE_EPOLL
+        if (epollevents[event_idx].events & EPOLLIN) {
+#else
+        if (pollfiles[poll_idx].revents & POLLIN) {
+#endif
+            /* We can empty this socket. */
+            if ((transport == T_TCP || transport == T_TLS || transport == T_SCTP) && sock == main_socket) {
+                SIPpSocket *new_sock = sock->accept();
+                if (!new_sock) {
+                    ERROR_NO("Accepting new TCP connection.\n");
+                }
+            } else if (sock == ctrl_socket) {
+                handle_ctrl_socket();
+            } else if (sock == stdin_socket) {
+                handle_stdin_socket();
+            } else if (sock == localTwinSippSocket) {
+                if (thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
+                    twinSippSocket = sock->accept();
+                    if (!twinSippMode) {
+                        ERROR_NO("Accepting new TCP connection on Twin SIPp Socket.\n");
+                    }
+                    twinSippSocket->ss_control = 1;
+                } else {
+                    /* 3pcc extended mode: open a local socket
+                       which will be used for reading the infos sent by this remote
+                       twin sipp instance (slave or master) */
+                    if (local_nb == MAX_LOCAL_TWIN_SOCKETS) {
+                        ERROR("Max number of twin instances reached\n");
+                    }
+
+                    SIPpSocket *localSocket = sock->accept();
+                    localSocket->ss_control = 1;
+                    local_sockets[local_nb] = localSocket;
+                    local_nb++;
+                    if (!peers_connected) {
+                        connect_to_all_peers();
+                    }
+                }
+            } else {
+                if ((ret = sock->empty()) <= 0) {
+#ifdef USE_SCTP
+                    if (sock->ss_transport == T_SCTP && ret == -2);
+                    else
+#endif
+                    {
+                        ret = sock->read_error(ret);
+                        if (ret == 0) {
+                            /* If read_error() then the poll_idx now belongs
+                             * to the newest/last socket added to the sockets[].
+                             * Need to re-do the same poll_idx for the "new" socket.
+                             * We do this differently when using epoll. */
+#ifdef HAVE_EPOLL
+                            for (int event_idx2 = event_idx + 1; event_idx2 < rs; event_idx2++) {
+                                if (epollevents[event_idx2].data.u32 == pollnfds) {
+                                    epollevents[event_idx2].data.u32 = poll_idx;
+                                }
+                            }
+#else
+                            poll_idx--;
+                            events++;
+                            rs--;
+#endif
+                            continue;
+                        }
+                    }
+                }
+            }
+            events++;
+        }
+
+        /* Here the logic diverges; if we're using epoll, we want to stay in the
+         * for-each-socket loop and handle messages on that socket. If we're not using
+         * epoll, we want to wait until after that loop, and spin through our
+         * pending_messages queue again. */
+
+#ifdef HAVE_EPOLL
+        unsigned old_pollnfds = pollnfds;
+        getmilliseconds();
+        /* Keep processing messages until this socket is freed (changing the number of file descriptors) or we run out of messages. */
+        while ((pollnfds == old_pollnfds) &&
+                (sock->message_ready())) {
+            char msg[SIPP_MAX_MSG_SIZE];
+            struct sockaddr_storage src;
+            ssize_t len;
+
+            len = sock->read_message(msg, sizeof(msg), &src);
+            if (len > 0) {
+                process_message(sock, msg, len, &src);
+            } else {
+                assert(0);
+            }
+        }
+
+        if (pollnfds != old_pollnfds) {
+            /* Processing messages has changed the number of pollnfds, so update any remaining events */
+            for (int event_idx2 = event_idx + 1; event_idx2 < rs; event_idx2++) {
+                if (epollevents[event_idx2].data.u32 == pollnfds) {
+                    epollevents[event_idx2].data.u32 = poll_idx;
+                }
+            }
+        }
+#else
+
+        if (events) {
+            rs--;
+        }
+        pollfiles[poll_idx].revents = 0;
+#endif
+    }
+
+#ifndef HAVE_EPOLL
+    if (read_index >= pollnfds) {
+        read_index = 0;
+    }
+
+    /* We need to process any new messages that we read. */
+    while (pending_messages && (loops > 0)) {
+        getmilliseconds();
+
+        if (sockets[read_index]->ss_msglen) {
+            char msg[SIPP_MAX_MSG_SIZE];
+            struct sockaddr_storage src;
+            ssize_t len;
+
+            len = read_message(sockets[read_index], msg, sizeof(msg), &src);
+            if (len > 0) {
+                process_message(sockets[read_index], msg, len, &src);
+            } else {
+                assert(0);
+            }
+            loops--;
+        }
+        read_index = (read_index + 1) % pollnfds;
+    }
+
+    cpu_max = (loops <= 0);
+#endif
+}
+
+
 
 /***************** Check of the message received ***************/
 

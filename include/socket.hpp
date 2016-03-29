@@ -48,15 +48,30 @@ void sockaddr_update_port(struct sockaddr_storage* ss, short port);
 class SIPpSocket {
 public:
   SIPpSocket(bool use_ipv6, int transport, int fd, int accepting);
+
+  int connect(struct sockaddr_storage* dest = NULL);
+  int reconnect();
+
+  SIPpSocket* accept();
+
   /* Write data to a socket. */
   int write(const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
+  int empty();
+  ssize_t read_message(char *buf, size_t len, struct sockaddr_storage *src);
+  
   /* Mark a socket as "bad". */
   void invalidate();
   /* Actually free the socket. */
   void close();
   void reset_connection();
   void close_calls();
-  int connect(struct sockaddr_storage* dest = NULL);
+
+
+  int read_error(int ret);
+  bool message_ready() { return ss_msglen > 0; };
+
+  static SIPpSocket* new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
+  static void pollset_process(int wait);
   
   int  ss_count; /* How many users are there of this socket? */
   bool ss_ipv6;
@@ -65,19 +80,26 @@ public:
   int ss_fd;          /* The underlying file descriptor for this socket. */
   void *ss_comp_state; /* The compression state. */
 
-  struct socketbuf *ss_in; /* Buffered input. */
-  struct socketbuf *ss_out; /* Buffered output. */
-  size_t ss_msglen;        /* Is there a complete SIP message waiting, and if so how big? */
-  
-  bool ss_congested; /* Is this socket congested? */
-  bool ss_invalid; /* Has this socket been closed remotely? */
-
   bool ss_changed_dest; /* Has the destination changed from default. */
   struct sockaddr_storage ss_remote_sockaddr; /* Who we are talking to. */
   struct sockaddr_storage ss_dest; /* Who we are talking to. */
 
-//private:
+private:
+  bool ss_congested; /* Is this socket congested? */
+  bool ss_invalid; /* Has this socket been closed remotely? */
+
+  int handleSCTPNotify(char* buffer);
+  void sipp_sctp_peer_params(SIPpSocket *socket);
+  void buffer_read(struct socketbuf *newbuf);
+  void buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest);
+  struct socketbuf *ss_in; /* Buffered input. */
+  struct socketbuf *ss_out; /* Buffered output. */
+  size_t ss_msglen;        /* Is there a complete SIP message waiting, and if so how big? */
+  
   int flush();
+  int write_error(int ret);
+  void abort();
+  int check_for_message();
   int enter_congestion(int again);
   ssize_t write_primitive(const char* buffer, size_t len,
                           struct sockaddr_storage* dest);
@@ -99,25 +121,13 @@ public:
 
 
 
-int flush_socket(SIPpSocket *socket);
-int write_socket(SIPpSocket *socket, const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
-void sipp_sctp_peer_params(SIPpSocket *socket);
-void buffer_read(SIPpSocket *socket, struct socketbuf *newbuf);
-int read_error(SIPpSocket *socket, int ret);
-struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy, struct sockaddr_storage *dest);
-ssize_t read_message(SIPpSocket *socket, char *buf, size_t len, struct sockaddr_storage *src);
-int empty_socket(SIPpSocket *socket);
-
 void setup_ctrl_socket();
 void setup_stdin_socket();
 
 int handle_ctrl_socket();
 void handle_stdin_socket();
-void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct sockaddr_storage *src);
 
-//int write_error(SIPpSocket *socket, int ret);
-int enter_congestion(SIPpSocket *socket, int again);
-void buffer_write(SIPpSocket *socket, const char *buffer, size_t len, struct sockaddr_storage *dest);
+void process_message(SIPpSocket* socket, char *msg, ssize_t msg_size, struct sockaddr_storage *src);
 
 /********************** Network Interfaces ********************/
 
@@ -130,6 +140,7 @@ int send_message_tls(SSL *s, void ** comp_state, char * msg);
 #define NO_COPY 0
 #define DO_COPY 1
 struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy);
+struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy, struct sockaddr_storage *dest);
 void free_socketbuf(struct socketbuf *socketbuf);
 
 /* These buffers lets us read past the end of the message, and then split it if
@@ -149,7 +160,6 @@ struct socketbuf {
 #define SCTP_UP 2
 #endif
 /* Abort a connection - close the socket quickly. */
-void sipp_abort_connection(int fd);
 
 #define WS_EAGAIN 1 /* Return EAGAIN if there is no room for writing the message. */
 #define WS_BUFFER 2 /* Buffer the message if there is no room for writing the message. */
