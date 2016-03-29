@@ -3354,7 +3354,6 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             free(value);
         } else if (currentAction->getActionType() == CAction::E_AT_CLOSE_CON) {
             if (call_socket) {
-                call_socket->invalidate();
                 call_socket->close();
                 call_socket = NULL;
             }
