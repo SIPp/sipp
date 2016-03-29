@@ -48,29 +48,31 @@ void sockaddr_update_port(struct sockaddr_storage* ss, short port);
 class SIPpSocket {
 public:
   SIPpSocket(bool use_ipv6, int transport, int fd, int accepting);
+  static SIPpSocket* new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
 
   int connect(struct sockaddr_storage* dest = NULL);
   int reconnect();
+  
+  // Reset a failed connection
+  void reset_connection();
 
+  // Accept new connections from a TCP socket
   SIPpSocket* accept();
 
-  /* Write data to a socket. */
+  // Write data to the socket.
   int write(const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
-  int empty();
-  ssize_t read_message(char *buf, size_t len, struct sockaddr_storage *src);
-  
-  /* Mark a socket as "bad". */
-  void invalidate();
-  /* Actually free the socket. */
-  void close();
-  void reset_connection();
-  void close_calls();
 
+  // Empty data from the socket into our buffer
+  int empty();
+  
+  // Decrement the reference count of this socket, shutting it down when it reaches 0
+  void close();
 
   int read_error(int ret);
+
+  // Have we read a message from this socket?
   bool message_ready() { return ss_msglen > 0; };
 
-  static SIPpSocket* new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
   static void pollset_process(int wait);
   
   int  ss_count; /* How many users are there of this socket? */
@@ -90,12 +92,15 @@ private:
 
   int handleSCTPNotify(char* buffer);
   void sipp_sctp_peer_params(SIPpSocket *socket);
+  void invalidate();
   void buffer_read(struct socketbuf *newbuf);
   void buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest);
+  ssize_t read_message(char *buf, size_t len, struct sockaddr_storage *src);
   struct socketbuf *ss_in; /* Buffered input. */
   struct socketbuf *ss_out; /* Buffered output. */
   size_t ss_msglen;        /* Is there a complete SIP message waiting, and if so how big? */
   
+  void close_calls();
   int flush();
   int write_error(int ret);
   void abort();
