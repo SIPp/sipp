@@ -1539,7 +1539,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 #ifdef USE_SCTP
     if (ss_transport == T_SCTP) {
         int port = -1;
-        sipp_bind_socket(socket, &local_sockaddr, &port);
+        sipp_bind_socket(this, &local_sockaddr, &port);
     }
 #endif
 
@@ -1682,7 +1682,7 @@ void SIPpSocket::sipp_sctp_peer_params()
         memset(&peerparam, 0, sizeof(peerparam));
 
         sockaddr* addresses;
-        int addresscount = sctp_getpaddrs(socket->ss_fd, 0, &addresses);
+        int addresscount = sctp_getpaddrs(ss_fd, 0, &addresses);
         if (addresscount < 1) WARNING("sctp_getpaddrs, errno=%d", errno);
 
         for (int i = 0; i < addresscount; i++) {
@@ -2217,7 +2217,7 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
     case T_SCTP:
 #ifdef USE_SCTP
     {
-        TRACE_MSG("socket_write_primitive %d\n", socket->sctpstate);
+        TRACE_MSG("socket_write_primitive %d\n", sctpstate);
         if (sctpstate == SCTP_DOWN) {
             errno = EPIPE;
             return -1;

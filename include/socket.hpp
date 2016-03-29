@@ -90,7 +90,7 @@ private:
   bool ss_invalid; /* Has this socket been closed remotely? */
 
   int handleSCTPNotify(char* buffer);
-  void sipp_sctp_peer_params(SIPpSocket *socket);
+  void sipp_sctp_peer_params();
   void invalidate();
   void buffer_read(struct socketbuf *newbuf);
   void buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest);
