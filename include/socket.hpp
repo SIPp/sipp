@@ -83,7 +83,6 @@ public:
   void *ss_comp_state; /* The compression state. */
 
   bool ss_changed_dest; /* Has the destination changed from default. */
-  struct sockaddr_storage ss_remote_sockaddr; /* Who we are talking to. */
   struct sockaddr_storage ss_dest; /* Who we are talking to. */
 
 private:

@@ -1861,7 +1861,7 @@ int call::sendCmdBuffer(char* cmd)
 
     strcat(dest, delimitor);
 
-    rc = twinSippSocket->write(dest, strlen(dest), WS_BUFFER, &twinSippSocket->ss_remote_sockaddr);
+    rc = twinSippSocket->write(dest, strlen(dest), WS_BUFFER, &twinSippSocket->ss_dest);
     if(rc <  0) {
         computeStat(CStat::E_CALL_FAILED);
         computeStat(CStat::E_FAILED_CMD_NOT_SENT);

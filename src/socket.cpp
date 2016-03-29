@@ -1275,7 +1275,7 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
   ss_msglen(0)
 {
     /* Initialize all sockets with our destination address. */
-    memcpy(&ss_remote_sockaddr, &remote_sockaddr, sizeof(ss_remote_sockaddr));
+    memcpy(&ss_dest, &remote_sockaddr, sizeof(ss_dest));
 
 #ifdef USE_OPENSSL
     ss_ssl = NULL;
@@ -1439,7 +1439,6 @@ SIPpSocket* SIPpSocket::accept() {
         ERROR_NO("Could not allocate new socket!");
     }
 
-    memcpy(&ret->ss_remote_sockaddr, &remote_sockaddr, sizeof(ret->ss_remote_sockaddr));
     /* We should connect back to the address which connected to us if we
      * experience a TCP failure. */
     memcpy(&ret->ss_dest, &remote_sockaddr, sizeof(ret->ss_dest));
