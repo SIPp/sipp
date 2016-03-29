@@ -132,6 +132,7 @@ int handle_ctrl_socket();
 void handle_stdin_socket();
 
 void process_message(SIPpSocket* socket, char *msg, ssize_t msg_size, struct sockaddr_storage *src);
+bool reconnect_allowed();
 
 /********************** Network Interfaces ********************/
 

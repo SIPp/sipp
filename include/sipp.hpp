@@ -341,13 +341,8 @@ typedef std::map<int, VariableTable *> int_vt_map;
 extern int_vt_map         userVarMap;
 
 extern SIPpSocket* new_sipp_socket(bool use_ipv6, int transport);
-SIPpSocket *new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
-SIPpSocket *sipp_accept_socket(SIPpSocket *accept_socket);
 extern int      sipp_bind_socket(SIPpSocket *socket, struct sockaddr_storage *saddr, int *port);
-extern int      sipp_connect_socket(SIPpSocket *socket, struct sockaddr_storage *dest);
-extern int      sipp_reconnect_socket(SIPpSocket *socket);
 extern void     sipp_customize_socket(SIPpSocket *socket);
-extern int      delete_socket(int P_socket);
 extern int      min_socket          _DEFVAL(65535);
 extern int      select_socket       _DEFVAL(0);
 extern bool     socket_close        _DEFVAL(true);
