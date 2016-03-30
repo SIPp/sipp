@@ -122,7 +122,7 @@ public:
     static   int   startDynamicId;  // offset for first dynamicId  FIXME:in CmdLine
     static   int   stepDynamicId;   // step of increment for dynamicId
     static   int   dynamicId;       // a counter for general use, incrementing  by  stepDynamicId starting at startDynamicId  wrapping at maxDynamicId  GLOBALY
-private:
+protected:
 
 
     unsigned int   tdm_map_number;
@@ -300,7 +300,7 @@ private:
 
     bool   use_ipv6;
 
-    void   get_remote_media_addr(char * message);
+    void get_remote_media_addr(std::string const &msg);
 
 #ifdef RTP_STREAM
     void extract_rtp_remote_addr(char* message);
