@@ -1174,9 +1174,9 @@ CSample *parse_distribution(bool oldstyle = false)
 
 
 /* 3pcc extended mode:
-   get the correspondances between
-   slave and master names and their
-   addresses */
+ * get the correspondances between
+ * slave and master names and their
+ * addresses */
 
 void parse_slave_cfg()
 {

@@ -113,8 +113,9 @@ void task::add_to_paused_tasks(bool increment)
     paused_tasks.add_paused_task(this, increment);
 }
 
-void task::recalculate_wheel() {
-  add_to_paused_tasks(false);
+void task::recalculate_wheel()
+{
+    add_to_paused_tasks(false);
 }
 
 /* Remove this task from the run queue. */

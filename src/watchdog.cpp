@@ -52,13 +52,13 @@ watchdog::watchdog(int interval, int reset_interval, int major_threshold, int ma
 
 bool watchdog::run()
 {
-  getmilliseconds();
+    getmilliseconds();
 
-  unsigned expected_major_trigger_time = last_fire + this->major_threshold;
-  unsigned expected_minor_trigger_time = last_fire + this->minor_threshold;
+    unsigned expected_major_trigger_time = last_fire + this->major_threshold;
+    unsigned expected_minor_trigger_time = last_fire + this->minor_threshold;
 
-  bool major_watchdog_tripped = clock_tick > expected_major_trigger_time;
-  bool minor_watchdog_tripped = clock_tick > expected_minor_trigger_time;
+    bool major_watchdog_tripped = clock_tick > expected_major_trigger_time;
+    bool minor_watchdog_tripped = clock_tick > expected_minor_trigger_time;
 
     // Check if either watchdog has taken longer than expected to run,
     // and if so, warn that we are overloaded.

@@ -1,54 +1,53 @@
 /*
-  Copyright (C) 1999, 2000, 2002 Aladdin Enterprises.  All rights reserved.
-
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
-  arising from the use of this software.
-
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
-
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
-
-  L. Peter Deutsch
-  ghost@aladdin.com
-
+ * Copyright (C) 1999, 2000, 2002 Aladdin Enterprises.  All rights reserved.
+ *
+ * This software is provided 'as-is', without any express or implied
+ * warranty.  In no event will the authors be held liable for any damages
+ * arising from the use of this software.
+ *
+ * Permission is granted to anyone to use this software for any purpose,
+ * including commercial applications, and to alter it and redistribute it
+ * freely, subject to the following restrictions:
+ *
+ * 1. The origin of this software must not be misrepresented; you must not
+ *    claim that you wrote the original software. If you use this software
+ *    in a product, an acknowledgment in the product documentation would be
+ *    appreciated but is not required.
+ * 2. Altered source versions must be plainly marked as such, and must not be
+ *    misrepresented as being the original software.
+ * 3. This notice may not be removed or altered from any source distribution.
+ *
+ * L. Peter Deutsch
+ * ghost@aladdin.com
  */
 /* $Id: md5.c,v 1.6 2002/04/13 19:20:28 lpd Exp $ */
 /*
-  Independent implementation of MD5 (RFC 1321).
-
-  This code implements the MD5 Algorithm defined in RFC 1321, whose
-  text is available at
-        http://www.ietf.org/rfc/rfc1321.txt
-  The code is derived from the text of the RFC, including the test suite
-  (section A.5) but excluding the rest of Appendix A.  It does not include
-  any code or documentation that is identified in the RFC as being
-  copyrighted.
-
-  The original and principal author of md5.c is L. Peter Deutsch
-  <ghost@aladdin.com>.  Other authors are noted in the change history
-  that follows (in reverse chronological order):
-
-  2002-04-13 lpd Clarified derivation from RFC 1321; now handles byte order
-        either statically or dynamically; added missing #include <string.h>
-        in library.
-  2002-03-11 lpd Corrected argument list for main(), and added int return
-        type, in test program and T value program.
-  2002-02-21 lpd Added missing #include <stdio.h> in test program.
-  2000-07-03 lpd Patched to eliminate warnings about "constant is
-        unsigned in ANSI C, signed in traditional"; made test program
-        self-checking.
-  1999-11-04 lpd Edited comments slightly for automatic TOC extraction.
-  1999-10-18 lpd Fixed typo in header comment (ansi2knr rather than md5).
-  1999-05-03 lpd Original version.
+ * Independent implementation of MD5 (RFC 1321).
+ *
+ * This code implements the MD5 Algorithm defined in RFC 1321, whose
+ * text is available at
+ *       http://www.ietf.org/rfc/rfc1321.txt
+ * The code is derived from the text of the RFC, including the test suite
+ * (section A.5) but excluding the rest of Appendix A.  It does not include
+ * any code or documentation that is identified in the RFC as being
+ * copyrighted.
+ *
+ * The original and principal author of md5.c is L. Peter Deutsch
+ * <ghost@aladdin.com>.  Other authors are noted in the change history
+ * that follows (in reverse chronological order):
+ *
+ * 2002-04-13 lpd Clarified derivation from RFC 1321; now handles byte order
+ *       either statically or dynamically; added missing #include <string.h>
+ *       in library.
+ * 2002-03-11 lpd Corrected argument list for main(), and added int return
+ *       type, in test program and T value program.
+ * 2002-02-21 lpd Added missing #include <stdio.h> in test program.
+ * 2000-07-03 lpd Patched to eliminate warnings about "constant is
+ *       unsigned in ANSI C, signed in traditional"; made test program
+ *       self-checking.
+ * 1999-11-04 lpd Edited comments slightly for automatic TOC extraction.
+ * 1999-10-18 lpd Fixed typo in header comment (ansi2knr rather than md5).
+ * 1999-05-03 lpd Original version.
  */
 
 #include "md5.h"
@@ -200,9 +199,9 @@ md5_process(md5_state_t *pms, const md5_byte_t *data /*[64]*/)
     /* Let [abcd k s i] denote the operation
        a = b + ((a + F(b,c,d) + X[k] + T[i]) <<< s). */
 #define F(x, y, z) (((x) & (y)) | (~(x) & (z)))
-#define SET(a, b, c, d, k, s, Ti)\
-  t = a + F(b,c,d) + X[k] + Ti;\
-  a = ROTATE_LEFT(t, s) + b
+#define SET(a, b, c, d, k, s, Ti) \
+    t = a + F(b,c,d) + X[k] + Ti; \
+    a = ROTATE_LEFT(t, s) + b
     /* Do the following 16 operations. */
     SET(a, b, c, d,  0,  7,  T1);
     SET(d, a, b, c,  1, 12,  T2);
@@ -226,9 +225,9 @@ md5_process(md5_state_t *pms, const md5_byte_t *data /*[64]*/)
     /* Let [abcd k s i] denote the operation
          a = b + ((a + G(b,c,d) + X[k] + T[i]) <<< s). */
 #define G(x, y, z) (((x) & (z)) | ((y) & ~(z)))
-#define SET(a, b, c, d, k, s, Ti)\
-  t = a + G(b,c,d) + X[k] + Ti;\
-  a = ROTATE_LEFT(t, s) + b
+#define SET(a, b, c, d, k, s, Ti) \
+    t = a + G(b,c,d) + X[k] + Ti; \
+    a = ROTATE_LEFT(t, s) + b
     /* Do the following 16 operations. */
     SET(a, b, c, d,  1,  5, T17);
     SET(d, a, b, c,  6,  9, T18);
@@ -252,9 +251,9 @@ md5_process(md5_state_t *pms, const md5_byte_t *data /*[64]*/)
     /* Let [abcd k s t] denote the operation
          a = b + ((a + H(b,c,d) + X[k] + T[i]) <<< s). */
 #define H(x, y, z) ((x) ^ (y) ^ (z))
-#define SET(a, b, c, d, k, s, Ti)\
-  t = a + H(b,c,d) + X[k] + Ti;\
-  a = ROTATE_LEFT(t, s) + b
+#define SET(a, b, c, d, k, s, Ti) \
+    t = a + H(b,c,d) + X[k] + Ti; \
+    a = ROTATE_LEFT(t, s) + b
     /* Do the following 16 operations. */
     SET(a, b, c, d,  5,  4, T33);
     SET(d, a, b, c,  8, 11, T34);
@@ -278,9 +277,9 @@ md5_process(md5_state_t *pms, const md5_byte_t *data /*[64]*/)
     /* Let [abcd k s t] denote the operation
          a = b + ((a + I(b,c,d) + X[k] + T[i]) <<< s). */
 #define I(x, y, z) ((y) ^ ((x) | ~(z)))
-#define SET(a, b, c, d, k, s, Ti)\
-  t = a + I(b,c,d) + X[k] + Ti;\
-  a = ROTATE_LEFT(t, s) + b
+#define SET(a, b, c, d, k, s, Ti) \
+    t = a + I(b,c,d) + X[k] + Ti; \
+    a = ROTATE_LEFT(t, s) + b
     /* Do the following 16 operations. */
     SET(a, b, c, d,  0,  6, T49);
     SET(d, a, b, c,  7, 10, T50);

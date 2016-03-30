@@ -578,7 +578,7 @@ void setup_ctrl_socket()
 }
 
 static void reset_stdin() {
-  fcntl(fileno(stdin), F_SETFL, stdin_mode);
+    fcntl(fileno(stdin), F_SETFL, stdin_mode);
 }
 
 void setup_stdin_socket()

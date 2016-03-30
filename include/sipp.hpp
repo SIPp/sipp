@@ -415,10 +415,10 @@ extern  int stepDynamicId   _DEFVAL(4);      // step of increment for dynamicId
 
 
 
-#define GET_TIME(clock)       \
-{                             \
-  struct timezone tzp;        \
-  gettimeofday (clock, &tzp); \
+#define GET_TIME(clock) \
+{ \
+    struct timezone tzp; \
+    gettimeofday(clock, &tzp); \
 }
 
 /*********************** Global Sockets  **********************/
