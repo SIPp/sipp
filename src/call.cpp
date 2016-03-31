@@ -122,7 +122,6 @@ unsigned int call::wake()
     return wake;
 }
 
-#ifdef PCAPPLAY
 static std::string find_in_sdp(std::string const &pattern, std::string const &msg)
 {
     std::string::size_type begin, end;
@@ -141,6 +140,7 @@ static std::string find_in_sdp(std::string const &pattern, std::string const &ms
     return msg.substr(begin, end - begin);
 }
 
+#ifdef PCAPPLAY
 void call::get_remote_media_addr(std::string const &msg)
 {
     std::string host = find_in_sdp(media_ip_is_ipv6 ? "c=IN IP6 " : "c=IN IP4 ", msg);
@@ -175,85 +175,47 @@ void call::get_remote_media_addr(std::string const &msg)
 /******* Extract RTP remote media infomartion from SDP  *******/
 /***** Similar to the routines used by the PCAP play code *****/
 
-#define SDP_IPADDR_PREFIX    "\nc=IN IP"
-#define SDP_AUDIOPORT_PREFIX "\nm=audio"
-#define SDP_IMAGEPORT_PREFIX "\nm=image"
-#define SDP_VIDEOPORT_PREFIX "\nm=video"
 void call::extract_rtp_remote_addr(char* msg)
 {
-    char* search;
-    char* copy;
-    char ip_addr[128];
     int ip_ver;
     int audio_port = 0;
     int image_port = 0;
     int video_port = 0;
 
-    /* Look for start of message body */
-    search = strstr(msg, "\r\n\r\n");
-    if (!search) {
-        ERROR("extract_rtp_remote_addr: SDP message body not found");
-    }
-    msg = search + 2; /* skip past header. point to blank line before body */
-    /* Now search for IP address field */
-    search = strstr(msg, SDP_IPADDR_PREFIX);
-    if (search) {
-        search += strlen(SDP_IPADDR_PREFIX);
-        /* Get IP version number from c= */
-        if (*search == '4') {
-            ip_ver = 4;
-        } else if (*search == '6') {
-            ip_ver = 6;
-        } else {
-            ERROR("extract_rtp_remote_addr: invalid IP version '%c' in SDP message body", *search);
+    std::string host = find_in_sdp("c=IN IP4 ", msg);
+    if (host.empty()) {
+        host = find_in_sdp("c=IN IP6 ", msg);
+        if (host.empty()) {
+            ERROR("extract_rtp_remote_addr: invalid IP version in SDP message body");
         }
-        search++;
-        copy = ip_addr;
-        while (*search == ' ' || *search == '\t') {
-            search++;
-        }
-        while (!(*search == ' ' || *search == '\t' || *search == '\r' || *search == '\n')) {
-            *(copy++) = *(search++);
-        }
-        *copy = 0;
+        ip_ver = 6;
     } else {
-        ERROR("extract_rtp_remote_addr: no IP address found in SDP message body");
-        *ip_addr = 0;
+        ip_ver = 4;
     }
-    /* Now try to find the port number for the audio stream */
-    search = strstr(msg, SDP_AUDIOPORT_PREFIX);
-    if (search) {
-        search += strlen(SDP_AUDIOPORT_PREFIX);
-        while (*search == ' ' || *search == '\t') {
-            search++;
-        }
-        sscanf(search, "%d", &audio_port);
+
+    std::string port = find_in_sdp("m=audio ", msg);
+    if (!port.empty()) {
+        audio_port = std::stoi(port);
     }
-    /* And find the port number for the image stream */
-    search = strstr(msg, SDP_IMAGEPORT_PREFIX);
-    if (search) {
-        search += strlen(SDP_IMAGEPORT_PREFIX);
-        while (*search == ' ' || *search == '\t') {
-            search++;
-        }
-        sscanf(search, "%d", &image_port);
+
+    port = find_in_sdp("m=image ", msg);
+    if (!port.empty()) {
+        image_port = std::stoi(port);
     }
-    /* And find the port number for the video stream */
-    search = strstr(msg, SDP_VIDEOPORT_PREFIX);
-    if (search) {
-        search += strlen(SDP_VIDEOPORT_PREFIX);
-        while (*search == ' ' || *search == '\t') {
-            search++;
-        }
-        sscanf(search, "%d", &video_port);
+
+    port = find_in_sdp("m=video ", msg);
+    if (!port.empty()) {
+        video_port = std::stoi(port);
     }
+
     if (audio_port == 0 && image_port == 0 && video_port == 0) {
         ERROR("extract_rtp_remote_addr: no m=audio, m=image or m=video line found in SDP message body");
     }
+
     /* If we get an image_port only, we won't set anything useful.
      * We cannot use rtpstream for udptl/t38 data because it has
      * non-linear timing and data size. */
-    rtpstream_set_remote(&rtpstream_callinfo, ip_ver, ip_addr, audio_port, video_port);
+    rtpstream_set_remote(&rtpstream_callinfo, ip_ver, host.c_str(), audio_port, video_port);
 }
 #endif
 
@@ -4112,7 +4074,6 @@ bool operator==(const struct sockaddr_in6& a, const struct sockaddr_in6 &b) {
         && std::memcmp(&a.sin6_addr, &b.sin6_addr, sizeof(in_addr)) == 0;
 }
 
-#ifdef PCAPPLAY
 const std::string test_sdp_v4 = "v=0\r\n"
                                 "o=user1 53655765 2353687637 IN IP4 127.0.0.1\r\n"
                                 "s=-\r\n"
@@ -4143,6 +4104,7 @@ TEST(sdp, parse_invalid_sdp_msg) {
     ASSERT_EQ(find_in_sdp("m=video ", test_sdp_v4), "");
 }
 
+#ifdef PCAPPLAY
 TEST(sdp, good_remote_media_addr_v4) {
     media_ip_is_ipv6 = false;
 

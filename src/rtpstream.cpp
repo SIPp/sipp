@@ -584,7 +584,7 @@ int rtpstream_cache_file(char* filename)
 }
 
 /* code checked */
-void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, char* ip_addr,
+void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char* ip_addr,
                           int audio_port, int video_port)
 {
     struct sockaddr_storage   address;
