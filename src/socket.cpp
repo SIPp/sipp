@@ -68,20 +68,12 @@ int pending_messages = 0;
 map<string, struct sipp_socket *>     map_perip_fd;
 
 int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
-                    unsigned short port, int flags, int family)
+                    const char *service, int flags, int family)
 {
-    int error = 0;
     const struct addrinfo hints = {flags, family,};
     struct addrinfo* res;
 
-    if (port) {
-        char service[std::numeric_limits<short>::digits10 + 1];
-        snprintf(service, sizeof(service), "%d", port);
-        error = getaddrinfo(host, service, &hints, &res);
-    } else {
-        error = getaddrinfo(host, NULL, &hints, &res);
-    }
-
+    int error = getaddrinfo(host, service, &hints, &res);
     if (error == 0) {
         memcpy(ss, res->ai_addr, res->ai_addrlen);
         freeaddrinfo(res);
@@ -90,6 +82,18 @@ int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
     }
 
     return error;
+}
+
+int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
+                    unsigned short port, int flags, int family)
+{
+    if (port) {
+        char service[std::numeric_limits<unsigned short>::digits10 + 1];
+        snprintf(service, sizeof(service), "%d", port);
+        return gai_getsockaddr(ss, host, service, flags, family);
+    } else {
+        return gai_getsockaddr(ss, host, nullptr, flags, family);
+    }
 }
 
 void sockaddr_update_port(struct sockaddr_storage* ss, short port)
@@ -540,7 +544,7 @@ void setup_ctrl_socket()
 
     memset(&ctl_sa, 0, sizeof(struct sockaddr_storage));
     if (control_ip[0]) {
-        if (gai_getsockaddr(&ctl_sa, control_ip, 0,
+        if (gai_getsockaddr(&ctl_sa, control_ip, nullptr,
                             AI_PASSIVE, AF_UNSPEC) != 0) {
             ERROR("Unknown control address '%s'.\n"
                   "Use 'sipp -h' for details", control_ip);
@@ -2555,13 +2559,13 @@ int open_connections()
                     // For the socket per IP mode, bind the main socket to the
                     // first IP address specified in the inject file.
                     inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
-                    if (gai_getsockaddr(&local_sockaddr, peripaddr, 0,
+                    if (gai_getsockaddr(&local_sockaddr, peripaddr, nullptr,
                                         AI_PASSIVE, AF_UNSPEC) != 0) {
                         ERROR("Unknown host '%s'.\n"
                               "Use 'sipp -h' for details", peripaddr);
                     }
                 } else {
-                    if (gai_getsockaddr(&local_sockaddr, local_ip, 0,
+                    if (gai_getsockaddr(&local_sockaddr, local_ip, nullptr,
                                         AI_PASSIVE, AF_UNSPEC) != 0) {
                         ERROR("Unknown host '%s'.\n"
                               "Use 'sipp -h' for details", peripaddr);
@@ -2586,13 +2590,13 @@ int open_connections()
                 // For the socket per IP mode, bind the main socket to the
                 // first IP address specified in the inject file.
                 inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
-                if (gai_getsockaddr(&local_sockaddr, peripaddr, 0,
+                if (gai_getsockaddr(&local_sockaddr, peripaddr, nullptr,
                                     AI_PASSIVE, AF_UNSPEC) != 0) {
                     ERROR("Unknown host '%s'.\n"
                           "Use 'sipp -h' for details", peripaddr);
                 }
             } else {
-                if (gai_getsockaddr(&local_sockaddr, local_ip, 0,
+                if (gai_getsockaddr(&local_sockaddr, local_ip, nullptr,
                                     AI_PASSIVE, AF_UNSPEC) != 0) {
                     ERROR("Unknown host '%s'.\n"
                           "Use 'sipp -h' for details", peripaddr);

@@ -122,290 +122,100 @@ unsigned int call::wake()
     return wake;
 }
 
+static std::string find_in_sdp(std::string const &pattern, std::string const &msg)
+{
+    std::string::size_type begin, end;
+
+    begin = msg.find(pattern);
+    if (begin == std::string::npos) {
+        return "";
+    }
+
+    begin += pattern.size();
+    end = msg.find_first_of(" \r\n", begin);
+    if (end == std::string::npos || begin == end) {
+        return "";
+    }
+
+    return msg.substr(begin, end - begin);
+}
+
 #ifdef PCAPPLAY
-static char* find_sdp_eol(char* line)
+void call::get_remote_media_addr(std::string const &msg)
 {
-    char* end = &line[strcspn(line, "\r\n")];
-    return end[0] == '\0' ? NULL : end;
-}
-
-/******* Media information management *************************/
-/*
- * Look for "c=IN IP4 " pattern in the message and extract the following value
- * which should be IP address
- */
-uint32_t get_remote_ip_media(char *msg)
-{
-    char pattern[] = "c=IN IP4 ";
-    char *begin, *end;
-    char ip[32];
-    char *my_msg = strdup(msg);
-
-    if (!my_msg) {
-        return INADDR_NONE;
-    }
-    begin = strstr(my_msg, pattern);
-    if (!begin) {
-        free(my_msg);
-        /* Can't find what we're looking at -> return no address */
-        return INADDR_NONE;
-    }
-    begin += sizeof(pattern) - 1;
-    end = find_sdp_eol(begin);
-    if (!end) {
-        free(my_msg);
-        return INADDR_NONE;
-    }
-    *end = '\0';
-    memset(ip, 0, 32);
-    strncpy(ip, begin, sizeof(ip) - 1);
-    ip[sizeof(ip) - 1] = '\0';
-    free(my_msg);
-    return inet_addr(ip);
-}
-
-/*
- * Look for "c=IN IP6 " pattern in the message and extract the following value
- * which should be IPv6 address
- */
-uint8_t get_remote_ipv6_media(char *msg, struct in6_addr *addr)
-{
-    char pattern[] = "c=IN IP6 ";
-    char *begin, *end;
-    char ip[128];
-    char *my_msg = strdup(msg);
-
-    memset(addr, 0, sizeof(*addr));
-    memset(ip, 0, 128);
-
-    if (!my_msg) {
-        return 0;
-    }
-    begin = strstr(my_msg, pattern);
-    if (!begin) {
-        free(my_msg);
-        /* Can't find what we're looking at -> return no address */
-        return 0;
-    }
-    begin += sizeof(pattern) - 1;
-    end = find_sdp_eol(begin);
-    if (!end) {
-        free(my_msg);
-        return 0;
-    }
-    *end = '\0';
-    strncpy(ip, begin, sizeof(ip) -1);
-    ip[sizeof(ip) - 1] = '\0';
-    free(my_msg);
-    if (!inet_pton(AF_INET6, ip, addr)) {
-        return 0;
-    }
-    return 1;
-}
-
-/*
- * Look for "m=audio ", "m=image " or "m=video " pattern in the message
- * and extract the following value which should be port number.
- */
-enum media_ptn {
-    PAT_AUDIO,
-    PAT_IMAGE,
-    PAT_VIDEO
-};
-uint16_t get_remote_port_media(const char *msg, enum media_ptn pattype)
-{
-    const char *pattern;
-    char *begin, *end;
-    char number[6];
-
-    if (pattype == PAT_AUDIO) {
-        pattern = "m=audio ";
-    } else if (pattype == PAT_IMAGE) {
-        pattern = "m=image ";
-    } else if (pattype == PAT_VIDEO) {
-        pattern = "m=video ";
-    } else {
-        ERROR("Internal error: Undefined media pattern %d\n", 3);
+    std::string host = find_in_sdp(media_ip_is_ipv6 ? "c=IN IP6 " : "c=IN IP4 ", msg);
+    if (host.empty()) {
+        return;
     }
 
-    char *my_msg = strdup(msg);
-    if (!my_msg) {
-        return 0;
-    }
-    begin = strstr(my_msg, pattern);
-    if (!begin) {
-        free(my_msg);
-        /* m=audio not found */
-        return 0;
-    }
-    begin += strlen(pattern);
-    end = find_sdp_eol(begin);
-    if (!end) {
-        free(my_msg);
-        ERROR("get_remote_port_media: no CRLF found");
-        return 0;
-    }
-    *end = '\0';
-    memset(number, 0, sizeof(number));
-    strncpy(number, begin, sizeof(number) - 1);
-    number[sizeof(number) - 1] = '\0';
-    free(my_msg);
-    return atoi(number);
-}
+    hasMediaInformation = 1;
+    const int family = media_ip_is_ipv6 ? AF_INET6 : AF_INET;
 
-/*
- * IPv{4,6} compliant
- */
-void call::get_remote_media_addr(char *msg)
-{
-    uint16_t audio_port, image_port, video_port;
-    if (media_ip_is_ipv6) {
-        struct in6_addr ip_media;
-        if (get_remote_ipv6_media(msg, &ip_media)) {
-            audio_port = get_remote_port_media(msg, PAT_AUDIO);
-            if (audio_port) {
-                /* We have audio in the SDP: set the to_audio addr */
-                (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_flowinfo = 0;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_scope_id = 0;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_family = AF_INET6;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_port = htons(audio_port);
-                (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_addr = ip_media;
-            }
-            image_port = get_remote_port_media(msg, PAT_IMAGE);
-            if (image_port) {
-                /* We have image in the SDP: set the to_image addr */
-                (_RCAST(struct sockaddr_in6 *, &(play_args_i.to)))->sin6_flowinfo = 0;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_i.to)))->sin6_scope_id = 0;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_i.to)))->sin6_family = AF_INET6;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_i.to)))->sin6_port = htons(image_port);
-                (_RCAST(struct sockaddr_in6 *, &(play_args_i.to)))->sin6_addr = ip_media;
-            }
-            video_port = get_remote_port_media(msg, PAT_VIDEO);
-            if (video_port) {
-                /* We have video in the SDP: set the to_video addr */
-                (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_flowinfo = 0;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_scope_id = 0;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_family = AF_INET6;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_port = htons(video_port);
-                (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_addr = ip_media;
-            }
-            hasMediaInformation = 1;
-        }
-    } else {
-        uint32_t ip_media;
-        ip_media = get_remote_ip_media(msg);
-        if (ip_media != INADDR_NONE) {
-            audio_port = get_remote_port_media(msg, PAT_AUDIO);
-            if (audio_port) {
-                /* We have audio in the SDP: set the to_audio addr */
-                (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_family = AF_INET;
-                (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_port = htons(audio_port);
-                (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_addr.s_addr = ip_media;
-            }
-            image_port = get_remote_port_media(msg, PAT_IMAGE);
-            if (image_port) {
-                /* We have image in the SDP: set the to_image addr */
-                (_RCAST(struct sockaddr_in *, &(play_args_i.to)))->sin_family = AF_INET;
-                (_RCAST(struct sockaddr_in *, &(play_args_i.to)))->sin_port = htons(image_port);
-                (_RCAST(struct sockaddr_in *, &(play_args_i.to)))->sin_addr.s_addr = ip_media;
-            }
-            video_port = get_remote_port_media(msg, PAT_VIDEO);
-            if (video_port) {
-                /* We have video in the SDP: set the to_video addr */
-                (_RCAST(struct sockaddr_in *, &(play_args_v.to)))->sin_family = AF_INET;
-                (_RCAST(struct sockaddr_in *, &(play_args_v.to)))->sin_port = htons(video_port);
-                (_RCAST(struct sockaddr_in *, &(play_args_v.to)))->sin_addr.s_addr = ip_media;
-            }
-            hasMediaInformation = 1;
-        }
+    std::string port = find_in_sdp("m=audio ", msg);
+    if (!port.empty()) {
+        gai_getsockaddr(&play_args_a.to, host.c_str(), port.c_str(),
+                        AI_NUMERICHOST | AI_NUMERICSERV, family);
+    }
+
+    port = find_in_sdp("m=image ", msg);
+    if (!port.empty()) {
+        gai_getsockaddr(&play_args_i.to, host.c_str(), port.c_str(),
+                        AI_NUMERICHOST | AI_NUMERICSERV, family);
+    }
+
+    port = find_in_sdp("m=video ", msg);
+    if (!port.empty()) {
+        gai_getsockaddr(&play_args_v.to, host.c_str(), port.c_str(),
+                        AI_NUMERICHOST | AI_NUMERICSERV, family);
     }
 }
-
 #endif
 
 #ifdef RTP_STREAM
 /******* Extract RTP remote media infomartion from SDP  *******/
 /***** Similar to the routines used by the PCAP play code *****/
 
-#define SDP_IPADDR_PREFIX    "\nc=IN IP"
-#define SDP_AUDIOPORT_PREFIX "\nm=audio"
-#define SDP_IMAGEPORT_PREFIX "\nm=image"
-#define SDP_VIDEOPORT_PREFIX "\nm=video"
 void call::extract_rtp_remote_addr(char* msg)
 {
-    char* search;
-    char* copy;
-    char ip_addr[128];
     int ip_ver;
     int audio_port = 0;
     int image_port = 0;
     int video_port = 0;
 
-    /* Look for start of message body */
-    search = strstr(msg, "\r\n\r\n");
-    if (!search) {
-        ERROR("extract_rtp_remote_addr: SDP message body not found");
-    }
-    msg = search + 2; /* skip past header. point to blank line before body */
-    /* Now search for IP address field */
-    search = strstr(msg, SDP_IPADDR_PREFIX);
-    if (search) {
-        search += strlen(SDP_IPADDR_PREFIX);
-        /* Get IP version number from c= */
-        if (*search == '4') {
-            ip_ver = 4;
-        } else if (*search == '6') {
-            ip_ver = 6;
-        } else {
-            ERROR("extract_rtp_remote_addr: invalid IP version '%c' in SDP message body", *search);
+    std::string host = find_in_sdp("c=IN IP4 ", msg);
+    if (host.empty()) {
+        host = find_in_sdp("c=IN IP6 ", msg);
+        if (host.empty()) {
+            ERROR("extract_rtp_remote_addr: invalid IP version in SDP message body");
         }
-        search++;
-        copy = ip_addr;
-        while (*search == ' ' || *search == '\t') {
-            search++;
-        }
-        while (!(*search == ' ' || *search == '\t' || *search == '\r' || *search == '\n')) {
-            *(copy++) = *(search++);
-        }
-        *copy = 0;
+        ip_ver = 6;
     } else {
-        ERROR("extract_rtp_remote_addr: no IP address found in SDP message body");
-        *ip_addr = 0;
+        ip_ver = 4;
     }
-    /* Now try to find the port number for the audio stream */
-    search = strstr(msg, SDP_AUDIOPORT_PREFIX);
-    if (search) {
-        search += strlen(SDP_AUDIOPORT_PREFIX);
-        while (*search == ' ' || *search == '\t') {
-            search++;
-        }
-        sscanf(search, "%d", &audio_port);
+
+    std::string port = find_in_sdp("m=audio ", msg);
+    if (!port.empty()) {
+        audio_port = std::stoi(port);
     }
-    /* And find the port number for the image stream */
-    search = strstr(msg, SDP_IMAGEPORT_PREFIX);
-    if (search) {
-        search += strlen(SDP_IMAGEPORT_PREFIX);
-        while (*search == ' ' || *search == '\t') {
-            search++;
-        }
-        sscanf(search, "%d", &image_port);
+
+    port = find_in_sdp("m=image ", msg);
+    if (!port.empty()) {
+        image_port = std::stoi(port);
     }
-    /* And find the port number for the video stream */
-    search = strstr(msg, SDP_VIDEOPORT_PREFIX);
-    if (search) {
-        search += strlen(SDP_VIDEOPORT_PREFIX);
-        while (*search == ' ' || *search == '\t') {
-            search++;
-        }
-        sscanf(search, "%d", &video_port);
+
+    port = find_in_sdp("m=video ", msg);
+    if (!port.empty()) {
+        video_port = std::stoi(port);
     }
+
     if (audio_port == 0 && image_port == 0 && video_port == 0) {
         ERROR("extract_rtp_remote_addr: no m=audio, m=image or m=video line found in SDP message body");
     }
+
     /* If we get an image_port only, we won't set anything useful.
      * We cannot use rtpstream for udptl/t38 data because it has
      * non-linear timing and data size. */
-    rtpstream_set_remote(&rtpstream_callinfo, ip_ver, ip_addr, audio_port, video_port);
+    rtpstream_set_remote(&rtpstream_callinfo, ip_ver, host.c_str(), audio_port, video_port);
 }
 #endif
 
@@ -4227,4 +4037,100 @@ void *send_wrapper(void *arg)
     pthread_exit(NULL);
     return NULL;
 }
+#endif
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+#include "gtest/gtest.h"
+
+class mockcall : public call {
+public:
+    mockcall(bool is_ipv6) : listener("//testing", true), call("///testing", is_ipv6, 0, NULL) {}
+
+    /* Helpers to poke at protected internals */
+    void parse_media_addr(std::string const& msg) { get_remote_media_addr(msg); }
+
+#ifdef PCAPPLAY
+    bool has_media() { return hasMediaInformation; }
+
+    template<typename T>
+    T get_audio_addr() {
+        T sa;
+        std::memcpy(&sa, &play_args_a.to, sizeof(T));
+        return sa;
+    }
+#endif
+};
+
+bool operator==(const struct sockaddr_in& a, const struct sockaddr_in &b) {
+    return a.sin_family == b.sin_family
+        && a.sin_port == b.sin_port
+        && std::memcmp(&a.sin_addr, &b.sin_addr, sizeof(in_addr)) == 0;
+}
+
+bool operator==(const struct sockaddr_in6& a, const struct sockaddr_in6 &b) {
+    return a.sin6_family == b.sin6_family
+        && a.sin6_port == b.sin6_port
+        && std::memcmp(&a.sin6_addr, &b.sin6_addr, sizeof(in_addr)) == 0;
+}
+
+const std::string test_sdp_v4 = "v=0\r\n"
+                                "o=user1 53655765 2353687637 IN IP4 127.0.0.1\r\n"
+                                "s=-\r\n"
+                                "c=IN IP4 127.0.0.1\r\n"
+                                "t=0 0\r\n"
+                                "m=audio 12345 RTP/AVP 0\r\n"
+                                "a=rtpmap:0 PCMU/8000\r\n";
+
+const std::string test_sdp_v6 = "v=0\r\n"
+                                "o=user1 53655765 2353687637 IN IP6 ::1\r\n"
+                                "s=-\r\n"
+                                "c=IN IP6 ::1\r\n"
+                                "t=0 0\r\n"
+                                "m=audio 12345 RTP/AVP 0\r\n"
+                                "a=rtpmap:0 PCMU/8000\r\n";
+
+TEST(sdp, parse_valid_sdp_msg) {
+    ASSERT_EQ(find_in_sdp("c=IN IP4 ", test_sdp_v4), "127.0.0.1");
+    ASSERT_EQ(find_in_sdp("c=IN IP6 ", test_sdp_v6), "::1");
+    ASSERT_EQ(find_in_sdp("m=audio ", test_sdp_v4), "12345");
+    ASSERT_EQ(find_in_sdp("m=audio ", test_sdp_v6), "12345");
+}
+
+TEST(sdp, parse_invalid_sdp_msg) {
+    ASSERT_EQ(find_in_sdp("c=IN IP4 ", test_sdp_v6), "");
+    ASSERT_EQ(find_in_sdp("c=IN IP6 ", test_sdp_v4), "");
+    ASSERT_EQ(find_in_sdp("m=video ", test_sdp_v6), "");
+    ASSERT_EQ(find_in_sdp("m=video ", test_sdp_v4), "");
+}
+
+#ifdef PCAPPLAY
+TEST(sdp, good_remote_media_addr_v4) {
+    media_ip_is_ipv6 = false;
+
+    struct sockaddr_in reference;
+    reference.sin_family = AF_INET;
+    reference.sin_port = htons(12345);
+    inet_pton(AF_INET, "127.0.0.1", &reference.sin_addr);
+
+    mockcall call(false);
+    call.parse_media_addr(test_sdp_v4);
+    ASSERT_EQ(call.has_media(), true);
+    ASSERT_EQ(reference, call.get_audio_addr<struct sockaddr_in>());
+}
+
+TEST(sdp, good_remote_media_addr_v6) {
+    media_ip_is_ipv6 = true;
+
+    struct sockaddr_in6 reference;
+    reference.sin6_family = AF_INET6;
+    reference.sin6_port = htons(12345);
+    inet_pton(AF_INET6, "::1", &reference.sin6_addr);
+
+    mockcall call(true);
+    call.parse_media_addr(test_sdp_v6);
+    ASSERT_EQ(call.has_media(), true);
+    ASSERT_EQ(reference, call.get_audio_addr<struct sockaddr_in6>());
+}
+#endif /* PCAP_PLAY */
 #endif

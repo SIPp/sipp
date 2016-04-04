@@ -39,6 +39,8 @@ ssl_init_status FI_init_ssl_context (void);
 
 int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
                     unsigned short port, int flags, int family);
+int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
+                    const char *service, int flags, int family);
 void sockaddr_update_port(struct sockaddr_storage* ss, short port);
 int flush_socket(struct sipp_socket *socket);
 int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
