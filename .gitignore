@@ -35,6 +35,7 @@ stamp-h.in
 *.orig
 *.rej
 *.patch
+compile_commands.json
 
 # Ignore *.xml in root dir, but not in regression tests dir.
 /*.xml
