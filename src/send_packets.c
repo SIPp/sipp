@@ -241,7 +241,6 @@ int send_packets(play_args_t * play_args)
 
     while (pkt_index < pkt_max) {
         memcpy(udp, pkt_index->data, pkt_index->pktlen);
-#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
         port_diff = ntohs(udp->uh_dport) - pkts->base;
         /* modify UDP ports */
         udp->uh_sport = htons(port_diff + ntohs(*from_port));
@@ -264,27 +263,6 @@ int send_packets(play_args_t * play_args)
         udp->uh_sum = (temp_sum>>16)+((temp_sum & 0xffff)<<16);
 #else
         udp->uh_sum = temp_sum;
-#endif
-#else
-        port_diff = ntohs(udp->dest) - pkts->base;
-        /* modify UDP ports */
-        udp->source = htons(port_diff + ntohs(*from_port));
-        udp->dest = htons(port_diff + ntohs(*to_port));
-
-        if (!media_ip_is_ipv6) {
-            temp_sum = checksum_carry(
-                    pkt_index->partial_check +
-                    check((u_int16_t *) &(((struct sockaddr_in *)(void *) from)->sin_addr.s_addr), 4) +
-                    check((u_int16_t *) &(((struct sockaddr_in *)(void *) to)->sin_addr.s_addr), 4) +
-                    check((u_int16_t *) &udp->source, 4));
-        } else {
-            temp_sum = checksum_carry(
-                    pkt_index->partial_check +
-                    check((u_int16_t *) &(from6.sin6_addr.s6_addr), 16) +
-                    check((u_int16_t *) &(to6.sin6_addr.s6_addr), 16) +
-                    check((u_int16_t *) &udp->source, 4));
-        }
-        udp->check = temp_sum;
 #endif
 
         do_sleep ((struct timeval *) &pkt_index->ts, &last, &didsleep,

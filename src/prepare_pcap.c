@@ -260,15 +260,12 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
                 fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
                 continue;
             }
-#if defined(__DARWIN) || defined(__CYGWIN) || defined(__FreeBSD__)
-            udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2) + 4);
-            pktlen = (uint64_t)(ntohs(udphdr->uh_ulen));
-#elif defined ( __HPUX)
+#if defined ( __HPUX)
             udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2));
             pktlen = (uint64_t) pkthdr->len - sizeof(*ethhdr) - sizeof(*iphdr);
 #else
-            udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2));
-            pktlen = (uint64_t)(ntohs(udphdr->len));
+            udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2) + 4);
+            pktlen = (uint64_t)(ntohs(udphdr->uh_ulen));
 #endif
         }
         if (pktlen > PCAP_MAXPACKET) {
@@ -285,29 +282,16 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
             ERROR("Can't allocate memory for pcap pkt data");
         memcpy(pkt_index->data, udphdr, pktlen);
 
-#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
         udphdr->uh_sum = 0 ;
-#else
-        udphdr->check = 0;
-#endif
 
         /* compute a partial udp checksum */
         /* not including port that will be changed */
         /* when sending RTP */
-#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
         pkt_index->partial_check = check((uint16_t*)&udphdr->uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
-#else
-        pkt_index->partial_check = check((uint16_t*)&udphdr->len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
-#endif
         if (max_length < pktlen)
             max_length = pktlen;
-#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
         if (base > ntohs(udphdr->uh_dport))
             base = ntohs(udphdr->uh_dport);
-#else
-        if (base > ntohs(udphdr->dest))
-            base = ntohs(udphdr->dest);
-#endif
         n_pkts++;
     }
     pkts->max = pkts->pkts + n_pkts;
@@ -356,17 +340,10 @@ void fill_default_dtmf(struct dtmfpacket* dtmfpacket, int marker, int seqno, int
 {
     u_long pktlen = sizeof(struct dtmfpacket);
 
-#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
     dtmfpacket->udp.uh_ulen = htons(pktlen);
     dtmfpacket->udp.uh_sum = 0 ;
     dtmfpacket->udp.uh_sport = 0;
     dtmfpacket->udp.uh_dport = 0;
-#else
-    dtmfpacket->udp.len = htons(pktlen);
-    dtmfpacket->udp.check = 0;
-    dtmfpacket->udp.source = 0;
-    dtmfpacket->udp.dest = 0;
-#endif
     dtmfpacket->rtp.version = 2;
     dtmfpacket->rtp.padding = 0;
     dtmfpacket->rtp.extension = 0;
@@ -454,11 +431,7 @@ int prepare_dtmf(const char* digits, pcap_pkts* pkts, u_int16_t start_seq_no)
                               n_pkts + start_seq_no, n_digits * tone_len * 2 + 24000,
                               uc_digit, 0, cur_tone_len);
 
-#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
             pkt_index->partial_check = check(&dtmfpacket->udp.uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
-#else
-            pkt_index->partial_check = check(&dtmfpacket->udp.len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
-#endif
             n_pkts++;
             cur_tone_len += 20;
         }
@@ -484,11 +457,7 @@ int prepare_dtmf(const char* digits, pcap_pkts* pkts, u_int16_t start_seq_no)
                               n_pkts + start_seq_no, n_digits * tone_len * 2 + 24000,
                               uc_digit, 1, tone_len);
 
-#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
             pkt_index->partial_check = check(&dtmfpacket->udp.uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
-#else
-            pkt_index->partial_check = check(&dtmfpacket->udp.len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
-#endif
             n_pkts++;
         }
 
