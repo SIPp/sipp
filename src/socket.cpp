@@ -2901,7 +2901,7 @@ void SIPpSocket::pollset_process(int wait)
         if (sockets[read_index]->ss_msglen) {
             struct sockaddr_storage src;
             char msg[SIPP_MAX_MSG_SIZE];
-            ssize_t len = read_message(sockets[read_index], msg, sizeof(msg), &src);
+            ssize_t len = sockets[read_index]->read_message(msg, sizeof(msg), &src);
             if (len > 0) {
                 process_message(sockets[read_index], msg, len, &src);
             } else {
@@ -3097,7 +3097,7 @@ void SIPpSocket::pollset_process(int wait)
             struct sockaddr_storage src;
             ssize_t len;
 
-            len = read_message(sockets[read_index], msg, sizeof(msg), &src);
+            len = sockets[read_index]->read_message(msg, sizeof(msg), &src);
             if (len > 0) {
                 process_message(sockets[read_index], msg, len, &src);
             } else {
