@@ -28,6 +28,12 @@ matrix:
           env: CONFOPTS=""
         - compiler: gcc
           env: CONFOPTS="--with-openssl --without-pcap --without-rtpstream"
+        - compiler: gcc
+          addons:
+            apt:
+              packages:
+                - g++-4.6
+          env: COMPILER=gcc-4.6
 
 
 # Build steps
@@ -37,6 +43,7 @@ before_install:
     - sudo apt-get install -y libpcap-dev libsctp-dev libncurses5-dev libssl-dev libgsl0-dev
 
 before_script:
+    - test "$COMPILER" = "gcc-4.6" && export CC=gcc-4.6 && export CXX=g++-4.6 || true
     - git submodule update --init
     - autoreconf -vifs
     - ./configure $CONFOPTS
