@@ -47,13 +47,6 @@ int           screen_inited = 0;
 char          screen_exename[255];
 extern bool   backgroundMode;
 
-/* Clock must be a pointer to struct timeval */
-#define GET_TIME(clock) \
-{ \
-    struct timezone tzp; \
-    gettimeofday(clock, &tzp); \
-}
-
 /* ERR is actually -1, but this prevents us from needing to use curses.h in
  * sipp.cpp. */
 int screen_readkey()

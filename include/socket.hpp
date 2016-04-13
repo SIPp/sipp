@@ -1,5 +1,4 @@
 /*
-
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation; either version 2 of the License, or
@@ -29,8 +28,8 @@ enum ssl_init_status {
     SSL_INIT_ERROR   /* 1   Unspecified error    */
 };
 
-extern  SSL_CTX  *sip_trp_ssl_ctx;
-extern  SSL_CTX  *sip_trp_ssl_ctx_client;
+extern SSL_CTX *sip_trp_ssl_ctx;
+extern SSL_CTX *sip_trp_ssl_ctx_client;
 const char *sip_tls_error_string(SSL *ssl, int size);
 ssl_init_status FI_init_ssl_context (void);
 
@@ -47,79 +46,79 @@ void sockaddr_update_port(struct sockaddr_storage* ss, short port);
  * output. */
 class SIPpSocket {
 public:
-  SIPpSocket(bool use_ipv6, int transport, int fd, int accepting);
-  static SIPpSocket* new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
+    SIPpSocket(bool use_ipv6, int transport, int fd, int accepting);
+    static SIPpSocket* new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
 
-  int connect(struct sockaddr_storage* dest = NULL);
-  int reconnect();
-  
-  // Reset a failed connection
-  void reset_connection();
+    int connect(struct sockaddr_storage* dest = NULL);
+    int reconnect();
 
-  // Accept new connections from a TCP socket
-  SIPpSocket* accept();
+    // Reset a failed connection
+    void reset_connection();
 
-  // Write data to the socket.
-  int write(const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
+    // Accept new connections from a TCP socket
+    SIPpSocket* accept();
 
-  // Empty data from the socket into our buffer
-  int empty();
-  
-  // Decrement the reference count of this socket, shutting it down when it reaches 0
-  void close();
+    // Write data to the socket.
+    int write(const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
 
-  int read_error(int ret);
+    // Empty data from the socket into our buffer
+    int empty();
 
-  // Have we read a message from this socket?
-  bool message_ready() { return ss_msglen > 0; };
+    // Decrement the reference count of this socket, shutting it down when it reaches 0
+    void close();
 
-  static void pollset_process(int wait);
-  
-  int  ss_count; /* How many users are there of this socket? */
-  bool ss_ipv6;
-  int ss_transport;   /* T_TCP, T_UDP, or T_TLS. */
-  bool ss_control;    /* Is this a control socket? */
-  int ss_fd;          /* The underlying file descriptor for this socket. */
-  void *ss_comp_state; /* The compression state. */
+    int read_error(int ret);
 
-  bool ss_changed_dest; /* Has the destination changed from default. */
-  struct sockaddr_storage ss_dest; /* Who we are talking to. */
+    // Have we read a message from this socket?
+    bool message_ready() { return ss_msglen > 0; };
+
+    static void pollset_process(int wait);
+
+    int ss_count;           /* How many users are there of this socket? */
+    bool ss_ipv6;
+    int ss_transport;       /* T_TCP, T_UDP, or T_TLS. */
+    bool ss_control;        /* Is this a control socket? */
+    int ss_fd;              /* The underlying file descriptor for this socket. */
+    void *ss_comp_state;    /* The compression state. */
+
+    bool ss_changed_dest;   /* Has the destination changed from default. */
+    struct sockaddr_storage ss_dest; /* Who we are talking to. */
 
 private:
-  bool ss_congested; /* Is this socket congested? */
-  bool ss_invalid; /* Has this socket been closed remotely? */
+    bool ss_congested; /* Is this socket congested? */
+    bool ss_invalid; /* Has this socket been closed remotely? */
 
-  int handleSCTPNotify(char* buffer);
-  void sipp_sctp_peer_params();
-  void invalidate();
-  void buffer_read(struct socketbuf *newbuf);
-  void buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest);
-  ssize_t read_message(char *buf, size_t len, struct sockaddr_storage *src);
-  struct socketbuf *ss_in; /* Buffered input. */
-  struct socketbuf *ss_out; /* Buffered output. */
-  size_t ss_msglen;        /* Is there a complete SIP message waiting, and if so how big? */
-  
-  void close_calls();
-  int flush();
-  int write_error(int ret);
-  void abort();
-  int check_for_message();
-  int enter_congestion(int again);
-  ssize_t write_primitive(const char* buffer, size_t len,
-                          struct sockaddr_storage* dest);
+    int handleSCTPNotify(char* buffer);
+    void sipp_sctp_peer_params();
+    void invalidate();
+    void buffer_read(struct socketbuf *newbuf);
+    void buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest);
+    ssize_t read_message(char *buf, size_t len, struct sockaddr_storage *src);
+    struct socketbuf *ss_in;    /* Buffered input. */
+    struct socketbuf *ss_out;   /* Buffered output. */
+    size_t ss_msglen;           /* Is there a complete SIP message waiting, and if so how big? */
+
+    void close_calls();
+    int flush();
+    int write_error(int ret);
+    void abort();
+    int check_for_message();
+    int enter_congestion(int again);
+    ssize_t write_primitive(const char* buffer, size_t len,
+                            struct sockaddr_storage* dest);
 
 
-  bool ss_call_socket; /* Is this a call socket? */
+    bool ss_call_socket; /* Is this a call socket? */
 
 #ifdef USE_OPENSSL
-  SSL *ss_ssl;        /* The underlying SSL descriptor for this socket. */
-  BIO *ss_bio;        /* The underlying BIO descriptor for this socket. */
+    SSL *ss_ssl; /* The underlying SSL descriptor for this socket. */
+    BIO *ss_bio; /* The underlying BIO descriptor for this socket. */
 #endif
 
-  int ss_pollidx; /* The index of this socket in our poll structures. */
+    int ss_pollidx; /* The index of this socket in our poll structures. */
 
 #ifdef USE_SCTP
-  int sctpstate;
+    int sctpstate;
 #endif
 };
 
@@ -171,9 +170,9 @@ struct socketbuf {
 
 
 #if defined (__hpux) || defined (__alpha) && !defined (__FreeBSD__)
-#define sipp_socklen_t  int
+#define sipp_socklen_t int
 #else
-#define sipp_socklen_t  socklen_t
+#define sipp_socklen_t socklen_t
 #endif
 
 #if defined(__cplusplus) && defined (__hpux)
@@ -181,6 +180,5 @@ struct socketbuf {
 #else
 #define _RCAST(type, val) ((type)(val))
 #endif
-
 
 #endif /* __SIPP_SOCKET_H__ */

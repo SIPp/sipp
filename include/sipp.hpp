@@ -407,24 +407,22 @@ extern  int maxDynamicId    _DEFVAL(12000);  // max value for dynamicId; this va
 extern  int startDynamicId  _DEFVAL(10000);  // offset for first dynamicId  FIXME:in CmdLine
 extern  int stepDynamicId   _DEFVAL(4);      // step of increment for dynamicId
 
-
-
 #define GET_TIME(clock) \
 { \
     struct timezone tzp; \
-    gettimeofday(clock, &tzp); \
+    gettimeofday (clock, &tzp); \
 }
 
 /*********************** Global Sockets  **********************/
 
-extern SIPpSocket *main_socket            _DEFVAL(NULL);
-extern SIPpSocket *main_remote_socket     _DEFVAL(NULL);
-extern SIPpSocket *tcp_multiplex          _DEFVAL(NULL);
+extern SIPpSocket   *main_socket                  _DEFVAL(NULL);
+extern SIPpSocket   *main_remote_socket           _DEFVAL(NULL);
+extern SIPpSocket   *tcp_multiplex                _DEFVAL(NULL);
 extern int           media_socket                 _DEFVAL(0);
 extern int           media_socket_video           _DEFVAL(0);
 
-extern struct sockaddr_storage  local_sockaddr;
-extern struct sockaddr_storage  localTwin_sockaddr;
+extern struct sockaddr_storage local_sockaddr;
+extern struct sockaddr_storage localTwin_sockaddr;
 extern int           user_port                    _DEFVAL(0);
 extern char          hostname[80];
 extern bool          is_ipv6                      _DEFVAL(false);
@@ -434,28 +432,28 @@ extern bool          reset_close                  _DEFVAL(true);
 extern int           reset_sleep                  _DEFVAL(1000);
 extern bool          sendbuffer_warn              _DEFVAL(false);
 /* A list of sockets pending reset. */
-extern set<SIPpSocket *> sockets_pending_reset;
+extern set<SIPpSocket*> sockets_pending_reset;
 
 extern struct addrinfo *local_addr_storage;
 
-extern SIPpSocket *twinSippSocket         _DEFVAL(NULL);
-extern SIPpSocket *localTwinSippSocket    _DEFVAL(NULL);
+extern SIPpSocket   *twinSippSocket               _DEFVAL(NULL);
+extern SIPpSocket   *localTwinSippSocket          _DEFVAL(NULL);
 extern struct sockaddr_storage twinSipp_sockaddr;
 
 /* 3pcc extended mode */
 typedef struct _T_peer_infos {
-    char                      peer_host[40];
-    int                       peer_port;
-    struct sockaddr_storage   peer_sockaddr;
-    char                      peer_ip[40];
-    SIPpSocket        *peer_socket;
+    char peer_host[40];
+    int peer_port;
+    struct sockaddr_storage peer_sockaddr;
+    char peer_ip[40];
+    SIPpSocket *peer_socket;
 } T_peer_infos;
 
-typedef std::map<std::string, char * > peer_addr_map;
+typedef std::map<std::string, char*> peer_addr_map;
 extern peer_addr_map peer_addrs;
 typedef std::map<std::string, T_peer_infos> peer_map;
 extern peer_map      peers;
-typedef std::map<SIPpSocket *, std::string > peer_socket_map;
+typedef std::map<SIPpSocket*, std::string> peer_socket_map;
 extern peer_socket_map peer_sockets;
 extern SIPpSocket *local_sockets[MAX_LOCAL_TWIN_SOCKETS];
 extern int           local_nb                    _DEFVAL(0);
@@ -491,8 +489,8 @@ void timeout_alarm(int);
 SIPpSocket **get_peer_socket(char *);
 bool is_a_peer_socket(SIPpSocket *);
 bool is_a_local_socket(SIPpSocket *);
-void connect_to_peer (char *, int , sockaddr_storage *, char *, SIPpSocket **);
-void connect_to_all_peers ();
+void connect_to_peer(char *, int, sockaddr_storage *, char *, SIPpSocket **);
+void connect_to_all_peers();
 void connect_local_twin_socket(char *);
 void close_peer_sockets();
 void close_local_sockets();
