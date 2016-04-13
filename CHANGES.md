@@ -21,10 +21,11 @@ Features added in 3.6.0
   pcap-play support, and use it by adding `<exec play_dtmf="1234*#"/>`
   similar to how you use `play_pcap_audio`.
   - Add RTP payload 96 in your SDP:
-    m=audio [media_port] RTP/AVP 96 0
+    m=audio [media_port] RTP/AVP 0 96 97
     a=rtpmap:0 PCMU/8000
     a=rtpmap:96 telephone-event/8000
-    a=fmtp:96 0-16
+    a=fmtp:96 0-15
+    a=rtpmap:97 no-op/8000
   - Exec syntax is `<exec play_dtmf="digits[,length]"/>` where digits
     can be one or more of "0123456789#*ABCD" and length defaults to 200
     and must be between 50 and 2000.
