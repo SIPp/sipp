@@ -28,6 +28,8 @@ matrix:
           env: CONFOPTS=""
         - compiler: gcc
           env: CONFOPTS="--with-openssl --without-pcap --without-rtpstream"
+        - compiler: gcc
+          env: CONFOPTS="--disable-epoll"
 
 
 # Build steps
