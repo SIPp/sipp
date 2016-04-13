@@ -304,12 +304,12 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
 }
 
 struct rtphdr {
-    unsigned char csicnt:4;
+    unsigned int csicnt:4;
     unsigned int extension:1;
-    unsigned int  padding:1;
-    unsigned char version:2;
+    unsigned int padding:1;
+    unsigned int version:2;
 
-    unsigned char payload_type:7;
+    unsigned int payload_type:7;
     unsigned int marker:1;
 
     u_int16_t seqno;
@@ -318,9 +318,9 @@ struct rtphdr {
 };
 
 struct rtpevent {
-    unsigned char event_id;
+    unsigned int event_id;
 
-    unsigned char volume:6;
+    unsigned int volume:6;
     unsigned int reserved:1;
     unsigned int end_of_event:1;
 
