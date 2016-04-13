@@ -195,17 +195,17 @@ void call::extract_rtp_remote_addr(char* msg)
 
     std::string port = find_in_sdp("m=audio ", msg);
     if (!port.empty()) {
-        audio_port = std::stoi(port);
+        audio_port = ::atoi(port.c_str());
     }
 
     port = find_in_sdp("m=image ", msg);
     if (!port.empty()) {
-        image_port = std::stoi(port);
+        image_port = ::atoi(port.c_str());
     }
 
     port = find_in_sdp("m=video ", msg);
     if (!port.empty()) {
-        video_port = std::stoi(port);
+        video_port = ::atoi(port.c_str());
     }
 
     if (audio_port == 0 && image_port == 0 && video_port == 0) {

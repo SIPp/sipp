@@ -43,6 +43,9 @@
 #include "socket.hpp"
 #include "logger.hpp"
 
+/* Older non C++11 gcc (4.6) does not have nullptr */
+#define const_char_nullptr (reinterpret_cast<const char*>(0))
+
 extern bool do_hide;
 extern bool show_index;
 
@@ -92,7 +95,7 @@ int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
         snprintf(service, sizeof(service), "%d", port);
         return gai_getsockaddr(ss, host, service, flags, family);
     } else {
-        return gai_getsockaddr(ss, host, nullptr, flags, family);
+        return gai_getsockaddr(ss, host, const_char_nullptr, flags, family);
     }
 }
 
@@ -544,7 +547,7 @@ void setup_ctrl_socket()
 
     memset(&ctl_sa, 0, sizeof(struct sockaddr_storage));
     if (control_ip[0]) {
-        if (gai_getsockaddr(&ctl_sa, control_ip, nullptr,
+        if (gai_getsockaddr(&ctl_sa, control_ip, const_char_nullptr,
                             AI_PASSIVE, AF_UNSPEC) != 0) {
             ERROR("Unknown control address '%s'.\n"
                   "Use 'sipp -h' for details", control_ip);
@@ -2519,13 +2522,13 @@ int open_connections()
                     // For the socket per IP mode, bind the main socket to the
                     // first IP address specified in the inject file.
                     inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
-                    if (gai_getsockaddr(&local_sockaddr, peripaddr, nullptr,
+                    if (gai_getsockaddr(&local_sockaddr, peripaddr, const_char_nullptr,
                                         AI_PASSIVE, AF_UNSPEC) != 0) {
                         ERROR("Unknown host '%s'.\n"
                               "Use 'sipp -h' for details", peripaddr);
                     }
                 } else {
-                    if (gai_getsockaddr(&local_sockaddr, local_ip, nullptr,
+                    if (gai_getsockaddr(&local_sockaddr, local_ip, const_char_nullptr,
                                         AI_PASSIVE, AF_UNSPEC) != 0) {
                         ERROR("Unknown host '%s'.\n"
                               "Use 'sipp -h' for details", peripaddr);
@@ -2550,13 +2553,13 @@ int open_connections()
                 // For the socket per IP mode, bind the main socket to the
                 // first IP address specified in the inject file.
                 inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
-                if (gai_getsockaddr(&local_sockaddr, peripaddr, nullptr,
+                if (gai_getsockaddr(&local_sockaddr, peripaddr, const_char_nullptr,
                                     AI_PASSIVE, AF_UNSPEC) != 0) {
                     ERROR("Unknown host '%s'.\n"
                           "Use 'sipp -h' for details", peripaddr);
                 }
             } else {
-                if (gai_getsockaddr(&local_sockaddr, local_ip, nullptr,
+                if (gai_getsockaddr(&local_sockaddr, local_ip, const_char_nullptr,
                                     AI_PASSIVE, AF_UNSPEC) != 0) {
                     ERROR("Unknown host '%s'.\n"
                           "Use 'sipp -h' for details", peripaddr);
@@ -2819,14 +2822,14 @@ void connect_local_twin_socket(char * twinSippHost)
 
 void close_peer_sockets()
 {
-    peer_map::iterator peer_it;
-    T_peer_infos infos;
-
-    for (auto peer_it: peers) {
-        infos = peer_it.second;
+    peer_map::iterator peer_it, __end;
+    for (peer_it = peers.begin(), __end = peers.end();
+         peer_it != __end;
+         ++peer_it) {
+        T_peer_infos infos = peer_it->second;
         infos.peer_socket->close();
         infos.peer_socket = NULL;
-        peers[std::string(peer_it.first)] = infos;
+        peers[std::string(peer_it->first)] = infos;
     }
 
     peers_connected = 0;
