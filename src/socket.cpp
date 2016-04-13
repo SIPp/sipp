@@ -1054,9 +1054,9 @@ void SIPpSocket::close()
     int count = --ss_count;
 
     if (count == 0) {
-      invalidate();
-      sockets_pending_reset.erase(this);
-      delete this;
+        invalidate();
+        sockets_pending_reset.erase(this);
+        delete this;
     }
 }
 
@@ -1261,18 +1261,18 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
 }
 
 SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
-  ss_count(1),
-  ss_ipv6(use_ipv6),
-  ss_transport(transport),
-  ss_control(false),
-  ss_fd(fd),
-  ss_comp_state(NULL),
-  ss_changed_dest(false),
-  ss_congested(false),
-  ss_invalid(false),
-  ss_in(NULL),
-  ss_out(NULL),
-  ss_msglen(0)
+    ss_count(1),
+    ss_ipv6(use_ipv6),
+    ss_transport(transport),
+    ss_control(false),
+    ss_fd(fd),
+    ss_comp_state(NULL),
+    ss_changed_dest(false),
+    ss_congested(false),
+    ss_invalid(false),
+    ss_in(NULL),
+    ss_out(NULL),
+    ss_msglen(0)
 {
     /* Initialize all sockets with our destination address. */
     memcpy(&ss_dest, &remote_sockaddr, sizeof(ss_dest));
@@ -1309,9 +1309,9 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
         }
     }
 #else
-     pollfiles[ss_pollidx].fd      = ss_fd;
-     pollfiles[ss_pollidx].events  = POLLIN | POLLERR;
-     pollfiles[ss_pollidx].revents = 0;
+    pollfiles[ss_pollidx].fd      = ss_fd;
+    pollfiles[ss_pollidx].events  = POLLIN | POLLERR;
+    pollfiles[ss_pollidx].revents = 0;
 #endif
 }
 
@@ -1516,10 +1516,10 @@ int sipp_bind_socket(SIPpSocket *socket, struct sockaddr_storage *saddr, int *po
 
 int SIPpSocket::connect(struct sockaddr_storage* dest)
 {
-  if (dest)
-  {
-    memcpy(&ss_dest, dest, sizeof(*dest));
-  }
+    if (dest)
+    {
+        memcpy(&ss_dest, dest, sizeof(*dest));
+    }
 
     int ret;
 
@@ -1584,7 +1584,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 int SIPpSocket::reconnect()
 {
     if ((!ss_invalid) &&
-        (ss_fd != -1)) {
+            (ss_fd != -1)) {
         WARNING("When reconnecting socket, already have file descriptor %d", ss_fd);
         abort();
     }
@@ -1779,19 +1779,19 @@ void sipp_customize_socket(SIPpSocket *socket)
 
     /* Increase buffer sizes for this sockets */
     if (setsockopt(socket->ss_fd,
-                  SOL_SOCKET,
-                  SO_SNDBUF,
-                  &buffsize,
-                  sizeof(buffsize))) {
+                   SOL_SOCKET,
+                   SO_SNDBUF,
+                   &buffsize,
+                   sizeof(buffsize))) {
         ERROR_NO("Unable to set socket sndbuf");
     }
 
     buffsize = buff_size;
     if (setsockopt(socket->ss_fd,
-                  SOL_SOCKET,
-                  SO_RCVBUF,
-                  &buffsize,
-                  sizeof(buffsize))) {
+                   SOL_SOCKET,
+                   SO_RCVBUF,
+                   &buffsize,
+                   sizeof(buffsize))) {
         ERROR_NO("Unable to set socket rcvbuf");
     }
 }
@@ -1800,7 +1800,7 @@ void sipp_customize_socket(SIPpSocket *socket)
 int SIPpSocket::enter_congestion(int again)
 {
     if (!ss_congested) {
-      nb_net_cong++;
+        nb_net_cong++;
     }
     ss_congested = true;
 
@@ -1814,7 +1814,7 @@ int SIPpSocket::enter_congestion(int again)
         WARNING_NO("Failed to set EPOLLOUT");
     }
 #else
-     pollfiles[ss_pollidx].events |= POLLOUT;
+    pollfiles[ss_pollidx].events |= POLLOUT;
 #endif
 
 #ifdef USE_SCTP
@@ -2188,7 +2188,7 @@ int send_sctp_nowait(int s, const void *msg, int len, int flags)
 #endif
 
 ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
-                                      struct sockaddr_storage* dest)
+                                    struct sockaddr_storage* dest)
 {
     ssize_t rc;
 
@@ -2216,7 +2216,6 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
         break;
     case T_SCTP:
 #ifdef USE_SCTP
-    {
         TRACE_MSG("socket_write_primitive %d\n", sctpstate);
         if (sctpstate == SCTP_DOWN) {
             errno = EPIPE;
@@ -2226,10 +2225,9 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
             return -1;
         }
         rc = send_sctp_nowait(ss_fd, buffer, len, 0);
-    }
 #else
-    errno = EOPNOTSUPP;
-    rc = -1;
+        errno = EOPNOTSUPP;
+        rc = -1;
 #endif
         break;
     case T_TCP:
@@ -2241,8 +2239,8 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
             static char comp_msg[SIPP_MAX_MSG_SIZE];
             strncpy(comp_msg, buffer, sizeof(comp_msg) - 1);
             if (comp_compress(&ss_comp_state,
-                             comp_msg,
-                             (unsigned int *) &len) != COMP_OK) {
+                              comp_msg,
+                              (unsigned int *) &len) != COMP_OK) {
                 ERROR("Compression plugin error");
             }
             buffer = (char *)comp_msg;
@@ -2293,7 +2291,7 @@ int SIPpSocket::flush()
 int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest)
 {
     int rc;
-    
+
     if (ss_out) {
         rc = flush();
         TRACE_MSG("Attempted socket flush returned %d\r\n", rc);
@@ -2510,8 +2508,8 @@ int open_connections()
     if (!user_port) {
         unsigned short l_port;
         for (l_port = DEFAULT_PORT;
-             l_port < (DEFAULT_PORT + 60);
-             l_port++) {
+                l_port < (DEFAULT_PORT + 60);
+                l_port++) {
 
             // Bind socket to local_ip
             if (bind_local || peripsocket) {
