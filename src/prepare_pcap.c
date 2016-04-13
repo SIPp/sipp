@@ -260,7 +260,7 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
                 fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
                 continue;
             }
-#if defined ( __HPUX)
+#ifdef __HPUX
             udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2));
             pktlen = (uint64_t) pkthdr->len - sizeof(*ethhdr) - sizeof(*iphdr);
 #else

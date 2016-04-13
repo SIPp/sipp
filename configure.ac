@@ -48,7 +48,7 @@ AC_HEADER_STDC
 # noext (stricter) mode disables non-posix features like stdio fileno().
 AX_CXX_COMPILE_STDCXX_11(ext,optional)
 AX_CHECK_COMPILE_FLAG([-std=gnu11],
-                      [CFLAGS+=" -std=gnu11 -D_DEFAULT_SOURCE"],
+                      [CFLAGS+=" -std=gnu11"],
                       [])
 
 case "$host" in
