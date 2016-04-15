@@ -1046,9 +1046,14 @@ void SIPpSocket::abort() {
     int flags = fcntl(ss_fd, F_GETFL, 0);
     fcntl(ss_fd, F_SETFL, flags | O_NONBLOCK);
 
-    /* Actually close the socket. */
-    close();
-    ss_fd = -1;
+    int count = --ss_count;
+    if (count == 0) {
+        invalidate();
+        sockets_pending_reset.erase(this);
+        delete this;
+    } else {
+        ss_fd = -1;
+    }
 }
 
 void SIPpSocket::close()
