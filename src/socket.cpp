@@ -38,7 +38,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <limits>
 #include "sipp.hpp"
 #include "socket.hpp"
 #include "logger.hpp"
@@ -91,7 +90,7 @@ int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
                     unsigned short port, int flags, int family)
 {
     if (port) {
-        char service[std::numeric_limits<unsigned short>::digits10 + 1];
+        char service[NI_MAXSERV + 1];
         snprintf(service, sizeof(service), "%d", port);
         return gai_getsockaddr(ss, host, service, flags, family);
     } else {
