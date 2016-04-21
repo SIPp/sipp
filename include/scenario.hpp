@@ -248,7 +248,7 @@ int  isWellFormed(char * P_listeStr,
                   int  * nombre);
 
 /* String table functions. */
-int createStringTable(char * inputString, char *** stringList, int *sizeOfList);
+int createStringTable(const char* inputString, char*** stringList, int* sizeOfList);
 void freeStringTable(char ** stringList, int sizeOfList);
 
 
