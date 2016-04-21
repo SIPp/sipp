@@ -108,7 +108,7 @@ static char* quoted_strchr(const char* s, int c)
     return *p == c ? const_cast<char*>(p) : NULL;
 }
 
-SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool skip_sanity)
+SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bool skip_sanity)
 {
     char * src = strdup(const_src);
     char * osrc = src;

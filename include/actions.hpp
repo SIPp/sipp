@@ -154,7 +154,7 @@ public:
     void setScenario     (scenario *     P_scenario);
     void setRegExp       (const char*    P_value);  /* ereg specific function. */
     int  executeRegExp   (const char*    P_string, VariableTable *P_callVarTable);
-    void setMessage      (char*          P_value, int n = 0);  /* log specific function  */
+    void setMessage(const char* P_value, int n = 0);  /* log specific function  */
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
     void setDistribution (CSample *      P_value);  /* sample specific function  */
     void setDoubleValue  (double         P_value);  /* assign value specific function  */

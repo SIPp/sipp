@@ -364,7 +364,7 @@ void CAction::setLookingChar(const char* P_value)
     }
 }
 
-void CAction::setMessage  (char*          P_value, int n)
+void CAction::setMessage(const char* P_value, int n)
 {
     if(M_message[n] != NULL) {
         delete M_message[n];
