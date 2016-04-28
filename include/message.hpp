@@ -97,7 +97,7 @@ typedef enum {
 class SendingMessage
 {
 public:
-    SendingMessage(scenario *msg_scenario, char *msg, bool skip_sanity = false);
+    SendingMessage(scenario* msg_scenario, const char* msg, bool skip_sanity = false);
     ~SendingMessage();
 
     struct MessageComponent *getComponent(int);

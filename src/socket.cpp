@@ -1470,12 +1470,8 @@ int sipp_bind_socket(SIPpSocket *socket, struct sockaddr_storage *saddr, int *po
 
 
 #ifdef USE_SCTP
-    if (transport==T_SCTP && multisocket==1 && *port==-1) {
-        if (socket->ss_ipv6) {
-            (_RCAST(struct sockaddr_in6 *, saddr))->sin6_port=0;
-        } else {
-            (_RCAST(struct sockaddr_in *, saddr))->sin_port=0;
-        }
+    if (transport == T_SCTP && multisocket == 1 && port && *port == -1) {
+        sockaddr_update_port(saddr, 0);
     }
 #endif
 

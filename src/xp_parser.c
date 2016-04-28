@@ -366,7 +366,7 @@ void xp_close_element(void)
     }
 }
 
-char *xp_get_value(const char *name)
+const char *xp_get_value(const char *name)
 {
     int index = 0;
     static char buffer[XP_MAX_FILE_LEN + 1];

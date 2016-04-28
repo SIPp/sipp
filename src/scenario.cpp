@@ -233,10 +233,9 @@ double get_double(const char *ptr, const char *what)
 }
 
 #ifdef PCAPPLAY
-/* Return static buffer to xml value, as with xp_get_value().
- * If the value is enclosed in [brackets], it is assumed to be
+/* If the value is enclosed in [brackets], it is assumed to be
  * a command-line supplied keyword value (-key). */
-static const char* xp_get_keyword_value(const char *name)
+static char* xp_get_keyword_value(const char *name)
 {
     const char* ptr = xp_get_value(name);
     size_t len;
@@ -255,13 +254,13 @@ static const char* xp_get_keyword_value(const char *name)
         ERROR("%s \"%s\" looks like a keyword value, but keyword not supplied!\n", name, ptr);
     }
 
-    return ptr;
+    return ptr ? strdup(ptr) : NULL;
 }
 #endif
 
 static char* xp_get_string(const char *name, const char *what)
 {
-    char *ptr;
+    const char *ptr;
 
     if (!(ptr = xp_get_value(name))) {
         ERROR("%s is missing the required '%s' parameter.", what, name);
@@ -272,7 +271,7 @@ static char* xp_get_string(const char *name, const char *what)
 
 static double xp_get_double(const char *name, const char *what)
 {
-    char *ptr;
+    const char *ptr;
     char *helptext;
     double val;
 
@@ -289,7 +288,7 @@ static double xp_get_double(const char *name, const char *what)
 
 static long xp_get_long(const char *name, const char *what)
 {
-    char *ptr;
+    const char *ptr;
     char *helptext;
     long val;
 
@@ -315,7 +314,7 @@ static long xp_get_long(const char *name, const char *what, long defval)
 
 static bool xp_get_bool(const char *name, const char *what)
 {
-    char *ptr;
+    const char *ptr;
     char *helptext;
     bool val;
 
@@ -411,7 +410,7 @@ int scenario::get_var(const char *varName, const char *what)
 
 int scenario::xp_get_var(const char *name, const char *what)
 {
-    char *ptr;
+    const char *ptr;
 
     if (!(ptr = xp_get_value(name))) {
         ERROR("%s is missing the required '%s' variable parameter.", what, name);
@@ -422,7 +421,7 @@ int scenario::xp_get_var(const char *name, const char *what)
 
 static int xp_get_optional(const char *name, const char *what)
 {
-    char *ptr = xp_get_value(name);
+    const char *ptr = xp_get_value(name);
 
     if (!ptr) {
         return OPTIONAL_FALSE;
@@ -444,7 +443,7 @@ static int xp_get_optional(const char *name, const char *what)
 
 int scenario::xp_get_var(const char *name, const char *what, int defval)
 {
-    char *ptr;
+    const char *ptr;
 
     if (!(ptr = xp_get_value(name))) {
         return defval;
@@ -1405,11 +1404,11 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setCheckItInverse(xp_get_bool("check_it_inverse", "ereg", false));
             }
 
-            if (!(ptr = xp_get_value("assign_to"))) {
+            if (!(cptr = xp_get_value("assign_to"))) {
                 ERROR("assign_to value is missing");
             }
 
-            createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
+            createStringTable(cptr, &currentTabVarName, &currentNbVarNames);
 
             int varId = get_var(currentTabVarName[0], "assign_to");
             tmpAction->setVarId(varId);
@@ -1458,10 +1457,10 @@ void scenario::parseAction(CActions *actions)
         } else if(!strcmp(actionElem, "gettimeofday")) {
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY);
 
-            if (!(ptr = xp_get_value("assign_to"))) {
+            if (!(cptr = xp_get_value("assign_to"))) {
                 ERROR("assign_to value is missing");
             }
-            createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
+            createStringTable(cptr, &currentTabVarName, &currentNbVarNames);
             if (currentNbVarNames != 2 ) {
                 ERROR("The gettimeofday action requires two output variables!");
             }
@@ -1583,9 +1582,9 @@ void scenario::parseAction(CActions *actions)
             tmpAction->setVarId(xp_get_var("assign_to", "trim"));
             tmpAction->setActionType(CAction::E_AT_VAR_TRIM);
         } else if(!strcmp(actionElem, "exec")) {
-            if ((ptr = xp_get_value("command"))) {
+            if ((cptr = xp_get_value("command"))) {
                 tmpAction->setActionType(CAction::E_AT_EXECUTE_CMD);
-                tmpAction->setMessage(ptr);
+                tmpAction->setMessage(cptr);
             } else if((cptr = xp_get_value("int_cmd"))) {
                 CAction::T_IntCmdType type(CAction::E_INTCMD_STOPCALL); /* assume the default */
 
@@ -1602,19 +1601,22 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setActionType(CAction::E_AT_EXEC_INTCMD);
                 tmpAction->setIntCmd(type);
 #ifdef PCAPPLAY
-            } else if ((cptr = xp_get_keyword_value("play_pcap_audio"))) {
-                tmpAction->setPcapArgs(cptr);
+            } else if ((ptr = xp_get_keyword_value("play_pcap_audio"))) {
+                tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
                 hasMedia = 1;
-            } else if ((cptr = xp_get_keyword_value("play_pcap_image"))) {
-                tmpAction->setPcapArgs(cptr);
+                free(ptr);
+            } else if ((ptr = xp_get_keyword_value("play_pcap_image"))) {
+                tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_IMAGE);
                 hasMedia = 1;
-            } else if ((cptr = xp_get_keyword_value("play_pcap_video"))) {
-                tmpAction->setPcapArgs(cptr);
+                free(ptr);
+            } else if ((ptr = xp_get_keyword_value("play_pcap_video"))) {
+                tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
                 hasMedia = 1;
-            } else if ((ptr = xp_get_value("play_dtmf"))) {
+                free(ptr);
+            } else if ((cptr = xp_get_value("play_dtmf"))) {
                 tmpAction->setMessage(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_DTMF);
                 hasMedia = 1;
@@ -1707,17 +1709,17 @@ void scenario::getBookKeeping(message *message)
 
 void scenario::getCommonAttributes(message *message)
 {
-    char *ptr;
+    const char *ptr;
 
     getBookKeeping(message);
     getActionForThisMessage(message);
 
-    if((ptr = xp_get_value((char *)"lost"))) {
+    if ((ptr = xp_get_value("lost"))) {
         message -> lost = get_double(ptr, "lost percentage");
         lose_packets = 1;
     }
 
-    if((ptr = xp_get_value((char *)"crlf"))) {
+    if ((ptr = xp_get_value("crlf"))) {
         message -> crlf = 1;
     }
 
@@ -1848,7 +1850,7 @@ int createIntegerTable(char * P_listeStr,
     } else return(0);
 }
 
-int createStringTable(char * inputString, char *** stringList, int *sizeOfList)
+int createStringTable(const char* inputString, char*** stringList, int* sizeOfList)
 {
     if(!inputString) {
         return 0;
@@ -1857,18 +1859,20 @@ int createStringTable(char * inputString, char *** stringList, int *sizeOfList)
     *stringList = NULL;
     *sizeOfList = 0;
 
+    /* FIXME: temporary workaround: needs rewrite */
+    char* input = const_cast<char*>(inputString);
     do {
-        char *p = strchr(inputString, ',');
+        char* p = strchr(input, ',');
         if (p) {
             *p++ = '\0';
         }
 
         *stringList = (char **)realloc(*stringList, sizeof(char *) * (*sizeOfList + 1));
-        (*stringList)[*sizeOfList] = strdup(inputString);
+        (*stringList)[*sizeOfList] = strdup(input);
         (*sizeOfList)++;
 
-        inputString = p;
-    } while (inputString);
+        input = p;
+    } while (input);
 
     return 1;
 }
