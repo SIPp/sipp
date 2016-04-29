@@ -85,7 +85,14 @@ case "$host" in
 esac
 
 # ==================== checks for libraries =============================
-AC_CHECK_LIB(curses,initscr,,[AC_MSG_ERROR([ncurses library missing])])
+AC_CHECK_LIB(curses,initscr)
+if test x$ac_cv_lib_curses_initscr = xno; then
+    AC_CHECK_LIB(ncurses,initscr)
+    if test x$ac_cv_lib_ncurses_initscr = xno; then
+        AC_MSG_ERROR([ncurses library missing])
+    fi
+fi
+
 AC_CHECK_LIB(pthread, pthread_mutex_init, THREAD_LIBS="-lpthread",
     AC_MSG_ERROR(pthread library needed!))
 
