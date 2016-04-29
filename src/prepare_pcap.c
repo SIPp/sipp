@@ -252,7 +252,6 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
         iphdr = (struct iphdr*)((char*)ethhdr + sizeof(*ethhdr));
         if (iphdr && iphdr->version == 6) {
             /* ipv6 */
-            pktlen = (uint64_t)pkthdr->len - sizeof(*ethhdr) - sizeof(*ip6hdr);
             ip6hdr = (ipv6_hdr*)(void*)iphdr;
             if (ip6hdr->nxt_header != IPPROTO_UDP) {
                 fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
@@ -265,17 +264,14 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
                 fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
                 continue;
             }
-#ifdef __HPUX
             udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2));
-            pktlen = (uint64_t) pkthdr->len - sizeof(*ethhdr) - sizeof(*iphdr);
-#else
-            udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2) + 4);
-            pktlen = (uint64_t)(ntohs(udphdr->uh_ulen));
-#endif
         }
+
+        pktlen = ntohs(udphdr->uh_ulen);
         if (pktlen > PCAP_MAXPACKET) {
             ERROR("Packet size is too big! Recompile with bigger PCAP_MAXPACKET in prepare_pcap.h");
         }
+
         /* BUG: inefficient */
         pkts->pkts = (pcap_pkt *)realloc(pkts->pkts, sizeof(*(pkts->pkts)) * (n_pkts + 1));
         if (!pkts->pkts)
