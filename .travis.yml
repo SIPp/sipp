@@ -1,59 +1,63 @@
 # Config
 
 language: cpp
-
-notifications:
-    email: false
-
-# https://docs.travis-ci.com/user/ci-environment/
-# Use Trusty so we get a newer compiler which support c++11.
-sudo: required
+sudo: false
 dist: trusty
-
+cache: bundler
+notifications:
+  email: false
 
 # Build matrix (2x compiler, 1x confopts)
-
 compiler:
-    - gcc
-    - clang
+  - gcc
+  - clang
+
+addons:
+  apt:
+    packages:
+      - libpcap-dev
+      - libsctp-dev
+      - libncurses5-dev
+      - libssl-dev
+      - libgsl0-dev
 
 env:
-    - CONFOPTS="--with-gsl --with-openssl --with-pcap --with-rtpstream --with-sctp"
+  - CONFOPTS="--with-gsl --with-openssl --with-pcap --with-rtpstream --with-sctp"
 
 # Extend build matrix
-
 matrix:
-    include:
-        - compiler: gcc
-          env: CONFOPTS=""
-        - compiler: gcc
-          env: CONFOPTS="--with-openssl --without-pcap --without-rtpstream"
-        - compiler: gcc
-          env: CONFOPTS="--disable-epoll"
-        - compiler: gcc
-          addons:
-            apt:
-              packages:
-                - g++-4.6
-          env:
-            - COMPILER=gcc-4.6
-            - CONFOPTS="--with-gsl --with-openssl --with-pcap --with-rtpstream --with-sctp"
-
-
-# Build steps
-
-before_install:
-    - sudo apt-get -qq update
-    - sudo apt-get install -y libpcap-dev libsctp-dev libncurses5-dev libssl-dev libgsl0-dev
+  include:
+    - os: linux
+      compiler: gcc
+      env: CONFOPTS="--with-openssl --without-pcap --without-rtpstream"
+    - os: linux
+      compiler: gcc
+      env: CONFOPTS=""
+    - os: linux
+      compiler: gcc
+      env: CONFOPTS="--disable-epoll"
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          packages:
+            - g++-4.6
+            - libpcap-dev
+            - libsctp-dev
+            - libncurses5-dev
+            - libssl-dev
+            - libgsl0-dev
+      env:
+        - CC=gcc-4.6
+        - CXX=g++-4.6
+        - CONFOPTS="--with-gsl --with-openssl --with-pcap --with-rtpstream --with-sctp"
 
 before_script:
-    - test "$COMPILER" = "gcc-4.6" && export CC=gcc-4.6 && export CXX=g++-4.6 || true
-    - git submodule update --init
-    - autoreconf -vifs
-    - ./configure $CONFOPTS
+  - autoreconf -vifs
+  - ./configure $CONFOPTS
 
 script:
-    - make -j2
-    - make -j2 check
-    - ./regress/runtests
-    - ./validate-src.sh
+  - make -j2
+  - make -j2 check
+  - ./regress/runtests
+  - ./validate-src.sh
