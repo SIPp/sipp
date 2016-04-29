@@ -51,13 +51,19 @@ matrix:
         - CC=gcc-4.6
         - CXX=g++-4.6
         - CONFOPTS="--with-gsl --with-openssl --with-pcap --with-rtpstream --with-sctp"
+    - os: osx
+      compiler: clang
+      env:
+        - CONFOPTS="--with-gsl --with-openssl --with-pcap --with-rtpstream"
 
 before_script:
   - autoreconf -vifs
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gsl; fi
   - ./configure $CONFOPTS
 
 script:
   - make -j2
   - make -j2 check
-  - ./regress/runtests
+  - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then ./regress/runtests; fi
   - ./validate-src.sh
