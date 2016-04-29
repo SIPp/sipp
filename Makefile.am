@@ -11,7 +11,7 @@ AM_CXXFLAGS=-I$(srcdir)/include -Wall -pedantic
 
 # For BSD-style elements in udphdr struct (uh_dport instead of dest)
 # among others.
-AM_CPPFLAGS=-D_BSD_SOURCE
+AM_CPPFLAGS=-D_BSD_SOURCE -D_DEFAULT_SOURCE
 
 CLEANFILES =
 EXTRA_DIST = \
