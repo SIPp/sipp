@@ -23,14 +23,8 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
-
-#if defined(__HPUX) || defined(__CYGWIN) || defined(__FreeBSD__)
-#include <netinet/in_systm.h>
-#endif
 #include <netinet/ip.h>
-#ifndef __CYGWIN
 #include <netinet/ip6.h>
-#endif
 #include <string.h>
 
 #include "defines.h"
@@ -42,8 +36,7 @@
  * https://tools.ietf.org/html/rfc3550
  */
 
-/* We define our own structures for Ethernet Header and IPv6 Header as they are not available on CYGWIN.
- * We only need the fields, which are necessary to determine the type of the next header.
+/* We only need the fields, which are necessary to determine the type of the next header.
  * we could also define our own structures for UDP and IPv4. We currently use the structures
  * made available by the platform, as we had no problems to get them on all supported platforms.
  */
