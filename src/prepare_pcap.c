@@ -52,13 +52,8 @@ typedef struct _ipv6_hdr {
 } ipv6_hdr;
 
 
-#ifdef __HPUX
 int check(uint16_t *buffer, int len)
 {
-#else
-inline int check(uint16_t *buffer, int len)
-{
-#endif
     int sum;
     int i;
     sum = 0;
@@ -72,13 +67,8 @@ inline int check(uint16_t *buffer, int len)
     return sum;
 }
 
-#ifdef __HPUX
 uint16_t checksum_carry(int s)
 {
-#else
-inline uint16_t checksum_carry(int s)
-{
-#endif
     int s_c = (s >> 16) + (s & 0xffff);
     return (~(s_c + (s_c >> 16)) & 0xffff);
 }
