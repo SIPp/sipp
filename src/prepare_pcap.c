@@ -23,14 +23,8 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
-
-#if defined(__HPUX) || defined(__CYGWIN) || defined(__FreeBSD__)
-#include <netinet/in_systm.h>
-#endif
 #include <netinet/ip.h>
-#ifndef __CYGWIN
 #include <netinet/ip6.h>
-#endif
 #include <string.h>
 
 #include "defines.h"
@@ -42,8 +36,7 @@
  * https://tools.ietf.org/html/rfc3550
  */
 
-/* We define our own structures for Ethernet Header and IPv6 Header as they are not available on CYGWIN.
- * We only need the fields, which are necessary to determine the type of the next header.
+/* We only need the fields, which are necessary to determine the type of the next header.
  * we could also define our own structures for UDP and IPv4. We currently use the structures
  * made available by the platform, as we had no problems to get them on all supported platforms.
  */
@@ -52,20 +45,8 @@ typedef struct _ether_type_hdr {
     uint16_t ether_type; /* we only need the type, so we can determine, if the next header is IPv4 or IPv6 */
 } ether_type_hdr;
 
-typedef struct _ipv6_hdr {
-    char dontcare[6];
-    uint8_t nxt_header; /* we only need the next header, so we can determine, if the next header is UDP or not */
-    char dontcare2[33];
-} ipv6_hdr;
-
-
-#ifdef __HPUX
 int check(uint16_t *buffer, int len)
 {
-#else
-inline int check(uint16_t *buffer, int len)
-{
-#endif
     int sum;
     int i;
     sum = 0;
@@ -79,13 +60,8 @@ inline int check(uint16_t *buffer, int len)
     return sum;
 }
 
-#ifdef __HPUX
 uint16_t checksum_carry(int s)
 {
-#else
-inline uint16_t checksum_carry(int s)
-{
-#endif
     int s_c = (s >> 16) + (s & 0xffff);
     return (~(s_c + (s_c >> 16)) & 0xffff);
 }
@@ -218,8 +194,8 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
     pcap_pkt* pkt_index;
     ether_type_hdr* ethhdr;
 
-    struct iphdr* iphdr;
-    ipv6_hdr* ip6hdr;
+    struct ip* iphdr;
+    struct ip6_hdr* ip6hdr;
     struct udphdr* udphdr;
 
     pkts->pkts = NULL;
@@ -249,22 +225,22 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
                     ntohs(ethhdr->ether_type));
             continue;
         }
-        iphdr = (struct iphdr*)((char*)ethhdr + sizeof(*ethhdr));
-        if (iphdr && iphdr->version == 6) {
+        iphdr = (struct ip*)((char*)ethhdr + sizeof(*ethhdr));
+        if (iphdr && iphdr->ip_v == 6) {
             /* ipv6 */
-            ip6hdr = (ipv6_hdr*)(void*)iphdr;
-            if (ip6hdr->nxt_header != IPPROTO_UDP) {
+            ip6hdr = (struct ip6_hdr*)(void*)iphdr;
+            if (ip6hdr->ip6_nxt != IPPROTO_UDP) {
                 fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
                 continue;
             }
             udphdr = (struct udphdr*)((char*)ip6hdr + sizeof(*ip6hdr));
         } else {
             /* ipv4 */
-            if (iphdr->protocol != IPPROTO_UDP) {
+            if (iphdr->ip_p != IPPROTO_UDP) {
                 fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
                 continue;
             }
-            udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2));
+            udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ip_hl << 2));
         }
 
         pktlen = ntohs(udphdr->uh_ulen);

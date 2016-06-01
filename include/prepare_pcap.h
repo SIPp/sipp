@@ -22,33 +22,6 @@
 #include <netinet/udp.h>
 #include <time.h>
 
-#if defined(__HPUX) || defined(__DARWIN) || defined(__CYGWIN) || defined(__FreeBSD__)
-#define u_int8_t uint8_t
-#define u_int16_t uint16_t
-#define u_int32_t uint32_t
-
-struct iphdr {
-#ifdef _HPUX_LI
-    unsigned int ihl:4;
-    unsigned int version:4;
-#else
-    unsigned int version:4;
-    unsigned int ihl:4;
-#endif
-    u_int8_t tos;
-    u_int16_t tot_len;
-    u_int16_t id;
-    u_int16_t frag_off;
-    u_int8_t ttl;
-    u_int8_t protocol;
-    u_int16_t check;
-    u_int32_t saddr;
-    u_int32_t daddr;
-    /*The options start here. */
-} __attribute__((packed));
-
-#endif
-
 typedef struct {
     u_char *data;
     u_long pktlen;
