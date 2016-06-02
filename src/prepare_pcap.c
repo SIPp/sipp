@@ -245,7 +245,9 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
 
         pktlen = ntohs(udphdr->uh_ulen);
         if (pktlen > PCAP_MAXPACKET) {
-            ERROR("Packet size is too big! Recompile with bigger PCAP_MAXPACKET in prepare_pcap.h");
+            ERROR("Packet %d with size 0x%lx is too big! "
+                  "Recompile with bigger PCAP_MAXPACKET in prepare_pcap.h",
+                  n_pkts, pktlen);
         }
 
         /* BUG: inefficient */
