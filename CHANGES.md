@@ -4,6 +4,9 @@ Bugs fixed in 3.5.x
 * Recompile entire source after a reconfigure.
 * Compile with -lncurses if -lcurses does not exist. (Issue #205, reported
   by Paul Malpass.)
+* Handle Contact header with extra angle brackets ('<...>') outside of the
+  uri-parameters (in the contact-params). The contact params should not be
+  used in the next_url. (Issue #234, reported by Justin Zimmer.)
 
 
 Bugs fixed in 3.5.1

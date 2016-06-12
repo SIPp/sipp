@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario>
+  <recv request="INVITE"/>
+
+  <send retrans="500">
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: <sip:user@1.2.3.4:58292;transport=tcp;alias=5.5.5.5~58292~2>;+sip.instance="<urn:uuid:0f35feab-c878-4622-a94e-b2e6e812b177>"
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv request="ACK">
+    <action>
+      <ereg regexp="ACK (sip:user@1\.2\.3\.4:58292;transport=tcp;alias=5\.5\.5\.5~58292~2) SIP/2\.0" search_in="msg" check_it="true" assign_to="all,ruri"/>
+    </action>
+  </recv>
+  <Reference variables="all,ruri"/>
+</scenario>
