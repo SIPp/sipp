@@ -1,3 +1,11 @@
+Bugs fixed in 3.5.x
+===================
+
+* Recompile entire source after a reconfigure.
+* Compile with -lncurses if -lcurses does not exist. (Issue #205, reported
+  by Paul Malpass.)
+
+
 Bugs fixed in 3.5.1
 ===================
 
@@ -6,9 +14,6 @@ Bugs fixed in 3.5.1
   the challenge. Some servers returned a 400 upon receiving this.
   (Issue #191, reported by @artlov.)
 * Fix compile error on Cygwin. (Issue #193, reported by @Gankarloo.)
-* Recompile entire source after a reconfigure.
-* Compile with -lncurses if -lcurses does not exist. (Issue #205, reported
-  by Paul Malpass.)
 
 
 Features added in 3.5.0
