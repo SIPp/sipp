@@ -229,8 +229,8 @@ protected:
     T_ActionResult last_action_result;
 
     /* rc == true means call not deleted by processing */
-    void formatNextReqUrl (char* next_req_url);
-    void computeRouteSetAndRemoteTargetUri (char* rrList, char* contact, bool bRequestIncoming);
+    void formatNextReqUrl(const char* contact);
+    void computeRouteSetAndRemoteTargetUri(const char* rrList, const char* contact, bool bRequestIncoming);
     bool matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod, char *txn);
 
     bool executeMessage(message *curmsg);
