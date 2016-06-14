@@ -2757,42 +2757,44 @@ void call::extract_transaction (char* txn, char* msg)
     *txn = '\0';
 }
 
-void call::formatNextReqUrl (char* next_req_url)
+void call::formatNextReqUrl(const char* contact)
 {
-
-    /* clean up the next_req_url -- Record routes may have extra gunk
-       that needs to be removed
-     */
-    char* actual_req_url = strchr(next_req_url, '<');
-    if (actual_req_url) {
-        /* using a temporary buffer */
-        char tempBuffer[MAX_HEADER_LEN];
-        strncpy(tempBuffer, actual_req_url + 1, sizeof(tempBuffer) - 1);
-        actual_req_url = strrchr(tempBuffer, '>');
-        *actual_req_url = '\0';
-        strcpy(next_req_url, tempBuffer);
+    /* clean up the next_req_url */
+    while (*contact != '\0' && (*contact == ' ' || *contact == '\t')) {
+        ++contact;
     }
-
+    if (*contact == '<') {
+        contact += 1;
+        const char* end = strchr(contact, '>');
+        if (end) {
+            next_req_url[0] = '\0';
+            strncat(next_req_url, contact,
+                    min(MAX_HEADER_LEN - 1, (int)(end - contact))); /* fits MAX_HEADER_LEN */
+        }
+    } else {
+        next_req_url[0] = '\0';
+        strncat(next_req_url, contact, MAX_HEADER_LEN - 1);
+    }
 }
 
-void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bRequestIncoming)
+void call::computeRouteSetAndRemoteTargetUri(const char* rr, const char* contact, bool bRequestIncoming)
 {
-    if (0 >=strlen (rr)) {
+    if (!*rr) {
         //
         // there are no RR headers. Simply set up the contact as our target uri
         //
-        if (0 < strlen(contact)) {
-            strcpy (next_req_url, contact);
+        if (*contact) {
+            formatNextReqUrl(contact);
         }
-
-        formatNextReqUrl(next_req_url);
-
         return;
     }
 
+    char tmp_rr[MAX_HEADER_LEN];
     char actual_rr[MAX_HEADER_LEN];
     char targetURI[MAX_HEADER_LEN];
-    memset(actual_rr, 0, sizeof(actual_rr));
+
+    actual_rr[0] = tmp_rr[0] = targetURI[0] = '\0';
+    strncat(tmp_rr, rr, MAX_HEADER_LEN - 1);
 
     bool isFirst = true;
     bool bCopyContactToRR = false;
@@ -2800,22 +2802,18 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
     while (1) {
         char* pointer = NULL;
         if (bRequestIncoming) {
-            pointer = strchr (rr, ',');
+            pointer = strchr(tmp_rr, ',');
         } else {
-            pointer = strrchr(rr, ',');
+            pointer = strrchr(tmp_rr, ',');
         }
 
         if (pointer) {
             if (!isFirst) {
-                if (strlen(actual_rr) ) {
-                    strcat(actual_rr, pointer + 1);
-                } else {
-                    strcpy(actual_rr, pointer + 1);
-                }
+                strcat(actual_rr, pointer + 1);
                 strcat(actual_rr, ",");
             } else {
                 isFirst = false;
-                if (NULL == strstr (pointer, ";lr")) {
+                if (NULL == strstr(pointer, ";lr")) {
                     /* bottom most RR is the next_req_url */
                     strncpy(targetURI, pointer + 1, sizeof(targetURI) - 1);
                     bCopyContactToRR = true;
@@ -2823,29 +2821,29 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
                     /* the hop is a loose router. Thus, the target URI should be the
                      * contact
                      */
-                    strcpy (targetURI, contact);
+                    strcpy(targetURI, contact);
                     strcpy(actual_rr, pointer + 1);
                     strcat(actual_rr, ",");
                 }
             }
         } else {
             if (!isFirst) {
-                strcat(actual_rr, rr);
+                strcat(actual_rr, tmp_rr);
             }
             //
             // this is the *only* RR header that was found
             //
             else {
-                if (NULL == strstr (rr, ";lr")) {
+                if (NULL == strstr(tmp_rr, ";lr")) {
                     /* bottom most RR is the next_req_url */
-                    strcpy (targetURI, rr);
+                    strcpy(targetURI, tmp_rr);
                     bCopyContactToRR = true;
                 } else {
                     /* the hop is a loose router. Thus, the target URI should be the
                      * contact
                      */
-                    strcpy (actual_rr, rr);
-                    strcpy (targetURI, contact);
+                    strcpy(actual_rr, tmp_rr);
+                    strcpy(targetURI, contact);
                 }
             }
             break;
@@ -2854,7 +2852,7 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
     }
 
     if (bCopyContactToRR) {
-        if (0 < strlen (actual_rr)) {
+        if (*actual_rr) {
             strcat(actual_rr, ",");
             strcat(actual_rr, contact);
         } else {
@@ -2862,15 +2860,12 @@ void call::computeRouteSetAndRemoteTargetUri (char* rr, char* contact, bool bReq
         }
     }
 
-    if (strlen(actual_rr)) {
-        dialog_route_set = (char *)
-                           calloc(1, strlen(actual_rr) + 2);
-        sprintf(dialog_route_set, "%s", actual_rr);
+    if (*actual_rr) {
+        dialog_route_set = strdup(actual_rr);
     }
 
-    if (strlen (targetURI)) {
-        strcpy (next_req_url, targetURI);
-        formatNextReqUrl (next_req_url);
+    if (*targetURI) {
+        formatNextReqUrl(targetURI);
     }
 }
 
@@ -3302,9 +3297,8 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
 
     /* store the route set only once. TODO: does not support target refreshes!! */
     if (call_scenario->messages[search_index] -> bShouldRecordRoutes &&
-            NULL == dialog_route_set ) {
-
-        realloc_ptr = (char*) realloc(next_req_url, MAX_HEADER_LEN);
+            NULL == dialog_route_set) {
+        realloc_ptr = (char*)realloc(next_req_url, MAX_HEADER_LEN);
         if (realloc_ptr) {
             next_req_url = realloc_ptr;
         } else {
@@ -3313,29 +3307,13 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
             return false;
         }
 
-
-        char rr[MAX_HEADER_LEN];
-        memset(rr, 0, sizeof(rr));
-        strncpy(rr, get_header_content(msg, (char*)"Record-Route:"), sizeof(rr) - 1);
-
-        // WARNING("rr [%s]", rr);
-        char ch[MAX_HEADER_LEN];
-        strncpy(ch, get_header_content(msg, (char*)"Contact:"), sizeof(rr) - 1);
-
-        /* decorate the contact with '<' and '>' if it does not have it */
-        char* contDecorator = strchr(ch, '<');
-        if (NULL == contDecorator) {
-            char tempBuffer[MAX_HEADER_LEN];
-            sprintf(tempBuffer, "<%s>", ch);
-            strcpy(ch, tempBuffer);
-        }
-
-        /* should cache the route set */
-        if (reply_code) {
-            computeRouteSetAndRemoteTargetUri (rr, ch, false);
-        } else {
-            computeRouteSetAndRemoteTargetUri (rr, ch, true);
-        }
+        /* cache the route set and the contact */
+        char rr[MAX_HEADER_LEN], contact[MAX_HEADER_LEN];
+        rr[0] = contact[0] = '\0';
+        /* yuck, get_header_content returns a static buffer :( */
+        strncat(rr, get_header_content(msg, "Record-Route:"), MAX_HEADER_LEN - 1);
+        strncat(contact, get_header_content(msg, "Contact:"), MAX_HEADER_LEN - 1);
+        computeRouteSetAndRemoteTargetUri(rr, contact, !reply_code);
         // WARNING("next_req_url is [%s]", next_req_url);
     }
 
