@@ -1890,8 +1890,10 @@ int SIPpSocket::read_error(int ret)
     }
 #endif
 
-    /* We have only non-blocking reads, so this should not occur. */
-    if (ret < 0) {
+    /* We have only non-blocking reads, so this should not occur. The OpenSSL
+     * functions don't set errno, though, so this check doesn't make sense
+     * for TLS sockets. */
+    if ((ret < 0) && (ss_transport != T_TLS)) {
         assert(errno != EAGAIN);
     }
 
