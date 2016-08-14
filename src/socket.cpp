@@ -1877,7 +1877,14 @@ int SIPpSocket::read_error(int ret)
     const char *errstring = strerror(errno);
 #ifdef USE_OPENSSL
     if (ss_transport == T_TLS) {
+        int err = SSL_get_error(ss_ssl, ret);
         errstring = sip_tls_error_string(ss_ssl, ret);
+        if (err == SSL_ERROR_WANT_READ) {
+            /* This is benign - we just need to wait for the socket to be
+             * readable again, which will happen naturally as part of the
+             * poll/epoll loop. */
+            return 1;
+        }
     }
 #endif
 
