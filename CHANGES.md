@@ -6,7 +6,8 @@ Bugs fixed in 3.5.x
   by Paul Malpass.)
 * Handle Contact header with extra angle brackets ('<...>') outside of the
   uri-parameters (in the contact-params). The contact params should not be
-  used in the next_url. (Issue #234, reported by Justin Zimmer.)
+  used in the `next_url`. (Issue #234, reported by Justin Zimmer.)
+* Fix TLS issues for during high load. (Issue #241, #243, reported by @sgel83.)
 
 
 Bugs fixed in 3.5.1
