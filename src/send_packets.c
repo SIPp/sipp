@@ -178,7 +178,7 @@ int send_packets(play_args_t * play_args)
     struct sockaddr_in6 to6, from6;
     char buffer[PCAP_MAXPACKET];
     int temp_sum;
-    int len;
+    socklen_t len;
 
 #ifndef MSG_DONTWAIT
     int fd_flags;
@@ -189,22 +189,21 @@ int send_packets(play_args_t * play_args)
         if (sock < 0) {
             ERROR("Can't create raw IPv6 socket (need to run as root?): %s", strerror(errno));
         }
-        from_port = &(((struct sockaddr_in6 *)(void *) from )->sin6_port);
+        from_port = &(((struct sockaddr_in6 *)from)->sin6_port);
         len = sizeof(struct sockaddr_in6);
-        to_port = &(((struct sockaddr_in6 *)(void *) to )->sin6_port);
+        to_port = &(((struct sockaddr_in6 *)to)->sin6_port);
     } else {
         sock = socket(PF_INET, SOCK_RAW, IPPROTO_UDP);
-        from_port = &(((struct sockaddr_in *)(void *) from )->sin_port);
+        from_port = &(((struct sockaddr_in *)from)->sin_port);
         len = sizeof(struct sockaddr_in);
-        to_port = &(((struct sockaddr_in *)(void *) to )->sin_port);
+        to_port = &(((struct sockaddr_in *)to)->sin_port);
         if (sock < 0) {
             ERROR("Can't create raw IPv4 socket (need to run as root?): %s", strerror(errno));
             return ret;
         }
     }
 
-
-    if ((ret = bind(sock, (struct sockaddr *)(void *)from, len))) {
+    if ((ret = bind(sock, (struct sockaddr *)from, len))) {
         ERROR("Can't bind media raw socket");
         return ret;
     }
@@ -266,18 +265,18 @@ int send_packets(play_args_t * play_args)
 #ifdef MSG_DONTWAIT
         if (!media_ip_is_ipv6) {
             ret = sendto(sock, buffer, pkt_index->pktlen, MSG_DONTWAIT,
-                         (struct sockaddr *)(void *) to, sizeof(struct sockaddr_in));
+                         (struct sockaddr *)to, sizeof(struct sockaddr_in));
         } else {
             ret = sendto(sock, buffer, pkt_index->pktlen, MSG_DONTWAIT,
-                         (struct sockaddr *)(void *) &to6, sizeof(struct sockaddr_in6));
+                         (struct sockaddr *)&to6, sizeof(struct sockaddr_in6));
         }
 #else
         if (!media_ip_is_ipv6) {
             ret = sendto(sock, buffer, pkt_index->pktlen, 0,
-                         (struct sockaddr *)(void *) to, sizeof(struct sockaddr_in));
+                         (struct sockaddr *)to, sizeof(struct sockaddr_in));
         } else {
             ret = sendto(sock, buffer, pkt_index->pktlen, 0,
-                         (struct sockaddr *)(void *) &to6, sizeof(struct sockaddr_in6));
+                         (struct sockaddr *)&to6, sizeof(struct sockaddr_in6));
         }
 #endif
         if (ret < 0) {
@@ -288,7 +287,7 @@ int send_packets(play_args_t * play_args)
 
         rtp_pckts_pcap++;
         rtp_bytes_pcap += pkt_index->pktlen - sizeof(*udp);
-        memcpy (&last, &(pkt_index->ts), sizeof (struct timeval));
+        memcpy (&last, &(pkt_index->ts), sizeof(struct timeval));
         pkt_index++;
     }
 
