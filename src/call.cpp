@@ -923,33 +923,72 @@ char * call::get_last_header(const char * name)
     if (name[len - 1] == ':') {
         return get_header(last_recv_msg, name, false);
     } else {
+
         char with_colon[MAX_HEADER_LEN];
-        sprintf(with_colon, "%s:", name);
-        return get_header(last_recv_msg, with_colon, false);
+        const char *sep = strrchr(name, ':');
+
+        if (!sep){
+            sprintf(with_colon, "%s:", name);
+            return get_header(last_recv_msg, with_colon, false);
+        } else {
+            if (!strcmp(sep, ":value")) {
+                snprintf(with_colon, len - 4, "%s", name);
+                return get_header(last_recv_msg, with_colon, true);
+            }
+            if (!strcmp(sep, ":uri")) {
+                snprintf(with_colon, len - 2, "%s", name);
+                char * last_header_uri = get_last_request_uri(with_colon);
+                char * ret;
+                if (!(ret = (char *)malloc(strlen(last_header_uri + 1)))){
+                    ERROR("call::get_last_header: Cannot allocate uri !\n");
+                }
+                sprintf(ret, "%s", last_header_uri);
+                free(last_header_uri);
+                return ret;
+            }
+            if (!strcmp(sep, ":param.tag")) {
+                snprintf(with_colon, len - 8, "%s", name);
+                char * last_tag = get_last_tag(with_colon);
+                char * ret;
+                if (!(ret = (char *)malloc(strlen(last_tag + 1)))){
+                    ERROR("call::get_last_header: Cannot allocate param.tag !\n");
+                }
+                sprintf(ret, "%s", last_tag);
+                free(last_tag);
+                return ret;
+            }
+            ERROR("Token %s not valid in %s", sep, name);
+        }
     }
 }
 
-/* Return the last request URI from the To header. On any error returns the
+/* Return the last request URI from the header. On any error returns the
  * empty string.  The caller must free the result. */
-char * call::get_last_request_uri()
+char * call::get_last_request_uri(const char *name)
 {
     char * tmp;
     char * tmp2;
     char * last_request_uri;
+    char * last_header;
     int tmp_len;
 
-    char * last_To = get_last_header("To:");
-    if (!last_To) {
+    if (!name || !strlen(name)) {
         return strdup("");
     }
 
-    tmp = strchr(last_To, '<');
+    last_header = get_last_header(name);
+
+    if (!last_header) {
+        return strdup("");
+    }
+
+    tmp = strchr(last_header, '<');
     if (!tmp) {
         return strdup("");
     }
     tmp++;
 
-    tmp2 = strchr(last_To, '>');
+    tmp2 = strchr(last_header, '>');
     if (!tmp2) {
         return strdup("");
     }
@@ -970,6 +1009,48 @@ char * call::get_last_request_uri()
     last_request_uri[tmp_len] = '\0';
 
     return last_request_uri;
+}
+
+/* Return the last tag from the header line. On any error returns the
+ * empty string.  The caller must free the result. */
+char * call::get_last_tag(const char *name)
+{
+    char * tmp;
+    char * tmp2;
+    char * result;
+    char * last_header;
+    int tmp_len;
+
+    if (!name || !strlen(name)) {
+        return strdup("");
+    }
+
+    last_header = get_last_header(name);
+    if (!last_header) {
+        return strdup("");
+    }
+
+    tmp = strcasestr(last_header, "tag=");
+    if (!tmp) {
+        return strdup("");
+    }
+
+    tmp += strlen("tag=");
+    tmp2 = tmp;
+
+    while (*tmp2 && *tmp2 != ';' && *tmp2!='\r' && *tmp2!='\n') tmp2++;
+
+    tmp_len = strlen(tmp) - strlen(tmp2);
+    if (tmp_len < 0) {
+        return strdup("");
+    }
+    if(!(result = (char *) malloc(tmp_len+1))) ERROR("call::get_last_tag: Cannot allocate !\n");
+    memset(result, 0, sizeof(&result));
+    if(tmp && (tmp_len > 0)){
+        strncpy(result, tmp, tmp_len);
+    }
+    result[tmp_len] = '\0';
+    return result;
 }
 
 char * call::send_scene(int index, int *send_status, int *len)
@@ -2201,7 +2282,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             break;
         case E_Message_Last_Request_URI: {
-            char * last_request_uri = get_last_request_uri();
+            char * last_request_uri = get_last_request_uri("To:");
             dest += sprintf(dest, "%s", last_request_uri);
             free(last_request_uri);
             break;
