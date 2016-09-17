@@ -1647,6 +1647,13 @@ void scenario::parseAction(CActions *actions)
             } else {
                 ERROR("illegal <exec> in the scenario\n");
             }
+        } else if(!strcmp(actionElem, "rtp_echo")) {
+#ifdef RTP_STREAM
+            tmpAction->setActionType(CAction::E_AT_RTP_ECHO);
+            handle_rhs(tmpAction, "rtp_echo");
+#else
+            ERROR("Scenario specifies a rtp_echo action, but this version of SIPp does not have RTP stream support");
+#endif
         } else {
             ERROR("Unknown action: %s", actionElem);
         }

@@ -31,7 +31,10 @@ Features added in 3.6.0
     and must be between 50 and 2000.
   - Instead of digits a `[field...]` keyword is also accepted.
   - Make sure you add enough `<pause/>` after `play_dtmf`.
-
+* Added `rtp_echo` action (pull #259 by Snom Technology). Compile with
+  `--with-rtpstream` and use it by adding `<rtp_echo value="0">` to stop
+  the RTP echo enabled via `-rtp_echo`. RTP echo can be restarted via
+  `<rtp_echo value="1">` action. Usage example in `regress/github-#0259/uas.xml`
 
 Bugs fixed in 3.5.x
 ===================

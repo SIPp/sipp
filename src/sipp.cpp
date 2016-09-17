@@ -603,6 +603,11 @@ static void rtp_echo_thread(void* param)
                     errno);
             return;
         }
+#ifdef RTP_STREAM
+        if (!rtp_echo_state) {
+            continue;
+        }
+#endif
         ns = sendto(*(int*)param, msg, nr, 0,
                     (sockaddr*)&remote_rtp_addr, len);
 
