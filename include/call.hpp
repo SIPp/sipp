@@ -291,7 +291,8 @@ protected:
 
     char * get_header_field_code(const char * msg, const char * code);
     char * get_last_header(const char * name);
-    char * get_last_request_uri();
+    char * get_last_tag (const char *name);
+    char * get_last_request_uri(const char *name);
     unsigned long hash(const char * msg);
 
     typedef std::map <std::string, int> file_line_map;
