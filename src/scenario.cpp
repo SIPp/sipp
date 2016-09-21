@@ -1454,6 +1454,12 @@ void scenario::parseAction(CActions *actions)
             ptr = xp_get_string("value", "assignstr");
             tmpAction->setMessage(ptr);
             free(ptr);
+        } else if(!strcmp(actionElem, "loadfile")) {
+            tmpAction->setActionType(CAction::E_AT_LOADFILE);
+            tmpAction->setVarId(xp_get_var("assign_to", "loadfile"));
+            ptr = xp_get_string("file_path", "loadfile");
+            tmpAction->setMessage(ptr);
+            free(ptr);
         } else if(!strcmp(actionElem, "gettimeofday")) {
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY);
 

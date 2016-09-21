@@ -3278,6 +3278,32 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                         haystack, currentAction->getRegularExpression());
                 return(call::E_AR_REGEXP_SHOULDNT_MATCH);
             }
+        } else if (currentAction->getActionType() == CAction::E_AT_LOADFILE) {
+            char *file = strdup(createSendingMessage(currentAction->getMessage(0), 0));
+            FILE *f = fopen(file, "r");
+            if (f) {
+                fseek(f, 0, SEEK_END);
+                const long int length = ftell(f);
+                fseek(f, 0, SEEK_SET);
+                char* buffer = static_cast<char*>(malloc(length + 1));
+                buffer[length] = '\0';
+                if (buffer) {
+                    const long int readLength = fread(buffer, 1, length, f);
+                    if (readLength == length) {
+                        M_callVariableTable->getVar(currentAction->getVarId())->setString(buffer);
+                    } else {
+                        ERROR("Error reading '%s': %s\n", file, strerror(errno));
+                        free(buffer);
+                        M_callVariableTable->getVar(currentAction->getVarId())->setString(NULL);
+                    }
+                } else {
+                    ERROR("Cannot load file, because cannot allocate buffer, because out of memory");
+                }
+                fclose(f);
+            } else {
+                ERROR("Could not open '%s': %s\n", file, strerror(errno));
+            }
+            free(file);
         } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_VALUE) {
             double operand = get_rhs(currentAction);
             M_callVariableTable->getVar(currentAction->getVarId())->setDouble(operand);
