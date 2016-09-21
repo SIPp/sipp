@@ -3583,7 +3583,8 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_LOG_ERROR) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
             ERROR("%s", x);
-        } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
+        } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD ||
+                   currentAction->getActionType() == CAction::E_AT_EXECUTE_SYNC_CMD) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
             // TRACE_MSG("Trying to execute [%s]", x);
             pid_t l_pid;
@@ -3603,6 +3604,15 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                         ret = system(x); // second child runs
                         if(ret == -1) {
                             WARNING("system call error for %s", x);
+                        }
+                    } else {
+                        if (currentAction->getActionType() == CAction::E_AT_EXECUTE_SYNC_CMD) {
+                            pid_t ret;
+                            while ((ret=waitpid(l_pid, NULL, 0)) != l_pid) {
+                                if (ret != -1) {
+                                    ERROR("waitpid returns %1d for child %1d", ret, l_pid);
+                                }
+                            }
                         }
                     }
                     exit(EXIT_OTHER);

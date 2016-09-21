@@ -1585,6 +1585,9 @@ void scenario::parseAction(CActions *actions)
             if ((cptr = xp_get_value("command"))) {
                 tmpAction->setActionType(CAction::E_AT_EXECUTE_CMD);
                 tmpAction->setMessage(cptr);
+            } else if((cptr = xp_get_value("sync_cmd"))) {
+                tmpAction->setActionType(CAction::E_AT_EXECUTE_SYNC_CMD);
+                tmpAction->setMessage(cptr);
             } else if((cptr = xp_get_value("int_cmd"))) {
                 CAction::T_IntCmdType type(CAction::E_INTCMD_STOPCALL); /* assume the default */
 
