@@ -35,6 +35,32 @@ ssl_init_status FI_init_ssl_context (void);
 
 #endif // USE_OPENSSL
 
+/**
+ * On some systems you must pass the exact sockaddr struct size to
+ * connect/bind/sendto calls. Passing a length that is too large
+ * causes EINVAL.
+ *
+ * For instance on OSX. If you don't, you'll get this:
+ * Unable to bind audio RTP socket (IP=X.X.X.X, port=6100), errno = 22
+ * (Invalid argument).
+ *
+ * Usage:
+ *
+ *   struct sockaddr_storage addr;
+ *   ...
+ *   bind(socket, (struct sockaddr*)&addr, socklen_from_addr(&addr));
+ */
+inline socklen_t socklen_from_addr(const struct sockaddr_storage* ss) {
+    if (ss->ss_family == AF_INET) {
+        return sizeof(struct sockaddr_in);
+    } else if (ss->ss_family == AF_INET6) {
+        return sizeof(struct sockaddr_in6);
+    } else {
+        assert(false);
+        return 0;
+    }
+}
+
 int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
                     unsigned short port, int flags, int family);
 int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,

@@ -384,7 +384,7 @@ const char *sip_tls_error_string(SSL *ssl, int size)
 
 static char* get_inet_address(const struct sockaddr_storage* addr, char* dst, int len)
 {
-    if (getnameinfo(_RCAST(struct sockaddr*, addr), sizeof(*addr),
+    if (getnameinfo(_RCAST(struct sockaddr*, addr), socklen_from_addr(addr),
                     dst, len, NULL, 0, NI_NUMERICHOST) != 0) {
         snprintf(dst, len, "addr not supported");
     }
@@ -1550,7 +1550,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
     fcntl(ss_fd, F_SETFL, flags | O_NONBLOCK);
 
     errno = 0;
-    ret = ::connect(ss_fd, _RCAST(struct sockaddr *, &ss_dest), sizeof(ss_dest));
+    ret = ::connect(ss_fd, _RCAST(struct sockaddr *, &ss_dest), socklen_from_addr(&ss_dest));
     if (ret < 0) {
         if (errno == EINPROGRESS) {
             /* Block this socket until the connect completes - this is very similar to entering congestion, but we don't want to increment congestion statistics. */
@@ -2260,7 +2260,8 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
             TRACE_MSG("---\nCompressed message len: %zu\n", len);
         }
 
-        rc = sendto(ss_fd, buffer, len, 0, _RCAST(struct sockaddr*, dest), sizeof(*dest));
+        rc = sendto(ss_fd, buffer, len, 0, _RCAST(struct sockaddr*, dest),
+                    socklen_from_addr(dest));
         break;
 
     default:

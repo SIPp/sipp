@@ -1927,7 +1927,7 @@ int main(int argc, char *argv[])
             get_host_and_port(media_ip, media_ip_escaped, NULL);
 
             if (::bind(media_socket, (sockaddr*)&media_sockaddr,
-                       sizeof(media_sockaddr)) == 0) {
+                       socklen_from_addr(&media_sockaddr)) == 0) {
                 break;
             }
 
@@ -1950,7 +1950,7 @@ int main(int argc, char *argv[])
         get_host_and_port(media_ip, media_ip_escaped, NULL);
 
         if (::bind(media_socket_video, (sockaddr*)&media_sockaddr,
-                   sizeof(media_sockaddr))) {
+                   socklen_from_addr(&media_sockaddr))) {
             ERROR_NO("Unable to bind video RTP socket (IP=%s, port=%d)",
                      media_ip, media_port + 2);
         }
