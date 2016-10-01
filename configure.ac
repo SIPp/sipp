@@ -214,7 +214,7 @@ AM_CONDITIONAL(HAVE_EPOLL, test "$epoll" = "yes")
 # ==================== checks for header files ==========================
 
 AC_FUNC_ALLOCA
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stdlib.h string.h sys/socket.h sys/time.h unistd.h])
+AC_CHECK_HEADERS([arpa/inet.h endian.h fcntl.h limits.h netdb.h netinet/in.h stdlib.h string.h sys/endian.h sys/socket.h sys/time.h unistd.h])
 
 # ===== checks for typedefs, structures and compiler characteristics ====
 
@@ -235,6 +235,16 @@ AC_FUNC_FORK
 #AC_FUNC_REALLOC
 #AC_FUNC_STRTOD
 AC_CHECK_FUNCS([alarm dup2 floor gethostname gettimeofday inet_ntoa memmove memset pow regcomp socket sqrt strcasecmp strchr strcspn strdup strerror strncasecmp strrchr strstr strtol strtoul strtoull])
+
+# Check for le16toh in both endian.h and sys/endian.h (for BSD).
+AC_CHECK_DECLS([le16toh], [], [],
+[#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#endif
+#ifdef HAVE_SYS_ENDIAN_H
+# include <sys/endian.h>
+#endif])
+
 
 # ==================== check for clang/gmock workaround =================
 

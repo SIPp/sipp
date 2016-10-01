@@ -1,25 +1,44 @@
 #ifndef ENDIANSHIM_H
 #define ENDIANSHIM_H 1
 
-#if defined(__CYGWIN) || defined(__LINUX)
-#include <endian.h>
-#elif defined(__FreeBSD__)
-#include <sys/endian.h>
-#elif defined(__DARWIN)
+/* Fetch HAVE_ENDIAN_H, HAVE_SYS_ENDIAN_H, HAVE_DECL_LE16TOH */
+#include "config.h"
+
+#ifdef HAVE_ENDIAN_H
+/* Linux and friends. */
+# include <endian.h>
+#endif
+#ifdef HAVE_SYS_ENDIAN_H
+/* BSDs */
+# include <sys/endian.h>
+#endif
+#if defined(__DARWIN)
+/* Darwin does something else. */
 #include <libkern/OSByteOrder.h>
 #endif
 
-#ifdef __DARWIN
-#define le16toh(x) OSSwapLittleToHostInt16(x)
-#endif
 
-/* HP-UX 11 is missing byteswap.h, so we provide our own bswap_16() */
-#ifdef __HPUX
-#define bswap_16(x) ((uint16_t)( \
+#if defined(__DARWIN)
+#define le16toh(x) OSSwapLittleToHostInt16(x)
+
+#elif defined(__HPUX)
+/* HPUX is big endian (apparently..) */
+#define le16toh(x) ((uint16_t)( \
     (((uint16_t)(x)) << 8) | \
     (((uint16_t)(x)) >> 8)))
 
-#define le16toh(x) bswap_16(x)
+#elif !defined(HAVE_DECL_LE16TOH) || HAVE_DECL_LE16TOH == 0
+/* le16toh() is missing in glibc before 2.9 */
+#if BYTE_ORDER == BIG_ENDIAN
+#   define le16toh(x) ((uint16_t)( \
+        (((uint16_t)(x)) << 8) | \
+        (((uint16_t)(x)) >> 8)))
+#elif BYTE_ORDER == LITTLE_ENDIAN
+#   define le16toh(x) (x)
+#else /* BYTE_ORDER == <undefined> */
+#   error Unknown endianness
 #endif
+
+#endif /* !HAVE_DECL_LE16TOH */
 
 #endif /* ENDIANSHIM_H */
