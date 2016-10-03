@@ -978,7 +978,13 @@ void SIPpSocket::invalidate()
             WARNING_NO("Failed to delete FD from epoll");
         }
 #endif
-        shutdown(ss_fd, SHUT_RDWR);
+        if (shutdown(ss_fd, SHUT_RDWR) < 0) {
+            WARNING_NO("Failed to shutdown socket %d", ss_fd);
+        }
+
+        if (::close(ss_fd) < 0) {
+            WARNING_NO("Failed to close socket %d", ss_fd);
+        }
 
 #ifdef USE_SCTP
         if (ss_transport == T_SCTP && !gracefulclose) {
