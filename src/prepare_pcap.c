@@ -21,6 +21,7 @@
 
 #include <pcap.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
 #include <netinet/ip.h>
@@ -292,9 +293,9 @@ struct rtphdr {
     unsigned int payload_type:7;
     unsigned int marker:1;
 
-    u_int16_t seqno;
-    u_int32_t timestamp;
-    u_int32_t ssrcid;
+    uint16_t seqno;
+    uint32_t timestamp;
+    uint32_t ssrcid;
 };
 
 struct rtpevent {
@@ -304,7 +305,7 @@ struct rtpevent {
     unsigned int reserved:1;
     unsigned int end_of_event:1;
 
-    u_int16_t duration;
+    uint16_t duration;
 };
 
 struct dtmfpacket {
@@ -374,7 +375,7 @@ static void fill_default_noop(struct nooppacket* nooppacket, int seqno, int ts)
 }
 
 static void prepare_dtmf_digit_start(
-        pcap_pkts* pkts, int* n_pkts, u_int16_t start_seq_no, int n_digits,
+        pcap_pkts* pkts, int* n_pkts, uint16_t start_seq_no, int n_digits,
         unsigned char uc_digit, int tone_len, unsigned long ts_offset, unsigned timestamp_start)
 {
     const u_long pktlen = sizeof(struct dtmfpacket);
@@ -416,7 +417,7 @@ static void prepare_dtmf_digit_start(
 }
 
 static void prepare_dtmf_digit_end(
-        pcap_pkts* pkts, int* n_pkts, u_int16_t start_seq_no, int n_digits,
+        pcap_pkts* pkts, int* n_pkts, uint16_t start_seq_no, int n_digits,
         unsigned char uc_digit, int tone_len, unsigned long ts_offset, unsigned timestamp_start)
 {
     const u_long pktlen = sizeof(struct dtmfpacket);
@@ -454,7 +455,7 @@ static void prepare_dtmf_digit_end(
 }
 
 static void prepare_noop(
-        pcap_pkts* pkts, int* n_pkts, u_int16_t* start_seq_no,
+        pcap_pkts* pkts, int* n_pkts, uint16_t* start_seq_no,
         unsigned long *ts_offset, unsigned *timestamp_start)
 {
     const u_long pktlen = sizeof(struct nooppacket); /* not dtmfpacket */
@@ -496,7 +497,7 @@ static void prepare_noop(
 
 /* prepare a dtmf pcap
  */
-int prepare_dtmf(const char* digits, pcap_pkts* pkts, u_int16_t start_seq_no)
+int prepare_dtmf(const char* digits, pcap_pkts* pkts, uint16_t start_seq_no)
 {
     unsigned long tone_len = 200;
     const u_long pktlen = sizeof(struct dtmfpacket);

@@ -69,7 +69,7 @@ case "$host" in
         CPPFLAGS="$CPPFLAGS -D__LINUX -I/usr/local/include"
         LDFLAGS="$LDFLAGS -L/usr/local/lib"
         ;;
-    *-sunos*)
+    *-sunos*|*-solaris2*)
         CFLAGS="$CFLAGS -D__SUNOS"
         CPPFLAGS="$CPPFLAGS -D__SUNOS"
         ;;
