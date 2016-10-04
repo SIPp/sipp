@@ -39,13 +39,13 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <netinet/udp.h>
 #if defined(__DARWIN) || defined(__CYGWIN) || defined(__FreeBSD__)
 #include <netinet/in.h>
 #endif
 #ifndef __CYGWIN
 #include <netinet/ip6.h>
 #endif
+#include <netinet/udp.h>
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
