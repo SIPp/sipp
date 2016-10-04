@@ -38,6 +38,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <netinet/udp.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
@@ -56,7 +57,7 @@ extern volatile unsigned long rtp_bytes_pcap;
 extern bool media_ip_is_ipv6;
 
 inline void
-timerdiv (struct timeval *tvp, float div)
+timerdiv(struct timeval* tvp, float div)
 {
     double interval;
 
@@ -72,7 +73,7 @@ timerdiv (struct timeval *tvp, float div)
  * converts a float to a timeval structure
  */
 inline void
-float2timer (float time, struct timeval *tvp)
+float2timer(float time, struct timeval *tvp)
 {
     float n;
 
@@ -112,7 +113,7 @@ int parse_play_args(const char* filename, pcap_pkts* pkts)
     return 1;
 }
 
-void free_pcaps(pcap_pkts *pkts)
+void free_pcaps(pcap_pkts* pkts)
 {
     pcap_pkt *it;
     for (it = pkts->pkts; it != pkts->max; ++it) {
@@ -124,7 +125,7 @@ void free_pcaps(pcap_pkts *pkts)
     free(pkts);
 }
 
-int parse_dtmf_play_args(const char* buffer, pcap_pkts* pkts, u_int16_t start_seq_no)
+int parse_dtmf_play_args(const char* buffer, pcap_pkts* pkts, uint16_t start_seq_no)
 {
     pkts->file = strdup(buffer);
     return prepare_dtmf(pkts->file, pkts, start_seq_no);
@@ -160,7 +161,7 @@ void send_packets_pcap_cleanup(void* arg)
     }
 }
 
-int send_packets(play_args_t * play_args)
+int send_packets(play_args_t* play_args)
 {
     pthread_cleanup_push(send_packets_pcap_cleanup, ((void*)play_args));
 
@@ -244,15 +245,15 @@ int send_packets(play_args_t * play_args)
         if (!media_ip_is_ipv6) {
             temp_sum = checksum_carry(
                     pkt_index->partial_check +
-                    check((u_int16_t *) &(((struct sockaddr_in *)(void *) from)->sin_addr.s_addr), 4) +
-                    check((u_int16_t *) &(((struct sockaddr_in *)(void *) to)->sin_addr.s_addr), 4) +
-                    check((u_int16_t *) &udp->uh_sport, 4));
+                    check((uint16_t *) &(((struct sockaddr_in *)(void *) from)->sin_addr.s_addr), 4) +
+                    check((uint16_t *) &(((struct sockaddr_in *)(void *) to)->sin_addr.s_addr), 4) +
+                    check((uint16_t *) &udp->uh_sport, 4));
         } else {
             temp_sum = checksum_carry(
                     pkt_index->partial_check +
-                    check((u_int16_t *) &(from6.sin6_addr.s6_addr), 16) +
-                    check((u_int16_t *) &(to6.sin6_addr.s6_addr), 16) +
-                    check((u_int16_t *) &udp->uh_sport, 4));
+                    check((uint16_t *) &(from6.sin6_addr.s6_addr), 16) +
+                    check((uint16_t *) &(to6.sin6_addr.s6_addr), 16) +
+                    check((uint16_t *) &udp->uh_sport, 4));
         }
 #if !defined(_HPUX_LI) && defined(__HPUX)
         udp->uh_sum = (temp_sum>>16)+((temp_sum & 0xffff)<<16);
@@ -301,8 +302,8 @@ int send_packets(play_args_t * play_args)
  * Given the timestamp on the current packet and the last packet sent,
  * calculate the appropriate amount of time to sleep and do so.
  */
-void do_sleep (struct timeval *time, struct timeval *last,
-               struct timeval *didsleep, struct timeval *start)
+void do_sleep(struct timeval* time, struct timeval* last,
+              struct timeval* didsleep, struct timeval* start)
 {
     struct timeval nap, now, delta;
     struct timespec sleep;

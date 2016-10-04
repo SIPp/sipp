@@ -1433,12 +1433,11 @@ SIPpSocket* SIPpSocket::accept() {
             // Keep the original socket fd.
             newfd = fd;
         } else {
-            close(fd);
+            ::close(fd);
         }
         fd = newfd;
     }
 #endif
-
 
     ret = new SIPpSocket(ss_ipv6, ss_transport, fd, 1);
     if (!ret) {
@@ -1685,7 +1684,12 @@ void SIPpSocket::sipp_sctp_peer_params()
         memset(&peerparam, 0, sizeof(peerparam));
 
         sockaddr* addresses;
+#ifdef __SUNOS
+        /* Sun takes a void** instead of a struct sockaddr** */
+        int addresscount = sctp_getpaddrs(ss_fd, 0, (void**)&addresses);
+#else
         int addresscount = sctp_getpaddrs(ss_fd, 0, &addresses);
+#endif
         if (addresscount < 1) WARNING("sctp_getpaddrs, errno=%d", errno);
 
         for (int i = 0; i < addresscount; i++) {

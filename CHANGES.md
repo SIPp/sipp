@@ -43,6 +43,7 @@ Bugs fixed in 3.5.x
   uri-parameters (in the contact-params). The contact params should not be
   used in the `next_url`. (Issue #234, reported by Justin Zimmer.)
 * Fix TLS issues for during high load. (Issue #241, #243, reported by @sgel83.)
+* Fix compile issues on old CentOS and Solaris. (Issue #211, #245.)
 
 
 Bugs fixed in 3.5.1
