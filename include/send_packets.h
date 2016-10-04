@@ -40,6 +40,7 @@
 #include <math.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <stdint.h>
 
 #include "prepare_pcap.h"
 
@@ -117,7 +118,7 @@ typedef struct {
 
     /* non-zero if the thread should destroy the *pcap when done playing or aborted */
     int free_pcap_when_done;
-    u_int16_t last_seq_no;
+    uint16_t last_seq_no;
 } play_args_t;
 
 #ifdef __cplusplus
@@ -125,7 +126,7 @@ extern "C"
 {
 #endif
     int parse_play_args(const char*, pcap_pkts*);
-    int parse_dtmf_play_args(const char*, pcap_pkts*, u_int16_t start_seq_no);
+    int parse_dtmf_play_args(const char*, pcap_pkts*, uint16_t start_seq_no);
     void free_pcaps(pcap_pkts *pkts);
     int send_packets(play_args_t*);
 #ifdef __cplusplus

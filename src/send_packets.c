@@ -38,8 +38,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <netinet/udp.h>
+#include <stdint.h>
 #include <netinet/in.h>
+#include <netinet/udp.h>
 #include <netinet/ip6.h>
 #include <errno.h>
 #include <string.h>
@@ -124,7 +125,7 @@ void free_pcaps(pcap_pkts *pkts)
     free(pkts);
 }
 
-int parse_dtmf_play_args(const char* buffer, pcap_pkts* pkts, u_int16_t start_seq_no)
+int parse_dtmf_play_args(const char* buffer, pcap_pkts* pkts, uint16_t start_seq_no)
 {
     pkts->file = strdup(buffer);
     return prepare_dtmf(pkts->file, pkts, start_seq_no);
@@ -244,15 +245,15 @@ int send_packets(play_args_t * play_args)
         if (!media_ip_is_ipv6) {
             temp_sum = checksum_carry(
                     pkt_index->partial_check +
-                    check((u_int16_t *) &(((struct sockaddr_in *)(void *) from)->sin_addr.s_addr), 4) +
-                    check((u_int16_t *) &(((struct sockaddr_in *)(void *) to)->sin_addr.s_addr), 4) +
-                    check((u_int16_t *) &udp->uh_sport, 4));
+                    check((uint16_t *) &(((struct sockaddr_in *)(void *) from)->sin_addr.s_addr), 4) +
+                    check((uint16_t *) &(((struct sockaddr_in *)(void *) to)->sin_addr.s_addr), 4) +
+                    check((uint16_t *) &udp->uh_sport, 4));
         } else {
             temp_sum = checksum_carry(
                     pkt_index->partial_check +
-                    check((u_int16_t *) &(from6.sin6_addr.s6_addr), 16) +
-                    check((u_int16_t *) &(to6.sin6_addr.s6_addr), 16) +
-                    check((u_int16_t *) &udp->uh_sport, 4));
+                    check((uint16_t *) &(from6.sin6_addr.s6_addr), 16) +
+                    check((uint16_t *) &(to6.sin6_addr.s6_addr), 16) +
+                    check((uint16_t *) &udp->uh_sport, 4));
         }
 #if !defined(_HPUX_LI) && defined(__HPUX)
         udp->uh_sum = (temp_sum>>16)+((temp_sum & 0xffff)<<16);
