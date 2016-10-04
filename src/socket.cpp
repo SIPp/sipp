@@ -1694,7 +1694,12 @@ void sipp_sctp_peer_params(struct sipp_socket *socket)
         memset(&peerparam, 0, sizeof(peerparam));
 
         sockaddr* addresses;
+#ifdef __SUNOS
+        /* Sun takes a void** instead of a struct sockaddr** */
+        int addresscount = sctp_getpaddrs(socket->ss_fd, 0, (void**)&addresses);
+#else
         int addresscount = sctp_getpaddrs(socket->ss_fd, 0, &addresses);
+#endif
         if (addresscount < 1) WARNING("sctp_getpaddrs, errno=%d", errno);
 
         for (int i = 0; i < addresscount; i++) {
