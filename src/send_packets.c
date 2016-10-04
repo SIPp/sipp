@@ -39,9 +39,9 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <netinet/udp.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
+#include <netinet/udp.h>
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
