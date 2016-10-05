@@ -187,10 +187,10 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
 #endif
     const uint8_t* pktdata = NULL;
     int n_pkts = 0;
-    uint64_t max_length = 0;
+    u_long max_length = 0;
     size_t ether_type_offset = 0;
     uint16_t base = 0xffff;
-    uint64_t pktlen;
+    u_long pktlen;
     pcap_pkt* pkt_index;
     ether_type_hdr* ethhdr;
 
@@ -277,7 +277,7 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
     pkts->max = pkts->pkts + n_pkts;
     pkts->max_length = max_length;
     pkts->base = base;
-    fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %ld\nbase port %d\n", file, n_pkts, max_length, base);
+    fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %lu\nbase port %d\n", file, n_pkts, max_length, base);
     pcap_close(pcap);
 
     return 0;

@@ -53,17 +53,21 @@ matrix:
         - CONFOPTS="--with-gsl --with-openssl --with-pcap --with-rtpstream --with-sctp"
     - os: osx
       compiler: clang
-      env:
-        - CONFOPTS="--with-gsl --with-openssl --with-pcap --with-rtpstream"
+      env: CONFOPTS="--with-gsl --with-openssl --with-pcap --with-rtpstream"
 
 before_script:
   - autoreconf -vifs
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gsl; fi
-  - ./configure $CONFOPTS
+  - if [ "$TRAVIS_OS_NAME" = osx ]; then brew update; fi
+  - if [ "$TRAVIS_OS_NAME" = osx ]; then brew install gsl; fi
+  # 2016-10: Apple doesn't include openssl any more because of security
+  # problems openssl had. Manually specify path to includes/libs.
+  - if [ "$TRAVIS_OS_NAME" = osx ]; then brew install openssl; fi
+  - if [ "$TRAVIS_OS_NAME" = osx ]; then CPPFLAGS="-I/usr/local/opt/openssl/include"; fi
+  - if [ "$TRAVIS_OS_NAME" = osx ]; then LDFLAGS="-L/usr/local/opt/openssl/lib"; fi
+  - ./configure CPPFLAGS=$CPPFLAGS LDFLAGS=$LDFLAGS $CONFOPTS
 
 script:
   - make -j2
   - make -j2 check
-  - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then ./regress/runtests; fi
+  - if [ "$TRAVIS_OS_NAME" != osx ]; then ./regress/runtests; fi
   - ./validate-src.sh
