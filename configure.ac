@@ -145,7 +145,6 @@ AC_SEARCH_LIBS([shutdown], [socket])
 
 # Conditional build with OpenSSL
 if test "$openssl" = 'yes'; then
-    AC_CHECK_HEADERS([openssl/md5.h],,[AC_MSG_ERROR([<openssl/md5.h> header missing])])
     AC_CHECK_HEADERS([openssl/bio.h],,[AC_MSG_ERROR([<openssl/bio.h> header missing])])
     AC_CHECK_HEADERS([openssl/err.h],,[AC_MSG_ERROR([<openssl/err.h> header missing])])
     AC_CHECK_HEADERS([openssl/rand.h],,[AC_MSG_ERROR([<openssl/rand.h> header missing])])
