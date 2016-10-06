@@ -3691,6 +3691,8 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 #endif
 
 #ifdef RTP_STREAM
+        } else if (currentAction->getActionType() == CAction::E_AT_RTP_ECHO) {
+            rtp_echo_state = (currentAction->getDoubleValue() != 0);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSE) {
             rtpstream_pause(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUME) {

@@ -79,6 +79,7 @@ public:
         E_AT_RTP_STREAM_PAUSE,
         E_AT_RTP_STREAM_RESUME,
         E_AT_RTP_STREAM_PLAY,
+        E_AT_RTP_ECHO,
 #endif
         E_AT_NB_ACTION
     };
