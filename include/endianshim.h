@@ -16,7 +16,10 @@
 /* Darwin does something else. */
 #include <libkern/OSByteOrder.h>
 #endif
-
+#if defined(__SUNOS)
+/* Solaris and derivatives */
+#include <sys/byteorder.h>
+#endif
 
 #if defined(__DARWIN)
 #define le16toh(x) OSSwapLittleToHostInt16(x)
@@ -26,6 +29,13 @@
 #define le16toh(x) ((uint16_t)( \
     (((uint16_t)(x)) << 8) | \
     (((uint16_t)(x)) >> 8)))
+
+#elif defined(__SUNOS)
+#ifdef _BIG_ENDIAN
+#   define le16toh(x) BSWAP_16(x)
+#else
+#   define le16toh(x) (x)
+#endif
 
 #elif !defined(HAVE_DECL_LE16TOH) || HAVE_DECL_LE16TOH == 0
 /* le16toh() is missing in glibc before 2.9 */

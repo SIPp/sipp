@@ -187,10 +187,10 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
 #endif
     const uint8_t* pktdata = NULL;
     int n_pkts = 0;
-    uint64_t max_length = 0;
+    u_long max_length = 0;
     size_t ether_type_offset = 0;
     uint16_t base = 0xffff;
-    uint64_t pktlen;
+    u_long pktlen;
     pcap_pkt* pkt_index;
     ether_type_hdr* ethhdr;
 
@@ -277,7 +277,7 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
     pkts->max = pkts->pkts + n_pkts;
     pkts->max_length = max_length;
     pkts->base = base;
-    fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %ld\nbase port %d\n", file, n_pkts, max_length, base);
+    fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %lu\nbase port %d\n", file, n_pkts, max_length, base);
     pcap_close(pcap);
 
     return 0;
@@ -292,9 +292,9 @@ struct rtphdr {
     unsigned int payload_type:7;
     unsigned int marker:1;
 
-    u_int16_t seqno;
-    u_int32_t timestamp;
-    u_int32_t ssrcid;
+    uint16_t seqno;
+    uint32_t timestamp;
+    uint32_t ssrcid;
 };
 
 struct rtpevent {
@@ -304,7 +304,7 @@ struct rtpevent {
     unsigned int reserved:1;
     unsigned int end_of_event:1;
 
-    u_int16_t duration;
+    uint16_t duration;
 };
 
 struct dtmfpacket {
@@ -374,7 +374,7 @@ static void fill_default_noop(struct nooppacket* nooppacket, int seqno, int ts)
 }
 
 static void prepare_dtmf_digit_start(
-        pcap_pkts* pkts, int* n_pkts, u_int16_t start_seq_no, int n_digits,
+        pcap_pkts* pkts, int* n_pkts, uint16_t start_seq_no, int n_digits,
         unsigned char uc_digit, int tone_len, unsigned long ts_offset, unsigned timestamp_start)
 {
     const u_long pktlen = sizeof(struct dtmfpacket);
@@ -416,7 +416,7 @@ static void prepare_dtmf_digit_start(
 }
 
 static void prepare_dtmf_digit_end(
-        pcap_pkts* pkts, int* n_pkts, u_int16_t start_seq_no, int n_digits,
+        pcap_pkts* pkts, int* n_pkts, uint16_t start_seq_no, int n_digits,
         unsigned char uc_digit, int tone_len, unsigned long ts_offset, unsigned timestamp_start)
 {
     const u_long pktlen = sizeof(struct dtmfpacket);
@@ -454,7 +454,7 @@ static void prepare_dtmf_digit_end(
 }
 
 static void prepare_noop(
-        pcap_pkts* pkts, int* n_pkts, u_int16_t* start_seq_no,
+        pcap_pkts* pkts, int* n_pkts, uint16_t* start_seq_no,
         unsigned long *ts_offset, unsigned *timestamp_start)
 {
     const u_long pktlen = sizeof(struct nooppacket); /* not dtmfpacket */
@@ -496,7 +496,7 @@ static void prepare_noop(
 
 /* prepare a dtmf pcap
  */
-int prepare_dtmf(const char* digits, pcap_pkts* pkts, u_int16_t start_seq_no)
+int prepare_dtmf(const char* digits, pcap_pkts* pkts, uint16_t start_seq_no)
 {
     unsigned long tone_len = 200;
     const u_long pktlen = sizeof(struct dtmfpacket);
