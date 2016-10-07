@@ -16,6 +16,9 @@ sippfg -m 1 -sf uac.xml 127.0.0.1:5070 \
 status=$?
 wait $job || status=1
 
+cat log.log
+
+set -x
 
 if test $status -ne 0; then
     fail "process failure"
