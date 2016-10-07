@@ -10,7 +10,7 @@ sippbg -m 1 -sf uas.xml -p 5070 -i 127.0.0.1 \
 
 job=$!
 
-sippfg -m 1 -sf uac.xml 127.0.0.1:5070 \
+sippfg -m 1 -sf -i 127.0.0.1 -p 5060 uac.xml 127.0.0.1:5070 \
     -timeout 4 -timeout_error >/dev/null 2>&1
 
 status=$?
