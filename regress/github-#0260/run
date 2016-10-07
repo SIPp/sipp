@@ -10,26 +10,24 @@ sippbg -m 1 -sf uas.xml -p 5070 -i 127.0.0.1 \
 
 job=$!
 
-sippfg -m 1 -sf uac.xml 127.0.0.1:5070 \
+sippfg -m 1 -sf uac.xml 127.0.0.1:5070 -trace_msg \
     -timeout 4 -timeout_error >/dev/null 2>&1
 
 status=$?
 wait $job || status=1
 
-if test $status -eq 0; then
-    if grep -e ^LAST\ From:\ \"Tom\ Jones\"\ \<sip:tom.jones@wales.uk\>\;tag=SIPpTag001$ log.log > /dev/null; then
-        if grep -e ^LAST\ To:uri:\ sip:cheese@paris.fr$ log.log > /dev/null; then
-            if grep -e ^LAST\ From-tag:\ SIPpTag001$ log.log > /dev/null; then
-                ok
-            else
-                fail "From:param.tag not found"
-            fi
-        else
-            fail "To:uri not found"
-        fi
-    else
-        fail "From header not found"
-    fi
-else
+
+if test $status -ne 0; then
     fail "process failure"
+elif ! grep -e ^LAST\ Contact\|Contact:\ \<sip:sipp@127.0.1.1:5060\> log.log > /dev/null; then
+    fail "[last_Contact] header not found"
+elif ! grep -e ^LAST\ Contact:\|Contact:\ \<sip:sipp@127.0.1.1:5060\> log.log > /dev/null; then
+    fail "[last_Contact:] header not found"
+elif ! grep -e ^LAST\ From:value\|\"Tom\ Jones\"\ \<sip:tom.jones@wales.uk\>\;tag=SIPpTag001$ log.log > /dev/null; then
+    fail "[last_From:value] not found"
+elif ! grep -e ^LAST\ To:uri\|sip:cheese@paris.fr$ log.log > /dev/null; then
+    fail "[last_To:uri] not found"
+elif ! grep -e ^LAST\ From:param.tag\|SIPpTag001$ log.log > /dev/null; then
+    fail "[last_From:param.tag] not found"
 fi
+ok

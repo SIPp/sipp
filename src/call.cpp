@@ -920,51 +920,45 @@ char * call::get_last_header(const char * name)
         ERROR("call::get_last_header: Header to parse bigger than %d (%zu)", MAX_HEADER_LEN, strlen(name));
     }
 
+    char header_name[MAX_HEADER_LEN];
+    const char *sep = strrchr(name, ':');
+
+    if (!sep){ /* [last_Header] */
+        sprintf(header_name, "%s:", name);
+        return get_header(last_recv_msg, header_name, false);
+    }
+
+    snprintf(header_name, len - strlen(sep) + 2, name);
+
+    /* [last_Header:] */
     if (name[len - 1] == ':') {
         return get_header(last_recv_msg, name, false);
-    } else {
-
-        char with_colon[MAX_HEADER_LEN];
-        const char *sep = strrchr(name, ':');
-
-        if (!sep){
-            sprintf(with_colon, "%s:", name);
-            return get_header(last_recv_msg, with_colon, false);
-        } else {
-            if (!strcmp(sep, ":value")) {
-                snprintf(with_colon, len - 4, "%s", name);
-                return get_header(last_recv_msg, with_colon, true);
-            }
-            if (!strcmp(sep, ":uri")) {
-                snprintf(with_colon, len - 2, "%s", name);
-                char * last_header_uri = get_last_request_uri(with_colon);
-                char * ret;
-                if (!(ret = (char *)malloc(strlen(last_header_uri + 1)))){
-                    ERROR("call::get_last_header: Cannot allocate uri !\n");
-                }
-                sprintf(ret, "%s", last_header_uri);
-                free(last_header_uri);
-                return ret;
-            }
-            if (!strcmp(sep, ":param.tag")) {
-                snprintf(with_colon, len - 8, "%s", name);
-                char * last_tag = get_last_tag(with_colon);
-                char * ret;
-                if (!(ret = (char *)malloc(strlen(last_tag + 1)))){
-                    ERROR("call::get_last_header: Cannot allocate param.tag !\n");
-                }
-                sprintf(ret, "%s", last_tag);
-                free(last_tag);
-                return ret;
-            }
-            ERROR("Token %s not valid in %s", sep, name);
-        }
     }
+    char *value = get_header(last_recv_msg, header_name, true);
+
+    if (!strcmp(sep, ":value")) { /* [last_Header:value] */
+        ; /* done */
+    } else if (!strcmp(sep, ":uri")) { /* [last_Header:uri] */
+        char * uri = get_last_header_uri(header_name);
+        int uri_len = strlen(uri);
+        memmove(value, uri, uri_len);
+        value[uri_len] = '\0';
+        free(uri);
+    } else if (!strcmp(sep, ":param.tag")) { /* [last_Header:param.tag] */
+        snprintf(header_name, len - 9, "%s", name);
+        char * last_tag = get_param_tag(last_recv_msg, header_name, "");
+        int last_tag_len = strlen(last_tag);
+        memmove(value, last_tag, last_tag_len);
+        value[last_tag_len] = '\0';
+    } else {
+        ERROR("Token %s not valid in %s", sep, name);
+    }
+    return value;
 }
 
 /* Return the last request URI from the header. On any error returns the
  * empty string.  The caller must free the result. */
-char * call::get_last_request_uri(const char *name)
+char * call::get_last_header_uri(const char *name)
 {
     char * tmp;
     char * tmp2;
@@ -1009,48 +1003,6 @@ char * call::get_last_request_uri(const char *name)
     last_request_uri[tmp_len] = '\0';
 
     return last_request_uri;
-}
-
-/* Return the last tag from the header line. On any error returns the
- * empty string.  The caller must free the result. */
-char * call::get_last_tag(const char *name)
-{
-    char * tmp;
-    char * tmp2;
-    char * result;
-    char * last_header;
-    int tmp_len;
-
-    if (!name || !strlen(name)) {
-        return strdup("");
-    }
-
-    last_header = get_last_header(name);
-    if (!last_header) {
-        return strdup("");
-    }
-
-    tmp = strcasestr(last_header, "tag=");
-    if (!tmp) {
-        return strdup("");
-    }
-
-    tmp += strlen("tag=");
-    tmp2 = tmp;
-
-    while (*tmp2 && *tmp2 != ';' && *tmp2!='\r' && *tmp2!='\n') tmp2++;
-
-    tmp_len = strlen(tmp) - strlen(tmp2);
-    if (tmp_len < 0) {
-        return strdup("");
-    }
-    if(!(result = (char *) malloc(tmp_len+1))) ERROR("call::get_last_tag: Cannot allocate !\n");
-    memset(result, 0, sizeof(&result));
-    if(tmp && (tmp_len > 0)){
-        strncpy(result, tmp, tmp_len);
-    }
-    result[tmp_len] = '\0';
-    return result;
 }
 
 char * call::send_scene(int index, int *send_status, int *len)
@@ -2282,7 +2234,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             break;
         case E_Message_Last_Request_URI: {
-            char * last_request_uri = get_last_request_uri("To:");
+            char * last_request_uri = get_last_header_uri("To:");
             dest += sprintf(dest, "%s", last_request_uri);
             free(last_request_uri);
             break;

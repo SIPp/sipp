@@ -70,7 +70,7 @@ static const char *internal_hdrend(const char *ptr);
 
 /*************************** Mini SIP parser (externals) ***************/
 
-char * get_peer_tag(const char *msg)
+char * get_param_tag(const char *msg, const char *name, const char *shortname)
 {
     static char   tag[MAX_HEADER_LEN];
     const char  * to_hdr;
@@ -78,9 +78,9 @@ char * get_peer_tag(const char *msg)
     int           tag_i = 0;
 
     /* Find start of header */
-    to_hdr = internal_find_header(msg, "To", "t", true);
+    to_hdr = internal_find_header(msg, name, shortname, true);
     if (!to_hdr) {
-        WARNING("No valid To: header in reply");
+        WARNING("No valid %s: header in reply", name);
         return NULL;
     }
 
@@ -107,6 +107,11 @@ char * get_peer_tag(const char *msg)
     tag[tag_i] = '\0';
 
     return tag;
+}
+
+char * get_peer_tag(const char *msg)
+{
+    return get_param_tag(msg, "To", "t");
 }
 
 char * get_header_content(const char* message, const char * name)

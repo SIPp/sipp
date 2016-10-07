@@ -7,7 +7,8 @@
     <![CDATA[
 
       SIP/2.0 200 OK
-      Via: [last_Via:value]
+      [last_Contact]
+      [last_via]
       From: [last_From:value]
       To: [last_To:value];tag=[pid]SIPpTag00[call_number]
       Call-ID: [last_Call-ID:value]
@@ -20,13 +21,14 @@
 
   <recv request="ACK" rrs="true">
     <action>
-      <log message="LAST Contact: [last_Contact]" />
-      <log message="LAST Via: [last_Via:value]"/>
-      <log message="LAST From: [last_From:value]"/>
-      <log message="LAST To: [last_To:value]"/>
-      <log message="LAST To:uri: [last_To:uri]"/>
-      <log message="LAST Contact:uri: [last_Contact:uri]"/>
-      <log message="LAST From-tag: [last_From:param.tag]"/>
+      <log message="LAST Contact|[last_Contact]" />
+      <log message="LAST Contact:|[last_Contact:]" />
+      <log message="LAST Contact:uri|[last_Contact:uri]"/>
+      <log message="LAST Via:value[last_Via:value]"/>
+      <log message="LAST From:value|[last_From:value]"/>
+      <log message="LAST To:value|[last_To:value]"/>
+      <log message="LAST To:uri|[last_To:uri]"/>
+      <log message="LAST From:param.tag|[last_From:param.tag]"/>
     </action>
   </recv>
 
