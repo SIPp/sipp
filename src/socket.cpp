@@ -1518,10 +1518,11 @@ int sipp_bind_socket(SIPpSocket *socket, struct sockaddr_storage *saddr, int *po
     }
 
     if (socket->ss_ipv6) {
-        *port = ntohs((short)((_RCAST(struct sockaddr_in6 *, saddr))->sin6_port));
+        socket->ss_port = ntohs((short)((_RCAST(struct sockaddr_in6 *, saddr))->sin6_port));
     } else {
-        *port = ntohs((short)((_RCAST(struct sockaddr_in *, saddr))->sin_port));
+        socket->ss_port = ntohs((short)((_RCAST(struct sockaddr_in *, saddr))->sin_port));
     }
+    *port = socket->ss_port;
 
 #ifdef USE_SCTP
     if (transport == T_SCTP) {

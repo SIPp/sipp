@@ -79,6 +79,7 @@ public:
     int ss_transport;       /* T_TCP, T_UDP, or T_TLS. */
     bool ss_control;        /* Is this a control socket? */
     int ss_fd;              /* The underlying file descriptor for this socket. */
+    int ss_port;            /* The port used by this socket */
     void *ss_comp_state;    /* The compression state. */
 
     bool ss_changed_dest;   /* Has the destination changed from default. */
