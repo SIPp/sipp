@@ -70,16 +70,56 @@ static const char *internal_hdrend(const char *ptr);
 
 /*************************** Mini SIP parser (externals) ***************/
 
-char * get_param_tag(const char *msg, const char *name, const char *shortname)
+char * get_header_uri(const char *msg, const char *name, const char *shortname)
+{
+    char * start;
+    char * end;
+    const char * hdr;
+    static char last_request_uri[MAX_HEADER_LEN];
+    int uri_len;
+
+    /* Find start of header */
+    hdr = internal_find_header(msg, name, shortname, true);
+    if (!hdr) {
+        WARNING("No valid %s: header found", name);
+        return NULL;
+    }
+
+    start = strchr((char*)hdr, '<');
+    if (!start) {
+        return NULL;
+    }
+    start++;
+
+    end = strchr((char*)hdr, '>');
+    if (!end) {
+        return NULL;
+    }
+
+    uri_len = strlen(start) - strlen(end);
+    if (uri_len < 0) {
+        return NULL;
+    }
+
+    last_request_uri[0] = '\0';
+    if (start && (uri_len > 0)) {
+        strncpy(last_request_uri, start, uri_len);
+    }
+    last_request_uri[uri_len] = '\0';
+
+    return last_request_uri;
+}
+
+char * get_param(const char *msg,  const char * param, const char *name, const char *shortname)
 {
     static char   tag[MAX_HEADER_LEN];
-    const char  * to_hdr;
+    const char  * hdr;
     const char  * ptr;
     int           tag_i = 0;
 
     /* Find start of header */
-    to_hdr = internal_find_header(msg, name, shortname, true);
-    if (!to_hdr) {
+    hdr = internal_find_header(msg, name, shortname, true);
+    if (!hdr) {
         WARNING("No valid %s: header in reply", name);
         return NULL;
     }
@@ -88,14 +128,14 @@ char * get_param_tag(const char *msg, const char *name, const char *shortname)
     /* FIXME */
 
     /* Skip past LA/RA-quoted addr-spec if any */
-    ptr = internal_hdrchr(to_hdr, '>');
+    ptr = internal_hdrchr(hdr, '>');
     if (!ptr) {
         /* Maybe an addr-spec without quotes */
-        ptr = to_hdr;
+        ptr = hdr;
     }
 
     /* Find tag in this header */
-    ptr = internal_find_param(ptr, "tag");
+    ptr = internal_find_param(ptr, param);
     if (!ptr) {
         return NULL;
     }
@@ -111,7 +151,7 @@ char * get_param_tag(const char *msg, const char *name, const char *shortname)
 
 char * get_peer_tag(const char *msg)
 {
-    return get_param_tag(msg, "To", "t");
+    return get_param(msg, "tag", "To", "t");
 }
 
 char * get_header_content(const char* message, const char * name)
