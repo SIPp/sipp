@@ -767,6 +767,7 @@ bool call::connect_socket_if_needed()
                 }
             }
         }
+        call_port = call_socket->ss_port;
     }
     return true;
 }
@@ -1927,7 +1928,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         case E_Message_Local_Port:
             int port;
-            if((transport == T_UDP) && (multisocket) && (sendMode != MODE_SERVER)) {
+            if((multisocket) && (sendMode != MODE_SERVER)) {
                 port = call_port;
             } else {
                 port =  local_port;

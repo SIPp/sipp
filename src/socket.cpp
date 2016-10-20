@@ -978,7 +978,13 @@ void SIPpSocket::invalidate()
             WARNING_NO("Failed to delete FD from epoll");
         }
 #endif
-        shutdown(ss_fd, SHUT_RDWR);
+        if (shutdown(ss_fd, SHUT_RDWR) < 0) {
+            WARNING_NO("Failed to shutdown socket %d", ss_fd);
+        }
+
+        if (::close(ss_fd) < 0) {
+            WARNING_NO("Failed to close socket %d", ss_fd);
+        }
 
 #ifdef USE_SCTP
         if (ss_transport == T_SCTP && !gracefulclose) {
@@ -1355,7 +1361,7 @@ static int socket_fd(bool use_ipv6, int transport)
     }
 
     if ((fd = socket(use_ipv6 ? AF_INET6 : AF_INET, socket_type, protocol))== -1) {
-        ERROR("Unable to get a %s socket (3)", TRANSPORT_TO_STRING(transport));
+        ERROR_NO("Unable to get a %s socket (3)", TRANSPORT_TO_STRING(transport));
     }
 
     return fd;
@@ -1451,9 +1457,27 @@ SIPpSocket* SIPpSocket::accept() {
 
     if (ret->ss_transport == T_TLS) {
 #ifdef USE_OPENSSL
-        int err;
-        if ((err = SSL_accept(ss_ssl)) < 0) {
-            ERROR("Error in SSL_accept: %s\n", sip_tls_error_string(ss_ssl, err));
+        int ret;
+        int ii = 0;
+        while ((ret = SSL_accept(ss_ssl)) < 0) {
+            int err = SSL_get_error(ss_ssl, ret);
+            if ((err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) &&
+                ii < SIPP_SSL_MAX_RETRIES) {
+                /* These errors are benign we just need to wait for the socket
+                 * to be readable/writable again. */
+                WARNING("SSL_accept failed with error: %s. Attempt %d. "
+                        "Retrying...",
+                        sip_tls_error_string(ss_ssl, ret),
+                        ii + 1);
+                ii++;
+                sipp_usleep(SIPP_SSL_RETRY_TIMEOUT);
+                continue;
+            }
+            else {
+                ERROR("Error in SSL_accept: %s\n",
+                      sip_tls_error_string(ss_ssl, ret));
+                break;
+            }
         }
 #else
         ERROR("You need to compile SIPp with TLS support");
@@ -1493,10 +1517,11 @@ int sipp_bind_socket(SIPpSocket *socket, struct sockaddr_storage *saddr, int *po
     }
 
     if (socket->ss_ipv6) {
-        *port = ntohs((short)((_RCAST(struct sockaddr_in6 *, saddr))->sin6_port));
+        socket->ss_port = ntohs((short)((_RCAST(struct sockaddr_in6 *, saddr))->sin6_port));
     } else {
-        *port = ntohs((short)((_RCAST(struct sockaddr_in *, saddr))->sin_port));
+        socket->ss_port = ntohs((short)((_RCAST(struct sockaddr_in *, saddr))->sin_port));
     }
+    *port = socket->ss_port;
 
 #ifdef USE_SCTP
     if (transport == T_SCTP) {
@@ -1564,9 +1589,25 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 
     if (ss_transport == T_TLS) {
 #ifdef USE_OPENSSL
-        int err;
-        if ((err = SSL_connect(ss_ssl)) < 0) {
-            ERROR("Error in SSL connection: %s\n", sip_tls_error_string(ss_ssl, err));
+        int ii = 0;
+        while ((ret = SSL_connect(ss_ssl)) < 0) {
+            int err = SSL_get_error(ss_ssl, ret);
+            if ((err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) &&
+                ii < SIPP_SSL_MAX_RETRIES) {
+                /* These errors are benign we just need to wait for the socket
+                 * to be readable/writable again. */
+                WARNING("SSL_connect failed with error: %s. Attempt %d. "
+                        "Retrying...",
+                        sip_tls_error_string(ss_ssl, ret),
+                        ii + 1);
+                ii++;
+                sipp_usleep(SIPP_SSL_RETRY_TIMEOUT);
+                continue;
+            }
+            else {
+                ERROR("Error in SSL connection: %s\n",
+                      sip_tls_error_string(ss_ssl, ret));
+            }
         }
 #else
         ERROR("You need to compile SIPp with TLS support");
@@ -1883,10 +1924,12 @@ int SIPpSocket::read_error(int ret)
     if (ss_transport == T_TLS) {
         int err = SSL_get_error(ss_ssl, ret);
         errstring = sip_tls_error_string(ss_ssl, ret);
-        if (err == SSL_ERROR_WANT_READ) {
+        if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
             /* This is benign - we just need to wait for the socket to be
-             * readable again, which will happen naturally as part of the
-             * poll/epoll loop. */
+             * readable/writable again, which will happen naturally as part
+             * of the poll/epoll loop. */
+            WARNING("SSL_read failed with error: %s. Retrying...",
+                    errstring);
             return 1;
         }
     }
@@ -2137,6 +2180,7 @@ static int send_nowait_tls(SSL* ssl, const void* msg, int len, int /*flags*/)
     int rc;
     int fd;
     int fd_flags;
+    int ii = 0;
     if ( (fd = SSL_get_fd(ssl)) == -1 ) {
         return (-1);
     }
@@ -2144,8 +2188,25 @@ static int send_nowait_tls(SSL* ssl, const void* msg, int len, int /*flags*/)
     initial_fd_flags = fd_flags;
     fd_flags |= O_NONBLOCK;
     fcntl(fd, F_SETFL, fd_flags);
-    rc = SSL_write(ssl, msg, len);
-    if ( rc <= 0 ) {
+    while ((rc = SSL_write(ssl, msg, len)) < 0) {
+        int err = SSL_get_error(ssl, rc);
+        if ((err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) &&
+            ii < SIPP_SSL_MAX_RETRIES) {
+            /* These errors are benign we just need to wait for the socket
+             * to be readable/writable again. */
+            WARNING("SSL_write failed with error: %s. Attempt %d. "
+                    "Retrying...",
+                    sip_tls_error_string(ssl, rc),
+                    ii + 1);
+            ii++;
+            sipp_usleep(SIPP_SSL_RETRY_TIMEOUT);
+            continue;
+        }
+        else {
+            return(rc);
+        }
+    }
+    if (rc == 0) {
         return(rc);
     }
     fcntl(fd, F_SETFL, initial_fd_flags);
