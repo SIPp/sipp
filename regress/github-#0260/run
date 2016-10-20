@@ -19,15 +19,15 @@ wait $job || status=1
 
 if test $status -ne 0; then
     fail "process failure"
-elif ! grep -e ^LAST\ Contact\|Contact:\ \<sip:sipp@127.0.0.1:5060\> log.log > /dev/null; then
+elif ! grep -qF 'LAST Contact|Contact: <sip:sipp@127.0.0.1:5060>' log.log; then
     fail "[last_Contact] header not found"
-elif ! grep -e ^LAST\ Contact:\|Contact:\ \<sip:sipp@127.0.0.1:5060\> log.log > /dev/null; then
+elif ! grep -qF 'LAST Contact:|Contact: <sip:sipp@127.0.0.1:5060>' log.log; then
     fail "[last_Contact:] header not found"
-elif ! grep -e ^LAST\ From:value\|\"Tom\ Jones\"\ \<sip:tom.jones@wales.uk\>\;tag=SIPpTag001$ log.log > /dev/null; then
+elif ! grep -qF 'LAST From:value|"Tom Jones" <sip:tom.jones@wales.uk>;tag=SIPpTag001' log.log; then
     fail "[last_From:value] not found"
-elif ! grep -e ^LAST\ To:uri\|sip:cheese@paris.fr$ log.log > /dev/null; then
+elif ! grep -qF 'LAST To:uri|sip:cheese@paris.fr' log.log; then
     fail "[last_To:uri] not found"
-elif ! grep -e ^LAST\ From:param.tag\|SIPpTag001$ log.log > /dev/null; then
+elif ! grep -qF 'LAST From:param.tag|SIPpTag001' log.log; then
     fail "[last_From:param.tag] not found"
 fi
 
