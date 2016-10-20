@@ -620,4 +620,19 @@ TEST(Parser, get_call_id_github_0101) { // github-#0101
     EXPECT_STREQ("1-18220@127.0.0.1", get_call_id(input));
 }
 
+TEST(Parser, get_header_uri) {
+    EXPECT_STREQ("abc@domain.com", get_header_uri("...\r\nContact: <abc@domain.com>;test=123\r\n\r\n", "Contact", ""));
+}
+
+TEST(Parser, get_param) {
+    EXPECT_STREQ("123", get_param("...\r\nContact: <abc@domain.com>;test=123\r\n\r\n", "test", "Contact", ""));
+}
+
+TEST(Parser, get_header) {
+    EXPECT_STREQ("Contact: <abc@domain.com>;test=123", get_header("...\r\nContact: <abc@domain.com>;test=123\r\n\r\n", "Contact:", false));
+}
+
+TEST(Parser, get_header_content) {
+    EXPECT_STREQ("<abc@domain.com>;test=123", get_header("...\r\nContact: <abc@domain.com>;test=123\r\n\r\n", "Contact:", true));
+}
 #endif //GTEST
