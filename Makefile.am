@@ -11,7 +11,7 @@ AM_CXXFLAGS=-I$(srcdir)/include -Wall -pedantic
 
 CLEANFILES =
 EXTRA_DIST = \
-	$(srcdir)/src/fortune.cpp \
+	$(srcdir)/example/fortune.cpp \
 	$(srcdir)/LICENSE.txt \
 	$(srcdir)/README.md \
 	$(srcdir)/THANKS \
