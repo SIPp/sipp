@@ -11,6 +11,10 @@ Changes in 3.6.0
   a single UAS with multiple RTP streams. (Issue #192, reported by
   @atsakiridis.)
 
+* Added RTP echo processing for multiple ports/sockets. Based on `rtp_echo`
+  action in script. Compile with  `--with-rtpstream` and use it by adding 
+ `<rtp_echo value="1">` to start the RTP echo on every call
+  (should be enabled via `-rtp_echo`).
 
 Features added in 3.6.0
 =======================

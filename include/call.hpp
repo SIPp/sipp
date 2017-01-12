@@ -174,6 +174,10 @@ protected:
 
 #ifdef RTP_STREAM
     rtpstream_callinfo_t rtpstream_callinfo;
+    pthread_t echo_thread;
+    int echo_port;
+    int echo_socket;
+    struct sockaddr_storage   echo_sockaddr;
 #endif
 
     /* holds the auth header and if the challenge was 401 or 407 */
@@ -239,7 +243,10 @@ protected:
                             int occurrence, bool headers);
     bool  rejectCall();
     double get_rhs(CAction *currentAction);
-
+#ifdef RTP_STREAM
+    int bindRtpEchoSock(int port_step, int port_offset);
+    bool createRtpEcho();
+#endif
     // P_index use for message index in scenario and ctrl of CRLF
     // P_index = -2 No ctrl of CRLF
     // P_index = -1 Add crlf to end of message

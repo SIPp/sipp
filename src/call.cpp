@@ -45,6 +45,9 @@
 #include <cstring>
 #include <sys/types.h>
 #include <sys/wait.h>
+#ifdef __LINUX
+#include <sys/prctl.h>
+#endif
 #include <assert.h>
 
 #ifdef PCAPPLAY
@@ -374,6 +377,10 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
 #ifdef RTP_STREAM
     /* check and warn on rtpstream_new_call result? -> error alloc'ing mem */
     rtpstream_new_call(&rtpstream_callinfo);
+
+    echo_thread = 0;
+    echo_socket = -1;
+    echo_port = 0;
 #endif
 
 #ifdef PCAPPLAY
@@ -589,6 +596,17 @@ call::~call()
 
 #ifdef RTP_STREAM
     rtpstream_end_call(&rtpstream_callinfo);
+
+    if (echo_thread != 0) {
+        pthread_cancel(echo_thread);
+        pthread_join(echo_thread, NULL);
+        echo_thread = 0;
+    }
+
+    if(echo_socket != -1) {
+        close(echo_socket);
+        echo_socket = -1;
+    }
 #endif
 
     if(dialog_authentication) {
@@ -1968,6 +1986,20 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if (comp->type == E_Message_Auto_Media_Port) {
                 port = media_port + (4 * (number - 1)) % 10000 + comp->offset;
             }
+#ifdef RTP_STREAM
+            if(rtp_echo_enabled) {
+                if(!echo_port && (echo_socket < 0)) {
+                    // will find unused port and set it into echo_port
+                    if(bindRtpEchoSock(number, comp->offset)) {
+                        WARNING_NO("Failed to bind socket for RTP echo\n");
+                    }
+                }
+
+                if(echo_port > 0) {
+                    port = echo_port;
+                }
+            }
+#endif
 #ifdef PCAPPLAY
             char *begin = dest;
             while (begin > msg_buffer) {
@@ -3203,6 +3235,162 @@ double call::get_rhs(CAction *currentAction)
     }
 }
 
+#ifdef RTP_STREAM
+
+
+static void call_rtp_echo_thread(void* param)
+{
+    char* msg = (char*)alloca(media_bufsize);
+    size_t nr, ns;
+    sipp_socklen_t len;
+    struct sockaddr_storage remote_rtp_addr;
+
+    int echo_socket = *(int*)param;
+
+    int                   rc;
+    sigset_t              mask;
+    sigfillset(&mask); /* Mask all allowed signals */
+    rc = pthread_sigmask(SIG_BLOCK, &mask, NULL);
+    if (rc) {
+        WARNING("pthread_sigmask returned %d", rc);
+        return;
+    }
+
+#ifdef __LINUX
+    struct sockaddr_in sin_data;
+    socklen_t sock_len = sizeof(sin_data);
+    if (getsockname(echo_socket, (struct sockaddr *)&sin_data, &sock_len) != -1) {
+        char thread_name[32];
+        int port = ntohs(sin_data.sin_port);
+
+        sprintf(thread_name, "call-echo-%d", port);
+
+        prctl(PR_SET_NAME, thread_name, 0, 0, 0);
+    }
+#endif
+
+    for (;;) {
+        len = sizeof(remote_rtp_addr);
+        nr = recvfrom(echo_socket, msg, media_bufsize, 0,
+                      (sockaddr*)&remote_rtp_addr, &len);
+
+        if (((long)nr) < 0) {
+            WARNING("%s %i",
+                    "Error on RTP echo reception - stopping echo - errno=",
+                    errno);
+            return;
+        }
+
+        if (!rtp_echo_state) {
+            continue;
+        }
+
+        ns = sendto(echo_socket, msg, nr, 0,
+                    (sockaddr*)&remote_rtp_addr, len);
+
+        if (ns != nr) {
+            WARNING("%s %i",
+                    "Error on RTP echo transmission - stopping echo - errno=",
+                    errno);
+            return;
+        }
+    }
+}
+
+int call::bindRtpEchoSock(int port_step, int port_offset)
+{
+    /* retrieve RTP local addr */
+    struct addrinfo   hints;
+    struct addrinfo * local_addr;
+
+    memset((char*)&hints, 0, sizeof(hints));
+    hints.ai_flags  = AI_PASSIVE;
+    hints.ai_family = PF_UNSPEC;
+
+    echo_socket = -1;
+
+    /* Resolving local IP */
+    if (getaddrinfo(media_ip,
+                    NULL,
+                    &hints,
+                    &local_addr) != 0) {
+        ERROR_NO("Unknown RTP address '%s'.\n"
+              "Use 'sipp -h' for details", media_ip);
+
+        return 1;
+    }
+
+    memset(&echo_sockaddr,0,sizeof(struct sockaddr_storage));
+    echo_sockaddr.ss_family = local_addr->ai_addr->sa_family;
+
+    memcpy(&echo_sockaddr,
+           local_addr->ai_addr,
+           local_addr->ai_addrlen);
+    freeaddrinfo(local_addr);
+
+    if ((echo_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
+                               SOCK_DGRAM, 0)) == -1) {
+        ERROR_NO("Unable to get the RTP socket for RTP echo (IP=%s, port=%d)",
+                 media_ip, echo_port);
+
+        return 1;
+    }
+
+    int try_counter;
+    int max_tries = 100;
+
+    echo_port = media_port + (4 * (port_step - 1)) % 10000 + port_offset;
+
+    for (try_counter = 0; try_counter < max_tries; try_counter++) {
+        sockaddr_update_port(&echo_sockaddr, echo_port);
+
+        // Use get_host_and_port to remove square brackets from an
+        // IPv6 address
+        get_host_and_port(media_ip, media_ip_escaped, NULL);
+
+        if (::bind(echo_socket, (sockaddr*)&echo_sockaddr,
+                   socklen_from_addr(&echo_sockaddr)) == 0) {
+            break;
+        }
+
+        echo_port = media_port + (4 * (try_counter + port_step - 1)) % 10000 + port_offset;
+    }
+
+    if (try_counter >= max_tries) {
+        ERROR_NO("Unable to bind RTP socket for RTP echo (IP=%s, port=%d)", media_ip, echo_port);
+
+        close(echo_socket);
+        echo_socket = -1;
+        echo_port = 0;
+
+        return 1;
+    }
+
+    return 0;
+}
+
+bool call::createRtpEcho()
+{
+    if(!rtp_echo_enabled || (echo_socket < 0)) {
+        return false;
+    }
+
+    /*start echo thread!*/
+    if(echo_thread == 0) {
+        if (pthread_create
+                (&echo_thread,
+                 NULL,
+                 (void *(*)(void *)) call_rtp_echo_thread,
+                 &echo_socket)
+                == -1) {
+            ERROR_NO("Unable to create RTP echo thread");
+        }
+    }
+
+    return true;
+}
+#endif
+
 call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 {
     CActions*  actions;
@@ -3694,6 +3882,10 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 #ifdef RTP_STREAM
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_ECHO) {
             rtp_echo_state = (currentAction->getDoubleValue() != 0);
+
+            if(media_port != echo_port) {
+                createRtpEcho();
+            }
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSE) {
             rtpstream_pause(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUME) {

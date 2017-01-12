@@ -352,6 +352,11 @@ extern bool     socket_close        _DEFVAL(true);
 extern bool     test_socket         _DEFVAL(true);
 extern bool     maxSocketPresent    _DEFVAL(false);
 
+
+extern int      rtp_echo_bind_sock(struct sockaddr_storage *echo_sockaddr, int *echo_socket, int *echo_port, int port_offset, int port_step);
+extern void     rtp_echo_run_thread(pthread_t *echo_thread, int *echo_socket);
+
+
 #include "time.hpp"
 
 /************************ Statistics **************************/
