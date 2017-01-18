@@ -46,6 +46,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <assert.h>
+#include <spawn.h>
 
 #ifdef PCAPPLAY
 #include "send_packets.h"
@@ -59,6 +60,7 @@
 #define callDebug(...) do { if (useCallDebugf) { _callDebug( __VA_ARGS__ ); } } while (0)
 
 extern  map<string, SIPpSocket *>     map_perip_fd;
+extern char **environ;
 
 #ifdef PCAPPLAY
 /* send_packets pthread wrapper */
@@ -3586,39 +3588,25 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             ERROR("%s", x);
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
-            // TRACE_MSG("Trying to execute [%s]", x);
+            char *argv[] = {"sh", "-c", x, NULL};
             pid_t l_pid;
-            switch(l_pid = fork()) {
-            case -1:
-                // error when forking !
-                ERROR_NO("Forking error main");
-                break;
-
-            case 0:
-                // first child process - execute the command
-                if((l_pid = fork()) < 0) {
-                    ERROR_NO("Forking error child");
-                } else {
-                    if( l_pid == 0) {
-                        int ret;
-                        ret = system(x); // second child runs
-                        if(ret == -1) {
-                            WARNING("system call error for %s", x);
-                        }
-                    }
-                    exit(EXIT_OTHER);
+            /* Spawn new process to execute the given command. */
+            int ret;
+            ret = posix_spawn(&l_pid, "/bin/sh", NULL, NULL, argv, environ);
+            if (ret != 0) {
+              ERROR("posix_spawn failed to spawn new process, error: %d", ret);
+            }
+            if (currentAction->getWaitForCommand()) {
+              /* Wait for spawned process to finish before continuing. */
+              pid_t ret2;
+              while ((ret2 = waitpid(l_pid, NULL, 0)) != l_pid) {
+                if (ret2 != -1) {
+                  ERROR("waitpid returns %1d for child process %1d", ret2, l_pid);
                 }
-                break;
-            default:
-                // parent process continue
-                // reap first child immediately
-                pid_t ret;
-                while ((ret=waitpid(l_pid, NULL, 0)) != l_pid) {
-                    if (ret != -1) {
-                        ERROR("waitpid returns %1d for child %1d", ret, l_pid);
-                    }
-                }
-                break;
+              }
+            } else {
+              /* Check if spawned process has completed, if so then reap it. */
+              waitpid(l_pid, NULL, WNOHANG);
             }
         } else if (currentAction->getActionType() == CAction::E_AT_EXEC_INTCMD) {
             switch (currentAction->getIntCmd()) {

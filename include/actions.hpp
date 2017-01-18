@@ -124,6 +124,7 @@ public:
     bool           getCheckItInverse();
     bool           getCaseIndep();
     bool           getHeadersOnly();
+    bool           getWaitForCommand();
     int            getVarId();
     int            getVarInId();
     int            getVarIn2Id();
@@ -160,6 +161,7 @@ public:
     void setDistribution (CSample *      P_value);  /* sample specific function  */
     void setDoubleValue  (double         P_value);  /* assign value specific function  */
     void setStringValue  (char *         P_value);  /* strcmp value specific function  */
+    void setWaitForCommand (bool         P_value);
 #ifdef PCAPPLAY
     void setPcapArgs(const char* P_value);          /* send_packets specific function */
     void setPcapArgs     (pcap_pkts   *  P_value);  /* send_packets specific function */
@@ -189,6 +191,7 @@ private:
     bool           M_checkItInverse;
     bool           M_caseIndep;
     bool           M_headersOnly;
+    bool           M_waitForCommand;
     int            M_varId;
     int            M_varInId;
     int            M_varIn2Id;
