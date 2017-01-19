@@ -3588,6 +3588,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             ERROR("%s", x);
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            // TRACE_MSG("Trying to execute [%s]", x);
             char *argv[] = {"sh", "-c", x, NULL};
             pid_t l_pid;
             /* Spawn new process to execute the given command. */
