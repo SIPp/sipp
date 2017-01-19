@@ -110,7 +110,7 @@ void CAction::afficheInfo()
                    M_checkItInverse, display_scenario->allocVars->getName(M_varId));
         }
     } else if (M_action == E_AT_EXECUTE_CMD) {
-        printf("Type[%d] - command[%-32.32s]", M_action, M_message_str[0]);
+        printf("Type[%d] - command[%-32.32s] - waitforcommand[%d]", M_action, M_message_str[0], M_waitForCommand);
     } else if (M_action == E_AT_EXEC_INTCMD) {
         printf("Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
     } else if (M_action == E_AT_LOG_TO_FILE) {
@@ -200,6 +200,10 @@ bool           CAction::getCheckItInverse()
 bool           CAction::getCaseIndep()
 {
     return(M_caseIndep);
+}
+bool           CAction::getWaitForCommand()
+{
+    return(M_waitForCommand);
 }
 bool           CAction::getHeadersOnly()
 {
@@ -298,6 +302,10 @@ void CAction::setIntCmd       (T_IntCmdType P_type)
 void CAction::setComparator   (T_Comparator P_value)
 {
     M_comp         = P_value;
+}
+void CAction::setWaitForCommand      (bool           P_value)
+{
+    M_checkIt      = P_value;
 }
 
 /* sample specific function. */
@@ -609,6 +617,7 @@ void CAction::setAction(CAction P_action)
 #ifdef RTP_STREAM
     setRTPStreamActInfo(&(P_action.M_rtpstream_actinfo));
 #endif
+    setWaitForCommand      ( P_action.getWaitForCommand()      );
 }
 
 CAction::CAction(scenario *scenario)
@@ -648,6 +657,7 @@ CAction::CAction(scenario *scenario)
     M_scenario     = scenario;
     M_regExpSet    = false;
     M_regularExpression = NULL;
+    M_waitForCommand = true;
 }
 
 CAction::~CAction()

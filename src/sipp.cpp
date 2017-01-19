@@ -36,6 +36,7 @@
  */
 
 #include <dlfcn.h>
+#include <sys/wait.h>
 
 #define GLOBALS_FULL_DEFINITION
 #include "sipp.hpp"
@@ -569,6 +570,10 @@ static bool traffic_thread()
         /* Receive incoming messages */
         SIPpSocket::pollset_process(running_tasks->empty());
     }
+
+    /* Clean up any child processes that have been spawned and have completed. */
+    waitpid(-1, NULL, WNOHANG);
+
     return true;
 }
 
