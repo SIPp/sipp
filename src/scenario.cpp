@@ -1617,7 +1617,7 @@ void scenario::parseAction(CActions *actions)
                 hasMedia = 1;
                 free(ptr);
             } else if ((cptr = xp_get_value("play_dtmf"))) {
-                tmpAction->setMessage(ptr);
+                tmpAction->setMessage(cptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_DTMF);
                 hasMedia = 1;
 #else
