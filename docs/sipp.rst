@@ -51,16 +51,26 @@ the screen view by pressing 1 to 9 keys on the keyboard.
 
 + Key '1': Scenario screen. It displays a call flow of the scenario as
   well as some important informations.
+
+.. image:: sipp-03.jpg
+
 + Key '2': Statistics screen. It displays the main statistics
   counters. The "Cumulative" column gather all statistics, since SIPp
   has been launched. The "Periodic" column gives the statistic value for
   the period considered (specified by -f frequency command line
   parameter).
+
+.. image:: sipp-04.jpg
+
 + Key '3': Repartition screen. It displays the distribution of
   response time and call length, as specified in the scenario.
+
+.. image:: sipp-05.jpg
+
 + Key '4': Variables screen. It displays informations on actions in
   scenario as well as scenario variable informations.
 
+.. image:: sipp-06.jpg
 
 
 
@@ -101,14 +111,12 @@ Contributing to SIPp
 
 Of course, we welcome contributions, and many of SIPp's features
 (including epoll support for better Linux performance, RTP streaming,
-and Cygwin support) have come from external contributions. See `here`_
-for how to get started.
+and Cygwin support) have come from external contributions. 
 
 byRichard GAYRAUD [initial code],Olivier JACQUES
 [code/documentation],Robert Day [code/documentation],Charles P. Wright
 [code],Many contributors [code]
 Copyright 2004-2013 The authors All rights reserved.
-Send feedback about the website to: `Rob Day`_
 .. _SIPp
 .. _OpenSSL library: http://www.openssl.org/
 .. _original XML file: http://sipp.sourceforge.net/doc/3pcc-C-B.xml
@@ -122,8 +130,6 @@ Send feedback about the website to: `Rob Day`_
 .. _GNU GPL license: http://www.gnu.org/copyleft/gpl.html
 .. _License: http://sipp.sourceforge.net/doc/../doc/license.html
 .. _original XML file: http://sipp.sourceforge.net/doc/ooc_default.xml
-.. _Documentation (3.3): http://sipp.sourceforge.net/doc/../doc3.3/reference.html
-.. _Documentation - Chinese translation [pdf]: http://sipp.sourceforge.net/doc/../doc/cn-reference.pdf
 .. _original XML file: http://sipp.sourceforge.net/doc/3pcc-A.xml
 .. _original XML file: http://sipp.sourceforge.net/doc/3pcc-B.xml
 .. _Documentation [html]: http://sipp.sourceforge.net/doc/../doc/reference.html
@@ -131,20 +137,14 @@ Send feedback about the website to: `Rob Day`_
 .. _Home: http://sipp.sourceforge.net/doc/../index.html
 .. _Gnu Scientific Libraries: http://www.gnu.org/software/gsl/
 .. _Pareto on Wikipedia: http://en.wikipedia.org/wiki/Pareto_distribution
-.. _
-                  Posix Extended standard (POSIX 1003.2): http://www.opengroup.org/onlinepubs/007908799/xbd/re.html
-.. _
-        PDF: http://sipp.sourceforge.net/doc/reference.pdf
-.. _sipp-01.wmv: http://sipp.sourceforge.net/doc/images/sipp-01.wmv
-.. _Rob Day: mailto:rkd@rkd.me.uk?subject=SIPp Feedback%C2%A0doc/reference.html
+.. _Posix Extended standard (POSIX 1003.2): http://www.opengroup.org/onlinepubs/007908799/xbd/re.html
+.. _PDF: http://sipp.sourceforge.net/doc/reference.pdf
 .. _original XML file: http://sipp.sourceforge.net/doc/uac.xml
 .. _here: https://github.com/SIPp/sipp/wiki/New-Developers'-Guide
 .. _original XML file: http://sipp.sourceforge.net/doc/uac_pcap.xml
-.. _
-        XML: http://sipp.sourceforge.net/doc/reference.xml
+.. _XML: http://sipp.sourceforge.net/doc/reference.xml
 .. _http://win6.jp/Cygwin/: http://win6.jp/Cygwin/
-.. _
-                  regexp tutorial: http://analyser.oli.tudelft.nl/regex/index.html.en
+.. _regexp tutorial: http://analyser.oli.tudelft.nl/regex/index.html.en
 .. _FAQ: http://sipp.sourceforge.net/doc/../doc/faq.html
 .. _http://www.jedit.org/: http://www.jedit.org/
 .. _WinPcap developer package: http://www.winpcap.org/devel.htm
@@ -156,8 +156,6 @@ Send feedback about the website to: `Rob Day`_
 .. _PCAP library: http://www.tcpdump.org/pcap3_man.html
 .. _ooc_default.xml: http://sipp.sourceforge.net/doc/ooc_default.xml.html
 .. _sipp-users@lists.sourceforge.net: mailto:sipp-users.at.lists.sourceforge.net
-.. _SIPp's
-            SVN: http://sipp.svn.sourceforge.net/viewvc/sipp/sipp/trunk/
 .. _branchc.xml: http://sipp.sourceforge.net/doc/branchc.xml.html
 .. _sipp.dtd: http://sipp.sourceforge.net/doc/sipp.dtd
 .. _uac.xml: http://sipp.sourceforge.net/doc/uac.xml.html

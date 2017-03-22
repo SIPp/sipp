@@ -7,21 +7,22 @@ Welcome to SIPp reference documentation!
 ========================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
    foreword
    installation
    sipp
-   scenarios
+   int_scenarios
+   scenarios/index
    3PCC_extended
    controlling
-   ownscenarios
    transport
    media
    statistics
    error
-   
+   perftest
+   tools
    
 
 

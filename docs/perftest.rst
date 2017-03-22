@@ -13,10 +13,10 @@ is possible with SIPp, provided that you follow some guidelines:
 
 + Use a Linux system to reach high performances. The Windows port of
   SIPp (through CYGWIN) cannot handle high performances.
-+ Limit the traces to a minimum (usage of -trace_msg, -trace_logs
++ Limit the traces to a minimum (usage of ``-trace_msg``, ``-trace_logs``
   should be limited to scenario debugging only)
 + Understand internal SIPp's scheduling mechanism and use the
-  -timer_resol, -max_recv_loops and -max_sched_loops command line
+  ``-timer_resol``, ``-max_recv_loops`` and ``-max_sched_loops`` command line
   parameters to tune SIPp given the system it is running on.
 
 
@@ -24,9 +24,9 @@ Generally, running performance tests also implies measuring response
 times. You can use SIPp's timers (start_rtd, rtd in scenarios and
 -trace_rtt command line option) to measure those response times. The
 precision of those measures are entirely dependent on the timer_resol
-parameter (as described in "SIPp's internal scheduling" section). You
+parameter (as described in `SIPp's internal scheduling`_ section). You
 might want to use another "objective" method if you want to measure
-those response times with a high precision (a tool like `Wireshark`_
+those response times with a high precision (a tool like Wireshark
 will allow you to do so).
 
 

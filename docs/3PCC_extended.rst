@@ -65,3 +65,5 @@ can easily adapt those from 3pcc.
 The arrows that are shown between SIPp master and slaves depict only
 the synchronization commands exchanged between the different SIPp
 instances. The SIP message exchange takes place as usual.
+
+.. image:: master_slave.png
