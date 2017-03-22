@@ -154,3 +154,4 @@ texinfo_documents = [
 
 
 
+highlight_language = 'XML'
