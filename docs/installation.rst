@@ -131,7 +131,7 @@ option to the configure command:
 
 .. warning:: 
   SIPp compiles under CYGWIN on Windows, provided that you
-  installed IPv6 extension for CYGWIN (`http://win6.jp/Cygwin/`_), as
+  installed IPv6 extension for `CYGWIN <http://win6.jp/Cygwin/>`_, as
   well as libncurses and (optionally OpenSSL and WinPcap). SCTP is not
   currently supported.
 
