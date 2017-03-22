@@ -10,6 +10,7 @@ Welcome to SIPp reference documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   foreword
    installation
    sipp
    scenarios

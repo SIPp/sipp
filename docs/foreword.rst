@@ -24,9 +24,6 @@ Want to see it?
 
 Here is a screenshot
 
+.. figure:: sipp-01.jpg
 
-
-And here is a video (Windows Media Player 9 codec or above required)
-of SIPp in action:
-
-`sipp-01.wmv`_
+   
