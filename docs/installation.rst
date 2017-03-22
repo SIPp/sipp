@@ -25,6 +25,7 @@ be confident that all mentioned features will work :)
   Use the stable release for your everyday use and if you are not
   blocked by a specific feature present in the "unstable release" (see
   below).
+
 `SIPp stable download page <https://github.com/SIPp/sipp/releases>`_
 
 
@@ -33,7 +34,7 @@ Unstable release
 ````````````````
 
 Unstable release: all new features and bug fixes are checked in
-`SIPp's SVN`_ repository as soon as they are available.
+`SIPp's master tree`_ repository as soon as they are available.
 
 .. note::
   Use the unstable release if you absolutely need a bug fix or a feature
@@ -82,9 +83,9 @@ Installing SIPp
 
 
 + With TLS support, 
-you must have installed `OpenSSL library`_(>=0.9.8) (which may come 
-with your system). Building SIPp consists only in adding the "--with-openssl" 
-option to the configure command:
+  you must have installed `OpenSSL library`_ (>=0.9.8) (which may come 
+  with your system). Building SIPp consists only in adding the "--with-openssl" 
+  option to the configure command:
 
 ::
 
@@ -141,3 +142,10 @@ option to the configure command:
     + Remove or rename "pthread.h" in "C:\cygwin\lib\WpdPack\Include", as
       it interfers with pthread.h from cygwin
     + Compile according to the instructions above.
+
+.. _GNU GPL license: http://www.gnu.org/copyleft/gpl.html
+.. _Gnu Scientific Libraries: http://www.gnu.org/software/gsl/
+.. _WinPcap developer package: http://www.winpcap.org/devel.htm
+.. _hewlett-packard: http://www.hp.com/
+.. _SIPp's master tree: https://github.com/SIPp/sipp/tree/master
+.. _OpenSSL library: http://www.openssl.org/

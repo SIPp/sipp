@@ -32,21 +32,53 @@ that can be used for all of the message commands (i.e., <send> ,
 
 List of attributes common to all commands
 `````````````````````````````````````````
-Attribute(s) Description Example start_rtd Starts one of the " R
-esponse T ime D uration" timer. (see statistics section). <send
-start_rtd="invite">: the timer named "invite" will start when the
-message is sent. rtd Stops one of the 5 " R esponse T ime D uration"
-timer. <send rtd="2">: the timer number 2 will stop when the message
-is sent. repeat_rtd Used with a rtd attribute, it allows the
-corresponding " R esponse T ime D uration" timer to be counted more
-than once per call (useful for loop call flows). <send rtd="1"
-repeat_rtd="true">: the timer number 1 value will be printed but the
-timer won't stop. crlf Displays an empty line after the arrow for the
-message in main SIPp screen. <send crlf="true"> next You can put a
-"next" in any command element to go to another part of the script when
+
+start_rtd
+*********
+Starts one of the " Response Time Duration" timer. (see statistics section). 
+
+<send start_rtd="invite">: the timer named "invite" will start when the
+message is sent. 
+
+rtd 
+***
+Stops one of the 5 " Response Time Duration"
+timer. 
+
+::
+  
+  <send rtd="2">
+
+the timer number 2 will stop when the message is sent. 
+
+repeat_rtd
+**********
+Used with a rtd attribute, it allows the
+corresponding " Response Time Duration" timer to be counted more
+than once per call (useful for loop call flows). 
+::
+
+  <send rtd="1"repeat_rtd="true"> 
+
+the timer number 1 value will be printed but the timer won't stop. 
+
+crlf 
+****
+Displays an empty line after the arrow for the
+message in main SIPp screen. 
+
+::
+  
+  <send crlf="true">
+
+next
+****
+You can put a "next" 
+in any command element to go to another part of the script when
 you are done with sending the message. For optional receives, the next
 is only taken if that message was received. See conditional branching
 section for more info.
+
 Example to jump to label "12" after sending an ACK:
 
 ::
@@ -83,10 +115,14 @@ Example to jump to label "5" when receiving a 403 message:
       <recv response="200">
       </recv>
 
-test You can put a "test" next to a "next" attribute to indicate that
+test 
+****
+You can put a "test" next to a "next" attribute to indicate that
 you only want to branch to the label specified with "next" if the
 variable specified in "test" is set (through regexp for example). See
-conditional branching section for more info. Example to jump to label
+conditional branching section for more info. 
+
+Example to jump to label
 "6" after sending an ACK only if variable 4 is set:
 
 ::
@@ -108,7 +144,9 @@ conditional branching section for more info. Example to jump to label
         ]]>
       </send>
 
-chance In combination with "test", probability to actually branch to
+chance 
+******
+In combination with "test", probability to actually branch to
 another part of the scenario. Chance can have a value between 0
 (never) and 1 (always). See conditional branching section for more
 info.
@@ -118,17 +156,39 @@ info.
       <recv response="403" optional="true" next="5" test="3" chance="0.90">
       </recv>
 
-90% chance to go to label "5" if variable "3" is set. condexec
+90% chance to go to label "5" if variable "3" is set. 
+
+condexec
+********
 Executes an element only if the variable in the condexec attribute is
 set. This attribute allows you to write complex XML scenarios with
-fewer next attributes and labels. <nop condexec="executethis">
-condexec_inverse If condexec is set, condexec_inverse inverts the
+fewer next attributes and labels. 
+
+::
+
+  <nop condexec="executethis">
+
+condexec_inverse 
+****************
+If condexec is set, condexec_inverse inverts the
 condition in condexec. This allows you to execute an element only when
-a variable is **not** set. <nop condexec="skipthis"
-condexec_inverse="true"> counter Increments the counter given as
+a variable is **not** set. 
+
+::
+
+  <nop condexec="skipthis"condexec_inverse="true"> 
+
+counter 
+*******
+Increments the counter given as
 parameter when the message is sent. The counters are saved in the
-statistic file. <send counter="MsgA">: Increments counter "MsgA" when
-the message is sent.
+statistic file. 
+
+::
+
+  <send counter="MsgA">
+
+Increments counter "MsgA" when the message is sent.
 Each command also has its own unique attributes, listed here:
 
 

@@ -82,95 +82,62 @@ To ease automation of testing, upon exit (on fatal error or when the
 number of asked calls (-m command line option) is reached, sipp exits
 with one of the following exit codes:
 
-
-+ 0: All calls were successful
-+ 1: At least one call failed
-+ 97: exit on internal command. Calls may have been processed. Also
-  exit on global timeout (see -timeout_global option)
-+ 99: Normal exit without calls processed
-+ -1: Fatal error
-
+====  ===========
+Code  Description
+====  ===========
+0     All calls were successful
+1     At least one call failed
+97    exit on internal command. Calls may have been processed. Also
+      exit on global timeout (see -timeout_global option)
+99    Normal exit without calls processed
+1     Fatal error
+====  ===========
 
 Depending on the system that SIPp is running on, you can echo this
 exit code by using "echo ?" command.
 
 
 
-
-
-
-
-
-
-
-
-
-
 Contributing to SIPp
-~~~~~~~~~~~~~~~~~~~~
+````````````````````
 
 Of course, we welcome contributions, and many of SIPp's features
 (including epoll support for better Linux performance, RTP streaming,
 and Cygwin support) have come from external contributions. 
 
-byRichard GAYRAUD [initial code],Olivier JACQUES
-[code/documentation],Robert Day [code/documentation],Charles P. Wright
-[code],Many contributors [code]
-Copyright 2004-2013 The authors All rights reserved.
-.. _SIPp
-.. _OpenSSL library: http://www.openssl.org/
+See `developers guide`_ for how to get started
+
++ Richard GAYRAUD [initial code] 
++ Olivier JACQUES [code/documentation]
++ Robert Day [code/documentation]
++ Charles P. Wright [code]
++ Many contributors [code]
+
+
+.. _developers guide: https://github.com/SIPp/sipp/wiki/New-Developers'-Guide
 .. _original XML file: http://sipp.sourceforge.net/doc/3pcc-C-B.xml
 .. _3pcc-C-B.xml: http://sipp.sourceforge.net/doc/3pcc-C-B.xml.html
 .. _original XML file: http://sipp.sourceforge.net/doc/regexp.xml
-.. _Documentation [pdf]: http://sipp.sourceforge.net/doc/../doc/reference.pdf
 .. _original XML file: http://sipp.sourceforge.net/doc/3pcc-C-A.xml
 .. _uas.xml: http://sipp.sourceforge.net/doc/uas.xml.html
 .. _original XML file: http://sipp.sourceforge.net/doc/branchs.xml
-.. _Negative Binomial on Wikipedia: http://en.wikipedia.org/wiki/Negative_binomial_distribution
-.. _GNU GPL license: http://www.gnu.org/copyleft/gpl.html
 .. _License: http://sipp.sourceforge.net/doc/../doc/license.html
 .. _original XML file: http://sipp.sourceforge.net/doc/ooc_default.xml
 .. _original XML file: http://sipp.sourceforge.net/doc/3pcc-A.xml
 .. _original XML file: http://sipp.sourceforge.net/doc/3pcc-B.xml
-.. _Documentation [html]: http://sipp.sourceforge.net/doc/../doc/reference.html
-.. _Weibull on Wikipedia: http://en.wikipedia.org/wiki/Weibull
-.. _Home: http://sipp.sourceforge.net/doc/../index.html
-.. _Gnu Scientific Libraries: http://www.gnu.org/software/gsl/
-.. _Pareto on Wikipedia: http://en.wikipedia.org/wiki/Pareto_distribution
-.. _Posix Extended standard (POSIX 1003.2): http://www.opengroup.org/onlinepubs/007908799/xbd/re.html
-.. _PDF: http://sipp.sourceforge.net/doc/reference.pdf
 .. _original XML file: http://sipp.sourceforge.net/doc/uac.xml
-.. _here: https://github.com/SIPp/sipp/wiki/New-Developers'-Guide
 .. _original XML file: http://sipp.sourceforge.net/doc/uac_pcap.xml
 .. _XML: http://sipp.sourceforge.net/doc/reference.xml
-.. _http://win6.jp/Cygwin/: http://win6.jp/Cygwin/
-.. _regexp tutorial: http://analyser.oli.tudelft.nl/regex/index.html.en
-.. _FAQ: http://sipp.sourceforge.net/doc/../doc/faq.html
-.. _http://www.jedit.org/: http://www.jedit.org/
-.. _WinPcap developer package: http://www.winpcap.org/devel.htm
 .. _branchs.xml: http://sipp.sourceforge.net/doc/branchs.xml.html
 .. _3pcc-C-A.xml: http://sipp.sourceforge.net/doc/3pcc-C-A.xml.html
-.. _tcpdump: http://www.tcpdump.org/
-.. _RFC 3725: http://www.ietf.org/rfc/rfc3725.txt
-.. _http://www.iptel.org/~sipsc/: http://www.iptel.org/~sipsc/
-.. _PCAP library: http://www.tcpdump.org/pcap3_man.html
 .. _ooc_default.xml: http://sipp.sourceforge.net/doc/ooc_default.xml.html
-.. _sipp-users@lists.sourceforge.net: mailto:sipp-users.at.lists.sourceforge.net
 .. _branchc.xml: http://sipp.sourceforge.net/doc/branchc.xml.html
 .. _sipp.dtd: http://sipp.sourceforge.net/doc/sipp.dtd
 .. _uac.xml: http://sipp.sourceforge.net/doc/uac.xml.html
-.. _Hewlett-Packard: http://www.hp.com
-.. _sipp-02.wmv: http://sipp.sourceforge.net/doc/images/sipp-02.wmv
 .. _original XML file: http://sipp.sourceforge.net/doc/uas.xml
 .. _3pcc-A.xml: http://sipp.sourceforge.net/doc/3pcc-A.xml.html
-.. _http://lists.sourceforge.net/lists/listinfo/sipp-users: http://lists.sourceforge.net/lists/listinfo/sipp-users
-.. _http://callflow.sourceforge.net/: http://callflow.sourceforge.net/
-.. _SIPp v3.4 (current): http://sipp.sourceforge.net/doc/../doc/
-.. _Documentation (3.2): http://sipp.sourceforge.net/doc/../doc3.2/reference.html
 .. _3pcc-B.xml: http://sipp.sourceforge.net/doc/3pcc-B.xml.html
-.. _http://www.wireshark.org/: http://www.wireshark.org/
 .. _regexp.xml: http://sipp.sourceforge.net/doc/regexp.xml.html
-.. _Gamma on Wikipedia: http://en.wikipedia.org/wiki/Gamma_distribution
 .. _uac_pcap.xml: http://sipp.sourceforge.net/doc/uac_pcap.xml.html
 .. _original XML file: http://sipp.sourceforge.net/doc/branchc.xml
 

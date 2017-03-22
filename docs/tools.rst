@@ -32,3 +32,5 @@ that in a graphical way: `callflow <http://callflow.sourceforge.net/>`_
 
 An equivalent exist if you want to generate HTML only call flows
 `http://www.iptel.org/~sipsc/`_
+
+.. _http://www.iptel.org/~sipsc/: http://www.iptel.org/~sipsc/

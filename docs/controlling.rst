@@ -9,9 +9,9 @@ and also a simple command mode. The hot keys are:
 =====  ======
  Key   Action
 =====  ======
-\+      Increase the call rate by 1 * rate_scale 
+\+     Increase the call rate by 1 * rate_scale 
 \*     Increase the call rate by 10 * rate_scale 
-\-      Decrease the call rate by 1 * rate_scale 
+\-     Decrease the call rate by 1 * rate_scale 
 /      Decrease the call rate by 10 * rate_scale 
 c      Enter command mode 
 q      Quit SIPp (after all calls complete, enter a second time to quit immediately) 

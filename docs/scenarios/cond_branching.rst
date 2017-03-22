@@ -1,3 +1,5 @@
+.. _cond-branching:
+
 Conditional branching
 `````````````````````
 

@@ -1,11 +1,11 @@
 Actions
 =======
 
-In a "recv" or "recvCmd" command, you have the possibility to execute
+In a `recv`_ or `recvCmd`_ command, you have the possibility to execute
 an action. Several actions are available:
 
 
-+ Regular expressions (ereg)
++ `Regular expressions`_ (ereg)
 + Log something in aa log file (log)
 + Execute an external (system), internal (int_cmd) or
   pcap_play_audio/pcap_play_video command (exec)
@@ -42,33 +42,47 @@ Here is the syntax of the regexp action:
 
 regexp action syntax
 ````````````````````
-Keyword Default Description regexp None Contains the regexp to use for
-matching the received message or header. MANDATORY. search_in msg can
-have four values: "msg" (try to match against the entire message);
-"hdr" (try to match against a specific SIP header); "body" (try to
-match against the SIP message body); or "var" (try to match against a
-SIPp string variable). header None Header to try to match against.
-Only used when the search_in tag is set to hdr. MANDATORY IF search_in
-is equal to hdr. variable None Variable to try to match against. Only
-used when the search_in tag is set to var. MANDATORY IF search_in is
-equal to var. case_indep false To look for a header ignoring case .
-Only used when the search_in tag is set to hdr. occurence 1 To find
-the nth occurence of a header. Only used when the search_in tag is set
-to hdr. start_line false To look only at start of line. Only used when
-the search_in tag is set to hdr. check_it false if set to true, the
-call is marked as failed if the regexp doesn't match. Can not be
-combined with check_it_inverse. check_it_inverse false Inverse of
-check_it. iff set to true, the call is marked as failed if the regexp
-does match. Can not be combined with check_it. assign_to None contain
-the variable id (integer) or a list of variable id which will be used
-to store the result(s) of the matching process between the regexp and
-the message. Those variables can be re-used at a later time either by
-using '[$n]' in the scenario to inject the value of the variable in
-the messages or by using the content of the variables for conditional
-branching. The first variable in the variable list of assign_to
-contains the entire regular expression matching. The following
-variables contain the sub-expressions matching. Example:
 
+================  ======= ===========
+Keyword           Default Description 
+================  ======= ===========
+regexp            None    Contains the regexp to use for
+                          matching the received message or header. MANDATORY. 
+search_in         msg     can have four values: "msg" (try to match against the entire message),
+                          "hdr" (try to match against a specific SIP header), "body" (try to
+                          match against the SIP message body), or "var" (try to match against a
+                          SIPp string variable). 
+header            None    Header to try to match against.
+                          Only used when the search_in tag is set to hdr. MANDATORY IF search_in
+                          is equal to hdr. 
+variable          None    Variable to try to match against. Only
+                          used when the search_in tag is set to var. MANDATORY IF search_in is
+                          equal to var. 
+case_indep        false   To look for a header ignoring case .
+                          Only used when the search_in tag is set to hdr. 
+occurence     1           To find the nth occurence of a header. Only used when the search_in tag is set
+                          to hdr. 
+start_line        false   To look only at start of line. Only used when
+                          the search_in tag is set to hdr. 
+check_it          false   if set to true, the
+                          call is marked as failed if the regexp doesn't match. Can not be
+                          combined with check_it_inverse. 
+check_it_inverse  false   Inverse of
+                          check_it. iff set to true, the call is marked as failed if the regexp
+                          does match. Can not be combined with check_it. 
+assign_to         None    contain
+                          the variable id (integer) or a list of variable id which will be used
+                          to store the result(s) of the matching process between the regexp and
+                          the message. Those variables can be re-used at a later time either by
+                          using '[$n]' in the scenario to inject the value of the variable in
+                          the messages or by using the content of the variables for conditional
+                          branching. The first variable in the variable list of assign_to
+                          contains the entire regular expression matching. The following
+                          variables contain the sub-expressions matching. 
+================  ======= ===========
+
+Example for assign_to
+---------------------
 ::
 
     <ereg regexp="o=([[:alnum:]]*) ([[:alnum:]]*) ([[:alnum:]]*)"
@@ -123,9 +137,9 @@ The "log" action allows you to customize your traces. Messages are
 printed in the <scenario file name>_<pid>_logs.log file. Any keyword
 is expanded to reflect the value actually used.
 
-Warning
-Logs are generated only if -trace_logs option is set on the command
-line.
+.. warning::
+  Logs are generated only if -trace_logs option is set on the command line.
+
 Example:
 
 ::
@@ -229,14 +243,14 @@ play_pcap_audio="[file_to_play]" with:
 + file_to_play: the pre-recorded pcap file to play
 
 
-Note
-The action is non-blocking. SIPp will start a light-weight thread to
-play the file and the scenario with continue immediately. If needed,
-you will need to add a pause to wait for the end of the pcap play.
-Warning
-A known bug means that starting a pcap_play_audio command will end any
-pcap_play_video command, and vice versa; you cannot play both audio
-and video streams at once.
+.. note::
+  The action is non-blocking. SIPp will start a light-weight thread to
+  play the file and the scenario with continue immediately. If needed,
+  you will need to add a pause to wait for the end of the pcap play.
+.. warning::
+  A known bug means that starting a pcap_play_audio command will end any
+  pcap_play_video command, and vice versa; you cannot play both audio
+  and video streams at once.
 
 Example that plays a pre-recorded RTP stream:
 
@@ -511,12 +525,12 @@ connects to the value specified in the [next_url] keyword.
       
 
 
-Warning
-If you are using setdest with IPv6, you must not use square brackets
-around the address. These have a special meaning to SIPp, and it will
-try to interpret your IPv6 address as a variable.
-Since the port is specified separately, square brackets are never
-necessary.
+:: warning..
+  If you are using setdest with IPv6, you must not use square brackets
+  around the address. These have a special meaning to SIPp, and it will
+  try to interpret your IPv6 address as a variable.
+  Since the port is specified separately, square brackets are never
+  necessary.
 
 
 verifyauth
@@ -566,3 +580,4 @@ on the result:
       <nop hide="true" test="authvalid" next="goodauth" />
       <nop hide="true" next="badauth" />
 
+.. _PCAP library: http://www.tcpdump.org/pcap3_man.html

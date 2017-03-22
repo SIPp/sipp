@@ -31,8 +31,7 @@ PCAP Play
 
 The PCAP play feature makes use of the `PCAP library`_ to replay pre-
 recorded RTP streams towards a destination. RTP streams can be
-recorded by tools like `Wireshark`_ (formerly known as Ethereal) or
-`tcpdump`_. This allows you to:
+recorded by tools like Wireshark or ``tcpdump``. This allows you to:
 
 
 + Play any RTP stream (voice, video, voice+video, out of band
@@ -42,13 +41,13 @@ recorded by tools like `Wireshark`_ (formerly known as Ethereal) or
   will try to replay the RTP stream as it was recorded (limited to the
   performances of the system).
 + Reproduce exactly what has been captured using an IP sniffer like
-  `Wireshark`_.
+  Wireshark.
 
 
 A good example is the UAC with media (uac_pcap) embedded scenario.
 
 SIPp comes with a G711 alaw pre-recorded pcap file and out of band
-(RFC 2833) DTMFs in the pcap/ directory.
+(:rfc:`2833`) DTMFs in the pcap/ directory.
 
 .. warning::
 	The PCAP play feature uses pthread_setschedparam calls from pthread
@@ -60,3 +59,4 @@ SIPp comes with a G711 alaw pre-recorded pcap file and out of band
 More details on the possible PCAP play actions can be found in the
 action reference section.
 
+.. _PCAP library: http://www.tcpdump.org/pcap3_man.html

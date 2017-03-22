@@ -120,16 +120,3 @@ interest (e.g., "1_INVITE_Sent" or "2_100_Unexp"). Each row
 corresponds to those statistics at a given statistics reporting
 interval.
 
-
-Importing statistics in spreadsheet applications
-````````````````````````````````````````````````
-
-
-Example: importation in Microsoft Excel
-+++++++++++++++++++++++++++++++++++++++
-
-Here is a video (Windows Media Player 9 codec or above required) on
-how to import CSV statistic files in Excel and create a graph of
-failed calls over time.
-
-`sipp-02.wmv`_
