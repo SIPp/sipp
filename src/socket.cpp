@@ -2672,14 +2672,16 @@ int open_connections()
             j = map_perip_fd.find(peripaddr);
 
             if (j == map_perip_fd.end()) {
-                if ((sock = new_sipp_socket(is_ipv6, transport)) == NULL) {
-                    ERROR_NO("Unable to get server socket");
-                }
-
                 if (gai_getsockaddr(&server_sockaddr, peripaddr, local_port,
                                     AI_PASSIVE, AF_UNSPEC) != 0) {
                     ERROR("Unknown remote host '%s'.\n"
                           "Use 'sipp -h' for details", peripaddr);
+                }
+
+                bool is_ipv6 = (server_sockaddr.ss_family == AF_INET6);
+
+                if ((sock = new_sipp_socket(is_ipv6, transport)) == NULL) {
+                    ERROR_NO("Unable to get server socket");
                 }
 
                 sipp_customize_socket(sock);
@@ -2784,7 +2786,7 @@ void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *pe
 {
     /* Resolving the  peer IP */
     printf("Resolving peer address : %s...\n", peer_host);
-    is_ipv6 = false;
+    bool is_ipv6 = false;
 
     /* Resolving twin IP */
     if (gai_getsockaddr(peer_sockaddr, peer_host, peer_port,
@@ -2862,7 +2864,7 @@ void connect_local_twin_socket(char * twinSippHost)
 {
     /* Resolving the listener IP */
     printf("Resolving listener address : %s...\n", twinSippHost);
-    is_ipv6 = false;
+    bool is_ipv6 = false;
 
     /* Resolving twin IP */
     if (gai_getsockaddr(&twinSipp_sockaddr, twinSippHost, twinSippPort,

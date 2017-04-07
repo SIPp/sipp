@@ -428,7 +428,6 @@ extern struct sockaddr_storage local_sockaddr;
 extern struct sockaddr_storage localTwin_sockaddr;
 extern int           user_port                    _DEFVAL(0);
 extern char          hostname[80];
-extern bool          is_ipv6                      _DEFVAL(false);
 
 extern int           reset_number                 _DEFVAL(0);
 extern bool          reset_close                  _DEFVAL(true);

@@ -3406,16 +3406,10 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 }
             }
 
-            is_ipv6 = false;
-
             if (gai_getsockaddr(&call_peer, str_host, port,
                                 AI_PASSIVE, AF_UNSPEC) != 0) {
                 ERROR("Unknown host '%s' for setdest", str_host);
             }
-            if (call_peer.ss_family != call_peer.ss_family) {
-                ERROR("Can not switch between IPv4 and IPV6 using setdest!");
-            }
-
             memcpy(&call_socket->ss_dest, &call_peer, sizeof(call_peer));
 
             free(str_host);
