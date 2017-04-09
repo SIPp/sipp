@@ -1,3 +1,11 @@
+Bugs fixed in 3.5.3
+===================
+
+* Fix `[routes]` header in UAS scenario's. (Issue #262, reported by
+  Stefan Mititelu (@smititelu).)
+  (Backported from b6c7b209 from 3.6.)
+
+
 Bugs fixed in 3.5.2
 ===================
 
