@@ -38,11 +38,13 @@
  *           Martin H. VanLeeuwen
  */
 
-#include <iterator>
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <iostream>
-#include <cstring>
+#include <iterator>
+#include <sstream>
+#include <vector>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <assert.h>
@@ -55,6 +57,41 @@
 #include "deadcall.hpp"
 #include "config.h"
 #include "version.h"
+
+template<typename Out>
+void split(const std::string &s, char delim, Out result) {
+    std::stringstream ss;
+    ss.str(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) {
+        *(result++) = item;
+    }
+}
+
+std::vector<std::string> split(const std::string &s, char delim) {
+    std::vector<std::string> elems;
+    split(s, delim, std::back_inserter(elems));
+    return elems;
+}
+
+std::string join(const std::vector<std::string> &s, const char* delim) {
+    std::ostringstream imploded;
+    std::copy(s.begin(), s.end(), std::ostream_iterator<std::string>(imploded, delim));
+    std::string ret = imploded.str();
+    if (ret.length()) {
+        ret.resize(ret.length() - strlen(delim));
+    }
+    return ret;
+}
+
+std::string trim(const std::string &s) {
+    size_t first = s.find_first_not_of(' ');
+    if (first == string::npos) {
+        return s;
+    }
+    size_t last = s.find_last_not_of(' ');
+    return s.substr(first, (last - first + 1));
+}
 
 #define callDebug(...) do { if (useCallDebugf) { _callDebug( __VA_ARGS__ ); } } while (0)
 
@@ -232,16 +269,16 @@ unsigned long call::hash(const char * msg)
     } else if (rtcheck == RTCHECK_LOOSE) {
         /* Based on section 11.5 (bullet 2) of RFC2543 we only take into account
          * the To, From, Call-ID, and CSeq values. */
-        const char *hdr = get_header_content(msg,"To:");
+        const char *hdr = get_header_content(msg, "To:");
         while ((c = *hdr++))
             hash = c + (hash << 6) + (hash << 16) - hash;
-        hdr = get_header_content(msg,"From:");
+        hdr = get_header_content(msg, "From:");
         while ((c = *hdr++))
             hash = c + (hash << 6) + (hash << 16) - hash;
-        hdr = get_header_content(msg,"Call-ID:");
+        hdr = get_header_content(msg, "Call-ID:");
         while ((c = *hdr++))
             hash = c + (hash << 6) + (hash << 16) - hash;
-        hdr = get_header_content(msg,"CSeq:");
+        hdr = get_header_content(msg, "CSeq:");
         while ((c = *hdr++))
             hash = c + (hash << 6) + (hash << 16) - hash;
         /* For responses, we should also consider the code and body (if any),
@@ -569,21 +606,21 @@ call::~call()
         free(transactions);
     }
 
-    if(last_recv_msg) {
+    if (last_recv_msg) {
         free(last_recv_msg);
     }
-    if(last_send_msg) {
+    if (last_send_msg) {
         free(last_send_msg);
     }
-    if(peer_tag) {
+    if (peer_tag) {
         free(peer_tag);
     }
 
-    if(dialog_route_set) {
+    if (dialog_route_set) {
         free(dialog_route_set);
     }
 
-    if(next_req_url) {
+    if (next_req_url) {
         free(next_req_url);
     }
 
@@ -591,7 +628,7 @@ call::~call()
     rtpstream_end_call(&rtpstream_callinfo);
 #endif
 
-    if(dialog_authentication) {
+    if (dialog_authentication) {
         free(dialog_authentication);
     }
 
@@ -2495,7 +2532,7 @@ bool call::check_peer_src(char * msg, int search_index)
 }
 
 
-void call::extract_cseq_method (char* method, char* msg)
+void call::extract_cseq_method(char* method, char* msg)
 {
     char* cseq ;
     if ((cseq = strstr (msg, "CSeq"))) {
@@ -2518,7 +2555,7 @@ void call::extract_cseq_method (char* method, char* msg)
     }
 }
 
-void call::extract_transaction (char* txn, char* msg)
+void call::extract_transaction(char* txn, char* msg)
 {
     char *via = get_header_content(msg, "via:");
     if (!via) {
@@ -2561,94 +2598,68 @@ void call::formatNextReqUrl(const char* contact)
 
 void call::computeRouteSetAndRemoteTargetUri(const char* rr, const char* contact, bool bRequestIncoming)
 {
-    if (!*rr) {
-        //
-        // there are no RR headers. Simply set up the contact as our target uri
-        //
-        if (*contact) {
-            formatNextReqUrl(contact);
-        }
+    if (!*contact) {
+        WARNING("Cannot record route set if there is no Contact\n");
         return;
     }
 
-    char tmp_rr[MAX_HEADER_LEN];
-    char actual_rr[MAX_HEADER_LEN];
-    char targetURI[MAX_HEADER_LEN];
-
-    actual_rr[0] = tmp_rr[0] = targetURI[0] = '\0';
-    strncat(tmp_rr, rr, MAX_HEADER_LEN - 1);
-
-    bool isFirst = true;
-    bool bCopyContactToRR = false;
-
-    while (1) {
-        char* pointer = NULL;
-        if (bRequestIncoming) {
-            pointer = strchr(tmp_rr, ',');
-        } else {
-            pointer = strrchr(tmp_rr, ',');
-        }
-
-        if (pointer) {
-            if (!isFirst) {
-                strcat(actual_rr, pointer + 1);
-                strcat(actual_rr, ",");
-            } else {
-                isFirst = false;
-                if (NULL == strstr(pointer, ";lr")) {
-                    /* bottom most RR is the next_req_url */
-                    strncpy(targetURI, pointer + 1, sizeof(targetURI) - 1);
-                    bCopyContactToRR = true;
-                } else {
-                    /* the hop is a loose router. Thus, the target URI should be the
-                     * contact
-                     */
-                    strcpy(targetURI, contact);
-                    strcpy(actual_rr, pointer + 1);
-                    strcat(actual_rr, ",");
-                }
-            }
-        } else {
-            if (!isFirst) {
-                strcat(actual_rr, tmp_rr);
-            }
-            //
-            // this is the *only* RR header that was found
-            //
-            else {
-                if (NULL == strstr(tmp_rr, ";lr")) {
-                    /* bottom most RR is the next_req_url */
-                    strcpy(targetURI, tmp_rr);
-                    bCopyContactToRR = true;
-                } else {
-                    /* the hop is a loose router. Thus, the target URI should be the
-                     * contact
-                     */
-                    strcpy(actual_rr, tmp_rr);
-                    strcpy(targetURI, contact);
-                }
-            }
-            break;
-        }
-        *pointer = '\0';
+    if (!*rr) {
+        /* There are no RR headers. Simply set up the contact as our
+         * target uri.  Note that this is only called if there was no
+         * dialog_route_set at the moment.  And in either case, we
+         * wouldn't want to clear the dialog_route_set because changing
+         * RR mid-dialog is not allowed. */
+        formatNextReqUrl(contact);
+        return;
     }
 
-    if (bCopyContactToRR) {
-        if (*actual_rr) {
-            strcat(actual_rr, ",");
-            strcat(actual_rr, contact);
+    std::vector<std::string> headers = split(rr, ',');
+    std::vector<std::string>::iterator it;
+    std::vector<std::string>::iterator end;
+    int direction;
+
+    if (bRequestIncoming) {
+        it = headers.begin();
+        end = headers.end();
+        direction = 1;
+    } else {
+        it = headers.end() - 1;
+        end = headers.begin() - 1;
+        direction = -1;
+    }
+
+    std::vector<std::string> routes;
+    std::string targetUri;
+    bool first = true;
+
+    for (; it != end; it += direction) {
+        const std::string& header = *it;
+
+        if (first && header.find(";lr") == std::string::npos) {
+            /* If the next hop is a static router, set target URI to
+             * that router. We'll push the original contact onto the end
+             * of the route set. We won't need to record this route,
+             * because we've set the target to it. */
+            targetUri = header;
         } else {
-            strcpy(actual_rr, contact);
+            first = false;
+            routes.push_back(trim(header));
         }
     }
 
-    if (*actual_rr) {
-        dialog_route_set = strdup(actual_rr);
+    /* If target URI is set, the first hop is a strict router.  Add the
+     * Contact as tailing route. */
+    if (targetUri.length()) {
+        routes.push_back(trim(contact));
+    } else {
+        targetUri = contact;
     }
 
-    if (*targetURI) {
-        formatNextReqUrl(targetURI);
+    if (routes.size()) {
+        dialog_route_set = strdup(join(routes, ", ").c_str());
     }
+
+    formatNextReqUrl(targetUri.c_str());
 }
 
 bool call::matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod, char *txn)
@@ -3078,8 +3089,8 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     }
 
     /* store the route set only once. TODO: does not support target refreshes!! */
-    if (call_scenario->messages[search_index] -> bShouldRecordRoutes &&
-            NULL == dialog_route_set) {
+    if (call_scenario->messages[search_index]->bShouldRecordRoutes &&
+            dialog_route_set == NULL) {
         realloc_ptr = (char*)realloc(next_req_url, MAX_HEADER_LEN);
         if (realloc_ptr) {
             next_req_url = realloc_ptr;

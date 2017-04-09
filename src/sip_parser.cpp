@@ -153,6 +153,10 @@ char * get_header(const char* message, const char * name, bool content)
                 /* Just want the header's content, so skip over the header
                  * and newline */
                 src += strlen(name) + 1;
+                /* Skip over leading spaces. */
+                while (*src == ' ') {
+                    src++;
+                }
             } else {
                 /* Just skip the newline */
                 src++;
@@ -169,7 +173,7 @@ char * get_header(const char* message, const char * name, bool content)
             if (ptr) {
                 *ptr = 0;
             }
-            // Add "," when several headers are present
+            // Add ", " when several headers are present
             if (dest != last_header) {
                 /* Remove trailing whitespaces, tabs, and CRs */
                 while (dest > last_header &&
@@ -180,7 +184,7 @@ char * get_header(const char* message, const char * name, bool content)
                     *(--dest) = 0;
                 }
 
-                dest += sprintf(dest, ",");
+                dest += sprintf(dest, ", ");
             }
             dest += sprintf(dest, "%s", src);
             if (ptr) {

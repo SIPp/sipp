@@ -133,7 +133,7 @@ Keyword list
 ``[routes]``
 =============
 :Description: If the "rrs" attribute in a recv command is set to "true", then the "Record-Route:"
-  header of the message received is stored and can be recalled using the [routes] keyword 
+  header of the message received is stored and can be recalled using the [routes] keyword.
 
 ``[next_url]``
 ==============
