@@ -1,2 +1,3 @@
 # sphinx build folder
 _build
+*.pyc
