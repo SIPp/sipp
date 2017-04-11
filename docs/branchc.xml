@@ -25,7 +25,7 @@
 
       REGISTER sip:CA.cym.com SIP/2.0
       Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
-      From: ua1 <sip:ua1@nnl.cym:[local_port]>;tag=[call_number]
+      From: ua1 <sip:ua1@nnl.cym:[local_port]>;tag=[pid]SIPpTag07[call_number]
       To: ua1 <sip:ua1@nnl.cym:[local_port]>
       Call-ID: [call_id]
       CSeq: 1 REGISTER
@@ -50,7 +50,7 @@
 
       INVITE sip:ua2@CA.cym.com SIP/2.0
       Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
-      From: ua[call_number] <sip:ua1@nnl.cym:[local_port]>;tag=[call_number]
+      From: ua[call_number] <sip:ua1@nnl.cym:[local_port]>;tag=[pid]SIPpTag07b[call_number]
       To: ua2 <sip:ua2@nnl.cym:[remote_port]>
       Call-ID: [call_id]
       CSeq: 1 INVITE
@@ -77,6 +77,9 @@
   <recv response="180" optional="true">
   </recv>
 
+  <recv response="183" optional="true">
+  </recv>
+
   <!-- Do something different on an optional receive   -->
   <recv response="403" optional="true" next="1">
   </recv>
@@ -96,7 +99,7 @@
 
       ACK sip:ua2@CA.cym.com SIP/2.0
       Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
-      From: ua1 <sip:ua1@nnl.cym:[local_port]>;tag=[call_number]
+      From: ua1 <sip:ua1@nnl.cym:[local_port]>;tag=[pid]SIPpTag07b[call_number]
       To: ua2 <sip:ua2@nnl.cym:[remote_port]>[peer_tag_param]
       Call-ID: [call_id]
       CSeq: 1 ACK
@@ -117,7 +120,7 @@
 
       BYE sip:ua2@CA.cym.com SIP/2.0
       Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
-      From: ua1 <sip:ua1@nnl.cym:[local_port]>;tag=[call_number]
+      From: ua1 <sip:ua1@nnl.cym:[local_port]>;tag=[pid]SIPpTag07b[call_number]
       To: ua2 <sip:ua2@nnl.cym:[remote_port]>[peer_tag_param]
       Call-ID: [call_id]
       CSeq: 2 BYE

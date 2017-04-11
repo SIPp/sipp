@@ -34,7 +34,7 @@
   <!-- are also discarded.                                              -->
   <!--                                                                  -->
   <!-- If the specified header was present several times in the         -->
-  <!-- message, all occurences are concatenated (CRLF seperated)        -->
+  <!-- message, all occurrences are concatenated (CRLF separated)       -->
   <!-- to be used in place of the '[last_*]' keyword.                   -->
 
   <send>
@@ -43,7 +43,7 @@
       SIP/2.0 180 Ringing
       [last_Via:]
       [last_From:]
-      [last_To:];tag=[call_number]
+      [last_To:];tag=[pid]SIPpTag01[call_number]
       [last_Call-ID:]
       [last_CSeq:]
       Contact: <sip:[local_ip]:[local_port];transport=[transport]>
@@ -58,7 +58,7 @@
       SIP/2.0 200 OK
       [last_Via:]
       [last_From:]
-      [last_To:];tag=[call_number]
+      [last_To:];tag=[pid]SIPpTag01[call_number]
       [last_Call-ID:]
       [last_CSeq:]
       Contact: <sip:[local_ip]:[local_port];transport=[transport]>
@@ -102,7 +102,7 @@
 
   <!-- Keep the call open for a while in case the 200 is lost to be     -->
   <!-- able to retransmit it if we receive the BYE again.               -->
-  <pause milliseconds="4000"/>
+  <timewait milliseconds="4000"/>
 
 
   <!-- definition of the response time repartition table (unit is ms)   -->
