@@ -10,7 +10,7 @@ scenarios are available in SIPp executable.
 UAC
 ```
 
-Scenario file: `uac.xml`_ (`original XML file`_)
+Scenario file: :download:`uac.xml <uac.xml>`
 
 ::
 
@@ -38,7 +38,7 @@ Scenario file: `uac.xml`_ (`original XML file`_)
 UAC with media
 ``````````````
 
-Scenario file: `uac_pcap.xml`_ (`original XML file`_)
+Scenario file: :download:`uac_pcap.xml <uac_pcap.xml>`
 
 ::
 
@@ -70,7 +70,7 @@ Scenario file: `uac_pcap.xml`_ (`original XML file`_)
 UAS
 ```
 
-Scenario file: `uas.xml`_ (`original XML file`_)
+Scenario file: :download:`uas.xml <uas.xml>`
 
 ::
 
@@ -96,7 +96,7 @@ Scenario file: `uas.xml`_ (`original XML file`_)
 regexp
 ``````
 
-Scenario file: `regexp.xml`_ (`original XML file`_)
+Scenario file: :download:`regexp.xml <regexp.xml>`
 
 This scenario, which behaves as an UAC is explained in greater details
 in this section.
@@ -127,8 +127,8 @@ in this section.
 branch
 ``````
 
-Scenario files: `branchc.xml`_ (`original XML file`_) and
-`branchs.xml`_ (`original XML file`_)
+Scenario files: :download:`branchc.xml <branchc.xml>` and
+:download:`branchs.xml <branchs.xml>`
 
 Those scenarios, which work against each other (branchc for client
 side and branchs for server side) are explained in greater details in
@@ -154,7 +154,7 @@ this section.
 UAC Out-of-call Messages
 ````````````````````````
 
-Scenario file: `ooc_default.xml`_ (`original XML file`_)
+Scenario file: :download:`ooc_default.xml <ooc_default.xml>`
 
 When a SIPp UAC receives an out-of-call request, it instantiates an
 out-of-call scenario. By default this scenario simply replies with a
@@ -202,13 +202,13 @@ flows, like call flow I (SIPp being a controller):
                  |.......................................|
 
 
-Scenario file: `3pcc-A.xml`_ (`original XML file`_)
+Scenario file: :download:`3pcc-A.xml <3pcc-A.xml>`
 
-Scenario file: `3pcc-B.xml`_ (`original XML file`_)
+Scenario file: :download:`3pcc-B.xml <3pcc-B.xml>`
 
-Scenario file: `3pcc-C-A.xml`_ (`original XML file`_)
+Scenario file: :download:`3pcc-C-A.xml <3pcc-C-A.xml>`
 
-Scenario file: `3pcc-C-B.xml`_ (`original XML file`_)
+Scenario file: :download:`3pcc-C-B.xml <3pcc-C-B.xml>`
 
 The 3PCC feature in SIPp allows to have two SIPp instances launched
 and synchronised together. If we take the example of call flow I, one
