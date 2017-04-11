@@ -1,7 +1,7 @@
 Actions
 =======
 
-In a `recv`_ or `recvCmd`_ command, you have the possibility to execute
+In a `recv` or `recvCmd` command, you have the possibility to execute
 an action. Several actions are available:
 
 
