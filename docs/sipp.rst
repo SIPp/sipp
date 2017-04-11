@@ -115,30 +115,3 @@ See `developers guide`_ for how to get started
 
 
 .. _developers guide: https://github.com/SIPp/sipp/wiki/New-Developers'-Guide
-.. _original XML file: http://sipp.sourceforge.net/doc/3pcc-C-B.xml
-.. _3pcc-C-B.xml: http://sipp.sourceforge.net/doc/3pcc-C-B.xml.html
-.. _original XML file: http://sipp.sourceforge.net/doc/regexp.xml
-.. _original XML file: http://sipp.sourceforge.net/doc/3pcc-C-A.xml
-.. _uas.xml: http://sipp.sourceforge.net/doc/uas.xml.html
-.. _original XML file: http://sipp.sourceforge.net/doc/branchs.xml
-.. _License: http://sipp.sourceforge.net/doc/../doc/license.html
-.. _original XML file: http://sipp.sourceforge.net/doc/ooc_default.xml
-.. _original XML file: http://sipp.sourceforge.net/doc/3pcc-A.xml
-.. _original XML file: http://sipp.sourceforge.net/doc/3pcc-B.xml
-.. _original XML file: http://sipp.sourceforge.net/doc/uac.xml
-.. _original XML file: http://sipp.sourceforge.net/doc/uac_pcap.xml
-.. _XML: http://sipp.sourceforge.net/doc/reference.xml
-.. _branchs.xml: http://sipp.sourceforge.net/doc/branchs.xml.html
-.. _3pcc-C-A.xml: http://sipp.sourceforge.net/doc/3pcc-C-A.xml.html
-.. _ooc_default.xml: http://sipp.sourceforge.net/doc/ooc_default.xml.html
-.. _branchc.xml: http://sipp.sourceforge.net/doc/branchc.xml.html
-.. _sipp.dtd: http://sipp.sourceforge.net/doc/sipp.dtd
-.. _uac.xml: http://sipp.sourceforge.net/doc/uac.xml.html
-.. _original XML file: http://sipp.sourceforge.net/doc/uas.xml
-.. _3pcc-A.xml: http://sipp.sourceforge.net/doc/3pcc-A.xml.html
-.. _3pcc-B.xml: http://sipp.sourceforge.net/doc/3pcc-B.xml.html
-.. _regexp.xml: http://sipp.sourceforge.net/doc/regexp.xml.html
-.. _uac_pcap.xml: http://sipp.sourceforge.net/doc/uac_pcap.xml.html
-.. _original XML file: http://sipp.sourceforge.net/doc/branchc.xml
-
-
