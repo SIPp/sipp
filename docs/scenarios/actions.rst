@@ -60,7 +60,7 @@ variable          None    Variable to try to match against. Only
                           equal to var. 
 case_indep        false   To look for a header ignoring case .
                           Only used when the search_in tag is set to hdr. 
-occurence     1           To find the nth occurence of a header. Only used when the search_in tag is set
+occurrence         1      To find the nth occurrence of a header. Only used when the search_in tag is set
                           to hdr. 
 start_line        false   To look only at start of line. Only used when
                           the search_in tag is set to hdr. 

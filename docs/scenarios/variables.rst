@@ -15,7 +15,7 @@ Aside from a name, SIPp's variables are also loosely typed. The type
 of a variable is not explicitly declared, but is instead inferred from
 the action that set it. There are four types of variables: string,
 regular expression matches, doubles, and booleans. All mathematical
-operations take place on doubles. The <test> and <verifyauth> actions
+operations take place on doubles. The **<test>** and **<verifyauth>** actions
 create boolean values. String variables and regular expression matches
 are similar. When a string's value is called for, a regular expression
 match can be substituted. The primary difference is related to the
@@ -23,8 +23,8 @@ test attribute (see :ref:`cond-branching`). If a string has been
 defined, a test is evaluated to true. However, for a regular
 expression variable, the regular expression that set it must match for
 the test to evaluated to true. Values can be converted to strings
-using the <assignstr> action. Values can be converted to doubles using
-the <todouble> action.
+using the **<assignstr>** action. Values can be converted to doubles using
+the **<todouble>** action.
 
 Variables also have a scope, which is one of global to all calls, per-
 user, or the default per-call. A global variable can be used, for
