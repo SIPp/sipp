@@ -299,6 +299,11 @@ char *xp_open_element(int index)
                 if (!doctype_end)
                     return NULL;
                 ptr = doctype_end;
+            } else if (strstartswith(ptr, "<?xml-model")) {
+                char *xmlmodel_end = strstr(ptr, ">");
+                if (!xmlmodel_end)
+                    return NULL;
+                ptr = xmlmodel_end;
             } else if (*(ptr+1) == '/') {
                 level--;
                 if (level < 0)
