@@ -364,17 +364,25 @@ const char *sip_tls_error_string(SSL *ssl, int size)
     switch(err) {
     case SSL_ERROR_NONE:
         return "No error";
+    case SSL_ERROR_ZERO_RETURN:
+        return "SSL connection has been closed. SSL returned: SSL_ERROR_ZERO_RETURN";
     case SSL_ERROR_WANT_WRITE:
-        return "SSL_read returned SSL_ERROR_WANT_WRITE";
+        return "SSL I/O function returned SSL_ERROR_WANT_WRITE";
     case SSL_ERROR_WANT_READ:
-        return "SSL_read returned SSL_ERROR_WANT_READ";
+        return "SSL I/O function returned SSL_ERROR_WANT_READ";
+    case SSL_ERROR_WANT_CONNECT:
+        return "SSL I/O function returned SSL_ERROR_WANT_CONNECT";
+    case SSL_ERROR_WANT_ACCEPT:
+        return "SSL I/O function returned SSL_ERROR_WANT_ACCEPT";
     case SSL_ERROR_WANT_X509_LOOKUP:
-        return "SSL_read returned SSL_ERROR_WANT_X509_LOOKUP";
+        return "SSL I/O function returned SSL_ERROR_WANT_X509_LOOKUP";
+    case SSL_ERROR_SSL:
+        return "SSL protocol error. SSL I/O function returned SSL_ERROR_SSL";
     case SSL_ERROR_SYSCALL:
         if (size < 0) { /* not EOF */
             return strerror(errno);
         } else { /* EOF */
-            return "SSL socket closed on SSL_read";
+            return "Non-recoverable I/O error occurred. SSL I/O function returned SSL_ERROR_SYSCALL";
         }
     }
     return "Unknown SSL Error.";
