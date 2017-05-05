@@ -716,7 +716,7 @@ bool call::connect_socket_if_needed()
         }
 
         if (peripsocket) {
-            gai_getsockaddr(&saddr, peripaddr, local_port, AI_PASSIVE, AF_UNSPEC);
+            gai_getsockaddr(&saddr, peripaddr, local_port, AI_PASSIVE, saddr.ss_family);
         }
 
         if (sipp_bind_socket(call_socket, &saddr, &call_port)) {

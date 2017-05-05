@@ -326,6 +326,7 @@ struct sipp_option options_table[] = {
     {"watchdog_major_threshold", "If it has been longer than this period between watchdog executions count a major trip.  Default is 3000.", SIPP_OPTION_TIME_MS, &watchdog_major_threshold, 1},
     {"watchdog_major_maxtriggers", "How many times the major watchdog timer can be tripped before the test is terminated.  Default is 10.", SIPP_OPTION_INT, &watchdog_major_maxtriggers, 1},
     {"watchdog_minor_maxtriggers", "How many times the minor watchdog timer can be tripped before the test is terminated.  Default is 120.", SIPP_OPTION_INT, &watchdog_minor_maxtriggers, 1},
+    {"fast_ip", "Uses an alternative to getaddrinfo when resolving local IP addresses. Improves performance when calls need to be made from a lot of IP addresses.", SIPP_OPTION_SETFLAG, &fast_ip, 1},
 
 
     {"", "Tracing, logging and statistics options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
@@ -569,10 +570,11 @@ static bool traffic_thread()
         getmilliseconds();
         /* Receive incoming messages */
         SIPpSocket::pollset_process(running_tasks->empty());
-    }
 
-    /* Clean up any child processes that have been spawned and have completed. */
-    waitpid(-1, NULL, WNOHANG);
+        /* Clean up any child processes that have been spawned and have completed. */
+        waitpid(-1, NULL, WNOHANG);
+
+    }
 
     return true;
 }

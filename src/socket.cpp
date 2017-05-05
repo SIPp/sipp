@@ -90,9 +90,38 @@ int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
                     unsigned short port, int flags, int family)
 {
     if (port) {
-        char service[NI_MAXSERV + 1];
-        snprintf(service, sizeof(service), "%d", port);
-        return gai_getsockaddr(ss, host, service, flags, family);
+        if (fast_ip) {
+          /* Skip getaddrinfo call and fill sockaddr structure directly. */
+          /* Only valid if port is already known. */
+          int error;
+          if (family == AF_INET) {
+            struct sockaddr_in sin;
+            memset (&sin, 0, sizeof(sin));
+            sin.sin_family = AF_INET;
+            sin.sin_addr.s_addr = inet_addr(host);
+            error = inet_pton(AF_INET, host, &(sin.sin_addr));
+            sin.sin_port = htons(port);
+            memcpy (ss, &sin, sizeof (sin));
+          } else if (family == AF_INET6) {
+            struct sockaddr_in6 sin6;
+            memset (&sin6, 0, sizeof(sin6));
+            sin6.sin6_family = AF_INET6;
+            error = inet_pton(AF_INET6, host, &(sin6.sin6_addr));
+            sin6.sin6_port = htons(port);
+            /* IPv6 flowinfo not specified */
+            memcpy (ss, &sin6, sizeof(sin6));
+          }
+          if (error == 0) {
+            WARNING("Unknown host '%s' for fast_ip process", host);
+            return 1;
+          } else {
+            return 0;
+          }
+        } else {
+          char service[NI_MAXSERV + 1];
+          snprintf(service, sizeof(service), "%d", port);
+          return gai_getsockaddr(ss, host, service, flags, family);
+        }
     } else {
         return gai_getsockaddr(ss, host, const_char_nullptr, flags, family);
     }

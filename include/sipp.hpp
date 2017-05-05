@@ -305,6 +305,8 @@ extern bool               rtp_echo_state          _DEFVAL(true);
 #endif
 extern bool               callidSlash             _DEFVAL(false);
 
+extern bool               fast_ip                 _DEFVAL(false);
+
 /* TDM map */
 extern bool               use_tdmmap              _DEFVAL(false);
 extern unsigned int       tdm_map_a               _DEFVAL(0);
