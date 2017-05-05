@@ -161,7 +161,7 @@ public:
     void setDistribution (CSample *      P_value);  /* sample specific function  */
     void setDoubleValue  (double         P_value);  /* assign value specific function  */
     void setStringValue  (char *         P_value);  /* strcmp value specific function  */
-    void setWaitForCommand (bool         P_value);
+    void setWaitForCommand (bool         P_value);  /* exec specific function */
 #ifdef PCAPPLAY
     void setPcapArgs(const char* P_value);          /* send_packets specific function */
     void setPcapArgs     (pcap_pkts   *  P_value);  /* send_packets specific function */

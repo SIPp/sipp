@@ -576,6 +576,12 @@ static bool traffic_thread()
 
     }
 
+<<<<<<< HEAD
+=======
+    /* Clean up any child processes that have been spawned and have completed. */
+    waitpid(-1, NULL, WNOHANG);
+
+>>>>>>> 72bf614f0c997d15a1e38f043f4219516b9763bf
     return true;
 }
 
