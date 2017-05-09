@@ -48,6 +48,7 @@ public:
         E_AT_ASSIGN_FROM_STRING,
         E_AT_ASSIGN_FROM_INDEX,
         E_AT_ASSIGN_FROM_GETTIMEOFDAY,
+        E_AT_LOADFILE,
         E_AT_JUMP,
         E_AT_LOOKUP,
         E_AT_INSERT,
