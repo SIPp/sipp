@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario>
+  <recv request="INVITE"/>
+
+  <send retrans="500">
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      Via: [last_Via!]
+      From: [last_From!]
+      To: [last_To!];tag=[pid]SIPpTag00[call_number]
+      Call-ID: [last_Call-ID!]
+      CSeq: [last_CSeq!]
+      Contact: sip:sipp@[local_ip]:[local_port]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <!--
+
+    If you forget start_line="true" here, the headers will be found by value,
+    causing '''From: "Tom ...''' to match as the first "To"-header.
+
+  -->
+  <recv request="ACK" rrs="true">
+    <action>
+      <ereg regexp=": *(.*)" search_in="hdr" header="From" start_line="true" assign_to="_,them"/>
+      <ereg regexp=": *(.*)" search_in="hdr" header="To" start_line="true" assign_to="_,us"/>
+      <log message="LAST Via: [last_Via!]"/>
+      <log message="LAST From: [last_From!]"/>
+      <log message="LAST To: [last_To!]"/>
+    </action>
+  </recv>
+  <Reference variables="_"/>
+
+  <send retrans="500">
+    <![CDATA[
+
+      BYE [next_url] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: [$us]
+      To: [$them]
+      Call-ID: [call_id]
+      CSeq: 2 BYE
+      Contact: sip:sipp@[local_ip]:[local_port]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv response="200"/>
+
+  <timewait milliseconds="500"/>  
+</scenario>
