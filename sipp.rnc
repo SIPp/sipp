@@ -1,0 +1,192 @@
+default namespace = ""
+
+start =
+  element scenario {
+    attribute name { text },
+    (element CallLengthRepartition {
+       attribute value { text }
+     }
+     | element Globals {
+         attribute variables { text }
+       }
+     | element Reference {
+         attribute variables { text }
+       }
+     | element ResponseTimeRepartition {
+         attribute value { text }
+       }
+     | element User {
+         attribute variables { text }
+       }
+     | element label {
+         attribute id { xsd:integer }
+       }
+     | element nop {
+         attribute chance { xsd:decimal }?,
+         attribute condexec { xsd:NCName }?,
+         attribute condexec_inverse { xsd:boolean }?,
+         attribute counter { xsd:NCName }?,
+         attribute crlf { xsd:boolean }?,
+         attribute next { xsd:integer }?,
+         attribute repeat_rtd { xsd:boolean }?,
+         attribute rtd { xsd:integer }?,
+         attribute start_rtd { xsd:NCName }?,
+         attribute test { xsd:integer }?,
+         action
+       }
+     | element pause {
+         attribute chance { xsd:decimal }?,
+         attribute condexec { xsd:NCName }?,
+         attribute condexec_inverse { xsd:boolean }?,
+         attribute counter { xsd:NCName }?,
+         attribute crlf { xsd:boolean }?,
+         attribute distribution { xsd:NCName }?,
+         attribute milliseconds { xsd:integer }?,
+         attribute next { xsd:integer }?,
+         attribute repeat_rtd { xsd:boolean }?,
+         attribute rtd { xsd:integer }?,
+         attribute sanity_check { xsd:boolean }?,
+         attribute start_rtd { xsd:NCName }?,
+         attribute test { xsd:integer }?,
+         attribute variable { xsd:integer }?
+       }
+     | element recv {
+         attribute auth { xsd:boolean }?,
+         attribute chance { xsd:decimal }?,
+         attribute condexec { xsd:NCName }?,
+         attribute condexec_inverse { xsd:boolean }?,
+         attribute counter { xsd:NCName }?,
+         attribute crlf { xsd:boolean }?,
+         attribute lost { xsd:integer }?,
+         attribute next { xsd:integer }?,
+         attribute ontimeout { xsd:integer }?,
+         attribute optional { xsd:boolean }?,
+         attribute regexp_match { xsd:boolean }?,
+         attribute repeat_rtd { xsd:boolean }?,
+         attribute request { xsd:NCName }?,
+         attribute response { xsd:integer }?,
+         attribute response_txn { xsd:NCName }?,
+         attribute rrs { xsd:boolean }?,
+         attribute rtd { xsd:NMTOKEN }?,
+         attribute start_rtd { xsd:NCName }?,
+         attribute test { xsd:integer }?,
+         attribute timeout { xsd:integer }?,
+         action?
+       }
+     | element recvCmd {
+         attribute chance { xsd:decimal },
+         attribute condexec { xsd:NCName },
+         attribute condexec_inverse { xsd:boolean },
+         attribute counter { xsd:NCName },
+         attribute crlf { xsd:boolean },
+         attribute next { xsd:integer },
+         attribute repeat_rtd { xsd:boolean },
+         attribute rtd { xsd:integer },
+         attribute src { xsd:NCName },
+         attribute start_rtd { xsd:NCName },
+         attribute test { xsd:integer },
+         action
+       }
+     | element send {
+         attribute ack_txn { xsd:NCName }?,
+         attribute chance { xsd:decimal }?,
+         attribute condexec { xsd:NCName }?,
+         attribute condexec_inverse { xsd:boolean }?,
+         attribute counter { xsd:NCName }?,
+         attribute crlf { xsd:boolean }?,
+         attribute lost { xsd:integer }?,
+         attribute next { xsd:integer }?,
+         attribute repeat_rtd { xsd:boolean }?,
+         attribute retrans { xsd:integer }?,
+         attribute rtd { xsd:integer }?,
+         attribute start_rtd { xsd:NCName }?,
+         attribute start_txn { xsd:NCName }?,
+         attribute test { xsd:integer }?,
+         text
+       }
+     | element sendCmd {
+         attribute chance { xsd:decimal },
+         attribute condexec { xsd:NCName },
+         attribute condexec_inverse { xsd:boolean },
+         attribute counter { xsd:NCName },
+         attribute crlf { xsd:boolean },
+         attribute dest { xsd:NCName },
+         attribute next { xsd:integer },
+         attribute repeat_rtd { xsd:boolean },
+         attribute rtd { xsd:integer },
+         attribute start_rtd { xsd:NCName },
+         attribute test { xsd:integer },
+         text
+       })+
+  }
+
+action =
+  element action {
+    (
+    element ereg {
+      attribute regexp { text },
+      attribute search_in { "msg" | "hdr" | "body" | "var" }?,
+      attribute header { text }?,
+      attribute variable { text }?,
+      attribute case_indep { xsd:boolean }?,
+      attribute occurence { xsd:integer }?,
+      attribute start_line { xsd:boolean }?,
+      attribute check_it { xsd:boolean }?,
+      attribute check_it_inverse { xsd:boolean }?,
+      attribute assign_to { text }
+    }?,
+    element exec {
+      attribute int_cmd { "top_call" | "stop_gracefully" | "stop_now" } |
+      attribute command { text } |
+      attribute play_pcap_audio { text } |
+      attribute play_pcap_video { text }
+    }?,
+    element log { attribute message { text } }?,
+    element warning { attribute message { text } }?,
+    element setdest {
+      attribute host { text },
+      attribute port { xsd:integer },
+      attribute protocol { "udp" | "tcp" | "tls" }
+    }?,
+    element verifyauth {
+      attribute assign_to { text },
+      attribute username { text },
+      attribute password { text }
+    }?,
+    element assign {
+      attribute assign_to { text },
+      attribute value { xsd:decimal }
+    }?,
+    element assignstr {
+      attribute assign_to { text },
+      attribute value { text }
+    }?,
+    element test {
+      attribute assign_to { text },
+      attribute compare { "equal" | "not_equal" | "greater_than" | "less_than" | "greater_than_equal" | "less_than_equal" },
+      attribute variable { text },
+      attribute value { xsd:decimal }
+    }?,
+    element strcmp {
+      attribute assign_to { text },
+      attribute variable { text },
+      (attribute value { xsd:decimal } | attribute variable2 { text } )
+    }?,
+    element subtract {
+      attribute assign_to { text },
+      (attribute value { xsd:decimal } | attribute variable { text } )
+    }?,
+    element add {
+      attribute assign_to { text },
+      (attribute value { xsd:decimal } | attribute variable { text } )
+    }?,
+    element multiply {
+      attribute assign_to { text },
+      (attribute value { xsd:decimal } | attribute variable { text } )
+    }?,
+    element divide {
+      attribute assign_to { text },
+      (attribute value { xsd:decimal } | attribute variable { text } )
+    }?
+    )*
+  }
