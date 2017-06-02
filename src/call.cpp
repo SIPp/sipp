@@ -3786,7 +3786,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value / operand);
             }
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TEST) {
-            double value = currentAction->compare(M_callVariableTable);
+            bool value = currentAction->compare(M_callVariableTable);
             M_callVariableTable->getVar(currentAction->getVarId())->setBool(value);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_STRCMP) {
             char *rhs = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
