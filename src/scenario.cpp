@@ -1507,7 +1507,20 @@ void scenario::parseAction(CActions *actions)
             tmpAction->setVarId(xp_get_var("assign_to", "todouble"));
             tmpAction->setVarInId(xp_get_var("variable", "todouble"));
         } else if(!strcmp(actionElem, "test")) {
-            tmpAction->setVarId(xp_get_var("assign_to", "test"));
+            if (xp_get_value("check_it")) {
+                tmpAction->setCheckIt(xp_get_bool("check_it", "test"));
+                if (xp_get_value("check_it_inverse")) {
+                    ERROR("Can not have both check_it and check_it_inverse for test!");
+                }
+            } else if (xp_get_value("check_it_inverse")) {
+                tmpAction->setCheckItInverse(xp_get_bool("check_it_inverse", "test"));
+            }
+            // "assign_to" is optional when "check_it" or "check_it_inverse" set
+            if (xp_get_value("assign_to") ||
+                (!xp_get_value("check_it") && !xp_get_value("check_it_inverse"))
+            ) {
+                tmpAction->setVarId(xp_get_var("assign_to", "test"));
+            }
             tmpAction->setVarInId(xp_get_var("variable", "test"));
             if (xp_get_value("value")) {
                 tmpAction->setDoubleValue(xp_get_double("value", "test"));
@@ -1567,7 +1580,20 @@ void scenario::parseAction(CActions *actions)
         } else if(!strcmp(actionElem, "closecon")) {
             tmpAction->setActionType(CAction::E_AT_CLOSE_CON);
         } else if(!strcmp(actionElem, "strcmp")) {
-            tmpAction->setVarId(xp_get_var("assign_to", "strcmp"));
+            if (xp_get_value("check_it")) {
+                tmpAction->setCheckIt(xp_get_bool("check_it", "strcmp"));
+                if (xp_get_value("check_it_inverse")) {
+                    ERROR("Can not have both check_it and check_it_inverse for strcmp!");
+                }
+            } else if (xp_get_value("check_it_inverse")) {
+                tmpAction->setCheckItInverse(xp_get_bool("check_it_inverse", "strcmp"));
+            }
+            // "assign_to" is optional when "check_it" or "check_it_inverse" set
+            if (xp_get_value("assign_to") ||
+                (!xp_get_value("check_it") && !xp_get_value("check_it_inverse"))
+            ) {
+                tmpAction->setVarId(xp_get_var("assign_to", "strcmp"));
+            }
             tmpAction->setVarInId(xp_get_var("variable", "strcmp"));
             if (xp_get_value("value")) {
                 tmpAction->setStringValue(xp_get_string("value", "strcmp"));

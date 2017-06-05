@@ -662,6 +662,30 @@ int CStat::computeStat (E_Action P_action)
         M_counters [CPT_PL_FailedTimeoutOnRecv]++;
         break;
 
+    case E_FAILED_TEST_DOESNT_MATCH :
+        M_counters [CPT_C_FailedCallTestDoesntMatch]++;
+        M_counters [CPT_PD_FailedCallTestDoesntMatch]++;
+        M_counters [CPT_PL_FailedCallTestDoesntMatch]++;
+        break;
+
+    case E_FAILED_TEST_SHOULDNT_MATCH :
+        M_counters [CPT_C_FailedCallTestShouldntMatch]++;
+        M_counters [CPT_PD_FailedCallTestShouldntMatch]++;
+        M_counters [CPT_PL_FailedCallTestShouldntMatch]++;
+        break;
+
+    case E_FAILED_STRCMP_DOESNT_MATCH :
+        M_counters [CPT_C_FailedCallStrcmpDoesntMatch]++;
+        M_counters [CPT_PD_FailedCallStrcmpDoesntMatch]++;
+        M_counters [CPT_PL_FailedCallStrcmpDoesntMatch]++;
+        break;
+
+    case E_FAILED_STRCMP_SHOULDNT_MATCH :
+        M_counters [CPT_C_FailedCallStrcmpShouldntMatch]++;
+        M_counters [CPT_PD_FailedCallStrcmpShouldntMatch]++;
+        M_counters [CPT_PL_FailedCallStrcmpShouldntMatch]++;
+        break;
+
     case E_FAILED_TIMEOUT_ON_SEND :
         M_counters [CPT_C_FailedTimeoutOnSend]++;
         M_counters [CPT_PD_FailedTimeoutOnSend]++;
@@ -1476,6 +1500,14 @@ void CStat::dumpData ()
                           << "FailedTimeoutOnRecv(C)" << stat_delimiter
                           << "FailedTimeoutOnSend(P)" << stat_delimiter
                           << "FailedTimeoutOnSend(C)" << stat_delimiter
+                          << "FailedTestDoesntMatch(P)" << stat_delimiter
+                          << "FailedTestDoesntMatch(C)" << stat_delimiter
+                          << "FailedTestShouldntMatch(P)" << stat_delimiter
+                          << "FailedTestShouldntMatch(C)" << stat_delimiter
+                          << "FailedStrcmpDoesntMatch(P)" << stat_delimiter
+                          << "FailedStrcmpDoesntMatch(C)" << stat_delimiter
+                          << "FailedStrcmpShouldntMatch(P)" << stat_delimiter
+                          << "FailedStrcmpShouldntMatch(C)" << stat_delimiter
                           << "OutOfCallMsgs(P)" << stat_delimiter
                           << "OutOfCallMsgs(C)" << stat_delimiter
                           << "DeadCallMsgs(P)" << stat_delimiter
@@ -1581,6 +1613,14 @@ void CStat::dumpData ()
                       << M_counters[CPT_C_FailedTimeoutOnRecv]            << stat_delimiter
                       << M_counters[CPT_PL_FailedTimeoutOnSend]           << stat_delimiter
                       << M_counters[CPT_C_FailedTimeoutOnSend]            << stat_delimiter
+                      << M_counters[CPT_PL_FailedCallTestDoesntMatch]   << stat_delimiter
+                      << M_counters[CPT_C_FailedCallTestDoesntMatch]    << stat_delimiter
+                      << M_counters[CPT_PL_FailedCallTestShouldntMatch] << stat_delimiter
+                      << M_counters[CPT_C_FailedCallTestShouldntMatch]  << stat_delimiter
+                      << M_counters[CPT_PL_FailedCallStrcmpDoesntMatch]   << stat_delimiter
+                      << M_counters[CPT_C_FailedCallStrcmpDoesntMatch]    << stat_delimiter
+                      << M_counters[CPT_PL_FailedCallStrcmpShouldntMatch] << stat_delimiter
+                      << M_counters[CPT_C_FailedCallStrcmpShouldntMatch]  << stat_delimiter
                       << M_G_counters[CPT_G_PL_OutOfCallMsgs - E_NB_COUNTER - 1]                << stat_delimiter
                       << M_G_counters[CPT_G_C_OutOfCallMsgs - E_NB_COUNTER - 1]                 << stat_delimiter
                       << M_G_counters[CPT_G_PL_DeadCallMsgs - E_NB_COUNTER - 1]                 << stat_delimiter
