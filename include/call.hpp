@@ -221,7 +221,11 @@ private:
         E_AR_REGEXP_SHOULDNT_MATCH,
         E_AR_STOP_CALL,
         E_AR_CONNECT_FAILED,
-        E_AR_HDR_NOT_FOUND
+        E_AR_HDR_NOT_FOUND,
+        E_AR_TEST_DOESNT_MATCH,
+        E_AR_TEST_SHOULDNT_MATCH,
+        E_AR_STRCMP_DOESNT_MATCH,
+        E_AR_STRCMP_SHOULDNT_MATCH
     };
 
     /* Store the last action result to allow  */

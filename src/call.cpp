@@ -1325,6 +1325,38 @@ void call::terminate(CStat::E_Action reason)
         case call::E_AR_STOP_CALL:
             /* Do nothing. */
             break;
+        case call::E_AR_TEST_DOESNT_MATCH:
+            computeStat(CStat::E_CALL_FAILED);
+            computeStat(CStat::E_FAILED_TEST_DOESNT_MATCH);
+            if (deadcall_wait && !initCall) {
+                sprintf(reason_str, "test failure at index %d", msg_index);
+                new deadcall(id, reason_str);
+            }
+            break;
+        case call::E_AR_TEST_SHOULDNT_MATCH:
+            computeStat(CStat::E_CALL_FAILED);
+            computeStat(CStat::E_FAILED_TEST_SHOULDNT_MATCH);
+            if (deadcall_wait && !initCall) {
+                sprintf(reason_str, "test succeeded, but shouldn't at index %d", msg_index);
+                new deadcall(id, reason_str);
+            }
+            break;
+        case call::E_AR_STRCMP_DOESNT_MATCH:
+            computeStat(CStat::E_CALL_FAILED);
+            computeStat(CStat::E_FAILED_STRCMP_DOESNT_MATCH);
+            if (deadcall_wait && !initCall) {
+                sprintf(reason_str, "test failure at index %d", msg_index);
+                new deadcall(id, reason_str);
+            }
+            break;
+        case call::E_AR_STRCMP_SHOULDNT_MATCH:
+            computeStat(CStat::E_CALL_FAILED);
+            computeStat(CStat::E_FAILED_STRCMP_SHOULDNT_MATCH);
+            if (deadcall_wait && !initCall) {
+                sprintf(reason_str, "test succeeded, but shouldn't at index %d", msg_index);
+                new deadcall(id, reason_str);
+            }
+            break;
         }
     } else {
         if (reason == CStat::E_CALL_SUCCESSFULLY_ENDED || timewait) {
@@ -3787,17 +3819,70 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             }
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TEST) {
             bool value = currentAction->compare(M_callVariableTable);
-            M_callVariableTable->getVar(currentAction->getVarId())->setBool(value);
-        } else if (currentAction->getActionType() == CAction::E_AT_VAR_STRCMP) {
-            char *rhs = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
-            char *lhs;
-            if (currentAction->getVarIn2Id()) {
-                lhs = M_callVariableTable->getVar(currentAction->getVarIn2Id())->getString();
-            } else {
-                lhs = currentAction->getStringValue();
+            if ((currentAction->getCheckIt() && !value) ||
+                (currentAction->getCheckItInverse() && value)
+            ) {
+                double lhs = M_callVariableTable->getVar(currentAction->getVarInId())->getDouble();
+                double rhs = currentAction->getVarIn2Id() ?
+                    M_callVariableTable->getVar(currentAction->getVarIn2Id())->getDouble() :
+                    currentAction->getDoubleValue();
+                char *lhsName = call_scenario->allocVars->getName(currentAction->getVarInId());
+                const char *rhsName = "";
+                if (currentAction->getVarIn2Id()) {
+                    rhsName = call_scenario->allocVars->getName(currentAction->getVarIn2Id());
+                }
+                const char *_inverse = currentAction->getCheckIt() ? "" : "_inverse";
+                call::T_ActionResult result = currentAction->getCheckIt() ? call::E_AR_TEST_DOESNT_MATCH : call::E_AR_TEST_SHOULDNT_MATCH;
+
+                WARNING("test \"%s:%f %s %s:%f\" with check_it%s failed",
+                    lhsName,
+                    lhs,
+                    currentAction->comparatorToString(currentAction->getComparator()),
+                    rhsName,
+                    rhs,
+                    _inverse
+                );
+                return(result);
             }
-            int value = strcmp(rhs, lhs);
-            M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)value);
+            // "assign_to" is optional when "check_it" or "check_it_inverse" set
+            if (currentAction->getVarId() ||
+                (!currentAction->getCheckIt() && !currentAction->getCheckItInverse())
+            ) {
+                M_callVariableTable->getVar(currentAction->getVarId())->setBool(value);
+            }
+        } else if (currentAction->getActionType() == CAction::E_AT_VAR_STRCMP) {
+            char *lhs = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
+            char *rhs = currentAction->getVarIn2Id() ?
+                M_callVariableTable->getVar(currentAction->getVarIn2Id())->getString() :
+                currentAction->getStringValue();
+            int value = strcmp(lhs, rhs);
+            if ((currentAction->getCheckIt() && value) ||
+                (currentAction->getCheckItInverse() && !value)
+            ) {
+                char *lhsName = call_scenario->allocVars->getName(currentAction->getVarInId());
+                const char *rhsName = "";
+                if (currentAction->getVarIn2Id()) {
+                    rhsName = call_scenario->allocVars->getName(currentAction->getVarIn2Id());
+                }
+                const char *_inverse = currentAction->getCheckIt() ? "" : "_inverse";
+                call::T_ActionResult result = currentAction->getCheckIt() ? call::E_AR_STRCMP_DOESNT_MATCH : call::E_AR_STRCMP_SHOULDNT_MATCH;
+
+                WARNING("strcmp %s:\"%s\" and %s:\"%s\" with check_it%s returned %d",
+                    lhsName,
+                    lhs,
+                    rhsName,
+                    rhs,
+                    _inverse,
+                    value
+                );
+                return(result);
+            }
+            // "assign_to" is optional when "check_it" or "check_it_inverse" set
+            if (currentAction->getVarId() ||
+                (!currentAction->getCheckIt() && !currentAction->getCheckItInverse())
+            ) {
+                M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)value);
+            }
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TRIM) {
             CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
             char *in = var->getString();
