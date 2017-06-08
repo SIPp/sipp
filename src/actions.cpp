@@ -420,11 +420,11 @@ int CAction::executeRegExp(const char* P_string, VariableTable *P_callVarTable)
         CCallVariable* L_callVar = P_callVarTable->getVar(getVarId());
 
         for(int i = 0; i <= getNbSubVarId(); i++) {
-            if(pmatch[i].rm_eo == -1) break ;
-
-            setSubString(&result, P_string, pmatch[i].rm_so, pmatch[i].rm_eo);
-            L_callVar->setMatchingValue(result);
-            nbOfMatch++;
+            if(pmatch[i].rm_eo != -1) {
+                setSubString(&result, P_string, pmatch[i].rm_so, pmatch[i].rm_eo);
+                L_callVar->setMatchingValue(result);
+                nbOfMatch++;
+            }
 
             if (i == getNbSubVarId())
                 break ;
