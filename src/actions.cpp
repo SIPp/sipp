@@ -382,7 +382,7 @@ void CAction::setRegExp(const char *P_value)
     M_regularExpression = strdup(P_value);
     M_regExpSet = true;
 
-    errorCode = regcomp(&M_internalRegExp, P_value, REGEXP_PARAMS);
+    errorCode = regcomp(&M_internalRegExp, P_value, REGCOMP_PARAMS);
     if(errorCode != 0) {
         char buffer[MAX_HEADER_LEN];
         regerror(errorCode, &M_internalRegExp, buffer, sizeof(buffer));
@@ -415,7 +415,7 @@ int CAction::executeRegExp(const char* P_string, VariableTable *P_callVarTable)
 
     memset((void*)pmatch, 0, sizeof(regmatch_t)*10);
 
-    error = regexec(&M_internalRegExp, P_string, 10, pmatch, REGEXP_PARAMS);
+    error = regexec(&M_internalRegExp, P_string, 10, pmatch, REGEXEC_PARAMS);
     if ( error == 0) {
         CCallVariable* L_callVar = P_callVarTable->getVar(getVarId());
 
