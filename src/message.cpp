@@ -154,6 +154,12 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
                 *dest++ = val & 0xff;
             }
             src++;
+        } else if ((*src == '\\') && (*(src+1) == '[')) {
+            src += 2;
+            *dest++ = '[';
+        } else if ((*src == '\\') && (*(src+1) == ']')) {
+            src += 2;
+            *dest++ = ']';
         } else if (*src == '\n') {
             *dest++ = '\r';
             *dest++ = *src++;
