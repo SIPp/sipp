@@ -232,7 +232,7 @@ double get_double(const char *ptr, const char *what)
     return ret;
 }
 
-#ifdef PCAPPLAY
+#if defined(PCAPPLAY) || defined(RTP_STREAM)
 /* If the value is enclosed in [brackets], it is assumed to be
  * a command-line supplied keyword value (-key). */
 static char* xp_get_keyword_value(const char *name)
@@ -1630,18 +1630,20 @@ void scenario::parseAction(CActions *actions)
             } else if (xp_get_value("play_dtmf")) {
                 ERROR("Scenario specifies a play_dtmf action, but this version of SIPp does not have PCAP support");
 #endif
-            } else if ((cptr = xp_get_value("rtp_stream"))) {
 #ifdef RTP_STREAM
+            } else if ((ptr = xp_get_keyword_value("rtp_stream"))) {
                 hasMedia = 1;
-                if (strcmp(cptr, "pause") == 0) {
+                if (strcmp(ptr, "pause") == 0) {
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PAUSE);
-                } else if (strcmp(cptr, "resume") == 0) {
+                } else if (strcmp(ptr, "resume") == 0) {
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_RESUME);
                 } else {
-                    tmpAction->setRTPStreamActInfo(cptr);
+                    tmpAction->setRTPStreamActInfo(ptr);
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PLAY);
                 }
+                free(ptr);
 #else
+            } else if ((cptr = xp_get_value("rtp_stream"))) {
                 ERROR("Scenario specifies a rtp_stream action, but this version of SIPp does not have RTP stream support");
 #endif
             } else {
