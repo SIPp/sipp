@@ -1462,17 +1462,17 @@ SIPpSocket* SIPpSocket::accept() {
 
     if (ret->ss_transport == T_TLS) {
 #ifdef USE_OPENSSL
-        int ret;
+        int rc;
         int ii = 0;
-        while ((ret = SSL_accept(ss_ssl)) < 0) {
-            int err = SSL_get_error(ss_ssl, ret);
+        while ((rc = SSL_accept(ret->ss_ssl)) < 0) {
+            int err = SSL_get_error(ret->ss_ssl, rc);
             if ((err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) &&
                 ii < SIPP_SSL_MAX_RETRIES) {
                 /* These errors are benign we just need to wait for the socket
                  * to be readable/writable again. */
                 WARNING("SSL_accept failed with error: %s. Attempt %d. "
                         "Retrying...",
-                        sip_tls_error_string(ss_ssl, ret),
+                        sip_tls_error_string(ret->ss_ssl, rc),
                         ii + 1);
                 ii++;
                 sipp_usleep(SIPP_SSL_RETRY_TIMEOUT);
@@ -1480,7 +1480,7 @@ SIPpSocket* SIPpSocket::accept() {
             }
             else {
                 ERROR("Error in SSL_accept: %s\n",
-                      sip_tls_error_string(ss_ssl, ret));
+                      sip_tls_error_string(ret->ss_ssl, rc));
                 break;
             }
         }
