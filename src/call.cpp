@@ -958,56 +958,32 @@ char * call::get_last_header(const char * name)
         ERROR("call::get_last_header: Header to parse bigger than %d (%zu)", MAX_HEADER_LEN, strlen(name));
     }
 
+    char header_name[MAX_HEADER_LEN];
+    const char *sep = strrchr(name, ':');
+
+    if (!sep){ /* [last_Header] */
+        sprintf(header_name, "%s:", name);
+        return get_header(last_recv_msg, header_name, false);
+    }
+
+    snprintf(header_name, len - strlen(sep) + 2, name);
+
+    /* [last_Header:] */
     if (name[len - 1] == ':') {
         return get_header(last_recv_msg, name, false);
+    }
+
+    if (!strcmp(sep, ":value")) { /* [last_Header:value] */
+        return get_header(last_recv_msg, header_name, true);
+    } else if (!strcmp(sep, ":uri")) { /* [last_Header:uri] */
+        snprintf(header_name, len - 3, "%s", name);
+        return get_header_uri(last_recv_msg, header_name, "");
+    } else if (!strcmp(sep, ":param.tag")) { /* [last_Header:param.tag] */
+        snprintf(header_name, len - 9, "%s", name);
+        return get_param(last_recv_msg, "tag", header_name, "");
     } else {
-        char with_colon[MAX_HEADER_LEN];
-        sprintf(with_colon, "%s:", name);
-        return get_header(last_recv_msg, with_colon, false);
+        ERROR("Token %s not valid in %s", sep, name);
     }
-}
-
-/* Return the last request URI from the To header. On any error returns the
- * empty string.  The caller must free the result. */
-char * call::get_last_request_uri()
-{
-    char * tmp;
-    char * tmp2;
-    char * last_request_uri;
-    int tmp_len;
-
-    char * last_To = get_last_header("To:");
-    if (!last_To) {
-        return strdup("");
-    }
-
-    tmp = strchr(last_To, '<');
-    if (!tmp) {
-        return strdup("");
-    }
-    tmp++;
-
-    tmp2 = strchr(last_To, '>');
-    if (!tmp2) {
-        return strdup("");
-    }
-
-    tmp_len = strlen(tmp) - strlen(tmp2);
-    if (tmp_len < 0) {
-        return strdup("");
-    }
-
-    if (!(last_request_uri = (char *)malloc(tmp_len + 1))) {
-        ERROR("Cannot allocate !\n");
-    }
-
-    last_request_uri[0] = '\0';
-    if (tmp && (tmp_len > 0)) {
-        strncpy(last_request_uri, tmp, tmp_len);
-    }
-    last_request_uri[tmp_len] = '\0';
-
-    return last_request_uri;
 }
 
 char * call::send_scene(int index, int *send_status, int *len)
@@ -2239,9 +2215,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             break;
         case E_Message_Last_Request_URI: {
-            char * last_request_uri = get_last_request_uri();
-            dest += sprintf(dest, "%s", last_request_uri);
-            free(last_request_uri);
+            dest += sprintf(dest, "%s", get_last_header("To:uri"));
             break;
         }
         case E_Message_Last_CSeq_Number: {

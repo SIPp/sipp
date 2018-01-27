@@ -26,6 +26,8 @@
 #define MAX_HEADER_LEN 2049
 
 char *get_call_id(const char *msg);
+char *get_header_uri(const char *msg, const char *name, const char *shortname);
+char *get_param(const char *msg, const char *param, const char *name, const char *shortname);
 char *get_peer_tag(const char *msg);
 
 int get_method(char *msg);

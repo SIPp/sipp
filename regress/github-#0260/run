@@ -1,0 +1,34 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Author: Pietro Bertera, Snom Technology AG, 2016
+
+. "`dirname "$0"`/../functions"; init
+
+sippbg -m 1 -sf uas.xml -p 5070 -i 127.0.0.1 \
+    -timeout 4 -timeout_error -trace_logs \
+    -log_file log.log >/dev/null 2>&1
+
+job=$!
+
+sippfg -m 1 -sf uac.xml -i 127.0.0.1 -p 5060 127.0.0.1:5070 \
+    -timeout 4 -timeout_error >/dev/null 2>&1
+
+status=$?
+wait $job || status=1
+
+
+if test $status -ne 0; then
+    fail "process failure"
+elif ! grep -qF 'LAST Contact|Contact: <sip:sipp@127.0.0.1:5060>' log.log; then
+    fail "[last_Contact] header not found"
+elif ! grep -qF 'LAST Contact:|Contact: <sip:sipp@127.0.0.1:5060>' log.log; then
+    fail "[last_Contact:] header not found"
+elif ! grep -qF 'LAST From:value|"Tom Jones" <sip:tom.jones@wales.uk>;tag=SIPpTag001' log.log; then
+    fail "[last_From:value] not found"
+elif ! grep -qF 'LAST To:uri|sip:cheese@paris.fr' log.log; then
+    fail "[last_To:uri] not found"
+elif ! grep -qF 'LAST From:param.tag|SIPpTag001' log.log; then
+    fail "[last_From:param.tag] not found"
+fi
+
+ok
