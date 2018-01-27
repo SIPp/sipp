@@ -2098,15 +2098,15 @@ static int sip_tls_load_crls(SSL_CTX* ctx , const char* crlfile)
 /************* Prepare the SSL context ************************/
 ssl_init_status FI_init_ssl_context (void)
 {
-    sip_trp_ssl_ctx = SSL_CTX_new( TLSv1_method() );
+    sip_trp_ssl_ctx = SSL_CTX_new( TLS_method() );
     if ( sip_trp_ssl_ctx == NULL ) {
-        ERROR("FI_init_ssl_context: SSL_CTX_new with TLSv1_method failed");
+        ERROR("FI_init_ssl_context: SSL_CTX_new with TLS_method failed");
         return SSL_INIT_ERROR;
     }
 
-    sip_trp_ssl_ctx_client = SSL_CTX_new( TLSv1_method() );
+    sip_trp_ssl_ctx_client = SSL_CTX_new( TLS_method() );
     if ( sip_trp_ssl_ctx_client == NULL) {
-        ERROR("FI_init_ssl_context: SSL_CTX_new with TLSv1_method failed");
+        ERROR("FI_init_ssl_context: SSL_CTX_new with TLS_method failed");
         return SSL_INIT_ERROR;
     }
 
