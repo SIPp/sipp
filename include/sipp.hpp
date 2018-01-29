@@ -119,6 +119,7 @@
 #define DEFAULT_TLS_CERT           "cacert.pem"
 #define DEFAULT_TLS_KEY            "cakey.pem"
 #define DEFAULT_TLS_CRL            ""
+#define DEFAULT_TLS_CA             ""
 #endif
 
 #define TRANSPORT_TO_STRING(p)     ((p==T_TCP) ? "TCP" : ((p==T_TLS)? "TLS" : ((p==T_UDP)? "UDP" : "SCTP")))
@@ -322,6 +323,7 @@ extern SSL              * twinSipp_ssl;
 extern const char       * tls_cert_name           _DEFVAL(DEFAULT_TLS_CERT);
 extern const char       * tls_key_name            _DEFVAL(DEFAULT_TLS_KEY);
 extern const char       * tls_crl_name            _DEFVAL(DEFAULT_TLS_CRL);
+extern const char       * tls_ca_name             _DEFVAL(DEFAULT_TLS_CA);
 
 #endif
 

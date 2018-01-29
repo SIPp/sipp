@@ -165,10 +165,12 @@ struct sipp_option options_table[] = {
     {"tls_cert", "Set the name for TLS Certificate file. Default is 'cacert.pem", SIPP_OPTION_STRING, &tls_cert_name, 1},
     {"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem'", SIPP_OPTION_STRING, &tls_key_name, 1},
     {"tls_crl", "Set the name for Certificate Revocation List file. If not specified, X509 CRL is not activated.", SIPP_OPTION_STRING, &tls_crl_name, 1},
+    {"tls_ca", "Set the name for TLS CA file. If not specified, X509 verification is not activated.", SIPP_OPTION_STRING, &tls_ca_name, 1},
 #else
     {"tls_cert", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
     {"tls_key", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
     {"tls_crl", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
+    {"tls_ca", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
 #endif
 
 #ifdef USE_SCTP
