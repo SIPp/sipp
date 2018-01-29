@@ -227,12 +227,14 @@ enum tls_init_status TLS_init_context(void)
     }
 
     /* Load the trusted CA's */
-    SSL_CTX_load_verify_locations(sip_trp_ssl_ctx, tls_cert_name, NULL);
-    SSL_CTX_load_verify_locations(sip_trp_ssl_ctx_client, tls_cert_name, NULL);
+    if (strlen(tls_ca_name) != 0) {
+        SSL_CTX_load_verify_locations(sip_trp_ssl_ctx, tls_ca_name, NULL);
+        SSL_CTX_load_verify_locations(sip_trp_ssl_ctx_client, tls_ca_name, NULL);
+    }
 
-    /* CRL load from application specified only if specified on the
-     * command line */
-    if (strlen(tls_crl_name) != 0) {
+    /* TLS Verification only makes sense if an CA is specified or
+     * we require CRL validation. */
+    if (strlen(tls_ca_name) != 0 || strlen(tls_crl_name) != 0) {
         if (sip_tls_load_crls(sip_trp_ssl_ctx, tls_crl_name) == -1) {
             ERROR("TLS_init_context: Unable to load CRL file (%s)", tls_crl_name);
             return TLS_INIT_ERROR;

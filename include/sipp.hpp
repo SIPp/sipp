@@ -113,6 +113,7 @@
 #ifdef USE_TLS
 #define DEFAULT_TLS_CERT           "cacert.pem"
 #define DEFAULT_TLS_KEY            "cakey.pem"
+#define DEFAULT_TLS_CA             ""
 #define DEFAULT_TLS_CRL            ""
 #endif
 
@@ -313,6 +314,7 @@ MAYBE_EXTERN bool               tdm_map[1024];
 #ifdef USE_TLS
 MAYBE_EXTERN const char       * tls_cert_name           DEFVAL(DEFAULT_TLS_CERT);
 MAYBE_EXTERN const char       * tls_key_name            DEFVAL(DEFAULT_TLS_KEY);
+MAYBE_EXTERN const char       * tls_ca_name             DEFVAL(DEFAULT_TLS_CA);
 MAYBE_EXTERN const char       * tls_crl_name            DEFVAL(DEFAULT_TLS_CRL);
 MAYBE_EXTERN double             tls_version             DEFVAL(0.0);
 #endif

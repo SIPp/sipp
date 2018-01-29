@@ -22,6 +22,8 @@ Changes in 3.6.0
 Features added in 3.6.0
 =======================
 
+* BEWARE: Only validated SSL certficate if CA-file is separately specified!
+  (PR #335, by Patrick Wildt @bluerise.)
 * Added `play_dtmf` code originally from
   https://sourceforge.net/p/sipp/patches/50/ (Dmitry Kunilov), then
   pull #82 (@horacimacias) and then #141 (@vodik). Compile with
