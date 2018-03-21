@@ -613,10 +613,6 @@ static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
         *ptr-- = 0;
     }
 
-    if(!strstr(msg, "\n\n")) {
-        strcat(msg, "\n\n");
-    }
-
     if(ptr == msg) {
         ERROR("Empty cdata in xml scenario file");
     }
@@ -631,6 +627,10 @@ static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
     }
     while ((ptr = strstr(msg, "\t\n"))) {
         memmove(ptr, ptr + 1, strlen(ptr));
+    }
+
+    if(!strstr(msg, "\n\n")) {
+        strcat(msg, "\n\n");
     }
 
     return msg;
