@@ -2504,6 +2504,7 @@ void SIPpSocket::close_calls()
 int open_connections()
 {
     int status=0;
+    int family_hint = PF_UNSPEC;
     local_port = 0;
 
     if (!strlen(remote_host)) {
@@ -2529,6 +2530,7 @@ int open_connections()
             }
 
             get_inet_address(&remote_sockaddr, remote_ip, sizeof(remote_ip));
+            family_hint = remote_sockaddr.ss_family;
             if (remote_sockaddr.ss_family == AF_INET) {
                 strcpy(remote_ip_escaped, remote_ip);
             } else {
@@ -2555,7 +2557,7 @@ int open_connections()
 
         memset((char*)&hints, 0, sizeof(hints));
         hints.ai_flags  = AI_PASSIVE;
-        hints.ai_family = PF_UNSPEC;
+        hints.ai_family = family_hint;
 
         /* Resolving local IP */
         if (getaddrinfo(local_host, NULL, &hints, &local_addr) != 0) {
