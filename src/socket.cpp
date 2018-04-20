@@ -338,7 +338,7 @@ const char *sip_tls_error_string(SSL *ssl, int size)
 
 static char* get_inet_address(const struct sockaddr_storage* addr, char* dst, int len)
 {
-    if (getnameinfo(_RCAST(struct sockaddr*, addr), sizeof(*addr),
+    if (getnameinfo(_RCAST(struct sockaddr*, addr), SOCK_ADDR_SIZE(addr),
                     dst, len, NULL, 0, NI_NUMERICHOST) != 0) {
         snprintf(dst, len, "addr not supported");
     }
