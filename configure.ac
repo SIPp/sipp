@@ -150,8 +150,8 @@ if test "$openssl" = 'yes'; then
     AC_CHECK_HEADERS([openssl/rand.h],,[AC_MSG_ERROR([<openssl/rand.h> header missing])])
     AC_CHECK_HEADERS([openssl/ssl.h],,[AC_MSG_ERROR([<openssl/ssl.h> header missing])])
     AC_CHECK_HEADERS([openssl/x509v3.h],,[AC_MSG_ERROR([<openssl/x509v3.h> header missing])])
-    AC_CHECK_LIB([ssl], [SSL_library_init],,[AC_MSG_ERROR([ssl library missing])])
-    AC_CHECK_LIB([crypto], [CRYPTO_num_locks],,[AC_MSG_ERROR([crypto library missing])])
+    AC_CHECK_LIB([ssl], [SSL_CTX_new],,[AC_MSG_ERROR([ssl library missing])])
+    AC_CHECK_LIB([crypto], [CRYPTO_free],,[AC_MSG_ERROR([crypto library missing])])
 fi
 # For Makefile.am
 AM_CONDITIONAL(HAVE_OPENSSL, test "$openssl" = "yes")
