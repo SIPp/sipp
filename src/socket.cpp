@@ -1573,8 +1573,9 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
                 sipp_usleep(SIPP_SSL_RETRY_TIMEOUT);
                 continue;
             }
-            ERROR("Error in SSL connection: %s\n", SSL_error_string(err, rc));
-            break;
+            WARNING("Error in SSL connection: %s\n", SSL_error_string(err, rc));
+            invalidate();
+            return err;
         }
 #else
         ERROR("You need to compile SIPp with TLS support");
