@@ -84,13 +84,18 @@ case "$host" in
         ;;
 esac
 
+AC_CHECK_PROG([have_pkgconfig], [pkg-config], [yes], [no])
+
 # ==================== checks for libraries =============================
-AC_CHECK_LIB(curses,initscr)
-if test x$ac_cv_lib_curses_initscr = xno; then
-    AC_CHECK_LIB(ncurses,initscr)
-    if test x$ac_cv_lib_ncurses_initscr = xno; then
-        AC_MSG_ERROR([ncurses library missing])
-    fi
+
+if test "$have_pkgconfig" = "yes"; then
+    # Use pkg-config when available
+    PKG_PROG_PKG_CONFIG()
+    PKG_CHECK_MODULES([ncurses], [ncurses], LIBS="$LIBS $ncurses_LIBS")
+else
+    # Olden ways
+    AC_SEARCH_LIBS([initscr], [ncurses curses],,AC_ERROR([Missing (n)curses library]))
+    AC_SEARCH_LIBS([stdscr], [tinfo ncurses curses],,AC_ERROR([Missing (n)curses/tinfo library]))
 fi
 
 AC_CHECK_LIB(pthread, pthread_mutex_init, THREAD_LIBS="-lpthread",
@@ -182,7 +187,6 @@ AM_CONDITIONAL(HAVE_RTP, test "$rtp" = "yes")
 
 # Conditional build with gsl
 if test "$gsl" = "yes"; then
-    AC_CHECK_PROG([have_pkgconfig], [pkg-config], [yes], [no])
     if test "$have_pkgconfig" != "yes" ; then
         AC_MSG_ERROR([Please install pkg-config to use the gsl libraries])
     fi
