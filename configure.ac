@@ -91,7 +91,15 @@ AC_CHECK_PROG([have_pkgconfig], [pkg-config], [yes], [no])
 if test "$have_pkgconfig" = "yes"; then
     # Use pkg-config when available
     PKG_PROG_PKG_CONFIG()
-    PKG_CHECK_MODULES([ncurses], [ncurses], LIBS="$LIBS $ncurses_LIBS")
+    PKG_CHECK_MODULES([ncurses], [ncurses],
+        LIBS="$LIBS $ncurses_LIBS",
+        [PKG_CHECK_MODULES([curses], [curses],
+            LIBS="$LIBS $curses_LIBS",
+            # On OSX we don't get pkg-config for (n)curses.
+            [AC_SEARCH_LIBS([initscr], [ncurses curses],,
+                AC_ERROR([Missing (n)curses library]))]
+        )]
+    )
 else
     # Olden ways
     AC_SEARCH_LIBS([initscr], [ncurses curses],,AC_ERROR([Missing (n)curses library]))
