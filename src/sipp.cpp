@@ -2018,6 +2018,7 @@ int main(int argc, char *argv[])
 #endif
 
     free(scenario_file);
+    delete ctrl_socket;
 
     sipp_exit(EXIT_TEST_RES_UNKNOWN);
 }

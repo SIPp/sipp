@@ -20,6 +20,7 @@ addons:
       - libncurses5-dev
       - libssl-dev
       - libgsl0-dev
+      - valgrind
 
 env:
   - CONFOPTS="--with-gsl --with-openssl --with-pcap --with-rtpstream --with-sctp"
