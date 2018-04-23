@@ -2017,9 +2017,6 @@ int main(int argc, char *argv[])
     free(epollevents);
 #endif
 
-    if (local_addr_storage) {
-        freeaddrinfo(local_addr_storage);
-    }
     free(scenario_file);
 
     sipp_exit(EXIT_TEST_RES_UNKNOWN);

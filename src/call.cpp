@@ -741,9 +741,7 @@ bool call::connect_socket_if_needed()
             return true;
         }
 
-        memset(&saddr, 0, sizeof(struct sockaddr_storage));
-        memcpy(&saddr, local_addr_storage->ai_addr, local_addr_storage->ai_addrlen);
-
+        memcpy(&saddr, &local_addr_storage, sizeof(struct sockaddr_storage));
         if (use_ipv6) {
             saddr.ss_family       = AF_INET6;
         } else {

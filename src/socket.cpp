@@ -2543,52 +2543,79 @@ int open_connections()
         }
     }
 
-    if (gethostname(hostname, 64) != 0) {
-        ERROR_NO("Can't get local hostname in 'gethostname(hostname, 64)'");
-    }
-
     {
-        char            * local_host = NULL;
-        struct addrinfo * local_addr;
-        struct addrinfo   hints;
-
-        if (!strlen(local_ip)) {
-            local_host = (char *)hostname;
-        } else {
-            local_host = (char *)local_ip;
-        }
-
-        memset((char*)&hints, 0, sizeof(hints));
-        hints.ai_flags  = AI_PASSIVE;
-        hints.ai_family = family_hint;
-
-        /* Resolving local IP */
-        if (getaddrinfo(local_host, NULL, &hints, &local_addr) != 0) {
-            ERROR("Can't get local IP address in getaddrinfo, local_host='%s', local_ip='%s'",
-                  local_host,
-                  local_ip);
-        }
-        // store local addr info for rsa option
-        getaddrinfo(local_host, NULL, &hints, &local_addr_storage);
-
+        /* Yuck. Populate local_sockaddr with "our IP" first, and then
+         * replace it with INADDR_ANY if we did not request a specific
+         * IP to bind on. */
+        bool bind_specific = false;
         memset(&local_sockaddr, 0, sizeof(struct sockaddr_storage));
-        local_sockaddr.ss_family = local_addr->ai_addr->sa_family;
 
-        if (!strlen(local_ip)) {
-            get_inet_address(_RCAST(struct sockaddr_storage*, local_addr->ai_addr),
-                             local_ip, sizeof(local_ip));
+        if (strlen(local_ip) || !strlen(remote_host)) {
+            int ret;
+            struct addrinfo * local_addr;
+            struct addrinfo   hints;
+
+            memset((char*)&hints, 0, sizeof(hints));
+            hints.ai_flags  = AI_PASSIVE;
+            hints.ai_family = family_hint;
+
+            if (strlen(local_ip)) {
+                bind_specific = true;
+            } else {
+                /* Bind on gethostname() IP by default. This is actually
+                 * buggy.  We should be able to bind on :: and decide on
+                 * accept() what Contact IP we use.  Right now, if we do
+                 * that, we'd send [::] in the contact and :: in the RTP
+                 * as "our IP". */
+                if (gethostname(local_ip, sizeof(local_ip)) != 0) {
+                    ERROR_NO("Can't get local hostname");
+                }
+            }
+
+            /* Resolving local IP */
+            if ((ret = getaddrinfo(local_ip, NULL, &hints, &local_addr)) != 0) {
+                if (ret == EAI_ADDRFAMILY) {
+                    ERROR("Network family mismatch for local and remote IP");
+                } else {
+                    ERROR("Can't get local IP address in getaddrinfo, "
+                          "local_ip='%s', ret=%d", local_ip, ret);
+                }
+            }
+            memcpy(&local_sockaddr, local_addr->ai_addr, local_addr->ai_addrlen);
+            freeaddrinfo(local_addr);
+
+            if (!bind_specific) {
+                get_inet_address(&local_sockaddr, local_ip, sizeof(local_ip));
+            }
         } else {
-            memcpy(&local_sockaddr,
-                   local_addr->ai_addr,
-                   local_addr->ai_addrlen);
+            /* Get temp socket on UDP to find out our local address */
+            int tmpsock = -1;
+            socklen_t len = sizeof(local_sockaddr);
+            if ((tmpsock = socket(remote_sockaddr.ss_family, SOCK_DGRAM, IPPROTO_UDP)) < 0 ||
+                    ::connect(tmpsock, _RCAST(struct sockaddr*, &remote_sockaddr),
+                              socklen_from_addr(&remote_sockaddr)) < 0 ||
+                    getsockname(tmpsock, _RCAST(struct sockaddr*, &local_sockaddr), &len) < 0) {
+                // close(tmpsock);
+                ERROR_NO("Failed to find our local ip");
+            }
+            close(tmpsock);
+            get_inet_address(&local_sockaddr, local_ip, sizeof(local_ip));
         }
-        freeaddrinfo(local_addr);
+
+        /* Store local addr info for rsa option */
+        memcpy(&local_addr_storage, &local_sockaddr, sizeof(local_sockaddr));
 
         if (local_sockaddr.ss_family == AF_INET6) {
             local_ip_is_ipv6 = true;
             sprintf(local_ip_escaped, "[%s]", local_ip);
+            if (!bind_specific) {
+                memcpy(&_RCAST(struct sockaddr_in6*, &local_sockaddr)->sin6_addr, &in6addr_any, sizeof(in6addr_any));
+            }
         } else {
             strcpy(local_ip_escaped, local_ip);
+            if (!bind_specific) {
+                _RCAST(struct sockaddr_in*, &local_sockaddr)->sin_addr.s_addr = INADDR_ANY;
+            }
         }
     }
 

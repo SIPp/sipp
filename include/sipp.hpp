@@ -436,7 +436,7 @@ extern bool          sendbuffer_warn              _DEFVAL(false);
 /* A list of sockets pending reset. */
 extern set<SIPpSocket*> sockets_pending_reset;
 
-extern struct addrinfo *local_addr_storage;
+extern struct sockaddr_storage local_addr_storage;
 
 extern SIPpSocket   *twinSippSocket               _DEFVAL(NULL);
 extern SIPpSocket   *localTwinSippSocket          _DEFVAL(NULL);
