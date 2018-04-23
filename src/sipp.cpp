@@ -1991,12 +1991,15 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (traffic_thread()) {
-        if (!nostdin) {
-            stdin_socket->close();
-        }
-        ctrl_socket->close();
+    traffic_thread();
+
+    /* Clean up */
+    if (!nostdin) {
+        stdin_socket->close();
+        stdin_socket = NULL; /* close "delete's this" */
     }
+    ctrl_socket->close();
+    ctrl_socket = NULL;  /* close "delete's this" */
 
     /* Cancel and join other threads. */
     if (pthread2_id) {
@@ -2018,7 +2021,6 @@ int main(int argc, char *argv[])
 #endif
 
     free(scenario_file);
-    delete ctrl_socket;
 
     sipp_exit(EXIT_TEST_RES_UNKNOWN);
 }
