@@ -2666,18 +2666,21 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
 {
     message *curmsg = call_scenario->messages[index];
 
-    if ((curmsg -> recv_request)) {
+    if ((curmsg->recv_request)) {
         if (curmsg->regexp_match) {
-            if (curmsg -> regexp_compile == NULL) {
+            if (curmsg->regexp_compile == NULL) {
                 regex_t *re = new regex_t;
-                if (regcomp(re, curmsg -> recv_request, REG_EXTENDED|REG_NOSUB)) {
+                /* No regex match position needed (NOSUB), we're simply
+                 * looking for the <request method="INVITE|REGISTER"../>
+                 * regex. */
+                if (regcomp(re, curmsg->recv_request, REGCOMP_PARAMS|REG_NOSUB)) {
                     ERROR("Invalid regular expression for index %d: %s", index, curmsg->recv_request);
                 }
-                curmsg -> regexp_compile = re;
+                curmsg->regexp_compile = re;
             }
-            return !regexec(curmsg -> regexp_compile, request, (size_t)0, NULL, 0);
+            return !regexec(curmsg->regexp_compile, request, (size_t)0, NULL, REGEXEC_PARAMS);
         } else {
-            return !strcmp(curmsg -> recv_request, request);
+            return !strcmp(curmsg->recv_request, request);
         }
     } else if (curmsg->recv_response && (curmsg->recv_response == reply_code)) {
         /* This is a potential candidate, we need to match transactions. */
@@ -2847,13 +2850,13 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
         // extract the cseq method from the response
         extract_cseq_method (responsecseqmethod, msg);
         extract_transaction (txn, msg);
-    } else if((ptr = strchr(msg, ' '))) {
-        if((ptr - msg) < 64) {
+    } else if ((ptr = strchr(msg, ' '))) {
+        if ((ptr - msg) < 64) {
             memcpy(request, msg, ptr - msg);
             request[ptr - msg] = 0;
             // Check if we received an ACK => call established
-            if (strcmp(request,"ACK")==0) {
-                call_established=true;
+            if (strcmp(request,"ACK") == 0) {
+                call_established = true;
             }
 #ifdef PCAPPLAY
             /* In case of INVITE or re-INVITE, ACK or PRACK
@@ -2877,12 +2880,12 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     }
 
     /* Try to find it in the expected non mandatory responses
-     * until the first mandatory response  in the scenario */
-    for(search_index = msg_index;
+     * until the first mandatory response in the scenario */
+    for (search_index = msg_index;
             search_index < (int)call_scenario->messages.size();
             search_index++) {
-        if(!matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
-            if(call_scenario->messages[search_index] -> optional) {
+        if (!matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
+            if (call_scenario->messages[search_index]->optional) {
                 continue;
             }
             /* The received message is different for the expected one */
@@ -2898,13 +2901,15 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     }
 
     /* Try to find it in the old non-mandatory receptions */
-    if(!found) {
+    if (!found) {
         bool contig = true;
         for(search_index = msg_index - 1;
                 search_index >= 0;
                 search_index--) {
-            if (call_scenario->messages[search_index]->optional == OPTIONAL_FALSE) contig = false;
-            if(matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
+            if (call_scenario->messages[search_index]->optional == OPTIONAL_FALSE) {
+                contig = false;
+            }
+            if (matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
                 if (contig || call_scenario->messages[search_index]->optional == OPTIONAL_GLOBAL) {
                     found = true;
                     break;
