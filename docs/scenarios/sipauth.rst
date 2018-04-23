@@ -44,9 +44,7 @@ In case you want to use authentication with a different
 username/password or aka_K for each call, you can do this:
 
 
-+ Make a CSV like this:
-
-::
++ Make a CSV like this::
 
     SEQUENTIAL
     User0001;[authentication username=joe password=schmo]
@@ -55,77 +53,72 @@ username/password or aka_K for each call, you can do this:
 
 
 + And an XML like this (the [field1] will be substituted with the full
-  auth string, which is the processed as a new keyword):
-
-::
+  auth string, which is the processed as a new keyword)::
 
     <send retrans="500">
-        <![CDATA[
-    
-          REGISTER sip:[remote_ip] SIP/2.0
-          Via: SIP/2.0/[transport] [local_ip]:[local_port]
-          To: <sip:[field0]@sip.com:[remote_port]>
-          From: <sip:[field0]@[remote_ip]:[remote_port]>
-          Contact: <sip:[field0]@[local_ip]:[local_port]>;transport=[transport]
-          [field1]
-          Expires: 300
-          Call-ID: [call_id]
-          CSeq: 2 REGISTER
-          Content-Length: 0
-    
-        ]]>
-      </send>
+      <![CDATA[
+
+        REGISTER sip:[remote_ip] SIP/2.0
+        Via: SIP/2.0/[transport] [local_ip]:[local_port]
+        To: <sip:[field0]@sip.com:[remote_port]>
+        From: <sip:[field0]@[remote_ip]:[remote_port]>
+        Contact: <sip:[field0]@[local_ip]:[local_port]>;transport=[transport]
+        [field1]
+        Expires: 300
+        Call-ID: [call_id]
+        CSeq: 2 REGISTER
+        Content-Length: 0
+
+      ]]>
+    </send>
 
 
 
+Example::
 
-Example:
+    <recv response="407" auth="true">
+    </recv>
 
-::
+    <send>
+      <![CDATA[
 
-      <recv response="407" auth="true">
-      </recv>
-    
-      <send>
-        <![CDATA[
-    
-          ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0
-          Via: SIP/2.0/[transport] [local_ip]:[local_port]
-          From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
-          To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
-          Call-ID: [call_id]
-          CSeq: 1 ACK
-          Contact: sip:sipp@[local_ip]:[local_port]
-          Max-Forwards: 70
-          Subject: Performance Test
-          Content-Length: 0
-    
-        ]]>
-      </send>
-    
-      <send retrans="500">
-        <![CDATA[
-    
-          INVITE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
-          Via: SIP/2.0/[transport] [local_ip]:[local_port]
-          From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
-          To: sut <sip:[service]@[remote_ip]:[remote_port]>
-          Call-ID: [call_id]
-          CSeq: 2 INVITE
-          Contact: sip:sipp@[local_ip]:[local_port]
-          [authentication username=foouser]
-          Max-Forwards: 70
-          Subject: Performance Test
-          Content-Type: application/sdp
-          Content-Length: [len]
-    
-          v=0
-          o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]
-          s=-
-          t=0 0
-          c=IN IP[media_ip_type] [media_ip]
-          m=audio [media_port] RTP/AVP 0
-          a=rtpmap:0 PCMU/8000
-    
-        ]]>
-      </send>
+        ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+        Via: SIP/2.0/[transport] [local_ip]:[local_port]
+        From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+        To: sut <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
+        Call-ID: [call_id]
+        CSeq: 1 ACK
+        Contact: sip:sipp@[local_ip]:[local_port]
+        Max-Forwards: 70
+        Subject: Performance Test
+        Content-Length: 0
+
+      ]]>
+    </send>
+
+    <send retrans="500">
+      <![CDATA[
+
+        INVITE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+        Via: SIP/2.0/[transport] [local_ip]:[local_port]
+        From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+        To: sut <sip:[service]@[remote_ip]:[remote_port]>
+        Call-ID: [call_id]
+        CSeq: 2 INVITE
+        Contact: sip:sipp@[local_ip]:[local_port]
+        [authentication username=foouser]
+        Max-Forwards: 70
+        Subject: Performance Test
+        Content-Type: application/sdp
+        Content-Length: [len]
+
+        v=0
+        o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]
+        s=-
+        t=0 0
+        c=IN IP[media_ip_type] [media_ip]
+        m=audio [media_port] RTP/AVP 0
+        a=rtpmap:0 PCMU/8000
+
+      ]]>
+    </send>

@@ -58,7 +58,8 @@ Installing SIPp
 
 + On Linux, SIPp is provided in the form of source code. You will need
   to compile SIPp to actually use it.
-+ Pre-requisites to compile SIPp are :
+
++ Pre-requisites to compile SIPp are:
 
     + C++ Compiler
     + curses or ncurses library
@@ -69,68 +70,48 @@ Installing SIPp
 
 + You have four options to compile SIPp:
 
-    + Without TLS (Transport Layer Security), SCTP or PCAP support : -
-      This is the recommended setup if you don't need to handle SCTP, TLS or
-      PCAP.
+    + Without TLS (Transport Layer Security), SCTP or PCAP support --
+      this is the recommended setup if you don't need to handle SCTP, TLS or
+      PCAP::
 
-::
+        tar -xvzf sipp-xxx.tar
+        cd sipp
+        ./configure
+        make
 
-        # tar -xvzf sipp-xxx.tar
-                      # cd sipp
-                      # ./configure
-                      # make
-            
+    + With TLS support, you must have installed `OpenSSL library`_
+      (>=0.9.8) (which may come with your system). Building SIPp
+      consists only of adding the ``--with-openssl`` option to the
+      configure command::
 
+        tar -xvzf sipp-xxx.tar.gz
+        cd sipp
+        ./configure --with-openssl
+        make
 
-+ With TLS support, 
-  you must have installed `OpenSSL library`_ (>=0.9.8) (which may come 
-  with your system). Building SIPp consists only in adding the "--with-openssl" 
-  option to the configure command:
+    + With PCAP play support::
 
-::
+        tar -xvzf sipp-xxx.tar.gz
+        cd sipp
+        ./configure --with-pcap
+        make
 
-        # tar -xvzf sipp-xxx.tar.gz
-                    # cd sipp
-                    # ./configure --with-openssl
-                    # make
-                    
+    + With SCTP support::
 
+        tar -xvzf sipp-xxx.tar.gz
+        cd sipp
+        ./configure --with-sctp
+        make
 
-+ With PCAP play support :
+    + You can also combine these various options, e.g.::
 
-::
-
-        # tar -xvzf sipp-xxx.tar.gz
-                    # cd sipp
-                    # ./configure --with-pcap
-                    # make
-                    
-
-
-+ With SCTP support :
-
-::
-
-        # tar -xvzf sipp-xxx.tar.gz
-                    # cd sipp
-                    # ./configure --with-sctp
-                    # make
-                    
+        tar -xvzf sipp-xxx.tar.gz
+        cd sipp
+        ./configure --with-sctp --with-pcap --with-openssl
+        make
 
 
-+ You can also combine these various options, e.g.: :
-
-::
-
-        # tar -xvzf sipp-xxx.tar.gz
-                    # cd sipp
-                    # ./configure --with-sctp --with-pcap --with-openssl
-                    # make
-                    
-
-
-
-.. warning:: 
+.. warning::
   SIPp compiles under CYGWIN on Windows, provided that you
   installed IPv6 extension for `CYGWIN <http://win6.jp/Cygwin/>`_, as
   well as libncurses and (optionally OpenSSL and WinPcap). SCTP is not

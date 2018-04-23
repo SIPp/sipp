@@ -171,7 +171,7 @@ a UAC client sending IPv6 traffic to that port.
 
     ./sipp -sn uas -i [fe80::204:75ff:fe4d:19d9] -p 5063
     ./sipp -sn uac -i [fe80::204:75ff:fe4d:19d9] [fe80::204:75ff:fe4d:19d9]:5063
-                    
+
 
 
 .. warning::
