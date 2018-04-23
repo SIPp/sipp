@@ -1103,13 +1103,13 @@ int main(int argc, char *argv[])
     screen_set_exename("sipp");
 
     pid = getpid();
-    memset(local_ip, 0, 40);
+    memset(local_ip, 0, sizeof(local_ip));
 #ifdef USE_SCTP
-    memset(multihome_ip, 0, 40);
+    memset(multihome_ip, 0, sizeof(multihome_ip));
 #endif
-    memset(media_ip, 0, 40);
-    memset(control_ip, 0, 40);
-    memset(media_ip_escaped, 0, 42);
+    memset(media_ip, 0, sizeof(media_ip));
+    memset(control_ip, 0, sizeof(control_ip));
+    memset(media_ip_escaped, 0, sizeof(media_ip_escaped));
 
     /* Initialize the tolower table. */
     init_tolower_table();
