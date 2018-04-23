@@ -180,8 +180,12 @@ AM_CONDITIONAL(HAVE_PCAP, test "$pcap" = "yes")
 
 AM_CONDITIONAL(HAVE_RTP, test "$rtp" = "yes")
 
-# Conditional build with pcap
-if test "$gsl" = 'yes'; then
+# Conditional build with gsl
+if test "$gsl" = "yes"; then
+    AC_CHECK_PROG([have_pkgconfig], [pkg-config], [yes], [no])
+    if test "$have_pkgconfig" != "yes" ; then
+        AC_MSG_ERROR([Please install pkg-config to use the gsl libraries])
+    fi
     AC_CHECK_HEADERS([gsl/gsl_randist.h],,[AC_MSG_ERROR([<gsl/gsl_randist.h> header missing])])
     AC_CHECK_HEADERS([gsl/gsl_rng.h],,[AC_MSG_ERROR([<gsl/gsl_rng.h> header missing])])
     AC_CHECK_HEADERS([gsl/gsl_cdf.h],,[AC_MSG_ERROR([<gsl/gsl_cdf.h> header missing])])
