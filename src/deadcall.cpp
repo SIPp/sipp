@@ -64,7 +64,7 @@ deadcall::~deadcall()
     free(reason);
 }
 
-bool deadcall::process_incoming(char * msg, struct sockaddr_storage * /*src*/)
+bool deadcall::process_incoming(const char* msg, const struct sockaddr_storage* /*src*/)
 {
     char buffer[MAX_HEADER_LEN];
 

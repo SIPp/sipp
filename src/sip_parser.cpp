@@ -54,23 +54,23 @@
  *   http://www.in2eps.com/fo-abnf/tk-fo-abnf-sip.html
  */
 
-static const char *internal_find_param(const char *ptr, const char *name);
-static const char *internal_find_header(const char *msg, const char *name,
-        const char *shortname, bool content);
-static const char *internal_skip_lws(const char *ptr);
+static const char* internal_find_param(const char* ptr, const char* name);
+static const char* internal_find_header(const char* msg, const char* name,
+        const char* shortname, bool content);
+static const char* internal_skip_lws(const char* ptr);
 
 /* Search for a character, but only inside this header. Returns NULL if
  * not found. */
-static const char *internal_hdrchr(const char *ptr, const char needle);
+static const char* internal_hdrchr(const char* ptr, const char needle);
 
 /* Seek to end of this header. Returns the position the next character,
  * which must be at the header-delimiting-CRLF or, if the message is
  * broken, at the ASCIIZ NUL. */
-static const char *internal_hdrend(const char *ptr);
+static const char* internal_hdrend(const char* ptr);
 
 /*************************** Mini SIP parser (externals) ***************/
 
-char * get_peer_tag(const char *msg)
+char* get_peer_tag(const char* msg)
 {
     static char   tag[MAX_HEADER_LEN];
     const char  * to_hdr;
@@ -109,13 +109,13 @@ char * get_peer_tag(const char *msg)
     return tag;
 }
 
-char * get_header_content(const char* message, const char * name)
+char* get_header_content(const char* message, const char* name)
 {
     return get_header(message, name, true);
 }
 
 /* If content is true, we only return the header's contents. */
-char * get_header(const char* message, const char * name, bool content)
+char* get_header(const char* message, const char* name, bool content)
 {
     /* non reentrant. consider accepting char buffer as param */
     static char last_header[MAX_HEADER_LEN * 10];
@@ -260,11 +260,11 @@ char * get_header(const char* message, const char * name, bool content)
     return start;
 }
 
-char * get_first_line(const char * message)
+char* get_first_line(const char* message)
 {
     /* non reentrant. consider accepting char buffer as param */
     static char last_header[MAX_HEADER_LEN * 10];
-    const char * src;
+    const char* src;
 
     /* returns empty string in case of error */
     memset(last_header, 0, sizeof(last_header));
@@ -288,7 +288,7 @@ char * get_first_line(const char * message)
     return last_header;
 }
 
-char * get_call_id(const char *msg)
+char* get_call_id(const char* msg)
 {
     static char call_id[MAX_HEADER_LEN];
     const char *content, *end_of_header;
@@ -315,10 +315,9 @@ char * get_call_id(const char *msg)
     return call_id;
 }
 
-unsigned long int get_cseq_value(char *msg)
+unsigned long int get_cseq_value(const char* msg)
 {
-    char *ptr1;
-
+    const char* ptr1;
 
     // no short form for CSeq:
     ptr1 = strstr(msg, "\r\nCSeq:");
@@ -350,7 +349,7 @@ unsigned long int get_cseq_value(char *msg)
     return strtoul(ptr1, NULL, 10);
 }
 
-unsigned long get_reply_code(char *msg)
+unsigned long get_reply_code(const char* msg)
 {
     while (msg && *msg != ' ' && *msg != '\t')
         ++msg;
@@ -363,7 +362,7 @@ unsigned long get_reply_code(char *msg)
     return 0;
 }
 
-static const char *internal_find_header(const char *msg, const char *name, const char *shortname,
+static const char* internal_find_header(const char* msg, const char* name, const char* shortname,
         bool content)
 {
     const char *ptr = msg;
@@ -413,7 +412,7 @@ static const char *internal_find_header(const char *msg, const char *name, const
     return ptr;
 }
 
-static const char *internal_hdrchr(const char *ptr, const char needle)
+static const char* internal_hdrchr(const char* ptr, const char needle)
 {
     if (*ptr == '\n') {
         return NULL; /* stray LF */
@@ -435,7 +434,7 @@ static const char *internal_hdrchr(const char *ptr, const char needle)
     return NULL; /* never gets here */
 }
 
-static const char *internal_hdrend(const char *ptr)
+static const char* internal_hdrend(const char* ptr)
 {
     const char *p = ptr;
     while (*p) {
@@ -447,7 +446,7 @@ static const char *internal_hdrend(const char *ptr)
     return p;
 }
 
-static const char *internal_find_param(const char *ptr, const char *name)
+static const char* internal_find_param(const char* ptr, const char* name)
 {
     int namelen = strlen(name);
 
@@ -473,7 +472,7 @@ static const char *internal_find_param(const char *ptr, const char *name)
     return NULL; /* never gets here */
 }
 
-static const char *internal_skip_lws(const char *ptr)
+static const char* internal_skip_lws(const char* ptr)
 {
     while (1) {
         while (*ptr == ' ' || *ptr == '\t') {

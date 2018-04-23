@@ -212,7 +212,7 @@ void call::get_remote_media_addr(std::string const &msg)
 /******* Extract RTP remote media infomartion from SDP  *******/
 /***** Similar to the routines used by the PCAP play code *****/
 
-void call::extract_rtp_remote_addr(char* msg)
+void call::extract_rtp_remote_addr(const char* msg)
 {
     int ip_ver;
     int audio_port = 0;
@@ -1711,7 +1711,7 @@ void set_default_message(const char *which, char *msg)
     ERROR("Internal Error: Unknown default message: %s!", which);
 }
 
-bool call::process_unexpected(char * msg)
+bool call::process_unexpected(const char* msg)
 {
     char buffer[MAX_HEADER_LEN];
     char *desc = buffer;
@@ -2562,17 +2562,17 @@ bool call::check_peer_src(char * msg, int search_index)
 }
 
 
-void call::extract_cseq_method(char* method, char* msg)
+void call::extract_cseq_method(char* method, const char* msg)
 {
-    char* cseq ;
+    const char* cseq;
     if ((cseq = strstr (msg, "CSeq"))) {
-        char * value ;
-        if (( value = strchr (cseq,  ':'))) {
+        const char* value;
+        if ((value = strchr(cseq, ':'))) {
             value++;
-            while ( isspace(*value)) value++;  // ignore any white spaces after the :
-            while ( !isspace(*value)) value++;  // ignore the CSEQ number
-            while ( isspace(*value)) value++;  // ignore spaces after CSEQ number
-            char *end = value;
+            while (isspace(*value)) value++;  // ignore any white spaces after the :
+            while (!isspace(*value)) value++;  // ignore the CSEQ number
+            while (isspace(*value)) value++;  // ignore spaces after CSEQ number
+            const char* end = value;
             int nbytes = 0;
             /* A '\r' terminates the line, so we want to catch that too. */
             while ((*end != '\r') && (*end != '\n')) {
@@ -2585,7 +2585,7 @@ void call::extract_cseq_method(char* method, char* msg)
     }
 }
 
-void call::extract_transaction(char* txn, char* msg)
+void call::extract_transaction(char* txn, const char* msg)
 {
     char *via = get_header_content(msg, "via:");
     if (!via) {
@@ -2735,20 +2735,20 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
     return false;
 }
 
-void call::queue_up(char *msg)
+void call::queue_up(const char* msg)
 {
     free(queued_msg);
     queued_msg = strdup(msg);
 }
 
-bool call::process_incoming(char * msg, struct sockaddr_storage *src)
+bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 {
     int             reply_code;
     static char     request[65];
     char            responsecseqmethod[65];
     char            txn[MAX_HEADER_LEN];
     unsigned long   cookie = 0;
-    char          * ptr;
+    const char*     ptr;
     int             search_index;
     bool            found = false;
     T_ActionResult  actionResult;
@@ -3249,18 +3249,18 @@ double call::get_rhs(CAction *currentAction)
     }
 }
 
-call::T_ActionResult call::executeAction(char * msg, message *curmsg)
+call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 {
     CActions*  actions;
     CAction*   currentAction;
 
     actions = curmsg->M_actions;
     // looking for action to do on this message
-    if(actions == NULL) {
+    if (actions == NULL) {
         return(call::E_AR_NO_ERROR);
     }
 
-    for(int i=0; i<actions->getActionSize(); i++) {
+    for (int i = 0; i < actions->getActionSize(); i++) {
         currentAction = actions->getAction(i);
         if(currentAction == NULL) {
             continue;
@@ -3270,7 +3270,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             char msgPart[MAX_SUB_MESSAGE_LENGTH];
 
             /* Where to look. */
-            char *haystack;
+            const char* haystack;
 
             if(currentAction->getLookingPlace() == CAction::E_LP_HDR) {
                 extractSubMessage (msg,
@@ -3495,8 +3495,8 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             }
         } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_AUTH) {
             bool result;
-            char *lf;
-            char *end;
+            const char* lf;
+            const char* end;
 
             lf = strchr(msg, '\n');
             end = strchr(msg, ' ');
@@ -3518,7 +3518,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 tmp= createSendingMessage(currentAction->getMessage(1), -2 /* do not add crlf*/);
                 char *password = strdup(tmp);
                 /* Need the body for length and auth-int calculation */
-                char *body;
+                const char *body;
                 const char *auth_body = NULL;
                 body = strstr(msg, "\r\n\r\n");
                 if (body) {
@@ -3801,10 +3801,10 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
     return(call::E_AR_NO_ERROR);
 }
 
-void call::extractSubMessage(char * msg, char * matchingString, char* result, bool case_indep, int occurrence, bool headers)
+void call::extractSubMessage(const char* msg, char* matchingString, char* result, bool case_indep, int occurrence, bool headers)
 {
 
-    char *ptr, *ptr1;
+    const char *ptr, *ptr1;
     int sizeOf;
     int i = 0;
     int len = strlen(matchingString);
@@ -3889,7 +3889,7 @@ void call::getFieldFromInputFile(const char *fileName, int field, SendingMessage
     dest += inFiles[fileName]->getField(line, field, dest, SIPP_MAX_MSG_SIZE);
 }
 
-call::T_AutoMode call::checkAutomaticResponseMode(char * P_recv)
+call::T_AutoMode call::checkAutomaticResponseMode(char* P_recv)
 {
     if (strcmp(P_recv, "BYE")==0) {
         return E_AM_UNEXP_BYE;
@@ -3922,7 +3922,7 @@ void call::setLastMsg(const char *msg)
     strcpy(last_recv_msg, msg);
 }
 
-bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
+bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
 {
 
     int res ;
