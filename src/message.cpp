@@ -58,7 +58,7 @@ struct KeywordMap SimpleKeywords[] = {
     {"local_port", E_Message_Local_Port },
     {"server_ip", E_Message_Server_IP },
     {"media_ip", E_Message_Media_IP },
-#ifdef PCAPPLAY
+#if defined(PCAPPLAY) || defined(RTP_STREAM)
     {"auto_media_port", E_Message_Auto_Media_Port },
 #endif
 #ifdef RTP_STREAM
@@ -320,9 +320,9 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
             } else if(!strncmp(keyword, "authentication", strlen("authentication"))) {
                 parseAuthenticationKeyword(msg_scenario, newcomp, keyword);
             }
-#ifndef PCAPPLAY
+#if !defined(PCAPPLAY) && !defined(RTP_STREAM)
             else if(!strcmp(keyword, "auto_media_port")) {
-                ERROR("The %s keyword requires PCAPPLAY.\n", keyword);
+                ERROR("The %s keyword requires PCAPPLAY or RTP_STREAM.\n", keyword);
             }
 #endif
             else {

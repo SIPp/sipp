@@ -36,6 +36,9 @@
  */
 
 #include <dlfcn.h>
+#ifdef __LINUX
+#include <sys/prctl.h>
+#endif
 
 #define GLOBALS_FULL_DEFINITION
 #include "sipp.hpp"
@@ -582,6 +585,7 @@ static void rtp_echo_thread(void* param)
     sipp_socklen_t len;
     struct sockaddr_storage remote_rtp_addr;
 
+    int echo_socket = *(int*)param;
 
     int                   rc;
     sigset_t              mask;
@@ -592,9 +596,22 @@ static void rtp_echo_thread(void* param)
         return;
     }
 
+#ifdef __LINUX
+    struct sockaddr_in sin_data;
+    socklen_t sock_len = sizeof(sin_data);
+    if (getsockname(echo_socket, (struct sockaddr *)&sin_data, &sock_len) != -1) {
+        char thread_name[32];
+        int port = ntohs(sin_data.sin_port);
+
+        sprintf(thread_name, "echo-port-%d", port);
+
+        prctl(PR_SET_NAME, thread_name, 0, 0, 0);
+    }
+#endif
+
     for (;;) {
         len = sizeof(remote_rtp_addr);
-        nr = recvfrom(*(int*)param, msg, media_bufsize, 0,
+        nr = recvfrom(echo_socket, msg, media_bufsize, 0,
                       (sockaddr*)&remote_rtp_addr, &len);
 
         if (((long)nr) < 0) {
@@ -608,7 +625,7 @@ static void rtp_echo_thread(void* param)
             continue;
         }
 #endif
-        ns = sendto(*(int*)param, msg, nr, 0,
+        ns = sendto(echo_socket, msg, nr, 0,
                     (sockaddr*)&remote_rtp_addr, len);
 
         if (ns != nr) {
@@ -618,10 +635,10 @@ static void rtp_echo_thread(void* param)
             return;
         }
 
-        if (*(int*)param == media_socket) {
+        if (echo_socket == media_socket) {
             rtp_pckts++;
             rtp_bytes += ns;
-        } else {
+        } else if(echo_socket == media_socket_video) {
             /* packets on the second RTP stream */
             rtp2_pckts++;
             rtp2_bytes += ns;
