@@ -48,6 +48,7 @@ matrix:
             - libncurses5-dev
             - libssl-dev
             - libgsl0-dev
+            - valgrind
       env:
         - CC=gcc-4.6
         - CXX=g++-4.6
