@@ -346,6 +346,9 @@ static const char* get_trimmed_call_id(const char* msg)
 SSL_CTX  *sip_trp_ssl_ctx = NULL; /* For SSL cserver context */
 SSL_CTX  *sip_trp_ssl_ctx_client = NULL; /* For SSL cserver context */
 SSL_CTX  *twinSipp_sip_trp_ssl_ctx_client = NULL; /* For SSL cserver context */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#define TLS_method TLSv1_2_method
+#endif
 
 #define CALL_BACK_USER_DATA "ksgr"
 
@@ -2106,15 +2109,15 @@ static int sip_tls_load_crls(SSL_CTX* ctx , const char* crlfile)
 /************* Prepare the SSL context ************************/
 ssl_init_status FI_init_ssl_context (void)
 {
-    sip_trp_ssl_ctx = SSL_CTX_new( TLSv1_method() );
+    sip_trp_ssl_ctx = SSL_CTX_new( TLS_method() );
     if ( sip_trp_ssl_ctx == NULL ) {
-        ERROR("FI_init_ssl_context: SSL_CTX_new with TLSv1_method failed");
+        ERROR("FI_init_ssl_context: SSL_CTX_new with TLS_method failed");
         return SSL_INIT_ERROR;
     }
 
-    sip_trp_ssl_ctx_client = SSL_CTX_new( TLSv1_method() );
+    sip_trp_ssl_ctx_client = SSL_CTX_new( TLS_method() );
     if ( sip_trp_ssl_ctx_client == NULL) {
-        ERROR("FI_init_ssl_context: SSL_CTX_new with TLSv1_method failed");
+        ERROR("FI_init_ssl_context: SSL_CTX_new with TLS_method failed");
         return SSL_INIT_ERROR;
     }
 
