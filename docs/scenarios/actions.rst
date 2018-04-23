@@ -44,32 +44,32 @@ regexp action syntax
 ````````````````````
 
 ================  ======= ===========
-Keyword           Default Description 
+Keyword           Default Description
 ================  ======= ===========
 regexp            None    Contains the regexp to use for
-                          matching the received message or header. MANDATORY. 
+                          matching the received message or header. MANDATORY.
 search_in         msg     can have four values: "msg" (try to match against the entire message),
                           "hdr" (try to match against a specific SIP header), "body" (try to
                           match against the SIP message body), or "var" (try to match against a
-                          SIPp string variable). 
+                          SIPp string variable).
 header            None    Header to try to match against.
                           Only used when the search_in tag is set to hdr. MANDATORY IF search_in
-                          is equal to hdr. 
+                          is equal to hdr.
 variable          None    Variable to try to match against. Only
                           used when the search_in tag is set to var. MANDATORY IF search_in is
-                          equal to var. 
+                          equal to var.
 case_indep        false   To look for a header ignoring case .
-                          Only used when the search_in tag is set to hdr. 
+                          Only used when the search_in tag is set to hdr.
 occurrence         1      To find the nth occurrence of a header. Only used when the search_in tag is set
-                          to hdr. 
+                          to hdr.
 start_line        false   To look only at start of line. Only used when
-                          the search_in tag is set to hdr. 
+                          the search_in tag is set to hdr.
 check_it          false   if set to true, the
                           call is marked as failed if the regexp doesn't match. Can not be
-                          combined with check_it_inverse. 
+                          combined with check_it_inverse.
 check_it_inverse  false   Inverse of
                           check_it. iff set to true, the call is marked as failed if the regexp
-                          does match. Can not be combined with check_it. 
+                          does match. Can not be combined with check_it.
 assign_to         None    contain
                           the variable id (integer) or a list of variable id which will be used
                           to store the result(s) of the matching process between the regexp and
@@ -78,7 +78,7 @@ assign_to         None    contain
                           the messages or by using the content of the variables for conditional
                           branching. The first variable in the variable list of assign_to
                           contains the entire regular expression matching. The following
-                          variables contain the sub-expressions matching. 
+                          variables contain the sub-expressions matching.
 ================  ======= ===========
 
 Example for assign_to
@@ -86,9 +86,9 @@ Example for assign_to
 ::
 
     <ereg regexp="o=([[:alnum:]]*) ([[:alnum:]]*) ([[:alnum:]]*)"
-                search_in="msg"
-                check_it=i"true"
-                assign_to="3,4,5,8"/>
+          search_in="msg"
+          check_it=i"true"
+          assign_to="3,4,5,8"/>
 
 If the SIP message contains the line
 
@@ -116,11 +116,8 @@ The following example is used to:
     + Extract the Contact: header of the received SIP message
     + Assign the extracted Contract: header to variable 6.
 
-
-
 ::
 
-    
     <recv response="200" start_rtd="true">
       <action>
         <ereg regexp="([0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]*" search_in="msg" check_it="true" assign_to="1,2" />
@@ -140,22 +137,18 @@ is expanded to reflect the value actually used.
 .. warning::
   Logs are generated only if -trace_logs option is set on the command line.
 
-Example:
+Example::
 
-::
-
-       <recv request="INVITE" crlf="true" rrs="true">
-         <action>
-    	 <ereg regexp=".*" search_in="hdr" header="Some-New-Header:" assign_to="1" />
-              <log message="From is [last_From]. Custom header is [$1]"/>
-         </action>
-       </recv>
+    <recv request="INVITE" crlf="true" rrs="true">
+      <action>
+        <ereg regexp=".*" search_in="hdr" header="Some-New-Header:" assign_to="1" />
+        <log message="From is [last_From]. Custom header is [$1]"/>
+      </action>
+    </recv>
 
 
 You can use the alternative "warning" action to log a message to
-SIPp's error log. For example:
-
-::
+SIPp's error log. For example::
 
     <warning message="From is [last_From]. Custom header is [$1]"/>
 
@@ -176,15 +169,13 @@ stop_gracefully (similar to pressing 'q'), stop_now (similar to
 ctrl+C).
 
 Example that stops the execution of the script on receiving a 603
-response:
+response::
 
-::
-
-       <recv response="603" optional="true">
-         <action>
-              <exec int_cmd="stop_now"/>
-          </action>
-       </recv>
+    <recv response="603" optional="true">
+      <action>
+        <exec int_cmd="stop_now"/>
+      </action>
+    </recv>
 
 
 
@@ -194,15 +185,13 @@ External commands
 External commands (specified using command attribute) are anything
 that can be executed on local host with a shell.
 
-Example that execute a system echo for every INVITE received:
+Example that execute a system echo for every INVITE received::
 
-::
-
-       <recv request="INVITE">
-         <action>
-              <exec command="echo [last_From] is the from header received >> from_list.log"/>
-          </action>
-       </recv>
+    <recv request="INVITE">
+      <action>
+        <exec command="echo [last_From] is the from header received >> from_list.log"/>
+      </action>
+    </recv>
 
 
 
@@ -252,9 +241,7 @@ play_pcap_audio="[file_to_play]" with:
   pcap_play_video command, and vice versa; you cannot play both audio
   and video streams at once.
 
-Example that plays a pre-recorded RTP stream:
-
-::
+Example that plays a pre-recorded RTP stream::
 
     <nop>
       <action>
@@ -284,10 +271,8 @@ and uses the same parameters as a statistically distributed pauses.
 Finally, the todouble command converts the variable referenced by the
 "variable" attribute to a double before assigning it.
 
-For example, to assign the value 1.0 to $1 and sample from the normal
-distribution into $2:
-
-::
+For example, to assign the value 1.0 to ``$1`` and sample from the
+normal distribution into ``$2``::
 
     <nop>
       <action>
@@ -305,9 +290,7 @@ distribution into $2:
 Simple arithmetic is also possible using the <add> , <subtract> ,
 <multiply> , and <divide> actions, which add, subtract, multiply, and
 divide the variable referenced by assign_to by the value in value .
-For example, the following action modifies variable one as follows:
-
-::
+For example, the following action modifies variable one as follows::
 
     <nop>
       <action>
@@ -317,21 +300,20 @@ For example, the following action modifies variable one as follows:
         <multiply assign_to="1" value="4" /> <!-- $1 == -4 -->
         <divide assign_to="1" value="5" /> <!-- $1 == -0.8 -->
       </action>
+    </nop>
 
 
 Rather than using fixed values, you may also retrieve the second
-operand from a variable, using the <variable> parameter. For example:
-
-::
+operand from a variable, using the <variable> parameter. For example::
 
     <nop>
       <action>
-    	 <!-- Multiplies $1 by itself -->
-    	 <multiply assign_to="1" variable="1" />
-    	 <!-- Divides $1 by $2, Note that $2 must not be zero -->
-    	 <multiply assign_to="1" variable="2" />
-         </action>
-       </nop>
+        <!-- Multiplies $1 by itself -->
+        <multiply assign_to="1" variable="1" />
+        <!-- Divides $1 by $2, Note that $2 must not be zero -->
+        <multiply assign_to="1" variable="2" />
+      </action>
+    </nop>
 
 
 
@@ -341,32 +323,28 @@ String Variables
 You can create string variables by using the <assignstr> command,
 which accepts two parameters: assign_to and value . The value may
 contain any of the same substitutions that a message can contain. For
-example:
-
-::
+example::
 
     <nop>
-         <action>
-             <!-- Assign the value in field0 of the CSV file to a $1. -->
-    	 <assignstr assign_to="1" value="[field0]" />
-         </action>
-       </nop>
+      <action>
+        <!-- Assign the value in field0 of the CSV file to a $1. -->
+        <assignstr assign_to="1" value="[field0]" />
+      </action>
+    </nop>
 
 
 A string variable and a value can be compared using the <strcmp>
 action. The result is a double value, that is less than, equal to, or
 greater than zero if the variable is lexographically less than, equal
 to, or greater than the value. The parameters are assign_to, variable,
-and value. For example:
-
-::
+and value. For example::
 
     <nop>
-         <action>
-             <!-- Compare the value of $strvar to "Hello" and assign it to $result.. -->
-    	 <strcmp assign_to="result" variable="strvar" value="Hello" />
-         </action>
-       </nop>
+      <action>
+        <!-- Compare the value of $strvar to "Hello" and assign it to $result.. -->
+        <strcmp assign_to="result" variable="strvar" value="Hello" />
+      </action>
+    </nop>
 
 
 
@@ -380,9 +358,7 @@ which is a boolean call variable that the result of the test is stored
 in. Compare may be one of the following tests: equal , not_equal ,
 greater_than , less_than , greater_than_equal , or less_than_equal .
 
-Example that sets $2 to true if $1 is less than 10:
-
-::
+Example that sets ``$2`` to true if ``$1`` is less than 10::
 
     <nop>
       <action>
@@ -422,29 +398,25 @@ in-memory version of an injection file (there is presently no way to
 update the disk-based version). The insert action takes two
 parameters: file and value, and the replace action takes an additional
 line value. For example, to inserting a new line can be accomplished
-as follows:
-
-::
+as follows::
 
     <nop display="Insert User">
-            <action>
-                    <insert file="usersdb.conf" value="[$user];[$calltype]" />
-            </action>
+      <action>
+        <insert file="usersdb.conf" value="[$user];[$calltype]" />
+      </action>
     </nop>
 
 
 Replacing a line is similar, but a line number must be specified. You
 will probably want to use the lookup action to obtain the line number
-for use with replace as follows:
-
-::
+for use with replace as follows::
 
     <nop display="Update User">
-            <action>
-    		<lookup assign_to="index" file="usersdb.conf" key="[$user]" />
-    		<!-- Note: This assumes that the lookup always succeeds. -->
-                    <replace file="usersdb.conf" line="[$index]" value="[$user];[$calltype]" />
-            </action>
+      <action>
+        <lookup assign_to="index" file="usersdb.conf" key="[$user]" />
+        <!-- Note: This assumes that the lookup always succeeds. -->
+        <replace file="usersdb.conf" line="[$index]" value="[$user];[$calltype]" />
+      </action>
     </nop>
 
 
@@ -460,9 +432,7 @@ special label named "_unexp.main" in the scenario, SIPp will jump to
 that label whenever an unexpected message is received and store the
 previous address in the variable named "_unexp.retaddr".
 
-Example that jumps to index 5:
-
-::
+Example that jumps to index 5::
 
     <nop>
       <action>
@@ -472,9 +442,7 @@ Example that jumps to index 5:
 
 
 Example that jumps to the index contained in the variable named
-_unexp.retaddr:
-
-::
+_unexp.retaddr::
 
     <nop>
       <action>
@@ -488,9 +456,7 @@ gettimeofday
 ++++++++++++
 
 The gettimeofday action allows you to get the current time in seconds
-and microseconds since the epoch. For example:
-
-::
+and microseconds since the epoch. For example::
 
     <nop>
       <action>
@@ -515,17 +481,16 @@ connects to the value specified in the [next_url] keyword.
 
 ::
 
-      <nop>
-         <action>
-            <assignstr assign_to="url" value="[next_url]" />
-            <ereg regexp="sip:.*@([0-9A-Za-z\.]+):([0-9]+);transport=([A-Z]+)"  search_in="var" check_it="true" assign_to="dummy,host,port,transport" variable="url" />
-            <setdest host="[$host]" port="[$port]" protocol="[$transport]" />
-         </action>
-      </nop>
-      
+    <nop>
+      <action>
+        <assignstr assign_to="url" value="[next_url]" />
+        <ereg regexp="sip:.*@([0-9A-Za-z\.]+):([0-9]+);transport=([A-Z]+)"  search_in="var" check_it="true" assign_to="dummy,host,port,transport" variable="url" />
+        <setdest host="[$host]" port="[$port]" protocol="[$transport]" />
+      </action>
+    </nop>
 
 
-:: warning..
+.. warning::
   If you are using setdest with IPv6, you must not use square brackets
   around the address. These have a special meaning to SIPp, and it will
   try to interpret your IPv6 address as a variable.
@@ -541,43 +506,40 @@ message against a provided username and password. The result of the
 check is stored in a boolean variable. This allows you to simulate a
 server which requires authorization. Currently only simple MD5 digest
 authentication is supported. Before using the verifyauth action, you
-must send a challenge. For example:
+must send a challenge. For example::
 
-::
+    <recv request="REGISTER" />
+    <send>
+      <![CDATA[
 
-      <recv request="REGISTER" />
-      <send><![CDATA[
-    
-          SIP/2.0 401 Authorization Required
-          [last_Via:]
-          [last_From:]
-          [last_To:];tag=[pid]SIPpTag01[call_number]
-          [last_Call-ID:]
-          [last_CSeq:]
-          Contact: <sip:[local_ip]:[local_port];transport=[transport]>
-          WWW-Authenticate: Digest realm="test.example.com", nonce="47ebe028cda119c35d4877b383027d28da013815"
-          Content-Length: [len]
-    
-        ]]>
-      </send>
+        SIP/2.0 401 Authorization Required
+        [last_Via:]
+        [last_From:]
+        [last_To:];tag=[pid]SIPpTag01[call_number]
+        [last_Call-ID:]
+        [last_CSeq:]
+        Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+        WWW-Authenticate: Digest realm="test.example.com", nonce="47ebe028cda119c35d4877b383027d28da013815"
+        Content-Length: [len]
+
+      ]]>
+    </send>
 
 
 After receiving the second request, you can extract the username
 provided and compare it against a list of user names and passwords
 provided as an injection file, and take the appropriate action based
-on the result:
-
-::
+on the result::
 
     <recv request="REGISTER" />
-            <action>
-                    <ereg regexp="Digest .*username=\"([^\"]*)\"" search_in="hdr" header="Authorization:" assign_to="junk,username" />
-                    <lookup assign_to="line" file="users.conf" key="[$username]" />
-                    <verifyauth assign_to="authvalid" username="[field0 line=\"[$line]\"]" password="[field3 line=\"[$line]\"]" />
-            </action>
-      </recv>
-    
-      <nop hide="true" test="authvalid" next="goodauth" />
-      <nop hide="true" next="badauth" />
+      <action>
+        <ereg regexp="Digest .*username=\"([^\"]*)\"" search_in="hdr" header="Authorization:" assign_to="junk,username" />
+        <lookup assign_to="line" file="users.conf" key="[$username]" />
+        <verifyauth assign_to="authvalid" username="[field0 line=\"[$line]\"]" password="[field3 line=\"[$line]\"]" />
+      </action>
+    </recv>
+
+    <nop hide="true" test="authvalid" next="goodauth" />
+    <nop hide="true" next="badauth" />
 
 .. _PCAP library: http://www.tcpdump.org/pcap3_man.html

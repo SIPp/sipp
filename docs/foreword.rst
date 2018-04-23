@@ -25,5 +25,3 @@ Want to see it?
 Here is a screenshot
 
 .. figure:: sipp-01.jpg
-
-   

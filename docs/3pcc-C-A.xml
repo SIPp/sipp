@@ -58,9 +58,9 @@
   <recv response="183" optional="true"> </recv>
   <recv response="200" crlf="true" start_rtd="true">
     <action>
-       <ereg regexp="Content-Type:.*" 
-             search_in="msg"  
-             assign_to="1" /> 
+       <ereg regexp="Content-Type:.*"
+             search_in="msg"
+             assign_to="1" />
     </action>
   </recv>
 
@@ -71,16 +71,16 @@
 
      ]]>
   </sendCmd>
-  
+
   <recvCmd>
     <action>
-       <ereg regexp="Content-Type:.*"  
-             search_in="msg"  
-             assign_to="2" /> 
+       <ereg regexp="Content-Type:.*"
+             search_in="msg"
+             assign_to="2" />
     </action>
-  
+
   </recvCmd>
-  
+
   <send rtd="true">
     <![CDATA[
 

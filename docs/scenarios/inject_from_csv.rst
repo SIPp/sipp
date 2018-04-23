@@ -6,9 +6,7 @@ values into the scenarios. The first line of the file should say
 whether the data is to be read in sequence (SEQUENTIAL), random order
 (RANDOM), or in a user based manner (USER). Each line corresponds to
 one call and has one or more ';' delimited data fields and they can be
-referred as [field0], [field1], ... in the xml scenario file. Example:
-
-::
+referred as [field0], [field1], ... in the xml scenario file. Example::
 
     SEQUENTIAL
     #This line will be ignored
@@ -28,9 +26,7 @@ the end of the file, SIPp will re-start from the beginning. The file
 is not limited in size.
 
 You can override the default line selection strategy with the optional
-line argument. For example:
-
-::
+line argument. For example::
 
     [field0 line=1]
 
@@ -53,11 +49,8 @@ when you want to select different types of data in different ways. For
 example, when running a user-based benchmark, you may have a
 caller.csv with "USER" as the first line and a callee.csv with
 "RANDOM" as the first line. To specify which CSV file is used, add the
-file= parameter to the keyword. For example:
+file= parameter to the keyword. For example::
 
-::
-
-    
     INVITE sip:[field0 file="callee.csv"] SIP/2.0
     From: sipp user <[field0 file="caller.csv"]>;tag=[pid]SIPpTag00[call_number]
     To: sut user <[field0 file="callee.csv"]>
@@ -73,30 +66,24 @@ PRINTF Injection files
 ++++++++++++++++++++++
 
 An extension of the standard injection file is a "PRINTF" injection
-file. Often, an input file will has a repetitive nature such as:
+file. Often, an input file will has a repetitive nature such as::
 
-::
+    USERS
+    user000;password000
+    user001;password001
+    ...
+    user999;password999
 
-    
-    		USERS
-    		user000;password000
-    		user001;password001
-    		...
-    		user999;password999
-    		
 
 
 SIPp must maintain this structure in memory, which can reduce
 performance for very large injection files. To eliminate this problem,
 SIPp can automatically generate such a structured file based on one or
-more template lines. For example:
+more template lines. For example::
 
-::
+    USERS,PRINTF=999
+    user%03d;password%03d
 
-    
-    		USERS,PRINTF=999
-    		user%03d;password%03d
-    		
 
 
 Has the same logical meaning as the original example, yet SIPp only
@@ -104,28 +91,21 @@ needs to store one entry in memory. Each time a line is used; SIPp
 will replace %d with the requested line number (starting from zero).
 Standard printf format decimal specifiers can be used. When more than
 one template line is available, SIPp cycles through them. This
-example:
+example::
 
-::
-
-    
-    		USERS,PRINTF=4
-    		user%03d;password%03d;Foo
-    		user%03d;password%03d;Bar
-    		
+    USERS,PRINTF=4
+    user%03d;password%03d;Foo
+    user%03d;password%03d;Bar
 
 
-Is equivalent to the following injection file:
 
-::
+Is equivalent to the following injection file::
 
-    
-    		USERS
-    		user000;password000;Foo
-    		user001;password001;Bar
-    		user002;password002;Foo
-    		user003;password003;Bar
-    		
+    USERS
+    user000;password000;Foo
+    user001;password001;Bar
+    user002;password002;Foo
+    user003;password003;Bar
 
 
 The following parameters are used to control the behavior of printf
@@ -153,16 +133,12 @@ The -infindex option allows you to generate an index of an injection
 file. The arguments to -infindex are the injection file to index and
 the field number that should be indexed. For example if you have an
 injection file that contains user names and passwords (as the
-following):
+following)::
 
-::
-
-    
-    		USERS
-    		alice,pass_A
-    		bob,pass_B
-    		carol,pass_C
-    		
+    USERS
+    alice,pass_A
+    bob,pass_B
+    carol,pass_C
 
 
 You may want to extract the password for a given user in the file. To
@@ -173,5 +149,3 @@ logical entries {"alice" => 0, "bob" => 1, "carol" => 2}. To extract a
 particular password, you can use the lookup action to store the line
 number into a variable (say $line) and then use the keyword[field1
 line="[$line]"].
-
-

@@ -5,20 +5,13 @@ SIPp allows to generate one or many SIP calls to one remote system.
 The tool is started from the command line. In this example, two SIPp
 are started in front of each other to demonstrate SIPp capabilities.
 
-Run sipp with embedded server (uas) scenario:
-
-::
+Run sipp with embedded server (uas) scenario::
 
     # ./sipp -sn uas
 
-
-On the same host, run sipp with embedded client (uac) scenario
-
-::
+On the same host, run sipp with embedded client (uac) scenario::
 
     # ./sipp -sn uac 127.0.0.1
-
-
 
 
 
@@ -103,11 +96,11 @@ Contributing to SIPp
 
 Of course, we welcome contributions, and many of SIPp's features
 (including epoll support for better Linux performance, RTP streaming,
-and Cygwin support) have come from external contributions. 
+and Cygwin support) have come from external contributions.
 
 See `developers guide`_ for how to get started
 
-+ Richard GAYRAUD [initial code] 
++ Richard GAYRAUD [initial code]
 + Olivier JACQUES [code/documentation]
 + Robert Day [code/documentation]
 + Charles P. Wright [code]

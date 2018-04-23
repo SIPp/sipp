@@ -12,18 +12,17 @@ line parameter).
 
 ::
 
-    
     <init>
-    	<!-- By Default THINKTIME is true. -->
-    	<nop>
-    		<action>
-    			<strcmp assign_to="empty" variable="THINKTIME" value="" />
-    			<test assign_to="empty" compare="equal" variable="empty" value="0" />
-    		</action>
-    	</nop>
-    	<nop condexec="empty">
-    		<action>
-    			<assignstr assign_to="THINKTIME" value="1" />
-    		</action>
-    	</nop>
+      <!-- By Default THINKTIME is true. -->
+      <nop>
+        <action>
+          <strcmp assign_to="empty" variable="THINKTIME" value="" />
+          <test assign_to="empty" compare="equal" variable="empty" value="0" />
+        </action>
+      </nop>
+      <nop condexec="empty">
+        <action>
+          <assignstr assign_to="THINKTIME" value="1" />
+        </action>
+      </nop>
     </init>

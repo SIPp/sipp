@@ -10,29 +10,24 @@ mode. The others are launched in "slave" mode. Slave SIPp instances
 have names, given in the command line (for example, s1, s2...sN for
 the slaves and m for the master) Correspondances between instances
 names and their addresses must be stored in a file (provided by
--slave_cfg command line argument), in the following format:
+``-slave_cfg`` command line argument), in the following format::
 
-::
-
-    
-      s1;127.0.0.1:8080
-      s2;127.0.0.1:7080
-      m;127.0.0.1:6080
+    s1;127.0.0.1:8080
+    s2;127.0.0.1:7080
+    m;127.0.0.1:6080
 
 
 Each SIPp instance must access a different copy of this file.
 
-sendCmd and recvCmd have additional attributes:
-
-::
+sendCmd and recvCmd have additional attributes::
 
     <sendCmd dest="s1">
       <![CDATA[
         Call-ID: [call_id]
         From: m
         [$1]
-    
-       ]]>
+
+      ]]>
     </sendCmd>
 
 
