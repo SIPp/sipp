@@ -58,7 +58,6 @@ matrix:
 
 before_script:
   - autoreconf -vifs
-  - if [ "$TRAVIS_OS_NAME" = osx ]; then brew update; fi
   - if [ "$TRAVIS_OS_NAME" = osx ]; then brew install gsl; fi
   # 2016-10: Apple doesn't include openssl any more because of security
   # problems openssl had. Manually specify path to includes/libs.
