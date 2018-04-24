@@ -21,19 +21,8 @@
 #define __SIPP_SOCKET_H__
 
 #ifdef USE_OPENSSL
-#include "sslcommon.h"
-
-enum ssl_init_status {
-    SSL_INIT_NORMAL, /* 0   Normal completion    */
-    SSL_INIT_ERROR   /* 1   Unspecified error    */
-};
-
-extern SSL_CTX *sip_trp_ssl_ctx;
-extern SSL_CTX *sip_trp_ssl_ctx_client;
-const char *sip_tls_error_string(SSL *ssl, int size);
-ssl_init_status FI_init_ssl_context (void);
-
-#endif // USE_OPENSSL
+#include "sslsocket.hpp"
+#endif
 
 /**
  * On some systems you must pass the exact sockaddr struct size to

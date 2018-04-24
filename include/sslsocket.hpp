@@ -16,54 +16,35 @@
  *  Author : Gundu RAO - 16 Jul 2004
  *           From Hewlett Packard Company.
  */
-#ifndef _ccnv_2_common_h_H
-#define _ccnv_2_common_h_H
+#ifndef __SSLSOCKET__
+#define __SSLSOCKET__
 
+#ifdef USE_OPENSSL
 #include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
 #include <openssl/x509v3.h>
 #include <pthread.h>
-
-#define MUTEX_TYPE pthread_mutex_t
-#define MUTEX_SETUP(x) pthread_mutex_init(&(x), NULL)
-#define MUTEX_CLEANUP(x) pthread_mutex_destroy(&(x))
-#define MUTEX_LOCK(x) pthread_mutex_lock(&(x))
-#define MUTEX_UNLOCK(x) pthread_mutex_unlock(&(x))
-#define THREAD_ID pthread_self( )
-
-/*
-**      Define a global variable for the SSL context
-*/
+#endif
 
 /* Initialises an SSL context and makes the lib thread safe */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
-#ifndef SSL_MAIN
-    extern
-#endif
-    int init_OpenSSL(void);
+int TLS_init();
 
-#ifndef SSL_MAIN
-    extern
-#endif
-    int Thread_setup(void);
+enum tls_init_status {
+    TLS_INIT_NORMAL, /* 0   Normal completion    */
+    TLS_INIT_ERROR   /* 1   Unspecified error    */
+};
 
-#ifndef SSL_MAIN
-    extern
-#endif
-    SSL_CTX *setup_ssl_context(SSL_METHOD *);
+enum tls_init_status TLS_init_context(void);
 
-#ifndef SSL_MAIN
-    extern
-#endif
-    int SSL_ERROR(void);
+/* Helpers for OpenSSL */
 
-#ifdef __cplusplus
-}
+#ifdef USE_OPENSSL
+SSL* SSL_new_client();
+SSL* SSL_new_server();
+const char *SSL_error_string(SSL *ssl, int size);
 #endif
 
 #endif

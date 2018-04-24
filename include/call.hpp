@@ -29,9 +29,6 @@
 #include <string.h>
 #include "scenario.hpp"
 #include "stat.hpp"
-#ifdef USE_OPENSSL
-#include "sslcommon.h"
-#endif
 #ifdef PCAPPLAY
 #include "send_packets.h"
 #endif
@@ -319,12 +316,6 @@ protected:
 
     void queue_up(const char* msg);
     char *queued_msg;
-
-
-#ifdef USE_OPENSSL
-    SSL_CTX *m_ctx_ssl;
-    BIO *m_bio;
-#endif
 
     int _callDebug(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
     char *debugBuffer;

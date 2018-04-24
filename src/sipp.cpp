@@ -138,7 +138,7 @@ struct sipp_option options_table[] = {
         "- ui: UDP with one socket per IP address. The IP addresses must be defined in the injection file.\n"
         "- t1: TCP with one socket,\n"
         "- tn: TCP with one socket per call,\n"
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
         "- l1: TLS with one socket,\n"
         "- ln: TLS with one socket per call,\n"
 #endif
@@ -161,7 +161,7 @@ struct sipp_option options_table[] = {
     {"reconnect_sleep", "How long (in milliseconds) to sleep between the close and reconnect?", SIPP_OPTION_TIME_MS, &reset_sleep, 1},
     {"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, NULL, 1},
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     {"tls_cert", "Set the name for TLS Certificate file. Default is 'cacert.pem", SIPP_OPTION_STRING, &tls_cert_name, 1},
     {"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem'", SIPP_OPTION_STRING, &tls_key_name, 1},
     {"tls_crl", "Set the name for Certificate Revocation List file. If not specified, X509 CRL is not activated.", SIPP_OPTION_STRING, &tls_crl_name, 1},
@@ -1148,7 +1148,7 @@ int main(int argc, char *argv[])
                 printf("\n %s.\n\n",
                        /* SIPp v1.2.3-TLS-PCAP */
                        "SIPp " SIPP_VERSION
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                        "-TLS"
 #endif
 #ifdef USE_SCTP
@@ -1304,9 +1304,9 @@ int main(int argc, char *argv[])
 #endif
                     break;
                 case 'l':
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                     transport = T_TLS;
-                    if (init_OpenSSL() != 1) {
+                    if (TLS_init() != 1) {
                         printf("OpenSSL Initialization problem\n");
                         exit(-1);
                     }
@@ -1666,8 +1666,8 @@ int main(int argc, char *argv[])
         set_scenario("sipp");
     }
 
-#ifdef USE_OPENSSL
-    if ((transport == T_TLS) && (FI_init_ssl_context() != SSL_INIT_NORMAL)) {
+#ifdef USE_TLS
+    if ((transport == T_TLS) && (TLS_init_context() != TLS_INIT_NORMAL)) {
         ERROR("FI_init_ssl_context() failed");
     }
 #endif
