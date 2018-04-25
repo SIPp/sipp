@@ -13,6 +13,20 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
+ *  In addition, as a special exception, the copyright holders give
+ *  permission to link the code of portions of this program with the
+ *  OpenSSL library under certain conditions as described in each
+ *  individual source file, and distribute linked combinations including
+ *  the two.
+ *
+ *  You must obey the GNU General Public License in all respects for all
+ *  of the code used other than OpenSSL.  If you modify file(s) with
+ *  this exception, you may extend this exception to your version of the
+ *  file(s), but you are not obligated to do so.  If you do not wish to
+ *  do so, delete this exception statement from your version.  If you
+ *  delete this exception statement from all source files in the
+ *  program, then also delete it here.
+ *
  *  Author : Richard GAYRAUD - 04 Nov 2003
  *           Marc LAMBERTON
  *           Olivier JACQUES
@@ -341,57 +355,6 @@ static const char* get_trimmed_call_id(const char* msg)
     }
     return call_id;
 }
-
-#ifdef USE_OPENSSL
-SSL_CTX  *sip_trp_ssl_ctx = NULL; /* For SSL cserver context */
-SSL_CTX  *sip_trp_ssl_ctx_client = NULL; /* For SSL cserver context */
-SSL_CTX  *twinSipp_sip_trp_ssl_ctx_client = NULL; /* For SSL cserver context */
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-#define TLS_method TLSv1_2_method
-#endif
-
-#define CALL_BACK_USER_DATA "ksgr"
-
-int passwd_call_back_routine(char *buf, int size, int /*flag*/, void *passwd)
-{
-    strncpy(buf, (char *)(passwd), size);
-    buf[size - 1] = '\0';
-    return(strlen(buf));
-}
-
-/****** SSL error handling *************/
-const char *sip_tls_error_string(SSL *ssl, int size)
-{
-    int err;
-    err=SSL_get_error(ssl, size);
-    switch(err) {
-    case SSL_ERROR_NONE:
-        return "No error";
-    case SSL_ERROR_ZERO_RETURN:
-        return "SSL connection has been closed. SSL returned: SSL_ERROR_ZERO_RETURN";
-    case SSL_ERROR_WANT_WRITE:
-        return "SSL I/O function returned SSL_ERROR_WANT_WRITE";
-    case SSL_ERROR_WANT_READ:
-        return "SSL I/O function returned SSL_ERROR_WANT_READ";
-    case SSL_ERROR_WANT_CONNECT:
-        return "SSL I/O function returned SSL_ERROR_WANT_CONNECT";
-    case SSL_ERROR_WANT_ACCEPT:
-        return "SSL I/O function returned SSL_ERROR_WANT_ACCEPT";
-    case SSL_ERROR_WANT_X509_LOOKUP:
-        return "SSL I/O function returned SSL_ERROR_WANT_X509_LOOKUP";
-    case SSL_ERROR_SSL:
-        return "SSL protocol error. SSL I/O function returned SSL_ERROR_SSL";
-    case SSL_ERROR_SYSCALL:
-        if (size < 0) { /* not EOF */
-            return strerror(errno);
-        } else { /* EOF */
-            return "Non-recoverable I/O error occurred. SSL I/O function returned SSL_ERROR_SYSCALL";
-        }
-    }
-    return "Unknown SSL Error.";
-}
-
-#endif
 
 static char* get_inet_address(const struct sockaddr_storage* addr, char* dst, int len)
 {
@@ -1314,7 +1277,7 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
             ERROR("Unable to create BIO object:Problem with BIO_new_socket()\n");
         }
 
-        if (!(ss_ssl = SSL_new(accepting ? sip_trp_ssl_ctx : sip_trp_ssl_ctx_client))) {
+        if (!(ss_ssl = (accepting ? SSL_new_server() : SSL_new_client()))) {
             ERROR("Unable to create SSL object : Problem with SSL_new() \n");
         }
 
@@ -1483,7 +1446,7 @@ SIPpSocket* SIPpSocket::accept() {
                  * to be readable/writable again. */
                 WARNING("SSL_accept failed with error: %s. Attempt %d. "
                         "Retrying...",
-                        sip_tls_error_string(ret->ss_ssl, rc),
+                        SSL_error_string(ret->ss_ssl, rc),
                         ii + 1);
                 ii++;
                 sipp_usleep(SIPP_SSL_RETRY_TIMEOUT);
@@ -1491,7 +1454,7 @@ SIPpSocket* SIPpSocket::accept() {
             }
             else {
                 ERROR("Error in SSL_accept: %s\n",
-                      sip_tls_error_string(ret->ss_ssl, rc));
+                      SSL_error_string(ret->ss_ssl, rc));
                 break;
             }
         }
@@ -1614,7 +1577,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
                  * to be readable/writable again. */
                 WARNING("SSL_connect failed with error: %s. Attempt %d. "
                         "Retrying...",
-                        sip_tls_error_string(ss_ssl, ret),
+                        SSL_error_string(ss_ssl, ret),
                         ii + 1);
                 ii++;
                 sipp_usleep(SIPP_SSL_RETRY_TIMEOUT);
@@ -1622,7 +1585,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
             }
             else {
                 ERROR("Error in SSL connection: %s\n",
-                      sip_tls_error_string(ss_ssl, ret));
+                      SSL_error_string(ss_ssl, ret));
             }
         }
 #else
@@ -1662,7 +1625,7 @@ int SIPpSocket::reconnect()
                 ERROR("Unable to create BIO object:Problem with BIO_new_socket()\n");
             }
 
-            if (!(ss_ssl = SSL_new(sip_trp_ssl_ctx_client))) {
+            if (!(ss_ssl = SSL_new_client())) {
                 ERROR("Unable to create SSL object : Problem with SSL_new() \n");
             }
 
@@ -1924,7 +1887,7 @@ int SIPpSocket::write_error(int ret)
 
 #ifdef USE_OPENSSL
     if (ss_transport == T_TLS) {
-        errstring = sip_tls_error_string(ss_ssl, ret);
+        errstring = SSL_error_string(ss_ssl, ret);
     }
 #endif
 
@@ -1939,7 +1902,7 @@ int SIPpSocket::read_error(int ret)
 #ifdef USE_OPENSSL
     if (ss_transport == T_TLS) {
         int err = SSL_get_error(ss_ssl, ret);
-        errstring = sip_tls_error_string(ss_ssl, ret);
+        errstring = SSL_error_string(ss_ssl, ret);
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
             /* This is benign - we just need to wait for the socket to be
              * readable/writable again, which will happen naturally as part
@@ -2056,140 +2019,6 @@ void SIPpSocket::buffer_read(struct socketbuf *newbuf)
 
 #ifdef USE_OPENSSL
 
-/****** Certificate Verification Callback FACILITY *************/
-int sip_tls_verify_callback(int ok , X509_STORE_CTX *store)
-{
-    char data[512];
-
-    if (!ok) {
-        X509 *cert = X509_STORE_CTX_get_current_cert(store);
-
-        X509_NAME_oneline(X509_get_issuer_name(cert),
-                          data, 512);
-        WARNING("TLS verification error for issuer: '%s'", data);
-        X509_NAME_oneline(X509_get_subject_name(cert),
-                          data, 512);
-        WARNING("TLS verification error for subject: '%s'", data);
-    }
-    return ok;
-}
-
-/***********  Load the CRL's into SSL_CTX **********************/
-static int sip_tls_load_crls(SSL_CTX* ctx , const char* crlfile)
-{
-    X509_STORE          *store;
-    X509_LOOKUP         *lookup;
-
-    /*  Get the X509_STORE from SSL context */
-    if (!(store = SSL_CTX_get_cert_store(ctx))) {
-        return (-1);
-    }
-
-    /* Add lookup file to X509_STORE */
-    if (!(lookup = X509_STORE_add_lookup(store, X509_LOOKUP_file()))) {
-        return (-1);
-    }
-
-    /* Add the CRLS to the lookpup object */
-    if (X509_load_crl_file(lookup, crlfile, X509_FILETYPE_PEM) != 1) {
-        return (-1);
-    }
-
-    /* Set the flags of the store so that CRLS's are consulted */
-#if OPENSSL_VERSION_NUMBER >= 0x00907000L
-    X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
-#else
-#warning This version of OpenSSL (<0.9.7) cannot handle CRL files in capath
-    ERROR("This version of OpenSSL (<0.9.7) cannot handle CRL files in capath");
-#endif
-
-    return (1);
-}
-
-/************* Prepare the SSL context ************************/
-ssl_init_status FI_init_ssl_context (void)
-{
-    sip_trp_ssl_ctx = SSL_CTX_new( TLS_method() );
-    if ( sip_trp_ssl_ctx == NULL ) {
-        ERROR("FI_init_ssl_context: SSL_CTX_new with TLS_method failed");
-        return SSL_INIT_ERROR;
-    }
-
-    sip_trp_ssl_ctx_client = SSL_CTX_new( TLS_method() );
-    if ( sip_trp_ssl_ctx_client == NULL) {
-        ERROR("FI_init_ssl_context: SSL_CTX_new with TLS_method failed");
-        return SSL_INIT_ERROR;
-    }
-
-    /*  Load the trusted CA's */
-    SSL_CTX_load_verify_locations(sip_trp_ssl_ctx, tls_cert_name, NULL);
-    SSL_CTX_load_verify_locations(sip_trp_ssl_ctx_client, tls_cert_name, NULL);
-
-    /*  CRL load from application specified only if specified on the command line */
-    if (strlen(tls_crl_name) != 0) {
-        if (sip_tls_load_crls(sip_trp_ssl_ctx, tls_crl_name) == -1) {
-            ERROR("FI_init_ssl_context: Unable to load CRL file (%s)", tls_crl_name);
-            return SSL_INIT_ERROR;
-        }
-
-        if (sip_tls_load_crls(sip_trp_ssl_ctx_client, tls_crl_name) == -1) {
-            ERROR("FI_init_ssl_context: Unable to load CRL (client) file (%s)", tls_crl_name);
-            return SSL_INIT_ERROR;
-        }
-        /* The following call forces to process the certificates with the */
-        /* initialised SSL_CTX                                            */
-        SSL_CTX_set_verify(sip_trp_ssl_ctx,
-                           SSL_VERIFY_PEER |
-                           SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
-                           sip_tls_verify_callback);
-
-        SSL_CTX_set_verify(sip_trp_ssl_ctx_client,
-                           SSL_VERIFY_PEER |
-                           SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
-                           sip_tls_verify_callback);
-    }
-
-
-    /* Selection Cipher suits - load the application specified ciphers */
-    SSL_CTX_set_default_passwd_cb_userdata(sip_trp_ssl_ctx,
-                                           (void *)CALL_BACK_USER_DATA );
-    SSL_CTX_set_default_passwd_cb_userdata(sip_trp_ssl_ctx_client,
-                                           (void *)CALL_BACK_USER_DATA );
-    SSL_CTX_set_default_passwd_cb( sip_trp_ssl_ctx,
-                                   passwd_call_back_routine );
-    SSL_CTX_set_default_passwd_cb( sip_trp_ssl_ctx_client,
-                                   passwd_call_back_routine );
-
-    if ( SSL_CTX_use_certificate_file(sip_trp_ssl_ctx,
-                                      tls_cert_name,
-                                      SSL_FILETYPE_PEM ) != 1 ) {
-        ERROR("FI_init_ssl_context: SSL_CTX_use_certificate_file failed");
-        return SSL_INIT_ERROR;
-    }
-
-    if ( SSL_CTX_use_certificate_file(sip_trp_ssl_ctx_client,
-                                      tls_cert_name,
-                                      SSL_FILETYPE_PEM ) != 1 ) {
-        ERROR("FI_init_ssl_context: SSL_CTX_use_certificate_file (client) failed");
-        return SSL_INIT_ERROR;
-    }
-    if ( SSL_CTX_use_PrivateKey_file(sip_trp_ssl_ctx,
-                                     tls_key_name,
-                                     SSL_FILETYPE_PEM ) != 1 ) {
-        ERROR("FI_init_ssl_context: SSL_CTX_use_PrivateKey_file failed");
-        return SSL_INIT_ERROR;
-    }
-
-    if ( SSL_CTX_use_PrivateKey_file(sip_trp_ssl_ctx_client,
-                                     tls_key_name,
-                                     SSL_FILETYPE_PEM ) != 1 ) {
-        ERROR("FI_init_ssl_context: SSL_CTX_use_PrivateKey_file (client) failed");
-        return SSL_INIT_ERROR;
-    }
-
-    return SSL_INIT_NORMAL;
-}
-
 static int send_nowait_tls(SSL* ssl, const void* msg, int len, int /*flags*/)
 {
     int initial_fd_flags;
@@ -2212,7 +2041,7 @@ static int send_nowait_tls(SSL* ssl, const void* msg, int len, int /*flags*/)
              * to be readable/writable again. */
             WARNING("SSL_write failed with error: %s. Attempt %d. "
                     "Retrying...",
-                    sip_tls_error_string(ssl, rc),
+                    SSL_error_string(ssl, rc),
                     ii + 1);
             ii++;
             sipp_usleep(SIPP_SSL_RETRY_TIMEOUT);

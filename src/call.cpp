@@ -404,10 +404,6 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     dialog_authentication = NULL;
     dialog_challenge_type = 0;
 
-#ifdef USE_OPENSSL
-    m_ctx_ssl = NULL;
-    m_bio = NULL;
-#endif
 #ifdef RTP_STREAM
     /* check and warn on rtpstream_new_call result? -> error alloc'ing mem */
     rtpstream_new_call(&rtpstream_callinfo);

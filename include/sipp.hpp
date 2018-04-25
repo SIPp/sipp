@@ -84,10 +84,6 @@
 #include "reporttask.hpp"
 #include "ratetask.hpp"
 #include "watchdog.hpp"
-/* Open SSL stuff */
-#ifdef USE_OPENSSL
-#include "sslcommon.h"
-#endif
 
 /*
  * If this files is included in the Main, then extern definitions
@@ -115,7 +111,7 @@
 #define T_TLS                      2
 #define T_SCTP                     3
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
 #define DEFAULT_TLS_CERT           "cacert.pem"
 #define DEFAULT_TLS_KEY            "cakey.pem"
 #define DEFAULT_TLS_CRL            ""
@@ -316,17 +312,14 @@ extern unsigned int       tdm_map_z               _DEFVAL(0);
 extern unsigned int       tdm_map_h               _DEFVAL(0);
 extern bool               tdm_map[1024];
 
-#ifdef USE_OPENSSL
-extern BIO              * twinSipp_bio;
-extern SSL              * twinSipp_ssl;
+#ifdef USE_TLS
 extern const char       * tls_cert_name           _DEFVAL(DEFAULT_TLS_CERT);
 extern const char       * tls_key_name            _DEFVAL(DEFAULT_TLS_KEY);
 extern const char       * tls_crl_name            _DEFVAL(DEFAULT_TLS_CRL);
-
 #endif
 
 extern char*              scenario_file           _DEFVAL(NULL);
-extern_c char*              scenario_path         _DEFVAL(NULL);
+extern_c char*            scenario_path           _DEFVAL(NULL);
 
 // extern field file management
 typedef std::map<string, FileContents *> file_map;
