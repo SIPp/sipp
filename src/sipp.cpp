@@ -2021,9 +2021,6 @@ int main(int argc, char *argv[])
 #endif
 
     free(scenario_file);
-    if (ctrl_socket != NULL) {
-        delete ctrl_socket;
-    }
 
     sipp_exit(EXIT_TEST_RES_UNKNOWN);
 }
