@@ -2541,11 +2541,11 @@ int open_connections()
         }
         freeaddrinfo(local_addr);
 
-        if (local_sockaddr.ss_family == AF_INET6) {
+        if (local_sockaddr.ss_family == AF_INET) {
+            strcpy(local_ip_escaped, local_ip);
+        } else {
             local_ip_is_ipv6 = true;
             sprintf(local_ip_escaped, "[%s]", local_ip);
-        } else {
-            strcpy(local_ip_escaped, local_ip);
         }
     }
 
