@@ -1,5 +1,4 @@
-SIPp as a whole is licensed under the GNU General Public License,
-version 2 or any later version (copy below).
+SIPp as a whole is licensed under the GNU General Public License, version 2 or any later version (copy below).
 
 send_packets.c, send_packets.h, md5.c and md5.h have separate copyright
 licenses, which apply only to those files.
@@ -60,9 +59,7 @@ The following license applies to md5.c and md5.h only:
 
  */
 
-All other parts of SIPp are under the following license (or, at your
-option, any later version of the GNU GPL). But, see the additional
-OpenSSL license exception below.
+All other parts of SIPp are under the following license (or, at your option, any later version of the GNU GPL):
 
 		    GNU GENERAL PUBLIC LICENSE
 		       Version 2, June 1991
@@ -344,19 +341,3 @@ PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGES.
 
 		     END OF TERMS AND CONDITIONS
-
-OpenSSL license exception:
-
- *  In addition, as a special exception, the copyright holders give
- *  permission to link the code of portions of this program with the
- *  OpenSSL library under certain conditions as described in each
- *  individual source file, and distribute linked combinations including
- *  the two.
- *
- *  You must obey the GNU General Public License in all respects for all
- *  of the code used other than OpenSSL.  If you modify file(s) with
- *  this exception, you may extend this exception to your version of the
- *  file(s), but you are not obligated to do so.  If you do not wish to
- *  do so, delete this exception statement from your version.  If you
- *  delete this exception statement from all source files in the
- *  program, then also delete it here.
