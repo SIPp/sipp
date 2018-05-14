@@ -618,7 +618,7 @@ static void rtp_echo_thread(void* param)
             return;
         }
 
-        if (*(int*)param == media_socket) {
+        if (*(int*)param == media_socket_audio) {
             rtp_pckts++;
             rtp_bytes += ns;
         } else {
@@ -1059,11 +1059,119 @@ static void set_scenario(const char* name)
     }
 }
 
+/**
+ * Create and bind media_socket_audio, media_socket_video for RTP and
+ * RCTP on try_port and try_port+2.
+ *
+ * Sets: media_socket_audio and media_socket_audio.
+ */
+static int bind_rtp_sockets(struct sockaddr_storage* media_sa, int try_port, int last_attempt)
+{
+    /* Create RTP sockets for audio and video. */
+    if ((media_socket_audio = socket(media_sa->ss_family, SOCK_DGRAM, 0)) == -1) {
+        ERROR_NO("Unable to create the audio RTP socket");
+    }
+
+    if (media_sa->ss_family == AF_INET) {
+        (_RCAST(struct sockaddr_in*, media_sa))->sin_port = htons(try_port);
+    } else {
+        (_RCAST(struct sockaddr_in6*, media_sa))->sin6_port = htons(try_port);
+    }
+
+    if (::bind(media_socket_audio, (sockaddr*)media_sa, socklen_from_addr(media_sa)) != 0) {
+        if (last_attempt) {
+            ERROR_NO("Unable to bind audio RTP socket (IP=%s, port=%d)", media_ip, try_port);
+        }
+        ::close(media_socket_audio);
+        media_socket_audio = -1;
+        return -1;
+    }
+
+    /* Create and bind the second/video socket to try_port+2 */
+    /* (+1 is reserved for RTCP) */
+    if ((media_socket_video = socket(media_sa->ss_family, SOCK_DGRAM, 0)) == -1) {
+        ERROR_NO("Unable to create the video RTP socket");
+    }
+
+    if (media_sa->ss_family == AF_INET) {
+        (_RCAST(struct sockaddr_in*, media_sa))->sin_port = htons(try_port + 2);
+    } else {
+        (_RCAST(struct sockaddr_in6*, media_sa))->sin6_port = htons(try_port + 2);
+    }
+
+    if (::bind(media_socket_video, (sockaddr*)media_sa, socklen_from_addr(media_sa)) != 0) {
+        if (last_attempt) {
+            ERROR_NO("Unable to bind video RTP socket (IP=%s, port=%d)",
+                     media_ip, try_port + 2);
+        }
+        ::close(media_socket_audio);
+        ::close(media_socket_video);
+        media_socket_audio = media_socket_video = -1;
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
+ * Set a bunch of globals and bind audio and video rtp sockets.
+ *
+ * Sets: media_ip, media_port, media_ip_is_ipv6, media_socket_audio,
+ * media_socket_video.
+ */
+static void setup_media_sockets()
+{
+    struct addrinfo hints = {0,};
+    struct addrinfo* local_addr;
+    struct sockaddr_storage media_sockaddr = {0,};
+
+    hints.ai_flags  = AI_PASSIVE;
+    hints.ai_family = PF_UNSPEC; /* use local_ip_is_ipv6 as hint? */
+
+    /* Defaults for media sockets */
+    if (media_ip[0] == '\0') {
+        strcpy(media_ip, local_ip);
+    }
+    // assert that an IPv6 'media_ip' is not surrounded by brackets?
+
+    /* Resolving local IP */
+    if (getaddrinfo(media_ip,
+                    NULL,
+                    &hints,
+                    &local_addr) != 0) {
+        ERROR("Unknown RTP address '%s'.\n"
+              "Use 'sipp -h' for details", media_ip);
+    }
+    memcpy(&media_sockaddr, local_addr->ai_addr,
+           socklen_from_addr(_RCAST(struct sockaddr_storage*, local_addr->ai_addr)));
+    freeaddrinfo(local_addr);
+
+    media_ip_is_ipv6 = (media_sockaddr.ss_family == AF_INET6);
+
+    int try_counter;
+    int max_tries = user_media_port ? 1 : 100;
+    media_port = user_media_port ? user_media_port : DEFAULT_MEDIA_PORT;
+    media_socket_audio = media_socket_video = -1;
+    for (try_counter = 1; try_counter <= max_tries; try_counter++) {
+        int last_attempt = (try_counter == max_tries);
+
+        if (bind_rtp_sockets(&media_sockaddr, media_port, last_attempt) == 0) {
+            break;
+        }
+
+        // Old RFC 3551 says:
+        // > RTP data SHOULD be carried on an even UDP port number and
+        // > the corresponding RTCP packets SHOULD be carried on the
+        // > next higher (odd) port number.
+        // So, try only even numbers.
+        media_port += 2;
+    }
+}
+
 /* Main */
 int main(int argc, char *argv[])
 {
     int                  argi = 0;
-    struct sockaddr_storage   media_sockaddr;
     pthread_t pthread2_id = 0, pthread3_id = 0;
     unsigned int         generic_count = 0;
     bool                 slave_masterSet = false;
@@ -1109,7 +1217,6 @@ int main(int argc, char *argv[])
 #endif
     memset(media_ip, 0, sizeof(media_ip));
     memset(control_ip, 0, sizeof(control_ip));
-    memset(media_ip_escaped, 0, sizeof(media_ip_escaped));
 
     /* Initialize the tolower table. */
     init_tolower_table();
@@ -1866,101 +1973,9 @@ int main(int argc, char *argv[])
 
     open_connections();
 
-    /* Defaults for media sockets */
-    if (media_ip[0] == '\0') {
-        strcpy(media_ip, local_ip);
-    }
-    if (media_ip_escaped[0] == '\0') {
-        // Use get_host_and_port to remove square brackets from an
-        // IPv6 address
-        get_host_and_port(local_ip, media_ip_escaped, NULL);
-    }
-    if (local_ip_is_ipv6) {
-        media_ip_is_ipv6 = true;
-    } else {
-        media_ip_is_ipv6 = false;
-    }
-
     /* Always create and Bind RTP socket */
-    /* to avoid ICMP                     */
-    if (1) {
-        /* retrieve RTP local addr */
-        struct addrinfo   hints;
-        struct addrinfo * local_addr;
-
-        memset((char*)&hints, 0, sizeof(hints));
-        hints.ai_flags  = AI_PASSIVE;
-        hints.ai_family = PF_UNSPEC;
-
-        /* Resolving local IP */
-        if (getaddrinfo(media_ip,
-                        NULL,
-                        &hints,
-                        &local_addr) != 0) {
-            ERROR("Unknown RTP address '%s'.\n"
-                  "Use 'sipp -h' for details", media_ip);
-        }
-
-        memset(&media_sockaddr,0,sizeof(struct sockaddr_storage));
-        media_sockaddr.ss_family = local_addr->ai_addr->sa_family;
-
-        memcpy(&media_sockaddr,
-               local_addr->ai_addr,
-               local_addr->ai_addrlen);
-        freeaddrinfo(local_addr);
-
-        if ((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
-                                   SOCK_DGRAM, 0)) == -1) {
-            ERROR_NO("Unable to get the audio RTP socket (IP=%s, port=%d)",
-                     media_ip, media_port);
-        }
-        /* create a second socket for video */
-        if ((media_socket_video = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
-                                         SOCK_DGRAM, 0)) == -1) {
-            ERROR_NO("Unable to get the video RTP socket (IP=%s, port=%d)",
-                     media_ip, media_port + 2);
-        }
-
-        int try_counter;
-        int max_tries = user_media_port ? 1 : 100;
-        media_port = user_media_port ? user_media_port : DEFAULT_MEDIA_PORT;
-        for (try_counter = 0; try_counter < max_tries; try_counter++) {
-            sockaddr_update_port(&media_sockaddr, media_port);
-
-            // Use get_host_and_port to remove square brackets from an
-            // IPv6 address
-            get_host_and_port(media_ip, media_ip_escaped, NULL);
-
-            if (::bind(media_socket, (sockaddr*)&media_sockaddr,
-                       socklen_from_addr(&media_sockaddr)) == 0) {
-                break;
-            }
-
-            media_port++;
-        }
-
-        if (try_counter >= max_tries) {
-            ERROR_NO("Unable to bind audio RTP socket (IP=%s, port=%d)", media_ip, media_port);
-        }
-
-        /*---------------------------------------------------------
-           Bind the second socket to media_port+2
-           (+1 is reserved for RTCP)
-        ----------------------------------------------------------*/
-
-        sockaddr_update_port(&media_sockaddr, media_port + 2);
-
-        // Use get_host_and_port to remove square brackets from an
-        // IPv6 address
-        get_host_and_port(media_ip, media_ip_escaped, NULL);
-
-        if (::bind(media_socket_video, (sockaddr*)&media_sockaddr,
-                   socklen_from_addr(&media_sockaddr))) {
-            ERROR_NO("Unable to bind video RTP socket (IP=%s, port=%d)",
-                     media_ip, media_port + 2);
-        }
-        /* Second socket bound */
-    }
+    /* to avoid ICMP errors from us. */
+    setup_media_sockets();
 
     /* Creating the remote control socket thread. */
     setup_ctrl_socket();
@@ -1968,26 +1983,18 @@ int main(int argc, char *argv[])
         setup_stdin_socket();
     }
 
-    if ((media_socket > 0) && (rtp_echo_enabled)) {
-        if (pthread_create
-                (&pthread2_id,
-                 NULL,
-                 (void *(*)(void *)) rtp_echo_thread,
-                 &media_socket)
-                == -1) {
+    if (rtp_echo_enabled && media_socket_audio > 0) {
+        if (pthread_create(&pthread2_id, NULL,
+                (void *(*)(void *))rtp_echo_thread, &media_socket_audio) == -1) {
             ERROR_NO("Unable to create RTP echo thread");
         }
     }
 
     /* Creating second RTP echo thread for video. */
-    if ((media_socket_video > 0) && (rtp_echo_enabled)) {
-        if (pthread_create
-                (&pthread3_id,
-                 NULL,
-                 (void *(*)(void *)) rtp_echo_thread,
-                 &media_socket_video)
-                == -1) {
-            ERROR_NO("Unable to create second RTP echo thread");
+    if (rtp_echo_enabled && media_socket_video > 0) {
+        if (pthread_create(&pthread3_id, NULL,
+                (void *(*)(void *)) rtp_echo_thread, &media_socket_video) == -1) {
+            ERROR_NO("Unable to create video RTP echo thread");
         }
     }
 

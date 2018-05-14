@@ -480,7 +480,7 @@ void print_stats_in_file(FILE * f)
 #endif
 
     /* 5th line, RTP echo statistics */
-    if (rtp_echo_enabled && (media_socket > 0)) {
+    if (rtp_echo_enabled && media_socket_audio > 0) {
         sprintf(temp_str, "%lu Total echo RTP pckts 1st stream",
                 rtp_pckts);
 

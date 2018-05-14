@@ -26,7 +26,7 @@ status=$?
 
 test $status -ne 0 && fail "SIPp UAC job failed"
 
-port=`sed -e '/^Connection from/!d;s/.*://' udplisten.log`
+port=`sed -e '/^Connectionless from/!d;s/.*://' udplisten.log`
 if test "$port" = "$uac_media_port"; then
     ok
 elif test -n "$port"; then

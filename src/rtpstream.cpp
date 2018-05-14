@@ -680,7 +680,7 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
     }
 
     /* make sure we have an open socket from which to play the audio file */
-    taskinfo->audio_rtp_socket = media_socket;
+    taskinfo->audio_rtp_socket = media_socket_audio;
 
     /* start playback task if not already started */
     if (!taskinfo->parent_thread) {

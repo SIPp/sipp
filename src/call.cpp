@@ -2023,7 +2023,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
         break;
         case E_Message_Media_IP:
-            dest += snprintf(dest, left, "%s", media_ip_escaped);
+            dest += snprintf(dest, left, "%s", media_ip);
             break;
         case E_Message_Media_Port:
         case E_Message_Auto_Media_Port: {

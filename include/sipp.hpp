@@ -232,7 +232,7 @@ extern int                max_sched_loops         _DEFVAL(MAX_SCHED_LOOPS_PER_CY
 extern unsigned int       global_t2               _DEFVAL(DEFAULT_T2_TIMER_VALUE);
 
 extern char               local_ip[127];          /* also used for hostnames */
-extern char               local_ip_escaped[42];
+extern char               local_ip_escaped[42];   /* with [brackets] in case of IPv6 */
 extern bool               local_ip_is_ipv6;
 extern int                local_port              _DEFVAL(0);
 #ifdef USE_SCTP
@@ -258,13 +258,12 @@ extern int                rtp_buffsize            _DEFVAL(65535);
 
 extern bool               rtp_echo_enabled        _DEFVAL(0);
 extern char               media_ip[127];          /* also used for hostnames */
-extern char               media_ip_escaped[42];
 extern int                user_media_port         _DEFVAL(0);
 extern int                media_port              _DEFVAL(0);
 extern size_t             media_bufsize           _DEFVAL(2048);
 extern_c bool             media_ip_is_ipv6        _DEFVAL(false);
 extern char               remote_ip[127];         /* also used for hostnames */
-extern char               remote_ip_escaped[42];
+extern char               remote_ip_escaped[42];  /* with [brackets] in case of IPv6 */
 extern int                remote_port             _DEFVAL(DEFAULT_PORT);
 extern unsigned int       pid                     _DEFVAL(0);
 extern bool               print_all_responses     _DEFVAL(false);
@@ -414,8 +413,8 @@ extern  int stepDynamicId   _DEFVAL(4);      // step of increment for dynamicId
 extern SIPpSocket   *main_socket                  _DEFVAL(NULL);
 extern SIPpSocket   *main_remote_socket           _DEFVAL(NULL);
 extern SIPpSocket   *tcp_multiplex                _DEFVAL(NULL);
-extern int           media_socket                 _DEFVAL(0);
-extern int           media_socket_video           _DEFVAL(0);
+extern int media_socket_audio                     _DEFVAL(0);
+extern int media_socket_video                     _DEFVAL(0);
 
 extern struct sockaddr_storage local_sockaddr;
 extern struct sockaddr_storage localTwin_sockaddr;

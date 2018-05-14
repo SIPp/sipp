@@ -2420,16 +2420,16 @@ int open_connections()
         /* Store local addr info for rsa option */
         memcpy(&local_addr_storage, &local_sockaddr, sizeof(local_sockaddr));
 
-        if (local_sockaddr.ss_family == AF_INET6) {
+        if (local_sockaddr.ss_family == AF_INET) {
+            strcpy(local_ip_escaped, local_ip);
+            if (!bind_specific) {
+                _RCAST(struct sockaddr_in*, &local_sockaddr)->sin_addr.s_addr = INADDR_ANY;
+            }
+        } else {
             local_ip_is_ipv6 = true;
             sprintf(local_ip_escaped, "[%s]", local_ip);
             if (!bind_specific) {
                 memcpy(&_RCAST(struct sockaddr_in6*, &local_sockaddr)->sin6_addr, &in6addr_any, sizeof(in6addr_any));
-            }
-        } else {
-            strcpy(local_ip_escaped, local_ip);
-            if (!bind_specific) {
-                _RCAST(struct sockaddr_in*, &local_sockaddr)->sin_addr.s_addr = INADDR_ANY;
             }
         }
     }

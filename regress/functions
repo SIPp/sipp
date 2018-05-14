@@ -74,10 +74,11 @@ udplisten() {
     exec perl -e '
         use Socket;$|=1;(socket(S,PF_INET,SOCK_DGRAM,17)&&
         bind(S,pack_sockaddr_in('$port',"\0\0\0\0"))&&
+        setsockopt(S,SOL_SOCKET,SO_RCVTIMEO,pack("L!L!",3,0))&&
         ($sa=recv(S,$o,2048,0))&&(($port,$ia)=
         unpack_sockaddr_in($sa))&&($ia=inet_ntoa($ia))&&
-        print "Connection from $ia:$port\n")||die($!);
-        close(S);print "$o";'
+        print "Connectionless from $ia:$port\n$o\n")||die($!);
+        close(S);'
 }
 
 cleanup() {
