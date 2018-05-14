@@ -1909,6 +1909,10 @@ int main(int argc, char *argv[])
                local_addr->ai_addrlen);
         freeaddrinfo(local_addr);
 
+        int try_counter = 0;
+        int max_tries = user_media_port ? 1 : 100;
+        media_port = user_media_port ? user_media_port : DEFAULT_MEDIA_PORT;
+rtp_try_again:
         if ((media_socket = socket(media_ip_is_ipv6 ? AF_INET6 : AF_INET,
                                    SOCK_DGRAM, 0)) == -1) {
             ERROR_NO("Unable to get the audio RTP socket (IP=%s, port=%d)",
@@ -1921,10 +1925,7 @@ int main(int argc, char *argv[])
                      media_ip, media_port + 2);
         }
 
-        int try_counter;
-        int max_tries = user_media_port ? 1 : 100;
-        media_port = user_media_port ? user_media_port : DEFAULT_MEDIA_PORT;
-        for (try_counter = 0; try_counter < max_tries; try_counter++) {
+        for (; try_counter < max_tries; try_counter++) {
             sockaddr_update_port(&media_sockaddr, media_port);
 
             // Use get_host_and_port to remove square brackets from an
@@ -1956,8 +1957,15 @@ int main(int argc, char *argv[])
 
         if (::bind(media_socket_video, (sockaddr*)&media_sockaddr,
                    socklen_from_addr(&media_sockaddr))) {
-            ERROR_NO("Unable to bind video RTP socket (IP=%s, port=%d)",
-                     media_ip, media_port + 2);
+            try_counter++;
+            if (try_counter >= max_tries) {
+                ERROR_NO("Unable to bind video RTP socket (IP=%s, port=%d)",
+                    media_ip, media_port + 2);
+            }
+            ::close(media_socket);
+            ::close(media_socket_video);
+            media_port += 3;
+            goto rtp_try_again;
         }
         /* Second socket bound */
     }
