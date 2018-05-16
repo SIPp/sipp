@@ -148,7 +148,7 @@ char* get_header(const char* message, const char* name, bool content)
         snprintf(header_with_newline, MAX_HEADER_LEN, "\n%s", name);
         dest = last_header;
 
-        while ((src = strcasestr2(src, header_with_newline))) {
+        while ((src = strcasestr(src, header_with_newline))) {
             if (content || !first_time) {
                 /* Just want the header's content, so skip over the header
                  * and newline */

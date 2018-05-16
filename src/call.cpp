@@ -2729,7 +2729,7 @@ void call::queue_up(const char* msg)
 
 bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 {
-    int             reply_code;
+    int             reply_code = 0;
     static char     request[65];
     char            responsecseqmethod[65];
     char            txn[MAX_HEADER_LEN];
@@ -3256,7 +3256,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             char msgPart[MAX_SUB_MESSAGE_LENGTH];
 
             /* Where to look. */
-            const char* haystack;
+            const char* haystack = nullptr;
 
             if(currentAction->getLookingPlace() == CAction::E_LP_HDR) {
                 extractSubMessage (msg,
@@ -3386,7 +3386,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 ERROR("Invalid port for setdest: %s", str_port);
             }
 
-            int protocol;
+            int protocol = 0;
             if (!strcmp(str_protocol, "udp") || !strcmp(str_protocol, "UDP")) {
                 protocol = T_UDP;
             } else if (!strcmp(str_protocol, "tcp") || !strcmp(str_protocol, "TCP")) {

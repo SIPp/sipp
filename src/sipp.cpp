@@ -1224,9 +1224,6 @@ int main(int argc, char *argv[])
     memset(media_ip, 0, sizeof(media_ip));
     memset(control_ip, 0, sizeof(control_ip));
 
-    /* Initialize the tolower table. */
-    init_tolower_table();
-
     /* Initialize our global variable structure. */
     globalVariables = new AllocVariableTable(NULL);
     userVariables = new AllocVariableTable(globalVariables);
