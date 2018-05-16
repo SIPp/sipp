@@ -179,7 +179,7 @@ long get_time(const char *ptr, const char *what, int multiplier)
 {
     char *endptr;
     const char *p;
-    long ret;
+    long ret = 0;
     double dret;
     int i;
 
@@ -1081,7 +1081,7 @@ scenario::~scenario()
 
 CSample *parse_distribution(bool oldstyle = false)
 {
-    CSample *distribution;
+    CSample *distribution = nullptr;
     const char *distname;
     const char *ptr = 0;
 

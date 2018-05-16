@@ -165,7 +165,7 @@ int send_packets(play_args_t* play_args)
 {
     pthread_cleanup_push(send_packets_pcap_cleanup, ((void*)play_args));
 
-    int ret, sock, port_diff;
+    int ret = 0, sock, port_diff;
     pcap_pkt *pkt_index, *pkt_max;
     uint16_t *from_port, *to_port;
     struct timeval didsleep = { 0, 0 };

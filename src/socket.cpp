@@ -747,15 +747,21 @@ int SIPpSocket::check_for_message()
         return 0;
     }
 
+    char saved = socketbuf->buf[socketbuf->offset + len];
+    socketbuf->buf[socketbuf->offset + len] = '\0';
+
     /* Find the content-length header. */
-    if ((l = strncasestr(socketbuf->buf + socketbuf->offset, "\r\nContent-Length:", len))) {
+    if ((l = strcasestr(socketbuf->buf + socketbuf->offset, "\r\nContent-Length:"))) {
         l += strlen("\r\nContent-Length:");
-    } else if ((l = strncasestr(socketbuf->buf + socketbuf->offset, "\r\nl:", len))) {
+    } else if ((l = strcasestr(socketbuf->buf + socketbuf->offset, "\r\nl:"))) {
         l += strlen("\r\nl:");
-    } else {
-        /* There is no header, so the content-length is zero. */
-        return len + 1;
     }
+
+    socketbuf->buf[socketbuf->offset + len] = saved;
+
+    /* There is no header, so the content-length is zero. */
+    if (!l)
+        return len + 1;
 
     /* Skip spaces. */
     while (isspace(*l)) {
@@ -1250,6 +1256,7 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     ss_invalid(false),
     ss_in(NULL),
     ss_out(NULL),
+    ss_out_tail(NULL),
     ss_msglen(0)
 {
     /* Initialize all sockets with our destination address. */
@@ -1973,15 +1980,13 @@ void SIPpSocket::buffer_write(const char *buffer, size_t len, struct sockaddr_st
 
     if (!buf) {
         ss_out = alloc_socketbuf(const_cast<char*>(buffer), len, DO_COPY, dest); /* NO BUG BECAUSE OF DO_COPY */
+        ss_out_tail = ss_out;
         TRACE_MSG("Added first buffered message to socket %d\n", ss_fd);
         return;
     }
 
-    while (buf->next) {
-        buf = buf->next;
-    }
-
-    buf->next = alloc_socketbuf(const_cast<char*>(buffer), len, DO_COPY, dest); /* NO BUG BECAUSE OF DO_COPY */
+    ss_out_tail->next = alloc_socketbuf(const_cast<char*>(buffer), len, DO_COPY, dest); /* NO BUG BECAUSE OF DO_COPY */
+    ss_out_tail = ss_out_tail->next;
     TRACE_MSG("Appended buffered message to socket %d\n", ss_fd);
 }
 
