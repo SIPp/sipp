@@ -8,7 +8,7 @@
 </a>
 
 SIPp - a SIP protocol test tool
-Copyright (C) 2003-2016 - The Authors
+Copyright (C) 2003-2018 - The Authors
 
 This program is free software: you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
