@@ -22,10 +22,6 @@
 
 #ifdef USE_OPENSSL
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-#define TLS_method TLSv1_2_method
-#endif
-
 #define MUTEX_TYPE pthread_mutex_t
 #define MUTEX_SETUP(x) pthread_mutex_init(&(x), NULL)
 #define MUTEX_CLEANUP(x) pthread_mutex_destroy(&(x))
@@ -190,15 +186,35 @@ static int sip_tls_load_crls(SSL_CTX* ctx , const char* crlfile)
 /************* Prepare the SSL context ************************/
 enum tls_init_status TLS_init_context(void)
 {
-    sip_trp_ssl_ctx = SSL_CTX_new(TLS_method());
+    if (tls_version == 1.0) {
+        sip_trp_ssl_ctx = SSL_CTX_new(TLSv1_method());
+    } else if (tls_version == 1.1) {
+        sip_trp_ssl_ctx = SSL_CTX_new(TLSv1_1_method());
+    } else if (tls_version == 1.2) {
+        sip_trp_ssl_ctx = SSL_CTX_new(TLSv1_2_method());
+    } else {
+        ERROR("Unrecognized TLS version for generic context: %1.1f\n", tls_version);
+        sip_trp_ssl_ctx = NULL;
+    }
+
     if (sip_trp_ssl_ctx == NULL) {
-        ERROR("TLS_init_context: SSL_CTX_new with TLS_method failed");
+        ERROR("TLS_init_context: SSL_CTX_new with TLS_method failed for generic context");
         return TLS_INIT_ERROR;
     }
 
-    sip_trp_ssl_ctx_client = SSL_CTX_new(TLS_method());
+    if (tls_version == 1.0) {
+        sip_trp_ssl_ctx_client = SSL_CTX_new(TLSv1_method());
+    } else if (tls_version == 1.1) {
+        sip_trp_ssl_ctx_client = SSL_CTX_new(TLSv1_1_method());
+    } else if (tls_version == 1.2) {
+        sip_trp_ssl_ctx_client = SSL_CTX_new(TLSv1_2_method());
+    } else {
+        ERROR("Unrecognized TLS version for client context: %1.1f\n", tls_version);
+        sip_trp_ssl_ctx_client = NULL;
+    }
+
     if (sip_trp_ssl_ctx_client == NULL) {
-        ERROR("TLS_init_context: SSL_CTX_new with TLS_method failed");
+        ERROR("TLS_init_context: SSL_CTX_new with TLS_method failed for client context");
         return TLS_INIT_ERROR;
     }
 
