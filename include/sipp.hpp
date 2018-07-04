@@ -315,6 +315,7 @@ extern bool               tdm_map[1024];
 extern const char       * tls_cert_name           _DEFVAL(DEFAULT_TLS_CERT);
 extern const char       * tls_key_name            _DEFVAL(DEFAULT_TLS_KEY);
 extern const char       * tls_crl_name            _DEFVAL(DEFAULT_TLS_CRL);
+extern double             tls_version             _DEFVAL(1.2);
 #endif
 
 extern char*              scenario_file           _DEFVAL(NULL);
