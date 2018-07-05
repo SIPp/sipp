@@ -170,6 +170,7 @@ struct sipp_option options_table[] = {
     {"tls_cert", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
     {"tls_key", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
     {"tls_crl", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
+    {"tls_version", NULL, SIPP_OPTION_NEED_SSL, NULL, 1},
 #endif
 
 #ifdef USE_SCTP

@@ -181,37 +181,37 @@ static int sip_tls_load_crls(SSL_CTX* ctx , const char* crlfile)
     return (1);
 }
 
+static SSL_CTX* instantiate_ssl_context(const char* context_name)
+{
+    SSL_CTX* ssl_ctx = NULL;
+
+    if (tls_version == 1.0) {
+        ssl_ctx = SSL_CTX_new(TLSv1_method());
+    } else if (tls_version == 1.1) {
+        ssl_ctx = SSL_CTX_new(TLSv1_1_method());
+    } else if (tls_version == 1.2) {
+        ssl_ctx = SSL_CTX_new(TLSv1_2_method());
+    } else {
+        ERROR("Unrecognized TLS version for [%s] context: %1.1f\n", context_name, tls_version);
+        ssl_ctx = NULL;
+    }
+
+    return ssl_ctx;
+}
+
 #endif //USE_OPENSSL
 
 /************* Prepare the SSL context ************************/
 enum tls_init_status TLS_init_context(void)
 {
-    if (tls_version == 1.0) {
-        sip_trp_ssl_ctx = SSL_CTX_new(TLSv1_method());
-    } else if (tls_version == 1.1) {
-        sip_trp_ssl_ctx = SSL_CTX_new(TLSv1_1_method());
-    } else if (tls_version == 1.2) {
-        sip_trp_ssl_ctx = SSL_CTX_new(TLSv1_2_method());
-    } else {
-        ERROR("Unrecognized TLS version for generic context: %1.1f\n", tls_version);
-        sip_trp_ssl_ctx = NULL;
-    }
+    sip_trp_ssl_ctx = instantiate_ssl_context("generic");
 
     if (sip_trp_ssl_ctx == NULL) {
         ERROR("TLS_init_context: SSL_CTX_new with TLS_method failed for generic context");
         return TLS_INIT_ERROR;
     }
 
-    if (tls_version == 1.0) {
-        sip_trp_ssl_ctx_client = SSL_CTX_new(TLSv1_method());
-    } else if (tls_version == 1.1) {
-        sip_trp_ssl_ctx_client = SSL_CTX_new(TLSv1_1_method());
-    } else if (tls_version == 1.2) {
-        sip_trp_ssl_ctx_client = SSL_CTX_new(TLSv1_2_method());
-    } else {
-        ERROR("Unrecognized TLS version for client context: %1.1f\n", tls_version);
-        sip_trp_ssl_ctx_client = NULL;
-    }
+    sip_trp_ssl_ctx_client = instantiate_ssl_context("client");
 
     if (sip_trp_ssl_ctx_client == NULL) {
         ERROR("TLS_init_context: SSL_CTX_new with TLS_method failed for client context");
