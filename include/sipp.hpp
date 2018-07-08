@@ -321,6 +321,8 @@ extern double             tls_version             _DEFVAL(1.2);
 extern char*              scenario_file           _DEFVAL(NULL);
 extern_c char*            scenario_path           _DEFVAL(NULL);
 
+extern char*              playback_file           _DEFVAL(NULL);
+
 // extern field file management
 typedef std::map<string, FileContents *> file_map;
 extern file_map inFiles;

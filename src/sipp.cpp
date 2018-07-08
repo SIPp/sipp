@@ -376,6 +376,8 @@ struct sipp_option options_table[] = {
     {"ringbuffer_size", "How large should error, message, shortmessage and calldebug files be before they get rotated?", SIPP_OPTION_LONG_LONG, &ringbuffer_size, 1},
     {"max_log_size", "What is the limit for error, message, shortmessage and calldebug file sizes.", SIPP_OPTION_LONG_LONG, &max_log_size, 1},
 
+    {"playback_file", "Name of the file to playback in exec play_pacp_audio or exec rtp_stream.", SIPP_OPTION_STRING, &playback_file, 1},
+
 };
 
 static struct sipp_option *find_option(const char* option) {

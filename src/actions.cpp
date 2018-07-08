@@ -480,6 +480,10 @@ void CAction::setPcapArgs(const char* P_value)
         M_pcapArgs = NULL;
     }
 
+    if (playback_file != NULL) {
+        P_value = playback_file;
+    }
+
     if(P_value != NULL) {
         M_pcapArgs = (pcap_pkts *) malloc(sizeof(*M_pcapArgs));
         if (parse_play_args(P_value, M_pcapArgs) == -1) {
@@ -497,6 +501,10 @@ void CAction::setRTPStreamActInfo(const char* P_value)
 {
     char* param_str;
     char* next_comma;
+
+    if (playback_file != NULL) {
+        P_value = playback_file;
+    }
 
     if (strlen(P_value) >= sizeof(M_rtpstream_actinfo.filename)) {
         ERROR("Filename %s is too long, maximum supported length %zu\n", P_value,
