@@ -186,9 +186,9 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
 
     if (tls_version == 0.0) {
 #if OPENSSL_VERSION_NUMBER >= 0x10100000  /* >= 1.1 */
-	ssl_ctx = SSL_CTX_new(TLS_method());
+        ssl_ctx = SSL_CTX_new(TLS_method());
 #else
-	ssl_ctx = SSL_CTX_new(SSLv23_method());
+        ssl_ctx = SSL_CTX_new(SSLv23_method());
 #endif
     } else if (tls_version == 1.0) {
         ssl_ctx = SSL_CTX_new(TLSv1_method());
