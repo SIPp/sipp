@@ -91,10 +91,9 @@ static int passwd_call_back_routine(char *buf, int size, int /*flag*/, void *pas
 }
 
 /****** SSL error handling *************/
-const char *SSL_error_string(SSL *ssl, int size)
+const char *SSL_error_string(int ssl_error, int orig_ret)
 {
-    int err = SSL_get_error(ssl, size);
-    switch(err) {
+    switch (ssl_error) {
     case SSL_ERROR_NONE:
         return "No error";
     case SSL_ERROR_ZERO_RETURN:
@@ -112,7 +111,7 @@ const char *SSL_error_string(SSL *ssl, int size)
     case SSL_ERROR_SSL:
         return "SSL protocol error. SSL I/O function returned SSL_ERROR_SSL";
     case SSL_ERROR_SYSCALL:
-        if (size < 0) { /* not EOF */
+        if (orig_ret < 0) { /* not EOF */
             return strerror(errno);
         } else { /* EOF */
             return "Non-recoverable I/O error occurred. SSL I/O function returned SSL_ERROR_SYSCALL";

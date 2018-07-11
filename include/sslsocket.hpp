@@ -44,7 +44,7 @@ enum tls_init_status TLS_init_context(void);
 #ifdef USE_OPENSSL
 SSL* SSL_new_client();
 SSL* SSL_new_server();
-const char *SSL_error_string(SSL *ssl, int size);
+const char *SSL_error_string(int ssl_error, int orig_ret);
 #endif
 
 #endif
