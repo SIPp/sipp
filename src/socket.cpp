@@ -1235,6 +1235,7 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     ss_transport(transport),
     ss_control(false),
     ss_fd(fd),
+    ss_bind_port(0),
     ss_comp_state(NULL),
     ss_changed_dest(false),
     ss_congested(false),
@@ -1492,6 +1493,11 @@ int sipp_bind_socket(SIPpSocket *socket, struct sockaddr_storage *saddr, int *po
     return 0;
 }
 
+void SIPpSocket::set_bind_port(int bind_port)
+{
+    ss_bind_port = bind_port;
+}
+
 int SIPpSocket::connect(struct sockaddr_storage* dest)
 {
     if (dest)
@@ -1504,15 +1510,15 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
     assert(ss_transport == T_TCP || ss_transport == T_TLS || ss_transport == T_SCTP);
 
     if (ss_transport == T_TCP || ss_transport == T_TLS) {
-        struct sockaddr_storage local_without_port;
+        struct sockaddr_storage with_optional_port;
         int port = -1;
-        memcpy(&local_without_port, &local_sockaddr, sizeof(struct sockaddr_storage));
+        memcpy(&with_optional_port, &local_sockaddr, sizeof(struct sockaddr_storage));
         if (local_ip_is_ipv6) {
-            (_RCAST(struct sockaddr_in6 *, &local_without_port))->sin6_port = htons(0);
+            (_RCAST(struct sockaddr_in6*, &with_optional_port))->sin6_port = htons(ss_bind_port);
         } else {
-            (_RCAST(struct sockaddr_in *, &local_without_port))->sin_port = htons(0);
+            (_RCAST(struct sockaddr_in*, &with_optional_port))->sin_port = htons(ss_bind_port);
         }
-        sipp_bind_socket(this, &local_without_port, &port);
+        sipp_bind_socket(this, &with_optional_port, &port);
 #ifdef USE_SCTP
     } else if (ss_transport == T_SCTP) {
         int port = -1;
@@ -2530,30 +2536,17 @@ int open_connections()
             ERROR_NO("Unable to get a TCP socket");
         }
 
+        /* If there is a user-supplied local port and we use a single
+         * socket, then bind to the specified port. */
+        if (user_port) {
+            tcp_multiplex->set_bind_port(local_port);
+        }
+
         /* OJA FIXME: is it correct? */
         if (use_remote_sending_addr) {
             remote_sockaddr = remote_sending_sockaddr;
         }
         sipp_customize_socket(tcp_multiplex);
-
-        if (user_port) {
-            int sock_opt = 1;
-
-            if (setsockopt(tcp_multiplex->ss_fd, SOL_SOCKET, SO_REUSEADDR, (void *)&sock_opt,
-                           sizeof (sock_opt)) == -1) {
-                ERROR_NO("setsockopt(SO_REUSEADDR) failed");
-            }
-
-            if (tcp_multiplex->ss_ipv6) {
-                struct sockaddr_in6 sa_loc = {AF_INET6};
-                sa_loc.sin6_port = htons(local_port);
-                sipp_bind_socket(tcp_multiplex, (struct sockaddr_storage*)&sa_loc, NULL);
-            } else {
-                struct sockaddr_in sa_loc = {AF_INET};
-                sa_loc.sin_port = htons(local_port);
-                sipp_bind_socket(tcp_multiplex, (struct sockaddr_storage*)&sa_loc, NULL);
-            }
-        }
 
         if (tcp_multiplex->connect(&remote_sockaddr)) {
             if (reset_number > 0) {
@@ -2716,11 +2709,6 @@ void connect_local_twin_socket(char * twinSippHost)
     memset(&localTwin_sockaddr, 0, sizeof(struct sockaddr_storage));
     localTwin_sockaddr.ss_family = is_ipv6 ? AF_INET6 : AF_INET;
     sockaddr_update_port(&localTwin_sockaddr, twinSippPort);
-
-    // add socket option to allow the use of it without the TCP timeout
-    // This allows to re-start the controller B (or slave) without timeout after its exit
-    int reuse = 1;
-    setsockopt(localTwinSippSocket->ss_fd, SOL_SOCKET, SO_REUSEADDR, (int *)&reuse, sizeof(reuse));
     sipp_customize_socket(localTwinSippSocket);
 
     if (sipp_bind_socket(localTwinSippSocket, &localTwin_sockaddr, 0)) {

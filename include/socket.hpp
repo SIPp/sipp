@@ -63,6 +63,7 @@ class SIPpSocket {
 public:
     SIPpSocket(bool use_ipv6, int transport, int fd, int accepting);
     static SIPpSocket* new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
+    void set_bind_port(int bind_port);
 
     int connect(struct sockaddr_storage* dest = NULL);
     int reconnect();
@@ -95,6 +96,7 @@ public:
     bool ss_control;        /* Is this a control socket? */
     int ss_fd;              /* The underlying file descriptor for this socket. */
     int ss_port;            /* The port used by this socket */
+    int ss_bind_port;       /* Optional local port used by this socket */
     void *ss_comp_state;    /* The compression state. */
 
     bool ss_changed_dest;   /* Has the destination changed from default. */
