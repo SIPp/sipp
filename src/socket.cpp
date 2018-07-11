@@ -2559,16 +2559,6 @@ int open_connections()
                            sizeof (sock_opt)) == -1) {
                 ERROR_NO("setsockopt(SO_REUSEADDR) failed");
             }
-
-            if (tcp_multiplex->ss_ipv6) {
-                struct sockaddr_in6 sa_loc = {AF_INET6};
-                sa_loc.sin6_port = htons(local_port);
-                sipp_bind_socket(tcp_multiplex, (struct sockaddr_storage*)&sa_loc, NULL);
-            } else {
-                struct sockaddr_in sa_loc = {AF_INET};
-                sa_loc.sin_port = htons(local_port);
-                sipp_bind_socket(tcp_multiplex, (struct sockaddr_storage*)&sa_loc, NULL);
-            }
         }
 
         if (tcp_multiplex->connect(&remote_sockaddr)) {
