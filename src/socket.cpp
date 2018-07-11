@@ -51,8 +51,6 @@ extern bool show_index;
 SIPpSocket *ctrl_socket = NULL;
 SIPpSocket *stdin_socket = NULL;
 
-static int stdin_mode;
-
 /******************** Recv Poll Processing *********************/
 
 unsigned pollnfds;
@@ -543,15 +541,10 @@ void setup_ctrl_socket()
     }
 }
 
-static void reset_stdin() {
-    fcntl(fileno(stdin), F_SETFL, stdin_mode);
-}
-
 void setup_stdin_socket()
 {
-    stdin_mode = fcntl(fileno(stdin), F_GETFL);
+    int stdin_mode = fcntl(fileno(stdin), F_GETFL);
     fcntl(fileno(stdin), F_SETFL, stdin_mode | O_NONBLOCK);
-    atexit(reset_stdin);
     stdin_socket = new SIPpSocket(0, T_UDP, fileno(stdin), 0);
     if (!stdin_socket) {
         ERROR_NO("Could not setup keyboard (stdin) socket!\n");
@@ -959,8 +952,6 @@ void SIPpSocket::invalidate()
         else {
             ss_fd = -1;
         }
-
-        abort();
     }
 
     if ((pollidx = ss_pollidx) >= pollnfds) {
