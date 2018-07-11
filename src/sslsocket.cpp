@@ -185,7 +185,13 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
 {
     SSL_CTX* ssl_ctx = NULL;
 
-    if (tls_version == 1.0) {
+    if (tls_version == 0.0) {
+#if OPENSSL_VERSION_NUMBER >= 0x10100000  /* >= 1.1 */
+	ssl_ctx = SSL_CTX_new(TLS_method());
+#else
+	ssl_ctx = SSL_CTX_new(SSLv23_method());
+#endif
+    } else if (tls_version == 1.0) {
         ssl_ctx = SSL_CTX_new(TLSv1_method());
     } else if (tls_version == 1.1) {
         ssl_ctx = SSL_CTX_new(TLSv1_1_method());
@@ -196,6 +202,9 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
         ssl_ctx = NULL;
     }
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000  /* >= 1.1 */
+    SSL_CTX_set_min_proto_version(ssl_ctx, TLS1_VERSION);
+#endif
     return ssl_ctx;
 }
 
