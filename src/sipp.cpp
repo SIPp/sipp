@@ -2024,16 +2024,16 @@ int main(int argc, char *argv[])
         pthread_join(pthread3_id, NULL);
     }
 
+    if (ctrl_socket != NULL) {
+        ctrl_socket->close(); /* also uses epoll */
+        ctrl_socket = NULL; /* close "delete's this" */
+    }
+
 #ifdef HAVE_EPOLL
     close(epollfd);
     free(epollevents);
 #endif
 
     free(scenario_file);
-    if (ctrl_socket != NULL) {
-        ctrl_socket->close();
-        ctrl_socket = NULL; /* close "delete's this" */
-    }
-
     sipp_exit(EXIT_TEST_RES_UNKNOWN);
 }

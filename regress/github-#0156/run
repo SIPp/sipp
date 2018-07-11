@@ -3,6 +3,9 @@
 # Author: Walter Doekes, OSSO B.V., 2015
 . "`dirname "$0"`/../functions"; init
 
+# Check that we have valgrind
+which valgrind >/dev/null || fail "no valgrind installed"
+
 # Valgrind on UAS.
 valgrind --xml=yes --xml-file=uas.log --partial-loads-ok=yes \
     --show-leak-kinds=all --leak-check=full `get_sipp` -nostdin -m 10 -sn uas \
