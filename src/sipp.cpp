@@ -439,7 +439,7 @@ void timeout_alarm(int /*param*/)
 
 /* Send loop & trafic generation*/
 
-static bool traffic_thread()
+static void traffic_thread()
 {
     /* create the file */
     char L_file_name[MAX_PATH];
@@ -493,15 +493,22 @@ static bool traffic_thread()
                 /* Force exit: abort all calls */
                 abort_all_tasks();
             }
-            /* Quitting and no more openned calls, close all */
+            /* Quitting and no more opened calls, close all */
             if (!main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall)) {
                 /* We can have calls that do not count towards our open-call count (e.g., dead calls). */
                 abort_all_tasks();
 #ifdef RTP_STREAM
                 rtpstream_shutdown();
 #endif
-                for (unsigned i = 0; i < pollnfds; i++) {
+                /* Reverse order shutdown, because deleting reorders the
+                 * sockets list. */
+                for (int i = pollnfds - 1; i >= 0; --i) {
                     sockets[i]->close();
+                    if (sockets[i] == ctrl_socket) {
+                        ctrl_socket = NULL;
+                    } else if (sockets[i] == stdin_socket) {
+                        stdin_socket = NULL;
+                    }
                 }
 
                 screentask::report(true);
@@ -509,7 +516,7 @@ static bool traffic_thread()
                 if (useScreenf == 1) {
                     print_screens();
                 }
-                return false;
+                return;
             }
         }
 
@@ -545,9 +552,9 @@ static bool traffic_thread()
         task * last = NULL;
 
         task_list::iterator iter;
-        for(iter = running_tasks->begin(); iter != running_tasks->end(); iter++) {
+        for (iter = running_tasks->begin(); iter != running_tasks->end(); iter++) {
             if (last) {
-                last -> run();
+                last->run();
                 if (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
                     last = NULL;
                     break;
@@ -559,7 +566,7 @@ static bool traffic_thread()
             }
         }
         if (last) {
-            last -> run();
+            last->run();
         }
         while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
             (*(sockets_pending_reset.begin()))->reset_connection();
@@ -571,7 +578,7 @@ static bool traffic_thread()
         /* Receive incoming messages */
         SIPpSocket::pollset_process(running_tasks->empty());
     }
-    return true;
+    assert(0);
 }
 
 /*************** RTP ECHO THREAD ***********************/
@@ -1070,7 +1077,7 @@ static void set_scenario(const char* name)
 static int bind_rtp_sockets(struct sockaddr_storage* media_sa, int try_port, int last_attempt)
 {
     /* Create RTP sockets for audio and video. */
-    if ((media_socket_audio = socket(media_sa->ss_family, SOCK_DGRAM, 0)) == -1) {
+    if ((media_socket_audio = socket(media_sa->ss_family, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
         ERROR_NO("Unable to create the audio RTP socket");
     }
 
@@ -1091,7 +1098,7 @@ static int bind_rtp_sockets(struct sockaddr_storage* media_sa, int try_port, int
 
     /* Create and bind the second/video socket to try_port+2 */
     /* (+1 is reserved for RTCP) */
-    if ((media_socket_video = socket(media_sa->ss_family, SOCK_DGRAM, 0)) == -1) {
+    if ((media_socket_video = socket(media_sa->ss_family, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
         ERROR_NO("Unable to create the video RTP socket");
     }
 
@@ -2000,15 +2007,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (traffic_thread()) {
-        /* Clean up */
-        if (!nostdin) {
-            stdin_socket->close();
-            stdin_socket = NULL; /* close "delete's this" */
-        }
-        ctrl_socket->close();
-        ctrl_socket = NULL;  /* close "delete's this" */
-    }
+    traffic_thread();
 
     /* Cancel and join other threads. */
     if (pthread2_id) {
@@ -2022,11 +2021,6 @@ int main(int argc, char *argv[])
     }
     if (pthread3_id) {
         pthread_join(pthread3_id, NULL);
-    }
-
-    if (ctrl_socket != NULL) {
-        ctrl_socket->close(); /* also uses epoll */
-        ctrl_socket = NULL; /* close "delete's this" */
     }
 
 #ifdef HAVE_EPOLL

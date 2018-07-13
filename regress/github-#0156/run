@@ -8,14 +8,14 @@ which valgrind >/dev/null || fail "no valgrind installed"
 
 # Valgrind on UAS.
 valgrind --xml=yes --xml-file=uas.log --partial-loads-ok=yes \
-    --show-leak-kinds=all --leak-check=full `get_sipp` -nostdin -m 10 -sn uas \
+    --show-leak-kinds=all --leak-check=full `get_sipp` -m 10 -sn uas \
     >/dev/null 2>&1 &
 uaspid=$!
 sleep 1
 
 # Valgrind on UAC.
 valgrind --xml=yes --xml-file=uac.log --partial-loads-ok=yes \
-    --show-leak-kinds=all --leak-check=full `get_sipp` -nostdin -m 10 -sn uac \
+    --show-leak-kinds=all --leak-check=full `get_sipp` -m 10 -sn uac \
     127.0.0.1 >/dev/null 2>&1 &
 uacpid=$!
 

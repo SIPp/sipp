@@ -51,6 +51,9 @@ extern bool show_index;
 SIPpSocket *ctrl_socket = NULL;
 SIPpSocket *stdin_socket = NULL;
 
+static int stdin_fileno = -1;
+static int stdin_mode;
+
 /******************** Recv Poll Processing *********************/
 
 unsigned pollnfds;
@@ -485,7 +488,7 @@ void setup_ctrl_socket()
     int try_counter = 60;
     struct sockaddr_storage ctl_sa;
 
-    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock == -1) {
         ERROR_NO("Unable to create remote control socket!");
     }
@@ -541,11 +544,19 @@ void setup_ctrl_socket()
     }
 }
 
+void reset_stdin()
+{
+    fcntl(stdin_fileno, F_SETFL, stdin_mode);
+}
+
 void setup_stdin_socket()
 {
-    int stdin_mode = fcntl(fileno(stdin), F_GETFL);
-    fcntl(fileno(stdin), F_SETFL, stdin_mode | O_NONBLOCK);
-    stdin_socket = new SIPpSocket(0, T_UDP, fileno(stdin), 0);
+    stdin_fileno = fileno(stdin);
+    stdin_mode = fcntl(stdin_fileno, F_GETFL);
+    atexit(reset_stdin);
+    fcntl(stdin_fileno, F_SETFL, stdin_mode | O_NONBLOCK);
+
+    stdin_socket = new SIPpSocket(0, T_TCP, stdin_fileno, 0);
     if (!stdin_socket) {
         ERROR_NO("Could not setup keyboard (stdin) socket!\n");
     }
@@ -946,12 +957,12 @@ void SIPpSocket::invalidate()
         }
 #endif
 
-        if (::close(ss_fd) < 0) {
+        if (ss_fd == stdin_fileno) {
+            /* don't close stdin, breaks interactive terminals */
+        } else if (::close(ss_fd) < 0) {
             WARNING_NO("Failed to close socket %d", ss_fd);
         }
-        else {
-            ss_fd = -1;
-        }
+        ss_fd = -1;
     }
 
     if ((pollidx = ss_pollidx) >= pollnfds) {
@@ -982,8 +993,11 @@ void SIPpSocket::invalidate()
 #else
     pollfiles[pollidx] = pollfiles[pollnfds];
 #endif
-    sockets[pollidx] = sockets[pollnfds];
-    sockets[pollidx]->ss_pollidx = pollidx;
+    /* If unequal, move the last valid socket here. */
+    if (pollidx != pollnfds) {
+        sockets[pollidx] = sockets[pollnfds];
+        sockets[pollidx]->ss_pollidx = pollidx;
+    }
     sockets[pollnfds] = NULL;
 
     if (ss_msglen) {
@@ -1314,6 +1328,7 @@ static int socket_fd(bool use_ipv6, int transport)
 #endif
     case T_TCP:
         socket_type = SOCK_STREAM;
+        protocol = IPPROTO_TCP;
         break;
     }
 
@@ -2391,7 +2406,9 @@ int open_connections()
                     ::connect(tmpsock, _RCAST(struct sockaddr*, &remote_sockaddr),
                               socklen_from_addr(&remote_sockaddr)) < 0 ||
                     getsockname(tmpsock, _RCAST(struct sockaddr*, &local_sockaddr), &len) < 0) {
-                // close(tmpsock);
+                if (tmpsock >= 0) {
+                    close(tmpsock);
+                }
                 ERROR_NO("Failed to find our local ip");
             }
             close(tmpsock);
@@ -2552,6 +2569,7 @@ int open_connections()
             if (reset_number > 0) {
                 WARNING("Failed to reconnect\n");
                 main_socket->close();
+                main_socket = NULL;
                 reset_number--;
                 return 1;
             } else {
