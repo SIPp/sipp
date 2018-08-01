@@ -51,13 +51,13 @@ SIPp comes with a G711 alaw pre-recorded pcap file and out of band
 (:rfc:`2833`) DTMFs in the pcap/ directory.
 
 .. warning::
-	The PCAP play feature uses pthread_setschedparam calls from pthread
-	library. Depending on the system settings, you might need to be root
-	to allow this. Please check "man 3 pthread_setschedparam" man page for
-	details
+    The PCAP play feature uses pthread_setschedparam calls from pthread
+    library. Depending on the system settings, you might need to be root
+    to allow this. Please check "man 3 pthread_setschedparam" man page for
+    details
 
 
 More details on the possible PCAP play actions can be found in the
 action reference section.
 
-.. _PCAP library: http://www.tcpdump.org/pcap3_man.html
+.. _PCAP library: https://www.tcpdump.org/manpages/pcap.3pcap.html

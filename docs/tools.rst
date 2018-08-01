@@ -9,14 +9,14 @@ JEdit
 `JEdit <http://www.jedit.org/>`_ is a GNU GPL text editor written in
 Java, and available on almost all platforms. It's extremely powerful
 and can be used to edit SIPp scenarios with syntax checking if you put
-the DTD (`sipp.dtd <http://sipp.sourceforge.net/doc/sipp.dtd>`_) in the same directory as your XML scenario.
+the DTD (`sipp.dtd <https://github.com/SIPp/sipp/raw/master/sipp.dtd>`_) in the same directory as your XML scenario.
 
 
 
 Wireshark/tshark
 ````````````````
 
-`Wireshark <http://www.wireshark.org/>`_ is a GNU GPL protocol
+`Wireshark <https://www.wireshark.org/>`_ is a GNU GPL protocol
 analyzer. It was formerly known as Ethereal. It supports SIP/SDP/RTP.
 
 
@@ -33,4 +33,4 @@ that in a graphical way: `callflow <http://callflow.sourceforge.net/>`_
 An equivalent exist if you want to generate HTML only call flows
 `http://www.iptel.org/~sipsc/`_
 
-.. _http://www.iptel.org/~sipsc/: http://www.iptel.org/~sipsc/
+.. _http://www.iptel.org/~sipsc/: https://web.archive.org/web/20120106005622/https://www.iptel.org/~sipsc/

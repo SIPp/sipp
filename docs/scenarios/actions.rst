@@ -558,4 +558,4 @@ on the result::
     <nop hide="true" test="authvalid" next="goodauth" />
     <nop hide="true" next="badauth" />
 
-.. _PCAP library: http://www.tcpdump.org/pcap3_man.html
+.. _PCAP library: https://www.tcpdump.org/manpages/pcap.3pcap.html
