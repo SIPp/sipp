@@ -124,9 +124,9 @@ Installing SIPp
       it interfers with pthread.h from cygwin
     + Compile according to the instructions above.
 
-.. _GNU GPL license: http://www.gnu.org/copyleft/gpl.html
-.. _Gnu Scientific Libraries: http://www.gnu.org/software/gsl/
-.. _WinPcap developer package: http://www.winpcap.org/devel.htm
-.. _hewlett-packard: http://www.hp.com/
+.. _GNU GPL license: https://www.gnu.org/copyleft/gpl.html
+.. _Gnu Scientific Libraries: https://www.gnu.org/software/gsl/
+.. _WinPcap developer package: https://www.winpcap.org/devel.htm
+.. _hewlett-packard: https://www.hp.com/
 .. _SIPp's master tree: https://github.com/SIPp/sipp/tree/master
-.. _OpenSSL library: http://www.openssl.org/
+.. _OpenSSL library: https://www.openssl.org/

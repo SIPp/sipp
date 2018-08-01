@@ -712,7 +712,7 @@ content of headers received in the INVITE message.
 
 
 
-.. _Negative Binomial on Wikipedia: http://en.wikipedia.org/wiki/Negative_binomial_distribution
-.. _Weibull on Wikipedia: http://en.wikipedia.org/wiki/Weibull
-.. _Pareto on Wikipedia: http://en.wikipedia.org/wiki/Pareto_distribution
-.. _Gamma on Wikipedia: http://en.wikipedia.org/wiki/Gamma_distribution
+.. _Negative Binomial on Wikipedia: https://en.wikipedia.org/wiki/Negative_binomial_distribution
+.. _Weibull on Wikipedia: https://en.wikipedia.org/wiki/Weibull_distribution
+.. _Pareto on Wikipedia: https://en.wikipedia.org/wiki/Pareto_distribution
+.. _Gamma on Wikipedia: https://en.wikipedia.org/wiki/Gamma_distribution
