@@ -540,10 +540,20 @@ void CAction::setRTPStreamActInfo(const char* P_value)
         M_rtpstream_actinfo.bytes_per_packet = 160;
         M_rtpstream_actinfo.ticks_per_packet = 160;
         break;
+    case 9:
+        M_rtpstream_actinfo.ms_per_packet = 20;
+        M_rtpstream_actinfo.bytes_per_packet = 160;
+        M_rtpstream_actinfo.ticks_per_packet = 160;
+        break;
     case 18:
         M_rtpstream_actinfo.ms_per_packet = 20;
         M_rtpstream_actinfo.bytes_per_packet = 20;
         M_rtpstream_actinfo.ticks_per_packet = 160;
+        break;
+    case 98:
+        M_rtpstream_actinfo.ms_per_packet = 30;
+        M_rtpstream_actinfo.bytes_per_packet = 50;
+        M_rtpstream_actinfo.ticks_per_packet = 240;
         break;
     default:
         M_rtpstream_actinfo.ms_per_packet= -1;

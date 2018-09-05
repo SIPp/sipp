@@ -20,7 +20,8 @@ sender (used for sound and video echo).
 RTP streaming
 `````````````
 
-SIPp can play a PCMA, PCMU or G729-encoded audio file over RTP.
+SIPp can play a PCMA, PCMU, G722, iLBC or G729-encoded audio file over
+RTP.
 
 More details on how to do this can be found in the action reference
 section.
