@@ -12,7 +12,7 @@
       [last_To:];tag=[pid]SIPpTag00[call_number]
       [last_Call-ID:]
       [last_CSeq:]
-      Contact: <sip:user@1.2.3.4:58292;transport=tcp;alias=5.5.5.5~58292~2>;+sip.instance="<urn:uuid:0f35feab-c878-4622-a94e-b2e6e812b177>"
+      Contact: "Display name" <sip:user@1.2.3.4:58292;transport=tcp;alias=5.5.5.5~58292~2>;+sip.instance="<urn:uuid:0f35feab-c878-4622-a94e-b2e6e812b177>"
       Content-Length: 0
 
     ]]>
