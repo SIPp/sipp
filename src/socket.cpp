@@ -2532,7 +2532,7 @@ int open_connections()
 
         if (!strlen(local_ip)) {
             get_inet_address(_RCAST(struct sockaddr_storage*, local_addr->ai_addr),
-			     local_ip, sizeof(local_ip));
+                             local_ip, sizeof(local_ip));
         } else {
             memcpy(&local_sockaddr,
                    local_addr->ai_addr,
