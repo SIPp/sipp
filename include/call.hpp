@@ -163,7 +163,9 @@ protected:
 
 #ifdef PCAPPLAY
     int hasMediaInformation;
-    pthread_t media_thread;
+    pthread_t media_thread_a;
+    pthread_t media_thread_i;
+    pthread_t media_thread_v;
     play_args_t play_args_a;
     play_args_t play_args_i;
     play_args_t play_args_v;
