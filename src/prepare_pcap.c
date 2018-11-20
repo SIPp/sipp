@@ -298,7 +298,7 @@ struct rtphdr {
 };
 
 struct rtpevent {
-    unsigned int event_id;
+    uint8_t event_id;
 
     unsigned int volume:6;
     unsigned int reserved:1;
