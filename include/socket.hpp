@@ -187,7 +187,7 @@ struct socketbuf {
 #define WS_BUFFER 2 /* Buffer the message if there is no room for writing the message. */
 
 
-#if defined (__hpux) || defined (__alpha) && !defined (__FreeBSD__)
+#if defined (__hpux) || (defined (__alpha) && !defined (__FreeBSD__) && !defined (__linux__))
 #define sipp_socklen_t int
 #else
 #define sipp_socklen_t socklen_t
