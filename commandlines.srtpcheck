@@ -1,0 +1,6 @@
+SET-SIDE command line:
+./sipp 192.168.1.250:5060 -sf sipp_scenarios/pfca_uac_bpattern_crypto_simple.xml -i 192.168.1.147 -t u1 -p 5060 -mp 4000 -m 1 -s 16002 -rtpcheck_debug -srtpcheck_debug
+
+ICP-SIDE command line:
+./sipp -sf sipp_scenarios/pfca_uas_both_crypto_simple.xml -i 192.168.1.250 -t u1 -p 5060 -mp 5000 -m 1 -s 16001 -srtpcheck_debug
+

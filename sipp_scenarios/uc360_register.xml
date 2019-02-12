@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<!-- UC360 REGISTER/200 sample UAC scenario -->
+
+<scenario name="Basic UC360 UAC">
+
+  <send retrans="500">
+    <![CDATA[
+
+      REGISTER sip:[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:16001@[remote_ip]:[remote_port]>;tag=[call_number]
+      To: <sip:16001@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 REGISTER
+      Contact: <sip:16001@[local_ip]:[local_port];line=10d9fd07f9eb2d0>
+      Allow: INVITE, ACK, BYE, OPTIONS, CANCEL, UPDATE, SUBSCRIBE, NOTIFY, INFO, MESSAGE
+      Max-Forwards: 70
+      User-Agent: Mitel-UC-Endpoint (Mitel UC360 Collaboration Point/2.1.0.99;  08:00:0F:74:80:E1)
+      Expires: 3600
+      Supported: path
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <!--
+  <recv response="401" auth="true">
+  </recv>
+
+  <send retrans="500">
+    <![CDATA[
+
+      REGISTER sip:[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:16001@[remote_ip]:[remote_port]>;tag=[call_number]
+      To: <sip:16001@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 2 REGISTER
+      Contact: <sip:16001@[local_ip]:[local_port];line=10d9fd07f9eb2d0>
+      [authentication username=16001 password=asdfzxcvqwer]
+      Allow: INVITE, ACK, BYE, OPTIONS, CANCEL, UPDATE, SUBSCRIBE, NOTIFY, INFO, MESSAGE
+      Max-Forwards: 70
+      User-Agent: Mitel-UC-Endpoint (Mitel UC360 Collaboration Point/2.1.0.99;  08:00:0F:74:80:E1)
+      Expires: 3600
+      Supported: path
+      Content-Length: 0
+
+    ]]>
+  </send>
+  -->
+
+  <recv response="200">
+  </recv>
+
+  <!-- definition of the response time repartition table (unit is ms)   -->
+  <ResponseTimeRepartition value="10, 20, 30, 40, 50, 100, 150, 200"/>
+
+  <!-- definition of the call length repartition table (unit is ms)     -->
+  <CallLengthRepartition value="10, 50, 100, 500, 1000, 5000, 10000"/>
+
+</scenario>

@@ -154,20 +154,97 @@ void CAction::printInfo(char* buf, int len)
         snprintf(buf, len, "Type[%d] - play DTMF digits [%s]", M_action, M_message_str[0]);
 #endif
 
+    }
 #ifdef RTP_STREAM
-    } else if (M_action == E_AT_RTP_STREAM_PLAY) {
-        snprintf(buf, len, "Type[%d] - rtp_stream playfile file %s loop=%d payload %d bytes per packet=%d ms per packet=%d ticks per packet=%d",
-               M_action, M_rtpstream_actinfo.filename, M_rtpstream_actinfo.loop_count,
-               M_rtpstream_actinfo.payload_type, M_rtpstream_actinfo.bytes_per_packet,
-               M_rtpstream_actinfo.ms_per_packet, M_rtpstream_actinfo.ticks_per_packet);
-    } else if (M_action == E_AT_RTP_STREAM_PAUSE) {
-        snprintf(buf, len, "Type[%d] - rtp_stream pause", M_action);
-    } else if (M_action == E_AT_RTP_STREAM_RESUME) {
-        snprintf(buf, len, "Type[%d] - rtp_stream resume", M_action);
-#endif
+    else if (M_action == E_AT_RTP_STREAM_PLAY)
+    {
+        printf("Type[%d] - rtp_stream playfile file %s pattern_id %d loop=%d payload %d bytes per packet=%d ms per packet=%d ticks per packet=%d",
+                M_action,
+                M_rtpstream_actinfo.filename,
+                M_rtpstream_actinfo.pattern_id,
+                M_rtpstream_actinfo.loop_count,
+                M_rtpstream_actinfo.payload_type,
+                M_rtpstream_actinfo.bytes_per_packet,
+                M_rtpstream_actinfo.ms_per_packet,
+                M_rtpstream_actinfo.ticks_per_packet);
+    }
+    else if (M_action == E_AT_RTP_STREAM_PAUSE)
+    {
+        printf("Type[%d] - rtp_stream pause", M_action);
+    }
+    else if (M_action == E_AT_RTP_STREAM_RESUME)
+    {
+        printf("Type[%d] - rtp_stream resume", M_action);
+    }
+    else if (M_action == E_AT_RTP_STREAM_PLAYAPATTERN)
+    {
+        printf("Type[%d] - rtp_stream playapattern file %s pattern_id %d loop=%d payload %d bytes per packet=%d ms per packet=%d ticks per packet=%d",
+                M_action,
+                M_rtpstream_actinfo.filename,
+                M_rtpstream_actinfo.pattern_id,
+                M_rtpstream_actinfo.loop_count,
+                M_rtpstream_actinfo.payload_type,
+                M_rtpstream_actinfo.bytes_per_packet,
+                M_rtpstream_actinfo.ms_per_packet,
+                M_rtpstream_actinfo.ticks_per_packet);
+    }
+    else if (M_action == E_AT_RTP_STREAM_PAUSEAPATTERN)
+    {
+        printf("Type[%d] - rtp_stream pauseapattern", M_action);
+    }
+    else if (M_action == E_AT_RTP_STREAM_RESUMEAPATTERN)
+    {
+        printf("Type[%d] - rtp_stream resumeapattern", M_action);
+    }
 
-    } else {
-        snprintf(buf, len, "Type[%d] - unknown action type ... ", M_action);
+    else if (M_action == E_AT_RTP_STREAM_PLAYVPATTERN)
+    {
+        printf("Type[%d] - rtp_stream playvpattern file %s pattern_id %d loop=%d payload %d bytes per packet=%d ms per packet=%d ticks per packet=%d",
+                M_action,
+                M_rtpstream_actinfo.filename,
+                M_rtpstream_actinfo.pattern_id,
+                M_rtpstream_actinfo.loop_count,
+                M_rtpstream_actinfo.payload_type,
+                M_rtpstream_actinfo.bytes_per_packet,
+                M_rtpstream_actinfo.ms_per_packet,
+                M_rtpstream_actinfo.ticks_per_packet);
+    }
+    else if (M_action == E_AT_RTP_STREAM_PAUSEVPATTERN)
+    {
+        printf("Type[%d] - rtp_stream pausevpattern", M_action);
+    }
+    else if (M_action == E_AT_RTP_STREAM_RESUMEVPATTERN)
+    {
+        printf("Type[%d] - rtp_stream resumevpattern", M_action);
+    }
+    else if (M_action == E_AT_RTP_STREAM_RTPECHO_STARTAUDIO)
+    {
+        printf("Type[%d] - rtp_stream rtpecho startaudio", M_action);
+    }
+    else if (M_action == E_AT_RTP_STREAM_RTPECHO_UPDATEAUDIO)
+    {
+        printf("Type[%d] - rtp_stream rtpecho updateaudio", M_action);
+    }
+    else if (M_action == E_AT_RTP_STREAM_RTPECHO_STOPAUDIO)
+    {
+        printf("Type[%d] - rtp_stream rtpecho stopaudio", M_action);
+    }
+    else if (M_action == E_AT_RTP_STREAM_RTPECHO_STARTVIDEO)
+    {
+        printf("Type[%d] - rtp_stream rtpecho startvideo", M_action);
+    }
+    else if (M_action == E_AT_RTP_STREAM_RTPECHO_UPDATEVIDEO)
+    {
+        printf("Type[%d] - rtp_stream rtpecho updatevideo", M_action);
+    }
+    else if (M_action == E_AT_RTP_STREAM_RTPECHO_STOPVIDEO)
+    {
+        printf("Type[%d] - rtp_stream rtpecho stopvideo", M_action);
+    }
+#endif
+    else
+    {
+        printf("Type[%d] - unknown action type ... ", M_action);
     }
 }
 
@@ -248,7 +325,15 @@ pcap_pkts  *   CAction::getPcapPkts()
 }
 #endif
 #ifdef RTP_STREAM
-rtpstream_actinfo_t *CAction::getRTPStreamActInfo() { return (&M_rtpstream_actinfo); }
+rtpecho_actinfo_t* CAction::getRTPEchoActInfo()
+{
+    return &M_rtpecho_actinfo;
+}
+
+rtpstream_actinfo_t* CAction::getRTPStreamActInfo()
+{
+    return &M_rtpstream_actinfo;
+}
 #endif
 
 void CAction::setActionType   (CAction::T_ActionType   P_value)
@@ -493,80 +578,337 @@ void CAction::setPcapArgs(const char* P_value)
 #endif
 
 #ifdef RTP_STREAM
-void CAction::setRTPStreamActInfo(const char* P_value)
+void CAction::setRTPEchoActInfo(const char* P_value)
 {
     char* param_str;
     char* next_comma;
+    char actionstring[RTPECHO_MAX_FILENAMELEN];
 
-    if (strlen(P_value) >= sizeof(M_rtpstream_actinfo.filename)) {
-        ERROR("Filename %s is too long, maximum supported length %zu", P_value,
-              sizeof(M_rtpstream_actinfo.filename) - 1);
-    }
-    strcpy(M_rtpstream_actinfo.filename, P_value);
-    param_str = strchr(M_rtpstream_actinfo.filename, ',');
-    next_comma = NULL;
-
-    M_rtpstream_actinfo.loop_count = 1;
-    if (param_str) {
-        /* we have a loop count parameter */
-        *(param_str++) = 0;
-        next_comma= strchr(param_str, ',');
-        if (next_comma) {
-            *(next_comma++) = 0;
-        }
-        M_rtpstream_actinfo.loop_count = atoi(param_str);
-        param_str = next_comma;
+    if (strlen(P_value) >= 512)
+    {
+        ERROR("RTPEcho keyword %s is too long -- maximum supported length %d\n", P_value, 512);
     }
 
-    M_rtpstream_actinfo.payload_type= rtp_default_payload;
-    if (param_str) {
+    memset(actionstring, 0, sizeof(actionstring));
+
+    // Initialize M_rtpecho_actinfo struct members
+    M_rtpecho_actinfo.payload_type = rtp_default_payload;
+    memset(M_rtpecho_actinfo.payload_name, 0, sizeof(M_rtpecho_actinfo.payload_name));
+    M_rtpecho_actinfo.bytes_per_packet = 0;
+    M_rtpecho_actinfo.audio_active = 0;
+    M_rtpecho_actinfo.video_active = 0;
+
+    strcpy (actionstring,P_value);
+    param_str= strchr(actionstring,',');
+    next_comma= NULL;
+
+    // Comma found for payload_type parameter
+    if (param_str)
+    {
+        *(param_str++)= 0; // skip comma
+
         /* we have a payload type parameter */
         next_comma= strchr (param_str,',');
-        if (next_comma) {
+        if (next_comma)
+        {
             *(next_comma++)= 0;
         }
-        M_rtpstream_actinfo.payload_type= atoi(param_str);
+        M_rtpecho_actinfo.payload_type= atoi(param_str);
+        param_str= next_comma;
+    }
+
+    // Comma found for payload_name parameter
+    if (param_str)
+    {
+        /* we have a payload_name parameter */
+        next_comma= strchr (param_str,',');
+        if (next_comma)
+        {
+            *(next_comma++)= 0;
+        }
+        strcpy(M_rtpecho_actinfo.payload_name, param_str);
+        param_str= next_comma;
     }
 
     /* Setup based on what we know of payload types */
-    switch (M_rtpstream_actinfo.payload_type) {
-    case 0:
-        M_rtpstream_actinfo.ms_per_packet = 20;
-        M_rtpstream_actinfo.bytes_per_packet = 160;
-        M_rtpstream_actinfo.ticks_per_packet = 160;
-        break;
-    case 8:
-        M_rtpstream_actinfo.ms_per_packet = 20;
-        M_rtpstream_actinfo.bytes_per_packet = 160;
-        M_rtpstream_actinfo.ticks_per_packet = 160;
-        break;
-    case 9:
-        M_rtpstream_actinfo.ms_per_packet = 20;
-        M_rtpstream_actinfo.bytes_per_packet = 160;
-        M_rtpstream_actinfo.ticks_per_packet = 160;
-        break;
-    case 18:
-        M_rtpstream_actinfo.ms_per_packet = 20;
-        M_rtpstream_actinfo.bytes_per_packet = 20;
-        M_rtpstream_actinfo.ticks_per_packet = 160;
-        break;
-    case 98:
-        M_rtpstream_actinfo.ms_per_packet = 30;
-        M_rtpstream_actinfo.bytes_per_packet = 50;
-        M_rtpstream_actinfo.ticks_per_packet = 240;
-        break;
-    default:
-        M_rtpstream_actinfo.ms_per_packet= -1;
-        M_rtpstream_actinfo.bytes_per_packet= -1;
-        M_rtpstream_actinfo.ticks_per_packet= -1;
-        ERROR("Unknown rtp payload type %d - cannot set playback parameters",
-              M_rtpstream_actinfo.payload_type);
-        break;
+    switch (M_rtpecho_actinfo.payload_type)
+    {
+
+      case 0:
+          if (!strcmp(M_rtpecho_actinfo.payload_name, "PCMU/8000"))
+          {
+              M_rtpecho_actinfo.bytes_per_packet= 160;
+              M_rtpecho_actinfo.audio_active = 1;
+          }
+          break;
+
+      case 8:
+          if (!strcmp(M_rtpecho_actinfo.payload_name, "PCMA/8000"))
+          {
+              M_rtpecho_actinfo.bytes_per_packet= 160;
+              M_rtpecho_actinfo.audio_active = 1;
+          }
+          break;
+
+      case 9:
+          if (!strcmp(M_rtpecho_actinfo.payload_name, "G722/8000"))
+          {
+              M_rtpecho_actinfo.bytes_per_packet= 160;
+              M_rtpecho_actinfo.audio_active = 1;
+          }
+          break;
+
+      case 18:
+          if (!strcmp(M_rtpecho_actinfo.payload_name, "G729/8000"))
+          {
+              M_rtpecho_actinfo.bytes_per_packet= 20;
+              M_rtpecho_actinfo.audio_active = 1;
+          }
+          break;
+
+      default:
+          if ((M_rtpecho_actinfo.payload_type >= 0) &&
+              (M_rtpecho_actinfo.payload_type <= 95))
+          {
+              M_rtpecho_actinfo.bytes_per_packet= -1;
+              M_rtpecho_actinfo.audio_active = 0;
+              M_rtpecho_actinfo.video_active = 0;
+              ERROR("Unknown static rtp payload type %d - cannot set playback parameters\n",M_rtpecho_actinfo.payload_type);
+          }
+          else if ((M_rtpecho_actinfo.payload_type >= 96) &&
+                   (M_rtpecho_actinfo.payload_type <= 127))
+          {
+              if (!strcmp(M_rtpecho_actinfo.payload_name, "H264/90000"))
+              {
+                  M_rtpecho_actinfo.bytes_per_packet = 1280;  // ARBITRARY H264 PACKET SIZE
+                  M_rtpecho_actinfo.video_active = 1;
+              }
+              else
+              {
+                  M_rtpecho_actinfo.bytes_per_packet= -1;
+                  M_rtpecho_actinfo.audio_active = 0;
+                  M_rtpecho_actinfo.video_active = 0;
+                  ERROR("Unknown dynamic rtp payload type %d - cannot set playback parameters\n",M_rtpecho_actinfo.payload_type);
+              }
+          }
+          else
+          {
+              ERROR("Invalid rtp payload type %d - cannot set playback parameters\n",M_rtpecho_actinfo.payload_type);
+          }
+          break;
+    }
+}
+
+void CAction::setRTPEchoActInfo(rtpecho_actinfo_t *P_value)
+{
+    /* At this stage the entire rtpecho action info structure can simply be */
+    /* copied. No members need to be individually duplicated/processed.       */
+    memcpy (&M_rtpecho_actinfo, P_value, sizeof(M_rtpecho_actinfo));
+}
+
+void CAction::setRTPStreamActInfo(const char *P_value)
+{
+    char* param_str;
+    char* next_comma;
+    int pattern_mode = 0;
+    int stream_type = 0; /* 0: AUDIO / 1: VIDEO */
+
+    if (strlen(P_value)>=sizeof (M_rtpstream_actinfo.filename))
+    {
+        ERROR("Filename/Pattern keyword %s is too long -- maximum supported length %zu", P_value, sizeof (M_rtpstream_actinfo.filename)-1);
     }
 
-    if (rtpstream_cache_file(M_rtpstream_actinfo.filename) < 0) {
-        ERROR("Cannot read/cache rtpstream file %s",
-              M_rtpstream_actinfo.filename);
+    // Initialize M_rtpstream_actinfo struct members
+    memset(M_rtpstream_actinfo.filename, 0, sizeof(M_rtpstream_actinfo.filename));
+    M_rtpstream_actinfo.pattern_id = -1;
+    M_rtpstream_actinfo.loop_count = -1;
+    M_rtpstream_actinfo.ms_per_packet = -1;
+    M_rtpstream_actinfo.bytes_per_packet = -1;
+    M_rtpstream_actinfo.ticks_per_packet = -1;
+    M_rtpstream_actinfo.payload_type = -1;
+    memset(M_rtpstream_actinfo.payload_name, 0, sizeof(M_rtpstream_actinfo.payload_name));
+    M_rtpstream_actinfo.audio_active = 0;
+    M_rtpstream_actinfo.video_active = 0;
+
+    if ((!strncmp(P_value, "apattern", 8)) ||
+        (!strncmp(P_value, "vpattern", 8)))
+    {
+      pattern_mode = 1;
+    }
+
+    strcpy (M_rtpstream_actinfo.filename,P_value);
+    param_str= strchr(M_rtpstream_actinfo.filename,',');
+    next_comma= NULL;
+
+    // Set default values of pattern_id/loop_count depending on whether we are in PATTERN or FILE mode
+    if (pattern_mode)
+    {
+        M_rtpstream_actinfo.pattern_id = 1;
+        M_rtpstream_actinfo.loop_count = -1;
+    }
+    else
+    {
+        M_rtpstream_actinfo.pattern_id = -1;
+        M_rtpstream_actinfo.loop_count= 1;
+    }
+
+    // Comma found for loop_count (FILE MODE) or pattern_id (PATTERN MODE)
+    if (param_str)
+    {
+        /* we have a loop count parameter (FILE MODE) or pattern id parameter (PATTERN MODE) */
+        *(param_str++)= 0;
+        next_comma= strchr (param_str,',');
+        if (next_comma)
+        {
+            *(next_comma++)= 0;
+        }
+
+        if (pattern_mode)
+        {
+            M_rtpstream_actinfo.pattern_id= atoi(param_str);
+        }
+        else
+        {
+            M_rtpstream_actinfo.loop_count= atoi(param_str);
+        }
+
+        param_str= next_comma;
+    }
+
+    // Set default RTP payload type value
+    M_rtpstream_actinfo.payload_type= rtp_default_payload;
+
+    // Comma found for payload_type parameter
+    if (param_str)
+    {
+        /* we have a payload type parameter */
+        next_comma= strchr (param_str,',');
+        if (next_comma)
+        {
+            *(next_comma++)= 0;
+        }
+        M_rtpstream_actinfo.payload_type= atoi(param_str);
+        param_str= next_comma;
+    }
+
+    // Comma found for payload_name parameter
+    if (param_str)
+    {
+        /* we have a payload_name parameter */
+        next_comma= strchr (param_str,',');
+        if (next_comma)
+        {
+            *(next_comma++)= 0;
+        }
+        strcpy(M_rtpstream_actinfo.payload_name, param_str);
+        param_str= next_comma;
+    }
+
+    /* Setup based on what we know of payload types */
+    switch (M_rtpstream_actinfo.payload_type)
+    {
+
+      case 0:
+          if (!strcmp(M_rtpstream_actinfo.payload_name, "PCMU/8000"))
+          {
+              M_rtpstream_actinfo.ms_per_packet= 20;
+              M_rtpstream_actinfo.bytes_per_packet= 160;
+              M_rtpstream_actinfo.ticks_per_packet= 160;
+              M_rtpstream_actinfo.audio_active = 1;
+              stream_type = 0;
+          }
+          break;
+
+      case 8:
+          if (!strcmp(M_rtpstream_actinfo.payload_name, "PCMA/8000"))
+          {
+              M_rtpstream_actinfo.ms_per_packet= 20;
+              M_rtpstream_actinfo.bytes_per_packet= 160;
+              M_rtpstream_actinfo.ticks_per_packet= 160;
+              M_rtpstream_actinfo.audio_active = 1;
+              stream_type = 0;
+          }
+          break;
+      case 9:
+          if (!strcmp(M_rtpstream_actinfo.payload_name, "G722/8000"))
+          {
+              M_rtpstream_actinfo.ms_per_packet= 20;
+              M_rtpstream_actinfo.bytes_per_packet= 160;
+              M_rtpstream_actinfo.ticks_per_packet= 160;
+              M_rtpstream_actinfo.audio_active = 1;
+              stream_type = 0;
+          }
+          break;
+      case 18:
+          if (!strcmp(M_rtpstream_actinfo.payload_name, "G729/8000"))
+          {
+              M_rtpstream_actinfo.ms_per_packet= 20;
+              M_rtpstream_actinfo.bytes_per_packet= 20;
+              M_rtpstream_actinfo.ticks_per_packet= 160;
+              M_rtpstream_actinfo.audio_active = 1;
+              stream_type = 0;
+          }
+          break;
+      case 98:
+          M_rtpstream_actinfo.ms_per_packet = 30;
+          M_rtpstream_actinfo.bytes_per_packet = 50;
+          M_rtpstream_actinfo.ticks_per_packet = 240;
+          break;
+      default:
+          if ((M_rtpstream_actinfo.payload_type >= 0) &&
+              (M_rtpstream_actinfo.payload_type <= 95))
+          {
+              M_rtpstream_actinfo.ms_per_packet= -1;
+              M_rtpstream_actinfo.bytes_per_packet= -1;
+              M_rtpstream_actinfo.ticks_per_packet= -1;
+              M_rtpstream_actinfo.audio_active = 0;
+              M_rtpstream_actinfo.video_active = 0;
+              ERROR("Unknown static rtp payload type %d - cannot set playback parameters",M_rtpstream_actinfo.payload_type);
+          }
+          else if ((M_rtpstream_actinfo.payload_type >= 96) &&
+                   (M_rtpstream_actinfo.payload_type <= 127))
+          {
+              if (!strcmp(M_rtpstream_actinfo.payload_name, "H264/90000"))
+              {
+                  M_rtpstream_actinfo.ms_per_packet = 160;   // ARBITRARY H264 PACKET TIME
+                  M_rtpstream_actinfo.bytes_per_packet = 1280;  // ARBITRARY H264 PACKET SIZE
+                  M_rtpstream_actinfo.ticks_per_packet = 1280;  // ARBITRARY H264 PACKET TICKS
+                  M_rtpstream_actinfo.video_active = 1;
+                  stream_type = 1;
+              }
+              else
+              {
+                  M_rtpstream_actinfo.ms_per_packet= -1;
+                  M_rtpstream_actinfo.bytes_per_packet= -1;
+                  M_rtpstream_actinfo.ticks_per_packet= -1;
+                  M_rtpstream_actinfo.audio_active = 0;
+                  M_rtpstream_actinfo.video_active = 0;
+                  ERROR("Unknown dynamic rtp payload type %d - cannot set playback parameters\n",M_rtpstream_actinfo.payload_type);
+              }
+          }
+          else
+          {
+              ERROR("Invalid rtp payload type %d - cannot set playback parameters\n",M_rtpstream_actinfo.payload_type);
+          }
+          break;
+    }
+
+    if (M_rtpstream_actinfo.ms_per_packet <= 0 ||
+            M_rtpstream_actinfo.bytes_per_packet <= 0 ||
+            M_rtpstream_actinfo.ticks_per_packet <= 0)
+    {
+        ERROR("Unknown static rtp payload type %d with payload_name \"%s\" "
+                "(missing PCMU/8000 or similar in rtp_echo?)",
+                M_rtpstream_actinfo.payload_type, M_rtpstream_actinfo.payload_name);
+    }
+
+    if (rtpstream_cache_file(M_rtpstream_actinfo.filename,
+                             pattern_mode /* 0: FILE - 1: PATTERN */,
+                             M_rtpstream_actinfo.pattern_id,
+                             M_rtpstream_actinfo.bytes_per_packet,
+                             stream_type) < 0)
+    {
+        ERROR("Cannot read/cache rtpstream file %s",M_rtpstream_actinfo.filename);
     }
 }
 
@@ -574,7 +916,7 @@ void CAction::setRTPStreamActInfo(rtpstream_actinfo_t *P_value)
 {
     /* At this stage the entire rtpstream action info structure can simply be */
     /* copied. No members need to be individually duplicated/processed.       */
-    memcpy(&M_rtpstream_actinfo,P_value, sizeof(M_rtpstream_actinfo));
+    memcpy(&M_rtpstream_actinfo, P_value, sizeof(M_rtpstream_actinfo));
 }
 #endif
 
@@ -617,6 +959,7 @@ void CAction::setAction(CAction P_action)
     setPcapArgs     ( P_action.M_pcapArgs        );
 #endif
 #ifdef RTP_STREAM
+    setRTPEchoActInfo(&(P_action.M_rtpecho_actinfo));
     setRTPStreamActInfo(&(P_action.M_rtpstream_actinfo));
 #endif
 }
@@ -652,6 +995,7 @@ CAction::CAction(scenario *scenario)
 #endif
 
 #ifdef RTP_STREAM
+    memset(&M_rtpecho_actinfo, 0, sizeof(M_rtpecho_actinfo));
     memset(&M_rtpstream_actinfo, 0, sizeof(M_rtpstream_actinfo));
 #endif
 

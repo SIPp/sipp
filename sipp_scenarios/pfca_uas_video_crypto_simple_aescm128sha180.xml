@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<scenario name="Basic MCD UAS">
+  <recv request="INVITE" crlf="true">
+    <action>
+      <!-- Save the INVITE's CSeq header for later reuse -->
+      <ereg regexp=".*" search_in="hdr" header="CSeq:" check_it="true" assign_to="1" />
+      <!-- Save the INVITE's Via header for later reuse -->
+      <ereg regexp=".*" search_in="hdr" header="Via:" check_it="true" assign_to="2" />
+    </action>
+  </recv>
+
+  <!-- NOTE:  The INVITE's Via/CSeq headers are used explicitly here -->
+  <send>
+    <![CDATA[
+
+      SIP/2.0 180 Ringing
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Require: 100rel
+      RSeq: 1
+      Server: VIRTUAL Mitel-3300-ICP 12.0.1.99
+      Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv request="PRACK">
+  </recv>
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+      Server: VIRTUAL Mitel-3300-ICP-12.0.1.99
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <!-- NOTE:  The INVITE's Via/CSeq headers are used explicitly here -->
+  <send retrans="500">
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      Via: [$2]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      CSeq: [$1]
+      Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+      Server: VIRTUAL Mitel-3300-ICP 12.0.1.99
+      Content-Type: application/sdp
+      Content-Length: [len]
+
+      v=0
+      o=16002 0 0 IN IP[local_ip_type] [local_ip]
+      s=-
+      c=IN IP[media_ip_type] [media_ip]
+      t=0 0
+      m=video [rtpstream_video_port] RTP/AVP 99 98 96 97
+      a=crypto:[cryptotag1video] [cryptosuiteaescm128sha1801video] inline:[cryptokeyparams1video]
+      b=TIAS:1536000
+      b=AS:1597
+      a=maxprate:192.0
+      a=rtcp:[rtpstream_video_port+1]
+      a=rtpmap:99 H264/90000
+      a=fmtp:99 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
+      a=rtpmap:98 H264/90000
+      a=fmtp:98 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=0
+      a=rtpmap:96 H264/90000
+      a=fmtp:96 profile-level-id=42800d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=0
+      a=rtpmap:97 H264/90000
+      a=fmtp:97 profile-level-id=42800d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
+
+    ]]>
+  </send>
+
+  <nop>
+    <action>
+      <exec rtp_echo="startvideo,99,H264/90000" />
+    </action>
+  </nop>
+
+  <recv request="ACK">
+  </recv>
+
+  <recv request="BYE">
+  </recv>
+
+  <send>
+    <![CDATA[
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Server: VIRTUAL Mitel-3300-ICP 12.0.1.99
+      Content-Length: 0
+    ]]>
+  </send>
+
+  <nop>
+    <action>
+      <exec rtp_echo="stopvideo,99,H264/90000" />
+    </action>
+  </nop>
+
+  <!-- definition of the response time repartition table (unit is ms)   -->
+  <ResponseTimeRepartition value="10, 20, 30, 40, 50, 100, 150, 200"/>
+
+  <!-- definition of the call length repartition table (unit is ms)     -->
+  <CallLengthRepartition value="10, 50, 100, 500, 1000, 5000, 10000"/>
+
+</scenario>

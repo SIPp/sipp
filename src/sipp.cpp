@@ -240,6 +240,7 @@ struct sipp_option options_table[] = {
      "- bye\tSend byes for aborted calls\n"
      "- abortunexp\tAbort calls on unexpected messages\n"
      "- pingreply\tReply to ping requests\n"
+     "- cseq\tCheck CSeq of ACKs\n"
      "If a behavior is prefaced with a -, then it is turned off.  Example: all,-bye\n",
      SIPP_OPTION_DEFAULTS, &default_behaviors, 1},
     {"nd", "No Default. Disable all default behavior of SIPp which are the following:\n"
@@ -248,6 +249,7 @@ struct sipp_option options_table[] = {
      "- On unexpected BYE send a 200 OK and close the call\n"
      "- On unexpected CANCEL send a 200 OK and close the call\n"
      "- On unexpected PING send a 200 OK and continue the call\n"
+     "- On unexpected ACK CSeq do nothing\n"
      "- On any other unexpected message, abort the call by sending a BYE or a CANCEL\n",
      SIPP_OPTION_UNSETFLAG, &default_behaviors, 1},
     {"pause_msg_ign", "Ignore the messages received during a pause defined in the scenario ", SIPP_OPTION_SETFLAG, &pause_msg_ign, 1},
@@ -272,9 +274,14 @@ struct sipp_option options_table[] = {
     {"mb", "Set the RTP echo buffer size (default: 2048).", SIPP_OPTION_INT, &media_bufsize, 1},
     {"mp", "Set the local RTP echo port number. Default is 6000.", SIPP_OPTION_INT, &user_media_port, 1},
 #ifdef RTP_STREAM
+    {"max_rtp_port", "Maximum port number for RTP socket range.", SIPP_OPTION_INT, &max_rtp_port, 65535},
     {"rtp_payload", "RTP default payload type.", SIPP_OPTION_INT, &rtp_default_payload, 1},
     {"rtp_threadtasks", "RTP number of playback tasks per thread.", SIPP_OPTION_INT, &rtp_tasks_per_thread, 1},
     {"rtp_buffsize", "Set the rtp socket send/receive buffer size.", SIPP_OPTION_INT, &rtp_buffsize, 1},
+    {"rtpcheck_debug", "Write RTP check debug information to file", SIPP_OPTION_SETFLAG, &rtpcheck_debug, 1},
+    {"srtpcheck_debug", "Write SRTP check debug information to file", SIPP_OPTION_SETFLAG, &srtpcheck_debug, 1},
+    {"audiotolerance", "Audio error tolerance for RTP checks (0.0-1.0) -- default: 1.0", SIPP_OPTION_FLOAT, &audiotolerance, 1},
+    {"videotolerance", "Video error tolerance for RTP checks (0.0-1.0) -- default: 1.0", SIPP_OPTION_FLOAT, &videotolerance, 1},
 #endif
 
     {"", "Call rate options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
@@ -449,10 +456,11 @@ void timeout_alarm(int /*param*/)
 
 /* Send loop & trafic generation*/
 
-static void traffic_thread()
+static void traffic_thread(int &rtp_errors, int &echo_errors)
 {
     /* create the file */
     char L_file_name[MAX_PATH];
+
     sprintf(L_file_name, "%s_%ld_screen.log", scenario_file, (long) getpid());
 
     getmilliseconds();
@@ -508,8 +516,10 @@ static void traffic_thread()
                 /* We can have calls that do not count towards our open-call count (e.g., dead calls). */
                 abort_all_tasks();
 #ifdef RTP_STREAM
-                rtpstream_shutdown();
+                rtp_errors = rtpstream_shutdown(main_scenario->fetchRtpTaskThreadIDs());
 #endif
+                echo_errors = main_scenario->stats->getRtpEchoErrors();
+
                 /* Reverse order shutdown, because deleting reorders the
                  * sockets list. */
                 for (int i = pollnfds - 1; i >= 0; --i) {
@@ -879,6 +889,9 @@ static void help()
         "    1: At least one call failed\n"
         "   97: Exit on internal command. Calls may have been processed\n"
         "   99: Normal exit without calls processed\n"
+#ifdef RTP_STREAM
+        "  253: RTP validation failure\n"
+#endif // RTP_STREAM
         "   -1: Fatal error\n"
         "   -2: Fatal error binding a socket\n");
 
@@ -1064,7 +1077,7 @@ static void releaseGlobalAllocations()
     delete globalVariables;
 }
 
-void sipp_exit(int rc)
+void sipp_exit(int rc, int rtp_errors, int echo_errors)
 {
     unsigned long counter_value_failed = 0;
     unsigned long counter_value_success = 0;
@@ -1113,21 +1126,29 @@ void sipp_exit(int rc)
         // successful or not. In order to compute the return code, get
         // the counter of failed calls. If there is 0 failed calls,
         // then everything is OK!
-        if (counter_value_failed == 0) {
-            if (timeout_exit && counter_value_success < 1) {
-                exit(EXIT_TEST_RES_INTERNAL);
+        if ((rtp_errors > 0) || (echo_errors > 0))
+        {
+            exit(EXIT_RTPCHECK_FAILED);
+        }
+        else
+        {
+           if (counter_value_failed == 0) {
+                if ((timeout_exit) && (counter_value_success < 1)) {
+
+                    exit (EXIT_TEST_RES_INTERNAL);
+                } else {
+                    exit(EXIT_TEST_OK);
+                }
             } else {
-                exit(EXIT_TEST_OK);
+                exit(EXIT_TEST_FAILED);
             }
-        } else {
-            exit(EXIT_TEST_FAILED);
         }
     }
 }
 
 static void sipp_sighandler(int signum)
 {
-    sipp_exit(EXIT_TEST_RES_UNKNOWN);
+    sipp_exit(EXIT_TEST_RES_UNKNOWN, 0, 0);
 }
 
 static void sighandle_set()
@@ -1212,7 +1233,8 @@ static int bind_rtp_sockets(struct sockaddr_storage* media_sa, int try_port, int
         }
         ::close(media_socket_audio);
         ::close(media_socket_video);
-        media_socket_audio = media_socket_video = -1;
+        media_socket_audio = -1;
+        media_socket_video = -1;
         return -1;
     }
 
@@ -1230,47 +1252,64 @@ static void setup_media_sockets()
     struct addrinfo hints = {0,};
     struct addrinfo* local_addr;
     struct sockaddr_storage media_sockaddr = {0,};
+    int try_counter = 0;
+    int max_tries = user_media_port ? 1 : 100;
+    int last_attempt = 0;
 
-    hints.ai_flags  = AI_PASSIVE;
-    hints.ai_family = PF_UNSPEC; /* use local_ip_is_ipv6 as hint? */
+    media_port = user_media_port ? user_media_port : DEFAULT_MEDIA_PORT;
 
+    // [JLTAG]
+    //
+    // RTPCHECK functionality needs port binding to happen only when rtp echo is in use
+    // However since the refactoring in commit "99e847e2a129b5e4c4ccfdd502f79a029929ceb9"
+    // was done media_ip needs to be set unconditionally so I have moved the media_ip
+    // strcpy() to happen outside of the if-block...
+    //
     /* Defaults for media sockets */
     if (media_ip[0] == '\0') {
         strcpy(media_ip, local_ip);
     }
+
     // assert that an IPv6 'media_ip' is not surrounded by brackets?
+    //
+#ifdef RTP_STREAM
+    if ((user_media_port > 0) && rtp_echo_enabled) {
+#else
+    if (1) {
+#endif // RTP_STREAM
+        hints.ai_flags  = AI_PASSIVE;
+        hints.ai_family = PF_UNSPEC; /* use local_ip_is_ipv6 as hint? */
 
-    /* Resolving local IP */
-    if (getaddrinfo(media_ip,
-                    NULL,
-                    &hints,
-                    &local_addr) != 0) {
-        ERROR("Unknown RTP address '%s'.\n"
-              "Use 'sipp -h' for details", media_ip);
-    }
-    memcpy(&media_sockaddr, local_addr->ai_addr,
-           socklen_from_addr(_RCAST(struct sockaddr_storage*, local_addr->ai_addr)));
-    freeaddrinfo(local_addr);
-
-    media_ip_is_ipv6 = (media_sockaddr.ss_family == AF_INET6);
-
-    int try_counter;
-    int max_tries = user_media_port ? 1 : 100;
-    media_port = user_media_port ? user_media_port : DEFAULT_MEDIA_PORT;
-    media_socket_audio = media_socket_video = -1;
-    for (try_counter = 1; try_counter <= max_tries; try_counter++) {
-        int last_attempt = (try_counter == max_tries);
-
-        if (bind_rtp_sockets(&media_sockaddr, media_port, last_attempt) == 0) {
-            break;
+        /* Resolving local IP */
+        if (getaddrinfo(media_ip,
+                        NULL,
+                        &hints,
+                        &local_addr) != 0) {
+            ERROR("Unknown RTP address '%s'.\n"
+                  "Use 'sipp -h' for details", media_ip);
         }
+        memcpy(&media_sockaddr, local_addr->ai_addr, socklen_from_addr(_RCAST(struct sockaddr_storage*, local_addr->ai_addr)));
+        freeaddrinfo(local_addr);
 
-        // Old RFC 3551 says:
-        // > RTP data SHOULD be carried on an even UDP port number and
-        // > the corresponding RTCP packets SHOULD be carried on the
-        // > next higher (odd) port number.
-        // So, try only even numbers.
-        media_port += 2;
+        media_ip_is_ipv6 = (media_sockaddr.ss_family == AF_INET6);
+
+        media_socket_audio = -1;
+        media_socket_video = -1;
+
+        for (try_counter = 1; try_counter <= max_tries; try_counter++) {
+            last_attempt = (try_counter == max_tries);
+
+            if (bind_rtp_sockets(&media_sockaddr, media_port, last_attempt) == 0) {
+                break;
+            }
+
+            // Old RFC 3551 says:
+            // > RTP data SHOULD be carried on an even UDP port number and
+            // > the corresponding RTCP packets SHOULD be carried on the
+            // > next higher (odd) port number.
+            // So, try only even numbers.
+            media_port += 2;
+        }
     }
 }
 
@@ -1281,6 +1320,11 @@ int main(int argc, char *argv[])
     pthread_t pthread2_id = 0, pthread3_id = 0;
     unsigned int         generic_count = 0;
     bool                 slave_masterSet = false;
+    int rtp_errors;
+    int echo_errors;
+
+    rtp_errors = 0;
+    echo_errors = 0;
 
     generic[0] = NULL;
 
@@ -1366,8 +1410,8 @@ int main(int argc, char *argv[])
                        "-PCAP"
 #endif
 #ifdef RTP_STREAM
-                       "-RTPSTREAM"
-#endif
+                       "-RTPSTREAM-RTPCHECK"
+#endif // RTP_STREAM
                        );
 
                 printf
@@ -1780,6 +1824,8 @@ int main(int argc, char *argv[])
                             mask = DEFAULT_BEHAVIOR_ABORTUNEXP;
                         } else if (!strcmp(p, "pingreply")) {
                             mask = DEFAULT_BEHAVIOR_PINGREPLY;
+                        } else if (!strcmp(p, "cseq")) {
+                            mask = DEFAULT_BEHAVIOR_BADCSEQ;
                         } else {
                             ERROR("Unknown default behavior: '%s'", token);
                         }
@@ -2078,8 +2124,16 @@ int main(int argc, char *argv[])
     /* to avoid ICMP errors from us. */
     setup_media_sockets();
 
-    /* Creating the remote control socket thread. */
+    /* Creating the remote control socket thread */
+#ifdef RTP_STREAM
+    if ((user_media_port > 0) && rtp_echo_enabled)
+    {
+        setup_ctrl_socket();
+    }
+#else
     setup_ctrl_socket();
+#endif // RTP_STREAM
+
     if (!nostdin) {
         setup_stdin_socket();
     }
@@ -2099,7 +2153,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    traffic_thread();
+    traffic_thread(rtp_errors, echo_errors);
 
     /* Cancel and join other threads. */
     if (pthread2_id) {
@@ -2122,5 +2176,5 @@ int main(int argc, char *argv[])
 
     free(scenario_file);
     free(scenario_path);
-    sipp_exit(EXIT_TEST_RES_UNKNOWN);
+    sipp_exit(EXIT_TEST_RES_UNKNOWN, rtp_errors, echo_errors); // MAIN EXIT PATH HERE...);
 }

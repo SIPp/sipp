@@ -103,6 +103,7 @@
 <!ATTLIST exec int_cmd (stop_now|stop_gracefully|stop_call) "stop_call" >
 <!ATTLIST exec play_pcap CDATA #IMPLIED >
 <!ATTLIST exec play_pcap_audio CDATA #IMPLIED >
+<!ATTLIST exec rtp_echo CDATA #IMPLIED >
 <!ATTLIST exec rtp_stream CDATA #IMPLIED >
 
 <!ELEMENT rtp_echo EMPTY >

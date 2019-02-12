@@ -54,9 +54,11 @@
   <!-- Send some audio to avoid rtptimeout timers kicking in. -->
   <nop>
     <action>
-      <exec rtp_stream="beep_1sec_50x160b.alaw,-1,8"/>
+      <exec rtp_stream="beep_1sec_50x160b.alaw,-1,8,PCMA/8000"/>
     </action>
   </nop>
+
+  <pause milliseconds="500"/>
 
   <recv request="BYE"/>
 

@@ -297,26 +297,31 @@ struct rtphdr {
  * for big-endian. This is the "right" way to do things. It is very
  * unusual for a compiler to do this differently. */
 #if BYTE_ORDER == LITTLE_ENDIAN
-    uint8_t csicnt:4;
-    uint8_t extension:1;
-    uint8_t padding:1;
-    uint8_t version:2;
+    /* Note that these are still packet octet-wise. At least with gcc.
+     * As if all the 'unsigned int' below were uint8_t's (which -pedantic
+     * dislikes). */
+    unsigned int csicnt:4;
+    unsigned int extension:1;
+    unsigned int padding:1;
+    unsigned int version:2;
 
-    uint8_t payload_type:7;
-    uint8_t marker:1;
+    unsigned int payload_type:7;
+    unsigned int marker:1;
 #elif BYTE_ORDER == BIG_ENDIAN
-    uint8_t version:2;
-    uint8_t padding:1;
-    uint8_t extension:1;
-    uint8_t csicnt:4;
+    unsigned int version:2;
+    unsigned int padding:1;
+    unsigned int extension:1;
+    unsigned int csicnt:4;
 
-    uint8_t marker:1;
-    uint8_t payload_type:7;
+    unsigned int marker:1;
+    unsigned int payload_type:7;
 #else
 #error "Please fix endian macros"
 #endif
-
+    /* Only this one needs htons(), as the bits in the octets above are
+     * laid out correctly already. */
     uint16_t seqno;
+
     uint32_t timestamp;
     uint32_t ssrcid;
 };
@@ -325,13 +330,13 @@ struct rtpevent {
     uint8_t event_id;
 
 #if BYTE_ORDER == LITTLE_ENDIAN
-    uint8_t volume:6;
-    uint8_t reserved:1;
-    uint8_t end_of_event:1;
+    unsigned int volume:6;
+    unsigned int reserved:1;
+    unsigned int end_of_event:1;
 #elif BYTE_ORDER == BIG_ENDIAN
-    uint8_t end_of_event:1;
-    uint8_t reserved:1;
-    uint8_t volume:6;
+    unsigned int end_of_event:1;
+    unsigned int reserved:1;
+    unsigned int volume:6;
 #else
 #error "Please fix endian macros"
 #endif

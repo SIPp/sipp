@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<!-- UC360 INVITE/200/ACK/BYE/200 sample UAC scenario -->
+
+<scenario name="Basic UC360 UAC">
+
+  <send retrans="500">
+    <![CDATA[
+
+      INVITE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: 16001 <sip:16001@[remote_ip]:[remote_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 10 INVITE
+      Contact: <sip:16001@[local_ip]:[local_port]>
+      Content-Type: application/sdp
+      Max-Forwards: 70
+      User-Agent: VIRTUAL Mitel-UC-Endpoint (Mitel UC360 Collaboration Point/2.1.0.99;  08:00:0F:74:80:E1)
+      Subject: Conference
+      Session-Expires: 3600;refresher=uas
+      Min-SE: 90
+      Supported: 100rel
+      Require: 100rel
+      Content-Length: [len]
+
+      v=0
+      o=16001 0 0 IN IP[local_ip_type] [local_ip]
+      s=-
+      c=IN IP[media_ip_type] [media_ip]
+      t=0 0
+      m=audio [media_port] RTP/AVP 18 0 9 103 8 101
+      a=rtcp:[media_port+1]
+      a=sendrecv
+      a=rtpmap:18 G729/8000
+      a=rtpmap:0 PCMU/8000
+      a=rtpmap:9 G722/16000
+      a=fmtp:9 bitrate=64000
+      a=rtpmap:103 G7221/16000
+      a=fmtp:103 bitrate=32000
+      a=rtpmap:8 PCMA/8000
+      a=rtpmap:101 telephone-event/8000
+      a=fmtp:101 0-11,16
+
+    ]]>
+  </send>
+
+  <recv response="100"
+        optional="true">
+  </recv>
+
+  <recv response="180">
+    <action>
+      <!-- NOTE:  Save the 180 Ringing's CSeq header for later reuse -->
+      <ereg regexp=".*" search_in="hdr" header="CSeq:" check_it="true" assign_to="1" />
+      <!-- NOTE:  Save the 180 Ringing's RSeq header for later reuse -->
+      <ereg regexp=".*" search_in="hdr" header="RSeq:" check_it="true" assign_to="2" />
+    </action>
+  </recv>
+
+  <!-- Send PRACK for 180 Ringing -->
+  <send retrans="500">
+    <![CDATA[
+
+      PRACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: 16001 <sip:16001@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 11 PRACK
+      RAck: [$2][$1]
+      Contact: <sip:16001@[local_ip]:[local_port]>
+      Max-Forwards: 70
+      Subject: Conference
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <!-- receive 200 OK / PRACK (180 Ringing) -->
+  <recv response="200">
+  </recv>
+
+  <!-- receive 200 OK / INVITE -->
+  <recv response="200">
+  </recv>
+
+  <!-- NOTE:  [branch-5] is used to specify reuse of same [branch] value that was used five messages earlier (e.g. INVITE) -->
+  <send>
+    <![CDATA[
+
+      ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch-5]
+      From: "16001" <sip:16001@[remote_ip]:[remote_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 10 ACK
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <nop>
+      <action>
+          <exec rtp_stream="apattern,1,18,G729/8000" />
+      </action>
+  </nop>
+
+  <pause milliseconds="2000" />
+
+  <nop>
+      <action>
+          <exec rtp_stream="pauseapattern"/>
+      </action>
+  </nop>
+
+  <pause milliseconds="2000"/>
+
+  <nop>
+      <action>
+          <exec rtp_stream="resumeapattern"/>
+      </action>
+  </nop>
+
+  <nop>
+      <action>
+          <exec rtp_stream="apattern,2,18,G729/8000" />
+      </action>
+  </nop>
+
+  <pause milliseconds="2000"/>
+
+  <nop>
+      <action>
+          <exec rtp_stream="apattern,3,18,G729/8000" />
+      </action>
+  </nop>
+
+  <pause milliseconds="2000"/>
+
+  <nop>
+      <action>
+          <exec rtp_stream="apattern,4,18,G729/8000" />
+      </action>
+  </nop>
+
+  <pause milliseconds="2000"/>
+
+  <nop>
+      <action>
+          <exec rtp_stream="apattern,5,18,G729/8000" />
+      </action>
+  </nop>
+
+  <pause milliseconds="2000"/>
+
+  <nop>
+      <action>
+          <exec rtp_stream="apattern,6,18,G729/8000" />
+      </action>
+  </nop>
+
+  <pause milliseconds="2000"/>
+
+  <send retrans="500">
+    <![CDATA[
+
+      BYE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch-1]
+      From: "16001" <sip:16001@[remote_ip]:[remote_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 12 BYE
+      Contact: <sip:16001@[local_ip]:[local_port]>
+      Max-Forwards: 70
+      Subject: Conference
+      User-Agent: VIRTUAL Mitel-UC-Endpoint (Mitel UC360 Collaboration Point/2.1.0.99;  08:00:0F:74:80:E1)
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv response="200">
+  </recv>
+
+  <!-- definition of the response time repartition table (unit is ms)   -->
+  <ResponseTimeRepartition value="10, 20, 30, 40, 50, 100, 150, 200"/>
+
+  <!-- definition of the call length repartition table (unit is ms)     -->
+  <CallLengthRepartition value="10, 50, 100, 500, 1000, 5000, 10000"/>
+
+</scenario>
