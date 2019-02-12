@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
 /* Quickfix to fix unittests that depend on sipp_exit availability,
  * now that sipp_exit has been moved into sipp.cpp which is not
  * included. */
-void sipp_exit(int rc)
+void sipp_exit(int rc, int rtp_errors, int echo_errors)
 {
     exit(rc);
 }

@@ -88,7 +88,8 @@ common_incl = \
 	include/actions.hpp \
 	include/call.hpp \
 	include/auth.hpp \
-	include/deadcall.hpp
+	include/deadcall.hpp \
+	include/jlsrtp.hpp
 
 common_SOURCES = \
 	src/actions.cpp \
@@ -121,7 +122,8 @@ common_SOURCES = \
 	$(common_incl) \
 	$(ssl_SOURCES) \
 	$(pcap_SOURCES) \
-	$(rtp_SOURCES)
+	$(rtp_SOURCES) \
+	src/jlsrtp.cpp
 
 sipp_SOURCES = \
 	$(common_SOURCES) \

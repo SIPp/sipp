@@ -534,6 +534,15 @@ void CStat::initRepartition(unsigned int* repartition,
     (*tabRepartition)[nombre].nbInThisBorder = 0;
 }
 
+void CStat::setRtpEchoErrors(int value)
+{
+    M_rtpEchoErrors = value;
+}
+
+int CStat::getRtpEchoErrors()
+{
+    return M_rtpEchoErrors;
+}
 
 int CStat::computeStat (E_Action P_action)
 {
@@ -1098,6 +1107,7 @@ CStat::CStat ()
     M_dumpRespTime = NULL;
     M_fileNameRtt  = NULL;
     M_rtdInfo = NULL;
+    M_rtpEchoErrors = 0;
 
     init();
 }

@@ -303,6 +303,9 @@ public:
      */
     void close ();
 
+    void setRtpEchoErrors(int value);
+    int getRtpEchoErrors();
+
     /**
      * ComputeStat Methods are used to modify counter value
      * It's the main interface to update counter
@@ -433,7 +436,8 @@ public:
     int nRtds();
 
 private:
-    unsigned long long        M_counters[E_NB_COUNTER];
+    unsigned int             M_rtpEchoErrors;
+    unsigned long long       M_counters[E_NB_COUNTER];
     static unsigned long long M_G_counters[E_NB_G_COUNTER - E_NB_COUNTER];
 
 #define GENERIC_C 0
