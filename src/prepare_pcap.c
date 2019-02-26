@@ -284,13 +284,30 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
 }
 
 struct rtphdr {
-    unsigned int csicnt:4;
-    unsigned int extension:1;
-    unsigned int padding:1;
-    unsigned int version:2;
+/* Bit-fields are always assigned to the first available bit, possibly
+ * constrained by other factors, such as alignment. That means that they
+ * start at the low order bit for little-endian, and the high order bit
+ * for big-endian. This is the "right" way to do things. It is very
+ * unusual for a compiler to do this differently. */
+#if BYTE_ORDER == LITTLE_ENDIAN
+    uint8_t csicnt:4;
+    uint8_t extension:1;
+    uint8_t padding:1;
+    uint8_t version:2;
 
-    unsigned int payload_type:7;
-    unsigned int marker:1;
+    uint8_t payload_type:7;
+    uint8_t marker:1;
+#elif BYTE_ORDER == BIG_ENDIAN
+    uint8_t version:2;
+    uint8_t padding:1;
+    uint8_t extension:1;
+    uint8_t csicnt:4;
+
+    uint8_t marker:1;
+    uint8_t payload_type:7;
+#else
+#error "Please fix endian macros"
+#endif
 
     uint16_t seqno;
     uint32_t timestamp;
@@ -300,9 +317,17 @@ struct rtphdr {
 struct rtpevent {
     uint8_t event_id;
 
-    unsigned int volume:6;
-    unsigned int reserved:1;
-    unsigned int end_of_event:1;
+#if BYTE_ORDER == LITTLE_ENDIAN
+    uint8_t volume:6;
+    uint8_t reserved:1;
+    uint8_t end_of_event:1;
+#elif BYTE_ORDER == BIG_ENDIAN
+    uint8_t end_of_event:1;
+    uint8_t reserved:1;
+    uint8_t volume:6;
+#else
+#error "Please fix endian macros"
+#endif
 
     uint16_t duration;
 };
@@ -314,8 +339,15 @@ struct dtmfpacket {
 };
 
 struct rtpnoop {
-    unsigned int request_rtcp:1;
-    unsigned int reserved:31;
+#if BYTE_ORDER == LITTLE_ENDIAN
+    uint32_t reserved:31;
+    uint32_t request_rtcp:1;
+#elif BYTE_ORDER == BIG_ENDIAN
+    uint32_t request_rtcp:1;
+    uint32_t reserved:31;
+#else
+#error "Please fix endian macros"
+#endif
 };
 
 struct nooppacket {
