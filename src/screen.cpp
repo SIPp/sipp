@@ -72,7 +72,7 @@ void screen_show_errors() {
         return;
     }
 
-    fprintf(stderr, "%s", screen_last_error);
+    fprintf(stderr, "%sx\n", screen_last_error);
     if (screen_errors > 1) {
         if (screen_logfile[0] != '\0') {
             fprintf(stderr,
@@ -125,13 +125,12 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
     if (use_errno) {
         c += sprintf(c, ", errno = %d (%s)", error, strerror(error));
     }
-    c+= sprintf(c, ".\n");
     screen_errors++;
 
     if (!error_lfi.fptr && print_all_responses) {
         rotate_errorf();
         if (error_lfi.fptr) {
-            fprintf(error_lfi.fptr, "%s: The following events occured:\n",
+            fprintf(error_lfi.fptr, "%s: The following events occurred:\n",
                     screen_exename);
             fflush(error_lfi.fptr);
         } else {
@@ -160,7 +159,7 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
             }
         }
     } else if (fatal) {
-        fprintf(stderr, "%s", screen_last_error);
+        fprintf(stderr, "%s\n", screen_last_error);
         fflush(stderr);
     }
 

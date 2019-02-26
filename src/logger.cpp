@@ -653,7 +653,7 @@ void print_stats_in_file(FILE * f)
                     "",
                     "");
         } else {
-            ERROR("Scenario command not implemented in display\n");
+            ERROR("Scenario command not implemented in display");
         }
 
         if(lose_packets && (curmsg -> nb_lost)) {

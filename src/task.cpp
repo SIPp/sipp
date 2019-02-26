@@ -66,7 +66,7 @@ void abort_all_tasks()
 
 void dump_tasks()
 {
-    WARNING("---- %zu Active Tasks ----\n", all_tasks.size());
+    WARNING("---- %zu Active Tasks ----", all_tasks.size());
     for (task_list::iterator task_it = all_tasks.begin();
          task_it != all_tasks.end();
          task_it++) {
@@ -141,7 +141,7 @@ void task::setPaused()
 {
     if (running) {
         if (!remove_from_runqueue()) {
-            WARNING("Tried to remove a running call that wasn't running!\n");
+            WARNING("Tried to remove a running call that wasn't running!");
             assert(0);
         }
     } else {

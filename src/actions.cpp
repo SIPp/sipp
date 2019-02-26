@@ -391,7 +391,7 @@ void CAction::setRegExp(const char *P_value)
     if(errorCode != 0) {
         char buffer[MAX_HEADER_LEN];
         regerror(errorCode, &M_internalRegExp, buffer, sizeof(buffer));
-        ERROR("recomp error : regular expression '%s' - error '%s'\n", M_regularExpression, buffer);
+        ERROR("recomp error : regular expression '%s' - error '%s'", M_regularExpression, buffer);
     }
 }
 
@@ -486,7 +486,7 @@ void CAction::setPcapArgs(const char* P_value)
             ERROR("Play pcap error");
         }
         if (access(M_pcapArgs->file, F_OK)) {
-            ERROR("Cannot read file %s\n", M_pcapArgs->file);
+            ERROR("Cannot read file %s", M_pcapArgs->file);
         }
     }
 }
@@ -499,7 +499,7 @@ void CAction::setRTPStreamActInfo(const char* P_value)
     char* next_comma;
 
     if (strlen(P_value) >= sizeof(M_rtpstream_actinfo.filename)) {
-        ERROR("Filename %s is too long, maximum supported length %zu\n", P_value,
+        ERROR("Filename %s is too long, maximum supported length %zu", P_value,
               sizeof(M_rtpstream_actinfo.filename) - 1);
     }
     strcpy(M_rtpstream_actinfo.filename, P_value);
@@ -559,13 +559,13 @@ void CAction::setRTPStreamActInfo(const char* P_value)
         M_rtpstream_actinfo.ms_per_packet= -1;
         M_rtpstream_actinfo.bytes_per_packet= -1;
         M_rtpstream_actinfo.ticks_per_packet= -1;
-        ERROR("Unknown rtp payload type %d - cannot set playback parameters\n",
+        ERROR("Unknown rtp payload type %d - cannot set playback parameters",
               M_rtpstream_actinfo.payload_type);
         break;
     }
 
     if (rtpstream_cache_file(M_rtpstream_actinfo.filename) < 0) {
-        ERROR("Cannot read/cache rtpstream file %s\n",
+        ERROR("Cannot read/cache rtpstream file %s",
               M_rtpstream_actinfo.filename);
     }
 }

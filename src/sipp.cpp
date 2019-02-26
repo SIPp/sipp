@@ -942,7 +942,7 @@ static void manage_oversized_file(int signum)
     snprintf(L_file_name, MAX_PATH, "%s_%d_traces_oversized.log", scenario_file, getpid());
     f = fopen(L_file_name, "w");
     if (!f) {
-        ERROR_NO("Unable to open oversized log file\n");
+        ERROR_NO("Unable to open oversized log file");
     }
 
     GET_TIME(&currentTime);
@@ -1432,7 +1432,7 @@ int main(int argc, char *argv[])
                     break;
                 case 'c':
                     if (strlen(comp_error)) {
-                        ERROR("No " COMP_PLUGGIN " plugin available:\n%s", comp_error);
+                        ERROR("No " COMP_PLUGGIN " plugin available: %s", comp_error);
                     }
                     transport = T_UDP;
                     compression = 1;
@@ -1454,7 +1454,7 @@ int main(int argc, char *argv[])
                 }
 
                 if (peripsocket && transport != T_UDP) {
-                    ERROR("You can only use a perip socket with UDP!\n");
+                    ERROR("You can only use a perip socket with UDP!");
                 }
                 break;
             case SIPP_OPTION_NEED_SCTP:
@@ -1529,10 +1529,10 @@ int main(int argc, char *argv[])
                 break;
             case SIPP_OPTION_3PCC:
                 if (slave_masterSet) {
-                    ERROR("-3PCC option is not compatible with -master and -slave options\n");
+                    ERROR("-3PCC option is not compatible with -master and -slave options");
                 }
                 if (extendedTwinSippMode) {
-                    ERROR("-3pcc and -slave_cfg options are not compatible\n");
+                    ERROR("-3pcc and -slave_cfg options are not compatible");
                 }
                 REQUIRE_ARG();
                 CHECK_PASS();
@@ -1561,7 +1561,7 @@ int main(int argc, char *argv[])
                     fprintf(stdout, "%s", default_scenario[i]);
                     exit(EXIT_OTHER);
                 } else {
-                    ERROR("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
+                    ERROR("Internal error, I don't recognize %s as a scenario option", argv[argi] - 1);
                 }
                 break;
             case SIPP_OPTION_OOC_SCENARIO:
@@ -1573,14 +1573,14 @@ int main(int argc, char *argv[])
                     int i = find_scenario(argv[argi]);
                     ooc_scenario = new scenario(0, i);
                 } else {
-                    ERROR("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
+                    ERROR("Internal error, I don't recognize %s as a scenario option", argv[argi] - 1);
                 }
                 break;
             case SIPP_OPTION_SLAVE_CFG:
                 REQUIRE_ARG();
                 CHECK_PASS();
                 if (twinSippMode) {
-                    ERROR("-slave_cfg and -3pcc options are not compatible\n");
+                    ERROR("-slave_cfg and -3pcc options are not compatible");
                 }
                 extendedTwinSippMode = true;
                 slave_cfg_file = new char [strlen(argv[argi]) + 1];
@@ -1591,10 +1591,10 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 if (slave_masterSet) {
-                    ERROR("-slave and -master options are not compatible\n");
+                    ERROR("-slave and -master options are not compatible");
                 }
                 if (twinSippMode) {
-                    ERROR("-master and -slave options are not compatible with -3PCC option\n");
+                    ERROR("-master and -slave options are not compatible with -3PCC option");
                 }
                 *((char**)option->data) = argv[argi];
                 slave_masterSet = true;
@@ -1633,7 +1633,7 @@ int main(int argc, char *argv[])
                 } else if (!strcmp(argv[argi], "loose")) {
                     *((int*)option->data) = RTCHECK_LOOSE;
                 } else {
-                    ERROR("Unknown retransmission detection method: %s\n", argv[argi]);
+                    ERROR("Unknown retransmission detection method: %s", argv[argi]);
                 }
                 break;
             case SIPP_OPTION_TDMMAP: {
@@ -1688,7 +1688,7 @@ int main(int argc, char *argv[])
                         } else if (!strcmp(p, "pingreply")) {
                             mask = DEFAULT_BEHAVIOR_PINGREPLY;
                         } else {
-                            ERROR("Unknown default behavior: '%s'\n", token);
+                            ERROR("Unknown default behavior: '%s'", token);
                         }
                         switch(mode) {
                         case 0:
@@ -1748,7 +1748,7 @@ int main(int argc, char *argv[])
             }
             break;
             default:
-                ERROR("Internal error: I don't recognize the option type for %s\n", argv[argi]);
+                ERROR("Internal error: I don't recognize the option type for %s", argv[argi]);
             }
         }
     }
@@ -1759,7 +1759,7 @@ int main(int argc, char *argv[])
     }
 
     if ((extendedTwinSippMode && !slave_masterSet) || (!extendedTwinSippMode && slave_masterSet)) {
-        ERROR("-slave_cfg option must be used with -slave or -master option\n");
+        ERROR("-slave_cfg option must be used with -slave or -master option");
     }
 
     if (peripsocket) {

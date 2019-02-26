@@ -87,7 +87,7 @@ bool watchdog::run()
 
     // If the watchdogs have tripped too many times, end the SIPp run.
     if (major_watchdog_failure) {
-        ERROR("Overload error: the watchdog timer has tripped the major threshold of %dms too many times (%d out of %d allowed) (%d out of %d minor %dms timeouts tripped)\n",
+        ERROR("Overload error: the watchdog timer has tripped the major threshold of %dms too many times (%d out of %d allowed) (%d out of %d minor %dms timeouts tripped)",
               major_threshold,
               major_triggers,
               major_maxtriggers,
@@ -95,7 +95,7 @@ bool watchdog::run()
               minor_maxtriggers,
               minor_threshold);
     } else if (minor_watchdog_failure) {
-        ERROR("Overload error: the watchdog timer has tripped the minor threshold of %dms too many times (%d out of %d allowed) (%d out of %d major %dms timeouts tripped)\n",
+        ERROR("Overload error: the watchdog timer has tripped the minor threshold of %dms too many times (%d out of %d allowed) (%d out of %d major %dms timeouts tripped)",
               minor_threshold,
               minor_triggers,
               minor_maxtriggers,

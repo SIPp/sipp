@@ -197,7 +197,7 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
     } else if (tls_version == 1.2) {
         ssl_ctx = SSL_CTX_new(TLSv1_2_method());
     } else {
-        ERROR("Unrecognized TLS version for [%s] context: %1.1f\n", context_name, tls_version);
+        ERROR("Unrecognized TLS version for [%s] context: %1.1f", context_name, tls_version);
         ssl_ctx = NULL;
     }
 

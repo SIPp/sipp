@@ -297,7 +297,7 @@ unsigned long call::hash(const char * msg)
             }
         }
     } else {
-        ERROR("Internal error: Invalid rtcheck %d\n", rtcheck);
+        ERROR("Internal error: Invalid rtcheck %d", rtcheck);
     }
 
     return hash;
@@ -992,7 +992,7 @@ char * call::get_last_request_uri()
     }
 
     if (!(last_request_uri = (char *)malloc(tmp_len + 1))) {
-        ERROR("Cannot allocate !\n");
+        ERROR("Cannot allocate!");
     }
 
     last_request_uri[0] = '\0';
@@ -1495,12 +1495,12 @@ bool call::run()
     message *curmsg;
     if (initCall) {
         if(msg_index >= (int)call_scenario->initmessages.size()) {
-            ERROR("Scenario initialization overrun for call %s (%p) (index = %d)\n", id, _RCAST(void*, this), msg_index);
+            ERROR("Scenario initialization overrun for call %s (%p) (index = %d)", id, _RCAST(void*, this), msg_index);
         }
         curmsg = call_scenario->initmessages[msg_index];
     } else {
         if(msg_index >= (int)call_scenario->messages.size()) {
-            ERROR("Scenario overrun for call %s (%p) (index = %d)\n", id, _RCAST(void*, this), msg_index);
+            ERROR("Scenario overrun for call %s (%p) (index = %d)", id, _RCAST(void*, this), msg_index);
         }
         curmsg = call_scenario->messages[msg_index];
     }
@@ -2040,7 +2040,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 begin--;
             }
             if (begin == msg_buffer) {
-                ERROR("Can not find beginning of a line for the media port!\n");
+                ERROR("Can not find beginning of a line for the media port!");
             }
             play_args_t* play_args = NULL;
             if (strstr(begin, "audio")) {
@@ -2116,7 +2116,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         case E_Message_Authentication:
             if (auth_marker) {
-                ERROR("Only one [authentication] keyword is currently supported!\n");
+                ERROR("Only one [authentication] keyword is currently supported!");
             }
             auth_marker = dest;
             dest += snprintf(dest, left, "[authentication place holder]");
@@ -2206,7 +2206,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             createSendingMessage(comp->comp_param.filename, -2, buffer, sizeof(buffer));
             FILE *f = fopen(buffer, "r");
             if (!f) {
-                ERROR("Could not open '%s': %s\n", buffer, strerror(errno));
+                ERROR("Could not open '%s': %s", buffer, strerror(errno));
             }
             int ret;
             while ((ret = fread(dest, 1, left, f)) > 0) {
@@ -2214,7 +2214,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 dest += ret;
             }
             if (ret < 0) {
-                ERROR("Error reading '%s': %s\n", buffer, strerror(errno));
+                ERROR("Error reading '%s': %s", buffer, strerror(errno));
             }
             fclose(f);
             break;
@@ -2225,7 +2225,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             /* We are injecting an authentication line. */
             if (char *tmp = strstr(orig_dest, "[authentication")) {
                 if (auth_marker) {
-                    ERROR("Only one [authentication] keyword is currently supported!\n");
+                    ERROR("Only one [authentication] keyword is currently supported!");
                 }
                 auth_marker = tmp;
                 auth_comp = (struct MessageComponent *)calloc(1, sizeof(struct MessageComponent));
@@ -2433,7 +2433,7 @@ bool call::process_twinSippCom(char * msg)
                         found = true;
                         break;
                     } else {
-                        WARNING("Unexpected sender for the received peer message \n%s\n", msg);
+                        WARNING("Unexpected sender for the received peer message\n%s\n", msg);
                         return rejectCall();
                     }
                 } else {
@@ -2625,7 +2625,7 @@ void call::formatNextReqUrl(const char* contact)
 void call::computeRouteSetAndRemoteTargetUri(const char* rr, const char* contact, bool bRequestIncoming)
 {
     if (!*contact) {
-        WARNING("Cannot record route set if there is no Contact\n");
+        WARNING("Cannot record route set if there is no Contact");
         return;
     }
 
@@ -2968,7 +2968,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                                               TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, msg);
                                     callDebug("Ignoring final %s message for transaction %s (hash %lu):\n\n%s\n",
                                               TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
-                                    WARNING("Ignoring final %s message for transaction %s (hash %lu):\n\n%s\n",
+                                    WARNING("Ignoring final %s message for transaction %s (hash %lu):\n\n%s",
                                             TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
                                     return true;
                                 }
@@ -3209,7 +3209,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         unsigned int candidate;
 
         if (call_scenario->messages[search_index]->next && M_callVariableTable->getVar(test)->isSet()) {
-            WARNING("Last message generates an error and will not be used for next sends (for last_ variables):\r\n%s", msg);
+            WARNING("Last message generates an error and will not be used for next sends (for last_ variables):\n%s\n", msg);
         }
 
         /* We are just waiting for a message to be received, if any of the
@@ -3278,7 +3278,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 if(currentAction->getCheckIt() == true && (strlen(msgPart) == 0)) {
                     // the sub message is not found and the checking action say it
                     // MUST match --> Call will be marked as failed but will go on
-                    WARNING("Failed regexp match: header %s not found in message %s\n", currentAction->getLookingChar(), msg);
+                    WARNING("Failed regexp match: header %s not found in message\n%s\n", currentAction->getLookingChar(), msg);
                     return(call::E_AR_HDR_NOT_FOUND);
                 }
                 haystack = msgPart;
@@ -3286,7 +3286,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 haystack = strstr(msg, "\r\n\r\n");
                 if (!haystack) {
                     if (currentAction->getCheckIt() == true) {
-                        WARNING("Failed regexp match: body not found in message %s\n", msg);
+                        WARNING("Failed regexp match: body not found in message\n%s\n", msg);
                         return(call::E_AR_HDR_NOT_FOUND);
                     }
                     msgPart[0] = '\0';
@@ -3300,12 +3300,12 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 haystack = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
                 if (!haystack) {
                     if (currentAction->getCheckIt() == true) {
-                        WARNING("Failed regexp match: variable $%d not set\n", currentAction->getVarInId());
+                        WARNING("Failed regexp match: variable $%d not set", currentAction->getVarInId());
                         return(call::E_AR_HDR_NOT_FOUND);
                     }
                 }
             } else {
-                ERROR("Invalid looking place: %d\n", currentAction->getLookingPlace());
+                ERROR("Invalid looking place: %d", currentAction->getLookingPlace());
             }
             bool did_match = (currentAction->executeRegExp(haystack, M_callVariableTable) > 0);
 
