@@ -42,9 +42,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#ifdef PCAPPLAY
-#include "send_packets.h"
-#endif
 #include "sipp.hpp"
 #include "deadcall.hpp"
 #include "assert.h"
