@@ -20,12 +20,17 @@ valgrind --xml=yes --xml-file=uac.log --partial-loads-ok=yes \
 uacpid=$!
 
 wait $uaspid
-test $? -ne 0 && fail "UAS returned non-zero"
+test $? -ne 0 && fail "UAS returned non-zero (might be benign(*))"
 
 wait $uacpid
-test $? -ne 0 && fail "UAC returned non-zero"
+test $? -ne 0 && fail "UAC returned non-zero (might be benign(*))"
 
 grep -q '<error>' uas.log && fail "valgrind reported leaks in UAS"
 grep -q '<error>' uac.log && fail "valgrind reported leaks in UAC"
 
 ok
+
+# (*) https://bugs.kde.org/show_bug.cgi?id=345307
+# In some cases, leaks are reported that shouldn't be. If you're looking
+# at dl-init.c, it might be one of those cases. Upgrading gcc (from 5 to
+# higher) can help. Or upgrading valgrind.
