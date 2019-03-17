@@ -40,7 +40,7 @@ action before having any recvCmd. Note that the message must contain a
 ::
 
     <recvCmd src="m">
-      <action
+      <action>
          <ereg regexp="Content-Type:.*"
                search_in="msg"
                assign_to="2"/>

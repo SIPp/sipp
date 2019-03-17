@@ -482,7 +482,7 @@ List of commands with their attributes
         ::
 
           <recvCmd>
-            <action
+            <action>
               <ereg regexp="Content-Type:.*"
                     search_in="msg"
                     assign_to="2"/>

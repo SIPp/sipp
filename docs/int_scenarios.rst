@@ -260,7 +260,7 @@ the Call-ID is mandatory in order to correlate the commands to actual
 calls. In the same manner, this::
 
     <recvCmd>
-      <action
+      <action>
          <ereg regexp="Content-Type:.*"
                search_in="msg"
                assign_to="2"/>
