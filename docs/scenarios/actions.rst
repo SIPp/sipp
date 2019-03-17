@@ -400,7 +400,7 @@ to find the corresponding line in users.csv.
         <ereg regexp="Digest .*username=\"([^\"]*)\"" search_in="hdr" header="Authorization:" assign_to="junk,username" />
         <lookup assign_to="line" file="users.csv" key="[$username]" />
       </action>
-    </nop>
+    </recv>
 
 
 
@@ -547,7 +547,7 @@ provided and compare it against a list of user names and passwords
 provided as an injection file, and take the appropriate action based
 on the result::
 
-    <recv request="REGISTER" />
+    <recv request="REGISTER">
       <action>
         <ereg regexp="Digest .*username=\"([^\"]*)\"" search_in="hdr" header="Authorization:" assign_to="junk,username" />
         <lookup assign_to="line" file="users.conf" key="[$username]" />
