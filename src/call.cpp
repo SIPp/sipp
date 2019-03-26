@@ -3706,7 +3706,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 pid_t ret;
                 while ((ret=waitpid(l_pid, NULL, 0)) != l_pid) {
                     if (ret != -1) {
-                        ERROR("waitpid returns %1d for child %1d", ret, l_pid);
+                        ERROR("waitpid returns %1ld for child %1ld", (long) ret, (long) l_pid);
                     }
                 }
                 break;

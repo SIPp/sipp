@@ -440,7 +440,7 @@ static void traffic_thread()
 {
     /* create the file */
     char L_file_name[MAX_PATH];
-    sprintf(L_file_name, "%s_%d_screen.log", scenario_file, getpid());
+    sprintf(L_file_name, "%s_%ld_screen.log", scenario_file, (long) getpid());
 
     getmilliseconds();
 
@@ -936,7 +936,7 @@ static void manage_oversized_file(int signum)
     }
     managing = 1;
 
-    snprintf(L_file_name, MAX_PATH, "%s_%d_traces_oversized.log", scenario_file, getpid());
+    snprintf(L_file_name, MAX_PATH, "%s_%ld_traces_oversized.log", scenario_file, (long) getpid());
     f = fopen(L_file_name, "w");
     if (!f) {
         ERROR_NO("Unable to open oversized log file");
@@ -1814,7 +1814,7 @@ int main(int argc, char *argv[])
 
     if (useCountf == 1) {
         char L_file_name [MAX_PATH];
-        sprintf(L_file_name, "%s_%d_counts.csv", scenario_file, getpid());
+        sprintf(L_file_name, "%s_%ld_counts.csv", scenario_file, (long) getpid());
         countf = fopen(L_file_name, "w");
         if (!countf) {
             ERROR("Unable to create '%s'", L_file_name);
@@ -1824,7 +1824,7 @@ int main(int argc, char *argv[])
 
     if (useErrorCodesf == 1) {
         char L_file_name [MAX_PATH];
-        sprintf(L_file_name, "%s_%d_error_codes.csv", scenario_file, getpid());
+        sprintf(L_file_name, "%s_%ld_error_codes.csv", scenario_file, (long) getpid());
         codesf = fopen(L_file_name, "w");
         if (!codesf) {
             ERROR("Unable to create '%s'", L_file_name);
@@ -1944,7 +1944,7 @@ int main(int argc, char *argv[])
         break;
         default:
             // parent process - killing the parent - the child get the parent pid
-            printf("Background mode - PID=[%d]\n", l_pid);
+            printf("Background mode - PID=[%ld]\n", (long) l_pid);
             exit(EXIT_OTHER);
         }
     }
