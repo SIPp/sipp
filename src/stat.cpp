@@ -336,20 +336,20 @@ void CStat::setFileName(const char* P_name, const char* P_extension)
                     if(M_fileName != NULL)
                         delete [] M_fileName;
                     M_fileName = new char[MAX_PATH];
-                    sprintf(M_fileName, "%s_%d_", P_name, getpid());
+                    sprintf(M_fileName, "%s_%ld_", P_name, (long) getpid());
                     strcat(M_fileName, P_extension);
                 } else {
                     if(M_fileName != NULL)
                         delete [] M_fileName;
                     M_fileName = new char[MAX_PATH];
-                    sprintf(M_fileName, "%s_%d_", P_name, getpid());
+                    sprintf(M_fileName, "%s_%ld_", P_name, (long) getpid());
                     strcat(M_fileName, DEFAULT_EXTENSION);
                 }
             } else {
                 if(M_fileName != NULL)
                     delete [] M_fileName;
                 M_fileName = new char[MAX_PATH];
-                sprintf(M_fileName, "%s_%d_", P_name, getpid());
+                sprintf(M_fileName, "%s_%ld_", P_name, (long) getpid());
                 strcat(M_fileName, DEFAULT_EXTENSION);
             }
         } else {
@@ -402,7 +402,7 @@ void CStat::initRtt(const char* P_name, const char* P_extension,
                 delete [] M_fileNameRtt;
             sizeOf += sizeOfExtension;
             M_fileNameRtt = new char[sizeOf+1];
-            sprintf (M_fileNameRtt, "%s_%d_rtt%s", P_name, getpid(),P_extension);
+            sprintf (M_fileNameRtt, "%s_%ld_rtt%s", P_name, (long) getpid(),P_extension);
         } else {
             cerr << "new file name length is null - "
                  << "keeping the default filename : "

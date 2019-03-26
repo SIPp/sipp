@@ -858,7 +858,7 @@ static void rotatef(struct logfile_info* lfi)
     char L_rotate_file_name [MAX_PATH];
 
     if (!lfi->fixedname) {
-        sprintf (lfi->file_name, "%s_%d_%s.log", scenario_file, getpid(), lfi->name);
+        sprintf (lfi->file_name, "%s_%ld_%s.log", scenario_file, (long) getpid(), lfi->name);
     }
 
     if (ringbuffer_files > 0) {
@@ -868,13 +868,13 @@ static void rotatef(struct logfile_info* lfi)
         /* We need to rotate away an existing file. */
         if (lfi->nfiles == ringbuffer_files) {
             if ((lfi->ftimes)[0].n) {
-                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log",
-                        scenario_file, getpid(), lfi->name,
+                sprintf(L_rotate_file_name, "%s_%ld_%s_%lu.%d.log",
+                        scenario_file, (long) getpid(), lfi->name,
                         (unsigned long)(lfi->ftimes)[0].start,
                         (lfi->ftimes)[0].n);
             } else {
-                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log",
-                        scenario_file, getpid(), lfi->name,
+                sprintf(L_rotate_file_name, "%s_%ld_%s_%lu.log",
+                        scenario_file, (long) getpid(), lfi->name,
                         (unsigned long)(lfi->ftimes)[0].start);
             }
             unlink(L_rotate_file_name);
@@ -889,13 +889,13 @@ static void rotatef(struct logfile_info* lfi)
                 (lfi->ftimes)[lfi->nfiles].n = (lfi->ftimes)[lfi->nfiles - 1].n + 1;
             }
             if ((lfi->ftimes)[lfi->nfiles].n) {
-                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log",
-                        scenario_file, getpid(), lfi->name,
+                sprintf(L_rotate_file_name, "%s_%ld_%s_%lu.%d.log",
+                        scenario_file, (long) getpid(), lfi->name,
                         (unsigned long)(lfi->ftimes)[lfi->nfiles].start,
                         (lfi->ftimes)[lfi->nfiles].n);
             } else {
-                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log",
-                        scenario_file, getpid(), lfi->name,
+                sprintf(L_rotate_file_name, "%s_%ld_%s_%lu.log",
+                        scenario_file, (long) getpid(), lfi->name,
                         (unsigned long)(lfi->ftimes)[lfi->nfiles].start);
             }
             lfi->nfiles++;
