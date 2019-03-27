@@ -93,10 +93,10 @@
 
 #ifdef GLOBALS_FULL_DEFINITION
 #define extern
-#define _DEFVAL(value) = value
+#define DEFVAL(value) = value
 #define extern_c
 #else
-#define _DEFVAL(value)
+#define DEFVAL(value)
 #ifdef __cplusplus
 #define extern_c extern "C"
 #else
@@ -177,231 +177,231 @@ cmd messages are received */
 
 /************ User controls and command line options ***********/
 
-extern int                duration                _DEFVAL(0);
-extern double             rate                    _DEFVAL(DEFAULT_RATE);
-extern double             rate_scale              _DEFVAL(DEFAULT_RATE_SCALE);
-extern int                rate_increase           _DEFVAL(0);
-extern int                rate_max                _DEFVAL(0);
-extern unsigned long      rate_increase_freq      _DEFVAL(DEFAULT_RATE_INCR_FREQ);
-extern bool               rate_quit               _DEFVAL(true);
-extern int                users                   _DEFVAL(-1);
-extern int                rate_period_ms          _DEFVAL(DEFAULT_RATE_PERIOD_MS);
-extern int                sleeptime               _DEFVAL(0);
-extern unsigned long      defl_recv_timeout       _DEFVAL(0);
-extern unsigned long      defl_send_timeout       _DEFVAL(0);
-extern unsigned long      global_timeout          _DEFVAL(0);
-extern int                transport               _DEFVAL(DEFAULT_TRANSPORT);
-extern bool               retrans_enabled         _DEFVAL(1);
-extern int                rtcheck                 _DEFVAL(RTCHECK_FULL);
-extern int                max_udp_retrans         _DEFVAL(UDP_MAX_RETRANS);
-extern int                max_invite_retrans      _DEFVAL(UDP_MAX_RETRANS_INVITE_TRANSACTION);
-extern int                max_non_invite_retrans  _DEFVAL(UDP_MAX_RETRANS_NON_INVITE_TRANSACTION);
-extern unsigned long      default_behaviors       _DEFVAL(DEFAULT_BEHAVIOR_ALL);
-extern unsigned long      deadcall_wait           _DEFVAL(DEFAULT_DEADCALL_WAIT);
-extern bool               pause_msg_ign           _DEFVAL(0);
-extern bool               auto_answer             _DEFVAL(false);
-extern int                multisocket             _DEFVAL(0);
-extern int                compression             _DEFVAL(0);
-extern int                peripsocket             _DEFVAL(0);
-extern int                peripfield              _DEFVAL(0);
-extern bool               bind_local              _DEFVAL(false);
-extern void             * monosocket_comp_state   _DEFVAL(0);
-extern const char       * service                 _DEFVAL(DEFAULT_SERVICE);
-extern const char       * auth_password           _DEFVAL(DEFAULT_AUTH_PASSWORD);
-extern const char       * auth_username           _DEFVAL(0);
-extern unsigned long      report_freq             _DEFVAL(DEFAULT_REPORT_FREQ);
-extern unsigned long      report_freq_dumpLog     _DEFVAL
+extern int                duration                DEFVAL(0);
+extern double             rate                    DEFVAL(DEFAULT_RATE);
+extern double             rate_scale              DEFVAL(DEFAULT_RATE_SCALE);
+extern int                rate_increase           DEFVAL(0);
+extern int                rate_max                DEFVAL(0);
+extern unsigned long      rate_increase_freq      DEFVAL(DEFAULT_RATE_INCR_FREQ);
+extern bool               rate_quit               DEFVAL(true);
+extern int                users                   DEFVAL(-1);
+extern int                rate_period_ms          DEFVAL(DEFAULT_RATE_PERIOD_MS);
+extern int                sleeptime               DEFVAL(0);
+extern unsigned long      defl_recv_timeout       DEFVAL(0);
+extern unsigned long      defl_send_timeout       DEFVAL(0);
+extern unsigned long      global_timeout          DEFVAL(0);
+extern int                transport               DEFVAL(DEFAULT_TRANSPORT);
+extern bool               retrans_enabled         DEFVAL(1);
+extern int                rtcheck                 DEFVAL(RTCHECK_FULL);
+extern int                max_udp_retrans         DEFVAL(UDP_MAX_RETRANS);
+extern int                max_invite_retrans      DEFVAL(UDP_MAX_RETRANS_INVITE_TRANSACTION);
+extern int                max_non_invite_retrans  DEFVAL(UDP_MAX_RETRANS_NON_INVITE_TRANSACTION);
+extern unsigned long      default_behaviors       DEFVAL(DEFAULT_BEHAVIOR_ALL);
+extern unsigned long      deadcall_wait           DEFVAL(DEFAULT_DEADCALL_WAIT);
+extern bool               pause_msg_ign           DEFVAL(0);
+extern bool               auto_answer             DEFVAL(false);
+extern int                multisocket             DEFVAL(0);
+extern int                compression             DEFVAL(0);
+extern int                peripsocket             DEFVAL(0);
+extern int                peripfield              DEFVAL(0);
+extern bool               bind_local              DEFVAL(false);
+extern void             * monosocket_comp_state   DEFVAL(0);
+extern const char       * service                 DEFVAL(DEFAULT_SERVICE);
+extern const char       * auth_password           DEFVAL(DEFAULT_AUTH_PASSWORD);
+extern const char       * auth_username           DEFVAL(0);
+extern unsigned long      report_freq             DEFVAL(DEFAULT_REPORT_FREQ);
+extern unsigned long      report_freq_dumpLog     DEFVAL
 (DEFAULT_REPORT_FREQ_DUMP_LOG);
-extern bool               periodic_rtd            _DEFVAL(false);
-extern const char       * stat_delimiter          _DEFVAL(";");
+extern bool               periodic_rtd            DEFVAL(false);
+extern const char       * stat_delimiter          DEFVAL(";");
 
-extern bool               timeout_exit            _DEFVAL(false);
-extern bool               timeout_error           _DEFVAL(false);
+extern bool               timeout_exit            DEFVAL(false);
+extern bool               timeout_error           DEFVAL(false);
 
-extern unsigned long      report_freq_dumpRtt     _DEFVAL
+extern unsigned long      report_freq_dumpRtt     DEFVAL
 (DEFAULT_FREQ_DUMP_RTT);
 
-extern unsigned                max_multi_socket        _DEFVAL
+extern unsigned                max_multi_socket        DEFVAL
 (DEFAULT_MAX_MULTI_SOCKET);
-extern bool               skip_rlimit             _DEFVAL(false);
+extern bool               skip_rlimit             DEFVAL(false);
 
-extern unsigned int       timer_resolution        _DEFVAL(DEFAULT_TIMER_RESOLUTION);
-extern int                max_recv_loops          _DEFVAL(MAX_RECV_LOOPS_PER_CYCLE);
-extern int                max_sched_loops         _DEFVAL(MAX_SCHED_LOOPS_PER_CYCLE);
+extern unsigned int       timer_resolution        DEFVAL(DEFAULT_TIMER_RESOLUTION);
+extern int                max_recv_loops          DEFVAL(MAX_RECV_LOOPS_PER_CYCLE);
+extern int                max_sched_loops         DEFVAL(MAX_SCHED_LOOPS_PER_CYCLE);
 
-extern unsigned int       global_t2               _DEFVAL(DEFAULT_T2_TIMER_VALUE);
+extern unsigned int       global_t2               DEFVAL(DEFAULT_T2_TIMER_VALUE);
 
 extern char               local_ip[127];          /* also used for hostnames */
 extern char               local_ip_escaped[42];   /* with [brackets] in case of IPv6 */
 extern bool               local_ip_is_ipv6;
-extern int                local_port              _DEFVAL(0);
+extern int                local_port              DEFVAL(0);
 #ifdef USE_SCTP
 extern char               multihome_ip[40];
-extern int                heartbeat               _DEFVAL(0);
-extern int                assocmaxret             _DEFVAL(0);
-extern int                pathmaxret              _DEFVAL(0);
-extern int                pmtu                    _DEFVAL(0);
-extern bool               gracefulclose           _DEFVAL(true);
+extern int                heartbeat               DEFVAL(0);
+extern int                assocmaxret             DEFVAL(0);
+extern int                pathmaxret              DEFVAL(0);
+extern int                pmtu                    DEFVAL(0);
+extern bool               gracefulclose           DEFVAL(true);
 #endif
 extern char               control_ip[40];
-extern int                control_port            _DEFVAL(0);
-extern int                buff_size               _DEFVAL(65535);
-extern int                tcp_readsize            _DEFVAL(65535);
+extern int                control_port            DEFVAL(0);
+extern int                buff_size               DEFVAL(65535);
+extern int                tcp_readsize            DEFVAL(65535);
 #if defined(PCAPPLAY) || defined(RTP_STREAM)
-extern int                hasMedia                _DEFVAL(0);
+extern int                hasMedia                DEFVAL(0);
 #endif
 #ifdef RTP_STREAM
-extern int                rtp_default_payload     _DEFVAL(DEFAULT_RTP_PAYLOAD);
-extern int                rtp_tasks_per_thread    _DEFVAL(DEFAULT_RTP_THREADTASKS);
-extern int                rtp_buffsize            _DEFVAL(65535);
+extern int                rtp_default_payload     DEFVAL(DEFAULT_RTP_PAYLOAD);
+extern int                rtp_tasks_per_thread    DEFVAL(DEFAULT_RTP_THREADTASKS);
+extern int                rtp_buffsize            DEFVAL(65535);
 #endif
 
-extern bool               rtp_echo_enabled        _DEFVAL(0);
+extern bool               rtp_echo_enabled        DEFVAL(0);
 extern char               media_ip[127];          /* also used for hostnames */
-extern int                user_media_port         _DEFVAL(0);
-extern int                media_port              _DEFVAL(0);
-extern size_t             media_bufsize           _DEFVAL(2048);
-extern_c bool             media_ip_is_ipv6        _DEFVAL(false);
+extern int                user_media_port         DEFVAL(0);
+extern int                media_port              DEFVAL(0);
+extern size_t             media_bufsize           DEFVAL(2048);
+extern_c bool             media_ip_is_ipv6        DEFVAL(false);
 extern char               remote_ip[127];         /* also used for hostnames */
 extern char               remote_ip_escaped[42];  /* with [brackets] in case of IPv6 */
-extern int                remote_port             _DEFVAL(DEFAULT_PORT);
-extern unsigned int       pid                     _DEFVAL(0);
-extern bool               print_all_responses     _DEFVAL(false);
-extern unsigned long      stop_after              _DEFVAL(0xffffffff);
-extern int                quitting                _DEFVAL(0);
-extern int                interrupt               _DEFVAL(0);
-extern bool               paused                  _DEFVAL(false);
-extern int                lose_packets            _DEFVAL(0);
-extern double             global_lost             _DEFVAL(0.0);
+extern int                remote_port             DEFVAL(DEFAULT_PORT);
+extern unsigned int       pid                     DEFVAL(0);
+extern bool               print_all_responses     DEFVAL(false);
+extern unsigned long      stop_after              DEFVAL(0xffffffff);
+extern int                quitting                DEFVAL(0);
+extern int                interrupt               DEFVAL(0);
+extern bool               paused                  DEFVAL(false);
+extern int                lose_packets            DEFVAL(0);
+extern double             global_lost             DEFVAL(0.0);
 extern char               remote_host[255];
 extern char               twinSippHost[255];
 extern char               twinSippIp[40];
 extern char             * master_name;
 extern char             * slave_number;
-extern int                twinSippPort            _DEFVAL(DEFAULT_3PCC_PORT);
-extern bool               twinSippMode            _DEFVAL(false);
-extern bool               extendedTwinSippMode    _DEFVAL(false);
+extern int                twinSippPort            DEFVAL(DEFAULT_3PCC_PORT);
+extern bool               twinSippMode            DEFVAL(false);
+extern bool               extendedTwinSippMode    DEFVAL(false);
 
-extern bool               nostdin                 _DEFVAL(false);
-extern bool               use_curses              _DEFVAL(true);
-extern bool               backgroundMode          _DEFVAL(false);
-extern bool               signalDump              _DEFVAL(false);
+extern bool               nostdin                 DEFVAL(false);
+extern bool               use_curses              DEFVAL(true);
+extern bool               backgroundMode          DEFVAL(false);
+extern bool               signalDump              DEFVAL(false);
 
-extern int                currentScreenToDisplay  _DEFVAL
+extern int                currentScreenToDisplay  DEFVAL
 (DISPLAY_SCENARIO_SCREEN);
-extern int                currentRepartitionToDisplay  _DEFVAL(1);
-extern unsigned int       base_cseq               _DEFVAL(0);
-extern char             * auth_uri                _DEFVAL(0);
-extern const char       * call_id_string          _DEFVAL("%u-%p@%s");
+extern int                currentRepartitionToDisplay  DEFVAL(1);
+extern unsigned int       base_cseq               DEFVAL(0);
+extern char             * auth_uri                DEFVAL(0);
+extern const char       * call_id_string          DEFVAL("%u-%p@%s");
 extern char             **generic[100];
 
 #ifdef RTP_STREAM
-extern bool               rtp_echo_state          _DEFVAL(true);
+extern bool               rtp_echo_state          DEFVAL(true);
 #endif
-extern bool               callidSlash             _DEFVAL(false);
+extern bool               callidSlash             DEFVAL(false);
 
 /* TDM map */
-extern bool               use_tdmmap              _DEFVAL(false);
-extern unsigned int       tdm_map_a               _DEFVAL(0);
-extern unsigned int       tdm_map_b               _DEFVAL(0);
-extern unsigned int       tdm_map_c               _DEFVAL(0);
-extern unsigned int       tdm_map_x               _DEFVAL(0);
-extern unsigned int       tdm_map_y               _DEFVAL(0);
-extern unsigned int       tdm_map_z               _DEFVAL(0);
-extern unsigned int       tdm_map_h               _DEFVAL(0);
+extern bool               use_tdmmap              DEFVAL(false);
+extern unsigned int       tdm_map_a               DEFVAL(0);
+extern unsigned int       tdm_map_b               DEFVAL(0);
+extern unsigned int       tdm_map_c               DEFVAL(0);
+extern unsigned int       tdm_map_x               DEFVAL(0);
+extern unsigned int       tdm_map_y               DEFVAL(0);
+extern unsigned int       tdm_map_z               DEFVAL(0);
+extern unsigned int       tdm_map_h               DEFVAL(0);
 extern bool               tdm_map[1024];
 
 #ifdef USE_TLS
-extern const char       * tls_cert_name           _DEFVAL(DEFAULT_TLS_CERT);
-extern const char       * tls_key_name            _DEFVAL(DEFAULT_TLS_KEY);
-extern const char       * tls_crl_name            _DEFVAL(DEFAULT_TLS_CRL);
-extern double             tls_version             _DEFVAL(0.0);
+extern const char       * tls_cert_name           DEFVAL(DEFAULT_TLS_CERT);
+extern const char       * tls_key_name            DEFVAL(DEFAULT_TLS_KEY);
+extern const char       * tls_crl_name            DEFVAL(DEFAULT_TLS_CRL);
+extern double             tls_version             DEFVAL(0.0);
 #endif
 
-extern char*              scenario_file           _DEFVAL(NULL);
-extern_c char*            scenario_path           _DEFVAL(NULL);
+extern char*              scenario_file           DEFVAL(NULL);
+extern_c char*            scenario_path           DEFVAL(NULL);
 
 // extern field file management
 typedef std::map<string, FileContents *> file_map;
 extern file_map inFiles;
 typedef std::map<string, str_int_map *> file_index;
-extern char *ip_file _DEFVAL(NULL);
-extern char *default_file _DEFVAL(NULL);
+extern char *ip_file DEFVAL(NULL);
+extern char *default_file DEFVAL(NULL);
 
 // free user id list
 extern list<int> freeUsers;
 extern list<int> retiredUsers;
-extern AllocVariableTable *globalVariables        _DEFVAL(NULL);
-extern AllocVariableTable *userVariables          _DEFVAL(NULL);
+extern AllocVariableTable *globalVariables        DEFVAL(NULL);
+extern AllocVariableTable *userVariables          DEFVAL(NULL);
 typedef std::map<int, VariableTable *> int_vt_map;
 extern int_vt_map         userVarMap;
 
 extern SIPpSocket* new_sipp_socket(bool use_ipv6, int transport);
 extern int      sipp_bind_socket(SIPpSocket *socket, struct sockaddr_storage *saddr, int *port);
 extern void     sipp_customize_socket(SIPpSocket *socket);
-extern int      min_socket          _DEFVAL(65535);
-extern int      select_socket       _DEFVAL(0);
-extern bool     socket_close        _DEFVAL(true);
-extern bool     test_socket         _DEFVAL(true);
-extern bool     maxSocketPresent    _DEFVAL(false);
+extern int      min_socket          DEFVAL(65535);
+extern int      select_socket       DEFVAL(0);
+extern bool     socket_close        DEFVAL(true);
+extern bool     test_socket         DEFVAL(true);
+extern bool     maxSocketPresent    DEFVAL(false);
 
 #include "time.hpp"
 
 /************************ Statistics **************************/
 
-extern unsigned long last_report_calls            _DEFVAL(0);
-extern unsigned long nb_net_send_errors           _DEFVAL(0);
-extern unsigned long nb_net_cong                  _DEFVAL(0);
-extern unsigned long nb_net_recv_errors           _DEFVAL(0);
-extern bool          cpu_max                      _DEFVAL(false);
-extern bool          outbound_congestion          _DEFVAL(false);
-extern int           open_calls_user_setting      _DEFVAL(0);
-extern int           resynch_send                 _DEFVAL(0);
-extern int           resynch_recv                 _DEFVAL(0);
-extern unsigned long rtp_pckts                    _DEFVAL(0);
-extern unsigned long rtp_bytes                    _DEFVAL(0);
-extern_c unsigned long rtp_pckts_pcap             _DEFVAL(0);
-extern_c unsigned long rtp_bytes_pcap             _DEFVAL(0);
-extern unsigned long rtp2_pckts                   _DEFVAL(0);
-extern unsigned long rtp2_bytes                   _DEFVAL(0);
-extern unsigned long rtp2_pckts_pcap              _DEFVAL(0);
-extern unsigned long rtp2_bytes_pcap              _DEFVAL(0);
+extern unsigned long last_report_calls            DEFVAL(0);
+extern unsigned long nb_net_send_errors           DEFVAL(0);
+extern unsigned long nb_net_cong                  DEFVAL(0);
+extern unsigned long nb_net_recv_errors           DEFVAL(0);
+extern bool          cpu_max                      DEFVAL(false);
+extern bool          outbound_congestion          DEFVAL(false);
+extern int           open_calls_user_setting      DEFVAL(0);
+extern int           resynch_send                 DEFVAL(0);
+extern int           resynch_recv                 DEFVAL(0);
+extern unsigned long rtp_pckts                    DEFVAL(0);
+extern unsigned long rtp_bytes                    DEFVAL(0);
+extern_c unsigned long rtp_pckts_pcap             DEFVAL(0);
+extern_c unsigned long rtp_bytes_pcap             DEFVAL(0);
+extern unsigned long rtp2_pckts                   DEFVAL(0);
+extern unsigned long rtp2_bytes                   DEFVAL(0);
+extern unsigned long rtp2_pckts_pcap              DEFVAL(0);
+extern unsigned long rtp2_bytes_pcap              DEFVAL(0);
 #ifdef RTP_STREAM
-extern volatile unsigned long rtpstream_numthreads _DEFVAL(0);
-extern volatile unsigned long rtpstream_bytes_in  _DEFVAL(0);
-extern volatile unsigned long rtpstream_bytes_out _DEFVAL(0);
-extern volatile unsigned long rtpstream_pckts     _DEFVAL(0);
+extern volatile unsigned long rtpstream_numthreads DEFVAL(0);
+extern volatile unsigned long rtpstream_bytes_in  DEFVAL(0);
+extern volatile unsigned long rtpstream_bytes_out DEFVAL(0);
+extern volatile unsigned long rtpstream_pckts     DEFVAL(0);
 #endif
 
 
 /************* Rate Control & Contexts variables **************/
 
-extern int           last_running_calls           _DEFVAL(0);
-extern int           last_woken_calls             _DEFVAL(0);
-extern int           last_paused_calls            _DEFVAL(0);
-extern unsigned int  open_calls_allowed           _DEFVAL(0);
-extern unsigned long last_report_time             _DEFVAL(0);
-extern unsigned long last_dump_time               _DEFVAL(0);
-extern unsigned long last_rate_increase_time      _DEFVAL(0);
+extern int           last_running_calls           DEFVAL(0);
+extern int           last_woken_calls             DEFVAL(0);
+extern int           last_paused_calls            DEFVAL(0);
+extern unsigned int  open_calls_allowed           DEFVAL(0);
+extern unsigned long last_report_time             DEFVAL(0);
+extern unsigned long last_dump_time               DEFVAL(0);
+extern unsigned long last_rate_increase_time      DEFVAL(0);
 
 /********************** Clock variables ***********************/
 
-extern unsigned long clock_tick                   _DEFVAL(0);
-extern unsigned long scheduling_loops             _DEFVAL(0);
-extern unsigned long last_timer_cycle             _DEFVAL(0);
+extern unsigned long clock_tick                   DEFVAL(0);
+extern unsigned long scheduling_loops             DEFVAL(0);
+extern unsigned long last_timer_cycle             DEFVAL(0);
 
-extern unsigned long watchdog_interval            _DEFVAL(400);
-extern unsigned long watchdog_minor_threshold     _DEFVAL(500);
-extern unsigned long watchdog_minor_maxtriggers   _DEFVAL(120);
-extern unsigned long watchdog_major_threshold     _DEFVAL(3000);
-extern unsigned long watchdog_major_maxtriggers   _DEFVAL(10);
-extern unsigned long watchdog_reset               _DEFVAL(600000);
+extern unsigned long watchdog_interval            DEFVAL(400);
+extern unsigned long watchdog_minor_threshold     DEFVAL(500);
+extern unsigned long watchdog_minor_maxtriggers   DEFVAL(120);
+extern unsigned long watchdog_major_threshold     DEFVAL(3000);
+extern unsigned long watchdog_major_maxtriggers   DEFVAL(10);
+extern unsigned long watchdog_reset               DEFVAL(600000);
 
 
 /********************* dynamic Id ************************* */
-extern  int maxDynamicId    _DEFVAL(12000);  // max value for dynamicId; this value is reached
-extern  int startDynamicId  _DEFVAL(10000);  // offset for first dynamicId  FIXME:in CmdLine
-extern  int stepDynamicId   _DEFVAL(4);      // step of increment for dynamicId
+extern  int maxDynamicId    DEFVAL(12000);  // max value for dynamicId; this value is reached
+extern  int startDynamicId  DEFVAL(10000);  // offset for first dynamicId  FIXME:in CmdLine
+extern  int stepDynamicId   DEFVAL(4);      // step of increment for dynamicId
 
 #define GET_TIME(clock) \
 { \
@@ -411,28 +411,28 @@ extern  int stepDynamicId   _DEFVAL(4);      // step of increment for dynamicId
 
 /*********************** Global Sockets  **********************/
 
-extern SIPpSocket   *main_socket                  _DEFVAL(NULL);
-extern SIPpSocket   *main_remote_socket           _DEFVAL(NULL);
-extern SIPpSocket   *tcp_multiplex                _DEFVAL(NULL);
-extern int media_socket_audio                     _DEFVAL(0);
-extern int media_socket_video                     _DEFVAL(0);
+extern SIPpSocket   *main_socket                  DEFVAL(NULL);
+extern SIPpSocket   *main_remote_socket           DEFVAL(NULL);
+extern SIPpSocket   *tcp_multiplex                DEFVAL(NULL);
+extern int media_socket_audio                     DEFVAL(0);
+extern int media_socket_video                     DEFVAL(0);
 
 extern struct sockaddr_storage local_sockaddr;
 extern struct sockaddr_storage localTwin_sockaddr;
-extern int           user_port                    _DEFVAL(0);
+extern int           user_port                    DEFVAL(0);
 extern char          hostname[80];
 
-extern int           reset_number                 _DEFVAL(0);
-extern bool          reset_close                  _DEFVAL(true);
-extern int           reset_sleep                  _DEFVAL(1000);
-extern bool          sendbuffer_warn              _DEFVAL(false);
+extern int           reset_number                 DEFVAL(0);
+extern bool          reset_close                  DEFVAL(true);
+extern int           reset_sleep                  DEFVAL(1000);
+extern bool          sendbuffer_warn              DEFVAL(false);
 /* A list of sockets pending reset. */
 extern set<SIPpSocket*> sockets_pending_reset;
 
 extern struct sockaddr_storage local_addr_storage;
 
-extern SIPpSocket   *twinSippSocket               _DEFVAL(NULL);
-extern SIPpSocket   *localTwinSippSocket          _DEFVAL(NULL);
+extern SIPpSocket   *twinSippSocket               DEFVAL(NULL);
+extern SIPpSocket   *localTwinSippSocket          DEFVAL(NULL);
 extern struct sockaddr_storage twinSipp_sockaddr;
 
 /* 3pcc extended mode */
@@ -451,11 +451,11 @@ extern peer_map      peers;
 typedef std::map<SIPpSocket*, std::string> peer_socket_map;
 extern peer_socket_map peer_sockets;
 extern SIPpSocket *local_sockets[MAX_LOCAL_TWIN_SOCKETS];
-extern int           local_nb                    _DEFVAL(0);
-extern int           peers_connected             _DEFVAL(0);
+extern int           local_nb                    DEFVAL(0);
+extern int           peers_connected             DEFVAL(0);
 
 extern struct sockaddr_storage remote_sockaddr;
-extern short         use_remote_sending_addr      _DEFVAL(0);
+extern short         use_remote_sending_addr      DEFVAL(0);
 extern struct sockaddr_storage remote_sending_sockaddr;
 
 enum E_Alter_YesNo {

@@ -8,33 +8,33 @@
 
 #ifdef GLOBALS_FULL_DEFINITION
 #define extern
-#define _DEFVAL(value) = value
+#define DEFVAL(value) = value
 #else
-#define _DEFVAL(value)
+#define DEFVAL(value)
 #endif
 
-extern FILE * screenf                             _DEFVAL(0);
-extern FILE * countf                              _DEFVAL(0);
-extern FILE * codesf                              _DEFVAL(0);
-// extern FILE * timeoutf                            _DEFVAL(0);
-extern bool   useMessagef                         _DEFVAL(0);
-extern bool   useErrorCodesf                      _DEFVAL(0);
-extern bool   useCallDebugf                       _DEFVAL(0);
-extern bool   useShortMessagef                    _DEFVAL(0);
-extern bool   useScreenf                          _DEFVAL(0);
-extern bool   useLogf                             _DEFVAL(0);
-// extern bool   useTimeoutf                         _DEFVAL(0);
-extern bool   dumpInFile                          _DEFVAL(0);
-extern bool   dumpInRtt                           _DEFVAL(0);
-extern bool   useCountf                           _DEFVAL(0);
+extern FILE * screenf                             DEFVAL(0);
+extern FILE * countf                              DEFVAL(0);
+extern FILE * codesf                              DEFVAL(0);
+// extern FILE * timeoutf                            DEFVAL(0);
+extern bool   useMessagef                         DEFVAL(0);
+extern bool   useErrorCodesf                      DEFVAL(0);
+extern bool   useCallDebugf                       DEFVAL(0);
+extern bool   useShortMessagef                    DEFVAL(0);
+extern bool   useScreenf                          DEFVAL(0);
+extern bool   useLogf                             DEFVAL(0);
+// extern bool   useTimeoutf                         DEFVAL(0);
+extern bool   dumpInFile                          DEFVAL(0);
+extern bool   dumpInRtt                           DEFVAL(0);
+extern bool   useCountf                           DEFVAL(0);
 extern char * slave_cfg_file;
 
-extern unsigned long long max_log_size            _DEFVAL(0);
-extern unsigned long long ringbuffer_size         _DEFVAL(0);
-extern int    ringbuffer_files                    _DEFVAL(0);
+extern unsigned long long max_log_size            DEFVAL(0);
+extern unsigned long long ringbuffer_size         DEFVAL(0);
+extern int    ringbuffer_files                    DEFVAL(0);
 
 extern char   screen_last_error[32768];
-extern char   screen_logfile[MAX_PATH]            _DEFVAL("");
+extern char   screen_logfile[MAX_PATH]            DEFVAL("");
 /* Log Rotation Functions. */
 struct logfile_id {
     time_t start;
