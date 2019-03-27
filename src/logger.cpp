@@ -52,7 +52,7 @@ double last_rtpstream_rate_out = 0;
 double last_rtpstream_rate_in = 0;
 #endif
 
-extern void print_stats_in_file(FILE * f);
+void print_stats_in_file(FILE * f);
 
 bool do_hide = true;
 bool show_index = false;
@@ -952,84 +952,73 @@ void rotate_errorf()
     strcpy(screen_logfile, error_lfi.file_name);
 }
 
+static int _trace(struct logfile_info* lfi, const char* fmt, va_list ap)
+{
+    int ret = 0;
+    if(lfi->fptr) {
+        ret = vfprintf(lfi->fptr, fmt, ap);
+        fflush(lfi->fptr);
 
-/*#ifdef __cplusplus
-extern "C" {
-#endif
- * w
-*/
-    static int _trace(struct logfile_info* lfi, const char* fmt, va_list ap)
-    {
-        int ret = 0;
-        if(lfi->fptr) {
-            ret = vfprintf(lfi->fptr, fmt, ap);
-            fflush(lfi->fptr);
+        lfi->count += ret;
 
-            lfi->count += ret;
-
-            if (max_log_size && lfi->count > max_log_size) {
-                fclose(lfi->fptr);
-                lfi->fptr = NULL;
-            }
-
-            if (ringbuffer_size && lfi->count > ringbuffer_size) {
-                rotatef(lfi);
-                lfi->count = 0;
-            }
+        if (max_log_size && lfi->count > max_log_size) {
+            fclose(lfi->fptr);
+            lfi->fptr = NULL;
         }
-        return ret;
+
+        if (ringbuffer_size && lfi->count > ringbuffer_size) {
+            rotatef(lfi);
+            lfi->count = 0;
+        }
     }
-
-
-    int TRACE_MSG(const char *fmt, ...)
-    {
-        int ret;
-        va_list ap;
-
-        va_start(ap, fmt);
-        ret = _trace(&message_lfi, fmt, ap);
-        va_end(ap);
-
-        return ret;
-    }
-
-    int TRACE_SHORTMSG(const char *fmt, ...)
-    {
-        int ret;
-        va_list ap;
-
-        va_start(ap, fmt);
-        ret = _trace(&shortmessage_lfi, fmt, ap);
-        va_end(ap);
-
-        return ret;
-    }
-
-    int LOG_MSG(const char *fmt, ...)
-    {
-        int ret;
-        va_list ap;
-
-        va_start(ap, fmt);
-        ret = _trace(&log_lfi, fmt, ap);
-        va_end(ap);
-
-        return ret;
-    }
-
-    int TRACE_CALLDEBUG(const char *fmt, ...)
-    {
-        int ret;
-        va_list ap;
-
-        va_start(ap, fmt);
-        ret = _trace(&calldebug_lfi, fmt, ap);
-        va_end(ap);
-
-        return ret;
-    }
-/*
-#ifdef __cplusplus
+    return ret;
 }
-#endif
-*/
+
+
+int TRACE_MSG(const char *fmt, ...)
+{
+    int ret;
+    va_list ap;
+
+    va_start(ap, fmt);
+    ret = _trace(&message_lfi, fmt, ap);
+    va_end(ap);
+
+    return ret;
+}
+
+int TRACE_SHORTMSG(const char *fmt, ...)
+{
+    int ret;
+    va_list ap;
+
+    va_start(ap, fmt);
+    ret = _trace(&shortmessage_lfi, fmt, ap);
+    va_end(ap);
+
+    return ret;
+}
+
+int LOG_MSG(const char *fmt, ...)
+{
+    int ret;
+    va_list ap;
+
+    va_start(ap, fmt);
+    ret = _trace(&log_lfi, fmt, ap);
+    va_end(ap);
+
+    return ret;
+}
+
+int TRACE_CALLDEBUG(const char *fmt, ...)
+{
+    int ret;
+    va_list ap;
+
+    va_start(ap, fmt);
+    ret = _trace(&calldebug_lfi, fmt, ap);
+    va_end(ap);
+
+    return ret;
+}

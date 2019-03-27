@@ -21,8 +21,8 @@
 #ifndef __SIPP_TIME_H__
 #define __SIPP_TIME_H__
 
-extern unsigned long getmilliseconds();
-extern unsigned long long getmicroseconds();
+unsigned long getmilliseconds();
+unsigned long long getmicroseconds();
 void sipp_usleep(unsigned long usec);
 
 #endif /* __SIPP_TIME_H__ */

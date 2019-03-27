@@ -265,6 +265,6 @@ bool get_bool(const char *ptr, const char *what);
 int time_string(double ms, char *res, int reslen);
 int get_var(const char *varName, const char *what);
 
-extern int get_cr_number(const char *msg);
+int get_cr_number(const char *msg);
 
 #endif

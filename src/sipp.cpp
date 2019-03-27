@@ -405,10 +405,7 @@ static struct sipp_option *find_option(const char* option) {
 extern unsigned pollnfds;
 #ifdef HAVE_EPOLL
 extern int epollfd;
-extern struct epoll_event   epollfiles[SIPP_MAXFDS];
 extern struct epoll_event*  epollevents;
-#else
-extern struct pollfd        pollfiles[SIPP_MAXFDS];
 #endif
 
 extern SIPpSocket  *sockets[SIPP_MAXFDS];

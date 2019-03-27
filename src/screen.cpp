@@ -40,12 +40,9 @@
 
 #include <unistd.h>
 
-extern bool    timeout_exit;
-
 unsigned long screen_errors;
 int           screen_inited = 0;
 char          screen_exename[255];
-extern bool   backgroundMode;
 
 /* ERR is actually -1, but this prevents us from needing to use curses.h in
  * sipp.cpp. */
