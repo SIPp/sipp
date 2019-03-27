@@ -159,6 +159,7 @@ unsigned int call::wake()
     return wake;
 }
 
+#if defined(PCAPPLAY) || defined(RTP_STREAM) || defined(GTEST)
 static std::string find_in_sdp(std::string const &pattern, std::string const &msg)
 {
     std::string::size_type begin, end;
@@ -176,6 +177,7 @@ static std::string find_in_sdp(std::string const &pattern, std::string const &ms
 
     return msg.substr(begin, end - begin);
 }
+#endif
 
 #ifdef PCAPPLAY
 void call::get_remote_media_addr(std::string const &msg)
