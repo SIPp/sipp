@@ -404,6 +404,10 @@ static const char* internal_find_header(const char* msg, const char* name, const
         /* Seek to next line, but not past EOH */
         ptr = strchr(ptr, '\n');
         if (!ptr || ptr[-1] != '\r' || (ptr[1] == '\r' && ptr[2] == '\n')) {
+            if (ptr && ptr[-1] != '\r') {
+                WARNING("Missing CR during header scan at pos %ld", ptr - msg);
+                /* continue? */
+            }
             return NULL;
         }
         ++ptr;
@@ -504,6 +508,55 @@ TEST(Parser, internal_find_header) {
     const char *eq = strstr(data, "To\t :");
     EXPECT_STREQ(eq, internal_find_header(data, "To", "t", false));
     EXPECT_STREQ(eq + 8, internal_find_header(data, "To", "t", true));
+}
+
+TEST(Parser, internal_find_header_no_callid_missing_cr_in_to) {
+    char data[4096];
+    const char *pos;
+    const char *p;
+
+    /* If you remove the CR ("\r") from any header before the Call-ID,
+     * the Call-ID will not be found. */
+    strncpy(data, "INVITE sip:3136455552@85.12.1.1:5065 SIP/2.0\r\n\
+Via: SIP/2.0/UDP 85.55.55.12:5060;branch=z9hG4bK831a.2bb3de85.0\r\n\
+From: \"3136456666\" <sip:104@sbc.profxxx.xx>;tag=b62e0d72-be14-4d3c-bd6a-b4da593b6b17\r\n\
+To: <sip:3136455552@sbc2.profxxx.xx>\n\
+Contact: <sip:85.55.55.12;did=a19.a2e590e>\r\n\
+Call-ID: DLGCH_K0IEXzVwYzJiQlwKMGRkMX5GSAxiKmJ+exQADWYsZ2QsFQFb\r\n\
+CSeq: 6476 INVITE\r\n\
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER\r\n\
+Supported: 100rel, timer, replaces, norefersub\r\n\
+Session-Expires: 1800\r\n\
+Min-SE: 90\r\n\
+Max-Forwards: 70\r\n\
+Content-Type: application/sdp\r\n\
+Content-Length: 278\r\n\
+\r\n\
+v=0\r\n\
+o=- 592907310 592907310 IN IP4 85.55.55.30\r\n\
+s=Centrex v.1.0\r\n\
+c=IN IP4 85.55.55.30\r\n\
+t=0 0\r\n\
+m=audio 41604 RTP/AVP 8 0 101\r\n\
+a=rtpmap:8 PCMA/8000\r\n\
+a=rtpmap:0 PCMU/8000\r\n\
+a=rtpmap:101 telephone-event/8000\r\n\
+a=fmtp:101 0-16\r\n\
+a=ptime:20\r\n\
+a=maxptime:150\r\n\
+a=sendrecv\r\n\
+a=rtcp:41605\r\n\
+", sizeof(data) - 1);
+
+    if ((pos = internal_find_header(data, "Call-ID", "i", false)) && (p = strchr(pos, '\r'))) {
+        data[p - data] = '\0';
+        /* Unexpected.. */
+        ASSERT_FALSE(1);
+        EXPECT_STREQ(pos, "Call-ID: DLGCH_K0IEXzVwYzJiQlwKMGRkMX5GSAxiKmJ+exQADWYsZ2QsFQFb");
+    } else {
+        /* Not finding any, because of missing CR. */
+        ASSERT_TRUE(1);
+    }
 }
 
 TEST(Parser, get_peer_tag__notag) {
