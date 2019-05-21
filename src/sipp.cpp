@@ -252,7 +252,7 @@ struct sipp_option options_table[] = {
     {"inf", "Inject values from an external CSV file during calls into the scenarios.\n"
      "First line of this file say whether the data is to be read in sequence (SEQUENTIAL), random (RANDOM), or user (USER) order.\n"
      "Each line corresponds to one call and has one or more ';' delimited data fields. Those fields can be referred as [field0], [field1], ... in the xml scenario file.  Several CSV files can be used simultaneously (syntax: -inf f1.csv -inf f2.csv ...)", SIPP_OPTION_INPUT_FILE, NULL, 1},
-    {"infindex", "file field\nCreate an index of file using field.  For example -inf users.csv -infindex users.csv 0 creates an index on the first key.", SIPP_OPTION_INDEX_FILE, NULL, 1 },
+    {"infindex", "file field\nCreate an index of file using field.  For example -inf ../path/to/users.csv -infindex users.csv 0 creates an index on the first key.", SIPP_OPTION_INDEX_FILE, NULL, 1 },
     {"ip_field", "Set which field from the injection file contains the IP address from which the client will send its messages.\n"
      "If this option is omitted and the '-t ui' option is present, then field 0 is assumed.\n"
      "Use this option together with '-t ui'", SIPP_OPTION_INT, &peripfield, 1},

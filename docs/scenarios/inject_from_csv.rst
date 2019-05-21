@@ -141,11 +141,10 @@ following)::
     carol,pass_C
 
 
-You may want to extract the password for a given user in the file. To
-do this efficiently, SIPp must build an index for the first field (0).
-Thus you would pass the argument -infindex users.csv 0 (assuming the
-file is named users.csv). SIPp will create an index that contains the
-logical entries {"alice" => 0, "bob" => 1, "carol" => 2}. To extract a
-particular password, you can use the lookup action to store the line
-number into a variable (say $line) and then use the keyword[field1
-line="[$line]"].
+You may want to extract the password for a given user in the file. To do this
+efficiently, SIPp must build an index for the first field (0).  Thus you would
+pass the argument ``-infindex users.csv 0`` (assuming the file basename is
+``users.csv``). SIPp will create an index that contains the logical entries
+``{"alice" => 0, "bob" => 1, "carol" => 2}``. To extract a particular password,
+you can use the lookup action to store the line number into a variable (say
+``$line``) and then use the keyword ``[field1 line="[$line]"]``.
