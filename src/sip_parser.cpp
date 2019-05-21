@@ -144,7 +144,7 @@ char* get_header(const char* message, const char* name, bool content)
     if (!cptr) {
         src_orig = strdup(message);
     } else if ((src_orig = (char*)malloc(cptr - message + 1))) {
-        src_orig[cptr - message + 1] = '\0';
+        src_orig[cptr - message] = '\0';
         memcpy(src_orig, message, cptr - message);
     }
     if (!src_orig) {
