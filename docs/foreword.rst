@@ -2,7 +2,7 @@ Foreword
 ~~~~~~~~
 
 Warning
-This version of the documentation is for SIPp 3.4 and describes some
+This version of the documentation is for SIPp |version| and describes some
 features not present in earlier versions. See the sidebar to access
 documentation for previous versions.
 SIPp is a performance testing tool for the SIP protocol. It includes a
