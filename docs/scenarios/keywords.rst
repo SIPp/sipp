@@ -2,6 +2,9 @@
 Keyword list
 ============
 
+*If you want a literal left bracket instead of a keyword, use* ``\x5b`` *where you want a* ``[``.
+
+
 ``[service]``
 =============
 :Default: (service)
