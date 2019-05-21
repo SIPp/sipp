@@ -36,11 +36,16 @@
  */
 
 #include <dlfcn.h>
-
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#ifdef __APPLE__
+/* Provide OSX version of extern char **environ; */
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
+#endif
 
 #define GLOBALS_FULL_DEFINITION
 #include "sipp.hpp"
