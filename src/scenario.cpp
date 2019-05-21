@@ -999,6 +999,12 @@ scenario::scenario(char * filename, int deflt)
 
     free(method_list);
 
+    /* Close scenario element */
+    xp_close_element();
+    if (xp_is_invalid()) {
+        ERROR("Invalid XML in scenario");
+    }
+
     str_int_map::iterator label_it = labelMap.find("_unexp.main");
     if (label_it != labelMap.end()) {
         unexpected_jump = label_it->second;
@@ -1701,15 +1707,16 @@ void scenario::getActionForThisMessage(message *message)
 {
     char *        actionElem;
 
-    if(!(actionElem = xp_open_element(0))) {
+    if (!(actionElem = xp_open_element(0))) {
         return;
     }
-    if(strcmp(actionElem, "action")) {
+    if (strcmp(actionElem, "action")) {
+        xp_close_element();
         return;
     }
 
     /* We actually have an action element. */
-    if(message->M_actions != NULL) {
+    if (message->M_actions != NULL) {
         ERROR("Duplicate action for %s index %d", message->desc, message->index);
     }
     message->M_actions = new CActions();

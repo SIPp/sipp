@@ -48,11 +48,55 @@
 #define XP_MAX_FILE_LEN   65536
 #define XP_MAX_STACK_LEN  256
 
-char  xp_file     [XP_MAX_FILE_LEN + 1];
-char *xp_position [XP_MAX_STACK_LEN];
-int   xp_stack    = 0;
+static char  xp_file[XP_MAX_FILE_LEN + 1];
+static char *xp_position[XP_MAX_STACK_LEN];
+static int   xp_stack = 0;
+static int   xp_stack_invalid = 0;
+
+static char  xp_history[XP_MAX_FILE_LEN + 1];
+static char *xp_history_pos;
+#define xp_history_reset() do { \
+    xp_history[0] = xp_history[1] = '\0'; \
+    xp_history_pos = &xp_history[0]; \
+    } while(0)
+#define xp_history_push(n) do { \
+    strcpy(xp_history_pos + 1, n); \
+    xp_history_pos += strlen(n) + 1; \
+    /*xp_history_debug();*/ \
+    } while(0)
+#define xp_history_pop() do { \
+    while (xp_history_pos > xp_history && *--xp_history_pos != '\0'); \
+    /*xp_history_debug();*/ \
+    } while(0)
 
 /****************** Internal routines ********************/
+
+static const char *find_first_of(const char *ptr, const char *needles, const char *end) {
+    while (ptr < end) {
+        const char *q;
+        for (q = needles; *q; ++q) {
+            if (*ptr == *q) {
+                return ptr;
+            }
+        }
+        ++ptr;
+    }
+    return NULL;
+}
+
+static void extract_name(char *name, const char *ptr, const char **end) {
+    const char *p;
+    name[0] = '\0';
+    if (!*end || *end < ptr) {
+        return;
+    }
+    p = find_first_of(ptr, " \t\r\n/>", *end);
+    if (p) {
+        *end = p;
+    }
+    memcpy(name, ptr, *end - ptr);
+    name[*end - ptr] = '\0';
+}
 
 static const char *xp_find_escape(const char *escape, size_t len)
 {
@@ -74,6 +118,20 @@ static const char *xp_find_escape(const char *escape, size_t len)
     }
     return NULL;
 }
+
+#if 0
+static void xp_history_debug() {
+    char *p = &xp_history[0];
+    fprintf(stderr, "DBG:");
+    for (;;) {
+        if (p >= xp_history_pos)
+            break;
+        fprintf(stderr, " %s", p + 1);
+        p += strlen(p + 1) + 1;
+    }
+    fprintf(stderr, "\n");
+}
+#endif
 
 /* This finds the end of something like <send foo="bar">, and does not recurse
  * into other elements. */
@@ -222,7 +280,8 @@ int xp_set_xml_buffer_from_string(const char *str)
     }
 
     strcpy(xp_file, str);
-    xp_stack = 0;
+    xp_stack = xp_stack_invalid = 0;
+    xp_history_reset();
     xp_position[xp_stack] = xp_file;
 
     if (!strstartswith(xp_position[xp_stack], "<?xml"))
@@ -251,7 +310,8 @@ int xp_set_xml_buffer_from_file(const char *filename)
         xp_file[index++] = c;
         if (index >= XP_MAX_FILE_LEN) {
             xp_file[index++] = 0;
-            xp_stack = 0;
+            xp_stack = xp_stack_invalid = 0;
+            xp_history_reset();
             xp_position[xp_stack] = xp_file;
             fclose(f);
             return 0;
@@ -260,7 +320,8 @@ int xp_set_xml_buffer_from_file(const char *filename)
     xp_file[index++] = 0;
     fclose(f);
 
-    xp_stack = 0;
+    xp_stack = xp_stack_invalid = 0;
+    xp_history_reset();
     xp_position[xp_stack] = xp_file;
 
     if (!strstartswith(xp_position[xp_stack], "<?xml"))
@@ -276,7 +337,12 @@ char *xp_open_element(int index)
 {
     char *ptr = xp_position[xp_stack];
     int level = 0;
+    int index_left = index;
     static char name[XP_MAX_NAME_LEN];
+
+    if (index > 0) {
+        xp_history_pop();
+    }
 
     while (*ptr) {
         if (*ptr == '<') {
@@ -305,70 +371,77 @@ char *xp_open_element(int index)
                     return NULL;
                 ptr = xmlmodel_end;
             } else if (*(ptr+1) == '/') {
+                char *end = xp_find_start_tag_end(ptr + 2);
+                if (!end) {
+                    return NULL;
+                }
+                extract_name(name, ptr + 2, (const char**)&end);
+
                 level--;
                 if (level < 0)
                     return NULL;
+
+                xp_history_pop();
+                if (strcmp(xp_history_pos + 1, name) && !xp_stack_invalid) {
+                    xp_stack_invalid = 1;
+                    fprintf(stderr, "Unexpected </%s> (expected </%s>)\n",
+                        name, xp_history_pos + 1);
+                }
             } else {
+                char *end = xp_find_start_tag_end(ptr + 1);
+                if (!end) {
+                    return NULL;
+                }
+                extract_name(name, ptr + 1, (const char**)&end);
+                xp_history_push(name);
+
                 if (level == 0) {
-                    if (index) {
-                        index--;
+                    if (index_left) {
+                        index_left--;
                     } else {
-                        char *end = xp_find_start_tag_end(ptr + 1);
-                        char *p;
-                        if (!end) {
-                            return NULL;
-                        }
-                        p = strchr(ptr, ' ');
-                        if (p && (p < end))  {
-                            end = p;
-                        }
-                        p = strchr(ptr, '\t');
-                        if (p && (p < end))  {
-                            end = p;
-                        }
-                        p = strchr(ptr, '\r');
-                        if (p && (p < end))  {
-                            end = p;
-                        }
-                        p = strchr(ptr, '\n');
-                        if (p && (p < end))  {
-                            end = p;
-                        }
-                        p = strchr(ptr, '/');
-                        if (p && (p < end))  {
-                            end = p;
-                        }
-
-                        memcpy(name, ptr + 1, end-ptr-1);
-                        name[end-ptr-1] = 0;
-
                         xp_position[++xp_stack] = end;
                         return name;
                     }
                 }
 
                 /* We want to skip over this particular element .*/
-                ptr = xp_find_start_tag_end(ptr + 1);
-                if (!ptr)
-                    return NULL;
-                ptr--;
+                ptr = end - 1;
                 level++;
             }
         } else if ((*ptr == '/') && (*(ptr+1) == '>')) {
             level--;
             if (level < 0)
                 return NULL;
+            xp_history_pop();
         }
         ptr++;
     }
     return NULL;
 }
 
-void xp_close_element(void)
+void xp_close_element()
 {
-    if (xp_stack) {
-        xp_stack--;
+    if (!xp_stack) {
+        xp_stack_invalid = 1;
+        return;
     }
+    xp_stack--;
+}
+
+int xp_is_invalid(void)
+{
+    const char *elem;
+    if (xp_stack_invalid) {
+        return 1;
+    }
+    if (xp_stack) {
+        return 1;
+    }
+    if ((elem = xp_open_element(1))) { /* anything after <scenario>? */
+        xp_close_element();
+        return 1;
+    }
+    return 0;
 }
 
 const char *xp_get_value(const char *name)

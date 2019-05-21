@@ -44,6 +44,7 @@ Features added in 3.6.0
   `--with-rtpstream` and use it by adding `<rtp_echo value="0">` to stop
   the RTP echo enabled via `-rtp_echo`. RTP echo can be restarted via
   `<rtp_echo value="1">` action. Usage example in `regress/github-#0259/uas.xml`
+* Add quick and dirty detection of invalid XML (issue #322).
 
 
 Bugs fixed in 3.5.2
