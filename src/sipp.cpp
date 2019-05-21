@@ -37,6 +37,11 @@
 
 #include <dlfcn.h>
 
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
 #define GLOBALS_FULL_DEFINITION
 #include "sipp.hpp"
 
@@ -720,10 +725,95 @@ static char* wrap(const char* in, int offset, int size)
     return out;
 }
 
+/* If stdout is a TTY, wrap stdout in a call to PAGER (generally less(1)).
+ * Returns a pid_t you'll have to pass to end_pager(). */
+static pid_t begin_pager() {
+    char pager[15] = "/usr/bin/pager";
+    char *argv[2] = {NULL, NULL};
+
+    int stdout_fd = fileno(stdout);
+    int read_write[2];
+    pid_t ret;
+
+    if (!isatty(stdout_fd)) {
+        return 0;
+    }
+
+    /* Get pager first, so we can bail if it's not there */
+    argv[0] = getenv("PAGER");
+    if (!argv[0]) {
+        argv[0] = pager; /* missing PAGER */
+    } else if (!*argv[0]) {
+        return 0; /* blank PAGER */
+    }
+
+    /* Should use euidaccess(3), but requires _GNU_SOURCE */
+    if (access(argv[0], X_OK) < 0) {
+        perror(argv[0]);
+        return 0;
+    }
+
+    /* Set up pipes and fork */
+    if (pipe(&read_write[0]) < 0) {
+        perror("pipe");
+        return 0;
+    }
+    if ((ret = fork()) < 0) {
+        perror("fork");
+        return 0;
+    }
+
+    /* Switch stdout FD in parent */
+    if (ret != 0) {
+        fflush(stdout);
+        close(stdout_fd);
+        close(read_write[0]);
+        if (dup2(read_write[1], stdout_fd) < 0) {
+            perror("dup2");
+        } else {
+            close(read_write[1]);
+        }
+        return ret;
+    }
+
+    /* Switch stdin FD and start pager in child */
+    if (setenv("LESS", "FRX", 1) < 0) {
+        perror("setenv");
+    }
+
+    close(STDIN_FILENO);
+    close(read_write[1]);
+    if (dup2(read_write[0], STDIN_FILENO) < 0) {
+        perror("dup2");
+    } else {
+        close(read_write[0]);
+    }
+    execve(argv[0], argv, environ);
+
+    /* This was not supposed to happen. Missing binary? */
+    perror("execve");
+    return 0;
+}
+
+/* Make sure we flush and close, or the child won't get all the data (and know
+ * when we're done). Wait for the child to exit first. */
+void end_pager(pid_t pager) {
+    fflush(stdout);
+    fclose(stdout);
+    while (pager != 0) {
+        int wstatus;
+        if (waitpid(pager, &wstatus, 0) == pager) {
+            pager = 0;
+        }
+    }
+}
+
 /* Help screen */
 static void help()
 {
     int i, max;
+
+    pid_t pager = begin_pager();
 
     printf
     ("\n"
@@ -785,6 +875,8 @@ static void help()
         "   99: Normal exit without calls processed\n"
         "   -1: Fatal error\n"
         "   -2: Fatal error binding a socket\n");
+
+    end_pager(pager);
 }
 
 

@@ -11,6 +11,7 @@ Changes in 3.6.0
 
 * BEWARE: Only validates SSL certficate if CA-file is separately specified!
   (PR #335, by Patrick Wildt @bluerise.)
+* Added PAGER by default to the extremely large sipp help output.
 * Removed unused RTPStream code concerning video streams. Also
   consolidated the rtpstream audio port usage to reuse the global
   `[media_port]` instead of the `[rtpstream_audio_port]`.
