@@ -3,6 +3,7 @@ Bugs fixed in 3.6.0
 
 * Fix `[routes]` header in UAS scenario's. (Issue #262, reported by
   Stefan Mititelu (@smititelu).)
+* last\_Keyword does not search in SIP body anymore (#207, reported by Zoltan).
 
 
 Changes in 3.6.0
@@ -74,7 +75,6 @@ Bugs:
 * Fix TLS issues for during high load. (Issue #241, #243, reported by sgel83,
   and fixes by Rob Day.)
 * Fix problem with `get_inet_address` on FreeBSD (#331, reported by tsgan.)
-* last\_Keyword does not search in SIP body anymore (#207, reported by Zoltan).
 * Retry video RTP bind if port is taken (#276, thanks Corey Farrell).
 
 Tests:
