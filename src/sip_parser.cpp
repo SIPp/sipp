@@ -119,6 +119,7 @@ char* get_header(const char* message, const char* name, bool content)
 {
     /* non reentrant. consider accepting char buffer as param */
     static char last_header[MAX_HEADER_LEN * 10];
+    const char *cptr;
     char *src, *src_orig, *dest, *start, *ptr;
     /* Are we searching for a short form header? */
     bool short_form = false;
@@ -138,7 +139,18 @@ char* get_header(const char* message, const char* name, bool content)
         return last_header;
     }
 
-    src_orig = strdup(message);
+    /* find end of SIP headers - perform search only until that */
+    cptr = strstr(message, "\r\n\r\n");
+    if (!cptr) {
+        src_orig = strdup(message);
+    } else if ((src_orig = (char*)malloc(cptr - message + 1))) {
+        src_orig[cptr - message + 1] = '\0';
+        memcpy(src_orig, message, cptr - message);
+    }
+    if (!src_orig) {
+        ERROR("Out of memory");
+        return last_header;
+    }
 
     do {
         /* We want to start from the beginning of the message each time

@@ -8,6 +8,8 @@ Bugs fixed in 3.6.0
 Changes in 3.6.0
 ================
 
+* BEWARE: Only validates SSL certficate if CA-file is separately specified!
+  (PR #335, by Patrick Wildt @bluerise.)
 * Removed unused RTPStream code concerning video streams. Also
   consolidated the rtpstream audio port usage to reuse the global
   `[media_port]` instead of the `[rtpstream_audio_port]`.
@@ -22,8 +24,6 @@ Changes in 3.6.0
 Features added in 3.6.0
 =======================
 
-* BEWARE: Only validated SSL certficate if CA-file is separately specified!
-  (PR #335, by Patrick Wildt @bluerise.)
 * Added `play_dtmf` code originally from
   https://sourceforge.net/p/sipp/patches/50/ (Dmitry Kunilov), then
   pull #82 (@horacimacias) and then #141 (@vodik). Compile with
@@ -74,6 +74,7 @@ Bugs:
 * Fix TLS issues for during high load. (Issue #241, #243, reported by sgel83,
   and fixes by Rob Day.)
 * Fix problem with `get_inet_address` on FreeBSD (#331, reported by tsgan.)
+* last\_Keyword does not search in SIP body anymore (#207, reported by Zoltan).
 * Retry video RTP bind if port is taken (#276, thanks Corey Farrell).
 
 Tests:
