@@ -175,7 +175,7 @@ or -oocsn command line options.
 ````
 
 3PCC stands for 3rd Party Call Control. 3PCC is described in
-:rfc:`3725`. While this feature was first developed to allow 3PCC like
+:RFC:`3725`. While this feature was first developed to allow 3PCC like
 scenarios, it can also be used for every case where you would need one
 SIPp to talk to several remotes.
 

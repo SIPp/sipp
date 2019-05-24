@@ -38,7 +38,7 @@ When it is activated and a SIP message is sent and no ACK or response
 is received in answer to this message, the message is re-sent.
 
 .. note::
-  The retransmission mechanism follows RFC 3261, section 17.1.1.2.
+  The retransmission mechanism follows :RFC:`3261`, section 17.1.1.2.
   Retransmissions are differentiated between INVITE and non-INVITE
   methods.
 

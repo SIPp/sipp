@@ -80,10 +80,11 @@ Code  Description
 ====  ===========
 0     All calls were successful
 1     At least one call failed
-97    exit on internal command. Calls may have been processed. Also
+97    Exit on internal command. Calls may have been processed. Also
       exit on global timeout (see -timeout_global option)
 99    Normal exit without calls processed
-1     Fatal error
+-1    Fatal error
+-2    Fatal error binding a socket
 ====  ===========
 
 Depending on the system that SIPp is running on, you can echo this
