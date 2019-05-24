@@ -200,12 +200,12 @@ List of commands with their attributes
     * - **<send>**
       - retrans
       - Used for UDP transport only: it specifies the T1 timer value, as described in SIP
-        RFC 3261, section 17.1.1.2.
+        :RFC:`3261`, section 17.1.1.2.
       - ::
 
           <send retrans="500">
 
-        will initiate T1 timer to 500 milliseconds (RFC3261 default).
+        will initiate T1 timer to 500 milliseconds (:RFC:`3261` default).
     * -
       - ``lost``
       - Emulate packet lost. The value is specified as a percentage.
