@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include "sipp.hpp"
 #include "socket.hpp"
 #include "logger.hpp"
@@ -755,9 +756,9 @@ int SIPpSocket::check_for_message()
     socketbuf->buf[socketbuf->offset + len] = '\0';
 
     /* Find the content-length header. */
-    if ((l = strcasestr(socketbuf->buf + socketbuf->offset, "\r\nContent-Length:"))) {
+    if ((l = strstr(socketbuf->buf + socketbuf->offset, "\r\nContent-Length:"))) {
         l += strlen("\r\nContent-Length:");
-    } else if ((l = strcasestr(socketbuf->buf + socketbuf->offset, "\r\nl:"))) {
+    } else if ((l = strstr(socketbuf->buf + socketbuf->offset, "\r\nl:"))) {
         l += strlen("\r\nl:");
     }
 

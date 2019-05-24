@@ -23,6 +23,9 @@
 #ifndef __SIPP_SIP_PARSER_H__
 #define __SIPP_SIP_PARSER_H__
 
+#include <ctype.h>
+#include <string.h>
+
 #define MAX_HEADER_LEN 2049
 
 char *get_call_id(const char* msg);
