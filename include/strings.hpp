@@ -21,8 +21,6 @@
 #ifndef __SIPP_STRINGS_H__
 #define __SIPP_STRINGS_H__
 
-#include <cstddef>
-
 int get_decimal_from_hex(char hex);
 void get_host_and_port(const char *addr, char *host, int *port);
 void trim(char *s);

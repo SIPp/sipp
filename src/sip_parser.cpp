@@ -37,11 +37,14 @@
  *           Walter Doekes
  */
 
-#include <string.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE /* needed for strcasestr on cygwin */
+#endif
+
 #include <stdlib.h>
+#include <string.h>
 
 #include "screen.hpp"
-#include "strings.hpp"
 #include "sip_parser.hpp"
 
 /*************************** Mini SIP parser (internals) ***************/

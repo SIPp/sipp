@@ -35,9 +35,15 @@
  *           Michael Hirschbichler
  */
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE /* needed for strcasestr on cygwin */
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+
 #include "sipp.hpp"
 #include "socket.hpp"
 #include "logger.hpp"
