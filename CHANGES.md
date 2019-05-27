@@ -1,3 +1,13 @@
+BREAKING(!) changes in 3.6.0
+============================
+
+* Automatic filenames (trace files, error files, etc..) are now created in
+  the current working directory instead of in the directory of the scenario
+  file. (Issue #399, reported by @sergey-safarov.)
+* Only validates SSL certficate if CA-file is separately specified!
+  (PR #335, by Patrick Wildt @bluerise.)
+
+
 Bugs fixed in 3.6.0
 ===================
 
@@ -9,8 +19,6 @@ Bugs fixed in 3.6.0
 Changes in 3.6.0
 ================
 
-* BEWARE: Only validates SSL certficate if CA-file is separately specified!
-  (PR #335, by Patrick Wildt @bluerise.)
 * Added PAGER by default to the extremely large sipp help output.
 * Removed unused RTPStream code concerning video streams. Also
   consolidated the rtpstream audio port usage to reuse the global

@@ -45,13 +45,16 @@
 #include <iterator>
 #include <sstream>
 #include <vector>
+
+#include <assert.h>
+#include <stdarg.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <assert.h>
 
 #ifdef PCAPPLAY
 #include "send_packets.h"
 #endif
+
 #include "sipp.hpp"
 #include "auth.hpp"
 #include "deadcall.hpp"
@@ -1060,28 +1063,29 @@ char * call::send_scene(int index, int *send_status, int *len)
 void call::do_bookkeeping(message *curmsg)
 {
     /* If this message increments a counter, do it now. */
-    if(int counter = curmsg -> counter) {
-        computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, counter - 1);
+    if (curmsg -> counter) {
+        computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, curmsg->counter - 1);
     }
 
     /* If this message can be used to compute RTD, do it now */
-    if(int rtd = curmsg -> start_rtd) {
-        start_time_rtd[rtd - 1] = getmicroseconds();
+    if (curmsg->start_rtd) {
+        start_time_rtd[curmsg->start_rtd - 1] = getmicroseconds();
     }
 
-    if(int rtd = curmsg -> stop_rtd) {
+    if (curmsg->stop_rtd) {
+        int rtd = curmsg->stop_rtd;
         if (!rtd_done[rtd - 1]) {
             unsigned long long start = start_time_rtd[rtd - 1];
             unsigned long long end = getmicroseconds();
 
-            if(dumpInRtt) {
+            if (dumpInRtt) {
                 call_scenario->stats->computeRtt(start, end, rtd);
             }
 
             computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
                         (end - start) / 1000, rtd - 1);
 
-            if (!curmsg -> repeat_rtd) {
+            if (!curmsg->repeat_rtd) {
                 rtd_done[rtd - 1] = true;
             }
         }

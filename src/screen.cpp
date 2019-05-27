@@ -21,24 +21,20 @@
  * Screen.cpp : Simple curses & logfile encapsulation
  */
 
-#include "stat.hpp"
-#include "sipp.hpp"
 
+#include <stdarg.h>
 #include <curses.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
-#include <screen.hpp>
 #include <errno.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-
-#ifdef __SUNOS
-#include <stdarg.h>
-#endif
-
 #include <unistd.h>
+
+#include "screen.hpp"
+#include "sipp.hpp"
 
 /* Export these so others needn't include curses.h */
 int key_backspace = KEY_BACKSPACE;

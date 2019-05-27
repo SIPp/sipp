@@ -88,12 +88,12 @@ float2timer(float time, struct timeval *tvp)
 static char* find_file(const char* filename)
 {
     char *fullpath;
-    if (filename[0] == '/' || !scenario_path) {
+    if (filename[0] == '/' || !*scenario_path) {
         return strdup(filename);
     }
 
     fullpath = malloc(MAX_PATH);
-    snprintf(fullpath, MAX_PATH, "%s/%s", scenario_path, filename);
+    snprintf(fullpath, MAX_PATH, "%s%s", scenario_path, filename);
 
     if (access(fullpath, R_OK) < 0) {
         free(fullpath);

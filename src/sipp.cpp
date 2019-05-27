@@ -1149,18 +1149,20 @@ static void set_scenario(const char* name)
     free(scenario_file);
     free(scenario_path);
 
-    const char* ext = strrchr(name, '.');
-    if (ext && strcmp(ext, ".xml") == 0) {
-        scenario_file = strndup(name, ext - name);
+    const char* sep = strrchr(name, '/');
+    if (sep) {
+        ++sep; // include slash
+        scenario_path = strndup(name, sep - name);
     } else {
-        scenario_file = strdup(name);
+        scenario_path = strdup("");
+        sep = name;
     }
 
-    const char* sep = strrchr(scenario_file, '/');
-    if (sep) {
-        scenario_path = strndup(scenario_file, sep - scenario_file);
+    const char* ext = strrchr(sep, '.');
+    if (ext && strcmp(ext, ".xml") == 0) {
+        scenario_file = strndup(sep, ext - sep);
     } else {
-        scenario_path = NULL;
+        scenario_file = strdup(sep);
     }
 }
 
@@ -1636,7 +1638,9 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_SCENARIO:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                if (!strcmp(argv[argi - 1], "-sf")) {
+                if (main_scenario) {
+                    ERROR("Internal error, main_scenario already set");
+                } else if (!strcmp(argv[argi - 1], "-sf")) {
                     set_scenario(argv[argi]);
                     if (useLogf == 1) {
                         rotate_logfile();
@@ -1645,10 +1649,9 @@ int main(int argc, char *argv[])
                     main_scenario->stats->setFileName(scenario_file, ".csv");
                 } else if (!strcmp(argv[argi - 1], "-sn")) {
                     int i = find_scenario(argv[argi]);
-
-                    main_scenario = new scenario(0, i);
                     set_scenario(argv[argi]);
-                    main_scenario->stats->setFileName(argv[argi], ".csv");
+                    main_scenario = new scenario(0, i);
+                    main_scenario->stats->setFileName(scenario_file, ".csv");
                 } else if (!strcmp(argv[argi - 1], "-sd")) {
                     int i = find_scenario(argv[argi]);
                     fprintf(stdout, "%s", default_scenario[i]);
@@ -1870,9 +1873,13 @@ int main(int argc, char *argv[])
         lose_packets = 1;
     }
 
-    /* trace file setting */
+    /* If no scenario was selected, choose the uac one */
     if (scenario_file == NULL) {
-        set_scenario("sipp");
+        assert(main_scenario == NULL);
+        int i = find_scenario("uac");
+        set_scenario("uac");
+        main_scenario = new scenario(0, i);
+        main_scenario->stats->setFileName(scenario_file, ".csv");
     }
 
 #ifdef USE_TLS
@@ -1929,7 +1936,7 @@ int main(int argc, char *argv[])
 
 
     if (dumpInRtt == 1) {
-        main_scenario->stats->initRtt((char*)scenario_file, (char*)".csv",
+        main_scenario->stats->initRtt(scenario_file, ".csv",
                                       report_freq_dumpRtt);
     }
 
@@ -1964,12 +1971,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    /* Load default scenario in case nothing was loaded */
-    if (!main_scenario) {
-        main_scenario = new scenario(0, 0);
-        main_scenario->stats->setFileName("uac", ".csv");
-        sprintf(scenario_file,"uac");
-    }
     /*
     if (!ooc_scenario) {
       ooc_scenario = new scenario(0, find_scenario("ooc_default"));
@@ -2122,5 +2123,6 @@ int main(int argc, char *argv[])
 #endif
 
     free(scenario_file);
+    free(scenario_path);
     sipp_exit(EXIT_TEST_RES_UNKNOWN);
 }
