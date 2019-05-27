@@ -3,6 +3,9 @@
 # Author: Walter Doekes, OSSO B.V., 2015
 . "`dirname "$0"`/../functions"; init
 
+# Make the test skippable
+test -n "$TEST_SKIP_VALGRIND" && exit 0
+
 # Check that we have valgrind
 which valgrind >/dev/null || fail "no valgrind installed"
 
