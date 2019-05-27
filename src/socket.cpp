@@ -587,7 +587,7 @@ void handle_stdin_socket()
                 printf(SIPP_ENDL);
             }
 #ifndef __SUNOS
-            else if (c == KEY_BACKSPACE || c == KEY_DC)
+            else if (c == key_backspace || c == key_dc)
 #else
             else if (c == 14)
 #endif

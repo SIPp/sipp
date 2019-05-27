@@ -55,9 +55,7 @@
 #include <map>
 #include <set>
 #include <math.h>
-#ifndef __SUNOS
-#include <curses.h>
-#else
+#ifdef __SUNOS
 #include <stdarg.h>
 #endif
 

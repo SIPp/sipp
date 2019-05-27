@@ -40,6 +40,10 @@
 
 #include <unistd.h>
 
+/* Export these so others needn't include curses.h */
+int key_backspace = KEY_BACKSPACE;
+int key_dc = KEY_DC;
+
 unsigned long screen_errors;
 int           screen_inited = 0;
 char          screen_exename[255];

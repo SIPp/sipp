@@ -37,4 +37,7 @@ int  screen_readkey();
 void screen_exit();
 void screen_show_errors();
 
+extern int key_backspace;
+extern int key_dc;
+
 #endif // __SCREEN_H__
