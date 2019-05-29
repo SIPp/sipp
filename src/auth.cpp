@@ -328,8 +328,8 @@ int createAuthHeaderMD5(const char *user,
 {
 
     unsigned char resp_hex[HASH_HEX_SIZE+1];
-    char tmp[MAX_HEADER_LEN],
-        tmp2[MAX_HEADER_LEN],
+    char tmp[MAX_HEADER_LEN + 8],
+        tmp2[MAX_HEADER_LEN + 64],
         realm[MAX_HEADER_LEN],
         sipuri[MAX_HEADER_LEN],
         nonce[MAX_HEADER_LEN],

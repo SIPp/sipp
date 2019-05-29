@@ -681,19 +681,19 @@ void call::dump()
     char tmpbuf[MAX_HEADER_LEN];
     sprintf(s, "%s: State %d", id, msg_index);
     if (next_retrans) {
-        snprintf(tmpbuf, 64, "%s (next retrans %u)", s, next_retrans);
+        snprintf(tmpbuf, 2073, "%s (next retrans %u)", s, next_retrans);
         strcat(s, tmpbuf);
     }
     if (paused_until) {
-        snprintf(tmpbuf, 64, "%s (paused until %u)", s, paused_until);
+        snprintf(tmpbuf, 2073, "%s (paused until %u)", s, paused_until);
         strcat(s, tmpbuf);
     }
     if (recv_timeout) {
-        snprintf(tmpbuf, 64, "%s (recv timeout %u)", s, recv_timeout);
+        snprintf(tmpbuf, 2073, "%s (recv timeout %u)", s, recv_timeout);
         strcat(s, tmpbuf);
     }
     if (send_timeout) {
-        snprintf(tmpbuf, 64, "%s (send timeout %u)", s, send_timeout);
+        snprintf(tmpbuf, 2073, "%s (send timeout %u)", s, send_timeout);
         strcat(s, tmpbuf);
     }
     WARNING("%s", s);
