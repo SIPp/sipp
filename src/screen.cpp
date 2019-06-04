@@ -69,7 +69,7 @@ void screen_show_errors() {
         return;
     }
 
-    fprintf(stderr, "%sx\n", screen_last_error);
+    fprintf(stderr, "%s\n", screen_last_error);
     if (screen_errors > 1) {
         if (screen_logfile[0] != '\0') {
             fprintf(stderr,

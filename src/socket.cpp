@@ -954,6 +954,8 @@ void SIPpSocket::invalidate()
             WARNING_NO("Failed to delete FD from epoll");
         }
 #endif
+    }
+    if (ss_fd != -1 && ss_fd != stdin_fileno) {
         if (ss_transport != T_UDP) {
             if (shutdown(ss_fd, SHUT_RDWR) < 0) {
                 WARNING_NO("Failed to shutdown socket %d", ss_fd);
@@ -969,18 +971,16 @@ void SIPpSocket::invalidate()
         }
 #endif
 
-        if (ss_fd == stdin_fileno) {
-            /* don't close stdin, breaks interactive terminals */
-        } else if (::close(ss_fd) < 0) {
+        if (::close(ss_fd) < 0) {
             WARNING_NO("Failed to close socket %d", ss_fd);
         }
-        ss_fd = -1;
     }
 
     if ((pollidx = ss_pollidx) >= pollnfds) {
         ERROR("Pollset error: index %d is greater than number of fds %d!", pollidx, pollnfds);
     }
 
+    ss_fd = -1;
     ss_invalid = true;
     ss_pollidx = -1;
 
