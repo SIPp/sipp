@@ -27,7 +27,7 @@ with this program.  If not, see
 # Documentation
 
 See the `docs/` directory. Hopefully it is also available in html format at:
-https://sipp-wip.readthedocs.io/en/latest/
+https://sipp.readthedocs.io/en/latest/
 
 # Building
 
