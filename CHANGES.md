@@ -6,6 +6,8 @@ BREAKING(!) changes in 3.6.0
   file. (Issue #399, reported by @sergey-safarov.)
 * Only validates SSL certficate if CA-file is separately specified!
   (PR #335, by Patrick Wildt @bluerise.)
+* Angle brackets `<` and `>` need to be escaped inside XML attributes.
+  See #414. So, not `regexp="<(sip:.*)>"` but `regexp="&lt;(sip:.*)&gt;"`.
 
 
 Bugs fixed in 3.6.0
