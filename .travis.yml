@@ -70,5 +70,5 @@ before_script:
 script:
   - make -j2
   - make -j2 check
-  - if [ "$TRAVIS_OS_NAME" != osx ]; then ./regress/runtests; fi
+  - if [ "$TRAVIS_OS_NAME" != osx ]; then TEST_SKIP_VALGRIND=1 ./regress/runtests; fi
   - ./validate-src.sh
