@@ -1088,7 +1088,7 @@ scenario::~scenario()
 
 CSample *parse_distribution(bool oldstyle = false)
 {
-    CSample *distribution = nullptr;
+    CSample *distribution = NULL;
     const char *distname;
     const char *ptr = 0;
 

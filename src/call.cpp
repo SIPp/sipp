@@ -3264,7 +3264,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             char msgPart[MAX_SUB_MESSAGE_LENGTH];
 
             /* Where to look. */
-            const char* haystack = nullptr;
+            const char* haystack = NULL;
 
             if(currentAction->getLookingPlace() == CAction::E_LP_HDR) {
                 extractSubMessage (msg,
