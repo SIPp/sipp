@@ -28,7 +28,7 @@
 #define DEFAULT_FILE_NAME (char*)"dumpFile"
 #define DEFAULT_EXTENSION (char*)".csv"
 
-#define MAX_CHAR_BUFFER_SIZE 1024
+#define MAX_CHAR_BUFFER_SIZE (1024 * BUFFER_SIZE_MULTIPLIER)
 
 #include <ctime>
 #include <vector>

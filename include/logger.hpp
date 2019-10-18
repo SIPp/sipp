@@ -34,7 +34,7 @@ MAYBE_EXTERN unsigned long long max_log_size DEFVAL(0);
 MAYBE_EXTERN unsigned long long ringbuffer_size DEFVAL(0);
 MAYBE_EXTERN int    ringbuffer_files    DEFVAL(0);
 
-MAYBE_EXTERN char   screen_last_error[32768];
+MAYBE_EXTERN char   screen_last_error[32768 * BUFFER_SIZE_MULTIPLIER];
 MAYBE_EXTERN char   screen_logfile[MAX_PATH] DEFVAL("");
 /* Log Rotation Functions. */
 struct logfile_id {
