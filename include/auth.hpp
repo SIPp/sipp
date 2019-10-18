@@ -23,6 +23,7 @@ int createAuthHeader(const char *user,
                      const char *aka_OP,
                      const char *aka_AMF,
                      const char *aka_K,
+                     unsigned int nonce_count,
                      char *result);
 int verifyAuthHeader(const char *user, const char *password,
                      const char *method, const char *auth,

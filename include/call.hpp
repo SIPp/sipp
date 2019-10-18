@@ -177,6 +177,8 @@ protected:
     char         * dialog_authentication;
     int            dialog_challenge_type;
 
+    unsigned int   next_nonce_count;
+
     unsigned int   next_retrans;
     int            nb_retrans;
     unsigned int   nb_last_delay;

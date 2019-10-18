@@ -409,6 +409,8 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     dialog_authentication = NULL;
     dialog_challenge_type = 0;
 
+    next_nonce_count = 1;
+
 #ifdef RTP_STREAM
     /* check and warn on rtpstream_new_call result? -> error alloc'ing mem */
     rtpstream_new_call(&rtpstream_callinfo);
@@ -2334,20 +2336,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
 
         int  auth_marker_len;
-        char * tmp;
         int  authlen;
 
         auth_marker_len = (strchr(auth_marker, ']') + 1) - auth_marker;
-
-        /* Need the Method name from the CSeq of the Challenge */
-        char method[MAX_HEADER_LEN];
-        tmp = get_last_header("CSeq:");
-        if(!tmp) {
-            ERROR("Could not extract method from cseq of challenge");
-        }
-        tmp += 5;
-        while(isspace(*tmp) || isdigit(*tmp)) tmp++;
-        sscanf(tmp,"%s", method);
 
         /* Determine the type of credentials. */
         char result[MAX_HEADER_LEN];
@@ -2375,8 +2366,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         createSendingMessage(auth_comp->comp_param.auth_param.aka_AMF, -2, my_aka_AMF, sizeof(my_aka_AMF));
         createSendingMessage(auth_comp->comp_param.auth_param.aka_OP, -2, my_aka_OP, sizeof(my_aka_OP));
 
-        if (createAuthHeader(my_auth_user, my_auth_pass, method, uri, auth_body, dialog_authentication,
-                             my_aka_OP, my_aka_AMF, my_aka_K, result + authlen) == 0) {
+        if (createAuthHeader(my_auth_user, my_auth_pass, src->getMethod(), uri, auth_body, dialog_authentication,
+                             my_aka_OP, my_aka_AMF, my_aka_K, next_nonce_count++, result + authlen) == 0) {
             ERROR("%s", result + authlen);
         }
         authlen = strlen(result);
@@ -3168,6 +3159,8 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 
         /* Store the code of the challenge for building the proper header */
         dialog_challenge_type = reply_code;
+
+        next_nonce_count = 1;
     }
 
     /* If we are not advancing state, we should quite before we change this stuff. */
