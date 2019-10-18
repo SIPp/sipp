@@ -72,6 +72,7 @@ message::message(int index, const char *desc)
     condexec = -1;
     condexec_inverse = false;
     chance = 0;/* meaning always */
+    chance_variable = -1;
     next = -1;
     nextLabel = NULL; // free on exit
     on_timeout = -1;
@@ -1780,6 +1781,7 @@ void scenario::getCommonAttributes(message *message)
 
     message -> condexec = xp_get_var("condexec", "condexec variable", -1);
     message -> condexec_inverse = xp_get_bool("condexec_inverse", "condexec_inverse", false);
+    message -> chance_variable = xp_get_var("chance_variable", "chance_variable", -1);
 
     if ((ptr = xp_get_value("next"))) {
         if (found_timewait) {
