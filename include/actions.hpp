@@ -57,6 +57,7 @@ public:
         E_AT_LOG_WARNING,
         E_AT_LOG_ERROR,
         E_AT_EXECUTE_CMD,
+        E_AT_VERIFY_CMD,
         E_AT_EXEC_INTCMD,
         E_AT_VAR_ADD,
         E_AT_VAR_SUBTRACT,

@@ -3243,6 +3243,30 @@ double call::get_rhs(CAction *currentAction)
     }
 }
 
+void execute_system_shell_and_exit(char *x)
+{
+// Execute shell in different ways via compiler check.
+// This is required because cygwin wrongly returns true for system(0)
+// even when the shell is not available
+// For some reason if system is invoked when sh is not available the program seg faults.
+// This is avoided by ifdef'ing out the system() call in favor of exec of cmd.exe on Windows.
+#ifndef __CYGWIN
+  int ret = system(x); // second child runs
+  if(ret == -1) {
+    WARNING("system call error for %s",x);
+  }
+  TRACE_MSG("Exec of '%s' returned %d", x, WEXITSTATUS(ret));
+  exit(WEXITSTATUS(ret));
+
+
+#else
+  // sh not available, use exec(command)
+  int ret = execlp("cmd.exe", "cmd.exe", "/c", x, (char *) NULL);
+  ERROR_NO("Exec of 'cmd.exe /c %s' failed", x);
+#endif
+
+}
+
 call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 {
     CActions*  actions;
@@ -3671,8 +3695,11 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_LOG_ERROR) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
             ERROR("%s", x);
-        } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
+        } else if ((currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) ||
+                (currentAction->getActionType() == CAction::E_AT_VERIFY_CMD)) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            bool verify_result = (currentAction->getActionType() == CAction::E_AT_VERIFY_CMD);
+
             // TRACE_MSG("Trying to execute [%s]", x);
             pid_t l_pid;
             switch(l_pid = fork()) {
@@ -3683,41 +3710,42 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 
             case 0:
                 // first child process - execute the command
-                if((l_pid = fork()) < 0) {
-                    ERROR_NO("Forking error child");
+                if (verify_result) {
+                    /* run command in this process and return exit code to waiting main sipp process */
+                    execute_system_shell_and_exit(x);
                 } else {
-                    if( l_pid == 0) {
-                        int ret;
-                        ret = system(x); // second child runs
-                        if(ret == -1) {
-                            WARNING("system call error for %s", x);
+                    if((l_pid = fork()) < 0) {
+                        ERROR_NO("Forking error child");
+                    } else {
+                        if( l_pid == 0) {
+                            int ret;
+                            ret = system(x); // second child runs
+                            if(ret == -1) {
+                                WARNING("system call error for %s", x);
+                            }
                         }
+                        exit(EXIT_OTHER);
                     }
-                    exit(EXIT_OTHER);
                 }
                 break;
             default:
                 // parent process continue
                 // reap first child immediately
                 pid_t ret;
-                while ((ret=waitpid(l_pid, NULL, 0)) != l_pid) {
+                int status;
+                while ((ret=waitpid(l_pid, &status, 0)) != l_pid) {
                     if (ret != -1) {
-                        ERROR("waitpid returns %1ld for child %1ld", (long) ret, (long) l_pid);
+                        ERROR("waitpid returns %1d for child %1d", ret,l_pid);
                     }
                 }
-                break;
-            }
-        } else if (currentAction->getActionType() == CAction::E_AT_EXEC_INTCMD) {
-            switch (currentAction->getIntCmd()) {
-            case CAction::E_INTCMD_STOP_ALL:
-                quitting = 1;
-                break;
-            case CAction::E_INTCMD_STOP_NOW:
-                sipp_exit(EXIT_TEST_RES_INTERNAL);
-                break;
-            case CAction::E_INTCMD_STOPCALL:
-            default:
-                return(call::E_AR_STOP_CALL);
+                if (verify_result) {
+                    if (!WIFEXITED(status)) {
+                        ERROR("'%s' did not exit normally (status = %d)", x, status);
+                    } else if (WEXITSTATUS(status) != EXIT_SUCCESS) {
+                        ERROR("'%s' returned result code %d", x, WEXITSTATUS(status));
+                    }
+                }
+
                 break;
             }
 #ifdef PCAPPLAY
