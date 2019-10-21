@@ -3251,18 +3251,17 @@ void execute_system_shell_and_exit(char *x)
 // For some reason if system is invoked when sh is not available the program seg faults.
 // This is avoided by ifdef'ing out the system() call in favor of exec of cmd.exe on Windows.
 #ifndef __CYGWIN
-  int ret = system(x); // second child runs
-  if(ret == -1) {
-    WARNING("system call error for %s",x);
-  }
-  TRACE_MSG("Exec of '%s' returned %d", x, WEXITSTATUS(ret));
-  exit(WEXITSTATUS(ret));
-
+    int ret = system(x); // second child runs
+    if(ret == -1) {
+        WARNING("system call error for %s",x);
+    }
+    TRACE_MSG("Exec of '%s' returned %d", x, WEXITSTATUS(ret));
+    exit(WEXITSTATUS(ret));
 
 #else
-  // sh not available, use exec(command)
-  int ret = execlp("cmd.exe", "cmd.exe", "/c", x, (char *) NULL);
-  ERROR_NO("Exec of 'cmd.exe /c %s' failed", x);
+    // sh not available, use exec(command)
+    int ret = execlp("cmd.exe", "cmd.exe", "/c", x, (char *) NULL);
+    ERROR_NO("Exec of 'cmd.exe /c %s' failed", x);
 #endif
 
 }
@@ -3696,7 +3695,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
             ERROR("%s", x);
         } else if ((currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) ||
-                (currentAction->getActionType() == CAction::E_AT_VERIFY_CMD)) {
+                   (currentAction->getActionType() == CAction::E_AT_VERIFY_CMD)) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
             bool verify_result = (currentAction->getActionType() == CAction::E_AT_VERIFY_CMD);
 
