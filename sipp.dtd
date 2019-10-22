@@ -1,7 +1,7 @@
-<!ELEMENT scenario ( CallLengthRepartition | ResponseTimeRepartition | send | recv | pause | nop | sendCmd | recvCmd | label)* >
-<!ATTLIST scenario name CDATA #REQUIRED >
+<!ELEMENT scenario ( CallLengthRepartition | ResponseTimeRepartition | Reference | send | recv | pause | nop | sendCmd | recvCmd | label | timewait)* >
+<!ATTLIST scenario name CDATA #IMPLIED >
 
-<!ELEMENT send ( action? ) >
+<!ELEMENT send (#PCDATA|action)* >
 <!-- common attributes -->
 <!ATTLIST send start_rtd NMTOKEN #IMPLIED >
 <!ATTLIST send rtd NMTOKEN #IMPLIED >
@@ -33,10 +33,10 @@
 <!ATTLIST recv counter NMTOKEN #IMPLIED >
 <!-- recv specific attributes -->
 <!ATTLIST recv response NMTOKEN #IMPLIED >
-<!ATTLIST recv request NMTOKEN #IMPLIED >
+<!ATTLIST recv request CDATA #IMPLIED >
 <!ATTLIST recv optional (true|false) #IMPLIED >
 <!ATTLIST recv ignosesdp (true|false) #IMPLIED >
-<!ATTLIST recv rss (true|false) #IMPLIED >
+<!ATTLIST recv rrs (true|false) #IMPLIED >
 <!ATTLIST recv auth (true|false) #IMPLIED >
 <!ATTLIST recv lost NMTOKEN #IMPLIED >
 <!ATTLIST recv timeout NMTOKEN #IMPLIED >
@@ -83,7 +83,7 @@
 <!ELEMENT CallLengthRepartition EMPTY >
 <!ATTLIST CallLengthRepartition value CDATA #REQUIRED >
 
-<!ELEMENT action ( ereg | log | exec )+ >
+<!ELEMENT action ( ereg | log | exec | rtp_echo)+ >
 
 <!ELEMENT ereg EMPTY >
 <!ATTLIST ereg assign_to CDATA #REQUIRED >
@@ -91,14 +91,24 @@
 <!ATTLIST ereg header NMTOKEN #IMPLIED >
 <!ATTLIST ereg regexp CDATA #REQUIRED >
 <!ATTLIST ereg search_in (msg|hdr) "msg" >
+<!ATTLIST ereg start_line (true|false) #IMPLIED >
 
 <!ELEMENT log EMPTY >
 <!ATTLIST log message CDATA #REQUIRED >
 
 <!ELEMENT exec EMPTY >
 <!-- one of command or int_cmd must be present -->
-<!ATTLIST exec command CDATA #IMPLIED>
+<!ATTLIST exec command CDATA #IMPLIED >
 <!ATTLIST exec int_cmd (stop_now|stop_gracefully|stop_call) "stop_call" >
 <!ATTLIST exec play_pcap CDATA #IMPLIED >
 <!ATTLIST exec play_pcap_audio CDATA #IMPLIED >
 <!ATTLIST exec rtp_stream CDATA #IMPLIED >
+
+<!ELEMENT rtp_echo EMPTY >
+<!ATTLIST rtp_echo value CDATA #REQUIRED >
+
+<!ELEMENT timewait EMPTY >
+<!ATTLIST timewait milliseconds CDATA #REQUIRED >
+
+<!ELEMENT Reference EMPTY >
+<!ATTLIST Reference variables CDATA #REQUIRED >
