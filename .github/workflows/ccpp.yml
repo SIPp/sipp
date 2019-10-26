@@ -12,7 +12,7 @@ jobs:
     - name: installdeps
       run: sudo apt-get install -y libncurses5-dev libpcap0.8-dev 
     - name: build
-      run: ./build.sh --with-pcap
+      run: CFLAGS="-static" CPPFLAGS="-static" ./build.sh --with-pcap
     - uses: actions/upload-artifact@v1.0.0
       with:
          name: sipp
