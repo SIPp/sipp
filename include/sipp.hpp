@@ -36,7 +36,7 @@
 #endif
 #endif
 #include <sys/time.h>
-#include <sys/poll.h>
+#include <poll.h>
 #ifdef HAVE_EPOLL
 #include <sys/epoll.h>
 #endif
