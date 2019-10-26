@@ -10,7 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: build
-      run: sudo docker build -t sipp-build docker && sudo docker run -it -v $PWD:/src sipp-build
+      run: sudo docker build -t sipp-build docker && sudo docker run -v $PWD:/src sipp-build
     - uses: actions/upload-artifact@v1.0.0
       with:
          name: sipp
