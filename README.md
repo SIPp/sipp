@@ -58,6 +58,7 @@ list](https://lists.sourceforge.net/lists/listinfo/sipp-users).
 * Update CHANGES.md. Tag release.
 * Download zip, `autoreconf -vif`, copy sipp.1, copy include/version.h.
 * Create tgz. Upload to github as "binary".
+* Run `sudo docker build -t sipp-build docker && sudo docker run -it -v $PWD:/src sipp-build` to create a static binary. Upload this to Github as well.
 
 # Contributing
 
