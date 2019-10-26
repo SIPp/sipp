@@ -13,3 +13,7 @@ jobs:
       run: sudo apt-get install -y libncurses5-dev libpcap0.8-dev 
     - name: build
       run: ./build.sh --with-pcap
+    - uses: actions/upload-artifact@v1.0.0
+      with:
+         name: sipp
+         path: ./sipp
