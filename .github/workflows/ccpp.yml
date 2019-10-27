@@ -3,6 +3,15 @@ name: C/C++ CI
 on: [push, pull_request]
 
 jobs:
+  lint:
+
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v1
+    - name: lint
+      run: ./validate-src.sh
+
   build:
 
     runs-on: ubuntu-latest
@@ -15,6 +24,9 @@ jobs:
       run: sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses5-dev libncurses5
     - name: build
       run: ./build.sh --full
+    - name: test
+    - run: TEST_SKIP_VALGRIND=1 ./regress/runtests
+
   build-static:
 
     runs-on: ubuntu-latest
