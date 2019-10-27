@@ -27,9 +27,9 @@ else
 fi
 
 # For git checkout, run unit tests.
-#if test -e gtest/.git; then
-#	"$MAKE" $MAKEFLAGS sipp_unittest
-#	./sipp_unittest
-#fi
+if test -e gtest/.git; then
+	"$MAKE" $MAKEFLAGS sipp_unittest
+	./sipp_unittest
+fi
 
 "$MAKE" $MAKEFLAGS

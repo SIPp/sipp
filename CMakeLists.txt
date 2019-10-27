@@ -7,7 +7,14 @@ project(SIPp)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-include_directories(${PROJECT_SOURCE_DIR}/include ${PROJECT_BINARY_DIR} "/usr/local/include")
+add_subdirectory(gmock EXCLUDE_FROM_ALL)
+
+include_directories(
+  ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/gtest/include
+  ${PROJECT_SOURCE_DIR}/gmock/include
+  ${PROJECT_BINARY_DIR}
+  "/usr/local/include")
 
 option(BUILD_STATIC "Build a statically-linked binary" OFF)
 option(USE_SSL "Build with SIPS support" OFF)
@@ -21,10 +28,6 @@ file(GLOB all_SRCS
   )
 
 INCLUDE (${CMAKE_ROOT}/Modules/CheckIncludeFile.cmake)
-INCLUDE (${CMAKE_ROOT}/Modules/CheckTypeSize.cmake)
-INCLUDE (${CMAKE_ROOT}/Modules/CheckFunctionExists.cmake)
-INCLUDE (${CMAKE_ROOT}/Modules/CheckCXXSourceCompiles.cmake)
-INCLUDE (${CMAKE_ROOT}/Modules/TestBigEndian.cmake)
 INCLUDE (${CMAKE_ROOT}/Modules/CheckSymbolExists.cmake)
 
 CHECK_INCLUDE_FILE("endian.h"        HAVE_ENDIAN_H)
@@ -39,6 +42,9 @@ configure_file ("${PROJECT_SOURCE_DIR}/include/config.h.in"
 
 list(REMOVE_ITEM all_SRCS
   "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
+
+list(REMOVE_ITEM all_SRCS
+  "${PROJECT_SOURCE_DIR}/src/sipp.cpp")
 
 if(NOT USE_SSL)
   list(REMOVE_ITEM all_SRCS
@@ -64,18 +70,24 @@ add_definitions("-DRTP_STREAM")
 
 # add the executable
 link_directories("/usr/local/lib")
-add_executable(sipp ${all_SRCS})
+add_executable(sipp ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp.cpp")
+add_executable(sipp_unittest EXCLUDE_FROM_ALL ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
+target_compile_definitions(sipp_unittest PUBLIC "-DGTEST")
+
 if(BUILD_STATIC)
   set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
 endif(BUILD_STATIC)
 
 target_link_libraries(sipp dl ncursesw pthread)
+target_link_libraries(sipp_unittest dl ncursesw pthread gtest gmock)
 
 if(USE_GSL)
   target_link_libraries(sipp gsl gslcblas)
+  target_link_libraries(sipp_unittest gsl gslcblas)
 endif(USE_GSL)
 
 if(USE_PCAP)
   target_link_libraries(sipp pcap)
+  target_link_libraries(sipp_unittest pcap)
 endif(USE_PCAP)
 
