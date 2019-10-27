@@ -25,7 +25,7 @@ jobs:
     - name: build
       run: ./build.sh --full
     - name: test
-    - run: TEST_SKIP_VALGRIND=1 ./regress/runtests
+      run: TEST_SKIP_VALGRIND=1 ./regress/runtests
 
   build-static:
 
