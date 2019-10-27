@@ -7,7 +7,7 @@ project(SIPp)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${PROJECT_SOURCE_DIR}/include "/usr/local/include")
 
 option(BUILD_STATIC "Build a statically-linked binary" OFF)
 option(USE_SSL "Build with SIPS support" OFF)
@@ -44,14 +44,25 @@ if(USE_GSL)
   add_definitions("-DHAVE_GSL")
 endif(USE_GSL)
 
-add_definitions("-DRTP_STREAM -DHAVE_EPOLL")
+if(USE_EPOLL)
+  add_definitions("-DHAVE_EPOLL")
+endif()
+
+add_definitions("-DRTP_STREAM")
 
 # add the executable
+link_directories("/usr/local/lib")
 add_executable(sipp ${all_SRCS})
 if(BUILD_STATIC)
   set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
 endif(BUILD_STATIC)
+
 target_link_libraries(sipp dl ncursesw pthread)
+
+if(USE_GSL)
+  target_link_libraries(sipp gsl gslcblas)
+endif(USE_GSL)
+
 if(USE_PCAP)
   target_link_libraries(sipp pcap)
 endif(USE_PCAP)

@@ -46,6 +46,7 @@
 #include <crt_externs.h>
 #define environ (*_NSGetEnviron())
 #endif
+extern char** environ;
 
 #define GLOBALS_FULL_DEFINITION
 #include "sipp.hpp"
