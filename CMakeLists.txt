@@ -89,8 +89,14 @@ if(BUILD_STATIC)
 endif(BUILD_STATIC)
 
 find_library( CURSES_LIBRARY NAMES ncursesw cursesw ncurses curses)
-target_link_libraries(sipp dl rt ${CURSES_LIBRARY} pthread)
-target_link_libraries(sipp_unittest dl rt ${CURSES_LIBRARY} pthread gtest gmock)
+target_link_libraries(sipp dl ${CURSES_LIBRARY} pthread)
+target_link_libraries(sipp_unittest dl ${CURSES_LIBRARY} pthread gtest gmock)
+
+find_library( RT_LIBRARY NAMES rt)
+if(RT_LIBRARY)
+	target_link_libraries(sipp ${RT_LIBRARY})
+	target_link_libraries(sipp_unittest ${RT_LIBRARY})
+endif()
 
 if(USE_GSL)
   target_link_libraries(sipp gsl gslcblas)
