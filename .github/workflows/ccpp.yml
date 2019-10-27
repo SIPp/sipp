@@ -9,6 +9,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
+    - name: prepare
+      run: git submodule update --init
     - name: build
       run: sudo docker build -t sipp-build docker && sudo docker run -v $PWD:/src sipp-build
     - uses: actions/upload-artifact@v1.0.0
