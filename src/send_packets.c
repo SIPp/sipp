@@ -50,6 +50,14 @@
 #include "defines.h"
 #include "send_packets.h"
 #include "prepare_pcap.h"
+#include "config.h"
+
+#ifndef HAVE_UDP_UH_PREFIX
+#define uh_ulen len
+#define uh_sum check
+#define uh_sport source
+#define uh_dport dest
+#endif
 
 extern char* scenario_path;
 extern volatile unsigned long rtp_pckts_pcap;
@@ -236,28 +244,28 @@ void send_packets(play_args_t* play_args)
 
     while (pkt_index < pkt_max) {
         memcpy(udp, pkt_index->data, pkt_index->pktlen);
-        port_diff = ntohs(udp->dest) - pkts->base;
+        port_diff = ntohs(udp->uh_dport) - pkts->base;
         /* modify UDP ports */
-        udp->source = htons(port_diff + ntohs(*from_port));
-        udp->dest = htons(port_diff + ntohs(*to_port));
+        udp->uh_sport = htons(port_diff + ntohs(*from_port));
+        udp->uh_dport = htons(port_diff + ntohs(*to_port));
 
         if (!media_ip_is_ipv6) {
             temp_sum = checksum_carry(
                     pkt_index->partial_check +
                     check((uint16_t *) &(((struct sockaddr_in *)(void *) from)->sin_addr.s_addr), 4) +
                     check((uint16_t *) &(((struct sockaddr_in *)(void *) to)->sin_addr.s_addr), 4) +
-                    check((uint16_t *) &udp->source, 4));
+                    check((uint16_t *) &udp->uh_sport, 4));
         } else {
             temp_sum = checksum_carry(
                     pkt_index->partial_check +
                     check((uint16_t *) &(from6.sin6_addr.s6_addr), 16) +
                     check((uint16_t *) &(to6.sin6_addr.s6_addr), 16) +
-                    check((uint16_t *) &udp->source, 4));
+                    check((uint16_t *) &udp->uh_sport, 4));
         }
 #if !defined(_HPUX_LI) && defined(__HPUX)
-        udp->check = (temp_sum>>16)+((temp_sum & 0xffff)<<16);
+        udp->uh_sum = (temp_sum>>16)+((temp_sum & 0xffff)<<16);
 #else
-        udp->check = temp_sum;
+        udp->uh_sum = temp_sum;
 #endif
 
         do_sleep ((struct timeval *) &pkt_index->ts, &last, &didsleep,

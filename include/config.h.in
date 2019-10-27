@@ -16,5 +16,7 @@
 #else
 #cmakedefine HAVE_DECL_LE16TOH @HAVE_DECL_LE16TOH@
 #endif
+#cmakedefine HAVE_IP_COMPAT_H @HAVE_IP_COMPAT_H@
+#cmakedefine HAVE_UDP_UH_PREFIX @HAVE_UDP_UH_PREFIX@
 
 #endif

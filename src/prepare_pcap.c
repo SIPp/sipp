@@ -31,6 +31,13 @@
 #include "endianshim.h"
 #include "prepare_pcap.h"
 
+#ifndef HAVE_UDP_UH_PREFIX
+#define uh_ulen len
+#define uh_sum check
+#define uh_sport source
+#define uh_dport dest
+#endif
+
 /* Helpful RFCs for DTMF generation.
  * https://tools.ietf.org/html/rfc4733
  * https://tools.ietf.org/html/rfc3550
@@ -243,7 +250,7 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
             udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ip_hl << 2));
         }
 
-        pktlen = ntohs(udphdr->len);
+        pktlen = ntohs(udphdr->uh_ulen);
         if (pktlen > PCAP_MAXPACKET) {
             ERROR("Packet %d with size 0x%lx is too big! "
                   "Recompile with bigger PCAP_MAXPACKET in prepare_pcap.h",
@@ -262,16 +269,16 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
             ERROR("Can't allocate memory for pcap pkt data");
         memcpy(pkt_index->data, udphdr, pktlen);
 
-        udphdr->check = 0;
+        udphdr->uh_sum = 0;
 
         /* compute a partial udp checksum */
         /* not including port that will be changed */
         /* when sending RTP */
-        pkt_index->partial_check = check((uint16_t*)&udphdr->len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+        pkt_index->partial_check = check((uint16_t*)&udphdr->uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
         if (max_length < pktlen)
             max_length = pktlen;
-        if (base > ntohs(udphdr->dest))
-            base = ntohs(udphdr->dest);
+        if (base > ntohs(udphdr->uh_dport))
+            base = ntohs(udphdr->uh_dport);
         n_pkts++;
     }
     pkts->max = pkts->pkts + n_pkts;
@@ -360,10 +367,10 @@ static u_long dtmf_ssrcid = 0x01020304; /* bug, should be random/unique */
 
 static void fill_default_udphdr(struct udphdr* udp, u_long pktlen)
 {
-    udp->len = htons(pktlen);
-    udp->check = 0;
-    udp->source = 0;
-    udp->dest = 0;
+    udp->uh_ulen = htons(pktlen);
+    udp->uh_sum = 0;
+    udp->uh_sport = 0;
+    udp->uh_dport = 0;
 }
 
 static void fill_default_rtphdr(struct rtphdr* rtp, int marker, int seqno, int ts)
@@ -440,7 +447,7 @@ static void prepare_dtmf_digit_start(
                           uc_digit, 0, cur_tone_len);
         marked = 1; /* set marker once per event */
 
-        pkt_index->partial_check = check(&dtmfpacket->udp.len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+        pkt_index->partial_check = check(&dtmfpacket->udp.uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 
         (*n_pkts)++;
         cur_tone_len += 20;
@@ -479,7 +486,7 @@ static void prepare_dtmf_digit_end(
                           *n_pkts + start_seq_no, n_digits * tone_len * 2 + timestamp_start,
                           uc_digit, 1, tone_len);
 
-        pkt_index->partial_check = check(&dtmfpacket->udp.len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+        pkt_index->partial_check = check(&dtmfpacket->udp.uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 
         (*n_pkts)++;
     }
@@ -517,7 +524,7 @@ static void prepare_noop(
         nooppacket = (struct nooppacket*)pkt_index->data;
         fill_default_noop(nooppacket, *n_pkts + *start_seq_no, *timestamp_start + ts);
 
-        pkt_index->partial_check = check(&nooppacket->udp.len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+        pkt_index->partial_check = check(&nooppacket->udp.uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 
         (*n_pkts)++;
         (*start_seq_no)++;
