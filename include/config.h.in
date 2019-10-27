@@ -9,6 +9,11 @@
 #cmakedefine HAVE_ENDIAN_H @HAVE_ENDIAN_H@
 #cmakedefine HAVE_SYS_ENDIAN_H @HAVE_SYS_ENDIAN_H@
 #cmakedefine HAVE_EPOLL @HAVE_EPOLL@
+
+#ifdef HAVE_SYS_ENDIAN_H
+#cmakedefine HAVE_DECL_LE16TOH @HAVE_DECL_LE16TOH_BSD@
+#else
 #cmakedefine HAVE_DECL_LE16TOH @HAVE_DECL_LE16TOH@
+#endif
 
 #endif
