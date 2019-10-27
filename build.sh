@@ -17,7 +17,7 @@ elif test "$*" = "--help" || test "$*" = "-h"; then
 fi
 
 if test "$*" = "--none"; then
-    cmake .
+    cmake . -DUSE_GSL=
 elif test "$*" = "--common"; then
     cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL= -DUSE_SCTP=
 elif test "$*" = "--full"; then
