@@ -12,7 +12,7 @@ jobs:
     - name: prepare
       run: git submodule update --init
     - name: installdeps
-      run: sudo apt-get install --yes build-essential cmake libpcap-dev openssl libgsl-dev libsctp-dev libncurses-dev libncurses
+      run: sudo apt-get install --yes build-essential cmake libpcap-dev openssl libgsl-dev libsctp-dev libncurses5-dev libncurses5
     - name: build
       run: ./build.sh --full
   build-static:
