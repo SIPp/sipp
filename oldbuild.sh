@@ -11,25 +11,29 @@ if test -z "$*"; then
         "--none for defaults, or --full for all" >&2
     exit 1
 elif test "$*" = "--help" || test "$*" = "-h"; then
-    echo "build.sh: Please specify configure options," \
-        "--none for defaults, or --full for all" >&2
+    ./configure --help
     exit 1
 fi
 
+./autogen.sh
+
 if test "$*" = "--none"; then
-    cmake .
-elif test "$*" = "--common"; then
-    cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL= -DUSE_SCTP=
+    ./configure
 elif test "$*" = "--full"; then
-    cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
+    ./configure \
+        --with-gsl \
+        --with-openssl \
+        --with-pcap \
+        --with-rtpstream \
+        --with-sctp
 else
-    cmake . "$@"
+    ./configure "$@"
 fi
 
 # For git checkout, run unit tests.
-#if test -e gtest/.git; then
-#	"$MAKE" $MAKEFLAGS sipp_unittest
-#	./sipp_unittest
-#fi
+if test -e gtest/.git; then
+	"$MAKE" $MAKEFLAGS sipp_unittest
+	./sipp_unittest
+fi
 
 "$MAKE" $MAKEFLAGS

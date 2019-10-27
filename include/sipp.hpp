@@ -21,7 +21,7 @@
 #define __SIPP__
 
 /* Std C includes */
-
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

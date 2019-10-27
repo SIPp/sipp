@@ -7,19 +7,35 @@ project(SIPp)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-include_directories(${PROJECT_SOURCE_DIR}/include "/usr/local/include")
+include_directories(${PROJECT_SOURCE_DIR}/include ${PROJECT_BINARY_DIR} "/usr/local/include")
 
 option(BUILD_STATIC "Build a statically-linked binary" OFF)
 option(USE_SSL "Build with SIPS support" OFF)
 option(USE_SCTP "Build with SCTP support" OFF)
 option(USE_PCAP "Build with PCAP playback support" OFF)
 option(USE_GSL "Build with improved statistical support" ON)
-option(USE_EPOLL "Build with epoll support" ON)
 
 file(GLOB all_SRCS
   "${PROJECT_SOURCE_DIR}/src/*.cpp"
   "${PROJECT_SOURCE_DIR}/src/*.c"
   )
+
+INCLUDE (${CMAKE_ROOT}/Modules/CheckIncludeFile.cmake)
+INCLUDE (${CMAKE_ROOT}/Modules/CheckTypeSize.cmake)
+INCLUDE (${CMAKE_ROOT}/Modules/CheckFunctionExists.cmake)
+INCLUDE (${CMAKE_ROOT}/Modules/CheckCXXSourceCompiles.cmake)
+INCLUDE (${CMAKE_ROOT}/Modules/TestBigEndian.cmake)
+INCLUDE (${CMAKE_ROOT}/Modules/CheckSymbolExists.cmake)
+
+CHECK_INCLUDE_FILE("endian.h"        HAVE_ENDIAN_H)
+CHECK_INCLUDE_FILE("sys/endian.h"        HAVE_SYS_ENDIAN_H)
+CHECK_INCLUDE_FILE("sys/epoll.h"        HAVE_EPOLL)
+
+CHECK_SYMBOL_EXISTS(le16toh "endian.h" HAVE_DECL_LE16TOH)
+CHECK_SYMBOL_EXISTS(le16toh "sys/endian.h" HAVE_DECL_LE16TOH)
+
+configure_file ("${PROJECT_SOURCE_DIR}/include/config.h.in"
+                  "${PROJECT_BINARY_DIR}/config.h" )
 
 list(REMOVE_ITEM all_SRCS
   "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
@@ -43,10 +59,6 @@ endif(USE_PCAP)
 if(USE_GSL)
   add_definitions("-DHAVE_GSL")
 endif(USE_GSL)
-
-if(USE_EPOLL)
-  add_definitions("-DHAVE_EPOLL")
-endif()
 
 add_definitions("-DRTP_STREAM")
 
