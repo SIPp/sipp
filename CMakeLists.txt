@@ -58,6 +58,10 @@ if(NOT USE_PCAP)
     "${PROJECT_SOURCE_DIR}/src/send_packets.c")
 endif(NOT USE_PCAP)
 
+if(USE_SSL)
+  add_definitions("-DUSE_TLS -DUSE_OPENSSL")
+endif()
+
 if(USE_PCAP)
   add_definitions("-DPCAPPLAY")
 endif(USE_PCAP)
@@ -65,6 +69,10 @@ endif(USE_PCAP)
 if(USE_GSL)
   add_definitions("-DHAVE_GSL")
 endif(USE_GSL)
+
+if(USE_SCTP)
+  add_definitions("-DUSE_SCTP")
+endif(USE_SCTP)
 
 add_definitions("-DRTP_STREAM")
 
@@ -86,8 +94,17 @@ if(USE_GSL)
   target_link_libraries(sipp_unittest gsl gslcblas)
 endif(USE_GSL)
 
+if(USE_SSL)
+  target_link_libraries(sipp crypto ssl)
+  target_link_libraries(sipp_unittest crypto ssl)
+endif(USE_SSL)
+
 if(USE_PCAP)
   target_link_libraries(sipp pcap)
   target_link_libraries(sipp_unittest pcap)
 endif(USE_PCAP)
 
+if(USE_SCTP)
+  target_link_libraries(sipp sctp)
+  target_link_libraries(sipp_unittest sctp)
+endif()
