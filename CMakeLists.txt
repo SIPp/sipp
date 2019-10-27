@@ -88,7 +88,7 @@ if(BUILD_STATIC)
   set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
 endif(BUILD_STATIC)
 
-find_library( CURSES_LIBRARY ncursesw )
+find_library( CURSES_LIBRARY NAMES ncursesw cursesw ncurses curses)
 target_link_libraries(sipp dl rt ${CURSES_LIBRARY} pthread)
 target_link_libraries(sipp_unittest dl rt ${CURSES_LIBRARY} pthread gtest gmock)
 
