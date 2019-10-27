@@ -114,3 +114,5 @@ if(USE_SCTP)
     target_link_libraries(sipp_unittest ${SCTP_LIBRARY})
   endif()
 endif()
+
+install(TARGETS sipp DESTINATION bin)
