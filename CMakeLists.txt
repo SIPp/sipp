@@ -7,7 +7,9 @@ project(SIPp)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_subdirectory(gmock EXCLUDE_FROM_ALL)
+if(EXISTS ./gmock/CMakeLists.txt)
+  add_subdirectory(gmock EXCLUDE_FROM_ALL)
+endif()
 
 include_directories(
   ${PROJECT_SOURCE_DIR}/include
