@@ -112,7 +112,7 @@ public:
     typedef struct _T_Action {
     } T_Action;
 
-    void afficheInfo();
+    void printInfo(char* buf, int len);
     const char *comparatorToString(T_Comparator comp);
     bool compare(VariableTable *variableTable);
 
@@ -228,7 +228,7 @@ private:
 class CActions
 {
 public:
-    void afficheInfo();
+    void printInfo();
     void setAction(CAction *P_action);
     void reset();
     int  getActionSize();

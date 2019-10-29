@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include "screen.hpp"
+#include "screen_printer.hpp"
 #include "sipp.hpp"
 
 /* Export these so others needn't include curses.h */
@@ -61,7 +62,10 @@ void screen_exit()
         return;
     }
 
+    clear();
+    refresh();
     endwin();
+    screen_inited = 0;
 }
 
 void screen_show_errors() {
@@ -86,7 +90,12 @@ void screen_show_errors() {
 
 void screen_clear()
 {
-    printf("\033[2J");
+    if (!screen_inited) {
+        return;
+    }
+
+    clear();
+    refresh();
 }
 
 void screen_set_exename(const char* exe_name)
@@ -99,12 +108,17 @@ void screen_init()
     if (backgroundMode) {
         return;
     }
+    if (screen_inited) {
+        return;
+    }
 
     screen_inited = 1;
 
+    setlocale(LC_ALL, "");
     initscr();
+    cbreak();
     noecho();
-    screen_clear();
+    clear();
 }
 
 static void _screen_error(int fatal, bool use_errno, int error, const char *fmt, va_list ap)

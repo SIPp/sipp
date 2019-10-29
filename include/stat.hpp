@@ -373,10 +373,9 @@ public:
     /**
      * Display data periodically updated on screen.
      */
-    void displayData (FILE *f);
-    void displayStat(FILE *f);
-    void displayRepartition(FILE *f);
-    void displayRtdRepartition (FILE *f, int which);
+    void displayStat(std::vector<std::string>& lines);
+    void displayRepartition(std::vector<std::string>& lines);
+    void displayRtdRepartition(std::vector<std::string>& lines, int which);
 
     /**
      * Dump data periodically in the file M_FileName
@@ -532,7 +531,7 @@ private:
      * displayRepartition
      * Display the repartition passed in parameter at the screen
      */
-    void  displayRepartition(FILE *f,
+    void  displayRepartition(std::vector<std::string>& lines,
                              T_dynamicalRepartition * tabRepartition,
                              int sizeOfTab);
 

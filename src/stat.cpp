@@ -40,51 +40,49 @@
 ** Local definitions (macros)
 */
 
-/*
-** Warning! All DISPLAY_ macros must be called where f FILE is
-**          defined. This is to allow printing to stdout or a file.
-*/
+// Warning! All DISPLAY_ macros must be called where 'buf' and 'lines' are defined.
 #define DISPLAY_LINE() \
-    fprintf(f," ------------------------------------------------------------------------------ \r\n")
+    sprintf(buf," ------------------------------------------------------------------------------ "); lines.push_back(buf);
 #define DISPLAY_DLINE() \
-    fprintf(f,"================================================================================\r\n")
+    sprintf(buf,"================================================================================"); lines.push_back(buf);
 #define DISPLAY_CROSS_LINE() \
-    fprintf(f,"-------------------------+---------------------------+--------------------------\r\n")
+    sprintf(buf,"-------------------------+---------------------------+--------------------------"); lines.push_back(buf);
 
 #define DISPLAY_HEADER() \
-    fprintf(f,"  Counter Name           | Periodic value            | Cumulative value\r\n")
+    sprintf(buf,"  Counter Name           | Periodic value            | Cumulative value"); lines.push_back(buf);
 #define DISPLAY_TXT_COL(T1, V1, V2) \
-    fprintf(f,"  %-22.22s | %-25.25s |", T1, V1); fprintf(f," %-24.24s \r\n", V2)
+    sprintf(buf,"  %-22.22s | %-25.25s | %-24.24s ", T1, V1, V2); lines.push_back(buf);
 #define DISPLAY_VAL_RATEF_COL(T1, V1, V2) \
-    fprintf(f,"  %-22.22s | %8.3f cps              | %8.3f cps             \r\n", T1, V1, V2)
+    sprintf(buf,"  %-22.22s | %8.3f cps              | %8.3f cps             ", T1, V1, V2); lines.push_back(buf);
 #define DISPLAY_2VAL(T1, V1, V2) \
-    fprintf(f,"  %-22.22s | %8llu                  | %8llu                 \r\n", T1, V1, V2)
+    sprintf(buf,"  %-22.22s | %8llu                  | %8llu                 ", T1, V1, V2); lines.push_back(buf);
 #define DISPLAY_CUMUL(T1, V1) \
-    fprintf(f,"  %-22.22s |                          | %8llu                 \r\n", T1, V1)
+    sprintf(buf,"  %-22.22s |                           | %8llu                 ", T1, V1); lines.push_back(buf);
 #define DISPLAY_PERIO(T1, V1) \
-    fprintf(f,"  %-22.22s | %8llu                  |                          \r\n", T1, V1)
+    sprintf(buf,"  %-22.22s | %8llu                  |                          ", T1, V1); lines.push_back(buf);
 #define DISPLAY_VALF(T1, V1) \
-    fprintf(f,"  %-22.22s | %8.3f ms                                          \r\n", T1, V1)
+    sprintf(buf,"  %-22.22s | %8.3f ms                                          ", T1, V1); lines.push_back(buf);
 #define DISPLAY_VAL_RATEF(T1, V1) \
-    fprintf(f,"  %-22.22s | %8.3f cps                                         \r\n", T1, V1)
+    sprintf(buf,"  %-22.22s | %8.3f cps                                         ", T1, V1); lines.push_back(buf);
 #define DISPLAY_VAL_RATE(T1, V1) \
-    fprintf(f,"  %-22.22s | %8d cps                                         \r\n", T1, V1)
+    sprintf(buf,"  %-22.22s | %8d cps                                         ", T1, V1); lines.push_back(buf);
 #define DISPLAY_VAL(T1, V1) \
-    fprintf(f,"  %-22.22s : %8d                                             \r\n", T1, V1)
+    sprintf(buf,"  %-22.22s : %8d                                             ", T1, V1); lines.push_back(buf);
 #define DISPLAY_2VALF(T1, V1, T2, V2) \
-    fprintf(f,"  %-22.22s : %8.2f  | %-7.7s : %8.2f                       \r\n", T1, V1, T2, V2)
+    sprintf(buf,"  %-22.22s : %8.2f  | %-7.7s : %8.2f                       ", T1, V1, T2, V2); lines.push_back(buf);
 #define DISPLAY_3VAL(T1, V1, T2, V2, T3, V3) \
-    fprintf(f,"  %-22.22s : %8d  | %-7.7s : %8d  | %-12.12s : %5d \r\n", T1, V1, T2, V2, T3, V3)
+    sprintf(buf,"  %-22.22s : %8d  | %-7.7s : %8d  | %-12.12s : %5d ", T1, V1, T2, V2, T3, V3); lines.push_back(buf);
 #define DISPLAY_3VALF(T1, V1, T2, V2, T3, V3) \
-    fprintf(f,"  %-22.22s : %8.3f  | %-7.7s : %8.3f  | %-12.12s : %5.1f \r\n", T1, V1, T2, V2, T3, V3)
+    sprintf(buf,"  %-22.22s : %8.3f  | %-7.7s : %8.3f  | %-12.12s : %5.1f ", T1, V1, T2, V2, T3, V3); lines.push_back(buf);
 #define DISPLAY_TXT(T1, V1) \
-    fprintf(f,"  %-22.22s | %-52.52s \r\n", T1, V1)
+    sprintf(buf,"  %-22.22s | %-52.52s ", T1, V1); lines.push_back(buf);
 #define DISPLAY_INFO(T1) \
-    fprintf(f,"  %-77.77s \r\n", T1)
+    sprintf(buf,"  %-77.77s ", T1); lines.push_back(buf);
 #define DISPLAY_REPART(T1, T2, V1) \
-    fprintf(f,"    %8d ms <= n <  %8d ms : %10lu  %-29.29s \r\n", T1, T2, V1, "")
+    sprintf(buf,"    %8d ms <= n <  %8d ms : %10lu  %-29.29s ", T1, T2, V1, ""); lines.push_back(buf);
 #define DISPLAY_LAST_REPART(T1, V1) \
-    fprintf(f,"    %14.14s n >= %8d ms : %10lu  %-29.29s \r\n", "", T1, V1, "")
+    sprintf(buf,"    %14.14s n >= %8d ms : %10lu  %-29.29s ", "", T1, V1, ""); lines.push_back(buf);
+
 
 #define RESET_COUNTERS(PT) \
     memset (PT, 0, CStat::E_NB_COUNTER * sizeof(unsigned long long))
@@ -1157,10 +1155,11 @@ char* CStat::sRepartitionInfo(T_dynamicalRepartition * tabRepartition,
 }
 
 
-void CStat::displayRepartition(FILE *f,
+void CStat::displayRepartition(std::vector<std::string>& lines,
                                T_dynamicalRepartition * tabRepartition,
                                int sizeOfTab)
 {
+    char buf[80];
     if(tabRepartition != NULL) {
         for(int i=0; i<(sizeOfTab-1); i++) {
             if(i==0) {
@@ -1179,130 +1178,15 @@ void CStat::displayRepartition(FILE *f,
     }
 }
 
-void CStat::displayData (FILE *f)
+
+void CStat::displayStat(std::vector<std::string>& lines)
 {
     long   localElapsedTime, globalElapsedTime ;
     struct timeval currentTime;
     float  averageCallRate;
     float  realInstantCallRate;
     unsigned long numberOfCall;
-
-    GET_TIME (&currentTime);
-    // computing the real call rate
-    globalElapsedTime   = computeDiffTimeInMs (&currentTime, &M_startTime);
-    localElapsedTime    = computeDiffTimeInMs (&currentTime, &M_pdStartTime);
-
-    // the call rate is for all the call : incoming and outgoing
-    numberOfCall        = M_counters[CPT_C_IncomingCallCreated] +
-                          M_counters[CPT_C_OutgoingCallCreated];
-    averageCallRate     = (globalElapsedTime > 0 ?
-                           1000*(float)numberOfCall/(float)globalElapsedTime
-                           : 0.0);
-    numberOfCall        = (M_counters[CPT_PD_IncomingCallCreated] +
-                           M_counters[CPT_PD_OutgoingCallCreated]);
-    realInstantCallRate = (localElapsedTime  > 0 ?
-                           1000*(float)numberOfCall / (float)localElapsedTime :
-                           0.0);
-
-    // display info
-    DISPLAY_DLINE ();
-    // build and display header info
-    DISPLAY_TXT ("Start Time  ", formatTime(&M_startTime));
-    DISPLAY_TXT ("Last Reset Time", formatTime(&M_pdStartTime));
-    DISPLAY_TXT ("Current Time", formatTime(&currentTime));
-
-    // printing the header in the middle
-    DISPLAY_CROSS_LINE();
-    DISPLAY_HEADER();
-    DISPLAY_CROSS_LINE();
-
-    DISPLAY_TXT_COL ("Elapsed Time",
-                     msToHHMMSSus(localElapsedTime),
-                     msToHHMMSSus(globalElapsedTime));
-
-    DISPLAY_VAL_RATEF_COL ("Call Rate",
-                           realInstantCallRate,
-                           averageCallRate);
-    DISPLAY_CROSS_LINE ();
-
-    DISPLAY_2VAL  ("Incoming call created",
-                   M_counters[CPT_PD_IncomingCallCreated],
-                   M_counters[CPT_C_IncomingCallCreated]);
-    DISPLAY_2VAL  ("OutGoing call created",
-                   M_counters[CPT_PD_OutgoingCallCreated],
-                   M_counters[CPT_C_OutgoingCallCreated]);
-    DISPLAY_CUMUL ("Total Call created", M_counters[CPT_C_IncomingCallCreated] +
-                   M_counters[CPT_C_OutgoingCallCreated]);
-    DISPLAY_PERIO ("Current Call",       M_counters[CPT_C_CurrentCall]);
-
-    if (M_genericMap.size()) {
-        DISPLAY_CROSS_LINE ();
-    }
-    for (unsigned int i = 1; i < M_genericMap.size() + 1; i++) {
-        char *s = (char *)malloc(20 + strlen(M_genericDisplay[i]));
-        sprintf(s, "Counter %s", M_genericDisplay[i]);
-
-        DISPLAY_2VAL(s, M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_PD], M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_C]);
-        free(s);
-    }
-
-    DISPLAY_CROSS_LINE ();
-    DISPLAY_2VAL  ("Successful call",
-                   M_counters[CPT_PD_SuccessfulCall],
-                   M_counters[CPT_C_SuccessfulCall]);
-    DISPLAY_2VAL  ("Failed call",
-                   M_counters[CPT_PD_FailedCall],
-                   M_counters[CPT_C_FailedCall]);
-    // DISPLAY_2VAL  ("Unexpected msg",
-    //                 M_counters[CPT_PD_UnexpectedMessage],
-    //                 M_counters[CPT_C_UnexpectedMessage]);
-
-
-    DISPLAY_CROSS_LINE ();
-    for (int i = 1; i <= nRtds(); i++) {
-        char s[80];
-
-        /* Skip if we aren't stopped. */
-        assert(rtd_stopped[M_revRtdMap[i]] == true);
-
-        sprintf(s, "Response Time %s", M_revRtdMap[i]);
-        DISPLAY_TXT_COL (s,
-                         msToHHMMSSus( (unsigned long)computeRtdMean(i, GENERIC_PD)),
-                         msToHHMMSSus( (unsigned long)computeRtdMean(i, GENERIC_C)));
-    }
-    /* I Broke this!
-      DISPLAY_TXT_COL ("Call Length",
-                       msToHHMMSSus( (unsigned long)computeMean(CPT_PD_AverageCallLength_Sum, CPT_PD_NbOfCallUsedForAverageCallLength)),
-                       msToHHMMSSus( (unsigned long)computeMean(CPT_C_AverageCallLength_Sum, CPT_C_NbOfCallUsedForAverageCallLength) ));
-    */
-    DISPLAY_CROSS_LINE ();
-
-    for (int i = 1; i <= nRtds(); i++) {
-        displayRtdRepartition(f, i);
-    }
-    DISPLAY_INFO("Average Call Length Repartition");
-    displayRepartition(f, M_CallLengthRepartition, M_SizeOfCallLengthRepartition);
-
-    //  DISPLAY_VAL ("NbCall Average RT(P)",
-    //                 M_counters[CPT_PD_NbOfCallUsedForAverageResponseTime]);
-    //  DISPLAY_VAL ("NbCall Average RT",
-    //                 M_counters[CPT_C_NbOfCallUsedForAverageResponseTime]);
-    //  DISPLAY_VAL ("NbCall Average CL",
-    //                 M_counters[CPT_C_NbOfCallUsedForAverageCallLength]);
-    //  DISPLAY_VAL ("NbCall Average CL(P)",
-    //                 M_counters[CPT_PD_NbOfCallUsedForAverageCallLength]);
-    DISPLAY_DLINE ();
-    fflush(f);
-} /* end of displayData () */
-
-
-void CStat::displayStat (FILE *f)
-{
-    long   localElapsedTime, globalElapsedTime ;
-    struct timeval currentTime;
-    float  averageCallRate;
-    float  realInstantCallRate;
-    unsigned long numberOfCall;
+    char buf[256];
 
     GET_TIME (&currentTime);
     // computing the real call rate
@@ -1320,7 +1204,7 @@ void CStat::displayStat (FILE *f)
                            1000*(float)numberOfCall / (float)localElapsedTime :
                            0.0);
 
-    // build and display header info
+    // build and DISPLAY2 header info
     DISPLAY_TXT ("Start Time  ", formatTime(&M_startTime));
     DISPLAY_TXT ("Last Reset Time", formatTime(&M_pdStartTime));
     DISPLAY_TXT ("Current Time", formatTime(&currentTime));
@@ -1382,20 +1266,22 @@ void CStat::displayStat (FILE *f)
     DISPLAY_TXT_COL ("Call Length",
                      msToHHMMSSus( (unsigned long)computeMean(CPT_PD_AverageCallLength_Sum, CPT_PD_NbOfCallUsedForAverageCallLength ) ),
                      msToHHMMSSus( (unsigned long)computeMean(CPT_C_AverageCallLength_Sum, CPT_C_NbOfCallUsedForAverageCallLength) ));
-    fflush(f);
 }
 
-void CStat::displayRepartition (FILE *f)
+
+void CStat::displayRepartition(std::vector<std::string>& lines)
 {
-    displayRtdRepartition(f, 1);
+    char buf[80];
+    displayRtdRepartition(lines, 1);
     DISPLAY_INFO("Average Call Length Repartition");
-    displayRepartition(f,
+    displayRepartition(lines,
                        M_CallLengthRepartition,
                        M_SizeOfCallLengthRepartition);
 }
 
-void CStat::displayRtdRepartition (FILE *f, int which)
+void CStat::displayRtdRepartition(std::vector<std::string>& lines, int which)
 {
+    char buf[80];
     if (which > nRtds()) {
         DISPLAY_INFO ("  <No repartion defined>");
         return;
@@ -1404,10 +1290,11 @@ void CStat::displayRtdRepartition (FILE *f, int which)
     char s[80];
     snprintf(s, sizeof(s), "Average Response Time Repartition %s", M_revRtdMap[which]);
     DISPLAY_INFO(s);
-    displayRepartition(f,
+    displayRepartition(lines,
                        M_ResponseTimeRepartition[which - 1],
                        M_SizeOfResponseTimeRepartition);
 }
+
 
 
 void CStat::dumpData ()

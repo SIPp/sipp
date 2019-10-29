@@ -57,6 +57,7 @@ extern char** environ;
 #include "assert.h"
 #include "config.h"
 #include "version.h"
+#include "screen_printer.hpp"
 
 extern SIPpSocket *ctrl_socket;
 extern SIPpSocket *stdin_socket;
@@ -990,11 +991,7 @@ static void help_stats()
 static void print_last_stats()
 {
     interrupt = 1;
-    // print last current screen
-    print_statistics(1);
-    // and print statistics screen
-    currentScreenToDisplay = DISPLAY_STAT_SCREEN;
-    print_statistics(1);
+    print_closing();
     if (main_scenario) {
         stattask::report();
     }
@@ -2011,11 +2008,12 @@ int main(int argc, char *argv[])
         ERROR("SIPp cannot use out-of-call scenarios when running in server mode");
     }
 
-    if (!isatty(fileno(stdout)))
-        use_curses = false;
 
-    if (use_curses)
+    sp = new ScreenPrinter();
+    if (!sp->M_headless)
+    {
         screen_init();
+    }
 
     sighandle_set();
 

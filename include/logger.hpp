@@ -36,6 +36,7 @@ MAYBE_EXTERN int    ringbuffer_files    DEFVAL(0);
 
 MAYBE_EXTERN char   screen_last_error[32768];
 MAYBE_EXTERN char   screen_logfile[MAX_PATH] DEFVAL("");
+
 /* Log Rotation Functions. */
 struct logfile_id {
     time_t start;
@@ -86,6 +87,7 @@ void rotate_calldebugf();
 
 /* Screen/Statistics Printing Functions. */
 void print_statistics(int last);
+void print_closing();
 void print_count_file(FILE* f, int header);
 void print_error_codes_file(FILE* f);
 

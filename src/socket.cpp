@@ -628,8 +628,6 @@ void handle_stdin_socket()
                 return;
             }
             command_buffer[0] = '\0';
-            printf("Command: ");
-            fflush(stdout);
         } else {
             process_key(c);
         }
