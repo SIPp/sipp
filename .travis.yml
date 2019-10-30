@@ -59,6 +59,18 @@ matrix:
 
 before_script:
   - autoreconf -vifs
+  # 2019-10-30: Homebrew/brew.rb:23:in `require_relative': ...
+  # ... unexpected keyword_rescue, expecting keyword_end
+  # https://discourse.brew.sh/t/missing-file-homebrew-dead/5657
+  - if [ "$TRAVIS_OS_NAME" = osx ]; then
+      set -x &&
+      brew update-reset &&
+      if ! brew install gsl; then
+        cd "$(brew --repo)" && git add . && git fetch &&
+        git reset --hard origin/master;
+      fi;
+      set +x;
+    fi
   - if [ "$TRAVIS_OS_NAME" = osx ]; then brew install gsl; fi
   # 2016-10: Apple doesn't include openssl any more because of security
   # problems openssl had. Manually specify path to includes/libs.
