@@ -117,10 +117,11 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
 
     GET_TIME (&currentTime);
 
-    c+= sprintf(c, "%s: ", CStat::formatTime(&currentTime));
-    c+= vsprintf(c, fmt, ap);
+    const std::size_t bufSize = sizeof(screen_last_error)/sizeof(screen_last_error[0]);
+    c+= snprintf(c, bufSize, "%s: ", CStat::formatTime(&currentTime));
+    c+= vsnprintf(c, (bufSize - (c - screen_last_error)), fmt, ap);
     if (use_errno) {
-        c += sprintf(c, ", errno = %d (%s)", error, strerror(error));
+        c += snprintf(c, (bufSize - (c - screen_last_error)), ", errno = %d (%s)", error, strerror(error));
     }
     screen_errors++;
 
