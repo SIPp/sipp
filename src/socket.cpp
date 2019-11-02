@@ -2397,12 +2397,16 @@ int open_connections()
 
             /* Resolving local IP */
             if ((ret = getaddrinfo(local_ip, NULL, &hints, &local_addr)) != 0) {
-                if (ret == EAI_ADDRFAMILY) {
+              switch (ret) {
+#ifdef EAI_ADDRFAMILY
+                case EAI_ADDRFAMILY:
                     ERROR("Network family mismatch for local and remote IP");
-                } else {
+                    break;
+#endif
+                default:
                     ERROR("Can't get local IP address in getaddrinfo, "
                           "local_ip='%s', ret=%d", local_ip, ret);
-                }
+              }
             }
             memcpy(&local_sockaddr, local_addr->ai_addr, local_addr->ai_addrlen);
             freeaddrinfo(local_addr);

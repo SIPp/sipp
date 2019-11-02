@@ -31,6 +31,13 @@
 #include "endianshim.h"
 #include "prepare_pcap.h"
 
+#ifndef HAVE_UDP_UH_PREFIX
+#define uh_ulen len
+#define uh_sum check
+#define uh_sport source
+#define uh_dport dest
+#endif
+
 /* Helpful RFCs for DTMF generation.
  * https://tools.ietf.org/html/rfc4733
  * https://tools.ietf.org/html/rfc3550

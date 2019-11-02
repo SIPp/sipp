@@ -50,6 +50,14 @@
 #include "defines.h"
 #include "send_packets.h"
 #include "prepare_pcap.h"
+#include "config.h"
+
+#ifndef HAVE_UDP_UH_PREFIX
+#define uh_ulen len
+#define uh_sum check
+#define uh_sport source
+#define uh_dport dest
+#endif
 
 extern char* scenario_path;
 extern volatile unsigned long rtp_pckts_pcap;

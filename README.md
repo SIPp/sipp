@@ -34,18 +34,18 @@ https://sipp.readthedocs.io/en/latest/
 This is the SIPp package. Please refer to the
 [webpage](http://sipp.sourceforge.net/) for details and documentation.
 
-Normally, you should be able to build SIPp by using the provided build
-script: `build.sh`. This:
-* checks out the gtest submodule
-* generates autotools files
-* runs configure
-* builds and runs the test suite
-* builds SIPp
+Normally, you should be able to build SIPp by using CMake:
 
-`build.sh` passes its arguments through to the configure script, so you
-can enable SSL, PCAP and SCTP support by calling `./build.sh
---with-pcap --with-sctp --with-openssl` or `./build.sh --full` to enable
-all optional features.
+```
+cmake .
+make
+```
+
+There are several optional flags:
+
+```
+cmake . -DBUILD_STATIC=1 -DUSE_SSL=1 -DUSE_SCTP=1 -DUSE_PCAP=1 -DUSE_GSL=1 -DUSE_EPOLL=1
+```
 
 # Support
 
@@ -58,6 +58,7 @@ list](https://lists.sourceforge.net/lists/listinfo/sipp-users).
 * Update CHANGES.md. Tag release.
 * Download zip, `autoreconf -vif`, copy sipp.1, copy include/version.h.
 * Create tgz. Upload to github as "binary".
+* Run `sudo docker build -t sipp-build docker && sudo docker run -it -v $PWD:/src sipp-build` to create a static binary. Upload this to Github as well.
 
 # Contributing
 
@@ -66,11 +67,6 @@ LICENCE.txt file for details). You can contribute to the development of
 SIPp and use the standard Github fork/pull request method to integrate
 your changes integrate your changes. If you make changes in SIPp,
 *PLEASE* follow a few coding rules:
-
-  - SIPp uses GNU autotools, so changes to the build process should be
-    done by editing configure.ac and Makefile.am. Then regenerate the
-    files with `autoreconf -ivf`. (You will need your distribution's
-    `autotools` and `autoconf-archive` packages installed for this.)
 
   - Please stay conformant with the current indentation style (4 spaces
     indent, standard Emacs-like indentation). Examples:

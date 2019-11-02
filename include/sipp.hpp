@@ -21,7 +21,7 @@
 #define __SIPP__
 
 /* Std C includes */
-
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +36,7 @@
 #endif
 #endif
 #include <sys/time.h>
-#include <sys/poll.h>
+#include <poll.h>
 #ifdef HAVE_EPOLL
 #include <sys/epoll.h>
 #endif
