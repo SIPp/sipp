@@ -49,7 +49,7 @@ jobs:
     - name: prepare
       run: git submodule update --init
     - name: build
-      run: ./build.sh --none
+      run: cmake . -DUSE_GSL= && make
 
 
 
