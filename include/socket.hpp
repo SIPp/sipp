@@ -130,7 +130,7 @@ private:
     bool ss_call_socket; /* Is this a call socket? */
 
 #ifdef USE_OPENSSL
-    SSL *ss_ssl; /* The underlying SSL descriptor for this socket. */
+    mbedtls_net_context *ss_ssl; /* The underlying SSL descriptor for this socket. */
     BIO *ss_bio; /* The underlying BIO descriptor for this socket. */
 #endif
 

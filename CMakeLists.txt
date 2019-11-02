@@ -15,6 +15,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/gtest/include
   ${PROJECT_SOURCE_DIR}/gmock/include
+  ${PROJECT_SOURCE_DIR}/../mbedtls-2.16.3/include/
   ${PROJECT_BINARY_DIR}
   "/usr/local/include")
 

@@ -20,12 +20,11 @@
 #define __SSLSOCKET__
 
 #ifdef USE_OPENSSL
-#include <openssl/bio.h>
-#include <openssl/err.h>
-#include <openssl/rand.h>
-#include <openssl/ssl.h>
-#include <openssl/x509v3.h>
-#include <pthread.h>
+#include "mbedtls/net.h"
+#include "mbedtls/ssl.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/debug.h"
 #endif
 
 /* Initialises an SSL context and makes the lib thread safe */
@@ -42,8 +41,8 @@ enum tls_init_status TLS_init_context(void);
 /* Helpers for OpenSSL */
 
 #ifdef USE_OPENSSL
-SSL* SSL_new_client();
-SSL* SSL_new_server();
+mbedtls_net_context* SSL_new_client();
+mbedtls_net_context* SSL_new_server();
 const char *SSL_error_string(int ssl_error, int orig_ret);
 #endif
 

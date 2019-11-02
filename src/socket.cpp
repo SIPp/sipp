@@ -886,7 +886,7 @@ int SIPpSocket::empty()
         break;
     case T_TLS:
 #ifdef USE_OPENSSL
-        ret = SSL_read(ss_ssl, buffer, readsize);
+        ret = mbedtls_ssl_read(ss_ssl, buffer, readsize);
         /* XXX: Check for clean shutdown. */
 #else
         ERROR("TLS support is not enabled!");
@@ -941,8 +941,8 @@ void SIPpSocket::invalidate()
 
 #ifdef USE_OPENSSL
     if (SSL *ssl = ss_ssl) {
-        SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
-        SSL_free(ssl);
+        mbedtls_net_free(ssl);
+        free(ssl);
     }
 #endif
 
@@ -1278,15 +1278,9 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     ss_ssl = NULL;
 
     if (transport == T_TLS) {
-        if ((ss_bio = BIO_new_socket(fd, BIO_NOCLOSE)) == NULL) {
-            ERROR("Unable to create BIO object:Problem with BIO_new_socket()");
-        }
-
         if (!(ss_ssl = (accepting ? SSL_new_server() : SSL_new_client()))) {
             ERROR("Unable to create SSL object : Problem with SSL_new()");
         }
-
-        SSL_set_bio(ss_ssl, ss_bio, ss_bio);
     }
 #endif
     /* Store this socket in the tables. */
@@ -2124,7 +2118,7 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
     switch(ss_transport) {
     case T_TLS:
 #ifdef USE_OPENSSL
-        rc = send_nowait_tls(ss_ssl, buffer, len, 0);
+        rc = mbed_ssl_write(ss_ssl, buffer, len);
 #else
         errno = EOPNOTSUPP;
         rc = -1;

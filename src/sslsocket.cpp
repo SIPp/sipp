@@ -31,8 +31,8 @@
 
 #define CALL_BACK_USER_DATA "ksgr"
 
-static SSL_CTX* sip_trp_ssl_ctx = NULL; /* For SSL cserver context */
-static SSL_CTX* sip_trp_ssl_ctx_client = NULL; /* For SSL cserver context */
+static mbedtls_ssl_context sip_trp_ssl_ctx; /* For SSL cserver context */
+static mbedtls_ssl_context sip_trp_ssl_ctx_client; /* For SSL cserver context */
 
 static MUTEX_TYPE *mutex_buf = NULL;
 
@@ -120,14 +120,14 @@ const char *SSL_error_string(int ssl_error, int orig_ret)
     return "Unknown SSL Error.";
 }
 
-SSL* SSL_new_client()
+mbedtls_net_context* SSL_new_client()
 {
-    return SSL_new(sip_trp_ssl_ctx_client);
+    return malloc(mbedtls_net_context);
 }
 
-SSL* SSL_new_server()
+mbedtls_net_context* SSL_new_server()
 {
-    return SSL_new(sip_trp_ssl_ctx);
+    return malloc(mbedtls_net_context);
 }
 
 /****** Certificate Verification Callback FACILITY *************/
@@ -301,9 +301,20 @@ enum tls_init_status TLS_init_context(void)
 
 int TLS_init()
 {
-    if (!thread_setup() || !SSL_library_init()) {
+    if (!thread_setup()) {
         return -1;
     }
-    SSL_load_error_strings();
+    mbedtls_ssl_config_init( &conf );
+    mbedtls_x509_crt_init( &cacert );
+    mbedtls_ctr_drbg_init( &ctr_drbg );
+
+    mbedtls_entropy_init( &entropy );
+    if( ( ret = mbedtls_ctr_drbg_seed( &ctr_drbg, mbedtls_entropy_func, &entropy,
+                                       (const unsigned char *) pers,
+                                       strlen( pers ) ) ) != 0 )
+    {
+          printf( " failed\n  ! mbedtls_ctr_drbg_seed returned %d\n", ret );
+          return -1;
+    }
     return 1;
 }
