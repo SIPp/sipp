@@ -11,6 +11,8 @@ jobs:
     - uses: actions/checkout@v1
     - name: lint
       run: ./validate-src.sh
+    - name: lint-xml
+      run: sudo apt-get install --yes libxml2-utils && ./dtd_check.sh
 
   build:
 

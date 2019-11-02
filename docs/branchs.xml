@@ -44,7 +44,7 @@
     <action>
       <ereg regexp="ua2"
             search_in="hdr"
-            header="From: "
+            header="From:"
             assign_to="3"/>
     </action>
   </recv>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
-<!DOCTYPE scenario SYSTEM "sipp.dtd">""
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
 <scenario name="CRLF TB CRLF bug test scenario; Content-Lentgh must be 232">
 
 <!-- Observe the TAB at EOL between the header and the body -->

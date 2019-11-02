@@ -64,6 +64,7 @@
 <!ATTLIST pause sanity_check (true|false) #IMPLIED >
 
 <!ELEMENT nop ( action? ) >
+<!ATTLIST nop display CDATA #IMPLIED >
 
 <!ELEMENT sendCmd ( #PCDATA ) >
 <!-- sendCmd specific attributes -->
