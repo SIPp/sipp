@@ -217,7 +217,7 @@ void send_packets(play_args_t* play_args)
     // When binding a raw socket, it doesn't make sense to bind to a particular
     // port, as that's a UDP/TCP concept but the point of a raw socket is that
     // we're writing the headers ourselves. Some systems (like FreeBSD) are
-    // strict about this and return EADDRUNAVAIL if we specify a port, so bind
+    // strict about this and return EADDRNOTAVAIL if we specify a port, so bind
     // to a sockaddr structure copied from our sending address but with the
     // port set to 0.
     if (media_ip_is_ipv6) {
