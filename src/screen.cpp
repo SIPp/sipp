@@ -23,7 +23,6 @@
 
 
 #include <stdarg.h>
-#include <curses.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -102,9 +101,6 @@ void screen_init()
 
     screen_inited = 1;
 
-    initscr();
-    noecho();
-    screen_clear();
 }
 
 static void _screen_error(int fatal, bool use_errno, int error, const char *fmt, va_list ap)
