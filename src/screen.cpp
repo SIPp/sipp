@@ -637,10 +637,6 @@ void ScreenPrinter::draw_scenario_screen()
 }
 
 // Warning! All DISPLAY_ macros must be called where 'buf' and 'lines' are defined.
-#define DISPLAY_LINE() \
-    sprintf(buf," ------------------------------------------------------------------------------ "); lines.push_back(buf);
-#define DISPLAY_DLINE() \
-    sprintf(buf,"================================================================================"); lines.push_back(buf);
 #define DISPLAY_CROSS_LINE() \
     sprintf(buf,"-------------------------+---------------------------+--------------------------"); lines.push_back(buf);
 
@@ -656,20 +652,6 @@ void ScreenPrinter::draw_scenario_screen()
     sprintf(buf,"  %-22.22s |                           | %8llu                 ", T1, V1); lines.push_back(buf);
 #define DISPLAY_PERIO(T1, V1) \
     sprintf(buf,"  %-22.22s | %8llu                  |                          ", T1, V1); lines.push_back(buf);
-#define DISPLAY_VALF(T1, V1) \
-    sprintf(buf,"  %-22.22s | %8.3f ms                                          ", T1, V1); lines.push_back(buf);
-#define DISPLAY_VAL_RATEF(T1, V1) \
-    sprintf(buf,"  %-22.22s | %8.3f cps                                         ", T1, V1); lines.push_back(buf);
-#define DISPLAY_VAL_RATE(T1, V1) \
-    sprintf(buf,"  %-22.22s | %8d cps                                         ", T1, V1); lines.push_back(buf);
-#define DISPLAY_VAL(T1, V1) \
-    sprintf(buf,"  %-22.22s : %8d                                             ", T1, V1); lines.push_back(buf);
-#define DISPLAY_2VALF(T1, V1, T2, V2) \
-    sprintf(buf,"  %-22.22s : %8.2f  | %-7.7s : %8.2f                       ", T1, V1, T2, V2); lines.push_back(buf);
-#define DISPLAY_3VAL(T1, V1, T2, V2, T3, V3) \
-    sprintf(buf,"  %-22.22s : %8d  | %-7.7s : %8d  | %-12.12s : %5d ", T1, V1, T2, V2, T3, V3); lines.push_back(buf);
-#define DISPLAY_3VALF(T1, V1, T2, V2, T3, V3) \
-    sprintf(buf,"  %-22.22s : %8.3f  | %-7.7s : %8.3f  | %-12.12s : %5.1f ", T1, V1, T2, V2, T3, V3); lines.push_back(buf);
 #define DISPLAY_TXT(T1, V1) \
     sprintf(buf,"  %-22.22s | %-52.52s ", T1, V1); lines.push_back(buf);
 #define DISPLAY_INFO(T1) \
