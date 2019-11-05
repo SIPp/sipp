@@ -57,7 +57,6 @@ extern char** environ;
 #include "assert.h"
 #include "config.h"
 #include "version.h"
-#include "screen_printer.hpp"
 
 extern SIPpSocket *ctrl_socket;
 extern SIPpSocket *stdin_socket;
@@ -991,7 +990,7 @@ static void help_stats()
 static void print_last_stats()
 {
     interrupt = 1;
-    print_closing();
+    sp->print_closing_stats();
     if (main_scenario) {
         stattask::report();
     }
@@ -1081,7 +1080,7 @@ void sipp_exit(int rc)
 
     screen_exit();
     print_last_stats();
-    screen_show_errors();
+    print_errors();
 
     /* Close open files. */
     struct logfile_info** logfile_ptr;
@@ -1312,8 +1311,6 @@ int main(int argc, char *argv[])
         action_usr2.sa_handler = sipp_sigusr2;
         sigaction(SIGUSR2, &action_usr2, NULL);
     }
-
-    screen_set_exename("sipp");
 
     pid = getpid();
     memset(local_ip, 0, sizeof(local_ip));

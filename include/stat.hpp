@@ -57,12 +57,13 @@ __________________________________________________________________________
 */
 
 /**
- * This class provides some means to compute and display statistics.
+ * This class provides some means to compute statistics.
  * This is a singleton class.
  */
 
 class CStat
 {
+    friend class ScreenPrinter;
 public:
 
     std::vector<int> error_codes;
@@ -371,13 +372,6 @@ public:
     void initRtt(const char* name, const char* extension, unsigned long P_value);
 
     /**
-     * Display data periodically updated on screen.
-     */
-    void displayStat(std::vector<std::string>& lines);
-    void displayRepartition(std::vector<std::string>& lines);
-    void displayRtdRepartition(std::vector<std::string>& lines, int which);
-
-    /**
      * Dump data periodically in the file M_FileName
      */
     void dumpData ();
@@ -527,13 +521,6 @@ private:
      */
     void  resetRepartition(T_dynamicalRepartition* P_tabReport,
                            int P_sizeOfTab);
-    /**
-     * displayRepartition
-     * Display the repartition passed in parameter at the screen
-     */
-    void  displayRepartition(std::vector<std::string>& lines,
-                             T_dynamicalRepartition * tabRepartition,
-                             int sizeOfTab);
 
     /**
      * sRepartitionHeader

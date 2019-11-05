@@ -85,8 +85,10 @@ void rotate_messagef();
 void rotate_screenf();
 void rotate_calldebugf();
 
-/* Screen/Statistics Printing Functions. */
-void print_statistics(int last);
+/* Functions that print to stdout/stderr/logfiles.
+ * Any functions which print to the curses UI live in screen.cpp.
+ * */
+void print_errors();
 void print_closing();
 void print_count_file(FILE* f, int header);
 void print_error_codes_file(FILE* f);

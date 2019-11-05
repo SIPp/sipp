@@ -44,22 +44,8 @@
 #include <unistd.h>
 
 #include "logger.hpp"
-#include "screen_printer.hpp"
 
-#define SIPP_ENDL "\r\n"
-const int NOTLAST = 0;
-
-
-void print_closing() {
-    sp->print_closing_stats();
-}
-
-void print_statistics(int last)
-{
-    if (backgroundMode == false && display_scenario) {
-      sp->redraw();
-    }
-}
+unsigned long total_errors = 0;
 
 void log_off(struct logfile_info* lfi)
 {
@@ -416,3 +402,116 @@ int TRACE_CALLDEBUG(const char* fmt, ...)
     return ret;
 }
 
+void print_errors() {
+    if (total_errors == 0) {
+        return;
+    }
+
+    fprintf(stderr, "%s\n", screen_last_error);
+    if (total_errors > 1) {
+        if (screen_logfile[0] != '\0') {
+            fprintf(stderr,
+                    "There were more errors, see '%s' file\n",
+                    screen_logfile);
+        } else {
+            fprintf(stderr,
+                    "There were more errors, enable -trace_err to log them.\n");
+        }
+    }
+    fflush(stderr);
+}
+
+static void _screen_error(int fatal, bool use_errno, int error, const char *fmt, va_list ap)
+{
+    static unsigned long long count = 0;
+    char *c = screen_last_error;
+    struct timeval currentTime;
+
+    CStat::globalStat(fatal ? CStat::E_FATAL_ERRORS : CStat::E_WARNING);
+
+    GET_TIME (&currentTime);
+
+    c+= sprintf(c, "%s: ", CStat::formatTime(&currentTime));
+    c+= vsprintf(c, fmt, ap);
+    if (use_errno) {
+        c += sprintf(c, ", errno = %d (%s)", error, strerror(error));
+    }
+    total_errors++;
+
+    if (!error_lfi.fptr && print_all_responses) {
+        rotate_errorf();
+        if (error_lfi.fptr) {
+            fprintf(error_lfi.fptr, "The following events occurred:\n");
+            fflush(error_lfi.fptr);
+        } else {
+            sprintf(c, "Unable to create '%s': %s.\n",
+                    screen_logfile, strerror(errno));
+            sipp_exit(EXIT_FATAL_ERROR);
+        }
+    }
+
+    if (error_lfi.fptr) {
+        count += fprintf(error_lfi.fptr, "%s", screen_last_error);
+        fflush(error_lfi.fptr);
+        if (ringbuffer_size && count > ringbuffer_size) {
+            rotate_errorf();
+            count = 0;
+        }
+        if (max_log_size && count > max_log_size) {
+            print_all_responses = 0;
+            if (error_lfi.fptr) {
+                fflush(error_lfi.fptr);
+                fclose(error_lfi.fptr);
+                error_lfi.fptr = NULL;
+                error_lfi.overwrite = false;
+            }
+        }
+    } else if (fatal) {
+        fprintf(stderr, "%s\n", screen_last_error);
+        fflush(stderr);
+    }
+
+    if (fatal) {
+        if (error == EADDRINUSE) {
+            sipp_exit(EXIT_BIND_ERROR);
+        } else {
+            sipp_exit(EXIT_FATAL_ERROR);
+        }
+    }
+}
+
+extern "C" {
+    void ERROR(const char *fmt, ...)
+    {
+        va_list ap;
+        va_start(ap, fmt);
+        _screen_error(true, false, 0, fmt, ap);
+        va_end(ap);
+        assert(0);
+    }
+
+    void ERROR_NO(const char *fmt, ...)
+    {
+        va_list ap;
+        va_start(ap, fmt);
+        _screen_error(true, true, errno, fmt, ap);
+        va_end(ap);
+        assert(0);
+    }
+
+    void WARNING(const char *fmt, ...)
+    {
+        va_list ap;
+        va_start(ap, fmt);
+        _screen_error(false, false, 0, fmt, ap);
+        va_end(ap);
+    }
+
+    void WARNING_NO(const char *fmt, ...)
+    {
+        va_list ap;
+        va_start(ap, fmt);
+        _screen_error(false, true, errno, fmt, ap);
+        va_end(ap);
+    }
+}
