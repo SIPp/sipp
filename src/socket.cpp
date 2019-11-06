@@ -590,7 +590,6 @@ void handle_stdin_socket()
                 }
                 command_buffer[0] = '\0';
                 command_mode = 0;
-                printf(SIPP_ENDL);
             }
 #ifndef __SUNOS
             else if (c == key_backspace || c == key_dc)

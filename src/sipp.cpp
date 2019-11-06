@@ -990,7 +990,9 @@ static void help_stats()
 static void print_last_stats()
 {
     interrupt = 1;
-    sp->print_closing_stats();
+    if (sp) {
+      sp->print_closing_stats();
+    }
     if (main_scenario) {
         stattask::report();
     }
