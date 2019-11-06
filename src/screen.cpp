@@ -113,7 +113,7 @@ void ScreenPrinter::redraw()
 {
     if (!M_headless) {
         get_lines();
-        clear();
+        erase();
         for (auto line : lines) {
             printw("%s\n", line.c_str());
         }
