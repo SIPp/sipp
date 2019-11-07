@@ -32,7 +32,6 @@
 FileContents::FileContents(const char *fileName)
 {
     ifstream *inFile    = new ifstream(fileName);
-    char      line[MAX_CHAR_BUFFER_SIZE];
     int virtualLines = 0;
 
     if (!inFile->good()) {
@@ -48,8 +47,9 @@ FileContents::FileContents(const char *fileName)
     printfMultiple = 1;
 
 
-    line[0] = '\0';
-    inFile->getline(line, MAX_CHAR_BUFFER_SIZE);
+    std::string lineStr;
+    std::getline(*inFile, lineStr);
+    const char* line = lineStr.c_str();
 
     if (NULL != strstr(line, "RANDOM")) {
         usage = InputFileRandomOrder;
@@ -61,7 +61,7 @@ FileContents::FileContents(const char *fileName)
         ERROR("Unknown file type (valid values are RANDOM, SEQUENTIAL, and USER) for %s:%s", fileName, line);
     }
 
-    char *useprintf;
+    const char *useprintf;
     if ((useprintf = strstr(line, "PRINTF"))) {
         /* We are going to operate in printf mode, which uses the line as a format
          * string for printf with the line number. */
@@ -108,11 +108,11 @@ FileContents::FileContents(const char *fileName)
     }
 
     while (!inFile->eof()) {
-        line[0] = '\0';
-        inFile->getline(line, MAX_CHAR_BUFFER_SIZE);
-        if (line[0]) {
-            if ('#' != line[0]) {
-                fileLines.push_back(line);
+        lineStr.clear();
+        std::getline(*inFile, lineStr);
+        if (!lineStr.empty()) {
+            if ('#' != lineStr[0]) {
+                fileLines.push_back(lineStr);
                 realLinesInFile++; /* this counts number of valid data lines */
             }
         } else {
