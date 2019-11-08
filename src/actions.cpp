@@ -111,6 +111,8 @@ void CAction::afficheInfo()
         }
     } else if (M_action == E_AT_EXECUTE_CMD) {
         printf("Type[%d] - command[%-32.32s]", M_action, M_message_str[0]);
+    } else if (M_action == E_AT_VERIFY_CMD) {
+        printf("Type[%d] - verify[%-32.32s]", M_action, M_message_str[0]);
     } else if (M_action == E_AT_EXEC_INTCMD) {
         printf("Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
     } else if (M_action == E_AT_LOG_TO_FILE) {
