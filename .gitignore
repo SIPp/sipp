@@ -37,6 +37,10 @@ stamp-h.in
 *.patch
 compile_commands.json
 
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
 # Ignore *.xml in root dir, but not in regression tests dir.
 /*.xml
 
