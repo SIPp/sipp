@@ -360,6 +360,12 @@ void ScreenPrinter::draw_scenario_screen()
         lines.push_back(buf);
     }
 
+    if (auto_answer) {
+        snprintf(buf, 80, "  %d requests auto-answered",
+                 display_scenario->stats->GetStat(CStat::CPT_G_C_AutoAnswered));
+        lines.push_back(buf);
+    }
+
     /* 4th line , sockets and optional errors */
     snprintf(left_buf, 40, "%d open sockets", pollnfds);
     snprintf(buf, 80, "  %-38s  %lu/%lu/%lu %s errors (send/recv/cong)",
