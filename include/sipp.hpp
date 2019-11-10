@@ -284,7 +284,6 @@ MAYBE_EXTERN bool               twinSippMode            DEFVAL(false);
 MAYBE_EXTERN bool               extendedTwinSippMode    DEFVAL(false);
 
 MAYBE_EXTERN bool               nostdin                 DEFVAL(false);
-MAYBE_EXTERN bool               use_curses              DEFVAL(true);
 MAYBE_EXTERN bool               backgroundMode          DEFVAL(false);
 MAYBE_EXTERN bool               signalDump              DEFVAL(false);
 
