@@ -118,7 +118,10 @@
 #define TRANSPORT_TO_STRING(p)     ((p==T_TCP) ? "TCP" : ((p==T_TLS)? "TLS" : ((p==T_UDP)? "UDP" : "SCTP")))
 
 #define SIPP_MAXFDS                65536
-#define SIPP_MAX_MSG_SIZE          65536
+
+#ifndef SIPP_MAX_MSG_SIZE
+#define SIPP_MAX_MSG_SIZE 65536
+#endif
 
 #define MSG_RETRANS_FIRST          0
 #define MSG_RETRANS_RETRANSMISSION 1

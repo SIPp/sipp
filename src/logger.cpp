@@ -421,20 +421,31 @@ void print_errors() {
     fflush(stderr);
 }
 
+static void _advance(char*& c, const int snprintfResult)
+{
+    if (snprintfResult > 0) {
+        c += snprintfResult;
+    }
+}
+
 static void _screen_error(int fatal, bool use_errno, int error, const char *fmt, va_list ap)
 {
     static unsigned long long count = 0;
-    char *c = screen_last_error;
     struct timeval currentTime;
 
     CStat::globalStat(fatal ? CStat::E_FATAL_ERRORS : CStat::E_WARNING);
 
     GET_TIME (&currentTime);
 
-    c+= sprintf(c, "%s: ", CStat::formatTime(&currentTime));
-    c+= vsprintf(c, fmt, ap);
-    if (use_errno) {
-        c += sprintf(c, ", errno = %d (%s)", error, strerror(error));
+    const std::size_t bufSize = sizeof(screen_last_error) / sizeof(screen_last_error[0]);
+    const char* const bufEnd = &screen_last_error[bufSize];
+    char* c = screen_last_error;
+    _advance(c, snprintf(c, bufEnd - c, "%s: ", CStat::formatTime(&currentTime)));
+    if (c < bufEnd) {
+        _advance(c, vsnprintf(c, bufEnd - c, fmt, ap));
+    }
+    if (use_errno && c < bufEnd) {
+        _advance(c, snprintf(c, bufEnd - c, ", errno = %d (%s)", error, strerror(error)));
     }
     total_errors++;
 
@@ -444,8 +455,10 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
             fprintf(error_lfi.fptr, "The following events occurred:\n");
             fflush(error_lfi.fptr);
         } else {
-            sprintf(c, "Unable to create '%s': %s.\n",
-                    screen_logfile, strerror(errno));
+            if (c < bufEnd) {
+                _advance(c, snprintf(c, bufEnd - c, "Unable to create '%s': %s.\n",
+                                     screen_logfile, strerror(errno)));
+            }
             sipp_exit(EXIT_FATAL_ERROR);
         }
     }
