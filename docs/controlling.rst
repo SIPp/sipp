@@ -41,7 +41,6 @@ List of Interactive Commands
 - ``set users X`` Sets the number of users (only valid when -users is specified). set rate 10
 - ``set limit X`` Sets the open call limit (equivalent to -l option) set limit 100
 - ``set hide <true|false>`` Should the hide XML attribute be respected? set hide false
-- ``set index <true|false>`` Display message indexes in the scenario screen. set index true
 - ``set display <main|ooc>`` Changes the scenario that is displayed to either the main or the out-of-call scenario. set display main set display ooc
 - ``trace <log> <on|off>`` Turns log on or off at run time. Valid values for log are "error", "logs", "messages", and "shortmessages". trace error on
 

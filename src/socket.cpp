@@ -52,7 +52,6 @@
 #define const_char_nullptr (reinterpret_cast<const char*>(0))
 
 extern bool do_hide;
-extern bool show_index;
 
 SIPpSocket *ctrl_socket = NULL;
 SIPpSocket *stdin_socket = NULL;
@@ -186,14 +185,6 @@ static void process_set(char* what)
             do_hide = true;
         } else if (!strcmp(rest, "false")) {
             do_hide = false;
-        } else {
-            WARNING("Invalid bool: %s", rest);
-        }
-    } else if (!strcmp(what, "index")) {
-        if (!strcmp(rest, "true")) {
-            show_index = true;
-        } else if (!strcmp(rest, "false")) {
-            show_index = false;
         } else {
             WARNING("Invalid bool: %s", rest);
         }
