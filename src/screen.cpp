@@ -282,20 +282,20 @@ void ScreenPrinter::draw_scenario_screen()
     } else {
         assert(creationMode == MODE_CLIENT);
         if (users >= 0) {
-            lines.push_back("     Users (length)   Port   Total-time  "
+            lines.push_back("  Users (length)   Port   Total-time  "
                             "Total-calls  Remote-host");
             snprintf(buf, 256,
-                     "%d (%d ms)   %-5d %6lu.%02lu s     %8llu  %s:%d(%s)",
+                     "  %d (%d ms)   %-5d %6lu.%02lu s     %8llu  %s:%d(%s)",
                      users, duration, local_port, clock_tick / 1000,
                      (clock_tick % 1000) / 10, total_calls, remote_ip,
                      remote_port, TRANSPORT_TO_STRING(transport));
             lines.push_back(buf);
         } else {
-            lines.push_back("     Call rate (length)   Port   Total-time  "
+            lines.push_back("  Call rate (length)   Port   Total-time  "
                             "Total-calls  Remote-host");
             snprintf(
                 buf, 256,
-                "%3.1f(%d ms)/%5.3fs   %-5d %6lu.%02lu s     %8llu  %s:%d(%s)",
+                "  %3.1f(%d ms)/%5.3fs   %-5d %6lu.%02lu s     %8llu  %s:%d(%s)",
                 rate, duration, (double)rate_period_ms / 1000.0, local_port,
                 clock_tick / 1000, (clock_tick % 1000) / 10, total_calls,
                 remote_ip, remote_port, TRANSPORT_TO_STRING(transport));
