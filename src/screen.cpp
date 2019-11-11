@@ -164,7 +164,8 @@ void ScreenPrinter::get_lines()
         break;
     }
 
-    char buf[80];
+    unsigned const bufsiz = 80;
+    char buf[bufsiz];
     if (!M_last && screen_last_error[0]) {
       char* errstart = screen_last_error;
       int colonsleft = 3; /* We want to skip the time. */
@@ -178,9 +179,9 @@ void ScreenPrinter::get_lines()
         errstart++;
       }
       if (strlen(errstart) > 60) {
-        snprintf(buf, 80, "Last Error: %.60s...", errstart);
+        snprintf(buf, bufsiz, "Last Error: %.60s...", errstart);
       } else {
-        snprintf(buf, 80, "Last Error: %s", errstart);
+        snprintf(buf, bufsiz, "Last Error: %s", errstart);
       }
       lines.push_back(buf);
     }
@@ -264,9 +265,10 @@ bool show_index = false;
 
 void ScreenPrinter::draw_scenario_screen()
 {
-    char buf[80];
+    unsigned const bufsiz = 80;
+    char buf[bufsiz];
     char left_buf[40];
-    char right_buf[80];
+    char right_buf[bufsiz];
     int divisor;
     extern int pollnfds;
 
@@ -314,12 +316,12 @@ void ScreenPrinter::draw_scenario_screen()
                  ms_since_last_tick / 1000, ms_since_last_tick % 1000);
     } else {
         snprintf(left_buf, 40,
-                 "Call limit reached (-m %lu), %lu.%03lu s period ", stop_after,
-                 ms_since_last_tick / 1000, ms_since_last_tick % 1000);
+                 "Call limit %lu hit, %0.1f s period ", stop_after,
+                 (double)ms_since_last_tick / 100.0);
     }
     snprintf(right_buf, 40, "%lu ms scheduler resolution",
              ms_since_last_tick / std::max(scheduling_loops, 1ul));
-    snprintf(buf, 80, "  %-38s  %-40s", left_buf, right_buf);
+    snprintf(buf, bufsiz, "  %-38s  %-37s", left_buf, right_buf);
     lines.push_back(buf);
 
     /* 2nd line */
@@ -332,12 +334,12 @@ void ScreenPrinter::draw_scenario_screen()
                  open_calls_allowed);
     }
     snprintf(
-        buf, 80, "  %-38s  Peak was %llu calls, after %llu s", left_buf,
+        buf, bufsiz, "  %-38s  Peak was %llu calls, after %llu s", left_buf,
         display_scenario->stats->GetStat(CStat::CPT_C_CurrentCallPeak),
         display_scenario->stats->GetStat(CStat::CPT_C_CurrentCallPeakTime));
     lines.push_back(buf);
 
-    snprintf(buf, 80, "  %d Running, %d Paused, %d Woken up",
+    snprintf(buf, bufsiz, "  %d Running, %d Paused, %d Woken up",
              last_running_calls, last_paused_calls, last_woken_calls);
     last_woken_calls = 0;
     lines.push_back(buf);
@@ -347,22 +349,22 @@ void ScreenPrinter::draw_scenario_screen()
              display_scenario->stats->GetStat(CStat::CPT_G_C_DeadCallMsgs));
     if (creationMode == MODE_CLIENT) {
         snprintf(
-            buf, 80, "  %-38s  %llu out-of-call msg (discarded)", left_buf,
+            buf, bufsiz, "  %-38s  %llu out-of-call msg (discarded)", left_buf,
             display_scenario->stats->GetStat(CStat::CPT_G_C_OutOfCallMsgs));
     } else {
-        snprintf(buf, 80, "  %-38s", left_buf);
+        snprintf(buf, bufsiz, "  %-38s", left_buf);
     }
     lines.push_back(buf);
 
     if (compression) {
-        snprintf(buf, 80, "  Comp resync: %d sent, %d recv", resynch_send,
+        snprintf(buf, bufsiz, "  Comp resync: %d sent, %d recv", resynch_send,
                  resynch_recv);
         lines.push_back(buf);
     }
 
     /* 4th line , sockets and optional errors */
     snprintf(left_buf, 40, "%d open sockets", pollnfds);
-    snprintf(buf, 80, "  %-38s  %lu/%lu/%lu %s errors (send/recv/cong)",
+    snprintf(buf, bufsiz, "  %-38s  %lu/%lu/%lu %s errors (send/recv/cong)",
              left_buf, nb_net_send_errors, nb_net_recv_errors, nb_net_cong,
              TRANSPORT_TO_STRING(transport));
     lines.push_back(buf);
@@ -373,7 +375,7 @@ void ScreenPrinter::draw_scenario_screen()
         snprintf(left_buf, 40, "%lu Total RTP pckts sent ",
                 rtp_pckts_pcap);
         if (ms_since_last_tick) {
-            snprintf(buf, 80, "  %-38s  %lu.%03lu last period RTP rate (kB/s)",
+            snprintf(buf, bufsiz, "  %-38s  %lu.%03lu last period RTP rate (kB/s)",
                     left_buf,
                     rtp_bytes_pcap / ms_since_last_tick,
                     rtp_bytes_pcap % ms_since_last_tick);
@@ -408,13 +410,14 @@ void ScreenPrinter::draw_scenario_screen()
             last_rtpstream_rate_in = ((double)tempbytes) / ms_since_last_tick;
             rtpstream_bytes_in -= tempbytes;
         }
+
         snprintf(left_buf, 40, "%lu Total RTP pckts sent", rtpstream_pckts);
-        snprintf(buf, 80,"  %-38s  %.3f kB/s RTP OUT",
+        snprintf(buf, bufsiz,"  %-38s  %.3f kB/s RTP OUT",
                 left_buf, last_rtpstream_rate_out);
         lines.push_back(buf);
 
         snprintf(left_buf, 40, "%lu RTP sending threads active", rtpstream_numthreads);
-        snprintf(buf, 80, "  %-38s  %.3f kB/s RTP IN",
+        snprintf(buf, bufsiz, "  %-38s  %.3f kB/s RTP IN",
                  left_buf, last_rtpstream_rate_in);
         lines.push_back(buf);
     }
@@ -426,7 +429,7 @@ void ScreenPrinter::draw_scenario_screen()
                 rtp_pckts);
 
         if (ms_since_last_tick) {
-            snprintf(buf, 80, "  %-38s  %lu.%03lu last period RTP rate (kB/s)",
+            snprintf(buf, bufsiz, "  %-38s  %lu.%03lu last period RTP rate (kB/s)",
                     left_buf,
                     rtp_bytes / ms_since_last_tick,
                     rtp_bytes % ms_since_last_tick);
@@ -436,7 +439,7 @@ void ScreenPrinter::draw_scenario_screen()
         snprintf(left_buf, 40, "%lu Total echo RTP pckts 2nd stream",
                 rtp2_pckts);
         if (ms_since_last_tick) {
-            snprintf(buf, 80, "  %-38s  %lu.%03lu last period RTP rate (kB/s)",
+            snprintf(buf, bufsiz, "  %-38s  %lu.%03lu last period RTP rate (kB/s)",
                     left_buf,
                     rtp2_bytes / ms_since_last_tick,
                     rtp2_bytes % ms_since_last_tick);
@@ -449,11 +452,11 @@ void ScreenPrinter::draw_scenario_screen()
     /* Scenario counters */
     lines.push_back("");
     if (!lose_packets) {
-        snprintf(buf, 80,
+        snprintf(buf, bufsiz,
                  "                                 "
                  "Messages  Retrans   Timeout   Unexpected-Msg");
     } else {
-        snprintf(buf, 80,
+        snprintf(buf, bufsiz,
                  "                                 "
                  "Messages  Retrans   Timeout   Unexp.    Lost");
     }
@@ -469,43 +472,43 @@ void ScreenPrinter::draw_scenario_screen()
         }
         int buf_len = 0;
         if (show_index) {
-            buf_len += snprintf(buf + buf_len, 80 - buf_len, "%-2lu:", index);
+            buf_len += snprintf(buf + buf_len, bufsiz - buf_len, "%-2lu:", index);
         }
 
         if (SendingMessage* src = curmsg->send_scheme) {
             if (creationMode == MODE_SERVER) {
                 if (src->isResponse()) {
-                    buf_len += snprintf(buf + buf_len, 80 - buf_len,
+                    buf_len += snprintf(buf + buf_len, bufsiz - buf_len,
                                         "  <---------- %-10d ", src->getCode());
                 } else {
                     buf_len +=
-                        snprintf(buf + buf_len, 80 - buf_len,
+                        snprintf(buf + buf_len, bufsiz - buf_len,
                                  "  <---------- %-10s ", src->getMethod());
                 }
             } else {
                 if (src->isResponse()) {
-                    buf_len += snprintf(buf + buf_len, 80 - buf_len,
+                    buf_len += snprintf(buf + buf_len, bufsiz - buf_len,
                                         "  %10d ----------> ", src->getCode());
                 } else {
                     buf_len +=
-                        snprintf(buf + buf_len, 80 - buf_len,
+                        snprintf(buf + buf_len, bufsiz - buf_len,
                                  "  %10s ----------> ", src->getMethod());
                 }
             }
 
             if (curmsg->start_rtd) {
-                buf_len += snprintf(buf + buf_len, 80 - buf_len, " B-RTD%d ",
+                buf_len += snprintf(buf + buf_len, bufsiz - buf_len, " B-RTD%d ",
                                     curmsg->start_rtd);
             } else if (curmsg->stop_rtd) {
-                buf_len += snprintf(buf + buf_len, 80 - buf_len, " E-RTD%d ",
+                buf_len += snprintf(buf + buf_len, bufsiz - buf_len, " E-RTD%d ",
                                     curmsg->stop_rtd);
             } else {
-                buf_len += snprintf(buf + buf_len, 80 - buf_len, "        ");
+                buf_len += snprintf(buf + buf_len, bufsiz - buf_len, "        ");
             }
 
             if (curmsg->retrans_delay) {
                 buf_len += snprintf(
-                    buf + buf_len, 80 - buf_len, "%-9lu %-9lu %-9lu %-9s %-9s",
+                    buf + buf_len, bufsiz - buf_len, "%-9lu %-9lu %-9lu %-9s %-9s",
                     curmsg->nb_sent, curmsg->nb_sent_retrans,
                     curmsg->nb_timeout, "" /* Unexpected */,
                     (lose_packets && curmsg->nb_lost)
@@ -513,7 +516,7 @@ void ScreenPrinter::draw_scenario_screen()
                         : "");
             } else {
                 buf_len += snprintf(
-                    buf + buf_len, 80 - buf_len, "%-9lu %-9lu %-9s %-9s %-9s",
+                    buf + buf_len, bufsiz - buf_len, "%-9lu %-9lu %-9s %-9s %-9s",
                     curmsg->nb_sent, curmsg->nb_sent_retrans, "", /* Timeout. */
                     "" /* Unexpected. */,
                     (lose_packets && curmsg->nb_lost)
@@ -522,24 +525,24 @@ void ScreenPrinter::draw_scenario_screen()
             }
         } else if (curmsg->recv_response) {
             if (creationMode == MODE_SERVER) {
-                buf_len += snprintf(buf + buf_len, 80 - buf_len,
+                buf_len += snprintf(buf + buf_len, bufsiz - buf_len,
                                     "  ----------> %-10d ", curmsg->recv_response);
             } else {
-                buf_len += snprintf(buf + buf_len, 80 - buf_len,
+                buf_len += snprintf(buf + buf_len, bufsiz - buf_len,
                                     "  %10d <---------- ", curmsg->recv_response);
             }
 
             if (curmsg->start_rtd) {
-                buf_len += snprintf(buf + buf_len, 80 - buf_len, " B-RTD%d ",
+                buf_len += snprintf(buf + buf_len, bufsiz - buf_len, " B-RTD%d ",
                                     curmsg->start_rtd);
             } else if (curmsg->stop_rtd) {
-                buf_len += snprintf(buf + buf_len, 80 - buf_len, " E-RTD%d ",
+                buf_len += snprintf(buf + buf_len, bufsiz - buf_len, " E-RTD%d ",
                                     curmsg->stop_rtd);
             } else {
-                buf_len += snprintf(buf + buf_len, 80 - buf_len, "        ");
+                buf_len += snprintf(buf + buf_len, bufsiz - buf_len, "        ");
             }
 
-            buf_len += snprintf(buf + buf_len, 80 - buf_len,
+            buf_len += snprintf(buf + buf_len, bufsiz - buf_len,
                                 "%-9ld %-9ld %-9ld %-9ld %-9s", curmsg->nb_recv,
                                 curmsg->nb_recv_retrans, curmsg->nb_timeout,
                                 curmsg->nb_unexp,
@@ -572,32 +575,32 @@ void ScreenPrinter::draw_scenario_screen()
                         18 - len > 0 ? 18 - len : 0, "");
             }
 
-            snprintf(buf, 80, "%s%-9d                     %-9lu",
+            snprintf(buf, bufsiz, "%s%-9d                     %-9lu",
                      left_buf,
                      curmsg->sessions,
                      curmsg->nb_unexp);
         } else if (curmsg->recv_request) {
             if (creationMode == MODE_SERVER) {
                 buf_len +=
-                    snprintf(buf + buf_len, 80 - buf_len,
+                    snprintf(buf + buf_len, bufsiz - buf_len,
                              "  ----------> %-10s ", curmsg->recv_request);
             } else {
                 buf_len +=
-                    snprintf(buf + buf_len, 80 - buf_len, "  %10s <---------- ",
+                    snprintf(buf + buf_len, bufsiz - buf_len, "  %10s <---------- ",
                              curmsg->recv_request);
             }
 
             if (curmsg->start_rtd) {
-                buf_len += snprintf(buf + buf_len, 80 - buf_len, " B-RTD%d ",
+                buf_len += snprintf(buf + buf_len, bufsiz - buf_len, " B-RTD%d ",
                                     curmsg->start_rtd);
             } else if (curmsg->stop_rtd) {
-                buf_len += snprintf(buf + buf_len, 80 - buf_len, " E-RTD%d ",
+                buf_len += snprintf(buf + buf_len, bufsiz - buf_len, " E-RTD%d ",
                                     curmsg->stop_rtd);
             } else {
-                buf_len += snprintf(buf + buf_len, 80 - buf_len, "        ");
+                buf_len += snprintf(buf + buf_len, bufsiz - buf_len, "        ");
             }
 
-            buf_len += snprintf(buf + buf_len, 80 - buf_len,
+            buf_len += snprintf(buf + buf_len, bufsiz - buf_len,
                                 "%-9ld %-9ld %-9ld %-9ld %-9s", curmsg->nb_recv,
                                 curmsg->nb_recv_retrans, curmsg->nb_timeout,
                                 curmsg->nb_unexp,
@@ -606,13 +609,13 @@ void ScreenPrinter::draw_scenario_screen()
                                     : "");
         } else if (curmsg->M_type == MSG_TYPE_NOP) {
             if (curmsg->display_str) {
-                snprintf(buf, 80, " %s", curmsg->display_str);
+                snprintf(buf, bufsiz, " %s", curmsg->display_str);
             } else {
-                snprintf(buf, 80, "              [ NOP ]              ");
+                snprintf(buf, bufsiz, "              [ NOP ]              ");
             }
         } else if (curmsg->M_type == MSG_TYPE_RECVCMD) {
             snprintf(left_buf, 40, "    [ Received Command ]         ");
-            snprintf(buf, 80, "%s%-9ld %-9s %-9s %-9s",
+            snprintf(buf, bufsiz, "%s%-9ld %-9s %-9s %-9s",
                      left_buf,
                      curmsg->M_nbCmdRecv,
                      "",
@@ -620,7 +623,7 @@ void ScreenPrinter::draw_scenario_screen()
                      "");
         } else if (curmsg->M_type == MSG_TYPE_SENDCMD) {
             snprintf(left_buf, 40, "        [ Sent Command ]         ");
-            snprintf(buf, 80, "%s%-9lu %-9s           %-9s",
+            snprintf(buf, bufsiz, "%s%-9lu %-9s           %-9s",
                      left_buf,
                      curmsg->M_nbCmdSent,
                      "",
@@ -636,30 +639,41 @@ void ScreenPrinter::draw_scenario_screen()
     }
 }
 
-// Warning! All DISPLAY_ macros must be called where 'buf' and 'lines' are defined.
+// Warning! All DISPLAY_ macros must be called where 'bufsiz', 'buf' and 'lines' are defined.
 #define DISPLAY_CROSS_LINE() \
-    sprintf(buf,"-------------------------+---------------------------+--------------------------"); lines.push_back(buf);
+    snprintf(buf, bufsiz, "-------------------------+---------------------------+--------------------------"); \
+    lines.push_back(buf);
 
 #define DISPLAY_HEADER() \
-    sprintf(buf,"  Counter Name           | Periodic value            | Cumulative value"); lines.push_back(buf);
+    snprintf(buf, bufsiz, "  Counter Name           | Periodic value            | Cumulative value"); \
+    lines.push_back(buf);
 #define DISPLAY_TXT_COL(T1, V1, V2) \
-    sprintf(buf,"  %-22.22s | %-25.25s | %-24.24s ", T1, V1, V2); lines.push_back(buf);
+    snprintf(buf, bufsiz, "  %-22.22s | %-25.25s | %-24.24s ", T1, V1, V2); \
+    lines.push_back(buf);
 #define DISPLAY_VAL_RATEF_COL(T1, V1, V2) \
-    sprintf(buf,"  %-22.22s | %8.3f cps              | %8.3f cps             ", T1, V1, V2); lines.push_back(buf);
+    snprintf(buf, bufsiz, "  %-22.22s | %8.3f cps              | %8.3f cps             ", T1, V1, V2); \
+    lines.push_back(buf);
 #define DISPLAY_2VAL(T1, V1, V2) \
-    sprintf(buf,"  %-22.22s | %8llu                  | %8llu                 ", T1, V1, V2); lines.push_back(buf);
+    snprintf(buf, bufsiz, "  %-22.22s | %8llu                  | %8llu                 ", T1, V1, V2); \
+    lines.push_back(buf);
 #define DISPLAY_CUMUL(T1, V1) \
-    sprintf(buf,"  %-22.22s |                           | %8llu                 ", T1, V1); lines.push_back(buf);
+    snprintf(buf, bufsiz, "  %-22.22s |                           | %8llu                 ", T1, V1); \
+    lines.push_back(buf);
 #define DISPLAY_PERIO(T1, V1) \
-    sprintf(buf,"  %-22.22s | %8llu                  |                          ", T1, V1); lines.push_back(buf);
+    snprintf(buf, bufsiz, "  %-22.22s | %8llu                  |                          ", T1, V1); \
+    lines.push_back(buf);
 #define DISPLAY_TXT(T1, V1) \
-    sprintf(buf,"  %-22.22s | %-52.52s ", T1, V1); lines.push_back(buf);
+    snprintf(buf, bufsiz, "  %-22.22s | %-52.52s ", T1, V1); \
+    lines.push_back(buf);
 #define DISPLAY_INFO(T1) \
-    sprintf(buf,"  %-77.77s ", T1); lines.push_back(buf);
+    snprintf(buf, bufsiz, "  %-77.77s", T1); \
+    lines.push_back(buf);
 #define DISPLAY_REPART(T1, T2, V1) \
-    sprintf(buf,"    %8d ms <= n <  %8d ms : %10lu  %-29.29s ", T1, T2, V1, ""); lines.push_back(buf);
+    snprintf(buf, bufsiz, "    %10d ms <= n < %10d ms : %10lu", T1, T2, V1); \
+    lines.push_back(buf);
 #define DISPLAY_LAST_REPART(T1, V1) \
-    sprintf(buf,"    %14.14s n >= %8d ms : %10lu  %-29.29s ", "", T1, V1, ""); lines.push_back(buf);
+    snprintf(buf, bufsiz, "    %14.14s n >= %10d ms : %10lu", "", T1, V1); \
+    lines.push_back(buf);
 
 void ScreenPrinter::draw_stats_screen()
 {
@@ -669,7 +683,8 @@ void ScreenPrinter::draw_stats_screen()
     float  realInstantCallRate;
     unsigned long numberOfCall;
     CStat* s = display_scenario->stats;
-    char buf[256];
+    unsigned const bufsiz = 256;
+    char buf[bufsiz];
 
     GET_TIME (&currentTime);
     // computing the real call rate
@@ -738,7 +753,7 @@ void ScreenPrinter::draw_stats_screen()
     for (int i = 1; i <= s->nRtds(); i++) {
         char buf2[80];
 
-        sprintf(buf2, "Response Time %s", s->M_revRtdMap[i]);
+        snprintf(buf2, 80, "Response Time %s", s->M_revRtdMap[i]);
         DISPLAY_TXT_COL (buf2,
                          s->msToHHMMSSus( (unsigned long)s->computeRtdMean(i, GENERIC_PD)),
                          s->msToHHMMSSus( (unsigned long)s->computeRtdMean(i, GENERIC_C)));
@@ -750,15 +765,16 @@ void ScreenPrinter::draw_stats_screen()
 
 void ScreenPrinter::draw_repartition_screen(int which)
 {
-    char buf[80];
-    char buf2[80];
+    unsigned const bufsiz = 80;
+    char buf[bufsiz];
+    char buf2[bufsiz];
     CStat* s = display_scenario->stats;
     if (which > s->nRtds()) {
         DISPLAY_INFO ("  <No repartion defined>");
         return;
     }
 
-    snprintf(buf2, 80, "Average Response Time Repartition %s", s->M_revRtdMap[which]);
+    snprintf(buf2, bufsiz, "Average Response Time Repartition %s", s->M_revRtdMap[which]);
     DISPLAY_INFO(buf2);
     draw_repartition_detailed(s->M_ResponseTimeRepartition[which - 1],
                               s->M_SizeOfResponseTimeRepartition);
@@ -775,7 +791,8 @@ void ScreenPrinter::draw_repartition_screen(int which)
 void ScreenPrinter::draw_repartition_detailed(CStat::T_dynamicalRepartition * tabRepartition,
                                             int sizeOfTab)
 {
-    char buf[80];
+    unsigned const bufsiz = 80;
+    char buf[bufsiz];
     if(tabRepartition != NULL) {
         for(int i=0; i<(sizeOfTab-1); i++) {
             if(i==0) {
@@ -799,7 +816,8 @@ void ScreenPrinter::draw_vars_screen()
     CActions* actions;
     CAction* action;
     bool found;
-    char buf[80];
+    unsigned const bufsiz = 80;
+    char buf[bufsiz];
 
     lines.push_back("Action defined Per Message :");
     found = false;
@@ -809,17 +827,17 @@ void ScreenPrinter::draw_vars_screen()
         if (actions != NULL) {
             switch (curmsg->M_type) {
             case MSG_TYPE_RECV:
-                snprintf(buf, 80, "=> Message[%u] (Receive Message) - "
+                snprintf(buf, bufsiz, "=> Message[%u] (Receive Message) - "
                          "[%d] action(s) defined :",
                          i, actions->getActionSize());
                 break;
             case MSG_TYPE_RECVCMD:
-                snprintf(buf, 80, "=> Message[%u] (Receive Command Message) - "
+                snprintf(buf, bufsiz, "=> Message[%u] (Receive Command Message) - "
                          "[%d] action(s) defined :",
                          i, actions->getActionSize());
                 break;
             default:
-                snprintf(buf, 80, "=> Message[%u] - [%d] action(s) defined :", i,
+                snprintf(buf, bufsiz, "=> Message[%u] - [%d] action(s) defined :", i,
                        actions->getActionSize());
                 break;
             }
@@ -828,8 +846,8 @@ void ScreenPrinter::draw_vars_screen()
             for (int j = 0; j < actions->getActionSize(); j++) {
                 action = actions->getAction(j);
                 if (action != NULL) {
-                    int printed = snprintf(buf, 80, "   --> action[%d] = ", j);
-                    action->printInfo(buf + printed, 80 - printed);
+                    int printed = snprintf(buf, bufsiz, "   --> action[%d] = ", j);
+                    action->printInfo(buf + printed, bufsiz - printed);
                     lines.push_back(buf);
                     found = true;
                 }
@@ -854,7 +872,8 @@ void ScreenPrinter::draw_tdm_screen()
     int height = (tdm_map_a + 1) * (tdm_map_b + 1);
     int width = (tdm_map_c + 1);
     int total_circuits = height * width;
-    char buf[80] = {0};
+    unsigned const bufsiz = 80;
+    char buf[bufsiz] = {0};
 
     lines.push_back("TDM Circuits in use:");
     while (i < total_circuits) {
@@ -868,11 +887,11 @@ void ScreenPrinter::draw_tdm_screen()
         i++;
         if (buf_position == (width - 1)) {
             lines.push_back(buf);
-            memset(buf, 0, 80);
+            memset(buf, 0, bufsiz);
         }
     }
     lines.push_back("");
-    snprintf(buf, 80, "%d/%d circuits (%d%%) in use", in_use, total_circuits,
+    snprintf(buf, bufsiz, "%d/%d circuits (%d%%) in use", in_use, total_circuits,
            int(100 * in_use / total_circuits));
     lines.push_back(buf);
     for (unsigned int i = 0;
