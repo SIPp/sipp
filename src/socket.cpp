@@ -1872,8 +1872,8 @@ int SIPpSocket::write_error(int ret)
     if ((ss_transport == T_TCP || ss_transport == T_SCTP)
             && errno == EPIPE) {
         nb_net_send_errors++;
-        abort();
         sockets_pending_reset.insert(this);
+        abort();
         if (reconnect_allowed()) {
             WARNING("Broken pipe on TCP connection, remote peer "
                     "probably closed the socket");
@@ -1962,8 +1962,8 @@ int SIPpSocket::read_error(int ret)
             return 0;
         }
 
-        abort();
         sockets_pending_reset.insert(this);
+        abort();
 
         nb_net_recv_errors++;
         if (reconnect_allowed()) {
