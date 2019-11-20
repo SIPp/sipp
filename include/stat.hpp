@@ -30,6 +30,7 @@
 
 #define MAX_CHAR_BUFFER_SIZE 1024
 
+#include "config.h"
 #include <ctime>
 #include <vector>
 #include <string>

@@ -28,6 +28,7 @@
  */
 
 #include <stdlib.h>
+#include "config.h"
 #include "sipp.hpp"
 #ifdef HAVE_GSL
 #include <gsl/gsl_rng.h>
