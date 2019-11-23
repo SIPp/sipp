@@ -44,6 +44,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "sipp.hpp"
 #include "socket.hpp"
 #include "logger.hpp"

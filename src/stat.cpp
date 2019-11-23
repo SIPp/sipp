@@ -27,14 +27,11 @@
 #include <iomanip>
 #include <assert.h>
 
+#include "config.h"
 #include "sipp.hpp"
 #include "scenario.hpp"
 #include "screen.hpp"
-#ifdef HAVE_GSL
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_randist.h>
-#include <gsl/gsl_cdf.h>
-#endif
+#include "stat.hpp"
 
 /*
 ** Local definitions (macros)
