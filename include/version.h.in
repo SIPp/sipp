@@ -1,0 +1,2 @@
+#define SIPP_VERSION VERSION
+#define VERSION "@VERSION@"
