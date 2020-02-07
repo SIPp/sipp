@@ -91,6 +91,7 @@ find_package(Git)
 file(WRITE ${PROJECT_SOURCE_DIR}/include/version.cmake
 "execute_process(
      COMMAND ${GIT_EXECUTABLE} describe --tags --always --first-parent
+     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
      OUTPUT_VARIABLE VERSION
      OUTPUT_STRIP_TRAILING_WHITESPACE
  )
