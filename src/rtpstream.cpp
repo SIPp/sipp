@@ -37,6 +37,7 @@ static void debugprint(const char* format, ...)
 #define BIND_MAX_TRIES                100
 #define RTPSTREAM_THREADBLOCKSIZE     16
 #define MAX_UDP_RECV_BUFFER           8192
+#define WAV_HEADER_SIZE               44
 
 #define TI_NULL_AUDIOIP               0x01
 #define TI_NULLIP                     (TI_NULL_AUDIOIP)
@@ -698,6 +699,11 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
     taskinfo->new_ms_per_packet = actioninfo->ms_per_packet;
     taskinfo->new_timeticks_per_packet = actioninfo->ticks_per_packet;
     taskinfo->new_payload_type = actioninfo->payload_type;
+    /* Do not play wav header */
+    if (taskinfo->new_file_size > WAV_HEADER_SIZE && !memcmp(taskinfo->new_file_bytes, "RIFF", 4)) {
+        taskinfo->new_file_bytes += WAV_HEADER_SIZE;
+        taskinfo->new_file_size -= WAV_HEADER_SIZE;
+    }
 
     /* set flag that we have a new file to play */
     taskinfo->flags |= TI_PLAYFILE;
