@@ -2333,6 +2333,42 @@ int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t* callinfo, SrtpVideoInf
 }
 #endif // USE_TLS
 
+static inline uint32_t uint_val(const char *ptr)
+{
+    // Read as little-endian. Do not dereference as int, since it can be misaligned.
+    return static_cast<uint32_t>((ptr[0]) | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24));
+}
+
+// wav format details:
+// https://www.fatalerrors.org/a/detailed-explanation-of-wav-file-format.html
+static int get_wav_header_size(const char *data, int size)
+{
+    const char *ptr = data;
+    const char *limit = data + size;
+    if (size < 42)
+        return 0;
+    // Since all the values are interpreted as little endian, the tags are reversed.
+    if (uint_val(ptr) != 'FFIR')
+        return 0;
+    ptr += 8;
+    if (uint_val(ptr) != 'EVAW')
+        return ptr - data;
+    ptr += 4;
+    for (;;) {
+        if (ptr + 8 > limit)
+            break;
+        const uint32_t chunk = uint_val(ptr);
+        const uint32_t chunk_size = uint_val(ptr + 4);
+        ptr += 8;
+        if (ptr > limit)
+            return limit - data;
+        if (chunk == 'atad')
+            return ptr - data;
+        ptr += chunk_size;
+    }
+    return ptr - data;
+}
+
 /* code checked */
 void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo)
 {
@@ -2375,6 +2411,13 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
     taskinfo->new_audio_payload_type = actioninfo->payload_type;
     taskinfo->audio_active = actioninfo->audio_active;
     taskinfo->video_active = actioninfo->video_active;
+    /* Allow the caller to supply WAV files instead of raw audio, by skipping past headers. */
+    /* Doesn't actually parse/convert anything! */
+    const int header_size = get_wav_header_size(taskinfo->new_audio_file_bytes, taskinfo->new_audio_file_size);
+    if (header_size > 0 && taskinfo->new_audio_file_size >= header_size) {
+        taskinfo->new_audio_file_bytes += header_size;
+        taskinfo->new_audio_file_size -= header_size;
+    }
 
     /* set flag that we have a new file to play */
     taskinfo->flags |= TI_PLAYFILE;
