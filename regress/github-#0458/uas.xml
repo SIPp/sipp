@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario>
+  <recv request="INVITE"/>
+
+  <send retrans="500">
+    <![CDATA[
+      SIP/2.0 404 Not Found
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[pid]SIPpTag00[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: sip:sipp@[local_ip]:[local_port]
+      Content-Length: 0
+    ]]>
+  </send>
+
+  <recv request="ACK"/>
+
+  <timewait milliseconds="500"/>
+</scenario>
