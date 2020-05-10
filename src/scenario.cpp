@@ -269,7 +269,10 @@ static char* xp_get_string(const char *name, const char *what)
         ERROR("%s is missing the required '%s' parameter.", what, name);
     }
 
-    unescaped = new char[strlen(ptr)+1];
+    unescaped = (char *)malloc(strlen(ptr) + 1);
+    if (!unescaped) {
+        ERROR("Out of memory!");
+    }
     xp_unescape(ptr, unescaped);
 
     return unescaped;
