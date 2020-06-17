@@ -289,9 +289,7 @@ static int createAuthResponseMD5(const char* user,
 
     // Load in A2
     md5_init(&Md5Ctx);
-    if(method!=NULL){
-	    md5_append(&Md5Ctx, (md5_byte_t *) method, strlen(method));
-    }
+    md5_append(&Md5Ctx, (md5_byte_t *) method, strlen(method));
     md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
     md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
     if (stristr(authtype, "auth-int") != NULL) {
