@@ -990,11 +990,9 @@ static void help_stats()
 static void print_last_stats()
 {
     interrupt = 1;
-    // print last current screen
-    print_statistics(1);
-    // and print statistics screen
-    currentScreenToDisplay = DISPLAY_STAT_SCREEN;
-    print_statistics(1);
+    if (sp) {
+      sp->print_closing_stats();
+    }
     if (main_scenario) {
         stattask::report();
     }
@@ -1084,7 +1082,7 @@ void sipp_exit(int rc)
 
     screen_exit();
     print_last_stats();
-    screen_show_errors();
+    print_errors();
 
     /* Close open files. */
     struct logfile_info** logfile_ptr;
@@ -1315,8 +1313,6 @@ int main(int argc, char *argv[])
         action_usr2.sa_handler = sipp_sigusr2;
         sigaction(SIGUSR2, &action_usr2, NULL);
     }
-
-    screen_set_exename("sipp");
 
     pid = getpid();
     memset(local_ip, 0, sizeof(local_ip));
@@ -2011,11 +2007,12 @@ int main(int argc, char *argv[])
         ERROR("SIPp cannot use out-of-call scenarios when running in server mode");
     }
 
-    if (!isatty(fileno(stdout)))
-        use_curses = false;
 
-    if (use_curses)
+    sp = new ScreenPrinter();
+    if (!sp->M_headless)
+    {
         screen_init();
+    }
 
     sighandle_set();
 

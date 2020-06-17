@@ -6,24 +6,24 @@ jobs:
   lint:
 
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v1
     - name: lint
       run: ./validate-src.sh
     - name: lint-xml
-      run: sudo apt-get install --yes libxml2-utils && ./dtd_check.sh
+      run: sudo apt-get update && sudo apt-get install --yes libxml2-utils && ./dtd_check.sh
 
   build:
 
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v1
     - name: prepare
       run: git submodule update --init
     - name: installdeps
-      run: sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses5-dev libncurses5
+      run: sudo apt-get update && sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses5-dev libncurses5
     - name: build
       run: ./build.sh --full
     - name: test
@@ -32,7 +32,7 @@ jobs:
   build-osx:
 
     runs-on: macOS-latest
-    
+
     steps:
     - uses: actions/checkout@v1
     - name: prepare
@@ -44,7 +44,7 @@ jobs:
   build-static:
 
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v1
     - name: prepare

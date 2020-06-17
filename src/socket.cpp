@@ -44,6 +44,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "sipp.hpp"
 #include "socket.hpp"
 #include "logger.hpp"
@@ -590,7 +591,6 @@ void handle_stdin_socket()
                 }
                 command_buffer[0] = '\0';
                 command_mode = 0;
-                printf(SIPP_ENDL);
             }
 #ifndef __SUNOS
             else if (c == key_backspace || c == key_dc)
@@ -628,8 +628,6 @@ void handle_stdin_socket()
                 return;
             }
             command_buffer[0] = '\0';
-            printf("Command: ");
-            fflush(stdout);
         } else {
             process_key(c);
         }

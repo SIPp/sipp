@@ -2822,7 +2822,10 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
     /* Check if message has a SDP in it; and extract media information. */
     if (!strcmp(get_header_content(msg, "Content-Type:"), "application/sdp") &&
             hasMedia == 1 && !curmsg->ignoresdp) {
-        extract_rtp_remote_addr(msg);
+        const char* ptr = get_header_content(msg, "Content-Length:");
+        if (ptr && atoll(ptr) > 0) {
+            extract_rtp_remote_addr(msg);
+        }
     }
 #endif
 

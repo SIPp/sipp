@@ -29,20 +29,20 @@ file(GLOB all_SRCS
   "${PROJECT_SOURCE_DIR}/src/*.c"
   )
 
-INCLUDE (${CMAKE_ROOT}/Modules/CheckIncludeFile.cmake)
-INCLUDE (${CMAKE_ROOT}/Modules/CheckSymbolExists.cmake)
-INCLUDE (${CMAKE_ROOT}/Modules/CheckStructHasMember.cmake)
+include(${CMAKE_ROOT}/Modules/CheckIncludeFile.cmake)
+include(${CMAKE_ROOT}/Modules/CheckSymbolExists.cmake)
+include(${CMAKE_ROOT}/Modules/CheckStructHasMember.cmake)
 
-CHECK_INCLUDE_FILE("endian.h"        HAVE_ENDIAN_H)
-CHECK_INCLUDE_FILE("sys/endian.h"        HAVE_SYS_ENDIAN_H)
-CHECK_INCLUDE_FILE("sys/epoll.h"        HAVE_EPOLL)
+CHECK_INCLUDE_FILE("endian.h" HAVE_ENDIAN_H)
+CHECK_INCLUDE_FILE("sys/endian.h" HAVE_SYS_ENDIAN_H)
+CHECK_INCLUDE_FILE("sys/epoll.h" HAVE_EPOLL)
 CHECK_STRUCT_HAS_MEMBER("struct udphdr" uh_sport "sys/types.h;netinet/udp.h"  HAVE_UDP_UH_PREFIX)
 
 CHECK_SYMBOL_EXISTS(le16toh "endian.h" HAVE_DECL_LE16TOH)
 CHECK_SYMBOL_EXISTS(le16toh "sys/endian.h" HAVE_DECL_LE16TOH_BSD)
 
-configure_file ("${PROJECT_SOURCE_DIR}/include/config.h.in"
-                  "${PROJECT_BINARY_DIR}/config.h" )
+configure_file("${PROJECT_SOURCE_DIR}/include/config.h.in"
+               "${PROJECT_BINARY_DIR}/config.h" )
 
 list(REMOVE_ITEM all_SRCS
   "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
@@ -71,7 +71,10 @@ if(USE_PCAP)
 endif(USE_PCAP)
 
 if(USE_GSL)
-  add_definitions("-DHAVE_GSL")
+  find_library(GSL_LIBRARY gsl)
+  if(GSL_LIBRARY)
+    add_definitions("-DHAVE_GSL")
+  endif(GSL_LIBRARY)
 endif(USE_GSL)
 
 if(USE_SCTP)
@@ -85,6 +88,26 @@ link_directories("/usr/local/lib")
 add_executable(sipp ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp.cpp")
 add_executable(sipp_unittest EXCLUDE_FROM_ALL ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
 target_compile_definitions(sipp_unittest PUBLIC "-DGTEST")
+
+# add version
+find_package(Git)
+file(WRITE ${PROJECT_SOURCE_DIR}/include/version.cmake
+"execute_process(
+     COMMAND ${GIT_EXECUTABLE} describe --tags --always --first-parent
+     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+     OUTPUT_VARIABLE VERSION
+     OUTPUT_STRIP_TRAILING_WHITESPACE
+ )
+ configure_file(\${SRC} \${DST} @ONLY)
+")
+add_custom_target(
+    version
+    ${CMAKE_COMMAND} -D SRC=${PROJECT_SOURCE_DIR}/include/version.h.in
+                     -D DST=${PROJECT_BINARY_DIR}/version.h
+                     -P ${PROJECT_SOURCE_DIR}/include/version.cmake
+)
+add_dependencies(sipp version)
+add_dependencies(sipp_unittest version)
 
 if(BUILD_STATIC)
   set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
@@ -104,10 +127,10 @@ if(RT_LIBRARY)
   target_link_libraries(sipp_unittest ${RT_LIBRARY})
 endif()
 
-if(USE_GSL)
+if(USE_GSL AND GSL_LIBRARY)
   target_link_libraries(sipp gsl gslcblas)
   target_link_libraries(sipp_unittest gsl gslcblas)
-endif(USE_GSL)
+endif(USE_GSL AND GSL_LIBRARY)
 
 if(USE_SSL)
   target_link_libraries(sipp crypto ssl)

@@ -30,6 +30,7 @@
 
 #define MAX_CHAR_BUFFER_SIZE 1024
 
+#include "config.h"
 #include <ctime>
 #include <vector>
 #include <string>
@@ -57,12 +58,13 @@ __________________________________________________________________________
 */
 
 /**
- * This class provides some means to compute and display statistics.
+ * This class provides some means to compute statistics.
  * This is a singleton class.
  */
 
 class CStat
 {
+    friend class ScreenPrinter;
 public:
 
     std::vector<int> error_codes;
@@ -371,14 +373,6 @@ public:
     void initRtt(const char* name, const char* extension, unsigned long P_value);
 
     /**
-     * Display data periodically updated on screen.
-     */
-    void displayData (FILE *f);
-    void displayStat(FILE *f);
-    void displayRepartition(FILE *f);
-    void displayRtdRepartition (FILE *f, int which);
-
-    /**
      * Dump data periodically in the file M_FileName
      */
     void dumpData ();
@@ -528,13 +522,6 @@ private:
      */
     void  resetRepartition(T_dynamicalRepartition* P_tabReport,
                            int P_sizeOfTab);
-    /**
-     * displayRepartition
-     * Display the repartition passed in parameter at the screen
-     */
-    void  displayRepartition(FILE *f,
-                             T_dynamicalRepartition * tabRepartition,
-                             int sizeOfTab);
 
     /**
      * sRepartitionHeader

@@ -41,11 +41,19 @@ cmake .
 make
 ```
 
-There are several optional flags:
+There are several optional flags to enable features (SIP-over-TLS, SIP-over-SCTP, media playback from PCAP files and the GNU Statistical libbraries for random distributions):
 
 ```
-cmake . -DBUILD_STATIC=1 -DUSE_SSL=1 -DUSE_SCTP=1 -DUSE_PCAP=1 -DUSE_GSL=1 -DUSE_EPOLL=1
+cmake . -DUSE_SSL=1 -DUSE_SCTP=1 -DUSE_PCAP=1 -DUSE_GSL=1
 ```
+
+## Static builds
+
+SIPp can be built into a single static binary, removing the need for libraries to exist on the target system and maximising portability.
+
+This is a [fairly complicated process](https://medium.com/@neunhoef/static-binaries-for-a-c-application-f7c76f8041cf), and for now, it only works on Alpine Linux.
+
+To build a static binary, pass `-DBUILD_STATIC=1` to cmake.
 
 # Support
 

@@ -89,11 +89,11 @@ bool CAction::compare(VariableTable *variableTable)
     }
 }
 
-void CAction::afficheInfo()
+void CAction::printInfo(char* buf, int len)
 {
     if (M_action == E_AT_ASSIGN_FROM_REGEXP) {
         if(M_lookingPlace == E_LP_MSG) {
-            printf("Type[%d] - regexp[%s] where[%s] - checkIt[%d] - checkItInverse[%d] - $%s",
+            snprintf(buf, len, "Type[%d] - regexp[%s] where[%s] - checkIt[%d] - checkItInverse[%d] - $%s",
                    M_action,
                    M_regularExpression,
                    "Full Msg",
@@ -101,7 +101,7 @@ void CAction::afficheInfo()
                    M_checkItInverse,
                    display_scenario->allocVars->getName(M_varId));
         } else {
-            printf("Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - checkItInverse[%d] - $%s",
+            snprintf(buf, len, "Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - checkItInverse[%d] - $%s",
                    M_action,
                    M_regularExpression,
                    "Header",
@@ -110,64 +110,64 @@ void CAction::afficheInfo()
                    M_checkItInverse, display_scenario->allocVars->getName(M_varId));
         }
     } else if (M_action == E_AT_EXECUTE_CMD) {
-        printf("Type[%d] - command[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - command[%-32.32s]", M_action, M_message_str[0]);
     } else if (M_action == E_AT_EXEC_INTCMD) {
-        printf("Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
+        snprintf(buf, len, "Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
     } else if (M_action == E_AT_LOG_TO_FILE) {
-        printf("Type[%d] - message[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - message[%-32.32s]", M_action, M_message_str[0]);
     } else if (M_action == E_AT_LOG_WARNING) {
-        printf("Type[%d] - warning[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - warning[%-32.32s]", M_action, M_message_str[0]);
     } else if (M_action == E_AT_LOG_ERROR) {
-        printf("Type[%d] - error[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - error[%-32.32s]", M_action, M_message_str[0]);
     } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
         char tmp[40];
         M_distribution->textDescr(tmp, sizeof(tmp));
-        printf("Type[%d] - sample varId[%s] %s", M_action, display_scenario->allocVars->getName(M_varId), tmp);
+        snprintf(buf, len, "Type[%d] - sample varId[%s] %s", M_action, display_scenario->allocVars->getName(M_varId), tmp);
     } else if (M_action == E_AT_ASSIGN_FROM_VALUE) {
-        printf("Type[%d] - assign varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - assign varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
     } else if (M_action == E_AT_ASSIGN_FROM_INDEX) {
-        printf("Type[%d] - assign index[%s]", M_action, display_scenario->allocVars->getName(M_varId));
+        snprintf(buf, len, "Type[%d] - assign index[%s]", M_action, display_scenario->allocVars->getName(M_varId));
     } else if (M_action == E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
-        printf("Type[%d] - assign gettimeofday[%s, %s]", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_subVarId[0]));
+        snprintf(buf, len, "Type[%d] - assign gettimeofday[%s, %s]", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_subVarId[0]));
     } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
-        printf("Type[%d] - string assign varId[%s] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - string assign varId[%s] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message_str[0]);
     } else if (M_action == E_AT_JUMP) {
-        printf("Type[%d] - jump varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - jump varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
     } else if (M_action == E_AT_PAUSE_RESTORE) {
-        printf("Type[%d] - restore pause varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - restore pause varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
     } else if (M_action == E_AT_VAR_ADD) {
-        printf("Type[%d] - add varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - add varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
     } else if (M_action == E_AT_VAR_MULTIPLY) {
-        printf("Type[%d] - multiply varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - multiply varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
     } else if (M_action == E_AT_VAR_DIVIDE) {
-        printf("Type[%d] - divide varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - divide varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
     } else if (M_action == E_AT_VAR_TRIM) {
-        printf("Type[%d] - trim varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
+        snprintf(buf, len, "Type[%d] - trim varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
     } else if (M_action == E_AT_VAR_TEST) {
-        printf("Type[%d] - divide varId[%s] varInId[%s] %s %lf", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_varInId), comparatorToString(M_comp), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - divide varId[%s] varInId[%s] %s %lf", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_varInId), comparatorToString(M_comp), M_doubleValue);
     } else if (M_action == E_AT_VAR_TO_DOUBLE) {
-        printf("Type[%d] - toDouble varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
+        snprintf(buf, len, "Type[%d] - toDouble varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
 #ifdef PCAPPLAY
     } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_IMAGE) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
-        printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
+        snprintf(buf, len, "Type[%d] - file[%s]", M_action, M_pcapArgs->file);
     } else if (M_action == E_AT_PLAY_DTMF) {
-        printf("Type[%d] - play DTMF digits [%s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - play DTMF digits [%s]", M_action, M_message_str[0]);
 #endif
 
 #ifdef RTP_STREAM
     } else if (M_action == E_AT_RTP_STREAM_PLAY) {
-        printf("Type[%d] - rtp_stream playfile file %s loop=%d payload %d bytes per packet=%d ms per packet=%d ticks per packet=%d",
+        snprintf(buf, len, "Type[%d] - rtp_stream playfile file %s loop=%d payload %d bytes per packet=%d ms per packet=%d ticks per packet=%d",
                M_action, M_rtpstream_actinfo.filename, M_rtpstream_actinfo.loop_count,
                M_rtpstream_actinfo.payload_type, M_rtpstream_actinfo.bytes_per_packet,
                M_rtpstream_actinfo.ms_per_packet, M_rtpstream_actinfo.ticks_per_packet);
     } else if (M_action == E_AT_RTP_STREAM_PAUSE) {
-        printf("Type[%d] - rtp_stream pause", M_action);
+        snprintf(buf, len, "Type[%d] - rtp_stream pause", M_action);
     } else if (M_action == E_AT_RTP_STREAM_RESUME) {
-        printf("Type[%d] - rtp_stream resume", M_action);
+        snprintf(buf, len, "Type[%d] - rtp_stream resume", M_action);
 #endif
 
     } else {
-        printf("Type[%d] - unknown action type ... ", M_action);
+        snprintf(buf, len, "Type[%d] - unknown action type ... ", M_action);
     }
 }
 
@@ -696,12 +696,14 @@ CAction::~CAction()
 
 /****************************** CActions class ************************/
 
-void CActions::afficheInfo()
+void CActions::printInfo()
 {
     printf("Action Size = [%d]\n", M_nbAction);
     for(int i=0; i<M_nbAction; i++) {
         printf("actionlist[%d] : \n", i);
-        M_actionList[i]->afficheInfo();
+        char buf[80];
+        M_actionList[i]->printInfo(buf, 80);
+        printf("%s\n", buf);
     }
 }
 
