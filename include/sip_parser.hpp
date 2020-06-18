@@ -34,6 +34,7 @@ unsigned long get_reply_code(const char* msg);
 
 char *get_header_content(const char* message, const char* name);
 char *get_header(const char* message, const char* name, bool content);
+const char* get_short_header_name(const char* name);
 char *get_first_line(const char* message);
 
 #endif /* __SIPP_SIP_PARSER_H__ */

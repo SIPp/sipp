@@ -220,24 +220,8 @@ char* get_header(const char* message, const char* name, bool content)
 
         /* We should retry with the short form. */
         short_form = true;
-        if (!strcasecmp(name, "call-id:")) {
-            name = "i:";
-        } else if (!strcasecmp(name, "contact:")) {
-            name = "m:";
-        } else if (!strcasecmp(name, "content-encoding:")) {
-            name = "e:";
-        } else if (!strcasecmp(name, "content-length:")) {
-            name = "l:";
-        } else if (!strcasecmp(name, "content-type:")) {
-            name = "c:";
-        } else if (!strcasecmp(name, "from:")) {
-            name = "f:";
-        } else if (!strcasecmp(name, "to:")) {
-            name = "t:";
-        } else if (!strcasecmp(name, "via:")) {
-            name = "v:";
-        } else {
-            /* There is no short form to try. */
+        name = get_short_header_name(name);
+        if (strlen(name) == 0) {
             free(src_orig);
             return last_header;
         }
@@ -273,6 +257,33 @@ char* get_header(const char* message, const char* name, bool content)
 
     free(src_orig);
     return start;
+}
+
+const char* get_short_header_name(const char* name)
+{
+    const char* short_name = "";
+
+    if (!strcasecmp(name, "call-id:")) {
+        short_name = "i:";
+    } else if (!strcasecmp(name, "contact:")) {
+        short_name = "m:";
+    } else if (!strcasecmp(name, "content-encoding:")) {
+        short_name = "e:";
+    } else if (!strcasecmp(name, "content-length:")) {
+        short_name = "l:";
+    } else if (!strcasecmp(name, "content-type:")) {
+        short_name = "c:";
+    } else if (!strcasecmp(name, "from:")) {
+        short_name = "f:";
+    } else if (!strcasecmp(name, "to:")) {
+        short_name = "t:";
+    } else if (!strcasecmp(name, "via:")) {
+        short_name = "v:";
+    } else {
+        short_name = "";
+    }
+
+    return short_name;
 }
 
 char* get_first_line(const char* message)
