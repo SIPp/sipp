@@ -168,6 +168,12 @@ char* get_header(const char* message, const char* name, bool content)
         dest = last_header;
 
         while ((src = match_header(src, header_with_newline, compact_header_with_newline))) {
+            if (!content && first_time) {
+                // Add the name to the string;
+                dest += sprintf(dest, "%s", name);
+                first_time = false;
+            }
+
             if (content || !first_time) {
                 /* Just want the header's content, so skip over the header
                  * and newline */
@@ -186,7 +192,6 @@ char* get_header(const char* message, const char* name, bool content)
                 /* Just skip the newline */
                 src++;
             }
-            first_time = false;
             ptr = strchr(src, '\n');
 
             /* Multiline headers always begin with a tab or a space
@@ -209,7 +214,11 @@ char* get_header(const char* message, const char* name, bool content)
                     *(--dest) = 0;
                 }
 
-                dest += sprintf(dest, ", ");
+                if (*(dest-1) == ':') {
+                    dest += sprintf(dest, " ");
+                } else {
+                    dest += sprintf(dest, ", ");
+                }
             }
             dest += sprintf(dest, "%s", src);
 
@@ -262,12 +271,29 @@ char* get_header(const char* message, const char* name, bool content)
 }
 
 char* match_header(char* message, char* header, char* compact_header) {
-    char* r;
-    if ((r = strcasestr(message, header)) || strlen(compact_header) < 2) {
+    // Attempt to find the header
+    char* r = strcasestr(message, header);
+    if (strlen(compact_header) < 2) {
+        // Exit when there is no compact header with the result of r.
         return r;
     }
 
-    return strcasestr(message, compact_header);
+    char* r2 = strcasestr(message, compact_header);
+
+    // Return the other if one is null
+    if (r == nullptr) {
+        return r2;
+    }
+    if (r2 == nullptr) {
+        return r;
+    }
+
+    // Value exists return the smaller if the two:
+    if (r < r2) {
+        return r;
+    }
+
+    return r2;
 }
 
 const char* get_short_header_name(const char* name)
@@ -610,7 +636,7 @@ Record-Route: <sip:10.231.33.44;r2=on;lr>\r\n\
 Record-Route: <sip:10.231.33.77;lr=on>\r\n\
 From: \"3136456666\" <sip:104@sbc.profxxx.xx>;tag=b62e0d72-be14-4d3c-bd6a-b4da593b6b17\r\n\
 To: <sip:3136455552@sbc2.profxxx.xx>\r\n\
-Contact: <sip:85.55.55.12;did=a19.a2e590e>\r\n\
+Contact: <sip:12999999999@85.55.55.12;did=a19.a2e590e>\r\n\
 Call-ID: DLGCH_K0IEXzVwYzJiQlwKMGRkMX5GSAxiKmJ+exQADWYsZ2QsFQFb\r\n\
 CSeq: 6476 INVITE\r\n\
 Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER\r\n\
@@ -636,7 +662,8 @@ a=maxptime:150\r\n\
 a=sendrecv\r\n\
 a=rtcp:41605\r\n\
 ";
-    EXPECT_STREQ("Via: SIP/2.0/UDP 85.55.55.12:5090;branch=z9hG4bK831a.2bb3de85.0, \
+    EXPECT_STREQ("Via: SIP/2.0/UDP 85.55.55.12:6090;branch=z9hG4bK831a.2bb3de85.0, \
+SIP/2.0/UDP 85.55.55.12:5090;branch=z9hG4bK831a.2bb3de85.0, \
 SIP/2.0/UDP 85.55.55.12:5060;branch=z9hG4bK831a.2bb3de87.0, \
 SIP/2.0/UDP 85.55.55.12:4060;branch=z9hG4bK831a.2bb3de86.0, \
 SIP/2.0/UDP 85.55.55.12:4050;branch=z9hG4bK831a.2bb3de86.0", get_header(data, "Via:", false));
@@ -644,6 +671,8 @@ SIP/2.0/UDP 85.55.55.12:4050;branch=z9hG4bK831a.2bb3de86.0", get_header(data, "V
     EXPECT_STREQ("Record-Route: <sip:85.55.55.12:5090;r2=on;lr>, \
 <sip:10.231.33.44;r2=on;lr>, \
 <sip:10.231.33.77;lr=on>", get_header(data, "Record-Route:", false));
+
+    EXPECT_STREQ("<sip:12999999999@85.55.55.12;did=a19.a2e590e>", get_header(data, "Contact:", true));
 }
 
 TEST(Parser, get_peer_tag__notag) {
