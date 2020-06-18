@@ -129,6 +129,9 @@ char* get_header(const char* message, const char* name, bool content)
     bool first_time = true;
     char header_with_newline[MAX_HEADER_LEN + 1];
 
+    const char* compact_name = get_short_header_name(name);
+    char compact_header_with_newline[MAX_HEADER_LEN + 1];
+
     /* returns empty string in case of error */
     last_header[0] = '\0';
 
@@ -161,13 +164,20 @@ char* get_header(const char* message, const char* name, bool content)
         src = src_orig;
 
         snprintf(header_with_newline, MAX_HEADER_LEN, "\n%s", name);
+        snprintf(compact_header_with_newline, MAX_HEADER_LEN, "\n%s", compact_name);
         dest = last_header;
 
-        while ((src = strcasestr(src, header_with_newline))) {
+        while ((src = match_header(src, header_with_newline, compact_header_with_newline))) {
             if (content || !first_time) {
                 /* Just want the header's content, so skip over the header
                  * and newline */
-                src += strlen(name) + 1;
+
+                /* Skip over header */
+                while (*src != ':') {
+                    src++;
+                }
+                src++;
+
                 /* Skip over leading spaces. */
                 while (*src == ' ') {
                     src++;
@@ -202,29 +212,21 @@ char* get_header(const char* message, const char* name, bool content)
                 dest += sprintf(dest, ", ");
             }
             dest += sprintf(dest, "%s", src);
+
             if (ptr) {
                 *ptr = '\n';
             }
 
             src++;
         }
+
         /* We found the header. */
         if (dest != last_header) {
             break;
         }
-        /* We didn't find the header, even in its short form. */
-        if (short_form) {
-            free(src_orig);
-            return last_header;
-        }
 
-        /* We should retry with the short form. */
-        short_form = true;
-        name = get_short_header_name(name);
-        if (strlen(name) == 0) {
-            free(src_orig);
-            return last_header;
-        }
+        free(src_orig);
+        return last_header;
     } while (1);
 
     *(dest--) = 0;
@@ -257,6 +259,15 @@ char* get_header(const char* message, const char* name, bool content)
 
     free(src_orig);
     return start;
+}
+
+char* match_header(char* message, char* header, char* compact_header) {
+    char* r;
+    if ((r = strcasestr(message, header)) || strlen(compact_header) < 2) {
+        return r;
+    }
+
+    return strcasestr(message, compact_header);
 }
 
 const char* get_short_header_name(const char* name)
@@ -585,6 +596,56 @@ a=rtcp:41605\r\n\
     }
 }
 
+TEST(Parser, get_header_mixed_form) {
+    /* If you remove the CR ("\r") from any header before the Call-ID,
+     * the Call-ID will not be found. */
+    const char* data = "INVITE sip:3136455552@85.12.1.1:5065 SIP/2.0\r\n\
+v: SIP/2.0/UDP 85.55.55.12:6090;branch=z9hG4bK831a.2bb3de85.0\r\n\
+Via: SIP/2.0/UDP 85.55.55.12:5090;branch=z9hG4bK831a.2bb3de85.0\r\n\
+Via:SIP/2.0/UDP 85.55.55.12:5060;branch=z9hG4bK831a.2bb3de87.0\r\n\
+v: SIP/2.0/UDP 85.55.55.12:4060;branch=z9hG4bK831a.2bb3de86.0\r\n\
+v:SIP/2.0/UDP 85.55.55.12:4050;branch=z9hG4bK831a.2bb3de86.0\r\n\
+Record-Route: <sip:85.55.55.12:5090;r2=on;lr>\r\n\
+Record-Route: <sip:10.231.33.44;r2=on;lr>\r\n\
+Record-Route: <sip:10.231.33.77;lr=on>\r\n\
+From: \"3136456666\" <sip:104@sbc.profxxx.xx>;tag=b62e0d72-be14-4d3c-bd6a-b4da593b6b17\r\n\
+To: <sip:3136455552@sbc2.profxxx.xx>\r\n\
+Contact: <sip:85.55.55.12;did=a19.a2e590e>\r\n\
+Call-ID: DLGCH_K0IEXzVwYzJiQlwKMGRkMX5GSAxiKmJ+exQADWYsZ2QsFQFb\r\n\
+CSeq: 6476 INVITE\r\n\
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER\r\n\
+Supported: 100rel, timer, replaces, norefersub\r\n\
+Session-Expires: 1800\r\n\
+Min-SE: 90\r\n\
+Max-Forwards: 70\r\n\
+Content-Type: application/sdp\r\n\
+Content-Length: 278\r\n\
+\r\n\
+v=0\r\n\
+o=- 592907310 592907310 IN IP4 85.55.55.30\r\n\
+s=Centrex v.1.0\r\n\
+c=IN IP4 85.55.55.30\r\n\
+t=0 0\r\n\
+m=audio 41604 RTP/AVP 8 0 101\r\n\
+a=rtpmap:8 PCMA/8000\r\n\
+a=rtpmap:0 PCMU/8000\r\n\
+a=rtpmap:101 telephone-event/8000\r\n\
+a=fmtp:101 0-16\r\n\
+a=ptime:20\r\n\
+a=maxptime:150\r\n\
+a=sendrecv\r\n\
+a=rtcp:41605\r\n\
+";
+    EXPECT_STREQ("Via: SIP/2.0/UDP 85.55.55.12:5090;branch=z9hG4bK831a.2bb3de85.0, \
+SIP/2.0/UDP 85.55.55.12:5060;branch=z9hG4bK831a.2bb3de87.0, \
+SIP/2.0/UDP 85.55.55.12:4060;branch=z9hG4bK831a.2bb3de86.0, \
+SIP/2.0/UDP 85.55.55.12:4050;branch=z9hG4bK831a.2bb3de86.0", get_header(data, "Via:", false));
+
+    EXPECT_STREQ("Record-Route: <sip:85.55.55.12:5090;r2=on;lr>, \
+<sip:10.231.33.44;r2=on;lr>, \
+<sip:10.231.33.77;lr=on>", get_header(data, "Record-Route:", false));
+}
+
 TEST(Parser, get_peer_tag__notag) {
     EXPECT_STREQ(NULL, get_peer_tag("...\r\nTo: <abc>\r\n;tag=notag\r\n\r\n"));
 }
@@ -633,6 +694,10 @@ TEST(Parser, get_call_id_short_2) {
     /* The WS surrounding the colon belongs with HCOLON, but the
      * trailing WS does not. */
     EXPECT_STREQ("testshort2 \t ", get_call_id("...\r\nI:\r\n \r\n \t testshort2 \t \r\n\r\n"));
+}
+
+TEST(Parser, get_short_header_via) {
+    EXPECT_STREQ("v:", get_short_header_name("Via:"));
 }
 
 /* The 3pcc-A script sends "invalid" SIP that is parsed by this
