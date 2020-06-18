@@ -129,7 +129,7 @@ char* get_header(const char* message, const char* name, bool content)
     bool first_time = true;
     char header_with_newline[MAX_HEADER_LEN + 1];
 
-    const char* compact_name = get_short_header_name(name);
+    const char* compact_name = get_compact_header_name(name);
     char compact_header_with_newline[MAX_HEADER_LEN + 1];
 
     /* returns empty string in case of error */
@@ -272,31 +272,31 @@ char* get_header(const char* message, const char* name, bool content)
 
 char* match_header(char* message, char* header, char* compact_header) {
     // Attempt to find the header
-    char* r = strcasestr(message, header);
+    char* header_match = strcasestr(message, header);
     if (strlen(compact_header) < 2) {
-        // Exit when there is no compact header with the result of r.
-        return r;
+        // Exit when there is no compact header to compare to
+        return header_match;
     }
 
-    char* r2 = strcasestr(message, compact_header);
+    char* compact_header_match = strcasestr(message, compact_header);
 
     // Return the other if one is null
-    if (r == nullptr) {
-        return r2;
+    if (header_match == nullptr) {
+        return compact_header_match;
     }
-    if (r2 == nullptr) {
-        return r;
-    }
-
-    // Value exists return the smaller if the two:
-    if (r < r2) {
-        return r;
+    if (compact_header_match == nullptr) {
+        return header_match;
     }
 
-    return r2;
+    // Value exists return the smaller of the two.
+    if (header_match < compact_header_match) {
+        return header_match;
+    }
+
+    return compact_header_match;
 }
 
-const char* get_short_header_name(const char* name)
+const char* get_compact_header_name(const char* name)
 {
     const char* short_name = "";
 
@@ -726,7 +726,9 @@ TEST(Parser, get_call_id_short_2) {
 }
 
 TEST(Parser, get_short_header_via) {
-    EXPECT_STREQ("v:", get_short_header_name("Via:"));
+    EXPECT_STREQ("v:", get_compact_header_name("Via:"));
+
+    EXPECT_STREQ("m:", get_compact_header_name("Contact:"));
 }
 
 /* The 3pcc-A script sends "invalid" SIP that is parsed by this
