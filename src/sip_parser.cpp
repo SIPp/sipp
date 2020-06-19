@@ -296,28 +296,28 @@ char* match_header(char* message, char* header, char* compact_header) {
     return compact_header_match;
 }
 
-const char* get_compact_header_name(const char* name)
+char* get_compact_header_name(const char* name)
 {
-    const char* short_name = "";
+    static char short_name[MAX_COMPACT_HEADER_LEN];
 
     if (!strcasecmp(name, "call-id:")) {
-        short_name = "i:";
+        sprintf(short_name, "i:");
     } else if (!strcasecmp(name, "contact:")) {
-        short_name = "m:";
+        sprintf(short_name, "m:");
     } else if (!strcasecmp(name, "content-encoding:")) {
-        short_name = "e:";
+        sprintf(short_name, "e:");
     } else if (!strcasecmp(name, "content-length:")) {
-        short_name = "l:";
+        sprintf(short_name, "l:");
     } else if (!strcasecmp(name, "content-type:")) {
-        short_name = "c:";
+        sprintf(short_name, "c:");
     } else if (!strcasecmp(name, "from:")) {
-        short_name = "f:";
+        sprintf(short_name, "f:");
     } else if (!strcasecmp(name, "to:")) {
-        short_name = "t:";
+        sprintf(short_name, "t:");
     } else if (!strcasecmp(name, "via:")) {
-        short_name = "v:";
+        sprintf(short_name, "v:");
     } else {
-        short_name = "";
+        sprintf(short_name, "");
     }
 
     return short_name;
@@ -623,8 +623,6 @@ a=rtcp:41605\r\n\
 }
 
 TEST(Parser, get_header_mixed_form) {
-    /* If you remove the CR ("\r") from any header before the Call-ID,
-     * the Call-ID will not be found. */
     const char* data = "INVITE sip:3136455552@85.12.1.1:5065 SIP/2.0\r\n\
 v: SIP/2.0/UDP 85.55.55.12:6090;branch=z9hG4bK831a.2bb3de85.0\r\n\
 Via: SIP/2.0/UDP 85.55.55.12:5090;branch=z9hG4bK831a.2bb3de85.0\r\n\
@@ -668,9 +666,19 @@ SIP/2.0/UDP 85.55.55.12:5060;branch=z9hG4bK831a.2bb3de87.0, \
 SIP/2.0/UDP 85.55.55.12:4060;branch=z9hG4bK831a.2bb3de86.0, \
 SIP/2.0/UDP 85.55.55.12:4050;branch=z9hG4bK831a.2bb3de86.0", get_header(data, "Via:", false));
 
+    EXPECT_STREQ("SIP/2.0/UDP 85.55.55.12:6090;branch=z9hG4bK831a.2bb3de85.0, \
+SIP/2.0/UDP 85.55.55.12:5090;branch=z9hG4bK831a.2bb3de85.0, \
+SIP/2.0/UDP 85.55.55.12:5060;branch=z9hG4bK831a.2bb3de87.0, \
+SIP/2.0/UDP 85.55.55.12:4060;branch=z9hG4bK831a.2bb3de86.0, \
+SIP/2.0/UDP 85.55.55.12:4050;branch=z9hG4bK831a.2bb3de86.0", get_header(data, "Via:", true));
+
     EXPECT_STREQ("Record-Route: <sip:85.55.55.12:5090;r2=on;lr>, \
 <sip:10.231.33.44;r2=on;lr>, \
 <sip:10.231.33.77;lr=on>", get_header(data, "Record-Route:", false));
+
+    EXPECT_STREQ("<sip:85.55.55.12:5090;r2=on;lr>, \
+<sip:10.231.33.44;r2=on;lr>, \
+<sip:10.231.33.77;lr=on>", get_header(data, "Record-Route:", true));
 
     EXPECT_STREQ("<sip:12999999999@85.55.55.12;did=a19.a2e590e>", get_header(data, "Contact:", true));
 }
