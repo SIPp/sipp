@@ -143,7 +143,7 @@ endif()
 if (TINFO_LIBRARY)
   target_link_libraries(sipp dl ${TINFO_LIBRARY})
   target_link_libraries(sipp_unittest dl ${TINFO_LIBRARY})
-else(CMAKE_SYSTEM_NAME STREQUAL Linux)
+else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   message(FATAL_ERROR "libtinfo was not found -- please install package")
 endif()
 
