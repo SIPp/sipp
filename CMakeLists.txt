@@ -24,6 +24,10 @@ option(USE_SCTP "Build with SCTP support" OFF)
 option(USE_PCAP "Build with PCAP playback support" OFF)
 option(USE_GSL "Build with improved statistical support" ON)
 
+message("BUILD_STATIC: ${BUILD_STATIC}")
+message("CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+message("CMAKE_HOST_SYSTEM_NAME: ${CMAKE_HOST_SYSTEM_NAME}")
+
 file(GLOB all_SRCS
   "${PROJECT_SOURCE_DIR}/src/*.cpp"
   "${PROJECT_SOURCE_DIR}/src/*.c"
