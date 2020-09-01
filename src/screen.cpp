@@ -277,7 +277,7 @@ void ScreenPrinter::draw_scenario_screen()
         display_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated);
     if (creationMode == MODE_SERVER) {
         lines.push_back("  Port   Total-time  Total-calls  Transport");
-        snprintf(buf, 256, "  %-5d %6lu.%02lu s     %8llu  %s", local_port,
+        snprintf(buf, bufsiz, "  %-5d %6lu.%02lu s     %8llu  %s", local_port,
                  clock_tick / 1000, (clock_tick % 1000) / 10, total_calls,
                  TRANSPORT_TO_STRING(transport));
         lines.push_back(buf);
@@ -286,7 +286,7 @@ void ScreenPrinter::draw_scenario_screen()
         if (users >= 0) {
             lines.push_back("  Users (length)   Port   Total-time  "
                             "Total-calls  Remote-host");
-            snprintf(buf, 256,
+            snprintf(buf, bufsiz,
                      "  %d (%d ms)   %-5d %6lu.%02lu s     %8llu  %s:%d(%s)",
                      users, duration, local_port, clock_tick / 1000,
                      (clock_tick % 1000) / 10, total_calls, remote_ip,
@@ -296,7 +296,7 @@ void ScreenPrinter::draw_scenario_screen()
             lines.push_back("  Call rate (length)   Port   Total-time  "
                             "Total-calls  Remote-host");
             snprintf(
-                buf, 256,
+                buf, bufsiz,
                 "  %3.1f(%d ms)/%5.3fs   %-5d %6lu.%02lu s     %8llu  %s:%d(%s)",
                 rate, duration, (double)rate_period_ms / 1000.0, local_port,
                 clock_tick / 1000, (clock_tick % 1000) / 10, total_calls,
