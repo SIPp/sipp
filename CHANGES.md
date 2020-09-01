@@ -1,3 +1,9 @@
+Changes in 3.7.0
+================
+
+(Nothing yet. Just added this to diverge from branch/3.6.)
+
+
 BREAKING(!) changes in 3.6.0
 ============================
 
