@@ -102,9 +102,11 @@ file(WRITE ${PROJECT_SOURCE_DIR}/include/version.cmake
 ")
 add_custom_target(
     version
-    ${CMAKE_COMMAND} -D SRC=${PROJECT_SOURCE_DIR}/include/version.h.in
-                     -D DST=${PROJECT_BINARY_DIR}/version.h
-                     -P ${PROJECT_SOURCE_DIR}/include/version.cmake
+    if test -d .git \; then
+        ${CMAKE_COMMAND} -D SRC=${PROJECT_SOURCE_DIR}/include/version.h.in
+          -D DST=${PROJECT_BINARY_DIR}/version.h
+          -P ${PROJECT_SOURCE_DIR}/include/version.cmake \;
+    fi
 )
 add_dependencies(sipp version)
 add_dependencies(sipp_unittest version)
