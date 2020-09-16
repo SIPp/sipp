@@ -34,7 +34,10 @@
 #endif
 #ifdef RTP_STREAM
 #include "rtpstream.hpp"
-#endif
+#include "jlsrtp.hpp"
+#endif // RTP_STREAM
+
+#include <stdarg.h>
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -58,6 +61,18 @@ struct txnInstanceInfo {
     unsigned long txnResp;
     int ackIndex;
 };
+
+typedef enum
+{
+    eNoSession,
+    eOfferReceived,
+    eOfferSent,
+    eOfferRejected,
+    eAnswerReceived,
+    eAnswerSent,
+    eCompleted,
+    eNumSessionStates
+} SessionState;
 
 class call : virtual public task, virtual public listener, public virtual socketowner
 {
@@ -106,6 +121,9 @@ public:
 private:
     /* This is the core constructor function. */
     void init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
+
+    bool checkAckCSeq(const char* msg);
+
     /* This this call for initialization? */
     bool initCall;
 
@@ -145,6 +163,8 @@ protected:
     int            last_recv_index;
     char         * last_recv_msg;
 
+    unsigned long int last_recv_invite_cseq;
+
     /* Recv message characteristics when we sent a valid message
      *  (scneario, no retrans) just after a valid reception. This was
      * a cause relationship, so the next time this cookie will be recvd,
@@ -171,7 +191,19 @@ protected:
 
 #ifdef RTP_STREAM
     rtpstream_callinfo_t rtpstream_callinfo;
-#endif
+    JLSRTP _txUACAudio;
+    JLSRTP _rxUACAudio;
+    JLSRTP _txUASAudio;
+    JLSRTP _rxUASAudio;
+    JLSRTP _txUACVideo;
+    JLSRTP _rxUACVideo;
+    JLSRTP _txUASVideo;
+    JLSRTP _rxUASVideo;
+#ifdef USE_OPENSSL
+    char _pref_audio_cs_out[24];
+    char _pref_video_cs_out[24];
+#endif // USE_OPENSSL
+#endif // RTP_STREAM
 
     /* holds the auth header and if the challenge was 401 or 407 */
     char         * dialog_authentication;
@@ -224,7 +256,8 @@ protected:
         E_AR_TEST_DOESNT_MATCH,
         E_AR_TEST_SHOULDNT_MATCH,
         E_AR_STRCMP_DOESNT_MATCH,
-        E_AR_STRCMP_SHOULDNT_MATCH
+        E_AR_STRCMP_SHOULDNT_MATCH,
+        E_AR_RTPECHO_ERROR
     };
 
     /* Store the last action result to allow  */
@@ -306,15 +339,22 @@ protected:
     void get_remote_media_addr(std::string const &msg);
 
 #ifdef RTP_STREAM
-    void extract_rtp_remote_addr(const char* message);
-#endif
+    std::string extract_rtp_remote_addr(const char * message, int &ip_ver, int &audio_port, int &video_port);
+#ifdef USE_OPENSSL
+    int check_audio_ciphersuite_match(SrtpAudioInfoParams &pA);
+    int check_video_ciphersuite_match(SrtpVideoInfoParams &pV);
+    int extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, SrtpVideoInfoParams &pV);
+#endif // USE_OPENSSL
+#endif // RTP_STREAM
 
     bool lost(int index);
+
+    void setRtpEchoErrors(int value);
+    int getRtpEchoErrors();
 
     void computeStat (CStat::E_Action P_action);
     void computeStat (CStat::E_Action P_action, unsigned long P_value);
     void computeStat (CStat::E_Action P_action, unsigned long P_value, int which);
-
 
     void queue_up(const char* msg);
     char *queued_msg;
@@ -322,6 +362,17 @@ protected:
     int _callDebug(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
     char *debugBuffer;
     int debugLength;
+
+#ifdef USE_OPENSSL
+    FILE* _srtpctxdebugfile;
+    int logSrtpInfo(const char *fmt, ...);
+#endif // USE_OPENSSL
+
+    SessionState _sessionStateCurrent;
+    SessionState _sessionStateOld;
+    void setSessionState(SessionState state);
+    SessionState getSessionStateCurrent();
+    SessionState getSessionStateOld();
 };
 
 

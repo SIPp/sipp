@@ -38,5 +38,6 @@ extern "C" {
 #define EXIT_OTHER                 99
 #define EXIT_FATAL_ERROR           -1
 #define EXIT_BIND_ERROR            -2
+#define EXIT_RTPCHECK_FAILED       -3
 
 #endif /* __DEFINES_H__ */

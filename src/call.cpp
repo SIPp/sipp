@@ -50,6 +50,7 @@
 #include <stdarg.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <string>
 
 #ifdef PCAPPLAY
 #include "send_packets.h"
@@ -217,14 +218,32 @@ void call::get_remote_media_addr(std::string const &msg)
 /******* Extract RTP remote media infomartion from SDP  *******/
 /***** Similar to the routines used by the PCAP play code *****/
 
-void call::extract_rtp_remote_addr(const char* msg)
+#define SDP_AUDIOPORT_PREFIX "\nm=audio"
+#define SDP_IMAGEPORT_PREFIX "\nm=image"
+#define SDP_VIDEOPORT_PREFIX "\nm=video"
+std::string call::extract_rtp_remote_addr(const char* msg, int &ip_ver, int &audio_port, int &video_port)
 {
-    int ip_ver;
-    int audio_port = 0;
+    const char* search;
     int image_port = 0;
-    int video_port = 0;
+    std::size_t pos1 = 0;
+    std::size_t pos2 = 0;
+    std::string msgstr;
+    std::string sub;
+    std::string host;
 
-    std::string host = find_in_sdp("c=IN IP4 ", msg);
+    if (msg) {
+        msgstr = msg;
+    }
+
+    /* Look for start of message body */
+    search = strstr(msg, "\r\n\r\n");
+    if (!search) {
+        ERROR("extract_rtp_remote_addr: SDP message body not found");
+    }
+    msg = search + 2; /* skip past header. point to blank line before body */
+
+    /* Now search for IP address field */
+    host = find_in_sdp("c=IN IP4 ", msg);
     if (host.empty()) {
         host = find_in_sdp("c=IN IP6 ", msg);
         if (host.empty()) {
@@ -235,31 +254,491 @@ void call::extract_rtp_remote_addr(const char* msg)
         ip_ver = 4;
     }
 
-    std::string port = find_in_sdp("m=audio ", msg);
-    if (!port.empty()) {
-        audio_port = ::atoi(port.c_str());
+    /* Find the port number for the image stream */
+    pos1 = msgstr.find(SDP_IMAGEPORT_PREFIX, 0, 8);
+    if (pos1 != std::string::npos)
+    {
+        pos1 += 8; /* skip SDP_IMAGEPORT_PREFIX */
+        pos1 += 1; /* skip first whitespace */
+        pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+        if (pos2 != std::string::npos)
+        {
+            sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+            sscanf(sub.c_str(), "%d", &image_port); /* parse port substring as integer */
+        }
     }
 
-    port = find_in_sdp("m=image ", msg);
-    if (!port.empty()) {
-        image_port = ::atoi(port.c_str());
+    /* Now try to find the port number for the audio stream */
+    pos1 = msgstr.find(SDP_AUDIOPORT_PREFIX, 0, 8);
+    if (pos1 != std::string::npos)
+    {
+        pos1 += 8; /* skip SDP_AUDIOPORT_PREFIX */
+        pos1 += 1; /* skip first whitespace */
+        pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+        if (pos2 != std::string::npos)
+        {
+            sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+            sscanf(sub.c_str(), "%d", &audio_port); /* parse port substring as integer */
+        }
     }
 
-    port = find_in_sdp("m=video ", msg);
-    if (!port.empty()) {
-        video_port = ::atoi(port.c_str());
+    /* first audio m-line had port of ZERO -- look for second audio m-line */
+    if (audio_port == 0)
+    {
+        pos1 = msgstr.find(SDP_AUDIOPORT_PREFIX, pos2, 8);
+        if (pos1 != std::string::npos)
+        {
+            pos1 += 8; /* skip SDP_AUDIOPORT_PREFIX  */
+            pos1 += 1; /* skip first whitespace */
+            pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+            if (pos2 != std::string::npos)
+            {
+                sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+                sscanf(sub.c_str(), "%d", &audio_port);
+            }
+        }
     }
 
-    if (audio_port == 0 && image_port == 0 && video_port == 0) {
-        ERROR("extract_rtp_remote_addr: no m=audio, m=image or m=video line found in SDP message body");
+    /* And find the port number for the video stream */
+    pos1 = msgstr.find(SDP_VIDEOPORT_PREFIX, 0, 8);
+    if (pos1 != std::string::npos)
+    {
+        pos1 += 8; /* skip SDP_VIDEOPORT_PREFIX */
+        pos1 += 1; /* skip first whitespace */
+        pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+        if (pos2 != std::string::npos)
+        {
+            sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+           sscanf(sub.c_str(), "%d", &video_port); /* parse port substring as integer */
+        }
     }
 
-    /* If we get an image_port only, we won't set anything useful.
-     * We cannot use rtpstream for udptl/t38 data because it has
-     * non-linear timing and data size. */
-    rtpstream_set_remote(&rtpstream_callinfo, ip_ver, host.c_str(), audio_port, video_port);
+    /* first video m-line had port of ZERO -- look for second video m-line */
+    if (video_port == 0)
+    {
+        pos1 = msgstr.find(SDP_VIDEOPORT_PREFIX, pos2, 8);
+        if (pos1 != std::string::npos)
+        {
+            pos1 += 8; /* skip SDP_VIDEOPORT_PREFIX  */
+            pos1 += 1; /* skip first whitespace */
+            pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+            if (pos2 != std::string::npos)
+            {
+                sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+                sscanf(sub.c_str(), "%d", &video_port);
+            }
+        }
+    }
+
+    if ((audio_port==0)&&(video_port==0)&&(image_port==0)) {
+        ERROR("extract_rtp_remote_addr: no m=audio or m=video or m=image line found in SDP message body");
+    }
+
+    return host;
 }
-#endif
+
+#ifdef USE_OPENSSL
+int call::check_audio_ciphersuite_match(SrtpAudioInfoParams &pA)
+{
+    int audio_cs_len = 0;
+    int audio_ciphersuite_match = 0;
+
+    logSrtpInfo("call::check_audio_ciphersuite_match():  Preferred AUDIO cryptosuite: [%s]\n", _pref_audio_cs_out);
+
+    if (pA.audio_found)
+    {
+        audio_cs_len = strlen(_pref_audio_cs_out);
+        if (!strncmp(_pref_audio_cs_out, "AES_CM_128_HMAC_SHA1_80", audio_cs_len) ||
+            !strncmp(_pref_audio_cs_out, "AES_CM_128_HMAC_SHA1_32", audio_cs_len) ||
+            !strncmp(_pref_audio_cs_out, "NULL_HMAC_SHA1_80", audio_cs_len) ||
+            !strncmp(_pref_audio_cs_out, "NULL_HMAC_SHA1_32", audio_cs_len))
+        {
+            if (!strncmp(pA.primary_audio_cryptosuite, _pref_audio_cs_out, audio_cs_len))
+            {
+                // PRIMARY AUDIO cryptosuite matches preferred AUDIO cryptosuite
+                logSrtpInfo("call::check_audio_ciphersuite_match():  PRIMARY AUDIO cryptosuite matches preferred AUDIO cryptosuite...\n");
+                audio_ciphersuite_match = 1;
+            }
+            else
+            {
+                // PRIMARY AUDIO cryptosuite does NOT match preferred AUDIO cryptosuite
+                logSrtpInfo("call::check_audio_ciphersuite_match():  PRIMARY AUDIO cryptosuite [%s] does NOT match preferred AUDIO cryptosuite [%s]...\n", pA.primary_audio_cryptosuite, _pref_audio_cs_out);
+                audio_ciphersuite_match = 0;
+            }
+        }
+    }
+
+    return audio_ciphersuite_match;
+}
+
+int call::check_video_ciphersuite_match(SrtpVideoInfoParams &pV)
+{
+    int video_cs_len = 0;
+    int video_ciphersuite_match = 0;
+
+    logSrtpInfo("call::check_video_ciphersuite_match():  Preferred VIDEO cryptosuite: [%s]\n", _pref_video_cs_out);
+
+    if (pV.video_found)
+    {
+        video_cs_len = strlen(_pref_video_cs_out);
+        if (!strncmp(_pref_video_cs_out, "AES_CM_128_HMAC_SHA1_80", video_cs_len) ||
+            !strncmp(_pref_video_cs_out, "AES_CM_128_HMAC_SHA1_32", video_cs_len) ||
+            !strncmp(_pref_video_cs_out, "NULL_HMAC_SHA1_80", video_cs_len) ||
+            !strncmp(_pref_video_cs_out, "NULL_HMAC_SHA1_32", video_cs_len))
+        {
+            if (!strncmp(pV.primary_video_cryptosuite, _pref_video_cs_out, video_cs_len))
+            {
+                // PRIMARY VIDEO cryptosuite matches preferred VIDEO cryptosuite
+                logSrtpInfo("call::check_video_ciphersuite_match():  PRIMARY VIDEO cryptosuite matches preferred VIDEO cryptosuite...\n");
+                video_ciphersuite_match = 1;
+            }
+            else
+            {
+                // PRIMARY VIDEO cryptosuite does NOT match preferred VIDEO cryptosuite
+                logSrtpInfo("call::check_video_ciphersuite_match():  PRIMARY VIDEO cryptosuite [%s] does NOT match preferred VIDEO cryptosuite [%s]...\n", pV.primary_video_cryptosuite, _pref_video_cs_out);
+                video_ciphersuite_match = 0;
+            }
+        }
+    }
+
+    return video_ciphersuite_match;
+}
+
+/******* Extract SRTP remote media infomartion from SDP  *******/
+
+#define SDP_AUDIOCRYPTO_PREFIX "\na=crypto:"
+#define SDP_VIDEOCRYPTO_PREFIX "\na=crypto:"
+int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, SrtpVideoInfoParams &pV)
+{
+    const char* ro_search = NULL;
+    const char* alt_search = NULL;
+
+    pA.audio_found = false;
+    pV.video_found = false;
+
+    pA.primary_audio_cryptotag = 0;
+    pV.primary_video_cryptotag = 0;
+    memset(pA.primary_audio_cryptosuite, 0, sizeof(pA.primary_audio_cryptosuite));
+    memset(pV.primary_video_cryptosuite, 0, sizeof(pV.primary_video_cryptosuite));
+    memset(pA.primary_audio_cryptokeyparams, 0, sizeof(pA.primary_audio_cryptokeyparams));
+    memset(pV.primary_video_cryptokeyparams, 0, sizeof(pV.primary_video_cryptokeyparams));
+    pA.primary_unencrypted_audio_srtp = false;
+    pV.primary_unencrypted_video_srtp = false;
+
+    pA.secondary_audio_cryptotag = 0;
+    pV.secondary_video_cryptotag = 0;
+    memset(pA.secondary_audio_cryptosuite, 0, sizeof(pA.secondary_audio_cryptosuite));
+    memset(pV.secondary_video_cryptosuite, 0, sizeof(pV.secondary_video_cryptosuite));
+    memset(pA.secondary_audio_cryptokeyparams, 0, sizeof(pA.secondary_audio_cryptokeyparams));
+    memset(pV.secondary_video_cryptokeyparams, 0, sizeof(pV.secondary_video_cryptokeyparams));
+    pA.secondary_unencrypted_audio_srtp = false;
+    pV.secondary_unencrypted_video_srtp = false;
+
+    char* sdp_body = NULL;
+    char* sdp_body_remember = NULL;
+
+    std::size_t mline_sol = 0; /* Start of m-line line */
+    std::size_t mline_eol = 0; /* End of m-line line */
+    std::string mline_contents = ""; /* Actual m-line contents */
+    std::size_t msection_limit = 0; /* m-line media section limit */
+    std::string msgstr; /* std::string representation of SDP body */
+
+    char crypto_audio_sessionparams[64];
+    char crypto_video_sessionparams[64];
+
+    char* checkUESRTP = NULL;
+    bool audioExists = false;
+    bool videoExists = false;
+    std::size_t cur_pos = 0;
+    int audio_port = 0;
+    int video_port = 0;
+    std::size_t pos1 = 0;
+    std::size_t pos2 = 0;
+    std::string sub;
+    std::size_t amsection_limit = 0;
+    std::size_t vmsection_limit = 0;
+
+    /* Look for start of message body */
+    ro_search= strstr(msg,"\n\n"); // UNIX line endings (LFLF) between header/body sections
+    alt_search= strstr(msg, "\r\n\r\n"); // DOS line endings (CRLFCRLF) between header/body sections
+
+    if (ro_search) {
+        sdp_body = strdup(ro_search);
+    } else if (alt_search) {
+        sdp_body = strdup(alt_search);
+    }
+
+    if (sdp_body) {
+        msgstr = sdp_body;
+        sdp_body_remember = sdp_body;
+
+        if (ro_search) {
+            sdp_body += 2;  /* skip past header - point to blank line before body */
+        } else if (alt_search) {
+            sdp_body += 4;  /* skip past header - point to blank line before body */
+        }
+
+        /* --------------------------------------------------------------
+         * Try to find an AUDIO MLINE
+         * -------------------------------------------------------------- */
+        pos1 = msgstr.find(SDP_AUDIOPORT_PREFIX, 0, 8);
+        if (pos1 != std::string::npos)
+        {
+            pos1 += 8; /* skip SDP_AUDIOPORT_PREFIX */
+            pos1 += 1; /* skip first whitespace */
+            pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+            if (pos2 != std::string::npos)
+            {
+                sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+                sscanf(sub.c_str(), "%d", &audio_port); /* parse port substring as integer */
+                if (audio_port != 0)
+                {
+                    logSrtpInfo("found first ACTIVE audio m-line with NON-ZERO port [%d]...\n", audio_port);
+                    audioExists = true;
+                }
+                else
+                {
+                    logSrtpInfo("found first INACTIVE audio m-line (e.g. with ZERO port)...\n");
+
+                    pos1 = msgstr.find(SDP_AUDIOPORT_PREFIX, pos2, 8);
+                    if (pos1 != std::string::npos)
+                    {
+                        pos1 += 8; /* skip SDP_AUDIOPORT_PREFIX  */
+                        pos1 += 1; /* skip first whitespace */
+                        pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+                        if (pos2 != std::string::npos)
+                        {
+                            sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+                            sscanf(sub.c_str(), "%d", &audio_port);
+                            if (audio_port != 0)
+                            {
+                                logSrtpInfo("found second ACTIVE audio m-line with NON-ZERO port [%d]...\n", audio_port);
+                                audioExists = true;
+                            }
+                            else
+                            {
+                                logSrtpInfo("found second INACTIVE audio m-line (e.g. with ZERO port)...\n");
+                                audioExists = false;
+                            }
+                        }
+                        else
+                        {
+                            logSrtpInfo("invalid formatting encountered:  missing whitespace after second audio m-line port...\n");
+                            audioExists = false;
+                        }
+                    }
+                    else
+                    {
+                        logSrtpInfo("NO second audio m-line found...\n");
+                        audioExists = false;
+                    }
+                }
+            }
+            else
+            {
+                logSrtpInfo("invalid formatting encountered:  missing whitespace after first audio m-line port...\n");
+                audioExists = false;
+            }
+        }
+        else
+        {
+            logSrtpInfo("NO first audio m-line found...\n");
+            audioExists = false;
+        }
+
+        cur_pos = pos2;
+        amsection_limit = msgstr.find("\nm=audio", cur_pos, 8);
+        vmsection_limit = msgstr.find("\nm=video", cur_pos, 8);
+
+        if (audioExists &&
+            (((amsection_limit != std::string::npos) && (cur_pos != std::string::npos) && (cur_pos < amsection_limit)) ||
+             ((amsection_limit == std::string::npos) && (vmsection_limit == std::string::npos) && (cur_pos != std::string::npos))))
+        {
+            // AUDIO "m=audio" prefix found...
+            pA.audio_found = true;
+
+            mline_sol = msgstr.find(SDP_AUDIOCRYPTO_PREFIX, cur_pos/*0*/, 10);
+            if (mline_sol != std::string::npos) {
+                // PRIMARY AUDIO "a:crypto:" crypto prefix found
+                mline_eol = msgstr.find("\n", mline_sol, 1);
+                if (mline_eol != std::string::npos) {
+                    mline_contents = msgstr.substr(mline_sol, mline_eol);
+                    sscanf(mline_contents.c_str(), "\na=crypto:%d %s inline:%s %s", &pA.primary_audio_cryptotag,
+                                                                                    pA.primary_audio_cryptosuite,
+                                                                                    pA.primary_audio_cryptokeyparams,
+                                                                                    crypto_audio_sessionparams);
+                    checkUESRTP = strstr(crypto_audio_sessionparams, "UNENCRYPTED_SRTP");
+                    if (checkUESRTP) {
+                        logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for PRIMARY AUDIO\n");
+                        pA.primary_unencrypted_audio_srtp = true;
+                    } else {
+                        logSrtpInfo("call::extract_srtp_remote_info():  No UNENCRYPTED_SRTP token detected for PRIMARY AUDIO\n");
+                        pA.primary_unencrypted_audio_srtp = false;
+                    }
+                }
+            }
+
+            // Look for end-of-audio-media section
+            msection_limit = msgstr.find("\nm=", mline_eol+1, 3);
+
+            mline_sol = msgstr.find(SDP_AUDIOCRYPTO_PREFIX, mline_eol+1, 10);
+            if (((msection_limit != std::string::npos) && (mline_sol != std::string::npos) && (mline_sol < msection_limit)) ||
+                ((msection_limit == std::string::npos) && (mline_sol != std::string::npos))) {
+                // SECONDARY AUDIO "a:crypto:" crypto prefix found
+                mline_eol = msgstr.find("\n", mline_sol, 1);
+                if (mline_eol != std::string::npos) {
+                    mline_contents = msgstr.substr(mline_sol, mline_eol);
+                    sscanf(mline_contents.c_str(), "\na=crypto:%d %s inline:%s %s", &pA.secondary_audio_cryptotag,
+                                                                                    pA.secondary_audio_cryptosuite,
+                                                                                    pA.secondary_audio_cryptokeyparams,
+                                                                                    crypto_audio_sessionparams);
+                    checkUESRTP = strstr(crypto_audio_sessionparams, "UNENCRYPTED_SRTP");
+                    if (checkUESRTP) {
+                        logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for SECONDARY AUDIO\n");
+                        pA.secondary_unencrypted_audio_srtp = true;
+                    } else {
+                        logSrtpInfo("call::extract_srtp_remote_info():  No UNENCRYPTED_SRTP token detected for SECONDARY AUDIO\n");
+                        pA.secondary_unencrypted_audio_srtp = false;
+                    }
+                }
+            }
+        }
+
+        /* --------------------------------------------------------------
+         * Try to find a VIDEO MLINE
+         * -------------------------------------------------------------- */
+        pos1 = msgstr.find(SDP_VIDEOPORT_PREFIX, 0, 8);
+        if (pos1 != std::string::npos)
+        {
+            pos1 += 8; /* skip SDP_VIDEOPORT_PREFIX */
+            pos1 += 1; /* skip first whitespace */
+            pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+            if (pos2 != std::string::npos)
+            {
+                sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+                sscanf(sub.c_str(), "%d", &video_port); /* parse port substring as integer */
+                if (video_port != 0)
+                {
+                    logSrtpInfo("found first ACTIVE video m-line with NON-ZERO port [%d]...\n", video_port);
+                    videoExists = true;
+                }
+                else
+                {
+                    logSrtpInfo("found first INACTIVE video m-line (e.g. with ZERO port)...\n");
+
+                    pos1 = msgstr.find(SDP_VIDEOPORT_PREFIX, pos2, 8);
+                    if (pos1 != std::string::npos)
+                    {
+                        pos1 += 8; /* skip SDP_VIDEOPORT_PREFIX  */
+                        pos1 += 1; /* skip first whitespace */
+                        pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+                        if (pos2 != std::string::npos)
+                        {
+                            sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+                            sscanf(sub.c_str(), "%d", &video_port);
+                            if (video_port != 0)
+                            {
+                                logSrtpInfo("found second ACTIVE video m-line with NON-ZERO port [%d]...\n", video_port);
+                                videoExists = true;
+                            }
+                            else
+                            {
+                                logSrtpInfo("found second INACTIVE video m-line (e.g. with ZERO port)...\n");
+                                videoExists = false;
+                            }
+                        }
+                        else
+                        {
+                            logSrtpInfo("invalid formatting encountered:  missing whitespace after second video m-line port...\n");
+                            videoExists = false;
+                        }
+                    }
+                    else
+                    {
+                        logSrtpInfo("NO second video m-line found...\n");
+                        videoExists = false;
+                    }
+                }
+            }
+            else
+            {
+                logSrtpInfo("invalid formatting encountered:  missing whitespace after first video m-line port...\n");
+                videoExists = false;
+            }
+        }
+        else
+        {
+            logSrtpInfo("NO first video m-line found...\n");
+            videoExists = false;
+        }
+
+        cur_pos = pos2;
+        vmsection_limit = msgstr.find("\nm=video", cur_pos, 8);
+        amsection_limit = msgstr.find("\nm=audio", cur_pos, 8);
+
+        if (videoExists &&
+            (((vmsection_limit != std::string::npos) && (cur_pos != std::string::npos) && (cur_pos < vmsection_limit)) ||
+             ((vmsection_limit == std::string::npos) && (amsection_limit == std::string::npos) && (cur_pos != std::string::npos))))
+        {
+            // VIDEO "m=video" prefix found...
+            pV.video_found = true;
+
+            mline_sol = msgstr.find(SDP_VIDEOCRYPTO_PREFIX, cur_pos/*mline_eol+1*/, 10);
+            if (mline_sol != std::string::npos) {
+                // PRIMARY VIDEO "a:crypto:" crypto prefix found
+                mline_eol = msgstr.find("\n", mline_sol, 1);
+                if (mline_eol != std::string::npos) {
+                    mline_contents = msgstr.substr(mline_sol, mline_eol);
+                    sscanf(mline_contents.c_str(), "\na=crypto:%d %s inline:%s %s", &pV.primary_video_cryptotag,
+                                                                                    pV.primary_video_cryptosuite,
+                                                                                    pV.primary_video_cryptokeyparams,
+                                                                                    crypto_video_sessionparams);
+                    checkUESRTP = strstr(crypto_video_sessionparams, "UNENCRYPTED_SRTP");
+                    if (checkUESRTP) {
+                        logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for PRIMARY VIDEO\n");
+                        pV.primary_unencrypted_video_srtp = true;
+                    } else {
+                        logSrtpInfo("call::extract_srtp_remote_info():  No UNENCRYPTED_SRTP token detected for PRIMARY VIDEO\n");
+                        pV.primary_unencrypted_video_srtp = false;
+                    }
+                }
+            }
+
+            // Look for end-of-video-media section
+            msection_limit = msgstr.find("\nm=", mline_eol+1, 3);
+
+            mline_sol = msgstr.find(SDP_VIDEOCRYPTO_PREFIX, mline_eol+1, 10);
+            if (((msection_limit != std::string::npos) && (mline_sol != std::string::npos) && (mline_sol < msection_limit)) ||
+                ((msection_limit == std::string::npos) && (mline_sol != std::string::npos))) {
+                // SECONDARY VIDEO "a:crypto:" crypto prefix found
+                mline_eol = msgstr.find("\n", mline_sol, 1);
+                if (mline_eol != std::string::npos) {
+                    mline_contents = msgstr.substr(mline_sol, mline_eol);
+                    sscanf(mline_contents.c_str(), "\na=crypto:%d %s inline:%s %s", &pV.secondary_video_cryptotag,
+                                                                                    pV.secondary_video_cryptosuite,
+                                                                                    pV.secondary_video_cryptokeyparams,
+                                                                                    crypto_video_sessionparams);
+                    checkUESRTP = strstr(crypto_video_sessionparams, "UNENCRYPTED_SRTP");
+                    if (checkUESRTP) {
+                        logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for SECONDARY VIDEO\n");
+                        pV.secondary_unencrypted_video_srtp = true;
+                    } else {
+                        logSrtpInfo("call::extract_srtp_remote_info():  No UNENCRYPTED_SRTP token detected for SECONDARY VIDEO\n");
+                        pV.secondary_unencrypted_video_srtp = false;
+                    }
+                }
+            }
+        }
+
+        free(sdp_body_remember);
+
+        return 0; /* SUCCESS -- parsed SDP SRTP INFO */
+    } else {
+      return -1; /* FAILURE -- No SDP body found */
+    }
+}
+#endif // USE_OPENSSL
+#endif // RTP_STREAM
 
 /******* Very simple hash for retransmission detection  *******/
 
@@ -364,6 +843,31 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
 
 void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall)
 {
+#ifdef USE_OPENSSL
+    _srtpctxdebugfile = NULL;
+
+    if (srtpcheck_debug)
+    {
+        if (sendMode == MODE_CLIENT)
+        {
+            _srtpctxdebugfile = fopen("srtpctxdebugfile_uac", "w");
+        }
+        else if (sendMode == MODE_SERVER)
+        {
+            _srtpctxdebugfile = fopen("srtpctxdebugfile_uas", "w");
+        }
+
+        if (_srtpctxdebugfile == NULL)
+        {
+            /* error encountered opening srtp ctx debug file */
+            WARNING("Error encountered opening srtp ctx debug file");
+        }
+    }
+#endif // USE_OPENSSL
+
+    _sessionStateCurrent = eNoSession;
+    _sessionStateOld = eNoSession;
+
     this->call_scenario = call_scenario;
     zombie = false;
 
@@ -378,6 +882,8 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     last_recv_hash = 0;
     last_recv_index = -1;
     last_recv_msg = NULL;
+
+    last_recv_invite_cseq = 0;
 
     recv_retrans_hash = 0;
     recv_retrans_recv_index = -1;
@@ -412,9 +918,49 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     next_nonce_count = 1;
 
 #ifdef RTP_STREAM
+#ifdef USE_OPENSSL
+    //
+    // JLSRTP CLIENT context constants
+    //
+    if (srtpcheck_debug)
+    {
+        if (sendMode == MODE_CLIENT)
+        {
+            logSrtpInfo("call::init():  (a) TX-UAC-AUDIO SRTP context - CLIENT setting SRTP header size to 12\n");
+            _txUACAudio.setSrtpHeaderSize(12);
+            logSrtpInfo("call::init():  (a) TX-UAC-VIDEO SRTP context - CLIENT setting SRTP header size to 12\n");
+            _txUACVideo.setSrtpHeaderSize(12);
+            logSrtpInfo("call::init():  (b) RX-UAC-AUDIO SRTP context - CLIENT setting SRTP header size to 12\n");
+            _rxUACAudio.setSrtpHeaderSize(12);
+            logSrtpInfo("call::init():  (b) RX-UAC-VIDEO SRTP context - CLIENT setting SRTP header size to 12\n");
+            _rxUACVideo.setSrtpHeaderSize(12);
+        }
+    }
+
+    //
+    // JLSRTP SERVER context constants
+    //
+    if (srtpcheck_debug)
+    {
+        if (sendMode == MODE_SERVER)
+        {
+            logSrtpInfo("call::init():  (c) RX-UAS-AUDIO SRTP context - SERVER setting SRTP header size to 12\n");
+            _rxUASAudio.setSrtpHeaderSize(12);
+            logSrtpInfo("call::init():  (c) RX-UAS-VIDEO SRTP context - SERVER setting SRTP header size to 12\n");
+            _rxUASVideo.setSrtpHeaderSize(12);
+            logSrtpInfo("call::init():  (d) TX-UAS-AUDIO SRTP context - SERVER setting SRTP header size to 12\n");
+            _txUASAudio.setSrtpHeaderSize(12);
+            logSrtpInfo("call::init():  (d) TX-UAS-VIDEO SRTP context - SERVER setting SRTP header size to 12\n");
+            _txUASVideo.setSrtpHeaderSize(12);
+        }
+    }
+
+    memset(_pref_audio_cs_out, 0, sizeof(_pref_audio_cs_out));
+    memset(_pref_video_cs_out, 0, sizeof(_pref_video_cs_out));
+#endif // USE_OPENSSL
     /* check and warn on rtpstream_new_call result? -> error alloc'ing mem */
     rtpstream_new_call(&rtpstream_callinfo);
-#endif
+#endif // RTP_STREAM
 
 #ifdef PCAPPLAY
     hasMediaInformation = 0;
@@ -550,6 +1096,43 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     setRunning();
 }
 
+bool call::checkAckCSeq(const char* msg)
+{
+    static char request[65];
+    unsigned long int rcseq = 0;
+    const char* ptr = NULL;
+
+    rcseq = get_cseq_value(msg);
+    memset(request, 0, sizeof(request));
+
+    if ((msg[0] == 'S') &&
+        (msg[1] == 'I') &&
+        (msg[2] == 'P') &&
+        (msg[3] == '/') &&
+        (msg[4] == '2') &&
+        (msg[5] == '.') &&
+        (msg[6] == '0')) {
+        request[0]=0;
+    } else if (ptr = strchr(msg, ' ')) {
+        if ((ptr - msg) < 64) {
+            memcpy(request, msg, ptr - msg);
+            request[ptr - msg] = 0;
+        } else {
+            ERROR("SIP method too long in received message '%s'", msg);
+        }
+    } else {
+        ERROR("Invalid SIP message received '%s'", msg);
+    }
+
+    if ((default_behaviors & DEFAULT_BEHAVIOR_BADCSEQ) &&
+        !strncmp(request, "ACK", 3) &&
+        (rcseq != last_recv_invite_cseq)) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
 int call::_callDebug(const char *fmt, ...)
 {
     va_list ap;
@@ -650,6 +1233,34 @@ call::~call()
     free(start_time_rtd);
     free(rtd_done);
     free(debugBuffer);
+
+#ifdef USE_OPENSSL
+    if (srtpcheck_debug)
+    {
+        fclose(_srtpctxdebugfile);
+        _srtpctxdebugfile = NULL;
+    }
+#endif // USE_OPENSSL
+}
+
+void call::setRtpEchoErrors(int value)
+{
+    if (!initCall)
+    {
+        call_scenario->stats->setRtpEchoErrors(value);
+    }
+}
+
+int call::getRtpEchoErrors()
+{
+    if (!initCall)
+    {
+        return call_scenario->stats->getRtpEchoErrors();
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 void call::computeStat (CStat::E_Action P_action)
@@ -1140,6 +1751,14 @@ void call::terminate(CStat::E_Action reason)
                 new deadcall(id, reason_str);
             }
             break;
+        case E_AR_RTPECHO_ERROR:
+            computeStat(CStat::E_CALL_FAILED);
+            setRtpEchoErrors(1);
+            if (deadcall_wait && !initCall) {
+                sprintf(reason_str, "rtp echo error %d", msg_index);
+                new deadcall(id, reason_str);
+            }
+            break;
         case call::E_AR_NO_ERROR:
         case call::E_AR_STOP_CALL:
             /* Do nothing. */
@@ -1231,6 +1850,8 @@ bool call::next()
 
 bool call::executeMessage(message *curmsg)
 {
+    T_ActionResult actionResult = E_AR_NO_ERROR;
+
     if (curmsg->pause_distribution || curmsg->pause_variable != -1) {
         unsigned int pause;
         if (curmsg->pause_distribution) {
@@ -1285,8 +1906,17 @@ bool call::executeMessage(message *curmsg)
     } else if(curmsg -> M_type == MSG_TYPE_NOP) {
         callDebug("Executing NOP at index %d.\n", curmsg->index);
         do_bookkeeping(curmsg);
-        executeAction(NULL, curmsg);
-        return(next());
+        actionResult = executeAction(NULL, curmsg);
+        last_action_result = actionResult;
+        if (actionResult == E_AR_RTPECHO_ERROR)
+        {
+            terminate(CStat::E_CALL_FAILED);
+            return false;
+        }
+        else
+        {
+            return next();
+        }
     }
 
     else if(curmsg -> send_scheme) {
@@ -1955,6 +2585,37 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     char *dest = msg_buffer;
     bool suppresscrlf = false;
 
+#ifdef RTP_STREAM
+#ifdef USE_OPENSSL
+    bool srtp_audio_updated = false;
+    bool srtp_video_updated = false;
+
+    // OUTGOING SRTP PARAM CONTEXT
+    SrtpAudioInfoParams pA;
+    SrtpVideoInfoParams pV;
+
+    pA.audio_found = false;
+    pA.primary_audio_cryptotag = 0;
+    memset(pA.primary_audio_cryptosuite, 0, sizeof(pA.primary_audio_cryptosuite));
+    memset(pA.primary_audio_cryptokeyparams, 0, sizeof(pA.primary_audio_cryptokeyparams));
+    pA.secondary_audio_cryptotag = 0;
+    memset(pA.secondary_audio_cryptosuite, 0, sizeof(pA.secondary_audio_cryptosuite));
+    memset(pA.secondary_audio_cryptokeyparams, 0, sizeof(pA.secondary_audio_cryptokeyparams));
+    pA.primary_unencrypted_audio_srtp = false;
+    pA.secondary_unencrypted_audio_srtp = false;
+
+    pV.video_found = false;
+    pV.primary_video_cryptotag = 0;
+    memset(pV.primary_video_cryptosuite, 0, sizeof(pV.primary_video_cryptosuite));
+    memset(pV.primary_video_cryptokeyparams, 0, sizeof(pV.primary_video_cryptokeyparams));
+    pV.secondary_video_cryptotag = 0;
+    memset(pV.secondary_video_cryptosuite, 0, sizeof(pV.secondary_video_cryptosuite));
+    memset(pV.secondary_video_cryptokeyparams, 0, sizeof(pV.secondary_video_cryptokeyparams));
+    pV.primary_unencrypted_video_srtp = false;
+    pV.secondary_unencrypted_video_srtp = false;
+#endif // USE_OPENSSL
+#endif // RTP_STREAM
+
     *dest = '\0';
 
     for (int i = 0; i < src->numComponents(); i++) {
@@ -2022,11 +2683,41 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             dest += snprintf(dest, left, "%s", media_ip);
             break;
         case E_Message_Media_Port:
-        case E_Message_Auto_Media_Port: {
+        {
             int port = media_port + comp->offset;
-            if (comp->type == E_Message_Auto_Media_Port) {
-                port = media_port + (4 * (number - 1)) % 10000 + comp->offset;
+#ifdef PCAPPLAY
+            char *begin = dest;
+            while (begin > msg_buffer) {
+                if (*begin == '\n') {
+                    break;
+                }
+                begin--;
             }
+            if (begin == msg_buffer) {
+                ERROR("Can not find beginning of a line for the media port!\n");
+            }
+            if (strstr(begin, "audio")) {
+                if (media_ip_is_ipv6) {
+                    (_RCAST(struct sockaddr_in6 *, &(play_args_a.from)))->sin6_port = port;
+                } else {
+                    (_RCAST(struct sockaddr_in *, &(play_args_a.from)))->sin_port = port;
+                }
+            } else if (strstr(begin, "video")) {
+                if (media_ip_is_ipv6) {
+                    (_RCAST(struct sockaddr_in6 *, &(play_args_v.from)))->sin6_port = port;
+                } else {
+                    (_RCAST(struct sockaddr_in *, &(play_args_v.from)))->sin_port = port;
+                }
+            } else {
+                ERROR("media_port keyword with no audio or video on the current line (%s)", begin);
+            }
+#endif
+            dest += sprintf(dest, "%u", port);
+            break;
+        }
+        case E_Message_Auto_Media_Port:
+        {
+            int port = port = media_port + (4 * (number - 1)) % 10000 + comp->offset;
 #ifdef PCAPPLAY
             char *begin = dest;
             while (begin > msg_buffer) {
@@ -2058,11 +2749,1055 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         }
 #ifdef RTP_STREAM
-        case E_Message_RTPStream_Audio_Port: /* DEPRECATED */
-        case E_Message_RTPStream_Video_Port: /* DEPRECATED */
-            dest += sprintf(dest, "%u", media_port);
-            break;
-#endif
+        case E_Message_RTPStream_Audio_Port:
+        {
+          int temp_audio_port= 0;
+          // Only obtain port for RTP ([rtpstream_audio_port+0]) *BUT NOT* RTCP ([rtpstream_audio_port+1])
+          if (comp->offset == 0) {
+              temp_audio_port = rtpstream_get_local_audioport (&rtpstream_callinfo);
+              if (!temp_audio_port) {
+                /* Make this a warning instead? */
+                ERROR("cannot assign a free audio port to this call - using 0 for [rtpstream_audio_port]");
+              }
+          } else if (comp->offset >= 1) {
+              temp_audio_port = rtpstream_callinfo.local_audioport + comp->offset;
+          }
+#ifdef USE_OPENSSL
+          logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Audio_Port: %d\n", temp_audio_port);
+#endif // USE_OPENSSL
+          dest += snprintf(dest, left, "%d",temp_audio_port);
+        }
+        break;
+        case E_Message_RTPStream_Video_Port:
+        {
+          int temp_video_port= 0;
+          // Only obtain port for RTP ([rtpstream_video_port+0]) *BUT NOT* RTCP ([rtpstream_video_port+1])
+          if (comp->offset == 0) {
+              temp_video_port = rtpstream_get_local_videoport (&rtpstream_callinfo);
+              if (!temp_video_port) {
+                /* Make this a warning instead? */
+                ERROR("cannot assign a free video port to this call - using 0 for [rtpstream_video_port]");
+              }
+          } else if (comp->offset >= 1) {
+              temp_video_port = rtpstream_callinfo.local_videoport + comp->offset;
+          }
+#ifdef USE_OPENSSL
+          logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Video_Port: %d\n", temp_video_port);
+#endif // USE_OPENSSL
+          dest += snprintf(dest, left, "%d",temp_video_port);
+        }
+        break;
+#ifdef USE_OPENSSL
+        case E_Message_CryptoTag1Audio:
+        {
+            pA.audio_found = true;
+            pA.primary_audio_cryptotag = 1;
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag1Audio() - PRIMARY - CLIENT: %d\n", pA.primary_audio_cryptotag);
+                _txUACAudio.setCryptoTag(pA.primary_audio_cryptotag, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag1Audio() - PRIMARY - SERVER: %d\n", pA.primary_audio_cryptotag);
+                _txUASAudio.setCryptoTag(pA.primary_audio_cryptotag, PRIMARY_CRYPTO);
+            }
+            dest += snprintf(dest, left, "%d", pA.primary_audio_cryptotag);
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_CryptoTag2Audio:
+        {
+            pA.audio_found = true;
+            pA.secondary_audio_cryptotag = 2;
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag2Audio() - SECONDARY - CLIENT: %d\n", pA.secondary_audio_cryptotag);
+                _txUACAudio.setCryptoTag(pA.secondary_audio_cryptotag, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag2Audio() - SECONDARY - SERVER: %d\n", pA.secondary_audio_cryptotag);
+                _txUASAudio.setCryptoTag(pA.secondary_audio_cryptotag, SECONDARY_CRYPTO);
+            }
+            dest += snprintf(dest, left, "%d", pA.secondary_audio_cryptotag);
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteAesCm128Sha1801Audio:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1801Audio() - PRIMARY - CLIENT\n");
+                _txUACAudio.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                _txUACAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1801Audio() - PRIMARY - SERVER\n");
+                _txUASAudio.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                _txUASAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+            }
+
+            if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
+            {
+                logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
+                memset(_pref_audio_cs_out, 0, sizeof(_pref_audio_cs_out));
+                strncpy(_pref_audio_cs_out, "AES_CM_128_HMAC_SHA1_80", 23);
+            }
+            else if (getSessionStateCurrent() == eOfferReceived)
+            {
+                if (sendMode == MODE_CLIENT)
+                {
+                    if (!strncmp(_rxUACAudio.getCryptoSuite().c_str(), "AES_CM_128_HMAC_SHA1_80", 23))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- CLIENT -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- CLIENT -- SWAPPING...\n");
+                        _rxUACAudio.swapCrypto();
+                    }
+                }
+                else if (sendMode == MODE_SERVER)
+                {
+                    if (!strncmp(_rxUASAudio.getCryptoSuite().c_str(), "AES_CM_128_HMAC_SHA1_80", 23))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- SERVER -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- SERVER -- SWAPPING...\n");
+                        _rxUASAudio.swapCrypto();
+                    }
+                }
+            }
+
+            pA.audio_found = true;
+            strncpy(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80", 23);
+            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_80");
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteAesCm128Sha1802Audio:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1802Audio() - SECONDARY - CLIENT\n");
+                _txUACAudio.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                _txUACAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1802Audio() - SECONDARY - SERVER\n");
+                _txUASAudio.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                _txUASAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+            }
+            pA.audio_found = true;
+            strncpy(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80", 23);
+            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_80");
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteAesCm128Sha1321Audio:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1321Audio() - PRIMARY - CLIENT\n");
+                _txUACAudio.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                _txUACAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1321Audio() - PRIMARY - SERVER\n");
+                _txUASAudio.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                _txUASAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+            }
+
+            if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
+            {
+                logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
+                memset(_pref_audio_cs_out, 0, sizeof(_pref_audio_cs_out));
+                strncpy(_pref_audio_cs_out, "AES_CM_128_HMAC_SHA1_32", 23);
+            }
+            else if (getSessionStateCurrent() == eOfferReceived)
+            {
+                if (sendMode == MODE_CLIENT)
+                {
+                    if (!strncmp(_rxUACAudio.getCryptoSuite().c_str(), "AES_CM_128_HMAC_SHA1_32", 23))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- CLIENT -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- CLIENT -- SWAPPING...\n");
+                        _rxUACAudio.swapCrypto();
+                    }
+                }
+                else if (sendMode == MODE_SERVER)
+                {
+                    if (!strncmp(_rxUASAudio.getCryptoSuite().c_str(), "AES_CM_128_HMAC_SHA1_32", 23))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- SERVER -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- SERVER -- SWAPPING...\n");
+                        _rxUASAudio.swapCrypto();
+                    }
+                }
+            }
+
+            pA.audio_found = true;
+            strncpy(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32", 23);
+            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_32");
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteAesCm128Sha1322Audio:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1322Audio() - SECONDARY - CLIENT\n");
+                _txUACAudio.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                _txUACAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1322Audio() - SECONDARY - SERVER\n");
+                _txUASAudio.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                _txUASAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+            }
+            pA.audio_found = true;
+            strncpy(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32", 23);
+            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_32");
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteNullSha1801Audio:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1801Audio() - PRIMARY - CLIENT\n");
+                _txUACAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                _txUACAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1801Audio() - PRIMARY - SERVER\n");
+                _txUASAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                _txUASAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+            }
+
+            if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
+            {
+                logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
+                memset(_pref_audio_cs_out, 0, sizeof(_pref_audio_cs_out));
+                strncpy(_pref_audio_cs_out, "NULL_HMAC_SHA1_80", 17);
+            }
+            else if (getSessionStateCurrent() == eOfferReceived)
+            {
+                if (sendMode == MODE_CLIENT)
+                {
+                    if (!strncmp(_rxUACAudio.getCryptoSuite().c_str(), "NULL_HMAC_SHA1_80", 17))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- CLIENT -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- CLIENT -- SWAPPING...\n");
+                        _rxUACAudio.swapCrypto();
+                    }
+                }
+                else if (sendMode == MODE_SERVER)
+                {
+                    if (!strncmp(_rxUASAudio.getCryptoSuite().c_str(), "NULL_HMAC_SHA1_80", 17))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- SERVER -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- SERVER -- SWAPPING...\n");
+                        _rxUASAudio.swapCrypto();
+                    }
+                }
+            }
+
+            pA.audio_found = true;
+            strncpy(pA.primary_audio_cryptosuite, "NULL_HMAC_SHA1_80", 17);
+            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_80");
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteNullSha1802Audio:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1802Audio() - SECONDARY - CLIENT\n");
+                _txUACAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                _txUACAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1802Audio() - SECONDARY - SERVER\n");
+                _txUASAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                _txUASAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+            }
+            pA.audio_found = true;
+            strncpy(pA.secondary_audio_cryptosuite, "NULL_HMAC_SHA1_80", 17);
+            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_80");
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteNullSha1321Audio:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1321Audio() - PRIMARY - CLIENT\n");
+                _txUACAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                _txUACAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1321Audio() - PRIMARY - SERVER\n");
+                _txUASAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                _txUASAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+            }
+
+            if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
+            {
+                logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
+                memset(_pref_audio_cs_out, 0, sizeof(_pref_audio_cs_out));
+                strncpy(_pref_audio_cs_out, "NULL_HMAC_SHA1_32", 17);
+            }
+            else if (getSessionStateCurrent() == eOfferReceived)
+            {
+                if (sendMode == MODE_CLIENT)
+                {
+                    if (!strncmp(_rxUACAudio.getCryptoSuite().c_str(), "NULL_HMAC_SHA1_32", 17))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- CLIENT -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- CLIENT -- SWAPPING...\n");
+                        _rxUACAudio.swapCrypto();
+                    }
+                }
+                else if (sendMode == MODE_SERVER)
+                {
+                    if (!strncmp(_rxUASAudio.getCryptoSuite().c_str(), "NULL_HMAC_SHA1_32", 17))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- SERVER -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- SERVER -- SWAPPING...\n");
+                        _rxUASAudio.swapCrypto();
+                    }
+                }
+            }
+
+            pA.audio_found = true;
+            strncpy(pA.primary_audio_cryptosuite, "NULL_HMAC_SHA1_32", 17);
+            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_32");
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteNullSha1322Audio:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1322Audio() - SECONDARY - CLIENT\n");
+                _txUACAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                _txUACAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1322Audio() - SECONDARY - SERVER\n");
+                _txUASAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                _txUASAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+            }
+            pA.audio_found = true;
+            strncpy(pA.secondary_audio_cryptosuite, "NULL_HMAC_SHA1_32", 17);
+            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_32");
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_CryptoKeyParams1Audio:
+        {
+            std::string mks;
+
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Audio() - PRIMARY - CLIENT - component offset:%d\n", comp->offset);
+                if (comp->offset >= 0)
+                {
+                    _txUACAudio.generateMasterKey(PRIMARY_CRYPTO);
+                    _txUACAudio.generateMasterSalt(PRIMARY_CRYPTO);
+                    _txUACAudio.encodeMasterKeySalt(mks, PRIMARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Audio() - PRIMARY - CLIENT - generating new concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+                else
+                {
+                    _txUACAudio.encodeMasterKeySalt(mks, PRIMARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Audio() - PRIMARY - CLIENT - reusing old concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Audio() - PRIMARY - SERVER - component offset:%d\n", comp->offset);
+                if (comp->offset >= 0)
+                {
+                    _txUASAudio.generateMasterKey(PRIMARY_CRYPTO);
+                    _txUASAudio.generateMasterSalt(PRIMARY_CRYPTO);
+                    _txUASAudio.encodeMasterKeySalt(mks, PRIMARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Audio() - PRIMARY - SERVER - generating new concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+                else
+                {
+                    _txUASAudio.encodeMasterKeySalt(mks, PRIMARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Audio() - PRIMARY - SERVER - reusing old concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+            }
+            pA.audio_found = true;
+            strncpy(pA.primary_audio_cryptokeyparams, mks.c_str(), 40);
+            dest += snprintf(dest, left, "%s", pA.primary_audio_cryptokeyparams);
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_CryptoKeyParams2Audio:
+        {
+            std::string mks;
+
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams2Audio() - SECONDARY - CLIENT - component offset:%d\n", comp->offset);
+                if (comp->offset >= 0)
+                {
+                    _txUACAudio.generateMasterKey(SECONDARY_CRYPTO);
+                    _txUACAudio.generateMasterSalt(SECONDARY_CRYPTO);
+                    _txUACAudio.encodeMasterKeySalt(mks, SECONDARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams2Audio() - SECONDARY - CLIENT - generating new concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+                else
+                {
+                    _txUACAudio.encodeMasterKeySalt(mks, SECONDARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams2Audio() - SECONDARY - CLIENT - reusing old concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams2Audio() - SECONDARY - SERVER - component offset:%d\n", comp->offset);
+                if (comp->offset >= 0)
+                {
+                    _txUASAudio.generateMasterKey(SECONDARY_CRYPTO);
+                    _txUASAudio.generateMasterSalt(SECONDARY_CRYPTO);
+                    _txUASAudio.encodeMasterKeySalt(mks, SECONDARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams2Audio() - SECONDARY - SERVER - generating new concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+                else
+                {
+                    _txUASAudio.encodeMasterKeySalt(mks, SECONDARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams2Audio() - SECONDARY - SERVER - reusing old concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+            }
+            pA.audio_found = true;
+            strncpy(pA.secondary_audio_cryptokeyparams, mks.c_str(), 40);
+            dest += snprintf(dest, left, "%s", pA.secondary_audio_cryptokeyparams);
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_UEAesCm128Sha1801Audio:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1801Audio() - PRIMARY - CLIENT\n");
+                _txUACAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUACAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1801Audio() - PRIMARY - SERVER\n");
+                _txUASAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUASAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+            }
+            pA.audio_found = true;
+            pA.primary_unencrypted_audio_srtp = true;
+            strncpy(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80", 23);
+            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_UEAesCm128Sha1802Audio:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1802Audio() - SECONDARY - CLIENT\n");
+                _txUACAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUACAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1802Audio() - SECONDARY - SERVER\n");
+                _txUASAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUASAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+            }
+            pA.audio_found = true;
+            pA.secondary_unencrypted_audio_srtp = true;
+            strncpy(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80", 23);
+            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_UEAesCm128Sha1321Audio:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1321Audio() - PRIMARY - CLIENT\n");
+                _txUACAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUACAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1321Audio() - PRIMARY - SERVER\n");
+                _txUASAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUASAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+            }
+            pA.audio_found = true;
+            pA.primary_unencrypted_audio_srtp = true;
+            strncpy(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32", 23);
+            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_UEAesCm128Sha1322Audio:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1322Audio() - SECONDARY - CLIENT\n");
+                _txUACAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUACAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1322Audio() - SECONDARY - SERVER\n");
+                _txUASAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUASAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+            }
+            pA.audio_found = true;
+            pA.secondary_unencrypted_audio_srtp = true;
+            strncpy(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32", 23);
+            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            srtp_audio_updated = true;
+        }
+        break;
+        case E_Message_CryptoTag1Video:
+        {
+            pV.video_found = true;
+            pV.primary_video_cryptotag = 1;
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag1Video() - PRIMARY - CLIENT: %d\n", pV.primary_video_cryptotag);
+                _txUACVideo.setCryptoTag(pV.primary_video_cryptotag, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag1Video() - PRIMARY - SERVER: %d\n", pV.primary_video_cryptotag);
+                _txUASVideo.setCryptoTag(pV.primary_video_cryptotag, PRIMARY_CRYPTO);
+            }
+            dest += snprintf(dest, left, "%d", pV.primary_video_cryptotag);
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_CryptoTag2Video:
+        {
+            pV.video_found = true;
+            pV.secondary_video_cryptotag = 2;
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag2Video() - SECONDARY - CLIENT: %d\n", pV.secondary_video_cryptotag);
+                _txUACVideo.setCryptoTag(pV.secondary_video_cryptotag, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag2Video() - SECONDARY - SERVER: %d\n", pV.secondary_video_cryptotag);
+                _txUASVideo.setCryptoTag(pV.secondary_video_cryptotag, SECONDARY_CRYPTO);
+            }
+            dest += snprintf(dest, left, "%d", pV.secondary_video_cryptotag);
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteAesCm128Sha1801Video:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1801Video() - PRIMARY - CLIENT\n");
+                _txUACVideo.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                _txUACVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1801Video() - PRIMARY - SERVER\n");
+                _txUASVideo.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                _txUASVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+            }
+
+            if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
+            {
+                logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
+                memset(_pref_video_cs_out, 0, sizeof(_pref_video_cs_out));
+                strncpy(_pref_video_cs_out, "AES_CM_128_HMAC_SHA1_80", 23);
+            }
+            else if (getSessionStateCurrent() == eOfferReceived)
+            {
+                if (sendMode == MODE_CLIENT)
+                {
+                    if (!strncmp(_rxUACVideo.getCryptoSuite().c_str(), "AES_CM_128_HMAC_SHA1_80", 23))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- CLIENT -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- CLIENT -- SWAPPING...\n");
+                        _rxUACVideo.swapCrypto();
+                    }
+                }
+                else if (sendMode == MODE_SERVER)
+                {
+                    if (!strncmp(_rxUASVideo.getCryptoSuite().c_str(), "AES_CM_128_HMAC_SHA1_80", 23))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- SERVER -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- SERVER -- SWAPPING...\n");
+                        _rxUASVideo.swapCrypto();
+                    }
+                }
+            }
+
+            pV.video_found = true;
+            strncpy(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80", 23);
+            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_80");
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteAesCm128Sha1802Video:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1802Video() - SECONDARY - CLIENT\n");
+                _txUACVideo.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                _txUACVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1802Video() - SECONDARY - SERVER\n");
+                _txUASVideo.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                _txUASVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+            }
+            pV.video_found = true;
+            strncpy(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80", 23);
+            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_80");
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteAesCm128Sha1321Video:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1321Video() - PRIMARY - CLIENT\n");
+                _txUACVideo.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                _txUACVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1321Video() - PRIMARY - SERVER\n");
+                _txUASVideo.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                _txUASVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+            }
+
+            if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
+            {
+                logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
+                memset(_pref_video_cs_out, 0, sizeof(_pref_video_cs_out));
+                strncpy(_pref_video_cs_out, "AES_CM_128_HMAC_SHA1_32", 23);
+            }
+            else if (getSessionStateCurrent() == eOfferReceived)
+            {
+                if (sendMode == MODE_CLIENT)
+                {
+                    if (!strncmp(_rxUACVideo.getCryptoSuite().c_str(), "AES_CM_128_HMAC_SHA1_32", 23))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- CLIENT -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- CLIENT -- SWAPPING...\n");
+                        _rxUACVideo.swapCrypto();
+                    }
+                }
+                else if (sendMode == MODE_SERVER)
+                {
+                    if (!strncmp(_rxUASVideo.getCryptoSuite().c_str(), "AES_CM_128_HMAC_SHA1_32", 23))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- SERVER -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- SERVER -- SWAPPING...\n");
+                        _rxUASVideo.swapCrypto();
+                    }
+                }
+            }
+
+            pV.video_found = true;
+            strncpy(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32", 23);
+            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_32");
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteAesCm128Sha1322Video:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1322Video() - SECONDARY - CLIENT\n");
+                _txUACVideo.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                _txUACVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1322Video() - SECONDARY - SERVER\n");
+                _txUASVideo.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                _txUASVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+            }
+            pV.video_found = true;
+            strncpy(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32", 23);
+            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_32");
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteNullSha1801Video:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1801Video() - PRIMARY - CLIENT\n");
+                _txUACVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                _txUACVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1801Video() - PRIMARY - SERVER\n");
+                _txUASVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                _txUASVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+            }
+
+            if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
+            {
+                logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
+                memset(_pref_video_cs_out, 0, sizeof(_pref_video_cs_out));
+                strncpy(_pref_video_cs_out, "NULL_HMAC_SHA1_80", 17);
+            }
+            else if (getSessionStateCurrent() == eOfferReceived)
+            {
+                if (sendMode == MODE_CLIENT)
+                {
+                    if (!strncmp(_rxUACVideo.getCryptoSuite().c_str(), "NULL_HMAC_SHA1_80", 17))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- CLIENT -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- CLIENT -- SWAPPING...\n");
+                        _rxUACVideo.swapCrypto();
+                    }
+                }
+                else if (sendMode == MODE_SERVER)
+                {
+                    if (!strncmp(_rxUASVideo.getCryptoSuite().c_str(), "NULL_HMAC_SHA1_80", 17))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- SERVER -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- SERVER -- SWAPPING...\n");
+                        _rxUASVideo.swapCrypto();
+                    }
+                }
+            }
+
+            pV.video_found = true;
+            strncpy(pV.primary_video_cryptosuite, "NULL_HMAC_SHA1_80", 17);
+            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_80");
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteNullSha1802Video:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1802Video() - SECONDARY - CLIENT\n");
+                _txUACVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                _txUACVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1802Video() - SECONDARY - SERVER\n");
+                _txUASVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                _txUASVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+            }
+            pV.video_found = true;
+            strncpy(pV.secondary_video_cryptosuite, "NULL_HMAC_SHA1_80", 17);
+            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_80");
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteNullSha1321Video:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1321Video() - PRIMARY - CLIENT\n");
+                _txUACVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                _txUACVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1321Video() - PRIMARY - SERVER\n");
+                _txUASVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                _txUASVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+            }
+
+            if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
+            {
+                logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
+                memset(_pref_video_cs_out, 0, sizeof(_pref_video_cs_out));
+                strncpy(_pref_video_cs_out, "NULL_HMAC_SHA1_32", 17);
+            }
+            else if (getSessionStateCurrent() == eOfferReceived)
+            {
+                if (sendMode == MODE_CLIENT)
+                {
+                    if (!strncmp(_rxUACVideo.getCryptoSuite().c_str(), "NULL_HMAC_SHA1_32", 17))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- CLIENT -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- CLIENT -- SWAPPING...\n");
+                        _rxUACVideo.swapCrypto();
+                    }
+                }
+                else if (sendMode == MODE_SERVER)
+                {
+                    if (!strncmp(_rxUASVideo.getCryptoSuite().c_str(), "NULL_HMAC_SHA1_32", 17))
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite match -- SERVER -- NO-OP...\n");
+                    }
+                    else
+                    {
+                        logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- SERVER -- SWAPPING...\n");
+                        _rxUASVideo.swapCrypto();
+                    }
+                }
+            }
+
+            pV.video_found = true;
+            strncpy(pV.primary_video_cryptosuite, "NULL_HMAC_SHA1_32", 17);
+            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_32");
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_CryptoSuiteNullSha1322Video:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1322Video() - SECONDARY - CLIENT\n");
+                _txUACVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                _txUACVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoSuiteNullSha1322Video() - SECONDARY - SERVER\n");
+                _txUASVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                _txUASVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+            }
+            pV.video_found = true;
+            strncpy(pV.secondary_video_cryptosuite, "NULL_HMAC_SHA1_32", 17);
+            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_32");
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_CryptoKeyParams1Video:
+        {
+            std::string mks;
+
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Video() - PRIMARY - CLIENT - component offset:%d\n", comp->offset);
+                if (comp->offset >= 0)
+                {
+                    _txUACVideo.generateMasterKey(PRIMARY_CRYPTO);
+                    _txUACVideo.generateMasterSalt(PRIMARY_CRYPTO);
+                    _txUACVideo.encodeMasterKeySalt(mks, PRIMARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Video() - PRIMARY - CLIENT - generating new concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+                else
+                {
+                    _txUACVideo.encodeMasterKeySalt(mks, PRIMARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Video() - PRIMARY - CLIENT - reusing old concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Video() - PRIMARY - SERVER - component offset:\n", comp->offset);
+                if (comp->offset >= 0)
+                {
+                    _txUASVideo.generateMasterKey(PRIMARY_CRYPTO);
+                    _txUASVideo.generateMasterSalt(PRIMARY_CRYPTO);
+                    _txUASVideo.encodeMasterKeySalt(mks, PRIMARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Video() - PRIMARY - SERVER - generating new concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+                else
+                {
+                    _txUASVideo.encodeMasterKeySalt(mks, PRIMARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Video() - PRIMARY - SERVER - reusing old concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+            }
+            pV.video_found = true;
+            strncpy(pV.primary_video_cryptokeyparams, mks.c_str(), 40);
+            dest += snprintf(dest, left, "%s", pV.primary_video_cryptokeyparams);
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_CryptoKeyParams2Video:
+        {
+            std::string mks;
+
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams2Video() - SECONDARY - CLIENT - component offset:%d\n", comp->offset);
+                if (comp->offset >= 0)
+                {
+                    _txUACVideo.generateMasterKey(SECONDARY_CRYPTO);
+                    _txUACVideo.generateMasterSalt(SECONDARY_CRYPTO);
+                    _txUACVideo.encodeMasterKeySalt(mks, SECONDARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams2Video() - SECONDARY - CLIENT - generating new concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+                else
+                {
+                    _txUACVideo.encodeMasterKeySalt(mks, SECONDARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams2Video() - SECONDARY - CLIENT - reusing old concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams2Video() - SECONDARY - SERVER - component offset:%d\n", comp->offset);
+                if (comp->offset >= 0)
+                {
+                    _txUASVideo.generateMasterKey(SECONDARY_CRYPTO);
+                    _txUASVideo.generateMasterSalt(SECONDARY_CRYPTO);
+                    _txUASVideo.encodeMasterKeySalt(mks, SECONDARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams2Video() - SECONDARY - SERVER - generating new concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+                else
+                {
+                    _txUASVideo.encodeMasterKeySalt(mks, SECONDARY_CRYPTO);
+                    logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams2Video() - SECONDARY - SERVER - reusing old concatenated base64-encoded master key/salt:%s\n", mks.c_str());
+                }
+            }
+            pV.video_found = true;
+            strncpy(pV.secondary_video_cryptokeyparams, mks.c_str(), 40);
+            dest += snprintf(dest, left, "%s", pV.secondary_video_cryptokeyparams);
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_UEAesCm128Sha1801Video:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1801Video() - PRIMARY - CLIENT\n");
+                _txUACVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUACVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1801Video() - PRIMARY - SERVER\n");
+                _txUASVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUASVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+            }
+            pV.video_found = true;
+            pV.primary_unencrypted_video_srtp = true;
+            strncpy(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80", 23);
+            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_UEAesCm128Sha1802Video:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1802Video() - SECONDARY - CLIENT\n");
+                _txUACVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUACVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1802Video() - SECONDARY - SERVER\n");
+                _txUASVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUASVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+            }
+            pV.video_found = true;
+            pV.secondary_unencrypted_video_srtp = true;
+            strncpy(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80", 23);
+            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_UEAesCm128Sha1321Video:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1321Video() - PRIMARY - CLIENT\n");
+                _txUACVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUACVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1321Video() - PRIMARY - SERVER\n");
+                _txUASVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUASVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+            }
+            pV.video_found = true;
+            pV.primary_unencrypted_video_srtp = true;
+            strncpy(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32", 23);
+            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            srtp_video_updated = true;
+        }
+        break;
+        case E_Message_UEAesCm128Sha1322Video:
+        {
+            if (sendMode == MODE_CLIENT)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1322Video() - SECONDARY - CLIENT\n");
+                _txUACVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUACVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+            }
+            else if (sendMode == MODE_SERVER)
+            {
+                logSrtpInfo("call::createSendingMessage():  E_Message_UEAesCm128Sha1322Video() - SECONDARY - SERVER\n");
+                _txUASVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to encrypt */
+                _txUASVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+            }
+            pV.video_found = true;
+            pV.secondary_unencrypted_video_srtp = true;
+            strncpy(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32", 23);
+            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            srtp_video_updated = true;
+        }
+        break;
+#endif // USE_OPENSSL
+#endif // RTP_STREAM
         case E_Message_Media_IP_Type:
             dest += snprintf(dest, left, "%s", (media_ip_is_ipv6 ? "6" : "4"));
             break;
@@ -2384,6 +4119,74 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     if (auth_comp_allocated) {
         SendingMessage::freeMessageComponent(auth_comp);
     }
+
+#ifdef RTP_STREAM
+#ifdef USE_OPENSSL
+    // PASS OUTGOING SRTP PARAMETERS...
+    if (srtp_audio_updated && (pA.primary_audio_cryptotag != 0))
+    {
+        rtpstream_set_srtp_audio_local(&rtpstream_callinfo, pA);
+        if (sendMode == MODE_CLIENT)
+        {
+            //
+            // RX-UAC-AUDIO SRTP context (b) -- SSRC/IPADDRESS/PORT
+            //
+            CryptoContextID rxUACA;
+            rxUACA.ssrc = rtpstream_callinfo.taskinfo->audio_ssrc_id;
+            rxUACA.address = media_ip;
+            rxUACA.port = rtpstream_callinfo.local_audioport;
+            logSrtpInfo("call::createSendingMessage():  (b) RX-UAC-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUACA.ssrc, rxUACA.address.c_str(), rxUACA.port);
+            _rxUACAudio.setID(rxUACA);
+        }
+    }
+    if (srtp_video_updated && (pV.primary_video_cryptotag != 0))
+    {
+        rtpstream_set_srtp_video_local(&rtpstream_callinfo, pV);
+        if (sendMode == MODE_CLIENT)
+        {
+            //
+            // RX-UAC-VIDEO SRTP context (b) -- SSRC/IPADDRESS/PORT
+            //
+            CryptoContextID rxUACV;
+            rxUACV.ssrc = rtpstream_callinfo.taskinfo->video_ssrc_id;
+            rxUACV.address = media_ip;
+            rxUACV.port = rtpstream_callinfo.local_videoport;
+            logSrtpInfo("call::createSendingMessage():  (b) RX-UAC-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUACV.ssrc, rxUACV.address.c_str(), rxUACV.port);
+            _rxUACVideo.setID(rxUACV);
+        }
+    }
+#endif // USE_OPENSSL
+
+    if (body &&
+        !strcmp(get_header_content(msg_buffer, (char*)"Content-Type:"), "application/sdp"))
+    {
+        if (getSessionStateCurrent() == eNoSession)
+        {
+#ifdef USE_OPENSSL
+            logSrtpInfo("call::createSendingMessage():  Switching session state:  eNoSession --> eOfferSent\n");
+#endif // USE_OPENSSL
+            setSessionState(eOfferSent);
+        }
+        else if (getSessionStateCurrent() == eCompleted)
+        {
+#ifdef USE_OPENSSL
+            logSrtpInfo("call::createSendingMessage():  Switching session state:  eCompleted --> eOfferSent\n");
+#endif // USE_OPENSSL
+            setSessionState(eOfferSent);
+        }
+        else if (getSessionStateCurrent() == eOfferReceived)
+        {
+#ifdef USE_OPENSSL
+            logSrtpInfo("call::createSendingMessage():  Switching session state:  eOfferReceived --> eAnswerSent\n");
+#endif // USE_OPENSSL
+            setSessionState(eAnswerSent);
+#ifdef USE_OPENSSL
+            logSrtpInfo("call::createSendingMessage():  Switching session state:  eAnswerSent --> eCompleted\n");
+#endif // USE_OPENSSL
+            setSessionState(eCompleted);
+        }
+    }
+#endif // RTP_STREAM
 
     return msg_buffer;
 }
@@ -2733,6 +4536,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
     int             search_index;
     bool            found = false;
     T_ActionResult  actionResult;
+    unsigned long int invite_cseq = 0;
 
     getmilliseconds();
     callDebug("Processing %zu byte incoming message for call-ID %s (hash %lu):\n%s\n\n",
@@ -2759,6 +4563,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
     }
     responsecseqmethod[0] = '\0';
     txn[0] = '\0';
+
+    if (!checkAckCSeq(msg)) {
+        WARNING("ACK CSeq value does NOT match value of related INVITE CSeq -- aborting call\n");
+        computeStat(CStat::E_CALL_FAILED);
+        delete this;
+        return false;
+    }
 
     /* Check that we have a To:-header */
     if (!get_header(msg, "To:", false)[0] && !process_unexpected(msg)) {
@@ -2821,13 +4632,588 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 #ifdef RTP_STREAM
     /* Check if message has a SDP in it; and extract media information. */
     if (!strcmp(get_header_content(msg, "Content-Type:"), "application/sdp") &&
-            hasMedia == 1 && !curmsg->ignoresdp) {
-        const char* ptr = get_header_content(msg, "Content-Length:");
-        if (ptr && atoll(ptr) > 0) {
-            extract_rtp_remote_addr(msg);
-        }
-    }
-#endif
+          (hasMedia == 1) &&
+          (!curmsg->ignoresdp))
+    {
+        const char* ptr = 0;
+        int ip_ver = 0;
+        int audio_port = 0;
+        int video_port = 0;
+        std::string host;
+
+#ifdef USE_OPENSSL
+        int audio_offer_ciphersuite_swap = 0;
+        int video_offer_ciphersuite_swap = 0;
+        int audio_answer_ciphersuite_match = -1;
+        int video_answer_ciphersuite_match = -1;
+#endif // USE_OPENSSL
+
+        ptr = get_header_content(msg, "Content-Length:");
+
+        if (ptr && atoll(ptr) > 0)
+        {
+            if (getSessionStateCurrent() == eNoSession)
+            {
+#ifdef USE_OPENSSL
+                logSrtpInfo("call::process_incoming():  Switching session state:  eNoSession --> eOfferReceived\n");
+#endif // USE_OPENSSL
+                setSessionState(eOfferReceived);
+            }
+            else if (getSessionStateCurrent() == eCompleted)
+            {
+#ifdef USE_OPENSSL
+                logSrtpInfo("call::process_incoming():  Switching session state:  eCompleted --> eOfferReceived\n");
+#endif // USE_OPENSSL
+                setSessionState(eOfferReceived);
+            }
+            else if (getSessionStateCurrent() == eOfferSent)
+            {
+#ifdef USE_OPENSSL
+                logSrtpInfo("call::process_incoming():  Switching session state:  eOfferSent --> eAnswerReceived\n");
+#endif // USE_OPENSSL
+                setSessionState(eAnswerReceived);
+#ifdef USE_OPENSSL
+                logSrtpInfo("call::process_incoming();  Switching session state:  eAnswerReceived --> eCompleted\n");
+#endif // USE_OPENSSL
+                setSessionState(eCompleted);
+            }
+
+#ifdef USE_OPENSSL
+            // INCOMING SRTP PARAM CONTEXT
+            SrtpAudioInfoParams pA;
+            SrtpVideoInfoParams pV;
+
+            pA.audio_found = false;
+            pA.primary_audio_cryptotag = 0;
+            memset(pA.primary_audio_cryptosuite, 0, sizeof(pA.primary_audio_cryptosuite));
+            memset(pA.primary_audio_cryptokeyparams, 0, sizeof(pA.primary_audio_cryptokeyparams));
+            pA.secondary_audio_cryptotag = 0;
+            memset(pA.secondary_audio_cryptosuite, 0, sizeof(pA.secondary_audio_cryptosuite));
+            memset(pA.secondary_audio_cryptokeyparams, 0, sizeof(pA.secondary_audio_cryptokeyparams));
+            pA.primary_unencrypted_audio_srtp = false;
+            pA.secondary_unencrypted_audio_srtp = false;
+
+            pV.video_found = false;
+            pV.primary_video_cryptotag = 0;
+            memset(pV.primary_video_cryptosuite, 0, sizeof(pV.primary_video_cryptosuite));
+            memset(pV.primary_video_cryptokeyparams, 0, sizeof(pV.primary_video_cryptokeyparams));
+            pV.secondary_video_cryptotag = 0;
+            memset(pV.secondary_video_cryptosuite, 0, sizeof(pV.secondary_video_cryptosuite));
+            memset(pV.secondary_video_cryptokeyparams, 0, sizeof(pV.secondary_video_cryptokeyparams));
+            pV.primary_unencrypted_video_srtp = false;
+            pV.secondary_unencrypted_video_srtp = false;
+#endif // USE_OPENSSL
+
+            host = extract_rtp_remote_addr(msg, ip_ver, audio_port, video_port);
+#ifdef USE_OPENSSL
+            extract_srtp_remote_info(msg, pA, pV);
+#endif // USE_OPENSSL
+            rtpstream_set_remote (&rtpstream_callinfo,ip_ver,host.c_str(),audio_port,video_port);
+
+#ifdef USE_OPENSSL
+            // PASS INCOMING SRTP PARAMETERS...
+            if (pA.audio_found && (pA.primary_audio_cryptotag != 0))
+            {
+                //
+                // INCOMING OFFER -- PERFORM PRIMARY/SECONDARY AUDIO SWAPS IF NEEDED/APPLICABLE
+                //
+                if ((getSessionStateCurrent() == eOfferReceived) && ((getSessionStateOld() == eNoSession || getSessionStateOld() == eCompleted)))
+                {
+                    // NO-OP...
+                }
+                //
+                // INCOMING ANSWER -- PERFORM PRIMARY/SECONDARY AUDIO SWAPS IF NEEDED/APPLICABLE
+                //
+                else if ((getSessionStateCurrent() == eCompleted) && (getSessionStateOld() == eAnswerReceived))
+                {
+                    audio_answer_ciphersuite_match = check_audio_ciphersuite_match(pA);
+                }
+
+                rtpstream_set_srtp_audio_remote(&rtpstream_callinfo, pA);
+                if (sendMode == MODE_CLIENT)
+                {
+                    //
+                    // TX-UAC-AUDIO SRTP context (a) -- SSRC/IPADDRESS/PORT
+                    //
+                    CryptoContextID txUACA;
+                    txUACA.ssrc = rtpstream_callinfo.taskinfo->audio_ssrc_id;
+                    txUACA.address = host;
+                    txUACA.port = audio_port;
+                    logSrtpInfo("call::process_incoming():  (a) TX-UAC-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUACA.ssrc, txUACA.address.c_str(), txUACA.port);
+                    _txUACAudio.setID(txUACA);
+
+                    if (audio_answer_ciphersuite_match == 0)
+                    {
+                        logSrtpInfo("call::process_incoming():  (a) TX-UAC_AUDIO SRTP context -- CLIENT -- CIPHERSUITE SWAP...\n");
+                        _txUACAudio.swapCrypto();
+                    }
+
+                    //
+                    // RX-UAC-AUDIO SRTP context (b) -- MASTER KEY/SALT PARSE + CRYPTO TAG + CRYPTOSUITE
+                    //
+                    std::string mks1;
+                    mks1 = pA.primary_audio_cryptokeyparams;
+                    if (!mks1.empty())
+                    {
+                        logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- primary master key/salt: %s\n", mks1.c_str());
+                        logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- primary crypto tag: %d\n", pA.primary_audio_cryptotag);
+                        _rxUACAudio.decodeMasterKeySalt(mks1, PRIMARY_CRYPTO);
+                        _rxUACAudio.setCryptoTag(pA.primary_audio_cryptotag, PRIMARY_CRYPTO);
+
+                        if (!strcmp(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pA.primary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_audio_cryptosuite);
+                            _rxUACAudio.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                            _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && !pA.primary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_audio_cryptosuite);
+                            _rxUACAudio.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                            _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.primary_audio_cryptosuite, "NULL_HMAC_SHA1_80") && !pA.primary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_audio_cryptosuite);
+                            _rxUACAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                            _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.primary_audio_cryptosuite, "NULL_HMAC_SHA1_32") && !pA.primary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_audio_cryptosuite);
+                            _rxUACAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                            _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && pA.primary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- NOENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_audio_cryptosuite);
+                            _rxUACAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && pA.primary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- NOENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_audio_cryptosuite);
+                            _rxUACAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+                        }
+                    }
+
+                    std::string mks2;
+                    mks2 = pA.secondary_audio_cryptokeyparams;
+                    if (!mks2.empty())
+                    {
+                        logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- secondary master key/salt: %s\n", mks2.c_str());
+                        logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- secondary crypto tag: %d\n", pA.secondary_audio_cryptotag);
+                        _rxUACAudio.decodeMasterKeySalt(mks2, SECONDARY_CRYPTO);
+                        _rxUACAudio.setCryptoTag(pA.secondary_audio_cryptotag, SECONDARY_CRYPTO);
+
+                        if (!strcmp(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pA.secondary_unencrypted_audio_srtp)
+                        {
+                             logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_audio_cryptosuite);
+                            _rxUACAudio.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                            _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && !pA.secondary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_audio_cryptosuite);
+                            _rxUACAudio.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                            _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.secondary_audio_cryptosuite, "NULL_HMAC_SHA1_80") && !pA.secondary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_audio_cryptosuite);
+                            _rxUACAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                            _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.secondary_audio_cryptosuite, "NULL_HMAC_SHA1_32") && !pA.secondary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_audio_cryptosuite);
+                            _rxUACAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                            _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && pA.secondary_unencrypted_audio_srtp)
+                        {
+                             logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- NOENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_audio_cryptosuite);
+                            _rxUACAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && pA.secondary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- NOENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_audio_cryptosuite);
+                            _rxUACAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+                        }
+                    }
+                }
+                if (sendMode == MODE_SERVER)
+                {
+                    //
+                    // TX-UAS-AUDIO SRTP context (d) -- SSRC/IPADDRESS/PORT
+                    //
+                    CryptoContextID txUASA;
+                    txUASA.ssrc = rtpstream_callinfo.taskinfo->audio_ssrc_id;
+                    txUASA.address = host;
+                    txUASA.port = audio_port;
+                    logSrtpInfo("call::process_incoming():  (d) TX-UAS-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUASA.ssrc, txUASA.address.c_str(), txUASA.port);
+                    _txUASAudio.setID(txUASA);
+
+                    if (audio_answer_ciphersuite_match == 0)
+                    {
+                        logSrtpInfo("call::process_incoming():  (d) TX-UAS_AUDIO SRTP context -- SERVER -- CIPHERSUITE SWAP...\n");
+                        _txUASAudio.swapCrypto();
+                    }
+
+                    //
+                    // RX-UAS-AUDIO SRTP context (c) -- MASTER KEY/SALT PARSE + CRYPTO TAG + CRYPTOSUITE
+                    //
+                    std::string mks1;
+                    mks1 = pA.primary_audio_cryptokeyparams;
+                    if (!mks1.empty())
+                    {
+                        logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- primary master key/salt: %s\n", mks1.c_str());
+                        logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- primary crypto tag: %d\n", pA.primary_audio_cryptotag);
+                        _rxUASAudio.decodeMasterKeySalt(mks1, PRIMARY_CRYPTO);
+                        _rxUASAudio.setCryptoTag(pA.primary_audio_cryptotag, PRIMARY_CRYPTO);
+
+                        if (!strcmp(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pA.primary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_audio_cryptosuite);
+                            _rxUASAudio.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                            _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && !pA.primary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_audio_cryptosuite);
+                            _rxUASAudio.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                            _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.primary_audio_cryptosuite, "NULL_HMAC_SHA1_80") && !pA.primary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_audio_cryptosuite);
+                            _rxUASAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                            _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.primary_audio_cryptosuite, "NULL_HMAC_SHA1_32") && !pA.primary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_audio_cryptosuite);
+                            _rxUASAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                            _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && pA.primary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- NOENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_audio_cryptosuite);
+                            _rxUASAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && pA.primary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- NOENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_audio_cryptosuite);
+                            _rxUASAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+                        }
+                    }
+
+                    std::string mks2;
+                    mks2 = pA.secondary_audio_cryptokeyparams;
+                    if (!mks2.empty())
+                    {
+                        logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- secondary master key/salt: %s\n", mks2.c_str());
+                        logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- secondary crypto tag: %d\n", pA.secondary_audio_cryptotag);
+                        _rxUASAudio.decodeMasterKeySalt(mks2, SECONDARY_CRYPTO);
+                        _rxUASAudio.setCryptoTag(pA.secondary_audio_cryptotag, SECONDARY_CRYPTO);
+
+                        if (!strcmp(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pA.secondary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_audio_cryptosuite);
+                            _rxUASAudio.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                            _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && !pA.secondary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_audio_cryptosuite);
+                            _rxUASAudio.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                            _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.secondary_audio_cryptosuite, "NULL_HMAC_SHA1_80") && !pA.secondary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_audio_cryptosuite);
+                            _rxUASAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                            _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.secondary_audio_cryptosuite, "NULL_HMAC_SHA1_32") && !pA.secondary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_audio_cryptosuite);
+                            _rxUASAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                            _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && pA.secondary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- NOENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_audio_cryptosuite);
+                            _rxUASAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && pA.secondary_unencrypted_audio_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- NOENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_audio_cryptosuite);
+                            _rxUASAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+                        }
+                    }
+                }
+            }
+            if (pV.video_found && (pV.primary_video_cryptotag != 0))
+            {
+                //
+                // INCOMING OFFER -- PERFORM PRIMARY/SECONDARY VIDEO SWAPS IF NEEDED/APPLICABLE
+                //
+                if ((getSessionStateCurrent() == eOfferReceived) && ((getSessionStateOld() == eNoSession || getSessionStateOld() == eCompleted)))
+                {
+                    // NO-OP...
+                }
+                //
+                // INCOMING ANSWER -- PERFORM PRIMARY/SECONDARY VIDEO SWAPS IF NEEDED/APPLICABLE
+                //
+                else if ((getSessionStateCurrent() == eCompleted) && (getSessionStateOld() == eAnswerReceived))
+                {
+                    video_answer_ciphersuite_match = check_video_ciphersuite_match(pV);
+                }
+
+                rtpstream_set_srtp_video_remote(&rtpstream_callinfo, pV);
+                if (sendMode == MODE_CLIENT)
+                {
+                    //
+                    // TX-UAC-VIDEO SRTP context (a) -- SSRC/IPADDRESS/PORT
+                    //
+                    CryptoContextID txUACV;
+                    txUACV.ssrc = rtpstream_callinfo.taskinfo->video_ssrc_id;
+                    txUACV.address = host;
+                    txUACV.port = video_port;
+                    logSrtpInfo("call::process_incoming():  (a) TX-UAC-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUACV.ssrc, txUACV.address.c_str(), txUACV.port);
+                    _txUACVideo.setID(txUACV);
+
+                    if (video_answer_ciphersuite_match == 0)
+                    {
+                        logSrtpInfo("call::process_incoming():  (a) TX-UAC_VIDEO SRTP context -- CLIENT -- CIPHERSUITE SWAP...\n");
+                        _txUACVideo.swapCrypto();
+                    }
+
+                    //
+                    // RX-UAC-VIDEO SRTP context (b) -- MASTER KEY/SALT PARSE + CRYPTO TAG + CRYPTOSUITE
+                    //
+                    std::string mks1;
+                    mks1 = pV.primary_video_cryptokeyparams;
+                    if (!mks1.empty())
+                    {
+                        logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- primary master key/salt: %s\n", mks1.c_str());
+                        logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- primary crypto tag: %d\n", pV.primary_video_cryptotag);
+                        _rxUACVideo.decodeMasterKeySalt(mks1, PRIMARY_CRYPTO);
+                        _rxUACVideo.setCryptoTag(pV.primary_video_cryptotag, PRIMARY_CRYPTO);
+
+                        if (!strcmp(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pV.primary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_video_cryptosuite);
+                            _rxUACVideo.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                            _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && !pV.primary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_video_cryptosuite);
+                            _rxUACVideo.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                            _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.primary_video_cryptosuite, "NULL_HMAC_SHA1_80") && !pV.primary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_video_cryptosuite);
+                            _rxUACVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                            _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.primary_video_cryptosuite, "NULL_HMAC_SHA1_32") && !pV.primary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_video_cryptosuite);
+                            _rxUACVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                            _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && pV.primary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- NOENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_video_cryptosuite);
+                            _rxUACVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && pV.primary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- NOENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_video_cryptosuite);
+                            _rxUACVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+                        }
+                    }
+
+                    std::string mks2;
+                    mks2 = pV.secondary_video_cryptokeyparams;
+                    if (!mks2.empty())
+                    {
+                        logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- secondary master key/salt: %s\n", mks2.c_str());
+                        logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- secondary crypto tag: %d\n", pV.secondary_video_cryptotag);
+                        _rxUACVideo.decodeMasterKeySalt(mks2, SECONDARY_CRYPTO);
+                        _rxUACVideo.setCryptoTag(pV.secondary_video_cryptotag, SECONDARY_CRYPTO);
+
+                        if (!strcmp(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pV.secondary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_video_cryptosuite);
+                            _rxUACVideo.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                            _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && !pV.secondary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_video_cryptosuite);
+                            _rxUACVideo.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                            _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.secondary_video_cryptosuite, "NULL_HMAC_SHA1_80") && !pV.secondary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_video_cryptosuite);
+                            _rxUACVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                            _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.secondary_video_cryptosuite, "NULL_HMAC_SHA1_32") && !pV.secondary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_video_cryptosuite);
+                            _rxUACVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                            _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && pV.secondary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- NOENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_video_cryptosuite);
+                            _rxUACVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && pV.secondary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- NOENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_video_cryptosuite);
+                            _rxUACVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+                        }
+                    }
+                }
+                if (sendMode == MODE_SERVER)
+                {
+                    //
+                    // TX-UAS-VIDEO SRTP context (d) -- SSRC/IPADDRESS/PORT
+                    //
+                    CryptoContextID txUASV;
+                    txUASV.ssrc = rtpstream_callinfo.taskinfo->video_ssrc_id;
+                    txUASV.address = host;
+                    txUASV.port = video_port;
+                    logSrtpInfo("call::process_incoming():  (d) TX-UAS-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUASV.ssrc, txUASV.address.c_str(), txUASV.port);
+                    _txUASVideo.setID(txUASV);
+
+                    if (video_answer_ciphersuite_match == 0)
+                    {
+                        logSrtpInfo("call::process_incoming():  (d) TX-UAS_VIDEO SRTP context -- SERVER -- CIPHERSUITE SWAP...\n");
+                        _txUASVideo.swapCrypto();
+                    }
+
+                    //
+                    // RX-UAS-VIDEO SRTP context (c) -- MASTER KEY/SALT PARSE + CRYPTO TAG + CRYPTOSUITE
+                    //
+                    std::string mks1;
+                    mks1 = pV.primary_video_cryptokeyparams;
+                    if (!mks1.empty())
+                    {
+                        logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- primary master key/salt: %s\n", mks1.c_str());
+                        logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- primary crypto tag: %d\n", pV.primary_video_cryptotag);
+                        _rxUASVideo.decodeMasterKeySalt(mks1, PRIMARY_CRYPTO);
+                        _rxUASVideo.setCryptoTag(pV.primary_video_cryptotag, PRIMARY_CRYPTO);
+
+                        if (!strcmp(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pV.primary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_video_cryptosuite);
+                            _rxUASVideo.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                            _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && !pV.primary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_video_cryptosuite);
+                            _rxUASVideo.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
+                            _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.primary_video_cryptosuite, "NULL_HMAC_SHA1_80") && !pV.primary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_video_cryptosuite);
+                            _rxUASVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                            _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.primary_video_cryptosuite, "NULL_HMAC_SHA1_32") && !pV.primary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_video_cryptosuite);
+                            _rxUASVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
+                            _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && pV.primary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- NOENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_video_cryptosuite);
+                            _rxUASVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && pV.primary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- NOENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_video_cryptosuite);
+                            _rxUASVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
+                        }
+                    }
+
+                    std::string mks2;
+                    mks2 = pV.secondary_video_cryptokeyparams;
+                    if (!mks2.empty())
+                    {
+                        logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- secondary master key/salt: %s\n", mks2.c_str());
+                        logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- secondary crypto tag: %d\n", pV.secondary_video_cryptotag);
+                        _rxUASVideo.decodeMasterKeySalt(mks2, SECONDARY_CRYPTO);
+                        _rxUASVideo.setCryptoTag(pV.secondary_video_cryptotag, SECONDARY_CRYPTO);
+
+                        if (!strcmp(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pV.secondary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_video_cryptosuite);
+                            _rxUASVideo.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                            _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && !pV.secondary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_video_cryptosuite);
+                            _rxUASVideo.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
+                            _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.secondary_video_cryptosuite, "NULL_HMAC_SHA1_80") && !pV.secondary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_video_cryptosuite);
+                            _rxUASVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                            _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.secondary_video_cryptosuite, "NULL_HMAC_SHA1_32") && !pV.secondary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_video_cryptosuite);
+                            _rxUASVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
+                            _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && pV.secondary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- NOENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_video_cryptosuite);
+                            _rxUASVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
+                        }
+                        else if (!strcmp(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32") && pV.secondary_unencrypted_video_srtp)
+                        {
+                            logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- NOENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_video_cryptosuite);
+                            _rxUASVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO); /* Request JLSRTP NOT to decrypt */
+                            _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
+                        }
+                    }
+                }
+            }
+#endif // USE_OPENSSL
+        } // ptr
+    } // Content-Type
+#endif // RTP_STREAM
 
     /* Is it a response ? */
     if ((msg[0] == 'S') &&
@@ -2886,7 +5272,10 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                 get_remote_media_addr(msg);
             }
 #endif
-
+            if (!strncmp(request, "INVITE", 6)) {
+                invite_cseq = get_cseq_value(msg);
+                last_recv_invite_cseq = invite_cseq;
+            }
             reply_code = 0;
         } else {
             ERROR("SIP method too long in received message '%s'",
@@ -3243,6 +5632,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 {
     CActions*  actions;
     CAction*   currentAction;
+    int rc = 0;
 
     actions = curmsg->M_actions;
     // looking for action to do on this message
@@ -3709,7 +6099,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 quitting = 1;
                 break;
             case CAction::E_INTCMD_STOP_NOW:
-                sipp_exit(EXIT_TEST_RES_INTERNAL);
+                sipp_exit(EXIT_TEST_RES_INTERNAL, 0, 0);
                 break;
             case CAction::E_INTCMD_STOPCALL:
             default:
@@ -3773,18 +6163,376 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
             pthread_attr_destroy(&attr);
 #endif
+        }
 
 #ifdef RTP_STREAM
-        } else if (currentAction->getActionType() == CAction::E_AT_RTP_ECHO) {
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_ECHO)
+        {
             rtp_echo_state = (currentAction->getDoubleValue() != 0);
-        } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSE) {
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSE)
+        {
             rtpstream_pause(&rtpstream_callinfo);
-        } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUME) {
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUME)
+        {
             rtpstream_resume(&rtpstream_callinfo);
-        } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
-            rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo());
-#endif
-        } else {
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY)
+        {
+            rtpstream_play(&rtpstream_callinfo,currentAction->getRTPStreamActInfo());
+            // Obtain ID of parent thread used for the related RTP task
+            call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSEAPATTERN)
+        {
+            rtpstream_pauseapattern(&rtpstream_callinfo);
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEAPATTERN)
+        {
+            rtpstream_resumeapattern(&rtpstream_callinfo);
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYAPATTERN)
+        {
+#ifdef USE_OPENSSL
+            //
+            // TX/RX-UAC-AUDIO SRTP context (a)(b) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
+            // WE ASSUME THE SAME CODEC PAYLOAD SIZE WILL BE USED IN BOTH DIRECTIONS
+            //
+            if (sendMode == MODE_CLIENT)
+            {
+                rtpstream_actinfo_t* actinfo = currentAction->getRTPStreamActInfo();
+                logSrtpInfo("call::executeAction():  (a) TX-UAC-AUDIO SRTP context - CLIENT setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
+                _txUACAudio.setSrtpPayloadSize(actinfo->bytes_per_packet);
+                logSrtpInfo("call::executeAction():  (b) RX-UAC-AUDIO SRTP context - CLIENT setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
+                _rxUACAudio.setSrtpPayloadSize(actinfo->bytes_per_packet);
+
+                logSrtpInfo("call::executeAction():  (a) TX-UAC-AUDIO SRTP context - CLIENT deriving session encryption/salting/authentication keys\n");
+                _txUACAudio.deriveSessionEncryptionKey();
+                _txUACAudio.deriveSessionSaltingKey();
+                _txUACAudio.deriveSessionAuthenticationKey();
+                logSrtpInfo("call::executeAction():  (a) TX-UAC-AUDIO SRTP context - CLIENT selecting encryption key\n");
+                _txUACAudio.selectEncryptionKey();
+                logSrtpInfo("call::executeAction():  (a) TX-UAC-AUDIO SRTP context - CLIENT resetting cipher state\n");
+                _txUACAudio.resetCipherState();
+                logSrtpInfo("call::executeAction():  (b) RX-UAC-AUDIO SRTP context - CLIENT deriving session encryption/salting/authentication keys\n");
+                _rxUACAudio.deriveSessionEncryptionKey();
+                _rxUACAudio.deriveSessionSaltingKey();
+                _rxUACAudio.deriveSessionAuthenticationKey();
+                logSrtpInfo("call::executeAction():  (b) RX-UAC-AUDIO SRTP context - CLIENT selecting decryption key\n");
+                _rxUACAudio.selectDecryptionKey();
+                logSrtpInfo("call::executeAction():  (b) RX-UAC-AUDIO SRTP context - CLIENT resetting cipher state\n");
+                _rxUACAudio.resetCipherState();
+                //logSrtpInfo("call::executeAction():  ******** (a) TX-UAC-AUDIO SRTP context dump ********\n");
+                //logSrtpInfo("%s", _txUACAudio.dumpCryptoContext().c_str());
+                //logSrtpInfo("call::executeAction():  ****************************************************\n");
+                //logSrtpInfo("call::executeAction():  ******** (b) RX-UAC-AUDIO SRTP context dump ********\n");
+                //logSrtpInfo("%s", _rxUACAudio.dumpCryptoContext().c_str());
+                //logSrtpInfo("call::executeAction():  ****************************************************\n");
+            }
+
+            logSrtpInfo("call::executeAction():  rtpstream_playapattern\n");
+#endif // USE_OPENSSL
+            rtpstream_playapattern(&rtpstream_callinfo,currentAction->getRTPStreamActInfo(), _txUACAudio, _rxUACAudio);
+            // Obtain ID of parent thread used for the related RTP task
+            call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSEVPATTERN)
+        {
+            rtpstream_pausevpattern(&rtpstream_callinfo);
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEVPATTERN)
+        {
+            rtpstream_resumevpattern(&rtpstream_callinfo);
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYVPATTERN)
+        {
+#ifdef USE_OPENSSL
+            //
+            // TX/RX-UAC-VIDEO SRTP context (a)(b) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
+            // WE ASSUME THE SAME CODEC PAYLOAD SIZE WILL BE USED IN BOTH DIRECTIONS
+            //
+            if (sendMode == MODE_CLIENT)
+            {
+                rtpstream_actinfo_t* actinfo = currentAction->getRTPStreamActInfo();
+                logSrtpInfo("call::executeAction():  (a) TX-UAC-VIDEO SRTP context - CLIENT setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
+                _txUACVideo.setSrtpPayloadSize(actinfo->bytes_per_packet);
+                logSrtpInfo("call::executeAction():  (b) RX-UAC-VIDEO SRTP context - CLIENT setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
+                _rxUACVideo.setSrtpPayloadSize(actinfo->bytes_per_packet);
+
+                logSrtpInfo("call::executeAction():  (a) TX-UAC-VIDEO SRTP context - CLIENT deriving session encryption/salting/authentication keys\n");
+                _txUACVideo.deriveSessionEncryptionKey();
+                _txUACVideo.deriveSessionSaltingKey();
+                _txUACVideo.deriveSessionAuthenticationKey();
+                logSrtpInfo("call::executeAction():  (a) TX-UAC-VIDEO SRTP context - CLIENT selecting encryption key\n");
+                _txUACVideo.selectEncryptionKey();
+                logSrtpInfo("call::executeAction():  (a) TX-UAC-VIDEO SRTP context - CLIENT resetting cipher state\n");
+                _txUACVideo.resetCipherState();
+                logSrtpInfo("call::executeAction():  (b) RX-UAC-VIDEO SRTP context - CLIENT deriving session encryption/salting/authentication keys\n");
+                _rxUACVideo.deriveSessionEncryptionKey();
+                _rxUACVideo.deriveSessionSaltingKey();
+                _rxUACVideo.deriveSessionAuthenticationKey();
+                logSrtpInfo("call::executeAction():  (b) RX-UAC-VIDEO SRTP context - CLIENT selecting decryption key\n");
+                _rxUACVideo.selectDecryptionKey();
+                logSrtpInfo("call::executeAction():  (b) RX-UAC-VIDEO SRTP context - CLIENT resetting cipher state\n");
+                _rxUACVideo.resetCipherState();
+                //logSrtpInfo("call::executeAction():  ******** (a) TX-UAC-VIDEO SRTP context dump ********\n");
+                //logSrtpInfo("%s", _txUACVideo.dumpCryptoContext().c_str());
+                //logSrtpInfo("call::executeAction():  ****************************************************\n");
+                //logSrtpInfo("call::executeAction():  ******** (b) RX-UAC-VIDEO SRTP context dump ********\n");
+                //logSrtpInfo("%s", _rxUACVideo.dumpCryptoContext().c_str());
+                //logSrtpInfo("call::executeAction():  ****************************************************\n");
+            }
+
+            logSrtpInfo("call::executeAction():  rtpstream_playvpattern\n");
+#endif // USE_OPENSSL
+            rtpstream_playvpattern(&rtpstream_callinfo,currentAction->getRTPStreamActInfo(), _txUACVideo, _rxUACVideo);
+            // Obtain ID of parent thread used for the related RTP task
+            call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STARTAUDIO)
+        {
+#ifdef USE_OPENSSL
+            if (sendMode == MODE_SERVER)
+            {
+                //
+                // RX-UAS-AUDIO SRTP context (c) -- SSRC/IPADDRESS/PORT
+                //
+                CryptoContextID rxUASA;
+                rxUASA.ssrc = rtpstream_callinfo.taskinfo->audio_ssrc_id;
+                rxUASA.address = media_ip;
+                rxUASA.port = rtpstream_callinfo.local_audioport;
+                logSrtpInfo("call::executeAction() [STARTAUDIO]:  (c) RX-UAS-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUASA.ssrc, rxUASA.address.c_str(), rxUASA.port);
+                _rxUASAudio.setID(rxUASA);
+
+                //
+                // RX/TX-UAS-AUDIO SRTP context (c)(d) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
+                // WE ASSUME THE SAME CODEC PAYLOAD SIZE WILL BE USED IN BOTH DIRECTIONS
+                //
+                rtpecho_actinfo_t* actinfo = currentAction->getRTPEchoActInfo();
+                logSrtpInfo("call::executeAction() [STARTAUDIO]:  (c) RX-UAS-AUDIO SRTP context - SERVER setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
+                _rxUASAudio.setSrtpPayloadSize(actinfo->bytes_per_packet);
+                logSrtpInfo("call::executeAction() [STARTAUDIO]:  (d) TX-UAS-AUDIO SRTP context - SERVER setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
+                _txUASAudio.setSrtpPayloadSize(actinfo->bytes_per_packet);
+
+                logSrtpInfo("call::executeAction() [STARTAUDIO]:  (c) RX-UAS-AUDIO SRTP context - SERVER deriving session encryption/salting/authentication keys\n");
+                _rxUASAudio.deriveSessionEncryptionKey();
+                _rxUASAudio.deriveSessionSaltingKey();
+                _rxUASAudio.deriveSessionAuthenticationKey();
+                logSrtpInfo("call::executeAction() [STARTAUDIO]:  (c) RX-UAS-AUDIO SRTP context - SERVER selecting decryption key\n");
+                _rxUASAudio.selectDecryptionKey();
+                logSrtpInfo("call::executeAction() [STARTAUDIO]:  (c) RX-UAS-AUDIO SRTP context - SERVER resetting cipher state\n");
+                _rxUASAudio.resetCipherState();
+                logSrtpInfo("call::executeAction() [STARTAUDIO]:  (d) TX-UAS-AUDIO SRTP context - SERVER deriving session encryption/salting/authentication keys\n");
+                _txUASAudio.deriveSessionEncryptionKey();
+                _txUASAudio.deriveSessionSaltingKey();
+                _txUASAudio.deriveSessionAuthenticationKey();
+                logSrtpInfo("call::executeAction() [STARTAUDIO]:  (d) TX-UAS-AUDIO SRTP context - SERVER selecting encryption key\n");
+                _txUASAudio.selectEncryptionKey();
+                logSrtpInfo("call::executeAction() [STARTAUDIO]:  (d) TX-UAS-AUDIO SRTP context - SERVER resetting cipher state\n");
+                _txUASAudio.resetCipherState();
+                //logSrtpInfo("call::executeAction() [STARTAUDIO]:  ******** (c) RX-UAS-AUDIO SRTP context dump ********\n");
+                //logSrtpInfo("%s", _rxUASAudio.dumpCryptoContext().c_str());
+                //logSrtpInfo("call::executeAction() [STARTAUDIO]:  ****************************************************\n");
+                //logSrtpInfo("call::executeAction() [STARTAUDIO]:  ******** (d) TX-UAS-AUDIO SRTP context dump ********\n");
+                //logSrtpInfo("%s", _txUASAudio.dumpCryptoContext().c_str());
+                //logSrtpInfo("call::executeAction() [STARTAUDIO]:  ****************************************************\n");
+            }
+
+            logSrtpInfo("call::executeAction() [STARTAUDIO]:  rtpstream_rtpecho_startaudio\n");
+#endif // USE_OPENSSL
+            rtpstream_rtpecho_startaudio(&rtpstream_callinfo, _rxUASAudio, _txUASAudio);
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_UPDATEAUDIO)
+        {
+#ifdef USE_OPENSSL
+            if (sendMode == MODE_SERVER)
+            {
+                //
+                // RX-UAS-AUDIO SRTP context (c) -- SSRC/IPADDRESS/PORT
+                //
+                CryptoContextID rxUASA;
+                rxUASA.ssrc = rtpstream_callinfo.taskinfo->audio_ssrc_id;
+                rxUASA.address = media_ip;
+                rxUASA.port = rtpstream_callinfo.local_audioport;
+                logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  (c) RX-UAS-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUASA.ssrc, rxUASA.address.c_str(), rxUASA.port);
+                _rxUASAudio.setID(rxUASA);
+
+                //
+                // RX/TX-UAS-AUDIO SRTP context (c)(d) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
+                // WE ASSUME THE SAME CODEC PAYLOAD SIZE WILL BE USED IN BOTH DIRECTIONS
+                //
+                rtpecho_actinfo_t* actinfo = currentAction->getRTPEchoActInfo();
+                logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  (c) RX-UAS-AUDIO SRTP context - SERVER setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
+                _rxUASAudio.setSrtpPayloadSize(actinfo->bytes_per_packet);
+                logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  (d) TX-UAS-AUDIO SRTP context - SERVER setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
+                _txUASAudio.setSrtpPayloadSize(actinfo->bytes_per_packet);
+
+                logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  (c) RX-UAS-AUDIO SRTP context - SERVER deriving session encryption/salting/authentication keys\n");
+                _rxUASAudio.deriveSessionEncryptionKey();
+                _rxUASAudio.deriveSessionSaltingKey();
+                _rxUASAudio.deriveSessionAuthenticationKey();
+                logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  (c) RX-UAS-AUDIO SRTP context - SERVER selecting decryption key\n");
+                _rxUASAudio.selectDecryptionKey();
+                logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  (c) RX-UAS-AUDIO SRTP context - SERVER resetting cipher state\n");
+                _rxUASAudio.resetCipherState();
+                logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  (d) TX-UAS-AUDIO SRTP context - SERVER deriving session encryption/salting/authentication keys\n");
+                _txUASAudio.deriveSessionEncryptionKey();
+                _txUASAudio.deriveSessionSaltingKey();
+                _txUASAudio.deriveSessionAuthenticationKey();
+                logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  (d) TX-UAS-AUDIO SRTP context - SERVER selecting encryption key\n");
+                _txUASAudio.selectEncryptionKey();
+                logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  (d) TX-UAS-AUDIO SRTP context - SERVER resetting cipher state\n");
+                _txUASAudio.resetCipherState();
+                //logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  ******** (c) RX-UAS-AUDIO SRTP context dump ********\n");
+                //logSrtpInfo("%s", _rxUASAudio.dumpCryptoContext().c_str());
+                //logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  ****************************************************\n");
+                //logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  ******** (d) TX-UAS-AUDIO SRTP context dump ********\n");
+                //logSrtpInfo("%s", _txUASAudio.dumpCryptoContext().c_str());
+                //logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  ****************************************************\n");
+            }
+
+            logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  rtpstream_rtpecho_updateaudio\n");
+#endif // USE_OPENSSL
+            rtpstream_rtpecho_updateaudio(&rtpstream_callinfo, _rxUASAudio, _txUASAudio);
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STOPAUDIO)
+        {
+#ifdef USE_OPENSSL
+            logSrtpInfo("call::executeAction() [STOPAUDIO]:  rtpstream_rtpecho_stopaudio\n");
+#endif // USE_OPENSSL
+            rc = rtpstream_rtpecho_stopaudio(&rtpstream_callinfo);
+            if (rc < 0)
+            {
+#ifdef USE_OPENSSL
+                logSrtpInfo("call::executeAction() [STOPAUDIO]:  rtpstream_rtpecho_stopaudio() rc==%d\n", rc);
+#endif // USE_OPENSSL
+                return call::E_AR_RTPECHO_ERROR;
+            }
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STARTVIDEO)
+        {
+#ifdef USE_OPENSSL
+            if (sendMode == MODE_SERVER)
+            {
+                //
+                // RX-UAS-VIDEO SRTP context (c) -- SSRC/IPADDRESS/PORT
+                //
+                CryptoContextID rxUASV;
+                rxUASV.ssrc = rtpstream_callinfo.taskinfo->video_ssrc_id;
+                rxUASV.address = media_ip;
+                rxUASV.port = rtpstream_callinfo.local_videoport;
+                logSrtpInfo("call::executeAction() [STARTVIDEO]:  (c) RX-UAS-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUASV.ssrc, rxUASV.address.c_str(), rxUASV.port);
+                _rxUASVideo.setID(rxUASV);
+
+                //
+                // RX/TX-UAS-VIDEO SRTP context (c)(d) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
+                // WE ASSUME THE SAME CODEC PAYLOAD SIZE WILL BE USED IN BOTH DIRECTIONS
+                //
+                rtpecho_actinfo_t* actinfo = currentAction->getRTPEchoActInfo();
+                logSrtpInfo("call::executeAction() [STARTVIDEO]:  (c) RX-UAS-VIDEO SRTP context - SERVER setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
+                _rxUASVideo.setSrtpPayloadSize(actinfo->bytes_per_packet);
+                logSrtpInfo("call::executeAction() [STARTVIDEO]:  (d) TX-UAS-VIDEO SRTP context - SERVER setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
+                _txUASVideo.setSrtpPayloadSize(actinfo->bytes_per_packet);
+
+                logSrtpInfo("call::executeAction() [STARTVIDEO]:  (c) RX-UAS-VIDEO SRTP context - SERVER deriving session encryption/salting/authentication keys\n");
+                _rxUASVideo.deriveSessionEncryptionKey();
+                _rxUASVideo.deriveSessionSaltingKey();
+                _rxUASVideo.deriveSessionAuthenticationKey();
+                logSrtpInfo("call::executeAction() [STARTVIDEO]:  (c) RX-UAS-VIDEO SRTP context - SERVER selecting decryption key\n");
+                _rxUASVideo.selectDecryptionKey();
+                logSrtpInfo("call::executeAction() [STARTVIDEO]:  (c) RX-UAS-VIDEO SRTP context - SERVER resetting cipher state\n");
+                _rxUASVideo.resetCipherState();
+                logSrtpInfo("call::executeAction() [STARTVIDEO]:  (d) TX-UAS-VIDEO SRTP context - SERVER deriving session encryption/salting/authentication keys\n");
+                _txUASVideo.deriveSessionEncryptionKey();
+                _txUASVideo.deriveSessionSaltingKey();
+                _txUASVideo.deriveSessionAuthenticationKey();
+                logSrtpInfo("call::executeAction() [STARTVIDEO]:  (d) TX-UAS-VIDEO SRTP context - SERVER selecting encryption key\n");
+                _txUASVideo.selectEncryptionKey();
+                logSrtpInfo("call::executeAction() [STARTVIDEO]:  (d) TX-UAS-VIDEO SRTP context - SERVER resetting cipher state\n");
+                _txUASVideo.resetCipherState();
+                //logSrtpInfo("call::executeAction() [STARTVIDEO]:  ******** (c) RX-UAS-VIDEO SRTP context dump ********\n");
+                //logSrtpInfo("%s", _rxUASVideo.dumpCryptoContext().c_str());
+                //logSrtpInfo("call::executeAction() [STARTVIDEO]:  ****************************************************\n");
+                //logSrtpInfo("call::executeAction() [STARTVIDEO]:  ******** (d) TX-UAS-VIDEO SRTP context dump ********\n");
+                //logSrtpInfo("%s", _txUASVideo.dumpCryptoContext().c_str());
+                //logSrtpInfo("call::executeAction() [STARTVIDEO]:  ****************************************************\n");
+            }
+
+            logSrtpInfo("call::executeAction() [STARTVIDEO]:  rtpstream_rtpecho_startvideo\n");
+#endif // USE_OPENSSL
+            rtpstream_rtpecho_startvideo(&rtpstream_callinfo, _rxUASVideo, _txUASVideo);
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_UPDATEVIDEO)
+        {
+#ifdef USE_OPENSSL
+            if (sendMode == MODE_SERVER)
+            {
+                //
+                // RX-UAS-VIDEO SRTP context (c) -- SSRC/IPADDRESS/PORT
+                //
+                CryptoContextID rxUASV;
+                rxUASV.ssrc = rtpstream_callinfo.taskinfo->video_ssrc_id;
+                rxUASV.address = media_ip;
+                rxUASV.port = rtpstream_callinfo.local_videoport;
+                logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  (c) RX-UAS-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUASV.ssrc, rxUASV.address.c_str(), rxUASV.port);
+                _rxUASVideo.setID(rxUASV);
+
+                //
+                // RX/TX-UAS-VIDEO SRTP context (c)(d) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
+                // WE ASSUME THE SAME CODEC PAYLOAD SIZE WILL BE USED IN BOTH DIRECTIONS
+                //
+                rtpecho_actinfo_t* actinfo = currentAction->getRTPEchoActInfo();
+                logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  (c) RX-UAS-VIDEO SRTP context - SERVER setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
+                _rxUASVideo.setSrtpPayloadSize(actinfo->bytes_per_packet);
+                logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  (d) TX-UAS-VIDEO SRTP context - SERVER setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
+                _txUASVideo.setSrtpPayloadSize(actinfo->bytes_per_packet);
+
+                logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  (c) RX-UAS-VIDEO SRTP context - SERVER deriving session encryption/salting/authentication keys\n");
+                _rxUASVideo.deriveSessionEncryptionKey();
+                _rxUASVideo.deriveSessionSaltingKey();
+                _rxUASVideo.deriveSessionAuthenticationKey();
+                logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  (c) RX-UAS-VIDEO SRTP context - SERVER selecting decryption key\n");
+                _rxUASVideo.selectDecryptionKey();
+                logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  (c) RX-UAS-VIDEO SRTP context - SERVER resetting cipher state\n");
+                _rxUASVideo.resetCipherState();
+                logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  (d) TX-UAS-VIDEO SRTP context - SERVER deriving session encryption/salting/authentication keys\n");
+                _txUASVideo.deriveSessionEncryptionKey();
+                _txUASVideo.deriveSessionSaltingKey();
+                _txUASVideo.deriveSessionAuthenticationKey();
+                logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  (d) TX-UAS-VIDEO SRTP context - SERVER selecting encryption key\n");
+                _txUASVideo.selectEncryptionKey();
+                logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  (d) TX-UAS-VIDEO SRTP context - SERVER resetting cipher state\n");
+                _txUASVideo.resetCipherState();
+                //logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  ******** (c) RX-UAS-VIDEO SRTP context dump ********\n");
+                //logSrtpInfo("%s", _rxUASVideo.dumpCryptoContext().c_str());
+                //logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  ****************************************************\n");
+                //logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  ******** (d) TX-UAS-VIDEO SRTP context dump ********\n");
+                //logSrtpInfo("%s", _txUASVideo.dumpCryptoContext().c_str());
+                //logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  ****************************************************\n");
+            }
+
+            logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  rtpstream_rtpecho_updatevideo\n");
+#endif // USE_OPENSSL
+            rtpstream_rtpecho_updatevideo(&rtpstream_callinfo, _rxUASVideo, _txUASVideo);
+        }
+        else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STOPVIDEO)
+        {
+#ifdef USE_OPENSSL
+            logSrtpInfo("call::executeAction() [STOPVIDEO]:  rtpstream_rtpecho_stopvideo\n");
+#endif // USE_OPENSSL
+            rc = rtpstream_rtpecho_stopvideo(&rtpstream_callinfo);
+            if (rc < 0)
+            {
+#ifdef USE_OPENSSL
+                logSrtpInfo("call::executeAction() [STOPVIDEO]:  rtpstream_rtpecho_stopvideo() rc==%d\n", rc);
+#endif // USE_OPENSSL
+                return call::E_AR_RTPECHO_ERROR;
+            }
+        }
+#endif // RTP_STREAM
+        else
+        {
             ERROR("call::executeAction unknown action");
         }
     } // end for
@@ -4088,6 +6836,38 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
     }
 
     return false;
+}
+
+#ifdef USE_OPENSSL
+int call::logSrtpInfo(const char *fmt, ...)
+{
+    va_list args;
+
+    if (_srtpctxdebugfile != NULL)
+    {
+        va_start(args, fmt);
+        vfprintf(_srtpctxdebugfile, fmt, args);
+        va_end(args);
+    }
+
+    return 0;
+}
+#endif // USE_OPENSSL
+
+void call::setSessionState(SessionState state)
+{
+    _sessionStateOld = _sessionStateCurrent;
+    _sessionStateCurrent = state;
+}
+
+SessionState call::getSessionStateCurrent()
+{
+    return _sessionStateCurrent;
+}
+
+SessionState call::getSessionStateOld()
+{
+    return _sessionStateOld;
 }
 
 #ifdef PCAPPLAY
