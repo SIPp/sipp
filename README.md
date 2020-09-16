@@ -64,8 +64,10 @@ list](https://lists.sourceforge.net/lists/listinfo/sipp-users).
 # Making a release
 
 * Update CHANGES.md. Tag release.
-* Download zip, `autoreconf -vif`, copy sipp.1, copy include/version.h.
-* Create tgz. Upload to github as "binary".
+* Make `sipp.1` by calling `help2man --output=sipp.1 -v -v --no-info
+  --name='SIP testing tool and traffic generator' ./sipp`
+* Copy `sipp.1`, copy `version.h`.
+* Create sipp-VERSION.tar.gz with subdirectory sipp-VERSION. Upload to github as "binary".
 * Run `sudo docker build -t sipp-build docker && sudo docker run -it -v $PWD:/src sipp-build` to create a static binary. Upload this to Github as well.
 
 # Contributing

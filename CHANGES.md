@@ -1,3 +1,36 @@
+BREAKING(!) changes in 3.6.1
+============================
+
+* CMake is now used as build environment. autoconf and friends are gone.
+  (#430, by Rob Day (@rkday).). See `build.sh` for CMake invocations.
+  For a full build, do:
+
+    cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
+    make -j4
+
+
+Bugs fixed in 3.6.1
+===================
+
+* Consistently unescape XML attributes when loading scenario (#458, by
+  Steve Frécinaux (@nud)).
+* Fix buffer overflow in screen output (#479, reported by @brettowe).
+* Fix nonce count in auth headers (#421, by Cody Herzog (@codyherzog)).
+* Fix parser warning when trying to access 0-byte SDP body (by Lin Sun
+  (@sunlin7)).
+* Fix pcapplay on FreeBSD (#434, by Rob Day (@rkday)).
+* Improve build validation (#424, by Stanislav Litvinenko (@dolk13)), a
+  few compiler fixes, a few ncurses fixes (including #436, reported by
+  @TamerL), build cleanup after CMake (#443, #442, by Orgad Shaneh
+  (@orgads)) and libtinfo linker issues (Jeannot Langlois
+  (@jeannotlanglois)).
+* Improve provided sipp.dtd file (#425, by David M. Lee (@leedm777)),
+  and XML fixes by Rob Day.
+* Make it easier to deal with large SIP packets by adding an optional
+  `CPPFLAGS=-DSIPP_MAX_MSG_SIZE=262144` flag (#422, by Cody Herzog
+  (@codyherzog)).
+
+
 BREAKING(!) changes in 3.6.0
 ============================
 
