@@ -1,12 +1,13 @@
 BREAKING(!) changes in 3.6.1
 ============================
 
-* CMake is now used as build environment. autoconf and friends are gone.
-  (#430, by Rob Day (@rkday).). See `build.sh` for CMake invocations.
+* CMake is now used as build environment: autoconf and friends are gone
+  (#430, by Rob Day (@rkday)). See `build.sh` for CMake invocations.
   For a full build, do:
-
+    ```
     cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
     make -j4
+    ```
 
 
 Bugs fixed in 3.6.1
