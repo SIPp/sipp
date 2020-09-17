@@ -11,11 +11,14 @@ if(EXISTS ./gmock/CMakeLists.txt)
   add_subdirectory(gmock EXCLUDE_FROM_ALL)
 endif()
 
+# Include binary dir first, where we add generated config.h and
+# version.h. If nothing is found there (release tar) use the version.h
+# from the source.
 include_directories(
+  ${PROJECT_BINARY_DIR}
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/gtest/include
   ${PROJECT_SOURCE_DIR}/gmock/include
-  ${PROJECT_BINARY_DIR}
   "/usr/local/include")
 
 option(BUILD_STATIC "Build a statically-linked binary" OFF)
@@ -104,8 +107,8 @@ add_custom_target(
     version
     if test -d .git \; then
         ${CMAKE_COMMAND} -D SRC=${PROJECT_SOURCE_DIR}/include/version.h.in
-          -D DST=${PROJECT_BINARY_DIR}/version.h
-          -P ${PROJECT_SOURCE_DIR}/include/version.cmake \;
+        -D DST=${PROJECT_BINARY_DIR}/version.h
+        -P ${PROJECT_SOURCE_DIR}/include/version.cmake \;
     fi
 )
 add_dependencies(sipp version)
