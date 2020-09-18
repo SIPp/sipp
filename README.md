@@ -8,7 +8,7 @@
 </a>
 
 SIPp - a SIP protocol test tool
-Copyright (C) 2003-2019 - The Authors
+Copyright (C) 2003-2020 - The Authors
 
 This program is free software: you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -26,7 +26,7 @@ with this program.  If not, see
 
 # Documentation
 
-See the `docs/` directory. Hopefully it is also available in html format at:
+See the `docs/` directory. It should also be available in html format at:
 https://sipp.readthedocs.io/en/latest/
 
 # Building
@@ -41,7 +41,11 @@ cmake .
 make
 ```
 
-There are several optional flags to enable features (SIP-over-TLS, SIP-over-SCTP, media playback from PCAP files and the GNU Statistical libbraries for random distributions):
+_The SIPp master branch (3.7.x) requires a modern C++11 compiler._
+
+There are several optional flags to enable features (SIP-over-TLS,
+SIP-over-SCTP, media playback from PCAP files and the GNU Statistical
+libbraries for random distributions):
 
 ```
 cmake . -DUSE_SSL=1 -DUSE_SCTP=1 -DUSE_PCAP=1 -DUSE_GSL=1
@@ -49,9 +53,12 @@ cmake . -DUSE_SSL=1 -DUSE_SCTP=1 -DUSE_PCAP=1 -DUSE_GSL=1
 
 ## Static builds
 
-SIPp can be built into a single static binary, removing the need for libraries to exist on the target system and maximising portability.
+SIPp can be built into a single static binary, removing the need for
+libraries to exist on the target system and maximising portability.
 
-This is a [fairly complicated process](https://medium.com/@neunhoef/static-binaries-for-a-c-application-f7c76f8041cf), and for now, it only works on Alpine Linux.
+This is a [fairly complicated
+process](https://medium.com/@neunhoef/static-binaries-for-a-c-application-f7c76f8041cf),
+and for now, it only works on Alpine Linux.
 
 To build a static binary, pass `-DBUILD_STATIC=1` to cmake.
 
@@ -68,7 +75,9 @@ list](https://lists.sourceforge.net/lists/listinfo/sipp-users).
   --name='SIP testing tool and traffic generator' ./sipp`
 * Copy `sipp.1`, copy `$bindir/version.h` to `include/version.h`.
 * Create sipp-VERSION.tar.gz with subdirectory sipp-VERSION. Upload to github as "binary".
-* Run `sudo docker build -t sipp-build docker && sudo docker run -it -v $PWD:/src sipp-build` to create a static binary. Upload this to Github as well.
+* Run `sudo docker build -t sipp-build docker && sudo docker run -it -v
+  $PWD:/src sipp-build` to create a static binary. Upload this to Github
+  as well.
 
 # Contributing
 
@@ -81,16 +90,16 @@ your changes integrate your changes. If you make changes in SIPp,
   - Please stay conformant with the current indentation style (4 spaces
     indent, standard Emacs-like indentation). Examples:
 
-```
-if (condition) {        /* "{" even if only one instruction */
-    f();                /* 4 space indents */
-} else {
-    char* p = ptr;      /* C++-style pointer declaration placement */
-    g(p);
-}
-```
+    ```
+    if (condition) {        /* "{" even if only one instruction */
+        f();                /* 4 space indents */
+    } else {
+        char* p = ptr;      /* C++-style pointer declaration placement */
+        g(p);
+    }
+    ```
 
-  - If possible, check your changes can be compiled on:
+  - If possible, check that your changes can be compiled on:
       - Linux,
       - Cygwin,
       - Mac OS X,
