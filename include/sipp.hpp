@@ -83,6 +83,18 @@
 #include "ratetask.hpp"
 #include "watchdog.hpp"
 
+/* Backwards compatibility */
+#ifndef HAVE_STD_TOSTRING
+#include <sstream>
+namespace std {
+template <typename T> string to_string(T value) {
+    ostringstream os;
+    os << value;
+    return os.str();
+}
+}
+#endif
+
 /*
  * If this files is included in the Main, then extern definitions
  * are removed, and the DEFVAL macro becomes '= value;'. Else

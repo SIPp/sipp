@@ -43,9 +43,12 @@ void print_statistics(int last);
 extern int key_backspace;
 extern int key_dc;
 
+typedef std::vector<std::string> string_array;
+
 class ScreenPrinter {
 public:
     ScreenPrinter():
+        M_last(false),
         M_headless(!isatty(fileno(stdout)))
     {};
     void redraw();
@@ -63,9 +66,9 @@ private:
     void draw_repartition_detailed(CStat::T_dynamicalRepartition * tabRepartition,
                                  int sizeOfTab);
 
-    std::vector<std::string> lines;
+    string_array lines;
 
-    bool M_last = false;
+    bool M_last;
 };
 
 extern ScreenPrinter* sp;

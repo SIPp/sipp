@@ -32,6 +32,7 @@ file(GLOB all_SRCS
   "${PROJECT_SOURCE_DIR}/src/*.c"
   )
 
+include(${CMAKE_ROOT}/Modules/CheckCXXSourceCompiles.cmake)
 include(${CMAKE_ROOT}/Modules/CheckIncludeFile.cmake)
 include(${CMAKE_ROOT}/Modules/CheckSymbolExists.cmake)
 include(${CMAKE_ROOT}/Modules/CheckStructHasMember.cmake)
@@ -43,6 +44,10 @@ CHECK_STRUCT_HAS_MEMBER("struct udphdr" uh_sport "sys/types.h;netinet/udp.h"  HA
 
 CHECK_SYMBOL_EXISTS(le16toh "endian.h" HAVE_DECL_LE16TOH)
 CHECK_SYMBOL_EXISTS(le16toh "sys/endian.h" HAVE_DECL_LE16TOH_BSD)
+CHECK_CXX_SOURCE_COMPILES("
+#include <string>
+int main() { std::to_string(1).c_str(); return 0; }
+" HAVE_STD_TOSTRING)
 
 configure_file("${PROJECT_SOURCE_DIR}/include/config.h.in"
                "${PROJECT_BINARY_DIR}/config.h" )
