@@ -11,11 +11,14 @@ if(EXISTS ./gmock/CMakeLists.txt)
   add_subdirectory(gmock EXCLUDE_FROM_ALL)
 endif()
 
+# Include binary dir first, where we add generated config.h and
+# version.h. If nothing is found there (release tar) use the version.h
+# from the source.
 include_directories(
+  ${PROJECT_BINARY_DIR}
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/gtest/include
   ${PROJECT_SOURCE_DIR}/gmock/include
-  ${PROJECT_BINARY_DIR}
   "/usr/local/include")
 
 option(BUILD_STATIC "Build a statically-linked binary" OFF)
@@ -29,6 +32,7 @@ file(GLOB all_SRCS
   "${PROJECT_SOURCE_DIR}/src/*.c"
   )
 
+include(${CMAKE_ROOT}/Modules/CheckCXXSourceCompiles.cmake)
 include(${CMAKE_ROOT}/Modules/CheckIncludeFile.cmake)
 include(${CMAKE_ROOT}/Modules/CheckSymbolExists.cmake)
 include(${CMAKE_ROOT}/Modules/CheckStructHasMember.cmake)
@@ -40,6 +44,21 @@ CHECK_STRUCT_HAS_MEMBER("struct udphdr" uh_sport "sys/types.h;netinet/udp.h"  HA
 
 CHECK_SYMBOL_EXISTS(le16toh "endian.h" HAVE_DECL_LE16TOH)
 CHECK_SYMBOL_EXISTS(le16toh "sys/endian.h" HAVE_DECL_LE16TOH_BSD)
+
+CHECK_CXX_SOURCE_COMPILES("
+#include <string>
+int main() { auto s = std::string(\"x\"); s.c_str(); return 0; }
+" HAVE_CXX_AUTO_KEYWORD)
+
+CHECK_CXX_SOURCE_COMPILES("
+#include <vector>
+int main() { std::vector<int> v; for (int i : v); return 0; }
+" HAVE_CXX_RANGE_LOOP)
+
+if(NOT HAVE_CXX_AUTO_KEYWORD OR NOT HAVE_CXX_RANGE_LOOP)
+  message(FATAL_ERROR "Your C++ compiler is too old (does not support the 'auto' keyword or range loops)")
+endif()
+
 
 configure_file("${PROJECT_SOURCE_DIR}/include/config.h.in"
                "${PROJECT_BINARY_DIR}/config.h" )
@@ -104,8 +123,8 @@ add_custom_target(
     version
     if test -d .git \; then
         ${CMAKE_COMMAND} -D SRC=${PROJECT_SOURCE_DIR}/include/version.h.in
-          -D DST=${PROJECT_BINARY_DIR}/version.h
-          -P ${PROJECT_SOURCE_DIR}/include/version.cmake \;
+        -D DST=${PROJECT_BINARY_DIR}/version.h
+        -P ${PROJECT_SOURCE_DIR}/include/version.cmake \;
     fi
 )
 add_dependencies(sipp version)

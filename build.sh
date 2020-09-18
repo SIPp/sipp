@@ -32,4 +32,5 @@ if test -e gtest/.git; then
 	./sipp_unittest
 fi
 
+# You want verbose or NOISY_BUILD? Use VERBOSE=1
 "$MAKE" $MAKEFLAGS
