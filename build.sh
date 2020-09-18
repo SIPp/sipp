@@ -23,6 +23,8 @@ elif test "$*" = "--common"; then
 elif test "$*" = "--full"; then
     cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
 else
+    # Debug build? Add -DDEBUG=1
+    # Adjusted SIP max size? Add -DSIPP_MAX_MSG_SIZE=262144
     cmake . "$@"
 fi
 

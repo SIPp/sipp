@@ -174,6 +174,14 @@ if(RT_LIBRARY)
   target_link_libraries(sipp_unittest ${RT_LIBRARY})
 endif()
 
+if(DEBUG)
+  add_definitions("-g -O0")
+endif(DEBUG)
+
+if(SIPP_MAX_MSG_SIZE)
+  add_definitions("-DSIPP_MAX_MSG_SIZE=${SIPP_MAX_MSG_SIZE}")
+endif(SIPP_MAX_MSG_SIZE)
+
 if(USE_GSL AND GSL_LIBRARY)
   target_link_libraries(sipp gsl gslcblas)
   target_link_libraries(sipp_unittest gsl gslcblas)

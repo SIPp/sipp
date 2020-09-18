@@ -56,7 +56,7 @@ Bugs fixed in 3.6.1
 * Improve provided sipp.dtd file (#425, by David M. Lee (@leedm777)),
   and XML fixes by Rob Day.
 * Make it easier to deal with large SIP packets by adding an optional
-  `CPPFLAGS=-DSIPP_MAX_MSG_SIZE=262144` flag (#422, by Cody Herzog
+  `-DSIPP_MAX_MSG_SIZE=262144` to the `cmake` command (#422, by Cody Herzog
   (@codyherzog)).
 
 
