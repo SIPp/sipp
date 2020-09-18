@@ -71,6 +71,10 @@ static const char* internal_hdrchr(const char* ptr, const char needle);
  * broken, at the ASCIIZ NUL. */
 static const char* internal_hdrend(const char* ptr);
 
+static const char* internal_compact_header_name(const char* name);
+static char* internal_match_header(char* message, const char* hdr, const char* compact_hdr);
+
+
 /*************************** Mini SIP parser (externals) ***************/
 
 char* get_peer_tag(const char* msg)
@@ -123,14 +127,13 @@ char* get_header(const char* message, const char* name, bool content)
     /* non reentrant. consider accepting char buffer as param */
     static char last_header[MAX_HEADER_LEN * 10];
     const char *cptr;
-    char *src, *src_orig, *dest, *start, *ptr;
+    char *src, *src_copy, *dest, *start, *ptr;
     /* Are we searching for a short form header? */
     bool short_form = false;
     bool first_time = true;
     char header_with_newline[MAX_HEADER_LEN + 1];
 
-    const char* compact_name = get_compact_header_name(name);
-    char compact_header_with_newline[MAX_HEADER_LEN + 1];
+    const char* compact_header_with_newline;
 
     /* returns empty string in case of error */
     last_header[0] = '\0';
@@ -145,98 +148,93 @@ char* get_header(const char* message, const char* name, bool content)
         return last_header;
     }
 
+    snprintf(header_with_newline, MAX_HEADER_LEN, "\n%s", name);
+    compact_header_with_newline = internal_compact_header_name(name);
+
     /* find end of SIP headers - perform search only until that */
     cptr = strstr(message, "\r\n\r\n");
     if (!cptr) {
-        src_orig = strdup(message);
-    } else if ((src_orig = (char*)malloc(cptr - message + 1))) {
-        src_orig[cptr - message] = '\0';
-        memcpy(src_orig, message, cptr - message);
+        src_copy = strdup(message);
+    } else if ((src_copy = (char*)malloc(cptr - message + 1))) {
+        src_copy[cptr - message] = '\0';
+        memcpy(src_copy, message, cptr - message);
     }
-    if (!src_orig) {
+    if (!src_copy) {
         ERROR("Out of memory");
         return last_header;
     }
 
-    do {
-        /* We want to start from the beginning of the message each time
-         * through this loop, because we may be searching for a short form. */
-        src = src_orig;
+    src = src_copy;
+    dest = last_header;
 
-        snprintf(header_with_newline, MAX_HEADER_LEN, "\n%s", name);
-        snprintf(compact_header_with_newline, MAX_HEADER_LEN, "\n%s", compact_name);
-        dest = last_header;
+    while ((src = internal_match_header(
+            src, header_with_newline, compact_header_with_newline))) {
+        if (!content && first_time) {
+            // Add the name to the string;
+            dest += sprintf(dest, "%s", name);
+            first_time = false;
+        }
 
-        while ((src = match_header(src, header_with_newline, compact_header_with_newline))) {
-            if (!content && first_time) {
-                // Add the name to the string;
-                dest += sprintf(dest, "%s", name);
-                first_time = false;
-            }
+        if (content || !first_time) {
+            /* Just want the header's content, so skip over the header
+             * and newline */
 
-            if (content || !first_time) {
-                /* Just want the header's content, so skip over the header
-                 * and newline */
-
-                /* Skip over header */
-                while (*src != ':') {
-                    src++;
-                }
-                src++;
-
-                /* Skip over leading spaces. */
-                while (*src == ' ') {
-                    src++;
-                }
-            } else {
-                /* Just skip the newline */
+            /* Skip over header */
+            while (*src != ':') {
                 src++;
             }
-            ptr = strchr(src, '\n');
+            src++;
 
-            /* Multiline headers always begin with a tab or a space
-             * on the subsequent lines. Skip those lines. */
-            while (ptr && (*(ptr+1) == ' ' || *(ptr+1) == '\t')) {
-                ptr = strchr(ptr + 1, '\n');
+            /* Skip over leading spaces. */
+            while (*src == ' ') {
+                src++;
             }
-
-            if (ptr) {
-                *ptr = 0;
-            }
-            // Add ", " when several headers are present
-            if (dest != last_header) {
-                /* Remove trailing whitespaces, tabs, and CRs */
-                while (dest > last_header &&
-                       (*(dest-1) == ' ' ||
-                        *(dest-1) == '\r' ||
-                        *(dest-1) == '\n' ||
-                        *(dest-1) == '\t')) {
-                    *(--dest) = 0;
-                }
-
-                if (*(dest-1) == ':') {
-                    dest += sprintf(dest, " ");
-                } else {
-                    dest += sprintf(dest, ", ");
-                }
-            }
-            dest += sprintf(dest, "%s", src);
-
-            if (ptr) {
-                *ptr = '\n';
-            }
-
+        } else {
+            /* Just skip the newline */
             src++;
         }
+        ptr = strchr(src, '\n');
 
-        /* We found the header. */
-        if (dest != last_header) {
-            break;
+        /* Multiline headers always begin with a tab or a space
+         * on the subsequent lines. Skip those lines. */
+        while (ptr && (*(ptr+1) == ' ' || *(ptr+1) == '\t')) {
+            ptr = strchr(ptr + 1, '\n');
         }
 
-        free(src_orig);
+        if (ptr) {
+            *ptr = 0;
+        }
+        // Add ", " when several headers are present
+        if (dest != last_header) {
+            /* Remove trailing whitespaces, tabs, and CRs */
+            while (dest > last_header &&
+                   (*(dest-1) == ' ' ||
+                    *(dest-1) == '\r' ||
+                    *(dest-1) == '\n' ||
+                    *(dest-1) == '\t')) {
+                *(--dest) = 0;
+            }
+
+            if (*(dest-1) == ':') {
+                dest += sprintf(dest, " ");
+            } else {
+                dest += sprintf(dest, ", ");
+            }
+        }
+        dest += sprintf(dest, "%s", src);
+
+        if (ptr) {
+            *ptr = '\n';
+        }
+
+        src++;
+    }
+
+    /* No header found? */
+    if (dest == last_header) {
+        free(src_copy);
         return last_header;
-    } while (1);
+    }
 
     *(dest--) = 0;
 
@@ -266,19 +264,19 @@ char* get_header(const char* message, const char* name, bool content)
         memmove(ptr, ptr+1, strlen(ptr));
     }
 
-    free(src_orig);
+    free(src_copy);
     return start;
 }
 
-char* match_header(char* message, char* header, char* compact_header) {
+char* internal_match_header(char* message, const char* hdr, const char* compact_hdr) {
     // Attempt to find the header
-    char* header_match = strcasestr(message, header);
-    if (strlen(compact_header) < 2) {
+    char* header_match = strcasestr(message, hdr);
+    if (!compact_hdr) {
         // Exit when there is no compact header to compare to
         return header_match;
     }
 
-    char* compact_header_match = strcasestr(message, compact_header);
+    char* compact_header_match = strcasestr(message, compact_hdr);
 
     // Return the other if one is null
     if (header_match == nullptr) {
@@ -296,31 +294,26 @@ char* match_header(char* message, char* header, char* compact_header) {
     return compact_header_match;
 }
 
-char* get_compact_header_name(const char* name)
+const char* internal_compact_header_name(const char* name)
 {
-    static char short_name[MAX_COMPACT_HEADER_LEN];
-
     if (!strcasecmp(name, "call-id:")) {
-        sprintf(short_name, "i:");
+        return "\ni:";
     } else if (!strcasecmp(name, "contact:")) {
-        sprintf(short_name, "m:");
+        return "\nm:";
     } else if (!strcasecmp(name, "content-encoding:")) {
-        sprintf(short_name, "e:");
+        return "\ne:";
     } else if (!strcasecmp(name, "content-length:")) {
-        sprintf(short_name, "l:");
+        return "\nl:";
     } else if (!strcasecmp(name, "content-type:")) {
-        sprintf(short_name, "c:");
+        return "\nc:";
     } else if (!strcasecmp(name, "from:")) {
-        sprintf(short_name, "f:");
+        return "\nf:";
     } else if (!strcasecmp(name, "to:")) {
-        sprintf(short_name, "t:");
+        return "\nt:";
     } else if (!strcasecmp(name, "via:")) {
-        sprintf(short_name, "v:");
-    } else {
-        sprintf(short_name, "");
+        return "\nv:";
     }
-
-    return short_name;
+    return NULL;
 }
 
 char* get_first_line(const char* message)
@@ -683,6 +676,14 @@ SIP/2.0/UDP 85.55.55.12:4050;branch=z9hG4bK831a.2bb3de86.0", get_header(data, "V
     EXPECT_STREQ("<sip:12999999999@85.55.55.12;did=a19.a2e590e>", get_header(data, "Contact:", true));
 }
 
+TEST(Parser, get_header_last) {
+    const char* data = "INVITE sip:3136455552@85.12.1.1:5065 SIP/2.0\r\n\
+From: SIP/2.0/UDP 85.55.55.12:6090;branch=z9hG4bK831a.2bb3de85.0\r\n\
+\r\n\
+";
+    EXPECT_STREQ("", get_header(data, "Via:", false));
+}
+
 TEST(Parser, get_peer_tag__notag) {
     EXPECT_STREQ(NULL, get_peer_tag("...\r\nTo: <abc>\r\n;tag=notag\r\n\r\n"));
 }
@@ -734,9 +735,8 @@ TEST(Parser, get_call_id_short_2) {
 }
 
 TEST(Parser, get_short_header_via) {
-    EXPECT_STREQ("v:", get_compact_header_name("Via:"));
-
-    EXPECT_STREQ("m:", get_compact_header_name("Contact:"));
+    EXPECT_STREQ("\nv:", internal_compact_header_name("Via:"));
+    EXPECT_STREQ("\nm:", internal_compact_header_name("Contact:"));
 }
 
 /* The 3pcc-A script sends "invalid" SIP that is parsed by this
