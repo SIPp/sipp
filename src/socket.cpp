@@ -177,7 +177,7 @@ static void process_set(char* what)
     } else if (!strcmp(what, "display")) {
         if (!strcmp(rest, "main")) {
             display_scenario = main_scenario;
-        } else if (!strcmp(rest, "ooc")) {
+        } else if (!strcmp(rest, "ooc") && ooc_scenario) {
             display_scenario = ooc_scenario;
         } else {
             WARNING("Unknown display scenario: %s", rest);
