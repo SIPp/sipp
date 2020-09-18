@@ -2709,7 +2709,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                     (_RCAST(struct sockaddr_in *, &(play_args_v.from)))->sin_port = port;
                 }
             } else {
-                ERROR("media_port keyword with no audio or video on the current line (%s)", begin);
+                // This check will not do, as we use the media_port in other places too.
+                //ERROR("media_port keyword with no audio or video on the current line (%s)", begin);
             }
 #endif
             dest += sprintf(dest, "%u", port);
@@ -2737,7 +2738,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             } else if (strstr(begin, "video")) {
                 play_args = &play_args_v;
             } else {
-                ERROR("media_port keyword with no audio or video on the current line (%s)", begin);
+                // This check will not do, as we use the media_port in other places too.
+                //ERROR("media_port keyword with no audio or video on the current line (%s)", begin);
             }
             if (media_ip_is_ipv6) {
                 (_RCAST(struct sockaddr_in6 *, &(play_args->from)))->sin6_port = htons(port);

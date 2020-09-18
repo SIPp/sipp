@@ -4,6 +4,28 @@ Changes in 3.7.0
 (Nothing yet. Just added this to diverge from branch/3.6.)
 
 
+Features added in 3.7.0
+=======================
+
+* RTPCHECK code by Jeannot Langlois (@jeannotlanglois). Command line examples:
+    ```
+    # SET-SIDE (RTP)
+    ./sipp -m 1 -sf sipp_scenarios/pfca_uac_apattern.xml \
+      -t u1 -i 127.0.0.2 -p 5060 -mp 4000 127.0.0.3:5060
+    # ICP-SIDE (RTP)
+    ./sipp -m 1 -sf sipp_scenarios/pfca_uas.xml \
+      -i 127.0.0.3 -t u1 -p 5060 -mp 5000 -rtp_echo
+
+    # SET-SIDE (SRTP)
+    ./sipp -m 1 -sf sipp_scenarios/pfca_uac_bpattern_crypto_simple.xml \
+      -t u1 -i 127.0.0.2 -p 5060 -mp 4000 -rtpcheck_debug -srtpcheck_debug \
+      127.0.0.3:5060
+    # ICP-SIDE (SRTP)
+    ./sipp -m 1 -sf sipp_scenarios/pfca_uas_both_crypto_simple.xml \
+      -t u1 -i 127.0.0.3 -p 5060 -mp 5000 -srtpcheck_debug
+    ```
+
+
 BREAKING(!) changes in 3.6.1
 ============================
 
