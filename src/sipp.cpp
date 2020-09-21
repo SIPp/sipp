@@ -991,7 +991,7 @@ static void print_last_stats()
 {
     interrupt = 1;
     if (sp) {
-      sp->print_closing_stats();
+        sp->print_closing_stats();
     }
     if (main_scenario) {
         stattask::report();
@@ -1083,6 +1083,10 @@ void sipp_exit(int rc)
     screen_exit();
     print_last_stats();
     print_errors();
+    if (sp) {
+        delete sp;
+        sp = NULL;
+    }
 
     /* Close open files. */
     struct logfile_info** logfile_ptr;
