@@ -1972,7 +1972,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             break;
         case E_Message_Remote_IP:
-            dest += snprintf(dest, left, "%s", remote_ip_escaped);
+            dest += snprintf(dest, left, "%s", remote_ip_w_brackets);
             break;
         case E_Message_Remote_Host:
             dest += snprintf(dest, left, "%s", remote_host);
@@ -1981,7 +1981,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             dest += snprintf(dest, left, "%d", remote_port + comp->offset);
             break;
         case E_Message_Local_IP:
-            dest += snprintf(dest, left, "%s", local_ip_escaped);
+            dest += snprintf(dest, left, "%s", local_ip_w_brackets);
             break;
         case E_Message_Local_Port:
             int port;

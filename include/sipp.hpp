@@ -245,7 +245,7 @@ MAYBE_EXTERN int                max_sched_loops         DEFVAL(MAX_SCHED_LOOPS_P
 MAYBE_EXTERN unsigned int       global_t2               DEFVAL(DEFAULT_T2_TIMER_VALUE);
 
 MAYBE_EXTERN char               local_ip[127];          /* also used for hostnames */
-MAYBE_EXTERN char               local_ip_escaped[42];   /* with [brackets] in case of IPv6 */
+MAYBE_EXTERN char               local_ip_w_brackets[42]; /* with [brackets] in case of IPv6 */
 MAYBE_EXTERN bool               local_ip_is_ipv6;
 MAYBE_EXTERN int                local_port              DEFVAL(0);
 #ifdef USE_SCTP
@@ -276,7 +276,7 @@ MAYBE_EXTERN int                media_port              DEFVAL(0);
 MAYBE_EXTERN size_t             media_bufsize           DEFVAL(2048);
 MAYBE_EXTERN bool               media_ip_is_ipv6        DEFVAL(false);
 MAYBE_EXTERN char               remote_ip[127];         /* also used for hostnames */
-MAYBE_EXTERN char               remote_ip_escaped[42];  /* with [brackets] in case of IPv6 */
+MAYBE_EXTERN char               remote_ip_w_brackets[42]; /* with [brackets] in case of IPv6 */
 MAYBE_EXTERN int                remote_port             DEFVAL(DEFAULT_PORT);
 MAYBE_EXTERN unsigned int       pid                     DEFVAL(0);
 MAYBE_EXTERN bool               print_all_responses     DEFVAL(false);
