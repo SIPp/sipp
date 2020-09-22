@@ -46,8 +46,8 @@ extern int key_dc;
 class ScreenPrinter {
 public:
     ScreenPrinter():
-        M_last(false),
-        M_headless(!isatty(fileno(stdout)))
+        M_headless(!isatty(fileno(stdout))),
+        M_last(false)
     {};
     void redraw();
     void print_closing_stats();

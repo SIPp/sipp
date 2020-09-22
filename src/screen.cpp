@@ -271,7 +271,6 @@ void ScreenPrinter::draw_scenario_screen()
     char buf[bufsiz];
     char left_buf[40];
     char right_buf[bufsiz];
-    int divisor;
     extern int pollnfds;
 
     unsigned long long total_calls =
@@ -289,7 +288,7 @@ void ScreenPrinter::draw_scenario_screen()
             lines.push_back("  Users (length)   Port   Total-time  "
                             "Total-calls  Remote-host");
             snprintf(buf, bufsiz,
-                     "  %d (%d ms)   %-5d %6lu.%02lu s     %8llu  %s:%d(%s)",
+                     "  %d (%d ms)   %-5d %6lu.%02lu s     %8llu  %.20s:%d(%s)",
                      users, duration, local_port, clock_tick / 1000,
                      (clock_tick % 1000) / 10, total_calls, remote_ip,
                      remote_port, TRANSPORT_TO_STRING(transport));
@@ -299,7 +298,7 @@ void ScreenPrinter::draw_scenario_screen()
                             "Total-calls  Remote-host");
             snprintf(
                 buf, bufsiz,
-                "  %3.1f(%d ms)/%5.3fs   %-5d %6lu.%02lu s     %8llu  %s:%d(%s)",
+                "  %3.1f(%d ms)/%5.3fs   %-5d %6lu.%02lu s     %8llu  %.20s:%d(%s)",
                 rate, duration, (double)rate_period_ms / 1000.0, local_port,
                 clock_tick / 1000, (clock_tick % 1000) / 10, total_calls,
                 remote_ip, remote_port, TRANSPORT_TO_STRING(transport));
@@ -323,7 +322,7 @@ void ScreenPrinter::draw_scenario_screen()
     }
     snprintf(right_buf, 40, "%lu ms scheduler resolution",
              ms_since_last_tick / std::max(scheduling_loops, 1ul));
-    snprintf(buf, bufsiz, "  %-38s  %-37s", left_buf, right_buf);
+    snprintf(buf, bufsiz, "  %-38.38s  %-37.37s", left_buf, right_buf);
     lines.push_back(buf);
 
     /* 2nd line */
@@ -392,9 +391,7 @@ void ScreenPrinter::draw_scenario_screen()
     if (rtpstream_numthreads) {
         unsigned long TempABytes;
         unsigned long TempVBytes;
-        unsigned long last_tick = clock_tick;
-        /* Saved clock_tick to last_tick and use that in calcs since clock tick */
-        /* can change during calculations.                                      */
+        unsigned long tempbytes;
         if (ms_since_last_tick) {
             TempABytes= rtpstream_abytes_out;
             TempVBytes= rtpstream_vbytes_out;

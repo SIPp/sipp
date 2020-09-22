@@ -1229,7 +1229,6 @@ call::~call()
     }
 #endif
 
-
     free(start_time_rtd);
     free(rtd_done);
     free(debugBuffer);
@@ -1292,22 +1291,21 @@ void call::dump()
 {
     char s[MAX_HEADER_LEN];
     char tmpbuf[MAX_HEADER_LEN];
-    sprintf(s, "%s: State %d", id, msg_index);
+    int slen = sizeof(s);
+    int written;
+
+    written += snprintf(s, slen, "%s: State %d", id, msg_index);
     if (next_retrans) {
-        snprintf(tmpbuf, 64, "%s (next retrans %u)", s, next_retrans);
-        strcat(s, tmpbuf);
+        written += snprintf(s, slen - written, " (next retrans %u)", next_retrans);
     }
     if (paused_until) {
-        snprintf(tmpbuf, 64, "%s (paused until %u)", s, paused_until);
-        strcat(s, tmpbuf);
+        written += snprintf(s, slen - written, " (paused until %u)", paused_until);
     }
     if (recv_timeout) {
-        snprintf(tmpbuf, 64, "%s (recv timeout %u)", s, recv_timeout);
-        strcat(s, tmpbuf);
+        written += snprintf(s, slen - written, " (recv timeout %u)", recv_timeout);
     }
     if (send_timeout) {
-        snprintf(tmpbuf, 64, "%s (send timeout %u)", s, send_timeout);
-        strcat(s, tmpbuf);
+        written += snprintf(s, slen - written, " (send timeout %u)", send_timeout);
     }
     WARNING("%s", s);
 }
@@ -2635,7 +2633,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             break;
         case E_Message_Remote_IP:
-            dest += snprintf(dest, left, "%s", remote_ip_escaped);
+            dest += snprintf(dest, left, "%s", remote_ip_w_brackets);
             break;
         case E_Message_Remote_Host:
             dest += snprintf(dest, left, "%s", remote_host);
@@ -2644,7 +2642,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             dest += snprintf(dest, left, "%d", remote_port + comp->offset);
             break;
         case E_Message_Local_IP:
-            dest += snprintf(dest, left, "%s", local_ip_escaped);
+            dest += snprintf(dest, left, "%s", local_ip_w_brackets);
             break;
         case E_Message_Local_Port:
             int port;
@@ -4103,8 +4101,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         createSendingMessage(auth_comp->comp_param.auth_param.aka_AMF, -2, my_aka_AMF, sizeof(my_aka_AMF));
         createSendingMessage(auth_comp->comp_param.auth_param.aka_OP, -2, my_aka_OP, sizeof(my_aka_OP));
 
-        if (createAuthHeader(my_auth_user, my_auth_pass, src->getMethod(), uri, auth_body, dialog_authentication,
-                             my_aka_OP, my_aka_AMF, my_aka_K, next_nonce_count++, result + authlen) == 0) {
+        if (createAuthHeader(
+                my_auth_user, my_auth_pass, src->getMethod(), uri,
+                auth_body, dialog_authentication, my_aka_OP, my_aka_AMF,
+                my_aka_K, next_nonce_count++, result + authlen,
+                MAX_HEADER_LEN - authlen) == 0) {
             ERROR("%s", result + authlen);
         }
         authlen = strlen(result);
