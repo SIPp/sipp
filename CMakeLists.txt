@@ -110,7 +110,7 @@ file(WRITE ${PROJECT_SOURCE_DIR}/include/version.cmake
 ")
 add_custom_target(
     version
-    if test -d .git \; then
+    if test -d ${PROJECT_SOURCE_DIR}/.git \; then
         ${CMAKE_COMMAND} -D SRC=${PROJECT_SOURCE_DIR}/include/version.h.in
         -D DST=${PROJECT_BINARY_DIR}/version.h
         -P ${PROJECT_SOURCE_DIR}/include/version.cmake \;
