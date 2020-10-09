@@ -80,6 +80,18 @@ public:
         E_AT_RTP_STREAM_RESUME,
         E_AT_RTP_STREAM_PLAY,
         E_AT_RTP_ECHO,
+        E_AT_RTP_STREAM_PAUSEAPATTERN,
+        E_AT_RTP_STREAM_RESUMEAPATTERN,
+        E_AT_RTP_STREAM_PLAYAPATTERN,
+        E_AT_RTP_STREAM_PAUSEVPATTERN,
+        E_AT_RTP_STREAM_RESUMEVPATTERN,
+        E_AT_RTP_STREAM_PLAYVPATTERN,
+        E_AT_RTP_STREAM_RTPECHO_UPDATEAUDIO,
+        E_AT_RTP_STREAM_RTPECHO_STARTAUDIO,
+        E_AT_RTP_STREAM_RTPECHO_STOPAUDIO,
+        E_AT_RTP_STREAM_RTPECHO_UPDATEVIDEO,
+        E_AT_RTP_STREAM_RTPECHO_STARTVIDEO,
+        E_AT_RTP_STREAM_RTPECHO_STOPVIDEO,
 #endif
         E_AT_NB_ACTION
     };
@@ -136,7 +148,8 @@ public:
     pcap_pkts     *getPcapPkts(); /* send_packets specific function */
 #endif
 #ifdef RTP_STREAM
-    rtpstream_actinfo_t *getRTPStreamActInfo(); /* return stored rtp stream playback params */
+    rtpecho_actinfo_t* getRTPEchoActInfo();  /* returns stored rtp echo params */
+    rtpstream_actinfo_t* getRTPStreamActInfo(); /* return stored rtp stream playback params */
 #endif
 
     void setActionType   (T_ActionType   P_value);
@@ -165,7 +178,9 @@ public:
     void setPcapArgs     (pcap_pkts   *  P_value);  /* send_packets specific function */
 #endif
 #ifdef RTP_STREAM
-    void setRTPStreamActInfo(const char* P_value);  /* parse rtp stream playback values from string */
+    void setRTPEchoActInfo(const char* P_value);  /* parses rtp echo params from string */
+    void setRTPEchoActInfo(rtpecho_actinfo_t* P_value);  /* copy stored rtp echo params */
+    void setRTPStreamActInfo(const char *P_value);  /* parse rtp stream playback values from string */
     void setRTPStreamActInfo(rtpstream_actinfo_t* P_value); /* copy stored rtp stream playback params */
 #endif
 
@@ -220,6 +235,7 @@ private:
     pcap_pkts *    M_pcapArgs;
 #endif
 #ifdef RTP_STREAM
+    rtpecho_actinfo_t M_rtpecho_actinfo;
     rtpstream_actinfo_t M_rtpstream_actinfo;
 #endif
     void setSubString(char** P_target, const char* P_source, int P_start, int P_stop);

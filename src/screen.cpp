@@ -31,8 +31,10 @@ int           screen_inited = 0;
 ScreenPrinter* sp;
 
 #ifdef RTP_STREAM
-double last_rtpstream_rate_out = 0;
-double last_rtpstream_rate_in = 0;
+double last_artpstream_rate_out= 0;
+double last_vrtpstream_rate_out= 0;
+double last_artpstream_rate_in= 0;
+double last_vrtpstream_rate_in= 0;
 #endif
 
 /* ERR is actually -1, but this prevents us from needing to use curses.h in
@@ -269,7 +271,6 @@ void ScreenPrinter::draw_scenario_screen()
     char buf[bufsiz];
     char left_buf[40];
     char right_buf[bufsiz];
-    int divisor;
     extern int pollnfds;
 
     unsigned long long total_calls =
@@ -287,7 +288,7 @@ void ScreenPrinter::draw_scenario_screen()
             lines.push_back("  Users (length)   Port   Total-time  "
                             "Total-calls  Remote-host");
             snprintf(buf, bufsiz,
-                     "  %d (%d ms)   %-5d %6lu.%02lu s     %8llu  %s:%d(%s)",
+                     "  %d (%d ms)   %-5d %6lu.%02lu s     %8llu  %.20s:%d(%s)",
                      users, duration, local_port, clock_tick / 1000,
                      (clock_tick % 1000) / 10, total_calls, remote_ip,
                      remote_port, TRANSPORT_TO_STRING(transport));
@@ -297,7 +298,7 @@ void ScreenPrinter::draw_scenario_screen()
                             "Total-calls  Remote-host");
             snprintf(
                 buf, bufsiz,
-                "  %3.1f(%d ms)/%5.3fs   %-5d %6lu.%02lu s     %8llu  %s:%d(%s)",
+                "  %3.1f(%d ms)/%5.3fs   %-5d %6lu.%02lu s     %8llu  %.20s:%d(%s)",
                 rate, duration, (double)rate_period_ms / 1000.0, local_port,
                 clock_tick / 1000, (clock_tick % 1000) / 10, total_calls,
                 remote_ip, remote_port, TRANSPORT_TO_STRING(transport));
@@ -321,7 +322,7 @@ void ScreenPrinter::draw_scenario_screen()
     }
     snprintf(right_buf, 40, "%lu ms scheduler resolution",
              ms_since_last_tick / std::max(scheduling_loops, 1ul));
-    snprintf(buf, bufsiz, "  %-38s  %-37s", left_buf, right_buf);
+    snprintf(buf, bufsiz, "  %-38.38s  %-37.37s", left_buf, right_buf);
     lines.push_back(buf);
 
     /* 2nd line */
@@ -388,37 +389,45 @@ void ScreenPrinter::draw_scenario_screen()
 #ifdef RTP_STREAM
     /* if we have rtp stream thread running */
     if (rtpstream_numthreads) {
+        unsigned long TempABytes;
+        unsigned long TempVBytes;
         unsigned long tempbytes;
-        unsigned long last_tick = clock_tick;
-        /* Saved clock_tick to last_tick and use that in calcs since clock tick */
-        /* can change during calculations.                                      */
         if (ms_since_last_tick) {
-            tempbytes = rtpstream_bytes_out;
+            TempABytes= rtpstream_abytes_out;
+            TempVBytes= rtpstream_vbytes_out;
             /* Calculate integer and fraction parts of rtp bandwidth; this value
              * will be saved and reused in the case where last_tick==last_report_time
              */
-            last_rtpstream_rate_out = ((double)tempbytes) / ms_since_last_tick;
+            last_artpstream_rate_out= ((double)TempABytes)/ ms_since_last_tick;
+            last_vrtpstream_rate_out= ((double)TempVBytes)/ ms_since_last_tick;
             /* Potential race condition betwen multiple threads updating the
-             * rtpstream_bytes value. We subtract the saved tempbytes value
+             * rtpstream_bytes value. We subtract the saved TempBytes value
              * rather than setting it to zero to minimise the chances of missing
              * an update to rtpstream_bytes [update between printing stats and
              * zeroing the counter]. Ideally we would atomically subtract
-             * tempbytes from rtpstream_bytes.
+             * TempBytes from rtpstream_bytes.
              */
-            rtpstream_bytes_out -= tempbytes;
-            tempbytes = rtpstream_bytes_in;
-            last_rtpstream_rate_in = ((double)tempbytes) / ms_since_last_tick;
-            rtpstream_bytes_in -= tempbytes;
+            rtpstream_abytes_out -= TempABytes;
+            rtpstream_vbytes_out -= TempVBytes;
+            TempABytes= rtpstream_abytes_in;
+            TempVBytes= rtpstream_vbytes_in;
+            last_artpstream_rate_in= ((double)TempABytes)/ ms_since_last_tick;
+            last_vrtpstream_rate_in= ((double)TempVBytes)/ ms_since_last_tick;
+            rtpstream_abytes_in -= TempABytes;
+            rtpstream_vbytes_in -= TempVBytes;
         }
 
-        snprintf(left_buf, 40, "%lu Total RTP pckts sent", rtpstream_pckts);
-        snprintf(buf, bufsiz,"  %-38s  %.3f kB/s RTP OUT",
-                left_buf, last_rtpstream_rate_out);
+        snprintf(left_buf, 40, "%lu Total AUDIO RTP pckts sent", rtpstream_apckts);
+        snprintf(buf, bufsiz, "  %-38s  %.3f kB/s AUDIO RTP OUT", left_buf, last_artpstream_rate_out);
+        lines.push_back(buf);
+        snprintf(left_buf, 40, "%lu Total VIDEO RTP pckts sent", rtpstream_vpckts);
+        snprintf(buf, bufsiz, "  %-38s  %.3f KB/s VIDEO RTP OUT", left_buf, last_vrtpstream_rate_out);
         lines.push_back(buf);
 
         snprintf(left_buf, 40, "%lu RTP sending threads active", rtpstream_numthreads);
-        snprintf(buf, bufsiz, "  %-38s  %.3f kB/s RTP IN",
-                 left_buf, last_rtpstream_rate_in);
+        snprintf(buf, bufsiz, "  %-38s  %.3f kB/s AUDIO RTP IN", left_buf, last_artpstream_rate_in);
+        lines.push_back(buf);
+        snprintf(buf, bufsiz, "  %-38s  %.3f KB/s VIDEO RTP IN", left_buf, last_vrtpstream_rate_in);
         lines.push_back(buf);
     }
 #endif

@@ -92,6 +92,7 @@
 <!ATTLIST exec play_pcap CDATA #IMPLIED >
 <!ATTLIST exec play_pcap_audio CDATA #IMPLIED >
 <!ATTLIST exec rtp_stream CDATA #IMPLIED >
+<!ATTLIST exec rtp_echo CDATA #IMPLIED >
 
 <!ELEMENT rtp_echo EMPTY >
 <!ATTLIST rtp_echo value CDATA #REQUIRED >
@@ -106,6 +107,10 @@
 <!ATTLIST test compare CDATA #REQUIRED >
 <!ATTLIST test value CDATA #REQUIRED >
 <!ATTLIST test variable CDATA #REQUIRED >
+
+<!ELEMENT assign EMPTY >
+<!ATTLIST assign assign_to CDATA #REQUIRED >
+<!ATTLIST assign variable CDATA #REQUIRED >
 
 <!-- END actions -->
 
