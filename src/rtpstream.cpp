@@ -161,7 +161,7 @@ static int getThreadId(pthread_t p)
 {
     int retVal = -1;
 
-#ifdef __APPLE__
+#if defined(__APPLE__)
     int rc = -1;
     uint64_t thread_id = 0;
     rc = pthread_threadid_np(p, &thread_id);
@@ -173,7 +173,9 @@ static int getThreadId(pthread_t p)
     {
         retVal = -1;
     }
-#else  // !__APPLE__
+#elif defined(__CYGWIN__)
+    retVal = -1; // CygWin uses dummy thread IDs in pthread_t
+#else  // !__APPLE__ && !__CYGWIN__
     retVal = p;
 #endif // __APPLE__
 
@@ -1843,11 +1845,6 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
         /* calls or somebody else is nicking ports.                              */
 
         port_number = next_rtp_port;
-        /* skip rtp ports in multples of 2 (allow for rtp plus rtcp) */
-        next_rtp_port += 2;
-        if (next_rtp_port>(max_rtp_port - 1)) {
-            next_rtp_port = user_media_port;
-        }
 
         sockaddr_update_port(&address, port_number);
         if (::bind(*rtpsocket, (sockaddr *) (void *)&address,
@@ -1855,6 +1852,7 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
             break;
         }
     }
+
     /* Exit here if we didn't get a suitable port for rtp stream */
     if (tries == BIND_MAX_TRIES) {
         close(*rtpsocket);
