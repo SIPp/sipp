@@ -6091,7 +6091,9 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_EXEC_INTCMD) {
             switch (currentAction->getIntCmd()) {
             case CAction::E_INTCMD_STOP_ALL:
-                quitting = 1;
+                if (!quitting) {
+                    quitting = 1;
+                }
                 break;
             case CAction::E_INTCMD_STOP_NOW:
                 sipp_exit(EXIT_TEST_RES_INTERNAL, 0, 0);

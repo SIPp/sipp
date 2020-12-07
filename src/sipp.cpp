@@ -458,7 +458,7 @@ void timeout_alarm(int /*param*/)
     if (timeout_error) {
         ERROR("%s timed out after '%.3lf' seconds", scenario_file, ((double)clock_tick / 1000LL));
     }
-    quitting = 1;
+    quitting = 11;
     timeout_exit = true;
 }
 
@@ -510,16 +510,12 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
             sockets_pending_reset.erase(sockets_pending_reset.begin());
         }
 
-        if ((main_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + main_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated)) >= stop_after) {
+        if (!quitting && (main_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + main_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated)) >= stop_after) {
             quitting = 1;
         }
         if (quitting) {
-            if (quitting > 11) {
-                /* Force exit: abort all calls */
-                abort_all_tasks();
-            }
             /* Quitting and no more opened calls, close all */
-            if (!main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall)) {
+            if ((quitting >= 11) || !main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall)) {
                 /* We can have calls that do not count towards our open-call count (e.g., dead calls). */
                 abort_all_tasks();
                 rtp_errors = rtpstream_shutdown(main_scenario->fetchRtpTaskThreadIDs());
