@@ -186,6 +186,9 @@ bool CallGenerationTask::run()
 
     // Quit after asked number of calls is reached
     if (total_calls >= stop_after) {
+        if (!quitting) {
+            quitting = 1;
+        }
         return false;
     }
 
