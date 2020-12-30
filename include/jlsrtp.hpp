@@ -19,12 +19,20 @@
 #ifndef __JLSRTP__
 #define __JLSRTP__
 
-#ifdef USE_OPENSSL
-
+#if defined(USE_OPENSSL)
 #include <openssl/aes.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
+#elif defined(USE_WOLFSSL)
+#include <wolfssl/openssl/aes.h>
+#include <wolfssl/openssl/evp.h>
+#include <wolfssl/openssl/rand.h>
+#include <wolfssl/openssl/hmac.h>
+#endif
+
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
+
 #include <string>
 #include <vector>
 
@@ -1166,7 +1174,7 @@ class JLSRTP
 
 };
 
-#else // !USE_OPENSSL
+#else // !USE_OPENSSL && !USE_WOLFSSL
 
 class JLSRTP
 {
@@ -1187,7 +1195,7 @@ class JLSRTP
         ~JLSRTP();
 };
 
-#endif // USE_OPENSSL
+#endif // USE_OPENSSL || USE_WOLFSSL
 
 #endif // __JLSRTP__
 

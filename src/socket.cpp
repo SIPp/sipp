@@ -883,7 +883,7 @@ int SIPpSocket::empty()
         ret = recvfrom(ss_fd, buffer, readsize, 0, (struct sockaddr *)&socketbuf->addr,  &addrlen);
         break;
     case T_TLS:
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
         ret = SSL_read(ss_ssl, buffer, readsize);
         /* XXX: Check for clean shutdown. */
 #else
@@ -937,7 +937,7 @@ void SIPpSocket::invalidate()
         return;
     }
 
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
     if (SSL *ssl = ss_ssl) {
         SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
         SSL_free(ssl);
@@ -1272,7 +1272,7 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     /* Initialize all sockets with our destination address. */
     memcpy(&ss_dest, &remote_sockaddr, sizeof(ss_dest));
 
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
     ss_ssl = NULL;
 
     if (transport == T_TLS) {
@@ -1334,7 +1334,7 @@ static int socket_fd(bool use_ipv6, int transport)
 #endif
         break;
     case T_TLS:
-#ifndef USE_OPENSSL
+#ifndef USE_TLS
         ERROR("You do not have TLS support enabled!");
 #endif
     case T_TCP:
@@ -1439,7 +1439,7 @@ SIPpSocket* SIPpSocket::accept() {
     memcpy(&ret->ss_dest, &remote_sockaddr, sizeof(ret->ss_dest));
 
     if (ret->ss_transport == T_TLS) {
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
         int rc;
         int i = 0;
         while ((rc = SSL_accept(ret->ss_ssl)) < 0) {
@@ -1570,7 +1570,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
     fcntl(ss_fd, F_SETFL, flags);
 
     if (ss_transport == T_TLS) {
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
         int rc;
         int i = 0;
         while ((rc = SSL_connect(ss_ssl)) < 0) {
@@ -1617,7 +1617,7 @@ int SIPpSocket::reconnect()
     }
 
     if (ss_invalid) {
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
         ss_ssl = NULL;
 
         if (transport == T_TLS) {
@@ -1885,7 +1885,7 @@ int SIPpSocket::write_error(int ret)
         return -1;
     }
 
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
     if (ss_transport == T_TLS) {
         errstring = SSL_error_string(SSL_get_error(ss_ssl, ret), ret);
     }
@@ -1899,7 +1899,7 @@ int SIPpSocket::write_error(int ret)
 int SIPpSocket::read_error(int ret)
 {
     const char *errstring = strerror(errno);
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
     if (ss_transport == T_TLS) {
         int err = SSL_get_error(ss_ssl, ret);
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
@@ -2014,7 +2014,7 @@ void SIPpSocket::buffer_read(struct socketbuf *newbuf)
     prev->next = newbuf;
 }
 
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
 
 static int send_nowait_tls(SSL* ssl, const void* msg, int len, int /*flags*/)
 {
@@ -2121,7 +2121,7 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
 
     switch(ss_transport) {
     case T_TLS:
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
         rc = send_nowait_tls(ss_ssl, buffer, len, 0);
 #else
         errno = EOPNOTSUPP;

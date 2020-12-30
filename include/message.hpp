@@ -91,7 +91,7 @@ typedef enum {
     ,
     E_Message_RTPStream_Audio_Port,
     E_Message_RTPStream_Video_Port,
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     E_Message_CryptoTag1Audio,
     E_Message_CryptoTag2Audio,
     E_Message_CryptoSuiteAesCm128Sha1801Audio,
@@ -124,7 +124,7 @@ typedef enum {
     E_Message_UEAesCm128Sha1802Video,
     E_Message_UEAesCm128Sha1321Video,
     E_Message_UEAesCm128Sha1322Video,
-#endif // USE_OPENSSL
+#endif // USE_TLS
 #endif // RTP_STREAM
 } MessageCompType;
 

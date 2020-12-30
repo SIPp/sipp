@@ -16,7 +16,7 @@
  *  Author: Jeannot Langlois (jeannot.langlois@gmail.com) -- 2016-2020
  */
 
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
 
 #include "jlsrtp.hpp"
 #include <iostream>
@@ -3564,7 +3564,7 @@ JLSRTP::~JLSRTP()
     RAND_cleanup();
 }
 
-#else // !USE_OPENSSL
+#else // !USE_OPENSSL && !USE_WOLFSSL
 
 #include "jlsrtp.hpp"
 
@@ -3576,5 +3576,5 @@ JLSRTP::~JLSRTP()
 {
 }
 
-#endif // USE_OPENSSL
+#endif // USE_OPENSSL || USE_WOLFSSL
 

@@ -22,6 +22,7 @@
 
 /* Std C includes */
 #include "config.h"
+#include "defines.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -141,10 +142,10 @@
 #define MAX_PEER_SIZE              4096  /* 3pcc extended mode: max size of peer names */
 #define MAX_LOCAL_TWIN_SOCKETS     10    /*3pcc extended mode:max number of peers from which
 cmd messages are received */
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
 #define DEFAULT_PREFERRED_AUDIO_CRYPTOSUITE ((char*)"AES_CM_128_HMAC_SHA1_80")
 #define DEFAULT_PREFERRED_VIDEO_CRYPTOSUITE ((char*)"AES_CM_128_HMAC_SHA1_80")
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
 /******************** Default parameters ***********************/
 
@@ -263,9 +264,9 @@ MAYBE_EXTERN int                rtp_default_payload     DEFVAL(DEFAULT_RTP_PAYLO
 MAYBE_EXTERN int                rtp_tasks_per_thread    DEFVAL(DEFAULT_RTP_THREADTASKS);
 MAYBE_EXTERN int                rtp_buffsize            DEFVAL(65535);
 MAYBE_EXTERN bool               rtpcheck_debug          DEFVAL(0);
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
 MAYBE_EXTERN bool               srtpcheck_debug         DEFVAL(0);
-#endif // USE_OPENSSL
+#endif // USE_TLS
 MAYBE_EXTERN double             audiotolerance          DEFVAL(1.0);
 MAYBE_EXTERN double             videotolerance          DEFVAL(1.0);
 #endif // RTP_STREAM

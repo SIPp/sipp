@@ -116,7 +116,7 @@ FILE*         debugafile = NULL;
 FILE*         debugvfile = NULL;
 pthread_mutex_t  debugamutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t  debugvmutex = PTHREAD_MUTEX_INITIALIZER;
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
 FILE*         debuglsrtpafile = NULL;
 FILE*         debugrsrtpafile = NULL;
 pthread_mutex_t  debuglsrtpamutex = PTHREAD_MUTEX_INITIALIZER;
@@ -125,7 +125,7 @@ FILE*         debuglsrtpvfile = NULL;
 FILE*         debugrsrtpvfile = NULL;
 pthread_mutex_t  debuglsrtpvmutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t  debugrsrtpvmutex = PTHREAD_MUTEX_INITIALIZER;
-#endif // USE_OPENSSL
+#endif // USE_TLS
 FILE*         debugrefileaudio = NULL;
 FILE*         debugrefilevideo = NULL;
 pthread_mutex_t  debugremutexaudio = PTHREAD_MUTEX_INITIALIZER;
@@ -288,7 +288,7 @@ void printVideoVector(char const* note, std::vector<unsigned long> const &v)
     }
 }
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
 void printLocalAudioSrtpStuff(SrtpAudioInfoParams &p)
 {
     if (debuglsrtpafile != NULL)
@@ -360,7 +360,7 @@ void printRemoteVideoSrtpStuff(SrtpVideoInfoParams &p)
         pthread_mutex_unlock(&debugrsrtpvmutex);
     }
 }
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
 int set_bit(unsigned long* context, int value)
 {
@@ -414,11 +414,11 @@ int clear_bit(unsigned long* context, int value)
 static void rtpstream_free_taskinfo(taskentry_t* taskinfo)
 {
     if (taskinfo) {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
         /* audio SRTP echo activity indicators */
         taskinfo->audio_srtp_echo_active = 0;
         taskinfo->video_srtp_echo_active = 0;
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
         /* close sockets associated with this call */
         if (taskinfo->audio_rtp_socket != -1) {
@@ -467,11 +467,11 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo)
             }
 
             if (taskinfo->audio_rtp_socket != -1) {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                 if (!taskinfo->audio_srtp_echo_active) {
-#else // !USE_OPENSSL
+#else // !USE_TLS
                 if (1) {
-#endif // USE_OPENSSL
+#endif // USE_TLS
                     rc = connect(taskinfo->audio_rtp_socket, (struct sockaddr *) & (taskinfo->remote_audio_rtp_addr), remote_addr_len);
                     if (rc < 0) {
                         debugprint("closing audio rtp socket %d due to error %d in rtpstream_process_task_flags taskinfo = %p\n",
@@ -498,11 +498,11 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo)
                 }
             }
             if (taskinfo->video_rtp_socket != -1) {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                 if (!taskinfo->video_srtp_echo_active) {
-#else // !USE_OPENSSL
+#else // !USE_TLS
                 if (1) {
-#endif // USE_OPENSSL
+#endif // USE_TLS
                     rc = connect(taskinfo->video_rtp_socket, (struct sockaddr *) & (taskinfo->remote_video_rtp_addr), remote_addr_len);
                     if (rc < 0) {
                         debugprint("closing video rtp socket %d due to error %d in rtpstream_process_task_flags taskinfo = %p\n",
@@ -696,7 +696,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 }
 
                 pthread_mutex_lock(&uacAudioMutex);
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                 if (g_txUACAudio.getCryptoTag() != 0)
                 {
                     // GRAB RTP HEADER
@@ -711,14 +711,12 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     printAudioHex("TXUACAUDIO -- processOutgoingPacket() rc == ", "", rc, 0, 0);
                 }
                 else
+#endif // USE_TLS
                 {
-#endif // USE_OPENSSL
                     // NOENCRYPTION
                     audio_out.resize(sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet, 0);
                     memcpy(audio_out.data(), udp_send_audio.buffer, sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet);
-#ifdef USE_OPENSSL
                 }
-#endif // USE_OPENSSL
 
                 /* now send the actual packet */
                 rc = send(taskinfo->audio_rtp_socket, audio_out.data(), audio_out.size(), 0);
@@ -756,19 +754,18 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     {
                         /* this is temp code - will have to reorganize if/when we include echo functionality */
                         /* just keep listening on rtp socket (is this really required?) - ignore any errors */
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                         if (g_rxUACAudio.getCryptoTag() != 0)
                         {
                             audio_in_size = sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet + g_rxUACAudio.getAuthenticationTagSize();
                         }
                         else
+#endif // USE_TLS
                         {
-#endif // USE_OPENSSL
                             // NOENCRYPTION
                             audio_in_size = sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet;
-#ifdef USE_OPENSSL
                         }
-#endif // USE_OPENSSL
+
                         audio_in.resize(audio_in_size, 0);
                         while ((rc = recv(taskinfo->audio_rtp_socket, audio_in.data(), audio_in.size(), 0)) >= 0)
                         {
@@ -777,7 +774,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             rtpstream_abytes_in += rc;
                             printAudioHexUS("SIPP SUCCESS RECV LOG: ", audio_in.data(), audio_in.size(), rc, rtpstream_apckts);
                         }
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                         if (g_rxUACAudio.getCryptoTag() != 0)
                         {
                             // DECRYPT
@@ -811,8 +808,8 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             memcpy(udp_recv_audio.buffer + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
                         }
                         else
+#endif // USE_TLS
                         {
-#endif // USE_OPENSSL
                             // NOENCRYPTION
                             host_flags = ntohs(((rtp_header_t*)audio_in.data())->flags);
                             host_seqnum = ntohs(((rtp_header_t*)audio_in.data())->seq);
@@ -834,9 +831,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                             memset(udp_recv_audio.buffer, 0, sizeof(udp_recv_audio));
                             memcpy(udp_recv_audio.buffer, audio_in.data(), audio_in.size());
-#ifdef USE_OPENSSL
                         }
-#endif // USE_OPENSSL
 
                         // VALIDATION TEST
                         compresult = 0;
@@ -952,7 +947,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 }
 
                 pthread_mutex_lock(&uacVideoMutex);
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                 if (g_txUACVideo.getCryptoTag() != 0)
                 {
                     // GRAB RTP HEADER
@@ -967,14 +962,13 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     printVideoHex("TXUACVIDEO -- processOutgoingPacket() rc == ", "", rc, 0, 0);
                 }
                 else
+#endif // USE_TLS
                 {
-#endif // USE_OPENSSL
                     // NOENCRYPTION
                     video_out.resize(sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet, 0);
                     memcpy(video_out.data(), udp_send_video.buffer, sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet);
-#ifdef USE_OPENSSL
                 }
-#endif // USE_OPENSSL
+
                 /* now send the actual packet */
                 rc = send(taskinfo->video_rtp_socket, video_out.data(), video_out.size(), 0);
                 if (rc < 0)
@@ -1011,19 +1005,18 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     {
                         /* this is temp code - will have to reorganize if/when we include echo functionality */
                         /* just keep listening on rtp socket (is this really required?) - ignore any errors */
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                         if (g_rxUACVideo.getCryptoTag() != 0)
                         {
                             video_in_size = sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet + g_rxUACVideo.getAuthenticationTagSize();
                         }
                         else
+#endif // USE_TLS
                         {
-#endif // USE_OPENSSL
                             // NOENCRYPTION
                             video_in_size = sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet;
-#ifdef USE_OPENSSL
                         }
-#endif // USE_OPENSSL
+
                         video_in.resize(video_in_size, 0);
                         while ((rc = recv(taskinfo->video_rtp_socket, video_in.data(), video_in.size(), 0)) >= 0)
                         {
@@ -1033,7 +1026,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             printVideoHexUS("SIPP SUCCESS RECV LOG: ", video_in.data(), video_in.size(), rc, rtpstream_vpckts);
                         }
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                         if (g_rxUACVideo.getCryptoTag() != 0)
                         {
                             // DECRYPT
@@ -1066,8 +1059,8 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             memcpy(udp_recv_video.buffer + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
                         }
                         else
+#endif // USE_TLS
                         {
-#endif // USE_OPENSSL
                             // NOENCRYPTION
                             host_flags = ntohs(((rtp_header_t*)video_in.data())->flags);
                             host_seqnum = ntohs(((rtp_header_t*)video_in.data())->seq);
@@ -1089,9 +1082,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                             memset(udp_recv_video.buffer, 0, sizeof(udp_recv_video));
                             memcpy(udp_recv_video.buffer, video_in.data(), video_in.size());
-#ifdef USE_OPENSSL
                         }
-#endif // USE_OPENSSL
 
                         // VALIDATION TEST
                         compresult = 0;
@@ -1598,11 +1589,11 @@ int rtpstream_new_call(rtpstream_callinfo_t* callinfo)
     taskinfo->video_rtp_socket = -1;
     taskinfo->video_rtcp_socket = -1;
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     /* audio/video SRTP echo activity indicators */
     taskinfo->audio_srtp_echo_active = 0;
     taskinfo->video_srtp_echo_active = 0;
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     /* rtp stream members */
     taskinfo->audio_ssrc_id = global_ssrc_id++;
@@ -2072,7 +2063,7 @@ void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char
     /* only makes sense if we decide to send 0-filled packets on idle */
 }
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
 int rtpstream_set_srtp_audio_local(rtpstream_callinfo_t* callinfo, SrtpAudioInfoParams &p)
 {
     taskentry_t               *taskinfo;
@@ -2340,7 +2331,7 @@ int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t* callinfo, SrtpVideoInf
 
     return 0;
 }
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
 /* code checked */
 void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo)
@@ -2459,12 +2450,12 @@ void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     /* set flag that we have a new file to play */
     taskinfo->flags |= TI_PLAYAPATTERN;
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     pthread_mutex_lock(&uacAudioMutex);
     g_txUACAudio = txUACAudio;
     g_rxUACAudio = rxUACAudio;
     pthread_mutex_unlock(&uacAudioMutex);
-#endif // USE_OPENSSL
+#endif // USE_TLS
 }
 
 void rtpstream_pauseapattern(rtpstream_callinfo_t* callinfo)
@@ -2535,12 +2526,12 @@ void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     /* set flag that we have a new file to play */
     taskinfo->flags |= TI_PLAYVPATTERN;
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     pthread_mutex_lock(&uacVideoMutex);
     g_txUACVideo = txUACVideo;
     g_rxUACVideo = rxUACVideo;
     pthread_mutex_unlock(&uacVideoMutex);
-#endif // USE_OPENSSL
+#endif // USE_TLS
 }
 
 void rtpstream_pausevpattern(rtpstream_callinfo_t* callinfo)
@@ -2591,7 +2582,7 @@ void rtpstream_audioecho_thread(void* param)
     bool abnormal_termination = false;
     ParamPass p;
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     tspec.tv_sec = 0;
     tspec.tv_nsec = 10000000; /* 10ms */
 
@@ -2819,9 +2810,9 @@ void rtpstream_audioecho_thread(void* param)
     {
         exit_code = 0;
     }
-#else // !USE_OPENSSL
+#else // !USE_TLS
     exit_code = 0; // dummy
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     pthread_exit((void*) (intptr_t) exit_code);
 }
@@ -2856,7 +2847,7 @@ void rtpstream_videoecho_thread(void* param)
     bool abnormal_termination = false;
     ParamPass p;
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     tspec.tv_sec = 0;
     tspec.tv_nsec = 10000000; /* 10ms */
 
@@ -3083,9 +3074,9 @@ void rtpstream_videoecho_thread(void* param)
     {
         exit_code = 0;
     }
-#else // !USE_OPENSSL
+#else // !USE_TLS
     exit_code = 0; // dummy
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     pthread_exit((void*) (intptr_t) exit_code);
 }
@@ -3102,7 +3093,7 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
         return -1; /* no task data structure */
     }
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     taskinfo->audio_srtp_echo_active = 1;
 
     pthread_mutex_lock(&debugremutexaudio);
@@ -3144,7 +3135,7 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
             return -7;
         }
     }
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     return 0;
 }
@@ -3160,7 +3151,7 @@ int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASA
         return -1; /* no task data structure */
     }
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     taskinfo->audio_srtp_echo_active = 1;
 
     pthread_mutex_lock(&debugremutexaudio);
@@ -3176,7 +3167,7 @@ int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASA
     g_rxUASAudio = rxUASAudio;
     g_txUASAudio = txUASAudio;
     pthread_mutex_unlock(&uasAudioMutex);
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     return 0;
 }
@@ -3193,7 +3184,7 @@ int rtpstream_rtpecho_stopaudio(rtpstream_callinfo_t* callinfo)
         return -1; /* no task data structure */
     }
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     taskinfo->audio_srtp_echo_active = 0;
 
     pthread_mutex_lock(&quit_mutexaudio);
@@ -3254,9 +3245,9 @@ int rtpstream_rtpecho_stopaudio(rtpstream_callinfo_t* callinfo)
         }
     }
     pthread_mutex_unlock(&debugremutexaudio);
-#else // !USE_OPENSSL
+#else // !USE_TLS
     r.i = 0; // dummy
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     return r.i;
 }
@@ -3273,7 +3264,7 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
         return -1; /* no task data structure */
     }
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     taskinfo->video_srtp_echo_active = 1;
 
     pthread_mutex_lock(&debugremutexvideo);
@@ -3315,7 +3306,7 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
             return -8;
         }
     }
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     return 0;
 }
@@ -3331,7 +3322,7 @@ int rtpstream_rtpecho_updatevideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASV
         return -1; /* no task data structure */
     }
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     taskinfo->video_srtp_echo_active = 1;
 
     pthread_mutex_lock(&debugremutexvideo);
@@ -3347,7 +3338,7 @@ int rtpstream_rtpecho_updatevideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASV
     g_rxUASVideo = rxUASVideo;
     g_txUASVideo = txUASVideo;
     pthread_mutex_unlock(&uasVideoMutex);
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     return 0;
 }
@@ -3364,7 +3355,7 @@ int rtpstream_rtpecho_stopvideo(rtpstream_callinfo_t* callinfo)
         return -1; /* no task data structure */
     }
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     taskinfo->video_srtp_echo_active = 0;
 
     pthread_mutex_lock(&quit_mutexvideo);
@@ -3425,9 +3416,9 @@ int rtpstream_rtpecho_stopvideo(rtpstream_callinfo_t* callinfo)
         }
     }
     pthread_mutex_unlock(&debugremutexvideo);
-#else // !USE_OPENSSL
+#else // !USE_TLS
     r.i = 0; // dummy
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     return r.i;
 }

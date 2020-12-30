@@ -28,7 +28,7 @@
 #define RTPECHO_MAX_FILENAMELEN 256
 #define RTPECHO_MAX_PAYLOADNAME 256
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
 typedef struct _SrtpAudioInfoParams
 {
     bool audio_found;
@@ -54,7 +54,7 @@ typedef struct _SrtpVideoInfoParams
     bool primary_unencrypted_video_srtp;
     bool secondary_unencrypted_video_srtp;
 } SrtpVideoInfoParams;
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
 struct threaddata_t;
 struct taskentry_t;
@@ -123,11 +123,11 @@ struct taskentry_t
     int                  video_rtp_socket;
     int                  video_rtcp_socket;
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     /* audio/video SRTP echo activity indicators */
     int                  audio_srtp_echo_active;
     int                  video_srtp_echo_active;
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     /* rtp peer address structures */
     struct sockaddr_storage    remote_audio_rtp_addr;
@@ -147,12 +147,12 @@ struct taskentry_t
     int                  audio_active;
     int                  video_active;
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     SrtpAudioInfoParams  local_srtp_audio_params;
     SrtpAudioInfoParams  remote_srtp_audio_params;
     SrtpVideoInfoParams  local_srtp_video_params;
     SrtpVideoInfoParams  remote_srtp_video_params;
-#endif // USE_OPENSSL
+#endif // USE_TLS
 };
 
 struct rtpstream_callinfo_t
@@ -209,12 +209,12 @@ int rtpstream_get_local_videoport(rtpstream_callinfo_t *callinfo);
 void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char* ip_addr,
                           int audio_port, int video_port);
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
 int rtpstream_set_srtp_audio_local(rtpstream_callinfo_t *callinfo, SrtpAudioInfoParams &p);
 int rtpstream_set_srtp_audio_remote(rtpstream_callinfo_t *callinfo, SrtpAudioInfoParams &p);
 int rtpstream_set_srtp_video_local(rtpstream_callinfo_t *callinfo, SrtpVideoInfoParams &p);
 int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t *callinfo, SrtpVideoInfoParams &p);
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
 int rtpstream_cache_file(char *filename,
                          int mode /* 0: FILE - 1: PATTERN */,

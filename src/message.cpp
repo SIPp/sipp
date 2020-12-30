@@ -64,7 +64,7 @@ struct KeywordMap SimpleKeywords[] = {
 #ifdef RTP_STREAM
     {"rtpstream_audio_port", E_Message_RTPStream_Audio_Port },
     {"rtpstream_video_port", E_Message_RTPStream_Video_Port },
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     {"cryptotag1audio", E_Message_CryptoTag1Audio },
     {"cryptotag2audio", E_Message_CryptoTag2Audio },
     {"cryptosuiteaescm128sha1801audio", E_Message_CryptoSuiteAesCm128Sha1801Audio },
@@ -97,7 +97,7 @@ struct KeywordMap SimpleKeywords[] = {
     {"ueaescm128sha1802video" , E_Message_UEAesCm128Sha1802Video },
     {"ueaescm128sha1321video" , E_Message_UEAesCm128Sha1321Video },
     {"ueaescm128sha1322video" , E_Message_UEAesCm128Sha1322Video },
-#endif // USE_OPENSSL
+#endif // USE_TLS
 #endif // RTP_STREAM
     {"media_port", E_Message_Media_Port },
     {"media_ip_type", E_Message_Media_IP_Type },

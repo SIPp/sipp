@@ -173,7 +173,7 @@ struct sipp_option options_table[] = {
     {"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, NULL, 1},
 
 #ifdef USE_TLS
-    {"tls_cert", "Set the name for TLS Certificate file. Default is 'cacert.pem", SIPP_OPTION_STRING, &tls_cert_name, 1},
+    {"tls_cert", "Set the name for TLS Certificate file. Default is 'cacert.pem'", SIPP_OPTION_STRING, &tls_cert_name, 1},
     {"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem'", SIPP_OPTION_STRING, &tls_key_name, 1},
     {"tls_ca", "Set the name for TLS CA file. If not specified, X509 verification is not activated.", SIPP_OPTION_STRING, &tls_ca_name, 1},
     {"tls_crl", "Set the name for Certificate Revocation List file. If not specified, X509 CRL is not activated.", SIPP_OPTION_STRING, &tls_crl_name, 1},
@@ -280,9 +280,9 @@ struct sipp_option options_table[] = {
     {"rtp_threadtasks", "RTP number of playback tasks per thread.", SIPP_OPTION_INT, &rtp_tasks_per_thread, 1},
     {"rtp_buffsize", "Set the rtp socket send/receive buffer size.", SIPP_OPTION_INT, &rtp_buffsize, 1},
     {"rtpcheck_debug", "Write RTP check debug information to file", SIPP_OPTION_SETFLAG, &rtpcheck_debug, 1},
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     {"srtpcheck_debug", "Write SRTP check debug information to file", SIPP_OPTION_SETFLAG, &srtpcheck_debug, 1},
-#endif // USE_OPENSSL
+#endif // USE_TLS
     {"audiotolerance", "Audio error tolerance for RTP checks (0.0-1.0) -- default: 1.0", SIPP_OPTION_FLOAT, &audiotolerance, 1},
     {"videotolerance", "Video error tolerance for RTP checks (0.0-1.0) -- default: 1.0", SIPP_OPTION_FLOAT, &videotolerance, 1},
 #endif // RTP_STREAM
@@ -1564,11 +1564,11 @@ int main(int argc, char *argv[])
 #ifdef USE_TLS
                     transport = T_TLS;
                     if (TLS_init() != 1) {
-                        printf("OpenSSL Initialization problem\n");
+                        printf("TLS initialization problem\n");
                         exit(-1);
                     }
 #else
-                    ERROR("To use a TLS transport you must compile SIPp with OpenSSL");
+                    ERROR("To use TLS transport you must compile SIPp with OpenSSL or WolfSSL");
 #endif
                     break;
                 case 'c':
@@ -1604,7 +1604,7 @@ int main(int argc, char *argv[])
                 break;
             case SIPP_OPTION_NEED_SSL:
                 CHECK_PASS();
-                ERROR("OpenSSL is required for the %s option.", argv[argi]);
+                ERROR("TLS support is required for the %s option.", argv[argi]);
                 break;
             case SIPP_OPTION_MAX_SOCKET:
                 REQUIRE_ARG();
