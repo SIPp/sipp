@@ -637,8 +637,11 @@ void ScreenPrinter::draw_scenario_screen()
                      curmsg->M_nbCmdSent,
                      "",
                      "");
+        } else if (curmsg->M_type == MSG_TYPE_RECV) {
+            WARNING("<recv> without request/response?");
+            snprintf(buf, bufsiz, "            [ recv? ]              ");
         } else {
-            ERROR("Scenario command not implemented in display");
+            ERROR("Scenario command %d not implemented in display", curmsg->M_type);
         }
 
         lines.push_back(buf);
