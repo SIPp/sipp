@@ -141,6 +141,10 @@
 #define MAX_PEER_SIZE              4096  /* 3pcc extended mode: max size of peer names */
 #define MAX_LOCAL_TWIN_SOCKETS     10    /*3pcc extended mode:max number of peers from which
 cmd messages are received */
+#ifdef USE_OPENSSL
+#define DEFAULT_PREFERRED_AUDIO_CRYPTOSUITE ((char*)"AES_CM_128_HMAC_SHA1_80")
+#define DEFAULT_PREFERRED_VIDEO_CRYPTOSUITE ((char*)"AES_CM_128_HMAC_SHA1_80")
+#endif // USE_OPENSSL
 
 /******************** Default parameters ***********************/
 
@@ -166,8 +170,9 @@ cmd messages are received */
 #define DEFAULT_BEHAVIOR_BYE         1
 #define DEFAULT_BEHAVIOR_ABORTUNEXP  2
 #define DEFAULT_BEHAVIOR_PINGREPLY   4
+#define DEFAULT_BEHAVIOR_BADCSEQ     8
 
-#define DEFAULT_BEHAVIOR_ALL         (DEFAULT_BEHAVIOR_BYE | DEFAULT_BEHAVIOR_ABORTUNEXP | DEFAULT_BEHAVIOR_PINGREPLY)
+#define DEFAULT_BEHAVIOR_ALL         (DEFAULT_BEHAVIOR_BYE | DEFAULT_BEHAVIOR_ABORTUNEXP | DEFAULT_BEHAVIOR_PINGREPLY | DEFAULT_BEHAVIOR_BADCSEQ)
 
 #ifdef RTP_STREAM
 #define DEFAULT_MIN_RTP_PORT         8192
@@ -233,7 +238,7 @@ MAYBE_EXTERN int                max_sched_loops         DEFVAL(MAX_SCHED_LOOPS_P
 MAYBE_EXTERN unsigned int       global_t2               DEFVAL(DEFAULT_T2_TIMER_VALUE);
 
 MAYBE_EXTERN char               local_ip[127];          /* also used for hostnames */
-MAYBE_EXTERN char               local_ip_escaped[42];   /* with [brackets] in case of IPv6 */
+MAYBE_EXTERN char               local_ip_w_brackets[42]; /* with [brackets] in case of IPv6 */
 MAYBE_EXTERN bool               local_ip_is_ipv6;
 MAYBE_EXTERN int                local_port              DEFVAL(0);
 #ifdef USE_SCTP
@@ -252,10 +257,18 @@ MAYBE_EXTERN int                tcp_readsize            DEFVAL(65535);
 MAYBE_EXTERN int                hasMedia                DEFVAL(0);
 #endif
 #ifdef RTP_STREAM
+MAYBE_EXTERN int                min_rtp_port            DEFVAL(DEFAULT_MIN_RTP_PORT);
+MAYBE_EXTERN int                max_rtp_port            DEFVAL(DEFAULT_MAX_RTP_PORT);
 MAYBE_EXTERN int                rtp_default_payload     DEFVAL(DEFAULT_RTP_PAYLOAD);
 MAYBE_EXTERN int                rtp_tasks_per_thread    DEFVAL(DEFAULT_RTP_THREADTASKS);
 MAYBE_EXTERN int                rtp_buffsize            DEFVAL(65535);
-#endif
+MAYBE_EXTERN bool               rtpcheck_debug          DEFVAL(0);
+#ifdef USE_OPENSSL
+MAYBE_EXTERN bool               srtpcheck_debug         DEFVAL(0);
+#endif // USE_OPENSSL
+MAYBE_EXTERN double             audiotolerance          DEFVAL(1.0);
+MAYBE_EXTERN double             videotolerance          DEFVAL(1.0);
+#endif // RTP_STREAM
 
 MAYBE_EXTERN bool               rtp_echo_enabled        DEFVAL(0);
 MAYBE_EXTERN char               media_ip[127];          /* also used for hostnames */
@@ -264,7 +277,7 @@ MAYBE_EXTERN int                media_port              DEFVAL(0);
 MAYBE_EXTERN size_t             media_bufsize           DEFVAL(2048);
 MAYBE_EXTERN bool               media_ip_is_ipv6        DEFVAL(false);
 MAYBE_EXTERN char               remote_ip[127];         /* also used for hostnames */
-MAYBE_EXTERN char               remote_ip_escaped[42];  /* with [brackets] in case of IPv6 */
+MAYBE_EXTERN char               remote_ip_w_brackets[42]; /* with [brackets] in case of IPv6 */
 MAYBE_EXTERN int                remote_port             DEFVAL(DEFAULT_PORT);
 MAYBE_EXTERN unsigned int       pid                     DEFVAL(0);
 MAYBE_EXTERN bool               print_all_responses     DEFVAL(false);
@@ -369,9 +382,12 @@ MAYBE_EXTERN unsigned long rtp2_pckts_pcap              DEFVAL(0);
 MAYBE_EXTERN unsigned long rtp2_bytes_pcap              DEFVAL(0);
 #ifdef RTP_STREAM
 MAYBE_EXTERN volatile unsigned long rtpstream_numthreads DEFVAL(0);
-MAYBE_EXTERN volatile unsigned long rtpstream_bytes_in  DEFVAL(0);
-MAYBE_EXTERN volatile unsigned long rtpstream_bytes_out DEFVAL(0);
-MAYBE_EXTERN volatile unsigned long rtpstream_pckts     DEFVAL(0);
+MAYBE_EXTERN volatile unsigned long rtpstream_abytes_in  DEFVAL(0);
+MAYBE_EXTERN volatile unsigned long rtpstream_vbytes_in  DEFVAL(0);
+MAYBE_EXTERN volatile unsigned long rtpstream_abytes_out DEFVAL(0);
+MAYBE_EXTERN volatile unsigned long rtpstream_vbytes_out DEFVAL(0);
+MAYBE_EXTERN volatile unsigned long rtpstream_apckts    DEFVAL(0);
+MAYBE_EXTERN volatile unsigned long rtpstream_vpckts    DEFVAL(0);
 #endif
 
 
@@ -470,7 +486,7 @@ enum E_Alter_YesNo {
 
 #include "strings.hpp"
 
-void sipp_exit(int rc);
+void sipp_exit(int rc, int rtp_errors, int echo_errors);
 
 char *get_peer_addr(char *);
 

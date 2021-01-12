@@ -77,27 +77,17 @@ SQN sqn_he= {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 /* end AKA */
 
 
-int createAuthHeaderMD5(const char *user,
-                        const char *password,
-                        int password_len,
-                        const char *method,
-                        const char *uri,
-                        const char *msgbody,
-                        const char *auth,
-                        const char *algo,
-                        unsigned int nonce_count,
-                        char *result);
-int createAuthHeaderAKAv1MD5(const char *user,
-                             const char *OP,
-                             const char *AMF,
-                             const char *K,
-                             const char *method,
-                             const char *uri,
-                             const char *msgbody,
-                             const char *auth,
-                             const char *algo,
-                             unsigned int nonce_count,
-                             char * result);
+static int createAuthHeaderMD5(
+    const char* user, const char* password, int password_len,
+    const char* method, const char* uri, const char* msgbody,
+    const char* auth, const char* algo, unsigned int nonce_count,
+    char* result, size_t result_len);
+
+static int createAuthHeaderAKAv1MD5(
+    const char* user, const char* OP, const char* AMF, const char* K,
+    const char* method, const char* uri, const char* msgbody,
+    const char* auth, const char* algo, unsigned int nonce_count,
+    char* result, size_t result_len);
 
 
 /* This function is from RFC 2617 Section 5 */
@@ -152,20 +142,18 @@ static char *stristr(const char* s1, const char* s2)
     return 0;
 }
 
-int createAuthHeader(const char *user, const char *password, const char *method,
-                     const char *uri, const char *msgbody, const char *auth,
-                     const char *aka_OP,
-                     const char *aka_AMF,
-                     const char *aka_K,
-                     unsigned int nonce_count,
-                     char *result)
+int createAuthHeader(
+    const char* user, const char* password, const char* method,
+    const char* uri, const char* msgbody, const char* auth,
+    const char* aka_OP, const char* aka_AMF, const char* aka_K,
+    unsigned int nonce_count, char* result, size_t result_len)
 {
 
-    char algo[32]="MD5";
+    char algo[32] = "MD5";
     char *start, *end;
 
     if ((start = stristr(auth, "Digest")) == NULL) {
-        sprintf(result, "createAuthHeader: authentication must be digest");
+        snprintf(result, result_len, "createAuthHeader: authentication must be digest");
         return 0;
     }
 
@@ -181,17 +169,19 @@ int createAuthHeader(const char *user, const char *password, const char *method,
     }
 
     if (strncasecmp(algo, "MD5", 3)==0) {
-        return createAuthHeaderMD5(user, password, strlen(password), method,
-                                   uri, msgbody, auth, algo, nonce_count, result);
+        return createAuthHeaderMD5(
+            user, password, strlen(password), method, uri, msgbody,
+            auth, algo, nonce_count, result, result_len);
     } else if (strncasecmp(algo, "AKAv1-MD5", 9)==0) {
         if (!aka_K) {
-            sprintf(result, "createAuthHeader: AKAv1-MD5 authentication requires a key");
+            snprintf(result, result_len, "createAuthHeader: AKAv1-MD5 authentication requires a key");
             return 0;
         }
-        return createAuthHeaderAKAv1MD5(user, aka_OP, aka_AMF, aka_K, method,
-                                        uri, msgbody, auth, algo, nonce_count, result);
+        return createAuthHeaderAKAv1MD5(
+            user, aka_OP, aka_AMF, aka_K, method, uri, msgbody, auth,
+            algo, nonce_count, result, result_len);
     } else {
-        sprintf(result, "createAuthHeader: authentication must use MD5 or AKAv1-MD5");
+        snprintf(result, result_len, "createAuthHeader: authentication must use MD5 or AKAv1-MD5");
         return 0;
     }
 
@@ -244,18 +234,12 @@ int getAuthParameter(const char *name, const char *header, char *result, int len
     return end - start;
 }
 
-static int createAuthResponseMD5(const char* user,
-                                 const char* password,
-                                 int password_len,
-                                 const char* method,
-                                 const char* uri,
-                                 const char* authtype,
-                                 const char* msgbody,
-                                 const char* realm,
-                                 const char* nonce,
-                                 const char* cnonce,
-                                 const char* nc,
-                                 unsigned char* result)
+static int createAuthResponseMD5(
+    const char* user, const char* password, int password_len,
+    const char* method, const char* uri, const char* authtype,
+    const char* msgbody, const char* realm, const char* nonce,
+    const char* cnonce, const char* nc,
+    unsigned char* result)
 {
     md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
     md5_byte_t resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE];
@@ -275,7 +259,7 @@ static int createAuthResponseMD5(const char* user,
     hashToHex(&ha1[0], &ha1_hex[0]);
 
     if (auth_uri) {
-        sprintf(tmp, "sip:%s", auth_uri);
+        snprintf(tmp, sizeof(tmp), "sip:%s", auth_uri);
     } else {
         strncpy(tmp, uri, sizeof(tmp) - 1);
     }
@@ -319,22 +303,15 @@ static int createAuthResponseMD5(const char* user,
     return 1;
 }
 
-int createAuthHeaderMD5(const char *user,
-                        const char *password,
-                        int password_len,
-                        const char *method,
-                        const char *uri,
-                        const char *msgbody,
-                        const char *auth,
-                        const char *algo,
-                        unsigned int nonce_count,
-                        char *result)
+int createAuthHeaderMD5(
+    const char* user, const char* password, int password_len,
+    const char* method, const char* uri, const char* msgbody,
+    const char* auth, const char* algo, unsigned int nonce_count,
+    char* result, size_t result_len)
 {
 
     unsigned char resp_hex[HASH_HEX_SIZE+1];
-    char tmp[MAX_HEADER_LEN],
-        tmp2[MAX_HEADER_LEN],
-        realm[MAX_HEADER_LEN],
+    char realm[MAX_HEADER_LEN],
         sipuri[MAX_HEADER_LEN],
         nonce[MAX_HEADER_LEN],
         authtype[16],
@@ -342,6 +319,7 @@ int createAuthHeaderMD5(const char *user,
         nc[32],
         opaque[64];
     int has_opaque = 0;
+    int written = 0;
 
     // Extract the Auth Type - If not present, using 'none'
     cnonce[0] = '\0';
@@ -363,17 +341,19 @@ int createAuthHeaderMD5(const char *user,
 
     // Extract the Realm
     if (!getAuthParameter("realm", auth, realm, sizeof(realm))) {
-        sprintf(result, "createAuthHeaderMD5: couldn't parse realm in '%s'", auth);
+        snprintf(result, result_len, "createAuthHeaderMD5: couldn't parse realm in '%s'", auth);
         return 0;
     }
 
-    sprintf(result, "Digest username=\"%s\",realm=\"%s\"", user, realm);
+    written += snprintf(
+        result + written, result_len - written,
+        "Digest username=\"%s\",realm=\"%s\"", user, realm);
 
     // Construct the URI
     if (auth_uri == NULL) {
-        sprintf(sipuri, "sip:%s", uri);
+        snprintf(sipuri, sizeof(sipuri), "sip:%s", uri);
     } else {
-        sprintf(sipuri, "sip:%s", auth_uri);
+        snprintf(sipuri, sizeof(sipuri), "sip:%s", auth_uri);
     }
 
     if (cnonce[0] != '\0') {
@@ -389,40 +369,32 @@ int createAuthHeaderMD5(const char *user,
         // digest-cln = realm / domain / nonce / opaque / stale / algorithm
         //                / qop-options / auth-param
         // qop-options = "qop" EQUAL LDQUOT qop-value *("," qop-value) RDQUOT
-        snprintf(tmp, sizeof(tmp), ",cnonce=\"%s\",nc=%s,qop=%s", cnonce, nc, authtype);
-        strcat(result, tmp);
+        written += snprintf(
+            result + written, result_len - written,
+            ",cnonce=\"%s\",nc=%s,qop=%s", cnonce, nc, authtype);
     }
-    snprintf(tmp, sizeof(tmp), ",uri=\"%s\"", sipuri);
-    strcat(result, tmp);
+    written += snprintf(
+        result + written, result_len - written, ",uri=\"%s\"", sipuri);
 
     // Extract the Nonce
     if (!getAuthParameter("nonce", auth, nonce, sizeof(nonce))) {
-        sprintf(result, "createAuthHeader: couldn't parse nonce");
+        snprintf(result, result_len, "createAuthHeader: couldn't parse nonce");
         return 0;
     }
 
-    createAuthResponseMD5(user,
-                          password,
-                          strlen(password),
-                          method,
-                          sipuri,
-                          authtype,
-                          msgbody,
-                          realm,
-                          nonce,
-                          cnonce,
-                          nc,
-                          &resp_hex[0]);
+    createAuthResponseMD5(
+        user, password, strlen(password), method, sipuri, authtype,
+        msgbody, realm, nonce, cnonce, nc, &resp_hex[0]);
 
-    snprintf(tmp2, sizeof(tmp2), ",nonce=\"%s\",response=\"%s\",algorithm=%s", nonce, resp_hex, algo);
-    strcat(result, tmp2);
-
+    written += snprintf(
+        result + written, result_len - written,
+        ",nonce=\"%s\",response=\"%s\",algorithm=%s", nonce, resp_hex, algo);
     if (has_opaque) {
-        snprintf(tmp2, sizeof(tmp2), ",opaque=\"%s\"", opaque);
-        strcat(result, tmp2);
+        written += snprintf(
+            result + written, result_len - written, ",opaque=\"%s\"", opaque);
     }
 
-    return 1;
+    return written;
 }
 
 int verifyAuthHeader(const char *user, const char *password, const char *method, const char *auth, const char *msgbody)
@@ -454,18 +426,9 @@ int verifyAuthHeader(const char *user, const char *password, const char *method,
         getAuthParameter("cnonce", auth, cnonce, sizeof(cnonce));
         getAuthParameter("nc", auth, nc, sizeof(nc));
         getAuthParameter("qop", auth, authtype, sizeof(authtype));
-        createAuthResponseMD5(user,
-                              password,
-                              strlen(password),
-                              method,
-                              uri,
-                              authtype,
-                              msgbody,
-                              realm,
-                              nonce,
-                              cnonce,
-                              nc,
-                              result);
+        createAuthResponseMD5(
+            user, password, strlen(password), method, uri, authtype,
+            msgbody, realm, nonce, cnonce, nc, result);
         getAuthParameter("response", auth, response, sizeof(response));
         TRACE_CALLDEBUG("Processing verifyauth command - user %s, password %s, method %s, uri %s, realm %s, nonce %s, result expected %s, response from user %s\n",
                 user,
@@ -668,20 +631,21 @@ static char* base64_decode_string(const char* buf, unsigned int len, int* newlen
     return out;
 }
 
-char base64[65]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+char base64[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-char hexa[17]="0123456789abcdef";
-int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP,
-                             const char *aka_AMF, const char *aka_K,
-                             const char *method, const char *uri,
-                             const char *msgbody, const char *auth,
-                             const char *algo, unsigned int nonce_count,
-                             char *result)
+char hexa[17] = "0123456789abcdef";
+
+static int createAuthHeaderAKAv1MD5(
+    const char* user, const char* aka_OP, const char* aka_AMF,
+    const char* aka_K, const char* method, const char* uri,
+    const char* msgbody, const char* auth, const char* algo,
+    unsigned int nonce_count, char* result, size_t result_len)
 {
 
     char tmp[MAX_HEADER_LEN];
     char *start, *end;
-    int has_auts = 0, resuf = 1;
+    int has_auts = 0;
+    int written = 0;
     char *nonce64, *nonce;
     int noncelen;
     AMF amf;
@@ -700,7 +664,7 @@ int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP,
 
     // Extract the Nonce
     if ((start = stristr(auth, "nonce=")) == NULL) {
-        sprintf(result, "createAuthHeaderAKAv1MD5: couldn't parse nonce");
+        snprintf(result, result_len, "createAuthHeaderAKAv1MD5: couldn't parse nonce");
         return 0;
     }
     start = start + strlen("nonce=");
@@ -715,10 +679,12 @@ int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP,
     nonce64 = tmp;
     nonce = base64_decode_string(nonce64, end-start, &noncelen);
     if (noncelen < RANDLEN + AUTNLEN) {
-        sprintf(result, "createAuthHeaderAKAv1MD5 : Nonce is too short %d < %d expected \n",
-                noncelen, RANDLEN + AUTNLEN);
         if (nonce)
             free(nonce);
+        snprintf(
+            result, result_len,
+            "createAuthHeaderAKAv1MD5 : Nonce is too short %d < %d expected\n",
+            noncelen, RANDLEN + AUTNLEN);
         return 0;
     }
     memcpy(rnd, nonce, RANDLEN);
@@ -740,7 +706,9 @@ int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP,
     f1(k, rnd, sqn, (unsigned char *) aka_AMF, xmac, op);
     if (memcmp(mac, xmac, MACLEN) != 0) {
         free(nonce);
-        sprintf(result, "createAuthHeaderAKAv1MD5 : MAC != eXpectedMAC -> Server might not know the secret (man-in-the-middle attack?) \n");
+        snprintf(
+            result, result_len,
+            "createAuthHeaderAKAv1MD5 : MAC != expectedMAC -> Server might not know the secret (man-in-the-middle attack?)\n");
         return 0;
     }
 
@@ -752,10 +720,14 @@ int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP,
         sqn_he[5] = sqn[5];
         has_auts = 0;
         /* RES has to be used as password to compute response */
-        resuf = createAuthHeaderMD5(user, (char *) res, RESLEN, method, uri, msgbody, auth, algo, nonce_count, result);
-        if (resuf == 0) {
-            sprintf(result, "createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
+        written = createAuthHeaderMD5(
+            user, (const char *)res, RESLEN, method, uri, msgbody, auth,
+            algo, nonce_count, result, result_len);
+        if (written == 0) {
             free(nonce);
+            snprintf(
+                result, result_len,
+                "createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
             return 0;
         }
     } else {
@@ -767,26 +739,30 @@ int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP,
         has_auts = 1;
         /* When re-synchronisation occurs an empty password has to be used */
         /* to compute MD5 response (Cf. rfc 3310 section 3.2) */
-        resuf = createAuthHeaderMD5(user, "", 0, method, uri, msgbody, auth, algo, nonce_count, result);
-        if (resuf == 0) {
-            sprintf(result, "createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
+        written = createAuthHeaderMD5(
+            user, "", 0, method, uri, msgbody, auth, algo, nonce_count,
+            result, result_len);
+        if (written == 0) {
             free(nonce);
+            snprintf(
+                result, result_len,
+                "createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
             return 0;
         }
     }
     if (has_auts) {
         /* Format data for output in the SIP message */
-        for(i=0; i<AUTSLEN; i++) {
-            auts_hex[2*i]=hexa[(auts_bin[i]&0xF0)>>4];
-            auts_hex[2*i+1]=hexa[auts_bin[i]&0x0F];
+        for (i = 0; i < AUTSLEN; i++) {
+            auts_hex[2*i] = hexa[(auts_bin[i]&0xF0)>>4];
+            auts_hex[2*i+1] = hexa[auts_bin[i]&0x0F];
         }
-        auts_hex[AUTS64LEN-1]=0;
+        auts_hex[AUTS64LEN-1] = 0;
 
-        sprintf(tmp, "%s,auts=\"%s\"", result, auts_hex);
-        strcat(result, tmp);
+        written += snprintf(
+            result + written, result_len - written, ",auts=\"%s\"", auts_hex);
     }
     free(nonce);
-    return 1;
+    return written;
 }
 
 
@@ -821,7 +797,7 @@ TEST(DigestAuth, BasicVerification) {
                            " nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\"\r\n,"
                            " opaque=\"5ccc069c403ebaf9f0171e9517f40e41\""));
     char result[255];
-    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, NULL, NULL, NULL, 1, result);
+    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, NULL, NULL, NULL, 1, result, 255);
     EXPECT_STREQ("Digest username=\"testuser\",realm=\"testrealm@host.com\",uri=\"sip:sip:example.com\",nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\",response=\"db94e01e92f2b09a52a234eeca8b90f7\",algorithm=MD5,opaque=\"5ccc069c403ebaf9f0171e9517f40e41\"", result);
     EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header);
@@ -844,7 +820,8 @@ TEST(DigestAuth, qop) {
                      NULL,
                      NULL,
                      1,
-                     result);
+                     result,
+                     1024);
     EXPECT_EQ(1, !!strstr(result, ",qop=auth-int,")); // no double quotes around qop-value
     EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header);

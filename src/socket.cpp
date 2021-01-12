@@ -44,6 +44,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "sipp.hpp"
 #include "socket.hpp"
 #include "logger.hpp"
@@ -175,7 +176,7 @@ static void process_set(char* what)
     } else if (!strcmp(what, "display")) {
         if (!strcmp(rest, "main")) {
             display_scenario = main_scenario;
-        } else if (!strcmp(rest, "ooc")) {
+        } else if (!strcmp(rest, "ooc") && ooc_scenario) {
             display_scenario = ooc_scenario;
         } else {
             WARNING("Unknown display scenario: %s", rest);
@@ -2346,9 +2347,9 @@ int open_connections()
             get_inet_address(&remote_sockaddr, remote_ip, sizeof(remote_ip));
             family_hint = remote_sockaddr.ss_family;
             if (remote_sockaddr.ss_family == AF_INET) {
-                strcpy(remote_ip_escaped, remote_ip);
+                strcpy(remote_ip_w_brackets, remote_ip);
             } else {
-                sprintf(remote_ip_escaped, "[%s]", remote_ip);
+                sprintf(remote_ip_w_brackets, "[%.39s]", remote_ip);
             }
             fprintf(stderr, "Done.\n");
         }
@@ -2423,13 +2424,13 @@ int open_connections()
         memcpy(&local_addr_storage, &local_sockaddr, sizeof(local_sockaddr));
 
         if (local_sockaddr.ss_family == AF_INET) {
-            strcpy(local_ip_escaped, local_ip);
+            strcpy(local_ip_w_brackets, local_ip);
             if (!bind_specific) {
                 _RCAST(struct sockaddr_in*, &local_sockaddr)->sin_addr.s_addr = INADDR_ANY;
             }
         } else {
             local_ip_is_ipv6 = true;
-            sprintf(local_ip_escaped, "[%s]", local_ip);
+            sprintf(local_ip_w_brackets, "[%.39s]", local_ip);
             if (!bind_specific) {
                 memcpy(&_RCAST(struct sockaddr_in6*, &local_sockaddr)->sin6_addr, &in6addr_any, sizeof(in6addr_any));
             }

@@ -46,7 +46,8 @@ extern int key_dc;
 class ScreenPrinter {
 public:
     ScreenPrinter():
-        M_headless(!isatty(fileno(stdout)))
+        M_headless(!isatty(fileno(stdout))),
+        M_last(false)
     {};
     void redraw();
     void print_closing_stats();
@@ -65,7 +66,7 @@ private:
 
     std::vector<std::string> lines;
 
-    bool M_last = false;
+    bool M_last;
 };
 
 extern ScreenPrinter* sp;

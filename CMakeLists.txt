@@ -11,11 +11,14 @@ if(EXISTS ./gmock/CMakeLists.txt)
   add_subdirectory(gmock EXCLUDE_FROM_ALL)
 endif()
 
+# Include binary dir first, where we add generated config.h and
+# version.h. If nothing is found there (release tar) use the version.h
+# from the source.
 include_directories(
+  ${PROJECT_BINARY_DIR}
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/gtest/include
   ${PROJECT_SOURCE_DIR}/gmock/include
-  ${PROJECT_BINARY_DIR}
   "/usr/local/include")
 
 option(BUILD_STATIC "Build a statically-linked binary" OFF)
@@ -29,20 +32,36 @@ file(GLOB all_SRCS
   "${PROJECT_SOURCE_DIR}/src/*.c"
   )
 
-INCLUDE (${CMAKE_ROOT}/Modules/CheckIncludeFile.cmake)
-INCLUDE (${CMAKE_ROOT}/Modules/CheckSymbolExists.cmake)
-INCLUDE (${CMAKE_ROOT}/Modules/CheckStructHasMember.cmake)
+include(${CMAKE_ROOT}/Modules/CheckCXXSourceCompiles.cmake)
+include(${CMAKE_ROOT}/Modules/CheckIncludeFile.cmake)
+include(${CMAKE_ROOT}/Modules/CheckSymbolExists.cmake)
+include(${CMAKE_ROOT}/Modules/CheckStructHasMember.cmake)
 
-CHECK_INCLUDE_FILE("endian.h"        HAVE_ENDIAN_H)
-CHECK_INCLUDE_FILE("sys/endian.h"        HAVE_SYS_ENDIAN_H)
-CHECK_INCLUDE_FILE("sys/epoll.h"        HAVE_EPOLL)
+CHECK_INCLUDE_FILE("endian.h" HAVE_ENDIAN_H)
+CHECK_INCLUDE_FILE("sys/endian.h" HAVE_SYS_ENDIAN_H)
+CHECK_INCLUDE_FILE("sys/epoll.h" HAVE_EPOLL)
 CHECK_STRUCT_HAS_MEMBER("struct udphdr" uh_sport "sys/types.h;netinet/udp.h"  HAVE_UDP_UH_PREFIX)
 
 CHECK_SYMBOL_EXISTS(le16toh "endian.h" HAVE_DECL_LE16TOH)
 CHECK_SYMBOL_EXISTS(le16toh "sys/endian.h" HAVE_DECL_LE16TOH_BSD)
 
-configure_file ("${PROJECT_SOURCE_DIR}/include/config.h.in"
-                  "${PROJECT_BINARY_DIR}/config.h" )
+CHECK_CXX_SOURCE_COMPILES("
+#include <string>
+int main() { auto s = std::string(\"x\"); s.c_str(); return 0; }
+" HAVE_CXX_AUTO_KEYWORD)
+
+CHECK_CXX_SOURCE_COMPILES("
+#include <vector>
+int main() { std::vector<int> v; for (int i : v); return 0; }
+" HAVE_CXX_RANGE_LOOP)
+
+if(NOT HAVE_CXX_AUTO_KEYWORD OR NOT HAVE_CXX_RANGE_LOOP)
+  message(FATAL_ERROR "Your C++ compiler is too old (does not support the 'auto' keyword or range loops)")
+endif()
+
+
+configure_file("${PROJECT_SOURCE_DIR}/include/config.h.in"
+               "${PROJECT_BINARY_DIR}/config.h" )
 
 list(REMOVE_ITEM all_SRCS
   "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
@@ -71,7 +90,10 @@ if(USE_PCAP)
 endif(USE_PCAP)
 
 if(USE_GSL)
-  add_definitions("-DHAVE_GSL")
+  find_library(GSL_LIBRARY gsl)
+  if(GSL_LIBRARY)
+    add_definitions("-DHAVE_GSL")
+  endif(GSL_LIBRARY)
 endif(USE_GSL)
 
 if(USE_SCTP)
@@ -86,14 +108,62 @@ add_executable(sipp ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp.cpp")
 add_executable(sipp_unittest EXCLUDE_FROM_ALL ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
 target_compile_definitions(sipp_unittest PUBLIC "-DGTEST")
 
+# add version
+find_package(Git)
+file(WRITE ${PROJECT_SOURCE_DIR}/include/version.cmake
+"execute_process(
+     COMMAND ${GIT_EXECUTABLE} describe --tags --always --first-parent
+     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+     OUTPUT_VARIABLE VERSION
+     OUTPUT_STRIP_TRAILING_WHITESPACE
+ )
+ configure_file(\${SRC} \${DST} @ONLY)
+")
+add_custom_target(
+    version
+    if test -d ${PROJECT_SOURCE_DIR}/.git \; then
+        ${CMAKE_COMMAND} -D SRC=${PROJECT_SOURCE_DIR}/include/version.h.in
+        -D DST=${PROJECT_BINARY_DIR}/version.h
+        -P ${PROJECT_SOURCE_DIR}/include/version.cmake \;
+    fi
+)
+add_dependencies(sipp version)
+add_dependencies(sipp_unittest version)
+
 if(BUILD_STATIC)
   set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
 endif(BUILD_STATIC)
 
-find_library(CURSES_LIBRARY NAMES ncursesw cursesw ncurses curses)
+find_package(PkgConfig QUIET)  # import pkg_check_modules() and friends
+if(PKG_CONFIG_FOUND)
+  pkg_search_module(CURSES_LIBRARY ncursesw cursesw ncurses curses)
+  if(CURSES_LIBRARY_FOUND)
+    set(CURSES_LIBRARY ${CURSES_LIBRARY_LIBRARIES})
+  endif()
+  pkg_search_module(TINFO_LIBRARY tinfo)
+  if(TINFO_LIBRARY_FOUND)
+    set(TINFO_LIBRARY ${TINFO_LIBRARY_LIBRARIES})
+  endif()
+endif()
+if(NOT CURSES_LIBRARY)
+  find_library(CURSES_LIBRARY NAMES ncursesw cursesw ncurses curses)
+endif()
+if(NOT TINFO_LIBRARY)
+  find_library(TINFO_LIBRARY NAMES tinfo)
+endif()
 if(CURSES_LIBRARY)
   target_link_libraries(sipp dl ${CURSES_LIBRARY} pthread)
   target_link_libraries(sipp_unittest dl ${CURSES_LIBRARY} pthread gtest gmock)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    if(NOT BUILD_STATIC)
+      if(TINFO_LIBRARY)
+        target_link_libraries(sipp dl ${TINFO_LIBRARY})
+        target_link_libraries(sipp_unittest dl ${TINFO_LIBRARY})
+      else()
+        message(FATAL_ERROR "libtinfo was not found -- please install package")
+      endif(TINFO_LIBRARY)
+    endif(NOT BUILD_STATIC)
+  endif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 else()
   message(FATAL_ERROR "libcurses / libncurses was not found; please install devel package")
 endif()
@@ -104,10 +174,18 @@ if(RT_LIBRARY)
   target_link_libraries(sipp_unittest ${RT_LIBRARY})
 endif()
 
-if(USE_GSL)
+if(DEBUG)
+  add_definitions("-g -O0")
+endif(DEBUG)
+
+if(SIPP_MAX_MSG_SIZE)
+  add_definitions("-DSIPP_MAX_MSG_SIZE=${SIPP_MAX_MSG_SIZE}")
+endif(SIPP_MAX_MSG_SIZE)
+
+if(USE_GSL AND GSL_LIBRARY)
   target_link_libraries(sipp gsl gslcblas)
   target_link_libraries(sipp_unittest gsl gslcblas)
-endif(USE_GSL)
+endif(USE_GSL AND GSL_LIBRARY)
 
 if(USE_SSL)
   target_link_libraries(sipp crypto ssl)

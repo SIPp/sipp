@@ -459,7 +459,7 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
                 _advance(c, snprintf(c, bufEnd - c, "Unable to create '%s': %s.\n",
                                      screen_logfile, strerror(errno)));
             }
-            sipp_exit(EXIT_FATAL_ERROR);
+            sipp_exit(EXIT_FATAL_ERROR, 0, 0);
         }
     }
 
@@ -486,9 +486,9 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
 
     if (fatal) {
         if (error == EADDRINUSE) {
-            sipp_exit(EXIT_BIND_ERROR);
+            sipp_exit(EXIT_BIND_ERROR, 0, 0);
         } else {
-            sipp_exit(EXIT_FATAL_ERROR);
+            sipp_exit(EXIT_FATAL_ERROR, 0, 0);
         }
     }
 }
@@ -500,7 +500,7 @@ extern "C" {
         va_start(ap, fmt);
         _screen_error(true, false, 0, fmt, ap);
         va_end(ap);
-        assert(0);
+        exit(1);
     }
 
     void ERROR_NO(const char *fmt, ...)
@@ -509,7 +509,7 @@ extern "C" {
         va_start(ap, fmt);
         _screen_error(true, true, errno, fmt, ap);
         va_end(ap);
-        assert(0);
+        exit(1);
     }
 
     void WARNING(const char *fmt, ...)

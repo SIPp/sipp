@@ -27,14 +27,11 @@
 #include <iomanip>
 #include <assert.h>
 
+#include "config.h"
 #include "sipp.hpp"
 #include "scenario.hpp"
 #include "screen.hpp"
-#ifdef HAVE_GSL
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_randist.h>
-#include <gsl/gsl_cdf.h>
-#endif
+#include "stat.hpp"
 
 /*
 ** Local definitions (macros)
@@ -488,6 +485,15 @@ void CStat::initRepartition(unsigned int* repartition,
     (*tabRepartition)[nombre].nbInThisBorder = 0;
 }
 
+void CStat::setRtpEchoErrors(int value)
+{
+    M_rtpEchoErrors = value;
+}
+
+int CStat::getRtpEchoErrors()
+{
+    return M_rtpEchoErrors;
+}
 
 int CStat::computeStat (E_Action P_action)
 {
@@ -1052,6 +1058,7 @@ CStat::CStat ()
     M_dumpRespTime = NULL;
     M_fileNameRtt  = NULL;
     M_rtdInfo = NULL;
+    M_rtpEchoErrors = 0;
 
     init();
 }
