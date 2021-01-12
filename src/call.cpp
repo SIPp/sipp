@@ -1373,6 +1373,7 @@ bool call::connect_socket_if_needed()
         if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
             ERROR_NO("Unable to get a TCP/SCTP/TLS socket");
         }
+        call_socket->ss_count++;
 
         if (existing) {
             return true;
