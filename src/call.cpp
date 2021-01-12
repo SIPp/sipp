@@ -6807,8 +6807,8 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
 
         strcpy(last_recv_msg, P_recv);
 
-        WARNING("Automatic response mode for an unexpected INFO, NOTIFY, OPTIONS or UPDATE for call: %s",
-                (id == NULL) ? "none" : id);
+        TRACE_CALLDEBUG("Automatic response mode for an unexpected INFO, NOTIFY, OPTIONS or UPDATE for call: %s",
+                        (id == NULL) ? "none" : id);
         sendBuffer(createSendingMessage(get_default_message("200"), -1));
 
         // restore previous last msg
