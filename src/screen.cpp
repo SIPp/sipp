@@ -263,7 +263,6 @@ void ScreenPrinter::get_lines()
 }
 
 bool do_hide = true;
-bool show_index = false;
 
 void ScreenPrinter::draw_scenario_screen()
 {
@@ -486,9 +485,6 @@ void ScreenPrinter::draw_scenario_screen()
             continue;
         }
         int buf_len = 0;
-        if (show_index) {
-            buf_len += snprintf(buf + buf_len, bufsiz - buf_len, "%-2lu:", index);
-        }
 
         if (SendingMessage* src = curmsg->send_scheme) {
             if (creationMode == MODE_SERVER) {
@@ -650,7 +646,9 @@ void ScreenPrinter::draw_scenario_screen()
             ERROR("Scenario command %d not implemented in display", curmsg->M_type);
         }
 
-        lines.push_back(buf);
+        char buf_with_index[80] = {0};
+        snprintf(buf_with_index, 80, "%-2lu:%s", index, buf);
+        lines.push_back(buf_with_index);
         if (curmsg->crlf) {
             lines.push_back("");
         }
