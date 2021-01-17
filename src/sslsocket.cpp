@@ -17,11 +17,20 @@
  *           From Hewlett Packard Company.
  */
 
+#include <stdlib.h>
+#include <string.h>
+
 #include "sipp.hpp"
 #include "sslsocket.hpp"
 
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
 
+#define CALL_BACK_USER_DATA "ksgr"
+
+static SSL_CTX* sip_trp_ssl_ctx = NULL;  /* For SSL cserver context */
+static SSL_CTX* sip_trp_ssl_ctx_client = NULL;  /* For SSL cserver context */
+
+#if defined(USE_OPENSSL) && OPENSSL_VERSION_NUMBER < 0x10100000
 #define MUTEX_TYPE pthread_mutex_t
 #define MUTEX_SETUP(x) pthread_mutex_init(&(x), NULL)
 #define MUTEX_CLEANUP(x) pthread_mutex_destroy(&(x))
@@ -29,14 +38,8 @@
 #define MUTEX_UNLOCK(x) pthread_mutex_unlock(&(x))
 #define THREAD_ID pthread_self()
 
-#define CALL_BACK_USER_DATA "ksgr"
-
-static SSL_CTX* sip_trp_ssl_ctx = NULL; /* For SSL cserver context */
-static SSL_CTX* sip_trp_ssl_ctx_client = NULL; /* For SSL cserver context */
-
 static MUTEX_TYPE *mutex_buf = NULL;
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000
 static void locking_function(int mode, int n, const char *file, int line)
 {
     (void)file; /* unused, avoid warnings */
@@ -47,17 +50,18 @@ static void locking_function(int mode, int n, const char *file, int line)
     else
         MUTEX_UNLOCK(mutex_buf[n]);
 }
-#endif
 
-#if !defined(WIN32) && OPENSSL_VERSION_NUMBER < 0x10000000
+#ifndef WIN32
 static unsigned long id_function()
 {
     return (unsigned long)THREAD_ID;
 }
 #endif
+#endif
 
 static int thread_setup()
 {
+#if defined(USE_OPENSSL) && OPENSSL_VERSION_NUMBER < 0x10100000
     int i;
     mutex_buf = (MUTEX_TYPE *)malloc(sizeof(MUTEX_TYPE) * CRYPTO_num_locks());
 
@@ -66,12 +70,12 @@ static int thread_setup()
     for (i = 0; i < CRYPTO_num_locks(); ++i)
         MUTEX_SETUP(mutex_buf[i]);
 
-#if !defined(WIN32) && OPENSSL_VERSION_NUMBER < 0x10000000
+#ifndef WIN32
     /* For openssl>=1.0 it uses the address of errno for thread id.
      * Works for us. */
     CRYPTO_set_id_callback(id_function);
 #endif
-#if OPENSSL_VERSION_NUMBER < 0x10100000
+
     /* > All OpenSSL code has now been transferred to use the new
      * > threading API, so the old one is no longer used and can be
      * > removed. [...] There is now no longer a need to set locking
@@ -165,7 +169,11 @@ static int sip_tls_load_crls(SSL_CTX* ctx , const char* crlfile)
     }
 
     /* Add the CRLS to the lookpup object */
+#if defined(USE_WOLFSSL)
+    if (X509_LOOKUP_load_file(lookup, crlfile, X509_FILETYPE_PEM) != 1) {
+#else
     if (X509_load_crl_file(lookup, crlfile, X509_FILETYPE_PEM) != 1) {
+#endif
         return (-1);
     }
 
@@ -186,28 +194,57 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
 
     if (tls_version == 0.0) {
 #if OPENSSL_VERSION_NUMBER >= 0x10100000  /* >= 1.1 */
-        ssl_ctx = SSL_CTX_new(TLS_method());
+        if (!strncmp(context_name, "client", 6)) {
+            ssl_ctx = SSL_CTX_new(TLS_client_method());
+        } else {
+            ssl_ctx = SSL_CTX_new(TLS_server_method());
+        }
 #else
-        ssl_ctx = SSL_CTX_new(SSLv23_method());
+        if (!strncmp(context_name, "client", 6)) {
+            ssl_ctx = SSL_CTX_new(SSLv23_client_method());
+        } else {
+            ssl_ctx = SSL_CTX_new(SSLv23_server_method());
+        }
 #endif
     } else if (tls_version == 1.0) {
-        ssl_ctx = SSL_CTX_new(TLSv1_method());
+#if !defined(USE_WOLFSSL) || defined(WOLFSSL_ALLOW_TLSV10)
+        if (!strncmp(context_name, "client", 6)) {
+            ssl_ctx = SSL_CTX_new(TLSv1_client_method());
+        } else {
+            ssl_ctx = SSL_CTX_new(TLSv1_server_method());
+        }
+#else
+        ERROR("Old TLS version 1.0 is no longer supported for [%s] context.", context_name);
+        ssl_ctx = NULL;
+#endif
     } else if (tls_version == 1.1) {
-        ssl_ctx = SSL_CTX_new(TLSv1_1_method());
+        if (!strncmp(context_name, "client", 6)) {
+            ssl_ctx = SSL_CTX_new(TLSv1_1_client_method());
+        } else {
+            ssl_ctx = SSL_CTX_new(TLSv1_1_server_method());
+        }
     } else if (tls_version == 1.2) {
-        ssl_ctx = SSL_CTX_new(TLSv1_2_method());
+        if (!strncmp(context_name, "client", 6)) {
+            ssl_ctx = SSL_CTX_new(TLSv1_2_client_method());
+        } else {
+            ssl_ctx = SSL_CTX_new(TLSv1_2_server_method());
+        }
     } else {
         ERROR("Unrecognized TLS version for [%s] context: %1.1f", context_name, tls_version);
         ssl_ctx = NULL;
     }
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000  /* >= 1.1 */
+#if !defined(USE_WOLFSSL) || defined(WOLFSSL_ALLOW_TLSV10)
     SSL_CTX_set_min_proto_version(ssl_ctx, TLS1_VERSION);
+#else
+    SSL_CTX_set_min_proto_version(ssl_ctx, TLS1_1_VERSION);
+#endif
 #endif
     return ssl_ctx;
 }
 
-#endif //USE_OPENSSL
+#endif // USE_OPENSSL || USE_WOLFSSL
 
 /************* Prepare the SSL context ************************/
 enum tls_init_status TLS_init_context(void)

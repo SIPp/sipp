@@ -20,7 +20,7 @@
 #ifndef __SIPP_SOCKET_H__
 #define __SIPP_SOCKET_H__
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
 #include "sslsocket.hpp"
 #endif
 
@@ -129,7 +129,7 @@ private:
 
     bool ss_call_socket; /* Is this a call socket? */
 
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
     SSL *ss_ssl; /* The underlying SSL descriptor for this socket. */
     BIO *ss_bio; /* The underlying BIO descriptor for this socket. */
 #endif
@@ -155,7 +155,7 @@ bool reconnect_allowed();
 /********************** Network Interfaces ********************/
 
 int send_message(int s, void ** comp_state, char * msg);
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
 int send_message_tls(SSL *s, void ** comp_state, char * msg);
 #endif
 

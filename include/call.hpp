@@ -199,10 +199,10 @@ protected:
     JLSRTP _rxUACVideo;
     JLSRTP _txUASVideo;
     JLSRTP _rxUASVideo;
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     char _pref_audio_cs_out[24];
     char _pref_video_cs_out[24];
-#endif // USE_OPENSSL
+#endif // USE_TLS
 #endif // RTP_STREAM
 
     /* holds the auth header and if the challenge was 401 or 407 */
@@ -340,11 +340,11 @@ protected:
 
 #ifdef RTP_STREAM
     std::string extract_rtp_remote_addr(const char * message, int &ip_ver, int &audio_port, int &video_port);
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     int check_audio_ciphersuite_match(SrtpAudioInfoParams &pA);
     int check_video_ciphersuite_match(SrtpVideoInfoParams &pV);
     int extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, SrtpVideoInfoParams &pV);
-#endif // USE_OPENSSL
+#endif // USE_TLS
 #endif // RTP_STREAM
 
     bool lost(int index);
@@ -363,10 +363,10 @@ protected:
     char *debugBuffer;
     int debugLength;
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     FILE* _srtpctxdebugfile;
     int logSrtpInfo(const char *fmt, ...);
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     SessionState _sessionStateCurrent;
     SessionState _sessionStateOld;

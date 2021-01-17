@@ -337,7 +337,7 @@ std::string call::extract_rtp_remote_addr(const char* msg, int &ip_ver, int &aud
     return host;
 }
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
 int call::check_audio_ciphersuite_match(SrtpAudioInfoParams &pA)
 {
     int audio_cs_len = 0;
@@ -737,7 +737,7 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
       return -1; /* FAILURE -- No SDP body found */
     }
 }
-#endif // USE_OPENSSL
+#endif // USE_TLS
 #endif // RTP_STREAM
 
 /******* Very simple hash for retransmission detection  *******/
@@ -843,7 +843,7 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
 
 void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall)
 {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     _srtpctxdebugfile = NULL;
 
     if (srtpcheck_debug)
@@ -863,7 +863,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
             WARNING("Error encountered opening srtp ctx debug file");
         }
     }
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     _sessionStateCurrent = eNoSession;
     _sessionStateOld = eNoSession;
@@ -918,7 +918,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     next_nonce_count = 1;
 
 #ifdef RTP_STREAM
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     //
     // JLSRTP CLIENT context constants
     //
@@ -957,7 +957,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
 
     memset(_pref_audio_cs_out, 0, sizeof(_pref_audio_cs_out));
     memset(_pref_video_cs_out, 0, sizeof(_pref_video_cs_out));
-#endif // USE_OPENSSL
+#endif // USE_TLS
     /* check and warn on rtpstream_new_call result? -> error alloc'ing mem */
     rtpstream_new_call(&rtpstream_callinfo);
 #endif // RTP_STREAM
@@ -1233,13 +1233,13 @@ call::~call()
     free(rtd_done);
     free(debugBuffer);
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     if (srtpcheck_debug)
     {
         fclose(_srtpctxdebugfile);
         _srtpctxdebugfile = NULL;
     }
-#endif // USE_OPENSSL
+#endif // USE_TLS
 }
 
 void call::setRtpEchoErrors(int value)
@@ -2585,7 +2585,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     bool suppresscrlf = false;
 
 #ifdef RTP_STREAM
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     bool srtp_audio_updated = false;
     bool srtp_video_updated = false;
 
@@ -2612,7 +2612,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     memset(pV.secondary_video_cryptokeyparams, 0, sizeof(pV.secondary_video_cryptokeyparams));
     pV.primary_unencrypted_video_srtp = false;
     pV.secondary_unencrypted_video_srtp = false;
-#endif // USE_OPENSSL
+#endif // USE_TLS
 #endif // RTP_STREAM
 
     *dest = '\0';
@@ -2763,9 +2763,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
           } else if (comp->offset >= 1) {
               temp_audio_port = rtpstream_callinfo.local_audioport + comp->offset;
           }
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
           logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Audio_Port: %d\n", temp_audio_port);
-#endif // USE_OPENSSL
+#endif // USE_TLS
           dest += snprintf(dest, left, "%d",temp_audio_port);
         }
         break;
@@ -2782,13 +2782,13 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
           } else if (comp->offset >= 1) {
               temp_video_port = rtpstream_callinfo.local_videoport + comp->offset;
           }
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
           logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Video_Port: %d\n", temp_video_port);
-#endif // USE_OPENSSL
+#endif // USE_TLS
           dest += snprintf(dest, left, "%d",temp_video_port);
         }
         break;
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
         case E_Message_CryptoTag1Audio:
         {
             pA.audio_found = true;
@@ -3797,7 +3797,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             srtp_video_updated = true;
         }
         break;
-#endif // USE_OPENSSL
+#endif // USE_TLS
 #endif // RTP_STREAM
         case E_Message_Media_IP_Type:
             dest += snprintf(dest, left, "%s", (media_ip_is_ipv6 ? "6" : "4"));
@@ -3892,8 +3892,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             dest += snprintf(dest, left, "%d", userId);
             break;
         case E_Message_SippVersion:
-            /* Drop the initial "v" from the VERSION string for legacy reasons. */
-            dest += snprintf(dest, left, "%s", (const char*)VERSION + 1);
+            /* Drop the initial "v" from the SIPP_VERSION string for legacy reasons. */
+            dest += snprintf(dest, left, "%s", (const char*)SIPP_VERSION + 1);
             break;
         case E_Message_Variable: {
             int varId = comp->varId;
@@ -4125,7 +4125,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     }
 
 #ifdef RTP_STREAM
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
     // PASS OUTGOING SRTP PARAMETERS...
     if (srtp_audio_updated && (pA.primary_audio_cryptotag != 0))
     {
@@ -4159,34 +4159,34 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             _rxUACVideo.setID(rxUACV);
         }
     }
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
     if (body &&
         !strcmp(get_header_content(msg_buffer, (char*)"Content-Type:"), "application/sdp"))
     {
         if (getSessionStateCurrent() == eNoSession)
         {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             logSrtpInfo("call::createSendingMessage():  Switching session state:  eNoSession --> eOfferSent\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
             setSessionState(eOfferSent);
         }
         else if (getSessionStateCurrent() == eCompleted)
         {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             logSrtpInfo("call::createSendingMessage():  Switching session state:  eCompleted --> eOfferSent\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
             setSessionState(eOfferSent);
         }
         else if (getSessionStateCurrent() == eOfferReceived)
         {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             logSrtpInfo("call::createSendingMessage():  Switching session state:  eOfferReceived --> eAnswerSent\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
             setSessionState(eAnswerSent);
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             logSrtpInfo("call::createSendingMessage():  Switching session state:  eAnswerSent --> eCompleted\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
             setSessionState(eCompleted);
         }
     }
@@ -4645,12 +4645,12 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         int video_port = 0;
         std::string host;
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
         int audio_offer_ciphersuite_swap = 0;
         int video_offer_ciphersuite_swap = 0;
         int audio_answer_ciphersuite_match = -1;
         int video_answer_ciphersuite_match = -1;
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
         ptr = get_header_content(msg, "Content-Length:");
 
@@ -4658,31 +4658,31 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         {
             if (getSessionStateCurrent() == eNoSession)
             {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                 logSrtpInfo("call::process_incoming():  Switching session state:  eNoSession --> eOfferReceived\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
                 setSessionState(eOfferReceived);
             }
             else if (getSessionStateCurrent() == eCompleted)
             {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                 logSrtpInfo("call::process_incoming():  Switching session state:  eCompleted --> eOfferReceived\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
                 setSessionState(eOfferReceived);
             }
             else if (getSessionStateCurrent() == eOfferSent)
             {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                 logSrtpInfo("call::process_incoming():  Switching session state:  eOfferSent --> eAnswerReceived\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
                 setSessionState(eAnswerReceived);
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                 logSrtpInfo("call::process_incoming();  Switching session state:  eAnswerReceived --> eCompleted\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
                 setSessionState(eCompleted);
             }
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             // INCOMING SRTP PARAM CONTEXT
             SrtpAudioInfoParams pA;
             SrtpVideoInfoParams pV;
@@ -4706,15 +4706,15 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
             memset(pV.secondary_video_cryptokeyparams, 0, sizeof(pV.secondary_video_cryptokeyparams));
             pV.primary_unencrypted_video_srtp = false;
             pV.secondary_unencrypted_video_srtp = false;
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
             host = extract_rtp_remote_addr(msg, ip_ver, audio_port, video_port);
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             extract_srtp_remote_info(msg, pA, pV);
-#endif // USE_OPENSSL
+#endif // USE_TLS
             rtpstream_set_remote (&rtpstream_callinfo,ip_ver,host.c_str(),audio_port,video_port);
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             // PASS INCOMING SRTP PARAMETERS...
             if (pA.audio_found && (pA.primary_audio_cryptotag != 0))
             {
@@ -5214,7 +5214,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     }
                 }
             }
-#endif // USE_OPENSSL
+#endif // USE_TLS
         } // ptr
     } // Content-Type
 #endif // RTP_STREAM
@@ -6198,7 +6198,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         }
         else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYAPATTERN)
         {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             //
             // TX/RX-UAC-AUDIO SRTP context (a)(b) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
             // WE ASSUME THE SAME CODEC PAYLOAD SIZE WILL BE USED IN BOTH DIRECTIONS
@@ -6236,7 +6236,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             logSrtpInfo("call::executeAction():  rtpstream_playapattern\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
             rtpstream_playapattern(&rtpstream_callinfo,currentAction->getRTPStreamActInfo(), _txUACAudio, _rxUACAudio);
             // Obtain ID of parent thread used for the related RTP task
             call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
@@ -6251,7 +6251,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         }
         else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYVPATTERN)
         {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             //
             // TX/RX-UAC-VIDEO SRTP context (a)(b) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
             // WE ASSUME THE SAME CODEC PAYLOAD SIZE WILL BE USED IN BOTH DIRECTIONS
@@ -6289,14 +6289,14 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             logSrtpInfo("call::executeAction():  rtpstream_playvpattern\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
             rtpstream_playvpattern(&rtpstream_callinfo,currentAction->getRTPStreamActInfo(), _txUACVideo, _rxUACVideo);
             // Obtain ID of parent thread used for the related RTP task
             call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
         }
         else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STARTAUDIO)
         {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             if (sendMode == MODE_SERVER)
             {
                 //
@@ -6344,12 +6344,12 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             logSrtpInfo("call::executeAction() [STARTAUDIO]:  rtpstream_rtpecho_startaudio\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
             rtpstream_rtpecho_startaudio(&rtpstream_callinfo, _rxUASAudio, _txUASAudio);
         }
         else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_UPDATEAUDIO)
         {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             if (sendMode == MODE_SERVER)
             {
                 //
@@ -6397,26 +6397,26 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  rtpstream_rtpecho_updateaudio\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
             rtpstream_rtpecho_updateaudio(&rtpstream_callinfo, _rxUASAudio, _txUASAudio);
         }
         else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STOPAUDIO)
         {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             logSrtpInfo("call::executeAction() [STOPAUDIO]:  rtpstream_rtpecho_stopaudio\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
             rc = rtpstream_rtpecho_stopaudio(&rtpstream_callinfo);
             if (rc < 0)
             {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                 logSrtpInfo("call::executeAction() [STOPAUDIO]:  rtpstream_rtpecho_stopaudio() rc==%d\n", rc);
-#endif // USE_OPENSSL
+#endif // USE_TLS
                 return call::E_AR_RTPECHO_ERROR;
             }
         }
         else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STARTVIDEO)
         {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             if (sendMode == MODE_SERVER)
             {
                 //
@@ -6464,12 +6464,12 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             logSrtpInfo("call::executeAction() [STARTVIDEO]:  rtpstream_rtpecho_startvideo\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
             rtpstream_rtpecho_startvideo(&rtpstream_callinfo, _rxUASVideo, _txUASVideo);
         }
         else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_UPDATEVIDEO)
         {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             if (sendMode == MODE_SERVER)
             {
                 //
@@ -6517,20 +6517,20 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  rtpstream_rtpecho_updatevideo\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
             rtpstream_rtpecho_updatevideo(&rtpstream_callinfo, _rxUASVideo, _txUASVideo);
         }
         else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STOPVIDEO)
         {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
             logSrtpInfo("call::executeAction() [STOPVIDEO]:  rtpstream_rtpecho_stopvideo\n");
-#endif // USE_OPENSSL
+#endif // USE_TLS
             rc = rtpstream_rtpecho_stopvideo(&rtpstream_callinfo);
             if (rc < 0)
             {
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
                 logSrtpInfo("call::executeAction() [STOPVIDEO]:  rtpstream_rtpecho_stopvideo() rc==%d\n", rc);
-#endif // USE_OPENSSL
+#endif // USE_TLS
                 return call::E_AR_RTPECHO_ERROR;
             }
         }
@@ -6842,7 +6842,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
     return false;
 }
 
-#ifdef USE_OPENSSL
+#ifdef USE_TLS
 int call::logSrtpInfo(const char *fmt, ...)
 {
     va_list args;
@@ -6856,7 +6856,7 @@ int call::logSrtpInfo(const char *fmt, ...)
 
     return 0;
 }
-#endif // USE_OPENSSL
+#endif // USE_TLS
 
 void call::setSessionState(SessionState state)
 {

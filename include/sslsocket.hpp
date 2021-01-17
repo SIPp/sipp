@@ -19,13 +19,19 @@
 #ifndef __SSLSOCKET__
 #define __SSLSOCKET__
 
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL)
 #include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
 #include <openssl/x509v3.h>
 #include <pthread.h>
+#elif defined(USE_WOLFSSL)
+#include <wolfssl/openssl/bio.h>
+#include <wolfssl/openssl/err.h>
+#include <wolfssl/openssl/rand.h>
+#include <wolfssl/openssl/ssl.h>
+#include <wolfssl/openssl/x509v3.h>
 #endif
 
 /* Initialises an SSL context and makes the lib thread safe */
@@ -41,7 +47,7 @@ enum tls_init_status TLS_init_context(void);
 
 /* Helpers for OpenSSL */
 
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
 SSL* SSL_new_client();
 SSL* SSL_new_server();
 const char *SSL_error_string(int ssl_error, int orig_ret);
