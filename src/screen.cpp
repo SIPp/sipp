@@ -363,7 +363,7 @@ void ScreenPrinter::draw_scenario_screen()
     }
 
     if (auto_answer) {
-        snprintf(buf, 80, "  %d requests auto-answered",
+        snprintf(buf, 80, "  %llu requests auto-answered",
                  display_scenario->stats->GetStat(CStat::CPT_G_C_AutoAnswered));
         lines.push_back(buf);
     }
