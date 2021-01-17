@@ -2683,42 +2683,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             dest += snprintf(dest, left, "%s", media_ip);
             break;
         case E_Message_Media_Port:
-        {
+        case E_Message_Auto_Media_Port: {
             int port = media_port + comp->offset;
-#ifdef PCAPPLAY
-            char *begin = dest;
-            while (begin > msg_buffer) {
-                if (*begin == '\n') {
-                    break;
-                }
-                begin--;
+            if (comp->type == E_Message_Auto_Media_Port) {
+                port += (4 * (number - 1)) % 10000;
             }
-            if (begin == msg_buffer) {
-                ERROR("Can not find beginning of a line for the media port!\n");
-            }
-            if (strstr(begin, "audio")) {
-                if (media_ip_is_ipv6) {
-                    (_RCAST(struct sockaddr_in6 *, &(play_args_a.from)))->sin6_port = port;
-                } else {
-                    (_RCAST(struct sockaddr_in *, &(play_args_a.from)))->sin_port = port;
-                }
-            } else if (strstr(begin, "video")) {
-                if (media_ip_is_ipv6) {
-                    (_RCAST(struct sockaddr_in6 *, &(play_args_v.from)))->sin6_port = port;
-                } else {
-                    (_RCAST(struct sockaddr_in *, &(play_args_v.from)))->sin_port = port;
-                }
-            } else {
-                // This check will not do, as we use the media_port in other places too.
-                //ERROR("media_port keyword with no audio or video on the current line (%s)", begin);
-            }
-#endif
-            dest += sprintf(dest, "%u", port);
-            break;
-        }
-        case E_Message_Auto_Media_Port:
-        {
-            int port = port = media_port + (4 * (number - 1)) % 10000 + comp->offset;
 #ifdef PCAPPLAY
             char *begin = dest;
             while (begin > msg_buffer) {
@@ -2741,13 +2710,15 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 // This check will not do, as we use the media_port in other places too.
                 //ERROR("media_port keyword with no audio or video on the current line (%s)", begin);
             }
-            if (media_ip_is_ipv6) {
-                (_RCAST(struct sockaddr_in6 *, &(play_args->from)))->sin6_port = htons(port);
-            } else {
-                (_RCAST(struct sockaddr_in *, &(play_args->from)))->sin_port = htons(port);
+            if (play_args != NULL) {
+                if (media_ip_is_ipv6) {
+                    (_RCAST(struct sockaddr_in6 *, &(play_args->from)))->sin6_port = htons(port);
+                } else {
+                    (_RCAST(struct sockaddr_in *, &(play_args->from)))->sin_port = htons(port);
+                }
             }
 #endif
-            dest += sprintf(dest, "%u", port);
+            dest += snprintf(dest, left, "%u", port);
             break;
         }
 #ifdef RTP_STREAM
