@@ -1114,7 +1114,7 @@ bool call::checkAckCSeq(const char* msg)
         (msg[5] == '.') &&
         (msg[6] == '0')) {
         request[0]=0;
-    } else if (ptr = strchr(msg, ' ')) {
+    } else if ((ptr = strchr(msg, ' '))) {
         if ((ptr - msg) < 64) {
             memcpy(request, msg, ptr - msg);
             request[ptr - msg] = 0;

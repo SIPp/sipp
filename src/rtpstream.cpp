@@ -77,8 +77,8 @@ struct threaddata_t
 {
     pthread_mutex_t tasklist_mutex;
     int             busy_list_index;
-    int             max_tasks;
-    volatile int    num_tasks;
+    unsigned int    max_tasks;
+    volatile unsigned int num_tasks;
     volatile int    del_pending;
     volatile int    exit_flag;
     taskentry_t     *tasklist;
@@ -180,7 +180,7 @@ static unsigned long long getThreadId(pthread_t p)
     return retVal;
 }
 
-void printAudioHexUS(char const* note, unsigned char const* string, int size, int extrainfo, int moreinfo)
+void printAudioHexUS(char const* note, unsigned char const* string, unsigned int size, unsigned long long extrainfo, int moreinfo)
 {
     if ((debugafile != NULL) &&
         (note != NULL) &&
@@ -188,8 +188,8 @@ void printAudioHexUS(char const* note, unsigned char const* string, int size, in
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugamutex);
-        fprintf(debugafile, "TID: %lu %s %d %d %d [", pthread_self(), note, size, extrainfo, moreinfo);
-        for (int i = 0; i < size; i++)
+        fprintf(debugafile, "TID: %lu %s %u 0x%llx %d [", pthread_self(), note, size, extrainfo, moreinfo);
+        for (unsigned int i = 0; i < size; i++)
         {
             fprintf(debugafile, "%02X", 0x000000FF & string[i]);
         }
@@ -198,7 +198,7 @@ void printAudioHexUS(char const* note, unsigned char const* string, int size, in
     }
 }
 
-void printVideoHexUS(char const* note, unsigned char const* string, int size, int extrainfo, int moreinfo)
+void printVideoHexUS(char const* note, unsigned char const* string, unsigned int size, unsigned long long extrainfo, int moreinfo)
 {
     if ((debugvfile != NULL) &&
         (note != NULL) &&
@@ -206,8 +206,8 @@ void printVideoHexUS(char const* note, unsigned char const* string, int size, in
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugvmutex);
-        fprintf(debugvfile, "TID: %lu %s %d %d %d [", pthread_self(), note, size, extrainfo, moreinfo);
-        for (int i = 0; i < size; i++)
+        fprintf(debugvfile, "TID: %lu %s %u 0x%llx %d [", pthread_self(), note, size, extrainfo, moreinfo);
+        for (unsigned int i = 0; i < size; i++)
         {
             fprintf(debugvfile, "%02X", 0x000000FF & string[i]);
         }
@@ -216,7 +216,7 @@ void printVideoHexUS(char const* note, unsigned char const* string, int size, in
     }
 }
 
-void printAudioHex(char const* note, char const* string, int size, unsigned long long extrainfo, int moreinfo)
+void printAudioHex(char const* note, char const* string, unsigned int size, unsigned long long extrainfo, int moreinfo)
 {
     if ((debugafile != NULL) &&
         (note != NULL) &&
@@ -224,8 +224,8 @@ void printAudioHex(char const* note, char const* string, int size, unsigned long
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugamutex);
-        fprintf(debugafile, "TID: %lu %s %d %lld %d [", pthread_self(), note, size, extrainfo, moreinfo);
-        for (int i = 0; i < size; i++)
+        fprintf(debugafile, "TID: %lu %s %u 0x%llx %d [", pthread_self(), note, size, extrainfo, moreinfo);
+        for (unsigned int i = 0; i < size; i++)
         {
             fprintf(debugafile, "%02X", 0x000000FF & string[i]);
         }
@@ -236,15 +236,13 @@ void printAudioHex(char const* note, char const* string, int size, unsigned long
 
 void printAudioVector(char const* note, std::vector<unsigned long> const &v)
 {
-    int i = 0;
-
     if ((debugafile != NULL) &&
         (note != NULL) &&
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugamutex);
         fprintf(debugafile, "TID: %lu %s\n", pthread_self(), note);
-        for (i = 0; i < v.size(); i++)
+        for (unsigned int i = 0; i < v.size(); i++)
         {
             fprintf(debugafile, "%lu\n", v[i]);
         }
@@ -252,7 +250,7 @@ void printAudioVector(char const* note, std::vector<unsigned long> const &v)
     }
 }
 
-void printVideoHex(char const* note, char const* string, int size, unsigned long long extrainfo, int moreinfo)
+void printVideoHex(char const* note, char const* string, unsigned int size, unsigned long long extrainfo, int moreinfo)
 {
     if ((debugvfile != NULL) &&
         (note != NULL) &&
@@ -260,8 +258,8 @@ void printVideoHex(char const* note, char const* string, int size, unsigned long
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugvmutex);
-        fprintf(debugvfile, "TID: %lu %s %d %lld %d [", pthread_self(), note, size, extrainfo, moreinfo);
-        for (int i = 0; i < size; i++)
+        fprintf(debugvfile, "TID: %lu %s %u 0x%llx %d [", pthread_self(), note, size, extrainfo, moreinfo);
+        for (unsigned int i = 0; i < size; i++)
         {
             fprintf(debugvfile, "%02X", 0x000000FF & string[i]);
         }
@@ -272,15 +270,13 @@ void printVideoHex(char const* note, char const* string, int size, unsigned long
 
 void printVideoVector(char const* note, std::vector<unsigned long> const &v)
 {
-    int i = 0;
-
     if ((debugvfile != NULL) &&
         (note != NULL) &&
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugvmutex);
         fprintf(debugvfile, "TID: %lu %s\n", pthread_self(), note);
-        for (i = 0; i < v.size(); i++)
+        for (unsigned int i = 0; i < v.size(); i++)
         {
             fprintf(debugvfile, "%lu\n", v[i]);
         }
@@ -586,7 +582,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                                            std::vector<unsigned long> &rs_apackets,
                                            unsigned long* comparison_vcheck,
                                            std::vector<unsigned long> &rs_vpackets,
-                                           int taskindex)
+                                           unsigned int taskindex)
 {
     int                  rc;
     unsigned long        next_wake;
@@ -659,8 +655,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     next_wake = timenow_ms + 100; /* default next wakeup time */
 
     if ((taskinfo->audio_rtp_socket != -1) &&
-        (taskindex >= 0) &&
-        (taskindex <= (rs_apackets.size()-1)))
+        (taskindex < rs_apackets.size()))
     {
         /* are we playing back an audio file/pattern? */
         if (taskinfo->audio_loop_count)
@@ -708,7 +703,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                     // ENCRYPT
                     rc = g_txUACAudio.processOutgoingPacket(taskinfo->audio_seq_out, rtp_header, payload_data, audio_out);
-                    printAudioHex("TXUACAUDIO -- processOutgoingPacket() rc == ", "", rc, 0, 0);
+                    printAudioHex("TXUACAUDIO -- processOutgoingPacket() rc == ", "", 0, rc, 0);
                 }
                 else
 #endif // USE_TLS
@@ -722,7 +717,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 rc = send(taskinfo->audio_rtp_socket, audio_out.data(), audio_out.size(), 0);
                 if (rc < 0)
                 {
-                    printAudioHex("SEND FAILED: ", "", rc, errno, 0);
+                    printAudioHex("SEND FAILED: ", "", 0, rc, errno);
 
                     /* handle sending errors */
                     if ((errno == EAGAIN) || (errno == EWOULDBLOCK) || (errno == EINTR))
@@ -783,7 +778,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                             audio_seq_in = ntohs(((rtp_header_t*)audio_in.data())->seq);
                             rc = g_rxUACAudio.processIncomingPacket(audio_seq_in, audio_in, rtp_header, payload_data);
-                            printAudioHex("RXUACAUDIO -- processIncomingPacket() rc == ", "", rc, 0, 0);
+                            printAudioHex("RXUACAUDIO -- processIncomingPacket() rc == ", "", 0, rc, 0);
 
                             host_flags = ntohs(((rtp_header_t*)audio_in.data())->flags);
                             host_seqnum = ntohs(((rtp_header_t*)audio_in.data())->seq);
@@ -910,8 +905,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     }
 
     if ((taskinfo->video_rtp_socket != -1) &&
-        (taskindex >= 0) &&
-        (taskindex <= (rs_vpackets.size() - 1)))
+        (taskindex < rs_vpackets.size()))
     {
         /* are we playing back a video file/pattern? */
         if (taskinfo->video_loop_count)
@@ -959,7 +953,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                     // ENCRYPT
                     rc = g_txUACVideo.processOutgoingPacket(taskinfo->video_seq_out, rtp_header, payload_data, video_out);
-                    printVideoHex("TXUACVIDEO -- processOutgoingPacket() rc == ", "", rc, 0, 0);
+                    printVideoHex("TXUACVIDEO -- processOutgoingPacket() rc == ", "", 0, rc, 0);
                 }
                 else
 #endif // USE_TLS
@@ -973,7 +967,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 rc = send(taskinfo->video_rtp_socket, video_out.data(), video_out.size(), 0);
                 if (rc < 0)
                 {
-                    printVideoHex("SEND FAILED: ", "", rc, errno, 0);
+                    printVideoHex("SEND FAILED: ", "", 0, rc, errno);
 
                     /* handle sending errors */
                     if ((errno == EAGAIN) || (errno == EWOULDBLOCK) || (errno == EINTR))
@@ -1034,7 +1028,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             payload_data.clear();
                             video_seq_in = ntohs(((rtp_header_t*)video_in.data())->seq);
                             rc = g_rxUACVideo.processIncomingPacket(video_seq_in, video_in, rtp_header, payload_data);
-                            printVideoHex("RXUACVIDEO -- processIncomingPacket() rc == ", "", rc, 0, 0);
+                            printVideoHex("RXUACVIDEO -- processIncomingPacket() rc == ", "", 0, rc, 0);
 
                             host_flags = ntohs(((rtp_header_t*)video_in.data())->flags);
                             host_seqnum = ntohs(((rtp_header_t*)video_in.data())->seq);
@@ -1168,7 +1162,7 @@ static void* rtpstream_playback_thread(void* params)
 {
     threaddata_t   *threaddata = (threaddata_t *) params;
     taskentry_t    *taskinfo;
-    int            taskindex;
+    unsigned int   taskindex;
 
     unsigned long  timenow_ms;
     unsigned long  waketime_ms;
@@ -1177,7 +1171,6 @@ static void* rtpstream_playback_thread(void* params)
     unsigned long  comparison_acheck;
     unsigned long  comparison_vcheck;
     unsigned long  rtpresult;
-    int i = 0;
     std::vector<unsigned long> rs_apackets;
     std::vector<unsigned long> rs_vpackets;
     std::vector<unsigned long> rs_artpcheck;
@@ -1311,8 +1304,10 @@ static void* rtpstream_playback_thread(void* params)
     printAudioVector("----PACKET COUNTS----", rs_apackets);
     printVideoVector("----PACKET COUNTS----", rs_vpackets);
 
-    for (i = 0; i < threaddata->max_tasks; i++)
+    for (unsigned int i = 0; i < threaddata->max_tasks; i++)
     {
+        taskinfo = (&threaddata->tasklist)[i];
+
         if (rs_apackets[i] > 0)
         {
             verdict = ((double)rs_artpcheck[i] / (double)rs_apackets[i]);
@@ -2554,7 +2549,7 @@ void rtpstream_resumevpattern(rtpstream_callinfo_t* callinfo)
 
 void rtpstream_audioecho_thread(void* param)
 {
-    unsigned char msg[media_bufsize];
+    unsigned char* msg;
     ssize_t nr;
     ssize_t ns;
     sipp_socklen_t len;
@@ -2637,7 +2632,8 @@ void rtpstream_audioecho_thread(void* param)
         {
             pthread_mutex_lock(&uasAudioMutex);
             nr = 0;
-            memset(msg, 0, sizeof(msg));
+            msg = (unsigned char*) malloc(media_bufsize);
+            memset(msg, 0, media_bufsize);
             len = sizeof(remote_rtp_addr);
             audio_packet_in.resize(sizeof(rtp_header_t) + g_rxUASAudio.getSrtpPayloadSize() + g_rxUASAudio.getAuthenticationTagSize(), 0);
             nr = recvfrom(sock, audio_packet_in.data(), audio_packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
@@ -2697,7 +2693,7 @@ void rtpstream_audioecho_thread(void* param)
                     audio_packet_in[10] = (host_ssrc >> 8) & 0xFF;
                     audio_packet_in[11] = host_ssrc & 0xFF;
 
-                    memset(msg, 0, sizeof(msg));
+                    memset(msg, 0, media_bufsize);
                     memcpy(msg, rtp_header.data(), rtp_header.size());
                     memcpy(msg + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
                 }
@@ -2766,6 +2762,7 @@ void rtpstream_audioecho_thread(void* param)
                 pthread_mutex_unlock(&debugremutexaudio);
                 abnormal_termination = true;
             }
+            free(msg);
             pthread_mutex_unlock(&uasAudioMutex);
         }
         else
@@ -2819,7 +2816,7 @@ void rtpstream_audioecho_thread(void* param)
 
 void rtpstream_videoecho_thread(void* param)
 {
-    unsigned char msg[media_bufsize];
+    unsigned char* msg;
     ssize_t nr;
     ssize_t ns;
     sipp_socklen_t len;
@@ -2902,7 +2899,8 @@ void rtpstream_videoecho_thread(void* param)
         {
             pthread_mutex_lock(&uasVideoMutex);
             nr = 0;
-            memset(msg, 0, sizeof(msg));
+            msg = (unsigned char*) malloc(media_bufsize);
+            memset(msg, 0, media_bufsize);
             len = sizeof(remote_rtp_addr);
             video_packet_in.resize(sizeof(rtp_header_t) + g_rxUASVideo.getSrtpPayloadSize() + g_rxUASVideo.getAuthenticationTagSize(), 0);
             nr = recvfrom(sock, video_packet_in.data(), video_packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
@@ -2961,7 +2959,7 @@ void rtpstream_videoecho_thread(void* param)
                     video_packet_in[10] = (host_ssrc >> 8) & 0xFF;
                     video_packet_in[11] = host_ssrc & 0xFF;
 
-                    memset(msg, 0, sizeof(msg));
+                    memset(msg, 0, media_bufsize);
                     memcpy(msg, rtp_header.data(), rtp_header.size());
                     memcpy(msg + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
                 }
@@ -3030,6 +3028,7 @@ void rtpstream_videoecho_thread(void* param)
                 pthread_mutex_unlock(&debugremutexvideo);
                 abnormal_termination = true;
             }
+            free(msg);
             pthread_mutex_unlock(&uasVideoMutex);
         }
         else
@@ -3471,9 +3470,9 @@ int rtpstream_shutdown(std::unordered_map<pthread_t, std::string>& threadIDs)
             return -2;
         }
 
-        total_rtpresults |= (long)rtpresult;
-        printAudioHex("JOINED THREAD: ", "", 0, (long)rtpresult, total_rtpresults);
-        printVideoHex("JOINED THREAD: ", "", 0, (long)rtpresult, total_rtpresults);
+        total_rtpresults |= (int)(long long)rtpresult;
+        printAudioHex("JOINED THREAD: ", "", 0, (long long)rtpresult, total_rtpresults);
+        printVideoHex("JOINED THREAD: ", "", 0, (long long)rtpresult, total_rtpresults);
     }
 
     /* now free cached file bytes and structure */
