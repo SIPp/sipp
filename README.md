@@ -44,8 +44,8 @@ make
 _The SIPp master branch (3.7.x) requires a modern C++11 compiler._
 
 There are several optional flags to enable features (SIP-over-TLS,
-SIP-over-SCTP, media playback from PCAP files and the GNU Statistical
-libbraries for random distributions):
+SIP-over-SCTP, media playback from PCAP files and the GNU Scientific
+Libraries for random distributions):
 
 ```
 cmake . -DUSE_SSL=1 -DUSE_SCTP=1 -DUSE_PCAP=1 -DUSE_GSL=1
