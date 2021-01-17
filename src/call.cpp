@@ -1291,22 +1291,21 @@ void call::computeStat (CStat::E_Action P_action, unsigned long P_value, int whi
 void call::dump()
 {
     char s[MAX_HEADER_LEN];
-    char tmpbuf[MAX_HEADER_LEN];
     int slen = sizeof(s);
     int written;
 
-    written += snprintf(s, slen, "%s: State %d", id, msg_index);
+    written = snprintf(s, slen, "%s: State %d", id, msg_index);
     if (next_retrans) {
-        written += snprintf(s, slen - written, " (next retrans %u)", next_retrans);
+        written += snprintf(s + written, slen - written, " (next retrans %u)", next_retrans);
     }
     if (paused_until) {
-        written += snprintf(s, slen - written, " (paused until %u)", paused_until);
+        written += snprintf(s + written, slen - written, " (paused until %u)", paused_until);
     }
     if (recv_timeout) {
-        written += snprintf(s, slen - written, " (recv timeout %u)", recv_timeout);
+        written += snprintf(s + written, slen - written, " (recv timeout %u)", recv_timeout);
     }
     if (send_timeout) {
-        written += snprintf(s, slen - written, " (send timeout %u)", send_timeout);
+        written += snprintf(s + written, slen - written, " (send timeout %u)", send_timeout);
     }
     WARNING("%s", s);
 }
