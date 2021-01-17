@@ -76,38 +76,45 @@ Installing SIPp
 
         tar -xvzf sipp-xxx.tar
         cd sipp
-        ./configure
+        cmake .
         make
 
     + With TLS support, you must have installed `OpenSSL library`_
       (>=0.9.8) or `WolfSSL library`_ (>=3.15.0) (which may come with your
-      system). Building SIPp consists only of adding the ``--with-openssl``
-      option to the configure command::
+      system). Building SIPp consists only of adding the ``-DUSE_SSL=1``
+      option to the cmake command::
 
         tar -xvzf sipp-xxx.tar.gz
         cd sipp
-        ./configure --with-openssl
+        cmake . -DUSE_SSL=1
         make
 
     + With PCAP play support::
 
         tar -xvzf sipp-xxx.tar.gz
         cd sipp
-        ./configure --with-pcap
+        cmake . -DUSE_PCAP=1
         make
 
     + With SCTP support::
 
         tar -xvzf sipp-xxx.tar.gz
         cd sipp
-        ./configure --with-sctp
+        cmake . -DUSE_SCTP=1
+        make
+
+    + With support for statistically distributed pauses::
+
+        tar -xvzf sipp-xxx.tar.gz
+        cd sipp
+        cmake . -DUSE_GSL=1
         make
 
     + You can also combine these various options, e.g.::
 
         tar -xvzf sipp-xxx.tar.gz
         cd sipp
-        ./configure --with-sctp --with-pcap --with-openssl
+        cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
         make
 
 
