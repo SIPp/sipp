@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.1)
 
 # set the project name
 project(SIPp)
@@ -6,6 +6,7 @@ project(SIPp)
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_EXTENSIONS False)
 
 if(EXISTS ./gmock/CMakeLists.txt)
   add_subdirectory(gmock EXCLUDE_FROM_ALL)
@@ -44,20 +45,6 @@ CHECK_STRUCT_HAS_MEMBER("struct udphdr" uh_sport "sys/types.h;netinet/udp.h"  HA
 
 CHECK_SYMBOL_EXISTS(le16toh "endian.h" HAVE_DECL_LE16TOH)
 CHECK_SYMBOL_EXISTS(le16toh "sys/endian.h" HAVE_DECL_LE16TOH_BSD)
-
-CHECK_CXX_SOURCE_COMPILES("
-#include <string>
-int main() { auto s = std::string(\"x\"); s.c_str(); return 0; }
-" HAVE_CXX_AUTO_KEYWORD)
-
-CHECK_CXX_SOURCE_COMPILES("
-#include <vector>
-int main() { std::vector<int> v; for (int i : v); return 0; }
-" HAVE_CXX_RANGE_LOOP)
-
-if(NOT HAVE_CXX_AUTO_KEYWORD OR NOT HAVE_CXX_RANGE_LOOP)
-  message(FATAL_ERROR "Your C++ compiler is too old (does not support the 'auto' keyword or range loops)")
-endif()
 
 
 configure_file("${PROJECT_SOURCE_DIR}/include/config.h.in"
@@ -136,7 +123,9 @@ add_definitions("-DRTP_STREAM")
 # add the executable
 link_directories("/usr/local/lib")
 add_executable(sipp ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp.cpp")
+target_compile_features(sipp PUBLIC cxx_auto_type cxx_range_for)
 add_executable(sipp_unittest EXCLUDE_FROM_ALL ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
+target_compile_features(sipp_unittest PUBLIC cxx_auto_type cxx_range_for)
 target_compile_definitions(sipp_unittest PUBLIC "-DGTEST")
 
 # add version
