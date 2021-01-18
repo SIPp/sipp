@@ -157,6 +157,11 @@ int createAuthHeader(
         return 0;
     }
 
+    if (!method) {
+        snprintf(result, result_len, "createAuthHeader: authentication requires a method");
+        return 0;
+    }
+
     if ((start = stristr(auth, "algorithm=")) != NULL) {
         start = start + strlen("algorithm=");
         if (*start == '"') {
@@ -273,10 +278,8 @@ static int createAuthResponseMD5(
 
     // Load in A2
     md5_init(&Md5Ctx);
-    if (method) {
-        md5_append(&Md5Ctx, (md5_byte_t *) method, strlen(method));
-        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    }
+    md5_append(&Md5Ctx, (md5_byte_t *) method, strlen(method));
+    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
     md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
     if (stristr(authtype, "auth-int") != NULL) {
         md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
