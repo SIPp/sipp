@@ -40,7 +40,7 @@ bool JLSRTP::isBase64(unsigned char c)
 
 int JLSRTP::resetPseudoRandomState(std::vector<unsigned char> iv)
 {
-    int ivSize = 0;
+    unsigned int ivSize = 0;
 
     ivSize = iv.size();
     assert(ivSize == JLSRTP_SALTING_KEY_LENGTH);
@@ -66,12 +66,12 @@ int JLSRTP::resetPseudoRandomState(std::vector<unsigned char> iv)
 int JLSRTP::pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vector<unsigned char> &output)
 {
     int rc = 0;
-    int num_loops = 0;
+    unsigned int num_loops = 0;
     AES_KEY aes_key;
     std::vector<unsigned char> block;
     std::vector<unsigned char> input;
-    int ivSize = 0;
-    int keySize = 0;
+    unsigned int ivSize = 0;
+    unsigned int keySize = 0;
     int retVal = 0;
 
     switch (_active_crypto)
@@ -100,7 +100,7 @@ int JLSRTP::pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vect
                         // Reset IV/counter state
                         resetPseudoRandomState(iv);
 
-                        for (int i = 0; i < num_loops; i++)
+                        for (unsigned int i = 0; i < num_loops; i++)
                         {
                             // Encrypt given _pseudorandomstate.ivec input using aes_key to block
                             block.clear();
@@ -155,7 +155,7 @@ int JLSRTP::pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vect
                         // Reset IV/counter state
                         resetPseudoRandomState(iv);
 
-                        for (int i = 0; i < num_loops; i++)
+                        for (unsigned int i = 0; i < num_loops; i++)
                         {
                             // Encrypt given _pseudorandomstate.ivec input using aes_key to block
                             block.clear();
@@ -198,13 +198,10 @@ int JLSRTP::pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vect
 
 int JLSRTP::shiftVectorLeft(std::vector<unsigned char> &shifted_vec, std::vector<unsigned char> &original_vec, int shift_value)
 {
-    int i = 0;
-    int j = 0;
-
     shifted_vec.clear();
     shifted_vec.resize(original_vec.size(), 0);
 
-    for (i = shift_value, j = 0; i < original_vec.size(); i++, j++) {
+    for (unsigned int i = shift_value, j = 0; i < original_vec.size(); i++, j++) {
         shifted_vec[j] = original_vec[i];
     }
 
@@ -213,13 +210,10 @@ int JLSRTP::shiftVectorLeft(std::vector<unsigned char> &shifted_vec, std::vector
 
 int JLSRTP::shiftVectorRight(std::vector<unsigned char> &shifted_vec, std::vector<unsigned char> &original_vec, int shift_value)
 {
-    int i = 0;
-    int j = 0;
-
     shifted_vec.clear();
     shifted_vec.resize(original_vec.size(), 0);
 
-    for (i = shift_value, j = 0; i < shifted_vec.size(); i++, j++) {
+    for (unsigned int i = shift_value, j = 0; i < shifted_vec.size(); i++, j++) {
         shifted_vec[i] = original_vec[j];
     }
 
@@ -405,7 +399,7 @@ unsigned long long JLSRTP::determinePacketIndex(unsigned long ROC, unsigned shor
 
 int JLSRTP::setPacketIV()
 {
-    int ivSize = 0;
+    unsigned int ivSize = 0;
 
     ivSize = _packetIV.size();
     assert(ivSize == JLSRTP_SALTING_KEY_LENGTH);
@@ -431,7 +425,7 @@ int JLSRTP::computePacketIV(unsigned long long i)
     std::vector<unsigned char> shifted_i;
     std::vector<unsigned char> intermediate;
     unsigned long ssrc = _id.ssrc; // SSRC
-    int saltSize = 0;
+    unsigned int saltSize = 0;
 
     _packetIV.clear();
 
@@ -466,7 +460,7 @@ int JLSRTP::computePacketIV(unsigned long long i)
 void JLSRTP::displayPacketIV()
 {
     printf("packet_iv                  : [");
-    for (int i = 0; i < _packetIV.size(); i++)
+    for (unsigned int i = 0; i < _packetIV.size(); i++)
     {
         printf("%02x", _packetIV[i]);
     }
@@ -879,7 +873,7 @@ int JLSRTP::extractSRTPPayload(std::vector<unsigned char> srtp_packet, std::vect
     int retVal = -1;
     std::vector<unsigned char>::iterator it_payload_begin = srtp_packet.begin();
     std::vector<unsigned char>::iterator it_payload_end = srtp_packet.begin();
-    int header_payload_size = 0;
+    unsigned int header_payload_size = 0;
 
     header_payload_size = _srtp_header_size + _srtp_payload_size;
 
@@ -974,7 +968,7 @@ std::vector<unsigned char> JLSRTP::base64Decode(std::string const& encoded_strin
     unsigned char char_array_4[4];
     unsigned char char_array_3[3];
     int in_ = 0;
-    int in_len = encoded_string.size();
+    unsigned int in_len = encoded_string.size();
     std::vector<unsigned char> ret;
 
     while (in_len-- && ( encoded_string[in_] != '=') && isBase64(encoded_string[in_]))
@@ -1354,7 +1348,7 @@ void JLSRTP::resetCryptoContext(unsigned int ssrc, std::string ipAddress, unsign
 
 int JLSRTP::resetCipherState()
 {
-    int ivSize = 0;
+    unsigned int ivSize = 0;
 
     ivSize = _packetIV.size();
     assert(ivSize == JLSRTP_SALTING_KEY_LENGTH);
@@ -1381,7 +1375,7 @@ int JLSRTP::deriveSessionEncryptionKey()
 {
     std::vector<unsigned char> input_vector;        // Input vector (built from applicable keyid_XXXs)
     std::vector<unsigned char> keyid_encryption;
-    int saltSize = 0;
+    unsigned int saltSize = 0;
     int retVal = -1;
 
     switch (_active_crypto)
@@ -1458,7 +1452,7 @@ int JLSRTP::deriveSessionSaltingKey()
 {
     std::vector<unsigned char> input_vector;        // Input vector (built from applicable keyid_XXXs)
     std::vector<unsigned char> keyid_salting;
-    int saltSize = 0;
+    unsigned int saltSize = 0;
     int retVal = -1;
 
     switch (_active_crypto)
@@ -1535,7 +1529,7 @@ int JLSRTP::deriveSessionAuthenticationKey()
 {
     std::vector<unsigned char> input_vector;        // Input vector (built from applicable keyid_XXXs)
     std::vector<unsigned char> keyid_authentication;
-    int saltSize = 0;
+    unsigned int saltSize = 0;
     int retVal = -1;
 
     switch (_active_crypto)
@@ -1613,7 +1607,7 @@ void JLSRTP::displaySessionEncryptionKey()
     //printf("session_encryption_key[] size: %d\n", _session_enc_key.size());
 
     printf("_session_enc_key           : [");
-    for (int i = 0; i < _session_enc_key.size(); i++)
+    for (unsigned int i = 0; i < _session_enc_key.size(); i++)
     {
         printf("%02x", _session_enc_key[i]);
     }
@@ -1625,7 +1619,7 @@ void JLSRTP::displaySessionSaltingKey()
     //printf("session_salting_key[] size: %d\n", _session_salt_key.size());
 
     printf("_session_salt_key          : [");
-    for (int i = 0; i < _session_salt_key.size(); i++)
+    for (unsigned int i = 0; i < _session_salt_key.size(); i++)
     {
         printf("%02x", _session_salt_key[i]);
     }
@@ -1637,7 +1631,7 @@ void JLSRTP::displaySessionAuthenticationKey()
     //printf("session_authentication_key[] size: %d\n", _session_auth_key.size());
 
     printf("_session_auth_key          : [");
-    for (int i = 0; i < _session_auth_key.size(); i++)
+    for (unsigned int i = 0; i < _session_auth_key.size(); i++)
     {
         printf("%02x", _session_auth_key[i]);
     }
@@ -1990,7 +1984,7 @@ int JLSRTP::getAuthenticationTagSize()
 void JLSRTP::displayAuthenticationTag(std::vector<unsigned char> &authtag)
 {
     printf("authentication tag         : [");
-    for (int i = 0; i < authtag.size(); i++)
+    for (unsigned int i = 0; i < authtag.size(); i++)
     {
         printf("%02x", authtag[i]);
     }
@@ -2095,7 +2089,7 @@ int JLSRTP::processOutgoingPacket(unsigned short SEQ_s,
             if (rc == 0)
             {
                 //printf("[processOutgoingPacket] CIPHERTEXT: [");
-                //for (int i = 0; i < srtp_payload.size(); i++) {
+                //for (unsigned int i = 0; i < srtp_payload.size(); i++) {
                 //    printf("%02x", srtp_payload[i]);
                 //}
                 //printf("]\n");
@@ -2215,7 +2209,7 @@ int JLSRTP::processIncomingPacket(unsigned short SEQ_r,
                     {
                         // 6.  Decrypt PAYLOAD (section 4.1) using decryption algorithm + session encryption key + session salting key
                         //printf("[processIncomingPacket] CIPHERTEXT: [");
-                        //for (int i = 0; i < srtp_payload.size(); i++) {
+                        //for (unsigned int i = 0; i < srtp_payload.size(); i++) {
                         //    printf("%02x", srtp_payload[i]);
                         //}
                         //printf("]\n");
@@ -2541,7 +2535,7 @@ int JLSRTP::encodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*=
             concat.insert(concat.end(), _primary_crypto.master_salt.begin(), _primary_crypto.master_salt.end());
 
             //std::cout << "encodeMasterKeySalt(): concat:[";
-            //for (int i = 0; i < concat.size(); i++)
+            //for (unsigned int i = 0; i < concat.size(); i++)
             //{
             //    printf("%02X", concat[i]);
             //}
@@ -2560,7 +2554,7 @@ int JLSRTP::encodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*=
             concat.insert(concat.end(), _secondary_crypto.master_salt.begin(), _secondary_crypto.master_salt.end());
 
             //std::cout << "encodeMasterKeySalt(): concat:[";
-            //for (int i = 0; i < concat.size(); i++)
+            //for (unsigned int i = 0; i < concat.size(); i++)
             //{
             //    printf("%02X", concat[i]);
             //}
@@ -2608,7 +2602,7 @@ int JLSRTP::decodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*=
             concat = base64Decode(mks);
 
             //std::cout << "decodeMasterKeySalt(): concat:[";
-            //for (int i = 0; i < concat.size(); i++)
+            //for (unsigned int i = 0; i < concat.size(); i++)
             //{
             //    printf("%02X", concat[i]);
             //}
@@ -2624,12 +2618,12 @@ int JLSRTP::decodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*=
             _primary_crypto.master_salt.assign(it_middle, it_end);
 
             //std::cout << "decodeMasterKeySalt():  _masterKey:[";
-            //for (int i = 0; i < _primary_crypto.master_key.size(); i++)
+            //for (unsigned int i = 0; i < _primary_crypto.master_key.size(); i++)
             //{
             //    printf("%02X", _primary_crypto.master_key[i]);
             //}
             //std::cout << "] _masterSalt:[";
-            //for (int i = 0; i < _primary_crypto.master_salt.size(); i++)
+            //for (unsigned int i = 0; i < _primary_crypto.master_salt.size(); i++)
             //{
             //    printf("%02X", _primary_crypto.master_salt[i]);
             //}
@@ -2643,7 +2637,7 @@ int JLSRTP::decodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*=
             concat = base64Decode(mks);
 
             //std::cout << "decodeMasterKeySalt(): concat:[";
-            //for (int i = 0; i < concat.size(); i++)
+            //for (unsigned int i = 0; i < concat.size(); i++)
             //{
             //    printf("%02X", concat[i]);
             //}
@@ -2659,12 +2653,12 @@ int JLSRTP::decodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*=
             _secondary_crypto.master_salt.assign(it_middle, it_end);
 
             //std::cout << "decodeMasterKeySalt():  _masterKey:[";
-            //for (int i = 0; i < _secondary_crypto.master_key.size(); i++)
+            //for (unsigned int i = 0; i < _secondary_crypto.master_key.size(); i++)
             //{
             //    printf("%02X", _secondary_crypto.master_key[i]);
             //}
             //std::cout << "] _masterSalt:[";
-            //for (int i = 0; i < _secondary_crypto.master_salt.size(); i++)
+            //for (unsigned int i = 0; i < _secondary_crypto.master_salt.size(); i++)
             //{
             //    printf("%02X", _secondary_crypto.master_salt[i]);
             //}
@@ -2696,7 +2690,7 @@ void JLSRTP::displayCryptoContext()
     std::cout << "_primary_crypto.master_key                   : ";
     std::cout.setf(std::ios::hex, std::ios::basefield);
     std::cout << std::setfill('0') << std::setw(JLSRTP_ENCRYPTION_KEY_LENGTH);
-    for (int i = 0; i < _primary_crypto.master_key.size(); i++)
+    for (unsigned int i = 0; i < _primary_crypto.master_key.size(); i++)
     {
         printf("%02x", _primary_crypto.master_key[i]);
 //        std::cout << std::hex << _primary_crypto.master_key[i];
@@ -2709,7 +2703,7 @@ void JLSRTP::displayCryptoContext()
     std::cout << "_primary_crypto.master_salt                  : ";
     std::cout.setf(std::ios::hex, std::ios::basefield);
     std::cout << std::setfill('0') << std::setw(JLSRTP_SALTING_KEY_LENGTH);
-    for (int i = 0; i < _primary_crypto.master_salt.size(); i++)
+    for (unsigned int i = 0; i < _primary_crypto.master_salt.size(); i++)
     {
         printf("%02x", _primary_crypto.master_salt[i]);
 //        std::cout << std::hex << _primary_crypto.master_salt[i];
@@ -2728,7 +2722,7 @@ void JLSRTP::displayCryptoContext()
     std::cout << "_secondary_crypto.master_key                 : ";
     std::cout.setf(std::ios::hex, std::ios::basefield);
     std::cout << std::setfill('0') << std::setw(JLSRTP_ENCRYPTION_KEY_LENGTH);
-    for (int i = 0; i < _secondary_crypto.master_key.size(); i++)
+    for (unsigned int i = 0; i < _secondary_crypto.master_key.size(); i++)
     {
         printf("%02x", _secondary_crypto.master_key[i]);
 //        std::cout << std::hex << _secondary_crypto.master_key[i];
@@ -2741,7 +2735,7 @@ void JLSRTP::displayCryptoContext()
     std::cout << "_secondary_crypto.master_salt                : ";
     std::cout.setf(std::ios::hex, std::ios::basefield);
     std::cout << std::setfill('0') << std::setw(JLSRTP_SALTING_KEY_LENGTH);
-    for (int i = 0; i < _secondary_crypto.master_salt.size(); i++)
+    for (unsigned int i = 0; i < _secondary_crypto.master_salt.size(); i++)
     {
         printf("%02x", _secondary_crypto.master_salt[i]);
 //        std::cout << std::hex << _secondary_crypto.master_salt[i];
@@ -2753,53 +2747,53 @@ void JLSRTP::displayCryptoContext()
     std::cout << "_secondary_crypto.n_s                        : " << _secondary_crypto.n_s << std::endl;
     std::cout << "_secondary_crypto.tag                        : " << _secondary_crypto.tag << std::endl;
     printf("_session_enc_key                             : [");
-    for (int i = 0; i < _session_enc_key.size(); i++)
+    for (unsigned int i = 0; i < _session_enc_key.size(); i++)
     {
         printf("%02x", _session_enc_key[i]);
     }
     printf("]\n");
     printf("_session_salt_key                            : [");
-    for (int i = 0; i < _session_salt_key.size(); i++)
+    for (unsigned int i = 0; i < _session_salt_key.size(); i++)
     {
         printf("%02x", _session_salt_key[i]);
     }
     printf("]\n");
     printf("_session_auth_key                            : [");
-    for (int i = 0; i < _session_auth_key.size(); i++)
+    for (unsigned int i = 0; i < _session_auth_key.size(); i++)
     {
         printf("%02x", _session_auth_key[i]);
     }
     printf("]\n");
     printf("_packet_iv                                   : [");
-    for (int i = 0; i < _packetIV.size(); i++)
+    for (unsigned int i = 0; i < _packetIV.size(); i++)
     {
         printf("%02x", _packetIV[i]);
     }
     printf("]\n");
 
     std::cout << "_pseudorandomstate.ivec                      : [";
-    for (int i = 0; i < AES_BLOCK_SIZE; i++)
+    for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
     {
         printf("%02x", _pseudorandomstate.ivec[i]);
     }
     std::cout << "]" << std::endl;
     std::cout << "_pseudorandomstate.num                       : " << _pseudorandomstate.num << std::endl;
     std::cout << "_pseudorandomstate.ecount                    : [";
-    for (int i = 0; i < AES_BLOCK_SIZE; i++)
+    for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
     {
        printf("%02x", _pseudorandomstate.ecount[i]);
     }
     std::cout << "]" << std::endl;
 
     std::cout << "_cipherstate.ivec                            : [";
-    for (int i = 0; i < AES_BLOCK_SIZE; i++)
+    for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
     {
         printf("%02x", _cipherstate.ivec[i]);
     }
     std::cout << "]" << std::endl;
     std::cout << "_cipherstate.num                             : " << _cipherstate.num << std::endl;
     std::cout << "_cipherstate.ecount                          : [";
-    for (int i = 0; i < AES_BLOCK_SIZE; i++)
+    for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
     {
         printf("%02x", _cipherstate.ecount[i]);
     }
@@ -2825,7 +2819,7 @@ std::string JLSRTP::dumpCryptoContext()
     oss << "_primary_crypto.active_MKI                   : " << _primary_crypto.active_MKI << std::endl;
     oss << "_primary_crypto.master_key                   : ";
     oss.setf(std::ios::hex, std::ios::basefield);
-    for (int i = 0; i < _primary_crypto.master_key.size(); i++)
+    for (unsigned int i = 0; i < _primary_crypto.master_key.size(); i++)
     {
         oss << std::setw(2) << std::setfill('0');
         oss << static_cast<int>(_primary_crypto.master_key[i]);
@@ -2837,7 +2831,7 @@ std::string JLSRTP::dumpCryptoContext()
     oss << "_primary_crypto.n_a                          : " << _primary_crypto.n_a << std::endl;
     oss << "_primary_crypto.master_salt                  : ";
     oss.setf(std::ios::hex, std::ios::basefield);
-    for (int i = 0; i < _primary_crypto.master_salt.size(); i++)
+    for (unsigned int i = 0; i < _primary_crypto.master_salt.size(); i++)
     {
         oss << std::setw(2) << std::setfill('0');
         oss << static_cast<int>(_primary_crypto.master_salt[i]);
@@ -2855,7 +2849,7 @@ std::string JLSRTP::dumpCryptoContext()
     oss << "_secondary_crypto.active_MKI                 : " << _secondary_crypto.active_MKI << std::endl;
     oss << "_secondary_crypto.master_key                 : ";
     oss.setf(std::ios::hex, std::ios::basefield);
-    for (int i = 0; i < _secondary_crypto.master_key.size(); i++)
+    for (unsigned int i = 0; i < _secondary_crypto.master_key.size(); i++)
     {
         oss << std::setw(2) << std::setfill('0');
         oss << static_cast<int>(_secondary_crypto.master_key[i]);
@@ -2867,7 +2861,7 @@ std::string JLSRTP::dumpCryptoContext()
     oss << "_secondary_crypto.n_a                        : " << _secondary_crypto.n_a << std::endl;
     oss << "_secondary_crypto.master_salt                : ";
     oss.setf(std::ios::hex, std::ios::basefield);
-    for (int i = 0; i < _secondary_crypto.master_salt.size(); i++)
+    for (unsigned int i = 0; i < _secondary_crypto.master_salt.size(); i++)
     {
         oss << std::setw(2) << std::setfill('0');
         oss << static_cast<int>(_secondary_crypto.master_salt[i]);
@@ -2880,7 +2874,7 @@ std::string JLSRTP::dumpCryptoContext()
     oss << "_secondary_crypto.tag                        : " << _secondary_crypto.tag << std::endl;
     oss << "_session_enc_key                       : [";
     oss.setf(std::ios::hex, std::ios::basefield);
-    for (int i = 0; i < _session_enc_key.size(); i++)
+    for (unsigned int i = 0; i < _session_enc_key.size(); i++)
     {
         oss << std::setw(2) << std::setfill('0');
         oss << static_cast<int>(_session_enc_key[i]);
@@ -2889,7 +2883,7 @@ std::string JLSRTP::dumpCryptoContext()
     oss << "]" << std::endl;
     oss << "_session_salt_key                      : [";
     oss.setf(std::ios::hex, std::ios::basefield);
-    for (int i = 0; i < _session_salt_key.size(); i++)
+    for (unsigned int i = 0; i < _session_salt_key.size(); i++)
     {
         oss << std::setw(2) << std::setfill('0');
         oss << static_cast<int>(_session_salt_key[i]);
@@ -2898,7 +2892,7 @@ std::string JLSRTP::dumpCryptoContext()
     oss << "]" << std::endl;
     oss << "_session_auth_key                      : [";
     oss.setf(std::ios::hex, std::ios::basefield);
-    for (int i = 0; i < _session_auth_key.size(); i++)
+    for (unsigned int i = 0; i < _session_auth_key.size(); i++)
     {
         oss << std::setw(2) << std::setfill('0');
         oss << static_cast<int>(_session_auth_key[i]);
@@ -2907,7 +2901,7 @@ std::string JLSRTP::dumpCryptoContext()
     oss << "]" << std::endl;
     oss << "_packet_iv                             : [";
     oss.setf(std::ios::hex, std::ios::basefield);
-    for (int i = 0; i < _packetIV.size(); i++)
+    for (unsigned int i = 0; i < _packetIV.size(); i++)
     {
         oss << std::setw(2) << std::setfill('0');
         oss << static_cast<int>(_packetIV[i]);
@@ -2917,7 +2911,7 @@ std::string JLSRTP::dumpCryptoContext()
 
     oss << "_pseudorandomstate.ivec                      : [";
     oss.setf(std::ios::hex, std::ios::basefield);
-    for (int i = 0; i < AES_BLOCK_SIZE; i++)
+    for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
     {
         oss << std::setw(2) << std::setfill('0');
         oss << static_cast<int>(_pseudorandomstate.ivec[i]);
@@ -2927,7 +2921,7 @@ std::string JLSRTP::dumpCryptoContext()
     oss << "_pseudorandomstate.num                       : " << _pseudorandomstate.num << std::endl;
     oss << "_pseudorandomstate.ecount                    : [";
     oss.setf(std::ios::hex, std::ios::basefield);
-    for (int i = 0; i < AES_BLOCK_SIZE; i++)
+    for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
     {
         oss << std::setw(2) << std::setfill('0');
         oss << static_cast<int>(_pseudorandomstate.ecount[i]);
@@ -2937,7 +2931,7 @@ std::string JLSRTP::dumpCryptoContext()
 
     oss << "_cipherstate.ivec                            : [";
     oss.setf(std::ios::hex, std::ios::basefield);
-    for (int i = 0; i < AES_BLOCK_SIZE; i++)
+    for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
     {
         oss << std::setw(2) << std::setfill('0');
         oss << static_cast<int>(_cipherstate.ivec[i]);
@@ -2947,7 +2941,7 @@ std::string JLSRTP::dumpCryptoContext()
     oss << "_cipherstate.num                             : " << _cipherstate.num << std::endl;
     oss << "_cipherstate.ecount                          : [";
     oss.setf(std::ios::hex, std::ios::basefield);
-    for (int i = 0; i < AES_BLOCK_SIZE; i++)
+    for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
     {
         oss << std::setw(2) << std::setfill('0');
         oss << static_cast<int>(_cipherstate.ecount[i]);
