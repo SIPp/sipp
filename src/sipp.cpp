@@ -1133,25 +1133,25 @@ void sipp_exit(int rc, int rtp_errors, int echo_errors)
         // Exit is not a normal exit. Just use the passed exit code.
         exit(rc);
     } else {
+        // log rtp stream errors
+        if ((rtp_errors > 0) || (echo_errors > 0)) {
+            WARNING("GOT rtp errors = %d or echo errors = %d", rtp_errors, echo_errors);
+        }
+
         // Normal exit: we need to determine if the calls were all
         // successful or not. In order to compute the return code, get
         // the counter of failed calls. If there is 0 failed calls,
         // then everything is OK!
-        if ((rtp_errors > 0) || (echo_errors > 0))
-        {
-            exit(EXIT_RTPCHECK_FAILED);
-        }
-        else
-        {
-           if (counter_value_failed == 0) {
-                if ((timeout_exit) && (counter_value_success < 1)) {
-                    exit (EXIT_TEST_RES_INTERNAL);
-                } else {
-                    exit(EXIT_TEST_OK);
-                }
+        if (counter_value_failed == 0) {
+            if ((timeout_exit) && (counter_value_success < 1)) {
+                exit (EXIT_TEST_RES_INTERNAL);
             } else {
-                exit(EXIT_TEST_FAILED);
+                exit(EXIT_TEST_OK);
             }
+        } else if ((rtp_errors > 0) || (echo_errors > 0)) {
+            exit(EXIT_RTPCHECK_FAILED);
+        } else {
+            exit(EXIT_TEST_FAILED);
         }
     }
 }

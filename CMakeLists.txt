@@ -30,6 +30,7 @@ option(USE_SSL "Build with SIPS support" OFF)
 option(USE_SCTP "Build with SCTP support" OFF)
 option(USE_PCAP "Build with PCAP playback support" OFF)
 option(USE_GSL "Build with improved statistical support" ON)
+option(USE_LOCAL_IP_HINTS "Build with local ip hints priority" OFF)
 
 file(GLOB all_SRCS
   "${PROJECT_SOURCE_DIR}/src/*.cpp"
@@ -109,6 +110,10 @@ endif()
 if(USE_PCAP)
   add_definitions("-DPCAPPLAY")
 endif(USE_PCAP)
+
+if(USE_LOCAL_IP_HINTS)
+  add_definitions("-DUSE_LOCAL_IP_HINTS")
+endif(USE_LOCAL_IP_HINTS)
 
 if(USE_GSL)
   find_library(GSL_LIBRARY gsl)
