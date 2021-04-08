@@ -536,12 +536,12 @@ List of commands with their attributes
 
         call length values are distributed between 0 and 10ms, 10 and
         20ms, 20 and 30ms, 30 and beyond.
-    * - **<Globals>**
+    * - **<Global>**
       - ``variables``
       - Specify the name of globally scoped variables.
       - ::
 
-          <Globals variables="foo,bar"/>
+          <Global variables="foo,bar"/>
 
     * - **<User>**
       - ``variables``
@@ -559,7 +559,7 @@ List of commands with their attributes
 
 
 There are not so many commands: send, recv, sendCmd, recvCmd, pause,
-ResponseTimeRepartition, CallLengthRepartition, Globals, User, and
+ResponseTimeRepartition, CallLengthRepartition, Global, User, and
 Reference. To make things even clearer, nothing is better than an
 example...
 
