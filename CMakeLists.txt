@@ -131,8 +131,6 @@ if(USE_SCTP)
   add_definitions("-DUSE_SCTP")
 endif(USE_SCTP)
 
-add_definitions("-DRTP_STREAM")
-
 # add the executable
 link_directories("/usr/local/lib")
 add_executable(sipp ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp.cpp")

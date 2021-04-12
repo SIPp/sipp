@@ -155,7 +155,6 @@ void CAction::printInfo(char* buf, int len)
 #endif
 
     }
-#ifdef RTP_STREAM
     else if (M_action == E_AT_RTP_STREAM_PLAY)
     {
         snprintf(buf,
@@ -246,7 +245,6 @@ void CAction::printInfo(char* buf, int len)
     {
         snprintf(buf, len, "Type[%d] - rtp_stream rtpecho stopvideo", M_action);
     }
-#endif
     else
     {
         snprintf(buf, len, "Type[%d] - unknown action type ... ", M_action);
@@ -329,7 +327,6 @@ pcap_pkts  *   CAction::getPcapPkts()
     return(M_pcapArgs);
 }
 #endif
-#ifdef RTP_STREAM
 rtpecho_actinfo_t* CAction::getRTPEchoActInfo()
 {
     return &M_rtpecho_actinfo;
@@ -339,7 +336,6 @@ rtpstream_actinfo_t* CAction::getRTPStreamActInfo()
 {
     return &M_rtpstream_actinfo;
 }
-#endif
 
 void CAction::setActionType   (CAction::T_ActionType   P_value)
 {
@@ -582,7 +578,6 @@ void CAction::setPcapArgs(const char* P_value)
 }
 #endif
 
-#ifdef RTP_STREAM
 void CAction::setRTPEchoActInfo(const char* P_value)
 {
     char* param_str;
@@ -940,7 +935,6 @@ void CAction::setRTPStreamActInfo(rtpstream_actinfo_t *P_value)
     /* copied. No members need to be individually duplicated/processed.       */
     memcpy(&M_rtpstream_actinfo, P_value, sizeof(M_rtpstream_actinfo));
 }
-#endif
 
 void CAction::setScenario(scenario *     P_scenario)
 {
@@ -980,10 +974,8 @@ void CAction::setAction(CAction P_action)
 #ifdef PCAPPLAY
     setPcapArgs     ( P_action.M_pcapArgs        );
 #endif
-#ifdef RTP_STREAM
     setRTPEchoActInfo(&(P_action.M_rtpecho_actinfo));
     setRTPStreamActInfo(&(P_action.M_rtpstream_actinfo));
-#endif
 }
 
 CAction::CAction(scenario *scenario)
@@ -1016,10 +1008,8 @@ CAction::CAction(scenario *scenario)
     M_pcapArgs     = NULL;
 #endif
 
-#ifdef RTP_STREAM
     memset(&M_rtpecho_actinfo, 0, sizeof(M_rtpecho_actinfo));
     memset(&M_rtpstream_actinfo, 0, sizeof(M_rtpstream_actinfo));
-#endif
 
     M_scenario     = scenario;
     M_regExpSet    = false;
