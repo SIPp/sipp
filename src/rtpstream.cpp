@@ -157,9 +157,9 @@ pthread_mutex_t uasVideoMutex = PTHREAD_MUTEX_INITIALIZER;
 
 //===================================================================================================
 
-static int getThreadId(pthread_t p)
+static unsigned long long getThreadId(pthread_t p)
 {
-    int retVal = -1;
+    unsigned long long retVal = -1;
 
 #ifdef __APPLE__
     int rc = -1;
@@ -174,7 +174,7 @@ static int getThreadId(pthread_t p)
         retVal = -1;
     }
 #else  // !__APPLE__
-    retVal = p;
+    retVal = (unsigned long long)p;
 #endif // __APPLE__
 
     return retVal;
@@ -216,7 +216,7 @@ void printVideoHexUS(char const* note, unsigned char const* string, int size, in
     }
 }
 
-void printAudioHex(char const* note, char const* string, int size, int extrainfo, int moreinfo)
+void printAudioHex(char const* note, char const* string, int size, unsigned long long extrainfo, int moreinfo)
 {
     if ((debugafile != NULL) &&
         (note != NULL) &&
@@ -224,7 +224,7 @@ void printAudioHex(char const* note, char const* string, int size, int extrainfo
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugamutex);
-        fprintf(debugafile, "TID: %lu %s %d %d %d [", pthread_self(), note, size, extrainfo, moreinfo);
+        fprintf(debugafile, "TID: %lu %s %d %lld %d [", pthread_self(), note, size, extrainfo, moreinfo);
         for (int i = 0; i < size; i++)
         {
             fprintf(debugafile, "%02X", 0x000000FF & string[i]);
@@ -252,7 +252,7 @@ void printAudioVector(char const* note, std::vector<unsigned long> const &v)
     }
 }
 
-void printVideoHex(char const* note, char const* string, int size, int extrainfo, int moreinfo)
+void printVideoHex(char const* note, char const* string, int size, unsigned long long extrainfo, int moreinfo)
 {
     if ((debugvfile != NULL) &&
         (note != NULL) &&
@@ -260,7 +260,7 @@ void printVideoHex(char const* note, char const* string, int size, int extrainfo
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugvmutex);
-        fprintf(debugvfile, "TID: %lu %s %d %d %d [", pthread_self(), note, size, extrainfo, moreinfo);
+        fprintf(debugvfile, "TID: %lu %s %d %lld %d [", pthread_self(), note, size, extrainfo, moreinfo);
         for (int i = 0; i < size; i++)
         {
             fprintf(debugvfile, "%02X", 0x000000FF & string[i]);
