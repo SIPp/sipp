@@ -6074,6 +6074,12 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                    (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
             play_args_t* play_args = 0;
             if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
+                (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_IMAGE) ||
+                (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO)) {
+                const char *fileName = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+                currentAction->setPcapArgs(fileName);
+            }
+            if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
                 (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
                 play_args = &(this->play_args_a);
             } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_IMAGE) {
@@ -6131,6 +6137,8 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUME) {
             rtpstream_resume(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
+            const char *fileName = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            currentAction->setRTPStreamActInfo(fileName);
             rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo());
             // Obtain ID of parent thread used for the related RTP task
             call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
@@ -6139,6 +6147,8 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEAPATTERN) {
             rtpstream_resumeapattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYAPATTERN) {
+            const char *fileName = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            currentAction->setRTPStreamActInfo(fileName);
 #ifdef USE_TLS
             //
             // TX/RX-UAC-AUDIO SRTP context (a)(b) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
@@ -6186,6 +6196,8 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEVPATTERN) {
             rtpstream_resumevpattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYVPATTERN) {
+            const char *fileName = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            currentAction->setRTPStreamActInfo(fileName);
 #ifdef USE_TLS
             //
             // TX/RX-UAC-VIDEO SRTP context (a)(b) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
