@@ -49,6 +49,9 @@ FileContents::FileContents(const char *fileName)
 
     std::string lineStr;
     std::getline(*inFile, lineStr);
+    if (!lineStr.empty() && *lineStr.rbegin() == '\r') {
+        lineStr.pop_back();
+    }
     const char* line = lineStr.c_str();
 
     if (NULL != strstr(line, "RANDOM")) {
