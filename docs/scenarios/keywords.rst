@@ -189,5 +189,5 @@ Keyword list
 ``[userid]``
 =============
 :Description: If the -users command line option is specified, then this keyword
-  containst he integer identifier of the current user (starting at zero
+  containst the integer identifier of the current user (starting at zero
   and ending at [users-1]).
