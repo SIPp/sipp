@@ -66,6 +66,8 @@ public:
         E_AT_VAR_TO_DOUBLE,
         E_AT_VAR_STRCMP,
         E_AT_VAR_TRIM,
+        E_AT_VAR_URLDECODE,
+        E_AT_VAR_URLENCODE,
         E_AT_VERIFY_AUTH,
         E_AT_SET_DEST,
         E_AT_CLOSE_CON,

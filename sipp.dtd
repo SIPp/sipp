@@ -67,7 +67,7 @@
 <!ELEMENT CallLengthRepartition EMPTY >
 <!ATTLIST CallLengthRepartition value CDATA #REQUIRED >
 
-<!ELEMENT action ( add | assign | assignstr | closecon | divide | ereg | error | exec | gettimeofday | index | insert | jump | log | lookup | multiply | pauserestore | replace | rtp_echo | sample | setdest | strcmp | subtract | test | todouble | trim | verifyauth | warning )+ >
+<!ELEMENT action ( add | assign | assignstr | closecon | divide | ereg | error | exec | gettimeofday | index | insert | jump | log | lookup | multiply | pauserestore | replace | rtp_echo | sample | setdest | strcmp | subtract | test | todouble | trim | urldecode | urlencode | verifyauth | warning )+ >
 
 <!-- BEGIN actions -->
 
@@ -111,6 +111,12 @@
 <!ELEMENT assign EMPTY >
 <!ATTLIST assign assign_to CDATA #REQUIRED >
 <!ATTLIST assign variable CDATA #REQUIRED >
+
+<!ELEMENT urldecode EMPTY >
+<!ATTLIST urldecode variable CDATA #REQUIRED >
+
+<!ELEMENT urlencode EMPTY >
+<!ATTLIST urlencode variable CDATA #REQUIRED >
 
 <!-- END actions -->
 

@@ -482,6 +482,24 @@ and microseconds since the epoch. For example::
 
 
 
+urlencode / urldecode
++++++++++++++++++++++
+
+The urlencode and urldecode actions will replace the content of the
+variable specified in variable with the coded version. For example::
+
+Content of variable_to_be_encoded is "this: is a string".
+
+    <nop>
+      <action>
+        <urlencode variable="variable_to_be_encoded" />
+      </action>
+    </nop>
+
+Content of variable_to_be_encoded now is "this%3A%20is%20a%20string".
+
+
+
 setdest
 +++++++
 
