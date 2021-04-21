@@ -1628,6 +1628,12 @@ void scenario::parseAction(CActions *actions)
         } else if(!strcmp(actionElem, "trim")) {
             tmpAction->setVarId(xp_get_var("assign_to", "trim"));
             tmpAction->setActionType(CAction::E_AT_VAR_TRIM);
+        } else if(!strcmp(actionElem, "urldecode")) {
+            tmpAction->setVarId(xp_get_var("variable", "urldecode"));
+            tmpAction->setActionType(CAction::E_AT_VAR_URLDECODE);
+        } else if(!strcmp(actionElem, "urlencode")) {
+            tmpAction->setVarId(xp_get_var("variable", "urlencode"));
+            tmpAction->setActionType(CAction::E_AT_VAR_URLENCODE);
         } else if(!strcmp(actionElem, "exec")) {
             if ((cptr = xp_get_value("command"))) {
                 tmpAction->setActionType(CAction::E_AT_EXECUTE_CMD);

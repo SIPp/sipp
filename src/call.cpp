@@ -58,6 +58,7 @@
 
 #include "sipp.hpp"
 #include "auth.hpp"
+#include "urlcoder.hpp"
 #include "deadcall.hpp"
 #include "config.h"
 #include "version.h"
@@ -6034,6 +6035,18 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             for (int i = l - 1; (i >= 0) && isspace(q[i]); i--) {
                 q[i] = '\0';
             }
+        } else if (currentAction->getActionType() == CAction::E_AT_VAR_URLDECODE) {
+            CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
+            string input = var->getString();
+            string output = url_decode(input);
+            char *char_output = strdup(output.c_str());
+            var->setString(char_output);
+        } else if (currentAction->getActionType() == CAction::E_AT_VAR_URLENCODE) {
+            CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
+            string input = var->getString();
+            string output = url_encode(input);
+            char *char_output = strdup(output.c_str());
+            var->setString(char_output);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TO_DOUBLE) {
             double value;
 

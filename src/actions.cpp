@@ -143,6 +143,10 @@ void CAction::printInfo(char* buf, int len)
         snprintf(buf, len, "Type[%d] - divide varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
     } else if (M_action == E_AT_VAR_TRIM) {
         snprintf(buf, len, "Type[%d] - trim varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
+    } else if (M_action == E_AT_VAR_URLDECODE) {
+        snprintf(buf, len, "Type[%d] - urldecode varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
+    } else if (M_action == E_AT_VAR_URLENCODE) {
+        snprintf(buf, len, "Type[%d] - urlencode varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
     } else if (M_action == E_AT_VAR_TEST) {
         snprintf(buf, len, "Type[%d] - divide varId[%s] varInId[%s] %s %lf", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_varInId), comparatorToString(M_comp), M_doubleValue);
     } else if (M_action == E_AT_VAR_TO_DOUBLE) {
