@@ -1326,6 +1326,8 @@ int main(int argc, char *argv[])
     rtp_errors = 0;
     echo_errors = 0;
 
+    srand(time(NULL));
+
     /* At least one argument is needed */
     if (argc < 2) {
         help();
