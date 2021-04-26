@@ -126,7 +126,7 @@ int           num_ready_threads = 0;
 int           busy_threads_max = 0;
 int           ready_threads_max = 0;
 
-unsigned int  global_ssrc_id = 0xCA110000;
+unsigned int  global_ssrc_id = 0;
 
 FILE*         debugafile = NULL;
 FILE*         debugvfile = NULL;
@@ -1601,6 +1601,11 @@ int rtpstream_new_call(rtpstream_callinfo_t* callinfo)
     taskinfo->audio_srtp_echo_active = 0;
     taskinfo->video_srtp_echo_active = 0;
 #endif // USE_TLS
+
+    /* generate random ssrc */
+    if (global_ssrc_id == 0) {
+        global_ssrc_id = rand();
+    }
 
     /* rtp stream members */
     taskinfo->audio_ssrc_id = global_ssrc_id++;
