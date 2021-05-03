@@ -488,15 +488,15 @@ urlencode / urldecode
 The urlencode and urldecode actions will replace the content of the
 variable specified in variable with the coded version. For example::
 
-Content of variable_to_be_encoded is "this: is a string".
+For example, if the content of variable_to_be_encoded is
+"this: is a string", then content of variable_to_be_encoded will then
+become "this%3A%20is%20a%20string"::
 
     <nop>
       <action>
         <urlencode variable="variable_to_be_encoded" />
       </action>
     </nop>
-
-Content of variable_to_be_encoded now is "this%3A%20is%20a%20string".
 
 
 
