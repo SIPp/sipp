@@ -164,7 +164,6 @@ unsigned int call::wake()
     return wake;
 }
 
-#if defined(PCAPPLAY) || defined(RTP_STREAM) || defined(GTEST)
 static std::string find_in_sdp(std::string const &pattern, std::string const &msg)
 {
     std::string::size_type begin, end;
@@ -182,7 +181,6 @@ static std::string find_in_sdp(std::string const &pattern, std::string const &ms
 
     return msg.substr(begin, end - begin);
 }
-#endif
 
 #ifdef PCAPPLAY
 void call::get_remote_media_addr(std::string const &msg)
@@ -215,7 +213,6 @@ void call::get_remote_media_addr(std::string const &msg)
 }
 #endif
 
-#ifdef RTP_STREAM
 /******* Extract RTP remote media infomartion from SDP  *******/
 /***** Similar to the routines used by the PCAP play code *****/
 
@@ -739,7 +736,6 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
     }
 }
 #endif // USE_TLS
-#endif // RTP_STREAM
 
 /******* Very simple hash for retransmission detection  *******/
 
@@ -918,7 +914,6 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
 
     next_nonce_count = 1;
 
-#ifdef RTP_STREAM
 #ifdef USE_TLS
     //
     // JLSRTP CLIENT context constants
@@ -961,7 +956,6 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
 #endif // USE_TLS
     /* check and warn on rtpstream_new_call result? -> error alloc'ing mem */
     rtpstream_new_call(&rtpstream_callinfo);
-#endif // RTP_STREAM
 
 #ifdef PCAPPLAY
     hasMediaInformation = 0;
@@ -1211,9 +1205,7 @@ call::~call()
         free(next_req_url);
     }
 
-#ifdef RTP_STREAM
     rtpstream_end_call(&rtpstream_callinfo);
-#endif
 
     if (dialog_authentication) {
         free(dialog_authentication);
@@ -2585,7 +2577,6 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     char *dest = msg_buffer;
     bool suppresscrlf = false;
 
-#ifdef RTP_STREAM
 #ifdef USE_TLS
     bool srtp_audio_updated = false;
     bool srtp_video_updated = false;
@@ -2614,7 +2605,6 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     pV.primary_unencrypted_video_srtp = false;
     pV.secondary_unencrypted_video_srtp = false;
 #endif // USE_TLS
-#endif // RTP_STREAM
 
     *dest = '\0';
 
@@ -2750,7 +2740,6 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             dest += sprintf(dest, "%u", port);
             break;
         }
-#ifdef RTP_STREAM
         case E_Message_RTPStream_Audio_Port:
         {
           int temp_audio_port= 0;
@@ -3799,7 +3788,6 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
         break;
 #endif // USE_TLS
-#endif // RTP_STREAM
         case E_Message_Media_IP_Type:
             dest += snprintf(dest, left, "%s", (media_ip_is_ipv6 ? "6" : "4"));
             break;
@@ -4125,7 +4113,6 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         SendingMessage::freeMessageComponent(auth_comp);
     }
 
-#ifdef RTP_STREAM
 #ifdef USE_TLS
     // PASS OUTGOING SRTP PARAMETERS...
     if (srtp_audio_updated && (pA.primary_audio_cryptotag != 0))
@@ -4191,7 +4178,6 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             setSessionState(eCompleted);
         }
     }
-#endif // RTP_STREAM
 
     return msg_buffer;
 }
@@ -4634,7 +4620,6 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         }
     }
 
-#ifdef RTP_STREAM
     /* Check if message has a SDP in it; and extract media information. */
     if (!strcmp(get_header_content(msg, "Content-Type:"), "application/sdp") &&
           (hasMedia == 1) &&
@@ -5218,7 +5203,6 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 #endif // USE_TLS
         } // ptr
     } // Content-Type
-#endif // RTP_STREAM
 
     /* Is it a response ? */
     if ((msg[0] == 'S') &&
@@ -6182,7 +6166,6 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 #endif
         }
 
-#ifdef RTP_STREAM
         else if (currentAction->getActionType() == CAction::E_AT_RTP_ECHO)
         {
             rtp_echo_state = (currentAction->getDoubleValue() != 0);
@@ -6547,7 +6530,6 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 return call::E_AR_RTPECHO_ERROR;
             }
         }
-#endif // RTP_STREAM
         else
         {
             ERROR("call::executeAction unknown action");
