@@ -27,8 +27,6 @@ struct taskentry_t;
 struct rtpstream_callinfo_t
 {
     taskentry_t* taskinfo;
-    int audioport;
-    int videoport;
 };
 
 struct rtpstream_actinfo_t
@@ -45,8 +43,6 @@ int rtpstream_new_call(rtpstream_callinfo_t *callinfo);
 void rtpstream_end_call(rtpstream_callinfo_t *callinfo);
 void rtpstream_shutdown(void);
 
-int rtpstream_get_audioport(rtpstream_callinfo_t *callinfo);
-int rtpstream_get_videoport(rtpstream_callinfo_t *callinfo);
 void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char* ip_addr,
                           int audio_port, int video_port);
 
