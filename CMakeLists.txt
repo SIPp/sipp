@@ -45,6 +45,7 @@ CHECK_STRUCT_HAS_MEMBER("struct udphdr" uh_sport "sys/types.h;netinet/udp.h"  HA
 CHECK_SYMBOL_EXISTS(le16toh "endian.h" HAVE_DECL_LE16TOH)
 CHECK_SYMBOL_EXISTS(le16toh "sys/endian.h" HAVE_DECL_LE16TOH_BSD)
 
+set(CMAKE_REQUIRED_FLAGS ${CMAKE_CXX_FLAGS} -std=c++11)
 CHECK_CXX_SOURCE_COMPILES("
 #include <string>
 int main() { auto s = std::string(\"x\"); s.c_str(); return 0; }
