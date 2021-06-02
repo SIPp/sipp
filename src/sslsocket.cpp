@@ -192,20 +192,53 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
 {
     SSL_CTX* ssl_ctx = NULL;
 
-    if (tls_version == 0.0) {
 #if OPENSSL_VERSION_NUMBER >= 0x10100000  /* >= 1.1 */
-        if (!strncmp(context_name, "client", 6)) {
-            ssl_ctx = SSL_CTX_new(TLS_client_method());
-        } else {
-            ssl_ctx = SSL_CTX_new(TLS_server_method());
-        }
+
+    int min_tls_version, max_tls_version;
+
+    if (tls_version == 0.0) {
+#if !defined(USE_WOLFSSL) || defined(WOLFSSL_ALLOW_TLSV10)
+        min_tls_version = TLS1_VERSION;
 #else
+        min_tls_version = TLS1_1_VERSION;
+#endif
+        max_tls_version = TLS_MAX_VERSION;
+    } else if (tls_version == 1.0) {
+#if !defined(USE_WOLFSSL) || defined(WOLFSSL_ALLOW_TLSV10)
+        max_tls_version = min_tls_version = TLS1_VERSION;
+#else
+        ERROR("Old TLS version 1.0 is no longer supported for [%s] context.", context_name);
+        return NULL;
+#endif
+    } else if (tls_version == 1.1) {
+        max_tls_version = min_tls_version = TLS1_1_VERSION;
+    } else if (tls_version == 1.2) {
+        max_tls_version = min_tls_version = TLS1_2_VERSION;
+    } else {
+        ERROR("Unrecognized TLS version for [%s] context: %1.1f", context_name, tls_version);
+        return NULL;
+    }
+
+    if (!strncmp(context_name, "client", 6)) {
+        ssl_ctx = SSL_CTX_new(TLS_client_method());
+    } else {
+        ssl_ctx = SSL_CTX_new(TLS_server_method());
+    }
+
+    SSL_CTX_set_min_proto_version(ssl_ctx, min_tls_version);
+
+    if (max_tls_version != TLS_MAX_VERSION) {
+        SSL_CTX_set_max_proto_version(ssl_ctx, max_tls_version);
+    }
+
+#else  /* OPENSSL_VERSION < 1.1 */
+
+    if (tls_version == 0.0) {
         if (!strncmp(context_name, "client", 6)) {
             ssl_ctx = SSL_CTX_new(SSLv23_client_method());
         } else {
             ssl_ctx = SSL_CTX_new(SSLv23_server_method());
         }
-#endif
     } else if (tls_version == 1.0) {
 #if !defined(USE_WOLFSSL) || defined(WOLFSSL_ALLOW_TLSV10)
         if (!strncmp(context_name, "client", 6)) {
@@ -234,12 +267,6 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
         ssl_ctx = NULL;
     }
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000  /* >= 1.1 */
-#if !defined(USE_WOLFSSL) || defined(WOLFSSL_ALLOW_TLSV10)
-    SSL_CTX_set_min_proto_version(ssl_ctx, TLS1_VERSION);
-#else
-    SSL_CTX_set_min_proto_version(ssl_ctx, TLS1_1_VERSION);
-#endif
 #endif
     return ssl_ctx;
 }
