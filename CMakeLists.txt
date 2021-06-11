@@ -150,16 +150,16 @@ file(WRITE ${PROJECT_SOURCE_DIR}/include/version.cmake
  )
  configure_file(\${SRC} \${DST} @ONLY)
 ")
-add_custom_target(
-    version
-    if test -d ${PROJECT_SOURCE_DIR}/.git \; then
-        ${CMAKE_COMMAND} -D SRC=${PROJECT_SOURCE_DIR}/include/version.h.in
-        -D DST=${PROJECT_BINARY_DIR}/version.h
-        -P ${PROJECT_SOURCE_DIR}/include/version.cmake \;
-    fi
-)
-add_dependencies(sipp version)
-add_dependencies(sipp_unittest version)
+if(EXISTS ${PROJECT_SOURCE_DIR}/.git)
+  add_custom_target(
+      version
+      ${CMAKE_COMMAND} -D SRC=${PROJECT_SOURCE_DIR}/include/version.h.in
+      -D DST=${PROJECT_BINARY_DIR}/version.h
+      -P ${PROJECT_SOURCE_DIR}/include/version.cmake
+  )
+  add_dependencies(sipp version)
+  add_dependencies(sipp_unittest version)
+endif()
 
 if(BUILD_STATIC)
   set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
