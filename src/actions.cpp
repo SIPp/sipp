@@ -641,7 +641,19 @@ void CAction::setRTPEchoActInfo(const char* P_value)
 
     if (!strcmp(M_rtpecho_actinfo.payload_name, ""))
     {
-        ERROR("Missing mandatory payload_name parameter in rtp_echo action");
+        static const std::map<int, const char *> default_parameter{
+            {0, "PCMU/8000"}, {8, "PCMA/8000"},
+            {9, "G722/8000"}, {18, "G729/8000"}};
+        auto const itr = default_parameter.find(M_rtpecho_actinfo.payload_type);
+        if (itr != default_parameter.end())
+        {
+            strncpy(M_rtpecho_actinfo.payload_name, itr->second,
+                    sizeof(M_rtpecho_actinfo.payload_name));
+        }
+        else
+        {
+            ERROR("Missing mandatory payload_name parameter in rtp_echo action");
+        }
     }
 
     /* Setup based on what we know of payload types */
@@ -826,7 +838,19 @@ void CAction::setRTPStreamActInfo(const char *P_value)
 
     if (!strcmp(M_rtpstream_actinfo.payload_name, ""))
     {
-        ERROR("Missing mandatory payload_name parameter in rtp_stream action");
+        static const std::map<int, const char *> default_parameter {
+            {0, "PCMU/8000"}, {8, "PCMA/8000"},
+            {9, "G722/8000"}, {18, "G729/8000"}};
+        auto const itr = default_parameter.find(M_rtpstream_actinfo.payload_type);
+        if (itr != default_parameter.end())
+        {
+            strncpy(M_rtpstream_actinfo.payload_name, itr->second,
+                    sizeof(M_rtpstream_actinfo.payload_name));
+        }
+        else
+        {
+            ERROR("Missing mandatory payload_name parameter in rtp_stream action");
+        }
     }
 
     // JLTAG NOTE:

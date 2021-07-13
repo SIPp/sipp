@@ -205,12 +205,13 @@ action controls this.
 
 + <exec rtp_stream="file.wav" /> will stream the audio contained in
   file.wav, assuming it is a PCMA-format file.
-+ <exec rtp_stream="[filename],[loopcount],[payloadtype]" /> will
-  stream the audio contained in [filename], repeat the stream
-  [loopcount] times (the default is 1, and -1 indicates it will repeat
-  forever), and will treat the audio as being of [payloadtype] (where 8
-  is the default of PCMA, 0 indicates PCMU, 9 indicates G722, 18
-  indicates G729 and 98 indicates iLBC in 30ms 13.33kbps).
++ <exec rtp_stream="[filename],[loopcount],[payloadtype],[payloadparam]" /> will
+  stream the audio contained in [filename], repeat the stream [loopcount] times
+  (the default value is 1, and -1 indicates it will repeat forever), treat the
+  audio as being of [payloadtype] (where 8 is the default of PCMA, 0 indicates
+  PCMU, 9 indicates G722, 18 indicates G729), and payload param as
+  [payloadparam] (eg: "PCMU/8000", "PCMA/8000", "G722/8000", "G729/8000",
+  "H264/90000", "iLBC/8000").
 + <exec rtp_stream="pause" /> will pause any currently active
   playback.
 + <exec rtp_stream="resume" /> will resume any currently paused
