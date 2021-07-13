@@ -658,12 +658,10 @@ void CAction::setRTPEchoActInfo(const char* P_value)
                   M_rtpecho_actinfo.bytes_per_packet = 1280;  // ARBITRARY H264 PACKET SIZE
                   M_rtpecho_actinfo.video_active = 1;
               }
-              else if (!strcmp(M_rtpstream_actinfo.payload_name, "iLBC/8000"))
+              else if (!strcmp(M_rtpecho_actinfo.payload_name, "iLBC/8000"))
               {
-                  M_rtpstream_actinfo.ms_per_packet = 30;
-                  M_rtpstream_actinfo.bytes_per_packet = 50;
-                  M_rtpstream_actinfo.ticks_per_packet = 240;
-                  M_rtpstream_actinfo.audio_active = 1;
+                  M_rtpecho_actinfo.bytes_per_packet = 50;
+                  M_rtpecho_actinfo.audio_active = 1;
               }
               else
               {
