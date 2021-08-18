@@ -189,5 +189,11 @@ Keyword list
 ``[userid]``
 =============
 :Description: If the -users command line option is specified, then this keyword
-  containst he integer identifier of the current user (starting at zero
+  contains the integer identifier of the current user (starting at zero
   and ending at [users-1]).
+  
+``[date]``
+=============
+:Description: Provide the current date in rfc2822 format:
+  day-name, day month-name year hour minute second UTC
+  Tue, 17 Aug 2021 13:58:40 UTC
