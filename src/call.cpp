@@ -3882,8 +3882,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
             t = time(NULL);
             tm = gmtime(&t);
-
-            strftime(buf, 256, "%a, %d %b %Y %T %Z", tm);
+            /* changed %Z to hardcoded GMT since in some OS like FreeBSD it could return UTC instead, see issue #535 */
+            strftime(buf, 256, "%a, %d %b %Y %T GMT", tm);
             dest += snprintf(dest, left, "%s", buf);
             break;
         case E_Message_Users:
