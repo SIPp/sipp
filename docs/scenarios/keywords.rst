@@ -5,14 +5,43 @@ Keyword list
 *If you want a literal left bracket instead of a keyword, use* ``\x5b`` *where you want a* ``[``.
 
 
+``[last_*]``
+============
+:Description: The '[last_*]' keyword is replaced automatically by the specified header if it was present
+  in the last message received (except if it was a retransmission). If the header was not present or if
+  no message has been received, the '[last_*]' keyword is discarded, and all bytes
+  until the end of the line are also discarded. If the specified header
+  was present several times in the message, all occurences are
+  concatenated (CRLF separated) to be used in place of the '[last_*]' keyword.
+
+``[last_cseq_number]``
+======================
+:Description: The numeric value from the ``CSeq:`` as would've been found in ``[last_CSeq:]``.
+
+``[last_message]``
+==================
+:Description: The last received message.
+
+``[last_Request_URI]``
+======================
+:Description: The URI found inside the ``To:`` as would've been found in ``[last_To:]``.
+
 ``[service]``
 =============
 :Default: (service)
 :Description: Service field, as passed in the -s service_name
 
+``[server_ip]``
+===============
+:Description: Local IP as identified on the server socket.
+
+``[remote_host]``
+===============
+:Description: Remote hostname, as passed on the command line.
+
 ``[remote_ip]``
 ===============
-:Description: Remote IP address, as passed on the command line.
+:Description: Remote IP address, resolved from the hostname as passed on the command line.
 
 ``[remote_port]``
 =================
@@ -61,6 +90,10 @@ Keyword list
   message sent as being part of an existing call. Note: [call_id] can be pre-pended with an arbitrary string using
   '///'. Example: Call-ID: ABCDEFGHIJ///[call_id] - it will still be recognized by SIPp as part of the same call.
 
+``[peer_tag_param]``
+====================
+:Description: The ``;tag=XXX`` found in the ``To:`` header of the last response.
+
 ``[media_ip]``
 ===============
 :Description: Depending on the value of -mi parameter, it is the local IP address for RTP echo.
@@ -82,15 +115,6 @@ Keyword list
   from the value of -mp parameter, and change for each call using a periodical
   system, modulo 10000 (which limits to 10000 concurrent RTP sessions for pcap_play)
 
-``[last_*]``
-============
-:Description: The '[last_*]' keyword is replaced automatically by the specified header if it was present
-  in the last message received (except if it was a retransmission). If the header was not present or if
-  no message has been received, the '[last_*]' keyword is discarded, and all bytes
-  until the end of the line are also discarded. If the specified header
-  was present several times in the message, all occurences are
-  concatenated (CRLF separated) to be used in place of the '[last_*]' keyword.
-
 ``[field0-n file=<filename> line=<number>]``
 ============================================
 :Description: Used to inject
@@ -107,13 +131,13 @@ Keyword list
   thus your file must be formatted exactly as you would like the bytes
   to appear in the message.
 
+``[date]``
+==========
+:Description: The current datetime in the following format: ``Mon, 25 Oct 2021 07:20:55 GMT``
+
 ``[timestamp]``
 ===============
 :Description: The current time using the same format as error log messages.
-
-``[last_message]``
-==================
-:Description: The last received message.
 
 ``[$n]``
 ========
@@ -128,6 +152,10 @@ Keyword list
   -au (authentication username) or -s (service) command line parameter
   is used. If no password is provided, the value from -ap command line
   parameter is used. See "Authentication" section
+
+``[dynamic_id]``
+================
+:Description: Incrementing integer that is unique per message, except when it wraps around.
 
 ``[pid]``
 =========
