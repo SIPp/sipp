@@ -396,7 +396,6 @@ void ScreenPrinter::draw_scenario_screen()
     if (rtpstream_numthreads) {
         unsigned long TempABytes;
         unsigned long TempVBytes;
-        unsigned long tempbytes;
         if (ms_since_last_tick) {
             TempABytes= rtpstream_abytes_out;
             TempVBytes= rtpstream_vbytes_out;

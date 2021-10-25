@@ -128,8 +128,6 @@ char* get_header(const char* message, const char* name, bool content)
     static char last_header[MAX_HEADER_LEN * 10];
     const char *cptr;
     char *src, *src_copy, *dest, *start, *ptr;
-    /* Are we searching for a short form header? */
-    bool short_form = false;
     bool first_time = true;
     char header_with_newline[MAX_HEADER_LEN + 1];
 

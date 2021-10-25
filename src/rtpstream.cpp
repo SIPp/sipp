@@ -606,10 +606,12 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     unsigned short host_seqnum = 0;
     unsigned int host_timestamp = 0;
     unsigned int host_ssrc = 0;
-    unsigned short audio_seq_in = 0;
-    unsigned short video_seq_in = 0;
     unsigned int audio_in_size = 0;
     unsigned int video_in_size = 0;
+#ifdef USE_TLS
+    unsigned short audio_seq_in = 0;
+    unsigned short video_seq_in = 0;
+#endif
 
     union {
         rtp_header_t hdr;
@@ -3070,7 +3072,6 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
     debugprint("rtpstream_rtpecho_startaudio callinfo=%p\n", callinfo);
 
     taskentry_t   *taskinfo = callinfo->taskinfo;
-    ParamPass p;
 
     if (!taskinfo)
     {
@@ -3078,6 +3079,8 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
     }
 
 #ifdef USE_TLS
+    ParamPass p;
+
     taskinfo->audio_srtp_echo_active = 1;
 
     pthread_mutex_lock(&debugremutexaudio);
@@ -3241,7 +3244,6 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
     debugprint("rtpstream_rtpecho_startvideo callinfo=%p\n", callinfo);
 
     taskentry_t   *taskinfo = callinfo->taskinfo;
-    ParamPass p;
 
     if (!taskinfo)
     {
@@ -3249,6 +3251,8 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
     }
 
 #ifdef USE_TLS
+    ParamPass p;
+
     taskinfo->video_srtp_echo_active = 1;
 
     pthread_mutex_lock(&debugremutexvideo);

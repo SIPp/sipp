@@ -28,7 +28,7 @@ std::string url_encode(const std::string &str) {
     char bufHex[10];
     size_t len = strlen(chars);
 
-    for (int i = 0; i < len; i++) {
+    for (unsigned int i = 0; i < len; i++) {
         c = chars[i];
         ic = c;
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
@@ -49,10 +49,10 @@ std::string url_encode(const std::string &str) {
 std::string url_decode(std::string str) {
     std::string ret;
     char ch;
-    int i, ii;
     size_t len = str.length();
 
-    for (i = 0; i < len; i++) {
+    for (unsigned int i = 0; i < len; i++) {
+        unsigned int ii;
         if (str[i] != '%') {
             if (str[i] == '+') {
                 ret += ' ';
