@@ -200,8 +200,8 @@ protected:
     JLSRTP _txUASVideo;
     JLSRTP _rxUASVideo;
 #ifdef USE_TLS
-    char _pref_audio_cs_out[24];
-    char _pref_video_cs_out[24];
+    char _pref_audio_cs_out[25];
+    char _pref_video_cs_out[25];
 #endif // USE_TLS
 #endif // RTP_STREAM
 

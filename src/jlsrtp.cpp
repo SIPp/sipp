@@ -67,7 +67,6 @@ int JLSRTP::pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vect
 {
     int rc = 0;
     unsigned int num_loops = 0;
-    AES_KEY aes_key;
     std::vector<unsigned char> block;
     std::vector<unsigned char> input;
     unsigned int ivSize = 0;

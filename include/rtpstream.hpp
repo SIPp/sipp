@@ -33,10 +33,10 @@ typedef struct _SrtpAudioInfoParams
 {
     bool audio_found;
     int primary_audio_cryptotag;
-    char primary_audio_cryptosuite[24];
+    char primary_audio_cryptosuite[25];
     char primary_audio_cryptokeyparams[42];
     int secondary_audio_cryptotag;
-    char secondary_audio_cryptosuite[24];
+    char secondary_audio_cryptosuite[25];
     char secondary_audio_cryptokeyparams[42];
     bool primary_unencrypted_audio_srtp;
     bool secondary_unencrypted_audio_srtp;
@@ -46,10 +46,10 @@ typedef struct _SrtpVideoInfoParams
 {
     bool video_found;
     int primary_video_cryptotag;
-    char primary_video_cryptosuite[24];
+    char primary_video_cryptosuite[25];
     char primary_video_cryptokeyparams[42];
     int secondary_video_cryptotag;
-    char secondary_video_cryptosuite[24];
+    char secondary_video_cryptosuite[25];
     char secondary_video_cryptokeyparams[42];
     bool primary_unencrypted_video_srtp;
     bool secondary_unencrypted_video_srtp;
