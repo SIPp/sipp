@@ -27,6 +27,15 @@ More details on how to do this can be found in the action reference
 section.
 
 
+RTP check functionality
+```````````````````````
+
+SIPp has support for for bidirectional RTP or bidirectional SRTP
+checking. This is not detailed in the RST docs, but in a separate PDF,
+unfortunately. See:
+:download:`rtpcheck_xml_syntax_reference.pdf <rtpcheck_xml_syntax_reference.pdf>`
+
+
 PCAP Play
 `````````
 

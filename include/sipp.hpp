@@ -253,8 +253,6 @@ MAYBE_EXTERN int                control_port            DEFVAL(0);
 MAYBE_EXTERN int                buff_size               DEFVAL(65535);
 MAYBE_EXTERN int                tcp_readsize            DEFVAL(65535);
 MAYBE_EXTERN int                hasMedia                DEFVAL(0);
-MAYBE_EXTERN int                min_rtp_port            DEFVAL(DEFAULT_MIN_RTP_PORT);
-MAYBE_EXTERN int                max_rtp_port            DEFVAL(DEFAULT_MAX_RTP_PORT);
 MAYBE_EXTERN int                rtp_default_payload     DEFVAL(DEFAULT_RTP_PAYLOAD);
 MAYBE_EXTERN int                rtp_tasks_per_thread    DEFVAL(DEFAULT_RTP_THREADTASKS);
 MAYBE_EXTERN int                rtp_buffsize            DEFVAL(65535);
