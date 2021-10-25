@@ -29,6 +29,8 @@ with this program.  If not, see
 See the `docs/` directory. It should also be available in html format at:
 https://sipp.readthedocs.io/en/latest/
 
+Build a local copy using: ``sphinx-build docs _build``
+
 # Building
 
 This is the SIPp package. Please refer to the
