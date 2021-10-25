@@ -606,10 +606,6 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     unsigned short host_seqnum = 0;
     unsigned int host_timestamp = 0;
     unsigned int host_ssrc = 0;
-    unsigned short network_flags = 0;
-    unsigned short network_seqnum = 0;
-    unsigned int network_timestamp = 0;
-    unsigned int network_ssrc = 0;
     unsigned short audio_seq_in = 0;
     unsigned short video_seq_in = 0;
     unsigned int audio_in_size = 0;
@@ -619,11 +615,6 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
         rtp_header_t hdr;
         char buffer[MAX_UDP_RECV_BUFFER];
     } udp_recv_temp;
-
-    union {
-        rtp_header_t hdr;
-        char buffer[MAX_UDP_SEND_BUFFER];
-    } udp_send_temp;
 
     union {
         rtp_header_t hdr;
@@ -2578,10 +2569,6 @@ void rtpstream_audioecho_thread(void* param)
     unsigned short host_seqnum = 0;
     unsigned int host_timestamp = 0;
     unsigned int host_ssrc = 0;
-    unsigned short network_flags = 0;
-    unsigned short network_seqnum = 0;
-    unsigned int network_timestamp = 0;
-    unsigned int network_ssrc = 0;
     bool abnormal_termination = false;
     ParamPass p;
 
@@ -2843,10 +2830,6 @@ void rtpstream_videoecho_thread(void* param)
     unsigned short host_seqnum = 0;
     unsigned int host_timestamp = 0;
     unsigned int host_ssrc = 0;
-    unsigned short network_flags = 0;
-    unsigned short network_seqnum = 0;
-    unsigned int network_timestamp = 0;
-    unsigned int network_ssrc = 0;
     bool abnormal_termination = false;
     ParamPass p;
 
