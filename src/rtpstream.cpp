@@ -29,6 +29,7 @@
 #include "rtpstream.hpp"
 
 #include <sys/time.h>
+#include <memory>
 #include <vector>
 #include <errno.h>
 
@@ -36,6 +37,11 @@
 static void debugprint(const char* format, ...)
 {
 }
+
+struct free_delete {
+    void operator()(void* x) { free(x); }
+};
+template<class T> using my_unique_ptr = std::unique_ptr<T, free_delete>;
 
 #define RTPSTREAM_FILESPERBLOCK       16
 #define BIND_MAX_TRIES                100
@@ -2549,14 +2555,16 @@ void rtpstream_resumevpattern(rtpstream_callinfo_t* callinfo)
 
 void rtpstream_audioecho_thread(void* param)
 {
-    unsigned char* msg;
+    int exit_code = 0;
+#ifdef USE_TLS
+    my_unique_ptr<unsigned char[]> msg {
+        reinterpret_cast<unsigned char*>(malloc(media_bufsize)) };
     ssize_t nr;
     ssize_t ns;
     sipp_socklen_t len;
     struct sockaddr_storage remote_rtp_addr;
     sigset_t              mask;
     int rc = 0;
-    int exit_code = 0;
     struct timespec tspec;
     int sock = 0;
     int flags;
@@ -2577,7 +2585,6 @@ void rtpstream_audioecho_thread(void* param)
     bool abnormal_termination = false;
     ParamPass p;
 
-#ifdef USE_TLS
     tspec.tv_sec = 0;
     tspec.tv_nsec = 10000000; /* 10ms */
 
@@ -2632,8 +2639,7 @@ void rtpstream_audioecho_thread(void* param)
         {
             pthread_mutex_lock(&uasAudioMutex);
             nr = 0;
-            msg = (unsigned char*) malloc(media_bufsize);
-            memset(msg, 0, media_bufsize);
+            memset(msg.get(), 0, media_bufsize);
             len = sizeof(remote_rtp_addr);
             audio_packet_in.resize(sizeof(rtp_header_t) + g_rxUASAudio.getSrtpPayloadSize() + g_rxUASAudio.getAuthenticationTagSize(), 0);
             nr = recvfrom(sock, audio_packet_in.data(), audio_packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
@@ -2693,9 +2699,8 @@ void rtpstream_audioecho_thread(void* param)
                     audio_packet_in[10] = (host_ssrc >> 8) & 0xFF;
                     audio_packet_in[11] = host_ssrc & 0xFF;
 
-                    memset(msg, 0, media_bufsize);
-                    memcpy(msg, rtp_header.data(), rtp_header.size());
-                    memcpy(msg + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
+                    memcpy(msg.get(), rtp_header.data(), rtp_header.size());
+                    memcpy(msg.get() + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
                 }
 
                 if (g_txUASAudio.getCryptoTag() != 0)
@@ -2704,10 +2709,10 @@ void rtpstream_audioecho_thread(void* param)
 
                     // GRAB RTP HEADER
                     rtp_header.resize(sizeof(rtp_header_t), 0);
-                    memcpy(rtp_header.data(), msg, sizeof(rtp_header_t) /*12*/);
+                    memcpy(rtp_header.data(), msg.get(), sizeof(rtp_header_t) /*12*/);
                     // GRAB RTP PAYLOAD DATA
                     payload_data.resize(g_txUASAudio.getSrtpPayloadSize(), 0);
-                    memcpy(payload_data.data(), msg + sizeof(rtp_header_t), g_txUASAudio.getSrtpPayloadSize());
+                    memcpy(payload_data.data(), msg.get() + sizeof(rtp_header_t), g_txUASAudio.getSrtpPayloadSize());
 
                     // ENCRYPT
                     rc = g_txUASAudio.processOutgoingPacket(audio_seq, rtp_header, payload_data, audio_packet_out);
@@ -2762,7 +2767,6 @@ void rtpstream_audioecho_thread(void* param)
                 pthread_mutex_unlock(&debugremutexaudio);
                 abnormal_termination = true;
             }
-            free(msg);
             pthread_mutex_unlock(&uasAudioMutex);
         }
         else
@@ -2816,14 +2820,16 @@ void rtpstream_audioecho_thread(void* param)
 
 void rtpstream_videoecho_thread(void* param)
 {
-    unsigned char* msg;
+    int exit_code = 0;
+#ifdef USE_TLS
+    my_unique_ptr<unsigned char[]> msg {
+        reinterpret_cast<unsigned char*>(malloc(media_bufsize)) };
     ssize_t nr;
     ssize_t ns;
     sipp_socklen_t len;
     struct sockaddr_storage remote_rtp_addr;
     sigset_t              mask;
     int rc = 0;
-    int exit_code = 0;
     struct timespec tspec;
     int sock = 0;
     int flags;
@@ -2844,7 +2850,6 @@ void rtpstream_videoecho_thread(void* param)
     bool abnormal_termination = false;
     ParamPass p;
 
-#ifdef USE_TLS
     tspec.tv_sec = 0;
     tspec.tv_nsec = 10000000; /* 10ms */
 
@@ -2899,8 +2904,7 @@ void rtpstream_videoecho_thread(void* param)
         {
             pthread_mutex_lock(&uasVideoMutex);
             nr = 0;
-            msg = (unsigned char*) malloc(media_bufsize);
-            memset(msg, 0, media_bufsize);
+            memset(msg.get(), 0, media_bufsize);
             len = sizeof(remote_rtp_addr);
             video_packet_in.resize(sizeof(rtp_header_t) + g_rxUASVideo.getSrtpPayloadSize() + g_rxUASVideo.getAuthenticationTagSize(), 0);
             nr = recvfrom(sock, video_packet_in.data(), video_packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
@@ -2959,9 +2963,8 @@ void rtpstream_videoecho_thread(void* param)
                     video_packet_in[10] = (host_ssrc >> 8) & 0xFF;
                     video_packet_in[11] = host_ssrc & 0xFF;
 
-                    memset(msg, 0, media_bufsize);
-                    memcpy(msg, rtp_header.data(), rtp_header.size());
-                    memcpy(msg + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
+                    memcpy(msg.get(), rtp_header.data(), rtp_header.size());
+                    memcpy(msg.get() + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
                 }
 
                 if (g_txUASVideo.getCryptoTag() != 0)
@@ -2970,10 +2973,10 @@ void rtpstream_videoecho_thread(void* param)
                     // ENCRYPT
                     // GRAB RTP HEADER
                     rtp_header.resize(sizeof(rtp_header_t), 0);
-                    memcpy(rtp_header.data(), msg, sizeof(rtp_header_t) /*12*/);
+                    memcpy(rtp_header.data(), msg.get(), sizeof(rtp_header_t) /*12*/);
                     // GRAB RTP PAYLOAD DATA
                     payload_data.resize(g_txUASVideo.getSrtpPayloadSize(), 0);
-                    memcpy(payload_data.data(), msg + sizeof(rtp_header_t), g_txUASVideo.getSrtpPayloadSize());
+                    memcpy(payload_data.data(), msg.get() + sizeof(rtp_header_t), g_txUASVideo.getSrtpPayloadSize());
 
                     // ENCRYPT
                     rc = g_txUASVideo.processOutgoingPacket(video_seq, rtp_header, payload_data, video_packet_out);
@@ -3028,7 +3031,6 @@ void rtpstream_videoecho_thread(void* param)
                 pthread_mutex_unlock(&debugremutexvideo);
                 abnormal_termination = true;
             }
-            free(msg);
             pthread_mutex_unlock(&uasVideoMutex);
         }
         else
