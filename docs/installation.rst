@@ -81,9 +81,8 @@ Installing SIPp
 
     + With TLS support, you must have installed `OpenSSL library`_
       (>=0.9.8) (which may come with your system) or `WolfSSL library`_
-      (>=3.15.0).  (>=0.9.8) (which may come with your system). Building
-      SIPp consists only of adding the ``-DUSE_SSL=1`` option to the
-      cmake command::
+      (>=3.15.0). Building SIPp consists only of adding the
+      ``-DUSE_SSL=1`` option to the cmake command::
 
         tar -xvzf sipp-xxx.tar.gz
         cd sipp
