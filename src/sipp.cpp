@@ -1269,26 +1269,26 @@ static void setup_media_sockets()
 
     // assert that an IPv6 'media_ip' is not surrounded by brackets?
     //
-    if ((user_media_port > 0) && rtp_echo_enabled) {
-        hints.ai_flags  = AI_PASSIVE;
-        hints.ai_family = PF_UNSPEC; /* use local_ip_is_ipv6 as hint? */
+    hints.ai_flags  = AI_PASSIVE;
+    hints.ai_family = PF_UNSPEC; /* use local_ip_is_ipv6 as hint? */
 
-        /* Resolving local IP */
-        if (getaddrinfo(media_ip,
-                        NULL,
-                        &hints,
-                        &local_addr) != 0) {
-            ERROR("Unknown RTP address '%s'.\n"
-                  "Use 'sipp -h' for details", media_ip);
-        }
-        memcpy(&media_sockaddr, local_addr->ai_addr, socklen_from_addr(_RCAST(struct sockaddr_storage*, local_addr->ai_addr)));
-        freeaddrinfo(local_addr);
+    /* Resolving local IP */
+    if (getaddrinfo(media_ip,
+                    NULL,
+                    &hints,
+                    &local_addr) != 0) {
+        ERROR("Unknown RTP address '%s'.\n"
+              "Use 'sipp -h' for details", media_ip);
+    }
+    memcpy(&media_sockaddr, local_addr->ai_addr, socklen_from_addr(_RCAST(struct sockaddr_storage*, local_addr->ai_addr)));
+    freeaddrinfo(local_addr);
 
-        media_ip_is_ipv6 = (media_sockaddr.ss_family == AF_INET6);
+    media_ip_is_ipv6 = (media_sockaddr.ss_family == AF_INET6);
 
-        media_socket_audio = -1;
-        media_socket_video = -1;
+    media_socket_audio = -1;
+    media_socket_video = -1;
 
+    if (user_media_port > 0 && rtp_echo_enabled) {
         for (try_counter = 1; try_counter <= max_tries; try_counter++) {
             last_attempt = (try_counter == max_tries);
 
