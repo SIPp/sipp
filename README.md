@@ -70,14 +70,32 @@ list](https://lists.sourceforge.net/lists/listinfo/sipp-users).
 
 # Making a release
 
-* Update CHANGES.md. Tag release.
-* Make `sipp.1` by calling `help2man --output=sipp.1 -v -v --no-info
-  --name='SIP testing tool and traffic generator' ./sipp`
-* Copy `sipp.1`, copy `$bindir/version.h` to `include/version.h`.
-* Create sipp-VERSION.tar.gz with subdirectory sipp-VERSION. Upload to github as "binary".
-* Run `sudo docker build -t sipp-build docker && sudo docker run -it -v
-  $PWD:/src sipp-build` to create a static binary. Upload this to Github
-  as well.
+* Update CHANGES.md. Tag release. Do a build.
+* Make `sipp.1` by calling:
+    ```
+    help2man --output=sipp.1 -v -v --no-info \
+      --name='SIP testing tool and traffic generator' ./sipp
+    ```
+* Then:
+    ```
+    mkdir sipp-$VERSION
+    git ls-files -z | tar -c --null \
+       --exclude=gmock --exclude=gtest --files-from=- | tar -xC sipp-$VERSION`
+    cp sipp.1 sipp-$VERSION/
+    # check version, and do
+    cp ${PROJECT_BINARY_DIR:-.}/version.h sipp-$VERSION/include/
+    tar --sort=name --mtime="@$(git log -1 --format=%ct)" \
+          --owner=0 --group=0 --numeric-owner \
+          -czf sipp-$VERSION.tar.gz sipp-$VERSION
+    ```
+* Upload to github as "binary". Note that github replaces tilde sign
+  (for ~rcX) with a period.
+* Create a static binary and upload this to github as well:
+    ```
+    sudo docker build -t sipp-build docker &&
+      sudo docker run -it -v $PWD:/src sipp-build
+    ```
+* Note that the static build is broken at the moment. See `ldd sipp`.
 
 # Contributing
 
