@@ -3806,7 +3806,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             auth_comp = comp;
             break;
         case E_Message_Peer_Tag_Param:
-            if(peer_tag) {
+            if (peer_tag) {
                 dest += snprintf(dest, left, ";tag=%s", peer_tag);
             }
             break;
@@ -5171,7 +5171,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
             (msg[3] == '/') &&
             (msg[4] == '2') &&
             (msg[5] == '.') &&
-            (msg[6] == '0')    ) {
+            (msg[6] == '0')) {
 
         reply_code = get_reply_code(msg);
         if (!reply_code) {
@@ -5198,10 +5198,10 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                 ERROR("Out of memory allocating peer tag.");
             }
         }
-        request[0]=0;
+        request[0] = 0;
         // extract the cseq method from the response
-        extract_cseq_method (responsecseqmethod, msg);
-        extract_transaction (txn, msg);
+        extract_cseq_method(responsecseqmethod, msg);
+        extract_transaction(txn, msg);
     } else if ((ptr = strchr(msg, ' '))) {
         if ((ptr - msg) < 64) {
             memcpy(request, msg, ptr - msg);
