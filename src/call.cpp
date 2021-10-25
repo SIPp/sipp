@@ -112,6 +112,8 @@ int call::startDynamicId  = 10000;             // FIXME both param to be in comm
 int call::stepDynamicId   = 4;                // FIXME both param to be in command line !!!!
 
 /************** Call map and management routines **************/
+static const int SM_UNUSED = -1;
+
 static unsigned int next_number = 1;
 
 static unsigned int get_tdm_map_number()
@@ -1638,7 +1640,7 @@ char * call::send_scene(int index, int *send_status, int *len)
     }
 
     char * dest;
-    dest = createSendingMessage(call_scenario->messages[index] -> send_scheme, index, len);
+    dest = createSendingMessage(call_scenario->messages[index]->send_scheme, index, len);
 
     if (!dest) {
         *send_status = -2;
@@ -2377,7 +2379,7 @@ bool call::process_unexpected(const char* msg)
     if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
         // if twin socket call => reset the other part here
         if (twinSippSocket && (msg_index > 0)) {
-            res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
+            res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort")));
             if (res < 0) {
                 WARNING("sendCmdBuffer returned %d", res);
                 return false;
@@ -2436,22 +2438,21 @@ bool call::abortCall(bool writeLog)
             // Answer unexpected errors (4XX, 5XX and beyond) with an ACK
             // Contributed by F. Tarek Rogers
             if((src_recv) && (get_reply_code(src_recv) >= 400)) {
-                sendBuffer(createSendingMessage(get_default_message("ack"), -2));
+                sendBuffer(createSendingMessage(get_default_message("ack")));
             } else if (src_recv) {
                 /* Call is not established and the reply is not a 4XX, 5XX */
                 /* And we already received a message. */
                 if (ack_is_pending == true) {
                     /* If an ACK is expected from the other side, send it
-                     * and send a BYE afterwards                           */
+                     * and send a BYE afterwards. */
                     ack_is_pending = false;
-                    /* Send an ACK */
-                    sendBuffer(createSendingMessage(get_default_message("ack"), -1));
+                    sendBuffer(createSendingMessage(get_default_message("ack")));
 
                     /* Send the BYE */
-                    sendBuffer(createSendingMessage(get_default_message("bye"), -1));
+                    sendBuffer(createSendingMessage(get_default_message("bye")));
                 } else {
                     /* Send a CANCEL */
-                    sendBuffer(createSendingMessage(get_default_message("cancel"), -1));
+                    sendBuffer(createSendingMessage(get_default_message("cancel")));
                 }
             } else {
                 /* Call is not established and the reply is not a 4XX, 5XX */
@@ -2465,7 +2466,7 @@ bool call::abortCall(bool writeLog)
              * because the earlier check depends on the first message being an INVITE
              * (although it could be something like a message message, therefore we
              * check that we received a message. */
-            sendBuffer(createSendingMessage(get_default_message("bye"), -1));
+            sendBuffer(createSendingMessage(get_default_message("bye")));
         }
     }
 
@@ -2508,7 +2509,7 @@ int call::sendCmdMessage(message *curmsg)
 
     if(curmsg -> M_sendCmdData) {
         // WARNING("---PREPARING_TWIN_CMD---%s---", scenario[index] -> M_sendCmdData);
-        dest = createSendingMessage(curmsg -> M_sendCmdData, -1);
+        dest = createSendingMessage(curmsg->M_sendCmdData);
         strcat(dest, delimitor);
         //WARNING("---SEND_TWIN_CMD---%s---", dest);
 
@@ -3778,8 +3779,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         case E_Message_Branch:
             /* Branch is magic cookie + call number + message index in scenario */
-            if(P_index == -2) {
-                dest += snprintf(dest, left, "z9hG4bK-%u-%u-%d", pid, number, msg_index-1 + comp->offset);
+            if (P_index == -1) {
+                dest += snprintf(dest, left, "z9hG4bK-%u-%u-%d", pid, number, msg_index - 1 + comp->offset);
             } else {
                 dest += snprintf(dest, left, "z9hG4bK-%u-%u-%d", pid, number, P_index + comp->offset);
             }
@@ -3886,7 +3887,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
         case E_Message_File: {
             char buffer[MAX_HEADER_LEN];
-            createSendingMessage(comp->comp_param.filename, -2, buffer, sizeof(buffer));
+            createSendingMessage(comp->comp_param.filename, SM_UNUSED, buffer, sizeof(buffer));
             FILE *f = fopen(buffer, "r");
             if (!f) {
                 ERROR("Could not open '%s': %s", buffer, strerror(errno));
@@ -4047,11 +4048,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         static char my_aka_AMF[MAX_HEADER_LEN + 2];
         static char my_aka_K[MAX_HEADER_LEN + 2];
 
-        createSendingMessage(auth_comp->comp_param.auth_param.auth_user, -2, my_auth_user, sizeof(my_auth_user));
-        createSendingMessage(auth_comp->comp_param.auth_param.auth_pass, -2, my_auth_pass, sizeof(my_auth_pass));
-        createSendingMessage(auth_comp->comp_param.auth_param.aka_K, -2, my_aka_K, sizeof(my_aka_K));
-        createSendingMessage(auth_comp->comp_param.auth_param.aka_AMF, -2, my_aka_AMF, sizeof(my_aka_AMF));
-        createSendingMessage(auth_comp->comp_param.auth_param.aka_OP, -2, my_aka_OP, sizeof(my_aka_OP));
+        createSendingMessage(auth_comp->comp_param.auth_param.auth_user, SM_UNUSED, my_auth_user, sizeof(my_auth_user));
+        createSendingMessage(auth_comp->comp_param.auth_param.auth_pass, SM_UNUSED, my_auth_pass, sizeof(my_auth_pass));
+        createSendingMessage(auth_comp->comp_param.auth_param.aka_K, SM_UNUSED, my_aka_K, sizeof(my_aka_K));
+        createSendingMessage(auth_comp->comp_param.auth_param.aka_AMF, SM_UNUSED, my_aka_AMF, sizeof(my_aka_AMF));
+        createSendingMessage(auth_comp->comp_param.auth_param.aka_OP, SM_UNUSED, my_aka_OP, sizeof(my_aka_OP));
 
         if (createAuthHeader(
                 my_auth_user, my_auth_pass, src->getMethod(), uri,
@@ -5284,7 +5285,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                             } else if (int ackIndex = transactions[checkTxn - 1].ackIndex) {
                                 /* This is the message before an ACK, so verify that this is an invite transaction. */
                                 assert (call_scenario->transactions[checkTxn - 1].isInvite);
-                                sendBuffer(createSendingMessage(call_scenario->messages[ackIndex] -> send_scheme, ackIndex));
+                                sendBuffer(createSendingMessage(call_scenario->messages[ackIndex]->send_scheme, ackIndex));
                                 return true;
                             } else {
                                 assert (!call_scenario->transactions[checkTxn - 1].isInvite);
@@ -5313,7 +5314,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                                 (0 == strncmp (responsecseqmethod, "INVITE", strlen(responsecseqmethod)) ) &&
                                 (call_scenario->messages[search_index+1]->M_type == MSG_TYPE_SEND) &&
                                 (call_scenario->messages[search_index+1]->send_scheme->isAck()) ) {
-                            sendBuffer(createSendingMessage(call_scenario->messages[search_index+1] -> send_scheme, (search_index+1)));
+                            sendBuffer(createSendingMessage(call_scenario->messages[search_index+1]->send_scheme, search_index + 1));
                             return true;
                         }
                     }
@@ -5666,8 +5667,8 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             M_callVariableTable->getVar(currentAction->getSubVarId(0))->setDouble((double)tv.tv_usec);
         } else if (currentAction->getActionType() == CAction::E_AT_LOOKUP) {
             /* Create strings from the sending messages. */
-            char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
-            char *key = strdup(createSendingMessage(currentAction->getMessage(1), -2));
+            char *file = strdup(createSendingMessage(currentAction->getMessage(0)));
+            char *key = strdup(createSendingMessage(currentAction->getMessage(1)));
 
             if (inFiles.find(file) == inFiles.end()) {
                 ERROR("Invalid injection file for insert: %s", file);
@@ -5680,8 +5681,8 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             free(key);
         } else if (currentAction->getActionType() == CAction::E_AT_INSERT) {
             /* Create strings from the sending messages. */
-            char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
-            char *value = strdup(createSendingMessage(currentAction->getMessage(1), -2));
+            char *file = strdup(createSendingMessage(currentAction->getMessage(0)));
+            char *value = strdup(createSendingMessage(currentAction->getMessage(1)));
 
             if (inFiles.find(file) == inFiles.end()) {
                 ERROR("Invalid injection file for insert: %s", file);
@@ -5693,9 +5694,9 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             free(value);
         } else if (currentAction->getActionType() == CAction::E_AT_REPLACE) {
             /* Create strings from the sending messages. */
-            char *file = strdup(createSendingMessage(currentAction->getMessage(0), -2));
-            char *line = strdup(createSendingMessage(currentAction->getMessage(1), -2));
-            char *value = strdup(createSendingMessage(currentAction->getMessage(2), -2));
+            char *file = strdup(createSendingMessage(currentAction->getMessage(0)));
+            char *line = strdup(createSendingMessage(currentAction->getMessage(1)));
+            char *value = strdup(createSendingMessage(currentAction->getMessage(2)));
 
             if (inFiles.find(file) == inFiles.end()) {
                 ERROR("Invalid injection file for replace: %s", file);
@@ -5719,9 +5720,9 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
         } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST) {
             /* Change the destination for this call. */
-            char *str_host = strdup(createSendingMessage(currentAction->getMessage(0), -2));
-            char *str_port = strdup(createSendingMessage(currentAction->getMessage(1), -2));
-            char *str_protocol = strdup(createSendingMessage(currentAction->getMessage(2), -2));
+            char *str_host = strdup(createSendingMessage(currentAction->getMessage(0)));
+            char *str_port = strdup(createSendingMessage(currentAction->getMessage(1)));
+            char *str_protocol = strdup(createSendingMessage(currentAction->getMessage(2)));
 
             char *endptr;
             int port = (int)strtod(str_port, &endptr);
@@ -5841,10 +5842,10 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 method[end - msg] = '\0';
 
                 /* Generate the username to verify it against. */
-                char *tmp = createSendingMessage(currentAction->getMessage(0), -2 /* do not add crlf*/);
+                char *tmp = createSendingMessage(currentAction->getMessage(0));
                 char *username = strdup(tmp);
                 /* Generate the password to verify it against. */
-                tmp= createSendingMessage(currentAction->getMessage(1), -2 /* do not add crlf*/);
+                tmp= createSendingMessage(currentAction->getMessage(1));
                 char *password = strdup(tmp);
                 /* Need the body for length and auth-int calculation */
                 const char *body;
@@ -6003,23 +6004,23 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             double value = currentAction->getDistribution()->sample();
             M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
         } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_STRING) {
-            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            char* x = createSendingMessage(currentAction->getMessage());
             char *str = strdup(x);
             if (!str) {
                 ERROR("Out of memory duplicating string for assignment!");
             }
             M_callVariableTable->getVar(currentAction->getVarId())->setString(str);
         } else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
-            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            char* x = createSendingMessage(currentAction->getMessage());
             LOG_MSG("%s\n", x);
         } else if (currentAction->getActionType() == CAction::E_AT_LOG_WARNING) {
-            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            char* x = createSendingMessage(currentAction->getMessage());
             WARNING("%s", x);
         } else if (currentAction->getActionType() == CAction::E_AT_LOG_ERROR) {
-            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            char* x = createSendingMessage(currentAction->getMessage());
             ERROR("%s", x);
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
-            char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            char* x = createSendingMessage(currentAction->getMessage());
             // TRACE_MSG("Trying to execute [%s]", x);
             pid_t l_pid;
             switch(l_pid = fork()) {
@@ -6076,7 +6077,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
                 (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_IMAGE) ||
                 (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO)) {
-                const char *fileName = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+                const char *fileName = createSendingMessage(currentAction->getMessage());
                 currentAction->setPcapArgs(fileName);
             }
             if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
@@ -6099,7 +6100,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             if (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF) {
-                char* digits = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf */);
+                char* digits = createSendingMessage(currentAction->getMessage());
                 play_args->pcap = (pcap_pkts *) malloc(sizeof(pcap_pkts));
                 play_args->last_seq_no += parse_dtmf_play_args(digits, play_args->pcap, play_args->last_seq_no);
                 play_args->free_pcap_when_done = 1;
@@ -6137,7 +6138,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUME) {
             rtpstream_resume(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
-            const char *fileName = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);
             rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo());
             // Obtain ID of parent thread used for the related RTP task
@@ -6147,7 +6148,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEAPATTERN) {
             rtpstream_resumeapattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYAPATTERN) {
-            const char *fileName = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);
 #ifdef USE_TLS
             //
@@ -6196,7 +6197,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEVPATTERN) {
             rtpstream_resumevpattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYVPATTERN) {
-            const char *fileName = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
+            const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);
 #ifdef USE_TLS
             //
@@ -6548,7 +6549,7 @@ void call::getFieldFromInputFile(const char *fileName, int field, SendingMessage
     if (lineMsg) {
         char lineBuffer[20];
         char *endptr;
-        createSendingMessage(lineMsg, -2, lineBuffer, sizeof(lineBuffer));
+        createSendingMessage(lineMsg, SM_UNUSED, lineBuffer, sizeof(lineBuffer));
         line = (int) strtod(lineBuffer, &endptr);
         if (*endptr != 0) {
             ERROR("Invalid line number generated: '%s'", lineBuffer);
@@ -6623,12 +6624,12 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
         if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
             WARNING("Aborting call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
             if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
-                sendBuffer(createSendingMessage(get_default_message("200"), -1));
+                sendBuffer(createSendingMessage(get_default_message("200")));
             }
 
             // if twin socket call => reset the other part here
             if (twinSippSocket && (msg_index > 0)) {
-                res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
+                res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort")));
                 if (res) {
                     WARNING("sendCmdBuffer returned %d", res);
                     return false;
@@ -6661,12 +6662,12 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
         if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
             WARNING("Aborting call on an unexpected CANCEL for call: %s", (id==NULL)?"none":id);
             if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
-                sendBuffer(createSendingMessage(get_default_message("200"), -1));
+                sendBuffer(createSendingMessage(get_default_message("200")));
             }
 
             // if twin socket call => reset the other part here
             if (twinSippSocket && (msg_index > 0)) {
-                res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
+                res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort")));
                 if (res) {
                     WARNING("sendCmdBuffer returned %d", res);
                     return false;
@@ -6697,12 +6698,12 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
 
         if (default_behaviors & DEFAULT_BEHAVIOR_PINGREPLY) {
             WARNING("Automatic response mode for an unexpected PING for call: %s", (id==NULL)?"none":id);
-            sendBuffer(createSendingMessage(get_default_message("200"), -1));
+            sendBuffer(createSendingMessage(get_default_message("200")));
             // Note: the call ends here but it is not marked as bad. PING is a
             //       normal message.
             // if twin socket call => reset the other part here
             if (twinSippSocket && (msg_index > 0)) {
-                res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort"), -1));
+                res = sendCmdBuffer(createSendingMessage(get_default_message("3pcc_abort")));
                 if (res) {
                     WARNING("sendCmdBuffer returned %d", res);
                     return false;
@@ -6742,7 +6743,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
 
         TRACE_CALLDEBUG("Automatic response mode for an unexpected INFO, NOTIFY, OPTIONS or UPDATE for call: %s",
                         (id == NULL) ? "none" : id);
-        sendBuffer(createSendingMessage(get_default_message("200"), -1));
+        sendBuffer(createSendingMessage(get_default_message("200")));
 
         // restore previous last msg
         if (last_recv_msg_saved == true) {

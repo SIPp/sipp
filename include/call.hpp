@@ -272,12 +272,10 @@ protected:
     bool  rejectCall();
     double get_rhs(CAction *currentAction);
 
-    // P_index use for message index in scenario and ctrl of CRLF
-    // P_index = -2 No ctrl of CRLF
-    // P_index = -1 Add crlf to end of message
-    char* createSendingMessage(SendingMessage *src, int P_index, int *msgLen=NULL);
-    char* createSendingMessage(char * src, int P_index, bool skip_sanity = false);
-    char* createSendingMessage(SendingMessage *src, int P_index, char *msg_buffer, int buflen, int *msgLen=NULL);
+    // P_index use for message index in scenario
+    char* createSendingMessage(SendingMessage* src, int P_index=-1, int *msgLen=NULL);
+    char* createSendingMessage(char* src, int P_index, bool skip_sanity=false);
+    char* createSendingMessage(SendingMessage*src, int P_index, char *msg_buffer, int buflen, int *msgLen=NULL);
 
     // method for the management of unexpected messages
     bool  checkInternalCmd(char* cmd);  // check of specific internal command
