@@ -153,8 +153,6 @@ void CAction::printInfo(char* buf, int len)
     } else if (M_action == E_AT_PLAY_DTMF) {
         snprintf(buf, len, "Type[%d] - play DTMF digits [%s]", M_action, M_message_str[0]);
 #endif
-
-#ifdef RTP_STREAM
     } else if (M_action == E_AT_RTP_STREAM_PLAY) {
         snprintf(buf, len, "Type[%d] - rtp_stream playfile file %s loop=%d payload %d bytes per packet=%d ms per packet=%d ticks per packet=%d",
                M_action, M_rtpstream_actinfo.filename, M_rtpstream_actinfo.loop_count,
@@ -164,8 +162,6 @@ void CAction::printInfo(char* buf, int len)
         snprintf(buf, len, "Type[%d] - rtp_stream pause", M_action);
     } else if (M_action == E_AT_RTP_STREAM_RESUME) {
         snprintf(buf, len, "Type[%d] - rtp_stream resume", M_action);
-#endif
-
     } else {
         snprintf(buf, len, "Type[%d] - unknown action type ... ", M_action);
     }
@@ -242,14 +238,12 @@ char*          CAction::getStringValue()
     return(M_stringValue);
 }
 #ifdef PCAPPLAY
-pcap_pkts  *   CAction::getPcapPkts()
+pcap_pkts *CAction::getPcapPkts()
 {
     return(M_pcapArgs);
 }
 #endif
-#ifdef RTP_STREAM
 rtpstream_actinfo_t *CAction::getRTPStreamActInfo() { return (&M_rtpstream_actinfo); }
-#endif
 
 void CAction::setActionType   (CAction::T_ActionType   P_value)
 {
@@ -492,7 +486,6 @@ void CAction::setPcapArgs(const char* P_value)
 }
 #endif
 
-#ifdef RTP_STREAM
 void CAction::setRTPStreamActInfo(const char* P_value)
 {
     char* param_str;
@@ -576,7 +569,6 @@ void CAction::setRTPStreamActInfo(rtpstream_actinfo_t *P_value)
     /* copied. No members need to be individually duplicated/processed.       */
     memcpy(&M_rtpstream_actinfo,P_value, sizeof(M_rtpstream_actinfo));
 }
-#endif
 
 void CAction::setScenario(scenario *     P_scenario)
 {
@@ -616,9 +608,7 @@ void CAction::setAction(CAction P_action)
 #ifdef PCAPPLAY
     setPcapArgs     ( P_action.M_pcapArgs        );
 #endif
-#ifdef RTP_STREAM
     setRTPStreamActInfo(&(P_action.M_rtpstream_actinfo));
-#endif
 }
 
 CAction::CAction(scenario *scenario)
@@ -651,9 +641,7 @@ CAction::CAction(scenario *scenario)
     M_pcapArgs     = NULL;
 #endif
 
-#ifdef RTP_STREAM
     memset(&M_rtpstream_actinfo, 0, sizeof(M_rtpstream_actinfo));
-#endif
 
     M_scenario     = scenario;
     M_regExpSet    = false;

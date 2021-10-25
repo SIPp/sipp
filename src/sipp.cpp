@@ -271,11 +271,9 @@ struct sipp_option options_table[] = {
      SIPP_OPTION_SETFLAG, &rtp_echo_enabled, 1},
     {"mb", "Set the RTP echo buffer size (default: 2048).", SIPP_OPTION_INT, &media_bufsize, 1},
     {"mp", "Set the local RTP echo port number. Default is 6000.", SIPP_OPTION_INT, &user_media_port, 1},
-#ifdef RTP_STREAM
     {"rtp_payload", "RTP default payload type.", SIPP_OPTION_INT, &rtp_default_payload, 1},
     {"rtp_threadtasks", "RTP number of playback tasks per thread.", SIPP_OPTION_INT, &rtp_tasks_per_thread, 1},
     {"rtp_buffsize", "Set the rtp socket send/receive buffer size.", SIPP_OPTION_INT, &rtp_buffsize, 1},
-#endif
 
     {"", "Call rate options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"r", "Set the call rate (in calls per seconds).  This value can be"
@@ -507,9 +505,7 @@ static void traffic_thread()
             if (!main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall)) {
                 /* We can have calls that do not count towards our open-call count (e.g., dead calls). */
                 abort_all_tasks();
-#ifdef RTP_STREAM
                 rtpstream_shutdown();
-#endif
                 /* Reverse order shutdown, because deleting reorders the
                  * sockets list. */
                 for (int i = pollnfds - 1; i >= 0; --i) {
@@ -622,11 +618,9 @@ static void rtp_echo_thread(void* param)
                     errno);
             return;
         }
-#ifdef RTP_STREAM
         if (!rtp_echo_state) {
             continue;
         }
-#endif
         ns = sendto(*(int*)param, msg, nr, 0,
                     (sockaddr*)&remote_rtp_addr, len);
 
@@ -1368,9 +1362,6 @@ int main(int argc, char *argv[])
 #endif
 #ifdef PCAPPLAY
                        "-PCAP"
-#endif
-#ifdef RTP_STREAM
-                       "-RTPSTREAM"
 #endif
                        );
 

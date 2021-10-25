@@ -30,10 +30,8 @@ int           screen_inited = 0;
 
 ScreenPrinter* sp;
 
-#ifdef RTP_STREAM
 double last_rtpstream_rate_out = 0;
 double last_rtpstream_rate_in = 0;
-#endif
 
 /* ERR is actually -1, but this prevents us from needing to use curses.h in
  * sipp.cpp. */
@@ -384,7 +382,6 @@ void ScreenPrinter::draw_scenario_screen()
         lines.push_back(buf);
     }
 #endif
-#ifdef RTP_STREAM
     /* if we have rtp stream thread running */
     if (rtpstream_numthreads) {
         unsigned long tempbytes;
@@ -417,7 +414,6 @@ void ScreenPrinter::draw_scenario_screen()
                  left_buf, last_rtpstream_rate_in);
         lines.push_back(buf);
     }
-#endif
 
     /* 5th line, RTP echo statistics */
     if (rtp_echo_enabled && media_socket_audio > 0) {

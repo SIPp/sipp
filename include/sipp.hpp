@@ -181,12 +181,10 @@ cmd messages are received */
 
 #define DEFAULT_BEHAVIOR_ALL         (DEFAULT_BEHAVIOR_BYE | DEFAULT_BEHAVIOR_ABORTUNEXP | DEFAULT_BEHAVIOR_PINGREPLY)
 
-#ifdef RTP_STREAM
 #define DEFAULT_MIN_RTP_PORT         8192
 #define DEFAULT_MAX_RTP_PORT         65535
 #define DEFAULT_RTP_PAYLOAD          8
 #define DEFAULT_RTP_THREADTASKS      20
-#endif
 
 /************ User controls and command line options ***********/
 
@@ -260,14 +258,10 @@ MAYBE_EXTERN char               control_ip[40];
 MAYBE_EXTERN int                control_port            DEFVAL(0);
 MAYBE_EXTERN int                buff_size               DEFVAL(65535);
 MAYBE_EXTERN int                tcp_readsize            DEFVAL(65535);
-#if defined(PCAPPLAY) || defined(RTP_STREAM)
 MAYBE_EXTERN int                hasMedia                DEFVAL(0);
-#endif
-#ifdef RTP_STREAM
 MAYBE_EXTERN int                rtp_default_payload     DEFVAL(DEFAULT_RTP_PAYLOAD);
 MAYBE_EXTERN int                rtp_tasks_per_thread    DEFVAL(DEFAULT_RTP_THREADTASKS);
 MAYBE_EXTERN int                rtp_buffsize            DEFVAL(65535);
-#endif
 
 MAYBE_EXTERN bool               rtp_echo_enabled        DEFVAL(0);
 MAYBE_EXTERN char               media_ip[127];          /* also used for hostnames */
@@ -307,9 +301,7 @@ MAYBE_EXTERN char             * auth_uri                DEFVAL(0);
 MAYBE_EXTERN const char       * call_id_string          DEFVAL("%u-%p@%s");
 MAYBE_EXTERN char             **generic[100];
 
-#ifdef RTP_STREAM
 MAYBE_EXTERN bool               rtp_echo_state          DEFVAL(true);
-#endif
 MAYBE_EXTERN bool               callidSlash             DEFVAL(false);
 
 /* TDM map */
@@ -379,12 +371,10 @@ MAYBE_EXTERN unsigned long rtp2_pckts                   DEFVAL(0);
 MAYBE_EXTERN unsigned long rtp2_bytes                   DEFVAL(0);
 MAYBE_EXTERN unsigned long rtp2_pckts_pcap              DEFVAL(0);
 MAYBE_EXTERN unsigned long rtp2_bytes_pcap              DEFVAL(0);
-#ifdef RTP_STREAM
 MAYBE_EXTERN volatile unsigned long rtpstream_numthreads DEFVAL(0);
 MAYBE_EXTERN volatile unsigned long rtpstream_bytes_in  DEFVAL(0);
 MAYBE_EXTERN volatile unsigned long rtpstream_bytes_out DEFVAL(0);
 MAYBE_EXTERN volatile unsigned long rtpstream_pckts     DEFVAL(0);
-#endif
 
 
 /************* Rate Control & Contexts variables **************/

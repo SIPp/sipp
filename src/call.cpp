@@ -162,7 +162,6 @@ unsigned int call::wake()
     return wake;
 }
 
-#if defined(PCAPPLAY) || defined(RTP_STREAM) || defined(GTEST)
 static std::string find_in_sdp(std::string const &pattern, std::string const &msg)
 {
     std::string::size_type begin, end;
@@ -180,7 +179,6 @@ static std::string find_in_sdp(std::string const &pattern, std::string const &ms
 
     return msg.substr(begin, end - begin);
 }
-#endif
 
 #ifdef PCAPPLAY
 void call::get_remote_media_addr(std::string const &msg)
@@ -213,7 +211,6 @@ void call::get_remote_media_addr(std::string const &msg)
 }
 #endif
 
-#ifdef RTP_STREAM
 /******* Extract RTP remote media infomartion from SDP  *******/
 /***** Similar to the routines used by the PCAP play code *****/
 
@@ -259,7 +256,6 @@ void call::extract_rtp_remote_addr(const char* msg)
      * non-linear timing and data size. */
     rtpstream_set_remote(&rtpstream_callinfo, ip_ver, host.c_str(), audio_port, video_port);
 }
-#endif
 
 /******* Very simple hash for retransmission detection  *******/
 
@@ -411,10 +407,8 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
 
     next_nonce_count = 1;
 
-#ifdef RTP_STREAM
     /* check and warn on rtpstream_new_call result? -> error alloc'ing mem */
     rtpstream_new_call(&rtpstream_callinfo);
-#endif
 
 #ifdef PCAPPLAY
     hasMediaInformation = 0;
@@ -627,9 +621,7 @@ call::~call()
         free(next_req_url);
     }
 
-#ifdef RTP_STREAM
     rtpstream_end_call(&rtpstream_callinfo);
-#endif
 
     if (dialog_authentication) {
         free(dialog_authentication);
@@ -2054,12 +2046,10 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             dest += sprintf(dest, "%u", port);
             break;
         }
-#ifdef RTP_STREAM
         case E_Message_RTPStream_Audio_Port: /* DEPRECATED */
         case E_Message_RTPStream_Video_Port: /* DEPRECATED */
             dest += sprintf(dest, "%u", media_port);
             break;
-#endif
         case E_Message_Media_IP_Type:
             dest += snprintf(dest, left, "%s", (media_ip_is_ipv6 ? "6" : "4"));
             break;
@@ -2818,7 +2808,6 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         }
     }
 
-#ifdef RTP_STREAM
     /* Check if message has a SDP in it; and extract media information. */
     if (!strcmp(get_header_content(msg, "Content-Type:"), "application/sdp") &&
             hasMedia == 1 && !curmsg->ignoresdp) {
@@ -2827,7 +2816,6 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
             extract_rtp_remote_addr(msg);
         }
     }
-#endif
 
     /* Is it a response ? */
     if ((msg[0] == 'S') &&
@@ -3774,7 +3762,6 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             pthread_attr_destroy(&attr);
 #endif
 
-#ifdef RTP_STREAM
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_ECHO) {
             rtp_echo_state = (currentAction->getDoubleValue() != 0);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSE) {
@@ -3783,7 +3770,6 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             rtpstream_resume(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
             rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo());
-#endif
         } else {
             ERROR("call::executeAction unknown action");
         }
