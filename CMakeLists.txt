@@ -6,6 +6,8 @@ project(SIPp)
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+# specify the C++ standard on older CMake (<3.8)
+set(CMAKE_REQUIRED_FLAGS "-std=c++11")
 
 if(EXISTS ./gmock/CMakeLists.txt)
   add_subdirectory(gmock EXCLUDE_FROM_ALL)
