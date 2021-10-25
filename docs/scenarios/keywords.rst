@@ -79,9 +79,10 @@ Keyword list
 :Description: Index. The call_number starts from "1" and is incremented by 1 for each call.
 
 ``[cseq]``
-==========
-:Description: Generates automatically the CSeq number. The initial value is 1 by default.
-  It can be changed by using the -base_cseq command line option.
+===========
+:Description: Provides the CSeq value of the last request received. This value can be
+  incremented (e.g. ``[cseq+1]`` adds 1 to the cseq value of the last request).
+  The first cseq can be set using the ``-base_cseq`` command line option.
 
 ``[call_id]``
 =============
@@ -133,7 +134,7 @@ Keyword list
 
 ``[date]``
 ==========
-:Description: The current datetime in the following format: ``Mon, 25 Oct 2021 07:20:55 GMT``
+:Description: The current datetime in RFC2822 format: ``Mon, 25 Oct 2021 07:20:55 GMT``
 
 ``[timestamp]``
 ===============
@@ -183,12 +184,6 @@ Keyword list
 ===============
 :Description: Provide the message number in the scenario.
 
-``[cseq]``
-===========
-:Description: Provides the CSeq value of
-  the last request received. This value can be incremented (e.g.
-  [cseq+1] adds 1 to the CSeq value of the last request).
-
 ``[clock_tick]``
 ================
 :Description: Includes the internal SIPp clock tick value in the message.
@@ -219,9 +214,3 @@ Keyword list
 :Description: If the -users command line option is specified, then this keyword
   contains the integer identifier of the current user (starting at zero
   and ending at [users-1]).
-  
-``[date]``
-=============
-:Description: Provide the current date in rfc2822 format:
-  day-name, day month-name year hour minute second UTC
-  Tue, 17 Aug 2021 13:58:40 UTC
