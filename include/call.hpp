@@ -32,10 +32,8 @@
 #ifdef PCAPPLAY
 #include "send_packets.h"
 #endif
-#ifdef RTP_STREAM
 #include "rtpstream.hpp"
 #include "jlsrtp.hpp"
-#endif // RTP_STREAM
 
 #include <stdarg.h>
 
@@ -189,7 +187,6 @@ protected:
     play_args_t play_args_v;
 #endif
 
-#ifdef RTP_STREAM
     rtpstream_callinfo_t rtpstream_callinfo;
     JLSRTP _txUACAudio;
     JLSRTP _rxUACAudio;
@@ -203,7 +200,6 @@ protected:
     char _pref_audio_cs_out[25];
     char _pref_video_cs_out[25];
 #endif // USE_TLS
-#endif // RTP_STREAM
 
     /* holds the auth header and if the challenge was 401 or 407 */
     char         * dialog_authentication;
@@ -338,14 +334,13 @@ protected:
 
     void get_remote_media_addr(std::string const &msg);
 
-#ifdef RTP_STREAM
     std::string extract_rtp_remote_addr(const char * message, int &ip_ver, int &audio_port, int &video_port);
 #ifdef USE_TLS
     int check_audio_ciphersuite_match(SrtpAudioInfoParams &pA);
     int check_video_ciphersuite_match(SrtpVideoInfoParams &pV);
     int extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, SrtpVideoInfoParams &pV);
 #endif // USE_TLS
-#endif // RTP_STREAM
+    void extract_rtp_remote_addr(const char* message);
 
     bool lost(int index);
 

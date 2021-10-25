@@ -157,6 +157,11 @@ int createAuthHeader(
         return 0;
     }
 
+    if (!method) {
+        snprintf(result, result_len, "createAuthHeader: authentication requires a method");
+        return 0;
+    }
+
     if ((start = stristr(auth, "algorithm=")) != NULL) {
         start = start + strlen("algorithm=");
         if (*start == '"') {

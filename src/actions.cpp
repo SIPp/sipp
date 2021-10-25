@@ -157,11 +157,7 @@ void CAction::printInfo(char* buf, int len)
     } else if (M_action == E_AT_PLAY_DTMF) {
         snprintf(buf, len, "Type[%d] - play DTMF digits [%s]", M_action, M_message_str[0]);
 #endif
-
-    }
-#ifdef RTP_STREAM
-    else if (M_action == E_AT_RTP_STREAM_PLAY)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_PLAY) {
         snprintf(buf,
                  len,
                  "Type[%d] - rtp_stream playfile file %s pattern_id %d loop=%d payload %d bytes per packet=%d ms per packet=%d ticks per packet=%d",
@@ -173,17 +169,11 @@ void CAction::printInfo(char* buf, int len)
                  M_rtpstream_actinfo.bytes_per_packet,
                  M_rtpstream_actinfo.ms_per_packet,
                  M_rtpstream_actinfo.ticks_per_packet);
-    }
-    else if (M_action == E_AT_RTP_STREAM_PAUSE)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_PAUSE) {
         snprintf(buf, len, "Type[%d] - rtp_stream pause", M_action);
-    }
-    else if (M_action == E_AT_RTP_STREAM_RESUME)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_RESUME) {
         snprintf(buf, len, "Type[%d] - rtp_stream resume", M_action);
-    }
-    else if (M_action == E_AT_RTP_STREAM_PLAYAPATTERN)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_PLAYAPATTERN) {
         snprintf(buf,
                  len,
                  "Type[%d] - rtp_stream playapattern file %s pattern_id %d loop=%d payload %d bytes per packet=%d ms per packet=%d ticks per packet=%d",
@@ -195,17 +185,11 @@ void CAction::printInfo(char* buf, int len)
                  M_rtpstream_actinfo.bytes_per_packet,
                  M_rtpstream_actinfo.ms_per_packet,
                  M_rtpstream_actinfo.ticks_per_packet);
-    }
-    else if (M_action == E_AT_RTP_STREAM_PAUSEAPATTERN)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_PAUSEAPATTERN) {
         snprintf(buf, len, "Type[%d] - rtp_stream pauseapattern", M_action);
-    }
-    else if (M_action == E_AT_RTP_STREAM_RESUMEAPATTERN)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_RESUMEAPATTERN) {
         snprintf(buf, len, "Type[%d] - rtp_stream resumeapattern", M_action);
-    }
-    else if (M_action == E_AT_RTP_STREAM_PLAYVPATTERN)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_PLAYVPATTERN) {
         snprintf(buf,
                  len,
                  "Type[%d] - rtp_stream playvpattern file %s pattern_id %d loop=%d payload %d bytes per packet=%d ms per packet=%d ticks per packet=%d",
@@ -217,42 +201,23 @@ void CAction::printInfo(char* buf, int len)
                  M_rtpstream_actinfo.bytes_per_packet,
                  M_rtpstream_actinfo.ms_per_packet,
                  M_rtpstream_actinfo.ticks_per_packet);
-    }
-    else if (M_action == E_AT_RTP_STREAM_PAUSEVPATTERN)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_PAUSEVPATTERN) {
         snprintf(buf, len, "Type[%d] - rtp_stream pausevpattern", M_action);
-    }
-    else if (M_action == E_AT_RTP_STREAM_RESUMEVPATTERN)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_RESUMEVPATTERN) {
         snprintf(buf, len, "Type[%d] - rtp_stream resumevpattern", M_action);
-    }
-    else if (M_action == E_AT_RTP_STREAM_RTPECHO_STARTAUDIO)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_RTPECHO_STARTAUDIO) {
         snprintf(buf, len, "Type[%d] - rtp_stream rtpecho startaudio", M_action);
-    }
-    else if (M_action == E_AT_RTP_STREAM_RTPECHO_UPDATEAUDIO)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_RTPECHO_UPDATEAUDIO) {
         snprintf(buf, len, "Type[%d] - rtp_stream rtpecho updateaudio", M_action);
-    }
-    else if (M_action == E_AT_RTP_STREAM_RTPECHO_STOPAUDIO)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_RTPECHO_STOPAUDIO) {
         snprintf(buf, len, "Type[%d] - rtp_stream rtpecho stopaudio", M_action);
-    }
-    else if (M_action == E_AT_RTP_STREAM_RTPECHO_STARTVIDEO)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_RTPECHO_STARTVIDEO) {
         snprintf(buf, len, "Type[%d] - rtp_stream rtpecho startvideo", M_action);
-    }
-    else if (M_action == E_AT_RTP_STREAM_RTPECHO_UPDATEVIDEO)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_RTPECHO_UPDATEVIDEO) {
         snprintf(buf, len, "Type[%d] - rtp_stream rtpecho updatevideo", M_action);
-    }
-    else if (M_action == E_AT_RTP_STREAM_RTPECHO_STOPVIDEO)
-    {
+    } else if (M_action == E_AT_RTP_STREAM_RTPECHO_STOPVIDEO) {
         snprintf(buf, len, "Type[%d] - rtp_stream rtpecho stopvideo", M_action);
-    }
-#endif
-    else
-    {
+    } else {
         snprintf(buf, len, "Type[%d] - unknown action type ... ", M_action);
     }
 }
@@ -328,12 +293,11 @@ char*          CAction::getStringValue()
     return(M_stringValue);
 }
 #ifdef PCAPPLAY
-pcap_pkts  *   CAction::getPcapPkts()
+pcap_pkts *CAction::getPcapPkts()
 {
     return(M_pcapArgs);
 }
 #endif
-#ifdef RTP_STREAM
 rtpecho_actinfo_t* CAction::getRTPEchoActInfo()
 {
     return &M_rtpecho_actinfo;
@@ -343,7 +307,6 @@ rtpstream_actinfo_t* CAction::getRTPStreamActInfo()
 {
     return &M_rtpstream_actinfo;
 }
-#endif
 
 void CAction::setActionType   (CAction::T_ActionType   P_value)
 {
@@ -586,7 +549,6 @@ void CAction::setPcapArgs(const char* P_value)
 }
 #endif
 
-#ifdef RTP_STREAM
 void CAction::setRTPEchoActInfo(const char* P_value)
 {
     char* param_str;
@@ -722,8 +684,8 @@ void CAction::setRTPEchoActInfo(const char* P_value)
 void CAction::setRTPEchoActInfo(rtpecho_actinfo_t *P_value)
 {
     /* At this stage the entire rtpecho action info structure can simply be */
-    /* copied. No members need to be individually duplicated/processed.       */
-    memcpy (&M_rtpecho_actinfo, P_value, sizeof(M_rtpecho_actinfo));
+    /* copied. No members need to be individually duplicated/processed. */
+    memcpy(&M_rtpecho_actinfo, P_value, sizeof(M_rtpecho_actinfo));
 }
 
 void CAction::setRTPStreamActInfo(const char *P_value)
@@ -944,7 +906,6 @@ void CAction::setRTPStreamActInfo(rtpstream_actinfo_t *P_value)
     /* copied. No members need to be individually duplicated/processed.       */
     memcpy(&M_rtpstream_actinfo, P_value, sizeof(M_rtpstream_actinfo));
 }
-#endif
 
 void CAction::setScenario(scenario *     P_scenario)
 {
@@ -984,10 +945,8 @@ void CAction::setAction(CAction P_action)
 #ifdef PCAPPLAY
     setPcapArgs     ( P_action.M_pcapArgs        );
 #endif
-#ifdef RTP_STREAM
     setRTPEchoActInfo(&(P_action.M_rtpecho_actinfo));
     setRTPStreamActInfo(&(P_action.M_rtpstream_actinfo));
-#endif
 }
 
 CAction::CAction(scenario *scenario)
@@ -1020,10 +979,8 @@ CAction::CAction(scenario *scenario)
     M_pcapArgs     = NULL;
 #endif
 
-#ifdef RTP_STREAM
     memset(&M_rtpecho_actinfo, 0, sizeof(M_rtpecho_actinfo));
     memset(&M_rtpstream_actinfo, 0, sizeof(M_rtpstream_actinfo));
-#endif
 
     M_scenario     = scenario;
     M_regExpSet    = false;

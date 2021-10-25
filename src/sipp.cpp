@@ -273,7 +273,6 @@ struct sipp_option options_table[] = {
      SIPP_OPTION_SETFLAG, &rtp_echo_enabled, 1},
     {"mb", "Set the RTP echo buffer size (default: 2048).", SIPP_OPTION_INT, &media_bufsize, 1},
     {"mp", "Set the local RTP echo port number. Default is 6000.", SIPP_OPTION_INT, &user_media_port, 1},
-#ifdef RTP_STREAM
     {"min_rtp_port", "Minimum port number for RTP socket range.", SIPP_OPTION_INT, &min_rtp_port, 1},
     {"max_rtp_port", "Maximum port number for RTP socket range.", SIPP_OPTION_INT, &max_rtp_port, 1},
     {"rtp_payload", "RTP default payload type.", SIPP_OPTION_INT, &rtp_default_payload, 1},
@@ -285,7 +284,6 @@ struct sipp_option options_table[] = {
 #endif // USE_TLS
     {"audiotolerance", "Audio error tolerance for RTP checks (0.0-1.0) -- default: 1.0", SIPP_OPTION_FLOAT, &audiotolerance, 1},
     {"videotolerance", "Video error tolerance for RTP checks (0.0-1.0) -- default: 1.0", SIPP_OPTION_FLOAT, &videotolerance, 1},
-#endif // RTP_STREAM
 
     {"", "Call rate options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"r", "Set the call rate (in calls per seconds).  This value can be"
@@ -517,9 +515,7 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
             if (!main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall)) {
                 /* We can have calls that do not count towards our open-call count (e.g., dead calls). */
                 abort_all_tasks();
-#ifdef RTP_STREAM
                 rtp_errors = rtpstream_shutdown(main_scenario->fetchRtpTaskThreadIDs());
-#endif
                 echo_errors = main_scenario->stats->getRtpEchoErrors();
 
                 /* Reverse order shutdown, because deleting reorders the
@@ -634,11 +630,9 @@ static void rtp_echo_thread(void* param)
                     errno);
             return;
         }
-#ifdef RTP_STREAM
         if (!rtp_echo_state) {
             continue;
         }
-#endif
         ns = sendto(*(int*)param, msg, nr, 0,
                     (sockaddr*)&remote_rtp_addr, len);
 
@@ -891,9 +885,7 @@ static void help()
         "    1: At least one call failed\n"
         "   97: Exit on internal command. Calls may have been processed\n"
         "   99: Normal exit without calls processed\n"
-#ifdef RTP_STREAM
         "  253: RTP validation failure\n"
-#endif // RTP_STREAM
         "   -1: Fatal error\n"
         "   -2: Fatal error binding a socket\n");
 
@@ -1277,11 +1269,7 @@ static void setup_media_sockets()
 
     // assert that an IPv6 'media_ip' is not surrounded by brackets?
     //
-#ifdef RTP_STREAM
     if ((user_media_port > 0) && rtp_echo_enabled) {
-#else
-    if (1) {
-#endif // RTP_STREAM
         hints.ai_flags  = AI_PASSIVE;
         hints.ai_family = PF_UNSPEC; /* use local_ip_is_ipv6 as hint? */
 
@@ -1414,9 +1402,6 @@ int main(int argc, char *argv[])
 #ifdef PCAPPLAY
                        "-PCAP"
 #endif
-#ifdef RTP_STREAM
-                       "-RTPSTREAM-RTPCHECK"
-#endif // RTP_STREAM
                        );
 
                 printf
@@ -2130,14 +2115,9 @@ int main(int argc, char *argv[])
     setup_media_sockets();
 
     /* Creating the remote control socket thread */
-#ifdef RTP_STREAM
-    if ((user_media_port > 0) && rtp_echo_enabled)
-    {
+    if (user_media_port > 0 && rtp_echo_enabled) {
         setup_ctrl_socket();
     }
-#else
-    setup_ctrl_socket();
-#endif // RTP_STREAM
 
     if (!nostdin) {
         setup_stdin_socket();

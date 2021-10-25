@@ -234,7 +234,6 @@ double get_double(const char *ptr, const char *what)
     return ret;
 }
 
-#if defined(PCAPPLAY) || defined(RTP_STREAM)
 /* If the value is enclosed in [brackets], it is assumed to be
  * a command-line supplied keyword value (-key). */
 static char* xp_get_keyword_value(const char *name)
@@ -258,7 +257,6 @@ static char* xp_get_keyword_value(const char *name)
 
     return ptr ? strdup(ptr) : NULL;
 }
-#endif
 
 static char* xp_get_string(const char *name, const char *what)
 {
@@ -404,7 +402,6 @@ int scenario::find_var(const char *varName)
     return allocVars->find(varName, false);
 }
 
-#ifdef RTP_STREAM
 void scenario::addRtpTaskThreadID(pthread_t id)
 {
     threadIDs[id] = "threadID";
@@ -419,7 +416,6 @@ std::unordered_map<pthread_t, std::string>& scenario::fetchRtpTaskThreadIDs()
 {
     return threadIDs;
 }
-#endif // RTP_STREAM
 
 int scenario::get_var(const char *varName, const char *what)
 {
@@ -1683,10 +1679,7 @@ void scenario::parseAction(CActions *actions)
             } else if (xp_get_value("play_dtmf")) {
                 ERROR("Scenario specifies a play_dtmf action, but this version of SIPp does not have PCAP support");
 #endif
-#ifdef RTP_STREAM
-            }
-            else if ((ptr = xp_get_keyword_value("rtp_stream")))
-            {
+            } else if ((ptr = xp_get_keyword_value("rtp_stream"))) {
                 hasMedia = 1;
                 if (!strcmp(ptr, "pauseapattern"))
                 {
@@ -1728,16 +1721,7 @@ void scenario::parseAction(CActions *actions)
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PLAY);
                 }
                 free(ptr);
-#else
-                else if ((cptr = xp_get_value("rtp_stream")))
-                {
-                    ERROR("Scenario specifies a rtp_stream action -- but this version of SIPp does not have RTP stream support");
-                }
-#endif
-            }
-#ifdef RTP_STREAM
-            else if ((ptr = xp_get_keyword_value("rtp_echo")))
-            {
+            } else if ((ptr = xp_get_keyword_value("rtp_echo"))) {
                 hasMedia = 1;
                 if (!strncmp(ptr, "startaudio", 10))
                 {
@@ -1769,22 +1753,12 @@ void scenario::parseAction(CActions *actions)
                     tmpAction->setRTPEchoActInfo(ptr);
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_RTPECHO_STOPVIDEO);
                 }
-#else
-                else if ((cptr = xp_get_value("rtp_echo")))
-                {
-                    ERROR("Scenario specifies a rtp_echo action -- but this version of SIPp does not have RTP stream::RtpEcho support");
-                }
-#endif
             } else {
                 ERROR("illegal <exec> in the scenario");
             }
-        } else if(!strcmp(actionElem, "rtp_echo")) {
-#ifdef RTP_STREAM
+        } else if (!strcmp(actionElem, "rtp_echo")) {
             tmpAction->setActionType(CAction::E_AT_RTP_ECHO);
             handle_rhs(tmpAction, "rtp_echo");
-#else
-            ERROR("Scenario specifies a rtp_echo action, but this version of SIPp does not have RTP stream support");
-#endif
         } else {
           ERROR("Unknown action: %s", actionElem);
         }
