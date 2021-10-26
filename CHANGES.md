@@ -1,14 +1,8 @@
-Changes in 3.7.0
-================
-
-* Implemented support for B2BUA Media Gateway RTP/SRTP bit pattern testing --
-  see rtpcheck_xml_syntax_reference.pdf.
-
-
 Features added in 3.7.0
 =======================
 
-* RTPCHECK code by Jeannot Langlois (@jeannotlanglois). Command line examples:
+* Implemented support for B2BUA Media Gateway RTP/SRTP bit pattern testing --
+  see `docs/rtpcheck_xml_syntax_reference.pdf`. Command line examples:
     ```
     # UAC (RTP)
     ./sipp -m 1 -sf sipp_scenarios/pfca_uac_apattern.xml \
@@ -25,6 +19,19 @@ Features added in 3.7.0
     ./sipp -m 1 -sf sipp_scenarios/pfca_uas_both_crypto_simple.xml \
       -t u1 -i 127.0.0.3 -p 5060 -mp 5000 -srtpcheck_debug
     ```
+
+
+Bugs fixed in 3.6.2
+===================
+
+* Fix crash when abusing authentication method (#503, by Markus).
+* Fix crash when trying to change an unset ooc scenario (#463, by
+  @jquinn60137).
+* Fix various build issues with CMake and/or missing version.h and/or
+  compiler warnings. By me, by Silver Chan, Thomas Uhle, Orgad Shaneh.
+* Remove RTP\_STREAM define. The code is always included. (By Orgad Shaneh.)
+* Various minor documentation fixes. By me, kadabusha, Thomas Uhle,
+  Alexander Traud.
 
 
 BREAKING(!) changes in 3.6.1
