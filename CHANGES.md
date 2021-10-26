@@ -1,8 +1,8 @@
-Features added in 3.7.0
-=======================
+Features added in 3.7.0~rc1
+===========================
 
-* Implemented support for B2BUA Media Gateway RTP/SRTP bit pattern testing --
-  see `docs/rtpcheck_xml_syntax_reference.pdf`. Command line examples:
+* B2BUA Media Gateway RTP/SRTP bit pattern testing -- see
+  `docs/rtpcheck_xml_syntax_reference.pdf`. Command line examples:
     ```
     # UAC (RTP)
     ./sipp -m 1 -sf sipp_scenarios/pfca_uac_apattern.xml \
@@ -19,6 +19,24 @@ Features added in 3.7.0
     ./sipp -m 1 -sf sipp_scenarios/pfca_uas_both_crypto_simple.xml \
       -t u1 -i 127.0.0.3 -p 5060 -mp 5000 -srtpcheck_debug
     ```
+  By Jeannot Langlois.
+* URL encode/decode `<action>` for scenarios (by Jérôme Poulin).
+* Variables in the rtpstream/pcap filenames (by Orgad Shaneh).
+* WolfSSL/WolfCrypt library support (as alternative to OpenSSL, by
+  Thomas Uhle).
+
+
+Bugs fixed in 3.7.0~rc1
+=======================
+
+* Documentation updates. Code cleanups. Build fixes. (By Walter Doekes,
+  Thomas Uhle, ChanderG, Lin Sun, Markus Goetzl, Rob Day, Stefan
+  Mititelu, Orgad Shaneh, Karn Saheb).
+* Fix socket/tcp refcount/order issue (by Orgad Shaneh).
+* Fix timezone in [date] on FreeBSD (by kadabusha).
+* Track auto-answered messages as a visible counter rather than an error
+  log (by Rob Day).
+* Unconditionally show index in scenario screen.
 
 
 Bugs fixed in 3.6.2
@@ -28,7 +46,8 @@ Bugs fixed in 3.6.2
 * Fix crash when trying to change an unset ooc scenario (#463, by
   @jquinn60137).
 * Fix various build issues with CMake and/or missing version.h and/or
-  compiler warnings. By me, by Silver Chan, Thomas Uhle, Orgad Shaneh.
+  compiler warnings. By Walter Doekes, by Silver Chan, Thomas Uhle,
+  Orgad Shaneh.
 * Remove RTP\_STREAM define. The code is always included. (By Orgad Shaneh.)
 * Various minor documentation fixes. By me, kadabusha, Thomas Uhle,
   Alexander Traud.
