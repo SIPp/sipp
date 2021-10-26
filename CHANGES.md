@@ -36,7 +36,7 @@ Bugs fixed in 3.7.0~rc1
 * Fix timezone in [date] on FreeBSD (by kadabusha).
 * Track auto-answered messages as a visible counter rather than an error
   log (by Rob Day).
-* Unconditionally show index in scenario screen.
+* Unconditionally show index in scenario screen (by Rob Day).
 
 
 Bugs fixed in 3.6.2
