@@ -7,10 +7,6 @@
 #
 . "`dirname "$0"`/../functions"; init
 
-if ! sippversion | grep -q RTPSTREAM; then
-    skip "requires RTPSTREAM"
-fi
-
 sippbg -sf uas.xml -p 5070 -rtp_echo
 sippfg -m 1 -sf uac.xml 127.0.0.1:5070 \
     -timeout 10 -timeout_error >/dev/null 2>&1
