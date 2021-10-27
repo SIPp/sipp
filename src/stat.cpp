@@ -122,6 +122,7 @@ CStat::~CStat()
 {
     int i;
 
+    dumpDataRtt();
     for (i = 0; i < nRtds(); i++) {
         if (M_ResponseTimeRepartition[i] != NULL) {
             delete [] M_ResponseTimeRepartition[i];
@@ -149,7 +150,7 @@ CStat::~CStat()
 
 
     if(M_dumpRespTime != NULL)
-        delete [] M_dumpRespTime ;
+        delete [] M_dumpRespTime;
 
     free(M_rtdInfo);
     for (int_str_map::iterator i = M_revRtdMap.begin(); i != M_revRtdMap.end(); ++i) {
@@ -1387,6 +1388,9 @@ void CStat::dumpData ()
 
 void CStat::dumpDataRtt ()
 {
+    if (M_counterDumpRespTime == 0) {
+        return;
+    }
     if(M_outputStreamRtt == NULL) {
         // if the file is still not opened, we opened it now
         M_outputStreamRtt = new ofstream(M_fileNameRtt);

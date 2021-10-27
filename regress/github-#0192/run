@@ -3,10 +3,6 @@
 # Author: Walter Doekes, OSSO B.V., 2016
 . "`dirname "$0"`/../functions"; init
 
-if ! sippversion | grep -q RTPSTREAM; then
-    skip "requires RTPSTREAM"
-fi
-
 uas_media_port=5071
 
 udplisten $uas_media_port >udplisten.log &

@@ -52,8 +52,8 @@ Bugs fixed in 3.6.2
   compiler warnings. By Walter Doekes, by Silver Chan, Thomas Uhle,
   Orgad Shaneh.
 * Remove RTP\_STREAM define. The code is always included. (By Orgad Shaneh.)
-* Various minor documentation fixes. By me, kadabusha, Thomas Uhle,
-  Alexander Traud.
+* Various minor documentation fixes. By Walter Doekes, kadabusha, Thomas
+  Uhle, Alexander Traud.
 
 
 BREAKING(!) changes in 3.6.1

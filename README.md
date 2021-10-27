@@ -82,7 +82,7 @@ list](https://lists.sourceforge.net/lists/listinfo/sipp-users).
     ```
     mkdir sipp-$VERSION
     git ls-files -z | tar -c --null \
-       --exclude=gmock --exclude=gtest --files-from=- | tar -xC sipp-$VERSION`
+       --exclude=gmock --exclude=gtest --files-from=- | tar -xC sipp-$VERSION
     cp sipp.1 sipp-$VERSION/
     # check version, and do
     cp ${PROJECT_BINARY_DIR:-.}/version.h sipp-$VERSION/include/
