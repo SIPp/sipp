@@ -36,7 +36,7 @@ Keyword list
 :Description: Local IP as identified on the server socket.
 
 ``[remote_host]``
-===============
+=================
 :Description: Remote hostname, as passed on the command line.
 
 ``[remote_ip]``

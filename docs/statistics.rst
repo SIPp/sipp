@@ -6,31 +6,30 @@ Response times
 ``````````````
 
 Response times can be gathered and reported. Response time names can
-be arbitrary strings, but for backwards compatibility the value "true"
-is treated as if it were named "1". Each response time can be used to
-compute time between two SIPp commands (send, recv or nop). You can
-start a timer by using the start_rtd attribute and stop it using the
-rtd attribute.
+be arbitrary strings, but for backwards compatibility the value ``"true"``
+is treated as if it were named ``"1"``. Each response time can be used to
+compute time between two SIPp commands (``send``, ``recv`` or ``nop``). You can
+start a timer by using the ``start_rtd`` attribute and stop it using the
+``rtd`` attribute.
 
 You can view the value of those timers in the SIPp interface by
 pressing 3, 6, 7, 8 or 9. You can also save the values in a CSV file
-using the -trace_stat option (see below).
+using the ``-trace_stat`` option (see below).
 
-If the -trace_rtt option is set, the response times are also dumped in
-the >scenario file name<_>pid<_rtt.csv.
-
-Each line represents a RTD measure (triggered by a message reception
-with a rtd="n" attribute). The dump frequency is tuned by the
--rtt_freq parameter.
+If the ``-trace_rtt`` option is set, the response times are also dumped
+in a file called ``<scenario name>_<pid>_rtt.csv``. There, each
+line represents a RTD measure (triggered by a message reception with a
+``rtd="n"`` attribute). The dump frequency can be tuned using the
+``-rtt_freq`` parameter.
 
 
 Available counters
 ``````````````````
 
-The -trace_stat option dumps all statistics in the
-scenario_name_pid.csv file. The dump starts with one header line with
-all counters. All following lines are 'snapshots' of statistics
-counter given the statistics report frequency (-fd option). When SIPp
+The ``-trace_stat`` option dumps all statistics in the
+``<scenario name>_<pid>.csv`` file. The dump starts with one header line with
+all counters. All following lines are "snapshots" of statistics
+counters given the statistics report frequency (``-fd`` option). When SIPp
 exits, the last values of the statistics are also dumped in this file.
 
 This file can be easily imported in any spreadsheet application, like
@@ -114,9 +113,8 @@ messages sent or recieved, retransmissions, messages lost, and the
 number of unexpected messages for each scenario element. Although
 these screens can be parsed, it is much simpler to parse a CSV file.
 To produce a CSV file that contains the per-message information
-contained in the main display screen pass the -trace_counts option.
+contained in the main display screen pass the ``-trace_counts`` option.
 Each column of the file represents a message and a particular count of
-interest (e.g., "1_INVITE_Sent" or "2_100_Unexp"). Each row
+interest (e.g., ``1_INVITE_Sent`` or ``2_100_Unexp``). Each row
 corresponds to those statistics at a given statistics reporting
 interval.
-
