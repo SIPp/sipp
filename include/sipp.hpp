@@ -175,7 +175,7 @@ cmd messages are received */
 
 #define DEFAULT_BEHAVIOR_ALL         (DEFAULT_BEHAVIOR_BYE | DEFAULT_BEHAVIOR_ABORTUNEXP | DEFAULT_BEHAVIOR_PINGREPLY | DEFAULT_BEHAVIOR_BADCSEQ)
 
-#define DEFAULT_MIN_RTP_PORT         8192
+#define DEFAULT_MIN_RTP_PORT         DEFAULT_MEDIA_PORT
 #define DEFAULT_MAX_RTP_PORT         65535
 #define DEFAULT_RTP_PAYLOAD          8
 #define DEFAULT_RTP_THREADTASKS      20
@@ -250,12 +250,14 @@ MAYBE_EXTERN bool               gracefulclose           DEFVAL(true);
 #endif
 MAYBE_EXTERN char               control_ip[40];
 MAYBE_EXTERN int                control_port            DEFVAL(0);
-MAYBE_EXTERN int                buff_size               DEFVAL(65535);
-MAYBE_EXTERN int                tcp_readsize            DEFVAL(65535);
+MAYBE_EXTERN int                buff_size               DEFVAL(65536);
+MAYBE_EXTERN int                tcp_readsize            DEFVAL(65536);
 MAYBE_EXTERN int                hasMedia                DEFVAL(0);
+MAYBE_EXTERN int                min_rtp_port            DEFVAL(DEFAULT_MIN_RTP_PORT);
+MAYBE_EXTERN int                max_rtp_port            DEFVAL(DEFAULT_MAX_RTP_PORT);
 MAYBE_EXTERN int                rtp_default_payload     DEFVAL(DEFAULT_RTP_PAYLOAD);
 MAYBE_EXTERN int                rtp_tasks_per_thread    DEFVAL(DEFAULT_RTP_THREADTASKS);
-MAYBE_EXTERN int                rtp_buffsize            DEFVAL(65535);
+MAYBE_EXTERN int                rtp_buffsize            DEFVAL(65536);
 MAYBE_EXTERN bool               rtpcheck_debug          DEFVAL(0);
 #ifdef USE_TLS
 MAYBE_EXTERN bool               srtpcheck_debug         DEFVAL(0);
@@ -265,7 +267,6 @@ MAYBE_EXTERN double             videotolerance          DEFVAL(1.0);
 
 MAYBE_EXTERN bool               rtp_echo_enabled        DEFVAL(0);
 MAYBE_EXTERN char               media_ip[127];          /* also used for hostnames */
-MAYBE_EXTERN int                user_media_port         DEFVAL(0);
 MAYBE_EXTERN int                media_port              DEFVAL(0);
 MAYBE_EXTERN size_t             media_bufsize           DEFVAL(2048);
 MAYBE_EXTERN bool               media_ip_is_ipv6        DEFVAL(false);
@@ -344,11 +345,7 @@ MAYBE_EXTERN int_vt_map         userVarMap;
 MAYBE_EXTERN SIPpSocket* new_sipp_socket(bool use_ipv6, int transport);
 MAYBE_EXTERN int      sipp_bind_socket(SIPpSocket *socket, struct sockaddr_storage *saddr, int *port);
 MAYBE_EXTERN void     sipp_customize_socket(SIPpSocket *socket);
-MAYBE_EXTERN int      min_socket          DEFVAL(65535);
-MAYBE_EXTERN int      select_socket       DEFVAL(0);
-MAYBE_EXTERN bool     socket_close        DEFVAL(true);
 MAYBE_EXTERN bool     test_socket         DEFVAL(true);
-MAYBE_EXTERN bool     maxSocketPresent    DEFVAL(false);
 
 #include "time.hpp"
 

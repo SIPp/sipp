@@ -106,15 +106,9 @@ Keyword list
 
 ``[media_port]``
 ================
-:Description: Depending on the value of -mp parameter, it set the local RTP echo port number.
-  Default is none. RTP/UDP packets received on that port are echoed to their sender.
-  You can add a computed offset [media_port+3] to this value.
-
-``[auto_media_port]``
-=====================
-:Description: Only for pcap. To make audio and video ports begin
-  from the value of -mp parameter, and change for each call using a periodical
-  system, modulo 10000 (which limits to 10000 concurrent RTP sessions for pcap_play)
+:Description: Depending on the locally selected media port, which in turn
+  depends on the -min_rtp_port/-max_rtp_port parameters, it is local RTP echo
+  port number. You can add a computed offset [media_port+3] to this value.
 
 ``[field0-n file=<filename> line=<number>]``
 ============================================

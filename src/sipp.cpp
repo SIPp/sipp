@@ -268,11 +268,12 @@ struct sipp_option options_table[] = {
 
     {"", "RTP behaviour options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"mi", "Set the local media IP address (default: local primary host IP address)", SIPP_OPTION_IP, media_ip, 1},
-    {"rtp_echo", "Enable RTP echo. RTP/UDP packets received on port defined by -mp are echoed to their sender.\n"
+    {"rtp_echo", "Enable RTP echo. RTP/UDP packets received on media port are echoed to their sender.\n"
      "RTP/UDP packets coming on this port + 2 are also echoed to their sender (used for sound and video echo).",
      SIPP_OPTION_SETFLAG, &rtp_echo_enabled, 1},
     {"mb", "Set the RTP echo buffer size (default: 2048).", SIPP_OPTION_INT, &media_bufsize, 1},
-    {"mp", "Set the local RTP echo port number. Default is 6000.", SIPP_OPTION_INT, &user_media_port, 1},
+    {"min_rtp_port", "Minimum port number for RTP socket range.", SIPP_OPTION_INT, &min_rtp_port, 1},
+    {"max_rtp_port", "Maximum port number for RTP socket range.", SIPP_OPTION_INT, &max_rtp_port, 1},
     {"rtp_payload", "RTP default payload type.", SIPP_OPTION_INT, &rtp_default_payload, 1},
     {"rtp_threadtasks", "RTP number of playback tasks per thread.", SIPP_OPTION_INT, &rtp_tasks_per_thread, 1},
     {"rtp_buffsize", "Set the rtp socket send/receive buffer size.", SIPP_OPTION_INT, &rtp_buffsize, 1},
@@ -1248,10 +1249,9 @@ static void setup_media_sockets()
     struct addrinfo* local_addr;
     struct sockaddr_storage media_sockaddr = {0,};
     int try_counter = 0;
-    int max_tries = user_media_port ? 1 : 100;
-    int last_attempt = 0;
+    int max_tries = (min_rtp_port < (max_rtp_port - 2)) ? 100 : 1;
 
-    media_port = user_media_port ? user_media_port : DEFAULT_MEDIA_PORT;
+    media_port = min_rtp_port;
 
     // [JLTAG]
     //
@@ -1286,9 +1286,10 @@ static void setup_media_sockets()
     media_socket_audio = -1;
     media_socket_video = -1;
 
-    if (user_media_port > 0 && rtp_echo_enabled) {
+    if (rtp_echo_enabled) {
         for (try_counter = 1; try_counter <= max_tries; try_counter++) {
-            last_attempt = (try_counter == max_tries);
+            int last_attempt = (
+                try_counter == max_tries || media_port >= (max_rtp_port - 2));
 
             if (bind_rtp_sockets(&media_sockaddr, media_port, last_attempt) == 0) {
                 break;
@@ -1573,7 +1574,6 @@ int main(int argc, char *argv[])
                 case 'i':
                     multisocket = 1;
                     peripsocket = 1;
-                    socket_close = false;
                     break;
                 }
 
@@ -1593,7 +1593,6 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 max_multi_socket = get_long(argv[argi], argv[argi - 1]);
-                maxSocketPresent = true;
                 break;
             case SIPP_OPTION_CSEQ:
                 REQUIRE_ARG();
@@ -2113,7 +2112,7 @@ int main(int argc, char *argv[])
     setup_media_sockets();
 
     /* Creating the remote control socket thread */
-    if (user_media_port > 0 && rtp_echo_enabled) {
+    if (rtp_echo_enabled) {
         setup_ctrl_socket();
     }
 

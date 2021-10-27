@@ -20,7 +20,7 @@ udplisten_job=$!
 trap "kill -9 $udplisten_job 2>/dev/null" EXIT
 
 sippbg -sf uas.xml -p 5070 -key custom_media_port $uas_media_port
-sippfg -m 1 -sf uac.xml 127.0.0.1:5070 -mp $uac_media_port \
+sippfg -m 1 -sf uac.xml 127.0.0.1:5070 -min_rtp_port $uac_media_port \
     -timeout 5 -timeout_error >/dev/null 2>&1
 status=$?
 

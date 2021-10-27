@@ -36,6 +36,12 @@
 /* stub to add extra debugging/logging... */
 static void debugprint(const char* format, ...)
 {
+#if 0
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+#endif
 }
 
 struct free_delete {
@@ -44,7 +50,6 @@ struct free_delete {
 template<class T> using my_unique_ptr = std::unique_ptr<T, free_delete>;
 
 #define RTPSTREAM_FILESPERBLOCK       16
-#define BIND_MAX_TRIES                100
 #define RTPSTREAM_THREADBLOCKSIZE     16
 #define MAX_UDP_RECV_BUFFER           8192
 #define MAX_UDP_SEND_BUFFER           8192
@@ -1795,21 +1800,18 @@ static int rtpstream_setsocketoptions(int sock)
 /* code checked */
 static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
 {
-    int                       port_number;
-    int                       tries;
-    struct sockaddr_storage   address;
+    int port_number;
+    int tries;
+    struct sockaddr_storage address;
+    int max_tries = (min_rtp_port < (max_rtp_port - 2)) ? 100 : 1;
 
     debugprint("rtpstream_get_localport\n");
 
-    if (user_media_port) {
-        next_rtp_port = user_media_port;
-    } else {
-        next_rtp_port = DEFAULT_MEDIA_PORT;
-    }
+    next_rtp_port = min_rtp_port;
 
     /* initialise address family and IP address for media socket */
     memset(&address, 0, sizeof(address));
-    address.ss_family = media_ip_is_ipv6?AF_INET6:AF_INET;
+    address.ss_family = media_ip_is_ipv6 ? AF_INET6 : AF_INET;
     if ((media_ip_is_ipv6?
          inet_pton(AF_INET6, media_ip, &((_RCAST(struct sockaddr_in6 *, &address))->sin6_addr)):
          inet_pton(AF_INET, media_ip, &((_RCAST(struct sockaddr_in *, &address))->sin_addr))) != 1) {
@@ -1824,30 +1826,27 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
         return 0;
     }
 
-    for (tries = 0; tries < BIND_MAX_TRIES; tries++) {
+    for (tries = 0; tries < max_tries; tries++) {
         /* try a sequence of port numbers until we find one where we can bind    */
         /* should normally be the first port we try, unless we have long-running */
         /* calls or somebody else is nicking ports.                              */
-        /* only increment ports if the user did not supply a port. */
-
         port_number = next_rtp_port;
-        if (!user_media_port) {
-            /* skip rtp ports in multiples of 2 (allow for rtp plus rtcp) */
-            next_rtp_port += 2;
-            if (next_rtp_port > 65534) {
-                next_rtp_port = user_media_port;
-            }
+
+        /* skip rtp ports in multiples of 2 (allow for rtp plus rtcp) */
+        next_rtp_port += 2;
+        if (next_rtp_port > (max_rtp_port - 1)) {
+            next_rtp_port = min_rtp_port;
         }
 
         sockaddr_update_port(&address, port_number);
-        if (::bind(*rtpsocket, (sockaddr *) (void *)&address,
+        if (::bind(*rtpsocket, (sockaddr*)&address,
                    sizeof(address)) == 0) {
             break;
         }
     }
 
     /* Exit here if we didn't get a suitable port for rtp stream */
-    if (tries == BIND_MAX_TRIES) {
+    if (tries == max_tries) {
         close(*rtpsocket);
         *rtpsocket = -1;
         WARNING("Could not bind port for RTP streaming after %d tries", tries);
@@ -1861,7 +1860,8 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
         return 0;
     }
 
-    /* create socket for rtcp - ignore any errors */
+    /* create socket for rtcp - ignore any errors, we only bind so we
+     * won't send icmp-port-unreachable when rtcp arrives */
     *rtcpsocket = socket(media_ip_is_ipv6?PF_INET6:PF_INET, SOCK_DGRAM, 0);
     if (*rtcpsocket != -1) {
         /* try to bind it to our preferred address */

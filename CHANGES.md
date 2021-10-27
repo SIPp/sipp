@@ -6,20 +6,23 @@ Features added in 3.7.0~rc1
     ```
     # UAC (RTP)
     ./sipp -m 1 -sf sipp_scenarios/pfca_uac_apattern.xml \
-      -t u1 -i 127.0.0.2 -p 5060 -mp 4000 127.0.0.3:5060
+      -t u1 -i 127.0.0.2 -p 5060 127.0.0.3:5060
     # UAS (RTP)
     ./sipp -m 1 -sf sipp_scenarios/pfca_uas.xml \
-      -i 127.0.0.3 -t u1 -p 5060 -mp 5000 -rtp_echo
+      -i 127.0.0.3 -t u1 -p 5060 -rtp_echo
 
     # UAC (SRTP)
     ./sipp -m 1 -sf sipp_scenarios/pfca_uac_bpattern_crypto_simple.xml \
-      -t u1 -i 127.0.0.2 -p 5060 -mp 4000 -rtpcheck_debug -srtpcheck_debug \
+      -t u1 -i 127.0.0.2 -p 5060 -rtpcheck_debug -srtpcheck_debug \
       127.0.0.3:5060
     # UAS (SRTP)
     ./sipp -m 1 -sf sipp_scenarios/pfca_uas_both_crypto_simple.xml \
-      -t u1 -i 127.0.0.3 -p 5060 -mp 5000 -srtpcheck_debug
+      -t u1 -i 127.0.0.3 -p 5060 -srtpcheck_debug
     ```
   By Jeannot Langlois.
+* Removed `-mp` in favor of `-min_rtp_port` and `-max_rtp_port`. Also
+  removed `[auto_media_port]`. There are way too many (conflicting)
+  options to specify ports here.
 * URL encode/decode `<action>` for scenarios (by Jérôme Poulin).
 * Variables in the rtpstream/pcap filenames (by Orgad Shaneh).
 * WolfSSL/WolfCrypt library support (as alternative to OpenSSL, by

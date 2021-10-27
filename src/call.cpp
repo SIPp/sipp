@@ -2672,12 +2672,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         case E_Message_Media_IP:
             dest += snprintf(dest, left, "%s", media_ip);
             break;
-        case E_Message_Media_Port:
-        case E_Message_Auto_Media_Port: {
+        case E_Message_Media_Port: {
             int port = media_port + comp->offset;
-            if (comp->type == E_Message_Auto_Media_Port) {
-                port += (4 * (number - 1)) % 10000;
-            }
 #ifdef PCAPPLAY
             char *begin = dest;
             while (begin > msg_buffer) {
@@ -2713,13 +2709,13 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
         case E_Message_RTPStream_Audio_Port:
         {
-          int temp_audio_port= 0;
+          int temp_audio_port = 0;
           // Only obtain port for RTP ([rtpstream_audio_port+0]) *BUT NOT* RTCP ([rtpstream_audio_port+1])
           if (comp->offset == 0) {
-              temp_audio_port = rtpstream_get_local_audioport (&rtpstream_callinfo);
+              temp_audio_port = rtpstream_get_local_audioport(&rtpstream_callinfo);
               if (!temp_audio_port) {
-                /* Make this a warning instead? */
-                ERROR("cannot assign a free audio port to this call - using 0 for [rtpstream_audio_port]");
+                  /* Make this a warning instead? */
+                  ERROR("cannot assign a free audio port to this call - using 0 for [rtpstream_audio_port]");
               }
           } else if (comp->offset >= 1) {
               temp_audio_port = rtpstream_callinfo.local_audioport + comp->offset;
@@ -2727,15 +2723,15 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 #ifdef USE_TLS
           logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Audio_Port: %d\n", temp_audio_port);
 #endif // USE_TLS
-          dest += snprintf(dest, left, "%d",temp_audio_port);
+          dest += snprintf(dest, left, "%d", temp_audio_port);
         }
         break;
         case E_Message_RTPStream_Video_Port:
         {
-          int temp_video_port= 0;
+          int temp_video_port = 0;
           // Only obtain port for RTP ([rtpstream_video_port+0]) *BUT NOT* RTCP ([rtpstream_video_port+1])
           if (comp->offset == 0) {
-              temp_video_port = rtpstream_get_local_videoport (&rtpstream_callinfo);
+              temp_video_port = rtpstream_get_local_videoport(&rtpstream_callinfo);
               if (!temp_video_port) {
                 /* Make this a warning instead? */
                 ERROR("cannot assign a free video port to this call - using 0 for [rtpstream_video_port]");
@@ -2746,7 +2742,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 #ifdef USE_TLS
           logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Video_Port: %d\n", temp_video_port);
 #endif // USE_TLS
-          dest += snprintf(dest, left, "%d",temp_video_port);
+          dest += snprintf(dest, left, "%d", temp_video_port);
         }
         break;
 #ifdef USE_TLS

@@ -58,9 +58,6 @@ struct KeywordMap SimpleKeywords[] = {
     {"local_port", E_Message_Local_Port },
     {"server_ip", E_Message_Server_IP },
     {"media_ip", E_Message_Media_IP },
-#ifdef PCAPPLAY
-    {"auto_media_port", E_Message_Auto_Media_Port },
-#endif
     {"rtpstream_audio_port", E_Message_RTPStream_Audio_Port },
     {"rtpstream_video_port", E_Message_RTPStream_Video_Port },
 #ifdef USE_TLS
@@ -350,15 +347,8 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
                 newcomp->literalLen = strlen(newcomp->literal);
             } else if(!strncmp(keyword, "authentication", strlen("authentication"))) {
                 parseAuthenticationKeyword(msg_scenario, newcomp, keyword);
-            }
-#ifndef PCAPPLAY
-            else if(!strcmp(keyword, "auto_media_port")) {
-                ERROR("The %s keyword requires PCAPPLAY", keyword);
-            }
-#endif
-            else {
+            } else {
                 // scan for the generic parameters - must be last test
-
                 int i = 0;
                 while (generic[i]) {
                     char *msg1 = *generic[i];
