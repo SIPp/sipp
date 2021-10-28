@@ -37,10 +37,6 @@
  *           Walter Doekes
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE /* needed for strcasestr on cygwin */
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 

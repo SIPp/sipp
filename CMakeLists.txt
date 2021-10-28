@@ -208,6 +208,10 @@ if(SIPP_MAX_MSG_SIZE)
   add_definitions("-DSIPP_MAX_MSG_SIZE=${SIPP_MAX_MSG_SIZE}")
 endif(SIPP_MAX_MSG_SIZE)
 
+if(CYGWIN)
+  add_definitions("-D_GNU_SOURCE")
+endif(CYGWIN)
+
 if(USE_GSL AND GSL_LIBRARY)
   target_link_libraries(sipp gsl gslcblas)
   target_link_libraries(sipp_unittest gsl gslcblas)
