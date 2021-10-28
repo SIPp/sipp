@@ -41,6 +41,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <atomic>
+#include <vector>
 
 #ifdef __APPLE__
 /* Provide OSX version of extern char **environ; */
@@ -605,7 +606,8 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
 
 static void rtp_echo_thread(void* param)
 {
-    char* msg = (char*)alloca(media_bufsize);
+    std::vector<char> msg;
+    msg.resize(media_bufsize);
     ssize_t nr, ns;
     sipp_socklen_t len;
     struct sockaddr_storage remote_rtp_addr;
@@ -630,7 +632,7 @@ static void rtp_echo_thread(void* param)
 
     while (run_echo_thread.load(std::memory_order_relaxed)) {
         len = sizeof(remote_rtp_addr);
-        nr = recvfrom(sock, msg, media_bufsize, 0,
+        nr = recvfrom(sock, msg.data(), media_bufsize, 0,
                       (sockaddr*)&remote_rtp_addr, &len);
 
         if (nr < 0) {
@@ -644,7 +646,7 @@ static void rtp_echo_thread(void* param)
         if (!rtp_echo_state) {
             continue;
         }
-        ns = sendto(sock, msg, nr, 0,
+        ns = sendto(sock, msg.data(), nr, 0,
                     (sockaddr*)&remote_rtp_addr, len);
 
         if (ns != nr) {
