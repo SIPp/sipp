@@ -60,10 +60,6 @@
 #include <stdarg.h>
 #endif
 
-#if defined(__HPUX) || defined(__SUNOS)
-#include <alloca.h>
-#endif
-
 /* Sipp includes */
 
 #include "xp_parser.h"
