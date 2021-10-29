@@ -40,6 +40,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <atomic>
 
 #ifdef __APPLE__
 /* Provide OSX version of extern char **environ; */
@@ -63,6 +64,7 @@ extern SIPpSocket *stdin_socket;
 
 /* These could be local to main, but for the option processing table. */
 static int argiFileName;
+static std::atomic<bool> run_echo_thread(true);
 
 /***************** Option Handling Table *****************/
 struct sipp_option {
@@ -604,9 +606,10 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
 static void rtp_echo_thread(void* param)
 {
     char* msg = (char*)alloca(media_bufsize);
-    size_t nr, ns;
+    ssize_t nr, ns;
     sipp_socklen_t len;
     struct sockaddr_storage remote_rtp_addr;
+    int sock = *(int *)param;
 
 
     int                   rc;
@@ -618,12 +621,21 @@ static void rtp_echo_thread(void* param)
         return;
     }
 
-    for (;;) {
+    // timeout after 100ms, to enable graceful termination of the thread
+    struct timeval tv = {0, 100000};
+    if ((setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) ||
+        (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0)) {
+        WARNING("Cannot set socket timeout. error: %d", errno);
+    }
+
+    while (run_echo_thread.load(std::memory_order_relaxed)) {
         len = sizeof(remote_rtp_addr);
-        nr = recvfrom(*(int*)param, msg, media_bufsize, 0,
+        nr = recvfrom(sock, msg, media_bufsize, 0,
                       (sockaddr*)&remote_rtp_addr, &len);
 
-        if (((long)nr) < 0) {
+        if (nr < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                continue;
             WARNING("%s %i",
                     "Error on RTP echo reception - stopping echo - errno=",
                     errno);
@@ -632,7 +644,7 @@ static void rtp_echo_thread(void* param)
         if (!rtp_echo_state) {
             continue;
         }
-        ns = sendto(*(int*)param, msg, nr, 0,
+        ns = sendto(sock, msg, nr, 0,
                     (sockaddr*)&remote_rtp_addr, len);
 
         if (ns != nr) {
@@ -2138,12 +2150,7 @@ int main(int argc, char *argv[])
     traffic_thread(rtp_errors, echo_errors);
 
     /* Cancel and join other threads. */
-    if (pthread2_id) {
-        pthread_cancel(pthread2_id);
-    }
-    if (pthread3_id) {
-        pthread_cancel(pthread3_id);
-    }
+    run_echo_thread.store(false, std::memory_order_relaxed);
     if (pthread2_id) {
         pthread_join(pthread2_id, NULL);
     }
