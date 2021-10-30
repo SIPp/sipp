@@ -1224,7 +1224,7 @@ static int create_socket(struct sockaddr_storage* media_sa, int try_port, bool l
  * Create and bind media_socket_audio, media_socket_video for RTP and
  * RCTP on try_port and try_port+2.
  *
- * Sets: media_socket_audio and media_socket_audio.
+ * Sets: media_socket_audio and media_socket_video.
  */
 static int bind_rtp_sockets(struct sockaddr_storage* media_sa, int try_port, bool last_attempt)
 {
@@ -1236,7 +1236,7 @@ static int bind_rtp_sockets(struct sockaddr_storage* media_sa, int try_port, boo
 
     /* Create and bind the second/video socket to try_port+2 */
     /* (+1 is reserved for RTCP) */
-    media_socket_video = create_socket(media_sa, try_port + 2, last_attempt, "audio");
+    media_socket_video = create_socket(media_sa, try_port + 2, last_attempt, "video");
     if (media_socket_video == -1) {
         ::close(media_socket_audio);
         media_socket_audio = -1;
