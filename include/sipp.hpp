@@ -484,7 +484,6 @@ void timeout_alarm(int);
 SIPpSocket **get_peer_socket(char *);
 bool is_a_peer_socket(SIPpSocket *);
 bool is_a_local_socket(SIPpSocket *);
-void connect_to_peer(char *, int, sockaddr_storage *, char *, SIPpSocket **);
 void connect_to_all_peers();
 void connect_local_twin_socket(char *);
 void close_peer_sockets();

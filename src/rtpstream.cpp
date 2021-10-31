@@ -44,6 +44,10 @@ static void debugprint(const char* format, ...)
 #endif
 }
 
+static unsigned long tid_self() {
+    return reinterpret_cast<unsigned long>(pthread_self());
+}
+
 struct free_delete {
     void operator()(void* x) { free(x); }
 };
@@ -202,7 +206,7 @@ void printAudioHexUS(char const* note, unsigned char const* string, unsigned int
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugamutex);
-        fprintf(debugafile, "TID: %lu %s %u 0x%llx %d [", pthread_self(), note, size, extrainfo, moreinfo);
+        fprintf(debugafile, "TID: %lu %s %u 0x%llx %d [", tid_self(), note, size, extrainfo, moreinfo);
         for (unsigned int i = 0; i < size; i++)
         {
             fprintf(debugafile, "%02X", 0x000000FF & string[i]);
@@ -220,7 +224,7 @@ void printVideoHexUS(char const* note, unsigned char const* string, unsigned int
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugvmutex);
-        fprintf(debugvfile, "TID: %lu %s %u 0x%llx %d [", pthread_self(), note, size, extrainfo, moreinfo);
+        fprintf(debugvfile, "TID: %lu %s %u 0x%llx %d [", tid_self(), note, size, extrainfo, moreinfo);
         for (unsigned int i = 0; i < size; i++)
         {
             fprintf(debugvfile, "%02X", 0x000000FF & string[i]);
@@ -238,7 +242,7 @@ void printAudioHex(char const* note, char const* string, unsigned int size, unsi
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugamutex);
-        fprintf(debugafile, "TID: %lu %s %u 0x%llx %d [", pthread_self(), note, size, extrainfo, moreinfo);
+        fprintf(debugafile, "TID: %lu %s %u 0x%llx %d [", tid_self(), note, size, extrainfo, moreinfo);
         for (unsigned int i = 0; i < size; i++)
         {
             fprintf(debugafile, "%02X", 0x000000FF & string[i]);
@@ -255,7 +259,7 @@ void printAudioVector(char const* note, std::vector<unsigned long> const &v)
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugamutex);
-        fprintf(debugafile, "TID: %lu %s\n", pthread_self(), note);
+        fprintf(debugafile, "TID: %lu %s\n", tid_self(), note);
         for (unsigned int i = 0; i < v.size(); i++)
         {
             fprintf(debugafile, "%lu\n", v[i]);
@@ -272,7 +276,7 @@ void printVideoHex(char const* note, char const* string, unsigned int size, unsi
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugvmutex);
-        fprintf(debugvfile, "TID: %lu %s %u 0x%llx %d [", pthread_self(), note, size, extrainfo, moreinfo);
+        fprintf(debugvfile, "TID: %lu %s %u 0x%llx %d [", tid_self(), note, size, extrainfo, moreinfo);
         for (unsigned int i = 0; i < size; i++)
         {
             fprintf(debugvfile, "%02X", 0x000000FF & string[i]);
@@ -289,7 +293,7 @@ void printVideoVector(char const* note, std::vector<unsigned long> const &v)
         rtpcheck_debug)
     {
         pthread_mutex_lock(&debugvmutex);
-        fprintf(debugvfile, "TID: %lu %s\n", pthread_self(), note);
+        fprintf(debugvfile, "TID: %lu %s\n", tid_self(), note);
         for (unsigned int i = 0; i < v.size(); i++)
         {
             fprintf(debugvfile, "%lu\n", v[i]);
@@ -2110,10 +2114,10 @@ int rtpstream_set_srtp_audio_local(rtpstream_callinfo_t* callinfo, SrtpAudioInfo
         taskinfo->local_srtp_audio_params.audio_found = true;
         taskinfo->local_srtp_audio_params.primary_audio_cryptotag = p.primary_audio_cryptotag;
         taskinfo->local_srtp_audio_params.secondary_audio_cryptotag = p.secondary_audio_cryptotag;
-        strncpy(taskinfo->local_srtp_audio_params.primary_audio_cryptosuite, p.primary_audio_cryptosuite, 23);
-        strncpy(taskinfo->local_srtp_audio_params.secondary_audio_cryptosuite, p.secondary_audio_cryptosuite, 23);
-        strncpy(taskinfo->local_srtp_audio_params.primary_audio_cryptokeyparams, p.primary_audio_cryptokeyparams, 40);
-        strncpy(taskinfo->local_srtp_audio_params.secondary_audio_cryptokeyparams, p.secondary_audio_cryptokeyparams, 40);
+        strcpy(taskinfo->local_srtp_audio_params.primary_audio_cryptosuite, p.primary_audio_cryptosuite);
+        strcpy(taskinfo->local_srtp_audio_params.secondary_audio_cryptosuite, p.secondary_audio_cryptosuite);
+        strcpy(taskinfo->local_srtp_audio_params.primary_audio_cryptokeyparams, p.primary_audio_cryptokeyparams);
+        strcpy(taskinfo->local_srtp_audio_params.secondary_audio_cryptokeyparams, p.secondary_audio_cryptokeyparams);
         taskinfo->local_srtp_audio_params.primary_unencrypted_audio_srtp = p.primary_unencrypted_audio_srtp;
         taskinfo->local_srtp_audio_params.secondary_unencrypted_audio_srtp = p.secondary_unencrypted_audio_srtp;
     }
@@ -2177,10 +2181,10 @@ int rtpstream_set_srtp_audio_remote(rtpstream_callinfo_t* callinfo, SrtpAudioInf
         taskinfo->remote_srtp_audio_params.audio_found = true;
         taskinfo->remote_srtp_audio_params.primary_audio_cryptotag = p.primary_audio_cryptotag;
         taskinfo->remote_srtp_audio_params.secondary_audio_cryptotag = p.secondary_audio_cryptotag;
-        strncpy(taskinfo->remote_srtp_audio_params.primary_audio_cryptosuite, p.primary_audio_cryptosuite, 23);
-        strncpy(taskinfo->remote_srtp_audio_params.secondary_audio_cryptosuite, p.secondary_audio_cryptosuite, 23);
-        strncpy(taskinfo->remote_srtp_audio_params.primary_audio_cryptokeyparams, p.primary_audio_cryptokeyparams, 40);
-        strncpy(taskinfo->remote_srtp_audio_params.secondary_audio_cryptokeyparams, p.secondary_audio_cryptokeyparams, 40);
+        strcpy(taskinfo->remote_srtp_audio_params.primary_audio_cryptosuite, p.primary_audio_cryptosuite);
+        strcpy(taskinfo->remote_srtp_audio_params.secondary_audio_cryptosuite, p.secondary_audio_cryptosuite);
+        strcpy(taskinfo->remote_srtp_audio_params.primary_audio_cryptokeyparams, p.primary_audio_cryptokeyparams);
+        strcpy(taskinfo->remote_srtp_audio_params.secondary_audio_cryptokeyparams, p.secondary_audio_cryptokeyparams);
         taskinfo->remote_srtp_audio_params.primary_unencrypted_audio_srtp = p.primary_unencrypted_audio_srtp;
         taskinfo->remote_srtp_audio_params.secondary_unencrypted_audio_srtp = p.secondary_unencrypted_audio_srtp;
     }
@@ -2244,10 +2248,10 @@ int rtpstream_set_srtp_video_local(rtpstream_callinfo_t* callinfo, SrtpVideoInfo
         taskinfo->local_srtp_video_params.video_found = true;
         taskinfo->local_srtp_video_params.primary_video_cryptotag = p.primary_video_cryptotag;
         taskinfo->local_srtp_video_params.secondary_video_cryptotag = p.secondary_video_cryptotag;
-        strncpy(taskinfo->local_srtp_video_params.primary_video_cryptosuite, p.primary_video_cryptosuite, 23);
-        strncpy(taskinfo->local_srtp_video_params.secondary_video_cryptosuite, p.secondary_video_cryptosuite, 23);
-        strncpy(taskinfo->local_srtp_video_params.primary_video_cryptokeyparams, p.primary_video_cryptokeyparams, 40);
-        strncpy(taskinfo->local_srtp_video_params.secondary_video_cryptokeyparams, p.secondary_video_cryptokeyparams, 40);
+        strcpy(taskinfo->local_srtp_video_params.primary_video_cryptosuite, p.primary_video_cryptosuite);
+        strcpy(taskinfo->local_srtp_video_params.secondary_video_cryptosuite, p.secondary_video_cryptosuite);
+        strcpy(taskinfo->local_srtp_video_params.primary_video_cryptokeyparams, p.primary_video_cryptokeyparams);
+        strcpy(taskinfo->local_srtp_video_params.secondary_video_cryptokeyparams, p.secondary_video_cryptokeyparams);
         taskinfo->local_srtp_video_params.primary_unencrypted_video_srtp = p.primary_unencrypted_video_srtp;
         taskinfo->local_srtp_video_params.secondary_unencrypted_video_srtp = p.secondary_unencrypted_video_srtp;
     }
@@ -2311,10 +2315,10 @@ int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t* callinfo, SrtpVideoInf
         taskinfo->remote_srtp_video_params.video_found = true;
         taskinfo->remote_srtp_video_params.primary_video_cryptotag = p.primary_video_cryptotag;
         taskinfo->remote_srtp_video_params.secondary_video_cryptotag = p.secondary_video_cryptotag;
-        strncpy(taskinfo->remote_srtp_video_params.primary_video_cryptosuite, p.primary_video_cryptosuite, 23);
-        strncpy(taskinfo->remote_srtp_video_params.secondary_video_cryptosuite, p.secondary_video_cryptosuite, 23);
-        strncpy(taskinfo->remote_srtp_video_params.primary_video_cryptokeyparams, p.primary_video_cryptokeyparams, 40);
-        strncpy(taskinfo->remote_srtp_video_params.secondary_video_cryptokeyparams, p.secondary_video_cryptokeyparams, 40);
+        strcpy(taskinfo->remote_srtp_video_params.primary_video_cryptosuite, p.primary_video_cryptosuite);
+        strcpy(taskinfo->remote_srtp_video_params.secondary_video_cryptosuite, p.secondary_video_cryptosuite);
+        strcpy(taskinfo->remote_srtp_video_params.primary_video_cryptokeyparams, p.primary_video_cryptokeyparams);
+        strcpy(taskinfo->remote_srtp_video_params.secondary_video_cryptokeyparams, p.secondary_video_cryptokeyparams);
         taskinfo->remote_srtp_video_params.primary_unencrypted_video_srtp = p.primary_unencrypted_video_srtp;
         taskinfo->remote_srtp_video_params.secondary_unencrypted_video_srtp = p.secondary_unencrypted_video_srtp;
     }
