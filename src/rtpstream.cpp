@@ -2443,6 +2443,16 @@ void rtpstream_resume(rtpstream_callinfo_t* callinfo)
     }
 }
 
+bool rtpstream_is_playing(rtpstream_callinfo_t *callinfo)
+{
+    debugprint("rtpstream_is_playing callinfo=%p\n", callinfo);
+
+    if (taskentry_t *taskinfo = callinfo->taskinfo) {
+        return taskinfo->audio_loop_count > 0 || taskinfo->video_loop_count > 0;
+    }
+    return false;
+}
+
 void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio)
 {
     debugprint("rtpstream_playapattern callinfo=%p filename %s pattern_id %d loop %d bytes %d payload %d ptime %d tick %d\n",
