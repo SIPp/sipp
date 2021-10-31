@@ -23,16 +23,13 @@
 #include "gmock/gmock.h"
 #include <string.h>
 
-namespace testing {
-    std::string FLAGS_gmock_verbose = "verbose";
-}
-
 int main(int argc, char* argv[])
 {
     globalVariables = new AllocVariableTable(NULL);
     userVariables = new AllocVariableTable(globalVariables);
     main_scenario = new scenario(0, 0);
 
+    ::testing::GMOCK_FLAG(verbose) = "verbose";
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

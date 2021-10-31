@@ -11,18 +11,12 @@ set(CMAKE_CXX_EXTENSIONS False)
 set(CMAKE_REQUIRED_FLAGS "-std=c++11")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -pedantic -Wno-error=format-truncation -Wno-error=deprecated-declarations")
 
-if(EXISTS ./gmock/CMakeLists.txt)
-  add_subdirectory(gmock EXCLUDE_FROM_ALL)
-endif()
-
 # Include binary dir first, where we add generated config.h and
 # version.h. If nothing is found there (release tar) use the version.h
 # from the source.
 include_directories(
   ${PROJECT_BINARY_DIR}
   ${PROJECT_SOURCE_DIR}/include
-  ${PROJECT_SOURCE_DIR}/gtest/include
-  ${PROJECT_SOURCE_DIR}/gmock/include
   "/usr/local/include")
 
 option(BUILD_STATIC "Build a statically-linked binary" OFF)
@@ -125,9 +119,20 @@ endif(USE_SCTP)
 link_directories("/usr/local/lib")
 add_executable(sipp ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp.cpp")
 target_compile_features(sipp PUBLIC cxx_auto_type cxx_range_for)
-add_executable(sipp_unittest EXCLUDE_FROM_ALL ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
+add_executable(sipp_unittest EXCLUDE_FROM_ALL
+  ${all_SRCS}
+  "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
+  "${PROJECT_SOURCE_DIR}/gtest/googletest/src/gtest-all.cc"
+  "${PROJECT_SOURCE_DIR}/gtest/googlemock/src/gmock-all.cc"
+)
 target_compile_features(sipp_unittest PUBLIC cxx_auto_type cxx_range_for)
 target_compile_definitions(sipp_unittest PUBLIC "-DGTEST")
+target_include_directories(sipp_unittest SYSTEM PUBLIC
+  ${PROJECT_SOURCE_DIR}/gtest/googletest
+  ${PROJECT_SOURCE_DIR}/gtest/googlemock
+  ${PROJECT_SOURCE_DIR}/gtest/googletest/include
+  ${PROJECT_SOURCE_DIR}/gtest/googlemock/include
+)
 
 # add version
 find_package(Git)
@@ -173,7 +178,7 @@ if(NOT TINFO_LIBRARY)
 endif()
 if(CURSES_LIBRARY)
   target_link_libraries(sipp dl ${CURSES_LIBRARY} pthread)
-  target_link_libraries(sipp_unittest dl ${CURSES_LIBRARY} pthread gtest gmock)
+  target_link_libraries(sipp_unittest dl ${CURSES_LIBRARY} pthread)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if(TINFO_LIBRARY)
       target_link_libraries(sipp ${TINFO_LIBRARY})
