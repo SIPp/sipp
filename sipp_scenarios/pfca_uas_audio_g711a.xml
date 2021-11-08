@@ -90,7 +90,7 @@
 
   <recv request="BYE">
   </recv>
-  
+
   <send>
     <![CDATA[
       SIP/2.0 200 OK
@@ -111,4 +111,3 @@
   <CallLengthRepartition value="10, 50, 100, 500, 1000, 5000, 10000"/>
 
 </scenario>
-

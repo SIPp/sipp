@@ -77,7 +77,7 @@
 
     ]]>
   </send>
- 
+
   <!-- receive 200 OK / PRACK (180 Ringing) -->
   <recv response="200">
   </recv>
@@ -191,4 +191,3 @@
   <CallLengthRepartition value="10, 50, 100, 500, 1000, 5000, 10000"/>
 
 </scenario>
-

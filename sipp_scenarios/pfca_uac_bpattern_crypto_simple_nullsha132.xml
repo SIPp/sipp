@@ -95,7 +95,7 @@
 
     ]]>
   </send>
- 
+
   <!-- receive 200 OK / PRACK (180 Ringing) -->
   <recv response="200">
   </recv>
@@ -127,7 +127,7 @@
   </nop>
 
   <pause milliseconds="2000" />
-  
+
   <send retrans="500">
     <![CDATA[
 
@@ -156,4 +156,3 @@
   <CallLengthRepartition value="10, 50, 100, 500, 1000, 5000, 10000"/>
 
 </scenario>
-

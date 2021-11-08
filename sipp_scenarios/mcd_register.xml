@@ -4,11 +4,11 @@
 <scenario name="Basic MCD UAS">
   <recv request="REGISTER" crlf="true">
     <action>
-      <!-- 
-       NOTES:  
+      <!--
+       NOTES:
        1- Variable $1 contains the whole "<...>" expression
        2- Variable $2 contains the substring "..." (enclosed in-between the angle-brackets)
-       
+
        RESTRICTION:
        ALL variables MUST be used - in this case $1 is assigned the contents of $2 so SIPP is happy
        -->
@@ -32,7 +32,7 @@
       P-Login: mihotdesk
       Date: Wed, 14 May 2014 20:26:35 GMT
       Server: VIRTUAL Mitel-3300-ICP 12.0.1.99
-      Content-Length: 0 
+      Content-Length: 0
 
     ]]>
   </send>
@@ -43,7 +43,7 @@
 
       NOTIFY [$2] SIP/2.0
       Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch-2]
-      Max-Forwards: 70 
+      Max-Forwards: 70
       Allow: INVITE,BYE,CANCEL,ACK,INFO,PRACK,OPTIONS,SUBSCRIBE,NOTIFY,REFER,REGISTER,UPDATE
       From: "mwiapp" <sip:mwiapp@[local_ip]:[local_port]>;tag=[call_number]
       To: <sip:[service]@[local_ip]:[local_port]>
@@ -72,4 +72,3 @@
   <CallLengthRepartition value="10, 50, 100, 500, 1000, 5000, 10000"/>
 
 </scenario>
-
