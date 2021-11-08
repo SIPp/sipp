@@ -90,12 +90,14 @@
   <recv response="200">
   </recv>
 
-  <!-- NOTE:  [branch-5] is used to specify reuse of same [branch] value that was used five messages earlier (e.g. INVITE) -->
+  <pause milliseconds="450"/>
+
+  <!-- NOTE:  [branch-6] is used to specify reuse of same [branch] value that was used five messages earlier (e.g. INVITE) -->
   <send>
     <![CDATA[
 
       ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0
-      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch-5]
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch-6]
       From: "16001" <sip:16001@[remote_ip]:[remote_port]>;tag=[call_number]
       To: <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
       Call-ID: [call_id]
