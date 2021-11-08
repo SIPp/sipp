@@ -86,14 +86,14 @@
     ]]>
   </send>
 
+  <recv request="ACK">
+  </recv>
+
   <nop>
     <action>
       <exec rtp_echo="startaudio,0,PCMU/8000" />
     </action>
   </nop>
-
-  <recv request="ACK">
-  </recv>
 
   <nop>
     <action>

@@ -87,14 +87,14 @@
     ]]>
   </send>
 
+  <recv request="ACK">
+  </recv>
+
   <nop>
     <action>
       <exec rtp_echo="startvideo,99,H264/90000" />
     </action>
   </nop>
-
-  <recv request="ACK">
-  </recv>
 
   <nop>
     <action>
