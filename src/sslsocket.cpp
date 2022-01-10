@@ -126,11 +126,41 @@ const char *SSL_error_string(int ssl_error, int orig_ret)
 
 SSL* SSL_new_client()
 {
+    if (access(tls_cert_name, F_OK) == 0 && access(tls_key_name, F_OK) == 0) {
+        if (SSL_CTX_use_certificate_file(sip_trp_ssl_ctx_client,
+                                          tls_cert_name,
+                                          SSL_FILETYPE_PEM) != 1) {
+            ERROR("TLS_init_context: SSL_CTX_use_certificate_file (client) failed");
+            return NULL;
+        }
+        if (SSL_CTX_use_PrivateKey_file(sip_trp_ssl_ctx_client,
+                                         tls_key_name,
+                                         SSL_FILETYPE_PEM) != 1) {
+            ERROR("TLS_init_context: SSL_CTX_use_PrivateKey_file (client) failed");
+            return NULL;
+        }
+    }
+
     return SSL_new(sip_trp_ssl_ctx_client);
 }
 
 SSL* SSL_new_server()
 {
+
+    if (SSL_CTX_use_certificate_file(sip_trp_ssl_ctx,
+                                      tls_cert_name,
+                                      SSL_FILETYPE_PEM) != 1) {
+        ERROR("SSL_new_server: SSL_CTX_use_certificate_file failed");
+        return NULL;
+    }
+
+    if (SSL_CTX_use_PrivateKey_file(sip_trp_ssl_ctx,
+                                     tls_key_name,
+                                     SSL_FILETYPE_PEM) != 1) {
+        ERROR("SSL_new_server: SSL_CTX_use_PrivateKey_file failed");
+        return NULL;
+    }
+
     return SSL_new(sip_trp_ssl_ctx);
 }
 
@@ -332,38 +362,6 @@ enum tls_init_status TLS_init_context(void)
                                   passwd_call_back_routine);
     SSL_CTX_set_default_passwd_cb(sip_trp_ssl_ctx_client,
                                   passwd_call_back_routine);
-
-    if (SSL_CTX_use_certificate_file(sip_trp_ssl_ctx,
-                                     tls_cert_name,
-                                     SSL_FILETYPE_PEM) != 1) {
-        char errbuf[256] = {'\0'};
-        ERR_error_string_n(ERR_get_error(), errbuf, sizeof(errbuf));
-        ERROR("TLS_init_context: SSL_CTX_use_certificate_file failed: %s", errbuf);
-        return TLS_INIT_ERROR;
-    }
-
-    if (SSL_CTX_use_certificate_file(sip_trp_ssl_ctx_client,
-                                     tls_cert_name,
-                                     SSL_FILETYPE_PEM) != 1) {
-        char errbuf[256] = {'\0'};
-        ERR_error_string_n(ERR_get_error(), errbuf, sizeof(errbuf));
-        ERROR("TLS_init_context: SSL_CTX_use_certificate_file (client) failed: %s", errbuf);
-        return TLS_INIT_ERROR;
-    }
-    if (SSL_CTX_use_PrivateKey_file(sip_trp_ssl_ctx,
-                                     tls_key_name,
-                                     SSL_FILETYPE_PEM) != 1) {
-        ERROR("TLS_init_context: SSL_CTX_use_PrivateKey_file failed");
-        return TLS_INIT_ERROR;
-    }
-
-    if (SSL_CTX_use_PrivateKey_file(sip_trp_ssl_ctx_client,
-                                    tls_key_name,
-                                    SSL_FILETYPE_PEM) != 1) {
-        ERROR("TLS_init_context: SSL_CTX_use_PrivateKey_file (client) failed");
-        return TLS_INIT_ERROR;
-    }
-
     return TLS_INIT_NORMAL;
 }
 
