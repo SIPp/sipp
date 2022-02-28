@@ -202,7 +202,7 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
 #else
         min_tls_version = TLS1_1_VERSION;
 #endif
-        max_tls_version = TLS_MAX_VERSION;
+        max_tls_version = TLS1_2_VERSION;
     } else if (tls_version == 1.0) {
 #if !defined(USE_WOLFSSL) || defined(WOLFSSL_ALLOW_TLSV10)
         max_tls_version = min_tls_version = TLS1_VERSION;
