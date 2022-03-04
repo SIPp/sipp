@@ -195,21 +195,22 @@ void send_packets(play_args_t* play_args)
 #endif
 
     if (media_ip_is_ipv6) {
-        sock = socket(PF_INET6, SOCK_RAW, IPPROTO_UDP);
+        sock = socket(PF_INET6, SOCK_DGRAM, 0);
         if (sock < 0) {
-            ERROR("Can't create raw IPv6 socket (need to run as root?): %s", strerror(errno));
+            ERROR("Can't create udp IPv6 socket (need to run as root?): %s", strerror(errno));
             goto pop2;
         }
         from_port = &(((struct sockaddr_in6 *)from)->sin6_port);
         len = sizeof(struct sockaddr_in6);
         to_port = &(((struct sockaddr_in6 *)to)->sin6_port);
     } else {
-        sock = socket(PF_INET, SOCK_RAW, IPPROTO_UDP);
+        //change raw socket to udp socket for avoid performance problems.
+        sock = socket(PF_INET, SOCK_DGRAM, 0);
         from_port = &(((struct sockaddr_in *)from)->sin_port);
         len = sizeof(struct sockaddr_in);
         to_port = &(((struct sockaddr_in *)to)->sin_port);
         if (sock < 0) {
-            ERROR("Can't create raw IPv4 socket (need to run as root?): %s", strerror(errno));
+            ERROR("Can't create udp IPv4 socket (need to run as root?): %s", strerror(errno));
             goto pop2;
         }
     }
@@ -227,12 +228,12 @@ void send_packets(play_args_t* play_args)
         memcpy(&bind_addr, from, sizeof(struct sockaddr_in));
         ((struct sockaddr_in *)&bind_addr)->sin_port = 0;
     }
-
-    if ((ret = bind(sock, (struct sockaddr *)&bind_addr, len))) {
+    //don't need it any more when use udp socket 
+   /* if ((ret = bind(sock, (struct sockaddr*)&bind_addr, len))) {
         ERROR("Can't bind media raw socket: %s", strerror(errno));
         goto pop2;
     }
-
+    */
 #ifndef MSG_DONTWAIT
     fd_flags = fcntl(sock, F_GETFL , NULL);
     fd_flags |= O_NONBLOCK;
@@ -295,10 +296,10 @@ void send_packets(play_args_t* play_args)
         }
 #else
         if (!media_ip_is_ipv6) {
-            ret = sendto(sock, buffer, pkt_index->pktlen, 0,
+            ret = sendto(sock, buffer + sizeof(struct udphdr), pkt_index->pktlen - sizeof(struct udphdr), 0,
                          (struct sockaddr *)to, sizeof(struct sockaddr_in));
         } else {
-            ret = sendto(sock, buffer, pkt_index->pktlen, 0,
+            ret = sendto(sock, buffer + sizeof(struct udphdr), pkt_index->pktlen - sizeof(struct udphdr), 0,
                          (struct sockaddr *)&to6, sizeof(struct sockaddr_in6));
         }
 #endif
