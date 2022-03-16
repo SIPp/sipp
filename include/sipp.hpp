@@ -424,6 +424,7 @@ MAYBE_EXTERN int           reset_number                 DEFVAL(0);
 MAYBE_EXTERN bool          reset_close                  DEFVAL(true);
 MAYBE_EXTERN int           reset_sleep                  DEFVAL(1000);
 MAYBE_EXTERN bool          sendbuffer_warn              DEFVAL(false);
+MAYBE_EXTERN bool          dontreuseaddr                DEFVAL(false);
 /* A list of sockets pending reset. */
 MAYBE_EXTERN set<SIPpSocket*> sockets_pending_reset;
 

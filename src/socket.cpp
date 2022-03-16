@@ -1733,9 +1733,11 @@ void sipp_customize_socket(SIPpSocket *socket)
             socket->ss_transport == T_SCTP) {
         int sock_opt = 1;
 
-        if (setsockopt(socket->ss_fd, SOL_SOCKET, SO_REUSEADDR, (void *)&sock_opt,
-                       sizeof (sock_opt)) == -1) {
-            ERROR_NO("setsockopt(SO_REUSEADDR) failed");
+        if (dontreuseaddr == false) {
+                if (setsockopt(socket->ss_fd, SOL_SOCKET, SO_REUSEADDR, (void *)&sock_opt,
+                               sizeof (sock_opt)) == -1) {
+                    ERROR_NO("setsockopt(SO_REUSEADDR) failed");
+                }
         }
 
 #ifdef USE_SCTP
