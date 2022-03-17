@@ -1549,7 +1549,7 @@ int main(int argc, char *argv[])
 
     init_locks();
 
-    curl_global_init(CURL_GLOBAL_DEFAULT);
+    curl_global_init(CURL_GLOBAL_DEFAULT);  // This is so we can use CURL inside our lua scripts in multi-threaded environments
 
 
     screen_set_exename("sipp");

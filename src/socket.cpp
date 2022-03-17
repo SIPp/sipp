@@ -1164,9 +1164,9 @@ void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, st
             listener_ptr = new_ptr;
         } else if (creationMode == MODE_SERVER) {
             if (quitting >= 1) {
-                //HYDE CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
-                TRACE_MSG("Discarded message for new calls while quitting(%d)\n",quitting);
-                //HYDE return;
+                CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
+                TRACE_MSG("Discarded message for new calls while quitting\n");
+                return;
             }
 
             // Adding a new INCOMING call !
@@ -2532,7 +2532,7 @@ int open_connections()
 
         if (!strlen(local_ip)) {
             get_inet_address(_RCAST(struct sockaddr_storage*, local_addr->ai_addr),
-			     local_ip, sizeof(local_ip));
+                             local_ip, sizeof(local_ip));
         } else {
             memcpy(&local_sockaddr,
                    local_addr->ai_addr,
