@@ -66,7 +66,7 @@ void abort_all_tasks()
 
 void dump_tasks()
 {
-    WARNING("---- %zu Active Tasks ----\n", all_tasks.size());
+    WARNING("---- %zu Active Tasks ----", all_tasks.size());
     for (task_list::iterator task_it = all_tasks.begin();
          task_it != all_tasks.end();
          task_it++) {
@@ -113,8 +113,9 @@ void task::add_to_paused_tasks(bool increment)
     paused_tasks.add_paused_task(this, increment);
 }
 
-void task::recalculate_wheel() {
-  add_to_paused_tasks(false);
+void task::recalculate_wheel()
+{
+    add_to_paused_tasks(false);
 }
 
 /* Remove this task from the run queue. */
@@ -140,7 +141,7 @@ void task::setPaused()
 {
     if (running) {
         if (!remove_from_runqueue()) {
-            WARNING("Tried to remove a running call that wasn't running!\n");
+            WARNING("Tried to remove a running call that wasn't running!");
             assert(0);
         }
     } else {
@@ -162,36 +163,36 @@ void task::abort()
 // occuring at that point.
 task_list *timewheel::task2list(task *task)
 {
-  unsigned int wake = task->wake();
+    unsigned int wake = task->wake();
 
-  if (wake == 0) {
+    if (wake == 0) {
         return &forever_list;
-  }
+    }
 
-  assert(wake >= wheel_base);
-  if (wheel_base > clock_tick) {
-      ERROR("wheel_base is %lu, clock_tick is %lu - expected wheel_base to be less than or equal to clock_tick", wheel_base, clock_tick);
-      assert(wheel_base <= clock_tick);
-  }
+    assert(wake >= wheel_base);
+    if (wheel_base > clock_tick) {
+        ERROR("wheel_base is %lu, clock_tick is %lu - expected wheel_base to be less than or equal to clock_tick", wheel_base, clock_tick);
+        assert(wheel_base <= clock_tick);
+    }
 
-  unsigned int slot_in_first_wheel = wake % LEVEL_ONE_SLOTS;
-  unsigned int slot_in_second_wheel = (wake / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS;
-  unsigned int slot_in_third_wheel = (wake / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS));
+    unsigned int slot_in_first_wheel = wake % LEVEL_ONE_SLOTS;
+    unsigned int slot_in_second_wheel = (wake / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS;
+    unsigned int slot_in_third_wheel = (wake / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS));
 
-  bool fits_in_first_wheel = ((wake / LEVEL_ONE_SLOTS) == (wheel_base / LEVEL_ONE_SLOTS));
-  bool fits_in_second_wheel = ((wake / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS)) ==
-                                (wheel_base / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS)));
-  bool fits_in_third_wheel = (slot_in_third_wheel < LEVEL_THREE_SLOTS);
+    bool fits_in_first_wheel = ((wake / LEVEL_ONE_SLOTS) == (wheel_base / LEVEL_ONE_SLOTS));
+    bool fits_in_second_wheel = ((wake / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS)) ==
+            (wheel_base / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS)));
+    bool fits_in_third_wheel = (slot_in_third_wheel < LEVEL_THREE_SLOTS);
 
     if (fits_in_first_wheel) {
         return &wheel_one[slot_in_first_wheel];
     } else if (fits_in_second_wheel) {
         return &wheel_two[slot_in_second_wheel];
     } else if (fits_in_third_wheel) {
-      return &wheel_three[slot_in_third_wheel];
+        return &wheel_three[slot_in_third_wheel];
     } else{
-      ERROR("Attempted to schedule a task too far in the future");
-      return NULL;
+        ERROR("Attempted to schedule a task too far in the future");
+        return NULL;
     }
 }
 

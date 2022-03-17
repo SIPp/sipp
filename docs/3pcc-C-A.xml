@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<!-- This program is free software; you can redistribute it and/or      -->
+<!-- modify it under the terms of the GNU General Public License as     -->
+<!-- published by the Free Software Foundation; either version 2 of the -->
+<!-- License, or (at your option) any later version.                    -->
+<!--                                                                    -->
+<!-- This program is distributed in the hope that it will be useful,    -->
+<!-- but WITHOUT ANY WARRANTY; without even the implied warranty of     -->
+<!-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      -->
+<!-- GNU General Public License for more details.                       -->
+<!--                                                                    -->
+<!-- You should have received a copy of the GNU General Public License  -->
+<!-- along with this program; if not, write to the                      -->
+<!-- Free Software Foundation, Inc.,                                    -->
+<!-- 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA             -->
+<!--                                                                    -->
+<!--                 3PCC - Controller - A side                         -->
+<!--                                                                    -->
+<!--             A              Controller               B              -->
+<!--             |(1) INVITE no SDP  |                   |              -->
+<!--             |<==================|                   |              -->
+<!--             |(2) 200 offer1     |                   |              -->
+<!--             |==================>|                   |              -->
+<!--             |                   |(3) INVITE offer1  |              -->
+<!--             |                   |==================>|              -->
+<!--             |                   |(4) 200 OK answer1 |              -->
+<!--             |                   |<==================|              -->
+<!--             |                   |(5) ACK            |              -->
+<!--             |                   |==================>|              -->
+<!--             |(6) ACK answer1    |                   |              -->
+<!--             |<==================|                   |              -->
+<!--             |(7) RTP            |                   |              -->
+<!--             |.......................................|              -->
+<!--                                                                    -->
+
+<scenario name="3PCC Controller - A side">
+  <send retrans="500">
+    <![CDATA[
+
+      INVITE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[pid]SIPpTag03[call_number]
+      To: [service] <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 INVITE
+      Contact: sip:sipp@[local_ip]:[local_port]
+      Max-Forwards: 70
+      Subject: Performance Test
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv response="100" optional="true"> </recv>
+  <recv response="180" optional="true"> </recv>
+  <recv response="183" optional="true"> </recv>
+  <recv response="200" crlf="true" start_rtd="true">
+    <action>
+       <ereg regexp="Content-Type:.*"
+             search_in="msg"
+             assign_to="1" />
+    </action>
+  </recv>
+
+  <sendCmd>
+    <![CDATA[
+      Call-ID: [call_id]
+      [$1]
+
+     ]]>
+  </sendCmd>
+
+  <recvCmd>
+    <action>
+       <ereg regexp="Content-Type:.*"
+             search_in="msg"
+             assign_to="2" />
+    </action>
+
+  </recvCmd>
+
+  <send rtd="true">
+    <![CDATA[
+
+      ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[pid]SIPpTag03[call_number]
+      To: [service] <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 1 ACK
+      Contact: sip:sipp@[local_ip]:[local_port]
+      Max-Forwards: 70
+      Subject: Performance Test
+      [$2]
+
+    ]]>
+  </send>
+
+  <pause milliseconds="1000"/>
+
+  <!-- The 'crlf' option inserts a blank line in the statistics report. -->
+  <send retrans="500">
+    <![CDATA[
+
+      BYE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[pid]SIPpTag03[call_number]
+      To: [service] <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 2 BYE
+      Contact: sip:sipp@[local_ip]:[local_port]
+      Max-Forwards: 70
+      Subject: Performance Test
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv response="200" crlf="true"> </recv>
+
+</scenario>
+

@@ -34,7 +34,8 @@ typedef std::map<int, int> int_int_map;
 
 #define BUFFER_SIZE 512
 #define MAX_MATCHING_EXPR 50
-#define REGEXP_PARAMS REG_EXTENDED
+#define REGCOMP_PARAMS REG_EXTENDED
+#define REGEXEC_PARAMS 0
 
 enum T_VarType {
     E_VT_REGEXP = 0,

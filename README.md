@@ -8,7 +8,7 @@
 </a>
 
 SIPp - a SIP protocol test tool
-Copyright (C) 2003-2018 - The Authors
+Copyright (C) 2003-2020 - The Authors
 
 This program is free software: you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -24,23 +24,43 @@ You should have received a copy of the GNU General Public License along
 with this program.  If not, see
 [http://www.gnu.org/licenses/](http://www.gnu.org/licenses/).
 
+# Documentation
+
+See the `docs/` directory. It should also be available in html format at:
+https://sipp.readthedocs.io/en/latest/
+
 # Building
 
 This is the SIPp package. Please refer to the
 [webpage](http://sipp.sourceforge.net/) for details and documentation.
 
-Normally, you should be able to build SIPp by using the provided build
-script: `build.sh`. This:
-* checks out the gtest submodule
-* generates autotools files
-* runs configure
-* builds and runs the test suite
-* builds SIPp
+Normally, you should be able to build SIPp by using CMake:
 
-`build.sh` passes its arguments through to the configure script, so you
-can enable SSL, PCAP and SCTP support by calling `./build.sh
---with-pcap --with-sctp --with-openssl` or `./build.sh --full` to enable
-all optional features.
+```
+cmake .
+make
+```
+
+_The SIPp master branch (3.7.x) requires a modern C++11 compiler._
+
+There are several optional flags to enable features (SIP-over-TLS,
+SIP-over-SCTP, media playback from PCAP files and the GNU Scientific
+Libraries for random distributions):
+
+```
+cmake . -DUSE_SSL=1 -DUSE_SCTP=1 -DUSE_PCAP=1 -DUSE_GSL=1
+```
+
+## Static builds
+
+SIPp can be built into a single static binary, removing the need for
+libraries to exist on the target system and maximising portability.
+
+This is a [fairly complicated
+process](https://medium.com/@neunhoef/static-binaries-for-a-c-application-f7c76f8041cf),
+and for now, it only works on Alpine Linux.
+
+To build a static binary, pass `-DBUILD_STATIC=1` to cmake.
 
 Note for trustid - normally we build with:  build.sh --with-openssl
 
@@ -52,9 +72,32 @@ list](https://lists.sourceforge.net/lists/listinfo/sipp-users).
 
 # Making a release
 
-* Update CHANGES.md. Tag release.
-* Download zip, `autoreconf -vif`, copy sipp.1, copy include/version.h.
-* Create tgz. Upload to github as "binary".
+* Update CHANGES.md. Tag release. Do a build.
+* Make `sipp.1` by calling:
+    ```
+    help2man --output=sipp.1 -v -v --no-info \
+      --name='SIP testing tool and traffic generator' ./sipp
+    ```
+* Then:
+    ```
+    mkdir sipp-$VERSION
+    git ls-files -z | tar -c --null \
+       --exclude=gmock --exclude=gtest --files-from=- | tar -xC sipp-$VERSION
+    cp sipp.1 sipp-$VERSION/
+    # check version, and do
+    cp ${PROJECT_BINARY_DIR:-.}/version.h sipp-$VERSION/include/
+    tar --sort=name --mtime="@$(git log -1 --format=%ct)" \
+          --owner=0 --group=0 --numeric-owner \
+          -czf sipp-$VERSION.tar.gz sipp-$VERSION
+    ```
+* Upload to github as "binary". Note that github replaces tilde sign
+  (for ~rcX) with a period.
+* Create a static binary and upload this to github as well:
+    ```
+    sudo docker build -t sipp-build docker &&
+      sudo docker run -it -v $PWD:/src sipp-build
+    ```
+* Note that the static build is broken at the moment. See `ldd sipp`.
 
 # Contributing
 
@@ -64,24 +107,19 @@ SIPp and use the standard Github fork/pull request method to integrate
 your changes integrate your changes. If you make changes in SIPp,
 *PLEASE* follow a few coding rules:
 
-  - SIPp uses GNU autotools, so changes to the build process should be
-    done by editing configure.ac and Makefile.am. Then regenerate the
-    files with `autoreconf -ivf`. (You will need your distribution's
-    `autotools` and `autoconf-archive` packages installed for this.)
-
   - Please stay conformant with the current indentation style (4 spaces
     indent, standard Emacs-like indentation). Examples:
 
-```
-if (condition) {        /* "{" even if only one instruction */
-    f();                /* 4 space indents */
-} else {
-    char* p = ptr;      /* C++-style pointer declaration placement */
-    g(p);
-}
-```
+    ```
+    if (condition) {        /* "{" even if only one instruction */
+        f();                /* 4 space indents */
+    } else {
+        char* p = ptr;      /* C++-style pointer declaration placement */
+        g(p);
+    }
+    ```
 
-  - If possible, check your changes can be compiled on:
+  - If possible, check that your changes can be compiled on:
       - Linux,
       - Cygwin,
       - Mac OS X,

@@ -37,11 +37,14 @@
  *           Walter Doekes
  */
 
-#include <string.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE /* needed for strcasestr on cygwin */
+#endif
+
 #include <stdlib.h>
+#include <string.h>
 
 #include "screen.hpp"
-#include "strings.hpp"
 #include "sip_parser.hpp"
 
 /*************************** Mini SIP parser (internals) ***************/
@@ -54,23 +57,23 @@
  *   http://www.in2eps.com/fo-abnf/tk-fo-abnf-sip.html
  */
 
-static const char *internal_find_param(const char *ptr, const char *name);
-static const char *internal_find_header(const char *msg, const char *name,
-        const char *shortname, bool content);
-static const char *internal_skip_lws(const char *ptr);
+static const char* internal_find_param(const char* ptr, const char* name);
+static const char* internal_find_header(const char* msg, const char* name,
+        const char* shortname, bool content);
+static const char* internal_skip_lws(const char* ptr);
 
 /* Search for a character, but only inside this header. Returns NULL if
  * not found. */
-static const char *internal_hdrchr(const char *ptr, const char needle);
+static const char* internal_hdrchr(const char* ptr, const char needle);
 
 /* Seek to end of this header. Returns the position the next character,
  * which must be at the header-delimiting-CRLF or, if the message is
  * broken, at the ASCIIZ NUL. */
-static const char *internal_hdrend(const char *ptr);
+static const char* internal_hdrend(const char* ptr);
 
 /*************************** Mini SIP parser (externals) ***************/
 
-char * get_peer_tag(const char *msg)
+char* get_peer_tag(const char* msg)
 {
     static char   tag[MAX_HEADER_LEN];
     const char  * to_hdr;
@@ -109,16 +112,17 @@ char * get_peer_tag(const char *msg)
     return tag;
 }
 
-char * get_header_content(const char* message, const char * name)
+char* get_header_content(const char* message, const char* name)
 {
     return get_header(message, name, true);
 }
 
 /* If content is true, we only return the header's contents. */
-char * get_header(const char* message, const char * name, bool content)
+char* get_header(const char* message, const char* name, bool content)
 {
     /* non reentrant. consider accepting char buffer as param */
     static char last_header[MAX_HEADER_LEN * 10];
+    const char *cptr;
     char *src, *src_orig, *dest, *start, *ptr;
     /* Are we searching for a short form header? */
     bool short_form = false;
@@ -138,7 +142,18 @@ char * get_header(const char* message, const char * name, bool content)
         return last_header;
     }
 
-    src_orig = strdup(message);
+    /* find end of SIP headers - perform search only until that */
+    cptr = strstr(message, "\r\n\r\n");
+    if (!cptr) {
+        src_orig = strdup(message);
+    } else if ((src_orig = (char*)malloc(cptr - message + 1))) {
+        src_orig[cptr - message] = '\0';
+        memcpy(src_orig, message, cptr - message);
+    }
+    if (!src_orig) {
+        ERROR("Out of memory");
+        return last_header;
+    }
 
     do {
         /* We want to start from the beginning of the message each time
@@ -148,7 +163,7 @@ char * get_header(const char* message, const char * name, bool content)
         snprintf(header_with_newline, MAX_HEADER_LEN, "\n%s", name);
         dest = last_header;
 
-        while ((src = strcasestr2(src, header_with_newline))) {
+        while ((src = strcasestr(src, header_with_newline))) {
             if (content || !first_time) {
                 /* Just want the header's content, so skip over the header
                  * and newline */
@@ -260,11 +275,11 @@ char * get_header(const char* message, const char * name, bool content)
     return start;
 }
 
-char * get_first_line(const char * message)
+char* get_first_line(const char* message)
 {
     /* non reentrant. consider accepting char buffer as param */
     static char last_header[MAX_HEADER_LEN * 10];
-    const char * src;
+    const char* src;
 
     /* returns empty string in case of error */
     memset(last_header, 0, sizeof(last_header));
@@ -288,7 +303,7 @@ char * get_first_line(const char * message)
     return last_header;
 }
 
-char * get_call_id(const char *msg)
+char* get_call_id(const char* msg)
 {
     static char call_id[MAX_HEADER_LEN];
     const char *content, *end_of_header;
@@ -315,10 +330,9 @@ char * get_call_id(const char *msg)
     return call_id;
 }
 
-unsigned long int get_cseq_value(char *msg)
+unsigned long int get_cseq_value(const char* msg)
 {
-    char *ptr1;
-
+    const char* ptr1;
 
     // no short form for CSeq:
     ptr1 = strstr(msg, "\r\nCSeq:");
@@ -350,7 +364,7 @@ unsigned long int get_cseq_value(char *msg)
     return strtoul(ptr1, NULL, 10);
 }
 
-unsigned long get_reply_code(char *msg)
+unsigned long get_reply_code(const char* msg)
 {
     while (msg && *msg != ' ' && *msg != '\t')
         ++msg;
@@ -363,7 +377,7 @@ unsigned long get_reply_code(char *msg)
     return 0;
 }
 
-static const char *internal_find_header(const char *msg, const char *name, const char *shortname,
+static const char* internal_find_header(const char* msg, const char* name, const char* shortname,
         bool content)
 {
     const char *ptr = msg;
@@ -405,6 +419,10 @@ static const char *internal_find_header(const char *msg, const char *name, const
         /* Seek to next line, but not past EOH */
         ptr = strchr(ptr, '\n');
         if (!ptr || ptr[-1] != '\r' || (ptr[1] == '\r' && ptr[2] == '\n')) {
+            if (ptr && ptr[-1] != '\r') {
+                WARNING("Missing CR during header scan at pos %ld", ptr - msg);
+                /* continue? */
+            }
             return NULL;
         }
         ++ptr;
@@ -413,7 +431,7 @@ static const char *internal_find_header(const char *msg, const char *name, const
     return ptr;
 }
 
-static const char *internal_hdrchr(const char *ptr, const char needle)
+static const char* internal_hdrchr(const char* ptr, const char needle)
 {
     if (*ptr == '\n') {
         return NULL; /* stray LF */
@@ -435,7 +453,7 @@ static const char *internal_hdrchr(const char *ptr, const char needle)
     return NULL; /* never gets here */
 }
 
-static const char *internal_hdrend(const char *ptr)
+static const char* internal_hdrend(const char* ptr)
 {
     const char *p = ptr;
     while (*p) {
@@ -447,7 +465,7 @@ static const char *internal_hdrend(const char *ptr)
     return p;
 }
 
-static const char *internal_find_param(const char *ptr, const char *name)
+static const char* internal_find_param(const char* ptr, const char* name)
 {
     int namelen = strlen(name);
 
@@ -473,7 +491,7 @@ static const char *internal_find_param(const char *ptr, const char *name)
     return NULL; /* never gets here */
 }
 
-static const char *internal_skip_lws(const char *ptr)
+static const char* internal_skip_lws(const char* ptr)
 {
     while (1) {
         while (*ptr == ' ' || *ptr == '\t') {
@@ -505,6 +523,55 @@ TEST(Parser, internal_find_header) {
     const char *eq = strstr(data, "To\t :");
     EXPECT_STREQ(eq, internal_find_header(data, "To", "t", false));
     EXPECT_STREQ(eq + 8, internal_find_header(data, "To", "t", true));
+}
+
+TEST(Parser, internal_find_header_no_callid_missing_cr_in_to) {
+    char data[4096];
+    const char *pos;
+    const char *p;
+
+    /* If you remove the CR ("\r") from any header before the Call-ID,
+     * the Call-ID will not be found. */
+    strncpy(data, "INVITE sip:3136455552@85.12.1.1:5065 SIP/2.0\r\n\
+Via: SIP/2.0/UDP 85.55.55.12:5060;branch=z9hG4bK831a.2bb3de85.0\r\n\
+From: \"3136456666\" <sip:104@sbc.profxxx.xx>;tag=b62e0d72-be14-4d3c-bd6a-b4da593b6b17\r\n\
+To: <sip:3136455552@sbc2.profxxx.xx>\n\
+Contact: <sip:85.55.55.12;did=a19.a2e590e>\r\n\
+Call-ID: DLGCH_K0IEXzVwYzJiQlwKMGRkMX5GSAxiKmJ+exQADWYsZ2QsFQFb\r\n\
+CSeq: 6476 INVITE\r\n\
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER\r\n\
+Supported: 100rel, timer, replaces, norefersub\r\n\
+Session-Expires: 1800\r\n\
+Min-SE: 90\r\n\
+Max-Forwards: 70\r\n\
+Content-Type: application/sdp\r\n\
+Content-Length: 278\r\n\
+\r\n\
+v=0\r\n\
+o=- 592907310 592907310 IN IP4 85.55.55.30\r\n\
+s=Centrex v.1.0\r\n\
+c=IN IP4 85.55.55.30\r\n\
+t=0 0\r\n\
+m=audio 41604 RTP/AVP 8 0 101\r\n\
+a=rtpmap:8 PCMA/8000\r\n\
+a=rtpmap:0 PCMU/8000\r\n\
+a=rtpmap:101 telephone-event/8000\r\n\
+a=fmtp:101 0-16\r\n\
+a=ptime:20\r\n\
+a=maxptime:150\r\n\
+a=sendrecv\r\n\
+a=rtcp:41605\r\n\
+", sizeof(data) - 1);
+
+    if ((pos = internal_find_header(data, "Call-ID", "i", false)) && (p = strchr(pos, '\r'))) {
+        data[p - data] = '\0';
+        /* Unexpected.. */
+        ASSERT_FALSE(1);
+        EXPECT_STREQ(pos, "Call-ID: DLGCH_K0IEXzVwYzJiQlwKMGRkMX5GSAxiKmJ+exQADWYsZ2QsFQFb");
+    } else {
+        /* Not finding any, because of missing CR. */
+        ASSERT_TRUE(1);
+    }
 }
 
 TEST(Parser, get_peer_tag__notag) {

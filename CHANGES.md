@@ -1,3 +1,116 @@
+Bugs fixed in 3.6.2~rc1
+=======================
+
+* Fix crash when abusing authentication method (#503, by Markus).
+* Fix crash when trying to change an unset ooc scenario (#463, by
+  @jquinn60137).
+* Fix various build issues with CMake and/or missing version.h and/or
+  compiler warnings. By Walter Doekes, by Silver Chan, Thomas Uhle,
+  Orgad Shaneh.
+* Remove RTP\_STREAM define. The code is always included. (By Orgad Shaneh.)
+* Various minor documentation fixes. By Walter Doekes, kadabusha, Thomas
+  Uhle, Alexander Traud.
+
+
+BREAKING(!) changes in 3.6.1
+============================
+
+* CMake is now used as build environment: autoconf and friends are gone
+  (#430, by Rob Day (@rkday)). See `build.sh` for CMake invocations.
+  For a full build, do:
+    ```
+    cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
+    make -j4
+    ```
+
+
+Bugs fixed in 3.6.1
+===================
+
+* Consistently unescape XML attributes when loading scenario (#458, by
+  Steve Frécinaux (@nud)).
+* Fix buffer overflow in screen output (#479, reported by @brettowe).
+* Fix nonce count in auth headers (#421, by Cody Herzog (@codyherzog)).
+* Fix parser warning when trying to access 0-byte SDP body (by Lin Sun
+  (@sunlin7)).
+* Fix pcapplay on FreeBSD (#434, by Rob Day (@rkday)).
+* Improve build validation (#424, by Stanislav Litvinenko (@dolk13)), a
+  few compiler fixes, a few ncurses fixes (including #436, reported by
+  @TamerL), build cleanup after CMake (#443, #442, by Orgad Shaneh
+  (@orgads)) and libtinfo linker issues (Jeannot Langlois
+  (@jeannotlanglois)).
+* Improve provided sipp.dtd file (#425, by David M. Lee (@leedm777)),
+  and XML fixes by Rob Day.
+* Make it easier to deal with large SIP packets by adding an optional
+  `-DSIPP_MAX_MSG_SIZE=262144` to the `cmake` command (#422, by Cody Herzog
+  (@codyherzog)).
+
+
+BREAKING(!) changes in 3.6.0
+============================
+
+* Automatic filenames (trace files, error files, etc..) are now created in
+  the current working directory instead of in the directory of the scenario
+  file. (Issue #399, reported by @sergey-safarov.)
+* Only validates SSL certficate if CA-file is separately specified!
+  (PR #335, by Patrick Wildt @bluerise.)
+* Angle brackets `<` and `>` need to be escaped inside XML attributes.
+  See #414. So, not `regexp="<(sip:.*)>"` but `regexp="&lt;(sip:.*)&gt;"`.
+
+
+Bugs fixed in 3.6.0
+===================
+
+* Fix `[routes]` header in UAS scenario's. (Issue #262, reported by
+  Stefan Mititelu (@smititelu).)
+* last\_Keyword does not search in SIP body anymore (#207, reported by Zoltan).
+
+
+Changes in 3.6.0
+================
+
+* Added PAGER by default to the extremely large sipp help output.
+* Removed unused RTPStream code concerning video streams. Also
+  consolidated the rtpstream audio port usage to reuse the global
+  `[media_port]` instead of the `[rtpstream_audio_port]`.
+  Also the `-min_rtp_port` and `-max_rtp_port` options have been
+  removed. Advantages: cleaner code, fewer scenario variables.
+  Drawbacks: possible ICMP port unreachable messages for RCTP and video.
+  Also, no easy way to discern different streams if you want to bombard
+  a single UAS with multiple RTP streams. (Issue #192, reported by
+  @atsakiridis.)
+
+
+Features added in 3.6.0
+=======================
+
+* Add `play_dtmf` code originally from
+  https://sourceforge.net/p/sipp/patches/50/ (Dmitry Kunilov), then
+  pull #82 (@horacimacias) and then #141 (@vodik). Compile with
+  pcap-play support, and use it by adding `<exec play_dtmf="1234*#"/>`
+  similar to how you use `play_pcap_audio`.
+  - Add RTP payload 96 in your SDP:
+    m=audio [media_port] RTP/AVP 0 96 97
+    a=rtpmap:0 PCMU/8000
+    a=rtpmap:96 telephone-event/8000
+    a=fmtp:96 0-15
+    a=rtpmap:97 no-op/8000
+  - Exec syntax is `<exec play_dtmf="digits[,length]"/>` where digits
+    can be one or more of "0123456789#*ABCD" and length defaults to 200
+    and must be between 50 and 2000.
+  - Instead of digits a `[field...]` keyword is also accepted.
+  - Make sure you add enough `<pause/>` after `play_dtmf`.
+* Add `rtp_echo` action (pull #259 by Snom Technology). Compile with
+  `--with-rtpstream` and use it by adding `<rtp_echo value="0">` to stop
+  the RTP echo enabled via `-rtp_echo`. RTP echo can be restarted via
+  `<rtp_echo value="1">` action. Usage example in `regress/github-#0259/uas.xml`
+* Added the required constants for G722 (payload 9) and iLBC at 30ms per frame
+  to rtp\_stream media actions. (PR #366, by Jasper Hafkenscheid @hafkensite.)
+* Add quick and dirty detection of invalid XML (issue #322).
+* Clarify that `-infindex` should takes a basename only (issue #395, reported
+  by @sergey-safarov).
+
+
 Bugs fixed in 3.5.3
 ===================
 

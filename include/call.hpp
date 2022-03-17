@@ -29,15 +29,10 @@
 #include <string.h>
 #include "scenario.hpp"
 #include "stat.hpp"
-#ifdef USE_OPENSSL
-#include "sslcommon.h"
-#endif
 #ifdef PCAPPLAY
 #include "send_packets.h"
 #endif
-#ifdef RTP_STREAM
 #include "rtpstream.hpp"
-#endif
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -68,14 +63,14 @@ public:
     /* These are wrappers for various circumstances, (private) init does the real work. */
     //call(char * p_id, int userId, bool ipv6, bool isAutomatic);
     call(const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest);
-    call(const char *p_id, struct sipp_socket *socket, struct sockaddr_storage *dest);
+    call(const char *p_id, SIPpSocket *socket, struct sockaddr_storage *dest);
     static call *add_call(int userId, bool ipv6, struct sockaddr_storage *dest);
-    call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
+    call(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
 
     virtual ~call();
 
-    virtual bool process_incoming(char * msg, struct sockaddr_storage *src = NULL);
-    virtual bool  process_twinSippCom(char * msg);
+    virtual bool process_incoming(const char* msg, const struct sockaddr_storage* src = NULL);
+    virtual bool process_twinSippCom(char* msg);
 
     virtual bool run();
     /* Terminate this call, depending on action results and timewait. */
@@ -101,14 +96,14 @@ public:
     };
 
     void setLastMsg(const char *msg);
-    bool  automaticResponseMode(T_AutoMode P_case, char* P_recv);
+    bool  automaticResponseMode(T_AutoMode P_case, const char* P_recv);
     const char *getLastReceived() {
         return last_recv_msg;
     };
 
 private:
     /* This is the core constructor function. */
-    void init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
+    void init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
     /* This this call for initialization? */
     bool initCall;
 
@@ -122,7 +117,7 @@ public:
     static   int   startDynamicId;  // offset for first dynamicId  FIXME:in CmdLine
     static   int   stepDynamicId;   // step of increment for dynamicId
     static   int   dynamicId;       // a counter for general use, incrementing  by  stepDynamicId starting at startDynamicId  wrapping at maxDynamicId  GLOBALY
-private:
+protected:
 
 
     unsigned int   tdm_map_number;
@@ -172,13 +167,13 @@ private:
     play_args_t play_args_v;
 #endif
 
-#ifdef RTP_STREAM
-  rtpstream_callinfo_t rtpstream_callinfo;
-#endif
+    rtpstream_callinfo_t rtpstream_callinfo;
 
     /* holds the auth header and if the challenge was 401 or 407 */
     char         * dialog_authentication;
     int            dialog_challenge_type;
+
+    unsigned int   next_nonce_count;
 
     unsigned int   next_retrans;
     int            nb_retrans;
@@ -192,7 +187,7 @@ private:
 
     char           *peer_tag;
 
-    struct sipp_socket *call_remote_socket;
+    SIPpSocket *call_remote_socket;
     int            call_port;
 
     void         * comp_state;
@@ -221,7 +216,11 @@ private:
         E_AR_REGEXP_SHOULDNT_MATCH,
         E_AR_STOP_CALL,
         E_AR_CONNECT_FAILED,
-        E_AR_HDR_NOT_FOUND
+        E_AR_HDR_NOT_FOUND,
+        E_AR_TEST_DOESNT_MATCH,
+        E_AR_TEST_SHOULDNT_MATCH,
+        E_AR_STRCMP_DOESNT_MATCH,
+        E_AR_STRCMP_SHOULDNT_MATCH
     };
 
     /* Store the last action result to allow  */
@@ -234,9 +233,9 @@ private:
     bool matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod, char *txn);
 
     bool executeMessage(message *curmsg);
-    T_ActionResult executeAction(char * msg, message *message);
-    void  extractSubMessage(char * msg, char * matchingString, char* result, bool case_indep,
-                            int occurrence, bool headers);
+    T_ActionResult executeAction(const char* msg, message* message);
+    void extractSubMessage(const char* msg, char* matchingString, char* result, bool case_indep,
+                           int occurrence, bool headers);
     bool  rejectCall();
     double get_rhs(CAction *currentAction);
 
@@ -259,7 +258,7 @@ private:
     void   sendBuffer(char *buf, int len = 0);     // send a message out of a scenario
     // execution
 
-    T_AutoMode  checkAutomaticResponseMode(char * P_recv);
+    T_AutoMode checkAutomaticResponseMode(char* P_recv);
 
     int   sendCmdMessage(message *curmsg); // 3PCC
 
@@ -279,11 +278,11 @@ private:
 
     /* rc == true means call not deleted by processing */
     bool next();
-    bool process_unexpected(char * msg);
+    bool process_unexpected(const char* msg);
     void do_bookkeeping(message *curmsg);
 
-    void  extract_cseq_method (char* responseCseq, char* msg);
-    void  extract_transaction (char* txn, char* msg);
+    void  extract_cseq_method (char* responseCseq, const char* msg);
+    void  extract_transaction (char* txn, const char* msg);
 
     int   send_raw(const char * msg, int index, int len);
     char * send_scene(int index, int *send_status, int *msgLen);
@@ -300,11 +299,9 @@ private:
 
     bool   use_ipv6;
 
-    void   get_remote_media_addr(char * message);
+    void get_remote_media_addr(std::string const &msg);
 
-#ifdef RTP_STREAM
-  void   extract_rtp_remote_addr (char * message);
-#endif
+    void extract_rtp_remote_addr(const char* message);
 
     bool lost(int index);
 
@@ -313,14 +310,8 @@ private:
     void computeStat (CStat::E_Action P_action, unsigned long P_value, int which);
 
 
-    void queue_up(char *msg);
+    void queue_up(const char* msg);
     char *queued_msg;
-
-
-#ifdef USE_OPENSSL
-    SSL_CTX *m_ctx_ssl;
-    BIO *m_bio;
-#endif
 
     int _callDebug(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
     char *debugBuffer;

@@ -6,7 +6,7 @@
 #
 . "`dirname "$0"`/../functions"; init
 
-sippbg -sf uas.xml -p 5070 -trace_msg -i 127.0.127.1 -message_file uas.log
+sippbg -sf uas.xml -p 5070 -i 127.0.127.1 -trace_msg -message_file uas.log
 sippfg -m 1 -sf uac.xml 127.0.127.1:5070 -i 127.0.127.1 \
     -trace_msg -message_file uac.log \
     -timeout 5 -timeout_error >/dev/null 2>&1

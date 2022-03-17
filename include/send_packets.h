@@ -43,8 +43,8 @@
 
 #include "prepare_pcap.h"
 
-inline void timerdiv (struct timeval *tvp, float div);
-inline void float2timer (float time, struct timeval *tvp);
+inline void timerdiv(struct timeval* tvp, float div);
+inline void float2timer(float time, struct timeval* tvp);
 
 #ifndef TIMEVAL_TO_TIMESPEC
 #define TIMEVAL_TO_TIMESPEC(tv, ts) { \
@@ -110,10 +110,14 @@ inline void float2timer (float time, struct timeval *tvp);
 /* call specific vars for RTP sending */
 typedef struct {
     /* pointer to a RTP pkts container */
-    pcap_pkts *pcap;
+    pcap_pkts* pcap;
     /* Used in send_packets thread */
     struct sockaddr_storage to;
     struct sockaddr_storage from;
+
+    /* non-zero if the thread should destroy the *pcap when done playing or aborted */
+    int free_pcap_when_done;
+    uint16_t last_seq_no;
 } play_args_t;
 
 #ifdef __cplusplus
@@ -121,8 +125,9 @@ extern "C"
 {
 #endif
     int parse_play_args(const char*, pcap_pkts*);
-    void free_pcaps(pcap_pkts *pkts);
-    int send_packets(play_args_t*);
+    int parse_dtmf_play_args(const char*, pcap_pkts*, uint16_t start_seq_no);
+    void free_pcaps(pcap_pkts* pkts);
+    void send_packets(play_args_t*);
 #ifdef __cplusplus
 }
 #endif

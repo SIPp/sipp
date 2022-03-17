@@ -61,10 +61,9 @@ struct KeywordMap SimpleKeywords[] = {
 #ifdef PCAPPLAY
     {"auto_media_port", E_Message_Auto_Media_Port },
 #endif
-#ifdef RTP_STREAM
-  {"rtpstream_audio_port", E_Message_RTPStream_Audio_Port },
-  {"rtpstream_video_port", E_Message_RTPStream_Video_Port },
-#endif
+    /* Legacy since 3.6-dev. Actually uses media_port. */
+    {"rtpstream_audio_port", E_Message_RTPStream_Audio_Port },
+    {"rtpstream_video_port", E_Message_RTPStream_Video_Port },
     {"media_port", E_Message_Media_Port },
     {"media_ip_type", E_Message_Media_IP_Type },
     {"call_number", E_Message_Call_Number },
@@ -107,7 +106,7 @@ static char* quoted_strchr(const char* s, int c)
     return *p == c ? const_cast<char*>(p) : NULL;
 }
 
-SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool skip_sanity)
+SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bool skip_sanity)
 {
     char * src = strdup(const_src);
     char * osrc = src;
@@ -262,14 +261,14 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
                 getKeywordParam(keyword, "file=", fileName);
                 if (fileName[0] == '\0') {
                     if (!default_file) {
-                        ERROR("No injection file was specified!\n");
+                        ERROR("No injection file was specified!");
                     }
                     newcomp->comp_param.field_param.filename = strdup(default_file);
                 } else {
                     newcomp->comp_param.field_param.filename = strdup(fileName);
                 }
                 if (inFiles.find(newcomp->comp_param.field_param.filename) == inFiles.end()) {
-                    ERROR("Invalid injection file: %s\n", fileName);
+                    ERROR("Invalid injection file: %s", fileName);
                 }
 
                 char line[KEYWORD_SIZE];
@@ -285,7 +284,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
                 char fileName[KEYWORD_SIZE];
                 getKeywordParam(keyword, "name=", fileName);
                 if (fileName[0] == '\0') {
-                    ERROR("No name specified for 'file' keyword!\n");
+                    ERROR("No name specified for 'file' keyword!");
                 }
                 /* Turn this into a new message component. */
                 newcomp->comp_param.filename = new SendingMessage(msg_scenario, fileName, true);
@@ -321,7 +320,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
             }
 #ifndef PCAPPLAY
             else if(!strcmp(keyword, "auto_media_port")) {
-                ERROR("The %s keyword requires PCAPPLAY.\n", keyword);
+                ERROR("The %s keyword requires PCAPPLAY", keyword);
             }
 #endif
             else {
@@ -389,7 +388,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
         p++;
     }
     if (!(q = strchr(method, ' '))) {
-        ERROR("You can not use a keyword for the METHOD or to generate \"SIP/2.0\" to ensure proper [cseq] operation!%s\n", osrc);
+        ERROR("You can not use a keyword for the METHOD or to generate \"SIP/2.0\" to ensure proper [cseq] operation!\n%s\n", osrc);
     }
     *q++ = '\0';
     while (isspace(*q)) {
@@ -399,7 +398,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
         char *endptr;
         code = strtol(q, &endptr, 10);
         if (*endptr && !isspace(*endptr)) {
-            ERROR("Invalid reply code: %s\n", q);
+            ERROR("Invalid reply code: %s", q);
         }
         if (code < 100 || code >= 700) {
             ERROR("Response codes must be in the range of 100-700");
@@ -605,7 +604,7 @@ struct MessageComponent *SendingMessage::getComponent(int i) {
 int registerKeyword(char *keyword, customKeyword fxn)
 {
     if (keyword_map.find(keyword) != keyword_map.end()) {
-        ERROR("Can not register keyword '%s', already registered!\n", keyword);
+        ERROR("Can not register keyword '%s', already registered!", keyword);
     }
     keyword_map[keyword] = fxn;
     return 0;

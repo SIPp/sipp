@@ -89,11 +89,11 @@ bool CAction::compare(VariableTable *variableTable)
     }
 }
 
-void CAction::afficheInfo()
+void CAction::printInfo(char* buf, int len)
 {
     if (M_action == E_AT_ASSIGN_FROM_REGEXP) {
         if(M_lookingPlace == E_LP_MSG) {
-            printf("Type[%d] - regexp[%s] where[%s] - checkIt[%d] - checkItInverse[%d] - $%s",
+            snprintf(buf, len, "Type[%d] - regexp[%s] where[%s] - checkIt[%d] - checkItInverse[%d] - $%s",
                    M_action,
                    M_regularExpression,
                    "Full Msg",
@@ -101,7 +101,7 @@ void CAction::afficheInfo()
                    M_checkItInverse,
                    display_scenario->allocVars->getName(M_varId));
         } else {
-            printf("Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - checkItInverse[%d] - $%s",
+            snprintf(buf, len, "Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - checkItInverse[%d] - $%s",
                    M_action,
                    M_regularExpression,
                    "Header",
@@ -110,59 +110,60 @@ void CAction::afficheInfo()
                    M_checkItInverse, display_scenario->allocVars->getName(M_varId));
         }
     } else if (M_action == E_AT_EXECUTE_CMD) {
-        printf("Type[%d] - command[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - command[%-32.32s]", M_action, M_message_str[0]);
     } else if (M_action == E_AT_EXEC_INTCMD) {
-        printf("Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
+        snprintf(buf, len, "Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
     } else if (M_action == E_AT_LOG_TO_FILE) {
-        printf("Type[%d] - message[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - message[%-32.32s]", M_action, M_message_str[0]);
     } else if (M_action == E_AT_LOG_WARNING) {
-        printf("Type[%d] - warning[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - warning[%-32.32s]", M_action, M_message_str[0]);
     } else if (M_action == E_AT_LOG_ERROR) {
-        printf("Type[%d] - error[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - error[%-32.32s]", M_action, M_message_str[0]);
     } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
         char tmp[40];
         M_distribution->textDescr(tmp, sizeof(tmp));
-        printf("Type[%d] - sample varId[%s] %s", M_action, display_scenario->allocVars->getName(M_varId), tmp);
+        snprintf(buf, len, "Type[%d] - sample varId[%s] %s", M_action, display_scenario->allocVars->getName(M_varId), tmp);
     } else if (M_action == E_AT_ASSIGN_FROM_VALUE) {
-        printf("Type[%d] - assign varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - assign varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
     } else if (M_action == E_AT_ASSIGN_FROM_INDEX) {
-        printf("Type[%d] - assign index[%s]", M_action, display_scenario->allocVars->getName(M_varId));
+        snprintf(buf, len, "Type[%d] - assign index[%s]", M_action, display_scenario->allocVars->getName(M_varId));
     } else if (M_action == E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
-        printf("Type[%d] - assign gettimeofday[%s, %s]", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_subVarId[0]));
+        snprintf(buf, len, "Type[%d] - assign gettimeofday[%s, %s]", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_subVarId[0]));
     } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
-        printf("Type[%d] - string assign varId[%s] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - string assign varId[%s] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message_str[0]);
     } else if (M_action == E_AT_JUMP) {
-        printf("Type[%d] - jump varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - jump varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
     } else if (M_action == E_AT_PAUSE_RESTORE) {
-        printf("Type[%d] - restore pause varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - restore pause varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
     } else if (M_action == E_AT_VAR_ADD) {
-        printf("Type[%d] - add varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - add varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
     } else if (M_action == E_AT_VAR_MULTIPLY) {
-        printf("Type[%d] - multiply varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - multiply varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
     } else if (M_action == E_AT_VAR_DIVIDE) {
-        printf("Type[%d] - divide varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - divide varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
     } else if (M_action == E_AT_VAR_TRIM) {
-        printf("Type[%d] - trim varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
+        snprintf(buf, len, "Type[%d] - trim varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
     } else if (M_action == E_AT_VAR_TEST) {
-        printf("Type[%d] - divide varId[%s] varInId[%s] %s %lf", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_varInId), comparatorToString(M_comp), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - divide varId[%s] varInId[%s] %s %lf", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_varInId), comparatorToString(M_comp), M_doubleValue);
     } else if (M_action == E_AT_VAR_TO_DOUBLE) {
-        printf("Type[%d] - toDouble varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
+        snprintf(buf, len, "Type[%d] - toDouble varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
 #ifdef PCAPPLAY
     } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_IMAGE) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
-        printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
+        snprintf(buf, len, "Type[%d] - file[%s]", M_action, M_pcapArgs->file);
+    } else if (M_action == E_AT_PLAY_DTMF) {
+        snprintf(buf, len, "Type[%d] - play DTMF digits [%s]", M_action, M_message_str[0]);
 #endif
-
-#ifdef RTP_STREAM
-  } else if (M_action == E_AT_RTP_STREAM_PLAY) {
-      printf("Type[%d] - rtp_stream playfile file %s loop=%d payload %d bytes per packet=%d ms per packet=%d ticks per packet=%d", M_action,M_rtpstream_actinfo.filename,M_rtpstream_actinfo.loop_count,M_rtpstream_actinfo.payload_type,M_rtpstream_actinfo.bytes_per_packet,M_rtpstream_actinfo.ms_per_packet,M_rtpstream_actinfo.ticks_per_packet);
-  } else if (M_action == E_AT_RTP_STREAM_PAUSE) {
-      printf("Type[%d] - rtp_stream pause", M_action);
-  } else if (M_action == E_AT_RTP_STREAM_RESUME) {
-      printf("Type[%d] - rtp_stream resume", M_action);
-#endif
-
+    } else if (M_action == E_AT_RTP_STREAM_PLAY) {
+        snprintf(buf, len, "Type[%d] - rtp_stream playfile file %s loop=%d payload %d bytes per packet=%d ms per packet=%d ticks per packet=%d",
+               M_action, M_rtpstream_actinfo.filename, M_rtpstream_actinfo.loop_count,
+               M_rtpstream_actinfo.payload_type, M_rtpstream_actinfo.bytes_per_packet,
+               M_rtpstream_actinfo.ms_per_packet, M_rtpstream_actinfo.ticks_per_packet);
+    } else if (M_action == E_AT_RTP_STREAM_PAUSE) {
+        snprintf(buf, len, "Type[%d] - rtp_stream pause", M_action);
+    } else if (M_action == E_AT_RTP_STREAM_RESUME) {
+        snprintf(buf, len, "Type[%d] - rtp_stream resume", M_action);
     } else {
-        printf("Type[%d] - unknown action type ... ", M_action);
+        snprintf(buf, len, "Type[%d] - unknown action type ... ", M_action);
     }
 }
 
@@ -237,14 +238,12 @@ char*          CAction::getStringValue()
     return(M_stringValue);
 }
 #ifdef PCAPPLAY
-pcap_pkts  *   CAction::getPcapPkts()
+pcap_pkts *CAction::getPcapPkts()
 {
     return(M_pcapArgs);
 }
 #endif
-#ifdef RTP_STREAM
 rtpstream_actinfo_t *CAction::getRTPStreamActInfo() { return (&M_rtpstream_actinfo); }
-#endif
 
 void CAction::setActionType   (CAction::T_ActionType   P_value)
 {
@@ -359,7 +358,7 @@ void CAction::setLookingChar(const char* P_value)
     }
 }
 
-void CAction::setMessage  (char*          P_value, int n)
+void CAction::setMessage(const char* P_value, int n)
 {
     if(M_message[n] != NULL) {
         delete M_message[n];
@@ -382,11 +381,11 @@ void CAction::setRegExp(const char *P_value)
     M_regularExpression = strdup(P_value);
     M_regExpSet = true;
 
-    errorCode = regcomp(&M_internalRegExp, P_value, REGEXP_PARAMS);
+    errorCode = regcomp(&M_internalRegExp, P_value, REGCOMP_PARAMS);
     if(errorCode != 0) {
         char buffer[MAX_HEADER_LEN];
         regerror(errorCode, &M_internalRegExp, buffer, sizeof(buffer));
-        ERROR("recomp error : regular expression '%s' - error '%s'\n", M_regularExpression, buffer);
+        ERROR("recomp error : regular expression '%s' - error '%s'", M_regularExpression, buffer);
     }
 }
 
@@ -415,16 +414,16 @@ int CAction::executeRegExp(const char* P_string, VariableTable *P_callVarTable)
 
     memset((void*)pmatch, 0, sizeof(regmatch_t)*10);
 
-    error = regexec(&M_internalRegExp, P_string, 10, pmatch, REGEXP_PARAMS);
+    error = regexec(&M_internalRegExp, P_string, 10, pmatch, REGEXEC_PARAMS);
     if ( error == 0) {
         CCallVariable* L_callVar = P_callVarTable->getVar(getVarId());
 
         for(int i = 0; i <= getNbSubVarId(); i++) {
-            if(pmatch[i].rm_eo == -1) break ;
-
-            setSubString(&result, P_string, pmatch[i].rm_so, pmatch[i].rm_eo);
-            L_callVar->setMatchingValue(result);
-            nbOfMatch++;
+            if(pmatch[i].rm_eo != -1) {
+                setSubString(&result, P_string, pmatch[i].rm_so, pmatch[i].rm_eo);
+                L_callVar->setMatchingValue(result);
+                nbOfMatch++;
+            }
 
             if (i == getNbSubVarId())
                 break ;
@@ -481,84 +480,95 @@ void CAction::setPcapArgs(const char* P_value)
             ERROR("Play pcap error");
         }
         if (access(M_pcapArgs->file, F_OK)) {
-            ERROR("Cannot read file %s\n", M_pcapArgs->file);
+            ERROR("Cannot read file %s", M_pcapArgs->file);
         }
     }
 }
 #endif
 
-#ifdef RTP_STREAM
 void CAction::setRTPStreamActInfo(const char* P_value)
 {
-  char *ParamString;
-  char *NextComma;
+    char* param_str;
+    char* next_comma;
 
-  if (strlen(P_value)>=sizeof (M_rtpstream_actinfo.filename)) {
-    ERROR("Filename %s is too long, maximum supported length %zu\n", P_value,
-          sizeof(M_rtpstream_actinfo.filename) - 1);
-  }
-  strcpy (M_rtpstream_actinfo.filename,P_value);
-  ParamString= strchr(M_rtpstream_actinfo.filename,',');
-  NextComma= NULL;
-
-  M_rtpstream_actinfo.loop_count= 1;
-  if (ParamString) {
-    /* we have a loop count parameter */
-    *(ParamString++)= 0;
-    NextComma= strchr (ParamString,',');
-    if (NextComma) {
-      *(NextComma++)= 0;
+    if (strlen(P_value) >= sizeof(M_rtpstream_actinfo.filename)) {
+        ERROR("Filename %s is too long, maximum supported length %zu", P_value,
+              sizeof(M_rtpstream_actinfo.filename) - 1);
     }
-    M_rtpstream_actinfo.loop_count= atoi(ParamString);
-    ParamString= NextComma;
-  }
+    strcpy(M_rtpstream_actinfo.filename, P_value);
+    param_str = strchr(M_rtpstream_actinfo.filename, ',');
+    next_comma = NULL;
 
-  M_rtpstream_actinfo.payload_type= rtp_default_payload;
-  if (ParamString) {
-    /* we have a payload type parameter */
-    NextComma= strchr (ParamString,',');
-    if (NextComma) {
-      *(NextComma++)= 0;
+    M_rtpstream_actinfo.loop_count = 1;
+    if (param_str) {
+        /* we have a loop count parameter */
+        *(param_str++) = 0;
+        next_comma= strchr(param_str, ',');
+        if (next_comma) {
+            *(next_comma++) = 0;
+        }
+        M_rtpstream_actinfo.loop_count = atoi(param_str);
+        param_str = next_comma;
     }
-    M_rtpstream_actinfo.payload_type= atoi(ParamString);
-  }
 
-  /* Setup based on what we know of payload types */
-  switch (M_rtpstream_actinfo.payload_type) {
-    case 0:  M_rtpstream_actinfo.ms_per_packet= 20;
-             M_rtpstream_actinfo.bytes_per_packet= 160;
-             M_rtpstream_actinfo.ticks_per_packet= 160;
-             break;
+    M_rtpstream_actinfo.payload_type= rtp_default_payload;
+    if (param_str) {
+        /* we have a payload type parameter */
+        next_comma= strchr (param_str,',');
+        if (next_comma) {
+            *(next_comma++)= 0;
+        }
+        M_rtpstream_actinfo.payload_type= atoi(param_str);
+    }
 
-    case 8:  M_rtpstream_actinfo.ms_per_packet= 20;
-             M_rtpstream_actinfo.bytes_per_packet= 160;
-             M_rtpstream_actinfo.ticks_per_packet= 160;
-             break;
+    /* Setup based on what we know of payload types */
+    switch (M_rtpstream_actinfo.payload_type) {
+    case 0:
+        M_rtpstream_actinfo.ms_per_packet = 20;
+        M_rtpstream_actinfo.bytes_per_packet = 160;
+        M_rtpstream_actinfo.ticks_per_packet = 160;
+        break;
+    case 8:
+        M_rtpstream_actinfo.ms_per_packet = 20;
+        M_rtpstream_actinfo.bytes_per_packet = 160;
+        M_rtpstream_actinfo.ticks_per_packet = 160;
+        break;
+    case 9:
+        M_rtpstream_actinfo.ms_per_packet = 20;
+        M_rtpstream_actinfo.bytes_per_packet = 160;
+        M_rtpstream_actinfo.ticks_per_packet = 160;
+        break;
+    case 18:
+        M_rtpstream_actinfo.ms_per_packet = 20;
+        M_rtpstream_actinfo.bytes_per_packet = 20;
+        M_rtpstream_actinfo.ticks_per_packet = 160;
+        break;
+    case 98:
+        M_rtpstream_actinfo.ms_per_packet = 30;
+        M_rtpstream_actinfo.bytes_per_packet = 50;
+        M_rtpstream_actinfo.ticks_per_packet = 240;
+        break;
+    default:
+        M_rtpstream_actinfo.ms_per_packet= -1;
+        M_rtpstream_actinfo.bytes_per_packet= -1;
+        M_rtpstream_actinfo.ticks_per_packet= -1;
+        ERROR("Unknown rtp payload type %d - cannot set playback parameters",
+              M_rtpstream_actinfo.payload_type);
+        break;
+    }
 
-    case 18: M_rtpstream_actinfo.ms_per_packet= 20;
-             M_rtpstream_actinfo.bytes_per_packet= 20;
-             M_rtpstream_actinfo.ticks_per_packet= 160;
-             break;
-
-    default: M_rtpstream_actinfo.ms_per_packet= -1;
-             M_rtpstream_actinfo.bytes_per_packet= -1;
-             M_rtpstream_actinfo.ticks_per_packet= -1;
-             ERROR("Unknown rtp payload type %d - cannot set playback parameters\n",M_rtpstream_actinfo.payload_type);
-             break;
-  }
-
-  if (rtpstream_cache_file(M_rtpstream_actinfo.filename)<0) {
-    ERROR("Cannot read/cache rtpstream file %s\n",M_rtpstream_actinfo.filename);
-  }
+    if (rtpstream_cache_file(M_rtpstream_actinfo.filename) < 0) {
+        ERROR("Cannot read/cache rtpstream file %s",
+              M_rtpstream_actinfo.filename);
+    }
 }
 
-void CAction::setRTPStreamActInfo (rtpstream_actinfo_t *P_value)
+void CAction::setRTPStreamActInfo(rtpstream_actinfo_t *P_value)
 {
-  /* At this stage the entire rtpstream action info structure can simply be */
-  /* copied. No members need to be individually duplicated/processed.       */
-  memcpy (&M_rtpstream_actinfo,P_value,sizeof(M_rtpstream_actinfo));
+    /* At this stage the entire rtpstream action info structure can simply be */
+    /* copied. No members need to be individually duplicated/processed.       */
+    memcpy(&M_rtpstream_actinfo,P_value, sizeof(M_rtpstream_actinfo));
 }
-#endif
 
 void CAction::setScenario(scenario *     P_scenario)
 {
@@ -598,9 +608,7 @@ void CAction::setAction(CAction P_action)
 #ifdef PCAPPLAY
     setPcapArgs     ( P_action.M_pcapArgs        );
 #endif
-#ifdef RTP_STREAM
-  setRTPStreamActInfo (&(P_action.M_rtpstream_actinfo));
-#endif
+    setRTPStreamActInfo(&(P_action.M_rtpstream_actinfo));
 }
 
 CAction::CAction(scenario *scenario)
@@ -633,9 +641,7 @@ CAction::CAction(scenario *scenario)
     M_pcapArgs     = NULL;
 #endif
 
-#ifdef RTP_STREAM
     memset(&M_rtpstream_actinfo, 0, sizeof(M_rtpstream_actinfo));
-#endif
 
     M_scenario     = scenario;
     M_regExpSet    = false;
@@ -678,12 +684,14 @@ CAction::~CAction()
 
 /****************************** CActions class ************************/
 
-void CActions::afficheInfo()
+void CActions::printInfo()
 {
     printf("Action Size = [%d]\n", M_nbAction);
     for(int i=0; i<M_nbAction; i++) {
         printf("actionlist[%d] : \n", i);
-        M_actionList[i]->afficheInfo();
+        char buf[80];
+        M_actionList[i]->printInfo(buf, 80);
+        printf("%s\n", buf);
     }
 }
 

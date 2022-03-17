@@ -28,6 +28,7 @@
  */
 
 #include <stdlib.h>
+#include "config.h"
 #include "sipp.hpp"
 #ifdef HAVE_GSL
 #include <gsl/gsl_rng.h>
@@ -61,10 +62,11 @@ message::message(int index, const char *desc)
 
     /* Anyway */
     start_rtd = 0;
-    stop_rtd  = 0;
+    stop_rtd = 0;
     repeat_rtd = 0;
     lost = -1;
     crlf = 0;
+    ignoresdp = false;
     hide = 0;
     display_str = NULL; // free on exit
     test = -1;
@@ -96,8 +98,8 @@ message::message(int index, const char *desc)
     M_type = 0;
 
     M_sendCmdData = NULL; // delete on exit
-    M_nbCmdSent   = 0;
-    M_nbCmdRecv   = 0;
+    M_nbCmdSent = 0;
+    M_nbCmdRecv = 0;
 
     content_length_flag = ContentLengthNoPresent;
 
@@ -110,25 +112,25 @@ message::message(int index, const char *desc)
 
 message::~message()
 {
-  delete(pause_distribution);
-  free(pause_desc);
-  delete(send_scheme);
-  free(recv_request);
-  if (regexp_compile != NULL) {
-    regfree(regexp_compile);
-  }
-  free(regexp_compile);
+    delete(pause_distribution);
+    free(pause_desc);
+    delete(send_scheme);
+    free(recv_request);
+    if (regexp_compile != NULL) {
+        regfree(regexp_compile);
+    }
+    free(regexp_compile);
 
-  free(display_str);
-  free(nextLabel);
-  free(onTimeoutLabel);
+    free(display_str);
+    free(nextLabel);
+    free(onTimeoutLabel);
 
-  free(peer_dest);
-  free(peer_src);
+    free(peer_dest);
+    free(peer_src);
 
-  delete(M_actions);
-  delete(M_sendCmdData);
-  free(recv_response_for_cseq_method_list);
+    delete(M_actions);
+    delete(M_sendCmdData);
+    free(recv_response_for_cseq_method_list);
 }
 
 /******** Global variables which compose the scenario file **********/
@@ -140,9 +142,9 @@ scenario      *display_scenario;
 
 /* This mode setting refers to whether we open calls autonomously (MODE_CLIENT)
  * or in response to requests (MODE_SERVER). */
-int creationMode  = MODE_CLIENT;
+int creationMode = MODE_CLIENT;
 /* Send mode. Do we send to a fixed address or to the last one we got. */
-int sendMode  = MODE_CLIENT;
+int sendMode = MODE_CLIENT;
 /* This describes what our 3PCC behavior is. */
 int thirdPartyMode = MODE_3PCC_NONE;
 
@@ -154,7 +156,7 @@ long get_long(const char *ptr, const char *what)
 
     ret = strtol(ptr, &endptr, 0);
     if (*endptr) {
-        ERROR("%s, \"%s\" is not a valid integer!\n", what, ptr);
+        ERROR("%s, \"%s\" is not a valid integer!", what, ptr);
     }
     return ret;
 }
@@ -166,7 +168,7 @@ unsigned long long get_long_long(const char *ptr, const char *what)
 
     ret = strtoull(ptr, &endptr, 0);
     if (*endptr) {
-        ERROR("%s, \"%s\" is not a valid integer!\n", what, ptr);
+        ERROR("%s, \"%s\" is not a valid integer!", what, ptr);
     }
     return ret;
 }
@@ -179,12 +181,12 @@ long get_time(const char *ptr, const char *what, int multiplier)
 {
     char *endptr;
     const char *p;
-    long ret;
+    long ret = 0;
     double dret;
     int i;
 
     if (!isdigit(*ptr)) {
-        ERROR("%s, \"%s\" is not a valid time!\n", what, ptr);
+        ERROR("%s, \"%s\" is not a valid time!", what, ptr);
     }
 
     for (i = 0, p = ptr; *p; p++) {
@@ -194,11 +196,11 @@ long get_time(const char *ptr, const char *what, int multiplier)
     }
 
     if (i == 1) { /* mm:ss */
-        ERROR("%s, \"%s\" mm:ss not implemented yet!\n", what, ptr);
+        ERROR("%s, \"%s\" mm:ss not implemented yet!", what, ptr);
     } else if (i == 2) { /* hh:mm:ss */
-        ERROR("%s, \"%s\" hh:mm:ss not implemented yet!\n", what, ptr);
+        ERROR("%s, \"%s\" hh:mm:ss not implemented yet!", what, ptr);
     } else if (i != 0) {
-        ERROR("%s, \"%s\" is not a valid time!\n", what, ptr);
+        ERROR("%s, \"%s\" is not a valid time!", what, ptr);
     }
 
     dret = strtod(ptr, &endptr);
@@ -212,7 +214,7 @@ long get_time(const char *ptr, const char *what, int multiplier)
         } else if (!strcmp(endptr, "h")) { /* Hours. */
             ret = (long)(dret * 60 * 60 * 1000);
         } else {
-            ERROR("%s, \"%s\" is not a valid time!\n", what, ptr);
+            ERROR("%s, \"%s\" is not a valid time!", what, ptr);
         }
     } else {
         ret = (long)(dret * multiplier);
@@ -227,16 +229,14 @@ double get_double(const char *ptr, const char *what)
 
     ret = strtod(ptr, &endptr);
     if (*endptr) {
-        ERROR("%s, \"%s\" is not a floating point number!\n", what, ptr);
+        ERROR("%s, \"%s\" is not a floating point number!", what, ptr);
     }
     return ret;
 }
 
-#ifdef PCAPPLAY
-/* Return static buffer to xml value, as with xp_get_value().
- * If the value is enclosed in [brackets], it is assumed to be
+/* If the value is enclosed in [brackets], it is assumed to be
  * a command-line supplied keyword value (-key). */
-static const char* xp_get_keyword_value(const char *name)
+static char* xp_get_keyword_value(const char *name)
 {
     const char* ptr = xp_get_value(name);
     size_t len;
@@ -252,27 +252,33 @@ static const char* xp_get_keyword_value(const char *name)
             }
             ++i;
         }
-        ERROR("%s \"%s\" looks like a keyword value, but keyword not supplied!\n", name, ptr);
+        ERROR("%s \"%s\" looks like a keyword value, but keyword not supplied!", name, ptr);
     }
 
-    return ptr;
+    return ptr ? strdup(ptr) : NULL;
 }
-#endif
 
 static char* xp_get_string(const char *name, const char *what)
 {
-    char *ptr;
+    const char *ptr;
+    char *unescaped;
 
     if (!(ptr = xp_get_value(name))) {
         ERROR("%s is missing the required '%s' parameter.", what, name);
     }
 
-    return strdup(ptr);
+    unescaped = (char *)malloc(strlen(ptr) + 1);
+    if (!unescaped) {
+        ERROR("Out of memory!");
+    }
+    xp_unescape(ptr, unescaped);
+
+    return unescaped;
 }
 
 static double xp_get_double(const char *name, const char *what)
 {
-    char *ptr;
+    const char *ptr;
     char *helptext;
     double val;
 
@@ -289,7 +295,7 @@ static double xp_get_double(const char *name, const char *what)
 
 static long xp_get_long(const char *name, const char *what)
 {
-    char *ptr;
+    const char *ptr;
     char *helptext;
     long val;
 
@@ -315,7 +321,7 @@ static long xp_get_long(const char *name, const char *what, long defval)
 
 static bool xp_get_bool(const char *name, const char *what)
 {
-    char *ptr;
+    const char *ptr;
     char *helptext;
     bool val;
 
@@ -342,10 +348,10 @@ int scenario::get_txn(const char *txnName, const char *what, bool start, bool is
 {
     /* Check the name's validity. */
     if (txnName[0] == '\0') {
-        ERROR("Variable names may not be empty for %s\n", what);
+        ERROR("Variable names may not be empty for %s", what);
     }
     if (strcspn(txnName, "$,") != strlen(txnName)) {
-        ERROR("Variable names may not contain $ or , for %s\n", what);
+        ERROR("Variable names may not contain $ or , for %s", what);
     }
 
     /* If this transaction has already been used, then we have nothing to do. */
@@ -400,10 +406,10 @@ int scenario::get_var(const char *varName, const char *what)
 {
     /* Check the name's validity. */
     if (varName[0] == '\0') {
-        ERROR("Transaction names may not be empty for %s\n", what);
+        ERROR("Transaction names may not be empty for %s", what);
     }
     if (strcspn(varName, "$,") != strlen(varName)) {
-        ERROR("Transaction names may not contain $ or , for %s\n", what);
+        ERROR("Transaction names may not contain '$' or ',' for %s", what);
     }
 
     return allocVars->find(varName, true);
@@ -411,7 +417,7 @@ int scenario::get_var(const char *varName, const char *what)
 
 int scenario::xp_get_var(const char *name, const char *what)
 {
-    char *ptr;
+    const char *ptr;
 
     if (!(ptr = xp_get_value(name))) {
         ERROR("%s is missing the required '%s' variable parameter.", what, name);
@@ -422,7 +428,7 @@ int scenario::xp_get_var(const char *name, const char *what)
 
 static int xp_get_optional(const char *name, const char *what)
 {
-    char *ptr = xp_get_value(name);
+    const char *ptr = xp_get_value(name);
 
     if (!ptr) {
         return OPTIONAL_FALSE;
@@ -444,7 +450,7 @@ static int xp_get_optional(const char *name, const char *what)
 
 int scenario::xp_get_var(const char *name, const char *what, int defval)
 {
-    char *ptr;
+    const char *ptr;
 
     if (!(ptr = xp_get_value(name))) {
         return defval;
@@ -467,7 +473,7 @@ bool get_bool(const char *ptr, const char *what)
 
     ret = strtol(ptr, &endptr, 0);
     if (*endptr) {
-        ERROR("%s, \"%s\" is not a valid boolean!\n", what, ptr);
+        ERROR("%s, \"%s\" is not a valid boolean!", what, ptr);
     }
     return ret ? true : false;
 }
@@ -524,10 +530,10 @@ int scenario::get_counter(const char *ptr, const char *what)
 {
     /* Check the name's validity. */
     if (ptr[0] == '\0') {
-        ERROR("Counter names names may not be empty for %s\n", what);
+        ERROR("Counter names names may not be empty for %s", what);
     }
     if (strcspn(ptr, "$,") != strlen(ptr)) {
-        ERROR("Counter names may not contain $ or , for %s\n", what);
+        ERROR("Counter names may not contain $ or , for %s", what);
     }
 
     return stats->findCounter(ptr, true);
@@ -545,15 +551,15 @@ void scenario::validate_txn_usage()
 {
     for (unsigned int i = 0; i < transactions.size(); i++) {
         if(transactions[i].started == 0) {
-            ERROR("Transaction %s is never started!\n", transactions[i].name);
+            ERROR("Transaction %s is never started!", transactions[i].name);
         } else if(transactions[i].responses == 0) {
-            ERROR("Transaction %s has no responses defined!\n", transactions[i].name);
+            ERROR("Transaction %s has no responses defined!", transactions[i].name);
         }
         if (transactions[i].isInvite && transactions[i].acks == 0) {
-            ERROR("Transaction %s is an INVITE transaction without an ACK!\n", transactions[i].name);
+            ERROR("Transaction %s is an INVITE transaction without an ACK!", transactions[i].name);
         }
         if (!transactions[i].isInvite && (transactions[i].acks > 0)) {
-            ERROR("Transaction %s is a non-INVITE transaction with an ACK!\n", transactions[i].name);
+            ERROR("Transaction %s is a non-INVITE transaction with an ACK!", transactions[i].name);
         }
     }
 }
@@ -565,14 +571,14 @@ void scenario::apply_labels(msgvec v, str_int_map labels)
         if (v[i]->nextLabel) {
             str_int_map::iterator label_it = labels.find(v[i]->nextLabel);
             if (label_it == labels.end()) {
-                ERROR("The label '%s' was not defined (index %d, next attribute)\n", v[i]->nextLabel, i);
+                ERROR("The label '%s' was not defined (index %d, next attribute)", v[i]->nextLabel, i);
             }
             v[i]->next = label_it->second;
         }
         if (v[i]->onTimeoutLabel) {
             str_int_map::iterator label_it = labels.find(v[i]->onTimeoutLabel);
             if (label_it == labels.end()) {
-                ERROR("The label '%s' was not defined (index %d, ontimeout attribute)\n", v[i]->onTimeoutLabel, i);
+                ERROR("The label '%s' was not defined (index %d, ontimeout attribute)", v[i]->onTimeoutLabel, i);
             }
             v[i]->on_timeout = label_it->second;
         }
@@ -786,7 +792,7 @@ scenario::scenario(char * filename, int deflt)
             }
         } else { /** Message Case */
             if (found_timewait) {
-                ERROR("<timewait> can only be the last message in a scenario!\n");
+                ERROR("<timewait> can only be the last message in a scenario!");
             }
             message *curmsg = new message(messages.size(), name ? name : "unknown scenario");
             messages.push_back(curmsg);
@@ -888,7 +894,7 @@ scenario::scenario(char * filename, int deflt)
                 last_recv_optional = curmsg->optional;
                 curmsg->advance_state = xp_get_bool("advance_state", "recv", true);
                 if (!curmsg->advance_state && curmsg->optional == OPTIONAL_FALSE) {
-                    ERROR("advance_state is allowed only for optional messages (index = %zu)\n", messages.size() - 1);
+                    ERROR("advance_state is allowed only for optional messages (index = %zu)", messages.size() - 1);
                 }
 
                 if ((cptr = xp_get_value("regexp_match"))) {
@@ -1000,6 +1006,12 @@ scenario::scenario(char * filename, int deflt)
 
     free(method_list);
 
+    /* Close scenario element */
+    xp_close_element();
+    if (xp_is_invalid()) {
+        ERROR("Invalid XML in scenario");
+    }
+
     str_int_map::iterator label_it = labelMap.find("_unexp.main");
     if (label_it != labelMap.end()) {
         unexpected_jump = label_it->second;
@@ -1082,7 +1094,7 @@ scenario::~scenario()
 
 CSample *parse_distribution(bool oldstyle = false)
 {
-    CSample *distribution;
+    CSample *distribution = NULL;
     const char *distname;
     const char *ptr = 0;
 
@@ -1162,10 +1174,10 @@ CSample *parse_distribution(bool oldstyle = false)
                || !strcmp(distname, "gamma")
                || !strcmp(distname, "negbin")
                || !strcmp(distname, "weibull")) {
-        ERROR("The distribution '%s' is only available with GSL.", distname);
+        ERROR("The distribution '%s' is only available with GSL", distname);
 #endif
     } else {
-        ERROR("Unknown distribution: %s\n", ptr);
+        ERROR("Unknown distribution: %s", ptr);
     }
 
     return distribution;
@@ -1174,9 +1186,9 @@ CSample *parse_distribution(bool oldstyle = false)
 
 
 /* 3pcc extended mode:
-   get the correspondances between
-   slave and master names and their
-   addresses */
+ * get the correspondances between
+ * slave and master names and their
+ * addresses */
 
 void parse_slave_cfg()
 {
@@ -1199,12 +1211,12 @@ void parse_slave_cfg()
 
             peer_host = strdup(temp_host);
             if (!peer_host)
-                ERROR("Cannot allocate memory!\n");
+                ERROR("Cannot allocate memory!");
 
             peer_addrs[std::string(temp_peer)] = peer_host;
         }
     } else {
-        ERROR("Can not open slave_cfg file %s\n", slave_cfg_file);
+        ERROR("Can not open slave_cfg file %s", slave_cfg_file);
     }
 
     fclose(f);
@@ -1270,11 +1282,11 @@ void scenario::computeSippMode()
                     }
                 }
                 if((thirdPartyMode == MODE_MASTER_PASSIVE || thirdPartyMode == MODE_MASTER) && !master_name) {
-                    ERROR("Inconsistency between command line and scenario: master scenario but -master option not set\n");
+                    ERROR("Inconsistency between command line and scenario: master scenario but -master option not set");
                 }
                 if(!twinSippMode && !extendedTwinSippMode)
                     ERROR("sendCmd message found in scenario but no twin sipp"
-                          " address has been passed! Use -3pcc option or 3pcc extended mode.\n");
+                          " address has been passed! Use -3pcc option or 3pcc extended mode");
             }
             break;
 
@@ -1289,7 +1301,7 @@ void scenario::computeSippMode()
                 } else if(extendedTwinSippMode) {
                     thirdPartyMode = MODE_SLAVE;
                     if(!slave_number) {
-                        ERROR("Inconsistency between command line and scenario: slave scenario but -slave option not set\n");
+                        ERROR("Inconsistency between command line and scenario: slave scenario but -slave option not set");
                     } else {
                         thirdPartyMode = MODE_SLAVE;
                     }
@@ -1305,9 +1317,9 @@ void scenario::computeSippMode()
         }
     }
     if(creationMode == -1)
-        ERROR("Unable to determine creation mode of the tool (server, client)\n");
+        ERROR("Unable to determine creation mode of the tool (server, client)");
     if(sendMode == -1)
-        ERROR("Unable to determine send mode of the tool (server, client)\n");
+        ERROR("Unable to determine send mode of the tool (server, client)");
 }
 
 void scenario::handle_rhs(CAction *tmpAction, const char *what)
@@ -1337,7 +1349,6 @@ void scenario::parseAction(CActions *actions)
 {
     char *        actionElem;
     unsigned int recvScenarioLen = 0;
-    char *        currentRegExp = NULL;
     char **       currentTabVarName = NULL;
     int           currentNbVarNames;
     int           sub_currentNbVarId;
@@ -1350,11 +1361,6 @@ void scenario::parseAction(CActions *actions)
         if(!strcmp(actionElem, "ereg")) {
             ptr = xp_get_string("regexp", "ereg");
 
-            // keeping regexp expression in memory
-            if(currentRegExp != NULL)
-                delete[] currentRegExp;
-            currentRegExp = new char[strlen(ptr)+1];
-            xp_unescape(ptr, currentRegExp);
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_REGEXP);
 
             // warning - although these are detected for both msg and hdr
@@ -1362,7 +1368,6 @@ void scenario::parseAction(CActions *actions)
             tmpAction->setCaseIndep(xp_get_bool("case_indep", "ereg", false));
             tmpAction->setHeadersOnly(xp_get_bool("start_line", "ereg", false));
 
-            free(ptr);
             if ((cptr = xp_get_value("search_in"))) {
                 tmpAction->setOccurrence(1);
 
@@ -1405,16 +1410,16 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setCheckItInverse(xp_get_bool("check_it_inverse", "ereg", false));
             }
 
-            if (!(ptr = xp_get_value("assign_to"))) {
+            if (!(cptr = xp_get_value("assign_to"))) {
                 ERROR("assign_to value is missing");
             }
 
-            createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
+            createStringTable(cptr, &currentTabVarName, &currentNbVarNames);
 
             int varId = get_var(currentTabVarName[0], "assign_to");
             tmpAction->setVarId(varId);
 
-            tmpAction->setRegExp(currentRegExp);
+            tmpAction->setRegExp(ptr);
             if (currentNbVarNames > 1 ) {
                 sub_currentNbVarId = currentNbVarNames - 1 ;
                 tmpAction->setNbSubVarId(sub_currentNbVarId);
@@ -1426,11 +1431,7 @@ void scenario::parseAction(CActions *actions)
             }
 
             freeStringTable(currentTabVarName, currentNbVarNames);
-
-            if(currentRegExp != NULL) {
-                delete[] currentRegExp;
-            }
-            currentRegExp = NULL;
+            free(ptr);
         } /* end !strcmp(actionElem, "ereg") */ else if(!strcmp(actionElem, "log")) {
             ptr = xp_get_string("message", "log");
             tmpAction->setMessage(ptr);
@@ -1458,10 +1459,10 @@ void scenario::parseAction(CActions *actions)
         } else if(!strcmp(actionElem, "gettimeofday")) {
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY);
 
-            if (!(ptr = xp_get_value("assign_to"))) {
+            if (!(cptr = xp_get_value("assign_to"))) {
                 ERROR("assign_to value is missing");
             }
-            createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
+            createStringTable(cptr, &currentTabVarName, &currentNbVarNames);
             if (currentNbVarNames != 2 ) {
                 ERROR("The gettimeofday action requires two output variables!");
             }
@@ -1508,7 +1509,20 @@ void scenario::parseAction(CActions *actions)
             tmpAction->setVarId(xp_get_var("assign_to", "todouble"));
             tmpAction->setVarInId(xp_get_var("variable", "todouble"));
         } else if(!strcmp(actionElem, "test")) {
-            tmpAction->setVarId(xp_get_var("assign_to", "test"));
+            if (xp_get_value("check_it")) {
+                tmpAction->setCheckIt(xp_get_bool("check_it", "test"));
+                if (xp_get_value("check_it_inverse")) {
+                    ERROR("Can not have both check_it and check_it_inverse for test!");
+                }
+            } else if (xp_get_value("check_it_inverse")) {
+                tmpAction->setCheckItInverse(xp_get_bool("check_it_inverse", "test"));
+            }
+            // "assign_to" is optional when "check_it" or "check_it_inverse" set
+            if (xp_get_value("assign_to") ||
+                (!xp_get_value("check_it") && !xp_get_value("check_it_inverse"))
+            ) {
+                tmpAction->setVarId(xp_get_var("assign_to", "test"));
+            }
             tmpAction->setVarInId(xp_get_var("variable", "test"));
             if (xp_get_value("value")) {
                 tmpAction->setDoubleValue(xp_get_double("value", "test"));
@@ -1568,7 +1582,20 @@ void scenario::parseAction(CActions *actions)
         } else if(!strcmp(actionElem, "closecon")) {
             tmpAction->setActionType(CAction::E_AT_CLOSE_CON);
         } else if(!strcmp(actionElem, "strcmp")) {
-            tmpAction->setVarId(xp_get_var("assign_to", "strcmp"));
+            if (xp_get_value("check_it")) {
+                tmpAction->setCheckIt(xp_get_bool("check_it", "strcmp"));
+                if (xp_get_value("check_it_inverse")) {
+                    ERROR("Can not have both check_it and check_it_inverse for strcmp!");
+                }
+            } else if (xp_get_value("check_it_inverse")) {
+                tmpAction->setCheckItInverse(xp_get_bool("check_it_inverse", "strcmp"));
+            }
+            // "assign_to" is optional when "check_it" or "check_it_inverse" set
+            if (xp_get_value("assign_to") ||
+                (!xp_get_value("check_it") && !xp_get_value("check_it_inverse"))
+            ) {
+                tmpAction->setVarId(xp_get_var("assign_to", "strcmp"));
+            }
             tmpAction->setVarInId(xp_get_var("variable", "strcmp"));
             if (xp_get_value("value")) {
                 tmpAction->setStringValue(xp_get_string("value", "strcmp"));
@@ -1583,9 +1610,9 @@ void scenario::parseAction(CActions *actions)
             tmpAction->setVarId(xp_get_var("assign_to", "trim"));
             tmpAction->setActionType(CAction::E_AT_VAR_TRIM);
         } else if(!strcmp(actionElem, "exec")) {
-            if ((ptr = xp_get_value("command"))) {
+            if ((cptr = xp_get_value("command"))) {
                 tmpAction->setActionType(CAction::E_AT_EXECUTE_CMD);
-                tmpAction->setMessage(ptr);
+                tmpAction->setMessage(cptr);
             } else if((cptr = xp_get_value("int_cmd"))) {
                 CAction::T_IntCmdType type(CAction::E_INTCMD_STOPCALL); /* assume the default */
 
@@ -1602,17 +1629,24 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setActionType(CAction::E_AT_EXEC_INTCMD);
                 tmpAction->setIntCmd(type);
 #ifdef PCAPPLAY
-            } else if ((cptr = xp_get_keyword_value("play_pcap_audio"))) {
-                tmpAction->setPcapArgs(cptr);
+            } else if ((ptr = xp_get_keyword_value("play_pcap_audio"))) {
+                tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
                 hasMedia = 1;
-            } else if ((cptr = xp_get_keyword_value("play_pcap_image"))) {
-                tmpAction->setPcapArgs(cptr);
+                free(ptr);
+            } else if ((ptr = xp_get_keyword_value("play_pcap_image"))) {
+                tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_IMAGE);
                 hasMedia = 1;
-            } else if ((cptr = xp_get_keyword_value("play_pcap_video"))) {
-                tmpAction->setPcapArgs(cptr);
+                free(ptr);
+            } else if ((ptr = xp_get_keyword_value("play_pcap_video"))) {
+                tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
+                hasMedia = 1;
+                free(ptr);
+            } else if ((cptr = xp_get_value("play_dtmf"))) {
+                tmpAction->setMessage(cptr);
+                tmpAction->setActionType(CAction::E_AT_PLAY_DTMF);
                 hasMedia = 1;
 #else
             } else if (xp_get_value("play_pcap_audio")) {
@@ -1621,24 +1655,26 @@ void scenario::parseAction(CActions *actions)
                 ERROR("Scenario specifies a play_pcap_image action, but this version of SIPp does not have PCAP support");
             } else if (xp_get_value("play_pcap_video")) {
                 ERROR("Scenario specifies a play_pcap_video action, but this version of SIPp does not have PCAP support");
+            } else if (xp_get_value("play_dtmf")) {
+                ERROR("Scenario specifies a play_dtmf action, but this version of SIPp does not have PCAP support");
 #endif
-            } else if ((cptr = xp_get_value("rtp_stream"))) {
-#ifdef RTP_STREAM
+            } else if ((ptr = xp_get_keyword_value("rtp_stream"))) {
                 hasMedia = 1;
-                if (strcmp(cptr, "pause") == 0) {
+                if (strcmp(ptr, "pause") == 0) {
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PAUSE);
-                } else if (strcmp(cptr, "resume") == 0) {
+                } else if (strcmp(ptr, "resume") == 0) {
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_RESUME);
                 } else {
-                    tmpAction->setRTPStreamActInfo(cptr);
+                    tmpAction->setRTPStreamActInfo(ptr);
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PLAY);
                 }
-#else
-                ERROR("Scenario specifies a rtp_stream action, but this version of SIPp does not have RTP stream support");
-#endif
+                free(ptr);
             } else {
-                ERROR("illegal <exec> in the scenario\n");
+                ERROR("illegal <exec> in the scenario");
             }
+        } else if(!strcmp(actionElem, "rtp_echo")) {
+            tmpAction->setActionType(CAction::E_AT_RTP_ECHO);
+            handle_rhs(tmpAction, "rtp_echo");
         } else {
             ERROR("Unknown action: %s", actionElem);
         }
@@ -1658,15 +1694,16 @@ void scenario::getActionForThisMessage(message *message)
 {
     char *        actionElem;
 
-    if(!(actionElem = xp_open_element(0))) {
+    if (!(actionElem = xp_open_element(0))) {
         return;
     }
-    if(strcmp(actionElem, "action")) {
+    if (strcmp(actionElem, "action")) {
+        xp_close_element();
         return;
     }
 
     /* We actually have an action element. */
-    if(message->M_actions != NULL) {
+    if (message->M_actions != NULL) {
         ERROR("Duplicate action for %s index %d", message->desc, message->index);
     }
     message->M_actions = new CActions();
@@ -1701,18 +1738,22 @@ void scenario::getBookKeeping(message *message)
 
 void scenario::getCommonAttributes(message *message)
 {
-    char *ptr;
+    const char *ptr;
 
     getBookKeeping(message);
     getActionForThisMessage(message);
 
-    if((ptr = xp_get_value((char *)"lost"))) {
+    if ((ptr = xp_get_value("lost"))) {
         message -> lost = get_double(ptr, "lost percentage");
         lose_packets = 1;
     }
 
-    if((ptr = xp_get_value((char *)"crlf"))) {
+    if ((ptr = xp_get_value("crlf"))) {
         message -> crlf = 1;
+    }
+
+    if ((ptr = xp_get_value("ignoresdp"))) {
+        message->ignoresdp = get_bool(ptr, "ignoresdp");
     }
 
     if (xp_get_value("hiderest")) {
@@ -1842,7 +1883,7 @@ int createIntegerTable(char * P_listeStr,
     } else return(0);
 }
 
-int createStringTable(char * inputString, char *** stringList, int *sizeOfList)
+int createStringTable(const char* inputString, char*** stringList, int* sizeOfList)
 {
     if(!inputString) {
         return 0;
@@ -1851,18 +1892,20 @@ int createStringTable(char * inputString, char *** stringList, int *sizeOfList)
     *stringList = NULL;
     *sizeOfList = 0;
 
+    /* FIXME: temporary workaround: needs rewrite */
+    char* input = const_cast<char*>(inputString);
     do {
-        char *p = strchr(inputString, ',');
+        char* p = strchr(input, ',');
         if (p) {
             *p++ = '\0';
         }
 
         *stringList = (char **)realloc(*stringList, sizeof(char *) * (*sizeOfList + 1));
-        (*stringList)[*sizeOfList] = strdup(inputString);
+        (*stringList)[*sizeOfList] = strdup(input);
         (*sizeOfList)++;
 
-        inputString = p;
-    } while (inputString);
+        input = p;
+    } while (input);
 
     return 1;
 }
@@ -1902,7 +1945,7 @@ int find_scenario(const char *scenario)
         }
     }
 
-    ERROR("Invalid default scenario name '%s'.\n", scenario);
+    ERROR("Invalid default scenario name '%s'", scenario);
     return -1;
 }
 
@@ -2056,6 +2099,9 @@ const char * default_scenario [] = {
     "  <!-- By adding rrs=\"true\" (Record Route Sets), the route sets         -->\n"
     "  <!-- are saved and used for following messages sent. Useful to test   -->\n"
     "  <!-- against stateful SIP proxies/B2BUAs.                             -->\n"
+    "  <!-- Adding ignoresdp=\"true\" here would ignore the SDP data: that     -->\n"
+    "  <!-- can be useful if you want to reject reINVITEs and keep the       -->\n"
+    "  <!-- media stream flowing.                                            -->\n"
     "  <recv request=\"INVITE\" crlf=\"true\">\n"
     "  </recv>\n"
     "\n"

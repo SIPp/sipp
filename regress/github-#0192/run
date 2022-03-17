@@ -1,0 +1,28 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Author: Walter Doekes, OSSO B.V., 2016
+. "`dirname "$0"`/../functions"; init
+
+uas_media_port=5071
+
+udplisten $uas_media_port >udplisten.log &
+udplisten_job=$!
+trap "kill -9 $udplisten_job 2>/dev/null" EXIT
+
+sippbg -sf uas.xml -p 5070 -key custom_media_port $uas_media_port
+sippfg -m 1 -sf uac.xml 127.0.0.1:5070 -trace_msg \
+    -message_file tmp.log -timeout 5 -timeout_error >/dev/null 2>&1
+status=$?
+
+test $status -ne 0 && fail "SIPp UAC job failed"
+
+uac_media_port=`sed -e '/^m=audio /!d;s/m=audio \([^ ]*\) .*/\1/;q' \
+                tmp.log`
+port=`sed -e '/^Connectionless from/!d;s/.*://' udplisten.log`
+if test "$port" = "$uac_media_port"; then
+    ok
+elif test -n "$port"; then
+    fail "got RTP from wrong source port $port"
+else
+    fail "got no RTP at all"
+fi

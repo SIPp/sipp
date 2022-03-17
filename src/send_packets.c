@@ -39,12 +39,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
-#if defined(__DARWIN) || defined(__CYGWIN) || defined(__FreeBSD__)
 #include <netinet/in.h>
-#endif
-#ifndef __CYGWIN
 #include <netinet/ip6.h>
-#endif
 #include <netinet/udp.h>
 #include <errno.h>
 #include <string.h>
@@ -54,6 +50,14 @@
 #include "defines.h"
 #include "send_packets.h"
 #include "prepare_pcap.h"
+#include "config.h"
+
+#ifndef HAVE_UDP_UH_PREFIX
+#define uh_ulen len
+#define uh_sum check
+#define uh_sport source
+#define uh_dport dest
+#endif
 
 extern char* scenario_path;
 extern volatile unsigned long rtp_pckts_pcap;
@@ -61,7 +65,7 @@ extern volatile unsigned long rtp_bytes_pcap;
 extern bool media_ip_is_ipv6;
 
 inline void
-timerdiv (struct timeval *tvp, float div)
+timerdiv(struct timeval* tvp, float div)
 {
     double interval;
 
@@ -77,7 +81,7 @@ timerdiv (struct timeval *tvp, float div)
  * converts a float to a timeval structure
  */
 inline void
-float2timer (float time, struct timeval *tvp)
+float2timer(float time, struct timeval *tvp)
 {
     float n;
 
@@ -92,12 +96,12 @@ float2timer (float time, struct timeval *tvp)
 static char* find_file(const char* filename)
 {
     char *fullpath;
-    if (filename[0] == '/' || !scenario_path) {
+    if (filename[0] == '/' || !*scenario_path) {
         return strdup(filename);
     }
 
     fullpath = malloc(MAX_PATH);
-    snprintf(fullpath, MAX_PATH, "%s/%s", scenario_path, filename);
+    snprintf(fullpath, MAX_PATH, "%s%s", scenario_path, filename);
 
     if (access(fullpath, R_OK) < 0) {
         free(fullpath);
@@ -117,7 +121,7 @@ int parse_play_args(const char* filename, pcap_pkts* pkts)
     return 1;
 }
 
-void free_pcaps(pcap_pkts *pkts)
+void free_pcaps(pcap_pkts* pkts)
 {
     pcap_pkt *it;
     for (it = pkts->pkts; it != pkts->max; ++it) {
@@ -127,6 +131,12 @@ void free_pcaps(pcap_pkts *pkts)
     free(pkts->pkts);
     free(pkts->file);
     free(pkts);
+}
+
+int parse_dtmf_play_args(const char* buffer, pcap_pkts* pkts, uint16_t start_seq_no)
+{
+    pkts->file = strdup(buffer);
+    return prepare_dtmf(pkts->file, pkts, start_seq_no);
 }
 
 void hexdump(char *p, int s)
@@ -149,9 +159,21 @@ void send_packets_cleanup(void *arg)
     close(*sock);
 }
 
-void send_packets(play_args_t * play_args)
+void send_packets_pcap_cleanup(void* arg)
 {
-    int ret, sock, port_diff;
+    play_args_t* play_args = arg;
+
+    if (play_args->free_pcap_when_done) {
+        free(play_args->pcap);
+        play_args->pcap = NULL;
+    }
+}
+
+void send_packets(play_args_t* play_args)
+{
+    pthread_cleanup_push(send_packets_pcap_cleanup, ((void*)play_args));
+
+    int ret = 0, sock, port_diff;
     pcap_pkt *pkt_index, *pkt_max;
     uint16_t *from_port, *to_port;
     struct timeval didsleep = { 0, 0 };
@@ -161,11 +183,12 @@ void send_packets(play_args_t * play_args)
     /* to and from are pointers in case play_args (call sticky) gets modified! */
     struct sockaddr_storage *to = &(play_args->to);
     struct sockaddr_storage *from = &(play_args->from);
+    struct sockaddr_storage bind_addr = {0};
     struct udphdr *udp;
     struct sockaddr_in6 to6, from6;
     char buffer[PCAP_MAXPACKET];
     int temp_sum;
-    int len;
+    socklen_t len;
 
 #ifndef MSG_DONTWAIT
     int fd_flags;
@@ -175,25 +198,39 @@ void send_packets(play_args_t * play_args)
         sock = socket(PF_INET6, SOCK_RAW, IPPROTO_UDP);
         if (sock < 0) {
             ERROR("Can't create raw IPv6 socket (need to run as root?): %s", strerror(errno));
+            goto pop2;
         }
-        from_port = &(((struct sockaddr_in6 *)(void *) from )->sin6_port);
+        from_port = &(((struct sockaddr_in6 *)from)->sin6_port);
         len = sizeof(struct sockaddr_in6);
-        to_port = &(((struct sockaddr_in6 *)(void *) to )->sin6_port);
+        to_port = &(((struct sockaddr_in6 *)to)->sin6_port);
     } else {
         sock = socket(PF_INET, SOCK_RAW, IPPROTO_UDP);
-        from_port = &(((struct sockaddr_in *)(void *) from )->sin_port);
+        from_port = &(((struct sockaddr_in *)from)->sin_port);
         len = sizeof(struct sockaddr_in);
-        to_port = &(((struct sockaddr_in *)(void *) to )->sin_port);
+        to_port = &(((struct sockaddr_in *)to)->sin_port);
         if (sock < 0) {
             ERROR("Can't create raw IPv4 socket (need to run as root?): %s", strerror(errno));
-            return;
+            goto pop2;
         }
     }
 
+    // When binding a raw socket, it doesn't make sense to bind to a particular
+    // port, as that's a UDP/TCP concept but the point of a raw socket is that
+    // we're writing the headers ourselves. Some systems (like FreeBSD) are
+    // strict about this and return EADDRNOTAVAIL if we specify a port, so bind
+    // to a sockaddr structure copied from our sending address but with the
+    // port set to 0.
+    if (media_ip_is_ipv6) {
+        memcpy(&bind_addr, from, sizeof(struct sockaddr_in6));
+        ((struct sockaddr_in6 *)&bind_addr)->sin6_port = 0;
+    } else {
+        memcpy(&bind_addr, from, sizeof(struct sockaddr_in));
+        ((struct sockaddr_in *)&bind_addr)->sin_port = 0;
+    }
 
-    if ((ret = bind(sock, (struct sockaddr *)(void *)from, len))) {
-        ERROR("Can't bind media raw socket");
-        return;
+    if ((ret = bind(sock, (struct sockaddr *)&bind_addr, len))) {
+        ERROR("Can't bind media raw socket: %s", strerror(errno));
+        goto pop2;
     }
 
 #ifndef MSG_DONTWAIT
@@ -222,7 +259,6 @@ void send_packets(play_args_t * play_args)
 
     while (pkt_index < pkt_max) {
         memcpy(udp, pkt_index->data, pkt_index->pktlen);
-#if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
         port_diff = ntohs(udp->uh_dport) - pkts->base;
         /* modify UDP ports */
         udp->uh_sport = htons(port_diff + ntohs(*from_port));
@@ -246,59 +282,41 @@ void send_packets(play_args_t * play_args)
 #else
         udp->uh_sum = temp_sum;
 #endif
-#else
-        port_diff = ntohs(udp->dest) - pkts->base;
-        /* modify UDP ports */
-        udp->source = htons(port_diff + ntohs(*from_port));
-        udp->dest = htons(port_diff + ntohs(*to_port));
-
-        if (!media_ip_is_ipv6) {
-            temp_sum = checksum_carry(
-                    pkt_index->partial_check +
-                    check((uint16_t *) &(((struct sockaddr_in *)(void *) from)->sin_addr.s_addr), 4) +
-                    check((uint16_t *) &(((struct sockaddr_in *)(void *) to)->sin_addr.s_addr), 4) +
-                    check((uint16_t *) &udp->source, 4));
-        } else {
-            temp_sum = checksum_carry(
-                    pkt_index->partial_check +
-                    check((uint16_t *) &(from6.sin6_addr.s6_addr), 16) +
-                    check((uint16_t *) &(to6.sin6_addr.s6_addr), 16) +
-                    check((uint16_t *) &udp->source, 4));
-        }
-        udp->check = temp_sum;
-#endif
 
         do_sleep ((struct timeval *) &pkt_index->ts, &last, &didsleep,
                   &start);
 #ifdef MSG_DONTWAIT
         if (!media_ip_is_ipv6) {
             ret = sendto(sock, buffer, pkt_index->pktlen, MSG_DONTWAIT,
-                         (struct sockaddr *)(void *) to, sizeof(struct sockaddr_in));
+                         (struct sockaddr *)to, sizeof(struct sockaddr_in));
         } else {
             ret = sendto(sock, buffer, pkt_index->pktlen, MSG_DONTWAIT,
-                         (struct sockaddr *)(void *) &to6, sizeof(struct sockaddr_in6));
+                         (struct sockaddr *)&to6, sizeof(struct sockaddr_in6));
         }
 #else
         if (!media_ip_is_ipv6) {
             ret = sendto(sock, buffer, pkt_index->pktlen, 0,
-                         (struct sockaddr *)(void *) to, sizeof(struct sockaddr_in));
+                         (struct sockaddr *)to, sizeof(struct sockaddr_in));
         } else {
             ret = sendto(sock, buffer, pkt_index->pktlen, 0,
-                         (struct sockaddr *)(void *) &to6, sizeof(struct sockaddr_in6));
+                         (struct sockaddr *)&to6, sizeof(struct sockaddr_in6));
         }
 #endif
         if (ret < 0) {
             WARNING("send_packets.c: sendto failed with error: %s", strerror(errno));
-            break;
+            goto pop1;
         }
 
         rtp_pckts_pcap++;
         rtp_bytes_pcap += pkt_index->pktlen - sizeof(*udp);
-        memcpy (&last, &(pkt_index->ts), sizeof (struct timeval));
+        memcpy (&last, &(pkt_index->ts), sizeof(struct timeval));
         pkt_index++;
     }
 
     /* Closing the socket is handled by pthread_cleanup_push()/pthread_cleanup_pop() */
+pop1:
+    pthread_cleanup_pop(1);
+pop2:
     pthread_cleanup_pop(1);
 }
 
@@ -306,8 +324,8 @@ void send_packets(play_args_t * play_args)
  * Given the timestamp on the current packet and the last packet sent,
  * calculate the appropriate amount of time to sleep and do so.
  */
-void do_sleep (struct timeval *time, struct timeval *last,
-               struct timeval *didsleep, struct timeval *start)
+void do_sleep(struct timeval* time, struct timeval* last,
+              struct timeval* didsleep, struct timeval* start)
 {
     struct timeval nap, now, delta;
     struct timespec sleep;

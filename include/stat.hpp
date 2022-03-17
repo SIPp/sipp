@@ -30,6 +30,7 @@
 
 #define MAX_CHAR_BUFFER_SIZE 1024
 
+#include "config.h"
 #include <ctime>
 #include <vector>
 #include <string>
@@ -57,12 +58,13 @@ __________________________________________________________________________
 */
 
 /**
- * This class provides some means to compute and display statistics.
+ * This class provides some means to compute statistics.
  * This is a singleton class.
  */
 
 class CStat
 {
+    friend class ScreenPrinter;
 public:
 
     std::vector<int> error_codes;
@@ -110,6 +112,10 @@ public:
         E_FAILED_OUTBOUND_CONGESTION,
         E_FAILED_TIMEOUT_ON_RECV,
         E_FAILED_TIMEOUT_ON_SEND,
+        E_FAILED_TEST_DOESNT_MATCH,
+        E_FAILED_TEST_SHOULDNT_MATCH,
+        E_FAILED_STRCMP_DOESNT_MATCH,
+        E_FAILED_STRCMP_SHOULDNT_MATCH,
         E_OUT_OF_CALL_MSGS,
         E_WATCHDOG_MAJOR,
         E_WATCHDOG_MINOR,
@@ -146,6 +152,10 @@ public:
         CPT_C_FailedCallRegexpDoesntMatch,
         CPT_C_FailedCallRegexpShouldntMatch,
         CPT_C_FailedCallRegexpHdrNotFound,
+        CPT_C_FailedCallTestDoesntMatch,
+        CPT_C_FailedCallTestShouldntMatch,
+        CPT_C_FailedCallStrcmpDoesntMatch,
+        CPT_C_FailedCallStrcmpShouldntMatch,
         CPT_C_FailedOutboundCongestion,
         CPT_C_FailedTimeoutOnRecv,
         CPT_C_FailedTimeoutOnSend,
@@ -186,6 +196,10 @@ public:
         CPT_PD_FailedCallRegexpDoesntMatch,
         CPT_PD_FailedCallRegexpShouldntMatch,
         CPT_PD_FailedCallRegexpHdrNotFound,
+        CPT_PD_FailedCallTestDoesntMatch,
+        CPT_PD_FailedCallTestShouldntMatch,
+        CPT_PD_FailedCallStrcmpDoesntMatch,
+        CPT_PD_FailedCallStrcmpShouldntMatch,
         CPT_PD_FailedOutboundCongestion,
         CPT_PD_FailedTimeoutOnRecv,
         CPT_PD_FailedTimeoutOnSend,
@@ -227,6 +241,10 @@ public:
         CPT_PL_FailedCallRegexpDoesntMatch,
         CPT_PL_FailedCallRegexpShouldntMatch,
         CPT_PL_FailedCallRegexpHdrNotFound,
+        CPT_PL_FailedCallTestDoesntMatch,
+        CPT_PL_FailedCallTestShouldntMatch,
+        CPT_PL_FailedCallStrcmpDoesntMatch,
+        CPT_PL_FailedCallStrcmpShouldntMatch,
         CPT_PL_FailedOutboundCongestion,
         CPT_PL_FailedTimeoutOnRecv,
         CPT_PL_FailedTimeoutOnSend,
@@ -353,14 +371,6 @@ public:
     void setFileName(const char* name);
     void setFileName(const char* name, const char* extension);
     void initRtt(const char* name, const char* extension, unsigned long P_value);
-
-    /**
-     * Display data periodically updated on screen.
-     */
-    void displayData (FILE *f);
-    void displayStat(FILE *f);
-    void displayRepartition(FILE *f);
-    void displayRtdRepartition (FILE *f, int which);
 
     /**
      * Dump data periodically in the file M_FileName
@@ -512,13 +522,6 @@ private:
      */
     void  resetRepartition(T_dynamicalRepartition* P_tabReport,
                            int P_sizeOfTab);
-    /**
-     * displayRepartition
-     * Display the repartition passed in parameter at the screen
-     */
-    void  displayRepartition(FILE *f,
-                             T_dynamicalRepartition * tabRepartition,
-                             int sizeOfTab);
 
     /**
      * sRepartitionHeader

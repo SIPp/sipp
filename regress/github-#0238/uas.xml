@@ -49,5 +49,5 @@
 
   <recv response="200"/>
 
-  <timewait milliseconds="500"/>  
+  <timewait milliseconds="500"/>
 </scenario>

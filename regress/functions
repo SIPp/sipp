@@ -31,6 +31,10 @@ sipp() {
     exec "`get_sipp`" "$@"
 }
 
+sippversion() {
+    "`get_sipp`" -v | sed -e 's/^ //;/SIPp/!d;s/ built.*//'
+}
+
 sippfg() {
     "`get_sipp`" -nostdin "$@"
 }
@@ -68,7 +72,7 @@ tcplisten() {
 udplisten() {
     port="$1"
     exec perl -e '
-        use Socket;(socket(S,PF_INET,SOCK_DGRAM,17)&&
+        use Socket;$|=1;(socket(S,PF_INET,SOCK_DGRAM,17)&&
         bind(S,pack_sockaddr_in('$port',"\0\0\0\0"))&&
         setsockopt(S,SOL_SOCKET,SO_RCVTIMEO,pack("L!L!",3,0))&&
         ($sa=recv(S,$o,2048,0))&&(($port,$ia)=

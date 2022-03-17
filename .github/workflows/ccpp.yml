@@ -1,0 +1,57 @@
+name: C/C++ CI
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: lint
+      run: ./validate-src.sh
+    - name: lint-xml
+      run: sudo apt-get update && sudo apt-get install --yes libxml2-utils && ./dtd_check.sh
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: prepare
+      run: git submodule update --init
+    - name: installdeps
+      run: sudo apt-get update && sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses5-dev libncurses5
+    - name: build
+      run: ./build.sh --full
+    - name: test
+      run: TEST_SKIP_VALGRIND=1 ./regress/runtests
+
+  build-osx:
+
+    runs-on: macOS-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: prepare
+      run: git submodule update --init
+    - name: build
+      run: ./build.sh --none
+
+
+  build-static:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: prepare
+      run: git submodule update --init
+    - name: build-static
+      run: sudo docker build -t sipp-build docker && sudo docker run -v $PWD:/src sipp-build
+    - uses: actions/upload-artifact@v1.0.0
+      with:
+         name: sipp
+         path: ./sipp

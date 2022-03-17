@@ -3,8 +3,6 @@
 # Author: Walter Doekes, OSSO B.V., 2014
 . "`dirname "$0"`/../functions"; init
 
-skip "broken by 337f5c0cd"
-
 tcplisten 5070 >tmp.log 2>&1 &
 pid=$!
 sleep 1
@@ -14,5 +12,5 @@ sippbg -m 1 -sn uac -i 127.0.3.1 -t t1 -p 5071 127.0.2.1:5070
 if grep -q '^Connection from 127.0.3.1:' tmp.log; then
     ok
 else
-    fail "broken by 337f5c0cd (?)"
+    fail
 fi

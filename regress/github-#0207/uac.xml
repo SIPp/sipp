@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario>
+  <send retrans="500">
+    <![CDATA[
+
+      OPTIONS sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: Alice <sip:alice@localhost>;tag=uniquetag
+      To: Bob <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 OPTIONS
+      Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+      Content-Length: [len]
+      Content-Type: multipart/mixed; boundary=++
+
+      --++
+      Content-Type: application/sdp
+
+      foo=bar
+      --++
+      Content-Type: message/cpim
+
+      X-Reason: "We don't want this FROM in the [last_From]"
+      From: <sip:anonymous@anonymous.invalid>
+      To: <sip:anonymous@anonymous.invalid>
+      --++--
+
+    ]]>
+  </send>
+
+  <recv response="200"/>
+
+</scenario>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario>
+  <send retrans="500" start_txn="invite">
+    <![CDATA[
+
+      INVITE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: "Tom Jones" <sip:tom.jones@wales.uk>;tag=[pid]SIPpTag00[call_number]
+      To: "Fromage" <sip:cheese@paris.fr>
+      Call-ID: [call_id]
+      CSeq: 1 INVITE
+      Contact: sip:sipp@[local_ip]:[local_port]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv response="404" response_txn="invite">
+    <action>
+      <ereg regexp="(&quot;[^&quot;]*&quot; &lt;[^&gt;]*&gt;)" search_in="hdr" header="To:" assign_to="var"/>
+    </action>
+  </recv>
+  <Reference variables="var"/>
+
+  <send ack_txn="invite">
+    <![CDATA[
+
+      ACK [next_url] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      [routes]
+      From: sip:[service]@[local_ip]:[local_port];tag=[pid]SIPpTag00[call_number]
+      To: sip:[service]@[remote_ip]:[remote_port][peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: [cseq] ACK
+      Contact: sip:[service]@[local_ip]:[local_port]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <!--
+    If attribute escaping handling is correct in the scenario loading, then the
+    test below will work. If it doesn't, then it will fail because of the XML
+    entities.
+  -->
+  <nop>
+    <action>
+      <strcmp assign_to="1" variable="var" value="&quot;Fromage&quot; &lt;sip:cheese@paris.fr&gt;"/>
+      <test assign_to="result" variable="1" compare="equal" value="0" /> <!-- If strcmp is successful, it returns 0 -->
+    </action>
+  </nop>
+
+  <nop condexec="result" condexec_inverse="true">
+    <action>
+      <warning message="Matching Error: '[$var]' != '&quot;Fromage&quot; &lt;sip:cheese@paris.fr&gt;'"/>
+      <exec int_cmd="stop_now" />
+    </action>
+  </nop>
+
+  <timewait milliseconds="500"/>
+</scenario>

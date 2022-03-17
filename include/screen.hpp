@@ -27,14 +27,50 @@
 #define __SCREEN_H__
 
 #include <stdio.h>
+#include <unistd.h>
+#include <string>
+#include <vector>
 
 #include "defines.h"
+#include "stat.hpp"
 
-void screen_set_exename(const char* exe_name);
 void screen_init();
 void screen_clear();
 int  screen_readkey();
 void screen_exit();
-void screen_show_errors();
+void print_statistics(int last);
+
+extern int key_backspace;
+extern int key_dc;
+
+typedef std::vector<std::string> string_array;
+
+class ScreenPrinter {
+public:
+    ScreenPrinter():
+        M_headless(!isatty(fileno(stdout))),
+        M_last(false)
+    {};
+    void redraw();
+    void print_closing_stats();
+    void print_to_file(FILE* f);
+    bool M_headless;
+
+private:
+    void get_lines();
+    void draw_scenario_screen();
+    void draw_tdm_screen();
+    void draw_vars_screen();
+    void draw_stats_screen();
+    void draw_repartition_screen(int which);
+    void draw_repartition_detailed(CStat::T_dynamicalRepartition * tabRepartition,
+                                 int sizeOfTab);
+
+    string_array lines;
+
+    bool M_last;
+};
+
+extern ScreenPrinter* sp;
 
 #endif // __SCREEN_H__

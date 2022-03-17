@@ -32,7 +32,6 @@
 FileContents::FileContents(const char *fileName)
 {
     ifstream *inFile    = new ifstream(fileName);
-    char      line[MAX_CHAR_BUFFER_SIZE];
     int virtualLines = 0;
 
     if (!inFile->good()) {
@@ -48,8 +47,12 @@ FileContents::FileContents(const char *fileName)
     printfMultiple = 1;
 
 
-    line[0] = '\0';
-    inFile->getline(line, MAX_CHAR_BUFFER_SIZE);
+    std::string lineStr;
+    std::getline(*inFile, lineStr);
+    if (!lineStr.empty() && *lineStr.rbegin() == '\r') {
+        lineStr.pop_back();
+    }
+    const char* line = lineStr.c_str();
 
     if (NULL != strstr(line, "RANDOM")) {
         usage = InputFileRandomOrder;
@@ -58,25 +61,25 @@ FileContents::FileContents(const char *fileName)
     } else if (NULL != strstr(line, "USER")) {
         usage = InputFileUser;
     } else {
-        ERROR("Unknown file type (valid values are RANDOM, SEQUENTIAL, and USER) for %s:%s\n", fileName, line);
+        ERROR("Unknown file type (valid values are RANDOM, SEQUENTIAL, and USER) for %s:%s", fileName, line);
     }
 
-    char *useprintf;
+    const char *useprintf;
     if ((useprintf = strstr(line, "PRINTF"))) {
         /* We are going to operate in printf mode, which uses the line as a format
          * string for printf with the line number. */
         useprintf += strlen("PRINTF");
         if (*useprintf != '=') {
-            ERROR("Invalid file printf specification (requires =) for %s:%s\n", fileName, line);
+            ERROR("Invalid file printf specification (requires =) for %s:%s", fileName, line);
         }
         useprintf++;
         char *endptr;
         virtualLines = strtoul(useprintf, &endptr, 0);
         if (*endptr && *endptr != '\r' && *endptr != '\n' && *endptr != ',') {
-            ERROR("Invalid file printf specification for (invalid end character '%c') %s:%s\n", *endptr, fileName, line);
+            ERROR("Invalid file printf specification for (invalid end character '%c') %s:%s", *endptr, fileName, line);
         }
         if (virtualLines == 0) {
-            ERROR("A printf file must have at least one virtual line %s:%s\n", fileName, line);
+            ERROR("A printf file must have at least one virtual line %s:%s", fileName, line);
         }
         printfFile = true;
     }
@@ -84,35 +87,35 @@ FileContents::FileContents(const char *fileName)
     if ((useprintf = strstr(line, "PRINTFOFFSET"))) {
         useprintf += strlen("PRINTFOFFSET");
         if (*useprintf != '=') {
-            ERROR("Invalid file PRINTFOFFSET specification (requires =) for %s:%s\n", fileName, line);
+            ERROR("Invalid file PRINTFOFFSET specification (requires =) for %s:%s", fileName, line);
         }
         useprintf++;
         char *endptr;
         printfOffset = strtoul(useprintf, &endptr, 0);
         if (*endptr && *endptr != '\n' && *endptr != ',') {
-            ERROR("Invalid PRINTFOFFSET specification for (invalid end character '%c') %s:%s\n", *endptr, fileName, line);
+            ERROR("Invalid PRINTFOFFSET specification for (invalid end character '%c') %s:%s", *endptr, fileName, line);
         }
     }
 
     if ((useprintf = strstr(line, "PRINTFMULTIPLE"))) {
         useprintf += strlen("PRINTFMULTIPLE");
         if (*useprintf != '=') {
-            ERROR("Invalid PRINTFMULTIPLE specification (requires =) for %s:%s\n", fileName, line);
+            ERROR("Invalid PRINTFMULTIPLE specification (requires =) for %s:%s", fileName, line);
         }
         useprintf++;
         char *endptr;
         printfMultiple = strtoul(useprintf, &endptr, 0);
         if (*endptr && *endptr != '\n' && *endptr != ',') {
-            ERROR("Invalid PRINTFOFFSET specification for (invalid end character '%c') %s:%s\n", *endptr, fileName, line);
+            ERROR("Invalid PRINTFOFFSET specification for (invalid end character '%c') %s:%s", *endptr, fileName, line);
         }
     }
 
     while (!inFile->eof()) {
-        line[0] = '\0';
-        inFile->getline(line, MAX_CHAR_BUFFER_SIZE);
-        if (line[0]) {
-            if ('#' != line[0]) {
-                fileLines.push_back(line);
+        lineStr.clear();
+        std::getline(*inFile, lineStr);
+        if (!lineStr.empty()) {
+            if ('#' != lineStr[0]) {
+                fileLines.push_back(lineStr);
                 realLinesInFile++; /* this counts number of valid data lines */
             }
         } else {
@@ -121,7 +124,7 @@ FileContents::FileContents(const char *fileName)
     }
 
     if (realLinesInFile == 0) {
-        ERROR("Input file has zero lines: %s\n", fileName);
+        ERROR("Input file has zero lines: %s", fileName);
     }
 
     if (printfFile) {
@@ -220,7 +223,7 @@ int FileContents::getField(int lineNum, int field, char *dest, int len)
                         assert(s[i] == 'd');
                         char *tmp = (char *)malloc(s + i + 2 - format);
                         if (!tmp) {
-                            ERROR("Out of memory!\n");
+                            ERROR("Out of memory!");
                         }
                         memcpy(tmp, format, s + i + 1 - format);
                         tmp[s + i + 1 - format] = '\0';

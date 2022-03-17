@@ -107,6 +107,70 @@ TEST(xp_parser, set_xml_buffer_from_string__bad) {
     }
 }
 
+static void xp_traverse_stack() {
+    const char *elem;
+    int i = 0;
+    while ((elem = xp_open_element(i++))) {
+        xp_traverse_stack();
+        xp_close_element();
+    }
+}
+
+TEST(xp_parser, detect_unclosed_xml) {
+    int res;
+    int i;
+    const char *buffers[] = {
+        ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
+         "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\r\n"
+         "<scenario name=\"Valid XML\">\r\n"
+         "  <recv request=\"INVITTE\">\r\n"
+         "    <action>\r\n"
+         "      <log message=\"Log: \"/>\r\n"
+         "      <log message=\"Another log: \"/>\r\n"
+         "    </action>\r\n"
+         "  </recv>\r\n"
+         "  <send retrans=\"500\">\r\n"
+         "    <![CDATA[\r\n"
+         "      INVITE sip:domain SIP/2.0\r\n"
+         "    ]]>\r\n"
+         "  </send>\r\n"
+         "</scenario>\r\n"), /* 0th */
+        ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
+         "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\r\n"
+         "<scenario name=\"Broken XML\">\r\n"
+         "  <recv request=\"INVITTE\">\r\n" /* missing slash */
+         "  <send retrans=\"500\">\r\n"
+         "    <![CDATA[\r\n"
+         "      INVITE sip:domain SIP/2.0\r\n"
+         "    ]]>\r\n"
+         "  </send>\r\n"
+         "</scenario>\r\n"), /* 1st */
+        ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
+         "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\r\n"
+         "<scenario name=\"Broken XML\">\r\n"
+         "  <recv request=\"INVITTE\"/>\r\n" /* with slash */
+         "  </recv>\r\n"                     /* and extra /recv */
+         "  <send retrans=\"500\">\r\n"
+         "    <![CDATA[\r\n"
+         "      INVITE sip:domain SIP/2.0\r\n"
+         "    ]]>\r\n"
+         "  </send>\r\n"
+         "</scenario>\r\n"), /* 2nd */
+        NULL
+    };
+
+    for (i = 0; buffers[i]; ++i) {
+        const char *elem;
+        res = xp_set_xml_buffer_from_string(buffers[i]);
+        EXPECT_EQ(1, res);
+        elem = xp_open_element(0);
+        EXPECT_STREQ("scenario", elem);
+        xp_traverse_stack();
+        xp_close_element(); /* scenario */
+        EXPECT_EQ(!!i, xp_is_invalid()); /* all except 0 are invalid */
+    }
+}
+
 TEST(xp_unescape, empty) {
     char buffer[] = "";
     char dst[sizeof(buffer)];

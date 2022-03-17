@@ -52,13 +52,13 @@ watchdog::watchdog(int interval, int reset_interval, int major_threshold, int ma
 
 bool watchdog::run()
 {
-  getmilliseconds();
+    getmilliseconds();
 
-  unsigned expected_major_trigger_time = last_fire + this->major_threshold;
-  unsigned expected_minor_trigger_time = last_fire + this->minor_threshold;
+    unsigned expected_major_trigger_time = last_fire + this->major_threshold;
+    unsigned expected_minor_trigger_time = last_fire + this->minor_threshold;
 
-  bool major_watchdog_tripped = clock_tick > expected_major_trigger_time;
-  bool minor_watchdog_tripped = clock_tick > expected_minor_trigger_time;
+    bool major_watchdog_tripped = clock_tick > expected_major_trigger_time;
+    bool minor_watchdog_tripped = clock_tick > expected_minor_trigger_time;
 
     // Check if either watchdog has taken longer than expected to run,
     // and if so, warn that we are overloaded.
@@ -87,7 +87,7 @@ bool watchdog::run()
 
     // If the watchdogs have tripped too many times, end the SIPp run.
     if (major_watchdog_failure) {
-        ERROR("Overload error: the watchdog timer has tripped the major threshold of %dms too many times (%d out of %d allowed) (%d out of %d minor %dms timeouts tripped)\n",
+        ERROR("Overload error: the watchdog timer has tripped the major threshold of %dms too many times (%d out of %d allowed) (%d out of %d minor %dms timeouts tripped)",
               major_threshold,
               major_triggers,
               major_maxtriggers,
@@ -95,7 +95,7 @@ bool watchdog::run()
               minor_maxtriggers,
               minor_threshold);
     } else if (minor_watchdog_failure) {
-        ERROR("Overload error: the watchdog timer has tripped the minor threshold of %dms too many times (%d out of %d allowed) (%d out of %d major %dms timeouts tripped)\n",
+        ERROR("Overload error: the watchdog timer has tripped the minor threshold of %dms too many times (%d out of %d allowed) (%d out of %d major %dms timeouts tripped)",
               minor_threshold,
               minor_triggers,
               minor_maxtriggers,

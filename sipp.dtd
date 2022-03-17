@@ -1,10 +1,75 @@
-<!ELEMENT CallLengthRepartition EMPTY >
-<!ATTLIST CallLengthRepartition value CDATA #REQUIRED >
+<!ELEMENT scenario ( CallLengthRepartition | ResponseTimeRepartition | Reference | send | recv | pause | nop | sendCmd | recvCmd | label | timewait)* >
+<!ATTLIST scenario name CDATA #IMPLIED >
+
+<!-- BEGIN message commands -->
+
+<!ENTITY % messageCmdCommon '
+  start_rtd NMTOKEN #IMPLIED
+  rtd NMTOKEN #IMPLIED
+  repeat_rtd (true|false) #IMPLIED
+  crlf (true|false) #IMPLIED
+  next NMTOKEN #IMPLIED
+  test NMTOKEN #IMPLIED
+  chance NMTOKEN #IMPLIED
+  condexec NMTOKEN #IMPLIED
+  condexec_inverse NMTOKEN #IMPLIED
+  counter NMTOKEN #IMPLIED
+  '>
+
+<!ELEMENT send (#PCDATA|action)* >
+<!ATTLIST send %messageCmdCommon; >
+<!ATTLIST send retrans NMTOKEN #IMPLIED >
+<!ATTLIST send lost NMTOKEN #IMPLIED >
+<!ATTLIST send start_txn NMTOKEN #IMPLIED >
+<!ATTLIST send ack_txn NMTOKEN #IMPLIED >
+
+<!ELEMENT recv ( action? ) >
+<!ATTLIST recv %messageCmdCommon; >
+<!ATTLIST recv response NMTOKEN #IMPLIED >
+<!ATTLIST recv request CDATA #IMPLIED >
+<!ATTLIST recv optional (true|false) #IMPLIED >
+<!ATTLIST recv ignosesdp (true|false) #IMPLIED >
+<!ATTLIST recv rrs (true|false) #IMPLIED >
+<!ATTLIST recv auth (true|false) #IMPLIED >
+<!ATTLIST recv lost NMTOKEN #IMPLIED >
+<!ATTLIST recv timeout NMTOKEN #IMPLIED >
+<!ATTLIST recv ontimeout NMTOKEN #IMPLIED >
+<!ATTLIST recv regexp_match (true|false) #IMPLIED >
+<!ATTLIST recv response_txn NMTOKEN #IMPLIED >
+
+<!ELEMENT pause EMPTY >
+<!ATTLIST pause %messageCmdCommon; >
+<!ATTLIST pause milliseconds NMTOKEN #IMPLIED >
+<!ATTLIST pause variable NMTOKEN #IMPLIED >
+<!ATTLIST pause distribution NMTOKEN #IMPLIED >
+<!ATTLIST pause sanity_check (true|false) #IMPLIED >
+
+<!ELEMENT nop ( action? ) >
+<!ATTLIST nop %messageCmdCommon; >
+<!ATTLIST nop display CDATA #IMPLIED >
+
+<!ELEMENT sendCmd ( #PCDATA ) >
+<!ATTLIST sendCmd %messageCmdCommon; >
+<!ATTLIST sendCmd dest NMTOKEN #IMPLIED >
+
+<!ELEMENT recvCmd ( action? ) >
+<!ATTLIST recvCmd %messageCmdCommon; >
+<!ATTLIST recvCmd src NMTOKEN #IMPLIED >
+
+<!-- END message commands -->
+
+<!ELEMENT label ( #PCDATA ) >
+<!ATTLIST label id NMTOKEN #IMPLIED >
 
 <!ELEMENT ResponseTimeRepartition EMPTY >
 <!ATTLIST ResponseTimeRepartition value CDATA #REQUIRED >
 
-<!ELEMENT action ( ereg | log | exec )+ >
+<!ELEMENT CallLengthRepartition EMPTY >
+<!ATTLIST CallLengthRepartition value CDATA #REQUIRED >
+
+<!ELEMENT action ( add | assign | assignstr | closecon | divide | ereg | error | exec | gettimeofday | index | insert | jump | log | lookup | multiply | pauserestore | replace | rtp_echo | sample | setdest | strcmp | subtract | test | todouble | trim | verifyauth | warning )+ >
+
+<!-- BEGIN actions -->
 
 <!ELEMENT ereg EMPTY >
 <!ATTLIST ereg assign_to CDATA #REQUIRED >
@@ -12,49 +77,40 @@
 <!ATTLIST ereg header NMTOKEN #IMPLIED >
 <!ATTLIST ereg regexp CDATA #REQUIRED >
 <!ATTLIST ereg search_in (msg|hdr) "msg" >
+<!ATTLIST ereg start_line (true|false) #IMPLIED >
 
 <!ELEMENT log EMPTY >
 <!ATTLIST log message CDATA #REQUIRED >
 
+<!ELEMENT warning EMPTY >
+<!ATTLIST warning message CDATA #REQUIRED >
+
 <!ELEMENT exec EMPTY >
 <!-- one of command or int_cmd must be present -->
-<!ATTLIST exec command CDATA >
+<!ATTLIST exec command CDATA #IMPLIED >
 <!ATTLIST exec int_cmd (stop_now|stop_gracefully|stop_call) "stop_call" >
-<!ATTLIST exec play_pcap CDATA >
-<!ATTLIST exec rtp_stream CDATA >
+<!ATTLIST exec play_pcap CDATA #IMPLIED >
+<!ATTLIST exec play_pcap_audio CDATA #IMPLIED >
+<!ATTLIST exec rtp_stream CDATA #IMPLIED >
 
-<!ELEMENT pause EMPTY >
-<!ATTLIST pause milliseconds NMTOKEN #IMPLIED >
-<!ATTLIST pause next NMTOKEN #IMPLIED >
-<!ATTLIST pause test NMTOKEN #IMPLIED >
+<!ELEMENT rtp_echo EMPTY >
+<!ATTLIST rtp_echo value CDATA #REQUIRED >
 
-<!ELEMENT recv ( action? ) >
-<!ATTLIST recv crlf NMTOKEN #IMPLIED >
-<!ATTLIST recv optional (true|false) #IMPLIED >
-<!ATTLIST recv next NMTOKEN #IMPLIED >
-<!ATTLIST recv test NMTOKEN #IMPLIED >
-<!ATTLIST recv response NMTOKEN #IMPLIED >
-<!ATTLIST recv request NMTOKEN #IMPLIED >
-<!ATTLIST recv lost NMTOKEN #IMPLIED >
-<!ATTLIST recv rtd (true|false) #IMPLIED >
-<!ATTLIST recv rrs (true|false) #IMPLIED >
-<!ATTLIST recv start_rtd (true|false) #IMPLIED >
+<!ELEMENT strcmp EMPTY >
+<!ATTLIST strcmp assign_to CDATA #REQUIRED >
+<!ATTLIST strcmp value CDATA #REQUIRED >
+<!ATTLIST strcmp variable CDATA #REQUIRED >
 
-<!ELEMENT scenario ( CallLengthRepartition | ResponseTimeRepartition | pause | recv | send | sendCmd | recvCmd | label)* >
-<!ATTLIST scenario name CDATA #REQUIRED >
+<!ELEMENT test EMPTY >
+<!ATTLIST test assign_to CDATA #REQUIRED >
+<!ATTLIST test compare CDATA #REQUIRED >
+<!ATTLIST test value CDATA #REQUIRED >
+<!ATTLIST test variable CDATA #REQUIRED >
 
-<!ELEMENT send ( action? ) >
-<!ATTLIST send retrans NMTOKEN #IMPLIED >
-<!ATTLIST send next NMTOKEN #IMPLIED >
-<!ATTLIST send test NMTOKEN #IMPLIED >
-<!ATTLIST send lost NMTOKEN #IMPLIED >
-<!ATTLIST send rtd (true|false) #IMPLIED >
-<!ATTLIST send start_rtd (true|false) #IMPLIED >
+<!-- END actions -->
 
-<!ELEMENT sendCmd ( #PCDATA ) >
+<!ELEMENT timewait EMPTY >
+<!ATTLIST timewait milliseconds CDATA #REQUIRED >
 
-<!ELEMENT label ( #PCDATA ) >
-<!ATTLIST label id NMTOKEN #IMPLIED >
-
-<!ELEMENT recvCmd ( action? ) >
-
+<!ELEMENT Reference EMPTY >
+<!ATTLIST Reference variables CDATA #REQUIRED >

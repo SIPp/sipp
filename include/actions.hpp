@@ -30,9 +30,7 @@ class CSample;
 #ifdef PCAPPLAY
 #include "prepare_pcap.h"
 #endif
-#ifdef RTP_STREAM
 #include "rtpstream.hpp"
-#endif
 
 #define MAX_ACTION_MESSAGE 3
 
@@ -73,12 +71,12 @@ public:
         E_AT_PLAY_PCAP_AUDIO,
         E_AT_PLAY_PCAP_IMAGE,
         E_AT_PLAY_PCAP_VIDEO,
+        E_AT_PLAY_DTMF,
 #endif
-#ifdef RTP_STREAM
-      E_AT_RTP_STREAM_PAUSE,
-      E_AT_RTP_STREAM_RESUME,
-      E_AT_RTP_STREAM_PLAY,
-#endif
+        E_AT_RTP_STREAM_PAUSE,
+        E_AT_RTP_STREAM_RESUME,
+        E_AT_RTP_STREAM_PLAY,
+        E_AT_RTP_ECHO,
         E_AT_NB_ACTION
     };
 
@@ -110,7 +108,7 @@ public:
     typedef struct _T_Action {
     } T_Action;
 
-    void afficheInfo();
+    void printInfo(char* buf, int len);
     const char *comparatorToString(T_Comparator comp);
     bool compare(VariableTable *variableTable);
 
@@ -133,9 +131,7 @@ public:
 #ifdef PCAPPLAY
     pcap_pkts     *getPcapPkts(); /* send_packets specific function */
 #endif
-#ifdef RTP_STREAM
     rtpstream_actinfo_t *getRTPStreamActInfo(); /* return stored rtp stream playback params */
-#endif
 
     void setActionType   (T_ActionType   P_value);
     void setLookingPlace (T_LookingPlace P_value);
@@ -153,7 +149,7 @@ public:
     void setScenario     (scenario *     P_scenario);
     void setRegExp       (const char*    P_value);  /* ereg specific function. */
     int  executeRegExp   (const char*    P_string, VariableTable *P_callVarTable);
-    void setMessage      (char*          P_value, int n = 0);  /* log specific function  */
+    void setMessage(const char* P_value, int n = 0);  /* log specific function  */
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
     void setDistribution (CSample *      P_value);  /* sample specific function  */
     void setDoubleValue  (double         P_value);  /* assign value specific function  */
@@ -162,10 +158,8 @@ public:
     void setPcapArgs(const char* P_value);          /* send_packets specific function */
     void setPcapArgs     (pcap_pkts   *  P_value);  /* send_packets specific function */
 #endif
-#ifdef RTP_STREAM
     void setRTPStreamActInfo(const char* P_value);  /* parse rtp stream playback values from string */
-    void setRTPStreamActInfo (rtpstream_actinfo_t *P_value); /* copy stored rtp stream playback params */
-#endif
+    void setRTPStreamActInfo(rtpstream_actinfo_t* P_value); /* copy stored rtp stream playback params */
 
     void setSubVarId     (int P_value);
     int  getSubVarId     (int P_index);
@@ -217,16 +211,14 @@ private:
     /* pcap specific member */
     pcap_pkts *    M_pcapArgs;
 #endif
-#ifdef RTP_STREAM
-      rtpstream_actinfo_t M_rtpstream_actinfo;
-#endif
+    rtpstream_actinfo_t M_rtpstream_actinfo;
     void setSubString(char** P_target, const char* P_source, int P_start, int P_stop);
 };
 
 class CActions
 {
 public:
-    void afficheInfo();
+    void printInfo();
     void setAction(CAction *P_action);
     void reset();
     int  getActionSize();

@@ -28,27 +28,27 @@ public:
     virtual ~socketowner();
 
     /* Associate/Dissociate this call with a socket. */
-    struct sipp_socket *associate_socket(struct sipp_socket *socket);
-    struct sipp_socket *dissociate_socket();
+    SIPpSocket *associate_socket(SIPpSocket *socket);
+    SIPpSocket *dissociate_socket();
 
     /* Notification of TCP Close events. */
     virtual void tcpClose() = 0;
 protected:
     /* What socket is this call bound to. */
-    struct sipp_socket *call_socket;
+    SIPpSocket *call_socket;
     unsigned long ownerid;
     static unsigned long nextownerid;
 
 private:
-    void add_owner_to_socket(struct sipp_socket *socket);
-    void remove_owner_from_socket(struct sipp_socket *socket);
+    void add_owner_to_socket(SIPpSocket *socket);
+    void remove_owner_from_socket(SIPpSocket *socket);
 };
 
 typedef std::map<unsigned long, socketowner *> owner_map;
-typedef std::pair<struct sipp_socket *,owner_map *> socket_map_pair;
-typedef std::map<struct sipp_socket *, void *> socket_owner_map_map;
+typedef std::pair<SIPpSocket *,owner_map *> socket_map_pair;
+typedef std::map<SIPpSocket *, void *> socket_owner_map_map;
 typedef std::list<socketowner *> owner_list;
 typedef std::pair<unsigned long, socketowner *> long_owner_pair;
-owner_list *get_owners_for_socket(struct sipp_socket *socket);
+owner_list *get_owners_for_socket(SIPpSocket *socket);
 
 #endif

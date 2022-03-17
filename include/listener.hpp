@@ -35,8 +35,8 @@ public:
     listener(const char *id, bool listening);
     virtual ~listener();
     char *getId();
-    virtual bool process_incoming(char * msg, struct sockaddr_storage *src) = 0;
-    virtual bool process_twinSippCom(char * msg) = 0;
+    virtual bool process_incoming(const char* msg, const struct sockaddr_storage* src) = 0;
+    virtual bool process_twinSippCom(char* msg) = 0;
 
 protected:
     void startListening();

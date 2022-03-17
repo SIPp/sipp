@@ -1,5 +1,4 @@
 /*
-
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation; either version 2 of the License, or
@@ -22,40 +21,136 @@
 #define __SIPP_SOCKET_H__
 
 #ifdef USE_OPENSSL
-#include "sslcommon.h"
+#include "sslsocket.hpp"
+#endif
 
-enum ssl_init_status {
-    SSL_INIT_NORMAL, /* 0   Normal completion    */
-    SSL_INIT_ERROR   /* 1   Unspecified error    */
+/**
+ * On some systems you must pass the exact sockaddr struct size to
+ * connect/bind/sendto calls. Passing a length that is too large
+ * causes EINVAL.
+ *
+ * For instance on OSX. If you don't, you'll get this:
+ * Unable to bind audio RTP socket (IP=X.X.X.X, port=6100), errno = 22
+ * (Invalid argument).
+ *
+ * Usage:
+ *
+ *   struct sockaddr_storage addr;
+ *   ...
+ *   bind(socket, (struct sockaddr*)&addr, socklen_from_addr(&addr));
+ */
+inline socklen_t socklen_from_addr(const struct sockaddr_storage* ss) {
+    if (ss->ss_family == AF_INET) {
+        return sizeof(struct sockaddr_in);
+    } else if (ss->ss_family == AF_INET6) {
+        return sizeof(struct sockaddr_in6);
+    } else {
+        assert(false);
+        return 0;
+    }
+}
+
+int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
+                    unsigned short port, int flags, int family);
+int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
+                    const char *service, int flags, int family);
+void sockaddr_update_port(struct sockaddr_storage* ss, short port);
+
+
+/* This is an abstraction of a socket, which provides buffers for input and
+ * output. */
+class SIPpSocket {
+public:
+    SIPpSocket(bool use_ipv6, int transport, int fd, int accepting);
+    static SIPpSocket* new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
+    void set_bind_port(int bind_port);
+
+    int connect(struct sockaddr_storage* dest = NULL);
+    int reconnect();
+
+    // Reset a failed connection
+    void reset_connection();
+
+    // Accept new connections from a TCP socket
+    SIPpSocket* accept();
+
+    // Write data to the socket.
+    int write(const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
+
+    // Empty data from the socket into our buffer
+    int empty();
+
+    // Decrement the reference count of this socket, shutting it down when it reaches 0
+    void close();
+
+    int read_error(int ret);
+
+    // Have we read a message from this socket?
+    bool message_ready() { return ss_msglen > 0; };
+
+    static void pollset_process(int wait);
+
+    int ss_count;           /* How many users are there of this socket? */
+    bool ss_ipv6;
+    int ss_transport;       /* T_TCP, T_UDP, or T_TLS. */
+    bool ss_control;        /* Is this a control socket? */
+    int ss_fd;              /* The underlying file descriptor for this socket. */
+    int ss_port;            /* The port used by this socket */
+    int ss_bind_port;       /* Optional local port used by this socket */
+    void *ss_comp_state;    /* The compression state. */
+
+    bool ss_changed_dest;   /* Has the destination changed from default. */
+    struct sockaddr_storage ss_dest; /* Who we are talking to. */
+
+private:
+    bool ss_congested; /* Is this socket congested? */
+    bool ss_invalid; /* Has this socket been closed remotely? */
+
+    int handleSCTPNotify(char* buffer);
+    void sipp_sctp_peer_params();
+    void invalidate();
+    void buffer_read(struct socketbuf *newbuf);
+    void buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest);
+    ssize_t read_message(char *buf, size_t len, struct sockaddr_storage *src);
+    struct socketbuf *ss_in;    /* Buffered input. */
+    struct socketbuf *ss_out;   /* Buffered output. */
+    struct socketbuf *ss_out_tail; /* Tail of buffered output */
+    size_t ss_msglen;           /* Is there a complete SIP message waiting, and if so how big? */
+
+    void close_calls();
+    int flush();
+    int write_error(int ret);
+    void abort();
+    int check_for_message();
+    int enter_congestion(int again);
+    ssize_t write_primitive(const char* buffer, size_t len,
+                            struct sockaddr_storage* dest);
+
+
+    bool ss_call_socket; /* Is this a call socket? */
+
+#ifdef USE_OPENSSL
+    SSL *ss_ssl; /* The underlying SSL descriptor for this socket. */
+    BIO *ss_bio; /* The underlying BIO descriptor for this socket. */
+#endif
+
+    int ss_pollidx; /* The index of this socket in our poll structures. */
+
+#ifdef USE_SCTP
+    int sctpstate;
+#endif
 };
 
-extern  SSL_CTX  *sip_trp_ssl_ctx;
-extern  SSL_CTX  *sip_trp_ssl_ctx_client;
 
-const char *sip_tls_error_string(SSL *ssl, int size);
-ssl_init_status FI_init_ssl_context (void);
-#endif
-int flush_socket(struct sipp_socket *socket);
-int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
-void sipp_sctp_peer_params(struct sipp_socket *socket);
-void buffer_read(struct sipp_socket *socket, struct socketbuf *newbuf);
-int read_error(struct sipp_socket *socket, int ret);
-struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy, struct sockaddr_storage *dest);
-ssize_t read_message(struct sipp_socket *socket, char *buf, size_t len, struct sockaddr_storage *src);
-int empty_socket(struct sipp_socket *socket);
-
-struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, int accepting);
 
 void setup_ctrl_socket();
 void setup_stdin_socket();
 
 int handle_ctrl_socket();
 void handle_stdin_socket();
-void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, struct sockaddr_storage *src);
 
-//int write_error(struct sipp_socket *socket, int ret);
-int enter_congestion(struct sipp_socket *socket, int again);
-void buffer_write(struct sipp_socket *socket, const char *buffer, size_t len, struct sockaddr_storage *dest);
+void process_message(SIPpSocket* socket, char *msg, ssize_t msg_size, struct sockaddr_storage *src);
+bool reconnect_allowed();
 
 /********************** Network Interfaces ********************/
 
@@ -68,6 +163,7 @@ int send_message_tls(SSL *s, void ** comp_state, char * msg);
 #define NO_COPY 0
 #define DO_COPY 1
 struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy);
+struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy, struct sockaddr_storage *dest);
 void free_socketbuf(struct socketbuf *socketbuf);
 
 /* These buffers lets us read past the end of the message, and then split it if
@@ -86,61 +182,17 @@ struct socketbuf {
 #define SCTP_CONNECTING 1
 #define SCTP_UP 2
 #endif
-/* This is an abstraction of a socket, which provides buffers for input and
- * output. */
-struct sipp_socket {
-    int  ss_count; /* How many users are there of this socket? */
-
-    int ss_transport;   /* T_TCP, T_UDP, or T_TLS. */
-    bool ss_ipv6;
-    bool ss_control;    /* Is this a control socket? */
-    bool ss_call_socket; /* Is this a call socket? */
-    bool ss_changed_dest; /* Has the destination changed from default. */
-
-    int ss_fd;          /* The underlying file descriptor for this socket. */
-    void *ss_comp_state; /* The compression state. */
-#ifdef USE_OPENSSL
-    SSL *ss_ssl;        /* The underlying SSL descriptor for this socket. */
-    BIO *ss_bio;        /* The underlying BIO descriptor for this socket. */
-#endif
-    struct sockaddr_storage ss_remote_sockaddr; /* Who we are talking to. */
-    struct sockaddr_storage ss_dest; /* Who we are talking to. */
-
-
-    int ss_pollidx; /* The index of this socket in our poll structures. */
-    bool ss_congested; /* Is this socket congested? */
-    bool ss_invalid; /* Has this socket been closed remotely? */
-
-    struct socketbuf *ss_in; /* Buffered input. */
-    size_t ss_msglen;        /* Is there a complete SIP message waiting, and if so how big? */
-    struct socketbuf *ss_out; /* Buffered output. */
-#ifdef USE_SCTP
-    int sctpstate;
-#endif
-};
-
-/* Write data to a socket. */
-int write_socket(struct sipp_socket *socket, const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest);
-/* Mark a socket as "bad". */
-void sipp_socket_invalidate(struct sipp_socket *socket);
 /* Abort a connection - close the socket quickly. */
-void sipp_abort_connection(int fd);
-/* Actually free the socket. */
-void sipp_close_socket(struct sipp_socket *socket);
 
 #define WS_EAGAIN 1 /* Return EAGAIN if there is no room for writing the message. */
 #define WS_BUFFER 2 /* Buffer the message if there is no room for writing the message. */
 
 
-#if defined (__hpux) || defined (__alpha) && !defined (__FreeBSD__)
-#define sipp_socklen_t  int
+#if defined (__hpux) || (defined (__alpha) && !defined (__FreeBSD__) && !defined (__linux__))
+#define sipp_socklen_t int
 #else
-#define sipp_socklen_t  socklen_t
+#define sipp_socklen_t socklen_t
 #endif
-
-#define SOCK_ADDR_SIZE(a) \
-  (((a)->ss_family == AF_INET) ? sizeof(struct sockaddr_in) \
-                               : sizeof(struct sockaddr_in6))
 
 #if defined(__cplusplus) && defined (__hpux)
 #define _RCAST(type, val) (reinterpret_cast<type> (val))
@@ -148,5 +200,10 @@ void sipp_close_socket(struct sipp_socket *socket);
 #define _RCAST(type, val) ((type)(val))
 #endif
 
+/* Time to wait in microseconds before retrying querying an SSL socket */
+#define SIPP_SSL_RETRY_TIMEOUT 200000
+
+/* Max retries when querying an SSL socket */
+#define SIPP_SSL_MAX_RETRIES 10
 
 #endif /* __SIPP_SOCKET_H__ */

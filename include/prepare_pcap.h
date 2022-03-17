@@ -23,32 +23,8 @@
 #include <stdint.h>
 #include <time.h>
 
-#if defined(__HPUX) || defined(__DARWIN) || defined(__CYGWIN) || defined(__FreeBSD__)
-
-struct iphdr {
-#ifdef _HPUX_LI
-    unsigned int ihl:4;
-    unsigned int version:4;
-#else
-    unsigned int version:4;
-    unsigned int ihl:4;
-#endif
-    uint8_t tos;
-    uint16_t tot_len;
-    uint16_t id;
-    uint16_t frag_off;
-    uint8_t ttl;
-    uint8_t protocol;
-    uint16_t check;
-    uint32_t saddr;
-    uint32_t daddr;
-    /*The options start here. */
-};
-
-#endif
-
 typedef struct {
-    u_char *data;
+    u_char* data;
     u_long pktlen;
     struct timeval ts;
     int partial_check;
@@ -56,19 +32,20 @@ typedef struct {
 
 #define PCAP_MAXPACKET 1500
 typedef struct {
-    char *file;
+    char* file;
     uint16_t base;
     u_long max_length;
-    pcap_pkt *max;
-    pcap_pkt *pkts;
+    pcap_pkt* max;
+    pcap_pkt* pkts;
 } pcap_pkts;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-    int check(uint16_t *, int);
+    int check(uint16_t*, int);
     uint16_t checksum_carry(int);
-    int prepare_pkts(char *, pcap_pkts *);
+    int prepare_pkts(const char*, pcap_pkts*);
+    int prepare_dtmf(const char*, pcap_pkts*, uint16_t start_seq_no);
 #ifdef __cplusplus
 }
 #endif
