@@ -42,6 +42,8 @@ can enable SSL, PCAP and SCTP support by calling `./build.sh
 --with-pcap --with-sctp --with-openssl` or `./build.sh --full` to enable
 all optional features.
 
+Note for trustid - normally we build with:  build.sh --with-openssl
+
 # Support
 
 I try and be responsive to issues raised on Github, and there's [a

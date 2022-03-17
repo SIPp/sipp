@@ -135,8 +135,11 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
     c+= sprintf(c, ".\n");
     screen_errors++;
 
+    // 02/16/2022 - NVF Removed this to prevent deadlock when  the rotate_errorf() reueses the same lock
+    // 02/16/2022 - HYDE changed to use rotate_errorf_nolock() to avoid dead lock
+    pthread_mutex_lock(error_lfi.lockfile);
     if (!error_lfi.fptr && print_all_responses) {
-        rotate_errorf();
+        rotate_errorf_nolock();
         if (error_lfi.fptr) {
             fprintf(error_lfi.fptr, "%s: The following events occured:\n",
                     screen_exename);
@@ -154,7 +157,7 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
         count += fprintf(error_lfi.fptr, "%s", screen_last_error);
         fflush(error_lfi.fptr);
         if (ringbuffer_size && count > ringbuffer_size) {
-            rotate_errorf();
+            rotate_errorf_nolock();
             count = 0;
         }
         if (max_log_size && count > max_log_size) {
@@ -170,6 +173,7 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
         fprintf(stderr, "%s", screen_last_error);
         fflush(stderr);
     }
+    pthread_mutex_unlock(error_lfi.lockfile);
 
     if (fatal) {
         if (!screen_inited) {

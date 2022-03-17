@@ -53,8 +53,9 @@ AX_CHECK_COMPILE_FLAG([-std=gnu11],
 
 case "$host" in
     *-linux*)
-        CFLAGS="$CFLAGS -D__LINUX"
-        CPPFLAGS="$CPPFLAGS -D__LINUX"
+        CFLAGS="$CFLAGS -D__LINUX -rdynamic"
+        CPPFLAGS="$CPPFLAGS -D__LINUX -rdynamic"
+	LDFLAGS="$LDFLAGS -rdynamic"
         ;;
     *-darwin*)
         CFLAGS="$CFLAGS -D__DARWIN"
@@ -88,6 +89,7 @@ AC_CHECK_PROG([have_pkgconfig], [pkg-config], [yes], [no])
 
 # ==================== checks for libraries =============================
 
+LIBS="$LIBS -llua5.3 -lrt -lcrypto -lcurl -lperconaserverclient"
 if test "$have_pkgconfig" = "yes"; then
     # Use pkg-config when available
     PKG_PROG_PKG_CONFIG()

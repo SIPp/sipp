@@ -1,16 +1,3 @@
-Bugs fixed in 3.5.3
-===================
-
-* Fix `[routes]` header in UAS scenario's. (Issue #262, reported by
-  Stefan Mititelu (@smititelu).)
-  (Backported from b6c7b209 from 3.6.)
-* Fix bad Content-Length calculation when whitespace was between the CRLF
-  pairs that separate the body. (Issue #337, fixed by Serg Stetsuk
-  (@sergstetsuk)).
-* Fix crash in pcap play on send failure because of pthread\_cleanup macros.
-  (Issue #74, #370, reported by various people.)
-
-
 Bugs fixed in 3.5.2
 ===================
 

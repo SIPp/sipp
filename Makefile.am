@@ -6,6 +6,7 @@ TESTS = sipp_unittest
 
 check_PROGRAMS = $(TESTS)
 
+DEFAULT_INCLUDES = -I. -I$(top_builddir)/include -I/usr/include/lua5.3 -I/usr/include/x86_64-linux-gnu/curl -I/usr/include/mysql
 AM_CFLAGS=-I$(srcdir)/include -Wall -pedantic
 AM_CXXFLAGS=-I$(srcdir)/include -Wall -pedantic
 
@@ -82,6 +83,7 @@ common_incl = \
 	include/variables.hpp \
 	include/watchdog.hpp \
 	include/xp_parser.h \
+	include/sipp_rpc.h \
 	include/actions.hpp \
 	include/call.hpp \
 	include/auth.hpp \
@@ -92,6 +94,8 @@ common_SOURCES = \
 	src/auth.cpp \
 	src/comp.c \
 	src/call.cpp \
+	src/apifunc.cpp \
+	src/customfuncs.cpp \
 	src/deadcall.cpp \
 	src/infile.cpp \
 	src/listener.cpp \
@@ -115,6 +119,7 @@ common_SOURCES = \
 	src/variables.cpp \
 	src/watchdog.cpp \
 	src/xp_parser.c \
+	src/sipp-rpc_xdr.c \
 	$(common_incl) \
 	$(ssl_SOURCES) \
 	$(pcap_SOURCES) \
@@ -132,6 +137,18 @@ sipp_LDADD = @LIBOBJS@ @GSL_LIBS@
 # call.cpp and sipp.cpp use version.h; see AM_GIT_VERSION.
 src/call.cpp: include/version.h
 src/sipp.cpp: include/version.h
+
+# Make a shared library to use as a plugin
+myapp: myapp.so
+
+src/myapp.o: src/myapp.cpp
+	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) -rdynamic -fPIC $(CPPFLAGS) $(sipp_CXXFLAGS) $(CXXFLAGS) -c src/myapp.cpp  -o src/myapp.o
+	echo "done building shared custom app"
+
+
+myapp.so: src/myapp.o
+	g++ -rdynamic -fPIC -shared $(SO_OPTION) src/myapp.o  $(LIBS) -o $@
+
 
 gtest_SOURCES = \
 	gtest/src/gtest-death-test.cc \

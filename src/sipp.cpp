@@ -47,8 +47,26 @@
 #include "config.h"
 #include "version.h"
 
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <unistd.h>
+
+//#include "/usr/include/curl/curl.h"
+//#include "/usr/include/curl/easy.h"
+#include "curl.h"
+#include "easy.h"
+
+#include "mysql.h"
+
+#include "sipp-rpc.h"
+#include <rpc/pmap_clnt.h>
+
 extern struct sipp_socket *ctrl_socket;
 extern struct sipp_socket *stdin_socket;
+void rpc_thread(void* param);
 
 /* These could be local to main, but for the option processing table. */
 static int argiFileName;
@@ -104,6 +122,10 @@ struct sipp_option {
 #define SIPP_OPTION_PLUGIN        38
 #define SIPP_OPTION_NEED_SCTP     39
 #define SIPP_HELP_TEXT_HEADER    255
+
+#ifndef SIG_PF
+#define SIG_PF void(*)(int)
+#endif
 
 /* Put each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
@@ -210,6 +232,7 @@ struct sipp_option options_table[] = {
 
     {"", "Call behavior options:", SIPP_HELP_TEXT_HEADER, NULL, 0},
     {"aa", "Enable automatic 200 OK answer for INFO, NOTIFY, OPTIONS and UPDATE.", SIPP_OPTION_SETFLAG, &auto_answer, 1},
+    {"aalog", "When auto answer enabled, whether log the action in error log file.", SIPP_OPTION_SETFLAG, &log4auto_answer, 1},
     {"base_cseq", "Start value of [cseq] for each call.", SIPP_OPTION_CSEQ, NULL, 1},
     {"cid_str", "Call ID string (default %u-%p@%s).  %u=call_number, %s=ip_address, %p=process_number, %%=% (in any order).", SIPP_OPTION_STRING, &call_id_string, 1},
     {"d", "Controls the length of calls. More precisely, this controls the duration of 'pause' instructions in the scenario, if they do not have a 'milliseconds' section. Default value is 0 and default unit is milliseconds.", SIPP_OPTION_TIME_MS, &duration, 1},
@@ -371,10 +394,13 @@ struct sipp_option options_table[] = {
     {"trace_logs", "Allow tracing of <log> actions in <scenario file name>_<pid>_logs.log.", SIPP_OPTION_SETFLAG, &useLogf, 1},
     {"log_file", "Set the name of the log actions log file.", SIPP_OPTION_LFNAME, &log_lfi, 1},
     {"log_overwrite", "Overwrite the log actions log file (default true).", SIPP_OPTION_LFOVERWRITE, &log_lfi, 1},
+    {"enable_rpc", "Enable binding to RPC", SIPP_OPTION_SETFLAG, &enable_rpc, 1},
 
     {"ringbuffer_files", "How many error, message, shortmessage and calldebug files should be kept after rotation?", SIPP_OPTION_INT, &ringbuffer_files, 1},
     {"ringbuffer_size", "How large should error, message, shortmessage and calldebug files be before they get rotated?", SIPP_OPTION_LONG_LONG, &ringbuffer_size, 1},
     {"max_log_size", "What is the limit for error, message, shortmessage and calldebug file sizes.", SIPP_OPTION_LONG_LONG, &max_log_size, 1},
+    {"pid_file", "Set the name for pid file. Default is 'sipp.pid'", SIPP_OPTION_STRING, &pid_file, 1},
+    {"lua_file", "Set the name for lua file. Default is 'sipp.lua'", SIPP_OPTION_STRING, &lua_file, 1},
 
 };
 
@@ -863,6 +889,7 @@ static void rtp_echo_thread(void* param)
             rtp2_bytes += ns;
         }
     }
+    pthread_exit(NULL); // 2/8/2022 - NVF Added
 }
 
 /* Wrap the help text. */
@@ -1404,11 +1431,82 @@ static void setup_media_sockets()
     }
 }
 
+
+#define USE_OPENSSLX /* or USE_GNUTLS accordingly */
+
+/* we have this global to let the callback get easy access to it */
+static pthread_mutex_t *lockarray;
+
+#ifdef USE_OPENSSLX
+#include <openssl/crypto.h>
+static void lock_callback(int mode, int type, char *file, int line)
+{
+        (void)file;
+        (void)line;
+        if (mode & CRYPTO_LOCK) {
+                pthread_mutex_lock(&(lockarray[type]));
+        } else {
+                pthread_mutex_unlock(&(lockarray[type]));
+        }
+}
+
+static unsigned long thread_id(void)
+{
+        unsigned long ret;
+
+        ret = (unsigned long)pthread_self();
+        return (ret);
+}
+
+static void init_locks(void)
+{
+        int i;
+        struct logfile_info** logfile_ptr;
+        struct logfile_info* logfiles[] = {
+            &screen_lfi, &calldebug_lfi, &message_lfi, &shortmessage_lfi, &log_lfi, &error_lfi, NULL};
+
+        lockarray = (pthread_mutex_t *)OPENSSL_malloc(CRYPTO_num_locks() *
+                    sizeof(pthread_mutex_t));
+        for (i = 0; i < CRYPTO_num_locks(); i++) {
+                pthread_mutex_init(&(lockarray[i]), NULL);
+        }
+
+        CRYPTO_set_id_callback((unsigned long (*)())thread_id);
+        CRYPTO_set_locking_callback((void (*)(int, int, const char *, int))lock_callback);
+
+        /* Inite logfile mutexs. */
+        for (logfile_ptr = logfiles; *logfile_ptr; ++logfile_ptr) {
+            (*logfile_ptr)->lockfile = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+            pthread_mutex_init((*logfile_ptr)->lockfile, NULL);
+        }
+
+}
+
+static void kill_locks(void)
+{
+        int i;
+        struct logfile_info** logfile_ptr;
+        struct logfile_info* logfiles[] = {
+            &screen_lfi, &calldebug_lfi, &message_lfi, &shortmessage_lfi, &log_lfi, &error_lfi, NULL};
+
+        CRYPTO_set_locking_callback(NULL);
+        for (i = 0; i < CRYPTO_num_locks(); i++)
+                pthread_mutex_destroy(&(lockarray[i]));
+
+        OPENSSL_free(lockarray);
+
+        /* Inite logfile mutexs. */
+        for (logfile_ptr = logfiles; *logfile_ptr; ++logfile_ptr) {
+            (*logfile_ptr)->lockfile = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+            pthread_mutex_destroy((*logfile_ptr)->lockfile);
+        }
+}
+#endif
 /* Main */
 int main(int argc, char *argv[])
 {
     int                  argi = 0;
-    pthread_t pthread2_id = 0, pthread3_id = 0;
+    pthread_t pthread2_id = 0, pthread3_id = 0, pthread4_id = 0;
     unsigned int         generic_count = 0;
     bool                 slave_masterSet = false;
 
@@ -1420,7 +1518,12 @@ int main(int argc, char *argv[])
         exit(EXIT_OTHER);
     }
     {
-        /* Ignore the SIGPIPE signal */
+  	// 2/9/2022 NVF This has to be above the SIGPIPE handler (added to support mysqlclient multithreaded): https://dev.mysql.com/doc/c-api/8.0/en/c-api-threaded-clients.html
+  	if (mysql_library_init(0, NULL, NULL)) {
+    		fprintf(stderr, "Warning: Could not initialize MySQL client library.  MySQL should not be used in a threaded call as a result\n");
+    		exit(1);
+   	}
+        /* Ignore the SIGPIPE signal - note: this also works for MYSQL*/
         struct sigaction action_pipe;
         memset(&action_pipe, 0, sizeof(action_pipe));
         action_pipe.sa_handler=SIG_IGN;
@@ -1443,6 +1546,11 @@ int main(int argc, char *argv[])
         action_usr2.sa_handler = sipp_sigusr2;
         sigaction(SIGUSR2, &action_usr2, NULL);
     }
+
+    init_locks();
+
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+
 
     screen_set_exename("sipp");
 
@@ -1978,17 +2086,18 @@ int main(int argc, char *argv[])
                     ERROR("Could not open plugin %s: %s", argv[argi], dlerror());
                 }
 
-                int (*init)();
-                void* funcptr = dlsym(handle, "init");
+                int (*init)(void *);
+		init = (int (*)(void *))dlsym(handle, "init");
+                //void* funcptr = dlsym(handle, "init");
                 /* http://stackoverflow.com/questions/1096341/function-pointers-casting-in-c */
-                *reinterpret_cast<void**>(&init) = funcptr; // yuck
+                //*reinterpret_cast<void**>(&init)(void *) = funcptr; // yuck
 
                 const char* error;
                 if ((error = dlerror())) {
                     ERROR("Could not locate init function in %s: %s", argv[argi], error);
                 }
 
-                ret = init();
+                ret = init(handle);
                 if (ret != 0) {
                     ERROR("Plugin %s initialization failed.", argv[argi]);
                 }
@@ -2199,6 +2308,17 @@ int main(int argc, char *argv[])
         }
     }
 
+    //HYDE write pid file
+    if (pid_file != NULL && strlen(pid_file)>0)
+    {
+        FILE *f;
+        f = fopen(pid_file, "w");
+        fprintf(f, "%d\n",getpid());
+        fflush(f);
+        fclose(f);
+    }
+    //HYDE write pid file
+
     sipp_usleep(sleeptime * 1000);
 
     /* Create the statistics reporting task. */
@@ -2254,6 +2374,14 @@ int main(int argc, char *argv[])
         }
     }
 
+    /* Creating RPC thread. */
+    if (enable_rpc) {
+        if (pthread_create(&pthread4_id, NULL,
+            (void *(*)(void *)) rpc_thread, NULL) == -1) {
+                ERROR_NO("Unable to create video RTP echo thread");
+        }
+    }
+
     if (traffic_thread()) {
         if (!nostdin) {
             sipp_close_socket(stdin_socket);
@@ -2268,11 +2396,17 @@ int main(int argc, char *argv[])
     if (pthread3_id) {
         pthread_cancel(pthread3_id);
     }
+    if (pthread4_id) {
+        pthread_cancel(pthread4_id);
+    }
     if (pthread2_id) {
         pthread_join(pthread2_id, NULL);
     }
     if (pthread3_id) {
         pthread_join(pthread3_id, NULL);
+    }
+    if (pthread4_id) {
+        pthread_join(pthread4_id, NULL);
     }
 
 #ifdef HAVE_EPOLL
@@ -2286,4 +2420,172 @@ int main(int argc, char *argv[])
     free(scenario_file);
 
     sipp_exit(EXIT_TEST_RES_UNKNOWN);
+    kill_locks(); 
+    curl_global_cleanup();
+    mysql_library_end(); // 2/9/2022 - NVF Added to allow mysql threaded support
+
+}
+
+bool_t
+getcallcounter_1_svc(callcounter_t *argp, callcounter_t *result, struct svc_req *rqstp)
+{
+	bool_t retval;
+
+	/*
+	 * insert server code here
+	 */
+
+	unsigned long long incomingcalls = main_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated);
+	unsigned long long outgoingcalls = main_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated);
+	unsigned long long successcalls = main_scenario->stats->GetStat(CStat::CPT_C_SuccessfulCall);
+	unsigned long long failurecalls = main_scenario->stats->GetStat(CStat::CPT_C_FailedCall);
+
+	result->incomingcalls=incomingcalls;
+	result->outgoingcalls=outgoingcalls;
+	result->successcalls=successcalls;
+	result->failurecalls=failurecalls;
+
+	retval = true;
+	return retval;
+}
+
+bool_t
+enablelog4autoanswer_1_svc(void *argp, bool_t *result, struct svc_req *rqstp)
+{
+	bool_t retval;
+
+	/*
+	 * insert server code here
+	 */
+
+	log4auto_answer=true;
+	retval = true;
+	return retval;
+}
+
+bool_t
+disablelog4autoanswer_1_svc(void *argp, bool_t *result, struct svc_req *rqstp)
+{
+	bool_t retval;
+
+	/*
+	 * insert server code here
+	 */
+
+	log4auto_answer=false;
+	retval = true;
+	return retval;
+}
+
+int
+sipprpcprog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result)
+{
+	xdr_free (xdr_result, result);
+
+	/*
+	 * Insert additional freeing code here, if needed
+	 */
+
+	return 1;
+}
+
+void
+sipprpcprog_1(struct svc_req *rqstp, register SVCXPRT *transp)
+{
+	union {
+		callcounter_t getcallcounter_1_arg;
+	} argument;
+	union {
+		callcounter_t getcallcounter_1_res;
+		bool_t enablelog4autoanswer_1_res;
+		bool_t disablelog4autoanswer_1_res;
+	} result;
+	bool_t retval;
+	xdrproc_t _xdr_argument, _xdr_result;
+	bool_t (*local)(char *, void *, struct svc_req *);
+
+	switch (rqstp->rq_proc) {
+	case NULLPROC:
+		(void) svc_sendreply (transp, (xdrproc_t) xdr_void, (char *)NULL);
+		return;
+
+	case GETCALLCOUNTER:
+		_xdr_argument = (xdrproc_t) xdr_callcounter_t;
+		_xdr_result = (xdrproc_t) xdr_callcounter_t;
+		local = (bool_t (*) (char *, void *,  struct svc_req *))getcallcounter_1_svc;
+		break;
+
+	case ENABLELOG4AUTOANSWER:
+		_xdr_argument = (xdrproc_t) xdr_void;
+		_xdr_result = (xdrproc_t) xdr_bool;
+		local = (bool_t (*) (char *, void *,  struct svc_req *))enablelog4autoanswer_1_svc;
+		break;
+
+	case DISABLELOG4AUTOANSWER:
+		_xdr_argument = (xdrproc_t) xdr_void;
+		_xdr_result = (xdrproc_t) xdr_bool;
+		local = (bool_t (*) (char *, void *,  struct svc_req *))disablelog4autoanswer_1_svc;
+		break;
+
+	default:
+		svcerr_noproc (transp);
+		return;
+	}
+	memset ((char *)&argument, 0, sizeof (argument));
+	if (!svc_getargs (transp, (xdrproc_t) _xdr_argument, (caddr_t) &argument)) {
+		svcerr_decode (transp);
+		return;
+	}
+	retval = (bool_t) (*local)((char *)&argument, (void *)&result, rqstp);
+	if (retval > 0 && !svc_sendreply(transp, (xdrproc_t) _xdr_result, (char *)&result)) {
+		svcerr_systemerr (transp);
+	}
+	if (!svc_freeargs (transp, (xdrproc_t) _xdr_argument, (caddr_t) &argument)) {
+		fprintf (stderr, "%s", "unable to free arguments");
+		exit (1);
+	}
+	if (!sipprpcprog_1_freeresult (transp, _xdr_result, (caddr_t) &result))
+		fprintf (stderr, "%s", "unable to free results");
+
+	return;
+}
+
+void rpc_thread(void* param)
+{
+	register SVCXPRT *transp;
+	sigset_t              mask;
+	sigfillset(&mask); /* Mask all allowed signals */
+	int rc = pthread_sigmask(SIG_BLOCK, &mask, NULL);
+	if (rc) {
+	    WARNING("pthread_sigmask returned %d", rc);
+	    return;
+	}
+
+	pmap_unset (SIPPRPCPROG, SIPPRPCVERS);
+
+	transp = svcudp_create(RPC_ANYSOCK);
+	if (transp == NULL) {
+		fprintf (stderr, "%s", "cannot create udp service.");
+		exit(1);
+	}
+	if (!svc_register(transp, SIPPRPCPROG, SIPPRPCVERS, sipprpcprog_1, IPPROTO_UDP)) {
+		fprintf (stderr, "%s", "unable to register (SIPPRPCPROG, SIPPRPCVERS, udp).");
+		exit(1);
+	}
+
+	transp = svctcp_create(RPC_ANYSOCK, 0, 0);
+	if (transp == NULL) {
+		fprintf (stderr, "%s", "cannot create tcp service.");
+		exit(1);
+	}
+	if (!svc_register(transp, SIPPRPCPROG, SIPPRPCVERS, sipprpcprog_1, IPPROTO_TCP)) {
+		fprintf (stderr, "%s", "unable to register (SIPPRPCPROG, SIPPRPCVERS, tcp).");
+		exit(1);
+	}
+
+	svc_run ();
+	fprintf (stderr, "%s", "svc_run returned");
+	pthread_exit(NULL); // 2/8/2022 - NVF Added
+	//exit (1);
+	/* NOTREACHED */
 }

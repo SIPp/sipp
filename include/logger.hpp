@@ -52,6 +52,7 @@ struct logfile_info {
     bool fixedname;
     time_t starttime;
     unsigned int count;
+    pthread_mutex_t *lockfile;
 };
 
 void print_header_line(FILE *f);
@@ -64,7 +65,7 @@ void log_off(struct logfile_info *lfi);
 
 #ifdef GLOBALS_FULL_DEFINITION
 #define LOGFILE(name, s, check) \
-        struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0}
+        struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0, NULL}
 #else
 #define LOGFILE(name, s, check) \
         extern struct logfile_info name
@@ -79,6 +80,7 @@ LOGFILE(error_lfi, "errors", false);
 void rotate_logfile();
 void rotate_shortmessagef();
 void rotate_errorf();
+void rotate_errorf_nolock();
 void rotate_messagef();
 void rotate_screenf();
 void rotate_calldebugf();

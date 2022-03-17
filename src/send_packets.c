@@ -149,7 +149,7 @@ void send_packets_cleanup(void *arg)
     close(*sock);
 }
 
-void send_packets(play_args_t * play_args)
+int send_packets (play_args_t * play_args)
 {
     int ret, sock, port_diff;
     pcap_pkt *pkt_index, *pkt_max;
@@ -186,14 +186,14 @@ void send_packets(play_args_t * play_args)
         to_port = &(((struct sockaddr_in *)(void *) to )->sin_port);
         if (sock < 0) {
             ERROR("Can't create raw IPv4 socket (need to run as root?): %s", strerror(errno));
-            return;
+            return ret;
         }
     }
 
 
     if ((ret = bind(sock, (struct sockaddr *)(void *)from, len))) {
         ERROR("Can't bind media raw socket");
-        return;
+        return ret;
     }
 
 #ifndef MSG_DONTWAIT
@@ -215,10 +215,12 @@ void send_packets(play_args_t * play_args)
         memcpy(&(from6.sin6_addr.s6_addr), &(((struct sockaddr_in6 *)(void *) from)->sin6_addr.s6_addr), sizeof(from6.sin6_addr.s6_addr));
     }
 
+
     /* Ensure the sender socket is closed when the thread exits - this
      * allows the thread to be cancelled cleanly.
      */
     pthread_cleanup_push(send_packets_cleanup, ((void *) &sock));
+
 
     while (pkt_index < pkt_max) {
         memcpy(udp, pkt_index->data, pkt_index->pktlen);
@@ -288,8 +290,9 @@ void send_packets(play_args_t * play_args)
         }
 #endif
         if (ret < 0) {
+            close(sock);
             WARNING("send_packets.c: sendto failed with error: %s", strerror(errno));
-            break;
+            return( -1);
         }
 
         rtp_pckts_pcap++;
@@ -300,6 +303,7 @@ void send_packets(play_args_t * play_args)
 
     /* Closing the socket is handled by pthread_cleanup_push()/pthread_cleanup_pop() */
     pthread_cleanup_pop(1);
+    return 0;
 }
 
 /*

@@ -602,7 +602,7 @@ static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
     strcpy(msg, ptr);
 
     ptr = msg + strlen(msg);
-    ptr--;
+    ptr --;
 
     while((ptr >= msg) &&
             ((*ptr == ' ')  ||
@@ -612,6 +612,10 @@ static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
             (*removed_crlf)++;
         }
         *ptr-- = 0;
+    }
+
+    if(!strstr(msg, "\n\n")) {
+        strcat(msg, "\n\n");
     }
 
     if(ptr == msg) {
@@ -628,10 +632,6 @@ static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
     }
     while ((ptr = strstr(msg, "\t\n"))) {
         memmove(ptr, ptr + 1, strlen(ptr));
-    }
-
-    if (!strstr(msg, "\n\n")) {
-        strcat(msg, "\n\n");
     }
 
     return msg;

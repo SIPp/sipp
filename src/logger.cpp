@@ -297,10 +297,12 @@ void print_statistics(int last)
 void log_off(struct logfile_info *lfi)
 {
     if (lfi->fptr) {
+	pthread_mutex_lock(lfi->lockfile);
         fflush(lfi->fptr);
         fclose(lfi->fptr);
         lfi->fptr = NULL;
         lfi->overwrite = false;
+	pthread_mutex_unlock(lfi->lockfile);
     }
 }
 
@@ -827,6 +829,7 @@ void print_screens(void)
     int oldScreen = currentScreenToDisplay;
     int oldRepartition = currentRepartitionToDisplay;
 
+    pthread_mutex_lock(screen_lfi.lockfile);
     currentScreenToDisplay = DISPLAY_SCENARIO_SCREEN;
     print_header_line(   screen_lfi.fptr);
     print_stats_in_file( screen_lfi.fptr);
@@ -848,6 +851,7 @@ void print_screens(void)
         display_scenario->stats->displayRtdRepartition(screen_lfi.fptr, currentRepartitionToDisplay);
         print_bottom_line(   screen_lfi.fptr, NOTLAST);
     }
+    pthread_mutex_unlock(screen_lfi.lockfile);
 
     currentScreenToDisplay = oldScreen;
     currentRepartitionToDisplay = oldRepartition;
@@ -856,6 +860,21 @@ void print_screens(void)
 static void rotatef(struct logfile_info* lfi)
 {
     char L_rotate_file_name [MAX_PATH];
+    struct tm *tim;
+    struct timeval nowx;
+    char time_str[64];
+    time_t now;
+
+	gettimeofday(&nowx, NULL);
+	now = nowx.tv_sec;
+	tim = gmtime(&now);
+	sprintf(time_str, "%04d%02d%02d%02d%02d%02d",
+			tim->tm_year + 1900,
+			tim->tm_mon + 1,
+			tim->tm_mday,
+			tim->tm_hour,
+			tim->tm_min,
+			tim->tm_sec);
 
     if (!lfi->fixedname) {
         sprintf (lfi->file_name, "%s_%d_%s.log", scenario_file, getpid(), lfi->name);
@@ -867,6 +886,7 @@ static void rotatef(struct logfile_info* lfi)
         }
         /* We need to rotate away an existing file. */
         if (lfi->nfiles == ringbuffer_files) {
+/*
             if ((lfi->ftimes)[0].n) {
                 sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log",
                         scenario_file, getpid(), lfi->name,
@@ -877,6 +897,10 @@ static void rotatef(struct logfile_info* lfi)
                         scenario_file, getpid(), lfi->name,
                         (unsigned long)(lfi->ftimes)[0].start);
             }
+HYDE
+*/
+
+sprintf(L_rotate_file_name, "%s_%s",lfi->file_name,time_str);
             unlink(L_rotate_file_name);
             lfi->nfiles--;
             memmove(lfi->ftimes, &((lfi->ftimes)[1]), sizeof(struct logfile_id) * (lfi->nfiles));
@@ -888,6 +912,7 @@ static void rotatef(struct logfile_info* lfi)
             if (lfi->nfiles && ((lfi->ftimes)[lfi->nfiles].start == (lfi->ftimes)[lfi->nfiles - 1].start)) {
                 (lfi->ftimes)[lfi->nfiles].n = (lfi->ftimes)[lfi->nfiles - 1].n + 1;
             }
+/*
             if ((lfi->ftimes)[lfi->nfiles].n) {
                 sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log",
                         scenario_file, getpid(), lfi->name,
@@ -898,6 +923,10 @@ static void rotatef(struct logfile_info* lfi)
                         scenario_file, getpid(), lfi->name,
                         (unsigned long)(lfi->ftimes)[lfi->nfiles].start);
             }
+*/
+
+//sprintf(L_rotate_file_name, "%s_%d",lfi->file_name,(unsigned long)(lfi->ftimes)[lfi->nfiles].start);
+sprintf(L_rotate_file_name, "%s_%s",lfi->file_name,time_str);
             lfi->nfiles++;
             fflush(lfi->fptr);
             fclose(lfi->fptr);
@@ -921,37 +950,54 @@ static void rotatef(struct logfile_info* lfi)
 
 void rotate_screenf()
 {
+    pthread_mutex_lock(screen_lfi.lockfile);
     rotatef(&screen_lfi);
+    pthread_mutex_unlock(screen_lfi.lockfile);
 }
 
 void rotate_calldebugf()
 {
+    pthread_mutex_lock(calldebug_lfi.lockfile);
     rotatef(&calldebug_lfi);
+    pthread_mutex_unlock(calldebug_lfi.lockfile);
 }
 
 void rotate_messagef()
 {
+    pthread_mutex_lock(message_lfi.lockfile);
     rotatef(&message_lfi);
+    pthread_mutex_unlock(message_lfi.lockfile);
 }
 
 
 void rotate_shortmessagef()
 {
+    pthread_mutex_lock(shortmessage_lfi.lockfile);
     rotatef(&shortmessage_lfi);
+    pthread_mutex_unlock(shortmessage_lfi.lockfile);
 }
 
 
 void rotate_logfile()
 {
+    pthread_mutex_lock(log_lfi.lockfile);
     rotatef(&log_lfi);
+    pthread_mutex_unlock(log_lfi.lockfile);
 }
 
 void rotate_errorf()
 {
+    pthread_mutex_lock(error_lfi.lockfile);
     rotatef(&error_lfi);
+    pthread_mutex_unlock(error_lfi.lockfile);
     strcpy(screen_logfile, error_lfi.file_name);
 }
 
+void rotate_errorf_nolock()
+{
+    rotatef(&error_lfi);
+    strcpy(screen_logfile, error_lfi.file_name);
+}
 
 /*#ifdef __cplusplus
 extern "C" {
@@ -962,6 +1008,7 @@ extern "C" {
     {
         int ret = 0;
         if(lfi->fptr) {
+            pthread_mutex_lock(lfi->lockfile);
             ret = vfprintf(lfi->fptr, fmt, ap);
             fflush(lfi->fptr);
 
@@ -976,6 +1023,7 @@ extern "C" {
                 rotatef(lfi);
                 lfi->count = 0;
             }
+            pthread_mutex_unlock(lfi->lockfile);
         }
         return ret;
     }

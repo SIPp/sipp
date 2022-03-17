@@ -115,6 +115,8 @@
 #define T_TLS                      2
 #define T_SCTP                     3
 
+#define DEFAULT_PID_FILE            "sipp.pid"
+#define DEFAULT_LUA_FILE            "sipp.lua"
 #ifdef USE_OPENSSL
 #define DEFAULT_TLS_CERT           "cacert.pem"
 #define DEFAULT_TLS_KEY            "cakey.pem"
@@ -204,6 +206,8 @@ extern unsigned long      default_behaviors       _DEFVAL(DEFAULT_BEHAVIOR_ALL);
 extern unsigned long      deadcall_wait           _DEFVAL(DEFAULT_DEADCALL_WAIT);
 extern bool               pause_msg_ign           _DEFVAL(0);
 extern bool               auto_answer             _DEFVAL(false);
+extern bool               log4auto_answer         _DEFVAL(false);
+extern bool               enable_rpc              _DEFVAL(false);
 extern int                multisocket             _DEFVAL(0);
 extern int                compression             _DEFVAL(0);
 extern int                peripsocket             _DEFVAL(0);
@@ -314,6 +318,8 @@ extern unsigned int       tdm_map_z               _DEFVAL(0);
 extern unsigned int       tdm_map_h               _DEFVAL(0);
 extern bool               tdm_map[1024];
 
+extern const char       * pid_file            _DEFVAL(DEFAULT_PID_FILE);
+extern const char       * lua_file            _DEFVAL(DEFAULT_LUA_FILE);
 #ifdef USE_OPENSSL
 extern BIO              * twinSipp_bio;
 extern SSL              * twinSipp_ssl;

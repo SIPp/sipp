@@ -21,7 +21,8 @@
 #ifndef __SIPP_STRINGS_H__
 #define __SIPP_STRINGS_H__
 
-#include <cstddef>
+//#include <cstddef>
+#include <stddef.h>
 
 char *strcasestr2 (char *__haystack, const char *__needle);
 char *strncasestr (char *s, const char *find, size_t n);

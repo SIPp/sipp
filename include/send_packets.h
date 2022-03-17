@@ -122,7 +122,7 @@ extern "C"
 #endif
     int parse_play_args(const char*, pcap_pkts*);
     void free_pcaps(pcap_pkts *pkts);
-    void send_packets(play_args_t*);
+    int send_packets(play_args_t*);
 #ifdef __cplusplus
 }
 #endif
