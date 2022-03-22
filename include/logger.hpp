@@ -7,34 +7,36 @@
 #include "sipp.hpp"
 
 #ifdef GLOBALS_FULL_DEFINITION
-#define extern
-#define _DEFVAL(value) = value
+#define MAYBE_EXTERN
+#define DEFVAL(value) = value
 #else
-#define _DEFVAL(value)
+#define MAYBE_EXTERN extern
+#define DEFVAL(value)
 #endif
 
-extern FILE * screenf                             _DEFVAL(0);
-extern FILE * countf                              _DEFVAL(0);
-extern FILE * codesf                              _DEFVAL(0);
-// extern FILE * timeoutf                            _DEFVAL(0);
-extern bool   useMessagef                         _DEFVAL(0);
-extern bool   useErrorCodesf                      _DEFVAL(0);
-extern bool   useCallDebugf                       _DEFVAL(0);
-extern bool   useShortMessagef                    _DEFVAL(0);
-extern bool   useScreenf                          _DEFVAL(0);
-extern bool   useLogf                             _DEFVAL(0);
-// extern bool   useTimeoutf                         _DEFVAL(0);
-extern bool   dumpInFile                          _DEFVAL(0);
-extern bool   dumpInRtt                           _DEFVAL(0);
-extern bool   useCountf                           _DEFVAL(0);
-extern char * slave_cfg_file;
+MAYBE_EXTERN FILE * screenf             DEFVAL(0);
+MAYBE_EXTERN FILE * countf              DEFVAL(0);
+MAYBE_EXTERN FILE * codesf              DEFVAL(0);
+//MAYBE_EXTERN FILE * timeoutf           DEFVAL(0);
+MAYBE_EXTERN bool   useMessagef         DEFVAL(0);
+MAYBE_EXTERN bool   useErrorCodesf      DEFVAL(0);
+MAYBE_EXTERN bool   useCallDebugf       DEFVAL(0);
+MAYBE_EXTERN bool   useShortMessagef    DEFVAL(0);
+MAYBE_EXTERN bool   useScreenf          DEFVAL(0);
+MAYBE_EXTERN bool   useLogf             DEFVAL(0);
+//MAYBE_EXTERN bool   useTimeoutf        DEFVAL(0);
+MAYBE_EXTERN bool   dumpInFile          DEFVAL(0);
+MAYBE_EXTERN bool   dumpInRtt           DEFVAL(0);
+MAYBE_EXTERN bool   useCountf           DEFVAL(0);
+MAYBE_EXTERN char * slave_cfg_file;
 
-extern unsigned long long max_log_size            _DEFVAL(0);
-extern unsigned long long ringbuffer_size         _DEFVAL(0);
-extern int    ringbuffer_files                    _DEFVAL(0);
+MAYBE_EXTERN unsigned long long max_log_size DEFVAL(0);
+MAYBE_EXTERN unsigned long long ringbuffer_size DEFVAL(0);
+MAYBE_EXTERN int    ringbuffer_files    DEFVAL(0);
 
-extern char   screen_last_error[32768];
-extern char   screen_logfile[MAX_PATH]            _DEFVAL("");
+MAYBE_EXTERN char   screen_last_error[32768];
+MAYBE_EXTERN char   screen_logfile[MAX_PATH] DEFVAL("");
+
 /* Log Rotation Functions. */
 struct logfile_id {
     time_t start;
@@ -65,10 +67,10 @@ void log_off(struct logfile_info *lfi);
 
 #ifdef GLOBALS_FULL_DEFINITION
 #define LOGFILE(name, s, check) \
-        struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0, NULL}
+    struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0 }
 #else
 #define LOGFILE(name, s, check) \
-        extern struct logfile_info name
+    extern struct logfile_info name
 #endif
 LOGFILE(calldebug_lfi, "calldebug", true);
 LOGFILE(message_lfi, "messages", true);
@@ -78,19 +80,21 @@ LOGFILE(log_lfi, "logs", true);
 LOGFILE(error_lfi, "errors", false);
 
 void rotate_logfile();
+void rotate_errorf_nolock();
 void rotate_shortmessagef();
 void rotate_errorf();
-void rotate_errorf_nolock();
 void rotate_messagef();
 void rotate_screenf();
 void rotate_calldebugf();
 
-/* Screen/Statistics Printing Functions. */
-void print_statistics(int last);
+/* Functions that print to stdout/stderr/logfiles.
+ * Any functions which print to the curses UI live in screen.cpp.
+ * */
+void print_errors();
+void print_closing();
 void print_count_file(FILE* f, int header);
 void print_error_codes_file(FILE* f);
 
-/* This must go after the GLOBALS_FULL_DEFINITION, because we need the extern keyword. */
 int TRACE_MSG(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 int TRACE_CALLDEBUG(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 int TRACE_SHORTMSG(const char* fmt, ...) __attribute__((format(printf, 1, 2)));

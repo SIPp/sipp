@@ -105,8 +105,8 @@ lua_State*  openLua() {
 
                 luaL_openlibs(L);                           /* Load Lua libraries */
 
-                //HYDE if (luaL_loadfile(L, "sipp.lua")) /* Load but don't run the Lua script */
-                if (luaL_loadfile(L, lua_file)) /* Load but don't run the Lua script */
+                if (luaL_loadfile(L, "sipp.lua")) /* Load but don't run the Lua script */
+                //if (luaL_loadfile(L, lua_file)) /* Load but don't run the Lua script */
                 {
                         bail(L, "luaL_loadfile() failed");      /* Error out if file can't be read */
                         L=0;

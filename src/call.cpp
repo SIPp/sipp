@@ -36,39 +36,25 @@
  *           Roland Meub
  *           Andy Aicken
  *           Martin H. VanLeeuwen
- * 	      4/25/19 - NVF Added code to allow longer arguments and more arguments - see MAXARGS, also added support for a rawdata tag which will take all the remaining command line and pass it as a value to the lua program
- * 	      3/16/22 - NVF Restructured the code so we can add the extra functionality using the built-in plugin capability with some extra code to allow plugins to 
- * 	      add extra sipp functionality via the exec command by interpreting the commands before running the default executor - this allows adding things like threading, lua scripting etc.
- *	
  */
 
-#include <iterator>
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <iostream>
-#include <cstring>
+#include <iterator>
+#include <sstream>
+#include <vector>
+
+#include <assert.h>
+#include <stdarg.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <assert.h>
-// Added for LUA support
-
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-
-// Added for shared memory support
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <malloc.h>
-
-
-#include <inttypes.h>
-#include <errno.h>
 
 #ifdef PCAPPLAY
 #include "send_packets.h"
 #endif
+
 #include "sipp.hpp"
 #include "auth.hpp"
 #include "deadcall.hpp"
@@ -76,15 +62,47 @@
 #include "version.h"
 #include "apifunc.h"
 
-// 02/9/2022 - NVF Added when trying to fix mysql thread support
-#include "mysql.h"
+using namespace std;
+
+
+template<typename Out>
+void split(const std::string &s, char delim, Out result) {
+    std::stringstream ss;
+    ss.str(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) {
+        *(result++) = item;
+    }
+}
+
+std::vector<std::string> split(const std::string &s, char delim) {
+    std::vector<std::string> elems;
+    split(s, delim, std::back_inserter(elems));
+    return elems;
+}
+
+std::string join(const std::vector<std::string> &s, const char* delim) {
+    std::ostringstream imploded;
+    std::copy(s.begin(), s.end(), std::ostream_iterator<std::string>(imploded, delim));
+    std::string ret = imploded.str();
+    if (ret.length()) {
+        ret.resize(ret.length() - strlen(delim));
+    }
+    return ret;
+}
+
+std::string trim(const std::string &s) {
+    size_t first = s.find_first_not_of(' ');
+    if (first == string::npos) {
+        return s;
+    }
+    size_t last = s.find_last_not_of(' ');
+    return s.substr(first, (last - first + 1));
+}
 
 #define callDebug(...) do { if (useCallDebugf) { _callDebug( __VA_ARGS__ ); } } while (0)
 
-using namespace std;
-
-extern  map<string, struct sipp_socket *>     map_perip_fd;
-
+extern  map<string, SIPpSocket *>     map_perip_fd;
 
 #ifdef PCAPPLAY
 /* send_packets pthread wrapper */
@@ -94,6 +112,7 @@ int call::dynamicId       = 0;
 int call::maxDynamicId    = 10000+2000*4;      // FIXME both param to be in command line !!!!
 int call::startDynamicId  = 10000;             // FIXME both param to be in command line !!!!
 int call::stepDynamicId   = 4;                // FIXME both param to be in command line !!!!
+
 /************** Call map and management routines **************/
 static unsigned int next_number = 1;
 
@@ -147,292 +166,100 @@ unsigned int call::wake()
     return wake;
 }
 
+static std::string find_in_sdp(std::string const &pattern, std::string const &msg)
+{
+    std::string::size_type begin, end;
+
+    begin = msg.find(pattern);
+    if (begin == std::string::npos) {
+        return "";
+    }
+
+    begin += pattern.size();
+    end = msg.find_first_of(" \r\n", begin);
+    if (end == std::string::npos || begin == end) {
+        return "";
+    }
+
+    return msg.substr(begin, end - begin);
+}
+
 #ifdef PCAPPLAY
-static char* find_sdp_eol(char* line)
+void call::get_remote_media_addr(std::string const &msg)
 {
-    char* end = &line[strcspn(line, "\r\n")];
-    return end[0] == '\0' ? NULL : end;
-}
-
-/******* Media information management *************************/
-/*
- * Look for "c=IN IP4 " pattern in the message and extract the following value
- * which should be IP address
- */
-uint32_t get_remote_ip_media(char *msg)
-{
-    char pattern[] = "c=IN IP4 ";
-    char *begin, *end;
-    char ip[32];
-    char *my_msg = strdup(msg);
-
-    if (!my_msg) {
-        return INADDR_NONE;
-    }
-    begin = strstr(my_msg, pattern);
-    if (!begin) {
-        free(my_msg);
-        /* Can't find what we're looking at -> return no address */
-        return INADDR_NONE;
-    }
-    begin += sizeof(pattern) - 1;
-    end = find_sdp_eol(begin);
-    if (!end) {
-        free(my_msg);
-        return INADDR_NONE;
-    }
-    *end = '\0';
-    memset(ip, 0, 32);
-    strncpy(ip, begin, sizeof(ip) - 1);
-    ip[sizeof(ip) - 1] = '\0';
-    free(my_msg);
-    return inet_addr(ip);
-}
-
-/*
- * Look for "c=IN IP6 " pattern in the message and extract the following value
- * which should be IPv6 address
- */
-uint8_t get_remote_ipv6_media(char *msg, struct in6_addr *addr)
-{
-    char pattern[] = "c=IN IP6 ";
-    char *begin, *end;
-    char ip[128];
-    char *my_msg = strdup(msg);
-
-    memset(addr, 0, sizeof(*addr));
-    memset(ip, 0, 128);
-
-    if (!my_msg) {
-        return 0;
-    }
-    begin = strstr(my_msg,pattern);
-    if (!begin) {
-        free(my_msg);
-        /* Can't find what we're looking at -> return no address */
-        return 0;
-    }
-    begin += sizeof(pattern) - 1;
-    end = find_sdp_eol(begin);
-    if (!end) {
-        free(my_msg);
-        return 0;
-    }
-    *end = '\0';
-    strncpy(ip, begin, sizeof(ip) -1);
-    ip[sizeof(ip) - 1] = '\0';
-    free(my_msg);
-    if (!inet_pton(AF_INET6, ip, addr)) {
-        return 0;
-    }
-    return 1;
-}
-
-/*
- * Look for "m=audio ", "m=image " or "m=video " pattern in the message
- * and extract the following value which should be port number.
- */
-enum media_ptn {
-    PAT_AUDIO,
-    PAT_IMAGE,
-    PAT_VIDEO
-};
-uint16_t get_remote_port_media(const char *msg, enum media_ptn pattype)
-{
-    const char *pattern;
-    char *begin, *end;
-    char number[6];
-
-    if (pattype == PAT_AUDIO) {
-        pattern = "m=audio ";
-    } else if (pattype == PAT_IMAGE) {
-        pattern = "m=image ";
-    } else if (pattype == PAT_VIDEO) {
-        pattern = "m=video ";
-    } else {
-        ERROR("Internal error: Undefined media pattern %d\n", 3);
+    std::string host = find_in_sdp(media_ip_is_ipv6 ? "c=IN IP6 " : "c=IN IP4 ", msg);
+    if (host.empty()) {
+        return;
     }
 
-    char *my_msg = strdup(msg);
-    if (!my_msg) {
-        return 0;
-    }
-    begin = strstr(my_msg, pattern);
-    if (!begin) {
-        free(my_msg);
-        /* m=audio not found */
-        return 0;
-    }
-    begin += strlen(pattern);
-    end = find_sdp_eol(begin);
-    if (!end) {
-        free(my_msg);
-        ERROR("get_remote_port_media: no CRLF found");
-        return 0;
-    }
-    *end = '\0';
-    memset(number, 0, sizeof(number));
-    strncpy(number, begin, sizeof(number) - 1);
-    number[sizeof(number) - 1] = '\0';
-    free(my_msg);
-    return atoi(number);
-}
+    hasMediaInformation = 1;
+    const int family = media_ip_is_ipv6 ? AF_INET6 : AF_INET;
 
-/*
- * IPv{4,6} compliant
- */
-void call::get_remote_media_addr(char *msg)
-{
-    uint16_t audio_port, image_port, video_port;
-    if (media_ip_is_ipv6) {
-        struct in6_addr ip_media;
-        if (get_remote_ipv6_media(msg, &ip_media)) {
-            audio_port = get_remote_port_media(msg, PAT_AUDIO);
-            if (audio_port) {
-                /* We have audio in the SDP: set the to_audio addr */
-                (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_flowinfo = 0;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_scope_id = 0;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_family = AF_INET6;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_port = htons(audio_port);
-                (_RCAST(struct sockaddr_in6 *, &(play_args_a.to)))->sin6_addr = ip_media;
-            }
-            image_port = get_remote_port_media(msg, PAT_IMAGE);
-            if (image_port) {
-                /* We have image in the SDP: set the to_image addr */
-                (_RCAST(struct sockaddr_in6 *, &(play_args_i.to)))->sin6_flowinfo = 0;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_i.to)))->sin6_scope_id = 0;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_i.to)))->sin6_family = AF_INET6;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_i.to)))->sin6_port = htons(image_port);
-                (_RCAST(struct sockaddr_in6 *, &(play_args_i.to)))->sin6_addr = ip_media;
-            }
-            video_port = get_remote_port_media(msg, PAT_VIDEO);
-            if (video_port) {
-                /* We have video in the SDP: set the to_video addr */
-                (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_flowinfo = 0;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_scope_id = 0;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_family = AF_INET6;
-                (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_port = htons(video_port);
-                (_RCAST(struct sockaddr_in6 *, &(play_args_v.to)))->sin6_addr = ip_media;
-            }
-            hasMediaInformation = 1;
-        }
-    } else {
-        uint32_t ip_media;
-        ip_media = get_remote_ip_media(msg);
-        if (ip_media != INADDR_NONE) {
-            audio_port = get_remote_port_media(msg, PAT_AUDIO);
-            if (audio_port) {
-                /* We have audio in the SDP: set the to_audio addr */
-                (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_family = AF_INET;
-                (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_port = htons(audio_port);
-                (_RCAST(struct sockaddr_in *, &(play_args_a.to)))->sin_addr.s_addr = ip_media;
-            }
-            image_port = get_remote_port_media(msg, PAT_IMAGE);
-            if (image_port) {
-                /* We have image in the SDP: set the to_image addr */
-                (_RCAST(struct sockaddr_in *, &(play_args_i.to)))->sin_family = AF_INET;
-                (_RCAST(struct sockaddr_in *, &(play_args_i.to)))->sin_port = htons(image_port);
-                (_RCAST(struct sockaddr_in *, &(play_args_i.to)))->sin_addr.s_addr = ip_media;
-            }
-            video_port = get_remote_port_media(msg, PAT_VIDEO);
-            if (video_port) {
-                /* We have video in the SDP: set the to_video addr */
-                (_RCAST(struct sockaddr_in *, &(play_args_v.to)))->sin_family = AF_INET;
-                (_RCAST(struct sockaddr_in *, &(play_args_v.to)))->sin_port = htons(video_port);
-                (_RCAST(struct sockaddr_in *, &(play_args_v.to)))->sin_addr.s_addr = ip_media;
-            }
-            hasMediaInformation = 1;
-        }
+    std::string port = find_in_sdp("m=audio ", msg);
+    if (!port.empty()) {
+        gai_getsockaddr(&play_args_a.to, host.c_str(), port.c_str(),
+                        AI_NUMERICHOST | AI_NUMERICSERV, family);
+    }
+
+    port = find_in_sdp("m=image ", msg);
+    if (!port.empty()) {
+        gai_getsockaddr(&play_args_i.to, host.c_str(), port.c_str(),
+                        AI_NUMERICHOST | AI_NUMERICSERV, family);
+    }
+
+    port = find_in_sdp("m=video ", msg);
+    if (!port.empty()) {
+        gai_getsockaddr(&play_args_v.to, host.c_str(), port.c_str(),
+                        AI_NUMERICHOST | AI_NUMERICSERV, family);
     }
 }
-
 #endif
 
-#ifdef RTP_STREAM
 /******* Extract RTP remote media infomartion from SDP  *******/
 /***** Similar to the routines used by the PCAP play code *****/
 
-#define SDP_IPADDR_PREFIX    "\nc=IN IP"
-#define SDP_AUDIOPORT_PREFIX "\nm=audio"
-#define SDP_IMAGEPORT_PREFIX "\nm=image"
-#define SDP_VIDEOPORT_PREFIX "\nm=video"
-void call::extract_rtp_remote_addr (char * msg)
+void call::extract_rtp_remote_addr(const char* msg)
 {
-  char   *search;
-  char   *copy;
-  char   ip_addr[128];
-  int    ip_ver;
-  int    audio_port = 0;
-  int    image_port = 0;
-  int    video_port = 0;
+    int ip_ver;
+    int audio_port = 0;
+    int image_port = 0;
+    int video_port = 0;
 
-  /* Look for start of message body */
-  search= strstr(msg,"\r\n\r\n");
-  if (!search) {
-    ERROR("extract_rtp_remote_addr: SDP message body not found");
-  }
-  msg = search + 2; /* skip past header. point to blank line before body */
-  /* Now search for IP address field */
-  search= strstr(msg,SDP_IPADDR_PREFIX);
-  if (search) {
-    search+= strlen(SDP_IPADDR_PREFIX);
-    /* Get IP version number from c= */
-    if (*search=='4') {
-      ip_ver= 4;
-    } else if (*search=='6') {
-      ip_ver= 6;
+    std::string host = find_in_sdp("c=IN IP4 ", msg);
+    if (host.empty()) {
+        host = find_in_sdp("c=IN IP6 ", msg);
+        if (host.empty()) {
+            ERROR("extract_rtp_remote_addr: invalid IP version in SDP message body");
+        }
+        ip_ver = 6;
     } else {
-      ERROR("extract_rtp_remote_addr: invalid IP version '%c' in SDP message body",*search);
+        ip_ver = 4;
     }
-    search++;
-    copy= ip_addr;
-    while ( (*search==' ') || (*search=='\t') ) {
-      search++;
+
+    std::string port = find_in_sdp("m=audio ", msg);
+    if (!port.empty()) {
+        audio_port = ::atoi(port.c_str());
     }
-    while (!( (*search==' ') || (*search=='\t') || (*search=='\r') || (*search=='\n') )) {
-      *(copy++)= *(search++);
+
+    port = find_in_sdp("m=image ", msg);
+    if (!port.empty()) {
+        image_port = ::atoi(port.c_str());
     }
-    *copy= 0;
-  } else {
-    ERROR("extract_rtp_remote_addr: no IP address found in SDP message body");
-    *ip_addr= 0;
-  }
-  /* Now try to find the port number for the audio stream */
-  search= strstr(msg,SDP_AUDIOPORT_PREFIX);
-  if (search) {
-    search+= strlen(SDP_AUDIOPORT_PREFIX);
-    while ( (*search==' ') || (*search=='\t') ) {
-      search++;
+
+    port = find_in_sdp("m=video ", msg);
+    if (!port.empty()) {
+        video_port = ::atoi(port.c_str());
     }
-    sscanf (search,"%d",&audio_port);
-  }
-  /* And find the port number for the image stream */
-  search= strstr(msg,SDP_IMAGEPORT_PREFIX);
-  if (search) {
-    search+= strlen(SDP_IMAGEPORT_PREFIX);
-    while ( (*search==' ') || (*search=='\t') ) {
-      search++;
+
+    if (audio_port == 0 && image_port == 0 && video_port == 0) {
+        ERROR("extract_rtp_remote_addr: no m=audio, m=image or m=video line found in SDP message body");
     }
-    sscanf (search,"%d",&image_port);
-  }
-  /* And find the port number for the video stream */
-  search= strstr(msg,SDP_VIDEOPORT_PREFIX);
-  if (search) {
-    search+= strlen(SDP_VIDEOPORT_PREFIX);
-    while ( (*search==' ') || (*search=='\t') ) {
-      search++;
-    }
-    sscanf (search,"%d",&video_port);
-  }
-  if (audio_port == 0 && image_port == 0 && video_port == 0) {
-    ERROR("extract_rtp_remote_addr: no m=audio, m=image or m=video line found in SDP message body");
-  }
-  /* If we get an image_port only, we won't set anything useful.
-   * We cannot use rtpstream for udptl/t38 data because it has
-   * non-linear timing and data size. */
-  rtpstream_set_remote(&rtpstream_callinfo, ip_ver, ip_addr, audio_port, video_port);
+
+    /* If we get an image_port only, we won't set anything useful.
+     * We cannot use rtpstream for udptl/t38 data because it has
+     * non-linear timing and data size. */
+    rtpstream_set_remote(&rtpstream_callinfo, ip_ver, host.c_str(), audio_port, video_port);
 }
-#endif
 
 /******* Very simple hash for retransmission detection  *******/
 
@@ -447,16 +274,16 @@ unsigned long call::hash(const char * msg)
     } else if (rtcheck == RTCHECK_LOOSE) {
         /* Based on section 11.5 (bullet 2) of RFC2543 we only take into account
          * the To, From, Call-ID, and CSeq values. */
-        const char *hdr = get_header_content(msg,"To:");
+        const char *hdr = get_header_content(msg, "To:");
         while ((c = *hdr++))
             hash = c + (hash << 6) + (hash << 16) - hash;
-        hdr = get_header_content(msg,"From:");
+        hdr = get_header_content(msg, "From:");
         while ((c = *hdr++))
             hash = c + (hash << 6) + (hash << 16) - hash;
-        hdr = get_header_content(msg,"Call-ID:");
+        hdr = get_header_content(msg, "Call-ID:");
         while ((c = *hdr++))
             hash = c + (hash << 6) + (hash << 16) - hash;
-        hdr = get_header_content(msg,"CSeq:");
+        hdr = get_header_content(msg, "CSeq:");
         while ((c = *hdr++))
             hash = c + (hash << 6) + (hash << 16) - hash;
         /* For responses, we should also consider the code and body (if any),
@@ -475,7 +302,7 @@ unsigned long call::hash(const char * msg)
             }
         }
     } else {
-        ERROR("Internal error: Invalid rtcheck %d\n", rtcheck);
+        ERROR("Internal error: Invalid rtcheck %d", rtcheck);
     }
 
     return hash;
@@ -487,12 +314,12 @@ call::call(const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage 
     init(main_scenario, NULL, dest, p_id, userId, use_ipv6, false, false);
 }
 
-call::call(const char *p_id, struct sipp_socket *socket, struct sockaddr_storage *dest) : listener(p_id, true)
+call::call(const char *p_id, SIPpSocket *socket, struct sockaddr_storage *dest) : listener(p_id, true)
 {
     init(main_scenario, socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
 }
 
-call::call(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true)
+call::call(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true)
 {
     init(call_scenario, socket, dest, p_id, userId, ipv6, isAutomatic, isInitialization);
 }
@@ -535,7 +362,7 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
 }
 
 
-void call::init(scenario * call_scenario, struct sipp_socket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall)
+void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall)
 {
     this->call_scenario = call_scenario;
     zombie = false;
@@ -582,17 +409,15 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
     dialog_authentication = NULL;
     dialog_challenge_type = 0;
 
-#ifdef USE_OPENSSL
-    m_ctx_ssl = NULL ;
-    m_bio = NULL ;
-#endif
-#ifdef RTP_STREAM
-  /* check and warn on rtpstream_new_call result? -> error alloc'ing mem */
-  rtpstream_new_call (&rtpstream_callinfo);
-#endif
+    next_nonce_count = 1;
+
+    /* check and warn on rtpstream_new_call result? -> error alloc'ing mem */
+    rtpstream_new_call(&rtpstream_callinfo);
 
 #ifdef PCAPPLAY
     hasMediaInformation = 0;
+    play_args_a.last_seq_no = 1200;
+    play_args_v.last_seq_no = 2400;
 #endif
 
     call_remote_socket = NULL;
@@ -603,7 +428,7 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
         call_socket = NULL;
     }
     if (dest) {
-        memcpy(&call_peer, dest, SOCK_ADDR_SIZE(dest));
+        memcpy(&call_peer, dest, sizeof(call_peer));
     } else {
         memset(&call_peer, 0, sizeof(call_peer));
     }
@@ -717,29 +542,11 @@ void call::init(scenario * call_scenario, struct sipp_socket *socket, struct soc
             tdm_map_number = 0;
         }
     }
-  // Added LUA setup here
-
-/*
-     if (!L) {
-     	L = luaL_newstate();                        // Create Lua state variable 
-     	luaL_openlibs(L);                           // Load Lua libraries 
-
-     	if (luaL_loadfile(L, "sipp.lua")) // Load but don't run the Lua script 
-         bail(L, "luaL_loadfile() failed");      // Error out if file can't be read 
-
-     	if (lua_pcall(L, 0, 0, 0))                  // PRIMING RUN. FORGET THIS AND YOU'RE TOAST 
-         bail(L, "lua_pcall() failed");          // Error out if Lua file has an error 
-    }
-*/
-	
-
 
     callDebug("Starting call %s\n", id);
 
     setRunning();
 }
-
-
 
 int call::_callDebug(const char *fmt, ...)
 {
@@ -779,7 +586,7 @@ call::~call()
     }
 
     if (call_remote_socket && (call_remote_socket != main_remote_socket)) {
-        sipp_close_socket(call_remote_socket);
+        call_remote_socket->close();
     }
 
     /* Deletion of the call variable */
@@ -800,29 +607,27 @@ call::~call()
         free(transactions);
     }
 
-    if(last_recv_msg) {
+    if (last_recv_msg) {
         free(last_recv_msg);
     }
-    if(last_send_msg) {
+    if (last_send_msg) {
         free(last_send_msg);
     }
-    if(peer_tag) {
+    if (peer_tag) {
         free(peer_tag);
     }
 
-    if(dialog_route_set) {
+    if (dialog_route_set) {
         free(dialog_route_set);
     }
 
-    if(next_req_url) {
+    if (next_req_url) {
         free(next_req_url);
     }
 
-#ifdef RTP_STREAM
-  rtpstream_end_call (&rtpstream_callinfo);
-#endif
+    rtpstream_end_call(&rtpstream_callinfo);
 
-    if(dialog_authentication) {
+    if (dialog_authentication) {
         free(dialog_authentication);
     }
 
@@ -836,7 +641,6 @@ call::~call()
         pthread_join(media_thread, NULL);
     }
 #endif
-
 
     free(start_time_rtd);
     free(rtd_done);
@@ -871,23 +675,21 @@ void call::computeStat (CStat::E_Action P_action, unsigned long P_value, int whi
 void call::dump()
 {
     char s[MAX_HEADER_LEN];
-    char tmpbuf[MAX_HEADER_LEN];
-    sprintf(s, "%s: State %d", id, msg_index);
+    int slen = sizeof(s);
+    int written;
+
+    written = snprintf(s, slen, "%s: State %d", id, msg_index);
     if (next_retrans) {
-        snprintf(tmpbuf, 64, "%s (next retrans %u)", s, next_retrans);
-        strcat(s, tmpbuf);
+        written += snprintf(s + written, slen - written, " (next retrans %u)", next_retrans);
     }
     if (paused_until) {
-        snprintf(tmpbuf, 64, "%s (paused until %u)", s, paused_until);
-        strcat(s, tmpbuf);
+        written += snprintf(s + written, slen - written, " (paused until %u)", paused_until);
     }
     if (recv_timeout) {
-        snprintf(tmpbuf, 64, "%s (recv timeout %u)", s, recv_timeout);
-        strcat(s, tmpbuf);
+        written += snprintf(s + written, slen - written, " (recv timeout %u)", recv_timeout);
     }
     if (send_timeout) {
-        snprintf(tmpbuf, 64, "%s (send timeout %u)", s, send_timeout);
-        strcat(s, tmpbuf);
+        written += snprintf(s + written, slen - written, " (send timeout %u)", send_timeout);
     }
     WARNING("%s", s);
 }
@@ -907,17 +709,17 @@ bool call::connect_socket_if_needed()
 
         char peripaddr[256];
         if (!peripsocket) {
-            if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+            if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
                 ERROR_NO("Unable to get a UDP socket (1)");
             }
         } else {
             char *tmp = peripaddr;
             getFieldFromInputFile(ip_file, peripfield, NULL, tmp);
-            map<string, struct sipp_socket *>::iterator i;
+            map<string, SIPpSocket *>::iterator i;
             i = map_perip_fd.find(peripaddr);
             if (i == map_perip_fd.end()) {
                 // Socket does not exist
-                if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+                if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
                     ERROR_NO("Unable to get a UDP socket (2)");
                 } else {
                     /* Ensure that it stays persistent, because it is recorded in the map. */
@@ -935,13 +737,7 @@ bool call::connect_socket_if_needed()
             return true;
         }
 
-        memset(&saddr, 0, sizeof(struct sockaddr_storage));
-
-        memcpy(&saddr,
-               local_addr_storage->ai_addr,
-               SOCK_ADDR_SIZE(
-                   _RCAST(struct sockaddr_storage *,local_addr_storage->ai_addr)));
-
+        memcpy(&saddr, &local_addr_storage, sizeof(struct sockaddr_storage));
         if (use_ipv6) {
             saddr.ss_family       = AF_INET6;
         } else {
@@ -949,24 +745,7 @@ bool call::connect_socket_if_needed()
         }
 
         if (peripsocket) {
-            struct addrinfo * h ;
-            struct addrinfo   hints;
-            memset((char*)&hints, 0, sizeof(hints));
-            hints.ai_flags  = AI_PASSIVE;
-            hints.ai_family = PF_UNSPEC;
-            getaddrinfo(peripaddr,
-                        NULL,
-                        &hints,
-                        &h);
-            memcpy(&saddr, h->ai_addr,
-                   SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage*, h->ai_addr)));
-
-            if (use_ipv6) {
-                (_RCAST(struct sockaddr_in6*, &saddr))->sin6_port = htons(local_port);
-            } else {
-                (_RCAST(struct sockaddr_in*, &saddr))->sin_port = htons(local_port);
-            }
-            freeaddrinfo(h);
+            gai_getsockaddr(&saddr, peripaddr, local_port, AI_PASSIVE, AF_UNSPEC);
         }
 
         if (sipp_bind_socket(call_socket, &saddr, &call_port)) {
@@ -975,7 +754,7 @@ bool call::connect_socket_if_needed()
     } else { /* TCP, SCTP or TLS. */
         struct sockaddr_storage *L_dest = &remote_sockaddr;
 
-        if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+        if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
             ERROR_NO("Unable to get a TCP/SCTP/TLS socket");
         }
 
@@ -989,7 +768,7 @@ bool call::connect_socket_if_needed()
             L_dest = &remote_sending_sockaddr;
         }
 
-        if (sipp_connect_socket(call_socket, L_dest)) {
+        if (call_socket->connect(L_dest)) {
             if (reconnect_allowed()) {
                 if(errno == EINVAL) {
                     /* This occurs sometime on HPUX but is not a true INVAL */
@@ -1019,6 +798,7 @@ bool call::connect_socket_if_needed()
                 }
             }
         }
+        call_port = call_socket->ss_port;
     }
     return true;
 }
@@ -1048,7 +828,7 @@ bool call::lost(int index)
 
 int call::send_raw(const char * msg, int index, int len)
 {
-    struct sipp_socket *sock;
+    SIPpSocket *sock;
     int rc;
 
     callDebug("Sending %s message for call %s (index %d, hash %lu):\n%s\n\n",
@@ -1080,7 +860,7 @@ int call::send_raw(const char * msg, int index, int len)
                 sipp_customize_socket(call_remote_socket);
 
                 if(transport != T_UDP) {
-                    if (sipp_connect_socket(call_remote_socket, L_dest)) {
+                    if (call_remote_socket->connect(L_dest)) {
                         if(errno == EINVAL) {
                             /* This occurs sometime on HPUX but is not a true INVAL */
                             ERROR("Unable to connect a %s socket for rsa option, remote peer error", TRANSPORT_TO_STRING(transport));
@@ -1109,7 +889,7 @@ int call::send_raw(const char * msg, int index, int len)
 
     assert(sock);
 
-    rc = write_socket(sock, msg, len, WS_BUFFER, &call_peer);
+    rc = sock->write(msg, len, WS_BUFFER, &call_peer);
     if(rc < 0 && errno == EWOULDBLOCK) {
         return rc;
     }
@@ -1212,7 +992,7 @@ char * call::get_last_request_uri()
     }
 
     if (!(last_request_uri = (char *)malloc(tmp_len + 1))) {
-        ERROR("Cannot allocate !\n");
+        ERROR("Cannot allocate!");
     }
 
     last_request_uri[0] = '\0';
@@ -1231,8 +1011,6 @@ char * call::send_scene(int index, int *send_status, int *len)
     char *L_ptr1 ;
     char *L_ptr2 ;
     int uselen = 0;
-    int tmplen;
-    char *hdrbdry;
 
     assert(send_status);
 
@@ -1272,16 +1050,6 @@ char * call::send_scene(int index, int *send_status, int *len)
         ack_is_pending = false ;
     }
 
-    /* Fix: Remove extra "\r\n" if message body ends with "\r\n\r\n" */
-    tmplen = (*len) - 1;
-    if ((dest[tmplen] == dest[tmplen-2] && dest[tmplen] == '\n')
-            && (dest[tmplen-1] == dest[tmplen-3] && dest[tmplen-1] == '\r'))  {
-        hdrbdry = strstr(dest, "\r\n\r\n");
-        if (NULL != hdrbdry &&  hdrbdry != dest+(tmplen-3))  {
-            *len = (*len) - 2;
-        }
-    }
-
     *send_status = send_raw(dest, index, *len);
 
     return dest;
@@ -1290,28 +1058,29 @@ char * call::send_scene(int index, int *send_status, int *len)
 void call::do_bookkeeping(message *curmsg)
 {
     /* If this message increments a counter, do it now. */
-    if(int counter = curmsg -> counter) {
-        computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, counter - 1);
+    if (curmsg -> counter) {
+        computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, curmsg->counter - 1);
     }
 
     /* If this message can be used to compute RTD, do it now */
-    if(int rtd = curmsg -> start_rtd) {
-        start_time_rtd[rtd - 1] = getmicroseconds();
+    if (curmsg->start_rtd) {
+        start_time_rtd[curmsg->start_rtd - 1] = getmicroseconds();
     }
 
-    if(int rtd = curmsg -> stop_rtd) {
+    if (curmsg->stop_rtd) {
+        int rtd = curmsg->stop_rtd;
         if (!rtd_done[rtd - 1]) {
             unsigned long long start = start_time_rtd[rtd - 1];
             unsigned long long end = getmicroseconds();
 
-            if(dumpInRtt) {
+            if (dumpInRtt) {
                 call_scenario->stats->computeRtt(start, end, rtd);
             }
 
             computeStat(CStat::E_ADD_RESPONSE_TIME_DURATION,
                         (end - start) / 1000, rtd - 1);
 
-            if (!curmsg -> repeat_rtd) {
+            if (!curmsg->repeat_rtd) {
                 rtd_done[rtd - 1] = true;
             }
         }
@@ -1367,6 +1136,38 @@ void call::terminate(CStat::E_Action reason)
         case call::E_AR_NO_ERROR:
         case call::E_AR_STOP_CALL:
             /* Do nothing. */
+            break;
+        case call::E_AR_TEST_DOESNT_MATCH:
+            computeStat(CStat::E_CALL_FAILED);
+            computeStat(CStat::E_FAILED_TEST_DOESNT_MATCH);
+            if (deadcall_wait && !initCall) {
+                sprintf(reason_str, "test failure at index %d", msg_index);
+                new deadcall(id, reason_str);
+            }
+            break;
+        case call::E_AR_TEST_SHOULDNT_MATCH:
+            computeStat(CStat::E_CALL_FAILED);
+            computeStat(CStat::E_FAILED_TEST_SHOULDNT_MATCH);
+            if (deadcall_wait && !initCall) {
+                sprintf(reason_str, "test succeeded, but shouldn't at index %d", msg_index);
+                new deadcall(id, reason_str);
+            }
+            break;
+        case call::E_AR_STRCMP_DOESNT_MATCH:
+            computeStat(CStat::E_CALL_FAILED);
+            computeStat(CStat::E_FAILED_STRCMP_DOESNT_MATCH);
+            if (deadcall_wait && !initCall) {
+                sprintf(reason_str, "test failure at index %d", msg_index);
+                new deadcall(id, reason_str);
+            }
+            break;
+        case call::E_AR_STRCMP_SHOULDNT_MATCH:
+            computeStat(CStat::E_CALL_FAILED);
+            computeStat(CStat::E_FAILED_STRCMP_SHOULDNT_MATCH);
+            if (deadcall_wait && !initCall) {
+                sprintf(reason_str, "test succeeded, but shouldn't at index %d", msg_index);
+                new deadcall(id, reason_str);
+            }
             break;
         }
     } else {
@@ -1512,6 +1313,12 @@ bool call::executeMessage(message *curmsg)
         }
 
         msg_snd = send_scene(msg_index, &send_status, &msgLen);
+        if (!msg_snd) {
+            /* This will hit connect_if_needed, and if it fails, the
+               entire call is deleted... */
+            ERROR("Call failed, cannot continue safely...");
+        }
+
         if(send_status < 0 && errno == EWOULDBLOCK) {
             if (incr_cseq) --cseq;
             /* Have we set the timeout yet? */
@@ -1677,12 +1484,12 @@ bool call::run()
     message *curmsg;
     if (initCall) {
         if(msg_index >= (int)call_scenario->initmessages.size()) {
-            ERROR("Scenario initialization overrun for call %s (%p) (index = %d)\n", id, _RCAST(void*, this), msg_index);
+            ERROR("Scenario initialization overrun for call %s (%p) (index = %d)", id, _RCAST(void*, this), msg_index);
         }
         curmsg = call_scenario->initmessages[msg_index];
     } else {
         if(msg_index >= (int)call_scenario->messages.size()) {
-            ERROR("Scenario overrun for call %s (%p) (index = %d)\n", id, _RCAST(void*, this), msg_index);
+            ERROR("Scenario overrun for call %s (%p) (index = %d)", id, _RCAST(void*, this), msg_index);
         }
         curmsg = call_scenario->messages[msg_index];
     }
@@ -1889,7 +1696,7 @@ void set_default_message(const char *which, char *msg)
     ERROR("Internal Error: Unknown default message: %s!", which);
 }
 
-bool call::process_unexpected(char * msg)
+bool call::process_unexpected(const char* msg)
 {
     char buffer[MAX_HEADER_LEN];
     char *desc = buffer;
@@ -2069,7 +1876,7 @@ int call::sendCmdMessage(message *curmsg)
 
     /* 3pcc extended mode */
     char * peer_dest;
-    struct sipp_socket **peer_socket;
+    SIPpSocket **peer_socket;
 
     if(curmsg -> M_sendCmdData) {
         // WARNING("---PREPARING_TWIN_CMD---%s---", scenario[index] -> M_sendCmdData);
@@ -2083,9 +1890,9 @@ int call::sendCmdMessage(message *curmsg)
         peer_dest = curmsg->peer_dest;
         if(peer_dest) {
             peer_socket = get_peer_socket(peer_dest);
-            rc = write_socket(*peer_socket, dest, strlen(dest), WS_BUFFER, &call_peer);
+            rc = (*peer_socket)->write(dest, strlen(dest), WS_BUFFER, &call_peer);
         } else {
-            rc = write_socket(twinSippSocket, dest, strlen(dest), WS_BUFFER, &call_peer);
+            rc = twinSippSocket->write(dest, strlen(dest), WS_BUFFER, &call_peer);
         }
         if(rc <  0) {
             computeStat(CStat::E_CALL_FAILED);
@@ -2113,7 +1920,7 @@ int call::sendCmdBuffer(char* cmd)
 
     strcat(dest, delimitor);
 
-    rc = write_socket(twinSippSocket, dest, strlen(dest), WS_BUFFER, &twinSippSocket->ss_remote_sockaddr);
+    rc = twinSippSocket->write(dest, strlen(dest), WS_BUFFER, &twinSippSocket->ss_dest);
     if(rc <  0) {
         computeStat(CStat::E_CALL_FAILED);
         computeStat(CStat::E_FAILED_CMD_NOT_SENT);
@@ -2160,7 +1967,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             break;
         case E_Message_Remote_IP:
-            dest += snprintf(dest, left, "%s", remote_ip_escaped);
+            dest += snprintf(dest, left, "%s", remote_ip_w_brackets);
             break;
         case E_Message_Remote_Host:
             dest += snprintf(dest, left, "%s", remote_host);
@@ -2169,11 +1976,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             dest += snprintf(dest, left, "%d", remote_port + comp->offset);
             break;
         case E_Message_Local_IP:
-            dest += snprintf(dest, left, "%s", local_ip_escaped);
+            dest += snprintf(dest, left, "%s", local_ip_w_brackets);
             break;
         case E_Message_Local_Port:
             int port;
-            if((transport == T_UDP) && (multisocket) && (sendMode != MODE_SERVER)) {
+            if((multisocket) && (sendMode != MODE_SERVER)) {
                 port = call_port;
             } else {
                 port =  local_port;
@@ -2222,9 +2029,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 begin--;
             }
             if (begin == msg_buffer) {
-                ERROR("Can not find beginning of a line for the media port!\n");
+                ERROR("Can not find beginning of a line for the media port!");
             }
-            play_args_t *play_args = NULL;
+            play_args_t* play_args = NULL;
             if (strstr(begin, "audio")) {
                 play_args = &play_args_a;
             } else if (strstr(begin, "image")) {
@@ -2243,28 +2050,10 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             dest += sprintf(dest, "%u", port);
             break;
         }
-#ifdef RTP_STREAM
-      case E_Message_RTPStream_Audio_Port:
-        {
-          int temp_audio_port= rtpstream_get_audioport (&rtpstream_callinfo);
-          if (!temp_audio_port) {
-            /* Make this a warning instead? */
-            ERROR("cannot assign a free audio port to this call - using 0 for [rtpstream_audio_port]");
-          }
-          dest += snprintf(dest, left, "%d",temp_audio_port);
-        }
-        break;
-      case E_Message_RTPStream_Video_Port:
-        {
-          int temp_video_port= rtpstream_get_videoport (&rtpstream_callinfo);
-          if (!temp_video_port) {
-            /* Make this a warning instead? */
-            ERROR("cannot assign a free video port to this call - using 0 for [rtpstream_video_port]");
-          }
-          dest += snprintf(dest, left, "%d",temp_video_port);
-        }
-        break;
-#endif
+        case E_Message_RTPStream_Audio_Port: /* DEPRECATED */
+        case E_Message_RTPStream_Video_Port: /* DEPRECATED */
+            dest += sprintf(dest, "%u", media_port);
+            break;
         case E_Message_Media_IP_Type:
             dest += snprintf(dest, left, "%s", (media_ip_is_ipv6 ? "6" : "4"));
             break;
@@ -2314,14 +2103,14 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         case E_Message_Authentication:
             if (auth_marker) {
-                ERROR("Only one [authentication] keyword is currently supported!\n");
+                ERROR("Only one [authentication] keyword is currently supported!");
             }
             auth_marker = dest;
             dest += snprintf(dest, left, "[authentication place holder]");
             auth_comp = comp;
             break;
         case E_Message_Peer_Tag_Param:
-            if(peer_tag) {
+            if (peer_tag) {
                 dest += snprintf(dest, left, ";tag=%s", peer_tag);
             }
             break;
@@ -2404,7 +2193,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             createSendingMessage(comp->comp_param.filename, -2, buffer, sizeof(buffer));
             FILE *f = fopen(buffer, "r");
             if (!f) {
-                ERROR("Could not open '%s': %s\n", buffer, strerror(errno));
+                ERROR("Could not open '%s': %s", buffer, strerror(errno));
             }
             int ret;
             while ((ret = fread(dest, 1, left, f)) > 0) {
@@ -2412,7 +2201,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 dest += ret;
             }
             if (ret < 0) {
-                ERROR("Error reading '%s': %s\n", buffer, strerror(errno));
+                ERROR("Error reading '%s': %s", buffer, strerror(errno));
             }
             fclose(f);
             break;
@@ -2423,7 +2212,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             /* We are injecting an authentication line. */
             if (char *tmp = strstr(orig_dest, "[authentication")) {
                 if (auth_marker) {
-                    ERROR("Only one [authentication] keyword is currently supported!\n");
+                    ERROR("Only one [authentication] keyword is currently supported!");
                 }
                 auth_marker = tmp;
                 auth_comp = (struct MessageComponent *)calloc(1, sizeof(struct MessageComponent));
@@ -2538,20 +2327,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
 
         int  auth_marker_len;
-        char * tmp;
         int  authlen;
 
         auth_marker_len = (strchr(auth_marker, ']') + 1) - auth_marker;
-
-        /* Need the Method name from the CSeq of the Challenge */
-        char method[MAX_HEADER_LEN];
-        tmp = get_last_header("CSeq:");
-        if(!tmp) {
-            ERROR("Could not extract method from cseq of challenge");
-        }
-        tmp += 5;
-        while(isspace(*tmp) || isdigit(*tmp)) tmp++;
-        sscanf(tmp,"%s", method);
 
         /* Determine the type of credentials. */
         char result[MAX_HEADER_LEN];
@@ -2579,8 +2357,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         createSendingMessage(auth_comp->comp_param.auth_param.aka_AMF, -2, my_aka_AMF, sizeof(my_aka_AMF));
         createSendingMessage(auth_comp->comp_param.auth_param.aka_OP, -2, my_aka_OP, sizeof(my_aka_OP));
 
-        if (createAuthHeader(my_auth_user, my_auth_pass, method, uri, auth_body, dialog_authentication,
-                             my_aka_OP, my_aka_AMF, my_aka_K, result + authlen) == 0) {
+        if (createAuthHeader(
+                my_auth_user, my_auth_pass, src->getMethod(), uri,
+                auth_body, dialog_authentication, my_aka_OP, my_aka_AMF,
+                my_aka_K, next_nonce_count++, result + authlen,
+                MAX_HEADER_LEN - authlen) == 0) {
             ERROR("%s", result + authlen);
         }
         authlen = strlen(result);
@@ -2631,7 +2412,7 @@ bool call::process_twinSippCom(char * msg)
                         found = true;
                         break;
                     } else {
-                        WARNING("Unexpected sender for the received peer message \n%s\n", msg);
+                        WARNING("Unexpected sender for the received peer message\n%s\n", msg);
                         return rejectCall();
                     }
                 } else {
@@ -2756,17 +2537,17 @@ bool call::check_peer_src(char * msg, int search_index)
 }
 
 
-void call::extract_cseq_method (char* method, char* msg)
+void call::extract_cseq_method(char* method, const char* msg)
 {
-    char* cseq ;
+    const char* cseq;
     if ((cseq = strstr (msg, "CSeq"))) {
-        char * value ;
-        if (( value = strchr (cseq,  ':'))) {
+        const char* value;
+        if ((value = strchr(cseq, ':'))) {
             value++;
-            while ( isspace(*value)) value++;  // ignore any white spaces after the :
-            while ( !isspace(*value)) value++;  // ignore the CSEQ number
-            while ( isspace(*value)) value++;  // ignore spaces after CSEQ number
-            char *end = value;
+            while (isspace(*value)) value++;  // ignore any white spaces after the :
+            while (!isspace(*value)) value++;  // ignore the CSEQ number
+            while (isspace(*value)) value++;  // ignore spaces after CSEQ number
+            const char* end = value;
             int nbytes = 0;
             /* A '\r' terminates the line, so we want to catch that too. */
             while ((*end != '\r') && (*end != '\n')) {
@@ -2779,7 +2560,7 @@ void call::extract_cseq_method (char* method, char* msg)
     }
 }
 
-void call::extract_transaction (char* txn, char* msg)
+void call::extract_transaction(char* txn, const char* msg)
 {
     char *via = get_header_content(msg, "via:");
     if (!via) {
@@ -2822,112 +2603,89 @@ void call::formatNextReqUrl(const char* contact)
 
 void call::computeRouteSetAndRemoteTargetUri(const char* rr, const char* contact, bool bRequestIncoming)
 {
-    if (!*rr) {
-        //
-        // there are no RR headers. Simply set up the contact as our target uri
-        //
-        if (*contact) {
-            formatNextReqUrl(contact);
-        }
+    if (!*contact) {
+        WARNING("Cannot record route set if there is no Contact");
         return;
     }
 
-    char tmp_rr[MAX_HEADER_LEN];
-    char actual_rr[MAX_HEADER_LEN];
-    char targetURI[MAX_HEADER_LEN];
-
-    actual_rr[0] = tmp_rr[0] = targetURI[0] = '\0';
-    strncat(tmp_rr, rr, MAX_HEADER_LEN - 1);
-
-    bool isFirst = true;
-    bool bCopyContactToRR = false;
-
-    while (1) {
-        char* pointer = NULL;
-        if (bRequestIncoming) {
-            pointer = strchr(tmp_rr, ',');
-        } else {
-            pointer = strrchr(tmp_rr, ',');
-        }
-
-        if (pointer) {
-            if (!isFirst) {
-                strcat(actual_rr, pointer + 1);
-                strcat(actual_rr, ",");
-            } else {
-                isFirst = false;
-                if (NULL == strstr(pointer, ";lr")) {
-                    /* bottom most RR is the next_req_url */
-                    strncpy(targetURI, pointer + 1, sizeof(targetURI) - 1);
-                    bCopyContactToRR = true;
-                } else {
-                    /* the hop is a loose router. Thus, the target URI should be the
-                     * contact
-                     */
-                    strcpy(targetURI, contact);
-                    strcpy(actual_rr, pointer + 1);
-                    strcat(actual_rr, ",");
-                }
-            }
-        } else {
-            if (!isFirst) {
-                strcat(actual_rr, tmp_rr);
-            }
-            //
-            // this is the *only* RR header that was found
-            //
-            else {
-                if (NULL == strstr(tmp_rr, ";lr")) {
-                    /* bottom most RR is the next_req_url */
-                    strcpy(targetURI, tmp_rr);
-                    bCopyContactToRR = true;
-                } else {
-                    /* the hop is a loose router. Thus, the target URI should be the
-                     * contact
-                     */
-                    strcpy(actual_rr, tmp_rr);
-                    strcpy(targetURI, contact);
-                }
-            }
-            break;
-        }
-        *pointer = '\0';
+    if (!*rr) {
+        /* There are no RR headers. Simply set up the contact as our
+         * target uri.  Note that this is only called if there was no
+         * dialog_route_set at the moment.  And in either case, we
+         * wouldn't want to clear the dialog_route_set because changing
+         * RR mid-dialog is not allowed. */
+        formatNextReqUrl(contact);
+        return;
     }
 
-    if (bCopyContactToRR) {
-        if (*actual_rr) {
-            strcat(actual_rr, ",");
-            strcat(actual_rr, contact);
+    std::vector<std::string> headers = split(rr, ',');
+    std::vector<std::string>::iterator it;
+    std::vector<std::string>::iterator end;
+    int direction;
+
+    if (bRequestIncoming) {
+        it = headers.begin();
+        end = headers.end();
+        direction = 1;
+    } else {
+        it = headers.end() - 1;
+        end = headers.begin() - 1;
+        direction = -1;
+    }
+
+    std::vector<std::string> routes;
+    std::string targetUri;
+    bool first = true;
+
+    for (; it != end; it += direction) {
+        const std::string& header = *it;
+
+        if (first && header.find(";lr") == std::string::npos) {
+            /* If the next hop is a static router, set target URI to
+             * that router. We'll push the original contact onto the end
+             * of the route set. We won't need to record this route,
+             * because we've set the target to it. */
+            targetUri = header;
         } else {
-            strcpy(actual_rr, contact);
+            first = false;
+            routes.push_back(trim(header));
         }
     }
 
-    if (*actual_rr) {
-        dialog_route_set = strdup(actual_rr);
+    /* If target URI is set, the first hop is a strict router.  Add the
+     * Contact as tailing route. */
+    if (targetUri.length()) {
+        routes.push_back(trim(contact));
+    } else {
+        targetUri = contact;
     }
 
-    if (*targetURI) {
-        formatNextReqUrl(targetURI);
+    if (routes.size()) {
+        dialog_route_set = strdup(join(routes, ", ").c_str());
     }
+
+    formatNextReqUrl(targetUri.c_str());
 }
 
 bool call::matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod, char *txn)
 {
     message *curmsg = call_scenario->messages[index];
 
-    if ((curmsg -> recv_request)) {
+    if ((curmsg->recv_request)) {
         if (curmsg->regexp_match) {
-            if (curmsg -> regexp_compile == NULL) {
+            if (curmsg->regexp_compile == NULL) {
                 regex_t *re = new regex_t;
-                if (regcomp(re, curmsg -> recv_request, REG_EXTENDED|REG_NOSUB)) {
+                /* No regex match position needed (NOSUB), we're simply
+                 * looking for the <request method="INVITE|REGISTER"../>
+                 * regex. */
+                if (regcomp(re, curmsg->recv_request, REGCOMP_PARAMS|REG_NOSUB)) {
                     ERROR("Invalid regular expression for index %d: %s", index, curmsg->recv_request);
                 }
-                curmsg -> regexp_compile = re;
+                curmsg->regexp_compile = re;
             }
-            return !regexec(curmsg -> regexp_compile, request, (size_t)0, NULL, 0);
+            return !regexec(curmsg->regexp_compile, request, (size_t)0, NULL, REGEXEC_PARAMS);
         } else {
-            return !strcmp(curmsg -> recv_request, request);
+            return !strcmp(curmsg->recv_request, request);
         }
     } else if (curmsg->recv_response && (curmsg->recv_response == reply_code)) {
         /* This is a potential candidate, we need to match transactions. */
@@ -2952,20 +2710,20 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
     return false;
 }
 
-void call::queue_up(char *msg)
+void call::queue_up(const char* msg)
 {
     free(queued_msg);
     queued_msg = strdup(msg);
 }
 
-bool call::process_incoming(char * msg, struct sockaddr_storage *src)
+bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 {
-    int             reply_code;
+    int             reply_code = 0;
     static char     request[65];
     char            responsecseqmethod[65];
     char            txn[MAX_HEADER_LEN];
     unsigned long   cookie = 0;
-    char          * ptr;
+    const char*     ptr;
     int             search_index;
     bool            found = false;
     T_ActionResult  actionResult;
@@ -2975,18 +2733,21 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
               strlen(msg), id, hash(msg), msg);
 
     setRunning();
+    message *curmsg = call_scenario->messages[msg_index];
 
     /* Ignore the messages received during a pause if -pause_msg_ign is set */
-    if(call_scenario->messages[msg_index] -> M_type == MSG_TYPE_PAUSE && pause_msg_ign) return(true);
+    if (curmsg->M_type == MSG_TYPE_PAUSE && pause_msg_ign) {
+        return true;
+    }
 
     /* Get our destination if we have none. */
     if (call_peer.ss_family == AF_UNSPEC && src) {
-        memcpy(&call_peer, src, SOCK_ADDR_SIZE(src));
+        memcpy(&call_peer, src, sizeof(call_peer));
     }
 
     /* Authorize nop as a first command, even in server mode */
-    if((msg_index == 0) && (call_scenario->messages[msg_index] -> M_type == MSG_TYPE_NOP)) {
-        queue_up (msg);
+    if (msg_index == 0 && curmsg->M_type == MSG_TYPE_NOP) {
+        queue_up(msg);
         paused_until = 0;
         return run();
     }
@@ -3051,30 +2812,31 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
         }
     }
 
-#ifdef RTP_STREAM
-  /* Check if message has a SDP in it; and extract media information. */
-  if (!strcmp(get_header_content(msg, (char*)"Content-Type:"),"application/sdp") &&
-          (hasMedia == 1)) {
-    extract_rtp_remote_addr(msg);
-  }
-#endif
+    /* Check if message has a SDP in it; and extract media information. */
+    if (!strcmp(get_header_content(msg, "Content-Type:"), "application/sdp") &&
+            hasMedia == 1 && !curmsg->ignoresdp) {
+        const char* ptr = get_header_content(msg, "Content-Length:");
+        if (ptr && atoll(ptr) > 0) {
+            extract_rtp_remote_addr(msg);
+        }
+    }
 
     /* Is it a response ? */
-    if((msg[0] == 'S') &&
+    if ((msg[0] == 'S') &&
             (msg[1] == 'I') &&
             (msg[2] == 'P') &&
             (msg[3] == '/') &&
             (msg[4] == '2') &&
             (msg[5] == '.') &&
-            (msg[6] == '0')    ) {
+            (msg[6] == '0')) {
 
         reply_code = get_reply_code(msg);
-        if(!reply_code) {
+        if (!reply_code) {
             if (!process_unexpected(msg)) {
                 return false; // Call aborted by unexpected message handling
             }
 #ifdef PCAPPLAY
-        } else if ((hasMedia == 1) && *(strstr(msg, "\r\n\r\n")+4) != '\0') {
+        } else if (hasMedia == 1 && !curmsg->ignoresdp && *(strstr(msg, "\r\n\r\n") + 4) != '\0') {
             /* Get media info if we find something like an SDP */
             get_remote_media_addr(msg);
 #endif
@@ -3093,17 +2855,17 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
                 ERROR("Out of memory allocating peer tag.");
             }
         }
-        request[0]=0;
+        request[0] = 0;
         // extract the cseq method from the response
-        extract_cseq_method (responsecseqmethod, msg);
-        extract_transaction (txn, msg);
-    } else if((ptr = strchr(msg, ' '))) {
-        if((ptr - msg) < 64) {
+        extract_cseq_method(responsecseqmethod, msg);
+        extract_transaction(txn, msg);
+    } else if ((ptr = strchr(msg, ' '))) {
+        if ((ptr - msg) < 64) {
             memcpy(request, msg, ptr - msg);
             request[ptr - msg] = 0;
             // Check if we received an ACK => call established
-            if (strcmp(request,"ACK")==0) {
-                call_established=true;
+            if (strcmp(request,"ACK") == 0) {
+                call_established = true;
             }
 #ifdef PCAPPLAY
             /* In case of INVITE or re-INVITE, ACK or PRACK
@@ -3112,8 +2874,9 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
             if (((strncmp(request, "INVITE", 6) == 0)
                     || (strncmp(request, "ACK", 3) == 0)
                     || (strncmp(request, "PRACK", 5) == 0))
-                    && (hasMedia == 1))
+                    && hasMedia == 1 && !curmsg->ignoresdp) {
                 get_remote_media_addr(msg);
+            }
 #endif
 
             reply_code = 0;
@@ -3127,12 +2890,12 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     }
 
     /* Try to find it in the expected non mandatory responses
-     * until the first mandatory response  in the scenario */
-    for(search_index = msg_index;
+     * until the first mandatory response in the scenario */
+    for (search_index = msg_index;
             search_index < (int)call_scenario->messages.size();
             search_index++) {
-        if(!matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
-            if(call_scenario->messages[search_index] -> optional) {
+        if (!matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
+            if (call_scenario->messages[search_index]->optional) {
                 continue;
             }
             /* The received message is different for the expected one */
@@ -3148,13 +2911,15 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     }
 
     /* Try to find it in the old non-mandatory receptions */
-    if(!found) {
+    if (!found) {
         bool contig = true;
         for(search_index = msg_index - 1;
                 search_index >= 0;
                 search_index--) {
-            if (call_scenario->messages[search_index]->optional == OPTIONAL_FALSE) contig = false;
-            if(matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
+            if (call_scenario->messages[search_index]->optional == OPTIONAL_FALSE) {
+                contig = false;
+            }
+            if (matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
                 if (contig || call_scenario->messages[search_index]->optional == OPTIONAL_GLOBAL) {
                     found = true;
                     break;
@@ -3187,7 +2952,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
                                               TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, msg);
                                     callDebug("Ignoring final %s message for transaction %s (hash %lu):\n\n%s\n",
                                               TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
-                                    WARNING("Ignoring final %s message for transaction %s (hash %lu):\n\n%s\n",
+                                    WARNING("Ignoring final %s message for transaction %s (hash %lu):\n\n%s",
                                             TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
                                     return true;
                                 }
@@ -3339,8 +3104,8 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
     }
 
     /* store the route set only once. TODO: does not support target refreshes!! */
-    if (call_scenario->messages[search_index] -> bShouldRecordRoutes &&
-            NULL == dialog_route_set) {
+    if (call_scenario->messages[search_index]->bShouldRecordRoutes &&
+            dialog_route_set == NULL) {
         realloc_ptr = (char*)realloc(next_req_url, MAX_HEADER_LEN);
         if (realloc_ptr) {
             next_req_url = realloc_ptr;
@@ -3389,6 +3154,8 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
 
         /* Store the code of the challenge for building the proper header */
         dialog_challenge_type = reply_code;
+
+        next_nonce_count = 1;
     }
 
     /* If we are not advancing state, we should quite before we change this stuff. */
@@ -3428,7 +3195,7 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
         unsigned int candidate;
 
         if (call_scenario->messages[search_index]->next && M_callVariableTable->getVar(test)->isSet()) {
-            WARNING("Last message generates an error and will not be used for next sends (for last_ variables):\r\n%s",msg);
+            WARNING("Last message generates an error and will not be used for next sends (for last_ variables):\n%s\n", msg);
         }
 
         /* We are just waiting for a message to be received, if any of the
@@ -3464,18 +3231,18 @@ double call::get_rhs(CAction *currentAction)
     }
 }
 
-call::T_ActionResult call::executeAction(char * msg, message *curmsg)
+call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 {
     CActions*  actions;
     CAction*   currentAction;
 
     actions = curmsg->M_actions;
     // looking for action to do on this message
-    if(actions == NULL) {
+    if (actions == NULL) {
         return(call::E_AR_NO_ERROR);
     }
 
-    for(int i=0; i<actions->getActionSize(); i++) {
+    for (int i = 0; i < actions->getActionSize(); i++) {
         currentAction = actions->getAction(i);
         if(currentAction == NULL) {
             continue;
@@ -3485,7 +3252,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             char msgPart[MAX_SUB_MESSAGE_LENGTH];
 
             /* Where to look. */
-            char *haystack;
+            const char* haystack = NULL;
 
             if(currentAction->getLookingPlace() == CAction::E_LP_HDR) {
                 extractSubMessage (msg,
@@ -3497,7 +3264,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 if(currentAction->getCheckIt() == true && (strlen(msgPart) == 0)) {
                     // the sub message is not found and the checking action say it
                     // MUST match --> Call will be marked as failed but will go on
-                    WARNING("Failed regexp match: header %s not found in message %s\n", currentAction->getLookingChar(), msg);
+                    WARNING("Failed regexp match: header %s not found in message\n%s\n", currentAction->getLookingChar(), msg);
                     return(call::E_AR_HDR_NOT_FOUND);
                 }
                 haystack = msgPart;
@@ -3505,7 +3272,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 haystack = strstr(msg, "\r\n\r\n");
                 if (!haystack) {
                     if (currentAction->getCheckIt() == true) {
-                        WARNING("Failed regexp match: body not found in message %s\n", msg);
+                        WARNING("Failed regexp match: body not found in message\n%s\n", msg);
                         return(call::E_AR_HDR_NOT_FOUND);
                     }
                     msgPart[0] = '\0';
@@ -3519,12 +3286,12 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 haystack = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
                 if (!haystack) {
                     if (currentAction->getCheckIt() == true) {
-                        WARNING("Failed regexp match: variable $%d not set\n", currentAction->getVarInId());
+                        WARNING("Failed regexp match: variable $%d not set", currentAction->getVarInId());
                         return(call::E_AR_HDR_NOT_FOUND);
                     }
                 }
             } else {
-                ERROR("Invalid looking place: %d\n", currentAction->getLookingPlace());
+                ERROR("Invalid looking place: %d", currentAction->getLookingPlace());
             }
             bool did_match = (currentAction->executeRegExp(haystack, M_callVariableTable) > 0);
 
@@ -3600,8 +3367,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             free(value);
         } else if (currentAction->getActionType() == CAction::E_AT_CLOSE_CON) {
             if (call_socket) {
-                sipp_socket_invalidate(call_socket);
-                sipp_close_socket(call_socket);
+                call_socket->close();
                 call_socket = NULL;
             }
         } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST) {
@@ -3616,7 +3382,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 ERROR("Invalid port for setdest: %s", str_port);
             }
 
-            int protocol;
+            int protocol = 0;
             if (!strcmp(str_protocol, "udp") || !strcmp(str_protocol, "UDP")) {
                 protocol = T_UDP;
             } else if (!strcmp(str_protocol, "tcp") || !strcmp(str_protocol, "TCP")) {
@@ -3632,7 +3398,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             if (!call_socket && ((protocol == T_TCP && transport == T_TCP) ||
                                  (protocol == T_SCTP && transport == T_SCTP))) {
                 bool existing;
-                if ((associate_socket(new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+                if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
                     switch (protocol) {
                     case T_SCTP:
                         ERROR_NO("Unable to get a SCTP socket");
@@ -3668,30 +3434,11 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 }
             }
 
-            struct addrinfo   hints;
-            struct addrinfo * local_addr;
-            memset((char*)&hints, 0, sizeof(hints));
-            hints.ai_flags  = AI_PASSIVE;
-            hints.ai_family = PF_UNSPEC;
-            is_ipv6 = false;
-
-            if (getaddrinfo(str_host, NULL, &hints, &local_addr) != 0) {
+            if (gai_getsockaddr(&call_peer, str_host, port,
+                                AI_PASSIVE, AF_UNSPEC) != 0) {
                 ERROR("Unknown host '%s' for setdest", str_host);
             }
-            if (_RCAST(struct sockaddr_storage *, local_addr->ai_addr)->ss_family != call_peer.ss_family) {
-                ERROR("Can not switch between IPv4 and IPV6 using setdest!");
-            }
-            memcpy(&call_peer, local_addr->ai_addr,
-                   SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage*, local_addr->ai_addr)));
-            freeaddrinfo(local_addr);
-
-            if (call_peer.ss_family == AF_INET) {
-                (_RCAST(struct sockaddr_in*, &call_peer))->sin_port = htons(port);
-            } else {
-                (_RCAST(struct sockaddr_in6*, &call_peer))->sin6_port = htons(port);
-            }
-            memcpy(&call_socket->ss_dest, &call_peer,
-                   SOCK_ADDR_SIZE(_RCAST(struct sockaddr_storage*, &call_peer)));
+            memcpy(&call_socket->ss_dest, &call_peer, sizeof(call_peer));
 
             free(str_host);
             free(str_port);
@@ -3701,7 +3448,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 close(call_socket->ss_fd);
                 call_socket->ss_fd = -1;
                 call_socket->ss_changed_dest = true;
-                if (sipp_reconnect_socket(call_socket)) {
+                if (call_socket->reconnect()) {
                     if (reconnect_allowed()) {
                         if(errno == EINVAL) {
                             /* This occurs sometime on HPUX but is not a true INVAL */
@@ -3730,8 +3477,8 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             }
         } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_AUTH) {
             bool result;
-            char *lf;
-            char *end;
+            const char* lf;
+            const char* end;
 
             lf = strchr(msg, '\n');
             end = strchr(msg, ' ');
@@ -3753,7 +3500,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 tmp= createSendingMessage(currentAction->getMessage(1), -2 /* do not add crlf*/);
                 char *password = strdup(tmp);
                 /* Need the body for length and auth-int calculation */
-                char *body;
+                const char *body;
                 const char *auth_body = NULL;
                 body = strstr(msg, "\r\n\r\n");
                 if (body) {
@@ -3807,18 +3554,71 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value / operand);
             }
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TEST) {
-            double value = currentAction->compare(M_callVariableTable);
-            M_callVariableTable->getVar(currentAction->getVarId())->setBool(value);
-        } else if (currentAction->getActionType() == CAction::E_AT_VAR_STRCMP) {
-            char *rhs = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
-            char *lhs;
-            if (currentAction->getVarIn2Id()) {
-                lhs = M_callVariableTable->getVar(currentAction->getVarIn2Id())->getString();
-            } else {
-                lhs = currentAction->getStringValue();
+            bool value = currentAction->compare(M_callVariableTable);
+            if ((currentAction->getCheckIt() && !value) ||
+                (currentAction->getCheckItInverse() && value)
+            ) {
+                double lhs = M_callVariableTable->getVar(currentAction->getVarInId())->getDouble();
+                double rhs = currentAction->getVarIn2Id() ?
+                    M_callVariableTable->getVar(currentAction->getVarIn2Id())->getDouble() :
+                    currentAction->getDoubleValue();
+                char *lhsName = call_scenario->allocVars->getName(currentAction->getVarInId());
+                const char *rhsName = "";
+                if (currentAction->getVarIn2Id()) {
+                    rhsName = call_scenario->allocVars->getName(currentAction->getVarIn2Id());
+                }
+                const char *_inverse = currentAction->getCheckIt() ? "" : "_inverse";
+                call::T_ActionResult result = currentAction->getCheckIt() ? call::E_AR_TEST_DOESNT_MATCH : call::E_AR_TEST_SHOULDNT_MATCH;
+
+                WARNING("test \"%s:%f %s %s:%f\" with check_it%s failed",
+                    lhsName,
+                    lhs,
+                    currentAction->comparatorToString(currentAction->getComparator()),
+                    rhsName,
+                    rhs,
+                    _inverse
+                );
+                return(result);
             }
-            int value = strcmp(rhs, lhs);
-            M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)value);
+            // "assign_to" is optional when "check_it" or "check_it_inverse" set
+            if (currentAction->getVarId() ||
+                (!currentAction->getCheckIt() && !currentAction->getCheckItInverse())
+            ) {
+                M_callVariableTable->getVar(currentAction->getVarId())->setBool(value);
+            }
+        } else if (currentAction->getActionType() == CAction::E_AT_VAR_STRCMP) {
+            char *lhs = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
+            char *rhs = currentAction->getVarIn2Id() ?
+                M_callVariableTable->getVar(currentAction->getVarIn2Id())->getString() :
+                currentAction->getStringValue();
+            int value = strcmp(lhs, rhs);
+            if ((currentAction->getCheckIt() && value) ||
+                (currentAction->getCheckItInverse() && !value)
+            ) {
+                char *lhsName = call_scenario->allocVars->getName(currentAction->getVarInId());
+                const char *rhsName = "";
+                if (currentAction->getVarIn2Id()) {
+                    rhsName = call_scenario->allocVars->getName(currentAction->getVarIn2Id());
+                }
+                const char *_inverse = currentAction->getCheckIt() ? "" : "_inverse";
+                call::T_ActionResult result = currentAction->getCheckIt() ? call::E_AR_STRCMP_DOESNT_MATCH : call::E_AR_STRCMP_SHOULDNT_MATCH;
+
+                WARNING("strcmp %s:\"%s\" and %s:\"%s\" with check_it%s returned %d",
+                    lhsName,
+                    lhs,
+                    rhsName,
+                    rhs,
+                    _inverse,
+                    value
+                );
+                return(result);
+            }
+            // "assign_to" is optional when "check_it" or "check_it_inverse" set
+            if (currentAction->getVarId() ||
+                (!currentAction->getCheckIt() && !currentAction->getCheckItInverse())
+            ) {
+                M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)value);
+            }
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TRIM) {
             CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
             char *in = var->getString();
@@ -3861,35 +3661,35 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
             ERROR("%s", x);
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
             char* x = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf*/);
-            TRACE_MSG("Trying to execute [%s]", x);
+            // TRACE_MSG("Trying to execute [%s]", x);
 
-		// Find out what command we're doing	
-		std::string str = x;
-		std::string delimiter = "@";
-		int end = str.find(delimiter);
-		std::string command = str.substr(0, end);		
-		std::string data = str.substr(end+1);
-		char data_str[4096];
-		memset(data_str,0,sizeof(data_str));
-		strcpy(data_str,data.c_str());
+          // Find out what command we're doing  
+          std::string str = x;
+          std::string delimiter = "@";
+          int end = str.find(delimiter);
+          std::string command = str.substr(0, end);     
+          std::string data = str.substr(end+1);
+          char data_str[4096];
+          memset(data_str,0,sizeof(data_str));
+          strcpy(data_str,data.c_str());
 
-	  // Process possible commands that override the default functionality:   format is command@<file.lua>
-	  //	custom calls - user defined
-	  //	<exec command="command@<argstring>  where argstring is a list of args sent to command.
-	  //	if we don't find anything - do a system call - default sipp behavior
-	  //	We pass in pointers to the call variables and the current scenario to allow manipulation of sipp variables
-	  //	These should be initialized in a plugin
-	
-	  int found = false;
-	  for (int i=0;(i<MAXFUNCS && !found);i++) {
-	  	if (command.compare(ApiHandler[i][0].cmdPtr)==0) {  // Check if this command matches any we've setup
-			found = true;
-			_ApiCustomFunc(i,0,data_str,(void *)M_callVariableTable,display_scenario);
-		}
-	  }
-	  if (!found) {
+          // Process possible commands that override the default functionality:   format is command@<file.lua>
+          //    custom calls - user defined
+          //    <exec command="command@<argstring>  where argstring is a list of args sent to command.
+          //    if we don't find anything - do a forked system call - default sipp behavior
+          //    We pass in pointers to the call variables and the current scenario to allow manipulation of sipp variables
+          //    These should be initialized in a plugin - see myapp.cpp for a sample
 
-	    // Execute a system call with the command passed in - default SIPP behavior
+          int found = false;
+          for (int i=0;(i<MAXFUNCS && !found);i++) {
+                if (command.compare(ApiHandler[i][0].cmdPtr)==0) {  // Check if this command matches any we've setup
+                        found = true;
+                        _ApiCustomFunc(i,0,data_str,(void *)M_callVariableTable,display_scenario);
+                }
+          }
+          if (!found) {
+
+            // Execute a system call with the command passed in - default SIPP behavior
 
             pid_t l_pid;
             switch(l_pid = fork()) {
@@ -3920,11 +3720,12 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 while ((ret=waitpid(l_pid, NULL, 0)) != l_pid) {
                     if (ret != -1) {
                         ERROR("waitpid returns %1d for child %1d",ret,l_pid);
-                   	}
-               	 }
-               	 break;
-            	}
-	   }
+                        }
+                 }
+                 break;
+                }
+           }
+
         } else if (currentAction->getActionType() == CAction::E_AT_EXEC_INTCMD) {
             switch (currentAction->getIntCmd()) {
             case CAction::E_INTCMD_STOP_ALL:
@@ -3941,9 +3742,11 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 #ifdef PCAPPLAY
         } else if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
                    (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_IMAGE) ||
-                   (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO)) {
-            play_args_t *play_args;
-            if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) {
+                   (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) ||
+                   (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
+            play_args_t* play_args = 0;
+            if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
+                (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
                 play_args = &(this->play_args_a);
             } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_IMAGE) {
                 play_args = &(this->play_args_i);
@@ -3953,14 +3756,31 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
                 ERROR("Can't find pcap data to play");
             }
 
-            play_args->pcap = currentAction->getPcapPkts();
+            // existing media thread could be using play_args, so we have to kill it before modifying parameters
+            if (media_thread != 0) {
+                // If a media_thread is already active, kill it before starting a new one
+                pthread_cancel(media_thread);
+                pthread_join(media_thread, NULL);
+                media_thread = 0;
+            }
+
+            if (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF) {
+                char* digits = createSendingMessage(currentAction->getMessage(), -2 /* do not add crlf */);
+                play_args->pcap = (pcap_pkts *) malloc(sizeof(pcap_pkts));
+                play_args->last_seq_no += parse_dtmf_play_args(digits, play_args->pcap, play_args->last_seq_no);
+                play_args->free_pcap_when_done = 1;
+            } else {
+                play_args->pcap = currentAction->getPcapPkts();
+                play_args->free_pcap_when_done = 0;
+            }
+
             /* port number is set in [auto_]media_port interpolation */
             if (media_ip_is_ipv6) {
-                struct sockaddr_in6 *from = (struct sockaddr_in6 *)(void *) &(play_args->from);
+                struct sockaddr_in6* from = (struct sockaddr_in6*) &(play_args->from);
                 from->sin6_family = AF_INET6;
                 inet_pton(AF_INET6, media_ip, &(from->sin6_addr));
             } else {
-                struct sockaddr_in *from = (struct sockaddr_in *)(void *) &(play_args->from);
+                struct sockaddr_in* from = (struct sockaddr_in*) &(play_args->from);
                 from->sin_family = AF_INET;
                 from->sin_addr.s_addr = inet_addr(media_ip);
             }
@@ -3970,28 +3790,21 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 #ifndef PTHREAD_STACK_MIN
 #define PTHREAD_STACK_MIN  16384
 #endif
-            //pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN);
-            if (media_thread != 0) {
-                // If a media_thread is already active, kill it before starting a new one
-                pthread_cancel(media_thread);
-                pthread_join(media_thread, NULL);
-                media_thread = 0;
-            }
-            int ret = pthread_create(&media_thread, &attr, send_wrapper,
-                                     (void *) play_args);
-            if(ret)
+            int ret = pthread_create(&media_thread, &attr, send_wrapper, play_args);
+            if (ret) {
                 ERROR("Can't create thread to send RTP packets");
+            }
             pthread_attr_destroy(&attr);
 #endif
 
-#ifdef RTP_STREAM
-    } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSE) {
-      rtpstream_pause (&rtpstream_callinfo);
-    } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUME) {
-      rtpstream_resume (&rtpstream_callinfo);
-    } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
-      rtpstream_play (&rtpstream_callinfo,currentAction->getRTPStreamActInfo());
-#endif
+        } else if (currentAction->getActionType() == CAction::E_AT_RTP_ECHO) {
+            rtp_echo_state = (currentAction->getDoubleValue() != 0);
+        } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSE) {
+            rtpstream_pause(&rtpstream_callinfo);
+        } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUME) {
+            rtpstream_resume(&rtpstream_callinfo);
+        } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
+            rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo());
         } else {
             ERROR("call::executeAction unknown action");
         }
@@ -3999,11 +3812,10 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
     return(call::E_AR_NO_ERROR);
 }
 
-
-void call::extractSubMessage(char * msg, char * matchingString, char* result, bool case_indep, int occurrence, bool headers)
+void call::extractSubMessage(const char* msg, char* matchingString, char* result, bool case_indep, int occurrence, bool headers)
 {
 
-    char *ptr, *ptr1;
+    const char *ptr, *ptr1;
     int sizeOf;
     int i = 0;
     int len = strlen(matchingString);
@@ -4088,7 +3900,7 @@ void call::getFieldFromInputFile(const char *fileName, int field, SendingMessage
     dest += inFiles[fileName]->getField(line, field, dest, SIPP_MAX_MSG_SIZE);
 }
 
-call::T_AutoMode call::checkAutomaticResponseMode(char * P_recv)
+call::T_AutoMode call::checkAutomaticResponseMode(char* P_recv)
 {
     if (strcmp(P_recv, "BYE")==0) {
         return E_AM_UNEXP_BYE;
@@ -4121,7 +3933,7 @@ void call::setLastMsg(const char *msg)
     strcpy(last_recv_msg, msg);
 }
 
-bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
+bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
 {
 
     int res ;
@@ -4249,7 +4061,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
         if (last_recv_msg != NULL) {
             last_recv_msg_saved = true;
             old_last_recv_msg = (char *) malloc(strlen(last_recv_msg)+1);
-            strcpy(old_last_recv_msg,last_recv_msg);
+            strcpy(old_last_recv_msg, last_recv_msg);
         }
         // usage of last_ keywords
         realloc_ptr = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
@@ -4265,10 +4077,8 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
 
         strcpy(last_recv_msg, P_recv);
 
-	if (log4auto_answer) {
-        	WARNING("Automatic response mode for an unexpected INFO, NOTIFY, OPTIONS or UPDATE for call: %s",
-			(id == NULL) ? "none" : id);
-	}
+        WARNING("Automatic response mode for an unexpected INFO, NOTIFY, OPTIONS or UPDATE for call: %s",
+                (id == NULL) ? "none" : id);
         sendBuffer(createSendingMessage(get_default_message("200"), -1));
 
         // restore previous last msg
@@ -4290,7 +4100,6 @@ bool call::automaticResponseMode(T_AutoMode P_case, char * P_recv)
             }
         }
         CStat::globalStat(CStat::E_AUTO_ANSWERED);
-	delete this;  // 2/16/2022 - NVF Added this for auto response messages as it looked like it wasn't being done otherwise - resulting in a memory leak
         return true;
         break;
 
@@ -4318,4 +4127,100 @@ void *send_wrapper(void *arg)
     pthread_exit(NULL);
     return NULL;
 }
+#endif
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+#include "gtest/gtest.h"
+
+class mockcall : public call {
+public:
+    mockcall(bool is_ipv6) : listener("//testing", true), call("///testing", is_ipv6, 0, NULL) {}
+
+    /* Helpers to poke at protected internals */
+    void parse_media_addr(std::string const& msg) { get_remote_media_addr(msg); }
+
+#ifdef PCAPPLAY
+    bool has_media() { return hasMediaInformation; }
+
+    template<typename T>
+    T get_audio_addr() {
+        T sa;
+        std::memcpy(&sa, &play_args_a.to, sizeof(T));
+        return sa;
+    }
+#endif
+};
+
+bool operator==(const struct sockaddr_in& a, const struct sockaddr_in &b) {
+    return a.sin_family == b.sin_family
+        && a.sin_port == b.sin_port
+        && std::memcmp(&a.sin_addr, &b.sin_addr, sizeof(in_addr)) == 0;
+}
+
+bool operator==(const struct sockaddr_in6& a, const struct sockaddr_in6 &b) {
+    return a.sin6_family == b.sin6_family
+        && a.sin6_port == b.sin6_port
+        && std::memcmp(&a.sin6_addr, &b.sin6_addr, sizeof(in_addr)) == 0;
+}
+
+const std::string test_sdp_v4 = "v=0\r\n"
+                                "o=user1 53655765 2353687637 IN IP4 127.0.0.1\r\n"
+                                "s=-\r\n"
+                                "c=IN IP4 127.0.0.1\r\n"
+                                "t=0 0\r\n"
+                                "m=audio 12345 RTP/AVP 0\r\n"
+                                "a=rtpmap:0 PCMU/8000\r\n";
+
+const std::string test_sdp_v6 = "v=0\r\n"
+                                "o=user1 53655765 2353687637 IN IP6 ::1\r\n"
+                                "s=-\r\n"
+                                "c=IN IP6 ::1\r\n"
+                                "t=0 0\r\n"
+                                "m=audio 12345 RTP/AVP 0\r\n"
+                                "a=rtpmap:0 PCMU/8000\r\n";
+
+TEST(sdp, parse_valid_sdp_msg) {
+    ASSERT_EQ(find_in_sdp("c=IN IP4 ", test_sdp_v4), "127.0.0.1");
+    ASSERT_EQ(find_in_sdp("c=IN IP6 ", test_sdp_v6), "::1");
+    ASSERT_EQ(find_in_sdp("m=audio ", test_sdp_v4), "12345");
+    ASSERT_EQ(find_in_sdp("m=audio ", test_sdp_v6), "12345");
+}
+
+TEST(sdp, parse_invalid_sdp_msg) {
+    ASSERT_EQ(find_in_sdp("c=IN IP4 ", test_sdp_v6), "");
+    ASSERT_EQ(find_in_sdp("c=IN IP6 ", test_sdp_v4), "");
+    ASSERT_EQ(find_in_sdp("m=video ", test_sdp_v6), "");
+    ASSERT_EQ(find_in_sdp("m=video ", test_sdp_v4), "");
+}
+
+#ifdef PCAPPLAY
+TEST(sdp, good_remote_media_addr_v4) {
+    media_ip_is_ipv6 = false;
+
+    struct sockaddr_in reference;
+    reference.sin_family = AF_INET;
+    reference.sin_port = htons(12345);
+    inet_pton(AF_INET, "127.0.0.1", &reference.sin_addr);
+
+    mockcall call(false);
+    call.parse_media_addr(test_sdp_v4);
+    ASSERT_EQ(call.has_media(), true);
+    ASSERT_EQ(reference, call.get_audio_addr<struct sockaddr_in>());
+}
+
+TEST(sdp, good_remote_media_addr_v6) {
+    media_ip_is_ipv6 = true;
+
+    struct sockaddr_in6 reference;
+    reference.sin6_family = AF_INET6;
+    reference.sin6_port = htons(12345);
+    inet_pton(AF_INET6, "::1", &reference.sin6_addr);
+
+    mockcall call(true);
+    call.parse_media_addr(test_sdp_v6);
+    ASSERT_EQ(call.has_media(), true);
+    ASSERT_EQ(reference, call.get_audio_addr<struct sockaddr_in6>());
+}
+#endif /* PCAP_PLAY */
 #endif

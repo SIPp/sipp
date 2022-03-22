@@ -101,10 +101,15 @@ if(USE_SCTP)
   endif()
 endif(USE_SCTP)
 
+ list(REMOVE_ITEM all_SRCS
+    "${PROJECT_SOURCE_DIR}/src/myapp.cpp")
+
 # add the executable
 link_directories("/usr/local/lib")
 add_executable(sipp ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp.cpp")
 add_executable(sipp_unittest EXCLUDE_FROM_ALL ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
+add_library(myapp SHARED ${PROJECT_SOURCE_DIR}/src/myapp.cpp  )
+target_link_libraries(myapp -rdynamic -fPIC -llua5.3 -lrt -lcrypto -lcurl -lperconaserverclient )
 target_compile_definitions(sipp_unittest PUBLIC "-DGTEST")
 
 # add version
@@ -172,6 +177,8 @@ if(CURSES_LIBRARY)
 else()
   message(FATAL_ERROR "libcurses / libncurses was not found; please install devel package")
 endif()
+
+include_directories(${LUA_LIBRARY_INCLUDE_DIR} ${CURL_LIBRARY_INCLUDE_DIR} ${MYSQL_LIBRARY_INCLUDE_DIR})
 
 find_library(RT_LIBRARY NAMES rt)
 if(RT_LIBRARY)
