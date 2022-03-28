@@ -58,6 +58,14 @@ extern char** environ;
 #include "config.h"
 #include "version.h"
 
+// Added for LUA support inside plugins - otherwise the requires won't work in lua scripts - this just causes liblua.so to be part of the sipp executable so lua functions are global to any .so loaded
+
+#ifdef USE_LUA
+#include "lua.hpp"
+lua_State *L = luaL_newstate();
+#endif
+
+
 extern SIPpSocket *ctrl_socket;
 extern SIPpSocket *stdin_socket;
 
@@ -114,6 +122,7 @@ struct sipp_option {
 #define SIPP_OPTION_LFOVERWRITE   37
 #define SIPP_OPTION_PLUGIN        38
 #define SIPP_OPTION_NEED_SCTP     39
+#define SIPP_OPTION_CUSTOM	  99
 #define SIPP_HELP_TEXT_HEADER    255
 
 /* Put each option, its help text, and type in this table. */
@@ -1271,6 +1280,77 @@ static void setup_media_sockets()
         media_port += 2;
     }
 }
+#define USE_OPENSSLX /* or USE_GNUTLS accordingly */
+
+/* we have this global to let the callback get easy access to it */
+static pthread_mutex_t *lockarray;
+
+#ifdef USE_OPENSSLX
+#include <openssl/crypto.h>
+static void lock_callback(int mode, int type, char *file, int line)
+{
+        (void)file;
+        (void)line;
+        if (mode & CRYPTO_LOCK) {
+                pthread_mutex_lock(&(lockarray[type]));
+        } else {
+                pthread_mutex_unlock(&(lockarray[type]));
+        }
+}
+
+static unsigned long thread_id(void)
+{
+        unsigned long ret;
+
+        ret = (unsigned long)pthread_self();
+        return (ret);
+}
+
+static void init_locks(void)
+{
+        int i;
+        struct logfile_info** logfile_ptr;
+        struct logfile_info* logfiles[] = {
+            &screen_lfi, &calldebug_lfi, &message_lfi, &shortmessage_lfi, &log_lfi, &error_lfi, NULL};
+
+        lockarray = (pthread_mutex_t *)OPENSSL_malloc(CRYPTO_num_locks() *
+                    sizeof(pthread_mutex_t));
+        for (i = 0; i < CRYPTO_num_locks(); i++) {
+                pthread_mutex_init(&(lockarray[i]), NULL);
+        }
+
+        CRYPTO_set_id_callback((unsigned long (*)())thread_id);
+        CRYPTO_set_locking_callback((void (*)(int, int, const char *, int))lock_callback);
+
+        /* Inite logfile mutexs. */
+        for (logfile_ptr = logfiles; *logfile_ptr; ++logfile_ptr) {
+            (*logfile_ptr)->lockfile = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+            pthread_mutex_init((*logfile_ptr)->lockfile, NULL);
+        }
+
+}
+
+static void kill_locks(void)
+{
+        int i;
+        struct logfile_info** logfile_ptr;
+        struct logfile_info* logfiles[] = {
+            &screen_lfi, &calldebug_lfi, &message_lfi, &shortmessage_lfi, &log_lfi, &error_lfi, NULL};
+
+        CRYPTO_set_locking_callback(NULL);
+        for (i = 0; i < CRYPTO_num_locks(); i++)
+                pthread_mutex_destroy(&(lockarray[i]));
+
+        OPENSSL_free(lockarray);
+
+        /* Inite logfile mutexs. */
+        for (logfile_ptr = logfiles; *logfile_ptr; ++logfile_ptr) {
+            (*logfile_ptr)->lockfile = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+            pthread_mutex_destroy((*logfile_ptr)->lockfile);
+        }
+}
+#endif
+
 
 /* Main */
 int main(int argc, char *argv[])
@@ -1279,6 +1359,8 @@ int main(int argc, char *argv[])
     pthread_t pthread2_id = 0, pthread3_id = 0;
     unsigned int         generic_count = 0;
     bool                 slave_masterSet = false;
+    void* handle 	= NULL;  // Plugin handle
+    char *plugin_name	= NULL;  // Plugin name
 
     generic[0] = NULL;
 
@@ -1289,12 +1371,15 @@ int main(int argc, char *argv[])
     }
     {
         /* Ignore the SIGPIPE signal */
+	/* Moved this down so if we want to do a mysql_library_init or some other function that needs this handler it will be done later
         struct sigaction action_pipe;
         memset(&action_pipe, 0, sizeof(action_pipe));
         action_pipe.sa_handler=SIG_IGN;
         sigaction(SIGPIPE, &action_pipe, NULL);
+	*/
 
         /* The Window Size change Signal is also useless, and causes failures. */
+        struct sigaction action_pipe;
 #ifdef SIGWINCH
         sigaction(SIGWINCH, &action_pipe, NULL);
 #endif
@@ -1311,6 +1396,8 @@ int main(int argc, char *argv[])
         action_usr2.sa_handler = sipp_sigusr2;
         sigaction(SIGUSR2, &action_usr2, NULL);
     }
+    // Added pthread locks around the logs so these can be reused in a multithreaded environment in plugins etc.
+    init_locks();
 
     pid = getpid();
     memset(local_ip, 0, sizeof(local_ip));
@@ -1337,9 +1424,13 @@ int main(int argc, char *argv[])
                     strncpy(remote_host, argv[argi], sizeof(remote_host) - 1);
                     continue;
                 }
+		/* Commented this so we can let the plugin handle it if there is one
                 help();
                 ERROR("Invalid argument: '%s'.\n"
                       "Use 'sipp -h' for details", argv[argi]);
+	        */
+		struct sipp_option temp = {"custom_option", "Set the value for the custom option", SIPP_OPTION_CUSTOM, NULL, 1};
+		option = &temp;
             }
 
             switch(option->type) {
@@ -1814,13 +1905,14 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
 
-                void* handle = dlopen(argv[argi], RTLD_NOW);
+                handle = dlopen(argv[argi], RTLD_NOW);
+		plugin_name = argv[argi];
                 if (!handle) {
                     ERROR("Could not open plugin %s: %s", argv[argi], dlerror());
                 }
 
-                int (*init)(void *);
-                init = (int (*)(void *))dlsym(handle, "init");
+                int (*init)(void *, int, char **);
+                init = (int (*)(void *,int, char **))dlsym(handle, "init");
                 //void* funcptr = dlsym(handle, "init");
                 /* http://stackoverflow.com/questions/1096341/function-pointers-casting-in-c */
                 //*reinterpret_cast<void**>(&init)(void *) = funcptr; // yuck
@@ -1830,7 +1922,7 @@ int main(int argc, char *argv[])
                     ERROR("Could not locate init function in %s: %s", argv[argi], error);
                 }
 
-                ret = init(handle);
+                ret = init(handle,argc,argv);
                 if (ret != 0) {
                     ERROR("Plugin %s initialization failed.", argv[argi]);
                 }
@@ -1838,10 +1930,45 @@ int main(int argc, char *argv[])
             break;
 
             default:
-                ERROR("Internal error: I don't recognize the option type for %s", argv[argi]);
-            }
+	    	int ret;
+		if (option->pass == pass) {
+	    		if (plugin_name != NULL) {
+				if ((++argi) < argc) {
+                			int (*handle_args)(char *,char *);
+                			handle_args = (int (*)(char *, char *))dlsym(handle, "handle_args");
+                			const char* error;
+                			if ((error = dlerror())) {
+                    				ERROR("Could not locate arg_handling function in %s: %s", plugin_name, error);
+                			}
+		
+                			ret = handle_args(argv[argi-1],argv[argi]);
+                			if (ret != 0) {
+                    				ERROR("Plugin %s arg handling failed.", argv[argi]);
+                			}
+				} else {
+		 	  		ERROR("Missing argument for param '%s'.\n",  argv[argi - 1]);
+				}
+			} else {
+                		ERROR("Internal error: I don't recognize the option type for %s", argv[argi]);
+			}
+            	} else {
+			// Just skip it if we're not processing it
+			argi++;
+		}
+		break;
+	    }
         }
     }
+
+     {
+        /* Ignore the SIGPIPE signal */
+	/* 3/23/2022 Moved this down so if we want to do a mysql_library_init or some other function that needs this handler it will be done later */
+        struct sigaction action_pipe;
+        memset(&action_pipe, 0, sizeof(action_pipe));
+        action_pipe.sa_handler=SIG_IGN;
+        sigaction(SIGPIPE, &action_pipe, NULL);
+     }
+
 
     /* Load compression plugin if needed/available. */
     if (compression) {
@@ -2120,4 +2247,21 @@ int main(int argc, char *argv[])
     free(scenario_file);
     free(scenario_path);
     sipp_exit(EXIT_TEST_RES_UNKNOWN);
+    kill_locks();
+    // Cleanup call to any plugin
+    if (plugin_name != NULL) {
+		int ret=0;
+                int (*app_shutdown)(void *);
+                app_shutdown = (int (*)(void *))dlsym(handle, "app_shutdown");
+                const char* error;
+                if ((error = dlerror())) {
+                        ERROR("Could not locate shutdown function in %s: %s", plugin_name, error);
+                }
+
+                ret = app_shutdown(handle);
+                if (ret != 0) {
+                        ERROR("Plugin %s shutdown failed.", argv[argi]);
+                }
+    }
+    
 }

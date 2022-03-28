@@ -26,6 +26,7 @@ option(USE_SSL "Build with SIPS support" OFF)
 option(USE_SCTP "Build with SCTP support" OFF)
 option(USE_PCAP "Build with PCAP playback support" OFF)
 option(USE_GSL "Build with improved statistical support" ON)
+option(USE_LUA "Build with lua support for plugins" ON)
 
 file(GLOB all_SRCS
   "${PROJECT_SOURCE_DIR}/src/*.cpp"
@@ -74,6 +75,10 @@ if(USE_SSL)
   add_definitions("-DUSE_TLS -DUSE_OPENSSL")
 endif()
 
+if (USE_LUA)
+  add_definitions("-DUSE_LUA")
+endif()
+
 if(USE_PCAP)
   find_library(PCAP_LIBRARY pcap)
   if(PCAP_LIBRARY)
@@ -104,12 +109,16 @@ endif(USE_SCTP)
  list(REMOVE_ITEM all_SRCS
     "${PROJECT_SOURCE_DIR}/src/myapp.cpp")
 
+ list(REMOVE_ITEM all_SRCS
+    "${PROJECT_SOURCE_DIR}/src/sipp-rpc_xdr.c")
+
 # add the executable
 link_directories("/usr/local/lib")
 add_executable(sipp ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp.cpp")
 add_executable(sipp_unittest EXCLUDE_FROM_ALL ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
-add_library(myapp SHARED ${PROJECT_SOURCE_DIR}/src/myapp.cpp  )
-target_link_libraries(myapp -rdynamic -fPIC -llua5.3 -lrt -lcrypto -lcurl -lperconaserverclient )
+target_link_libraries(sipp -rdynamic -fPIC -dl -llua5.3 )
+add_library(myapp SHARED ${PROJECT_SOURCE_DIR}/src/myapp.cpp ${PROJECT_SOURCE_DIR}/src/sipp-rpc_xdr.c )
+target_link_libraries(myapp -rdynamic -fPIC -dl -llua5.3 -lcurl -lrt -lcrypto -lperconaserverclient )
 target_compile_definitions(sipp_unittest PUBLIC "-DGTEST")
 
 # add version

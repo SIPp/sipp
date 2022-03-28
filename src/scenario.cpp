@@ -1008,9 +1008,11 @@ scenario::scenario(char * filename, int deflt)
 
     /* Close scenario element */
     xp_close_element();
-    if (xp_is_invalid()) {
+    /* 3/23/2022 - NVF Commented when trying to use the old xml_parser.c so our current SIPP scripts work!
+      if (xp_is_invalid()) {
         ERROR("Invalid XML in scenario");
     }
+    */
 
     str_int_map::iterator label_it = labelMap.find("_unexp.main");
     if (label_it != labelMap.end()) {

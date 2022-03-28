@@ -1,6 +1,28 @@
 /* 
- * Description: Custom modifications to support running LUA inside of a sipp test script, sending values to lua from sipp
- * and returning values to local sipp variables
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  
+ * Description: This is a demo program demonstrating customizations to sipp via a plugin to support 
+ *
+ * 1. Running LUA inside of a sipp test script, sending values to lua from sipp
+ * and returning values to local sipp variables. This includes the ability to utilize curl and mysql in the lua scripts
+ *
+ * 2. The capability to do RPC calls to a running sipp instance to get various call counts and enable/disable
+ * logging on auto response messages
+ *
+ * 3. Processing some custom startup arguments to capture the running pid and to get the name of the lua file
+ *
  *
  * Author: Nathan Franzmeier Sky Networks LLC 2022
  * Mail: Nathan.Franzmeier@sky-networks.com
@@ -17,9 +39,14 @@
 #include <assert.h>
 // Added for LUA support
 
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
+#ifdef __cplusplus
+  #include "lua.hpp"
+#else
+  #include "lua.h"
+  #include "lualib.h"
+  #include "lauxlib.h"
+#endif
+
 
 // Added for shared memory support
 #include <sys/mman.h>
@@ -41,18 +68,20 @@
 #include "version.h"
 #include "apifunc.h"
 
-// 02/9/2022 - NVF Added when trying to fix mysql thread support
+// For CURL support
+
+#include "curl.h"
+#include "easy.h"
+
+// For mysql thread support
 #include "mysql.h"
+
+// For rpc support
+#include "sipp-rpc.h"
+#include <rpc/pmap_clnt.h>
 
 #define callDebug(...) do { if (useCallDebugf) { _callDebug( __VA_ARGS__ ); } } while (0)
 
-using namespace std;
-
-#define USE_PTHREADS 1
-// Added for thread support
-#if USE_PTHREADS == 0
-	#include <thread>
-#endif
 #define MAXARGS 50 // Most argument pairs that can be passed into a lua script
 extern  map<string, struct sipp_socket *>     map_perip_fd;
 typedef struct tag_value {
@@ -66,18 +95,15 @@ typedef struct tv_array {
 	int count;
 	bool useThread;
 	bool dataIsReady;  // Flag indicating data has been set
-#if USE_PTHREADS == 1
 	pthread_t  myThread;
-#else
-	std::thread myThread;
-#endif
 	TAG_VAL	element[MAXARGS];
 
 } TV_ARRAY;
 
 
 void bail(lua_State *L, char *msg){
-        WARNING( "\nLUA ERROR:\n  %s: %s\n\n",
+//WARNING( "\nLUA ERROR:\n  %s: %s\n\n",
+fprintf( stderr, "\nLUA ERROR:\n  %s: %s\n\n",
                 msg, lua_tostring(L, -1));
 }
 typedef struct thread_data {
@@ -90,36 +116,67 @@ typedef struct thread_data {
 
 void do_lua_thread(THREAD_DATA *thread_data);
 void do_lua_thread_detached(THREAD_DATA *thread_data); 
+void rpc_thread(void* param);
 
+pthread_t pthread4_id = 0;  // Thread id for the RPC thread
+
+#define LUA_LIB
+
+extern "C" 
+{
+
+	static const luaL_Reg lualibs[] = {
+  	{"", luaopen_base},
+	{LUA_COLIBNAME, luaopen_coroutine},
+  	{LUA_LOADLIBNAME, luaopen_package},
+  	{LUA_TABLIBNAME, luaopen_table},
+  	{LUA_IOLIBNAME, luaopen_io},
+  	{LUA_OSLIBNAME, luaopen_os},
+  	{LUA_STRLIBNAME, luaopen_string},
+  	{LUA_UTF8LIBNAME, luaopen_utf8},
+  	{LUA_MATHLIBNAME, luaopen_math},
+  	{LUA_DBLIBNAME, luaopen_debug},
+  	{LUA_LOADLIBNAME, luaopen_package},
+  	{NULL, NULL}
+	};
+
+	LUALIB_API void my_openlibs (lua_State *L) {
+  		const luaL_Reg *lib = lualibs;
+  		for (; lib->func; lib++) {
+    			lua_pushcfunction(L, lib->func);
+    			lua_pushstring(L, lib->name);
+    			lua_call(L, 1, 0);
+			fprintf(stderr,"lua_call result (%s):%s\n",lib->name, lua_tostring(L, -1));
+  		}
+	}
+}
+extern "C"
+{
+char	lua_file[128];
 lua_State*  openLua() {
 
 
-#ifndef USE_GLOBAL_LUA
         lua_State *L = luaL_newstate();
-#else
-        if (L) return L;
-
-        L = luaL_newstate();                        // Create Global Lua state variable
-#endif
         if (L) {
 
                 luaL_openlibs(L);                           /* Load Lua libraries */
+		//my_openlibs(L);
 
-                if (luaL_loadfile(L, "sipp.lua")) /* Load but don't run the Lua script */
-                //if (luaL_loadfile(L, lua_file)) /* Load but don't run the Lua script */
+                if (luaL_loadfile(L, lua_file)) /* Load but don't run the Lua script */
                 {
-                        bail(L, "luaL_loadfile() failed");      /* Error out if file can't be read */
+                        bail(L, (char *)"luaL_loadfile() failed");      /* Error out if file can't be read */
                         L=0;
                 } else{
 
                         if (lua_pcall(L, 0, 0, 0))                  /* PRIMING RUN. FORGET THIS AND YOU'RE TOAST */
                         {
-                                bail(L, "lua_pcall1() failed");          /* Error out if Lua file has an error */
+                                bail(L, (char *)"lua_pcall1() failed");          /* Error out if Lua file has an error */
                                 L=0;
                         }
                 }
         }
    return L;
+}
 }
 
 API_FUNC  customFunc(int app, char *data_str, void *userVars, void *dispPtr){ return EXIT_SUCCESS;}
@@ -334,17 +391,11 @@ API_FUNC  processLuaThread(int app, char *data_str, void *tblPtr, void *dispPtr)
 				strcpy(thread_data->data_str,data_str);
 				strcpy(thread_data->name,name);
 				// Create a detached thread so we don't need to join it later
-#if USE_PTHREADS == 1
 				TRACE_MSG("Create pthread shared memory\n");
 				if (pthread_create(&shared_memory->myThread, NULL, (void *(*)(void *))do_lua_thread_detached, thread_data) == -1) {
             				ERROR_NO("Unable to create lua thread");
         			}
 
-#else
-				TRACE_MSG("Create std shared memory\n");
-				shared_memory->myThread = std::thread(do_lua_thread, thread_data);
-				shared_memory->myThread.detach();
-#endif
 
                 		int index;
 				for (int i=0;i<shared_memory->count;i++)
@@ -436,7 +487,7 @@ void do_lua_thread(THREAD_DATA *thread_data) {
 				
    				if (lua_pcall(thread_data->L, 1, 1, 0))                  // Run function, !!! NRETURN=1 !!! 
 	
-           				bail(thread_data->L, "lua_pcall2() failed");
+           				bail(thread_data->L, (char *)"lua_pcall2() failed");
    				else {
 	
                                 		//printf("============ Back in C again, Iterating thru returned table ============\n");
@@ -466,9 +517,8 @@ void do_lua_thread(THREAD_DATA *thread_data) {
 						shared_memory->dataIsReady = 1; // Mark the data as being available.
 				}
 			  	lua_gc(thread_data->L, LUA_GCCOLLECT, 0);
-#ifndef USE_GLOBAL_LUA
 			  	lua_close(thread_data->L);
-#endif
+
 				// 02/15/2022 - NVF Added trim capability based on the environment variable TRIM_MEMORY
 				char* trim_mem = getenv("TRIM_MEMORY");
                                 if (trim_mem) {
@@ -485,6 +535,167 @@ void do_lua_thread(THREAD_DATA *thread_data) {
 	free(thread_data);
 }
 
+bool_t getcallcounter_1_svc(callcounter_t *argp, callcounter_t *result, struct svc_req *rqstp)
+{
+        bool_t retval;
+
+        /*
+         * insert server code here
+         */
+
+        unsigned long long incomingcalls = main_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated);
+        unsigned long long outgoingcalls = main_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated);
+        unsigned long long successcalls = main_scenario->stats->GetStat(CStat::CPT_C_SuccessfulCall);
+        unsigned long long failurecalls = main_scenario->stats->GetStat(CStat::CPT_C_FailedCall);
+
+        result->incomingcalls=incomingcalls;
+        result->outgoingcalls=outgoingcalls;
+        result->successcalls=successcalls;
+        result->failurecalls=failurecalls;
+
+        retval = true;
+        return retval;
+}
+
+bool_t enablelog4autoanswer_1_svc(void *argp, bool_t *result, struct svc_req *rqstp)
+{
+        bool_t retval;
+	extern bool log4auto_answer;
+        /*
+         * insert server code here
+         */
+
+        log4auto_answer=true;
+        retval = true;
+        return retval;
+}
+
+bool_t disablelog4autoanswer_1_svc(void *argp, bool_t *result, struct svc_req *rqstp)
+{
+        bool_t retval;
+	extern bool log4auto_answer;
+
+        /*
+         * insert server code here
+         */
+
+        log4auto_answer=false;
+        retval = true;
+        return retval;
+}
+
+int sipprpcprog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result)
+{
+        xdr_free (xdr_result, result);
+
+        /*
+         * Insert additional freeing code here, if needed
+         */
+
+        return 1;
+}
+void sipprpcprog_1(struct svc_req *rqstp, register SVCXPRT *transp)
+{
+        union {
+                callcounter_t getcallcounter_1_arg;
+        } argument;
+        union {
+                callcounter_t getcallcounter_1_res;
+                bool_t enablelog4autoanswer_1_res;
+                bool_t disablelog4autoanswer_1_res;
+        } result;
+        bool_t retval;
+        xdrproc_t _xdr_argument, _xdr_result;
+        bool_t (*local)(char *, void *, struct svc_req *);
+
+        switch (rqstp->rq_proc) {
+        case NULLPROC:
+                (void) svc_sendreply (transp, (xdrproc_t) xdr_void, (char *)NULL);
+                return;
+
+        case GETCALLCOUNTER:
+                _xdr_argument = (xdrproc_t) xdr_callcounter_t;
+                _xdr_result = (xdrproc_t) xdr_callcounter_t;
+                local = (bool_t (*) (char *, void *,  struct svc_req *))getcallcounter_1_svc;
+                break;
+
+        case ENABLELOG4AUTOANSWER:
+                _xdr_argument = (xdrproc_t) xdr_void;
+                _xdr_result = (xdrproc_t) xdr_bool;
+                local = (bool_t (*) (char *, void *,  struct svc_req *))enablelog4autoanswer_1_svc;
+                break;
+
+        case DISABLELOG4AUTOANSWER:
+                _xdr_argument = (xdrproc_t) xdr_void;
+                _xdr_result = (xdrproc_t) xdr_bool;
+                local = (bool_t (*) (char *, void *,  struct svc_req *))disablelog4autoanswer_1_svc;
+                break;
+
+        default:
+                svcerr_noproc (transp);
+                return;
+        }
+        memset ((char *)&argument, 0, sizeof (argument));
+        if (!svc_getargs (transp, (xdrproc_t) _xdr_argument, (caddr_t) &argument)) {
+                svcerr_decode (transp);
+                return;
+        }
+        retval = (bool_t) (*local)((char *)&argument, (void *)&result, rqstp);
+        if (retval > 0 && !svc_sendreply(transp, (xdrproc_t) _xdr_result, (char *)&result)) {
+                svcerr_systemerr (transp);
+        }
+        if (!svc_freeargs (transp, (xdrproc_t) _xdr_argument, (caddr_t) &argument)) {
+                fprintf (stderr, "%s", "unable to free arguments");
+                exit (1);
+        }
+        if (!sipprpcprog_1_freeresult (transp, _xdr_result, (caddr_t) &result))
+                fprintf (stderr, "%s", "unable to free results");
+
+        return;
+}
+
+// Remote procedure calls thread
+void rpc_thread(void* param)
+{
+        register SVCXPRT *transp;
+        sigset_t              mask;
+        sigfillset(&mask); /* Mask all allowed signals */
+        int rc = pthread_sigmask(SIG_BLOCK, &mask, NULL);
+        if (rc) {
+            WARNING("pthread_sigmask returned %d", rc);
+            return;
+        }
+
+        pmap_unset (SIPPRPCPROG, SIPPRPCVERS);
+
+        transp = svcudp_create(RPC_ANYSOCK);
+        if (transp == NULL) {
+                fprintf (stderr, "%s", "cannot create udp service.");
+                exit(1);
+        }
+        if (!svc_register(transp, SIPPRPCPROG, SIPPRPCVERS, sipprpcprog_1, IPPROTO_UDP)) {
+                fprintf (stderr, "%s", "unable to register (SIPPRPCPROG, SIPPRPCVERS, udp).");
+                exit(1);
+        }
+
+        transp = svctcp_create(RPC_ANYSOCK, 0, 0);
+        if (transp == NULL) {
+                fprintf (stderr, "%s", "cannot create tcp service.");
+                exit(1);
+        }
+        if (!svc_register(transp, SIPPRPCPROG, SIPPRPCVERS, sipprpcprog_1, IPPROTO_TCP)) {
+                fprintf (stderr, "%s", "unable to register (SIPPRPCPROG, SIPPRPCVERS, tcp).");
+                exit(1);
+        }
+
+        svc_run ();
+        fprintf (stderr, "%s", "svc_run returned");
+        pthread_exit(NULL); // 2/8/2022 - NVF Added
+        //exit (1);
+        /* NOTREACHED */
+}
+
+
 //
 // Replace various custom functions with our own
 //
@@ -495,15 +706,41 @@ extern "C" void appDllLoad(INT index)
 
 
     /* and/or by overriding default app event handler here */
-    setApiFunc(API_CUSTOM_FUNC_1, (API_FUNC)processLuaRun,"luarun",index);
-    setApiFunc(API_CUSTOM_FUNC_2, (API_FUNC)processLuaThread,"luathread",index);
-    setApiFunc(API_CUSTOM_FUNC_3, (API_FUNC)processLuaRead,"luaread",index);
+    setApiFunc(API_CUSTOM_FUNC_1, (API_FUNC)processLuaRun,(char *)"luarun",index);
+    setApiFunc(API_CUSTOM_FUNC_2, (API_FUNC)processLuaThread,(char *)"luathread",index);
+    setApiFunc(API_CUSTOM_FUNC_3, (API_FUNC)processLuaRead,(char *)"luaread",index);
 
 }
 
 // This hooks into the built-in plugin capability of sipp
 
-extern "C" int init(void *handle) {
+extern "C" int init(void *handle,int argc, char *argv[]) {
+
+	   // 2/9/2022 NVF This has to be above the SIGPIPE handler (added to support mysqlclient multithreaded): https://dev.mysql.com/doc/c-api/8.0/en/c-api-threaded-clients.html
+        if (mysql_library_init(0, NULL, NULL)) {
+                fprintf(stderr, "Warning: Could not initialize MySQL client library.  MySQL should not be used in a threaded call as a result\n");
+                exit(1);
+        }
+
+
+	curl_global_init(CURL_GLOBAL_DEFAULT);  // This is so we can use CURL inside our lua scripts in multi-threaded environments
+
+	// Enable the rpc thread
+    	if (pthread_create(&pthread4_id, NULL,
+            (void *(*)(void *)) rpc_thread, NULL) == -1) {
+                ERROR_NO("Unable to create video RTP echo thread");
+        }
+	// Get the name of the lua file
+	for (int i=0;i<argc;i++) {
+		if (strcmp(argv[i],"-lua_file")==0){
+			strcpy(lua_file,argv[i+1]);
+			break;
+		}
+	}
+
+
+	// Hook up the API's to run the lua scripts
+	//  
 	strcpy((char *)CustomApi[0].filename, "myapp.so");
 	CustomApi[0].instanceId = 1;
 	CustomApi[0].subsystem = 0;
@@ -515,3 +752,33 @@ extern "C" int init(void *handle) {
 	return  EXIT_SUCCESS;
 }
 
+extern "C" int handle_args(char *cmd, char *arg) {
+	fprintf(stderr,"Handling commands %s, arg = %s\n",cmd,arg);
+	if (strcmp(cmd,"-pid_file")==0) {
+		// Write a pid file
+
+        	FILE *f;
+		char pid_file[256];
+        	strcpy(pid_file, arg);
+		fprintf(stderr,"Storing pid at %s\n",pid_file);
+        	f = fopen(pid_file, "w");
+        	fprintf(f, "%d\n",getpid());
+        	fflush(f);
+        	fclose(f);
+	}
+
+	return  EXIT_SUCCESS;
+}
+
+extern "C" int app_shutdown(void *handle) {
+	fprintf(stderr,"App Shutdown\n");
+  	curl_global_cleanup();
+    	mysql_library_end(); // Required for mysql threaded support
+	// Cancel the rpc thread
+   	if (pthread4_id) {
+        	pthread_cancel(pthread4_id);
+        	pthread_join(pthread4_id, NULL);
+    	}
+
+	return  EXIT_SUCCESS;
+}

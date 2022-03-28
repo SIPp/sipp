@@ -64,6 +64,7 @@
 
 using namespace std;
 
+bool log4auto_answer = true;  // This just adds the ability to not log auto_answer via a plugin
 
 template<typename Out>
 void split(const std::string &s, char delim, Out result) {
@@ -3675,7 +3676,11 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 
           // Process possible commands that override the default functionality:   format is command@<file.lua>
           //    custom calls - user defined
-          //    <exec command="command@<argstring>  where argstring is a list of args sent to command.
+          //    <exec command="command@<argstring>  where argstring is a list of space separated args sent to command : tag1 val1 tag2 val2 tag3 val3 etc. - these will form a lua table
+	  //    use the value of the magic variable $retkey  to create a loop looking with the command  <exec command="luaread@[$retkey] 0" />
+	  //
+	  //    then check the magic variable $msgDone  for a  non-zero value indicating the other args  are also updated - usually the same list of tag value pairs sent down
+	  //     <strcmp assign_to="result" variable="msgDone" value="0" />
           //    if we don't find anything - do a forked system call - default sipp behavior
           //    We pass in pointers to the call variables and the current scenario to allow manipulation of sipp variables
           //    These should be initialized in a plugin - see myapp.cpp for a sample
@@ -4077,8 +4082,10 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
 
         strcpy(last_recv_msg, P_recv);
 
-        WARNING("Automatic response mode for an unexpected INFO, NOTIFY, OPTIONS or UPDATE for call: %s",
-                (id == NULL) ? "none" : id);
+	if (log4auto_answer) {
+        	WARNING("Automatic response mode for an unexpected INFO, NOTIFY, OPTIONS or UPDATE for call: %s",
+                	(id == NULL) ? "none" : id);
+	}
         sendBuffer(createSendingMessage(get_default_message("200"), -1));
 
         // restore previous last msg
@@ -4100,6 +4107,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
             }
         }
         CStat::globalStat(CStat::E_AUTO_ANSWERED);
+        delete this;  // 2/16/2022 - NVF Added this for auto response messages as it looked like it wasn't being done otherwise - resulting in a memory leak
         return true;
         break;
 
