@@ -674,22 +674,22 @@ void rpc_thread(void* param)
                 exit(1);
         }
         if (!svc_register(transp, SIPPRPCPROG, SIPPRPCVERS, sipprpcprog_1, IPPROTO_UDP)) {
-                fprintf (stderr, "%s", "unable to register (SIPPRPCPROG, SIPPRPCVERS, udp).");
+                ERROR( "%s", "unable to register (SIPPRPCPROG, SIPPRPCVERS, udp).");
                 exit(1);
         }
 
         transp = svctcp_create(RPC_ANYSOCK, 0, 0);
         if (transp == NULL) {
-                fprintf (stderr, "%s", "cannot create tcp service.");
+               ERROR( "%s", "cannot create tcp service.");
                 exit(1);
         }
         if (!svc_register(transp, SIPPRPCPROG, SIPPRPCVERS, sipprpcprog_1, IPPROTO_TCP)) {
-                fprintf (stderr, "%s", "unable to register (SIPPRPCPROG, SIPPRPCVERS, tcp).");
+                ERROR( "%s", "unable to register (SIPPRPCPROG, SIPPRPCVERS, tcp).");
                 exit(1);
         }
 
         svc_run ();
-        fprintf (stderr, "%s", "svc_run returned");
+        ERROR( "rpc_thread svc_run returned\n");
         pthread_exit(NULL); // 2/8/2022 - NVF Added
         //exit (1);
         /* NOTREACHED */
@@ -728,7 +728,7 @@ extern "C" int init(void *handle,int argc, char *argv[]) {
 	// Enable the rpc thread
     	if (pthread_create(&pthread4_id, NULL,
             (void *(*)(void *)) rpc_thread, NULL) == -1) {
-                ERROR_NO("Unable to create video RTP echo thread");
+                ERROR_NO("Unable to create rpc thread");
         }
 	// Get the name of the lua file
 	for (int i=0;i<argc;i++) {

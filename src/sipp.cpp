@@ -1361,6 +1361,8 @@ int main(int argc, char *argv[])
     bool                 slave_masterSet = false;
     void* handle 	= NULL;  // Plugin handle
     char *plugin_name	= NULL;  // Plugin name
+    int (*init)(void *, int, char **); // Plugin init function
+    bool                 plugin_enabled = false;
 
     generic[0] = NULL;
 
@@ -1415,6 +1417,34 @@ int main(int argc, char *argv[])
 #define REQUIRE_ARG() if ((++argi) >= argc) { \
     ERROR("Missing argument for param '%s'.\nUse 'sipp -h' for details",  argv[argi - 1]); }
 #define CHECK_PASS() if (option->pass != pass) { break; }
+
+    /* checking if we need to launch the tool in background mode */
+    if (backgroundMode == true) {
+        pid_t l_pid;
+        switch (l_pid = fork()) {
+        case -1:
+            // error when forking !
+            ERROR_NO("Forking error");
+            exit(EXIT_FATAL_ERROR);
+        case 0:
+            // child process - poursuing the execution
+            // close all of our file descriptors
+        {
+            int nullfd = open("/dev/null", O_RDWR);
+
+            dup2(nullfd, fileno(stdin));
+            dup2(nullfd, fileno(stdout));
+            dup2(nullfd, fileno(stderr));
+
+            close(nullfd);
+        }
+        break;
+        default:
+            // parent process - killing the parent - the child get the parent pid
+            printf("Background mode - PID=[%ld]\n", (long) l_pid);
+            exit(EXIT_OTHER);
+        }
+    }
 
     for (int pass = 0; pass <= 3; pass++) {
         for(argi = 1; argi < argc; argi++) {
@@ -1910,22 +1940,22 @@ int main(int argc, char *argv[])
                 if (!handle) {
                     ERROR("Could not open plugin %s: %s", argv[argi], dlerror());
                 }
-
-                int (*init)(void *, int, char **);
-                init = (int (*)(void *,int, char **))dlsym(handle, "init");
                 //void* funcptr = dlsym(handle, "init");
                 /* http://stackoverflow.com/questions/1096341/function-pointers-casting-in-c */
                 //*reinterpret_cast<void**>(&init)(void *) = funcptr; // yuck
-
+                init = (int (*)(void *,int, char **))dlsym(handle, "init");
                 const char* error;
                 if ((error = dlerror())) {
                     ERROR("Could not locate init function in %s: %s", argv[argi], error);
                 }
+		plugin_enabled = true;
+#if 0		// Moved this to after the fork so everything will still work even if we start threads in the plugin
 
                 ret = init(handle,argc,argv);
                 if (ret != 0) {
                     ERROR("Plugin %s initialization failed.", argv[argi]);
                 }
+#endif
             }
             break;
 
@@ -2166,6 +2196,14 @@ int main(int argc, char *argv[])
             printf("Background mode - PID=[%ld]\n", (long) l_pid);
             exit(EXIT_OTHER);
         }
+    }
+    // Run the plugin from in the child - did this so any threads we run will stay running after backgrounding
+    if (plugin_enabled) {
+                int ret;
+                ret = init(handle,argc,argv);
+                if (ret != 0) {
+                    ERROR("Plugin %s initialization failed.", plugin_name);
+                }
     }
 
     sipp_usleep(sleeptime * 1000);
