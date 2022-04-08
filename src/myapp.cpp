@@ -67,6 +67,19 @@
 #include "config.h"
 #include "version.h"
 #include "apifunc.h"
+#include "call.hpp"
+
+// From call.hpp
+  /* Automatic */
+    enum T_AutoMode {
+        E_AM_DEFAULT,
+        E_AM_UNEXP_BYE,
+        E_AM_UNEXP_CANCEL,
+        E_AM_PING,
+        E_AM_AA,
+        E_AM_OOCALL
+    };
+
 
 // For CURL support
 
@@ -712,9 +725,11 @@ extern "C" void appDllLoad(INT index)
 
 }
 
-// This hooks into the built-in plugin capability of sipp
+// This hooks into the built-in plugin capability of sipp and allows you to add EXEC commands
 
 extern "C" int init(void *handle,int argc, char *argv[]) {
+
+    	extern bool log4auto_answer;
 
 	   // 2/9/2022 NVF This has to be above the SIGPIPE handler (added to support mysqlclient multithreaded): https://dev.mysql.com/doc/c-api/8.0/en/c-api-threaded-clients.html
         if (mysql_library_init(0, NULL, NULL)) {
@@ -722,6 +737,7 @@ extern "C" int init(void *handle,int argc, char *argv[]) {
                 exit(1);
         }
 
+	log4auto_answer = false;
 
 	curl_global_init(CURL_GLOBAL_DEFAULT);  // This is so we can use CURL inside our lua scripts in multi-threaded environments
 
@@ -781,4 +797,198 @@ extern "C" int app_shutdown(void *handle) {
     	}
 
 	return  EXIT_SUCCESS;
+}
+
+// Use this to override default SIPP handling of auto responses
+extern "C" bool handle_auto_response(T_AutoMode P_case, const char *P_recv,int *handled, call *call_ptr) {
+
+    int res ;
+    char * old_last_recv_msg = NULL;
+    bool last_recv_msg_saved = false;
+    char * last_recv_msg = call_ptr->getLastReceived();
+    int msg_index = call_ptr->get_msg_index();
+    char * id = call_ptr->get_id();
+    extern bool log4auto_answer;
+
+    *handled = 1; // Mark it as handled
+
+
+    WARNING("Processing auto_response for unexpected message\n");
+
+    switch (P_case) {
+    case E_AM_UNEXP_BYE: // response for an unexpected BYE
+        // usage of last_ keywords
+    	WARNING("Processing auto_response for unexpected BYE\n");
+        call_ptr->set_realloc_ptr ( (char *) realloc(last_recv_msg, strlen(P_recv) + 1));
+        if (call_ptr->get_realloc_ptr()) {
+            call_ptr->setLastReceived(call_ptr->get_realloc_ptr());
+        } else {
+            free(last_recv_msg);
+            ERROR("Out of memory!");
+            return false;
+        }
+
+
+        strcpy(call_ptr->getLastReceived(), P_recv);
+
+        // The BYE is unexpected, count it
+	call_ptr->increment_call_scenario_unexpected_count();
+        if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
+            WARNING("Aborting call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
+            if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
+                call_ptr->public_sendBuffer(call_ptr->public_createSendingMessage(get_default_message("200"), -1));
+            }
+
+            // if twin socket call => reset the other part here
+            if (twinSippSocket && (msg_index > 0)) {
+                res = call_ptr->public_sendCmdBuffer(call_ptr->public_createSendingMessage(get_default_message("3pcc_abort"), -1));
+                if (res) {
+                    WARNING("sendCmdBuffer returned %d", res);
+                    return false;
+                }
+            }
+            call_ptr->public_computeStat(CStat::E_CALL_FAILED);
+            call_ptr->public_computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
+            delete call_ptr;
+        } else {
+            WARNING("Continuing call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
+        }
+        break ;
+
+    case E_AM_UNEXP_CANCEL: // response for an unexpected cancel
+    	WARNING("Processing auto_response for unexpected CANCEL\n");
+        // usage of last_ keywords
+	call_ptr->set_realloc_ptr ( (char *) realloc(last_recv_msg, strlen(P_recv) + 1));
+        if (call_ptr->get_realloc_ptr()) {
+            call_ptr->setLastReceived(call_ptr->get_realloc_ptr());
+        } else {
+            free(last_recv_msg);
+            ERROR("Out of memory!");
+            return false;
+        }
+
+
+        strcpy(call_ptr->getLastReceived(), P_recv);
+
+        // The CANCEL is unexpected, count it
+	call_ptr->increment_call_scenario_unexpected_count();
+        if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
+            WARNING("Aborting call on an unexpected CANCEL for call: %s", (id==NULL)?"none":id);
+            if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
+                call_ptr->public_sendBuffer(call_ptr->public_createSendingMessage(get_default_message("200"), -1));
+            }
+
+            // if twin socket call => reset the other part here
+            if (twinSippSocket && (msg_index > 0)) {
+                res = call_ptr->public_sendCmdBuffer(call_ptr->public_createSendingMessage(get_default_message("3pcc_abort"), -1));
+                if (res) {
+                    WARNING("sendCmdBuffer returned %d", res);
+                    return false;
+                }
+            }
+
+            call_ptr->public_computeStat(CStat::E_CALL_FAILED);
+            call_ptr->public_computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
+            delete call_ptr;
+        } else {
+            WARNING("Continuing call on unexpected CANCEL for call: %s", (id==NULL)?"none":id);
+        }
+        break ;
+
+    case E_AM_PING: // response for a random ping
+        // usage of last_ keywords
+    	WARNING("Processing auto_response for unexpected PING\n");
+	call_ptr->set_realloc_ptr ( (char *) realloc(last_recv_msg, strlen(P_recv) + 1));
+        if (call_ptr->get_realloc_ptr()) {
+            call_ptr->setLastReceived(call_ptr->get_realloc_ptr());
+        } else {
+            free(last_recv_msg);
+            ERROR("Out of memory!");
+            return false;
+        }
+
+
+        strcpy(call_ptr->getLastReceived(), P_recv);
+
+        if (default_behaviors & DEFAULT_BEHAVIOR_PINGREPLY) {
+            WARNING("Automatic response mode for an unexpected PING for call: %s", (id==NULL)?"none":id);
+            call_ptr->public_sendBuffer(call_ptr->public_createSendingMessage(get_default_message("200"), -1));
+            // Note: the call ends here but it is not marked as bad. PING is a
+            //       normal message.
+            // if twin socket call => reset the other part here
+            if (twinSippSocket && (msg_index > 0)) {
+                res = call_ptr->public_sendCmdBuffer(call_ptr->public_createSendingMessage(get_default_message("3pcc_abort"), -1));
+                if (res) {
+                    WARNING("sendCmdBuffer returned %d", res);
+                    return false;
+                }
+            }
+
+            CStat::globalStat(CStat::E_AUTO_ANSWERED);
+            delete call_ptr;
+        } else {
+            WARNING("Do not answer on an unexpected PING for call: %s", (id==NULL)?"none":id);
+        }
+        break ;
+
+    case E_AM_AA: // response for a random INFO, NOTIFY, OPTIONS or UPDATE
+        // store previous last msg if msg is INFO, NOTIFY, OPTIONS or UPDATE
+        // restore last_recv_msg to previous one
+        // after sending ok
+    	WARNING("Processing auto_response for unexpected INFO, NOTIFY, OPTIONS or UPDATE\n");
+        old_last_recv_msg = NULL;
+        if (last_recv_msg != NULL) {
+            last_recv_msg_saved = true;
+            old_last_recv_msg = (char *) malloc(strlen(last_recv_msg)+1);
+            strcpy(old_last_recv_msg, last_recv_msg);
+        }
+        // usage of last_ keywords
+        call_ptr->set_realloc_ptr ( (char *) realloc(last_recv_msg, strlen(P_recv) + 1));
+        if (call_ptr->get_realloc_ptr()) {
+            call_ptr->setLastReceived(call_ptr->get_realloc_ptr());
+        } else {
+            free(last_recv_msg);
+            free(old_last_recv_msg);
+            ERROR("Out of memory!");
+            return false;
+        }
+
+
+        strcpy(call_ptr->getLastReceived(), P_recv);
+	if (log4auto_answer) {
+        	WARNING("Automatic response mode for an unexpected INFO, NOTIFY, OPTIONS or UPDATE for call: %s",
+                	(id == NULL) ? "none" : id);
+	}
+        call_ptr->public_sendBuffer(call_ptr->public_createSendingMessage(get_default_message("200"), -1));
+
+        // restore previous last msg
+        if (last_recv_msg_saved == true) {
+            call_ptr->set_realloc_ptr((char *) realloc(call_ptr->getLastReceived(), strlen(old_last_recv_msg) + 1));
+            if (call_ptr->get_realloc_ptr()) {
+		 call_ptr->setLastReceived(call_ptr->get_realloc_ptr());
+            } else {
+                free(call_ptr->getLastReceived());
+                ERROR("Out of memory!");
+                return false;
+            }
+
+
+            strcpy(call_ptr->getLastReceived(), old_last_recv_msg);
+
+            if (old_last_recv_msg != NULL) {
+                free(old_last_recv_msg);
+                old_last_recv_msg = NULL;
+            }
+        }
+        CStat::globalStat(CStat::E_AUTO_ANSWERED);
+        delete call_ptr;  // 2/16/2022 - NVF Added this for auto response messages as it looked like it wasn't being done otherwise - resulting in a memory leak
+        return true;
+        break;
+
+    default:
+        ERROR("Internal error for automaticResponseMode - mode %d is not implemented!", P_case);
+        break ;
+    }
+
+    return false;
 }

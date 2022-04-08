@@ -437,6 +437,7 @@ MAYBE_EXTERN struct sockaddr_storage local_addr_storage;
 MAYBE_EXTERN SIPpSocket   *twinSippSocket               DEFVAL(NULL);
 MAYBE_EXTERN SIPpSocket   *localTwinSippSocket          DEFVAL(NULL);
 MAYBE_EXTERN struct sockaddr_storage twinSipp_sockaddr;
+MAYBE_EXTERN void *g_plugin_handle 		DEFVAL(NULL);  // Global Plugin handle - so we can use dlsym to call various predefined utility functions outside of main()
 
 /* 3pcc extended mode */
 typedef struct _T_peer_infos {

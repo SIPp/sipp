@@ -3,8 +3,8 @@
  * It was generated using rpcgen.
  */
 
-#ifndef _SIPP_RPC_H_RPCGEN
-#define _SIPP_RPC_H_RPCGEN
+#ifndef _SIPP-RPC_H_RPCGEN
+#define _SIPP-RPC_H_RPCGEN
 
 #include <rpc/rpc.h>
 
@@ -69,4 +69,4 @@ extern bool_t xdr_callcounter_t ();
 }
 #endif
 
-#endif /* !_SIPP_RPC_H_RPCGEN */
+#endif /* !_SIPP-RPC_H_RPCGEN */

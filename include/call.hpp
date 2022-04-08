@@ -95,11 +95,50 @@ public:
         E_AM_OOCALL
     };
 
+    // Access functions
     void setLastMsg(const char *msg);
     bool  automaticResponseMode(T_AutoMode P_case, const char* P_recv);
-    const char *getLastReceived() {
+
+    char *getLastReceived() {
         return last_recv_msg;
     };
+
+    void setLastReceived(char *msg){
+	    last_recv_msg = msg;
+    }
+    void set_realloc_ptr(char *ptr){
+	    realloc_ptr = ptr;
+    }
+    char *get_realloc_ptr(){
+	    return realloc_ptr;
+    }
+    int get_msg_index() {
+	    return msg_index;
+    }
+
+    void   public_sendBuffer(char *buf, int len = 0){     // send a message out of a scenario
+	sendBuffer(buf, len);
+    }
+    void increment_call_scenario_unexpected_count() {
+	     call_scenario->messages[msg_index] -> nb_unexp++;
+    }
+    char *get_id(){
+	    return id;
+    }
+    char* public_createSendingMessage(SendingMessage *src, int P_index, int *msgLen=NULL){
+	    return createSendingMessage(src,P_index,msgLen);
+    }
+    char* public_createSendingMessage(char * src, int P_index, bool skip_sanity = false){
+    	    return createSendingMessage(src,P_index, skip_sanity);
+    }
+
+    int   public_sendCmdBuffer(char* cmd){
+	        return  sendCmdBuffer(cmd);
+    }
+    void public_computeStat (CStat::E_Action P_action){
+      	computeStat (P_action);
+    }
+    
 
 private:
     /* This is the core constructor function. */

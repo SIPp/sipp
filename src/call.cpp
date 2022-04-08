@@ -45,6 +45,7 @@
 #include <iterator>
 #include <sstream>
 #include <vector>
+#include <dlfcn.h>
 
 #include <assert.h>
 #include <stdarg.h>
@@ -3010,7 +3011,25 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                 }
             } else {
                 // call aborted by automatic response mode if needed
-                return automaticResponseMode(L_case, msg);
+		//
+		int handled=0;
+		bool (*handle_auto_response)(T_AutoMode, const char* ,int *, call *); // Plugin function for auto response
+	        handle_auto_response = (bool (*)(T_AutoMode,const char* ,int *, call * ))dlsym(g_plugin_handle, "handle_auto_response");
+                const char* error;
+                if ((error = dlerror())) {
+                    ERROR("Could not locate handle_auto_response function in plugin: error:(%s)", error);
+                }else {
+
+			// If there's a hook, then run it to do whatever processing is defined in the plugin
+			// and if there's no more processing required, return something > 0
+			bool ret = handle_auto_response(L_case,msg,&handled,this);
+			if (handled > 0) {
+				return ret;
+			}else {
+                		return automaticResponseMode(L_case, msg);
+			}
+
+		}
             }
         }
     }

@@ -62,7 +62,7 @@ extern char** environ;
 
 #ifdef USE_LUA
 #include "lua.hpp"
-lua_State *L = luaL_newstate();
+lua_State *L = luaL_newstate();   // This is a throwaway - we don't actually use this but it forces the lua shared lib to be loaded.
 #endif
 
 
@@ -1935,7 +1935,7 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
 
-                handle = dlopen(argv[argi], RTLD_NOW);
+                g_plugin_handle = handle = dlopen(argv[argi], RTLD_NOW);
 		plugin_name = argv[argi];
                 if (!handle) {
                     ERROR("Could not open plugin %s: %s", argv[argi], dlerror());
