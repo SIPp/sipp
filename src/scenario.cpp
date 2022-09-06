@@ -2204,6 +2204,7 @@ const char * default_scenario [] = {
     "\n"
     "      SIP/2.0 200 OK\n"
     "      [last_Via:]\n"
+    "      [last_Record-Route:]\n"
     "      [last_From:]\n"
     "      [last_To:];tag=[pid]SIPpTag01[call_number]\n"
     "      [last_Call-ID:]\n"
