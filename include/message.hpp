@@ -68,6 +68,7 @@ typedef enum {
     E_Message_Next_Url,
     E_Message_Len,
     E_Message_Peer_Tag_Param,
+    E_Message_Record_Routes,
     E_Message_Routes,
     E_Message_Variable,
     E_Message_Fill,

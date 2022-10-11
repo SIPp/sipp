@@ -3807,6 +3807,13 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 dest += snprintf(dest, left, ";tag=%s", peer_tag);
             }
             break;
+        case E_Message_Record_Routes:
+            if (dialog_route_set) {
+                dest += sprintf(dest, "Record-Route: %s", dialog_route_set);
+            } else if (*(dest - 1) == '\n') {
+                suppresscrlf = true;
+            }
+            break;
         case E_Message_Routes:
             if (dialog_route_set) {
                 dest += sprintf(dest, "Route: %s", dialog_route_set);
