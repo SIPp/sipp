@@ -14,7 +14,7 @@
       To: <sip:[service]@[remote_ip]:[remote_port]>
       Call-ID: [call_id]
       CSeq: 10 INVITE
-      Contact: <sip:16001@[local_ip]:[local_port]>
+      Contact: <sip:16001@[local_ip]:[local_port];transport=[transport]>
       Content-Type: application/sdp
       Max-Forwards: 70
       User-Agent: VIRTUAL Mitel-UC-Endpoint (Mitel UC360 Collaboration Point/2.1.0.99;  08:00:0F:74:80:E1)
@@ -72,7 +72,7 @@
       Call-ID: [call_id]
       CSeq: 11 PRACK
       RAck: [$2][$1]
-      Contact: <sip:16001@[local_ip]:[local_port]>
+      Contact: <sip:16001@[local_ip]:[local_port];transport=[transport]>
       Max-Forwards: 70
       Subject: Conference
       Content-Length: 0
@@ -174,7 +174,7 @@
       To: <sip:[service]@[remote_ip]>[peer_tag_param]
       Call-ID: [call_id]
       CSeq: 12 BYE
-      Contact: <sip:16001@[local_ip]:[local_port]>
+      Contact: <sip:16001@[local_ip]:[local_port];transport=[transport]>
       Max-Forwards: 70
       Subject: Conference
       User-Agent: VIRTUAL Mitel-UC-Endpoint (Mitel UC360 Collaboration Point/2.1.0.99;  08:00:0F:74:80:E1)
