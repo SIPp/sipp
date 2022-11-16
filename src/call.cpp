@@ -4354,7 +4354,6 @@ void call::formatNextReqUrl(const char* contact)
         next_req_url[0] = '\0';
         strncat(next_req_url, contact,
                 min(MAX_HEADER_LEN - 1, (int)(end - contact))); /* fits MAX_HEADER_LEN */
-        }
     } else {
         next_req_url[0] = '\0';
         strncat(next_req_url, contact, MAX_HEADER_LEN - 1);
