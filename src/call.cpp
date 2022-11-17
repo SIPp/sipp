@@ -4346,14 +4346,14 @@ void call::formatNextReqUrl(const char* contact)
     while (*contact != '\0' && (*contact == ' ' || *contact == '\t')) {
         ++contact;
     }
-    if (*contact == '<') {
-        contact += 1;
-        const char* end = strchr(contact, '>');
-        if (end) {
-            next_req_url[0] = '\0';
-            strncat(next_req_url, contact,
-                    min(MAX_HEADER_LEN - 1, (int)(end - contact))); /* fits MAX_HEADER_LEN */
-        }
+    const char* start = strchr(contact, '<');
+    const char* end = strchr(contact, '>');
+    if ((start && end)  && (start < end)) {
+        contact = start;
+        contact++;
+        next_req_url[0] = '\0';
+        strncat(next_req_url, contact,
+                min(MAX_HEADER_LEN - 1, (int)(end - contact))); /* fits MAX_HEADER_LEN */
     } else {
         next_req_url[0] = '\0';
         strncat(next_req_url, contact, MAX_HEADER_LEN - 1);
