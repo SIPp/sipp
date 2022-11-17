@@ -2606,7 +2606,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     pV.secondary_unencrypted_video_srtp = false;
 #endif // USE_TLS
 
-    *dest = '\0';
+    msg_buffer[0] = '\0';
 
     for (int i = 0; i < src->numComponents(); i++) {
         MessageComponent *comp = src->getComponent(i);
@@ -3976,7 +3976,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
     }
     /* Need the body for length and auth-int calculation */
-    char *body;
+    char *body = NULL;
     const char *auth_body = NULL;
     if (length_marker || auth_marker) {
         body = strstr(msg_buffer, "\r\n\r\n");
