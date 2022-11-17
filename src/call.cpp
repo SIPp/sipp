@@ -479,6 +479,12 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
         }
 
         /* --------------------------------------------------------------
+         * Determine SDP m-line structure
+         * -------------------------------------------------------------- */
+        amsection_limit = msgstr.find("\nm=audio", 0, msgstr.size());
+        vmsection_limit = msgstr.find("\nm=video", 0, msgstr.size());
+
+        /* --------------------------------------------------------------
          * Try to find an AUDIO MLINE
          * -------------------------------------------------------------- */
         pos1 = msgstr.find(SDP_AUDIOPORT_PREFIX, 0, 8);
@@ -547,8 +553,6 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
         }
 
         cur_pos = pos2;
-        amsection_limit = msgstr.find("\nm=audio", cur_pos, 8);
-        vmsection_limit = msgstr.find("\nm=video", cur_pos, 8);
 
         if (audioExists &&
             (((amsection_limit != std::string::npos) && (cur_pos != std::string::npos) && (cur_pos < amsection_limit)) ||
@@ -673,8 +677,6 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
         }
 
         cur_pos = pos2;
-        vmsection_limit = msgstr.find("\nm=video", cur_pos, 8);
-        amsection_limit = msgstr.find("\nm=audio", cur_pos, 8);
 
         if (videoExists &&
             (((vmsection_limit != std::string::npos) && (cur_pos != std::string::npos) && (cur_pos < vmsection_limit)) ||
