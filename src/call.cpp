@@ -4346,7 +4346,7 @@ void call::formatNextReqUrl(const char* contact)
     while (*contact != '\0' && (*contact == ' ' || *contact == '\t')) {
         ++contact;
     }
-	const char* start = strchr(contact, '<');
+    const char* start = strchr(contact, '<');
     const char* end = strchr(contact, '>');
     if ((start && end)  && (start < end)) {
         contact = start;
