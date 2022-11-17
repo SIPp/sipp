@@ -36,7 +36,7 @@ sippversion() {
 }
 
 sippfg() {
-    "`get_sipp`" -nostdin "$@"
+    timeout -sKILL 183 "`get_sipp`" -nostdin "$@"
 }
 
 sippbg() {
