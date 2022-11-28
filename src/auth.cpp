@@ -388,7 +388,7 @@ int createAuthHeaderMD5(
     }
 
     createAuthResponseMD5(
-        user, password, strlen(password), method, sipuri, authtype,
+        user, password, password_len, method, sipuri, authtype,
         msgbody, realm, nonce, cnonce, nc, &resp_hex[0]);
 
     written += snprintf(
