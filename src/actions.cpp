@@ -531,6 +531,22 @@ void CAction::setPcapArgs (pcap_pkts  *  P_value)
 
 void CAction::setPcapArgs(const char* P_value)
 {
+    if(P_value[0] == '~')
+    {
+        char pcap_absolute_path[MAX_PATH] = {'\0'};
+        char* temp_home_path = NULL;
+        temp_home_path = getenv("HOME");
+        if(temp_home_path != NULL)
+        {
+            strncpy(pcap_absolute_path, temp_home_path, MAX_PATH -1);
+            strncpy(pcap_absolute_path + strlen(temp_home_path), P_value+1, MAX_PATH - strlen(temp_home_path) -1);
+            P_value = strndup(pcap_absolute_path, strlen(pcap_absolute_path));
+        }else
+        {
+            ERROR("Couldn't resolve pcap file absolute path: %s", P_value);
+        }
+    }
+
     if (M_pcapArgs != NULL) {
         free(M_pcapArgs);
         M_pcapArgs = NULL;
