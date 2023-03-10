@@ -388,12 +388,16 @@ int scenario::find_var(const char *varName)
 
 void scenario::addRtpTaskThreadID(pthread_t id)
 {
-    threadIDs[id] = "threadID";
+    if (id) {
+        threadIDs[id] = "threadID";
+    }
 }
 
 void scenario::removeRtpTaskThreadID(pthread_t id)
 {
-    threadIDs.erase(id);
+    if (id) {
+        threadIDs.erase(id);
+    }
 }
 
 std::unordered_map<pthread_t, std::string>& scenario::fetchRtpTaskThreadIDs()
