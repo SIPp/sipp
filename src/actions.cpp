@@ -48,7 +48,7 @@ static const char* strIntCmd(CAction::T_IntCmdType type)
 
 int expand_user_path(const char *path, char *expanded_home_path /*The buffer*/)
 {
-    memset(expanded_home_path, '\0', MAX_PATH); //Assume this much memory is always allocated, hopefully
+    memset(expanded_home_path, '\0', MAX_PATH); // Assume this much memory is always allocated, hopefully
     char *home_dir = nullptr;
 
     if (path[1] == '\0' || path[1] == '/')
@@ -64,16 +64,18 @@ int expand_user_path(const char *path, char *expanded_home_path /*The buffer*/)
         }
     }
     else
-    { //~someuser/blah or ~someuser case
+    {
         const char *first_slash = nullptr;
-        first_slash = strchr(path, '/'); //substring starting from '/'
+        first_slash = strchr(path, '/');  // substring starting from '/'
         size_t linux_username_limit = 32; // As of now
         char *username = nullptr;
         if ((first_slash != NULL) && ((first_slash - (path + 1)) <= linux_username_limit))
-        {                                                  // to handle the '~/someuser/blah' case
-            username = strndup(path+1, first_slash - (path + 1) );
-        }else{
-            username = strndup(path+1, strlen(path+1));
+        { // '~/someuser/blah' case
+            username = strndup(path + 1, first_slash - (path + 1));
+        }
+        else
+        { // '~someuser' case
+            username = strndup(path + 1, strlen(path + 1));
         }
 
         struct passwd pwd;
@@ -600,13 +602,14 @@ void CAction::setPcapArgs (pcap_pkts  *  P_value)
 
 void CAction::setPcapArgs(const char* P_value)
 {
-    if(P_value[0] == '~')
+    if (P_value[0] == '~')
     {
         char pcap_absolute_path[MAX_PATH] = {'\0'};
-        if(expand_user_path(P_value, pcap_absolute_path))
+        if (expand_user_path(P_value, pcap_absolute_path))
         {
             P_value = strndup(pcap_absolute_path, strlen(pcap_absolute_path));
-        }else
+        }
+        else
         {
             ERROR("Couldn't resolve pcap file absolute path: %s", P_value);
         }
