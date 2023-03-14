@@ -23,6 +23,7 @@
 
 #include "sipp.hpp"
 #include <assert.h>
+#include <pwd.h>    //for getpwnam_r()
 #ifdef PCAPPLAY
 #include "prepare_pcap.h"
 #endif
@@ -43,6 +44,74 @@ static const char* strIntCmd(CAction::T_IntCmdType type)
         return "invalid";
     }
     return "invalid";
+}
+
+int expand_user_path(const char *path, char *expanded_home_path /*The buffer*/)
+{
+    memset(expanded_home_path, '\0', MAX_PATH); //Assume this much memory is always allocated, hopefully
+    char *home_dir = nullptr;
+
+    if (path[1] == '\0' || path[1] == '/')
+    { // '~/path' case
+        home_dir = getenv("HOME");
+        if (home_dir == nullptr)
+        {
+            home_dir = getenv("USERPROFILE");
+        }
+        if (home_dir != nullptr)
+        {
+            snprintf(expanded_home_path, MAX_PATH - 1, "%s%s", home_dir, path + 1);
+        }
+    }
+    else
+    { //~someuser/blah or ~someuser case
+        const char *first_slash = nullptr;
+        first_slash = strchr(path, '/'); //substring starting from '/'
+        size_t linux_username_limit = 32; // As of now
+        char *username = nullptr;
+        if ((first_slash != NULL) && ((first_slash - (path + 1)) <= linux_username_limit))
+        {                                                  // to handle the '~/someuser/blah' case
+            username = strndup(path+1, first_slash - (path + 1) );
+        }else{
+            username = strndup(path+1, strlen(path+1));
+        }
+
+        struct passwd pwd;
+        struct passwd *result;
+        size_t bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+        char *buffer = new char[bufsize + 1];
+        int retcode = getpwnam_r(username, &pwd, buffer, bufsize, &result);
+        if (result == NULL)
+        {
+            if (retcode != 0)
+            {
+                errno = retcode;
+            }
+            WARNING_NO("Unable to resolve home path for [%s]\n", path);
+            free(username);
+            return -1;
+        }
+        else
+        {
+            home_dir = result->pw_dir;
+        }
+        delete[] buffer;
+        free(username);
+
+        if (home_dir != nullptr)
+        {
+            if (first_slash != nullptr)
+            { // '~username/path' case
+                snprintf(expanded_home_path, MAX_PATH - 1, "%s%s", home_dir, first_slash);
+            }
+            else
+            { // '~username' case?
+                snprintf(expanded_home_path, MAX_PATH - 1, "%s", home_dir);
+            }
+        }
+    }
+
+    return 1;
 }
 
 const char * CAction::comparatorToString(T_Comparator comp)
@@ -534,12 +603,8 @@ void CAction::setPcapArgs(const char* P_value)
     if(P_value[0] == '~')
     {
         char pcap_absolute_path[MAX_PATH] = {'\0'};
-        char* temp_home_path = NULL;
-        temp_home_path = getenv("HOME");
-        if(temp_home_path != NULL)
+        if(expand_user_path(P_value, pcap_absolute_path))
         {
-            strncpy(pcap_absolute_path, temp_home_path, MAX_PATH -1);
-            strncpy(pcap_absolute_path + strlen(temp_home_path), P_value+1, MAX_PATH - strlen(temp_home_path) -1);
             P_value = strndup(pcap_absolute_path, strlen(pcap_absolute_path));
         }else
         {
