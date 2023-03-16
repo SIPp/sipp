@@ -64,6 +64,16 @@ and for now, it only works on Alpine Linux.
 
 To build a static binary, pass `-DBUILD_STATIC=1` to cmake.
 
+Two Alpine-based `Dockerfile`s are provided, which can be used as a
+build-environment.  Use either `Dockerfile` or `Dockerfile.full` in
+the following commands:
+
+```
+git submodule update --init
+docker build -t sipp-build -f docker/Dockerfile docker
+docker run --rm -v $PWD:/src sipp-build
+```
+
 # Support
 
 I try and be responsive to issues raised on Github, and there's [a
