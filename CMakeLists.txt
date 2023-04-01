@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.4)
 
 # set the project name
 project(SIPp)
@@ -46,6 +46,11 @@ CHECK_SYMBOL_EXISTS(le16toh "sys/endian.h" HAVE_DECL_LE16TOH_BSD)
 
 configure_file("${PROJECT_SOURCE_DIR}/include/config.h.in"
                "${PROJECT_BINARY_DIR}/config.h" )
+
+if(BUILD_STATIC)
+  set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
+  set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
+endif(BUILD_STATIC)
 
 list(REMOVE_ITEM all_SRCS
   "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
@@ -155,10 +160,6 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/.git)
   add_dependencies(sipp version)
   add_dependencies(sipp_unittest version)
 endif()
-
-if(BUILD_STATIC)
-  set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
-endif(BUILD_STATIC)
 
 if(PKG_CONFIG_FOUND)
   pkg_search_module(CURSES_LIBRARY ncursesw cursesw ncurses curses)
