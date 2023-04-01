@@ -1263,6 +1263,9 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     ss_ssl = NULL;
 
     if (transport == T_TLS) {
+        int flags = fcntl(fd, F_GETFL, 0);
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
         if ((ss_bio = BIO_new_socket(fd, BIO_NOCLOSE)) == NULL) {
             ERROR("Unable to create BIO object:Problem with BIO_new_socket()");
         }
