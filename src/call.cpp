@@ -330,10 +330,6 @@ std::string call::extract_rtp_remote_addr(const char* msg, int &ip_ver, int &aud
         }
     }
 
-    if ((audio_port==0)&&(video_port==0)&&(image_port==0)) {
-        ERROR("extract_rtp_remote_addr: no m=audio or m=video or m=image line found in SDP message body");
-    }
-
     return host;
 }
 
@@ -4654,10 +4650,16 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 #endif // USE_TLS
 
             host = extract_rtp_remote_addr(msg, ip_ver, audio_port, video_port);
+
 #ifdef USE_TLS
             extract_srtp_remote_info(msg, pA, pV);
 #endif // USE_TLS
-            rtpstream_set_remote (&rtpstream_callinfo,ip_ver,host.c_str(),audio_port,video_port);
+
+            if ((audio_port==0) && (video_port==0)) {
+                WARNING("extract_rtp_remote_addr: no m=audio or m=video or m=image line found in SDP message body");
+            } else {
+                rtpstream_set_remote(&rtpstream_callinfo, ip_ver, host.c_str(), audio_port, video_port);
+            }
 
 #ifdef USE_TLS
             // PASS INCOMING SRTP PARAMETERS...
