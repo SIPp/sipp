@@ -465,7 +465,7 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
     char L_file_name[MAX_PATH];
     sprintf(L_file_name, "%s_%ld_screen.log", scenario_file, (long) getpid());
 
-    getmilliseconds();
+    update_clock_tick();
 
     /* Arm the global timer if needed */
     if (global_timeout > 0) {
@@ -480,7 +480,7 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
 
     while (1) {
         scheduling_loops++;
-        getmilliseconds();
+        update_clock_tick();
 
         if (signalDump) {
             /* Screen dumping in a file */
@@ -540,7 +540,7 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
             }
         }
 
-        getmilliseconds();
+        update_clock_tick();
 
         /* Schedule all pending calls and process their timers */
         task_list *running_tasks;
@@ -593,8 +593,7 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
             sockets_pending_reset.erase(sockets_pending_reset.begin());
         }
 
-        /* Update the clock. */
-        getmilliseconds();
+        update_clock_tick();
         /* Receive incoming messages */
         SIPpSocket::pollset_process(running_tasks->empty());
     }
