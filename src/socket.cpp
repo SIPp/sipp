@@ -2388,7 +2388,7 @@ int open_connections()
               switch (ret) {
 #ifdef EAI_ADDRFAMILY
                 case EAI_ADDRFAMILY:
-                    ERROR("Network family mismatch for local and remote IP");
+                    ERROR("Network family mismatch for local (%s) and remote (%s, %d) IP", local_ip, remote_ip, family_hint);
                     break;
 #endif
                 default:
