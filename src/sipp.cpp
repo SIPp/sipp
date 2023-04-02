@@ -1381,6 +1381,9 @@ int main(int argc, char *argv[])
             struct sipp_option *option = find_option(argv[argi]);
             if (!option) {
                 if (argv[argi][0] != '-') {
+                    if ((pass == 0) && (remote_host[0] != 0)) {
+                        ERROR("remote_host given multiple times on command-line (%s and %s)", remote_host, argv[argi]);
+                    }
                     strncpy(remote_host, argv[argi], sizeof(remote_host) - 1);
                     continue;
                 }
