@@ -1,3 +1,29 @@
+Features added in 3.7.0
+===========================
+
+- RTPstream can now handle .wav files with a WAV header (by Orgad Shaneh)
+
+Bugs fixed in 3.7.0
+=======================
+- RTPCHECK stability fixes (by Jeannot Langlois)
+- Support CRLF-format injection files (by Orgad Shaneh)
+- Fix to [next_url] when a display name is present in the contact (by enneig)
+- Add 'transport' to the Contact header for UAC scenarios (by Martin Flaska)
+- Update built-in scenarios to Copy Record-Route from INVITE to 200OK to comply with RFC 3261 (by kadabusha)
+- Fix for local_port keyword using TCP or TLS (by Felippe Silvestre)
+- Correct handling of IMS-AKA RES values contianing null bytes (by Sergey Zyrianov)
+- Fix potential overwrite of auth value when calculating auth (by ZhaohuiLiu)
+- Diagnostics improvements:
+  - Print, rather than lose, any buffered response time data on exit (by Orgad Shaneh)
+  - Add the IPs and remote address family to 'Network family mismatch' log  (by Rob Day)
+  - Print OpenSSL error reason when certificate load fails (by Rajesh Singh)
+  - Give clear error if multiple command-line parameters are being interpreted as remote_host
+- Prevent clock_tick moving backwards (and getting behind wheel_base and causing an assert) (by Rob Day)
+- Ensure that sockets are marked as non-blocking before OpenSSL calls are made (by Rob Day)
+- Prevent RTPStream crash due to a thread ID of 0 (by Rob Day)
+- Cygwin, FreeBSD and Hurd build fixes (by Orgad Shaneh, kadabusha and Zopolis4)
+- Static build fixes (by  Aaron Meriwether)
+
 Features added in 3.7.0~rc1
 ===========================
 
