@@ -6,6 +6,7 @@ RUN apk add --no-cache \
   cmake \
   gcc \
   g++ \
+  git \
   ncurses-dev \
   ncurses-static \
   libpcap-dev \
