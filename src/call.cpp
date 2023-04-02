@@ -2107,7 +2107,7 @@ bool call::run()
         return false;
     }
 
-    getmilliseconds();
+    update_clock_tick();
 
     message *curmsg;
     if (initCall) {
@@ -4486,7 +4486,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
     T_ActionResult  actionResult;
     unsigned long int invite_cseq = 0;
 
-    getmilliseconds();
+    update_clock_tick();
     callDebug("Processing %zu byte incoming message for call-ID %s (hash %lu):\n%s\n\n",
               strlen(msg), id, hash(msg), msg);
 

@@ -2824,7 +2824,7 @@ void SIPpSocket::pollset_process(int wait)
 
     /* We need to process any messages that we have left over. */
     while (pending_messages && loops > 0) {
-        getmilliseconds();
+        update_clock_tick();
         if (sockets[read_index]->ss_msglen) {
             struct sockaddr_storage src;
             char msg[SIPP_MAX_MSG_SIZE];
@@ -2977,7 +2977,7 @@ void SIPpSocket::pollset_process(int wait)
 
 #ifdef HAVE_EPOLL
         unsigned old_pollnfds = pollnfds;
-        getmilliseconds();
+        update_clock_tick();
         /* Keep processing messages until this socket is freed (changing the number of file descriptors) or we run out of messages. */
         while ((pollnfds == old_pollnfds) &&
                 (sock->message_ready())) {
@@ -3017,7 +3017,7 @@ void SIPpSocket::pollset_process(int wait)
 
     /* We need to process any new messages that we read. */
     while (pending_messages && (loops > 0)) {
-        getmilliseconds();
+        update_clock_tick();
 
         if (sockets[read_index]->ss_msglen) {
             char msg[SIPP_MAX_MSG_SIZE];

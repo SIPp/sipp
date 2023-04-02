@@ -25,4 +25,6 @@ unsigned long getmilliseconds();
 unsigned long long getmicroseconds();
 void sipp_usleep(unsigned long usec);
 
+void update_clock_tick();
+
 #endif /* __SIPP_TIME_H__ */

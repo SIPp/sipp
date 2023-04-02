@@ -79,10 +79,11 @@ unsigned long long getmicroseconds()
     }
     microseconds = microseconds - start_time;
 
-    // Static global from sipp.hpp
-    clock_tick = microseconds / MICROSECONDS_PER_MILLISECOND;
-
     return microseconds;
+}
+
+void update_clock_tick() {
+    clock_tick = getmilliseconds();
 }
 
 // Returns the number of milliseconds that have passed since SIPp
