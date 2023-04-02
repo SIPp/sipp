@@ -5837,6 +5837,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 result = false;
             } else {
                 char *auth = get_header(msg, "Authorization:", true);
+                auth = strdup(auth); // make a copy to avoid later get_header function call(clear its content)
                 char *method = (char *)malloc(end - msg + 1);
                 strncpy(method, msg, end - msg);
                 method[end - msg] = '\0';
@@ -5863,6 +5864,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 free(username);
                 free(password);
                 free(method);
+                free(auth);
             }
 
             M_callVariableTable->getVar(currentAction->getVarId())->setBool(result);
