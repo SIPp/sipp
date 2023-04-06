@@ -22,6 +22,7 @@
  */
 
 #include "sipp.hpp"
+#include "fileutil.h"
 #include <assert.h>
 #ifdef PCAPPLAY
 #include "prepare_pcap.h"
@@ -675,32 +676,48 @@ void CAction::setRTPStreamActInfo(const char *P_value)
     char* next_comma;
     int pattern_mode = 0;
     int stream_type = 0; /* 0: AUDIO / 1: VIDEO */
+    char argument_buf[sizeof(M_rtpstream_actinfo.filename)];
+    const char* found_file;
 
-    if (strlen(P_value) >= sizeof(M_rtpstream_actinfo.filename)) {
+    if (strlen(P_value) >= sizeof(argument_buf)) {
         ERROR("Filename/Pattern keyword %s is too long -- maximum supported length %zu",
-            P_value, sizeof(M_rtpstream_actinfo.filename) - 1);
+            P_value, sizeof(argument_buf) - 1);
     }
 
     // Initialize M_rtpstream_actinfo struct members
-    memset(M_rtpstream_actinfo.filename, 0, sizeof(M_rtpstream_actinfo.filename));
+    M_rtpstream_actinfo.filename[0] = '\0';
     M_rtpstream_actinfo.pattern_id = -1;
     M_rtpstream_actinfo.loop_count = -1;
     M_rtpstream_actinfo.bytes_per_packet = 0;
     M_rtpstream_actinfo.ms_per_packet = 0;
     M_rtpstream_actinfo.ticks_per_packet = 0;
     M_rtpstream_actinfo.payload_type = 0;
-    memset(M_rtpstream_actinfo.payload_name, 0, sizeof(M_rtpstream_actinfo.payload_name));
+    M_rtpstream_actinfo.payload_name[0] = '\0';
     M_rtpstream_actinfo.audio_active = 0;
     M_rtpstream_actinfo.video_active = 0;
 
-    if (!strncmp(P_value, "apattern", 8) ||
-            !strncmp(P_value, "vpattern", 8)) {
+    if (!strncmp(P_value, "apattern", 8) || !strncmp(P_value, "vpattern", 8)) {
         pattern_mode = 1;
     }
 
-    strcpy(M_rtpstream_actinfo.filename, P_value);
-    param_str = strchr(M_rtpstream_actinfo.filename, ',');
-    next_comma = NULL;
+    // Extract filename
+    strcpy(argument_buf, P_value);
+    if ((param_str = strchr(argument_buf, ','))) {
+        *param_str++ = '\0';
+    }
+
+    // Lookup best file match
+    if (pattern_mode == 0) {
+        found_file = find_file(argument_buf);
+        if (found_file) {
+            if (strlen(found_file) >= sizeof(M_rtpstream_actinfo.filename)) {
+                ERROR("Filename/Pattern keyword %s is too long -- maximum supported length %zu",
+                    found_file, sizeof(M_rtpstream_actinfo.filename) - 1);
+            }
+            strcpy(M_rtpstream_actinfo.filename, found_file);
+            free(const_cast<char*>(found_file));
+        }
+    }
 
     // Set default values of pattern_id/loop_count depending on whether we are in PATTERN or FILE mode
     if (pattern_mode) {
@@ -714,7 +731,6 @@ void CAction::setRTPStreamActInfo(const char *P_value)
     // Comma found for loop_count (FILE MODE) or pattern_id (PATTERN MODE)
     if (param_str) {
         /* we have a loop count parameter (FILE MODE) or pattern id parameter (PATTERN MODE) */
-        *(param_str++)= 0;
         next_comma = strchr(param_str, ',');
         if (next_comma) {
             *(next_comma++) = 0;
@@ -858,10 +874,10 @@ void CAction::setRTPStreamActInfo(const char *P_value)
 
     if (rtpstream_cache_file(
             M_rtpstream_actinfo.filename,
-             pattern_mode /* 0: FILE - 1: PATTERN */,
-             M_rtpstream_actinfo.pattern_id,
-             M_rtpstream_actinfo.bytes_per_packet,
-             stream_type) < 0) {
+            pattern_mode /* 0: FILE - 1: PATTERN */,
+            M_rtpstream_actinfo.pattern_id,
+            M_rtpstream_actinfo.bytes_per_packet,
+            stream_type) < 0) {
         ERROR("Cannot read/cache rtpstream file %s", M_rtpstream_actinfo.filename);
     }
 }
