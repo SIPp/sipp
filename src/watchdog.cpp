@@ -52,7 +52,7 @@ watchdog::watchdog(int interval, int reset_interval, int major_threshold, int ma
 
 bool watchdog::run()
 {
-    getmilliseconds();
+    update_clock_tick();
 
     unsigned expected_major_trigger_time = last_fire + this->major_threshold;
     unsigned expected_minor_trigger_time = last_fire + this->minor_threshold;

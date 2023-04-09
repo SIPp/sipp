@@ -1263,6 +1263,9 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     ss_ssl = NULL;
 
     if (transport == T_TLS) {
+        int flags = fcntl(fd, F_GETFL, 0);
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
         if ((ss_bio = BIO_new_socket(fd, BIO_NOCLOSE)) == NULL) {
             ERROR("Unable to create BIO object:Problem with BIO_new_socket()");
         }
@@ -2385,7 +2388,7 @@ int open_connections()
               switch (ret) {
 #ifdef EAI_ADDRFAMILY
                 case EAI_ADDRFAMILY:
-                    ERROR("Network family mismatch for local and remote IP");
+                    ERROR("Network family mismatch for local (%s) and remote (%s, %d) IP", local_ip, remote_ip, family_hint);
                     break;
 #endif
                 default:
@@ -2821,7 +2824,7 @@ void SIPpSocket::pollset_process(int wait)
 
     /* We need to process any messages that we have left over. */
     while (pending_messages && loops > 0) {
-        getmilliseconds();
+        update_clock_tick();
         if (sockets[read_index]->ss_msglen) {
             struct sockaddr_storage src;
             char msg[SIPP_MAX_MSG_SIZE];
@@ -2974,7 +2977,7 @@ void SIPpSocket::pollset_process(int wait)
 
 #ifdef HAVE_EPOLL
         unsigned old_pollnfds = pollnfds;
-        getmilliseconds();
+        update_clock_tick();
         /* Keep processing messages until this socket is freed (changing the number of file descriptors) or we run out of messages. */
         while ((pollnfds == old_pollnfds) &&
                 (sock->message_ready())) {
@@ -3014,7 +3017,7 @@ void SIPpSocket::pollset_process(int wait)
 
     /* We need to process any new messages that we read. */
     while (pending_messages && (loops > 0)) {
-        getmilliseconds();
+        update_clock_tick();
 
         if (sockets[read_index]->ss_msglen) {
             char msg[SIPP_MAX_MSG_SIZE];

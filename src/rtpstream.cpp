@@ -86,6 +86,7 @@ struct rtp_header_t
 
 struct threaddata_t
 {
+    pthread_t id;
     pthread_mutex_t tasklist_mutex;
     int             busy_list_index;
     unsigned int    max_tasks;
@@ -1454,11 +1455,11 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
             return 0;
         }
 
+        threaddata->id = threadID;
+
         printAudioHex("CREATED THREAD: ", "", 0, getThreadId(threadID), 0);
         printVideoHex("CREATED THREAD: ", "", 0, getThreadId(threadID), 0);
 
-        // Save threadID
-        callinfo->threadID = threadID;
         /* Add thread to list of ready (spare capacity) threads */
         ready_threads[num_ready_threads++] = threaddata;
     }
@@ -1466,6 +1467,7 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
     /* now add new task to a spare slot in our thread tasklist */
     threaddata = ready_threads[ready_index];
     callinfo->taskinfo->parent_thread = threaddata;
+    callinfo->threadID = threaddata->id;
     pthread_mutex_lock(&(threaddata->tasklist_mutex));
     (&threaddata->tasklist)[threaddata->num_tasks++] = callinfo->taskinfo;
     pthread_mutex_unlock(&(threaddata->tasklist_mutex));

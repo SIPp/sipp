@@ -1,5 +1,4 @@
 /*
-
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation; either version 2 of the License, or
@@ -13,18 +12,20 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307, USA
- *
- *  Author : Richard GAYRAUD - 04 Nov 2003
- *           From Hewlett Packard Company.
  */
 
-#ifndef __SIPP_TIME_H__
-#define __SIPP_TIME_H__
+#ifndef FILEUTIL_H
+#define FILEUTIL_H
 
-unsigned long getmilliseconds();
-unsigned long long getmicroseconds();
-void sipp_usleep(unsigned long usec);
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-void update_clock_tick();
+char* find_file(const char* filename);
 
-#endif /* __SIPP_TIME_H__ */
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* FILEUTIL_H */

@@ -1,0 +1,28 @@
+FROM alpine:3.13
+
+RUN apk add --no-cache \
+  binutils \
+  make \
+  cmake \
+  gcc \
+  g++ \
+  ncurses-dev \
+  ncurses-static \
+  libpcap-dev \
+  gsl-dev \
+  gsl-static \
+  openssl-dev \
+  openssl-libs-static \
+  linux-headers \
+  lksctp-tools-dev \
+  lksctp-tools-static
+
+CMD cd /src \
+  && rm -f CMakeCache.txt \
+  && cmake . -DBUILD_STATIC=1 -DUSE_PCAP=1 -DUSE_GSL=1 -DUSE_SSL=1 -DUSE_SCTP=1 \
+  && make
+
+# Usage (from within the git repo):
+#   git submodule update --init
+#   docker build -t sipp-build -f docker/Dockerfile.full docker
+#   docker run -v $PWD:/src sipp-build
