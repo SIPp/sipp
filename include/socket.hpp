@@ -88,6 +88,9 @@ public:
     // Have we read a message from this socket?
     bool message_ready() { return ss_msglen > 0; };
 
+    // Bind to specific network device.
+    int bind_to_device(const char* device_name);
+
     static void pollset_process(int wait);
 
     int ss_count;           /* How many users are there of this socket? */
