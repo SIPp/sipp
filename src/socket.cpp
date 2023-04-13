@@ -1651,6 +1651,14 @@ int SIPpSocket::reconnect()
     return connect();
 }
 
+int SIPpSocket::bind_to_device(const char* device_name) {
+    if (setsockopt(this->ss_fd, SOL_SOCKET, SO_BINDTODEVICE,
+                   device_name, strlen(device_name)) == -1) {
+        ERROR_NO("setsockopt(SO_BINDTODEVICE) failed");
+    }
+    return 0;
+}
+
 
 /*************************** I/O functions ***************************/
 
@@ -2470,6 +2478,11 @@ int open_connections()
     }
 
     sipp_customize_socket(main_socket);
+
+    /* Bind to the device if any. */
+    if (bind_to_device_name) {
+        main_socket->bind_to_device(bind_to_device_name);
+    }
 
     /* Trying to bind local port */
     char peripaddr[256];
