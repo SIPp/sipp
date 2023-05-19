@@ -2123,9 +2123,7 @@ int main(int argc, char *argv[])
     setup_media_sockets();
 
     /* Creating the remote control socket thread */
-    if (rtp_echo_enabled) {
-        setup_ctrl_socket();
-    }
+    setup_ctrl_socket();
 
     if (!nostdin) {
         setup_stdin_socket();
