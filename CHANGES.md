@@ -1,3 +1,10 @@
+Bugs fixed in 3.7.1
+=======================
+
+- Correctly open the control socket
+- The SIPp binary can now be built even when the `gtest` checkout is missing
+- rtpstream files are now also found next to the scenario. If it is not found there, it will be treated as a relative path as usual.
+
 Features added in 3.7.0
 ===========================
 
