@@ -2065,7 +2065,7 @@ bool call::executeMessage(message *curmsg)
             WARNING("Call-Id: %s, receive timeout on message %s:%d, jumping to label %d",
                     id, curmsg->desc, curmsg->index, curmsg->on_timeout);
             /* FIXME: We should do something like set index here, but it probably
-             * does not matter too much as only nops are allowed in the init stanza. */
+             *  does not matter too much as only nops are allowed in the init stanza. */
             msg_index = curmsg->on_timeout;
             recv_timeout = 0;
             if (msg_index < (int)call_scenario->messages.size()) return true;
@@ -4032,7 +4032,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             authlen = sprintf(result, "Proxy-Authorization: ");
         }
 
-        /* Build the auth credenticals */
+        /* Build the auth credentials */
         char uri[MAX_HEADER_LEN];
         sprintf (uri, "%s:%d", remote_ip, remote_port);
         /* These cause this function to  not be reentrant. */
@@ -5251,9 +5251,9 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 
         found = true;
         /* TODO : this is a little buggy: If a 100 trying from an INVITE
-         * is delayed by the network until the BYE is sent, it may
-         * stop BYE transmission erroneously, if the BYE also expects
-         * a 100 trying. */
+         *  is delayed by the network until the BYE is sent, it may
+         *  stop BYE transmission erroneously, if the BYE also expects
+         *  a 100 trying. */
         break;
     }
 

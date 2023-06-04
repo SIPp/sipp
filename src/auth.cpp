@@ -703,6 +703,10 @@ static int createAuthHeaderAKAv1MD5(
     f2345(k, rnd, res, ck, ik, ak, op);
     res[RESLEN] = '\0';
 
+	/** todo
+	 * 	 create and export ck and ik keywords here
+	 */
+
     /* Compute sqn encoded in AUTN */
     for (i=0; i < SQNLEN; i++)
         sqn[i] = sqnxoraka[i] ^ ak[i];
