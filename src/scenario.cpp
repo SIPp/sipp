@@ -1577,7 +1577,13 @@ void scenario::parseAction(CActions *actions)
             tmpAction->setMessage(xp_get_string("host", actionElem), 0);
             tmpAction->setMessage(xp_get_string("port", actionElem), 1);
             tmpAction->setMessage(xp_get_string("protocol", actionElem), 2);
-            tmpAction->setActionType(CAction::E_AT_SET_DEST);
+			const char *_ptr = xp_get_value("local_port");
+			if (_ptr) {
+				tmpAction->setMessage(xp_get_string("local_port", actionElem), 3);
+				tmpAction->setActionType(CAction::E_AT_SET_DEST_W_SPORT);
+			} else {
+				tmpAction->setActionType(CAction::E_AT_SET_DEST);
+			}
         } else if(!strcmp(actionElem, "closecon")) {
             tmpAction->setActionType(CAction::E_AT_CLOSE_CON);
         } else if(!strcmp(actionElem, "strcmp")) {

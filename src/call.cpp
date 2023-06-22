@@ -5732,13 +5732,28 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 call_socket->close();
                 call_socket = NULL;
             }
-        } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST) {
+        } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST ||
+					currentAction->getActionType() == CAction::E_AT_SET_DEST_W_SPORT) {
             /* Change the destination for this call. */
             char *str_host = strdup(createSendingMessage(currentAction->getMessage(0)));
             char *str_port = strdup(createSendingMessage(currentAction->getMessage(1)));
             char *str_protocol = strdup(createSendingMessage(currentAction->getMessage(2)));
 
-            char *endptr;
+			char *str_s_port = nullptr;
+	        char *endptr;
+			int s_port = 0;
+			if (currentAction->getActionType() == CAction::E_AT_SET_DEST_W_SPORT) {
+				str_s_port = strdup(createSendingMessage(currentAction->getMessage(3)));
+				if (str_s_port) {
+					s_port = (int) strtod(str_s_port, &endptr);
+					if (*endptr) {
+						ERROR("Invalid source port for setdest: %s", str_port);
+					}
+					free(str_s_port);
+				}
+			}
+
+            endptr = nullptr;
             int port = (int)strtod(str_port, &endptr);
             if (*endptr) {
                 ERROR("Invalid port for setdest: %s", str_port);
@@ -5801,6 +5816,10 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 ERROR("Unknown host '%s' for setdest", str_host);
             }
             memcpy(&call_socket->ss_dest, &call_peer, sizeof(call_peer));
+
+			if (s_port) {
+				call_socket->set_bind_port(s_port);
+			}
 
             free(str_host);
             free(str_port);
