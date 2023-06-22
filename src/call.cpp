@@ -57,7 +57,6 @@
 #endif
 
 #include "sipp.hpp"
-#include "auth.hpp"
 #include "urlcoder.hpp"
 #include "deadcall.hpp"
 #include "config.h"
@@ -1062,6 +1061,8 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     recv_timeout = 0;
     send_timeout = 0;
     timewait = false;
+	memset(_ck, 0, sizeof _ck);
+	memset(_ik, 0, sizeof _ik);
 
     if (!isAutomatic) {
         /* Not advancing the number is safe, because for automatic calls we do not
@@ -3841,6 +3842,12 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             /* Drop the initial "v" from the SIPP_VERSION string for legacy reasons. */
             dest += snprintf(dest, left, "%s", (const char*)SIPP_VERSION + 1);
             break;
+		case E_Message_CKey:
+			dest += snprintf(dest, left, "%s", _ck);
+			break;
+		case E_Message_IKey:
+			dest += snprintf(dest, left, "%s", _ik);
+			break;
         case E_Message_Variable: {
             int varId = comp->varId;
             CCallVariable *var = M_callVariableTable->getVar(varId);
@@ -4048,13 +4055,20 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         createSendingMessage(auth_comp->comp_param.auth_param.aka_AMF, SM_UNUSED, my_aka_AMF, sizeof(my_aka_AMF));
         createSendingMessage(auth_comp->comp_param.auth_param.aka_OP, SM_UNUSED, my_aka_OP, sizeof(my_aka_OP));
 
+		CK ck;
+		IK ik;
+	    memset(ck, 0, sizeof ck);
+	    memset(ik, 0, sizeof ik);
         if (createAuthHeader(
-                my_auth_user, my_auth_pass, src->getMethod(), uri,
-                auth_body, dialog_authentication, my_aka_OP, my_aka_AMF,
-                my_aka_K, next_nonce_count++, result + authlen,
-                MAX_HEADER_LEN - authlen) == 0) {
+	        my_auth_user, my_auth_pass, src->getMethod(), uri,
+	        auth_body, dialog_authentication, my_aka_OP, my_aka_AMF,
+	        my_aka_K, next_nonce_count++, result + authlen,
+	        MAX_HEADER_LEN - authlen, ck, ik) == 0) {
             ERROR("%s", result + authlen);
-        }
+        } else {
+	        memcpy(_ck, ck, sizeof ck);
+	        memcpy(_ik, ik, sizeof ik);
+		}
         authlen = strlen(result);
 
         /* Shift the end of the message to its rightful place. */
