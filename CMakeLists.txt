@@ -252,4 +252,6 @@ if(USE_SCTP)
   endif()
 endif()
 
+add_subdirectory(calc_keys)
+
 install(TARGETS sipp DESTINATION bin)
