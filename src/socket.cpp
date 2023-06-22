@@ -101,7 +101,7 @@ int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
     }
 }
 
-void sockaddr_update_port(struct sockaddr_storage* ss, short port)
+void sockaddr_update_port(struct sockaddr_storage* ss, unsigned short port)
 {
     switch (ss->ss_family) {
     case AF_INET:
@@ -1241,7 +1241,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
 }
 
 SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
-    ss_count(1),
+    ss_count(0),
     ss_ipv6(use_ipv6),
     ss_transport(transport),
     ss_control(false),
