@@ -2726,6 +2726,7 @@ void rtpstream_audioecho_thread(void* param)
                     payload_data.clear();
 
                     // DECRYPT
+                    g_rxUASAudio.setSSRC(ntohl(((rtp_header_t*)audio_packet_in.data())->ssrc_id)); // set incoming SSRC id
                     rc = g_rxUASAudio.processIncomingPacket(seq_num, audio_packet_in, rtp_header, payload_data);
                     pthread_mutex_lock(&debugremutexaudio);
                     if (debugrefileaudio != nullptr)
@@ -2768,6 +2769,7 @@ void rtpstream_audioecho_thread(void* param)
                     memcpy(payload_data.data(), msg.get() + sizeof(rtp_header_t), g_txUASAudio.getSrtpPayloadSize());
 
                     // ENCRYPT
+                    g_txUASAudio.setSSRC(ntohl(((rtp_header_t*)audio_packet_in.data())->ssrc_id)); // set incoming SSRC id
                     rc = g_txUASAudio.processOutgoingPacket(seq_num, rtp_header, payload_data, audio_packet_out);
                     pthread_mutex_lock(&debugremutexaudio);
                     if (debugrefileaudio != nullptr)
@@ -2986,6 +2988,7 @@ void rtpstream_videoecho_thread(void* param)
                     rtp_header.clear();
                     payload_data.clear();
                     // DECRYPT
+                    g_rxUASVideo.setSSRC(ntohl(((rtp_header_t*)video_packet_in.data())->ssrc_id)); // set incoming SSRC id
                     rc = g_rxUASVideo.processIncomingPacket(seq_num, video_packet_in, rtp_header, payload_data);
                     pthread_mutex_lock(&debugremutexvideo);
                     if (debugrefilevideo != nullptr)
@@ -3028,6 +3031,7 @@ void rtpstream_videoecho_thread(void* param)
                     memcpy(payload_data.data(), msg.get() + sizeof(rtp_header_t), g_txUASVideo.getSrtpPayloadSize());
 
                     // ENCRYPT
+                    g_txUASVideo.setSSRC(ntohl(((rtp_header_t*)video_packet_in.data())->ssrc_id)); // set incoming SSRC id
                     rc = g_txUASVideo.processOutgoingPacket(seq_num, rtp_header, payload_data, video_packet_out);
                     pthread_mutex_lock(&debugremutexvideo);
                     if (debugrefilevideo != nullptr)
