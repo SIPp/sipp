@@ -3282,6 +3282,7 @@ int rtpstream_rtpecho_stopaudio(rtpstream_callinfo_t* callinfo)
         if (debugrefileaudio)
         {
             fclose(debugrefileaudio);
+            debugrefileaudio = NULL;
         }
     }
     pthread_mutex_unlock(&debugremutexaudio);
@@ -3454,6 +3455,8 @@ int rtpstream_rtpecho_stopvideo(rtpstream_callinfo_t* callinfo)
         if (debugrefilevideo)
         {
             fclose(debugrefilevideo);
+            debugrefilevideo = NULL;
+
         }
     }
     pthread_mutex_unlock(&debugremutexvideo);
@@ -3541,12 +3544,14 @@ int rtpstream_shutdown(std::unordered_map<pthread_t, std::string>& threadIDs)
         rtpcheck_debug)
     {
         fclose(debugvfile);
+        debugvfile = NULL;
     }
 
     if (debugafile &&
         rtpcheck_debug)
     {
         fclose(debugafile);
+        debugafile = NULL;
     }
 
     pthread_mutex_destroy(&debugamutex);
