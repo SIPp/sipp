@@ -16,8 +16,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 # from the source.
 include_directories(
   ${PROJECT_BINARY_DIR}
-  ${PROJECT_SOURCE_DIR}/include
-  "/usr/local/include")
+  ${PROJECT_SOURCE_DIR}/include)
 
 option(BUILD_STATIC "Build a statically-linked binary" OFF)
 option(USE_SSL "Build with SIPS support" OFF)
@@ -121,7 +120,6 @@ if(USE_SCTP)
 endif(USE_SCTP)
 
 # add the executable
-link_directories("/usr/local/lib")
 add_executable(sipp ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp.cpp")
 target_compile_features(sipp PUBLIC cxx_auto_type cxx_range_for)
 
