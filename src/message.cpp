@@ -349,19 +349,12 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
                 parseAuthenticationKeyword(msg_scenario, newcomp, keyword);
             } else {
                 // scan for the generic parameters - must be last test
-                int i = 0;
-                while (generic[i]) {
-                    char *msg1 = *generic[i];
-                    char *msg2 = *(generic[i] + 1);
-                    if(!strcmp(keyword, msg1)) {
-                        newcomp->type = E_Message_Literal;
-                        newcomp->literal = strdup(msg2);
-                        newcomp->literalLen = strlen(newcomp->literal);
-                        break;
-                    }
-                    ++i;
-                }
-                if (!generic[i]) {
+                auto it = generic.find(keyword);
+                if (it != generic.end()) {
+                    newcomp->type = E_Message_Literal;
+                    newcomp->literal = strdup((*it).second.c_str());
+                    newcomp->literalLen = strlen(newcomp->literal);
+                } else {
                     ERROR("Unsupported keyword '%s' in xml scenario file",
                           keyword);
                 }

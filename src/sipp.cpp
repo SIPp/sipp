@@ -1318,15 +1318,12 @@ int main(int argc, char *argv[])
 {
     int                  argi = 0;
     pthread_t pthread2_id = 0, pthread3_id = 0;
-    unsigned int         generic_count = 0;
     bool                 slave_masterSet = false;
     int rtp_errors;
     int echo_errors;
 
     rtp_errors = 0;
     echo_errors = 0;
-
-    generic[0] = NULL;
 
     /* At least one argument is needed */
     if (argc < 2) {
@@ -1641,11 +1638,7 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
 
-                if (generic_count + 1 >= sizeof(generic)/sizeof(generic[0])) {
-                    ERROR("Too many generic parameters %d",generic_count + 1);
-                }
-                generic[generic_count++] = &argv[argi - 1];
-                generic[generic_count] = NULL;
+                generic[argv[argi - 1]] = argv[argi];
                 break;
             case SIPP_OPTION_VAR:
                 REQUIRE_ARG();
