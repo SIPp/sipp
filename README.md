@@ -66,8 +66,7 @@ the following commands:
 
 ```
 git submodule update --init
-docker build -t sipp-build -f docker/Dockerfile docker
-docker run --rm -v $PWD:/src sipp-build
+docker build -t sipp -f docker/Dockerfile --output=. --target=bin .
 ```
 
 # Support
@@ -100,8 +99,7 @@ list](https://lists.sourceforge.net/lists/listinfo/sipp-users).
   (for ~rcX) with a period.
 * Create a static binary and upload this to github as well:
     ```
-    sudo docker build -t sipp-build docker &&
-      sudo docker run -it -v $PWD:/src sipp-build
+    docker build -t sipp -f docker/Dockerfile --output=. --target=bin .
     ```
 * Note that the static build is broken at the moment. See `ldd sipp`.
 
