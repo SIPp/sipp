@@ -50,7 +50,7 @@ jobs:
     - name: prepare
       run: git submodule update --init
     - name: build-static
-      run: sudo docker build -t sipp-build docker && sudo docker run -v $PWD:/src sipp-build
+      run: docker build -f docker/Dockerfile --output=. --target=bin .
     - uses: actions/upload-artifact@v1.0.0
       with:
          name: sipp
