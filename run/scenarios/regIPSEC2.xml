@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<scenario name="registration">
+
+<send retrans="500">
+<![CDATA[
+REGISTER sip:ims.mnc001.mcc001.3gppnetwork.org SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:3062;branch=[branch]
+Max-Forwards: 20
+From: "alice" <sip:001019901003516@ims.mnc001.mcc001.3gppnetwork.org>;tag=[call_number]
+To: "alice" <sip:001019901003516@ims.mnc001.mcc001.3gppnetwork.org>
+P-Access-Network-Info: 3GPP-UTRAN-TDD;utran-cell-id-3gpp=C359A3913B20E
+Call-ID: reg///[call_id]
+CSeq: 2 REGISTER
+Contact: <sip:alice@[local_ip]:3062>
+Expires: 300
+Content-Length: 0
+Security-Client: ipsec-3gpp; alg=hmac-md5-96; ealg=des-ede3-cbc; spi-c=2721834714; spi-s=1075014941; port-c=12345; port-s=3062,ipsec-3gpp; alg=hmac-md5-96; ealg=aes-cbc; spi-c=2721834714; spi-s=1075014941; port-c=12345; port-s=3062,ipsec-3gpp; alg=hmac-md5-96; ealg=null; spi-c=2721834714; spi-s=1075014941; port-c=12345; port-s=3062,ipsec-3gpp; alg=hmac-sha-1-96; ealg=des-ede3-cbc; spi-c=2721834714; spi-s=1075014941; port-c=12345; port-s=3062,ipsec-3gpp; alg=hmac-sha-1-96; ealg=aes-cbc; spi-c=2721834714; spi-s=1075014941; port-c=12345; port-s=3062,ipsec-3gpp; alg=hmac-sha-1-96; ealg=null; spi-c=2721834714; spi-s=1075014941; port-c=12345; port-s=3062
+Security-Verify: ipsec-3gpp; ealg=null; alg=hmac-md5-96; spi-c=[field0]; spi-s=[field1]; port-c=[field2]; port-s=[field3]; q=0.1
+User-Agent: Sipp v1.1-TLS, version 20061124
+[authentication username=001019901003516@ims.mnc001.mcc001.3gppnetwork.org password=test]
+Supported: path
+]]>
+</send>
+
+
+<ResponseTimeRepartition value="10, 20"/>
+<CallLengthRepartition value="10"/>
+	
+</scenario>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<scenario name="registration">
+
+<send retrans="500">
+<![CDATA[
+REGISTER sip:ims.mnc001.mcc001.3gppnetwork.org SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:3062;branch=[branch]
+Max-Forwards: 20
+From: "alice" <sip:001019901003516@ims.mnc001.mcc001.3gppnetwork.org>;tag=[call_number]
+To: "alice" <sip:001019901003516@ims.mnc001.mcc001.3gppnetwork.org>
+P-Access-Network-Info: 3GPP-UTRAN-TDD;utran-cell-id-3gpp=C359A3913B20E
+Call-ID: reg///[call_id]
+CSeq: 1 REGISTER
+Contact: <sip:alice@[local_ip]:3062>
+Expires: 300
+Content-Length: 0
+Security-Client: ipsec-3gpp; alg=hmac-md5-96; ealg=des-ede3-cbc; spi-c=2721834714; spi-s=1075014941; port-c=12345; port-s=3062,ipsec-3gpp; alg=hmac-md5-96; ealg=aes-cbc; spi-c=2721834714; spi-s=1075014941; port-c=12345; port-s=3062,ipsec-3gpp; alg=hmac-md5-96; ealg=null; spi-c=2721834714; spi-s=1075014941; port-c=12345; port-s=3062,ipsec-3gpp; alg=hmac-sha-1-96; ealg=des-ede3-cbc; spi-c=2721834714; spi-s=1075014941; port-c=12345; port-s=3062,ipsec-3gpp; alg=hmac-sha-1-96; ealg=aes-cbc; spi-c=2721834714; spi-s=1075014941; port-c=12345; port-s=3062,ipsec-3gpp; alg=hmac-sha-1-96; ealg=null; spi-c=2721834714; spi-s=1075014941; port-c=12345; port-s=3062
+User-Agent: Sipp v1.1-TLS, version 20061124
+Authorization: Digest username="001019901003516@ims.mnc001.mcc001.3gppnetwork.org", realm="ims.mnc001.mcc001.3gppnetwork.org"
+Supported: path
+]]>
+</send>
+
+<recv response="100" optional="true"/>
+
+<recv response="401" auth="true" rtd="true">
+<action>
+	<ereg regexp=".*" search_in="hdr" header="Security-Server:" assign_to="1" />
+
+	<ereg regexp="ealg=([[:alnum:]-]*)" search_in="[$1]" assign_to="2,8" />
+	<ereg regexp="[^e]alg=([[:alnum:]-]*)" search_in="[$1]" assign_to="3,9" />
+	<ereg regexp="spi-c=([^;]*)" search_in="[$1]" assign_to="4,10" />
+	<ereg regexp="spi-s=([^;]*)" search_in="[$1]" assign_to="5,11" />
+	<ereg regexp="port-c=([0-9]*)" search_in="[$1]" assign_to="6,12" />
+	<ereg regexp="port-s=([0-9]*)" search_in="[$1]" assign_to="7,13" />
+
+  <exec command="echo DEBUG [local_ip]->[remote_ip] spi-c=[$10]; spi-s=[$11]; port-c=[$12]; port-s=[$13]; ealg=[$8]; alg=[$9]; ck=[ck_key]; ik=[ik_key] " />
+	
+	<exec command="scripts/ipsec_E_Out_Req.sh [local_ip] 12345 [remote_ip] [$13] [$11] [$8] 0x[ck_key] [$9] 0x[ik_key] " />
+	<exec command="scripts/ipsec_E_Out_Rpl.sh [local_ip] 3062 [remote_ip] [$12] [$10] [$8] 0x[ck_key] [$9] 0x[ik_key] " />
+	<exec command="scripts/ipsec_E_Inc_Req.sh [local_ip] 3062 [remote_ip] [$12] 2028  [$8] 0x[ck_key] [$9] 0x[ik_key] " />
+	<exec command="scripts/ipsec_E_Inc_Rpl.sh [local_ip] 12345 [remote_ip] [$13] 1024  [$8] 0x[ck_key] [$9] 0x[ik_key] " />
+	
+	<exec command="echo SEQUENTIAL > spis.csv" />
+	<exec command="echo '[$10];[$11];[$12];[$13]' >> spis.csv" />
+  </action>
+</recv>
+
+
+<ResponseTimeRepartition value="10, 20"/>
+<CallLengthRepartition value="10"/>
+	
+</scenario>

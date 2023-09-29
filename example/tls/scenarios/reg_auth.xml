@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<scenario name="registration">
+	
+<send retrans="500">
+<![CDATA[
+REGISTER sip:open-ims.test SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+Max-Forwards: 20
+From: "alice" <sip:alice@open-ims.test>;tag=[call_number]
+To: "alice" <sip:alice@open-ims.test>
+Call-ID: reg///[call_id]
+CSeq: 1 REGISTER
+Contact: <sip:alice@[local_ip]:[local_port]>
+Expires: 300
+Content-Length: 0
+User-Agent: Sipp v1.1-TLS, version 20061124
+Authorization: Digest username="alice@open-ims.test", realm="open-ims.test"
+Supported: path
+]]>
+</send>
+
+<recv response="401" auth="true" rtd="true">
+</recv>
+
+<send retrans="500">
+<![CDATA[
+REGISTER sip:open-ims.test SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+Max-Forwards: 20
+From: "alice" <sip:alice@open-ims.test>;tag=[call_number]
+To: "alice" <sip:alice@open-ims.test>
+Call-ID: reg///[call_id]
+CSeq: 2 REGISTER
+Contact: <sip:alice@[local_ip]:[local_port]>
+Expires: 300
+Content-Length: 0
+User-Agent: Sipp v1.1-TLS, version 20061124
+[authentication username=alice@open-ims.test password=alice]
+Supported: path
+]]>
+</send>
+	
+<recv response="200">
+</recv>
+
+<ResponseTimeRepartition value="10, 20"/>
+<CallLengthRepartition value="10"/>
+	
+</scenario>

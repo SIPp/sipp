@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<scenario name="registration">
+
+    <Global variables="call_counter"/>
+
+    <init>
+        <nop>
+            <action>
+                <assign assign_to="call_counter" value="1"/>
+            </action>
+        </nop>
+    </init>
+
+    <nop>
+        <action>
+            <add assign_to="call_counter" value="1" />
+
+            <assign assign_to="dportc" value="11000"/>
+            <add assign_to="dportc" variable="call_counter"/>
+            <assignstr assign_to="strportc" value="[$dportc]"/>
+            <ereg regexp="([0-9]*).[0-9]*" search_in="var" variable="strportc" assign_to="_,portc"/>
+
+            <assign assign_to="dports" value="11000"/>
+            <add assign_to="dports" variable="call_counter"/>
+            <add assign_to="dports" value="5000"/>
+            <assignstr assign_to="rxports" value="[$dports]"/>
+            <ereg assign_to="_,ports" regexp="([0-9]*).[0-9]*" search_in="var" variable="rxports"/>
+
+            <assign assign_to="dspic" value="2059361527"/>
+            <add assign_to="dspic" variable="call_counter"/>
+            <assignstr assign_to="rxspic" value="[$dspic]"/>
+            <ereg assign_to="_,spic" regexp="([0-9]*).[0-9]*" search_in="var" variable="rxspic"/>
+
+            <assign assign_to="dspis" value="1502827503"/>
+            <add assign_to="dspis" variable="call_counter"/>
+            <assignstr assign_to="rxspis" value="[$dspis]"/>
+            <ereg assign_to="_,spis" regexp="([0-9]*).[0-9]*" search_in="var" variable="rxspis"/>
+        </action>
+    </nop>
+
+
+    <send>
+        <![CDATA[
+REGISTER sip:ims.mnc001.mcc001.3gppnetwork.org SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+Max-Forwards: 20
+From: <sip:[field0]@ims.mnc001.mcc001.3gppnetwork.org>;tag=[call_number]
+To: <sip:[field0]@ims.mnc001.mcc001.3gppnetwork.org>
+P-Access-Network-Info: 3GPP-UTRAN-TDD;utran-cell-id-3gpp=C359A3913B20E
+Call-ID: [call_id]
+CSeq: 1 REGISTER
+Contact: <sip:[call_number]@[local_ip]:[local_port]>;+g.3gpp.accesstype="cellular2";+g.3gpp.ps-data-off="inactive";audio;+g.3gpp.nw-init-ussi;+g.3gpp.smsip;+g.3gpp.icsi-ref="urn%3Aurn-7%3A3gpp-service.ims.icsi.mmtel";+sip.instance="<urn:gsma:imei:[field1]>"
+Expires: 300
+Require: sec-agree
+Proxy-Require: sec-agree
+Supported: path,sec-agree
+Allow: INVITE,BYE,CANCEL,ACK,NOTIFY,UPDATE,PRACK,INFO,MESSAGE,OPTIONS
+Security-Client: ipsec-3gpp; ealg=null; alg=hmac-md5-96; spi-c=[$spic]; spi-s=[$spis]; port-c=[$portc]; port-s=[$ports]; q=0.1
+User-Agent: Sipp v1.1-TLS, version 20061124
+Authorization: Digest uri="sip:ims.mnc001.mcc001.3gppnetwork.org", username="[field0]@ims.mnc001.mcc001.3gppnetwork.org", response="", realm="ims.mnc001.mcc001.3gppnetwork.org", nonce=""
+Content-Length: 0
+
+]]>
+    </send>
+
+    <recv response="100" optional="true"/>
+
+    <recv response="401" auth="true" rtd="true">
+        <action>
+            <ereg regexp=".*" search_in="hdr" header="Security-Server:" assign_to="1"/>
+            <ereg regexp="ealg=([[:alnum:]-]*)" search_in="var" variable="1" assign_to="_,ealg"/>
+            <ereg regexp="[^e]alg=([[:alnum:]-]*)" search_in="var" variable="1" assign_to="_,alg"/>
+            <ereg regexp="spi-c=([^;]*)" search_in="var" variable="1" assign_to="_,rspic"/>
+            <ereg regexp="spi-s=([^;]*)" search_in="var" variable="1" assign_to="_,rspis"/>
+            <ereg regexp="port-c=([0-9]*)" search_in="var" variable="1" assign_to="_,rportc"/>
+            <ereg regexp="port-s=([0-9]*)" search_in="var" variable="1" assign_to="_,rports"/>
+
+            <ereg regexp=".*" search_in="hdr" header="WWW-Authenticate:" assign_to="1"/>
+            <ereg regexp="nonce=.([0-9a-zA-Z\+=/]*)., " search_in="var" variable="1" assign_to="_,nonce"/>
+
+            <log message="DEBUG [local_ip]->[remote_ip] spi-c=[$spic] remote-spi-c=[$rspic] spi-s=[$spis] remote-spi-s=[$rspis] port-c=[$portc] remote-port-c=[$rportc] port-s=[$ports] remote-port-s=[$rports] ealg=[$ealg] alg=[$alg] nonce=[$nonce]" />
+
+            <!-- OUT REQUEST -->
+<!--            <log message="ip xfrm policy add src [local_ip] dst [remote_ip] proto tcp sport [$portc] dport [$rports] dir out tmpl proto esp spi [$rspis] mode transport reqid 10000[call_number]"/>-->
+            <log message="bash -c \"ip xfrm state add src [local_ip] dst [remote_ip] proto esp spi [$rspis] mode transport enc `echo [$ealg]| sed s/null/cipher_null/| tr -d '\\n'` `./calc_ck [field2] [$nonce] [$ealg] [field4]` auth `echo [$alg]| sed s/hmac-md5-96/md5/| tr -d '\\n'` `./calc_ik [field2] [$nonce] [$alg] [field4]` reqid 10000[call_number] sel src [local_ip] dst [remote_ip] proto tcp sport [$portc] dport [$rports]\""/>
+            <exec command="ip xfrm policy add src [local_ip] dst [remote_ip] proto tcp sport [$portc] dport [$rports] dir out tmpl proto esp spi [$rspis] mode transport reqid 10000[call_number]"/>
+            <exec command="bash -c \"ip xfrm state add src [local_ip] dst [remote_ip] proto esp spi [$rspis] mode transport enc `echo [$ealg]| sed s/null/cipher_null/| tr -d '\\n'` `./calc_ck [field2] [$nonce] [$ealg] [field4]` auth `echo [$alg]| sed s/hmac-md5-96/md5/| tr -d '\\n'` `./calc_ik [field2] [$nonce] [$alg] [field4]` reqid 10000[call_number] sel src [local_ip] dst [remote_ip] proto tcp sport [$portc] dport [$rports]\""/>
+            <!-- IN REPLY -->
+<!--            <log message="ip xfrm policy add src [remote_ip] dst [local_ip] proto tcp sport [$rports] dport [$portc] dir in tmpl proto esp spi [$spic] mode transport reqid 10001[call_number]"/>-->
+<!--            <log message="bash -c \"ip xfrm state add src [remote_ip] dst [local_ip] proto esp spi [$spic] mode transport enc `echo [$ealg]| sed s/null/cipher_null/| tr -d '\\n'` `./calc_ck [field2] [$nonce] [$ealg] [field4]` auth `echo [$alg]| sed s/hmac-md5-96/md5/| tr -d '\\n'` `./calc_ik [field2] [$nonce] [$alg] [field4]` reqid 10001[call_number] sel src [remote_ip] dst [local_ip] proto tcp sport [$rports] dport [$portc]\""/>-->
+            <exec command="ip xfrm policy add src [remote_ip] dst [local_ip] proto tcp sport [$rports] dport [$portc] dir in tmpl proto esp spi [$spic] mode transport reqid 10001[call_number]"/>
+            <exec command="bash -c \"ip xfrm state add src [remote_ip] dst [local_ip] proto esp spi [$spic] mode transport enc `echo [$ealg]| sed s/null/cipher_null/| tr -d '\\n'` `./calc_ck [field2] [$nonce] [$ealg] [field4]` auth `echo [$alg]| sed s/hmac-md5-96/md5/| tr -d '\\n'` `./calc_ik [field2] [$nonce] [$alg] [field4]` reqid 10001[call_number] sel src [remote_ip] dst [local_ip] proto tcp sport [$rports] dport [$portc]\""/>
+
+            <!--			<exec command="ipsec/ipsec_E_Out_Rpl.sh [local_ip] 3062 [remote_ip] [$rportc] [$rspis] [$ealg] " />-->
+            <!--			<exec command="ipsec/ipsec_E_Inc_Req.sh [local_ip] 3062 [remote_ip] [$rportc] 2028  [$ealg] [$alg] " />-->
+
+            <setdest host="[remote_ip]" port="[$rports]" protocol="[transport]" local_port="[$portc]"/>
+
+        </action>
+    </recv>
+
+    <ResponseTimeRepartition value="10, 20"/>
+    <CallLengthRepartition value="10"/>
+
+    <pause milliseconds="1000"/>
+
+    <send>
+        <![CDATA[
+REGISTER sip:ims.mnc001.mcc001.3gppnetwork.org SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[$portc];branch=[branch]
+Max-Forwards: 20
+From: <sip:[field0]@ims.mnc001.mcc001.3gppnetwork.org>;tag=[call_number]
+To: <sip:[field0]@ims.mnc001.mcc001.3gppnetwork.org>
+P-Access-Network-Info: 3GPP-UTRAN-TDD;utran-cell-id-3gpp=C359A3913B20E
+Call-ID: [call_id]
+CSeq: 2 REGISTER
+Contact: <sip:[call_number]@[local_ip]:[$portc]>;+g.3gpp.accesstype="cellular2";+g.3gpp.ps-data-off="inactive";audio;+g.3gpp.nw-init-ussi;+g.3gpp.smsip;+g.3gpp.icsi-ref="urn%3Aurn-7%3A3gpp-service.ims.icsi.mmtel";+sip.instance="<urn:gsma:imei:[field1]>"
+P-Access-Network-Info: 3GPP-UTRAN-TDD;utran-cell-id-3gpp=C359A3913B20E
+Expires: 300
+Require: sec-agree
+Proxy-Require: sec-agree
+Supported: path,sec-agree
+Allow: INVITE,BYE,CANCEL,ACK,NOTIFY,UPDATE,PRACK,INFO,MESSAGE,OPTIONS
+Security-Client: ipsec-3gpp; alg=hmac-md5-96; ealg=null; spi-c=[$spic]; spi-s=[$spis]; port-c=[$portc]; port-s=[$ports]
+Security-Verify: ipsec-3gpp; ealg=null; alg=hmac-md5-96; spi-c=[$rspic]; spi-s=[$rspis]; port-c=[$rportc]; port-s=[$rports]; q=0.1
+User-Agent: Sipp v1.1-TLS, version 20061124
+[field3]
+Supported: path
+Content-Length: 0
+
+]]>
+
+    </send>
+
+
+    <ResponseTimeRepartition value="10, 20"/>
+    <CallLengthRepartition value="10"/>
+
+    <recv response="100" optional="true"/>
+
+    <recv response="200"/>
+
+    <pause milliseconds="180000"/>
+
+    <send>
+        <![CDATA[
+REGISTER sip:ims.mnc001.mcc001.3gppnetwork.org SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[$portc];branch=[branch]
+Max-Forwards: 20
+From: <sip:[field0]@ims.mnc001.mcc001.3gppnetwork.org>;tag=[call_number]
+To: <sip:[field0]@ims.mnc001.mcc001.3gppnetwork.org>
+P-Access-Network-Info: 3GPP-UTRAN-TDD;utran-cell-id-3gpp=C359A3913B20E
+Call-ID: [call_id]
+CSeq: 3 REGISTER
+Contact: <sip:[call_number]@[local_ip]:[$portc]>;+g.3gpp.accesstype="cellular2";+g.3gpp.ps-data-off="inactive";audio;+g.3gpp.nw-init-ussi;+g.3gpp.smsip;+g.3gpp.icsi-ref="urn%3Aurn-7%3A3gpp-service.ims.icsi.mmtel";+sip.instance="<urn:gsma:imei:[field1]>"
+P-Access-Network-Info: 3GPP-UTRAN-TDD;utran-cell-id-3gpp=C359A3913B20E
+Expires: 0
+Require: sec-agree
+Proxy-Require: sec-agree
+Supported: path,sec-agree
+Allow: INVITE,BYE,CANCEL,ACK,NOTIFY,UPDATE,PRACK,INFO,MESSAGE,OPTIONS
+User-Agent: Sipp v1.1-TLS, version 20061124
+Supported: path
+[field3]
+Content-Length: 0
+
+]]>
+
+    </send>
+
+    <recv response="100" optional="true"/>
+
+    <recv response="200"/>
+
+    <nop>
+        <action>
+            <closecon/>
+        </action>
+    </nop>
+
+    <pause milliseconds="30000"/>
+
+    <nop>
+        <action>
+            <exec command="ip xfrm policy delete src [local_ip] dst [remote_ip] proto tcp sport [$portc] dport [$rports] dir out"/>
+            <exec command="ip xfrm state delete src [local_ip] dst [remote_ip] proto esp spi [$rspis]"/>
+            <exec command="ip xfrm policy delete src [remote_ip] dst [local_ip] proto tcp sport [$rports] dport [$portc] dir in"/>
+            <exec command="ip xfrm state delete src [remote_ip] dst [local_ip] proto esp spi [$spic]"/>
+        </action>
+    </nop>
+
+    <ResponseTimeRepartition value="10, 20"/>
+    <CallLengthRepartition value="10"/>
+
+    <Reference variables="_"/>
+
+</scenario>
