@@ -1071,8 +1071,13 @@ void clear_int_int(int_int_map m)
 
 scenario::~scenario()
 {
-    for (msgvec::iterator i = messages.begin(); i != messages.end(); i++) {
-        delete *i;
+	for (auto & i : initmessages) {
+		delete i;
+	}
+	initmessages.clear();
+
+    for (auto & message : messages) {
+        delete message;
     }
     messages.clear();
 
@@ -1081,8 +1086,8 @@ scenario::~scenario()
     allocVars->putTable();
     delete stats;
 
-    for (unsigned int i = 0; i < transactions.size(); i++) {
-        free(transactions[i].name);
+    for (auto & transaction : transactions) {
+        free(transaction.name);
     }
     transactions.clear();
 

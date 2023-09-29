@@ -124,7 +124,7 @@ struct KeywordMap SimpleKeywords[] = {
 
 #define KEYWORD_SIZE 256
 
-static char* quoted_strchr(const char* s, int c)
+static char* quoted_strchr(const char* s, char c)
 {
     const char* p;
 

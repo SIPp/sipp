@@ -478,7 +478,7 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
     stattask::report();
     screentask::report(false);
 
-    while (1) {
+    while (true) {
         scheduling_loops++;
         update_clock_tick();
 
@@ -1990,7 +1990,7 @@ int main(int argc, char *argv[])
     // required number of signalling channels, and warn
     // if this may not allow enough media channels.
     if (!skip_rlimit) {
-        struct rlimit rlimit;
+        struct rlimit rlimit{};
         unsigned max_sockets_needed = multisocket ? max_multi_socket : 1;
 
         if (getrlimit (RLIMIT_NOFILE, &rlimit) < 0) {
@@ -2019,7 +2019,7 @@ int main(int argc, char *argv[])
     }
     */
     display_scenario = main_scenario;
-    aa_scenario = new scenario(0, find_scenario("ooc_dummy"));
+    aa_scenario = new scenario(nullptr, find_scenario("ooc_dummy"));
     aa_scenario->stats->setFileName("ooc_dummy", ".csv");
 
     init_default_messages();

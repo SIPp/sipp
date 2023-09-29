@@ -2921,7 +2921,7 @@ void SIPpSocket::pollset_process(int wait)
                     if (!twinSippMode) {
                         ERROR_NO("Accepting new TCP connection on Twin SIPp Socket");
                     }
-                    twinSippSocket->ss_control = 1;
+                    twinSippSocket->ss_control = true;
                 } else {
                     /* 3pcc extended mode: open a local socket
                        which will be used for reading the infos sent by this remote
@@ -2931,7 +2931,7 @@ void SIPpSocket::pollset_process(int wait)
                     }
 
                     SIPpSocket *localSocket = sock->accept();
-                    localSocket->ss_control = 1;
+                    localSocket->ss_control = true;
                     local_sockets[local_nb] = localSocket;
                     local_nb++;
                     if (!peers_connected) {
