@@ -4049,6 +4049,12 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         static char my_aka_AMF[MAX_HEADER_LEN + 2];
         static char my_aka_K[MAX_HEADER_LEN + 2];
 
+	    bzero(my_auth_user, sizeof my_auth_user);
+	    bzero(my_auth_pass, sizeof my_auth_pass);
+	    bzero(my_aka_OP, sizeof my_aka_OP);
+	    bzero(my_aka_K, sizeof my_aka_K);
+	    bzero(my_aka_AMF, sizeof my_aka_AMF);
+
         createSendingMessage(auth_comp->comp_param.auth_param.auth_user, SM_UNUSED, my_auth_user, sizeof(my_auth_user));
         createSendingMessage(auth_comp->comp_param.auth_param.auth_pass, SM_UNUSED, my_auth_pass, sizeof(my_auth_pass));
         createSendingMessage(auth_comp->comp_param.auth_param.aka_K, SM_UNUSED, my_aka_K, sizeof(my_aka_K));
@@ -4064,7 +4070,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 	        auth_body, dialog_authentication, my_aka_OP, my_aka_AMF,
 	        my_aka_K, next_nonce_count++, result + authlen,
 	        MAX_HEADER_LEN - authlen, ck, ik) == 0) {
-            ERROR("%s", result + authlen);
+	        WARNING("%s", result + authlen);
+//            ERROR("%s", result + authlen);
         } else {
 	        memcpy(_ck, ck, sizeof ck);
 	        memcpy(_ik, ik, sizeof ik);

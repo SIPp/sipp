@@ -52,11 +52,22 @@ static int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP, const 
                                     const char *algo, unsigned int nonce_count, char *result, size_t result_len, CK ck,
                                     IK ik);
 
+static void hashToHex_(const unsigned char *hash, const size_t hash_len, unsigned char *res) {
+	for (size_t i = 0; i < hash_len; ++i) {
+		unsigned char j = (hash[i] >> 4) & 0xf;
+		res[i * 2] = j <= 9 ? j + '0' : j + 'a' - 10;
+		j = hash[i] & 0xf;
+		res[i * 2 + 1] = j <= 9 ? j + '0' : j + 'a' - 10;
+	}
+	res[hash_len*2] = '\0';
+}
+
 
 /* This function is from RFC 2617 Section 5 */
-
 static void hashToHex(md5_byte_t* _b_raw, unsigned char* _h)
 {
+	hashToHex_(_b_raw, MD5_HASH_SIZE, _h);
+/*
     unsigned short i;
     unsigned char j;
     unsigned char *_b = (unsigned char *) _b_raw;
@@ -76,6 +87,7 @@ static void hashToHex(md5_byte_t* _b_raw, unsigned char* _h)
         }
     };
     _h[HASH_HEX_SIZE] = '\0';
+*/
 }
 
 static char *stristr(const char* s1, const char* s2)
@@ -466,8 +478,9 @@ static int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP, const 
     memcpy(rnd, nonce, RANDLEN);
     memcpy(sqnxoraka, nonce + RANDLEN, SQNLEN);
     memcpy(mac, nonce + RANDLEN + SQNLEN + AMFLEN, MACLEN);
+	memcpy(amf, nonce + RANDLEN + SQNLEN, AMFLEN);
     memcpy(k, aka_K, KLEN);
-    memcpy(amf, aka_AMF, AMFLEN);
+//    memcpy(amf, aka_AMF, AMFLEN);
     memcpy(op, aka_OP, OPLEN);
 
     /* Compute the AK, response and keys CK IK */
@@ -478,13 +491,34 @@ static int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP, const 
     for (i=0; i < SQNLEN; i++)
         sqn[i] = sqnxoraka[i] ^ ak[i];
 
-    /* compute XMAC */
-    f1(k, rnd, sqn, (unsigned char *) aka_AMF, xmac, op);
+/* compute XMAC */
+    f1(k, rnd, sqn, amf, xmac, op);
     if (memcmp(mac, xmac, MACLEN) != 0) {
-        free(nonce);
+		unsigned char mac_rec[MACLEN*2+1], mac_expected[MACLEN*2+1];
+	    hashToHex_(mac, MACLEN, mac_rec);
+	    hashToHex_(xmac, MACLEN, mac_expected);
+	    WARNING("MAC received %s != MAC expected %s\n", mac_rec, mac_expected);
+		unsigned char str_[128];
+	    hashToHex_(k, sizeof(k), str_);
+	    WARNING("AKA_key: %s\n", str_);
+	    hashToHex_(amf, sizeof(amf), str_);
+		WARNING("AKA_amf: %s\n", str_);
+	    hashToHex_(op, sizeof(op), str_);
+		WARNING("AKA_op: %s\n", str_);
+	    hashToHex_(reinterpret_cast<const unsigned char *>(nonce), noncelen, str_);
+	    WARNING("NONCE: %s\n", str_);
+	    hashToHex_(rnd, sizeof(rnd), str_);
+	    WARNING("RAND: %s\n", str_);
+	    hashToHex_(sqn, sizeof(sqn), str_);
+	    WARNING("SQN: %s\n", str_);
+	    hashToHex_(ak, sizeof(ak), str_);
+	    WARNING("AK: %s\n", str_);
+	    hashToHex_(sqnxoraka, sizeof(sqnxoraka), str_);
+	    ERROR("SQN ^ AK: %s\n", str_);
+	    free(nonce);
         snprintf(
             result, result_len,
-            "createAuthHeaderAKAv1MD5 : MAC != expectedMAC -> Server might not know the secret (man-in-the-middle attack?)\n");
+            "createAuthHeaderAKAv1MD5: MAC != expectedMAC -> Server might not know the secret (man-in-the-middle attack?)");
         return 0;
     }
 
@@ -503,7 +537,7 @@ static int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP, const 
             free(nonce);
             snprintf(
                 result, result_len,
-                "createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
+                "createAuthHeaderAKAv1MD5: Unexpected return value from createAuthHeaderMD5\n");
             return 0;
         }
     } else {
