@@ -290,24 +290,30 @@ enum tls_init_status TLS_init_context(void)
         return TLS_INIT_ERROR;
     }
 
+    bool gotCAFile = strlen(tls_ca_name) != 0;
+    bool gotCRLFile = strlen(tls_crl_name) != 0;
+
     /* Load the trusted CA's */
-    if (strlen(tls_ca_name) != 0) {
+    if (gotCAFile) {
         SSL_CTX_load_verify_locations(sip_trp_ssl_ctx, tls_ca_name, NULL);
         SSL_CTX_load_verify_locations(sip_trp_ssl_ctx_client, tls_ca_name, NULL);
     }
 
     /* TLS Verification only makes sense if an CA is specified or
      * we require CRL validation. */
-    if (strlen(tls_ca_name) != 0 || strlen(tls_crl_name) != 0) {
-        if (sip_tls_load_crls(sip_trp_ssl_ctx, tls_crl_name) == -1) {
-            ERROR("TLS_init_context: Unable to load CRL file (%s)", tls_crl_name);
-            return TLS_INIT_ERROR;
-        }
+    
+    if (gotCAFile || gotCRLFile) {
+        if (gotCRLFile) {
+            if (sip_tls_load_crls(sip_trp_ssl_ctx, tls_crl_name) == -1) {
+                ERROR("TLS_init_context: Unable to load CRL file (%s)", tls_crl_name);
+                return TLS_INIT_ERROR;
+            }
 
-        if (sip_tls_load_crls(sip_trp_ssl_ctx_client, tls_crl_name) == -1) {
-            ERROR("TLS_init_context: Unable to load CRL (client) file (%s)",
-                  tls_crl_name);
-            return TLS_INIT_ERROR;
+            if (sip_tls_load_crls(sip_trp_ssl_ctx_client, tls_crl_name) == -1) {
+                ERROR("TLS_init_context: Unable to load CRL (client) file (%s)",
+                    tls_crl_name);
+                return TLS_INIT_ERROR;
+            }
         }
         /* The following call forces to process the certificates with
          * the initialised SSL_CTX */
