@@ -138,16 +138,22 @@ SSL* SSL_new_server()
 static int sip_tls_verify_callback(int ok , X509_STORE_CTX *store)
 {
     char data[512];
+    int  err, depth;
+    X509 *cert;
 
     if (!ok) {
-        X509 *cert = X509_STORE_CTX_get_current_cert(store);
+        cert = X509_STORE_CTX_get_current_cert(store);
+        err = X509_STORE_CTX_get_error(store);
+        depth = X509_STORE_CTX_get_error_depth(store);
 
         X509_NAME_oneline(X509_get_issuer_name(cert),
                           data, 512);
-        WARNING("TLS verification error for issuer: '%s'", data);
+        WARNING("TLS verification error for issuer: '%s'\n", data);
         X509_NAME_oneline(X509_get_subject_name(cert),
                           data, 512);
-        WARNING("TLS verification error for subject: '%s'", data);
+        WARNING("TLS verification error for subject: '%s'\n", data);
+        WARNING("verify error:num=%d:%s:depth=%d\n", err, 
+                X509_verify_cert_error_string(err), depth);
     }
     return ok;
 }
