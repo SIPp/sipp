@@ -282,7 +282,6 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
     pkts->max = pkts->pkts + n_pkts;
     pkts->max_length = max_length;
     pkts->base = base;
-    fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %lu\nbase port %d\n", file, n_pkts, max_length, base);
     pcap_close(pcap);
 
     return 0;
