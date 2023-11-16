@@ -1,3 +1,8 @@
+Bugs fixed in 3.7.2
+===================
+
+- Remove excessive log
+
 Bugs fixed in 3.7.1
 =======================
 
