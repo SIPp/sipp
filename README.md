@@ -1,7 +1,3 @@
-<a href="https://travis-ci.org/SIPp/sipp">
-  <img alt="Travis Build Status"
-       src="https://api.travis-ci.org/SIPp/sipp.svg"/>
-</a>
 <a href="https://scan.coverity.com/projects/5988">
   <img alt="Coverity Scan Build Status"
        src="https://scan.coverity.com/projects/5988/badge.svg"/>
