@@ -32,6 +32,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses5-dev libncurses5
 
+      - name: Configure
+        run: cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
@@ -39,7 +42,6 @@ jobs:
           queries: +security-and-quality
 
       - name: Build
-        run: cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
         run: make
 
       - name: Perform CodeQL Analysis
