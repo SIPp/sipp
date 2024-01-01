@@ -401,7 +401,7 @@ void ScreenPrinter::draw_scenario_screen()
              */
             last_artpstream_rate_out= ((double)TempABytes)/ ms_since_last_tick;
             last_vrtpstream_rate_out= ((double)TempVBytes)/ ms_since_last_tick;
-            /* Potential race condition betwen multiple threads updating the
+            /* Potential race condition between multiple threads updating the
              * rtpstream_bytes value. We subtract the saved TempBytes value
              * rather than setting it to zero to minimise the chances of missing
              * an update to rtpstream_bytes [update between printing stats and

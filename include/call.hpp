@@ -164,7 +164,7 @@ protected:
     unsigned long int last_recv_invite_cseq;
 
     /* Recv message characteristics when we sent a valid message
-     *  (scneario, no retrans) just after a valid reception. This was
+     *  (scenario, no retrans) just after a valid reception. This was
      * a cause relationship, so the next time this cookie will be recvd,
      * we will retransmit the same message we sent this time */
     unsigned long  recv_retrans_hash;

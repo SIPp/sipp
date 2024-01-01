@@ -79,7 +79,7 @@ this scheduling.
   watchdog_major_maxtriggers: The watchdog timer is designed to provide
   feedback if your call load is causing SIPp's scheduler to be
   overwhelmed. The watchdog task sets a timer that should fire every
-  watchdog_interval milliseconds (by defualt 400ms). If the timer is not
+  watchdog_interval milliseconds (by default 400ms). If the timer is not
   serviced for more than watchdog_minor_threshold milliseconds (by
   default 500s), then a "minor" trigger is recorded. If the number of
   minor triggers is more than watchdog_minor_maxtriggers; the watchdog

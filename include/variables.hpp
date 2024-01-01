@@ -54,13 +54,13 @@ public:
     bool isRegExp();
     bool isString();
 
-    // WARNING : setMatchingValue does't allocate the memory for the matching value
+    // WARNING : setMatchingValue doesn't allocate the memory for the matching value
     // but the destructor free the memory
     void setMatchingValue(char* P_matchingValue);
     char* getMatchingValue();
 
     /* When the variable is used for a string, these functions should be called. */
-    // WARNING : setString does't allocate the memory for the matching value
+    // WARNING : setString doesn't allocate the memory for the matching value
     // but the destructor free the memory
     void setString(char *s);
     char *getString();

@@ -109,7 +109,7 @@ Detailed Message Counts
 ```````````````````````
 
 The SIPp screens provide detailed information about the number of
-messages sent or recieved, retransmissions, messages lost, and the
+messages sent or received, retransmissions, messages lost, and the
 number of unexpected messages for each scenario element. Although
 these screens can be parsed, it is much simpler to parse a CSV file.
 To produce a CSV file that contains the per-message information

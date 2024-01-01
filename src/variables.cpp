@@ -65,7 +65,7 @@ bool CCallVariable::isString()
     return (M_type == E_VT_STRING);
 }
 
-// WARNING : setMatchingValue does't allocate the memory for the matching value
+// WARNING : setMatchingValue doesn't allocate the memory for the matching value
 // but the destructor free the memory
 void CCallVariable::setMatchingValue(char* P_matchingVal)
 {
@@ -164,7 +164,7 @@ bool CCallVariable::getBool()
     return(M_bool);
 }
 
-// Constuctor and destructor
+// Constructor and destructor
 CCallVariable::CCallVariable()
 {
     M_matchingValue     = NULL;

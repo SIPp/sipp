@@ -691,7 +691,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 }
                 else
                 {
-                    /* copy from end and then begining of file. does not handle the */
+                    /* copy from end and then beginning of file. does not handle the */
                     /* case where file is shorter than the packet length!! */
                     memcpy(udp_send_audio.buffer + sizeof(rtp_header_t), taskinfo->audio_current_file_bytes, taskinfo->audio_file_bytes_left);
                     memcpy(udp_send_audio.buffer + sizeof(rtp_header_t) + taskinfo->audio_file_bytes_left, taskinfo->audio_file_bytes_start, taskinfo->audio_bytes_per_packet - taskinfo->audio_file_bytes_left);
@@ -941,7 +941,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 }
                 else
                 {
-                    /* copy from end and then begining of file. does not handle the */
+                    /* copy from end and then beginning of file. does not handle the */
                     /* case where file is shorter than the packet length!! */
                     memcpy(udp_send_video.buffer + sizeof(rtp_header_t), taskinfo->video_current_file_bytes, taskinfo->video_file_bytes_left);
                     memcpy(udp_send_video.buffer + sizeof(rtp_header_t) + taskinfo->video_file_bytes_left, taskinfo->video_file_bytes_start, taskinfo->video_bytes_per_packet - taskinfo->video_file_bytes_left);
@@ -1546,7 +1546,7 @@ static void rtpstream_stop_task(rtpstream_callinfo_t* callinfo)
                     }
                 }
             }
-            /* then ask the thread to destory this task (and its memory) */
+            /* then ask the thread to destroy this task (and its memory) */
             pthread_mutex_lock(&(taskinfo->parent_thread->tasklist_mutex));
             taskinfo->parent_thread->del_pending++;
             taskinfo->flags |= TI_KILLTASK;
