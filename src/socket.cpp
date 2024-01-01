@@ -324,7 +324,7 @@ static const char* get_trimmed_call_id(const char* msg)
      * not recognise the answer to the message sent as being part of an
      * existing call.
      *
-     * Note: [call_id] can be pre-pended with an arbitrary string using
+     * Note: [call_id] can be prepended with an arbitrary string using
      * '///'.
      * Example: Call-ID: ABCDEFGHIJ///[call_id]
      * - it will still be recognized by SIPp as part of the same call.
@@ -1944,7 +1944,7 @@ int SIPpSocket::read_error(int ret)
             } else {
                 /* The socket was closed "cleanly", but we may have calls that need to
                  * be destroyed.  Also, if these calls are not complete, and attempt to
-                 * send again we may "ressurect" the socket by reconnecting it.*/
+                 * send again we may "resurrect" the socket by reconnecting it.*/
                 invalidate();
                 if (reset_close) {
                     close_calls();

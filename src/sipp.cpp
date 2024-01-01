@@ -457,7 +457,7 @@ void timeout_alarm(int /*param*/)
     timeout_exit = true;
 }
 
-/* Send loop & trafic generation*/
+/* Send loop & traffic generation*/
 
 static void traffic_thread(int &rtp_errors, int &echo_errors)
 {
@@ -1089,7 +1089,7 @@ void sipp_exit(int rc, int rtp_errors, int echo_errors)
     unsigned long counter_value_success = 0;
 
     /* Some signals may be delivered twice during exit() execution,
-       and we must prevent all this from beeing done twice */
+       and we must prevent all this from being done twice */
 
     {
         static int already_exited = 0;
@@ -2101,7 +2101,7 @@ int main(int argc, char *argv[])
         new watchdog(watchdog_interval, watchdog_reset, watchdog_major_threshold, watchdog_major_maxtriggers, watchdog_minor_threshold, watchdog_minor_maxtriggers);
     }
 
-    /* Setting the rate and its dependant params (open_calls_allowed) */
+    /* Setting the rate and its dependent params (open_calls_allowed) */
     /* If we are a client, then create the task to open new calls. */
     if (creationMode == MODE_CLIENT) {
         CallGenerationTask::initialize();

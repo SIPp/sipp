@@ -43,7 +43,7 @@ the screen view by pressing 1 to 9 keys on the keyboard.
 
 
 + Key '1': Scenario screen. It displays a call flow of the scenario as
-  well as some important informations.
+  well as some important information.
 
 .. image:: sipp-03.jpg
 
@@ -60,8 +60,8 @@ the screen view by pressing 1 to 9 keys on the keyboard.
 
 .. image:: sipp-05.jpg
 
-+ Key '4': Variables screen. It displays informations on actions in
-  scenario as well as scenario variable informations.
++ Key '4': Variables screen. It displays information on actions in
+  scenario as well as scenario variable information.
 
 .. image:: sipp-06.jpg
 

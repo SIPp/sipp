@@ -160,7 +160,7 @@ void task::abort()
 
 // Based on the time a given task should next be woken up, finds the
 // correct time wheel for it and returns a list of other tasks
-// occuring at that point.
+// occurring at that point.
 task_list *timewheel::task2list(task *task)
 {
     unsigned int wake = task->wake();

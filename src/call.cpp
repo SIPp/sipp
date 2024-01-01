@@ -4564,7 +4564,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
              *
              * This case appears when the UAS has send a 200 but not received
              * a ACK yet. Thus, the UAS retransmit the 200 (invite transaction)
-             * until it receives a ACK. In this case, it nevers sends the 200
+             * until it receives a ACK. In this case, it never sends the 200
              * from the  BYE, until it has reveiced the previous 200. Thus,
              * the UAC retransmit the BYE, and this BYE is considered as an
              * unexpected.
@@ -5274,7 +5274,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     if (int checkTxn = call_scenario->messages[search_index]->response_txn) {
                         /* This is a reply to an old transaction. */
                         if (!strcmp(transactions[checkTxn - 1].txnID, txn)) {
-                            /* This reply is provisional, so it should have no effect if we recieve it out-of-order. */
+                            /* This reply is provisional, so it should have no effect if we receive it out-of-order. */
                             if (reply_code >= 100 && reply_code <= 199) {
                                 TRACE_MSG("-----------------------------------------------\n"
                                           "Ignoring provisional %s message for transaction %s:\n\n%s\n",

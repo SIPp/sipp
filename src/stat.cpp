@@ -962,7 +962,7 @@ int CStat::computeStat (E_Action P_action,
                              CPT_C_AverageCallLength_Squares, P_value);
         updateRepartition(M_CallLengthRepartition,
                           M_SizeOfCallLengthRepartition, P_value);
-        // Updating Periodical Diplayed counter
+        // Updating Periodical Displayed counter
         updateAverageCounter(CPT_PD_AverageCallLength_Sum,
                              CPT_PD_NbOfCallUsedForAverageCallLength,
                              CPT_PD_AverageCallLength_Squares, P_value);
@@ -986,7 +986,7 @@ int CStat::computeStat (E_Action P_action,
         M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] += (P_value * P_value);
         updateRepartition(M_ResponseTimeRepartition[which], M_SizeOfResponseTimeRepartition, P_value);
 
-        // Updating Periodical Diplayed counter
+        // Updating Periodical Displayed counter
         M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT]++;
         M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUM] += P_value;
         M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUMSQ] += (P_value * P_value);

@@ -745,7 +745,7 @@ scenario::scenario(char * filename, int deflt)
             for (int i = 0; i < currentNbVarNames; i++) {
                 int id = allocVars->find(currentTabVarName[i], false);
                 if (id == -1) {
-                    ERROR("Could not reference non-existant variable '%s'", currentTabVarName[i]);
+                    ERROR("Could not reference non-existent variable '%s'", currentTabVarName[i]);
                 }
             }
             freeStringTable(currentTabVarName, currentNbVarNames);
@@ -1185,7 +1185,7 @@ CSample *parse_distribution(bool oldstyle = false)
 
 
 /* 3pcc extended mode:
- * get the correspondances between
+ * get the correspondences between
  * slave and master names and their
  * addresses */
 
@@ -1862,7 +1862,7 @@ void scenario::getCommonAttributes(message *message)
 }
 
 // char* manipulation : create a int[] from a char*
-// test first is the char* is formed by int separeted by coma
+// test first is the char* is formed by int separated by coma
 // and then create the table
 
 int isWellFormed(char * P_listeStr, int * nombre)

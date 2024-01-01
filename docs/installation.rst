@@ -128,7 +128,7 @@ Installing SIPp
 
     + Copy the `WinPcap developer package`_ to "C:\cygwin\lib\WpdPack"
     + Remove or rename "pthread.h" in "C:\cygwin\lib\WpdPack\Include", as
-      it interfers with pthread.h from cygwin
+      it interferes with pthread.h from cygwin
     + Compile according to the instructions above.
 
 .. _GNU GPL license: https://www.gnu.org/copyleft/gpl.html
