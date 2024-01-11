@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
     - name: lint
       run: ./validate-src.sh
     - name: lint-xml
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
     - name: prepare
       run: git submodule update --init
     - name: installdeps
@@ -34,7 +34,7 @@ jobs:
     runs-on: macOS-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
     - name: prepare
       run: git submodule update --init
     - name: build
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
     - name: prepare
       run: git submodule update --init
     - name: build-static
