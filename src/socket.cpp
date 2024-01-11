@@ -2335,10 +2335,34 @@ int open_connections()
         /* Resolving the remote IP */
         {
             fprintf(stderr, "Resolving remote host '%s'... ", remote_host);
+            struct addrinfo   hints;
+
+            memset((char*)&hints, 0, sizeof(hints));
+            hints.ai_flags  = AI_PASSIVE;
+            hints.ai_family = AF_UNSPEC;
+
+#ifdef USE_LOCAL_IP_HINTS
+            struct addrinfo * local_addr;
+            int ret;
+            if (strlen(local_ip)) {
+                if ((ret = getaddrinfo(local_ip, NULL, &hints, &local_addr)) != 0) {
+                    ERROR("Can't get local IP address in getaddrinfo, "
+                            "local_ip='%s', ret=%d", local_ip, ret);
+                }
+
+                /* Use local address hints when getting the remote */
+                if (local_addr->ai_addr->sa_family == AF_INET6) {
+                    local_ip_is_ipv6 = true;
+                    hints.ai_family = AF_INET6;
+                } else {
+                    hints.ai_family = AF_INET;
+                }
+            }
+#endif
 
             /* FIXME: add DNS SRV support using liburli? */
             if (gai_getsockaddr(&remote_sockaddr, remote_host, remote_port,
-                                AI_PASSIVE, AF_UNSPEC) != 0) {
+                                hints.ai_flags, hints.ai_family) != 0) {
                 ERROR("Unknown remote host '%s'.\n"
                       "Use 'sipp -h' for details", remote_host);
             }
