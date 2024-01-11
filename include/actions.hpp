@@ -32,7 +32,7 @@ class CSample;
 #endif
 #include "rtpstream.hpp"
 
-#define MAX_ACTION_MESSAGE 3
+#define MAX_ACTION_MESSAGE 4
 
 class CAction
 {
@@ -68,6 +68,7 @@ public:
         E_AT_VAR_URLENCODE,
         E_AT_VERIFY_AUTH,
         E_AT_SET_DEST,
+        E_AT_SET_DEST_W_SPORT,
         E_AT_CLOSE_CON,
 #ifdef PCAPPLAY
         E_AT_PLAY_PCAP_AUDIO,

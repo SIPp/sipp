@@ -41,6 +41,7 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #endif
 #include "sip_parser.hpp"
+#include "auth.hpp"
 
 #define UDP_MAX_RETRANS_INVITE_TRANSACTION 5
 #define UDP_MAX_RETRANS_NON_INVITE_TRANSACTION 9
@@ -260,7 +261,11 @@ protected:
     /* call to continue and mark it as failed */
     T_ActionResult last_action_result;
 
-    /* rc == true means call not deleted by processing */
+	/* ck_key and ik_key from AKA authentication that can be used to create ipsec association via external command */
+	CK _ck;
+	IK _ik;
+
+	/* rc == true means call not deleted by processing */
     void formatNextReqUrl(const char* contact);
     void computeRouteSetAndRemoteTargetUri(const char* rrList, const char* contact, bool bRequestIncoming);
     bool matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod, char *txn);

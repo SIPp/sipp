@@ -101,7 +101,7 @@ int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
     }
 }
 
-void sockaddr_update_port(struct sockaddr_storage* ss, short port)
+void sockaddr_update_port(struct sockaddr_storage* ss, unsigned short port)
 {
     switch (ss->ss_family) {
     case AF_INET:
@@ -1241,7 +1241,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
 }
 
 SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
-    ss_count(1),
+    ss_count(0),
     ss_ipv6(use_ipv6),
     ss_transport(transport),
     ss_control(false),
@@ -2945,7 +2945,7 @@ void SIPpSocket::pollset_process(int wait)
                     if (!twinSippMode) {
                         ERROR_NO("Accepting new TCP connection on Twin SIPp Socket");
                     }
-                    twinSippSocket->ss_control = 1;
+                    twinSippSocket->ss_control = true;
                 } else {
                     /* 3pcc extended mode: open a local socket
                        which will be used for reading the infos sent by this remote
@@ -2955,7 +2955,7 @@ void SIPpSocket::pollset_process(int wait)
                     }
 
                     SIPpSocket *localSocket = sock->accept();
-                    localSocket->ss_control = 1;
+                    localSocket->ss_control = true;
                     local_sockets[local_nb] = localSocket;
                     local_nb++;
                     if (!peers_connected) {

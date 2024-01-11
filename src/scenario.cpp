@@ -1071,8 +1071,13 @@ void clear_int_int(int_int_map m)
 
 scenario::~scenario()
 {
-    for (msgvec::iterator i = messages.begin(); i != messages.end(); i++) {
-        delete *i;
+	for (auto & i : initmessages) {
+		delete i;
+	}
+	initmessages.clear();
+
+    for (auto & message : messages) {
+        delete message;
     }
     messages.clear();
 
@@ -1081,8 +1086,8 @@ scenario::~scenario()
     allocVars->putTable();
     delete stats;
 
-    for (unsigned int i = 0; i < transactions.size(); i++) {
-        free(transactions[i].name);
+    for (auto & transaction : transactions) {
+        free(transaction.name);
     }
     transactions.clear();
 
@@ -1561,23 +1566,51 @@ void scenario::parseAction(CActions *actions)
             username_ptr = password_ptr = NULL;
         } else if(!strcmp(actionElem, "lookup")) {
             tmpAction->setVarId(xp_get_var("assign_to", "lookup"));
-            tmpAction->setMessage(xp_get_string("file", "lookup"), 0);
-            tmpAction->setMessage(xp_get_string("key", "lookup"), 1);
+			auto _c = xp_get_string("file", "lookup");
+            tmpAction->setMessage(_c, 0);
+	        free(_c);
+			_c = xp_get_string("key", "lookup");
+            tmpAction->setMessage(_c, 1);
+	        free(_c);
             tmpAction->setActionType(CAction::E_AT_LOOKUP);
         } else if(!strcmp(actionElem, "insert")) {
-            tmpAction->setMessage(xp_get_string("file", "insert"), 0);
-            tmpAction->setMessage(xp_get_string("value", "insert"), 1);
+	        auto _c = xp_get_string("file", "insert");
+	        tmpAction->setMessage(_c, 0);
+			free(_c);
+			_c = xp_get_string("value", "insert");
+            tmpAction->setMessage(_c, 1);
+			free(_c);
             tmpAction->setActionType(CAction::E_AT_INSERT);
         } else if(!strcmp(actionElem, "replace")) {
-            tmpAction->setMessage(xp_get_string("file", "replace"), 0);
-            tmpAction->setMessage(xp_get_string("line", "replace"), 1);
-            tmpAction->setMessage(xp_get_string("value", "replace"), 2);
+			auto _c = xp_get_string("file", "replace");
+            tmpAction->setMessage(_c, 0);
+			free(_c);
+			_c = xp_get_string("line", "replace");
+            tmpAction->setMessage(_c, 1);
+			free(_c);
+			_c = xp_get_string("value", "replace");
+            tmpAction->setMessage(_c, 2);
+			free(_c);
             tmpAction->setActionType(CAction::E_AT_REPLACE);
         } else if(!strcmp(actionElem, "setdest")) {
-            tmpAction->setMessage(xp_get_string("host", actionElem), 0);
-            tmpAction->setMessage(xp_get_string("port", actionElem), 1);
-            tmpAction->setMessage(xp_get_string("protocol", actionElem), 2);
-            tmpAction->setActionType(CAction::E_AT_SET_DEST);
+			auto _c = xp_get_string("host", actionElem);
+            tmpAction->setMessage(_c, 0);
+			free(_c);
+			_c = xp_get_string("port", actionElem);
+            tmpAction->setMessage(_c, 1);
+			free(_c);
+			_c = xp_get_string("protocol", actionElem);
+            tmpAction->setMessage(_c, 2);
+			free(_c);
+			const char *_ptr = xp_get_value("local_port");
+			if (_ptr) {
+				_c = xp_get_string("local_port", actionElem);
+				tmpAction->setMessage(_c, 3);
+				free(_c);
+				tmpAction->setActionType(CAction::E_AT_SET_DEST_W_SPORT);
+			} else {
+				tmpAction->setActionType(CAction::E_AT_SET_DEST);
+			}
         } else if(!strcmp(actionElem, "closecon")) {
             tmpAction->setActionType(CAction::E_AT_CLOSE_CON);
         } else if(!strcmp(actionElem, "strcmp")) {

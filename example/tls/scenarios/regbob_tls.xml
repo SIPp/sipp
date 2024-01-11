@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<scenario name="registration">
+	
+<send retrans="500">
+<![CDATA[
+REGISTER sip:open-ims.test SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+Max-Forwards: 20
+From: "bob" <sip:bob@open-ims.test>;tag=[call_number]
+To: "bob" <sip:bob@open-ims.test>
+P-Access-Network-Info: 3GPP-UTRAN-TDD;utran-cell-id-3gpp=C359A3913B20E
+Call-ID: reg///[call_id]
+CSeq: 1 REGISTER
+Contact: <sip:bob@[local_ip]:[local_port];transport=tls>
+Expires: 300
+Content-Length: 0
+Security-Client: tls
+User-Agent: Sipp v1.1-TLS, version 20061124
+Authorization: Digest username="bob@open-ims.test", realm="open-ims.test"
+Supported: path
+]]>
+</send>
+
+
+<recv response="401" auth="true" rtd="true">
+</recv>
+
+<send retrans="500">
+<![CDATA[
+REGISTER sip:open-ims.test SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+Route: [$1]
+Max-Forwards: 20
+From: "bob" <sip:bob@open-ims.test>;tag=[call_number]
+To: "bob" <sip:bob@open-ims.test>
+P-Access-Network-Info: 3GPP-UTRAN-TDD;utran-cell-id-3gpp=C359A3913B20E
+Call-ID: reg///[call_id]
+CSeq: 2 REGISTER
+Contact: <sip:bob@[local_ip]:[local_port];transport=tls>
+Expires: 300
+Content-Length: 0
+Security-Client: tls
+Security-Verify: tls
+User-Agent: Sipp v1.1-TLS, version 20061124
+[authentication username=bob@open-ims.test password=bob]
+Supported: path
+]]>
+</send>
+
+<recv response="200">
+</recv>
+
+<ResponseTimeRepartition value="10, 20"/>
+<CallLengthRepartition value="10"/>
+	
+</scenario>

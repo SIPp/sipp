@@ -57,7 +57,6 @@
 #endif
 
 #include "sipp.hpp"
-#include "auth.hpp"
 #include "urlcoder.hpp"
 #include "deadcall.hpp"
 #include "config.h"
@@ -1062,6 +1061,8 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     recv_timeout = 0;
     send_timeout = 0;
     timewait = false;
+	memset(_ck, 0, sizeof _ck);
+	memset(_ik, 0, sizeof _ik);
 
     if (!isAutomatic) {
         /* Not advancing the number is safe, because for automatic calls we do not
@@ -2065,7 +2066,7 @@ bool call::executeMessage(message *curmsg)
             WARNING("Call-Id: %s, receive timeout on message %s:%d, jumping to label %d",
                     id, curmsg->desc, curmsg->index, curmsg->on_timeout);
             /* FIXME: We should do something like set index here, but it probably
-             * does not matter too much as only nops are allowed in the init stanza. */
+             *  does not matter too much as only nops are allowed in the init stanza. */
             msg_index = curmsg->on_timeout;
             recv_timeout = 0;
             if (msg_index < (int)call_scenario->messages.size()) return true;
@@ -3841,6 +3842,12 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             /* Drop the initial "v" from the SIPP_VERSION string for legacy reasons. */
             dest += snprintf(dest, left, "%s", (const char*)SIPP_VERSION + 1);
             break;
+		case E_Message_CKey:
+			dest += snprintf(dest, left, "%s", _ck);
+			break;
+		case E_Message_IKey:
+			dest += snprintf(dest, left, "%s", _ik);
+			break;
         case E_Message_Variable: {
             int varId = comp->varId;
             CCallVariable *var = M_callVariableTable->getVar(varId);
@@ -4032,7 +4039,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             authlen = sprintf(result, "Proxy-Authorization: ");
         }
 
-        /* Build the auth credenticals */
+        /* Build the auth credentials */
         char uri[MAX_HEADER_LEN];
         sprintf (uri, "%s:%d", remote_ip, remote_port);
         /* These cause this function to  not be reentrant. */
@@ -4042,19 +4049,33 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         static char my_aka_AMF[MAX_HEADER_LEN + 2];
         static char my_aka_K[MAX_HEADER_LEN + 2];
 
+	    bzero(my_auth_user, sizeof my_auth_user);
+	    bzero(my_auth_pass, sizeof my_auth_pass);
+	    bzero(my_aka_OP, sizeof my_aka_OP);
+	    bzero(my_aka_K, sizeof my_aka_K);
+	    bzero(my_aka_AMF, sizeof my_aka_AMF);
+
         createSendingMessage(auth_comp->comp_param.auth_param.auth_user, SM_UNUSED, my_auth_user, sizeof(my_auth_user));
         createSendingMessage(auth_comp->comp_param.auth_param.auth_pass, SM_UNUSED, my_auth_pass, sizeof(my_auth_pass));
         createSendingMessage(auth_comp->comp_param.auth_param.aka_K, SM_UNUSED, my_aka_K, sizeof(my_aka_K));
         createSendingMessage(auth_comp->comp_param.auth_param.aka_AMF, SM_UNUSED, my_aka_AMF, sizeof(my_aka_AMF));
         createSendingMessage(auth_comp->comp_param.auth_param.aka_OP, SM_UNUSED, my_aka_OP, sizeof(my_aka_OP));
 
+		CK ck;
+		IK ik;
+	    memset(ck, 0, sizeof ck);
+	    memset(ik, 0, sizeof ik);
         if (createAuthHeader(
-                my_auth_user, my_auth_pass, src->getMethod(), uri,
-                auth_body, dialog_authentication, my_aka_OP, my_aka_AMF,
-                my_aka_K, next_nonce_count++, result + authlen,
-                MAX_HEADER_LEN - authlen) == 0) {
-            ERROR("%s", result + authlen);
-        }
+	        my_auth_user, my_auth_pass, src->getMethod(), uri,
+	        auth_body, dialog_authentication, my_aka_OP, my_aka_AMF,
+	        my_aka_K, next_nonce_count++, result + authlen,
+	        MAX_HEADER_LEN - authlen, ck, ik) == 0) {
+	        WARNING("%s", result + authlen);
+//            ERROR("%s", result + authlen);
+        } else {
+	        memcpy(_ck, ck, sizeof ck);
+	        memcpy(_ik, ik, sizeof ik);
+		}
         authlen = strlen(result);
 
         /* Shift the end of the message to its rightful place. */
@@ -5251,9 +5272,9 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 
         found = true;
         /* TODO : this is a little buggy: If a 100 trying from an INVITE
-         * is delayed by the network until the BYE is sent, it may
-         * stop BYE transmission erroneously, if the BYE also expects
-         * a 100 trying. */
+         *  is delayed by the network until the BYE is sent, it may
+         *  stop BYE transmission erroneously, if the BYE also expects
+         *  a 100 trying. */
         break;
     }
 
@@ -5718,13 +5739,28 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 call_socket->close();
                 call_socket = NULL;
             }
-        } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST) {
+        } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST ||
+					currentAction->getActionType() == CAction::E_AT_SET_DEST_W_SPORT) {
             /* Change the destination for this call. */
             char *str_host = strdup(createSendingMessage(currentAction->getMessage(0)));
             char *str_port = strdup(createSendingMessage(currentAction->getMessage(1)));
             char *str_protocol = strdup(createSendingMessage(currentAction->getMessage(2)));
 
-            char *endptr;
+			char *str_s_port = nullptr;
+	        char *endptr;
+			int s_port = 0;
+			if (currentAction->getActionType() == CAction::E_AT_SET_DEST_W_SPORT) {
+				str_s_port = strdup(createSendingMessage(currentAction->getMessage(3)));
+				if (str_s_port) {
+					s_port = (int) strtod(str_s_port, &endptr);
+					if (*endptr) {
+						ERROR("Invalid source port for setdest: %s", str_port);
+					}
+					free(str_s_port);
+				}
+			}
+
+            endptr = nullptr;
             int port = (int)strtod(str_port, &endptr);
             if (*endptr) {
                 ERROR("Invalid port for setdest: %s", str_port);
@@ -5787,6 +5823,10 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 ERROR("Unknown host '%s' for setdest", str_host);
             }
             memcpy(&call_socket->ss_dest, &call_peer, sizeof(call_peer));
+
+			if (s_port) {
+				call_socket->set_bind_port(s_port);
+			}
 
             free(str_host);
             free(str_port);

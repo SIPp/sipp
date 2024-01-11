@@ -54,7 +54,7 @@ int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
                     unsigned short port, int flags, int family);
 int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
                     const char *service, int flags, int family);
-void sockaddr_update_port(struct sockaddr_storage* ss, short port);
+void sockaddr_update_port(struct sockaddr_storage* ss, unsigned short port);
 
 
 /* This is an abstraction of a socket, which provides buffers for input and

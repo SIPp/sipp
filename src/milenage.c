@@ -156,8 +156,6 @@ void f2345(uint8_t k[16], uint8_t rand[16],
 
     for (i=0; i<16; i++)
         ik[i] = out[i];
-
-    return;
 } /* end of function f2345 */
 
 

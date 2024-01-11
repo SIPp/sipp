@@ -699,8 +699,8 @@ void ScreenPrinter::draw_stats_screen()
 
     GET_TIME (&currentTime);
     // computing the real call rate
-    globalElapsedTime   = s->computeDiffTimeInMs (&currentTime, &s->M_startTime);
-    localElapsedTime    = s->computeDiffTimeInMs (&currentTime, &s->M_pdStartTime);
+    globalElapsedTime   = CStat::computeDiffTimeInMs (&currentTime, &s->M_startTime);
+    localElapsedTime    = CStat::computeDiffTimeInMs (&currentTime, &s->M_pdStartTime);
     // the call rate is for all the call : incoming and outgoing
     numberOfCall        = (s->M_counters[s->CPT_C_IncomingCallCreated] +
                            s->M_counters[s->CPT_C_OutgoingCallCreated]);
@@ -741,7 +741,7 @@ void ScreenPrinter::draw_stats_screen()
     DISPLAY_PERIO ("Current Calls",
                    s->M_counters[s->CPT_C_CurrentCall]);
 
-    if (s->M_genericMap.size()) {
+    if (!s->M_genericMap.empty()) {
         DISPLAY_CROSS_LINE ();
     }
     for (unsigned int i = 1; i < s->M_genericMap.size() + 1; i++) {

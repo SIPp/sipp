@@ -67,7 +67,7 @@
 <!ELEMENT CallLengthRepartition EMPTY >
 <!ATTLIST CallLengthRepartition value CDATA #REQUIRED >
 
-<!ELEMENT action ( add | assign | assignstr | closecon | divide | ereg | error | exec | gettimeofday | index | insert | jump | log | lookup | multiply | pauserestore | replace | rtp_echo | sample | setdest | strcmp | subtract | test | todouble | trim | urldecode | urlencode | verifyauth | warning )+ >
+<!ELEMENT action ( add | assign | assignstr | closecon | divide | ereg | error | exec | gettimeofday | index | insert | jump | log | lookup | multiply | pauserestore | replace | rtp_echo | sample | setdest | strcmp | subtract | test | todouble | trim | urldecode | urlencode | verifyauth | warning | closecon )+ >
 
 <!-- BEGIN actions -->
 
@@ -76,8 +76,9 @@
 <!ATTLIST ereg check_it (true|false) "false" >
 <!ATTLIST ereg header NMTOKEN #IMPLIED >
 <!ATTLIST ereg regexp CDATA #REQUIRED >
-<!ATTLIST ereg search_in (msg|hdr) "msg" >
+<!ATTLIST ereg search_in (msg|hdr|var) "msg" >
 <!ATTLIST ereg start_line (true|false) #IMPLIED >
+<!ATTLIST ereg variable CDATA #IMPLIED >
 
 <!ELEMENT log EMPTY >
 <!ATTLIST log message CDATA #REQUIRED >
@@ -108,15 +109,65 @@
 <!ATTLIST test value CDATA #REQUIRED >
 <!ATTLIST test variable CDATA #REQUIRED >
 
+<!ELEMENT assignstr EMPTY >
+<!ATTLIST assignstr assign_to CDATA #REQUIRED >
+<!ATTLIST assignstr value CDATA #REQUIRED >
+
 <!ELEMENT assign EMPTY >
 <!ATTLIST assign assign_to CDATA #REQUIRED >
-<!ATTLIST assign variable CDATA #REQUIRED >
+<!ATTLIST assign value CDATA #IMPLIED >
+<!ATTLIST assign variable CDATA #IMPLIED >
+
+<!ELEMENT gettimeofday EMPTY >
+<!ATTLIST gettimeofday assign_to CDATA #REQUIRED >
+
+<!ELEMENT insert EMPTY >
+<!ATTLIST insert file CDATA #REQUIRED >
+<!ATTLIST insert value CDATA #REQUIRED >
+
+<!ELEMENT jump EMPTY>
+<!ATTLIST jump value CDATA #IMPLIED>
+<!ATTLIST jump variable CDATA #IMPLIED>
+
+<!ELEMENT lookup EMPTY>
+<!ATTLIST lookup assign_to CDATA #REQUIRED>
+<!ATTLIST lookup file CDATA #REQUIRED>
+<!ATTLIST lookup key CDATA #REQUIRED>
+
+<!ELEMENT replace EMPTY>
+<!ATTLIST replace value CDATA #REQUIRED>
+<!ATTLIST replace file CDATA #REQUIRED>
+<!ATTLIST replace line CDATA #REQUIRED>
+
+<!ELEMENT sample EMPTY>
+<!ATTLIST sample assign_to CDATA #REQUIRED>
+<!ATTLIST sample distribution CDATA #REQUIRED>
+<!ATTLIST sample mean CDATA #REQUIRED>
+<!ATTLIST sample stdev CDATA #REQUIRED>
+
+<!ELEMENT setdest EMPTY>
+<!ATTLIST setdest host CDATA #REQUIRED>
+<!ATTLIST setdest port CDATA #REQUIRED>
+<!ATTLIST setdest protocol CDATA #REQUIRED>
+<!ATTLIST setdest local_port CDATA #IMPLIED>
+
+<!ELEMENT todouble EMPTY>
+<!ATTLIST todouble assign_to CDATA #REQUIRED>
+<!ATTLIST todouble variable CDATA #IMPLIED>
+<!ATTLIST todouble value CDATA #IMPLIED>
+
+<!ELEMENT verifyauth EMPTY>
+<!ATTLIST verifyauth assign_to CDATA #REQUIRED>
+<!ATTLIST verifyauth username CDATA #REQUIRED>
+<!ATTLIST verifyauth password CDATA #REQUIRED>
 
 <!ELEMENT urldecode EMPTY >
 <!ATTLIST urldecode variable CDATA #REQUIRED >
 
 <!ELEMENT urlencode EMPTY >
 <!ATTLIST urlencode variable CDATA #REQUIRED >
+
+<!ELEMENT closecon EMPTY >
 
 <!-- END actions -->
 
@@ -125,3 +176,24 @@
 
 <!ELEMENT Reference EMPTY >
 <!ATTLIST Reference variables CDATA #REQUIRED >
+
+<!ELEMENT add EMPTY>
+<!ATTLIST add assign_to CDATA #REQUIRED>
+<!ATTLIST add value CDATA #IMPLIED>
+<!ATTLIST add variable CDATA #IMPLIED>
+
+<!ELEMENT subtract EMPTY>
+<!ATTLIST subtract assign_to CDATA #REQUIRED>
+<!ATTLIST subtract value CDATA #IMPLIED>
+<!ATTLIST subtract variable CDATA #IMPLIED>
+
+<!ELEMENT multiply EMPTY>
+<!ATTLIST multiply assign_to CDATA #REQUIRED>
+<!ATTLIST multiply value CDATA #IMPLIED>
+<!ATTLIST multiply variable CDATA #IMPLIED>
+
+<!ELEMENT divide EMPTY>
+<!ATTLIST divide assign_to CDATA #REQUIRED>
+<!ATTLIST divide value CDATA #IMPLIED>
+<!ATTLIST divide variable CDATA #IMPLIED>
+

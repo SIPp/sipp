@@ -39,43 +39,7 @@
 #define MD5_HASH_SIZE 16
 #define HASH_HEX_SIZE 2*MD5_HASH_SIZE
 
-/* AKA */
-
-#define KLEN 16
-typedef u_char K[KLEN];
-#define RANDLEN 16
-typedef u_char RAND[RANDLEN];
-#define AUTNLEN 16
-typedef u_char AUTN[AUTNLEN];
-
-#define AKLEN 6
-typedef u_char AK[AKLEN];
-#define AMFLEN 2
-typedef u_char AMF[AMFLEN];
-#define MACLEN 8
-typedef u_char MAC[MACLEN];
-#define CKLEN 16
-typedef u_char CK[CKLEN];
-#define IKLEN 16
-typedef u_char IK[IKLEN];
-#define SQNLEN 6
-typedef u_char SQN[SQNLEN];
-#define AUTSLEN 14
-typedef char AUTS[AUTSLEN];
-#define AUTS64LEN 29
-typedef char AUTS64[AUTS64LEN];
-#define RESLEN 8
-typedef unsigned char RES[RESLEN+1];
-#define RESHEXLEN 17
-typedef char RESHEX[RESHEXLEN];
-#define OPLEN 16
-typedef u_char OP[OPLEN];
-
-AMF amfstar="\0";
 SQN sqn_he= {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-/* end AKA */
-
 
 static int createAuthHeaderMD5(
     const char* user, const char* password, int password_len,
@@ -83,17 +47,27 @@ static int createAuthHeaderMD5(
     const char* auth, const char* algo, unsigned int nonce_count,
     char* result, size_t result_len);
 
-static int createAuthHeaderAKAv1MD5(
-    const char* user, const char* OP, const char* AMF, const char* K,
-    const char* method, const char* uri, const char* msgbody,
-    const char* auth, const char* algo, unsigned int nonce_count,
-    char* result, size_t result_len);
+static int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP, const char *aka_AMF, const char *aka_K,
+                                    const char *method, const char *uri, const char *msgbody, const char *auth,
+                                    const char *algo, unsigned int nonce_count, char *result, size_t result_len, CK ck,
+                                    IK ik);
+
+static void hashToHex_(const unsigned char *hash, const size_t hash_len, unsigned char *res) {
+	for (size_t i = 0; i < hash_len; ++i) {
+		unsigned char j = (hash[i] >> 4) & 0xf;
+		res[i * 2] = j <= 9 ? j + '0' : j + 'a' - 10;
+		j = hash[i] & 0xf;
+		res[i * 2 + 1] = j <= 9 ? j + '0' : j + 'a' - 10;
+	}
+	res[hash_len*2] = '\0';
+}
 
 
 /* This function is from RFC 2617 Section 5 */
-
 static void hashToHex(md5_byte_t* _b_raw, unsigned char* _h)
 {
+	hashToHex_(_b_raw, MD5_HASH_SIZE, _h);
+/*
     unsigned short i;
     unsigned char j;
     unsigned char *_b = (unsigned char *) _b_raw;
@@ -113,6 +87,7 @@ static void hashToHex(md5_byte_t* _b_raw, unsigned char* _h)
         }
     };
     _h[HASH_HEX_SIZE] = '\0';
+*/
 }
 
 static char *stristr(const char* s1, const char* s2)
@@ -142,11 +117,9 @@ static char *stristr(const char* s1, const char* s2)
     return 0;
 }
 
-int createAuthHeader(
-    const char* user, const char* password, const char* method,
-    const char* uri, const char* msgbody, const char* auth,
-    const char* aka_OP, const char* aka_AMF, const char* aka_K,
-    unsigned int nonce_count, char* result, size_t result_len)
+int createAuthHeader(const char *user, const char *password, const char *method, const char *uri, const char *msgbody,
+                     const char *auth, const char *aka_OP, const char *aka_AMF, const char *aka_K,
+                     unsigned int nonce_count, char *result, size_t result_len, CK ck, IK ik)
 {
 
     char algo[32] = "MD5";
@@ -183,8 +156,8 @@ int createAuthHeader(
             return 0;
         }
         return createAuthHeaderAKAv1MD5(
-            user, aka_OP, aka_AMF, aka_K, method, uri, msgbody, auth,
-            algo, nonce_count, result, result_len);
+	        user, aka_OP, aka_AMF, aka_K, method, uri, msgbody, auth,
+	        algo, nonce_count, result, result_len, ck, ik);
     } else {
         snprintf(result, result_len, "createAuthHeader: authentication must use MD5 or AKAv1-MD5");
         return 0;
@@ -451,200 +424,12 @@ int verifyAuthHeader(const char *user, const char *password, const char *method,
     }
 }
 
-
-
-/*"
-ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";*/
-static int base64_val(char x) {
-    switch(x) {
-    case '=':
-        return -1;
-    case 'A':
-        return 0;
-    case 'B':
-        return 1;
-    case 'C':
-        return 2;
-    case 'D':
-        return 3;
-    case 'E':
-        return 4;
-    case 'F':
-        return 5;
-    case 'G':
-        return 6;
-    case 'H':
-        return 7;
-    case 'I':
-        return 8;
-    case 'J':
-        return 9;
-    case 'K':
-        return 10;
-    case 'L':
-        return 11;
-    case 'M':
-        return 12;
-    case 'N':
-        return 13;
-    case 'O':
-        return 14;
-    case 'P':
-        return 15;
-    case 'Q':
-        return 16;
-    case 'R':
-        return 17;
-    case 'S':
-        return 18;
-    case 'T':
-        return 19;
-    case 'U':
-        return 20;
-    case 'V':
-        return 21;
-    case 'W':
-        return 22;
-    case 'X':
-        return 23;
-    case 'Y':
-        return 24;
-    case 'Z':
-        return 25;
-    case 'a':
-        return 26;
-    case 'b':
-        return 27;
-    case 'c':
-        return 28;
-    case 'd':
-        return 29;
-    case 'e':
-        return 30;
-    case 'f':
-        return 31;
-    case 'g':
-        return 32;
-    case 'h':
-        return 33;
-    case 'i':
-        return 34;
-    case 'j':
-        return 35;
-    case 'k':
-        return 36;
-    case 'l':
-        return 37;
-    case 'm':
-        return 38;
-    case 'n':
-        return 39;
-    case 'o':
-        return 40;
-    case 'p':
-        return 41;
-    case 'q':
-        return 42;
-    case 'r':
-        return 43;
-    case 's':
-        return 44;
-    case 't':
-        return 45;
-    case 'u':
-        return 46;
-    case 'v':
-        return 47;
-    case 'w':
-        return 48;
-    case 'x':
-        return 49;
-    case 'y':
-        return 50;
-    case 'z':
-        return 51;
-    case '0':
-        return 52;
-    case '1':
-        return 53;
-    case '2':
-        return 54;
-    case '3':
-        return 55;
-    case '4':
-        return 56;
-    case '5':
-        return 57;
-    case '6':
-        return 58;
-    case '7':
-        return 59;
-    case '8':
-        return 60;
-    case '9':
-        return 61;
-    case '+':
-        return 62;
-    case '/':
-        return 63;
-    }
-    return 0;
-}
-
-static char* base64_decode_string(const char* buf, unsigned int len, int* newlen)
-{
-    unsigned long i;
-    int j, x1, x2, x3, x4;
-    char *out;
-    out = (char *)malloc( ( len * 3/4 ) + 8 );
-    for(i=0, j=0; i + 3 < len; i += 4) {
-        x1=base64_val(buf[i]);
-        x2=base64_val(buf[i+1]);
-        x3=base64_val(buf[i+2]);
-        x4=base64_val(buf[i+3]);
-        out[j++]=(x1<<2) | ((x2 & 0x30)>>4);
-        out[j++]=((x2 & 0x0F)<<4) | ((x3 & 0x3C)>>2);
-        out[j++]=((x3 & 0x03)<<6) | (x4 & 0x3F);
-    }
-    if (i<len) {
-        x1 = base64_val(buf[i]);
-        if (i+1<len)
-            x2=base64_val(buf[i+1]);
-        else
-            x2=-1;
-        if (i+2<len)
-            x3=base64_val(buf[i+2]);
-        else
-            x3=-1;
-        if(i+3<len)
-            x4=base64_val(buf[i+3]);
-        else x4=-1;
-        if (x2!=-1) {
-            out[j++]=(x1<<2) | ((x2 & 0x30)>>4);
-            if (x3==-1) {
-                out[j++]=((x2 & 0x0F)<<4) | ((x3 & 0x3C)>>2);
-                if (x4==-1) {
-                    out[j++]=((x3 & 0x03)<<6) | (x4 & 0x3F);
-                }
-            }
-        }
-
-    }
-
-    out[j++] = 0;
-    *newlen=j;
-    return out;
-}
-
-char base64[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
 char hexa[17] = "0123456789abcdef";
 
-static int createAuthHeaderAKAv1MD5(
-    const char* user, const char* aka_OP, const char* aka_AMF,
-    const char* aka_K, const char* method, const char* uri,
-    const char* msgbody, const char* auth, const char* algo,
-    unsigned int nonce_count, char* result, size_t result_len)
+static int createAuthHeaderAKAv1MD5(const char *user, const char *aka_OP, const char *aka_AMF, const char *aka_K,
+                                    const char *method, const char *uri, const char *msgbody, const char *auth,
+                                    const char *algo, unsigned int nonce_count, char *result, size_t result_len, CK ck,
+                                    IK ik)
 {
 
     char tmp[MAX_HEADER_LEN];
@@ -662,8 +447,6 @@ static int createAuthHeaderAKAv1MD5(
     SQN sqn, sqnxoraka, sqn_ms;
     K k;
     RES res;
-    CK ck;
-    IK ik;
     AK ak;
     int i;
 
@@ -695,8 +478,9 @@ static int createAuthHeaderAKAv1MD5(
     memcpy(rnd, nonce, RANDLEN);
     memcpy(sqnxoraka, nonce + RANDLEN, SQNLEN);
     memcpy(mac, nonce + RANDLEN + SQNLEN + AMFLEN, MACLEN);
+	memcpy(amf, nonce + RANDLEN + SQNLEN, AMFLEN);
     memcpy(k, aka_K, KLEN);
-    memcpy(amf, aka_AMF, AMFLEN);
+//    memcpy(amf, aka_AMF, AMFLEN);
     memcpy(op, aka_OP, OPLEN);
 
     /* Compute the AK, response and keys CK IK */
@@ -707,13 +491,34 @@ static int createAuthHeaderAKAv1MD5(
     for (i=0; i < SQNLEN; i++)
         sqn[i] = sqnxoraka[i] ^ ak[i];
 
-    /* compute XMAC */
-    f1(k, rnd, sqn, (unsigned char *) aka_AMF, xmac, op);
+/* compute XMAC */
+    f1(k, rnd, sqn, amf, xmac, op);
     if (memcmp(mac, xmac, MACLEN) != 0) {
-        free(nonce);
+		unsigned char mac_rec[MACLEN*2+1], mac_expected[MACLEN*2+1];
+	    hashToHex_(mac, MACLEN, mac_rec);
+	    hashToHex_(xmac, MACLEN, mac_expected);
+	    WARNING("MAC received %s != MAC expected %s\n", mac_rec, mac_expected);
+		unsigned char str_[128];
+	    hashToHex_(k, sizeof(k), str_);
+	    WARNING("AKA_key: %s\n", str_);
+	    hashToHex_(amf, sizeof(amf), str_);
+		WARNING("AKA_amf: %s\n", str_);
+	    hashToHex_(op, sizeof(op), str_);
+		WARNING("AKA_op: %s\n", str_);
+	    hashToHex_(reinterpret_cast<const unsigned char *>(nonce), noncelen, str_);
+	    WARNING("NONCE: %s\n", str_);
+	    hashToHex_(rnd, sizeof(rnd), str_);
+	    WARNING("RAND: %s\n", str_);
+	    hashToHex_(sqn, sizeof(sqn), str_);
+	    WARNING("SQN: %s\n", str_);
+	    hashToHex_(ak, sizeof(ak), str_);
+	    WARNING("AK: %s\n", str_);
+	    hashToHex_(sqnxoraka, sizeof(sqnxoraka), str_);
+	    ERROR("SQN ^ AK: %s\n", str_);
+	    free(nonce);
         snprintf(
             result, result_len,
-            "createAuthHeaderAKAv1MD5 : MAC != expectedMAC -> Server might not know the secret (man-in-the-middle attack?)\n");
+            "createAuthHeaderAKAv1MD5: MAC != expectedMAC -> Server might not know the secret (man-in-the-middle attack?)");
         return 0;
     }
 
@@ -732,7 +537,7 @@ static int createAuthHeaderAKAv1MD5(
             free(nonce);
             snprintf(
                 result, result_len,
-                "createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderMD5\n");
+                "createAuthHeaderAKAv1MD5: Unexpected return value from createAuthHeaderMD5\n");
             return 0;
         }
     } else {
@@ -802,7 +607,8 @@ TEST(DigestAuth, BasicVerification) {
                            " nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\"\r\n,"
                            " opaque=\"5ccc069c403ebaf9f0171e9517f40e41\""));
     char result[255];
-    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, NULL, NULL, NULL, 1, result, 255);
+	createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, NULL, NULL, NULL, 1,
+	                 result, 255, nullptr, nullptr);
     EXPECT_STREQ("Digest username=\"testuser\",realm=\"testrealm@host.com\",uri=\"sip:sip:example.com\",nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\",response=\"db94e01e92f2b09a52a234eeca8b90f7\",algorithm=MD5,opaque=\"5ccc069c403ebaf9f0171e9517f40e41\"", result);
     EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header);
@@ -815,18 +621,18 @@ TEST(DigestAuth, qop) {
                            "\tqop=\"auth,auth-int\",\r\n"
                            "\tnonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\"\r\n,"
                            "\topaque=\"5ccc069c403ebaf9f0171e9517f40e41\""));
-    createAuthHeader("testuser",
-                     "secret",
-                     "REGISTER",
-                     "sip:example.com",
-                     "hello world",
-                     header,
-                     NULL,
-                     NULL,
-                     NULL,
-                     1,
-                     result,
-                     1024);
+	createAuthHeader("testuser",
+	                 "secret",
+	                 "REGISTER",
+	                 "sip:example.com",
+	                 "hello world",
+	                 header,
+	                 NULL,
+	                 NULL,
+	                 NULL,
+	                 1,
+	                 result,
+	                 1024, nullptr, nullptr);
     EXPECT_EQ(1, !!strstr(result, ",qop=auth-int,")); // no double quotes around qop-value
     EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header);
