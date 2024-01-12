@@ -1,3 +1,8 @@
+Bugs fixed in 3.7.3
+===================
+
+- Recovered `-mp` and `[auto_media_port]` to maintain backwards compatibility. (by Orgad Shaneh)
+
 Bugs fixed in 3.7.2
 ===================
 
