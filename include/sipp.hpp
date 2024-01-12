@@ -55,6 +55,7 @@
 #include <string>
 #include <map>
 #include <set>
+#include <unordered_map>
 #include <math.h>
 #ifdef __SUNOS
 #include <stdarg.h>
@@ -296,7 +297,8 @@ MAYBE_EXTERN int                currentRepartitionToDisplay  DEFVAL(1);
 MAYBE_EXTERN unsigned int       base_cseq               DEFVAL(0);
 MAYBE_EXTERN char             * auth_uri                DEFVAL(0);
 MAYBE_EXTERN const char       * call_id_string          DEFVAL("%u-%p@%s");
-MAYBE_EXTERN char             **generic[100];
+typedef std::unordered_map<std::string, std::string> ParamMap;
+MAYBE_EXTERN ParamMap           generic;
 
 MAYBE_EXTERN bool               rtp_echo_state          DEFVAL(true);
 MAYBE_EXTERN bool               callidSlash             DEFVAL(false);
