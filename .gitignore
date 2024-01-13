@@ -9,6 +9,7 @@ Makefile.in
 Makefile.am
 aclocal.m4
 autom4te.cache/
+build.ninja
 configure
 config.guess
 config.h
