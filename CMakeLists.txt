@@ -18,6 +18,11 @@ include_directories(
   ${PROJECT_BINARY_DIR}
   ${PROJECT_SOURCE_DIR}/include)
 
+if(BUILD_STATIC)
+  set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
+  set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
+endif(BUILD_STATIC)
+
 function(optional_library LIB_NAME DESCRIPTION)
   set(USE_${LIB_NAME} "DEFAULT" CACHE STRING "${DESCRIPTION}")
 
@@ -73,11 +78,6 @@ CHECK_SYMBOL_EXISTS(le16toh "sys/endian.h" HAVE_DECL_LE16TOH_BSD)
 
 configure_file("${PROJECT_SOURCE_DIR}/include/config.h.in"
                "${PROJECT_BINARY_DIR}/config.h" )
-
-if(BUILD_STATIC)
-  set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
-  set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
-endif(BUILD_STATIC)
 
 list(REMOVE_ITEM all_SRCS
   "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
@@ -221,6 +221,9 @@ if(NOT TINFO_LIBRARY)
   find_library(TINFO_LIBRARY NAMES tinfo)
 endif()
 if(CURSES_LIBRARY)
+  if(BUILD_STATIC)
+    add_definitions("-DNCURSES_STATIC")
+  endif(BUILD_STATIC)
   target_link_libraries(sipp dl ${CURSES_LIBRARY} pthread)
   target_link_libraries(sipp_unittest dl ${CURSES_LIBRARY} pthread)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -262,8 +265,9 @@ if(CYGWIN)
 endif(CYGWIN)
 
 if(USE_GSL)
-  target_link_libraries(sipp gsl gslcblas)
-  target_link_libraries(sipp_unittest gsl gslcblas)
+  find_library(GSLCBLAS_LIBRARY gslcblas)
+  target_link_libraries(sipp ${GSL_LIBRARY} ${GSLCBLAS_LIBRARY})
+  target_link_libraries(sipp_unittest ${GSL_LIBRARY} ${GSLCBLAS_LIBRARY})
 endif(USE_GSL)
 
 if(USE_SSL)
@@ -276,8 +280,20 @@ if(USE_SSL)
 endif(USE_SSL)
 
 if(USE_PCAP)
-  target_link_libraries(sipp pcap)
-  target_link_libraries(sipp_unittest pcap)
+  set(PCAP_LIBRARIES ${PCAP_LIBRARY})
+  if(PKG_CONFIG_FOUND)
+    pkg_search_module(PCAP libpcap)
+    if(BUILD_STATIC AND PCAP_STATIC_LIBRARIES)
+      set(PCAP_LIBRARIES ${PCAP_STATIC_LIBRARIES})
+      find_library(CAP_LIBRARY cap)
+    endif()
+  endif()
+  target_link_libraries(sipp ${PCAP_LIBRARIES})
+  target_link_libraries(sipp_unittest ${PCAP_LIBRARIES})
+  if(CAP_LIBRARY)
+    target_link_libraries(sipp ${CAP_LIBRARY})
+    target_link_libraries(sipp_unittest ${CAP_LIBRARY})
+  endif()
 endif(USE_PCAP)
 
 if(USE_SCTP)
@@ -287,5 +303,10 @@ if(USE_SCTP)
     target_link_libraries(sipp_unittest ${SCTP_LIBRARY})
   endif()
 endif()
+
+if(BUILD_STATIC AND MSYS)
+  target_link_libraries(sipp crypt32)
+  target_link_libraries(sipp_unittest crypt32)
+endif(BUILD_STATIC AND MSYS)
 
 install(TARGETS sipp DESTINATION bin)
