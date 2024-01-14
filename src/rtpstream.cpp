@@ -2349,22 +2349,22 @@ static int get_wav_header_size(const char *data, int size)
     const char *limit = data + size;
     if (size < 42)
         return 0;
-    // Since all the values are interpreted as little endian, the tags are reversed.
-    if (uint_val(ptr) != 'FFIR')
+    if (!(ptr[0] == 'R' && ptr[1] == 'I' && ptr[2] == 'F' && ptr[3] == 'F'))
         return 0;
     ptr += 8;
-    if (uint_val(ptr) != 'EVAW')
+    if (!(ptr[0] == 'W' && ptr[1] == 'A' && ptr[2] == 'V' && ptr[3] == 'E'))
         return ptr - data;
     ptr += 4;
     for (;;) {
         if (ptr + 8 > limit)
             break;
-        const uint32_t chunk = uint_val(ptr);
         const uint32_t chunk_size = uint_val(ptr + 4);
+        const bool is_data = (ptr[0] == 'd' && ptr[1] == 'a' && ptr[2] == 't' && ptr[3] == 'a');
+
         ptr += 8;
         if (ptr > limit)
             return limit - data;
-        if (chunk == 'atad')
+        if (is_data)
             return ptr - data;
         ptr += chunk_size;
     }
