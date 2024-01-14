@@ -72,6 +72,10 @@ int pending_messages = 0;
 
 map<string, SIPpSocket *>     map_perip_fd;
 
+static void connect_to_peer(
+    char *peer_host, int peer_port, struct sockaddr_storage *peer_sockaddr,
+    char *peer_ip, int peer_ip_size, SIPpSocket **peer_socket);
+
 int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
                     const char *service, int flags, int family)
 {
@@ -2629,7 +2633,7 @@ int open_connections()
     /* Trying to connect to Twin Sipp in 3PCC mode */
     if (twinSippMode) {
         if (thirdPartyMode == MODE_3PCC_CONTROLLER_A || thirdPartyMode == MODE_3PCC_A_PASSIVE) {
-            connect_to_peer(twinSippHost, twinSippPort, &twinSipp_sockaddr, twinSippIp, &twinSippSocket);
+            connect_to_peer(twinSippHost, twinSippPort, &twinSipp_sockaddr, twinSippIp, sizeof(twinSippIp), &twinSippSocket);
         } else if (thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
             connect_local_twin_socket(twinSippHost);
         } else {
@@ -2656,7 +2660,9 @@ int open_connections()
 }
 
 
-void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *peer_sockaddr, char *peer_ip, SIPpSocket **peer_socket)
+static void connect_to_peer(
+    char *peer_host, int peer_port, struct sockaddr_storage *peer_sockaddr,
+    char *peer_ip, int peer_ip_size, SIPpSocket **peer_socket)
 {
     /* Resolving the  peer IP */
     printf("Resolving peer address : %s...\n", peer_host);
@@ -2673,7 +2679,7 @@ void connect_to_peer(char *peer_host, int peer_port, struct sockaddr_storage *pe
         is_ipv6 = true;
     }
 
-    get_inet_address(peer_sockaddr, peer_ip, sizeof(peer_ip));
+    get_inet_address(peer_sockaddr, peer_ip, peer_ip_size);
 
     if ((*peer_socket = new_sipp_socket(is_ipv6, T_TCP)) == NULL) {
         ERROR_NO("Unable to get a twin sipp TCP socket");
@@ -2801,7 +2807,7 @@ void connect_to_all_peers()
     for (peer_it = peers.begin(); peer_it != peers.end(); peer_it++) {
         infos = peer_it->second;
         get_host_and_port(infos.peer_host, infos.peer_host, &infos.peer_port);
-        connect_to_peer(infos.peer_host, infos.peer_port, &(infos.peer_sockaddr), infos.peer_ip, &(infos.peer_socket));
+        connect_to_peer(infos.peer_host, infos.peer_port, &(infos.peer_sockaddr), infos.peer_ip, sizeof(infos.peer_ip), &(infos.peer_socket));
         peer_sockets[infos.peer_socket] = peer_it->first;
         peers[std::string(peer_it->first)] = infos;
     }
