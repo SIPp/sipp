@@ -1813,7 +1813,9 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
 
     debugprint("rtpstream_get_localport\n");
 
-    next_rtp_port = min_rtp_port;
+    if (next_rtp_port == 0) {
+        next_rtp_port = min_rtp_port;
+    }
 
     /* initialise address family and IP address for media socket */
     memset(&address, 0, sizeof(address));
