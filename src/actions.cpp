@@ -629,6 +629,10 @@ void CAction::setRTPEchoActInfo(const char* P_value)
             M_rtpecho_actinfo.audio_active = 1;
         }
         break;
+    case 13: // audio/CN - Comfort noise
+        M_rtpecho_actinfo.bytes_per_packet = 1;
+        M_rtpecho_actinfo.audio_active = 1;
+        break;
     case 18:
         if (!strcmp(M_rtpecho_actinfo.payload_name, "G729/8000")) {
             M_rtpecho_actinfo.bytes_per_packet = 20;
@@ -822,6 +826,12 @@ void CAction::setRTPStreamActInfo(const char *P_value)
             M_rtpstream_actinfo.audio_active = 1;
             stream_type = 0;
         }
+        break;
+    case 13: // audio/CN - Comfort noise
+        M_rtpstream_actinfo.ms_per_packet = 150;
+        M_rtpstream_actinfo.bytes_per_packet = 1;
+        M_rtpstream_actinfo.ticks_per_packet = 1200;
+        M_rtpstream_actinfo.audio_active = 1;
         break;
     case 18:
         if (!strcmp(M_rtpstream_actinfo.payload_name, "G729/8000")) {
