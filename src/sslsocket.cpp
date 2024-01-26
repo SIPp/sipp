@@ -152,7 +152,7 @@ static int sip_tls_verify_callback(int ok , X509_STORE_CTX *store)
         X509_NAME_oneline(X509_get_subject_name(cert),
                           data, 512);
         WARNING("TLS verification error for subject: '%s'\n", data);
-        WARNING("verify error:num=%d:%s:depth=%d\n", err, 
+        WARNING("verify error:num=%d:%s:depth=%d\n", err,
                 X509_verify_cert_error_string(err), depth);
     }
     return ok;
@@ -307,7 +307,6 @@ enum tls_init_status TLS_init_context(void)
 
     /* TLS Verification only makes sense if an CA is specified or
      * we require CRL validation. */
-    
     if (got_ca_file || got_crl_file) {
         if (got_crl_file) {
             if (sip_tls_load_crls(sip_trp_ssl_ctx, tls_crl_name) == -1) {
