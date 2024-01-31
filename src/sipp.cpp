@@ -1410,6 +1410,9 @@ int main(int argc, char *argv[])
 #ifdef PCAPPLAY
                        "-PCAP"
 #endif
+#ifdef USE_SHA256
+                       "-SHA256"
+#endif
                        );
 
                 printf
