@@ -2,7 +2,8 @@ SIP authentication
 ``````````````````
 
 SIPp supports SIP authentication. Two authentication algorithm are
-supported: Digest/MD5 ("algorithm="MD5"") and Digest/AKA
+supported: Digest/MD5 ("algorithm="MD5""),
+Digest/SHA-256 ("algorithm="SHA-256"") and Digest/AKA
 ("algorithm="AKAv1-MD5"", as specified by 3GPP for IMS).
 
 Enabling authentication is simple. When receiving a 401 (Unauthorized)
@@ -12,12 +13,12 @@ authorization header can be re-injected in the next message by using
 [authentication] keyword.
 
 Computing the authorization header is done through the usage of the
-"[authentication]" keyword. Depending on the algorithm ("MD5" or
-"AKAv1-MD5"), different parameters must be passed next to the
+"[authentication]" keyword. Depending on the algorithm ("MD5", "AKAv1-MD5" or
+"SHA-256"), different parameters must be passed next to the
 authentication keyword:
 
 
-+ Digest/MD5 (example: [authentication username=joe password=schmo])
++ Digest/MD5 and Digest/SHA-256 (example: [authentication username=joe password=schmo])
 
     + username : username: if no username is specified, the username is
       taken from the '-au' (authentication username) or '-s' (service)
