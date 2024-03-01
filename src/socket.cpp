@@ -1652,11 +1652,15 @@ int SIPpSocket::reconnect()
 }
 
 int SIPpSocket::bind_to_device(const char* device_name) {
+#ifdef SO_BINDTODEVICE
     if (setsockopt(this->ss_fd, SOL_SOCKET, SO_BINDTODEVICE,
                    device_name, strlen(device_name)) == -1) {
         ERROR_NO("setsockopt(SO_BINDTODEVICE) failed");
     }
     return 0;
+#else
+    ERROR("bind to device not supported on this platform.");
+#endif
 }
 
 
