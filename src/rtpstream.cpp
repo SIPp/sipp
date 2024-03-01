@@ -652,7 +652,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
 
     tv.tv_sec = 0;
-    tv.tv_usec = 10000; /* 10ms */
+    tv.tv_usec = 0; /* Never block on select */
 
     *comparison_acheck = 0;
     *comparison_vcheck = 0;
