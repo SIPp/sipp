@@ -322,7 +322,9 @@ MAYBE_EXTERN const char       * tls_crl_name            DEFVAL(DEFAULT_TLS_CRL);
 MAYBE_EXTERN double             tls_version             DEFVAL(0.0);
 #endif
 
+#ifdef SO_BINDTODEVICE
 MAYBE_EXTERN const char       * bind_to_device_name     DEFVAL(NULL);
+#endif
 
 MAYBE_EXTERN char*              scenario_file           DEFVAL(NULL);
 MAYBE_EXTERN char*              scenario_path           DEFVAL(NULL);
