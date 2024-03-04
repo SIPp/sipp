@@ -220,6 +220,8 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
         max_tls_version = min_tls_version = TLS1_1_VERSION;
     } else if (tls_version == 1.2) {
         max_tls_version = min_tls_version = TLS1_2_VERSION;
+    } else if (tls_version == 1.3) {
+        max_tls_version = min_tls_version = TLS1_3_VERSION;
     } else {
         ERROR("Unrecognized TLS version for [%s] context: %1.1f", context_name, tls_version);
         return NULL;
@@ -267,6 +269,12 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
             ssl_ctx = SSL_CTX_new(TLSv1_2_client_method());
         } else {
             ssl_ctx = SSL_CTX_new(TLSv1_2_server_method());
+        }
+    } else if (tls_version == 1.3) {
+        if (!strncmp(context_name, "client", 6)) {
+            ssl_ctx = SSL_CTX_new(TLSv1_3_client_method());
+        } else {
+            ssl_ctx = SSL_CTX_new(TLSv1_3_server_method());
         }
     } else {
         ERROR("Unrecognized TLS version for [%s] context: %1.1f", context_name, tls_version);
