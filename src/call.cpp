@@ -5242,7 +5242,9 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
             search_index < (int)call_scenario->messages.size();
             search_index++) {
         if (!matches_scenario(search_index, reply_code, request, responsecseqmethod, txn)) {
-            if (call_scenario->messages[search_index]->optional) {
+            if (call_scenario->messages[search_index]->optional ||
+                call_scenario->messages[search_index]->M_type == MSG_TYPE_RECVCMD ||
+                call_scenario->messages[search_index]->M_type == MSG_TYPE_SENDCMD) {
                 continue;
             }
             /* The received message is different for the expected one */
