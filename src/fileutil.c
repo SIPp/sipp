@@ -15,6 +15,8 @@
  */
 
 #include <defines.h>
+#include <errno.h>
+#include <pwd.h> //for getpwnam_r()
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,15 +24,93 @@
 
 extern char* scenario_path;
 
-char* find_file(const char* filename)
+int expand_user_path(const char *path, char *expanded_home_path /*The buffer*/, size_t buflen)
 {
-    char *fullpath;
-    if (filename[0] == '/' || !*scenario_path) {
-        return strdup(filename);
+    if(path[0] != '~')
+        return 1;
+
+    memset(expanded_home_path, '\0', buflen);
+    char *home_dir = NULL;
+
+    if (path[1] == '\0' || path[1] == '/')
+    { // '~/path' case
+        home_dir = getenv("HOME");
+        if (home_dir == NULL)
+        {
+            home_dir = getenv("USERPROFILE");
+        }
+        if (home_dir != NULL)
+        {
+            snprintf(expanded_home_path, buflen - 1, "%s%s", home_dir, path + 1);
+        }
+    }
+    else
+    {
+        const char *first_slash = NULL;
+        first_slash = strchr(path, '/');  // substring starting from '/'
+        size_t linux_username_limit = 32; // As of now
+        char *username = NULL;
+        if ((first_slash != NULL) && ((first_slash - (path + 1)) <= linux_username_limit))
+        { // '~/someuser/blah' case
+            username = strndup(path + 1, first_slash - (path + 1));
+        }
+        else
+        { // '~someuser' case
+            username = strndup(path + 1, strlen(path + 1));
+        }
+
+        struct passwd pwd;
+        struct passwd *result;
+        size_t bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+        char *buffer = (char *)malloc(bufsize + 1);
+        int retcode = getpwnam_r(username, &pwd, buffer, bufsize, &result);
+        if (result == NULL)
+        {
+            if (retcode != 0)
+            {
+                errno = retcode;
+            }
+            WARNING_NO("Unable to resolve home path for [%s]\n", path);
+            free(buffer);
+            free(username);
+            return -1;
+        }
+        else
+        {
+            home_dir = result->pw_dir;
+        }
+
+        if (home_dir != NULL)
+        {
+            if (first_slash != NULL)
+            { // '~username/path' case
+                snprintf(expanded_home_path, buflen - 1, "%s%s", home_dir, first_slash);
+            }
+            else
+            { // '~username' case?
+                snprintf(expanded_home_path, buflen - 1, "%s", home_dir);
+            }
+        }
+        free(buffer);
+        free(username);
     }
 
-    fullpath = malloc(MAX_PATH);
-    snprintf(fullpath, MAX_PATH, "%s%s", scenario_path, filename);
+    return 1;
+}
+
+char* find_file(const char* filename)
+{
+    char tmppath[MAX_PATH];
+    tmppath[0] = '\0';
+    expand_user_path(filename, tmppath, sizeof(tmppath));
+
+    if (tmppath[0] == '/' || !*scenario_path) {
+        return strdup(tmppath);
+    }
+
+    size_t len = strlen(scenario_path) + strlen(tmppath) + 1;
+    char *fullpath = malloc(len);
+    snprintf(fullpath, len, "%s%s", scenario_path, filename);
 
     if (access(fullpath, R_OK) < 0) {
         free(fullpath);
