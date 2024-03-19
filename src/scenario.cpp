@@ -148,6 +148,8 @@ int sendMode = MODE_CLIENT;
 /* This describes what our 3PCC behavior is. */
 int thirdPartyMode = MODE_3PCC_NONE;
 
+#define KEYWORD_SIZE 256
+
 /*************** Helper functions for various types *****************/
 long get_long(const char *ptr, const char *what)
 {
@@ -239,6 +241,20 @@ double get_double(const char *ptr, const char *what)
 static char* xp_get_keyword_value(const char *name)
 {
     const char* ptr = xp_get_value(name);
+    size_t len;
+    char keyword[KEYWORD_SIZE + 1];
+
+    if (ptr && ptr[0] == '[' && (len = strlen(ptr)) && ptr[len - 1] == ']') {
+        memcpy(keyword, ptr + 1, len - 2);
+
+        auto gen = generic.find(keyword);
+        if (gen != generic.end()) {
+            return strdup((*gen).second.c_str());
+        }
+
+        ERROR("%s \"%s\" looks like a keyword value, but keyword not supplied!", name, ptr);
+    }
+
     return ptr ? strdup(ptr) : NULL;
 }
 
@@ -1635,17 +1651,17 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setIntCmd(type);
 #ifdef PCAPPLAY
             } else if ((ptr = xp_get_keyword_value("play_pcap_audio"))) {
-                tmpAction->setMessage(ptr);
+                tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
                 hasMedia = 1;
                 free(ptr);
             } else if ((ptr = xp_get_keyword_value("play_pcap_image"))) {
-                tmpAction->setMessage(ptr);
+                tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_IMAGE);
                 hasMedia = 1;
                 free(ptr);
             } else if ((ptr = xp_get_keyword_value("play_pcap_video"))) {
-                tmpAction->setMessage(ptr);
+                tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
                 hasMedia = 1;
                 free(ptr);
@@ -1663,7 +1679,8 @@ void scenario::parseAction(CActions *actions)
             } else if (xp_get_value("play_dtmf")) {
                 ERROR("Scenario specifies a play_dtmf action, but this version of SIPp does not have PCAP support");
 #endif
-            } else if ((ptr = xp_get_keyword_value("rtp_stream"))) {
+            } else if ((cptr = xp_get_value("rtp_stream"))) {
+                ptr = strdup(cptr);
                 hasMedia = 1;
                 if (!strcmp(ptr, "pauseapattern"))
                 {
@@ -1705,7 +1722,8 @@ void scenario::parseAction(CActions *actions)
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PLAY);
                 }
                 free(ptr);
-            } else if ((ptr = xp_get_keyword_value("rtp_echo"))) {
+            } else if ((cptr = xp_get_value("rtp_echo"))) {
+                ptr = strdup(cptr);
                 hasMedia = 1;
                 if (!strncmp(ptr, "startaudio", 10))
                 {
