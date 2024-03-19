@@ -1,7 +1,13 @@
+BREAKING(!) changes in 3.7.3
+============================
+
+- Remove support for variables in the rtpstream/pcap filenames (introduced in 3.7.0~rc1)
+
 Bugs fixed in 3.7.3
 ===================
 
 - Recovered `-mp` and `[auto_media_port]` to maintain backwards compatibility. (by Orgad Shaneh)
+- Fix pcapplay segfaults, use-after-free, scalability (Issue #576, Issue #610, Issue #673)
 
 Bugs fixed in 3.7.2
 ===================
