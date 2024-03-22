@@ -6077,12 +6077,6 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                    (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
             play_args_t* play_args = 0;
             if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
-                (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_IMAGE) ||
-                (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO)) {
-                const char *fileName = createSendingMessage(currentAction->getMessage());
-                currentAction->setPcapArgs(fileName);
-            }
-            if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
                 (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
                 play_args = &(this->play_args_a);
             } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_IMAGE) {
