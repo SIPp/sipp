@@ -216,6 +216,8 @@ action controls this.
   playback.
 + <exec rtp_stream="resume" /> will resume any currently paused
   playback.
++ <exec rtp_stream="wait" [timeout="10000"] /> will wait for the active
+  playback to end before proceeding to the next action.
 
 
 PCAP play commands (specified using play_pcap_audio / play_pcap_video
