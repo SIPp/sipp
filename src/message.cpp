@@ -95,7 +95,7 @@ struct KeywordMap SimpleKeywords[] = {
     {"ueaescm128sha1322video" , E_Message_UEAesCm128Sha1322Video },
 #endif // USE_TLS
     {"media_port", E_Message_Media_Port },
-    {"auto_media_port", E_Message_Media_Port },
+    {"auto_media_port", E_Message_Auto_Media_Port },
     {"media_ip_type", E_Message_Media_IP_Type },
     {"call_number", E_Message_Call_Number },
     {"dynamic_id", E_Message_DynamicId }, // wrapping global counter
