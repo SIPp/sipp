@@ -91,7 +91,7 @@ std::string join(const std::vector<std::string> &s, const char* delim) {
 
 std::string trim(const std::string &s) {
     size_t first = s.find_first_not_of(' ');
-    if (first == string::npos) {
+    if (first == std::string::npos) {
         return s;
     }
     size_t last = s.find_last_not_of(' ');
@@ -100,7 +100,7 @@ std::string trim(const std::string &s) {
 
 #define callDebug(...) do { if (useCallDebugf) { _callDebug( __VA_ARGS__ ); } } while (0)
 
-extern  map<string, SIPpSocket *>     map_perip_fd;
+extern  std::map<std::string, SIPpSocket *>     map_perip_fd;
 
 #ifdef PCAPPLAY
 /* send_packets pthread wrapper */
@@ -1323,8 +1323,7 @@ bool call::connect_socket_if_needed()
         } else {
             char *tmp = peripaddr;
             getFieldFromInputFile(ip_file, peripfield, NULL, tmp);
-            map<string, SIPpSocket *>::iterator i;
-            i = map_perip_fd.find(peripaddr);
+            auto i = map_perip_fd.find(peripaddr);
             if (i == map_perip_fd.end()) {
                 // Socket does not exist
                 if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
@@ -2143,7 +2142,7 @@ bool call::run()
             bInviteTransaction = true;
         }
 
-        int rtAllowed = min(bInviteTransaction ? max_invite_retrans : max_non_invite_retrans, max_udp_retrans);
+        int rtAllowed = std::min(bInviteTransaction ? max_invite_retrans : max_non_invite_retrans, max_udp_retrans);
 
         callDebug("Retransmisison required (%d retransmissions, max %d)\n", nb_retrans, rtAllowed);
 
@@ -4355,7 +4354,7 @@ void call::formatNextReqUrl(const char* contact)
         contact++;
         next_req_url[0] = '\0';
         strncat(next_req_url, contact,
-                min(MAX_HEADER_LEN - 1, (int)(end - contact))); /* fits MAX_HEADER_LEN */
+                std::min(MAX_HEADER_LEN - 1, (int)(end - contact))); /* fits MAX_HEADER_LEN */
     } else {
         next_req_url[0] = '\0';
         strncat(next_req_url, contact, MAX_HEADER_LEN - 1);
@@ -5988,14 +5987,14 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_URLDECODE) {
             CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
-            string input = var->getString();
-            string output = url_decode(input);
+            std::string input = var->getString();
+            std::string output = url_decode(input);
             char *char_output = strdup(output.c_str());
             var->setString(char_output);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_URLENCODE) {
             CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
-            string input = var->getString();
-            string output = url_encode(input);
+            std::string input = var->getString();
+            std::string output = url_encode(input);
             char *char_output = strdup(output.c_str());
             var->setString(char_output);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TO_DOUBLE) {

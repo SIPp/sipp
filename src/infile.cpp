@@ -31,10 +31,10 @@
  */
 FileContents::FileContents(const char *fileName)
 {
-    ifstream *inFile    = new ifstream(fileName);
+    std::ifstream inFile(fileName);
     int virtualLines = 0;
 
-    if (!inFile->good()) {
+    if (!inFile.good()) {
         ERROR("Unable to open file %s", fileName);
     }
 
@@ -48,7 +48,7 @@ FileContents::FileContents(const char *fileName)
 
 
     std::string lineStr;
-    std::getline(*inFile, lineStr);
+    std::getline(inFile, lineStr);
     if (!lineStr.empty() && *lineStr.rbegin() == '\r') {
         lineStr.pop_back();
     }
@@ -110,9 +110,9 @@ FileContents::FileContents(const char *fileName)
         }
     }
 
-    while (!inFile->eof()) {
+    while (!inFile.eof()) {
         lineStr.clear();
-        std::getline(*inFile, lineStr);
+        std::getline(inFile, lineStr);
         if (!lineStr.empty()) {
             if ('#' != lineStr[0]) {
                 fileLines.push_back(lineStr);
@@ -132,8 +132,6 @@ FileContents::FileContents(const char *fileName)
     } else {
         numLinesInFile = realLinesInFile;
     }
-
-    delete inFile;
 
     indexMap = NULL;
     indexField = -1;
@@ -160,7 +158,7 @@ int FileContents::getField(int lineNum, int field, char *dest, int len)
     if (printfFile) {
         curline %= realLinesInFile;
     }
-    const string & line = fileLines[curline];
+    const std::string & line = fileLines[curline];
 
     size_t pos(0), oldpos(0);
 
@@ -168,7 +166,7 @@ int FileContents::getField(int lineNum, int field, char *dest, int len)
         oldpos = pos;
         size_t localpos = line.find(';', oldpos);
 
-        if (localpos != string::npos) {
+        if (localpos != std::string::npos) {
             pos = localpos + 1;
         } else {
             pos = localpos;
@@ -180,7 +178,7 @@ int FileContents::getField(int lineNum, int field, char *dest, int len)
         }
 
         curfield --;
-    } while (oldpos != string::npos);
+    } while (oldpos != std::string::npos);
 
 
     if (curfield) {
@@ -189,16 +187,16 @@ int FileContents::getField(int lineNum, int field, char *dest, int len)
     }
 
 
-    if (string::npos == oldpos) {
+    if (std::string::npos == oldpos) {
         return 0;
     }
 
-    if (string::npos != pos) {
+    if (std::string::npos != pos) {
         // should not be decremented for fieldN
         pos -= (oldpos + 1);
     }
 
-    string x = line.substr(oldpos, pos);
+    std::string x = line.substr(oldpos, pos);
     if (x.length()) {
         if (printfFile) {
             const char *s = x.c_str();
@@ -357,7 +355,7 @@ void FileContents::reIndex(int line)
     if (index_it != indexMap->end()) {
         indexMap->erase(index_it);
     }
-    indexMap->insert(pair<str_int_map::key_type,int>(str_int_map::key_type(tmp), line));
+    indexMap->insert(std::pair<str_int_map::key_type,int>(str_int_map::key_type(tmp), line));
 }
 
 void FileContents::deIndex(int line)
