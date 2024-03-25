@@ -42,23 +42,23 @@ message::message(int index, const char *desc)
 {
     this->index = index;
     this->desc = desc;
-    pause_distribution = NULL; // delete on exit
+    pause_distribution = nullptr; // delete on exit
     pause_variable = -1;
-    pause_desc = NULL; // free on exit
+    pause_desc = nullptr; // free on exit
     sessions = 0;
     bShouldRecordRoutes = 0;
     bShouldAuthenticate = 0;
 
-    send_scheme = NULL; // delete on exit
+    send_scheme = nullptr; // delete on exit
     retrans_delay = 0;
     timeout = 0;
 
     recv_response = 0;
-    recv_request = NULL; // free on exit
+    recv_request = nullptr; // free on exit
     optional = 0;
     advance_state = true;
     regexp_match = 0;
-    regexp_compile = NULL; // regfree (if not NULL) and free on exit
+    regexp_compile = nullptr; // regfree (if not nullptr) and free on exit
 
     /* Anyway */
     start_rtd = 0;
@@ -68,20 +68,20 @@ message::message(int index, const char *desc)
     crlf = 0;
     ignoresdp = false;
     hide = 0;
-    display_str = NULL; // free on exit
+    display_str = nullptr; // free on exit
     test = -1;
     condexec = -1;
     condexec_inverse = false;
     chance = 0;/* meaning always */
     next = -1;
-    nextLabel = NULL; // free on exit
+    nextLabel = nullptr; // free on exit
     on_timeout = -1;
-    onTimeoutLabel = NULL; // free on exit
+    onTimeoutLabel = nullptr; // free on exit
     timewait = false;
 
     /* 3pcc extended mode */
-    peer_dest = NULL; // free on exit
-    peer_src = NULL; // free on exit
+    peer_dest = nullptr; // free on exit
+    peer_src = nullptr; // free on exit
 
     /* Statistics */
     nb_sent = 0;
@@ -93,11 +93,11 @@ message::message(int index, const char *desc)
     nb_lost = 0;
     counter = 0;
 
-    M_actions = NULL; // delete on exit
+    M_actions = nullptr; // delete on exit
 
     M_type = 0;
 
-    M_sendCmdData = NULL; // delete on exit
+    M_sendCmdData = nullptr; // delete on exit
     M_nbCmdSent = 0;
     M_nbCmdRecv = 0;
 
@@ -107,7 +107,7 @@ message::message(int index, const char *desc)
     start_txn = 0;
     response_txn = 0;
     ack_txn = 0;
-    recv_response_for_cseq_method_list = NULL; // free on exit
+    recv_response_for_cseq_method_list = nullptr; // free on exit
 }
 
 message::~message()
@@ -116,7 +116,7 @@ message::~message()
     free(pause_desc);
     delete(send_scheme);
     free(recv_request);
-    if (regexp_compile != NULL) {
+    if (regexp_compile != nullptr) {
         regfree(regexp_compile);
     }
     free(regexp_compile);
@@ -256,7 +256,7 @@ static char* xp_get_keyword_value(const char *name)
         ERROR("%s \"%s\" looks like a keyword value, but keyword not supplied!", name, ptr);
     }
 
-    return ptr ? strdup(ptr) : NULL;
+    return ptr ? strdup(ptr) : nullptr;
 }
 #endif
 
@@ -612,7 +612,7 @@ int get_cr_number(const char *src)
     return res;
 }
 
-static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
+static char* clean_cdata(char *ptr, int *removed_crlf = nullptr)
 {
     char * msg;
 
@@ -675,7 +675,7 @@ void scenario::checkOptionalRecv(char *elem, unsigned int scenario_file_cursor)
 scenario::scenario(char * filename, int deflt)
 {
     char * elem;
-    char *method_list = NULL;
+    char *method_list = nullptr;
     unsigned int scenario_file_cursor = 0;
     int    L_content_length = 0 ;
     char * peer;
@@ -732,7 +732,7 @@ scenario::scenario(char * filename, int deflt)
         } else if(!strcmp(elem, "Global")) {
             ptr = xp_get_string("variables", "Global");
 
-            char **       currentTabVarName = NULL;
+            char **       currentTabVarName = nullptr;
             int           currentNbVarNames;
 
             createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
@@ -744,7 +744,7 @@ scenario::scenario(char * filename, int deflt)
         } else if(!strcmp(elem, "User")) {
             ptr = xp_get_string("variables", "User");
 
-            char **       currentTabVarName = NULL;
+            char **       currentTabVarName = nullptr;
             int           currentNbVarNames;
 
             createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
@@ -756,7 +756,7 @@ scenario::scenario(char * filename, int deflt)
         } else if(!strcmp(elem, "Reference")) {
             ptr = xp_get_string("variables", "Reference");
 
-            char **       currentTabVarName = NULL;
+            char **       currentTabVarName = nullptr;
             int           currentNbVarNames;
 
             createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
@@ -1060,7 +1060,7 @@ void scenario::runInit()
 {
     call *initcall;
     if (initmessages.size() > 0) {
-        initcall = new call(main_scenario, NULL, NULL, "///main-init", 0, false, false, true);
+        initcall = new call(main_scenario, nullptr, nullptr, "///main-init", 0, false, false, true);
         initcall->run();
     }
 }
@@ -1111,7 +1111,7 @@ scenario::~scenario()
 
 CSample *parse_distribution(bool oldstyle = false)
 {
-    CSample *distribution = NULL;
+    CSample *distribution = nullptr;
     const char *distname;
     const char *ptr = 0;
 
@@ -1217,12 +1217,12 @@ void parse_slave_cfg()
 
     f = fopen(slave_cfg_file, "r");
     if(f) {
-        while (fgets(line, MAX_PEER_SIZE, f) != NULL) {
+        while (fgets(line, MAX_PEER_SIZE, f) != nullptr) {
             temp_peer = strtok(line, ";");
             if (!temp_peer)
                 continue;
 
-            temp_host = strtok(NULL, ";");
+            temp_host = strtok(nullptr, ";");
             if (!temp_host)
                 continue;
 
@@ -1366,7 +1366,7 @@ void scenario::parseAction(CActions *actions)
 {
     char *        actionElem;
     unsigned int recvScenarioLen = 0;
-    char **       currentTabVarName = NULL;
+    char **       currentTabVarName = nullptr;
     int           currentNbVarNames;
     int           sub_currentNbVarId;
     char* ptr;
@@ -1390,10 +1390,10 @@ void scenario::parseAction(CActions *actions)
 
                 if (strcmp(cptr, "msg") == 0) {
                     tmpAction->setLookingPlace(CAction::E_LP_MSG);
-                    tmpAction->setLookingChar (NULL);
+                    tmpAction->setLookingChar (nullptr);
                 } else if (strcmp(cptr, "body") == 0) {
                     tmpAction->setLookingPlace(CAction::E_LP_BODY);
-                    tmpAction->setLookingChar (NULL);
+                    tmpAction->setLookingChar (nullptr);
                 } else if (strcmp(cptr, "var") == 0) {
                     tmpAction->setVarInId(xp_get_var("variable", "ereg"));
                     tmpAction->setLookingPlace(CAction::E_LP_VAR);
@@ -1415,7 +1415,7 @@ void scenario::parseAction(CActions *actions)
                 }
             } else {
                 tmpAction->setLookingPlace(CAction::E_LP_MSG);
-                tmpAction->setLookingChar(NULL);
+                tmpAction->setLookingChar(nullptr);
             } // end if-else search_in
 
             if (xp_get_value("check_it")) {
@@ -1576,7 +1576,7 @@ void scenario::parseAction(CActions *actions)
             tmpAction->setActionType(CAction::E_AT_VERIFY_AUTH);
             free(username_ptr);
             free(password_ptr);
-            username_ptr = password_ptr = NULL;
+            username_ptr = password_ptr = nullptr;
         } else if(!strcmp(actionElem, "lookup")) {
             tmpAction->setVarId(xp_get_var("assign_to", "lookup"));
             tmpAction->setMessage(xp_get_string("file", "lookup"), 0);
@@ -1791,7 +1791,7 @@ void scenario::getActionForThisMessage(message *message)
     }
 
     /* We actually have an action element. */
-    if (message->M_actions != NULL) {
+    if (message->M_actions != nullptr) {
         ERROR("Duplicate action for %s index %d", message->desc, message->index);
     }
     message->M_actions = new CActions();
@@ -1977,7 +1977,7 @@ int createStringTable(const char* inputString, char*** stringList, int* sizeOfLi
         return 0;
     }
 
-    *stringList = NULL;
+    *stringList = nullptr;
     *sizeOfList = 0;
 
     /* FIXME: temporary workaround: needs rewrite */

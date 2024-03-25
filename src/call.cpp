@@ -406,8 +406,8 @@ int call::check_video_ciphersuite_match(SrtpVideoInfoParams &pV)
 #define SDP_VIDEOCRYPTO_PREFIX "\na=crypto:"
 int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, SrtpVideoInfoParams &pV)
 {
-    const char* ro_search = NULL;
-    const char* alt_search = NULL;
+    const char* ro_search = nullptr;
+    const char* alt_search = nullptr;
 
     pA.audio_found = false;
     pV.video_found = false;
@@ -430,8 +430,8 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
     pA.secondary_unencrypted_audio_srtp = false;
     pV.secondary_unencrypted_video_srtp = false;
 
-    char* sdp_body = NULL;
-    char* sdp_body_remember = NULL;
+    char* sdp_body = nullptr;
+    char* sdp_body_remember = nullptr;
 
     std::size_t mline_sol = 0; /* Start of m-line line */
     std::size_t mline_eol = 0; /* End of m-line line */
@@ -442,7 +442,7 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
     char crypto_audio_sessionparams[64];
     char crypto_video_sessionparams[64];
 
-    char* checkUESRTP = NULL;
+    char* checkUESRTP = nullptr;
     bool audioExists = false;
     bool videoExists = false;
     std::size_t cur_pos = 0;
@@ -787,7 +787,7 @@ unsigned long call::hash(const char * msg)
 /******************* Call class implementation ****************/
 call::call(const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest) : listener(p_id, true)
 {
-    init(main_scenario, NULL, dest, p_id, userId, use_ipv6, false, false);
+    init(main_scenario, nullptr, dest, p_id, userId, use_ipv6, false, false);
 }
 
 call::call(const char *p_id, SIPpSocket *socket, struct sockaddr_storage *dest) : listener(p_id, true)
@@ -834,14 +834,14 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
     }
     call_id[count] = 0;
 
-    return new call(main_scenario, NULL, dest, call_id, userId, ipv6, false /* Not Auto. */, false);
+    return new call(main_scenario, nullptr, dest, call_id, userId, ipv6, false /* Not Auto. */, false);
 }
 
 
 void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall)
 {
 #ifdef USE_TLS
-    _srtpctxdebugfile = NULL;
+    _srtpctxdebugfile = nullptr;
 
     if (srtpcheck_debug)
     {
@@ -854,7 +854,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
             _srtpctxdebugfile = fopen("srtpctxdebugfile_uas", "w");
         }
 
-        if (_srtpctxdebugfile == NULL)
+        if (_srtpctxdebugfile == nullptr)
         {
             /* error encountered opening srtp ctx debug file */
             WARNING("Error encountered opening srtp ctx debug file");
@@ -868,17 +868,17 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     this->call_scenario = call_scenario;
     zombie = false;
 
-    debugBuffer = NULL;
+    debugBuffer = nullptr;
     debugLength = 0;
 
     msg_index = 0;
     last_send_index = 0;
-    last_send_msg = NULL;
+    last_send_msg = nullptr;
     last_send_len = 0;
 
     last_recv_hash = 0;
     last_recv_index = -1;
-    last_recv_msg = NULL;
+    last_recv_msg = nullptr;
 
     last_recv_invite_cseq = 0;
 
@@ -886,8 +886,8 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     recv_retrans_recv_index = -1;
     recv_retrans_send_index = -1;
 
-    dialog_route_set = NULL;
-    next_req_url = NULL;
+    dialog_route_set = nullptr;
+    next_req_url = nullptr;
 
     cseq = 0;
 
@@ -898,18 +898,18 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     paused_until = 0;
 
     call_port = 0;
-    comp_state = NULL;
+    comp_state = nullptr;
 
     start_time = clock_tick;
     call_established=false ;
     ack_is_pending=false ;
-    last_recv_msg = NULL;
+    last_recv_msg = nullptr;
     cseq = base_cseq;
     nb_last_delay = 0;
     use_ipv6 = ipv6;
-    queued_msg = NULL;
+    queued_msg = nullptr;
 
-    dialog_authentication = NULL;
+    dialog_authentication = nullptr;
     dialog_challenge_type = 0;
 
     next_nonce_count = 1;
@@ -963,12 +963,12 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     play_args_v.last_seq_no = 2400;
 #endif
 
-    call_remote_socket = NULL;
+    call_remote_socket = nullptr;
     if (socket) {
         associate_socket(socket);
         socket->ss_count++;
     } else {
-        call_socket = NULL;
+        call_socket = nullptr;
     }
     if (dest) {
         memcpy(&call_peer, dest, sizeof(call_peer));
@@ -978,7 +978,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
 
     // initialising the CallVariable with the Scenario variable
     int i;
-    VariableTable *userVars = NULL;
+    VariableTable *userVars = nullptr;
     bool putUserVars = false;
     if (userId) {
         int_vt_map::iterator it = userVarMap.find(userId);
@@ -998,7 +998,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     } else if (globalVariables->size > 0) {
         M_callVariableTable = globalVariables->getTable();
     } else {
-        M_callVariableTable = NULL;
+        M_callVariableTable = nullptr;
     }
     if (putUserVars) {
         userVars->putTable();
@@ -1008,7 +1008,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
         transactions = (struct txnInstanceInfo *)malloc(sizeof(txnInstanceInfo) * call_scenario->transactions.size());
         memset(transactions, 0, sizeof(struct txnInstanceInfo) * call_scenario->transactions.size());
     } else {
-        transactions = NULL;
+        transactions = nullptr;
     }
 
     // If not updated by a message we use the start time
@@ -1043,7 +1043,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
             (*m_lineNumber)[file_it->first] = file_it->second->nextLine(userId);
         }
     } else {
-        m_lineNumber = NULL;
+        m_lineNumber = nullptr;
     }
     this->initCall = isInitCall;
 
@@ -1058,7 +1058,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     media_thread = 0;
 #endif
 
-    peer_tag = NULL;
+    peer_tag = nullptr;
     recv_timeout = 0;
     send_timeout = 0;
     timewait = false;
@@ -1095,7 +1095,7 @@ bool call::checkAckCSeq(const char* msg)
 {
     static char request[65];
     unsigned long int rcseq = 0;
-    const char* ptr = NULL;
+    const char* ptr = nullptr;
 
     rcseq = get_cseq_value(msg);
     memset(request, 0, sizeof(request));
@@ -1138,7 +1138,7 @@ int call::_callDebug(const char *fmt, ...)
 
     /* First we figure out how much to allocate. */
     va_start(ap, fmt);
-    int ret = vsnprintf(NULL, 0, fmt, ap);
+    int ret = vsnprintf(nullptr, 0, fmt, ap);
     va_end(ap);
 
     debugBuffer = (char *)realloc(debugBuffer, debugLength + ret + TIME_LENGTH + 2);
@@ -1147,7 +1147,7 @@ int call::_callDebug(const char *fmt, ...)
     }
 
     struct timeval now;
-    gettimeofday(&now, NULL);
+    gettimeofday(&now, nullptr);
     debugLength += snprintf(debugBuffer + debugLength, TIME_LENGTH + 2, "%s ", CStat::formatTime(&now));
 
     va_start(ap, fmt);
@@ -1218,7 +1218,7 @@ call::~call()
 # ifdef PCAPPLAY
     if (media_thread != 0) {
         pthread_cancel(media_thread);
-        pthread_join(media_thread, NULL);
+        pthread_join(media_thread, nullptr);
     }
 #endif
 
@@ -1230,7 +1230,7 @@ call::~call()
     if (srtpcheck_debug)
     {
         fclose(_srtpctxdebugfile);
-        _srtpctxdebugfile = NULL;
+        _srtpctxdebugfile = nullptr;
     }
 #endif // USE_TLS
 }
@@ -1317,16 +1317,16 @@ bool call::connect_socket_if_needed()
 
         char peripaddr[256];
         if (!peripsocket) {
-            if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+            if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == nullptr) {
                 ERROR_NO("Unable to get a UDP socket (1)");
             }
         } else {
             char *tmp = peripaddr;
-            getFieldFromInputFile(ip_file, peripfield, NULL, tmp);
+            getFieldFromInputFile(ip_file, peripfield, nullptr, tmp);
             auto i = map_perip_fd.find(peripaddr);
             if (i == map_perip_fd.end()) {
                 // Socket does not exist
-                if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+                if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == nullptr) {
                     ERROR_NO("Unable to get a UDP socket (2)");
                 } else {
                     /* Ensure that it stays persistent, because it is recorded in the map. */
@@ -1361,7 +1361,7 @@ bool call::connect_socket_if_needed()
     } else { /* TCP, SCTP or TLS. */
         struct sockaddr_storage *L_dest = &remote_sockaddr;
 
-        if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+        if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == nullptr) {
             ERROR_NO("Unable to get a TCP/SCTP/TLS socket");
         }
         call_socket->ss_count++;
@@ -1427,7 +1427,7 @@ bool call::lost(int index)
     }
 
     if(!inited) {
-        srand((unsigned int) time(NULL));
+        srand((unsigned int) time(nullptr));
         inited = 1;
     }
 
@@ -1461,7 +1461,7 @@ int call::send_raw(const char * msg, int index, int len)
             if (multisocket || !main_remote_socket) {
                 struct sockaddr_storage *L_dest = &remote_sending_sockaddr;
 
-                if((call_remote_socket= new_sipp_socket(use_ipv6, transport)) == NULL) {
+                if((call_remote_socket= new_sipp_socket(use_ipv6, transport)) == nullptr) {
                     ERROR_NO("Unable to get a socket for rsa option");
                 }
 
@@ -1531,7 +1531,7 @@ char * call::get_header_field_code(const char *msg, const char * name)
     const char * last_header;
     int i;
 
-    last_header = NULL;
+    last_header = nullptr;
     i = 0;
     /* If we find the field in msg */
     last_header = get_header_content(msg, name);
@@ -1549,7 +1549,7 @@ char * call::get_last_header(const char * name)
     int len;
 
     if((!last_recv_msg) || (!strlen(last_recv_msg))) {
-        return NULL;
+        return nullptr;
     }
 
     len = strlen(name);
@@ -1625,7 +1625,7 @@ char * call::send_scene(int index, int *send_status, int *len)
     /* Socket port must be known before string substitution */
     if (!connect_socket_if_needed()) {
         *send_status = -2;
-        return NULL;
+        return nullptr;
     }
 
     assert(call_socket);
@@ -1641,7 +1641,7 @@ char * call::send_scene(int index, int *send_status, int *len)
 
     if (!dest) {
         *send_status = -2;
-        return NULL;
+        return nullptr;
     }
 
     L_ptr1=msg_name ;
@@ -1871,7 +1871,7 @@ bool call::executeMessage(message *curmsg)
         /* Increment the number of sessions in pause state */
         curmsg->sessions++;
         do_bookkeeping(curmsg);
-        executeAction(NULL, curmsg);
+        executeAction(nullptr, curmsg);
         callDebug("Pausing call until %d (is now %ld).\n", paused_until, clock_tick);
         setPaused();
         return true;
@@ -1891,12 +1891,12 @@ bool call::executeMessage(message *curmsg)
         next_retrans = 0;
 
         do_bookkeeping(curmsg);
-        executeAction(NULL, curmsg);
+        executeAction(nullptr, curmsg);
         return(next());
     } else if(curmsg -> M_type == MSG_TYPE_NOP) {
         callDebug("Executing NOP at index %d.\n", curmsg->index);
         do_bookkeeping(curmsg);
-        actionResult = executeAction(NULL, curmsg);
+        actionResult = executeAction(nullptr, curmsg);
         last_action_result = actionResult;
         if (actionResult == E_AR_RTPECHO_ERROR)
         {
@@ -2037,7 +2037,7 @@ bool call::executeMessage(message *curmsg)
               ) {
         if (queued_msg) {
             char *msg = queued_msg;
-            queued_msg = NULL;
+            queued_msg = nullptr;
             bool ret = process_incoming(msg);
             free(msg);
             return ret;
@@ -2419,11 +2419,11 @@ bool call::abortCall(bool writeLog)
 {
     int is_inv;
 
-    char * src_recv = NULL ;
+    char * src_recv = nullptr ;
 
     callDebug("Aborting call %s (index %d).\n", id, msg_index);
 
-    if (last_send_msg != NULL) {
+    if (last_send_msg != nullptr) {
         is_inv = !strncmp(last_send_msg, "INVITE", 6);
     } else {
         is_inv = false;
@@ -2566,9 +2566,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, int *msgLen)
 
 char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buffer, int buf_len, int *msgLen)
 {
-    char * length_marker = NULL;
-    char * auth_marker = NULL;
-    MessageComponent *auth_comp = NULL;
+    char * length_marker = nullptr;
+    char * auth_marker = nullptr;
+    MessageComponent *auth_comp = nullptr;
     bool auth_comp_allocated = false;
     int    len_offset = 0;
     char *dest = msg_buffer;
@@ -2659,7 +2659,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
             char address[INET6_ADDRSTRLEN];
             if (getnameinfo(_RCAST(sockaddr*, &server_sockaddr), len, address, sizeof(address),
-                            NULL, 0, NI_NUMERICHOST) < 0) {
+                            nullptr, 0, NI_NUMERICHOST) < 0) {
                 ERROR_NO("Unable to get socket name information");
             }
 
@@ -2686,7 +2686,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if (begin == msg_buffer) {
                 ERROR("Can not find beginning of a line for the media port!");
             }
-            play_args_t* play_args = NULL;
+            play_args_t* play_args = nullptr;
             if (strstr(begin, "audio")) {
                 play_args = &play_args_a;
             } else if (strstr(begin, "image")) {
@@ -2697,7 +2697,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 // This check will not do, as we use the media_port in other places too.
                 //ERROR("media_port keyword with no audio or video on the current line (%s)", begin);
             }
-            if (play_args != NULL) {
+            if (play_args != nullptr) {
                 if (media_ip_is_ipv6) {
                     (_RCAST(struct sockaddr_in6 *, &(play_args->from)))->sin6_port = htons(port);
                 } else {
@@ -3820,7 +3820,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         case E_Message_Timestamp:
             struct timeval currentTime;
-            gettimeofday(&currentTime, NULL);
+            gettimeofday(&currentTime, nullptr);
             dest += snprintf(dest, left, "%s", CStat::formatTime(&currentTime));
             break;
         case E_Message_Date:
@@ -3828,7 +3828,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             time_t t;
             struct tm *tm;
 
-            t = time(NULL);
+            t = time(nullptr);
             tm = gmtime(&t);
             /* changed %Z to hardcoded GMT since in some OS like FreeBSD it could return UTC instead, see issue #535 */
             strftime(buf, 256, "%a, %d %b %Y %T GMT", tm);
@@ -3977,8 +3977,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
     }
     /* Need the body for length and auth-int calculation */
-    char *body = NULL;
-    const char *auth_body = NULL;
+    char *body = nullptr;
+    const char *auth_body = nullptr;
     if (length_marker || auth_marker) {
         body = strstr(msg_buffer, "\r\n\r\n");
         if (body) {
@@ -4433,7 +4433,7 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
 
     if ((curmsg->recv_request)) {
         if (curmsg->regexp_match) {
-            if (curmsg->regexp_compile == NULL) {
+            if (curmsg->regexp_compile == nullptr) {
                 regex_t *re = new regex_t;
                 /* No regex match position needed (NOSUB), we're simply
                  * looking for the <request method="INVITE|REGISTER"../>
@@ -4443,7 +4443,7 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
                 }
                 curmsg->regexp_compile = re;
             }
-            return !regexec(curmsg->regexp_compile, request, (size_t)0, NULL, REGEXEC_PARAMS);
+            return !regexec(curmsg->regexp_compile, request, (size_t)0, nullptr, REGEXEC_PARAMS);
         } else {
             return !strcmp(curmsg->recv_request, request);
         }
@@ -4549,7 +4549,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 
             call_scenario->messages[recv_retrans_recv_index] -> nb_recv_retrans++;
 
-            send_scene(recv_retrans_send_index, &status, NULL);
+            send_scene(recv_retrans_send_index, &status, nullptr);
 
             if(status >= 0) {
                 call_scenario->messages[recv_retrans_send_index] -> nb_sent_retrans++;
@@ -5455,7 +5455,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 
     /* store the route set only once. TODO: does not support target refreshes!! */
     if (call_scenario->messages[search_index]->bShouldRecordRoutes &&
-            dialog_route_set == NULL) {
+            dialog_route_set == nullptr) {
         realloc_ptr = (char*)realloc(next_req_url, MAX_HEADER_LEN);
         if (realloc_ptr) {
             next_req_url = realloc_ptr;
@@ -5589,13 +5589,13 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 
     actions = curmsg->M_actions;
     // looking for action to do on this message
-    if (actions == NULL) {
+    if (actions == nullptr) {
         return(call::E_AR_NO_ERROR);
     }
 
     for (int i = 0; i < actions->getActionSize(); i++) {
         currentAction = actions->getAction(i);
-        if(currentAction == NULL) {
+        if(currentAction == nullptr) {
             continue;
         }
 
@@ -5603,7 +5603,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             char msgPart[MAX_SUB_MESSAGE_LENGTH];
 
             /* Where to look. */
-            const char* haystack = NULL;
+            const char* haystack = nullptr;
 
             if(currentAction->getLookingPlace() == CAction::E_LP_HDR) {
                 extractSubMessage (msg,
@@ -5665,7 +5665,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             M_callVariableTable->getVar(currentAction->getVarId())->setDouble(msg_index);
         } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
             struct timeval tv;
-            gettimeofday(&tv, NULL);
+            gettimeofday(&tv, nullptr);
             M_callVariableTable->getVar(currentAction->getVarId())->setDouble((double)tv.tv_sec);
             M_callVariableTable->getVar(currentAction->getSubVarId(0))->setDouble((double)tv.tv_usec);
         } else if (currentAction->getActionType() == CAction::E_AT_LOOKUP) {
@@ -5719,7 +5719,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_CLOSE_CON) {
             if (call_socket) {
                 call_socket->close();
-                call_socket = NULL;
+                call_socket = nullptr;
             }
         } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST) {
             /* Change the destination for this call. */
@@ -5749,7 +5749,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             if (!call_socket && ((protocol == T_TCP && transport == T_TCP) ||
                                  (protocol == T_SCTP && transport == T_SCTP))) {
                 bool existing;
-                if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == NULL) {
+                if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == nullptr) {
                     switch (protocol) {
                     case T_SCTP:
                         ERROR_NO("Unable to get a SCTP socket");
@@ -5853,7 +5853,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 char *password = strdup(tmp);
                 /* Need the body for length and auth-int calculation */
                 const char *body;
-                const char *auth_body = NULL;
+                const char *auth_body = nullptr;
                 body = strstr(msg, "\r\n\r\n");
                 if (body) {
                     auth_body = body;
@@ -6053,7 +6053,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 // parent process continue
                 // reap first child immediately
                 pid_t ret;
-                while ((ret=waitpid(l_pid, NULL, 0)) != l_pid) {
+                while ((ret=waitpid(l_pid, nullptr, 0)) != l_pid) {
                     if (ret != -1) {
                         ERROR("waitpid returns %1ld for child %1ld", (long) ret, (long) l_pid);
                     }
@@ -6094,7 +6094,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             if (media_thread != 0) {
                 // If a media_thread is already active, kill it before starting a new one
                 pthread_cancel(media_thread);
-                pthread_join(media_thread, NULL);
+                pthread_join(media_thread, nullptr);
                 media_thread = 0;
             }
 
@@ -6489,7 +6489,7 @@ void call::extractSubMessage(const char* msg, char* matchingString, char* result
     while (*ptr) {
         if (!case_indep) {
             ptr = strstr(ptr, matchingString);
-            if (ptr == NULL) break;
+            if (ptr == nullptr) break;
             if (headers == true && ptr != msg && *(ptr-1) != '\n') {
                 ++ptr;
                 continue;
@@ -6498,18 +6498,18 @@ void call::extractSubMessage(const char* msg, char* matchingString, char* result
             if (headers) {
                 if (ptr != msg) {
                     ptr = strchr(ptr, '\n');
-                    if (ptr == NULL) break;
+                    if (ptr == nullptr) break;
                     ++ptr;
                     if (*ptr == 0) break;
                 }
             } else {
                 ptr1 = strchr(ptr, mat1);
                 ptr = strchr(ptr, mat2);
-                if (ptr == NULL) {
-                    if (ptr1 == NULL) break;
+                if (ptr == nullptr) {
+                    if (ptr1 == nullptr) break;
                     ptr = ptr1;
                 } else {
-                    if (ptr1 != NULL && ptr1 < ptr) ptr = ptr1;
+                    if (ptr1 != nullptr && ptr1 < ptr) ptr = ptr1;
                 }
             }
             if (strncasecmp(ptr, matchingString, len) != 0) {
@@ -6523,7 +6523,7 @@ void call::extractSubMessage(const char* msg, char* matchingString, char* result
         ++ptr;
     }
 
-    if(ptr != NULL && *ptr != 0) {
+    if(ptr != nullptr && *ptr != 0) {
         strncpy(result, ptr+len, MAX_SUB_MESSAGE_LENGTH);
         sizeOf = strlen(result);
         if(sizeOf >= MAX_SUB_MESSAGE_LENGTH)
@@ -6538,7 +6538,7 @@ void call::extractSubMessage(const char* msg, char* matchingString, char* result
 
 void call::getFieldFromInputFile(const char *fileName, int field, SendingMessage *lineMsg, char*& dest)
 {
-    if (m_lineNumber == NULL) {
+    if (m_lineNumber == nullptr) {
         ERROR("Automatic calls (created by -aa, -oocsn or -oocsf) cannot use input files!");
     }
     if (inFiles.find(fileName) == inFiles.end()) {
@@ -6600,7 +6600,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
 {
 
     int res ;
-    char * old_last_recv_msg = NULL;
+    char * old_last_recv_msg = nullptr;
     bool last_recv_msg_saved = false;
 
     switch (P_case) {
@@ -6621,7 +6621,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
         // The BYE is unexpected, count it
         call_scenario->messages[msg_index] -> nb_unexp++;
         if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
-            WARNING("Aborting call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
+            WARNING("Aborting call on an unexpected BYE for call: %s", (id==nullptr)?"none":id);
             if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
                 sendBuffer(createSendingMessage(get_default_message("200")));
             }
@@ -6638,7 +6638,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
             computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
             delete this;
         } else {
-            WARNING("Continuing call on an unexpected BYE for call: %s", (id==NULL)?"none":id);
+            WARNING("Continuing call on an unexpected BYE for call: %s", (id==nullptr)?"none":id);
         }
         break ;
 
@@ -6659,7 +6659,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
         // The CANCEL is unexpected, count it
         call_scenario->messages[msg_index] -> nb_unexp++;
         if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
-            WARNING("Aborting call on an unexpected CANCEL for call: %s", (id==NULL)?"none":id);
+            WARNING("Aborting call on an unexpected CANCEL for call: %s", (id==nullptr)?"none":id);
             if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
                 sendBuffer(createSendingMessage(get_default_message("200")));
             }
@@ -6677,7 +6677,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
             computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
             delete this;
         } else {
-            WARNING("Continuing call on unexpected CANCEL for call: %s", (id==NULL)?"none":id);
+            WARNING("Continuing call on unexpected CANCEL for call: %s", (id==nullptr)?"none":id);
         }
         break ;
 
@@ -6696,7 +6696,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
         strcpy(last_recv_msg, P_recv);
 
         if (default_behaviors & DEFAULT_BEHAVIOR_PINGREPLY) {
-            WARNING("Automatic response mode for an unexpected PING for call: %s", (id==NULL)?"none":id);
+            WARNING("Automatic response mode for an unexpected PING for call: %s", (id==nullptr)?"none":id);
             sendBuffer(createSendingMessage(get_default_message("200")));
             // Note: the call ends here but it is not marked as bad. PING is a
             //       normal message.
@@ -6712,7 +6712,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
             CStat::globalStat(CStat::E_AUTO_ANSWERED);
             delete this;
         } else {
-            WARNING("Do not answer on an unexpected PING for call: %s", (id==NULL)?"none":id);
+            WARNING("Do not answer on an unexpected PING for call: %s", (id==nullptr)?"none":id);
         }
         break ;
 
@@ -6720,8 +6720,8 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
         // store previous last msg if msg is INFO, NOTIFY, OPTIONS or UPDATE
         // restore last_recv_msg to previous one
         // after sending ok
-        old_last_recv_msg = NULL;
-        if (last_recv_msg != NULL) {
+        old_last_recv_msg = nullptr;
+        if (last_recv_msg != nullptr) {
             last_recv_msg_saved = true;
             old_last_recv_msg = (char *) malloc(strlen(last_recv_msg)+1);
             strcpy(old_last_recv_msg, last_recv_msg);
@@ -6741,7 +6741,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
         strcpy(last_recv_msg, P_recv);
 
         TRACE_CALLDEBUG("Automatic response mode for an unexpected INFO, NOTIFY, OPTIONS or UPDATE for call: %s",
-                        (id == NULL) ? "none" : id);
+                        (id == nullptr) ? "none" : id);
         sendBuffer(createSendingMessage(get_default_message("200")));
 
         // restore previous last msg
@@ -6757,9 +6757,9 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
 
 
             strcpy(last_recv_msg, old_last_recv_msg);
-            if (old_last_recv_msg != NULL) {
+            if (old_last_recv_msg != nullptr) {
                 free(old_last_recv_msg);
-                old_last_recv_msg = NULL;
+                old_last_recv_msg = nullptr;
             }
         }
         CStat::globalStat(CStat::E_AUTO_ANSWERED);
@@ -6779,7 +6779,7 @@ int call::logSrtpInfo(const char *fmt, ...)
 {
     va_list args;
 
-    if (_srtpctxdebugfile != NULL)
+    if (_srtpctxdebugfile != nullptr)
     {
         va_start(args, fmt);
         vfprintf(_srtpctxdebugfile, fmt, args);
@@ -6816,11 +6816,11 @@ void *send_wrapper(void *arg)
     //ret = pthread_setschedparam(pthread_self(), SCHED_RR, &param);
     //if(ret)
     //  ERROR("Can't set RTP play thread realtime parameters");
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, nullptr);
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, nullptr);
     send_packets(s);
-    pthread_exit(NULL);
-    return NULL;
+    pthread_exit(nullptr);
+    return nullptr;
 }
 #endif
 
@@ -6830,7 +6830,7 @@ void *send_wrapper(void *arg)
 
 class mockcall : public call {
 public:
-    mockcall(bool is_ipv6) : listener("//testing", true), call("///testing", is_ipv6, 0, NULL) {}
+    mockcall(bool is_ipv6) : listener("//testing", true), call("///testing", is_ipv6, 0, nullptr) {}
 
     /* Helpers to poke at protected internals */
     void parse_media_addr(std::string const& msg) { get_remote_media_addr(msg); }

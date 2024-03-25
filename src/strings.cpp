@@ -54,10 +54,10 @@ void get_host_and_port(const char * addr, char * host, int * port)
     int port_result = 0;
 
     has_brackets = strchr(addr, '[');
-    if (has_brackets != NULL) {
+    if (has_brackets != nullptr) {
         has_brackets = strchr(has_brackets, ']');
     }
-    if (has_brackets == NULL) {
+    if (has_brackets == nullptr) {
         /* addr is not a []-enclosed IPv6 address, but might still be IPv6 (without
          * a port), or IPv4 or a hostname (with or without a port) */
         char *first_colon_location;
@@ -67,12 +67,12 @@ void get_host_and_port(const char * addr, char * host, int * port)
         memmove(host, addr, len);
 
         first_colon_location = strchr(host, ':');
-        if (first_colon_location == NULL) {
+        if (first_colon_location == nullptr) {
             /* No colon - just set the port to 0 */
             port_result = 0;
         } else {
             second_colon_location = strchr(first_colon_location + 1, ':');
-            if (second_colon_location != NULL) {
+            if (second_colon_location != nullptr) {
                 /* Found a second colon in addr - so this is an IPv6 address
                  * without a port. Set the port to 0 */
                 port_result = 0;
@@ -99,7 +99,7 @@ void get_host_and_port(const char * addr, char * host, int * port)
 
         /* Check for a port specified after the ] */
         colon_before_port = strchr(second_bracket + 1, ':');
-        if (colon_before_port != NULL) {
+        if (colon_before_port != nullptr) {
             port_result = atol(colon_before_port + 1);
         } else {
             port_result = 0;
@@ -107,7 +107,7 @@ void get_host_and_port(const char * addr, char * host, int * port)
     }
 
     // Set the port argument if it wasn't NULL
-    if (port != NULL) {
+    if (port != nullptr) {
         *port = port_result;
     }
 }
@@ -179,7 +179,7 @@ TEST(GetHostAndPort, IPv4AndPort) {
 
 TEST(GetHostAndPort, IgnorePort) {
     char host_result[255];
-    get_host_and_port("127.0.0.1", host_result, NULL);
+    get_host_and_port("127.0.0.1", host_result, nullptr);
     EXPECT_STREQ("127.0.0.1", host_result);
 }
 

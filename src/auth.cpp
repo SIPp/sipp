@@ -169,7 +169,7 @@ int createAuthHeader(
     char algo[32] = "MD5";
     char *start, *end;
 
-    if ((start = stristr(auth, "Digest")) == NULL) {
+    if ((start = stristr(auth, "Digest")) == nullptr) {
         snprintf(result, result_len, "createAuthHeader: authentication must be digest");
         return 0;
     }
@@ -179,7 +179,7 @@ int createAuthHeader(
         return 0;
     }
 
-    if ((start = stristr(auth, "algorithm=")) != NULL) {
+    if ((start = stristr(auth, "algorithm=")) != nullptr) {
         start = start + strlen("algorithm=");
         if (*start == '"') {
             start++;
@@ -292,7 +292,7 @@ static int createAuthResponseMD5(
         strncpy(tmp, uri, sizeof(tmp) - 1);
     }
     // If using Auth-Int make a hash of the body - which is NULL for REG
-    if (stristr(authtype, "auth-int") != NULL) {
+    if (stristr(authtype, "auth-int") != nullptr) {
         md5_init(&Md5Ctx);
         md5_append(&Md5Ctx, (md5_byte_t *) msgbody, strlen(msgbody));
         md5_finish(&Md5Ctx, body);
@@ -304,7 +304,7 @@ static int createAuthResponseMD5(
     md5_append(&Md5Ctx, (md5_byte_t *) method, strlen(method));
     md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
     md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
-    if (stristr(authtype, "auth-int") != NULL) {
+    if (stristr(authtype, "auth-int") != nullptr) {
         md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
         md5_append(&Md5Ctx, (md5_byte_t *) &body_hex, HASH_HEX_SIZE);
     }
@@ -349,7 +349,7 @@ static int createAuthResponseSHA256(
 
     // Load in A1
     // ha1 = SHA256(username ":" realm ":" password)
-    EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL);
+    EVP_DigestInit_ex(mdctx, EVP_sha256(), nullptr);
     EVP_DigestUpdate(mdctx, (unsigned char *) user, strlen(user));
     EVP_DigestUpdate(mdctx, ":", 1);
     EVP_DigestUpdate(mdctx, (unsigned char *) realm, strlen(realm));
@@ -364,26 +364,26 @@ static int createAuthResponseSHA256(
         strncpy(tmp, uri, sizeof(tmp) - 1);
     }
     // If using Auth-Int make a hash of the body - which is NULL for REG
-    if (stristr(authtype, "auth-int") != NULL) {
-        EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL);
+    if (stristr(authtype, "auth-int") != nullptr) {
+        EVP_DigestInit_ex(mdctx, EVP_sha256(), nullptr);
         EVP_DigestUpdate(mdctx, (unsigned char *) msgbody, strlen(msgbody));
         EVP_DigestFinal_ex(mdctx, body, &digest_len);
         hashToHex(&body[0], &body_hex[0], SHA256_HASH_SIZE);
     }
 
     // Load in A2
-    EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL);
+    EVP_DigestInit_ex(mdctx, EVP_sha256(), nullptr);
     EVP_DigestUpdate(mdctx, (unsigned char *) method, strlen(method));
     EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
     EVP_DigestUpdate(mdctx, (unsigned char *) tmp, strlen(tmp));
-    if (stristr(authtype, "auth-int") != NULL) {
+    if (stristr(authtype, "auth-int") != nullptr) {
         EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
         EVP_DigestUpdate(mdctx, (unsigned char *) &body_hex, SHA256_HASH_HEX_SIZE);
     }
     EVP_DigestFinal_ex(mdctx, ha2, &digest_len);
     hashToHex(&ha2[0], &ha2_hex[0], SHA256_HASH_SIZE);
 
-    EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL);
+    EVP_DigestInit_ex(mdctx, EVP_sha256(), nullptr);
     EVP_DigestUpdate(mdctx, (unsigned char *) &ha1_hex, SHA256_HASH_HEX_SIZE);
     EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
     EVP_DigestUpdate(mdctx, (unsigned char *) nonce, strlen(nonce));
@@ -451,7 +451,7 @@ int createAuthHeaderMD5(
         "Digest username=\"%s\",realm=\"%s\"", user, realm);
 
     // Construct the URI
-    if (auth_uri == NULL) {
+    if (auth_uri == nullptr) {
         snprintf(sipuri, sizeof(sipuri), "sip:%s", uri);
     } else {
         snprintf(sipuri, sizeof(sipuri), "sip:%s", auth_uri);
@@ -509,7 +509,7 @@ int verifyAuthHeader(const char *user, const char *password, const char *method,
     char uri[MAX_HEADER_LEN];
     char *start;
 
-    if ((start = stristr(auth, "Digest")) == NULL) {
+    if ((start = stristr(auth, "Digest")) == nullptr) {
         WARNING("verifyAuthHeader: authentication must be digest is %s", auth);
         return 0;
     }
@@ -789,7 +789,7 @@ static int createAuthHeaderAKAv1MD5(
     int i;
 
     // Extract the Nonce
-    if ((start = stristr(auth, "nonce=")) == NULL) {
+    if ((start = stristr(auth, "nonce=")) == nullptr) {
         snprintf(result, result_len, "createAuthHeaderAKAv1MD5: couldn't parse nonce");
         return 0;
     }
@@ -939,7 +939,7 @@ int createAuthHeaderSHA256(
         "Digest username=\"%s\",realm=\"%s\"", user, realm);
 
     // Construct the URI
-    if (auth_uri == NULL) {
+    if (auth_uri == nullptr) {
         snprintf(sipuri, sizeof(sipuri), "sip:%s", uri);
     } else {
         snprintf(sipuri, sizeof(sipuri), "sip:%s", auth_uri);
@@ -1019,7 +1019,7 @@ TEST(DigestAuth, BasicVerification) {
                            " nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\"\r\n,"
                            " opaque=\"5ccc069c403ebaf9f0171e9517f40e41\""));
     char result[255];
-    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, NULL, NULL, NULL, 1, result, 255);
+    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, nullptr, nullptr, nullptr, 1, result, 255);
     EXPECT_STREQ("Digest username=\"testuser\",realm=\"testrealm@host.com\",uri=\"sip:sip:example.com\",nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\",response=\"db94e01e92f2b09a52a234eeca8b90f7\",algorithm=MD5,opaque=\"5ccc069c403ebaf9f0171e9517f40e41\"", result);
     EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header);
@@ -1032,7 +1032,7 @@ TEST(DigestAuth, BasicVerificationSHA256) {
                            " nonce=\"ZaGxV2WhsCtREI2EsiD1LR0RYd\"\r\n,"
                            " algorithm=SHA-256"));
     char result[255];
-    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, NULL, NULL, NULL, 1, result, 255);
+    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, nullptr, nullptr, nullptr, 1, result, 255);
     EXPECT_STREQ("Digest username=\"testuser\",realm=\"testrealm@host.com\",uri=\"sip:sip:example.com\",nonce=\"ZaGxV2WhsCtREI2EsiD1LR0RYd\",response=\"91b58523b983191b52d14455a2599631990110c974ed2e4b4b49bc6053af04ce\",algorithm=SHA-256", result);
     EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header);
@@ -1052,9 +1052,9 @@ TEST(DigestAuth, qop) {
                      "sip:example.com",
                      "hello world",
                      header,
-                     NULL,
-                     NULL,
-                     NULL,
+                     nullptr,
+                     nullptr,
+                     nullptr,
                      1,
                      result,
                      1024);

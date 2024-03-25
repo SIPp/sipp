@@ -49,7 +49,7 @@ TEST(xp_parser, set_xml_buffer_from_string__good) {
          "<scenario name=\"Some Scenario\">"
          "  <send retrans=\"500\"/>"
          "</scenario>"), // 4
-        NULL
+        nullptr
     };
 
     for (i = 0; buffers[i]; ++i) {
@@ -88,7 +88,7 @@ TEST(xp_parser, set_xml_buffer_from_string__bad) {
         ("<scenario name=\"Some Scenario\">"
          "  <send retrans=\"500\"/>"
          "</scenario>"), // -3
-        NULL
+        nullptr
     };
 
     for (i = 0; buffers[i]; ++i) {
@@ -156,7 +156,7 @@ TEST(xp_parser, detect_unclosed_xml) {
          "    ]]>\r\n"
          "  </send>\r\n"
          "</scenario>\r\n"), /* 2nd */
-        NULL
+        nullptr
     };
 
     for (i = 0; buffers[i]; ++i) {

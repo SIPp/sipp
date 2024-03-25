@@ -32,12 +32,12 @@
  */
 #include "sipp.hpp"
 
-class stattask *stattask::instance = NULL;
-class screentask *screentask::instance = NULL;
+class stattask *stattask::instance = nullptr;
+class screentask *screentask::instance = nullptr;
 
 void stattask::initialize()
 {
-    assert(instance == NULL);
+    assert(!instance);
     if (dumpInFile || useCountf || useErrorCodesf) {
         instance = new stattask();
     }
@@ -45,7 +45,7 @@ void stattask::initialize()
 
 void screentask::initialize()
 {
-    assert(instance == NULL);
+    assert(!instance);
     if (report_freq) {
         instance = new screentask();
     }

@@ -59,7 +59,7 @@ SIPpSocket *socketowner::dissociate_socket() {
     SIPpSocket *ret = this->call_socket;
 
     remove_owner_from_socket(this->call_socket);
-    this->call_socket = NULL;
+    this->call_socket = nullptr;
 
     return ret;
 }
@@ -68,7 +68,7 @@ unsigned long socketowner::nextownerid = 1;
 
 socketowner::socketowner()
 {
-    this->call_socket = NULL;
+    this->call_socket = nullptr;
     this->ownerid = socketowner::nextownerid++;
 }
 

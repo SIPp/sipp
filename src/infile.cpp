@@ -54,11 +54,11 @@ FileContents::FileContents(const char *fileName)
     }
     const char* line = lineStr.c_str();
 
-    if (NULL != strstr(line, "RANDOM")) {
+    if (nullptr != strstr(line, "RANDOM")) {
         usage = InputFileRandomOrder;
-    } else if (NULL != strstr(line, "SEQUENTIAL")) {
+    } else if (nullptr != strstr(line, "SEQUENTIAL")) {
         usage = InputFileSequentialOrder;
-    } else if (NULL != strstr(line, "USER")) {
+    } else if (nullptr != strstr(line, "USER")) {
         usage = InputFileUser;
     } else {
         ERROR("Unknown file type (valid values are RANDOM, SEQUENTIAL, and USER) for %s:%s", fileName, line);
@@ -133,7 +133,7 @@ FileContents::FileContents(const char *fileName)
         numLinesInFile = realLinesInFile;
     }
 
-    indexMap = NULL;
+    indexMap = nullptr;
     indexField = -1;
 }
 

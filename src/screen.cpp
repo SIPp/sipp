@@ -801,7 +801,7 @@ void ScreenPrinter::draw_repartition_detailed(CStat::T_dynamicalRepartition * ta
 {
     unsigned const bufsiz = 80;
     char buf[bufsiz];
-    if(tabRepartition != NULL) {
+    if(tabRepartition != nullptr) {
         for(int i=0; i<(sizeOfTab-1); i++) {
             if(i==0) {
                 DISPLAY_REPART(0, tabRepartition[i].borderMax,
@@ -832,7 +832,7 @@ void ScreenPrinter::draw_vars_screen()
     for (unsigned int i = 0; i < display_scenario->messages.size(); i++) {
         message* curmsg = display_scenario->messages[i];
         actions = curmsg->M_actions;
-        if (actions != NULL) {
+        if (actions != nullptr) {
             switch (curmsg->M_type) {
             case MSG_TYPE_RECV:
                 snprintf(buf, bufsiz, "=> Message[%u] (Receive Message) - "
@@ -853,7 +853,7 @@ void ScreenPrinter::draw_vars_screen()
 
             for (int j = 0; j < actions->getActionSize(); j++) {
                 action = actions->getAction(j);
-                if (action != NULL) {
+                if (action != nullptr) {
                     int printed = snprintf(buf, bufsiz, "   --> action[%d] = ", j);
                     action->printInfo(buf + printed, bufsiz - printed);
                     lines.push_back(buf);
