@@ -66,15 +66,14 @@ listener::~listener()
         stopListening();
     }
     free(id);
-    id = NULL;
-
+    id = nullptr;
 }
 
 listener *get_listener(const char *id)
 {
     listener_map::iterator listener_it = listeners.find(listener_map::key_type(id));
     if (listener_it == listeners.end()) {
-        return NULL;
+        return nullptr;
     }
     return listener_it->second;
 }

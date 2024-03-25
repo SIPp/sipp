@@ -58,7 +58,7 @@ static const char* internal_find_header(const char* msg, const char* name,
         const char* shortname, bool content);
 static const char* internal_skip_lws(const char* ptr);
 
-/* Search for a character, but only inside this header. Returns NULL if
+/* Search for a character, but only inside this header. Returns nullptr if
  * not found. */
 static const char* internal_hdrchr(const char* ptr, const char needle);
 
@@ -84,7 +84,7 @@ char* get_peer_tag(const char* msg)
     to_hdr = internal_find_header(msg, "To", "t", true);
     if (!to_hdr) {
         WARNING("No valid To: header in reply");
-        return NULL;
+        return nullptr;
     }
 
     /* Skip past display-name */
@@ -100,7 +100,7 @@ char* get_peer_tag(const char* msg)
     /* Find tag in this header */
     ptr = internal_find_param(ptr, "tag");
     if (!ptr) {
-        return NULL;
+        return nullptr;
     }
 
     while (*ptr && *ptr != ' ' && *ptr != ';' && *ptr != '\t' &&
@@ -243,18 +243,18 @@ char* get_header(const char* message, const char* name, bool content)
 
     /* remove enclosed CRs in multilines */
     /* don't remove enclosed CRs for multiple headers (e.g. Via) (Rhys) */
-    while ((ptr = strstr(last_header, "\r\n")) != NULL &&
+    while ((ptr = strstr(last_header, "\r\n")) != nullptr &&
            (*(ptr + 2) == ' ' || *(ptr + 2) == '\r' || *(ptr + 2) == '\t')) {
         /* Use strlen(ptr) to include trailing zero */
         memmove(ptr, ptr+1, strlen(ptr));
     }
 
     /* Remove illegal double CR characters */
-    while ((ptr = strstr(last_header, "\r\r")) != NULL) {
+    while ((ptr = strstr(last_header, "\r\r")) != nullptr) {
         memmove(ptr, ptr+1, strlen(ptr));
     }
     /* Remove illegal double Newline characters */
-    while ((ptr = strstr(last_header, "\n\n")) != NULL) {
+    while ((ptr = strstr(last_header, "\n\n")) != nullptr) {
         memmove(ptr, ptr+1, strlen(ptr));
     }
 
@@ -307,7 +307,7 @@ const char* internal_compact_header_name(const char* name)
     } else if (!strcasecmp(name, "via:")) {
         return "\nv:";
     }
-    return NULL;
+    return nullptr;
 }
 
 char* get_first_line(const char* message)
@@ -396,7 +396,7 @@ unsigned long int get_cseq_value(const char* msg)
         return 0;
     }
 
-    return strtoul(ptr1, NULL, 10);
+    return strtoul(ptr1, nullptr, 10);
 }
 
 unsigned long get_reply_code(const char* msg)
@@ -458,7 +458,7 @@ static const char* internal_find_header(const char* msg, const char* name, const
                 WARNING("Missing CR during header scan at pos %ld", ptr - msg);
                 /* continue? */
             }
-            return NULL;
+            return nullptr;
         }
         ++ptr;
     }
@@ -469,23 +469,23 @@ static const char* internal_find_header(const char* msg, const char* name, const
 static const char* internal_hdrchr(const char* ptr, const char needle)
 {
     if (*ptr == '\n') {
-        return NULL; /* stray LF */
+        return nullptr; /* stray LF */
     }
 
     while (1) {
         if (*ptr == '\0') {
-            return NULL;
+            return nullptr;
         } else if (*ptr == needle) {
             return ptr;
         } else if (*ptr == '\n') {
             if (ptr[-1] == '\r' && ptr[1] != ' ' && ptr[1] != '\t') {
-                return NULL; /* end of header */
+                return nullptr; /* end of header */
             }
         }
         ++ptr;
     }
 
-    return NULL; /* never gets here */
+    return nullptr; /* never gets here */
 }
 
 static const char* internal_hdrend(const char* ptr)
@@ -507,13 +507,13 @@ static const char* internal_find_param(const char* ptr, const char* name)
     while (1) {
         ptr = internal_hdrchr(ptr, ';');
         if (!ptr) {
-            return NULL;
+            return nullptr;
         }
         ++ptr;
 
         ptr = internal_skip_lws(ptr);
         if (!ptr || !*ptr) {
-            return NULL;
+            return nullptr;
         }
 
         /* Case insensitive, see RFC 3261 7.3.1 notes above. */
@@ -523,7 +523,7 @@ static const char* internal_find_param(const char* ptr, const char* name)
         }
     }
 
-    return NULL; /* never gets here */
+    return nullptr; /* never gets here */
 }
 
 static const char* internal_skip_lws(const char* ptr)
@@ -537,11 +537,11 @@ static const char* internal_skip_lws(const char* ptr)
                 ptr += 3;
                 continue;
             }
-            return NULL; /* end of this header */
+            return nullptr; /* end of this header */
         }
         return ptr;
     }
-    return NULL; /* never gets here */
+    return nullptr; /* never gets here */
 }
 
 
@@ -679,7 +679,7 @@ From: SIP/2.0/UDP 85.55.55.12:6090;branch=z9hG4bK831a.2bb3de85.0\r\n\
 }
 
 TEST(Parser, get_peer_tag__notag) {
-    EXPECT_STREQ(NULL, get_peer_tag("...\r\nTo: <abc>\r\n;tag=notag\r\n\r\n"));
+    EXPECT_STREQ(nullptr, get_peer_tag("...\r\nTo: <abc>\r\n;tag=notag\r\n\r\n"));
 }
 
 TEST(Parser, get_peer_tag__normal) {

@@ -32,11 +32,11 @@
  */
 #include "sipp.hpp"
 
-class ratetask *ratetask::instance = NULL;
+class ratetask *ratetask::instance = nullptr;
 
 void ratetask::initialize()
 {
-    assert(instance == NULL);
+    assert(!instance);
     if (rate_increase) {
         instance = new ratetask();
     }

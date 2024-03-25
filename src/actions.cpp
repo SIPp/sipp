@@ -396,9 +396,9 @@ int*  CAction::getSubVarId()
 void CAction::setNbSubVarId (int            P_value)
 {
     M_maxNbSubVarId        = P_value;
-    if (M_subVarId != NULL) {
+    if (M_subVarId != nullptr) {
         delete [] M_subVarId;
-        M_subVarId      = NULL;
+        M_subVarId      = nullptr;
     }
     M_subVarId = new int[M_maxNbSubVarId] ;
     M_nbSubVarId = 0 ;
@@ -411,12 +411,12 @@ int  CAction::getNbSubVarId ()
 
 void CAction::setLookingChar(const char* P_value)
 {
-    if (M_lookingChar != NULL) {
+    if (M_lookingChar != nullptr) {
         delete [] M_lookingChar;
-        M_lookingChar = NULL;
+        M_lookingChar = nullptr;
     }
 
-    if (P_value != NULL) {
+    if (P_value != nullptr) {
         M_lookingChar = new char[strlen(P_value)+1];
         strcpy(M_lookingChar, P_value);
     }
@@ -424,14 +424,14 @@ void CAction::setLookingChar(const char* P_value)
 
 void CAction::setMessage(const char* P_value, int n)
 {
-    if (M_message[n] != NULL) {
+    if (M_message[n] != nullptr) {
         delete M_message[n];
-        M_message[n] = NULL;
+        M_message[n] = nullptr;
     }
     free(M_message_str[n]);
-    M_message_str[n] = NULL;
+    M_message_str[n] = nullptr;
 
-    if (P_value != NULL) {
+    if (P_value != nullptr) {
         M_message_str[n] = strdup(P_value);
         M_message[n] = new SendingMessage(M_scenario, P_value, true /* skip sanity */);
     }
@@ -466,7 +466,7 @@ int CAction::executeRegExp(const char* P_string, VariableTable *P_callVarTable)
     regmatch_t pmatch[10];
     int error;
     int nbOfMatch = 0;
-    char* result = NULL ;
+    char* result = nullptr ;
 
     if (!M_regExpSet) {
         ERROR("Trying to perform regular expression match on action that does not have one!");
@@ -501,7 +501,7 @@ void CAction::setSubString(char** P_target, const char* P_source, int P_start, i
 {
     int sizeOf;
 
-    if (P_source != NULL) {
+    if (P_source != nullptr) {
         sizeOf = P_stop - P_start;
         (*P_target) = new char[sizeOf + 1];
 
@@ -511,7 +511,7 @@ void CAction::setSubString(char** P_target, const char* P_source, int P_start, i
 
         (*P_target)[sizeOf] = '\0';
     } else {
-        *P_target = NULL ;
+        *P_target = nullptr ;
     }
 }
 
@@ -519,12 +519,12 @@ void CAction::setSubString(char** P_target, const char* P_source, int P_start, i
 #ifdef PCAPPLAY
 void CAction::setPcapArgs (pcap_pkts  *  P_value)
 {
-    if (M_pcapArgs != NULL) {
+    if (M_pcapArgs != nullptr) {
         free(M_pcapArgs);
-        M_pcapArgs = NULL;
+        M_pcapArgs = nullptr;
     }
 
-    if (P_value != NULL) {
+    if (P_value != nullptr) {
         M_pcapArgs = (pcap_pkts *)malloc(sizeof(*M_pcapArgs));
         memcpy(M_pcapArgs, P_value, sizeof(*M_pcapArgs));
     }
@@ -532,12 +532,12 @@ void CAction::setPcapArgs (pcap_pkts  *  P_value)
 
 void CAction::setPcapArgs(const char* P_value)
 {
-    if (M_pcapArgs != NULL) {
+    if (M_pcapArgs != nullptr) {
         free(M_pcapArgs);
-        M_pcapArgs = NULL;
+        M_pcapArgs = nullptr;
     }
 
-    if (P_value != NULL) {
+    if (P_value != nullptr) {
         M_pcapArgs = (pcap_pkts *) malloc(sizeof(*M_pcapArgs));
         if (parse_play_args(P_value, M_pcapArgs) == -1) {
             ERROR("Play pcap error");
@@ -570,7 +570,7 @@ void CAction::setRTPEchoActInfo(const char* P_value)
 
     strcpy (actionstring,P_value);
     param_str = strchr(actionstring,',');
-    next_comma = NULL;
+    next_comma = nullptr;
 
     // Comma found for payload_type parameter
     if (param_str) {
@@ -907,7 +907,7 @@ void CAction::setScenario(scenario *     P_scenario)
 void CAction::setAction(CAction P_action)
 {
     if (P_action.getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
-        assert(P_action.getDistribution() != NULL);
+        assert(P_action.getDistribution() != nullptr);
     }
     int L_i;
     setActionType   ( P_action.getActionType()   );
@@ -950,25 +950,25 @@ CAction::CAction(scenario *scenario)
 
     M_nbSubVarId    = 0;
     M_maxNbSubVarId = 0;
-    M_subVarId      = NULL;
+    M_subVarId      = nullptr;
 
     M_checkIt      = false;
     M_checkItInverse      = false;
     M_lookingPlace = E_LP_MSG;
-    M_lookingChar  = NULL;
+    M_lookingChar  = nullptr;
     M_caseIndep    = false;
     M_occurrence   = 1;
     M_headersOnly  = true;
     for (int i = 0; i < MAX_ACTION_MESSAGE; i++) {
-        M_message[i]   = NULL;
-        M_message_str[i] = NULL;
+        M_message[i]   = nullptr;
+        M_message_str[i] = nullptr;
     }
     M_IntCmd       = E_INTCMD_INVALID;
     M_doubleValue  = 0;
-    M_stringValue  = NULL;
-    M_distribution = NULL;
+    M_stringValue  = nullptr;
+    M_distribution = nullptr;
 #ifdef PCAPPLAY
-    M_pcapArgs     = NULL;
+    M_pcapArgs     = nullptr;
 #endif
 
     memset(&M_rtpecho_actinfo, 0, sizeof(M_rtpecho_actinfo));
@@ -976,32 +976,32 @@ CAction::CAction(scenario *scenario)
 
     M_scenario     = scenario;
     M_regExpSet    = false;
-    M_regularExpression = NULL;
+    M_regularExpression = nullptr;
 }
 
 CAction::~CAction()
 {
-    if (M_lookingChar != NULL) {
+    if (M_lookingChar != nullptr) {
         delete [] M_lookingChar;
-        M_lookingChar = NULL;
+        M_lookingChar = nullptr;
     }
     for (int i = 0; i < MAX_ACTION_MESSAGE; i++) {
-        if (M_message[i] != NULL) {
+        if (M_message[i] != nullptr) {
             delete M_message[i];
-            M_message[i] = NULL;
+            M_message[i] = nullptr;
         }
         free(M_message_str[i]);
-        M_message_str[i] = NULL;
+        M_message_str[i] = nullptr;
     }
-    if (M_subVarId != NULL) {
+    if (M_subVarId != nullptr) {
         delete [] M_subVarId;
-        M_subVarId      = NULL;
+        M_subVarId      = nullptr;
     }
     free(M_stringValue);
 #ifdef PCAPPLAY
-    if (M_pcapArgs != NULL) {
+    if (M_pcapArgs != nullptr) {
         free_pcaps(M_pcapArgs);
-        M_pcapArgs = NULL;
+        M_pcapArgs = nullptr;
     }
 #endif
     if (M_regExpSet) {
@@ -1030,7 +1030,7 @@ void CActions::reset()
 {
     for (int i = 0; i < M_nbAction; i++) {
         delete M_actionList[i];
-        M_actionList[i] = NULL;
+        M_actionList[i] = nullptr;
     }
     M_nbAction = 0;
 }
@@ -1062,14 +1062,14 @@ CAction* CActions::getAction(int i)
     if (i < M_nbAction) {
         return(M_actionList[i]);
     } else
-        return(NULL);
+        return(nullptr);
 }
 
 
 CActions::CActions()
 {
     M_nbAction = 0;
-    M_actionList = NULL;
+    M_actionList = nullptr;
 }
 
 
@@ -1079,20 +1079,20 @@ CActions::~CActions()
         delete M_actionList[i];
     }
     delete [] M_actionList;
-    M_actionList = NULL;
+    M_actionList = nullptr;
 }
 
 #ifdef GTEST
 #include "gtest/gtest.h"
 
 TEST(actions, MatchingRegexp) {
-    AllocVariableTable vt(NULL);
+    AllocVariableTable vt(nullptr);
     int id = vt.find("1", true);
     int sub1_id = vt.find("2", true);
     int sub2_id = vt.find("3", true);
     int sub3_id = vt.find("4", true);
     int sub4_id = vt.find("5", true);
-    CAction re(NULL);
+    CAction re(nullptr);
     re.setVarId(id);
     re.setNbSubVarId(4);
     re.setSubVarId(sub1_id);
@@ -1111,13 +1111,13 @@ TEST(actions, MatchingRegexp) {
 }
 
 TEST(actions, NonMatchingRegexp) {
-    AllocVariableTable vt(NULL);
+    AllocVariableTable vt(nullptr);
     int id = vt.find("1", true);
     int sub1_id = vt.find("2", true);
     int sub2_id = vt.find("3", true);
     int sub3_id = vt.find("4", true);
     int sub4_id = vt.find("5", true);
-    CAction re(NULL);
+    CAction re(nullptr);
     re.setVarId(id);
     re.setNbSubVarId(4);
     re.setSubVarId(sub1_id);

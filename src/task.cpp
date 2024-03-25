@@ -192,7 +192,7 @@ task_list *timewheel::task2list(task *task)
         return &wheel_three[slot_in_third_wheel];
     } else{
         ERROR("Attempted to schedule a task too far in the future");
-        return NULL;
+        return nullptr;
     }
 }
 

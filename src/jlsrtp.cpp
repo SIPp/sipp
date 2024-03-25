@@ -640,7 +640,7 @@ int JLSRTP::decryptVector(std::vector<unsigned char> &ciphertext_input, std::vec
 
 int JLSRTP::issueAuthenticationTag(std::vector<unsigned char> &data, std::vector<unsigned char> &hash)
 {
-    unsigned char* digest = NULL;
+    unsigned char* digest = nullptr;
     int retVal = -1;
     std::vector<unsigned char> auth_portion;
     std::vector<unsigned char> rocVec;
@@ -657,9 +657,9 @@ int JLSRTP::issueAuthenticationTag(std::vector<unsigned char> &data, std::vector
             auth_portion.insert(auth_portion.end(), rocVec.begin(), rocVec.end());
 
             hash.clear();
-            digest = HMAC(EVP_sha1(), _session_auth_key.data(), _session_auth_key.size(), /*data.data()*/ auth_portion.data(), /*data.size()*/ auth_portion.size(), NULL, NULL);
+            digest = HMAC(EVP_sha1(), _session_auth_key.data(), _session_auth_key.size(), /*data.data()*/ auth_portion.data(), /*data.size()*/ auth_portion.size(), nullptr, nullptr);
 
-            if (digest != NULL)
+            if (digest != nullptr)
             {
                 hash.assign(digest, digest+JLSRTP_SHA1_HASH_LENGTH);
 
@@ -1046,7 +1046,7 @@ int JLSRTP::setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib /*= ACTIVE_
     int rc = 0;
     int retVal = 0;
 
-    if (_pseudorandomstate.cipher != NULL)
+    if (_pseudorandomstate.cipher != nullptr)
     {
         if (crypto_attrib == ACTIVE_CRYPTO)
         {
@@ -1061,7 +1061,7 @@ int JLSRTP::setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib /*= ACTIVE_
         {
             case PRIMARY_CRYPTO:
             {
-                rc = EVP_EncryptInit_ex(_pseudorandomstate.cipher, NULL, NULL, _primary_crypto.master_key.data(), NULL);
+                rc = EVP_EncryptInit_ex(_pseudorandomstate.cipher, nullptr, nullptr, _primary_crypto.master_key.data(), nullptr);
                 if (rc == 1)
                 {
                     retVal = 0;
@@ -1075,7 +1075,7 @@ int JLSRTP::setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib /*= ACTIVE_
 
             case SECONDARY_CRYPTO:
             {
-                rc = EVP_EncryptInit_ex(_pseudorandomstate.cipher, NULL, NULL, _secondary_crypto.master_key.data(), NULL);
+                rc = EVP_EncryptInit_ex(_pseudorandomstate.cipher, nullptr, nullptr, _secondary_crypto.master_key.data(), nullptr);
                 if (rc == 1)
                 {
                     retVal = 0;
@@ -1107,9 +1107,9 @@ int JLSRTP::setAESSessionEncryptionKey()
     int rc = 0;
     int retVal = 0;
 
-    if (_cipherstate.cipher != NULL)
+    if (_cipherstate.cipher != nullptr)
     {
-        rc = EVP_EncryptInit_ex(_cipherstate.cipher, NULL, NULL, _session_enc_key.data(), NULL);
+        rc = EVP_EncryptInit_ex(_cipherstate.cipher, nullptr, nullptr, _session_enc_key.data(), nullptr);
         if (rc == 1)
         {
             retVal = 0;
@@ -1129,7 +1129,7 @@ int JLSRTP::setAESSessionEncryptionKey()
 
 void JLSRTP::AES_ctr128_increment(unsigned char* counter)
 {
-    unsigned char* cur_pos = NULL;
+    unsigned char* cur_pos = nullptr;
 
     for (cur_pos = counter + 15; cur_pos >= counter; cur_pos--)
     {
@@ -1165,7 +1165,7 @@ int JLSRTP::AES_ctr128_pseudorandom_EVPencrypt(const unsigned char* in,
                 if (n == 0)
                 {
                     // IMPORTANT:  Key MUST be set every single time EVP_EncryptUpdate() is to be called...
-                    rc = EVP_EncryptInit_ex(_pseudorandomstate.cipher, NULL, NULL, _primary_crypto.master_key.data(), NULL);
+                    rc = EVP_EncryptInit_ex(_pseudorandomstate.cipher, nullptr, nullptr, _primary_crypto.master_key.data(), nullptr);
                     if (rc == 1)
                     {
                         rc = EVP_EncryptUpdate(_pseudorandomstate.cipher, ecount_buf, &nb, counter, AES_BLOCK_SIZE);
@@ -1203,7 +1203,7 @@ int JLSRTP::AES_ctr128_pseudorandom_EVPencrypt(const unsigned char* in,
                 if (n == 0)
                 {
                     // IMPORTANT:  Key MUST be set every single time EVP_EncryptUpdate() is to be called...
-                    rc = EVP_EncryptInit_ex(_pseudorandomstate.cipher, NULL, NULL, _secondary_crypto.master_key.data(), NULL);
+                    rc = EVP_EncryptInit_ex(_pseudorandomstate.cipher, nullptr, nullptr, _secondary_crypto.master_key.data(), nullptr);
                     if (rc == 1)
                     {
                         rc = EVP_EncryptUpdate(_pseudorandomstate.cipher, ecount_buf, &nb, counter, AES_BLOCK_SIZE);
@@ -1262,7 +1262,7 @@ int JLSRTP::AES_ctr128_session_EVPencrypt(const unsigned char* in,
         if (n == 0)
         {
             // IMPORTANT:  Key MUST be set every single time EVP_EncryptUpdate() is to be called...
-            rc = EVP_EncryptInit_ex(_cipherstate.cipher, NULL, NULL, _session_enc_key.data(), NULL);
+            rc = EVP_EncryptInit_ex(_cipherstate.cipher, nullptr, nullptr, _session_enc_key.data(), nullptr);
             if (rc == 1)
             {
                 rc = EVP_EncryptUpdate(_cipherstate.cipher, ecount_buf, &nb, counter, AES_BLOCK_SIZE);
@@ -3521,15 +3521,15 @@ JLSRTP::JLSRTP()
     resetCryptoContext(0xCA110000, "127.0.0.1", 0);
 
     _pseudorandomstate.cipher = EVP_CIPHER_CTX_new();
-    if (_pseudorandomstate.cipher != NULL)
+    if (_pseudorandomstate.cipher != nullptr)
     {
-        EVP_EncryptInit_ex(_pseudorandomstate.cipher, EVP_aes_128_ecb(), NULL, NULL /* primary/secondary master key set later */, NULL);
+        EVP_EncryptInit_ex(_pseudorandomstate.cipher, EVP_aes_128_ecb(), nullptr, nullptr /* primary/secondary master key set later */, nullptr);
     }
 
     _cipherstate.cipher = EVP_CIPHER_CTX_new();
-    if (_cipherstate.cipher != NULL)
+    if (_cipherstate.cipher != nullptr)
     {
-        EVP_EncryptInit_ex(_cipherstate.cipher, EVP_aes_128_ecb(), NULL, NULL /* _session_enc_key set later */, NULL);
+        EVP_EncryptInit_ex(_cipherstate.cipher, EVP_aes_128_ecb(), nullptr, nullptr /* _session_enc_key set later */, nullptr);
     }
 }
 
@@ -3538,15 +3538,15 @@ JLSRTP::JLSRTP(unsigned int ssrc, std::string ipAddress, unsigned short port)
     resetCryptoContext(ssrc, ipAddress, port);
 
     _pseudorandomstate.cipher = EVP_CIPHER_CTX_new();
-    if (_pseudorandomstate.cipher != NULL)
+    if (_pseudorandomstate.cipher != nullptr)
     {
-        EVP_EncryptInit_ex(_pseudorandomstate.cipher, EVP_aes_128_ecb(), NULL, NULL /* primary/secondary master key set later */, NULL);
+        EVP_EncryptInit_ex(_pseudorandomstate.cipher, EVP_aes_128_ecb(), nullptr, nullptr /* primary/secondary master key set later */, nullptr);
     }
 
     _cipherstate.cipher = EVP_CIPHER_CTX_new();
-    if (_cipherstate.cipher != NULL)
+    if (_cipherstate.cipher != nullptr)
     {
-        EVP_EncryptInit_ex(_cipherstate.cipher, EVP_aes_128_ecb(), NULL, NULL /* _session_enc_key set later */, NULL);
+        EVP_EncryptInit_ex(_cipherstate.cipher, EVP_aes_128_ecb(), nullptr, nullptr /* _session_enc_key set later */, nullptr);
     }
 }
 
