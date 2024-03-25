@@ -25,7 +25,7 @@
 
 int main(int argc, char* argv[])
 {
-    globalVariables = new AllocVariableTable(NULL);
+    globalVariables = new AllocVariableTable(nullptr);
     userVariables = new AllocVariableTable(globalVariables);
     main_scenario = new scenario(0, 0);
 

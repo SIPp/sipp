@@ -52,7 +52,7 @@ void log_off(struct logfile_info* lfi)
     if (lfi->fptr) {
         fflush(lfi->fptr);
         fclose(lfi->fptr);
-        lfi->fptr = NULL;
+        lfi->fptr = nullptr;
         lfi->overwrite = false;
     }
 }
@@ -297,7 +297,7 @@ static void rotatef(struct logfile_info* lfi)
             lfi->nfiles++;
             fflush(lfi->fptr);
             fclose(lfi->fptr);
-            lfi->fptr = NULL;
+            lfi->fptr = nullptr;
             rename(lfi->file_name, L_rotate_file_name);
         }
     }
@@ -343,7 +343,7 @@ static int _trace(struct logfile_info* lfi, const char* fmt, va_list ap)
 
         if (max_log_size && lfi->count > max_log_size) {
             fclose(lfi->fptr);
-            lfi->fptr = NULL;
+            lfi->fptr = nullptr;
         }
 
         if (ringbuffer_size && lfi->count > ringbuffer_size) {
@@ -475,7 +475,7 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
             if (error_lfi.fptr) {
                 fflush(error_lfi.fptr);
                 fclose(error_lfi.fptr);
-                error_lfi.fptr = NULL;
+                error_lfi.fptr = nullptr;
                 error_lfi.overwrite = false;
             }
         }
