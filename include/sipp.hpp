@@ -330,15 +330,15 @@ MAYBE_EXTERN char*              scenario_file           DEFVAL(NULL);
 MAYBE_EXTERN char*              scenario_path           DEFVAL(NULL);
 
 // extern field file management
-typedef std::map<string, FileContents *> file_map;
+typedef std::map<std::string, FileContents *> file_map;
 MAYBE_EXTERN file_map inFiles;
-typedef std::map<string, str_int_map *> file_index;
+typedef std::map<std::string, str_int_map *> file_index;
 MAYBE_EXTERN char *ip_file DEFVAL(NULL);
 MAYBE_EXTERN char *default_file DEFVAL(NULL);
 
 // free user id list
-MAYBE_EXTERN list<int> freeUsers;
-MAYBE_EXTERN list<int> retiredUsers;
+MAYBE_EXTERN std::list<int> freeUsers;
+MAYBE_EXTERN std::list<int> retiredUsers;
 MAYBE_EXTERN AllocVariableTable *globalVariables        DEFVAL(NULL);
 MAYBE_EXTERN AllocVariableTable *userVariables          DEFVAL(NULL);
 typedef std::map<int, VariableTable *> int_vt_map;
@@ -431,7 +431,7 @@ MAYBE_EXTERN bool          reset_close                  DEFVAL(true);
 MAYBE_EXTERN int           reset_sleep                  DEFVAL(1000);
 MAYBE_EXTERN bool          sendbuffer_warn              DEFVAL(false);
 /* A list of sockets pending reset. */
-MAYBE_EXTERN set<SIPpSocket*> sockets_pending_reset;
+MAYBE_EXTERN std::set<SIPpSocket*> sockets_pending_reset;
 
 MAYBE_EXTERN struct sockaddr_storage local_addr_storage;
 

@@ -305,13 +305,13 @@ void CStat::setFileName(const char* P_name, const char* P_extension)
                 strcat(M_fileName, DEFAULT_EXTENSION);
             }
         } else {
-            cerr << "new file name length is null - "
+            std::cerr << "new file name length is null - "
                  << "keeping the default filename : "
-                 << DEFAULT_FILE_NAME << endl;
+                 << DEFAULT_FILE_NAME << std::endl;
         }
     } else {
-        cerr << "new file name is NULL ! - keeping the default filename : "
-             << DEFAULT_FILE_NAME << endl;
+        std::cerr << "new file name is NULL ! - keeping the default filename : "
+             << DEFAULT_FILE_NAME << std::endl;
     }
 }
 
@@ -328,13 +328,13 @@ void CStat::setFileName(const char* P_name)
             M_fileName = new char[sizeOf+1];
             strcpy(M_fileName, P_name);
         } else {
-            cerr << "new file name length is null - "
+            std::cerr << "new file name length is null - "
                  "keeping the default filename : "
-                 << DEFAULT_FILE_NAME << endl;
+                 << DEFAULT_FILE_NAME << std::endl;
         }
     } else {
-        cerr << "new file name is NULL ! - keeping the default filename : "
-             << DEFAULT_FILE_NAME << endl;
+        std::cerr << "new file name is NULL ! - keeping the default filename : "
+             << DEFAULT_FILE_NAME << std::endl;
     }
 }
 
@@ -356,13 +356,13 @@ void CStat::initRtt(const char* P_name, const char* P_extension,
             M_fileNameRtt = new char[sizeOf+1];
             sprintf (M_fileNameRtt, "%s_%ld_rtt%s", P_name, (long) getpid(),P_extension);
         } else {
-            cerr << "new file name length is null - "
+            std::cerr << "new file name length is null - "
                  << "keeping the default filename : "
-                 << DEFAULT_FILE_NAME << endl;
+                 << DEFAULT_FILE_NAME << std::endl;
         }
     } else {
-        cerr << "new file name is NULL ! - keeping the default filename : "
-             << DEFAULT_FILE_NAME << endl;
+        std::cerr << "new file name is NULL ! - keeping the default filename : "
+             << DEFAULT_FILE_NAME << std::endl;
     }
 
     // initiate the table dump response time
@@ -371,7 +371,7 @@ void CStat::initRtt(const char* P_name, const char* P_extension,
     M_dumpRespTime = new T_value_rtt [P_report_freq_dumpRtt] ;
 
     if ( M_dumpRespTime == NULL ) {
-        cerr << "Memory allocation failure" << endl;
+        std::cerr << "Memory allocation failure" << std::endl;
         exit(EXIT_FATAL_ERROR);
     }
 
@@ -1145,17 +1145,17 @@ void CStat::dumpData ()
 
     if(M_outputStream == NULL) {
         // if the file is still not opened, we opened it now
-        M_outputStream = new ofstream(M_fileName);
+        M_outputStream = new std::ofstream(M_fileName);
         M_headerAlreadyDisplayed = false;
 
         if(M_outputStream == NULL) {
-            cerr << "Unable to open stat file '" << M_fileName << "' !" << endl;
+            std::cerr << "Unable to open stat file '" << M_fileName << "' !" << std::endl;
             exit(EXIT_FATAL_ERROR);
         }
 
 #ifndef __osf__
         if(!M_outputStream->is_open()) {
-            cerr << "Unable to open stat file '" << M_fileName << "' !" << endl;
+            std::cerr << "Unable to open stat file '" << M_fileName << "' !" << std::endl;
             exit(EXIT_FATAL_ERROR);
         }
 #endif
@@ -1267,7 +1267,7 @@ void CStat::dumpData ()
         (*M_outputStream) << sRepartitionHeader(M_CallLengthRepartition,
                                                 M_SizeOfCallLengthRepartition,
                                                 "CallLengthRepartition");
-        (*M_outputStream) << endl;
+        (*M_outputStream) << std::endl;
         M_headerAlreadyDisplayed = true;
     }
 
@@ -1379,7 +1379,7 @@ void CStat::dumpData ()
     (*M_outputStream)
             << sRepartitionInfo(M_CallLengthRepartition,
                                 M_SizeOfCallLengthRepartition);
-    (*M_outputStream) << endl;
+    (*M_outputStream) << std::endl;
 
     // flushing the output file to let the tail -f working !
     (*M_outputStream).flush();
@@ -1393,17 +1393,17 @@ void CStat::dumpDataRtt ()
     }
     if(M_outputStreamRtt == NULL) {
         // if the file is still not opened, we opened it now
-        M_outputStreamRtt = new ofstream(M_fileNameRtt);
+        M_outputStreamRtt = new std::ofstream(M_fileNameRtt);
         M_headerAlreadyDisplayedRtt = false;
 
         if(M_outputStreamRtt == NULL) {
-            cerr << "Unable to open rtt file '" << M_fileNameRtt << "' !" << endl;
+            std::cerr << "Unable to open rtt file '" << M_fileNameRtt << "' !" << std::endl;
             exit(EXIT_FATAL_ERROR);
         }
 
 #ifndef __osf__
         if(!M_outputStreamRtt->is_open()) {
-            cerr << "Unable to open rtt file '" << M_fileNameRtt << "' !" << endl;
+            std::cerr << "Unable to open rtt file '" << M_fileNameRtt << "' !" << std::endl;
             exit(EXIT_FATAL_ERROR);
         }
 #endif
@@ -1412,14 +1412,14 @@ void CStat::dumpDataRtt ()
     if(M_headerAlreadyDisplayedRtt == false) {
         (*M_outputStreamRtt) << "Date_ms" << stat_delimiter
                              << "response_time_ms" << stat_delimiter
-                             << "rtd_no" << endl;
+                             << "rtd_no" << std::endl;
         M_headerAlreadyDisplayedRtt = true;
     }
 
     for (unsigned int L_i = 0; L_i < M_counterDumpRespTime ; L_i ++) {
         (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].date   << stat_delimiter ;
         (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtt    << stat_delimiter ;
-        (*M_outputStreamRtt) <<  M_revRtdMap[M_dumpRespTime[L_i].rtd_no] << endl;
+        (*M_outputStreamRtt) <<  M_revRtdMap[M_dumpRespTime[L_i].rtd_no] << std::endl;
         (*M_outputStreamRtt).flush();
         M_dumpRespTime[L_i].date = 0.0;
         M_dumpRespTime[L_i].rtt = 0.0;

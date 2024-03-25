@@ -40,7 +40,7 @@ listener::listener(const char *id, bool listening)
 void listener::startListening()
 {
     assert(!listening);
-    listeners.insert(pair<listener_map::key_type,listener *>(listener_map::key_type(id),this));
+    listeners.insert(std::pair<listener_map::key_type,listener *>(listener_map::key_type(id),this));
     listening = true;
 }
 
