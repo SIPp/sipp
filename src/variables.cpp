@@ -207,9 +207,6 @@ VariableTable::VariableTable(VariableTable *parent, int size)
     }
     for (int i = 0; i < size; i++) {
         variableTable[i] = new CCallVariable();
-        if (variableTable[i] == nullptr) {
-            ERROR ("Call variable allocation failed");
-        }
     }
 }
 
@@ -238,9 +235,6 @@ VariableTable::VariableTable(AllocVariableTable *src)
 
     for (int i = 0; i < size; i++) {
         variableTable[i] = new CCallVariable();
-        if (variableTable[i] == nullptr) {
-            ERROR ("Call variable allocation failed");
-        }
     }
 }
 
@@ -258,9 +252,6 @@ void VariableTable::expand(int size)
 
     for (int i = this->size; i < size; i++) {
         variableTable[i] = new CCallVariable();
-        if (variableTable[i] == nullptr) {
-            ERROR ("Call variable allocation failed");
-        }
     }
 
     this->size = size;

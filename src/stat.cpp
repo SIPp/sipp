@@ -370,11 +370,6 @@ void CStat::initRtt(const char* P_name, const char* P_extension,
 
     M_dumpRespTime = new T_value_rtt [P_report_freq_dumpRtt] ;
 
-    if ( M_dumpRespTime == nullptr ) {
-        std::cerr << "Memory allocation failure" << std::endl;
-        exit(EXIT_FATAL_ERROR);
-    }
-
     for (unsigned L_i = 0 ; L_i < P_report_freq_dumpRtt; L_i ++) {
         M_dumpRespTime[L_i].date = 0.0;
         M_dumpRespTime[L_i].rtd_no = 0;
@@ -1148,11 +1143,6 @@ void CStat::dumpData ()
         M_outputStream = new std::ofstream(M_fileName);
         M_headerAlreadyDisplayed = false;
 
-        if(M_outputStream == nullptr) {
-            std::cerr << "Unable to open stat file '" << M_fileName << "' !" << std::endl;
-            exit(EXIT_FATAL_ERROR);
-        }
-
 #ifndef __osf__
         if(!M_outputStream->is_open()) {
             std::cerr << "Unable to open stat file '" << M_fileName << "' !" << std::endl;
@@ -1395,11 +1385,6 @@ void CStat::dumpDataRtt ()
         // if the file is still not opened, we opened it now
         M_outputStreamRtt = new std::ofstream(M_fileNameRtt);
         M_headerAlreadyDisplayedRtt = false;
-
-        if(M_outputStreamRtt == nullptr) {
-            std::cerr << "Unable to open rtt file '" << M_fileNameRtt << "' !" << std::endl;
-            exit(EXIT_FATAL_ERROR);
-        }
 
 #ifndef __osf__
         if(!M_outputStreamRtt->is_open()) {
