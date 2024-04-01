@@ -48,8 +48,6 @@
 
 #include "variables.hpp"
 
-using namespace std;
-
 /*
 __________________________________________________________________________
 
@@ -465,11 +463,11 @@ private:
 
     bool                     M_headerAlreadyDisplayed;
     char*                    M_fileName;
-    ofstream*                M_outputStream;
+    std::ofstream*           M_outputStream;
 
     bool                     M_headerAlreadyDisplayedRtt ;
     char*                    M_fileNameRtt               ;
-    ofstream*                M_outputStreamRtt           ;
+    std::ofstream*           M_outputStreamRtt           ;
     double                   M_time_ref                  ;
 
     T_pValue_rtt             M_dumpRespTime              ;

@@ -67,7 +67,7 @@ SIPpSocket  *sockets[SIPP_MAXFDS];
 
 int pending_messages = 0;
 
-map<string, SIPpSocket *>     map_perip_fd;
+std::map<std::string, SIPpSocket *>     map_perip_fd;
 
 static void connect_to_peer(
     char *peer_host, int peer_port, struct sockaddr_storage *peer_sockaddr,
@@ -2567,8 +2567,7 @@ int open_connections()
         unsigned int lines = inFiles[ip_file]->numLines();
         for (unsigned int i = 0; i < lines; i++) {
             inFiles[ip_file]->getField(i, peripfield, peripaddr, sizeof(peripaddr));
-            map<string, SIPpSocket *>::iterator j;
-            j = map_perip_fd.find(peripaddr);
+            auto j = map_perip_fd.find(peripaddr);
 
             if (j == map_perip_fd.end()) {
                 if (gai_getsockaddr(&server_sockaddr, peripaddr, local_port,
