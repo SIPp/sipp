@@ -21,6 +21,8 @@ depcomp
 .dirstamp
 install-sh
 missing
+.ninja_deps
+.ninja_log
 sipp
 sipp.1
 sipp-*.tar.gz
