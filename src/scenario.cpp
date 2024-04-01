@@ -236,6 +236,7 @@ double get_double(const char *ptr, const char *what)
     return ret;
 }
 
+#ifdef PCAPPLAY
 /* If the value is enclosed in [brackets], it is assumed to be
  * a command-line supplied keyword value (-key). */
 static char* xp_get_keyword_value(const char *name)
@@ -257,6 +258,7 @@ static char* xp_get_keyword_value(const char *name)
 
     return ptr ? strdup(ptr) : NULL;
 }
+#endif
 
 static char* xp_get_string(const char *name, const char *what)
 {
