@@ -302,10 +302,8 @@ endif(USE_PCAP)
 
 if(USE_SCTP)
   find_library(SCTP_LIBRARY sctp)
-  if(SCTP_LIBRARY)
-    target_link_libraries(sipp ${SCTP_LIBRARY})
-    target_link_libraries(sipp_unittest ${SCTP_LIBRARY})
-  endif()
+  target_link_libraries(sipp ${SCTP_LIBRARY})
+  target_link_libraries(sipp_unittest ${SCTP_LIBRARY})
 endif()
 
 if(BUILD_STATIC AND MSYS)
