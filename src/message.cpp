@@ -134,7 +134,7 @@ static char* quoted_strchr(const char* s, int c)
         }
     }
 
-    return *p == c ? const_cast<char*>(p) : NULL;
+    return *p == c ? const_cast<char*>(p) : nullptr;
 }
 
 SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bool skip_sanity)
@@ -146,7 +146,7 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
     char * dest;
     char * key;
     char   current_line[MAX_HEADER_LEN];
-    char * line_mark = NULL;
+    char * line_mark = nullptr;
     char * tsrc;
     int    num_cr = get_cr_number(src);
 
@@ -250,7 +250,7 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
                 }
             }
 
-            char *spc = NULL;
+            char *spc = nullptr;
             char ospc;
             if ((spc = strchr(keyword, ' '))) {
                 ospc = *spc;
@@ -387,7 +387,7 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
 
     if (skip_sanity) {
         cancel = response = ack = false;
-        method = NULL;
+        method = nullptr;
         free(osrc);
         return;
     }
@@ -424,7 +424,7 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
         ack = false;
         cancel = false;
         free(method);
-        method = NULL;
+        method = nullptr;
     } else {
         if (p != method) {
             memmove(method, p, strlen(p) + 1);
@@ -517,7 +517,7 @@ void SendingMessage::getKeywordParam(char * src, const char * param, char * outp
     int len;
 
     len = 0;
-    key = NULL;
+    key = nullptr;
     if ((tmp = strstr(src, param))) {
         tmp += strlen(param);
         key = tmp;

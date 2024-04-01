@@ -47,8 +47,8 @@
 
 extern bool do_hide;
 
-SIPpSocket *ctrl_socket = NULL;
-SIPpSocket *stdin_socket = NULL;
+SIPpSocket *ctrl_socket = nullptr;
+SIPpSocket *stdin_socket = nullptr;
 
 static int stdin_fileno = -1;
 static int stdin_mode;
@@ -313,7 +313,7 @@ static bool process_command(char* command)
 }
 
 int command_mode = 0;
-char *command_buffer = NULL;
+char *command_buffer = nullptr;
 
 extern bool sipMsgCheck (const char *P_msg, SIPpSocket *socket);
 
@@ -341,7 +341,7 @@ static const char* get_trimmed_call_id(const char* msg)
 static char* get_inet_address(const struct sockaddr_storage* addr, char* dst, int len)
 {
     if (getnameinfo(_RCAST(struct sockaddr*, addr), socklen_from_addr(addr),
-                    dst, len, NULL, 0, NI_NUMERICHOST) != 0) {
+                    dst, len, nullptr, 0, NI_NUMERICHOST) != 0) {
         snprintf(dst, len, "addr not supported");
     }
     return dst;
@@ -565,7 +565,7 @@ void handle_stdin_socket()
 
     if (feof(stdin)) {
         stdin_socket->close();
-        stdin_socket = NULL;
+        stdin_socket = nullptr;
         return;
     }
 
@@ -623,7 +623,7 @@ void handle_stdin_socket()
     if (chars == 0) {
         /* We did not read any characters, even though we should have. */
         stdin_socket->close();
-        stdin_socket = NULL;
+        stdin_socket = nullptr;
     }
 }
 
@@ -781,7 +781,7 @@ int SIPpSocket::check_for_message()
         if (socketbuf->offset + len + content_length < socketbuf->len) {
             return len + content_length + 1;
         }
-        if (socketbuf->next == NULL) {
+        if (socketbuf->next == nullptr) {
             /* There is no buffer to merge, so we fail. */
             return 0;
         }
@@ -863,7 +863,7 @@ int SIPpSocket::empty()
     if (!buffer) {
         ERROR("Could not allocate memory for read!");
     }
-    socketbuf = alloc_socketbuf(buffer, readsize, NO_COPY, NULL);
+    socketbuf = alloc_socketbuf(buffer, readsize, NO_COPY, nullptr);
 
     switch(ss_transport) {
     case T_TCP:
@@ -935,7 +935,7 @@ void SIPpSocket::invalidate()
     /* In some error conditions, the socket FD has already been closed - if it hasn't, do so now. */
     if (ss_fd != -1) {
 #ifdef HAVE_EPOLL
-        int rc = epoll_ctl(epollfd, EPOLL_CTL_DEL, ss_fd, NULL);
+        int rc = epoll_ctl(epollfd, EPOLL_CTL_DEL, ss_fd, nullptr);
         if (rc == -1) {
             WARNING_NO("Failed to delete FD from epoll");
         }
@@ -996,7 +996,7 @@ void SIPpSocket::invalidate()
         sockets[pollidx] = sockets[pollnfds];
         sockets[pollidx]->ss_pollidx = pollidx;
     }
-    sockets[pollnfds] = NULL;
+    sockets[pollnfds] = nullptr;
 
     if (ss_msglen) {
         pending_messages--;
@@ -1248,26 +1248,26 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     ss_control(false),
     ss_fd(fd),
     ss_bind_port(0),
-    ss_comp_state(NULL),
+    ss_comp_state(nullptr),
     ss_changed_dest(false),
     ss_congested(false),
     ss_invalid(false),
-    ss_in(NULL),
-    ss_out(NULL),
-    ss_out_tail(NULL),
+    ss_in(nullptr),
+    ss_out(nullptr),
+    ss_out_tail(nullptr),
     ss_msglen(0)
 {
     /* Initialize all sockets with our destination address. */
     memcpy(&ss_dest, &remote_sockaddr, sizeof(ss_dest));
 
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
-    ss_ssl = NULL;
+    ss_ssl = nullptr;
 
     if (transport == T_TLS) {
         int flags = fcntl(fd, F_GETFL, 0);
         fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-        if ((ss_bio = BIO_new_socket(fd, BIO_NOCLOSE)) == NULL) {
+        if ((ss_bio = BIO_new_socket(fd, BIO_NOCLOSE)) == nullptr) {
             ERROR("Unable to create BIO object:Problem with BIO_new_socket()");
         }
 
@@ -1354,7 +1354,7 @@ SIPpSocket *new_sipp_socket(bool use_ipv6, int transport) {
 }
 
 SIPpSocket* SIPpSocket::new_sipp_call_socket(bool use_ipv6, int transport, bool *existing) {
-    SIPpSocket *sock = NULL;
+    SIPpSocket *sock = nullptr;
     static int next_socket;
     if (pollnfds >= max_multi_socket) {  // we must take the main socket into account
         /* Find an existing socket that matches transport and ipv6 parameters. */
@@ -1609,10 +1609,10 @@ int SIPpSocket::reconnect()
 
     if (ss_invalid) {
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
-        ss_ssl = NULL;
+        ss_ssl = nullptr;
 
         if (transport == T_TLS) {
-            if ((ss_bio = BIO_new_socket(ss_fd, BIO_NOCLOSE)) == NULL) {
+            if ((ss_bio = BIO_new_socket(ss_fd, BIO_NOCLOSE)) == nullptr) {
                 ERROR("Unable to create BIO object:Problem with BIO_new_socket()");
             }
 
@@ -1685,7 +1685,7 @@ struct socketbuf *alloc_socketbuf(char *buffer, size_t size, int copy, struct so
     if (dest) {
         memcpy(&socketbuf->addr, dest, sizeof(*dest));
     }
-    socketbuf->next = NULL;
+    socketbuf->next = nullptr;
 
     return socketbuf;
 }
@@ -2027,7 +2027,7 @@ static int send_nowait_tls(SSL* ssl, const void* msg, int len, int /*flags*/)
     if ((fd = SSL_get_fd(ssl)) == -1) {
         return -1;
     }
-    fd_flags = fcntl(fd, F_GETFL, NULL);
+    fd_flags = fcntl(fd, F_GETFL, nullptr);
     initial_fd_flags = fd_flags;
     fd_flags |= O_NONBLOCK;
     fcntl(fd, F_SETFL, fd_flags);
@@ -2057,7 +2057,7 @@ static int send_nowait(int s, const void* msg, int len, int flags)
 #if defined(MSG_DONTWAIT) && !defined(__SUNOS)
     return send(s, msg, len, flags | MSG_DONTWAIT);
 #else
-    int fd_flags = fcntl(s, F_GETFL , NULL);
+    int fd_flags = fcntl(s, F_GETFL , nullptr);
     int initial_fd_flags;
     int rc;
 
@@ -2085,7 +2085,7 @@ int send_sctp_nowait(int s, const void *msg, int len, int flags)
 #if defined(MSG_DONTWAIT) && !defined(__SUNOS)
     return sctp_send(s, msg, len, &sinfo, flags | MSG_DONTWAIT);
 #else
-    int fd_flags = fcntl(s, F_GETFL, NULL);
+    int fd_flags = fcntl(s, F_GETFL, nullptr);
     int initial_fd_flags;
     int rc;
 
@@ -2314,7 +2314,7 @@ void SIPpSocket::close_calls()
 {
     owner_list *owners = get_owners_for_socket(this);
     owner_list::iterator owner_it;
-    socketowner *owner_ptr = NULL;
+    socketowner *owner_ptr = nullptr;
 
     for (owner_it = owners->begin(); owner_it != owners->end(); owner_it++) {
         owner_ptr = *owner_it;
@@ -2356,7 +2356,7 @@ int open_connections()
             struct addrinfo * local_addr;
             int ret;
             if (strlen(local_ip)) {
-                if ((ret = getaddrinfo(local_ip, NULL, &hints, &local_addr)) != 0) {
+                if ((ret = getaddrinfo(local_ip, nullptr, &hints, &local_addr)) != 0) {
                     ERROR("Can't get local IP address in getaddrinfo, "
                             "local_ip='%s', ret=%d", local_ip, ret);
                 }
@@ -2419,7 +2419,7 @@ int open_connections()
             }
 
             /* Resolving local IP */
-            if ((ret = getaddrinfo(local_ip, NULL, &hints, &local_addr)) != 0) {
+            if ((ret = getaddrinfo(local_ip, nullptr, &hints, &local_addr)) != 0) {
               switch (ret) {
 #ifdef EAI_ADDRFAMILY
                 case EAI_ADDRFAMILY:
@@ -2472,7 +2472,7 @@ int open_connections()
     }
 
     /* Creating and binding the local socket */
-    if ((main_socket = new_sipp_socket(local_ip_is_ipv6, transport)) == NULL) {
+    if ((main_socket = new_sipp_socket(local_ip_is_ipv6, transport)) == nullptr) {
         ERROR_NO("Unable to get the local socket");
     }
 
@@ -2578,12 +2578,12 @@ int open_connections()
 
                 bool is_ipv6 = (server_sockaddr.ss_family == AF_INET6);
 
-                if ((sock = new_sipp_socket(is_ipv6, transport)) == NULL) {
+                if ((sock = new_sipp_socket(is_ipv6, transport)) == nullptr) {
                     ERROR_NO("Unable to get server socket");
                 }
 
                 sipp_customize_socket(sock);
-                if (sipp_bind_socket(sock, &server_sockaddr, NULL)) {
+                if (sipp_bind_socket(sock, &server_sockaddr, nullptr)) {
                     ERROR_NO("Unable to bind server socket");
                 }
 
@@ -2594,7 +2594,7 @@ int open_connections()
 
     if ((!multisocket) && (transport == T_TCP || transport == T_TLS || transport == T_SCTP) &&
             (sendMode != MODE_SERVER)) {
-        if ((tcp_multiplex = new_sipp_socket(local_ip_is_ipv6, transport)) == NULL) {
+        if ((tcp_multiplex = new_sipp_socket(local_ip_is_ipv6, transport)) == nullptr) {
             ERROR_NO("Unable to get a TCP socket");
         }
 
@@ -2611,7 +2611,7 @@ int open_connections()
         sipp_customize_socket(tcp_multiplex);
 
         /* This fixes local_port keyword value when transport are TCP|TLS and it's defined by user with "-p" */
-        if (sipp_bind_socket(tcp_multiplex, &local_sockaddr, NULL)) {
+        if (sipp_bind_socket(tcp_multiplex, &local_sockaddr, nullptr)) {
             ERROR_NO("Unable to bind TCP socket");
         }
 
@@ -2619,7 +2619,7 @@ int open_connections()
             if (reset_number > 0) {
                 WARNING("Failed to reconnect");
                 main_socket->close();
-                main_socket = NULL;
+                main_socket = nullptr;
                 reset_number--;
                 return 1;
             } else {
@@ -2694,7 +2694,7 @@ static void connect_to_peer(
 
     get_inet_address(peer_sockaddr, peer_ip, peer_ip_size);
 
-    if ((*peer_socket = new_sipp_socket(is_ipv6, T_TCP)) == NULL) {
+    if ((*peer_socket = new_sipp_socket(is_ipv6, T_TCP)) == nullptr) {
         ERROR_NO("Unable to get a twin sipp TCP socket");
     }
 
@@ -2725,7 +2725,7 @@ SIPpSocket **get_peer_socket(char * peer) {
     } else {
         ERROR("get_peer_socket: Peer %s not found", peer);
     }
-    return NULL;
+    return nullptr;
 }
 
 char * get_peer_addr(char * peer)
@@ -2739,7 +2739,7 @@ char * get_peer_addr(char * peer)
     } else {
         ERROR("get_peer_addr: Peer %s not found", peer);
     }
-    return NULL;
+    return nullptr;
 }
 
 bool is_a_peer_socket(SIPpSocket *peer_socket)
@@ -2772,7 +2772,7 @@ void connect_local_twin_socket(char * twinSippHost)
 
     get_inet_address(&twinSipp_sockaddr, twinSippIp, sizeof(twinSippIp));
 
-    if ((localTwinSippSocket = new_sipp_socket(is_ipv6, T_TCP)) == NULL) {
+    if ((localTwinSippSocket = new_sipp_socket(is_ipv6, T_TCP)) == nullptr) {
         ERROR_NO("Unable to get a listener TCP socket ");
     }
 
@@ -2798,7 +2798,7 @@ void close_peer_sockets()
          ++peer_it) {
         T_peer_infos infos = peer_it->second;
         infos.peer_socket->close();
-        infos.peer_socket = NULL;
+        infos.peer_socket = nullptr;
         peers[std::string(peer_it->first)] = infos;
     }
 
@@ -2809,7 +2809,7 @@ void close_local_sockets()
 {
     for (int i = 0; i< local_nb; i++) {
         local_sockets[i]->close();
-        local_sockets[i] = NULL;
+        local_sockets[i] = nullptr;
     }
 }
 
@@ -3094,7 +3094,7 @@ bool sipMsgCheck (const char *P_msg, SIPpSocket *socket)
             is_a_peer_socket(socket) || is_a_local_socket(socket))
         return true;
 
-    if (strstr(P_msg, C_sipHeader) !=  NULL) {
+    if (strstr(P_msg, C_sipHeader) !=  nullptr) {
         return true;
     }
 

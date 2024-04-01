@@ -323,24 +323,24 @@ MAYBE_EXTERN double             tls_version             DEFVAL(0.0);
 #endif
 
 #ifdef SO_BINDTODEVICE
-MAYBE_EXTERN const char       * bind_to_device_name     DEFVAL(NULL);
+MAYBE_EXTERN const char       * bind_to_device_name     DEFVAL(nullptr);
 #endif
 
-MAYBE_EXTERN char*              scenario_file           DEFVAL(NULL);
-MAYBE_EXTERN char*              scenario_path           DEFVAL(NULL);
+MAYBE_EXTERN char*              scenario_file           DEFVAL(nullptr);
+MAYBE_EXTERN char*              scenario_path           DEFVAL(nullptr);
 
 // extern field file management
 typedef std::map<std::string, FileContents *> file_map;
 MAYBE_EXTERN file_map inFiles;
 typedef std::map<std::string, str_int_map *> file_index;
-MAYBE_EXTERN char *ip_file DEFVAL(NULL);
-MAYBE_EXTERN char *default_file DEFVAL(NULL);
+MAYBE_EXTERN char *ip_file DEFVAL(nullptr);
+MAYBE_EXTERN char *default_file DEFVAL(nullptr);
 
 // free user id list
 MAYBE_EXTERN std::list<int> freeUsers;
 MAYBE_EXTERN std::list<int> retiredUsers;
-MAYBE_EXTERN AllocVariableTable *globalVariables        DEFVAL(NULL);
-MAYBE_EXTERN AllocVariableTable *userVariables          DEFVAL(NULL);
+MAYBE_EXTERN AllocVariableTable *globalVariables        DEFVAL(nullptr);
+MAYBE_EXTERN AllocVariableTable *userVariables          DEFVAL(nullptr);
 typedef std::map<int, VariableTable *> int_vt_map;
 MAYBE_EXTERN int_vt_map         userVarMap;
 
@@ -415,9 +415,9 @@ MAYBE_EXTERN  int stepDynamicId   DEFVAL(4);      // step of increment for dynam
 
 /*********************** Global Sockets  **********************/
 
-MAYBE_EXTERN SIPpSocket   *main_socket                  DEFVAL(NULL);
-MAYBE_EXTERN SIPpSocket   *main_remote_socket           DEFVAL(NULL);
-MAYBE_EXTERN SIPpSocket   *tcp_multiplex                DEFVAL(NULL);
+MAYBE_EXTERN SIPpSocket   *main_socket                  DEFVAL(nullptr);
+MAYBE_EXTERN SIPpSocket   *main_remote_socket           DEFVAL(nullptr);
+MAYBE_EXTERN SIPpSocket   *tcp_multiplex                DEFVAL(nullptr);
 MAYBE_EXTERN int media_socket_audio                     DEFVAL(0);
 MAYBE_EXTERN int media_socket_video                     DEFVAL(0);
 
@@ -435,8 +435,8 @@ MAYBE_EXTERN std::set<SIPpSocket*> sockets_pending_reset;
 
 MAYBE_EXTERN struct sockaddr_storage local_addr_storage;
 
-MAYBE_EXTERN SIPpSocket   *twinSippSocket               DEFVAL(NULL);
-MAYBE_EXTERN SIPpSocket   *localTwinSippSocket          DEFVAL(NULL);
+MAYBE_EXTERN SIPpSocket   *twinSippSocket               DEFVAL(nullptr);
+MAYBE_EXTERN SIPpSocket   *localTwinSippSocket          DEFVAL(nullptr);
 MAYBE_EXTERN struct sockaddr_storage twinSipp_sockaddr;
 
 /* 3pcc extended mode */
