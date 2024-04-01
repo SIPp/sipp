@@ -534,9 +534,6 @@ void setup_ctrl_socket()
     }
 
     ctrl_socket = new SIPpSocket(0, T_UDP, sock, 0);
-    if (!ctrl_socket) {
-        ERROR_NO("Could not setup control socket!");
-    }
 }
 
 void reset_stdin()
@@ -552,9 +549,6 @@ void setup_stdin_socket()
     fcntl(stdin_fileno, F_SETFL, stdin_mode | O_NONBLOCK);
 
     stdin_socket = new SIPpSocket(0, T_TCP, stdin_fileno, 0);
-    if (!stdin_socket) {
-        ERROR_NO("Could not setup keyboard (stdin) socket!");
-    }
 }
 
 #define SIPP_ENDL "\r\n"
@@ -1131,9 +1125,6 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
             // Adding a new OUTGOING call !
             main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
             call *new_ptr = new call(call_id, local_ip_is_ipv6, 0, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
-            if (!new_ptr) {
-                ERROR("Out of memory allocating a call!");
-            }
 
             outbound_congestion = false;
             if ((socket != main_socket) &&
@@ -1171,9 +1162,6 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
             // Adding a new INCOMING call !
             main_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
             listener_ptr = new call(call_id, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src);
-            if (!listener_ptr) {
-                ERROR("Out of memory allocating a call!");
-            }
         } else { // mode != from SERVER and 3PCC Controller B
             // This is a message that is not relating to any known call
             if (ooc_scenario) {
@@ -1189,9 +1177,6 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
                     free(msg_start);
                     /* This should have the real address that the message came from. */
                     call *call_ptr = new call(ooc_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
-                    if (!call_ptr) {
-                        ERROR("Out of memory allocating a call!");
-                    }
                     CStat::globalStat(CStat::E_AUTO_ANSWERED);
                     call_ptr->process_incoming(msg, src);
                 } else {
@@ -1211,9 +1196,6 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
                     aa_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
                     /* This should have the real address that the message came from. */
                     call *call_ptr = new call(aa_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
-                    if (!call_ptr) {
-                        ERROR("Out of memory allocating a call!");
-                    }
                     CStat::globalStat(CStat::E_AUTO_ANSWERED);
                     call_ptr->process_incoming(msg, src);
                 } else {
@@ -1420,10 +1402,6 @@ SIPpSocket* SIPpSocket::accept() {
 #endif
 
     ret = new SIPpSocket(ss_ipv6, ss_transport, fd, 1);
-    if (!ret) {
-        ::close(fd);
-        ERROR_NO("Could not allocate new socket!");
-    }
 
     /* We should connect back to the address which connected to us if we
      * experience a TCP failure. */

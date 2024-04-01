@@ -1043,9 +1043,6 @@ int CActions::getActionSize()
 void CActions::setAction(CAction *P_action)
 {
     CAction **newActions = new CAction*[M_nbAction + 1];
-    if (!newActions) {
-        ERROR("Could not allocate new action list.");
-    }
     for (int i = 0; i < M_nbAction; i++) {
         newActions[i] = M_actionList[i];
     }
