@@ -756,7 +756,15 @@ static char* wrap(const char* in, int offset, int size)
 /* If stdout is a TTY, wrap stdout in a call to PAGER (generally less(1)).
  * Returns a pid_t you'll have to pass to end_pager(). */
 static pid_t begin_pager() {
-    char pager[15] = "/usr/bin/pager";
+    char const *pager_options[4] = {
+        "/usr/bin/pager",
+        "/usr/bin/less",
+        "/usr/bin/more",
+        nullptr
+    };
+    char const *const *pptr;
+    char const *ptr;
+    char argv0_buf[PATH_MAX + 1];
     char *argv[2] = {nullptr, nullptr};
 
     int stdout_fd = fileno(stdout);
@@ -767,17 +775,33 @@ static pid_t begin_pager() {
         return 0;
     }
 
-    /* Get pager first, so we can bail if it's not there */
-    argv[0] = getenv("PAGER");
-    if (!argv[0]) {
-        argv[0] = pager; /* missing PAGER */
-    } else if (!*argv[0]) {
-        return 0; /* blank PAGER */
+    /* Get pager first, so we can bail if it's not there. Prefer env */
+    if ((ptr = getenv("PAGER"))) {
+        if (!ptr[0]) {
+            return 0; /* blank PAGER */
+        }
+        pager_options[0] = ptr;
+        pager_options[1] = nullptr;
     }
 
-    /* Should use euidaccess(3), but requires _GNU_SOURCE */
-    if (access(argv[0], X_OK) < 0) {
-        perror(argv[0]);
+    /* Should use euidaccess(3) instead of access(), but that requires
+     * _GNU_SOURCE */
+    for (pptr = pager_options; *pptr; ++pptr) {
+        if (access(*pptr, X_OK) == 0) {
+            /* Copy the RO-location to something writable so argv can be
+             * char* const* when passed to execve. */
+            argv0_buf[0] = argv0_buf[sizeof(argv0_buf) - 1] = '\0';
+            strncat(argv0_buf, *pptr, sizeof(argv0_buf) - 1);
+            argv[0] = argv0_buf;
+            break;
+        }
+    }
+
+    /* Nothing found? Silently ignore */
+    if (!argv[0]) {
+        if (pager_options[1] == nullptr) {
+            perror(pager_options[0]); /* env supplied PAGER not found */
+        }
         return 0;
     }
 
