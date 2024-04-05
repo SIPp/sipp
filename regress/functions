@@ -6,7 +6,7 @@ init() {
     cd "`dirname "$0"`"
 
     # Print a nice message.
-    echo -n "Testing `basename \`pwd\``: "
+    printf "Testing %s: " "`basename \`pwd\``"
 }
 
 # Allow SIPP=/path/to/sipp to override autodetection.  Please use an
