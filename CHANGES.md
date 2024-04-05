@@ -1,13 +1,14 @@
 BREAKING(!) changes in 3.7.3
 ============================
 
-- Remove support for variables in PCAP filenames, originally introduced in 3.7.0~rc1.  See #673
+- Remove support for variables in PCAP filenames, originally introduced in 3.7.0. See #673
     
 Bugs fixed in 3.7.3
 ===================
 
-- Recovered `-mp` and `[auto_media_port]` to maintain backwards compatibility. (by Orgad Shaneh)
+- Recovered `-mp` and `[auto_media_port]` to maintain backwards compatibility (by Orgad Shaneh)
 - Fix crash when using PCAP play with more than one call (by Pete O'Neill)
+- Fix pager on macOS by trying less and more too (by Walter Doekes)
 
 Bugs fixed in 3.7.2
 ===================
