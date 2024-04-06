@@ -41,6 +41,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <atomic>
+#include <string>
 #include <vector>
 
 #ifdef __APPLE__
@@ -756,15 +757,11 @@ static char* wrap(const char* in, int offset, int size)
 /* If stdout is a TTY, wrap stdout in a call to PAGER (generally less(1)).
  * Returns a pid_t you'll have to pass to end_pager(). */
 static pid_t begin_pager() {
-    char const *pager_options[4] = {
+    std::vector<std::string> pager_options = {
         "/usr/bin/pager",
         "/usr/bin/less",
-        "/usr/bin/more",
-        nullptr
+        "/usr/bin/more"
     };
-    char const *const *pptr;
-    char const *ptr;
-    char argv0_buf[PATH_MAX + 1];
     char *argv[2] = {nullptr, nullptr};
 
     int stdout_fd = fileno(stdout);
@@ -776,31 +773,27 @@ static pid_t begin_pager() {
     }
 
     /* Get pager first, so we can bail if it's not there. Prefer env */
-    if ((ptr = getenv("PAGER"))) {
+    if (const char *ptr = getenv("PAGER")) {
         if (!ptr[0]) {
             return 0; /* blank PAGER */
         }
-        pager_options[0] = ptr;
-        pager_options[1] = nullptr;
+        pager_options.clear();
+        pager_options.push_back(ptr);
     }
 
     /* Should use euidaccess(3) instead of access(), but that requires
      * _GNU_SOURCE */
-    for (pptr = pager_options; *pptr; ++pptr) {
-        if (access(*pptr, X_OK) == 0) {
-            /* Copy the RO-location to something writable so argv can be
-             * char* const* when passed to execve. */
-            argv0_buf[0] = argv0_buf[sizeof(argv0_buf) - 1] = '\0';
-            strncat(argv0_buf, *pptr, sizeof(argv0_buf) - 1);
-            argv[0] = argv0_buf;
+    for (std::string &opt : pager_options) {
+        if (access(opt.c_str(), X_OK) == 0) {
+            argv[0] = &opt[0];
             break;
         }
     }
 
     /* Nothing found? Silently ignore */
     if (!argv[0]) {
-        if (pager_options[1] == nullptr) {
-            perror(pager_options[0]); /* env supplied PAGER not found */
+        if (pager_options.size() == 1) {
+            perror(pager_options[0].c_str()); /* env supplied PAGER not found */
         }
         return 0;
     }
