@@ -464,7 +464,7 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
     }
 
     if (error_lfi.fptr) {
-        count += fprintf(error_lfi.fptr, "%s", screen_last_error);
+        count += fprintf(error_lfi.fptr, "%s\n", screen_last_error);
         fflush(error_lfi.fptr);
         if (ringbuffer_size && count > ringbuffer_size) {
             rotate_errorf();
