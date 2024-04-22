@@ -5459,6 +5459,8 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         realloc_ptr = (char*)realloc(next_req_url, MAX_HEADER_LEN);
         if (realloc_ptr) {
             next_req_url = realloc_ptr;
+            /* Ensure next_req_url has an empty value in case contact is missing */
+            next_req_url[0] = '\0';
         } else {
             free(next_req_url);
             ERROR("Out of memory!");
