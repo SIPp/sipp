@@ -51,7 +51,7 @@
 static char  xp_file[XP_MAX_FILE_LEN + 1];
 static char *xp_position[XP_MAX_STACK_LEN];
 static int   xp_stack = 0;
-static int   xp_stack_invalid = 0;
+static int   xp_stack_invalid_line = 0;
 
 static char  xp_history[XP_MAX_FILE_LEN + 1];
 static char *xp_history_pos;
@@ -117,6 +117,27 @@ static const char *xp_find_escape(const char *escape, size_t len)
             return n->value;
     }
     return NULL;
+}
+
+static int xp_get_lineno(const char *endpos)
+{
+    const char *p = xp_file;
+    int lf_count = 0;
+
+    if (p < xp_file || p > xp_file + sizeof(xp_file)) {
+        return -1;
+    }
+
+    while (p < endpos) {
+        if (*p == '\n') {
+            lf_count += 1;
+        } else if (*p == '\0') {
+            break;
+        }
+        ++p;
+    }
+
+    return lf_count + 1;
 }
 
 #if 0
@@ -280,7 +301,7 @@ int xp_set_xml_buffer_from_string(const char *str)
     }
 
     strcpy(xp_file, str);
-    xp_stack = xp_stack_invalid = 0;
+    xp_stack = xp_stack_invalid_line = 0;
     xp_history_reset();
     xp_position[xp_stack] = xp_file;
 
@@ -310,7 +331,7 @@ int xp_set_xml_buffer_from_file(const char *filename)
         xp_file[index++] = c;
         if (index >= XP_MAX_FILE_LEN) {
             xp_file[index++] = 0;
-            xp_stack = xp_stack_invalid = 0;
+            xp_stack = xp_stack_invalid_line = 0;
             xp_history_reset();
             xp_position[xp_stack] = xp_file;
             fclose(f);
@@ -320,7 +341,7 @@ int xp_set_xml_buffer_from_file(const char *filename)
     xp_file[index++] = 0;
     fclose(f);
 
-    xp_stack = xp_stack_invalid = 0;
+    xp_stack = xp_stack_invalid_line = 0;
     xp_history_reset();
     xp_position[xp_stack] = xp_file;
 
@@ -382,10 +403,10 @@ char *xp_open_element(int index)
                     return NULL;
 
                 xp_history_pop();
-                if (strcmp(xp_history_pos + 1, name) && !xp_stack_invalid) {
-                    xp_stack_invalid = 1;
-                    fprintf(stderr, "Unexpected </%s> (expected </%s>)\n",
-                        name, xp_history_pos + 1);
+                if (strcmp(xp_history_pos + 1, name) && !xp_stack_invalid_line) {
+                    xp_stack_invalid_line = xp_get_lineno(ptr);
+                    fprintf(stderr, "Unexpected </%s> (expected </%s>) near line %d\n",
+                        name, xp_history_pos + 1, xp_stack_invalid_line);
                 }
             } else {
                 char *end = xp_find_start_tag_end(ptr + 1);
@@ -422,7 +443,7 @@ char *xp_open_element(int index)
 void xp_close_element()
 {
     if (!xp_stack) {
-        xp_stack_invalid = 1;
+        xp_stack_invalid_line = -1;
         return;
     }
     xp_stack--;
@@ -431,10 +452,12 @@ void xp_close_element()
 int xp_is_invalid(void)
 {
     const char *elem;
-    if (xp_stack_invalid) {
+    if (xp_stack_invalid_line) {
+        /* Found different closing element */
         return 1;
     }
     if (xp_stack) {
+        /* Does not happen because main parser never goes deep */
         return 1;
     }
     if ((elem = xp_open_element(1))) { /* anything after <scenario>? */
@@ -442,6 +465,17 @@ int xp_is_invalid(void)
         return 1;
     }
     return 0;
+}
+
+int xp_get_invalid_line(void)
+{
+    if (xp_stack_invalid_line) {
+        return xp_stack_invalid_line;
+    } else if (xp_stack == 0) {
+        return xp_get_lineno(xp_position[1]);
+    } else {
+        return -1;
+    }
 }
 
 const char *xp_get_value(const char *name)

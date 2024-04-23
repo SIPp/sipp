@@ -1026,7 +1026,8 @@ scenario::scenario(char * filename, int deflt)
     /* Close scenario element */
     xp_close_element();
     if (xp_is_invalid()) {
-        ERROR("Invalid XML in scenario. See: https://github.com/SIPp/sipp/issues/414");
+        ERROR("Invalid XML in scenario near line %d. See: https://github.com/SIPp/sipp/issues/414",
+                xp_get_invalid_line());
     }
 
     str_int_map::iterator label_it = labelMap.find("_unexp.main");
