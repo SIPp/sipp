@@ -125,7 +125,9 @@ The following example is used to:
       </action>
     </recv>
 
-
+.. note::
+  Release 3.6.0 added rudimentary XML syntax checks. Now the & and <
+  characters must be escaped as &amp; and &lt; even inside attribute values.
 
 Log a message
 +++++++++++++

@@ -59,10 +59,11 @@ clause. For example:
 
     <recv request="INVITE">
       <action>
-        <ereg regexp="<sip:([^;@]*)" search_in="hdr" header="To:" assign_to="dummy,uri" />
+        <ereg regexp="&lt;sip:([^;@]*)" search_in="hdr" header="To:" assign_to="dummy,uri" />
       </action>
     </recv>
     <Reference variables="dummy" />
 
-
-
+.. note::
+  Release 3.6.0 added rudimentary XML syntax checks. Now the & and <
+  characters must be escaped as &amp; and &lt; even inside attribute values.
