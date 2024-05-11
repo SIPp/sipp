@@ -115,6 +115,9 @@ FileContents::FileContents(const char *fileName)
         std::getline(inFile, lineStr);
         if (!lineStr.empty()) {
             if ('#' != lineStr[0]) {
+                if(*lineStr.rbegin() == '\r') {
+                    lineStr.pop_back();
+                }
                 fileLines.push_back(lineStr);
                 realLinesInFile++; /* this counts number of valid data lines */
             }
