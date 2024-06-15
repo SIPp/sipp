@@ -40,7 +40,7 @@ listener::listener(const char *id, bool listening)
 void listener::startListening()
 {
     assert(!listening);
-    listeners.insert(pair<listener_map::key_type,listener *>(listener_map::key_type(id),this));
+    listeners.insert(std::pair<listener_map::key_type,listener *>(listener_map::key_type(id),this));
     listening = true;
 }
 
@@ -66,15 +66,14 @@ listener::~listener()
         stopListening();
     }
     free(id);
-    id = NULL;
-
+    id = nullptr;
 }
 
 listener *get_listener(const char *id)
 {
     listener_map::iterator listener_it = listeners.find(listener_map::key_type(id));
     if (listener_it == listeners.end()) {
-        return NULL;
+        return nullptr;
     }
     return listener_it->second;
 }

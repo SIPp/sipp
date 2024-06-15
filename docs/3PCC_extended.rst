@@ -8,7 +8,7 @@ each one of them being connected to a remote host.
 The SIPp instance which initiates the call is launched in "master"
 mode. The others are launched in "slave" mode. Slave SIPp instances
 have names, given in the command line (for example, s1, s2...sN for
-the slaves and m for the master) Correspondances between instances
+the slaves and m for the master) Correspondences between instances
 names and their addresses must be stored in a file (provided by
 ``-slave_cfg`` command line argument), in the following format::
 

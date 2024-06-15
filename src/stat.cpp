@@ -124,32 +124,32 @@ CStat::~CStat()
 
     dumpDataRtt();
     for (i = 0; i < nRtds(); i++) {
-        if (M_ResponseTimeRepartition[i] != NULL) {
+        if (M_ResponseTimeRepartition[i] != nullptr) {
             delete [] M_ResponseTimeRepartition[i];
         }
     }
     free(M_ResponseTimeRepartition);
 
-    if (M_CallLengthRepartition != NULL)
+    if (M_CallLengthRepartition != nullptr)
         delete [] M_CallLengthRepartition;
 
-    if(M_outputStream != NULL) {
+    if(M_outputStream != nullptr) {
         M_outputStream->close();
         delete M_outputStream;
     }
 
-    if(M_fileName != NULL)
+    if(M_fileName != nullptr)
         delete [] M_fileName;
 
-    if(M_outputStreamRtt != NULL) {
+    if(M_outputStreamRtt != nullptr) {
         M_outputStreamRtt->close();
         delete M_outputStreamRtt;
     }
-    if(M_fileNameRtt != NULL)
+    if(M_fileNameRtt != nullptr)
         delete [] M_fileNameRtt;
 
 
-    if(M_dumpRespTime != NULL)
+    if(M_dumpRespTime != nullptr)
         delete [] M_dumpRespTime;
 
     free(M_rtdInfo);
@@ -159,13 +159,13 @@ CStat::~CStat()
 
     M_SizeOfResponseTimeRepartition = 0;
     M_SizeOfCallLengthRepartition   = 0;
-    M_CallLengthRepartition         = NULL;
-    M_fileName                      = NULL;
-    M_outputStream                  = NULL;
+    M_CallLengthRepartition         = nullptr;
+    M_fileName                      = nullptr;
+    M_outputStream                  = nullptr;
 
-    M_outputStreamRtt               = NULL;
-    M_fileNameRtt                   = NULL;
-    M_dumpRespTime                  = NULL;
+    M_outputStreamRtt               = nullptr;
+    M_fileNameRtt                   = nullptr;
+    M_dumpRespTime                  = nullptr;
 }
 
 
@@ -176,10 +176,10 @@ int CStat::init ()
     GET_TIME (&M_startTime);
     memcpy   (&M_pdStartTime, &M_startTime, sizeof (struct timeval));
     memcpy   (&M_plStartTime, &M_startTime, sizeof (struct timeval));
-    M_outputStream = NULL;
+    M_outputStream = nullptr;
     M_headerAlreadyDisplayed = false;
 
-    M_outputStreamRtt = NULL;
+    M_outputStreamRtt = nullptr;
     M_headerAlreadyDisplayedRtt = false;
 
     std::vector<int> error_codes(0);
@@ -278,40 +278,40 @@ void CStat::setFileName(const char* P_name, const char* P_extension)
 {
     int sizeOf, sizeOfExtension;
 
-    if(P_name != NULL) {
+    if(P_name != nullptr) {
         // +6 for PID
         sizeOf = strlen(P_name) + 6;
         if(sizeOf > 0) {
-            if(P_extension != NULL) {
+            if(P_extension != nullptr) {
                 sizeOfExtension = strlen(P_extension);
                 if(sizeOfExtension > 0) {
-                    if(M_fileName != NULL)
+                    if(M_fileName != nullptr)
                         delete [] M_fileName;
                     M_fileName = new char[MAX_PATH];
                     sprintf(M_fileName, "%s_%ld_", P_name, (long) getpid());
                     strcat(M_fileName, P_extension);
                 } else {
-                    if(M_fileName != NULL)
+                    if(M_fileName != nullptr)
                         delete [] M_fileName;
                     M_fileName = new char[MAX_PATH];
                     sprintf(M_fileName, "%s_%ld_", P_name, (long) getpid());
                     strcat(M_fileName, DEFAULT_EXTENSION);
                 }
             } else {
-                if(M_fileName != NULL)
+                if(M_fileName != nullptr)
                     delete [] M_fileName;
                 M_fileName = new char[MAX_PATH];
                 sprintf(M_fileName, "%s_%ld_", P_name, (long) getpid());
                 strcat(M_fileName, DEFAULT_EXTENSION);
             }
         } else {
-            cerr << "new file name length is null - "
+            std::cerr << "new file name length is null - "
                  << "keeping the default filename : "
-                 << DEFAULT_FILE_NAME << endl;
+                 << DEFAULT_FILE_NAME << std::endl;
         }
     } else {
-        cerr << "new file name is NULL ! - keeping the default filename : "
-             << DEFAULT_FILE_NAME << endl;
+        std::cerr << "new file name is NULL ! - keeping the default filename : "
+             << DEFAULT_FILE_NAME << std::endl;
     }
 }
 
@@ -320,21 +320,21 @@ void CStat::setFileName(const char* P_name)
 {
     int sizeOf;
 
-    if(P_name != NULL) {
+    if(P_name != nullptr) {
         sizeOf = strlen(P_name);
         if(sizeOf > 0) {
-            if(M_fileName != NULL)
+            if(M_fileName != nullptr)
                 delete [] M_fileName;
             M_fileName = new char[sizeOf+1];
             strcpy(M_fileName, P_name);
         } else {
-            cerr << "new file name length is null - "
+            std::cerr << "new file name length is null - "
                  "keeping the default filename : "
-                 << DEFAULT_FILE_NAME << endl;
+                 << DEFAULT_FILE_NAME << std::endl;
         }
     } else {
-        cerr << "new file name is NULL ! - keeping the default filename : "
-             << DEFAULT_FILE_NAME << endl;
+        std::cerr << "new file name is NULL ! - keeping the default filename : "
+             << DEFAULT_FILE_NAME << std::endl;
     }
 }
 
@@ -344,36 +344,31 @@ void CStat::initRtt(const char* P_name, const char* P_extension,
 {
     int sizeOf, sizeOfExtension;
 
-    if(P_name != NULL) {
+    if(P_name != nullptr) {
         sizeOf = strlen(P_name) ;
         if(sizeOf > 0) {
             //  4 for '_rtt' and 6 for pid
             sizeOf += 10 ;
             sizeOfExtension = strlen(P_extension);
-            if(M_fileNameRtt != NULL)
+            if(M_fileNameRtt != nullptr)
                 delete [] M_fileNameRtt;
             sizeOf += sizeOfExtension;
             M_fileNameRtt = new char[sizeOf+1];
             sprintf (M_fileNameRtt, "%s_%ld_rtt%s", P_name, (long) getpid(),P_extension);
         } else {
-            cerr << "new file name length is null - "
+            std::cerr << "new file name length is null - "
                  << "keeping the default filename : "
-                 << DEFAULT_FILE_NAME << endl;
+                 << DEFAULT_FILE_NAME << std::endl;
         }
     } else {
-        cerr << "new file name is NULL ! - keeping the default filename : "
-             << DEFAULT_FILE_NAME << endl;
+        std::cerr << "new file name is NULL ! - keeping the default filename : "
+             << DEFAULT_FILE_NAME << std::endl;
     }
 
     // initiate the table dump response time
     M_report_freq_dumpRtt = P_report_freq_dumpRtt ;
 
     M_dumpRespTime = new T_value_rtt [P_report_freq_dumpRtt] ;
-
-    if ( M_dumpRespTime == NULL ) {
-        cerr << "Memory allocation failure" << endl;
-        exit(EXIT_FATAL_ERROR);
-    }
 
     for (unsigned L_i = 0 ; L_i < P_report_freq_dumpRtt; L_i ++) {
         M_dumpRespTime[L_i].date = 0.0;
@@ -396,7 +391,7 @@ void CStat::setRepartitionCallLength(char * P_listeStr)
         ERROR("Could not create table for call length repartition '%s'", P_listeStr);
     }
     delete [] listeInteger;
-    listeInteger = NULL;
+    listeInteger = nullptr;
 }
 
 void CStat::setRepartitionResponseTime (char * P_listeStr)
@@ -415,7 +410,7 @@ void CStat::setRepartitionResponseTime (char * P_listeStr)
             ERROR("Could not create table for response time repartition '%s'", P_listeStr);
         }
         delete [] listeInteger;
-        listeInteger = NULL;
+        listeInteger = nullptr;
     }
 }
 
@@ -450,9 +445,9 @@ void CStat::initRepartition(unsigned int* repartition,
     int i;
     unsigned int swap;
 
-    if((nombre <= 0) || (repartition == NULL) ) {
+    if((nombre <= 0) || (repartition == nullptr) ) {
         (*tabNb)          = 0;
-        (*tabRepartition) = NULL;
+        (*tabRepartition) = nullptr;
         return;
     }
 
@@ -924,7 +919,7 @@ int CStat::findRtd(const char *name, bool start)
     if (!M_ResponseTimeRepartition) {
         ERROR("Could not allocate RTD info!");
     }
-    M_ResponseTimeRepartition[ret - 1] = NULL;
+    M_ResponseTimeRepartition[ret - 1] = nullptr;
 
     if (start) {
         rtd_started[name] = true;
@@ -962,7 +957,7 @@ int CStat::computeStat (E_Action P_action,
                              CPT_C_AverageCallLength_Squares, P_value);
         updateRepartition(M_CallLengthRepartition,
                           M_SizeOfCallLengthRepartition, P_value);
-        // Updating Periodical Diplayed counter
+        // Updating Periodical Displayed counter
         updateAverageCounter(CPT_PD_AverageCallLength_Sum,
                              CPT_PD_NbOfCallUsedForAverageCallLength,
                              CPT_PD_AverageCallLength_Squares, P_value);
@@ -986,7 +981,7 @@ int CStat::computeStat (E_Action P_action,
         M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] += (P_value * P_value);
         updateRepartition(M_ResponseTimeRepartition[which], M_SizeOfResponseTimeRepartition, P_value);
 
-        // Updating Periodical Diplayed counter
+        // Updating Periodical Displayed counter
         M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT]++;
         M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUM] += P_value;
         M_rtdInfo[(which * RTD_TYPES * GENERIC_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUMSQ] += (P_value * P_value);
@@ -1009,7 +1004,7 @@ void CStat::updateRepartition(T_dynamicalRepartition* P_tabReport,
                               int P_sizeOfTab,
                               unsigned long P_value)
 {
-    if(P_tabReport == NULL) {
+    if(P_tabReport == nullptr) {
         return;
     }
 
@@ -1028,7 +1023,7 @@ void CStat::updateRepartition(T_dynamicalRepartition* P_tabReport,
 void CStat::resetRepartition(T_dynamicalRepartition* P_tabReport,
                              int P_sizeOfTab)
 {
-    if(P_tabReport == NULL) {
+    if(P_tabReport == nullptr) {
         return;
     }
 
@@ -1047,18 +1042,18 @@ CStat::CStat ()
     M_fileName = new char[L_size];
     strcpy(M_fileName, DEFAULT_FILE_NAME);
     strcat(M_fileName, DEFAULT_EXTENSION);
-    M_ResponseTimeRepartition = NULL;
-    M_CallLengthRepartition   = NULL;
+    M_ResponseTimeRepartition = nullptr;
+    M_CallLengthRepartition   = nullptr;
     M_SizeOfResponseTimeRepartition = 0;
     M_SizeOfCallLengthRepartition   = 0;
-    M_fileNameRtt = NULL;
-    M_genericCounters = NULL;
+    M_fileNameRtt = nullptr;
+    M_genericCounters = nullptr;
     M_time_ref = 0.0                   ;
-    M_dumpRespTime = NULL              ;
+    M_dumpRespTime = nullptr              ;
     M_counterDumpRespTime = 0          ;
-    M_dumpRespTime = NULL;
-    M_fileNameRtt  = NULL;
-    M_rtdInfo = NULL;
+    M_dumpRespTime = nullptr;
+    M_fileNameRtt  = nullptr;
+    M_rtdInfo = nullptr;
     M_rtpEchoErrors = 0;
 
     init();
@@ -1068,11 +1063,11 @@ char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
                                 int sizeOfTab,
                                 const char * P_repartitionName)
 {
-    static char *repartitionHeader = NULL;
+    static char *repartitionHeader = nullptr;
     char buffer[MAX_CHAR_BUFFER_SIZE];
     int dlen = strlen(stat_delimiter);
 
-    if(tabRepartition != NULL) {
+    if(tabRepartition != nullptr) {
         repartitionHeader = (char *)realloc(repartitionHeader, strlen(P_repartitionName) + dlen + 1);
         sprintf(repartitionHeader, "%s%s", P_repartitionName, stat_delimiter);
         for(int i=0; i<(sizeOfTab-1); i++) {
@@ -1098,7 +1093,7 @@ char* CStat::sRepartitionInfo(T_dynamicalRepartition * tabRepartition,
     char buffer[MAX_CHAR_BUFFER_SIZE];
     int dlen = strlen(stat_delimiter);
 
-    if(tabRepartition != NULL) {
+    if(tabRepartition != nullptr) {
         // if a repartition is present, this field match the repartition name
         repartitionInfo = (char *)realloc(repartitionInfo, dlen + 1);
         sprintf(repartitionInfo, "%s", stat_delimiter);
@@ -1143,19 +1138,14 @@ void CStat::dumpData ()
                            1000*(float)numberOfCall / (float)localElapsedTime :
                            0.0);
 
-    if(M_outputStream == NULL) {
+    if(M_outputStream == nullptr) {
         // if the file is still not opened, we opened it now
-        M_outputStream = new ofstream(M_fileName);
+        M_outputStream = new std::ofstream(M_fileName);
         M_headerAlreadyDisplayed = false;
-
-        if(M_outputStream == NULL) {
-            cerr << "Unable to open stat file '" << M_fileName << "' !" << endl;
-            exit(EXIT_FATAL_ERROR);
-        }
 
 #ifndef __osf__
         if(!M_outputStream->is_open()) {
-            cerr << "Unable to open stat file '" << M_fileName << "' !" << endl;
+            std::cerr << "Unable to open stat file '" << M_fileName << "' !" << std::endl;
             exit(EXIT_FATAL_ERROR);
         }
 #endif
@@ -1267,7 +1257,7 @@ void CStat::dumpData ()
         (*M_outputStream) << sRepartitionHeader(M_CallLengthRepartition,
                                                 M_SizeOfCallLengthRepartition,
                                                 "CallLengthRepartition");
-        (*M_outputStream) << endl;
+        (*M_outputStream) << std::endl;
         M_headerAlreadyDisplayed = true;
     }
 
@@ -1379,7 +1369,7 @@ void CStat::dumpData ()
     (*M_outputStream)
             << sRepartitionInfo(M_CallLengthRepartition,
                                 M_SizeOfCallLengthRepartition);
-    (*M_outputStream) << endl;
+    (*M_outputStream) << std::endl;
 
     // flushing the output file to let the tail -f working !
     (*M_outputStream).flush();
@@ -1391,19 +1381,14 @@ void CStat::dumpDataRtt ()
     if (M_counterDumpRespTime == 0) {
         return;
     }
-    if(M_outputStreamRtt == NULL) {
+    if(M_outputStreamRtt == nullptr) {
         // if the file is still not opened, we opened it now
-        M_outputStreamRtt = new ofstream(M_fileNameRtt);
+        M_outputStreamRtt = new std::ofstream(M_fileNameRtt);
         M_headerAlreadyDisplayedRtt = false;
-
-        if(M_outputStreamRtt == NULL) {
-            cerr << "Unable to open rtt file '" << M_fileNameRtt << "' !" << endl;
-            exit(EXIT_FATAL_ERROR);
-        }
 
 #ifndef __osf__
         if(!M_outputStreamRtt->is_open()) {
-            cerr << "Unable to open rtt file '" << M_fileNameRtt << "' !" << endl;
+            std::cerr << "Unable to open rtt file '" << M_fileNameRtt << "' !" << std::endl;
             exit(EXIT_FATAL_ERROR);
         }
 #endif
@@ -1412,14 +1397,14 @@ void CStat::dumpDataRtt ()
     if(M_headerAlreadyDisplayedRtt == false) {
         (*M_outputStreamRtt) << "Date_ms" << stat_delimiter
                              << "response_time_ms" << stat_delimiter
-                             << "rtd_no" << endl;
+                             << "rtd_no" << std::endl;
         M_headerAlreadyDisplayedRtt = true;
     }
 
     for (unsigned int L_i = 0; L_i < M_counterDumpRespTime ; L_i ++) {
         (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].date   << stat_delimiter ;
         (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtt    << stat_delimiter ;
-        (*M_outputStreamRtt) <<  M_revRtdMap[M_dumpRespTime[L_i].rtd_no] << endl;
+        (*M_outputStreamRtt) <<  M_revRtdMap[M_dumpRespTime[L_i].rtd_no] << std::endl;
         (*M_outputStreamRtt).flush();
         M_dumpRespTime[L_i].date = 0.0;
         M_dumpRespTime[L_i].rtt = 0.0;
@@ -1470,7 +1455,7 @@ char* CStat::formatTime (struct timeval* P_tv, bool with_epoch)
     L_currentDate = localtime ((const time_t *)&P_tv->tv_sec);
 
     // Format the time
-    if (L_currentDate == NULL) {
+    if (L_currentDate == nullptr) {
         memset (L_time, 0, TIME_LENGTH);
     } else {
         if (with_epoch) {
@@ -1562,7 +1547,7 @@ CUniform::CUniform(double min, double max)
 {
     if (!uniform_init) {
         uniform_init = true;
-        srand(time(NULL));
+        srand(time(nullptr));
     }
     this->min = min;
     this->max = max;
@@ -1591,7 +1576,7 @@ double CUniform::cdfInv(double percentile)
 #ifdef HAVE_GSL
 gsl_rng *gsl_init()
 {
-    static gsl_rng *rng = NULL;
+    static gsl_rng *rng = nullptr;
 
     if (rng) {
         return rng;

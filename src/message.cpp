@@ -95,6 +95,7 @@ struct KeywordMap SimpleKeywords[] = {
     {"ueaescm128sha1322video" , E_Message_UEAesCm128Sha1322Video },
 #endif // USE_TLS
     {"media_port", E_Message_Media_Port },
+    {"auto_media_port", E_Message_Auto_Media_Port },
     {"media_ip_type", E_Message_Media_IP_Type },
     {"call_number", E_Message_Call_Number },
     {"dynamic_id", E_Message_DynamicId }, // wrapping global counter
@@ -133,7 +134,7 @@ static char* quoted_strchr(const char* s, int c)
         }
     }
 
-    return *p == c ? const_cast<char*>(p) : NULL;
+    return *p == c ? const_cast<char*>(p) : nullptr;
 }
 
 SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bool skip_sanity)
@@ -145,7 +146,7 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
     char * dest;
     char * key;
     char   current_line[MAX_HEADER_LEN];
-    char * line_mark = NULL;
+    char * line_mark = nullptr;
     char * tsrc;
     int    num_cr = get_cr_number(src);
 
@@ -249,7 +250,7 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
                 }
             }
 
-            char *spc = NULL;
+            char *spc = nullptr;
             char ospc;
             if ((spc = strchr(keyword, ' '))) {
                 ospc = *spc;
@@ -349,19 +350,12 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
                 parseAuthenticationKeyword(msg_scenario, newcomp, keyword);
             } else {
                 // scan for the generic parameters - must be last test
-                int i = 0;
-                while (generic[i]) {
-                    char *msg1 = *generic[i];
-                    char *msg2 = *(generic[i] + 1);
-                    if(!strcmp(keyword, msg1)) {
-                        newcomp->type = E_Message_Literal;
-                        newcomp->literal = strdup(msg2);
-                        newcomp->literalLen = strlen(newcomp->literal);
-                        break;
-                    }
-                    ++i;
-                }
-                if (!generic[i]) {
+                auto gen = generic.find(keyword);
+                if (gen != generic.end()) {
+                    newcomp->type = E_Message_Literal;
+                    newcomp->literal = strdup((*gen).second.c_str());
+                    newcomp->literalLen = strlen(newcomp->literal);
+                } else {
                     ERROR("Unsupported keyword '%s' in xml scenario file",
                           keyword);
                 }
@@ -393,7 +387,7 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
 
     if (skip_sanity) {
         cancel = response = ack = false;
-        method = NULL;
+        method = nullptr;
         free(osrc);
         return;
     }
@@ -430,7 +424,7 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
         ack = false;
         cancel = false;
         free(method);
-        method = NULL;
+        method = nullptr;
     } else {
         if (p != method) {
             memmove(method, p, strlen(p) + 1);
@@ -523,7 +517,7 @@ void SendingMessage::getKeywordParam(char * src, const char * param, char * outp
     int len;
 
     len = 0;
-    key = NULL;
+    key = nullptr;
     if ((tmp = strstr(src, param))) {
         tmp += strlen(param);
         key = tmp;

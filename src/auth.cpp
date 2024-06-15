@@ -34,6 +34,16 @@
 #include "screen.hpp"
 #include "logger.hpp"
 #include "auth.hpp"
+#if defined(USE_OPENSSL)
+#include <openssl/evp.h>
+#elif defined(USE_WOLFSSL)
+#include <wolfssl/openssl/evp.h>
+#endif
+
+#ifdef USE_SHA256
+#define SHA256_HASH_SIZE 32
+#define SHA256_HASH_HEX_SIZE 2*SHA256_HASH_SIZE
+#endif // USE_SHA256
 
 #define MAX_HEADER_LEN  2049
 #define MD5_HASH_SIZE 16
@@ -89,16 +99,23 @@ static int createAuthHeaderAKAv1MD5(
     const char* auth, const char* algo, unsigned int nonce_count,
     char* result, size_t result_len);
 
+#ifdef USE_SHA256
+static int createAuthHeaderSHA256(
+    const char* user, const char* password, int password_len,
+    const char* method, const char* uri, const char* msgbody,
+    const char* auth, const char* algo, unsigned int nonce_count,
+    char* result, size_t result_len);
+#endif // USE_SHA256
 
 /* This function is from RFC 2617 Section 5 */
 
-static void hashToHex(md5_byte_t* _b_raw, unsigned char* _h)
+static void hashToHex(md5_byte_t* _b_raw, unsigned char* _h, unsigned short size)
 {
     unsigned short i;
     unsigned char j;
     unsigned char *_b = (unsigned char *) _b_raw;
 
-    for (i = 0; i < MD5_HASH_SIZE; i++) {
+    for (i = 0; i < size; i++) {
         j = (_b[i] >> 4) & 0xf;
         if (j <= 9) {
             _h[i * 2] = (j + '0');
@@ -112,7 +129,7 @@ static void hashToHex(md5_byte_t* _b_raw, unsigned char* _h)
             _h[i * 2 + 1] = (j + 'a' - 10);
         }
     };
-    _h[HASH_HEX_SIZE] = '\0';
+    _h[2 * size] = '\0';
 }
 
 static char *stristr(const char* s1, const char* s2)
@@ -152,7 +169,7 @@ int createAuthHeader(
     char algo[32] = "MD5";
     char *start, *end;
 
-    if ((start = stristr(auth, "Digest")) == NULL) {
+    if ((start = stristr(auth, "Digest")) == nullptr) {
         snprintf(result, result_len, "createAuthHeader: authentication must be digest");
         return 0;
     }
@@ -162,7 +179,7 @@ int createAuthHeader(
         return 0;
     }
 
-    if ((start = stristr(auth, "algorithm=")) != NULL) {
+    if ((start = stristr(auth, "algorithm=")) != nullptr) {
         start = start + strlen("algorithm=");
         if (*start == '"') {
             start++;
@@ -185,8 +202,14 @@ int createAuthHeader(
         return createAuthHeaderAKAv1MD5(
             user, aka_OP, aka_AMF, aka_K, method, uri, msgbody, auth,
             algo, nonce_count, result, result_len);
+#ifdef USE_SHA256
+    } else if (strncasecmp(algo, "SHA-256", 7)==0) {
+        return createAuthHeaderSHA256(
+            user, password, strlen(password), method, uri, msgbody,
+            auth, algo, nonce_count, result, result_len);
+#endif // USE_SHA256
     } else {
-        snprintf(result, result_len, "createAuthHeader: authentication must use MD5 or AKAv1-MD5");
+        snprintf(result, result_len, "createAuthHeader: authentication must use MD5, AKAv1-MD5 or SHA-256");
         return 0;
     }
 
@@ -261,7 +284,7 @@ static int createAuthResponseMD5(
     md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
     md5_append(&Md5Ctx, (md5_byte_t *) password, password_len);
     md5_finish(&Md5Ctx, ha1);
-    hashToHex(&ha1[0], &ha1_hex[0]);
+    hashToHex(&ha1[0], &ha1_hex[0], MD5_HASH_SIZE);
 
     if (auth_uri) {
         snprintf(tmp, sizeof(tmp), "sip:%s", auth_uri);
@@ -269,11 +292,11 @@ static int createAuthResponseMD5(
         strncpy(tmp, uri, sizeof(tmp) - 1);
     }
     // If using Auth-Int make a hash of the body - which is NULL for REG
-    if (stristr(authtype, "auth-int") != NULL) {
+    if (stristr(authtype, "auth-int") != nullptr) {
         md5_init(&Md5Ctx);
         md5_append(&Md5Ctx, (md5_byte_t *) msgbody, strlen(msgbody));
         md5_finish(&Md5Ctx, body);
-        hashToHex(&body[0], &body_hex[0]);
+        hashToHex(&body[0], &body_hex[0], MD5_HASH_SIZE);
     }
 
     // Load in A2
@@ -281,12 +304,12 @@ static int createAuthResponseMD5(
     md5_append(&Md5Ctx, (md5_byte_t *) method, strlen(method));
     md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
     md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
-    if (stristr(authtype, "auth-int") != NULL) {
+    if (stristr(authtype, "auth-int") != nullptr) {
         md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
         md5_append(&Md5Ctx, (md5_byte_t *) &body_hex, HASH_HEX_SIZE);
     }
     md5_finish(&Md5Ctx, ha2);
-    hashToHex(&ha2[0], &ha2_hex[0]);
+    hashToHex(&ha2[0], &ha2_hex[0], MD5_HASH_SIZE);
 
     md5_init(&Md5Ctx);
     md5_append(&Md5Ctx, (md5_byte_t *) &ha1_hex, HASH_HEX_SIZE);
@@ -303,10 +326,83 @@ static int createAuthResponseMD5(
     md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
     md5_append(&Md5Ctx, (md5_byte_t *) &ha2_hex, HASH_HEX_SIZE);
     md5_finish(&Md5Ctx, resp);
-    hashToHex(&resp[0], result);
+    hashToHex(&resp[0], result, MD5_HASH_SIZE);
 
     return 1;
 }
+
+#ifdef USE_SHA256
+static int createAuthResponseSHA256(
+    const char* user, const char* password, int password_len,
+    const char* method, const char* uri, const char* authtype,
+    const char* msgbody, const char* realm, const char* nonce,
+    const char* cnonce, const char* nc,
+    unsigned char* result)
+{
+    unsigned char ha1[SHA256_HASH_SIZE], ha2[SHA256_HASH_SIZE];
+    unsigned char resp[SHA256_HASH_SIZE], body[SHA256_HASH_SIZE];
+    unsigned char body_hex[SHA256_HASH_HEX_SIZE+1];
+    unsigned char ha1_hex[SHA256_HASH_HEX_SIZE+1], ha2_hex[SHA256_HASH_HEX_SIZE+1];
+    char tmp[MAX_HEADER_LEN];
+    unsigned int digest_len = 0;
+    EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+
+    // Load in A1
+    // ha1 = SHA256(username ":" realm ":" password)
+    EVP_DigestInit_ex(mdctx, EVP_sha256(), nullptr);
+    EVP_DigestUpdate(mdctx, (unsigned char *) user, strlen(user));
+    EVP_DigestUpdate(mdctx, ":", 1);
+    EVP_DigestUpdate(mdctx, (unsigned char *) realm, strlen(realm));
+    EVP_DigestUpdate(mdctx, ":", 1);
+    EVP_DigestUpdate(mdctx, (unsigned char *) password, password_len);
+    EVP_DigestFinal_ex(mdctx, ha1, &digest_len);
+    hashToHex(&ha1[0], &ha1_hex[0], SHA256_HASH_SIZE);
+
+    if (auth_uri) {
+        snprintf(tmp, sizeof(tmp), "sip:%s", auth_uri);
+    } else {
+        strncpy(tmp, uri, sizeof(tmp) - 1);
+    }
+    // If using Auth-Int make a hash of the body - which is NULL for REG
+    if (stristr(authtype, "auth-int") != nullptr) {
+        EVP_DigestInit_ex(mdctx, EVP_sha256(), nullptr);
+        EVP_DigestUpdate(mdctx, (unsigned char *) msgbody, strlen(msgbody));
+        EVP_DigestFinal_ex(mdctx, body, &digest_len);
+        hashToHex(&body[0], &body_hex[0], SHA256_HASH_SIZE);
+    }
+
+    // Load in A2
+    EVP_DigestInit_ex(mdctx, EVP_sha256(), nullptr);
+    EVP_DigestUpdate(mdctx, (unsigned char *) method, strlen(method));
+    EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+    EVP_DigestUpdate(mdctx, (unsigned char *) tmp, strlen(tmp));
+    if (stristr(authtype, "auth-int") != nullptr) {
+        EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+        EVP_DigestUpdate(mdctx, (unsigned char *) &body_hex, SHA256_HASH_HEX_SIZE);
+    }
+    EVP_DigestFinal_ex(mdctx, ha2, &digest_len);
+    hashToHex(&ha2[0], &ha2_hex[0], SHA256_HASH_SIZE);
+
+    EVP_DigestInit_ex(mdctx, EVP_sha256(), nullptr);
+    EVP_DigestUpdate(mdctx, (unsigned char *) &ha1_hex, SHA256_HASH_HEX_SIZE);
+    EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+    EVP_DigestUpdate(mdctx, (unsigned char *) nonce, strlen(nonce));
+    if (cnonce[0] != '\0') {
+        EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+        EVP_DigestUpdate(mdctx, (unsigned char *) nc, strlen(nc));
+        EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+        EVP_DigestUpdate(mdctx, (unsigned char *) cnonce, strlen(cnonce));
+        EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+        EVP_DigestUpdate(mdctx, (unsigned char *) authtype, strlen(authtype));
+    }
+    EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+    EVP_DigestUpdate(mdctx, (unsigned char *) &ha2_hex, SHA256_HASH_HEX_SIZE);
+    EVP_DigestFinal_ex(mdctx, resp, &digest_len);
+    hashToHex(&resp[0], result, SHA256_HASH_SIZE);
+
+    return 1;
+}
+#endif // USE_SHA256
 
 int createAuthHeaderMD5(
     const char* user, const char* password, int password_len,
@@ -355,7 +451,7 @@ int createAuthHeaderMD5(
         "Digest username=\"%s\",realm=\"%s\"", user, realm);
 
     // Construct the URI
-    if (auth_uri == NULL) {
+    if (auth_uri == nullptr) {
         snprintf(sipuri, sizeof(sipuri), "sip:%s", uri);
     } else {
         snprintf(sipuri, sizeof(sipuri), "sip:%s", auth_uri);
@@ -383,7 +479,7 @@ int createAuthHeaderMD5(
 
     // Extract the Nonce
     if (!getAuthParameter("nonce", auth, nonce, sizeof(nonce))) {
-        snprintf(result, result_len, "createAuthHeader: couldn't parse nonce");
+        snprintf(result, result_len, "createAuthHeaderMD5: couldn't parse nonce");
         return 0;
     }
 
@@ -405,8 +501,6 @@ int createAuthHeaderMD5(
 int verifyAuthHeader(const char *user, const char *password, const char *method, const char *auth, const char *msgbody)
 {
     char algo[MAX_HEADER_LEN];
-    unsigned char result[HASH_HEX_SIZE + 1];
-    char response[HASH_HEX_SIZE + 1];
     char realm[MAX_HEADER_LEN];
     char nonce[MAX_HEADER_LEN];
     char cnonce[MAX_HEADER_LEN];
@@ -415,7 +509,7 @@ int verifyAuthHeader(const char *user, const char *password, const char *method,
     char uri[MAX_HEADER_LEN];
     char *start;
 
-    if ((start = stristr(auth, "Digest")) == NULL) {
+    if ((start = stristr(auth, "Digest")) == nullptr) {
         WARNING("verifyAuthHeader: authentication must be digest is %s", auth);
         return 0;
     }
@@ -425,6 +519,8 @@ int verifyAuthHeader(const char *user, const char *password, const char *method,
         strcpy(algo, "MD5");
     }
     if (strncasecmp(algo, "MD5", 3)==0) {
+        unsigned char result[HASH_HEX_SIZE + 1];
+        char response[HASH_HEX_SIZE + 1];
         getAuthParameter("realm", auth, realm, sizeof(realm));
         getAuthParameter("uri", auth, uri, sizeof(uri));
         getAuthParameter("nonce", auth, nonce, sizeof(nonce));
@@ -445,8 +541,33 @@ int verifyAuthHeader(const char *user, const char *password, const char *method,
                 (char*)result,
                 response);
         return !strcmp((char *)result, response);
+#ifdef USE_SHA256
+    } else if (strncasecmp(algo, "SHA-256", 7)==0) {
+        unsigned char result[SHA256_HASH_HEX_SIZE + 1];
+        char response[SHA256_HASH_HEX_SIZE + 1];
+        getAuthParameter("realm", auth, realm, sizeof(realm));
+        getAuthParameter("uri", auth, uri, sizeof(uri));
+        getAuthParameter("nonce", auth, nonce, sizeof(nonce));
+        getAuthParameter("cnonce", auth, cnonce, sizeof(cnonce));
+        getAuthParameter("nc", auth, nc, sizeof(nc));
+        getAuthParameter("qop", auth, authtype, sizeof(authtype));
+        createAuthResponseSHA256(
+            user, password, strlen(password), method, uri, authtype,
+            msgbody, realm, nonce, cnonce, nc, result);
+        getAuthParameter("response", auth, response, sizeof(response));
+        TRACE_CALLDEBUG("Processing verifyauth command - user %s, password %s, method %s, uri %s, realm %s, nonce %s, result expected %s, response from user %s\n",
+                user,
+                password,
+                method,
+                uri,
+                realm,
+                nonce,
+                (char*)result,
+                response);
+        return !strcmp((char *)result, response);
+#endif // USE_SHA256
     } else {
-        WARNING("createAuthHeader: authentication must use MD5 or AKAv1-MD5, value is '%s'", algo);
+        WARNING("verifyAuthHeader: authentication must use MD5 or SHA-256, value is '%s'", algo);
         return 0;
     }
 }
@@ -668,7 +789,7 @@ static int createAuthHeaderAKAv1MD5(
     int i;
 
     // Extract the Nonce
-    if ((start = stristr(auth, "nonce=")) == NULL) {
+    if ((start = stristr(auth, "nonce=")) == nullptr) {
         snprintf(result, result_len, "createAuthHeaderAKAv1MD5: couldn't parse nonce");
         return 0;
     }
@@ -770,6 +891,102 @@ static int createAuthHeaderAKAv1MD5(
     return written;
 }
 
+#ifdef USE_SHA256
+int createAuthHeaderSHA256(
+    const char* user, const char* password, int password_len,
+    const char* method, const char* uri, const char* msgbody,
+    const char* auth, const char* algo, unsigned int nonce_count,
+    char* result, size_t result_len)
+{
+
+    unsigned char resp_hex[SHA256_HASH_HEX_SIZE+1];
+    char realm[MAX_HEADER_LEN],
+        sipuri[MAX_HEADER_LEN],
+        nonce[MAX_HEADER_LEN],
+        authtype[16],
+        cnonce[32],
+        nc[32],
+        opaque[64];
+    int has_opaque = 0;
+    int written = 0;
+
+    // Extract the Auth Type - If not present, using 'none'
+    cnonce[0] = '\0';
+    if (getAuthParameter("qop", auth, authtype, sizeof(authtype))) {
+        // Sloppy auth type recognition (may be "auth,auth-int")
+        if (stristr(authtype, "auth-int")) {
+            strncpy(authtype, "auth-int", sizeof(authtype) - 1);
+        } else if (stristr(authtype, "auth")) {
+            strncpy(authtype, "auth", sizeof(authtype) - 1);
+        }
+        sprintf(cnonce, "%x", rand());
+        sprintf(nc, "%08x", nonce_count);
+    }
+
+    // Extract the Opaque value - if present
+    if (getAuthParameter("opaque", auth, opaque, sizeof(opaque))) {
+        has_opaque = 1;
+    }
+
+    // Extract the Realm
+    if (!getAuthParameter("realm", auth, realm, sizeof(realm))) {
+        snprintf(result, result_len, "createAuthHeaderSHA256: couldn't parse realm in '%s'", auth);
+        return 0;
+    }
+
+    written += snprintf(
+        result + written, result_len - written,
+        "Digest username=\"%s\",realm=\"%s\"", user, realm);
+
+    // Construct the URI
+    if (auth_uri == nullptr) {
+        snprintf(sipuri, sizeof(sipuri), "sip:%s", uri);
+    } else {
+        snprintf(sipuri, sizeof(sipuri), "sip:%s", auth_uri);
+    }
+
+    if (cnonce[0] != '\0') {
+        // No double quotes around nc and qop (RFC3261):
+        //
+        // dig-resp = username / realm / nonce / digest-uri / dresponse
+        //             / algorithm / cnonce / opaque / message-qop
+        // message-qop = "qop" EQUAL ("auth" / "auth-int" / token)
+        // nonce-count =  "nc" EQUAL 8LHEX
+        //
+        // The digest challenge does have double quotes however:
+        //
+        // digest-cln = realm / domain / nonce / opaque / stale / algorithm
+        //                / qop-options / auth-param
+        // qop-options = "qop" EQUAL LDQUOT qop-value *("," qop-value) RDQUOT
+        written += snprintf(
+            result + written, result_len - written,
+            ",cnonce=\"%s\",nc=%s,qop=%s", cnonce, nc, authtype);
+    }
+    written += snprintf(
+        result + written, result_len - written, ",uri=\"%s\"", sipuri);
+
+    // Extract the Nonce
+    if (!getAuthParameter("nonce", auth, nonce, sizeof(nonce))) {
+        snprintf(result, result_len, "createAuthHeaderSHA256: couldn't parse nonce");
+        return 0;
+    }
+
+    createAuthResponseSHA256(
+        user, password, password_len, method, sipuri, authtype,
+        msgbody, realm, nonce, cnonce, nc, &resp_hex[0]);
+
+    written += snprintf(
+        result + written, result_len - written,
+        ",nonce=\"%s\",response=\"%s\",algorithm=%s", nonce, resp_hex, algo);
+    if (has_opaque) {
+        written += snprintf(
+            result + written, result_len - written, ",opaque=\"%s\"", opaque);
+    }
+
+    return written;
+}
+#endif // USE_SHA256
+
 
 #ifdef GTEST
 #include "gtest/gtest.h"
@@ -802,11 +1019,25 @@ TEST(DigestAuth, BasicVerification) {
                            " nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\"\r\n,"
                            " opaque=\"5ccc069c403ebaf9f0171e9517f40e41\""));
     char result[255];
-    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, NULL, NULL, NULL, 1, result, 255);
+    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, nullptr, nullptr, nullptr, 1, result, 255);
     EXPECT_STREQ("Digest username=\"testuser\",realm=\"testrealm@host.com\",uri=\"sip:sip:example.com\",nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\",response=\"db94e01e92f2b09a52a234eeca8b90f7\",algorithm=MD5,opaque=\"5ccc069c403ebaf9f0171e9517f40e41\"", result);
     EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header);
 }
+
+#if defined(USE_SHA256)
+TEST(DigestAuth, BasicVerificationSHA256) {
+    char* header = strdup(("Digest \r\n"
+                           " realm=\"testrealm@host.com\",\r\n"
+                           " nonce=\"ZaGxV2WhsCtREI2EsiD1LR0RYd\"\r\n,"
+                           " algorithm=SHA-256"));
+    char result[255];
+    createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, nullptr, nullptr, nullptr, 1, result, 255);
+    EXPECT_STREQ("Digest username=\"testuser\",realm=\"testrealm@host.com\",uri=\"sip:sip:example.com\",nonce=\"ZaGxV2WhsCtREI2EsiD1LR0RYd\",response=\"91b58523b983191b52d14455a2599631990110c974ed2e4b4b49bc6053af04ce\",algorithm=SHA-256", result);
+    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
+    free(header);
+}
+#endif
 
 TEST(DigestAuth, qop) {
     char result[1024];
@@ -821,9 +1052,9 @@ TEST(DigestAuth, qop) {
                      "sip:example.com",
                      "hello world",
                      header,
-                     NULL,
-                     NULL,
-                     NULL,
+                     nullptr,
+                     nullptr,
+                     nullptr,
                      1,
                      result,
                      1024);

@@ -84,7 +84,7 @@ public:
 
     virtual ~call();
 
-    virtual bool process_incoming(const char* msg, const struct sockaddr_storage* src = NULL);
+    virtual bool process_incoming(const char* msg, const struct sockaddr_storage* src = nullptr);
     virtual bool process_twinSippCom(char* msg);
 
     virtual bool run();
@@ -164,7 +164,7 @@ protected:
     unsigned long int last_recv_invite_cseq;
 
     /* Recv message characteristics when we sent a valid message
-     *  (scneario, no retrans) just after a valid reception. This was
+     *  (scenario, no retrans) just after a valid reception. This was
      * a cause relationship, so the next time this cookie will be recvd,
      * we will retransmit the same message we sent this time */
     unsigned long  recv_retrans_hash;
@@ -273,9 +273,9 @@ protected:
     double get_rhs(CAction *currentAction);
 
     // P_index use for message index in scenario
-    char* createSendingMessage(SendingMessage* src, int P_index=-1, int *msgLen=NULL);
+    char* createSendingMessage(SendingMessage* src, int P_index=-1, int *msgLen=nullptr);
     char* createSendingMessage(char* src, int P_index, bool skip_sanity=false);
-    char* createSendingMessage(SendingMessage*src, int P_index, char *msg_buffer, int buflen, int *msgLen=NULL);
+    char* createSendingMessage(SendingMessage*src, int P_index, char *msg_buffer, int buflen, int *msgLen=nullptr);
 
     // method for the management of unexpected messages
     bool  checkInternalCmd(char* cmd);  // check of specific internal command

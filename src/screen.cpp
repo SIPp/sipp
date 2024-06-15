@@ -178,11 +178,7 @@ void ScreenPrinter::get_lines()
       while (isspace(*errstart)) {
         errstart++;
       }
-      if (strlen(errstart) > 60) {
-        snprintf(buf, bufsiz, "Last Error: %.60s...", errstart);
-      } else {
-        snprintf(buf, bufsiz, "Last Error: %s", errstart);
-      }
+      snprintf(buf, bufsiz, "Last Error: %.60s...", errstart);
       lines.push_back(buf);
     }
 
@@ -264,9 +260,10 @@ bool do_hide = true;
 
 void ScreenPrinter::draw_scenario_screen()
 {
-    unsigned const bufsiz = 80;
+    unsigned const bufsiz = 100;
     char buf[bufsiz];
     char left_buf[40];
+    char left_buf_long[60];
     char right_buf[bufsiz];
     extern int pollnfds;
 
@@ -306,20 +303,20 @@ void ScreenPrinter::draw_scenario_screen()
     /* 1st line */
     unsigned long ms_since_last_tick = clock_tick - last_report_time;
     if (total_calls < stop_after) {
-        snprintf(left_buf, 40, "%llu new calls during %lu.%03lu s period",
+        snprintf(left_buf_long, 60, "%llu new calls during %lu.%03lu s period",
                  display_scenario->stats->GetStat(
                      CStat::CPT_PD_IncomingCallCreated) +
                      display_scenario->stats->GetStat(
                          CStat::CPT_PD_OutgoingCallCreated),
                  ms_since_last_tick / 1000, ms_since_last_tick % 1000);
     } else {
-        snprintf(left_buf, 40,
+        snprintf(left_buf_long, 60,
                  "Call limit %lu hit, %0.1f s period ", stop_after,
                  (double)ms_since_last_tick / 100.0);
     }
     snprintf(right_buf, 40, "%lu ms scheduler resolution",
              ms_since_last_tick / std::max(scheduling_loops, 1ul));
-    snprintf(buf, bufsiz, "  %-38.38s  %-37.37s", left_buf, right_buf);
+    snprintf(buf, bufsiz, "  %-38.38s  %-37.37s", left_buf_long, right_buf);
     lines.push_back(buf);
 
     /* 2nd line */
@@ -401,7 +398,7 @@ void ScreenPrinter::draw_scenario_screen()
              */
             last_artpstream_rate_out= ((double)TempABytes)/ ms_since_last_tick;
             last_vrtpstream_rate_out= ((double)TempVBytes)/ ms_since_last_tick;
-            /* Potential race condition betwen multiple threads updating the
+            /* Potential race condition between multiple threads updating the
              * rtpstream_bytes value. We subtract the saved TempBytes value
              * rather than setting it to zero to minimise the chances of missing
              * an update to rtpstream_bytes [update between printing stats and
@@ -641,8 +638,8 @@ void ScreenPrinter::draw_scenario_screen()
             ERROR("Scenario command %d not implemented in display", curmsg->M_type);
         }
 
-        char buf_with_index[80] = {0};
-        snprintf(buf_with_index, 80, "%-2lu:%s", index, buf);
+        char buf_with_index[121];
+        snprintf(buf_with_index, 121, "%-2lu:%s", index, buf);
         lines.push_back(buf_with_index);
         if (curmsg->crlf) {
             lines.push_back("");
@@ -804,7 +801,7 @@ void ScreenPrinter::draw_repartition_detailed(CStat::T_dynamicalRepartition * ta
 {
     unsigned const bufsiz = 80;
     char buf[bufsiz];
-    if(tabRepartition != NULL) {
+    if(tabRepartition != nullptr) {
         for(int i=0; i<(sizeOfTab-1); i++) {
             if(i==0) {
                 DISPLAY_REPART(0, tabRepartition[i].borderMax,
@@ -835,7 +832,7 @@ void ScreenPrinter::draw_vars_screen()
     for (unsigned int i = 0; i < display_scenario->messages.size(); i++) {
         message* curmsg = display_scenario->messages[i];
         actions = curmsg->M_actions;
-        if (actions != NULL) {
+        if (actions != nullptr) {
             switch (curmsg->M_type) {
             case MSG_TYPE_RECV:
                 snprintf(buf, bufsiz, "=> Message[%u] (Receive Message) - "
@@ -856,7 +853,7 @@ void ScreenPrinter::draw_vars_screen()
 
             for (int j = 0; j < actions->getActionSize(); j++) {
                 action = actions->getAction(j);
-                if (action != NULL) {
+                if (action != nullptr) {
                     int printed = snprintf(buf, bufsiz, "   --> action[%d] = ", j);
                     action->printInfo(buf + printed, bufsiz - printed);
                     lines.push_back(buf);

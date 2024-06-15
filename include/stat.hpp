@@ -48,8 +48,6 @@
 
 #include "variables.hpp"
 
-using namespace std;
-
 /*
 __________________________________________________________________________
 
@@ -344,19 +342,19 @@ public:
      * in the format given in parameter.
      *
      * @param P_tv.
-     * @return a pointer on a static string containing formated time
+     * @return a pointer on a static string containing formatted time
      */
     static char* formatTime (struct timeval* P_tv, bool with_epoch = false);
 
     /**
      * setRepartitionCallLength
      * - set the unsigned int table passed in parameter as the repartition table
-     *   for call length. This is done by calling the initRepartition methode on
+     *   for call length. This is done by calling the initRepartition method on
      *   the M_CallLengthRepartition variable.
-     * - set the char* list of int (must be separeted with coma as the
+     * - set the char* list of int (must be separated with coma as the
      *   repartition table for call length
      *   This is done by calling the createIntegerTable to transform the char*
-     *   list into unsigned int list. Then the initRepartition methode is
+     *   list into unsigned int list. Then the initRepartition method is
      *   call with the created unsigned int list and the M_CallLengthRepartition
      *   variable
      *
@@ -407,7 +405,7 @@ public:
      *
      * @param P_ms.
      *
-     * @return a pointer on a static string containing formated time
+     * @return a pointer on a static string containing formatted time
      */
     static char* msToHHMMSS (unsigned long P_ms);
 
@@ -419,7 +417,7 @@ public:
      *
      * @param P_ms.
      *
-     * @return a pointer on a static string containing formated time
+     * @return a pointer on a static string containing formatted time
      */
     static char* msToHHMMSSus (unsigned long P_ms);
 
@@ -465,11 +463,11 @@ private:
 
     bool                     M_headerAlreadyDisplayed;
     char*                    M_fileName;
-    ofstream*                M_outputStream;
+    std::ofstream*           M_outputStream;
 
     bool                     M_headerAlreadyDisplayedRtt ;
     char*                    M_fileNameRtt               ;
-    ofstream*                M_outputStreamRtt           ;
+    std::ofstream*           M_outputStreamRtt           ;
     double                   M_time_ref                  ;
 
     T_pValue_rtt             M_dumpRespTime              ;
@@ -478,7 +476,7 @@ private:
 
     /**
      * initRepartition
-     * This methode is used to create the repartition table with a table of
+     * This method is used to create the repartition table with a table of
      * unsigned int the reparition is created like following, with Vi the given
      * value in the table
      * 0    <= x <  V1
@@ -495,7 +493,7 @@ private:
      * createIntegerTable
      * this method try to create a table of unsigned int with the list of char*
      * passed in parameters
-     * if it succed, it's return true (1)
+     * if it succeed, it's return true (1)
      * else it's return false (0)
      */
     int  createIntegerTable(char * P_listeStr,
@@ -545,7 +543,7 @@ private:
 
     /**
      * UpdateAverageCounter
-     * This methode compute the real moyenne with the passed value on the given
+     * This method compute the real moyenne with the passed value on the given
      * counter
      */
     void updateAverageCounter(E_CounterName P_SumCounter,

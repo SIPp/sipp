@@ -1,10 +1,8 @@
 #!/bin/sh
+
 set -e  # abort on error
 
-MAKE=`which gmake make 2>/dev/null | head -n1`  # prefer GNU make
-test -z "$MAKE" && echo "No (g)make found" >&2 && exit 1
-CPUCOUNT=$(nproc --all 2>/dev/null || echo 1)
-MAKEFLAGS="-j$CPUCOUNT"
+SRC_DIR=$(dirname "$0")
 
 if test -z "$*"; then
     echo "build.sh: Please specify configure options," \
@@ -17,19 +15,27 @@ elif test "$*" = "--help" || test "$*" = "-h"; then
 fi
 
 if test "$*" = "--none"; then
-    cmake . -DUSE_GSL=
+    cmake $SRC_DIR -DUSE_GSL=0 -DUSE_SSL=0 -DUSE_SCTP=0 -DUSE_PCAP=0
 elif test "$*" = "--common"; then
-    cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL= -DUSE_SCTP=
+    cmake $SRC_DIR -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=0 -DUSE_SCTP=0
 elif test "$*" = "--full"; then
-    cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
+    cmake $SRC_DIR -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
 else
     # Debug build? Add -DDEBUG=1
     # Adjusted SIP max size? Add -DSIPP_MAX_MSG_SIZE=262144
-    cmake . "$@"
+    cmake $SRC_DIR "$@"
 fi
 
+if test -f build.ninja; then
+    MAKE=ninja
+else
+    MAKE=`which gmake make 2>/dev/null | head -n1`  # prefer GNU make
+    test -z "$MAKE" && echo "No (g)make found" >&2 && exit 1
+    CPUCOUNT=$(nproc --all 2>/dev/null || echo 1)
+    MAKEFLAGS="-j$CPUCOUNT"
+fi
 # For git checkout, run unit tests.
-if test -e gtest/.git; then
+if test -e $SRC_DIR/gtest/.git; then
 	"$MAKE" $MAKEFLAGS sipp_unittest
 	./sipp_unittest
 fi

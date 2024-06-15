@@ -6,7 +6,7 @@
 cd `dirname "$0"`
 
 # Cleanup test remnants.
-find . -name '*.log' | xargs --no-run-if-empty -d\\n rm -v
+find . -name '*.log' -print -delete
 echo
 
 # Export custom location SIPP binary if supplied.
@@ -36,11 +36,11 @@ for path in github-*; do
 done
 
 echo "=="
-echo -n "$ok success"
-test $skip -ne 0 && echo -n ", $skip skipped"
-test $fail -ne 0 && echo -n ", $fail FAILURE"
-test $unexpected_ok -ne 0 && echo -n ", $unexpected_ok UNEXPECTED SUCCESS"
-test $expected_fail -ne 0 && echo -n ", $expected_fail expected failure"
+printf "%d success" "$ok"
+test $skip -ne 0 && printf ", %d skipped" "$skip"
+test $fail -ne 0 && printf ", %d FAILURE" "$fail"
+test $unexpected_ok -ne 0 && printf ", %d UNEXPECTED SUCCESS" "$unexpected_ok"
+test $expected_fail -ne 0 && printf ", %d expected failure" "$expected_fail"
 echo
 
 # Return our status.

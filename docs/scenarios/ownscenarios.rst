@@ -171,9 +171,9 @@ List of attributes common to all commands
 
       - ::
 
-          <nop condexec="skipthis"condexec_inverse="true">
+          <nop condexec="skipthis" condexec_inverse="true">
 
-    * - counter
+    * - ``counter``
       - Increments the counter given as
         parameter when the message is sent. The counters are saved in the
         statistic file.
@@ -183,7 +183,20 @@ List of attributes common to all commands
           <send counter="MsgA">
 
         Increments counter "MsgA" when the message is sent.
-        Each command also has its own unique attributes, listed here:
+
+    * - ``hide``
+      - Hides command on message display.  Especially useful for <nop>
+        
+      - ::
+
+          <nop hide="true">
+
+    * - ``display``
+      - Sets display text to supplied string.  Especially useful for <nop>
+
+      - ::
+
+          <nop display="Extract Contact">
 
 
 List of commands with their attributes

@@ -55,6 +55,7 @@
 #include <string>
 #include <map>
 #include <set>
+#include <unordered_map>
 #include <math.h>
 #ifdef __SUNOS
 #include <stdarg.h>
@@ -296,7 +297,8 @@ MAYBE_EXTERN int                currentRepartitionToDisplay  DEFVAL(1);
 MAYBE_EXTERN unsigned int       base_cseq               DEFVAL(0);
 MAYBE_EXTERN char             * auth_uri                DEFVAL(0);
 MAYBE_EXTERN const char       * call_id_string          DEFVAL("%u-%p@%s");
-MAYBE_EXTERN char             **generic[100];
+typedef std::unordered_map<std::string, std::string> ParamMap;
+MAYBE_EXTERN ParamMap           generic;
 
 MAYBE_EXTERN bool               rtp_echo_state          DEFVAL(true);
 MAYBE_EXTERN bool               callidSlash             DEFVAL(false);
@@ -320,21 +322,25 @@ MAYBE_EXTERN const char       * tls_crl_name            DEFVAL(DEFAULT_TLS_CRL);
 MAYBE_EXTERN double             tls_version             DEFVAL(0.0);
 #endif
 
-MAYBE_EXTERN char*              scenario_file           DEFVAL(NULL);
-MAYBE_EXTERN char*              scenario_path           DEFVAL(NULL);
+#ifdef SO_BINDTODEVICE
+MAYBE_EXTERN const char       * bind_to_device_name     DEFVAL(nullptr);
+#endif
+
+MAYBE_EXTERN char*              scenario_file           DEFVAL(nullptr);
+MAYBE_EXTERN char*              scenario_path           DEFVAL(nullptr);
 
 // extern field file management
-typedef std::map<string, FileContents *> file_map;
+typedef std::map<std::string, FileContents *> file_map;
 MAYBE_EXTERN file_map inFiles;
-typedef std::map<string, str_int_map *> file_index;
-MAYBE_EXTERN char *ip_file DEFVAL(NULL);
-MAYBE_EXTERN char *default_file DEFVAL(NULL);
+typedef std::map<std::string, str_int_map *> file_index;
+MAYBE_EXTERN char *ip_file DEFVAL(nullptr);
+MAYBE_EXTERN char *default_file DEFVAL(nullptr);
 
 // free user id list
-MAYBE_EXTERN list<int> freeUsers;
-MAYBE_EXTERN list<int> retiredUsers;
-MAYBE_EXTERN AllocVariableTable *globalVariables        DEFVAL(NULL);
-MAYBE_EXTERN AllocVariableTable *userVariables          DEFVAL(NULL);
+MAYBE_EXTERN std::list<int> freeUsers;
+MAYBE_EXTERN std::list<int> retiredUsers;
+MAYBE_EXTERN AllocVariableTable *globalVariables        DEFVAL(nullptr);
+MAYBE_EXTERN AllocVariableTable *userVariables          DEFVAL(nullptr);
 typedef std::map<int, VariableTable *> int_vt_map;
 MAYBE_EXTERN int_vt_map         userVarMap;
 
@@ -409,9 +415,9 @@ MAYBE_EXTERN  int stepDynamicId   DEFVAL(4);      // step of increment for dynam
 
 /*********************** Global Sockets  **********************/
 
-MAYBE_EXTERN SIPpSocket   *main_socket                  DEFVAL(NULL);
-MAYBE_EXTERN SIPpSocket   *main_remote_socket           DEFVAL(NULL);
-MAYBE_EXTERN SIPpSocket   *tcp_multiplex                DEFVAL(NULL);
+MAYBE_EXTERN SIPpSocket   *main_socket                  DEFVAL(nullptr);
+MAYBE_EXTERN SIPpSocket   *main_remote_socket           DEFVAL(nullptr);
+MAYBE_EXTERN SIPpSocket   *tcp_multiplex                DEFVAL(nullptr);
 MAYBE_EXTERN int media_socket_audio                     DEFVAL(0);
 MAYBE_EXTERN int media_socket_video                     DEFVAL(0);
 
@@ -425,12 +431,12 @@ MAYBE_EXTERN bool          reset_close                  DEFVAL(true);
 MAYBE_EXTERN int           reset_sleep                  DEFVAL(1000);
 MAYBE_EXTERN bool          sendbuffer_warn              DEFVAL(false);
 /* A list of sockets pending reset. */
-MAYBE_EXTERN set<SIPpSocket*> sockets_pending_reset;
+MAYBE_EXTERN std::set<SIPpSocket*> sockets_pending_reset;
 
 MAYBE_EXTERN struct sockaddr_storage local_addr_storage;
 
-MAYBE_EXTERN SIPpSocket   *twinSippSocket               DEFVAL(NULL);
-MAYBE_EXTERN SIPpSocket   *localTwinSippSocket          DEFVAL(NULL);
+MAYBE_EXTERN SIPpSocket   *twinSippSocket               DEFVAL(nullptr);
+MAYBE_EXTERN SIPpSocket   *localTwinSippSocket          DEFVAL(nullptr);
 MAYBE_EXTERN struct sockaddr_storage twinSipp_sockaddr;
 
 /* 3pcc extended mode */
@@ -482,7 +488,6 @@ void timeout_alarm(int);
 SIPpSocket **get_peer_socket(char *);
 bool is_a_peer_socket(SIPpSocket *);
 bool is_a_local_socket(SIPpSocket *);
-void connect_to_peer(char *, int, sockaddr_storage *, char *, SIPpSocket **);
 void connect_to_all_peers();
 void connect_local_twin_socket(char *);
 void close_peer_sockets();

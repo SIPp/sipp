@@ -65,12 +65,12 @@ bool CCallVariable::isString()
     return (M_type == E_VT_STRING);
 }
 
-// WARNING : setMatchingValue does't allocate the memory for the matching value
+// WARNING : setMatchingValue doesn't allocate the memory for the matching value
 // but the destructor free the memory
 void CCallVariable::setMatchingValue(char* P_matchingVal)
 {
     M_type = E_VT_REGEXP;
-    if(M_matchingValue != NULL) {
+    if(M_matchingValue != nullptr) {
         delete [] M_matchingValue;
     }
     M_matchingValue     = P_matchingVal;
@@ -80,7 +80,7 @@ void CCallVariable::setMatchingValue(char* P_matchingVal)
 char* CCallVariable::getMatchingValue()
 {
     if (M_type != E_VT_REGEXP) {
-        return NULL;
+        return nullptr;
     }
     return(M_matchingValue);
 }
@@ -164,21 +164,21 @@ bool CCallVariable::getBool()
     return(M_bool);
 }
 
-// Constuctor and destructor
+// Constructor and destructor
 CCallVariable::CCallVariable()
 {
-    M_matchingValue     = NULL;
-    M_stringValue     = NULL;
+    M_matchingValue     = nullptr;
+    M_stringValue     = nullptr;
     M_nbOfMatchingValue = 0;
     M_type = E_VT_UNDEFINED;
 }
 
 CCallVariable::~CCallVariable()
 {
-    if(M_matchingValue != NULL) {
+    if(M_matchingValue != nullptr) {
         delete [] M_matchingValue;
     }
-    M_matchingValue = NULL;
+    M_matchingValue = nullptr;
     free(M_stringValue);
 }
 
@@ -192,13 +192,13 @@ VariableTable::VariableTable(VariableTable *parent, int size)
         this->parent = parent->getTable();
     } else {
         level = 0;
-        this->parent = NULL;
+        this->parent = nullptr;
     }
 
     count = 1;
     this->size = size;
     if (size == 0) {
-        variableTable = NULL;
+        variableTable = nullptr;
         return;
     }
     variableTable = (CCallVariable **)malloc(size * sizeof(CCallVariable *));
@@ -207,9 +207,6 @@ VariableTable::VariableTable(VariableTable *parent, int size)
     }
     for (int i = 0; i < size; i++) {
         variableTable[i] = new CCallVariable();
-        if (variableTable[i] == NULL) {
-            ERROR ("Call variable allocation failed");
-        }
     }
 }
 
@@ -220,14 +217,14 @@ VariableTable::VariableTable(AllocVariableTable *src)
     if (src->parent) {
         this->parent = src->parent->getTable();
     } else {
-        this->parent = NULL;
+        this->parent = nullptr;
     }
     if (level > 0) {
         assert(this->parent);
     }
     this->size = src->size;
     if (size == 0) {
-        variableTable = NULL;
+        variableTable = nullptr;
         return;
     }
 
@@ -238,9 +235,6 @@ VariableTable::VariableTable(AllocVariableTable *src)
 
     for (int i = 0; i < size; i++) {
         variableTable[i] = new CCallVariable();
-        if (variableTable[i] == NULL) {
-            ERROR ("Call variable allocation failed");
-        }
     }
 }
 
@@ -258,9 +252,6 @@ void VariableTable::expand(int size)
 
     for (int i = this->size; i < size; i++) {
         variableTable[i] = new CCallVariable();
-        if (variableTable[i] == NULL) {
-            ERROR ("Call variable allocation failed");
-        }
     }
 
     this->size = size;

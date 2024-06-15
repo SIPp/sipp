@@ -118,15 +118,6 @@ int parse_dtmf_play_args(const char* buffer, pcap_pkts* pkts, uint16_t start_seq
     return prepare_dtmf(pkts->file, pkts, start_seq_no);
 }
 
-void hexdump(char *p, int s)
-{
-    int i;
-    for (i = 0; i < s; i++) {
-        fprintf(stderr, "%02x ", *(char *)(p+i));
-    }
-    fprintf(stderr, "\n");
-}
-
 /* Safe threaded version */
 void do_sleep (struct timeval *, struct timeval *,
                struct timeval *, struct timeval *);

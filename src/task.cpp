@@ -160,7 +160,7 @@ void task::abort()
 
 // Based on the time a given task should next be woken up, finds the
 // correct time wheel for it and returns a list of other tasks
-// occuring at that point.
+// occurring at that point.
 task_list *timewheel::task2list(task *task)
 {
     unsigned int wake = task->wake();
@@ -192,7 +192,7 @@ task_list *timewheel::task2list(task *task)
         return &wheel_three[slot_in_third_wheel];
     } else{
         ERROR("Attempted to schedule a task too far in the future");
-        return NULL;
+        return nullptr;
     }
 }
 

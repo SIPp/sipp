@@ -1,29 +1,63 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.5)
 
 # set the project name
 project(SIPp)
 
 # specify the C++ standard
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS False)
 # specify the C++ standard on older CMake (<3.8)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -pedantic -Wno-error=format-truncation -Wno-error=deprecated-declarations")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -pedantic -Wno-deprecated-copy -Wno-array-bounds")
+endif()
 
 # Include binary dir first, where we add generated config.h and
 # version.h. If nothing is found there (release tar) use the version.h
 # from the source.
 include_directories(
   ${PROJECT_BINARY_DIR}
-  ${PROJECT_SOURCE_DIR}/include
-  "/usr/local/include")
+  ${PROJECT_SOURCE_DIR}/include)
+
+if(BUILD_STATIC)
+  set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
+  set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
+endif(BUILD_STATIC)
+
+function(optional_library LIB_NAME DESCRIPTION)
+  set(USE_${LIB_NAME} "DEFAULT" CACHE STRING "${DESCRIPTION}")
+
+  string(TOLOWER "${LIB_NAME}" LIB_LOWER)
+  if(USE_${LIB_NAME} STREQUAL "ON" OR USE_${LIB_NAME} STREQUAL "1")
+    find_library(${LIB_NAME}_LIBRARY ${LIB_LOWER})
+    set(USE_${LIB_NAME} 1)
+  elseif(USE_${LIB_NAME} STREQUAL "OFF" OR USE_${LIB_NAME} STREQUAL "0")
+    set(USE_${LIB_NAME} 0)
+  else()
+    find_library(${LIB_NAME}_LIBRARY ${LIB_LOWER})
+    if(${LIB_NAME}_LIBRARY)
+      message(STATUS "${LIB_NAME} is enabled")
+      set(USE_${LIB_NAME} 1 PARENT_SCOPE)
+    else()
+      message(STATUS "${LIB_NAME} is disabled")
+      set(USE_${LIB_NAME} 0 PARENT_SCOPE)
+    endif()
+  endif()
+endfunction()
+
+optional_library(SCTP "Build with SCTP support")
+optional_library(PCAP "Build with PCAP playback support")
+optional_library(GSL "Build with improved statistical support")
+set(USE_SSL "DEFAULT" CACHE STRING "Build with SIPS and SHA-256 support")
+if(USE_SSL STREQUAL "ON" OR USE_SSL STREQUAL "1")
+  set(USE_SSL 1)
+elseif(USE_SSL STREQUAL "OFF" OR USE_SSL STREQUAL "0")
+  set(USE_SSL 0)
+endif()
 
 option(BUILD_STATIC "Build a statically-linked binary" OFF)
-option(USE_SSL "Build with SIPS support" OFF)
-option(USE_SCTP "Build with SCTP support" OFF)
-option(USE_PCAP "Build with PCAP playback support" OFF)
-option(USE_GSL "Build with improved statistical support" ON)
+option(USE_LOCAL_IP_HINTS "Build with local ip hints priority" OFF)
 
 file(GLOB all_SRCS
   "${PROJECT_SOURCE_DIR}/src/*.cpp"
@@ -47,21 +81,11 @@ CHECK_SYMBOL_EXISTS(le16toh "sys/endian.h" HAVE_DECL_LE16TOH_BSD)
 configure_file("${PROJECT_SOURCE_DIR}/include/config.h.in"
                "${PROJECT_BINARY_DIR}/config.h" )
 
-if(BUILD_STATIC)
-  set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
-  set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
-endif(BUILD_STATIC)
-
 list(REMOVE_ITEM all_SRCS
   "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
 
 list(REMOVE_ITEM all_SRCS
   "${PROJECT_SOURCE_DIR}/src/sipp.cpp")
-
-if(NOT USE_SSL)
-  list(REMOVE_ITEM all_SRCS
-    "${PROJECT_SOURCE_DIR}/src/sslsocket.cpp")
-endif(NOT USE_SSL)
 
 if(NOT USE_PCAP)
   list(REMOVE_ITEM all_SRCS
@@ -73,7 +97,7 @@ endif(NOT USE_PCAP)
 find_package(PkgConfig QUIET)  # import pkg_check_modules() and friends
 if(USE_SSL)
   if(PKG_CONFIG_FOUND)
-    pkg_search_module(SSL openssl>=0.9.8 wolfssl>=3.15.0)
+    pkg_search_module(SSL openssl>=1.1.0 wolfssl>=3.15.0)
   endif()
   if(SSL_FOUND)
     if("${SSL_LIBRARIES}" MATCHES "wolfssl")
@@ -94,26 +118,43 @@ if(USE_SSL)
         set(WOLFSSL_FOUND True)
       endif()
     endif()
-    if(NOT OPENSSL_FOUND AND NOT WOLFSSL_FOUND)
+  endif()
+  if(OPENSSL_FOUND OR WOLFSSL_FOUND)
+    if(USE_SSL STREQUAL "DEFAULT")
+      message(STATUS "Found ${SSL_LIBRARIES}; enabling sips support")
+    endif()
+  else()
+    if(USE_SSL STREQUAL "DEFAULT")
+      message(STATUS "Neither OpenSSL nor WolfSSL was found; disabling sips support")
+      set(USE_SSL 0)
+    else()
       message(FATAL_ERROR "Neither OpenSSL nor WolfSSL was found; please install a devel package")
     endif()
   endif()
-  if(OPENSSL_FOUND)
-    add_definitions("-DUSE_TLS" "-DUSE_OPENSSL")
-  elseif(WOLFSSL_FOUND)
-    add_definitions("-DUSE_TLS" "-DUSE_WOLFSSL" "-DOPENSSL_ALL")
-  endif()
 endif()
+
+if(USE_SSL)
+  add_definitions("-DUSE_TLS" "-DUSE_SHA256")
+  if(OPENSSL_FOUND)
+    add_definitions("-DUSE_OPENSSL")
+  elseif(WOLFSSL_FOUND)
+    add_definitions("-DUSE_WOLFSSL" "-DOPENSSL_ALL")
+  endif()
+else(USE_SSL)
+  list(REMOVE_ITEM all_SRCS
+    "${PROJECT_SOURCE_DIR}/src/sslsocket.cpp")
+endif(USE_SSL)
 
 if(USE_PCAP)
   add_definitions("-DPCAPPLAY")
 endif(USE_PCAP)
 
+if(USE_LOCAL_IP_HINTS)
+  add_definitions("-DUSE_LOCAL_IP_HINTS")
+endif(USE_LOCAL_IP_HINTS)
+
 if(USE_GSL)
-  find_library(GSL_LIBRARY gsl)
-  if(GSL_LIBRARY)
-    add_definitions("-DHAVE_GSL")
-  endif(GSL_LIBRARY)
+  add_definitions("-DHAVE_GSL")
 endif(USE_GSL)
 
 if(USE_SCTP)
@@ -121,23 +162,29 @@ if(USE_SCTP)
 endif(USE_SCTP)
 
 # add the executable
-link_directories("/usr/local/lib")
 add_executable(sipp ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp.cpp")
 target_compile_features(sipp PUBLIC cxx_auto_type cxx_range_for)
-add_executable(sipp_unittest EXCLUDE_FROM_ALL
-  ${all_SRCS}
-  "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
-  "${PROJECT_SOURCE_DIR}/gtest/googletest/src/gtest-all.cc"
-  "${PROJECT_SOURCE_DIR}/gtest/googlemock/src/gmock-all.cc"
-)
-target_compile_features(sipp_unittest PUBLIC cxx_auto_type cxx_range_for)
-target_compile_definitions(sipp_unittest PUBLIC "-DGTEST")
-target_include_directories(sipp_unittest SYSTEM PUBLIC
-  ${PROJECT_SOURCE_DIR}/gtest/googletest
-  ${PROJECT_SOURCE_DIR}/gtest/googlemock
-  ${PROJECT_SOURCE_DIR}/gtest/googletest/include
-  ${PROJECT_SOURCE_DIR}/gtest/googlemock/include
-)
+
+if(EXISTS ${PROJECT_SOURCE_DIR}/gtest/googletest)
+  add_executable(sipp_unittest EXCLUDE_FROM_ALL
+    ${all_SRCS}
+    "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
+    "${PROJECT_SOURCE_DIR}/gtest/googletest/src/gtest-all.cc"
+    "${PROJECT_SOURCE_DIR}/gtest/googlemock/src/gmock-all.cc"
+  )
+  target_compile_features(sipp_unittest PUBLIC cxx_auto_type cxx_range_for)
+  target_compile_definitions(sipp_unittest PUBLIC "-DGTEST")
+  target_include_directories(sipp_unittest SYSTEM PUBLIC
+    ${PROJECT_SOURCE_DIR}/gtest/googletest
+    ${PROJECT_SOURCE_DIR}/gtest/googlemock
+    ${PROJECT_SOURCE_DIR}/gtest/googletest/include
+    ${PROJECT_SOURCE_DIR}/gtest/googlemock/include
+  )
+else()
+  add_executable(sipp_unittest EXCLUDE_FROM_ALL
+    ${all_SRCS}
+    "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
+endif()
 
 # add version
 find_package(Git)
@@ -178,6 +225,9 @@ if(NOT TINFO_LIBRARY)
   find_library(TINFO_LIBRARY NAMES tinfo)
 endif()
 if(CURSES_LIBRARY)
+  if(BUILD_STATIC)
+    add_definitions("-DNCURSES_STATIC")
+  endif(BUILD_STATIC)
   target_link_libraries(sipp dl ${CURSES_LIBRARY} pthread)
   target_link_libraries(sipp_unittest dl ${CURSES_LIBRARY} pthread)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -218,31 +268,47 @@ if(CYGWIN)
   add_definitions("-D_GNU_SOURCE")
 endif(CYGWIN)
 
-if(USE_GSL AND GSL_LIBRARY)
-  target_link_libraries(sipp gsl gslcblas)
-  target_link_libraries(sipp_unittest gsl gslcblas)
-endif(USE_GSL AND GSL_LIBRARY)
+if(USE_GSL)
+  find_library(GSLCBLAS_LIBRARY gslcblas)
+  target_link_libraries(sipp ${GSL_LIBRARY} ${GSLCBLAS_LIBRARY})
+  target_link_libraries(sipp_unittest ${GSL_LIBRARY} ${GSLCBLAS_LIBRARY})
+endif(USE_GSL)
 
-if(USE_SSL AND SSL_LIBRARIES)
+if(USE_SSL)
   target_link_libraries(sipp ${SSL_LIBRARIES})
   target_link_libraries(sipp_unittest ${SSL_LIBRARIES})
   if(SSL_INCLUDE_DIRS)
     target_include_directories(sipp SYSTEM PUBLIC ${SSL_INCLUDE_DIRS})
     target_include_directories(sipp_unittest SYSTEM PUBLIC ${SSL_INCLUDE_DIRS})
   endif(SSL_INCLUDE_DIRS)
-endif(USE_SSL AND SSL_LIBRARIES)
+endif(USE_SSL)
 
 if(USE_PCAP)
-  target_link_libraries(sipp pcap)
-  target_link_libraries(sipp_unittest pcap)
+  set(PCAP_LIBRARIES ${PCAP_LIBRARY})
+  if(PKG_CONFIG_FOUND)
+    pkg_search_module(PCAP libpcap)
+    if(BUILD_STATIC AND PCAP_STATIC_LIBRARIES)
+      set(PCAP_LIBRARIES ${PCAP_STATIC_LIBRARIES})
+      find_library(CAP_LIBRARY cap)
+    endif()
+  endif()
+  target_link_libraries(sipp ${PCAP_LIBRARIES})
+  target_link_libraries(sipp_unittest ${PCAP_LIBRARIES})
+  if(CAP_LIBRARY)
+    target_link_libraries(sipp ${CAP_LIBRARY})
+    target_link_libraries(sipp_unittest ${CAP_LIBRARY})
+  endif()
 endif(USE_PCAP)
 
 if(USE_SCTP)
   find_library(SCTP_LIBRARY sctp)
-  if(SCTP_LIBRARY)
-    target_link_libraries(sipp ${SCTP_LIBRARY})
-    target_link_libraries(sipp_unittest ${SCTP_LIBRARY})
-  endif()
+  target_link_libraries(sipp ${SCTP_LIBRARY})
+  target_link_libraries(sipp_unittest ${SCTP_LIBRARY})
 endif()
+
+if(BUILD_STATIC AND MSYS)
+  target_link_libraries(sipp crypt32)
+  target_link_libraries(sipp_unittest crypt32)
+endif(BUILD_STATIC AND MSYS)
 
 install(TARGETS sipp DESTINATION bin)

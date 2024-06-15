@@ -146,12 +146,12 @@ class JLSRTP
         /**
          * isBase64
          *
-         * Checks whether the given character satisfies base64 criterias (true) or not (false)
+         * Checks whether the given character satisfies base64 criteria (true) or not (false)
          *
          * @param[in]   c   Unsigned character to examine
          *
-         * @return  TRUE    Given character satisfies base64 criterias
-         * @return  FALSE   Given character DOES NOT satisfy base64 criterias
+         * @return  TRUE    Given character satisfies base64 criteria
+         * @return  FALSE   Given character DOES NOT satisfy base64 criteria
          */
         bool isBase64(unsigned char c);
 
@@ -846,7 +846,7 @@ class JLSRTP
          *
          * Sets the cryptographic context ID (<SSRC, IPAddress, Port>) to use
          *
-         * @param[in]   id  Cryptograhic context ID (<SSRC, IPAddress, Port>) to use
+         * @param[in]   id  Cryptographic context ID (<SSRC, IPAddress, Port>) to use
          */
         void setID(CryptoContextID id);
 
@@ -927,7 +927,7 @@ class JLSRTP
          * @return  -5  Error extracting SRTP payload
          * @return  -6  Error issuing authentication tag
          * @return  -7  Error encountered while computing packet IV
-         * @return  -8  Error encoutnered while setting packet IV
+         * @return  -8  Error encountered while setting packet IV
          * @return  -9  Error updating rollover counter
          * @return  -10 Error updating SL
          */

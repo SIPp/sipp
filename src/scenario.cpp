@@ -42,23 +42,23 @@ message::message(int index, const char *desc)
 {
     this->index = index;
     this->desc = desc;
-    pause_distribution = NULL; // delete on exit
+    pause_distribution = nullptr; // delete on exit
     pause_variable = -1;
-    pause_desc = NULL; // free on exit
+    pause_desc = nullptr; // free on exit
     sessions = 0;
     bShouldRecordRoutes = 0;
     bShouldAuthenticate = 0;
 
-    send_scheme = NULL; // delete on exit
+    send_scheme = nullptr; // delete on exit
     retrans_delay = 0;
     timeout = 0;
 
     recv_response = 0;
-    recv_request = NULL; // free on exit
+    recv_request = nullptr; // free on exit
     optional = 0;
     advance_state = true;
     regexp_match = 0;
-    regexp_compile = NULL; // regfree (if not NULL) and free on exit
+    regexp_compile = nullptr; // regfree (if not nullptr) and free on exit
 
     /* Anyway */
     start_rtd = 0;
@@ -68,20 +68,20 @@ message::message(int index, const char *desc)
     crlf = 0;
     ignoresdp = false;
     hide = 0;
-    display_str = NULL; // free on exit
+    display_str = nullptr; // free on exit
     test = -1;
     condexec = -1;
     condexec_inverse = false;
     chance = 0;/* meaning always */
     next = -1;
-    nextLabel = NULL; // free on exit
+    nextLabel = nullptr; // free on exit
     on_timeout = -1;
-    onTimeoutLabel = NULL; // free on exit
+    onTimeoutLabel = nullptr; // free on exit
     timewait = false;
 
     /* 3pcc extended mode */
-    peer_dest = NULL; // free on exit
-    peer_src = NULL; // free on exit
+    peer_dest = nullptr; // free on exit
+    peer_src = nullptr; // free on exit
 
     /* Statistics */
     nb_sent = 0;
@@ -93,11 +93,11 @@ message::message(int index, const char *desc)
     nb_lost = 0;
     counter = 0;
 
-    M_actions = NULL; // delete on exit
+    M_actions = nullptr; // delete on exit
 
     M_type = 0;
 
-    M_sendCmdData = NULL; // delete on exit
+    M_sendCmdData = nullptr; // delete on exit
     M_nbCmdSent = 0;
     M_nbCmdRecv = 0;
 
@@ -107,7 +107,7 @@ message::message(int index, const char *desc)
     start_txn = 0;
     response_txn = 0;
     ack_txn = 0;
-    recv_response_for_cseq_method_list = NULL; // free on exit
+    recv_response_for_cseq_method_list = nullptr; // free on exit
 }
 
 message::~message()
@@ -116,7 +116,7 @@ message::~message()
     free(pause_desc);
     delete(send_scheme);
     free(recv_request);
-    if (regexp_compile != NULL) {
+    if (regexp_compile != nullptr) {
         regfree(regexp_compile);
     }
     free(regexp_compile);
@@ -147,6 +147,8 @@ int creationMode = MODE_CLIENT;
 int sendMode = MODE_CLIENT;
 /* This describes what our 3PCC behavior is. */
 int thirdPartyMode = MODE_3PCC_NONE;
+
+#define KEYWORD_SIZE 256
 
 /*************** Helper functions for various types *****************/
 long get_long(const char *ptr, const char *what)
@@ -234,13 +236,29 @@ double get_double(const char *ptr, const char *what)
     return ret;
 }
 
+#ifdef PCAPPLAY
 /* If the value is enclosed in [brackets], it is assumed to be
  * a command-line supplied keyword value (-key). */
 static char* xp_get_keyword_value(const char *name)
 {
     const char* ptr = xp_get_value(name);
-    return ptr ? strdup(ptr) : NULL;
+    size_t len;
+    char keyword[KEYWORD_SIZE + 1];
+
+    if (ptr && ptr[0] == '[' && (len = strlen(ptr)) && ptr[len - 1] == ']') {
+        memcpy(keyword, ptr + 1, len - 2);
+
+        auto gen = generic.find(keyword);
+        if (gen != generic.end()) {
+            return strdup((*gen).second.c_str());
+        }
+
+        ERROR("%s \"%s\" looks like a keyword value, but keyword not supplied!", name, ptr);
+    }
+
+    return ptr ? strdup(ptr) : nullptr;
 }
+#endif
 
 static char* xp_get_string(const char *name, const char *what)
 {
@@ -594,7 +612,7 @@ int get_cr_number(const char *src)
     return res;
 }
 
-static char* clean_cdata(char *ptr, int *removed_crlf = NULL)
+static char* clean_cdata(char *ptr, int *removed_crlf = nullptr)
 {
     char * msg;
 
@@ -657,7 +675,7 @@ void scenario::checkOptionalRecv(char *elem, unsigned int scenario_file_cursor)
 scenario::scenario(char * filename, int deflt)
 {
     char * elem;
-    char *method_list = NULL;
+    char *method_list = nullptr;
     unsigned int scenario_file_cursor = 0;
     int    L_content_length = 0 ;
     char * peer;
@@ -714,7 +732,7 @@ scenario::scenario(char * filename, int deflt)
         } else if(!strcmp(elem, "Global")) {
             ptr = xp_get_string("variables", "Global");
 
-            char **       currentTabVarName = NULL;
+            char **       currentTabVarName = nullptr;
             int           currentNbVarNames;
 
             createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
@@ -726,7 +744,7 @@ scenario::scenario(char * filename, int deflt)
         } else if(!strcmp(elem, "User")) {
             ptr = xp_get_string("variables", "User");
 
-            char **       currentTabVarName = NULL;
+            char **       currentTabVarName = nullptr;
             int           currentNbVarNames;
 
             createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
@@ -738,14 +756,14 @@ scenario::scenario(char * filename, int deflt)
         } else if(!strcmp(elem, "Reference")) {
             ptr = xp_get_string("variables", "Reference");
 
-            char **       currentTabVarName = NULL;
+            char **       currentTabVarName = nullptr;
             int           currentNbVarNames;
 
             createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
             for (int i = 0; i < currentNbVarNames; i++) {
                 int id = allocVars->find(currentTabVarName[i], false);
                 if (id == -1) {
-                    ERROR("Could not reference non-existant variable '%s'", currentTabVarName[i]);
+                    ERROR("Could not reference non-existent variable '%s'", currentTabVarName[i]);
                 }
             }
             freeStringTable(currentTabVarName, currentNbVarNames);
@@ -1008,7 +1026,8 @@ scenario::scenario(char * filename, int deflt)
     /* Close scenario element */
     xp_close_element();
     if (xp_is_invalid()) {
-        ERROR("Invalid XML in scenario");
+        ERROR("Invalid XML in scenario near line %d. See: https://github.com/SIPp/sipp/issues/414",
+                xp_get_invalid_line());
     }
 
     str_int_map::iterator label_it = labelMap.find("_unexp.main");
@@ -1042,7 +1061,7 @@ void scenario::runInit()
 {
     call *initcall;
     if (initmessages.size() > 0) {
-        initcall = new call(main_scenario, NULL, NULL, "///main-init", 0, false, false, true);
+        initcall = new call(main_scenario, nullptr, nullptr, "///main-init", 0, false, false, true);
         initcall->run();
     }
 }
@@ -1093,7 +1112,7 @@ scenario::~scenario()
 
 CSample *parse_distribution(bool oldstyle = false)
 {
-    CSample *distribution = NULL;
+    CSample *distribution = nullptr;
     const char *distname;
     const char *ptr = 0;
 
@@ -1185,7 +1204,7 @@ CSample *parse_distribution(bool oldstyle = false)
 
 
 /* 3pcc extended mode:
- * get the correspondances between
+ * get the correspondences between
  * slave and master names and their
  * addresses */
 
@@ -1199,12 +1218,12 @@ void parse_slave_cfg()
 
     f = fopen(slave_cfg_file, "r");
     if(f) {
-        while (fgets(line, MAX_PEER_SIZE, f) != NULL) {
+        while (fgets(line, MAX_PEER_SIZE, f) != nullptr) {
             temp_peer = strtok(line, ";");
             if (!temp_peer)
                 continue;
 
-            temp_host = strtok(NULL, ";");
+            temp_host = strtok(nullptr, ";");
             if (!temp_host)
                 continue;
 
@@ -1348,7 +1367,7 @@ void scenario::parseAction(CActions *actions)
 {
     char *        actionElem;
     unsigned int recvScenarioLen = 0;
-    char **       currentTabVarName = NULL;
+    char **       currentTabVarName = nullptr;
     int           currentNbVarNames;
     int           sub_currentNbVarId;
     char* ptr;
@@ -1372,10 +1391,10 @@ void scenario::parseAction(CActions *actions)
 
                 if (strcmp(cptr, "msg") == 0) {
                     tmpAction->setLookingPlace(CAction::E_LP_MSG);
-                    tmpAction->setLookingChar (NULL);
+                    tmpAction->setLookingChar (nullptr);
                 } else if (strcmp(cptr, "body") == 0) {
                     tmpAction->setLookingPlace(CAction::E_LP_BODY);
-                    tmpAction->setLookingChar (NULL);
+                    tmpAction->setLookingChar (nullptr);
                 } else if (strcmp(cptr, "var") == 0) {
                     tmpAction->setVarInId(xp_get_var("variable", "ereg"));
                     tmpAction->setLookingPlace(CAction::E_LP_VAR);
@@ -1397,7 +1416,7 @@ void scenario::parseAction(CActions *actions)
                 }
             } else {
                 tmpAction->setLookingPlace(CAction::E_LP_MSG);
-                tmpAction->setLookingChar(NULL);
+                tmpAction->setLookingChar(nullptr);
             } // end if-else search_in
 
             if (xp_get_value("check_it")) {
@@ -1558,7 +1577,7 @@ void scenario::parseAction(CActions *actions)
             tmpAction->setActionType(CAction::E_AT_VERIFY_AUTH);
             free(username_ptr);
             free(password_ptr);
-            username_ptr = password_ptr = NULL;
+            username_ptr = password_ptr = nullptr;
         } else if(!strcmp(actionElem, "lookup")) {
             tmpAction->setVarId(xp_get_var("assign_to", "lookup"));
             tmpAction->setMessage(xp_get_string("file", "lookup"), 0);
@@ -1635,17 +1654,17 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setIntCmd(type);
 #ifdef PCAPPLAY
             } else if ((ptr = xp_get_keyword_value("play_pcap_audio"))) {
-                tmpAction->setMessage(ptr);
+                tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
                 hasMedia = 1;
                 free(ptr);
             } else if ((ptr = xp_get_keyword_value("play_pcap_image"))) {
-                tmpAction->setMessage(ptr);
+                tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_IMAGE);
                 hasMedia = 1;
                 free(ptr);
             } else if ((ptr = xp_get_keyword_value("play_pcap_video"))) {
-                tmpAction->setMessage(ptr);
+                tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
                 hasMedia = 1;
                 free(ptr);
@@ -1663,7 +1682,8 @@ void scenario::parseAction(CActions *actions)
             } else if (xp_get_value("play_dtmf")) {
                 ERROR("Scenario specifies a play_dtmf action, but this version of SIPp does not have PCAP support");
 #endif
-            } else if ((ptr = xp_get_keyword_value("rtp_stream"))) {
+            } else if ((cptr = xp_get_value("rtp_stream"))) {
+                ptr = strdup(cptr);
                 hasMedia = 1;
                 if (!strcmp(ptr, "pauseapattern"))
                 {
@@ -1705,7 +1725,8 @@ void scenario::parseAction(CActions *actions)
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PLAY);
                 }
                 free(ptr);
-            } else if ((ptr = xp_get_keyword_value("rtp_echo"))) {
+            } else if ((cptr = xp_get_value("rtp_echo"))) {
+                ptr = strdup(cptr);
                 hasMedia = 1;
                 if (!strncmp(ptr, "startaudio", 10))
                 {
@@ -1771,7 +1792,7 @@ void scenario::getActionForThisMessage(message *message)
     }
 
     /* We actually have an action element. */
-    if (message->M_actions != NULL) {
+    if (message->M_actions != nullptr) {
         ERROR("Duplicate action for %s index %d", message->desc, message->index);
     }
     message->M_actions = new CActions();
@@ -1862,7 +1883,7 @@ void scenario::getCommonAttributes(message *message)
 }
 
 // char* manipulation : create a int[] from a char*
-// test first is the char* is formed by int separeted by coma
+// test first is the char* is formed by int separated by coma
 // and then create the table
 
 int isWellFormed(char * P_listeStr, int * nombre)
@@ -1957,7 +1978,7 @@ int createStringTable(const char* inputString, char*** stringList, int* sizeOfLi
         return 0;
     }
 
-    *stringList = NULL;
+    *stringList = nullptr;
     *sizeOfList = 0;
 
     /* FIXME: temporary workaround: needs rewrite */

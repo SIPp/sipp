@@ -125,7 +125,9 @@ The following example is used to:
       </action>
     </recv>
 
-
+.. note::
+  Release 3.6.0 added rudimentary XML syntax checks. Now the & and <
+  characters must be escaped as &amp; and &lt; even inside attribute values.
 
 Log a message
 +++++++++++++
@@ -354,12 +356,14 @@ A string variable and a value can be compared using the <strcmp>
 action. The result is a double value, that is less than, equal to, or
 greater than zero if the variable is lexographically less than, equal
 to, or greater than the value. The parameters are assign_to, variable,
-and value. For example::
+and value or variable2. For example::
 
     <nop>
       <action>
-        <!-- Compare the value of $strvar to "Hello" and assign it to $result.. -->
+        <!-- Compare the value of $strvar to "Hello" and assign it to $result. -->
         <strcmp assign_to="result" variable="strvar" value="Hello" />
+        <!-- Compare the value of $strvar to the value of $othervar. -->
+        <strcmp assign_to="result" variable="strvar" variable2="othervar" />
       </action>
     </nop>
 
@@ -369,17 +373,19 @@ Variable Testing
 ++++++++++++++++
 
 Variable testing allows you to construct loops and control structures
-using call variables. THe test action takes four arguments: variable
-which is the variable that to compare against value , and assign_to
-which is a boolean call variable that the result of the test is stored
-in. Compare may be one of the following tests: equal , not_equal ,
-greater_than , less_than , greater_than_equal , or less_than_equal .
-
-Example that sets ``$2`` to true if ``$1`` is less than 10::
+using call variables. The test action takes four arguments: variable
+which is the variable to compare against, either value or variable2,
+assign_to which is a boolean call variable with the result of the
+test and compare. Compare may be one of the following tests: equal,
+not_equal, greater_than, less_than, greater_than_equal or
+less_than_equal. For example::
 
     <nop>
       <action>
+        <!-- Sets ``$2`` to true if ``$1`` is less than 10 -->
         <test assign_to="2" variable="1" compare="less_than" value="10" />
+        <!-- Sets ``mycheck`` to true when strings in ``myvar`` and ``thatvar`` are equal -->
+        <test assign_to="mycheck" variable="myvar" compare="equal" variable2="thatvar" />
       </action>
     </nop>
 
@@ -506,7 +512,7 @@ setdest
 
 The setdest action allows you to change the remote end point for a
 call. The parameters are the transport, host, and port to connect the
-call to. There are certain limitations baed on SIPp's design: you can
+call to. There are certain limitations based on SIPp's design: you can
 not change the transport for a call; and if you are using TCP then
 multi-socket support must be selected (i.e. -t tn must be specified).
 Also, be aware that frequently using setdest may reduce SIPp's
@@ -539,8 +545,8 @@ verifyauth
 The verifyauth action checks the Authorization header in an incoming
 message against a provided username and password. The result of the
 check is stored in a boolean variable. This allows you to simulate a
-server which requires authorization. Currently only simple MD5 digest
-authentication is supported. Before using the verifyauth action, you
+server which requires authorization. Currently MD5 and SHA-256 digest
+authentications are supported. Before using the verifyauth action, you
 must send a challenge. For example::
 
     <recv request="REGISTER" />

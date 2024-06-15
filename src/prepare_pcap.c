@@ -282,7 +282,6 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
     pkts->max = pkts->pkts + n_pkts;
     pkts->max_length = max_length;
     pkts->base = base;
-    fprintf(stderr, "In pcap %s, npkts %d\nmax pkt length %lu\nbase port %d\n", file, n_pkts, max_length, base);
     pcap_close(pcap);
 
     return 0;
@@ -361,7 +360,7 @@ struct nooppacket {
     struct rtpnoop noop;
 };
 
-static u_long dtmf_ssrcid = 0x01020304; /* bug, should be random/unique */
+static u_long dtmf_ssrcid = 0;
 
 static void fill_default_udphdr(struct udphdr* udp, u_long pktlen)
 {
@@ -544,6 +543,11 @@ int prepare_dtmf(const char* digits, pcap_pkts* pkts, uint16_t start_seq_no)
 
     unsigned long ts_offset = 0; /* packet timestamp */
     unsigned timestamp_start = 24000; /* RTP timestamp, should be random */
+
+    /* generate random ssrc */
+    if (dtmf_ssrcid == 0) {
+        dtmf_ssrcid = rand();
+    }
 
     /* If we see the DTMF as part of the entire audio stream, we'd need
      * to reuse the SSRC, but it's legal to start a new stream (new

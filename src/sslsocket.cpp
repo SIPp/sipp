@@ -27,18 +27,18 @@
 
 #define CALL_BACK_USER_DATA "ksgr"
 
-static SSL_CTX* sip_trp_ssl_ctx = NULL;  /* For SSL cserver context */
-static SSL_CTX* sip_trp_ssl_ctx_client = NULL;  /* For SSL cserver context */
+static SSL_CTX* sip_trp_ssl_ctx = nullptr;  /* For SSL cserver context */
+static SSL_CTX* sip_trp_ssl_ctx_client = nullptr;  /* For SSL cserver context */
 
 #if defined(USE_OPENSSL) && OPENSSL_VERSION_NUMBER < 0x10100000
 #define MUTEX_TYPE pthread_mutex_t
-#define MUTEX_SETUP(x) pthread_mutex_init(&(x), NULL)
+#define MUTEX_SETUP(x) pthread_mutex_init(&(x), nullptr)
 #define MUTEX_CLEANUP(x) pthread_mutex_destroy(&(x))
 #define MUTEX_LOCK(x) pthread_mutex_lock(&(x))
 #define MUTEX_UNLOCK(x) pthread_mutex_unlock(&(x))
 #define THREAD_ID pthread_self()
 
-static MUTEX_TYPE *mutex_buf = NULL;
+static MUTEX_TYPE *mutex_buf = nullptr;
 
 static void locking_function(int mode, int n, const char *file, int line)
 {
@@ -138,16 +138,22 @@ SSL* SSL_new_server()
 static int sip_tls_verify_callback(int ok , X509_STORE_CTX *store)
 {
     char data[512];
+    int  err, depth;
+    X509 *cert;
 
     if (!ok) {
-        X509 *cert = X509_STORE_CTX_get_current_cert(store);
+        cert = X509_STORE_CTX_get_current_cert(store);
+        err = X509_STORE_CTX_get_error(store);
+        depth = X509_STORE_CTX_get_error_depth(store);
 
         X509_NAME_oneline(X509_get_issuer_name(cert),
                           data, 512);
-        WARNING("TLS verification error for issuer: '%s'", data);
+        WARNING("TLS verification error for issuer: '%s'\n", data);
         X509_NAME_oneline(X509_get_subject_name(cert),
                           data, 512);
-        WARNING("TLS verification error for subject: '%s'", data);
+        WARNING("TLS verification error for subject: '%s'\n", data);
+        WARNING("verify error:num=%d:%s:depth=%d\n", err,
+                X509_verify_cert_error_string(err), depth);
     }
     return ok;
 }
@@ -190,7 +196,7 @@ static int sip_tls_load_crls(SSL_CTX* ctx , const char* crlfile)
 
 static SSL_CTX* instantiate_ssl_context(const char* context_name)
 {
-    SSL_CTX* ssl_ctx = NULL;
+    SSL_CTX* ssl_ctx = nullptr;
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000  /* >= 1.1 */
 
@@ -208,15 +214,17 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
         max_tls_version = min_tls_version = TLS1_VERSION;
 #else
         ERROR("Old TLS version 1.0 is no longer supported for [%s] context.", context_name);
-        return NULL;
+        return nullptr;
 #endif
     } else if (tls_version == 1.1) {
         max_tls_version = min_tls_version = TLS1_1_VERSION;
     } else if (tls_version == 1.2) {
         max_tls_version = min_tls_version = TLS1_2_VERSION;
+    } else if (tls_version == 1.3) {
+        max_tls_version = min_tls_version = TLS1_3_VERSION;
     } else {
         ERROR("Unrecognized TLS version for [%s] context: %1.1f", context_name, tls_version);
-        return NULL;
+        return nullptr;
     }
 
     if (!strncmp(context_name, "client", 6)) {
@@ -248,7 +256,7 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
         }
 #else
         ERROR("Old TLS version 1.0 is no longer supported for [%s] context.", context_name);
-        ssl_ctx = NULL;
+        ssl_ctx = nullptr;
 #endif
     } else if (tls_version == 1.1) {
         if (!strncmp(context_name, "client", 6)) {
@@ -262,9 +270,15 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
         } else {
             ssl_ctx = SSL_CTX_new(TLSv1_2_server_method());
         }
+    } else if (tls_version == 1.3) {
+        if (!strncmp(context_name, "client", 6)) {
+            ssl_ctx = SSL_CTX_new(TLSv1_3_client_method());
+        } else {
+            ssl_ctx = SSL_CTX_new(TLSv1_3_server_method());
+        }
     } else {
         ERROR("Unrecognized TLS version for [%s] context: %1.1f", context_name, tls_version);
-        ssl_ctx = NULL;
+        ssl_ctx = nullptr;
     }
 
 #endif
@@ -278,36 +292,41 @@ enum tls_init_status TLS_init_context(void)
 {
     sip_trp_ssl_ctx = instantiate_ssl_context("generic");
 
-    if (sip_trp_ssl_ctx == NULL) {
+    if (sip_trp_ssl_ctx == nullptr) {
         ERROR("TLS_init_context: SSL_CTX_new with TLS_method failed for generic context");
         return TLS_INIT_ERROR;
     }
 
     sip_trp_ssl_ctx_client = instantiate_ssl_context("client");
 
-    if (sip_trp_ssl_ctx_client == NULL) {
+    if (sip_trp_ssl_ctx_client == nullptr) {
         ERROR("TLS_init_context: SSL_CTX_new with TLS_method failed for client context");
         return TLS_INIT_ERROR;
     }
 
+    bool got_ca_file = strlen(tls_ca_name) != 0;
+    bool got_crl_file = strlen(tls_crl_name) != 0;
+
     /* Load the trusted CA's */
-    if (strlen(tls_ca_name) != 0) {
-        SSL_CTX_load_verify_locations(sip_trp_ssl_ctx, tls_ca_name, NULL);
-        SSL_CTX_load_verify_locations(sip_trp_ssl_ctx_client, tls_ca_name, NULL);
+    if (got_ca_file) {
+        SSL_CTX_load_verify_locations(sip_trp_ssl_ctx, tls_ca_name, nullptr);
+        SSL_CTX_load_verify_locations(sip_trp_ssl_ctx_client, tls_ca_name, nullptr);
     }
 
     /* TLS Verification only makes sense if an CA is specified or
      * we require CRL validation. */
-    if (strlen(tls_ca_name) != 0 || strlen(tls_crl_name) != 0) {
-        if (sip_tls_load_crls(sip_trp_ssl_ctx, tls_crl_name) == -1) {
-            ERROR("TLS_init_context: Unable to load CRL file (%s)", tls_crl_name);
-            return TLS_INIT_ERROR;
-        }
+    if (got_ca_file || got_crl_file) {
+        if (got_crl_file) {
+            if (sip_tls_load_crls(sip_trp_ssl_ctx, tls_crl_name) == -1) {
+                ERROR("TLS_init_context: Unable to load CRL file (%s)", tls_crl_name);
+                return TLS_INIT_ERROR;
+            }
 
-        if (sip_tls_load_crls(sip_trp_ssl_ctx_client, tls_crl_name) == -1) {
-            ERROR("TLS_init_context: Unable to load CRL (client) file (%s)",
-                  tls_crl_name);
-            return TLS_INIT_ERROR;
+            if (sip_tls_load_crls(sip_trp_ssl_ctx_client, tls_crl_name) == -1) {
+                ERROR("TLS_init_context: Unable to load CRL (client) file (%s)",
+                    tls_crl_name);
+                return TLS_INIT_ERROR;
+            }
         }
         /* The following call forces to process the certificates with
          * the initialised SSL_CTX */

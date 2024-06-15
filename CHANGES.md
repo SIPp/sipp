@@ -1,3 +1,27 @@
+BREAKING(!) changes in 3.7.3
+============================
+
+- Remove support for variables in PCAP filenames, originally introduced in 3.7.0. See #673
+    
+Bugs fixed in 3.7.3
+===================
+
+- Recovered `-mp` and `[auto_media_port]` to maintain backwards compatibility (by Orgad Shaneh)
+- Fix crash when using PCAP play with more than one call (by Pete O'Neill)
+- Fix pager on macOS by trying less and more too (by Walter Doekes)
+
+Bugs fixed in 3.7.2
+===================
+
+- Remove excessive log
+
+Bugs fixed in 3.7.1
+=======================
+
+- Correctly open the control socket
+- The SIPp binary can now be built even when the `gtest` checkout is missing
+- rtpstream files are now also found next to the scenario. If it is not found there, it will be treated as a relative path as usual.
+
 Features added in 3.7.0
 ===========================
 
@@ -11,7 +35,7 @@ Bugs fixed in 3.7.0
 - Add 'transport' to the Contact header for UAC scenarios (by Martin Flaska)
 - Update built-in scenarios to Copy Record-Route from INVITE to 200OK to comply with RFC 3261 (by kadabusha)
 - Fix for local_port keyword using TCP or TLS (by Felippe Silvestre)
-- Correct handling of IMS-AKA RES values contianing null bytes (by Sergey Zyrianov)
+- Correct handling of IMS-AKA RES values containing null bytes (by Sergey Zyrianov)
 - Fix potential overwrite of auth value when calculating auth (by ZhaohuiLiu)
 - Diagnostics improvements:
   - Print, rather than lose, any buffered response time data on exit (by Orgad Shaneh)
@@ -125,7 +149,7 @@ BREAKING(!) changes in 3.6.0
 * Automatic filenames (trace files, error files, etc..) are now created in
   the current working directory instead of in the directory of the scenario
   file. (Issue #399, reported by @sergey-safarov.)
-* Only validates SSL certficate if CA-file is separately specified!
+* Only validates SSL certificate if CA-file is separately specified!
   (PR #335, by Patrick Wildt @bluerise.)
 * Angle brackets `<` and `>` need to be escaped inside XML attributes.
   See #414. So, not `regexp="<(sip:.*)>"` but `regexp="&lt;(sip:.*)&gt;"`.

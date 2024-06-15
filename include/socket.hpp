@@ -65,7 +65,7 @@ public:
     static SIPpSocket* new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
     void set_bind_port(int bind_port);
 
-    int connect(struct sockaddr_storage* dest = NULL);
+    int connect(struct sockaddr_storage* dest = nullptr);
     int reconnect();
 
     // Reset a failed connection
@@ -87,6 +87,11 @@ public:
 
     // Have we read a message from this socket?
     bool message_ready() { return ss_msglen > 0; };
+
+#ifdef SO_BINDTODEVICE
+    // Bind to specific network device.
+    int bind_to_device(const char* device_name);
+#endif
 
     static void pollset_process(int wait);
 
