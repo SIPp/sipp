@@ -102,22 +102,27 @@ char* find_file(const char* filename)
 {
     char tmppath[MAX_PATH];
     tmppath[0] = '\0';
+    const char *filepathptr = tmppath;
     expand_user_path(filename, tmppath, sizeof(tmppath));
-
-    if (tmppath[0] == '/' || !*scenario_path) {
-        return strdup(tmppath);
+    if(tmppath[0] == '\0')
+    {
+        filepathptr = filename;
     }
 
-    size_t len = strlen(scenario_path) + strlen(tmppath) + 1;
+    if (filepathptr[0] == '/' || !*scenario_path) {
+        return strdup(filepathptr);
+    }
+
+    size_t len = strlen(scenario_path) + strlen(filepathptr) + 1;
     char *fullpath = malloc(len);
-    snprintf(fullpath, len, "%s%s", scenario_path, filename);
+    snprintf(fullpath, len, "%s%s", scenario_path, filepathptr);
 
     if (access(fullpath, R_OK) < 0) {
         free(fullpath);
         WARNING("SIPp now prefers looking for pcap/rtpstream files next to the scenario. "
                 "%s couldn't be found next to the scenario, falling back to "
-                "using the current working directory", filename);
-        return strdup(filename);
+                "using the current working directory", filepathptr);
+        return strdup(filepathptr);
     }
 
     return fullpath;
