@@ -87,8 +87,7 @@ char* find_file(const char* filename)
     char tmppath[MAX_PATH];
     tmppath[0] = '\0';
     const char* filepathptr = tmppath;
-    expand_user_path(filename, tmppath, sizeof(tmppath));
-    if (tmppath[0] == '\0') {                                   /* we couldn't expand path, it is still empty*/
+    if ((expand_user_path(filename, tmppath, sizeof(tmppath)) == -1) || (tmppath[0] == '\0')) {     /* we couldn't expand path, or buffer is still empty */
         filepathptr = filename;
     }
 
