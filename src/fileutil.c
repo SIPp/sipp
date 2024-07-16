@@ -16,7 +16,7 @@
 
 #include <defines.h>
 #include <errno.h>
-#include <pwd.h> //for getpwnam_r()
+#include <pwd.h>                /* for getpwnam_r() */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +26,7 @@ extern char* scenario_path;
 
 int expand_user_path(const char* path, char* expanded_home_path /*The buffer*/, size_t buflen)
 {
-    if (path[0] != '~') {               /* We have nothing to expand here */
+    if (path[0] != '~') {                       /* We have nothing to expand here */
         return 1;
     }
 
@@ -47,14 +47,14 @@ int expand_user_path(const char* path, char* expanded_home_path /*The buffer*/, 
         char* username = NULL;
         if ((first_slash != NULL) && ((first_slash - (path + 1)) <= linux_username_limit)) {    /* '~someuser/blah' case */
             username = strndup(path + 1, first_slash - (path + 1));
-        } else {                                                                                /* '~someuser' case */
-            username = strndup(path + 1, strlen(path + 1));
+        } else {                                                                                /* '~someuser' case, there is no file, just username */
+            return -1;
         }
 
         struct passwd pwd;
         struct passwd* result;
         size_t bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
-        char* buffer = (char* )malloc(bufsize + 1);
+        char buffer[bufsize + 1];
         int retcode = getpwnam_r(username, &pwd, buffer, bufsize, &result);
         if (result == NULL) {
             if (retcode != 0) {
@@ -71,8 +71,8 @@ int expand_user_path(const char* path, char* expanded_home_path /*The buffer*/, 
         if (home_dir != NULL) {
             if (first_slash != NULL) {                                                      /* '~username/path' case */
                 snprintf(expanded_home_path, buflen - 1, "%s%s", home_dir, first_slash);
-            } else {                                                                        /* '~username' case? */
-                snprintf(expanded_home_path, buflen - 1, "%s", home_dir);
+            } else {                                                                        /* '~username' case should be eliminated above, but just in case it is modified in future*/
+                return -1;
             }
         }
         free(buffer);
