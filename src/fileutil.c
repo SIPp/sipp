@@ -102,10 +102,9 @@ char* find_file(const char* filename)
 {
     char tmppath[MAX_PATH];
     tmppath[0] = '\0';
-    const char *filepathptr = tmppath;
+    const char* filepathptr = tmppath;
     expand_user_path(filename, tmppath, sizeof(tmppath));
-    if(tmppath[0] == '\0')
-    {
+    if (tmppath[0] == '\0') { /*we couldn't expand path, it is still empty*/
         filepathptr = filename;
     }
 
