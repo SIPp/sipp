@@ -61,7 +61,6 @@ int expand_user_path(const char* path, char* expanded_home_path /*The buffer*/, 
                 errno = retcode;
             }
             WARNING_NO("Unable to resolve home path for [%s]\n", path);
-            free(buffer);
             free(username);
             return -1;
         } else {
@@ -75,7 +74,6 @@ int expand_user_path(const char* path, char* expanded_home_path /*The buffer*/, 
                 return -1;
             }
         }
-        free(buffer);
         free(username);
     }
 

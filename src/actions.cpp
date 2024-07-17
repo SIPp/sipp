@@ -24,7 +24,6 @@
 #include "sipp.hpp"
 #include "fileutil.h"
 #include <assert.h>
-#include <pwd.h>    //for getpwnam_r()
 #ifdef PCAPPLAY
 #include "prepare_pcap.h"
 #endif
