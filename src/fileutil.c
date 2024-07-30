@@ -41,9 +41,8 @@ int expand_user_path(const char* path, char* expanded_home_path /*The buffer*/, 
             snprintf(expanded_home_path, buflen - 1, "%s%s", home_dir, path + 1);
         }
     } else {
-        const char* first_slash = NULL;
-        first_slash = strchr(path, '/');                                                        /* substring starting from '/' */
-        const size_t linux_username_limit = 32;                                                       /* As of now */
+        const char* first_slash = strchr(path, '/');                                            /* substring starting from '/' */
+        const size_t linux_username_limit = 32;                                                 /* As of now */
         char* username = NULL;
         if ((first_slash != NULL) && ((first_slash - (path + 1)) <= linux_username_limit)) {    /* '~someuser/blah' case */
             username = strndup(path + 1, first_slash - (path + 1));
