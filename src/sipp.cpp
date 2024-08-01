@@ -1334,6 +1334,48 @@ static void setup_media_sockets()
     }
 }
 
+/* Seed the random number generator from a combination of
+ * - Nanoseconds since epoch
+ * - Process ID
+ * - Hostname
+ */
+void randomseed(void)
+{
+    struct timespec ts;
+    unsigned int    seed          = time(nullptr);
+    char            hostname[256] = { 0 };
+    pid_t           p             = getpid();
+    int             index;
+
+    // If the system clock can provide us with a nanosecond count, then
+    // include that in the seed.
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
+        seed ^= (unsigned int)ts.tv_nsec;
+    }
+
+    // The system clock might not have nanosecond resolution, and so we still
+    // want to combine the seed with other values to avoid two
+    // near-simultaneous launches getting the same random seed.
+
+    if (p != 0) {
+        // We don't XOR with the PID because if we launch twice successively
+        // it's possible the PID increment could precisely counter the time
+        // increment.
+        seed *= p;
+    }
+
+    // Might truncate, or might leave 0s after the end.
+    gethostname(hostname, 256);
+
+    for (index = 0; index < 256; index++) {
+        // Bitflip with successive bytes of the hostname. Once we get to the
+        // 0s at the end it's a noop.
+        seed ^= (hostname[index] << (8 * (index % sizeof(seed))));
+    }
+
+    srand(seed);
+}
+
 /* Main */
 int main(int argc, char *argv[])
 {
@@ -1346,7 +1388,7 @@ int main(int argc, char *argv[])
     rtp_errors = 0;
     echo_errors = 0;
 
-    srand(time(nullptr));
+    randomseed();
 
     /* At least one argument is needed */
     if (argc < 2) {
