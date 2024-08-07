@@ -1334,6 +1334,38 @@ static void setup_media_sockets()
     }
 }
 
+/* Seed the random number generator from a combination of
+ * - Seconds since epoch
+ * - Process ID
+ * - Hostname
+ */
+void randomseed(void)
+{
+    time_t       t             = time(nullptr);
+    pid_t        p             = getpid();
+    unsigned int seed          = t;
+    char         hostname[256] = { 0 };
+    int          index;
+
+    if (p != 0) {
+        // We don't XOR with the PID because if we launch twice successively
+        // it's possible the PID increment could precisely counter the time
+        // increment.
+        seed *= p;
+    }
+
+    // Might truncate, or might leave 0s after the end.
+    gethostname(hostname, 256);
+
+    for (index = 0; index < 256; index++) {
+        // Bitflip with successive bytes of the hostname. Once we get to the
+        // 0s at the end it's a noop.
+        seed ^= (hostname[index] << (8 * (index % sizeof(seed))));
+    }
+
+    srand(seed);
+}
+
 /* Main */
 int main(int argc, char *argv[])
 {
@@ -1346,7 +1378,7 @@ int main(int argc, char *argv[])
     rtp_errors = 0;
     echo_errors = 0;
 
-    srand(time(nullptr));
+    randomseed();
 
     /* At least one argument is needed */
     if (argc < 2) {

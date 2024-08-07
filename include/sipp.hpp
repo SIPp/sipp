@@ -493,6 +493,7 @@ void connect_local_twin_socket(char *);
 void close_peer_sockets();
 void close_local_sockets();
 void free_peer_addr_map();
+void randomseed();
 
 /********************* Reset global kludge  *******************/
 
