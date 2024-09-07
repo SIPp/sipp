@@ -44,6 +44,7 @@
 
 #define MODE_CLIENT        0
 #define MODE_SERVER        1
+#define MODE_MIXED         2
 
 #define MODE_3PCC_NONE                0
 #define MODE_3PCC_CONTROLLER_A  2
@@ -190,6 +191,9 @@ public:
     int get_counter(const char *varName, const char *what);
     int get_rtd(const char *ptr, bool start);
     int find_var(const char *varName);
+    void setFileName(const char *fileName);
+    const std::string &getFileName() const { return fileName; }
+    const std::string &getPath() const { return path; }
 
     void addRtpTaskThreadID(pthread_t id);
     void removeRtpTaskThreadID(pthread_t id);
@@ -205,6 +209,8 @@ private:
     str_int_map initLabelMap;
 
     str_int_map txnMap;
+    std::string fileName;
+    std::string path;
 
     bool found_timewait;
 
@@ -232,6 +238,7 @@ private:
 
 /* There are external variable containing the current scenario */
 extern scenario      *main_scenario;
+extern scenario      *rx_scenario;
 extern scenario      *ooc_scenario;
 extern scenario      *aa_scenario;
 extern scenario      *display_scenario;

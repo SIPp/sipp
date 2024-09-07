@@ -124,7 +124,7 @@ typedef struct {
 extern "C"
 {
 #endif
-    int parse_play_args(const char*, pcap_pkts*);
+    int parse_play_args(const char*, const char*, pcap_pkts*);
     int parse_dtmf_play_args(const char*, pcap_pkts*, uint16_t start_seq_no);
     void free_pcaps(pcap_pkts* pkts);
     void send_packets(play_args_t*);

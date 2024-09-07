@@ -22,7 +22,7 @@ extern "C"
 {
 #endif
 
-char* find_file(const char* filename);
+char* find_file(const char* filename, const char *basepath);
 
 #ifdef __cplusplus
 }
