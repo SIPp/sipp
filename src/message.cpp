@@ -130,7 +130,9 @@ static char* quoted_strchr(const char* s, int c)
     for (p = s; *p && *p != c; p++) {
         if (*p == '"') {
             p++;
-            p += strcspn(p, "\"");
+            p += strcspn(p, "\"\n");
+            if (!*p)
+                break;
         }
     }
 
