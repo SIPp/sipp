@@ -2,7 +2,7 @@
 #   git submodule update --init
 #   docker build -t sipp -f docker/Dockerfile .
 
-FROM alpine:3.19 AS build
+FROM alpine:3.20 AS build
 
 RUN apk add --no-cache \
   binutils \
@@ -34,6 +34,6 @@ RUN ninja
 FROM scratch AS bin
 COPY --from=build /sipp/sipp /sipp
 
-FROM alpine:3.19
+FROM alpine:3.20
 CMD ["sipp"]
 COPY --from=build /sipp/sipp /usr/local/bin/sipp
