@@ -37,6 +37,7 @@
 #if defined(USE_OPENSSL)
 #include <openssl/evp.h>
 #elif defined(USE_WOLFSSL)
+#include <wolfssl/options.h>
 #include <wolfssl/openssl/evp.h>
 #endif
 

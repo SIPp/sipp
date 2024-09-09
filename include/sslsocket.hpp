@@ -27,6 +27,7 @@
 #include <openssl/x509v3.h>
 #include <pthread.h>
 #elif defined(USE_WOLFSSL)
+#include <wolfssl/options.h>
 #include <wolfssl/openssl/bio.h>
 #include <wolfssl/openssl/err.h>
 #include <wolfssl/openssl/rand.h>

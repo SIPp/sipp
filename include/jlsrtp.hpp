@@ -25,6 +25,7 @@
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
 #elif defined(USE_WOLFSSL)
+#include <wolfssl/options.h>
 #include <wolfssl/openssl/aes.h>
 #include <wolfssl/openssl/evp.h>
 #include <wolfssl/openssl/rand.h>
