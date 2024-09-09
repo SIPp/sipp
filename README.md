@@ -101,7 +101,6 @@ list](https://lists.sourceforge.net/lists/listinfo/sipp-users).
     ```
     docker build -t sipp -f docker/Dockerfile --output=. --target=bin .
     ```
-* Note that the static build is broken at the moment. See `ldd sipp`.
 
 # Contributing
 
