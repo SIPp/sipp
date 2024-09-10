@@ -14,6 +14,7 @@ RUN apk add --no-cache \
   git \
   gsl-dev \
   gsl-static \
+  help2man \
   libpcap-dev \
   make \
   ncurses-dev \
@@ -38,9 +39,11 @@ RUN --mount=type=bind,target=.git,source=.git \
     ${DEBUG:+-DDEBUG=1} \
     ${FULL:+-DUSE_SSL=1 -DUSE_SCTP=1} \
   && ninja
+RUN help2man --output=sipp.1 -v -v --no-info \
+  --name='SIP testing tool and traffic generator' ./sipp
 
 FROM scratch AS bin
-COPY --from=build /sipp/sipp /sipp
+COPY --from=build /sipp/sipp /sipp/sipp.1 /sipp/version.h /
 
 FROM alpine:3.20
 CMD ["sipp"]

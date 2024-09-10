@@ -88,15 +88,13 @@ list](https://lists.sourceforge.net/lists/listinfo/sipp-users).
     ```
 * Then:
     ```
-    mkdir sipp-$VERSION
-    git ls-files -z | tar -c --null \
-       --exclude=gmock --exclude=gtest --files-from=- | tar -xC sipp-$VERSION
-    cp sipp.1 sipp-$VERSION/
-    # check version, and do
-    cp ${PROJECT_BINARY_DIR:-.}/version.h sipp-$VERSION/include/
-    tar --sort=name --mtime="@$(git log -1 --format=%ct)" \
-          --owner=0 --group=0 --numeric-owner \
-          -czf sipp-$VERSION.tar.gz sipp-$VERSION
+    git ls-files -z | grep -zv '^\.\|gtest\|gmock\|version.h' | \
+      tar --transform "s:^version.h:include/version.h:" \
+          --transform "s:^:sipp-$VERSION/:" \
+          --sort=name --mtime="@$(git log -1 --format=%ct)" \
+          --owner=0 --group=0 --null --files-from=- \
+          --numeric-owner -zcf sipp-$VERSION.tar.gz \
+          sipp.1 version.h
     ```
 * Upload to github as "binary". Note that github replaces tilde sign
   (for ~rcX) with a period.

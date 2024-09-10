@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+    - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+    - name: build-static
+      run: docker build -f docker/Dockerfile --output=. --target=bin .
+    - name: Set version
+      run: |
+        TAG=${{ github.ref_name }}
+        echo "VERSION=${TAG#v}" >> $GITHUB_ENV
+    - name: pack
+      run: |
+        git ls-files -z | grep -zv '^\.\|gtest\|gmock\|version.h' | \
+          tar --transform "s:^version.h:include/version.h:" \
+              --transform "s:^:sipp-$VERSION/:" \
+              --sort=name --mtime="@$(git log -1 --format=%ct)" \
+              --owner=0 --group=0 --null --files-from=- \
+              --numeric-owner -zcf sipp-$VERSION.tar.gz \
+              sipp.1 version.h
+    - uses: ncipollo/release-action@v1
+      with:
+        generateReleaseNotes: true
+        artifacts: "sipp-*.tar.gz,sipp"
