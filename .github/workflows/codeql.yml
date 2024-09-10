@@ -11,7 +11,7 @@ on:
 jobs:
   analyze:
     name: Analyze
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: read
       contents: read
@@ -30,7 +30,7 @@ jobs:
         run: |
           git submodule update --init
           sudo apt-get update
-          sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses5-dev libncurses5
+          sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses-dev libncurses6
 
       - name: Configure
         run: cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
