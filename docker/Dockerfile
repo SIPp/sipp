@@ -29,8 +29,8 @@ RUN --mount=type=bind,target=.git,source=.git \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_STATIC=1 \
     -DUSE_PCAP=1 \
-    -DUSE_GSL=1
-RUN ninja
+    -DUSE_GSL=1 && \
+  ninja
 
 FROM scratch AS bin
 COPY --from=build /sipp/sipp /sipp

@@ -36,8 +36,8 @@ RUN --mount=type=bind,target=.git,source=.git \
     -DUSE_PCAP=1 \
     -DUSE_GSL=1 \
     -DUSE_SSL=1 \
-    -DUSE_SCTP=1
-RUN ninja
+    -DUSE_SCTP=1 && \
+  ninja
 
 FROM scratch AS bin
 COPY --from=build /sipp/sipp /sipp
