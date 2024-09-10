@@ -24,6 +24,7 @@ COPY src src
 COPY include include
 COPY gtest gtest
 RUN --mount=type=bind,target=.git,source=.git \
+  git config --global --add safe.directory /sipp && \
   cmake . -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_STATIC=1 \
