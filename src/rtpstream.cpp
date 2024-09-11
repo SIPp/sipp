@@ -2702,7 +2702,7 @@ void rtpstream_audioecho_thread(void* param)
                 pthread_mutex_lock(&debugremutexaudio);
                 if (debugrefileaudio != nullptr)
                 {
-                    fprintf(debugrefileaudio, "DATA SUCCESSFULLY RECEIVED [AUDIO] nr = %ld...", nr);
+                    fprintf(debugrefileaudio, "DATA SUCCESSFULLY RECEIVED [AUDIO] nr = %d...", int(nr));
                 }
                 for (int i = 0; i < 12; i++)
                 {
@@ -2780,7 +2780,8 @@ void rtpstream_audioecho_thread(void* param)
                     pthread_mutex_lock(&debugremutexaudio);
                     if (debugrefileaudio != nullptr)
                     {
-                        fprintf(debugrefileaudio, "DATA SUCCESSFULLY SENT [AUDIO] seq_num = [%u] -- MISMATCHED RECV/SENT BYTE COUNT -- errno = %d nr = %ld ns = %ld\n", seq_num, errno, nr, ns);
+                        fprintf(debugrefileaudio, "DATA SUCCESSFULLY SENT [AUDIO] seq_num = [%u] -- MISMATCHED RECV/SENT BYTE COUNT -- errno = %d nr = %d ns = %d\n",
+                                seq_num, errno, int(nr), int(ns));
                     }
                     pthread_mutex_unlock(&debugremutexaudio);
                 } else {
@@ -2961,7 +2962,7 @@ void rtpstream_videoecho_thread(void* param)
                 pthread_mutex_lock(&debugremutexvideo);
                 if (debugrefilevideo != nullptr)
                 {
-                    fprintf(debugrefilevideo, "DATA SUCCESSFULLY RECEIVED [VIDEO] nr = %ld...", nr);
+                    fprintf(debugrefilevideo, "DATA SUCCESSFULLY RECEIVED [VIDEO] nr = %d...", int(nr));
                 }
                 for (int i = 0; i < 12; i++)
                 {
@@ -3038,7 +3039,8 @@ void rtpstream_videoecho_thread(void* param)
                     pthread_mutex_lock(&debugremutexvideo);
                     if (debugrefilevideo != nullptr)
                     {
-                        fprintf(debugrefilevideo, "DATA SUCCESSFULLY SENT [VIDEO] seq_num = [%u] -- MISMATCHED RECV/SENT BYTE COUNT -- errno = %d nr = %ld ns = %ld\n", seq_num, errno, nr, ns);
+                        fprintf(debugrefilevideo, "DATA SUCCESSFULLY SENT [VIDEO] seq_num = [%u] -- MISMATCHED RECV/SENT BYTE COUNT -- errno = %d nr = %d ns = %d\n",
+                                seq_num, errno, int(nr), int(ns));
                     }
                     pthread_mutex_unlock(&debugremutexvideo);
                 } else {

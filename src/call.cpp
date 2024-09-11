@@ -1563,8 +1563,8 @@ char * call::get_last_header(const char * name)
     if (name[len - 1] == ':') {
         return get_header(last_recv_msg, name, false);
     } else {
-        char with_colon[MAX_HEADER_LEN];
-        sprintf(with_colon, "%s:", name);
+        char with_colon[MAX_HEADER_LEN+2];
+        snprintf(with_colon, MAX_HEADER_LEN+2, "%s:", name);
         return get_header(last_recv_msg, with_colon, false);
     }
 }
@@ -1604,8 +1604,8 @@ char * call::get_last_request_uri()
     }
 
     last_request_uri[0] = '\0';
-    if (tmp && (tmp_len > 0)) {
-        strncpy(last_request_uri, tmp, tmp_len);
+    if (tmp_len > 0) {
+        memcpy(last_request_uri, tmp, tmp_len);
     }
     last_request_uri[tmp_len] = '\0';
 
