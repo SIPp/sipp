@@ -1315,7 +1315,7 @@ static void* rtpstream_playback_thread(void* params)
     printAudioVector("----PACKET COUNTS----", rs_apackets);
     printVideoVector("----PACKET COUNTS----", rs_vpackets);
 
-    for (unsigned int i = 0; i < threaddata->max_tasks; i++)
+    for (unsigned int i = 0; i < threaddata->num_tasks; i++)
     {
         taskinfo = (&threaddata->tasklist)[i];
 
