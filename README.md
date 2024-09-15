@@ -69,8 +69,24 @@ docker build -t sipp -f docker/Dockerfile --output=. --target=bin .
 ```
 
 Special arguments can be passed with `--build-arg`:
-* `FULL=1` - build all optional components
-* `DEBUG=1` - build with debug symbols
+* `FULL=1` - build all optional components.
+* `DEBUG=1` - build with debug symbols.
+
+## Debian-based docker build
+
+SIPp can be built in a Debian-based docker container. Unlike the Alpine
+build, this build is not static, and it supports wolfSSL.
+
+To build a Debian-based docker container, run:
+```
+git submodule update --init
+docker build -t sipp -f docker/Dockerfile.debian .
+```
+
+Special arguments can be passed with `--build-arg`:
+* `FULL=1` - build all optional components, including OpenSSL.
+* `WOLFSSL=1` - build with wolfSSL (only works without FULL).
+* `DEBUG=1` - build with debug symbols.
 
 # Support
 
