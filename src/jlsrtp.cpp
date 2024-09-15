@@ -3523,13 +3523,13 @@ JLSRTP::JLSRTP()
     _pseudorandomstate.cipher = EVP_CIPHER_CTX_new();
     if (_pseudorandomstate.cipher != nullptr)
     {
-        EVP_EncryptInit_ex(_pseudorandomstate.cipher, EVP_aes_128_ecb(), nullptr, nullptr /* primary/secondary master key set later */, nullptr);
+        EVP_EncryptInit_ex(_pseudorandomstate.cipher, EVP_aes_128_cbc(), nullptr, nullptr /* primary/secondary master key set later */, nullptr);
     }
 
     _cipherstate.cipher = EVP_CIPHER_CTX_new();
     if (_cipherstate.cipher != nullptr)
     {
-        EVP_EncryptInit_ex(_cipherstate.cipher, EVP_aes_128_ecb(), nullptr, nullptr /* _session_enc_key set later */, nullptr);
+        EVP_EncryptInit_ex(_cipherstate.cipher, EVP_aes_128_cbc(), nullptr, nullptr /* _session_enc_key set later */, nullptr);
     }
 }
 
@@ -3540,13 +3540,13 @@ JLSRTP::JLSRTP(unsigned int ssrc, std::string ipAddress, unsigned short port)
     _pseudorandomstate.cipher = EVP_CIPHER_CTX_new();
     if (_pseudorandomstate.cipher != nullptr)
     {
-        EVP_EncryptInit_ex(_pseudorandomstate.cipher, EVP_aes_128_ecb(), nullptr, nullptr /* primary/secondary master key set later */, nullptr);
+        EVP_EncryptInit_ex(_pseudorandomstate.cipher, EVP_aes_128_cbc(), nullptr, nullptr /* primary/secondary master key set later */, nullptr);
     }
 
     _cipherstate.cipher = EVP_CIPHER_CTX_new();
     if (_cipherstate.cipher != nullptr)
     {
-        EVP_EncryptInit_ex(_cipherstate.cipher, EVP_aes_128_ecb(), nullptr, nullptr /* _session_enc_key set later */, nullptr);
+        EVP_EncryptInit_ex(_cipherstate.cipher, EVP_aes_128_cbc(), nullptr, nullptr /* _session_enc_key set later */, nullptr);
     }
 }
 
