@@ -1,0 +1,54 @@
+# Usage (from within the git repo):
+#   git submodule update --init
+#   docker build -t sipp -f docker/Dockerfile.debian .
+
+FROM debian:12-slim AS build
+
+ARG FULL=''
+ARG WOLFSSL=''
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+  binutils \
+  cmake \
+  g++ \
+  gcc \
+  git \
+  libgsl-dev \
+  libpcap-dev \
+  libncurses-dev \
+  make \
+  ninja-build \
+  ${WOLFSSL:+libwolfssl-dev} \
+  ${FULL:+libsctp-dev libssl-dev}
+
+WORKDIR /sipp
+COPY CMakeLists.txt ./
+COPY src src
+COPY include include
+COPY gtest gtest
+
+ARG DEBUG=''
+RUN --mount=type=bind,target=.git,source=.git \
+  git config --global --add safe.directory /sipp && \
+  cmake . -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DUSE_PCAP=1 \
+    -DUSE_GSL=1 \
+    ${DEBUG:+-DDEBUG=1} \
+    ${FULL:+-DUSE_SSL=1 -DUSE_SCTP=1} \
+  && ninja
+
+FROM debian:12-slim
+CMD ["sipp"]
+ARG FULL=''
+ARG WOLFSSL=''
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  libgsl27 \
+  libpcap0.8 \
+  libncursesw6 \
+  ${WOLFSSL:+libwolfssl35} \
+  ${FULL:+libsctp1 libssl3} \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+COPY --from=build /sipp/sipp /usr/local/bin/sipp

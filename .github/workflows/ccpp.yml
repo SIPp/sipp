@@ -42,9 +42,7 @@ jobs:
 
 
   build-static:
-
     runs-on: ubuntu-24.04
-
     steps:
     - uses: actions/checkout@v4
     - name: prepare
@@ -55,3 +53,12 @@ jobs:
       with:
          name: sipp
          path: ./sipp
+
+  build-wolfssl:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: prepare
+      run: git submodule update --init
+    - name: build-wolfssl
+      run: docker build -f docker/Dockerfile.debian --build-arg WOLFSSL=1 .
