@@ -29,6 +29,8 @@
 #include <iterator>
 #include <sstream> // std::ostringstream
 
+extern unsigned int global_ssrc_id;
+
 // --------------- PRIVATE METHODS ----------------
 
 bool JLSRTP::isBase64(unsigned char c)
@@ -3518,7 +3520,10 @@ bool JLSRTP::operator!=(const JLSRTP& that)
 
 JLSRTP::JLSRTP()
 {
-    resetCryptoContext(0xCA110000, "127.0.0.1", 0);
+    if (global_ssrc_id == 0) {
+        global_ssrc_id = rand();
+    }
+    resetCryptoContext(global_ssrc_id, "127.0.0.1", 0);
 
     _pseudorandomstate.cipher = EVP_CIPHER_CTX_new();
     if (_pseudorandomstate.cipher != nullptr)
