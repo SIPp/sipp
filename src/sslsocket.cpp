@@ -268,11 +268,16 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
         ssl_ctx = nullptr;
 #endif
     } else if (tls_version == 1.1) {
+#if !defined(USE_WOLFSSL) || !defined(NO_OLD_TLS)
         if (!strncmp(context_name, "client", 6)) {
             ssl_ctx = SSL_CTX_new(TLSv1_1_client_method());
         } else {
             ssl_ctx = SSL_CTX_new(TLSv1_1_server_method());
         }
+#else
+        ERROR("Old TLS version 1.1 is no longer supported for [%s] context.", context_name);
+        ssl_ctx = nullptr;
+#endif
     } else if (tls_version == 1.2) {
         if (!strncmp(context_name, "client", 6)) {
             ssl_ctx = SSL_CTX_new(TLSv1_2_client_method());
