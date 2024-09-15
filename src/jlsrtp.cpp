@@ -88,7 +88,7 @@ int JLSRTP::pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vect
             {
                 if (keySize == JLSRTP_ENCRYPTION_KEY_LENGTH)
                 {
-                    input.resize(AES_BLOCK_SIZE, 0);
+                    input.resize(AES_BLOCK_SIZE);
                     output.clear();
 
                     // Determine how many AES_BLOCK_SIZE-byte encryption loops will be necessary to achieve at least n/8 bytes of pseudorandom ciphertext
@@ -105,7 +105,7 @@ int JLSRTP::pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vect
                         {
                             // Encrypt given _pseudorandomstate.ivec input using aes_key to block
                             block.clear();
-                            block.resize(AES_BLOCK_SIZE, 0);
+                            block.resize(AES_BLOCK_SIZE);
                             AES_ctr128_pseudorandom_EVPencrypt(input.data(), block.data(), AES_BLOCK_SIZE, _pseudorandomstate.ivec, _pseudorandomstate.ecount, &_pseudorandomstate.num);
                             output.insert(output.end(), block.begin(), block.end());
                         }
@@ -143,7 +143,7 @@ int JLSRTP::pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vect
             {
                 if (keySize == JLSRTP_ENCRYPTION_KEY_LENGTH)
                 {
-                    input.resize(AES_BLOCK_SIZE, 0);
+                    input.resize(AES_BLOCK_SIZE);
                     output.clear();
 
                     // Determine how many AES_BLOCK_SIZE-byte encryption loops will be necessary to achieve at least n/8 bytes of pseudorandom ciphertext
@@ -160,7 +160,7 @@ int JLSRTP::pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vect
                         {
                             // Encrypt given _pseudorandomstate.ivec input using aes_key to block
                             block.clear();
-                            block.resize(AES_BLOCK_SIZE, 0);
+                            block.resize(AES_BLOCK_SIZE);
                             AES_ctr128_pseudorandom_EVPencrypt(input.data(), block.data(), AES_BLOCK_SIZE, _pseudorandomstate.ivec, _pseudorandomstate.ecount, &_pseudorandomstate.num);
                             output.insert(output.end(), block.begin(), block.end());
                         }
@@ -200,7 +200,7 @@ int JLSRTP::pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vect
 int JLSRTP::shiftVectorLeft(std::vector<unsigned char> &shifted_vec, std::vector<unsigned char> &original_vec, int shift_value)
 {
     shifted_vec.clear();
-    shifted_vec.resize(original_vec.size(), 0);
+    shifted_vec.resize(original_vec.size());
 
     for (unsigned int i = shift_value, j = 0; i < original_vec.size(); i++, j++) {
         shifted_vec[j] = original_vec[i];
@@ -212,7 +212,7 @@ int JLSRTP::shiftVectorLeft(std::vector<unsigned char> &shifted_vec, std::vector
 int JLSRTP::shiftVectorRight(std::vector<unsigned char> &shifted_vec, std::vector<unsigned char> &original_vec, int shift_value)
 {
     shifted_vec.clear();
-    shifted_vec.resize(original_vec.size(), 0);
+    shifted_vec.resize(original_vec.size());
 
     for (unsigned int i = shift_value, j = 0; i < shifted_vec.size(); i++, j++) {
         shifted_vec[i] = original_vec[j];
@@ -228,7 +228,7 @@ int JLSRTP::xorVector(std::vector<unsigned char> &a, std::vector<unsigned char> 
     if (a.size() == b.size())
     {
         result.clear();
-        result.resize(a.size(), 0);
+        result.resize(a.size());
         std::transform(a.begin(), a.end(), b.begin(), result.begin(), std::bit_xor<unsigned char>());
         retVal = 0;
     }
@@ -259,7 +259,7 @@ int JLSRTP::convertSsrc(unsigned long ssrc, std::vector<unsigned char> &result)
     Conversion32 exchange_ssrc = {ssrc};
 
     result.clear();
-    result.resize(16, 0);
+    result.resize(16);
 
     if (isLittleEndian())
     {
@@ -284,7 +284,7 @@ int JLSRTP::convertPacketIndex(unsigned long long i, std::vector<unsigned char> 
     Conversion64 exchange_i = {i};
 
     result.clear();
-    result.resize(16, 0);
+    result.resize(16);
 
     if (isLittleEndian())
     {
@@ -317,7 +317,7 @@ int JLSRTP::convertROC(unsigned long ROC, std::vector<unsigned char> &result)
     Conversion32 exchange_roc = {ROC};
 
     result.clear();
-    result.resize(4, 0);
+    result.resize(4);
 
     if (isLittleEndian())
     {
@@ -333,8 +333,6 @@ int JLSRTP::convertROC(unsigned long ROC, std::vector<unsigned char> &result)
         result[2] = exchange_roc.c[2];
         result[3] = exchange_roc.c[3];
     }
-
-    return 0;
 
     return 0;
 }
@@ -483,7 +481,7 @@ int JLSRTP::encryptVector(std::vector<unsigned char> &invdata, std::vector<unsig
                 {
                     case AES_CM_128:
                     {
-                        ciphertext_output.resize(invdata.size(), 0);
+                        ciphertext_output.resize(invdata.size());
                         resetCipherBlockOffset();
                         resetCipherOutputBlock();
                         resetCipherBlockCounter();
@@ -514,7 +512,7 @@ int JLSRTP::encryptVector(std::vector<unsigned char> &invdata, std::vector<unsig
                 {
                     case AES_CM_128:
                     {
-                        ciphertext_output.resize(invdata.size(), 0);
+                        ciphertext_output.resize(invdata.size());
                         resetCipherBlockOffset();
                         resetCipherOutputBlock();
                         resetCipherBlockCounter();
@@ -569,7 +567,7 @@ int JLSRTP::decryptVector(std::vector<unsigned char> &ciphertext_input, std::vec
                 {
                     case AES_CM_128:
                     {
-                        outvdata.resize(ciphertext_input.size(), 0);
+                        outvdata.resize(ciphertext_input.size());
                         resetCipherBlockOffset();
                         resetCipherOutputBlock();
                         resetCipherBlockCounter();
@@ -600,7 +598,7 @@ int JLSRTP::decryptVector(std::vector<unsigned char> &ciphertext_input, std::vec
                 {
                     case AES_CM_128:
                     {
-                        outvdata.resize(ciphertext_input.size(), 0);
+                        outvdata.resize(ciphertext_input.size());
                         resetCipherBlockOffset();
                         resetCipherOutputBlock();
                         resetCipherBlockCounter();
@@ -1309,11 +1307,11 @@ void JLSRTP::resetCryptoContext(unsigned int ssrc, std::string ipAddress, unsign
     _primary_crypto.MKI = 0;
     _primary_crypto.MKI_length = 0;
     _primary_crypto.active_MKI = 0;
-    _primary_crypto.master_key.resize(JLSRTP_ENCRYPTION_KEY_LENGTH, 0);
+    _primary_crypto.master_key.resize(JLSRTP_ENCRYPTION_KEY_LENGTH);
     _primary_crypto.master_key_counter = 0;
     _primary_crypto.n_e = _primary_crypto.master_key.size();
     _primary_crypto.n_a = JLSRTP_AUTHENTICATION_KEY_LENGTH;
-    _primary_crypto.master_salt.resize(JLSRTP_SALTING_KEY_LENGTH, 0);
+    _primary_crypto.master_salt.resize(JLSRTP_SALTING_KEY_LENGTH);
     _primary_crypto.master_key_derivation_rate = 0;
     _primary_crypto.master_mki_value = 0;
     _primary_crypto.n_s = _primary_crypto.master_salt.size();
@@ -1323,19 +1321,19 @@ void JLSRTP::resetCryptoContext(unsigned int ssrc, std::string ipAddress, unsign
     _secondary_crypto.MKI = 0;
     _secondary_crypto.MKI_length = 0;
     _secondary_crypto.active_MKI = 0;
-    _secondary_crypto.master_key.resize(JLSRTP_ENCRYPTION_KEY_LENGTH, 0);
+    _secondary_crypto.master_key.resize(JLSRTP_ENCRYPTION_KEY_LENGTH);
     _secondary_crypto.master_key_counter = 0;
     _secondary_crypto.n_e = _secondary_crypto.master_key.size();
     _secondary_crypto.n_a = JLSRTP_AUTHENTICATION_KEY_LENGTH;
-    _secondary_crypto.master_salt.resize(JLSRTP_SALTING_KEY_LENGTH, 0);
+    _secondary_crypto.master_salt.resize(JLSRTP_SALTING_KEY_LENGTH);
     _secondary_crypto.master_key_derivation_rate = 0;
     _secondary_crypto.master_mki_value = 0;
     _secondary_crypto.n_s = _secondary_crypto.master_salt.size();
     _secondary_crypto.tag = 0;
-    _session_enc_key.resize(JLSRTP_ENCRYPTION_KEY_LENGTH, 0);
-    _session_salt_key.resize(JLSRTP_SALTING_KEY_LENGTH, 0);
-    _session_auth_key.resize(JLSRTP_AUTHENTICATION_KEY_LENGTH, 0);
-    _packetIV.resize(JLSRTP_SALTING_KEY_LENGTH, 0);
+    _session_enc_key.resize(JLSRTP_ENCRYPTION_KEY_LENGTH);
+    _session_salt_key.resize(JLSRTP_SALTING_KEY_LENGTH);
+    _session_auth_key.resize(JLSRTP_AUTHENTICATION_KEY_LENGTH);
+    _packetIV.resize(JLSRTP_SALTING_KEY_LENGTH);
     memset(_pseudorandomstate.ivec, 0, sizeof(_pseudorandomstate.ivec));
     _pseudorandomstate.num = 0;
     memset(_pseudorandomstate.ecount, 0, sizeof(_pseudorandomstate.ecount));
@@ -1390,7 +1388,7 @@ int JLSRTP::deriveSessionEncryptionKey()
                 input_vector.clear();
 
                 keyid_encryption.clear();
-                keyid_encryption.resize(7, 0);
+                keyid_encryption.resize(7);
                 keyid_encryption.push_back(JLSRTP_KEY_ENCRYPTION_LABEL);
                 keyid_encryption.push_back(0x00);
                 keyid_encryption.push_back(0x00);
@@ -1419,7 +1417,7 @@ int JLSRTP::deriveSessionEncryptionKey()
                 input_vector.clear();
 
                 keyid_encryption.clear();
-                keyid_encryption.resize(7, 0);
+                keyid_encryption.resize(7);
                 keyid_encryption.push_back(JLSRTP_KEY_ENCRYPTION_LABEL);
                 keyid_encryption.push_back(0x00);
                 keyid_encryption.push_back(0x00);
@@ -1467,7 +1465,7 @@ int JLSRTP::deriveSessionSaltingKey()
                 input_vector.clear();
 
                 keyid_salting.clear();
-                keyid_salting.resize(7, 0);
+                keyid_salting.resize(7);
                 keyid_salting.push_back(JLSRTP_KEY_SALTING_LABEL);
                 keyid_salting.push_back(0x00);
                 keyid_salting.push_back(0x00);
@@ -1496,7 +1494,7 @@ int JLSRTP::deriveSessionSaltingKey()
                 input_vector.clear();
 
                 keyid_salting.clear();
-                keyid_salting.resize(7, 0);
+                keyid_salting.resize(7);
                 keyid_salting.push_back(JLSRTP_KEY_SALTING_LABEL);
                 keyid_salting.push_back(0x00);
                 keyid_salting.push_back(0x00);
@@ -1544,7 +1542,7 @@ int JLSRTP::deriveSessionAuthenticationKey()
                 input_vector.clear();
 
                 keyid_authentication.clear();
-                keyid_authentication.resize(7, 0);
+                keyid_authentication.resize(7);
                 keyid_authentication.push_back(JLSRTP_KEY_AUTHENTICATION_LABEL);
                 keyid_authentication.push_back(0x00);
                 keyid_authentication.push_back(0x00);
@@ -1573,7 +1571,7 @@ int JLSRTP::deriveSessionAuthenticationKey()
                 input_vector.clear();
 
                 keyid_authentication.clear();
-                keyid_authentication.resize(7, 0);
+                keyid_authentication.resize(7);
                 keyid_authentication.push_back(JLSRTP_KEY_AUTHENTICATION_LABEL);
                 keyid_authentication.push_back(0x00);
                 keyid_authentication.push_back(0x00);
