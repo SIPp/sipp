@@ -148,6 +148,11 @@ size_t get_ethertype_offset(int link, const uint8_t* pktdata)
     if (link == DLT_EN10MB) {
         /* srcmac[6], dstmac[6], ethertype[2] */
         offset = 12;
+    /* Layer 3 IP packets / raw IP
+     * https://github.com/the-tcpdump-group/libpcap/blob/master/pcap/dlt.h#L111
+     */
+    } else if (link == DLT_RAW) {
+        return 0;
     } else if (link == DLT_LINUX_SLL) {
         /* http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html */
         /* pkttype[2], arphrd_type[2], lladdrlen[2], lladdr[8], ethertype[2] */
@@ -223,14 +228,19 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
             ether_type_offset = get_ethertype_offset(datalink, pktdata);
         }
 
-        ethhdr = (ether_type_hdr *)(pktdata + ether_type_offset);
-        if (ntohs(ethhdr->ether_type) != 0x0800 /* IPv4 */
-                && ntohs(ethhdr->ether_type) != 0x86dd) { /* IPv6 */
-            fprintf(stderr, "Ignoring non IP{4,6} packet, got ether_type %hu!\n",
-                    ntohs(ethhdr->ether_type));
-            continue;
+        if (ether_type_offset > 0) {
+            ethhdr = (ether_type_hdr *)(pktdata + ether_type_offset);
+            if (ntohs(ethhdr->ether_type) != 0x0800 /* IPv4 */
+                    && ntohs(ethhdr->ether_type) != 0x86dd) { /* IPv6 */
+                fprintf(stderr, "Ignoring non IP{4,6} packet, got ether_type %hu (%04x)!\n",
+                        ntohs(ethhdr->ether_type), ethhdr->ether_type);
+                continue;
+            }
+            iphdr = (struct ip*)((char*)ethhdr + sizeof(*ethhdr));
+        } else {
+            iphdr = (struct ip*)((char*)pktdata);
         }
-        iphdr = (struct ip*)((char*)ethhdr + sizeof(*ethhdr));
+
         if (iphdr && iphdr->ip_v == 6) {
             /* ipv6 */
             ip6hdr = (struct ip6_hdr*)(void*)iphdr;
