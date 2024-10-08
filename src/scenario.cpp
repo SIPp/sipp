@@ -135,6 +135,7 @@ message::~message()
 
 /******** Global variables which compose the scenario file **********/
 
+scenario      *rx_scenario;
 scenario      *main_scenario;
 scenario      *ooc_scenario;
 scenario      *aa_scenario;
@@ -407,6 +408,25 @@ int scenario::find_var(const char *varName)
 void scenario::addRtpTaskThreadID(pthread_t id)
 {
     threadIDs[id] = "threadID";
+}
+
+void scenario::setFileName(const char *name)
+{
+    const char* sep = strrchr(name, '/');
+    if (sep) {
+        ++sep; // include slash
+        path = std::string(name, sep - name);
+    } else {
+        path.clear();
+        sep = name;
+    }
+    const char* ext = strrchr(sep, '.');
+    if (ext && strcmp(ext, ".xml") == 0) {
+        fileName = std::string(sep, ext - sep);
+    } else {
+        fileName = sep;
+    }
+    stats->setFileName(fileName.c_str(), ".csv");
 }
 
 void scenario::removeRtpTaskThreadID(pthread_t id)
@@ -696,6 +716,9 @@ scenario::scenario(char * filename, int deflt)
     stats = new CStat();
     allocVars = new AllocVariableTable(userVariables);
 
+    if(filename) {
+        setFileName(filename);
+    }
     hidedefault = false;
 
     elem = xp_open_element(0);
@@ -1247,7 +1270,9 @@ void scenario::computeSippMode()
     bool isRecvCmdFound = false;
     bool isSendCmdFound = false;
 
-    creationMode = -1;
+    if (creationMode != MODE_MIXED) {
+        creationMode = -1;
+    }
     sendMode = -1;
     thirdPartyMode = MODE_3PCC_NONE;
 

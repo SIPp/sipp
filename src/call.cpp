@@ -785,14 +785,14 @@ unsigned long call::hash(const char * msg)
 }
 
 /******************* Call class implementation ****************/
-call::call(const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest) : listener(p_id, true)
+call::call(scenario *call_scenario, const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest) : listener(p_id, true)
 {
-    init(main_scenario, nullptr, dest, p_id, userId, use_ipv6, false, false);
+    init(call_scenario, nullptr, dest, p_id, userId, use_ipv6, false, false);
 }
 
-call::call(const char *p_id, SIPpSocket *socket, struct sockaddr_storage *dest) : listener(p_id, true)
+call::call(scenario *call_scenario, const char *p_id, SIPpSocket *socket, struct sockaddr_storage *dest) : listener(p_id, true)
 {
-    init(main_scenario, socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
+    init(call_scenario, socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
 }
 
 call::call(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true)
@@ -6832,7 +6832,7 @@ void *send_wrapper(void *arg)
 
 class mockcall : public call {
 public:
-    mockcall(bool is_ipv6) : listener("//testing", true), call("///testing", is_ipv6, 0, nullptr) {}
+    mockcall(bool is_ipv6) : listener("//testing", true), call(main_scenario, "///testing", is_ipv6, 0, nullptr) {}
 
     /* Helpers to poke at protected internals */
     void parse_media_addr(std::string const& msg) { get_remote_media_addr(msg); }
