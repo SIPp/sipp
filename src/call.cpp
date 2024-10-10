@@ -1897,7 +1897,11 @@ bool call::executeMessage(message *curmsg)
         callDebug("Executing NOP at index %d.\n", curmsg->index);
         do_bookkeeping(curmsg);
         actionResult = executeAction(nullptr, curmsg);
-        last_action_result = actionResult;
+        if (actionResult != call::E_AR_NO_ERROR) {
+            // Store last action result if it is an error
+            // and go on with the scenario
+            call::last_action_result = actionResult;
+        }
         if (actionResult == E_AR_RTPECHO_ERROR)
         {
             terminate(CStat::E_CALL_FAILED);
