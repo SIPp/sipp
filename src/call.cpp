@@ -2348,7 +2348,7 @@ bool call::process_unexpected(const char* msg)
         if (curmsg -> recv_request) {
             desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting '%s' ", curmsg -> recv_request);
         } else {
-            desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting '%d' ", curmsg -> recv_response);
+            desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting '%s' ", curmsg -> recv_response);
         }
     } else if (curmsg -> M_type == MSG_TYPE_SEND) {
         desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while sending ");
@@ -4451,24 +4451,45 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
         } else {
             return !strcmp(curmsg->recv_request, request);
         }
-    } else if (curmsg->recv_response && (curmsg->recv_response == reply_code)) {
-        /* This is a potential candidate, we need to match transactions. */
-        if (curmsg->response_txn) {
-            if (transactions[curmsg->response_txn - 1].txnID && !strcmp(transactions[curmsg->response_txn - 1].txnID, txn)) {
-                return true;
-            } else {
-                return false;
+    } else if (curmsg->recv_response) {
+        if (curmsg->regexp_match) { // Match response code using regex
+            char reply_code_str[8];
+           snprintf(reply_code_str, 8, "%u", reply_code); // Convert the response code to string
+            if (curmsg->regexp_compile == nullptr) {
+                regex_t *re = new regex_t;
+                /* No regex match position needed (NOSUB), we're simply
+                 * looking for the <request method="INVITE|REGISTER"../>
+                 * regex. */
+                if (regcomp(re, curmsg->recv_response, REGCOMP_PARAMS|REG_NOSUB)) {
+                    ERROR("Invalid regular expression for index %d: %s", index, curmsg->recv_response);
+                }
+                curmsg->regexp_compile = re;
             }
-        } else if (index == 0) {
-            /* Always true for the first message. */
-            return true;
-        } else if (curmsg->recv_response_for_cseq_method_list &&
-                   strstr(curmsg->recv_response_for_cseq_method_list, responsecseqmethod)) {
-            /* If we do not have a transaction defined, we just check the CSEQ method. */
-            return true;
-        } else {
-            return false;
+            if (regexec(curmsg->regexp_compile, reply_code_str, (size_t)0, nullptr, REGEXEC_PARAMS)) {
+               return false;
+           }
+        } else { // Exact numerical match
+            if (atoi(curmsg->recv_response) != reply_code) {
+               return false;
+           }
         }
+       /* This is a potential candidate, we need to match transactions. */
+       if (curmsg->response_txn) {
+           if (transactions[curmsg->response_txn - 1].txnID && !strcmp(transactions[curmsg->response_txn - 1].txnID, txn)) {
+               return true;
+           } else {
+               return false;
+           }
+       } else if (index == 0) {
+           /* Always true for the first message. */
+           return true;
+       } else if (curmsg->recv_response_for_cseq_method_list &&
+                  strstr(curmsg->recv_response_for_cseq_method_list, responsecseqmethod)) {
+           /* If we do not have a transaction defined, we just check the CSEQ method. */
+           return true;
+       } else {
+           return false;
+       }
     }
 
     return false;

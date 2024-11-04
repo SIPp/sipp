@@ -53,7 +53,7 @@ message::message(int index, const char *desc)
     retrans_delay = 0;
     timeout = 0;
 
-    recv_response = 0;
+    recv_response = nullptr; // free on exit
     recv_request = nullptr; // free on exit
     optional = 0;
     advance_state = true;
@@ -116,6 +116,7 @@ message::~message()
     free(pause_desc);
     delete send_scheme;
     free(recv_request);
+    free(recv_response);
     if (regexp_compile != nullptr) {
         regfree(regexp_compile);
     }
@@ -891,7 +892,7 @@ scenario::scenario(char * filename, int deflt)
                 curmsg->M_type = MSG_TYPE_RECV;
                 /* Received messages descriptions */
                 if((cptr = xp_get_value("response"))) {
-                    curmsg ->recv_response = get_long(cptr, "response code");
+                    curmsg ->recv_response = strdup(cptr);
                     if (method_list) {
                         curmsg->recv_response_for_cseq_method_list = strdup(method_list);
                     }

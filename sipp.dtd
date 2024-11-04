@@ -25,7 +25,7 @@
 
 <!ELEMENT recv ( action? ) >
 <!ATTLIST recv %messageCmdCommon; >
-<!ATTLIST recv response NMTOKEN #IMPLIED >
+<!ATTLIST recv response CDATA #IMPLIED >
 <!ATTLIST recv request CDATA #IMPLIED >
 <!ATTLIST recv optional (true|false) #IMPLIED >
 <!ATTLIST recv ignosesdp (true|false) #IMPLIED >

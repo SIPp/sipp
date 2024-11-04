@@ -93,7 +93,7 @@ public:
     char         * peer_src;
 
     /* If this is a recv */
-    int            recv_response;
+    char         * recv_response;
     char         * recv_request;
     int            optional;
     bool           advance_state;
