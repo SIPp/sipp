@@ -529,10 +529,10 @@ void ScreenPrinter::draw_scenario_screen()
         } else if (curmsg->recv_response) {
             if (creationMode == MODE_SERVER) {
                 buf_len += snprintf(buf + buf_len, bufsiz - buf_len,
-                                    "  ----------> %-10d ", curmsg->recv_response);
+                                    "  ----------> %-10s ", curmsg->recv_response);
             } else {
                 buf_len += snprintf(buf + buf_len, bufsiz - buf_len,
-                                    "  %10d <---------- ", curmsg->recv_response);
+                                    "  %10s <---------- ", curmsg->recv_response);
             }
 
             if (curmsg->start_rtd) {
