@@ -93,9 +93,9 @@ float2timer(float time, struct timeval *tvp)
     tvp->tv_usec = n * 100000;
 }
 
-int parse_play_args(const char* filename, pcap_pkts* pkts)
+int parse_play_args(const char* filename, const char *basepath, pcap_pkts* pkts)
 {
-    pkts->file = find_file(filename);
+    pkts->file = find_file(filename, basepath);
     prepare_pkts(pkts->file, pkts);
     return 1;
 }

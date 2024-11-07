@@ -118,6 +118,8 @@ struct sipp_option {
 #define SIPP_OPTION_LFOVERWRITE   37
 #define SIPP_OPTION_PLUGIN        38
 #define SIPP_OPTION_NEED_SCTP     39
+#define SIPP_OPTION_RX_SCENARIO   40
+#define SIPP_OPTION_RX_INPUT_FILE 41
 #define SIPP_HELP_TEXT_HEADER    255
 
 /* Put each option, its help text, and type in this table. */
@@ -128,6 +130,9 @@ struct sipp_option options_table[] = {
     {"", "Scenario file options:", SIPP_HELP_TEXT_HEADER, nullptr, 0},
     {"sd", "Dumps a default scenario (embedded in the SIPp executable)", SIPP_OPTION_SCENARIO, nullptr, 0},
     {"sf", "Loads an alternate XML scenario file.  To learn more about XML scenario syntax, use the -sd option to dump embedded scenarios. They contain all the necessary help.", SIPP_OPTION_SCENARIO, nullptr, 2},
+    {"rxsf", "Loads an alternate receive xml scenario file as the second scenario - enabling a mixture of originating and terminating calls to be executed.\n"
+     "If this is included then the second scenario MUST be a server mode scenario, and the first scenario (specified in -sf / -sn) MUST be a client-mode scenario.\n"
+     "If both -snrx and -sfrx are ommitted then only a single scenario is executed.", SIPP_OPTION_RX_SCENARIO, nullptr, 2},
     {"oocsf", "Load out-of-call scenario.", SIPP_OPTION_OOC_SCENARIO, nullptr, 2},
     {"oocsn", "Load out-of-call scenario.", SIPP_OPTION_OOC_SCENARIO, nullptr, 2},
     {
@@ -143,6 +148,11 @@ struct sipp_option options_table[] = {
         "- '3pcc-C-B' : Controller B side.\n"
         "- '3pcc-A'   : A side.\n"
         "- '3pcc-B'   : B side.\n", SIPP_OPTION_SCENARIO, nullptr, 2
+    },
+    {
+        "rxrn", "Use a default scenario (embedded in the sipp executable) for the second scenario - enabling a mixture of originating and terminating calls to be executed.\n"
+        "If this is included then the second scenario MUST be a server mode scenario, and the first scenario (specified in -sf / -sn) MUST be a client-mode scenario.\n"
+        "If both -snrx and -sfrx are ommitted then only a single scenario is executed.\n", SIPP_OPTION_RX_SCENARIO, nullptr, 2
     },
 
     {"", "IP, port and protocol options:", SIPP_HELP_TEXT_HEADER, nullptr, 0},
@@ -264,6 +274,9 @@ struct sipp_option options_table[] = {
 
 
     {"", "Injection file options:", SIPP_HELP_TEXT_HEADER, nullptr, 0},
+    {"rxinf", "Inject values from an external CSV file during calls into the scenarios.\n"
+     "First line of this file say whether the data is to be read in sequence (SEQUENTIAL), random (RANDOM), or user (USER) order.\n"
+      "Each line corresponds to one call and has one or more ';' delimited data fields. Those fields can be referred as [field0], [field1], ... in the xml scenario file.  Several CSV files can be used simultaneously (syntax: -inf f1.csv -inf f2.csv ...)", SIPP_OPTION_RX_INPUT_FILE, nullptr, 1},
     {"inf", "Inject values from an external CSV file during calls into the scenarios.\n"
      "First line of this file say whether the data is to be read in sequence (SEQUENTIAL), random (RANDOM), or user (USER) order.\n"
      "Each line corresponds to one call and has one or more ';' delimited data fields. Those fields can be referred as [field0], [field1], ... in the xml scenario file.  Several CSV files can be used simultaneously (syntax: -inf f1.csv -inf f2.csv ...)", SIPP_OPTION_INPUT_FILE, nullptr, 1},
@@ -1194,28 +1207,6 @@ static void sighandle_set()
     sigaction(SIGXFSZ, &action_file_size_exceeded, nullptr);  // avoid core dump if the max file size is exceeded
 }
 
-static void set_scenario(const char* name)
-{
-    free(scenario_file);
-    free(scenario_path);
-
-    const char* sep = strrchr(name, '/');
-    if (sep) {
-        ++sep; // include slash
-        scenario_path = strndup(name, sep - name);
-    } else {
-        scenario_path = strdup("");
-        sep = name;
-    }
-
-    const char* ext = strrchr(sep, '.');
-    if (ext && strcmp(ext, ".xml") == 0) {
-        scenario_file = strndup(sep, ext - sep);
-    } else {
-        scenario_file = strdup(sep);
-    }
-}
-
 static int create_socket(struct sockaddr_storage* media_sa, int try_port, bool last_attempt,
                          const char *type)
 {
@@ -1568,6 +1559,28 @@ int main(int argc, char *argv[])
                 }
             }
             break;
+            case SIPP_OPTION_RX_INPUT_FILE:
+            {
+                REQUIRE_ARG();
+                CHECK_PASS();
+                FileContents *rxData = new FileContents(argv[argi]);
+                char *name = argv[argi];
+                if (strrchr(name, '/')) {
+                    name = strrchr(name, '/') + 1;
+                } else if (strrchr(name, '\\')) {
+                    name = strrchr(name, '\\') + 1;
+                }
+                assert(name);
+                inFiles[name] = rxData;
+                /* By default, the first file is used for IP address input. */
+                if (!rx_ip_file) {
+                    rx_ip_file = name;
+                }
+                if (!rx_default_file) {
+                    rx_default_file = name;
+                }
+            }
+            break;
             case SIPP_OPTION_INDEX_FILE:
                 REQUIRE_ARG();
                 REQUIRE_ARG();
@@ -1741,23 +1754,34 @@ int main(int argc, char *argv[])
                 if (main_scenario) {
                     ERROR("Internal error, main_scenario already set");
                 } else if (!strcmp(argv[argi - 1], "-sf")) {
-                    set_scenario(argv[argi]);
                     if (useLogf == 1) {
                         rotate_logfile();
                     }
                     main_scenario = new scenario(argv[argi], 0);
-                    main_scenario->stats->setFileName(scenario_file, ".csv");
                 } else if (!strcmp(argv[argi - 1], "-sn")) {
                     int i = find_scenario(argv[argi]);
-                    set_scenario(argv[argi]);
                     main_scenario = new scenario(0, i);
-                    main_scenario->stats->setFileName(scenario_file, ".csv");
+                    main_scenario->setFileName(argv[argi]);
                 } else if (!strcmp(argv[argi - 1], "-sd")) {
                     int i = find_scenario(argv[argi]);
                     fprintf(stdout, "%s", default_scenario[i]);
                     exit(EXIT_OTHER);
                 } else {
                     ERROR("Internal error, I don't recognize %s as a scenario option", argv[argi] - 1);
+                }
+                break;
+            case SIPP_OPTION_RX_SCENARIO:
+                REQUIRE_ARG();
+                CHECK_PASS();
+                creationMode = MODE_MIXED;
+                if (!strcmp(argv[argi - 1], "-rxsf")) {
+                    rx_scenario = new scenario(argv[argi], 0);
+                } else if (!strcmp(argv[argi - 1], "-rxsn")) {
+                    int i = find_scenario(argv[argi]);
+                    rx_scenario = new scenario(0, i);
+                    rx_scenario->setFileName(argv[argi]);
+                } else {
+                    ERROR("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
                 }
                 break;
             case SIPP_OPTION_OOC_SCENARIO:
@@ -1976,13 +2000,12 @@ int main(int argc, char *argv[])
     }
 
     /* If no scenario was selected, choose the uac one */
-    if (scenario_file == nullptr) {
-        assert(main_scenario == nullptr);
+    if (!main_scenario) {
         int i = find_scenario("uac");
-        set_scenario("uac");
         main_scenario = new scenario(0, i);
-        main_scenario->stats->setFileName(scenario_file, ".csv");
+        main_scenario->setFileName("uac");
     }
+    scenario_file = main_scenario->getFileName().c_str();
 
 #ifdef USE_TLS
     if ((transport == T_TLS) && (TLS_init_context() != TLS_INIT_NORMAL)) {
@@ -2221,7 +2244,5 @@ int main(int argc, char *argv[])
     free(epollevents);
 #endif
 
-    free(scenario_file);
-    free(scenario_path);
     sipp_exit(EXIT_TEST_RES_UNKNOWN, rtp_errors, echo_errors); // MAIN EXIT PATH HERE...);
 }
