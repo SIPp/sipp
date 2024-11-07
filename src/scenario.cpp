@@ -112,9 +112,9 @@ message::message(int index, const char *desc)
 
 message::~message()
 {
-    delete(pause_distribution);
+    delete pause_distribution;
     free(pause_desc);
-    delete(send_scheme);
+    delete send_scheme;
     free(recv_request);
     if (regexp_compile != nullptr) {
         regfree(regexp_compile);
@@ -128,8 +128,8 @@ message::~message()
     free(peer_dest);
     free(peer_src);
 
-    delete(M_actions);
-    delete(M_sendCmdData);
+    delete M_actions;
+    delete M_sendCmdData;
     free(recv_response_for_cseq_method_list);
 }
 
