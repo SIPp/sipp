@@ -119,7 +119,7 @@ message::~message()
     if (regexp_compile != nullptr) {
         regfree(regexp_compile);
     }
-    free(regexp_compile);
+    delete regexp_compile;
 
     free(display_str);
     free(nextLabel);
