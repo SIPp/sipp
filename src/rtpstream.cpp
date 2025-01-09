@@ -1811,7 +1811,7 @@ static int rtpstream_setsocketoptions(int sock)
 /* code checked */
 static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
 {
-    int port_number;
+    int port_number = 0;
     int tries;
     struct sockaddr_storage address;
     int max_tries = (min_rtp_port < (max_rtp_port - 2)) ? (max_rtp_port - min_rtp_port) : 1;
