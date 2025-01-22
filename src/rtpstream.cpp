@@ -1876,7 +1876,7 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
     /* create socket for rtcp - ignore any errors, we only bind so we
      * won't send icmp-port-unreachable when rtcp arrives */
     *rtcpsocket = socket(media_ip_is_ipv6?PF_INET6:PF_INET, SOCK_DGRAM, 0);
-    if (*rtcpsocket != -1) {
+    if (*rtcpsocket != -1 && port_number > 0) {
         /* try to bind it to our preferred address */
         sockaddr_update_port(&address, port_number + 1);
         if (::bind(*rtcpsocket, (sockaddr *) (void *)&address,
