@@ -49,6 +49,16 @@ Libraries for random distributions):
 cmake . -DUSE_SSL=1 -DUSE_SCTP=1 -DUSE_PCAP=1 -DUSE_GSL=1
 ```
 
+To enable TLS key logging pass `-DUSE_SSL=KL` to cmake.
+
+TLS key logging records the TLS Session Keys to a key log file when the `SSLKEYLOGFILE` environment variable is set. It allows to decrypt SIPS traffic generated or received by SIPp using Wireshark. For more details see: https://wiki.wireshark.org/TLS
+
+You need to compile with OpenSSL>=1.1.1 in order to use TLS key logging.
+
+The TLS key log file format is described here: https://datatracker.ietf.org/doc/draft-ietf-tls-keylogfile/
+
+_Please note the security considerations ("3. Security Considerations")!_
+
 ## Static builds
 
 SIPp can be built into a single static binary, removing the need for
