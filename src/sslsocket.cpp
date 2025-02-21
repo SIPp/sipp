@@ -23,6 +23,11 @@
 #include "sipp.hpp"
 #include "sslsocket.hpp"
 
+#if (USE_OPENSSL_KL && OPENSSL_VERSION_NUMBER >= 0x10101000L)
+#define HAVE_KEYLOG_CB
+#define KEYLOG_ENV "SSLKEYLOGFILE"
+#endif
+
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
 
 #define CALL_BACK_USER_DATA "ksgr"
@@ -93,6 +98,57 @@ static int passwd_call_back_routine(char *buf, int size, int /*flag*/, void *pas
     buf[size - 1] = '\0';
     return(strlen(buf));
 }
+
+#ifdef HAVE_KEYLOG_CB
+static const char *keylog_file()
+{
+    char *kl_env = getenv(KEYLOG_ENV);
+
+    if (kl_env && kl_env[0]) {
+        return kl_env;
+    } else {
+        /* No or empty keylog environment variable */
+        return nullptr;
+    }
+}
+
+/* Add a LF to the keylog line and return the number of bytes written or 0 if
+ * writing fails.
+ * see: https://www.ietf.org/archive/id/draft-thomson-tls-keylogfile-00.html
+    https://github.com/tlswg/sslkeylogfile
+*/
+static int write_keylog_line(const char* filename, const char *line)
+{
+    FILE *keylog_fp = nullptr;
+    char buf[256]; /* current keylog maximum line length is 195 */
+    size_t line_len = strlen(line);
+
+    if(line_len == 0 || line_len > sizeof(buf) - 2) {
+        /* Empty line or too big to fit in a LF and NULL. */
+        return 0;
+    }
+    keylog_fp = fopen(filename, "a");
+    if (keylog_fp) {
+        memcpy(buf, line, line_len);
+        if(line[line_len - 1] != '\n') {
+            buf[line_len++] = '\n';
+        }
+        buf[line_len] = '\0';
+        fputs(buf, keylog_fp);
+        fclose(keylog_fp);
+    }
+    return line_len-1;
+}
+
+static void sip_tls_keylog_callback(const SSL *ssl, const char *line)
+{
+    const char *keylog_file_name = keylog_file();
+
+    if (line && keylog_file_name) {
+        write_keylog_line(keylog_file_name, line);
+    }
+}
+#endif // HAVE_KEYLOG_CB
 
 /****** SSL error handling *************/
 const char *SSL_error_string(int ssl_error, int orig_ret)
@@ -396,6 +452,14 @@ enum tls_init_status TLS_init_context(void)
         ERROR("TLS_init_context: SSL_CTX_use_PrivateKey_file (client) failed");
         return TLS_INIT_ERROR;
     }
+
+#ifdef HAVE_KEYLOG_CB
+    if (keylog_file()) {
+        SSL_CTX_set_keylog_callback(sip_trp_ssl_ctx_client, sip_tls_keylog_callback);
+        SSL_CTX_set_keylog_callback(sip_trp_ssl_ctx, sip_tls_keylog_callback);
+    }
+#endif // HAVE_KEYLOG_CB
+
 
     return TLS_INIT_NORMAL;
 }
