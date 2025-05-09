@@ -221,7 +221,9 @@ char* get_header(const char* message, const char* name, bool content)
             *ptr = '\n';
         }
 
-        src++;
+        if (*src) {
+            src++;
+        }
     }
 
     /* No header found? */
