@@ -552,6 +552,8 @@ const char *xp_get_value(const char *name)
                         break;
                     default:
                         buffer[index++] = '\\';
+                        if (index > XP_MAX_FILE_LEN)
+                            return NULL;
                         buffer[index++] = *ptr;
                         break;
                     }
