@@ -1,20 +1,20 @@
-# Your .github/workflows/coverity.yml file.
 name: Coverity scan
-
-# We only want to test official release code, not every pull request.
 on:
   push:
-    branches: [master]
+    branches: [master, dev]
+  workflow_dispatch:
 
 jobs:
-  coverity:
-    runs-on: ubuntu-24.04
+  build:
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - run: sudo apt update
-    - run: sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses-dev libncurses6
-    - run:  cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
-    - uses: vapier/coverity-scan-action@v1
-      with:
-        email: ${{ secrets.COVERITY_SCAN_EMAIL }}
-        token: ${{ secrets.COVERITY_SCAN_TOKEN }}
+      - name: Checkout Source
+        uses: actions/checkout@v4
+      - name: Coverity Scan
+        id: coverity-scan
+        uses: blackduck-inc/black-duck-security-scan@v2
+        with:
+          coverity_url: https://scan.coverity.com/projects/sipp-sipp
+          coverity_user: ${{ vars.COVERITY_SCAN_EMAIL }}
+          coverity_passphrase: ${{ secrets.COVERITY_SCAN_TOKEN }}
+          coverity_policy_view: 'Outstanding Issues'
