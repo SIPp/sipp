@@ -1224,27 +1224,14 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
 }
 
 SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
-    ss_count(1),
     ss_ipv6(use_ipv6),
     ss_transport(transport),
-    ss_control(false),
-    ss_fd(fd),
-    ss_bind_port(0),
-    ss_comp_state(nullptr),
-    ss_changed_dest(false),
-    ss_congested(false),
-    ss_invalid(false),
-    ss_in(nullptr),
-    ss_out(nullptr),
-    ss_out_tail(nullptr),
-    ss_msglen(0)
+    ss_fd(fd)
 {
     /* Initialize all sockets with our destination address. */
     memcpy(&ss_dest, &remote_sockaddr, sizeof(ss_dest));
 
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
-    ss_ssl = nullptr;
-
     if (transport == T_TLS) {
         int flags = fcntl(fd, F_GETFL, 0);
         fcntl(fd, F_SETFL, flags | O_NONBLOCK);

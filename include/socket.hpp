@@ -24,6 +24,12 @@
 #include "sslsocket.hpp"
 #endif
 
+#ifdef USE_SCTP
+#define SCTP_DOWN 0
+#define SCTP_CONNECTING 1
+#define SCTP_UP 2
+#endif
+
 /**
  * On some systems you must pass the exact sockaddr struct size to
  * connect/bind/sendto calls. Passing a length that is too large
@@ -95,21 +101,21 @@ public:
 
     static void pollset_process(int wait);
 
-    int ss_count;           /* How many users are there of this socket? */
-    bool ss_ipv6;
-    int ss_transport;       /* T_TCP, T_UDP, or T_TLS. */
-    bool ss_control;        /* Is this a control socket? */
-    int ss_fd;              /* The underlying file descriptor for this socket. */
-    int ss_port;            /* The port used by this socket */
-    int ss_bind_port;       /* Optional local port used by this socket */
-    void *ss_comp_state;    /* The compression state. */
+    int ss_count = 1;           /* How many users are there of this socket? */
+    bool ss_ipv6 = false;
+    int ss_transport = 0;       /* T_TCP, T_UDP, or T_TLS. */
+    bool ss_control = false;    /* Is this a control socket? */
+    int ss_fd = -1;             /* The underlying file descriptor for this socket. */
+    int ss_port = 0;            /* The port used by this socket */
+    int ss_bind_port = 0;       /* Optional local port used by this socket */
+    void *ss_comp_state = nullptr;    /* The compression state. */
 
-    bool ss_changed_dest;   /* Has the destination changed from default. */
+    bool ss_changed_dest = false;   /* Has the destination changed from default. */
     struct sockaddr_storage ss_dest; /* Who we are talking to. */
 
 private:
-    bool ss_congested; /* Is this socket congested? */
-    bool ss_invalid; /* Has this socket been closed remotely? */
+    bool ss_congested = false; /* Is this socket congested? */
+    bool ss_invalid = false; /* Has this socket been closed remotely? */
 
     int handleSCTPNotify(char* buffer);
     void sipp_sctp_peer_params();
@@ -117,10 +123,10 @@ private:
     void buffer_read(struct socketbuf *newbuf);
     void buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest);
     ssize_t read_message(char *buf, size_t len, struct sockaddr_storage *src);
-    struct socketbuf *ss_in;    /* Buffered input. */
-    struct socketbuf *ss_out;   /* Buffered output. */
-    struct socketbuf *ss_out_tail; /* Tail of buffered output */
-    size_t ss_msglen;           /* Is there a complete SIP message waiting, and if so how big? */
+    struct socketbuf *ss_in = nullptr;    /* Buffered input. */
+    struct socketbuf *ss_out = nullptr;   /* Buffered output. */
+    struct socketbuf *ss_out_tail = nullptr; /* Tail of buffered output */
+    size_t ss_msglen = 0;           /* Is there a complete SIP message waiting, and if so how big? */
 
     void close_calls();
     int flush();
@@ -132,17 +138,17 @@ private:
                             struct sockaddr_storage* dest);
 
 
-    bool ss_call_socket; /* Is this a call socket? */
+    bool ss_call_socket = false; /* Is this a call socket? */
 
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
-    SSL *ss_ssl; /* The underlying SSL descriptor for this socket. */
-    BIO *ss_bio; /* The underlying BIO descriptor for this socket. */
+    SSL *ss_ssl = nullptr; /* The underlying SSL descriptor for this socket. */
+    BIO *ss_bio = nullptr; /* The underlying BIO descriptor for this socket. */
 #endif
 
-    int ss_pollidx; /* The index of this socket in our poll structures. */
+    int ss_pollidx = -1; /* The index of this socket in our poll structures. */
 
 #ifdef USE_SCTP
-    int sctpstate;
+    int sctpstate = SCTP_DOWN;
 #endif
 };
 
@@ -182,11 +188,6 @@ struct socketbuf {
     struct socketbuf *next;
 };
 
-#ifdef USE_SCTP
-#define SCTP_DOWN 0
-#define SCTP_CONNECTING 1
-#define SCTP_UP 2
-#endif
 /* Abort a connection - close the socket quickly. */
 
 #define WS_EAGAIN 1 /* Return EAGAIN if there is no room for writing the message. */
