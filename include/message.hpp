@@ -146,14 +146,14 @@ public:
 private:
     std::vector <struct MessageComponent *> messageComponents;
 
-    char *method;
-    int code;
+    char *method = nullptr;
+    int code = 0;
 
-    bool ack;
-    bool cancel;
-    bool response;
+    bool ack = false;
+    bool cancel = false;
+    bool response = false;
 
-    scenario *msg_scenario;
+    scenario *msg_scenario = nullptr;
 
     // Get parameters from a [keyword]
     static void getQuotedParam(char * dest, char * src, int * len);
