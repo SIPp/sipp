@@ -33,7 +33,7 @@ char * comp_load(void)
 
     comp_error[0] = 0;
 
-    handle = dlopen(COMP_PLUGGIN, RTLD_LAZY);
+    handle = dlopen(COMP_PLUGIN, RTLD_LAZY);
     if (!handle) {
         strcpy(comp_error, dlerror());
         return comp_error;

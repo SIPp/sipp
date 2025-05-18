@@ -1633,7 +1633,7 @@ int main(int argc, char *argv[])
                     break;
                 case 'c':
                     if (strlen(comp_error)) {
-                        ERROR("No " COMP_PLUGGIN " plugin available: %s", comp_error);
+                        ERROR("No " COMP_PLUGIN " plugin available: %s", comp_error);
                     }
                     transport = T_UDP;
                     compression = 1;

@@ -54,9 +54,9 @@ extern "C" {
     char comp_error[255];
 
 #ifdef __hpux
-#define COMP_PLUGGIN "sippcomp.sl"
+#define COMP_PLUGIN "sippcomp.sl"
 #else
-#define COMP_PLUGGIN "sippcomp.so"
+#define COMP_PLUGIN "sippcomp.so"
 #endif
 
 #define COMP_OK       0
