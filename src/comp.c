@@ -42,18 +42,21 @@ char * comp_load(void)
     *(void **)(&comp_compress) = dlsym(handle, "comp_compress");
     if((error = (char *) dlerror())) {
         strcpy(comp_error, error);
+        dlclose(handle);
         return comp_error;
     }
 
     *(void **)(&comp_uncompress) = dlsym(handle, "comp_uncompress");
     if((error = (char *) dlerror())) {
         strcpy(comp_error, error);
+        dlclose(handle);
         return comp_error;
     }
 
     *(void **)(&comp_free) = dlsym(handle, "comp_free");
     if((error = (char *) dlerror())) {
         strcpy(comp_error, error);
+        dlclose(handle);
         return comp_error;
     }
 

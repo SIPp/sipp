@@ -1953,7 +1953,9 @@ int main(int argc, char *argv[])
 
     /* Load compression plugin if needed/available. */
     if (compression) {
-        comp_load();
+        if (comp_load()) {
+            ERROR("Could not load " COMP_PLUGIN " plugin: %s", comp_error);
+        }
     }
 
     if ((extendedTwinSippMode && !slave_masterSet) || (!extendedTwinSippMode && slave_masterSet)) {
