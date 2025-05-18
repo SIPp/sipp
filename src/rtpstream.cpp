@@ -1759,12 +1759,14 @@ int rtpstream_cache_file(char* filename,
 
         filecontents = (char *)malloc(statbuffer.st_size);
         if (!filecontents) {
+            fclose(f);
             /* could not alloc mem */
             return -1;
         }
         if (!fread(filecontents, statbuffer.st_size, 1, f)) {
             /* could not read file */
             free(filecontents);
+            fclose(f);
             return -1;
         }
         fclose(f);
