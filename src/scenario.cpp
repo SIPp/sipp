@@ -1184,7 +1184,7 @@ CSample *parse_distribution(bool oldstyle = false)
     } else if (!strcmp(distname, "negbin")) {
         double n = xp_get_double("n", "Negative Binomial distribution");
         double p = xp_get_double("p", "Negative Binomial distribution");
-        distribution = new CNegBin(n, p);
+        distribution = new CNegBin(p, n);
 #else
     } else if (!strcmp(distname, "normal")
                || !strcmp(distname, "lognormal")
