@@ -1086,7 +1086,7 @@ static void manage_oversized_file(int signum)
             "Max file size reached - no more logs\n",
             CStat::formatTime(&currentTime));
 
-    fflush(f);
+    fclose(f);
     stop_all_traces();
     print_all_responses = 0;
     error_lfi.fptr = nullptr;
