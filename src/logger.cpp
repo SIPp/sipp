@@ -74,7 +74,7 @@ void print_count_file(FILE* f, int header)
         main_scenario->stats->getStartTime(&startTime);
         unsigned long globalElapsedTime =
             CStat::computeDiffTimeInMs(&currentTime, &startTime);
-        fprintf(f, "%s%s", CStat::formatTime(&currentTime), stat_delimiter);
+        fprintf(f, "%s%s", CStat::formatTime(&currentTime, rfc3339), stat_delimiter);
         fprintf(f, "%s%s", CStat::msToHHMMSSus(globalElapsedTime),
                 stat_delimiter);
     }
@@ -200,7 +200,7 @@ void print_error_codes_file(FILE* f)
     main_scenario->stats->getStartTime(&startTime);
     unsigned long globalElapsedTime =
         CStat::computeDiffTimeInMs(&currentTime, &startTime);
-    fprintf(f, "%s%s", CStat::formatTime(&currentTime), stat_delimiter);
+    fprintf(f, "%s%s", CStat::formatTime(&currentTime, rfc3339), stat_delimiter);
     fprintf(f, "%s%s", CStat::msToHHMMSSus(globalElapsedTime), stat_delimiter);
 
     // Print comma-separated list of all error codes seen since the last time
@@ -440,7 +440,7 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
     const std::size_t bufSize = sizeof(screen_last_error) / sizeof(screen_last_error[0]);
     const char* const bufEnd = &screen_last_error[bufSize];
     char* c = screen_last_error;
-    _advance(c, snprintf(c, bufEnd - c, "%s: ", CStat::formatTime(&currentTime)));
+    _advance(c, snprintf(c, bufEnd - c, "%s: ", CStat::formatTime(&currentTime, rfc3339)));
     if (c < bufEnd) {
         _advance(c, vsnprintf(c, bufEnd - c, fmt, ap));
     }

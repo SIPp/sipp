@@ -214,6 +214,7 @@ MAYBE_EXTERN const char       * auth_username           DEFVAL(0);
 MAYBE_EXTERN unsigned long      report_freq             DEFVAL(DEFAULT_REPORT_FREQ);
 MAYBE_EXTERN unsigned long      report_freq_dumpLog     DEFVAL
 (DEFAULT_REPORT_FREQ_DUMP_LOG);
+MAYBE_EXTERN bool               rfc3339                 DEFVAL(false);
 MAYBE_EXTERN bool               periodic_rtd            DEFVAL(false);
 MAYBE_EXTERN const char       * stat_delimiter          DEFVAL(";");
 

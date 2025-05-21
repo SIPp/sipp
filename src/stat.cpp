@@ -1262,9 +1262,9 @@ void CStat::dumpData ()
     }
 
     // content
-    (*M_outputStream) << formatTime(&M_startTime)               << stat_delimiter;
-    (*M_outputStream) << formatTime(&M_plStartTime)             << stat_delimiter;
-    (*M_outputStream) << formatTime(&currentTime)               << stat_delimiter
+    (*M_outputStream) << formatTime(&M_startTime, rfc3339)      << stat_delimiter;
+    (*M_outputStream) << formatTime(&M_plStartTime, rfc3339)    << stat_delimiter;
+    (*M_outputStream) << formatTime(&currentTime, rfc3339)      << stat_delimiter
                       << msToHHMMSS(localElapsedTime)           << stat_delimiter;
     (*M_outputStream) << msToHHMMSS(globalElapsedTime)          << stat_delimiter;
     if (users >= 0) {
@@ -1459,7 +1459,7 @@ char* CStat::formatTime (struct timeval* P_tv, bool with_epoch)
         memset (L_time, 0, TIME_LENGTH);
     } else {
         if (with_epoch) {
-            sprintf(L_time, "%4.4d-%2.2d-%2.2d %2.2d:%2.2d:%2.2d.%06ld",
+            sprintf(L_time, "%4.4d-%2.2d-%2.2dT%2.2d:%2.2d:%2.2d.%06ld",
                     L_currentDate->tm_year + 1900,
                     L_currentDate->tm_mon + 1,
                     L_currentDate->tm_mday,
