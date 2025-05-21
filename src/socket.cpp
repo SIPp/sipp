@@ -2206,7 +2206,7 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
             char *msg = strdup(buffer);
             const char *call_id = get_trimmed_call_id(msg);
             TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
-                           CStat::formatTime(&currentTime), call_id, get_header_content(msg, "CSeq:"), get_first_line(msg));
+                           CStat::formatTime(&currentTime, rfc3339), call_id, get_header_content(msg, "CSeq:"), get_first_line(msg));
             free(msg);
         }
 

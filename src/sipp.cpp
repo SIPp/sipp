@@ -364,6 +364,7 @@ struct sipp_option options_table[] = {
     {"stat_delimiter", "Set the delimiter for the statistics file", SIPP_OPTION_STRING, &stat_delimiter, 1},
     {"stf", "Set the file name to use to dump statistics", SIPP_OPTION_ARGI, &argiFileName, 1},
     {"fd", "Set the statistics dump log report frequency. Default is 60 and default unit is seconds.", SIPP_OPTION_TIME_SEC, &report_freq_dumpLog, 1},
+    {"rfc3339", "Use timestamps in RFC3339 format.", SIPP_OPTION_SETFLAG, &rfc3339, 1},
     {"periodic_rtd", "Reset response time partition counters each logging interval.", SIPP_OPTION_SETFLAG, &periodic_rtd, 1},
 
     {"trace_msg", "Displays sent and received SIP messages in <scenario file name>_<pid>_messages.log", SIPP_OPTION_SETFLAG, &useMessagef, 1},
@@ -1080,7 +1081,7 @@ static void manage_oversized_file(int signum)
     fprintf(f,
             "-------------------------------------------- %s\n"
             "Max file size reached - no more logs\n",
-            CStat::formatTime(&currentTime));
+            CStat::formatTime(&currentTime, rfc3339));
 
     fclose(f);
     stop_all_traces();

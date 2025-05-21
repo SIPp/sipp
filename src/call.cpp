@@ -1148,7 +1148,7 @@ int call::_callDebug(const char *fmt, ...)
 
     struct timeval now;
     gettimeofday(&now, nullptr);
-    debugLength += snprintf(debugBuffer + debugLength, TIME_LENGTH + 2, "%s ", CStat::formatTime(&now));
+    debugLength += snprintf(debugBuffer + debugLength, TIME_LENGTH + 2, "%s ", CStat::formatTime(&now, rfc3339));
 
     va_start(ap, fmt);
     debugLength += vsnprintf(debugBuffer + debugLength, ret + 1, fmt, ap);
@@ -3829,7 +3829,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         case E_Message_Timestamp:
             struct timeval currentTime;
             gettimeofday(&currentTime, nullptr);
-            dest += snprintf(dest, left, "%s", CStat::formatTime(&currentTime));
+            dest += snprintf(dest, left, "%s", CStat::formatTime(&currentTime, rfc3339));
             break;
         case E_Message_Date:
             char buf[256];
