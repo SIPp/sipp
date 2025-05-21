@@ -175,6 +175,8 @@ static void process_set(char* what)
             display_scenario = main_scenario;
         } else if (!strcmp(rest, "ooc") && ooc_scenario) {
             display_scenario = ooc_scenario;
+        } else if (!strcmp(rest, "rx") && rx_scenario) {
+            display_scenario = rx_scenario;
         } else {
             WARNING("Unknown display scenario: %s", rest);
         }
@@ -1119,12 +1121,13 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
                   msg_size, msg);
     }
 
+    // got as message not relating to a known call
     if (!listener_ptr) {
         if (thirdPartyMode == MODE_3PCC_CONTROLLER_B || thirdPartyMode == MODE_3PCC_A_PASSIVE ||
                 thirdPartyMode == MODE_MASTER_PASSIVE || thirdPartyMode == MODE_SLAVE) {
             // Adding a new OUTGOING call !
             main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-            call *new_ptr = new call(call_id, local_ip_is_ipv6, 0, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
+            call *new_ptr = new call(main_scenario, call_id, local_ip_is_ipv6, 0, use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
 
             outbound_congestion = false;
             if ((socket != main_socket) &&
@@ -1161,7 +1164,18 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
 
             // Adding a new INCOMING call !
             main_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
-            listener_ptr = new call(call_id, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src);
+            listener_ptr = new call(main_scenario, call_id, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src);
+        } else if(creationMode == MODE_MIXED) {
+            /* Ignore quitting for now ... as this is triggered when all tx calls are active
+            if (quitting >= 1) {
+                CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
+                TRACE_MSG("Discarded message for new calls while quitting\n");
+                return;
+            }
+            */
+            // Adding a new INCOMING call !
+            rx_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
+            listener_ptr = new call(rx_scenario, call_id, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src);
         } else { // mode != from SERVER and 3PCC Controller B
             // This is a message that is not relating to any known call
             if (ooc_scenario) {
@@ -1219,6 +1233,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
     if ((socket == localTwinSippSocket) || (socket == twinSippSocket) || (is_a_local_socket(socket))) {
         listener_ptr -> process_twinSippCom(msg);
     } else {
+        /* This is a message on a known call - process it */
         listener_ptr -> process_incoming(msg, src);
     }
 }
