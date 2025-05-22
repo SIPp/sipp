@@ -1262,9 +1262,9 @@ void CStat::dumpData ()
     }
 
     // content
-    (*M_outputStream) << formatTime(&M_startTime, rfc3339)               << stat_delimiter;
-    (*M_outputStream) << formatTime(&M_plStartTime, rfc3339)             << stat_delimiter;
-    (*M_outputStream) << formatTime(&currentTime, rfc3339)               << stat_delimiter
+    (*M_outputStream) << formatTime(&M_startTime, rfc3339)      << stat_delimiter;
+    (*M_outputStream) << formatTime(&M_plStartTime, rfc3339)    << stat_delimiter;
+    (*M_outputStream) << formatTime(&currentTime, rfc3339)      << stat_delimiter
                       << msToHHMMSS(localElapsedTime)           << stat_delimiter;
     (*M_outputStream) << msToHHMMSS(globalElapsedTime)          << stat_delimiter;
     if (users >= 0) {
