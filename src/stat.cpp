@@ -37,6 +37,9 @@
 ** Local definitions (macros)
 */
 
+#define TZOFFSET_LENGTH 12
+static char M_G_gmt_offset[TZOFFSET_LENGTH] = "";
+
 #define RESET_COUNTERS(PT) \
     memset (PT, 0, CStat::E_NB_COUNTER * sizeof(unsigned long long))
 
@@ -107,6 +110,30 @@
         M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUM] = 0; \
         M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUMSQ] = 0; \
     } \
+}
+
+static void getTimezoneOffset()
+{
+#ifdef __USE_MISC
+    if (*M_G_gmt_offset) {
+        return;
+    }
+
+    struct tm L_currentDate;
+    // Get the current date and time
+    time_t now = time(NULL);
+    // Convert to local time
+    localtime_r(&now, &L_currentDate);
+
+    long gmtoff = L_currentDate.tm_gmtoff;
+    if (gmtoff == 0) {
+        strcpy(M_G_gmt_offset, "Z");
+    } else {
+        int hh = gmtoff / 3600;
+        int mm = abs(gmtoff / 60) % 60;
+        snprintf(M_G_gmt_offset, sizeof(M_G_gmt_offset), "%+.2d:%.2d", hh, mm);
+    }
+#endif
 }
 
 /*
@@ -183,6 +210,8 @@ int CStat::init ()
     M_headerAlreadyDisplayedRtt = false;
 
     std::vector<int> error_codes(0);
+
+    getTimezoneOffset();
 
     return(1);
 }
@@ -1459,14 +1488,15 @@ char* CStat::formatTime (struct timeval* P_tv, bool with_epoch)
         memset (L_time, 0, TIME_LENGTH);
     } else {
         if (with_epoch) {
-            sprintf(L_time, "%4.4d-%2.2d-%2.2dT%2.2d:%2.2d:%2.2d.%06ld",
+            sprintf(L_time, "%4.4d-%2.2d-%2.2dT%2.2d:%2.2d:%2.2d.%06ld%s",
                     L_currentDate->tm_year + 1900,
                     L_currentDate->tm_mon + 1,
                     L_currentDate->tm_mday,
                     L_currentDate->tm_hour,
                     L_currentDate->tm_min,
                     L_currentDate->tm_sec,
-                    (long)P_tv->tv_usec);
+                    (long)P_tv->tv_usec,
+                    M_G_gmt_offset);
         } else {
             sprintf(L_time, "%4.4d-%2.2d-%2.2d\t%2.2d:%2.2d:%2.2d.%06ld\t%10.10ld.%06ld",
                     L_currentDate->tm_year + 1900,
