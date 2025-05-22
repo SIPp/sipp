@@ -25,6 +25,7 @@
 
 
 #define TIME_LENGTH 64
+#define TZOFFSET_LENGTH 12
 #define DEFAULT_FILE_NAME (char*)"dumpFile"
 #define DEFAULT_EXTENSION (char*)".csv"
 
@@ -431,6 +432,7 @@ private:
     unsigned int             M_rtpEchoErrors;
     unsigned long long       M_counters[E_NB_COUNTER];
     static unsigned long long M_G_counters[E_NB_G_COUNTER - E_NB_COUNTER];
+    static char              M_G_gmt_offset[TZOFFSET_LENGTH];
 
 #define GENERIC_C 0
 #define GENERIC_PD 1
@@ -569,6 +571,12 @@ private:
 
     double computeRtdMean(int which, int type);
     double computeRtdStdev(int which, int type);
+
+    /**
+     * getTimezoneOffset
+     * This method gets the system's set timezone.
+     */
+    void getTimezoneOffset();
 
     /**
      * Effective C++

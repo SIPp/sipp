@@ -117,6 +117,7 @@
 */
 
 unsigned long long CStat::M_G_counters[E_NB_G_COUNTER - E_NB_COUNTER];
+char CStat::M_G_gmt_offset[TZOFFSET_LENGTH] = "";
 
 CStat::~CStat()
 {
@@ -183,6 +184,8 @@ int CStat::init ()
     M_headerAlreadyDisplayedRtt = false;
 
     std::vector<int> error_codes(0);
+
+    getTimezoneOffset();
 
     return(1);
 }
@@ -816,6 +819,33 @@ double CStat::computeRtdStdev(int which, int type)
     return sqrt(numerator/denominator);
 }
 
+void CStat::getTimezoneOffset()
+{
+    #ifdef __USE_MISC
+    if (strlen(M_G_gmt_offset))
+        return;
+
+    struct tm L_currentDate;
+    // Get the current date and time
+    time_t now = time(NULL);
+    // Convert to local time
+    localtime_r(&now, &L_currentDate);
+
+    long gmtoff = L_currentDate.tm_gmtoff;
+    if (gmtoff == 0) {
+        snprintf(M_G_gmt_offset, sizeof(M_G_gmt_offset), "Z");
+    } else {
+        int hh = gmtoff / 3600;
+        int mm = abs(gmtoff / 60) % 60;
+        snprintf(M_G_gmt_offset, sizeof(M_G_gmt_offset), "%+.2d:%.2d", hh, mm);
+    }
+    #endif
+
+    return;
+
+
+}
+
 void CStat::updateAverageCounter(E_CounterName P_SumCounter,
                                  E_CounterName P_NbOfCallUsed,
                                  E_CounterName P_Squares,
@@ -1262,9 +1292,9 @@ void CStat::dumpData ()
     }
 
     // content
-    (*M_outputStream) << formatTime(&M_startTime)               << stat_delimiter;
-    (*M_outputStream) << formatTime(&M_plStartTime)             << stat_delimiter;
-    (*M_outputStream) << formatTime(&currentTime)               << stat_delimiter
+    (*M_outputStream) << formatTime(&M_startTime, rfc3339)      << stat_delimiter;
+    (*M_outputStream) << formatTime(&M_plStartTime, rfc3339)    << stat_delimiter;
+    (*M_outputStream) << formatTime(&currentTime, rfc3339)      << stat_delimiter
                       << msToHHMMSS(localElapsedTime)           << stat_delimiter;
     (*M_outputStream) << msToHHMMSS(globalElapsedTime)          << stat_delimiter;
     if (users >= 0) {
@@ -1459,14 +1489,15 @@ char* CStat::formatTime (struct timeval* P_tv, bool with_epoch)
         memset (L_time, 0, TIME_LENGTH);
     } else {
         if (with_epoch) {
-            sprintf(L_time, "%4.4d-%2.2d-%2.2d %2.2d:%2.2d:%2.2d.%06ld",
+            sprintf(L_time, "%4.4d-%2.2d-%2.2dT%2.2d:%2.2d:%2.2d.%06ld%s",
                     L_currentDate->tm_year + 1900,
                     L_currentDate->tm_mon + 1,
                     L_currentDate->tm_mday,
                     L_currentDate->tm_hour,
                     L_currentDate->tm_min,
                     L_currentDate->tm_sec,
-                    (long)P_tv->tv_usec);
+                    (long)P_tv->tv_usec,
+                    M_G_gmt_offset);
         } else {
             sprintf(L_time, "%4.4d-%2.2d-%2.2d\t%2.2d:%2.2d:%2.2d.%06ld\t%10.10ld.%06ld",
                     L_currentDate->tm_year + 1900,
