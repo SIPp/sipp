@@ -2613,6 +2613,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     for (int i = 0; i < src->numComponents(); i++) {
         MessageComponent *comp = src->getComponent(i);
         int left = buf_len - (dest - msg_buffer);
+        if (left <= 0) {
+            break;
+        }
         switch(comp->type) {
         case E_Message_Literal:
             if (suppresscrlf) {
