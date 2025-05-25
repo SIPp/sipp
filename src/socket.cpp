@@ -1112,7 +1112,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
 
     if (useMessagef == 1) {
         TRACE_MSG("----------------------------------------------- %s\n"
-                  "%s %smessage received [%zu] bytes :\n\n%s\n",
+                  "%s %smessage received [%zu] bytes:\n\n%s\n",
                   CStat::formatTime(&currentTime, true),
                   TRANSPORT_TO_STRING(socket->ss_transport),
                   socket->ss_control ? "control " : "",
@@ -2194,7 +2194,7 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
         /* Everything is great. */
         if (useMessagef == 1) {
             TRACE_MSG("----------------------------------------------- %s\n"
-                      "%s %smessage sent (%zu bytes):\n\n%.*s\n",
+                      "%s %smessage sent [%zu] bytes:\n\n%.*s\n",
                       CStat::formatTime(&currentTime, true),
                       TRANSPORT_TO_STRING(ss_transport),
                       ss_control ? "control " : "",
