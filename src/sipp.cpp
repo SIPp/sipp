@@ -458,7 +458,7 @@ void timeout_alarm(int /*param*/)
     if (timeout_error) {
         ERROR("%s timed out after '%.3lf' seconds", scenario_file, ((double)clock_tick / 1000LL));
     }
-    quitting = 1;
+    quitting = 12;
     timeout_exit = true;
 }
 
