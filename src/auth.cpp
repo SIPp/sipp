@@ -401,6 +401,7 @@ static int createAuthResponseSHA256(
     EVP_DigestFinal_ex(mdctx, resp, &digest_len);
     hashToHex(&resp[0], result, SHA256_HASH_SIZE);
 
+    EVP_MD_CTX_free(mdctx);
     return 1;
 }
 #endif // USE_SHA256
