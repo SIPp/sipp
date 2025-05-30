@@ -443,7 +443,7 @@ extern SIPpSocket  *sockets[SIPP_MAXFDS];
 static void sipp_sigusr1(int /* not used */)
 {
     /* Smooth exit: do not place any new calls and exit */
-    quitting+=10;
+    quitting += 10;
 }
 
 static void sipp_sigusr2(int /* not used */)
@@ -458,7 +458,9 @@ void timeout_alarm(int /*param*/)
     if (timeout_error) {
         ERROR("%s timed out after '%.3lf' seconds", scenario_file, ((double)clock_tick / 1000LL));
     }
-    quitting = 1;
+    if (!quitting) {
+        quitting = 1;
+    }
     timeout_exit = true;
 }
 
@@ -511,7 +513,9 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
         }
 
         if ((main_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + main_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated)) >= stop_after) {
-            quitting = 1;
+            if (!quitting) {
+                quitting = 1;
+            }
         }
         if (quitting) {
             if (quitting > 11) {

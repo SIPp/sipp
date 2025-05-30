@@ -70,7 +70,7 @@ void screentask::report(bool last)
 
 bool screentask::run()
 {
-    if (quitting > 11) {
+    if (quitting > 11) { /* triple quit */
         delete this;
         return false;
     }

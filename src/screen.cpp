@@ -183,21 +183,29 @@ void ScreenPrinter::get_lines()
     }
 
     if (M_last) {
-        lines.push_back("------------------------------ Test Terminated "
-                   "--------------------------------");
-    } else if (quitting) {
+        lines.push_back(
+            "------------------------------ Test Terminated "
+            "--------------------------------");
+    } else if (quitting >= 1 and quitting < 11) {
         lines.push_back(
             "------- Waiting for active calls to end. Press [q] again "
             "to force exit. -------");
+    } else if (quitting) {
+        lines.push_back(
+            "-------------------------------- Forcing quit "
+            "---------------------------------");
     } else if (paused) {
-        lines.push_back("----------------- Traffic Paused - Press [p] again to "
-                        "resume ------------------");
+        lines.push_back(
+            "----------------- Traffic Paused - Press [p] again to "
+            "resume ------------------");
     } else if (cpu_max) {
-        lines.push_back("-------------------------------- CPU CONGESTED "
-                        "---------------------------------");
+        lines.push_back(
+            "-------------------------------- CPU CONGESTED "
+            "---------------------------------");
     } else if (outbound_congestion) {
-        lines.push_back("------------------------------ OUTBOUND CONGESTION "
-                        "-----------------------------");
+        lines.push_back(
+            "------------------------------ OUTBOUND CONGESTION "
+            "-----------------------------");
     } else {
         if (creationMode == MODE_CLIENT) {
             switch (thirdPartyMode) {
