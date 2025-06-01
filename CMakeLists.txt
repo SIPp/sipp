@@ -61,6 +61,19 @@ endif()
 
 option(BUILD_STATIC "Build a statically-linked binary" OFF)
 option(USE_LOCAL_IP_HINTS "Build with local ip hints priority" OFF)
+option(USE_ASAN "Build with AddressSanitizer support" OFF)
+
+if(USE_ASAN)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+    message(STATUS "AddressSanitizer enabled")
+  else()
+    message(WARNING "AddressSanitizer is only supported with GCC or Clang")
+    set(USE_ASAN OFF)
+  endif()
+endif(USE_ASAN)
 
 file(GLOB all_SRCS
   "${PROJECT_SOURCE_DIR}/src/*.cpp"
