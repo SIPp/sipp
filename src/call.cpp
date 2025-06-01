@@ -2415,6 +2415,7 @@ bool call::process_unexpected(const char* msg)
 
 void call::abort()
 {
+    computeStat(CStat::E_CALL_FAILED);
     WARNING("Aborted call with Call-ID '%s'", id);
     abortCall(false);
 }
