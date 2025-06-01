@@ -1342,7 +1342,7 @@ static void setup_media_sockets()
 void randomseed(void)
 {
     struct timespec ts;
-    unsigned int    seed          = time(nullptr);
+    time_t          seed          = time(nullptr);
     char            hostname[256] = { 0 };
     pid_t           p             = getpid();
     int             index;
@@ -1350,7 +1350,7 @@ void randomseed(void)
     // If the system clock can provide us with a nanosecond count, then
     // include that in the seed.
     if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
-        seed ^= (unsigned int)ts.tv_nsec;
+        seed ^= ts.tv_nsec;
     }
 
     // The system clock might not have nanosecond resolution, and so we still
