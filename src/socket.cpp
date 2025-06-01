@@ -530,6 +530,7 @@ void setup_ctrl_socket()
             WARNING("Unable to bind remote control socket (tried UDP ports %d-%d): %s",
                     firstport, port - 1, strerror(errno));
         }
+        close(sock);
         return;
     }
 
