@@ -439,13 +439,13 @@ static bool process_key(int c)
         break;
 
     case 'q':
-        quitting+=10;
+        quitting += 10;
         print_statistics(0);
         break;
 
     case 'Q':
         /* We are going to break, so we never have a chance to press q twice. */
-        quitting+=20;
+        quitting += 20;
         print_statistics(0);
         break;
     }

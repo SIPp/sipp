@@ -443,7 +443,7 @@ extern SIPpSocket  *sockets[SIPP_MAXFDS];
 static void sipp_sigusr1(int /* not used */)
 {
     /* Smooth exit: do not place any new calls and exit */
-    quitting+=10;
+    quitting += 10;
 }
 
 static void sipp_sigusr2(int /* not used */)
