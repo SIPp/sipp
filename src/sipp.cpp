@@ -1370,7 +1370,7 @@ void randomseed(void)
     for (index = 0; index < 256; index++) {
         // Bitflip with successive bytes of the hostname. Once we get to the
         // 0s at the end it's a noop.
-        seed ^= (hostname[index] << (8 * (index % sizeof(seed))));
+        seed ^= (static_cast<uint64_t>(hostname[index]) << (8 * (index % sizeof(seed))));
     }
 
     srand(seed);
