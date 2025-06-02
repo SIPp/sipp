@@ -937,7 +937,7 @@ void SIPpSocket::invalidate()
 #endif
     }
     if (ss_fd != -1 && ss_fd != stdin_fileno) {
-        if (ss_transport != T_UDP) {
+        if (ss_transport == T_TCP && ss_transport != T_TLS) {
             if (shutdown(ss_fd, SHUT_RDWR) < 0) {
                 WARNING_NO("Failed to shutdown socket %d", ss_fd);
             }
