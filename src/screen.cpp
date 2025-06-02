@@ -183,13 +183,16 @@ void ScreenPrinter::get_lines()
     }
 
     if (M_last) {
-        lines.push_back(
-            "------------------------------ Test Terminated "
-            "--------------------------------");
-    } else if (quitting) {
+        lines.push_back("------------------------------ Test Terminated "
+                   "--------------------------------");
+    } else if (quitting >= 1 and quitting <= 11) {
         lines.push_back(
             "------- Waiting for active calls to end. Press [q] again "
             "to force exit. -------");
+    } else if (quitting > 11 ) {
+        lines.push_back(
+            "-------------------------------- Forcing quit "
+            "---------------------------------");
     } else if (paused) {
         lines.push_back(
             "----------------- Traffic Paused - Press [p] again to "

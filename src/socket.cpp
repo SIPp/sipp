@@ -1914,9 +1914,9 @@ int SIPpSocket::read_error(int ret)
                     if (thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
                         WARNING("3PCC controller A has ended -> exiting");
                         quitting += 20;
-                    } else {
+                    } if (!quitting) {
                         quitting = 1;
-                    }
+		    }
                 }
             } else {
                 /* The socket was closed "cleanly", but we may have calls that need to
