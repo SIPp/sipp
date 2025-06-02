@@ -52,7 +52,7 @@ int expand_user_path(const char* path, char* expanded_home_path /*The buffer*/, 
 
         struct passwd pwd;
         struct passwd* result;
-        const size_t bufsize  = sysconf(_SC_GETPW_R_SIZE_MAX) +1;
+        const size_t bufsize  = sysconf(_SC_GETPW_R_SIZE_MAX) + 1;
         char* buffer = malloc(bufsize * sizeof(char));
         int retcode = getpwnam_r(username, &pwd, buffer, bufsize - 1, &result);
         free(username);
