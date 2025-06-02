@@ -150,8 +150,8 @@ pthread_mutex_t  debugremutexvideo = PTHREAD_MUTEX_INITIALIZER;
 // RTPSTREAM ECHO
 pthread_t    pthread_audioecho_id;
 pthread_t    pthread_videoecho_id;
-bool quit_audioecho_thread = false;
-bool quit_videoecho_thread = false;
+static bool quit_audioecho_thread = false;
+static bool quit_videoecho_thread = false;
 pthread_mutex_t quit_mutexaudio = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t quit_mutexvideo = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t quit_cvaudio = PTHREAD_COND_INITIALIZER;
@@ -2635,6 +2635,7 @@ void rtpstream_audioecho_thread(void* param)
     unsigned int host_timestamp = 0;
     unsigned int host_ssrc = 0;
     bool abnormal_termination = false;
+    quit_audioecho_thread = false;
     ParamPass p;
 
     tspec.tv_sec = 0;
@@ -2895,6 +2896,7 @@ void rtpstream_videoecho_thread(void* param)
     unsigned int host_timestamp = 0;
     unsigned int host_ssrc = 0;
     bool abnormal_termination = false;
+    quit_videoecho_thread = false;
     ParamPass p;
 
     tspec.tv_sec = 0;
