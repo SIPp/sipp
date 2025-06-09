@@ -30,7 +30,7 @@ section.
 RTP check functionality
 ```````````````````````
 
-SIPp has support for for bidirectional RTP or bidirectional SRTP
+SIPp has support for bidirectional RTP or bidirectional SRTP
 checking. This is not detailed in the RST docs, but in a separate PDF,
 unfortunately. See:
 :download:`rtpcheck_xml_syntax_reference.pdf <rtpcheck_xml_syntax_reference.pdf>`
