@@ -539,7 +539,7 @@ void CAction::setPcapArgs(const char* P_value)
 
     if (P_value != nullptr) {
         M_pcapArgs = (pcap_pkts *) malloc(sizeof(*M_pcapArgs));
-        if (parse_play_args(P_value, M_pcapArgs) == -1) {
+        if (parse_play_args(P_value, M_scenario->getPath().c_str(), M_pcapArgs) == -1) {
             ERROR("Play pcap error");
         }
         if (access(M_pcapArgs->file, F_OK)) {
@@ -712,7 +712,7 @@ void CAction::setRTPStreamActInfo(const char *P_value)
 
     // Lookup best file match
     if (pattern_mode == 0) {
-        found_file = find_file(argument_buf);
+        found_file = find_file(argument_buf, M_scenario->getPath().c_str());
         if (found_file) {
             if (strlen(found_file) >= sizeof(M_rtpstream_actinfo.filename)) {
                 ERROR("Filename/Pattern keyword %s is too long -- maximum supported length %zu",
