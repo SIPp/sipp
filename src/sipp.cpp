@@ -1156,6 +1156,7 @@ void sipp_exit(int rc, int rtp_errors, int echo_errors)
         // then everything is OK!
         if ((rtp_errors > 0) || (echo_errors > 0))
         {
+            WARNING("GOT %d rtp_errors and %d echo_errors", rtp_errors, echo_errors);
             exit(EXIT_RTPCHECK_FAILED);
         }
         else
