@@ -1,12 +1,12 @@
 Actions
 =======
 
-In a `recv` or `recvCmd` command, you have the possibility to execute
+In a `recv`, `recvCmd` or `nop` command, you have the possibility to execute
 an action. Several actions are available:
 
 
 + `Regular expressions`_ (ereg)
-+ Log something in aa log file (log)
++ Log something in a log file (log)
 + Execute an external (system), internal (int_cmd) or
   pcap_play_audio/pcap_play_video command (exec)
 + Manipulate double precision variables using arithmetic
