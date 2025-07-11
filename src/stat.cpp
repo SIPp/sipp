@@ -1296,6 +1296,7 @@ void CStat::dumpData ()
     (*M_outputStream) << formatTime(&currentTime, rfc3339)      << stat_delimiter
                       << msToHHMMSS(localElapsedTime)           << stat_delimiter;
     (*M_outputStream) << msToHHMMSS(globalElapsedTime)          << stat_delimiter;
+    (*M_outputStream) << std::fixed << std::setprecision(3);
     if (users >= 0) {
         (*M_outputStream) << users                                << stat_delimiter;
     } else {
