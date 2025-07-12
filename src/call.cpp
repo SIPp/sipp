@@ -4046,12 +4046,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         /* Build the auth credenticals */
         char uri[MAX_HEADER_LEN];
         sprintf (uri, "%s:%d", remote_ip, remote_port);
-        /* These cause this function to  not be reentrant. */
-        static char my_auth_user[MAX_HEADER_LEN + 2];
-        static char my_auth_pass[MAX_HEADER_LEN + 2];
-        static char my_aka_OP[MAX_HEADER_LEN + 2];
-        static char my_aka_AMF[MAX_HEADER_LEN + 2];
-        static char my_aka_K[MAX_HEADER_LEN + 2];
+        char my_auth_user[MAX_HEADER_LEN + 2];
+        char my_auth_pass[MAX_HEADER_LEN + 2];
+        char my_aka_OP[MAX_HEADER_LEN + 2];
+        char my_aka_AMF[MAX_HEADER_LEN + 2];
+        char my_aka_K[MAX_HEADER_LEN + 2];
 
         createSendingMessage(auth_comp->comp_param.auth_param.auth_user, SM_UNUSED, my_auth_user, sizeof(my_auth_user));
         createSendingMessage(auth_comp->comp_param.auth_param.auth_pass, SM_UNUSED, my_auth_pass, sizeof(my_auth_pass));
