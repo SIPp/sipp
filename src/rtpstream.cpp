@@ -27,11 +27,13 @@
 #include <sys/socket.h>
 #include <pthread.h>
 #include "rtpstream.hpp"
+#include "srtp_channel.hpp"
 
 #include <sys/time.h>
 #include <memory>
 #include <vector>
 #include <errno.h>
+#include <sstream>
 
 /* stub to add extra debugging/logging... */
 static void debugprint(const char* format, ...)
@@ -126,8 +128,6 @@ int           num_ready_threads = 0;
 int           busy_threads_max = 0;
 int           ready_threads_max = 0;
 
-unsigned int  global_ssrc_id = 0;
-
 FILE*         debugafile = nullptr;
 FILE*         debugvfile = nullptr;
 pthread_mutex_t  debugamutex = PTHREAD_MUTEX_INITIALIZER;
@@ -160,14 +160,14 @@ pthread_cond_t quit_cvaudio = PTHREAD_COND_INITIALIZER;
 pthread_cond_t quit_cvvideo = PTHREAD_COND_INITIALIZER;
 
 // JLSRTP contexts
-JLSRTP g_txUACAudio;
-JLSRTP g_rxUACAudio;
-JLSRTP g_txUACVideo;
-JLSRTP g_rxUACVideo;
-JLSRTP g_rxUASAudio;
-JLSRTP g_txUASAudio;
-JLSRTP g_rxUASVideo;
-JLSRTP g_txUASVideo;
+SrtpChannel g_txUACAudio;
+SrtpChannel g_rxUACAudio;
+SrtpChannel g_txUACVideo;
+SrtpChannel g_rxUACVideo;
+SrtpChannel g_rxUASAudio;
+SrtpChannel g_txUASAudio;
+SrtpChannel g_rxUASVideo;
+SrtpChannel g_txUASVideo;
 pthread_mutex_t uacAudioMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t uacVideoMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t uasAudioMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -199,6 +199,22 @@ static unsigned long long getThreadId(pthread_t p)
 
     return retVal;
 }
+
+#ifdef USE_TLS
+static std::string build_rtpecho_filename(const char* mediaName)
+{
+    std::ostringstream oss;
+    std::string rtpecho_filename;
+
+    if (mediaName)
+    {
+        oss << "debugrefile" << mediaName << "_" << time(NULL) << "." << "log";
+        rtpecho_filename = oss.str();
+    }
+
+    return rtpecho_filename;
+}
+#endif // USE_TLS
 
 void printAudioHexUS(char const* note, unsigned char const* string, unsigned int size, unsigned long long extrainfo, int moreinfo)
 {
@@ -1603,11 +1619,6 @@ int rtpstream_new_call(rtpstream_callinfo_t* callinfo)
     taskinfo->audio_srtp_echo_active = 0;
     taskinfo->video_srtp_echo_active = 0;
 #endif // USE_TLS
-
-    /* generate random ssrc */
-    if (global_ssrc_id == 0) {
-        global_ssrc_id = rand();
-    }
 
     /* rtp stream members */
     taskinfo->audio_ssrc_id = global_ssrc_id++;
@@ -3158,11 +3169,11 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
         pthread_mutex_lock(&debugremutexaudio);
         if (debugrefileaudio == nullptr)
         {
-            debugrefileaudio = fopen("debugrefileaudio", "w");
+            debugrefileaudio = fopen(build_rtpecho_filename("audio").c_str(), "w");
             if (debugrefileaudio == nullptr)
             {
                 /* error encountered opening audio debug file */
-                pthread_mutex_lock(&debugremutexaudio);
+                pthread_mutex_unlock(&debugremutexaudio);
                 return -2;
             }
         }
@@ -3331,10 +3342,10 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
         pthread_mutex_lock(&debugremutexvideo);
         if (debugrefilevideo == nullptr)
         {
-            debugrefilevideo = fopen("debugrefilevideo", "w");
+            debugrefilevideo = fopen(build_rtpecho_filename("video").c_str(), "w");
             if (debugrefilevideo == nullptr)
             {
-                /* error encountered opening audio debug file */
+                /* error encountered opening video debug file */
                 pthread_mutex_unlock(&debugremutexvideo);
                 return -2;
             }

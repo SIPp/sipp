@@ -98,24 +98,17 @@
       a=fmtp:97 profile-level-id=42800d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
 
     ]]>
+
+    <action>
+        <exec rtp_echo="startaudio,0,PCMU/8000" />
+        <exec rtp_echo="startvideo,99,H264/90000" />
+        <exec rtp_echo="updateaudio,0,PCMU/8000" />
+        <exec rtp_echo="updatevideo,99,H264/90000" />
+    </action>
   </send>
 
   <recv request="ACK">
   </recv>
-
-  <nop>
-    <action>
-        <exec rtp_echo="startaudio,0,PCMU/8000" />
-        <exec rtp_echo="startvideo,99,H264/90000" />
-    </action>
-  </nop>
-
-  <nop>
-    <action>
-        <exec rtp_echo="updateaudio,0,PCMU/8000" />
-        <exec rtp_echo="updatevideo,99,H264/90000" />
-    </action>
-  </nop>
 
   <recv request="BYE">
   </recv>

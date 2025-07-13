@@ -33,7 +33,7 @@
 #include "send_packets.h"
 #endif
 #include "rtpstream.hpp"
-#include "jlsrtp.hpp"
+#include "srtp_channel.hpp"
 
 #include <stdarg.h>
 
@@ -188,14 +188,14 @@ protected:
 #endif
 
     rtpstream_callinfo_t rtpstream_callinfo;
-    JLSRTP _txUACAudio;
-    JLSRTP _rxUACAudio;
-    JLSRTP _txUASAudio;
-    JLSRTP _rxUASAudio;
-    JLSRTP _txUACVideo;
-    JLSRTP _rxUACVideo;
-    JLSRTP _txUASVideo;
-    JLSRTP _rxUASVideo;
+    SrtpChannel _txUACAudio;
+    SrtpChannel _rxUACAudio;
+    SrtpChannel _txUASAudio;
+    SrtpChannel _rxUASAudio;
+    SrtpChannel _txUACVideo;
+    SrtpChannel _rxUACVideo;
+    SrtpChannel _txUASVideo;
+    SrtpChannel _rxUASVideo;
 #ifdef USE_TLS
     char _pref_audio_cs_out[25];
     char _pref_video_cs_out[25];
