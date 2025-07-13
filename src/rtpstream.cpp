@@ -2639,6 +2639,7 @@ void rtpstream_audioecho_thread(void* param)
     bool abnormal_termination = false;
     quit_audioecho_thread = false;
     ParamPass p;
+    quit_audioecho_thread = false; // inicialization
 
     tspec.tv_sec = 0;
     tspec.tv_nsec = 10000000; /* 10ms */
@@ -2902,6 +2903,7 @@ void rtpstream_videoecho_thread(void* param)
     bool abnormal_termination = false;
     quit_videoecho_thread = false;
     ParamPass p;
+    quit_audioecho_thread = false; // inicialization
 
     tspec.tv_sec = 0;
     tspec.tv_nsec = 10000000; /* 10ms */
