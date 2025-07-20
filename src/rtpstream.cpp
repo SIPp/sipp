@@ -210,6 +210,7 @@ static std::string build_rtpecho_filename(const char* mediaName)
     if (mediaName != NULL)
     {
         oss << "debugrefile" << mediaName << "_" << time(NULL) << "." << "log";
+        rtpecho_filename = oss.str();
     }
 
     return rtpecho_filename;
