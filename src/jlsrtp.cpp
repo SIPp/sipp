@@ -3531,7 +3531,7 @@ JLSRTP::JLSRTP()
     }
 }
 
-JLSRTP::JLSRTP(unsigned int ssrc, std::string ipAddress, unsigned short port)
+JLSRTP::JLSRTP(unsigned int ssrc, const std::string& ipAddress, unsigned short port)
 {
     resetCryptoContext(ssrc, ipAddress, port);
 
@@ -3563,7 +3563,7 @@ JLSRTP::JLSRTP()
 {
 }
 
-JLSRTP::JLSRTP(unsigned int ssrc, std::string ipAddress, unsigned short port)
+JLSRTP::JLSRTP(unsigned int ssrc, const std::string& ipAddress, unsigned short port)
 {
 }
 

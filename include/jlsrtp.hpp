@@ -1165,7 +1165,7 @@ class JLSRTP
          * @param[in]       ipAddress   IP address
          * @param[in]       port        Port
          */
-        JLSRTP(unsigned int ssrc, std::string ipAddress, unsigned short port);
+        JLSRTP(unsigned int ssrc, const std::string& ipAddress, unsigned short port);
 
         /**
          * ~JLSRTP
@@ -1198,7 +1198,7 @@ class JLSRTP
          * @param[in]       ipAddress   IP address
          * @param[in]       port        Port
          */
-        JLSRTP(unsigned int ssrc, std::string ipAddress, unsigned short port);
+        JLSRTP(unsigned int ssrc, const std::string& ipAddress, unsigned short port);
 
         /**
          * ~JLSRTP

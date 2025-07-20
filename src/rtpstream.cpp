@@ -3141,11 +3141,7 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
     int numFd = -1;
 
     oss.str("");
-    oss << "debugrefileaudio";
-    oss << "_";
-    oss << time(NULL);
-    oss << ".";
-    oss << "log";
+    oss << "debugrefileaudio" << "_" << time(NULL) << "." << "log";
 
     if (!taskinfo)
     {
@@ -3333,11 +3329,7 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
     int numFd = -1;
 
     oss.str("");
-    oss << "debugrefilevideo";
-    oss << "_";
-    oss << time(NULL);
-    oss << ".";
-    oss << "log";
+    oss << "debugrefilevideo" << "_" << time(NULL) << "." << "log";
 
     if (!taskinfo)
     {
