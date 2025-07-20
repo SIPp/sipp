@@ -199,6 +199,21 @@ static unsigned long long getThreadId(pthread_t p)
     return retVal;
 }
 
+static std::string build_rtpecho_filename(const char* mediaName)
+{
+    std::ostringstream oss;
+    std::string rtpecho_filename;
+
+    oss.str("");
+
+    if (mediaName != NULL)
+    {
+        oss << "debugrefile" << mediaName << "_" << time(NULL) << "." << "log";
+    }
+
+    return rtpecho_filename;
+}
+
 void printAudioHexUS(char const* note, unsigned char const* string, unsigned int size, unsigned long long extrainfo, int moreinfo)
 {
     if ((debugafile != nullptr) &&
@@ -3137,11 +3152,7 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
 
     taskentry_t   *taskinfo = callinfo->taskinfo;
     ParamPass p;
-    std::ostringstream oss;
     int numFd = -1;
-
-    oss.str("");
-    oss << "debugrefileaudio" << "_" << time(NULL) << "." << "log";
 
     if (!taskinfo)
     {
@@ -3156,7 +3167,7 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
     {
         if (debugrefileaudio == nullptr)
         {
-            numFd = open(oss.str().c_str(), O_WRONLY | O_CREAT, S_IWUSR | S_IRUSR);
+            numFd = open(build_rtpecho_filename("audio").c_str(), O_WRONLY | O_CREAT, S_IWUSR | S_IRUSR);
             if (numFd >= 0)
             {
                 debugrefileaudio = fdopen(numFd, "w");
@@ -3325,11 +3336,7 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
 
     taskentry_t   *taskinfo = callinfo->taskinfo;
     ParamPass p;
-    std::ostringstream oss;
     int numFd = -1;
-
-    oss.str("");
-    oss << "debugrefilevideo" << "_" << time(NULL) << "." << "log";
 
     if (!taskinfo)
     {
@@ -3344,7 +3351,7 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
     {
         if (debugrefilevideo == nullptr)
         {
-            numFd = open(oss.str().c_str(), O_WRONLY | O_CREAT, S_IWUSR | S_IRUSR);
+            numFd = open(build_rtpecho_filename("video").c_str(), O_WRONLY | O_CREAT, S_IWUSR | S_IRUSR);
             if (numFd >= 0)
             {
                 debugrefilevideo = fdopen(numFd, "w");
