@@ -199,6 +199,7 @@ static unsigned long long getThreadId(pthread_t p)
     return retVal;
 }
 
+#ifdef USE_TLS
 static std::string build_rtpecho_filename(const char* mediaName)
 {
     std::ostringstream oss;
@@ -213,6 +214,7 @@ static std::string build_rtpecho_filename(const char* mediaName)
 
     return rtpecho_filename;
 }
+#endif // USE_TLS
 
 void printAudioHexUS(char const* note, unsigned char const* string, unsigned int size, unsigned long long extrainfo, int moreinfo)
 {
