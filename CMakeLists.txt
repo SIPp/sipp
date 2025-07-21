@@ -46,6 +46,77 @@ function(optional_library LIB_NAME DESCRIPTION)
   endif()
 endfunction()
 
+function(add_sipp_target TARGET_NAME)
+  cmake_parse_arguments(SIPP "EXCLUDE_FROM_ALL" "" "SOURCES;EXTRA_LIBRARIES;EXTRA_INCLUDES;COMPILE_DEFINITIONS" ${ARGN})
+
+  if(SIPP_EXCLUDE_FROM_ALL)
+    add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL ${all_SRCS} ${SIPP_SOURCES})
+  else()
+    add_executable(${TARGET_NAME} ${all_SRCS} ${SIPP_SOURCES})
+  endif()
+
+  if(SIPP_COMPILE_DEFINITIONS)
+    target_compile_definitions(${TARGET_NAME} PUBLIC ${SIPP_COMPILE_DEFINITIONS})
+  endif()
+
+  if(SIPP_EXTRA_INCLUDES)
+    target_include_directories(${TARGET_NAME} SYSTEM PUBLIC ${SIPP_EXTRA_INCLUDES})
+  endif()
+
+  apply_common_sipp_dependencies(${TARGET_NAME})
+
+  if(SIPP_EXTRA_LIBRARIES)
+    target_link_libraries(${TARGET_NAME} ${SIPP_EXTRA_LIBRARIES})
+  endif()
+endfunction()
+
+function(apply_common_sipp_dependencies TARGET_NAME)
+  # Basic libraries that all targets need
+  target_link_libraries(${TARGET_NAME} dl pthread)
+
+  # Conditional libraries based on configuration
+  if(CURSES_LIBRARY)
+    target_link_libraries(${TARGET_NAME} ${CURSES_LIBRARY})
+    if(CURSES_LIBRARY_INCLUDE_DIRS OR TINFO_LIBRARY_INCLUDE_DIRS)
+      target_include_directories(${TARGET_NAME} SYSTEM PUBLIC ${CURSES_LIBRARY_INCLUDE_DIRS} ${TINFO_LIBRARY_INCLUDE_DIRS})
+    endif()
+  endif()
+
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TINFO_LIBRARY)
+    target_link_libraries(${TARGET_NAME} ${TINFO_LIBRARY})
+  endif()
+
+  if(RT_LIBRARY)
+    target_link_libraries(${TARGET_NAME} ${RT_LIBRARY})
+  endif()
+
+  if(USE_GSL AND GSL_LIBRARY AND GSLCBLAS_LIBRARY)
+    target_link_libraries(${TARGET_NAME} ${GSL_LIBRARY} ${GSLCBLAS_LIBRARY})
+  endif()
+
+  if(USE_SSL AND SSL_LIBRARIES)
+    target_link_libraries(${TARGET_NAME} ${SSL_LIBRARIES})
+    if(SSL_INCLUDE_DIRS)
+      target_include_directories(${TARGET_NAME} SYSTEM PUBLIC ${SSL_INCLUDE_DIRS})
+    endif()
+  endif()
+
+  if(USE_PCAP AND PCAP_LIBRARIES)
+    target_link_libraries(${TARGET_NAME} ${PCAP_LIBRARIES})
+    if(CAP_LIBRARY)
+      target_link_libraries(${TARGET_NAME} ${CAP_LIBRARY})
+    endif()
+  endif()
+
+  if(USE_SCTP AND SCTP_LIBRARY)
+    target_link_libraries(${TARGET_NAME} ${SCTP_LIBRARY})
+  endif()
+
+  if(BUILD_STATIC AND MSYS)
+    target_link_libraries(${TARGET_NAME} crypt32)
+  endif()
+endfunction()
+
 optional_library(SCTP "Build with SCTP support")
 optional_library(PCAP "Build with PCAP playback support")
 optional_library(GSL "Build with improved statistical support")
@@ -181,29 +252,74 @@ if(USE_SCTP)
   add_definitions("-DUSE_SCTP")
 endif(USE_SCTP)
 
-# add the executable
-add_executable(sipp ${all_SRCS} "${PROJECT_SOURCE_DIR}/src/sipp.cpp")
+# Find all libraries before creating targets
+if(PKG_CONFIG_FOUND)
+  pkg_search_module(CURSES_LIBRARY ncursesw cursesw ncurses curses)
+  if(CURSES_LIBRARY_FOUND)
+    set(CURSES_LIBRARY ${CURSES_LIBRARY_LIBRARIES})
+  endif()
+  pkg_search_module(TINFO_LIBRARY tinfo)
+  if(TINFO_LIBRARY_FOUND)
+    set(TINFO_LIBRARY ${TINFO_LIBRARY_LIBRARIES})
+  endif()
+endif()
+if(NOT CURSES_LIBRARY)
+  find_library(CURSES_LIBRARY NAMES ncursesw cursesw ncurses curses)
+endif()
+if(NOT TINFO_LIBRARY)
+  find_library(TINFO_LIBRARY NAMES tinfo)
+endif()
+if(NOT CURSES_LIBRARY)
+  message(FATAL_ERROR "libcurses / libncurses was not found; please install devel package")
+endif()
+if(BUILD_STATIC)
+  add_definitions("-DNCURSES_STATIC")
+endif(BUILD_STATIC)
+
+find_library(RT_LIBRARY NAMES rt)
+
+if(USE_GSL)
+  find_library(GSLCBLAS_LIBRARY gslcblas)
+endif(USE_GSL)
+
+if(USE_PCAP)
+  set(PCAP_LIBRARIES ${PCAP_LIBRARY})
+  if(PKG_CONFIG_FOUND)
+    pkg_search_module(PCAP libpcap)
+    if(BUILD_STATIC AND PCAP_STATIC_LIBRARIES)
+      set(PCAP_LIBRARIES ${PCAP_STATIC_LIBRARIES})
+      find_library(CAP_LIBRARY cap)
+    endif()
+  endif()
+endif(USE_PCAP)
+
+if(USE_SCTP)
+  find_library(SCTP_LIBRARY sctp)
+endif()
+
+# add the main executable
+add_sipp_target(sipp
+  SOURCES "${PROJECT_SOURCE_DIR}/src/sipp.cpp"
+)
 target_compile_features(sipp PUBLIC cxx_auto_type cxx_range_for)
 
 if(EXISTS ${PROJECT_SOURCE_DIR}/gtest/googletest)
-  add_executable(sipp_unittest EXCLUDE_FROM_ALL
-    ${all_SRCS}
-    "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
-    "${PROJECT_SOURCE_DIR}/gtest/googletest/src/gtest-all.cc"
-    "${PROJECT_SOURCE_DIR}/gtest/googlemock/src/gmock-all.cc"
-  )
-  target_compile_features(sipp_unittest PUBLIC cxx_auto_type cxx_range_for)
-  target_compile_definitions(sipp_unittest PUBLIC "-DGTEST")
-  target_include_directories(sipp_unittest SYSTEM PUBLIC
-    ${PROJECT_SOURCE_DIR}/gtest/googletest
-    ${PROJECT_SOURCE_DIR}/gtest/googlemock
-    ${PROJECT_SOURCE_DIR}/gtest/googletest/include
-    ${PROJECT_SOURCE_DIR}/gtest/googlemock/include
+  add_sipp_target(sipp_unittest
+    EXCLUDE_FROM_ALL
+    SOURCES "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
+            "${PROJECT_SOURCE_DIR}/gtest/googletest/src/gtest-all.cc"
+            "${PROJECT_SOURCE_DIR}/gtest/googlemock/src/gmock-all.cc"
+    COMPILE_DEFINITIONS "-DGTEST"
+    EXTRA_INCLUDES ${PROJECT_SOURCE_DIR}/gtest/googletest
+                   ${PROJECT_SOURCE_DIR}/gtest/googlemock
+                   ${PROJECT_SOURCE_DIR}/gtest/googletest/include
+                   ${PROJECT_SOURCE_DIR}/gtest/googlemock/include
   )
 else()
-  add_executable(sipp_unittest EXCLUDE_FROM_ALL
-    ${all_SRCS}
-    "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
+  add_sipp_target(sipp_unittest
+    EXCLUDE_FROM_ALL
+    SOURCES "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
+  )
 endif()
 
 # add version
@@ -228,48 +344,8 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/.git)
   add_dependencies(sipp_unittest version)
 endif()
 
-if(PKG_CONFIG_FOUND)
-  pkg_search_module(CURSES_LIBRARY ncursesw cursesw ncurses curses)
-  if(CURSES_LIBRARY_FOUND)
-    set(CURSES_LIBRARY ${CURSES_LIBRARY_LIBRARIES})
-  endif()
-  pkg_search_module(TINFO_LIBRARY tinfo)
-  if(TINFO_LIBRARY_FOUND)
-    set(TINFO_LIBRARY ${TINFO_LIBRARY_LIBRARIES})
-  endif()
-endif()
-if(NOT CURSES_LIBRARY)
-  find_library(CURSES_LIBRARY NAMES ncursesw cursesw ncurses curses)
-endif()
-if(NOT TINFO_LIBRARY)
-  find_library(TINFO_LIBRARY NAMES tinfo)
-endif()
-if(CURSES_LIBRARY)
-  if(BUILD_STATIC)
-    add_definitions("-DNCURSES_STATIC")
-  endif(BUILD_STATIC)
-  target_link_libraries(sipp dl ${CURSES_LIBRARY} pthread)
-  target_link_libraries(sipp_unittest dl ${CURSES_LIBRARY} pthread)
-  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    if(TINFO_LIBRARY)
-      target_link_libraries(sipp ${TINFO_LIBRARY})
-      target_link_libraries(sipp_unittest ${TINFO_LIBRARY})
-    else()
-      message(WARNING "libtinfo was not found -- please install package if linking fails")
-    endif(TINFO_LIBRARY)
-  endif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  if(CURSES_LIBRARY_INCLUDE_DIRS OR TINFO_LIBRARY_INCLUDE_DIRS)
-    target_include_directories(sipp SYSTEM PUBLIC ${CURSES_LIBRARY_INCLUDE_DIRS} ${TINFO_LIBRARY_INCLUDE_DIRS})
-    target_include_directories(sipp_unittest SYSTEM PUBLIC ${CURSES_LIBRARY_INCLUDE_DIRS} ${TINFO_LIBRARY_INCLUDE_DIRS})
-  endif()
-else()
-  message(FATAL_ERROR "libcurses / libncurses was not found; please install devel package")
-endif()
-
-find_library(RT_LIBRARY NAMES rt)
-if(RT_LIBRARY)
-  target_link_libraries(sipp ${RT_LIBRARY})
-  target_link_libraries(sipp_unittest ${RT_LIBRARY})
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT TINFO_LIBRARY)
+  message(WARNING "libtinfo was not found -- please install package if linking fails")
 endif()
 
 if(DEBUG)
@@ -283,48 +359,5 @@ endif(SIPP_MAX_MSG_SIZE)
 if(CYGWIN)
   add_definitions("-D_GNU_SOURCE")
 endif(CYGWIN)
-
-if(USE_GSL)
-  find_library(GSLCBLAS_LIBRARY gslcblas)
-  target_link_libraries(sipp ${GSL_LIBRARY} ${GSLCBLAS_LIBRARY})
-  target_link_libraries(sipp_unittest ${GSL_LIBRARY} ${GSLCBLAS_LIBRARY})
-endif(USE_GSL)
-
-if(USE_SSL)
-  target_link_libraries(sipp ${SSL_LIBRARIES})
-  target_link_libraries(sipp_unittest ${SSL_LIBRARIES})
-  if(SSL_INCLUDE_DIRS)
-    target_include_directories(sipp SYSTEM PUBLIC ${SSL_INCLUDE_DIRS})
-    target_include_directories(sipp_unittest SYSTEM PUBLIC ${SSL_INCLUDE_DIRS})
-  endif(SSL_INCLUDE_DIRS)
-endif(USE_SSL)
-
-if(USE_PCAP)
-  set(PCAP_LIBRARIES ${PCAP_LIBRARY})
-  if(PKG_CONFIG_FOUND)
-    pkg_search_module(PCAP libpcap)
-    if(BUILD_STATIC AND PCAP_STATIC_LIBRARIES)
-      set(PCAP_LIBRARIES ${PCAP_STATIC_LIBRARIES})
-      find_library(CAP_LIBRARY cap)
-    endif()
-  endif()
-  target_link_libraries(sipp ${PCAP_LIBRARIES})
-  target_link_libraries(sipp_unittest ${PCAP_LIBRARIES})
-  if(CAP_LIBRARY)
-    target_link_libraries(sipp ${CAP_LIBRARY})
-    target_link_libraries(sipp_unittest ${CAP_LIBRARY})
-  endif()
-endif(USE_PCAP)
-
-if(USE_SCTP)
-  find_library(SCTP_LIBRARY sctp)
-  target_link_libraries(sipp ${SCTP_LIBRARY})
-  target_link_libraries(sipp_unittest ${SCTP_LIBRARY})
-endif()
-
-if(BUILD_STATIC AND MSYS)
-  target_link_libraries(sipp crypt32)
-  target_link_libraries(sipp_unittest crypt32)
-endif(BUILD_STATIC AND MSYS)
 
 install(TARGETS sipp DESTINATION bin)
