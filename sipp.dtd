@@ -27,7 +27,7 @@
 <!ATTLIST recv %messageCmdCommon; >
 <!ATTLIST recv response CDATA #IMPLIED >
 <!ATTLIST recv request CDATA #IMPLIED >
-<!ATTLIST recv optional (true|false) #IMPLIED >
+<!ATTLIST recv optional (true|global|false) #IMPLIED >
 <!ATTLIST recv ignosesdp (true|false) #IMPLIED >
 <!ATTLIST recv rrs (true|false) #IMPLIED >
 <!ATTLIST recv auth (true|false) #IMPLIED >
