@@ -1986,6 +1986,7 @@ bool call::executeMessage(message *curmsg)
         last_send_index = curmsg->index;
         last_send_len = msgLen;
         realloc_ptr = (char *) realloc(last_send_msg, msgLen+1);
+        realloc_ptr[msgLen] = '\0';
         if (realloc_ptr) {
             last_send_msg = realloc_ptr;
         } else {
