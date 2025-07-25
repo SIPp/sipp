@@ -785,17 +785,44 @@ unsigned long call::hash(const char * msg)
 }
 
 /******************* Call class implementation ****************/
-call::call(const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest) : listener(p_id, true)
+call::call(const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest) :
+listener(p_id, true),
+_txUACAudio(global_ssrc_id, "127.0.0.1", 0),
+_rxUACAudio(global_ssrc_id, "127.0.0.1", 0),
+_txUASAudio(global_ssrc_id, "127.0.0.1", 0),
+_rxUASAudio(global_ssrc_id, "127.0.0.1", 0),
+_txUACVideo(global_ssrc_id, "127.0.0.1", 0),
+_rxUACVideo(global_ssrc_id, "127.0.0.1", 0),
+_txUASVideo(global_ssrc_id, "127.0.0.1", 0),
+_rxUASVideo(global_ssrc_id, "127.0.0.1", 0)
 {
     init(main_scenario, nullptr, dest, p_id, userId, use_ipv6, false, false);
 }
 
-call::call(const char *p_id, SIPpSocket *socket, struct sockaddr_storage *dest) : listener(p_id, true)
+call::call(const char *p_id, SIPpSocket *socket, struct sockaddr_storage *dest) :
+listener(p_id, true),
+_txUACAudio(global_ssrc_id, "127.0.0.1", 0),
+_rxUACAudio(global_ssrc_id, "127.0.0.1", 0),
+_txUASAudio(global_ssrc_id, "127.0.0.1", 0),
+_rxUASAudio(global_ssrc_id, "127.0.0.1", 0),
+_txUACVideo(global_ssrc_id, "127.0.0.1", 0),
+_rxUACVideo(global_ssrc_id, "127.0.0.1", 0),
+_txUASVideo(global_ssrc_id, "127.0.0.1", 0),
+_rxUASVideo(global_ssrc_id, "127.0.0.1", 0)
 {
     init(main_scenario, socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
 }
 
-call::call(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true)
+call::call(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) :
+listener(p_id, true),
+_txUACAudio(global_ssrc_id, "127.0.0.1", 0),
+_rxUACAudio(global_ssrc_id, "127.0.0.1", 0),
+_txUASAudio(global_ssrc_id, "127.0.0.1", 0),
+_rxUASAudio(global_ssrc_id, "127.0.0.1", 0),
+_txUACVideo(global_ssrc_id, "127.0.0.1", 0),
+_rxUACVideo(global_ssrc_id, "127.0.0.1", 0),
+_txUASVideo(global_ssrc_id, "127.0.0.1", 0),
+_rxUASVideo(global_ssrc_id, "127.0.0.1", 0)
 {
     init(call_scenario, socket, dest, p_id, userId, ipv6, isAutomatic, isInitialization);
 }
@@ -2809,7 +2836,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
             {
                 logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
-                strncat(_pref_audio_cs_out, "AES_CM_128_HMAC_SHA1_80", sizeof(_pref_audio_cs_out) - 1);
+                memset(_pref_audio_cs_out, 0, sizeof(_pref_audio_cs_out));
+                strncpy(_pref_audio_cs_out, "AES_CM_128_HMAC_SHA1_80", sizeof(_pref_audio_cs_out) - 1);
             }
             else if (getSessionStateCurrent() == eOfferReceived)
             {
@@ -2840,7 +2868,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
 
             pA.audio_found = true;
-            strncat(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pA.primary_audio_cryptosuite) - 1);
+            strncpy(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pA.primary_audio_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_80");
             srtp_audio_updated = true;
         }
@@ -2860,7 +2888,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 _txUASAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
             }
             pA.audio_found = true;
-            strncat(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pA.secondary_audio_cryptosuite) - 1);
+            strncpy(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pA.secondary_audio_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_80");
             srtp_audio_updated = true;
         }
@@ -2883,7 +2911,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
             {
                 logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
-                strncat(_pref_audio_cs_out, "AES_CM_128_HMAC_SHA1_32", sizeof(_pref_audio_cs_out) - 1);
+                memset(_pref_audio_cs_out, 0, sizeof(_pref_audio_cs_out));
+                strncpy(_pref_audio_cs_out, "AES_CM_128_HMAC_SHA1_32", sizeof(_pref_audio_cs_out) - 1);
             }
             else if (getSessionStateCurrent() == eOfferReceived)
             {
@@ -2914,7 +2943,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
 
             pA.audio_found = true;
-            strncat(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pA.primary_audio_cryptosuite) - 1);
+            strncpy(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pA.primary_audio_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_32");
             srtp_audio_updated = true;
         }
@@ -2934,7 +2963,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 _txUASAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
             }
             pA.audio_found = true;
-            strncat(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pA.secondary_audio_cryptosuite) - 1);
+            strncpy(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pA.secondary_audio_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_32");
             srtp_audio_updated = true;
         }
@@ -2957,7 +2986,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
             {
                 logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
-                strncat(_pref_audio_cs_out, "NULL_HMAC_SHA1_80", sizeof(_pref_audio_cs_out) - 1);
+                memset(_pref_audio_cs_out, 0, sizeof(_pref_audio_cs_out));
+                strncpy(_pref_audio_cs_out, "NULL_HMAC_SHA1_80", sizeof(_pref_audio_cs_out) - 1);
             }
             else if (getSessionStateCurrent() == eOfferReceived)
             {
@@ -2988,7 +3018,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
 
             pA.audio_found = true;
-            strncat(pA.primary_audio_cryptosuite, "NULL_HMAC_SHA1_80", sizeof(pA.primary_audio_cryptosuite) - 1);
+            strncpy(pA.primary_audio_cryptosuite, "NULL_HMAC_SHA1_80", sizeof(pA.primary_audio_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_80");
             srtp_audio_updated = true;
         }
@@ -3008,7 +3038,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 _txUASAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
             }
             pA.audio_found = true;
-            strncat(pA.secondary_audio_cryptosuite, "NULL_HMAC_SHA1_80", sizeof(pA.secondary_audio_cryptosuite) - 1);
+            strncpy(pA.secondary_audio_cryptosuite, "NULL_HMAC_SHA1_80", sizeof(pA.secondary_audio_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_80");
             srtp_audio_updated = true;
         }
@@ -3031,7 +3061,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
             {
                 logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
-                strncat(_pref_audio_cs_out, "NULL_HMAC_SHA1_32", sizeof(_pref_audio_cs_out) - 1);
+                memset(_pref_audio_cs_out, 0, sizeof(_pref_audio_cs_out));
+                strncpy(_pref_audio_cs_out, "NULL_HMAC_SHA1_32", sizeof(_pref_audio_cs_out) - 1);
             }
             else if (getSessionStateCurrent() == eOfferReceived)
             {
@@ -3062,7 +3093,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
 
             pA.audio_found = true;
-            strncat(pA.primary_audio_cryptosuite, "NULL_HMAC_SHA1_32", sizeof(pA.primary_audio_cryptosuite) - 1);
+            strncpy(pA.primary_audio_cryptosuite, "NULL_HMAC_SHA1_32", sizeof(pA.primary_audio_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_32");
             srtp_audio_updated = true;
         }
@@ -3082,7 +3113,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 _txUASAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
             }
             pA.audio_found = true;
-            strncat(pA.secondary_audio_cryptosuite, "NULL_HMAC_SHA1_32", sizeof(pA.secondary_audio_cryptosuite) - 1);
+            strncpy(pA.secondary_audio_cryptosuite, "NULL_HMAC_SHA1_32", sizeof(pA.secondary_audio_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_32");
             srtp_audio_updated = true;
         }
@@ -3187,7 +3218,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pA.audio_found = true;
             pA.primary_unencrypted_audio_srtp = true;
-            strncat(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pA.primary_audio_cryptosuite) - 1);
+            strncpy(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pA.primary_audio_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
             srtp_audio_updated = true;
         }
@@ -3208,7 +3239,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pA.audio_found = true;
             pA.secondary_unencrypted_audio_srtp = true;
-            strncat(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pA.secondary_audio_cryptosuite) - 1);
+            strncpy(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pA.secondary_audio_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
             srtp_audio_updated = true;
         }
@@ -3229,7 +3260,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pA.audio_found = true;
             pA.primary_unencrypted_audio_srtp = true;
-            strncat(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pA.primary_audio_cryptosuite) - 1);
+            strncpy(pA.primary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pA.primary_audio_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
             srtp_audio_updated = true;
         }
@@ -3250,7 +3281,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pA.audio_found = true;
             pA.secondary_unencrypted_audio_srtp = true;
-            strncat(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pA.secondary_audio_cryptosuite) - 1);
+            strncpy(pA.secondary_audio_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pA.secondary_audio_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
             srtp_audio_updated = true;
         }
@@ -3309,7 +3340,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
             {
                 logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
-                strncat(_pref_video_cs_out, "AES_CM_128_HMAC_SHA1_80", sizeof(_pref_video_cs_out) - 1);
+                memset(_pref_video_cs_out, 0, sizeof(_pref_video_cs_out));
+                strncpy(_pref_video_cs_out, "AES_CM_128_HMAC_SHA1_80", sizeof(_pref_video_cs_out) - 1);
             }
             else if (getSessionStateCurrent() == eOfferReceived)
             {
@@ -3340,7 +3372,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
 
             pV.video_found = true;
-            strncat(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pV.primary_video_cryptosuite) - 1);
+            strncpy(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pV.primary_video_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_80");
             srtp_video_updated = true;
         }
@@ -3360,7 +3392,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 _txUASVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
             }
             pV.video_found = true;
-            strncat(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pV.secondary_video_cryptosuite) - 1);
+            strncpy(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pV.secondary_video_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_80");
             srtp_video_updated = true;
         }
@@ -3383,7 +3415,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
             {
                 logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
-                strncat(_pref_video_cs_out, "AES_CM_128_HMAC_SHA1_32", sizeof(_pref_video_cs_out) - 1);
+                memset(_pref_video_cs_out, 0, sizeof(_pref_video_cs_out));
+                strncpy(_pref_video_cs_out, "AES_CM_128_HMAC_SHA1_32", sizeof(_pref_video_cs_out) - 1);
             }
             else if (getSessionStateCurrent() == eOfferReceived)
             {
@@ -3414,7 +3447,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
 
             pV.video_found = true;
-            strncat(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pV.primary_video_cryptosuite) - 1);
+            strncpy(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pV.primary_video_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_32");
             srtp_video_updated = true;
         }
@@ -3434,7 +3467,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 _txUASVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
             }
             pV.video_found = true;
-            strncat(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pV.secondary_video_cryptosuite) - 1);
+            strncpy(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pV.secondary_video_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_32");
             srtp_video_updated = true;
         }
@@ -3457,7 +3490,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
             {
                 logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
-                strncat(_pref_video_cs_out, "NULL_HMAC_SHA1_80", sizeof(_pref_video_cs_out) - 1);
+                memset(_pref_video_cs_out, 0, sizeof(_pref_video_cs_out));
+                strncpy(_pref_video_cs_out, "NULL_HMAC_SHA1_80", sizeof(_pref_video_cs_out) - 1);
             }
             else if (getSessionStateCurrent() == eOfferReceived)
             {
@@ -3488,7 +3522,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
 
             pV.video_found = true;
-            strncat(pV.primary_video_cryptosuite, "NULL_HMAC_SHA1_80", sizeof(pV.primary_video_cryptosuite) - 1);
+            strncpy(pV.primary_video_cryptosuite, "NULL_HMAC_SHA1_80", sizeof(pV.primary_video_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_80");
             srtp_video_updated = true;
         }
@@ -3508,7 +3542,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 _txUASVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
             }
             pV.video_found = true;
-            strncat(pV.secondary_video_cryptosuite, "NULL_HMAC_SHA1_80", sizeof(pV.secondary_video_cryptosuite) - 1);
+            strncpy(pV.secondary_video_cryptosuite, "NULL_HMAC_SHA1_80", sizeof(pV.secondary_video_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_80");
             srtp_video_updated = true;
         }
@@ -3531,7 +3565,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted))
             {
                 logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
-                strncat(_pref_video_cs_out, "NULL_HMAC_SHA1_32", sizeof(_pref_video_cs_out) - 1);
+                memset(_pref_video_cs_out, 0, sizeof(_pref_video_cs_out));
+                strncpy(_pref_video_cs_out, "NULL_HMAC_SHA1_32", sizeof(_pref_video_cs_out) - 1);
             }
             else if (getSessionStateCurrent() == eOfferReceived)
             {
@@ -3562,7 +3597,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
 
             pV.video_found = true;
-            strncat(pV.primary_video_cryptosuite, "NULL_HMAC_SHA1_32", sizeof(pV.primary_video_cryptosuite) - 1);
+            strncpy(pV.primary_video_cryptosuite, "NULL_HMAC_SHA1_32", sizeof(pV.primary_video_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_32");
             srtp_video_updated = true;
         }
@@ -3582,7 +3617,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 _txUASVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
             }
             pV.video_found = true;
-            strncat(pV.secondary_video_cryptosuite, "NULL_HMAC_SHA1_32", sizeof(pV.secondary_video_cryptosuite) - 1);
+            strncpy(pV.secondary_video_cryptosuite, "NULL_HMAC_SHA1_32", sizeof(pV.secondary_video_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_32");
             srtp_video_updated = true;
         }
@@ -3687,7 +3722,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pV.video_found = true;
             pV.primary_unencrypted_video_srtp = true;
-            strncat(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pV.primary_video_cryptosuite) - 1);
+            strncpy(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pV.primary_video_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
             srtp_video_updated = true;
         }
@@ -3708,7 +3743,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pV.video_found = true;
             pV.secondary_unencrypted_video_srtp = true;
-            strncat(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pV.secondary_video_cryptosuite) - 1);
+            strncpy(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_80", sizeof(pV.secondary_video_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
             srtp_video_updated = true;
         }
@@ -3729,7 +3764,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pV.video_found = true;
             pV.primary_unencrypted_video_srtp = true;
-            strncat(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pV.primary_video_cryptosuite) - 1);
+            strncpy(pV.primary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pV.primary_video_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
             srtp_video_updated = true;
         }
@@ -3750,7 +3785,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pV.video_found = true;
             pV.secondary_unencrypted_video_srtp = true;
-            strncat(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pV.secondary_video_cryptosuite) - 1);
+            strncpy(pV.secondary_video_cryptosuite, "AES_CM_128_HMAC_SHA1_32", sizeof(pV.secondary_video_cryptosuite) - 1);
             dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
             srtp_video_updated = true;
         }

@@ -262,6 +262,7 @@ MAYBE_EXTERN bool               srtpcheck_debug         DEFVAL(0);
 #endif // USE_TLS
 MAYBE_EXTERN double             audiotolerance          DEFVAL(1.0);
 MAYBE_EXTERN double             videotolerance          DEFVAL(1.0);
+MAYBE_EXTERN bool               random_base_ssrc        DEFVAL(false);
 
 MAYBE_EXTERN bool               rtp_echo_enabled        DEFVAL(0);
 MAYBE_EXTERN char               media_ip[127];          /* also used for hostnames */
@@ -413,6 +414,10 @@ MAYBE_EXTERN  int stepDynamicId   DEFVAL(4);      // step of increment for dynam
     struct timezone tzp; \
     gettimeofday (clock, &tzp); \
 }
+
+
+/*********************** Global RTPSTREAM variables  **********************/
+MAYBE_EXTERN unsigned int global_ssrc_id DEFVAL(0);
 
 /*********************** Global Sockets  **********************/
 
