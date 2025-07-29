@@ -22,8 +22,6 @@
 #include <string.h>
 #include <unistd.h>
 
-extern char* scenario_path;
-
 int expand_user_path(const char* path, char* expanded_home_path /*The buffer*/, size_t buflen)
 {
     if (path[0] != '~') {                       /* We have nothing to expand here */
@@ -79,7 +77,7 @@ int expand_user_path(const char* path, char* expanded_home_path /*The buffer*/, 
     return 1;
 }
 
-char* find_file(const char* filename)
+char* find_file(const char* filename, const char *basepath)
 {
     char tmppath[MAX_PATH];
     tmppath[0] = '\0';
@@ -88,13 +86,13 @@ char* find_file(const char* filename)
         filepathptr = filename;
     }
 
-    if (filepathptr[0] == '/' || !*scenario_path) {
+    if (filepathptr[0] == '/' || !*basepath) {
         return strdup(filepathptr);
     }
 
-    size_t len = strlen(scenario_path) + strlen(filepathptr) + 1;
+    size_t len = strlen(basepath) + strlen(filepathptr) + 1;
     char* fullpath = malloc(len);
-    snprintf(fullpath, len, "%s%s", scenario_path, filepathptr);
+    snprintf(fullpath, len, "%s%s", basepath, filepathptr);
 
     if (access(fullpath, R_OK) < 0) {
         free(fullpath);
