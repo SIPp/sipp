@@ -2873,9 +2873,9 @@ void SIPpSocket::pollset_process(int wait)
         int poll_idx = (int)epollevents[event_idx].data.u32;
 #else
     for (size_t poll_idx = 0; rs > 0 && poll_idx < pollnfds; poll_idx++) {
+        int events = 0;
 #endif
         SIPpSocket *sock = sockets[poll_idx];
-        int events = 0;
         int ret = 0;
 
         assert(sock);
@@ -2901,11 +2901,11 @@ void SIPpSocket::pollset_process(int wait)
                 }
 #else
                 pollfiles[poll_idx].events &= ~POLLOUT;
+                events++;
 #endif
                 sock->ss_congested = false;
 
                 sock->flush();
-                events++;
             }
         }
 
@@ -2976,7 +2976,9 @@ void SIPpSocket::pollset_process(int wait)
                     }
                 }
             }
+#ifndef HAVE_EPOLL
             events++;
+#endif
         }
 
         /* Here the logic diverges; if we're using epoll, we want to stay in the
