@@ -1,9 +1,0 @@
-audio_found                     : 1
-primary_audio_cryptotag         : 1
-secondary_audio_cryptotag       : 2
-primary_audio_cryptosuite       : AES_CM_128_HMAC_SHA1_80
-secondary_audio_cryptosuite     : AES_CM_128_HMAC_SHA1_32
-primary_audio_cryptokeyparams   : Ijmgrr3jQU/Z2HKBVPj4SNgR0QHH64i4KOCkeyA3
-secondary_audio_cryptokeyparams : UKUBHcjWoG0prpbzZrDleoWhWgRJG98Dlw0TZ4cZ
-primary_unencrypted_audio_srtp  : 0
-secondary_unencrypted_audio_srtp: 0

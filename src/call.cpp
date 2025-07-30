@@ -2096,7 +2096,7 @@ bool call::executeMessage(message *curmsg)
             } else if (curmsg->timeout) {
                 resolved_timeout = curmsg->timeout;
             }
-            
+
             if (resolved_timeout)
                 // If timeout is specified on message receive, use it
                 recv_timeout = getmilliseconds() + resolved_timeout;
@@ -6855,10 +6855,10 @@ SessionState call::getSessionStateOld()
 
 unsigned int call::resolveTimeoutValue(const char* timeout_str) {
     if (!timeout_str) return 0;
-    
+
     char resolved_str[256];
     strcpy(resolved_str, timeout_str);
-    
+
     // Handle CSV field variables like [field0], [field1], etc.
     char* field_start = strstr(resolved_str, "[field");
     if (field_start) {
@@ -6867,7 +6867,7 @@ unsigned int call::resolveTimeoutValue(const char* timeout_str) {
             char* field_num_str = field_start + 6; // Skip "[field"
             *field_end = '\0';
             int field_num = atoi(field_num_str);
-            
+
             // Get the field value from CSV data directly
             char field_value[256] = "";
             if (m_lineNumber && !inFiles.empty()) {
@@ -6879,13 +6879,13 @@ unsigned int call::resolveTimeoutValue(const char* timeout_str) {
                     file_it->second->getField(line, field_num, field_value, sizeof(field_value));
                 }
             }
-            
+
             // Replace [fieldN] with the actual value
             strcpy(field_start, field_value);
             strcat(field_start, field_end + 1);
         }
     }
-    
+
     // Handle computed variables like [$varname]
     char* var_start = strstr(resolved_str, "[$");
     if (var_start) {
@@ -6893,7 +6893,7 @@ unsigned int call::resolveTimeoutValue(const char* timeout_str) {
         if (var_end) {
             char* var_name = var_start + 2; // Skip "[$"
             *var_end = '\0';
-            
+
             // Get the variable value
             int varId = call_scenario->get_var(var_name, "timeout variable");
             CCallVariable *var = M_callVariableTable->getVar(varId);
@@ -6908,7 +6908,7 @@ unsigned int call::resolveTimeoutValue(const char* timeout_str) {
             }
         }
     }
-    
+
     // Convert the resolved string to unsigned int
     char* endptr;
     unsigned int result = strtoul(resolved_str, &endptr, 0);

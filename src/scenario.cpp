@@ -467,6 +467,23 @@ static int xp_get_optional(const char *name, const char *what)
     return OPTIONAL_FALSE;
 }
 
+static void xp_set_timeout(message* curmsg, const char* context_name)
+{
+    const char* cptr = xp_get_value("timeout");
+    if (cptr) {
+        curmsg->timeout_str = strdup(cptr);
+        // If the timeout string contains no variables, parse it as integer now
+        if (strchr(cptr, '[') == nullptr && strchr(cptr, '$') == nullptr) {
+            curmsg->timeout = get_long(cptr, context_name);
+        } else {
+            curmsg->timeout = 0; // Will be resolved at runtime
+        }
+    } else {
+        curmsg->timeout = 0;
+        curmsg->timeout_str = nullptr;
+    }
+}
+
 
 int scenario::xp_get_var(const char *name, const char *what, int defval)
 {
@@ -889,18 +906,7 @@ scenario::scenario(char * filename, int deflt)
                 }
 
                 curmsg -> retrans_delay = xp_get_long("retrans", "retransmission timer", 0);
-                if ((cptr = xp_get_value("timeout"))) {
-                    curmsg->timeout_str = strdup(cptr);
-                    // If the timeout string contains no variables, parse it as integer now
-                    if (strchr(cptr, '[') == nullptr && strchr(cptr, '$') == nullptr) {
-                        curmsg->timeout = get_long(cptr, "message send timeout");
-                    } else {
-                        curmsg->timeout = 0; // Will be resolved at runtime
-                    }
-                } else {
-                    curmsg->timeout = 0;
-                    curmsg->timeout_str = nullptr;
-                }
+                xp_set_timeout(curmsg, "message send timeout");
             } else if (!strcmp(elem, "recv")) {
                 curmsg->M_type = MSG_TYPE_RECV;
                 /* Received messages descriptions */
@@ -934,18 +940,7 @@ scenario::scenario(char * filename, int deflt)
                     }
                 }
 
-                if ((cptr = xp_get_value("timeout"))) {
-                    curmsg->timeout_str = strdup(cptr);
-                    // If the timeout string contains no variables, parse it as integer now
-                    if (strchr(cptr, '[') == nullptr && strchr(cptr, '$') == nullptr) {
-                        curmsg->timeout = get_long(cptr, "message timeout");
-                    } else {
-                        curmsg->timeout = 0; // Will be resolved at runtime
-                    }
-                } else {
-                    curmsg->timeout = 0;
-                    curmsg->timeout_str = nullptr;
-                }
+                xp_set_timeout(curmsg, "message timeout");
 
                 /* record the route set  */
                 /* TODO disallow optional and rrs to coexist? */

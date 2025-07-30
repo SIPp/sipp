@@ -1,9 +1,0 @@
-video_found                     : 1
-primary_video_cryptotag         : 1
-secondary_video_cryptotag       : 2
-primary_video_cryptosuite       : AES_CM_128_HMAC_SHA1_80
-secondary_video_cryptosuite     : AES_CM_128_HMAC_SHA1_32
-primary_video_cryptokeyparams   : W2bmaZ2IKPX+JSEu91+A9a3ImZKjt9II46MqQg7+
-secondary_video_cryptokeyparams : 1Mh4k9bF8y/NiK813haiLO0ZnvXdG9mEy9YyLG+V
-primary_unencrypted_video_srtp  : 0
-secondary_unencrypted_video_srtp: 0
