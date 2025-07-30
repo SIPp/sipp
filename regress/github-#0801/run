@@ -1,10 +1,11 @@
 #!/bin/sh
-# Simple test to demonstrate timeout variable functionality works
+# Test to verify timeout variable functionality works correctly
 . "`dirname "$0"`/../functions"; init
 
-# Test that scenarios with timeout variables can be parsed without errors
+# Create test data with different timeout values
 echo "SEQUENTIAL" > test_data.csv
-echo "call1;user1;100;1000" >> test_data.csv
+echo "call1;user1;100;1000" >> test_data.csv  # 1000ms timeout
+echo "call2;user2;200;500" >> test_data.csv   # 500ms timeout
 
 # Test 1: Parse scenario with CSV field timeout - should not produce parsing errors
 timeout 3 "`get_sipp`" -sf uac_csv.xml -inf test_data.csv -p 5070 -m 0 127.0.0.1 2>&1 | grep -q "timeout.*field" && fail "parsing error with CSV field timeout"
@@ -12,7 +13,18 @@ timeout 3 "`get_sipp`" -sf uac_csv.xml -inf test_data.csv -p 5070 -m 0 127.0.0.1
 # Test 2: Parse scenario with variable timeout - should not produce parsing errors  
 timeout 3 "`get_sipp`" -sf uac_variable.xml -inf test_data.csv -p 5071 -m 0 127.0.0.1 2>&1 | grep -q "timeout.*variable" && fail "parsing error with variable timeout"
 
+# Test 3: Verify timeout variable resolution doesn't cause parse errors
+# Run with very short timeout to minimize test time, looking for variable resolution errors
+echo "SEQUENTIAL" > timeout_test.csv
+echo "call1;user1;100;100" >> timeout_test.csv  # 100ms timeout for quick test
+timeout 5 "`get_sipp`" -sf uac_csv.xml -inf timeout_test.csv -p 5072 -m 1 127.0.0.1 -nostdin -timeout 2 2>&1 | grep -iE "(invalid.*timeout|timeout.*not.*valid|variable.*error)" && fail "timeout variable resolution failed"
+
+# Test 4: Verify computed variable timeout doesn't cause parse errors
+echo "SEQUENTIAL" > var_test.csv  
+echo "call1;user1;100;150" >> var_test.csv   # 150ms timeout for quick test
+timeout 5 "`get_sipp`" -sf uac_variable.xml -inf var_test.csv -p 5073 -m 1 127.0.0.1 -nostdin -timeout 2 2>&1 | grep -iE "(invalid.*timeout|timeout.*not.*valid|variable.*error)" && fail "variable timeout resolution failed"
+
 # Clean up
-rm -f test_data.csv
+rm -f test_data.csv timeout_test.csv var_test.csv
 
 ok
