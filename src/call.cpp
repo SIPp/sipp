@@ -1967,9 +1967,27 @@ bool call::executeMessage(message *curmsg)
                         return false;
                     }
                 }
-            } else if (curmsg->timeout) {
+            } else if (curmsg->timeout || curmsg->timeout_str) {
                 /* Initialize the send timeout to the per message timeout. */
-                send_timeout = clock_tick + curmsg->timeout;
+                unsigned int resolved_timeout = 0;
+                if (curmsg->timeout_str) {
+                    // Resolve variables in timeout string at runtime
+                    char timeout_buffer[256];
+                    SendingMessage timeout_msg(call_scenario, curmsg->timeout_str);
+                    char* resolved_str = createSendingMessage(&timeout_msg, msg_index, timeout_buffer, sizeof(timeout_buffer));
+                    if (resolved_str) {
+                        char* endptr;
+                        resolved_timeout = strtoul(resolved_str, &endptr, 0);
+                        if (*endptr) {
+                            ERROR("Invalid timeout value after variable substitution: '%s'", resolved_str);
+                        }
+                    } else {
+                        ERROR("Failed to resolve timeout variables");
+                    }
+                } else {
+                    resolved_timeout = curmsg->timeout;
+                }
+                send_timeout = clock_tick + resolved_timeout;
             } else if (defl_send_timeout) {
                 /* Initialize the send timeout to the global timeout. */
                 send_timeout = clock_tick + defl_send_timeout;
@@ -2081,10 +2099,29 @@ bool call::executeMessage(message *curmsg)
                 delete this;
                 return false;
             }
-        } else if (curmsg->timeout || defl_recv_timeout) {
-            if (curmsg->timeout)
+        } else if (curmsg->timeout || curmsg->timeout_str || defl_recv_timeout) {
+            unsigned int resolved_timeout = 0;
+            if (curmsg->timeout_str) {
+                // Resolve variables in timeout string at runtime
+                char timeout_buffer[256];
+                SendingMessage timeout_msg(call_scenario, curmsg->timeout_str);
+                char* resolved_str = createSendingMessage(&timeout_msg, msg_index, timeout_buffer, sizeof(timeout_buffer));
+                if (resolved_str) {
+                    char* endptr;
+                    resolved_timeout = strtoul(resolved_str, &endptr, 0);
+                    if (*endptr) {
+                        ERROR("Invalid timeout value after variable substitution: '%s'", resolved_str);
+                    }
+                } else {
+                    ERROR("Failed to resolve timeout variables");
+                }
+            } else if (curmsg->timeout) {
+                resolved_timeout = curmsg->timeout;
+            }
+            
+            if (resolved_timeout)
                 // If timeout is specified on message receive, use it
-                recv_timeout = getmilliseconds() + curmsg->timeout;
+                recv_timeout = getmilliseconds() + resolved_timeout;
             else
                 // Else use the default timeout if specified
                 recv_timeout = getmilliseconds() + defl_recv_timeout;
