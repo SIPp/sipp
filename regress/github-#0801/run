@@ -1,0 +1,18 @@
+#!/bin/sh
+# Simple test to demonstrate timeout variable functionality works
+. "`dirname "$0"`/../functions"; init
+
+# Test that scenarios with timeout variables can be parsed without errors
+echo "SEQUENTIAL" > test_data.csv
+echo "call1;user1;100;1000" >> test_data.csv
+
+# Test 1: Parse scenario with CSV field timeout - should not produce parsing errors
+timeout 3 "`get_sipp`" -sf uac_csv.xml -inf test_data.csv -p 5070 -m 0 127.0.0.1 2>&1 | grep -q "timeout.*field" && fail "parsing error with CSV field timeout"
+
+# Test 2: Parse scenario with variable timeout - should not produce parsing errors  
+timeout 3 "`get_sipp`" -sf uac_variable.xml -inf test_data.csv -p 5071 -m 0 127.0.0.1 2>&1 | grep -q "timeout.*variable" && fail "parsing error with variable timeout"
+
+# Clean up
+rm -f test_data.csv
+
+ok

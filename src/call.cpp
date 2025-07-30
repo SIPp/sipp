@@ -1972,18 +1972,7 @@ bool call::executeMessage(message *curmsg)
                 unsigned int resolved_timeout = 0;
                 if (curmsg->timeout_str) {
                     // Resolve variables in timeout string at runtime
-                    char timeout_buffer[256];
-                    SendingMessage timeout_msg(call_scenario, curmsg->timeout_str);
-                    char* resolved_str = createSendingMessage(&timeout_msg, msg_index, timeout_buffer, sizeof(timeout_buffer));
-                    if (resolved_str) {
-                        char* endptr;
-                        resolved_timeout = strtoul(resolved_str, &endptr, 0);
-                        if (*endptr) {
-                            ERROR("Invalid timeout value after variable substitution: '%s'", resolved_str);
-                        }
-                    } else {
-                        ERROR("Failed to resolve timeout variables");
-                    }
+                    resolved_timeout = resolveTimeoutValue(curmsg->timeout_str);
                 } else {
                     resolved_timeout = curmsg->timeout;
                 }
@@ -2103,18 +2092,7 @@ bool call::executeMessage(message *curmsg)
             unsigned int resolved_timeout = 0;
             if (curmsg->timeout_str) {
                 // Resolve variables in timeout string at runtime
-                char timeout_buffer[256];
-                SendingMessage timeout_msg(call_scenario, curmsg->timeout_str);
-                char* resolved_str = createSendingMessage(&timeout_msg, msg_index, timeout_buffer, sizeof(timeout_buffer));
-                if (resolved_str) {
-                    char* endptr;
-                    resolved_timeout = strtoul(resolved_str, &endptr, 0);
-                    if (*endptr) {
-                        ERROR("Invalid timeout value after variable substitution: '%s'", resolved_str);
-                    }
-                } else {
-                    ERROR("Failed to resolve timeout variables");
-                }
+                resolved_timeout = resolveTimeoutValue(curmsg->timeout_str);
             } else if (curmsg->timeout) {
                 resolved_timeout = curmsg->timeout;
             }
@@ -6873,6 +6851,71 @@ SessionState call::getSessionStateCurrent()
 SessionState call::getSessionStateOld()
 {
     return _sessionStateOld;
+}
+
+unsigned int call::resolveTimeoutValue(const char* timeout_str) {
+    if (!timeout_str) return 0;
+    
+    char resolved_str[256];
+    strcpy(resolved_str, timeout_str);
+    
+    // Handle CSV field variables like [field0], [field1], etc.
+    char* field_start = strstr(resolved_str, "[field");
+    if (field_start) {
+        char* field_end = strchr(field_start, ']');
+        if (field_end) {
+            char* field_num_str = field_start + 6; // Skip "[field"
+            *field_end = '\0';
+            int field_num = atoi(field_num_str);
+            
+            // Get the field value from CSV data directly
+            char field_value[256] = "";
+            if (m_lineNumber && !inFiles.empty()) {
+                // Use the first available input file (default behavior)
+                auto file_it = inFiles.begin();
+                const char* fileName = file_it->first.c_str();
+                int line = (*m_lineNumber)[fileName];
+                if (line >= 0) {
+                    file_it->second->getField(line, field_num, field_value, sizeof(field_value));
+                }
+            }
+            
+            // Replace [fieldN] with the actual value
+            strcpy(field_start, field_value);
+            strcat(field_start, field_end + 1);
+        }
+    }
+    
+    // Handle computed variables like [$varname]
+    char* var_start = strstr(resolved_str, "[$");
+    if (var_start) {
+        char* var_end = strchr(var_start, ']');
+        if (var_end) {
+            char* var_name = var_start + 2; // Skip "[$"
+            *var_end = '\0';
+            
+            // Get the variable value
+            int varId = call_scenario->get_var(var_name, "timeout variable");
+            CCallVariable *var = M_callVariableTable->getVar(varId);
+            if (var && var->isSet()) {
+                if (var->isDouble()) {
+                    sprintf(var_start, "%.0lf", var->getDouble());
+                    strcat(var_start, var_end + 1);
+                } else if (var->isString()) {
+                    strcpy(var_start, var->getString());
+                    strcat(var_start, var_end + 1);
+                }
+            }
+        }
+    }
+    
+    // Convert the resolved string to unsigned int
+    char* endptr;
+    unsigned int result = strtoul(resolved_str, &endptr, 0);
+    if (*endptr) {
+        ERROR("Invalid timeout value after variable substitution: '%s'", resolved_str);
+    }
+    return result;
 }
 
 #ifdef PCAPPLAY
