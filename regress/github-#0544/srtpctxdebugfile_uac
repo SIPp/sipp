@@ -1,0 +1,29 @@
+call::init():  (a) TX-UAC-AUDIO SRTP context - CLIENT setting SRTP header size to 12
+call::init():  (a) TX-UAC-VIDEO SRTP context - CLIENT setting SRTP header size to 12
+call::init():  (b) RX-UAC-AUDIO SRTP context - CLIENT setting SRTP header size to 12
+call::init():  (b) RX-UAC-VIDEO SRTP context - CLIENT setting SRTP header size to 12
+call::createSendingMessage():  E_Message_RTPStream_Audio_Port: 6000
+call::createSendingMessage():  E_Message_CryptoTag1Audio() - PRIMARY - CLIENT: 1
+call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1801Audio() - PRIMARY - CLIENT
+call::createSendingMessage():  Marking preferred OFFER cryptosuite...
+call::createSendingMessage():  E_Message_CryptoKeyParams1Audio() - PRIMARY - CLIENT - component offset:0
+call::createSendingMessage():  E_Message_CryptoKeyParams1Audio() - PRIMARY - CLIENT - generating new concatenated base64-encoded master key/salt:Ijmgrr3jQU/Z2HKBVPj4SNgR0QHH64i4KOCkeyA3
+call::createSendingMessage():  E_Message_CryptoTag2Audio() - SECONDARY - CLIENT: 2
+call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1322Audio() - SECONDARY - CLIENT
+call::createSendingMessage():  E_Message_CryptoKeyParams2Audio() - SECONDARY - CLIENT - component offset:0
+call::createSendingMessage():  E_Message_CryptoKeyParams2Audio() - SECONDARY - CLIENT - generating new concatenated base64-encoded master key/salt:UKUBHcjWoG0prpbzZrDleoWhWgRJG98Dlw0TZ4cZ
+call::createSendingMessage():  E_Message_RTPStream_Audio_Port: 6001
+call::createSendingMessage():  E_Message_RTPStream_Video_Port: 6002
+call::createSendingMessage():  E_Message_CryptoTag1Video() - PRIMARY - CLIENT: 1
+call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1801Video() - PRIMARY - CLIENT
+call::createSendingMessage():  Marking preferred OFFER cryptosuite...
+call::createSendingMessage():  E_Message_CryptoKeyParams1Video() - PRIMARY - CLIENT - component offset:0
+call::createSendingMessage():  E_Message_CryptoKeyParams1Video() - PRIMARY - CLIENT - generating new concatenated base64-encoded master key/salt:W2bmaZ2IKPX+JSEu91+A9a3ImZKjt9II46MqQg7+
+call::createSendingMessage():  E_Message_CryptoTag2Video() - SECONDARY - CLIENT: 2
+call::createSendingMessage():  E_Message_CryptoSuiteAesCm128Sha1322Video() - SECONDARY - CLIENT
+call::createSendingMessage():  E_Message_CryptoKeyParams2Video() - SECONDARY - CLIENT - component offset:0
+call::createSendingMessage():  E_Message_CryptoKeyParams2Video() - SECONDARY - CLIENT - generating new concatenated base64-encoded master key/salt:1Mh4k9bF8y/NiK813haiLO0ZnvXdG9mEy9YyLG+V
+call::createSendingMessage():  E_Message_RTPStream_Video_Port: 6003
+call::createSendingMessage():  (b) RX-UAC-AUDIO SRTP context - ssrc:0x6b8b4567 address:127.0.0.2 port:6000
+call::createSendingMessage():  (b) RX-UAC-VIDEO SRTP context - ssrc:0x6b8b4568 address:127.0.0.2 port:6002
+call::createSendingMessage():  Switching session state:  eNoSession --> eOfferSent
