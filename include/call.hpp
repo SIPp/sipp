@@ -277,6 +277,9 @@ protected:
     char* createSendingMessage(char* src, int P_index, bool skip_sanity=false);
     char* createSendingMessage(SendingMessage*src, int P_index, char *msg_buffer, int buflen, int *msgLen=nullptr);
 
+    // Helper method to resolve timeout values with variables
+    unsigned int resolveTimeoutValue(const char* timeout_str);
+
     // method for the management of unexpected messages
     bool  checkInternalCmd(char* cmd);  // check of specific internal command
     // received from the twin socket
