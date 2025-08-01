@@ -3153,9 +3153,9 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
 
     taskinfo->audio_srtp_echo_active = 1;
 
-    pthread_mutex_lock(&debugremutexaudio);
     if (srtpcheck_debug)
     {
+        pthread_mutex_lock(&debugremutexaudio);
         if (debugrefileaudio == nullptr)
         {
             debugrefileaudio = fopen("debugrefileaudio", "w");
@@ -3166,8 +3166,8 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
                 return -2;
             }
         }
+        pthread_mutex_unlock(&debugremutexaudio);
     }
-    pthread_mutex_unlock(&debugremutexaudio);
 
     pthread_mutex_lock(&debugremutexaudio);
     if (debugrefileaudio != nullptr)
@@ -3326,9 +3326,9 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
 
     taskinfo->video_srtp_echo_active = 1;
 
-    pthread_mutex_lock(&debugremutexvideo);
     if (srtpcheck_debug)
     {
+        pthread_mutex_lock(&debugremutexvideo);
         if (debugrefilevideo == nullptr)
         {
             debugrefilevideo = fopen("debugrefilevideo", "w");
@@ -3339,8 +3339,8 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
                 return -2;
             }
         }
+        pthread_mutex_unlock(&debugremutexvideo);
     }
-    pthread_mutex_unlock(&debugremutexvideo);
 
     pthread_mutex_lock(&debugremutexvideo);
     if (debugrefilevideo != nullptr)
