@@ -613,7 +613,7 @@ class JLSRTP
          *
          * Resets crypto context
          *
-         * @param[in]       sssrc       SSRC ID
+         * @param[in]       ssrc        SSRC ID
          * @param[in]       ipAddress   IP address
          * @param[in]       port        Port
          */
@@ -1160,7 +1160,7 @@ class JLSRTP
          *
          * Custom constructor
          *
-         * @param[in]       sssrc       SSRC ID
+         * @param[in]       ssrc        SSRC ID
          * @param[in]       ipAddress   IP address
          * @param[in]       port        Port
          */
