@@ -19,14 +19,14 @@
 #ifndef __RTPSTREAM__
 #define __RTPSTREAM__
 
-#include "jlsrtp.hpp"
-
 #include <unordered_map>
 
 #define RTPSTREAM_MAX_FILENAMELEN 256
 #define RTPSTREAM_MAX_PAYLOADNAME 256
 #define RTPECHO_MAX_FILENAMELEN 256
 #define RTPECHO_MAX_PAYLOADNAME 256
+
+class JLSRTP;
 
 #ifdef USE_TLS
 typedef struct _SrtpAudioInfoParams

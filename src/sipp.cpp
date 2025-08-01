@@ -63,6 +63,7 @@ extern char** environ;
 
 extern SIPpSocket *ctrl_socket;
 extern SIPpSocket *stdin_socket;
+static bool random_base_ssrc = false;
 
 /* These could be local to main, but for the option processing table. */
 static int argiFileName;
@@ -291,6 +292,7 @@ struct sipp_option options_table[] = {
 #endif // USE_TLS
     {"audiotolerance", "Audio error tolerance for RTP checks (0.0-1.0) -- default: 1.0", SIPP_OPTION_FLOAT, &audiotolerance, 1},
     {"videotolerance", "Video error tolerance for RTP checks (0.0-1.0) -- default: 1.0", SIPP_OPTION_FLOAT, &videotolerance, 1},
+    {"random_base_ssrc", "Use a random base SSRC for RTP streams instead of default value 0xCA110000", SIPP_OPTION_SETFLAG, &random_base_ssrc, 1},
 
     {"", "Call rate options:", SIPP_HELP_TEXT_HEADER, nullptr, 0},
     {"r", "Set the call rate (in calls per seconds).  This value can be"
@@ -1946,6 +1948,13 @@ int main(int argc, char *argv[])
                 ERROR("Internal error: I don't recognize the option type for %s", argv[argi]);
             }
         }
+    }
+
+    /* generate random ssrc */
+    if (random_base_ssrc) {
+        global_ssrc_id = rand();
+    } else {
+        global_ssrc_id = 0xCA110000;
     }
 
     /* Load compression plugin if needed/available. */
