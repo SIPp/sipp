@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: lint
       run: ./validate-src.sh
     - name: lint-xml
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: prepare
       run: git submodule update --init
     - name: installdeps
@@ -34,7 +34,7 @@ jobs:
     runs-on: macOS-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: prepare
       run: git submodule update --init
     - name: build
@@ -44,7 +44,7 @@ jobs:
   build-static:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: prepare
       run: git submodule update --init
     - name: build-static
@@ -57,7 +57,7 @@ jobs:
   build-wolfssl:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: prepare
       run: git submodule update --init
     - name: build-wolfssl
