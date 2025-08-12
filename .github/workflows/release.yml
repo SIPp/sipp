@@ -11,7 +11,7 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: build-static
       run: docker build -f docker/Dockerfile --output=. --target=bin .
     - name: Set version
