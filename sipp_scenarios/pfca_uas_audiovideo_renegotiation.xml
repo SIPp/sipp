@@ -69,9 +69,8 @@
       s=-
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
-      m=audio [rtpstream_audio_port] RTP/AVP 0 18 9 103 8 101
-      a=rtcp:[rtpstream_audio_port+1]
-      a=crypto:[cryptotag1audio] [cryptosuiteaescm128sha1801audio] inline:[cryptokeyparams1audio]
+      m=audio [media_port] RTP/AVP 0 18 9 103 8 101
+      a=rtcp:[media_port+1]
       a=sendrecv
       a=rtpmap:0 PCMU/8000
       a=rtpmap:18 G729/8000
@@ -82,18 +81,25 @@
       a=rtpmap:8 PCMA/8000
       a=rtpmap:101 telephone-event/8000
       a=fmtp:101 0-11,16
+      m=video [media_port+2] RTP/AVP 99 98 96 97
+      b=TIAS:1536000
+      b=AS:1597
+      a=rtcp:[media_port+3]
+      a=maxprate:192.0
+      a=rtpmap:99 H264/90000
+      a=fmtp:99 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
+      a=rtpmap:98 H264/90000
+      a=fmtp:98 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=0
+      a=rtpmap:96 H264/90000
+      a=fmtp:96 profile-level-id=42800d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=0
+      a=rtpmap:97 H264/90000
+      a=fmtp:97 profile-level-id=42800d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
 
     ]]>
   </send>
 
   <recv request="ACK">
   </recv>
-
-  <nop>
-    <action>
-      <exec rtp_echo="startaudio,0,PCMU/8000" />
-    </action>
-  </nop>
 
   <recv request="INVITE" crlf="true">
     <action>
@@ -124,9 +130,8 @@
       s=-
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
-      m=audio [rtpstream_audio_port] RTP/AVP 0 18 9 103 8 101
-      a=rtcp:[rtpstream_audio_port+1]
-      a=crypto:[cryptotag1audio] [cryptosuiteaescm128sha1801audio] inline:[cryptokeyparams1audio]
+      m=audio [media_port] RTP/AVP 0 18 9 103 8 101
+      a=rtcp:[media_port+1]
       a=sendrecv
       a=rtpmap:0 PCMU/8000
       a=rtpmap:18 G729/8000
@@ -137,18 +142,25 @@
       a=rtpmap:8 PCMA/8000
       a=rtpmap:101 telephone-event/8000
       a=fmtp:101 0-11,16
+      m=video [media_port+2] RTP/AVP 99 98 96 97
+      b=TIAS:1536000
+      b=AS:1597
+      a=rtcp:[media_port+3]
+      a=maxprate:192.0
+      a=rtpmap:99 H264/90000
+      a=fmtp:99 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
+      a=rtpmap:98 H264/90000
+      a=fmtp:98 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=0
+      a=rtpmap:96 H264/90000
+      a=fmtp:96 profile-level-id=42800d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=0
+      a=rtpmap:97 H264/90000
+      a=fmtp:97 profile-level-id=42800d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
 
     ]]>
   </send>
 
   <recv request="ACK">
   </recv>
-
-  <nop>
-    <action>
-      <exec rtp_echo="updateaudio,0,PCMU/8000" />
-    </action>
-  </nop>
 
   <recv request="BYE">
   </recv>
@@ -165,14 +177,6 @@
       Content-Length: 0
     ]]>
   </send>
-
-  <nop>
-    <action>
-      <exec rtp_echo="stopaudio,0,PCMU/8000" />
-    </action>
-  </nop>
-
-
 
   <!-- definition of the response time repartition table (unit is ms)   -->
   <ResponseTimeRepartition value="10, 20, 30, 40, 50, 100, 150, 200"/>

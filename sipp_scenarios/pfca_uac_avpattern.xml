@@ -43,9 +43,9 @@
       a=rtpmap:101 telephone-event/8000
       a=fmtp:101 0-11,16
       m=video [media_port+2] RTP/AVP 99 98 96 97
+      a=rtcp:[media_port+3]
       b=TIAS:1536000
       b=AS:1597
-      a=rtcp:[media_port+3]
       a=maxprate:192.0
       a=sendrecv
       a=rtpmap:99 H264/90000

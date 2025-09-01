@@ -70,11 +70,11 @@
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
       m=video [rtpstream_video_port] RTP/AVP 99 98 96 97
+      a=rtcp:[rtpstream_video_port+1]
       a=crypto:[cryptotag1video] [cryptosuiteaescm128sha1801video] inline:[cryptokeyparams1video]
       b=TIAS:1536000
       b=AS:1597
       a=maxprate:192.0
-      a=rtcp:[rtpstream_video_port+1]
       a=rtpmap:99 H264/90000
       a=fmtp:99 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
       a=rtpmap:98 H264/90000
@@ -87,14 +87,14 @@
     ]]>
   </send>
 
+  <recv request="ACK">
+  </recv>
+
   <nop>
     <action>
       <exec rtp_echo="startvideo,99,H264/90000" />
     </action>
   </nop>
-
-  <recv request="ACK">
-  </recv>
 
   <recv request="INVITE" crlf="true">
     <action>
@@ -126,11 +126,11 @@
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
       m=video [rtpstream_video_port] RTP/AVP 99 98 96 97
+      a=rtcp:[rtpstream_video_port+1]
       a=crypto:[cryptotag1video] [cryptosuiteaescm128sha1801video] inline:[cryptokeyparams1video]
       b=TIAS:1536000
       b=AS:1597
       a=maxprate:192.0
-      a=rtcp:[rtpstream_video_port+1]
       a=rtpmap:99 H264/90000
       a=fmtp:99 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
       a=rtpmap:98 H264/90000
@@ -143,14 +143,14 @@
     ]]>
   </send>
 
+  <recv request="ACK">
+  </recv>
+
   <nop>
     <action>
       <exec rtp_echo="updatevideo,99,H264/90000" />
     </action>
   </nop>
-
-  <recv request="ACK">
-  </recv>
 
   <recv request="BYE">
   </recv>

@@ -31,9 +31,9 @@
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
       m=video [media_port] RTP/AVP 99 98 96 97
+      a=rtcp:[media_port+1]
       b=TIAS:1536000
       b=AS:1597
-      a=rtcp:[media_port+1]
       a=maxprate:192.0
       a=sendrecv
       a=rtpmap:99 H264/90000

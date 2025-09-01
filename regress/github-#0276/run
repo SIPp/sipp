@@ -8,7 +8,7 @@ udplisten 6002 >tmp.log 2>&1 &
 listenjob=$!
 
 sippbg -sn uas -i 127.0.0.1 -p 5070 -m 1 \
-    -min_rtp_port 6200  # media port at 6200
+    -min_rtp_audio_port 6200  # audio media port at 6200
 sippfg -sn uac -i 127.0.0.1 -m 1 127.0.0.1:5070 >uac.log 2>&1
 fgok=$?
 
