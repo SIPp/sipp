@@ -32,8 +32,6 @@
       t=0 0
       m=video [rtpstream_video_port] RTP/AVP 99 98 96 97
       a=rtcp:[rtpstream_video_port+1]
-      a=crypto:[cryptotag1video] [cryptosuiteaescm128sha1801video] inline:[cryptokeyparams1video]
-      a=crypto:[cryptotag2video] [cryptosuiteaescm128sha1322video] inline:[cryptokeyparams2video]
       b=TIAS:1536000
       b=AS:1597
       a=maxprate:192.0
@@ -90,12 +88,12 @@
   <recv response="200">
   </recv>
 
-  <!-- NOTE:  [branch-5] is used to specify reuse of same [branch] value that was used five messages earlier (e.g. INVITE) -->
+  <!-- NOTE:  [branch-6] is used to specify reuse of same [branch] value that was used six messages earlier (e.g. INVITE) -->
   <send>
     <![CDATA[
 
       ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0
-      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch-5]
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch-6]
       From: "16001" <sip:16001@[remote_ip]:[remote_port]>;tag=[call_number]
       To: <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
       Call-ID: [call_id]
@@ -112,6 +110,60 @@
   </nop>
 
   <pause milliseconds="2000" />
+
+  <nop>
+      <action>
+          <exec rtp_stream="pausevpattern"/>
+      </action>
+  </nop>
+
+  <pause milliseconds="2000"/>
+
+  <nop>
+      <action>
+          <exec rtp_stream="resumevpattern"/>
+      </action>
+  </nop>
+
+  <nop>
+      <action>
+          <exec rtp_stream="vpattern,2,99,H264/90000" />
+      </action>
+  </nop>
+
+  <pause milliseconds="2000"/>
+
+  <nop>
+      <action>
+          <exec rtp_stream="vpattern,3,99,H264/90000" />
+      </action>
+  </nop>
+
+  <pause milliseconds="2000"/>
+
+  <nop>
+      <action>
+          <exec rtp_stream="vpattern,4,99,H264/90000" />
+      </action>
+  </nop>
+
+  <pause milliseconds="2000"/>
+
+  <nop>
+      <action>
+          <exec rtp_stream="vpattern,5,99,H264/90000" />
+      </action>
+  </nop>
+
+  <pause milliseconds="2000"/>
+
+  <nop>
+      <action>
+          <exec rtp_stream="vpattern,6,99,H264/90000" />
+      </action>
+  </nop>
+
+  <pause milliseconds="2000"/>
 
   <send retrans="500">
     <![CDATA[
@@ -140,8 +192,6 @@
       t=0 0
       m=video [rtpstream_video_port] RTP/AVP 99 98 96 97
       a=rtcp:[rtpstream_video_port+1]
-      a=crypto:[cryptotag1video] [cryptosuiteaescm128sha1801video] inline:[cryptokeyparams1video]
-      a=crypto:[cryptotag2video] [cryptosuiteaescm128sha1322video] inline:[cryptokeyparams2video]
       b=TIAS:1536000
       b=AS:1597
       a=maxprate:192.0
@@ -180,12 +230,6 @@
 
     ]]>
   </send>
-
-  <nop>
-      <action>
-          <exec rtp_stream="vpattern,2,99,H264/90000" />
-      </action>
-  </nop>
 
   <pause milliseconds="2000" />
 
