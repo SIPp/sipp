@@ -5359,12 +5359,12 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         if (call_scenario->unexpected_jump >= 0) {
             bool recursive = false;
             if (call_scenario->retaddr >= 0) {
-                if (M_callVariableTable->getVar(call_scenario->retaddr)->getDouble() != 0) {
+                //if (M_callVariableTable->getVar(call_scenario->retaddr)->getDouble() != 0) {
                     /* We are already in a jump! */
                     //recursive = true;
-                } else {
+                //} else {
                     M_callVariableTable->getVar(call_scenario->retaddr)->setDouble(msg_index);
-                }
+                //}
             }
             if (!recursive) {
                 if (call_scenario->pausedaddr >= 0) {
