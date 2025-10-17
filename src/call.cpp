@@ -824,6 +824,9 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
             case 's':
                 count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1, "%s", local_ip);
                 break;
+            case 'r':
+                count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1, "%u", rand());
+                break;
             default:      // treat all unknown sequences as %%
                 call_id[count++] = '%';
                 break;
