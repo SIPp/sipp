@@ -244,7 +244,7 @@ struct sipp_option options_table[] = {
     {"", "Call behavior options:", SIPP_HELP_TEXT_HEADER, nullptr, 0},
     {"aa", "Enable automatic 200 OK answer for INFO, NOTIFY, OPTIONS and UPDATE.", SIPP_OPTION_SETFLAG, &auto_answer, 1},
     {"base_cseq", "Start value of [cseq] for each call.", SIPP_OPTION_CSEQ, nullptr, 1},
-    {"cid_str", "Call ID string (default %u-%p@%s).  %u=call_number, %s=ip_address, %p=process_number, %%=% (in any order).", SIPP_OPTION_STRING, &call_id_string, 1},
+    {"cid_str", "Call ID string (default %u-%p@%s).  %u=call_number, %s=ip_address, %p=process_number, %r=random_integer, %%=% (in any order).", SIPP_OPTION_STRING, &call_id_string, 1},
     {"d", "Controls the length of calls. More precisely, this controls the duration of 'pause' instructions in the scenario, if they do not have a 'milliseconds' section. Default value is 0 and default unit is milliseconds.", SIPP_OPTION_TIME_MS, &duration, 1},
     {"deadcall_wait", "How long the Call-ID and final status of calls should be kept to improve message and error logs (default unit is ms).", SIPP_OPTION_TIME_MS, &deadcall_wait, 1},
     {"auth_uri", "Force the value of the URI for authentication.\n"
