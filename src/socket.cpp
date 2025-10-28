@@ -44,6 +44,7 @@
 #include "sipp.hpp"
 #include "socket.hpp"
 #include "logger.hpp"
+#include "libwebsockets.h"
 
 extern bool do_hide;
 
@@ -841,7 +842,7 @@ int SIPpSocket::empty()
 {
 
     int readsize=0;
-    if (ss_transport == T_UDP || ss_transport == T_SCTP) {
+    if (ss_transport == T_UDP || ss_transport == T_SCTP | ss_transport == T_WSS) {
         readsize = SIPP_MAX_MSG_SIZE;
     } else {
         readsize = tcp_readsize;
@@ -893,6 +894,28 @@ int SIPpSocket::empty()
         ERROR("SCTP support is not enabled!");
 #endif
         break;
+    
+    case T_WSS:
+        if (!wsi) {
+            ERROR("WebSocket not connected!");
+        }
+
+        struct lws_pollfd pfd;
+        memset(&pfd, 0, sizeof(pfd));
+
+        pfd.fd = lws_get_socket_fd(wsi);
+        pfd.events = POLLIN;  // lecture uniquement
+
+        ret = 0;
+        // This will trigger the lws_cb that will place
+        // the message into lws_inbound_msg pointer
+        // We need to set this pointer to the newly allocated buffer
+        lws_inbound_msg = buffer;
+        lws_service_fd(lws_context, &pfd);
+        ret = lws_inbound_msg_len;
+        lws_inbound_msg = nullptr;
+        lws_inbound_msg_len = 0;
+        break;
     }
     if (ret <= 0) {
         free_socketbuf(socketbuf);
@@ -928,6 +951,9 @@ void SIPpSocket::invalidate()
         SSL_free(ssl);
     }
 #endif
+
+    // LWS did the cleanup
+    if (wsi) wsi = nullptr;
 
     /* In some error conditions, the socket FD has already been closed - if it hasn't, do so now. */
     if (ss_fd != -1) {
@@ -1239,6 +1265,128 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
     }
 }
 
+
+//#ifdef USE_WSS
+static int lws_cb(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
+{
+    SIPpSocket *socket = (SIPpSocket *) user;
+
+    if (socket) 
+    {
+        socket->lws_callback_wss(reason, in, len);
+    }
+    return 0;
+}
+
+
+static struct lws_protocols protocols[] = {
+    {
+        "sip-wss",
+        lws_cb,
+        0,
+        SIPP_MAX_MSG_SIZE,
+        0,
+        nullptr,
+        0
+    },
+    { nullptr, nullptr, 0, 0, 0, nullptr, 0 }
+};
+
+void SIPpSocket::init_lws_context()
+{
+    
+
+    if (lws_context) return;  //Already created
+
+    struct lws_context_creation_info info = {0};
+    info.port = CONTEXT_PORT_NO_LISTEN;
+    info.protocols = protocols;
+    info.gid = -1;
+    info.uid = -1;
+    info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+
+    lws_context = lws_create_context(&info);
+    if (!lws_context)
+    {
+        ERROR("Impossible de créer le contexte LWS.");
+    }
+
+    struct lws_context_creation_info vh_info;
+    memset(&vh_info, 0, sizeof(vh_info));
+    vh_info.protocols = protocols;
+    vh_info.options = info.options;
+
+    lws_vh = lws_create_vhost(lws_context, &vh_info);
+    if (!lws_vh)
+    {
+        ERROR("Impossible de créer le vhost LWS.");
+    }
+}
+
+void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, size_t len)
+{
+    switch (reason)
+    {
+        case LWS_CALLBACK_CLIENT_ESTABLISHED:
+            TRACE_MSG("WSS: Connexion établie.");
+            ss_congested = false;
+            break;
+
+        case LWS_CALLBACK_CLIENT_RECEIVE:
+            if (len < sizeof(lws_inbound_msg)) 
+            {
+                memcpy(lws_inbound_msg, in, len);
+                lws_inbound_msg_len = len;
+            }
+            else
+            {
+                ERROR("Inbound WebSocket message too large. Dropping it");
+            }
+            break;
+
+        case LWS_CALLBACK_CLIENT_WRITEABLE:
+            if (ss_out)
+            {
+                struct socketbuf *buf = ss_out;
+                while (ss_out) 
+                {
+                    unsigned char *lws_buf = (unsigned char*)malloc(LWS_PRE + buf->len);
+                    memcpy(lws_buf + LWS_PRE, buf->buf, buf->len);
+
+                    int n = lws_write(wsi, lws_buf + LWS_PRE, buf->len, LWS_WRITE_TEXT);
+                    free(lws_buf);
+                    if (n > 0) {
+                        ss_out = buf->next;
+                        free_socketbuf(buf);    // frree the buffer
+                        if (!ss_out) ss_out_tail = nullptr;
+                    }
+                    else
+                    {
+                        // Socket became non writeable
+                        break;
+                    }
+                }
+                
+            }
+            break;
+
+        case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
+            TRACE_MSG("WSS: Erreur de connexion.");
+            this->invalidate();
+            break;
+
+        case LWS_CALLBACK_CLOSED:
+            TRACE_MSG("WSS: Connexion fermée.");
+            this->invalidate();
+            break;
+
+        default:
+            break;
+    }
+}
+
+//#endif
+
 SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     ss_ipv6(use_ipv6),
     ss_transport(transport),
@@ -1263,6 +1411,12 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
         SSL_set_bio(ss_ssl, ss_bio, ss_bio);
     }
 #endif
+
+//#ifdef USE_WSS
+    lws_context = nullptr;
+    wsi = nullptr;
+    if (transport == T_WSS) init_lws_context();
+//#endif
     /* Store this socket in the tables. */
     ss_pollidx = pollnfds++;
     sockets[ss_pollidx] = this;
@@ -1505,9 +1659,9 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 
     int ret;
 
-    assert(ss_transport == T_TCP || ss_transport == T_TLS || ss_transport == T_SCTP);
+    assert(ss_transport == T_TCP || ss_transport == T_TLS || ss_transport == T_SCTP || ss_transport == T_WSS);
 
-    if (ss_transport == T_TCP || ss_transport == T_TLS) {
+    if (ss_transport == T_TCP || ss_transport == T_TLS || ss_transport == T_WSS) {
         struct sockaddr_storage with_optional_port;
         int port = -1;
         memcpy(&with_optional_port, &local_sockaddr, sizeof(struct sockaddr_storage));
@@ -1571,6 +1725,33 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
     }
 #endif
 
+    if (ss_transport == T_WSS)
+    {
+        lws_client_connect_info ccinfo = {0};
+
+        // Create WS cnx from socket FD
+        lws * wsi_temp = lws_adopt_socket_vhost(lws_vh, ss_fd);
+        if (!wsi_temp) 
+        {
+            ERROR("Failed to create the WSS connection from fd %d.", ss_fd);
+            return -1;
+        }
+
+        ccinfo.vhost = lws_vh;
+        ccinfo.port = 443; // Need to be set but is not used
+        ccinfo.address = "ignore";
+        ccinfo.path = "/";
+        ccinfo.host = "sip-ws-endpoint";
+        ccinfo.origin = "sip-ws-endpoint";
+        ccinfo.protocol = "sip-wss";
+        ccinfo.parent_wsi = wsi_temp;
+
+        wsi = lws_client_connect_via_info(&ccinfo);
+        if (!wsi) {
+            ERROR("Failed to establish WS connection");
+            return -2;
+        }
+    }
     return 0;
 }
 
@@ -2148,6 +2329,19 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
                     socklen_from_addr(dest));
         break;
 
+    case T_WSS:
+        if (wsi)
+        {
+            // Do nor write immediately, post the buffer
+            buffer_write(buffer, len, dest);
+            rc = lws_callback_on_writable(wsi);
+        }
+        else
+        {
+            ERROR("Cannot write. WS connection is not established");
+            rc = -1;
+        }
+        break;
     default:
         ERROR("Internal error, unknown transport type %d", ss_transport);
     }
@@ -2195,6 +2389,16 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
         if (rc < 0) {
             if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
                 buffer_write(buffer, len, dest);
+                if (ss_transport == T_WSS) {
+                    if (wsi)
+                    {
+                        lws_callback_on_writable(wsi);
+                    }
+                    else
+                    {
+                        ERROR("No websocket connection");
+                    }
+                }
                 return len;
             } else {
                 return rc;

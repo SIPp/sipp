@@ -98,6 +98,7 @@ public:
     // Bind to specific network device.
     int bind_to_device(const char* device_name);
 #endif
+    void lws_callback_wss(enum lws_callback_reasons reason, void *in, size_t len);
 
     static void pollset_process(int wait);
 
@@ -150,6 +151,18 @@ private:
 #ifdef USE_SCTP
     int sctpstate = SCTP_DOWN;
 #endif
+
+//#ifdef USE_WSS
+    void init_lws_context();
+    int adoptWebSocket();
+    bool performWebSocketHandshake();
+
+    struct lws_context *lws_context;  // Contexte LWS (par socket)
+    struct lws_vhost *lws_vh;
+    struct lws *wsi;                  // Connexion WebSocket
+    char * lws_inbound_msg;
+    size_t lws_inbound_msg_len;
+//#endif
 };
 
 
