@@ -105,6 +105,7 @@
 #define T_TCP                      1
 #define T_TLS                      2
 #define T_SCTP                     3
+#define T_WSS                      4
 
 #ifdef USE_TLS
 #define DEFAULT_TLS_CERT           "cacert.pem"
