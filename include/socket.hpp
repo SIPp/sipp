@@ -154,8 +154,7 @@ private:
 
 //#ifdef USE_WSS
     void init_lws_context();
-    int adoptWebSocket();
-    bool performWebSocketHandshake();
+    void close_wss();
 
     struct lws_context *lws_context;  // Contexte LWS (par socket)
     struct lws_vhost *lws_vh;

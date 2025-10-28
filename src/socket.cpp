@@ -952,8 +952,8 @@ void SIPpSocket::invalidate()
     }
 #endif
 
-    // LWS did the cleanup
-    if (wsi) wsi = nullptr;
+    // Close websocket connection
+    close_wss();
 
     /* In some error conditions, the socket FD has already been closed - if it hasn't, do so now. */
     if (ss_fd != -1) {
@@ -1382,6 +1382,38 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
 
         default:
             break;
+    }
+}
+
+void SIPpSocket::close_wss()
+{
+    // Flush messages
+    if (wsi && ss_out) {
+        lws_callback_on_writable(wsi);
+        lws_service(lws_context, 0);
+    }
+
+    // Close WSI
+    if (wsi) {
+        lws_set_timeout(wsi, PENDING_TIMEOUT_CLOSE_SEND, LWS_TO_KILL_ASYNC);
+        wsi = nullptr;
+    }
+
+    // Destroy vhost & context
+    if (lws_vh) {
+        lws_vhost_destroy(lws_vh);
+        lws_vh = nullptr;
+    }
+    if (lws_context) {
+        lws_context_destroy(lws_context);
+        lws_context = nullptr;
+    }
+
+    // Free buffers
+    if (lws_inbound_msg) {
+        free(lws_inbound_msg);
+        lws_inbound_msg = nullptr;
+        lws_inbound_msg_len = 0;
     }
 }
 
