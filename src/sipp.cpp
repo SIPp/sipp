@@ -1643,6 +1643,11 @@ int main(int argc, char *argv[])
                     ERROR("To use TLS transport you must compile SIPp with OpenSSL or WolfSSL");
 #endif
                     break;
+
+                case 'w':
+                    transport = T_WSS;
+                    break;
+
                 case 'c':
                     if (strlen(comp_error)) {
                         ERROR("No " COMP_PLUGIN " plugin available: %s", comp_error);

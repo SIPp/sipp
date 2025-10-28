@@ -5775,12 +5775,16 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 protocol = T_TLS;
             } else if (!strcmp(str_protocol, "sctp") || !strcmp(str_protocol, "SCTP")) {
                 protocol = T_SCTP;
-            } else {
+            } else if (!strcmp(str_protocol, "wss") || !strcmp(str_protocol, "WSS")) {
+                protocol = T_WSS;
+            }
+            else {
                 ERROR("Unknown transport for setdest: '%s'", str_protocol);
             }
 
             if (!call_socket && ((protocol == T_TCP && transport == T_TCP) ||
-                                 (protocol == T_SCTP && transport == T_SCTP))) {
+                                 (protocol == T_SCTP && transport == T_SCTP) ||
+                                 (protocol == T_WSS && transport == T_WSS))) {
                 bool existing;
                 if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == nullptr) {
                     switch (protocol) {
@@ -5816,6 +5820,8 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 if (call_socket->ss_count > 1) {
                     ERROR("Can not change destinations for a TCP/SCTP socket that has more than one user.");
                 }
+            } else if (protocol == T_WSS) {
+                ERROR("Changing destinations is not supported for WSS.");
             }
 
             if (gai_getsockaddr(&call_peer, str_host, port,
