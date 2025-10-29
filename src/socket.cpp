@@ -878,6 +878,7 @@ int SIPpSocket::empty()
         break;
 
     case T_WSS:
+#ifdef USE_WSS
         if (wsi) 
         {
             struct lws_pollfd pfd;
@@ -899,6 +900,9 @@ int SIPpSocket::empty()
         else {
             ERROR("WebSocket not connected!");
         }
+#else
+        ERROR("WebSocket support is not enabled!");
+#endif
         break;
     
     case T_SCTP:
@@ -955,8 +959,10 @@ void SIPpSocket::invalidate()
     }
 #endif
 
+#ifdef USE_WSS
     // Close websocket connection
     close_wss();
+#endif
 
     /* In some error conditions, the socket FD has already been closed - if it hasn't, do so now. */
     if (ss_fd != -1) {
@@ -1178,6 +1184,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
                     case T_TCP:
                     case T_SCTP:
                     case T_TLS:
+                    case T_WSS:
                         new_ptr->associate_socket(tcp_multiplex);
                         tcp_multiplex->ss_count++;
                         break;
@@ -1269,7 +1276,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
 }
 
 
-//#ifdef USE_WSS
+#ifdef USE_WSS
 static int lws_cb(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
 {
     SIPpSocket *socket = (SIPpSocket *) user;
@@ -1420,7 +1427,7 @@ void SIPpSocket::close_wss()
     }
 }
 
-//#endif
+#endif
 
 SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     ss_ipv6(use_ipv6),
@@ -1447,11 +1454,11 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     }
 #endif
 
-//#ifdef USE_WSS
+#ifdef USE_WSS
     lws_context = nullptr;
     wsi = nullptr;
     if (transport == T_WSS) init_lws_context();
-//#endif
+#endif
     /* Store this socket in the tables. */
     ss_pollidx = pollnfds++;
     sockets[ss_pollidx] = this;
@@ -1503,6 +1510,7 @@ static int socket_fd(bool use_ipv6, int transport)
         ERROR("You do not have TLS support enabled!");
 #endif
     case T_TCP:
+    case T_WSS:
         socket_type = SOCK_STREAM;
         protocol = IPPROTO_TCP;
         break;
@@ -1760,6 +1768,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
     }
 #endif
 
+#ifdef USE_WSS
     if (ss_transport == T_WSS)
     {
         lws_client_connect_info ccinfo = {0};
@@ -1787,6 +1796,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
             return -2;
         }
     }
+#endif
     return 0;
 }
 
@@ -1941,7 +1951,7 @@ void sipp_customize_socket(SIPpSocket *socket)
 
     /* Allows fast TCP reuse of the socket */
     if (socket->ss_transport == T_TCP || socket->ss_transport == T_TLS ||
-            socket->ss_transport == T_SCTP) {
+            socket->ss_transport == T_SCTP || socket->ss_transport == T_WSS) {
         int sock_opt = 1;
 
         if (setsockopt(socket->ss_fd, SOL_SOCKET, SO_REUSEADDR, (void *)&sock_opt,
@@ -2364,6 +2374,7 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
                     socklen_from_addr(dest));
         break;
 
+#ifdef USE_WSS
     case T_WSS:
         if (wsi)
         {
@@ -2373,10 +2384,12 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
         }
         else
         {
-            ERROR("Cannot write. WS connection is not established");
+            ERROR("Cannot write. WebSocket connection is not established");
             rc = -1;
         }
         break;
+#endif
+
     default:
         ERROR("Internal error, unknown transport type %d", ss_transport);
     }
@@ -2424,6 +2437,7 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
         if (rc < 0) {
             if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
                 buffer_write(buffer, len, dest);
+#ifdef USE_WSS
                 if (ss_transport == T_WSS) {
                     if (wsi)
                     {
@@ -2434,6 +2448,7 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
                         ERROR("No websocket connection");
                     }
                 }
+#endif
                 return len;
             } else {
                 return rc;
