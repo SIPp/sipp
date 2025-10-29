@@ -114,7 +114,18 @@
 #define DEFAULT_TLS_CRL            ""
 #endif
 
-#define TRANSPORT_TO_STRING(p)     ((p==T_TCP) ? "TCP" : ((p==T_TLS)? "TLS" : ((p==T_UDP)? "UDP" : "SCTP")))
+inline const char * TRANSPORT_TO_STRING(int p) {
+    switch(p) 
+    {
+        case T_TCP: return "TCP";
+        case T_UDP: return "UDP";
+        case T_TLS: return "TLS";
+        case T_SCTP: return "SCTP";
+        case T_WSS: return "WSS";
+        default: break;
+    } 
+    return "Unknown";
+}   
 
 #define SIPP_MAXFDS                65536
 
