@@ -1361,11 +1361,11 @@ bool call::connect_socket_if_needed()
         if (sipp_bind_socket(call_socket, &saddr, &call_port)) {
             ERROR_NO("Unable to bind UDP socket");
         }
-    } else { /* TCP, SCTP or TLS. */
+    } else { /* TCP, SCTP, WSS or TLS. */
         struct sockaddr_storage *L_dest = &remote_sockaddr;
 
         if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == nullptr) {
-            ERROR_NO("Unable to get a TCP/SCTP/TLS socket");
+            ERROR_NO("Unable to get a TCP/SCTP/TLS/WSS socket");
         }
         call_socket->ss_count++;
 
@@ -5786,11 +5786,18 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                                  (protocol == T_SCTP && transport == T_SCTP) ||
                                  (protocol == T_WSS && transport == T_WSS))) {
                 bool existing;
+                LOG_MSG("Creating new call socket");
                 if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == nullptr) {
-                    switch (protocol) {
+                    switch (protocol) 
+                    {
+                    case T_WSS:
+                        ERROR_NO("Unable to get a WSS socket");
+                        break;
+                    
                     case T_SCTP:
                         ERROR_NO("Unable to get a SCTP socket");
                         break;
+
                     default:
                         ERROR_NO("Unable to get a TCP socket");
                     }

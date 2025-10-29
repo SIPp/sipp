@@ -2827,7 +2827,7 @@ int open_connections()
         }
     }
 
-    if ((!multisocket) && (transport == T_TCP || transport == T_TLS || transport == T_SCTP) &&
+    if ((!multisocket) && (transport == T_TCP || transport == T_TLS || transport == T_SCTP || transport == T_WSS) &&
             (sendMode != MODE_SERVER)) {
         if ((tcp_multiplex = new_sipp_socket(local_ip_is_ipv6, transport)) == nullptr) {
             ERROR_NO("Unable to get a TCP socket");
