@@ -174,6 +174,9 @@ struct sipp_option options_table[] = {
 #endif
         "- c1: u1 + compression (only if compression plugin loaded),\n"
         "- cn: un + compression (only if compression plugin loaded).  This plugin is not provided with SIPp.\n"
+#ifdef USE_WSS
+        "- w1: Secure Web Socket with one socket,\n"
+#endif
         , SIPP_OPTION_TRANSPORT, nullptr, 1
     },
     {"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address.\n", SIPP_OPTION_IP, local_ip, 1},
