@@ -30,6 +30,8 @@
 #define SCTP_UP 2
 #endif
 
+#include "libwebsockets.h"
+
 /**
  * On some systems you must pass the exact sockaddr struct size to
  * connect/bind/sendto calls. Passing a length that is too large

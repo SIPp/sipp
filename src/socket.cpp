@@ -842,7 +842,7 @@ int SIPpSocket::empty()
 {
 
     int readsize=0;
-    if (ss_transport == T_UDP || ss_transport == T_SCTP | ss_transport == T_WSS) {
+    if (ss_transport == T_UDP || ss_transport == T_SCTP || ss_transport == T_WSS) {
         readsize = SIPP_MAX_MSG_SIZE;
     } else {
         readsize = tcp_readsize;
@@ -876,6 +876,31 @@ int SIPpSocket::empty()
         ERROR("TLS support is not enabled!");
 #endif
         break;
+
+    case T_WSS:
+        if (wsi) 
+        {
+            struct lws_pollfd pfd;
+            memset(&pfd, 0, sizeof(pfd));
+
+            pfd.fd = lws_get_socket_fd(wsi);
+            pfd.events = POLLIN;  // lecture uniquement
+
+            ret = 0;
+            // This will trigger the lws_cb that will place
+            // the message into lws_inbound_msg pointer
+            // We need to set this pointer to the newly allocated buffer
+            lws_inbound_msg = buffer;
+            lws_service_fd(lws_context, &pfd);
+            ret = lws_inbound_msg_len;
+            lws_inbound_msg = nullptr;
+            lws_inbound_msg_len = 0;
+        }
+        else {
+            ERROR("WebSocket not connected!");
+        }
+        break;
+    
     case T_SCTP:
 #ifdef USE_SCTP
         struct sctp_sndrcvinfo recvinfo;
@@ -893,29 +918,7 @@ int SIPpSocket::empty()
 #else
         ERROR("SCTP support is not enabled!");
 #endif
-        break;
-    
-    case T_WSS:
-        if (!wsi) {
-            ERROR("WebSocket not connected!");
-        }
-
-        struct lws_pollfd pfd;
-        memset(&pfd, 0, sizeof(pfd));
-
-        pfd.fd = lws_get_socket_fd(wsi);
-        pfd.events = POLLIN;  // lecture uniquement
-
-        ret = 0;
-        // This will trigger the lws_cb that will place
-        // the message into lws_inbound_msg pointer
-        // We need to set this pointer to the newly allocated buffer
-        lws_inbound_msg = buffer;
-        lws_service_fd(lws_context, &pfd);
-        ret = lws_inbound_msg_len;
-        lws_inbound_msg = nullptr;
-        lws_inbound_msg_len = 0;
-        break;
+        break;    
     }
     if (ret <= 0) {
         free_socketbuf(socketbuf);
