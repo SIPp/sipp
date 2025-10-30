@@ -877,34 +877,6 @@ int SIPpSocket::empty()
 #endif
         break;
 
-    case T_WSS:
-#ifdef USE_WSS
-        if (wsi) 
-        {
-            struct lws_pollfd pfd;
-            memset(&pfd, 0, sizeof(pfd));
-
-            pfd.fd = lws_get_socket_fd(wsi);
-            pfd.events = POLLIN;  // lecture uniquement
-
-            ret = 0;
-            // This will trigger the lws_cb that will place
-            // the message into lws_inbound_msg pointer
-            // We need to set this pointer to the newly allocated buffer
-            lws_inbound_msg = buffer;
-            lws_service_fd(lws_context, &pfd);
-            ret = lws_inbound_msg_len;
-            lws_inbound_msg = nullptr;
-            lws_inbound_msg_len = 0;
-        }
-        else {
-            ERROR("WebSocket not connected!");
-        }
-#else
-        ERROR("WebSocket support is not enabled!");
-#endif
-        break;
-    
     case T_SCTP:
 #ifdef USE_SCTP
         struct sctp_sndrcvinfo recvinfo;
@@ -1302,11 +1274,33 @@ static struct lws_protocols protocols[] = {
     { nullptr, nullptr, 0, 0, 0, nullptr, 0 }
 };
 
+static void sipp_lws_log_emit(int level, const char *line)
+{
+    // Redirige les logs de libwebsockets vers le système SIPp
+    switch(level) 
+    {
+        case LLL_ERR:
+            WARNING("WSS: %s", line);
+            break;
+
+        case LLL_WARN:
+            WARNING("WSS: %s", line);
+            break;
+
+        default:
+            LOG_MSG("WSS: %s", line);
+            break;
+
+    }
+}
+
 void SIPpSocket::init_lws_context()
 {
-    
-
     if (lws_context) return;  //Already created
+
+    int log_level = LLL_ERR | LLL_WARN | LLL_NOTICE;
+    if (useLogf) log_level |= LLL_INFO;
+    lws_set_log_level(log_level, sipp_lws_log_emit);
 
     struct lws_context_creation_info info = {0};
     info.port = CONTEXT_PORT_NO_LISTEN;
@@ -1338,8 +1332,9 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
     switch (reason)
     {
         case LWS_CALLBACK_CLIENT_ESTABLISHED:
-            TRACE_MSG("WSS: Connexion établie.");
+            TRACE_MSG("WSS: Connected to %s.\n", remote_host);
             ss_congested = false;
+            wss_connected = true;
             break;
 
         case LWS_CALLBACK_CLIENT_RECEIVE:
@@ -1369,10 +1364,12 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
                         ss_out = buf->next;
                         free_socketbuf(buf);    // frree the buffer
                         if (!ss_out) ss_out_tail = nullptr;
+                        TRACE_MSG("WSS: Sent %d bytes.\n", n);
                     }
                     else
                     {
                         // Socket became non writeable
+                        TRACE_MSG("WSS: failed to send msg.\n");
                         break;
                     }
                 }
@@ -1381,7 +1378,7 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
             break;
 
         case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
-            TRACE_MSG("WSS: Erreur de connexion.");
+            ERROR("WSS: Failed to connect");
             this->invalidate();
             break;
 
@@ -1458,6 +1455,7 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     lws_context = nullptr;
     wsi = nullptr;
     if (transport == T_WSS) init_lws_context();
+    wss_connected = false;
 #endif
     /* Store this socket in the tables. */
     ss_pollidx = pollnfds++;
@@ -1781,20 +1779,37 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
             return -1;
         }
 
+        if (!lws_context) init_lws_context();
+
+        memset(&ccinfo, 0, sizeof(ccinfo));
+        ccinfo.context = lws_context;
         ccinfo.vhost = lws_vh;
         ccinfo.port = 443; // Need to be set but is not used
-        ccinfo.address = "ignore";
+        ccinfo.address = remote_ip;
         ccinfo.path = "/";
-        ccinfo.host = "sip-ws-endpoint";
+        ccinfo.host = remote_host;
         ccinfo.origin = "sip-ws-endpoint";
-        ccinfo.protocol = "sip-wss";
+        ccinfo.protocol = "sip";
         ccinfo.parent_wsi = wsi_temp;
+        ccinfo.ssl_connection = LCCSCF_USE_SSL;
 
         wsi = lws_client_connect_via_info(&ccinfo);
+        lws_set_wsi_user(wsi, this);
         if (!wsi) {
             ERROR("Failed to establish WS connection");
             return -2;
         }
+
+        lws_callback_on_writable(wsi);
+        while (!wss_connected && wsi) {    
+            lws_service(lws_context, 2000);
+
+        }
+        if (!wsi) {
+            return -3;
+        }
+            
+        
     }
 #endif
     return 0;
@@ -2381,6 +2396,7 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
             // Do nor write immediately, post the buffer
             buffer_write(buffer, len, dest);
             rc = lws_callback_on_writable(wsi);
+            if (rc >= 0) rc = len;
         }
         else
         {
@@ -3114,6 +3130,9 @@ void SIPpSocket::pollset_process(int wait)
             }
             loops--;
         }
+#ifdef USE_WSS
+        if (sockets[read_index]->lws_context) lws_service(sockets[read_index]->lws_context, 0);
+#endif
         read_index = (read_index + 1) % pollnfds;
     }
 
@@ -3122,6 +3141,8 @@ void SIPpSocket::pollset_process(int wait)
         return;
     }
 #endif
+
+
     /* Get socket events. */
 #ifdef HAVE_EPOLL
     /* Ignore the wait parameter and always wait - when establishing TCP
@@ -3178,6 +3199,7 @@ void SIPpSocket::pollset_process(int wait)
             }
         }
 
+
 #ifdef HAVE_EPOLL
         if (epollevents[event_idx].events & EPOLLIN) {
 #else
@@ -3216,7 +3238,7 @@ void SIPpSocket::pollset_process(int wait)
                         connect_to_all_peers();
                     }
                 }
-            } else {
+            } else {                
                 if ((ret = sock->empty()) <= 0) {
 #ifdef USE_SCTP
                     if (sock->ss_transport == T_SCTP && ret == -2);

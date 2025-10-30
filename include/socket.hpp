@@ -168,6 +168,7 @@ private:
     struct lws *wsi;                  // Connexion WebSocket
     char * lws_inbound_msg;
     size_t lws_inbound_msg_len;
+    bool wss_connected;
 #endif
 };
 
