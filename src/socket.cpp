@@ -39,6 +39,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <mutex>
 
 #include "config.h"
 #include "sipp.hpp"
@@ -69,6 +70,13 @@ SIPpSocket  *sockets[SIPP_MAXFDS];
 int pending_messages = 0;
 
 std::map<std::string, SIPpSocket *>     map_perip_fd;
+
+#ifdef USE_WSS
+static std::mutex lws_mutex;
+static struct lws_context *lws_context = nullptr;  // LWS context
+static struct lws_vhost *lws_vh = nullptr;
+#endif
+
 
 static void connect_to_peer(
     char *peer_host, int peer_port, struct sockaddr_storage *peer_sockaddr,
@@ -879,23 +887,32 @@ int SIPpSocket::empty()
 
     case T_SCTP:
 #ifdef USE_SCTP
-        struct sctp_sndrcvinfo recvinfo;
-        memset(&recvinfo, 0, sizeof(recvinfo));
-        int msg_flags = 0;
+        {
+            struct sctp_sndrcvinfo recvinfo;
+            memset(&recvinfo, 0, sizeof(recvinfo));
+            int msg_flags = 0;
 
-        ret = sctp_recvmsg(ss_fd, (void*)buffer, readsize,
-                           (struct sockaddr *) &socketbuf->addr, &addrlen, &recvinfo, &msg_flags);
+            ret = sctp_recvmsg(ss_fd, (void*)buffer, readsize,
+                            (struct sockaddr *) &socketbuf->addr, &addrlen, &recvinfo, &msg_flags);
 
-        if (MSG_NOTIFICATION & msg_flags) {
-            errno = 0;
-            handleSCTPNotify(buffer);
-            ret = -2;
+            if (MSG_NOTIFICATION & msg_flags) {
+                errno = 0;
+                handleSCTPNotify(buffer);
+                ret = -2;
+            }
         }
 #else
         ERROR("SCTP support is not enabled!");
 #endif
-        break;    
+        break;
+
+#ifdef USE_WSS
+        case T_WSS:
+            /* Inbound message handling is done in lws_cb()*/
+            break;
+#endif
     }
+
     if (ret <= 0) {
         free_socketbuf(socketbuf);
         return ret;
@@ -1261,7 +1278,17 @@ static int lws_cb(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 }
 
 
-static struct lws_protocols protocols[] = {
+static struct lws_protocols protocols[] =
+{
+    {
+        "sip",
+        lws_cb,
+        0,
+        SIPP_MAX_MSG_SIZE,
+        0,
+        nullptr,
+        0
+    },
     {
         "sip-wss",
         lws_cb,
@@ -1271,6 +1298,7 @@ static struct lws_protocols protocols[] = {
         nullptr,
         0
     },
+
     { nullptr, nullptr, 0, 0, 0, nullptr, 0 }
 };
 
@@ -1296,6 +1324,7 @@ static void sipp_lws_log_emit(int level, const char *line)
 
 void SIPpSocket::init_lws_context()
 {
+    std::lock_guard<std::mutex> lock(lws_mutex);
     if (lws_context) return;  //Already created
 
     int log_level = LLL_ERR | LLL_WARN | LLL_NOTICE;
@@ -1325,6 +1354,7 @@ void SIPpSocket::init_lws_context()
     {
         ERROR("Impossible de créer le vhost LWS.");
     }
+    TRACE_MSG("WSS: context and vhost created.\n");
 }
 
 void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, size_t len)
@@ -1338,18 +1368,40 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
             break;
 
         case LWS_CALLBACK_CLIENT_RECEIVE:
-            if (len < sizeof(lws_inbound_msg)) 
+            if (len < SIPP_MAX_MSG_SIZE - 1 ) 
             {
-                memcpy(lws_inbound_msg, in, len);
-                lws_inbound_msg_len = len;
+                struct sockaddr_storage src;
+                char msg[SIPP_MAX_MSG_SIZE];
+                ssize_t len2; 
+
+                struct socketbuf * socketbuf = alloc_socketbuf((char *)in, len, 1, nullptr);
+                socketbuf->len = len;
+                buffer_read(socketbuf);
+
+                /* Do we have a complete SIP message? */
+                if (!ss_msglen) {
+                    if (int msg_len = check_for_message()) {
+                        ss_msglen = msg_len;
+                        pending_messages++;
+                    }
+                }
+
+                TRACE_MSG("WSS: Received %ld bytes.\n", len);
+
+               
+                len2 = read_message(msg, sizeof(msg), &src);
+                if (len2 > 2) {
+                    process_message(this, msg, len, &src);
+                }
             }
             else
             {
-                ERROR("Inbound WebSocket message too large. Dropping it");
+                WARNING("Inbound WebSocket message too large. Dropping it");
             }
             break;
 
         case LWS_CALLBACK_CLIENT_WRITEABLE:
+            ss_congested = false;
             if (ss_out)
             {
                 struct socketbuf *buf = ss_out;
@@ -1364,12 +1416,11 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
                         ss_out = buf->next;
                         free_socketbuf(buf);    // frree the buffer
                         if (!ss_out) ss_out_tail = nullptr;
-                        TRACE_MSG("WSS: Sent %d bytes.\n", n);
                     }
                     else
                     {
                         // Socket became non writeable
-                        TRACE_MSG("WSS: failed to send msg.\n");
+                        //WARNING("WSS: failed to send msg.\n");
                         break;
                     }
                 }
@@ -1405,22 +1456,21 @@ void SIPpSocket::close_wss()
         lws_set_timeout(wsi, PENDING_TIMEOUT_CLOSE_SEND, LWS_TO_KILL_ASYNC);
         wsi = nullptr;
     }
+}
 
-    // Destroy vhost & context
-    if (lws_vh) {
-        lws_vhost_destroy(lws_vh);
-        lws_vh = nullptr;
-    }
-    if (lws_context) {
-        lws_context_destroy(lws_context);
-        lws_context = nullptr;
-    }
+void SIPpSocket::wss_event_loop(int revents)
+{
+    if (ss_transport == T_WSS && lws_context) 
+    {
+        struct lws_pollfd lws_pfd;
+        lws_pfd.fd = ss_fd;
+        lws_pfd.events = POLLIN | POLLOUT;
+        lws_pfd.revents = revents;
 
-    // Free buffers
-    if (lws_inbound_msg) {
-        free(lws_inbound_msg);
-        lws_inbound_msg = nullptr;
-        lws_inbound_msg_len = 0;
+        int n = lws_service_fd(lws_context, &lws_pfd);
+        if (n < 0) {
+            TRACE_MSG("WSS: lws_service_fd() returned %d for fd=%d\n", n, ss_fd);
+        }
     }
 }
 
@@ -1452,7 +1502,6 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
 #endif
 
 #ifdef USE_WSS
-    lws_context = nullptr;
     wsi = nullptr;
     if (transport == T_WSS) init_lws_context();
     wss_connected = false;
@@ -1769,6 +1818,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 #ifdef USE_WSS
     if (ss_transport == T_WSS)
     {
+        if (!lws_context) init_lws_context();
         lws_client_connect_info ccinfo = {0};
 
         // Create WS cnx from socket FD
@@ -1778,8 +1828,6 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
             ERROR("Failed to create the WSS connection from fd %d.", ss_fd);
             return -1;
         }
-
-        if (!lws_context) init_lws_context();
 
         memset(&ccinfo, 0, sizeof(ccinfo));
         ccinfo.context = lws_context;
@@ -1802,7 +1850,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 
         lws_callback_on_writable(wsi);
         while (!wss_connected && wsi) {    
-            lws_service(lws_context, 2000);
+            lws_service(lws_context, -1);
 
         }
         if (!wsi) {
@@ -2397,6 +2445,7 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
             buffer_write(buffer, len, dest);
             rc = lws_callback_on_writable(wsi);
             if (rc >= 0) rc = len;
+            wss_event_loop(POLLOUT);
         }
         else
         {
@@ -3110,6 +3159,7 @@ void SIPpSocket::pollset_process(int wait)
 
     int loops = max_recv_loops;
 
+
     // If not using epoll, we have a queue of pending messages to spin through.
 
     if (read_index >= pollnfds) {
@@ -3130,9 +3180,7 @@ void SIPpSocket::pollset_process(int wait)
             }
             loops--;
         }
-#ifdef USE_WSS
-        if (sockets[read_index]->lws_context) lws_service(sockets[read_index]->lws_context, 0);
-#endif
+
         read_index = (read_index + 1) % pollnfds;
     }
 
@@ -3170,6 +3218,7 @@ void SIPpSocket::pollset_process(int wait)
 
         assert(sock);
 
+
 #ifdef HAVE_EPOLL
         if (epollevents[event_idx].events & EPOLLOUT) {
 #else
@@ -3205,6 +3254,22 @@ void SIPpSocket::pollset_process(int wait)
 #else
         if (pollfiles[poll_idx].revents & POLLIN) {
 #endif
+
+#ifdef USE_WSS
+        if (sock->ss_transport == T_WSS && lws_context) {
+#ifdef HAVE_EPOLL
+            int revents = 0;
+            if (epollevents[event_idx].events & EPOLLIN) revents |= POLLIN;
+            if (epollevents[event_idx].events & EPOLLOUT) revents |= POLLOUT;
+            if (epollevents[event_idx].events & EPOLLERR) revents |= POLLERR;
+#else
+            int revents = pollfiles[poll_idx].revents;
+#endif
+            sock->wss_event_loop(revents);
+        }
+#endif
+
+
             /* We can empty this socket. */
             if ((transport == T_TCP || transport == T_TLS || transport == T_SCTP) && sock == main_socket) {
                 SIPpSocket *new_sock = sock->accept();
@@ -3309,6 +3374,12 @@ void SIPpSocket::pollset_process(int wait)
             rs--;
         }
         pollfiles[poll_idx].revents = 0;
+#endif
+
+#ifdef USE_WSS
+    if (lws_context) {
+        lws_service(lws_context, -1); // "tick" LWS pour gérer les timeouts
+    }
 #endif
     }
 

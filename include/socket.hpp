@@ -162,12 +162,9 @@ private:
 #ifdef USE_WSS
     void init_lws_context();
     void close_wss();
+    void wss_event_loop(int revents);
 
-    struct lws_context *lws_context;  // Contexte LWS (par socket)
-    struct lws_vhost *lws_vh;
     struct lws *wsi;                  // Connexion WebSocket
-    char * lws_inbound_msg;
-    size_t lws_inbound_msg_len;
     bool wss_connected;
 #endif
 };
