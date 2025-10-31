@@ -163,6 +163,7 @@ private:
     void init_lws_context();
     void close_wss();
     void wss_event_loop(int revents);
+    int wss_send(const void * buf, int len)
 
     struct lws *wsi;                  // Connexion WebSocket
     bool wss_connected;

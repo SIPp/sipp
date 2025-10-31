@@ -1407,11 +1407,7 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
                 struct socketbuf *buf = ss_out;
                 while (ss_out) 
                 {
-                    unsigned char *lws_buf = (unsigned char*)malloc(LWS_PRE + buf->len);
-                    memcpy(lws_buf + LWS_PRE, buf->buf, buf->len);
-
-                    int n = lws_write(wsi, lws_buf + LWS_PRE, buf->len, LWS_WRITE_TEXT);
-                    free(lws_buf);
+                    int n = wss_send(buf->buf, buf->len);
                     if (n > 0) {
                         ss_out = buf->next;
                         free_socketbuf(buf);    // frree the buffer
@@ -1440,6 +1436,30 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
 
         default:
             break;
+    }
+}
+
+int  SIPpSocket::wss_send(const void * buf, int len)
+{
+    if (wsi) {
+        unsigned char *lws_buf = (unsigned char*)malloc(LWS_PRE + len);
+        memcpy(lws_buf + LWS_PRE, buf, len);
+
+        int n = lws_write(wsi, lws_buf + LWS_PRE, len, LWS_WRITE_TEXT);
+        free(lws_buf);
+        if (n > 0) {
+            return len;
+        }
+        else if (n < 0) {
+            return n;
+        }
+        else {
+            return -2;
+        }
+    }
+    else {
+        ERROR("Cannot write. WebSocket connection is not established");
+        return -1;
     }
 }
 
@@ -2439,18 +2459,11 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
 
 #ifdef USE_WSS
     case T_WSS:
-        if (wsi)
+        rc = wss_send(buffer, len);
+        if (rc >= 0)
         {
-            // Do nor write immediately, post the buffer
-            buffer_write(buffer, len, dest);
-            rc = lws_callback_on_writable(wsi);
-            if (rc >= 0) rc = len;
-            wss_event_loop(POLLOUT);
-        }
-        else
-        {
-            ERROR("Cannot write. WebSocket connection is not established");
-            rc = -1;
+            //lws_callback_on_writable(wsi);
+            //wss_event_loop(POLLOUT);
         }
         break;
 #endif
