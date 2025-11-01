@@ -1337,6 +1337,7 @@ void SIPpSocket::init_lws_context()
     info.gid = -1;
     info.uid = -1;
     info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+    info.timeout_secs = 40;
 
     lws_context = lws_create_context(&info);
     if (!lws_context)
@@ -1348,6 +1349,10 @@ void SIPpSocket::init_lws_context()
     memset(&vh_info, 0, sizeof(vh_info));
     vh_info.protocols = protocols;
     vh_info.options = info.options;
+    vh_info.ka_time = info.ka_time;
+    vh_info.ka_probes = info.ka_probes;
+    vh_info.ka_interval = info.ka_interval;
+    vh_info.timeout_secs = info.timeout_secs;
 
     lws_vh = lws_create_vhost(lws_context, &vh_info);
     if (!lws_vh)
@@ -1402,6 +1407,17 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
 
         case LWS_CALLBACK_CLIENT_WRITEABLE:
             ss_congested = false;
+            if (wss_out) {
+                int n = wss_send(wss_out->buf, wss_out->len);
+                if (n > 0) {
+                    free_socketbuf(wss_out);
+                    wss_out = nullptr;
+                }
+            }
+            else {
+                break;
+            }
+
             if (ss_out)
             {
                 struct socketbuf *buf = ss_out;
@@ -1429,8 +1445,15 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
             this->invalidate();
             break;
 
+
+
         case LWS_CALLBACK_CLOSED:
             TRACE_MSG("WSS: Connexion fermée.");
+            this->invalidate();
+            break;
+
+        case LWS_CALLBACK_WSI_DESTROY:
+            TRACE_MSG("WSS: internal websocket has been deleted.");
             this->invalidate();
             break;
 
@@ -1468,7 +1491,7 @@ void SIPpSocket::close_wss()
     // Flush messages
     if (wsi && ss_out) {
         lws_callback_on_writable(wsi);
-        lws_service(lws_context, 0);
+        lws_service(lws_context, 100);
     }
 
     // Close WSI
@@ -1525,6 +1548,7 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     wsi = nullptr;
     if (transport == T_WSS) init_lws_context();
     wss_connected = false;
+    wss_out = nullptr;
 #endif
     /* Store this socket in the tables. */
     ss_pollidx = pollnfds++;
@@ -1840,7 +1864,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
     {
         if (!lws_context) init_lws_context();
         lws_client_connect_info ccinfo = {0};
-
+        
         // Create WS cnx from socket FD
         lws * wsi_temp = lws_adopt_socket_vhost(lws_vh, ss_fd);
         if (!wsi_temp) 
@@ -1849,6 +1873,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
             return -1;
         }
 
+        lws_set_timeout(wsi_temp, NO_PENDING_TIMEOUT, 7200);
         memset(&ccinfo, 0, sizeof(ccinfo));
         ccinfo.context = lws_context;
         ccinfo.vhost = lws_vh;
@@ -2459,11 +2484,21 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
 
 #ifdef USE_WSS
     case T_WSS:
-        rc = wss_send(buffer, len);
-        if (rc >= 0)
-        {
-            //lws_callback_on_writable(wsi);
-            //wss_event_loop(POLLOUT);
+        if (wsi) {
+            if (!wss_out) {
+                wss_out = alloc_socketbuf((char *) buffer, len, 1, nullptr);
+                wss_out->next = nullptr;
+                lws_callback_on_writable(wsi);
+                rc = len;
+            }
+            else {
+                errno = EWOULDBLOCK;
+                rc = 0;
+            }
+        }
+        else {
+            rc = -2;
+            errno = EPIPE;
         }
         break;
 #endif
