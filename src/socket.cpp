@@ -1328,7 +1328,7 @@ void SIPpSocket::init_lws_context()
     if (lws_context) return;  //Already created
 
     int log_level = LLL_ERR | LLL_WARN | LLL_NOTICE;
-    if (useLogf) log_level |= LLL_INFO;
+    //if (useLogf) log_level |= LLL_INFO;
     lws_set_log_level(log_level, sipp_lws_log_emit);
 
     struct lws_context_creation_info info = {0};
