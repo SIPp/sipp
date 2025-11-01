@@ -1342,24 +1342,21 @@ void SIPpSocket::init_lws_context()
     lws_context = lws_create_context(&info);
     if (!lws_context)
     {
-        ERROR("Impossible de créer le contexte LWS.");
+        ERROR("WSS: Failed to create LWS context");
     }
 
     struct lws_context_creation_info vh_info;
     memset(&vh_info, 0, sizeof(vh_info));
     vh_info.protocols = protocols;
     vh_info.options = info.options;
-    vh_info.ka_time = info.ka_time;
-    vh_info.ka_probes = info.ka_probes;
-    vh_info.ka_interval = info.ka_interval;
     vh_info.timeout_secs = info.timeout_secs;
 
     lws_vh = lws_create_vhost(lws_context, &vh_info);
     if (!lws_vh)
     {
-        ERROR("Impossible de créer le vhost LWS.");
+        ERROR("WSS: Impossible de créer le vhost LWS.");
     }
-    TRACE_MSG("WSS: context and vhost created.\n");
+    LOG_MSG("WSS: context and vhost created.\n");
 }
 
 void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, size_t len)
@@ -1391,8 +1388,6 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
                     }
                 }
 
-                TRACE_MSG("WSS: Received %ld bytes.\n", len);
-
                
                 len2 = read_message(msg, sizeof(msg), &src);
                 if (len2 > 2) {
@@ -1401,7 +1396,7 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
             }
             else
             {
-                WARNING("Inbound WebSocket message too large. Dropping it");
+                WARNING("WSS: Inbound WebSocket message too large. Dropping it");
             }
             break;
 
@@ -1448,12 +1443,12 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
 
 
         case LWS_CALLBACK_CLOSED:
-            TRACE_MSG("WSS: Connexion fermée.");
+            LOG_MSG("WSS: Connection closed");
             this->invalidate();
             break;
 
         case LWS_CALLBACK_WSI_DESTROY:
-            TRACE_MSG("WSS: internal websocket has been deleted.");
+            LOG_MSG("WSS: internal websocket has been deleted.");
             this->invalidate();
             break;
 
@@ -1873,7 +1868,8 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
             return -1;
         }
 
-        lws_set_timeout(wsi_temp, NO_PENDING_TIMEOUT, 7200);
+        // Enlarge inactivity timeout of unused wsi_temp to 2 days
+        lws_set_timeout(wsi_temp, NO_PENDING_TIMEOUT, 48*3600);
         memset(&ccinfo, 0, sizeof(ccinfo));
         ccinfo.context = lws_context;
         ccinfo.vhost = lws_vh;
@@ -1881,7 +1877,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
         ccinfo.address = remote_ip;
         ccinfo.path = "/";
         ccinfo.host = remote_host;
-        ccinfo.origin = "sip-ws-endpoint";
+        ccinfo.origin = "sipp-ws-endpoint";
         ccinfo.protocol = "sip";
         ccinfo.parent_wsi = wsi_temp;
         ccinfo.ssl_connection = LCCSCF_USE_SSL;
