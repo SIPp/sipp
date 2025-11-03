@@ -59,6 +59,18 @@ The TLS key log file format is described here: https://datatracker.ietf.org/doc/
 
 _Please note the security considerations ("3. Security Considerations")!_
 
+To enable SIP over WebSocket feature pass `-DUSE_WSS=ON` to cmake. You need to have compiled (libwebsocket)[https://libwebsockets.org/] before.
+And on order to avoid dynamic dependency, use only the static version. Here simple instructions to build the lib on for linux:
+
+```
+cd libwebsocket
+mkdir build
+cd build
+cmake  -DCMAKE_INSTALL_PREFIX=/usr -DLWS_WITHOUT_TESTAPPS=ON -DLWS_WITH_SSL=ON -DLWS_WITH_SHARED=OFF -DLWS_WITH_STATIC=OFF ..
+make
+sudo make install
+```
+
 ## Static builds
 
 SIPp can be built into a single static binary, removing the need for
