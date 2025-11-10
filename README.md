@@ -59,7 +59,7 @@ The TLS key log file format is described here: https://datatracker.ietf.org/doc/
 
 _Please note the security considerations ("3. Security Considerations")!_
 
-To enable SIP over WebSocket feature pass `-DUSE_WSS=ON` to cmake. You need to have compiled (libwebsocket)[https://libwebsockets.org/] before.
+To enable SIP over WebSocket feature pass `-DUSE_WSS=ON` to cmake. You need to have compiled [libwebsocket](https://libwebsockets.org/) before.
 And on order to avoid dynamic dependency, use only the static version. Here simple instructions to build the lib on for linux:
 
 ```
