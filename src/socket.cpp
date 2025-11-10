@@ -45,7 +45,10 @@
 #include "sipp.hpp"
 #include "socket.hpp"
 #include "logger.hpp"
+
+#ifdef USE_WSS
 #include "libwebsockets.h"
+#endif
 
 extern bool do_hide;
 
