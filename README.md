@@ -78,6 +78,7 @@ cd sipp
 mkdir build
 cd build
 cmake .. -DUSE_WSS=1
+make
 ```
 
 ## Static builds
