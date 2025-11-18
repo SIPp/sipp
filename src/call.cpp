@@ -5788,12 +5788,12 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 bool existing;
                 LOG_MSG("Creating new call socket");
                 if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == nullptr) {
-                    switch (protocol) 
+                    switch (protocol)
                     {
                     case T_WSS:
                         ERROR_NO("Unable to get a WSS socket");
                         break;
-                    
+
                     case T_SCTP:
                         ERROR_NO("Unable to get a SCTP socket");
                         break;

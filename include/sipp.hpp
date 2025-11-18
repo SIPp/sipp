@@ -115,7 +115,7 @@
 #endif
 
 inline const char * TRANSPORT_TO_STRING(int p) {
-    switch(p) 
+    switch(p)
     {
         case T_TCP: return "TCP";
         case T_UDP: return "UDP";
@@ -123,9 +123,9 @@ inline const char * TRANSPORT_TO_STRING(int p) {
         case T_SCTP: return "SCTP";
         case T_WSS: return "WSS";
         default: break;
-    } 
+    }
     return "Unknown";
-}   
+}
 
 #define SIPP_MAXFDS                65536
 

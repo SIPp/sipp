@@ -1273,7 +1273,7 @@ static int lws_cb(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 {
     SIPpSocket *socket = (SIPpSocket *) user;
 
-    if (socket) 
+    if (socket)
     {
         socket->lws_callback_wss(reason, in, len);
     }
@@ -1308,7 +1308,7 @@ static struct lws_protocols protocols[] =
 static void sipp_lws_log_emit(int level, const char *line)
 {
     // Redirige les logs de libwebsockets vers le système SIPp
-    switch(level) 
+    switch(level)
     {
         case LLL_ERR:
             WARNING("WSS: %s", line);
@@ -1373,11 +1373,11 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
             break;
 
         case LWS_CALLBACK_CLIENT_RECEIVE:
-            if (len < SIPP_MAX_MSG_SIZE - 1 ) 
+            if (len < SIPP_MAX_MSG_SIZE - 1 )
             {
                 struct sockaddr_storage src;
                 char msg[SIPP_MAX_MSG_SIZE];
-                ssize_t len2; 
+                ssize_t len2;
 
                 struct socketbuf * socketbuf = alloc_socketbuf((char *)in, len, 1, nullptr);
                 socketbuf->len = len;
@@ -1391,7 +1391,6 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
                     }
                 }
 
-               
                 len2 = read_message(msg, sizeof(msg), &src);
                 if (len2 > 2) {
                     process_message(this, msg, len, &src);
@@ -1419,7 +1418,7 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
             if (ss_out)
             {
                 struct socketbuf *buf = ss_out;
-                while (ss_out) 
+                while (ss_out)
                 {
                     int n = wss_send(buf->buf, buf->len);
                     if (n > 0) {
@@ -1434,7 +1433,6 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
                         break;
                     }
                 }
-                
             }
             break;
 
@@ -1442,8 +1440,6 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
             ERROR("WSS: Failed to connect");
             this->invalidate();
             break;
-
-
 
         case LWS_CALLBACK_CLOSED:
             LOG_MSG("WSS: Connection closed");
@@ -1501,7 +1497,7 @@ void SIPpSocket::close_wss()
 
 void SIPpSocket::wss_event_loop(int revents)
 {
-    if (ss_transport == T_WSS && lws_context) 
+    if (ss_transport == T_WSS && lws_context)
     {
         struct lws_pollfd lws_pfd;
         lws_pfd.fd = ss_fd;
@@ -1862,10 +1858,10 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
     {
         if (!lws_context) init_lws_context();
         lws_client_connect_info ccinfo = {0};
-        
+
         // Create WS cnx from socket FD
         lws * wsi_temp = lws_adopt_socket_vhost(lws_vh, ss_fd);
-        if (!wsi_temp) 
+        if (!wsi_temp)
         {
             ERROR("Failed to create the WSS connection from fd %d.", ss_fd);
             return -1;
@@ -1893,20 +1889,16 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
         }
 
         lws_callback_on_writable(wsi);
-        while (!wss_connected && wsi) {    
+        while (!wss_connected && wsi) {
             lws_service(lws_context, -1);
-
         }
         if (!wsi) {
             return -3;
         }
-            
-        
     }
 #endif
     return 0;
 }
-
 
 int SIPpSocket::reconnect()
 {
@@ -3206,7 +3198,6 @@ void SIPpSocket::pollset_process(int wait)
 
     int loops = max_recv_loops;
 
-
     // If not using epoll, we have a queue of pending messages to spin through.
 
     if (read_index >= pollnfds) {
@@ -3350,7 +3341,7 @@ void SIPpSocket::pollset_process(int wait)
                         connect_to_all_peers();
                     }
                 }
-            } else {                
+            } else {
                 if ((ret = sock->empty()) <= 0) {
 #ifdef USE_SCTP
                     if (sock->ss_transport == T_SCTP && ret == -2);
@@ -3425,7 +3416,7 @@ void SIPpSocket::pollset_process(int wait)
 
 #ifdef USE_WSS
     if (lws_context) {
-        lws_service(lws_context, -1); // "tick" LWS pour gérer les timeouts
+        lws_service(lws_context, -1); // LWS "tick" to handler internal timers
     }
 #endif
     }
