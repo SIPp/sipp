@@ -60,6 +60,7 @@
 #include "auth.hpp"
 #include "urlcoder.hpp"
 #include "deadcall.hpp"
+#include "string_builder.hpp"
 #include "config.h"
 #include "version.h"
 
@@ -2333,7 +2334,7 @@ void set_default_message(const char *which, char *msg)
 bool call::process_unexpected(const char* msg)
 {
     char buffer[MAX_HEADER_LEN];
-    char *desc = buffer;
+    StringBuilder sb(buffer);
     int res = 0;
 
     message *curmsg = call_scenario->messages[msg_index];
@@ -2341,32 +2342,32 @@ bool call::process_unexpected(const char* msg)
     curmsg->nb_unexp++;
 
     if (default_behaviors & DEFAULT_BEHAVIOR_ABORTUNEXP) {
-        desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "Aborting ");
+        sb << "Aborting ";
     } else {
-        desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "Continuing ");
+        sb << "Continuing ";
     }
-    desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "call on unexpected message for Call-Id '%s': ", id);
+    sb << "call on unexpected message for Call-Id '" << id << "': ";
 
     if (curmsg -> M_type == MSG_TYPE_RECV) {
         if (curmsg -> recv_request) {
-            desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting '%s' ", curmsg -> recv_request);
+            sb << "while expecting '" << curmsg -> recv_request << "' ";
         } else {
-            desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting '%s' ", curmsg -> recv_response);
+            sb << "while expecting '" << curmsg -> recv_response << "' ";
         }
     } else if (curmsg -> M_type == MSG_TYPE_SEND) {
-        desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while sending ");
+        sb << "while sending ";
     } else if (curmsg -> M_type == MSG_TYPE_PAUSE) {
-        desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while pausing ");
+        sb << "while pausing ";
     } else if (curmsg -> M_type == MSG_TYPE_SENDCMD) {
-        desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while sending command ");
+        sb << "while sending command ";
     } else if (curmsg -> M_type == MSG_TYPE_RECVCMD) {
-        desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while expecting command ");
+        sb << "while expecting command ";
     } else {
-        desc += snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "while in message type %d ", curmsg->M_type);
+        sb << "while in message type " << curmsg->M_type << " ";
     }
-    snprintf(desc, MAX_HEADER_LEN - (desc - buffer), "(index %d)", msg_index);
+    sb << "(index " << msg_index << ")";
 
-    WARNING("%s, received '%s'", buffer, msg);
+    WARNING("%s, received '%s'", sb.get(), msg);
 
     TRACE_MSG("-----------------------------------------------\n"
               "Unexpected %s message received:\n\n%s\n",
