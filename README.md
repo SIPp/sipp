@@ -35,7 +35,9 @@ This is the SIPp package. Please refer to the
 Normally, you should be able to build SIPp by using CMake:
 
 ```
-cmake .
+mkdir build
+cd build
+cmake ..
 make
 ```
 
@@ -60,7 +62,7 @@ The TLS key log file format is described here: https://datatracker.ietf.org/doc/
 _Please note the security considerations ("3. Security Considerations")!_
 
 To enable SIP over WebSocket feature pass `-DUSE_WSS=ON` to cmake. You need to have compiled [libwebsocket](https://libwebsockets.org/) before.
-And on order to avoid dynamic dependency, use only the static version. Here simple instructions to build the lib on for linux:
+And on order to avoid dynamic dependency, use only the static version. Here are simple instructions to build the lib on for linux:
 
 ```
 cd libwebsocket
@@ -69,6 +71,14 @@ cd build
 cmake  -DCMAKE_INSTALL_PREFIX=/usr -DLWS_WITHOUT_TESTAPPS=ON -DLWS_WITH_SSL=ON -DLWS_WITH_SHARED=OFF -DLWS_WITH_STATIC=OFF ..
 make
 sudo make install
+```
+Then compile sipp with -DUSE_WSS=1 
+```
+cd sipp
+mkdir build
+cd build
+cmake .. -DUSE_WSS=1
+make
 ```
 
 ## Static builds
