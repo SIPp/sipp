@@ -1753,9 +1753,6 @@ int main(int argc, char *argv[])
                 if (main_scenario) {
                     ERROR("Internal error, main_scenario already set");
                 } else if (!strcmp(argv[argi - 1], "-sf")) {
-                    if (useLogf == 1) {
-                        rotate_logfile();
-                    }
                     main_scenario = new scenario(argv[argi], 0);
                 } else if (!strcmp(argv[argi - 1], "-sn")) {
                     int i = find_scenario(argv[argi]);
@@ -2020,6 +2017,10 @@ int main(int argc, char *argv[])
         ERROR("FI_init_ssl_context() failed");
     }
 #endif
+
+    if (useLogf == 1) {
+        rotate_logfile();
+    }
 
     if (useMessagef == 1) {
         rotate_messagef();
