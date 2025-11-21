@@ -158,6 +158,12 @@ This mode is generally used for emulating user agents calling a SIP
 server.
 
 
+WSS mode
+````````
+sipp supports SIP over secure WebSocket in mono socket mode (-t w1).
+Only client mode is supported for now. It is generally used to emulate
+WebRTC clients.
+
 IPv6 support
 ````````````
 

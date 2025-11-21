@@ -111,6 +111,10 @@ function(apply_common_sipp_dependencies TARGET_NAME)
   if(BUILD_STATIC AND MSYS)
     target_link_libraries(${TARGET_NAME} crypt32)
   endif()
+
+  if(USE_WSS)
+    target_link_libraries(${TARGET_NAME} ${LIBWEBSOCKETS_LIBRARIES})
+  endif()
 endfunction()
 
 optional_library(SCTP "Build with SCTP support")
@@ -293,6 +297,17 @@ if(USE_SCTP)
   find_library(SCTP_LIBRARY sctp)
 endif()
 
+# Option principale
+option(USE_WSS "Enable WebSocket Secure (WSS) support via libwebsockets" OFF)
+
+if(USE_WSS)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBWEBSOCKETS REQUIRED libwebsockets)
+    add_definitions("-DUSE_WSS")
+    set(LIBWEBSOCKETS_LIBRARIES ${LIBWEBSOCKETS_LIBRARIES})
+    message(STATUS "Found libwebsockets: ${LIBWEBSOCKETS_LIBRARIES}")
+
+endif()
 # add the main executable
 add_sipp_target(sipp
   SOURCES "${PROJECT_SOURCE_DIR}/src/sipp.cpp"

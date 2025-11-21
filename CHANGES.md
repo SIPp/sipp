@@ -1,3 +1,10 @@
+Feature added in 3.7.x
+======================
+- Enabled support of RFC 7118 The WebSocket Protocol as a Transport for the Session Initiation Protocol (SIP)
+- Based on libwebsocket and only in client mode and WSS only.
+- added a -w1 option to specify SIP transport
+- added a USE_WSS definition in CMakeList.txt to enable it
+
 Features added in 3.7.5
 =======================
 
