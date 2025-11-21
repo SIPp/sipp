@@ -293,9 +293,13 @@ struct sipp_option options_table[] = {
      "RTP/UDP packets coming on this port + 2 are also echoed to their sender (used for sound and video echo).",
      SIPP_OPTION_SETFLAG, &rtp_echo_enabled, 1},
     {"mb", "Set the RTP echo buffer size (default: 2048).", SIPP_OPTION_INT, &media_bufsize, 1},
-    {"min_rtp_port", "Minimum port number for RTP socket range.", SIPP_OPTION_INT, &min_rtp_port, 1},
-    {"max_rtp_port", "Maximum port number for RTP socket range.", SIPP_OPTION_INT, &max_rtp_port, 1},
-    {"mp", "Sets -min_rtp_port for backwards compatibility.", SIPP_OPTION_INT, &min_rtp_port, 1},
+    {"min_rtp_audio_port", "Minimum port number for RTP AUDIO socket range.", SIPP_OPTION_INT, &min_rtp_audio_port, 1},
+    {"max_rtp_audio_port", "Maximum port number for RTP AUDIO socket range.", SIPP_OPTION_INT, &max_rtp_audio_port, 1},
+    {"min_rtp_video_port", "Minimum port number for RTP VIDEO socket range.", SIPP_OPTION_INT, &min_rtp_video_port, 1},
+    {"max_rtp_video_port", "Maximum port number for RTP VIDEO socket range.", SIPP_OPTION_INT, &max_rtp_video_port, 1},
+    {"min_udp_image_port", "Minimum port number for UDP IMAGE socket range.", SIPP_OPTION_INT, &min_udp_image_port, 1},
+    {"max_udp_image_port", "Maximum port number for UDP IMAGE socket range.", SIPP_OPTION_INT, &max_udp_image_port, 1},
+    {"mp", "Sets -min_rtp_audio_port for backwards compatibility.", SIPP_OPTION_INT, &min_rtp_audio_port, 1},
     {"rtp_payload", "RTP default payload type.", SIPP_OPTION_INT, &rtp_default_payload, 1},
     {"rtp_threadtasks", "RTP number of playback tasks per thread.", SIPP_OPTION_INT, &rtp_tasks_per_thread, 1},
     {"rtp_buffsize", "Set the rtp socket send/receive buffer size.", SIPP_OPTION_INT, &rtp_buffsize, 1},
@@ -1206,8 +1210,7 @@ static void sighandle_set()
     sigaction(SIGXFSZ, &action_file_size_exceeded, nullptr);  // avoid core dump if the max file size is exceeded
 }
 
-static int create_socket(struct sockaddr_storage* media_sa, int try_port, bool last_attempt,
-                         const char *type)
+static int create_socket(struct sockaddr_storage* media_sa, int try_port, const char* type)
 {
     int s = socket(media_sa->ss_family, SOCK_DGRAM, IPPROTO_UDP);
     if (s == -1) {
@@ -1220,47 +1223,68 @@ static int create_socket(struct sockaddr_storage* media_sa, int try_port, bool l
         (_RCAST(struct sockaddr_in6*, media_sa))->sin6_port = htons(try_port);
     }
 
-    if (::bind(s, (sockaddr*)media_sa, socklen_from_addr(media_sa)) != 0) {
-        if (last_attempt) {
-            ERROR_NO("Unable to bind %s RTP socket (IP=%s, port=%d)", type, media_ip, try_port);
-        }
-        ::close(s);
-        return -1;
-    }
     return s;
 }
 
-/**
- * Create and bind media_socket_audio, media_socket_video for RTP and
- * RCTP on try_port and try_port+2.
- *
- * Sets: media_socket_audio and media_socket_video.
- */
-static int bind_rtp_sockets(struct sockaddr_storage* media_sa, int try_port, bool last_attempt)
+static int bind_socket(int media_socket, struct sockaddr_storage* media_sa)
 {
-    /* Create RTP sockets for audio and video. */
-    media_socket_audio = create_socket(media_sa, try_port, last_attempt, "audio");
-    if (media_socket_audio == -1) {
-        return -1;
-    }
+    int rc = -1;
 
-    /* Create and bind the second/video socket to try_port+2 */
-    /* (+1 is reserved for RTCP) */
-    media_socket_video = create_socket(media_sa, try_port + 2, last_attempt, "video");
-    if (media_socket_video == -1) {
+    rc = ::bind(media_socket, (sockaddr*)media_sa, socklen_from_addr(media_sa));
+
+    return rc;
+}
+
+/**
+ * Create/bind media_socket_audio on given try_port
+ * (try_port+1 is reserved for RTCP audio)
+ * Sets: media_socket_audio
+ */
+static int bind_rtp_audio_socket(struct sockaddr_storage* media_sa, int try_port, bool last_attempt)
+{
+    int retVal = -1;
+
+    media_socket_audio = create_socket(media_sa, try_port, "audio");
+    if(bind_socket(media_socket_audio, media_sa) != 0) {
+        if (last_attempt) {
+            ERROR_NO("Unable to bind %s RTP socket (IP=%s, port=%d)", "audio", media_ip, try_port);
+        }
         ::close(media_socket_audio);
-        media_socket_audio = -1;
-        return -1;
+        retVal = -1;
+    } else {
+        retVal = 0;
     }
 
-    return 0;
+    return retVal;
+}
+
+/**
+ * Create/bind media_socket_video on given try_port
+ * (try_port+1 is reserved for RTCP video)
+ * Sets: media_socket_video
+ */
+static int bind_rtp_video_socket(struct sockaddr_storage* media_sa, int try_port, bool last_attempt)
+{
+    int retVal = -1;
+
+    media_socket_video = create_socket(media_sa, try_port, "video");
+    if(bind_socket(media_socket_video, media_sa) != 0) {
+        if (last_attempt) {
+            ERROR_NO("Unable to bind %s RTP socket (IP=%s, port=%d)", "video", media_ip, try_port);
+        }
+        ::close(media_socket_video);
+        retVal = -1;
+    } else {
+        retVal = 0;
+    }
+
+    return retVal;
 }
 
 /**
  * Set a bunch of globals and bind audio and video rtp sockets.
  *
- * Sets: media_ip, media_port, media_ip_is_ipv6, media_socket_audio,
- * media_socket_video.
+ * Sets: media_ip, media_audio_port, media_video_port, media_image_port, media_ip_is_ipv6, media_socket_audio, media_socket_video.
  */
 static void setup_media_sockets()
 {
@@ -1268,9 +1292,12 @@ static void setup_media_sockets()
     struct addrinfo* local_addr;
     struct sockaddr_storage media_sockaddr = {0,};
     int try_counter = 0;
-    int max_tries = (min_rtp_port < (max_rtp_port - 2)) ? 100 : 1;
+    int max_audio_tries = (min_rtp_audio_port < (max_rtp_audio_port - 2)) ? 100 : 1;
+    int max_video_tries = (min_rtp_video_port < (max_rtp_video_port - 2)) ? 100 : 1;
 
-    media_port = min_rtp_port;
+    media_audio_port = min_rtp_audio_port;
+    media_video_port = min_rtp_video_port;
+    media_image_port = min_udp_image_port;
 
     // [JLTAG]
     //
@@ -1306,11 +1333,10 @@ static void setup_media_sockets()
     media_socket_video = -1;
 
     if (rtp_echo_enabled) {
-        for (try_counter = 1; try_counter <= max_tries; try_counter++) {
-            const bool last_attempt = (
-                try_counter == max_tries || media_port >= (max_rtp_port - 2));
+        for (try_counter = 1; try_counter <= max_audio_tries; try_counter++) {
+            const bool last_audio_attempt = (try_counter == max_audio_tries || media_audio_port >= (max_rtp_audio_port - 2));
 
-            if (bind_rtp_sockets(&media_sockaddr, media_port, last_attempt) == 0) {
+            if (bind_rtp_audio_socket(&media_sockaddr, media_audio_port, last_audio_attempt) == 0) {
                 break;
             }
 
@@ -1319,7 +1345,21 @@ static void setup_media_sockets()
             // > the corresponding RTCP packets SHOULD be carried on the
             // > next higher (odd) port number.
             // So, try only even numbers.
-            media_port += 2;
+            media_audio_port += 2;
+        }
+        for (try_counter = 1; try_counter <= max_video_tries; try_counter++) {
+            const bool last_video_attempt = (try_counter == max_video_tries || media_video_port >= (max_rtp_video_port - 2));
+
+            if (bind_rtp_video_socket(&media_sockaddr, media_video_port, last_video_attempt) == 0) {
+                break;
+            }
+
+            // Old RFC 3551 says:
+            // > RTP data SHOULD be carried on an even UDP port number and
+            // > the corresponding RTCP packets SHOULD be carried on the
+            // > next higher (odd) port number.
+            // So, try only even numbers.
+            media_video_port += 2;
         }
     }
 }

@@ -30,22 +30,18 @@
       s=-
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
-      m=video [rtpstream_video_port] RTP/AVP 99 98 96 97
-      a=rtcp:[rtpstream_video_port+1]
-      a=crypto:[cryptotag1video] [cryptosuiteaescm128sha1801video] inline:[cryptokeyparams1video]
-      a=crypto:[cryptotag2video] [cryptosuiteaescm128sha1322video] inline:[cryptokeyparams2video]
-      b=TIAS:1536000
-      b=AS:1597
-      a=maxprate:192.0
+      m=audio [rtpstream_audio_port] RTP/AVP 0 18 9 103 8 101
+      a=rtcp:[rtpstream_audio_port+1]
       a=sendrecv
-      a=rtpmap:99 H264/90000
-      a=fmtp:99 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
-      a=rtpmap:98 H264/90000
-      a=fmtp:98 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=0
-      a=rtpmap:96 H264/90000
-      a=fmtp:96 profile-level-id=42800d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=0
-      a=rtpmap:97 H264/90000
-      a=fmtp:97 profile-level-id=42800d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
+      a=rtpmap:0 PCMU/8000
+      a=rtpmap:18 G729/8000
+      a=rtpmap:9 G722/16000
+      a=fmtp:9 bitrate=64000
+      a=rtpmap:103 G7221/16000
+      a=fmtp:103 bitrate=32000
+      a=rtpmap:8 PCMA/8000
+      a=rtpmap:101 telephone-event/8000
+      a=fmtp:101 0-11,16
 
     ]]>
   </send>
@@ -90,12 +86,12 @@
   <recv response="200">
   </recv>
 
-  <!-- NOTE:  [branch-5] is used to specify reuse of same [branch] value that was used five messages earlier (e.g. INVITE) -->
+  <!-- NOTE:  [branch-6] is used to specify reuse of same [branch] value that was used six messages earlier (e.g. INVITE) -->
   <send>
     <![CDATA[
 
       ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0
-      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch-5]
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch-6]
       From: "16001" <sip:16001@[remote_ip]:[remote_port]>;tag=[call_number]
       To: <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
       Call-ID: [call_id]
@@ -107,7 +103,7 @@
 
   <nop>
       <action>
-          <exec rtp_stream="vpattern,1,99,H264/90000" />
+          <exec rtp_stream="apattern,1,0,PCMU/8000" />
       </action>
   </nop>
 
@@ -138,22 +134,18 @@
       s=-
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
-      m=video [rtpstream_video_port] RTP/AVP 99 98 96 97
-      a=rtcp:[rtpstream_video_port+1]
-      a=crypto:[cryptotag1video] [cryptosuiteaescm128sha1801video] inline:[cryptokeyparams1video]
-      a=crypto:[cryptotag2video] [cryptosuiteaescm128sha1322video] inline:[cryptokeyparams2video]
-      b=TIAS:1536000
-      b=AS:1597
-      a=maxprate:192.0
+      m=audio [rtpstream_audio_port] RTP/AVP 0 18 9 103 8 101
+      a=rtcp:[rtpstream_audio_port+1]
       a=sendrecv
-      a=rtpmap:99 H264/90000
-      a=fmtp:99 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
-      a=rtpmap:98 H264/90000
-      a=fmtp:98 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=0
-      a=rtpmap:96 H264/90000
-      a=fmtp:96 profile-level-id=42800d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=0
-      a=rtpmap:97 H264/90000
-      a=fmtp:97 profile-level-id=42800d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
+      a=rtpmap:0 PCMU/8000
+      a=rtpmap:18 G729/8000
+      a=rtpmap:9 G722/16000
+      a=fmtp:9 bitrate=64000
+      a=rtpmap:103 G7221/16000
+      a=fmtp:103 bitrate=32000
+      a=rtpmap:8 PCMA/8000
+      a=rtpmap:101 telephone-event/8000
+      a=fmtp:101 0-11,16
 
     ]]>
   </send>
@@ -183,7 +175,7 @@
 
   <nop>
       <action>
-          <exec rtp_stream="vpattern,2,99,H264/90000" />
+          <exec rtp_stream="apattern,2,0,PCMU/8000" />
       </action>
   </nop>
 
