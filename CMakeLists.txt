@@ -70,6 +70,9 @@ function(apply_common_sipp_dependencies TARGET_NAME)
   # Basic libraries that all targets need
   target_link_libraries(${TARGET_NAME} dl pthread)
 
+  # Enable symbol export for plugins
+  set_target_properties(${TARGET_NAME} PROPERTIES ENABLE_EXPORTS ON)
+
   # Conditional libraries based on configuration
   if(CURSES_LIBRARY)
     target_link_libraries(${TARGET_NAME} ${CURSES_LIBRARY})
