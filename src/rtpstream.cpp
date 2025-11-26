@@ -119,7 +119,8 @@ struct cached_pattern_t
 cached_file_t  *cached_files = nullptr;
 cached_pattern_t *cached_patterns = nullptr;
 int            num_cached_files = 0;
-int            next_rtp_port = 0;
+int            next_rtp_audio_port = 0;
+int            next_rtp_video_port = 0;
 
 threaddata_t  **ready_threads = nullptr;
 threaddata_t  **busy_threads = nullptr;
@@ -153,11 +154,15 @@ pthread_t    pthread_videoecho_id;
 #ifdef USE_TLS
 static bool quit_audioecho_thread = false;
 static bool quit_videoecho_thread = false;
+static bool portrotation_uas_audioecho_thread = false;
+static bool portrotation_uas_videoecho_thread = false;
 #endif
 pthread_mutex_t quit_mutexaudio = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t quit_mutexvideo = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t quit_cvaudio = PTHREAD_COND_INITIALIZER;
 pthread_cond_t quit_cvvideo = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t portrotation_uas_mutexaudio = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t portrotation_uas_mutexvideo = PTHREAD_MUTEX_INITIALIZER;
 
 // JLSRTP contexts
 SrtpChannel g_txUACAudio;
@@ -447,7 +452,7 @@ static void rtpstream_free_taskinfo(taskentry_t* taskinfo)
 {
     if (taskinfo) {
 #ifdef USE_TLS
-        /* audio SRTP echo activity indicators */
+        /* audio/video SRTP echo activity indicators */
         taskinfo->audio_srtp_echo_active = 0;
         taskinfo->video_srtp_echo_active = 0;
 #endif // USE_TLS
@@ -1824,17 +1829,35 @@ static int rtpstream_setsocketoptions(int sock)
 }
 
 /* code checked */
-static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
+static int rtpstream_get_uac_localport(int* rtpsocket, int* rtcpsocket, const char* mediaType)
 {
     int port_number = 0;
     int tries;
     struct sockaddr_storage address;
-    int max_tries = (min_rtp_port < (max_rtp_port - 2)) ? (max_rtp_port - min_rtp_port) : 1;
+    int max_tries = 0;
 
-    debugprint("rtpstream_get_localport\n");
+    if (!strcmp(mediaType, "audio")) {
+        max_tries = (min_rtp_audio_port < (max_rtp_audio_port - 2)) ? (max_rtp_audio_port - min_rtp_audio_port) : 1;
+    } else if (!strcmp(mediaType, "video")) {
+        max_tries = (min_rtp_video_port < (max_rtp_video_port - 2)) ? (max_rtp_video_port - min_rtp_video_port) : 1;
+    } else {
+        WARNING("rtpstream_get_uac_localport():  INVALID mediaType specified encountered while determining max_tries: [%s]", mediaType);
+        return 0;
+    }
 
-    if (next_rtp_port == 0) {
-        next_rtp_port = min_rtp_port;
+    debugprint("rtpstream_get_uac_localport\n");
+
+    if (!strcmp(mediaType, "audio")) {
+        if (next_rtp_audio_port == 0) {
+            next_rtp_audio_port = min_rtp_audio_port;
+        }
+    } else if (!strcmp(mediaType, "video")) {
+        if (next_rtp_video_port == 0) {
+            next_rtp_video_port = min_rtp_video_port;
+        }
+    } else {
+        WARNING("rtpstream_get_uac_localport():  INVALID mediaType specified when performing RTP port initialization: [%s]", mediaType);
+        return 0;
     }
 
     /* initialise address family and IP address for media socket */
@@ -1843,27 +1866,45 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
     if ((media_ip_is_ipv6?
          inet_pton(AF_INET6, media_ip, &((_RCAST(struct sockaddr_in6 *, &address))->sin6_addr)):
          inet_pton(AF_INET, media_ip, &((_RCAST(struct sockaddr_in *, &address))->sin_addr))) != 1) {
-        WARNING("Could not set up media IP for RTP streaming");
+        WARNING("Could not set up UAC media IP for RTP streaming");
         return 0;
     }
 
     /* create new UDP listen socket */
     *rtpsocket = socket(media_ip_is_ipv6?PF_INET6:PF_INET, SOCK_DGRAM, 0);
     if (*rtpsocket == -1) {
-        WARNING("Could not open socket for RTP streaming: %s", strerror(errno));
+        WARNING("Could not open UAC socket for RTP streaming: %s", strerror(errno));
         return 0;
     }
 
     for (tries = 0; tries < max_tries; tries++) {
-        /* try a sequence of port numbers until we find one where we can bind    */
-        /* should normally be the first port we try, unless we have long-running */
-        /* calls or somebody else is nicking ports.                              */
-        port_number = next_rtp_port;
+        if (!strcmp(mediaType, "audio")) {
+            /* try a sequence of port numbers until we find one where we can bind    */
+            /* should normally be the first port we try, unless we have long-running */
+            /* calls or somebody else is nicking ports.                              */
+            port_number = next_rtp_audio_port;
 
-        /* skip rtp ports in multiples of 2 (allow for rtp plus rtcp) */
-        next_rtp_port += 2;
-        if (next_rtp_port > (max_rtp_port - 1)) {
-            next_rtp_port = min_rtp_port;
+            /* skip rtp ports in multiples of 2 (allow for rtp plus rtcp) */
+            next_rtp_audio_port += 2;
+
+            if (next_rtp_audio_port > (max_rtp_audio_port - 1)) {
+                next_rtp_audio_port = min_rtp_audio_port;
+            }
+        } else if (!strcmp(mediaType, "video")) {
+            /* try a sequence of port numbers until we find one where we can bind    */
+            /* should normally be the first port we try, unless we have long-running */
+            /* calls or somebody else is nicking ports.                              */
+            port_number = next_rtp_video_port;
+
+            /* skip rtp ports in multiples of 2 (allow for rtp plus rtcp) */
+            next_rtp_video_port += 2;
+
+            if (next_rtp_video_port > (max_rtp_video_port - 1)) {
+                next_rtp_video_port = min_rtp_video_port;
+            }
+        } else {
+            WARNING("rtpstream_get_uac_localport():  INVALID mediatype specified when checking upper RTP port boundary: [%s]", mediaType);
+            return 0;
         }
 
         sockaddr_update_port(&address, port_number);
@@ -1877,14 +1918,14 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
     if (tries == max_tries) {
         close(*rtpsocket);
         *rtpsocket = -1;
-        WARNING("Could not bind port for RTP streaming after %d tries", tries);
+        WARNING("Could not bind UAC port for RTP streaming after %d tries", tries);
         return 0;
     }
 
     if (!rtpstream_setsocketoptions(*rtpsocket)) {
         close(*rtpsocket);
         *rtpsocket = -1;
-        WARNING("Could not set socket options for RTP streaming");
+        WARNING("Could not set UAC socket options for RTP streaming");
         return 0;
     }
 
@@ -1894,8 +1935,7 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
     if (*rtcpsocket != -1 && port_number > 0) {
         /* try to bind it to our preferred address */
         sockaddr_update_port(&address, port_number + 1);
-        if (::bind(*rtcpsocket, (sockaddr *) (void *)&address,
-                   socklen_from_addr(&address)) == 0) {
+        if (::bind(*rtcpsocket, (sockaddr *) (void *)&address, socklen_from_addr(&address)) != 0) {
             /* could not bind the rtcp socket to required port. so we delete it */
             close(*rtcpsocket);
             *rtcpsocket = -1;
@@ -1909,10 +1949,309 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
     return port_number;
 }
 
-/* code checked */
-int rtpstream_get_local_audioport(rtpstream_callinfo_t* callinfo)
+static int rtpstream_rotate_uac_localport(int* oldRtpSocket, int* oldRtcpSocket, int* newRtpSocket, int* newRtcpSocket, int newPort, const char* mediaType)
 {
-    debugprint("rtpstream_get_local_audioport callinfo=%p", callinfo);
+    struct sockaddr_storage address;
+
+    debugprint("rtpstream_rotate_uac_localport\n");
+
+    if (*newRtpSocket != *oldRtpSocket) {
+        if (!strcmp(mediaType, "audio")) {
+            if (next_rtp_audio_port == 0) {
+                next_rtp_audio_port = min_rtp_audio_port;
+            }
+        } else if (!strcmp(mediaType, "video")) {
+            if (next_rtp_video_port == 0) {
+                next_rtp_video_port = min_rtp_video_port;
+            }
+        } else {
+            WARNING("rtpstream_rotate_uac_localport():  INVALID mediaType specified when performing RTP port initialization: [%s]", mediaType);
+            return 0;
+        }
+
+        if (!strcmp(mediaType, "audio")) {
+            next_rtp_audio_port = newPort + 2;
+            if (next_rtp_audio_port > (max_rtp_audio_port - 1)) {
+                next_rtp_audio_port = min_rtp_audio_port;
+            }
+        } else if (!strcmp(mediaType, "video")) {
+            next_rtp_video_port = newPort + 2;
+            if (next_rtp_video_port > (max_rtp_video_port - 1)) {
+                next_rtp_video_port = min_rtp_video_port;
+            }
+        } else {
+            WARNING("rtpstream_rotate_uac_localport():  INVALID mediaType specified when checking upper RTP port boundary: [%s]", mediaType);
+            return 0;
+        }
+
+        /* initialise address family and IP address for media socket */
+        memset(&address, 0, sizeof(address));
+        address.ss_family = media_ip_is_ipv6 ? AF_INET6 : AF_INET;
+        if ((media_ip_is_ipv6?
+             inet_pton(AF_INET6, media_ip, &((_RCAST(struct sockaddr_in6 *, &address))->sin6_addr)):
+             inet_pton(AF_INET, media_ip, &((_RCAST(struct sockaddr_in *, &address))->sin_addr))) != 1) {
+            WARNING("Could not set up UAC media IP for RTP streaming");
+            return 0;
+        }
+
+        /* create new UDP listen socket */
+        *newRtpSocket = socket(media_ip_is_ipv6?PF_INET6:PF_INET, SOCK_DGRAM, 0);
+        if (*newRtpSocket == -1) {
+            WARNING("Could not open NEW UAC socket for RTP streaming: %s", strerror(errno));
+            return 0;
+        }
+
+        sockaddr_update_port(&address, newPort);
+        if (::bind(*newRtpSocket, (sockaddr*)&address, socklen_from_addr(&address)) != 0) {
+            /* Exit here if we didn't get a suitable port for rtp stream */
+            close(*newRtpSocket);
+            *newRtpSocket = -1;
+            WARNING("Could not bind NEW UAC port [%d] for RTP streaming", newPort);
+            return 0;
+        }
+
+        if (!rtpstream_setsocketoptions(*newRtpSocket)) {
+            close(*newRtpSocket);
+            *newRtpSocket = -1;
+            WARNING("Could not set NEW UAC socket options for RTP streaming");
+            return 0;
+        }
+
+        if (*oldRtpSocket != -1) {
+            close(*oldRtpSocket);
+            *oldRtpSocket = -1;
+        }
+    }
+
+    if (*newRtcpSocket != *oldRtcpSocket) {
+        /* create socket for rtcp - ignore any errors, we only bind so we
+         * won't send icmp-port-unreachable when rtcp arrives */
+        *newRtcpSocket = socket(media_ip_is_ipv6?PF_INET6:PF_INET, SOCK_DGRAM, 0);
+        if (*newRtcpSocket != -1 && newPort > 0) {
+            /* try to bind it to our preferred address */
+            sockaddr_update_port(&address, newPort + 1);
+            if (::bind(*newRtcpSocket, (sockaddr *) (void *)&address, socklen_from_addr(&address)) != 0) {
+                /* could not bind the rtcp socket to required port. so we delete it */
+                close(*newRtcpSocket);
+                *newRtcpSocket = -1;
+            }
+            if (!rtpstream_setsocketoptions(*newRtcpSocket)) {
+                close(*newRtcpSocket);
+                *newRtcpSocket = -1;
+            }
+        }
+
+        if (*oldRtcpSocket != -1) {
+            close(*oldRtcpSocket);
+            *oldRtcpSocket = -1;
+        }
+    }
+
+    return newPort;
+}
+
+/* code checked */
+static int rtpstream_get_uas_localport(int* rtpsocket, int* rtcpsocket, const char* mediaType)
+{
+    int uas_port_number = 0;
+    struct sockaddr_storage address;
+
+    debugprint("rtpstream_get_uas_localport\n");
+
+    if (!strcmp(mediaType, "audio")) {
+        if (next_rtp_audio_port == 0) {
+            next_rtp_audio_port = min_rtp_audio_port;
+        }
+    } else if (!strcmp(mediaType, "video")) {
+        if (next_rtp_video_port == 0) {
+            next_rtp_video_port = min_rtp_video_port;
+        }
+    } else {
+        WARNING("rtpstream_get_uas_localport():  INVALID mediaType specified when performing RTP port initialization: [%s]", mediaType);
+        return 0;
+    }
+
+    /* initialise address family and IP address for media socket */
+    memset(&address, 0, sizeof(address));
+    address.ss_family = media_ip_is_ipv6 ? AF_INET6 : AF_INET;
+    if ((media_ip_is_ipv6?
+         inet_pton(AF_INET6, media_ip, &((_RCAST(struct sockaddr_in6 *, &address))->sin6_addr)):
+         inet_pton(AF_INET, media_ip, &((_RCAST(struct sockaddr_in *, &address))->sin_addr))) != 1) {
+        WARNING("Could not set up UAS media IP for RTP streaming");
+        return 0;
+    }
+
+    /* create new UDP listen socket */
+    *rtpsocket = socket(media_ip_is_ipv6?PF_INET6:PF_INET, SOCK_DGRAM, 0);
+    if (*rtpsocket == -1) {
+        WARNING("Could not open UAS socket for RTP streaming: %s", strerror(errno));
+        return 0;
+    }
+
+    if (!strcmp(mediaType, "audio")) {
+        uas_port_number = next_rtp_audio_port;
+
+        /* skip rtp ports in multiples of 2 (allow for rtp plus rtcp) */
+        next_rtp_audio_port += 2;
+
+        if (next_rtp_audio_port > (max_rtp_audio_port - 1 )) {
+            next_rtp_audio_port = min_rtp_audio_port;
+        }
+    } else if (!strcmp(mediaType, "video")) {
+        uas_port_number = next_rtp_video_port;
+
+        /* skip rtp ports in multiples of 2 (allow for rtp plus rtcp) */
+        next_rtp_video_port += 2;
+
+        if (next_rtp_video_port > (max_rtp_video_port - 1)) {
+            next_rtp_video_port = min_rtp_video_port;
+        }
+    } else {
+        WARNING("rtpstream_get_uas_localport():  INVALID mediaType specified when checking upport RTP port boundary: [%s]", mediaType);
+        return 0;
+    }
+
+    sockaddr_update_port(&address, uas_port_number);
+    if (::bind(*rtpsocket, (sockaddr*)&address, socklen_from_addr(&address)) != 0) {
+        close(*rtpsocket);
+        *rtpsocket = -1;
+        WARNING("Could not bind UAS port for RTP streaming");
+        return 0;
+    }
+
+    if (!rtpstream_setsocketoptions(*rtpsocket)) {
+        close(*rtpsocket);
+        *rtpsocket = -1;
+        WARNING("Could not set UAS socket options for RTP streaming");
+        return 0;
+    }
+
+    /* create socket for rtcp - ignore any errors, we only bind so we won't send icmp-port-unreachable when rtcp arrives */
+    *rtcpsocket = socket(media_ip_is_ipv6?PF_INET6:PF_INET, SOCK_DGRAM, 0);
+    if (*rtcpsocket != -1 && uas_port_number > 0) {
+        /* try to bind it to our preferred address */
+        sockaddr_update_port(&address, uas_port_number + 1);
+        if (::bind(*rtcpsocket, (sockaddr *) (void *)&address, socklen_from_addr(&address)) != 0) {
+            /* could not bind the rtcp socket to required port. so we delete it */
+            close(*rtcpsocket);
+            *rtcpsocket = -1;
+        }
+        if (!rtpstream_setsocketoptions(*rtcpsocket)) {
+            close(*rtcpsocket);
+            *rtcpsocket = -1;
+        }
+    }
+
+    return uas_port_number;
+}
+
+#ifdef USE_TLS
+static int rtpstream_rotate_uas_localport(int* oldRtpSocket, int* oldRtcpSocket, int* newRtpSocket, int* newRtcpSocket, int newPort, const char* mediaType)
+{
+    struct sockaddr_storage address;
+
+    debugprint("rtpstream_rotate_uas_localport\n");
+
+    if (*newRtpSocket != *oldRtpSocket) {
+        if (!strcmp(mediaType, "audio")) {
+            if (next_rtp_audio_port == 0) {
+                next_rtp_audio_port = min_rtp_audio_port;
+            }
+        } else if (!strcmp(mediaType, "video")) {
+            if (next_rtp_video_port == 0) {
+                next_rtp_video_port = min_rtp_video_port;
+            }
+        } else {
+            WARNING("rtpstream_rotate_uas_localport():  INVALID mediaType specified when performing RTP port initialization: [%s]", mediaType);
+            return 0;
+        }
+
+        if (!strcmp(mediaType, "audio")) {
+            next_rtp_audio_port = newPort + 2;
+            if (next_rtp_audio_port > (max_rtp_audio_port - 1)) {
+                next_rtp_audio_port = min_rtp_audio_port;
+            }
+        } else if (!strcmp(mediaType, "video")) {
+            next_rtp_video_port = newPort + 2;
+            if (next_rtp_video_port > (max_rtp_video_port - 1)) {
+                next_rtp_video_port = min_rtp_video_port;
+            }
+        } else {
+            WARNING("rtpstream_rotate_uas_localport():  INVALID mediaType specified when checking upper RTP port boundary: [%s]", mediaType);
+            return 0;
+        }
+
+        /* initialise address family and IP address for media socket */
+        memset(&address, 0, sizeof(address));
+        address.ss_family = media_ip_is_ipv6 ? AF_INET6 : AF_INET;
+        if ((media_ip_is_ipv6?
+             inet_pton(AF_INET6, media_ip, &((_RCAST(struct sockaddr_in6 *, &address))->sin6_addr)):
+             inet_pton(AF_INET, media_ip, &((_RCAST(struct sockaddr_in *, &address))->sin_addr))) != 1) {
+            WARNING("Could not set up UAS media IP for RTP streaming");
+            return 0;
+        }
+
+        /* create new UDP listen socket */
+        *newRtpSocket = socket(media_ip_is_ipv6?PF_INET6:PF_INET, SOCK_DGRAM, 0);
+        if (*newRtpSocket == -1) {
+            WARNING("Could not open NEW UAS socket for RTP streaming: %s", strerror(errno));
+            return 0;
+        }
+
+        sockaddr_update_port(&address, newPort);
+        if (::bind(*newRtpSocket, (sockaddr*)&address, socklen_from_addr(&address)) != 0) {
+            /* Exit here if we didn't get a suitable port for rtp stream */
+            close(*newRtpSocket);
+            *newRtpSocket = -1;
+            WARNING("Could not bind NEW UAS port [%d] for RTP streaming", newPort);
+            return 0;
+        }
+
+        if (!rtpstream_setsocketoptions(*newRtpSocket)) {
+            close(*newRtpSocket);
+            *newRtpSocket = -1;
+            WARNING("Could not set NEW UAS socket options for RTP streaming");
+            return 0;
+        }
+
+        if (*oldRtpSocket != -1) {
+            close(*oldRtpSocket);
+            *oldRtpSocket = -1;
+        }
+    }
+
+    if (*newRtcpSocket != *oldRtcpSocket) {
+        /* create socket for rtcp - ignore any errors, we only bind so we
+         * won't send icmp-port-unreachable when rtcp arrives */
+        *newRtcpSocket = socket(media_ip_is_ipv6?PF_INET6:PF_INET, SOCK_DGRAM, 0);
+        if (*newRtcpSocket != -1 && newPort > 0) {
+            /* try to bind it to our preferred address */
+            sockaddr_update_port(&address, newPort + 1);
+            if (::bind(*newRtcpSocket, (sockaddr *) (void *)&address, socklen_from_addr(&address)) != 0) {
+                /* could not bind the rtcp socket to required port. so we delete it */
+                close(*newRtcpSocket);
+                *newRtcpSocket = -1;
+            }
+            if (!rtpstream_setsocketoptions(*newRtcpSocket)) {
+                close(*newRtcpSocket);
+                *newRtcpSocket = -1;
+            }
+        }
+
+        if (*oldRtcpSocket != -1) {
+            close(*oldRtcpSocket);
+            *oldRtcpSocket = -1;
+        }
+    }
+
+    return newPort;
+}
+#endif // USE_TLS
+
+/* code checked */
+int rtpstream_get_local_uac_audioport(rtpstream_callinfo_t* callinfo)
+{
+    debugprint("rtpstream_get_local_uac_audioport callinfo=%p", callinfo);
 
     int   rtp_socket;
     int   rtcp_socket;
@@ -1927,7 +2266,7 @@ int rtpstream_get_local_audioport(rtpstream_callinfo_t* callinfo)
         return callinfo->local_audioport;
     }
 
-    callinfo->local_audioport = rtpstream_get_localport(&rtp_socket, &rtcp_socket);
+    callinfo->local_audioport = rtpstream_get_uac_localport(&rtp_socket, &rtcp_socket, "audio");
 
     debugprint(" ==> %d\n", callinfo->local_audioport);
 
@@ -1950,9 +2289,9 @@ int rtpstream_get_local_audioport(rtpstream_callinfo_t* callinfo)
 }
 
 /* code checked */
-int rtpstream_get_local_videoport(rtpstream_callinfo_t* callinfo)
+int rtpstream_get_local_uac_videoport(rtpstream_callinfo_t* callinfo)
 {
-    debugprint("rtpstream_get_local_videoport callinfo=%p", callinfo);
+    debugprint("rtpstream_get_local_uac_videoport callinfo=%p", callinfo);
 
     int   rtp_socket;
     int   rtcp_socket;
@@ -1967,7 +2306,7 @@ int rtpstream_get_local_videoport(rtpstream_callinfo_t* callinfo)
         return callinfo->local_videoport;
     }
 
-    callinfo->local_videoport = rtpstream_get_localport(&rtp_socket, &rtcp_socket);
+    callinfo->local_videoport = rtpstream_get_uac_localport(&rtp_socket, &rtcp_socket, "video");
 
     debugprint(" ==> %d\n", callinfo->local_videoport);
 
@@ -1985,6 +2324,184 @@ int rtpstream_get_local_videoport(rtpstream_callinfo_t* callinfo)
 
     /* make sure the new socket gets bound to destination address (if any) */
     callinfo->taskinfo->flags |= TI_RECONNECTSOCKET;
+
+    return callinfo->local_videoport;
+}
+
+int rtpstream_rotate_local_uac_audioport(rtpstream_callinfo_t* callinfo, int newPort)
+{
+    debugprint("rtpstream_rotate_local_uac_audioport callinfo=%p", callinfo);
+
+    int   rtp_socket = 0;
+    int   rtcp_socket = 0;
+
+    if (!callinfo->taskinfo) {
+        return 0;
+    }
+
+    callinfo->local_audioport = rtpstream_rotate_uac_localport(&callinfo->taskinfo->audio_rtp_socket, &callinfo->taskinfo->audio_rtcp_socket, &rtp_socket, &rtcp_socket, newPort, "audio");
+
+    debugprint(" ==> %d\n", callinfo->local_audioport);
+
+    /* assign rtp and rtcp sockets to callinfo. must assign rtcp socket first */
+    callinfo->taskinfo->audio_rtcp_socket = rtcp_socket;
+    callinfo->taskinfo->audio_rtp_socket = rtp_socket;
+
+    /* start playback task if not already started */
+    if (!callinfo->taskinfo->parent_thread) {
+        if (!rtpstream_start_task(callinfo)) {
+            /* error starting playback task */
+            return 0;
+        }
+    }
+
+    /* make sure the new socket gets bound to destination address (if any) */
+    callinfo->taskinfo->flags |= TI_RECONNECTSOCKET;
+
+    return callinfo->local_audioport;
+}
+
+int rtpstream_rotate_local_uac_videoport(rtpstream_callinfo_t* callinfo, int newPort)
+{
+    debugprint("rtpstream_rotate_local_uac_videoport callinfo=%p", callinfo);
+
+    int   rtp_socket = 0;
+    int   rtcp_socket = 0;
+
+    if (!callinfo->taskinfo) {
+        return 0;
+    }
+
+    callinfo->local_videoport = rtpstream_rotate_uac_localport(&callinfo->taskinfo->video_rtp_socket, &callinfo->taskinfo->video_rtcp_socket, &rtp_socket, &rtcp_socket, newPort, "video");
+
+    debugprint(" ==> %d\n", callinfo->local_videoport);
+
+    /* assign rtp and rtcp sockets to callinfo. must assign rtcp socket first */
+    callinfo->taskinfo->video_rtcp_socket = rtcp_socket;
+    callinfo->taskinfo->video_rtp_socket = rtp_socket;
+
+    /* start playback task if not already started */
+    if (!callinfo->taskinfo->parent_thread) {
+        if (!rtpstream_start_task(callinfo)) {
+            /* error starting playback task */
+            return 0;
+        }
+    }
+
+    /* make sure the new socket gets bound to destination address (if any) */
+    callinfo->taskinfo->flags |= TI_RECONNECTSOCKET;
+
+    return callinfo->local_videoport;
+}
+
+int rtpstream_get_local_uas_audioport(rtpstream_callinfo_t* callinfo)
+{
+    debugprint("rtpstream_get_local_uas_audioport callinfo=%p", callinfo);
+
+    int   rtp_socket;
+    int   rtcp_socket;
+
+    if (!callinfo->taskinfo) {
+        return 0;
+    }
+
+    if (callinfo->local_audioport) {
+        /* already a port assigned to this call */
+        debugprint(" ==> %d\n", callinfo->local_audioport);
+        return callinfo->local_audioport;
+    }
+
+    callinfo->local_audioport = rtpstream_get_uas_localport(&rtp_socket, &rtcp_socket, "audio");
+
+    debugprint(" ==> %d\n", callinfo->local_audioport);
+
+    /* assign rtp and rtcp sockets to callinfo. must assign rtcp socket first */
+    callinfo->taskinfo->audio_rtcp_socket = rtcp_socket;
+    callinfo->taskinfo->audio_rtp_socket = rtp_socket;
+
+    return callinfo->local_audioport;
+}
+
+int rtpstream_get_local_uas_videoport(rtpstream_callinfo_t* callinfo)
+{
+    debugprint("rtpstream_get_local_uas_videoport callinfo=%p", callinfo);
+
+    int   rtp_socket;
+    int   rtcp_socket;
+
+    if (!callinfo->taskinfo) {
+        return 0;
+    }
+
+    if (callinfo->local_videoport) {
+        /* already a port assigned to this call */
+        debugprint(" ==> %d\n", callinfo->local_videoport);
+        return callinfo->local_videoport;
+    }
+
+    callinfo->local_videoport = rtpstream_get_uas_localport(&rtp_socket, &rtcp_socket, "video");
+
+    debugprint(" ==> %d\n", callinfo->local_videoport);
+
+    /* assign rtp and rtcp sockets to callinfo. must assign rtcp socket first */
+    callinfo->taskinfo->video_rtcp_socket = rtcp_socket;
+    callinfo->taskinfo->video_rtp_socket = rtp_socket;
+
+    return callinfo->local_videoport;
+}
+
+int rtpstream_rotate_local_uas_audioport(rtpstream_callinfo_t* callinfo, int newPort)
+{
+    debugprint("rtpstream_rotate_local_uas_audioport callinfo=%p", callinfo);
+
+    if (!callinfo->taskinfo) {
+        return 0;
+    }
+
+#ifdef USE_TLS
+    int   rtp_socket = 0;
+    int   rtcp_socket = 0;
+
+    pthread_mutex_lock(&portrotation_uas_mutexaudio);
+    portrotation_uas_audioecho_thread = true;
+    pthread_mutex_unlock(&portrotation_uas_mutexaudio);
+
+    callinfo->local_audioport = rtpstream_rotate_uas_localport(&callinfo->taskinfo->audio_rtp_socket, &callinfo->taskinfo->audio_rtcp_socket, &rtp_socket, &rtcp_socket, newPort, "audio");
+
+    debugprint(" ==> %d\n", callinfo->local_audioport);
+
+    /* assign rtp and rtcp sockets to callinfo. must assign rtcp socket first */
+    callinfo->taskinfo->audio_rtcp_socket = rtcp_socket;
+    callinfo->taskinfo->audio_rtp_socket = rtp_socket;
+#endif // USE_TLS
+
+    return callinfo->local_audioport;
+}
+
+int rtpstream_rotate_local_uas_videoport(rtpstream_callinfo_t* callinfo, int newPort)
+{
+    debugprint("rtpstream_rotate_local_uas_videoport callinfo=%p", callinfo);
+
+    if (!callinfo->taskinfo) {
+        return 0;
+    }
+
+#ifdef USE_TLS
+    int   rtp_socket = 0;
+    int   rtcp_socket = 0;
+
+    pthread_mutex_lock(&portrotation_uas_mutexvideo);
+    portrotation_uas_videoecho_thread = true;
+    pthread_mutex_unlock(&portrotation_uas_mutexvideo);
+
+    callinfo->local_videoport = rtpstream_rotate_uas_localport(&callinfo->taskinfo->video_rtp_socket, &callinfo->taskinfo->video_rtcp_socket, &rtp_socket, &rtcp_socket, newPort, "video");
+
+    debugprint(" ==> %d\n", callinfo->local_videoport);
+
+    /* assign rtp and rtcp sockets to callinfo. must assign rtcp socket first */
+    callinfo->taskinfo->video_rtcp_socket = rtcp_socket;
+    callinfo->taskinfo->video_rtp_socket = rtp_socket;
+#endif // USE_TLS
 
     return callinfo->local_videoport;
 }
@@ -2426,7 +2943,7 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
     }
 
     /* make sure we have an open socket from which to play the audio file */
-    rtpstream_get_local_audioport(callinfo);
+    rtpstream_get_local_uac_audioport(callinfo);
 
     /* save file parameter in taskinfo structure */
     taskinfo->new_audio_pattern_id = actioninfo->pattern_id;
@@ -2501,7 +3018,7 @@ void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     }
 
     /* make sure we have an open socket from which to play the audio file */
-    rtpstream_get_local_audioport(callinfo);
+    rtpstream_get_local_uac_audioport(callinfo);
 
     /* save file parameter in taskinfo structure */
     taskinfo->new_audio_pattern_id = actioninfo->pattern_id;
@@ -2577,7 +3094,7 @@ void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     }
 
     /* make sure we have an open socket from which to play the video file */
-    rtpstream_get_local_videoport(callinfo);
+    rtpstream_get_local_uac_videoport(callinfo);
 
     /* save file parameter in taskinfo structure */
     taskinfo->new_video_pattern_id = actioninfo->pattern_id;
@@ -2627,6 +3144,8 @@ void rtpstream_audioecho_thread(void* param)
 {
     int exit_code = 0;
 #ifdef USE_TLS
+    bool rx_auth_tag_present = false;
+    bool tx_auth_tag_present = false;
     my_unique_ptr<unsigned char[]> msg {
         reinterpret_cast<unsigned char*>(malloc(media_bufsize)) };
     ssize_t nr;
@@ -2647,6 +3166,9 @@ void rtpstream_audioecho_thread(void* param)
     unsigned short host_seqnum = 0;
     unsigned int host_timestamp = 0;
     unsigned int host_ssrc = 0;
+    std::vector<unsigned char>::iterator it = audio_packet_in.begin();
+    std::vector<unsigned char>::iterator it_payload_begin = audio_packet_in.begin();
+    std::vector<unsigned char>::iterator it_payload_end = audio_packet_in.end();
     bool abnormal_termination = false;
     quit_audioecho_thread = false;
     ParamPass p;
@@ -2659,6 +3181,24 @@ void rtpstream_audioecho_thread(void* param)
     if (param != nullptr)
     {
         sock = p.i;
+    }
+
+    if (g_rxUASAudio.getCryptoTag() != 0)
+    {
+        rx_auth_tag_present = true;
+    }
+    else
+    {
+        rx_auth_tag_present = false;
+    }
+
+    if (g_txUASAudio.getCryptoTag() != 0)
+    {
+        tx_auth_tag_present = true;
+    }
+    else
+    {
+        tx_auth_tag_present = false;
     }
 
     if ((flags = fcntl(sock, F_GETFL, 0)) < 0)
@@ -2707,7 +3247,14 @@ void rtpstream_audioecho_thread(void* param)
             nr = 0;
             memset(msg.get(), 0, media_bufsize);
             len = sizeof(remote_rtp_addr);
-            audio_packet_in.resize(sizeof(rtp_header_t) + g_rxUASAudio.getSrtpPayloadSize() + g_rxUASAudio.getAuthenticationTagSize(), 0);
+            if (rx_auth_tag_present)
+            {
+                audio_packet_in.resize(sizeof(rtp_header_t) + g_rxUASAudio.getSrtpPayloadSize() + g_rxUASAudio.getAuthenticationTagSize(), 0);
+            }
+            else
+            {
+                audio_packet_in.resize(sizeof(rtp_header_t) + g_rxUASAudio.getSrtpPayloadSize(), 0);
+            }
             nr = recvfrom(sock, audio_packet_in.data(), audio_packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
 
             if (nr >= 0) {
@@ -2733,7 +3280,7 @@ void rtpstream_audioecho_thread(void* param)
                 }
                 pthread_mutex_unlock(&debugremutexaudio);
 
-                if (g_rxUASAudio.getCryptoTag() != 0)
+                if (rx_auth_tag_present)
                 {
                     rtp_header.clear();
                     payload_data.clear();
@@ -2769,8 +3316,26 @@ void rtpstream_audioecho_thread(void* param)
                     memcpy(msg.get(), rtp_header.data(), rtp_header.size());
                     memcpy(msg.get() + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
                 }
+                else
+                {
+                    it = audio_packet_in.begin();
+                    it_payload_begin = audio_packet_in.begin();
+                    it_payload_end = audio_packet_in.end();
+                    unsigned int header_payload_size = 0;
 
-                if (g_txUASAudio.getCryptoTag() != 0)
+                    header_payload_size = sizeof(rtp_header_t) + g_rxUASAudio.getSrtpPayloadSize();
+                    rtp_header.clear();
+                    payload_data.clear();
+
+                    std::advance(it, sizeof(rtp_header_t));
+                    rtp_header.assign(audio_packet_in.begin(), it); // Fetch leading 12 bytes
+
+                    std::advance(it_payload_begin, sizeof(rtp_header_t));
+                    std::advance(it_payload_end, header_payload_size);
+                    payload_data.assign(it_payload_begin, it_payload_end); // Fetch payload bytes
+                }
+
+                if (tx_auth_tag_present)
                 {
                     audio_packet_out.clear();
 
@@ -2790,9 +3355,18 @@ void rtpstream_audioecho_thread(void* param)
                         fprintf(debugrefileaudio, "TXUASAUDIO -- processOutgoingPacket() rc == %d\n", rc);
                     }
                     pthread_mutex_unlock(&debugremutexaudio);
+                    ns = sendto(sock, audio_packet_out.data(), sizeof(rtp_header_t) + g_txUASAudio.getSrtpPayloadSize() + g_txUASAudio.getAuthenticationTagSize(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
                 }
+                else
+                {
+                    audio_packet_out.clear();
 
-                ns = sendto(sock, audio_packet_out.data(), sizeof(rtp_header_t) + g_txUASAudio.getSrtpPayloadSize() + g_txUASAudio.getAuthenticationTagSize(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
+                    // ASSEMBLE PACKET
+                    audio_packet_out.insert(audio_packet_out.end(), rtp_header.begin(), rtp_header.end());
+                    audio_packet_out.insert(audio_packet_out.end(), payload_data.begin(), payload_data.end());
+
+                    ns = sendto(sock, audio_packet_out.data(), sizeof(rtp_header_t) + g_txUASAudio.getSrtpPayloadSize(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
+                }
 
                 if (ns != nr) {
                     pthread_mutex_lock(&debugremutexaudio);
@@ -2890,6 +3464,8 @@ void rtpstream_videoecho_thread(void* param)
 {
     int exit_code = 0;
 #ifdef USE_TLS
+    bool rx_auth_tag_present = false;
+    bool tx_auth_tag_present = false;
     my_unique_ptr<unsigned char[]> msg {
         reinterpret_cast<unsigned char*>(malloc(media_bufsize)) };
     ssize_t nr;
@@ -2910,6 +3486,9 @@ void rtpstream_videoecho_thread(void* param)
     unsigned short host_seqnum = 0;
     unsigned int host_timestamp = 0;
     unsigned int host_ssrc = 0;
+    std::vector<unsigned char>::iterator it = video_packet_in.begin();
+    std::vector<unsigned char>::iterator it_payload_begin = video_packet_in.begin();
+    std::vector<unsigned char>::iterator it_payload_end = video_packet_in.end();
     bool abnormal_termination = false;
     quit_videoecho_thread = false;
     ParamPass p;
@@ -2922,6 +3501,24 @@ void rtpstream_videoecho_thread(void* param)
     if (param != nullptr)
     {
         sock = p.i;
+    }
+
+    if (g_rxUASVideo.getCryptoTag() != 0)
+    {
+        rx_auth_tag_present = true;
+    }
+    else
+    {
+        rx_auth_tag_present = false;
+    }
+
+    if (g_txUASVideo.getCryptoTag() != 0)
+    {
+        tx_auth_tag_present = true;
+    }
+    else
+    {
+        tx_auth_tag_present = false;
     }
 
     if ((flags = fcntl(sock, F_GETFL, 0)) < 0)
@@ -2970,7 +3567,14 @@ void rtpstream_videoecho_thread(void* param)
             nr = 0;
             memset(msg.get(), 0, media_bufsize);
             len = sizeof(remote_rtp_addr);
-            video_packet_in.resize(sizeof(rtp_header_t) + g_rxUASVideo.getSrtpPayloadSize() + g_rxUASVideo.getAuthenticationTagSize(), 0);
+            if (rx_auth_tag_present)
+            {
+                video_packet_in.resize(sizeof(rtp_header_t) + g_rxUASVideo.getSrtpPayloadSize() + g_rxUASVideo.getAuthenticationTagSize(), 0);
+            }
+            else
+            {
+                video_packet_in.resize(sizeof(rtp_header_t) + g_rxUASVideo.getSrtpPayloadSize(), 0);
+            }
             nr = recvfrom(sock, video_packet_in.data(), video_packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
 
             if (nr >= 0) {
@@ -2996,7 +3600,7 @@ void rtpstream_videoecho_thread(void* param)
                 }
                 pthread_mutex_unlock(&debugremutexvideo);
 
-                if (g_rxUASVideo.getCryptoTag() != 0)
+                if (rx_auth_tag_present)
                 {
                     rtp_header.clear();
                     payload_data.clear();
@@ -3031,11 +3635,29 @@ void rtpstream_videoecho_thread(void* param)
                     memcpy(msg.get(), rtp_header.data(), rtp_header.size());
                     memcpy(msg.get() + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
                 }
+                else
+                {
+                    it = video_packet_in.begin();
+                    it_payload_begin = video_packet_in.begin();
+                    it_payload_end = video_packet_in.end();
+                    unsigned int header_payload_size = 0;
 
-                if (g_txUASVideo.getCryptoTag() != 0)
+                    header_payload_size = sizeof(rtp_header_t) + g_rxUASVideo.getSrtpPayloadSize();
+                    rtp_header.clear();
+                    payload_data.clear();
+
+                    std::advance(it, sizeof(rtp_header_t));
+                    rtp_header.assign(video_packet_in.begin(), it); // Fetch leading 12 bytes
+
+                    std::advance(it_payload_begin, sizeof(rtp_header_t));
+                    std::advance(it_payload_end, header_payload_size);
+                    payload_data.assign(it_payload_begin, it_payload_end); // Fetch payload bytes
+                }
+
+                if (tx_auth_tag_present)
                 {
                     video_packet_out.clear();
-                    // ENCRYPT
+
                     // GRAB RTP HEADER
                     rtp_header.resize(sizeof(rtp_header_t), 0);
                     memcpy(rtp_header.data(), msg.get(), sizeof(rtp_header_t) /*12*/);
@@ -3052,9 +3674,18 @@ void rtpstream_videoecho_thread(void* param)
                         fprintf(debugrefilevideo, "TXUASVIDEO -- processOutgoingPacket() rc == %d\n", rc);
                     }
                     pthread_mutex_unlock(&debugremutexvideo);
+                    ns = sendto(sock, video_packet_out.data(), sizeof(rtp_header_t) + g_txUASVideo.getSrtpPayloadSize() + g_txUASVideo.getAuthenticationTagSize(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
                 }
+                else
+                {
+                    video_packet_out.clear();
 
-                ns = sendto(sock, video_packet_out.data(), sizeof(rtp_header_t) + g_txUASVideo.getSrtpPayloadSize() + g_txUASVideo.getAuthenticationTagSize(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
+                    // ASSEMBLE PACKET
+                    video_packet_out.insert(video_packet_out.end(), rtp_header.begin(), rtp_header.end());
+                    video_packet_out.insert(video_packet_out.end(), payload_data.begin(), payload_data.end());
+
+                    ns = sendto(sock, video_packet_out.data(), sizeof(rtp_header_t) + g_txUASVideo.getSrtpPayloadSize(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
+                }
 
                 if (ns != nr) {
                     pthread_mutex_lock(&debugremutexvideo);
@@ -3082,7 +3713,7 @@ void rtpstream_videoecho_thread(void* param)
                 //pthread_mutex_lock(&debugremutexvideo);
                 //if (debugrefilevideo != nullptr)
                 //{
-                //fprintf(debugrefilevideo, "No activity on videoecho socket (EAGAIN)...\n");
+                //    fprintf(debugrefilevideo, "No activity on videoecho socket (EAGAIN)...\n");
                 //}
                 //pthread_mutex_unlock(&debugremutexvideo);
             }
@@ -3220,7 +3851,9 @@ int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASA
     }
 
 #ifdef USE_TLS
-    taskinfo->audio_srtp_echo_active = 1;
+    ParamPass p;
+    ResultCheck r;
+    bool rotate = false;
 
     pthread_mutex_lock(&debugremutexaudio);
     if (debugrefileaudio != nullptr)
@@ -3231,10 +3864,81 @@ int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASA
     printRemoteAudioSrtpStuff(taskinfo->remote_srtp_audio_params);
     pthread_mutex_unlock(&debugremutexaudio);
 
-    pthread_mutex_lock(&uasAudioMutex);
-    g_rxUASAudio = rxUASAudio;
-    g_txUASAudio = txUASAudio;
-    pthread_mutex_unlock(&uasAudioMutex);
+    pthread_mutex_lock(&portrotation_uas_mutexaudio);
+    rotate = portrotation_uas_audioecho_thread;
+    pthread_mutex_unlock(&portrotation_uas_mutexaudio);
+
+    if (rotate) {
+        taskinfo->audio_srtp_echo_active = 0;
+
+        pthread_mutex_lock(&quit_mutexaudio);
+
+        pthread_mutex_lock(&debugremutexaudio);
+        if (debugrefileaudio != nullptr)
+        {
+            fprintf(debugrefileaudio, "MAIN:  Setting quit_audioecho_thread flag to TRUE to PERFORM AUDIO PORT ROTATION...\n");
+        }
+        pthread_mutex_unlock(&debugremutexaudio);
+        quit_audioecho_thread = true;
+        pthread_mutex_lock(&debugremutexaudio);
+        if (debugrefileaudio != nullptr)
+        {
+            fprintf(debugrefileaudio, "MAIN:  Sending QUIT signal to PERFORM AUDIO PORT ROTATION...\n");
+        }
+        pthread_mutex_unlock(&debugremutexaudio);
+        pthread_cond_signal(&quit_cvaudio);
+
+        pthread_mutex_unlock(&quit_mutexaudio);
+
+        if (pthread_join(pthread_audioecho_id, &r.p) == 0)
+        {
+            // successfully joined audio thread
+            pthread_mutex_lock(&debugremutexaudio);
+            if (debugrefileaudio != nullptr)
+            {
+                fprintf(debugrefileaudio, "successfully joined audio thread: %d to PERFORM AUDIO PORT ROTATION...\n", r.i);
+            }
+            pthread_mutex_unlock(&debugremutexaudio);
+        }
+        else
+        {
+            // error joining audio thread
+            pthread_mutex_lock(&debugremutexaudio);
+            if (debugrefileaudio != nullptr)
+            {
+                fprintf(debugrefileaudio, "error joining audio thread: %d to PERFORM AUDIO PORT ROTATION...\n", r.i);
+            }
+            pthread_mutex_unlock(&debugremutexaudio);
+        }
+
+        taskinfo->audio_srtp_echo_active = 1;
+
+        pthread_mutex_lock(&uasAudioMutex);
+        g_rxUASAudio = rxUASAudio;
+        g_txUASAudio = txUASAudio;
+        pthread_mutex_unlock(&uasAudioMutex);
+
+        p.i = taskinfo->audio_rtp_socket;
+
+        if (taskinfo->audio_rtp_socket > 0) {
+            if (pthread_create(&pthread_audioecho_id, nullptr, (void *(*) (void *)) rtpstream_audioecho_thread, p.p) == -1) {
+                ERROR_NO("Unable to recreate RTP audio echo thread");
+                return -7;
+            }
+        }
+
+        pthread_mutex_lock(&portrotation_uas_mutexaudio);
+        portrotation_uas_audioecho_thread = false;
+        pthread_mutex_unlock(&portrotation_uas_mutexaudio);
+        rotate = false;
+    } else {
+        taskinfo->audio_srtp_echo_active = 1;
+
+        pthread_mutex_lock(&uasAudioMutex);
+        g_rxUASAudio = rxUASAudio;
+        g_txUASAudio = txUASAudio;
+        pthread_mutex_unlock(&uasAudioMutex);
+    }
 #endif // USE_TLS
 
     return 0;
@@ -3393,7 +4097,9 @@ int rtpstream_rtpecho_updatevideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASV
     }
 
 #ifdef USE_TLS
-    taskinfo->video_srtp_echo_active = 1;
+    ParamPass p;
+    ResultCheck r;
+    bool rotate = false;
 
     pthread_mutex_lock(&debugremutexvideo);
     if (debugrefilevideo != nullptr)
@@ -3404,10 +4110,81 @@ int rtpstream_rtpecho_updatevideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASV
     printRemoteVideoSrtpStuff(taskinfo->remote_srtp_video_params);
     pthread_mutex_unlock(&debugremutexvideo);
 
-    pthread_mutex_lock(&uasVideoMutex);
-    g_rxUASVideo = rxUASVideo;
-    g_txUASVideo = txUASVideo;
-    pthread_mutex_unlock(&uasVideoMutex);
+    pthread_mutex_lock(&portrotation_uas_mutexvideo);
+    rotate = portrotation_uas_videoecho_thread;
+    pthread_mutex_unlock(&portrotation_uas_mutexvideo);
+
+    if (rotate) {
+        taskinfo->video_srtp_echo_active = 0;
+
+        pthread_mutex_lock(&quit_mutexvideo);
+
+        pthread_mutex_lock(&debugremutexvideo);
+        if (debugrefilevideo != nullptr)
+        {
+            fprintf(debugrefilevideo, "MAIN:  Setting quit_videoecho_thread flag to TRUE to PERFORM VIDEO PORT ROTATION...\n");
+        }
+        pthread_mutex_unlock(&debugremutexvideo);
+        quit_videoecho_thread = true;
+        pthread_mutex_lock(&debugremutexvideo);
+        if (debugrefilevideo != nullptr)
+        {
+            fprintf(debugrefilevideo, "MAIN:  Sending QUIT signal to PERFORM VIDEO PORT ROTATION...\n");
+        }
+        pthread_mutex_unlock(&debugremutexvideo);
+        pthread_cond_signal(&quit_cvvideo);
+
+        pthread_mutex_unlock(&quit_mutexvideo);
+
+        if (pthread_join(pthread_videoecho_id, &r.p) == 0)
+        {
+            // successfully joined video thread
+            pthread_mutex_lock(&debugremutexvideo);
+            if (debugrefilevideo != nullptr)
+            {
+                fprintf(debugrefilevideo, "successfully joined video thread: %d to PERFORM VIDEO PORT ROTATION...\n", r.i);
+            }
+            pthread_mutex_unlock(&debugremutexvideo);
+        }
+        else
+        {
+            // error joining video thread
+            pthread_mutex_lock(&debugremutexvideo);
+            if (debugrefilevideo != nullptr)
+            {
+                fprintf(debugrefilevideo, "error joining video thread: %d to PERFORM VIDEO PORT ROTATION...\n", r.i);
+            }
+            pthread_mutex_unlock(&debugremutexvideo);
+        }
+
+        taskinfo->video_srtp_echo_active = 1;
+
+        pthread_mutex_lock(&uasVideoMutex);
+        g_rxUASVideo = rxUASVideo;
+        g_txUASVideo = txUASVideo;
+        pthread_mutex_unlock(&uasVideoMutex);
+
+        p.i = taskinfo->video_rtp_socket;
+
+        if (taskinfo->video_rtp_socket > 0) {
+            if (pthread_create(&pthread_videoecho_id, nullptr, (void *(*) (void *)) rtpstream_videoecho_thread, p.p) == -1) {
+                ERROR_NO("Unable to recreate RTP video echo thread");
+                return -7;
+            }
+        }
+
+        pthread_mutex_lock(&portrotation_uas_mutexvideo);
+        portrotation_uas_videoecho_thread = false;
+        pthread_mutex_unlock(&portrotation_uas_mutexvideo);
+        rotate = false;
+    } else {
+        taskinfo->video_srtp_echo_active = 1;
+
+        pthread_mutex_lock(&uasVideoMutex);
+        g_rxUASVideo = rxUASVideo;
+        g_txUASVideo = txUASVideo;
+        pthread_mutex_unlock(&uasVideoMutex);
+    }
 #endif // USE_TLS
 
     return 0;

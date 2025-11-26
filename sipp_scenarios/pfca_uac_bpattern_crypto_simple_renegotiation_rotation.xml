@@ -30,6 +30,20 @@
       s=-
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
+      m=audio [rtpstream_audio_port] RTP/AVP 0 18 9 103 8 101
+      a=rtcp:[rtpstream_audio_port+1]
+      a=crypto:[cryptotag1audio] [cryptosuiteaescm128sha1801audio] inline:[cryptokeyparams1audio]
+      a=crypto:[cryptotag2audio] [cryptosuiteaescm128sha1322audio] inline:[cryptokeyparams2audio]
+      a=sendrecv
+      a=rtpmap:0 PCMU/8000
+      a=rtpmap:18 G729/8000
+      a=rtpmap:9 G722/16000
+      a=fmtp:9 bitrate=64000
+      a=rtpmap:103 G7221/16000
+      a=fmtp:103 bitrate=32000
+      a=rtpmap:8 PCMA/8000
+      a=rtpmap:101 telephone-event/8000
+      a=fmtp:101 0-11,16
       m=video [rtpstream_video_port] RTP/AVP 99 98 96 97
       a=rtcp:[rtpstream_video_port+1]
       a=crypto:[cryptotag1video] [cryptosuiteaescm128sha1801video] inline:[cryptokeyparams1video]
@@ -107,6 +121,7 @@
 
   <nop>
       <action>
+          <exec rtp_stream="apattern,1,0,PCMU/8000" />
           <exec rtp_stream="vpattern,1,99,H264/90000" />
       </action>
   </nop>
@@ -138,7 +153,21 @@
       s=-
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
-      m=video [rtpstream_video_port] RTP/AVP 99 98 96 97
+      m=audio [rtpstream_audio_port+2] RTP/AVP 0 18 9 103 8 101
+      a=rtcp:[rtpstream_audio_port+1]
+      a=crypto:[cryptotag1audio] [cryptosuiteaescm128sha1801audio] inline:[cryptokeyparams1audio]
+      a=crypto:[cryptotag2audio] [cryptosuiteaescm128sha1322audio] inline:[cryptokeyparams2audio]
+      a=sendrecv
+      a=rtpmap:0 PCMU/8000
+      a=rtpmap:18 G729/8000
+      a=rtpmap:9 G722/16000
+      a=fmtp:9 bitrate=64000
+      a=rtpmap:103 G7221/16000
+      a=fmtp:103 bitrate=32000
+      a=rtpmap:8 PCMA/8000
+      a=rtpmap:101 telephone-event/8000
+      a=fmtp:101 0-11,16
+      m=video [rtpstream_video_port+2] RTP/AVP 99 98 96 97
       a=rtcp:[rtpstream_video_port+1]
       a=crypto:[cryptotag1video] [cryptosuiteaescm128sha1801video] inline:[cryptokeyparams1video]
       a=crypto:[cryptotag2video] [cryptosuiteaescm128sha1322video] inline:[cryptokeyparams2video]
@@ -183,6 +212,7 @@
 
   <nop>
       <action>
+          <exec rtp_stream="apattern,2,0,PCMU/8000" />
           <exec rtp_stream="vpattern,2,99,H264/90000" />
       </action>
   </nop>
