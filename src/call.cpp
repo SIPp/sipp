@@ -3128,7 +3128,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 }
             }
             pA.audio_found = true;
-            strncpy(pA.primary_audio_cryptokeyparams, mks.c_str(), 40);
+            memcpy(pA.primary_audio_cryptokeyparams, mks.c_str(), 40);
+            pA.primary_audio_cryptokeyparams[40] = '\0';
             dest += snprintf(dest, left, "%s", pA.primary_audio_cryptokeyparams);
             srtp_audio_updated = true;
         }
@@ -3170,7 +3171,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 }
             }
             pA.audio_found = true;
-            strncpy(pA.secondary_audio_cryptokeyparams, mks.c_str(), 40);
+            memcpy(pA.secondary_audio_cryptokeyparams, mks.c_str(), 40);
+            pA.secondary_audio_cryptokeyparams[40] = '\0';
             dest += snprintf(dest, left, "%s", pA.secondary_audio_cryptokeyparams);
             srtp_audio_updated = true;
         }
@@ -3628,7 +3630,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 }
             }
             pV.video_found = true;
-            strncpy(pV.primary_video_cryptokeyparams, mks.c_str(), 40);
+            memcpy(pV.primary_video_cryptokeyparams, mks.c_str(), 40);
+            pV.primary_video_cryptokeyparams[40] = '\0';
             dest += snprintf(dest, left, "%s", pV.primary_video_cryptokeyparams);
             srtp_video_updated = true;
         }
@@ -3670,7 +3673,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 }
             }
             pV.video_found = true;
-            strncpy(pV.secondary_video_cryptokeyparams, mks.c_str(), 40);
+            memcpy(pV.secondary_video_cryptokeyparams, mks.c_str(), 40);
+            pV.secondary_video_cryptokeyparams[40] = '\0';
             dest += snprintf(dest, left, "%s", pV.secondary_video_cryptokeyparams);
             srtp_video_updated = true;
         }
