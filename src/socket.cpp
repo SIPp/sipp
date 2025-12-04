@@ -944,16 +944,13 @@ void SIPpSocket::invalidate()
         return;
     }
 
+    ss_invalid = true;
+
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
     if (SSL *ssl = ss_ssl) {
         SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
         SSL_free(ssl);
     }
-#endif
-
-#ifdef USE_WSS
-    // Close websocket connection
-    close_wss();
 #endif
 
     /* In some error conditions, the socket FD has already been closed - if it hasn't, do so now. */
@@ -981,9 +978,15 @@ void SIPpSocket::invalidate()
         }
 #endif
 
+#ifdef USE_WSS
+    // Close websocket connection
+        close_wss();
+#else
         if (::close(ss_fd) < 0) {
             WARNING_NO("Failed to close socket %d", ss_fd);
         }
+#endif
+
     }
 
     if ((pollidx = ss_pollidx) >= pollnfds) {
@@ -991,7 +994,6 @@ void SIPpSocket::invalidate()
     }
 
     ss_fd = -1;
-    ss_invalid = true;
     ss_pollidx = -1;
 
     /* Adds call sockets in the array */
@@ -1331,7 +1333,7 @@ void SIPpSocket::init_lws_context()
     if (lws_context) return;  //Already created
 
     int log_level = LLL_ERR | LLL_WARN | LLL_NOTICE;
-    //if (useLogf) log_level |= LLL_INFO;
+    if (useLogf) log_level |= LLL_INFO;
     lws_set_log_level(log_level, sipp_lws_log_emit);
 
     struct lws_context_creation_info info = {0};
@@ -1341,6 +1343,10 @@ void SIPpSocket::init_lws_context()
     info.uid = -1;
     info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
     info.timeout_secs = 40;
+    info.ka_time = 15;      
+    info.ka_probes = 3;     
+    info.ka_interval = 10;
+
 
     lws_context = lws_create_context(&info);
     if (!lws_context)
@@ -1447,8 +1453,7 @@ void SIPpSocket::lws_callback_wss(enum lws_callback_reasons reason, void *in, si
             break;
 
         case LWS_CALLBACK_WSI_DESTROY:
-            LOG_MSG("WSS: internal websocket has been deleted.");
-            this->invalidate();
+            LOG_MSG("WSS: internal websocket has been deleted.\n");
             break;
 
         default:
@@ -1485,13 +1490,16 @@ void SIPpSocket::close_wss()
     // Flush messages
     if (wsi && ss_out) {
         lws_callback_on_writable(wsi);
-        lws_service(lws_context, 100);
+        lws_service(lws_context, -1);
     }
 
     // Close WSI
     if (wsi) {
         lws_set_timeout(wsi, PENDING_TIMEOUT_CLOSE_SEND, LWS_TO_KILL_ASYNC);
         wsi = nullptr;
+        for (int i=0; i< 10; i++) {
+            lws_service(lws_context, -1);
+        }
     }
 }
 
@@ -1874,14 +1882,15 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
         ccinfo.vhost = lws_vh;
         ccinfo.port = 443; // Need to be set but is not used
         ccinfo.address = remote_ip;
-        ccinfo.path = "/";
+        ccinfo.path = wss_path;
         ccinfo.host = remote_host;
         ccinfo.origin = "sipp-ws-endpoint";
         ccinfo.protocol = "sip";
         ccinfo.parent_wsi = wsi_temp;
-        ccinfo.ssl_connection = LCCSCF_USE_SSL;
+        ccinfo.ssl_connection = LCCSCF_USE_SSL | LCCSCF_ALLOW_INSECURE | LCCSCF_ALLOW_SELFSIGNED;
 
         wsi = lws_client_connect_via_info(&ccinfo);
+        lws_set_timeout(wsi, NO_PENDING_TIMEOUT, 3600);  // 3600 secondes = 1 heure
         lws_set_wsi_user(wsi, this);
         if (!wsi) {
             ERROR("Failed to establish WS connection");

@@ -114,6 +114,10 @@
 #define DEFAULT_TLS_CRL            ""
 #endif
 
+#ifdef USE_WSS
+#define DEFAULT_WSS_PATH           "/"
+#endif
+
 inline const char * TRANSPORT_TO_STRING(int p) {
     switch(p)
     {
@@ -337,6 +341,11 @@ MAYBE_EXTERN double             tls_version             DEFVAL(0.0);
 
 #ifdef SO_BINDTODEVICE
 MAYBE_EXTERN const char       * bind_to_device_name     DEFVAL(nullptr);
+#endif
+
+
+#ifdef USE_WSS
+MAYBE_EXTERN const char       * wss_path                DEFVAL(DEFAULT_WSS_PATH);
 #endif
 
 MAYBE_EXTERN const char       * scenario_file           DEFVAL(nullptr);

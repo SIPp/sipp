@@ -207,6 +207,10 @@ struct sipp_option options_table[] = {
     {"tls_version", nullptr, SIPP_OPTION_NEED_SSL, nullptr, 1},
 #endif
 
+#ifdef USE_WSS
+    {"wss_path", "Set the name path to use when establishing a web socket connection.", SIPP_OPTION_STRING, &wss_path, 1},
+#endif
+
 #ifdef USE_SCTP
     {"multihome", "Set multihome address for SCTP", SIPP_OPTION_IP, multihome_ip, 1},
     {"heartbeat", "Set heartbeat interval in ms for SCTP", SIPP_OPTION_INT, &heartbeat, 1},
