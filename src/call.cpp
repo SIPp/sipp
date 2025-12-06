@@ -431,12 +431,9 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
     pA.secondary_unencrypted_audio_srtp = false;
     pV.secondary_unencrypted_video_srtp = false;
 
-    char* sdp_body = nullptr;
-    char* sdp_body_remember = nullptr;
-
     std::size_t mline_sol = 0; /* Start of m-line line */
     std::size_t mline_eol = 0; /* End of m-line line */
-    std::string mline_contents = ""; /* Actual m-line contents */
+    std::string mline_contents; /* Actual m-line contents */
     std::size_t msection_limit = 0; /* m-line media section limit */
     std::string msgstr; /* std::string representation of SDP body */
 
@@ -459,286 +456,275 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
     ro_search= strstr(msg, "\n\n"); // UNIX line endings (LFLF) between header/body sections
     alt_search= strstr(msg, "\r\n\r\n"); // DOS line endings (CRLFCRLF) between header/body sections
 
+    /* skip past header - point to blank line before body */
     if (ro_search) {
-        sdp_body = strdup(ro_search);
+        msgstr = ro_search + 2;
     } else if (alt_search) {
-        sdp_body = strdup(alt_search);
+        msgstr = alt_search + 4;
     }
 
-    if (sdp_body) {
-        msgstr = sdp_body;
-        sdp_body_remember = sdp_body;
+    if (msgstr.empty())
+        return 0; /* FAILURE -- No SDP body found */
 
-        if (ro_search) {
-            sdp_body += 2;  /* skip past header - point to blank line before body */
-        } else if (alt_search) {
-            sdp_body += 4;  /* skip past header - point to blank line before body */
-        }
+    /* --------------------------------------------------------------
+        * Determine SDP m-line structure
+        * -------------------------------------------------------------- */
+    amsection_limit = msgstr.find("\nm=audio", 0, msgstr.size());
+    vmsection_limit = msgstr.find("\nm=video", 0, msgstr.size());
 
-        /* --------------------------------------------------------------
-         * Determine SDP m-line structure
-         * -------------------------------------------------------------- */
-        amsection_limit = msgstr.find("\nm=audio", 0, msgstr.size());
-        vmsection_limit = msgstr.find("\nm=video", 0, msgstr.size());
-
-        /* --------------------------------------------------------------
-         * Try to find an AUDIO MLINE
-         * -------------------------------------------------------------- */
-        pos1 = msgstr.find(SDP_AUDIOPORT_PREFIX, 0, 8);
-        if (pos1 != std::string::npos)
+    /* --------------------------------------------------------------
+        * Try to find an AUDIO MLINE
+        * -------------------------------------------------------------- */
+    pos1 = msgstr.find(SDP_AUDIOPORT_PREFIX, 0, 8);
+    if (pos1 != std::string::npos)
+    {
+        pos1 += 8; /* skip SDP_AUDIOPORT_PREFIX */
+        pos1 += 1; /* skip first whitespace */
+        pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+        if (pos2 != std::string::npos)
         {
-            pos1 += 8; /* skip SDP_AUDIOPORT_PREFIX */
-            pos1 += 1; /* skip first whitespace */
-            pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
-            if (pos2 != std::string::npos)
+            sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+            sscanf(sub.c_str(), "%d", &audio_port); /* parse port substring as integer */
+            if (audio_port != 0)
             {
-                sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
-                sscanf(sub.c_str(), "%d", &audio_port); /* parse port substring as integer */
-                if (audio_port != 0)
-                {
-                    logSrtpInfo("found first ACTIVE audio m-line with NON-ZERO port [%d]...\n", audio_port);
-                    audioExists = true;
-                }
-                else
-                {
-                    logSrtpInfo("found first INACTIVE audio m-line (e.g. with ZERO port)...\n");
+                logSrtpInfo("found first ACTIVE audio m-line with NON-ZERO port [%d]...\n", audio_port);
+                audioExists = true;
+            }
+            else
+            {
+                logSrtpInfo("found first INACTIVE audio m-line (e.g. with ZERO port)...\n");
 
-                    pos1 = msgstr.find(SDP_AUDIOPORT_PREFIX, pos2, 8);
-                    if (pos1 != std::string::npos)
+                pos1 = msgstr.find(SDP_AUDIOPORT_PREFIX, pos2, 8);
+                if (pos1 != std::string::npos)
+                {
+                    pos1 += 8; /* skip SDP_AUDIOPORT_PREFIX  */
+                    pos1 += 1; /* skip first whitespace */
+                    pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+                    if (pos2 != std::string::npos)
                     {
-                        pos1 += 8; /* skip SDP_AUDIOPORT_PREFIX  */
-                        pos1 += 1; /* skip first whitespace */
-                        pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
-                        if (pos2 != std::string::npos)
+                        sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+                        sscanf(sub.c_str(), "%d", &audio_port);
+                        if (audio_port != 0)
                         {
-                            sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
-                            sscanf(sub.c_str(), "%d", &audio_port);
-                            if (audio_port != 0)
-                            {
-                                logSrtpInfo("found second ACTIVE audio m-line with NON-ZERO port [%d]...\n", audio_port);
-                                audioExists = true;
-                            }
-                            else
-                            {
-                                logSrtpInfo("found second INACTIVE audio m-line (e.g. with ZERO port)...\n");
-                                audioExists = false;
-                            }
+                            logSrtpInfo("found second ACTIVE audio m-line with NON-ZERO port [%d]...\n", audio_port);
+                            audioExists = true;
                         }
                         else
                         {
-                            logSrtpInfo("invalid formatting encountered:  missing whitespace after second audio m-line port...\n");
+                            logSrtpInfo("found second INACTIVE audio m-line (e.g. with ZERO port)...\n");
                             audioExists = false;
                         }
                     }
                     else
                     {
-                        logSrtpInfo("NO second audio m-line found...\n");
+                        logSrtpInfo("invalid formatting encountered:  missing whitespace after second audio m-line port...\n");
                         audioExists = false;
                     }
                 }
-            }
-            else
-            {
-                logSrtpInfo("invalid formatting encountered:  missing whitespace after first audio m-line port...\n");
-                audioExists = false;
+                else
+                {
+                    logSrtpInfo("NO second audio m-line found...\n");
+                    audioExists = false;
+                }
             }
         }
         else
         {
-            logSrtpInfo("NO first audio m-line found...\n");
+            logSrtpInfo("invalid formatting encountered:  missing whitespace after first audio m-line port...\n");
             audioExists = false;
         }
+    }
+    else
+    {
+        logSrtpInfo("NO first audio m-line found...\n");
+        audioExists = false;
+    }
 
-        cur_pos = pos2;
+    cur_pos = pos2;
 
-        if (audioExists &&
-            (((amsection_limit != std::string::npos) && (cur_pos != std::string::npos) && (cur_pos < amsection_limit)) ||
-             ((amsection_limit == std::string::npos) && (vmsection_limit == std::string::npos) && (cur_pos != std::string::npos))))
-        {
-            // AUDIO "m=audio" prefix found...
-            pA.audio_found = true;
+    if (audioExists &&
+        (((amsection_limit != std::string::npos) && (cur_pos != std::string::npos) && (cur_pos < amsection_limit)) ||
+            ((amsection_limit == std::string::npos) && (vmsection_limit == std::string::npos) && (cur_pos != std::string::npos))))
+    {
+        // AUDIO "m=audio" prefix found...
+        pA.audio_found = true;
 
-            mline_sol = msgstr.find(SDP_AUDIOCRYPTO_PREFIX, cur_pos/*0*/, 10);
-            if (mline_sol != std::string::npos) {
-                // PRIMARY AUDIO "a:crypto:" crypto prefix found
-                mline_eol = msgstr.find("\n", mline_sol, 1);
-                if (mline_eol != std::string::npos) {
-                    mline_contents = msgstr.substr(mline_sol, mline_eol);
-                    sscanf(mline_contents.c_str(), "\na=crypto:%d %24s inline:%40s %63s",
-                           &pA.primary_audio_cryptotag,
-                           pA.primary_audio_cryptosuite,
-                           pA.primary_audio_cryptokeyparams,
-                           crypto_audio_sessionparams);
-                    checkUESRTP = strstr(crypto_audio_sessionparams, "UNENCRYPTED_SRTP");
-                    if (checkUESRTP) {
-                        logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for PRIMARY AUDIO\n");
-                        pA.primary_unencrypted_audio_srtp = true;
-                    } else {
-                        logSrtpInfo("call::extract_srtp_remote_info():  No UNENCRYPTED_SRTP token detected for PRIMARY AUDIO\n");
-                        pA.primary_unencrypted_audio_srtp = false;
-                    }
-                }
-            }
-
-            // Look for end-of-audio-media section
-            msection_limit = msgstr.find("\nm=", mline_eol+1, 3);
-
-            mline_sol = msgstr.find(SDP_AUDIOCRYPTO_PREFIX, mline_eol+1, 10);
-            if (((msection_limit != std::string::npos) && (mline_sol != std::string::npos) && (mline_sol < msection_limit)) ||
-                ((msection_limit == std::string::npos) && (mline_sol != std::string::npos))) {
-                // SECONDARY AUDIO "a:crypto:" crypto prefix found
-                mline_eol = msgstr.find("\n", mline_sol, 1);
-                if (mline_eol != std::string::npos) {
-                    mline_contents = msgstr.substr(mline_sol, mline_eol);
-                    sscanf(mline_contents.c_str(), "\na=crypto:%d %24s inline:%40s %63s",
-                           &pA.secondary_audio_cryptotag,
-                           pA.secondary_audio_cryptosuite,
-                           pA.secondary_audio_cryptokeyparams,
-                           crypto_audio_sessionparams);
-                    checkUESRTP = strstr(crypto_audio_sessionparams, "UNENCRYPTED_SRTP");
-                    if (checkUESRTP) {
-                        logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for SECONDARY AUDIO\n");
-                        pA.secondary_unencrypted_audio_srtp = true;
-                    } else {
-                        logSrtpInfo("call::extract_srtp_remote_info():  No UNENCRYPTED_SRTP token detected for SECONDARY AUDIO\n");
-                        pA.secondary_unencrypted_audio_srtp = false;
-                    }
+        mline_sol = msgstr.find(SDP_AUDIOCRYPTO_PREFIX, cur_pos/*0*/, 10);
+        if (mline_sol != std::string::npos) {
+            // PRIMARY AUDIO "a:crypto:" crypto prefix found
+            mline_eol = msgstr.find("\n", mline_sol, 1);
+            if (mline_eol != std::string::npos) {
+                mline_contents = msgstr.substr(mline_sol, mline_eol);
+                sscanf(mline_contents.c_str(), "\na=crypto:%d %24s inline:%40s %63s",
+                        &pA.primary_audio_cryptotag,
+                        pA.primary_audio_cryptosuite,
+                        pA.primary_audio_cryptokeyparams,
+                        crypto_audio_sessionparams);
+                checkUESRTP = strstr(crypto_audio_sessionparams, "UNENCRYPTED_SRTP");
+                if (checkUESRTP) {
+                    logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for PRIMARY AUDIO\n");
+                    pA.primary_unencrypted_audio_srtp = true;
+                } else {
+                    logSrtpInfo("call::extract_srtp_remote_info():  No UNENCRYPTED_SRTP token detected for PRIMARY AUDIO\n");
+                    pA.primary_unencrypted_audio_srtp = false;
                 }
             }
         }
 
-        /* --------------------------------------------------------------
-         * Try to find a VIDEO MLINE
-         * -------------------------------------------------------------- */
-        pos1 = msgstr.find(SDP_VIDEOPORT_PREFIX, 0, 8);
-        if (pos1 != std::string::npos)
-        {
-            pos1 += 8; /* skip SDP_VIDEOPORT_PREFIX */
-            pos1 += 1; /* skip first whitespace */
-            pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
-            if (pos2 != std::string::npos)
-            {
-                sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
-                sscanf(sub.c_str(), "%d", &video_port); /* parse port substring as integer */
-                if (video_port != 0)
-                {
-                    logSrtpInfo("found first ACTIVE video m-line with NON-ZERO port [%d]...\n", video_port);
-                    videoExists = true;
-                }
-                else
-                {
-                    logSrtpInfo("found first INACTIVE video m-line (e.g. with ZERO port)...\n");
+        // Look for end-of-audio-media section
+        msection_limit = msgstr.find("\nm=", mline_eol+1, 3);
 
-                    pos1 = msgstr.find(SDP_VIDEOPORT_PREFIX, pos2, 8);
-                    if (pos1 != std::string::npos)
+        mline_sol = msgstr.find(SDP_AUDIOCRYPTO_PREFIX, mline_eol+1, 10);
+        if (((msection_limit != std::string::npos) && (mline_sol != std::string::npos) && (mline_sol < msection_limit)) ||
+            ((msection_limit == std::string::npos) && (mline_sol != std::string::npos))) {
+            // SECONDARY AUDIO "a:crypto:" crypto prefix found
+            mline_eol = msgstr.find("\n", mline_sol, 1);
+            if (mline_eol != std::string::npos) {
+                mline_contents = msgstr.substr(mline_sol, mline_eol);
+                sscanf(mline_contents.c_str(), "\na=crypto:%d %24s inline:%40s %63s",
+                        &pA.secondary_audio_cryptotag,
+                        pA.secondary_audio_cryptosuite,
+                        pA.secondary_audio_cryptokeyparams,
+                        crypto_audio_sessionparams);
+                checkUESRTP = strstr(crypto_audio_sessionparams, "UNENCRYPTED_SRTP");
+                if (checkUESRTP) {
+                    logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for SECONDARY AUDIO\n");
+                    pA.secondary_unencrypted_audio_srtp = true;
+                } else {
+                    logSrtpInfo("call::extract_srtp_remote_info():  No UNENCRYPTED_SRTP token detected for SECONDARY AUDIO\n");
+                    pA.secondary_unencrypted_audio_srtp = false;
+                }
+            }
+        }
+    }
+
+    /* --------------------------------------------------------------
+        * Try to find a VIDEO MLINE
+        * -------------------------------------------------------------- */
+    pos1 = msgstr.find(SDP_VIDEOPORT_PREFIX, 0, 8);
+    if (pos1 != std::string::npos)
+    {
+        pos1 += 8; /* skip SDP_VIDEOPORT_PREFIX */
+        pos1 += 1; /* skip first whitespace */
+        pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+        if (pos2 != std::string::npos)
+        {
+            sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+            sscanf(sub.c_str(), "%d", &video_port); /* parse port substring as integer */
+            if (video_port != 0)
+            {
+                logSrtpInfo("found first ACTIVE video m-line with NON-ZERO port [%d]...\n", video_port);
+                videoExists = true;
+            }
+            else
+            {
+                logSrtpInfo("found first INACTIVE video m-line (e.g. with ZERO port)...\n");
+
+                pos1 = msgstr.find(SDP_VIDEOPORT_PREFIX, pos2, 8);
+                if (pos1 != std::string::npos)
+                {
+                    pos1 += 8; /* skip SDP_VIDEOPORT_PREFIX  */
+                    pos1 += 1; /* skip first whitespace */
+                    pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
+                    if (pos2 != std::string::npos)
                     {
-                        pos1 += 8; /* skip SDP_VIDEOPORT_PREFIX  */
-                        pos1 += 1; /* skip first whitespace */
-                        pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
-                        if (pos2 != std::string::npos)
+                        sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
+                        sscanf(sub.c_str(), "%d", &video_port);
+                        if (video_port != 0)
                         {
-                            sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
-                            sscanf(sub.c_str(), "%d", &video_port);
-                            if (video_port != 0)
-                            {
-                                logSrtpInfo("found second ACTIVE video m-line with NON-ZERO port [%d]...\n", video_port);
-                                videoExists = true;
-                            }
-                            else
-                            {
-                                logSrtpInfo("found second INACTIVE video m-line (e.g. with ZERO port)...\n");
-                                videoExists = false;
-                            }
+                            logSrtpInfo("found second ACTIVE video m-line with NON-ZERO port [%d]...\n", video_port);
+                            videoExists = true;
                         }
                         else
                         {
-                            logSrtpInfo("invalid formatting encountered:  missing whitespace after second video m-line port...\n");
+                            logSrtpInfo("found second INACTIVE video m-line (e.g. with ZERO port)...\n");
                             videoExists = false;
                         }
                     }
                     else
                     {
-                        logSrtpInfo("NO second video m-line found...\n");
+                        logSrtpInfo("invalid formatting encountered:  missing whitespace after second video m-line port...\n");
                         videoExists = false;
                     }
                 }
-            }
-            else
-            {
-                logSrtpInfo("invalid formatting encountered:  missing whitespace after first video m-line port...\n");
-                videoExists = false;
+                else
+                {
+                    logSrtpInfo("NO second video m-line found...\n");
+                    videoExists = false;
+                }
             }
         }
         else
         {
-            logSrtpInfo("NO first video m-line found...\n");
+            logSrtpInfo("invalid formatting encountered:  missing whitespace after first video m-line port...\n");
             videoExists = false;
         }
+    }
+    else
+    {
+        logSrtpInfo("NO first video m-line found...\n");
+        videoExists = false;
+    }
 
-        cur_pos = pos2;
+    cur_pos = pos2;
 
-        if (videoExists &&
-            (((vmsection_limit != std::string::npos) && (cur_pos != std::string::npos) && (cur_pos < vmsection_limit)) ||
-             ((vmsection_limit == std::string::npos) && (amsection_limit == std::string::npos) && (cur_pos != std::string::npos))))
-        {
-            // VIDEO "m=video" prefix found...
-            pV.video_found = true;
+    if (videoExists &&
+        (((vmsection_limit != std::string::npos) && (cur_pos != std::string::npos) && (cur_pos < vmsection_limit)) ||
+            ((vmsection_limit == std::string::npos) && (amsection_limit == std::string::npos) && (cur_pos != std::string::npos))))
+    {
+        // VIDEO "m=video" prefix found...
+        pV.video_found = true;
 
-            mline_sol = msgstr.find(SDP_VIDEOCRYPTO_PREFIX, cur_pos/*mline_eol+1*/, 10);
-            if (mline_sol != std::string::npos) {
-                // PRIMARY VIDEO "a:crypto:" crypto prefix found
-                mline_eol = msgstr.find("\n", mline_sol, 1);
-                if (mline_eol != std::string::npos) {
-                    mline_contents = msgstr.substr(mline_sol, mline_eol);
-                    sscanf(mline_contents.c_str(), "\na=crypto:%d %24s inline:%40s %63s",
-                           &pV.primary_video_cryptotag,
-                           pV.primary_video_cryptosuite,
-                           pV.primary_video_cryptokeyparams,
-                           crypto_video_sessionparams);
-                    checkUESRTP = strstr(crypto_video_sessionparams, "UNENCRYPTED_SRTP");
-                    if (checkUESRTP) {
-                        logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for PRIMARY VIDEO\n");
-                        pV.primary_unencrypted_video_srtp = true;
-                    } else {
-                        logSrtpInfo("call::extract_srtp_remote_info():  No UNENCRYPTED_SRTP token detected for PRIMARY VIDEO\n");
-                        pV.primary_unencrypted_video_srtp = false;
-                    }
-                }
-            }
-
-            // Look for end-of-video-media section
-            msection_limit = msgstr.find("\nm=", mline_eol+1, 3);
-
-            mline_sol = msgstr.find(SDP_VIDEOCRYPTO_PREFIX, mline_eol+1, 10);
-            if (((msection_limit != std::string::npos) && (mline_sol != std::string::npos) && (mline_sol < msection_limit)) ||
-                ((msection_limit == std::string::npos) && (mline_sol != std::string::npos))) {
-                // SECONDARY VIDEO "a:crypto:" crypto prefix found
-                mline_eol = msgstr.find("\n", mline_sol, 1);
-                if (mline_eol != std::string::npos) {
-                    mline_contents = msgstr.substr(mline_sol, mline_eol);
-                    sscanf(mline_contents.c_str(), "\na=crypto:%d %24s inline:%40s %63s",
-                           &pV.secondary_video_cryptotag,
-                           pV.secondary_video_cryptosuite,
-                           pV.secondary_video_cryptokeyparams,
-                           crypto_video_sessionparams);
-                    checkUESRTP = strstr(crypto_video_sessionparams, "UNENCRYPTED_SRTP");
-                    if (checkUESRTP) {
-                        logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for SECONDARY VIDEO\n");
-                        pV.secondary_unencrypted_video_srtp = true;
-                    } else {
-                        logSrtpInfo("call::extract_srtp_remote_info():  No UNENCRYPTED_SRTP token detected for SECONDARY VIDEO\n");
-                        pV.secondary_unencrypted_video_srtp = false;
-                    }
+        mline_sol = msgstr.find(SDP_VIDEOCRYPTO_PREFIX, cur_pos/*mline_eol+1*/, 10);
+        if (mline_sol != std::string::npos) {
+            // PRIMARY VIDEO "a:crypto:" crypto prefix found
+            mline_eol = msgstr.find("\n", mline_sol, 1);
+            if (mline_eol != std::string::npos) {
+                mline_contents = msgstr.substr(mline_sol, mline_eol);
+                sscanf(mline_contents.c_str(), "\na=crypto:%d %24s inline:%40s %63s",
+                        &pV.primary_video_cryptotag,
+                        pV.primary_video_cryptosuite,
+                        pV.primary_video_cryptokeyparams,
+                        crypto_video_sessionparams);
+                checkUESRTP = strstr(crypto_video_sessionparams, "UNENCRYPTED_SRTP");
+                if (checkUESRTP) {
+                    logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for PRIMARY VIDEO\n");
+                    pV.primary_unencrypted_video_srtp = true;
+                } else {
+                    logSrtpInfo("call::extract_srtp_remote_info():  No UNENCRYPTED_SRTP token detected for PRIMARY VIDEO\n");
+                    pV.primary_unencrypted_video_srtp = false;
                 }
             }
         }
 
-        free(sdp_body_remember);
+        // Look for end-of-video-media section
+        msection_limit = msgstr.find("\nm=", mline_eol+1, 3);
 
-        return 0; /* SUCCESS -- parsed SDP SRTP INFO */
-    } else {
-      return -1; /* FAILURE -- No SDP body found */
+        mline_sol = msgstr.find(SDP_VIDEOCRYPTO_PREFIX, mline_eol+1, 10);
+        if (((msection_limit != std::string::npos) && (mline_sol != std::string::npos) && (mline_sol < msection_limit)) ||
+            ((msection_limit == std::string::npos) && (mline_sol != std::string::npos))) {
+            // SECONDARY VIDEO "a:crypto:" crypto prefix found
+            mline_eol = msgstr.find("\n", mline_sol, 1);
+            if (mline_eol != std::string::npos) {
+                mline_contents = msgstr.substr(mline_sol, mline_eol);
+                sscanf(mline_contents.c_str(), "\na=crypto:%d %24s inline:%40s %63s",
+                        &pV.secondary_video_cryptotag,
+                        pV.secondary_video_cryptosuite,
+                        pV.secondary_video_cryptokeyparams,
+                        crypto_video_sessionparams);
+                checkUESRTP = strstr(crypto_video_sessionparams, "UNENCRYPTED_SRTP");
+                if (checkUESRTP) {
+                    logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for SECONDARY VIDEO\n");
+                    pV.secondary_unencrypted_video_srtp = true;
+                } else {
+                    logSrtpInfo("call::extract_srtp_remote_info():  No UNENCRYPTED_SRTP token detected for SECONDARY VIDEO\n");
+                    pV.secondary_unencrypted_video_srtp = false;
+                }
+            }
+        }
     }
+
+    return 0; /* SUCCESS -- parsed SDP SRTP INFO */
 }
 #endif // USE_TLS
 
