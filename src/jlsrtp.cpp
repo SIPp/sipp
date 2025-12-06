@@ -913,6 +913,7 @@ std::string JLSRTP::base64Encode(std::vector<unsigned char> const& s)
     unsigned char const* bytes_to_encode = &s.front();
     unsigned int in_len = s.size();
     std::string ret;
+    ret.reserve(((in_len + 2) / 3) * 4);
 
     while (in_len--)
     {
@@ -967,6 +968,7 @@ std::vector<unsigned char> JLSRTP::base64Decode(std::string const& encoded_strin
     int in_ = 0;
     unsigned int in_len = encoded_string.size();
     std::vector<unsigned char> ret;
+    ret.reserve(in_len * 3 / 4);
 
     while (in_len-- && ( encoded_string[in_] != '=') && isBase64(encoded_string[in_]))
     {
