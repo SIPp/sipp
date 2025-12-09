@@ -452,6 +452,8 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
     std::size_t amsection_limit = 0;
     std::size_t vmsection_limit = 0;
 
+    *crypto_audio_sessionparams = 0;
+    *crypto_video_sessionparams = 0;
     /* Look for start of message body */
     ro_search= strstr(msg, "\n\n"); // UNIX line endings (LFLF) between header/body sections
     alt_search= strstr(msg, "\r\n\r\n"); // DOS line endings (CRLFCRLF) between header/body sections
@@ -555,7 +557,9 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
             mline_eol = msgstr.find("\n", mline_sol, 1);
             if (mline_eol != std::string::npos) {
                 mline_contents = msgstr.substr(mline_sol, mline_eol);
-                sscanf(mline_contents.c_str(), "\na=crypto:%d %24s inline:%40s %63s",
+                // %*1[ ] is to skip a single space after the "inline:...." field.
+                // as opposed to literal space, which matches zero or more spaces.
+                sscanf(mline_contents.c_str(), "\na=crypto:%d %24[^ ] inline:%40[^ ]%*1[ ]%63s",
                         &pA.primary_audio_cryptotag,
                         pA.primary_audio_cryptosuite,
                         pA.primary_audio_cryptokeyparams,
@@ -581,7 +585,7 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
             mline_eol = msgstr.find("\n", mline_sol, 1);
             if (mline_eol != std::string::npos) {
                 mline_contents = msgstr.substr(mline_sol, mline_eol);
-                sscanf(mline_contents.c_str(), "\na=crypto:%d %24s inline:%40s %63s",
+                sscanf(mline_contents.c_str(), "\na=crypto:%d %24[^ ] inline:%40[^ ]%*1[ ]%63s",
                         &pA.secondary_audio_cryptotag,
                         pA.secondary_audio_cryptosuite,
                         pA.secondary_audio_cryptokeyparams,
@@ -681,7 +685,7 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
             mline_eol = msgstr.find("\n", mline_sol, 1);
             if (mline_eol != std::string::npos) {
                 mline_contents = msgstr.substr(mline_sol, mline_eol);
-                sscanf(mline_contents.c_str(), "\na=crypto:%d %24s inline:%40s %63s",
+                sscanf(mline_contents.c_str(), "\na=crypto:%d %24[^ ] inline:%40[^ ]%*1[ ]%63s",
                         &pV.primary_video_cryptotag,
                         pV.primary_video_cryptosuite,
                         pV.primary_video_cryptokeyparams,
@@ -707,7 +711,7 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
             mline_eol = msgstr.find("\n", mline_sol, 1);
             if (mline_eol != std::string::npos) {
                 mline_contents = msgstr.substr(mline_sol, mline_eol);
-                sscanf(mline_contents.c_str(), "\na=crypto:%d %24s inline:%40s %63s",
+                sscanf(mline_contents.c_str(), "\na=crypto:%d %24[^ ] inline:%40[^ ]%*1[ ]%63s",
                         &pV.secondary_video_cryptotag,
                         pV.secondary_video_cryptosuite,
                         pV.secondary_video_cryptokeyparams,
@@ -4681,7 +4685,10 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
             host = extract_rtp_remote_addr(msg, ip_ver, audio_port, video_port);
 
 #ifdef USE_TLS
-            extract_srtp_remote_info(msg, pA, pV);
+            if (extract_srtp_remote_info(msg, pA, pV) < 0) {
+                WARNING("extract_rtp_remote_addr: error extracting SRTP parameters from SDP message body");
+                return rejectCall();
+            }
 #endif // USE_TLS
 
             if ((audio_port==0) && (video_port==0)) {
