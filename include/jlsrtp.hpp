@@ -38,7 +38,7 @@
 
 #include <vector>
 
-#define JLSRTP_VERSION              0.6
+#define JLSRTP_VERSION              0.7
 #define JLSRTP_ENCRYPTION_KEY_LENGTH        16  // bytes
 #define JLSRTP_SALTING_KEY_LENGTH           14  // bytes
 #define JLSRTP_AUTHENTICATION_KEY_LENGTH    20  // bytes
