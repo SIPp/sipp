@@ -15,7 +15,8 @@ and also a simple command mode. The hot keys are:
 /      Decrease the call rate by 10 * rate_scale
 c      Enter command mode
 q      Quit SIPp (after all calls complete, enter a second time to quit immediately)
-Q      Quit SIPp immediately s Dump screens to the log file (if -trace_screen is passed)
+Q      Quit SIPp immediately
+s      Dump screens to the log file (if -trace_screen is passed)
 p      Pause traffic
 1      Display the scenario screen
 2      Display the statistics screen

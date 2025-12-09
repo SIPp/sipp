@@ -39,7 +39,7 @@ cmake .
 make
 ```
 
-_The SIPp master branch (3.7.x) requires a modern C++11 compiler._
+_The SIPp master branch (3.7.x) requires a modern C++17 compiler._
 
 There are several optional flags to enable features (SIP-over-TLS,
 SIP-over-SCTP, media playback from PCAP files and the GNU Scientific
