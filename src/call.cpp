@@ -407,9 +407,6 @@ int call::check_video_ciphersuite_match(SrtpVideoInfoParams &pV)
 #define SDP_VIDEOCRYPTO_PREFIX "\na=crypto:"
 int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, SrtpVideoInfoParams &pV)
 {
-    const char* ro_search = nullptr;
-    const char* alt_search = nullptr;
-
     pA.audio_found = false;
     pV.video_found = false;
 
@@ -454,15 +451,13 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
 
     *crypto_audio_sessionparams = 0;
     *crypto_video_sessionparams = 0;
-    /* Look for start of message body */
-    ro_search= strstr(msg, "\n\n"); // UNIX line endings (LFLF) between header/body sections
-    alt_search= strstr(msg, "\r\n\r\n"); // DOS line endings (CRLFCRLF) between header/body sections
 
-    /* skip past header - point to blank line before body */
-    if (ro_search) {
-        msgstr = ro_search + 2;
-    } else if (alt_search) {
-        msgstr = alt_search + 4;
+    // skip past header - point to blank line before body
+    // Try CRLF and if not found, try LF (the RFC requires CRLF)
+    if (const char *body_crlf = strstr(msg, "\r\n\r\n")) {
+        msgstr = body_crlf + 4;
+    } else if (const char *body_lf = strstr(msg, "\n\n")) {
+        msgstr = body_lf + 2;
     }
 
     if (msgstr.empty())
