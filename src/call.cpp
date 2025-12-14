@@ -466,7 +466,7 @@ int call::extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, Sr
     }
 
     if (msgstr.empty())
-        return 0; /* FAILURE -- No SDP body found */
+        return -1; /* FAILURE -- No SDP body found */
 
     /* --------------------------------------------------------------
         * Determine SDP m-line structure
