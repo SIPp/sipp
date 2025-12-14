@@ -29,31 +29,18 @@
 class JLSRTP;
 
 #ifdef USE_TLS
-typedef struct _SrtpAudioInfoParams
+struct SrtpInfoParams
 {
-    bool audio_found;
-    int primary_audio_cryptotag;
-    char primary_audio_cryptosuite[25];
-    char primary_audio_cryptokeyparams[42];
-    int secondary_audio_cryptotag;
-    char secondary_audio_cryptosuite[25];
-    char secondary_audio_cryptokeyparams[42];
-    bool primary_unencrypted_audio_srtp;
-    bool secondary_unencrypted_audio_srtp;
-} SrtpAudioInfoParams;
-
-typedef struct _SrtpVideoInfoParams
-{
-    bool video_found;
-    int primary_video_cryptotag;
-    char primary_video_cryptosuite[25];
-    char primary_video_cryptokeyparams[42];
-    int secondary_video_cryptotag;
-    char secondary_video_cryptosuite[25];
-    char secondary_video_cryptokeyparams[42];
-    bool primary_unencrypted_video_srtp;
-    bool secondary_unencrypted_video_srtp;
-} SrtpVideoInfoParams;
+    bool found;
+    int primary_cryptotag;
+    char primary_cryptosuite[25];
+    char primary_cryptokeyparams[42];
+    int secondary_cryptotag;
+    char secondary_cryptosuite[25];
+    char secondary_cryptokeyparams[42];
+    bool primary_unencrypted_srtp;
+    bool secondary_unencrypted_srtp;
+};
 #endif // USE_TLS
 
 struct threaddata_t;
@@ -148,10 +135,10 @@ struct taskentry_t
     int                  video_active;
 
 #ifdef USE_TLS
-    SrtpAudioInfoParams  local_srtp_audio_params;
-    SrtpAudioInfoParams  remote_srtp_audio_params;
-    SrtpVideoInfoParams  local_srtp_video_params;
-    SrtpVideoInfoParams  remote_srtp_video_params;
+    SrtpInfoParams  local_srtp_audio_params;
+    SrtpInfoParams  remote_srtp_audio_params;
+    SrtpInfoParams  local_srtp_video_params;
+    SrtpInfoParams  remote_srtp_video_params;
 #endif // USE_TLS
 };
 
@@ -210,10 +197,10 @@ void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char
                           int audio_port, int video_port);
 
 #ifdef USE_TLS
-int rtpstream_set_srtp_audio_local(rtpstream_callinfo_t *callinfo, SrtpAudioInfoParams &p);
-int rtpstream_set_srtp_audio_remote(rtpstream_callinfo_t *callinfo, SrtpAudioInfoParams &p);
-int rtpstream_set_srtp_video_local(rtpstream_callinfo_t *callinfo, SrtpVideoInfoParams &p);
-int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t *callinfo, SrtpVideoInfoParams &p);
+int rtpstream_set_srtp_audio_local(rtpstream_callinfo_t *callinfo, SrtpInfoParams &p);
+int rtpstream_set_srtp_audio_remote(rtpstream_callinfo_t *callinfo, SrtpInfoParams &p);
+int rtpstream_set_srtp_video_local(rtpstream_callinfo_t *callinfo, SrtpInfoParams &p);
+int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t *callinfo, SrtpInfoParams &p);
 #endif // USE_TLS
 
 int rtpstream_cache_file(char *filename,

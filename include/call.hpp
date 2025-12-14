@@ -334,9 +334,9 @@ protected:
 
     std::string extract_rtp_remote_addr(const char * message, int &ip_ver, int &audio_port, int &video_port);
 #ifdef USE_TLS
-    int check_audio_ciphersuite_match(SrtpAudioInfoParams &pA);
-    int check_video_ciphersuite_match(SrtpVideoInfoParams &pV);
-    int extract_srtp_remote_info(const char * msg, SrtpAudioInfoParams &pA, SrtpVideoInfoParams &pV);
+    int check_audio_ciphersuite_match(SrtpInfoParams &pA);
+    int check_video_ciphersuite_match(SrtpInfoParams &pV);
+    int extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInfoParams &pV);
 #endif // USE_TLS
     void extract_rtp_remote_addr(const char* message);
 
