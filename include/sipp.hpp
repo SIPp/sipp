@@ -151,7 +151,6 @@ cmd messages are received */
 #define DEFAULT_RATE_PERIOD_MS       1000
 #define DEFAULT_TRANSPORT            T_UDP
 #define DEFAULT_PORT                 5060
-#define DEFAULT_MEDIA_PORT           6000
 #define DEFAULT_3PCC_PORT            6060
 #define DEFAULT_SERVICE              "service"
 #define DEFAULT_AUTH_PASSWORD        "password"
@@ -172,8 +171,12 @@ cmd messages are received */
 
 #define DEFAULT_BEHAVIOR_ALL         (DEFAULT_BEHAVIOR_BYE | DEFAULT_BEHAVIOR_ABORTUNEXP | DEFAULT_BEHAVIOR_PINGREPLY | DEFAULT_BEHAVIOR_BADCSEQ)
 
-#define DEFAULT_MIN_RTP_PORT         DEFAULT_MEDIA_PORT
-#define DEFAULT_MAX_RTP_PORT         65535
+#define DEFAULT_MIN_RTP_AUDIO_PORT   20000
+#define DEFAULT_MAX_RTP_AUDIO_PORT   20998
+#define DEFAULT_MIN_RTP_VIDEO_PORT   30000
+#define DEFAULT_MAX_RTP_VIDEO_PORT   30998
+#define DEFAULT_MIN_UDP_IMAGE_PORT   40000
+#define DEFAULT_MAX_UDP_IMAGE_PORT   40998
 #define DEFAULT_RTP_PAYLOAD          8
 #define DEFAULT_RTP_THREADTASKS      20
 
@@ -251,8 +254,12 @@ MAYBE_EXTERN int                control_port            DEFVAL(0);
 MAYBE_EXTERN int                buff_size               DEFVAL(65536);
 MAYBE_EXTERN int                tcp_readsize            DEFVAL(65536);
 MAYBE_EXTERN int                hasMedia                DEFVAL(0);
-MAYBE_EXTERN int                min_rtp_port            DEFVAL(DEFAULT_MIN_RTP_PORT);
-MAYBE_EXTERN int                max_rtp_port            DEFVAL(DEFAULT_MAX_RTP_PORT);
+MAYBE_EXTERN int                min_rtp_audio_port      DEFVAL(DEFAULT_MIN_RTP_AUDIO_PORT);
+MAYBE_EXTERN int                max_rtp_audio_port      DEFVAL(DEFAULT_MAX_RTP_AUDIO_PORT);
+MAYBE_EXTERN int                min_rtp_video_port      DEFVAL(DEFAULT_MIN_RTP_VIDEO_PORT);
+MAYBE_EXTERN int                max_rtp_video_port      DEFVAL(DEFAULT_MAX_RTP_VIDEO_PORT);
+MAYBE_EXTERN int                min_udp_image_port      DEFVAL(DEFAULT_MIN_UDP_IMAGE_PORT);
+MAYBE_EXTERN int                max_udp_image_port      DEFVAL(DEFAULT_MAX_UDP_IMAGE_PORT);
 MAYBE_EXTERN int                rtp_default_payload     DEFVAL(DEFAULT_RTP_PAYLOAD);
 MAYBE_EXTERN int                rtp_tasks_per_thread    DEFVAL(DEFAULT_RTP_THREADTASKS);
 MAYBE_EXTERN int                rtp_buffsize            DEFVAL(65536);
@@ -265,7 +272,9 @@ MAYBE_EXTERN double             videotolerance          DEFVAL(1.0);
 
 MAYBE_EXTERN bool               rtp_echo_enabled        DEFVAL(0);
 MAYBE_EXTERN char               media_ip[127];          /* also used for hostnames */
-MAYBE_EXTERN int                media_port              DEFVAL(0);
+MAYBE_EXTERN int                media_audio_port        DEFVAL(0);
+MAYBE_EXTERN int                media_video_port        DEFVAL(0);
+MAYBE_EXTERN int                media_image_port        DEFVAL(0);
 MAYBE_EXTERN size_t             media_bufsize           DEFVAL(2048);
 MAYBE_EXTERN bool               media_ip_is_ipv6        DEFVAL(false);
 MAYBE_EXTERN char               remote_ip[127];         /* also used for hostnames */

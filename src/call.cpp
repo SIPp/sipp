@@ -2672,11 +2672,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         case E_Message_Auto_Media_Port:
         case E_Message_Media_Port: {
-            int port = media_port + comp->offset;
-            if (comp->type == E_Message_Auto_Media_Port) {
-                port += (4 * (number - 1)) % 10000;
-            }
-#ifdef PCAPPLAY
+            int port = 0;
             char *begin = dest;
             while (begin > msg_buffer) {
                 if (*begin == '\n') {
@@ -2687,17 +2683,32 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if (begin == msg_buffer) {
                 ERROR("Can not find beginning of a line for the media port!");
             }
+
+#ifdef PCAPPLAY
             play_args_t* play_args = nullptr;
+#endif
             if (strstr(begin, "audio")) {
+                port = media_audio_port + comp->offset;
+#ifdef PCAPPLAY
                 play_args = &play_args_a;
-            } else if (strstr(begin, "image")) {
-                play_args = &play_args_i;
+#endif
             } else if (strstr(begin, "video")) {
+                port = media_video_port + comp->offset;
+#ifdef PCAPPLAY
                 play_args = &play_args_v;
-            } else {
-                // This check will not do, as we use the media_port in other places too.
-                //ERROR("media_port keyword with no audio or video on the current line (%s)", begin);
+#endif
+            } else if (strstr(begin, "image")) {
+                port = media_image_port + comp->offset;
+#ifdef PCAPPLAY
+                play_args = &play_args_i;
+#endif
             }
+
+            if (comp->type == E_Message_Auto_Media_Port) {
+                port += (4 * (number - 1)) % 10000;
+            }
+
+#ifdef PCAPPLAY
             if (play_args != nullptr) {
                 if (media_ip_is_ipv6) {
                     (_RCAST(struct sockaddr_in6 *, &(play_args->from)))->sin6_port = htons(port);
@@ -2706,45 +2717,100 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 }
             }
 #endif
+
             dest += snprintf(dest, left, "%u", port);
             break;
         }
         case E_Message_RTPStream_Audio_Port:
         {
-          int temp_audio_port = 0;
-          // Only obtain port for RTP ([rtpstream_audio_port+0]) *BUT NOT* RTCP ([rtpstream_audio_port+1])
-          if (comp->offset == 0) {
-              temp_audio_port = rtpstream_get_local_audioport(&rtpstream_callinfo);
-              if (!temp_audio_port) {
-                  /* Make this a warning instead? */
-                  ERROR("cannot assign a free audio port to this call - using 0 for [rtpstream_audio_port]");
-              }
-          } else if (comp->offset >= 1) {
-              temp_audio_port = rtpstream_callinfo.local_audioport + comp->offset;
-          }
+            int temp_audio_port = 0;
+            if (sendMode == MODE_CLIENT) {
+                // Only obtain port for RTP ([rtpstream_audio_port+0]) *BUT NOT* RTCP ([rtpstream_audio_port+1])
+                if (comp->offset == 0) {
+                    temp_audio_port = rtpstream_get_local_uac_audioport(&rtpstream_callinfo);
+                    if (!temp_audio_port) {
+                        /* Make this a warning instead? */
+                        ERROR("cannot assign a free UAC audio port to this call - using 0 for [rtpstream_audio_port]");
+                    }
+                } else {
+                    if (comp->offset % 2 == 0) {
+                        // Rotate AUDIO RTP (EVEN) port...
+                        temp_audio_port = rtpstream_rotate_local_uac_audioport(&rtpstream_callinfo, rtpstream_callinfo.local_audioport + comp->offset);
+                    } else {
+                        // NO-OP - leave AUDIO RTCP (ODD) port untouched...
+                        temp_audio_port = rtpstream_callinfo.local_audioport + comp->offset;
+                    }
+                }
+            } else if (sendMode == MODE_SERVER) {
+                // Only obtain port for RTP ([rtpstream_audio_port+0]) *BUT NOT* RTCP ([rtpstream_audio_port+1])
+                if (comp->offset == 0) {
+                    temp_audio_port = rtpstream_get_local_uas_audioport(&rtpstream_callinfo);
+                    if (!temp_audio_port) {
+                        ERROR("Cannot assign a free UAS audio port to this call - using 0 for [rtpstream_audio_port]...");
+                    }
+                } else {
+                    if (comp->offset % 2 == 0) {
+                        // Rotate AUDIO RTP (EVEN) port...
+                        temp_audio_port = rtpstream_rotate_local_uas_audioport(&rtpstream_callinfo, rtpstream_callinfo.local_audioport + comp->offset);
+                    } else {
+                        // NO-OP - leave AUDIO RTCP (ODD) port untouched...
+                        temp_audio_port = rtpstream_callinfo.local_audioport + comp->offset;
+                    }
+                }
+            } else {
+                WARNING("RTPStream_Audio_Port:  INVALID operation mode...");
+                temp_audio_port = 0;
+            }
 #ifdef USE_TLS
-          logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Audio_Port: %d\n", temp_audio_port);
+            logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Audio_Port: %d\n", temp_audio_port);
 #endif // USE_TLS
-          dest += snprintf(dest, left, "%d", temp_audio_port);
+            dest += snprintf(dest, left, "%d", temp_audio_port);
         }
         break;
         case E_Message_RTPStream_Video_Port:
         {
-          int temp_video_port = 0;
-          // Only obtain port for RTP ([rtpstream_video_port+0]) *BUT NOT* RTCP ([rtpstream_video_port+1])
-          if (comp->offset == 0) {
-              temp_video_port = rtpstream_get_local_videoport(&rtpstream_callinfo);
-              if (!temp_video_port) {
-                /* Make this a warning instead? */
-                ERROR("cannot assign a free video port to this call - using 0 for [rtpstream_video_port]");
-              }
-          } else if (comp->offset >= 1) {
-              temp_video_port = rtpstream_callinfo.local_videoport + comp->offset;
-          }
+            int temp_video_port = 0;
+            if (sendMode == MODE_CLIENT) {
+                // Only obtain port for RTP ([rtpstream_video_port+0]) *BUT NOT* RTCP ([rtpstream_video_port+1])
+                if (comp->offset == 0) {
+                    temp_video_port = rtpstream_get_local_uac_videoport(&rtpstream_callinfo);
+                    if (!temp_video_port) {
+                        /* Make this a warning instead? */
+                        ERROR("cannot assign a free UAC video port to this call - using 0 for [rtpstream_video_port]");
+                    }
+                } else {
+                    if (comp->offset % 2 == 0) {
+                        // Rotate VIDEO RTP (EVEN) port...
+                        temp_video_port = rtpstream_rotate_local_uac_videoport(&rtpstream_callinfo, rtpstream_callinfo.local_videoport + comp->offset);
+                    } else {
+                        // NO-OP - leave VIDEO RTCP (ODD) port untouched...
+                        temp_video_port = rtpstream_callinfo.local_videoport + comp->offset;
+                    }
+                }
+            } else if (sendMode == MODE_SERVER) {
+                // Only obtain port for RTP ([rtpstream_video_port+0]) *BUT NOT* RTCP ([rtpstream_video_port+1])
+                if (comp->offset == 0) {
+                    temp_video_port = rtpstream_get_local_uas_videoport(&rtpstream_callinfo);
+                    if (!temp_video_port) {
+                        ERROR("Cannot assign a free UAS video port to this call - using 0 for [rtpstream_video_port]...");
+                    }
+                } else {
+                    if (comp->offset % 2 == 0) {
+                        // Rotate VIDEO RTP (EVEN) port...
+                        temp_video_port = rtpstream_rotate_local_uas_videoport(&rtpstream_callinfo, rtpstream_callinfo.local_videoport + comp->offset);
+                    } else {
+                        // NO-OP leave VIDEO RTCP (ODD) port untouched...
+                        temp_video_port = rtpstream_callinfo.local_videoport + comp->offset;
+                    }
+                }
+            } else {
+                WARNING("RTPStream_Video_Port:  INVALID operation mode...");
+                temp_video_port = 0;
+            }
 #ifdef USE_TLS
-          logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Video_Port: %d\n", temp_video_port);
+            logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Video_Port: %d\n", temp_video_port);
 #endif // USE_TLS
-          dest += snprintf(dest, left, "%d", temp_video_port);
+            dest += snprintf(dest, left, "%d", temp_video_port);
         }
         break;
 #ifdef USE_TLS
