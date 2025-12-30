@@ -542,7 +542,7 @@ static void prepare_noop(
 
 /* prepare a dtmf pcap
  */
-int prepare_dtmf(const char* digits, pcap_pkts* pkts, uint16_t start_seq_no)
+int prepare_dtmf(char* digits, pcap_pkts* pkts, uint16_t start_seq_no)
 {
     unsigned long tone_len = 200;
     const u_long pktlen = sizeof(struct dtmfpacket);
