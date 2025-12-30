@@ -63,7 +63,7 @@ Installing SIPp
 
     + C++ Compiler
     + curses or ncurses library
-    + OpenSSL >= 1.1.0 or WolfSSL >= 3.15.0
+    + OpenSSL >= 1.1.1 or WolfSSL >= 3.15.0
     + For pcap play support: libpcap and libnet
     + For SCTP support: lksctp-tools
     + For distributed pauses: `Gnu Scientific Libraries`_
