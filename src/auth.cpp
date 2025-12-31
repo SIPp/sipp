@@ -29,7 +29,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include "md5.h"
 #include "milenage.h"
 #include "screen.hpp"
 #include "logger.hpp"
@@ -106,7 +105,7 @@ static int createAuthHeaderSHA256(
 
 /* This function is from RFC 2617 Section 5 */
 
-static void hashToHex(md5_byte_t* _b_raw, unsigned char* _h, unsigned short size)
+static void hashToHex(unsigned char* _b_raw, unsigned char* _h, unsigned short size)
 {
     unsigned short i;
     unsigned char j;
@@ -264,21 +263,22 @@ static int createAuthResponseMD5(
     const char* cnonce, const char* nc,
     unsigned char* result)
 {
-    md5_byte_t ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
-    md5_byte_t resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE];
+    unsigned char ha1[MD5_HASH_SIZE], ha2[MD5_HASH_SIZE];
+    unsigned char resp[MD5_HASH_SIZE], body[MD5_HASH_SIZE];
     unsigned char body_hex[HASH_HEX_SIZE+1];
     unsigned char ha1_hex[HASH_HEX_SIZE+1], ha2_hex[HASH_HEX_SIZE+1];
     char tmp[MAX_HEADER_LEN];
-    md5_state_t Md5Ctx;
+    unsigned int digest_len = 0;
+    EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
 
     // Load in A1
-    md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, (md5_byte_t *) user, strlen(user));
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) realm, strlen(realm));
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) password, password_len);
-    md5_finish(&Md5Ctx, ha1);
+    EVP_DigestInit_ex(mdctx, EVP_md5(), nullptr);
+    EVP_DigestUpdate(mdctx, (unsigned char *) user, strlen(user));
+    EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+    EVP_DigestUpdate(mdctx, (unsigned char *) realm, strlen(realm));
+    EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+    EVP_DigestUpdate(mdctx, (unsigned char *) password, password_len);
+    EVP_DigestFinal_ex(mdctx, ha1, &digest_len);
     hashToHex(&ha1[0], &ha1_hex[0], MD5_HASH_SIZE);
 
     if (auth_uri) {
@@ -288,39 +288,39 @@ static int createAuthResponseMD5(
     }
     // If using Auth-Int make a hash of the body - which is NULL for REG
     if (stristr(authtype, "auth-int") != nullptr) {
-        md5_init(&Md5Ctx);
-        md5_append(&Md5Ctx, (md5_byte_t *) msgbody, strlen(msgbody));
-        md5_finish(&Md5Ctx, body);
+        EVP_DigestInit_ex(mdctx, EVP_md5(), nullptr);
+        EVP_DigestUpdate(mdctx, (unsigned char *) msgbody, strlen(msgbody));
+        EVP_DigestFinal_ex(mdctx, body, &digest_len);
         hashToHex(&body[0], &body_hex[0], MD5_HASH_SIZE);
     }
 
     // Load in A2
-    md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, (md5_byte_t *) method, strlen(method));
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) tmp, strlen(tmp));
+    EVP_DigestInit_ex(mdctx, EVP_md5(), nullptr);
+    EVP_DigestUpdate(mdctx, (unsigned char *) method, strlen(method));
+    EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+    EVP_DigestUpdate(mdctx, (unsigned char *) tmp, strlen(tmp));
     if (stristr(authtype, "auth-int") != nullptr) {
-        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-        md5_append(&Md5Ctx, (md5_byte_t *) &body_hex, HASH_HEX_SIZE);
+        EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+        EVP_DigestUpdate(mdctx, (unsigned char *) &body_hex, HASH_HEX_SIZE);
     }
-    md5_finish(&Md5Ctx, ha2);
+    EVP_DigestFinal_ex(mdctx, ha2, &digest_len);
     hashToHex(&ha2[0], &ha2_hex[0], MD5_HASH_SIZE);
 
-    md5_init(&Md5Ctx);
-    md5_append(&Md5Ctx, (md5_byte_t *) &ha1_hex, HASH_HEX_SIZE);
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) nonce, strlen(nonce));
+    EVP_DigestInit_ex(mdctx, EVP_md5(), nullptr);
+    EVP_DigestUpdate(mdctx, (unsigned char *) &ha1_hex, HASH_HEX_SIZE);
+    EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+    EVP_DigestUpdate(mdctx, (unsigned char *) nonce, strlen(nonce));
     if (cnonce[0] != '\0') {
-        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-        md5_append(&Md5Ctx, (md5_byte_t *) nc, strlen(nc));
-        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-        md5_append(&Md5Ctx, (md5_byte_t *) cnonce, strlen(cnonce));
-        md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-        md5_append(&Md5Ctx, (md5_byte_t *) authtype, strlen(authtype));
+        EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+        EVP_DigestUpdate(mdctx, (unsigned char *) nc, strlen(nc));
+        EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+        EVP_DigestUpdate(mdctx, (unsigned char *) cnonce, strlen(cnonce));
+        EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+        EVP_DigestUpdate(mdctx, (unsigned char *) authtype, strlen(authtype));
     }
-    md5_append(&Md5Ctx, (md5_byte_t *) ":", 1);
-    md5_append(&Md5Ctx, (md5_byte_t *) &ha2_hex, HASH_HEX_SIZE);
-    md5_finish(&Md5Ctx, resp);
+    EVP_DigestUpdate(mdctx, (unsigned char *) ":", 1);
+    EVP_DigestUpdate(mdctx, (unsigned char *) &ha2_hex, HASH_HEX_SIZE);
+    EVP_DigestFinal_ex(mdctx, resp, &digest_len);
     hashToHex(&resp[0], result, MD5_HASH_SIZE);
 
     return 1;
