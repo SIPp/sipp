@@ -33,7 +33,6 @@ void f1star(uint8_t k[16], uint8_t rand[16], uint8_t sqn[6], uint8_t amf[2],
             uint8_t mac_s[8], uint8_t op[16]);
 void f5star(uint8_t k[16], uint8_t rand[16],
             uint8_t ak[6], uint8_t op[16]);
-void ComputeOPc(uint8_t op_c[16], uint8_t op[16]);
 
 #ifdef __cplusplus
 }  /* end extern "C" */
