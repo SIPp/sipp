@@ -41,10 +41,8 @@
 #include <wolfssl/openssl/evp.h>
 #endif
 
-#ifdef USE_SHA256
 #define SHA256_HASH_SIZE 32
 #define SHA256_HASH_HEX_SIZE 2*SHA256_HASH_SIZE
-#endif // USE_SHA256
 
 #define MAX_HEADER_LEN  2049
 #define MD5_HASH_SIZE 16
@@ -100,13 +98,11 @@ static int createAuthHeaderAKAv1MD5(
     const char* auth, const char* algo, unsigned int nonce_count,
     char* result, size_t result_len);
 
-#ifdef USE_SHA256
 static int createAuthHeaderSHA256(
     const char* user, const char* password, int password_len,
     const char* method, const char* uri, const char* msgbody,
     const char* auth, const char* algo, unsigned int nonce_count,
     char* result, size_t result_len);
-#endif // USE_SHA256
 
 /* This function is from RFC 2617 Section 5 */
 
@@ -203,12 +199,10 @@ int createAuthHeader(
         return createAuthHeaderAKAv1MD5(
             user, aka_OP, aka_AMF, aka_K, method, uri, msgbody, auth,
             algo, nonce_count, result, result_len);
-#ifdef USE_SHA256
     } else if (strncasecmp(algo, "SHA-256", 7)==0) {
         return createAuthHeaderSHA256(
             user, password, strlen(password), method, uri, msgbody,
             auth, algo, nonce_count, result, result_len);
-#endif // USE_SHA256
     } else {
         snprintf(result, result_len, "createAuthHeader: authentication must use MD5, AKAv1-MD5 or SHA-256");
         return 0;
@@ -332,7 +326,6 @@ static int createAuthResponseMD5(
     return 1;
 }
 
-#ifdef USE_SHA256
 static int createAuthResponseSHA256(
     const char* user, const char* password, int password_len,
     const char* method, const char* uri, const char* authtype,
@@ -404,7 +397,6 @@ static int createAuthResponseSHA256(
     EVP_MD_CTX_free(mdctx);
     return 1;
 }
-#endif // USE_SHA256
 
 int createAuthHeaderMD5(
     const char* user, const char* password, int password_len,
@@ -543,7 +535,6 @@ int verifyAuthHeader(const char *user, const char *password, const char *method,
                 (char*)result,
                 response);
         return !strcmp((char *)result, response);
-#ifdef USE_SHA256
     } else if (strncasecmp(algo, "SHA-256", 7)==0) {
         unsigned char result[SHA256_HASH_HEX_SIZE + 1];
         char response[SHA256_HASH_HEX_SIZE + 1];
@@ -567,7 +558,6 @@ int verifyAuthHeader(const char *user, const char *password, const char *method,
                 (char*)result,
                 response);
         return !strcmp((char *)result, response);
-#endif // USE_SHA256
     } else {
         WARNING("verifyAuthHeader: authentication must use MD5 or SHA-256, value is '%s'", algo);
         return 0;
@@ -893,7 +883,6 @@ static int createAuthHeaderAKAv1MD5(
     return written;
 }
 
-#ifdef USE_SHA256
 int createAuthHeaderSHA256(
     const char* user, const char* password, int password_len,
     const char* method, const char* uri, const char* msgbody,
@@ -987,7 +976,6 @@ int createAuthHeaderSHA256(
 
     return written;
 }
-#endif // USE_SHA256
 
 
 #ifdef GTEST
@@ -1027,7 +1015,6 @@ TEST(DigestAuth, BasicVerification) {
     free(header);
 }
 
-#if defined(USE_SHA256)
 TEST(DigestAuth, BasicVerificationSHA256) {
     char* header = strdup(("Digest \r\n"
                            " realm=\"testrealm@host.com\",\r\n"
@@ -1039,7 +1026,6 @@ TEST(DigestAuth, BasicVerificationSHA256) {
     EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header);
 }
-#endif
 
 TEST(DigestAuth, qop) {
     char result[1024];

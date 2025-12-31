@@ -15,11 +15,11 @@ elif test "$*" = "--help" || test "$*" = "-h"; then
 fi
 
 if test "$*" = "--none"; then
-    cmake $SRC_DIR -DUSE_GSL=0 -DUSE_SSL=0 -DUSE_SCTP=0 -DUSE_PCAP=0
+    cmake $SRC_DIR -DUSE_GSL=0 -DUSE_SCTP=0 -DUSE_PCAP=0
 elif test "$*" = "--common"; then
-    cmake $SRC_DIR -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=0 -DUSE_SCTP=0
+    cmake $SRC_DIR -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SCTP=0
 elif test "$*" = "--full"; then
-    cmake $SRC_DIR -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
+    cmake $SRC_DIR -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SCTP=1
 else
     # Debug build? Add -DDEBUG=1
     # Adjusted SIP max size? Add -DSIPP_MAX_MSG_SIZE=262144

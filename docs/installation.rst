@@ -63,31 +63,12 @@ Installing SIPp
 
     + C++ Compiler
     + curses or ncurses library
-    + For TLS support: OpenSSL >= 1.1.0 or WolfSSL >= 3.15.0
+    + OpenSSL >= 1.1.0 or WolfSSL >= 3.15.0
     + For pcap play support: libpcap and libnet
     + For SCTP support: lksctp-tools
     + For distributed pauses: `Gnu Scientific Libraries`_
 
 + You have four options to compile SIPp:
-
-    + Without TLS (Transport Layer Security), SCTP or PCAP support --
-      this is the recommended setup if you don't need to handle SCTP, TLS or
-      PCAP::
-
-        tar -xvzf sipp-xxx.tar
-        cd sipp
-        cmake .
-        make
-
-    + With TLS and SHA-256 support, you must have installed `OpenSSL library`_
-      (>=1.1.0) (which may come with your system) or `WolfSSL library`_
-      (>=3.15.0). Building SIPp consists only of adding the
-      ``-DUSE_SSL=1`` option to the cmake command::
-
-        tar -xvzf sipp-xxx.tar.gz
-        cd sipp
-        cmake . -DUSE_SSL=1
-        make
 
     + With PCAP play support::
 
@@ -114,7 +95,7 @@ Installing SIPp
 
         tar -xvzf sipp-xxx.tar.gz
         cd sipp
-        cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SSL=1 -DUSE_SCTP=1
+        cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SCTP=1
         make
 
 
