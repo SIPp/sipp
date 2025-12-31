@@ -35,63 +35,6 @@
 static SSL_CTX* sip_trp_ssl_ctx = nullptr;  /* For SSL cserver context */
 static SSL_CTX* sip_trp_ssl_ctx_client = nullptr;  /* For SSL cserver context */
 
-#if defined(USE_OPENSSL) && OPENSSL_VERSION_NUMBER < 0x10100000
-#define MUTEX_TYPE pthread_mutex_t
-#define MUTEX_SETUP(x) pthread_mutex_init(&(x), nullptr)
-#define MUTEX_CLEANUP(x) pthread_mutex_destroy(&(x))
-#define MUTEX_LOCK(x) pthread_mutex_lock(&(x))
-#define MUTEX_UNLOCK(x) pthread_mutex_unlock(&(x))
-#define THREAD_ID pthread_self()
-
-static MUTEX_TYPE *mutex_buf = nullptr;
-
-static void locking_function(int mode, int n, const char *file, int line)
-{
-    (void)file; /* unused, avoid warnings */
-    (void)line; /* unused, avoid warnings */
-
-    if (mode & CRYPTO_LOCK)
-        MUTEX_LOCK(mutex_buf[n]);
-    else
-        MUTEX_UNLOCK(mutex_buf[n]);
-}
-
-#ifndef WIN32
-static unsigned long id_function()
-{
-    return (unsigned long)THREAD_ID;
-}
-#endif
-#endif
-
-static int thread_setup()
-{
-#if defined(USE_OPENSSL) && OPENSSL_VERSION_NUMBER < 0x10100000
-    int i;
-    mutex_buf = (MUTEX_TYPE *)malloc(sizeof(MUTEX_TYPE) * CRYPTO_num_locks());
-
-    if (!mutex_buf)
-        return 0;
-    for (i = 0; i < CRYPTO_num_locks(); ++i)
-        MUTEX_SETUP(mutex_buf[i]);
-
-#ifndef WIN32
-    /* For openssl>=1.0 it uses the address of errno for thread id.
-     * Works for us. */
-    CRYPTO_set_id_callback(id_function);
-#endif
-
-    /* > All OpenSSL code has now been transferred to use the new
-     * > threading API, so the old one is no longer used and can be
-     * > removed. [...] There is now no longer a need to set locking
-     * > callbacks!!
-     * https://github.com/openssl/openssl/commit/
-     * 2e52e7df518d80188c865ea3f7bb3526d14b0c08 */
-    CRYPTO_set_locking_callback(locking_function);
-#endif
-    return 1;
-}
-
 static int passwd_call_back_routine(char *buf, int size, int /*flag*/, void *passwd)
 {
     strncpy(buf, (char *)(passwd), size);
@@ -249,12 +192,7 @@ static int sip_tls_load_crls(SSL_CTX* ctx , const char* crlfile)
     }
 
     /* Set the flags of the store so that CRLS's are consulted */
-#if OPENSSL_VERSION_NUMBER >= 0x00907000L
     X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
-#else
-#warning This version of OpenSSL (<0.9.7) cannot handle CRL files in capath
-    ERROR("This version of OpenSSL (<0.9.7) cannot handle CRL files in capath");
-#endif
 
     return (1);
 }
@@ -262,8 +200,6 @@ static int sip_tls_load_crls(SSL_CTX* ctx , const char* crlfile)
 static SSL_CTX* instantiate_ssl_context(const char* context_name)
 {
     SSL_CTX* ssl_ctx = nullptr;
-
-#if OPENSSL_VERSION_NUMBER >= 0x10100000  /* >= 1.1 */
 
     int min_tls_version, max_tls_version;
 
@@ -304,54 +240,6 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
         SSL_CTX_set_max_proto_version(ssl_ctx, max_tls_version);
     }
 
-#else  /* OPENSSL_VERSION < 1.1 */
-
-    if (tls_version == 0.0) {
-        if (!strncmp(context_name, "client", 6)) {
-            ssl_ctx = SSL_CTX_new(SSLv23_client_method());
-        } else {
-            ssl_ctx = SSL_CTX_new(SSLv23_server_method());
-        }
-    } else if (tls_version == 1.0) {
-#if !defined(USE_WOLFSSL) || defined(WOLFSSL_ALLOW_TLSV10)
-        if (!strncmp(context_name, "client", 6)) {
-            ssl_ctx = SSL_CTX_new(TLSv1_client_method());
-        } else {
-            ssl_ctx = SSL_CTX_new(TLSv1_server_method());
-        }
-#else
-        ERROR("Old TLS version 1.0 is no longer supported for [%s] context.", context_name);
-        ssl_ctx = nullptr;
-#endif
-    } else if (tls_version == 1.1) {
-#if !defined(USE_WOLFSSL) || !defined(NO_OLD_TLS)
-        if (!strncmp(context_name, "client", 6)) {
-            ssl_ctx = SSL_CTX_new(TLSv1_1_client_method());
-        } else {
-            ssl_ctx = SSL_CTX_new(TLSv1_1_server_method());
-        }
-#else
-        ERROR("Old TLS version 1.1 is no longer supported for [%s] context.", context_name);
-        ssl_ctx = nullptr;
-#endif
-    } else if (tls_version == 1.2) {
-        if (!strncmp(context_name, "client", 6)) {
-            ssl_ctx = SSL_CTX_new(TLSv1_2_client_method());
-        } else {
-            ssl_ctx = SSL_CTX_new(TLSv1_2_server_method());
-        }
-    } else if (tls_version == 1.3) {
-        if (!strncmp(context_name, "client", 6)) {
-            ssl_ctx = SSL_CTX_new(TLSv1_3_client_method());
-        } else {
-            ssl_ctx = SSL_CTX_new(TLSv1_3_server_method());
-        }
-    } else {
-        ERROR("Unrecognized TLS version for [%s] context: %1.1f", context_name, tls_version);
-        ssl_ctx = nullptr;
-    }
-
-#endif
     return ssl_ctx;
 }
 
@@ -466,7 +354,7 @@ enum tls_init_status TLS_init_context(void)
 
 int TLS_init()
 {
-    if (!thread_setup() || !SSL_library_init()) {
+    if (!SSL_library_init()) {
         return -1;
     }
     SSL_load_error_strings();
