@@ -46,10 +46,10 @@ SIP-over-SCTP, media playback from PCAP files and the GNU Scientific
 Libraries for random distributions):
 
 ```
-cmake . -DUSE_SSL=1 -DUSE_SCTP=1 -DUSE_PCAP=1 -DUSE_GSL=1
+cmake . -DUSE_SCTP=1 -DUSE_PCAP=1 -DUSE_GSL=1
 ```
 
-To enable TLS key logging pass `-DUSE_SSL=KL` to cmake.
+To enable TLS key logging pass `-DTLS_KEY_LOGGING=1` to cmake.
 
 TLS key logging records the TLS Session Keys to a key log file when the `SSLKEYLOGFILE` environment variable is set. It allows to decrypt SIPS traffic generated or received by SIPp using Wireshark. For more details see: https://wiki.wireshark.org/TLS
 

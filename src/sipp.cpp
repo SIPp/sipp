@@ -92,7 +92,6 @@ struct sipp_option {
 #define SIPP_OPTION_BOOL          10
 #define SIPP_OPTION_VERSION       11
 #define SIPP_OPTION_TRANSPORT     12
-#define SIPP_OPTION_NEED_SSL      13
 #define SIPP_OPTION_IP            14
 #define SIPP_OPTION_MAX_SOCKET    15
 #define SIPP_OPTION_CSEQ          16
@@ -164,10 +163,8 @@ struct sipp_option options_table[] = {
         "- ui: UDP with one socket per IP address. The IP addresses must be defined in the injection file.\n"
         "- t1: TCP with one socket,\n"
         "- tn: TCP with one socket per call,\n"
-#ifdef USE_TLS
         "- l1: TLS with one socket,\n"
         "- ln: TLS with one socket per call,\n"
-#endif
 #ifdef USE_SCTP
         "- s1: SCTP with one socket,\n"
         "- sn: SCTP with one socket per call,\n"
@@ -190,19 +187,11 @@ struct sipp_option options_table[] = {
     {"reconnect_sleep", "How long (in milliseconds) to sleep between the close and reconnect?", SIPP_OPTION_TIME_MS, &reset_sleep, 1},
     {"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, nullptr, 1},
 
-#ifdef USE_TLS
     {"tls_cert", "Set the name for TLS Certificate file. Default is 'cacert.pem'", SIPP_OPTION_STRING, &tls_cert_name, 1},
     {"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem'", SIPP_OPTION_STRING, &tls_key_name, 1},
     {"tls_ca", "Set the name for TLS CA file. If not specified, X509 verification is not activated.", SIPP_OPTION_STRING, &tls_ca_name, 1},
     {"tls_crl", "Set the name for Certificate Revocation List file. If not specified, X509 CRL is not activated.", SIPP_OPTION_STRING, &tls_crl_name, 1},
     {"tls_version", "Set the TLS protocol version to use (1.0, 1.1, 1.2, 1.3) -- default is autonegotiate", SIPP_OPTION_FLOAT, &tls_version, 1},
-#else
-    {"tls_cert", nullptr, SIPP_OPTION_NEED_SSL, nullptr, 1},
-    {"tls_key", nullptr, SIPP_OPTION_NEED_SSL, nullptr, 1},
-    {"tls_ca", nullptr, SIPP_OPTION_NEED_SSL, nullptr, 1},
-    {"tls_crl", nullptr, SIPP_OPTION_NEED_SSL, nullptr, 1},
-    {"tls_version", nullptr, SIPP_OPTION_NEED_SSL, nullptr, 1},
-#endif
 
 #ifdef USE_SCTP
     {"multihome", "Set multihome address for SCTP", SIPP_OPTION_IP, multihome_ip, 1},
@@ -300,9 +289,7 @@ struct sipp_option options_table[] = {
     {"rtp_threadtasks", "RTP number of playback tasks per thread.", SIPP_OPTION_INT, &rtp_tasks_per_thread, 1},
     {"rtp_buffsize", "Set the rtp socket send/receive buffer size.", SIPP_OPTION_INT, &rtp_buffsize, 1},
     {"rtpcheck_debug", "Write RTP check debug information to file", SIPP_OPTION_SETFLAG, &rtpcheck_debug, 1},
-#ifdef USE_TLS
     {"srtpcheck_debug", "Write SRTP check debug information to file", SIPP_OPTION_SETFLAG, &srtpcheck_debug, 1},
-#endif // USE_TLS
     {"audiotolerance", "Audio error tolerance for RTP checks (0.0-1.0) -- default: 1.0", SIPP_OPTION_FLOAT, &audiotolerance, 1},
     {"videotolerance", "Video error tolerance for RTP checks (0.0-1.0) -- default: 1.0", SIPP_OPTION_FLOAT, &videotolerance, 1},
     {"random_base_ssrc", "Use a random base SSRC for RTP streams instead of default value 0xCA110000", SIPP_OPTION_SETFLAG, &random_base_ssrc, 1},
@@ -1455,18 +1442,14 @@ int main(int argc, char *argv[])
                 printf("\n %s.\n\n",
                        /* SIPp v1.2.3-TLS-PCAP */
                        "SIPp " SIPP_VERSION
-#ifdef USE_TLS
                        "-TLS"
-#endif
 #ifdef USE_SCTP
                        "-SCTP"
 #endif
 #ifdef PCAPPLAY
                        "-PCAP"
 #endif
-#ifdef USE_SHA256
                        "-SHA256"
-#endif
                        );
 
                 printf
@@ -1633,15 +1616,11 @@ int main(int argc, char *argv[])
 #endif
                     break;
                 case 'l':
-#ifdef USE_TLS
                     transport = T_TLS;
                     if (TLS_init() != 1) {
                         printf("TLS initialization problem\n");
                         exit(-1);
                     }
-#else
-                    ERROR("To use TLS transport you must compile SIPp with OpenSSL or WolfSSL");
-#endif
                     break;
                 case 'c':
                     if (strlen(comp_error)) {
@@ -1672,10 +1651,6 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_NEED_SCTP:
                 CHECK_PASS();
                 ERROR("SCTP support is required for the %s option.", argv[argi]);
-                break;
-            case SIPP_OPTION_NEED_SSL:
-                CHECK_PASS();
-                ERROR("TLS support is required for the %s option.", argv[argi]);
                 break;
             case SIPP_OPTION_MAX_SOCKET:
                 REQUIRE_ARG();
@@ -2012,11 +1987,9 @@ int main(int argc, char *argv[])
     }
     scenario_file = main_scenario->getFileName().c_str();
 
-#ifdef USE_TLS
     if ((transport == T_TLS) && (TLS_init_context() != TLS_INIT_NORMAL)) {
         ERROR("FI_init_ssl_context() failed");
     }
-#endif
 
     if (useLogf == 1) {
         rotate_logfile();

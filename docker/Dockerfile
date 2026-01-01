@@ -20,7 +20,9 @@ RUN apk add --no-cache \
   ncurses-dev \
   ncurses-static \
   ninja \
-  ${FULL:+linux-headers lksctp-tools-dev lksctp-tools-static openssl-dev openssl-libs-static}
+  openssl-dev \
+  openssl-libs-static \
+  ${FULL:+linux-headers lksctp-tools-dev lksctp-tools-static}
 
 WORKDIR /sipp
 COPY CMakeLists.txt ./
@@ -37,7 +39,7 @@ RUN --mount=type=bind,target=.git,source=.git \
     -DUSE_PCAP=1 \
     -DUSE_GSL=1 \
     ${DEBUG:+-DDEBUG=1} \
-    ${FULL:+-DUSE_SSL=1 -DUSE_SCTP=1} \
+    ${FULL:+-DUSE_SCTP=1} \
   && ninja
 RUN help2man --output=sipp.1 -v -v --no-info \
   --name='SIP testing tool and traffic generator' ./sipp

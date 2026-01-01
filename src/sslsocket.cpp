@@ -23,8 +23,7 @@
 #include "sipp.hpp"
 #include "sslsocket.hpp"
 
-#if (USE_OPENSSL_KL && OPENSSL_VERSION_NUMBER >= 0x10101000L)
-#define HAVE_KEYLOG_CB
+#if USE_OPENSSL_KL
 #define KEYLOG_ENV "SSLKEYLOGFILE"
 #endif
 
@@ -42,7 +41,7 @@ static int passwd_call_back_routine(char *buf, int size, int /*flag*/, void *pas
     return(strlen(buf));
 }
 
-#ifdef HAVE_KEYLOG_CB
+#ifdef USE_OPENSSL_KL
 static const char *keylog_file()
 {
     char *kl_env = getenv(KEYLOG_ENV);
@@ -91,7 +90,7 @@ static void sip_tls_keylog_callback(const SSL *ssl, const char *line)
         write_keylog_line(keylog_file_name, line);
     }
 }
-#endif // HAVE_KEYLOG_CB
+#endif // USE_OPENSSL_KL
 
 /****** SSL error handling *************/
 const char *SSL_error_string(int ssl_error, int orig_ret)
@@ -341,12 +340,12 @@ enum tls_init_status TLS_init_context(void)
         return TLS_INIT_ERROR;
     }
 
-#ifdef HAVE_KEYLOG_CB
+#ifdef USE_OPENSSL_KL
     if (keylog_file()) {
         SSL_CTX_set_keylog_callback(sip_trp_ssl_ctx_client, sip_tls_keylog_callback);
         SSL_CTX_set_keylog_callback(sip_trp_ssl_ctx, sip_tls_keylog_callback);
     }
-#endif // HAVE_KEYLOG_CB
+#endif // USE_OPENSSL_KL
 
 
     return TLS_INIT_NORMAL;

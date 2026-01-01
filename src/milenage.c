@@ -16,13 +16,40 @@
  *-----------------------------------------------------------------*/
 
 #include "milenage.h"
-#include "rijndael.h"
 
 #include <stdint.h>
 
-/*--------------------------- prototypes --------------------------*/
+#if defined(USE_OPENSSL)
+#include <openssl/evp.h>
+#elif defined(USE_WOLFSSL)
+#include <wolfssl/options.h>
+#include <wolfssl/openssl/evp.h>
+#endif
 
+/*--------------------------- helpers -----------------------------*/
 
+/*-------------------------------------------------------------------
+ *  Function to compute OPc from OP and K.  Assumes key schedule has
+    already been performed.
+ *-----------------------------------------------------------------*/
+
+static void aes128_encrypt_block(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]) {
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    int outlen;
+    EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, key, NULL);
+    EVP_CIPHER_CTX_set_padding(ctx, 0);  // No PKCS padding for raw blocks
+    EVP_EncryptUpdate(ctx, out, &outlen, in, 16);
+    EVP_CIPHER_CTX_free(ctx);
+}
+
+static void ComputeOPc(const uint8_t k[16], uint8_t op_c[16], uint8_t op[16])
+{
+    aes128_encrypt_block(k, op, op_c);
+    for (uint8_t i = 0; i < 16; i++)
+        op_c[i] ^= op[i];
+}
+
+/* end of function ComputeOPc */
 
 /*-------------------------------------------------------------------
  *                            Algorithm f1
@@ -44,13 +71,11 @@ void f1(uint8_t k[16], uint8_t rand[16], uint8_t sqn[6], uint8_t amf[2],
     uint8_t rijndaelInput[16];
     uint8_t i;
 
-    RijndaelKeySchedule( k );
-
-    ComputeOPc( op_c, op );
+    ComputeOPc(k, op_c, op);
 
     for (i=0; i<16; i++)
         rijndaelInput[i] = rand[i] ^ op_c[i];
-    RijndaelEncrypt( rijndaelInput, temp );
+    aes128_encrypt_block(k, rijndaelInput, temp);
 
     for (i=0; i<6; i++) {
         in1[i]    = sqn[i];
@@ -72,7 +97,7 @@ void f1(uint8_t k[16], uint8_t rand[16], uint8_t sqn[6], uint8_t amf[2],
     for (i=0; i<16; i++)
         rijndaelInput[i] ^= temp[i];
 
-    RijndaelEncrypt( rijndaelInput, out1 );
+    aes128_encrypt_block(k, rijndaelInput, out1);
     for (i=0; i<16; i++)
         out1[i] ^= op_c[i];
 
@@ -81,8 +106,6 @@ void f1(uint8_t k[16], uint8_t rand[16], uint8_t sqn[6], uint8_t amf[2],
 
     return;
 } /* end of function f1 */
-
-
 
 /*-------------------------------------------------------------------
  *                            Algorithms f2-f5
@@ -102,13 +125,11 @@ void f2345(uint8_t k[16], uint8_t rand[16],
     uint8_t rijndaelInput[16];
     uint8_t i;
 
-    RijndaelKeySchedule( k );
-
-    ComputeOPc( op_c, op );
+    ComputeOPc(k, op_c, op);
 
     for (i=0; i<16; i++)
         rijndaelInput[i] = rand[i] ^ op_c[i];
-    RijndaelEncrypt( rijndaelInput, temp );
+    aes128_encrypt_block(k, rijndaelInput, temp);
 
     /* To obtain output block OUT2: XOR OPc and TEMP,    *
      * rotate by r2=0, and XOR on the constant c2 (which *
@@ -118,7 +139,7 @@ void f2345(uint8_t k[16], uint8_t rand[16],
         rijndaelInput[i] = temp[i] ^ op_c[i];
     rijndaelInput[15] ^= 1;
 
-    RijndaelEncrypt( rijndaelInput, out );
+    aes128_encrypt_block(k, rijndaelInput, out);
     for (i=0; i<16; i++)
         out[i] ^= op_c[i];
 
@@ -135,7 +156,7 @@ void f2345(uint8_t k[16], uint8_t rand[16],
         rijndaelInput[(i+12) % 16] = temp[i] ^ op_c[i];
     rijndaelInput[15] ^= 2;
 
-    RijndaelEncrypt( rijndaelInput, out );
+    aes128_encrypt_block(k, rijndaelInput, out);
     for (i=0; i<16; i++)
         out[i] ^= op_c[i];
 
@@ -150,7 +171,7 @@ void f2345(uint8_t k[16], uint8_t rand[16],
         rijndaelInput[(i+8) % 16] = temp[i] ^ op_c[i];
     rijndaelInput[15] ^= 4;
 
-    RijndaelEncrypt( rijndaelInput, out );
+    aes128_encrypt_block(k, rijndaelInput, out);
     for (i=0; i<16; i++)
         out[i] ^= op_c[i];
 
@@ -181,13 +202,11 @@ void f1star(uint8_t k[16], uint8_t rand[16], uint8_t sqn[6], uint8_t amf[2],
     uint8_t rijndaelInput[16];
     uint8_t i;
 
-    RijndaelKeySchedule( k );
-
-    ComputeOPc( op_c, op );
+    ComputeOPc(k, op_c, op);
 
     for (i=0; i<16; i++)
         rijndaelInput[i] = rand[i] ^ op_c[i];
-    RijndaelEncrypt( rijndaelInput, temp );
+    aes128_encrypt_block(k, rijndaelInput, temp);
 
     for (i=0; i<6; i++) {
         in1[i]    = sqn[i];
@@ -209,7 +228,7 @@ void f1star(uint8_t k[16], uint8_t rand[16], uint8_t sqn[6], uint8_t amf[2],
     for (i=0; i<16; i++)
         rijndaelInput[i] ^= temp[i];
 
-    RijndaelEncrypt( rijndaelInput, out1 );
+    aes128_encrypt_block(k, rijndaelInput, out1);
     for (i=0; i<16; i++)
         out1[i] ^= op_c[i];
 
@@ -238,13 +257,11 @@ void f5star(uint8_t k[16], uint8_t rand[16],
     uint8_t rijndaelInput[16];
     uint8_t i;
 
-    RijndaelKeySchedule( k );
-
-    ComputeOPc( op_c, op );
+    ComputeOPc(k, op_c, op);
 
     for (i=0; i<16; i++)
         rijndaelInput[i] = rand[i] ^ op_c[i];
-    RijndaelEncrypt( rijndaelInput, temp );
+    aes128_encrypt_block(k, rijndaelInput, temp);
 
     /* To obtain output block OUT5: XOR OPc and TEMP,         *
      * rotate by r5=96, and XOR on the constant c5 (which     *
@@ -254,7 +271,7 @@ void f5star(uint8_t k[16], uint8_t rand[16],
         rijndaelInput[(i+4) % 16] = temp[i] ^ op_c[i];
     rijndaelInput[15] ^= 8;
 
-    RijndaelEncrypt( rijndaelInput, out );
+    aes128_encrypt_block(k, rijndaelInput, out);
     for (i=0; i<16; i++)
         out[i] ^= op_c[i];
 
@@ -263,20 +280,3 @@ void f5star(uint8_t k[16], uint8_t rand[16],
 
     return;
 } /* end of function f5star */
-
-
-/*-------------------------------------------------------------------
- *  Function to compute OPc from OP and K.  Assumes key schedule has
-    already been performed.
- *-----------------------------------------------------------------*/
-
-void ComputeOPc(uint8_t op_c[16], uint8_t op[16])
-{
-    uint8_t i;
-
-    RijndaelEncrypt( op, op_c );
-    for (i=0; i<16; i++)
-        op_c[i] ^= op[i];
-
-    return;
-} /* end of function ComputeOPc */

@@ -20,9 +20,7 @@
 #ifndef __SIPP_SOCKET_H__
 #define __SIPP_SOCKET_H__
 
-#ifdef USE_TLS
 #include "sslsocket.hpp"
-#endif
 
 #ifdef USE_SCTP
 #define SCTP_DOWN 0

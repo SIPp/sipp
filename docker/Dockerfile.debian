@@ -35,8 +35,9 @@ RUN --mount=type=bind,target=.git,source=.git \
     -DCMAKE_BUILD_TYPE=Release \
     -DUSE_PCAP=1 \
     -DUSE_GSL=1 \
+    ${WOLFSSL:+-DUSE_WOLFSSL=1} \
     ${DEBUG:+-DDEBUG=1} \
-    ${FULL:+-DUSE_SSL=1 -DUSE_SCTP=1} \
+    ${FULL:+-DUSE_SCTP=1} \
   && ninja
 
 FROM debian:12-slim
