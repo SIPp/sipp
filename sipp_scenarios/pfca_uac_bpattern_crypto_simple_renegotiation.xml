@@ -31,9 +31,9 @@
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
       m=audio [rtpstream_audio_port] RTP/AVP 0 18 9 103 8 101
+      a=rtcp:[rtpstream_audio_port+1]
       a=crypto:[cryptotag1audio] [cryptosuiteaescm128sha1801audio] inline:[cryptokeyparams1audio]
       a=crypto:[cryptotag2audio] [cryptosuiteaescm128sha1322audio] inline:[cryptokeyparams2audio]
-      a=rtcp:[rtpstream_audio_port+1]
       a=sendrecv
       a=rtpmap:0 PCMU/8000
       a=rtpmap:18 G729/8000
@@ -45,12 +45,12 @@
       a=rtpmap:101 telephone-event/8000
       a=fmtp:101 0-11,16
       m=video [rtpstream_video_port] RTP/AVP 99 98 96 97
+      a=rtcp:[rtpstream_video_port+1]
       a=crypto:[cryptotag1video] [cryptosuiteaescm128sha1801video] inline:[cryptokeyparams1video]
       a=crypto:[cryptotag2video] [cryptosuiteaescm128sha1322video] inline:[cryptokeyparams2video]
       b=TIAS:1536000
       b=AS:1597
       a=maxprate:192.0
-      a=rtcp:[rtpstream_video_port+1]
       a=sendrecv
       a=rtpmap:99 H264/90000
       a=fmtp:99 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1
@@ -154,9 +154,9 @@
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
       m=audio [rtpstream_audio_port] RTP/AVP 0 18 9 103 8 101
+      a=rtcp:[rtpstream_audio_port+1]
       a=crypto:[cryptotag1audio] [cryptosuiteaescm128sha1801audio] inline:[cryptokeyparams1audio]
       a=crypto:[cryptotag2audio] [cryptosuiteaescm128sha1322audio] inline:[cryptokeyparams2audio]
-      a=rtcp:[rtpstream_audio_port+1]
       a=sendrecv
       a=rtpmap:0 PCMU/8000
       a=rtpmap:18 G729/8000
@@ -168,12 +168,12 @@
       a=rtpmap:101 telephone-event/8000
       a=fmtp:101 0-11,16
       m=video [rtpstream_video_port] RTP/AVP 99 98 96 97
+      a=rtcp:[rtpstream_video_port+1]
       a=crypto:[cryptotag1video] [cryptosuiteaescm128sha1801video] inline:[cryptokeyparams1video]
       a=crypto:[cryptotag2video] [cryptosuiteaescm128sha1322video] inline:[cryptokeyparams2video]
       b=TIAS:1536000
       b=AS:1597
       a=maxprate:192.0
-      a=rtcp:[rtpstream_video_port+1]
       a=sendrecv
       a=rtpmap:99 H264/90000
       a=fmtp:99 profile-level-id=64000d; max-mbps=108000; max-fs=3600; max-br=1280; packetization-mode=1

@@ -191,8 +191,14 @@ int rtpstream_new_call(rtpstream_callinfo_t *callinfo);
 void rtpstream_end_call(rtpstream_callinfo_t *callinfo);
 int rtpstream_shutdown(std::unordered_map<pthread_t, std::string>& threadIDs);
 
-int rtpstream_get_local_audioport(rtpstream_callinfo_t *callinfo);
-int rtpstream_get_local_videoport(rtpstream_callinfo_t *callinfo);
+int rtpstream_get_local_uac_audioport(rtpstream_callinfo_t *callinfo);
+int rtpstream_get_local_uac_videoport(rtpstream_callinfo_t *callinfo);
+int rtpstream_rotate_local_uac_audioport(rtpstream_callinfo_t *callinfo, int newPort);
+int rtpstream_rotate_local_uac_videoport(rtpstream_callinfo_t *callinfo, int newPort);
+int rtpstream_get_local_uas_audioport(rtpstream_callinfo_t *callinfo);
+int rtpstream_get_local_uas_videoport(rtpstream_callinfo_t *callinfo);
+int rtpstream_rotate_local_uas_audioport(rtpstream_callinfo_t *callinfo, int newPort);
+int rtpstream_rotate_local_uas_videoport(rtpstream_callinfo_t *callinfo, int newPort);
 void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char* ip_addr,
                           int audio_port, int video_port);
 

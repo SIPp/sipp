@@ -124,7 +124,7 @@
       s=-
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
-      m=audio [rtpstream_audio_port] RTP/AVP 0 18 9 103 8 101
+      m=audio [rtpstream_audio_port+2] RTP/AVP 0 18 9 103 8 101
       a=rtcp:[rtpstream_audio_port+1]
       a=crypto:[cryptotag1audio] [cryptosuiteaescm128sha1801audio] inline:[cryptokeyparams1audio]
       a=sendrecv
