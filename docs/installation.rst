@@ -66,6 +66,7 @@ Installing SIPp
     + For TLS support: OpenSSL >= 1.1.0 or WolfSSL >= 3.15.0
     + For pcap play support: libpcap and libnet
     + For SCTP support: lksctp-tools
+    + For WSS support: libwebsocket
     + For distributed pauses: `Gnu Scientific Libraries`_
 
 + You have four options to compile SIPp:
