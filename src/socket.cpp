@@ -2591,11 +2591,6 @@ int open_connections()
         }
         sipp_customize_socket(tcp_multiplex);
 
-        /* This fixes local_port keyword value when transport are TCP|TLS and it's defined by user with "-p" */
-        if (sipp_bind_socket(tcp_multiplex, &local_sockaddr, nullptr)) {
-            ERROR_NO("Unable to bind TCP socket");
-        }
-
         if (tcp_multiplex->connect(&remote_sockaddr)) {
             if (reset_number > 0) {
                 WARNING("Failed to reconnect");
