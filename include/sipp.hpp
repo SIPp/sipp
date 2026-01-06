@@ -106,12 +106,10 @@
 #define T_TLS                      2
 #define T_SCTP                     3
 
-#ifdef USE_TLS
 #define DEFAULT_TLS_CERT           "cacert.pem"
 #define DEFAULT_TLS_KEY            "cakey.pem"
 #define DEFAULT_TLS_CA             ""
 #define DEFAULT_TLS_CRL            ""
-#endif
 
 #define TRANSPORT_TO_STRING(p)     ((p==T_TCP) ? "TCP" : ((p==T_TLS)? "TLS" : ((p==T_UDP)? "UDP" : "SCTP")))
 
@@ -139,10 +137,8 @@
 #define MAX_PEER_SIZE              4096  /* 3pcc extended mode: max size of peer names */
 #define MAX_LOCAL_TWIN_SOCKETS     10    /*3pcc extended mode:max number of peers from which
 cmd messages are received */
-#ifdef USE_TLS
 #define DEFAULT_PREFERRED_AUDIO_CRYPTOSUITE ((char*)"AES_CM_128_HMAC_SHA1_80")
 #define DEFAULT_PREFERRED_VIDEO_CRYPTOSUITE ((char*)"AES_CM_128_HMAC_SHA1_80")
-#endif // USE_TLS
 
 /******************** Default parameters ***********************/
 
@@ -257,9 +253,7 @@ MAYBE_EXTERN int                rtp_default_payload     DEFVAL(DEFAULT_RTP_PAYLO
 MAYBE_EXTERN int                rtp_tasks_per_thread    DEFVAL(DEFAULT_RTP_THREADTASKS);
 MAYBE_EXTERN int                rtp_buffsize            DEFVAL(65536);
 MAYBE_EXTERN bool               rtpcheck_debug          DEFVAL(0);
-#ifdef USE_TLS
 MAYBE_EXTERN bool               srtpcheck_debug         DEFVAL(0);
-#endif // USE_TLS
 MAYBE_EXTERN double             audiotolerance          DEFVAL(1.0);
 MAYBE_EXTERN double             videotolerance          DEFVAL(1.0);
 
@@ -315,13 +309,11 @@ MAYBE_EXTERN unsigned int       tdm_map_z               DEFVAL(0);
 MAYBE_EXTERN unsigned int       tdm_map_h               DEFVAL(0);
 MAYBE_EXTERN bool               tdm_map[1024];
 
-#ifdef USE_TLS
 MAYBE_EXTERN const char       * tls_cert_name           DEFVAL(DEFAULT_TLS_CERT);
 MAYBE_EXTERN const char       * tls_key_name            DEFVAL(DEFAULT_TLS_KEY);
 MAYBE_EXTERN const char       * tls_ca_name             DEFVAL(DEFAULT_TLS_CA);
 MAYBE_EXTERN const char       * tls_crl_name            DEFVAL(DEFAULT_TLS_CRL);
 MAYBE_EXTERN double             tls_version             DEFVAL(0.0);
-#endif
 
 #ifdef SO_BINDTODEVICE
 MAYBE_EXTERN const char       * bind_to_device_name     DEFVAL(nullptr);

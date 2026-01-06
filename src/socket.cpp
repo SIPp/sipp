@@ -1310,9 +1310,6 @@ static int socket_fd(bool use_ipv6, int transport)
 #endif
         break;
     case T_TLS:
-#ifndef USE_TLS
-        ERROR("You do not have TLS support enabled!");
-#endif
     case T_TCP:
         socket_type = SOCK_STREAM;
         protocol = IPPROTO_TCP;

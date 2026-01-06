@@ -28,7 +28,6 @@
 
 class JLSRTP;
 
-#ifdef USE_TLS
 struct SrtpInfoParams
 {
     bool found;
@@ -41,7 +40,6 @@ struct SrtpInfoParams
     bool primary_unencrypted_srtp;
     bool secondary_unencrypted_srtp;
 };
-#endif // USE_TLS
 
 struct threaddata_t;
 struct taskentry_t;
@@ -110,11 +108,9 @@ struct taskentry_t
     int                  video_rtp_socket;
     int                  video_rtcp_socket;
 
-#ifdef USE_TLS
     /* audio/video SRTP echo activity indicators */
     int                  audio_srtp_echo_active;
     int                  video_srtp_echo_active;
-#endif // USE_TLS
 
     /* rtp peer address structures */
     struct sockaddr_storage    remote_audio_rtp_addr;
@@ -134,12 +130,10 @@ struct taskentry_t
     int                  audio_active;
     int                  video_active;
 
-#ifdef USE_TLS
     SrtpInfoParams  local_srtp_audio_params;
     SrtpInfoParams  remote_srtp_audio_params;
     SrtpInfoParams  local_srtp_video_params;
     SrtpInfoParams  remote_srtp_video_params;
-#endif // USE_TLS
 };
 
 struct rtpstream_callinfo_t
@@ -196,12 +190,10 @@ int rtpstream_get_local_videoport(rtpstream_callinfo_t *callinfo);
 void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char* ip_addr,
                           int audio_port, int video_port);
 
-#ifdef USE_TLS
 int rtpstream_set_srtp_audio_local(rtpstream_callinfo_t *callinfo, SrtpInfoParams &p);
 int rtpstream_set_srtp_audio_remote(rtpstream_callinfo_t *callinfo, SrtpInfoParams &p);
 int rtpstream_set_srtp_video_local(rtpstream_callinfo_t *callinfo, SrtpInfoParams &p);
 int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t *callinfo, SrtpInfoParams &p);
-#endif // USE_TLS
 
 int rtpstream_cache_file(char *filename,
                          int mode /* 0: FILE - 1: PATTERN */,
