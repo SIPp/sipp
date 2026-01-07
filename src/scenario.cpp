@@ -849,7 +849,8 @@ scenario::scenario(char * filename, int deflt)
                 int removed_clrf = 0;
                 char * msg = clean_cdata(ptr, &removed_clrf);
 
-                L_content_length = xp_get_content_length(msg);
+                char* cl_str = get_header(msg, "Content-Length:", true);
+                L_content_length = (cl_str && *cl_str) ? atoi(cl_str) : -1;
                 switch (L_content_length) {
                 case  -1 :
                     // the msg does not contain content-length field
