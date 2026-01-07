@@ -32,7 +32,6 @@ int xp_is_invalid();
 int xp_get_invalid_line();
 const char* xp_get_value(const char *name);
 char* xp_get_cdata(void);
-int xp_get_content_length(const char *P_buffer);
 
 #ifdef __cplusplus
 }
