@@ -28,6 +28,10 @@
 #define SCTP_UP 2
 #endif
 
+#ifdef USE_WSS
+#include "libwebsockets.h"
+#endif
+
 /**
  * On some systems you must pass the exact sockaddr struct size to
  * connect/bind/sendto calls. Passing a length that is too large
@@ -97,6 +101,10 @@ public:
     int bind_to_device(const char* device_name);
 #endif
 
+#ifdef USE_WSS
+    void lws_callback_wss(enum lws_callback_reasons reason, void *in, size_t len);
+#endif
+
     static void pollset_process(int wait);
 
     int ss_count = 1;           /* How many users are there of this socket? */
@@ -147,6 +155,17 @@ private:
 
 #ifdef USE_SCTP
     int sctpstate = SCTP_DOWN;
+#endif
+
+#ifdef USE_WSS
+    void init_lws_context();
+    void close_wss();
+    void wss_event_loop(int revents);
+    int wss_send(const void * buf, int len);
+
+    struct lws *wsi;                  // Connexion WebSocket
+    bool wss_connected;
+    struct socketbuf * wss_out;
 #endif
 };
 

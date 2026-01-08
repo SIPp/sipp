@@ -171,6 +171,9 @@ struct sipp_option options_table[] = {
 #endif
         "- c1: u1 + compression (only if compression plugin loaded),\n"
         "- cn: un + compression (only if compression plugin loaded).  This plugin is not provided with SIPp.\n"
+#ifdef USE_WSS
+        "- w1: Secure Web Socket with one socket,\n"
+#endif
         , SIPP_OPTION_TRANSPORT, nullptr, 1
     },
     {"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address.\n", SIPP_OPTION_IP, local_ip, 1},
@@ -192,6 +195,10 @@ struct sipp_option options_table[] = {
     {"tls_ca", "Set the name for TLS CA file. If not specified, X509 verification is not activated.", SIPP_OPTION_STRING, &tls_ca_name, 1},
     {"tls_crl", "Set the name for Certificate Revocation List file. If not specified, X509 CRL is not activated.", SIPP_OPTION_STRING, &tls_crl_name, 1},
     {"tls_version", "Set the TLS protocol version to use (1.0, 1.1, 1.2, 1.3) -- default is autonegotiate", SIPP_OPTION_FLOAT, &tls_version, 1},
+
+#ifdef USE_WSS
+    {"wss_path", "Set the name path to use when establishing a web socket connection.", SIPP_OPTION_STRING, &wss_path, 1},
+#endif
 
 #ifdef USE_SCTP
     {"multihome", "Set multihome address for SCTP", SIPP_OPTION_IP, multihome_ip, 1},
@@ -1622,6 +1629,11 @@ int main(int argc, char *argv[])
                         exit(-1);
                     }
                     break;
+
+                case 'w':
+                    transport = T_WSS;
+                    break;
+
                 case 'c':
                     if (strlen(comp_error)) {
                         ERROR("No " COMP_PLUGIN " plugin available: %s", comp_error);

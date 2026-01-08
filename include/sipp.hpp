@@ -105,13 +105,29 @@
 #define T_TCP                      1
 #define T_TLS                      2
 #define T_SCTP                     3
+#define T_WSS                      4
 
 #define DEFAULT_TLS_CERT           "cacert.pem"
 #define DEFAULT_TLS_KEY            "cakey.pem"
 #define DEFAULT_TLS_CA             ""
 #define DEFAULT_TLS_CRL            ""
 
-#define TRANSPORT_TO_STRING(p)     ((p==T_TCP) ? "TCP" : ((p==T_TLS)? "TLS" : ((p==T_UDP)? "UDP" : "SCTP")))
+#ifdef USE_WSS
+#define DEFAULT_WSS_PATH           "/"
+#endif
+
+inline const char * TRANSPORT_TO_STRING(int p) {
+    switch(p)
+    {
+        case T_TCP: return "TCP";
+        case T_UDP: return "UDP";
+        case T_TLS: return "TLS";
+        case T_SCTP: return "SCTP";
+        case T_WSS: return "WSS";
+        default: break;
+    }
+    return "Unknown";
+}
 
 #define SIPP_MAXFDS                65536
 
@@ -317,6 +333,11 @@ MAYBE_EXTERN double             tls_version             DEFVAL(0.0);
 
 #ifdef SO_BINDTODEVICE
 MAYBE_EXTERN const char       * bind_to_device_name     DEFVAL(nullptr);
+#endif
+
+
+#ifdef USE_WSS
+MAYBE_EXTERN const char       * wss_path                DEFVAL(DEFAULT_WSS_PATH);
 #endif
 
 MAYBE_EXTERN const char       * scenario_file           DEFVAL(nullptr);
