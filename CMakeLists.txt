@@ -187,8 +187,7 @@ list(REMOVE_ITEM all_SRCS
 
 if(NOT USE_PCAP)
   list(REMOVE_ITEM all_SRCS
-    "${PROJECT_SOURCE_DIR}/src/prepare_pcap.c")
-  list(REMOVE_ITEM all_SRCS
+    "${PROJECT_SOURCE_DIR}/src/prepare_pcap.c"
     "${PROJECT_SOURCE_DIR}/src/send_packets.c")
 endif(NOT USE_PCAP)
 

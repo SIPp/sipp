@@ -4,7 +4,7 @@
 </a>
 
 SIPp - a SIP protocol test tool
-Copyright (C) 2003-2020 - The Authors
+Copyright (C) 2003-2026 - The Authors
 
 This program is free software: you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -41,9 +41,9 @@ make
 
 _The SIPp master branch (3.7.x) requires a modern C++17 compiler._
 
-There are several optional flags to enable features (SIP-over-TLS,
-SIP-over-SCTP, media playback from PCAP files and the GNU Scientific
-Libraries for random distributions):
+There are several optional flags to enable features (SIP-over-SCTP, media
+playback from PCAP files and the GNU Scientific Libraries for random
+distributions):
 
 ```
 cmake . -DUSE_SCTP=1 -DUSE_PCAP=1 -DUSE_GSL=1
@@ -94,7 +94,7 @@ docker build -t sipp -f docker/Dockerfile.debian .
 ```
 
 Special arguments can be passed with `--build-arg`:
-* `FULL=1` - build all optional components, including OpenSSL.
+* `FULL=1` - build all optional components.
 * `WOLFSSL=1` - build with wolfSSL (only works without FULL).
 * `DEBUG=1` - build with debug symbols.
 
