@@ -263,12 +263,9 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/gtest/googletest)
     EXCLUDE_FROM_ALL
     SOURCES "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
             "${PROJECT_SOURCE_DIR}/gtest/googletest/src/gtest-all.cc"
-            "${PROJECT_SOURCE_DIR}/gtest/googlemock/src/gmock-all.cc"
     COMPILE_DEFINITIONS "-DGTEST"
     EXTRA_INCLUDES ${PROJECT_SOURCE_DIR}/gtest/googletest
-                   ${PROJECT_SOURCE_DIR}/gtest/googlemock
                    ${PROJECT_SOURCE_DIR}/gtest/googletest/include
-                   ${PROJECT_SOURCE_DIR}/gtest/googlemock/include
   )
 else()
   add_sipp_target(sipp_unittest
