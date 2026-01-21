@@ -5,6 +5,10 @@ name: Coverity scan
 on:
   push:
     branches: [master]
+    paths:
+      - '.github/workflows/coverity.yml'
+      - 'include/**'
+      - 'src/**'
 
 jobs:
   coverity:
