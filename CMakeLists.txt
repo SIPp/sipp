@@ -258,7 +258,11 @@ add_sipp_target(sipp
 )
 target_compile_features(sipp PUBLIC cxx_auto_type cxx_range_for)
 
-if(EXISTS ${PROJECT_SOURCE_DIR}/gtest/googletest)
+set(USE_SYSTEM_GTEST "AUTO" CACHE STRING "Use system GTest: AUTO, ON, or OFF")
+
+if(USE_SYSTEM_GTEST STREQUAL "AUTO" AND EXISTS ${PROJECT_SOURCE_DIR}/gtest/googletest)
+  message(STATUS "Using bundled GTest")
+  include(GoogleTest)
   add_sipp_target(sipp_unittest
     EXCLUDE_FROM_ALL
     SOURCES "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
@@ -267,11 +271,23 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/gtest/googletest)
     EXTRA_INCLUDES ${PROJECT_SOURCE_DIR}/gtest/googletest
                    ${PROJECT_SOURCE_DIR}/gtest/googletest/include
   )
-else()
-  add_sipp_target(sipp_unittest
-    EXCLUDE_FROM_ALL
-    SOURCES "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
-  )
+  gtest_add_tests(TARGET sipp_unittest TEST_PREFIX sipp_unittests:)
+elseif(USE_SYSTEM_GTEST STREQUAL "AUTO" OR USE_SYSTEM_GTEST STREQUAL "ON")
+  # Try system
+  find_package(GTest QUIET)
+  if(GTest_FOUND)
+    message(STATUS "Using system GTest")
+    include(GoogleTest)
+    add_sipp_target(sipp_unittest
+      EXCLUDE_FROM_ALL
+      SOURCES "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
+      COMPILE_DEFINITIONS "-DGTEST"
+    )
+    target_link_libraries(sipp_unittest GTest::gtest GTest::gtest_main)
+    gtest_discover_tests(sipp_unittest TEST_PREFIX sipp_unittests:)
+  else()
+    message(WARNING "GTest not found. Run 'git submodule update --init' or install libgtest-dev")
+  endif()
 endif()
 
 # add version
