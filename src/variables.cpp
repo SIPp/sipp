@@ -300,13 +300,6 @@ AllocVariableTable::AllocVariableTable(AllocVariableTable *av_parent) : Variable
     this->av_parent = av_parent;
 }
 
-AllocVariableTable::~AllocVariableTable()
-{
-    /* Maps with std::string values clean up automatically via destructors.
-     * No manual memory management needed - removed buggy clear_* calls
-     * which had pass-by-value bugs anyway. */
-}
-
 int AllocVariableTable::find(const char *varName, bool allocate)
 {
     /* If this variable has already been used, then we have nothing to do. */

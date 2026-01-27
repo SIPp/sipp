@@ -114,7 +114,6 @@ class AllocVariableTable : public VariableTable
 {
 public:
     AllocVariableTable(AllocVariableTable *av_parent);
-    ~AllocVariableTable();
     int find(const char *name, bool allocate);
     const char *getName(int i);
     void validate();
