@@ -60,7 +60,6 @@
 #include "auth.hpp"
 #include "urlcoder.hpp"
 #include "deadcall.hpp"
-#include "string_builder.hpp"
 #include "config.h"
 #include "version.h"
 
@@ -2314,8 +2313,7 @@ void set_default_message(const char *which, char *msg)
 
 bool call::process_unexpected(const char* msg)
 {
-    char buffer[MAX_HEADER_LEN];
-    StringBuilder sb(buffer);
+    std::ostringstream sb;
     int res = 0;
 
     message *curmsg = call_scenario->messages[msg_index];
@@ -2348,7 +2346,7 @@ bool call::process_unexpected(const char* msg)
     }
     sb << "(index " << msg_index << ")";
 
-    WARNING("%s, received '%s'", sb.get(), msg);
+    WARNING("%s, received '%s'", sb.str().c_str(), msg);
 
     TRACE_MSG("-----------------------------------------------\n"
               "Unexpected %s message received:\n\n%s\n",
