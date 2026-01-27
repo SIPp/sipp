@@ -120,20 +120,6 @@ int get_decimal_from_hex(char hex)
         return tolower(hex) - 'a' + 10;
 }
 
-void trim(char *s)
-{
-    char *p = s;
-    while(isspace(*p)) {
-        p++;
-    }
-    int l = strlen(p);
-    for (int i = l - 1; i >= 0 && isspace(p[i]); i--) {
-        p[i] = '\0';
-    }
-    memmove(s, p, l + 1);
-}
-
-
 #ifdef GTEST
 #include "gtest/gtest.h"
 

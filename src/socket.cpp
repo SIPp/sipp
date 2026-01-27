@@ -69,6 +69,19 @@ int pending_messages = 0;
 
 std::map<std::string, SIPpSocket *>     map_perip_fd;
 
+static void trim(char *s)
+{
+    char *p = s;
+    while(isspace(*p)) {
+        p++;
+    }
+    int l = strlen(p);
+    for (int i = l - 1; i >= 0 && isspace(p[i]); i--) {
+        p[i] = '\0';
+    }
+    memmove(s, p, l + 1);
+}
+
 static void connect_to_peer(
     char *peer_host, int peer_port, struct sockaddr_storage *peer_sockaddr,
     char *peer_ip, int peer_ip_size, SIPpSocket **peer_socket);
