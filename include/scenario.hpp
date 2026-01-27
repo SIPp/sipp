@@ -159,7 +159,7 @@ public:
 typedef std::vector<message *> msgvec;
 
 struct txnControlInfo {
-    char *name;
+    std::string name;
     bool isInvite;
     int acks;
     int started;

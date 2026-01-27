@@ -375,7 +375,7 @@ int scenario::get_txn(const char *txnName, const char *what, bool start, bool is
     /* Assign this variable the next slot. */
     struct txnControlInfo transaction;
 
-    transaction.name = strdup(txnName);
+    transaction.name = txnName;
     if (start) {
         transaction.started = 1;
         transaction.responses = 0;
@@ -589,15 +589,15 @@ void scenario::validate_txn_usage()
 {
     for (unsigned int i = 0; i < transactions.size(); i++) {
         if(transactions[i].started == 0) {
-            ERROR("Transaction %s is never started!", transactions[i].name);
+            ERROR("Transaction %s is never started!", transactions[i].name.c_str());
         } else if(transactions[i].responses == 0) {
-            ERROR("Transaction %s has no responses defined!", transactions[i].name);
+            ERROR("Transaction %s has no responses defined!", transactions[i].name.c_str());
         }
         if (transactions[i].isInvite && transactions[i].acks == 0) {
-            ERROR("Transaction %s is an INVITE transaction without an ACK!", transactions[i].name);
+            ERROR("Transaction %s is an INVITE transaction without an ACK!", transactions[i].name.c_str());
         }
         if (!transactions[i].isInvite && (transactions[i].acks > 0)) {
-            ERROR("Transaction %s is a non-INVITE transaction with an ACK!", transactions[i].name);
+            ERROR("Transaction %s is a non-INVITE transaction with an ACK!", transactions[i].name.c_str());
         }
     }
 }
@@ -1091,28 +1091,6 @@ void scenario::runInit()
     }
 }
 
-void clear_int_str(int_str_map m)
-{
-    for(int_str_map::iterator it = m.begin(); it != m.end(); it = m.begin()) {
-        free(it->second);
-        m.erase(it);
-    }
-}
-
-void clear_str_int(str_int_map m)
-{
-    for(str_int_map::iterator it = m.begin(); it != m.end(); it = m.begin()) {
-        m.erase(it);
-    }
-}
-
-void clear_int_int(int_int_map m)
-{
-    for(int_int_map::iterator it = m.begin(); it != m.end(); it = m.begin()) {
-        m.erase(it);
-    }
-}
-
 scenario::~scenario()
 {
     for (msgvec::iterator i = messages.begin(); i != messages.end(); i++) {
@@ -1125,14 +1103,10 @@ scenario::~scenario()
     allocVars->putTable();
     delete stats;
 
-    for (unsigned int i = 0; i < transactions.size(); i++) {
-        free(transactions[i].name);
-    }
-    transactions.clear();
+    /* transactions vector with std::string name members auto-cleans */
 
-    clear_str_int(labelMap);
-    clear_str_int(initLabelMap);
-    clear_str_int(txnMap);
+    /* Maps with std::string keys/values auto-clean via destructors.
+     * No manual clearing needed - removed buggy clear_* calls. */
 }
 
 CSample *parse_distribution(bool oldstyle = false)

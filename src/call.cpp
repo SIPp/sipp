@@ -5267,9 +5267,9 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                             if (reply_code >= 100 && reply_code <= 199) {
                                 TRACE_MSG("-----------------------------------------------\n"
                                           "Ignoring provisional %s message for transaction %s:\n\n%s\n",
-                                          TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, msg);
+                                          TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name.c_str(), msg);
                                 callDebug("Ignoring provisional %s message for transaction %s (hash %lu):\n\n%s\n",
-                                          TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
+                                          TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name.c_str(), hash(msg), msg);
                                 return true;
                             } else if (int ackIndex = transactions[checkTxn - 1].ackIndex) {
                                 /* This is the message before an ACK, so verify that this is an invite transaction. */
@@ -5285,11 +5285,11 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                                     /* We have gotten this retransmission out-of-order, let's just ignore it. */
                                     TRACE_MSG("-----------------------------------------------\n"
                                               "Ignoring final %s message for transaction %s:\n\n%s\n",
-                                              TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, msg);
+                                              TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name.c_str(), msg);
                                     callDebug("Ignoring final %s message for transaction %s (hash %lu):\n\n%s\n",
-                                              TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
+                                              TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name.c_str(), hash(msg), msg);
                                     WARNING("Ignoring final %s message for transaction %s (hash %lu):\n\n%s",
-                                            TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name, hash(msg), msg);
+                                            TRANSPORT_TO_STRING(transport), call_scenario->transactions[checkTxn - 1].name.c_str(), hash(msg), msg);
                                     return true;
                                 }
                             }
@@ -5903,7 +5903,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 double rhs = currentAction->getVarIn2Id() ?
                     M_callVariableTable->getVar(currentAction->getVarIn2Id())->getDouble() :
                     currentAction->getDoubleValue();
-                char *lhsName = call_scenario->allocVars->getName(currentAction->getVarInId());
+                const char *lhsName = call_scenario->allocVars->getName(currentAction->getVarInId());
                 const char *rhsName = "";
                 if (currentAction->getVarIn2Id()) {
                     rhsName = call_scenario->allocVars->getName(currentAction->getVarIn2Id());
@@ -5936,7 +5936,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             if ((currentAction->getCheckIt() && value) ||
                 (currentAction->getCheckItInverse() && !value)
             ) {
-                char *lhsName = call_scenario->allocVars->getName(currentAction->getVarInId());
+                const char *lhsName = call_scenario->allocVars->getName(currentAction->getVarInId());
                 const char *rhsName = "";
                 if (currentAction->getVarIn2Id()) {
                     rhsName = call_scenario->allocVars->getName(currentAction->getVarIn2Id());

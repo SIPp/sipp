@@ -302,9 +302,9 @@ AllocVariableTable::AllocVariableTable(AllocVariableTable *av_parent) : Variable
 
 AllocVariableTable::~AllocVariableTable()
 {
-    clear_str_int(variableMap);
-    clear_int_str(variableRevMap);
-    clear_int_int(variableReferences);
+    /* Maps with std::string values clean up automatically via destructors.
+     * No manual memory management needed - removed buggy clear_* calls
+     * which had pass-by-value bugs anyway. */
 }
 
 int AllocVariableTable::find(const char *varName, bool allocate)
@@ -328,19 +328,19 @@ int AllocVariableTable::find(const char *varName, bool allocate)
         varNum = (varNum << LEVEL_BITS) | level;
         variableMap[varName] = varNum;
         variableReferences[varNum] = 1;
-        variableRevMap[varNum] = strdup(varName);
+        variableRevMap[varNum] = varName;
         return varNum;
     }
 
     return -1;
 }
 
-char *AllocVariableTable::getName(int i)
+const char *AllocVariableTable::getName(int i)
 {
     int thisLevel  = i & ((1 << LEVEL_BITS) - 1);
     assert(thisLevel <= level);
     if (thisLevel == level) {
-        return variableRevMap[i];
+        return variableRevMap[i].c_str();
     }
     assert(av_parent);
     return av_parent->getName(i);

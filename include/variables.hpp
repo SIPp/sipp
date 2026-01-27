@@ -29,7 +29,7 @@
 #include <regex.h>
 
 typedef std::map<std::string, int> str_int_map;
-typedef std::map<int, char *> int_str_map;
+typedef std::map<int, std::string> int_str_map;
 typedef std::map<int, int> int_int_map;
 
 #define BUFFER_SIZE 512
@@ -116,7 +116,7 @@ public:
     AllocVariableTable(AllocVariableTable *av_parent);
     ~AllocVariableTable();
     int find(const char *name, bool allocate);
-    char *getName(int i);
+    const char *getName(int i);
     void validate();
     void dump();
 private:
@@ -125,9 +125,5 @@ private:
     int_str_map  variableRevMap;
     int_int_map  variableReferences;
 };
-
-void clear_int_str(int_str_map m);
-void clear_str_int(str_int_map m);
-void clear_int_int(int_int_map m);
 
 #endif
