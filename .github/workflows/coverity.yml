@@ -17,8 +17,8 @@ jobs:
     steps:
     - uses: actions/checkout@v6
     - run: sudo apt update
-    - run: sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses-dev libncurses6
-    - run:  cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SCTP=1
+    - run: sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses-dev libncurses6 libgtest-dev
+    - run:  cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SCTP=1 -DUSE_SYSTEM_GTEST=ON
     - uses: vapier/coverity-scan-action@v1
       with:
         email: ${{ secrets.COVERITY_SCAN_EMAIL }}
