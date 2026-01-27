@@ -23,6 +23,5 @@
 
 int get_decimal_from_hex(char hex);
 void get_host_and_port(const char *addr, char *host, int *port);
-void trim(char *s);
 
 #endif /* __SIPP_STRINGS_H__ */
