@@ -765,8 +765,8 @@ void ScreenPrinter::draw_stats_screen()
         DISPLAY_CROSS_LINE ();
     }
     for (unsigned int i = 1; i < s->M_genericMap.size() + 1; i++) {
-        char *disp = (char *)malloc(20 + strlen(s->M_genericDisplay[i]));
-        sprintf(disp, "Counter %s", s->M_genericDisplay[i]);
+        char *disp = (char *)malloc(20 + s->M_genericDisplay[i].size());
+        sprintf(disp, "Counter %s", s->M_genericDisplay[i].c_str());
 
         DISPLAY_2VAL(disp, s->M_genericCounters[(i - 1)* GENERIC_TYPES + GENERIC_PD], s->M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_C]);
         free(disp);
@@ -784,7 +784,7 @@ void ScreenPrinter::draw_stats_screen()
     for (int i = 1; i <= s->nRtds(); i++) {
         char buf2[80];
 
-        snprintf(buf2, 80, "Response Time %s", s->M_revRtdMap[i]);
+        snprintf(buf2, 80, "Response Time %s", s->M_revRtdMap[i].c_str());
         DISPLAY_TXT_COL (buf2,
                          s->msToHHMMSSus( (unsigned long)s->computeRtdMean(i, GENERIC_PD)),
                          s->msToHHMMSSus( (unsigned long)s->computeRtdMean(i, GENERIC_C)));
@@ -805,7 +805,7 @@ void ScreenPrinter::draw_repartition_screen(int which)
         return;
     }
 
-    snprintf(buf2, bufsiz, "Average Response Time Repartition %s", s->M_revRtdMap[which]);
+    snprintf(buf2, bufsiz, "Average Response Time Repartition %s", s->M_revRtdMap[which].c_str());
     DISPLAY_INFO(buf2);
     draw_repartition_detailed(s->M_ResponseTimeRepartition[which - 1],
                               s->M_SizeOfResponseTimeRepartition);

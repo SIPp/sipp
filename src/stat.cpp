@@ -180,9 +180,8 @@ CStat::~CStat()
         delete [] M_dumpRespTime;
 
     free(M_rtdInfo);
-    for (int_str_map::iterator i = M_revRtdMap.begin(); i != M_revRtdMap.end(); ++i) {
-        free(i->second);
-    }
+    /* M_revRtdMap, M_revGenericMap, M_genericDisplay now use std::string values
+     * and clean up automatically via destructors - no manual free needed */
 
     M_SizeOfResponseTimeRepartition = 0;
     M_SizeOfCallLengthRepartition   = 0;
@@ -889,13 +888,13 @@ int CStat::findCounter(const char *counter, bool alloc)
         p++;
     }
     if (numeric) {
-        char *s = new char[20];
-        snprintf(s, 20, "GenericCounter%s", counter);
-        M_revGenericMap[ret] = s;
-        M_genericDisplay[ret] = strdup(counter);
+        char s_buf[20];
+        snprintf(s_buf, sizeof(s_buf), "GenericCounter%s", counter);
+        M_revGenericMap[ret] = s_buf;
+        M_genericDisplay[ret] = counter;
     } else {
-        M_revGenericMap[ret] = strdup(counter);
-        M_genericDisplay[ret] = strdup(counter);
+        M_revGenericMap[ret] = counter;
+        M_genericDisplay[ret] = counter;
     }
 
 
@@ -925,7 +924,7 @@ int CStat::findRtd(const char *name, bool start)
     int ret = M_rtdMap.size() + 1;
     M_rtdMap[str_int_map::key_type(name)] = ret;
 
-    M_revRtdMap[ret] = strdup(name);
+    M_revRtdMap[ret] = name;
 
 
     M_rtdInfo = (unsigned long long *)realloc(M_rtdInfo, sizeof(unsigned long long) * RTD_TYPES * GENERIC_TYPES * M_rtdMap.size());
@@ -1256,13 +1255,13 @@ void CStat::dumpData ()
             char s_P[80];
             char s_C[80];
 
-            sprintf(s_P, "ResponseTime%s(P)%s", M_revRtdMap[i], stat_delimiter);
-            sprintf(s_C, "ResponseTime%s(C)%s", M_revRtdMap[i], stat_delimiter);
+            sprintf(s_P, "ResponseTime%s(P)%s", M_revRtdMap[i].c_str(), stat_delimiter);
+            sprintf(s_C, "ResponseTime%s(C)%s", M_revRtdMap[i].c_str(), stat_delimiter);
 
             (*M_outputStream) << s_P << s_C;
 
-            sprintf(s_P, "ResponseTime%sStDev(P)%s", M_revRtdMap[i], stat_delimiter);
-            sprintf(s_C, "ResponseTime%sStDev(C)%s", M_revRtdMap[i], stat_delimiter);
+            sprintf(s_P, "ResponseTime%sStDev(P)%s", M_revRtdMap[i].c_str(), stat_delimiter);
+            sprintf(s_C, "ResponseTime%sStDev(C)%s", M_revRtdMap[i].c_str(), stat_delimiter);
 
             (*M_outputStream) << s_P << s_C;
         }
@@ -1278,7 +1277,7 @@ void CStat::dumpData ()
         for (int i = 1; i <= nRtds(); i++) {
             char s[80];
 
-            sprintf(s, "ResponseTimeRepartition%s", M_revRtdMap[i]);
+            sprintf(s, "ResponseTimeRepartition%s", M_revRtdMap[i].c_str());
             (*M_outputStream) << sRepartitionHeader(M_ResponseTimeRepartition[i - 1],
                                                     M_SizeOfResponseTimeRepartition,
                                                     s);
