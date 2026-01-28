@@ -394,7 +394,7 @@ int scenario::get_txn(const char *txnName, const char *what, bool start, bool is
         transaction.isInvite = false;
     }
 
-    transactions.push_back(transaction);
+    transactions.push_back(std::move(transaction));
     int txnNum = transactions.size();
     txnMap[txnName] = txnNum;
 
