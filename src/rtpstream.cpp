@@ -31,6 +31,7 @@
 
 #include <sys/time.h>
 #include <memory>
+#include <mutex>
 #include <vector>
 #include <errno.h>
 #include <sstream>
@@ -128,10 +129,69 @@ int           num_ready_threads = 0;
 int           busy_threads_max = 0;
 int           ready_threads_max = 0;
 
-FILE*         debugafile = nullptr;
-FILE*         debugvfile = nullptr;
-pthread_mutex_t  debugamutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t  debugvmutex = PTHREAD_MUTEX_INITIALIZER;
+class DebugFile
+{
+public:
+    ~DebugFile()
+    {
+        if (fp)
+        {
+            fclose(fp);
+        }
+    }
+
+    bool open(const char* filename)
+    {
+        if (fp)
+        {
+            return true;
+        }
+        std::lock_guard lock(mutex);
+        if (!fp)
+        {
+            fp = fopen(filename, "w");
+        }
+        return !!fp;
+    }
+
+    void close()
+    {
+        if (fp)
+        {
+            std::lock_guard lock(mutex);
+            if (fp)
+            {
+                fclose(fp);
+            }
+            fp = nullptr;
+        }
+    }
+
+    void printHex(
+        char const* note,
+        char const* string,
+        unsigned int size,
+        unsigned long long extrainfo,
+        int moreinfo
+    ) const;
+    void printHexUS(
+        char const* note,
+        unsigned char const* string,
+        unsigned int size,
+        unsigned long long extrainfo,
+        int moreinfo
+    ) const
+    {
+        printHex(note, reinterpret_cast<char const*>(string), size, extrainfo, moreinfo);
+    }
+    void printVector(char const *note, std::vector<unsigned long> const &v) const;
+
+protected:
+    FILE* fp = nullptr;
+    mutable std::mutex mutex;
+};
+static DebugFile debugafile;
+static DebugFile debugvfile;
 FILE*         debuglsrtpafile = nullptr;
 FILE*         debugrsrtpafile = nullptr;
 pthread_mutex_t  debuglsrtpamutex = PTHREAD_MUTEX_INITIALIZER;
@@ -210,107 +270,38 @@ static std::string build_rtpecho_filename(const char* mediaName)
     return rtpecho_filename;
 }
 
-void printAudioHexUS(char const* note, unsigned char const* string, unsigned int size, unsigned long long extrainfo, int moreinfo)
+void DebugFile::printHex(
+    char const* note,
+    char const* string,
+    unsigned int size,
+    unsigned long long extrainfo,
+    int moreinfo
+) const
 {
-    if ((debugafile != nullptr) &&
-        (note != nullptr) &&
-        (string != nullptr) &&
-        rtpcheck_debug)
+    if (!fp || !note || !string || !rtpcheck_debug)
     {
-        pthread_mutex_lock(&debugamutex);
-        fprintf(debugafile, "TID: %lu %s %u 0x%llx %d [", tid_self(), note, size, extrainfo, moreinfo);
-        for (unsigned int i = 0; i < size; i++)
-        {
-            fprintf(debugafile, "%02X", 0x000000FF & string[i]);
-        }
-        fprintf(debugafile, "]\n");
-        pthread_mutex_unlock(&debugamutex);
+        return;
     }
+    std::lock_guard lock(mutex);
+    fprintf(fp, "TID: %lu %s %u 0x%llx %d [", tid_self(), note, size, extrainfo, moreinfo);
+    for (unsigned int i = 0; i < size; i++)
+    {
+        fprintf(fp, "%02X", 0x000000FF & string[i]);
+    }
+    fprintf(fp, "]\n");
 }
 
-void printVideoHexUS(char const* note, unsigned char const* string, unsigned int size, unsigned long long extrainfo, int moreinfo)
+void DebugFile::printVector(char const* note, std::vector<unsigned long> const &v) const
 {
-    if ((debugvfile != nullptr) &&
-        (note != nullptr) &&
-        (string != nullptr) &&
-        rtpcheck_debug)
+    if (!fp || !note || !rtpcheck_debug)
     {
-        pthread_mutex_lock(&debugvmutex);
-        fprintf(debugvfile, "TID: %lu %s %u 0x%llx %d [", tid_self(), note, size, extrainfo, moreinfo);
-        for (unsigned int i = 0; i < size; i++)
-        {
-            fprintf(debugvfile, "%02X", 0x000000FF & string[i]);
-        }
-        fprintf(debugvfile, "]\n");
-        pthread_mutex_unlock(&debugvmutex);
+        return;
     }
-}
-
-void printAudioHex(char const* note, char const* string, unsigned int size, unsigned long long extrainfo, int moreinfo)
-{
-    if ((debugafile != nullptr) &&
-        (note != nullptr) &&
-        (string != nullptr) &&
-        rtpcheck_debug)
+    std::lock_guard lock(mutex);
+    fprintf(fp, "TID: %lu %s\n", tid_self(), note);
+    for (unsigned int i = 0; i < v.size(); i++)
     {
-        pthread_mutex_lock(&debugamutex);
-        fprintf(debugafile, "TID: %lu %s %u 0x%llx %d [", tid_self(), note, size, extrainfo, moreinfo);
-        for (unsigned int i = 0; i < size; i++)
-        {
-            fprintf(debugafile, "%02X", 0x000000FF & string[i]);
-        }
-        fprintf(debugafile, "]\n");
-        pthread_mutex_unlock(&debugamutex);
-    }
-}
-
-void printAudioVector(char const* note, std::vector<unsigned long> const &v)
-{
-    if ((debugafile != nullptr) &&
-        (note != nullptr) &&
-        rtpcheck_debug)
-    {
-        pthread_mutex_lock(&debugamutex);
-        fprintf(debugafile, "TID: %lu %s\n", tid_self(), note);
-        for (unsigned int i = 0; i < v.size(); i++)
-        {
-            fprintf(debugafile, "%lu\n", v[i]);
-        }
-        pthread_mutex_unlock(&debugamutex);
-    }
-}
-
-void printVideoHex(char const* note, char const* string, unsigned int size, unsigned long long extrainfo, int moreinfo)
-{
-    if ((debugvfile != nullptr) &&
-        (note != nullptr) &&
-        (string != nullptr) &&
-        rtpcheck_debug)
-    {
-        pthread_mutex_lock(&debugvmutex);
-        fprintf(debugvfile, "TID: %lu %s %u 0x%llx %d [", tid_self(), note, size, extrainfo, moreinfo);
-        for (unsigned int i = 0; i < size; i++)
-        {
-            fprintf(debugvfile, "%02X", 0x000000FF & string[i]);
-        }
-        fprintf(debugvfile, "]\n");
-        pthread_mutex_unlock(&debugvmutex);
-    }
-}
-
-void printVideoVector(char const* note, std::vector<unsigned long> const &v)
-{
-    if ((debugvfile != nullptr) &&
-        (note != nullptr) &&
-        rtpcheck_debug)
-    {
-        pthread_mutex_lock(&debugvmutex);
-        fprintf(debugvfile, "TID: %lu %s\n", tid_self(), note);
-        for (unsigned int i = 0; i < v.size(); i++)
-        {
-            fprintf(debugvfile, "%lu\n", v[i]);
-        }
-        pthread_mutex_unlock(&debugvmutex);
+        fprintf(fp, "%lu\n", v[i]);
     }
 }
 
@@ -655,8 +646,8 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     *comparison_acheck = 0;
     *comparison_vcheck = 0;
 
-    printAudioHex("----AUDIO RTP SOCKET----", "", 0, taskindex, taskinfo->audio_rtp_socket);
-    printVideoHex("----VIDEO RTP SOCKET----", "", 0, taskindex, taskinfo->video_rtp_socket);
+    debugafile.printHex("----AUDIO RTP SOCKET----", "", 0, taskindex, taskinfo->audio_rtp_socket);
+    debugvfile.printHex("----VIDEO RTP SOCKET----", "", 0, taskindex, taskinfo->video_rtp_socket);
 
     /* OK, now to play - sockets are supposed to be non-blocking */
     /* no support for video stream at this stage. will need some work */
@@ -711,7 +702,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                     // ENCRYPT
                     rc = g_txUACAudio.processOutgoingPacket(taskinfo->audio_seq_out, rtp_header, payload_data, audio_out);
-                    printAudioHex("TXUACAUDIO -- processOutgoingPacket() rc == ", "", 0, rc, 0);
+                    debugafile.printHex("TXUACAUDIO -- processOutgoingPacket() rc == ", "", 0, rc, 0);
                 }
                 else
                 {
@@ -724,7 +715,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 rc = send(taskinfo->audio_rtp_socket, audio_out.data(), audio_out.size(), 0);
                 if (rc < 0)
                 {
-                    printAudioHex("SEND FAILED: ", "", 0, rc, errno);
+                    debugafile.printHex("SEND FAILED: ", "", 0, rc, errno);
 
                     /* handle sending errors */
                     if ((errno == EAGAIN) || (errno == EWOULDBLOCK) || (errno == EINTR))
@@ -746,7 +737,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     rtpstream_apckts++;       // GLOBAL RTP packet counter
                     rs_apackets[taskindex]++; // TASK-specific RTP packet counter
 
-                    printAudioHexUS("SIPP SUCCESS SEND LOG: ", audio_out.data(), audio_out.size(), rc, rtpstream_apckts);
+                    debugafile.printHexUS("SIPP SUCCESS SEND LOG: ", audio_out.data(), audio_out.size(), rc, rtpstream_apckts);
 
                     FD_ZERO(&readfds);
                     FD_SET(taskinfo->audio_rtp_socket, &readfds);
@@ -772,7 +763,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             /* for now we will just ignore any received data or receive errors */
                             /* separate code path for RTP echo */
                             rtpstream_abytes_in += rc;
-                            printAudioHexUS("SIPP SUCCESS RECV LOG: ", audio_in.data(), audio_in.size(), rc, rtpstream_apckts);
+                            debugafile.printHexUS("SIPP SUCCESS RECV LOG: ", audio_in.data(), audio_in.size(), rc, rtpstream_apckts);
                         }
                         if (g_rxUACAudio.getCryptoTag() != 0)
                         {
@@ -782,7 +773,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                             audio_seq_in = ntohs(((rtp_header_t*)audio_in.data())->seq);
                             rc = g_rxUACAudio.processIncomingPacket(audio_seq_in, audio_in, rtp_header, payload_data);
-                            printAudioHex("RXUACAUDIO -- processIncomingPacket() rc == ", "", 0, rc, 0);
+                            debugafile.printHex("RXUACAUDIO -- processIncomingPacket() rc == ", "", 0, rc, 0);
 
                             host_flags = ntohs(((rtp_header_t*)audio_in.data())->flags);
                             host_seqnum = ntohs(((rtp_header_t*)audio_in.data())->seq);
@@ -839,21 +830,21 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         if (compresult == 0)
                         {
                             // SUCCESS
-                            printAudioHex("COMPARISON OK ", "", 0, taskinfo->audio_comparison_errors, rtpstream_apckts);
+                            debugafile.printHex("COMPARISON OK ", "", 0, taskinfo->audio_comparison_errors, rtpstream_apckts);
                             *comparison_acheck = 0;
                         }
                         else
                         {
                             // FAILURE
                             taskinfo->audio_comparison_errors++;
-                            printAudioHex("COMPARISON FAILED", "", 0, taskinfo->audio_comparison_errors, rtpstream_apckts);
+                            debugafile.printHex("COMPARISON FAILED", "", 0, taskinfo->audio_comparison_errors, rtpstream_apckts);
                             *comparison_acheck = 1;
                         }
                     }
                     else
                     {
                         taskinfo->audio_comparison_errors++;
-                        printAudioHex("NODATA", "", 0, taskinfo->audio_comparison_errors, rtpstream_apckts);
+                        debugafile.printHex("NODATA", "", 0, taskinfo->audio_comparison_errors, rtpstream_apckts);
                         *comparison_acheck = 1;
                     }
 
@@ -886,7 +877,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
             } /* if (taskinfo->last_audio_timestamp < target_timestamp) */
             else
             {
-                printAudioHex("TIMESTAMP NOT QUITE RIGHT...", "", 0, 0, 0);
+                debugafile.printHex("TIMESTAMP NOT QUITE RIGHT...", "", 0, 0, 0);
                 *comparison_acheck = -1;
             }
         } /* if (taskinfo->audio_loop_count) */
@@ -955,7 +946,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                     // ENCRYPT
                     rc = g_txUACVideo.processOutgoingPacket(taskinfo->video_seq_out, rtp_header, payload_data, video_out);
-                    printVideoHex("TXUACVIDEO -- processOutgoingPacket() rc == ", "", 0, rc, 0);
+                    debugvfile.printHex("TXUACVIDEO -- processOutgoingPacket() rc == ", "", 0, rc, 0);
                 }
                 else
                 {
@@ -968,7 +959,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 rc = send(taskinfo->video_rtp_socket, video_out.data(), video_out.size(), 0);
                 if (rc < 0)
                 {
-                    printVideoHex("SEND FAILED: ", "", 0, rc, errno);
+                    debugvfile.printHex("SEND FAILED: ", "", 0, rc, errno);
 
                     /* handle sending errors */
                     if ((errno == EAGAIN) || (errno == EWOULDBLOCK) || (errno == EINTR))
@@ -990,7 +981,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     rtpstream_vpckts++;       // GLOBAL RTP packet counter
                     rs_vpackets[taskindex]++; // TASK-specific RTP packet counter
 
-                    printVideoHexUS("SIPP SUCCESS SEND LOG: ", video_out.data(), video_out.size(), rc, rtpstream_vpckts);
+                    debugvfile.printHexUS("SIPP SUCCESS SEND LOG: ", video_out.data(), video_out.size(), rc, rtpstream_vpckts);
 
                     FD_ZERO(&readfds);
                     FD_SET(taskinfo->video_rtp_socket, &readfds);
@@ -1016,7 +1007,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             /* for now we will just ignore any received data or receive errors */
                             /* separate code path for RTP echo */
                             rtpstream_vbytes_in += rc;
-                            printVideoHexUS("SIPP SUCCESS RECV LOG: ", video_in.data(), video_in.size(), rc, rtpstream_vpckts);
+                            debugvfile.printHexUS("SIPP SUCCESS RECV LOG: ", video_in.data(), video_in.size(), rc, rtpstream_vpckts);
                         }
 
                         if (g_rxUACVideo.getCryptoTag() != 0)
@@ -1026,7 +1017,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             payload_data.clear();
                             video_seq_in = ntohs(((rtp_header_t*)video_in.data())->seq);
                             rc = g_rxUACVideo.processIncomingPacket(video_seq_in, video_in, rtp_header, payload_data);
-                            printVideoHex("RXUACVIDEO -- processIncomingPacket() rc == ", "", 0, rc, 0);
+                            debugvfile.printHex("RXUACVIDEO -- processIncomingPacket() rc == ", "", 0, rc, 0);
 
                             host_flags = ntohs(((rtp_header_t*)video_in.data())->flags);
                             host_seqnum = ntohs(((rtp_header_t*)video_in.data())->seq);
@@ -1083,21 +1074,21 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         if (compresult == 0)
                         {
                             // SUCCESS
-                            printVideoHex("COMPARISON OK ", "", 0, taskinfo->video_comparison_errors, rtpstream_vpckts);
+                            debugvfile.printHex("COMPARISON OK ", "", 0, taskinfo->video_comparison_errors, rtpstream_vpckts);
                             *comparison_vcheck = 0;
                         }
                         else
                         {
                             // FAILURE
                             taskinfo->video_comparison_errors++;
-                            printVideoHex("COMPARISON FAILED", "", 0, taskinfo->video_comparison_errors, rtpstream_vpckts);
+                            debugvfile.printHex("COMPARISON FAILED", "", 0, taskinfo->video_comparison_errors, rtpstream_vpckts);
                             *comparison_vcheck = 1;
                         }
                     }
                     else
                     {
                         taskinfo->video_comparison_errors++;
-                        printVideoHex("NODATA", "", 0, taskinfo->video_comparison_errors, rtpstream_vpckts);
+                        debugvfile.printHex("NODATA", "", 0, taskinfo->video_comparison_errors, rtpstream_vpckts);
                         *comparison_vcheck = 1;
                     }
 
@@ -1130,7 +1121,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
             } /* if (taskinfo->last_video_timestamp < target_timestamp) */
             else
             {
-                printVideoHex("TIMESTAMP NOT QUITE RIGHT...", "", 0, 0, 0);
+                debugvfile.printHex("TIMESTAMP NOT QUITE RIGHT...", "", 0, 0, 0);
                 *comparison_vcheck = -1;
             }
         } /* if (taskinfo->video_loop_count) */
@@ -1237,8 +1228,8 @@ static void* rtpstream_playback_thread(void* params)
         /* iterate through tasks and handle playback and other actions */
         for (taskindex = 0; taskindex < threaddata->num_tasks; taskindex++)
         {
-            printAudioHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, threaddata->num_tasks);
-            printVideoHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, threaddata->num_tasks);
+            debugafile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, threaddata->num_tasks);
+            debugvfile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, threaddata->num_tasks);
             taskinfo = (&threaddata->tasklist)[taskindex];
             if (taskinfo->flags & TI_CONFIGFLAGS)
             {
@@ -1265,21 +1256,21 @@ static void* rtpstream_playback_thread(void* params)
                 if (comparison_acheck == 1)
                 {
                     rs_artpcheck[taskindex]++;
-                    printAudioHex("----FAILED RTP CHECK----", "", 0, rs_artpcheck[taskindex], rtpstream_apckts);
+                    debugafile.printHex("----FAILED RTP CHECK----", "", 0, rs_artpcheck[taskindex], rtpstream_apckts);
                 }
                 else
                 {
-                    printAudioHex("----PASSED RTP CHECK----", "", 0, rs_artpcheck[taskindex], rtpstream_apckts);
+                    debugafile.printHex("----PASSED RTP CHECK----", "", 0, rs_artpcheck[taskindex], rtpstream_apckts);
                 }
 
                 if (comparison_vcheck == 1)
                 {
                     rs_vrtpcheck[taskindex]++;
-                    printVideoHex("----FAILED RTP CHECK----", "", 0, rs_vrtpcheck[taskindex], rtpstream_vpckts);
+                    debugvfile.printHex("----FAILED RTP CHECK----", "", 0, rs_vrtpcheck[taskindex], rtpstream_vpckts);
                 }
                 else
                 {
-                    printVideoHex("----PASSED RTP CHECK----", "", 0, rs_vrtpcheck[taskindex], rtpstream_vpckts);
+                    debugvfile.printHex("----PASSED RTP CHECK----", "", 0, rs_vrtpcheck[taskindex], rtpstream_vpckts);
                 }
             }
             if (waketime_ms > taskinfo->nextwake_ms)
@@ -1296,10 +1287,10 @@ static void* rtpstream_playback_thread(void* params)
     }
 
     // EXITING... CALCULATE RESULT
-    printAudioVector("----RTPCHECKS----", rs_artpcheck);
-    printVideoVector("----RTPCHECKS----", rs_vrtpcheck);
-    printAudioVector("----PACKET COUNTS----", rs_apackets);
-    printVideoVector("----PACKET COUNTS----", rs_vpackets);
+    debugafile.printVector("----RTPCHECKS----", rs_artpcheck);
+    debugvfile.printVector("----RTPCHECKS----", rs_vrtpcheck);
+    debugafile.printVector("----PACKET COUNTS----", rs_apackets);
+    debugvfile.printVector("----PACKET COUNTS----", rs_vpackets);
 
     for (unsigned int i = 0; i < threaddata->num_tasks; i++)
     {
@@ -1383,8 +1374,8 @@ static void* rtpstream_playback_thread(void* params)
     rtpstream_numthreads--; /* perhaps wrap this in a mutex? */
 
     // PTHREAD EXIT...
-    printAudioHex("PLAYBACK THREAD EXITING...", "", 0, rtpresult, 0);
-    printVideoHex("PLAYBACK THREAD EXITING...", "", 0, rtpresult, 0);
+    debugafile.printHex("PLAYBACK THREAD EXITING...", "", 0, rtpresult, 0);
+    debugvfile.printHex("PLAYBACK THREAD EXITING...", "", 0, rtpresult, 0);
     pthread_exit((void*) rtpresult);
 
     return nullptr;
@@ -1447,8 +1438,8 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
 
         threaddata->id = threadID;
 
-        printAudioHex("CREATED THREAD: ", "", 0, getThreadId(threadID), 0);
-        printVideoHex("CREATED THREAD: ", "", 0, getThreadId(threadID), 0);
+        debugafile.printHex("CREATED THREAD: ", "", 0, getThreadId(threadID), 0);
+        debugvfile.printHex("CREATED THREAD: ", "", 0, getThreadId(threadID), 0);
 
         /* Add thread to list of ready (spare capacity) threads */
         ready_threads[num_ready_threads++] = threaddata;
@@ -1625,24 +1616,14 @@ int rtpstream_cache_file(char* filename,
 
     debugprint("rtpstream_cache_file filename = %s mode = %d id = %d bytes_per_packet = %d stream_type = %d\n", filename, mode, id, bytes_per_packet, stream_type);
 
-    if ((debugafile == nullptr) &&
-        rtpcheck_debug &&
-        (stream_type == 0))
+    if (rtpcheck_debug)
     {
-        debugafile = fopen("debugafile", "w");
-        if (debugafile == nullptr)
+        if ((stream_type == 0) && !debugafile.open("debugafile"))
         {
             /* error encountered opening audio debug file */
             return -1;
         }
-    }
-
-    if ((debugvfile == nullptr) &&
-        rtpcheck_debug &&
-        (stream_type == 1))
-    {
-        debugvfile = fopen("debugvfile", "w");
-        if (debugvfile == nullptr)
+        if ((stream_type == 1) && !debugvfile.open("debugvfile"))
         {
             /* error encountered opening video debug file */
             return -1;
@@ -3457,19 +3438,19 @@ int rtpstream_shutdown(std::unordered_map<pthread_t, std::string>& threadIDs)
     // PTHREAD JOIN HERE...
     for (std::unordered_map<pthread_t, std::string>::iterator iter = threadIDs.begin(); iter != threadIDs.end(); ++iter)
     {
-        printAudioHex("EXISTING THREADID: ", "", 0, getThreadId(iter->first), 0);
-        printVideoHex("EXISTING THREADID: ", "", 0, getThreadId(iter->first), 0);
+        debugafile.printHex("EXISTING THREADID: ", "", 0, getThreadId(iter->first), 0);
+        debugvfile.printHex("EXISTING THREADID: ", "", 0, getThreadId(iter->first), 0);
         if (pthread_join(iter->first, &rtpresult))
         {
             // error joining thread
-            printAudioHex("ERROR RETURNED BY PTHREAD_JOIN!", "", 0, 0, 0);
-            printVideoHex("ERROR RETURNED BY PTHREAD_JOIN!", "", 0, 0, 0);
+            debugafile.printHex("ERROR RETURNED BY PTHREAD_JOIN!", "", 0, 0, 0);
+            debugvfile.printHex("ERROR RETURNED BY PTHREAD_JOIN!", "", 0, 0, 0);
             return -2;
         }
 
         total_rtpresults |= (int)(long long)rtpresult;
-        printAudioHex("JOINED THREAD: ", "", 0, (long long)rtpresult, total_rtpresults);
-        printVideoHex("JOINED THREAD: ", "", 0, (long long)rtpresult, total_rtpresults);
+        debugafile.printHex("JOINED THREAD: ", "", 0, (long long)rtpresult, total_rtpresults);
+        debugvfile.printHex("JOINED THREAD: ", "", 0, (long long)rtpresult, total_rtpresults);
     }
 
     /* now free cached file bytes and structure */
@@ -3492,21 +3473,8 @@ int rtpstream_shutdown(std::unordered_map<pthread_t, std::string>& threadIDs)
         cached_patterns = nullptr;
     }
 
-    if (debugvfile &&
-        rtpcheck_debug)
-    {
-        fclose(debugvfile);
-        debugvfile = nullptr;
-    }
-
-    if (debugafile &&
-        rtpcheck_debug)
-    {
-        fclose(debugafile);
-        debugafile = nullptr;
-    }
-
-    pthread_mutex_destroy(&debugamutex);
+    debugvfile.close();
+    debugafile.close();
 
     return total_rtpresults;
 }
