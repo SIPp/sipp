@@ -3136,8 +3136,6 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
     {
         fprintf(debugrefileaudio, "rtpstream_rtpecho_startaudio reached...\n");
     }
-    printLocalAudioSrtpStuff(taskinfo->local_srtp_audio_params);
-    printRemoteAudioSrtpStuff(taskinfo->remote_srtp_audio_params);
     pthread_mutex_unlock(&debugremutexaudio);
 
     /* Create first RTP echo thread for audio */
@@ -3176,8 +3174,6 @@ int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASA
     {
         fprintf(debugrefileaudio, "rtpstream_rtpecho_updateaudio reached...\n");
     }
-    printLocalAudioSrtpStuff(taskinfo->local_srtp_audio_params);
-    printRemoteAudioSrtpStuff(taskinfo->remote_srtp_audio_params);
     pthread_mutex_unlock(&debugremutexaudio);
 
     pthread_mutex_lock(&uasAudioMutex);
@@ -3226,8 +3222,6 @@ int rtpstream_rtpecho_stopaudio(rtpstream_callinfo_t* callinfo)
     {
         fprintf(debugrefileaudio, "rtpstream_rtpecho_stopaudio reached...\n");
     }
-    printLocalAudioSrtpStuff(taskinfo->local_srtp_audio_params);
-    printRemoteAudioSrtpStuff(taskinfo->remote_srtp_audio_params);
     pthread_mutex_unlock(&debugremutexaudio);
 
     if (pthread_join(pthread_audioecho_id, &r.p) == 0)
@@ -3301,8 +3295,6 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
     {
         fprintf(debugrefilevideo, "rtpstream_rtpecho_startvideo reached...\n");
     }
-    printLocalVideoSrtpStuff(taskinfo->local_srtp_video_params);
-    printRemoteVideoSrtpStuff(taskinfo->remote_srtp_video_params);
     pthread_mutex_unlock(&debugremutexvideo);
 
     /* Create second RTP echo thread for video */
@@ -3341,8 +3333,6 @@ int rtpstream_rtpecho_updatevideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASV
     {
         fprintf(debugrefilevideo, "rtpstream_rtpecho_updatevideo reached...\n");
     }
-    printLocalVideoSrtpStuff(taskinfo->local_srtp_video_params);
-    printRemoteVideoSrtpStuff(taskinfo->remote_srtp_video_params);
     pthread_mutex_unlock(&debugremutexvideo);
 
     pthread_mutex_lock(&uasVideoMutex);
@@ -3391,8 +3381,6 @@ int rtpstream_rtpecho_stopvideo(rtpstream_callinfo_t* callinfo)
     {
         fprintf(debugrefilevideo, "rtpstream_rtpecho_stopvideo reached...\n");
     }
-    printLocalVideoSrtpStuff(taskinfo->local_srtp_video_params);
-    printRemoteVideoSrtpStuff(taskinfo->remote_srtp_video_params);
     pthread_mutex_unlock(&debugremutexvideo);
 
     if (pthread_join(pthread_videoecho_id, &r.p) == 0)
