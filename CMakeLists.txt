@@ -16,6 +16,8 @@ include_directories(
   ${PROJECT_BINARY_DIR}
   ${PROJECT_SOURCE_DIR}/include)
 
+enable_testing()
+
 if(BUILD_STATIC)
   set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
   set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
@@ -262,6 +264,7 @@ set(USE_SYSTEM_GTEST "AUTO" CACHE STRING "Use system GTest: AUTO, ON, or OFF")
 
 if(USE_SYSTEM_GTEST STREQUAL "AUTO" AND EXISTS ${PROJECT_SOURCE_DIR}/gtest/googletest)
   message(STATUS "Using bundled GTest")
+  include(GoogleTest)
   add_sipp_target(sipp_unittest
     EXCLUDE_FROM_ALL
     SOURCES "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
@@ -270,6 +273,7 @@ if(USE_SYSTEM_GTEST STREQUAL "AUTO" AND EXISTS ${PROJECT_SOURCE_DIR}/gtest/googl
     EXTRA_INCLUDES ${PROJECT_SOURCE_DIR}/gtest/googletest
                    ${PROJECT_SOURCE_DIR}/gtest/googletest/include
   )
+  gtest_discover_tests(sipp_unittest TEST_PREFIX sipp_unittests:)
 elseif(USE_SYSTEM_GTEST STREQUAL "AUTO" OR USE_SYSTEM_GTEST STREQUAL "ON")
   # Try system
   find_package(GTest QUIET)
