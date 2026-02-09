@@ -2235,8 +2235,9 @@ const char *default_message_strings[] = {
     "Subject: Performance Test\n"
     "Content-Length: 0\n\n",
     /* bye */
-    "BYE [last_Request_URI] SIP/2.0\n"
+    "BYE [next_url] SIP/2.0\n"
     "Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]\n"
+    "[routes]\n"
     "[last_From]\n"
     "[last_To]\n"
     "Call-ID: [call_id]\n"
@@ -3773,8 +3774,12 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             dest += snprintf(dest, left, "%d", P_index);
             break;
         case E_Message_Next_Url:
-            if (next_req_url) {
+            if (next_req_url && *next_req_url) {
                 dest += sprintf(dest, "%s", next_req_url);
+            } else {
+                char * last_request_uri = get_last_request_uri();
+                dest += sprintf(dest, "%s", last_request_uri);
+                free(last_request_uri);
             }
             break;
         case E_Message_Len:
