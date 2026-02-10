@@ -2141,19 +2141,6 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
         break;
 
     case T_UDP:
-        if (compression) {
-            static char comp_msg[SIPP_MAX_MSG_SIZE];
-            strncpy(comp_msg, buffer, sizeof(comp_msg) - 1);
-            if (comp_compress(&ss_comp_state,
-                              comp_msg,
-                              (unsigned int *) &len) != COMP_OK) {
-                ERROR("Compression plugin error");
-            }
-            buffer = (char *)comp_msg;
-
-            TRACE_MSG("---\nCompressed message len: %zu\n", len);
-        }
-
         rc = sendto(ss_fd, buffer, len, 0, _RCAST(struct sockaddr*, dest),
                     socklen_from_addr(dest));
         break;

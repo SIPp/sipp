@@ -169,8 +169,6 @@ struct sipp_option options_table[] = {
         "- s1: SCTP with one socket,\n"
         "- sn: SCTP with one socket per call,\n"
 #endif
-        "- c1: u1 + compression (only if compression plugin loaded),\n"
-        "- cn: un + compression (only if compression plugin loaded).  This plugin is not provided with SIPp.\n"
         , SIPP_OPTION_TRANSPORT, nullptr, 1
     },
     {"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address.\n", SIPP_OPTION_IP, local_ip, 1},
@@ -347,7 +345,7 @@ struct sipp_option options_table[] = {
     {"", "Performance and watchdog options:", SIPP_HELP_TEXT_HEADER, nullptr, 0},
     {"timer_resol", "Set the timer resolution. Default unit is milliseconds.  This option has an impact on timers precision."
      "Small values allow more precise scheduling but impacts CPU usage."
-     "If the compression is on, the value is set to 50ms. The default value is 10ms.", SIPP_OPTION_TIME_MS, &timer_resolution, 1},
+     "The default value is 10ms.", SIPP_OPTION_TIME_MS, &timer_resolution, 1},
     {"max_recv_loops", "Set the maximum number of messages received read per cycle. Increase this value for high traffic level.  The default value is 1000.", SIPP_OPTION_INT, &max_recv_loops, 1},
     {"max_sched_loops", "Set the maximum number of calls run per event loop. Increase this value for high traffic level.  The default value is 1000.", SIPP_OPTION_INT, &max_sched_loops, 1},
 
@@ -1622,12 +1620,6 @@ int main(int argc, char *argv[])
                         exit(-1);
                     }
                     break;
-                case 'c':
-                    if (strlen(comp_error)) {
-                        ERROR("No " COMP_PLUGIN " plugin available: %s", comp_error);
-                    }
-                    transport = T_UDP;
-                    compression = 1;
                 }
                 switch(argv[argi][1]) {
                 case '1':
@@ -1951,13 +1943,6 @@ int main(int argc, char *argv[])
         global_ssrc_id = rand();
     } else {
         global_ssrc_id = 0xCA110000;
-    }
-
-    /* Load compression plugin if needed/available. */
-    if (compression) {
-        if (comp_load()) {
-            ERROR("Could not load " COMP_PLUGIN " plugin: %s", comp_error);
-        }
     }
 
     if ((extendedTwinSippMode && !slave_masterSet) || (!extendedTwinSippMode && slave_masterSet)) {

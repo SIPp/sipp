@@ -106,7 +106,6 @@ public:
     int ss_fd = -1;             /* The underlying file descriptor for this socket. */
     int ss_port = 0;            /* The port used by this socket */
     int ss_bind_port = 0;       /* Optional local port used by this socket */
-    void *ss_comp_state = nullptr;    /* The compression state. */
 
     bool ss_changed_dest = false;   /* Has the destination changed from default. */
     struct sockaddr_storage ss_dest; /* Who we are talking to. */
@@ -162,11 +161,6 @@ void process_message(SIPpSocket* socket, char *msg, ssize_t msg_size, struct soc
 bool reconnect_allowed();
 
 /********************** Network Interfaces ********************/
-
-int send_message(int s, void ** comp_state, char * msg);
-#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
-int send_message_tls(SSL *s, void ** comp_state, char * msg);
-#endif
 
 /* Socket Buffer Management. */
 #define NO_COPY 0

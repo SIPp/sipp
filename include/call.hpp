@@ -220,8 +220,6 @@ protected:
     SIPpSocket *call_remote_socket;
     int            call_port;
 
-    void         * comp_state;
-
     int            deleted;
 
     bool           call_established; // == true when the call is established

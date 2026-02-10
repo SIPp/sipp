@@ -374,12 +374,6 @@ void ScreenPrinter::draw_scenario_screen()
     }
     lines.push_back(buf);
 
-    if (compression) {
-        snprintf(buf, bufsiz, "  Comp resync: %d sent, %d recv", resynch_send,
-                 resynch_recv);
-        lines.push_back(buf);
-    }
-
     if (auto_answer) {
         snprintf(buf, 80, "  %llu requests auto-answered",
                  display_scenario->stats->GetStat(CStat::CPT_G_C_AutoAnswered));
