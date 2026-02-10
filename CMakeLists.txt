@@ -171,12 +171,9 @@ include(${CMAKE_ROOT}/Modules/CheckStructHasMember.cmake)
 
 CHECK_INCLUDE_FILE("endian.h" HAVE_ENDIAN_H)
 CHECK_INCLUDE_FILE("sys/endian.h" HAVE_SYS_ENDIAN_H)
+CHECK_INCLUDE_FILE("libkern/OSByteOrder.h" HAVE_OSBYTEORDER_H)
 CHECK_INCLUDE_FILE("sys/epoll.h" HAVE_EPOLL)
 CHECK_STRUCT_HAS_MEMBER("struct udphdr" uh_sport "sys/types.h;netinet/udp.h"  HAVE_UDP_UH_PREFIX)
-
-CHECK_SYMBOL_EXISTS(le16toh "endian.h" HAVE_DECL_LE16TOH)
-CHECK_SYMBOL_EXISTS(le16toh "sys/endian.h" HAVE_DECL_LE16TOH_BSD)
-
 
 configure_file("${PROJECT_SOURCE_DIR}/include/config.h.in"
                "${PROJECT_BINARY_DIR}/config.h" )
