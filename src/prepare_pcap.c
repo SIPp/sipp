@@ -26,8 +26,19 @@
 #include <string.h>
 
 #include "defines.h"
-#include "endianshim.h"
 #include "prepare_pcap.h"
+
+/* Platform-specific endian conversion */
+#if defined(HAVE_ENDIAN_H)
+#include <endian.h>
+#elif defined(HAVE_SYS_ENDIAN_H)
+#include <sys/endian.h>
+#elif defined(HAVE_OSBYTEORDER_H)
+#include <libkern/OSByteOrder.h>
+#define le16toh(x) OSSwapLittleToHostInt16(x)
+#else
+#error "No endian conversion header found - need endian.h, sys/endian.h, or OSByteOrder.h"
+#endif
 
 #ifndef HAVE_UDP_UH_PREFIX
 #define uh_ulen len
