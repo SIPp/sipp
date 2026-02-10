@@ -71,7 +71,6 @@
 #include "socket.hpp"
 #include "socketowner.hpp"
 #include "call.hpp"
-#include "comp.h"
 #include "variables.hpp"
 #include "stat.hpp"
 #include "actions.hpp"
@@ -199,7 +198,6 @@ MAYBE_EXTERN unsigned long      deadcall_wait           DEFVAL(DEFAULT_DEADCALL_
 MAYBE_EXTERN bool               pause_msg_ign           DEFVAL(0);
 MAYBE_EXTERN bool               auto_answer             DEFVAL(false);
 MAYBE_EXTERN int                multisocket             DEFVAL(0);
-MAYBE_EXTERN int                compression             DEFVAL(0);
 MAYBE_EXTERN int                peripsocket             DEFVAL(0);
 MAYBE_EXTERN int                peripfield              DEFVAL(0);
 MAYBE_EXTERN bool               bind_local              DEFVAL(false);
