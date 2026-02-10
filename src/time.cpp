@@ -90,14 +90,3 @@ unsigned long getmilliseconds()
 {
     return getmicroseconds() / MICROSECONDS_PER_MILLISECOND;
 }
-
-// Sleeps for the given number of microseconds. Avoids the potential
-// EINVAL when using usleep() to sleep for a second or more.
-void sipp_usleep(unsigned long usec)
-{
-    if (usec >= 1000000) {
-        sleep(usec / 1000000);
-    }
-    usec %= 1000000;
-    usleep(usec);
-}
