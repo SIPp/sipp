@@ -198,8 +198,8 @@ struct socketbuf {
 #define _RCAST(type, val) ((type)(val))
 #endif
 
-/* Time to wait in microseconds before retrying querying an SSL socket */
-#define SIPP_SSL_RETRY_TIMEOUT 200000
+/* Time to wait in milliseconds before retrying querying an SSL socket */
+#define SIPP_SSL_RETRY_TIMEOUT 200
 
 /* Max retries when querying an SSL socket */
 #define SIPP_SSL_MAX_RETRIES 10
