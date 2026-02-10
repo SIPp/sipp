@@ -1,0 +1,85 @@
+# SIPp clang-format configuration
+# Based on existing code style patterns in the repository
+
+Language: Cpp
+Standard: c++17
+
+# Base style - start from LLVM and customize
+BasedOnStyle: LLVM
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+IndentCaseLabels: false
+IndentPPDirectives: None
+NamespaceIndentation: None
+
+# Braces - Allman/BSD style (braces on their own lines)
+BreakBeforeBraces: Allman
+# More granular control if needed:
+# BraceWrapping:
+#   AfterClass: true
+#   AfterControlStatement: Always
+#   AfterEnum: true
+#   AfterFunction: true
+#   AfterNamespace: true
+#   AfterStruct: true
+#   AfterUnion: true
+#   BeforeCatch: true
+#   BeforeElse: true
+#   IndentBraces: false
+
+# Line length
+ColumnLimit: 120
+
+# Pointer and reference alignment - attach to variable name
+PointerAlignment: Right
+ReferenceAlignment: Right
+# e.g., char *ptr, int &ref
+
+# Spacing
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: true
+
+# Short statements
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+# Breaking
+BreakBeforeBinaryOperators: None
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeColon
+BreakStringLiterals: true
+
+# Arguments and parameters
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackArguments: true
+BinPackParameters: true
+
+# Includes
+IncludeBlocks: Preserve
+SortIncludes: false  # Don't reorder includes - can break builds
+
+# Other
+FixNamespaceComments: true
+MaxEmptyLinesToKeep: 2
+ReflowComments: false  # Don't reflow comments - can break formatting
