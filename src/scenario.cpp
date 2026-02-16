@@ -52,6 +52,7 @@ message::message(int index, const char *desc)
     send_scheme = nullptr; // delete on exit
     retrans_delay = 0;
     timeout = 0;
+    timeout_str = nullptr; // free on exit
 
     recv_response = nullptr; // free on exit
     recv_request = nullptr; // free on exit
@@ -125,6 +126,7 @@ message::~message()
     free(display_str);
     free(nextLabel);
     free(onTimeoutLabel);
+    free(timeout_str);
 
     free(peer_dest);
     free(peer_src);
@@ -483,6 +485,23 @@ static int xp_get_optional(const char *name, const char *what)
     }
 
     return OPTIONAL_FALSE;
+}
+
+static void xp_set_timeout(message* curmsg, const char* context_name)
+{
+    const char* cptr = xp_get_value("timeout");
+    if (cptr) {
+        curmsg->timeout_str = strdup(cptr);
+        // If the timeout string contains no variables, parse it as integer now
+        if (strchr(cptr, '[') == nullptr && strchr(cptr, '$') == nullptr) {
+            curmsg->timeout = get_long(cptr, context_name);
+        } else {
+            curmsg->timeout = 0; // Will be resolved at runtime
+        }
+    } else {
+        curmsg->timeout = 0;
+        curmsg->timeout_str = nullptr;
+    }
 }
 
 
@@ -911,7 +930,7 @@ scenario::scenario(char * filename, int deflt)
                 }
 
                 curmsg -> retrans_delay = xp_get_long("retrans", "retransmission timer", 0);
-                curmsg -> timeout = xp_get_long("timeout", "message send timeout", 0);
+                xp_set_timeout(curmsg, "message send timeout");
             } else if (!strcmp(elem, "recv")) {
                 curmsg->M_type = MSG_TYPE_RECV;
                 /* Received messages descriptions */
@@ -945,7 +964,7 @@ scenario::scenario(char * filename, int deflt)
                     }
                 }
 
-                curmsg->timeout = xp_get_long("timeout", "message timeout", 0);
+                xp_set_timeout(curmsg, "message timeout");
 
                 /* record the route set  */
                 /* TODO disallow optional and rrs to coexist? */
