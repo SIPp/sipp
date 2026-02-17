@@ -49,8 +49,7 @@
 #define MICROSECONDS_PER_MILLISECOND 1000LL
 #define NANOSECONDS_PER_MICROSECOND 1000LL
 
-// Returns the number of microseconds that have passed since SIPp
-// started. Also updates the current clock_tick.
+// Returns the number of microseconds that have passed since SIPp started.
 unsigned long long getmicroseconds()
 {
     struct timespec time;
@@ -86,8 +85,7 @@ void update_clock_tick() {
     clock_tick = getmilliseconds();
 }
 
-// Returns the number of milliseconds that have passed since SIPp
-// started. Also updates the current clock_tick.
+// Returns the number of milliseconds that have passed since SIPp started.
 unsigned long getmilliseconds()
 {
     return getmicroseconds() / MICROSECONDS_PER_MILLISECOND;
