@@ -1799,6 +1799,11 @@ bool call::next()
              M_callVariableTable->getVar(test)->isSet())) {
         /* Branching possible, check the probability */
         int chance = (*msgs)[msg_index]->chance;
+        /* If no "chance" but "chance_variable" set */
+        if(chance==0 && (*msgs)[msg_index]->chance_variable>-1) {
+          double v_chance = M_callVariableTable->getVar((*msgs)[msg_index]->chance_variable)->getDouble();
+          chance=(int)((1.0-v_chance)*RAND_MAX);
+        }
         if ((chance <= 0) || (rand() > chance )) {
             /* Branch == overwrite with the 'next' attribute value */
             new_msg_index = (*msgs)[msg_index]->next;

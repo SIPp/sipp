@@ -155,6 +155,19 @@ List of attributes common to all commands
 
         90% chance to go to label "5" if variable "3" is set.
 
+        * - ``chance_variable``
+          - In combination with "test", set the variable used to define the
+            probability to actually branch to another part of the scenario.
+            The set variable can have a value between 0(never) and 1 (always).
+            See conditional branching section for more info.
+
+          - ::
+
+              <recv response="403" optional="true" next="5" test="3" chance_variable="branchingProba">
+              </recv>
+
+            90% chance to go to label "5" if variable "3" is set.
+
     * - ``condexec``
       - Executes an element only if the variable in the condexec attribute is
         set. This attribute allows you to write complex XML scenarios with
