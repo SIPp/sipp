@@ -143,6 +143,7 @@ struct rtpstream_callinfo_t
     int local_videoport;
     int remote_audioport;
     int remote_videoport;
+    unsigned int timeout;
     pthread_t threadID;
 };
 
@@ -203,6 +204,7 @@ int rtpstream_cache_file(char *filename,
 void rtpstream_play(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo);
 void rtpstream_pause(rtpstream_callinfo_t *callinfo);
 void rtpstream_resume(rtpstream_callinfo_t *callinfo);
+bool rtpstream_is_playing(rtpstream_callinfo_t *callinfo);
 
 void rtpstream_playapattern(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio);
 void rtpstream_pauseapattern(rtpstream_callinfo_t *callinfo);
