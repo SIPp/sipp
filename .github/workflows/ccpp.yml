@@ -72,7 +72,7 @@ jobs:
       run: git submodule update --init
     - name: build-static
       run: docker build -f docker/Dockerfile --output=. --target=bin .
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
          name: sipp
          path: ./sipp
