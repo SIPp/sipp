@@ -39,6 +39,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <thread>
+#include <chrono>
 
 #include "config.h"
 #include "sipp.hpp"
@@ -1432,7 +1434,7 @@ SIPpSocket* SIPpSocket::accept() {
                  * to be readable/writable again. */
                 WARNING("SSL_accept failed with error: %s. Attempt %d. "
                         "Retrying...", SSL_error_string(err, rc), ++i);
-                sipp_usleep(SIPP_SSL_RETRY_TIMEOUT);
+                std::this_thread::sleep_for(std::chrono::milliseconds(SIPP_SSL_RETRY_TIMEOUT));
                 continue;
             }
             ERROR("Error in SSL_accept: %s",
@@ -1563,7 +1565,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
                  * to be readable/writable again. */
                 WARNING("SSL_connect failed with error: %s. Attempt %d. "
                         "Retrying...", SSL_error_string(err, rc), ++i);
-                sipp_usleep(SIPP_SSL_RETRY_TIMEOUT);
+                std::this_thread::sleep_for(std::chrono::milliseconds(SIPP_SSL_RETRY_TIMEOUT));
                 continue;
             }
             WARNING("Error in SSL connection: %s", SSL_error_string(err, rc));
@@ -2030,7 +2032,7 @@ static int send_nowait_tls(SSL* ssl, const void* msg, int len, int /*flags*/)
              * to be readable/writable again. */
             WARNING("SSL_write failed with error: %s. Attempt %d. "
                     "Retrying...", SSL_error_string(err, rc), ++i);
-            sipp_usleep(SIPP_SSL_RETRY_TIMEOUT);
+            std::this_thread::sleep_for(std::chrono::milliseconds(SIPP_SSL_RETRY_TIMEOUT));
             continue;
         }
         return rc;

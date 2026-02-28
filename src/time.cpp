@@ -36,70 +36,27 @@
  *           Andy Aicken
  */
 
-#include <time.h>
-#include <sys/time.h>
-#include <unistd.h>
-#if defined(__MACH__) && defined(__APPLE__)
-#include <mach/clock.h>
-#include <mach/mach.h>
-#endif
+#include <chrono>
 #include "time.hpp"
 #include "sipp.hpp"
-#define MICROSECONDS_PER_SECOND 1000000LL
-#define MICROSECONDS_PER_MILLISECOND 1000LL
-#define NANOSECONDS_PER_MICROSECOND 1000LL
 
-// Returns the number of microseconds that have passed since SIPp
-// started. Also updates the current clock_tick.
+// Returns the number of microseconds that have passed since SIPp started.
 unsigned long long getmicroseconds()
 {
-    struct timespec time;
-    unsigned long long microseconds;
-    static unsigned long long start_time = 0;
+    using namespace std::chrono;
+    static auto start_time = steady_clock::now();
 
-#if defined(__MACH__) && defined(__APPLE__)
-    // OS X does not have clock_gettime, use clock_get_time
-    clock_serv_t cclock;
-    mach_timespec_t mts;
-    host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &cclock);
-    clock_get_time(cclock, &mts);
-    mach_port_deallocate(mach_task_self(), cclock);
-    time.tv_sec = mts.tv_sec;
-    time.tv_nsec = mts.tv_nsec;
-#else
-#if defined(CLOCK_MONOTONIC_COARSE)
-    clock_gettime(CLOCK_MONOTONIC_COARSE, &time);
-#else
-    clock_gettime(CLOCK_MONOTONIC, &time);
-#endif
-#endif
-    microseconds = (MICROSECONDS_PER_SECOND * time.tv_sec) + (time.tv_nsec / NANOSECONDS_PER_MICROSECOND);
-    if (start_time == 0) {
-      start_time = microseconds - 1;
-    }
-    microseconds = microseconds - start_time;
-
-    return microseconds;
+    return duration_cast<microseconds>(
+        steady_clock::now() - start_time
+    ).count();
 }
 
 void update_clock_tick() {
     clock_tick = getmilliseconds();
 }
 
-// Returns the number of milliseconds that have passed since SIPp
-// started. Also updates the current clock_tick.
+// Returns the number of milliseconds that have passed since SIPp started.
 unsigned long getmilliseconds()
 {
-    return getmicroseconds() / MICROSECONDS_PER_MILLISECOND;
-}
-
-// Sleeps for the given number of microseconds. Avoids the potential
-// EINVAL when using usleep() to sleep for a second or more.
-void sipp_usleep(unsigned long usec)
-{
-    if (usec >= 1000000) {
-        sleep(usec / 1000000);
-    }
-    usec %= 1000000;
-    usleep(usec);
+    return getmicroseconds() / 1000;
 }
