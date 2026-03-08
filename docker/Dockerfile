@@ -29,6 +29,7 @@ COPY CMakeLists.txt ./
 COPY src src
 COPY include include
 COPY gtest gtest
+COPY third_party third_party
 
 ARG DEBUG=''
 RUN --mount=type=bind,target=.git,source=.git \

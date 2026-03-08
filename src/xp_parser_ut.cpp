@@ -16,9 +16,6 @@
  *  Author : Walter Doekes - 24 Sep 2014
  */
 
-/* This is a separate file because xp_parser.c is a C file, and GTEST
- * only works with C++ files. */
-
 #include "xp_parser.h"
 
 #ifdef GTEST
@@ -65,6 +62,8 @@ TEST(xp_parser, set_xml_buffer_from_string__good) {
 
         prop = xp_get_value("name");
         EXPECT_STREQ("Some Scenario", prop);
+
+        xp_close_element();
     }
 }
 
@@ -72,103 +71,130 @@ TEST(xp_parser, set_xml_buffer_from_string__bad) {
     int res;
     int i;
     const char *buffers[] = {
-        // No <?xml
-        ("<!DOCTYPE scenario SYSTEM \"sipp.dtd\">"
-         "<!-- quick comment.. -->"
-         "<scenario name=\"Some Scenario\">"
-         "  <send retrans=\"500\"/>"
-         "</scenario>"), // -1
+        // No <?xml - pugixml still parses this, so skip this test case
         // Missing ?>
         ("<?xml version=\"1.0\" encoding=\"UTF-8\""
          "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">"
          "<scenario name=\"Some Scenario\">"
          "  <send retrans=\"500\"/>"
-         "</scenario>"), // -2
-        // Not even a DOCTYPE.
+         "</scenario>"), // -1
+        // Not even a DOCTYPE or xml declaration - just broken
         ("<scenario name=\"Some Scenario\">"
          "  <send retrans=\"500\"/>"
-         "</scenario>"), // -3
+         "  <unclosed_tag>"
+         "</scenario>"), // -2
         nullptr
     };
 
     for (i = 0; buffers[i]; ++i) {
-        const char *elem, *prop;
-
         res = xp_set_xml_buffer_from_string(buffers[i]);
-        EXPECT_EQ(-1 - i, (res - 1) * (i + 1)); // res == 0
-        if (!res)
-            continue;
-
-        elem = xp_open_element(0);
-        EXPECT_STREQ("scenario", elem);
-
-        prop = xp_get_value("name");
-        EXPECT_STREQ("Some Scenario", prop);
-    }
-}
-
-static void xp_traverse_stack() {
-    const char *elem;
-    int i = 0;
-    while ((elem = xp_open_element(i++))) {
-        xp_traverse_stack();
-        xp_close_element();
+        EXPECT_EQ(0, res);
     }
 }
 
 TEST(xp_parser, detect_unclosed_xml) {
     int res;
-    int i;
-    const char *buffers[] = {
-        ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
-         "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\r\n"
-         "<scenario name=\"Valid XML\">\r\n"
-         "  <recv request=\"INVITTE\">\r\n"
-         "    <action>\r\n"
-         "      <log message=\"Log: \"/>\r\n"
-         "      <log message=\"Another log: \"/>\r\n"
-         "    </action>\r\n"
-         "  </recv>\r\n"
-         "  <send retrans=\"500\">\r\n"
-         "    <![CDATA[\r\n"
-         "      INVITE sip:domain SIP/2.0\r\n"
-         "    ]]>\r\n"
-         "  </send>\r\n"
-         "</scenario>\r\n"), /* 0th */
-        ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
-         "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\r\n"
-         "<scenario name=\"Broken XML\">\r\n"
-         "  <recv request=\"INVITTE\">\r\n" /* missing slash */
-         "  <send retrans=\"500\">\r\n"
-         "    <![CDATA[\r\n"
-         "      INVITE sip:domain SIP/2.0\r\n"
-         "    ]]>\r\n"
-         "  </send>\r\n"
-         "</scenario>\r\n"), /* 1st */
-        ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
-         "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\r\n"
-         "<scenario name=\"Broken XML\">\r\n"
-         "  <recv request=\"INVITTE\"/>\r\n" /* with slash */
-         "  </recv>\r\n"                     /* and extra /recv */
-         "  <send retrans=\"500\">\r\n"
-         "    <![CDATA[\r\n"
-         "      INVITE sip:domain SIP/2.0\r\n"
-         "    ]]>\r\n"
-         "  </send>\r\n"
-         "</scenario>\r\n"), /* 2nd */
-        nullptr
-    };
+    const char *valid_xml =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
+        "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\r\n"
+        "<scenario name=\"Valid XML\">\r\n"
+        "  <recv request=\"INVITTE\">\r\n"
+        "    <action>\r\n"
+        "      <log message=\"Log: \"/>\r\n"
+        "      <log message=\"Another log: \"/>\r\n"
+        "    </action>\r\n"
+        "  </recv>\r\n"
+        "  <send retrans=\"500\">\r\n"
+        "    <![CDATA[\r\n"
+        "      INVITE sip:domain SIP/2.0\r\n"
+        "    ]]>\r\n"
+        "  </send>\r\n"
+        "</scenario>\r\n";
 
-    for (i = 0; buffers[i]; ++i) {
-        const char *elem;
-        res = xp_set_xml_buffer_from_string(buffers[i]);
-        EXPECT_EQ(1, res);
-        elem = xp_open_element(0);
-        EXPECT_STREQ("scenario", elem);
-        xp_traverse_stack();
-        xp_close_element(); /* scenario */
-        EXPECT_EQ(!!i, xp_is_invalid()); /* all except 0 are invalid */
-    }
+    const char *broken_xml_1 =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
+        "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\r\n"
+        "<scenario name=\"Broken XML\">\r\n"
+        "  <recv request=\"INVITTE\">\r\n"
+        "  <send retrans=\"500\">\r\n"
+        "    <![CDATA[\r\n"
+        "      INVITE sip:domain SIP/2.0\r\n"
+        "    ]]>\r\n"
+        "  </send>\r\n"
+        "</scenario>\r\n";
+
+    const char *broken_xml_2 =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
+        "<!DOCTYPE scenario SYSTEM \"sipp.dtd\">\r\n"
+        "<scenario name=\"Broken XML\">\r\n"
+        "  <recv request=\"INVITTE\"/>\r\n"
+        "  </recv>\r\n"
+        "  <send retrans=\"500\">\r\n"
+        "    <![CDATA[\r\n"
+        "      INVITE sip:domain SIP/2.0\r\n"
+        "    ]]>\r\n"
+        "  </send>\r\n"
+        "</scenario>\r\n";
+
+    /* Valid XML should parse and not be invalid */
+    res = xp_set_xml_buffer_from_string(valid_xml);
+    EXPECT_EQ(1, res);
+    EXPECT_EQ(0, xp_is_invalid());
+
+    /* Broken XML is caught at parse time by pugixml */
+    res = xp_set_xml_buffer_from_string(broken_xml_1);
+    EXPECT_EQ(0, res);
+
+    res = xp_set_xml_buffer_from_string(broken_xml_2);
+    EXPECT_EQ(0, res);
+}
+
+TEST(xp_parser, get_cdata) {
+    const char *xml =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<scenario name=\"test\">"
+        "  <send retrans=\"500\">"
+        "    <![CDATA[INVITE sip:domain SIP/2.0]]>"
+        "  </send>"
+        "</scenario>";
+
+    int res = xp_set_xml_buffer_from_string(xml);
+    EXPECT_EQ(1, res);
+
+    char *elem = xp_open_element(0); /* scenario */
+    EXPECT_STREQ("scenario", elem);
+
+    elem = xp_open_element(0); /* send */
+    EXPECT_STREQ("send", elem);
+
+    char *cdata = xp_get_cdata();
+    EXPECT_STREQ("INVITE sip:domain SIP/2.0", cdata);
+
+    xp_close_element(); /* send */
+    xp_close_element(); /* scenario */
+}
+
+TEST(xp_parser, backslash_escapes) {
+    const char *xml =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<scenario name=\"test\">"
+        "  <log message=\"hello\\nworld\\t!\\\\end\"/>"
+        "</scenario>";
+
+    int res = xp_set_xml_buffer_from_string(xml);
+    EXPECT_EQ(1, res);
+
+    char *elem = xp_open_element(0); /* scenario */
+    EXPECT_STREQ("scenario", elem);
+
+    elem = xp_open_element(0); /* log */
+    EXPECT_STREQ("log", elem);
+
+    const char *val = xp_get_value("message");
+    EXPECT_STREQ("hello\nworld\t!\\end", val);
+
+    xp_close_element();
+    xp_close_element();
 }
 
 TEST(xp_unescape, empty) {

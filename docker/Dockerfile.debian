@@ -17,6 +17,7 @@ RUN apt-get update \
   libgsl-dev \
   libpcap-dev \
   libncurses-dev \
+  libpugixml-dev \
   make \
   ninja-build \
   ${WOLFSSL:+libwolfssl-dev} \
@@ -35,6 +36,7 @@ RUN --mount=type=bind,target=.git,source=.git \
     -DCMAKE_BUILD_TYPE=Release \
     -DUSE_PCAP=1 \
     -DUSE_GSL=1 \
+    -DUSE_SYSTEM_PUGIXML=ON \
     ${WOLFSSL:+-DUSE_WOLFSSL=1} \
     ${DEBUG:+-DDEBUG=1} \
     ${FULL:+-DUSE_SCTP=1} \
