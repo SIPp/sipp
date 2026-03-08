@@ -70,7 +70,7 @@ endfunction()
 
 function(apply_common_sipp_dependencies TARGET_NAME)
   # Basic libraries that all targets need
-  target_link_libraries(${TARGET_NAME} dl pthread)
+  target_link_libraries(${TARGET_NAME} dl pthread ${PUGIXML_LIBRARIES})
 
   # Enable symbol export for plugins
   set_target_properties(${TARGET_NAME} PROPERTIES ENABLE_EXPORTS ON)
@@ -127,6 +127,17 @@ option(USE_WOLFSSL "Use WolfSSL instead of OpenSSL" OFF)
 option(TLS_KEY_LOGGING "Enable TLS session key logging (OpenSSL only)" OFF)
 
 find_package(PkgConfig QUIET)  # import pkg_check_modules() and friends
+
+option(USE_SYSTEM_PUGIXML "Use system-installed pugixml instead of bundled version" OFF)
+if(USE_SYSTEM_PUGIXML)
+    pkg_check_modules(PUGIXML REQUIRED pugixml)
+    include_directories(SYSTEM ${PUGIXML_INCLUDE_DIRS})
+else()
+    message(STATUS "Using bundled pugixml")
+    set(PUGIXML_SOURCES ${PROJECT_SOURCE_DIR}/third_party/pugixml/src/pugixml.cpp)
+    include_directories(${PROJECT_SOURCE_DIR}/third_party/pugixml/src)
+    set(PUGIXML_LIBRARIES "")
+endif()
 
 if(USE_WOLFSSL)
     pkg_search_module(SSL REQUIRED wolfssl>=3.15.0)
@@ -253,7 +264,7 @@ endif()
 
 # add the main executable
 add_sipp_target(sipp
-  SOURCES "${PROJECT_SOURCE_DIR}/src/sipp.cpp"
+  SOURCES "${PROJECT_SOURCE_DIR}/src/sipp.cpp" ${PUGIXML_SOURCES}
 )
 target_compile_features(sipp PUBLIC cxx_auto_type cxx_range_for)
 
@@ -264,7 +275,7 @@ if(USE_SYSTEM_GTEST STREQUAL "AUTO" AND EXISTS ${PROJECT_SOURCE_DIR}/gtest/googl
   include(GoogleTest)
   add_sipp_target(sipp_unittest
     EXCLUDE_FROM_ALL
-    SOURCES "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
+    SOURCES "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp" ${PUGIXML_SOURCES}
             "${PROJECT_SOURCE_DIR}/gtest/googletest/src/gtest-all.cc"
     COMPILE_DEFINITIONS "-DGTEST"
     EXTRA_INCLUDES ${PROJECT_SOURCE_DIR}/gtest/googletest
@@ -279,7 +290,7 @@ elseif(USE_SYSTEM_GTEST STREQUAL "AUTO" OR USE_SYSTEM_GTEST STREQUAL "ON")
     include(GoogleTest)
     add_sipp_target(sipp_unittest
       EXCLUDE_FROM_ALL
-      SOURCES "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp"
+      SOURCES "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp" ${PUGIXML_SOURCES}
       COMPILE_DEFINITIONS "-DGTEST"
     )
     target_link_libraries(sipp_unittest GTest::gtest GTest::gtest_main)

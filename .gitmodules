@@ -2,3 +2,6 @@
 	path = gtest
 	url = https://github.com/google/googletest
 	ignore = dirty
+[submodule "third_party/pugixml"]
+	path = third_party/pugixml
+	url = https://github.com/zeux/pugixml.git
