@@ -35,6 +35,7 @@
 #include <vector>
 #include <errno.h>
 #include <sstream>
+#include <fcntl.h>
 
 /* stub to add extra debugging/logging... */
 static void debugprint(const char* format, ...)
@@ -151,27 +152,20 @@ public:
 
     bool open(const char* filename)
     {
-        if (fp)
-        {
-            return true;
-        }
         std::lock_guard lock(mutex);
-        if (!fp)
-        {
-            fp = fopen(filename, "w");
-        }
+        if (fp) return true;
+        int fd = ::open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd < 0) return false;
+        fp = fdopen(fd, "w");
         return !!fp;
     }
 
     void close()
     {
+        std::lock_guard lock(mutex);
         if (fp)
         {
-            std::lock_guard lock(mutex);
-            if (fp)
-            {
-                fclose(fp);
-            }
+            fclose(fp);
             fp = nullptr;
         }
     }
@@ -196,11 +190,11 @@ public:
     void printVector(char const *note, std::vector<unsigned long> const &v) const;
     void printf(const char* format, ...) const
     {
+        std::lock_guard lock(mutex);
         if (!fp)
         {
             return;
         }
-        std::lock_guard lock(mutex);
         va_list args;
         va_start(args, format);
         // fprintf(fp, "TID: %lu ", tid_self());
@@ -336,11 +330,11 @@ void DebugFile::printHex(
     int moreinfo
 ) const
 {
+    std::lock_guard lock(mutex);
     if (!fp || !note || !string || !rtpcheck_debug)
     {
         return;
     }
-    std::lock_guard lock(mutex);
     fprintf(fp, "TID: %lu %s %u 0x%llx %d [", tid_self(), note, size, extrainfo, moreinfo);
     for (unsigned int i = 0; i < size; i++)
     {
@@ -351,11 +345,11 @@ void DebugFile::printHex(
 
 void DebugFile::printVector(char const* note, std::vector<unsigned long> const &v) const
 {
+    std::lock_guard lock(mutex);
     if (!fp || !note || !rtpcheck_debug)
     {
         return;
     }
-    std::lock_guard lock(mutex);
     fprintf(fp, "TID: %lu %s\n", tid_self(), note);
     for (unsigned int i = 0; i < v.size(); i++)
     {
@@ -365,11 +359,11 @@ void DebugFile::printVector(char const* note, std::vector<unsigned long> const &
 
 void RtpEchoDebugFile::printReceived(unsigned char const* data, unsigned int size) const
 {
+    std::lock_guard lock(mutex);
     if (!fp || !data)
     {
         return;
     }
-    std::lock_guard lock(mutex);
     fprintf(fp, "DATA SUCCESSFULLY RECEIVED [%s] nr = %u...",
         type == Type::Audio ? "AUDIO" : "VIDEO",
         size);
@@ -382,11 +376,11 @@ void RtpEchoDebugFile::printReceived(unsigned char const* data, unsigned int siz
 
 void SrtpDebugFile::printCrypto(const SrtpInfoParams &p) const
 {
+    std::lock_guard lock(mutex);
     if (!fp)
     {
         return;
     }
-    std::lock_guard lock(mutex);
     fprintf(fp, "found                     : %d\n", p.found);
     fprintf(fp, "primary_cryptotag         : %d\n", p.primary_cryptotag);
     fprintf(fp, "secondary_cryptotag       : %d\n", p.secondary_cryptotag);
