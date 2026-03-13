@@ -163,6 +163,9 @@ unsigned int call::wake()
         wake = recv_timeout;
     }
 
+    if (rtpstream_callinfo.timeout && (!wake || rtpstream_callinfo.timeout < wake)) {
+        wake = rtpstream_callinfo.timeout;
+    }
     return wake;
 }
 
@@ -2057,10 +2060,13 @@ bool call::executeMessage(message *curmsg)
                 delete this;
                 return false;
             }
-        } else if (curmsg->timeout || defl_recv_timeout) {
-            if (curmsg->timeout)
+        } else if (curmsg->timeout || defl_recv_timeout || rtpstream_callinfo.timeout) {
+            unsigned int min_timeout = curmsg->timeout;
+            if (!min_timeout || min_timeout > rtpstream_callinfo.timeout)
+                min_timeout = rtpstream_callinfo.timeout;
+            if (min_timeout)
                 // If timeout is specified on message receive, use it
-                recv_timeout = getmilliseconds() + curmsg->timeout;
+                recv_timeout = getmilliseconds() + min_timeout;
             else
                 // Else use the default timeout if specified
                 recv_timeout = getmilliseconds() + defl_recv_timeout;
@@ -6115,6 +6121,13 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             rtpstream_pause(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUME) {
             rtpstream_resume(&rtpstream_callinfo);
+        } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_WAIT) {
+            if (rtpstream_is_playing(&rtpstream_callinfo)) {
+                setPaused();
+            } else {
+                rtpstream_callinfo.timeout = 0;
+                setRunning();
+            }
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
             const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);
