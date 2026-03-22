@@ -132,15 +132,23 @@ option(TLS_KEY_LOGGING "Enable TLS session key logging (OpenSSL only)" OFF)
 
 find_package(PkgConfig QUIET)  # import pkg_check_modules() and friends
 
-option(USE_SYSTEM_PUGIXML "Use system-installed pugixml instead of bundled version" OFF)
-if(USE_SYSTEM_PUGIXML)
-    pkg_check_modules(PUGIXML REQUIRED pugixml)
-    include_directories(SYSTEM ${PUGIXML_INCLUDE_DIRS})
-else()
+set(USE_SYSTEM_PUGIXML "AUTO" CACHE STRING "Use system pugixml: AUTO, ON, or OFF")
+if(USE_SYSTEM_PUGIXML STREQUAL "AUTO" AND EXISTS ${PROJECT_SOURCE_DIR}/third_party/pugixml/CMakeLists.txt)
     message(STATUS "Using bundled pugixml")
     set(PUGIXML_SOURCES ${PROJECT_SOURCE_DIR}/third_party/pugixml/src/pugixml.cpp)
     include_directories(${PROJECT_SOURCE_DIR}/third_party/pugixml/src)
     set(PUGIXML_LIBRARIES "")
+    set(PUGIXML_FOUND TRUE)
+elseif(USE_SYSTEM_PUGIXML STREQUAL "AUTO" OR USE_SYSTEM_PUGIXML STREQUAL "ON")
+    pkg_check_modules(PUGIXML pugixml)
+    if(PUGIXML_FOUND)
+        message(STATUS "Using system pugixml")
+        include_directories(SYSTEM ${PUGIXML_INCLUDE_DIRS})
+    endif()
+endif()
+
+if(NOT PUGIXML_FOUND)
+    message(FATAL_ERROR "pugixml is required. Either install the library or run 'git submodule update --init'")
 endif()
 
 if(USE_WOLFSSL)
