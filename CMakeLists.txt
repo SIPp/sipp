@@ -95,6 +95,10 @@ function(apply_common_sipp_dependencies TARGET_NAME)
     target_link_libraries(${TARGET_NAME} ${GSL_LIBRARY} ${GSLCBLAS_LIBRARY})
   endif()
 
+  if(BUILD_STATIC AND SSL_STATIC_LIBRARIES)
+    set(SSL_LIBRARIES ${SSL_STATIC_LIBRARIES})
+  endif()
+
   target_link_libraries(${TARGET_NAME} ${SSL_LIBRARIES})
   if(SSL_LIBRARY_DIRS)
     target_link_directories(${TARGET_NAME} PRIVATE ${SSL_LIBRARY_DIRS})
