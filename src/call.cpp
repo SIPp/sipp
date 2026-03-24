@@ -1943,9 +1943,16 @@ bool call::executeMessage(message *curmsg)
                         return false;
                     }
                 }
-            } else if (curmsg->timeout) {
+            } else if (curmsg->timeout || curmsg->timeout_str) {
                 /* Initialize the send timeout to the per message timeout. */
-                send_timeout = clock_tick + curmsg->timeout;
+                unsigned int resolved_timeout = 0;
+                if (curmsg->timeout_str) {
+                    // Resolve variables in timeout string at runtime
+                    resolved_timeout = resolveTimeoutValue(curmsg->timeout_str);
+                } else {
+                    resolved_timeout = curmsg->timeout;
+                }
+                send_timeout = clock_tick + resolved_timeout;
             } else if (defl_send_timeout) {
                 /* Initialize the send timeout to the global timeout. */
                 send_timeout = clock_tick + defl_send_timeout;
@@ -2057,10 +2064,18 @@ bool call::executeMessage(message *curmsg)
                 delete this;
                 return false;
             }
-        } else if (curmsg->timeout || defl_recv_timeout) {
-            if (curmsg->timeout)
+        } else if (curmsg->timeout || curmsg->timeout_str || defl_recv_timeout) {
+            unsigned int resolved_timeout = 0;
+            if (curmsg->timeout_str) {
+                // Resolve variables in timeout string at runtime
+                resolved_timeout = resolveTimeoutValue(curmsg->timeout_str);
+            } else if (curmsg->timeout) {
+                resolved_timeout = curmsg->timeout;
+            }
+
+            if (resolved_timeout)
                 // If timeout is specified on message receive, use it
-                recv_timeout = getmilliseconds() + curmsg->timeout;
+                recv_timeout = getmilliseconds() + resolved_timeout;
             else
                 // Else use the default timeout if specified
                 recv_timeout = getmilliseconds() + defl_recv_timeout;
@@ -6761,6 +6776,71 @@ SessionState call::getSessionStateCurrent()
 SessionState call::getSessionStateOld()
 {
     return _sessionStateOld;
+}
+
+unsigned int call::resolveTimeoutValue(const char* timeout_str) {
+    if (!timeout_str) return 0;
+
+    char resolved_str[256];
+    strcpy(resolved_str, timeout_str);
+
+    // Handle CSV field variables like [field0], [field1], etc.
+    char* field_start = strstr(resolved_str, "[field");
+    if (field_start) {
+        char* field_end = strchr(field_start, ']');
+        if (field_end) {
+            char* field_num_str = field_start + 6; // Skip "[field"
+            *field_end = '\0';
+            int field_num = atoi(field_num_str);
+
+            // Get the field value from CSV data directly
+            char field_value[256] = "";
+            if (m_lineNumber && !inFiles.empty()) {
+                // Use the first available input file (default behavior)
+                auto file_it = inFiles.begin();
+                const char* fileName = file_it->first.c_str();
+                int line = (*m_lineNumber)[fileName];
+                if (line >= 0) {
+                    file_it->second->getField(line, field_num, field_value, sizeof(field_value));
+                }
+            }
+
+            // Replace [fieldN] with the actual value
+            strcpy(field_start, field_value);
+            strcat(field_start, field_end + 1);
+        }
+    }
+
+    // Handle computed variables like [$varname]
+    char* var_start = strstr(resolved_str, "[$");
+    if (var_start) {
+        char* var_end = strchr(var_start, ']');
+        if (var_end) {
+            char* var_name = var_start + 2; // Skip "[$"
+            *var_end = '\0';
+
+            // Get the variable value
+            int varId = call_scenario->get_var(var_name, "timeout variable");
+            CCallVariable *var = M_callVariableTable->getVar(varId);
+            if (var && var->isSet()) {
+                if (var->isDouble()) {
+                    sprintf(var_start, "%.0lf", var->getDouble());
+                    strcat(var_start, var_end + 1);
+                } else if (var->isString()) {
+                    strcpy(var_start, var->getString());
+                    strcat(var_start, var_end + 1);
+                }
+            }
+        }
+    }
+
+    // Convert the resolved string to unsigned int
+    char* endptr;
+    unsigned int result = strtoul(resolved_str, &endptr, 0);
+    if (*endptr) {
+        ERROR("Invalid timeout value after variable substitution: '%s'", resolved_str);
+    }
+    return result;
 }
 
 #ifdef PCAPPLAY
