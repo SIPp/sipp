@@ -1600,7 +1600,7 @@ char * call::send_scene(int index, int *send_status, int *len)
 
     /* Socket port must be known before string substitution */
     if (!connect_socket_if_needed()) {
-        *send_status = -2;
+        *send_status = -3;
         return nullptr;
     }
 
@@ -1920,10 +1920,16 @@ bool call::executeMessage(message *curmsg)
         }
 
         msg_snd = send_scene(msg_index, &send_status, &msgLen);
-        if (!msg_snd) {
+        if (send_status == -3) {
             /* This will hit connect_if_needed, and if it fails, the
                entire call is deleted... */
-            ERROR("Call failed, cannot continue safely...");
+            if (reset_close) {
+                ERROR("Call failed due to a connection problem, terminate execution... "
+                      "(use '-reconnect_close false' option to ignore)");
+            } else {
+                WARNING("Call failed due to a connection problem and abnormally terminated");
+                return false;
+            }
         }
 
         if(send_status < 0 && errno == EWOULDBLOCK) {
