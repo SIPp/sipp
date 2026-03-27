@@ -157,7 +157,8 @@ static char* quoted_matching_bracket(const char* s)
 {
     int depth = 0;
 
-    for (const char* p = s; *p; ++p) {
+    const char* p = s;
+    while (*p) {
         if (*p == '"') {
             /* Quoted text is opaque: ignore any brackets until the closing quote. */
             ++p;
@@ -171,6 +172,7 @@ static char* quoted_matching_bracket(const char* s)
         if (*p == '[') {
             /* Track nested keywords such as [field2] inside auth parameter values. */
             ++depth;
+            ++p;
             continue;
         }
 
@@ -182,6 +184,8 @@ static char* quoted_matching_bracket(const char* s)
             /* Otherwise this closes one nested keyword and scanning continues. */
             --depth;
         }
+
+        ++p;
     }
 
     /* Unterminated keyword: let the caller report the syntax error. */
