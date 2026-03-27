@@ -39,6 +39,10 @@
 #include "sipp.hpp"
 #include "message.hpp"
 
+#ifdef GTEST
+#include "gtest/gtest.h"
+#endif
+
 struct KeywordMap {
     const char *keyword;
     MessageCompType type;
@@ -137,6 +141,53 @@ static char* quoted_strchr(const char* s, int c)
     return *p == c ? const_cast<char*>(p) : nullptr;
 }
 
+/*
+ * Find the closing ']' for an [authentication ...] keyword without getting
+ * confused by nested runtime substitutions like username=[field2].
+ *
+ * The generic keyword parser stops at the first unquoted ']', which is fine
+ * for ordinary keywords but wrong for [authentication ...] because its
+ * parameter values may themselves contain [fieldN] or other nested keywords.
+ *
+ * The algorithm is a single left-to-right scan. It skips over quoted strings,
+ * increments depth for nested '[', and treats a ']' as the real terminator
+ * only when that nesting depth has returned to zero.
+ */
+static char* quoted_matching_bracket(const char* s)
+{
+    int depth = 0;
+
+    for (const char* p = s; *p; ++p) {
+        if (*p == '"') {
+            /* Quoted text is opaque: ignore any brackets until the closing quote. */
+            ++p;
+            p += strcspn(p, "\"\n");
+            if (!*p) {
+                break;
+            }
+            continue;
+        }
+
+        if (*p == '[') {
+            /* Track nested keywords such as [field2] inside auth parameter values. */
+            ++depth;
+            continue;
+        }
+
+        if (*p == ']') {
+            /* depth == 0 means this closes the outer [authentication ...] keyword. */
+            if (depth == 0) {
+                return const_cast<char*>(p);
+            }
+            /* Otherwise this closes one nested keyword and scanning continues. */
+            --depth;
+        }
+    }
+
+    /* Unterminated keyword: let the caller report the syntax error. */
+    return nullptr;
+}
+
 SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bool skip_sanity)
 {
     char * src = strdup(const_src);
@@ -224,8 +275,15 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
             char keyword [KEYWORD_SIZE+1];
             src++;
 
-            tsrc = quoted_strchr(src, '[');
-            key = quoted_strchr(src, ']');
+            bool authentication_keyword =
+                !strncmp(src, "authentication", strlen("authentication"));
+
+            tsrc = authentication_keyword ? nullptr : quoted_strchr(src, '[');
+            if (authentication_keyword) {
+                key = quoted_matching_bracket(src);
+            } else {
+                key = quoted_strchr(src, ']');
+            }
 
             if ((tsrc) && (tsrc<key)) {
                 memcpy(keyword, src-1,  tsrc - src + 1);
@@ -515,6 +573,7 @@ void SendingMessage::getKeywordParam(char * src, const char * param, char * outp
 {
     char *key, *tmp;
     int len;
+    int depth;
 
     len = 0;
     key = nullptr;
@@ -528,10 +587,18 @@ void SendingMessage::getKeywordParam(char * src, const char * param, char * outp
             key++;
             getQuotedParam(output, key, &len);
         } else {
+            depth = 0;
             while (*key) {
                 if (((key - src) > KEYWORD_SIZE) || (!(key - src))) {
                     ERROR("Syntax error parsing '%s' parameter", param);
-                } else if (*key == ']' || *key < 33 || *key > 126) {
+                } else if (*key == '[') {
+                    depth++;
+                } else if (*key == ']') {
+                    if (depth == 0) {
+                        break;
+                    }
+                    depth--;
+                } else if ((*key < 33 || *key > 126) && depth == 0) {
                     break;
                 }
                 key++;
@@ -626,3 +693,34 @@ int registerKeyword(char *keyword, customKeyword fxn)
     keyword_map[keyword] = fxn;
     return 0;
 }
+
+#ifdef GTEST
+TEST(SendingMessage, AuthenticationKeywordKeepsNestedFieldKeywords)
+{
+    SendingMessage msg(
+        nullptr,
+        "[authentication username=[service] aka_K=[local_ip] aka_OP=[remote_ip] aka_AMF=[transport]]",
+        true);
+
+    ASSERT_EQ(1, msg.numComponents());
+
+    MessageComponent *auth = msg.getComponent(0);
+    ASSERT_EQ(E_Message_Authentication, auth->type);
+
+    ASSERT_EQ(1, auth->comp_param.auth_param.auth_user->numComponents());
+    EXPECT_EQ(E_Message_Service,
+              auth->comp_param.auth_param.auth_user->getComponent(0)->type);
+
+    ASSERT_EQ(1, auth->comp_param.auth_param.aka_K->numComponents());
+    EXPECT_EQ(E_Message_Local_IP,
+              auth->comp_param.auth_param.aka_K->getComponent(0)->type);
+
+    ASSERT_EQ(1, auth->comp_param.auth_param.aka_OP->numComponents());
+    EXPECT_EQ(E_Message_Remote_IP,
+              auth->comp_param.auth_param.aka_OP->getComponent(0)->type);
+
+    ASSERT_EQ(1, auth->comp_param.auth_param.aka_AMF->numComponents());
+    EXPECT_EQ(E_Message_Transport,
+              auth->comp_param.auth_param.aka_AMF->getComponent(0)->type);
+}
+#endif
