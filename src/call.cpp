@@ -4571,8 +4571,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         }
     }
 
-    /* Check if message has a SDP in it; and extract media information. */
-    if (!strcmp(get_header_content(msg, "Content-Type:"), "application/sdp") &&
+    /* Check if message has a SDP in it; and extract media information.
+     * Also handle multipart/mixed bodies that contain an application/sdp part
+     * (e.g. SIP messages carrying both SDP and PIDF-LO geolocation). */
+    const char* ct_hdr = get_header_content(msg, "Content-Type:");
+    bool has_sdp_content = !strcmp(ct_hdr, "application/sdp") ||
+                           (strstr(ct_hdr, "multipart/") && strstr(msg, "application/sdp"));
+    if (has_sdp_content &&
           (hasMedia == 1) &&
           (!curmsg->ignoresdp))
     {
