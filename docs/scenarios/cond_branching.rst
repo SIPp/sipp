@@ -52,7 +52,8 @@ To have SIPp behave somewhat more like a "normal" SIP client being
 used by a human, it is possible to use "statistical branching".
 Wherever you can have a conditional branch on a variable being set
 (test="4"), you can also branch based on a statistical decision using
-the attribute "chance" (e.g. chance="0.90"). Chance can have a value
+the attribute "chance" (e.g. chance="0.90") or "chance_variable"
+(e.g. chance_variable="probaSuccess"). Chance can have a value
 between 0 (never) and 1 (always). "test" and "chance" can be combined,
 i.e. only branching when the test succeeds and the chance is good.
 
