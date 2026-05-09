@@ -1536,6 +1536,19 @@ char * call::get_last_header(const char * name)
         ERROR("call::get_last_header: Header to parse bigger than %d (%zu)", MAX_HEADER_LEN, strlen(name));
     }
 
+    if(strcmp(name, "media_ip")==0) {
+      // get media ip from sdp
+      static std::string host;
+      host = find_in_sdp(media_ip_is_ipv6 ? "c=IN IP6 " : "c=IN IP4 ", last_recv_msg);
+      return const_cast<char*>(host.c_str());
+    }
+    if(strcmp(name, "media_port")==0) {
+      // get media port from sdp
+      static std::string port;
+      port = find_in_sdp("m=audio ", last_recv_msg);
+      return const_cast<char*>(port.c_str());
+    }
+
     if (name[len - 1] == ':') {
         return get_header(last_recv_msg, name, false);
     } else {
