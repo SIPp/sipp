@@ -192,6 +192,7 @@ struct sipp_option options_table[] = {
     {"tls_ca", "Set the name for TLS CA file. If not specified, X509 verification is not activated.", SIPP_OPTION_STRING, &tls_ca_name, 1},
     {"tls_crl", "Set the name for Certificate Revocation List file. If not specified, X509 CRL is not activated.", SIPP_OPTION_STRING, &tls_crl_name, 1},
     {"tls_version", "Set the TLS protocol version to use (1.0, 1.1, 1.2, 1.3) -- default is autonegotiate", SIPP_OPTION_FLOAT, &tls_version, 1},
+    {"tls_ciphers", "Set the TLS cipher list string (see openssl ciphers). Applied to both TLS 1.2 and TLS 1.3 cipher suites. Default: OpenSSL default.", SIPP_OPTION_STRING, &tls_cipher_name, 1},
 
 #ifdef USE_SCTP
     {"multihome", "Set multihome address for SCTP", SIPP_OPTION_IP, multihome_ip, 1},

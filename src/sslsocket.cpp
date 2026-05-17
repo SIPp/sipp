@@ -300,6 +300,23 @@ enum tls_init_status TLS_init_context(void)
 
 
     /* Selection Cipher suits - load the application specified ciphers */
+    if (strlen(tls_cipher_name) > 0) {
+        if (SSL_CTX_set_cipher_list(sip_trp_ssl_ctx, tls_cipher_name) != 1) {
+            WARNING("TLS_init_context: SSL_CTX_set_cipher_list failed for generic context");
+        }
+        if (SSL_CTX_set_cipher_list(sip_trp_ssl_ctx_client, tls_cipher_name) != 1) {
+            WARNING("TLS_init_context: SSL_CTX_set_cipher_list failed for client context");
+        }
+#if defined(USE_OPENSSL)
+        if (SSL_CTX_set_ciphersuites(sip_trp_ssl_ctx, tls_cipher_name) != 1) {
+            WARNING("TLS_init_context: SSL_CTX_set_ciphersuites failed for generic context");
+        }
+        if (SSL_CTX_set_ciphersuites(sip_trp_ssl_ctx_client, tls_cipher_name) != 1) {
+            WARNING("TLS_init_context: SSL_CTX_set_ciphersuites failed for client context");
+        }
+#endif
+    }
+
     SSL_CTX_set_default_passwd_cb_userdata(sip_trp_ssl_ctx,
                                            (void *)CALL_BACK_USER_DATA);
     SSL_CTX_set_default_passwd_cb_userdata(sip_trp_ssl_ctx_client,
