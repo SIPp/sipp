@@ -165,6 +165,12 @@ cmd messages are received */
 #define DEFAULT_BEHAVIOR_PINGREPLY   4
 #define DEFAULT_BEHAVIOR_BADCSEQ     8
 
+#define CID_MODE_FORMAT              0
+#define CID_MODE_UUID                1
+#define CID_MODE_UUID_COMPACT        2
+#define CID_MODE_RANDOM              3
+#define CID_MODE_TIMESTAMP           4
+
 #define DEFAULT_BEHAVIOR_ALL         (DEFAULT_BEHAVIOR_BYE | DEFAULT_BEHAVIOR_ABORTUNEXP | DEFAULT_BEHAVIOR_PINGREPLY | DEFAULT_BEHAVIOR_BADCSEQ)
 
 #define DEFAULT_MIN_RTP_PORT         DEFAULT_MEDIA_PORT
@@ -290,6 +296,7 @@ MAYBE_EXTERN int                currentRepartitionToDisplay  DEFVAL(1);
 MAYBE_EXTERN unsigned int       base_cseq               DEFVAL(0);
 MAYBE_EXTERN char             * auth_uri                DEFVAL(0);
 MAYBE_EXTERN const char       * call_id_string          DEFVAL("%u-%p@%s");
+MAYBE_EXTERN int                call_id_mode            DEFVAL(CID_MODE_FORMAT);
 typedef std::unordered_map<std::string, std::string> ParamMap;
 MAYBE_EXTERN ParamMap           generic;
 

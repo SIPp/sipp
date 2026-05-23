@@ -40,11 +40,13 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <string>
-#include <vector>
-#include <thread>
 #include <chrono>
+#include <thread>
+#include <vector>
 
 #ifdef __APPLE__
 /* Provide OSX version of extern char **environ; */
@@ -123,6 +125,43 @@ struct sipp_option {
 #define SIPP_OPTION_RX_SCENARIO   40
 #define SIPP_OPTION_RX_INPUT_FILE 41
 #define SIPP_HELP_TEXT_HEADER    255
+
+static char *call_id_mode_string = nullptr;
+
+static std::string lowercase_copy(std::string value)
+{
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return value;
+}
+
+static bool parse_call_id_mode(const char *value, int *mode)
+{
+    std::string lowered = lowercase_copy(value);
+
+    if (lowered == "default" || lowered == "format" || lowered == "legacy") {
+        *mode = CID_MODE_FORMAT;
+        return true;
+    }
+    if (lowered == "uuid") {
+        *mode = CID_MODE_UUID;
+        return true;
+    }
+    if (lowered == "uuid-compact" || lowered == "uuidcompact" || lowered == "uuid32") {
+        *mode = CID_MODE_UUID_COMPACT;
+        return true;
+    }
+    if (lowered == "random" || lowered == "random-hex") {
+        *mode = CID_MODE_RANDOM;
+        return true;
+    }
+    if (lowered == "timestamp" || lowered == "time") {
+        *mode = CID_MODE_TIMESTAMP;
+        return true;
+    }
+
+    return false;
+}
 
 /* Put each option, its help text, and type in this table. */
 struct sipp_option options_table[] = {
@@ -234,6 +273,7 @@ struct sipp_option options_table[] = {
     {"aa", "Enable automatic 200 OK answer for INFO, NOTIFY, OPTIONS and UPDATE.", SIPP_OPTION_SETFLAG, &auto_answer, 1},
     {"base_cseq", "Start value of [cseq] for each call.", SIPP_OPTION_CSEQ, nullptr, 1},
     {"cid_str", "Call ID string (default %u-%p@%s).  %u=call_number, %s=ip_address, %p=process_number, %r=random_integer, %%=% (in any order).", SIPP_OPTION_STRING, &call_id_string, 1},
+    {"cid_type", "Call ID generation mode. Values: default (aliases: format, legacy), uuid, uuid-compact (aliases: uuidcompact, uuid32), random (alias: random-hex), timestamp (alias: time). Modes other than default ignore -cid_str.", SIPP_OPTION_STRING, &call_id_mode_string, 1},
     {"d", "Controls the length of calls. More precisely, this controls the duration of 'pause' instructions in the scenario, if they do not have a 'milliseconds' section. Default value is 0 and default unit is milliseconds.", SIPP_OPTION_TIME_MS, &duration, 1},
     {"deadcall_wait", "How long the Call-ID and final status of calls should be kept to improve message and error logs (default unit is ms).", SIPP_OPTION_TIME_MS, &deadcall_wait, 1},
     {"auth_uri", "Force the value of the URI for authentication.\n"
@@ -1938,6 +1978,10 @@ int main(int argc, char *argv[])
                 ERROR("Internal error: I don't recognize the option type for %s", argv[argi]);
             }
         }
+    }
+
+    if (call_id_mode_string && !parse_call_id_mode(call_id_mode_string, &call_id_mode)) {
+        ERROR("Unknown Call-ID mode '%s'. Use default, format, legacy, uuid, uuid-compact, uuidcompact, uuid32, random, random-hex, timestamp, or time.", call_id_mode_string);
     }
 
     /* generate random ssrc */
