@@ -39,6 +39,7 @@
  */
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -115,6 +116,170 @@ int call::stepDynamicId   = 4;                // FIXME both param to be in comma
 static const int SM_UNUSED = -1;
 
 static unsigned int next_number = 1;
+
+static void append_call_id_char(char *call_id, int &count, char value)
+{
+    if (count < MAX_HEADER_LEN - 1) {
+        call_id[count++] = value;
+    }
+    call_id[count] = '\0';
+}
+
+static void append_call_id_text(char *call_id, int &count, const char *fmt, ...)
+{
+    if (count >= MAX_HEADER_LEN - 1) {
+        call_id[MAX_HEADER_LEN - 1] = '\0';
+        return;
+    }
+
+    va_list ap;
+    va_start(ap, fmt);
+    int written = vsnprintf(&call_id[count], MAX_HEADER_LEN - count, fmt, ap);
+    va_end(ap);
+
+    if (written < 0) {
+        call_id[count] = '\0';
+        return;
+    }
+
+    if (written >= MAX_HEADER_LEN - count) {
+        count = MAX_HEADER_LEN - 1;
+    } else {
+        count += written;
+    }
+}
+
+static void fill_call_id_bytes(unsigned char *bytes, size_t size, unsigned int call_number)
+{
+    using clock = std::chrono::system_clock;
+    uint64_t seed = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            clock::now().time_since_epoch()).count());
+
+    seed ^= static_cast<uint64_t>(call_number) << 32;
+    seed ^= static_cast<uint64_t>(pid) << 8;
+
+    for (size_t i = 0; i < size; ++i) {
+        seed ^= static_cast<uint64_t>(rand()) << ((i % 4) * 8);
+        seed = seed * 2862933555777941757ULL + 3037000493ULL + i;
+        bytes[i] = static_cast<unsigned char>((seed >> ((i % 8) * 8)) & 0xff);
+    }
+}
+
+static void build_default_call_id(char *call_id, unsigned int call_number)
+{
+    const char *src = call_id_string;
+    int count = 0;
+
+    while (*src && count < MAX_HEADER_LEN - 1) {
+        if (*src == '%') {
+            ++src;
+            switch (*src++) {
+            case 'u':
+                append_call_id_text(call_id, count, "%u", call_number);
+                break;
+            case 'p':
+                append_call_id_text(call_id, count, "%u", pid);
+                break;
+            case 's':
+                append_call_id_text(call_id, count, "%s", local_ip);
+                break;
+            case 'r':
+                append_call_id_text(call_id, count, "%u", rand());
+                break;
+            default:
+                append_call_id_char(call_id, count, '%');
+                break;
+            }
+        } else {
+            append_call_id_char(call_id, count, *src++);
+        }
+    }
+    call_id[count] = '\0';
+}
+
+static void build_uuid_call_id(char *call_id, unsigned int call_number, bool compact)
+{
+    unsigned char bytes[16];
+    int count = 0;
+
+    fill_call_id_bytes(bytes, sizeof(bytes), call_number);
+    bytes[6] = static_cast<unsigned char>((bytes[6] & 0x0f) | 0x40);
+    bytes[8] = static_cast<unsigned char>((bytes[8] & 0x3f) | 0x80);
+
+    if (compact) {
+        append_call_id_text(call_id, count,
+                            "%02x%02x%02x%02x%02x%02x%02x%02x"
+                            "%02x%02x%02x%02x%02x%02x%02x%02x",
+                            bytes[0], bytes[1], bytes[2], bytes[3],
+                            bytes[4], bytes[5], bytes[6], bytes[7],
+                            bytes[8], bytes[9], bytes[10], bytes[11],
+                            bytes[12], bytes[13], bytes[14], bytes[15]);
+    } else {
+        append_call_id_text(call_id, count,
+                            "%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+                            "%02x%02x-%02x%02x%02x%02x%02x%02x",
+                            bytes[0], bytes[1], bytes[2], bytes[3],
+                            bytes[4], bytes[5], bytes[6], bytes[7],
+                            bytes[8], bytes[9], bytes[10], bytes[11],
+                            bytes[12], bytes[13], bytes[14], bytes[15]);
+    }
+
+    append_call_id_text(call_id, count, "@%s", local_ip);
+}
+
+static void build_random_call_id(char *call_id, unsigned int call_number)
+{
+    unsigned char bytes[16];
+    int count = 0;
+
+    fill_call_id_bytes(bytes, sizeof(bytes), call_number);
+    append_call_id_text(call_id, count, "%u-", call_number);
+    append_call_id_text(call_id, count,
+                        "%02x%02x%02x%02x%02x%02x%02x%02x"
+                        "%02x%02x%02x%02x%02x%02x%02x%02x",
+                        bytes[0], bytes[1], bytes[2], bytes[3],
+                        bytes[4], bytes[5], bytes[6], bytes[7],
+                        bytes[8], bytes[9], bytes[10], bytes[11],
+                        bytes[12], bytes[13], bytes[14], bytes[15]);
+    append_call_id_text(call_id, count, "@%s", local_ip);
+}
+
+static void build_timestamp_call_id(char *call_id, unsigned int call_number)
+{
+    using clock = std::chrono::system_clock;
+    int count = 0;
+    unsigned long long micros = static_cast<unsigned long long>(
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            clock::now().time_since_epoch()).count());
+
+    append_call_id_text(call_id, count, "%llu-%u-%u@%s",
+                        micros, call_number, pid, local_ip);
+}
+
+static void build_call_id(char *call_id, unsigned int call_number)
+{
+    call_id[0] = '\0';
+
+    switch (call_id_mode) {
+    case CID_MODE_UUID:
+        build_uuid_call_id(call_id, call_number, false);
+        break;
+    case CID_MODE_UUID_COMPACT:
+        build_uuid_call_id(call_id, call_number, true);
+        break;
+    case CID_MODE_RANDOM:
+        build_random_call_id(call_id, call_number);
+        break;
+    case CID_MODE_TIMESTAMP:
+        build_timestamp_call_id(call_id, call_number);
+        break;
+    case CID_MODE_FORMAT:
+    default:
+        build_default_call_id(call_id, call_number);
+        break;
+    }
+}
 
 static unsigned int get_tdm_map_number()
 {
@@ -791,38 +956,11 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
 {
     static char call_id[MAX_HEADER_LEN];
 
-    const char * src = call_id_string;
-    int count = 0;
-
     if(!next_number) {
         next_number ++;
     }
 
-    while (*src && count < MAX_HEADER_LEN-1) {
-        if (*src == '%') {
-            ++src;
-            switch(*src++) {
-            case 'u':
-                count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1, "%u", next_number);
-                break;
-            case 'p':
-                count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1, "%u", pid);
-                break;
-            case 's':
-                count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1, "%s", local_ip);
-                break;
-            case 'r':
-                count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1, "%u", rand());
-                break;
-            default:      // treat all unknown sequences as %%
-                call_id[count++] = '%';
-                break;
-            }
-        } else {
-            call_id[count++] = *src++;
-        }
-    }
-    call_id[count] = 0;
+    build_call_id(call_id, next_number);
 
     return new call(main_scenario, nullptr, dest, call_id, userId, ipv6, false /* Not Auto. */, false);
 }
@@ -6836,6 +6974,105 @@ const std::string test_sdp_v6 = "v=0\r\n"
                                 "t=0 0\r\n"
                                 "m=audio 12345 RTP/AVP 0\r\n"
                                 "a=rtpmap:0 PCMU/8000\r\n";
+
+static std::string call_id_body(const char *call_id)
+{
+    const char *separator = strchr(call_id, '@');
+    if (!separator) {
+        return call_id;
+    }
+    return std::string(call_id, separator - call_id);
+}
+
+static bool is_lower_hex_string(const std::string &value)
+{
+    return std::all_of(value.begin(), value.end(), [](unsigned char c) {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+    });
+}
+
+TEST(call_id, default_mode_uses_cid_str_template) {
+    char call_id[MAX_HEADER_LEN];
+
+    call_id_mode = CID_MODE_FORMAT;
+    call_id_string = "%u-%p@%s";
+    pid = 4321;
+    strcpy(local_ip, "192.0.2.10");
+
+    build_call_id(call_id, 77);
+    EXPECT_STREQ("77-4321@192.0.2.10", call_id);
+}
+
+TEST(call_id, uuid_mode_generates_rfc4122_value) {
+    char call_id[MAX_HEADER_LEN];
+
+    call_id_mode = CID_MODE_UUID;
+    pid = 9001;
+    strcpy(local_ip, "198.51.100.25");
+
+    build_call_id(call_id, 15);
+
+    std::string body = call_id_body(call_id);
+    ASSERT_EQ(body.size(), 36U);
+    EXPECT_EQ(body[8], '-');
+    EXPECT_EQ(body[13], '-');
+    EXPECT_EQ(body[18], '-');
+    EXPECT_EQ(body[23], '-');
+    EXPECT_EQ(body[14], '4');
+    EXPECT_TRUE(body[19] == '8' || body[19] == '9' || body[19] == 'a' || body[19] == 'b');
+    EXPECT_TRUE(is_lower_hex_string(body.substr(0, 8)));
+    EXPECT_TRUE(is_lower_hex_string(body.substr(9, 4)));
+    EXPECT_TRUE(is_lower_hex_string(body.substr(14, 4)));
+    EXPECT_TRUE(is_lower_hex_string(body.substr(19, 4)));
+    EXPECT_TRUE(is_lower_hex_string(body.substr(24, 12)));
+    EXPECT_NE(std::string(call_id).find("@198.51.100.25"), std::string::npos);
+}
+
+TEST(call_id, uuid_compact_mode_generates_hex_value) {
+    char call_id[MAX_HEADER_LEN];
+
+    call_id_mode = CID_MODE_UUID_COMPACT;
+    pid = 1337;
+    strcpy(local_ip, "203.0.113.8");
+
+    build_call_id(call_id, 22);
+
+    std::string body = call_id_body(call_id);
+    ASSERT_EQ(body.size(), 32U);
+    EXPECT_TRUE(is_lower_hex_string(body));
+    EXPECT_EQ(body[12], '4');
+    EXPECT_TRUE(body[16] == '8' || body[16] == '9' || body[16] == 'a' || body[16] == 'b');
+    EXPECT_NE(std::string(call_id).find("@203.0.113.8"), std::string::npos);
+}
+
+TEST(call_id, random_mode_generates_unique_token_with_call_number) {
+    char call_id[MAX_HEADER_LEN];
+
+    call_id_mode = CID_MODE_RANDOM;
+    pid = 5150;
+    strcpy(local_ip, "203.0.113.44");
+
+    build_call_id(call_id, 31);
+
+    std::string body = call_id_body(call_id);
+    ASSERT_EQ(body.rfind("31-", 0), 0U);
+    ASSERT_EQ(body.size(), 35U);
+    EXPECT_TRUE(is_lower_hex_string(body.substr(3)));
+    EXPECT_NE(std::string(call_id).find("@203.0.113.44"), std::string::npos);
+}
+
+TEST(call_id, timestamp_mode_embeds_call_number_and_pid) {
+    char call_id[MAX_HEADER_LEN];
+
+    call_id_mode = CID_MODE_TIMESTAMP;
+    pid = 2718;
+    strcpy(local_ip, "192.0.2.44");
+
+    build_call_id(call_id, 52);
+
+    std::string full_call_id(call_id);
+    EXPECT_NE(full_call_id.find("-52-2718@192.0.2.44"), std::string::npos);
+}
 
 TEST(sdp, parse_valid_sdp_msg) {
     ASSERT_EQ(find_in_sdp("c=IN IP4 ", test_sdp_v4), "127.0.0.1");
