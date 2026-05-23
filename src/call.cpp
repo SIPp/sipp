@@ -39,8 +39,11 @@
  */
 
 #include <algorithm>
+#include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <iterator>
 #include <sstream>
@@ -115,6 +118,165 @@ int call::stepDynamicId   = 4;                // FIXME both param to be in comma
 static const int SM_UNUSED = -1;
 
 static unsigned int next_number = 1;
+
+class CallIdBuilder {
+public:
+    explicit CallIdBuilder(unsigned int call_number)
+        : call_number(call_number)
+    {
+    }
+
+    void build(char *call_id)
+    {
+        switch (call_id_mode) {
+        case CID_MODE_UUID:
+            build_uuid(false);
+            break;
+        case CID_MODE_UUID_COMPACT:
+            build_uuid(true);
+            break;
+        case CID_MODE_RANDOM:
+            build_random();
+            break;
+        case CID_MODE_TIMESTAMP:
+            build_timestamp();
+            break;
+        case CID_MODE_FORMAT:
+        default:
+            build_format();
+            break;
+        }
+
+        copy_to(call_id);
+    }
+
+private:
+    void build_format()
+    {
+        const char *src = call_id_string;
+
+        while (*src) {
+            if (*src != '%') {
+                output << *src++;
+                continue;
+            }
+
+            ++src;
+            if (*src == '\0') {
+                output << '%';
+                break;
+            }
+
+            switch (*src++) {
+            case 'u':
+                output << call_number;
+                break;
+            case 'p':
+                output << pid;
+                break;
+            case 's':
+                output << local_ip;
+                break;
+            case 'r':
+                output << rand();
+                break;
+            default:
+                output << '%';
+                break;
+            }
+        }
+    }
+
+    void build_uuid(bool compact)
+    {
+        unsigned char bytes[16];
+
+        fill_bytes(bytes, sizeof(bytes));
+        bytes[6] = static_cast<unsigned char>((bytes[6] & 0x0f) | 0x40);
+        bytes[8] = static_cast<unsigned char>((bytes[8] & 0x3f) | 0x80);
+
+        append_hex_bytes(bytes, 4);
+        if (!compact) {
+            output << '-';
+        }
+        append_hex_bytes(bytes + 4, 2);
+        if (!compact) {
+            output << '-';
+        }
+        append_hex_bytes(bytes + 6, 2);
+        if (!compact) {
+            output << '-';
+        }
+        append_hex_bytes(bytes + 8, 2);
+        if (!compact) {
+            output << '-';
+        }
+        append_hex_bytes(bytes + 10, 6);
+        output << '@' << local_ip;
+    }
+
+    void build_random()
+    {
+        unsigned char bytes[16];
+
+        fill_bytes(bytes, sizeof(bytes));
+        output << call_number << '-';
+        append_hex_bytes(bytes, sizeof(bytes));
+        output << '@' << local_ip;
+    }
+
+    void build_timestamp()
+    {
+        output << timestamp_micros() << '-' << call_number << '-' << pid << '@' << local_ip;
+    }
+
+    void fill_bytes(unsigned char *bytes, size_t size) const
+    {
+        uint64_t seed = timestamp_micros();
+
+        seed ^= static_cast<uint64_t>(call_number) << 32;
+        seed ^= static_cast<uint64_t>(pid) << 8;
+
+        for (size_t i = 0; i < size; ++i) {
+            seed ^= static_cast<uint64_t>(rand()) << ((i % 4) * 8);
+            seed = seed * 2862933555777941757ULL + 3037000493ULL + i;
+            bytes[i] = static_cast<unsigned char>((seed >> ((i % 8) * 8)) & 0xff);
+        }
+    }
+
+    void append_hex_bytes(const unsigned char *bytes, size_t size)
+    {
+        for (size_t i = 0; i < size; ++i) {
+            output << std::hex << std::nouppercase << std::setw(2) << std::setfill('0')
+                   << static_cast<unsigned int>(bytes[i]);
+        }
+        output << std::dec << std::setfill(' ');
+    }
+
+    static uint64_t timestamp_micros()
+    {
+        using clock = std::chrono::system_clock;
+        return static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                clock::now().time_since_epoch()).count());
+    }
+
+    void copy_to(char *call_id) const
+    {
+        std::string value = output.str();
+        size_t length = std::min(value.size(), static_cast<size_t>(MAX_HEADER_LEN - 1));
+        memcpy(call_id, value.data(), length);
+        call_id[length] = '\0';
+    }
+
+    unsigned int call_number;
+    std::ostringstream output;
+};
+
+static void build_call_id(char *call_id, unsigned int call_number)
+{
+    CallIdBuilder(call_number).build(call_id);
+}
 
 static unsigned int get_tdm_map_number()
 {
@@ -791,38 +953,11 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
 {
     static char call_id[MAX_HEADER_LEN];
 
-    const char * src = call_id_string;
-    int count = 0;
-
     if(!next_number) {
         next_number ++;
     }
 
-    while (*src && count < MAX_HEADER_LEN-1) {
-        if (*src == '%') {
-            ++src;
-            switch(*src++) {
-            case 'u':
-                count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1, "%u", next_number);
-                break;
-            case 'p':
-                count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1, "%u", pid);
-                break;
-            case 's':
-                count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1, "%s", local_ip);
-                break;
-            case 'r':
-                count += snprintf(&call_id[count], MAX_HEADER_LEN-count-1, "%u", rand());
-                break;
-            default:      // treat all unknown sequences as %%
-                call_id[count++] = '%';
-                break;
-            }
-        } else {
-            call_id[count++] = *src++;
-        }
-    }
-    call_id[count] = 0;
+    build_call_id(call_id, next_number);
 
     return new call(main_scenario, nullptr, dest, call_id, userId, ipv6, false /* Not Auto. */, false);
 }
@@ -6836,6 +6971,146 @@ const std::string test_sdp_v6 = "v=0\r\n"
                                 "t=0 0\r\n"
                                 "m=audio 12345 RTP/AVP 0\r\n"
                                 "a=rtpmap:0 PCMU/8000\r\n";
+
+static std::string call_id_body(const char *call_id)
+{
+    const char *separator = strchr(call_id, '@');
+    if (!separator) {
+        return call_id;
+    }
+    return std::string(call_id, separator - call_id);
+}
+
+static bool is_lower_hex_string(const std::string &value)
+{
+    return std::all_of(value.begin(), value.end(), [](unsigned char c) {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+    });
+}
+
+class call_id_test_state_guard {
+public:
+    call_id_test_state_guard()
+        : saved_call_id_string(call_id_string),
+          saved_call_id_mode(call_id_mode),
+          saved_pid(pid)
+    {
+        strcpy(saved_local_ip, local_ip);
+    }
+
+    ~call_id_test_state_guard()
+    {
+        call_id_string = saved_call_id_string;
+        call_id_mode = saved_call_id_mode;
+        pid = saved_pid;
+        strcpy(local_ip, saved_local_ip);
+    }
+
+private:
+    const char *saved_call_id_string;
+    int saved_call_id_mode;
+    unsigned int saved_pid;
+    char saved_local_ip[sizeof(local_ip)];
+};
+
+TEST(call_id, default_mode_uses_cid_str_template) {
+    char call_id[MAX_HEADER_LEN];
+    call_id_test_state_guard guard;
+
+    call_id_mode = CID_MODE_FORMAT;
+    call_id_string = "%u-%p@%s";
+    pid = 4321;
+    strcpy(local_ip, "192.0.2.10");
+
+    build_call_id(call_id, 77);
+    EXPECT_STREQ("77-4321@192.0.2.10", call_id);
+}
+
+TEST(call_id, default_mode_treats_trailing_percent_as_literal) {
+    char call_id[MAX_HEADER_LEN];
+    call_id_test_state_guard guard;
+
+    call_id_mode = CID_MODE_FORMAT;
+    call_id_string = "call-%";
+
+    build_call_id(call_id, 77);
+    EXPECT_STREQ("call-%", call_id);
+}
+
+TEST(call_id, uuid_mode_generates_rfc4122_value) {
+    char call_id[MAX_HEADER_LEN];
+    call_id_test_state_guard guard;
+
+    call_id_mode = CID_MODE_UUID;
+    pid = 9001;
+    strcpy(local_ip, "198.51.100.25");
+
+    build_call_id(call_id, 15);
+
+    std::string body = call_id_body(call_id);
+    ASSERT_EQ(body.size(), 36U);
+    EXPECT_EQ(body[8], '-');
+    EXPECT_EQ(body[13], '-');
+    EXPECT_EQ(body[18], '-');
+    EXPECT_EQ(body[23], '-');
+    EXPECT_EQ(body[14], '4');
+    EXPECT_TRUE(body[19] == '8' || body[19] == '9' || body[19] == 'a' || body[19] == 'b');
+    EXPECT_TRUE(is_lower_hex_string(body.substr(0, 8)));
+    EXPECT_TRUE(is_lower_hex_string(body.substr(9, 4)));
+    EXPECT_TRUE(is_lower_hex_string(body.substr(14, 4)));
+    EXPECT_TRUE(is_lower_hex_string(body.substr(19, 4)));
+    EXPECT_TRUE(is_lower_hex_string(body.substr(24, 12)));
+    EXPECT_NE(std::string(call_id).find("@198.51.100.25"), std::string::npos);
+}
+
+TEST(call_id, uuid_compact_mode_generates_hex_value) {
+    char call_id[MAX_HEADER_LEN];
+    call_id_test_state_guard guard;
+
+    call_id_mode = CID_MODE_UUID_COMPACT;
+    pid = 1337;
+    strcpy(local_ip, "203.0.113.8");
+
+    build_call_id(call_id, 22);
+
+    std::string body = call_id_body(call_id);
+    ASSERT_EQ(body.size(), 32U);
+    EXPECT_TRUE(is_lower_hex_string(body));
+    EXPECT_EQ(body[12], '4');
+    EXPECT_TRUE(body[16] == '8' || body[16] == '9' || body[16] == 'a' || body[16] == 'b');
+    EXPECT_NE(std::string(call_id).find("@203.0.113.8"), std::string::npos);
+}
+
+TEST(call_id, random_mode_generates_unique_token_with_call_number) {
+    char call_id[MAX_HEADER_LEN];
+    call_id_test_state_guard guard;
+
+    call_id_mode = CID_MODE_RANDOM;
+    pid = 5150;
+    strcpy(local_ip, "203.0.113.44");
+
+    build_call_id(call_id, 31);
+
+    std::string body = call_id_body(call_id);
+    ASSERT_EQ(body.rfind("31-", 0), 0U);
+    ASSERT_EQ(body.size(), 35U);
+    EXPECT_TRUE(is_lower_hex_string(body.substr(3)));
+    EXPECT_NE(std::string(call_id).find("@203.0.113.44"), std::string::npos);
+}
+
+TEST(call_id, timestamp_mode_embeds_call_number_and_pid) {
+    char call_id[MAX_HEADER_LEN];
+    call_id_test_state_guard guard;
+
+    call_id_mode = CID_MODE_TIMESTAMP;
+    pid = 2718;
+    strcpy(local_ip, "192.0.2.44");
+
+    build_call_id(call_id, 52);
+
+    std::string full_call_id(call_id);
+    EXPECT_NE(full_call_id.find("-52-2718@192.0.2.44"), std::string::npos);
+}
 
 TEST(sdp, parse_valid_sdp_msg) {
     ASSERT_EQ(find_in_sdp("c=IN IP4 ", test_sdp_v4), "127.0.0.1");
