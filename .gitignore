@@ -42,7 +42,10 @@ compile_commands.json
 
 CMakeCache.txt
 CMakeFiles/
+CTestTestfile.cmake
 cmake_install.cmake
+cmake_test_*.json
+/sipp_unittest*.cmake
 
 # Ignore *.xml in root dir, but not in regression tests dir.
 /*.xml
