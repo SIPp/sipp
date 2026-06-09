@@ -43,6 +43,8 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <chrono>
 #include <thread>
@@ -161,6 +163,363 @@ static bool parse_call_id_mode(const char *value, int *mode)
     }
 
     return false;
+}
+
+struct wizard_scenario_option {
+    const char *scenario_name;
+    const char *description;
+    bool needs_remote_host;
+    bool use_scenario_file;
+};
+
+static const wizard_scenario_option wizard_scenarios[] = {
+    {"uac", "Embedded UAC client scenario.", true, false},
+    {"uas", "Embedded UAS server scenario.", false, false},
+    {"regexp", "Embedded UAC scenario with regexp and variables.", true, false},
+    {"branchc", "Embedded client branching scenario.", true, false},
+    {"branchs", "Embedded server branching scenario.", false, false},
+#ifdef PCAPPLAY
+    {"uac_pcap", "Embedded UAC scenario with PCAP media playback.", true, false},
+#endif
+    {"custom", "Custom XML scenario file.", false, true},
+};
+
+static std::string trim_copy(const std::string &value)
+{
+    size_t first = value.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) {
+        return "";
+    }
+
+    size_t last = value.find_last_not_of(" \t\r\n");
+    return value.substr(first, last - first + 1);
+}
+
+static bool wizard_cancelled(const std::string &value)
+{
+    std::string lowered = lowercase_copy(trim_copy(value));
+    return lowered == "q" || lowered == "quit" || lowered == "exit";
+}
+
+static bool wizard_prompt_line(const std::string &prompt, std::string *result, const char *default_value = nullptr)
+{
+    std::cout << prompt;
+    std::cout.flush();
+
+    /* Treat EOF the same as cancellation so non-interactive callers stop cleanly. */
+    if (!std::getline(std::cin, *result)) {
+        std::cout << "\n";
+        return false;
+    }
+
+    /* Normalize every answer before testing cancellation or applying defaults. */
+    *result = trim_copy(*result);
+    if (wizard_cancelled(*result)) {
+        return false;
+    }
+
+    if (result->empty() && default_value) {
+        *result = default_value;
+    }
+
+    return true;
+}
+
+static bool parse_transport_choice(const std::string &value, std::string *transport_arg)
+{
+    std::string lowered = lowercase_copy(trim_copy(value));
+
+    /* Convert friendly names into the existing -t option values. */
+    if (lowered == "udp" || lowered == "u1") {
+        *transport_arg = "u1";
+        return true;
+    }
+    if (lowered == "tcp" || lowered == "t1") {
+        *transport_arg = "t1";
+        return true;
+    }
+    if (lowered == "tls" || lowered == "l1") {
+        *transport_arg = "l1";
+        return true;
+    }
+#ifdef USE_SCTP
+    if (lowered == "sctp" || lowered == "s1") {
+        *transport_arg = "s1";
+        return true;
+    }
+#endif
+
+    return false;
+}
+
+static std::vector<std::string> split_simple_args(const std::string &input)
+{
+    std::vector<std::string> result;
+    std::istringstream words(input);
+    std::string word;
+
+    /* Keep parsing intentionally simple: this mirrors a shell-style word list. */
+    while (words >> word) {
+        result.push_back(word);
+    }
+
+    return result;
+}
+
+static bool command_arg_needs_quotes(const std::string &arg)
+{
+    if (arg.empty()) {
+        return true;
+    }
+
+    for (unsigned char c : arg) {
+        if (!std::isalnum(c) && c != '-' && c != '_' && c != '.' &&
+                c != '/' && c != ':' && c != '@' && c != '%' &&
+                c != '+' && c != '=') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static std::string quote_command_arg(const std::string &arg)
+{
+    if (!command_arg_needs_quotes(arg)) {
+        return arg;
+    }
+
+    std::string quoted = "'";
+    for (char c : arg) {
+        if (c == '\'') {
+            quoted += "'\\''";
+        } else {
+            quoted += c;
+        }
+    }
+    quoted += "'";
+
+    return quoted;
+}
+
+static bool should_launch_startup_wizard(int argc)
+{
+    /* Only interrupt bare interactive launches; scripted invocations keep argv intact. */
+    return argc < 2 && isatty(STDIN_FILENO) && isatty(STDOUT_FILENO);
+}
+
+/* Collect interactive answers and translate them into normal SIPp command options. */
+static std::vector<std::string> launch_startup_wizard(const char *program_name)
+{
+    std::vector<std::string> args;
+    const wizard_scenario_option *scenario_choice = nullptr;
+    std::string input;
+    std::string transport_arg = "u1";
+    std::string scenario_path;
+    std::string remote_host_value;
+    std::string service_value;
+    std::string rate_value;
+    std::string max_calls_value;
+    std::string concurrent_calls_value;
+    std::string extra_args;
+    bool custom_scenario_uses_remote_host = false;
+
+    std::cout
+        << "\nSIPp startup wizard\n"
+        << "Press Enter to accept defaults. Type 'q' to quit.\n\n";
+
+    /* Choose the scenario first because later prompts depend on its role. */
+    while (!scenario_choice) {
+        std::cout << "Scenario:\n";
+        for (size_t i = 0; i < sizeof(wizard_scenarios) / sizeof(wizard_scenarios[0]); ++i) {
+            std::cout << "  " << (i + 1) << ") " << wizard_scenarios[i].scenario_name
+                      << " - " << wizard_scenarios[i].description << "\n";
+        }
+        std::cout << "\n";
+
+        if (!wizard_prompt_line("Choose a scenario [1]: ", &input, "1")) {
+            return {};
+        }
+
+        std::string lowered = lowercase_copy(input);
+        size_t numeric_choice = 0;
+        /* Accept either the displayed number or the scenario name. */
+        if (!lowered.empty() &&
+                std::all_of(lowered.begin(), lowered.end(),
+                            [](unsigned char c) { return std::isdigit(c) != 0; })) {
+            numeric_choice = static_cast<size_t>(strtoul(lowered.c_str(), nullptr, 10));
+        }
+
+        if (numeric_choice >= 1 &&
+                numeric_choice <= (sizeof(wizard_scenarios) / sizeof(wizard_scenarios[0]))) {
+            scenario_choice = &wizard_scenarios[numeric_choice - 1];
+            break;
+        }
+
+        for (const wizard_scenario_option &candidate : wizard_scenarios) {
+            if (lowered == lowercase_copy(candidate.scenario_name)) {
+                scenario_choice = &candidate;
+                break;
+            }
+        }
+
+        if (!scenario_choice) {
+            std::cout << "Unknown scenario choice. Please select one of the listed items.\n\n";
+        }
+    }
+
+    /* File-based scenarios need a readable XML path and may still be client-side. */
+    if (scenario_choice->use_scenario_file) {
+        while (true) {
+            if (!wizard_prompt_line("Path to XML scenario file: ", &scenario_path)) {
+                return {};
+            }
+            if (scenario_path.empty()) {
+                std::cout << "A scenario path is required.\n";
+                continue;
+            }
+            if (access(scenario_path.c_str(), R_OK) != 0) {
+                std::cout << "Unable to read '" << scenario_path << "'. Try another path.\n";
+                continue;
+            }
+            break;
+        }
+
+        while (true) {
+            if (!wizard_prompt_line("Does this scenario send calls to a remote host? [y/N]: ",
+                                    &input, "n")) {
+                return {};
+            }
+
+            /* A custom XML scenario can be either client-side or server-side. */
+            std::string lowered = lowercase_copy(input);
+            if (lowered == "y" || lowered == "yes") {
+                custom_scenario_uses_remote_host = true;
+                break;
+            }
+            if (lowered == "n" || lowered == "no") {
+                custom_scenario_uses_remote_host = false;
+                break;
+            }
+
+            std::cout << "Please answer y or n.\n";
+        }
+    }
+
+    /* Client scenarios need a target host; server-style scenarios can bind locally. */
+    if (scenario_choice->needs_remote_host || custom_scenario_uses_remote_host) {
+        while (remote_host_value.empty()) {
+            if (!wizard_prompt_line("Remote host[:port] [127.0.0.1]: ", &remote_host_value, "127.0.0.1")) {
+                return {};
+            }
+            if (remote_host_value.empty()) {
+                std::cout << "A remote host is required for this scenario.\n";
+            }
+        }
+    }
+
+    /* Keep the transport choices aligned with the features compiled into this build. */
+    while (true) {
+#ifdef USE_SCTP
+        const char *transport_prompt = "Transport [udp/tcp/tls/sctp] (default udp): ";
+#else
+        const char *transport_prompt = "Transport [udp/tcp/tls] (default udp): ";
+#endif
+        if (!wizard_prompt_line(transport_prompt, &input, "udp")) {
+            return {};
+        }
+        if (parse_transport_choice(input, &transport_arg)) {
+            break;
+        }
+        std::cout << "Unknown transport. Use udp, tcp, tls";
+#ifdef USE_SCTP
+        std::cout << ", or sctp";
+#endif
+        std::cout << ".\n";
+    }
+
+    /* Built-in client scenarios use -s for the request URI user. */
+    if (scenario_choice->needs_remote_host) {
+        if (!wizard_prompt_line("Request URI user (-s) [service]: ", &service_value, DEFAULT_SERVICE)) {
+            return {};
+        }
+    }
+
+    /* Load-generation limits are only useful once SIPp is placing outbound calls. */
+    if (scenario_choice->needs_remote_host || custom_scenario_uses_remote_host) {
+        if (!wizard_prompt_line("Call rate (-r) [10]: ", &rate_value, "10")) {
+            return {};
+        }
+        if (!wizard_prompt_line("Max calls (-m, blank for unlimited): ", &max_calls_value)) {
+            return {};
+        }
+        if (!wizard_prompt_line("Max simultaneous calls (-l, optional): ", &concurrent_calls_value)) {
+            return {};
+        }
+    }
+
+    if (!wizard_prompt_line("Extra SIPp options (optional, space-separated): ", &extra_args)) {
+        return {};
+    }
+
+    /* Render the collected answers back into the same argv shape normal parsing uses. */
+    args.push_back(program_name);
+    if (!remote_host_value.empty()) {
+        args.push_back(remote_host_value);
+    }
+
+    if (scenario_choice->use_scenario_file) {
+        args.push_back("-sf");
+        args.push_back(scenario_path);
+    } else {
+        args.push_back("-sn");
+        args.push_back(scenario_choice->scenario_name);
+    }
+
+    args.push_back("-t");
+    args.push_back(transport_arg);
+
+    if (!service_value.empty()) {
+        args.push_back("-s");
+        args.push_back(service_value);
+    }
+    if (!rate_value.empty()) {
+        args.push_back("-r");
+        args.push_back(rate_value);
+    }
+    if (!max_calls_value.empty()) {
+        args.push_back("-m");
+        args.push_back(max_calls_value);
+    }
+    if (!concurrent_calls_value.empty()) {
+        args.push_back("-l");
+        args.push_back(concurrent_calls_value);
+    }
+
+    /* Preserve advanced options without trying to duplicate the main option parser here. */
+    std::vector<std::string> extra_words = split_simple_args(extra_args);
+    args.insert(args.end(), extra_words.begin(), extra_words.end());
+
+    std::cout << "\nCommand:\n  ";
+    for (size_t i = 0; i < args.size(); ++i) {
+        if (i != 0) {
+            std::cout << " ";
+        }
+        std::cout << quote_command_arg(args[i]);
+    }
+    std::cout << "\n\n";
+
+    /* Let the user review the exact command before SIPp continues startup. */
+    if (!wizard_prompt_line("Run this command now? [Y/n]: ", &input, "y")) {
+        return {};
+    }
+    std::string lowered = lowercase_copy(input);
+    if (!(lowered == "y" || lowered == "yes")) {
+        std::cout << "Wizard cancelled.\n";
+        return {};
+    }
+
+    return args;
 }
 
 /* Put each option, its help text, and type in this table. */
@@ -904,9 +1263,12 @@ static void help()
      "Usage:\n"
      "\n"
      "  sipp remote_host[:remote_port] [options]\n"
+     "  sipp\n"
      "\n"
      "Example:\n"
      "\n"
+     "   Launch the interactive startup wizard from an interactive terminal:\n"
+     "     ./sipp\n"
      "   Run SIPp with embedded server (uas) scenario:\n"
      "     ./sipp -sn uas\n"
      "   On the same host, run SIPp with embedded client (uac) scenario:\n"
@@ -1401,17 +1763,32 @@ int main(int argc, char *argv[])
     bool                 slave_masterSet = false;
     int rtp_errors;
     int echo_errors;
+    std::vector<std::string> wizard_args_storage;
+    std::vector<char *> wizard_argv;
 
     rtp_errors = 0;
     echo_errors = 0;
 
     randomseed();
 
-    /* At least one argument is needed */
-    if (argc < 2) {
+    if (should_launch_startup_wizard(argc)) {
+        wizard_args_storage = launch_startup_wizard(argv[0]);
+        if (wizard_args_storage.empty()) {
+            exit(EXIT_OTHER);
+        }
+
+        wizard_argv.reserve(wizard_args_storage.size());
+        for (std::string &value : wizard_args_storage) {
+            wizard_argv.push_back(value.data());
+        }
+
+        argc = static_cast<int>(wizard_argv.size());
+        argv = wizard_argv.data();
+    } else if (argc < 2) {
         help();
         exit(EXIT_OTHER);
     }
+
     {
         /* Ignore the SIGPIPE signal */
         struct sigaction action_pipe;
