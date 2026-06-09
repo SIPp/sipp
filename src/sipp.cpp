@@ -178,7 +178,9 @@ static const wizard_scenario_option wizard_scenarios[] = {
     {"regexp", "Embedded UAC scenario with regexp and variables.", true, false},
     {"branchc", "Embedded client branching scenario.", true, false},
     {"branchs", "Embedded server branching scenario.", false, false},
+#ifdef PCAPPLAY
     {"uac_pcap", "Embedded UAC scenario with PCAP media playback.", true, false},
+#endif
     {"custom", "Custom XML scenario file.", false, true},
 };
 
@@ -262,6 +264,45 @@ static std::vector<std::string> split_simple_args(const std::string &input)
     }
 
     return result;
+}
+
+static bool command_arg_needs_quotes(const std::string &arg)
+{
+    if (arg.empty()) {
+        return true;
+    }
+
+    for (unsigned char c : arg) {
+        if (std::isspace(c) || c == '\'' || c == '"' || c == '\\' ||
+                c == '$' || c == '`' || c == '!' || c == '&' ||
+                c == '|' || c == ';' || c == '<' || c == '>' ||
+                c == '(' || c == ')' || c == '[' || c == ']' ||
+                c == '{' || c == '}' || c == '*' || c == '?' ||
+                c == '#') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static std::string quote_command_arg(const std::string &arg)
+{
+    if (!command_arg_needs_quotes(arg)) {
+        return arg;
+    }
+
+    std::string quoted = "'";
+    for (char c : arg) {
+        if (c == '\'') {
+            quoted += "'\\''";
+        } else {
+            quoted += c;
+        }
+    }
+    quoted += "'";
+
+    return quoted;
 }
 
 static bool should_launch_startup_wizard(int argc)
@@ -426,6 +467,10 @@ static std::vector<std::string> launch_startup_wizard(const char *program_name)
 
     /* Render the collected answers back into the same argv shape normal parsing uses. */
     args.push_back(program_name);
+    if (!remote_host_value.empty()) {
+        args.push_back(remote_host_value);
+    }
+
     if (scenario_choice->use_scenario_file) {
         args.push_back("-sf");
         args.push_back(scenario_path);
@@ -453,9 +498,6 @@ static std::vector<std::string> launch_startup_wizard(const char *program_name)
         args.push_back("-l");
         args.push_back(concurrent_calls_value);
     }
-    if (!remote_host_value.empty()) {
-        args.push_back(remote_host_value);
-    }
 
     /* Preserve advanced options without trying to duplicate the main option parser here. */
     std::vector<std::string> extra_words = split_simple_args(extra_args);
@@ -466,7 +508,7 @@ static std::vector<std::string> launch_startup_wizard(const char *program_name)
         if (i != 0) {
             std::cout << " ";
         }
-        std::cout << args[i];
+        std::cout << quote_command_arg(args[i]);
     }
     std::cout << "\n\n";
 
@@ -1228,7 +1270,7 @@ static void help()
      "\n"
      "Example:\n"
      "\n"
-     "   Launch the interactive startup wizard:\n"
+     "   Launch the interactive startup wizard from an interactive terminal:\n"
      "     ./sipp\n"
      "   Run SIPp with embedded server (uas) scenario:\n"
      "     ./sipp -sn uas\n"
