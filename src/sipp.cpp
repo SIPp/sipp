@@ -273,12 +273,9 @@ static bool command_arg_needs_quotes(const std::string &arg)
     }
 
     for (unsigned char c : arg) {
-        if (std::isspace(c) || c == '\'' || c == '"' || c == '\\' ||
-                c == '$' || c == '`' || c == '!' || c == '&' ||
-                c == '|' || c == ';' || c == '<' || c == '>' ||
-                c == '(' || c == ')' || c == '[' || c == ']' ||
-                c == '{' || c == '}' || c == '*' || c == '?' ||
-                c == '#') {
+        if (!std::isalnum(c) && c != '-' && c != '_' && c != '.' &&
+                c != '/' && c != ':' && c != '@' && c != '%' &&
+                c != '+' && c != '=') {
             return true;
         }
     }
