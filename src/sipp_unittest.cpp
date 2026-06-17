@@ -19,6 +19,8 @@
 #define GLOBALS_FULL_DEFINITION
 #include "sipp.hpp"
 
+#include "multi_instance.hpp"
+
 #include "gtest/gtest.h"
 #include <string.h>
 
@@ -38,4 +40,45 @@ int main(int argc, char* argv[])
 void sipp_exit(int rc, int rtp_errors, int echo_errors)
 {
     exit(rc);
+}
+
+TEST(MultiInstanceConfig, ParsesQuotedCsvAndExpandsInstanceArguments)
+{
+    const std::string csv =
+        "role,count,args\n"
+        "uas,2,\"-sn uas -p {port}\"\n"
+        "uac,2,\"-sn uac 127.0.0.1:{instance_port} -key role {role} -key idx {instance}\"\n";
+
+    std::string error;
+    std::vector<MultiInstanceSpec> specs;
+
+    ASSERT_TRUE(parse_multi_instance_csv(csv, "inline.csv", &specs, &error)) << error;
+    ASSERT_EQ(2u, specs.size());
+    EXPECT_EQ("uas", specs[0].role);
+    EXPECT_EQ(2, specs[0].count);
+    EXPECT_EQ("-sn uas -p {port}", specs[0].args);
+    EXPECT_EQ("uac", specs[1].role);
+    EXPECT_EQ(2, specs[1].count);
+
+    std::vector<MultiInstanceCommand> commands =
+        build_multi_instance_commands("./sipp", specs, 5060);
+
+    ASSERT_EQ(4u, commands.size());
+    EXPECT_EQ(std::vector<std::string>({"./sipp", "-sn", "uas", "-p", "5060"}), commands[0].argv);
+    EXPECT_EQ(std::vector<std::string>({"./sipp", "-sn", "uas", "-p", "5061"}), commands[1].argv);
+    EXPECT_EQ(std::vector<std::string>({"./sipp", "-sn", "uac", "127.0.0.1:5060", "-key", "role", "uac", "-key", "idx", "0"}), commands[2].argv);
+    EXPECT_EQ(std::vector<std::string>({"./sipp", "-sn", "uac", "127.0.0.1:5061", "-key", "role", "uac", "-key", "idx", "1"}), commands[3].argv);
+}
+
+TEST(MultiInstanceConfig, ReportsInvalidCsvRows)
+{
+    const std::string csv =
+        "role,count,args\n"
+        "uas,0,\"-sn uas\"\n";
+
+    std::string error;
+    std::vector<MultiInstanceSpec> specs;
+
+    EXPECT_FALSE(parse_multi_instance_csv(csv, "bad.csv", &specs, &error));
+    EXPECT_NE(std::string::npos, error.find("count must be greater than zero"));
 }

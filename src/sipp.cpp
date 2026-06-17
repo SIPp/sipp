@@ -60,6 +60,7 @@ extern char** environ;
 #define GLOBALS_FULL_DEFINITION
 #include "sipp.hpp"
 
+#include "multi_instance.hpp"
 #include "sip_parser.hpp"
 #include "socket.hpp"
 #include "logger.hpp"
@@ -127,6 +128,7 @@ struct sipp_option {
 #define SIPP_OPTION_RX_SCENARIO   40
 #define SIPP_OPTION_RX_INPUT_FILE 41
 #define SIPP_OPTION_CID_TYPE      42
+#define SIPP_OPTION_MULTI         43
 #define SIPP_HELP_TEXT_HEADER    255
 
 struct wizard_scenario_option {
@@ -584,6 +586,10 @@ struct sipp_option options_table[] = {
    {"buff_size", "Set the send and receive buffer size.", SIPP_OPTION_INT, &buff_size, 1},
    {"sendbuffer_warn", "Produce warnings instead of errors on SendBuffer failures.", SIPP_OPTION_BOOL, &sendbuffer_warn, 1},
    {"lost", "Set the number of packets to lose by default (scenario specifications override this value).", SIPP_OPTION_FLOAT, &global_lost, 1},
+   {"multi", "Launch multiple SIPp instances from a CSV file and wait for all of them to exit.\n"
+    "CSV format: role,count,args. The args field is split like shell arguments and supports {role}, {instance}, {base_port}, {instance_port}, and {port} placeholders.\n"
+    "Example row: uas,2,\"-sn uas -p {port}\"", SIPP_OPTION_MULTI, nullptr, 0},
+   {"multi_base_port", "Set the first {port} value used by -multi. Default is 5060.", SIPP_OPTION_MULTI, nullptr, 0},
    {"key", "keyword value\nSet the generic parameter named \"keyword\" to \"value\".", SIPP_OPTION_KEY, nullptr, 1},
    {"set", "variable value\nSet the global variable parameter named \"variable\" to \"value\".", SIPP_OPTION_VAR, nullptr, 3},
    {"tdmmap", "Generate and handle a table of TDM circuits.\n"
@@ -1721,6 +1727,67 @@ void randomseed(void)
     srand(seed);
 }
 
+static bool get_multi_arg(int argc,
+                          char *argv[],
+                          int *argi,
+                          const char *option,
+                          std::string *value)
+{
+    if ((*argi + 1) >= argc) {
+        std::cerr << "Missing argument for " << option << "\n";
+        return false;
+    }
+    ++(*argi);
+    *value = argv[*argi];
+    return true;
+}
+
+static bool maybe_run_multi_instance(int argc, char *argv[], int *exit_code)
+{
+    std::string config_path;
+    int base_port = DEFAULT_PORT;
+
+    for (int argi = 1; argi < argc; ++argi) {
+        if (!strcmp(argv[argi], "-multi")) {
+            if (!get_multi_arg(argc, argv, &argi, "-multi", &config_path)) {
+                *exit_code = EXIT_OTHER;
+                return true;
+            }
+        } else if (!strcmp(argv[argi], "-multi_base_port")) {
+            std::string value;
+            if (!get_multi_arg(argc, argv, &argi, "-multi_base_port", &value)) {
+                *exit_code = EXIT_OTHER;
+                return true;
+            }
+            char *end = nullptr;
+            long parsed_port = strtol(value.c_str(), &end, 10);
+            if (*end != '\0' || parsed_port <= 0 || parsed_port > 65535) {
+                std::cerr << "Invalid -multi_base_port value: " << value << "\n";
+                *exit_code = EXIT_OTHER;
+                return true;
+            }
+            base_port = static_cast<int>(parsed_port);
+        }
+    }
+
+    if (config_path.empty()) {
+        return false;
+    }
+
+    std::vector<MultiInstanceSpec> specs;
+    std::string error;
+    if (!parse_multi_instance_csv_file(config_path, &specs, &error)) {
+        std::cerr << error << "\n";
+        *exit_code = EXIT_OTHER;
+        return true;
+    }
+
+    std::vector<MultiInstanceCommand> commands =
+        build_multi_instance_commands(argv[0], specs, base_port);
+    *exit_code = run_multi_instance_commands(commands, std::cout, std::cerr);
+    return true;
+}
+
 /* Main */
 int main(int argc, char *argv[])
 {
@@ -1736,6 +1803,11 @@ int main(int argc, char *argv[])
     echo_errors = 0;
 
     randomseed();
+
+    int multi_exit_code = 0;
+    if (maybe_run_multi_instance(argc, argv, &multi_exit_code)) {
+        return multi_exit_code;
+    }
 
     if (should_launch_startup_wizard(argc)) {
         wizard_args_storage = launch_startup_wizard(argv[0]);
