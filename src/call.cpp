@@ -2303,7 +2303,7 @@ bool call::run()
                     nb_last_delay = global_t2;
                 }
             }
-            if(send_raw(last_send_msg, last_send_index, last_send_len) < -1) {
+            if (send_raw(last_send_msg, last_send_index, last_send_len) < 0) {
                 return false;
             }
             call_scenario->messages[last_send_index] -> nb_sent_retrans++;
@@ -6925,13 +6925,48 @@ void *send_wrapper(void *arg)
 #include "gtest/gtest.h"
 #include "gtest/gtest.h"
 
+#ifdef HAVE_EPOLL
+extern int epollfd;
+
+class epoll_test_guard {
+public:
+    epoll_test_guard()
+    {
+        if (epollfd <= 0) {
+            epollfd = epoll_create(SIPP_MAXFDS);
+            created = true;
+        }
+    }
+
+    ~epoll_test_guard()
+    {
+        if (created) {
+            close(epollfd);
+            epollfd = 0;
+        }
+    }
+
+private:
+    bool created = false;
+};
+#endif
+
 class mockcall : public call {
 public:
     mockcall(bool is_ipv6) : listener("//testing", true), call(main_scenario, "///testing", is_ipv6, 0, nullptr) {}
+    mockcall(bool is_ipv6, struct sockaddr_storage *dest) : listener("//testing", true), call(main_scenario, "///testing", is_ipv6, 0, dest) {}
 
     /* Helpers to poke at protected internals */
     void parse_media_addr(std::string const& msg) { get_remote_media_addr(msg); }
-
+    void set_retransmission_state(const char *msg, int index, int len, unsigned int retrans_at)
+    {
+        msg_index = index;
+        last_send_index = index;
+        last_send_len = len;
+        next_retrans = retrans_at;
+        free(last_send_msg);
+        last_send_msg = strdup(msg);
+    }
 #ifdef PCAPPLAY
     bool has_media() { return hasMediaInformation; }
 
@@ -7124,6 +7159,44 @@ TEST(sdp, parse_invalid_sdp_msg) {
     ASSERT_EQ(find_in_sdp("c=IN IP6 ", test_sdp_v4), "");
     ASSERT_EQ(find_in_sdp("m=video ", test_sdp_v6), "");
     ASSERT_EQ(find_in_sdp("m=video ", test_sdp_v4), "");
+}
+
+TEST(call_run, stops_after_fatal_retransmission_send_error) {
+#ifdef HAVE_EPOLL
+    epoll_test_guard epoll_guard;
+#endif
+    main_scenario->messages.clear();
+    auto *msg = new message(0, "retransmission");
+    main_scenario->messages.push_back(msg);
+
+    struct sockaddr_storage peer = {};
+    auto *peer4 = reinterpret_cast<struct sockaddr_in *>(&peer);
+    peer4->sin_family = AF_INET;
+    peer4->sin_port = htons(5060);
+    ASSERT_EQ(1, inet_pton(AF_INET, "127.0.0.1", &peer4->sin_addr));
+    mockcall *test_call = new mockcall(false, &peer);
+
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    ASSERT_GE(fd, 0);
+    test_call->associate_socket(new SIPpSocket(false, T_UDP, fd, 0));
+    ASSERT_EQ(0, close(fd));
+
+    /* run() refreshes clock_tick from the monotonic ms clock, and the
+     * retransmission only fires when next_retrans < clock_tick. Anchor the
+     * deadline to the current tick (never 0, which would disable it) and wait
+     * for the clock to move past it, so the test works no matter how early in
+     * the process it runs. */
+    unsigned long retrans_at = getmilliseconds() + 1;
+    while (getmilliseconds() <= retrans_at) {
+        usleep(500);
+    }
+    test_call->set_retransmission_state("REGISTER sip:test SIP/2.0\r\n\r\n", 0, 29, retrans_at);
+
+    EXPECT_FALSE(test_call->run());
+    EXPECT_EQ(0UL, msg->nb_sent_retrans);
+
+    main_scenario->messages.clear();
+    delete msg;
 }
 
 #ifdef PCAPPLAY
