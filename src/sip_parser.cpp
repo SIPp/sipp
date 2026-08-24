@@ -104,7 +104,7 @@ char* get_peer_tag(const char* msg)
     }
 
     while (*ptr && *ptr != ' ' && *ptr != ';' && *ptr != '\t' &&
-           *ptr != '\r' && *ptr != '\n') {
+           *ptr != '\r' && *ptr != '\n' && tag_i < (int) sizeof(tag) - 1) {
         tag[tag_i++] = *(ptr++);
     }
     tag[tag_i] = '\0';
