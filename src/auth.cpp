@@ -163,7 +163,7 @@ int createAuthHeader(
 {
 
     char algo[32] = "MD5";
-    char *start, *end;
+    char *start;
 
     if ((start = stristr(auth, "Digest")) == nullptr) {
         snprintf(result, result_len, "createAuthHeader: authentication must be digest");
@@ -175,16 +175,7 @@ int createAuthHeader(
         return 0;
     }
 
-    if ((start = stristr(auth, "algorithm=")) != nullptr) {
-        start = start + strlen("algorithm=");
-        if (*start == '"') {
-            start++;
-        }
-        end = start + strcspn(start, " ,\"\r\n");
-        strncpy(algo, start, end - start);
-        algo[end - start] ='\0';
-
-    }
+    getAuthParameter("algorithm", auth, algo, sizeof(algo));
 
     if (strncasecmp(algo, "MD5", 3)==0) {
         return createAuthHeaderMD5(
