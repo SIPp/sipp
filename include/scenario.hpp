@@ -117,6 +117,7 @@ public:
     int            condexec;
     bool           condexec_inverse;
     int            chance;/* 0=always, RAND_MAX+1=never (test rand() >= chance) */
+    int            chance_variable;
     int            on_timeout;
     char *         onTimeoutLabel;
 
