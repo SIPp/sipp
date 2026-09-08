@@ -122,6 +122,7 @@ char* get_header(const char* message, const char* name, bool content)
 {
     /* non reentrant. consider accepting char buffer as param */
     static char last_header[MAX_HEADER_LEN * 10];
+    const char *last_header_end = last_header + sizeof(last_header);
     const char *cptr;
     char *src, *src_copy, *dest, *start, *ptr;
     bool first_time = true;
@@ -164,8 +165,10 @@ char* get_header(const char* message, const char* name, bool content)
     while ((src = internal_match_header(
             src, header_with_newline, compact_header_with_newline))) {
         if (!content && first_time) {
-            // Add the name to the string;
-            dest += sprintf(dest, "%s", name);
+            int n = snprintf(dest, last_header_end - dest, "%s", name);
+            if (n < 0 || n >= last_header_end - dest)
+                goto truncated;
+            dest += n;
             first_time = false;
         }
 
@@ -210,12 +213,23 @@ char* get_header(const char* message, const char* name, bool content)
             }
 
             if (*(dest-1) == ':') {
-                dest += sprintf(dest, " ");
+                int n = snprintf(dest, last_header_end - dest, " ");
+                if (n < 0 || n >= last_header_end - dest) goto truncated;
+                dest += n;
             } else {
-                dest += sprintf(dest, ", ");
+                int n = snprintf(dest, last_header_end - dest, ", ");
+                if (n < 0 || n >= last_header_end - dest) goto truncated;
+                dest += n;
             }
         }
-        dest += sprintf(dest, "%s", src);
+
+        int n = snprintf(dest, last_header_end - dest, "%s", src);
+        if (n < 0 || n >= last_header_end - dest) {
+            /* restore the newline we may have nulled, then bail */
+            if (ptr) *ptr = '\n';
+            goto truncated;
+        }
+        dest += n;
 
         if (ptr) {
             *ptr = '\n';
@@ -226,6 +240,7 @@ char* get_header(const char* message, const char* name, bool content)
         }
     }
 
+truncated:
     /* No header found? */
     if (dest == last_header) {
         free(src_copy);
@@ -549,6 +564,7 @@ static const char* internal_skip_lws(const char* ptr)
 
 #ifdef GTEST
 #include "gtest/gtest.h"
+#include <string>
 
 TEST(Parser, internal_find_header) {
     char data[] = "OPTIONS sip:server SIP/2.0\r\n"
@@ -678,6 +694,37 @@ From: SIP/2.0/UDP 85.55.55.12:6090;branch=z9hG4bK831a.2bb3de85.0\r\n\
 \r\n\
 ";
     EXPECT_STREQ("", get_header(data, "Via:", false));
+}
+
+TEST(Parser, get_header_oversized_single) {
+    /* A single header whose content is larger than the static
+     * last_header[MAX_HEADER_LEN * 10] buffer must be truncated, not
+     * overflowed. Run under ASan/Valgrind this catches the overflow;
+     * everywhere it asserts the result stays within the buffer. */
+    std::string msg = "SIP/2.0 200 OK\r\nSubject: ";
+    msg += std::string(MAX_HEADER_LEN * 12, 'A');
+    msg += "\r\n\r\n";
+
+    char* result = get_header(msg.c_str(), "Subject:", true);
+    ASSERT_NE(result, nullptr);
+    EXPECT_EQ(result[0], 'A');
+    EXPECT_LT(strlen(result), (size_t)(MAX_HEADER_LEN * 10));
+}
+
+TEST(Parser, get_header_oversized_repeated) {
+    /* Many repeated headers whose concatenated content exceeds the
+     * buffer must be truncated, not overflowed. */
+    std::string msg = "SIP/2.0 200 OK\r\n";
+    for (int i = 0; i < 500; ++i) {
+        msg += "Via: SIP/2.0/UDP host" + std::to_string(i) +
+               ".example.com:5060;branch=z9hG4bK" +
+               std::string(50, 'x') + "\r\n";
+    }
+    msg += "\r\n";
+
+    char* result = get_header(msg.c_str(), "Via:", true);
+    ASSERT_NE(result, nullptr);
+    EXPECT_LT(strlen(result), (size_t)(MAX_HEADER_LEN * 10));
 }
 
 TEST(Parser, get_peer_tag__notag) {
