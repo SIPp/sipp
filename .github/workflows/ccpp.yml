@@ -13,6 +13,8 @@ jobs:
       run: ./validate-src.sh
     - name: lint-xml
       run: sudo apt-get update && sudo apt-get install --yes libxml2-utils && ./dtd_check.sh
+    - name: test-multi-instance-launcher
+      run: python3 -m unittest discover -s tests -p 'test_sipp_multi.py'
 
   build:
 
@@ -26,6 +28,10 @@ jobs:
       run: sudo apt-get update && sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses-dev libncurses6
     - name: build
       run: ./build.sh --full
+    - name: install
+      run: |
+        cmake --install . --prefix "$RUNNER_TEMP/sipp-install"
+        test -x "$RUNNER_TEMP/sipp-install/bin/sipp-multi.py"
     - name: test
       run: TEST_SKIP_VALGRIND=1 ./regress/runtests
 
