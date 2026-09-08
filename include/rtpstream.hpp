@@ -19,6 +19,7 @@
 #ifndef __RTPSTREAM__
 #define __RTPSTREAM__
 
+#include <stdint.h>
 #include <unordered_map>
 
 #define RTPSTREAM_MAX_FILENAMELEN 256
@@ -69,10 +70,10 @@ struct taskentry_t
     char                 *video_file_bytes_start;
     char                 *audio_current_file_bytes;
     char                 *video_current_file_bytes;
-    int                  audio_file_num_bytes;
-    int                  video_file_num_bytes;
-    int                  audio_file_bytes_left;
-    int                  video_file_bytes_left;
+    int64_t              audio_file_num_bytes;
+    int64_t              video_file_num_bytes;
+    int64_t              audio_file_bytes_left;
+    int64_t              video_file_bytes_left;
 
     /* playback timing information */
     int                  audio_ms_per_packet;
@@ -91,8 +92,8 @@ struct taskentry_t
     char                 new_video_payload_type;
     int                  new_audio_loop_count; // FILE:  <loopCount> -- PATTERN: -1 (UNUSED)
     int                  new_video_loop_count; // FILE:  <loopCount> -- PATTERN: -1 (UNUSED)
-    int                  new_audio_file_size;
-    int                  new_video_file_size;
+    int64_t              new_audio_file_size;
+    int64_t              new_video_file_size;
     char                 *new_audio_file_bytes;
     char                 *new_video_file_bytes;
     int                  new_audio_ms_per_packet;

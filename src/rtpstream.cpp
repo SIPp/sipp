@@ -106,21 +106,33 @@ struct threaddata_t
 
 struct cached_file_t
 {
-    char   filename[RTPSTREAM_MAX_FILENAMELEN];
-    char   *bytes;
-    int    filesize;
+    char     filename[RTPSTREAM_MAX_FILENAMELEN];
+    char     *bytes;
+    int64_t  filesize;
+    bool     wav_processed; /* true once WAV header stripped and downmixed to mono */
 };
 
 struct cached_pattern_t
 {
-    int    id;
-    char   *bytes;
-    int  filesize;
+    int      id;
+    char     *bytes;
+    int64_t  filesize;
 };
 
 cached_file_t  *cached_files = nullptr;
 cached_pattern_t *cached_patterns = nullptr;
 int            num_cached_files = 0;
+
+/* Forward declarations for WAV utility functions defined later in this file */
+static bool  parse_wav_header(const char *data, int64_t size,
+                               int64_t *data_offset,
+                               uint16_t *num_channels,
+                               uint16_t *bits_per_sample,
+                               uint32_t *sample_rate);
+static char *wav_downmix_to_mono(const char *src, int64_t src_size,
+                                  uint16_t num_channels,
+                                  uint16_t bits_per_sample,
+                                  int64_t *out_size);
 int            next_rtp_port = 0;
 
 threaddata_t  **ready_threads = nullptr;
@@ -1756,9 +1768,71 @@ int rtpstream_cache_file(char* filename,
             }
             cached_files = newfilecachelist;
         }
-        cached_files[num_cached_files].bytes = filecontents;
-        strncpy(cached_files[num_cached_files].filename, filename, sizeof(cached_files[num_cached_files].filename) - 1);
-        cached_files[num_cached_files].filesize = statbuffer.st_size;
+        /* Parse WAV header once at cache time: extract format, strip header,
+         * and downmix multi-channel audio to mono so rtpstream_play() can
+         * forward raw mono PCM bytes directly to the RTP sender.
+         *
+         * IMPORTANT: cached_files[].bytes must always be the base of a
+         * malloc'd block because rtpstream_shutdown() passes it directly to
+         * free().  We therefore always produce a fresh allocation for the
+         * processed PCM and free the original load buffer when done. */
+        int64_t       data_offset    = 0;
+        uint16_t      num_channels   = 1;
+        uint16_t      bits_per_sample = 16;
+        uint32_t      sample_rate    = 8000;
+        bool          wav_ok = parse_wav_header(filecontents, (int64_t)statbuffer.st_size,
+                                                &data_offset, &num_channels,
+                                                &bits_per_sample, &sample_rate);
+
+        cached_files[num_cached_files].wav_processed = false;
+
+        if (wav_ok && data_offset > 0 && data_offset < (int64_t)statbuffer.st_size) {
+            const char *pcm_start = filecontents + data_offset;
+            int64_t    pcm_size   = (int64_t)statbuffer.st_size - data_offset;
+            char      *pcm_buf    = nullptr;
+
+            if (num_channels > 1) {
+                /* Downmix interleaved multi-channel PCM to mono */
+                int64_t mono_size = 0;
+                pcm_buf = wav_downmix_to_mono(pcm_start, pcm_size,
+                                              num_channels, bits_per_sample,
+                                              &mono_size);
+                if (pcm_buf) {
+                    free(filecontents);
+                    filecontents = nullptr;
+                    cached_files[num_cached_files].bytes    = pcm_buf;
+                    cached_files[num_cached_files].filesize = mono_size;
+                    cached_files[num_cached_files].wav_processed = true;
+                }
+                /* else: downmix failed (unsupported bit-depth) — fall through
+                 * to the raw-bytes path below so the file is still usable. */
+            }
+
+            if (!cached_files[num_cached_files].wav_processed) {
+                /* Mono WAV, or downmix unsupported: copy just the PCM data
+                 * into a fresh buffer so free() works in rtpstream_shutdown. */
+                pcm_buf = (char *)malloc((size_t)pcm_size);
+                if (pcm_buf) {
+                    memcpy(pcm_buf, pcm_start, (size_t)pcm_size);
+                    free(filecontents);
+                    filecontents = nullptr;
+                    cached_files[num_cached_files].bytes    = pcm_buf;
+                    cached_files[num_cached_files].filesize = pcm_size;
+                    cached_files[num_cached_files].wav_processed = true;
+                } else {
+                    /* Allocation failed — fall back to raw bytes including header */
+                    cached_files[num_cached_files].bytes    = filecontents;
+                    cached_files[num_cached_files].filesize = (int64_t)statbuffer.st_size;
+                }
+            }
+        } else {
+            /* Not a WAV or couldn't locate data chunk — serve raw bytes */
+            cached_files[num_cached_files].bytes    = filecontents;
+            cached_files[num_cached_files].filesize = (int64_t)statbuffer.st_size;
+        }
+
+        strncpy(cached_files[num_cached_files].filename, filename,
+                sizeof(cached_files[num_cached_files].filename) - 1);
         return num_cached_files++;
     }
 }
@@ -2229,40 +2303,158 @@ int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t* callinfo, SrtpInfoPara
     return 0;
 }
 
+static inline uint16_t uint16_val(const char *ptr)
+{
+    return static_cast<uint16_t>((uint8_t)ptr[0] | ((uint8_t)ptr[1] << 8));
+}
+
 static inline uint32_t uint_val(const char *ptr)
 {
     // Read as little-endian. Do not dereference as int, since it can be misaligned.
-    return static_cast<uint32_t>((ptr[0]) | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24));
+    return static_cast<uint32_t>((uint8_t)ptr[0] | ((uint8_t)ptr[1] << 8) |
+                                  ((uint8_t)ptr[2] << 16) | ((uint8_t)ptr[3] << 24));
 }
 
-// wav format details:
-// https://www.fatalerrors.org/a/detailed-explanation-of-wav-file-format.html
-static int get_wav_header_size(const char *data, int size)
+/*
+ * parse_wav_header - parse a WAV file's RIFF/WAVE chunks to extract format
+ * parameters and locate the start of PCM data.
+ *
+ * On success returns true and fills:
+ *   *data_offset   - byte offset of the first sample in the file
+ *   *num_channels  - 1=mono, 2=stereo, etc.
+ *   *bits_per_sample - 8 or 16
+ *   *sample_rate   - e.g. 8000
+ *
+ * Returns false if the buffer is not a valid WAVE file or the fmt/data
+ * chunks cannot be found within the supplied data range.
+ *
+ * wav format details:
+ * https://www.fatalerrors.org/a/detailed-explanation-of-wav-file-format.html
+ */
+static bool parse_wav_header(const char *data, int64_t size,
+                              int64_t *data_offset,
+                              uint16_t *num_channels,
+                              uint16_t *bits_per_sample,
+                              uint32_t *sample_rate)
 {
-    const char *ptr = data;
+    const char *ptr   = data;
     const char *limit = data + size;
-    if (size < 42)
-        return 0;
-    if (!(ptr[0] == 'R' && ptr[1] == 'I' && ptr[2] == 'F' && ptr[3] == 'F'))
-        return 0;
-    ptr += 8;
-    if (!(ptr[0] == 'W' && ptr[1] == 'A' && ptr[2] == 'V' && ptr[3] == 'E'))
-        return ptr - data;
-    ptr += 4;
-    for (;;) {
-        if (ptr + 8 > limit)
-            break;
-        const uint32_t chunk_size = uint_val(ptr + 4);
-        const bool is_data = (ptr[0] == 'd' && ptr[1] == 'a' && ptr[2] == 't' && ptr[3] == 'a');
 
-        ptr += 8;
-        if (ptr > limit)
-            return limit - data;
-        if (is_data)
-            return ptr - data;
-        ptr += chunk_size;
+    /* Minimum: RIFF(4) + file_size(4) + WAVE(4) + one chunk header(8) = 20 */
+    if (size < 20)
+        return false;
+
+    /* RIFF magic */
+    if (!(ptr[0]=='R' && ptr[1]=='I' && ptr[2]=='F' && ptr[3]=='F'))
+        return false;
+    ptr += 8; /* skip "RIFF" + file-size field */
+
+    /* WAVE magic */
+    if (!(ptr[0]=='W' && ptr[1]=='A' && ptr[2]=='V' && ptr[3]=='E'))
+        return false;
+    ptr += 4;
+
+    bool found_fmt  = false;
+    bool found_data = false;
+
+    *num_channels   = 1;
+    *bits_per_sample = 16;
+    *sample_rate    = 8000;
+    *data_offset    = 0;
+
+    while (ptr + 8 <= limit) {
+        const uint32_t chunk_size = uint_val(ptr + 4);
+
+        if (ptr[0]=='f' && ptr[1]=='m' && ptr[2]=='t' && ptr[3]==' ') {
+            /* fmt  chunk — must be at least 16 bytes of PCM fields */
+            if (chunk_size >= 16 && ptr + 8 + 16 <= limit) {
+                const char *fmt = ptr + 8;
+                /* uint16 AudioFormat: PCM == 1 */
+                *num_channels    = uint16_val(fmt + 2);
+                *sample_rate     = uint_val  (fmt + 4);
+                *bits_per_sample = uint16_val(fmt + 14);
+                found_fmt = true;
+            }
+        } else if (ptr[0]=='d' && ptr[1]=='a' && ptr[2]=='t' && ptr[3]=='a') {
+            *data_offset = (ptr + 8) - data;
+            found_data   = true;
+        }
+
+        ptr += 8 + chunk_size;
+        /* chunks are word-aligned (padded to even size) */
+        if (chunk_size & 1)
+            ptr++;
+
+        if (found_fmt && found_data)
+            return true;
     }
-    return ptr - data;
+
+    return false;
+}
+
+/*
+ * wav_downmix_to_mono - given a buffer of interleaved PCM samples with
+ * num_channels channels and bits_per_sample bits, produce a new heap-allocated
+ * buffer containing the mono downmix.  The caller is responsible for free().
+ *
+ * Supports:
+ *   8-bit  unsigned PCM  (uint8, centre = 128)
+ *   16-bit signed   PCM  (int16, little-endian)
+ *
+ * Returns NULL on unsupported format or allocation failure.
+ * *out_size receives the byte count of the returned buffer.
+ */
+static char *wav_downmix_to_mono(const char *src, int64_t src_size,
+                                  uint16_t num_channels,
+                                  uint16_t bits_per_sample,
+                                  int64_t *out_size)
+{
+    if (num_channels == 1) {
+        /* Nothing to mix — return a plain copy */
+        char *buf = (char *)malloc((size_t)src_size);
+        if (!buf) return nullptr;
+        memcpy(buf, src, (size_t)src_size);
+        *out_size = src_size;
+        return buf;
+    }
+
+    if (bits_per_sample == 8) {
+        /* 8-bit unsigned: each sample is a uint8_t, silence = 128 */
+        int64_t num_frames = src_size / num_channels;
+        char *buf = (char *)malloc((size_t)num_frames);
+        if (!buf) return nullptr;
+        const uint8_t *s = reinterpret_cast<const uint8_t *>(src);
+        uint8_t       *d = reinterpret_cast<uint8_t *>(buf);
+        for (int64_t i = 0; i < num_frames; i++) {
+            int32_t sum = 0;
+            for (int ch = 0; ch < num_channels; ch++)
+                sum += s[i * num_channels + ch];
+            d[i] = (uint8_t)(sum / num_channels);
+        }
+        *out_size = num_frames;
+        return buf;
+    }
+
+    if (bits_per_sample == 16) {
+        /* 16-bit signed little-endian */
+        int64_t num_frames = src_size / (num_channels * 2);
+        int64_t out_bytes  = num_frames * 2;
+        char *buf = (char *)malloc((size_t)out_bytes);
+        if (!buf) return nullptr;
+        const int16_t *s = reinterpret_cast<const int16_t *>(src);
+        int16_t       *d = reinterpret_cast<int16_t *>(buf);
+        for (int64_t i = 0; i < num_frames; i++) {
+            int32_t sum = 0;
+            for (int ch = 0; ch < num_channels; ch++)
+                sum += s[i * num_channels + ch];
+            d[i] = (int16_t)(sum / num_channels);
+        }
+        *out_size = out_bytes;
+        return buf;
+    }
+
+    /* Unsupported bit depth — caller will use raw data */
+    return nullptr;
 }
 
 /* code checked */
@@ -2307,12 +2499,12 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
     taskinfo->new_audio_payload_type = actioninfo->payload_type;
     taskinfo->audio_active = actioninfo->audio_active;
     taskinfo->video_active = actioninfo->video_active;
-    /* Allow the caller to supply WAV files instead of raw audio, by skipping past headers. */
-    /* Doesn't actually parse/convert anything! */
-    const int header_size = get_wav_header_size(taskinfo->new_audio_file_bytes, taskinfo->new_audio_file_size);
-    if (header_size > 0 && taskinfo->new_audio_file_size >= header_size) {
-        taskinfo->new_audio_file_bytes += header_size;
-        taskinfo->new_audio_file_size -= header_size;
+    /* WAV header stripping and channel downmix are performed once at cache
+     * time (rtpstream_cache_file).  cached_file_t::bytes already points to
+     * the first PCM sample and filesize reflects the processed payload, so
+     * there is nothing left to do here for processed files. */
+    if (!cached_files[file_index].wav_processed) {
+        /* Legacy path for raw (non-WAV) files: no header to strip. */
     }
 
     /* set flag that we have a new file to play */
