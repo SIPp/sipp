@@ -2,7 +2,7 @@
 #   git submodule update --init
 #   docker build -t sipp -f docker/Dockerfile .
 
-FROM alpine:3.20 AS build
+FROM alpine:3.24 AS build
 
 ARG FULL=''
 
@@ -14,6 +14,7 @@ RUN apk add --no-cache \
   git \
   gsl-dev \
   gsl-static \
+  gtest-dev \
   help2man \
   libpcap-dev \
   make \
@@ -48,6 +49,6 @@ RUN help2man --output=sipp.1 -v -v --no-info \
 FROM scratch AS bin
 COPY --from=build /sipp/sipp /sipp/sipp.1 /sipp/version.h /
 
-FROM alpine:3.20
+FROM alpine:3.24
 CMD ["sipp"]
 COPY --from=build /sipp/sipp /usr/local/bin/sipp
