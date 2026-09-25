@@ -23,6 +23,7 @@
 #include "screen.hpp"
 #include "stat.hpp"
 #include "infile.hpp"
+#include <algorithm>
 #include <iostream>
 #include <assert.h>
 
@@ -148,13 +149,93 @@ int FileContents::getLine(int line, char *dest, int len)
     return snprintf(dest, len, "%s", fileLines[line].c_str());
 }
 
-int FileContents::getField(int lineNum, int field, char *dest, int len)
+/* Expands a PRINTF injection field: each "%[-][0][width][.precision]d" is
+ * replaced by value. The conversion is parsed here and printed with a
+ * constant format string, so text from the file is never used as a format.
+ * Width and precision are capped, as the output cannot be longer than a
+ * message anyway. */
+static std::string expand_printf_field(const std::string &field, long long value)
+{
+    const char *s = field.c_str();
+    size_t l = field.length();
+    std::string out;
+    size_t i = 0;
+
+    while (i < l) {
+        if (s[i] != '%') {
+            out += s[i++];
+            continue;
+        }
+        if (s[i + 1] == '%') {
+            /* Kept as it was: only the first '%' is consumed. */
+            out += s[i++];
+            continue;
+        }
+
+        bool left_align = false, zero_pad = false;
+        int width = 0, precision = -1;
+        i++;
+        while (s[i] == '-' || s[i] == '0') {
+            if (s[i] == '-') {
+                left_align = true;
+            } else {
+                zero_pad = true;
+            }
+            i++;
+        }
+        while (isdigit(s[i])) {
+            width = std::min(width * 10 + (s[i] - '0'), SIPP_MAX_MSG_SIZE);
+            i++;
+        }
+        if (s[i] == '.') {
+            precision = 0;
+            i++;
+            while (isdigit(s[i])) {
+                precision = std::min(precision * 10 + (s[i] - '0'), SIPP_MAX_MSG_SIZE);
+                i++;
+            }
+        }
+        if (i == l) {
+            ERROR("Invalid printf injection field (ran off end of line): %s", s);
+        }
+        if (s[i] != 'd') {
+            ERROR("Invalid printf injection field (only decimal values allowed '%c'): %s", s[i], s);
+        }
+        i++;
+
+        /* Room for the padding plus the widest long long. */
+        std::string piece(std::max(width, precision) + 32, '\0');
+        int n;
+        if (left_align) {
+            if (precision < 0) {
+                n = snprintf(&piece[0], piece.size(), "%-*lld", width, value);
+            } else {
+                n = snprintf(&piece[0], piece.size(), "%-*.*lld", width, precision, value);
+            }
+        } else if (precision >= 0) {
+            n = snprintf(&piece[0], piece.size(), "%*.*lld", width, precision, value);
+        } else if (zero_pad) {
+            n = snprintf(&piece[0], piece.size(), "%0*lld", width, value);
+        } else {
+            n = snprintf(&piece[0], piece.size(), "%*lld", width, value);
+        }
+        if (n > 0) {
+            out.append(piece, 0, std::min<size_t>(n, piece.size() - 1));
+        }
+    }
+    return out;
+}
+
+int FileContents::getField(int lineNum, int field, char *dest, int len, bool *truncated)
 {
     int curfield = field;
     int curline = lineNum;
 
+    if (len <= 0) {
+        return 0;
+    }
     dest[0] = '\0';
-    if (lineNum >= numLinesInFile) {
+    if (lineNum < 0 || lineNum >= numLinesInFile) {
         return 0;
     }
 
@@ -200,49 +281,26 @@ int FileContents::getField(int lineNum, int field, char *dest, int len)
     }
 
     std::string x = line.substr(oldpos, pos);
-    if (x.length()) {
-        if (printfFile) {
-            const char *s = x.c_str();
-            int l = strlen(s);
-            int copied = 0;
-            for (int i = 0; i < l; i++) {
-                if (s[i] == '%') {
-                    if (s[i + 1] == '%') {
-                        dest[copied++] = s[i];
-                    } else {
-                        const char *format = s + i;
-                        i++;
-                        while (s[i] != 'd') {
-                            if (i == l) {
-                                ERROR("Invalid printf injection field (ran off end of line): %s", s);
-                            }
-                            if (!(isdigit(s[i]) || s[i] == '.' || s[i] == '-')) {
-                                ERROR("Invalid printf injection field (only decimal values allowed '%c'): %s", s[i], s);
-                            }
-                            i++;
-                        }
-                        assert(s[i] == 'd');
-                        char *tmp = (char *)malloc(s + i + 2 - format);
-                        if (!tmp) {
-                            ERROR("Out of memory!");
-                        }
-                        memcpy(tmp, format, s + i + 1 - format);
-                        tmp[s + i + 1 - format] = '\0';
-                        copied += sprintf(dest + copied, tmp, printfOffset + (lineNum * printfMultiple));
-                        free(tmp);
-                    }
-                } else {
-                    dest[copied++] = s[i];
-                }
-            }
-            dest[copied] = '\0';
-            return copied;
-        } else {
-            return snprintf(dest, len, "%s", x.c_str());
-        }
+    std::string out;
+    if (printfFile) {
+        long long value = (long long)printfOffset + (long long)lineNum * printfMultiple;
+        out = expand_printf_field(x, value);
     } else {
-        return 0;
+        out = x;
     }
+
+    /* Return only what was actually stored, so callers can advance their
+     * pointer by it without running past the end of dest. */
+    int copied = out.length();
+    if (copied > len - 1) {
+        copied = len - 1;
+        if (truncated) {
+            *truncated = true;
+        }
+    }
+    memcpy(dest, out.data(), copied);
+    dest[copied] = '\0';
+    return copied;
 }
 
 int FileContents::numLines()
@@ -378,3 +436,82 @@ void FileContents::deIndex(int line)
         }
     }
 }
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+#include <fstream>
+
+TEST(infile, get_field_is_bounded_by_dest_size) {
+    std::string path = testing::TempDir() + "sipp_infile_get_field.csv";
+    {
+        std::ofstream out(path);
+        out << "SEQUENTIAL\n"
+            << "short;" << std::string(100, 'x') << ";\n";
+    }
+    FileContents contents(path.c_str());
+
+    char buf[16];
+    bool truncated = false;
+
+    EXPECT_EQ(5, contents.getField(0, 0, buf, sizeof(buf), &truncated));
+    EXPECT_FALSE(truncated);
+    EXPECT_STREQ("short", buf);
+
+    /* The return value is what was stored, not the field's full length,
+     * so callers can advance their pointer by it. */
+    EXPECT_EQ(15, contents.getField(0, 1, buf, sizeof(buf), &truncated));
+    EXPECT_TRUE(truncated);
+    EXPECT_EQ(std::string(15, 'x'), buf);
+
+    remove(path.c_str());
+}
+
+TEST(infile, printf_get_field_is_bounded_by_dest_size) {
+    std::string path = testing::TempDir() + "sipp_infile_printf_get_field.csv";
+    {
+        std::ofstream out(path);
+        out << "SEQUENTIAL,PRINTF=10\n"
+            << "user%010d" << std::string(100, 'y') << ";\n";
+    }
+    FileContents contents(path.c_str());
+
+    char buf[16];
+    bool truncated = false;
+
+    EXPECT_EQ(15, contents.getField(3, 0, buf, sizeof(buf), &truncated));
+    EXPECT_TRUE(truncated);
+    EXPECT_STREQ("user0000000003y", buf);
+
+    remove(path.c_str());
+}
+
+TEST(infile, printf_get_field_matches_printf) {
+    /* Each field uses one of the accepted conversion forms; the result
+     * must be what printf() itself produces for the line number. */
+    static const char *const specs[] = {
+        "%d", "%5d", "%-5d", "%05d", "%.3d", "%8.3d", "%-8.3d", "%-05d",
+    };
+    std::string path = testing::TempDir() + "sipp_infile_printf_matches.csv";
+    {
+        std::ofstream out(path);
+        out << "SEQUENTIAL,PRINTF=100,PRINTFOFFSET=1000\n";
+        for (const char *spec : specs) {
+            out << "<" << spec << ">;";
+        }
+        out << "\n";
+    }
+    FileContents contents(path.c_str());
+
+    for (int field = 0; field < (int)(sizeof(specs) / sizeof(specs[0])); field++) {
+        char expected[64];
+        std::string fmt = std::string("<") + specs[field] + ">";
+        snprintf(expected, sizeof(expected), fmt.c_str(), 1042);
+
+        char buf[64];
+        contents.getField(42, field, buf, sizeof(buf));
+        EXPECT_STREQ(expected, buf) << "spec " << specs[field];
+    }
+
+    remove(path.c_str());
+}
+#endif

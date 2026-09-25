@@ -29,7 +29,7 @@ class FileContents
 public:
     FileContents(const char *file);
     int getLine(int line, char *dest, int len);
-    int getField(int line, int field, char *dest, int len);
+    int getField(int line, int field, char *dest, int len, bool *truncated = nullptr);
     int numLines();
     int nextLine(int userId);
     void dump();

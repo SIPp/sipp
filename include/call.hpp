@@ -295,7 +295,7 @@ protected:
     static void readInputFileContents(const char* fileName);
     static void dumpFileContents(void);
 
-    void getFieldFromInputFile(const char* fileName, int field, SendingMessage *line, char*& dest);
+    bool getFieldFromInputFile(const char* fileName, int field, SendingMessage *line, char*& dest, int len);
 
     /* Associate a user with this call. */
     void setUser(int userId);
