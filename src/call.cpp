@@ -1382,8 +1382,7 @@ bool call::connect_socket_if_needed()
                 ERROR_NO("Unable to get a UDP socket (1)");
             }
         } else {
-            char *tmp = peripaddr;
-            getFieldFromInputFile(ip_file, peripfield, nullptr, tmp);
+            getFieldFromInputFile(ip_file, peripfield, nullptr, peripaddr, sizeof(peripaddr));
             auto i = map_perip_fd.find(peripaddr);
             if (i == map_perip_fd.end()) {
                 // Socket does not exist
@@ -3942,7 +3941,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
         case E_Message_Injection: {
             char *orig_dest = dest;
-            getFieldFromInputFile(comp->comp_param.field_param.filename, comp->comp_param.field_param.field, comp->comp_param.field_param.line, dest);
+            dest += getFieldFromInputFile(comp->comp_param.field_param.filename, comp->comp_param.field_param.field, comp->comp_param.field_param.line, dest, left);
             /* We are injecting an authentication line. */
             if (char *tmp = strstr(orig_dest, "[authentication")) {
                 if (auth_marker) {
@@ -6554,8 +6553,9 @@ void call::extractSubMessage(const char* msg, char* matchingString, char* result
     }
 }
 
-void call::getFieldFromInputFile(const char *fileName, int field, SendingMessage *lineMsg, char*& dest)
+int call::getFieldFromInputFile(const char *fileName, int field, SendingMessage *lineMsg, char* dest, int len)
 {
+    dest[0] = '\0';
     if (m_lineNumber == nullptr) {
         ERROR("Automatic calls (created by -aa, -oocsn or -oocsf) cannot use input files!");
     }
@@ -6576,9 +6576,9 @@ void call::getFieldFromInputFile(const char *fileName, int field, SendingMessage
         }
     }
     if (line < 0) {
-        return;
+        return 0;
     }
-    dest += inFiles[fileName]->getField(line, field, dest, SIPP_MAX_MSG_SIZE);
+    return inFiles[fileName]->getField(line, field, dest, len);
 }
 
 call::T_AutoMode call::checkAutomaticResponseMode(char* P_recv)

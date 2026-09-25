@@ -200,49 +200,40 @@ int FileContents::getField(int lineNum, int field, char *dest, int len)
     }
 
     std::string x = line.substr(oldpos, pos);
-    if (x.length()) {
-        if (printfFile) {
-            const char *s = x.c_str();
-            int l = strlen(s);
-            int copied = 0;
-            for (int i = 0; i < l; i++) {
-                if (s[i] == '%') {
-                    if (s[i + 1] == '%') {
-                        dest[copied++] = s[i];
-                    } else {
-                        const char *format = s + i;
-                        i++;
-                        while (s[i] != 'd') {
-                            if (i == l) {
-                                ERROR("Invalid printf injection field (ran off end of line): %s", s);
-                            }
-                            if (!(isdigit(s[i]) || s[i] == '.' || s[i] == '-')) {
-                                ERROR("Invalid printf injection field (only decimal values allowed '%c'): %s", s[i], s);
-                            }
-                            i++;
-                        }
-                        assert(s[i] == 'd');
-                        char *tmp = (char *)malloc(s + i + 2 - format);
-                        if (!tmp) {
-                            ERROR("Out of memory!");
-                        }
-                        memcpy(tmp, format, s + i + 1 - format);
-                        tmp[s + i + 1 - format] = '\0';
-                        copied += sprintf(dest + copied, tmp, printfOffset + (lineNum * printfMultiple));
-                        free(tmp);
-                    }
+    if (printfFile) {
+        std::string expanded;
+        const char *s = x.c_str();
+        int l = x.length();
+        for (int i = 0; i < l; i++) {
+            if (s[i] == '%') {
+                if (s[i + 1] == '%') {
+                    expanded += s[i];
                 } else {
-                    dest[copied++] = s[i];
+                    const char *format = s + i;
+                    i++;
+                    while (s[i] != 'd') {
+                        if (i == l) {
+                            ERROR("Invalid printf injection field (ran off end of line): %s", s);
+                        }
+                        if (!(isdigit(s[i]) || s[i] == '.' || s[i] == '-')) {
+                            ERROR("Invalid printf injection field (only decimal values allowed '%c'): %s", s[i], s);
+                        }
+                        i++;
+                    }
+                    assert(s[i] == 'd');
+                    const std::string fmt(format, s + i + 1 - format);
+                    char value[64];
+                    snprintf(value, sizeof(value), fmt.c_str(), printfOffset + (lineNum * printfMultiple));
+                    expanded += value;
                 }
+            } else {
+                expanded += s[i];
             }
-            dest[copied] = '\0';
-            return copied;
-        } else {
-            return snprintf(dest, len, "%s", x.c_str());
         }
-    } else {
-        return 0;
+        x = expanded;
     }
+    snprintf(dest, len, "%s", x.c_str());
+    return std::min<int>(x.length(), len - 1);
 }
 
 int FileContents::numLines()
@@ -378,3 +369,39 @@ void FileContents::deIndex(int line)
         }
     }
 }
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+#include <fstream>
+
+static FileContents *write_input_file(const char *name, const char *contents)
+{
+    std::ofstream(name) << contents;
+    FileContents *file = new FileContents(name);
+    remove(name);
+    return file;
+}
+
+TEST(infile, get_field_stops_at_buffer_end) {
+    FileContents *file = write_input_file("infile_ut.csv", "SEQUENTIAL\nshort;0123456789abcdef\n");
+    char buf[8];
+
+    EXPECT_EQ(5, file->getField(0, 0, buf, sizeof(buf)));
+    EXPECT_STREQ("short", buf);
+    EXPECT_EQ(7, file->getField(0, 1, buf, sizeof(buf)));
+    EXPECT_STREQ("0123456", buf);
+    delete file;
+}
+
+TEST(infile, get_printf_field_stops_at_buffer_end) {
+    FileContents *file = write_input_file("infile_ut.csv", "SEQUENTIAL,PRINTF=10\nuser%08d\n");
+    char buf[8];
+
+    EXPECT_EQ(7, file->getField(3, 0, buf, sizeof(buf)));
+    EXPECT_STREQ("user000", buf);
+    char big[32];
+    EXPECT_EQ(12, file->getField(3, 0, big, sizeof(big)));
+    EXPECT_STREQ("user00000003", big);
+    delete file;
+}
+#endif //GTEST
