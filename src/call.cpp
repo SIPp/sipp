@@ -2599,17 +2599,23 @@ int call::sendCmdBuffer(char* cmd)
 char* call::createSendingMessage(SendingMessage *src, int P_index, int *msgLen)
 {
     static char msg_buffer[SIPP_MAX_MSG_SIZE+2];
-    return createSendingMessage(src, P_index, msg_buffer, sizeof(msg_buffer), msgLen);
+    /* Keep one byte spare: sendCmdMessage() and sendCmdBuffer() strcat() a
+     * one-character delimiter onto the rendered message. */
+    return createSendingMessage(src, P_index, msg_buffer, sizeof(msg_buffer) - 1, msgLen);
 }
 
 char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buffer, int buf_len, int *msgLen)
 {
-    char * length_marker = nullptr;
-    char * auth_marker = nullptr;
+    /* The message is built in a string and copied into msg_buffer at the
+     * end, cut to what fits there. Until then msg_buffer is only scratch
+     * space for the keywords that fill a char buffer. */
+    const size_t max_len = buf_len - 1;
+    std::string out;
+    size_t length_marker = std::string::npos;
+    size_t auth_marker = std::string::npos;
     MessageComponent *auth_comp = nullptr;
     bool auth_comp_allocated = false;
     int    len_offset = 0;
-    char *dest = msg_buffer;
     bool suppresscrlf = false;
 
     bool srtp_audio_updated = false;
@@ -2639,38 +2645,30 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     pV.primary_unencrypted_srtp = false;
     pV.secondary_unencrypted_srtp = false;
 
-    msg_buffer[0] = '\0';
-
-    for (int i = 0; i < src->numComponents(); i++) {
+    for (int i = 0; i < src->numComponents() && out.size() < max_len; i++) {
         MessageComponent *comp = src->getComponent(i);
-        int left = buf_len - (dest - msg_buffer);
-        if (left <= 0) {
-            break;
-        }
         switch(comp->type) {
         case E_Message_Literal:
             if (suppresscrlf) {
                 char *ptr = comp->literal;
                 while (isspace(*ptr)) ptr++;
-                dest += snprintf(dest, left, "%s", ptr);
+                out += ptr;
                 suppresscrlf = false;
             } else {
-                memcpy(dest, comp->literal, comp->literalLen);
-                dest += comp->literalLen;
-                *dest = '\0';
+                out.append(comp->literal, comp->literalLen);
             }
             break;
         case E_Message_Remote_IP:
-            dest += snprintf(dest, left, "%s", remote_ip_w_brackets);
+            out += remote_ip_w_brackets;
             break;
         case E_Message_Remote_Host:
-            dest += snprintf(dest, left, "%s", remote_host);
+            out += remote_host;
             break;
         case E_Message_Remote_Port:
-            dest += snprintf(dest, left, "%d", remote_port + comp->offset);
+            out += std::to_string(remote_port + comp->offset);
             break;
         case E_Message_Local_IP:
-            dest += snprintf(dest, left, "%s", local_ip_w_brackets);
+            out += local_ip_w_brackets;
             break;
         case E_Message_Local_Port:
             int port;
@@ -2679,13 +2677,13 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             } else {
                 port =  local_port;
             }
-            dest += snprintf(dest, left, "%d", port + comp->offset);
+            out += std::to_string(port + comp->offset);
             break;
         case E_Message_Transport:
-            dest += snprintf(dest, left, "%s", TRANSPORT_TO_STRING(transport));
+            out += TRANSPORT_TO_STRING(transport);
             break;
         case E_Message_Local_IP_Type:
-            dest += snprintf(dest, left, "%s", (local_ip_is_ipv6 ? "6" : "4"));
+            out += (local_ip_is_ipv6 ? "6" : "4");
             break;
         case E_Message_Server_IP: {
             /* We should do this conversion once per socket creation, rather than
@@ -2702,11 +2700,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 ERROR_NO("Unable to get socket name information");
             }
 
-            dest += snprintf(dest, left, "%s", address);
+            out += address;
         }
         break;
         case E_Message_Media_IP:
-            dest += snprintf(dest, left, "%s", media_ip);
+            out += media_ip;
             break;
         case E_Message_Auto_Media_Port:
         case E_Message_Media_Port: {
@@ -2715,16 +2713,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 port += (4 * (number - 1)) % 10000;
             }
 #ifdef PCAPPLAY
-            char *begin = dest;
-            while (begin > msg_buffer) {
-                if (*begin == '\n') {
-                    break;
-                }
-                begin--;
-            }
-            if (begin == msg_buffer) {
+            const size_t line_start = out.rfind('\n');
+            if (line_start == std::string::npos || line_start == 0) {
                 ERROR("Can not find beginning of a line for the media port!");
             }
+            const char *begin = out.c_str() + line_start;
             play_args_t* play_args = nullptr;
             if (strstr(begin, "audio")) {
                 play_args = &play_args_a;
@@ -2744,7 +2737,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 }
             }
 #endif
-            dest += snprintf(dest, left, "%u", port);
+            out += std::to_string(port);
             break;
         }
         case E_Message_RTPStream_Audio_Port:
@@ -2761,7 +2754,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
               temp_audio_port = rtpstream_callinfo.local_audioport + comp->offset;
           }
           logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Audio_Port: %d\n", temp_audio_port);
-          dest += snprintf(dest, left, "%d", temp_audio_port);
+          out += std::to_string(temp_audio_port);
         }
         break;
         case E_Message_RTPStream_Video_Port:
@@ -2778,7 +2771,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
               temp_video_port = rtpstream_callinfo.local_videoport + comp->offset;
           }
           logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Video_Port: %d\n", temp_video_port);
-          dest += snprintf(dest, left, "%d", temp_video_port);
+          out += std::to_string(temp_video_port);
         }
         break;
         case E_Message_CryptoTag1Audio:
@@ -2795,7 +2788,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag1Audio() - PRIMARY - SERVER: %d\n", pA.primary_cryptotag);
                 _txUASAudio.setCryptoTag(pA.primary_cryptotag, PRIMARY_CRYPTO);
             }
-            dest += snprintf(dest, left, "%d", pA.primary_cryptotag);
+            out += std::to_string(pA.primary_cryptotag);
             srtp_audio_updated = true;
         }
         break;
@@ -2813,7 +2806,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag2Audio() - SECONDARY - SERVER: %d\n", pA.secondary_cryptotag);
                 _txUASAudio.setCryptoTag(pA.secondary_cryptotag, SECONDARY_CRYPTO);
             }
-            dest += snprintf(dest, left, "%d", pA.secondary_cryptotag);
+            out += std::to_string(pA.secondary_cryptotag);
             srtp_audio_updated = true;
         }
         break;
@@ -2867,7 +2860,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
             pA.found = true;
             strcpy(pA.primary_cryptosuite, "AES_CM_128_HMAC_SHA1_80");
-            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_80");
+            out += "AES_CM_128_HMAC_SHA1_80";
             srtp_audio_updated = true;
         }
         break;
@@ -2887,7 +2880,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pA.found = true;
             strcpy(pA.secondary_cryptosuite, "AES_CM_128_HMAC_SHA1_80");
-            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_80");
+            out += "AES_CM_128_HMAC_SHA1_80";
             srtp_audio_updated = true;
         }
         break;
@@ -2941,7 +2934,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
             pA.found = true;
             strcpy(pA.primary_cryptosuite, "AES_CM_128_HMAC_SHA1_32");
-            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_32");
+            out += "AES_CM_128_HMAC_SHA1_32";
             srtp_audio_updated = true;
         }
         break;
@@ -2961,7 +2954,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pA.found = true;
             strcpy(pA.secondary_cryptosuite, "AES_CM_128_HMAC_SHA1_32");
-            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_32");
+            out += "AES_CM_128_HMAC_SHA1_32";
             srtp_audio_updated = true;
         }
         break;
@@ -3015,7 +3008,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
             pA.found = true;
             strcpy(pA.primary_cryptosuite, "NULL_HMAC_SHA1_80");
-            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_80");
+            out += "NULL_HMAC_SHA1_80";
             srtp_audio_updated = true;
         }
         break;
@@ -3035,7 +3028,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pA.found = true;
             strcpy(pA.secondary_cryptosuite, "NULL_HMAC_SHA1_80");
-            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_80");
+            out += "NULL_HMAC_SHA1_80";
             srtp_audio_updated = true;
         }
         break;
@@ -3089,7 +3082,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
             pA.found = true;
             strcpy(pA.primary_cryptosuite, "NULL_HMAC_SHA1_32");
-            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_32");
+            out += "NULL_HMAC_SHA1_32";
             srtp_audio_updated = true;
         }
         break;
@@ -3109,7 +3102,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pA.found = true;
             strcpy(pA.secondary_cryptosuite, "NULL_HMAC_SHA1_32");
-            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_32");
+            out += "NULL_HMAC_SHA1_32";
             srtp_audio_updated = true;
         }
         break;
@@ -3152,7 +3145,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             pA.found = true;
             memcpy(pA.primary_cryptokeyparams, mks.c_str(), 40);
             pA.primary_cryptokeyparams[40] = '\0';
-            dest += snprintf(dest, left, "%s", pA.primary_cryptokeyparams);
+            out += pA.primary_cryptokeyparams;
             srtp_audio_updated = true;
         }
         break;
@@ -3195,7 +3188,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             pA.found = true;
             memcpy(pA.secondary_cryptokeyparams, mks.c_str(), 40);
             pA.secondary_cryptokeyparams[40] = '\0';
-            dest += snprintf(dest, left, "%s", pA.secondary_cryptokeyparams);
+            out += pA.secondary_cryptokeyparams;
             srtp_audio_updated = true;
         }
         break;
@@ -3216,7 +3209,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             pA.found = true;
             pA.primary_unencrypted_srtp = true;
             strcpy(pA.primary_cryptosuite, "AES_CM_128_HMAC_SHA1_80");
-            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            out += "UNENCRYPTED_SRTP";
             srtp_audio_updated = true;
         }
         break;
@@ -3237,7 +3230,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             pA.found = true;
             pA.secondary_unencrypted_srtp = true;
             strcpy(pA.secondary_cryptosuite, "AES_CM_128_HMAC_SHA1_80");
-            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            out += "UNENCRYPTED_SRTP";
             srtp_audio_updated = true;
         }
         break;
@@ -3258,7 +3251,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             pA.found = true;
             pA.primary_unencrypted_srtp = true;
             strcpy(pA.primary_cryptosuite, "AES_CM_128_HMAC_SHA1_32");
-            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            out += "UNENCRYPTED_SRTP";
             srtp_audio_updated = true;
         }
         break;
@@ -3279,7 +3272,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             pA.found = true;
             pA.secondary_unencrypted_srtp = true;
             strcpy(pA.secondary_cryptosuite, "AES_CM_128_HMAC_SHA1_32");
-            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            out += "UNENCRYPTED_SRTP";
             srtp_audio_updated = true;
         }
         break;
@@ -3297,7 +3290,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag1Video() - PRIMARY - SERVER: %d\n", pV.primary_cryptotag);
                 _txUASVideo.setCryptoTag(pV.primary_cryptotag, PRIMARY_CRYPTO);
             }
-            dest += snprintf(dest, left, "%d", pV.primary_cryptotag);
+            out += std::to_string(pV.primary_cryptotag);
             srtp_video_updated = true;
         }
         break;
@@ -3315,7 +3308,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag2Video() - SECONDARY - SERVER: %d\n", pV.secondary_cryptotag);
                 _txUASVideo.setCryptoTag(pV.secondary_cryptotag, SECONDARY_CRYPTO);
             }
-            dest += snprintf(dest, left, "%d", pV.secondary_cryptotag);
+            out += std::to_string(pV.secondary_cryptotag);
             srtp_video_updated = true;
         }
         break;
@@ -3369,7 +3362,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
             pV.found = true;
             strcpy(pV.primary_cryptosuite, "AES_CM_128_HMAC_SHA1_80");
-            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_80");
+            out += "AES_CM_128_HMAC_SHA1_80";
             srtp_video_updated = true;
         }
         break;
@@ -3389,7 +3382,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pV.found = true;
             strcpy(pV.secondary_cryptosuite, "AES_CM_128_HMAC_SHA1_80");
-            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_80");
+            out += "AES_CM_128_HMAC_SHA1_80";
             srtp_video_updated = true;
         }
         break;
@@ -3443,7 +3436,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
             pV.found = true;
             strcpy(pV.primary_cryptosuite, "AES_CM_128_HMAC_SHA1_32");
-            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_32");
+            out += "AES_CM_128_HMAC_SHA1_32";
             srtp_video_updated = true;
         }
         break;
@@ -3463,7 +3456,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pV.found = true;
             strcpy(pV.secondary_cryptosuite, "AES_CM_128_HMAC_SHA1_32");
-            dest += snprintf(dest, left, "%s", "AES_CM_128_HMAC_SHA1_32");
+            out += "AES_CM_128_HMAC_SHA1_32";
             srtp_video_updated = true;
         }
         break;
@@ -3517,7 +3510,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
             pV.found = true;
             strcpy(pV.primary_cryptosuite, "NULL_HMAC_SHA1_80");
-            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_80");
+            out += "NULL_HMAC_SHA1_80";
             srtp_video_updated = true;
         }
         break;
@@ -3537,7 +3530,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pV.found = true;
             strcpy(pV.secondary_cryptosuite, "NULL_HMAC_SHA1_80");
-            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_80");
+            out += "NULL_HMAC_SHA1_80";
             srtp_video_updated = true;
         }
         break;
@@ -3591,7 +3584,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
             pV.found = true;
             strcpy(pV.primary_cryptosuite, "NULL_HMAC_SHA1_32");
-            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_32");
+            out += "NULL_HMAC_SHA1_32";
             srtp_video_updated = true;
         }
         break;
@@ -3611,7 +3604,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             pV.found = true;
             strcpy(pV.secondary_cryptosuite, "NULL_HMAC_SHA1_32");
-            dest += snprintf(dest, left, "%s", "NULL_HMAC_SHA1_32");
+            out += "NULL_HMAC_SHA1_32";
             srtp_video_updated = true;
         }
         break;
@@ -3654,7 +3647,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             pV.found = true;
             memcpy(pV.primary_cryptokeyparams, mks.c_str(), 40);
             pV.primary_cryptokeyparams[40] = '\0';
-            dest += snprintf(dest, left, "%s", pV.primary_cryptokeyparams);
+            out += pV.primary_cryptokeyparams;
             srtp_video_updated = true;
         }
         break;
@@ -3697,7 +3690,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             pV.found = true;
             memcpy(pV.secondary_cryptokeyparams, mks.c_str(), 40);
             pV.secondary_cryptokeyparams[40] = '\0';
-            dest += snprintf(dest, left, "%s", pV.secondary_cryptokeyparams);
+            out += pV.secondary_cryptokeyparams;
             srtp_video_updated = true;
         }
         break;
@@ -3718,7 +3711,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             pV.found = true;
             pV.primary_unencrypted_srtp = true;
             strcpy(pV.primary_cryptosuite, "AES_CM_128_HMAC_SHA1_80");
-            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            out += "UNENCRYPTED_SRTP";
             srtp_video_updated = true;
         }
         break;
@@ -3739,7 +3732,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             pV.found = true;
             pV.secondary_unencrypted_srtp = true;
             strcpy(pV.secondary_cryptosuite, "AES_CM_128_HMAC_SHA1_80");
-            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            out += "UNENCRYPTED_SRTP";
             srtp_video_updated = true;
         }
         break;
@@ -3760,7 +3753,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             pV.found = true;
             pV.primary_unencrypted_srtp = true;
             strcpy(pV.primary_cryptosuite, "AES_CM_128_HMAC_SHA1_32");
-            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            out += "UNENCRYPTED_SRTP";
             srtp_video_updated = true;
         }
         break;
@@ -3781,18 +3774,18 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             pV.found = true;
             pV.secondary_unencrypted_srtp = true;
             strcpy(pV.secondary_cryptosuite, "AES_CM_128_HMAC_SHA1_32");
-            dest += snprintf(dest, left, "%s", "UNENCRYPTED_SRTP");
+            out += "UNENCRYPTED_SRTP";
             srtp_video_updated = true;
         }
         break;
         case E_Message_Media_IP_Type:
-            dest += snprintf(dest, left, "%s", (media_ip_is_ipv6 ? "6" : "4"));
+            out += (media_ip_is_ipv6 ? "6" : "4");
             break;
         case E_Message_Call_Number:
-            dest += snprintf(dest, left, "%u", number);
+            out += std::to_string(number);
             break;
         case E_Message_DynamicId:
-            dest += snprintf(dest, left, "%u", call::dynamicId);
+            out += std::to_string(call::dynamicId);
             // increment at each request
             dynamicId += stepDynamicId;
             if ( this->dynamicId > maxDynamicId ) {
@@ -3800,67 +3793,69 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             } ;
             break;
         case E_Message_Call_ID:
-            dest += snprintf(dest, left, "%s", id);
+            out += id;
             break;
         case E_Message_CSEQ:
-            dest += snprintf(dest, left, "%u", cseq + comp->offset);
+            out += std::to_string(cseq + comp->offset);
             break;
         case E_Message_PID:
-            dest += snprintf(dest, left, "%d", pid);
+            out += std::to_string(pid);
             break;
         case E_Message_Service:
-            dest += snprintf(dest, left, "%s", service);
+            out += service;
             break;
         case E_Message_Branch:
             /* Branch is magic cookie + call number + message index in scenario */
             if (P_index == -1) {
-                dest += snprintf(dest, left, "z9hG4bK-%u-%u-%d", pid, number, msg_index - 1 + comp->offset);
+                out += "z9hG4bK-" + std::to_string(pid) + "-" + std::to_string(number) + "-" + std::to_string(msg_index - 1 + comp->offset);
             } else {
-                dest += snprintf(dest, left, "z9hG4bK-%u-%u-%d", pid, number, P_index + comp->offset);
+                out += "z9hG4bK-" + std::to_string(pid) + "-" + std::to_string(number) + "-" + std::to_string(P_index + comp->offset);
             }
             break;
         case E_Message_Index:
-            dest += snprintf(dest, left, "%d", P_index);
+            out += std::to_string(P_index);
             break;
         case E_Message_Next_Url:
             if (next_req_url && *next_req_url) {
-                dest += sprintf(dest, "%s", next_req_url);
+                out += next_req_url;
             } else {
-                dest += sprintf(dest, "%s", get_last_request_uri().c_str());
+                out += get_last_request_uri();
             }
             break;
         case E_Message_Len:
-            length_marker = dest;
-            dest += snprintf(dest, left, "     ");
+            length_marker = out.size();
+            out += "     ";
             len_offset = comp->offset;
             break;
         case E_Message_Authentication:
-            if (auth_marker) {
+            if (auth_marker != std::string::npos) {
                 ERROR("Only one [authentication] keyword is currently supported!");
             }
-            auth_marker = dest;
-            dest += snprintf(dest, left, "[authentication place holder]");
+            auth_marker = out.size();
+            out += "[authentication place holder]";
             auth_comp = comp;
             break;
         case E_Message_Peer_Tag_Param:
             if (peer_tag) {
-                dest += snprintf(dest, left, ";tag=%s", peer_tag);
+                out += ";tag=";
+                out += peer_tag;
             }
             break;
         case E_Message_Routes:
             if (dialog_route_set) {
-                dest += sprintf(dest, "Route: %s", dialog_route_set);
-            } else if (*(dest - 1) == '\n') {
+                out += "Route: ";
+                out += dialog_route_set;
+            } else if (!out.empty() && out.back() == '\n') {
                 suppresscrlf = true;
             }
             break;
         case E_Message_ClockTick:
-            dest += snprintf(dest, left, "%lu", clock_tick);
+            out += std::to_string(clock_tick);
             break;
         case E_Message_Timestamp:
             struct timeval currentTime;
             gettimeofday(&currentTime, nullptr);
-            dest += snprintf(dest, left, "%s", CStat::formatTime(&currentTime, rfc3339));
+            out += CStat::formatTime(&currentTime, rfc3339);
             break;
         case E_Message_Date:
             char buf[256];
@@ -3871,35 +3866,35 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             tm = gmtime(&t);
             /* changed %Z to hardcoded GMT since in some OS like FreeBSD it could return UTC instead, see issue #535 */
             strftime(buf, 256, "%a, %d %b %Y %T GMT", tm);
-            dest += snprintf(dest, left, "%s", buf);
+            out += buf;
             break;
         case E_Message_Users:
-            dest += snprintf(dest, left, "%d", users);
+            out += std::to_string(users);
             break;
         case E_Message_UserID:
-            dest += snprintf(dest, left, "%d", userId);
+            out += std::to_string(userId);
             break;
         case E_Message_SippVersion:
             /* Drop the initial "v" from the SIPP_VERSION string for legacy reasons. */
-            dest += snprintf(dest, left, "%s", (const char*)SIPP_VERSION + 1);
+            out += (const char*)SIPP_VERSION + 1;
             break;
         case E_Message_Variable: {
             int varId = comp->varId;
             CCallVariable *var = M_callVariableTable->getVar(varId);
             if(var->isSet()) {
                 if (var->isRegExp()) {
-                    dest += sprintf(dest, "%s", var->getMatchingValue());
+                    out += var->getMatchingValue();
                 } else if (var->isDouble()) {
-                    dest += sprintf(dest, "%lf", var->getDouble());
+                    out += std::to_string(var->getDouble());
                 } else if (var->isString()) {
-                    dest += sprintf(dest, "%s", var->getString());
+                    out += var->getString();
                 } else if (var->isBool()) {
-                    dest += sprintf(dest, "true");
+                    out += "true";
                 }
             } else if (var->isBool()) {
-                dest += sprintf(dest, "false");
+                out += "false";
             }
-            if (*(dest - 1) == '\n') {
+            if (!out.empty() && out.back() == '\n') {
                 suppresscrlf = true;
             }
             break;
@@ -3915,10 +3910,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if (filllen == 0) {
                 ERROR("Internal error: [fill] keyword has zero-length text.");
             }
-            for (int i = 0, j = 0; i < length; i++, j++) {
-                *dest++ = filltext[j % filllen];
+            /* Never grow the message past what can be sent. */
+            length = std::min<size_t>(length, max_len - out.size());
+            for (int j = 0; j < length; j++) {
+                out += filltext[j % filllen];
             }
-            *dest = '\0';
             break;
         }
         case E_Message_File: {
@@ -3928,23 +3924,22 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if (!f) {
                 ERROR("Could not open '%s': %s", buffer, strerror(errno));
             }
-            int ret;
-            while ((ret = fread(dest, 1, left, f)) > 0) {
-                left -= ret;
-                dest += ret;
+            size_t ret;
+            while ((ret = fread(msg_buffer, 1, std::min<size_t>(buf_len, max_len - out.size()), f)) > 0) {
+                out.append(msg_buffer, ret);
             }
-            if (ret < 0) {
+            if (ferror(f)) {
                 ERROR("Error reading '%s': %s", buffer, strerror(errno));
             }
             fclose(f);
             break;
         }
         case E_Message_Injection: {
-            char *orig_dest = dest;
-            dest += getFieldFromInputFile(comp->comp_param.field_param.filename, comp->comp_param.field_param.field, comp->comp_param.field_param.line, dest, left);
+            const size_t orig_len = out.size();
+            out.append(msg_buffer, getFieldFromInputFile(comp->comp_param.field_param.filename, comp->comp_param.field_param.field, comp->comp_param.field_param.line, msg_buffer, buf_len));
             /* We are injecting an authentication line. */
-            if (char *tmp = strstr(orig_dest, "[authentication")) {
-                if (auth_marker) {
+            if (size_t tmp = out.find("[authentication", orig_len); tmp != std::string::npos) {
+                if (auth_marker != std::string::npos) {
                     ERROR("Only one [authentication] keyword is currently supported!");
                 }
                 auth_marker = tmp;
@@ -3954,13 +3949,14 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 }
                 auth_comp_allocated = true;
 
-                tmp = strchr(auth_marker, ']');
-                char c = *tmp;
-                *tmp = '\0';
-                SendingMessage::parseAuthenticationKeyword(call_scenario, auth_comp, auth_marker);
-                *tmp = c;
+                const size_t end = out.find(']', auth_marker);
+                if (end == std::string::npos) {
+                    ERROR("Unterminated [authentication] keyword!");
+                }
+                std::string keyword = out.substr(auth_marker, end - auth_marker);
+                SendingMessage::parseAuthenticationKeyword(call_scenario, auth_comp, keyword.data());
             }
-            if (*(dest - 1) == '\n') {
+            if (!out.empty() && out.back() == '\n') {
                 suppresscrlf = true;
             }
             break;
@@ -3968,24 +3964,28 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         case E_Message_Last_Header: {
             char * last_header = get_last_header(comp->literal);
             if(last_header) {
-                dest += sprintf(dest, "%s", last_header);
+                out += last_header;
             }
-            if (*(dest - 1) == '\n') {
+            if (!out.empty() && out.back() == '\n') {
                 suppresscrlf = true;
             }
             break;
         }
         case E_Message_Custom: {
-            dest += comp->comp_param.fxn(this, comp, dest, left);
+            /* Keywords registered by plugins: don't trust the returned
+             * length to stay inside the space we gave them. */
+            const int room = max_len - out.size() + 1;
+            const int n = comp->comp_param.fxn(this, comp, msg_buffer, room);
+            out.append(msg_buffer, std::clamp(n, 0, room - 1));
             break;
         }
         case E_Message_Last_Message:
             if(last_recv_msg && strlen(last_recv_msg)) {
-                dest += sprintf(dest, "%s", last_recv_msg);
+                out += last_recv_msg;
             }
             break;
         case E_Message_Last_Request_URI: {
-            dest += sprintf(dest, "%s", get_last_request_uri().c_str());
+            out += get_last_request_uri();
             break;
         }
         case E_Message_Last_CSeq_Number: {
@@ -3998,53 +3998,55 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 while(isspace(*last_header)) last_header++;
                 sscanf(last_header, "%d", &last_cseq);
             }
-            dest += sprintf(dest, "%d", last_cseq + comp->offset);
+            out += std::to_string(last_cseq + comp->offset);
             break;
         }
         case E_Message_TDM_Map:
             if (!use_tdmmap)
                 ERROR("[tdmmap] keyword without -tdmmap parameter on command line");
-            dest += snprintf(dest, left, "%d.%d.%d/%d",
-                             tdm_map_x+(int((tdm_map_number)/((tdm_map_b+1)*(tdm_map_c+1))))%(tdm_map_a+1),
-                             tdm_map_h,
-                             tdm_map_y+(int((tdm_map_number)/(tdm_map_c+1)))%(tdm_map_b+1),
-                             tdm_map_z+(tdm_map_number)%(tdm_map_c+1)
-                            );
+            out += std::to_string(tdm_map_x+(int((tdm_map_number)/((tdm_map_b+1)*(tdm_map_c+1))))%(tdm_map_a+1)) + "."
+                   + std::to_string(tdm_map_h) + "."
+                   + std::to_string(tdm_map_y+(int((tdm_map_number)/(tdm_map_c+1)))%(tdm_map_b+1)) + "/"
+                   + std::to_string(tdm_map_z+(tdm_map_number)%(tdm_map_c+1));
             break;
         }
     }
-    /* Need the body for length and auth-int calculation */
-    char *body = nullptr;
-    const char *auth_body = nullptr;
-    if (length_marker || auth_marker) {
-        body = strstr(msg_buffer, "\r\n\r\n");
-        if (body) {
-            auth_body = body;
-            auth_body += strlen("\r\n\r\n");
-        }
+    bool truncated = out.size() > max_len;
+    if (truncated) {
+        out.resize(max_len);
     }
-    if (!auth_body) {
-        auth_body = "";
+    /* Placeholders cut off by the truncation can't be filled in. */
+    if (length_marker != std::string::npos && length_marker + 5 > out.size()) {
+        length_marker = std::string::npos;
+    }
+    if (auth_marker != std::string::npos && out.find(']', auth_marker) == std::string::npos) {
+        auth_marker = std::string::npos;
+    }
+
+    /* Need the body for length and auth-int calculation */
+    size_t body = std::string::npos;
+    if (length_marker != std::string::npos || auth_marker != std::string::npos) {
+        body = out.find("\r\n\r\n");
     }
 
     /* Fix up the length. */
-    if (length_marker) {
-        if (auth_marker > body) {
+    if (length_marker != std::string::npos) {
+        if (auth_marker != std::string::npos && (body == std::string::npos || auth_marker > body)) {
             ERROR("The authentication keyword should appear in the message header, not the body!");
         }
 
-        if (body && dest - body > 4 && dest - body < 100004) {
-            char tmp = length_marker[5];
-            sprintf(length_marker, "%5u", (unsigned)(dest - body - 4 + len_offset));
-            length_marker[5] = tmp;
+        const size_t body_len = out.size() - body;
+        if (body != std::string::npos && body_len > 4 && body_len < 100004) {
+            char len[16];
+            snprintf(len, sizeof(len), "%5u", (unsigned)(body_len - 4 + len_offset));
+            out.replace(length_marker, 5, len);
+        } else if (body != std::string::npos) {
+            // Empty body: Content-Length is 0
+            out.replace(length_marker, 5, "    0");
         } else {
-            // Other cases: Content-Length is 0
-            sprintf(length_marker, "    0\r\n\r\n");
+            // No end of headers: Content-Length is 0 and ends them
+            out.replace(length_marker, std::string::npos, "    0\r\n\r\n");
         }
-    }
-
-    if (msgLen) {
-        *msgLen = dest - msg_buffer;
     }
 
     /*
@@ -4052,16 +4054,14 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
      * loop because auth-int will use the body (which must have already
      * been keyword substituted) to build the md5 hash
      */
-    if (auth_marker) {
+    if (auth_marker != std::string::npos) {
         if (!dialog_authentication) {
             ERROR("Authentication keyword without dialog_authentication!");
         }
 
-        int  auth_marker_len;
         int  authlen;
 
-        auth_marker_len = (strchr(auth_marker, ']') + 1) - auth_marker;
-
+        const size_t auth_marker_len = out.find(']', auth_marker) + 1 - auth_marker;
         /* Determine the type of credentials. */
         char result[MAX_HEADER_LEN];
         if (dialog_challenge_type == 401) {
@@ -4089,20 +4089,30 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
         if (createAuthHeader(
                 my_auth_user, my_auth_pass, src->getMethod(), uri,
-                auth_body, dialog_authentication, my_aka_OP, my_aka_AMF,
+                body == std::string::npos ? "" : out.c_str() + body + 4, dialog_authentication, my_aka_OP, my_aka_AMF,
                 my_aka_K, next_nonce_count++, result + authlen,
                 MAX_HEADER_LEN - authlen) == 0) {
             ERROR("%s", result + authlen);
         }
         authlen = strlen(result);
 
-        /* Shift the end of the message to its rightful place. */
-        memmove(auth_marker + authlen, auth_marker + auth_marker_len, strlen(auth_marker + auth_marker_len) + 1);
-        /* Copy our result into the hole. */
-        memcpy(auth_marker, result, authlen);
-        if (msgLen) {
-            *msgLen += (authlen -  auth_marker_len);
+        out.replace(auth_marker, auth_marker_len, result, authlen);
+    }
+
+    if (out.size() > max_len) {
+        out.resize(max_len);
+        truncated = true;
+    }
+    if (truncated) {
+        static bool warned = false;
+        if (!warned) {
+            WARNING("Outgoing message truncated to the %zu-byte message buffer (further truncations are not reported)", max_len);
+            warned = true;
         }
+    }
+    memcpy(msg_buffer, out.c_str(), out.size() + 1);
+    if (msgLen) {
+        *msgLen = out.size();
     }
 
     if (auth_comp_allocated) {
@@ -4143,7 +4153,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
     }
 
-    if (body &&
+    if (body != std::string::npos &&
         !strcmp(get_header_content(msg_buffer, (char*)"Content-Type:"), "application/sdp"))
     {
         if (getSessionStateCurrent() == eNoSession)
@@ -6877,6 +6887,12 @@ public:
 
     /* Helpers to poke at protected internals */
     using call::extract_rtp_remote_addr;
+    using call::createSendingMessage;
+    void set_last_recv_msg(const char *msg)
+    {
+        free(last_recv_msg);
+        last_recv_msg = strdup(msg);
+    }
     void parse_media_addr(std::string const& msg) { get_remote_media_addr(msg); }
     void set_retransmission_state(const char *msg, int index, int len, unsigned int retrans_at)
     {
@@ -7096,6 +7112,71 @@ TEST(sdp, extract_rtp_remote_addr_skips_zero_port) {
     EXPECT_EQ(6, ip_ver);
     EXPECT_EQ(6000, audio_port);
     EXPECT_EQ(7000, video_port);
+}
+
+TEST(create_sending_message, default_ack_with_oversized_peer_headers_is_bounded) {
+    /* A peer answers the INVITE with an error response whose Via, From and
+     * To headers are ~20 KB each. The built-in ACK echoes all three and
+     * repeats the To URI in its request line, so the rendered message is
+     * larger than the send buffer. It must be truncated, never written (or
+     * later sent) past the end of that buffer. */
+    ASSERT_STREQ("ack", default_message_names[1]);
+
+    const std::string big(20000, 'a');
+    const std::string received =
+        "SIP/2.0 486 Busy Here\r\n"
+        "Via: SIP/2.0/UDP " + big + ";branch=z9hG4bK-1\r\n"
+        "From: <sip:" + big + "@example.com>;tag=1\r\n"
+        "To: <sip:" + big + "@example.com>;tag=2\r\n"
+        "Call-ID: 1-1@127.0.0.1\r\n"
+        "CSeq: 1 INVITE\r\n"
+        "Content-Length: 0\r\n\r\n";
+    ASSERT_LT(received.size(), (size_t)SIPP_MAX_MSG_SIZE);
+
+    mockcall test_call(false);
+    test_call.set_last_recv_msg(received.c_str());
+
+    SendingMessage ack(main_scenario, default_message_strings[1], true);
+    int len = -1;
+    char *out = test_call.createSendingMessage(&ack, -1, &len);
+
+    ASSERT_NE(nullptr, out);
+    /* The buffer holds SIPP_MAX_MSG_SIZE + 2 bytes: the message, its NUL,
+     * and one byte kept free for the 3PCC delimiter. */
+    EXPECT_EQ(SIPP_MAX_MSG_SIZE, len);
+    EXPECT_EQ((size_t)len, strlen(out));
+    EXPECT_EQ(0, strncmp(out, "ACK sip:aaaa", 12));
+}
+
+TEST(create_sending_message, truncates_to_caller_buffer) {
+    mockcall test_call(false);
+    SendingMessage msg(main_scenario, "OPTIONS sip:someone@example.com SIP/2.0\n", true);
+    char buf[16];
+    int len = -1;
+
+    EXPECT_EQ(buf, test_call.createSendingMessage(&msg, -1, buf, sizeof(buf), &len));
+    EXPECT_EQ(15, len);
+    EXPECT_STREQ("OPTIONS sip:som", buf);
+}
+
+TEST(create_sending_message, content_length_counts_the_body) {
+    mockcall test_call(false);
+    SendingMessage msg(main_scenario, "INVITE sip:a@b SIP/2.0\nContent-Length: [len]\n\nabc\n", true);
+    int len = -1;
+    const char *out = test_call.createSendingMessage(&msg, -1, &len);
+
+    EXPECT_NE(nullptr, strstr(out, "\r\nContent-Length:     5\r\n\r\nabc\r\n"));
+    EXPECT_EQ((size_t)len, strlen(out));
+}
+
+TEST(create_sending_message, zero_content_length_keeps_later_headers) {
+    mockcall test_call(false);
+    SendingMessage msg(main_scenario, "BYE sip:a@b SIP/2.0\nContent-Length: [len]\nX-Foo: bar\n\n", true);
+    int len = -1;
+    const char *out = test_call.createSendingMessage(&msg, -1, &len);
+
+    EXPECT_STREQ("BYE sip:a@b SIP/2.0\r\nContent-Length:     0\r\nX-Foo: bar\r\n\r\n", out);
+    EXPECT_EQ((size_t)len, strlen(out));
 }
 
 TEST(call_run, stops_after_fatal_retransmission_send_error) {
