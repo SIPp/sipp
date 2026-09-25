@@ -1759,6 +1759,7 @@ void scenario::parseAction(CActions *actions)
                     tmpAction->setRTPEchoActInfo(ptr);
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_RTPECHO_STOPVIDEO);
                 }
+                free(ptr);
             } else {
                 ERROR("illegal <exec> in the scenario");
             }
