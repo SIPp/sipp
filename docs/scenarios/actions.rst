@@ -191,9 +191,20 @@ Example that execute a system echo for every INVITE received::
 
     <recv request="INVITE">
       <action>
-        <exec command="echo [last_From] is the from header received >> from_list.log"/>
+        <exec command="echo INVITE received for call [call_number] >> invite_list.log"/>
       </action>
     </recv>
+
+.. warning::
+
+   The command is expanded like a message and then passed to the shell
+   as is. Keywords whose value comes from the remote peer, such as
+   ``[last_*]`` headers, ``[last_message]`` or variables captured with
+   ``<ereg>``, are not quoted: a peer that controls such a value can run
+   arbitrary commands on the host running SIPp. Only put values into a
+   command that you trust, or write them to a file with ``log`` instead.
+   The same applies to the file name given to ``rtp_stream``, which a
+   peer-controlled value could point at any file SIPp can read.
 
 
 

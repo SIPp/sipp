@@ -705,7 +705,7 @@ void CAction::setRTPStreamActInfo(const char *P_value)
     }
 
     // Extract filename
-    strcpy(argument_buf, P_value);
+    snprintf(argument_buf, sizeof(argument_buf), "%s", P_value);
     if ((param_str = strchr(argument_buf, ','))) {
         *param_str++ = '\0';
     }
