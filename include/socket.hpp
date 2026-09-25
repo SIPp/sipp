@@ -100,6 +100,7 @@ public:
     static void pollset_process(int wait);
 
     int ss_count = 1;           /* How many users are there of this socket? */
+    bool ss_own_ref = true;     /* Does ss_count include the socket's own reference? */
     bool ss_ipv6 = false;
     int ss_transport = 0;       /* T_TCP, T_UDP, or T_TLS. */
     bool ss_control = false;    /* Is this a control socket? */

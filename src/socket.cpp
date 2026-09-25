@@ -1953,6 +1953,14 @@ int SIPpSocket::read_error(int ret)
                 if (reset_close) {
                     close_calls();
                 }
+                /* Nothing but its calls can reach this socket now, so drop its
+                 * own reference: it is deleted here if no call uses it, or
+                 * when the last one does. The global sockets keep theirs. */
+                if (ss_own_ref && this != main_socket && this != tcp_multiplex &&
+                        this != main_remote_socket) {
+                    ss_own_ref = false;
+                    close();
+                }
             }
             return 0;
         }
