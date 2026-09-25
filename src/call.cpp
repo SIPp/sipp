@@ -39,6 +39,7 @@
  */
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
@@ -47,13 +48,14 @@
 #include <iostream>
 #include <iterator>
 #include <sstream>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include <assert.h>
 #include <stdarg.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <string>
 
 #ifdef PCAPPLAY
 #include "send_packets.h"
@@ -82,17 +84,18 @@ std::vector<std::string> split(const std::string &s, char delim) {
     return elems;
 }
 
-std::string join(const std::vector<std::string> &s, const char* delim) {
+std::string join(const std::vector<std::string> &s, std::string_view delim) {
     std::ostringstream imploded;
-    std::copy(s.begin(), s.end(), std::ostream_iterator<std::string>(imploded, delim));
-    std::string ret = imploded.str();
-    if (ret.length()) {
-        ret.resize(ret.length() - strlen(delim));
+    for (auto it = s.begin(); it != s.end(); ++it) {
+        if (it != s.begin()) {
+            imploded << delim;
+        }
+        imploded << *it;
     }
-    return ret;
+    return imploded.str();
 }
 
-std::string trim(const std::string &s) {
+std::string_view trim(std::string_view s) {
     size_t first = s.find_first_not_of(' ');
     if (first == std::string::npos) {
         return s;
@@ -328,22 +331,22 @@ unsigned int call::wake()
     return wake;
 }
 
-static std::string find_in_sdp(std::string const &pattern, std::string const &msg)
+static std::string find_in_sdp(std::string_view pattern, std::string_view msg)
 {
-    std::string::size_type begin, end;
+    std::string_view::size_type begin, end;
 
     begin = msg.find(pattern);
-    if (begin == std::string::npos) {
+    if (begin == std::string_view::npos) {
         return "";
     }
 
     begin += pattern.size();
     end = msg.find_first_of(" \r\n", begin);
-    if (end == std::string::npos || begin == end) {
+    if (end == std::string_view::npos || begin == end) {
         return "";
     }
 
-    return msg.substr(begin, end - begin);
+    return std::string(msg.substr(begin, end - begin));
 }
 
 #ifdef PCAPPLAY
@@ -381,33 +384,40 @@ void call::get_remote_media_addr(std::string const &msg)
 /***** Similar to the routines used by the PCAP play code *****/
 
 #define SDP_AUDIOPORT_PREFIX "\nm=audio"
-#define SDP_IMAGEPORT_PREFIX "\nm=image"
 #define SDP_VIDEOPORT_PREFIX "\nm=video"
+
+/* Port of the first media line with the given prefix at or after pos, or 0.
+ * Leaves pos after that port, so that the next call finds the next line. */
+static int sdp_media_port(std::string_view sdp, std::string_view prefix, size_t &pos)
+{
+    pos = sdp.find(prefix, pos);
+    if (pos == std::string_view::npos) {
+        return 0;
+    }
+    pos += prefix.size() + 1; /* skip the prefix and the whitespace after it */
+    const size_t end = sdp.find(' ', pos);
+    int port = 0;
+    if (end != std::string_view::npos) {
+        std::from_chars(sdp.data() + pos, sdp.data() + end, port);
+    }
+    pos = end;
+    return port;
+}
+
 std::string call::extract_rtp_remote_addr(const char* msg, int &ip_ver, int &audio_port, int &video_port)
 {
-    const char* search;
-    int image_port = 0;
-    std::size_t pos1 = 0;
-    std::size_t pos2 = 0;
-    std::string msgstr;
-    std::string sub;
-    std::string host;
-
-    if (msg) {
-        msgstr = msg;
-    }
-
     /* Look for start of message body */
-    search = strstr(msg, "\r\n\r\n");
+    const char *search = strstr(msg, "\r\n\r\n");
     if (!search) {
         ERROR("extract_rtp_remote_addr: SDP message body not found");
     }
-    msg = search + 2; /* skip past header. point to blank line before body */
+    /* Point to the blank line before the body, so every SDP line starts with '\n'. */
+    const std::string_view sdp(search + 2);
 
     /* Now search for IP address field */
-    host = find_in_sdp("c=IN IP4 ", msg);
+    std::string host = find_in_sdp("c=IN IP4 ", sdp);
     if (host.empty()) {
-        host = find_in_sdp("c=IN IP6 ", msg);
+        host = find_in_sdp("c=IN IP6 ", sdp);
         if (host.empty()) {
             ERROR("extract_rtp_remote_addr: invalid IP version in SDP message body");
         }
@@ -416,80 +426,17 @@ std::string call::extract_rtp_remote_addr(const char* msg, int &ip_ver, int &aud
         ip_ver = 4;
     }
 
-    /* Find the port number for the image stream */
-    pos1 = msgstr.find(SDP_IMAGEPORT_PREFIX, 0, 8);
-    if (pos1 != std::string::npos)
-    {
-        pos1 += 8; /* skip SDP_IMAGEPORT_PREFIX */
-        pos1 += 1; /* skip first whitespace */
-        pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
-        if (pos2 != std::string::npos)
-        {
-            sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
-            sscanf(sub.c_str(), "%d", &image_port); /* parse port substring as integer */
-        }
+    /* If the first m-line of a kind has port ZERO, use the second one. */
+    size_t pos = 0;
+    audio_port = sdp_media_port(sdp, SDP_AUDIOPORT_PREFIX, pos);
+    if (audio_port == 0) {
+        audio_port = sdp_media_port(sdp, SDP_AUDIOPORT_PREFIX, pos);
     }
 
-    /* Now try to find the port number for the audio stream */
-    pos1 = msgstr.find(SDP_AUDIOPORT_PREFIX, 0, 8);
-    if (pos1 != std::string::npos)
-    {
-        pos1 += 8; /* skip SDP_AUDIOPORT_PREFIX */
-        pos1 += 1; /* skip first whitespace */
-        pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
-        if (pos2 != std::string::npos)
-        {
-            sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
-            sscanf(sub.c_str(), "%d", &audio_port); /* parse port substring as integer */
-        }
-    }
-
-    /* first audio m-line had port of ZERO -- look for second audio m-line */
-    if (audio_port == 0)
-    {
-        pos1 = msgstr.find(SDP_AUDIOPORT_PREFIX, pos2, 8);
-        if (pos1 != std::string::npos)
-        {
-            pos1 += 8; /* skip SDP_AUDIOPORT_PREFIX  */
-            pos1 += 1; /* skip first whitespace */
-            pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
-            if (pos2 != std::string::npos)
-            {
-                sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
-                sscanf(sub.c_str(), "%d", &audio_port);
-            }
-        }
-    }
-
-    /* And find the port number for the video stream */
-    pos1 = msgstr.find(SDP_VIDEOPORT_PREFIX, 0, 8);
-    if (pos1 != std::string::npos)
-    {
-        pos1 += 8; /* skip SDP_VIDEOPORT_PREFIX */
-        pos1 += 1; /* skip first whitespace */
-        pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
-        if (pos2 != std::string::npos)
-        {
-            sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
-           sscanf(sub.c_str(), "%d", &video_port); /* parse port substring as integer */
-        }
-    }
-
-    /* first video m-line had port of ZERO -- look for second video m-line */
-    if (video_port == 0)
-    {
-        pos1 = msgstr.find(SDP_VIDEOPORT_PREFIX, pos2, 8);
-        if (pos1 != std::string::npos)
-        {
-            pos1 += 8; /* skip SDP_VIDEOPORT_PREFIX  */
-            pos1 += 1; /* skip first whitespace */
-            pos2 = msgstr.find(" ", pos1); /* find second whitespace AFTER port */
-            if (pos2 != std::string::npos)
-            {
-                sub = msgstr.substr(pos1, pos2-pos1); /* extract port substring */
-                sscanf(sub.c_str(), "%d", &video_port);
-            }
-        }
+    pos = 0;
+    video_port = sdp_media_port(sdp, SDP_VIDEOPORT_PREFIX, pos);
+    if (video_port == 0) {
+        video_port = sdp_media_port(sdp, SDP_VIDEOPORT_PREFIX, pos);
     }
 
     return host;
@@ -1681,46 +1628,22 @@ char * call::get_last_header(const char * name)
 }
 
 /* Return the last request URI from the To header. On any error returns the
- * empty string.  The caller must free the result. */
-char * call::get_last_request_uri()
+ * empty string. */
+std::string call::get_last_request_uri()
 {
-    char * tmp;
-    char * tmp2;
-    char * last_request_uri;
-    int tmp_len;
-
     char * last_To = get_last_header("To:");
     if (!last_To) {
-        return strdup("");
+        return "";
     }
 
-    tmp = strchr(last_To, '<');
-    if (!tmp) {
-        return strdup("");
-    }
-    tmp++;
-
-    tmp2 = strchr(last_To, '>');
-    if (!tmp2) {
-        return strdup("");
+    const std::string_view to(last_To);
+    const size_t begin = to.find('<');
+    const size_t end = to.find('>', begin);
+    if (begin == std::string_view::npos || end == std::string_view::npos) {
+        return "";
     }
 
-    tmp_len = strlen(tmp) - strlen(tmp2);
-    if (tmp_len < 0) {
-        return strdup("");
-    }
-
-    if (!(last_request_uri = (char *)malloc(tmp_len + 1))) {
-        ERROR("Cannot allocate!");
-    }
-
-    last_request_uri[0] = '\0';
-    if (tmp_len > 0) {
-        memcpy(last_request_uri, tmp, tmp_len);
-    }
-    last_request_uri[tmp_len] = '\0';
-
-    return last_request_uri;
+    return std::string(to.substr(begin + 1, end - begin - 1));
 }
 
 char * call::send_scene(int index, int *send_status, int *len)
@@ -3904,9 +3827,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if (next_req_url && *next_req_url) {
                 dest += sprintf(dest, "%s", next_req_url);
             } else {
-                char * last_request_uri = get_last_request_uri();
-                dest += sprintf(dest, "%s", last_request_uri);
-                free(last_request_uri);
+                dest += sprintf(dest, "%s", get_last_request_uri().c_str());
             }
             break;
         case E_Message_Len:
@@ -4065,9 +3986,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             break;
         case E_Message_Last_Request_URI: {
-            char * last_request_uri = get_last_request_uri();
-            dest += sprintf(dest, "%s", last_request_uri);
-            free(last_request_uri);
+            dest += sprintf(dest, "%s", get_last_request_uri().c_str());
             break;
         }
         case E_Message_Last_CSeq_Number: {
@@ -4516,14 +4435,14 @@ void call::computeRouteSetAndRemoteTargetUri(const char* rr, const char* contact
             targetUri = header;
         } else {
             first = false;
-            routes.push_back(trim(header));
+            routes.emplace_back(trim(header));
         }
     }
 
     /* If target URI is set, the first hop is a strict router.  Add the
      * Contact as tailing route. */
     if (targetUri.length()) {
-        routes.push_back(trim(contact));
+        routes.emplace_back(trim(contact));
     } else {
         targetUri = contact;
     }
@@ -6957,6 +6876,7 @@ public:
     mockcall(bool is_ipv6, struct sockaddr_storage *dest) : listener("//testing", true), call(main_scenario, "///testing", is_ipv6, 0, dest) {}
 
     /* Helpers to poke at protected internals */
+    using call::extract_rtp_remote_addr;
     void parse_media_addr(std::string const& msg) { get_remote_media_addr(msg); }
     void set_retransmission_state(const char *msg, int index, int len, unsigned int retrans_at)
     {
@@ -7159,6 +7079,23 @@ TEST(sdp, parse_invalid_sdp_msg) {
     ASSERT_EQ(find_in_sdp("c=IN IP6 ", test_sdp_v4), "");
     ASSERT_EQ(find_in_sdp("m=video ", test_sdp_v6), "");
     ASSERT_EQ(find_in_sdp("m=video ", test_sdp_v4), "");
+}
+
+TEST(sdp, extract_rtp_remote_addr_skips_zero_port) {
+    const std::string msg = "INVITE sip:a@b SIP/2.0\r\n"
+                            "Content-Type: application/sdp\r\n\r\n"
+                            "v=0\r\n"
+                            "c=IN IP6 ::1\r\n"
+                            "m=audio 0 RTP/AVP 0\r\n"
+                            "m=video 7000/2 RTP/AVP 31\r\n"
+                            "m=audio 6000 RTP/AVP 0\r\n";
+    mockcall test_call(false);
+    int ip_ver = 0, audio_port = 0, video_port = 0;
+
+    EXPECT_EQ("::1", test_call.extract_rtp_remote_addr(msg.c_str(), ip_ver, audio_port, video_port));
+    EXPECT_EQ(6, ip_ver);
+    EXPECT_EQ(6000, audio_port);
+    EXPECT_EQ(7000, video_port);
 }
 
 TEST(call_run, stops_after_fatal_retransmission_send_error) {
