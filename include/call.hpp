@@ -295,7 +295,7 @@ protected:
     static void readInputFileContents(const char* fileName);
     static void dumpFileContents(void);
 
-    void getFieldFromInputFile(const char* fileName, int field, SendingMessage *line, char*& dest);
+    int getFieldFromInputFile(const char* fileName, int field, SendingMessage *line, char* dest, int len);
 
     /* Associate a user with this call. */
     void setUser(int userId);
@@ -317,7 +317,7 @@ protected:
 
     char * get_header_field_code(const char * msg, const char * code);
     char * get_last_header(const char * name);
-    char * get_last_request_uri();
+    std::string get_last_request_uri();
     unsigned long hash(const char * msg);
 
     typedef std::map <std::string, int> file_line_map;
