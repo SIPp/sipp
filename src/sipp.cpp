@@ -871,6 +871,14 @@ void timeout_alarm(int /*param*/)
 
 /* Send loop & traffic generation*/
 
+/* Only the main thread may tear down: traffic_thread() keeps using what
+ * releaseGlobalAllocations() frees. A fatal error in any other thread
+ * (pcap playback, rtpstream) hands its exit code to the main thread and
+ * stops the thread that hit it. */
+static pthread_t main_thread;
+static std::atomic<bool> exit_requested{false};
+static int exit_request_rc;
+
 static void traffic_thread(int &rtp_errors, int &echo_errors)
 {
     /* create the file */
@@ -891,6 +899,9 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
     screentask::report(false);
 
     while (1) {
+        if (exit_requested) {
+            sipp_exit(exit_request_rc, 0, 0);
+        }
         scheduling_loops++;
         update_clock_tick();
 
@@ -1515,6 +1526,12 @@ void sipp_exit(int rc, int rtp_errors, int echo_errors)
     unsigned long counter_value_failed = 0;
     unsigned long counter_value_success = 0;
 
+    if (!pthread_equal(pthread_self(), main_thread)) {
+        exit_request_rc = rc;
+        exit_requested = true;
+        pthread_exit(nullptr);
+    }
+
     /* Some signals may be delivered twice during exit() execution,
        and we must prevent all this from being done twice */
 
@@ -1763,6 +1780,7 @@ void randomseed(void)
 /* Main */
 int main(int argc, char *argv[])
 {
+    main_thread = pthread_self();
     int                  argi = 0;
     pthread_t pthread2_id = 0, pthread3_id = 0;
     bool                 slave_masterSet = false;
