@@ -316,6 +316,7 @@ static int createAuthResponseMD5(
     EVP_DigestUpdate(mdctx, (unsigned char *) &ha2_hex, HASH_HEX_SIZE);
     EVP_DigestFinal_ex(mdctx, resp, &digest_len);
     hashToHex(&resp[0], result, MD5_HASH_SIZE);
+    EVP_MD_CTX_free(mdctx);
 
     return 1;
 }
