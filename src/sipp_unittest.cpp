@@ -29,7 +29,9 @@ int main(int argc, char* argv[])
     main_scenario = new scenario(0, 0);
 
     ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    int rc = RUN_ALL_TESTS();
+    delete main_scenario;
+    return rc;
 }
 
 /* Quickfix to fix unittests that depend on sipp_exit availability,

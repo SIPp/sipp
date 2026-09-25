@@ -7165,7 +7165,9 @@ TEST(call_run, stops_after_fatal_retransmission_send_error) {
 #ifdef HAVE_EPOLL
     epoll_test_guard epoll_guard;
 #endif
-    main_scenario->messages.clear();
+    /* Run with a one-message scenario; put the real messages back after. */
+    msgvec saved_messages;
+    saved_messages.swap(main_scenario->messages);
     auto *msg = new message(0, "retransmission");
     main_scenario->messages.push_back(msg);
 
@@ -7195,7 +7197,7 @@ TEST(call_run, stops_after_fatal_retransmission_send_error) {
     EXPECT_FALSE(test_call->run());
     EXPECT_EQ(0UL, msg->nb_sent_retrans);
 
-    main_scenario->messages.clear();
+    main_scenario->messages.swap(saved_messages);
     delete msg;
 }
 
