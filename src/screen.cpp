@@ -877,8 +877,10 @@ void ScreenPrinter::draw_vars_screen()
     }
 
     lines.push_back("");
+    /* Past messages + 6 lines, the unsigned difference would wrap and
+     * push lines until memory runs out. */
     for (unsigned int i = 0;
-         i < (display_scenario->messages.size() + 6 - lines.size()); i++) {
+         lines.size() + i < display_scenario->messages.size() + 6; i++) {
       lines.push_back("");
     }
 }
@@ -912,9 +914,8 @@ void ScreenPrinter::draw_tdm_screen()
     snprintf(buf, bufsiz, "%d/%d circuits (%d%%) in use", in_use, total_circuits,
            int(100 * in_use / total_circuits));
     lines.push_back(buf);
-    for (unsigned int i = 0;
-         i < (display_scenario->messages.size() + 8 - height);
-         i++) {
+    for (size_t row = height; row < display_scenario->messages.size() + 8;
+         row++) {
         lines.push_back("");
     }
 }

@@ -1,0 +1,46 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The variables screen of a short scenario with many actions, and the
+# TDM map screen of a short scenario with many circuits, show them all,
+# rather than padding the screen until memory runs out.
+. "`dirname "$0"`/../functions"; init
+
+# Fail fast rather than exhaust the machine. AddressSanitizer reserves
+# more address space than any limit that would help.
+if ! ldd "`get_sipp`" 2>/dev/null | grep -q asan; then
+    ulimit -v 1000000
+fi
+
+# show KEY [OPTION...]: run with KEY pressed, so that the closing
+# screens start with that screen.
+show() {
+    key=$1; shift
+    out=`mktemp`
+    timeout -sKILL 20 "`get_sipp`" -nostdin -sf uac.xml -i 127.0.0.1 \
+        -p 5070 -cp 8890 127.0.0.1:5099 -m 1 "$@" >"$out" 2>&1 &
+    sipp=$!
+    sleep 1
+    perl -e 'use IO::Socket::INET;
+        IO::Socket::INET->new(PeerAddr => "127.0.0.1:8890", Proto => "udp")->send($ARGV[0])' $key
+    wait $sipp
+    status=$?
+    screen=`cat "$out"`
+    rm -f "$out"
+}
+
+# 4: the variables screen.
+show 4
+if test $status -ne 0; then
+    fail "variables screen: sipp exited with $status"
+elif ! echo "$screen" | grep -q 'action\[7\] = .* assign varId\[v7\]'; then
+    fail "no eighth action"
+fi
+
+# 5: the TDM map screen, of 16 rows of 31 circuits.
+show 5 -tdmmap '{0-3}{99}{5-8}{1-31}'
+if test $status -ne 0; then
+    fail "TDM map screen: sipp exited with $status"
+elif ! echo "$screen" | grep -q '^[0-9]*/496 circuits ([0-9]*%) in use'; then
+    fail "no circuit count"
+fi
+ok

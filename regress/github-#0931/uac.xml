@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- Eight actions on a three message scenario: more lines on the
+     variables screen than the messages and six it pads to. -->
+<scenario name="many actions">
+  <send>
+    <![CDATA[
+      OPTIONS sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 OPTIONS
+      X-V: [$v0][$v0][$v1][$v1][$v2][$v2][$v3][$v3][$v4][$v4][$v5][$v5][$v6][$v6][$v7][$v7]
+      Content-Length: 0
+    ]]>
+  </send>
+  <nop>
+    <action>
+      <assign assign_to="v0" value="0"/>
+      <assign assign_to="v1" value="1"/>
+      <assign assign_to="v2" value="2"/>
+      <assign assign_to="v3" value="3"/>
+      <assign assign_to="v4" value="4"/>
+      <assign assign_to="v5" value="5"/>
+      <assign assign_to="v6" value="6"/>
+      <assign assign_to="v7" value="7"/>
+    </action>
+  </nop>
+  <pause milliseconds="2000"/>
+</scenario>
