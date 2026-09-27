@@ -54,7 +54,13 @@ search_in         msg     can have four values: "msg" (try to match against the 
                           SIPp string variable).
 header            None    Header to try to match against.
                           Only used when the search_in tag is set to hdr. MANDATORY IF search_in
-                          is equal to hdr.
+                          is equal to hdr. The regexp is matched against the rest of the line
+                          after the text: header="To:" gives " <sip:...>", header="To"
+                          gives ": <sip:...>". A header name, with or without its
+                          colon, is looked for at the start of a line, and without the colon
+                          only matches that header ("To" matches neither "Topic:" nor
+                          "X-Forward-To:"). Any other text (header="tag=") is looked for
+                          anywhere in the message.
 variable          None    Variable to try to match against. Only
                           used when the search_in tag is set to var. MANDATORY IF search_in is
                           equal to var.
@@ -63,7 +69,8 @@ case_indep        false   To look for a header ignoring case .
 occurrence         1      To find the nth occurrence of a header. Only used when the search_in tag is set
                           to hdr.
 start_line        false   To look only at start of line. Only used when
-                          the search_in tag is set to hdr.
+                          the search_in tag is set to hdr. Kept for older scenarios: a header
+                          name is always looked for at the start of a line.
 check_it          false   if set to true, the
                           call is marked as failed if the regexp doesn't match. Can not be
                           combined with check_it_inverse.

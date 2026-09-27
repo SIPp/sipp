@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="Match the To header, not X-Forward-To or Topic, and text mid-line">
+
+  <recv request="OPTIONS">
+    <action>
+      <ereg regexp="^: &lt;sip:uas@" search_in="hdr" header="To"
+            check_it="true" assign_to="_"/>
+      <ereg regexp="^ &lt;sip:uas@" search_in="hdr" header="To:"
+            check_it="true" assign_to="_"/>
+      <ereg regexp="^ &lt;sip:uas@" search_in="hdr" header="to:"
+            case_indep="true" check_it="true" assign_to="_"/>
+      <ereg regexp="^ &lt;sip:other@" search_in="hdr" header="X-Forward-To:"
+            check_it="true" assign_to="_"/>
+      <ereg regexp="^ne$" search_in="hdr" header="Topic: no"
+            check_it="true" assign_to="_"/>
+      <!-- Text that isn't a header name is still found mid-line. -->
+      <ereg regexp="^[0-9]+$" search_in="hdr" header="tag="
+            check_it="true" assign_to="_"/>
+      <ereg regexp="^z9hG4bK-" search_in="hdr" header="branch="
+            check_it="true" assign_to="_"/>
+      <ereg regexp="^z9hG4bK-" search_in="hdr" header="BRANCH="
+            case_indep="true" check_it="true" assign_to="_"/>
+      <ereg regexp="." search_in="hdr" header="tag=" start_line="true"
+            check_it_inverse="true" assign_to="_"/>
+    </action>
+  </recv>
+  <Reference variables="_"/>
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+</scenario>

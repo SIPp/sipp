@@ -6598,16 +6598,26 @@ void call::extractSubMessage(const char* msg, char* matchingString, char* result
     int len = strlen(matchingString);
     char mat1 = tolower(*matchingString);
     char mat2 = toupper(*matchingString);
+    /* A header name (an RFC 3261 token, with or without its colon)
+     * starts a line and ends at the colon: "To" is neither "Topic:" nor
+     * "X-Forward-To:". Any other text ("tag=") is looked for anywhere,
+     * or at the start of a line with start_line. */
+    int toklen = 0;
+    while (matchingString[toklen] &&
+           (isalnum((unsigned char)matchingString[toklen]) || strchr("-.!%*_+`'~", matchingString[toklen]))) {
+        toklen++;
+    }
+    bool name = toklen > 0 && (!matchingString[toklen] || !strcmp(matchingString + toklen, ":"));
+    bool need_colon = name && !matchingString[toklen];
+    if (name) {
+        headers = true;
+    }
 
     ptr = msg;
     while (*ptr) {
         if (!case_indep) {
             ptr = strstr(ptr, matchingString);
             if (ptr == nullptr) break;
-            if (headers == true && ptr != msg && *(ptr-1) != '\n') {
-                ++ptr;
-                continue;
-            }
         } else {
             if (headers) {
                 if (ptr != msg) {
@@ -6627,6 +6637,20 @@ void call::extractSubMessage(const char* msg, char* matchingString, char* result
                 }
             }
             if (strncasecmp(ptr, matchingString, len) != 0) {
+                ++ptr;
+                continue;
+            }
+        }
+        if (headers && ptr != msg && *(ptr - 1) != '\n') {
+            ++ptr;
+            continue;
+        }
+        if (need_colon) {
+            ptr1 = ptr + len;
+            while (*ptr1 == ' ' || *ptr1 == '\t') {
+                ptr1++;
+            }
+            if (*ptr1 != ':') {
                 ++ptr;
                 continue;
             }
