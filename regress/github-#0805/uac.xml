@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="OPTIONS with headers that contain the name To">
+
+  <send retrans="500">
+    <![CDATA[
+
+      OPTIONS sip:uas@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:uac@[local_ip]:[local_port]>;tag=[call_number]
+      X-Forward-To: <sip:other@example.com>
+      Topic: none
+      To: <sip:uas@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 OPTIONS
+      Max-Forwards: 70
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv response="200"/>
+
+</scenario>
