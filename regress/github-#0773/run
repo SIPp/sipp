@@ -1,0 +1,39 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A -tls_cert file holding the end-entity certificate followed by its
+# intermediate CA sends the whole chain, so a peer whose -tls_ca holds
+# only the root can verify it.
+. "`dirname "$0"`/../functions"; init
+
+command -v openssl >/dev/null || skip "no openssl"
+
+certs=`mktemp -d`
+trap 'rm -rf "$certs"' EXIT
+(
+    cd "$certs"
+    ec='-newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes'
+    openssl req -x509 $ec -keyout root.key -out root.pem -days 1 \
+        -subj /CN=root &&
+    openssl req $ec -keyout int.key -out int.csr -subj /CN=intermediate &&
+    printf 'basicConstraints=critical,CA:TRUE\nkeyUsage=keyCertSign\n' \
+        >int.ext &&
+    openssl x509 -req -in int.csr -CA root.pem -CAkey root.key \
+        -extfile int.ext -out int.pem -days 1 &&
+    openssl req $ec -keyout leaf.key -out leaf.csr -subj /CN=leaf &&
+    openssl x509 -req -in leaf.csr -CA int.pem -CAkey int.key \
+        -out leaf.pem -days 1 &&
+    cat leaf.pem int.pem >chain.pem
+) >/dev/null 2>&1 || fail "cannot create the certificates"
+
+tls="-tls_cert $certs/chain.pem -tls_key $certs/leaf.key"
+sippbg -sn uas -t l1 -i 127.0.0.1 -p 25400 -m 1 $tls
+sippfg -sn uac -t l1 -i 127.0.0.1 -p 25401 -m 1 $tls \
+    -tls_ca "$certs/root.pem" 127.0.0.1:25400 \
+    -timeout 5 -timeout_error >/dev/null 2>&1
+status=$?
+
+if test $status -eq 0; then
+    ok
+else
+    fail "UAC failed with $status"
+fi

@@ -309,21 +309,22 @@ enum tls_init_status TLS_init_context(void)
     SSL_CTX_set_default_passwd_cb(sip_trp_ssl_ctx_client,
                                   passwd_call_back_routine);
 
-    if (SSL_CTX_use_certificate_file(sip_trp_ssl_ctx,
-                                     tls_cert_name,
-                                     SSL_FILETYPE_PEM) != 1) {
+    /* The certificate file may hold intermediate CA certificates after
+     * the end-entity one: send them too, or a peer that trusts only the
+     * root can't verify us. */
+    if (SSL_CTX_use_certificate_chain_file(sip_trp_ssl_ctx,
+                                           tls_cert_name) != 1) {
         char errbuf[256] = {'\0'};
         ERR_error_string_n(ERR_get_error(), errbuf, sizeof(errbuf));
-        ERROR("TLS_init_context: SSL_CTX_use_certificate_file failed: %s", errbuf);
+        ERROR("TLS_init_context: SSL_CTX_use_certificate_chain_file failed: %s", errbuf);
         return TLS_INIT_ERROR;
     }
 
-    if (SSL_CTX_use_certificate_file(sip_trp_ssl_ctx_client,
-                                     tls_cert_name,
-                                     SSL_FILETYPE_PEM) != 1) {
+    if (SSL_CTX_use_certificate_chain_file(sip_trp_ssl_ctx_client,
+                                           tls_cert_name) != 1) {
         char errbuf[256] = {'\0'};
         ERR_error_string_n(ERR_get_error(), errbuf, sizeof(errbuf));
-        ERROR("TLS_init_context: SSL_CTX_use_certificate_file (client) failed: %s", errbuf);
+        ERROR("TLS_init_context: SSL_CTX_use_certificate_chain_file (client) failed: %s", errbuf);
         return TLS_INIT_ERROR;
     }
     if (SSL_CTX_use_PrivateKey_file(sip_trp_ssl_ctx,
