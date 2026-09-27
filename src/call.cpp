@@ -1264,8 +1264,10 @@ call::~call()
         free(dialog_authentication);
     }
 
-    if (use_tdmmap) {
-        tdm_map[tdm_map_number] = false;
+    /* tdm_map_number counts from 1, and is 0 for a call that got no
+     * circuit. */
+    if (use_tdmmap && tdm_map_number) {
+        tdm_map[tdm_map_number - 1] = false;
     }
 
 # ifdef PCAPPLAY
