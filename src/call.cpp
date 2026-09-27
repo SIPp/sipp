@@ -2035,7 +2035,7 @@ bool call::executeMessage(message *curmsg)
             transactions[curmsg->ack_txn - 1].ackIndex = curmsg->index;
         }
 
-        if(last_recv_index >= 0) {
+        if(last_recv_index >= 0 && last_recv_hash) {
             /* We are sending just after msg reception. There is a great
              * chance that we will be asked to retransmit this message */
             recv_retrans_hash       = last_recv_hash;
@@ -2048,6 +2048,12 @@ bool call::executeMessage(message *curmsg)
             /* Prevent from detecting the cause relation between send and recv
              * in the next valid send */
             last_recv_hash = 0;
+        } else if (last_recv_index >= 0 && recv_retrans_recv_index == last_recv_index &&
+                   call_scenario->messages[last_recv_index]->recv_request &&
+                   curmsg->send_scheme->isResponse()) {
+            /* A later response to the same request (a 200 after a 180): a
+             * retransmission of the request gets the most recent one. */
+            recv_retrans_send_index = curmsg->index;
         }
 
         /* Update retransmission information */

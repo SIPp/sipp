@@ -1,0 +1,18 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An INVITE retransmission that arrives after the UAS sent both its 180
+# and its 200 must get the 200 again, not abort the call as unexpected.
+. "`dirname "$0"`/../functions"; init
+
+sippbg -sn uas -i 127.0.0.1 -p 5070 -m 1
+# -nr: the UAC takes the repeated 200 from its scenario, not as a
+# retransmission of the first one.
+sippfg -sf uac.xml -nr -i 127.0.0.1 -p 5071 -m 1 127.0.0.1:5070 \
+    -timeout 6 -timeout_error >/dev/null 2>&1
+status=$?
+
+if test $status -eq 0; then
+    ok
+else
+    fail "UAC failed with $status on the retransmitted INVITE"
+fi
