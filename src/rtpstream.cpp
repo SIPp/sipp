@@ -1857,12 +1857,11 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
         /* try to bind it to our preferred address */
         sockaddr_update_port(&address, port_number + 1);
         if (::bind(*rtcpsocket, (sockaddr *) (void *)&address,
-                   socklen_from_addr(&address)) == 0) {
+                   socklen_from_addr(&address)) != 0) {
             /* could not bind the rtcp socket to required port. so we delete it */
             close(*rtcpsocket);
             *rtcpsocket = -1;
-        }
-        if (!rtpstream_setsocketoptions(*rtcpsocket)) {
+        } else if (!rtpstream_setsocketoptions(*rtcpsocket)) {
             close(*rtcpsocket);
             *rtcpsocket = -1;
         }
