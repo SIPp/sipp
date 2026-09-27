@@ -1,0 +1,18 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A fatal error before the scenario has loaded exits with the fatal
+# error code (255), not the failed calls one (1).
+. "`dirname "$0"`/../functions"; init
+
+sippfg -sf no-such-scenario.xml 127.0.0.1:5070 >/dev/null 2>&1
+missing=$?
+sippfg -no_such_option >/dev/null 2>&1
+option=$?
+
+if test $missing -ne 255; then
+    fail "a missing scenario exited with $missing"
+elif test $option -ne 255; then
+    fail "an unknown option exited with $option"
+else
+    ok
+fi

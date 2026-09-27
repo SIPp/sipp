@@ -1568,7 +1568,9 @@ void sipp_exit(int rc, int rtp_errors, int echo_errors)
     if (display_scenario) {
         counter_value_failed = display_scenario->stats->GetStat(CStat::CPT_C_FailedCall);
         counter_value_success = display_scenario->stats->GetStat(CStat::CPT_C_SuccessfulCall);
-    } else {
+    } else if (rc == EXIT_TEST_RES_UNKNOWN) {
+        /* No scenario, so no calls to judge a normal exit by. A fatal
+         * error keeps its own code. */
         rc = EXIT_TEST_FAILED;
     }
 
