@@ -1,0 +1,56 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A play_dtmf without keywords is checked when the scenario loads: an
+# invalid one fails the load. Built from keywords, an invalid tone
+# length or payload type is a warning, and the defaults are played.
+. "`dirname "$0"`/../functions"
+
+# Sending pcap plays needs a raw socket: run as root in a user and
+# network namespace of our own.
+if test -z "$SIPP_NETNS"; then
+    if unshare -rn true 2>/dev/null; then
+        SIPP_NETNS=1 exec unshare -rn "$0"
+    fi
+    init
+    skip "no user network namespaces"
+fi
+init
+ip link set lo up 2>/dev/null || skip "cannot bring up lo"
+
+sed -e 's/1,\[tone\],\[ptype\]/1,100,128/' uac.xml >literal.xml
+out=`sippfg -sf literal.xml -i 127.0.0.1 -p 25741 -m 1 \
+    127.0.0.1:25740 -timeout 2 2>&1`
+status=$?
+rm -f literal.xml
+test $status -eq 255 || fail "a literal invalid play_dtmf exited with $status"
+echo "$out" | grep -q 'Invalid play_dtmf "1,100,128": the payload type' ||
+    fail "no load error in: $out"
+
+rm -f rtp.pt errors.log
+perl -e '
+    use Socket;$|=1;(socket(S,PF_INET,SOCK_DGRAM,17)&&
+    bind(S,pack_sockaddr_in(26770,inet_aton("127.0.0.1")))&&
+    setsockopt(S,SOL_SOCKET,SO_RCVTIMEO,pack("L!L!",5,0))&&
+    recv(S,$o,2048,0))||die($!);
+    # the first 20 packets are no-ops, the 21st the first event
+    for(2..21){recv(S,$o,2048,0)||die($!)}
+    print ord(substr($o,1,1))&127,"\n";' >rtp.pt &
+sippbg -sf uas.xml -i 127.0.0.1 -p 25740 -m 1
+sippfg -sf uac.xml -i 127.0.0.1 -p 25741 -m 1 -mp 26760 \
+    -key tone 10 -key ptype 128 -trace_err -error_file errors.log \
+    127.0.0.1:25740 -timeout 8 -timeout_error >/dev/null 2>&1
+status=$?
+wait
+pt=`cat rtp.pt`
+log=`cat errors.log 2>/dev/null`
+rm -f rtp.pt errors.log
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "$pt" != 96; then
+    fail "RTP sent with payload type ${pt:-none}, not 96"
+elif ! echo "$log" | grep -q 'Invalid play_dtmf "1,10,128": the tone length'; then
+    fail "no warning in the error log: $log"
+else
+    ok
+fi

@@ -294,12 +294,19 @@ play_dtmf="[digits],[tone_length],[payload_type]" with:
 
 
 + digits: the digits to send, from 0-9, \*, #, and A-D. Other
-  characters are skipped. Keywords such as ``[field0]`` are expanded.
+  characters are skipped, but there must be at least one digit.
 + tone_length: optional, how long each digit lasts, in milliseconds,
   followed by as long a pause (50 to 2000, the default is 200).
 + payload_type: optional, the RTP payload type of the events, which
   should match the telephone-event payload in the SDP (0 to 127, the
-  default is 96). Any other value is a fatal error.
+  default is 96).
+
+Keywords such as ``[field0]`` are expanded when the action runs. A
+value without keywords is checked when the scenario loads, and an
+invalid one is a fatal error. Built from keywords, it is checked when
+it is played, with a warning (see ``-trace_err``) rather than an
+error: an invalid tone_length or payload_type is replaced by its
+default, and without a digit nothing is sent.
 
 Example that sends the digits 1, 2 and 3 with the payload type 101::
 

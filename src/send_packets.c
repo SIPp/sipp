@@ -114,8 +114,16 @@ void free_pcaps(pcap_pkts* pkts)
 
 int parse_dtmf_play_args(const char* buffer, pcap_pkts* pkts, uint16_t start_seq_no)
 {
+    unsigned long tone_len;
+    uint8_t payload_type;
+    const char* error;
+
     pkts->file = strdup(buffer);
-    return prepare_dtmf(pkts->file, pkts, start_seq_no);
+    error = parse_dtmf(pkts->file, &tone_len, &payload_type);
+    if (error) {
+        WARNING("Invalid play_dtmf \"%s\": %s", buffer, error);
+    }
+    return prepare_dtmf(pkts->file, tone_len, payload_type, pkts, start_seq_no);
 }
 
 /* Safe threaded version */

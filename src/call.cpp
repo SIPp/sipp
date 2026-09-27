@@ -7458,12 +7458,67 @@ TEST(play_dtmf, payload_type) {
     EXPECT_EQ(97, dtmf_payload_type("1,100,101", 0));
     EXPECT_EQ(96, dtmf_payload_type("1,100,97", 0));
     EXPECT_EQ(96, dtmf_payload_type("1,100,", 20));
-    EXPECT_EXIT(dtmf_payload_type("1,100,foo", 20), ::testing::ExitedWithCode(255),
-                "payload type");
-    EXPECT_EXIT(dtmf_payload_type("1,100,101x", 20), ::testing::ExitedWithCode(255),
-                "payload type");
-    EXPECT_EXIT(dtmf_payload_type("1,100,128", 20), ::testing::ExitedWithCode(255),
-                "payload type");
+    /* an invalid one falls back to the default */
+    EXPECT_EQ(96, dtmf_payload_type("1,100,foo", 20));
+    EXPECT_EQ(96, dtmf_payload_type("1,100,128", 20));
+}
+
+/* What parse_dtmf says of args, NULL if it is valid, with the values
+ * it parsed. */
+static const char* dtmf_error(const char* args, unsigned long* tone_len = nullptr,
+                              uint8_t* payload_type = nullptr)
+{
+    char* copy = strdup(args);
+    unsigned long len;
+    uint8_t pt;
+    const char* error = parse_dtmf(copy, &len, &pt);
+    if (tone_len) {
+        *tone_len = len;
+    }
+    if (payload_type) {
+        *payload_type = pt;
+    }
+    free(copy);
+    return error;
+}
+
+TEST(play_dtmf, parse) {
+    unsigned long len;
+    uint8_t pt;
+
+    EXPECT_EQ(nullptr, dtmf_error("1", &len, &pt));
+    EXPECT_EQ(200u, len);
+    EXPECT_EQ(96, pt);
+    EXPECT_EQ(nullptr, dtmf_error("x1,,", &len, &pt));
+    EXPECT_EQ(200u, len);
+    EXPECT_EQ(96, pt);
+    EXPECT_EQ(nullptr, dtmf_error("*#ABCD,50,0", &len, &pt));
+    EXPECT_EQ(50u, len);
+    EXPECT_EQ(0, pt);
+    EXPECT_EQ(nullptr, dtmf_error("1,2000,127", &len, &pt));
+    EXPECT_EQ(2000u, len);
+    EXPECT_EQ(127, pt);
+
+    EXPECT_NE(nullptr, dtmf_error(""));
+    EXPECT_NE(nullptr, dtmf_error("abc,100"));
+    EXPECT_NE(nullptr, dtmf_error(",100"));
+
+    EXPECT_NE(nullptr, dtmf_error("1,49", &len, &pt));
+    EXPECT_EQ(200u, len);
+    EXPECT_NE(nullptr, dtmf_error("1,2001"));
+    EXPECT_NE(nullptr, dtmf_error("1,foo"));
+    EXPECT_NE(nullptr, dtmf_error("1,100x"));
+
+    EXPECT_NE(nullptr, dtmf_error("1,100,foo", &len, &pt));
+    EXPECT_EQ(100u, len);
+    EXPECT_EQ(96, pt);
+    EXPECT_NE(nullptr, dtmf_error("1,100,101x"));
+    EXPECT_NE(nullptr, dtmf_error("1,100,128"));
+    EXPECT_NE(nullptr, dtmf_error("1,100,-1"));
+    EXPECT_NE(nullptr, dtmf_error("1,100,101,1"));
+
+    /* the first problem is the one told */
+    EXPECT_NE(nullptr, strstr(dtmf_error("1,10,128"), "tone length"));
 }
 #endif /* PCAP_PLAY */
 #endif
