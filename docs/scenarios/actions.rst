@@ -233,6 +233,11 @@ action controls this.
 + <exec rtp_stream="resume" /> will resume any currently paused
   playback.
 
+``rtp_stream`` sends from a port of its own for each call, which the SDP
+should advertise with ``[rtpstream_audio_port]`` (or
+``[rtpstream_video_port]``), not ``[media_port]``. The PCAP play
+commands below send from ``[media_port]`` instead. See the keyword list.
+
 
 PCAP play commands (specified using play_pcap_audio / play_pcap_video
 attributes) allow you to send a pre-recorded RTP stream using the

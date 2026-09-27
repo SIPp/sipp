@@ -106,9 +106,53 @@ Keyword list
 
 ``[media_port]``
 ================
+:Default: 6000
 :Description: Depending on the locally selected media port, which in turn
   depends on the -min_rtp_port/-max_rtp_port parameters, it is local RTP echo
   port number. You can add a computed offset [media_port+3] to this value.
+  It is the same port for every call. Used on an ``m=audio``, ``m=video``
+  or ``m=image`` line, it also sets the port that ``play_pcap_audio``
+  (and ``play_dtmf``), ``play_pcap_video`` and ``play_pcap_image`` send
+  from.
+
+``[auto_media_port]``
+=====================
+:Description: Like ``[media_port]``, but each call gets its own port:
+  ``[media_port]`` plus ``4 * (call_number - 1)``, wrapping every 10000.
+  Use it instead of ``[media_port]`` to play pcaps from a different port
+  in each call. An offset can be added as with ``[media_port]``.
+
+``[rtpstream_audio_port]``
+==========================
+:Description: The local RTP port of the call's audio ``rtp_stream``. The
+  first use in a call binds a free port from the
+  -min_rtp_port/-max_rtp_port range, and the port after it for RTCP;
+  later uses in the same call give the same port.
+  ``[rtpstream_audio_port+1]`` gives the RTCP port.
+
+``[rtpstream_video_port]``
+==========================
+:Description: As ``[rtpstream_audio_port]``, for the call's video
+  ``rtp_stream``.
+
+.. note::
+  ``rtp_stream`` and the ``play_pcap_*`` actions use different ports, so
+  advertise the one that matches the action:
+
+  + ``rtp_stream`` uses its own per-call socket from the
+    -min_rtp_port/-max_rtp_port range. Advertise it with
+    ``m=audio [rtpstream_audio_port] RTP/AVP 8``. ``[media_port]`` and
+    ``[auto_media_port]`` do not change which port ``rtp_stream`` uses,
+    they only change the SDP text.
+  + ``play_pcap_audio``, ``play_pcap_video``, ``play_pcap_image`` and
+    ``play_dtmf`` send from the port that ``[media_port]`` or
+    ``[auto_media_port]`` put on the ``m=`` line. Writing the port any
+    other way (e.g. a literal number or a ``[field0]``) leaves the source
+    port unset, and the packets go out from port 0.
+
+  One ``m=audio`` line cannot advertise both ports, so a call cannot
+  mix ``rtp_stream`` with pcap play (or ``play_dtmf``) on the same
+  audio stream.
 
 ``[field0-n file=<filename> line=<number>]``
 ============================================
