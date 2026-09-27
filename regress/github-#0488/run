@@ -1,0 +1,28 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Of several challenges, the UAC answers the first one whose algorithm
+# it supports, not the first one. An unquoted qop list, as some servers
+# send, doesn't split that challenge.
+. "`dirname "$0"`/../functions"; init
+
+check() {
+    sippfg -sf uas.xml -i 127.0.0.1 -p 25531 -m 1 -timeout 8 -timeout_error \
+        -key qop "$1" >/dev/null 2>&1 &
+    uas=$!
+    sleep 1
+    sippfg -sf uac.xml -i 127.0.0.1 -p 25530 -m 1 127.0.0.1:25531 \
+        -timeout 6 -timeout_error >/dev/null 2>&1
+    uac_status=$?
+    wait $uas
+    uas_status=$?
+
+    if test $uac_status -ne 0; then
+        fail "UAC failed with $uac_status ($1)"
+    elif test $uas_status -ne 0; then
+        fail "UAS failed with $uas_status: the MD5 challenge was not answered ($1)"
+    fi
+}
+
+check 'qop="auth"'
+check 'qop=auth,auth-int'
+ok

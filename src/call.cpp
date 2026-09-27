@@ -5602,6 +5602,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         if (auth[0] == 0) {
             ERROR("Couldn't find 'Proxy-Authenticate' or 'WWW-Authenticate' in 401 or 407!");
         }
+        selectAuthChallenge(auth);
 
         realloc_ptr = (char *) realloc(dialog_authentication, strlen(auth) + 2);
         if (realloc_ptr) {

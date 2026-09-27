@@ -31,3 +31,4 @@ int verifyAuthHeader(const char *user, const char *password,
                      const char *msgbody);
 int getAuthParameter(const char *name, const char *header, char *result,
                      int len);
+void selectAuthChallenge(char *auth);
