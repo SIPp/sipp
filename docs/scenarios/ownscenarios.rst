@@ -41,19 +41,23 @@ List of attributes common to all commands
       - Description
       - Example
     * - ``start_rtd``
-      - Starts one of the " Response Time Duration" timer. (see statistics section).
+      - Starts one or more " Response Time Duration" timers. (see statistics section).
       - ::
 
           <send start_rtd="invite">
 
         the timer named "invite" will start when the message is sent.
+        A comma-separated list starts several timers:
+        ``<send start_rtd="invite,setup">``.
     * - ``rtd``
-      - Stops one of the 5 " Response Time Duration"
+      - Stops one or more " Response Time Duration" timers.
       - ::
 
           <send rtd="2">
 
-        the timer number 2 will stop when the message is sent.
+        the timer named "2" will stop when the message is sent.
+        A comma-separated list stops several timers:
+        ``<recv response="200" rtd="invite,setup">``.
     * - ``repeat_rtd``
       - Used with a rtd attribute, it allows the
         corresponding " Response Time Duration" timer to be counted more

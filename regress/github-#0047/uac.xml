@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- After a pause, three timers started together and a fourth alone;
+     one stopped alone, then the other three stopped together. The
+     pause is not in any timer, so each was started by its start_rtd,
+     not at call creation. The OPTIONS only makes this a client
+     scenario. -->
+<scenario name="rtd lists">
+  <send>
+    <![CDATA[
+      OPTIONS sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 OPTIONS
+      Content-Length: 0
+
+    ]]>
+  </send>
+  <pause milliseconds="500" />
+  <nop start_rtd="short,long,both1" />
+  <nop start_rtd="both2" />
+  <pause milliseconds="100" />
+  <nop rtd="short" />
+  <pause milliseconds="300" />
+  <nop rtd="long,both1,both2" />
+</scenario>
