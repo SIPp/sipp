@@ -1,0 +1,32 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -m_csv stops the test after as many calls as the first -inf file has
+# lines, so that each line of a SEQUENTIAL file is used once.
+. "`dirname "$0"`/../functions"; init
+
+rm -f uac.log
+printf 'SEQUENTIAL\n#a comment\nalice;\nbob;\ncarol;\n' >users.csv
+sippfg -sf uac.xml -inf users.csv -m_csv -r 100 -nr -i 127.0.0.1 \
+    -p 25930 127.0.0.1:25931 -trace_msg -message_file uac.log \
+    -timeout 8 -timeout_error >/dev/null 2>&1
+status=$?
+sent=`grep '^OPTIONS sip:' uac.log 2>/dev/null | sed -e 's/^OPTIONS sip:\([^@]*\)@.*/\1/' | tr '\n' ' '`
+sippfg -sf uac.xml -m_csv -i 127.0.0.1 -p 25930 127.0.0.1:25931 \
+    >/dev/null 2>&1
+noinf=$?
+sippfg -sf uac.xml -inf users.csv -m_csv -m 1 -i 127.0.0.1 -p 25930 \
+    127.0.0.1:25931 >/dev/null 2>&1
+both=$?
+rm -f uac.log users.csv
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "$sent" != "alice bob carol "; then
+    fail "sent to '$sent'"
+elif test $noinf -ne 255; then
+    fail "-m_csv without -inf exited with $noinf"
+elif test $both -ne 255; then
+    fail "-m_csv with -m exited with $both"
+else
+    ok
+fi

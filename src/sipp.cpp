@@ -130,6 +130,7 @@ struct sipp_option {
 #define SIPP_HELP_TEXT_HEADER    255
 
 static char *call_id_mode_string = nullptr;
+static bool stop_after_csv = false;
 
 static std::string lowercase_copy(std::string value)
 {
@@ -724,6 +725,7 @@ struct sipp_option options_table[] = {
     {"l", "Set the maximum number of simultaneous calls. Once this limit is reached, traffic is decreased until the number of open calls goes down. Default:\n"
      "  (3 * call_duration (s) * rate).", SIPP_OPTION_LIMIT, nullptr, 1},
     {"m", "Stop the test and exit when 'calls' calls are processed", SIPP_OPTION_LONG, &stop_after, 1},
+    {"m_csv", "Stop the test and exit when as many calls as the first -inf file has lines are processed, e.g. to use each line of a SEQUENTIAL file once.", SIPP_OPTION_SETFLAG, &stop_after_csv, 1},
     {"users", "Instead of starting calls at a fixed rate, begin 'users' calls at startup, and keep the number of calls constant.", SIPP_OPTION_USERS, nullptr, 1},
 
 
@@ -2401,6 +2403,16 @@ int main(int argc, char *argv[])
 
     if ((extendedTwinSippMode && !slave_masterSet) || (!extendedTwinSippMode && slave_masterSet)) {
         ERROR("-slave_cfg option must be used with -slave or -master option");
+    }
+
+    if (stop_after_csv) {
+        if (!default_file) {
+            ERROR("-m_csv needs an -inf file");
+        }
+        if (stop_after != 0xffffffff) {
+            ERROR("-m and -m_csv are mutually exclusive");
+        }
+        stop_after = inFiles[default_file]->numLines();
     }
 
     if (peripsocket) {
