@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- The '[' in "INV[ITE" is not closed before the next keyword. -->
+<scenario name="unclosed keyword">
+  <send>
+    <![CDATA[
+      INVITE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:sipp@[local_ip]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]>
+      Call-ID: [call_id]
+      CSeq: 1 INV[ITE
+      Contact: sip:sipp@[local_ip]:[local_port]
+      Content-Length: 0
+    ]]>
+  </send>
+</scenario>
