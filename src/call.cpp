@@ -108,10 +108,6 @@ std::string_view trim(std::string_view s) {
 
 extern  std::map<std::string, SIPpSocket *>     map_perip_fd;
 
-#ifdef PCAPPLAY
-/* send_packets pthread wrapper */
-void *send_wrapper(void *);
-#endif
 int call::dynamicId       = 0;
 int call::maxDynamicId    = 10000+2000*4;      // FIXME both param to be in command line !!!!
 int call::startDynamicId  = 10000;             // FIXME both param to be in command line !!!!
@@ -366,18 +362,21 @@ void call::get_remote_media_addr(std::string const &msg)
     if (!port.empty()) {
         gai_getsockaddr(&play_args_a.to, host.c_str(), port.c_str(),
                         AI_NUMERICHOST | AI_NUMERICSERV, family);
+        rtpstream_update_pcap(&rtpstream_callinfo, RTPSTREAM_PCAP_AUDIO, &play_args_a);
     }
 
     port = find_in_sdp("m=image ", msg);
     if (!port.empty()) {
         gai_getsockaddr(&play_args_i.to, host.c_str(), port.c_str(),
                         AI_NUMERICHOST | AI_NUMERICSERV, family);
+        rtpstream_update_pcap(&rtpstream_callinfo, RTPSTREAM_PCAP_IMAGE, &play_args_i);
     }
 
     port = find_in_sdp("m=video ", msg);
     if (!port.empty()) {
         gai_getsockaddr(&play_args_v.to, host.c_str(), port.c_str(),
                         AI_NUMERICHOST | AI_NUMERICSERV, family);
+        rtpstream_update_pcap(&rtpstream_callinfo, RTPSTREAM_PCAP_VIDEO, &play_args_v);
     }
 }
 #endif
@@ -1117,7 +1116,6 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     memset(&(play_args_i.from), 0, sizeof(struct sockaddr_storage));
     memset(&(play_args_v.from), 0, sizeof(struct sockaddr_storage));
     hasMediaInformation = 0;
-    media_thread = 0;
 #endif
 
     peer_tag = nullptr;
@@ -1274,13 +1272,6 @@ call::~call()
     if (use_tdmmap && tdm_map_number) {
         tdm_map[tdm_map_number - 1] = false;
     }
-
-# ifdef PCAPPLAY
-    if (media_thread != 0) {
-        pthread_cancel(media_thread);
-        pthread_join(media_thread, nullptr);
-    }
-#endif
 
     free(start_time_rtd);
     free(rtd_done);
@@ -2752,12 +2743,15 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             const char *begin = out.c_str() +
                 (line_start == std::string::npos ? 0 : line_start);
             play_args_t* play_args = nullptr;
+            rtpstream_pcap_t stream = RTPSTREAM_PCAP_AUDIO;
             if (strstr(begin, "audio")) {
                 play_args = &play_args_a;
             } else if (strstr(begin, "image")) {
                 play_args = &play_args_i;
+                stream = RTPSTREAM_PCAP_IMAGE;
             } else if (strstr(begin, "video")) {
                 play_args = &play_args_v;
+                stream = RTPSTREAM_PCAP_VIDEO;
             } else {
                 // This check will not do, as we use the media_port in other places too.
                 //ERROR("media_port keyword with no audio or video on the current line (%s)", begin);
@@ -2768,6 +2762,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 } else {
                     (_RCAST(struct sockaddr_in *, &(play_args->from)))->sin_port = htons(port);
                 }
+                rtpstream_update_pcap(&rtpstream_callinfo, stream, play_args);
             }
 #endif
             out += std::to_string(port);
@@ -6239,25 +6234,21 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                    (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) ||
                    (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
             play_args_t* play_args = 0;
+            rtpstream_pcap_t stream = RTPSTREAM_PCAP_AUDIO;
             if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
                 (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
                 play_args = &(this->play_args_a);
             } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_IMAGE) {
                 play_args = &(this->play_args_i);
+                stream = RTPSTREAM_PCAP_IMAGE;
             } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) {
                 play_args = &(this->play_args_v);
+                stream = RTPSTREAM_PCAP_VIDEO;
             } else {
                 ERROR("Can't find pcap data to play");
             }
 
-            // existing media thread could be using play_args, so we have to kill it before modifying parameters
-            if (media_thread != 0) {
-                // If a media_thread is already active, kill it before starting a new one
-                pthread_cancel(media_thread);
-                pthread_join(media_thread, nullptr);
-                media_thread = 0;
-            }
-
+            /* the playback thread plays a copy, which owns a dtmf pcap */
             if (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF) {
                 char* digits = createSendingMessage(currentAction->getMessage());
                 play_args->pcap = (pcap_pkts *) malloc(sizeof(pcap_pkts));
@@ -6286,17 +6277,13 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                     from->sin_port = port;
                 }
             }
-            /* Create a thread to send RTP or UDPTL packets */
-            pthread_attr_t attr;
-            pthread_attr_init(&attr);
-#ifndef PTHREAD_STACK_MIN
-#define PTHREAD_STACK_MIN  16384
-#endif
-            int ret = pthread_create(&media_thread, &attr, send_wrapper, play_args);
-            if (ret) {
+            /* Send the RTP or UDPTL packets in the call's RTP playback
+             * thread, at once with its plays on the other streams */
+            if (!rtpstream_play_pcap(&rtpstream_callinfo, stream, play_args)) {
                 ERROR("Can't create thread to send RTP packets");
             }
-            pthread_attr_destroy(&attr);
+            play_args->pcap = nullptr;
+            call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
 #endif
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_ECHO) {
             rtp_echo_state = (currentAction->getDoubleValue() != 0);
@@ -6948,22 +6935,6 @@ SessionState call::getSessionStateOld()
 }
 
 #ifdef PCAPPLAY
-void *send_wrapper(void *arg)
-{
-    play_args_t *s = (play_args_t *) arg;
-    //struct sched_param param;
-    //int ret;
-    //param.sched_priority = 10;
-    //ret = pthread_setschedparam(pthread_self(), SCHED_RR, &param);
-    //if(ret)
-    //  ERROR("Can't set RTP play thread realtime parameters");
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, nullptr);
-    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, nullptr);
-    send_packets(s);
-    pthread_exit(nullptr);
-    return nullptr;
-}
-
 void rtp_pcap_count(unsigned long bytes)
 {
     rtp_pckts_pcap.fetch_add(1, std::memory_order_relaxed);
@@ -7533,6 +7504,136 @@ TEST(play_dtmf, parse) {
 
     /* the first problem is the one told */
     EXPECT_NE(nullptr, strstr(dtmf_error("1,10,128"), "tone length"));
+}
+
+/* The packets that arrive on a UDP socket, until none does for 50 ms */
+static int count_packets(int sock)
+{
+    char buffer[PCAP_MAXPACKET];
+    struct pollfd pfd = {sock, POLLIN, 0};
+    int n = 0;
+    while (poll(&pfd, 1, 50) > 0 && recv(sock, buffer, sizeof(buffer), 0) > 0) {
+        n++;
+    }
+    return n;
+}
+
+TEST(send_packets_due, capture_pacing) {
+    /* a capture that starts at 0, and whose 4th packet appears before
+     * the 3rd one: the 1st two leave at once, the 3rd and 4th 20 ms
+     * later, and the 5th 30 ms after the 4th */
+    const long ts_us[] = {0, 0, 20000, 10000, 40000};
+    pcap_pkt pkts_list[5];
+    u_char data[5][sizeof(struct udphdr) + 4] = {};
+    for (int i = 0; i < 5; i++) {
+        pkts_list[i].data = data[i];
+        pkts_list[i].pktlen = sizeof(data[i]);
+        pkts_list[i].ts.tv_sec = ts_us[i] / 1000000;
+        pkts_list[i].ts.tv_usec = ts_us[i] % 1000000;
+        pkts_list[i].partial_check = 0;
+    }
+    pcap_pkts pkts = {};
+    pkts.pkts = pkts_list;
+    pkts.max = pkts_list + 5;
+
+    /* sent on a UDP socket to another, the UDP header in the payload */
+    int receiver = socket(AF_INET, SOCK_DGRAM, 0);
+    int sender = socket(AF_INET, SOCK_DGRAM, 0);
+    ASSERT_GE(receiver, 0);
+    ASSERT_GE(sender, 0);
+    play_args_t play = {};
+    struct sockaddr_in* to = (struct sockaddr_in*) &play.to;
+    to->sin_family = AF_INET;
+    to->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    ASSERT_EQ(0, bind(receiver, (struct sockaddr*) to, sizeof(*to)));
+    socklen_t len = sizeof(*to);
+    ASSERT_EQ(0, getsockname(receiver, (struct sockaddr*) to, &len));
+    play.from.ss_family = AF_INET;
+    play.pcap = &pkts;
+    const bool was_ipv6 = media_ip_is_ipv6;
+    media_ip_is_ipv6 = false;
+
+    unsigned long long due = 0;
+    EXPECT_EQ(1, send_packets_due(sender, &play, 1000, &due));
+    EXPECT_EQ(21000u, due);
+    EXPECT_EQ(2, count_packets(receiver));
+    EXPECT_EQ(1, send_packets_due(sender, &play, 20999, &due));
+    EXPECT_EQ(21000u, due);
+    EXPECT_EQ(0, count_packets(receiver));
+    EXPECT_EQ(1, send_packets_due(sender, &play, 21000, &due));
+    EXPECT_EQ(51000u, due);
+    EXPECT_EQ(2, count_packets(receiver));
+    EXPECT_EQ(0, send_packets_due(sender, &play, 60000, &due));
+    EXPECT_EQ(1, count_packets(receiver));
+
+    media_ip_is_ipv6 = was_ipv6;
+    close(sender);
+    close(receiver);
+}
+
+TEST(send_packets_due, full_send_buffer) {
+    /* two packets at once */
+    pcap_pkt pkts_list[2];
+    u_char data[2][sizeof(struct udphdr) + 4] = {};
+    for (int i = 0; i < 2; i++) {
+        pkts_list[i].data = data[i];
+        pkts_list[i].pktlen = sizeof(data[i]);
+        pkts_list[i].ts.tv_sec = 0;
+        pkts_list[i].ts.tv_usec = 0;
+        pkts_list[i].partial_check = 0;
+    }
+    pcap_pkts pkts = {};
+    pkts.pkts = pkts_list;
+    pkts.max = pkts_list + 2;
+
+    /* sent on a TCP connection, which ignores the address, and whose
+     * send buffer fills up as the other end reads none */
+    int listener = socket(AF_INET, SOCK_STREAM, 0);
+    int sender = socket(AF_INET, SOCK_STREAM, 0);
+    ASSERT_GE(listener, 0);
+    ASSERT_GE(sender, 0);
+    int small = 4096;
+    setsockopt(listener, SOL_SOCKET, SO_RCVBUF, &small, sizeof(small));
+    setsockopt(sender, SOL_SOCKET, SO_SNDBUF, &small, sizeof(small));
+    play_args_t play = {};
+    struct sockaddr_in* to = (struct sockaddr_in*) &play.to;
+    to->sin_family = AF_INET;
+    to->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    ASSERT_EQ(0, bind(listener, (struct sockaddr*) to, sizeof(*to)));
+    socklen_t len = sizeof(*to);
+    ASSERT_EQ(0, getsockname(listener, (struct sockaddr*) to, &len));
+    ASSERT_EQ(0, listen(listener, 1));
+    ASSERT_EQ(0, connect(sender, (struct sockaddr*) to, sizeof(*to)));
+    int receiver = accept(listener, nullptr, nullptr);
+    ASSERT_GE(receiver, 0);
+    char buffer[4096] = {};
+    while (send(sender, buffer, sizeof(buffer), MSG_DONTWAIT) > 0) {
+    }
+    play.from.ss_family = AF_INET;
+    play.pcap = &pkts;
+    const bool was_ipv6 = media_ip_is_ipv6;
+    media_ip_is_ipv6 = false;
+
+    /* the play waits for the socket, 1 ms at a time */
+    unsigned long long due = 0;
+    EXPECT_EQ(1, send_packets_due(sender, &play, 1000, &due));
+    EXPECT_EQ(2000u, due);
+    EXPECT_EQ(pkts_list, play.next);
+    EXPECT_EQ(1, send_packets_due(sender, &play, 2000, &due));
+    EXPECT_EQ(3000u, due);
+    EXPECT_EQ(pkts_list, play.next);
+
+    /* and sends both packets once the other end has read */
+    struct pollfd pfd = {receiver, POLLIN, 0};
+    while (poll(&pfd, 1, 50) > 0 && recv(receiver, buffer, sizeof(buffer), 0) > 0) {
+    }
+    EXPECT_EQ(0, send_packets_due(sender, &play, 3000, &due));
+    EXPECT_EQ(pkts.max, play.next);
+
+    media_ip_is_ipv6 = was_ipv6;
+    close(sender);
+    close(receiver);
+    close(listener);
 }
 #endif /* PCAP_PLAY */
 #endif

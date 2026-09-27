@@ -1,0 +1,84 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# play_pcap_audio and play_pcap_video in one call play at once, in the
+# RTP playback threads: 50 calls that play both use a few threads, and
+# their packets keep the pacing of the capture.
+. "`dirname "$0"`/../functions"
+
+# Sending pcap plays needs a raw socket: run as root in a user and
+# network namespace of our own.
+if test -z "$SIPP_NETNS"; then
+    if unshare -rn true 2>/dev/null; then
+        SIPP_NETNS=1 exec unshare -rn "$0"
+    fi
+    init
+    skip "no user network namespaces"
+fi
+init
+"`get_sipp`" -v | grep -q PCAP || skip "no PCAP"
+ip link set lo up 2>/dev/null || skip "cannot bring up lo"
+
+calls=50
+sippbg -sf uas.xml -i 127.0.0.1 -p 25790 -m $calls -timeout 10
+# Per port, the streams (source ports) with 10 packets or more, and how
+# late or early their packets are against the capture, in ms: the
+# median and the 99th percentile.
+rm -f rtp.out
+perl -e '
+    use Socket; use Time::HiRes qw(time);
+    open(P, "<", "../../pcap/g711a.pcap") || die($!); binmode(P);
+    read(P, $h, 24);
+    while (read(P, $h, 16) == 16) {
+        ($s, $u, $l) = unpack("VVV", $h); push(@cap, $s + $u / 1e6);
+        read(P, $h, $l);
+    }
+    for $p (26750, 26752) {
+        socket($s{$p}, PF_INET, SOCK_DGRAM, 17) || die($!);
+        setsockopt($s{$p}, SOL_SOCKET, SO_RCVBUF, 1 << 20);
+        bind($s{$p}, pack_sockaddr_in($p, inet_aton("127.0.0.1"))) || die($!);
+    }
+    $end = time + 4;
+    while (($now = time) < $end) {
+        $r = ""; vec($r, fileno($s{$_}), 1) = 1 for keys %s;
+        select($r, undef, undef, $end - $now) > 0 || next;
+        for $p (keys %s) {
+            vec($r, fileno($s{$p}), 1) || next;
+            while ($from = recv($s{$p}, $o, 2048, MSG_DONTWAIT)) {
+                ($sp) = unpack_sockaddr_in($from);
+                push(@{$at{"$p $sp"}}, time);
+            }
+        }
+    }
+    for $k (keys %at) {
+        ($p) = split(/ /, $k); @a = @{$at{$k}};
+        @a >= 10 || next;
+        $n{$p}++;
+        push(@dev, abs($a[$_] - $a[0] - $cap[$_] + $cap[0])) for 1..$#a;
+    }
+    @dev = sort { $a <=> $b } @dev, (@dev ? () : 0);
+    printf("%d %d %.1f %.1f\n", $n{26750}, $n{26752},
+           1000 * $dev[$#dev / 2], 1000 * $dev[$#dev * 0.99]);' >rtp.out &
+rtp=$!
+"`get_sipp`" -nostdin -sf uac.xml -i 127.0.0.1 -p 25791 -mp 26000 \
+    -m $calls -l $calls -r 100 127.0.0.1:25790 \
+    -timeout 10 -timeout_error >/dev/null 2>&1 &
+uac=$!
+sleep 1.5
+threads=`ls /proc/$uac/task 2>/dev/null | wc -l`
+wait $uac
+status=$?
+wait $rtp
+read audio video p50 p99 <rtp.out
+rm -f rtp.out
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "${audio:-0}" -ne $calls || test "${video:-0}" -ne $calls; then
+    fail "${audio:-0} audio and ${video:-0} video streams of $calls calls"
+elif test "$threads" -gt 10; then
+    fail "$threads threads for $calls calls"
+elif ! awk "BEGIN { exit !($p50 < 5 && $p99 < 20) }"; then
+    fail "packets off the capture by ${p50} ms (median), ${p99} ms (99%)"
+else
+    ok
+fi

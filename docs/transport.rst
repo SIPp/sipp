@@ -188,11 +188,6 @@ addresses prefers one in the family of the -i address: with -i
 127.0.0.1, localhost is 127.0.0.1 even where it is ::1 first.
 
 
-
-.. warning::
-  The Pcap play feature may currently not work on IPv6.
-
-
 Multi-socket limit
 ``````````````````
 

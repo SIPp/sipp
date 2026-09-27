@@ -103,6 +103,10 @@ struct threaddata_t
     volatile unsigned int num_tasks;
     volatile int    del_pending;
     volatile int    exit_flag;
+    int             wake_fds[2]; /* a pipe to wake the thread up */
+#ifdef PCAPPLAY
+    int             pcap_socket; /* the raw socket of its pcap plays */
+#endif
     taskentry_t     *tasklist;
 };
 
@@ -1351,6 +1355,37 @@ static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffer
     return watch;
 }
 
+#ifdef PCAPPLAY
+/* Send the packets of a call's pcap plays that are due, and bring
+ * *waketime_us forward to when the next one is */
+static void rtpstream_playpcaptask(taskentry_t* taskinfo, threaddata_t* threaddata,
+                                   unsigned long long* waketime_us)
+{
+    unsigned long long due_us;
+
+    pthread_mutex_lock(&(taskinfo->mutex));
+    for (play_args_t& play : taskinfo->pcap_plays)
+    {
+        if (!play.pcap)
+        {
+            continue;
+        }
+        if (send_packets_due(threaddata->pcap_socket, &play, getmicroseconds(), &due_us))
+        {
+            if (*waketime_us > due_us)
+            {
+                *waketime_us = due_us;
+            }
+        }
+        else
+        {
+            send_packets_end(&play);
+        }
+    }
+    pthread_mutex_unlock(&(taskinfo->mutex));
+}
+#endif
+
 /* code checked */
 static void* rtpstream_playback_thread(void* params)
 {
@@ -1359,8 +1394,10 @@ static void* rtpstream_playback_thread(void* params)
     unsigned int   taskindex;
 
     unsigned long  timenow_ms;
-    unsigned long  waketime_ms;
-    long           sleeptime_ms;
+    unsigned long long waketime_us;
+    long long      sleeptime_us;
+    int            timeout_ms;
+    char           wake_buffer[64];
 
     unsigned long  comparison_acheck;
     unsigned long  comparison_vcheck;
@@ -1434,7 +1471,10 @@ static void* rtpstream_playback_thread(void* params)
     while (!threaddata->exit_flag)
     {
         timenow_ms = getmilliseconds();
-        waketime_ms = timenow_ms + 100; /* default sleep 100ms */
+        waketime_us = (timenow_ms + 100) * 1000ULL; /* default sleep 100ms */
+        /* first in the poll set, the pipe that a new pcap play writes to */
+        echo_fds.push_back({threaddata->wake_fds[0], POLLIN, 0});
+        echo_tasks.push_back({nullptr, false});
 
         /* iterate through tasks and handle playback and other actions */
         for (taskindex = 0; taskindex < threaddata->num_tasks; taskindex++)
@@ -1484,10 +1524,13 @@ static void* rtpstream_playback_thread(void* params)
                     debugvfile.printHex("----PASSED RTP CHECK----", "", 0, rs_vrtpcheck[taskindex], rtpstream_vpckts);
                 }
             }
-            if (waketime_ms > taskinfo->nextwake_ms)
+            if (waketime_us > taskinfo->nextwake_ms * 1000ULL)
             {
-                waketime_ms = taskinfo->nextwake_ms;
+                waketime_us = taskinfo->nextwake_ms * 1000ULL;
             }
+#ifdef PCAPPLAY
+            rtpstream_playpcaptask(taskinfo, threaddata, &waketime_us);
+#endif
 
             /* watch the sockets of the calls to echo */
             pthread_mutex_lock(&(taskinfo->mutex));
@@ -1507,29 +1550,40 @@ static void* rtpstream_playback_thread(void* params)
          * the packets that arrive meanwhile on the sockets that have one */
         for (;;)
         {
-            sleeptime_ms = (long) (waketime_ms - getmilliseconds());
-            if (echo_fds.empty())
+            sleeptime_us = (long long) (waketime_us - getmicroseconds());
+            /* poll() counts in milliseconds: sleep the rest without it */
+            timeout_ms = sleeptime_us > 0 ? (int) (sleeptime_us / 1000) : 0;
+            if ((timeout_ms > 0 || echo_fds.size() > 1) &&
+                poll(echo_fds.data(), echo_fds.size(), timeout_ms) > 0)
             {
-                if (sleeptime_ms > 0)
+                if (echo_fds[0].revents)
                 {
-                    usleep(sleeptime_ms * 1000);
+                    /* a new pcap play: start it now */
+                    while (read(threaddata->wake_fds[0], wake_buffer, sizeof(wake_buffer)) > 0)
+                    {
+                    }
+                    break;
                 }
-                break;
-            }
-            if (poll(echo_fds.data(), echo_fds.size(), sleeptime_ms > 0 ? (int) sleeptime_ms : 0) <= 0)
-            {
-                break;
-            }
-            for (size_t i = 0; i < echo_fds.size(); i++)
-            {
-                if (echo_fds[i].revents &&
-                    !rtpstream_echotask(echo_tasks[i].first, echo_tasks[i].second, echo_buffers))
+                for (size_t i = 1; i < echo_fds.size(); i++)
                 {
-                    echo_fds[i].fd = -1; /* poll() skips it */
+                    if (echo_fds[i].revents &&
+                        !rtpstream_echotask(echo_tasks[i].first, echo_tasks[i].second, echo_buffers))
+                    {
+                        echo_fds[i].fd = -1; /* poll() skips it */
+                    }
+                }
+                if (timeout_ms > 0)
+                {
+                    continue;
                 }
             }
-            if (sleeptime_ms <= 0)
+            if (timeout_ms == 0)
             {
+                sleeptime_us = (long long) (waketime_us - getmicroseconds());
+                if (sleeptime_us > 0)
+                {
+                    usleep(sleeptime_us);
+                }
                 break;
             }
         }
@@ -1620,6 +1674,14 @@ static void* rtpstream_playback_thread(void* params)
             taskinfo->parent_thread = nullptr; /* no longer associated with a thread */
         }
     }
+    close(threaddata->wake_fds[0]);
+    close(threaddata->wake_fds[1]);
+#ifdef PCAPPLAY
+    if (threaddata->pcap_socket != -1)
+    {
+        close(threaddata->pcap_socket);
+    }
+#endif
     pthread_mutex_destroy(&(threaddata->tasklist_mutex));
     free(threaddata);
     rtpstream_numthreads--;
@@ -1679,10 +1741,21 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
         memset(threaddata, 0, allocsize);
         threaddata->max_tasks = rtp_tasks_per_thread;
         threaddata->busy_list_index = -1;
+#ifdef PCAPPLAY
+        threaddata->pcap_socket = -1;
+#endif
+        if (pipe(threaddata->wake_fds)) {
+            free(threaddata);
+            return 0;
+        }
+        fcntl(threaddata->wake_fds[0], F_SETFL, O_NONBLOCK);
+        fcntl(threaddata->wake_fds[1], F_SETFL, O_NONBLOCK);
         pthread_mutex_init(&(threaddata->tasklist_mutex), nullptr);
         /* create the thread itself */
         if (pthread_create(&threadID, nullptr, rtpstream_playback_thread, threaddata)) {
             /* error creating the thread */
+            close(threaddata->wake_fds[0]);
+            close(threaddata->wake_fds[1]);
             free(threaddata);
             return 0;
         }
@@ -1739,6 +1812,15 @@ static void rtpstream_stop_task(rtpstream_callinfo_t* callinfo)
 
     if (taskinfo)
     {
+#ifdef PCAPPLAY
+        /* no pcap packet of the call after it ends */
+        pthread_mutex_lock(&(taskinfo->mutex));
+        for (play_args_t& play : taskinfo->pcap_plays)
+        {
+            send_packets_end(&play);
+        }
+        pthread_mutex_unlock(&(taskinfo->mutex));
+#endif
         if (taskinfo->parent_thread)
         {
             /* this call's task is registered with an executing thread */
@@ -2735,6 +2817,70 @@ void rtpstream_resumevpattern(rtpstream_callinfo_t* callinfo)
         callinfo->taskinfo->flags &= ~TI_PAUSERTPVPATTERN;
     }
 }
+
+#ifdef PCAPPLAY
+int rtpstream_play_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stream, const play_args_t* play)
+{
+    debugprint("rtpstream_play_pcap callinfo=%p stream=%d\n", callinfo, stream);
+
+    taskentry_t *taskinfo = callinfo->taskinfo;
+
+    if (!taskinfo || (!taskinfo->parent_thread && !rtpstream_start_task(callinfo)))
+    {
+        return 0;
+    }
+
+    /* The plays of a thread are all from the media IP: one raw socket
+     * for all. The main thread opens it, to exit if it cannot: the
+     * playback thread would stop with the call's mutex locked. */
+    threaddata_t *threaddata = taskinfo->parent_thread;
+    if (threaddata->pcap_socket == -1)
+    {
+        threaddata->pcap_socket = send_packets_socket(&play->from);
+    }
+
+    pthread_mutex_lock(&(taskinfo->mutex));
+    play_args_t& current = taskinfo->pcap_plays[stream];
+    send_packets_end(&current);
+    /* a switch to T.38 often keeps the remote port: an image play ends
+     * the audio one, and the other way round, not to mix RTP and UDPTL */
+    if (stream != RTPSTREAM_PCAP_VIDEO)
+    {
+        send_packets_end(&taskinfo->pcap_plays[stream == RTPSTREAM_PCAP_AUDIO ?
+                                               RTPSTREAM_PCAP_IMAGE : RTPSTREAM_PCAP_AUDIO]);
+    }
+    current = *play;
+    current.next = nullptr;
+    pthread_mutex_unlock(&(taskinfo->mutex));
+
+    /* wake the thread up to start the play now; a full pipe means it
+     * wakes up anyway */
+    if (write(threaddata->wake_fds[1], "", 1) < 0 && errno != EAGAIN) {
+        WARNING_NO("Could not wake an RTP playback thread up");
+    }
+
+    return 1;
+}
+
+void rtpstream_update_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stream, const play_args_t* play)
+{
+    taskentry_t *taskinfo = callinfo->taskinfo;
+
+    if (!taskinfo)
+    {
+        return;
+    }
+
+    pthread_mutex_lock(&(taskinfo->mutex));
+    play_args_t& current = taskinfo->pcap_plays[stream];
+    if (current.pcap)
+    {
+        current.to = play->to;
+        current.from = play->from;
+    }
+    pthread_mutex_unlock(&(taskinfo->mutex));
+}
+#endif
 
 /* Start or update the echo of a call's audio or video, which the call's
  * playback thread does, with the call's UAS SRTP contexts. */
