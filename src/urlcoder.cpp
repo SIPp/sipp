@@ -52,18 +52,16 @@ std::string url_decode(std::string str) {
     size_t len = str.length();
 
     for (unsigned int i = 0; i < len; i++) {
-        unsigned int ii;
-        if (str[i] != '%') {
-            if (str[i] == '+') {
-                ret += ' ';
-            } else {
-                ret += str[i];
-            }
-        } else {
-            sscanf(str.substr(i + 1, 2).c_str(), "%x", &ii);
-            ch = static_cast<char>(ii);
+        if (str[i] == '%' && i + 2 < len && isxdigit((unsigned char)str[i + 1]) &&
+                isxdigit((unsigned char)str[i + 2])) {
+            ch = static_cast<char>(std::stoi(str.substr(i + 1, 2), nullptr, 16));
             ret += ch;
             i = i + 2;
+        } else if (str[i] == '+') {
+            ret += ' ';
+        } else {
+            /* Also a '%' without two hex digits after it. */
+            ret += str[i];
         }
     }
     return ret;
@@ -83,6 +81,15 @@ TEST(url_decode, decoded_string_contains_no_entities) {
     ASSERT_EQ(url_decode("user1%40127%2E0%2e0%2e1%3a5060"), "user1@127.0.0.1:5060");
     ASSERT_EQ(url_decode("string%20with%20spaces"), "string with spaces");
     ASSERT_EQ(url_decode("%C3%bbtf8"), "ûtf8");
+}
+
+TEST(url_decode, percent_without_two_hex_digits_stays) {
+    ASSERT_EQ(url_decode("100%"), "100%");
+    ASSERT_EQ(url_decode("a%4"), "a%4");
+    ASSERT_EQ(url_decode("%zz%41"), "%zzA");
+    ASSERT_EQ(url_decode("%4z"), "%4z");
+    ASSERT_EQ(url_decode("%-1"), "%-1");
+    ASSERT_EQ(url_decode("a+b%2B"), "a b+");
 }
 
 #endif // GTEST
