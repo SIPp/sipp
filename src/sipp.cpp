@@ -1082,12 +1082,12 @@ static void rtp_echo_thread(void* param)
         }
 
         if (*(int*)param == media_socket_audio) {
-            rtp_pckts++;
-            rtp_bytes += ns;
+            rtp_pckts.fetch_add(1, std::memory_order_relaxed);
+            rtp_bytes.fetch_add(ns, std::memory_order_relaxed);
         } else {
             /* packets on the second RTP stream */
-            rtp2_pckts++;
-            rtp2_bytes += ns;
+            rtp2_pckts.fetch_add(1, std::memory_order_relaxed);
+            rtp2_bytes.fetch_add(ns, std::memory_order_relaxed);
         }
     }
 }

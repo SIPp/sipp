@@ -51,6 +51,7 @@
 #include <signal.h>
 #include <time.h>
 #include <limits.h>
+#include <atomic>
 #include <vector>
 #include <string>
 #include <map>
@@ -361,21 +362,22 @@ MAYBE_EXTERN bool          outbound_congestion          DEFVAL(false);
 MAYBE_EXTERN int           open_calls_user_setting      DEFVAL(0);
 MAYBE_EXTERN int           resynch_send                 DEFVAL(0);
 MAYBE_EXTERN int           resynch_recv                 DEFVAL(0);
-MAYBE_EXTERN unsigned long rtp_pckts                    DEFVAL(0);
-MAYBE_EXTERN unsigned long rtp_bytes                    DEFVAL(0);
-MAYBE_EXTERN unsigned long rtp_pckts_pcap               DEFVAL(0);
-MAYBE_EXTERN unsigned long rtp_bytes_pcap               DEFVAL(0);
-MAYBE_EXTERN unsigned long rtp2_pckts                   DEFVAL(0);
-MAYBE_EXTERN unsigned long rtp2_bytes                   DEFVAL(0);
-MAYBE_EXTERN unsigned long rtp2_pckts_pcap              DEFVAL(0);
-MAYBE_EXTERN unsigned long rtp2_bytes_pcap              DEFVAL(0);
-MAYBE_EXTERN volatile unsigned long rtpstream_numthreads DEFVAL(0);
-MAYBE_EXTERN volatile unsigned long rtpstream_abytes_in  DEFVAL(0);
-MAYBE_EXTERN volatile unsigned long rtpstream_vbytes_in  DEFVAL(0);
-MAYBE_EXTERN volatile unsigned long rtpstream_abytes_out DEFVAL(0);
-MAYBE_EXTERN volatile unsigned long rtpstream_vbytes_out DEFVAL(0);
-MAYBE_EXTERN volatile unsigned long rtpstream_apckts    DEFVAL(0);
-MAYBE_EXTERN volatile unsigned long rtpstream_vpckts    DEFVAL(0);
+/* Updated by the media threads: relaxed atomics, they are only shown */
+MAYBE_EXTERN std::atomic<unsigned long> rtp_pckts            DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtp_bytes            DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtp_pckts_pcap       DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtp_bytes_pcap       DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtp2_pckts           DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtp2_bytes           DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtp2_pckts_pcap      DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtp2_bytes_pcap      DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtpstream_numthreads DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtpstream_abytes_in  DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtpstream_vbytes_in  DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtpstream_abytes_out DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtpstream_vbytes_out DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtpstream_apckts     DEFVAL(0);
+MAYBE_EXTERN std::atomic<unsigned long> rtpstream_vpckts     DEFVAL(0);
 
 /************* Rate Control & Contexts variables **************/
 

@@ -6972,6 +6972,12 @@ void *send_wrapper(void *arg)
     pthread_exit(nullptr);
     return nullptr;
 }
+
+void rtp_pcap_count(unsigned long bytes)
+{
+    rtp_pckts_pcap.fetch_add(1, std::memory_order_relaxed);
+    rtp_bytes_pcap.fetch_add(bytes, std::memory_order_relaxed);
+}
 #endif
 
 #ifdef GTEST

@@ -128,6 +128,8 @@ extern "C"
     int parse_dtmf_play_args(const char*, pcap_pkts*, uint16_t start_seq_no);
     void free_pcaps(pcap_pkts* pkts);
     void send_packets(play_args_t*);
+    /* Counts a played RTP packet of the given payload size */
+    void rtp_pcap_count(unsigned long bytes);
 #ifdef __cplusplus
 }
 #endif
