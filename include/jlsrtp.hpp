@@ -113,6 +113,9 @@ typedef struct _CryptoAttribute
     unsigned short          n_e;
     unsigned short          n_a;
     std::vector<unsigned char>      master_salt;
+    /* The suite as a peer's a=crypto line named it, which differs from
+     * the cipher in use for an UNENCRYPTED_SRTP line. */
+    std::string             offered_suite;
     unsigned long           master_key_derivation_rate;
     unsigned long           master_mki_value;
     unsigned short          n_s;
@@ -970,6 +973,18 @@ class JLSRTP
          * @return  <cryptosuite_string>    String description of the crypto suite currently in use
          */
         std::string getCryptoSuite();
+
+        /**
+         * setOfferedCryptoSuite
+         *
+         * Records the crypto suite as the peer's a=crypto line named it, which
+         * getCryptoSuite() then returns: for an UNENCRYPTED_SRTP line the
+         * cipher in use is NULL although the line names an AES_CM suite.
+         *
+         * @param[in]       suite           Crypto suite name from the SDP
+         * @param[in]       crypto_attrib   PRIMARY_CRYPTO or SECONDARY_CRYPTO
+         */
+        void setOfferedCryptoSuite(const std::string& suite, ActiveCrypto crypto_attrib);
 
         /**
          * encodeMasterKeySalt
