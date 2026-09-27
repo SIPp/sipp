@@ -341,7 +341,9 @@ static std::string find_in_sdp(std::string_view pattern, std::string_view msg)
     }
 
     begin += pattern.size();
-    end = msg.find_first_of(" \r\n", begin);
+    /* A port count ("m=audio 30000/2") or a TTL ("c=IN IP4 224.2.1.1/127")
+     * follows a slash. */
+    end = msg.find_first_of(" /\r\n", begin);
     if (end == std::string_view::npos || begin == end) {
         return "";
     }
@@ -7186,6 +7188,14 @@ TEST(sdp, parse_valid_sdp_msg) {
     ASSERT_EQ(find_in_sdp("c=IN IP6 ", test_sdp_v6), "::1");
     ASSERT_EQ(find_in_sdp("m=audio ", test_sdp_v4), "12345");
     ASSERT_EQ(find_in_sdp("m=audio ", test_sdp_v6), "12345");
+}
+
+TEST(sdp, parse_port_count_and_ttl) {
+    const std::string sdp = "v=0\r\n"
+                            "c=IN IP4 224.2.1.1/127\r\n"
+                            "m=audio 30000/2 RTP/AVP 0 101\r\n";
+    ASSERT_EQ(find_in_sdp("c=IN IP4 ", sdp), "224.2.1.1");
+    ASSERT_EQ(find_in_sdp("m=audio ", sdp), "30000");
 }
 
 TEST(sdp, parse_invalid_sdp_msg) {
