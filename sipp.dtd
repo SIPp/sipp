@@ -1,5 +1,7 @@
-<!ELEMENT scenario ( CallLengthRepartition | ResponseTimeRepartition | Reference | send | recv | pause | nop | sendCmd | recvCmd | label | timewait)* >
+<!ELEMENT scenario ( init | CallLengthRepartition | ResponseTimeRepartition | Reference | send | recv | pause | nop | sendCmd | recvCmd | label | timewait)* >
 <!ATTLIST scenario name CDATA #IMPLIED >
+
+<!ELEMENT init ( nop | label )* >
 
 <!-- BEGIN message commands -->
 

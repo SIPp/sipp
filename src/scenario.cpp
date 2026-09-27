@@ -1086,7 +1086,7 @@ void scenario::runInit()
 {
     call *initcall;
     if (initmessages.size() > 0) {
-        initcall = new call(main_scenario, nullptr, nullptr, "///main-init", 0, false, false, true);
+        initcall = new call(this, nullptr, nullptr, "///main-init", 0, false, false, true);
         initcall->run();
     }
 }
