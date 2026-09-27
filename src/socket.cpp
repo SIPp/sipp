@@ -2463,6 +2463,8 @@ int open_connections()
                 ERROR_NO("Failed to find our local ip");
             }
             close(tmpsock);
+            /* Not the temp socket's port: call sockets bind to this. */
+            sockaddr_update_port(&local_sockaddr, 0);
             get_inet_address(&local_sockaddr, local_ip, sizeof(local_ip));
         }
 
