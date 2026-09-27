@@ -39,8 +39,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <thread>
-#include <chrono>
 
 #include "config.h"
 #include "sipp.hpp"
@@ -1389,6 +1387,20 @@ SIPpSocket* SIPpSocket::new_sipp_call_socket(bool use_ipv6, int transport, bool 
     return sock;
 }
 
+#if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
+/* After SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE, wait until the
+ * socket is ready, for at most SIPP_SSL_RETRY_TIMEOUT ms. Returns false
+ * on a timeout. Sleeping the whole timeout instead delayed every TLS
+ * handshake by it, as the peer's reply is usually a moment away. */
+static bool wait_for_ssl_socket(SSL *ssl, int ssl_error)
+{
+    struct pollfd pfd = {};
+    pfd.fd = SSL_get_fd(ssl);
+    pfd.events = (ssl_error == SSL_ERROR_WANT_WRITE) ? POLLOUT : POLLIN;
+    return poll(&pfd, 1, SIPP_SSL_RETRY_TIMEOUT) > 0;
+}
+#endif
+
 SIPpSocket* SIPpSocket::accept() {
     SIPpSocket *ret;
     struct sockaddr_storage remote_sockaddr;
@@ -1432,9 +1444,11 @@ SIPpSocket* SIPpSocket::accept() {
                     i < SIPP_SSL_MAX_RETRIES) {
                 /* These errors are benign we just need to wait for the socket
                  * to be readable/writable again. */
-                WARNING("SSL_accept failed with error: %s. Attempt %d. "
-                        "Retrying...", SSL_error_string(err, rc), ++i);
-                std::this_thread::sleep_for(std::chrono::milliseconds(SIPP_SSL_RETRY_TIMEOUT));
+                ++i;
+                if (!wait_for_ssl_socket(ret->ss_ssl, err)) {
+                    WARNING("SSL_accept failed with error: %s. Attempt %d. "
+                            "Retrying...", SSL_error_string(err, rc), i);
+                }
                 continue;
             }
             ERROR("Error in SSL_accept: %s",
@@ -1563,9 +1577,11 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
                     i < SIPP_SSL_MAX_RETRIES) {
                 /* These errors are benign we just need to wait for the socket
                  * to be readable/writable again. */
-                WARNING("SSL_connect failed with error: %s. Attempt %d. "
-                        "Retrying...", SSL_error_string(err, rc), ++i);
-                std::this_thread::sleep_for(std::chrono::milliseconds(SIPP_SSL_RETRY_TIMEOUT));
+                ++i;
+                if (!wait_for_ssl_socket(ss_ssl, err)) {
+                    WARNING("SSL_connect failed with error: %s. Attempt %d. "
+                            "Retrying...", SSL_error_string(err, rc), i);
+                }
                 continue;
             }
             WARNING("Error in SSL connection: %s", SSL_error_string(err, rc));
@@ -2038,9 +2054,11 @@ static int send_nowait_tls(SSL* ssl, const void* msg, int len, int /*flags*/)
                 i < SIPP_SSL_MAX_RETRIES) {
             /* These errors are benign we just need to wait for the socket
              * to be readable/writable again. */
-            WARNING("SSL_write failed with error: %s. Attempt %d. "
-                    "Retrying...", SSL_error_string(err, rc), ++i);
-            std::this_thread::sleep_for(std::chrono::milliseconds(SIPP_SSL_RETRY_TIMEOUT));
+            ++i;
+            if (!wait_for_ssl_socket(ssl, err)) {
+                WARNING("SSL_write failed with error: %s. Attempt %d. "
+                        "Retrying...", SSL_error_string(err, rc), i);
+            }
             continue;
         }
         return rc;
