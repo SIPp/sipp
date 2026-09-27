@@ -1,0 +1,30 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The BYE a UAC sends when its call aborts after an INFO from the UAS
+# has the UAC's From and the UAS's To, not the INFO's From and To, and
+# a CSeq above the UAC's re-INVITE (2), not the INFO's (1) + 1. The UAS
+# only answers it with a 200 then.
+. "`dirname "$0"`/../functions"; init
+
+rm -f uas.log
+sippfg -sf uas.xml -i 127.0.0.1 -p 25800 -m 1 -timeout 8 -timeout_error \
+    -trace_msg -message_file uas.log >/dev/null 2>&1 &
+job=$!
+sleep 1
+sippfg -sf uac.xml -i 127.0.0.1 -p 25801 -m 1 127.0.0.1:25800 \
+    -timeout 8 >/dev/null 2>&1
+wait $job
+uas=$?
+from=`sed -e '/^BYE /,/^$/!d;/^From:/!d;s/[[:cntrl:]]//g' uas.log`
+to=`sed -e '/^BYE /,/^$/!d;/^To:/!d;s/[[:cntrl:]]//g' uas.log`
+cseq=`sed -e '/^BYE /,/^$/!d;/^CSeq:/!d;s/[[:cntrl:]]//g' uas.log`
+rm -f uas.log
+
+case "$from/$to" in
+"From: <sip:uac@"*";tag=uactag/To: <sip:uas@"*";tag=uastag")
+    ;;
+*)
+    fail "got \"$from\" and \"$to\"";;
+esac
+test $uas -eq 0 || fail "the UAS did not answer the BYE with a 200 ($cseq)"
+ok

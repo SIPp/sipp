@@ -964,6 +964,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     start_time = clock_tick;
     call_established=false ;
     ack_is_pending=false ;
+    bye_after_peer_request = false;
     last_recv_msg = nullptr;
     cseq = base_cseq;
     nb_last_delay = 0;
@@ -2522,6 +2523,9 @@ bool call::abortCall(bool writeLog)
              * because the earlier check depends on the first message being an INVITE
              * (although it could be something like a message message, therefore we
              * check that we received a message. */
+            /* The peer's own request has its From and To the other way
+             * round from ours, and a CSeq of the peer's. */
+            bye_after_peer_request = !get_reply_code(last_recv_msg);
             sendBuffer(createSendingMessage(get_default_message("bye")));
         }
     }
@@ -3993,9 +3997,27 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         }
         case E_Message_Last_Header: {
-            char * last_header = get_last_header(comp->literal);
-            if(last_header) {
-                out += last_header;
+            /* "From" or "From:" (the name without the colon) */
+            std::string name = comp->literal;
+            if (!name.empty() && name.back() == ':') {
+                name.pop_back();
+            }
+            const char *other = nullptr;
+            if (bye_after_peer_request && !strcasecmp(name.c_str(), "From")) {
+                other = "To:";
+            } else if (bye_after_peer_request && !strcasecmp(name.c_str(), "To")) {
+                other = "From:";
+            }
+            if (other) {
+                char *value = get_header_content(last_recv_msg, other);
+                if (*value) {
+                    out += name + ": " + value;
+                }
+            } else {
+                char *last_header = get_last_header(comp->literal);
+                if (last_header) {
+                    out += last_header;
+                }
             }
             if (!out.empty() && out.back() == '\n') {
                 suppresscrlf = true;
@@ -4026,7 +4048,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             int last_cseq = 0;
 
             char *last_header = get_last_header("CSeq:");
-            if(last_header) {
+            if (bye_after_peer_request) {
+                last_cseq = cseq;
+            } else if(last_header) {
                 last_header += 5;
                 /* Extract the integer value of the field */
                 while(isspace(*last_header)) last_header++;
