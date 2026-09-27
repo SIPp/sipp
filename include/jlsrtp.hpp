@@ -133,6 +133,7 @@ class JLSRTP
         CryptoContextID         _id;
         unsigned long           _ROC;
         unsigned short          _s_l;
+        bool                    _s_l_set;       // a packet has set _s_l
         CryptoAttribute         _primary_crypto;
         CryptoAttribute                 _secondary_crypto;
         ActiveCrypto            _active_crypto;
