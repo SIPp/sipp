@@ -1,0 +1,48 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# play_pcap_audio and play_pcap_video in one call play at once: the
+# video does not end the audio.
+. "`dirname "$0"`/../functions"
+
+# Sending pcap plays needs a raw socket: run as root in a user and
+# network namespace of our own.
+if test -z "$SIPP_NETNS"; then
+    if unshare -rn true 2>/dev/null; then
+        SIPP_NETNS=1 exec unshare -rn "$0"
+    fi
+    init
+    skip "no user network namespaces"
+fi
+init
+ip link set lo up 2>/dev/null || skip "cannot bring up lo"
+
+sippbg -sf uas.xml -i 127.0.0.1 -p 25750 -m 1
+# Count the packets on the audio and the video port during the call.
+rm -f rtp.count
+perl -e '
+    use Socket;
+    for $p (26750, 26752) {
+        socket($s{$p},PF_INET,SOCK_DGRAM,17)||die($!);
+        bind($s{$p},pack_sockaddr_in($p,inet_aton("127.0.0.1")))||die($!);
+    }
+    $end=time+3;
+    while (time<$end) {
+        $r="";vec($r,fileno($s{$_}),1)=1 for keys %s;
+        select($r,undef,undef,0.1)>0 or next;
+        for (keys %s) { $n{$_}++ if vec($r,fileno($s{$_}),1)&&recv($s{$_},$o,2048,0); }
+    }
+    print $n{26750}+0," ",$n{26752}+0,"\n";' >rtp.count &
+sippfg -sf uac.xml -i 127.0.0.1 -p 25751 -m 1 -mp 26740 \
+    127.0.0.1:25750 -timeout 8 -timeout_error >/dev/null 2>&1
+status=$?
+wait
+read audio video <rtp.count
+rm -f rtp.count
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "${audio:-0}" -lt 10 || test "${video:-0}" -lt 10; then
+    fail "${audio:-0} audio and ${video:-0} video packets"
+else
+    ok
+fi

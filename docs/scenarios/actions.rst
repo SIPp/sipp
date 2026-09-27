@@ -274,10 +274,9 @@ iLBC  98         50 bytes    30 ms       -f ilbc -ar 8k -ac 1 -b:a 13.33k
   The action is non-blocking. SIPp will start a light-weight thread to
   play the file and the scenario with continue immediately. If needed,
   you will need to add a pause to wait for the end of the pcap play.
-.. warning::
-  A known bug means that starting a pcap_play_audio command will end any
-  pcap_play_video command, and vice versa; you cannot play both audio
-  and video streams at once.
+.. note::
+  The audio, video and image streams play at once, but a new play on a
+  stream ends the one still playing on it.
 
 Example that plays a pre-recorded RTP stream::
 
