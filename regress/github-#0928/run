@@ -1,0 +1,17 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The closing screen, printed after aborting many open calls, shows the
+# period since the last report, not a negative one.
+. "`dirname "$0"`/../functions"; init
+
+out=`sippfg -sn uac -i 127.0.0.1 -p 5070 127.0.0.1:9 -r 2000 -l 5000 \
+    -timeout 2 -max_socket 10 2>&1`
+period=`echo "$out" | sed -n 's/.* new calls during \([0-9]*\)\..*/\1/p' | tail -n 1`
+
+if test -z "$period"; then
+    fail "no period on the screen"
+elif test "$period" -gt 10; then
+    fail "a period of $period s"
+else
+    ok
+fi

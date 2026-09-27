@@ -64,7 +64,11 @@ void screentask::report(bool last)
 {
     print_statistics(last);
     display_scenario->stats->computeStat(CStat::E_RESET_PD_COUNTERS);
-    last_report_time  = getmilliseconds();
+    /* The screens measure the period from clock_tick, so stamp it from the
+     * same clock: a newer stamp would make a screen printed before the
+     * next tick, as the closing one, show a negative period. */
+    update_clock_tick();
+    last_report_time  = clock_tick;
     scheduling_loops = 0;
 }
 
