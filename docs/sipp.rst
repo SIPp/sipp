@@ -81,11 +81,19 @@ Code  Description
 0     All calls were successful
 1     At least one call failed
 97    Exit on internal command. Calls may have been processed. Also
-      exit on global timeout (see -timeout_global option)
+      exit on global timeout (see -timeout option) when no call
+      succeeded and none failed
 99    Normal exit without calls processed
 -1    Fatal error
 -2    Fatal error binding a socket
 ====  ===========
+
+When the global timeout (``-timeout``) is reached, SIPp stops and the
+exit code is decided as above: 0 if at least one call succeeded and
+none failed, 1 if a call failed, and 97 only if no call completed at
+all. Reaching the timeout is therefore not an error by itself, even if
+fewer calls than asked for with ``-m`` were made. Add ``-timeout_error``
+to make reaching the timeout a fatal error (exit code -1).
 
 Depending on the system that SIPp is running on, you can echo this
 exit code by using "echo ?" command.
