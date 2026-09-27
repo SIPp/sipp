@@ -1,0 +1,23 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# With stdin on /dev/null, which epoll can't watch, closing it at the
+# exit logs no "Failed to delete FD from epoll" warning.
+. "`dirname "$0"`/../functions"; init
+
+log=`mktemp`
+sippbg -sn uas -i 127.0.0.1 -p 25330 -m 1
+# Not sippfg: it passes -nostdin.
+"$SIPP" -sn uac -i 127.0.0.1 -p 25331 127.0.0.1:25330 -m 1 \
+    -timeout 10 -timeout_error -trace_err -error_file "$log" \
+    </dev/null >/dev/null 2>&1
+status=$?
+errors=`cat "$log"`
+rm -f "$log"
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif echo "$errors" | grep -q 'epoll'; then
+    fail "`echo "$errors" | grep epoll | head -n 1`"
+else
+    ok
+fi
