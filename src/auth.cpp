@@ -207,29 +207,43 @@ int createAuthHeader(
 }
 
 
+/* Where the value of parameter name starts in header, or nullptr: the
+ * name must begin the header or follow a ',' or a space, outside a
+ * quoted string, and have an '=' after it, with spaces around allowed.
+ * So "nonce" isn't found in "cnonce", nor in realm="a, nonce=b". */
+static const char* findAuthParameter(const char* name, const char* header)
+{
+    size_t n = strlen(name);
+    bool quoted = false;
+    const char* p = header;
+
+    while (*p) {
+        if (quoted && *p == '\\' && p[1]) {
+            p += 2;  // an escaped character
+            continue;
+        }
+        if (*p == '"') {
+            quoted = !quoted;
+        } else if (!quoted && (p == header || p[-1] == ',' || isspace(p[-1])) &&
+                   !strncasecmp(p, name, n)) {
+            const char* eq = p + n + strspn(p + n, " \t\r\n");
+            if (*eq == '=') {
+                return eq + 1 + strspn(eq + 1, " \t\r\n");
+            }
+        }
+        p++;
+    }
+    return nullptr;
+}
+
 int getAuthParameter(const char *name, const char *header, char *result, int len)
 {
-    char *start, *end;
-
-    start = stristr(header, name);
-    while (start) {
-        // Ensure that the preceding character is "," or whitespace - this
-        // stops us finding "cnonce" when we search for "nonce".
-        char preceding_char = start[-1];
-        if ((preceding_char == ',')
-            || isspace(preceding_char)) {
-            break;
-        }
-        start = stristr(start+1, name);
-    }
+    const char *start = findAuthParameter(name, header);
+    const char *end;
 
     if (!start) {
         result[0] = '\0';
         return 0;
-    }
-    start += strlen(name);
-    if (*start++ != '=') {
-        return getAuthParameter(name, start, result, len);
     }
     if (*start == '"') {
         start++;
@@ -674,7 +688,6 @@ static int createAuthHeaderAKAv1MD5(
 {
 
     char tmp[MAX_HEADER_LEN];
-    char *start, *end;
     int has_auts = 0;
     int written = 0;
     char *nonce64, *nonce;
@@ -694,21 +707,14 @@ static int createAuthHeaderAKAv1MD5(
     int i;
 
     // Extract the Nonce
-    if ((start = stristr(auth, "nonce=")) == nullptr) {
+    if (!getAuthParameter("nonce", auth, tmp, sizeof(tmp))) {
         snprintf(result, result_len, "createAuthHeaderAKAv1MD5: couldn't parse nonce");
         return 0;
     }
-    start = start + strlen("nonce=");
-    if (*start == '"') {
-        start++;
-    }
-    end = start + strcspn(start, " ,\"\r\n");
-    strncpy(tmp, start, end - start);
-    tmp[end - start] ='\0';
 
     /* Compute the AKA RES */
     nonce64 = tmp;
-    nonce = base64_decode_string(nonce64, end-start, &noncelen);
+    nonce = base64_decode_string(nonce64, strlen(tmp), &noncelen);
     if (noncelen < RANDLEN + AUTNLEN) {
         if (nonce)
             free(nonce);
@@ -994,6 +1000,33 @@ TEST(DigestAuth, AKAv1MD5HexKeys) {
                                   "0x465B5CE8B199B49FAA5F0A2EE238A6BC", 1, result, sizeof(result)))
         << result;
     EXPECT_NE(nullptr, strstr(result, ",response=\"1efe54bb65c7771548e279052d82bd09\",")) << result;
+    /* Spaces around the nonce's '=' */
+    header = "Digest realm=\"r\", nonce = \"I1U8vpY3qJ0hiuZNrke/NVXzKLQ1d7m5Sp/6w1Tfr7M=\", algorithm=AKAv1-MD5";
+    ASSERT_NE(0, createAuthHeader("alice", "", "REGISTER", "sip:example.com", "", header,
+                                  "0xCDC202D5123E20F62B6D676AC72CB318", "0xB9B9",
+                                  "0x465B5CE8B199B49FAA5F0A2EE238A6BC", 1, result, sizeof(result)))
+        << result;
+    EXPECT_NE(nullptr, strstr(result, ",response=\"1efe54bb65c7771548e279052d82bd09\",")) << result;
+}
+
+TEST(DigestAuth, getAuthParameter) {
+    char v[64];
+    EXPECT_EQ(3, getAuthParameter("nonce", "Digest nonce=abc", v, sizeof(v)));
+    EXPECT_STREQ("abc", v);
+    /* Spaces around '=', a quoted value */
+    getAuthParameter("algorithm", "Digest realm=\"r\", algorithm = SHA-256", v, sizeof(v));
+    EXPECT_STREQ("SHA-256", v);
+    getAuthParameter("realm", "Digest realm= \"a b\"", v, sizeof(v));
+    EXPECT_STREQ("a b", v);
+    /* Not in cnonce, nor in another parameter's quoted value */
+    getAuthParameter("nonce", "Digest cnonce=\"x\", nonce=\"y\"", v, sizeof(v));
+    EXPECT_STREQ("y", v);
+    getAuthParameter("algorithm", "Digest realm=\"a, algorithm=SHA-256\", algorithm=MD5", v, sizeof(v));
+    EXPECT_STREQ("MD5", v);
+    getAuthParameter("nonce", "Digest realm=\"a\\\", nonce=bad\", nonce=good", v, sizeof(v));
+    EXPECT_STREQ("good", v);
+    EXPECT_EQ(0, getAuthParameter("opaque", "Digest realm=\"opaque=x\"", v, sizeof(v)));
+    EXPECT_STREQ("", v);
 }
 
 static std::string selectedChallenge(const char* auth)
@@ -1020,6 +1053,10 @@ TEST(DigestAuth, SelectChallenge) {
     EXPECT_EQ("Digest realm=\"b\", qop=auth, auth-int, nonce=\"2\"",
               selectedChallenge("Digest realm=\"a\", algorithm=SHA-512-256, "
                                 "Digest realm=\"b\", qop=auth, auth-int, nonce=\"2\""));
+    /* An algorithm with spaces around its '=' is still read */
+    EXPECT_EQ("Digest realm=\"b\", algorithm = MD5",
+              selectedChallenge("Digest realm=\"a\", algorithm = SHA-512-256, "
+                                "Digest realm=\"b\", algorithm = MD5"));
     /* None to answer: all, for the error to name the first */
     EXPECT_EQ("Digest realm=\"a\", algorithm=SHA-512-256, Digest realm=\"b\", algorithm=MD5-sess",
               selectedChallenge("Digest realm=\"a\", algorithm=SHA-512-256, Digest realm=\"b\", algorithm=MD5-sess"));
