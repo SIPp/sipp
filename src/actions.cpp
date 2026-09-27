@@ -555,8 +555,8 @@ void CAction::setRTPEchoActInfo(const char* P_value)
     char* next_comma;
     char actionstring[RTPECHO_MAX_FILENAMELEN];
 
-    if (strlen(P_value) >= 512) {
-        ERROR("RTPEcho keyword %s is too long -- maximum supported length %u\n", P_value, 512);
+    if (strlen(P_value) >= sizeof(actionstring)) {
+        ERROR("RTPEcho keyword %s is too long -- maximum supported length %zu\n", P_value, sizeof(actionstring) - 1);
     }
 
     memset(actionstring, 0, sizeof(actionstring));
@@ -568,7 +568,7 @@ void CAction::setRTPEchoActInfo(const char* P_value)
     M_rtpecho_actinfo.audio_active = 0;
     M_rtpecho_actinfo.video_active = 0;
 
-    strcpy (actionstring,P_value);
+    snprintf(actionstring, sizeof(actionstring), "%s", P_value);
     param_str = strchr(actionstring,',');
     next_comma = nullptr;
 
@@ -592,7 +592,7 @@ void CAction::setRTPEchoActInfo(const char* P_value)
         if (next_comma) {
             *(next_comma++) = 0;
         }
-        strcpy(M_rtpecho_actinfo.payload_name, param_str);
+        snprintf(M_rtpecho_actinfo.payload_name, sizeof(M_rtpecho_actinfo.payload_name), "%s", param_str);
         param_str = next_comma;
     }
 
@@ -718,7 +718,7 @@ void CAction::setRTPStreamActInfo(const char *P_value)
                 ERROR("Filename/Pattern keyword %s is too long -- maximum supported length %zu",
                     found_file, sizeof(M_rtpstream_actinfo.filename) - 1);
             }
-            strcpy(M_rtpstream_actinfo.filename, found_file);
+            snprintf(M_rtpstream_actinfo.filename, sizeof(M_rtpstream_actinfo.filename), "%s", found_file);
             free(const_cast<char*>(found_file));
         }
     }
@@ -770,7 +770,7 @@ void CAction::setRTPStreamActInfo(const char *P_value)
         if (next_comma) {
             *(next_comma++) = 0;
         }
-        strcpy(M_rtpstream_actinfo.payload_name, param_str);
+        snprintf(M_rtpstream_actinfo.payload_name, sizeof(M_rtpstream_actinfo.payload_name), "%s", param_str);
         param_str = next_comma;
     }
 
