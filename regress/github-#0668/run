@@ -1,0 +1,35 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Each SIGUSR2 writes all the screens to the screen file at once: it
+# used to stay in the stdio buffer, and each dump opened the file again
+# without closing the last one, whose data came at exit, over the new.
+. "`dirname "$0"`/../functions"; init
+
+check() {
+    for s in Scenario Statistics Repartition; do
+        n=`grep -c -- "- $s Screen -" screen.log 2>/dev/null`
+        test "$n" = 1 || return 1
+    done
+    # The last line of the call length repartition, on the last screen.
+    n=`grep -c 'n >= *10000 ms :' screen.log`
+    test "$n" = 1
+}
+
+rm -f screen.log
+sippbg -sn uac -m 1 -p 25620 127.0.0.1:25621 -screen_file screen.log
+sleep 0.5
+/bin/kill -USR2 $pid
+sleep 0.5
+check || fail "first dump incomplete"
+/bin/kill -USR2 $pid
+sleep 0.5
+check || fail "second dump incomplete"
+if test -d /proc/$pid/fd; then
+    n=`ls -l /proc/$pid/fd | grep -c 'screen\.log$'`
+    test $n -eq 1 || fail "screen file open $n times"
+fi
+/bin/kill -INT $pid
+wait
+check || fail "screen file broken after exit"
+rm -f screen.log
+ok
