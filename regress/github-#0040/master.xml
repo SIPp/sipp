@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- A master that only drives its slave, without SIP of its own. -->
+<scenario name="3pcc extended master without SIP">
+  <sendCmd dest="s1">
+    <![CDATA[
+      Call-ID: [call_id]
+      From: m
+    ]]>
+  </sendCmd>
+  <recvCmd src="s1"/>
+</scenario>

@@ -1,0 +1,29 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# In 3PCC extended mode, a master and a slave whose scenarios only have
+# sendCmd and recvCmd, and no SIP, run their call without a remote host,
+# over UDP and over TCP.
+. "`dirname "$0"`/../functions"; init
+
+for t in u1 t1; do
+    out=`mktemp`
+    sippfg -sf slave.xml -slave s1 \
+        -slave_cfg cfg -t $t -i 127.0.0.1 -p 25910 -m 1 -timeout 8 \
+        -timeout_error >"$out" 2>&1 &
+    slave=$!
+    sleep 1
+    sippfg -sf master.xml -master m -slave_cfg cfg -t $t -i 127.0.0.1 \
+        -p 25911 -m 1 -timeout 8 -timeout_error >/dev/null 2>&1
+    status=$?
+    wait $slave
+    slave_status=$?
+    error=`grep -m1 'send mode\|remote host' "$out"`
+    rm -f "$out"
+
+    if test $status -ne 0; then
+        fail "-t $t: the master exited with $status"
+    elif test $slave_status -ne 0; then
+        fail "-t $t: the slave exited with $slave_status${error:+: $error}"
+    fi
+done
+ok

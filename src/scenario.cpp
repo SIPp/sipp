@@ -1339,6 +1339,11 @@ void scenario::computeSippMode()
             break;
         }
     }
+    /* A 3PCC scenario with only commands sends no SIP: like a server, it
+     * needs no remote host. */
+    if (sendMode == -1 && (isSendCmdFound || isRecvCmdFound)) {
+        sendMode = MODE_SERVER;
+    }
     if(creationMode == -1)
         ERROR("Unable to determine creation mode of the tool (server, client)");
     if(sendMode == -1)

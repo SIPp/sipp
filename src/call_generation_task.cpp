@@ -165,8 +165,11 @@ bool CallGenerationTask::run()
             case T_TCP:
             case T_SCTP:
             case T_TLS:
-                call_ptr->associate_socket(tcp_multiplex);
-                tcp_multiplex->ss_count++;
+                /* None for a 3PCC scenario with only commands. */
+                if (tcp_multiplex) {
+                    call_ptr->associate_socket(tcp_multiplex);
+                    tcp_multiplex->ss_count++;
+                }
                 break;
             }
         }
