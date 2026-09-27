@@ -116,6 +116,8 @@ public:
         return last_recv_msg;
     };
 
+    static void extract_cseq_method(char* responseCseq, size_t size, const char* msg);
+
 private:
     /* This is the core constructor function. */
     void init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
@@ -313,7 +315,6 @@ protected:
     bool process_unexpected(const char* msg);
     void do_bookkeeping(message *curmsg);
 
-    void  extract_cseq_method (char* responseCseq, const char* msg);
     void  extract_transaction (char* txn, const char* msg);
 
     int   send_raw(const char * msg, int index, int len);

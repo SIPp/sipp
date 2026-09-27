@@ -3,7 +3,9 @@
 class deadcall : public virtual task, public virtual listener
 {
 public:
-    deadcall(const char *id, const char * reason);
+    /* sent_bye, sent_cancel: the call ended with a BYE or a CANCEL,
+     * whose answers are no surprise. */
+    deadcall(const char *id, const char *reason, bool sent_bye = false, bool sent_cancel = false);
     ~deadcall();
 
     virtual bool process_incoming(const char* msg, const struct sockaddr_storage *);
@@ -20,4 +22,6 @@ public:
 protected:
     unsigned long expiration;
     char *reason;
+    bool sent_bye;
+    bool sent_cancel;
 };
