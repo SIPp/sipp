@@ -1,0 +1,16 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Two scenarios on the command line are a user error that says so, not
+# an "Internal error, main_scenario already set".
+. "`dirname "$0"`/../functions"; init
+
+out=`sippfg -sn uac -sn uas -p 25660 127.0.0.1:25661 2>&1 >/dev/null`
+status=$?
+
+if test $status -ne 255; then
+    fail "exited with $status"
+elif ! echo "$out" | grep -q 'Only one scenario may be given'; then
+    fail "no error for two scenarios"
+else
+    ok
+fi

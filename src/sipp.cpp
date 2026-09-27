@@ -2168,7 +2168,7 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 if (main_scenario) {
-                    ERROR("Internal error, main_scenario already set");
+                    ERROR("Only one scenario may be given: -sf and -sn can't be combined or repeated");
                 } else if (!strcmp(argv[argi - 1], "-sf")) {
                     main_scenario = new scenario(argv[argi], 0);
                 } else if (!strcmp(argv[argi - 1], "-sn")) {
