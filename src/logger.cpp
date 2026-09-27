@@ -152,7 +152,7 @@ void print_count_file(FILE* f, int header)
                     fprintf(f, "%lu%s", curmsg->nb_lost, stat_delimiter);
                 }
             }
-        } else if (curmsg->pause_distribution || curmsg->pause_variable) {
+        } else if (curmsg->pause_distribution || curmsg->pause_variable != -1) {
 
             if (header) {
                 sprintf(temp_str, "%u_Pause_", index);

@@ -1,0 +1,21 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -trace_counts has no columns for a <nop>: it is not a pause.
+. "`dirname "$0"`/../functions"; init
+
+rm -f uac_*_counts.csv
+sippfg -sf uac.xml -m 1 -i 127.0.0.1 -p 5070 127.0.0.1:5099 \
+    -trace_counts >/dev/null 2>&1
+status=$?
+header=`head -n 1 uac_*_counts.csv 2>/dev/null`
+rm -f uac_*_counts.csv
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test -z "$header"; then
+    fail "no counts file"
+elif echo "$header" | grep -q Pause; then
+    fail "the nop has pause columns: $header"
+else
+    ok
+fi
