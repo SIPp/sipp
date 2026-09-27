@@ -28,6 +28,7 @@
  */
 
 #include <stdlib.h>
+#include <sstream>
 #include "config.h"
 #include "sipp.hpp"
 #ifdef HAVE_GSL
@@ -61,8 +62,6 @@ message::message(int index, const char *desc)
     regexp_compile = nullptr; // regfree (if not nullptr) and free on exit
 
     /* Anyway */
-    start_rtd = 0;
-    stop_rtd = 0;
     repeat_rtd = 0;
     lost = -1;
     crlf = 0;
@@ -561,6 +560,21 @@ int scenario::get_rtd(const char *ptr, bool start)
         return stats->findRtd("1", start);
 
     return stats->findRtd(ptr, start);
+}
+
+/* Get the RTDs of a comma-separated list of names. */
+std::vector<int> scenario::get_rtds(const char *ptr, bool start)
+{
+    std::vector<int> rtds;
+    std::istringstream names(ptr);
+    std::string name;
+
+    while (std::getline(names, name, ',')) {
+        if (int rtd = get_rtd(name.c_str(), start)) {
+            rtds.push_back(rtd);
+        }
+    }
+    return rtds;
 }
 
 /* Get a counter */
@@ -1817,10 +1831,10 @@ void scenario::getBookKeeping(message *message)
     const char *ptr;
 
     if ((ptr = xp_get_value("rtd"))) {
-        message->stop_rtd = get_rtd(ptr, false);
+        message->stop_rtd = get_rtds(ptr, false);
     }
     if ((ptr = xp_get_value("repeat_rtd"))) {
-        if (message->stop_rtd) {
+        if (!message->stop_rtd.empty()) {
             message->repeat_rtd = get_bool(ptr, "repeat_rtd");
         } else {
             ERROR("There is a repeat_rtd element without an rtd element");
@@ -1828,7 +1842,7 @@ void scenario::getBookKeeping(message *message)
     }
 
     if ((ptr = xp_get_value("start_rtd"))) {
-        message->start_rtd = get_rtd(ptr, true);
+        message->start_rtd = get_rtds(ptr, true);
     }
 
     if ((ptr = xp_get_value("counter"))) {

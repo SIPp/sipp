@@ -509,12 +509,12 @@ void ScreenPrinter::draw_scenario_screen()
                 }
             }
 
-            if (curmsg->start_rtd) {
+            if (!curmsg->start_rtd.empty()) {
                 buf_len += snprintf(buf + buf_len, bufsiz - buf_len, " B-RTD%d ",
-                                    curmsg->start_rtd);
-            } else if (curmsg->stop_rtd) {
+                                    curmsg->start_rtd[0]);
+            } else if (!curmsg->stop_rtd.empty()) {
                 buf_len += snprintf(buf + buf_len, bufsiz - buf_len, " E-RTD%d ",
-                                    curmsg->stop_rtd);
+                                    curmsg->stop_rtd[0]);
             } else {
                 buf_len += snprintf(buf + buf_len, bufsiz - buf_len, "        ");
             }
@@ -545,12 +545,12 @@ void ScreenPrinter::draw_scenario_screen()
                                     "  %10s <---------- ", curmsg->recv_response);
             }
 
-            if (curmsg->start_rtd) {
+            if (!curmsg->start_rtd.empty()) {
                 buf_len += snprintf(buf + buf_len, bufsiz - buf_len, " B-RTD%d ",
-                                    curmsg->start_rtd);
-            } else if (curmsg->stop_rtd) {
+                                    curmsg->start_rtd[0]);
+            } else if (!curmsg->stop_rtd.empty()) {
                 buf_len += snprintf(buf + buf_len, bufsiz - buf_len, " E-RTD%d ",
-                                    curmsg->stop_rtd);
+                                    curmsg->stop_rtd[0]);
             } else {
                 buf_len += snprintf(buf + buf_len, bufsiz - buf_len, "        ");
             }
@@ -603,12 +603,12 @@ void ScreenPrinter::draw_scenario_screen()
                              curmsg->recv_request);
             }
 
-            if (curmsg->start_rtd) {
+            if (!curmsg->start_rtd.empty()) {
                 buf_len += snprintf(buf + buf_len, bufsiz - buf_len, " B-RTD%d ",
-                                    curmsg->start_rtd);
-            } else if (curmsg->stop_rtd) {
+                                    curmsg->start_rtd[0]);
+            } else if (!curmsg->stop_rtd.empty()) {
                 buf_len += snprintf(buf + buf_len, bufsiz - buf_len, " E-RTD%d ",
-                                    curmsg->stop_rtd);
+                                    curmsg->stop_rtd[0]);
             } else {
                 buf_len += snprintf(buf + buf_len, bufsiz - buf_len, "        ");
             }

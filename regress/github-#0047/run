@@ -1,0 +1,34 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# start_rtd and rtd take a comma-separated list of timers, to start or
+# stop several of them with one command. The timers start after a 500 ms
+# pause, so one left at its call-creation start would take too long.
+. "`dirname "$0"`/../functions"; init
+
+rm -f uac_*_rtt.csv
+sippfg -sf uac.xml -m 1 -nr -i 127.0.0.1 -p 25920 127.0.0.1:25921 \
+    -trace_rtt -rtt_freq 1 -timeout 8 -timeout_error >/dev/null 2>&1
+status=$?
+# rtt NAME: the time of the timer NAME, in ms.
+rtt() {
+    awk -F';' -v rtd="$1" '$3 == rtd { print int($2) }' uac_*_rtt.csv 2>/dev/null
+}
+short=`rtt short`
+long=`rtt long`
+both1=`rtt both1`
+both2=`rtt both2`
+rm -f uac_*_rtt.csv
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test -z "$short" || test "$short" -lt 100 -o "$short" -ge 300; then
+    fail "the short timer took '$short' ms"
+elif test -z "$long" || test "$long" -lt 400 -o "$long" -ge 800; then
+    fail "the long timer took '$long' ms"
+elif test -z "$both1" || test "$both1" -lt 400 -o "$both1" -ge 800; then
+    fail "the both1 timer took '$both1' ms"
+elif test -z "$both2" || test "$both2" -lt 400 -o "$both2" -ge 800; then
+    fail "the both2 timer took '$both2' ms"
+else
+    ok
+fi

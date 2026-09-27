@@ -6,8 +6,8 @@
 <!-- BEGIN message commands -->
 
 <!ENTITY % messageCmdCommon '
-  start_rtd NMTOKEN #IMPLIED
-  rtd NMTOKEN #IMPLIED
+  start_rtd CDATA #IMPLIED
+  rtd CDATA #IMPLIED
   repeat_rtd (true|false) #IMPLIED
   crlf (true|false) #IMPLIED
   next NMTOKEN #IMPLIED

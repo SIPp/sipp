@@ -10,7 +10,8 @@ be arbitrary strings, but for backwards compatibility the value ``"true"``
 is treated as if it were named ``"1"``. Each response time can be used to
 compute time between two SIPp commands (``send``, ``recv`` or ``nop``). You can
 start a timer by using the ``start_rtd`` attribute and stop it using the
-``rtd`` attribute.
+``rtd`` attribute. Both take a comma-separated list of names to start or
+stop several timers with the same command.
 
 You can view the value of those timers in the SIPp interface by
 pressing 3, 6, 7, 8 or 9. You can also save the values in a CSV file

@@ -26,6 +26,7 @@
 
 #include <map>
 #include <unordered_map>
+#include <vector>
 
 #include <sys/socket.h>
 #include "actions.hpp"
@@ -102,8 +103,8 @@ public:
     regex_t      * regexp_compile;
 
     /* Anyway */
-    int            start_rtd;
-    int            stop_rtd;
+    std::vector<int> start_rtd;
+    std::vector<int> stop_rtd;
     bool           repeat_rtd;
     int            counter;
     double         lost;
@@ -190,6 +191,7 @@ public:
     int get_var(const char *varName, const char *what);
     int get_counter(const char *varName, const char *what);
     int get_rtd(const char *ptr, bool start);
+    std::vector<int> get_rtds(const char *ptr, bool start);
     int find_var(const char *varName);
     void setFileName(const char *fileName);
     const std::string &getFileName() const { return fileName; }

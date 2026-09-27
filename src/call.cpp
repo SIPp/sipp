@@ -1709,16 +1709,21 @@ void call::do_bookkeeping(message *curmsg)
         computeStat(CStat::E_ADD_GENERIC_COUNTER, 1, curmsg->counter - 1);
     }
 
-    /* If this message can be used to compute RTD, do it now */
-    if (curmsg->start_rtd) {
-        start_time_rtd[curmsg->start_rtd - 1] = getmicroseconds();
+    if (curmsg->start_rtd.empty() && curmsg->stop_rtd.empty()) {
+        return;
     }
 
-    if (curmsg->stop_rtd) {
-        int rtd = curmsg->stop_rtd;
+    /* If this message can be used to compute RTD, do it now, at the same
+     * time for all its timers */
+    unsigned long long now = getmicroseconds();
+    for (int rtd : curmsg->start_rtd) {
+        start_time_rtd[rtd - 1] = now;
+    }
+
+    for (int rtd : curmsg->stop_rtd) {
         if (!rtd_done[rtd - 1]) {
             unsigned long long start = start_time_rtd[rtd - 1];
-            unsigned long long end = getmicroseconds();
+            unsigned long long end = now;
 
             if (dumpInRtt) {
                 call_scenario->stats->computeRtt(start, end, rtd);
