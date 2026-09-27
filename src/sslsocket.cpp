@@ -239,6 +239,14 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
         SSL_CTX_set_max_proto_version(ssl_ctx, max_tls_version);
     }
 
+#if defined(USE_OPENSSL)
+    /* OpenSSL 3 refuses TLS 1.0 and 1.1 at its default security level,
+     * so asking for one of them would fail every handshake. */
+    if (max_tls_version < TLS1_2_VERSION) {
+        SSL_CTX_set_security_level(ssl_ctx, 0);
+    }
+#endif
+
     return ssl_ctx;
 }
 

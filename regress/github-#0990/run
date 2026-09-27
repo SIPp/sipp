@@ -1,0 +1,29 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -tls_version 1.0 and 1.1 work with OpenSSL 3, whose default security
+# level refuses them.
+. "`dirname "$0"`/../functions"; init
+
+"`get_sipp`" -v | grep -q TLS || skip "no TLS"
+command -v openssl >/dev/null || skip "no openssl"
+
+dir=`mktemp -d`
+openssl req -x509 -newkey rsa:2048 -nodes -keyout "$dir/key.pem" \
+    -out "$dir/cert.pem" -days 1 -subj /CN=sipp >/dev/null 2>&1 ||
+    skip "no certificate"
+tls="-t l1 -tls_cert $dir/cert.pem -tls_key $dir/key.pem"
+
+for version in 1.0 1.1; do
+    sippbg -sn uas $tls -tls_version $version -i 127.0.0.1 -p 5070 \
+        -m 1 -timeout 10
+    sippfg -sn uac $tls -tls_version $version -i 127.0.0.1 -p 5071 \
+        -m 1 -timeout 10 127.0.0.1:5070 >/dev/null 2>&1
+    status=$?
+    wait $pid
+    if test $status -ne 0; then
+        rm -rf "$dir"
+        fail "TLS $version failed with $status"
+    fi
+done
+rm -rf "$dir"
+ok
