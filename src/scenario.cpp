@@ -1097,6 +1097,10 @@ scenario::~scenario()
         delete *i;
     }
     messages.clear();
+    for (msgvec::iterator i = initmessages.begin(); i != initmessages.end(); i++) {
+        delete *i;
+    }
+    initmessages.clear();
 
     free(name);
 
