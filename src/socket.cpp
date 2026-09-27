@@ -946,7 +946,9 @@ void SIPpSocket::invalidate()
     if (ss_fd != -1) {
 #ifdef HAVE_EPOLL
         int rc = epoll_ctl(epollfd, EPOLL_CTL_DEL, ss_fd, nullptr);
-        if (rc == -1) {
+        /* EPERM: a file epoll can't watch, which it never added (stdin
+         * redirected from /dev/null, say). */
+        if ((rc == -1) && (errno != EPERM)) {
             WARNING_NO("Failed to delete FD from epoll");
         }
 #endif
