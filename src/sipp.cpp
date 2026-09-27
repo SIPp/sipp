@@ -624,7 +624,7 @@ struct sipp_option options_table[] = {
    {"sleep", "How long to sleep for at startup. Default unit is seconds.", SIPP_OPTION_TIME_SEC, &sleeptime, 1},
    {"skip_rlimit", "Do not perform rlimit tuning of file descriptor limits.  Default: false.", SIPP_OPTION_SETFLAG, &skip_rlimit, 1},
    {"buff_size", "Set the send and receive buffer size.", SIPP_OPTION_INT, &buff_size, 1},
-   {"sendbuffer_warn", "Produce warnings instead of errors on SendBuffer failures.", SIPP_OPTION_BOOL, &sendbuffer_warn, 1},
+   {"sendbuffer_warn", "Exit with an error on a failure to send a message SIPp makes itself (such as an automatic answer or an abort's BYE), instead of the default warning.", SIPP_OPTION_BOOL, &sendbuffer_warn, 1},
    {"lost", "Set the number of packets to lose by default (scenario specifications override this value).", SIPP_OPTION_FLOAT, &global_lost, 1},
    {"key", "keyword value\nSet the generic parameter named \"keyword\" to \"value\".", SIPP_OPTION_KEY, nullptr, 1},
    {"set", "variable value\nSet the global variable parameter named \"variable\" to \"value\".", SIPP_OPTION_VAR, nullptr, 3},
