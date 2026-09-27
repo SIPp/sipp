@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- An AKAv1-MD5 challenge made with K "0123456789abcdef", and OP and
+     AMF all zeros; the response is the one those give. -->
+<scenario name="aka uas">
+  <recv request="REGISTER"/>
+  <send>
+    <![CDATA[
+      SIP/2.0 401 Unauthorized
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=srv
+      [last_Call-ID:]
+      [last_CSeq:]
+      WWW-Authenticate: Digest realm="r", nonce="AAECAwQFBgcICQoLDA0OD+UfKioT1gAAkCrtwEuP4Z4=", algorithm=AKAv1-MD5
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv request="REGISTER">
+    <action>
+      <ereg regexp="response=&quot;8e646ee122a11436cc25c11c813184f9&quot;" search_in="hdr" header="Authorization:" check_it="true" assign_to="_"/>
+    </action>
+  </recv>
+  <send>
+    <![CDATA[
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=srv
+      [last_Call-ID:]
+      [last_CSeq:]
+      
+      Content-Length: 0
+    ]]>
+  </send>
+</scenario>

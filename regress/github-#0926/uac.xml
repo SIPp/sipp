@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- AKAv1-MD5 with aka_K only: aka_OP and aka_AMF are zeros. -->
+<scenario name="aka uac">
+  <send>
+    <![CDATA[
+      REGISTER sip:127.0.0.1:5070 SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:alice@[local_ip]>;tag=[call_number]
+      To: <sip:alice@[local_ip]>
+      Call-ID: [call_id]
+      CSeq: [cseq] REGISTER
+      Max-Forwards: 70
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv response="401" auth="true"/>
+  <send>
+    <![CDATA[
+      REGISTER sip:127.0.0.1:5070 SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:alice@[local_ip]>;tag=[call_number]
+      To: <sip:alice@[local_ip]>
+      Call-ID: [call_id]
+      CSeq: [cseq] REGISTER
+      [authentication username=alice aka_K="0123456789abcdef"]
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv response="200"/>
+</scenario>

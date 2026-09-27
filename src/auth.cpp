@@ -642,9 +642,14 @@ static int createAuthHeaderAKAv1MD5(
     memcpy(rnd, nonce, RANDLEN);
     memcpy(sqnxoraka, nonce + RANDLEN, SQNLEN);
     memcpy(mac, nonce + RANDLEN + SQNLEN + AMFLEN, MACLEN);
-    memcpy(k, aka_K, KLEN);
-    memcpy(amf, aka_AMF, AMFLEN);
-    memcpy(op, aka_OP, OPLEN);
+    /* The keys are their text's bytes, zero past its end: an omitted
+     * aka_OP or aka_AMF is all zeros, not what the buffer held. */
+    memset(k, 0, KLEN);
+    memcpy(k, aka_K, strnlen(aka_K, KLEN));
+    memset(amf, 0, AMFLEN);
+    memcpy(amf, aka_AMF, strnlen(aka_AMF, AMFLEN));
+    memset(op, 0, OPLEN);
+    memcpy(op, aka_OP, strnlen(aka_OP, OPLEN));
 
     /* Compute the AK, response and keys CK IK */
     f2345(k, rnd, res, ck, ik, ak, op);
@@ -655,7 +660,7 @@ static int createAuthHeaderAKAv1MD5(
         sqn[i] = sqnxoraka[i] ^ ak[i];
 
     /* compute XMAC */
-    f1(k, rnd, sqn, (unsigned char *) aka_AMF, xmac, op);
+    f1(k, rnd, sqn, amf, xmac, op);
     if (memcmp(mac, xmac, MACLEN) != 0) {
         free(nonce);
         snprintf(
