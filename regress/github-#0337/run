@@ -10,7 +10,7 @@ sleep 1
 sippfg -m 1 -sf reply488.xml -t t1 127.0.0.1:5070 >/dev/null 2>&1
 
 last_bytes_equal() {
-    size=`stat -c%s $1`
+    size=`wc -c <$1 | tr -d " "`
     tail=`dd if=$1 bs=1 skip=$((size - $2)) 2>/dev/null`
     test "$tail" = "$3"
 }
