@@ -592,7 +592,7 @@ struct sipp_option options_table[] = {
     {"reconnect_sleep", "How long (in milliseconds) to sleep between the close and reconnect?", SIPP_OPTION_TIME_MS, &reset_sleep, 1},
     {"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, nullptr, 1},
 
-    {"tls_cert", "Set the name for TLS Certificate file. Default is 'cacert.pem'", SIPP_OPTION_STRING, &tls_cert_name, 1},
+    {"tls_cert", "Set the name for TLS Certificate file, which may be followed by its intermediate CA certificates. Default is 'cacert.pem'", SIPP_OPTION_STRING, &tls_cert_name, 1},
     {"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem'", SIPP_OPTION_STRING, &tls_key_name, 1},
     {"tls_ca", "Set the name for TLS CA file. If not specified, X509 verification is not activated.", SIPP_OPTION_STRING, &tls_ca_name, 1},
     {"tls_crl", "Set the name for Certificate Revocation List file. If not specified, X509 CRL is not activated.", SIPP_OPTION_STRING, &tls_crl_name, 1},
