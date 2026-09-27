@@ -2439,7 +2439,7 @@ static int get_wav_header_size(const char *data, int size)
 }
 
 /* code checked */
-void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo)
+void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio)
 {
     debugprint("rtpstream_play callinfo=%p filename %s pattern_id %d loop %d bytes %d payload %d ptime %d tick %d\n",
         callinfo,
@@ -2487,6 +2487,12 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
         taskinfo->new_audio_file_bytes += header_size;
         taskinfo->new_audio_file_size -= header_size;
     }
+
+    /* hand over the SRTP keys before the RTP thread can see the flag */
+    pthread_mutex_lock(&uacAudioMutex);
+    g_txUACAudio = txUACAudio;
+    g_rxUACAudio = rxUACAudio;
+    pthread_mutex_unlock(&uacAudioMutex);
 
     /* set flag that we have a new file to play */
     taskinfo->flags |= TI_PLAYFILE;
@@ -2559,13 +2565,14 @@ void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     taskinfo->audio_active = actioninfo->audio_active;
     taskinfo->video_active = actioninfo->video_active;
 
-    /* set flag that we have a new file to play */
-    taskinfo->flags |= TI_PLAYAPATTERN;
-
+    /* hand over the SRTP keys before the RTP thread can see the flag */
     pthread_mutex_lock(&uacAudioMutex);
     g_txUACAudio = txUACAudio;
     g_rxUACAudio = rxUACAudio;
     pthread_mutex_unlock(&uacAudioMutex);
+
+    /* set flag that we have a new file to play */
+    taskinfo->flags |= TI_PLAYAPATTERN;
 }
 
 void rtpstream_pauseapattern(rtpstream_callinfo_t* callinfo)
@@ -2633,13 +2640,14 @@ void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     taskinfo->audio_active = actioninfo->audio_active;
     taskinfo->video_active = actioninfo->video_active;
 
-    /* set flag that we have a new file to play */
-    taskinfo->flags |= TI_PLAYVPATTERN;
-
+    /* hand over the SRTP keys before the RTP thread can see the flag */
     pthread_mutex_lock(&uacVideoMutex);
     g_txUACVideo = txUACVideo;
     g_rxUACVideo = rxUACVideo;
     pthread_mutex_unlock(&uacVideoMutex);
+
+    /* set flag that we have a new file to play */
+    taskinfo->flags |= TI_PLAYVPATTERN;
 }
 
 void rtpstream_pausevpattern(rtpstream_callinfo_t* callinfo)

@@ -191,7 +191,7 @@ int rtpstream_cache_file(char *filename,
                          int id,
                          int bytes_per_packet,
                          int stream_type /* 0: AUDIO - 1: VIDEO */);
-void rtpstream_play(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo);
+void rtpstream_play(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio);
 void rtpstream_pause(rtpstream_callinfo_t *callinfo);
 void rtpstream_resume(rtpstream_callinfo_t *callinfo);
 

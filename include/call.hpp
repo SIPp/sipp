@@ -354,6 +354,7 @@ protected:
 
     FILE* _srtpctxdebugfile;
     int logSrtpInfo(const char *fmt, ...);
+    void startUACSrtp(SrtpChannel& tx, SrtpChannel& rx, int payloadSize, const char* media);
 
     SessionState _sessionStateCurrent;
     SessionState _sessionStateOld;
