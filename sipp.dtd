@@ -3,6 +3,24 @@
 
 <!ELEMENT init ( nop | label )* >
 
+<!-- The parameters of a pause's or a sample's distribution. -->
+<!ENTITY % distributionParams '
+  value CDATA #IMPLIED
+  min CDATA #IMPLIED
+  max CDATA #IMPLIED
+  mean CDATA #IMPLIED
+  stdev CDATA #IMPLIED
+  lambda CDATA #IMPLIED
+  k CDATA #IMPLIED
+  x_m CDATA #IMPLIED
+  shape CDATA #IMPLIED
+  scale CDATA #IMPLIED
+  location CDATA #IMPLIED
+  theta CDATA #IMPLIED
+  n CDATA #IMPLIED
+  p CDATA #IMPLIED
+  '>
+
 <!-- BEGIN message commands -->
 
 <!ENTITY % messageCmdCommon '
@@ -45,6 +63,7 @@
 <!ATTLIST pause milliseconds NMTOKEN #IMPLIED >
 <!ATTLIST pause variable NMTOKEN #IMPLIED >
 <!ATTLIST pause distribution NMTOKEN #IMPLIED >
+<!ATTLIST pause %distributionParams; >
 <!ATTLIST pause sanity_check (true|false) #IMPLIED >
 
 <!ELEMENT nop ( action? ) >
@@ -168,21 +187,7 @@
 <!ELEMENT sample EMPTY >
 <!ATTLIST sample assign_to CDATA #REQUIRED >
 <!ATTLIST sample distribution (fixed|uniform|normal|lognormal|exponential|weibull|pareto|gpareto|gamma|negbin) #REQUIRED >
-<!-- the parameters of the chosen distribution -->
-<!ATTLIST sample value CDATA #IMPLIED >
-<!ATTLIST sample min CDATA #IMPLIED >
-<!ATTLIST sample max CDATA #IMPLIED >
-<!ATTLIST sample mean CDATA #IMPLIED >
-<!ATTLIST sample stdev CDATA #IMPLIED >
-<!ATTLIST sample lambda CDATA #IMPLIED >
-<!ATTLIST sample k CDATA #IMPLIED >
-<!ATTLIST sample x_m CDATA #IMPLIED >
-<!ATTLIST sample shape CDATA #IMPLIED >
-<!ATTLIST sample scale CDATA #IMPLIED >
-<!ATTLIST sample location CDATA #IMPLIED >
-<!ATTLIST sample theta CDATA #IMPLIED >
-<!ATTLIST sample n CDATA #IMPLIED >
-<!ATTLIST sample p CDATA #IMPLIED >
+<!ATTLIST sample %distributionParams; >
 
 <!ELEMENT gettimeofday EMPTY >
 <!-- two comma-separated variables: seconds,microseconds -->
