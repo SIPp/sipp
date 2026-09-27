@@ -1555,7 +1555,9 @@ int call::send_raw(const char * msg, int index, int len)
         return rc;
     }
 
-    if(rc < 0) {
+    /* A message of our own (index -1) is sent by code that carries on
+     * with the call, so it stays; sendBuffer() reports the failure. */
+    if(rc < 0 && index != -1) {
         computeStat(CStat::E_CALL_FAILED);
         computeStat(CStat::E_FAILED_CANNOT_SEND_MSG);
         delete this;
