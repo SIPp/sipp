@@ -54,10 +54,16 @@ inline socklen_t socklen_from_addr(const struct sockaddr_storage* ss) {
     }
 }
 
+/* prefer: of the addresses of host, take the first one of that family
+ * if there is one. */
 int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
-                    unsigned short port, int flags, int family);
+                    unsigned short port, int flags, int family,
+                    int prefer = AF_UNSPEC);
 int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
-                    const char *service, int flags, int family);
+                    const char *service, int flags, int family,
+                    int prefer = AF_UNSPEC);
+/* The family of the first address of host, AF_UNSPEC if it has none. */
+int gai_family(const char *host);
 void sockaddr_update_port(struct sockaddr_storage* ss, short port);
 
 

@@ -580,7 +580,7 @@ struct sipp_option options_table[] = {
 #endif
         , SIPP_OPTION_TRANSPORT, nullptr, 1
     },
-    {"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address.\n", SIPP_OPTION_IP, local_ip, 1},
+    {"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address. A host name (remote host, -rsa, setdest) that resolves to several addresses prefers one in the family of the -i address.\n", SIPP_OPTION_IP, local_ip, 1},
     {"p", "Set the local port number.  Default is a random free port chosen by the system.", SIPP_OPTION_INT, &user_port, 1},
     {"bind_local", "Bind socket to local IP address, i.e. the local IP address is used as the source IP address.  If SIPp runs in server mode it will only listen on the local IP address instead of all IP addresses.", SIPP_OPTION_SETFLAG, &bind_local, 1},
 #ifdef SO_BINDTODEVICE
@@ -592,7 +592,7 @@ struct sipp_option options_table[] = {
     {"max_reconnect", "Set the the maximum number of reconnection.", SIPP_OPTION_INT, &reset_number, 1},
     {"reconnect_close", "Should calls be closed on reconnect?", SIPP_OPTION_BOOL, &reset_close, 1},
     {"reconnect_sleep", "How long (in milliseconds) to sleep between the close and reconnect?", SIPP_OPTION_TIME_MS, &reset_sleep, 1},
-    {"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, nullptr, 1},
+    {"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, nullptr, 2},
 
     {"tls_cert", "Set the name for TLS Certificate file, which may be followed by its intermediate CA certificates. Default is 'cacert.pem'", SIPP_OPTION_STRING, &tls_cert_name, 1},
     {"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem'", SIPP_OPTION_STRING, &tls_key_name, 1},
@@ -2275,7 +2275,8 @@ int main(int argc, char *argv[])
 
                 /* FIXME: add DNS SRV support using liburli? */
                 if (gai_getsockaddr(&remote_sending_sockaddr, remote_s_address, remote_s_p,
-                                    AI_PASSIVE, AF_UNSPEC) != 0) {
+                                    AI_PASSIVE, AF_UNSPEC,
+                                    *local_ip ? gai_family(local_ip) : AF_UNSPEC) != 0) {
                     ERROR("Unknown remote host '%s'.\n"
                           "Use 'sipp -h' for details", remote_s_address);
                 }

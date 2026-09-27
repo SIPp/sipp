@@ -87,14 +87,21 @@ static void connect_to_peer(
     char *peer_ip, int peer_ip_size, SIPpSocket **peer_socket);
 
 int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
-                    const char *service, int flags, int family)
+                    const char *service, int flags, int family, int prefer)
 {
     const struct addrinfo hints = {flags, family,};
     struct addrinfo* res;
 
     int error = getaddrinfo(host, service, &hints, &res);
     if (error == 0) {
-        memcpy(ss, res->ai_addr, res->ai_addrlen);
+        const struct addrinfo *ai = res;
+        while (ai && ai->ai_family != prefer) {
+            ai = ai->ai_next;
+        }
+        if (!ai) {
+            ai = res;
+        }
+        memcpy(ss, ai->ai_addr, ai->ai_addrlen);
         freeaddrinfo(res);
     } else {
         WARNING("getaddrinfo failed: %s", gai_strerror(error));
@@ -104,15 +111,25 @@ int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
 }
 
 int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
-                    unsigned short port, int flags, int family)
+                    unsigned short port, int flags, int family, int prefer)
 {
     if (port) {
         char service[NI_MAXSERV + 1];
         snprintf(service, sizeof(service), "%d", port);
-        return gai_getsockaddr(ss, host, service, flags, family);
+        return gai_getsockaddr(ss, host, service, flags, family, prefer);
     } else {
-        return gai_getsockaddr(ss, host, nullptr, flags, family);
+        return gai_getsockaddr(ss, host, nullptr, flags, family, prefer);
     }
+}
+
+int gai_family(const char *host)
+{
+    struct sockaddr_storage ss;
+
+    if (gai_getsockaddr(&ss, host, nullptr, AI_PASSIVE, AF_UNSPEC) != 0) {
+        return AF_UNSPEC;
+    }
+    return ss.ss_family;
 }
 
 void sockaddr_update_port(struct sockaddr_storage* ss, short port)
@@ -2454,8 +2471,11 @@ int open_connections()
 #endif
 
             /* FIXME: add DNS SRV support using liburli? */
+            /* An address in the family of the IP we bind on, if there
+             * is one: we could not reach the others. */
             if (gai_getsockaddr(&remote_sockaddr, remote_host, remote_port,
-                                hints.ai_flags, hints.ai_family) != 0) {
+                                hints.ai_flags, hints.ai_family,
+                                *local_ip ? gai_family(local_ip) : AF_UNSPEC) != 0) {
                 ERROR("Unknown remote host '%s'.\n"
                       "Use 'sipp -h' for details", remote_host);
             }

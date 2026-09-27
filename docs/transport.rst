@@ -178,6 +178,10 @@ a UAC client sending IPv6 traffic to that port.
     ./sipp -sn uas -i [fe80::204:75ff:fe4d:19d9] -p 5063
     ./sipp -sn uac -i [fe80::204:75ff:fe4d:19d9] [fe80::204:75ff:fe4d:19d9]:5063
 
+A host name (the remote host, -rsa or setdest) that resolves to several
+addresses prefers one in the family of the -i address: with -i
+127.0.0.1, localhost is 127.0.0.1 even where it is ::1 first.
+
 
 
 .. warning::
