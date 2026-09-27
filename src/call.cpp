@@ -2185,7 +2185,7 @@ bool call::run()
 
         int rtAllowed = std::min(bInviteTransaction ? max_invite_retrans : max_non_invite_retrans, max_udp_retrans);
 
-        callDebug("Retransmisison required (%d retransmissions, max %d)\n", nb_retrans, rtAllowed);
+        callDebug("Retransmission required (%d retransmissions, max %d)\n", nb_retrans, rtAllowed);
 
         if(nb_retrans > rtAllowed) {
             call_scenario->messages[last_send_index] -> nb_timeout ++;
