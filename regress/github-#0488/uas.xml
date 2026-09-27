@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- Challenges with SHA-512-256 first and MD5 second, as RFC 8760 has
+     it, and accepts an answer to the MD5 one. [qop] is the MD5 one's
+     qop parameter. -->
+<scenario name="two challenges uas">
+  <recv request="REGISTER"/>
+  <send>
+    <![CDATA[
+      SIP/2.0 401 Unauthorized
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=srv
+      [last_Call-ID:]
+      [last_CSeq:]
+      WWW-Authenticate: Digest realm="r", nonce="n1", algorithm=SHA-512-256, qop="auth"
+      WWW-Authenticate: Digest realm="r", [qop], nonce="n2", algorithm=MD5
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv request="REGISTER">
+    <action>
+      <ereg regexp="nonce=&quot;n2&quot;" search_in="hdr" header="Authorization:" check_it="true" assign_to="_"/>
+      <verifyauth assign_to="authvalid" username="alice" password="secret"/>
+    </action>
+  </recv>
+  <nop test="authvalid" next="good"/>
+  <send next="end">
+    <![CDATA[
+      SIP/2.0 403 Forbidden
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=srv
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+    ]]>
+  </send>
+  <label id="good"/>
+  <send>
+    <![CDATA[
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=srv
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+    ]]>
+  </send>
+  <label id="end"/>
+</scenario>

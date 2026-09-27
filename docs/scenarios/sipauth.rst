@@ -10,7 +10,8 @@ Enabling authentication is simple. When receiving a 401 (Unauthorized)
 or a 407 (Proxy Authentication Required), you must add auth="true" in
 the <recv> command to take the challenge into account. Then, the
 authorization header can be re-injected in the next message by using
-[authentication] keyword.
+[authentication] keyword. Of several challenges, the first Digest one
+with a supported algorithm is answered.
 
 Computing the authorization header is done through the usage of the
 "[authentication]" keyword. Depending on the algorithm ("MD5", "AKAv1-MD5" or

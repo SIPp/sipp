@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <string>
 #include "milenage.h"
 #include "screen.hpp"
 #include "logger.hpp"
@@ -249,6 +250,63 @@ int getAuthParameter(const char *name, const char *header, char *result, int len
     }
 
     return end - start;
+}
+
+/* The challenge after the one at p: past a comma, outside quotes, a
+ * token followed by spaces, then by neither '=' nor ',', is the next
+ * one's scheme. So the auth-int of a bare qop=auth,auth-int is not. */
+static char* nextChallenge(char* p)
+{
+    bool quoted = false;
+
+    while (*p) {
+        if (quoted && *p == '\\' && p[1]) {
+            p += 2;  // an escaped character
+            continue;
+        }
+        if (*p == '"') {
+            quoted = !quoted;
+        } else if (*p == ',' && !quoted) {
+            char* start = p + 1 + strspn(p + 1, " \t\r\n");
+            char* end = start + strcspn(start, " \t\r\n=,");
+            char* after = end + strspn(end, " \t\r\n");
+            if (end > start && after > end && *after && *after != '=' &&
+                    *after != ',') {
+                return start;
+            }
+        }
+        p++;
+    }
+    return nullptr;
+}
+
+/* Keep, of the challenges in auth (headers joined by ", "), the first
+ * that createAuthHeader() can answer; all of them if none. */
+void selectAuthChallenge(char* auth)
+{
+    char* start = auth + strspn(auth, " \t");
+
+    while (start) {
+        char* next = nextChallenge(start);
+        size_t len = next ? next - start : strlen(start);
+
+        if (!strncasecmp(start, "Digest", 6) && isspace(start[6])) {
+            std::string challenge(start, len);
+            char algo[32];
+
+            getAuthParameter("algorithm", challenge.c_str(), algo, sizeof(algo));
+            if (!algo[0] || !strcasecmp(algo, "MD5") ||
+                    !strcasecmp(algo, "SHA-256") || !strcasecmp(algo, "AKAv1-MD5")) {
+                while (len && strchr(" \t\r\n,", start[len - 1])) {
+                    len--;
+                }
+                memmove(auth, start, len);
+                auth[len] = '\0';
+                return;
+            }
+        }
+        start = next;
+    }
 }
 
 static int createAuthResponseMD5(
@@ -936,6 +994,35 @@ TEST(DigestAuth, AKAv1MD5HexKeys) {
                                   "0x465B5CE8B199B49FAA5F0A2EE238A6BC", 1, result, sizeof(result)))
         << result;
     EXPECT_NE(nullptr, strstr(result, ",response=\"1efe54bb65c7771548e279052d82bd09\",")) << result;
+}
+
+static std::string selectedChallenge(const char* auth)
+{
+    char buf[1024];
+    strcpy(buf, auth);
+    selectAuthChallenge(buf);
+    return buf;
+}
+
+TEST(DigestAuth, SelectChallenge) {
+    EXPECT_EQ("Digest realm=\"b\", nonce=\"2\", algorithm=MD5",
+              selectedChallenge("Digest realm=\"a\", nonce=\"1\", algorithm=SHA-512-256, "
+                                "Digest realm=\"b\", nonce=\"2\", algorithm=MD5"));
+    EXPECT_EQ("Digest realm=\"a\", nonce=\"1\", qop=\"auth,auth-int\"",
+              selectedChallenge("Digest realm=\"a\", nonce=\"1\", qop=\"auth,auth-int\", "
+                                "Digest realm=\"b\", nonce=\"2\", algorithm=SHA-256"));
+    EXPECT_EQ("Digest realm = \"c\",nonce=\"3\"",
+              selectedChallenge("Basic realm=\"x\", Digest realm=\"a, Digest b\", algorithm=MD5-sess, "
+                                "Digest realm = \"c\",nonce=\"3\""));
+    /* A bare qop list, as some servers send, is not split at auth-int */
+    EXPECT_EQ("Digest realm=\"r\", qop=auth,auth-int, nonce=\"n1\", algorithm=MD5",
+              selectedChallenge("Digest realm=\"r\", qop=auth,auth-int, nonce=\"n1\", algorithm=MD5"));
+    EXPECT_EQ("Digest realm=\"b\", qop=auth, auth-int, nonce=\"2\"",
+              selectedChallenge("Digest realm=\"a\", algorithm=SHA-512-256, "
+                                "Digest realm=\"b\", qop=auth, auth-int, nonce=\"2\""));
+    /* None to answer: all, for the error to name the first */
+    EXPECT_EQ("Digest realm=\"a\", algorithm=SHA-512-256, Digest realm=\"b\", algorithm=MD5-sess",
+              selectedChallenge("Digest realm=\"a\", algorithm=SHA-512-256, Digest realm=\"b\", algorithm=MD5-sess"));
 }
 
 #endif //GTEST
