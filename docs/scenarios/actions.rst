@@ -203,8 +203,11 @@ Example that execute a system echo for every INVITE received::
    ``<ereg>``, are not quoted: a peer that controls such a value can run
    arbitrary commands on the host running SIPp. Only put values into a
    command that you trust, or write them to a file with ``log`` instead.
-   The same applies to the file name given to ``rtp_stream``, which a
-   peer-controlled value could point at any file SIPp can read.
+   The same applies to the file name given to ``rtp_stream`` and to the
+   ``[file name=...]`` keyword, which a peer-controlled value could point
+   at any file SIPp can read. The file names given to ``play_pcap_audio``
+   and ``play_pcap_video`` are read when the scenario is loaded and are
+   not expanded.
 
 
 

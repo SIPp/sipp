@@ -150,10 +150,10 @@ int FileContents::getLine(int line, char *dest, int len)
 }
 
 /* Expands a PRINTF injection field: each "%[-][0][width][.precision]d" is
- * replaced by value. The conversion is parsed here and printed with a
- * constant format string, so text from the file is never used as a format.
- * Width and precision are capped, as the output cannot be longer than a
- * message anyway. */
+ * replaced by value, and "%%" by "%". The conversion is parsed here and
+ * printed with a constant format string, so text from the file is never
+ * used as a format. Width and precision are capped, as the output cannot
+ * be longer than a message anyway. */
 static std::string expand_printf_field(const std::string &field, long long value)
 {
     const char *s = field.c_str();
@@ -167,8 +167,8 @@ static std::string expand_printf_field(const std::string &field, long long value
             continue;
         }
         if (s[i + 1] == '%') {
-            /* Kept as it was: only the first '%' is consumed. */
-            out += s[i++];
+            out += '%';
+            i += 2;
             continue;
         }
 
@@ -183,14 +183,14 @@ static std::string expand_printf_field(const std::string &field, long long value
             }
             i++;
         }
-        while (isdigit(s[i])) {
+        while (isdigit((unsigned char)s[i])) {
             width = std::min(width * 10 + (s[i] - '0'), SIPP_MAX_MSG_SIZE);
             i++;
         }
         if (s[i] == '.') {
             precision = 0;
             i++;
-            while (isdigit(s[i])) {
+            while (isdigit((unsigned char)s[i])) {
                 precision = std::min(precision * 10 + (s[i] - '0'), SIPP_MAX_MSG_SIZE);
                 i++;
             }
@@ -479,6 +479,7 @@ TEST(infile, printf_get_field_matches_printf) {
      * must be what printf() itself produces for the line number. */
     static const char *const specs[] = {
         "%d", "%5d", "%-5d", "%05d", "%.3d", "%8.3d", "%-8.3d", "%-05d",
+        "50%%", "%%%d",
     };
     std::string path = testing::TempDir() + "sipp_infile_printf_matches.csv";
     {
