@@ -1731,6 +1731,11 @@ void scenario::parseAction(CActions *actions)
                 }
                 else
                 {
+                    /* Check a plain filename now; a filename with
+                     * keywords can only be checked when played. */
+                    if (!strchr(ptr, '[')) {
+                        tmpAction->setRTPStreamActInfo(ptr);
+                    }
                     tmpAction->setMessage(ptr);
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PLAY);
                 }
