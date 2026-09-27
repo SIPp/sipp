@@ -227,13 +227,9 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
             tsrc = quoted_strchr(src, '[');
             key = quoted_strchr(src, ']');
 
-            if ((tsrc) && (tsrc<key)) {
-                memcpy(keyword, src-1,  tsrc - src + 1);
-                src=tsrc+1;
-                dest += sprintf(dest, "%s", keyword);
-            }
-
-            if((!key) || ((key - src) > KEYWORD_SIZE) || (!(key - src))) {
+            /* A '[' before the ']' leaves this one unclosed; a literal '['
+             * is written \x5B. */
+            if ((!key) || (tsrc && tsrc < key) || ((key - src) > KEYWORD_SIZE) || (!(key - src))) {
                 ERROR("Syntax error or invalid [keyword] in scenario while parsing '%s'", current_line);
             }
             memcpy(keyword, src,  key - src);
@@ -632,3 +628,27 @@ int registerKeyword(char *keyword, customKeyword fxn)
     keyword_map[keyword] = fxn;
     return 0;
 }
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+
+TEST(SendingMessage, UnclosedKeyword) {
+    /* Not "A1[b c", nor a keyword buffer overflow for a long text
+     * before the next '['. */
+    EXPECT_DEATH(SendingMessage(nullptr, "A[b [call_number] c", true),
+                 "Syntax error or invalid \\[keyword\\]");
+    EXPECT_DEATH(SendingMessage(nullptr, ("A[" + std::string(300, 'x') + "[call_number]").c_str(), true),
+                 "Syntax error or invalid \\[keyword\\]");
+    EXPECT_DEATH(SendingMessage(nullptr, "A[call_number", true),
+                 "Syntax error or invalid \\[keyword\\]");
+}
+
+TEST(SendingMessage, EscapedBracket) {
+    SendingMessage m(nullptr, "A\\x5Bb [call_number] c]Z", true);
+    ASSERT_EQ(3, m.numComponents());
+    EXPECT_STREQ("A[b ", m.getComponent(0)->literal);
+    EXPECT_EQ(E_Message_Call_Number, m.getComponent(1)->type);
+    EXPECT_STREQ(" c]Z", m.getComponent(2)->literal);
+}
+
+#endif //GTEST
