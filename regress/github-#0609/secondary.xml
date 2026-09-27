@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- The secondary s1: take the primary's OPTIONS and command, and
+     answer the command. -->
+<scenario name="3pcc extended secondary">
+  <recv request="OPTIONS" />
+  <recvCmd src="m" />
+  <sendCmd dest="m">
+    <![CDATA[
+      Call-ID: [call_id]
+      From: s1
+    ]]>
+  </sendCmd>
+</scenario>

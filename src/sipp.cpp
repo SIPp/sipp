@@ -751,6 +751,9 @@ struct sipp_option options_table[] = {
     {"master","3pcc extended mode: indicates the master number", SIPP_OPTION_3PCC_EXTENDED, &master_name, 1},
     {"slave", "3pcc extended mode: indicates the slave number", SIPP_OPTION_3PCC_EXTENDED, &slave_number, 1},
     {"slave_cfg", "3pcc extended mode: indicates the file where the master and slave addresses are stored", SIPP_OPTION_SLAVE_CFG, nullptr, 1},
+    {"primary", "3pcc extended mode: same as -master", SIPP_OPTION_3PCC_EXTENDED, &master_name, 1},
+    {"secondary", "3pcc extended mode: same as -slave", SIPP_OPTION_3PCC_EXTENDED, &slave_number, 1},
+    {"secondary_cfg", "3pcc extended mode: same as -slave_cfg", SIPP_OPTION_SLAVE_CFG, nullptr, 1},
 
     {"", "Performance and watchdog options:", SIPP_HELP_TEXT_HEADER, nullptr, 0},
     {"timer_resol", "Set the timer resolution. Default unit is milliseconds.  This option has an impact on timers precision."
@@ -2155,10 +2158,10 @@ int main(int argc, char *argv[])
                 break;
             case SIPP_OPTION_3PCC:
                 if (slave_masterSet) {
-                    ERROR("-3PCC option is not compatible with -master and -slave options");
+                    ERROR("-3PCC option is not compatible with -master/-primary and -slave/-secondary options");
                 }
                 if (extendedTwinSippMode) {
-                    ERROR("-3pcc and -slave_cfg options are not compatible");
+                    ERROR("-3pcc and -slave_cfg/-secondary_cfg options are not compatible");
                 }
                 REQUIRE_ARG();
                 CHECK_PASS();
@@ -2215,7 +2218,7 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 if (twinSippMode) {
-                    ERROR("-slave_cfg and -3pcc options are not compatible");
+                    ERROR("-slave_cfg/-secondary_cfg and -3pcc options are not compatible");
                 }
                 extendedTwinSippMode = true;
                 slave_cfg_file = new char [strlen(argv[argi]) + 1];
@@ -2226,10 +2229,10 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 if (slave_masterSet) {
-                    ERROR("-slave and -master options are not compatible");
+                    ERROR("-slave/-secondary and -master/-primary options are not compatible");
                 }
                 if (twinSippMode) {
-                    ERROR("-master and -slave options are not compatible with -3PCC option");
+                    ERROR("-master/-primary and -slave/-secondary options are not compatible with -3PCC option");
                 }
                 *((char**)option->data) = argv[argi];
                 slave_masterSet = true;
@@ -2402,7 +2405,7 @@ int main(int argc, char *argv[])
     }
 
     if ((extendedTwinSippMode && !slave_masterSet) || (!extendedTwinSippMode && slave_masterSet)) {
-        ERROR("-slave_cfg option must be used with -slave or -master option");
+        ERROR("-slave_cfg/-secondary_cfg option must be used with -slave/-secondary or -master/-primary option");
     }
 
     if (stop_after_csv) {

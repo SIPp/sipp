@@ -19,6 +19,9 @@ names and their addresses must be stored in a file (provided by
 
 Each SIPp instance must access a different copy of this file.
 
+The ``-primary``, ``-secondary`` and ``-secondary_cfg`` options are
+aliases for ``-master``, ``-slave`` and ``-slave_cfg``, respectively.
+
 sendCmd and recvCmd have additional attributes::
 
     <sendCmd dest="s1">

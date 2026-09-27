@@ -1256,7 +1256,7 @@ void parse_slave_cfg()
             peer_addrs[std::string(temp_peer)] = peer_host;
         }
     } else {
-        ERROR("Can not open slave_cfg file %s", slave_cfg_file);
+        ERROR("Can not open -slave_cfg/-secondary_cfg file %s", slave_cfg_file);
     }
 
     fclose(f);
@@ -1324,7 +1324,7 @@ void scenario::computeSippMode()
                     }
                 }
                 if((thirdPartyMode == MODE_MASTER_PASSIVE || thirdPartyMode == MODE_MASTER) && !master_name) {
-                    ERROR("Inconsistency between command line and scenario: master scenario but -master option not set");
+                    ERROR("Inconsistency between command line and scenario: master scenario but -master/-primary option not set");
                 }
                 if(!twinSippMode && !extendedTwinSippMode)
                     ERROR("sendCmd message found in scenario but no twin sipp"
@@ -1343,7 +1343,7 @@ void scenario::computeSippMode()
                 } else if(extendedTwinSippMode) {
                     thirdPartyMode = MODE_SLAVE;
                     if(!slave_number) {
-                        ERROR("Inconsistency between command line and scenario: slave scenario but -slave option not set");
+                        ERROR("Inconsistency between command line and scenario: slave scenario but -slave/-secondary option not set");
                     } else {
                         thirdPartyMode = MODE_SLAVE;
                     }
