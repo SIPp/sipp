@@ -1,0 +1,43 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# In 3PCC extended mode, a peer closing both its connections at once
+# ends the master's run, without a crash from the sockets closed under
+# its poll loop.
+. "`dirname "$0"`/../functions"; init
+
+pidfile=`mktemp`
+
+# s1: take the master's connection, connect back to it, read a command,
+# then close both while the master is stopped, so that it sees both
+# ends in one poll.
+perl -e '
+    use IO::Socket::INET;
+    my $l = IO::Socket::INET->new(LocalAddr => "127.0.0.1:5010", Listen => 1, ReuseAddr => 1) or die;
+    alarm 10;
+    my $in = $l->accept() or die;
+    my $out = IO::Socket::INET->new(PeerAddr => "127.0.0.1:5011") or die;
+    my $c; $in->recv($c, 4096);
+    open(my $f, "<", $ARGV[0]) or die; my $pid = <$f>; chomp $pid;
+    kill("STOP", $pid);
+    close($in); close($out);
+    select(undef, undef, undef, 0.2);
+    kill("CONT", $pid);' "$pidfile" &
+peer=$!
+sleep 1
+"`get_sipp`" -nostdin -sf master.xml -master m \
+    -slave_cfg cfg -i 127.0.0.1 -p 5064 127.0.0.1:5099 -m 1 -timeout 6 \
+    >/dev/null 2>&1 &
+master=$!
+echo $master >"$pidfile"
+wait $master
+status=$?
+wait $peer
+rm -f "$pidfile"
+
+if test $status -gt 128; then
+    fail "the master died with signal $((status - 128))"
+elif test $status -eq 0; then
+    fail "the master's call succeeded without its answer"
+else
+    ok
+fi
