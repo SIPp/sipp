@@ -4259,11 +4259,12 @@ bool call::process_twinSippCom(char * msg)
             do_bookkeeping(call_scenario->messages[search_index]);
 
             // variable treatment
-            // Remove \r, \n at the end of a received command
-            // (necessary for transport, to be removed for usage)
-            while ( (msg[strlen(msg)-1] == '\n') &&
-                    (msg[strlen(msg)-2] == '\r') ) {
-                msg[strlen(msg)-2] = 0;
+            // Remove the blank line a command without a body ends with
+            // (necessary for transport, to be removed for usage), but
+            // not the CRLF a body variable at its end ends with.
+            size_t len = strlen(msg);
+            if (len >= 4 && !strcmp(msg + len - 4, "\r\n\r\n")) {
+                msg[len - 4] = 0;
             }
             actionResult = executeAction(msg, call_scenario->messages[search_index]);
 

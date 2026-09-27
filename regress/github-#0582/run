@@ -1,0 +1,39 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The SDP the 3PCC controllers pass on (in the INVITE of 3pcc-C-B and
+# the ACK of 3pcc-C-A) is as long as its Content-Length says.
+. "`dirname "$0"`/../functions"; init
+
+rm -f a.log b.log
+sippbg -sn uas -i 127.0.0.1 -p 25840 -m 1 -trace_msg -message_file a.log
+sippbg -sn uas -i 127.0.0.1 -p 25841 -m 1 -trace_msg -message_file b.log
+sippbg -sn 3pcc-C-B -i 127.0.0.1 -p 25842 127.0.0.1:25841 \
+    -3pcc 127.0.0.1:25843 -m 1
+sippfg -sn 3pcc-C-A -i 127.0.0.1 -p 25844 127.0.0.1:25840 \
+    -3pcc 127.0.0.1:25843 -m 1 -timeout 8 -timeout_error >/dev/null 2>&1
+status=$?
+sleep 1
+# "<method> <Content-Length> <body length>" of the received messages
+lengths=`cat a.log b.log | perl -0777 -ne '
+    while (/message received \[(\d+)\] bytes:\n\n/g) {
+        my $m = substr($_, pos($_), $1);
+        next unless $m =~ /^(INVITE|ACK) /;
+        my $method = $1;
+        my ($h, $b) = split(/\r\n\r\n/, $m, 2);
+        next unless $h =~ /Content-Length: *(\d+)/i;
+        print "$method $1 ", length($b), "\n";
+    }'`
+rm -f a.log b.log
+
+bad=`echo "$lengths" | awk '$2 != $3'`
+if test $status -ne 0; then
+    fail "3pcc-C-A failed with $status"
+elif ! echo "$lengths" | grep -q '^INVITE [1-9]'; then
+    fail "no INVITE with SDP: $lengths"
+elif ! echo "$lengths" | grep -q '^ACK [1-9]'; then
+    fail "no ACK with SDP: $lengths"
+elif test -n "$bad"; then
+    fail "Content-Length and body length differ: $bad"
+else
+    ok
+fi
