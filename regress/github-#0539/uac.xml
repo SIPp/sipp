@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- Answers the challenge, whatever its algorithm, with a body for
+     auth-int. -->
+<scenario name="digest algorithms uac">
+  <send>
+    <![CDATA[
+      MESSAGE sip:bob@127.0.0.1:25391 SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:alice@[local_ip]>;tag=[call_number]
+      To: <sip:bob@127.0.0.1>
+      Call-ID: [call_id]
+      CSeq: [cseq] MESSAGE
+      Max-Forwards: 70
+      Content-Type: text/plain
+      Content-Length: [len]
+
+      hello
+    ]]>
+  </send>
+  <recv response="401" auth="true"/>
+  <send>
+    <![CDATA[
+      MESSAGE sip:bob@127.0.0.1:25391 SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:alice@[local_ip]>;tag=[call_number]
+      To: <sip:bob@127.0.0.1>
+      Call-ID: [call_id]
+      CSeq: [cseq] MESSAGE
+      Max-Forwards: 70
+      [authentication username=alice password=secret]
+      Content-Type: text/plain
+      Content-Length: [len]
+
+      hello
+    ]]>
+  </send>
+  <recv response="200"/>
+</scenario>

@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
 <!DOCTYPE scenario SYSTEM "sipp.dtd">
-<!-- Challenges with SHA-384, which SIPp doesn't support, first and MD5
-     second, and accepts an answer to the MD5 one. [qop] is the MD5
-     one's qop parameter. -->
-<scenario name="two challenges uas">
-  <recv request="REGISTER"/>
+<!-- Challenges with the algorithm and qop of the next line of the CSV,
+     and accepts only alice's response. -->
+<scenario name="digest algorithms uas">
+  <recv request="MESSAGE"/>
   <send>
     <![CDATA[
       SIP/2.0 401 Unauthorized
@@ -13,14 +12,12 @@
       [last_To:];tag=srv
       [last_Call-ID:]
       [last_CSeq:]
-      WWW-Authenticate: Digest realm="r", nonce="n1", algorithm=SHA-384, qop="auth"
-      WWW-Authenticate: Digest realm="r", [qop], nonce="n2", algorithm=MD5
+      WWW-Authenticate: Digest realm="r", nonce="n[call_number]", qop="[field1]", algorithm=[field0], opaque="o"
       Content-Length: 0
     ]]>
   </send>
-  <recv request="REGISTER">
+  <recv request="MESSAGE">
     <action>
-      <ereg regexp="nonce=&quot;n2&quot;" search_in="hdr" header="Authorization:" check_it="true" assign_to="_"/>
       <verifyauth assign_to="authvalid" username="alice" password="secret"/>
     </action>
   </recv>

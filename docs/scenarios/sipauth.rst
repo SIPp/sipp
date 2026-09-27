@@ -1,25 +1,33 @@
 SIP authentication
 ``````````````````
 
-SIPp supports SIP authentication. Two authentication algorithm are
-supported: Digest/MD5 ("algorithm="MD5""),
-Digest/SHA-256 ("algorithm="SHA-256"") and Digest/AKA
-("algorithm="AKAv1-MD5"", as specified by 3GPP for IMS).
+SIPp supports SIP authentication. These authentication algorithms are
+supported: Digest/MD5 ("algorithm="MD5""), Digest/SHA-256
+("algorithm="SHA-256"") and Digest/SHA-512-256
+("algorithm="SHA-512-256""), each also as a session variant
+("MD5-sess", "SHA-256-sess" and "SHA-512-256-sess", RFC 7616 and RFC
+8760), and Digest/AKA ("algorithm="AKAv1-MD5"", as specified by 3GPP
+for IMS). A session variant needs a qop in the challenge, as its
+response is of the cnonce. SHA-512-256 needs an SSL library with
+SHA-512/256: OpenSSL has it, and wolfSSL unless built without it.
+The algorithm is echoed as the challenge has it.
 
 Enabling authentication is simple. When receiving a 401 (Unauthorized)
 or a 407 (Proxy Authentication Required), you must add auth="true" in
 the <recv> command to take the challenge into account. Then, the
 authorization header can be re-injected in the next message by using
 [authentication] keyword. Of several challenges, the first Digest one
-with a supported algorithm is answered.
+with a supported algorithm is answered (a session variant only with a
+qop).
 
 Computing the authorization header is done through the usage of the
-"[authentication]" keyword. Depending on the algorithm ("MD5", "AKAv1-MD5" or
-"SHA-256"), different parameters must be passed next to the
+"[authentication]" keyword. Depending on the algorithm (AKAv1-MD5 or
+another), different parameters must be passed next to the
 authentication keyword:
 
 
-+ Digest/MD5 and Digest/SHA-256 (example: [authentication username=joe password=schmo])
++ Digest/MD5, Digest/SHA-256 and Digest/SHA-512-256, and their session
+  variants (example: [authentication username=joe password=schmo])
 
     + username : username: if no username is specified, the username is
       taken from the '-au' (authentication username) or '-s' (service)

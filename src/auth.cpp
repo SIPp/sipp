@@ -84,7 +84,7 @@ SQN sqn_he= {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 
 static int createAuthHeaderDigest(
-    const EVP_MD* md, const char* user, const char* password,
+    const EVP_MD* md, bool sess, const char* user, const char* password,
     int password_len, const char* method, const char* uri,
     const char* msgbody, const char* auth, const char* algo,
     unsigned int nonce_count, char* result, size_t result_len);
@@ -147,13 +147,38 @@ static char *stristr(const char* s1, const char* s2)
     return 0;
 }
 
-/* The hash of a Digest algorithm, but AKAv1-MD5, or nullptr */
-static const EVP_MD* digestAlgorithm(const char* algo)
+static const EVP_MD* sha512_256()
 {
-    if (!strcasecmp(algo, "MD5")) {
-        return EVP_md5();
-    } else if (!strcasecmp(algo, "SHA-256")) {
-        return EVP_sha256();
+#if defined(USE_WOLFSSL) && (!defined(EVP_sha512_256) || \
+                             !defined(WOLFSSL_SHA512) || defined(WOLFSSL_NOSHA512_256))
+    return nullptr;  // not in this wolfSSL
+#else
+    return EVP_sha512_256();
+#endif
+}
+
+/* The Digest algorithms, but AKAv1-MD5, with their hash, which is
+ * nullptr if the SSL library has none. A -sess one's HA1 is of the
+ * nonce and cnonce too (RFC 7616 3.4.2). */
+static const struct DigestAlgorithm {
+    const char* name;
+    const EVP_MD* (*md)();
+    bool sess;
+} digestAlgorithms[] = {
+    {"MD5", EVP_md5, false},
+    {"MD5-sess", EVP_md5, true},
+    {"SHA-256", EVP_sha256, false},
+    {"SHA-256-sess", EVP_sha256, true},
+    {"SHA-512-256", sha512_256, false},
+    {"SHA-512-256-sess", sha512_256, true},
+};
+
+static const DigestAlgorithm* digestAlgorithm(const char* algo)
+{
+    for (const DigestAlgorithm& a : digestAlgorithms) {
+        if (!strcasecmp(algo, a.name)) {
+            return &a;
+        }
     }
     return nullptr;
 }
@@ -191,12 +216,16 @@ int createAuthHeader(
         return createAuthHeaderAKAv1MD5(
             user, aka_OP, aka_AMF, aka_K, method, uri, msgbody, auth,
             algo, nonce_count, result, result_len);
-    } else if (const EVP_MD* md = digestAlgorithm(algo)) {
+    } else if (const DigestAlgorithm* a = digestAlgorithm(algo)) {
+        if (!a->md()) {
+            snprintf(result, result_len, "createAuthHeader: %s is not supported by the SSL library SIPp is built with", a->name);
+            return 0;
+        }
         return createAuthHeaderDigest(
-            md, user, password, strlen(password), method, uri, msgbody,
-            auth, algo, nonce_count, result, result_len);
+            a->md(), a->sess, user, password, strlen(password), method,
+            uri, msgbody, auth, algo, nonce_count, result, result_len);
     } else {
-        snprintf(result, result_len, "createAuthHeader: authentication must use MD5, AKAv1-MD5 or SHA-256, not '%s'", algo);
+        snprintf(result, result_len, "createAuthHeader: authentication must use MD5, MD5-sess, SHA-256, SHA-256-sess, SHA-512-256, SHA-512-256-sess or AKAv1-MD5, not '%s'", algo);
         return 0;
     }
 
@@ -303,11 +332,14 @@ void selectAuthChallenge(char* auth)
 
         if (!strncasecmp(start, "Digest", 6) && isspace(start[6])) {
             std::string challenge(start, len);
-            char algo[32];
+            char algo[32], qop[16];
+            const DigestAlgorithm* a;
 
             getAuthParameter("algorithm", challenge.c_str(), algo, sizeof(algo));
-            if (!algo[0] || !strcasecmp(algo, "MD5") ||
-                    !strcasecmp(algo, "SHA-256") || !strcasecmp(algo, "AKAv1-MD5")) {
+            // A -sess one has no cnonce to answer with without a qop
+            if (!algo[0] || !strcasecmp(algo, "AKAv1-MD5") ||
+                    ((a = digestAlgorithm(algo)) && a->md() &&
+                     (!a->sess || getAuthParameter("qop", challenge.c_str(), qop, sizeof(qop))))) {
                 while (len && strchr(" \t\r\n,", start[len - 1])) {
                     len--;
                 }
@@ -339,10 +371,11 @@ static size_t digestFinalHex(EVP_MD_CTX* mdctx, unsigned char* hex)
     return 2 * len;
 }
 
-/* The response, in hex, to a Digest challenge by the hash md: false,
- * and none, if the SSL library can't compute it (MD5 in FIPS mode) */
+/* The response, in hex, to a Digest challenge by the hash md, of a
+ * -sess algorithm if sess: false, and none, if the SSL library can't
+ * compute it (MD5 in FIPS mode) */
 static bool createAuthResponse(
-    const EVP_MD* md, const char* user, const char* password,
+    const EVP_MD* md, bool sess, const char* user, const char* password,
     int password_len, const char* method, const char* uri,
     const char* authtype, const char* msgbody, const char* realm,
     const char* nonce, const char* cnonce, const char* nc,
@@ -367,6 +400,19 @@ static bool createAuthResponse(
     EVP_DigestUpdate(mdctx, password, password_len);
     if (!(hex_len = digestFinalHex(mdctx, ha1_hex))) {
         goto end;
+    }
+    if (sess) {
+        if (!EVP_DigestInit_ex(mdctx, md, nullptr)) {
+            goto end;
+        }
+        EVP_DigestUpdate(mdctx, ha1_hex, hex_len);
+        digestString(mdctx, ":");
+        digestString(mdctx, nonce);
+        digestString(mdctx, ":");
+        digestString(mdctx, cnonce);
+        if (digestFinalHex(mdctx, ha1_hex) != hex_len) {
+            goto end;
+        }
     }
 
     if (auth_uri) {
@@ -420,7 +466,7 @@ end:
 }
 
 int createAuthHeaderDigest(
-    const EVP_MD* md, const char* user, const char* password,
+    const EVP_MD* md, bool sess, const char* user, const char* password,
     int password_len, const char* method, const char* uri,
     const char* msgbody, const char* auth, const char* algo,
     unsigned int nonce_count, char* result, size_t result_len)
@@ -448,6 +494,11 @@ int createAuthHeaderDigest(
         }
         sprintf(cnonce, "%x", rand());
         sprintf(nc, "%08x", nonce_count);
+    }
+
+    if (sess && !cnonce[0]) {
+        snprintf(result, result_len, "createAuthHeader: %s needs a qop in the challenge, for a cnonce", algo);
+        return 0;
     }
 
     // Extract the Opaque value - if present
@@ -499,8 +550,8 @@ int createAuthHeaderDigest(
     }
 
     if (!createAuthResponse(
-            md, user, password, password_len, method, sipuri, authtype,
-            msgbody, realm, nonce, cnonce, nc, &resp_hex[0])) {
+            md, sess, user, password, password_len, method, sipuri,
+            authtype, msgbody, realm, nonce, cnonce, nc, &resp_hex[0])) {
         snprintf(result, result_len, "createAuthHeader: the SSL library failed to compute the %s response", algo);
         return 0;
     }
@@ -536,9 +587,13 @@ int verifyAuthHeader(const char *user, const char *password, const char *method,
     if (algo[0] == '\0') {
         strcpy(algo, "MD5");
     }
-    const EVP_MD* md = digestAlgorithm(algo);
-    if (!md) {
-        WARNING("verifyAuthHeader: authentication must use MD5 or SHA-256, value is '%s'", algo);
+    const DigestAlgorithm* a = digestAlgorithm(algo);
+    if (!a) {
+        WARNING("verifyAuthHeader: authentication must use MD5, MD5-sess, SHA-256, SHA-256-sess, SHA-512-256 or SHA-512-256-sess, value is '%s'", algo);
+        return 0;
+    }
+    if (!a->md()) {
+        WARNING("verifyAuthHeader: %s is not supported by the SSL library SIPp is built with", a->name);
         return 0;
     }
     unsigned char result[HASH_HEX_MAX_SIZE + 1];
@@ -549,9 +604,12 @@ int verifyAuthHeader(const char *user, const char *password, const char *method,
     getAuthParameter("cnonce", auth, cnonce, sizeof(cnonce));
     getAuthParameter("nc", auth, nc, sizeof(nc));
     getAuthParameter("qop", auth, authtype, sizeof(authtype));
+    if (a->sess && !*cnonce) {
+        return 0;  // no HA1 without a cnonce
+    }
     if (!createAuthResponse(
-            md, user, password, strlen(password), method, uri, authtype,
-            msgbody, realm, nonce, cnonce, nc, result)) {
+            a->md(), a->sess, user, password, strlen(password), method,
+            uri, authtype, msgbody, realm, nonce, cnonce, nc, result)) {
         WARNING("verifyAuthHeader: the SSL library failed to compute the %s response", algo);
         return 0;
     }
@@ -696,7 +754,7 @@ static int createAuthHeaderAKAv1MD5(
         has_auts = 0;
         /* RES has to be used as password to compute response */
         written = createAuthHeaderDigest(
-            EVP_md5(), user, (const char *)res, RESLEN, method, uri,
+            EVP_md5(), false, user, (const char *)res, RESLEN, method, uri,
             msgbody, auth, algo, nonce_count, result, result_len);
         if (written == 0) {
             free(nonce);
@@ -715,7 +773,7 @@ static int createAuthHeaderAKAv1MD5(
         /* When re-synchronisation occurs an empty password has to be used */
         /* to compute MD5 response (Cf. rfc 3310 section 3.2) */
         written = createAuthHeaderDigest(
-            EVP_md5(), user, "", 0, method, uri, msgbody, auth, algo,
+            EVP_md5(), false, user, "", 0, method, uri, msgbody, auth, algo,
             nonce_count, result, result_len);
         if (written == 0) {
             free(nonce);
@@ -816,12 +874,16 @@ static void expectRFC7616(const char* algo, const char* method,
                           const char* uri, const char* nc, const char* qop,
                           const char* body, const char* response)
 {
+    const DigestAlgorithm* a = digestAlgorithm(algo);
+    if (!a->md()) {
+        return;  // not in this SSL library
+    }
     std::string auth = rfc7616Authorization(algo, uri, nc, qop, response);
     EXPECT_EQ(1, verifyAuthHeader("Mufasa", "Circle of Life", method, auth.c_str(), body)) << auth;
     EXPECT_EQ(0, verifyAuthHeader("Mufasa", "Circle of life", method, auth.c_str(), body)) << auth;
 
     unsigned char result[HASH_HEX_MAX_SIZE + 1];
-    EXPECT_TRUE(createAuthResponse(digestAlgorithm(algo), "Mufasa", "Circle of Life",
+    EXPECT_TRUE(createAuthResponse(a->md(), a->sess, "Mufasa", "Circle of Life",
                                    strlen("Circle of Life"), method, uri, qop, body,
                                    "http-auth@example.org",
                                    "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v",
@@ -840,6 +902,40 @@ TEST(DigestAuth, RFC7616) {
                   "3dbb0971468cf612bdccd7dff696c5e6");
     expectRFC7616("SHA-256", "INVITE", "sip:bob@example.org", "00000002", "auth-int", "v=0\r\n",
                   "21468b02aafd4fe0a3d84bfddaf3618cc087adff4bb3c92d0a5f99c3035fcb9a");
+    /* The other algorithms of RFC 7616, likewise */
+    expectRFC7616("SHA-512-256", "GET", "/dir/index.html", "00000001", "auth", "",
+                  "430d05014cecc49cab6fbe03176d41a1da86cbfe24a16580e22aaad928d960d0");
+    expectRFC7616("MD5-sess", "GET", "/dir/index.html", "00000001", "auth", "",
+                  "e783283f46242139c486a698fec7211d");
+    expectRFC7616("SHA-256-sess", "GET", "/dir/index.html", "00000001", "auth", "",
+                  "2fd51b3a77ad75bad6afad6003e818d767133c46d9e2749e7f5232ae1ea3efd7");
+    expectRFC7616("SHA-512-256-sess", "GET", "/dir/index.html", "00000001", "auth", "",
+                  "3f2a34f923c38b0fb26dce2fdfc2ce326c23cecf86fbb1444f3e51fbbc2cb92e");
+    expectRFC7616("SHA-512-256", "INVITE", "sip:bob@example.org", "00000002", "auth-int", "v=0\r\n",
+                  "959ca26f4f77c10a9a54b19ac24811fbc7f3c7bda8eec5d8521fb4586ed10e90");
+    expectRFC7616("MD5-sess", "INVITE", "sip:bob@example.org", "00000002", "auth-int", "v=0\r\n",
+                  "11713a2ffc80446ab4c404a4a997b69c");
+    expectRFC7616("SHA-256-sess", "INVITE", "sip:bob@example.org", "00000002", "auth-int", "v=0\r\n",
+                  "2c66c095845ec6e7e158c4f689683959329e5296947f1c4930d0ffa7b93c09fd");
+    expectRFC7616("SHA-512-256-sess", "INVITE", "sip:bob@example.org", "00000002", "auth-int", "v=0\r\n",
+                  "39fcf9431af157aced94549f5fff6fea4d427a3e231c8a5557ccc7976e056b09");
+}
+
+TEST(DigestAuth, RFC7616SHA512256) {
+    if (!sha512_256()) {
+        GTEST_SKIP();
+    }
+    /* RFC 7616 3.9.2, with the username and response of its erratum
+     * 4897: the RFC's are not of its inputs. verifyauth doesn't read
+     * the (hashed) username. */
+    const char* auth = "Digest username=\"793263caabb707a56211940d90411ea4a575adeccb7e360aeb624ed06ece9b0b\", "
+                       "realm=\"api@example.org\", uri=\"/doe.json\", algorithm=SHA-512-256, "
+                       "nonce=\"5TsQWLVdgBdmrQ0XsxbDODV+57QdFR34I9HAbC/RVvkK\", nc=00000001, "
+                       "cnonce=\"NTg6RKcb9boFIAS3KrFK9BGeh+iDa/sm6jUMp2wds69v\", qop=auth, "
+                       "response=\"3798d4131c277846293534c3edc11bd8a5e4cdcbff78b05db9d95eeb1cec68a5\", "
+                       "opaque=\"HRPCssKJSGjCrkzDg8OhwpzCiGPChXYjwrI2QmXDnsOS\", userhash=true";
+    EXPECT_EQ(1, verifyAuthHeader("J\xc3\xa4s\xc3\xb8n Doe", "Secret, or not?", "GET", auth, ""));
+    EXPECT_EQ(0, verifyAuthHeader("Jason Doe", "Secret, or not?", "GET", auth, ""));
 }
 
 TEST(DigestAuth, qop) {
@@ -867,21 +963,67 @@ TEST(DigestAuth, qop) {
 }
 
 TEST(DigestAuth, SessAlgorithms) {
-    /* Not answered, or checked, as if they were MD5 and SHA-256 */
     char result[1024];
+    const char* algos[] = {"MD5-sess", "SHA-256-sess", "SHA-512-256", "sha-512-256-SESS"};
+    const char* qops[] = {"auth", "auth-int", "auth,auth-int"};
+
+    for (const char* algo : algos) {
+        if (!digestAlgorithm(algo)->md()) {
+            continue;
+        }
+        for (const char* qop : qops) {
+            std::string challenge = std::string("Digest realm=\"r\", nonce=\"n\", qop=\"") + qop +
+                                    "\", algorithm=" + algo;
+            ASSERT_LT(0, createAuthHeader("testuser", "secret", "INVITE", "bob@example.com", "v=0\r\n",
+                                          challenge.c_str(), nullptr, nullptr, nullptr, 1, result,
+                                          sizeof(result))) << result;
+            /* The algorithm as the challenge has it */
+            EXPECT_NE(nullptr, strstr(result, (std::string(",algorithm=") + algo).c_str())) << result;
+            EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "INVITE", result, "v=0\r\n")) << result;
+            /* auth-int covers the body */
+            EXPECT_EQ(!strcmp(qop, "auth"),
+                      verifyAuthHeader("testuser", "secret", "INVITE", result, "v=1\r\n")) << result;
+            EXPECT_EQ(0, verifyAuthHeader("testuser", "Secret", "INVITE", result, "v=0\r\n")) << result;
+            /* Not the response of the algorithm without -sess */
+            std::string other = result;
+            size_t at = other.find("-sess");
+            if (at == std::string::npos) {
+                at = other.find("-SESS");
+            }
+            if (at != std::string::npos) {
+                other.erase(at, 5);
+                EXPECT_EQ(0, verifyAuthHeader("testuser", "secret", "INVITE", other.c_str(), "v=0\r\n"))
+                    << other;
+            }
+        }
+    }
+
+    /* A -sess one has no cnonce without a qop */
     EXPECT_EQ(0, createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "",
                                   "Digest realm=\"r\", nonce=\"n\", algorithm=MD5-sess",
                                   nullptr, nullptr, nullptr, 1, result, sizeof(result)));
-    EXPECT_STREQ("createAuthHeader: authentication must use MD5, AKAv1-MD5 or SHA-256, not 'MD5-sess'", result);
+    EXPECT_STREQ("createAuthHeader: MD5-sess needs a qop in the challenge, for a cnonce", result);
+    unsigned char response[HASH_HEX_MAX_SIZE + 1];
+    EXPECT_TRUE(createAuthResponse(EVP_md5(), true, "testuser", "secret", strlen("secret"), "REGISTER",
+                                   "sip:x", "", "", "r", "n", "", "", response));
+    EXPECT_EQ(0, verifyAuthHeader("testuser", "secret", "REGISTER",
+                                  (std::string("Digest username=\"testuser\",realm=\"r\",uri=\"sip:x\",nonce=\"n\","
+                                               "response=\"") + (char*)response + "\",algorithm=MD5-sess").c_str(), ""));
+    /* SHA-512-256 without a qop, as RFC 2069 */
+    if (sha512_256()) {
+        ASSERT_LT(0, createAuthHeader("testuser", "secret", "REGISTER", "example.com", "",
+                                      "Digest realm=\"r\", nonce=\"n\", algorithm=SHA-512-256",
+                                      nullptr, nullptr, nullptr, 1, result, sizeof(result)));
+        EXPECT_EQ(nullptr, strstr(result, "cnonce")) << result;
+        EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "")) << result;
+    }
+
+    /* Still none of another algorithm */
     EXPECT_EQ(0, createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "",
-                                  "Digest realm=\"r\", nonce=\"n\", algorithm=SHA-256-sess",
+                                  "Digest realm=\"r\", nonce=\"n\", algorithm=SHA-384",
                                   nullptr, nullptr, nullptr, 1, result, sizeof(result)));
-    ASSERT_NE(0, createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "",
-                                  "Digest realm=\"r\", nonce=\"n\", algorithm=md5",
-                                  nullptr, nullptr, nullptr, 1, result, sizeof(result)));
-    std::string sess = result;
-    sess.replace(sess.find("algorithm=md5"), strlen("algorithm=md5"), "algorithm=MD5-sess");
-    EXPECT_EQ(0, verifyAuthHeader("testuser", "secret", "REGISTER", sess.c_str(), ""));
+    EXPECT_STREQ("createAuthHeader: authentication must use MD5, MD5-sess, SHA-256, SHA-256-sess, "
+                 "SHA-512-256, SHA-512-256-sess or AKAv1-MD5, not 'SHA-384'", result);
 }
 
 TEST(DigestAuth, AKAv1MD5HexKeys) {
@@ -933,27 +1075,39 @@ static std::string selectedChallenge(const char* auth)
 
 TEST(DigestAuth, SelectChallenge) {
     EXPECT_EQ("Digest realm=\"b\", nonce=\"2\", algorithm=MD5",
-              selectedChallenge("Digest realm=\"a\", nonce=\"1\", algorithm=SHA-512-256, "
+              selectedChallenge("Digest realm=\"a\", nonce=\"1\", algorithm=SHA-384, "
                                 "Digest realm=\"b\", nonce=\"2\", algorithm=MD5"));
     EXPECT_EQ("Digest realm=\"a\", nonce=\"1\", qop=\"auth,auth-int\"",
               selectedChallenge("Digest realm=\"a\", nonce=\"1\", qop=\"auth,auth-int\", "
                                 "Digest realm=\"b\", nonce=\"2\", algorithm=SHA-256"));
     EXPECT_EQ("Digest realm = \"c\",nonce=\"3\"",
-              selectedChallenge("Basic realm=\"x\", Digest realm=\"a, Digest b\", algorithm=MD5-sess, "
+              selectedChallenge("Basic realm=\"x\", Digest realm=\"a, Digest b\", algorithm=AKAv2-MD5, "
                                 "Digest realm = \"c\",nonce=\"3\""));
     /* A bare qop list, as some servers send, is not split at auth-int */
     EXPECT_EQ("Digest realm=\"r\", qop=auth,auth-int, nonce=\"n1\", algorithm=MD5",
               selectedChallenge("Digest realm=\"r\", qop=auth,auth-int, nonce=\"n1\", algorithm=MD5"));
     EXPECT_EQ("Digest realm=\"b\", qop=auth, auth-int, nonce=\"2\"",
-              selectedChallenge("Digest realm=\"a\", algorithm=SHA-512-256, "
+              selectedChallenge("Digest realm=\"a\", algorithm=SHA-384, "
                                 "Digest realm=\"b\", qop=auth, auth-int, nonce=\"2\""));
     /* An algorithm with spaces around its '=' is still read */
     EXPECT_EQ("Digest realm=\"b\", algorithm = MD5",
-              selectedChallenge("Digest realm=\"a\", algorithm = SHA-512-256, "
+              selectedChallenge("Digest realm=\"a\", algorithm = SHA-384, "
                                 "Digest realm=\"b\", algorithm = MD5"));
+    /* Those of RFC 7616 too */
+    EXPECT_EQ(sha512_256() ? "Digest realm=\"b\", nonce=\"2\", qop=\"auth\", algorithm=SHA-512-256-sess"
+                           : "Digest realm=\"c\", nonce=\"3\", algorithm=MD5",
+              selectedChallenge("Digest realm=\"a\", nonce=\"1\", algorithm=SHA-384, "
+                                "Digest realm=\"b\", nonce=\"2\", qop=\"auth\", algorithm=SHA-512-256-sess, "
+                                "Digest realm=\"c\", nonce=\"3\", algorithm=MD5"));
+    EXPECT_EQ("Digest realm=\"a\", qop=\"auth\", algorithm=md5-sess",
+              selectedChallenge("Digest realm=\"a\", qop=\"auth\", algorithm=md5-sess, Digest realm=\"b\""));
+    /* A -sess one without a qop can't be answered */
+    EXPECT_EQ("Digest realm=\"b\", nonce=\"2\", algorithm=MD5",
+              selectedChallenge("Digest realm=\"a\", nonce=\"1\", algorithm=MD5-sess, "
+                                "Digest realm=\"b\", nonce=\"2\", algorithm=MD5"));
     /* None to answer: all, for the error to name the first */
-    EXPECT_EQ("Digest realm=\"a\", algorithm=SHA-512-256, Digest realm=\"b\", algorithm=MD5-sess",
-              selectedChallenge("Digest realm=\"a\", algorithm=SHA-512-256, Digest realm=\"b\", algorithm=MD5-sess"));
+    EXPECT_EQ("Digest realm=\"a\", algorithm=SHA-384, Digest realm=\"b\", algorithm=AKAv2-MD5",
+              selectedChallenge("Digest realm=\"a\", algorithm=SHA-384, Digest realm=\"b\", algorithm=AKAv2-MD5"));
 }
 
 #endif //GTEST
