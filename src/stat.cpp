@@ -1430,6 +1430,10 @@ void CStat::dumpDataRtt ()
         M_headerAlreadyDisplayedRtt = true;
     }
 
+    /* Milliseconds with their microseconds: the default six significant
+     * digits would round the date, and write it with an exponent once the
+     * run is past 1000 s. */
+    (*M_outputStreamRtt) << std::fixed << std::setprecision(3);
     for (unsigned int L_i = 0; L_i < M_counterDumpRespTime ; L_i ++) {
         (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].date   << stat_delimiter ;
         (*M_outputStreamRtt) <<  M_dumpRespTime[L_i].rtt    << stat_delimiter ;
@@ -1881,5 +1885,28 @@ int CNegBin::timeDescr(char *s, int len)
 double CNegBin::cdfInv(double percentile)
 {
     return 0;
+}
+#endif
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+
+TEST(CStat, rtt_file_keeps_microseconds) {
+    std::string name = testing::TempDir() + "sipp_stat";
+    CStat stat;
+    stat.initRtt(name.c_str(), ".csv", 1);
+    int rtd = stat.findRtd("1", false);
+    /* 1234.5 s into the run, a response 2.5 ms after its request. */
+    stat.computeRtt(1234567887623ULL, 1234567890123ULL, rtd);
+
+    char path[512];
+    snprintf(path, sizeof(path), "%s_%ld_rtt.csv", name.c_str(), (long)getpid());
+    std::ifstream f(path);
+    std::string header, row;
+    std::getline(f, header);
+    std::getline(f, row);
+    unlink(path);
+    EXPECT_EQ(header, "Date_ms;response_time_ms;rtd_no");
+    EXPECT_EQ(row, "1234567890.123;2.500;1");
 }
 #endif
