@@ -1,0 +1,22 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A call that ends on an answered PING leaves the current calls, so a
+# -m 1 UAS exits once it is over instead of waiting for -timeout.
+. "`dirname "$0"`/../functions"; init
+
+sippfg -sn uas -i 127.0.0.1 -p 5070 -m 1 -timeout 8 >/dev/null 2>&1 &
+uas=$!
+sleep 1
+sippfg -sf uac.xml -i 127.0.0.1 -p 5071 -m 1 127.0.0.1:5070 \
+    -timeout 5 -timeout_error >/dev/null 2>&1
+uac_status=$?
+wait $uas
+uas_status=$?
+
+if test $uac_status -ne 0; then
+    fail "UAC failed with $uac_status"
+elif test $uas_status -ne 0; then
+    fail "UAS exited $uas_status (97: it waited for -timeout)"
+else
+    ok
+fi

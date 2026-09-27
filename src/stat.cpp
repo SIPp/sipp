@@ -574,6 +574,10 @@ int CStat::computeStat (E_Action P_action)
         M_counters [CPT_C_CurrentCall]--;
         break;
 
+    case E_CALL_ENDED_UNCOUNTED :
+        M_counters [CPT_C_CurrentCall]--;
+        break;
+
     case E_FAILED_CANNOT_SEND_MSG :
         M_counters [CPT_C_FailedCallCannotSendMessage]++;
         M_counters [CPT_PD_FailedCallCannotSendMessage]++;

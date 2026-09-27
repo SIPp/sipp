@@ -6795,6 +6795,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
             }
 
             CStat::globalStat(CStat::E_AUTO_ANSWERED);
+            computeStat(CStat::E_CALL_ENDED_UNCOUNTED);
             delete this;
         } else {
             WARNING("Do not answer on an unexpected PING for call: %s", (id==nullptr)?"none":id);
