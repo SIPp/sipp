@@ -1,0 +1,27 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A <pause variable> and arithmetic actions take the number in a string
+# variable (assignstr, ereg, -set): they used to see 0 in it, silently.
+. "`dirname "$0"`/../functions"; init
+
+rm -f log.log err.log
+sippfg -sf uac.xml -m 1 -p 25640 127.0.0.1:25641 \
+    -trace_logs -log_file log.log -trace_err -error_file err.log \
+    -timeout 8 >/dev/null 2>&1
+before=`sed -n 's/.*before=//p' log.log`
+after=`sed -n 's/^after=//p' log.log`
+values=`sed -n 's/ before=.*//p' log.log`
+warned=`grep -c 'Invalid double conversion of \$bad' err.log`
+rm -f log.log err.log
+
+if test -z "$before" || test -z "$after"; then
+    fail "no clock ticks logged"
+elif test $((after - before)) -lt 900; then
+    fail "paused $((after - before)) ms, not 1000"
+elif test "$values" != "n=20.000000"; then
+    fail "got $values, not n=20.000000"
+elif test "$warned" -ne 1; then
+    fail "no warning for a string that is not a number"
+else
+    ok
+fi

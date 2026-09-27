@@ -1892,7 +1892,7 @@ bool call::executeMessage(message *curmsg)
             };
         } else {
             int varId = curmsg->pause_variable;
-            pause = (int) M_callVariableTable->getVar(varId)->getDouble();
+            pause = (int) get_var_double(varId);
         }
         if (pause > INT_MAX) {
             pause = INT_MAX;
@@ -5675,10 +5675,27 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
     return true;
 }
 
+/* A variable as a number: a string or a regexp match converts, anything
+ * that isn't a number is 0 (with a warning if it has a value). */
+double call::get_var_double(int varId)
+{
+    CCallVariable *var = M_callVariableTable->getVar(varId);
+    double value;
+
+    if (var->toDouble(&value)) {
+        return value;
+    }
+    if (var->isSet()) {
+        WARNING("Invalid double conversion of $%s",
+                call_scenario->allocVars->getName(varId));
+    }
+    return 0.0;
+}
+
 double call::get_rhs(CAction *currentAction)
 {
     if (currentAction->getVarInId()) {
-        return M_callVariableTable->getVar(currentAction->getVarInId())->getDouble();
+        return get_var_double(currentAction->getVarInId());
     } else {
         return currentAction->getDoubleValue();
     }
@@ -5990,19 +6007,19 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             double operand = get_rhs(currentAction);
             paused_until = (int)operand;
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_ADD) {
-            double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
+            double value = get_var_double(currentAction->getVarId());
             double operand = get_rhs(currentAction);
             M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value + operand);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_SUBTRACT) {
-            double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
+            double value = get_var_double(currentAction->getVarId());
             double operand = get_rhs(currentAction);
             M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value - operand);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_MULTIPLY) {
-            double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
+            double value = get_var_double(currentAction->getVarId());
             double operand = get_rhs(currentAction);
             M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value * operand);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_DIVIDE) {
-            double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
+            double value = get_var_double(currentAction->getVarId());
             double operand = get_rhs(currentAction);
             if (operand == 0) {
                 WARNING("Action failure: Can not divide by zero ($%s/$%s)!",
