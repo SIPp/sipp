@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- AKAv1-MD5 with 3GPP TS 35.208 test set 1: a hex K with 0x0A and
+     0x5B bytes, and a hex OP from a field. -->
+<scenario name="aka hex uac">
+  <send>
+    <![CDATA[
+      REGISTER sip:127.0.0.1:25521 SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:alice@[local_ip]>;tag=[call_number]
+      To: <sip:alice@[local_ip]>
+      Call-ID: [call_id]
+      CSeq: [cseq] REGISTER
+      Max-Forwards: 70
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv response="401" auth="true"/>
+  <send>
+    <![CDATA[
+      REGISTER sip:127.0.0.1:25521 SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:alice@[local_ip]>;tag=[call_number]
+      To: <sip:alice@[local_ip]>
+      Call-ID: [call_id]
+      CSeq: [cseq] REGISTER
+      [authentication username=alice aka_K=0x465B5CE8B199B49FAA5F0A2EE238A6BC aka_OP="[field0]" aka_AMF=0xB9B9]
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv response="200"/>
+</scenario>

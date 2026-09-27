@@ -511,7 +511,7 @@ void SendingMessage::getHexStringParam(char * dest, char * src, int * len)
     }
 }
 
-void SendingMessage::getKeywordParam(char * src, const char * param, char * output)
+void SendingMessage::getKeywordParam(char * src, const char * param, char * output, bool decode_hex)
 {
     char *key, *tmp;
     int len;
@@ -521,7 +521,7 @@ void SendingMessage::getKeywordParam(char * src, const char * param, char * outp
     if ((tmp = strstr(src, param))) {
         tmp += strlen(param);
         key = tmp;
-        if ((*key == '0') && (*(key+1) == 'x')) {
+        if (decode_hex && (*key == '0') && (*(key+1) == 'x')) {
             key += 2;
             getHexStringParam(output, key, &len);
         } else if (*key == '\"') {
@@ -570,17 +570,23 @@ void SendingMessage::parseAuthenticationKeyword(scenario *msg_scenario, struct M
     dst->comp_param.auth_param.auth_user = new SendingMessage(msg_scenario, my_auth_user, true /* skip sanity */);
     dst->comp_param.auth_param.auth_pass = new SendingMessage(msg_scenario, my_auth_pass, true);
 
-    /* add aka_OP, aka_AMF, aka_K */
-    getKeywordParam(keyword, "aka_K=", my_aka);
+    /* add aka_OP, aka_AMF, aka_K as text, "0x" included, for
+     * createAuthHeader() to decode: decoded here, their bytes would be
+     * parsed as a message, and a value from a keyword never decoded.
+     * Without aka_K, the password is the key. */
+    getKeywordParam(keyword, "aka_K=", my_aka, false);
     if (my_aka[0]==0) {
-        memcpy(my_aka,my_auth_pass,16);
-        my_aka[16]=0;
+        getKeywordParam(keyword, "password=", my_aka, false);
+    }
+    if (my_aka[0]==0) {
+        strncpy(my_aka, my_auth_pass, KEYWORD_SIZE);
+        my_aka[KEYWORD_SIZE] = 0;
     }
     dst->comp_param.auth_param.aka_K = new SendingMessage(msg_scenario, my_aka, true);
 
-    getKeywordParam(keyword, "aka_OP=", my_aka);
+    getKeywordParam(keyword, "aka_OP=", my_aka, false);
     dst->comp_param.auth_param.aka_OP = new SendingMessage(msg_scenario, my_aka, true);
-    getKeywordParam(keyword, "aka_AMF=", my_aka);
+    getKeywordParam(keyword, "aka_AMF=", my_aka, false);
     dst->comp_param.auth_param.aka_AMF = new SendingMessage(msg_scenario, my_aka, true);
 }
 

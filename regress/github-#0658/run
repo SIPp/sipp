@@ -1,0 +1,26 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# AKAv1-MD5 "0x" keys are decoded when used, not when the scenario loads:
+# a K with 0x0A or 0x5B bytes loads and gives the right response, and so
+# does an OP from a field.
+. "`dirname "$0"`/../functions"; init
+
+printf 'SEQUENTIAL\n0xCDC202D5123E20F62B6D676AC72CB318;\n' >keys.csv
+sippfg -sf uas.xml -i 127.0.0.1 -p 25521 -m 1 -timeout 8 -timeout_error \
+    >/dev/null 2>&1 &
+uas=$!
+sleep 1
+sippfg -sf uac.xml -inf keys.csv -i 127.0.0.1 -p 25520 -m 1 \
+    127.0.0.1:25521 -timeout 6 -timeout_error >/dev/null 2>&1
+uac_status=$?
+wait $uas
+uas_status=$?
+rm -f keys.csv
+
+if test $uac_status -ne 0; then
+    fail "UAC failed with $uac_status"
+elif test $uas_status -ne 0; then
+    fail "UAS failed with $uas_status: the response was not the expected one"
+else
+    ok
+fi

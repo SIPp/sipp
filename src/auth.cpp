@@ -33,6 +33,7 @@
 #include "screen.hpp"
 #include "logger.hpp"
 #include "auth.hpp"
+#include "strings.hpp"
 #if defined(USE_OPENSSL)
 #include <openssl/evp.h>
 #elif defined(USE_WOLFSSL)
@@ -587,6 +588,26 @@ static char* base64_decode_string(const char* buf, unsigned int len, int* newlen
 
 char hexa[17] = "0123456789abcdef";
 
+/* An AKA key's bytes: those of its text, or those its hex digits after
+ * "0x" give, with zeros past their end. */
+static void getAKAKey(const char* text, u_char* key, size_t len)
+{
+    size_t n = 0;
+
+    memset(key, 0, len);
+    if (text[0] == '0' && text[1] == 'x') {
+        for (text += 2; n < len && isxdigit(*text); n++) {
+            int val = get_decimal_from_hex(*text++);
+            if (isxdigit(*text)) {
+                val = (val << 4) + get_decimal_from_hex(*text++);
+            }
+            key[n] = val;
+        }
+    } else {
+        memcpy(key, text, strnlen(text, len));
+    }
+}
+
 static int createAuthHeaderAKAv1MD5(
     const char* user, const char* aka_OP, const char* aka_AMF,
     const char* aka_K, const char* method, const char* uri,
@@ -642,14 +663,11 @@ static int createAuthHeaderAKAv1MD5(
     memcpy(rnd, nonce, RANDLEN);
     memcpy(sqnxoraka, nonce + RANDLEN, SQNLEN);
     memcpy(mac, nonce + RANDLEN + SQNLEN + AMFLEN, MACLEN);
-    /* The keys are their text's bytes, zero past its end: an omitted
-     * aka_OP or aka_AMF is all zeros, not what the buffer held. */
-    memset(k, 0, KLEN);
-    memcpy(k, aka_K, strnlen(aka_K, KLEN));
-    memset(amf, 0, AMFLEN);
-    memcpy(amf, aka_AMF, strnlen(aka_AMF, AMFLEN));
-    memset(op, 0, OPLEN);
-    memcpy(op, aka_OP, strnlen(aka_OP, OPLEN));
+    /* An omitted aka_OP or aka_AMF is all zeros, not what the buffer
+     * held. */
+    getAKAKey(aka_K, k, KLEN);
+    getAKAKey(aka_AMF, amf, AMFLEN);
+    getAKAKey(aka_OP, op, OPLEN);
 
     /* Compute the AK, response and keys CK IK */
     f2345(k, rnd, res, ck, ik, ak, op);
@@ -906,6 +924,18 @@ TEST(DigestAuth, SessAlgorithms) {
     std::string sess = result;
     sess.replace(sess.find("algorithm=md5"), strlen("algorithm=md5"), "algorithm=MD5-sess");
     EXPECT_EQ(0, verifyAuthHeader("testuser", "secret", "REGISTER", sess.c_str(), ""));
+}
+
+TEST(DigestAuth, AKAv1MD5HexKeys) {
+    /* 3GPP TS 35.208 test set 1, whose K has 0x0A and 0x5B bytes: the
+     * challenge has its RAND and AUTN, the response its RES. */
+    char result[1024];
+    const char* header = "Digest realm=\"r\", nonce=\"I1U8vpY3qJ0hiuZNrke/NVXzKLQ1d7m5Sp/6w1Tfr7M=\", algorithm=AKAv1-MD5";
+    ASSERT_NE(0, createAuthHeader("alice", "", "REGISTER", "sip:example.com", "", header,
+                                  "0xCDC202D5123E20F62B6D676AC72CB318", "0xB9B9",
+                                  "0x465B5CE8B199B49FAA5F0A2EE238A6BC", 1, result, sizeof(result)))
+        << result;
+    EXPECT_NE(nullptr, strstr(result, ",response=\"1efe54bb65c7771548e279052d82bd09\",")) << result;
 }
 
 #endif //GTEST
