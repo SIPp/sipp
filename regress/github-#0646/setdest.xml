@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="OPTIONS to localhost through setdest">
+  <nop>
+    <action>
+      <setdest host="localhost" port="25850" protocol="[transport]"/>
+    </action>
+  </nop>
+  <send retrans="500">
+    <![CDATA[
+      OPTIONS sip:uas@127.0.0.1:25850 SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:uac@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:uas@127.0.0.1:25850>
+      Call-ID: [call_id]
+      CSeq: 1 OPTIONS
+      Max-Forwards: 70
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv response="200"/>
+</scenario>

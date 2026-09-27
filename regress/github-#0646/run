@@ -1,0 +1,21 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Bound to an IPv4 -i, SIPp takes the IPv4 address of a name that has
+# an IPv6 one first: the remote host, -rsa and setdest.
+. "`dirname "$0"`/../functions"; init
+
+first=`perl -MSocket=:addrinfo,AF_INET6,SOCK_DGRAM -e '
+    my ($err, @res) = getaddrinfo("localhost", "5060", {socktype => SOCK_DGRAM});
+    print $res[0]{family} == AF_INET6 ? "v6" : "v4" if !$err;'`
+if test "$first" != v6; then
+    skip "localhost is not ::1 first here"
+fi
+
+sippbg -sf uas.xml -i 127.0.0.1 -p 25850 -m 3
+sippfg -sf options.xml -i 127.0.0.1 -p 25851 -m 1 localhost:25850 \
+    -timeout 4 -timeout_error >/dev/null 2>&1 || fail "remote host"
+sippfg -rsa localhost:25850 -sf options.xml -i 127.0.0.1 -p 25851 -m 1 \
+    127.0.0.1:25852 -timeout 4 -timeout_error >/dev/null 2>&1 || fail "-rsa"
+sippfg -sf setdest.xml -i 127.0.0.1 -p 25851 -m 1 127.0.0.1:25852 \
+    -timeout 4 -timeout_error >/dev/null 2>&1 || fail "setdest"
+ok

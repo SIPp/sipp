@@ -5937,8 +5937,8 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 }
             }
 
-            if (gai_getsockaddr(&call_peer, str_host, port,
-                                AI_PASSIVE, AF_UNSPEC) != 0) {
+            if (gai_getsockaddr(&call_peer, str_host, port, AI_PASSIVE, AF_UNSPEC,
+                                call_socket->ss_ipv6 ? AF_INET6 : AF_INET) != 0) {
                 ERROR("Unknown host '%s' for setdest", str_host);
             }
             memcpy(&call_socket->ss_dest, &call_peer, sizeof(call_peer));
