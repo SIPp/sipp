@@ -339,11 +339,20 @@ unsigned long JLSRTP::determineV(unsigned short SEQ)
 {
     unsigned long v = 0;
 
+    /* Nothing to compare the first packet with: its SEQ becomes s_l
+     * (RFC 3711 section 3.3.1). Comparing it with the initial 0 instead
+     * took any first SEQ above 32768, as RFC 3550 senders pick at random,
+     * for one from before a rollover, and ROC-1 wrapped. */
+    if (!_s_l_set)
+    {
+        return _ROC;
+    }
+
     if (_s_l < 32768)
     {
         if ((SEQ - _s_l) > 32768)
         {
-            v = _ROC-1;
+            v = (_ROC > 0) ? _ROC-1 : 0;
         }
         else
         {
@@ -380,6 +389,7 @@ unsigned long JLSRTP::fetchRollOverCounter()
 bool JLSRTP::updateSL(unsigned short s)
 {
     _s_l = s;
+    _s_l_set = true;
 
     return true;
 }
@@ -1307,6 +1317,7 @@ void JLSRTP::resetCryptoContext(unsigned int ssrc, std::string ipAddress, unsign
     _id.port = port;
     _ROC = 0;
     _s_l = 0;
+    _s_l_set = false;
     _primary_crypto.cipher_algorithm = AES_CM_128;
     _primary_crypto.hmac_algorithm = HMAC_SHA1_80;
     _primary_crypto.MKI = 0;
@@ -3419,6 +3430,7 @@ JLSRTP& JLSRTP::operator=(const JLSRTP& that)
     _id.port = that._id.port;
     _ROC = that._ROC;
     _s_l = that._s_l;
+    _s_l_set = that._s_l_set;
     _primary_crypto.cipher_algorithm = that._primary_crypto.cipher_algorithm;
     _primary_crypto.hmac_algorithm = that._primary_crypto.hmac_algorithm;
     _primary_crypto.MKI = that._primary_crypto.MKI;
