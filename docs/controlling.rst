@@ -69,6 +69,12 @@ scale 100, then each time you press '+', the call rate is increased by
 1000 calls. Similarly, for a user based benchmark you can run set
 users X.
 
+A user based benchmark starts the calls of all its users at once. If
+you also pass -r (and -rp), the calls that bring the number of calls
+up to the number of users, at startup or after it grows, start at that
+rate instead; from then on, each user starts its next call as soon as
+its previous one ends.
+
 At starting time, you can control the rate by specifying parameters on
 the command line:
 

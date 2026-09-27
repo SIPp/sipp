@@ -58,6 +58,11 @@ private:
     static class CallGenerationTask *instance;
     static unsigned long calls_since_last_rate_change;
     static unsigned long last_rate_change_time;
+    /* With -users and -r, whether the calls are still ramping up to
+     * the users at the rate. */
+    static bool ramping;
+
+    static int rate_calls_to_open();
 };
 
 #endif

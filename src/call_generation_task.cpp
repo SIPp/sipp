@@ -35,11 +35,13 @@
 class CallGenerationTask *CallGenerationTask::instance = nullptr;
 unsigned long CallGenerationTask::calls_since_last_rate_change = 0;
 unsigned long CallGenerationTask::last_rate_change_time = 0;
+bool CallGenerationTask::ramping = false;
 
 void CallGenerationTask::initialize()
 {
     assert(!instance);
     instance = new CallGenerationTask();
+    ramping = users >= 0 && rate_set;
 }
 
 CallGenerationTask::CallGenerationTask()
@@ -60,10 +62,11 @@ void CallGenerationTask::dump()
 unsigned int CallGenerationTask::wake()
 {
     int retval;
-    if (paused || (users >= 0)) {
+    if (paused || (users >= 0 && !ramping)) {
         // When paused or when we're doing user-based rather than
-        // rate-based calls, return a sentinel value to indicate that
-        // this task should wait forever before rescheduling.
+        // rate-based calls (and no longer ramping up to the users),
+        // return a sentinel value to indicate that this task should
+        // wait forever before rescheduling.
         retval = DONT_RESCHEDULE;
     } else {
         float ms_per_call = rate_period_ms/MAX(rate, 1);
@@ -89,6 +92,15 @@ unsigned int CallGenerationTask::wake()
     return retval;
 }
 
+/* The calls to open now to keep to the rate. */
+int CallGenerationTask::rate_calls_to_open()
+{
+    float calls_per_ms = rate/rate_period_ms;
+    unsigned int ms_since_last_rate_change = clock_tick - last_rate_change_time;
+    unsigned int expected_total_calls = ms_since_last_rate_change * calls_per_ms;
+    return expected_total_calls - calls_since_last_rate_change;
+}
+
 bool CallGenerationTask::run()
 {
     int calls_to_open = 0;
@@ -108,11 +120,11 @@ bool CallGenerationTask::run()
 
     if (users >= 0) {
         calls_to_open = users - current_calls;
+        if (ramping) {
+            calls_to_open = std::min(calls_to_open, rate_calls_to_open());
+        }
     } else {
-        float calls_per_ms = rate/rate_period_ms;
-        unsigned int ms_since_last_rate_change = clock_tick - last_rate_change_time;
-        unsigned int expected_total_calls = ms_since_last_rate_change * calls_per_ms;
-        calls_to_open = expected_total_calls - calls_since_last_rate_change;
+        calls_to_open = rate_calls_to_open();
     }
 
     if (total_calls + calls_to_open > stop_after) {
@@ -177,6 +189,12 @@ bool CallGenerationTask::run()
         if (getmilliseconds() > start_clock) {
             break;
         }
+    }
+
+    /* The ramp ends once the calls are up to the users, not after as
+     * many calls as the users: shorter calls end during the ramp. */
+    if (ramping && main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall) >= (unsigned long long)users) {
+        ramping = false;
     }
 
     if (calls_to_open <= 0) {
@@ -278,6 +296,10 @@ void CallGenerationTask::set_users(int new_users)
     }
 
     users = open_calls_allowed = new_users;
+
+    if (rate_set) {
+        ramping = main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall) < (unsigned long long)users;
+    }
 
     last_rate_change_time = clock_tick;
     calls_since_last_rate_change = 0;
