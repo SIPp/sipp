@@ -20,7 +20,7 @@ sippbg -m 1 -sf notify-withlf.xml -t t1 127.0.0.1:5073
 /bin/kill -9 $notify_1234 $notify_manylf $notify_nocrlf $notify_withlf 2>&1
 
 last_bytes_equal() {
-	size=`stat -c%s $1`
+	size=`wc -c <$1 | tr -d " "`
 	tail=`dd if=$1 bs=1 skip=$((size - $2)) 2>/dev/null`
 	test "$tail" = "$3"
 }
