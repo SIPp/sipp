@@ -6282,7 +6282,10 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
             const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);
-            rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo());
+            if (sendMode == MODE_CLIENT) {
+                startUACSrtp(_txUACAudio, _rxUACAudio, currentAction->getRTPStreamActInfo()->bytes_per_packet, "AUDIO");
+            }
+            rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo(), _txUACAudio, _rxUACAudio);
             // Obtain ID of parent thread used for the related RTP task
             call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSEAPATTERN) {
@@ -6292,40 +6295,8 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYAPATTERN) {
             const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);
-            //
-            // TX/RX-UAC-AUDIO SRTP context (a)(b) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
-            // WE ASSUME THE SAME CODEC PAYLOAD SIZE WILL BE USED IN BOTH DIRECTIONS
-            //
-            if (sendMode == MODE_CLIENT)
-            {
-                rtpstream_actinfo_t* actinfo = currentAction->getRTPStreamActInfo();
-                logSrtpInfo("call::executeAction():  (a) TX-UAC-AUDIO SRTP context - CLIENT setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
-                _txUACAudio.setSrtpPayloadSize(actinfo->bytes_per_packet);
-                logSrtpInfo("call::executeAction():  (b) RX-UAC-AUDIO SRTP context - CLIENT setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
-                _rxUACAudio.setSrtpPayloadSize(actinfo->bytes_per_packet);
-
-                logSrtpInfo("call::executeAction():  (a) TX-UAC-AUDIO SRTP context - CLIENT deriving session encryption/salting/authentication keys\n");
-                _txUACAudio.deriveSessionEncryptionKey();
-                _txUACAudio.deriveSessionSaltingKey();
-                _txUACAudio.deriveSessionAuthenticationKey();
-                logSrtpInfo("call::executeAction():  (a) TX-UAC-AUDIO SRTP context - CLIENT selecting encryption key\n");
-                _txUACAudio.selectEncryptionKey();
-                logSrtpInfo("call::executeAction():  (a) TX-UAC-AUDIO SRTP context - CLIENT resetting cipher state\n");
-                _txUACAudio.resetCipherState();
-                logSrtpInfo("call::executeAction():  (b) RX-UAC-AUDIO SRTP context - CLIENT deriving session encryption/salting/authentication keys\n");
-                _rxUACAudio.deriveSessionEncryptionKey();
-                _rxUACAudio.deriveSessionSaltingKey();
-                _rxUACAudio.deriveSessionAuthenticationKey();
-                logSrtpInfo("call::executeAction():  (b) RX-UAC-AUDIO SRTP context - CLIENT selecting decryption key\n");
-                _rxUACAudio.selectDecryptionKey();
-                logSrtpInfo("call::executeAction():  (b) RX-UAC-AUDIO SRTP context - CLIENT resetting cipher state\n");
-                _rxUACAudio.resetCipherState();
-                //logSrtpInfo("call::executeAction():  ******** (a) TX-UAC-AUDIO SRTP context dump ********\n");
-                //logSrtpInfo("%s", _txUACAudio.dumpCryptoContext().c_str());
-                //logSrtpInfo("call::executeAction():  ****************************************************\n");
-                //logSrtpInfo("call::executeAction():  ******** (b) RX-UAC-AUDIO SRTP context dump ********\n");
-                //logSrtpInfo("%s", _rxUACAudio.dumpCryptoContext().c_str());
-                //logSrtpInfo("call::executeAction():  ****************************************************\n");
+            if (sendMode == MODE_CLIENT) {
+                startUACSrtp(_txUACAudio, _rxUACAudio, currentAction->getRTPStreamActInfo()->bytes_per_packet, "AUDIO");
             }
 
             logSrtpInfo("call::executeAction():  rtpstream_playapattern\n");
@@ -6339,40 +6310,8 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYVPATTERN) {
             const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);
-            //
-            // TX/RX-UAC-VIDEO SRTP context (a)(b) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
-            // WE ASSUME THE SAME CODEC PAYLOAD SIZE WILL BE USED IN BOTH DIRECTIONS
-            //
-            if (sendMode == MODE_CLIENT)
-            {
-                rtpstream_actinfo_t* actinfo = currentAction->getRTPStreamActInfo();
-                logSrtpInfo("call::executeAction():  (a) TX-UAC-VIDEO SRTP context - CLIENT setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
-                _txUACVideo.setSrtpPayloadSize(actinfo->bytes_per_packet);
-                logSrtpInfo("call::executeAction():  (b) RX-UAC-VIDEO SRTP context - CLIENT setting SRTP payload size to %d\n", actinfo->bytes_per_packet);
-                _rxUACVideo.setSrtpPayloadSize(actinfo->bytes_per_packet);
-
-                logSrtpInfo("call::executeAction():  (a) TX-UAC-VIDEO SRTP context - CLIENT deriving session encryption/salting/authentication keys\n");
-                _txUACVideo.deriveSessionEncryptionKey();
-                _txUACVideo.deriveSessionSaltingKey();
-                _txUACVideo.deriveSessionAuthenticationKey();
-                logSrtpInfo("call::executeAction():  (a) TX-UAC-VIDEO SRTP context - CLIENT selecting encryption key\n");
-                _txUACVideo.selectEncryptionKey();
-                logSrtpInfo("call::executeAction():  (a) TX-UAC-VIDEO SRTP context - CLIENT resetting cipher state\n");
-                _txUACVideo.resetCipherState();
-                logSrtpInfo("call::executeAction():  (b) RX-UAC-VIDEO SRTP context - CLIENT deriving session encryption/salting/authentication keys\n");
-                _rxUACVideo.deriveSessionEncryptionKey();
-                _rxUACVideo.deriveSessionSaltingKey();
-                _rxUACVideo.deriveSessionAuthenticationKey();
-                logSrtpInfo("call::executeAction():  (b) RX-UAC-VIDEO SRTP context - CLIENT selecting decryption key\n");
-                _rxUACVideo.selectDecryptionKey();
-                logSrtpInfo("call::executeAction():  (b) RX-UAC-VIDEO SRTP context - CLIENT resetting cipher state\n");
-                _rxUACVideo.resetCipherState();
-                //logSrtpInfo("call::executeAction():  ******** (a) TX-UAC-VIDEO SRTP context dump ********\n");
-                //logSrtpInfo("%s", _txUACVideo.dumpCryptoContext().c_str());
-                //logSrtpInfo("call::executeAction():  ****************************************************\n");
-                //logSrtpInfo("call::executeAction():  ******** (b) RX-UAC-VIDEO SRTP context dump ********\n");
-                //logSrtpInfo("%s", _rxUACVideo.dumpCryptoContext().c_str());
-                //logSrtpInfo("call::executeAction():  ****************************************************\n");
+            if (sendMode == MODE_CLIENT) {
+                startUACSrtp(_txUACVideo, _rxUACVideo, currentAction->getRTPStreamActInfo()->bytes_per_packet, "VIDEO");
             }
 
             logSrtpInfo("call::executeAction():  rtpstream_playvpattern\n");
@@ -6911,6 +6850,35 @@ int call::logSrtpInfo(const char *fmt, ...)
     }
 
     return 0;
+}
+
+void call::startUACSrtp(SrtpChannel& tx, SrtpChannel& rx, int payloadSize, const char* media)
+{
+    //
+    // TX/RX-UAC SRTP context (a)(b) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
+    // WE ASSUME THE SAME CODEC PAYLOAD SIZE WILL BE USED IN BOTH DIRECTIONS
+    //
+    logSrtpInfo("call::executeAction():  (a) TX-UAC-%s SRTP context - CLIENT setting SRTP payload size to %d\n", media, payloadSize);
+    tx.setSrtpPayloadSize(payloadSize);
+    logSrtpInfo("call::executeAction():  (b) RX-UAC-%s SRTP context - CLIENT setting SRTP payload size to %d\n", media, payloadSize);
+    rx.setSrtpPayloadSize(payloadSize);
+
+    logSrtpInfo("call::executeAction():  (a) TX-UAC-%s SRTP context - CLIENT deriving session encryption/salting/authentication keys\n", media);
+    tx.deriveSessionEncryptionKey();
+    tx.deriveSessionSaltingKey();
+    tx.deriveSessionAuthenticationKey();
+    logSrtpInfo("call::executeAction():  (a) TX-UAC-%s SRTP context - CLIENT selecting encryption key\n", media);
+    tx.selectEncryptionKey();
+    logSrtpInfo("call::executeAction():  (a) TX-UAC-%s SRTP context - CLIENT resetting cipher state\n", media);
+    tx.resetCipherState();
+    logSrtpInfo("call::executeAction():  (b) RX-UAC-%s SRTP context - CLIENT deriving session encryption/salting/authentication keys\n", media);
+    rx.deriveSessionEncryptionKey();
+    rx.deriveSessionSaltingKey();
+    rx.deriveSessionAuthenticationKey();
+    logSrtpInfo("call::executeAction():  (b) RX-UAC-%s SRTP context - CLIENT selecting decryption key\n", media);
+    rx.selectDecryptionKey();
+    logSrtpInfo("call::executeAction():  (b) RX-UAC-%s SRTP context - CLIENT resetting cipher state\n", media);
+    rx.resetCipherState();
 }
 
 void call::setSessionState(SessionState state)
