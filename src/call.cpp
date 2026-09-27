@@ -5381,6 +5381,16 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                             }
                         }
                     } else {
+                        /* A provisional reply that UDP delivered behind the
+                         * final one has no effect either. */
+                        if (reply_code >= 100 && reply_code <= 199) {
+                            TRACE_MSG("-----------------------------------------------\n"
+                                      "Ignoring late provisional %s message:\n\n%s\n",
+                                      TRANSPORT_TO_STRING(transport), msg);
+                            callDebug("Ignoring late provisional %s message (hash %lu):\n\n%s\n",
+                                      TRANSPORT_TO_STRING(transport), hash(msg), msg);
+                            return true;
+                        }
                         /*
                          * we received a non mandatory msg for an old transaction (this could be due to a retransmit.
                          * If this response is for an INVITE transaction, retransmit the ACK to quench retransmits.
