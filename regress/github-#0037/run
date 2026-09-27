@@ -1,0 +1,46 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# rtp_echo in overlapping calls echoes each call on its own port until
+# that call stops it, and does so in the RTP playback threads: 50 calls
+# take a few threads (20 tasks each), not one per call.
+. "`dirname "$0"`/../functions"; init
+
+sippbg -sf uas.xml -i 127.0.0.1 -p 25740 -m 52 \
+    -min_rtp_port 26760 -max_rtp_port 26999
+uas=$pid
+
+# Two calls: the first call to stop its echo does not stop the other's.
+sippfg -sf uac.xml -i 127.0.0.1 -p 25741 -m 2 -l 2 -r 1 -d 2000 \
+    -min_rtp_port 27000 -max_rtp_port 27199 -audiotolerance 0.2 \
+    127.0.0.1:25740 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+
+if test $status -eq 253; then
+    fail "the UAS stopped echoing a call"
+elif test $status -ne 0; then
+    fail "UAC failed with $status"
+fi
+
+# 50 concurrent calls, counting the UAS threads while they run.
+sippfg -sf uac.xml -i 127.0.0.1 -p 25741 -m 50 -l 50 -r 100 -d 1000 \
+    -min_rtp_port 27000 -max_rtp_port 27199 -audiotolerance 0.2 \
+    127.0.0.1:25740 -timeout 10 -timeout_error >/dev/null 2>&1 &
+uac=$!
+threads=0
+while /bin/kill -0 $uac 2>/dev/null; do
+    n=`ls /proc/$uas/task 2>/dev/null | wc -l`
+    test $n -gt $threads && threads=$n
+    sleep 0.1
+done
+wait $uac
+status=$?
+
+if test $status -eq 253; then
+    fail "the UAS did not echo all 50 calls"
+elif test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test -d /proc/$$/task && test $threads -gt 8; then
+    fail "the UAS ran $threads threads for 50 calls"
+else
+    ok
+fi

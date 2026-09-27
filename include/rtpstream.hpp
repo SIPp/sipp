@@ -111,6 +111,9 @@ struct taskentry_t
     /* audio/video SRTP echo activity indicators */
     int                  audio_srtp_echo_active;
     int                  video_srtp_echo_active;
+    /* audio/video echo SRTP contexts */
+    struct rtpecho_t     *audio_echo;
+    struct rtpecho_t     *video_echo;
 
     /* rtp peer address structures */
     struct sockaddr_storage    remote_audio_rtp_addr;
@@ -169,18 +172,6 @@ struct rtpecho_actinfo_t
     int    video_active;
 };
 
-union ParamPass
-{
-    int i;
-    void* p;
-};
-
-union ResultCheck
-{
-    int i;
-    void* p;
-};
-
 int rtpstream_new_call(rtpstream_callinfo_t *callinfo);
 void rtpstream_end_call(rtpstream_callinfo_t *callinfo);
 int rtpstream_shutdown(std::unordered_map<pthread_t, std::string>& threadIDs);
@@ -211,9 +202,6 @@ void rtpstream_resumeapattern(rtpstream_callinfo_t *callinfo);
 void rtpstream_playvpattern(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo, JLSRTP& txUACVideo, JLSRTP& rxUACVideo);
 void rtpstream_pausevpattern(rtpstream_callinfo_t *callinfo);
 void rtpstream_resumevpattern(rtpstream_callinfo_t *callinfo);
-
-void rtpstream_audioecho_thread(void * param);
-void rtpstream_videoecho_thread(void * param);
 
 int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t *callinfo, JLSRTP& rxUASAudio, JLSRTP& txUASAudio);
 int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t *callinfo, JLSRTP& rxUASAudio, JLSRTP& txUASAudio);
