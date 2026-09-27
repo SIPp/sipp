@@ -6268,15 +6268,23 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 play_args->free_pcap_when_done = 0;
             }
 
-            /* port number is set in [auto_]media_port interpolation */
+            /* port number is set in [auto_]media_port interpolation; without
+             * it, send from the -mp port (+2 for video) rather than port 0 */
+            in_port_t port = htons(media_port + (play_args == &play_args_v ? 2 : 0));
             if (media_ip_is_ipv6) {
                 struct sockaddr_in6* from = (struct sockaddr_in6*) &(play_args->from);
                 from->sin6_family = AF_INET6;
                 inet_pton(AF_INET6, media_ip, &(from->sin6_addr));
+                if (!from->sin6_port) {
+                    from->sin6_port = port;
+                }
             } else {
                 struct sockaddr_in* from = (struct sockaddr_in*) &(play_args->from);
                 from->sin_family = AF_INET;
                 from->sin_addr.s_addr = inet_addr(media_ip);
+                if (!from->sin_port) {
+                    from->sin_port = port;
+                }
             }
             /* Create a thread to send RTP or UDPTL packets */
             pthread_attr_t attr;

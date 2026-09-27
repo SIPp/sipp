@@ -146,9 +146,10 @@ Keyword list
     they only change the SDP text.
   + ``play_pcap_audio``, ``play_pcap_video``, ``play_pcap_image`` and
     ``play_dtmf`` send from the port that ``[media_port]`` or
-    ``[auto_media_port]`` put on the ``m=`` line. Writing the port any
-    other way (e.g. a literal number or a ``[field0]``) leaves the source
-    port unset, and the packets go out from port 0.
+    ``[auto_media_port]`` put on the ``m=`` line. If the port is written
+    any other way (e.g. a literal number or a ``[field0]``), they send
+    from the -mp port instead (two above it for video), whatever the
+    ``m=`` line says.
 
   One ``m=audio`` line cannot advertise both ports, so a call cannot
   mix ``rtp_stream`` with pcap play (or ``play_dtmf``) on the same
