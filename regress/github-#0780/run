@@ -14,6 +14,7 @@ if test -z "$SIPP_NETNS"; then
     skip "no user network namespaces"
 fi
 init
+"`get_sipp`" -v | grep -q PCAP || skip "no PCAP"
 ip link set lo up 2>/dev/null || skip "cannot bring up lo"
 
 rm -f rtp.port
