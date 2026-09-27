@@ -1,0 +1,28 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A TCP connection the peer resets closes without a warning that it
+# cannot be shut down: it is not connected anymore.
+. "`dirname "$0"`/../functions"; init
+
+log=`mktemp`
+# A server that resets the connection once the INVITE arrives.
+perl -MIO::Socket::INET -MSocket -e '
+    $l = IO::Socket::INET->new(LocalAddr => "127.0.0.1:5099",
+        Listen => 1, ReuseAddr => 1) or die;
+    alarm 10;
+    $c = $l->accept; sysread($c, $b, 65536);
+    setsockopt($c, SOL_SOCKET, SO_LINGER, pack("ii", 1, 0));
+    close $c; sleep 5' &
+sleep 0.2
+sippfg -sn uac -t t1 -i 127.0.0.1 -p 5070 127.0.0.1:5099 -m 1 \
+    -timeout 5 -trace_err -error_file "$log" >/dev/null 2>&1
+errors=`cat "$log"`
+rm -f "$log"
+
+if ! echo "$errors" | grep -q 'Connection reset by peer'; then
+    fail "no reset"
+elif echo "$errors" | grep -q 'Failed to shutdown'; then
+    fail "`echo "$errors" | grep 'Failed to shutdown'`"
+else
+    ok
+fi
