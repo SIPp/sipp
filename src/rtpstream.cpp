@@ -22,6 +22,7 @@
 
 #include "sipp.hpp"
 #include <unistd.h>
+#include <poll.h>
 #include <stdint.h>
 #include <fcntl.h>
 #include <sys/socket.h>
@@ -2498,7 +2499,6 @@ void rtpstream_audioecho_thread(void* param)
     struct sockaddr_storage remote_rtp_addr;
     sigset_t              mask;
     int rc = 0;
-    struct timespec tspec;
     int sock = 0;
     int flags;
     std::vector<unsigned char> rtp_header;
@@ -2514,8 +2514,6 @@ void rtpstream_audioecho_thread(void* param)
     quit_audioecho_thread = false;
     ParamPass p;
 
-    tspec.tv_sec = 0;
-    tspec.tv_nsec = 10000000; /* 10ms */
 
     p.p = param;
 
@@ -2547,9 +2545,17 @@ void rtpstream_audioecho_thread(void* param)
     pthread_mutex_lock(&quit_mutexaudio);
     while (!quit_audioecho_thread)
     {
-        rc = pthread_cond_timedwait(&quit_cvaudio, &quit_mutexaudio, &tspec);
-        if ((rc == ETIMEDOUT) &&
-            !quit_audioecho_thread)
+        /* Wait for a packet, or at most 10 ms so that a stop request is
+         * seen soon. pthread_cond_timedwait() was given a relative 10 ms
+         * where it wants an absolute time, so it returned at once and the
+         * loop spun on the CPU. */
+        pthread_mutex_unlock(&quit_mutexaudio);
+        struct pollfd pfd = {};
+        pfd.fd = sock;
+        pfd.events = POLLIN;
+        poll(&pfd, 1, 10);
+        pthread_mutex_lock(&quit_mutexaudio);
+        if (!quit_audioecho_thread)
         {
             pthread_mutex_lock(&uasAudioMutex);
             nr = 0;
@@ -2680,7 +2686,6 @@ void rtpstream_videoecho_thread(void* param)
     struct sockaddr_storage remote_rtp_addr;
     sigset_t              mask;
     int rc = 0;
-    struct timespec tspec;
     int sock = 0;
     int flags;
     std::vector<unsigned char> rtp_header;
@@ -2696,8 +2701,6 @@ void rtpstream_videoecho_thread(void* param)
     quit_videoecho_thread = false;
     ParamPass p;
 
-    tspec.tv_sec = 0;
-    tspec.tv_nsec = 10000000; /* 10ms */
 
     p.p = param;
 
@@ -2729,9 +2732,17 @@ void rtpstream_videoecho_thread(void* param)
     pthread_mutex_lock(&quit_mutexvideo);
     while (!quit_videoecho_thread)
     {
-        rc = pthread_cond_timedwait(&quit_cvvideo, &quit_mutexvideo, &tspec);
-        if ((rc == ETIMEDOUT) &&
-            !quit_videoecho_thread)
+        /* Wait for a packet, or at most 10 ms so that a stop request is
+         * seen soon. pthread_cond_timedwait() was given a relative 10 ms
+         * where it wants an absolute time, so it returned at once and the
+         * loop spun on the CPU. */
+        pthread_mutex_unlock(&quit_mutexvideo);
+        struct pollfd pfd = {};
+        pfd.fd = sock;
+        pfd.events = POLLIN;
+        poll(&pfd, 1, 10);
+        pthread_mutex_lock(&quit_mutexvideo);
+        if (!quit_videoecho_thread)
         {
             pthread_mutex_lock(&uasVideoMutex);
             nr = 0;
