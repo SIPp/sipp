@@ -335,7 +335,7 @@ void ScreenPrinter::draw_scenario_screen()
     } else {
         snprintf(left_buf_long, 60,
                  "Call limit %lu hit, %0.1f s period ", stop_after,
-                 (double)ms_since_last_tick / 100.0);
+                 (double)ms_since_last_tick / 1000.0);
     }
     snprintf(right_buf, 40, "%lu ms scheduler resolution",
              ms_since_last_tick / std::max(scheduling_loops, 1ul));
