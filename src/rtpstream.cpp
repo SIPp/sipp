@@ -2662,6 +2662,11 @@ void rtpstream_audioecho_thread(void* param)
                 // No data to be read (no activity on socket)
                 // debugrefileaudio.printf("No activity on audioecho socket (EAGAIN)...\n");
             }
+            else if (errno == ECONNREFUSED) {
+                // An ICMP port unreachable for an earlier echo: the peer
+                // has closed its port, typically as its call ends.
+                debugrefileaudio.printf("audio echo peer port unreachable (ECONNREFUSED)...\n");
+            }
             else {
                 // Other error occurred during read
                 //WARNING("%s %i", "Error on RTP echo reception - stopping rtpstream echo - errno = ", errno);
@@ -2860,6 +2865,11 @@ void rtpstream_videoecho_thread(void* param)
                      (errno == EAGAIN)) {
                 // No data to be read (no activity on socket)
                 // debugrefilevideo.printf("No activity on videoecho socket (EAGAIN)...\n");
+            }
+            else if (errno == ECONNREFUSED) {
+                // An ICMP port unreachable for an earlier echo: the peer
+                // has closed its port, typically as its call ends.
+                debugrefilevideo.printf("video echo peer port unreachable (ECONNREFUSED)...\n");
             }
             else {
                 // Other error occurred during read
