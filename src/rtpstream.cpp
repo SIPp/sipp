@@ -609,8 +609,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     unsigned long        next_wake;
     unsigned long long   target_timestamp;
     int                  compresult;
-    struct timeval       tv;
-    fd_set               readfds;
+    struct pollfd        pfd;
     std::vector<unsigned char> rtp_header;
     std::vector<unsigned char> payload_data;
     std::vector<unsigned char> audio_out;
@@ -652,8 +651,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     } udp_send_video;
 
 
-    tv.tv_sec = 0;
-    tv.tv_usec = 0; /* Never block on select */
+    pfd.events = POLLIN;
 
     *comparison_acheck = 0;
     *comparison_vcheck = 0;
@@ -751,11 +749,11 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                     debugafile.printHexUS("SIPP SUCCESS SEND LOG: ", audio_out.data(), audio_out.size(), rc, rtpstream_apckts);
 
-                    FD_ZERO(&readfds);
-                    FD_SET(taskinfo->audio_rtp_socket, &readfds);
-                    rc = select(taskinfo->audio_rtp_socket + 1, &readfds, nullptr, nullptr, &tv);
+                    /* poll(), not select(): the socket may be >= FD_SETSIZE */
+                    pfd.fd = taskinfo->audio_rtp_socket;
+                    rc = poll(&pfd, 1, 0); /* Never block */
 
-                    if (FD_ISSET(taskinfo->audio_rtp_socket, &readfds))
+                    if (rc > 0)
                     {
                         /* this is temp code - will have to reorganize if/when we include echo functionality */
                         /* just keep listening on rtp socket (is this really required?) - ignore any errors */
@@ -997,11 +995,11 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                     debugvfile.printHexUS("SIPP SUCCESS SEND LOG: ", video_out.data(), video_out.size(), rc, rtpstream_vpckts);
 
-                    FD_ZERO(&readfds);
-                    FD_SET(taskinfo->video_rtp_socket, &readfds);
-                    rc = select(taskinfo->video_rtp_socket + 1, &readfds, nullptr, nullptr, &tv);
+                    /* poll(), not select(): the socket may be >= FD_SETSIZE */
+                    pfd.fd = taskinfo->video_rtp_socket;
+                    rc = poll(&pfd, 1, 0); /* Never block */
 
-                    if (FD_ISSET(taskinfo->video_rtp_socket, &readfds))
+                    if (rc > 0)
                     {
                         /* this is temp code - will have to reorganize if/when we include echo functionality */
                         /* just keep listening on rtp socket (is this really required?) - ignore any errors */
