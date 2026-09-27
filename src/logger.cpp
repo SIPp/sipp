@@ -238,6 +238,7 @@ void print_screens(void)
          currentRepartitionToDisplay++) {
         sp->print_to_file(screen_lfi.fptr);
     }
+    fflush(screen_lfi.fptr);
 
     currentScreenToDisplay = oldScreen;
     currentRepartitionToDisplay = oldRepartition;
@@ -302,6 +303,13 @@ static void rotatef(struct logfile_info* lfi)
             lfi->fptr = nullptr;
             rename(lfi->file_name, L_rotate_file_name);
         }
+    }
+
+    /* A file reopened in place: close the old stream, or it leaks, and
+     * whatever it still buffers lands in the new file at exit. */
+    if (lfi->fptr) {
+        fclose(lfi->fptr);
+        lfi->fptr = nullptr;
     }
 
     time(&lfi->starttime);
