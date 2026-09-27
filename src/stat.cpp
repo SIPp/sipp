@@ -1600,8 +1600,19 @@ int CUniform::timeDescr(char *s, int len)
 }
 double CUniform::cdfInv(double percentile)
 {
-    return min + (max * percentile);
+    return min + ((max - min) * percentile);
 }
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+
+TEST(CUniform, cdf_inverse_spans_min_to_max) {
+    CUniform u(1000, 2000);
+    EXPECT_DOUBLE_EQ(u.cdfInv(0.0), 1000);
+    EXPECT_DOUBLE_EQ(u.cdfInv(0.5), 1500);
+    EXPECT_DOUBLE_EQ(u.cdfInv(0.99), 1990);
+}
+#endif
 
 #ifdef HAVE_GSL
 gsl_rng *gsl_init()
