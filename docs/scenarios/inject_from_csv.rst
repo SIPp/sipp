@@ -23,7 +23,8 @@ depending on the call. At any place where the keyword "[field1]"
 appears in the scenario file, it will be replaced by either
 "sipphone32" or "sipphone12" or "sipphone94" depending on the call. At
 the end of the file, SIPp will re-start from the beginning. The file
-is not limited in size.
+is not limited in size. To use each line once, run with ``-m_csv``: it
+stops the test after as many calls as the first -inf file has lines.
 
 You can override the default line selection strategy with the optional
 line argument. For example::

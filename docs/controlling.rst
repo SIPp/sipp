@@ -101,7 +101,8 @@ behaviour is obtained by pressing 'q' twice.
 
 .. tip::
   You can place a defined number of calls and have SIPp exit when
-  this is done. Use the -m option on the command line.
+  this is done. Use the -m option on the command line, or -m_csv
+  for as many calls as the first -inf file has lines.
 
 
 Remote control
