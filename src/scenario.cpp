@@ -134,6 +134,47 @@ message::~message()
     free(recv_response_for_cseq_method_list);
 }
 
+bool message::matchesRequest(const char *method)
+{
+    if (!recv_request) {
+        return false;
+    }
+    if (!regexp_match) {
+        return !strcmp(recv_request, method);
+    }
+    if (regexp_compile == nullptr) {
+        regex_t *re = new regex_t;
+        /* No regex match position needed (NOSUB), we're simply
+         * looking for the <request method="INVITE|REGISTER"../>
+         * regex. */
+        if (regcomp(re, recv_request, REGCOMP_PARAMS | REG_NOSUB)) {
+            ERROR("Invalid regular expression for index %d: %s", index, recv_request);
+        }
+        regexp_compile = re;
+    }
+    return !regexec(regexp_compile, method, (size_t)0, nullptr, REGEXEC_PARAMS);
+}
+
+bool message::matchesResponse(int code)
+{
+    if (!recv_response) {
+        return false;
+    }
+    if (!regexp_match) {
+        return atoi(recv_response) == code;
+    }
+    if (regexp_compile == nullptr) {
+        regex_t *re = new regex_t;
+        if (regcomp(re, recv_response, REGCOMP_PARAMS | REG_NOSUB)) {
+            ERROR("Invalid regular expression for index %d: %s", index, recv_response);
+        }
+        regexp_compile = re;
+    }
+    char code_str[8];
+    snprintf(code_str, sizeof(code_str), "%d", code);
+    return !regexec(regexp_compile, code_str, (size_t)0, nullptr, REGEXEC_PARAMS);
+}
+
 /******** Global variables which compose the scenario file **********/
 
 scenario      *rx_scenario;
@@ -1260,6 +1301,33 @@ void parse_slave_cfg()
     }
 
     fclose(f);
+}
+
+bool scenario::startsWith(const char *msg)
+{
+    /* A call jumps to _unexp.main on any message it doesn't expect. */
+    if (unexpected_jump >= 0) {
+        return true;
+    }
+
+    int code = get_reply_code(msg);
+    std::string method(msg, strcspn(msg, " \t\r\n"));
+
+    for (message *curmsg : messages) {
+        if (curmsg->M_type == MSG_TYPE_PAUSE || curmsg->M_type == MSG_TYPE_NOP) {
+            continue;
+        }
+        if (curmsg->M_type != MSG_TYPE_RECV) {
+            return true;
+        }
+        if (code ? curmsg->matchesResponse(code) : curmsg->matchesRequest(method.c_str())) {
+            return true;
+        }
+        if (curmsg->optional == OPTIONAL_FALSE) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // Determine in which mode the sipp tool has been

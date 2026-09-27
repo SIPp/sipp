@@ -4529,42 +4529,10 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
     message *curmsg = call_scenario->messages[index];
 
     if ((curmsg->recv_request)) {
-        if (curmsg->regexp_match) {
-            if (curmsg->regexp_compile == nullptr) {
-                regex_t *re = new regex_t;
-                /* No regex match position needed (NOSUB), we're simply
-                 * looking for the <request method="INVITE|REGISTER"../>
-                 * regex. */
-                if (regcomp(re, curmsg->recv_request, REGCOMP_PARAMS|REG_NOSUB)) {
-                    ERROR("Invalid regular expression for index %d: %s", index, curmsg->recv_request);
-                }
-                curmsg->regexp_compile = re;
-            }
-            return !regexec(curmsg->regexp_compile, request, (size_t)0, nullptr, REGEXEC_PARAMS);
-        } else {
-            return !strcmp(curmsg->recv_request, request);
-        }
+        return curmsg->matchesRequest(request);
     } else if (curmsg->recv_response) {
-        if (curmsg->regexp_match) { // Match response code using regex
-            char reply_code_str[8];
-           snprintf(reply_code_str, 8, "%u", reply_code); // Convert the response code to string
-            if (curmsg->regexp_compile == nullptr) {
-                regex_t *re = new regex_t;
-                /* No regex match position needed (NOSUB), we're simply
-                 * looking for the <request method="INVITE|REGISTER"../>
-                 * regex. */
-                if (regcomp(re, curmsg->recv_response, REGCOMP_PARAMS|REG_NOSUB)) {
-                    ERROR("Invalid regular expression for index %d: %s", index, curmsg->recv_response);
-                }
-                curmsg->regexp_compile = re;
-            }
-            if (regexec(curmsg->regexp_compile, reply_code_str, (size_t)0, nullptr, REGEXEC_PARAMS)) {
-               return false;
-           }
-        } else { // Exact numerical match
-            if (atoi(curmsg->recv_response) != reply_code) {
-               return false;
-           }
+        if (!curmsg->matchesResponse(reply_code)) {
+            return false;
         }
        /* This is a potential candidate, we need to match transactions. */
        if (curmsg->response_txn) {
