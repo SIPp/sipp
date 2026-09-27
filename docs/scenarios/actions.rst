@@ -600,9 +600,10 @@ verifyauth
 The verifyauth action checks the Authorization header in an incoming
 message against a provided username and password. The result of the
 check is stored in a boolean variable. This allows you to simulate a
-server which requires authorization. Currently MD5 and SHA-256 digest
-authentications are supported. Before using the verifyauth action, you
-must send a challenge. For example::
+server which requires authorization. Currently MD5, SHA-256 and
+SHA-512-256 digest authentications are supported, and their session
+variants MD5-sess, SHA-256-sess and SHA-512-256-sess. Before using the
+verifyauth action, you must send a challenge. For example::
 
     <recv request="REGISTER" />
     <send>

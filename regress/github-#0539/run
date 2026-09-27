@@ -1,0 +1,55 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The Digest algorithms of RFC 7616 (RFC 8760 for SIP): a UAC answers a
+# challenge with each, and <verifyauth> accepts its response. Those of
+# SHA-512/256 are skipped if the SSL library has none.
+. "`dirname "$0"`/../functions"; init
+
+# A call with each algorithm;qop line of stdin: the statuses of the UAC
+# and the UAS, and the UAC's errors in uac.err
+calls() {
+    { echo SEQUENTIAL; cat; } >algos.csv
+    n=$((`wc -l <algos.csv` - 1))
+    sippfg -sf uas.xml -inf algos.csv -i 127.0.0.1 -p 25391 -m $n \
+        -timeout 8 -timeout_error >/dev/null 2>&1 &
+    uas=$!
+    sleep 1
+    sippfg -sf uac.xml -i 127.0.0.1 -p 25390 -m $n -l 1 127.0.0.1:25391 \
+        -timeout 6 -timeout_error >/dev/null 2>uac.err
+    uac_status=$?
+    wait $uas
+    uas_status=$?
+    rm -f algos.csv
+}
+
+check() {
+    if test $uac_status -ne 0; then
+        rm -f uac.err
+        fail "UAC failed with $uac_status: a response was not accepted"
+    elif test $uas_status -ne 0; then
+        rm -f uac.err
+        fail "UAS failed with $uas_status"
+    fi
+}
+
+calls <<'CSV'
+MD5-sess;auth;
+SHA-256-sess;auth-int;
+md5-SESS;auth-int;
+MD5;auth;
+SHA-256;auth;
+CSV
+check
+
+calls <<'CSV'
+SHA-512-256;auth;
+SHA-512-256-sess;auth,auth-int;
+sha-512-256;auth-int;
+CSV
+if test $uac_status -ne 0 && grep -q "not supported by the SSL library" uac.err; then
+    rm -f uac.err
+    skip "no SHA-512/256 in the SSL library"
+fi
+check
+rm -f uac.err
+ok
