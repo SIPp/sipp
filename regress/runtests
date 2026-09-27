@@ -20,7 +20,7 @@ fail=0
 unexpected_ok=0
 expected_fail=0
 skip=0
-for path in github-*; do
+for path in *; do
     if test -x $path/run; then
         $path/run
         ret=$?

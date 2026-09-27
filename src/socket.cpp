@@ -1390,7 +1390,7 @@ SIPpSocket* SIPpSocket::new_sipp_call_socket(bool use_ipv6, int transport, bool 
                 break;
             }
         } while (next_socket != first);
-        if (next_socket == first) {
+        if (!sock) {
             ERROR("Could not find an existing call socket to re-use!");
         }
     } else {

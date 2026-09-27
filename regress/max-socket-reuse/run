@@ -1,0 +1,18 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# With -t un -max_socket 3 (the control and main sockets count too) there
+# is a single call socket, the last one checked before the search wraps.
+# Overlapping calls must re-use it instead of failing with "Could not
+# find an existing call socket to re-use!".
+. "`dirname "$0"`/../functions"; init
+
+sippbg -sn uas -i 127.0.0.1 -p 25200 -m 3
+sippfg -sn uac -t un -max_socket 3 -m 3 -r 100 -d 500 -i 127.0.0.1 \
+    127.0.0.1:25200 -timeout 8 -timeout_error >/dev/null 2>&1
+status=$?
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+else
+    ok
+fi
