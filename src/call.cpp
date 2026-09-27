@@ -3993,7 +3993,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 if (end == std::string::npos) {
                     ERROR("Unterminated [authentication] keyword!");
                 }
-                std::string keyword = out.substr(auth_marker, end - auth_marker);
+                /* Without its brackets, as the scenario's own keywords are
+                 * parsed: a parameter is not looked for inside a '['. */
+                std::string keyword = out.substr(auth_marker + 1, end - auth_marker - 1);
                 SendingMessage::parseAuthenticationKeyword(call_scenario, auth_comp, keyword.data());
             }
             if (!out.empty() && out.back() == '\n') {

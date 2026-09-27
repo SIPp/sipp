@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- The [authentication] keyword comes from the -inf file. -->
+<scenario name="injected authentication uac">
+  <send>
+    <![CDATA[
+      REGISTER sip:127.0.0.1:25511 SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:[field0]@[local_ip]>;tag=[call_number]
+      To: <sip:[field0]@[local_ip]>
+      Call-ID: [call_id]
+      CSeq: [cseq] REGISTER
+      Max-Forwards: 70
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv response="401" auth="true"/>
+  <send>
+    <![CDATA[
+      REGISTER sip:127.0.0.1:25511 SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:[field0]@[local_ip]>;tag=[call_number]
+      To: <sip:[field0]@[local_ip]>
+      Call-ID: [call_id]
+      CSeq: [cseq] REGISTER
+      Max-Forwards: 70
+      [field2]
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv response="200"/>
+</scenario>
