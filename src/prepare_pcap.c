@@ -414,6 +414,7 @@ static void fill_default_dtmf(struct dtmfpacket* dtmfpacket, int marker, int seq
 
     dtmfpacket->dtmf.event_id = digit;
     dtmfpacket->dtmf.end_of_event = eoe;
+    dtmfpacket->dtmf.reserved = 0;
     dtmfpacket->dtmf.volume = 10;
     dtmfpacket->dtmf.duration = htons(duration * 8);
 }
