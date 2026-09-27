@@ -1,0 +1,61 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# When the peer closes a TCP connection that still has calls, SIPp says
+# so in the error log, rather than only counting the calls as failed,
+# but not for a call that ended, waiting only on its final <timewait>.
+. "`dirname "$0"`/../functions"; init
+
+# Connect, send an INVITE, wait for its 200, and, with "bye" as $1, end
+# the call with an ACK and a BYE and wait for its 200. Then close the
+# connection.
+invite() {
+    perl -e 'use IO::Socket::INET;
+        $s = IO::Socket::INET->new(PeerAddr => "127.0.0.1:25325",
+            Proto => "tcp") or die "connect: $!";
+        $p = $s->sockport;
+        sub req {
+            my ($m, $n) = @_;
+            print $s "$m sip:uas\@127.0.0.1:25325 SIP/2.0\r\n" .
+                "Via: SIP/2.0/TCP 127.0.0.1:$p;branch=z9hG4bK-$p-$n\r\n" .
+                "From: <sip:uac\@127.0.0.1>;tag=$p\r\n" .
+                "To: <sip:uas\@127.0.0.1>$to\r\n" .
+                "Call-ID: $p\@127.0.0.1\r\n" .
+                "CSeq: $n $m\r\n" .
+                "Contact: <sip:uac\@127.0.0.1:$p;transport=tcp>\r\n" .
+                "Max-Forwards: 70\r\n" .
+                "Content-Length: 0\r\n\r\n";
+        }
+        # Read until the answers match $_[0], and return its first group.
+        sub expect {
+            sysread($s, $r, 65536, length $r) or die "read: $!"
+                until $r =~ $_[0];
+            $1;
+        }
+        req("INVITE", 1);
+        $to = expect(qr/^SIP\/2.0 200 .*^To: [^\r]*(;tag=[^\r]*)/ms);
+        if ($ARGV[0] eq "bye") {
+            req("ACK", 1);
+            req("BYE", 2);
+            expect(qr/^CSeq: 2 BYE/m);
+        }
+        close($s);' "$@"
+}
+
+log=`mktemp`
+sippbg -sn uas -t tn -i 127.0.0.1 -p 25325 -trace_err -error_file "$log"
+invite bye
+invite bye
+sleep 0.5
+ended=`cat "$log"`
+invite
+sleep 0.5
+errors=`cat "$log"`
+rm -f "$log"
+
+if echo "$ended" | grep -q 'The remote peer'; then
+    fail "warning for an ended call"
+elif echo "$errors" | grep -q 'The remote peer closed the TCP connection, failing 1 call'; then
+    ok
+else
+    fail "no warning"
+fi

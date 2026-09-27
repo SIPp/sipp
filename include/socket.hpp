@@ -126,7 +126,7 @@ private:
     struct socketbuf *ss_out_tail = nullptr; /* Tail of buffered output */
     size_t ss_msglen = 0;           /* Is there a complete SIP message waiting, and if so how big? */
 
-    void close_calls();
+    int close_calls();
     int flush();
     int write_error(int ret);
     void abort();
@@ -138,6 +138,7 @@ private:
 
 
     bool ss_call_socket = false; /* Is this a call socket? */
+    bool ss_accepted = false;    /* Was this socket accepted from a peer? */
 
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
     SSL *ss_ssl = nullptr; /* The underlying SSL descriptor for this socket. */

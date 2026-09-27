@@ -1,0 +1,57 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A UAS keeps running when a peer resets a TCP connection that the UAS
+# accepted, rather than exiting on the error, and ends its calls, as it
+# does when the peer closes the connection, even with -reconnect_close
+# false, as there is nothing to reconnect.
+. "`dirname "$0"`/../functions"; init
+
+# Connect to port $1, send an INVITE, and reset the connection once it
+# is answered.
+invite() {
+    perl -e 'use IO::Socket::INET; use Socket;
+        $u = "127.0.0.1:$ARGV[0]";
+        $s = IO::Socket::INET->new(PeerAddr => $u,
+            Proto => "tcp") or die "connect: $!";
+        $p = $s->sockport;
+        print $s "INVITE sip:uas\@$u SIP/2.0\r\n" .
+            "Via: SIP/2.0/TCP 127.0.0.1:$p;branch=z9hG4bK-$p\r\n" .
+            "From: <sip:uac\@127.0.0.1>;tag=$p\r\n" .
+            "To: <sip:uas\@127.0.0.1>\r\n" .
+            "Call-ID: $p\@127.0.0.1\r\n" .
+            "CSeq: 1 INVITE\r\n" .
+            "Contact: <sip:uac\@127.0.0.1:$p;transport=tcp>\r\n" .
+            "Max-Forwards: 70\r\n" .
+            "Content-Length: 0\r\n\r\n";
+        sleep 1;
+        setsockopt($s, SOL_SOCKET, SO_LINGER, pack("ii", 1, 0));
+        close($s);' $1
+}
+
+# Run a UAS on port $1 with the other arguments, reset two calls to it,
+# and check it survives and warns about each.
+check() {
+    port=$1
+    shift
+    log=`mktemp`
+    sippbg -sn uas -t tn -i 127.0.0.1 -p $port -trace_err -error_file "$log" "$@"
+    uas=$pid
+    invite $port
+    # The UAS still takes a call on a new connection.
+    invite $port
+    sleep 0.5
+    /bin/kill -0 $uas 2>/dev/null
+    alive=$?
+    errors=`cat "$log"`
+    rm -f "$log"
+
+    if test $alive -ne 0; then
+        fail "$*: `echo "$errors" | grep 'Error on TCP\|Broken pipe' | head -n 1`"
+    elif test `echo "$errors" | grep -c 'The remote peer reset the TCP connection, failing 1 call'` -ne 2; then
+        fail "$*: no warning for each reset"
+    fi
+}
+
+check 25320
+check 25322 -reconnect_close false
+ok
