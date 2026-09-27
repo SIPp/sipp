@@ -955,7 +955,8 @@ void SIPpSocket::invalidate()
     }
     if (ss_fd != -1 && ss_fd != stdin_fileno) {
         if (ss_transport == T_TCP && ss_transport != T_TLS) {
-            if (shutdown(ss_fd, SHUT_RDWR) < 0) {
+            /* ENOTCONN: the peer reset the connection already. */
+            if (shutdown(ss_fd, SHUT_RDWR) < 0 && errno != ENOTCONN) {
                 WARNING_NO("Failed to shutdown socket %d", ss_fd);
             }
         }
