@@ -21,6 +21,28 @@ elif test $status -ne 0; then
     fail "UAC failed with $status"
 fi
 
+# Two SRTP calls from two UACs, each with its own keys: the UAS echoes
+# each call with the keys of that call.
+sippbg -sf ../../sipp_scenarios/pfca_uas_audio_crypto_simple.xml \
+    -i 127.0.0.1 -p 25742 -m 2 -min_rtp_port 27200 -max_rtp_port 27299
+srtpuac() {
+    sippfg -sf ../../sipp_scenarios/pfca_uac_apattern_crypto_simple.xml \
+        -i 127.0.0.1 -p $1 -m 1 -min_rtp_port $2 -max_rtp_port $(($2 + 99)) \
+        -audiotolerance 0.2 127.0.0.1:25742 -timeout 10 -timeout_error \
+        >/dev/null 2>&1
+}
+srtpuac 25743 27300 &
+uac=$!
+srtpuac 25744 27400
+status=$?
+wait $uac || status=$?
+
+if test $status -eq 253; then
+    fail "the UAS echoed an SRTP call with the keys of another"
+elif test $status -ne 0; then
+    fail "SRTP UAC failed with $status"
+fi
+
 # 50 concurrent calls, counting the UAS threads while they run.
 sippfg -sf uac.xml -i 127.0.0.1 -p 25741 -m 50 -l 50 -r 100 -d 1000 \
     -min_rtp_port 27000 -max_rtp_port 27199 -audiotolerance 0.2 \
