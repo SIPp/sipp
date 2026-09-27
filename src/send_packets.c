@@ -60,8 +60,6 @@
 #define uh_dport dest
 #endif
 
-extern volatile unsigned long rtp_pckts_pcap;
-extern volatile unsigned long rtp_bytes_pcap;
 extern bool media_ip_is_ipv6;
 
 inline void
@@ -285,8 +283,7 @@ void send_packets(play_args_t* play_args)
             goto pop1;
         }
 
-        rtp_pckts_pcap++;
-        rtp_bytes_pcap += pkt_index->pktlen - sizeof(*udp);
+        rtp_pcap_count(pkt_index->pktlen - sizeof(*udp));
         memcpy (&last, &(pkt_index->ts), sizeof(struct timeval));
         pkt_index++;
     }

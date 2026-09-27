@@ -743,8 +743,8 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 else
                 {
                     /* statistics - only count successful sends */
-                    rtpstream_abytes_out += taskinfo->audio_bytes_per_packet + sizeof(rtp_header_t);
-                    rtpstream_apckts++;       // GLOBAL RTP packet counter
+                    rtpstream_abytes_out.fetch_add(taskinfo->audio_bytes_per_packet + sizeof(rtp_header_t), std::memory_order_relaxed);
+                    rtpstream_apckts.fetch_add(1, std::memory_order_relaxed); // GLOBAL RTP packet counter
                     rs_apackets[taskindex]++; // TASK-specific RTP packet counter
 
                     debugafile.printHexUS("SIPP SUCCESS SEND LOG: ", audio_out.data(), audio_out.size(), rc, rtpstream_apckts);
@@ -772,7 +772,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         {
                             /* for now we will just ignore any received data or receive errors */
                             /* separate code path for RTP echo */
-                            rtpstream_abytes_in += rc;
+                            rtpstream_abytes_in.fetch_add(rc, std::memory_order_relaxed);
                             debugafile.printHexUS("SIPP SUCCESS RECV LOG: ", audio_in.data(), audio_in.size(), rc, rtpstream_apckts);
                         }
                         if (g_rxUACAudio.getCryptoTag() != 0)
@@ -989,8 +989,8 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 else
                 {
                     /* statistics - only count successful sends */
-                    rtpstream_vbytes_out += taskinfo->video_bytes_per_packet + sizeof(rtp_header_t);
-                    rtpstream_vpckts++;       // GLOBAL RTP packet counter
+                    rtpstream_vbytes_out.fetch_add(taskinfo->video_bytes_per_packet + sizeof(rtp_header_t), std::memory_order_relaxed);
+                    rtpstream_vpckts.fetch_add(1, std::memory_order_relaxed); // GLOBAL RTP packet counter
                     rs_vpackets[taskindex]++; // TASK-specific RTP packet counter
 
                     debugvfile.printHexUS("SIPP SUCCESS SEND LOG: ", video_out.data(), video_out.size(), rc, rtpstream_vpckts);
@@ -1018,7 +1018,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         {
                             /* for now we will just ignore any received data or receive errors */
                             /* separate code path for RTP echo */
-                            rtpstream_vbytes_in += rc;
+                            rtpstream_vbytes_in.fetch_add(rc, std::memory_order_relaxed);
                             debugvfile.printHexUS("SIPP SUCCESS RECV LOG: ", video_in.data(), video_in.size(), rc, rtpstream_vpckts);
                         }
 
@@ -1292,11 +1292,11 @@ static void rtpstream_echotask(taskentry_t* taskinfo, bool video)
         }
 
         if (video) {
-            rtp2_pckts++;
-            rtp2_bytes += ns;
+            rtp2_pckts.fetch_add(1, std::memory_order_relaxed);
+            rtp2_bytes.fetch_add(ns, std::memory_order_relaxed);
         } else {
-            rtp_pckts++;
-            rtp_bytes += ns;
+            rtp_pckts.fetch_add(1, std::memory_order_relaxed);
+            rtp_bytes.fetch_add(ns, std::memory_order_relaxed);
         }
     }
     pthread_mutex_unlock(&(taskinfo->mutex));
@@ -1334,7 +1334,7 @@ static void* rtpstream_playback_thread(void* params)
     rs_vrtpcheck.resize(threaddata->max_tasks);
     verdict = 0.0;
 
-    rtpstream_numthreads++; /* perhaps wrap this in a mutex? */
+    rtpstream_numthreads++;
 
     // INITIALIZE AUDIO/VIDEO COMPARISON ERRORS
     for (taskindex = 0; taskindex < threaddata->num_tasks; taskindex++)
@@ -1559,7 +1559,7 @@ static void* rtpstream_playback_thread(void* params)
     }
     pthread_mutex_destroy(&(threaddata->tasklist_mutex));
     free(threaddata);
-    rtpstream_numthreads--; /* perhaps wrap this in a mutex? */
+    rtpstream_numthreads--;
 
     // PTHREAD EXIT...
     debugafile.printHex("PLAYBACK THREAD EXITING...", "", 0, rtpresult, 0);
