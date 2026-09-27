@@ -1,0 +1,25 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# With -max_reconnect, a TCP connection that fails is connected again: the
+# socket stays for reset_connection(), rather than being freed under the
+# poll loop and the call generator.
+. "`dirname "$0"`/../functions"; init
+
+log=`mktemp`
+# Nothing listens on the remote port.
+sippfg -sn uac -t t1 -i 127.0.0.1 -p 5070 127.0.0.1:5099 -m 2 \
+    -max_reconnect 5 -reconnect_sleep 100 -trace_err -error_file "$log" \
+    >/dev/null 2>&1
+status=$?
+errors=`cat "$log"`
+rm -f "$log"
+
+if test $status -gt 128; then
+    fail "sipp died with signal $((status - 128))"
+elif ! echo "$errors" | grep -q 'Socket required a reconnection'; then
+    fail "no reconnection"
+elif test $status -ne 1; then
+    fail "exited with $status, not 1 for the failed calls"
+else
+    ok
+fi

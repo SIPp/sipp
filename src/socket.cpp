@@ -1040,6 +1040,20 @@ void SIPpSocket::abort() {
     }
 }
 
+/* Close the connection with a reset, but keep the socket, which a call or
+ * a global may still use: reset_connection() connects it again. abort()
+ * would drop a reference, and free the socket along with its last one. */
+void SIPpSocket::drop_connection()
+{
+    if (ss_fd != -1) {
+        struct linger flush;
+        flush.l_onoff = 1;
+        flush.l_linger = 0;
+        setsockopt(ss_fd, SOL_SOCKET, SO_LINGER, &flush, sizeof(flush));
+    }
+    invalidate();
+}
+
 void SIPpSocket::close()
 {
     int count = --ss_count;
@@ -1884,7 +1898,7 @@ int SIPpSocket::write_error(int ret)
             && errno == EPIPE) {
         nb_net_send_errors++;
         sockets_pending_reset.insert(this);
-        abort();
+        drop_connection();
         if (reconnect_allowed()) {
             WARNING("Broken pipe on TCP connection, remote peer "
                     "probably closed the socket");
@@ -1988,7 +2002,7 @@ int SIPpSocket::read_error(int ret)
         }
 
         sockets_pending_reset.insert(this);
-        abort();
+        drop_connection();
 
         nb_net_recv_errors++;
         if (reconnect_allowed()) {
@@ -2995,8 +3009,11 @@ void SIPpSocket::pollset_process(int wait)
                     else
 #endif
                     {
+                        unsigned before = pollnfds;
                         ret = sock->read_error(ret);
-                        if (ret == 0) {
+                        /* An error invalidates the socket too, which
+                         * moves another one into its place. */
+                        if (ret == 0 || pollnfds != before) {
                             /* If read_error() then the poll_idx now belongs
                              * to the newest/last socket added to the sockets[].
                              * Need to re-do the same poll_idx for the "new" socket.
