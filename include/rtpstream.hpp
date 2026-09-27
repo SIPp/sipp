@@ -21,6 +21,19 @@
 
 #include <unordered_map>
 
+#ifdef PCAPPLAY
+#include "send_packets.h"
+
+/* the streams of the pcap plays of a call: video plays at once with
+ * audio or image, but an audio play and an image one end each other */
+enum rtpstream_pcap_t {
+    RTPSTREAM_PCAP_AUDIO, /* play_pcap_audio and play_dtmf */
+    RTPSTREAM_PCAP_IMAGE,
+    RTPSTREAM_PCAP_VIDEO,
+    RTPSTREAM_PCAP_STREAMS
+};
+#endif
+
 #define RTPSTREAM_MAX_FILENAMELEN 256
 #define RTPSTREAM_MAX_PAYLOADNAME 256
 #define RTPECHO_MAX_FILENAMELEN 256
@@ -140,6 +153,12 @@ struct taskentry_t
     SrtpInfoParams  remote_srtp_audio_params;
     SrtpInfoParams  local_srtp_video_params;
     SrtpInfoParams  remote_srtp_video_params;
+
+#ifdef PCAPPLAY
+    /* the pcap plays of the call, one per stream, under the mutex; a
+     * play with no pcap is not playing */
+    play_args_t          pcap_plays[RTPSTREAM_PCAP_STREAMS];
+#endif
 };
 
 struct rtpstream_callinfo_t
@@ -205,6 +224,15 @@ void rtpstream_resumeapattern(rtpstream_callinfo_t *callinfo);
 void rtpstream_playvpattern(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo, JLSRTP& txUACVideo, JLSRTP& rxUACVideo);
 void rtpstream_pausevpattern(rtpstream_callinfo_t *callinfo);
 void rtpstream_resumevpattern(rtpstream_callinfo_t *callinfo);
+
+#ifdef PCAPPLAY
+/* Play a pcap on a stream of the call, in its playback thread, ending
+ * the play on that stream (and an audio or image one on the other) if
+ * there is one; 0 if it cannot */
+int rtpstream_play_pcap(rtpstream_callinfo_t *callinfo, rtpstream_pcap_t stream, const play_args_t *play);
+/* The addresses of the pcap play on a stream have changed */
+void rtpstream_update_pcap(rtpstream_callinfo_t *callinfo, rtpstream_pcap_t stream, const play_args_t *play);
+#endif
 
 int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t *callinfo, JLSRTP& rxUASAudio, JLSRTP& txUASAudio);
 int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t *callinfo, JLSRTP& rxUASAudio, JLSRTP& txUASAudio);

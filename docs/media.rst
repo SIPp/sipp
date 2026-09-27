@@ -61,10 +61,9 @@ SIPp comes with a G711 alaw pre-recorded pcap file and out of band
 generates such DTMFs for any digits, without a pcap file.
 
 .. warning::
-    The PCAP play feature uses pthread_setschedparam calls from pthread
-    library. Depending on the system settings, you might need to be root
-    to allow this. Please check "man 3 pthread_setschedparam" man page for
-    details
+    The PCAP play feature sends the packets from a raw socket, which
+    needs root or the CAP_NET_RAW capability, e.g. with
+    ``setcap cap_net_raw+ep sipp``.
 
 
 More details on the possible PCAP play actions can be found in the

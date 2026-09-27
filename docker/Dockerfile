@@ -17,13 +17,14 @@ RUN apk add --no-cache \
   gtest-dev \
   help2man \
   libpcap-dev \
+  linux-headers \
   make \
   ncurses-dev \
   ncurses-static \
   ninja \
   openssl-dev \
   openssl-libs-static \
-  ${FULL:+linux-headers lksctp-tools-dev lksctp-tools-static}
+  ${FULL:+lksctp-tools-dev lksctp-tools-static}
 
 WORKDIR /sipp
 COPY CMakeLists.txt ./

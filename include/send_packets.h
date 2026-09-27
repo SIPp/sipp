@@ -111,13 +111,19 @@ inline void float2timer(float time, struct timeval* tvp);
 typedef struct {
     /* pointer to a RTP pkts container */
     pcap_pkts* pcap;
-    /* Used in send_packets thread */
     struct sockaddr_storage to;
     struct sockaddr_storage from;
 
-    /* non-zero if the thread should destroy the *pcap when done playing or aborted */
+    /* non-zero if the *pcap is freed when done playing or aborted */
     int free_pcap_when_done;
     uint16_t last_seq_no;
+
+    /* the play in progress: the next packet to send (NULL before the
+     * first one), when the first one left, and how long after it the
+     * next one is due, in microseconds */
+    pcap_pkt* next;
+    unsigned long long start_us;
+    unsigned long long next_us;
 } play_args_t;
 
 #ifdef __cplusplus
@@ -127,7 +133,16 @@ extern "C"
     int parse_play_args(const char*, const char*, pcap_pkts*);
     int parse_dtmf_play_args(const char*, pcap_pkts*, uint16_t start_seq_no);
     void free_pcaps(pcap_pkts* pkts);
-    void send_packets(play_args_t*);
+    /* A raw socket to send pcap plays from the address of from */
+    int send_packets_socket(const struct sockaddr_storage* from);
+    /* Send the packets of a play that are due at now_us (see
+     * getmicroseconds()) on a send_packets_socket(). 1 if more are to
+     * come, the next at *due_us (in 1 ms if the socket cannot take one
+     * now); 0 if the play is over or failed. */
+    int send_packets_due(int sock, play_args_t* play, unsigned long long now_us,
+                         unsigned long long* due_us);
+    /* End a play: free its pcap if it owns it */
+    void send_packets_end(play_args_t* play);
     /* Counts a played RTP packet of the given payload size */
     void rtp_pcap_count(unsigned long bytes);
 #ifdef __cplusplus

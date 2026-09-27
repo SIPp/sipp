@@ -1,0 +1,54 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A play_pcap_image ends the play_pcap_audio of its call, as in a switch
+# to T.38 on the same remote port: the RTP and the UDPTL packets do not
+# go out mixed. (Video plays at the same time as audio: github-#0039.)
+. "`dirname "$0"`/../functions"
+
+# Sending pcap plays needs a raw socket: run as root in a user and
+# network namespace of our own.
+if test -z "$SIPP_NETNS"; then
+    if unshare -rn true 2>/dev/null; then
+        SIPP_NETNS=1 exec unshare -rn "$0"
+    fi
+    init
+    skip "no user network namespaces"
+fi
+init
+"`get_sipp`" -v | grep -q PCAP || skip "no PCAP"
+ip link set lo up 2>/dev/null || skip "cannot bring up lo"
+
+sippbg -sf uas.xml -i 127.0.0.1 -p 25790 -m 1 -timeout 10
+# The packets on the port, and how many times their RTP sequence number
+# goes back: both plays play the same capture, so once when the image
+# play starts, and at each packet of the audio one that goes on.
+rm -f rtp.out
+perl -e '
+    use Socket;
+    socket(S, PF_INET, SOCK_DGRAM, 17) || die($!);
+    bind(S, pack_sockaddr_in(26750, inet_aton("127.0.0.1"))) || die($!);
+    $r = ""; vec($r, fileno(S), 1) = 1;
+    while (select($w = $r, undef, undef, $n ? 1 : 5) > 0) {
+        recv(S, $o, 2048, 0);
+        ($seq) = unpack("x2n", $o);
+        $n++ && $seq < $last && $back++;
+        $last = $seq;
+    }
+    printf("%d %d\n", $n, $back);' >rtp.out &
+rtp=$!
+sippfg -sf uac.xml -i 127.0.0.1 -p 25791 -mp 26000 -m 1 127.0.0.1:25790 \
+    -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait $rtp
+read packets back <rtp.out
+rm -f rtp.out
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "${packets:-0}" -lt 50; then
+    fail "${packets:-0} packets"
+elif test "${back:-0}" -ne 1; then
+    fail "the RTP sequence number went back ${back:-0} times in $packets packets"
+else
+    ok
+fi

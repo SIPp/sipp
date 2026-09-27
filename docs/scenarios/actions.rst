@@ -278,13 +278,15 @@ iLBC  98         50 bytes    30 ms       -f ilbc -ar 8k -ac 1 -b:a 13.33k
   FFmpeg adds a header to iLBC files denoting the mode that is used, either 20
   or 30 ms per packet. This header needs to be stripped from the file.
 .. note::
-  The action is non-blocking. SIPp will start a light-weight thread to
-  play the file and the scenario with continue immediately. If needed,
-  you will need to add a pause to wait for the end of the pcap play.
-.. warning::
-  A known bug means that starting a pcap_play_audio command will end any
-  pcap_play_video command, and vice versa; you cannot play both audio
-  and video streams at once.
+  The action is non-blocking. The RTP playback threads (see
+  ``-rtp_threadtasks``) play the file and the scenario continues
+  immediately. If needed, you will need to add a pause to wait for the
+  end of the pcap play.
+.. note::
+  A video play goes on while an audio or image one plays, but a new
+  play ends the one still playing on its stream. Audio and image share
+  one, as a switch to T.38 often keeps the remote port: a
+  play_pcap_image ends a play_pcap_audio, and the other way round.
 
 Example that plays a pre-recorded RTP stream::
 
@@ -295,8 +297,9 @@ Example that plays a pre-recorded RTP stream::
     </nop>
 
 The play_dtmf command sends DTMF digits as :RFC:`2833` telephone-events,
-generated on the fly and sent like a play_pcap_audio stream. It has
-the following format:
+generated on the fly and sent like a play_pcap_audio stream. It plays
+on the audio stream: it ends a play_pcap_audio still playing, and a
+play_pcap_audio ends it. It has the following format:
 play_dtmf="[digits],[tone_length],[payload_type]" with:
 
 
