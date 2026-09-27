@@ -331,7 +331,9 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/.git)
       -P ${PROJECT_SOURCE_DIR}/include/version.cmake
   )
   add_dependencies(sipp version)
-  add_dependencies(sipp_unittest version)
+  if(TARGET sipp_unittest)
+    add_dependencies(sipp_unittest version)
+  endif()
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT TINFO_LIBRARY)
