@@ -1808,6 +1808,14 @@ void call::do_bookkeeping(message *curmsg)
 
 void call::tcpClose()
 {
+    /* A call whose next step is its <timewait> is done, even if it has not
+     * run that step yet: the peer closing the connection after the last
+     * message (a client exiting after its final 200, say) ends it
+     * successfully, as it does once the timewait has started. */
+    msgvec *msgs = initCall ? &call_scenario->initmessages : &call_scenario->messages;
+    if (msg_index >= 0 && msg_index < (int)msgs->size() && (*msgs)[msg_index]->timewait) {
+        timewait = true;
+    }
     terminate(CStat::E_FAILED_TCP_CLOSED);
 }
 
