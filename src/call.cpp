@@ -5867,6 +5867,12 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 }
             }
 
+            if (!call_socket && protocol == T_UDP && transport == T_UDP) {
+                /* A UDP call socket is bound, not connected: the new
+                 * destination below applies to it as well. */
+                connect_socket_if_needed();
+            }
+
             if (!call_socket) {
                 ERROR("Unable to get a socket");
             }
