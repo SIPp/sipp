@@ -12,7 +12,7 @@ UAC
 
 Scenario file: :download:`uac.xml <uac.xml>`
 
-::
+.. code-block:: text
 
     SIPp UAC            Remote
         |(1) INVITE         |
@@ -40,7 +40,7 @@ UAC with media
 
 Scenario file: :download:`uac_pcap.xml <uac_pcap.xml>`
 
-::
+.. code-block:: text
 
     SIPp UAC            Remote
         |(1) INVITE         |
@@ -72,7 +72,7 @@ UAS
 
 Scenario file: :download:`uas.xml <uas.xml>`
 
-::
+.. code-block:: text
 
     Remote              SIPp UAS
         |(1) INVITE         |
@@ -101,7 +101,7 @@ Scenario file: :download:`regexp.xml <regexp.xml>`
 This scenario, which behaves as an UAC is explained in greater details
 in this section.
 
-::
+.. code-block:: text
 
     SIPp regexp         Remote
         |(1) INVITE         |
@@ -134,7 +134,7 @@ Those scenarios, which work against each other (branchc for client
 side and branchs for server side) are explained in greater details in
 this section.
 
-::
+.. code-block:: text
 
     REGISTER ---------->
          200 <----------
@@ -161,7 +161,7 @@ out-of-call scenario. By default this scenario simply replies with a
 200 OK response. This scenario can be overridden by passing the -oocsf
 or -oocsn command line options.
 
-::
+.. code-block:: text
 
     SIPp UAC            Remote
         |(1) .*             |
@@ -181,7 +181,9 @@ SIPp to talk to several remotes.
 
 In order to keep SIPp simple (remember, it's a test tool!), one SIPp
 instance can only talk to one remote. Which is an issue in 3PCC call
-flows, like call flow I (SIPp being a controller)::
+flows, like call flow I (SIPp being a controller):
+
+.. code-block:: text
 
     A              Controller               B
     |(1) INVITE no SDP  |                   |
@@ -216,7 +218,9 @@ SIPp instance will take care of the dialog with remote B (this
 instance is called 3PCC-C-B for 3PCC-Controller-B-Side).
 
 The 3PCC call flow I will, in reality, look like this (Controller has
-been divided in two SIPp instances)::
+been divided in two SIPp instances):
+
+.. code-block:: text
 
     A             Controller A         Controller B            B
     |(1) INVITE no SDP  |                  |                   |
