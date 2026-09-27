@@ -59,6 +59,22 @@ The TLS key log file format is described here: https://datatracker.ietf.org/doc/
 
 _Please note the security considerations ("3. Security Considerations")!_
 
+## Running the tests
+
+The regression tests live in `regress/`. Run them all with:
+
+```
+regress/runtests
+```
+
+A single test can be run with `regress/github-#NNNN/run`. The tests look
+for the `sipp` binary in the source directory and in `build/`. For any
+other build directory, point them at the binary with an absolute path:
+
+```
+SIPP=/path/to/sipp regress/runtests
+```
+
 ## Static builds
 
 SIPp can be built into a single static binary, removing the need for
