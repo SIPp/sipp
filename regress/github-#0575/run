@@ -1,0 +1,27 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An <exec command> leaves SIPp's stdin non-blocking: its children
+# used to exit() through the atexit handler that restores the stdin
+# flags, which they share with SIPp, so the next key blocked getch().
+. "`dirname "$0"`/../functions"; init
+
+test -r /proc/self/fdinfo/0 || skip "no /proc/PID/fdinfo"
+
+rm -f stdin.fifo
+mkfifo stdin.fifo
+"`get_sipp`" -sf exec.xml -m 1 -p 25600 127.0.0.1:25601 \
+    <>stdin.fifo >/dev/null 2>&1 &
+pid=$!
+sleep 1.5
+flags=`sed -n 's/^flags:[[:space:]]*//p' /proc/$pid/fdinfo/0`
+kill $pid 2>/dev/null
+wait $pid
+rm -f stdin.fifo
+
+if test -z "$flags"; then
+    fail "no stdin flags for sipp"
+elif test $((0$flags & 04000)) -eq 0; then
+    fail "stdin lost O_NONBLOCK (flags $flags)"
+else
+    ok
+fi

@@ -6143,19 +6143,19 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 
             case 0:
                 // first child process - execute the command
+                // Both children _exit(): exit() would run the atexit
+                // reset_stdin(), clearing O_NONBLOCK on the stdin they
+                // share with SIPp, whose next getch() would then block.
                 if((l_pid = fork()) < 0) {
-                    ERROR_NO("Forking error child");
-                } else {
-                    if( l_pid == 0) {
-                        int ret;
-                        ret = system(x); // second child runs
-                        if(ret == -1) {
-                            WARNING("system call error for %s", x);
-                        }
+                    WARNING_NO("Forking error child");
+                } else if (l_pid == 0) {
+                    int ret;
+                    ret = system(x); // second child runs
+                    if(ret == -1) {
+                        WARNING("system call error for %s", x);
                     }
-                    exit(EXIT_OTHER);
                 }
-                break;
+                _exit(EXIT_OTHER);
             default:
                 // parent process continue
                 // reap first child immediately
