@@ -1391,6 +1391,8 @@ bool call::connect_socket_if_needed()
             }
         }
         if (existing) {
+            /* [local_port] is the shared socket's. */
+            call_port = call_socket->ss_port;
             return true;
         }
 
@@ -1417,6 +1419,7 @@ bool call::connect_socket_if_needed()
         call_socket->ss_count++;
 
         if (existing) {
+            call_port = call_socket->ss_port;
             return true;
         }
 
