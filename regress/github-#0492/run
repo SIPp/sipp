@@ -1,0 +1,19 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A call whose Call-ID the dead call of an earlier one still holds used
+# to leave that entry in place and, when it ended, erase the dead call's
+# instead; the dead call then erased a missing entry and SIPp crashed.
+# The second call fails (the UAS takes its INVITE for the first call's),
+# but SIPp must exit normally.
+. "`dirname "$0"`/../functions"; init
+
+sippbg -sn uas -i 127.0.0.1 -p 25110 -m 2
+sippfg -sn uac -i 127.0.0.1 -p 25111 -m 2 -r 1 -cid_str test123 \
+    127.0.0.1:25110 -timeout 4 >/dev/null 2>&1
+status=$?
+
+if test $status -ne 1; then
+    fail "UAC ended with $status, not 1"
+else
+    ok
+fi
