@@ -230,6 +230,9 @@ protected:
     // CANCEL instead of BYE in some extreme
     // cases for 3PCC scenario.
     // => init to false
+    bool           bye_after_peer_request; // abortCall() sends its BYE
+    // after a request from the peer: [last_From] gives the To,
+    // [last_To] the From and [last_cseq_number] our [cseq].
 
     /* Call Variable Table */
     VariableTable *M_callVariableTable;

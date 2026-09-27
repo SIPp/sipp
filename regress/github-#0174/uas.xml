@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="UAS that sends an INFO after a re-INVITE, then waits for the BYE">
+
+  <recv request="INVITE"/>
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=uastag
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: <sip:uas@[local_ip]:[local_port]>
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv request="ACK"/>
+
+  <recv request="INVITE"/>
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: <sip:uas@[local_ip]:[local_port]>
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv request="ACK"/>
+
+  <send retrans="500">
+    <![CDATA[
+
+      INFO sip:uac@127.0.0.1:25801 SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:uas@[local_ip]:[local_port]>;tag=uastag
+      To: <sip:uac@127.0.0.1:25801>;tag=uactag
+      Call-ID: [call_id]
+      CSeq: 1 INFO
+      Max-Forwards: 70
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv response="200"/>
+
+  <!-- A BYE whose CSeq isn't above the UAC's last one would get a 500. -->
+  <recv request="BYE">
+    <action>
+      <ereg regexp="^ *([3-9]|[1-9][0-9]+) BYE" search_in="hdr" header="CSeq:"
+            check_it="true" assign_to="_"/>
+    </action>
+  </recv>
+  <Reference variables="_"/>
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+</scenario>
