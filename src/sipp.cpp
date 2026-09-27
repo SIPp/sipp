@@ -126,6 +126,7 @@ struct sipp_option {
 #define SIPP_OPTION_NEED_SCTP     39
 #define SIPP_OPTION_RX_SCENARIO   40
 #define SIPP_OPTION_RX_INPUT_FILE 41
+#define SIPP_OPTION_NO_DEFAULTS   42
 #define SIPP_HELP_TEXT_HEADER    255
 
 static char *call_id_mode_string = nullptr;
@@ -662,7 +663,7 @@ struct sipp_option options_table[] = {
      "- On unexpected PING send a 200 OK and continue the call\n"
      "- On unexpected ACK CSeq do nothing\n"
      "- On any other unexpected message, abort the call by sending a BYE or a CANCEL\n",
-     SIPP_OPTION_UNSETFLAG, &default_behaviors, 1},
+     SIPP_OPTION_NO_DEFAULTS, &default_behaviors, 1},
     {"pause_msg_ign", "Ignore the messages received during a pause defined in the scenario ", SIPP_OPTION_SETFLAG, &pause_msg_ign, 1},
     {"callid_slash_ign", "Don't treat a triple-slash in Call-IDs as indicating an extra SIPp prefix.", SIPP_OPTION_SETFLAG, &callidSlash, 1},
 
@@ -2031,6 +2032,10 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_UNSETFLAG:
                 CHECK_PASS();
                 *((bool*)option->data) = false;
+                break;
+            case SIPP_OPTION_NO_DEFAULTS:
+                CHECK_PASS();
+                *((unsigned long*)option->data) = DEFAULT_BEHAVIOR_NONE;
                 break;
             case SIPP_OPTION_TRANSPORT:
                 REQUIRE_ARG();
