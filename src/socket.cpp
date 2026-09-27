@@ -2334,8 +2334,14 @@ void SIPpSocket::reset_connection()
     /* Sleep for some period of time before the reconnection. */
     usleep(1000 * reset_sleep);
 
-    if (reconnect() < 0) {
-        WARNING_NO("Could not reconnect TCP socket");
+    if (int rc = reconnect()) {
+        /* A TLS handshake that fails returns its SSL error, which
+         * connect() warned about, rather than -1 and errno. */
+        if (rc < 0) {
+            WARNING_NO("Could not reconnect TCP socket");
+        } else {
+            WARNING("Could not reconnect TLS socket");
+        }
         close_calls();
     } else {
         WARNING("Socket required a reconnection.");
