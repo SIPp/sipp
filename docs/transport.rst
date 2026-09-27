@@ -123,6 +123,10 @@ servers.
 SIPp supports X509's CRL (Certificate Revocation List). The CRL is
 read and used if -tls_crl command line specifies a CRL file to read.
 
+A TLS handshake may take up to -tls_handshake_timeout (10 seconds by
+default, 0 for no limit); SIPp handles nothing else meanwhile. A handshake that fails
+or times out drops its connection: SIPp keeps serving the others.
+
 
 TLS multi socket
 ````````````````
