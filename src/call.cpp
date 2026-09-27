@@ -5402,6 +5402,17 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                             sendBuffer(createSendingMessage(call_scenario->messages[search_index+1]->send_scheme, search_index + 1));
                             return true;
                         }
+                        /* The peer ACKs each 200 we retransmit, so an ACK
+                         * can come again after we moved on; nothing answers
+                         * it. */
+                        if (!reply_code && !strcmp(request, "ACK")) {
+                            TRACE_MSG("-----------------------------------------------\n"
+                                      "Ignoring repeated %s ACK:\n\n%s\n",
+                                      TRANSPORT_TO_STRING(transport), msg);
+                            callDebug("Ignoring repeated %s ACK (hash %lu):\n\n%s\n",
+                                      TRANSPORT_TO_STRING(transport), hash(msg), msg);
+                            return true;
+                        }
                     }
                 }
             }
