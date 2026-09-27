@@ -1024,6 +1024,8 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     if (socket) {
         associate_socket(socket);
         socket->ss_count++;
+        /* [local_port] is the socket's, as for a shared call socket. */
+        call_port = socket->ss_port;
     } else {
         call_socket = nullptr;
     }

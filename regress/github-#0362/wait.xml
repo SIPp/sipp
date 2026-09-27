@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- A call that sends a MESSAGE nobody answers, then waits, so the
+     out-of-call request arrives while the UAC runs. -->
+<scenario name="Wait">
+  <send>
+    <![CDATA[
+      MESSAGE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[pid]SIPpTag00[call_number]
+      To: [service] <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 MESSAGE
+      Max-Forwards: 70
+      Content-Length: 0
+    ]]>
+  </send>
+  <pause milliseconds="3000"/>
+</scenario>

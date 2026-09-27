@@ -1,0 +1,23 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# With -t un, the out-of-call scenario's answer to a request that came
+# in on the main socket has that socket's port in [local_port], not 0.
+. "`dirname "$0"`/../functions"; init
+
+rm -f options.log
+sippbg -sf wait.xml -oocsn ooc_default -t un -i 127.0.0.1 -p 25220 -m 1 \
+    127.0.0.1:25222
+sippfg -sf options.xml -i 127.0.0.1 -p 25221 -m 1 127.0.0.1:25220 \
+    -timeout 5 -timeout_error -trace_msg -message_file options.log \
+    >/dev/null 2>&1
+status=$?
+contact=`grep -c '^Contact: <sip:127.0.0.1:25220;' options.log`
+rm -f options.log
+
+if test $status -ne 0; then
+    fail "OPTIONS sender failed with $status"
+elif test $contact -eq 0; then
+    fail "no Contact with the UAC's port in the 200"
+else
+    ok
+fi
