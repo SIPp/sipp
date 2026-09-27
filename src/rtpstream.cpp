@@ -123,6 +123,7 @@ struct cached_pattern_t
 cached_file_t  *cached_files = nullptr;
 cached_pattern_t *cached_patterns = nullptr;
 int            num_cached_files = 0;
+int            num_cached_patterns = 0;
 int            next_rtp_port = 0;
 
 threaddata_t  **ready_threads = nullptr;
@@ -1891,14 +1892,18 @@ int rtpstream_cache_file(char* filename,
         /* cached pattern entries are stored in a dynamically grown array. */
         /* could use a binary (or avl) tree but number of files should  */
         /* be small and doesn't really justify the effort.              */
-        while (count < num_cached_files)
-        {
+        while (count < num_cached_patterns) {
+            if (cached_patterns[count].id == id &&
+                    cached_patterns[count].filesize == bytes_per_packet) {
+                /* found the pattern already filled. just return index */
+                return count;
+            }
             count++;
         }
 
-        if (!(num_cached_files%RTPSTREAM_FILESPERBLOCK)) {
+        if (!(num_cached_patterns%RTPSTREAM_FILESPERBLOCK)) {
             /* Time to allocate more memory for the next block of files */
-            newpatterncachelist = (cached_pattern_t*) realloc(cached_patterns, sizeof(*cached_patterns) * (num_cached_files + RTPSTREAM_FILESPERBLOCK));
+            newpatterncachelist = (cached_pattern_t*) realloc(cached_patterns, sizeof(*cached_patterns) * (num_cached_patterns + RTPSTREAM_FILESPERBLOCK));
             if (!newpatterncachelist) {
                 /* out of memory */
                 return -1;
@@ -1906,8 +1911,8 @@ int rtpstream_cache_file(char* filename,
             cached_patterns = newpatterncachelist;
         }
 
-        cached_patterns[num_cached_files].bytes = (char*)malloc(bytes_per_packet);
-        if (cached_patterns[num_cached_files].bytes == nullptr)
+        cached_patterns[num_cached_patterns].bytes = (char*)malloc(bytes_per_packet);
+        if (cached_patterns[num_cached_patterns].bytes == nullptr)
         {
             /* out of memory */
             return -1;
@@ -1915,33 +1920,33 @@ int rtpstream_cache_file(char* filename,
 
         if (id == 1)
         {
-            memset(cached_patterns[num_cached_files].bytes, PATTERN1, bytes_per_packet);
+            memset(cached_patterns[num_cached_patterns].bytes, PATTERN1, bytes_per_packet);
         }
         else if (id == 2)
         {
-            memset(cached_patterns[num_cached_files].bytes, PATTERN2, bytes_per_packet);
+            memset(cached_patterns[num_cached_patterns].bytes, PATTERN2, bytes_per_packet);
         }
         else if (id == 3)
         {
-            memset(cached_patterns[num_cached_files].bytes, PATTERN3, bytes_per_packet);
+            memset(cached_patterns[num_cached_patterns].bytes, PATTERN3, bytes_per_packet);
         }
         else if (id == 4)
         {
-            memset(cached_patterns[num_cached_files].bytes, PATTERN4, bytes_per_packet);
+            memset(cached_patterns[num_cached_patterns].bytes, PATTERN4, bytes_per_packet);
         }
         else if (id == 5)
         {
-            memset(cached_patterns[num_cached_files].bytes, PATTERN5, bytes_per_packet);
+            memset(cached_patterns[num_cached_patterns].bytes, PATTERN5, bytes_per_packet);
         }
         else if (id == 6)
         {
-            memset(cached_patterns[num_cached_files].bytes, PATTERN6, bytes_per_packet);
+            memset(cached_patterns[num_cached_patterns].bytes, PATTERN6, bytes_per_packet);
         }
 
-        cached_patterns[num_cached_files].filesize = bytes_per_packet;
-        cached_patterns[num_cached_files].id = id;
+        cached_patterns[num_cached_patterns].filesize = bytes_per_packet;
+        cached_patterns[num_cached_patterns].id = id;
 
-        return num_cached_files++; /* one new cached pattern */
+        return num_cached_patterns++; /* one new cached pattern */
     }
     else
     {
@@ -2956,7 +2961,7 @@ int rtpstream_shutdown(std::unordered_map<pthread_t, std::string>& threadIDs)
     /* now free cached patterns bytes and structure */
     if (cached_patterns)
     {
-        for (count = 0; count < num_cached_files; count++) {
+        for (count = 0; count < num_cached_patterns; count++) {
             free(cached_patterns[count].bytes);
         }
         free(cached_patterns);
@@ -2973,3 +2978,44 @@ int rtpstream_shutdown(std::unordered_map<pthread_t, std::string>& threadIDs)
     return total_rtpresults;
 }
 
+#ifdef GTEST
+#include "gtest/gtest.h"
+
+TEST(RtpstreamCacheFile, PatternOncePerParameters) {
+    char name[] = "apattern";
+    int index = rtpstream_cache_file(name, 1, 1, 160, 0);
+    ASSERT_GE(index, 0);
+    int patterns = num_cached_patterns;
+    for (int i = 0; i < 100; i++) {
+        EXPECT_EQ(index, rtpstream_cache_file(name, 1, 1, 160, 0));
+    }
+    EXPECT_EQ(patterns, num_cached_patterns);
+    EXPECT_NE(index, rtpstream_cache_file(name, 1, 2, 160, 0));
+    EXPECT_NE(index, rtpstream_cache_file(name, 1, 1, 20, 0));
+    EXPECT_EQ(patterns + 2, num_cached_patterns);
+}
+
+TEST(RtpstreamCacheFile, FileAndPattern) {
+    char name[] = "/tmp/sipp_rtpstream_XXXXXX";
+    int fd = mkstemp(name);
+    ASSERT_GE(fd, 0);
+    ASSERT_EQ(3, write(fd, "abc", 3));
+    close(fd);
+    char pattern[] = "apattern";
+    int file = rtpstream_cache_file(name, 0, 0, 160, 0);
+    int apattern = rtpstream_cache_file(pattern, 1, 3, 160, 0);
+    int vpattern = rtpstream_cache_file(pattern, 1, 4, 1280, 1);
+    unlink(name);
+    ASSERT_GE(file, 0);
+    ASSERT_GE(apattern, 0);
+    ASSERT_GE(vpattern, 0);
+    EXPECT_EQ(file, rtpstream_cache_file(name, 0, 0, 160, 0));
+    EXPECT_EQ(3, cached_files[file].filesize);
+    EXPECT_EQ(0, memcmp(cached_files[file].bytes, "abc", 3));
+    EXPECT_EQ(160, cached_patterns[apattern].filesize);
+    EXPECT_EQ((char)PATTERN3, cached_patterns[apattern].bytes[159]);
+    EXPECT_EQ(1280, cached_patterns[vpattern].filesize);
+    EXPECT_EQ((char)PATTERN4, cached_patterns[vpattern].bytes[1279]);
+}
+
+#endif //GTEST
