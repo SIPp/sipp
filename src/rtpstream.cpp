@@ -2564,6 +2564,8 @@ void rtpstream_audioecho_thread(void* param)
                 seq_num = (audio_packet_in[2] << 8) | audio_packet_in[3];
 
                 debugrefileaudio.printReceived(audio_packet_in.data(), nr);
+                /* The packet to echo, without SRTP. */
+                size_t plain_len = nr;
                 if (g_rxUASAudio.getCryptoTag() != 0)
                 {
                     rtp_header.clear();
@@ -2594,6 +2596,11 @@ void rtpstream_audioecho_thread(void* param)
 
                     memcpy(msg.get(), rtp_header.data(), rtp_header.size());
                     memcpy(msg.get() + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
+                    plain_len = sizeof(rtp_header_t) + payload_data.size();
+                }
+                else
+                {
+                    memcpy(msg.get(), audio_packet_in.data(), nr);
                 }
 
                 if (g_txUASAudio.getCryptoTag() != 0)
@@ -2613,7 +2620,13 @@ void rtpstream_audioecho_thread(void* param)
                     debugrefileaudio.printf("TXUASAUDIO -- processOutgoingPacket() rc == %d\n", rc);
                 }
 
-                ns = sendto(sock, audio_packet_out.data(), sizeof(rtp_header_t) + g_txUASAudio.getSrtpPayloadSize() + g_txUASAudio.getAuthenticationTagSize(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
+                else
+                {
+                    /* Plain RTP goes back as it came. */
+                    audio_packet_out.assign(msg.get(), msg.get() + plain_len);
+                }
+
+                ns = sendto(sock, audio_packet_out.data(), audio_packet_out.size(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
 
                 if (ns != nr) {
                     debugrefileaudio.printf("DATA SUCCESSFULLY SENT [AUDIO] seq_num = [%u] -- MISMATCHED RECV/SENT BYTE COUNT -- errno = %d nr = %d ns = %d\n",
@@ -2746,6 +2759,8 @@ void rtpstream_videoecho_thread(void* param)
                 seq_num = (video_packet_in[2] << 8) | video_packet_in[3];
 
                 debugrefilevideo.printReceived(video_packet_in.data(), nr);
+                /* The packet to echo, without SRTP. */
+                size_t plain_len = nr;
                 if (g_rxUASVideo.getCryptoTag() != 0)
                 {
                     rtp_header.clear();
@@ -2775,6 +2790,11 @@ void rtpstream_videoecho_thread(void* param)
 
                     memcpy(msg.get(), rtp_header.data(), rtp_header.size());
                     memcpy(msg.get() + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
+                    plain_len = sizeof(rtp_header_t) + payload_data.size();
+                }
+                else
+                {
+                    memcpy(msg.get(), video_packet_in.data(), nr);
                 }
 
                 if (g_txUASVideo.getCryptoTag() != 0)
@@ -2794,7 +2814,13 @@ void rtpstream_videoecho_thread(void* param)
                     debugrefilevideo.printf("TXUASVIDEO -- processOutgoingPacket() rc == %d\n", rc);
                 }
 
-                ns = sendto(sock, video_packet_out.data(), sizeof(rtp_header_t) + g_txUASVideo.getSrtpPayloadSize() + g_txUASVideo.getAuthenticationTagSize(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
+                else
+                {
+                    /* Plain RTP goes back as it came. */
+                    video_packet_out.assign(msg.get(), msg.get() + plain_len);
+                }
+
+                ns = sendto(sock, video_packet_out.data(), video_packet_out.size(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
 
                 if (ns != nr) {
                     debugrefilevideo.printf("DATA SUCCESSFULLY SENT [VIDEO] seq_num = [%u] -- MISMATCHED RECV/SENT BYTE COUNT -- errno = %d nr = %d ns = %d\n",
