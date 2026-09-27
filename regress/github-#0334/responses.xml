@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="Send a 404, then a 200">
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 404 Not Found
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:uac@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:uas@[remote_ip]:[remote_port]>;tag=404
+      Call-ID: 404-[call_id]
+      CSeq: 1 OPTIONS
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:uac@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:uas@[remote_ip]:[remote_port]>;tag=200
+      Call-ID: 200-[call_id]
+      CSeq: 1 OPTIONS
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+</scenario>

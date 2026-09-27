@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="Answer what isn't an INVITE at _unexp.main">
+
+  <recv request="INVITE"/>
+
+  <label id="_unexp.main"/>
+  <recv request="OPTIONS"/>
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      X-Handler: unexp
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+</scenario>

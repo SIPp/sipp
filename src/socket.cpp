@@ -1113,6 +1113,13 @@ ssize_t SIPpSocket::read_message(char *buf, size_t len, struct sockaddr_storage 
     return avail;
 }
 
+/* Is msg a request that -aa answers outside of any call? */
+static bool is_auto_answered(const char *msg)
+{
+    return auto_answer && ((strstr(msg, "INFO") == msg) || (strstr(msg, "NOTIFY") == msg) ||
+                           (strstr(msg, "OPTIONS") == msg) || (strstr(msg, "UPDATE") == msg));
+}
+
 void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct sockaddr_storage *src)
 {
     // TRACE_MSG(" msg_size %d and pollset_index is %d \n", msg_size, pollset_index));
@@ -1154,6 +1161,14 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
 
     // got as message not relating to a known call
     if (!listener_ptr) {
+        /* A message the scenario can't begin with would only take the
+         * place of the next call: a response, or a request that -aa or
+         * the out-of-call scenario answers, stays out of the calls. */
+        bool out_of_call = false;
+        if (creationMode == MODE_SERVER || creationMode == MODE_MIXED) {
+            scenario *s = creationMode == MODE_SERVER ? main_scenario : rx_scenario;
+            out_of_call = !s->startsWith(msg) && (get_reply_code(msg) || ooc_scenario || is_auto_answered(msg));
+        }
         if (thirdPartyMode == MODE_3PCC_CONTROLLER_B || thirdPartyMode == MODE_3PCC_A_PASSIVE ||
                 thirdPartyMode == MODE_MASTER_PASSIVE || thirdPartyMode == MODE_SLAVE) {
             // Adding a new OUTGOING call !
@@ -1189,7 +1204,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
                 }
             }
             listener_ptr = new_ptr;
-        } else if (creationMode == MODE_SERVER) {
+        } else if (!out_of_call && creationMode == MODE_SERVER) {
             if (quitting >= 1) {
                 CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
                 TRACE_MSG("Discarded message for new calls while quitting\n");
@@ -1199,7 +1214,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
             // Adding a new INCOMING call !
             main_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
             listener_ptr = new call(main_scenario, call_id, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src);
-        } else if(creationMode == MODE_MIXED) {
+        } else if (!out_of_call && creationMode == MODE_MIXED) {
             /* Ignore quitting for now ... as this is triggered when all tx calls are active
             if (quitting >= 1) {
                 CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
@@ -1210,7 +1225,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
             // Adding a new INCOMING call !
             rx_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
             listener_ptr = new call(rx_scenario, call_id, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src);
-        } else { // mode != from SERVER and 3PCC Controller B
+        } else { // mode != from SERVER and 3PCC Controller B, or out of call
             // This is a message that is not relating to any known call
             if (ooc_scenario) {
                 if (!get_reply_code(msg)) {
@@ -1232,11 +1247,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
                     /* Do nothing, even if in auto answer mode */
                     CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
                 }
-            } else if (auto_answer &&
-                       ((strstr(msg, "INFO") == msg) ||
-                        (strstr(msg, "NOTIFY") == msg) ||
-                        (strstr(msg, "OPTIONS") == msg) ||
-                        (strstr(msg, "UPDATE") == msg))) {
+            } else if (is_auto_answered(msg)) {
                 // If auto answer mode, try to answer the incoming message
                 // with automaticResponseMode
                 // call is discarded before exiting the block

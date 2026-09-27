@@ -157,6 +157,11 @@ public:
 
     message(int index, const char *desc);
     ~message();
+
+    /* Is this the <recv request> for method? */
+    bool matchesRequest(const char *method);
+    /* Is this a <recv response> for code (not checking the transaction)? */
+    bool matchesResponse(int code);
 };
 
 typedef std::vector<message *> msgvec;
@@ -189,6 +194,8 @@ public:
     int pausedaddr;
 
     void computeSippMode();
+    /* Can a call of this scenario begin with this message? */
+    bool startsWith(const char *msg);
 
     int get_var(const char *varName, const char *what);
     int get_counter(const char *varName, const char *what);

@@ -1,0 +1,48 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# With -aa, a UAS answers an OPTIONS that comes before the first INVITE
+# outside of any call, and the INVITE still makes its call. A UAS that
+# begins with <recv response="200"/> discards a 404 instead of making
+# a call of it. A scenario with _unexp.main can begin with anything: its
+# handler answers the OPTIONS, not -aa.
+. "`dirname "$0"`/../functions"; init
+
+# -timeout: don't let a UAS that waits for the INVITE with the OPTIONS'
+# Call-ID hang the test.
+sippfg -sn uas -aa -i 127.0.0.1 -p 25820 -m 1 \
+    -timeout 8 -timeout_error >/dev/null 2>&1 &
+job=$!
+sleep 1
+sippfg -sf options.xml -i 127.0.0.1 -p 25821 -m 1 127.0.0.1:25820 \
+    -timeout 4 -timeout_error >/dev/null 2>&1
+options=$?
+sippfg -sn uac -i 127.0.0.1 -p 25822 -m 1 127.0.0.1:25820 \
+    -timeout 4 -timeout_error >/dev/null 2>&1
+uac=$?
+wait $job
+uas=$?
+
+if test $options -ne 0; then
+    fail "OPTIONS not answered ($options)"
+elif test $uac -ne 0; then
+    fail "UAC failed with $uac"
+elif test $uas -ne 0; then
+    fail "UAS failed with $uas"
+fi
+
+sippfg -sf recv200.xml -i 127.0.0.1 -p 25823 -m 1 \
+    -timeout 4 -timeout_error >/dev/null 2>&1 &
+job=$!
+sleep 1
+sippfg -sf responses.xml -i 127.0.0.1 -p 25824 -m 1 127.0.0.1:25823 \
+    >/dev/null 2>&1
+wait $job || fail "a 404 made a call ($?)"
+
+sippfg -sf unexp.xml -aa -i 127.0.0.1 -p 25825 -m 1 \
+    -timeout 4 -timeout_error >/dev/null 2>&1 &
+job=$!
+sleep 1
+sippfg -sf options.xml -i 127.0.0.1 -p 25826 -m 1 127.0.0.1:25825 \
+    -timeout 4 -timeout_error >/dev/null 2>&1 || fail "OPTIONS not answered ($?)"
+wait $job || fail "_unexp.main didn't answer the OPTIONS ($?)"
+ok
