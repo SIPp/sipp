@@ -57,7 +57,8 @@ recorded by tools like Wireshark or ``tcpdump``. This allows you to:
 A good example is the UAC with media (uac_pcap) embedded scenario.
 
 SIPp comes with a G711 alaw pre-recorded pcap file and out of band
-(:RFC:`2833`) DTMFs in the pcap/ directory.
+(:RFC:`2833`) DTMFs in the pcap/ directory. The play_dtmf action
+generates such DTMFs for any digits, without a pcap file.
 
 .. warning::
     The PCAP play feature uses pthread_setschedparam calls from pthread
