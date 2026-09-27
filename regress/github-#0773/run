@@ -5,6 +5,7 @@
 # only the root can verify it.
 . "`dirname "$0"`/../functions"; init
 
+"`get_sipp`" -v | grep -q TLS || skip "no TLS"
 command -v openssl >/dev/null || skip "no openssl"
 
 certs=`mktemp -d`
