@@ -1,3 +1,24 @@
+## What makes a PR mergeable
+
+The maintainers have little time, so a PR that ticks most of these boxes
+is much more likely to be reviewed and merged:
+
+- Without the change, SIPp is worse than with it.
+- The change follows the coding standards (see below), and the commit
+  message explains *why* it is needed, not only what it does.
+- It consolidates existing features rather than adding yet another one,
+  so the code stays maintainable.
+- Changed or new behaviour is documented, both in the CLI help
+  (`sipp -h`, in `src/sipp.cpp`) and in the RST docs under `docs/`.
+- It stays backward compatible, or says clearly what breaks, so that
+  upgrading to the next SIPp version is not a hassle.
+- It comes with a test: a regression test under `regress/` (see
+  `regress/runtests`) for behaviour visible from the command line, or a
+  unit test (`make sipp_unittest`) for internal functions.
+- It does not promise more than SIPp delivers.
+- A maintainer is affected by the change, or the PR makes a compelling
+  case for it.
+
 ## Code Formatting
 
 This project uses [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to maintain consistent code style. Pull requests are automatically checked for formatting compliance.
