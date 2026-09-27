@@ -2232,7 +2232,8 @@ int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t* callinfo, SrtpInfoPara
 static inline uint32_t uint_val(const char *ptr)
 {
     // Read as little-endian. Do not dereference as int, since it can be misaligned.
-    return static_cast<uint32_t>((ptr[0]) | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24));
+    const unsigned char *p = reinterpret_cast<const unsigned char *>(ptr);
+    return static_cast<uint32_t>(p[0] | (p[1] << 8) | (p[2] << 16) | (static_cast<uint32_t>(p[3]) << 24));
 }
 
 // wav format details:
