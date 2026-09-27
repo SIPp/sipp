@@ -25,6 +25,7 @@
 #include <assert.h>
 
 #include "sipp.hpp"
+#include "deadcall.hpp"
 
 listener_map listeners;
 
@@ -40,7 +41,17 @@ listener::listener(const char *id, bool listening)
 void listener::startListening()
 {
     assert(!listening);
-    listeners.insert(std::pair<listener_map::key_type,listener *>(listener_map::key_type(id),this));
+    std::pair<listener_map::iterator, bool> ins =
+        listeners.insert(std::pair<listener_map::key_type,listener *>(listener_map::key_type(id),this));
+    if (!ins.second) {
+        /* Another listener has this Call-ID, most likely the dead call
+         * of an earlier call: the messages are ours from now on, and it
+         * leaves the entry alone when it stops. */
+        if (!dynamic_cast<deadcall *>(ins.first->second)) {
+            WARNING("Call-ID '%s' is already in use by another call", id);
+        }
+        ins.first->second = this;
+    }
     listening = true;
 }
 
@@ -50,7 +61,9 @@ void listener::stopListening()
 
     listener_map::iterator listener_it;
     listener_it = listeners.find(listener_map::key_type(id));
-    listeners.erase(listener_it);
+    if (listener_it != listeners.end() && listener_it->second == this) {
+        listeners.erase(listener_it);
+    }
 
     listening = false;
 }
