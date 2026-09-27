@@ -49,7 +49,9 @@ when you want to select different types of data in different ways. For
 example, when running a user-based benchmark, you may have a
 caller.csv with "USER" as the first line and a callee.csv with
 "RANDOM" as the first line. To specify which CSV file is used, add the
-file= parameter to the keyword. For example::
+file= parameter to the keyword. For example:
+
+.. code-block:: text
 
     INVITE sip:[field0 file="callee.csv"] SIP/2.0
     From: sipp user <[field0 file="caller.csv"]>;tag=[pid]SIPpTag00[call_number]
