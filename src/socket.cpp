@@ -1460,9 +1460,10 @@ SIPpSocket* SIPpSocket::accept() {
             if ((err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) &&
                     i < SIPP_SSL_MAX_RETRIES) {
                 /* These errors are benign we just need to wait for the socket
-                 * to be readable/writable again. */
-                ++i;
+                 * to be readable/writable again. Only a wait that times out
+                 * counts: a handshake that arrives in pieces is progressing. */
                 if (!wait_for_ssl_socket(ret->ss_ssl, err)) {
+                    ++i;
                     WARNING("SSL_accept failed with error: %s. Attempt %d. "
                             "Retrying...", SSL_error_string(err, rc), i);
                 }
@@ -1593,9 +1594,10 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
             if ((err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) &&
                     i < SIPP_SSL_MAX_RETRIES) {
                 /* These errors are benign we just need to wait for the socket
-                 * to be readable/writable again. */
-                ++i;
+                 * to be readable/writable again. Only a wait that times out
+                 * counts: a handshake that arrives in pieces is progressing. */
                 if (!wait_for_ssl_socket(ss_ssl, err)) {
+                    ++i;
                     WARNING("SSL_connect failed with error: %s. Attempt %d. "
                             "Retrying...", SSL_error_string(err, rc), i);
                 }
