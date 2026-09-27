@@ -156,7 +156,7 @@ private:
     // Get parameters from a [keyword]
     static void getQuotedParam(char * dest, char * src, int * len);
     static void getHexStringParam(char * dest, char * src, int * len);
-    static void getKeywordParam(char * src, const char * param, char * output);
+    static void getKeywordParam(char * src, const char * param, char * output, bool decode_hex = true);
 };
 
 /* Custom Keyword Function Type. */

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- An AKAv1-MD5 challenge with the RAND and AUTN of 3GPP TS 35.208
+     test set 1; the response is the one its RES gives. -->
+<scenario name="aka hex uas">
+  <recv request="REGISTER"/>
+  <send>
+    <![CDATA[
+      SIP/2.0 401 Unauthorized
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=srv
+      [last_Call-ID:]
+      [last_CSeq:]
+      WWW-Authenticate: Digest realm="r", nonce="I1U8vpY3qJ0hiuZNrke/NVXzKLQ1d7m5Sp/6w1Tfr7M=", algorithm=AKAv1-MD5
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv request="REGISTER">
+    <action>
+      <ereg regexp="response=&quot;698b76641bf3e358588bdd9fba0f0b79&quot;" search_in="hdr" header="Authorization:" check_it="true" assign_to="_"/>
+    </action>
+  </recv>
+  <send>
+    <![CDATA[
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=srv
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+    ]]>
+  </send>
+</scenario>
