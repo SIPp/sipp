@@ -121,20 +121,60 @@ struct KeywordMap SimpleKeywords[] = {
 
 #define KEYWORD_SIZE 256
 
-static char* quoted_strchr(const char* s, int c)
+/* The '"' that ends the quoted string at s, or the end of its line, past
+ * the characters escaped with '\' as getQuotedParam() reads them. */
+static const char* closing_quote(const char* s)
 {
-    const char* p;
+    while (*(s += strcspn(s, "\\\"\n")) == '\\' && s[1])
+        s += 2;
+    return s;
+}
 
-    for (p = s; *p && *p != c; p++) {
+/* The ']' that closes the '[' before s, past quoted strings and the
+ * [keyword]s nested in it. */
+static char* closing_bracket(const char* s)
+{
+    const char* p = s;
+    int depth = 0;
+
+    while (*p) {
         if (*p == '"') {
-            p++;
-            p += strcspn(p, "\"\n");
+            p = closing_quote(p + 1);
             if (!*p)
                 break;
+        } else if (*p == '[') {
+            depth++;
+        } else if (*p == ']' && !depth--) {
+            return const_cast<char*>(p);
         }
+        p++;
     }
 
-    return *p == c ? const_cast<char*>(p) : nullptr;
+    return nullptr;
+}
+
+/* The param that starts a word of the keyword s, not one in a quoted
+ * string or a nested [keyword]. */
+static char* find_param(char* s, const char* param)
+{
+    size_t len = strlen(param);
+    char* p = s;
+
+    while (*p) {
+        if (*p == '"') {
+            p = const_cast<char*>(closing_quote(p + 1));
+            if (!*p)
+                break;
+        } else if (*p == '[') {
+            if (!(p = closing_bracket(p + 1)))
+                break;
+        } else if ((p == s || isspace(p[-1])) && !strncmp(p, param, len)) {
+            return p;
+        }
+        p++;
+    }
+
+    return nullptr;
 }
 
 SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bool skip_sanity)
@@ -147,7 +187,6 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
     char * key;
     char   current_line[MAX_HEADER_LEN];
     char * line_mark = nullptr;
-    char * tsrc;
     int    num_cr = get_cr_number(src);
 
     this->msg_scenario = msg_scenario;
@@ -224,12 +263,9 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
             char keyword [KEYWORD_SIZE+1];
             src++;
 
-            tsrc = quoted_strchr(src, '[');
-            key = quoted_strchr(src, ']');
-
-            /* A '[' before the ']' leaves this one unclosed; a literal '['
-             * is written \x5B. */
-            if ((!key) || (tsrc && tsrc < key) || ((key - src) > KEYWORD_SIZE) || (!(key - src))) {
+            /* A literal '[' is written \x5B. */
+            key = closing_bracket(src);
+            if ((!key) || ((key - src) > KEYWORD_SIZE) || (!(key - src))) {
                 ERROR("Syntax error or invalid [keyword] in scenario while parsing '%s'", current_line);
             }
             memcpy(keyword, src,  key - src);
@@ -514,7 +550,7 @@ void SendingMessage::getKeywordParam(char * src, const char * param, char * outp
 
     len = 0;
     key = nullptr;
-    if ((tmp = strstr(src, param))) {
+    if ((tmp = find_param(src, param))) {
         tmp += strlen(param);
         key = tmp;
         if (decode_hex && (*key == '0') && (*(key+1) == 'x')) {
@@ -527,6 +563,11 @@ void SendingMessage::getKeywordParam(char * src, const char * param, char * outp
             while (*key) {
                 if (((key - src) > KEYWORD_SIZE) || (!(key - src))) {
                     ERROR("Syntax error parsing '%s' parameter", param);
+                } else if (*key == '[') {
+                    /* Past a whole nested [keyword] */
+                    if (!(key = closing_bracket(key + 1))) {
+                        ERROR("Syntax error parsing '%s' parameter", param);
+                    }
                 } else if (*key == ']' || *key < 33 || *key > 126) {
                     break;
                 }
@@ -649,6 +690,55 @@ TEST(SendingMessage, EscapedBracket) {
     EXPECT_STREQ("A[b ", m.getComponent(0)->literal);
     EXPECT_EQ(E_Message_Call_Number, m.getComponent(1)->type);
     EXPECT_STREQ(" c]Z", m.getComponent(2)->literal);
+}
+
+TEST(SendingMessage, NestedKeyword) {
+    SendingMessage m(nullptr, "A[authentication username=[call_number] password=\"[call_id]\" aka_K=[call_number]]Z", true);
+    ASSERT_EQ(3, m.numComponents());
+    EXPECT_STREQ("A", m.getComponent(0)->literal);
+    EXPECT_STREQ("Z", m.getComponent(2)->literal);
+    MessageComponent *auth = m.getComponent(1);
+    ASSERT_EQ(E_Message_Authentication, auth->type);
+    SendingMessage *user = auth->comp_param.auth_param.auth_user;
+    ASSERT_EQ(1, user->numComponents());
+    EXPECT_EQ(E_Message_Call_Number, user->getComponent(0)->type);
+    SendingMessage *pass = auth->comp_param.auth_param.auth_pass;
+    ASSERT_EQ(1, pass->numComponents());
+    EXPECT_EQ(E_Message_Call_ID, pass->getComponent(0)->type);
+    SendingMessage *k = auth->comp_param.auth_param.aka_K;
+    ASSERT_EQ(1, k->numComponents());
+    EXPECT_EQ(E_Message_Call_Number, k->getComponent(0)->type);
+    EXPECT_EQ(0, auth->comp_param.auth_param.aka_OP->numComponents());
+
+    /* A ']' quoted in the nested keyword does not close it, even after
+     * an escaped '"' */
+    SendingMessage q(nullptr, "[authentication username=[file name=\"x\\\"]y\"] password=p]", true);
+    ASSERT_EQ(1, q.numComponents());
+    user = q.getComponent(0)->comp_param.auth_param.auth_user;
+    ASSERT_EQ(1, user->numComponents());
+    ASSERT_EQ(E_Message_File, user->getComponent(0)->type);
+    SendingMessage *name = user->getComponent(0)->comp_param.filename;
+    ASSERT_EQ(1, name->numComponents());
+    EXPECT_STREQ("x\"]y", name->getComponent(0)->literal);
+    pass = q.getComponent(0)->comp_param.auth_param.auth_pass;
+    ASSERT_EQ(1, pass->numComponents());
+    EXPECT_STREQ("p", pass->getComponent(0)->literal);
+
+    /* A parameter is not found in a quoted or nested value of another */
+    SendingMessage s(nullptr, "[authentication username=[file name=\"password=x\"] password=[call_id]]", true);
+    pass = s.getComponent(0)->comp_param.auth_param.auth_pass;
+    ASSERT_EQ(1, pass->numComponents());
+    EXPECT_EQ(E_Message_Call_ID, pass->getComponent(0)->type);
+    SendingMessage t(nullptr, "[authentication username=\"password=x\" password=[call_id]]", true);
+    user = t.getComponent(0)->comp_param.auth_param.auth_user;
+    ASSERT_EQ(1, user->numComponents());
+    EXPECT_STREQ("password=x", user->getComponent(0)->literal);
+    pass = t.getComponent(0)->comp_param.auth_param.auth_pass;
+    ASSERT_EQ(1, pass->numComponents());
+    EXPECT_EQ(E_Message_Call_ID, pass->getComponent(0)->type);
+
+    EXPECT_DEATH(SendingMessage(nullptr, "A[b [call_number] c]Z", true),
+                 "Unsupported keyword 'b \\[call_number\\] c'");
 }
 
 #endif //GTEST
