@@ -180,11 +180,11 @@ int createAuthHeader(
         strcpy(algo, "MD5");
     }
 
-    if (strncasecmp(algo, "MD5", 3)==0) {
+    if (strcasecmp(algo, "MD5")==0) {
         return createAuthHeaderMD5(
             user, password, strlen(password), method, uri, msgbody,
             auth, algo, nonce_count, result, result_len);
-    } else if (strncasecmp(algo, "AKAv1-MD5", 9)==0) {
+    } else if (strcasecmp(algo, "AKAv1-MD5")==0) {
         if (!aka_K) {
             snprintf(result, result_len, "createAuthHeader: AKAv1-MD5 authentication requires a key");
             return 0;
@@ -192,12 +192,12 @@ int createAuthHeader(
         return createAuthHeaderAKAv1MD5(
             user, aka_OP, aka_AMF, aka_K, method, uri, msgbody, auth,
             algo, nonce_count, result, result_len);
-    } else if (strncasecmp(algo, "SHA-256", 7)==0) {
+    } else if (strcasecmp(algo, "SHA-256")==0) {
         return createAuthHeaderSHA256(
             user, password, strlen(password), method, uri, msgbody,
             auth, algo, nonce_count, result, result_len);
     } else {
-        snprintf(result, result_len, "createAuthHeader: authentication must use MD5, AKAv1-MD5 or SHA-256");
+        snprintf(result, result_len, "createAuthHeader: authentication must use MD5, AKAv1-MD5 or SHA-256, not '%s'", algo);
         return 0;
     }
 
@@ -507,7 +507,7 @@ int verifyAuthHeader(const char *user, const char *password, const char *method,
     if (algo[0] == '\0') {
         strcpy(algo, "MD5");
     }
-    if (strncasecmp(algo, "MD5", 3)==0) {
+    if (strcasecmp(algo, "MD5")==0) {
         unsigned char result[HASH_HEX_SIZE + 1];
         char response[HASH_HEX_SIZE + 1];
         getAuthParameter("realm", auth, realm, sizeof(realm));
@@ -530,7 +530,7 @@ int verifyAuthHeader(const char *user, const char *password, const char *method,
                 (char*)result,
                 response);
         return !strcmp((char *)result, response);
-    } else if (strncasecmp(algo, "SHA-256", 7)==0) {
+    } else if (strcasecmp(algo, "SHA-256")==0) {
         unsigned char result[SHA256_HASH_HEX_SIZE + 1];
         char response[SHA256_HASH_HEX_SIZE + 1];
         getAuthParameter("realm", auth, realm, sizeof(realm));
@@ -888,6 +888,24 @@ TEST(DigestAuth, qop) {
     EXPECT_EQ(1, !!strstr(result, ",qop=auth-int,")); // no double quotes around qop-value
     EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
     free(header);
+}
+
+TEST(DigestAuth, SessAlgorithms) {
+    /* Not answered, or checked, as if they were MD5 and SHA-256 */
+    char result[1024];
+    EXPECT_EQ(0, createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "",
+                                  "Digest realm=\"r\", nonce=\"n\", algorithm=MD5-sess",
+                                  nullptr, nullptr, nullptr, 1, result, sizeof(result)));
+    EXPECT_STREQ("createAuthHeader: authentication must use MD5, AKAv1-MD5 or SHA-256, not 'MD5-sess'", result);
+    EXPECT_EQ(0, createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "",
+                                  "Digest realm=\"r\", nonce=\"n\", algorithm=SHA-256-sess",
+                                  nullptr, nullptr, nullptr, 1, result, sizeof(result)));
+    ASSERT_NE(0, createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "",
+                                  "Digest realm=\"r\", nonce=\"n\", algorithm=md5",
+                                  nullptr, nullptr, nullptr, 1, result, sizeof(result)));
+    std::string sess = result;
+    sess.replace(sess.find("algorithm=md5"), strlen("algorithm=md5"), "algorithm=MD5-sess");
+    EXPECT_EQ(0, verifyAuthHeader("testuser", "secret", "REGISTER", sess.c_str(), ""));
 }
 
 #endif //GTEST
