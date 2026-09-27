@@ -1,0 +1,26 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# With -t ui, a call on an IP whose socket already exists (the main one
+# for the file's first IP, or one an earlier call opened) has that
+# socket's port in [local_port], not 0.
+. "`dirname "$0"`/../functions"; init
+
+rm -f uas.log
+printf 'SEQUENTIAL\n127.0.0.2;\n127.0.0.3;\n' >ips.csv
+sippbg -sn uas -i 127.0.0.1 -p 5070 -m 3 -trace_msg -message_file uas.log
+sippfg -sn uac -t ui -inf ips.csv -m 3 -r 10 -i 127.0.0.1 -p 5071 \
+    127.0.0.1:5070 -timeout 8 -timeout_error >/dev/null 2>&1
+status=$?
+vias=`grep -c '^Via: SIP/2.0/UDP 127.0.0.1:5071;' uas.log`
+zeros=`grep -c '^Via: SIP/2.0/UDP 127.0.0.1:0;' uas.log`
+rm -f uas.log ips.csv
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test $zeros -ne 0; then
+    fail "$zeros messages with port 0 in their Via"
+elif test $vias -eq 0; then
+    fail "no Via with the UAC's port"
+else
+    ok
+fi
