@@ -1409,15 +1409,46 @@ SIPpSocket* SIPpSocket::new_sipp_call_socket(bool use_ipv6, int transport, bool 
 
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
 /* After SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE, wait until the
- * socket is ready, for at most SIPP_SSL_RETRY_TIMEOUT ms. Returns false
- * on a timeout. Sleeping the whole timeout instead delayed every TLS
- * handshake by it, as the peer's reply is usually a moment away. */
-static bool wait_for_ssl_socket(SSL *ssl, int ssl_error)
+ * socket is ready, for at most timeout ms. Returns false on a timeout.
+ * Sleeping the whole timeout instead delayed every TLS handshake by it,
+ * as the peer's reply is usually a moment away. */
+static bool wait_for_ssl_socket(SSL *ssl, int ssl_error, int timeout = SIPP_SSL_RETRY_TIMEOUT)
 {
     struct pollfd pfd = {};
     pfd.fd = SSL_get_fd(ssl);
     pfd.events = (ssl_error == SSL_ERROR_WANT_WRITE) ? POLLOUT : POLLIN;
-    return poll(&pfd, 1, SIPP_SSL_RETRY_TIMEOUT) > 0;
+    return poll(&pfd, 1, timeout) > 0;
+}
+
+/* Run SSL_accept() or SSL_connect() until the handshake is done, for at
+ * most tls_handshake_timeout ms in all: a slow peer may be silent for a
+ * while, but one that never answers must not hold SIPp forever. Returns
+ * SSL_ERROR_NONE, or the SSL error it failed with, after warning. */
+static int ssl_handshake(SSL *ssl, bool accepting)
+{
+    const char *name = accepting ? "SSL_accept" : "SSL_connect";
+    unsigned long start = getmilliseconds();
+    int rc;
+
+    while ((rc = accepting ? SSL_accept(ssl) : SSL_connect(ssl)) != 1) {
+        int err = SSL_get_error(ssl, rc);
+        if (err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE) {
+            WARNING("Error in %s: %s", name, SSL_error_string(err, rc));
+            return err;
+        }
+        /* These errors are benign we just need to wait for the socket
+         * to be readable/writable again. The elapsed time, not a deadline,
+         * so that the clock wrapping doesn't matter; and a wait a signal
+         * cuts short (EINTR) just goes round again. A timeout of 0 is
+         * no limit. */
+        unsigned long elapsed = getmilliseconds() - start;
+        if (tls_handshake_timeout > 0 && elapsed >= (unsigned long)tls_handshake_timeout) {
+            WARNING("Error in %s: no handshake within %d ms", name, tls_handshake_timeout);
+            return err;
+        }
+        wait_for_ssl_socket(ssl, err, tls_handshake_timeout > 0 ? tls_handshake_timeout - elapsed : -1);
+    }
+    return SSL_ERROR_NONE;
 }
 #endif
 
@@ -1456,25 +1487,10 @@ SIPpSocket* SIPpSocket::accept() {
 
     if (ret->ss_transport == T_TLS) {
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
-        int rc;
-        int i = 0;
-        while ((rc = SSL_accept(ret->ss_ssl)) < 0) {
-            int err = SSL_get_error(ret->ss_ssl, rc);
-            if ((err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) &&
-                    i < SIPP_SSL_MAX_RETRIES) {
-                /* These errors are benign we just need to wait for the socket
-                 * to be readable/writable again. Only a wait that times out
-                 * counts: a handshake that arrives in pieces is progressing. */
-                if (!wait_for_ssl_socket(ret->ss_ssl, err)) {
-                    ++i;
-                    WARNING("SSL_accept failed with error: %s. Attempt %d. "
-                            "Retrying...", SSL_error_string(err, rc), i);
-                }
-                continue;
-            }
-            ERROR("Error in SSL_accept: %s",
-                  SSL_error_string(err, rc));
-            break;
+        if (ssl_handshake(ret->ss_ssl, true) != SSL_ERROR_NONE) {
+            /* Only this peer failed: drop it, and keep serving the others. */
+            ret->close();
+            return nullptr;
         }
 #else
         ERROR("You need to compile SIPp with TLS support");
@@ -1590,23 +1606,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 
     if (ss_transport == T_TLS) {
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
-        int rc;
-        int i = 0;
-        while ((rc = SSL_connect(ss_ssl)) < 0) {
-            int err = SSL_get_error(ss_ssl, rc);
-            if ((err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) &&
-                    i < SIPP_SSL_MAX_RETRIES) {
-                /* These errors are benign we just need to wait for the socket
-                 * to be readable/writable again. Only a wait that times out
-                 * counts: a handshake that arrives in pieces is progressing. */
-                if (!wait_for_ssl_socket(ss_ssl, err)) {
-                    ++i;
-                    WARNING("SSL_connect failed with error: %s. Attempt %d. "
-                            "Retrying...", SSL_error_string(err, rc), i);
-                }
-                continue;
-            }
-            WARNING("Error in SSL connection: %s", SSL_error_string(err, rc));
+        if (int err = ssl_handshake(ss_ssl, false)) {
             invalidate();
             return err;
         }
@@ -1643,6 +1643,12 @@ int SIPpSocket::reconnect()
         ss_ssl = nullptr;
 
         if (transport == T_TLS) {
+            /* Non-blocking, as in the constructor: connect() keeps the
+             * flags it finds, and a blocking SSL_connect() could wait
+             * past -tls_handshake_timeout for a silent server. */
+            int flags = fcntl(ss_fd, F_GETFL, 0);
+            fcntl(ss_fd, F_SETFL, flags | O_NONBLOCK);
+
             if ((ss_bio = BIO_new_socket(ss_fd, BIO_NOCLOSE)) == nullptr) {
                 ERROR("Unable to create BIO object:Problem with BIO_new_socket()");
             }
@@ -2991,10 +2997,9 @@ void SIPpSocket::pollset_process(int wait)
 #endif
             /* We can empty this socket. */
             if ((transport == T_TCP || transport == T_TLS || transport == T_SCTP) && sock == main_socket) {
-                SIPpSocket *new_sock = sock->accept();
-                if (!new_sock) {
-                    ERROR_NO("Accepting new TCP connection");
-                }
+                /* A peer that failed the TLS handshake got dropped (see
+                 * accept()): nothing to do for it. */
+                sock->accept();
             } else if (sock == ctrl_socket) {
                 handle_ctrl_socket();
             } else if (sock == stdin_socket) {

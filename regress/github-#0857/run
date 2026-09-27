@@ -1,0 +1,93 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A TLS UAS drops a peer that closes before its handshake, or never
+# starts one within -tls_handshake_timeout, and serves the next one.
+# A TLS UAC gives up on a server that never answers its ClientHello at
+# -tls_handshake_timeout, also when it connects again after a reset.
+. "`dirname "$0"`/../functions"; init
+
+"`get_sipp`" -v | grep -q TLS || skip "no TLS"
+command -v openssl >/dev/null || skip "no openssl"
+
+certs=`mktemp -d`
+trap 'rm -rf "$certs"' EXIT
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+    -nodes -keyout "$certs/key.pem" -out "$certs/cert.pem" -days 1 \
+    -subj /CN=sipp >/dev/null 2>&1 || fail "cannot create the certificate"
+
+tls="-tls_cert $certs/cert.pem -tls_key $certs/key.pem"
+sippbg -sn uas -t l1 -i 127.0.0.1 -p 25420 -m 1 $tls \
+    -tls_handshake_timeout 1s
+# One peer hangs up at once, the next one never sends a ClientHello
+# and stays connected well past the UAS's handshake timeout: only that
+# timeout lets the UAC's call through in time.
+perl -MIO::Socket::INET -e '
+    IO::Socket::INET->new("127.0.0.1:25420") or die;
+    $s = IO::Socket::INET->new("127.0.0.1:25420") or die; sleep 8' &
+silent=$!
+sleep 0.2
+start=`date +%s`
+sippfg -sn uac -t l1 -i 127.0.0.1 -p 25421 -m 1 $tls 127.0.0.1:25420 \
+    -timeout 6 -timeout_error >/dev/null 2>&1
+status=$?
+elapsed=$((`date +%s` - start))
+kill $silent 2>/dev/null
+test $status -eq 0 || fail "UAC failed with $status"
+test $elapsed -le 4 || fail "the UAS held the silent peer for ${elapsed}s, not 1s"
+
+# A TCP server that never speaks TLS.
+perl -MIO::Socket::INET -e '
+    $l = IO::Socket::INET->new(LocalAddr => "127.0.0.1:25422",
+        Listen => 1, ReuseAddr => 1) or die;
+    $c = $l->accept; sleep 6' &
+sleep 0.2
+start=`date +%s`
+sippfg -sn uac -t l1 -i 127.0.0.1 -p 25423 -m 1 $tls 127.0.0.1:25422 \
+    -tls_handshake_timeout 1s -timeout 8 -timeout_error \
+    -trace_err -error_file "$certs/err.log" >/dev/null 2>&1
+status=$?
+elapsed=$((`date +%s` - start))
+
+if test $status -eq 0; then
+    fail "UAC connected to a server that never answered"
+elif test $elapsed -gt 4; then
+    fail "UAC gave up after ${elapsed}s, not at the 1s timeout"
+elif ! grep -q 'no handshake within 1000 ms' "$certs/err.log"; then
+    fail "no handshake timeout in the UAC's error log"
+fi
+
+# A proxy to a UAS that resets the UAC's connection after a second, then
+# accepts its reconnection and stays silent: the new socket must not
+# block in the handshake.
+sippbg -sn uas -t l1 -i 127.0.0.1 -p 25424 -m 1 $tls
+perl -MIO::Socket::INET -MIO::Select -e '
+    $l = IO::Socket::INET->new(LocalAddr => "127.0.0.1:25425",
+        Listen => 1, ReuseAddr => 1) or die;
+    $c = $l->accept;
+    $u = IO::Socket::INET->new("127.0.0.1:25424") or die;
+    $s = IO::Select->new($c, $u);
+    for ($end = time + 1; time < $end;) {
+        for $h ($s->can_read(0.1)) {
+            sysread($h, $b, 65536) and syswrite($h == $c ? $u : $c, $b);
+        }
+    }
+    setsockopt($c, SOL_SOCKET, SO_LINGER, pack("ii", 1, 0));
+    close $c;
+    $c = $l->accept; sleep 8' &
+proxy=$!
+sleep 0.2
+start=`date +%s`
+sippfg -sn uac -t l1 -i 127.0.0.1 -p 25426 -m 2 -r 1 -rp 3000 $tls \
+    127.0.0.1:25425 -max_reconnect 1 -reconnect_sleep 100 \
+    -tls_handshake_timeout 1s -timeout 4 \
+    -trace_err -error_file "$certs/err2.log" >/dev/null 2>&1
+elapsed=$((`date +%s` - start))
+kill $proxy 2>/dev/null
+
+if test $elapsed -gt 6; then
+    fail "the reconnected UAC blocked for ${elapsed}s in the handshake"
+elif ! grep -q 'no handshake within 1000 ms' "$certs/err2.log"; then
+    fail "no handshake timeout after the reconnection"
+else
+    ok
+fi
