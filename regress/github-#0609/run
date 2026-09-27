@@ -1,0 +1,33 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -primary, -secondary and -secondary_cfg are the 3PCC extended mode's
+# -master, -slave and -slave_cfg.
+. "`dirname "$0"`/../functions"; init
+
+sippfg -sf secondary.xml -secondary s1 \
+    -secondary_cfg cfg -i 127.0.0.1 -p 25950 -m 1 -timeout 8 \
+    -timeout_error >/dev/null 2>&1 &
+secondary=$!
+sleep 1
+sippfg -sf primary.xml -primary m -secondary_cfg cfg -i 127.0.0.1 \
+    -p 25951 127.0.0.1:25950 -m 1 -timeout 8 -timeout_error \
+    >/dev/null 2>&1
+status=$?
+wait $secondary
+secondary_status=$?
+both=`sippfg -sf primary.xml -primary m -secondary s1 -secondary_cfg cfg \
+    -i 127.0.0.1 -p 25951 127.0.0.1:25950 -m 1 2>&1`
+nocfg=`sippfg -sf primary.xml -primary m -secondary_cfg nonexistent \
+    -i 127.0.0.1 -p 25951 127.0.0.1:25950 -m 1 2>&1`
+
+if test $status -ne 0; then
+    fail "the primary exited with $status"
+elif test $secondary_status -ne 0; then
+    fail "the secondary exited with $secondary_status"
+elif ! echo "$both" | grep -q -- '-slave/-secondary and -master/-primary options are not compatible'; then
+    fail "-primary with -secondary: $both"
+elif ! echo "$nocfg" | grep -q -- 'Can not open -slave_cfg/-secondary_cfg file'; then
+    fail "missing -secondary_cfg file: $nocfg"
+else
+    ok
+fi
