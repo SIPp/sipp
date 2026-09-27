@@ -1,0 +1,26 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# rtp_stream works on an RTP socket >= FD_SETSIZE (1024): with 1100
+# fds already open, select() on it overflowed its fd_set.
+. "`dirname "$0"`/../functions"; init
+
+ulimit -n 4096 2>/dev/null || skip "cannot raise ulimit -n to 4096"
+
+udplisten 25692 >udplisten.log &
+sippbg -sf uas.xml -i 127.0.0.1 -p 25690 -key custom_media_port 25692
+# Perl keeps its fds above $^F open across exec.
+perl -e '$^F = 1 << 20; open($f[$_], "<", "/dev/null") || die for 1 .. 1100;
+    exec @ARGV' "$SIPP" -nostdin -sf uac.xml -i 127.0.0.1 -p 25691 -m 1 \
+    127.0.0.1:25690 -timeout 5 -timeout_error >uac.log 2>&1
+status=$?
+grep -q '^Connectionless from' udplisten.log
+rtp=$?
+rm -f udplisten.log uac.log
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test $rtp -ne 0; then
+    fail "got no RTP"
+else
+    ok
+fi
