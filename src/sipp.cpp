@@ -905,6 +905,14 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
     stattask::report();
     screentask::report(false);
 
+    /* Restart the call rate, and its increase, with the traffic: the
+     * setup since they started may be slow, and the calls the rate is
+     * behind on would then all open at once. */
+    if (creationMode == MODE_CLIENT || creationMode == MODE_MIXED) {
+        CallGenerationTask::set_rate(rate);
+    }
+    last_rate_increase_time = clock_tick;
+
     while (1) {
         if (exit_requested) {
             sipp_exit(exit_request_rc, 0, 0);

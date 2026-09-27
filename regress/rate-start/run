@@ -1,0 +1,35 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The call rate starts with the traffic, not before the setup: a slow
+# setup does not open at once the calls it is behind the rate on.
+. "`dirname "$0"`/../functions"; init
+
+# Slow the setup down: the first -fd report opens the stat file, a
+# FIFO here, which blocks until its reader opens it.
+rm -f uac.log stat.fifo
+mkfifo stat.fifo
+(sleep 1; exec cat stat.fifo >/dev/null) &
+reader=$!
+sippfg -sf uac.xml -nr -i 127.0.0.1 -p 25950 -cp 25952 127.0.0.1:25951 \
+    -r 10 -m 5 -trace_stat -stf stat.fifo -trace_msg -message_file uac.log \
+    -timeout 8 -timeout_error >/dev/null 2>&1
+status=$?
+kill $reader 2>/dev/null
+wait
+# The least ms between two calls.
+least=`sed -n 's/^-* [0-9-]*T\([0-9]*\):\([0-9]*\):\([0-9.]*\).*/\1 \2 \3/p' \
+    uac.log 2>/dev/null | awk '{ t = (($1 * 60 + $2) * 60 + $3) * 1000 }
+    NR > 1 && (least == "" || t - last < least) { least = t - last }
+    { last = t } END { printf "%d\n", least }'`
+calls=`grep -c '^OPTIONS ' uac.log 2>/dev/null`
+rm -f uac.log stat.fifo
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "$calls" -ne 5; then
+    fail "$calls calls, not 5"
+elif test "$least" -lt 50; then
+    fail "two calls ${least}ms apart, not at the rate"
+else
+    ok
+fi
