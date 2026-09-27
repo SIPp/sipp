@@ -1,0 +1,22 @@
+name: docs
+on:
+  push:
+    paths: ['docs/**', '.github/workflows/docs.yml']
+  pull_request:
+    paths: ['docs/**', '.github/workflows/docs.yml']
+permissions: {}
+jobs:
+  sphinx:
+    name: Build the documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      - name: installdeps
+        run: pip install sphinx sphinx_rtd_theme
+      - name: build
+        run: sphinx-build -n -W --keep-going -b html docs "$RUNNER_TEMP/html"
