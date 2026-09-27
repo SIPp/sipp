@@ -4840,6 +4840,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                         logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- primary crypto tag: %d\n", pA.primary_cryptotag);
                         _rxUACAudio.decodeMasterKeySalt(mks1, PRIMARY_CRYPTO);
                         _rxUACAudio.setCryptoTag(pA.primary_cryptotag, PRIMARY_CRYPTO);
+                        _rxUACAudio.setOfferedCryptoSuite(pA.primary_cryptosuite, PRIMARY_CRYPTO);
 
                         if (!strcmp(pA.primary_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pA.primary_unencrypted_srtp)
                         {
@@ -4887,6 +4888,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                         logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- secondary crypto tag: %d\n", pA.secondary_cryptotag);
                         _rxUACAudio.decodeMasterKeySalt(mks2, SECONDARY_CRYPTO);
                         _rxUACAudio.setCryptoTag(pA.secondary_cryptotag, SECONDARY_CRYPTO);
+                        _rxUACAudio.setOfferedCryptoSuite(pA.secondary_cryptosuite, SECONDARY_CRYPTO);
 
                         if (!strcmp(pA.secondary_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pA.secondary_unencrypted_srtp)
                         {
@@ -4955,6 +4957,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                         logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- primary crypto tag: %d\n", pA.primary_cryptotag);
                         _rxUASAudio.decodeMasterKeySalt(mks1, PRIMARY_CRYPTO);
                         _rxUASAudio.setCryptoTag(pA.primary_cryptotag, PRIMARY_CRYPTO);
+                        _rxUASAudio.setOfferedCryptoSuite(pA.primary_cryptosuite, PRIMARY_CRYPTO);
 
                         if (!strcmp(pA.primary_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pA.primary_unencrypted_srtp)
                         {
@@ -5002,6 +5005,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                         logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- secondary crypto tag: %d\n", pA.secondary_cryptotag);
                         _rxUASAudio.decodeMasterKeySalt(mks2, SECONDARY_CRYPTO);
                         _rxUASAudio.setCryptoTag(pA.secondary_cryptotag, SECONDARY_CRYPTO);
+                        _rxUASAudio.setOfferedCryptoSuite(pA.secondary_cryptosuite, SECONDARY_CRYPTO);
 
                         if (!strcmp(pA.secondary_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pA.secondary_unencrypted_srtp)
                         {
@@ -5089,6 +5093,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                         logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- primary crypto tag: %d\n", pV.primary_cryptotag);
                         _rxUACVideo.decodeMasterKeySalt(mks1, PRIMARY_CRYPTO);
                         _rxUACVideo.setCryptoTag(pV.primary_cryptotag, PRIMARY_CRYPTO);
+                        _rxUACVideo.setOfferedCryptoSuite(pV.primary_cryptosuite, PRIMARY_CRYPTO);
 
                         if (!strcmp(pV.primary_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pV.primary_unencrypted_srtp)
                         {
@@ -5136,6 +5141,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                         logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- secondary crypto tag: %d\n", pV.secondary_cryptotag);
                         _rxUACVideo.decodeMasterKeySalt(mks2, SECONDARY_CRYPTO);
                         _rxUACVideo.setCryptoTag(pV.secondary_cryptotag, SECONDARY_CRYPTO);
+                        _rxUACVideo.setOfferedCryptoSuite(pV.secondary_cryptosuite, SECONDARY_CRYPTO);
 
                         if (!strcmp(pV.secondary_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pV.secondary_unencrypted_srtp)
                         {
@@ -5204,6 +5210,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                         logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- primary crypto tag: %d\n", pV.primary_cryptotag);
                         _rxUASVideo.decodeMasterKeySalt(mks1, PRIMARY_CRYPTO);
                         _rxUASVideo.setCryptoTag(pV.primary_cryptotag, PRIMARY_CRYPTO);
+                        _rxUASVideo.setOfferedCryptoSuite(pV.primary_cryptosuite, PRIMARY_CRYPTO);
 
                         if (!strcmp(pV.primary_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pV.primary_unencrypted_srtp)
                         {
@@ -5251,6 +5258,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                         logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- secondary crypto tag: %d\n", pV.secondary_cryptotag);
                         _rxUASVideo.decodeMasterKeySalt(mks2, SECONDARY_CRYPTO);
                         _rxUASVideo.setCryptoTag(pV.secondary_cryptotag, SECONDARY_CRYPTO);
+                        _rxUASVideo.setOfferedCryptoSuite(pV.secondary_cryptosuite, SECONDARY_CRYPTO);
 
                         if (!strcmp(pV.secondary_cryptosuite, "AES_CM_128_HMAC_SHA1_80") && !pV.secondary_unencrypted_srtp)
                         {

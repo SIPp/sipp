@@ -2373,9 +2373,23 @@ unsigned int JLSRTP::getCryptoTag(ActiveCrypto crypto_attrib /*= ACTIVE_CRYPTO*/
     return retVal;
 }
 
+void JLSRTP::setOfferedCryptoSuite(const std::string& suite, ActiveCrypto crypto_attrib)
+{
+    if (crypto_attrib == PRIMARY_CRYPTO) {
+        _primary_crypto.offered_suite = suite;
+    } else if (crypto_attrib == SECONDARY_CRYPTO) {
+        _secondary_crypto.offered_suite = suite;
+    }
+}
+
 std::string JLSRTP::getCryptoSuite()
 {
     std::string cryptosuite;
+
+    const std::string& offered = (_active_crypto == SECONDARY_CRYPTO) ? _secondary_crypto.offered_suite : _primary_crypto.offered_suite;
+    if (!offered.empty()) {
+        return offered;
+    }
 
     switch (_active_crypto)
     {
