@@ -606,8 +606,6 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
     std::size_t pos1 = 0;
     std::size_t pos2 = 0;
     std::string sub;
-    std::size_t amsection_limit = 0;
-    std::size_t vmsection_limit = 0;
 
     *crypto_audio_sessionparams = 0;
     *crypto_video_sessionparams = 0;
@@ -622,12 +620,6 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
 
     if (msgstr.empty())
         return -1; /* FAILURE -- No SDP body found */
-
-    /* --------------------------------------------------------------
-        * Determine SDP m-line structure
-        * -------------------------------------------------------------- */
-    amsection_limit = msgstr.find("\nm=audio", 0, msgstr.size());
-    vmsection_limit = msgstr.find("\nm=video", 0, msgstr.size());
 
     /* --------------------------------------------------------------
         * Try to find an AUDIO MLINE
@@ -699,19 +691,20 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
 
     cur_pos = pos2;
 
-    if (audioExists &&
-        (((amsection_limit != std::string::npos) && (cur_pos != std::string::npos) && (cur_pos < amsection_limit)) ||
-            ((amsection_limit == std::string::npos) && (vmsection_limit == std::string::npos) && (cur_pos != std::string::npos))))
+    if (audioExists)
     {
         // AUDIO "m=audio" prefix found...
         pA.found = true;
 
+        // Only the audio media section's crypto lines are audio's
+        msection_limit = msgstr.find("\nm=", cur_pos, 3);
+
         mline_sol = msgstr.find(SDP_AUDIOCRYPTO_PREFIX, cur_pos/*0*/, 10);
-        if (mline_sol != std::string::npos) {
+        if (mline_sol < msection_limit) {
             // PRIMARY AUDIO "a:crypto:" crypto prefix found
-            mline_eol = msgstr.find("\n", mline_sol, 1);
+            mline_eol = msgstr.find("\n", mline_sol + 1, 1);
             if (mline_eol != std::string::npos) {
-                mline_contents = msgstr.substr(mline_sol, mline_eol);
+                mline_contents = msgstr.substr(mline_sol, mline_eol - mline_sol);
                 // %*1[ ] is to skip a single space after the "inline:...." field.
                 // as opposed to literal space, which matches zero or more spaces.
                 sscanf(mline_contents.c_str(), "\na=crypto:%d %24[^ ] inline:%40[^ ]%*1[ ]%63s",
@@ -728,18 +721,16 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
                     pA.primary_unencrypted_srtp = false;
                 }
             }
+
+            mline_sol = mline_eol == std::string::npos ? mline_eol :
+                        msgstr.find(SDP_AUDIOCRYPTO_PREFIX, mline_eol, 10);
         }
 
-        // Look for end-of-audio-media section
-        msection_limit = msgstr.find("\nm=", mline_eol+1, 3);
-
-        mline_sol = msgstr.find(SDP_AUDIOCRYPTO_PREFIX, mline_eol+1, 10);
-        if (((msection_limit != std::string::npos) && (mline_sol != std::string::npos) && (mline_sol < msection_limit)) ||
-            ((msection_limit == std::string::npos) && (mline_sol != std::string::npos))) {
+        if (mline_sol < msection_limit) {
             // SECONDARY AUDIO "a:crypto:" crypto prefix found
-            mline_eol = msgstr.find("\n", mline_sol, 1);
+            mline_eol = msgstr.find("\n", mline_sol + 1, 1);
             if (mline_eol != std::string::npos) {
-                mline_contents = msgstr.substr(mline_sol, mline_eol);
+                mline_contents = msgstr.substr(mline_sol, mline_eol - mline_sol);
                 sscanf(mline_contents.c_str(), "\na=crypto:%d %24[^ ] inline:%40[^ ]%*1[ ]%63s",
                         &pA.secondary_cryptotag,
                         pA.secondary_cryptosuite,
@@ -827,19 +818,20 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
 
     cur_pos = pos2;
 
-    if (videoExists &&
-        (((vmsection_limit != std::string::npos) && (cur_pos != std::string::npos) && (cur_pos < vmsection_limit)) ||
-            ((vmsection_limit == std::string::npos) && (amsection_limit == std::string::npos) && (cur_pos != std::string::npos))))
+    if (videoExists)
     {
         // VIDEO "m=video" prefix found...
         pV.found = true;
 
+        // Only the video media section's crypto lines are video's
+        msection_limit = msgstr.find("\nm=", cur_pos, 3);
+
         mline_sol = msgstr.find(SDP_VIDEOCRYPTO_PREFIX, cur_pos/*mline_eol+1*/, 10);
-        if (mline_sol != std::string::npos) {
+        if (mline_sol < msection_limit) {
             // PRIMARY VIDEO "a:crypto:" crypto prefix found
-            mline_eol = msgstr.find("\n", mline_sol, 1);
+            mline_eol = msgstr.find("\n", mline_sol + 1, 1);
             if (mline_eol != std::string::npos) {
-                mline_contents = msgstr.substr(mline_sol, mline_eol);
+                mline_contents = msgstr.substr(mline_sol, mline_eol - mline_sol);
                 sscanf(mline_contents.c_str(), "\na=crypto:%d %24[^ ] inline:%40[^ ]%*1[ ]%63s",
                         &pV.primary_cryptotag,
                         pV.primary_cryptosuite,
@@ -854,18 +846,16 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
                     pV.primary_unencrypted_srtp = false;
                 }
             }
+
+            mline_sol = mline_eol == std::string::npos ? mline_eol :
+                        msgstr.find(SDP_VIDEOCRYPTO_PREFIX, mline_eol, 10);
         }
 
-        // Look for end-of-video-media section
-        msection_limit = msgstr.find("\nm=", mline_eol+1, 3);
-
-        mline_sol = msgstr.find(SDP_VIDEOCRYPTO_PREFIX, mline_eol+1, 10);
-        if (((msection_limit != std::string::npos) && (mline_sol != std::string::npos) && (mline_sol < msection_limit)) ||
-            ((msection_limit == std::string::npos) && (mline_sol != std::string::npos))) {
+        if (mline_sol < msection_limit) {
             // SECONDARY VIDEO "a:crypto:" crypto prefix found
-            mline_eol = msgstr.find("\n", mline_sol, 1);
+            mline_eol = msgstr.find("\n", mline_sol + 1, 1);
             if (mline_eol != std::string::npos) {
-                mline_contents = msgstr.substr(mline_sol, mline_eol);
+                mline_contents = msgstr.substr(mline_sol, mline_eol - mline_sol);
                 sscanf(mline_contents.c_str(), "\na=crypto:%d %24[^ ] inline:%40[^ ]%*1[ ]%63s",
                         &pV.secondary_cryptotag,
                         pV.secondary_cryptosuite,
@@ -6966,6 +6956,10 @@ public:
 
     /* Helpers to poke at protected internals */
     void parse_media_addr(std::string const& msg) { get_remote_media_addr(msg); }
+    int parse_srtp(const char *msg, SrtpInfoParams &pA, SrtpInfoParams &pV)
+    {
+        return extract_srtp_remote_info(msg, pA, pV);
+    }
     void set_retransmission_state(const char *msg, int index, int len, unsigned int retrans_at)
     {
         msg_index = index;
@@ -7207,6 +7201,64 @@ TEST(call_run, stops_after_fatal_retransmission_send_error) {
 
     main_scenario->messages.swap(saved_messages);
     delete msg;
+}
+
+static const char srtp_sdp_head[] = "INVITE sip:t SIP/2.0\r\n\r\n"
+                                    "v=0\r\n"
+                                    "c=IN IP4 127.0.0.1\r\n"
+                                    "t=0 0\r\n";
+
+TEST(srtp_sdp, cryptos_stay_in_their_media_section) {
+    std::string msg = std::string(srtp_sdp_head) +
+                      "m=audio 12346 RTP/SAVP 0\r\n"
+                      "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB\r\n"
+                      "a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJC UNENCRYPTED_SRTP\r\n"
+                      "m=video 12348 RTP/SAVP 99\r\n"
+                      "a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0ND UNENCRYPTED_SRTP\r\n";
+    SrtpInfoParams pA, pV;
+    mockcall call(false);
+    ASSERT_EQ(0, call.parse_srtp(msg.c_str(), pA, pV));
+    EXPECT_TRUE(pA.found);
+    EXPECT_STREQ("QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB", pA.primary_cryptokeyparams);
+    EXPECT_FALSE(pA.primary_unencrypted_srtp);
+    EXPECT_TRUE(pA.secondary_unencrypted_srtp);
+    EXPECT_TRUE(pV.primary_unencrypted_srtp);
+    EXPECT_EQ(1, pA.primary_cryptotag);
+    EXPECT_STREQ("AES_CM_128_HMAC_SHA1_80", pA.primary_cryptosuite);
+    EXPECT_EQ(2, pA.secondary_cryptotag);
+    EXPECT_STREQ("AES_CM_128_HMAC_SHA1_32", pA.secondary_cryptosuite);
+    EXPECT_TRUE(pV.found);
+    EXPECT_EQ(3, pV.primary_cryptotag);
+    EXPECT_EQ(0, pV.secondary_cryptotag);
+}
+
+TEST(srtp_sdp, plain_audio_does_not_take_the_video_crypto) {
+    std::string msg = std::string(srtp_sdp_head) +
+                      "m=audio 12346 RTP/AVP 0\r\n"
+                      "a=rtpmap:0 PCMU/8000\r\n"
+                      "m=video 12348 RTP/SAVP 99\r\n"
+                      "a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0ND\r\n";
+    SrtpInfoParams pA, pV;
+    mockcall call(false);
+    ASSERT_EQ(0, call.parse_srtp(msg.c_str(), pA, pV));
+    EXPECT_EQ(0, pA.primary_cryptotag);
+    EXPECT_STREQ("", pA.primary_cryptosuite);
+    EXPECT_EQ(3, pV.primary_cryptotag);
+}
+
+TEST(srtp_sdp, plain_video_first_does_not_take_the_audio_crypto) {
+    std::string msg = std::string(srtp_sdp_head) +
+                      "m=video 12348 RTP/AVP 99\r\n"
+                      "m=audio 12346 RTP/SAVP 0\r\n"
+                      "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB\r\n"
+                      "a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJC\r\n";
+    SrtpInfoParams pA, pV;
+    mockcall call(false);
+    ASSERT_EQ(0, call.parse_srtp(msg.c_str(), pA, pV));
+    EXPECT_EQ(1, pA.primary_cryptotag);
+    EXPECT_EQ(2, pA.secondary_cryptotag);
+    EXPECT_EQ(0, pV.primary_cryptotag);
+    EXPECT_EQ(0, pV.secondary_cryptotag);
 }
 
 #ifdef PCAPPLAY
