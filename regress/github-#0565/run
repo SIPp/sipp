@@ -1,0 +1,30 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An rtp_stream file that does not exist fails the scenario load, not
+# the first call that plays it. A filename with keywords is only
+# checked when played.
+. "`dirname "$0"`/../functions"; init
+
+sippfg -sf uac.xml -i 127.0.0.1 -p 25721 -m 1 127.0.0.1:25720 \
+    -timeout 2 >missing.log 2>&1
+missing=$?
+sed -e 's/no-such-file\.raw/[service].raw/' uac.xml >kw.xml
+sippfg -sf kw.xml -i 127.0.0.1 -p 25721 -m 1 127.0.0.1:25720 \
+    -timeout 1 >keyword.log 2>&1
+grep -q 'Cannot read/cache rtpstream file no-such' missing.log
+missing_error=$?
+grep -q 'Cannot read/cache rtpstream file' keyword.log
+keyword_error=$?
+grep -q 'INVITE ---------->  *1 ' keyword.log
+keyword_sent=$?
+rm -f missing.log keyword.log kw.xml
+
+if test $missing -ne 255; then
+    fail "a missing file exited with $missing"
+elif test $missing_error -ne 0; then
+    fail "no load error about the missing file"
+elif test $keyword_error -eq 0 || test $keyword_sent -ne 0; then
+    fail "a filename with keywords failed the load"
+else
+    ok
+fi
