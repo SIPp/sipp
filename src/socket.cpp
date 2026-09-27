@@ -1943,15 +1943,21 @@ int SIPpSocket::read_error(int ret)
         if (ret == 0) {
             /* The remote side closed the connection. */
             if (ss_control) {
+                if (extendedTwinSippMode) {
+                    /* Closing the listener, the peer and local sockets here,
+                     * this one among them, would move sockets under the poll
+                     * loop that called us, which only expects this one to
+                     * go, and a second peer ending would close them again.
+                     * The exit closes them all. */
+                    if (quitting < 20) {
+                        WARNING("One of the twin instances has ended -> exiting");
+                    }
+                    quitting += 20;
+                    return -1;
+                }
                 if (localTwinSippSocket)
                     localTwinSippSocket->close();
-                if (extendedTwinSippMode) {
-                    close_peer_sockets();
-                    close_local_sockets();
-                    free_peer_addr_map();
-                    WARNING("One of the twin instances has ended -> exiting");
-                    quitting += 20;
-                } else if (twinSippMode) {
+                if (twinSippMode) {
                     if (twinSippSocket)
                         twinSippSocket->close();
                     if (thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
