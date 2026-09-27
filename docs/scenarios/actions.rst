@@ -423,7 +423,7 @@ to find the corresponding line in users.csv.
 
     <recv request="REGISTER">
       <action>
-        <ereg regexp="Digest .*username=\"([^\"]*)\"" search_in="hdr" header="Authorization:" assign_to="junk,username" />
+        <ereg regexp='Digest .*username="([^"]*)"' search_in="hdr" header="Authorization:" assign_to="junk,username" />
         <lookup assign_to="line" file="users.csv" key="[$username]" />
       </action>
     </recv>
@@ -593,9 +593,9 @@ on the result::
 
     <recv request="REGISTER">
       <action>
-        <ereg regexp="Digest .*username=\"([^\"]*)\"" search_in="hdr" header="Authorization:" assign_to="junk,username" />
+        <ereg regexp='Digest .*username="([^"]*)"' search_in="hdr" header="Authorization:" assign_to="junk,username" />
         <lookup assign_to="line" file="users.conf" key="[$username]" />
-        <verifyauth assign_to="authvalid" username="[field0 line=\"[$line]\"]" password="[field3 line=\"[$line]\"]" />
+        <verifyauth assign_to="authvalid" username='[field0 line="[$line]"]' password='[field3 line="[$line]"]' />
       </action>
     </recv>
 
