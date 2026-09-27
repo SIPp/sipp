@@ -1,0 +1,15 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The <divide> by zero and <todouble> warnings name their variables.
+. "`dirname "$0"`/../functions"; init
+
+rm -f ./*_errors.log
+sippfg -m 1 -sf uac.xml -trace_err -i 127.0.0.1 -p 5071 127.0.0.1:5099 \
+    -timeout 4 >/dev/null 2>&1
+errors=`cat ./*_errors.log 2>/dev/null`
+rm -f ./*_errors.log
+
+case $errors in
+    *'Can not divide by zero ($total/$count)!'*'Invalid double conversion from $text to $number'*) ok ;;
+    *) fail "warnings don't name the variables: $errors" ;;
+esac

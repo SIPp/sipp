@@ -6000,7 +6000,9 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             double value = M_callVariableTable->getVar(currentAction->getVarId())->getDouble();
             double operand = get_rhs(currentAction);
             if (operand == 0) {
-                WARNING("Action failure: Can not divide by zero ($%d/$%d)!\n", currentAction->getVarId(), currentAction->getVarInId());
+                WARNING("Action failure: Can not divide by zero ($%s/$%s)!",
+                        call_scenario->allocVars->getName(currentAction->getVarId()),
+                        call_scenario->allocVars->getName(currentAction->getVarInId()));
             } else {
                 M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value / operand);
             }
@@ -6101,7 +6103,9 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             if (M_callVariableTable->getVar(currentAction->getVarInId())->toDouble(&value)) {
                 M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
             } else {
-                WARNING("Invalid double conversion from $%d to $%d", currentAction->getVarInId(), currentAction->getVarId());
+                WARNING("Invalid double conversion from $%s to $%s",
+                        call_scenario->allocVars->getName(currentAction->getVarInId()),
+                        call_scenario->allocVars->getName(currentAction->getVarId()));
             }
         } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
             double value = currentAction->getDistribution()->sample();
