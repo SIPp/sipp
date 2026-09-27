@@ -92,6 +92,8 @@ public:
         E_CREATE_INCOMING_CALL,
         E_CALL_FAILED,
         E_CALL_SUCCESSFULLY_ENDED,
+        /* The call is over, neither successful nor failed. */
+        E_CALL_ENDED_UNCOUNTED,
         E_RESET_C_COUNTERS,
         E_RESET_PD_COUNTERS,
         E_RESET_PL_COUNTERS,
