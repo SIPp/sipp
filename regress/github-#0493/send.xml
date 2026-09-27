@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="3PCC A">
+  <send>
+    <![CDATA[
+      INFO sip:whatever SIP/2.0
+      From: <sip:[service]@127.0.0.1>;tag=[call_number]
+      To: <sip:[service]@127.0.0.1>
+      Call-ID: [call_id]
+      CSeq: 1 INFO
+      Content-Length: 0
+    ]]>
+  </send>
+  <sendCmd>
+    <![CDATA[
+      Call-ID: [call_id]
+    ]]>
+  </sendCmd>
+  <pause milliseconds="500"/>
+</scenario>

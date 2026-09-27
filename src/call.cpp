@@ -1432,6 +1432,9 @@ bool call::connect_socket_if_needed()
         if (use_remote_sending_addr) {
             L_dest = &remote_sending_sockaddr;
         }
+        if (L_dest->ss_family == AF_UNSPEC) {
+            ERROR("Call '%s' has no remote host to connect to", id);
+        }
 
         if (call_socket->connect(L_dest)) {
             if (reconnect_allowed()) {
@@ -1658,7 +1661,11 @@ char * call::send_scene(int index, int *send_status, int *len)
         return nullptr;
     }
 
-    assert(call_socket);
+    if (!call_socket) {
+        ERROR("Call '%s' has no socket to send on: a call that a 3PCC command "
+              "creates in a scenario starting with a <recv> needs a remote host",
+              id);
+    }
 
     assert(call_scenario->messages[index]->send_scheme);
 
