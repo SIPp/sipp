@@ -120,7 +120,7 @@ int parse_dtmf_play_args(const char* buffer, pcap_pkts* pkts, uint16_t start_seq
 
 /* Safe threaded version */
 void do_sleep (struct timeval *, struct timeval *,
-               struct timeval *, struct timeval *);
+               struct timeval *, struct timeval *, int);
 void send_packets_cleanup(void *arg)
 {
     int * sock = (int *) arg;
@@ -254,7 +254,7 @@ void send_packets(play_args_t* play_args)
 #endif
 
         do_sleep ((struct timeval *) &pkt_index->ts, &last, &didsleep,
-                  &start);
+                  &start, pkt_index == pkts->pkts);
 #ifdef MSG_DONTWAIT
         if (!media_ip_is_ipv6) {
             ret = sendto(sock, buffer, pkt_index->pktlen, MSG_DONTWAIT,
@@ -295,7 +295,7 @@ pop2:
  * calculate the appropriate amount of time to sleep and do so.
  */
 void do_sleep(struct timeval* time, struct timeval* last,
-              struct timeval* didsleep, struct timeval* start)
+              struct timeval* didsleep, struct timeval* start, int first)
 {
     struct timeval nap, now, delta;
     struct timespec sleep;
@@ -304,8 +304,10 @@ void do_sleep(struct timeval* time, struct timeval* last,
         fprintf (stderr, "Error gettimeofday: %s\n", strerror (errno));
     }
 
-    /* First time through for this file */
-    if (!timerisset (last)) {
+    /* First time through for this file. Not !timerisset(last): a capture
+     * that starts at time 0, as play_dtmf's do, would sleep before none
+     * of its first two packets. */
+    if (first) {
         *start = now;
         timerclear (&delta);
         timerclear (didsleep);
@@ -313,7 +315,7 @@ void do_sleep(struct timeval* time, struct timeval* last,
         timersub (&now, start, &delta);
     }
 
-    if (timerisset (last) && timercmp (time, last, >)) {
+    if (!first && timercmp (time, last, >)) {
         timersub (time, last, &nap);
     } else {
         /*
