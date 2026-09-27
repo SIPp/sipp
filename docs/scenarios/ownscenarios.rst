@@ -314,9 +314,26 @@ List of commands with their attributes
       - Specify a timeout while waiting for a message. If the
         message is not received, the call is aborted, unless an ontimeout
         label is defined.
+
+        The timeout (and ontimeout) only applies while the call waits at
+        this message. After a run of optional recvs, the call waits at
+        the first of them until a mandatory message arrives, so it is the
+        timeout and ontimeout of that first optional recv that apply
+        (or -recv_timeout if it has none), not those of the mandatory
+        recv after it. To time out such a sequence, put the timeout and
+        ontimeout on the optional recvs too.
       - ::
 
           <recv timeout="100000">
+
+        Timing out while waiting for 180 or 200:
+
+        ::
+
+          <recv response="180" optional="true" timeout="4000" ontimeout="5">
+          </recv>
+          <recv response="200" timeout="4000" ontimeout="5">
+          </recv>
     * -
       - ``ontimeout``
       - Specify a label to jump to if the timeout popped before the message to be received.
