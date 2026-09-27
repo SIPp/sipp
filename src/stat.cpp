@@ -172,10 +172,6 @@ CStat::~CStat()
         M_outputStreamRtt->close();
         delete M_outputStreamRtt;
     }
-    if(M_fileNameRtt != nullptr)
-        delete [] M_fileNameRtt;
-
-
     if(M_dumpRespTime != nullptr)
         delete [] M_dumpRespTime;
 
@@ -190,7 +186,7 @@ CStat::~CStat()
     M_outputStream                  = nullptr;
 
     M_outputStreamRtt               = nullptr;
-    M_fileNameRtt                   = nullptr;
+    M_fileNameRtt.clear();
     M_dumpRespTime                  = nullptr;
 }
 
@@ -370,19 +366,10 @@ void CStat::setFileName(const char* P_name)
 void CStat::initRtt(const char* P_name, const char* P_extension,
                     unsigned long P_report_freq_dumpRtt)
 {
-    int sizeOf, sizeOfExtension;
-
     if(P_name != nullptr) {
-        sizeOf = strlen(P_name) ;
-        if(sizeOf > 0) {
-            //  4 for '_rtt' and 6 for pid
-            sizeOf += 10 ;
-            sizeOfExtension = strlen(P_extension);
-            if(M_fileNameRtt != nullptr)
-                delete [] M_fileNameRtt;
-            sizeOf += sizeOfExtension;
-            M_fileNameRtt = new char[sizeOf+1];
-            sprintf (M_fileNameRtt, "%s_%ld_rtt%s", P_name, (long) getpid(),P_extension);
+        if(*P_name) {
+            M_fileNameRtt = std::string(P_name) + "_" + std::to_string(getpid()) +
+                            "_rtt" + P_extension;
         } else {
             std::cerr << "new file name length is null - "
                  << "keeping the default filename : "
@@ -1078,13 +1065,11 @@ CStat::CStat ()
     M_CallLengthRepartition   = nullptr;
     M_SizeOfResponseTimeRepartition = 0;
     M_SizeOfCallLengthRepartition   = 0;
-    M_fileNameRtt = nullptr;
     M_genericCounters = nullptr;
     M_time_ref = 0.0                   ;
     M_dumpRespTime = nullptr              ;
     M_counterDumpRespTime = 0          ;
     M_dumpRespTime = nullptr;
-    M_fileNameRtt  = nullptr;
     M_rtdInfo = nullptr;
     M_rtpEchoErrors = 0;
 
