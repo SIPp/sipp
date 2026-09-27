@@ -1123,7 +1123,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
 
     if (useShortMessagef == 1) {
         TRACE_SHORTMSG("%s\tR\t%s\tCSeq:%s\t%s\n",
-                       CStat::formatTime(&currentTime), call_id, get_header_content(msg, "CSeq:"), get_first_line(msg));
+                       CStat::formatTime(&currentTime, rfc3339), call_id, get_header_content(msg, "CSeq:"), get_first_line(msg));
     }
 
     if (useMessagef == 1) {
