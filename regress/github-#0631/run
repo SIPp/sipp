@@ -1,7 +1,9 @@
 #!/bin/sh
 # This regression test is a part of SIPp.
 # rtp_stream playing a file in a call with SRTP keys sends SRTP (the
-# payload plus a 10-byte AES_CM_128_HMAC_SHA1_80 tag), not plain RTP.
+# payload plus a 10-byte AES_CM_128_HMAC_SHA1_80 tag), not plain RTP;
+# and overlapping calls playing a pattern or a file each use their own
+# SRTP keys, so that the UAS decrypts and echoes every call.
 . "`dirname "$0"`/../functions"; init
 
 rm -f rtp.len
@@ -11,19 +13,50 @@ perl -e '
     bind(S,pack_sockaddr_in(26710,inet_aton("127.0.0.1")))&&
     setsockopt(S,SOL_SOCKET,SO_RCVTIMEO,pack("L!L!",5,0))&&
     recv(S,$o,2048,0))||die($!);print length($o),"\n";' >rtp.len &
-sippbg -sf uas.xml -i 127.0.0.1 -p 25700 -m 1
+sippbg -sf uas.xml -i 127.0.0.1 -p 25700 -m 1 -timeout 20
 sippfg -sf uac.xml -i 127.0.0.1 -p 25701 -m 1 \
     -min_rtp_port 26700 -max_rtp_port 26709 \
     127.0.0.1:25700 -timeout 8 -timeout_error >/dev/null 2>&1
 status=$?
 wait
 len=`cat rtp.len`
-rm -f rtp.len silence.raw
+rm -f rtp.len
 
 if test $status -ne 0; then
+    rm -f silence.raw
     fail "UAC failed with $status"
 elif test "$len" != 182; then
+    rm -f silence.raw
     fail "got a ${len:-no} byte RTP packet, not 182 (SRTP)"
+fi
+
+# Two overlapping calls playing a pattern, then two playing a file; the
+# UAS logs whether it could decrypt each packet it echoes.
+rm -f debug*file* srtpctxdebugfile*
+sippbg -sf uasl.xml -i 127.0.0.1 -p 25702 -m 4 -srtpcheck_debug \
+    -min_rtp_port 26720 -max_rtp_port 26759 -timeout 30
+uas=$pid
+sippfg -sf uacp.xml -i 127.0.0.1 -p 25703 -m 2 -l 2 -r 10 \
+    -min_rtp_port 26760 -max_rtp_port 26799 -audiotolerance 0.2 \
+    127.0.0.1:25702 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+sippfg -sf uac.xml -i 127.0.0.1 -p 25703 -m 2 -l 2 -r 20 \
+    -min_rtp_port 26760 -max_rtp_port 26799 \
+    127.0.0.1:25702 -timeout 10 -timeout_error >/dev/null 2>&1
+fstatus=$?
+wait $uas
+decrypted=`cat debugrefileaudio_*.log | grep -c 'processIncomingPacket() rc == 0'`
+rejected=`cat debugrefileaudio_*.log | grep -c 'processIncomingPacket() rc == -'`
+rm -f silence.raw debug*file* srtpctxdebugfile*
+
+if test $status -eq 253; then
+    fail "a call playing a pattern did not get its echo back"
+elif test $status -ne 0; then
+    fail "UAC playing a pattern failed with $status"
+elif test $fstatus -ne 0; then
+    fail "UAC playing a file failed with $fstatus"
+elif test $rejected -ne 0 || test $decrypted -eq 0; then
+    fail "the UAS rejected $rejected SRTP packets, decrypted $decrypted"
 else
     ok
 fi
