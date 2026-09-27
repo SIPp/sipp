@@ -7,6 +7,9 @@ init() {
 
     # Print a nice message.
     printf "Testing %s: " "`basename \`pwd\``"
+
+    # Find sipp once, and stop here if it isn't there.
+    SIPP=`get_sipp` || fail
 }
 
 # Allow SIPP=/path/to/sipp to override autodetection.  Please use an
@@ -15,14 +18,20 @@ get_sipp() {
     if test -z "$SIPP"; then
         # The cd in init() jumps to the directory where the test lives.
         # We traverse upwards in the directory until we find the sipp
-        # binary.
+        # binary, next to the sources (in-source build) or in build/.
         tmp=`pwd`
-        while ! test -x "$tmp/sipp"; do
-            tmp=`dirname "$tmp"`
+        while :; do
+            for f in "$tmp/sipp" "$tmp/build/sipp"; do
+                if test -f "$f" && test -x "$f"; then
+                    echo "$f"
+                    return 0
+                fi
+            done
             test "$tmp" = "/" && break
+            tmp=`dirname "$tmp"`
         done
-        test -x "$tmp/sipp" || exit 1
-        SIPP="$tmp/sipp"
+        echo "sipp not found; set SIPP=/path/to/sipp" >&2
+        return 1
     fi
     echo "$SIPP"
 }
