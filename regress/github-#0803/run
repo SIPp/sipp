@@ -1,0 +1,25 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Two SIPp started together pick different lines of a RANDOM CSV: the
+# uniform pause used to reseed rand() with the time, throwing away the
+# per-process seed.
+. "`dirname "$0"`/../functions"; init
+
+rm -f a.log b.log
+{ echo RANDOM; seq 1 1000; } >lines.csv
+sippfg -sf uac.xml -inf lines.csv -m 10 -r 100 -l 1 -p 25610 127.0.0.1:25612 \
+    -trace_logs -log_file a.log >/dev/null 2>&1 &
+sippfg -sf uac.xml -inf lines.csv -m 10 -r 100 -l 1 -p 25611 127.0.0.1:25612 \
+    -trace_logs -log_file b.log >/dev/null 2>&1
+wait
+a=`cat a.log 2>/dev/null`
+b=`cat b.log 2>/dev/null`
+rm -f a.log b.log lines.csv
+
+if test `echo "$a" | wc -l` -ne 10 || test `echo "$b" | wc -l` -ne 10; then
+    fail "not 10 lines logged by each"
+elif test "$a" = "$b"; then
+    fail "both picked the same lines"
+else
+    ok
+fi
