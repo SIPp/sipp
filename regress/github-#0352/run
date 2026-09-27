@@ -1,0 +1,58 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# With -users and -r, the users' first calls start at the rate rather
+# than all at once, and then each user starts its next call when its
+# last one ends. Calls shorter than the ramp end during it, and do not
+# cut it short: the rest of the users' calls do not start at once.
+. "`dirname "$0"`/../functions"; init
+
+# Print the ms after the first call that each call started. A slow
+# startup opens at once the calls it is behind the rate on: -cp spares
+# it the search for a free control port.
+uac() {
+    rm -f uac.log
+    sippfg -sf uac.xml -nr -i 127.0.0.1 -p 25940 -cp 25942 127.0.0.1:25941 \
+        -trace_msg -message_file uac.log -timeout 8 -timeout_error \
+        "$@" >/dev/null 2>&1 || echo "status $?"
+    sed -n 's/^-* [0-9-]*T\([0-9]*\):\([0-9]*\):\([0-9.]*\).*/\1 \2 \3/p' \
+        uac.log 2>/dev/null | awk '{ t = ($1 * 60 + $2) * 60 + $3 }
+        NR == 1 { first = t } { printf "%d\n", (t - first) * 1000 }'
+    rm -f uac.log
+}
+
+# 1.5 s calls, 1 per second: the 2nd call starts at the rate, and the
+# 3rd once the 1st user is free.
+out=`uac -users 2 -r 1 -m 3 -d 1500`
+second=`echo "$out" | sed -n 2p`
+third=`echo "$out" | sed -n 3p`
+
+# 300 ms calls, so only 3 of the 10 users' calls at a time at 10 per
+# second: the most calls after startup that started within 200 ms. A
+# startup slow enough to open most users' calls at once ends the ramp
+# early, legitimately: try again.
+for try in 1 2 3; do
+    out2=`uac -users 10 -r 10 -m 16 -d 300`
+    slow=`echo "$out2" | awk '!/status/ && $1 < 50' | wc -l`
+    test $slow -le 3 && break
+done
+calls=`echo "$out2" | grep -vc status`
+most=`echo "$out2" | awk '!/status/ && $1 >= 50 { t[NR] = $1 }
+    END { for (i in t) { n = 0; for (j in t) if (t[j] >= t[i] &&
+    t[j] - t[i] < 200) n++; if (n > most) most = n }; print most + 0 }'`
+
+status=`echo "$out$out2" | grep status`
+if test -n "$status"; then
+    fail "UAC failed with $status"
+elif test "${second:-0}" -lt 200; then
+    fail "the 2nd call started ${second}ms after the first, not at the rate"
+elif test "${third:-0}" -lt 1400; then
+    fail "the 3rd call started ${third}ms after the first, before a user was free"
+elif test $slow -gt 3; then
+    skip "sipp starts too slowly"
+elif test "$calls" -ne 16; then
+    fail "$calls calls started, not 16"
+elif test "$most" -gt 4; then
+    fail "$most calls started within 200ms, not at the rate"
+else
+    ok
+fi

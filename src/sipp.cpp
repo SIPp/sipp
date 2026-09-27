@@ -127,6 +127,7 @@ struct sipp_option {
 #define SIPP_OPTION_RX_SCENARIO   40
 #define SIPP_OPTION_RX_INPUT_FILE 41
 #define SIPP_OPTION_NO_DEFAULTS   42
+#define SIPP_OPTION_RATE          43
 #define SIPP_HELP_TEXT_HEADER    255
 
 static char *call_id_mode_string = nullptr;
@@ -708,7 +709,7 @@ struct sipp_option options_table[] = {
      "pressing '-' key to decrease call rate by 1 * rate_scale,\n"
      "pressing '*' key to increase call rate by 10 * rate_scale,\n"
      "pressing '/' key to decrease call rate by 10 * rate_scale.\n",
-     SIPP_OPTION_FLOAT, &rate, 1},
+     SIPP_OPTION_RATE, &rate, 1},
     {"rp", "Specify the rate period for the call rate.  Default is 1 second and default unit is milliseconds.  This allows you to have n calls every m milliseconds (by using -r n -rp m).\n"
      "Example: -r 7 -rp 2000 ==> 7 calls every 2 seconds.\n         -r 10 -rp 5s => 10 calls every 5 seconds.", SIPP_OPTION_TIME_MS, &rate_period_ms, 1},
     {"rate_scale", "Control the units for the '+', '-', '*', and '/' keys.", SIPP_OPTION_FLOAT, &rate_scale, 1},
@@ -726,7 +727,7 @@ struct sipp_option options_table[] = {
      "  (3 * call_duration (s) * rate).", SIPP_OPTION_LIMIT, nullptr, 1},
     {"m", "Stop the test and exit when 'calls' calls are processed", SIPP_OPTION_LONG, &stop_after, 1},
     {"m_csv", "Stop the test and exit when as many calls as the first -inf file has lines are processed, e.g. to use each line of a SEQUENTIAL file once.", SIPP_OPTION_SETFLAG, &stop_after_csv, 1},
-    {"users", "Instead of starting calls at a fixed rate, begin 'users' calls at startup, and keep the number of calls constant.", SIPP_OPTION_USERS, nullptr, 1},
+    {"users", "Instead of starting calls at a fixed rate, begin 'users' calls at startup, and keep the number of calls constant. With -r, start them at that rate rather than all at once.", SIPP_OPTION_USERS, nullptr, 1},
 
 
     {"", "Retransmission and timeout options:", SIPP_HELP_TEXT_HEADER, nullptr, 0},
@@ -1958,6 +1959,12 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 *((double*)option->data) = get_double(argv[argi], argv[argi - 1]);
+                break;
+            case SIPP_OPTION_RATE:
+                REQUIRE_ARG();
+                CHECK_PASS();
+                *((double*)option->data) = get_double(argv[argi], argv[argi - 1]);
+                rate_set = true;
                 break;
             case SIPP_OPTION_STRING:
                 REQUIRE_ARG();
