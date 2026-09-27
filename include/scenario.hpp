@@ -86,6 +86,8 @@ public:
     unsigned int   retrans_delay;
     /* The receive/send timeout. */
     unsigned int   timeout;
+    /* The variable holding the receive timeout, or -1. */
+    int            timeout_variable;
 
     /* 3pcc extended mode: if this is a sendCmd */
     char         * peer_dest;

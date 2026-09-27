@@ -35,6 +35,7 @@
 <!ATTLIST recv auth (true|false) #IMPLIED >
 <!ATTLIST recv lost NMTOKEN #IMPLIED >
 <!ATTLIST recv timeout NMTOKEN #IMPLIED >
+<!ATTLIST recv timeout_variable NMTOKEN #IMPLIED >
 <!ATTLIST recv ontimeout NMTOKEN #IMPLIED >
 <!ATTLIST recv regexp_match (true|false) #IMPLIED >
 <!ATTLIST recv response_txn NMTOKEN #IMPLIED >

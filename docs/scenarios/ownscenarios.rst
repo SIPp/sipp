@@ -335,6 +335,22 @@ List of commands with their attributes
           <recv response="200" timeout="4000" ontimeout="5">
           </recv>
     * -
+      - ``timeout_variable``
+      - Like ``timeout``, but the timeout is read, in milliseconds, from
+        the given call variable each time the call reaches this message.
+        A string variable (e.g. assigned from a CSV field) is converted
+        like ``<todouble>`` does. A variable that is not a number, or is
+        less than 1, sets no timeout. Cannot be used together with
+        ``timeout``.
+      - ::
+
+          <nop>
+            <action>
+              <assignstr assign_to="wait" value="[field3]" />
+            </action>
+          </nop>
+          <recv request="BYE" timeout_variable="wait" ontimeout="5">
+    * -
       - ``ontimeout``
       - Specify a label to jump to if the timeout popped before the message to be received.
       - Example to jump to label "5" when not receiving a 100 message after

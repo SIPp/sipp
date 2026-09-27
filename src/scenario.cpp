@@ -52,6 +52,7 @@ message::message(int index, const char *desc)
     send_scheme = nullptr; // delete on exit
     retrans_delay = 0;
     timeout = 0;
+    timeout_variable = -1;
 
     recv_response = nullptr; // free on exit
     recv_request = nullptr; // free on exit
@@ -946,6 +947,10 @@ scenario::scenario(char * filename, int deflt)
                 }
 
                 curmsg->timeout = xp_get_long("timeout", "message timeout", 0);
+                curmsg->timeout_variable = xp_get_var("timeout_variable", "recv", -1);
+                if (curmsg->timeout_variable != -1 && xp_get_value("timeout")) {
+                    ERROR("timeout and timeout_variable cannot both be set (index = %zu)", messages.size() - 1);
+                }
 
                 /* record the route set  */
                 /* TODO disallow optional and rrs to coexist? */
