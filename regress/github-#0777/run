@@ -1,0 +1,16 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# With -t un, a setdest before the call's first message gets the call
+# its socket instead of failing with "Unable to get a socket".
+. "`dirname "$0"`/../functions"; init
+
+sippbg -sf uas.xml -i 127.0.0.1 -p 25230 -m 2
+sippfg -sf uac.xml -t un -i 127.0.0.1 -p 25231 -m 2 127.0.0.1:25230 \
+    -timeout 5 -timeout_error >/dev/null 2>&1
+status=$?
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+else
+    ok
+fi
