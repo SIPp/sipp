@@ -36,7 +36,13 @@ sippversion() {
 }
 
 sippfg() {
-    timeout -sKILL 183 "`get_sipp`" -nostdin "$@"
+    # GNU timeout, if there is one (gtimeout from coreutils on macOS).
+    to=`command -v timeout || command -v gtimeout`
+    if test -n "$to"; then
+        "$to" -sKILL 183 "`get_sipp`" -nostdin "$@"
+    else
+        "`get_sipp`" -nostdin "$@"
+    fi
 }
 
 sippbg() {
