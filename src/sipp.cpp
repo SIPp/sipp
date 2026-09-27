@@ -538,7 +538,8 @@ struct sipp_option options_table[] = {
     {"sf", "Loads an alternate XML scenario file.  To learn more about XML scenario syntax, use the -sd option to dump embedded scenarios. They contain all the necessary help.", SIPP_OPTION_SCENARIO, nullptr, 2},
     {"rxsf", "Loads an alternate receive xml scenario file as the second scenario - enabling a mixture of originating and terminating calls to be executed.\n"
      "If this is included then the second scenario MUST be a server mode scenario, and the first scenario (specified in -sf / -sn) MUST be a client-mode scenario.\n"
-     "If both -snrx and -sfrx are omitted then only a single scenario is executed.", SIPP_OPTION_RX_SCENARIO, NULL, 2},
+     "If both -rxsf and -rxsn are omitted then only a single scenario is executed.", SIPP_OPTION_RX_SCENARIO, NULL, 2},
+    {"rxsn", "Use a default scenario (embedded in the SIPp executable) as the receive scenario, as -rxsf does with a file.", SIPP_OPTION_RX_SCENARIO, NULL, 2},
     {"oocsf", "Load out-of-call scenario.", SIPP_OPTION_OOC_SCENARIO, nullptr, 2},
     {"oocsn", "Load out-of-call scenario.", SIPP_OPTION_OOC_SCENARIO, nullptr, 2},
     {
