@@ -272,29 +272,22 @@ static SrtpDebugFile debugrsrtpvfile(Where::Remote, Type::Video);
 static RtpEchoDebugFile debugrefileaudio(Type::Audio);
 static RtpEchoDebugFile debugrefilevideo(Type::Video);
 
-// RTPSTREAM ECHO
-pthread_t    pthread_audioecho_id;
-pthread_t    pthread_videoecho_id;
-static bool quit_audioecho_thread = false;
-static bool quit_videoecho_thread = false;
-pthread_mutex_t quit_mutexaudio = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t quit_mutexvideo = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t quit_cvaudio = PTHREAD_COND_INITIALIZER;
-pthread_cond_t quit_cvvideo = PTHREAD_COND_INITIALIZER;
+// RTPSTREAM ECHO -- a call's audio or video echo, which its playback
+// thread does; guarded by the task's mutex
+struct rtpecho_t
+{
+    SrtpChannel rx;
+    SrtpChannel tx;
+    bool error = false; /* failed to receive */
+};
 
 // JLSRTP contexts
 SrtpChannel g_txUACAudio;
 SrtpChannel g_rxUACAudio;
 SrtpChannel g_txUACVideo;
 SrtpChannel g_rxUACVideo;
-SrtpChannel g_rxUASAudio;
-SrtpChannel g_txUASAudio;
-SrtpChannel g_rxUASVideo;
-SrtpChannel g_txUASVideo;
 pthread_mutex_t uacAudioMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t uacVideoMutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t uasAudioMutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t uasVideoMutex = PTHREAD_MUTEX_INITIALIZER;
 
 //===================================================================================================
 
@@ -462,6 +455,9 @@ static void rtpstream_free_taskinfo(taskentry_t* taskinfo)
         if (taskinfo->video_rtcp_socket != -1) {
             close(taskinfo->video_rtcp_socket);
         }
+
+        delete taskinfo->audio_echo;
+        delete taskinfo->video_echo;
 
         /* cleanup pthread library structure */
         pthread_mutex_destroy(&(taskinfo->mutex));
@@ -1163,6 +1159,151 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     return next_wake;
 }
 
+/* rtp_echo: send the packets waiting on a call's audio or video RTP
+ * socket back to where they came from, through its UAS SRTP contexts */
+static void rtpstream_echotask(taskentry_t* taskinfo, bool video)
+{
+    const RtpEchoDebugFile& debugrefile = video ? debugrefilevideo : debugrefileaudio;
+    const char* media = video ? "VIDEO" : "AUDIO";
+    std::vector<unsigned char> msg(media_bufsize);
+    ssize_t nr;
+    ssize_t ns;
+    sipp_socklen_t len;
+    struct sockaddr_storage remote_rtp_addr;
+    int rc = 0;
+    std::vector<unsigned char> rtp_header;
+    std::vector<unsigned char> payload_data;
+    std::vector<unsigned char> packet_in;
+    std::vector<unsigned char> packet_out;
+    unsigned short seq_num = 0;
+    unsigned short host_flags = 0;
+    unsigned short host_seqnum = 0;
+    unsigned int host_timestamp = 0;
+    unsigned int host_ssrc = 0;
+
+    pthread_mutex_lock(&(taskinfo->mutex));
+    rtpecho_t* echo = video ? taskinfo->video_echo : taskinfo->audio_echo;
+    int sock = video ? taskinfo->video_rtp_socket : taskinfo->audio_rtp_socket;
+    if (!(video ? taskinfo->video_srtp_echo_active : taskinfo->audio_srtp_echo_active) || !echo || sock == -1)
+    {
+        pthread_mutex_unlock(&(taskinfo->mutex));
+        return;
+    }
+    SrtpChannel& rx = echo->rx;
+    SrtpChannel& tx = echo->tx;
+
+    for (;;)
+    {
+        std::fill(msg.begin(), msg.end(), 0);
+        len = sizeof(remote_rtp_addr);
+        packet_in.resize(sizeof(rtp_header_t) + rx.getSrtpPayloadSize() + rx.getAuthenticationTagSize(), 0);
+        nr = recvfrom(sock, packet_in.data(), packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
+
+        if (nr < 0)
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                // No more data to be read
+                break;
+            }
+            if (errno == ECONNREFUSED)
+            {
+                // An ICMP port unreachable for an earlier echo: the peer
+                // has closed its port, typically as its call ends.
+                debugrefile.printf("%s echo peer port unreachable (ECONNREFUSED)...\n", media);
+                continue;
+            }
+            // Other error occurred during read
+            debugrefile.printf("Error on RTP echo reception - unable to perform rtpstream %s echo - errno = %d\n", media, errno);
+            echo->error = true;
+            break;
+        }
+
+        // Good to go -- buffer should contain "nr" bytes
+        seq_num = (packet_in[2] << 8) | packet_in[3];
+
+        debugrefile.printReceived(packet_in.data(), nr);
+        /* The packet to echo, without SRTP. */
+        size_t plain_len = nr;
+        if (rx.getCryptoTag() != 0)
+        {
+            rtp_header.clear();
+            payload_data.clear();
+
+            // DECRYPT
+            rx.setSSRC(ntohl(((rtp_header_t*)packet_in.data())->ssrc_id)); // set incoming SSRC id
+            rc = rx.processIncomingPacket(seq_num, packet_in, rtp_header, payload_data);
+            debugrefile.printf("RXUAS%s -- processIncomingPacket() rc == %d\n", media, rc);
+
+            host_flags = ntohs(((rtp_header_t*)packet_in.data())->flags);
+            host_seqnum = ntohs(((rtp_header_t*)packet_in.data())->seq);
+            host_timestamp = ntohl(((rtp_header_t*)packet_in.data())->timestamp);
+            host_ssrc = ntohl(((rtp_header_t*)packet_in.data())->ssrc_id);
+
+            packet_in[0] = (host_flags >> 8) & 0xFF;
+            packet_in[1] = host_flags & 0xFF;
+            packet_in[2] = (host_seqnum >> 8) & 0xFF;
+            packet_in[3] = host_seqnum & 0xFF;
+            packet_in[4] = (host_timestamp >> 24) & 0xFF;
+            packet_in[5] = (host_timestamp >> 16) & 0xFF;
+            packet_in[6] = (host_timestamp >> 8) & 0xFF;
+            packet_in[7] = host_timestamp & 0xFF;
+            packet_in[8] = (host_ssrc >> 24) & 0xFF;
+            packet_in[9] = (host_ssrc >> 16) & 0xFF;
+            packet_in[10] = (host_ssrc >> 8) & 0xFF;
+            packet_in[11] = host_ssrc & 0xFF;
+
+            memcpy(msg.data(), rtp_header.data(), rtp_header.size());
+            memcpy(msg.data() + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
+            plain_len = sizeof(rtp_header_t) + payload_data.size();
+        }
+        else
+        {
+            memcpy(msg.data(), packet_in.data(), nr);
+        }
+
+        if (tx.getCryptoTag() != 0)
+        {
+            packet_out.clear();
+
+            // GRAB RTP HEADER
+            rtp_header.resize(sizeof(rtp_header_t), 0);
+            memcpy(rtp_header.data(), msg.data(), sizeof(rtp_header_t) /*12*/);
+            // GRAB RTP PAYLOAD DATA
+            payload_data.resize(tx.getSrtpPayloadSize(), 0);
+            memcpy(payload_data.data(), msg.data() + sizeof(rtp_header_t), tx.getSrtpPayloadSize());
+
+            // ENCRYPT
+            tx.setSSRC(ntohl(((rtp_header_t*)packet_in.data())->ssrc_id)); // set incoming SSRC id
+            rc = tx.processOutgoingPacket(seq_num, rtp_header, payload_data, packet_out);
+            debugrefile.printf("TXUAS%s -- processOutgoingPacket() rc == %d\n", media, rc);
+        }
+        else
+        {
+            /* Plain RTP goes back as it came. */
+            packet_out.assign(msg.data(), msg.data() + plain_len);
+        }
+
+        ns = sendto(sock, packet_out.data(), packet_out.size(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
+
+        if (ns != nr) {
+            debugrefile.printf("DATA SUCCESSFULLY SENT [%s] seq_num = [%u] -- MISMATCHED RECV/SENT BYTE COUNT -- errno = %d nr = %d ns = %d\n",
+                               media, seq_num, errno, int(nr), int(ns));
+        } else {
+            debugrefile.printf("DATA SUCCESSFULLY SENT [%s] seq_num = [%u]...\n", media, seq_num);
+        }
+
+        if (video) {
+            rtp2_pckts++;
+            rtp2_bytes += ns;
+        } else {
+            rtp_pckts++;
+            rtp_bytes += ns;
+        }
+    }
+    pthread_mutex_unlock(&(taskinfo->mutex));
+}
+
 /* code checked */
 static void* rtpstream_playback_thread(void* params)
 {
@@ -1181,6 +1322,9 @@ static void* rtpstream_playback_thread(void* params)
     std::vector<unsigned long> rs_vpackets;
     std::vector<unsigned long> rs_artpcheck;
     std::vector<unsigned long> rs_vrtpcheck;
+    /* the RTP sockets of the calls to echo, and their call, video or not */
+    std::vector<struct pollfd> echo_fds;
+    std::vector<std::pair<taskentry_t*, bool>> echo_tasks;
     double verdict;
 
     comparison_acheck = 0;
@@ -1295,10 +1439,38 @@ static void* rtpstream_playback_thread(void* params)
             {
                 waketime_ms = taskinfo->nextwake_ms;
             }
+
+            /* watch the sockets of the calls to echo */
+            if (taskinfo->audio_srtp_echo_active && taskinfo->audio_rtp_socket != -1)
+            {
+                echo_fds.push_back({taskinfo->audio_rtp_socket, POLLIN, 0});
+                echo_tasks.push_back({taskinfo, false});
+            }
+            if (taskinfo->video_srtp_echo_active && taskinfo->video_rtp_socket != -1)
+            {
+                echo_fds.push_back({taskinfo->video_rtp_socket, POLLIN, 0});
+                echo_tasks.push_back({taskinfo, true});
+            }
         }
-        /* sleep until next iteration of playback loop */
+        /* sleep until next iteration of playback loop, or until there
+         * is a packet to echo */
         sleeptime_us = (waketime_ms - getmilliseconds()) * 1000;
-        if (sleeptime_us > 0)
+        if (!echo_fds.empty())
+        {
+            if (poll(echo_fds.data(), echo_fds.size(), sleeptime_us > 0 ? sleeptime_us / 1000 : 0) > 0)
+            {
+                for (size_t i = 0; i < echo_fds.size(); i++)
+                {
+                    if (echo_fds[i].revents)
+                    {
+                        rtpstream_echotask(echo_tasks[i].first, echo_tasks[i].second);
+                    }
+                }
+            }
+            echo_fds.clear();
+            echo_tasks.clear();
+        }
+        else if (sleeptime_us > 0)
         {
             usleep(sleeptime_us);
         }
@@ -1609,17 +1781,6 @@ int rtpstream_new_call(rtpstream_callinfo_t* callinfo)
 void rtpstream_end_call(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_end_call callinfo=%p\n", callinfo);
-
-    /* stop the echo threads of a call that ended without stopping them,
-     * before its sockets are closed under them */
-    if (callinfo->taskinfo) {
-        if (callinfo->taskinfo->audio_srtp_echo_active) {
-            rtpstream_rtpecho_stopaudio(callinfo);
-        }
-        if (callinfo->taskinfo->video_srtp_echo_active) {
-            rtpstream_rtpecho_stopvideo(callinfo);
-        }
-    }
 
     /* stop playback thread(s) for this call */
     rtpstream_stop_task(callinfo);
@@ -2501,413 +2662,39 @@ void rtpstream_resumevpattern(rtpstream_callinfo_t* callinfo)
     }
 }
 
-void rtpstream_audioecho_thread(void* param)
+/* Start or update the echo of a call's audio or video, which the call's
+ * playback thread does, with the call's UAS SRTP contexts. */
+static void rtpstream_rtpecho_set(taskentry_t* taskinfo, bool video, bool start,
+                                  JLSRTP& rxUAS, JLSRTP& txUAS)
 {
-    int exit_code = 0;
-    my_unique_ptr<unsigned char[]> msg {
-        reinterpret_cast<unsigned char*>(malloc(media_bufsize)) };
-    ssize_t nr;
-    ssize_t ns;
-    sipp_socklen_t len;
-    struct sockaddr_storage remote_rtp_addr;
-    sigset_t              mask;
-    int rc = 0;
-    int sock = 0;
-    int flags;
-    std::vector<unsigned char> rtp_header;
-    std::vector<unsigned char> payload_data;
-    std::vector<unsigned char> audio_packet_in;
-    std::vector<unsigned char> audio_packet_out;
-    unsigned short seq_num = 0;
-    unsigned short host_flags = 0;
-    unsigned short host_seqnum = 0;
-    unsigned int host_timestamp = 0;
-    unsigned int host_ssrc = 0;
-    bool abnormal_termination = false;
-    quit_audioecho_thread = false;
-    ParamPass p;
-
-
-    p.p = param;
-
-    if (param != nullptr)
-    {
-        sock = p.i;
+    pthread_mutex_lock(&(taskinfo->mutex));
+    rtpecho_t*& echo = video ? taskinfo->video_echo : taskinfo->audio_echo;
+    if (!echo) {
+        echo = new rtpecho_t;
     }
-
-    if ((flags = fcntl(sock, F_GETFL, 0)) < 0)
-    {
-        debugrefileaudio.printf("rtp_audioecho_thread():  fcntl() GETFL UNBLOCK failed...\n");
-        pthread_exit((void*) 1);
+    echo->rx = rxUAS;
+    echo->tx = txUAS;
+    if (start) {
+        echo->error = false;
+        (video ? taskinfo->video_srtp_echo_active : taskinfo->audio_srtp_echo_active) = 1;
     }
-
-    if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) < 0)
-    {
-        debugrefileaudio.printf("rtp_audioecho_thread():  fcntl() SETFL UNBLOCK failed...\n");
-        pthread_exit((void*) 2);
-    }
-
-    sigfillset(&mask); /* Mask all allowed signals */
-    rc = pthread_sigmask(SIG_BLOCK, &mask, nullptr);
-    if (rc) {
-        //WARNING("pthread_sigmask returned %d in rtpstream_echo_thread", rc);
-        debugrefileaudio.printf("pthread_sigmask returned %d in rtpstream_audioecho_thread", rc);
-        pthread_exit((void*) 3);
-    }
-
-    pthread_mutex_lock(&quit_mutexaudio);
-    while (!quit_audioecho_thread)
-    {
-        /* Wait for a packet, or at most 10 ms so that a stop request is
-         * seen soon. pthread_cond_timedwait() was given a relative 10 ms
-         * where it wants an absolute time, so it returned at once and the
-         * loop spun on the CPU. */
-        pthread_mutex_unlock(&quit_mutexaudio);
-        struct pollfd pfd = {};
-        pfd.fd = sock;
-        pfd.events = POLLIN;
-        poll(&pfd, 1, 10);
-        pthread_mutex_lock(&quit_mutexaudio);
-        if (!quit_audioecho_thread)
-        {
-            pthread_mutex_lock(&uasAudioMutex);
-            nr = 0;
-            memset(msg.get(), 0, media_bufsize);
-            len = sizeof(remote_rtp_addr);
-            audio_packet_in.resize(sizeof(rtp_header_t) + g_rxUASAudio.getSrtpPayloadSize() + g_rxUASAudio.getAuthenticationTagSize(), 0);
-            nr = recvfrom(sock, audio_packet_in.data(), audio_packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
-
-            if (nr >= 0) {
-                // Good to go -- buffer should contain "nr" bytes
-                seq_num = 0;
-                seq_num = (audio_packet_in[2] << 8) | audio_packet_in[3];
-
-                debugrefileaudio.printReceived(audio_packet_in.data(), nr);
-                /* The packet to echo, without SRTP. */
-                size_t plain_len = nr;
-                if (g_rxUASAudio.getCryptoTag() != 0)
-                {
-                    rtp_header.clear();
-                    payload_data.clear();
-
-                    // DECRYPT
-                    g_rxUASAudio.setSSRC(ntohl(((rtp_header_t*)audio_packet_in.data())->ssrc_id)); // set incoming SSRC id
-                    rc = g_rxUASAudio.processIncomingPacket(seq_num, audio_packet_in, rtp_header, payload_data);
-                    debugrefileaudio.printf("RXUASAUDIO -- processIncomingPacket() rc == %d\n", rc);
-
-                    host_flags = ntohs(((rtp_header_t*)audio_packet_in.data())->flags);
-                    host_seqnum = ntohs(((rtp_header_t*)audio_packet_in.data())->seq);
-                    host_timestamp = ntohl(((rtp_header_t*)audio_packet_in.data())->timestamp);
-                    host_ssrc = ntohl(((rtp_header_t*)audio_packet_in.data())->ssrc_id);
-
-                    audio_packet_in[0] = (host_flags >> 8) & 0xFF;
-                    audio_packet_in[1] = host_flags & 0xFF;
-                    audio_packet_in[2] = (host_seqnum >> 8) & 0xFF;
-                    audio_packet_in[3] = host_seqnum & 0xFF;
-                    audio_packet_in[4] = (host_timestamp >> 24) & 0xFF;
-                    audio_packet_in[5] = (host_timestamp >> 16) & 0xFF;
-                    audio_packet_in[6] = (host_timestamp >> 8) & 0xFF;
-                    audio_packet_in[7] = host_timestamp & 0xFF;
-                    audio_packet_in[8] = (host_ssrc >> 24) & 0xFF;
-                    audio_packet_in[9] = (host_ssrc >> 16) & 0xFF;
-                    audio_packet_in[10] = (host_ssrc >> 8) & 0xFF;
-                    audio_packet_in[11] = host_ssrc & 0xFF;
-
-                    memcpy(msg.get(), rtp_header.data(), rtp_header.size());
-                    memcpy(msg.get() + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
-                    plain_len = sizeof(rtp_header_t) + payload_data.size();
-                }
-                else
-                {
-                    memcpy(msg.get(), audio_packet_in.data(), nr);
-                }
-
-                if (g_txUASAudio.getCryptoTag() != 0)
-                {
-                    audio_packet_out.clear();
-
-                    // GRAB RTP HEADER
-                    rtp_header.resize(sizeof(rtp_header_t), 0);
-                    memcpy(rtp_header.data(), msg.get(), sizeof(rtp_header_t) /*12*/);
-                    // GRAB RTP PAYLOAD DATA
-                    payload_data.resize(g_txUASAudio.getSrtpPayloadSize(), 0);
-                    memcpy(payload_data.data(), msg.get() + sizeof(rtp_header_t), g_txUASAudio.getSrtpPayloadSize());
-
-                    // ENCRYPT
-                    g_txUASAudio.setSSRC(ntohl(((rtp_header_t*)audio_packet_in.data())->ssrc_id)); // set incoming SSRC id
-                    rc = g_txUASAudio.processOutgoingPacket(seq_num, rtp_header, payload_data, audio_packet_out);
-                    debugrefileaudio.printf("TXUASAUDIO -- processOutgoingPacket() rc == %d\n", rc);
-                }
-
-                else
-                {
-                    /* Plain RTP goes back as it came. */
-                    audio_packet_out.assign(msg.get(), msg.get() + plain_len);
-                }
-
-                ns = sendto(sock, audio_packet_out.data(), audio_packet_out.size(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
-
-                if (ns != nr) {
-                    debugrefileaudio.printf("DATA SUCCESSFULLY SENT [AUDIO] seq_num = [%u] -- MISMATCHED RECV/SENT BYTE COUNT -- errno = %d nr = %d ns = %d\n",
-                            seq_num, errno, int(nr), int(ns));
-                } else {
-                    debugrefileaudio.printf("DATA SUCCESSFULLY SENT [AUDIO] seq_num = [%u]...\n", seq_num);
-                }
-
-                rtp_pckts++;
-                rtp_bytes += ns;
-            }
-            else if ((nr < 0) &&
-                     (errno == EAGAIN)) {
-                // No data to be read (no activity on socket)
-                // debugrefileaudio.printf("No activity on audioecho socket (EAGAIN)...\n");
-            }
-            else if (errno == ECONNREFUSED) {
-                // An ICMP port unreachable for an earlier echo: the peer
-                // has closed its port, typically as its call ends.
-                debugrefileaudio.printf("audio echo peer port unreachable (ECONNREFUSED)...\n");
-            }
-            else {
-                // Other error occurred during read
-                //WARNING("%s %i", "Error on RTP echo reception - stopping rtpstream echo - errno = ", errno);
-                debugrefileaudio.printf("Error on RTP echo reception - unable to perform rtpstream audioecho - errno = %d\n", errno);
-                abnormal_termination = true;
-            }
-            pthread_mutex_unlock(&uasAudioMutex);
-        }
-        else
-        {
-            debugrefileaudio.printf("rtp_audioecho_thread():  pthread_cond_timedwait() non-timeout:  rc: %d quit_audioecho_thread: %d\n", rc, quit_audioecho_thread);
-        }
-    }
-    pthread_mutex_unlock(&quit_mutexaudio);
-
-    if ((flags = fcntl(sock, F_GETFL, 0)) < 0)
-    {
-        debugrefileaudio.printf("rtp_audioecho_thread():  fcntl() GETFL BLOCK failed...\n");
-        pthread_exit((void*) 6);
-    }
-
-    if (fcntl(sock, F_SETFL, flags & (~O_NONBLOCK)) < 0)
-    {
-        debugrefileaudio.printf("rtp_audioecho_thread():  fcntl() SETFL BLOCK failed...\n");
-        pthread_exit((void*) 7);
-    }
-
-    if (abnormal_termination)
-    {
-        exit_code = -1;
-    }
-    else
-    {
-        exit_code = 0;
-    }
-
-    pthread_exit((void*) (intptr_t) exit_code);
+    pthread_mutex_unlock(&(taskinfo->mutex));
 }
 
-void rtpstream_videoecho_thread(void* param)
+/* Stop the echo of a call's audio or video: -1 if it failed to receive. */
+static int rtpstream_rtpecho_stop(taskentry_t* taskinfo, bool video)
 {
-    int exit_code = 0;
-    my_unique_ptr<unsigned char[]> msg {
-        reinterpret_cast<unsigned char*>(malloc(media_bufsize)) };
-    ssize_t nr;
-    ssize_t ns;
-    sipp_socklen_t len;
-    struct sockaddr_storage remote_rtp_addr;
-    sigset_t              mask;
     int rc = 0;
-    int sock = 0;
-    int flags;
-    std::vector<unsigned char> rtp_header;
-    std::vector<unsigned char> payload_data;
-    std::vector<unsigned char> video_packet_in;
-    std::vector<unsigned char> video_packet_out;
-    unsigned short seq_num = 0;
-    unsigned short host_flags = 0;
-    unsigned short host_seqnum = 0;
-    unsigned int host_timestamp = 0;
-    unsigned int host_ssrc = 0;
-    bool abnormal_termination = false;
-    quit_videoecho_thread = false;
-    ParamPass p;
 
-
-    p.p = param;
-
-    if (param != nullptr)
-    {
-        sock = p.i;
+    pthread_mutex_lock(&(taskinfo->mutex));
+    rtpecho_t* echo = video ? taskinfo->video_echo : taskinfo->audio_echo;
+    (video ? taskinfo->video_srtp_echo_active : taskinfo->audio_srtp_echo_active) = 0;
+    if (echo && echo->error) {
+        rc = -1;
     }
+    pthread_mutex_unlock(&(taskinfo->mutex));
 
-    if ((flags = fcntl(sock, F_GETFL, 0)) < 0)
-    {
-        debugrefilevideo.printf("rtp_videoecho_thread():  fcntl() GETFL UNBLOCK failed...\n");
-        pthread_exit((void*) 1);
-    }
-
-    if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) < 0)
-    {
-        debugrefilevideo.printf("rtp_videoecho_thread():  fcntl() SETFL UNBLOCK failed...\n");
-        pthread_exit((void*) 2);
-    }
-
-    sigfillset(&mask); /* Mask all allowed signals */
-    rc = pthread_sigmask(SIG_BLOCK, &mask, nullptr);
-    if (rc) {
-        //WARNING("pthread_sigmask returned %d in rtpstream_echo_thread", rc);
-        debugrefilevideo.printf("pthread_sigmask returned %d in rtpstream_videoecho_thread", rc);
-        pthread_exit((void*) 3);
-    }
-
-    pthread_mutex_lock(&quit_mutexvideo);
-    while (!quit_videoecho_thread)
-    {
-        /* Wait for a packet, or at most 10 ms so that a stop request is
-         * seen soon. pthread_cond_timedwait() was given a relative 10 ms
-         * where it wants an absolute time, so it returned at once and the
-         * loop spun on the CPU. */
-        pthread_mutex_unlock(&quit_mutexvideo);
-        struct pollfd pfd = {};
-        pfd.fd = sock;
-        pfd.events = POLLIN;
-        poll(&pfd, 1, 10);
-        pthread_mutex_lock(&quit_mutexvideo);
-        if (!quit_videoecho_thread)
-        {
-            pthread_mutex_lock(&uasVideoMutex);
-            nr = 0;
-            memset(msg.get(), 0, media_bufsize);
-            len = sizeof(remote_rtp_addr);
-            video_packet_in.resize(sizeof(rtp_header_t) + g_rxUASVideo.getSrtpPayloadSize() + g_rxUASVideo.getAuthenticationTagSize(), 0);
-            nr = recvfrom(sock, video_packet_in.data(), video_packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
-
-            if (nr >= 0) {
-                // Good to go -- buffer should contain "nr" bytes
-                seq_num = 0;
-                seq_num = (video_packet_in[2] << 8) | video_packet_in[3];
-
-                debugrefilevideo.printReceived(video_packet_in.data(), nr);
-                /* The packet to echo, without SRTP. */
-                size_t plain_len = nr;
-                if (g_rxUASVideo.getCryptoTag() != 0)
-                {
-                    rtp_header.clear();
-                    payload_data.clear();
-                    // DECRYPT
-                    g_rxUASVideo.setSSRC(ntohl(((rtp_header_t*)video_packet_in.data())->ssrc_id)); // set incoming SSRC id
-                    rc = g_rxUASVideo.processIncomingPacket(seq_num, video_packet_in, rtp_header, payload_data);
-                    debugrefilevideo.printf("RXUASVIDEO -- processIncomingPacket() rc == %d\n", rc);
-
-                    host_flags = ntohs(((rtp_header_t*)video_packet_in.data())->flags);
-                    host_seqnum = ntohs(((rtp_header_t*)video_packet_in.data())->seq);
-                    host_timestamp = ntohl(((rtp_header_t*)video_packet_in.data())->timestamp);
-                    host_ssrc = ntohl(((rtp_header_t*)video_packet_in.data())->ssrc_id);
-
-                    video_packet_in[0] = (host_flags >> 8) & 0xFF;
-                    video_packet_in[1] = host_flags & 0xFF;
-                    video_packet_in[2] = (host_seqnum >> 8) & 0xFF;
-                    video_packet_in[3] = host_seqnum & 0xFF;
-                    video_packet_in[4] = (host_timestamp >> 24) & 0xFF;
-                    video_packet_in[5] = (host_timestamp >> 16) & 0xFF;
-                    video_packet_in[6] = (host_timestamp >> 8) & 0xFF;
-                    video_packet_in[7] = host_timestamp & 0xFF;
-                    video_packet_in[8] = (host_ssrc >> 24) & 0xFF;
-                    video_packet_in[9] = (host_ssrc >> 16) & 0xFF;
-                    video_packet_in[10] = (host_ssrc >> 8) & 0xFF;
-                    video_packet_in[11] = host_ssrc & 0xFF;
-
-                    memcpy(msg.get(), rtp_header.data(), rtp_header.size());
-                    memcpy(msg.get() + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
-                    plain_len = sizeof(rtp_header_t) + payload_data.size();
-                }
-                else
-                {
-                    memcpy(msg.get(), video_packet_in.data(), nr);
-                }
-
-                if (g_txUASVideo.getCryptoTag() != 0)
-                {
-                    video_packet_out.clear();
-                    // ENCRYPT
-                    // GRAB RTP HEADER
-                    rtp_header.resize(sizeof(rtp_header_t), 0);
-                    memcpy(rtp_header.data(), msg.get(), sizeof(rtp_header_t) /*12*/);
-                    // GRAB RTP PAYLOAD DATA
-                    payload_data.resize(g_txUASVideo.getSrtpPayloadSize(), 0);
-                    memcpy(payload_data.data(), msg.get() + sizeof(rtp_header_t), g_txUASVideo.getSrtpPayloadSize());
-
-                    // ENCRYPT
-                    g_txUASVideo.setSSRC(ntohl(((rtp_header_t*)video_packet_in.data())->ssrc_id)); // set incoming SSRC id
-                    rc = g_txUASVideo.processOutgoingPacket(seq_num, rtp_header, payload_data, video_packet_out);
-                    debugrefilevideo.printf("TXUASVIDEO -- processOutgoingPacket() rc == %d\n", rc);
-                }
-
-                else
-                {
-                    /* Plain RTP goes back as it came. */
-                    video_packet_out.assign(msg.get(), msg.get() + plain_len);
-                }
-
-                ns = sendto(sock, video_packet_out.data(), video_packet_out.size(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
-
-                if (ns != nr) {
-                    debugrefilevideo.printf("DATA SUCCESSFULLY SENT [VIDEO] seq_num = [%u] -- MISMATCHED RECV/SENT BYTE COUNT -- errno = %d nr = %d ns = %d\n",
-                            seq_num, errno, int(nr), int(ns));
-                } else {
-                    debugrefilevideo.printf("DATA SUCCESSFULLY SENT [VIDEO] seq_num[%u]...\n", seq_num);
-                }
-
-                rtp2_pckts++;
-                rtp2_bytes += ns;
-            }
-            else if ((nr < 0) &&
-                     (errno == EAGAIN)) {
-                // No data to be read (no activity on socket)
-                // debugrefilevideo.printf("No activity on videoecho socket (EAGAIN)...\n");
-            }
-            else if (errno == ECONNREFUSED) {
-                // An ICMP port unreachable for an earlier echo: the peer
-                // has closed its port, typically as its call ends.
-                debugrefilevideo.printf("video echo peer port unreachable (ECONNREFUSED)...\n");
-            }
-            else {
-                // Other error occurred during read
-                //WARNING("%s %i", "Error on RTP echo reception - stopping rtpstream echo - errno = ", errno);
-                debugrefilevideo.printf("Error on RTP echo reception - unable to perform rtpstream videoecho - errno = %d\n", errno);
-                abnormal_termination = true;
-            }
-            pthread_mutex_unlock(&uasVideoMutex);
-        }
-        else
-        {
-            debugrefilevideo.printf("rtp_videoecho_thread():  pthread_cond_timedwait() non-timeout:  rc: %d quit_videoecho_thread: %d\n", rc, quit_videoecho_thread);
-        }
-    }
-    pthread_mutex_unlock(&quit_mutexvideo);
-
-    if ((flags = fcntl(sock, F_GETFL, 0)) < 0)
-    {
-        debugrefilevideo.printf("rtp_videoecho_thread():  fcntl() GETFL BLOCK failed...\n");
-        pthread_exit((void*) 6);
-    }
-
-    if (fcntl(sock, F_SETFL, flags & (~O_NONBLOCK)) < 0)
-    {
-        debugrefilevideo.printf("rtp_videoecho_thread():  fcntl() SETFL BLOCK failed...\n");
-        pthread_exit((void*) 7);
-    }
-
-    if (abnormal_termination)
-    {
-        exit_code = -1;
-    }
-    else
-    {
-        exit_code = 0;
-    }
-
-    pthread_exit((void*) (intptr_t) exit_code);
+    return rc;
 }
 
 int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAudio, JLSRTP& txUASAudio)
@@ -2921,10 +2708,6 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
         return -1; /* no task data structure */
     }
 
-    ParamPass p;
-
-    taskinfo->audio_srtp_echo_active = 1;
-
     if (srtpcheck_debug && !debugrefileaudio.open())
     {
         /* error encountered opening audio debug file */
@@ -2933,20 +2716,7 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
 
     debugrefileaudio.printf("rtpstream_rtpecho_startaudio reached...\n");
 
-    /* Create first RTP echo thread for audio */
-    pthread_mutex_lock(&uasAudioMutex);
-    g_rxUASAudio = rxUASAudio;
-    g_txUASAudio = txUASAudio;
-    pthread_mutex_unlock(&uasAudioMutex);
-
-    p.i = taskinfo->audio_rtp_socket;
-
-    if (taskinfo->audio_rtp_socket > 0) {
-        if (pthread_create(&pthread_audioecho_id, nullptr, (void *(*) (void *)) rtpstream_audioecho_thread, p.p) == -1) {
-            ERROR_NO("Unable to create RTP audio echo thread");
-            return -7;
-        }
-    }
+    rtpstream_rtpecho_set(taskinfo, false, true, rxUASAudio, txUASAudio);
 
     return 0;
 }
@@ -2962,14 +2732,9 @@ int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASA
         return -1; /* no task data structure */
     }
 
-    taskinfo->audio_srtp_echo_active = 1;
-
     debugrefileaudio.printf("rtpstream_rtpecho_updateaudio reached...\n");
 
-    pthread_mutex_lock(&uasAudioMutex);
-    g_rxUASAudio = rxUASAudio;
-    g_txUASAudio = txUASAudio;
-    pthread_mutex_unlock(&uasAudioMutex);
+    rtpstream_rtpecho_set(taskinfo, false, false, rxUASAudio, txUASAudio);
 
     return 0;
 }
@@ -2979,40 +2744,19 @@ int rtpstream_rtpecho_stopaudio(rtpstream_callinfo_t* callinfo)
     debugprint("rtpstream_rtpecho_stopaudio callinfo=%p\n", callinfo);
 
     taskentry_t   *taskinfo = callinfo->taskinfo;
-    ResultCheck r;
 
     if (!taskinfo)
     {
         return -1; /* no task data structure */
     }
 
-    taskinfo->audio_srtp_echo_active = 0;
-
-    pthread_mutex_lock(&quit_mutexaudio);
-
-    debugrefileaudio.printf("MAIN:  Setting quit_audioecho_thread flag to TRUE...\n");
-    quit_audioecho_thread = true;
-    debugrefileaudio.printf("MAIN:  Sending QUIT signal...\n");
-    pthread_cond_signal(&quit_cvaudio);
-
-    pthread_mutex_unlock(&quit_mutexaudio);
-
     debugrefileaudio.printf("rtpstream_rtpecho_stopaudio reached...\n");
 
-    if (pthread_join(pthread_audioecho_id, &r.p) == 0)
-    {
-        // successfully joined audio thread
-        debugrefileaudio.printf("successfully joined audio thread: %d\n", r.i);
-    }
-    else
-    {
-        // error joining audio thread
-        debugrefileaudio.printf("error joining audio thread: %d\n", r.i);
-    }
+    int rc = rtpstream_rtpecho_stop(taskinfo, false);
 
     debugrefileaudio.close();
 
-    return r.i;
+    return rc;
 }
 
 int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVideo, JLSRTP& txUASVideo)
@@ -3026,10 +2770,6 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
         return -1; /* no task data structure */
     }
 
-    ParamPass p;
-
-    taskinfo->video_srtp_echo_active = 1;
-
     if (srtpcheck_debug && !debugrefilevideo.open())
     {
         /* error encountered opening video debug file */
@@ -3038,20 +2778,7 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
 
     debugrefilevideo.printf("rtpstream_rtpecho_startvideo reached...\n");
 
-    /* Create second RTP echo thread for video */
-    pthread_mutex_lock(&uasVideoMutex);
-    g_rxUASVideo = rxUASVideo;
-    g_txUASVideo = txUASVideo;
-    pthread_mutex_unlock(&uasVideoMutex);
-
-    p.i = taskinfo->video_rtp_socket;
-
-    if (taskinfo->video_rtp_socket > 0) {
-        if (pthread_create(&pthread_videoecho_id, nullptr, (void *(*) (void *)) rtpstream_videoecho_thread, p.p) == -1) {
-            ERROR_NO("Unable to create RTP video echo thread");
-            return -8;
-        }
-    }
+    rtpstream_rtpecho_set(taskinfo, true, true, rxUASVideo, txUASVideo);
 
     return 0;
 }
@@ -3067,14 +2794,9 @@ int rtpstream_rtpecho_updatevideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASV
         return -1; /* no task data structure */
     }
 
-    taskinfo->video_srtp_echo_active = 1;
-
     debugrefilevideo.printf("rtpstream_rtpecho_updatevideo reached...\n");
 
-    pthread_mutex_lock(&uasVideoMutex);
-    g_rxUASVideo = rxUASVideo;
-    g_txUASVideo = txUASVideo;
-    pthread_mutex_unlock(&uasVideoMutex);
+    rtpstream_rtpecho_set(taskinfo, true, false, rxUASVideo, txUASVideo);
 
     return 0;
 }
@@ -3084,40 +2806,19 @@ int rtpstream_rtpecho_stopvideo(rtpstream_callinfo_t* callinfo)
     debugprint("rtpstream_rtpecho_stopvideo callinfo=%p\n", callinfo);
 
     taskentry_t   *taskinfo = callinfo->taskinfo;
-    ResultCheck r;
 
     if (!taskinfo)
     {
         return -1; /* no task data structure */
     }
 
-    taskinfo->video_srtp_echo_active = 0;
-
-    pthread_mutex_lock(&quit_mutexvideo);
-
-    debugrefilevideo.printf("MAIN:  Setting quit_videoecho_thread flags to TRUE...\n");
-    quit_videoecho_thread = true;
-    debugrefilevideo.printf("MAIN:  Sending QUIT signal...\n");
-    pthread_cond_signal(&quit_cvvideo);
-
-    pthread_mutex_unlock(&quit_mutexvideo);
-
     debugrefilevideo.printf("rtpstream_rtpecho_stopvideo reached...\n");
 
-    if (pthread_join(pthread_videoecho_id, &r.p) == 0)
-    {
-        // successfully joined video thread
-        debugrefilevideo.printf("successfully joined video thread: %d\n", r.i);
-    }
-    else
-    {
-        // error joining video thread
-        debugrefilevideo.printf("error joining video thread: %d\n", r.i);
-    }
+    int rc = rtpstream_rtpecho_stop(taskinfo, true);
 
     debugrefilevideo.close();
 
-    return r.i;
+    return rc;
 }
 
 /* code checked */
