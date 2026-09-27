@@ -1162,8 +1162,11 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
                     case T_TCP:
                     case T_SCTP:
                     case T_TLS:
-                        new_ptr->associate_socket(tcp_multiplex);
-                        tcp_multiplex->ss_count++;
+                        /* None without a remote host in server mode. */
+                        if (tcp_multiplex) {
+                            new_ptr->associate_socket(tcp_multiplex);
+                            tcp_multiplex->ss_count++;
+                        }
                         break;
                     }
                 }
@@ -2604,8 +2607,12 @@ int open_connections()
         }
     }
 
+    /* A 3PCC controller B or slave scenario that starts with a <recv>
+     * still has its calls created by a command, like a client's. */
     if ((!multisocket) && (transport == T_TCP || transport == T_TLS || transport == T_SCTP) &&
-            (sendMode != MODE_SERVER)) {
+            (sendMode != MODE_SERVER ||
+             (*remote_host && (thirdPartyMode == MODE_3PCC_CONTROLLER_B ||
+                               thirdPartyMode == MODE_SLAVE)))) {
         if ((tcp_multiplex = new_sipp_socket(local_ip_is_ipv6, transport)) == nullptr) {
             ERROR_NO("Unable to get a TCP socket");
         }

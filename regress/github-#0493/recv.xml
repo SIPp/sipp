@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- 3PCC controller B whose first SIP message is a <recv>: its calls
+     are created by the command and then send. -->
+<scenario name="3PCC B starting with recv">
+  <recv request="INFO" optional="true"/>
+  <recvCmd/>
+  <send>
+    <![CDATA[
+      SIP/2.0 501 Problem
+      From: <sip:[service]@127.0.0.1>;tag=[call_number]
+      To: <sip:[service]@127.0.0.1>
+      Call-ID: [call_id]
+      CSeq: 1 INFO
+      Content-Length: 0
+    ]]>
+  </send>
+</scenario>

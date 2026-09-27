@@ -1,0 +1,49 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Over single-socket TCP, a 3PCC controller B scenario whose first SIP
+# message is a <recv> had no TCP socket for the calls a command creates,
+# and SIPp crashed on a NULL one. With a remote host its calls send
+# there; without one, SIPp must stop with an error.
+. "`dirname "$0"`/../functions"; init
+
+# Each of these takes one connection.
+(tcplisten 25123 >/dev/null 2>&1) &
+(tcplisten 25124 >sink.log 2>&1) &
+(tcplisten 25128 >/dev/null 2>&1) &
+sleep 1
+
+# No remote host: nowhere to send the 501.
+sippfg -sf recv.xml -t t1 -3pcc 127.0.0.1:25122 -i 127.0.0.1 -p 25120 \
+    -m 1 -timeout 5 >/dev/null 2>err.log &
+recv=$!
+sleep 1
+sippfg -sf send.xml -t t1 -3pcc 127.0.0.1:25122 -i 127.0.0.1 -p 25121 \
+    -m 1 -timeout 5 127.0.0.1:25123 >/dev/null 2>&1
+wait $recv
+nohost=$?
+
+# With a remote host, the 501 goes there.
+sippfg -sf recv.xml -t t1 -3pcc 127.0.0.1:25127 -i 127.0.0.1 -p 25125 \
+    -m 1 -timeout 5 127.0.0.1:25124 >/dev/null 2>&1 &
+recv=$!
+sleep 1
+sippfg -sf send.xml -t t1 -3pcc 127.0.0.1:25127 -i 127.0.0.1 -p 25126 \
+    -m 1 -timeout 5 127.0.0.1:25128 >/dev/null 2>&1
+wait $recv
+host=$?
+sleep 0.2
+sent=`grep -c '^SIP/2.0 501' sink.log`
+errors=`grep -c 'remote host' err.log`
+rm -f sink.log err.log
+
+if test $nohost -ne 255; then
+    fail "B without a remote host ended with $nohost, not 255"
+elif test $errors -eq 0; then
+    fail "B without a remote host did not say why"
+elif test $host -ne 0; then
+    fail "B with a remote host ended with $host"
+elif test $sent -ne 1; then
+    fail "B sent $sent 501s to the remote host"
+else
+    ok
+fi
