@@ -1698,6 +1698,17 @@ void scenario::parseAction(CActions *actions)
                 hasMedia = 1;
                 free(ptr);
             } else if ((cptr = xp_get_value("play_dtmf"))) {
+                /* without keywords, what would be played is known now */
+                if (!strchr(cptr, '[')) {
+                    unsigned long tone_len;
+                    uint8_t payload_type;
+                    char *args = strdup(cptr);
+                    const char *error = parse_dtmf(args, &tone_len, &payload_type);
+                    free(args);
+                    if (error) {
+                        ERROR("Invalid play_dtmf \"%s\": %s", cptr, error);
+                    }
+                }
                 tmpAction->setMessage(cptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_DTMF);
                 hasMedia = 1;

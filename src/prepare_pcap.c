@@ -558,12 +558,80 @@ static void prepare_noop(
     *timestamp_start += *ts_offset * 8;
 }
 
-/* prepare a dtmf pcap
- */
-int prepare_dtmf(char* digits, pcap_pkts* pkts, uint16_t start_seq_no)
+/* The RFC 2833 event of a DTMF digit, or -1 if it is none */
+static int dtmf_event(char digit)
 {
-    unsigned long tone_len = 200;
-    uint8_t payload_type = 96; /* telephone-event, as in the SDP */
+    static const char events[] = "0123456789*#ABCD";
+    const char* event = digit ? strchr(events, digit) : NULL;
+
+    return event ? event - events : -1;
+}
+
+/* Parse an integer field from min to max into *value, which an empty
+ * field leaves as it is. Returns 0 if the field is invalid. */
+static int parse_dtmf_field(const char* field, long min, long max, long* value)
+{
+    char* end;
+    long parsed;
+
+    if (!*field) {
+        return 1;
+    }
+    parsed = strtol(field, &end, 10);
+    if (end == field || *end || parsed < min || parsed > max) {
+        return 0;
+    }
+    *value = parsed;
+    return 1;
+}
+
+/* Split play_dtmf's "digits[,tone_length[,payload_type]]" in place,
+ * leaving the digits in args, and parse the tone length and payload
+ * type. An invalid field keeps its default; the description of the
+ * first problem is returned, NULL if there is none.
+ */
+const char* parse_dtmf(char* args, unsigned long* tone_len, uint8_t* payload_type)
+{
+    const char* error = NULL;
+    char* length = strchr(args, ',');
+    char* pt = NULL;
+    const char* digit;
+    long value;
+
+    if (length) {
+        *length++ = '\0';
+        pt = strchr(length, ',');
+        if (pt) {
+            *pt++ = '\0';
+        }
+    }
+
+    /* check from the end, so that the first problem is the one left */
+    value = 96; /* telephone-event, as in the SDP */
+    if (pt && !parse_dtmf_field(pt, 0, 127, &value)) {
+        error = "the payload type is not 0 to 127 (default 96)";
+    }
+    *payload_type = value;
+    value = 200;
+    if (length && !parse_dtmf_field(length, 50, 2000, &value)) {
+        error = "the tone length is not 50 to 2000 ms (default 200)";
+    }
+    *tone_len = value;
+    digit = args;
+    while (*digit && dtmf_event(*digit) < 0) {
+        digit++;
+    }
+    if (!*digit) {
+        error = "no digit to send (0-9, *, #, A-D)";
+    }
+    return error;
+}
+
+/* prepare a dtmf pcap of the digits (see parse_dtmf)
+ */
+int prepare_dtmf(const char* digits, unsigned long tone_len, uint8_t payload_type,
+                 pcap_pkts* pkts, uint16_t start_seq_no)
+{
     const u_long pktlen = sizeof(struct dtmfpacket);
     int n_pkts = 0;
     int n_digits = 0;
@@ -591,42 +659,10 @@ int prepare_dtmf(char* digits, pcap_pkts* pkts, uint16_t start_seq_no)
 
     pkts->pkts = NULL;
 
-    char* comma = strchr(digits, ',');
-    if (comma) {
-        char* pt = strchr(comma + 1, ',');
-        tone_len = atol(comma + 1);
-        if (tone_len < 50 || tone_len > 2000) {
-            tone_len = 200;
-        }
-        if (pt && *++pt) {
-            char* end;
-            long value = strtol(pt, &end, 10);
-            if (end == pt || *end || value < 0 || value > 127) {
-                ERROR("Invalid play_dtmf payload type '%s', expected 0 to 127", pt);
-            }
-            payload_type = value;
-        }
-        *comma = '\0';
-    }
-
     for (digit = digits; *digit; digit++) {
-        unsigned char uc_digit;
+        int event = dtmf_event(*digit);
 
-        if (*digit >= '0' && *digit <= '9') {
-            uc_digit = *digit - '0';
-        } else if (*digit == '*') {
-            uc_digit = 10;
-        } else if (*digit == '#') {
-            uc_digit = 11;
-        } else if (*digit == 'A') {
-            uc_digit = 12;
-        } else if (*digit == 'B') {
-            uc_digit = 13;
-        } else if (*digit == 'C') {
-            uc_digit = 14;
-        } else if (*digit == 'D') {
-            uc_digit = 15;
-        } else {
+        if (event < 0) {
             continue;
         }
 
@@ -636,9 +672,9 @@ int prepare_dtmf(char* digits, pcap_pkts* pkts, uint16_t start_seq_no)
             needs_filler = 0;
         }
 
-        prepare_dtmf_digit_start(pkts, &n_pkts, start_seq_no, n_digits, uc_digit,
+        prepare_dtmf_digit_start(pkts, &n_pkts, start_seq_no, n_digits, event,
                                  tone_len, ts_offset, timestamp_start, payload_type);
-        prepare_dtmf_digit_end(pkts, &n_pkts, start_seq_no, n_digits, uc_digit,
+        prepare_dtmf_digit_end(pkts, &n_pkts, start_seq_no, n_digits, event,
                                tone_len, ts_offset, timestamp_start, payload_type);
 
         n_digits++;
