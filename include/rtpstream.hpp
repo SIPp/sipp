@@ -114,6 +114,9 @@ struct taskentry_t
     /* audio/video echo SRTP contexts */
     struct rtpecho_t     *audio_echo;
     struct rtpecho_t     *video_echo;
+    /* audio/video playback (UAC) SRTP contexts */
+    struct rtpsrtp_t     *audio_srtp;
+    struct rtpsrtp_t     *video_srtp;
 
     /* rtp peer address structures */
     struct sockaddr_storage    remote_audio_rtp_addr;

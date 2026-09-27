@@ -287,13 +287,13 @@ struct rtpecho_t
     bool error = false; /* failed to receive */
 };
 
-// JLSRTP contexts
-SrtpChannel g_txUACAudio;
-SrtpChannel g_rxUACAudio;
-SrtpChannel g_txUACVideo;
-SrtpChannel g_rxUACVideo;
-pthread_mutex_t uacAudioMutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t uacVideoMutex = PTHREAD_MUTEX_INITIALIZER;
+// RTPSTREAM PLAYBACK -- a call's UAC SRTP contexts, which its playback
+// thread sends and receives with; guarded by the task's mutex
+struct rtpsrtp_t
+{
+    SrtpChannel tx;
+    SrtpChannel rx;
+};
 
 //===================================================================================================
 
@@ -476,6 +476,8 @@ static void rtpstream_free_taskinfo(taskentry_t* taskinfo)
 
         delete taskinfo->audio_echo;
         delete taskinfo->video_echo;
+        delete taskinfo->audio_srtp;
+        delete taskinfo->video_srtp;
 
         /* cleanup pthread library structure */
         pthread_mutex_destroy(&(taskinfo->mutex));
@@ -718,8 +720,10 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     memcpy(udp_send_audio.buffer + sizeof(rtp_header_t) + taskinfo->audio_file_bytes_left, taskinfo->audio_file_bytes_start, taskinfo->audio_bytes_per_packet - taskinfo->audio_file_bytes_left);
                 }
 
-                pthread_mutex_lock(&uacAudioMutex);
-                if (g_txUACAudio.getCryptoTag() != 0)
+                pthread_mutex_lock(&(taskinfo->mutex));
+                SrtpChannel* tx = taskinfo->audio_srtp && taskinfo->audio_srtp->tx.getCryptoTag() != 0 ? &taskinfo->audio_srtp->tx : nullptr;
+                SrtpChannel* rx = taskinfo->audio_srtp && taskinfo->audio_srtp->rx.getCryptoTag() != 0 ? &taskinfo->audio_srtp->rx : nullptr;
+                if (tx)
                 {
                     // GRAB RTP HEADER
                     rtp_header.resize(sizeof(rtp_header_t), 0);
@@ -729,7 +733,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     memcpy(payload_data.data(), udp_send_audio.buffer + sizeof(rtp_header_t), taskinfo->audio_bytes_per_packet);
 
                     // ENCRYPT
-                    rc = g_txUACAudio.processOutgoingPacket(taskinfo->audio_seq_out, rtp_header, payload_data, audio_out);
+                    rc = tx->processOutgoingPacket(taskinfo->audio_seq_out, rtp_header, payload_data, audio_out);
                     debugafile.printHex("TXUACAUDIO -- processOutgoingPacket() rc == ", "", 0, rc, 0);
                 }
                 else
@@ -775,9 +779,9 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     {
                         /* this is temp code - will have to reorganize if/when we include echo functionality */
                         /* just keep listening on rtp socket (is this really required?) - ignore any errors */
-                        if (g_rxUACAudio.getCryptoTag() != 0)
+                        if (rx)
                         {
-                            audio_in_size = sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet + g_rxUACAudio.getAuthenticationTagSize();
+                            audio_in_size = sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet + rx->getAuthenticationTagSize();
                         }
                         else
                         {
@@ -793,14 +797,14 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             rtpstream_abytes_in.fetch_add(rc, std::memory_order_relaxed);
                             debugafile.printHexUS("SIPP SUCCESS RECV LOG: ", audio_in.data(), audio_in.size(), rc, rtpstream_apckts);
                         }
-                        if (g_rxUACAudio.getCryptoTag() != 0)
+                        if (rx)
                         {
                             // DECRYPT
                             rtp_header.clear();
                             payload_data.clear();
 
                             audio_seq_in = ntohs(((rtp_header_t*)audio_in.data())->seq);
-                            rc = g_rxUACAudio.processIncomingPacket(audio_seq_in, audio_in, rtp_header, payload_data);
+                            rc = rx->processIncomingPacket(audio_seq_in, audio_in, rtp_header, payload_data);
                             debugafile.printHex("RXUACAUDIO -- processIncomingPacket() rc == ", "", 0, rc, 0);
 
                             host_flags = ntohs(((rtp_header_t*)audio_in.data())->flags);
@@ -901,7 +905,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         next_wake = timenow_ms;
                     }
                 } /* if (rc < 0) */
-                pthread_mutex_unlock(&uacAudioMutex);
+                pthread_mutex_unlock(&(taskinfo->mutex));
             } /* if (taskinfo->last_audio_timestamp < target_timestamp) */
             else
             {
@@ -964,8 +968,10 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     memcpy(udp_send_video.buffer + sizeof(rtp_header_t) + taskinfo->video_file_bytes_left, taskinfo->video_file_bytes_start, taskinfo->video_bytes_per_packet - taskinfo->video_file_bytes_left);
                 }
 
-                pthread_mutex_lock(&uacVideoMutex);
-                if (g_txUACVideo.getCryptoTag() != 0)
+                pthread_mutex_lock(&(taskinfo->mutex));
+                SrtpChannel* tx = taskinfo->video_srtp && taskinfo->video_srtp->tx.getCryptoTag() != 0 ? &taskinfo->video_srtp->tx : nullptr;
+                SrtpChannel* rx = taskinfo->video_srtp && taskinfo->video_srtp->rx.getCryptoTag() != 0 ? &taskinfo->video_srtp->rx : nullptr;
+                if (tx)
                 {
                     // GRAB RTP HEADER
                     rtp_header.resize(sizeof(rtp_header_t), 0);
@@ -975,7 +981,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     memcpy(payload_data.data(), udp_send_video.buffer + sizeof(rtp_header_t), taskinfo->video_bytes_per_packet);
 
                     // ENCRYPT
-                    rc = g_txUACVideo.processOutgoingPacket(taskinfo->video_seq_out, rtp_header, payload_data, video_out);
+                    rc = tx->processOutgoingPacket(taskinfo->video_seq_out, rtp_header, payload_data, video_out);
                     debugvfile.printHex("TXUACVIDEO -- processOutgoingPacket() rc == ", "", 0, rc, 0);
                 }
                 else
@@ -1021,9 +1027,9 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     {
                         /* this is temp code - will have to reorganize if/when we include echo functionality */
                         /* just keep listening on rtp socket (is this really required?) - ignore any errors */
-                        if (g_rxUACVideo.getCryptoTag() != 0)
+                        if (rx)
                         {
-                            video_in_size = sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet + g_rxUACVideo.getAuthenticationTagSize();
+                            video_in_size = sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet + rx->getAuthenticationTagSize();
                         }
                         else
                         {
@@ -1040,13 +1046,13 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             debugvfile.printHexUS("SIPP SUCCESS RECV LOG: ", video_in.data(), video_in.size(), rc, rtpstream_vpckts);
                         }
 
-                        if (g_rxUACVideo.getCryptoTag() != 0)
+                        if (rx)
                         {
                             // DECRYPT
                             rtp_header.clear();
                             payload_data.clear();
                             video_seq_in = ntohs(((rtp_header_t*)video_in.data())->seq);
-                            rc = g_rxUACVideo.processIncomingPacket(video_seq_in, video_in, rtp_header, payload_data);
+                            rc = rx->processIncomingPacket(video_seq_in, video_in, rtp_header, payload_data);
                             debugvfile.printHex("RXUACVIDEO -- processIncomingPacket() rc == ", "", 0, rc, 0);
 
                             host_flags = ntohs(((rtp_header_t*)video_in.data())->flags);
@@ -1147,7 +1153,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         next_wake = timenow_ms;
                     }
                 } /* if (rc < 0) */
-                pthread_mutex_unlock(&uacVideoMutex);
+                pthread_mutex_unlock(&(taskinfo->mutex));
             } /* if (taskinfo->last_video_timestamp < target_timestamp) */
             else
             {
@@ -2494,6 +2500,25 @@ static int get_wav_header_size(const char *data, int size)
     return ptr - data;
 }
 
+/* Hand the call's UAC SRTP contexts to its playback thread together
+ * with the play flag, under the task's mutex, so that the thread cannot
+ * play with the old contexts. */
+static void rtpstream_play_srtp(taskentry_t* taskinfo, bool video, int flag,
+                                JLSRTP& txUAC, JLSRTP& rxUAC)
+{
+    pthread_mutex_lock(&(taskinfo->mutex));
+    rtpsrtp_t*& srtp = video ? taskinfo->video_srtp : taskinfo->audio_srtp;
+    if (srtp || txUAC.getCryptoTag() != 0 || rxUAC.getCryptoTag() != 0) {
+        if (!srtp) {
+            srtp = new rtpsrtp_t;
+        }
+        srtp->tx = txUAC;
+        srtp->rx = rxUAC;
+    }
+    taskinfo->flags |= flag;
+    pthread_mutex_unlock(&(taskinfo->mutex));
+}
+
 /* code checked */
 void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio)
 {
@@ -2544,14 +2569,8 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
         taskinfo->new_audio_file_size -= header_size;
     }
 
-    /* hand over the SRTP keys before the RTP thread can see the flag */
-    pthread_mutex_lock(&uacAudioMutex);
-    g_txUACAudio = txUACAudio;
-    g_rxUACAudio = rxUACAudio;
-    pthread_mutex_unlock(&uacAudioMutex);
-
     /* set flag that we have a new file to play */
-    taskinfo->flags |= TI_PLAYFILE;
+    rtpstream_play_srtp(taskinfo, false, TI_PLAYFILE, txUACAudio, rxUACAudio);
 }
 
 /* code checked */
@@ -2621,14 +2640,8 @@ void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     taskinfo->audio_active = actioninfo->audio_active;
     taskinfo->video_active = actioninfo->video_active;
 
-    /* hand over the SRTP keys before the RTP thread can see the flag */
-    pthread_mutex_lock(&uacAudioMutex);
-    g_txUACAudio = txUACAudio;
-    g_rxUACAudio = rxUACAudio;
-    pthread_mutex_unlock(&uacAudioMutex);
-
     /* set flag that we have a new file to play */
-    taskinfo->flags |= TI_PLAYAPATTERN;
+    rtpstream_play_srtp(taskinfo, false, TI_PLAYAPATTERN, txUACAudio, rxUACAudio);
 }
 
 void rtpstream_pauseapattern(rtpstream_callinfo_t* callinfo)
@@ -2696,14 +2709,8 @@ void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     taskinfo->audio_active = actioninfo->audio_active;
     taskinfo->video_active = actioninfo->video_active;
 
-    /* hand over the SRTP keys before the RTP thread can see the flag */
-    pthread_mutex_lock(&uacVideoMutex);
-    g_txUACVideo = txUACVideo;
-    g_rxUACVideo = rxUACVideo;
-    pthread_mutex_unlock(&uacVideoMutex);
-
     /* set flag that we have a new file to play */
-    taskinfo->flags |= TI_PLAYVPATTERN;
+    rtpstream_play_srtp(taskinfo, true, TI_PLAYVPATTERN, txUACVideo, rxUACVideo);
 }
 
 void rtpstream_pausevpattern(rtpstream_callinfo_t* callinfo)

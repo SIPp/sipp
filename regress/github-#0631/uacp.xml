@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
 <!DOCTYPE scenario SYSTEM "sipp.dtd">
 
-<scenario name="rtp_stream a file over SRTP">
+<scenario name="rtp_stream a pattern over SRTP">
   <send retrans="4000">
     <![CDATA[
 
@@ -45,11 +45,11 @@
 
   <nop>
     <action>
-      <exec rtp_stream="silence.raw,1,0" />
+      <exec rtp_stream="apattern,1,0,PCMU/8000" />
     </action>
   </nop>
 
-  <pause milliseconds="500" />
+  <pause milliseconds="1500" />
 
   <send retrans="4000">
     <![CDATA[
