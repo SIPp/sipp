@@ -2134,10 +2134,10 @@ bool call::executeMessage(message *curmsg)
                 delete this;
                 return false;
             }
-        } else if (curmsg->timeout || defl_recv_timeout) {
-            if (curmsg->timeout)
+        } else if (unsigned int timeout = recvTimeout(curmsg); timeout || defl_recv_timeout) {
+            if (timeout)
                 // If timeout is specified on message receive, use it
-                recv_timeout = getmilliseconds() + curmsg->timeout;
+                recv_timeout = getmilliseconds() + timeout;
             else
                 // Else use the default timeout if specified
                 recv_timeout = getmilliseconds() + defl_recv_timeout;
@@ -5669,7 +5669,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
             if(call_scenario->messages[search_index] -> M_type != MSG_TYPE_RECV) {
                 break;
             }
-            candidate = call_scenario->messages[search_index] -> timeout;
+            candidate = recvTimeout(call_scenario->messages[search_index]);
             if (candidate == 0) {
                 if (defl_recv_timeout == 0) {
                     continue;
@@ -5710,6 +5710,24 @@ double call::get_rhs(CAction *currentAction)
     } else {
         return currentAction->getDoubleValue();
     }
+}
+
+/* The receive timeout of curmsg in ms, from its timeout_variable when
+ * it has one, or 0 when it has none. */
+unsigned int call::recvTimeout(message *curmsg)
+{
+    if (curmsg->timeout_variable == -1) {
+        return curmsg->timeout;
+    }
+
+    double timeout = get_var_double(curmsg->timeout_variable);
+    if (!(timeout >= 1)) { // Also NaN
+        return 0;
+    }
+    if (timeout > INT_MAX) {
+        return INT_MAX;
+    }
+    return (unsigned int)timeout;
 }
 
 call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
