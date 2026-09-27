@@ -281,6 +281,12 @@ void ScreenPrinter::get_lines()
 
 bool do_hide = true;
 
+/* Bytes over milliseconds are kB/s; none when no time has passed. */
+static double kb_per_s(unsigned long bytes, unsigned long ms)
+{
+    return ms ? (double)bytes / (double)ms : 0.0;
+}
+
 void ScreenPrinter::draw_scenario_screen()
 {
     unsigned const bufsiz = 100;
@@ -392,12 +398,8 @@ void ScreenPrinter::draw_scenario_screen()
     if (hasMedia != 5) {
         snprintf(left_buf, 40, "%lu Total RTP pckts sent ",
                 rtp_pckts_pcap);
-        if (ms_since_last_tick) {
-            snprintf(buf, bufsiz, "  %-38s  %lu.%03lu last period RTP rate (kB/s)",
-                    left_buf,
-                    rtp_bytes_pcap / ms_since_last_tick,
-                    rtp_bytes_pcap % ms_since_last_tick);
-        }
+        snprintf(buf, bufsiz, "  %-38s  %.3f last period RTP rate (kB/s)",
+                left_buf, kb_per_s(rtp_bytes_pcap, ms_since_last_tick));
         rtp_bytes_pcap = 0;
         rtp2_bytes_pcap = 0;
         lines.push_back(buf);
@@ -450,24 +452,15 @@ void ScreenPrinter::draw_scenario_screen()
     if (rtp_echo_enabled && media_socket_audio > 0) {
         snprintf(left_buf, 40, "%lu Total echo RTP pckts 1st stream",
                 rtp_pckts);
-
-        if (ms_since_last_tick) {
-            snprintf(buf, bufsiz, "  %-38s  %lu.%03lu last period RTP rate (kB/s)",
-                    left_buf,
-                    rtp_bytes / ms_since_last_tick,
-                    rtp_bytes % ms_since_last_tick);
-            lines.push_back(buf);
-        }
+        snprintf(buf, bufsiz, "  %-38s  %.3f last period RTP rate (kB/s)",
+                left_buf, kb_per_s(rtp_bytes, ms_since_last_tick));
+        lines.push_back(buf);
 
         snprintf(left_buf, 40, "%lu Total echo RTP pckts 2nd stream",
                 rtp2_pckts);
-        if (ms_since_last_tick) {
-            snprintf(buf, bufsiz, "  %-38s  %lu.%03lu last period RTP rate (kB/s)",
-                    left_buf,
-                    rtp2_bytes / ms_since_last_tick,
-                    rtp2_bytes % ms_since_last_tick);
-            lines.push_back(buf);
-        }
+        snprintf(buf, bufsiz, "  %-38s  %.3f last period RTP rate (kB/s)",
+                left_buf, kb_per_s(rtp2_bytes, ms_since_last_tick));
+        lines.push_back(buf);
         rtp_bytes = 0;
         rtp2_bytes = 0;
     }
