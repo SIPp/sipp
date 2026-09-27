@@ -1610,6 +1610,17 @@ void rtpstream_end_call(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_end_call callinfo=%p\n", callinfo);
 
+    /* stop the echo threads of a call that ended without stopping them,
+     * before its sockets are closed under them */
+    if (callinfo->taskinfo) {
+        if (callinfo->taskinfo->audio_srtp_echo_active) {
+            rtpstream_rtpecho_stopaudio(callinfo);
+        }
+        if (callinfo->taskinfo->video_srtp_echo_active) {
+            rtpstream_rtpecho_stopvideo(callinfo);
+        }
+    }
+
     /* stop playback thread(s) for this call */
     rtpstream_stop_task(callinfo);
 
