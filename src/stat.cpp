@@ -1580,13 +1580,8 @@ double CDefaultPause::cdfInv(double /*percentile*/)
 }
 
 /* Implementation of a uniform distribution. */
-static bool uniform_init = false;
 CUniform::CUniform(double min, double max)
 {
-    if (!uniform_init) {
-        uniform_init = true;
-        srand(time(nullptr));
-    }
     this->min = min;
     this->max = max;
 }
@@ -1647,6 +1642,10 @@ gsl_rng *gsl_init()
     rng = gsl_rng_alloc(gsl_rng_default);
     if (!rng) {
         ERROR("Could not initialize GSL random number generator");
+    }
+    // Seed it like rand(), from randomseed(), unless GSL_RNG_SEED is set.
+    if (!getenv("GSL_RNG_SEED")) {
+        gsl_rng_set(rng, rand());
     }
 
     return rng;

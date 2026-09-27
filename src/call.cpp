@@ -1475,7 +1475,6 @@ bool call::connect_socket_if_needed()
 
 bool call::lost(int index)
 {
-    static int inited = 0;
     double percent = global_lost;
 
     if(!lose_packets) return false;
@@ -1486,11 +1485,6 @@ bool call::lost(int index)
 
     if (percent == 0) {
         return false;
-    }
-
-    if(!inited) {
-        srand((unsigned int) time(nullptr));
-        inited = 1;
     }
 
     return (((double)rand() / (double)RAND_MAX) < (percent / 100.0));
