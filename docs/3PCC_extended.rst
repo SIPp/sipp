@@ -53,6 +53,10 @@ Indicates that the twin command is expected to be received from the
 
 Note that the master must be the launched at last.
 
+A master or slave scenario may have only sendCmd and recvCmd, and no
+SIP messages, e.g. a master that only drives its slaves. Such an
+instance needs no remote host.
+
 There is no integrated scenarios for the 3pcc extended mode, but you
 can easily adapt those from 3pcc.
 
