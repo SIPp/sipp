@@ -138,6 +138,8 @@ void CAction::printInfo(char* buf, int len)
         snprintf(buf, len, "Type[%d] - restore pause varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
     } else if (M_action == E_AT_VAR_ADD) {
         snprintf(buf, len, "Type[%d] - add varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+    } else if (M_action == E_AT_VAR_SUBTRACT) {
+        snprintf(buf, len, "Type[%d] - subtract varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
     } else if (M_action == E_AT_VAR_MULTIPLY) {
         snprintf(buf, len, "Type[%d] - multiply varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
     } else if (M_action == E_AT_VAR_DIVIDE) {
@@ -149,7 +151,7 @@ void CAction::printInfo(char* buf, int len)
     } else if (M_action == E_AT_VAR_URLENCODE) {
         snprintf(buf, len, "Type[%d] - urlencode varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
     } else if (M_action == E_AT_VAR_TEST) {
-        snprintf(buf, len, "Type[%d] - divide varId[%s] varInId[%s] %s %lf", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_varInId), comparatorToString(M_comp), M_doubleValue);
+        snprintf(buf, len, "Type[%d] - test varId[%s] varInId[%s] %s %lf", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_varInId), comparatorToString(M_comp), M_doubleValue);
     } else if (M_action == E_AT_VAR_TO_DOUBLE) {
         snprintf(buf, len, "Type[%d] - toDouble varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
 #ifdef PCAPPLAY
