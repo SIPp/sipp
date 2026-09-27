@@ -31,6 +31,7 @@
 #include "srtp_channel.hpp"
 
 #include <sys/time.h>
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -191,6 +192,10 @@ public:
     void printVector(char const *note, std::vector<unsigned long> const &v) const;
     void printf(const char* format, ...) const
     {
+        if (!fp)
+        {
+            return;
+        }
         std::lock_guard lock(mutex);
         if (!fp)
         {
@@ -204,7 +209,8 @@ public:
     }
 
 protected:
-    FILE* fp = nullptr;
+    /* checked before locking, so a closed file costs no lock */
+    std::atomic<FILE*> fp{nullptr};
     mutable std::mutex mutex;
 };
 
@@ -324,8 +330,12 @@ void DebugFile::printHex(
     int moreinfo
 ) const
 {
+    if (!rtpcheck_debug || !fp)
+    {
+        return;
+    }
     std::lock_guard lock(mutex);
-    if (!fp || !note || !string || !rtpcheck_debug)
+    if (!fp || !note || !string)
     {
         return;
     }
@@ -339,8 +349,12 @@ void DebugFile::printHex(
 
 void DebugFile::printVector(char const* note, std::vector<unsigned long> const &v) const
 {
+    if (!rtpcheck_debug || !fp)
+    {
+        return;
+    }
     std::lock_guard lock(mutex);
-    if (!fp || !note || !rtpcheck_debug)
+    if (!fp || !note)
     {
         return;
     }
@@ -353,6 +367,10 @@ void DebugFile::printVector(char const* note, std::vector<unsigned long> const &
 
 void RtpEchoDebugFile::printReceived(unsigned char const* data, unsigned int size) const
 {
+    if (!fp)
+    {
+        return;
+    }
     std::lock_guard lock(mutex);
     if (!fp || !data)
     {
@@ -1157,22 +1175,38 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     return next_wake;
 }
 
+/* rtp_echo buffers of a playback thread, for all its calls */
+struct rtpecho_buffers_t
+{
+    std::vector<unsigned char> msg;
+    std::vector<unsigned char> rtp_header;
+    std::vector<unsigned char> payload_data;
+    std::vector<unsigned char> packet_in;
+    std::vector<unsigned char> packet_out;
+};
+
+/* the most packets to echo for a call at a time, so that a flood on one
+ * call holds neither its playback thread nor its mutex */
+#define RTPECHO_MAX_BURST 32
+
 /* rtp_echo: send the packets waiting on a call's audio or video RTP
- * socket back to where they came from, through its UAS SRTP contexts */
-static void rtpstream_echotask(taskentry_t* taskinfo, bool video)
+ * socket back to where they came from, through its UAS SRTP contexts;
+ * false if there is nothing more to watch on it */
+static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffers_t& buffers)
 {
     const RtpEchoDebugFile& debugrefile = video ? debugrefilevideo : debugrefileaudio;
     const char* media = video ? "VIDEO" : "AUDIO";
-    std::vector<unsigned char> msg(media_bufsize);
+    std::vector<unsigned char>& msg = buffers.msg;
     ssize_t nr;
     ssize_t ns;
     sipp_socklen_t len;
     struct sockaddr_storage remote_rtp_addr;
     int rc = 0;
-    std::vector<unsigned char> rtp_header;
-    std::vector<unsigned char> payload_data;
-    std::vector<unsigned char> packet_in;
-    std::vector<unsigned char> packet_out;
+    bool watch = true;
+    std::vector<unsigned char>& rtp_header = buffers.rtp_header;
+    std::vector<unsigned char>& payload_data = buffers.payload_data;
+    std::vector<unsigned char>& packet_in = buffers.packet_in;
+    std::vector<unsigned char>& packet_out = buffers.packet_out;
     unsigned short seq_num = 0;
     unsigned short host_flags = 0;
     unsigned short host_seqnum = 0;
@@ -1185,14 +1219,13 @@ static void rtpstream_echotask(taskentry_t* taskinfo, bool video)
     if (!(video ? taskinfo->video_srtp_echo_active : taskinfo->audio_srtp_echo_active) || !echo || sock == -1)
     {
         pthread_mutex_unlock(&(taskinfo->mutex));
-        return;
+        return false;
     }
     SrtpChannel& rx = echo->rx;
     SrtpChannel& tx = echo->tx;
 
-    for (;;)
+    for (int i = 0; i < RTPECHO_MAX_BURST; i++)
     {
-        std::fill(msg.begin(), msg.end(), 0);
         len = sizeof(remote_rtp_addr);
         packet_in.resize(sizeof(rtp_header_t) + rx.getSrtpPayloadSize() + rx.getAuthenticationTagSize(), 0);
         nr = recvfrom(sock, packet_in.data(), packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
@@ -1214,6 +1247,7 @@ static void rtpstream_echotask(taskentry_t* taskinfo, bool video)
             // Other error occurred during read
             debugrefile.printf("Error on RTP echo reception - unable to perform rtpstream %s echo - errno = %d\n", media, errno);
             echo->error = true;
+            watch = false;
             break;
         }
 
@@ -1264,6 +1298,12 @@ static void rtpstream_echotask(taskentry_t* taskinfo, bool video)
         {
             packet_out.clear();
 
+            // ZERO WHAT THE PACKET DID NOT FILL
+            if (plain_len < sizeof(rtp_header_t) + tx.getSrtpPayloadSize())
+            {
+                memset(msg.data() + plain_len, 0, sizeof(rtp_header_t) + tx.getSrtpPayloadSize() - plain_len);
+            }
+
             // GRAB RTP HEADER
             rtp_header.resize(sizeof(rtp_header_t), 0);
             memcpy(rtp_header.data(), msg.data(), sizeof(rtp_header_t) /*12*/);
@@ -1300,6 +1340,8 @@ static void rtpstream_echotask(taskentry_t* taskinfo, bool video)
         }
     }
     pthread_mutex_unlock(&(taskinfo->mutex));
+
+    return watch;
 }
 
 /* code checked */
@@ -1311,7 +1353,7 @@ static void* rtpstream_playback_thread(void* params)
 
     unsigned long  timenow_ms;
     unsigned long  waketime_ms;
-    int            sleeptime_us;
+    long           sleeptime_ms;
 
     unsigned long  comparison_acheck;
     unsigned long  comparison_vcheck;
@@ -1323,6 +1365,7 @@ static void* rtpstream_playback_thread(void* params)
     /* the RTP sockets of the calls to echo, and their call, video or not */
     std::vector<struct pollfd> echo_fds;
     std::vector<std::pair<taskentry_t*, bool>> echo_tasks;
+    rtpecho_buffers_t echo_buffers;
     double verdict;
 
     comparison_acheck = 0;
@@ -1332,6 +1375,7 @@ static void* rtpstream_playback_thread(void* params)
     rs_vpackets.resize(threaddata->max_tasks);
     rs_artpcheck.resize(threaddata->max_tasks);
     rs_vrtpcheck.resize(threaddata->max_tasks);
+    echo_buffers.msg.resize(media_bufsize);
     verdict = 0.0;
 
     rtpstream_numthreads++;
@@ -1439,6 +1483,7 @@ static void* rtpstream_playback_thread(void* params)
             }
 
             /* watch the sockets of the calls to echo */
+            pthread_mutex_lock(&(taskinfo->mutex));
             if (taskinfo->audio_srtp_echo_active && taskinfo->audio_rtp_socket != -1)
             {
                 echo_fds.push_back({taskinfo->audio_rtp_socket, POLLIN, 0});
@@ -1449,29 +1494,40 @@ static void* rtpstream_playback_thread(void* params)
                 echo_fds.push_back({taskinfo->video_rtp_socket, POLLIN, 0});
                 echo_tasks.push_back({taskinfo, true});
             }
+            pthread_mutex_unlock(&(taskinfo->mutex));
         }
-        /* sleep until next iteration of playback loop, or until there
-         * is a packet to echo */
-        sleeptime_us = (waketime_ms - getmilliseconds()) * 1000;
-        if (!echo_fds.empty())
+        /* sleep until the next iteration of the playback loop, echoing
+         * the packets that arrive meanwhile on the sockets that have one */
+        for (;;)
         {
-            if (poll(echo_fds.data(), echo_fds.size(), sleeptime_us > 0 ? sleeptime_us / 1000 : 0) > 0)
+            sleeptime_ms = (long) (waketime_ms - getmilliseconds());
+            if (echo_fds.empty())
             {
-                for (size_t i = 0; i < echo_fds.size(); i++)
+                if (sleeptime_ms > 0)
                 {
-                    if (echo_fds[i].revents)
-                    {
-                        rtpstream_echotask(echo_tasks[i].first, echo_tasks[i].second);
-                    }
+                    usleep(sleeptime_ms * 1000);
+                }
+                break;
+            }
+            if (poll(echo_fds.data(), echo_fds.size(), sleeptime_ms > 0 ? (int) sleeptime_ms : 0) <= 0)
+            {
+                break;
+            }
+            for (size_t i = 0; i < echo_fds.size(); i++)
+            {
+                if (echo_fds[i].revents &&
+                    !rtpstream_echotask(echo_tasks[i].first, echo_tasks[i].second, echo_buffers))
+                {
+                    echo_fds[i].fd = -1; /* poll() skips it */
                 }
             }
-            echo_fds.clear();
-            echo_tasks.clear();
+            if (sleeptime_ms <= 0)
+            {
+                break;
+            }
         }
-        else if (sleeptime_us > 0)
-        {
-            usleep(sleeptime_us);
-        }
+        echo_fds.clear();
+        echo_tasks.clear();
     }
 
     // EXITING... CALCULATE RESULT
