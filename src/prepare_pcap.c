@@ -405,7 +405,7 @@ static void fill_default_rtphdr(struct rtphdr* rtp, int marker, int seqno, int t
 }
 
 static void fill_default_dtmf(struct dtmfpacket* dtmfpacket, int marker, int seqno,
-                              int ts, char digit, int eoe, int duration)
+                              uint32_t ts, char digit, int eoe, unsigned long duration)
 {
     const u_long pktlen = sizeof(*dtmfpacket);
 
@@ -433,7 +433,7 @@ static void fill_default_noop(struct nooppacket* nooppacket, int seqno, int ts)
 
 static void prepare_dtmf_digit_start(
         pcap_pkts* pkts, int* n_pkts, uint16_t start_seq_no, int n_digits,
-        unsigned char uc_digit, int tone_len, unsigned long ts_offset, unsigned timestamp_start)
+        unsigned char uc_digit, unsigned long tone_len, unsigned long ts_offset, unsigned timestamp_start)
 {
     const u_long pktlen = sizeof(struct dtmfpacket);
     unsigned long cur_tone_len = 0;
@@ -462,7 +462,7 @@ static void prepare_dtmf_digit_start(
         dtmfpacket = (struct dtmfpacket*)pkt_index->data;
 
         fill_default_dtmf(dtmfpacket, !marked,
-                          *n_pkts + start_seq_no, n_digits * tone_len * 2 + timestamp_start,
+                          *n_pkts + start_seq_no, n_digits * tone_len * 2 * 8 + timestamp_start,
                           uc_digit, 0, cur_tone_len);
         marked = 1; /* set marker once per event */
 
@@ -475,7 +475,7 @@ static void prepare_dtmf_digit_start(
 
 static void prepare_dtmf_digit_end(
         pcap_pkts* pkts, int* n_pkts, uint16_t start_seq_no, int n_digits,
-        unsigned char uc_digit, int tone_len, unsigned long ts_offset, unsigned timestamp_start)
+        unsigned char uc_digit, unsigned long tone_len, unsigned long ts_offset, unsigned timestamp_start)
 {
     const u_long pktlen = sizeof(struct dtmfpacket);
     int i;
@@ -502,7 +502,7 @@ static void prepare_dtmf_digit_end(
 
         dtmfpacket = (struct dtmfpacket*)pkt_index->data;
         fill_default_dtmf(dtmfpacket, 0,
-                          *n_pkts + start_seq_no, n_digits * tone_len * 2 + timestamp_start,
+                          *n_pkts + start_seq_no, n_digits * tone_len * 2 * 8 + timestamp_start,
                           uc_digit, 1, tone_len);
 
         pkt_index->partial_check = check(&dtmfpacket->udp.uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
@@ -541,15 +541,15 @@ static void prepare_noop(
         }
 
         nooppacket = (struct nooppacket*)pkt_index->data;
-        fill_default_noop(nooppacket, *n_pkts + *start_seq_no, *timestamp_start + ts);
+        fill_default_noop(nooppacket, *n_pkts + *start_seq_no, *timestamp_start + ts * 8);
 
         pkt_index->partial_check = check(&nooppacket->udp.uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 
         (*n_pkts)++;
-        (*start_seq_no)++;
     }
 
-    *timestamp_start += *ts_offset;
+    /* RTP timestamps count 8 kHz samples, packet times milliseconds */
+    *timestamp_start += *ts_offset * 8;
 }
 
 /* prepare a dtmf pcap
