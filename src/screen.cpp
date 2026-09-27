@@ -731,8 +731,8 @@ void ScreenPrinter::draw_stats_screen()
     DISPLAY_CROSS_LINE();
 
     DISPLAY_TXT_COL ("Elapsed Time",
-                     s->msToHHMMSSus(localElapsedTime),
-                     s->msToHHMMSSus(globalElapsedTime));
+                     s->msToHHMMSSus(localElapsedTime).c_str(),
+                     s->msToHHMMSSus(globalElapsedTime).c_str());
 
     DISPLAY_VAL_RATEF_COL ("Call Rate",  realInstantCallRate, averageCallRate);
     DISPLAY_CROSS_LINE ();
@@ -773,12 +773,12 @@ void ScreenPrinter::draw_stats_screen()
 
         snprintf(buf2, 80, "Response Time %s", s->M_revRtdMap[i].c_str());
         DISPLAY_TXT_COL (buf2,
-                         s->msToHHMMSSus( (unsigned long)s->computeRtdMean(i, GENERIC_PD)),
-                         s->msToHHMMSSus( (unsigned long)s->computeRtdMean(i, GENERIC_C)));
+                         s->msToHHMMSSus( (unsigned long)s->computeRtdMean(i, GENERIC_PD)).c_str(),
+                         s->msToHHMMSSus( (unsigned long)s->computeRtdMean(i, GENERIC_C)).c_str());
     }
     DISPLAY_TXT_COL ("Call Length",
-                     s->msToHHMMSSus( (unsigned long)s->computeMean(s->CPT_PD_AverageCallLength_Sum, s->CPT_PD_NbOfCallUsedForAverageCallLength ) ),
-                     s->msToHHMMSSus( (unsigned long)s->computeMean(s->CPT_C_AverageCallLength_Sum, s->CPT_C_NbOfCallUsedForAverageCallLength) ));
+                     s->msToHHMMSSus( (unsigned long)s->computeMean(s->CPT_PD_AverageCallLength_Sum, s->CPT_PD_NbOfCallUsedForAverageCallLength ) ).c_str(),
+                     s->msToHHMMSSus( (unsigned long)s->computeMean(s->CPT_C_AverageCallLength_Sum, s->CPT_C_NbOfCallUsedForAverageCallLength) ).c_str());
 }
 
 void ScreenPrinter::draw_repartition_screen(int which)

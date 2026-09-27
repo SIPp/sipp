@@ -1456,9 +1456,9 @@ void CStat::dumpDataRtt ()
 
 
 /* Time Gestion */
-char* CStat::msToHHMMSS (unsigned long P_ms)
+std::string CStat::msToHHMMSS (unsigned long P_ms)
 {
-    static char L_time [TIME_LENGTH];
+    char L_time [TIME_LENGTH];
     unsigned long hh, mm, ss;
 
     P_ms = P_ms / 1000;
@@ -1469,9 +1469,9 @@ char* CStat::msToHHMMSS (unsigned long P_ms)
     return (L_time);
 } /* end of msToHHMMSS */
 
-char* CStat::msToHHMMSSus (unsigned long P_ms)
+std::string CStat::msToHHMMSSus (unsigned long P_ms)
 {
-    static char L_time [TIME_LENGTH];
+    char L_time [TIME_LENGTH];
     unsigned long sec, hh, mm, ss, us;
 
     sec  = P_ms / 1000;
@@ -1619,6 +1619,18 @@ TEST(CUniform, cdf_inverse_spans_min_to_max) {
     EXPECT_DOUBLE_EQ(u.cdfInv(0.0), 1000);
     EXPECT_DOUBLE_EQ(u.cdfInv(0.5), 1500);
     EXPECT_DOUBLE_EQ(u.cdfInv(0.99), 1990);
+}
+
+TEST(CStat, ms_to_hhmmss_twice_in_one_call) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%s %s",
+             CStat::msToHHMMSSus(1).c_str(),
+             CStat::msToHHMMSSus(3723004).c_str());
+    EXPECT_STREQ(buf, "00:00:00:001000 01:02:03:004000");
+    snprintf(buf, sizeof(buf), "%s %s",
+             CStat::msToHHMMSS(1000).c_str(),
+             CStat::msToHHMMSS(3723004).c_str());
+    EXPECT_STREQ(buf, "00:00:01 01:02:03");
 }
 #endif
 

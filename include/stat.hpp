@@ -407,9 +407,9 @@ public:
      *
      * @param P_ms.
      *
-     * @return a pointer on a static string containing formatted time
+     * @return the formatted time
      */
-    static char* msToHHMMSS (unsigned long P_ms);
+    static std::string msToHHMMSS (unsigned long P_ms);
 
     /**
      * msToHHMMSSmm.
@@ -419,9 +419,9 @@ public:
      *
      * @param P_ms.
      *
-     * @return a pointer on a static string containing formatted time
+     * @return the formatted time
      */
-    static char* msToHHMMSSus (unsigned long P_ms);
+    static std::string msToHHMMSSus (unsigned long P_ms);
 
     /* Get a counter ID by name. */
     int findCounter(const char *counter, bool alloc);

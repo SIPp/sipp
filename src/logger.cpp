@@ -75,7 +75,7 @@ void print_count_file(FILE* f, int header)
         unsigned long globalElapsedTime =
             CStat::computeDiffTimeInMs(&currentTime, &startTime);
         fprintf(f, "%s%s", CStat::formatTime(&currentTime, rfc3339), stat_delimiter);
-        fprintf(f, "%s%s", CStat::msToHHMMSSus(globalElapsedTime),
+        fprintf(f, "%s%s", CStat::msToHHMMSSus(globalElapsedTime).c_str(),
                 stat_delimiter);
     }
 
@@ -201,7 +201,7 @@ void print_error_codes_file(FILE* f)
     unsigned long globalElapsedTime =
         CStat::computeDiffTimeInMs(&currentTime, &startTime);
     fprintf(f, "%s%s", CStat::formatTime(&currentTime, rfc3339), stat_delimiter);
-    fprintf(f, "%s%s", CStat::msToHHMMSSus(globalElapsedTime), stat_delimiter);
+    fprintf(f, "%s%s", CStat::msToHHMMSSus(globalElapsedTime).c_str(), stat_delimiter);
 
     // Print comma-separated list of all error codes seen since the last time
     // this function was called
