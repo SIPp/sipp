@@ -39,6 +39,8 @@ authentication keyword:
     + aka_AMF : Authentication Management Field (indicates the algorithm
       and key in use)
 
+A value can also be a keyword, such as
+[authentication username=[field0] password=[field1]].
 
 
 In case you want to use authentication with a different

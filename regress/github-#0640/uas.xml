@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- Accepts only alice's credentials, and an Authorization header that
+     starts where it should. -->
+<scenario name="nested keyword uas">
+  <recv request="REGISTER"/>
+  <send>
+    <![CDATA[
+      SIP/2.0 401 Unauthorized
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=srv
+      [last_Call-ID:]
+      [last_CSeq:]
+      WWW-Authenticate: Digest realm="r", nonce="n0", algorithm=MD5
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv request="REGISTER">
+    <action>
+      <ereg regexp="^Digest username=&quot;alice&quot;," search_in="hdr" header="Authorization: " check_it="true" assign_to="_"/>
+      <verifyauth assign_to="authvalid" username="alice" password="secret"/>
+    </action>
+  </recv>
+  <nop test="authvalid" next="good"/>
+  <send next="end">
+    <![CDATA[
+      SIP/2.0 403 Forbidden
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=srv
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+    ]]>
+  </send>
+  <label id="good"/>
+  <send>
+    <![CDATA[
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=srv
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+    ]]>
+  </send>
+  <label id="end"/>
+</scenario>
