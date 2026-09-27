@@ -468,7 +468,7 @@ private:
     std::ofstream*           M_outputStream;
 
     bool                     M_headerAlreadyDisplayedRtt ;
-    char*                    M_fileNameRtt               ;
+    std::string              M_fileNameRtt               ;
     std::ofstream*           M_outputStreamRtt           ;
     double                   M_time_ref                  ;
 
