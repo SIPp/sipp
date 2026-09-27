@@ -5376,10 +5376,10 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                                 sendBuffer(createSendingMessage(call_scenario->messages[ackIndex]->send_scheme, ackIndex));
                                 return true;
                             } else {
-                                assert (!call_scenario->transactions[checkTxn - 1].isInvite);
                                 /* This is a non-provisional message for the transaction, and
-                                 * we have already gotten our allowable response.  Just make sure
-                                 * that it is not a retransmission of the final response. */
+                                 * we have already gotten our allowable response (for an INVITE,
+                                 * the ACK is still to be sent).  Just make sure that it is not
+                                 * a retransmission of the final response. */
                                 if (transactions[checkTxn - 1].txnResp == hash(msg)) {
                                     /* We have gotten this retransmission out-of-order, let's just ignore it. */
                                     TRACE_MSG("-----------------------------------------------\n"
