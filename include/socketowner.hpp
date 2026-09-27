@@ -31,8 +31,8 @@ public:
     SIPpSocket *associate_socket(SIPpSocket *socket);
     SIPpSocket *dissociate_socket();
 
-    /* Notification of TCP Close events. */
-    virtual void tcpClose() = 0;
+    /* Notification of TCP Close events. Returns whether it failed the call. */
+    virtual bool tcpClose() = 0;
 protected:
     /* What socket is this call bound to. */
     SIPpSocket *call_socket;

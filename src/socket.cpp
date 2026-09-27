@@ -1483,6 +1483,7 @@ SIPpSocket* SIPpSocket::accept() {
 #endif
 
     ret = new SIPpSocket(ss_ipv6, ss_transport, fd, 1);
+    ret->ss_accepted = true;
 
     /* We should connect back to the address which connected to us if we
      * experience a TCP failure. */
@@ -1971,7 +1972,10 @@ int SIPpSocket::read_error(int ret)
     }
 
     if (ss_transport == T_TCP || ss_transport == T_TLS) {
-        if (ret == 0) {
+        /* A connection we accepted is the peer's to end, and there is none
+         * to make again: a reset ends it as a close does. */
+        bool reset = ret < 0 && errno == ECONNRESET && ss_accepted && !ss_control;
+        if (ret == 0 || reset) {
             /* The remote side closed the connection. */
             if (ss_control) {
                 if (extendedTwinSippMode) {
@@ -2001,15 +2005,22 @@ int SIPpSocket::read_error(int ret)
             } else {
                 /* The socket was closed "cleanly", but we may have calls that need to
                  * be destroyed.  Also, if these calls are not complete, and attempt to
-                 * send again we may "resurrect" the socket by reconnecting it.*/
+                 * send again we may "resurrect" the socket by reconnecting it.
+                 * Nothing reconnects one we accepted, so its calls always end. */
+                bool end_calls = reset_close || ss_accepted;
+                const char *transport = TRANSPORT_TO_STRING(ss_transport);
                 invalidate();
                 /* Nothing but its calls can reach this socket now, so drop its
                  * own reference: it is deleted here if no call uses it, or
                  * when the last one does. The global sockets keep theirs. A
                  * call socket has none, so it may go with its calls here. */
                 bool own_ref = ss_own_ref && this != main_socket && this != tcp_multiplex && this != main_remote_socket;
-                if (reset_close) {
-                    close_calls();
+                if (end_calls) {
+                    int failed = close_calls();
+                    if (failed) {
+                        WARNING("The remote peer %s the %s connection, failing %d call(s)",
+                                reset ? "reset" : "closed", transport, failed);
+                    }
                 }
                 if (own_ref) {
                     ss_own_ref = false;
@@ -2367,21 +2378,23 @@ void SIPpSocket::reset_connection()
 }
 
 /* Close just those calls for a given socket (e.g., if the remote end closes
- * the connection. */
-void SIPpSocket::close_calls()
+ * the connection. Returns how many of them failed. */
+int SIPpSocket::close_calls()
 {
     owner_list *owners = get_owners_for_socket(this);
     owner_list::iterator owner_it;
     socketowner *owner_ptr = nullptr;
+    int failed = 0;
 
     for (owner_it = owners->begin(); owner_it != owners->end(); owner_it++) {
         owner_ptr = *owner_it;
-        if (owner_ptr) {
-            owner_ptr->tcpClose();
+        if (owner_ptr && owner_ptr->tcpClose()) {
+            failed++;
         }
     }
 
     delete owners;
+    return failed;
 }
 
 int open_connections()

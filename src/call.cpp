@@ -1735,7 +1735,7 @@ void call::do_bookkeeping(message *curmsg)
     }
 }
 
-void call::tcpClose()
+bool call::tcpClose()
 {
     /* A call whose next step is its <timewait> is done, even if it has not
      * run that step yet: the peer closing the connection after the last
@@ -1745,7 +1745,9 @@ void call::tcpClose()
     if (msg_index >= 0 && msg_index < (int)msgs->size() && (*msgs)[msg_index]->timewait) {
         timewait = true;
     }
+    bool failed = last_action_result != E_AR_NO_ERROR || !timewait;
     terminate(CStat::E_FAILED_TCP_CLOSED);
+    return failed;
 }
 
 void call::terminate(CStat::E_Action reason)
