@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- Fails to load, after -trace_err has opened the error log. -->
+<scenario name="bad">
+  <label id="twice"/>
+  <label id="twice"/>
+</scenario>

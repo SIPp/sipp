@@ -1,0 +1,15 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An error while the scenario loads is logged with -trace_err before the
+# scenario has a name: the log must not be named after a null pointer.
+. "`dirname "$0"`/../functions"; init
+
+rm -f ./*_errors.log
+sippfg -trace_err -sf bad.xml 127.0.0.1:5070 >/dev/null 2>&1
+logs=`ls ./*_errors.log 2>/dev/null`
+rm -f ./*_errors.log
+
+case $logs in
+    ./sipp_*_errors.log) ok ;;
+    *) fail "error log is \"$logs\", not sipp_<pid>_errors.log" ;;
+esac

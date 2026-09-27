@@ -246,6 +246,8 @@ void print_screens(void)
 static void rotatef(struct logfile_info* lfi)
 {
     char L_rotate_file_name[MAX_PATH];
+    /* An error while the scenario loads comes before it has a name. */
+    const char *scenario_file = ::scenario_file ? ::scenario_file : "sipp";
 
     if (!lfi->fixedname) {
         sprintf(lfi->file_name, "%s_%ld_%s.log", scenario_file, (long)getpid(),
