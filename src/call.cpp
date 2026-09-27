@@ -1422,7 +1422,6 @@ bool call::connect_socket_if_needed()
         if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == nullptr) {
             ERROR_NO("Unable to get a TCP/SCTP/TLS socket");
         }
-        call_socket->ss_count++;
 
         if (existing) {
             call_port = call_socket->ss_port;
@@ -5849,8 +5848,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             free(value);
         } else if (currentAction->getActionType() == CAction::E_AT_CLOSE_CON) {
             if (call_socket) {
-                call_socket->close();
-                call_socket = nullptr;
+                dissociate_socket()->close();
             }
         } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST) {
             /* Change the destination for this call. */
