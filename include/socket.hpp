@@ -130,6 +130,7 @@ private:
     int flush();
     int write_error(int ret);
     void abort();
+    void drop_connection();
     int check_for_message();
     int enter_congestion(int again);
     ssize_t write_primitive(const char* buffer, size_t len,
