@@ -84,7 +84,7 @@
   <!-- receive 200 OK / INVITE -->
   <recv response="200">
       <action>
-          <exec rtp_stream="sipp_scenarios/coco_jamboo_ulaw.wav,-1,0,PCMU/8000" />
+          <exec rtp_stream="coco_jamboo_ulaw.wav,-1,0,PCMU/8000" />
       </action>
   </recv>
 
