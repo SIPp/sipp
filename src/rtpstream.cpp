@@ -920,7 +920,9 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
         if (taskinfo->video_loop_count)
         {
             target_timestamp = timenow_ms * taskinfo->video_timeticks_per_ms;
-            next_wake = timenow_ms + taskinfo->video_ms_per_packet - timenow_ms%taskinfo->video_ms_per_packet;
+            /* Keep an earlier wakeup the audio stream asked for: overwriting
+             * it made audio go out at the video packet rate. */
+            next_wake = std::min(next_wake, timenow_ms + taskinfo->video_ms_per_packet - timenow_ms%taskinfo->video_ms_per_packet);
             if (taskinfo->flags & (TI_NULL_VIDEOIP | TI_PAUSERTP | TI_PAUSERTPVPATTERN))
             {
                 /* when paused, set timestamp so stream appears to be up to date */
