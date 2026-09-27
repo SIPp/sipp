@@ -391,26 +391,28 @@ static void fill_default_udphdr(struct udphdr* udp, u_long pktlen)
     udp->uh_dport = 0;
 }
 
-static void fill_default_rtphdr(struct rtphdr* rtp, int marker, int seqno, int ts)
+static void fill_default_rtphdr(struct rtphdr* rtp, int marker, int seqno, int ts,
+                                uint8_t payload_type)
 {
     rtp->version = 2;
     rtp->padding = 0;
     rtp->extension = 0;
     rtp->csicnt = 0;
     rtp->marker = marker;
-    rtp->payload_type = 0x60; /* 96 as in the SDP */
+    rtp->payload_type = payload_type;
     rtp->seqno = htons(seqno);
     rtp->timestamp = htonl(ts);
     rtp->ssrcid = htonl(dtmf_ssrcid);
 }
 
 static void fill_default_dtmf(struct dtmfpacket* dtmfpacket, int marker, int seqno,
-                              uint32_t ts, char digit, int eoe, unsigned long duration)
+                              uint32_t ts, char digit, int eoe, unsigned long duration,
+                              uint8_t payload_type)
 {
     const u_long pktlen = sizeof(*dtmfpacket);
 
     fill_default_udphdr(&dtmfpacket->udp, pktlen);
-    fill_default_rtphdr(&dtmfpacket->rtp, marker, seqno, ts);
+    fill_default_rtphdr(&dtmfpacket->rtp, marker, seqno, ts, payload_type);
 
     dtmfpacket->dtmf.event_id = digit;
     dtmfpacket->dtmf.end_of_event = eoe;
@@ -419,21 +421,23 @@ static void fill_default_dtmf(struct dtmfpacket* dtmfpacket, int marker, int seq
     dtmfpacket->dtmf.duration = htons(duration * 8);
 }
 
-static void fill_default_noop(struct nooppacket* nooppacket, int seqno, int ts)
+static void fill_default_noop(struct nooppacket* nooppacket, int seqno, int ts,
+                              uint8_t payload_type)
 {
     const u_long pktlen = sizeof(*nooppacket);
 
     fill_default_udphdr(&nooppacket->udp, pktlen);
-    fill_default_rtphdr(&nooppacket->rtp, 0, seqno, ts);
+    /* 97 for noop, unless the events use it */
+    fill_default_rtphdr(&nooppacket->rtp, 0, seqno, ts, payload_type == 97 ? 96 : 97);
 
-    nooppacket->rtp.payload_type = 0x61; /* 97 for noop */
     nooppacket->noop.request_rtcp = 0;
     nooppacket->noop.reserved = 0;
 }
 
 static void prepare_dtmf_digit_start(
         pcap_pkts* pkts, int* n_pkts, uint16_t start_seq_no, int n_digits,
-        unsigned char uc_digit, unsigned long tone_len, unsigned long ts_offset, unsigned timestamp_start)
+        unsigned char uc_digit, unsigned long tone_len, unsigned long ts_offset, unsigned timestamp_start,
+        uint8_t payload_type)
 {
     const u_long pktlen = sizeof(struct dtmfpacket);
     unsigned long cur_tone_len = 0;
@@ -463,7 +467,7 @@ static void prepare_dtmf_digit_start(
 
         fill_default_dtmf(dtmfpacket, !marked,
                           *n_pkts + start_seq_no, n_digits * tone_len * 2 * 8 + timestamp_start,
-                          uc_digit, 0, cur_tone_len);
+                          uc_digit, 0, cur_tone_len, payload_type);
         marked = 1; /* set marker once per event */
 
         pkt_index->partial_check = check(&dtmfpacket->udp.uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
@@ -475,7 +479,8 @@ static void prepare_dtmf_digit_start(
 
 static void prepare_dtmf_digit_end(
         pcap_pkts* pkts, int* n_pkts, uint16_t start_seq_no, int n_digits,
-        unsigned char uc_digit, unsigned long tone_len, unsigned long ts_offset, unsigned timestamp_start)
+        unsigned char uc_digit, unsigned long tone_len, unsigned long ts_offset, unsigned timestamp_start,
+        uint8_t payload_type)
 {
     const u_long pktlen = sizeof(struct dtmfpacket);
     int i;
@@ -503,7 +508,7 @@ static void prepare_dtmf_digit_end(
         dtmfpacket = (struct dtmfpacket*)pkt_index->data;
         fill_default_dtmf(dtmfpacket, 0,
                           *n_pkts + start_seq_no, n_digits * tone_len * 2 * 8 + timestamp_start,
-                          uc_digit, 1, tone_len);
+                          uc_digit, 1, tone_len, payload_type);
 
         pkt_index->partial_check = check(&dtmfpacket->udp.uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 
@@ -513,7 +518,7 @@ static void prepare_dtmf_digit_end(
 
 static void prepare_noop(
         pcap_pkts* pkts, int* n_pkts, uint16_t* start_seq_no,
-        unsigned long *ts_offset, unsigned *timestamp_start)
+        unsigned long *ts_offset, unsigned *timestamp_start, uint8_t payload_type)
 {
     const u_long pktlen = sizeof(struct nooppacket); /* not dtmfpacket */
     int i;
@@ -541,7 +546,8 @@ static void prepare_noop(
         }
 
         nooppacket = (struct nooppacket*)pkt_index->data;
-        fill_default_noop(nooppacket, *n_pkts + *start_seq_no, *timestamp_start + ts * 8);
+        fill_default_noop(nooppacket, *n_pkts + *start_seq_no, *timestamp_start + ts * 8,
+                          payload_type);
 
         pkt_index->partial_check = check(&nooppacket->udp.uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 
@@ -557,6 +563,7 @@ static void prepare_noop(
 int prepare_dtmf(char* digits, pcap_pkts* pkts, uint16_t start_seq_no)
 {
     unsigned long tone_len = 200;
+    uint8_t payload_type = 96; /* telephone-event, as in the SDP */
     const u_long pktlen = sizeof(struct dtmfpacket);
     int n_pkts = 0;
     int n_digits = 0;
@@ -586,9 +593,18 @@ int prepare_dtmf(char* digits, pcap_pkts* pkts, uint16_t start_seq_no)
 
     char* comma = strchr(digits, ',');
     if (comma) {
+        char* pt = strchr(comma + 1, ',');
         tone_len = atol(comma + 1);
         if (tone_len < 50 || tone_len > 2000) {
             tone_len = 200;
+        }
+        if (pt && *++pt) {
+            char* end;
+            long value = strtol(pt, &end, 10);
+            if (end == pt || *end || value < 0 || value > 127) {
+                ERROR("Invalid play_dtmf payload type '%s', expected 0 to 127", pt);
+            }
+            payload_type = value;
         }
         *comma = '\0';
     }
@@ -616,14 +632,14 @@ int prepare_dtmf(char* digits, pcap_pkts* pkts, uint16_t start_seq_no)
 
         if (needs_filler) {
             prepare_noop(pkts, &n_pkts, &start_seq_no, &ts_offset,
-                         &timestamp_start);
+                         &timestamp_start, payload_type);
             needs_filler = 0;
         }
 
         prepare_dtmf_digit_start(pkts, &n_pkts, start_seq_no, n_digits, uc_digit,
-                                 tone_len, ts_offset, timestamp_start);
+                                 tone_len, ts_offset, timestamp_start, payload_type);
         prepare_dtmf_digit_end(pkts, &n_pkts, start_seq_no, n_digits, uc_digit,
-                               tone_len, ts_offset, timestamp_start);
+                               tone_len, ts_offset, timestamp_start, payload_type);
 
         n_digits++;
     }

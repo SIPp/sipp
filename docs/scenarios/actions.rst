@@ -287,6 +287,28 @@ Example that plays a pre-recorded RTP stream::
       </action>
     </nop>
 
+The play_dtmf command sends DTMF digits as :RFC:`2833` telephone-events,
+generated on the fly and sent like a play_pcap_audio stream. It has
+the following format:
+play_dtmf="[digits],[tone_length],[payload_type]" with:
+
+
++ digits: the digits to send, from 0-9, \*, #, and A-D. Other
+  characters are skipped. Keywords such as ``[field0]`` are expanded.
++ tone_length: optional, how long each digit lasts, in milliseconds,
+  followed by as long a pause (50 to 2000, the default is 200).
++ payload_type: optional, the RTP payload type of the events, which
+  should match the telephone-event payload in the SDP (0 to 127, the
+  default is 96). Any other value is a fatal error.
+
+Example that sends the digits 1, 2 and 3 with the payload type 101::
+
+    <nop>
+      <action>
+        <exec play_dtmf="123,200,101"/>
+      </action>
+    </nop>
+
 
 
 Variable Manipulation

@@ -7439,5 +7439,31 @@ TEST(sdp, good_remote_media_addr_v6) {
     ASSERT_EQ(call.has_media(), true);
     ASSERT_EQ(reference, call.get_audio_addr<struct sockaddr_in6>());
 }
+
+/* The RTP payload type of packet n of a play_dtmf; the first 20 are
+ * no-ops. */
+static int dtmf_payload_type(const char* args, int n)
+{
+    pcap_pkts* pkts = (pcap_pkts*) malloc(sizeof(pcap_pkts));
+    parse_dtmf_play_args(args, pkts, 0);
+    int pt = pkts->pkts[n].data[sizeof(struct udphdr) + 1] & 0x7f;
+    free_pcaps(pkts);
+    return pt;
+}
+
+TEST(play_dtmf, payload_type) {
+    EXPECT_EQ(96, dtmf_payload_type("1", 20));
+    EXPECT_EQ(96, dtmf_payload_type("1,100", 20));
+    EXPECT_EQ(101, dtmf_payload_type("1,100,101", 20));
+    EXPECT_EQ(97, dtmf_payload_type("1,100,101", 0));
+    EXPECT_EQ(96, dtmf_payload_type("1,100,97", 0));
+    EXPECT_EQ(96, dtmf_payload_type("1,100,", 20));
+    EXPECT_EXIT(dtmf_payload_type("1,100,foo", 20), ::testing::ExitedWithCode(255),
+                "payload type");
+    EXPECT_EXIT(dtmf_payload_type("1,100,101x", 20), ::testing::ExitedWithCode(255),
+                "payload type");
+    EXPECT_EXIT(dtmf_payload_type("1,100,128", 20), ::testing::ExitedWithCode(255),
+                "payload type");
+}
 #endif /* PCAP_PLAY */
 #endif
