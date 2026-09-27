@@ -1,0 +1,21 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# [media_port] and [auto_media_port] outside a message line, as in a
+# <log>, give the port: with pcap play they used to be a fatal "Can
+# not find beginning of a line for the media port!".
+. "`dirname "$0"`/../functions"; init
+
+rm -f log.log
+sippfg -sf uac.xml -m 1 -p 25650 -mp 25652 127.0.0.1:25651 \
+    -trace_logs -log_file log.log -timeout 5 >/dev/null 2>&1
+status=$?
+line=`cat log.log 2>/dev/null`
+rm -f log.log
+
+if test $status -ne 0; then
+    fail "sipp failed with $status"
+elif test "$line" != "port 25652 25654"; then
+    fail "logged '$line'"
+else
+    ok
+fi

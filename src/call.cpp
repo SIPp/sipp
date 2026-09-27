@@ -2726,11 +2726,10 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 port += (4 * (number - 1)) % 10000;
             }
 #ifdef PCAPPLAY
+            // Outside a message, e.g. in a <log>, the text is one line.
             const size_t line_start = out.rfind('\n');
-            if (line_start == std::string::npos || line_start == 0) {
-                ERROR("Can not find beginning of a line for the media port!");
-            }
-            const char *begin = out.c_str() + line_start;
+            const char *begin = out.c_str() +
+                (line_start == std::string::npos ? 0 : line_start);
             play_args_t* play_args = nullptr;
             if (strstr(begin, "audio")) {
                 play_args = &play_args_a;
