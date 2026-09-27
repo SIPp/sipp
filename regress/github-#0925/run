@@ -1,0 +1,24 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -rxsn loads a built-in receive scenario: a client making its own call
+# answers one it gets with the built-in uas.
+. "`dirname "$0"`/../functions"; init
+
+sippbg -sn uas -i 127.0.0.1 -p 5070 -m 1
+sippfg -sn uac -d 3000 -rxsn uas -m 1 -i 127.0.0.1 -p 5071 127.0.0.1:5070 \
+    -timeout 10 -timeout_error >/dev/null 2>&1 &
+mixed=$!
+sleep 1
+sippfg -sn uac -m 1 -i 127.0.0.1 -p 5072 127.0.0.1:5071 \
+    -timeout 6 -timeout_error >/dev/null 2>&1
+caller=$?
+wait $mixed
+mixed=$?
+
+if test $mixed -ne 0; then
+    fail "the -rxsn run failed with $mixed"
+elif test $caller -ne 0; then
+    fail "the call to the -rxsn run failed with $caller"
+else
+    ok
+fi
