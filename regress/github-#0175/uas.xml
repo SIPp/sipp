@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="UAS that rings until the INVITE is cancelled">
+
+  <recv request="INVITE"/>
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 180 Ringing
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv request="CANCEL"/>
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 487 Request Terminated
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      CSeq: [last_cseq_number]	INVITE
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+</scenario>

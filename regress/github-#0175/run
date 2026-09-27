@@ -1,0 +1,23 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The 200 to the CANCEL an aborted call sends, and the 487 to its
+# INVITE, don't make "Dead call" warnings. The second call keeps the
+# UAC up for the answers to the first one.
+. "`dirname "$0"`/../functions"; init
+
+rm -f uac_err.log
+sippbg -sf uas.xml -i 127.0.0.1 -p 25830 -m 2
+sippfg -sf uac.xml -i 127.0.0.1 -p 25831 -m 2 -r 1 -rp 1000 \
+    127.0.0.1:25830 -timeout 8 -trace_err -error_file uac_err.log \
+    >/dev/null 2>&1
+aborted=`grep -c 'aborting call' uac_err.log`
+dead=`grep -c 'Dead call' uac_err.log`
+rm -f uac_err.log
+
+if test $aborted -eq 0; then
+    fail "the call did not abort"
+elif test $dead -ne 0; then
+    fail "$dead dead call warnings"
+else
+    ok
+fi

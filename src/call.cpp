@@ -2475,6 +2475,7 @@ void call::abort()
 bool call::abortCall(bool writeLog)
 {
     int is_inv;
+    bool sent_bye = false, sent_cancel = false;
 
     char * src_recv = nullptr ;
 
@@ -2504,9 +2505,11 @@ bool call::abortCall(bool writeLog)
 
                     /* Send the BYE */
                     sendBuffer(createSendingMessage(get_default_message("bye")));
+                    sent_bye = true;
                 } else {
                     /* Send a CANCEL */
                     sendBuffer(createSendingMessage(get_default_message("cancel")));
+                    sent_cancel = true;
                 }
             } else {
                 /* Call is not established and the reply is not a 4XX, 5XX */
@@ -2521,6 +2524,7 @@ bool call::abortCall(bool writeLog)
              * (although it could be something like a message message, therefore we
              * check that we received a message. */
             sendBuffer(createSendingMessage(get_default_message("bye")));
+            sent_bye = true;
         }
     }
 
@@ -2534,7 +2538,7 @@ bool call::abortCall(bool writeLog)
     if (deadcall_wait && !initCall) {
         char reason[100];
         sprintf(reason, "aborted at index %d", msg_index);
-        new deadcall(id, reason);
+        new deadcall(id, reason, sent_bye, sent_cancel);
     }
     delete this;
 
@@ -4369,24 +4373,23 @@ bool call::check_peer_src(char * msg, int search_index)
 }
 
 
-void call::extract_cseq_method(char* method, const char* msg)
+void call::extract_cseq_method(char* method, size_t size, const char* msg)
 {
     const char* cseq;
+    method[0] = '\0';
     if ((cseq = strstr (msg, "CSeq"))) {
         const char* value;
         if ((value = strchr(cseq, ':'))) {
             value++;
             while (isspace(*value)) value++;  // ignore any white spaces after the :
-            while (!isspace(*value)) value++;  // ignore the CSEQ number
+            while (*value && !isspace(*value)) value++;  // ignore the CSEQ number
             while (isspace(*value)) value++;  // ignore spaces after CSEQ number
-            const char* end = value;
-            int nbytes = 0;
             /* A '\r' terminates the line, so we want to catch that too. */
-            while ((*end != '\r') && (*end != '\n')) {
-                end++;
-                nbytes++;
+            size_t nbytes = strcspn(value, "\r\n");
+            if (nbytes >= size) {
+                nbytes = size - 1;
             }
-            if (nbytes > 0) strncpy (method, value, nbytes);
+            memcpy(method, value, nbytes);
             method[nbytes] = '\0';
         }
     }
@@ -5297,7 +5300,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         }
         request[0] = 0;
         // extract the cseq method from the response
-        extract_cseq_method(responsecseqmethod, msg);
+        extract_cseq_method(responsecseqmethod, sizeof(responsecseqmethod), msg);
         extract_transaction(txn, msg);
     } else if ((ptr = strchr(msg, ' '))) {
         if ((ptr - msg) < 64) {
@@ -7449,6 +7452,21 @@ static int dtmf_payload_type(const char* args, int n)
     int pt = pkts->pkts[n].data[sizeof(struct udphdr) + 1] & 0x7f;
     free_pcaps(pkts);
     return pt;
+}
+
+TEST(extract_cseq_method, method) {
+    char method[16];
+    call::extract_cseq_method(method, sizeof(method), "SIP/2.0 200 OK\r\nCSeq: 2 BYE\r\n\r\n");
+    EXPECT_STREQ("BYE", method);
+    call::extract_cseq_method(method, sizeof(method), "SIP/2.0 200 OK\r\n\r\n");
+    EXPECT_STREQ("", method);
+}
+
+TEST(extract_cseq_method, long_method_is_truncated) {
+    std::string msg = "SIP/2.0 200 OK\r\nCSeq: 1 " + std::string(3000, 'X') + "\r\n\r\n";
+    char method[16];
+    call::extract_cseq_method(method, sizeof(method), msg.c_str());
+    EXPECT_STREQ(std::string(sizeof(method) - 1, 'X').c_str(), method);
 }
 
 TEST(play_dtmf, payload_type) {

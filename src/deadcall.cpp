@@ -49,10 +49,12 @@
 /* Defined in call.cpp. */
 extern timewheel paused_calls;
 
-deadcall::deadcall(const char *id, const char *reason) : listener(id, true)
+deadcall::deadcall(const char *id, const char *reason, bool sent_bye, bool sent_cancel) : listener(id, true)
 {
     this->expiration = clock_tick + deadcall_wait;
     this->reason = strdup(reason);
+    this->sent_bye = sent_bye;
+    this->sent_cancel = sent_cancel;
     setPaused();
 }
 
@@ -65,9 +67,25 @@ bool deadcall::process_incoming(const char* msg, const struct sockaddr_storage* 
 {
     char buffer[MAX_HEADER_LEN];
 
-    CStat::globalStat(CStat::E_DEAD_CALL_MSGS);
-
     setRunning();
+
+    /* The 200 to our BYE or CANCEL, and the 487 to the INVITE we
+     * cancelled, only trail the call. */
+    unsigned long code = get_reply_code(msg);
+    if ((sent_bye || sent_cancel) && (code == 200 || code == 487)) {
+        char method[16];
+        call::extract_cseq_method(method, sizeof(method), msg);
+        if ((sent_bye && code == 200 && !strcmp(method, "BYE")) ||
+            (sent_cancel && code == 200 && !strcmp(method, "CANCEL")) ||
+            (sent_cancel && code == 487 && !strcmp(method, "INVITE"))) {
+            TRACE_MSG("-----------------------------------------------\n"
+                      "Dead call %s received a %s message:\n\n%s\n",
+                      id, TRANSPORT_TO_STRING(transport), msg);
+            return run();
+        }
+    }
+
+    CStat::globalStat(CStat::E_DEAD_CALL_MSGS);
 
     snprintf(buffer, MAX_HEADER_LEN, "Dead call %s (%s)", id, reason);
 
