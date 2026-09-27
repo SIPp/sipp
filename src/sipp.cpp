@@ -941,8 +941,10 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
         }
 
         while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
-            (*(sockets_pending_reset.begin()))->reset_connection();
+            /* Off the queue first: the reset may free the socket. */
+            SIPpSocket *sock = *sockets_pending_reset.begin();
             sockets_pending_reset.erase(sockets_pending_reset.begin());
+            sock->reset_connection();
         }
 
         if (!quitting && (main_scenario->stats->GetStat(CStat::CPT_C_IncomingCallCreated) + main_scenario->stats->GetStat(CStat::CPT_C_OutgoingCallCreated)) >= stop_after) {
@@ -1025,8 +1027,10 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
             last->run();
         }
         while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
-            (*(sockets_pending_reset.begin()))->reset_connection();
+            /* Off the queue first: the reset may free the socket. */
+            SIPpSocket *sock = *sockets_pending_reset.begin();
             sockets_pending_reset.erase(sockets_pending_reset.begin());
+            sock->reset_connection();
         }
 
         update_clock_tick();

@@ -1402,6 +1402,9 @@ SIPpSocket* SIPpSocket::new_sipp_call_socket(bool use_ipv6, int transport, bool 
     } else {
         sock = new_sipp_socket(use_ipv6, transport);
         sock->ss_call_socket = true;
+        /* Its first reference is the call's, so the socket is closed when
+         * the last call using it ends. */
+        sock->ss_own_ref = false;
         *existing = false;
     }
     return sock;
@@ -2000,14 +2003,15 @@ int SIPpSocket::read_error(int ret)
                  * be destroyed.  Also, if these calls are not complete, and attempt to
                  * send again we may "resurrect" the socket by reconnecting it.*/
                 invalidate();
+                /* Nothing but its calls can reach this socket now, so drop its
+                 * own reference: it is deleted here if no call uses it, or
+                 * when the last one does. The global sockets keep theirs. A
+                 * call socket has none, so it may go with its calls here. */
+                bool own_ref = ss_own_ref && this != main_socket && this != tcp_multiplex && this != main_remote_socket;
                 if (reset_close) {
                     close_calls();
                 }
-                /* Nothing but its calls can reach this socket now, so drop its
-                 * own reference: it is deleted here if no call uses it, or
-                 * when the last one does. The global sockets keep theirs. */
-                if (ss_own_ref && this != main_socket && this != tcp_multiplex &&
-                        this != main_remote_socket) {
+                if (own_ref) {
                     ss_own_ref = false;
                     close();
                 }
@@ -2334,7 +2338,15 @@ void SIPpSocket::reset_connection()
 
     if (reset_close) {
         WARNING("Closing calls, because of TCP reset or close!");
+        /* A call socket goes with its last call, and then there is
+         * nothing left to reconnect. */
+        ss_count++;
         close_calls();
+        if (ss_count == 1) {
+            close();
+            return;
+        }
+        ss_count--;
     }
 
     /* Sleep for some period of time before the reconnection. */
