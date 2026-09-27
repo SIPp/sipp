@@ -267,6 +267,7 @@ protected:
                            int occurrence, bool headers);
     bool  rejectCall();
     double get_rhs(CAction *currentAction);
+    double get_var_double(int varId);
 
     // P_index use for message index in scenario
     char* createSendingMessage(SendingMessage* src, int P_index=-1, int *msgLen=nullptr);

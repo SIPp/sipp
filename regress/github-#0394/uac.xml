@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario>
+  <send>
+    <![CDATA[
+
+      OPTIONS sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 OPTIONS
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <nop>
+    <action>
+      <assignstr assign_to="p" value="1000"/>
+      <assignstr assign_to="n" value="2"/>
+      <assignstr assign_to="m" value="4"/>
+      <add assign_to="n" value="3"/>
+      <multiply assign_to="n" variable="m"/>
+      <assignstr assign_to="bad" value="abc"/>
+      <add assign_to="q" variable="bad"/>
+      <log message="n=[$n] before=[clock_tick]"/>
+    </action>
+  </nop>
+
+  <Reference variables="q"/>
+
+  <pause variable="p"/>
+
+  <nop>
+    <action>
+      <log message="after=[clock_tick]"/>
+    </action>
+  </nop>
+</scenario>
