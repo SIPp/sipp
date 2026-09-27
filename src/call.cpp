@@ -6305,10 +6305,11 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
             const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);
-            if (sendMode == MODE_CLIENT) {
-                startUACSrtp(_txUACAudio, _rxUACAudio, currentAction->getRTPStreamActInfo()->bytes_per_packet, "AUDIO");
-            }
-            rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo(), _txUACAudio, _rxUACAudio);
+            /* A server plays with the keys of its own answer, as it echoes. */
+            SrtpChannel& tx = sendMode == MODE_CLIENT ? _txUACAudio : _txUASAudio;
+            SrtpChannel& rx = sendMode == MODE_CLIENT ? _rxUACAudio : _rxUASAudio;
+            startUACSrtp(tx, rx, currentAction->getRTPStreamActInfo()->bytes_per_packet, "AUDIO");
+            rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo(), tx, rx);
             // Obtain ID of parent thread used for the related RTP task
             call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSEAPATTERN) {
