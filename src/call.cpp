@@ -6956,11 +6956,13 @@ int call::getFieldFromInputFile(const char *fileName, int field, SendingMessage 
     }
     int line = (*m_lineNumber)[fileName];
     if (lineMsg) {
-        char lineBuffer[20];
+        char lineBuffer[64];
         char *endptr;
         createSendingMessage(lineMsg, SM_UNUSED, lineBuffer, sizeof(lineBuffer));
         line = (int) strtod(lineBuffer, &endptr);
-        if (*endptr != 0) {
+        /* Empty, not a number, or too long for the buffer. */
+        if (endptr == lineBuffer || *endptr != 0 ||
+                strlen(lineBuffer) == sizeof(lineBuffer) - 1) {
             ERROR("Invalid line number generated: '%s'", lineBuffer);
         }
         if (line > inFiles[fileName]->numLines()) {

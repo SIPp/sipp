@@ -194,13 +194,37 @@ int thirdPartyMode = MODE_3PCC_NONE;
 #define KEYWORD_SIZE 256
 
 /*************** Helper functions for various types *****************/
+/* Integers are decimal, or hexadecimal after "0x": a leading 0 does not
+ * make them octal. */
+static int integer_base(const char *ptr)
+{
+    while (isspace((unsigned char)*ptr)) {
+        ptr++;
+    }
+    if (*ptr == '-' || *ptr == '+') {
+        ptr++;
+    }
+    return ptr[0] == '0' && (ptr[1] == 'x' || ptr[1] == 'X') ? 16 : 10;
+}
+
 long get_long(const char *ptr, const char *what)
 {
     char *endptr;
     long ret;
 
-    ret = strtol(ptr, &endptr, 0);
-    if (*endptr) {
+    errno = 0;
+    ret = strtol(ptr, &endptr, integer_base(ptr));
+    if (endptr == ptr || *endptr || errno == ERANGE) {
+        ERROR("%s, \"%s\" is not a valid integer!", what, ptr);
+    }
+    return ret;
+}
+
+int get_int(const char *ptr, const char *what)
+{
+    long ret = get_long(ptr, what);
+
+    if (ret < INT_MIN || ret > INT_MAX) {
         ERROR("%s, \"%s\" is not a valid integer!", what, ptr);
     }
     return ret;
@@ -211,8 +235,9 @@ unsigned long long get_long_long(const char *ptr, const char *what)
     char *endptr;
     unsigned long long ret;
 
-    ret = strtoull(ptr, &endptr, 0);
-    if (*endptr) {
+    errno = 0;
+    ret = strtoull(ptr, &endptr, integer_base(ptr));
+    if (endptr == ptr || *endptr || errno == ERANGE) {
         ERROR("%s, \"%s\" is not a valid integer!", what, ptr);
     }
     return ret;
@@ -273,7 +298,7 @@ double get_double(const char *ptr, const char *what)
     double ret;
 
     ret = strtod(ptr, &endptr);
-    if (*endptr) {
+    if (endptr == ptr || *endptr) {
         ERROR("%s, \"%s\" is not a floating point number!", what, ptr);
     }
     return ret;
@@ -558,8 +583,8 @@ bool get_bool(const char *ptr, const char *what)
         return false;
     }
 
-    ret = strtol(ptr, &endptr, 0);
-    if (*endptr) {
+    ret = strtol(ptr, &endptr, integer_base(ptr));
+    if (endptr == ptr || *endptr) {
         ERROR("%s, \"%s\" is not a valid boolean!", what, ptr);
     }
     return ret ? true : false;
@@ -3458,3 +3483,25 @@ const char * default_scenario [] = {
     "\n"
     "</scenario>\n",
 };
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+
+TEST(get_long, decimal_or_hex) {
+    EXPECT_EQ(10, get_long("010", "test"));
+    EXPECT_EQ(-10, get_long("-010", "test"));
+    EXPECT_EQ(16, get_long("0x10", "test"));
+    EXPECT_EQ(8ULL, get_long_long("08", "test"));
+    EXPECT_TRUE(get_bool("08", "test"));
+    EXPECT_FALSE(get_bool("0x0", "test"));
+}
+
+TEST(get_long, refuses_empty_and_garbage) {
+    EXPECT_DEATH(get_long("", "test"), "is not a valid integer");
+    EXPECT_DEATH(get_long("5x", "test"), "is not a valid integer");
+    EXPECT_DEATH(get_long_long("", "test"), "is not a valid integer");
+    EXPECT_DEATH(get_int("4294967296", "test"), "is not a valid integer");
+    EXPECT_DEATH(get_bool("", "test"), "is not a valid boolean");
+    EXPECT_DEATH(get_double("", "test"), "is not a floating point number");
+}
+#endif //GTEST

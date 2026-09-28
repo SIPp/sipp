@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- Logs the CSeq, and converts an empty string to a number. -->
+<scenario name="number parsing">
+  <send>
+    <![CDATA[
+      MESSAGE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:c@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: [cseq] MESSAGE
+      Content-Length: 0
+
+    ]]>
+  </send>
+  <nop>
+    <action>
+      <assignstr assign_to="empty" value=""/>
+      <todouble assign_to="d" variable="empty"/>
+      <log message="[cseq] [$d]"/>
+    </action>
+  </nop>
+</scenario>

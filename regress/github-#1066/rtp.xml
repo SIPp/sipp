@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- An rtp_stream loop count that is not a number. -->
+<scenario name="bad loop count">
+  <nop>
+    <action>
+      <exec rtp_stream="silence.raw,1x,0"/>
+    </action>
+  </nop>
+</scenario>
