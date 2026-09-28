@@ -148,7 +148,6 @@ private:
 
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
     SSL *ss_ssl = nullptr; /* The underlying SSL descriptor for this socket. */
-    BIO *ss_bio = nullptr; /* The underlying BIO descriptor for this socket. */
 #endif
 
     int ss_pollidx = -1; /* The index of this socket in our poll structures. */

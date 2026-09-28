@@ -1315,15 +1315,16 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
         int flags = fcntl(fd, F_GETFL, 0);
         fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-        if ((ss_bio = BIO_new_socket(fd, BIO_NOCLOSE)) == nullptr) {
-            ERROR("Unable to create BIO object:Problem with BIO_new_socket()");
-        }
-
         if (!(ss_ssl = (accepting ? SSL_new_server() : SSL_new_client()))) {
             ERROR("Unable to create SSL object : Problem with SSL_new()");
         }
 
-        SSL_set_bio(ss_ssl, ss_bio, ss_bio);
+        /* The fd itself, not through a socket BIO, whose fd wolfSSL's
+         * SSL_get_fd() doesn't return: the waits for the peer polled -1
+         * and stalled every handshake. */
+        if (!SSL_set_fd(ss_ssl, fd)) {
+            ERROR("Unable to set the SSL descriptor: Problem with SSL_set_fd()");
+        }
     }
 #endif
     /* Store this socket in the tables. */
@@ -1683,15 +1684,13 @@ int SIPpSocket::reconnect()
             int flags = fcntl(ss_fd, F_GETFL, 0);
             fcntl(ss_fd, F_SETFL, flags | O_NONBLOCK);
 
-            if ((ss_bio = BIO_new_socket(ss_fd, BIO_NOCLOSE)) == nullptr) {
-                ERROR("Unable to create BIO object:Problem with BIO_new_socket()");
-            }
-
             if (!(ss_ssl = SSL_new_client())) {
                 ERROR("Unable to create SSL object : Problem with SSL_new()");
             }
 
-            SSL_set_bio(ss_ssl, ss_bio, ss_bio);
+            if (!SSL_set_fd(ss_ssl, ss_fd)) {
+                ERROR("Unable to set the SSL descriptor: Problem with SSL_set_fd()");
+            }
         }
 #endif
 
