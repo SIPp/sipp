@@ -2658,6 +2658,9 @@ int main(int argc, char *argv[])
     if (ooc_scenario) {
         ooc_scenario->runInit();
     }
+    if (rx_scenario) {
+        rx_scenario->runInit();
+    }
 
     /* In which mode the tool is launched ? */
     main_scenario->computeSippMode();
