@@ -1179,8 +1179,18 @@ ssize_t SIPpSocket::read_message(char *buf, size_t len, struct sockaddr_storage 
 /* Is msg a request that -aa answers outside of any call? */
 static bool is_auto_answered(const char *msg)
 {
-    return auto_answer && ((strstr(msg, "INFO") == msg) || (strstr(msg, "NOTIFY") == msg) ||
-                           (strstr(msg, "OPTIONS") == msg) || (strstr(msg, "UPDATE") == msg));
+    static const char *methods[] = {"INFO", "NOTIFY", "OPTIONS", "UPDATE"};
+
+    if (!auto_answer) {
+        return false;
+    }
+    for (const char *method : methods) {
+        size_t len = strlen(method);
+        if (!strncmp(msg, method, len) && msg[len] == ' ') {
+            return true;
+        }
+    }
+    return false;
 }
 
 void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct sockaddr_storage *src)
@@ -1316,19 +1326,12 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
                 // If auto answer mode, try to answer the incoming message
                 // with automaticResponseMode, which counts it; the call is
                 // discarded once it has answered.
-                if (!get_reply_code(msg)) {
-                    aa_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
-                    /* This should have the real address that the message came from. */
-                    call *call_ptr = new call(aa_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
-                    if (call_ptr->process_incoming(msg, src)) {
-                        aa_scenario->stats->computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
-                        delete call_ptr;
-                    }
-                } else {
-                    fprintf(stderr, "%s", msg);
-                    /* We received a response not relating to any known call */
-                    /* Do nothing, even if in auto answer mode */
-                    CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
+                aa_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
+                /* This should have the real address that the message came from. */
+                call *call_ptr = new call(aa_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
+                if (call_ptr->process_incoming(msg, src)) {
+                    aa_scenario->stats->computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
+                    delete call_ptr;
                 }
             } else {
                 CStat::globalStat(CStat::E_OUT_OF_CALL_MSGS);
