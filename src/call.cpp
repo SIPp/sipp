@@ -2123,7 +2123,10 @@ bool call::executeMessage(message *curmsg)
             recv_retrans_hash       = last_recv_hash;
             recv_retrans_recv_index = last_recv_index;
             recv_retrans_send_index = curmsg->index;
-            recv_retrans_msg.assign(msg_snd, msgLen);
+            /* Only UDP retransmissions of the request get it again. */
+            if (transport == T_UDP && retrans_enabled) {
+                recv_retrans_msg.assign(msg_snd, msgLen);
+            }
 
             callDebug("Set Retransmission Hash: %lu (recv index %d, send index %d)\n",
                       recv_retrans_hash, recv_retrans_recv_index, recv_retrans_send_index);
@@ -2140,7 +2143,9 @@ bool call::executeMessage(message *curmsg)
              * response to another request, such as the 200 of an INVITE
              * sent after the 200 of a PRACK, is not one. */
             recv_retrans_send_index = curmsg->index;
-            recv_retrans_msg.assign(msg_snd, msgLen);
+            if (transport == T_UDP && retrans_enabled) {
+                recv_retrans_msg.assign(msg_snd, msgLen);
+            }
         }
 
         /* Update retransmission information */
