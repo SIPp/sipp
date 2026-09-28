@@ -1,0 +1,26 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -max_socket counts the call sockets only: -max_socket 2 with -t un
+# gives four concurrent calls two sockets, though the main and control
+# sockets are open too.
+. "`dirname "$0"`/../functions"; init
+
+rm -f uas.msg
+sippbg -sn uas -i 127.0.0.1 -p 25630 -m 4 -trace_msg -message_file uas.msg \
+    -timeout 10
+sippfg -sn uac -t un -max_socket 2 -i 127.0.0.1 -p 25631 -m 4 -l 4 -r 20 \
+    -d 1000 127.0.0.1:25630 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait
+# The distinct ports in the Vias of the INVITEs: one per call socket.
+ports=`sed -n 's/^Via: SIP\/2.0\/UDP 127.0.0.1:\([0-9]*\).*/\1/p' uas.msg \
+    2>/dev/null | sort -u | wc -l`
+rm -f uas.msg
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test $ports -ne 2; then
+    fail "calls used $ports sockets, not 2"
+else
+    ok
+fi

@@ -592,7 +592,7 @@ struct sipp_option options_table[] = {
 #endif
     {"ci", "Set the local control IP address", SIPP_OPTION_IP, control_ip, 1},
     {"cp", "Set the local control port number. Default is 8888.", SIPP_OPTION_INT, &control_port, 1},
-    {"max_socket", "Set the max number of sockets to open simultaneously. This option is significant if you use one socket per call. Once this limit is reached, traffic is distributed over the sockets already opened. Default value is 50000", SIPP_OPTION_MAX_SOCKET, nullptr, 1},
+    {"max_socket", "Set the max number of call sockets to open simultaneously, if you use one socket per call (-t un, tn, ln). The main, control and stdin sockets don't count. Once this limit is reached, traffic is distributed over the sockets already opened. Default value is 50000", SIPP_OPTION_MAX_SOCKET, nullptr, 1},
     {"max_reconnect", "Set the the maximum number of reconnection.", SIPP_OPTION_INT, &reset_number, 1},
     {"reconnect_close", "Should calls be closed on reconnect?", SIPP_OPTION_BOOL, &reset_close, 1},
     {"reconnect_sleep", "How long (in milliseconds) to sleep between the close and reconnect?", SIPP_OPTION_TIME_MS, &reset_sleep, 1},

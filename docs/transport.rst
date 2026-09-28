@@ -233,5 +233,7 @@ sockets that can be opened (which corresponds to the number of
 simultaneous calls) will be determined by the system (see how to
 increase file descriptors section to modify those limits). You can
 also limit the number of socket used by using the -max_socket command
-line option. Once the maximum number of opened sockets is reached, the
-traffic will be distributed over the sockets already opened.
+line option. It counts the call sockets only, not the main, control
+(-cp) or stdin sockets. Once the maximum number of opened sockets is
+reached, the traffic will be distributed over the sockets already
+opened.
