@@ -30,10 +30,33 @@ int           screen_inited = 0;
 
 ScreenPrinter* sp;
 
-double last_artpstream_rate_out = 0;
-double last_vrtpstream_rate_out = 0;
-double last_artpstream_rate_in = 0;
-double last_vrtpstream_rate_in = 0;
+/* The RTP rates of the last display period, in kB/s, which every screen
+ * drawn until the next one shows. */
+static double last_pcap_rate = 0;
+static double last_echo_rate = 0;
+static double last_echo2_rate = 0;
+static double last_artpstream_rate_out = 0;
+static double last_vrtpstream_rate_out = 0;
+static double last_artpstream_rate_in = 0;
+static double last_vrtpstream_rate_in = 0;
+
+void screen_take_rtp_rates()
+{
+    unsigned long ms = clock_tick - last_report_time;
+    if (!ms) {
+        return;
+    }
+#ifdef PCAPPLAY
+    last_pcap_rate = (double)rtp_bytes_pcap.exchange(0, std::memory_order_relaxed) / ms;
+    rtp2_bytes_pcap.store(0, std::memory_order_relaxed);
+#endif
+    last_echo_rate = (double)rtp_bytes.exchange(0, std::memory_order_relaxed) / ms;
+    last_echo2_rate = (double)rtp2_bytes.exchange(0, std::memory_order_relaxed) / ms;
+    last_artpstream_rate_out = (double)rtpstream_abytes_out.exchange(0, std::memory_order_relaxed) / ms;
+    last_vrtpstream_rate_out = (double)rtpstream_vbytes_out.exchange(0, std::memory_order_relaxed) / ms;
+    last_artpstream_rate_in = (double)rtpstream_abytes_in.exchange(0, std::memory_order_relaxed) / ms;
+    last_vrtpstream_rate_in = (double)rtpstream_vbytes_in.exchange(0, std::memory_order_relaxed) / ms;
+}
 
 /* ERR is actually -1, but this prevents us from needing to use curses.h in
  * sipp.cpp. */
@@ -281,12 +304,6 @@ void ScreenPrinter::get_lines()
 
 bool do_hide = true;
 
-/* Bytes over milliseconds are kB/s; none when no time has passed. */
-static double kb_per_s(unsigned long bytes, unsigned long ms)
-{
-    return ms ? (double)bytes / (double)ms : 0.0;
-}
-
 void ScreenPrinter::draw_scenario_screen()
 {
     unsigned const bufsiz = 100;
@@ -399,29 +416,12 @@ void ScreenPrinter::draw_scenario_screen()
         snprintf(left_buf, 40, "%lu Total RTP pckts sent ",
                 rtp_pckts_pcap.load(std::memory_order_relaxed));
         snprintf(buf, bufsiz, "  %-38s  %.3f last period RTP rate (kB/s)",
-                left_buf, kb_per_s(rtp_bytes_pcap.exchange(0, std::memory_order_relaxed), ms_since_last_tick));
-        rtp2_bytes_pcap.store(0, std::memory_order_relaxed);
+                left_buf, last_pcap_rate);
         lines.push_back(buf);
     }
 #endif
     /* if we have rtp stream thread running */
     if (rtpstream_numthreads) {
-        unsigned long TempABytes;
-        unsigned long TempVBytes;
-        if (ms_since_last_tick) {
-            TempABytes= rtpstream_abytes_out.exchange(0, std::memory_order_relaxed);
-            TempVBytes= rtpstream_vbytes_out.exchange(0, std::memory_order_relaxed);
-            /* Calculate integer and fraction parts of rtp bandwidth; this value
-             * will be saved and reused in the case where last_tick==last_report_time
-             */
-            last_artpstream_rate_out= ((double)TempABytes)/ ms_since_last_tick;
-            last_vrtpstream_rate_out= ((double)TempVBytes)/ ms_since_last_tick;
-            TempABytes= rtpstream_abytes_in.exchange(0, std::memory_order_relaxed);
-            TempVBytes= rtpstream_vbytes_in.exchange(0, std::memory_order_relaxed);
-            last_artpstream_rate_in= ((double)TempABytes)/ ms_since_last_tick;
-            last_vrtpstream_rate_in= ((double)TempVBytes)/ ms_since_last_tick;
-        }
-
         snprintf(left_buf, 40, "%lu Total AUDIO RTP pckts sent", rtpstream_apckts.load(std::memory_order_relaxed));
         snprintf(buf, bufsiz, "  %-38s  %.3f kB/s AUDIO RTP OUT", left_buf, last_artpstream_rate_out);
         lines.push_back(buf);
@@ -441,13 +441,13 @@ void ScreenPrinter::draw_scenario_screen()
         snprintf(left_buf, 40, "%lu Total echo RTP pckts 1st stream",
                 rtp_pckts.load(std::memory_order_relaxed));
         snprintf(buf, bufsiz, "  %-38s  %.3f last period RTP rate (kB/s)",
-                left_buf, kb_per_s(rtp_bytes.exchange(0, std::memory_order_relaxed), ms_since_last_tick));
+                left_buf, last_echo_rate);
         lines.push_back(buf);
 
         snprintf(left_buf, 40, "%lu Total echo RTP pckts 2nd stream",
                 rtp2_pckts.load(std::memory_order_relaxed));
         snprintf(buf, bufsiz, "  %-38s  %.3f last period RTP rate (kB/s)",
-                left_buf, kb_per_s(rtp2_bytes.exchange(0, std::memory_order_relaxed), ms_since_last_tick));
+                left_buf, last_echo2_rate);
         lines.push_back(buf);
     }
 
