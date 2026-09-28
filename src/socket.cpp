@@ -1918,10 +1918,14 @@ void SIPpSocket::sipp_sctp_peer_params()
 #endif
         if (addresscount < 1) WARNING("sctp_getpaddrs, errno=%d", errno);
 
+        /* The addresses are packed, each as long as its family's. */
+        char *peeraddress = (char *)addresses;
         for (int i = 0; i < addresscount; i++) {
+            size_t len = ((sockaddr *)peeraddress)->sa_family == AF_INET6 ?
+                         sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
             memset(&peerparam.spp_address, 0, sizeof(peerparam.spp_address));
-            struct sockaddr_storage* peeraddress = (struct sockaddr_storage*) &addresses[i];
-            memcpy(&peerparam.spp_address, peeraddress, sizeof(*peeraddress));
+            memcpy(&peerparam.spp_address, peeraddress, len);
+            peeraddress += len;
 
             peerparam.spp_hbinterval = heartbeat;
             peerparam.spp_pathmaxrxt = pathmaxret;
@@ -1934,11 +1938,12 @@ void SIPpSocket::sipp_sctp_peer_params()
 
             if (setsockopt(ss_fd, IPPROTO_SCTP, SCTP_PEER_ADDR_PARAMS,
                            &peerparam, sizeof(peerparam)) == -1) {
-                sctp_freepaddrs(addresses);
                 WARNING("setsockopt(SCTP_PEER_ADDR_PARAMS) failed, errno=%d", errno);
             }
         }
-        sctp_freepaddrs(addresses);
+        if (addresscount > 0) {
+            sctp_freepaddrs(addresses);
+        }
     }
 }
 #endif

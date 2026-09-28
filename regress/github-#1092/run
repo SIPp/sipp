@@ -1,0 +1,31 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -heartbeat over IPv6 to a multihomed UAS: the UAC sets the peer
+# parameters of each of the UAS's addresses, and frees them once.
+. "`dirname "$0"`/../functions"
+
+# ::2 on lo is our own: run as root in a user and network namespace.
+if test -z "$SIPP_NETNS"; then
+    if unshare -rn true 2>/dev/null; then
+        SIPP_NETNS=1 exec unshare -rn "$0"
+    fi
+    init
+    skip "no user network namespaces"
+fi
+init
+"`get_sipp`" -v | grep -q SCTP || skip "no SCTP"
+perl -e 'use Socket; socket(S, PF_INET6, SOCK_STREAM, 132) || exit 1' ||
+    skip "no SCTP sockets"
+ip link set lo up 2>/dev/null || skip "cannot bring up lo"
+ip -6 addr add ::2/128 dev lo 2>/dev/null || skip "cannot add ::2"
+
+sippbg -sn uas -t s1 -i ::1 -multihome ::2 -p 28050 -m 1 -timeout 5
+rm -f uac_*_errors.log
+sippfg -sn uac -t s1 -i ::1 -p 28051 [::1]:28050 -m 1 \
+    -heartbeat 1000 -timeout 4 -trace_err >/dev/null 2>&1
+status=$?
+errors=`grep SCTP_PEER_ADDR_PARAMS uac_*_errors.log 2>/dev/null`
+rm -f uac_*_errors.log
+test $status -eq 0 || fail "the UAC exited with $status"
+test -z "$errors" || fail "`echo "$errors" | cut -f3 | head -n 1`"
+ok
