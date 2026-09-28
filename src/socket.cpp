@@ -2181,6 +2181,11 @@ int SIPpSocket::read_error(int ret)
                     if (!quitting) {
                         quitting = 1;
                     }
+                    /* No command comes any more. */
+                    int failed = call::close_twin_calls();
+                    if (failed) {
+                        WARNING("The remote peer closed the TCP connection, failing %d call(s)", failed);
+                    }
                 }
             } else {
                 peer_closed(reset);
@@ -2745,6 +2750,9 @@ void SIPpSocket::reset_connection()
 
     if (reset_close) {
         WARNING("Closing calls, because of TCP reset or close!");
+        if (twinSippMode && ss_control) {
+            call::close_twin_calls();
+        }
         /* A call socket goes with its last call, and then there is
          * nothing left to reconnect. */
         ss_count++;
