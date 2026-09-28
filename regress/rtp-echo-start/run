@@ -1,0 +1,31 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# rtp_echo echoes from the first packet: a call's echo starts in its
+# playback thread right away, not after the up to 100 ms that the idle
+# thread sleeps.
+. "`dirname "$0"`/../functions"; init
+
+rm -f latency.log
+sippbg -sf uas.xml -i 127.0.0.1 -p 26120 -m 5 \
+    -min_rtp_port 28800 -max_rtp_port 28899
+sippfg -sf uac.xml -i 127.0.0.1 -p 26121 -m 5 -l 1 \
+    127.0.0.1:26120 -timeout 30 -timeout_error >/dev/null 2>&1
+status=$?
+# the last perl may still run
+for i in 1 2 3 4 5 6 7 8 9 10; do
+    test "`wc -l <latency.log 2>/dev/null`" -ge 5 && break
+    sleep 0.2
+done
+latency=`sort -n latency.log 2>/dev/null | tail -1`
+calls=`wc -l <latency.log 2>/dev/null`
+rm -f latency.log
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "${calls:-0}" -ne 5; then
+    fail "${calls:-0} of 5 calls timed"
+elif test "$latency" -gt 30; then
+    fail "the echo of a call started $latency ms after its first packet"
+else
+    ok
+fi

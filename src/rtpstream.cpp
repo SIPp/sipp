@@ -1580,7 +1580,7 @@ static void* rtpstream_playback_thread(void* params)
             {
                 if (echo_fds[0].revents)
                 {
-                    /* a new pcap play: start it now */
+                    /* a new pcap play or echo: start it now */
                     while (read(threaddata->wake_fds[0], wake_buffer, sizeof(wake_buffer)) > 0)
                     {
                     }
@@ -1714,6 +1714,16 @@ static void* rtpstream_playback_thread(void* params)
     pthread_exit((void*) rtpresult);
 
     return nullptr;
+}
+
+/* Wake a playback thread up, to start a new pcap play or echo now and
+ * not after its sleep of up to 100 ms; a full pipe means it wakes up
+ * anyway */
+static void rtpstream_wake(threaddata_t* threaddata)
+{
+    if (write(threaddata->wake_fds[1], "", 1) < 0 && errno != EAGAIN) {
+        WARNING_NO("Could not wake an RTP playback thread up");
+    }
 }
 
 /* code checked */
@@ -2875,11 +2885,7 @@ int rtpstream_play_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stream,
     current.next = nullptr;
     pthread_mutex_unlock(&(taskinfo->mutex));
 
-    /* wake the thread up to start the play now; a full pipe means it
-     * wakes up anyway */
-    if (write(threaddata->wake_fds[1], "", 1) < 0 && errno != EAGAIN) {
-        WARNING_NO("Could not wake an RTP playback thread up");
-    }
+    rtpstream_wake(threaddata);
 
     return 1;
 }
@@ -2921,6 +2927,11 @@ static void rtpstream_rtpecho_set(taskentry_t* taskinfo, bool video, bool start,
         (video ? taskinfo->video_srtp_echo_active : taskinfo->audio_srtp_echo_active) = 1;
     }
     pthread_mutex_unlock(&(taskinfo->mutex));
+
+    /* to watch the socket from the first packet */
+    if (start && taskinfo->parent_thread) {
+        rtpstream_wake(taskinfo->parent_thread);
+    }
 }
 
 /* Stop the echo of a call's audio or video: -1 if it failed to receive. */
