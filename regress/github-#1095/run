@@ -7,12 +7,14 @@
 
 # The UAC's first connection is refused before any call. Its second,
 # two seconds later, is refused with call 1's INVITE waiting, which ends
-# call 1. The UAS listens by the third, which carries call 2.
+# call 1. The UAS listens by the third, which carries call 2. Both calls
+# are due by the second, and the reset would end both: -l 1 holds call 2
+# back until call 1 has ended.
 rm -f uas.log
 (sleep 3; sipp -nostdin -sn uas -t t1 -i 127.0.0.1 -p 27875 -timeout 8 \
     -trace_msg -message_file uas.log >/dev/null 2>&1) &
 uas=$!
-sippfg -sn uac -t t1 -i 127.0.0.1 -p 27874 127.0.0.1:27875 -m 2 \
+sippfg -sn uac -t t1 -i 127.0.0.1 -p 27874 127.0.0.1:27875 -m 2 -l 1 \
     -max_reconnect 3 -reconnect_sleep 2000 -timeout 10 >/dev/null 2>&1
 kill $uas 2>/dev/null
 wait $uas 2>/dev/null
