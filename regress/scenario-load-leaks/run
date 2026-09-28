@@ -1,0 +1,25 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Loading and freeing a scenario leaks none of the attributes of its
+# lookup, insert, replace and setdest actions.
+. "`dirname "$0"`/../functions"; init
+
+# Make the test skippable
+test -n "$TEST_SKIP_VALGRIND" && exit 0
+
+which valgrind >/dev/null || skip "no valgrind installed"
+
+valgrind --xml=yes --xml-file=uas.log --leak-check=full \
+    --errors-for-leak-kinds=definite `get_sipp` -sf uas.xml \
+    -i 127.0.0.1 -p 25320 -m 1 -timeout 1 >/dev/null 2>&1
+status=$?
+leaks=`grep -c '<kind>Leak_DefinitelyLost</kind>' uas.log`
+rm -f uas.log
+
+if test $status -eq 255; then
+    fail "sipp failed to load the scenario"
+elif test $leaks -ne 0; then
+    fail "valgrind found $leaks leaks"
+else
+    ok
+fi
