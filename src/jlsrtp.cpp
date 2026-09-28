@@ -705,7 +705,8 @@ int JLSRTP::decryptVector(std::vector<unsigned char> &ciphertext_input, std::vec
 
 int JLSRTP::issueAuthenticationTag(std::vector<unsigned char> &data, std::vector<unsigned char> &hash)
 {
-    unsigned char* digest = nullptr;
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int digest_len = 0;
     int retVal = -1;
     std::vector<unsigned char> auth_portion;
     std::vector<unsigned char> rocVec;
@@ -722,9 +723,9 @@ int JLSRTP::issueAuthenticationTag(std::vector<unsigned char> &data, std::vector
             auth_portion.insert(auth_portion.end(), rocVec.begin(), rocVec.end());
 
             hash.clear();
-            digest = HMAC(EVP_sha1(), _session_auth_key.data(), _session_auth_key.size(), /*data.data()*/ auth_portion.data(), /*data.size()*/ auth_portion.size(), nullptr, nullptr);
-
-            if (digest != nullptr)
+            // wolfSSL's HMAC() has no static output buffer: pass our own
+            if (HMAC(EVP_sha1(), _session_auth_key.data(), _session_auth_key.size(), /*data.data()*/ auth_portion.data(), /*data.size()*/ auth_portion.size(), digest, &digest_len) != nullptr &&
+                digest_len == JLSRTP_SHA1_HASH_LENGTH)
             {
                 hash.assign(digest, digest+JLSRTP_SHA1_HASH_LENGTH);
 
