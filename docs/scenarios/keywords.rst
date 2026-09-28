@@ -155,6 +155,32 @@ Keyword list
   mix ``rtp_stream`` with pcap play (or ``play_dtmf``) on the same
   audio stream.
 
+``[cryptotag<n><media>]``, ``[cryptosuite<suite><n><media>]``, ``[cryptokeyparams<n><media>]``
+==============================================================================================
+:Description: The crypto tag, suite and new master key and salt of the
+  first (``<n>`` is 1) or second (2) :RFC:`4568` ``a=crypto`` line of the
+  ``audio`` or ``video`` stream, which ``rtp_stream`` and ``rtp_echo``
+  then protect with SRTP::
+
+    a=crypto:[cryptotag1audio] [cryptosuiteaescm256sha1801audio] inline:[cryptokeyparams1audio]
+
+  An offer can have two lines; an answer has one, with a suite of the
+  offer. ``<suite>`` is one of:
+
+  + ``aescm128sha180``: AES_CM_128_HMAC_SHA1_80
+  + ``aescm128sha132``: AES_CM_128_HMAC_SHA1_32
+  + ``aescm192sha180``: AES_192_CM_HMAC_SHA1_80 (:RFC:`6188`)
+  + ``aescm192sha132``: AES_192_CM_HMAC_SHA1_32 (:RFC:`6188`)
+  + ``aescm256sha180``: AES_256_CM_HMAC_SHA1_80 (:RFC:`6188`)
+  + ``aescm256sha132``: AES_256_CM_HMAC_SHA1_32 (:RFC:`6188`)
+  + ``nullsha180``: NULL_HMAC_SHA1_80
+  + ``nullsha132``: NULL_HMAC_SHA1_32
+
+  ``[cryptokeyparams<n><media>]`` has 40 base64 characters, 52 for an
+  AES_192_CM suite and 64 for an AES_256_CM one. After the key,
+  ``[ueaescm128sha180<n><media>]`` and ``[ueaescm128sha132<n><media>]``
+  add ``UNENCRYPTED_SRTP`` to an AES_CM_128 line.
+
 ``[field0-n file=<filename> line=<number>]``
 ============================================
 :Description: Used to inject
