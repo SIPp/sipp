@@ -1,0 +1,29 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An injection file's PRINTF key is not the start of PRINTFOFFSET or
+# PRINTFMULTIPLE, whichever comes first, and a bad PRINTFMULTIPLE is
+# named in its error.
+. "`dirname "$0"`/../functions"; init
+
+printf 'SEQUENTIAL,PRINTFMULTIPLE=2,PRINTFOFFSET=100,PRINTF=10\nuser%%d;\n' >keys.csv
+printf 'SEQUENTIAL,PRINTF=10,PRINTFMULTIPLE=2x\nuser%%d;\n' >bad.csv
+rm -f uac_*_logs.log uac_*_errors.log
+sippfg -sf uac.xml -inf keys.csv -i 127.0.0.1 -p 24330 -m 2 -timeout 10 \
+    127.0.0.1:24331 -trace_logs >/dev/null 2>&1
+status=$?
+logs=`cat uac_*_logs.log 2>/dev/null | tr '\n' ' '`
+err=`sippfg -sf uac.xml -inf bad.csv -i 127.0.0.1 -p 24330 -m 1 \
+    -timeout 10 127.0.0.1:24331 2>&1 >/dev/null`
+rm -f keys.csv bad.csv uac_*_logs.log uac_*_errors.log
+
+expected="Invalid PRINTFMULTIPLE specification (invalid end character 'x') for bad.csv:"
+if test $status -ne 0; then
+    fail "the scenario failed with $status"
+elif test "$logs" != "user100 user102 "; then
+    fail "logged '$logs', not 'user100 user102 '"
+else
+    case $err in
+        *"$expected"*) ok ;;
+        *) fail "bad.csv: '$err'" ;;
+    esac
+fi

@@ -27,6 +27,32 @@
 #include <iostream>
 #include <assert.h>
 
+/* Reads the number of a "key=number" entry of an input file's first line.
+ * Only the whole key matches: PRINTF is not the start of PRINTFOFFSET. */
+static bool get_printf_param(const char *line, const char *key,
+                             const char *fileName, unsigned long *value)
+{
+    size_t len = strlen(key);
+    const char *p = line;
+    while ((p = strstr(p, key)) && isalnum((unsigned char)p[len])) {
+        p += len;
+    }
+    if (!p) {
+        return false;
+    }
+    p += len;
+    if (*p != '=') {
+        ERROR("Invalid %s specification (requires =) for %s:%s", key, fileName, line);
+    }
+    char *endptr;
+    *value = strtoul(p + 1, &endptr, 0);
+    if (*endptr && *endptr != ',') {
+        ERROR("Invalid %s specification (invalid end character '%c') for %s:%s",
+              key, *endptr, fileName, line);
+    }
+    return true;
+}
+
 /* Read MAX_CHAR_BUFFER_SIZE size lines from the "fileName" and populate it in
  * the fileContents vector. Each line should be terminated with a '\n'
  */
@@ -65,50 +91,21 @@ FileContents::FileContents(const char *fileName)
         ERROR("Unknown file type (valid values are RANDOM, SEQUENTIAL, and USER) for %s:%s", fileName, line);
     }
 
-    const char *useprintf;
-    if ((useprintf = strstr(line, "PRINTF"))) {
+    unsigned long value;
+    if (get_printf_param(line, "PRINTF", fileName, &value)) {
         /* We are going to operate in printf mode, which uses the line as a format
          * string for printf with the line number. */
-        useprintf += strlen("PRINTF");
-        if (*useprintf != '=') {
-            ERROR("Invalid file printf specification (requires =) for %s:%s", fileName, line);
-        }
-        useprintf++;
-        char *endptr;
-        virtualLines = strtoul(useprintf, &endptr, 0);
-        if (*endptr && *endptr != '\r' && *endptr != '\n' && *endptr != ',') {
-            ERROR("Invalid file printf specification for (invalid end character '%c') %s:%s", *endptr, fileName, line);
-        }
+        virtualLines = value;
         if (virtualLines == 0) {
             ERROR("A printf file must have at least one virtual line %s:%s", fileName, line);
         }
         printfFile = true;
     }
-
-    if ((useprintf = strstr(line, "PRINTFOFFSET"))) {
-        useprintf += strlen("PRINTFOFFSET");
-        if (*useprintf != '=') {
-            ERROR("Invalid file PRINTFOFFSET specification (requires =) for %s:%s", fileName, line);
-        }
-        useprintf++;
-        char *endptr;
-        printfOffset = strtoul(useprintf, &endptr, 0);
-        if (*endptr && *endptr != '\n' && *endptr != ',') {
-            ERROR("Invalid PRINTFOFFSET specification for (invalid end character '%c') %s:%s", *endptr, fileName, line);
-        }
+    if (get_printf_param(line, "PRINTFOFFSET", fileName, &value)) {
+        printfOffset = value;
     }
-
-    if ((useprintf = strstr(line, "PRINTFMULTIPLE"))) {
-        useprintf += strlen("PRINTFMULTIPLE");
-        if (*useprintf != '=') {
-            ERROR("Invalid PRINTFMULTIPLE specification (requires =) for %s:%s", fileName, line);
-        }
-        useprintf++;
-        char *endptr;
-        printfMultiple = strtoul(useprintf, &endptr, 0);
-        if (*endptr && *endptr != '\n' && *endptr != ',') {
-            ERROR("Invalid PRINTFOFFSET specification for (invalid end character '%c') %s:%s", *endptr, fileName, line);
-        }
+    if (get_printf_param(line, "PRINTFMULTIPLE", fileName, &value)) {
+        printfMultiple = value;
     }
 
     while (!inFile.eof()) {
@@ -501,6 +498,33 @@ TEST(infile, printf_get_field_matches_printf) {
         contents.getField(42, field, buf, sizeof(buf));
         EXPECT_STREQ(expected, buf) << "spec " << specs[field];
     }
+
+    remove(path.c_str());
+}
+
+TEST(infile, printf_keys_match_whole) {
+    /* PRINTF is not the start of PRINTFOFFSET or PRINTFMULTIPLE, in any
+     * order. */
+    std::string path = testing::TempDir() + "sipp_infile_printf_keys.csv";
+    {
+        std::ofstream out(path);
+        out << "SEQUENTIAL,PRINTFMULTIPLE=2,PRINTFOFFSET=100,PRINTF=10\n"
+            << "user%d;\n";
+    }
+    FileContents contents(path.c_str());
+
+    char buf[16];
+    EXPECT_EQ(10, contents.numLines());
+    contents.getField(3, 0, buf, sizeof(buf));
+    EXPECT_STREQ("user106", buf);
+
+    {
+        std::ofstream out(path);
+        out << "SEQUENTIAL,PRINTF=10,PRINTFMULTIPLE=2x\n"
+            << "user%d;\n";
+    }
+    EXPECT_DEATH(FileContents bad(path.c_str()),
+                 "Invalid PRINTFMULTIPLE specification \\(invalid end character 'x'\\) for ");
 
     remove(path.c_str());
 }
