@@ -1,0 +1,22 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Scenario load errors: an unknown distribution is named, a send of only
+# blanks is empty, and a send of one character is not.
+. "`dirname "$0"`/../functions"; init
+
+load() {
+    sippfg -sf $1.xml -m 1 127.0.0.1:9 2>&1 >/dev/null
+}
+
+case `load dist` in
+    *'Unknown distribution: foo'*) ;;
+    *) fail "the unknown distribution is not named" ;;
+esac
+case `load empty` in
+    *'Empty cdata in xml scenario file'*) ;;
+    *) fail "a send of only blanks is not empty" ;;
+esac
+case `load onechar` in
+    *'Empty cdata'*) fail "a send of one character is empty" ;;
+esac
+ok

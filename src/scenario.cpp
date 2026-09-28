@@ -714,7 +714,7 @@ static char* clean_cdata(char *ptr, int *removed_crlf = nullptr)
         *ptr-- = 0;
     }
 
-    if(ptr == msg) {
+    if (!*msg) {
         ERROR("Empty cdata in xml scenario file");
     }
     while ((ptr = strstr(msg, "\n "))) {
@@ -1258,7 +1258,7 @@ CSample *parse_distribution(bool oldstyle = false)
         ERROR("The distribution '%s' is only available with GSL", distname);
 #endif
     } else {
-        ERROR("Unknown distribution: %s", ptr);
+        ERROR("Unknown distribution: %s", distname);
     }
 
     return distribution;
