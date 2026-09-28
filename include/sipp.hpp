@@ -135,6 +135,12 @@ inline const char *TRANSPORT_TO_STRING(int p)
 #define TRANSPORT_IS_TLS(p)        ((p) == T_TLS || (p) == T_WSS)
 #define TRANSPORT_IS_WS(p)         ((p) == T_WS || (p) == T_WSS)
 
+/* Does it run over a connection (every transport but UDP)? */
+static inline bool transport_is_reliable(int transport)
+{
+    return transport != T_UDP;
+}
+
 #define SIPP_MAXFDS                65536
 
 #ifndef SIPP_MAX_MSG_SIZE
