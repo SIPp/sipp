@@ -1,0 +1,40 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A connection dropped while reading, by the flush that an SCTP_COMM_UP
+# makes failing, moves another socket into its place in the poll set:
+# the events left for that one pointed past the end, and SIPp crashed.
+. "`dirname "$0"`/../functions"; init
+
+sippversion | grep -q SCTP || skip "no SCTP support"
+python3 -c 'import socket; socket.socket(socket.AF_INET, socket.SOCK_STREAM, 132)' \
+    2>/dev/null || skip "no SCTP in the kernel"
+
+# A peer that aborts every association it takes: many come up, and are
+# gone, before the UAC reads their SCTP_COMM_UP and writes its INVITE.
+python3 -c '
+import socket, struct
+l = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 132)
+l.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+l.bind(("127.0.0.1", 27877))
+l.listen(1000)
+l.settimeout(4)
+try:
+    while True:
+        c = l.accept()[0]
+        c.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+        c.close()
+except socket.timeout:
+    pass' &
+peer=$!
+sleep 0.5
+sippfg -sn uac -t sn -i 127.0.0.1 -p 27876 127.0.0.1:27877 -r 500 -m 1000 \
+    -max_reconnect -1 -reconnect_sleep 0 -timeout 2 >/dev/null 2>&1
+uac=$?
+kill $peer 2>/dev/null
+wait $peer 2>/dev/null
+
+if test $uac -ge 128; then
+    fail "the UAC ended with $uac"
+else
+    ok
+fi
