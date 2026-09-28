@@ -1811,6 +1811,30 @@ bool call::tcpClose()
     return failed;
 }
 
+int call::close_twin_calls()
+{
+    /* No call uses the twin connection as its socket, but a call waiting
+     * at a <recvCmd> waits for a command it would have brought: it fails
+     * as a call on a closed TCP connection does. */
+    std::vector<call *> waiting;
+    for (task *t : *get_all_tasks()) {
+        call *c = dynamic_cast<call *>(t);
+        if (c && !c->initCall && c->msg_index >= 0 &&
+                c->msg_index < (int)c->call_scenario->messages.size() &&
+                c->call_scenario->messages[c->msg_index]->M_type == MSG_TYPE_RECVCMD) {
+            waiting.push_back(c);
+        }
+    }
+
+    int failed = 0;
+    for (call *c : waiting) {
+        if (c->tcpClose()) {
+            failed++;
+        }
+    }
+    return failed;
+}
+
 void call::terminate(CStat::E_Action reason)
 {
     char reason_str[100];

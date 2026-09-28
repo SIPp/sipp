@@ -122,6 +122,7 @@ private:
 };
 
 task_list * get_running_tasks();
+task_list * get_all_tasks();
 int expire_paused_tasks();
 int paused_tasks_count();
 void abort_all_tasks();

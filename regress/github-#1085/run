@@ -1,0 +1,64 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A 3PCC controller A call waiting at a <recvCmd> fails when the twin
+# connection it waits on is lost: when B closes it, and when it is
+# reset and connected again (-reconnect_close). It waited for ever.
+. "`dirname "$0"`/../functions"; init
+
+# B takes A's connection and a command, then closes it.
+perl -e '
+    use IO::Socket::INET;
+    alarm 10;
+    my $l = IO::Socket::INET->new(LocalAddr => "127.0.0.1:27860", Listen => 1, ReuseAddr => 1) or die;
+    my $c = $l->accept() or die;
+    my $d; $c->recv($d, 4096);
+    close($c);
+    sleep 1;' &
+peer=$!
+sleep 1
+sippfg -sf a.xml -3pcc 127.0.0.1:27860 -i 127.0.0.1 -p 27861 -m 1 \
+    -timeout 5 -timeout_error -trace_err -error_file closed.log \
+    >/dev/null 2>&1
+closed=$?
+wait $peer
+closed_log=`grep -c 'failing 1 call' closed.log`
+
+# B takes A's connection and a command, then resets it; it answers the
+# commands that come on A's next connection.
+perl -e '
+    use IO::Socket::INET; use Socket;
+    alarm 10;
+    my $l = IO::Socket::INET->new(LocalAddr => "127.0.0.1:27862", Listen => 1, ReuseAddr => 1) or die;
+    my $c = $l->accept() or die;
+    my $d; $c->recv($d, 4096);
+    setsockopt($c, SOL_SOCKET, SO_LINGER, pack("ii", 1, 0));
+    close($c);
+    $c = $l->accept() or die;
+    my $cmd = "";
+    while (defined $c->recv($d, 4096) && $d ne "") {
+        $cmd .= $d;
+        while ($cmd =~ s/^([^\e]*)\e//) {
+            my ($id) = $1 =~ /Call-ID: *(\S+)/i;
+            print $c "Call-ID: $id\r\n\e";
+        }
+    }' &
+peer=$!
+sleep 1
+sippfg -sf a.xml -3pcc 127.0.0.1:27862 -i 127.0.0.1 -p 27863 -m 2 -r 1 \
+    -max_reconnect 1 -reconnect_sleep 100 -timeout 5 -timeout_error \
+    >/dev/null 2>&1
+reset=$?
+kill $peer 2>/dev/null
+wait $peer 2>/dev/null
+rm -f closed.log
+
+# A failed call makes 1, a timeout 255.
+if test $closed -ne 1; then
+    fail "B closing the connection: A ended with $closed"
+elif test $closed_log -ne 1; then
+    fail "B closing the connection: A did not say it failed the call"
+elif test $reset -ne 1; then
+    fail "the connection reset: A ended with $reset"
+else
+    ok
+fi

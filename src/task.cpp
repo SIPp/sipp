@@ -55,6 +55,12 @@ task_list* get_running_tasks()
     return &running_tasks;
 }
 
+/* Get the list of all tasks, running or paused. */
+task_list* get_all_tasks()
+{
+    return &all_tasks;
+}
+
 void abort_all_tasks()
 {
     for (task_list::iterator task_it = all_tasks.begin();

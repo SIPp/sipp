@@ -91,6 +91,9 @@ public:
     /* Terminate this call, depending on action results and timewait. */
     virtual void terminate(CStat::E_Action reason);
     virtual bool tcpClose();
+    /* The -3pcc twin connection is lost: fail the calls waiting for a
+     * command. Returns how many failed. */
+    static int close_twin_calls();
 
     /* When should this call wake up? */
     virtual unsigned int wake();
