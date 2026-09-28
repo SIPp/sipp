@@ -2483,16 +2483,17 @@ void JLSRTP::setOfferedCryptoSuite(const std::string& suite, ActiveCrypto crypto
     }
 }
 
-std::string JLSRTP::getCryptoSuite()
+std::string JLSRTP::getCryptoSuite(ActiveCrypto crypto_attrib /*= ACTIVE_CRYPTO*/)
 {
     std::string cryptosuite;
+    ActiveCrypto active_crypto = (crypto_attrib == ACTIVE_CRYPTO) ? _active_crypto : crypto_attrib;
 
-    const std::string& offered = (_active_crypto == SECONDARY_CRYPTO) ? _secondary_crypto.offered_suite : _primary_crypto.offered_suite;
+    const std::string& offered = (active_crypto == SECONDARY_CRYPTO) ? _secondary_crypto.offered_suite : _primary_crypto.offered_suite;
     if (!offered.empty()) {
         return offered;
     }
 
-    switch (_active_crypto)
+    switch (active_crypto)
     {
         case PRIMARY_CRYPTO:
         {
@@ -3444,6 +3445,8 @@ int JLSRTP::swapCrypto()
     unsigned long           master_mki_value = 0;
     unsigned short          n_s = 0;
     unsigned int                        tag = 0;
+
+    _primary_crypto.offered_suite.swap(_secondary_crypto.offered_suite);
 
     cipher_algorithm                             = _primary_crypto.cipher_algorithm;
     hmac_algorithm                               = _primary_crypto.hmac_algorithm;

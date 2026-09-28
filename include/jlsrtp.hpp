@@ -975,9 +975,11 @@ class JLSRTP
          *
          * Fetches the string description of the crypto suite currently in use (e.g. "AES_CM_128_HMAC_SHA1_80" or "AES_CM_128_HMAC_SHA1_32")
          *
+         * @param[in]       crypto_attrib   Crypto attribute whose suite is to be obtained (PRIMARY_CRYPTO, SECONDARY_CRYPTO or ACTIVE_CRYPTO)
+         *
          * @return  <cryptosuite_string>    String description of the crypto suite currently in use
          */
-        std::string getCryptoSuite();
+        std::string getCryptoSuite(ActiveCrypto crypto_attrib = ACTIVE_CRYPTO);
 
         /**
          * setOfferedCryptoSuite
