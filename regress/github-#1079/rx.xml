@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- A receive scenario with an <init> that logs. -->
+<scenario name="rx with init">
+  <init>
+    <nop>
+      <action>
+        <log message="rx init"/>
+      </action>
+    </nop>
+  </init>
+  <recv request="OPTIONS"/>
+</scenario>

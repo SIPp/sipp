@@ -1,0 +1,21 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The <init> of the -rxsf scenario runs, as those of the -sf and -oocsf
+# ones do.
+. "`dirname "$0"`/../functions"; init
+
+log=`mktemp`
+sippfg -sf uac.xml -rxsf rx.xml -i 127.0.0.1 -p 27330 -m 1 \
+    127.0.0.1:27331 -trace_logs -log_file "$log" -timeout 5 \
+    >/dev/null 2>&1
+status=$?
+rxinit=`grep -c 'rx init$' "$log"`
+rm -f "$log"
+
+if test $status -ne 0; then
+    fail "SIPp ended with $status"
+elif test "$rxinit" != 1; then
+    fail "the -rxsf <init> did not run"
+else
+    ok
+fi
