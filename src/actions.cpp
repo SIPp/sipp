@@ -585,7 +585,7 @@ void CAction::setRTPEchoActInfo(const char* P_value)
         if (next_comma) {
             *(next_comma++) = 0;
         }
-        M_rtpecho_actinfo.payload_type = atoi(param_str);
+        M_rtpecho_actinfo.payload_type = get_int(param_str, "rtp_echo payload type");
         param_str = next_comma;
     }
 
@@ -745,9 +745,9 @@ void CAction::setRTPStreamActInfo(const char *P_value)
         }
 
         if (pattern_mode) {
-            M_rtpstream_actinfo.pattern_id = atoi(param_str);
+            M_rtpstream_actinfo.pattern_id = get_int(param_str, "rtp_stream pattern id");
         } else {
-            M_rtpstream_actinfo.loop_count = atoi(param_str);
+            M_rtpstream_actinfo.loop_count = get_int(param_str, "rtp_stream loop count");
         }
         param_str = next_comma;
     }
@@ -763,7 +763,7 @@ void CAction::setRTPStreamActInfo(const char *P_value)
         {
             *(next_comma++) = 0;
         }
-        M_rtpstream_actinfo.payload_type = atoi(param_str);
+        M_rtpstream_actinfo.payload_type = get_int(param_str, "rtp_stream payload type");
         param_str = next_comma;
     }
 

@@ -2002,7 +2002,7 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_INT:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                *((int*)option->data) = get_long(argv[argi], argv[argi-1]);
+                *((int*)option->data) = get_int(argv[argi], argv[argi-1]);
                 break;
             case SIPP_OPTION_LONG:
                 REQUIRE_ARG();

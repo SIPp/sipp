@@ -128,13 +128,13 @@ bool CCallVariable::toDouble(double *newValue)
             return false;
         }
         *newValue = strtod(M_matchingValue, &p);
-        if (*p) {
+        if (p == M_matchingValue || *p) {
             return false;
         }
         break;
     case E_VT_STRING:
         *newValue = strtod(M_stringValue, &p);
-        if (*p) {
+        if (p == M_stringValue || *p) {
             return false;
         }
         break;
