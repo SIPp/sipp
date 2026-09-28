@@ -1804,6 +1804,9 @@ int SIPpSocket::reconnect()
     if (ss_fd == -1) {
         ERROR_NO("Could not obtain new socket: ");
     }
+    /* With the options of the first one: an SCTP socket that asks for no
+     * events never learns that its association is up. */
+    sipp_customize_socket(this);
 
     if (ss_invalid) {
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
