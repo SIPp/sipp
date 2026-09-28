@@ -14,18 +14,21 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-int createAuthHeader(const char *user,
-                     const char *password,
-                     const char *method,
-                     const char *uri,
-                     const char *msgbody,
-                     const char *auth,
-                     const char *aka_OP,
-                     const char *aka_AMF,
-                     const char *aka_K,
-                     unsigned int nonce_count,
-                     char *result,
-                     size_t result_len);
+#include <string>
+
+/* The credentials answering the challenge auth in result, true; or why
+ * there are none in result, false. */
+bool createAuthHeader(const char *user,
+                      const char *password,
+                      const char *method,
+                      const char *uri,
+                      const char *msgbody,
+                      const char *auth,
+                      const char *aka_OP,
+                      const char *aka_AMF,
+                      const char *aka_K,
+                      unsigned int nonce_count,
+                      std::string &result);
 int verifyAuthHeader(const char *user, const char *password,
                      const char *method, const char *auth,
                      const char *msgbody);
