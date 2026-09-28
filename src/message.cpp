@@ -651,6 +651,9 @@ void SendingMessage::freeMessageComponent(struct MessageComponent *comp)
         }
     } else if (comp->type == E_Message_Injection) {
         free(comp->comp_param.field_param.filename);
+        delete comp->comp_param.field_param.line;
+    } else if (comp->type == E_Message_File) {
+        delete comp->comp_param.filename;
     }
     free(comp);
 }
