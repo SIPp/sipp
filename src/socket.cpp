@@ -2285,6 +2285,17 @@ void SIPpSocket::buffer_write(const char *buffer, size_t len, struct sockaddr_st
     TRACE_MSG("Appended buffered message to socket %d\n", ss_fd);
 }
 
+/* Throw away the output still waiting to be written. */
+void SIPpSocket::drop_out()
+{
+    while (ss_out) {
+        struct socketbuf *next = ss_out->next;
+        free_socketbuf(ss_out);
+        ss_out = next;
+    }
+    ss_out_tail = nullptr;
+}
+
 void SIPpSocket::buffer_read(struct socketbuf *newbuf)
 {
     struct socketbuf *buf = ss_in;
@@ -2614,11 +2625,7 @@ void SIPpSocket::ws_connect()
     char host[NI_MAXHOST + NI_MAXSERV + 3];
 
     /* What an earlier connection left may end in the middle of a frame. */
-    while (ss_out) {
-        struct socketbuf *next = ss_out->next;
-        free_socketbuf(ss_out);
-        ss_out = next;
-    }
+    drop_out();
 
     /* The host SIPp calls, unless the call went elsewhere. */
     if (*remote_host && !ss_changed_dest) {
@@ -2822,6 +2829,14 @@ int SIPpSocket::close_calls()
     owner_list::iterator owner_it;
     socketowner *owner_ptr = nullptr;
     int failed = 0;
+
+    /* What they left waiting to be written goes with them: sent on a
+     * reconnection, it would restart a call that has already failed.
+     * What waits on a twin connection are the commands of calls that
+     * go on. */
+    if (!ss_control) {
+        drop_out();
+    }
 
     for (owner_it = owners->begin(); owner_it != owners->end(); owner_it++) {
         owner_ptr = *owner_it;
