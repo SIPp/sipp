@@ -1,7 +1,8 @@
 #!/bin/sh
 # This regression test is a part of SIPp.
 # -tls_version 1.0 and 1.1 work with OpenSSL 3, whose default security
-# level refuses them.
+# level refuses them. A version the TLS library leaves out (wolfSSL
+# has no TLS 1.0 by default) is skipped.
 . "`dirname "$0"`/../functions"; init
 
 "`get_sipp`" -v | grep -q TLS || skip "no TLS"
@@ -13,7 +14,14 @@ openssl req -x509 -newkey rsa:2048 -nodes -keyout "$dir/key.pem" \
     skip "no certificate"
 tls="-t l1 -tls_cert $dir/cert.pem -tls_key $dir/key.pem"
 
+unsupported=
 for version in 1.0 1.1; do
+    if sippfg -sn uac $tls -tls_version $version -i 127.0.0.1 -p 5071 \
+            -m 1 -timeout 1 127.0.0.1:5070 2>&1 </dev/null |
+            grep -q "no longer supported"; then
+        unsupported="$unsupported $version"
+        continue
+    fi
     sippbg -sn uas $tls -tls_version $version -i 127.0.0.1 -p 5070 \
         -m 1 -timeout 10
     sippfg -sn uac $tls -tls_version $version -i 127.0.0.1 -p 5071 \
@@ -26,4 +34,5 @@ for version in 1.0 1.1; do
     fi
 done
 rm -rf "$dir"
+test -n "$unsupported" && skip "no TLS$unsupported"
 ok
