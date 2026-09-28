@@ -1266,14 +1266,16 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
                 }
             } else if (is_auto_answered(msg)) {
                 // If auto answer mode, try to answer the incoming message
-                // with automaticResponseMode
-                // call is discarded before exiting the block
+                // with automaticResponseMode, which counts it; the call is
+                // discarded once it has answered.
                 if (!get_reply_code(msg)) {
                     aa_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
                     /* This should have the real address that the message came from. */
                     call *call_ptr = new call(aa_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
-                    CStat::globalStat(CStat::E_AUTO_ANSWERED);
-                    call_ptr->process_incoming(msg, src);
+                    if (call_ptr->process_incoming(msg, src)) {
+                        aa_scenario->stats->computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
+                        delete call_ptr;
+                    }
                 } else {
                     fprintf(stderr, "%s", msg);
                     /* We received a response not relating to any known call */

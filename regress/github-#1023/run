@@ -1,0 +1,44 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -aa answers each out-of-call OPTIONS, counts it once, and keeps no call
+# for it: two with one Call-ID and one with another are three answers.
+. "`dirname "$0"`/../functions"; init
+
+rm -f stat.csv ./*_errors.log
+sippbg -sn uas -aa -i 127.0.0.1 -p 25840 -trace_stat -stf stat.csv \
+    -trace_err
+uas=$pid
+answers=`perl -e '
+    use Socket;
+    socket(S, PF_INET, SOCK_DGRAM, 17) || die($!);
+    bind(S, pack_sockaddr_in(25841, inet_aton("127.0.0.1"))) || die($!);
+    setsockopt(S, SOL_SOCKET, SO_RCVTIMEO, pack("L!L!", 2, 0));
+    $n = 0;
+    for $m (["a", 1], ["a", 2], ["b", 1]) {
+        ($cid, $cseq) = @$m;
+        send(S, "OPTIONS sip:x\@127.0.0.1:25840 SIP/2.0\r\n" .
+            "Via: SIP/2.0/UDP 127.0.0.1:25841;branch=z9hG4bK$cid$cseq\r\n" .
+            "From: <sip:a\@127.0.0.1>;tag=1\r\nTo: <sip:x\@127.0.0.1>\r\n" .
+            "Call-ID: $cid\r\nCSeq: $cseq OPTIONS\r\nContent-Length: 0\r\n\r\n",
+            0, pack_sockaddr_in(25840, inet_aton("127.0.0.1")));
+        recv(S, $r, 2048, 0);
+        $n++ if $r =~ /^SIP\/2.0 200/;
+    }
+    print $n;'`
+/bin/kill -USR1 $uas
+wait $uas
+counted=`awk -F';' 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == "AutoAnswered(C)") c = i }
+    END { print $c }' stat.csv`
+errors=`cat ./*_errors.log 2>/dev/null`
+rm -f stat.csv ./*_errors.log
+
+if test "$answers" != 3; then
+    fail "answered $answers of 3"
+elif test "$counted" != 3; then
+    fail "counted $counted auto-answers, not 3"
+else
+    case $errors in
+        *'Aborted call'*) fail "a call was kept for an answer" ;;
+    esac
+    ok
+fi
