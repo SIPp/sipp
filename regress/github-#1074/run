@@ -1,0 +1,23 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A call whose pattern the UAS never echoes fails the RTP check at the
+# default tolerance: none of its packets passes; an echoed call passes.
+. "`dirname "$0"`/../functions"; init
+
+# check <UAS scenario> <expected UAC status>
+check() {
+    sippbg -sf $1 -i 127.0.0.1 -p 25628 -m 1 \
+        -min_rtp_port 29600 -max_rtp_port 29699 -timeout 10
+    sippfg -sf uac.xml -i 127.0.0.1 -p 25629 -m 1 \
+        -min_rtp_port 29700 -max_rtp_port 29799 \
+        127.0.0.1:25628 -timeout 10 -timeout_error >/dev/null 2>&1
+    status=$?
+    wait
+    if test $status -ne $2; then
+        fail "against $1: UAC exited $status, not $2"
+    fi
+}
+
+check uas-silent.xml 253
+check uas.xml 0
+ok
