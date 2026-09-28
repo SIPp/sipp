@@ -576,6 +576,20 @@ int call::check_video_ciphersuite_match(SrtpInfoParams &pV)
 
 /******* Extract SRTP remote media infomartion from SDP  *******/
 
+/* Parse an a=crypto line into its tag, its suite and the key of its first
+ * key-params (without a lifetime or MKI). Returns whether a session
+ * parameter after the key-params is UNENCRYPTED_SRTP. */
+static bool parse_crypto_line(const char* line, int& tag, char* suite, char* key)
+{
+    int end = 0;
+    sscanf(line, "\na=crypto:%d %24[^ ] inline:%64[^ |\r\n]%n", &tag, suite, key, &end);
+    if (!end)
+        return false;
+    // Skip the rest of the key-params: a lifetime, an MKI, more keys
+    const char* session_params = line + end + strcspn(line + end, " \r\n");
+    return strstr(session_params, "UNENCRYPTED_SRTP") != nullptr;
+}
+
 #define SDP_AUDIOCRYPTO_PREFIX "\na=crypto:"
 #define SDP_VIDEOCRYPTO_PREFIX "\na=crypto:"
 int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInfoParams &pV)
@@ -607,10 +621,6 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
     std::size_t msection_limit = 0; /* m-line media section limit */
     std::string msgstr; /* std::string representation of SDP body */
 
-    char crypto_audio_sessionparams[64];
-    char crypto_video_sessionparams[64];
-
-    char* checkUESRTP = nullptr;
     bool audioExists = false;
     bool videoExists = false;
     std::size_t cur_pos = 0;
@@ -619,9 +629,6 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
     std::size_t pos1 = 0;
     std::size_t pos2 = 0;
     std::string sub;
-
-    *crypto_audio_sessionparams = 0;
-    *crypto_video_sessionparams = 0;
 
     // skip past header - point to blank line before body
     // Try CRLF and if not found, try LF (the RFC requires CRLF)
@@ -718,15 +725,8 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
             mline_eol = msgstr.find("\n", mline_sol + 1, 1);
             if (mline_eol != std::string::npos) {
                 mline_contents = msgstr.substr(mline_sol, mline_eol - mline_sol);
-                // %*1[ ] is to skip a single space after the "inline:...." field.
-                // as opposed to literal space, which matches zero or more spaces.
-                sscanf(mline_contents.c_str(), "\na=crypto:%d %24[^ ] inline:%64[^ |\r\n]%*1[ ]%63s",
-                        &pA.primary_cryptotag,
-                        pA.primary_cryptosuite,
-                        pA.primary_cryptokeyparams,
-                        crypto_audio_sessionparams);
-                checkUESRTP = strstr(crypto_audio_sessionparams, "UNENCRYPTED_SRTP");
-                if (checkUESRTP) {
+                if (parse_crypto_line(mline_contents.c_str(), pA.primary_cryptotag,
+                                      pA.primary_cryptosuite, pA.primary_cryptokeyparams)) {
                     logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for PRIMARY AUDIO\n");
                     pA.primary_unencrypted_srtp = true;
                 } else {
@@ -744,13 +744,8 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
             mline_eol = msgstr.find("\n", mline_sol + 1, 1);
             if (mline_eol != std::string::npos) {
                 mline_contents = msgstr.substr(mline_sol, mline_eol - mline_sol);
-                sscanf(mline_contents.c_str(), "\na=crypto:%d %24[^ ] inline:%64[^ |\r\n]%*1[ ]%63s",
-                        &pA.secondary_cryptotag,
-                        pA.secondary_cryptosuite,
-                        pA.secondary_cryptokeyparams,
-                        crypto_audio_sessionparams);
-                checkUESRTP = strstr(crypto_audio_sessionparams, "UNENCRYPTED_SRTP");
-                if (checkUESRTP) {
+                if (parse_crypto_line(mline_contents.c_str(), pA.secondary_cryptotag,
+                                      pA.secondary_cryptosuite, pA.secondary_cryptokeyparams)) {
                     logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for SECONDARY AUDIO\n");
                     pA.secondary_unencrypted_srtp = true;
                 } else {
@@ -845,13 +840,8 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
             mline_eol = msgstr.find("\n", mline_sol + 1, 1);
             if (mline_eol != std::string::npos) {
                 mline_contents = msgstr.substr(mline_sol, mline_eol - mline_sol);
-                sscanf(mline_contents.c_str(), "\na=crypto:%d %24[^ ] inline:%64[^ |\r\n]%*1[ ]%63s",
-                        &pV.primary_cryptotag,
-                        pV.primary_cryptosuite,
-                        pV.primary_cryptokeyparams,
-                        crypto_video_sessionparams);
-                checkUESRTP = strstr(crypto_video_sessionparams, "UNENCRYPTED_SRTP");
-                if (checkUESRTP) {
+                if (parse_crypto_line(mline_contents.c_str(), pV.primary_cryptotag,
+                                      pV.primary_cryptosuite, pV.primary_cryptokeyparams)) {
                     logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for PRIMARY VIDEO\n");
                     pV.primary_unencrypted_srtp = true;
                 } else {
@@ -869,13 +859,8 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
             mline_eol = msgstr.find("\n", mline_sol + 1, 1);
             if (mline_eol != std::string::npos) {
                 mline_contents = msgstr.substr(mline_sol, mline_eol - mline_sol);
-                sscanf(mline_contents.c_str(), "\na=crypto:%d %24[^ ] inline:%64[^ |\r\n]%*1[ ]%63s",
-                        &pV.secondary_cryptotag,
-                        pV.secondary_cryptosuite,
-                        pV.secondary_cryptokeyparams,
-                        crypto_video_sessionparams);
-                checkUESRTP = strstr(crypto_video_sessionparams, "UNENCRYPTED_SRTP");
-                if (checkUESRTP) {
+                if (parse_crypto_line(mline_contents.c_str(), pV.secondary_cryptotag,
+                                      pV.secondary_cryptosuite, pV.secondary_cryptokeyparams)) {
                     logSrtpInfo("call::extract_srtp_remote_info():  Detected UNENCRYPTED_SRTP token for SECONDARY VIDEO\n");
                     pV.secondary_unencrypted_srtp = true;
                 } else {
@@ -7562,6 +7547,27 @@ TEST(srtp_sdp, rfc6188_keys_are_read_whole) {
     EXPECT_TRUE(pA.secondary_unencrypted_srtp);
     // The key without its lifetime and MKI
     EXPECT_STREQ("Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0ND", pV.primary_cryptokeyparams);
+}
+
+TEST(srtp_sdp, unencrypted_srtp_after_a_lifetime_and_mki) {
+    std::string msg = std::string(srtp_sdp_head) +
+                      "m=audio 12346 RTP/SAVP 0\r\n"
+                      "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB|2^20|1:32 UNENCRYPTED_SRTP\r\n"
+                      "a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJC KDR=1 UNENCRYPTED_SRTP\r\n"
+                      "m=video 12348 RTP/SAVP 99\r\n"
+                      "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0ND UNENCRYPTED_SRTP\r\n"
+                      "a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:RERERERERERERERERERERERERERERERERERE|1:4\r\n";
+    SrtpInfoParams pA, pV;
+    mockcall call(false);
+    ASSERT_EQ(0, call.parse_srtp(msg.c_str(), pA, pV));
+    EXPECT_STREQ("QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB", pA.primary_cryptokeyparams);
+    EXPECT_TRUE(pA.primary_unencrypted_srtp);
+    EXPECT_TRUE(pA.secondary_unencrypted_srtp);
+    EXPECT_TRUE(pV.primary_unencrypted_srtp);
+    // The primary's UNENCRYPTED_SRTP is not the secondary's
+    EXPECT_EQ(2, pV.secondary_cryptotag);
+    EXPECT_STREQ("RERERERERERERERERERERERERERERERERERE", pV.secondary_cryptokeyparams);
+    EXPECT_FALSE(pV.secondary_unencrypted_srtp);
 }
 
 TEST(srtp_sdp, plain_audio_does_not_take_the_video_crypto) {
