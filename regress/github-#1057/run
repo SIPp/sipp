@@ -1,0 +1,27 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The screen's "Last Error" starts with the error, past the time, also
+# with -rfc3339 in a time zone off UTC. The colon in its offset
+# ("+03:00") used to be taken for the end of the time.
+. "`dirname "$0"`/../functions"; init
+
+dir=`mktemp -d`
+trap 'rm -rf "$dir"' EXIT
+cp uac.xml "$dir"
+cd "$dir"
+
+# check TZ [OPTION]: XYZ-3 is UTC+3, with no time zone database.
+check() {
+    TZ=$1 sippfg -sf uac.xml -i 127.0.0.1 -p 23185 127.0.0.1:23186 -m 1 \
+        -trace_screen -timeout 10 $2 >/dev/null 2>&1
+    status=$?
+    test $status -eq 0 || fail "TZ=$1 $2: exit code $status"
+    grep -q '^Last Error: the last error\.\.\.$' uac_*_screen.log ||
+        fail "TZ=$1 $2: `grep '^Last Error' uac_*_screen.log | head -1`"
+    rm -f uac_*_screen.log
+}
+
+check XYZ-3
+check UTC0 -rfc3339
+check XYZ-3 -rfc3339
+ok
