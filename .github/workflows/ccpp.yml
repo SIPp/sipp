@@ -32,6 +32,9 @@ jobs:
       run: |
         cmake --install . --prefix "$RUNNER_TEMP/sipp-install"
         test -x "$RUNNER_TEMP/sipp-install/bin/sipp-multi.py"
+    - name: allow-userns
+      # the raw socket tests re-run in a user and network namespace
+      run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
     - name: test
       run: TEST_SKIP_VALGRIND=1 ./regress/runtests
 
@@ -51,6 +54,9 @@ jobs:
       run: |
         make -j$(nproc) sipp_unittest
         ./sipp_unittest
+    - name: allow-userns
+      # the raw socket tests re-run in a user and network namespace
+      run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
     - name: test
       run: TEST_SKIP_VALGRIND=1 ./regress/runtests
 
