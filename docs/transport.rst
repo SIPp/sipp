@@ -115,8 +115,13 @@ servers.
 
 .. warning::
   When using TLS transport, SIPp will expect to have two files in the
-  current directory: a certificate (cacert.pem) and a key (cakey.pem).
+  current directory: a certificate (cacert.pem) and a key (cakey.pem),
+  or the ones -tls_cert and -tls_key name.
   If one is protected with a password, SIPp will ask for it.
+  A client (UAC) may go without them: when neither -tls_cert nor
+  -tls_key is given and neither default file exists, it connects
+  without a certificate, and TLS connections made to it fail. A file
+  that -tls_cert or -tls_key names must exist.
   The certificate file (-tls_cert) may also hold the intermediate CA
   certificates, after the end-entity one; SIPp sends them to the peer.
 

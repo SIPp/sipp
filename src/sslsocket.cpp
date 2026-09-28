@@ -250,6 +250,23 @@ static SSL_CTX* instantiate_ssl_context(const char* context_name)
     return ssl_ctx;
 }
 
+static void use_certificate(SSL_CTX *ctx, const char *which)
+{
+    /* The certificate file may hold intermediate CA certificates after
+     * the end-entity one: send them too, or a peer that trusts only the
+     * root can't verify us. */
+    if (SSL_CTX_use_certificate_chain_file(ctx, tls_cert_name) != 1) {
+        char errbuf[256] = {'\0'};
+        ERR_error_string_n(ERR_get_error(), errbuf, sizeof(errbuf));
+        ERROR("TLS_init_context: SSL_CTX_use_certificate_chain_file%s failed: %s",
+              which, errbuf);
+    }
+
+    if (SSL_CTX_use_PrivateKey_file(ctx, tls_key_name, SSL_FILETYPE_PEM) != 1) {
+        ERROR("TLS_init_context: SSL_CTX_use_PrivateKey_file%s failed", which);
+    }
+}
+
 #endif // USE_OPENSSL || USE_WOLFSSL
 
 /************* Prepare the SSL context ************************/
@@ -317,36 +334,25 @@ enum tls_init_status TLS_init_context(void)
     SSL_CTX_set_default_passwd_cb(sip_trp_ssl_ctx_client,
                                   passwd_call_back_routine);
 
-    /* The certificate file may hold intermediate CA certificates after
-     * the end-entity one: send them too, or a peer that trusts only the
-     * root can't verify us. */
-    if (SSL_CTX_use_certificate_chain_file(sip_trp_ssl_ctx,
-                                           tls_cert_name) != 1) {
-        char errbuf[256] = {'\0'};
-        ERR_error_string_n(ERR_get_error(), errbuf, sizeof(errbuf));
-        ERROR("TLS_init_context: SSL_CTX_use_certificate_chain_file failed: %s", errbuf);
-        return TLS_INIT_ERROR;
+    /* A client may go without a certificate: without -tls_cert and
+     * -tls_key, and with neither default file there, load none. A TLS
+     * connection it accepts then fails its handshake, which drops only
+     * that peer. */
+    bool default_files = !tls_cert_name && !tls_key_name;
+    if (!tls_cert_name) {
+        tls_cert_name = DEFAULT_TLS_CERT;
     }
-
-    if (SSL_CTX_use_certificate_chain_file(sip_trp_ssl_ctx_client,
-                                           tls_cert_name) != 1) {
-        char errbuf[256] = {'\0'};
-        ERR_error_string_n(ERR_get_error(), errbuf, sizeof(errbuf));
-        ERROR("TLS_init_context: SSL_CTX_use_certificate_chain_file (client) failed: %s", errbuf);
-        return TLS_INIT_ERROR;
+    if (!tls_key_name) {
+        tls_key_name = DEFAULT_TLS_KEY;
     }
-    if (SSL_CTX_use_PrivateKey_file(sip_trp_ssl_ctx,
-                                     tls_key_name,
-                                     SSL_FILETYPE_PEM) != 1) {
-        ERROR("TLS_init_context: SSL_CTX_use_PrivateKey_file failed");
-        return TLS_INIT_ERROR;
-    }
-
-    if (SSL_CTX_use_PrivateKey_file(sip_trp_ssl_ctx_client,
-                                    tls_key_name,
-                                    SSL_FILETYPE_PEM) != 1) {
-        ERROR("TLS_init_context: SSL_CTX_use_PrivateKey_file (client) failed");
-        return TLS_INIT_ERROR;
+    if (default_files && sendMode != MODE_SERVER &&
+            access(tls_cert_name, F_OK) && access(tls_key_name, F_OK)) {
+        WARNING("TLS: neither %s nor %s found: connecting without a "
+                "certificate; incoming TLS connections will fail",
+                tls_cert_name, tls_key_name);
+    } else {
+        use_certificate(sip_trp_ssl_ctx, "");
+        use_certificate(sip_trp_ssl_ctx_client, " (client)");
     }
 
 #ifdef USE_OPENSSL_KL

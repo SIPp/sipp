@@ -594,8 +594,8 @@ struct sipp_option options_table[] = {
     {"reconnect_sleep", "How long (in milliseconds) to sleep between the close and reconnect?", SIPP_OPTION_TIME_MS, &reset_sleep, 1},
     {"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, nullptr, 2},
 
-    {"tls_cert", "Set the name for TLS Certificate file, which may be followed by its intermediate CA certificates. Default is 'cacert.pem'", SIPP_OPTION_STRING, &tls_cert_name, 1},
-    {"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem'", SIPP_OPTION_STRING, &tls_key_name, 1},
+    {"tls_cert", "Set the name for TLS Certificate file, which may be followed by its intermediate CA certificates. Default is 'cacert.pem'. A client goes without a certificate when neither -tls_cert nor -tls_key is given and neither default file exists", SIPP_OPTION_STRING, &tls_cert_name, 1},
+    {"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem' (see -tls_cert)", SIPP_OPTION_STRING, &tls_key_name, 1},
     {"tls_ca", "Set the name for TLS CA file. If not specified, X509 verification is not activated.", SIPP_OPTION_STRING, &tls_ca_name, 1},
     {"tls_crl", "Set the name for Certificate Revocation List file. If not specified, X509 CRL is not activated.", SIPP_OPTION_STRING, &tls_crl_name, 1},
     {"tls_version", "Set the TLS protocol version to use (1.0, 1.1, 1.2, 1.3) -- default is autonegotiate", SIPP_OPTION_FLOAT, &tls_version, 1},
@@ -2462,10 +2462,6 @@ int main(int argc, char *argv[])
     }
     scenario_file = main_scenario->getFileName().c_str();
 
-    if ((transport == T_TLS) && (TLS_init_context() != TLS_INIT_NORMAL)) {
-        ERROR("FI_init_ssl_context() failed");
-    }
-
     if (useLogf == 1) {
         rotate_logfile();
     }
@@ -2590,6 +2586,11 @@ int main(int argc, char *argv[])
     main_scenario->computeSippMode();
     if (ooc_scenario && sendMode == MODE_SERVER) {
         ERROR("SIPp cannot use out-of-call scenarios when running in server mode");
+    }
+
+    /* After the mode: only a client may go without a certificate. */
+    if ((transport == T_TLS) && (TLS_init_context() != TLS_INIT_NORMAL)) {
+        ERROR("FI_init_ssl_context() failed");
     }
 
 

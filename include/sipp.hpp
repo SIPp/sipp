@@ -316,8 +316,8 @@ MAYBE_EXTERN unsigned int       tdm_map_z               DEFVAL(0);
 MAYBE_EXTERN unsigned int       tdm_map_h               DEFVAL(0);
 MAYBE_EXTERN bool               tdm_map[1024];
 
-MAYBE_EXTERN const char       * tls_cert_name           DEFVAL(DEFAULT_TLS_CERT);
-MAYBE_EXTERN const char       * tls_key_name            DEFVAL(DEFAULT_TLS_KEY);
+MAYBE_EXTERN const char       * tls_cert_name           DEFVAL(nullptr);
+MAYBE_EXTERN const char       * tls_key_name            DEFVAL(nullptr);
 MAYBE_EXTERN const char       * tls_ca_name             DEFVAL(DEFAULT_TLS_CA);
 MAYBE_EXTERN const char       * tls_crl_name            DEFVAL(DEFAULT_TLS_CRL);
 MAYBE_EXTERN double             tls_version             DEFVAL(0.0);
