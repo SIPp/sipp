@@ -889,6 +889,13 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
     return 0; /* SUCCESS -- parsed SDP SRTP INFO */
 }
 
+/* Whether two messages have the same CSeq, number and method. */
+static bool same_cseq(const char* a, const char* b)
+{
+    std::string cseq = get_header_content(a, "CSeq:");
+    return cseq == get_header_content(b, "CSeq:");
+}
+
 /******* Very simple hash for retransmission detection  *******/
 
 unsigned long call::hash(const char * msg)
@@ -2126,9 +2133,12 @@ bool call::executeMessage(message *curmsg)
             last_recv_hash = 0;
         } else if (last_recv_index >= 0 && recv_retrans_recv_index == last_recv_index &&
                    call_scenario->messages[last_recv_index]->recv_request &&
-                   curmsg->send_scheme->isResponse()) {
+                   curmsg->send_scheme->isResponse() &&
+                   same_cseq(last_send_msg, last_recv_msg)) {
             /* A later response to the same request (a 200 after a 180): a
-             * retransmission of the request gets the most recent one. */
+             * retransmission of the request gets the most recent one. A
+             * response to another request, such as the 200 of an INVITE
+             * sent after the 200 of a PRACK, is not one. */
             recv_retrans_send_index = curmsg->index;
             recv_retrans_msg.assign(msg_snd, msgLen);
         }
