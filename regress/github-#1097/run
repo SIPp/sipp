@@ -1,0 +1,51 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A setdest over TCP connects again, and the new connection may get
+# another descriptor: without epoll, SIPp went on polling the one it
+# closed, and never read the answer.
+. "`dirname "$0"`/../functions"; init
+
+# A peer that answers every request on the connection it came on.
+python3 -c '
+import socket, selectors
+l = socket.socket()
+l.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+l.bind(("127.0.0.1", 27879))
+l.listen(10)
+sel = selectors.DefaultSelector()
+sel.register(l, selectors.EVENT_READ)
+bufs = {}
+while sel.select(timeout=3):
+    for key, _ in sel.select(0):
+        s = key.fileobj
+        if s is l:
+            c = l.accept()[0]
+            bufs[c] = b""
+            sel.register(c, selectors.EVENT_READ)
+            continue
+        d = s.recv(4096)
+        if not d:
+            sel.unregister(s)
+            s.close()
+            continue
+        bufs[s] += d
+        while b"\r\n\r\n" in bufs[s]:
+            req, bufs[s] = bufs[s].split(b"\r\n\r\n", 1)
+            hdrs = [h for h in req.split(b"\r\n")[1:]
+                    if h.split(b":")[0].lower() in (b"via", b"from", b"to", b"call-id", b"cseq")]
+            s.sendall(b"SIP/2.0 200 OK\r\n" + b"\r\n".join(hdrs) + b"\r\nContent-Length: 0\r\n\r\n")' &
+peer=$!
+sleep 0.5
+# Call 2 connects while call 1 is on: when call 1 has ended, the new
+# connection of call 2's setdest takes call 1's lower descriptor.
+sippfg -sf uac.xml -t tn -i 127.0.0.1 -p 27878 127.0.0.1:27879 -m 2 -r 2 \
+    -timeout 5 -timeout_error >/dev/null 2>&1
+uac=$?
+kill $peer 2>/dev/null
+wait $peer 2>/dev/null
+
+if test $uac -ne 0; then
+    fail "the UAC ended with $uac"
+else
+    ok
+fi
