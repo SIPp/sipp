@@ -67,6 +67,13 @@ The regression tests live in `regress/`. Run them all with:
 regress/runtests
 ```
 
+On Linux, the tests run as many at once as there are CPUs (`-j N` for
+another number), each in a network namespace of its own as they use
+fixed ports; this needs unprivileged user namespaces (`unshare -rn`) and
+`ip`. `-j 1`, or no such namespaces, runs them one at a time. A test
+that fails among the others is run again on its own before it counts as
+a failure.
+
 A single test can be run with `regress/github-#NNNN/run`. The tests look
 for the `sipp` binary in the source directory and in `build/`. For any
 other build directory, point them at the binary with an absolute path:
