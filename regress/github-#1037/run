@@ -1,0 +1,25 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An option error with -trace_counts, -trace_error_codes or -trace_stat
+# exits with the option error's 255, and leaves no trace file behind.
+. "`dirname "$0"`/../functions"; init
+
+printf 'SEQUENTIAL\nuser\n' >lines.csv
+rm -f ./uac_*
+for trace in -trace_counts -trace_error_codes -trace_stat; do
+    for args in "-sn uac -sn uas" "-sn uac -m_csv -m 1 -inf lines.csv"; do
+        sippfg $args $trace 127.0.0.1 >/dev/null 2>&1
+        ret=$?
+        files=`ls ./uac_* 2>/dev/null`
+        rm -f ./uac_*
+        if test $ret -ne 255; then
+            rm -f lines.csv
+            fail "$args $trace: exit $ret, not 255"
+        elif test -n "$files"; then
+            rm -f lines.csv
+            fail "$args $trace: left $files"
+        fi
+    done
+done
+rm -f lines.csv
+ok
