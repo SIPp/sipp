@@ -86,7 +86,12 @@ Code  Description
 99    Normal exit without calls processed
 -1    Fatal error
 -2    Fatal error binding a socket
+-3    RTP check failed: an rtp_stream or rtp_echo check found errors,
+      whatever the outcome of the calls. SIPp prints how many.
 ====  ===========
+
+A shell shows the negative codes as 256 plus the code: -1 as 255, -2
+as 254 and -3 as 253.
 
 When the global timeout (``-timeout``) is reached, SIPp stops and the
 exit code is decided as above: 0 if at least one call succeeded and
