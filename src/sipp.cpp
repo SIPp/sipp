@@ -934,7 +934,11 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
             }
 
             if (dumpInRtt) {
-                main_scenario->stats->dumpDataRtt();
+                for (scenario* s : {main_scenario, rx_scenario, ooc_scenario}) {
+                    if (s) {
+                        s->stats->dumpDataRtt();
+                    }
+                }
             }
 
             signalDump = false;
@@ -1535,6 +1539,7 @@ static void manage_oversized_file(int signum)
 static void releaseGlobalAllocations()
 {
     delete main_scenario;
+    delete rx_scenario;
     delete ooc_scenario;
     delete aa_scenario;
     free_default_messages();
@@ -2239,6 +2244,7 @@ int main(int argc, char *argv[])
                 } else if (!strcmp(argv[argi - 1], "-oocsn")) {
                     int i = find_scenario(argv[argi]);
                     ooc_scenario = new scenario(0, i);
+                    ooc_scenario->setFileName(argv[argi]);
                 } else {
                     ERROR("Internal error, I don't recognize %s as a scenario option", argv[argi] - 1);
                 }
@@ -2523,8 +2529,14 @@ int main(int argc, char *argv[])
 
 
     if (dumpInRtt == 1) {
-        main_scenario->stats->initRtt(scenario_file, ".csv",
-                                      report_freq_dumpRtt);
+        /* A file for each scenario, named after it as its statistics
+         * are: the rtd names it writes are the scenario's own. */
+        for (scenario* s : {main_scenario, rx_scenario, ooc_scenario}) {
+            if (s) {
+                s->stats->initRtt(s->getFileName().c_str(), ".csv",
+                                  report_freq_dumpRtt);
+            }
+        }
     }
 
     if (rate_increase_freq == 0) {
