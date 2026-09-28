@@ -1,0 +1,21 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An rtp_stream play starts at once, not when the call's playback
+# thread wakes up from its idle sleep of up to 100 ms.
+. "`dirname "$0"`/../functions"; init
+
+# One packet of PCMU.
+head -c 160 /dev/zero | tr '\0' '\377' >packet.ulaw
+sippbg -sf uas.xml -i 127.0.0.1 -p 26960 -m 1 \
+    -min_rtp_port 31400 -max_rtp_port 31599
+sippfg -sf uac.xml -i 127.0.0.1 -p 26961 -m 1 \
+    -min_rtp_port 31600 -max_rtp_port 31799 \
+    127.0.0.1:26960 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+rm -f packet.ulaw
+
+if test $status -ne 0; then
+    fail "the plays started late: UAC failed with $status"
+else
+    ok
+fi
