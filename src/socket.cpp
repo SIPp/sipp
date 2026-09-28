@@ -1852,6 +1852,9 @@ int SIPpSocket::reconnect()
     if (rc == -1) {
         ERROR_NO("Failed to add FD to epoll");
     }
+#else
+    /* A setdest keeps its place, but not always its descriptor. */
+    pollfiles[ss_pollidx].fd = ss_fd;
 #endif
     return connect();
 }
