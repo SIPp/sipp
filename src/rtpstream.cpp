@@ -586,6 +586,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo)
         taskinfo->audio_file_num_bytes = taskinfo->new_audio_file_size;
         taskinfo->audio_file_bytes_left = taskinfo->new_audio_file_size;
         taskinfo->audio_payload_type = taskinfo->new_audio_payload_type;
+        taskinfo->audio_seq_check = taskinfo->audio_seq_out;
 
         taskinfo->audio_ms_per_packet = taskinfo->new_audio_ms_per_packet;
         taskinfo->audio_bytes_per_packet = taskinfo->new_audio_bytes_per_packet;
@@ -645,6 +646,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     unsigned int video_in_size = 0;
     unsigned short audio_seq_in = 0;
     unsigned short video_seq_in = 0;
+    bool audio_echo = false; /* an echo came in */
 
     union {
         rtp_header_t hdr;
@@ -768,7 +770,10 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     /* statistics - only count successful sends */
                     rtpstream_abytes_out.fetch_add(taskinfo->audio_bytes_per_packet + sizeof(rtp_header_t), std::memory_order_relaxed);
                     rtpstream_apckts.fetch_add(1, std::memory_order_relaxed); // GLOBAL RTP packet counter
-                    rs_apackets[taskindex]++; // TASK-specific RTP packet counter
+                    if (taskinfo->audio_pattern_id > 0)
+                    {
+                        rs_apackets[taskindex]++; // TASK-specific counter of the pattern packets the RTP check checks
+                    }
 
                     debugafile.printHexUS("SIPP SUCCESS SEND LOG: ", audio_out.data(), audio_out.size(), rc, rtpstream_apckts);
 
@@ -793,6 +798,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         audio_in.resize(audio_in_size, 0);
                         while ((rc = recv(taskinfo->audio_rtp_socket, audio_in.data(), audio_in.size(), 0)) >= 0)
                         {
+                            audio_echo = true;
                             /* for now we will just ignore any received data or receive errors */
                             /* separate code path for RTP echo */
                             rtpstream_abytes_in.fetch_add(rc, std::memory_order_relaxed);
@@ -856,10 +862,19 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         }
 
                         // VALIDATION TEST
+                        if (audio_echo)
+                        {
+                            taskinfo->audio_seq_echoed = host_seqnum;
+                        }
                         compresult = 0;
-                        compresult = memcmp(udp_send_audio.buffer + sizeof(rtp_header_t),
-                                            udp_recv_audio.buffer + sizeof(rtp_header_t),
-                                            taskinfo->audio_bytes_per_packet /* PAYLOAD comparison ONLY -- header EXCLUDED*/);
+                        if (taskinfo->audio_pattern_id > 0 &&
+                            (!audio_echo || (unsigned short) (host_seqnum - taskinfo->audio_seq_check) < 0x8000))
+                        {
+                            compresult = memcmp(udp_send_audio.buffer + sizeof(rtp_header_t),
+                                                udp_recv_audio.buffer + sizeof(rtp_header_t),
+                                                taskinfo->audio_bytes_per_packet /* PAYLOAD comparison ONLY -- header EXCLUDED*/);
+                        }
+                        /* else not the echo of a pattern packet: nothing to check */
                         if (compresult == 0)
                         {
                             // SUCCESS
@@ -873,6 +888,13 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             debugafile.printHex("COMPARISON FAILED", "", 0, taskinfo->audio_comparison_errors, rtpstream_apckts);
                             *comparison_acheck = 1;
                         }
+                    }
+                    else if (taskinfo->audio_pattern_id < 1 ||
+                             taskinfo->audio_seq_echoed == (unsigned short) (taskinfo->audio_seq_out - 1))
+                    {
+                        /* no pattern to check, or the echo of the previous
+                         * packet came in already: this one's is on its way */
+                        *comparison_acheck = 0;
                     }
                     else
                     {
