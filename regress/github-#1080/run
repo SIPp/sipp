@@ -1,0 +1,21 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A 3PCC controller B takes commands like a server, but it sends the
+# INVITE: when its call aborts, it ends the dialog with a BYE.
+. "`dirname "$0"`/../functions"; init
+
+sippfg -sf uas.xml -i 127.0.0.1 -p 27340 -m 1 -timeout 4 -timeout_error \
+    >/dev/null 2>&1 &
+uas=$!
+sippbg -sf b.xml -i 127.0.0.1 -p 27341 -3pcc 127.0.0.1:27342 -m 1 \
+    -timeout 4 127.0.0.1:27340
+sippfg -sf a.xml -i 127.0.0.1 -p 27343 127.0.0.1:27340 \
+    -3pcc 127.0.0.1:27342 -m 1 -timeout 4 >/dev/null 2>&1
+wait $uas
+status=$?
+
+if test $status -ne 0; then
+    fail "the UAS got no BYE ($status)"
+else
+    ok
+fi
