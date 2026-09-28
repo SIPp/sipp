@@ -1,0 +1,43 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A TLS client needs no certificate: without -tls_cert and -tls_key,
+# and with no default cacert.pem and cakey.pem, a UAC calls without
+# one. A UAS without them, or a -tls_cert naming a missing file, still
+# stops SIPp.
+. "`dirname "$0"`/../functions"; init
+
+"`get_sipp`" -v | grep -q TLS || skip "no TLS"
+command -v openssl >/dev/null || skip "no openssl"
+
+dir=`mktemp -d`
+trap 'rm -rf "$dir"' EXIT
+mkdir "$dir/empty"
+openssl req -x509 -newkey rsa:2048 -nodes -keyout "$dir/key.pem" \
+    -out "$dir/cert.pem" -days 1 -subj /CN=sipp >/dev/null 2>&1 ||
+    skip "no certificate"
+
+cd "$dir/empty"
+
+sippfg -sn uas -t l1 -i 127.0.0.1 -p 25610 -m 1 -timeout 2 >/dev/null 2>&1
+status=$?
+test $status -eq 255 || fail "a UAS without a certificate gave $status"
+
+sippfg -sn uac -t l1 -i 127.0.0.1 -p 25611 -m 1 \
+    -tls_cert "$dir/missing.pem" -tls_key "$dir/key.pem" \
+    127.0.0.1:25610 >"$dir/missing.log" 2>&1
+status=$?
+test $status -eq 255 || fail "a missing -tls_cert gave $status"
+grep -q 'use_certificate_chain_file failed' "$dir/missing.log" ||
+    fail "no error for a missing -tls_cert"
+
+sippbg -sn uas -t l1 -i 127.0.0.1 -p 25610 -m 1 \
+    -tls_cert "$dir/cert.pem" -tls_key "$dir/key.pem"
+sippfg -sn uac -t l1 -i 127.0.0.1 -p 25611 -m 1 127.0.0.1:25610 \
+    -timeout 5 -timeout_error >"$dir/uac.log" 2>&1
+status=$?
+
+if test $status -eq 0; then
+    ok
+else
+    fail "the call without a certificate failed with $status: `tail -1 "$dir/uac.log"`"
+fi
