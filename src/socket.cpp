@@ -61,6 +61,8 @@ static int stdin_mode;
 /******************** Recv Poll Processing *********************/
 
 unsigned pollnfds;
+/* The call sockets in the pollset: what -max_socket limits. */
+static unsigned call_sockets;
 #ifdef HAVE_EPOLL
 int epollfd;
 struct epoll_event   epollfiles[SIPP_MAXFDS];
@@ -1034,6 +1036,9 @@ void SIPpSocket::invalidate()
     assert(pollnfds > 0);
 
     pollnfds--;
+    if (ss_call_socket) {
+        call_sockets--;
+    }
 #ifdef HAVE_EPOLL
     if (pollidx < pollnfds) {
         epollfiles[pollidx] = epollfiles[pollnfds];
@@ -1509,7 +1514,9 @@ SIPpSocket *new_sipp_socket(bool use_ipv6, int transport) {
 SIPpSocket* SIPpSocket::new_sipp_call_socket(bool use_ipv6, int transport, bool *existing) {
     SIPpSocket *sock = nullptr;
     static int next_socket;
-    if (pollnfds >= max_multi_socket) {  // we must take the main socket into account
+    /* Only call sockets count: the main, control and stdin sockets
+     * don't take from the -max_socket budget. */
+    if (call_sockets >= max_multi_socket) {
         /* Find an existing socket that matches transport and ipv6 parameters. */
         int first = next_socket;
         do {
@@ -1540,6 +1547,7 @@ SIPpSocket* SIPpSocket::new_sipp_call_socket(bool use_ipv6, int transport, bool 
     } else {
         sock = new_sipp_socket(use_ipv6, transport);
         sock->ss_call_socket = true;
+        call_sockets++;
         /* Its first reference is the call's, so the socket is closed when
          * the last call using it ends. */
         sock->ss_own_ref = false;
@@ -1819,6 +1827,9 @@ int SIPpSocket::reconnect()
         /* Store this socket in the tables. */
         ss_pollidx = pollnfds++;
         sockets[ss_pollidx] = this;
+        if (ss_call_socket) {
+            call_sockets++;
+        }
 #ifdef HAVE_EPOLL
         epollfiles[ss_pollidx].data.u32 = ss_pollidx;
         epollfiles[ss_pollidx].events   = EPOLLIN;
