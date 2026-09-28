@@ -1162,13 +1162,14 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     /* For automatic answer calls to an out of call request, we must not */
     /* increment the input files line numbers to not disturb */
     /* the input files read mechanism (otherwise some lines risk */
-    /* to be systematically skipped */
+    /* to be systematically skipped. An <init> reads the line the */
+    /* first call will read, and leaves it to that call. */
     if (!isAutomatic) {
         m_lineNumber = new file_line_map();
         for (file_map::iterator file_it = inFiles.begin();
                 file_it != inFiles.end();
                 file_it++) {
-            (*m_lineNumber)[file_it->first] = file_it->second->nextLine(userId);
+            (*m_lineNumber)[file_it->first] = file_it->second->nextLine(userId, !isInitCall);
         }
     } else {
         m_lineNumber = nullptr;

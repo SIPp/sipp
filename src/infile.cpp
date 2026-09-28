@@ -299,14 +299,16 @@ int FileContents::numLines()
     return numLinesInFile;
 }
 
-int FileContents::nextLine(int userId)
+int FileContents::nextLine(int userId, bool advance)
 {
     switch(usage) {
     case InputFileRandomOrder:
         return rand() % numLinesInFile;
     case InputFileSequentialOrder: {
         int ret = lineCounter;
-        lineCounter = (lineCounter + 1) % numLinesInFile;
+        if (advance) {
+            lineCounter = (lineCounter + 1) % numLinesInFile;
+        }
         return ret;
     }
     case InputFileUser:

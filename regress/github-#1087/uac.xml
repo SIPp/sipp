@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- Logs the -inf line that the <init> and each call read. -->
+<scenario name="init then calls">
+  <init>
+    <nop>
+      <action>
+        <log message="line init [field0]"/>
+      </action>
+    </nop>
+  </init>
+  <send>
+    <![CDATA[
+      OPTIONS sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 OPTIONS
+      Max-Forwards: 70
+      Content-Length: 0
+    ]]>
+    <action>
+      <log message="line call [field0]"/>
+    </action>
+  </send>
+</scenario>
