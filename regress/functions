@@ -81,7 +81,7 @@ tcplisten() {
         listen(S,1)&&($sa=accept(N,S))&&(($port,$ia)=
         unpack_sockaddr_in($sa))&&($ia=inet_ntoa($ia))&&
         print "Connection from $ia:$port\n")||die($!);
-        close(S);while(1){recv(N,$o,2048,0);print "$o";}'
+        close(S);while(defined(recv(N,$o,2048,0))&&length($o)){print "$o";}'
 }
 
 udplisten() {
