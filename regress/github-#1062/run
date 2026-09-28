@@ -1,0 +1,21 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An attribute's XML entities are decoded once: "&amp;lt;" is the text
+# "&lt;", not "<".
+. "`dirname "$0"`/../functions"; init
+
+rm -f uac_*_logs.log
+sippfg -sf uac.xml -i 127.0.0.1 -p 24320 -m 1 -timeout 10 \
+    127.0.0.1:24321 -trace_logs >/dev/null 2>&1
+status=$?
+logs=`cat uac_*_logs.log 2>/dev/null`
+rm -f uac_*_logs.log
+
+expected='lit=&lt; &amp; < &lt;&quot;'
+if test $status -ne 0; then
+    fail "the scenario failed with $status"
+elif test "$logs" != "$expected"; then
+    fail "logged '$logs', not '$expected'"
+else
+    ok
+fi
