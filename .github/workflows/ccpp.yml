@@ -96,4 +96,10 @@ jobs:
     - name: prepare
       run: git submodule update --init
     - name: build-wolfssl
-      run: docker build -f docker/Dockerfile.debian --build-arg WOLFSSL=1 --build-arg UNITTEST=1 .
+      # and run the TLS and SRTP regress tests against the wolfSSL build
+      run: >
+        docker build -f docker/Dockerfile.debian --build-arg WOLFSSL=1
+        --build-arg UNITTEST=1
+        --build-arg REGRESS="github-#0583 github-#0601 github-#0611
+        github-#0631 github-#0773 github-#0857 github-#0951 github-#0990
+        github-#0996" .
