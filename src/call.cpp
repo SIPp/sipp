@@ -294,8 +294,8 @@ static unsigned int get_tdm_map_number()
     interval = (tdm_map_a+1) * (tdm_map_b+1) * (tdm_map_c+1);
     random = rand() % interval;
     while ((i<interval) && (!found)) {
-        if (tdm_map[(random + i - 1) % interval] == false) {
-            nb = (random + i - 1) % interval;
+        if (tdm_map[(random + i) % interval] == false) {
+            nb = (random + i) % interval;
             found = true;
         }
         i++;
