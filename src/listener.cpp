@@ -46,8 +46,13 @@ void listener::startListening()
     if (!ins.second) {
         /* Another listener has this Call-ID, most likely the dead call
          * of an earlier call: the messages are ours from now on, and it
-         * leaves the entry alone when it stops. */
+         * leaves the entry alone when it stops. A dead call leaves a live
+         * call's messages to it. */
         if (!dynamic_cast<deadcall *>(ins.first->second)) {
+            if (dynamic_cast<deadcall *>(this)) {
+                listening = true;
+                return;
+            }
             WARNING("Call-ID '%s' is already in use by another call", id);
         }
         ins.first->second = this;
