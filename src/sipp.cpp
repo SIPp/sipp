@@ -574,6 +574,10 @@ struct sipp_option options_table[] = {
         "- tn: TCP with one socket per call,\n"
         "- l1: TLS with one socket,\n"
         "- ln: TLS with one socket per call,\n"
+        "- w1: SIP over WebSocket (WS, RFC 7118) on TCP with one socket,\n"
+        "- wn: WS with one socket per call,\n"
+        "- x1: SIP over secure WebSocket (WSS) on TLS with one socket,\n"
+        "- xn: WSS with one socket per call,\n"
 #ifdef USE_SCTP
         "- s1: SCTP with one socket,\n"
         "- sn: SCTP with one socket per call,\n"
@@ -600,6 +604,7 @@ struct sipp_option options_table[] = {
     {"tls_crl", "Set the name for Certificate Revocation List file. If not specified, X509 CRL is not activated.", SIPP_OPTION_STRING, &tls_crl_name, 1},
     {"tls_version", "Set the TLS protocol version to use (1.0, 1.1, 1.2, 1.3) -- default is autonegotiate", SIPP_OPTION_FLOAT, &tls_version, 1},
     {"tls_handshake_timeout", "Set how long a TLS handshake may take before its connection is dropped. SIPp handles nothing else meanwhile. 0 means no limit. Default is 10s; default unit is ms.", SIPP_OPTION_TIME_MS, &tls_handshake_timeout, 1},
+    {"ws_path", "Set the path that a WebSocket client (-t w1, wn, x1 or xn) asks for in its handshake. Default is '/'.", SIPP_OPTION_STRING, &ws_path, 1},
 
 #ifdef USE_SCTP
     {"multihome", "Set multihome address for SCTP", SIPP_OPTION_IP, multihome_ip, 1},
@@ -2115,11 +2120,15 @@ int main(int argc, char *argv[])
 #endif
                     break;
                 case 'l':
-                    transport = T_TLS;
+                case 'x':
+                    transport = argv[argi][0] == 'l' ? T_TLS : T_WSS;
                     if (TLS_init() != 1) {
                         printf("TLS initialization problem\n");
                         exit(-1);
                     }
+                    break;
+                case 'w':
+                    transport = T_WS;
                     break;
                 }
                 switch(argv[argi][1]) {
@@ -2622,7 +2631,7 @@ int main(int argc, char *argv[])
     }
 
     /* After the mode: only a client may go without a certificate. */
-    if ((transport == T_TLS) && (TLS_init_context() != TLS_INIT_NORMAL)) {
+    if (TRANSPORT_IS_TLS(transport) && (TLS_init_context() != TLS_INIT_NORMAL)) {
         ERROR("FI_init_ssl_context() failed");
     }
 

@@ -44,6 +44,7 @@
 #include "sipp.hpp"
 #include "socket.hpp"
 #include "logger.hpp"
+#include "websocket.hpp"
 
 extern bool do_hide;
 
@@ -709,7 +710,8 @@ int SIPpSocket::check_for_message()
     if (!socketbuf)
         return 0;
 
-    if (ss_transport == T_UDP || ss_transport == T_SCTP) {
+    /* A WebSocket buffers its messages one by one too. */
+    if (ss_transport == T_UDP || ss_transport == T_SCTP || TRANSPORT_IS_WS(ss_transport)) {
         return socketbuf->len;
     }
 
@@ -869,6 +871,16 @@ void set_multihome_addr(SIPpSocket* socket, int port)
 /* Pull up to tcp_readsize data bytes out of the socket into our local buffer. */
 int SIPpSocket::empty()
 {
+    /* A WebSocket that closed reads no more. Called once its messages are
+     * processed and what they sent is out (see to_empty()), it sends its
+     * close, and ends as a connection that the peer closes does. */
+    if (ss_ws && ss_ws->is_closed()) {
+        if (!ss_ws_close.empty()) {
+            write_primitive(ss_ws_close.data(), ss_ws_close.size(), &ss_dest);
+            ss_ws_close.clear();
+        }
+        return 0;
+    }
 
     int readsize=0;
     if (ss_transport == T_UDP || ss_transport == T_SCTP) {
@@ -894,10 +906,12 @@ int SIPpSocket::empty()
 
     switch(ss_transport) {
     case T_TCP:
+    case T_WS:
     case T_UDP:
         ret = recvfrom(ss_fd, buffer, readsize, 0, (struct sockaddr *)&socketbuf->addr,  &addrlen);
         break;
     case T_TLS:
+    case T_WSS:
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
         errno = 0;
         ret = SSL_read(ss_ssl, buffer, readsize);
@@ -936,6 +950,10 @@ int SIPpSocket::empty()
     }
 
     socketbuf->len = ret;
+
+    if (ss_ws) {
+        return ws_empty(socketbuf, ret);
+    }
 
     buffer_read(socketbuf);
 
@@ -977,7 +995,7 @@ void SIPpSocket::invalidate()
 #endif
     }
     if (ss_fd != -1 && ss_fd != stdin_fileno) {
-        if (ss_transport == T_TCP && ss_transport != T_TLS) {
+        if (ss_transport == T_TCP || ss_transport == T_WS) {
             /* ENOTCONN: the peer reset the connection already. */
             if (shutdown(ss_fd, SHUT_RDWR) < 0 && errno != ENOTCONN) {
                 WARNING_NO("Failed to shutdown socket %d", ss_fd);
@@ -1085,6 +1103,17 @@ void SIPpSocket::close()
     int count = --ss_count;
 
     if (count == 0) {
+        /* End a WebSocket with a close frame, or with the one it has yet
+         * to send, unless something is in its way. */
+        if (ss_ws && !ss_out && !ss_invalid) {
+            std::string frame = ss_ws_close;
+            if (ss_ws->is_open() && !ss_ws->is_closed()) {
+                frame = ss_ws->close_frame(1000);
+            }
+            if (!frame.empty()) {
+                write_primitive(frame.data(), frame.size(), &ss_dest);
+            }
+        }
         invalidate();
         sockets_pending_reset.erase(this);
         delete this;
@@ -1130,6 +1159,11 @@ ssize_t SIPpSocket::read_message(char *buf, size_t len, struct sockaddr_storage 
         ss_msglen = msg_len;
     } else {
         ss_msglen = 0;
+        /* The poll loop ends a WebSocket that closed once this last
+         * message is processed. */
+        if (ss_ws && ss_ws->is_closed()) {
+            poll_out();
+        }
         pending_messages--;
     }
 
@@ -1217,6 +1251,8 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
                     case T_TCP:
                     case T_SCTP:
                     case T_TLS:
+                    case T_WS:
+                    case T_WSS:
                         /* None without a remote host in server mode. */
                         if (tcp_multiplex) {
                             new_ptr->associate_socket(tcp_multiplex);
@@ -1317,7 +1353,7 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     memcpy(&ss_dest, &remote_sockaddr, sizeof(ss_dest));
 
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
-    if (transport == T_TLS) {
+    if (TRANSPORT_IS_TLS(transport)) {
         int flags = fcntl(fd, F_GETFL, 0);
         fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
@@ -1356,6 +1392,11 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
 #endif
 }
 
+SIPpSocket::~SIPpSocket()
+{
+    delete ss_ws;
+}
+
 static SIPpSocket* sipp_allocate_socket(bool use_ipv6, int transport, int fd) {
     return new SIPpSocket(use_ipv6, transport, fd, 0);
 }
@@ -1381,6 +1422,8 @@ static int socket_fd(bool use_ipv6, int transport)
         break;
     case T_TLS:
     case T_TCP:
+    case T_WS:
+    case T_WSS:
         socket_type = SOCK_STREAM;
         protocol = IPPROTO_TCP;
         break;
@@ -1530,7 +1573,7 @@ SIPpSocket* SIPpSocket::accept() {
      * experience a TCP failure. */
     memcpy(&ret->ss_dest, &remote_sockaddr, sizeof(ret->ss_dest));
 
-    if (ret->ss_transport == T_TLS) {
+    if (TRANSPORT_IS_TLS(ret->ss_transport)) {
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
         if (ssl_handshake(ret->ss_ssl, true) != SSL_ERROR_NONE) {
             /* Only this peer failed: drop it, and keep serving the others. */
@@ -1540,6 +1583,11 @@ SIPpSocket* SIPpSocket::accept() {
 #else
         ERROR("You need to compile SIPp with TLS support");
 #endif
+    }
+
+    /* The client's WebSocket handshake comes first. */
+    if (TRANSPORT_IS_WS(ret->ss_transport)) {
+        ret->ss_ws = new WebSocket(true, SIPP_MAX_MSG_SIZE - 1);
     }
     return ret;
 }
@@ -1613,9 +1661,10 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 
     int ret;
 
-    assert(ss_transport == T_TCP || ss_transport == T_TLS || ss_transport == T_SCTP);
+    assert(ss_transport == T_TCP || ss_transport == T_TLS || ss_transport == T_SCTP ||
+           TRANSPORT_IS_WS(ss_transport));
 
-    if (ss_transport == T_TCP || ss_transport == T_TLS) {
+    if (ss_transport == T_TCP || ss_transport == T_TLS || TRANSPORT_IS_WS(ss_transport)) {
         struct sockaddr_storage with_optional_port;
         int port = -1;
         memcpy(&with_optional_port, &local_sockaddr, sizeof(struct sockaddr_storage));
@@ -1649,7 +1698,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 
     fcntl(ss_fd, F_SETFL, flags);
 
-    if (ss_transport == T_TLS) {
+    if (TRANSPORT_IS_TLS(ss_transport)) {
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
         if (int err = ssl_handshake(ss_ssl, false)) {
             invalidate();
@@ -1658,6 +1707,10 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 #else
         ERROR("You need to compile SIPp with TLS support");
 #endif
+    }
+
+    if (TRANSPORT_IS_WS(ss_transport)) {
+        ws_connect();
     }
 
 #ifdef USE_SCTP
@@ -1687,7 +1740,7 @@ int SIPpSocket::reconnect()
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
         ss_ssl = nullptr;
 
-        if (transport == T_TLS) {
+        if (TRANSPORT_IS_TLS(transport)) {
             /* Non-blocking, as in the constructor: connect() keeps the
              * flags it finds, and a blocking SSL_connect() could wait
              * past -tls_handshake_timeout for a silent server. */
@@ -1824,7 +1877,7 @@ void sipp_customize_socket(SIPpSocket *socket)
 
     /* Allows fast TCP reuse of the socket */
     if (socket->ss_transport == T_TCP || socket->ss_transport == T_TLS ||
-            socket->ss_transport == T_SCTP) {
+            socket->ss_transport == T_SCTP || TRANSPORT_IS_WS(socket->ss_transport)) {
         int sock_opt = 1;
 
         if (setsockopt(socket->ss_fd, SOL_SOCKET, SO_REUSEADDR, (void *)&sock_opt,
@@ -1904,6 +1957,20 @@ void sipp_customize_socket(SIPpSocket *socket)
     }
 }
 
+/* Have the poll loop flush this socket once it can be written to. */
+void SIPpSocket::poll_out()
+{
+#ifdef HAVE_EPOLL
+    epollfiles[ss_pollidx].events |= EPOLLOUT;
+    int rc = epoll_ctl(epollfd, EPOLL_CTL_MOD, ss_fd, &epollfiles[ss_pollidx]);
+    if (rc == -1) {
+        WARNING_NO("Failed to set EPOLLOUT");
+    }
+#else
+    pollfiles[ss_pollidx].events |= POLLOUT;
+#endif
+}
+
 /* This socket is congested, mark it as such and add it to the poll files. */
 int SIPpSocket::enter_congestion(int again)
 {
@@ -1915,15 +1982,7 @@ int SIPpSocket::enter_congestion(int again)
     TRACE_MSG("Problem %s on socket  %d and poll_idx  is %d \n",
               again == EWOULDBLOCK ? "EWOULDBLOCK" : "EAGAIN",
               ss_fd, ss_pollidx);
-#ifdef HAVE_EPOLL
-    epollfiles[ss_pollidx].events |= EPOLLOUT;
-    int rc = epoll_ctl(epollfd, EPOLL_CTL_MOD, ss_fd, &epollfiles[ss_pollidx]);
-    if (rc == -1) {
-        WARNING_NO("Failed to set EPOLLOUT");
-    }
-#else
-    pollfiles[ss_pollidx].events |= POLLOUT;
-#endif
+    poll_out();
 
 #ifdef USE_SCTP
     if (ss_transport == T_SCTP && sctpstate == SCTP_CONNECTING)
@@ -1951,7 +2010,18 @@ int SIPpSocket::write_error(int ret)
         return enter_congestion(again);
     }
 
-    if ((ss_transport == T_TCP || ss_transport == T_SCTP)
+    /* A connection we accepted is the peer's to end, closed or reset, and
+     * there is none to make again: reset_connection() ends its calls, as
+     * when the peer closes it. */
+    if ((ss_transport == T_TCP || ss_transport == T_WS) && ss_accepted && !ss_control &&
+            (errno == EPIPE || errno == ECONNRESET)) {
+        nb_net_send_errors++;
+        sockets_pending_reset.insert(this);
+        drop_connection();
+        return -1;
+    }
+
+    if ((ss_transport == T_TCP || ss_transport == T_SCTP || ss_transport == T_WS)
             && errno == EPIPE) {
         nb_net_send_errors++;
         sockets_pending_reset.insert(this);
@@ -1967,7 +2037,7 @@ int SIPpSocket::write_error(int ret)
     }
 
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
-    if (ss_transport == T_TLS) {
+    if (TRANSPORT_IS_TLS(ss_transport)) {
         errstring = SSL_error_string(SSL_get_error(ss_ssl, ret), ret);
     }
 #endif
@@ -1980,8 +2050,11 @@ int SIPpSocket::write_error(int ret)
 int SIPpSocket::read_error(int ret)
 {
     const char *errstring = strerror(errno);
+    /* A WebSocket that closed or failed read nothing: empty() returned 0,
+     * for it to end as a TCP connection does, and there is no TLS error. */
+    bool ws_closed = ss_ws && ss_ws->is_closed() && ret == 0;
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
-    if (ss_transport == T_TLS) {
+    if (TRANSPORT_IS_TLS(ss_transport) && !ws_closed) {
         int err = SSL_get_error(ss_ssl, ret);
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
             /* This is benign - we just need to wait for the socket to be
@@ -2005,11 +2078,11 @@ int SIPpSocket::read_error(int ret)
     /* We have only non-blocking reads, so this should not occur. The OpenSSL
      * functions don't set errno, though, so this check doesn't make sense
      * for TLS sockets. */
-    if (ret < 0 && ss_transport != T_TLS) {
+    if (ret < 0 && !TRANSPORT_IS_TLS(ss_transport)) {
         assert(errno != EAGAIN);
     }
 
-    if (ss_transport == T_TCP || ss_transport == T_TLS) {
+    if (ss_transport == T_TCP || ss_transport == T_TLS || TRANSPORT_IS_WS(ss_transport)) {
         /* A connection we accepted is the peer's to end, and there is none
          * to make again: a reset ends it as a close does. */
         bool reset = ret < 0 && errno == ECONNRESET && ss_accepted && !ss_control;
@@ -2041,29 +2114,7 @@ int SIPpSocket::read_error(int ret)
                     }
                 }
             } else {
-                /* The socket was closed "cleanly", but we may have calls that need to
-                 * be destroyed.  Also, if these calls are not complete, and attempt to
-                 * send again we may "resurrect" the socket by reconnecting it.
-                 * Nothing reconnects one we accepted, so its calls always end. */
-                bool end_calls = reset_close || ss_accepted;
-                const char *transport = TRANSPORT_TO_STRING(ss_transport);
-                invalidate();
-                /* Nothing but its calls can reach this socket now, so drop its
-                 * own reference: it is deleted here if no call uses it, or
-                 * when the last one does. The global sockets keep theirs. A
-                 * call socket has none, so it may go with its calls here. */
-                bool own_ref = ss_own_ref && this != main_socket && this != tcp_multiplex && this != main_remote_socket;
-                if (end_calls) {
-                    int failed = close_calls();
-                    if (failed) {
-                        WARNING("The remote peer %s the %s connection, failing %d call(s)",
-                                reset ? "reset" : "closed", transport, failed);
-                    }
-                }
-                if (own_ref) {
-                    ss_own_ref = false;
-                    close();
-                }
+                peer_closed(reset);
             }
             return 0;
         }
@@ -2083,6 +2134,46 @@ int SIPpSocket::read_error(int ret)
     WARNING("Unable to receive %s message: %s", TRANSPORT_TO_STRING(ss_transport), errstring);
     nb_net_recv_errors++;
     return -1;
+}
+
+/* The peer closed or reset the connection. It was closed "cleanly", but
+ * we may have calls that need to be destroyed. Also, if these calls are
+ * not complete, and attempt to send again we may "resurrect" the socket
+ * by reconnecting it. Nothing reconnects one we accepted, so its calls
+ * always end. The socket may be deleted here. */
+void SIPpSocket::peer_closed(bool reset)
+{
+    bool end_calls = reset_close || ss_accepted;
+    const char *transport = TRANSPORT_TO_STRING(ss_transport);
+    invalidate();
+    /* Nothing but its calls can reach this socket now, so drop its
+     * own reference: it is deleted here if no call uses it, or
+     * when the last one does. The global sockets keep theirs. A
+     * call socket has none, so it may go with its calls here. */
+    bool own_ref = ss_own_ref && this != main_socket && this != tcp_multiplex && this != main_remote_socket;
+    if (end_calls) {
+        int failed = close_calls();
+        if (failed) {
+            WARNING("The remote peer %s the %s connection, failing %d call(s)",
+                    reset ? "reset" : "closed", transport, failed);
+        }
+    }
+    if (own_ref) {
+        ss_own_ref = false;
+        close();
+    }
+}
+
+/* Queue a whole message that could not be written yet. On a WebSocket
+ * what goes out is its frame, which is not a SIP message to trace, so
+ * the message is traced now; any other is traced once flush() writes it. */
+void SIPpSocket::buffer_whole(const char *buffer, size_t len, const char *out,
+                              size_t out_len, struct sockaddr_storage *dest)
+{
+    if (ss_ws) {
+        trace_sent(buffer, len);
+    }
+    buffer_write(out, out_len, dest, !ss_ws);
 }
 
 void SIPpSocket::buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest,
@@ -2107,19 +2198,18 @@ void SIPpSocket::buffer_write(const char *buffer, size_t len, struct sockaddr_st
 void SIPpSocket::buffer_read(struct socketbuf *newbuf)
 {
     struct socketbuf *buf = ss_in;
-    struct socketbuf *prev = buf;
 
     if (!buf) {
         ss_in = newbuf;
         return;
     }
 
+    /* After the last one: a WebSocket may buffer several messages. */
     while (buf->next) {
-        prev = buf;
         buf = buf->next;
     }
 
-    prev->next = newbuf;
+    buf->next = newbuf;
 }
 
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
@@ -2231,6 +2321,7 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
 
     switch(ss_transport) {
     case T_TLS:
+    case T_WSS:
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
         rc = send_nowait_tls(ss_ssl, buffer, len, 0);
 #else
@@ -2255,6 +2346,7 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
 #endif
         break;
     case T_TCP:
+    case T_WS:
         rc = send_nowait(ss_fd, buffer, len, 0);
         break;
 
@@ -2324,6 +2416,19 @@ int SIPpSocket::flush()
         }
     }
 
+    /* Then the pong to the last ping that came while this waited. */
+    if (!ss_ws_pong.empty()) {
+        std::string pong;
+        pong.swap(ss_ws_pong);
+        ws_reply(pong);
+        /* Part of it waits: what write() sends goes after it, not into
+         * the middle of it. */
+        if (ss_out) {
+            errno = EWOULDBLOCK;
+            return -1;
+        }
+    }
+
     return 0;
 }
 
@@ -2331,13 +2436,29 @@ int SIPpSocket::flush()
 int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockaddr_storage *dest)
 {
     int rc;
+    /* What goes out: a WebSocket sends each message in a frame. */
+    std::string frame;
+    const char *out = buffer;
+    ssize_t out_len = len;
+
+    if (ss_ws && !ss_invalid) {
+        frame = ss_ws->frame(buffer, len);
+        if (!ss_ws->is_open()) {
+            /* Held until the server takes the handshake. */
+            ss_ws->held += frame;
+            trace_sent(buffer, len);
+            return len;
+        }
+        out = frame.data();
+        out_len = frame.size();
+    }
 
     if (ss_out) {
         rc = flush();
         TRACE_MSG("Attempted socket flush returned %d\r\n", rc);
         if (rc < 0) {
             if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
-                buffer_write(buffer, len, dest, true);
+                buffer_whole(buffer, len, out, out_len, dest);
                 return len;
             } else {
                 return rc;
@@ -2345,17 +2466,17 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
         }
     }
 
-    rc = write_primitive(buffer, len, dest);
+    rc = write_primitive(out, out_len, dest);
     struct timeval currentTime;
     GET_TIME (&currentTime);
 
-    if (rc == len) {
+    if (rc == out_len) {
         /* Everything is great. */
         trace_sent(buffer, len);
+        rc = len;
     } else if (rc <= 0) {
         if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
-            /* Traced as sent by flush(), once it is written. */
-            buffer_write(buffer, len, dest, true);
+            buffer_whole(buffer, len, out, out_len, dest);
             enter_congestion(errno);
             return len;
         }
@@ -2374,13 +2495,143 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
                       "Truncation sending %s message (%d of %zu sent):\n\n%.*s\n",
                       CStat::formatTime(&currentTime, true),
                       TRANSPORT_TO_STRING(ss_transport),
-                      rc, len, (int)len, buffer);
+                      rc, out_len, (int)len, buffer);
         }
-        buffer_write(buffer + rc, len - rc, dest, false);
+        buffer_write(out + rc, out_len - rc, dest, false);
         enter_congestion(errno);
     }
 
     return rc;
+}
+
+/* Start a client's WebSocket handshake on a new connection. */
+void SIPpSocket::ws_connect()
+{
+    char ip[NI_MAXHOST] = "", port[NI_MAXSERV] = "";
+    char host[NI_MAXHOST + NI_MAXSERV + 3];
+
+    /* What an earlier connection left may end in the middle of a frame. */
+    while (ss_out) {
+        struct socketbuf *next = ss_out->next;
+        free_socketbuf(ss_out);
+        ss_out = next;
+    }
+
+    /* The host SIPp calls, unless the call went elsewhere. */
+    if (*remote_host && !ss_changed_dest) {
+        snprintf(ip, sizeof(ip), "%s", remote_host);
+        snprintf(port, sizeof(port), "%d", remote_port);
+    } else {
+        getnameinfo(_RCAST(struct sockaddr*, &ss_dest), socklen_from_addr(&ss_dest),
+                    ip, sizeof(ip), port, sizeof(port), NI_NUMERICHOST | NI_NUMERICSERV);
+    }
+    snprintf(host, sizeof(host), strchr(ip, ':') ? "[%s]:%s" : "%s:%s", ip, port);
+
+    delete ss_ws;
+    ss_ws = new WebSocket(false, SIPP_MAX_MSG_SIZE - 1);
+    std::string request = ss_ws->request(host, ws_path);
+    TRACE_MSG("WebSocket handshake on socket %d:\n\n%s", ss_fd, request.c_str());
+    buffer_write(request.data(), request.size(), &ss_dest, false);
+    poll_out();
+}
+
+/* Send a WebSocket's own frame, or a server's handshake answer: now,
+ * unless other data waits. An error is not one of the SIP messages: the
+ * reads find out whether the connection is gone. */
+void SIPpSocket::ws_reply(const std::string &reply)
+{
+    ssize_t rc = 0;
+
+    if (!ss_out) {
+        rc = write_primitive(reply.data(), reply.size(), &ss_dest);
+        if (rc < 0 && errno != EWOULDBLOCK && errno != EAGAIN) {
+            return;
+        }
+        if (rc == (ssize_t)reply.size()) {
+            return;
+        }
+        rc = rc < 0 ? 0 : rc;
+    }
+    buffer_write(reply.data() + rc, reply.size() - rc, &ss_dest, false);
+    poll_out();
+}
+
+/* Take the SIP messages out of what a WebSocket connection read, and
+ * answer its handshake and control frames. Once it closed or failed, the
+ * messages that came before are processed, and their answers sent, before
+ * its close (RFC 6455 section 5.5.1): then empty() ends it. */
+int SIPpSocket::ws_empty(struct socketbuf *socketbuf, int ret)
+{
+    std::string payload, reply;
+    WebSocket::Event event;
+
+    ss_ws->feed(socketbuf->buf, socketbuf->len);
+    while ((event = ss_ws->next(payload, reply)) != WebSocket::NEED_MORE) {
+        switch (event) {
+        case WebSocket::OPENED:
+            TRACE_MSG("WebSocket open on socket %d\n", ss_fd);
+            if (!ss_ws->held.empty()) {
+                buffer_write(ss_ws->held.data(), ss_ws->held.size(), &ss_dest, false);
+                ss_ws->held.clear();
+                poll_out();
+            }
+            break;
+        case WebSocket::MESSAGE:
+            /* Each is one SIP message (RFC 7118 section 5.2). */
+            if (!payload.empty()) {
+                buffer_read(alloc_socketbuf(&payload[0], payload.size(), DO_COPY, &socketbuf->addr));
+            }
+            break;
+        case WebSocket::REPLY:
+            /* While other data waits, only the last ping gets its pong
+             * (section 5.5.3), after that data: a peer that pings and
+             * does not read fills no memory. */
+            if (ss_out) {
+                ss_ws_pong.swap(reply);
+                reply.clear();
+            }
+            break;
+        case WebSocket::FAILED:
+            WARNING("WebSocket error, closing the %s connection: %s",
+                    TRANSPORT_TO_STRING(ss_transport), ss_ws->error().c_str());
+        /* Fall through */
+        case WebSocket::CLOSED:
+            ss_ws_close.swap(reply);
+            reply.clear();
+            break;
+        default:
+            break;
+        }
+        if (!reply.empty()) {
+            ws_reply(reply);
+        }
+    }
+    free_socketbuf(socketbuf);
+
+    if (!ss_msglen) {
+        if (int msg_len = check_for_message()) {
+            ss_msglen = msg_len;
+            pending_messages++;
+        }
+    }
+
+    /* The poll loop ends it once it can write, so after these messages
+     * (see to_empty()). */
+    if (ss_ws->is_closed()) {
+        poll_out();
+    }
+    return ret;
+}
+
+/* Is there something for empty() to do? Something to read, if readable;
+ * but a WebSocket that closed reads no more: it has empty() end it, once
+ * its messages are processed and what they sent is out. */
+bool SIPpSocket::to_empty(bool readable)
+{
+    if (ss_ws && ss_ws->is_closed()) {
+        return !ss_msglen && !ss_out;
+    }
+    return readable;
 }
 
 bool reconnect_allowed()
@@ -2393,6 +2644,13 @@ bool reconnect_allowed()
 
 void SIPpSocket::reset_connection()
 {
+    /* A connection we accepted that failed a write is gone for good (see
+     * write_error()). */
+    if (ss_accepted && !ss_control) {
+        peer_closed(false);
+        return;
+    }
+
     if (!reconnect_allowed()) {
         ERROR_NO("Max number of reconnections reached");
     }
@@ -2724,7 +2982,8 @@ int open_connections()
 
     /* A 3PCC controller B or slave scenario that starts with a <recv>
      * still has its calls created by a command, like a client's. */
-    if ((!multisocket) && (transport == T_TCP || transport == T_TLS || transport == T_SCTP) &&
+    if ((!multisocket) && (transport == T_TCP || transport == T_TLS || transport == T_SCTP ||
+                           TRANSPORT_IS_WS(transport)) &&
             (sendMode != MODE_SERVER ||
              (*remote_host && (thirdPartyMode == MODE_3PCC_CONTROLLER_B ||
                                thirdPartyMode == MODE_SLAVE)))) {
@@ -2766,7 +3025,7 @@ int open_connections()
     }
 
 
-    if (transport == T_TCP || transport == T_TLS || transport == T_SCTP) {
+    if (transport == T_TCP || transport == T_TLS || transport == T_SCTP || TRANSPORT_IS_WS(transport)) {
         if (listen(main_socket->ss_fd, 100)) {
             ERROR_NO("Unable to listen main socket");
         }
@@ -3068,17 +3327,34 @@ void SIPpSocket::pollset_process(int wait)
 #endif
                 sock->ss_congested = false;
 
+                unsigned before = pollnfds;
                 sock->flush();
+                /* A write error may drop the connection, which moves
+                 * another socket into its place (see below). */
+                if (pollnfds != before) {
+#ifdef HAVE_EPOLL
+                    for (int event_idx2 = event_idx + 1; event_idx2 < rs; event_idx2++) {
+                        if (epollevents[event_idx2].data.u32 == pollnfds) {
+                            epollevents[event_idx2].data.u32 = poll_idx;
+                        }
+                    }
+#else
+                    poll_idx--;
+                    rs--;
+#endif
+                    continue;
+                }
             }
         }
 
 #ifdef HAVE_EPOLL
-        if (epollevents[event_idx].events & EPOLLIN) {
+        if (sock->to_empty(epollevents[event_idx].events & EPOLLIN)) {
 #else
-        if (pollfiles[poll_idx].revents & POLLIN) {
+        if (sock->to_empty(pollfiles[poll_idx].revents & POLLIN)) {
 #endif
             /* We can empty this socket. */
-            if ((transport == T_TCP || transport == T_TLS || transport == T_SCTP) && sock == main_socket) {
+            if ((transport == T_TCP || transport == T_TLS || transport == T_SCTP || TRANSPORT_IS_WS(transport)) &&
+                    sock == main_socket) {
                 /* A peer that failed the TLS handshake got dropped (see
                  * accept()): nothing to do for it. */
                 sock->accept();

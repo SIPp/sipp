@@ -1,0 +1,41 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# SIP over WebSocket (RFC 7118), between two SIPp: over TCP (-t w1, wn)
+# and over TLS (-t x1, xn), with a single connection and with one per
+# call. The Via names the transport, SIP/2.0/WS or SIP/2.0/WSS.
+. "`dirname "$0"`/../functions"; init
+
+log=`mktemp -d`
+trap 'rm -rf "$log"' EXIT
+
+# call TRANSPORT PORT VIA [OPTION...]
+call() {
+    t=$1 port=$2 via=$3
+    shift 3
+    sippbg -sn uas -t $t -i 127.0.0.1 -p $port -m 3 \
+        -trace_msg -message_file "$log/$t.log" "$@"
+    sippfg -sn uac -t $t -i 127.0.0.1 -p $((port + 1)) -m 3 -r 10 "$@" \
+        127.0.0.1:$port -timeout 8 -timeout_error >/dev/null 2>&1 ||
+        fail "UAC -t $t failed with $?"
+    # The UAS is done with its calls too. It got 9 requests, and sent 9
+    # responses.
+    sleep 0.2
+    test `grep -c "^$via message received" "$log/$t.log"` -eq 9 &&
+        test `grep -c "^Via: SIP/2.0/$via 127.0.0.1:" "$log/$t.log"` -eq 18 ||
+        fail "UAS -t $t did not get 9 $via requests"
+}
+
+call w1 26400 WS
+call wn 26402 WS
+
+if "`get_sipp`" -v | grep -q TLS && command -v openssl >/dev/null; then
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+        -nodes -keyout "$log/key.pem" -out "$log/cert.pem" -days 1 \
+        -subj /CN=127.0.0.1 >/dev/null 2>&1 ||
+        fail "cannot create the certificate"
+    tls="-tls_cert $log/cert.pem -tls_key $log/key.pem -tls_ca $log/cert.pem"
+    call x1 26404 WSS $tls
+    call xn 26406 WSS $tls
+fi
+
+ok

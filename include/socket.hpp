@@ -20,7 +20,11 @@
 #ifndef __SIPP_SOCKET_H__
 #define __SIPP_SOCKET_H__
 
+#include <string>
+
 #include "sslsocket.hpp"
+
+class WebSocket;
 
 #ifdef USE_SCTP
 #define SCTP_DOWN 0
@@ -72,6 +76,7 @@ void sockaddr_update_port(struct sockaddr_storage* ss, short port);
 class SIPpSocket {
 public:
     SIPpSocket(bool use_ipv6, int transport, int fd, int accepting);
+    ~SIPpSocket();
     static SIPpSocket* new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
     void set_bind_port(int bind_port);
 
@@ -108,7 +113,7 @@ public:
     int ss_count = 1;           /* How many users are there of this socket? */
     bool ss_own_ref = true;     /* Does ss_count include the socket's own reference? */
     bool ss_ipv6 = false;
-    int ss_transport = 0;       /* T_TCP, T_UDP, or T_TLS. */
+    int ss_transport = 0;       /* T_TCP, T_UDP, T_TLS, T_SCTP, T_WS or T_WSS. */
     bool ss_control = false;    /* Is this a control socket? */
     int ss_fd = -1;             /* The underlying file descriptor for this socket. */
     int ss_port = 0;            /* The port used by this socket */
@@ -127,6 +132,8 @@ private:
     void buffer_read(struct socketbuf *newbuf);
     void buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest,
                       bool untraced);
+    void buffer_whole(const char *buffer, size_t len, const char *out, size_t out_len,
+                      struct sockaddr_storage *dest);
     void trace_sent(const char *buffer, size_t len);
     ssize_t read_message(char *buf, size_t len, struct sockaddr_storage *src);
     struct socketbuf *ss_in = nullptr;    /* Buffered input. */
@@ -135,12 +142,18 @@ private:
     size_t ss_msglen = 0;           /* Is there a complete SIP message waiting, and if so how big? */
 
     int close_calls();
+    void peer_closed(bool reset);
     int flush();
     int write_error(int ret);
     void abort();
     void drop_connection();
     int check_for_message();
     int enter_congestion(int again);
+    void poll_out();
+    void ws_connect();
+    int ws_empty(struct socketbuf *socketbuf, int ret);
+    bool to_empty(bool readable);
+    void ws_reply(const std::string &reply);
     ssize_t write_primitive(const char* buffer, size_t len,
                             struct sockaddr_storage* dest);
 
@@ -153,6 +166,12 @@ private:
 #endif
 
     int ss_pollidx = -1; /* The index of this socket in our poll structures. */
+
+    WebSocket *ss_ws = nullptr; /* The WebSocket of a WS or WSS connection. */
+    std::string ss_ws_close;    /* Its close frame, or a server's handshake
+                                   error, to send once it ends. */
+    std::string ss_ws_pong;     /* The pong to the last ping that came while
+                                   output waited. */
 
 #ifdef USE_SCTP
     int sctpstate = SCTP_DOWN;

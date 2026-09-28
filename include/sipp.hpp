@@ -105,13 +105,35 @@
 #define T_TCP                      1
 #define T_TLS                      2
 #define T_SCTP                     3
+#define T_WS                       4 /* SIP over WebSocket (RFC 7118) on TCP */
+#define T_WSS                      5 /* ... and on TLS */
 
 #define DEFAULT_TLS_CERT           "cacert.pem"
 #define DEFAULT_TLS_KEY            "cakey.pem"
 #define DEFAULT_TLS_CA             ""
 #define DEFAULT_TLS_CRL            ""
 
-#define TRANSPORT_TO_STRING(p)     ((p==T_TCP) ? "TCP" : ((p==T_TLS)? "TLS" : ((p==T_UDP)? "UDP" : "SCTP")))
+inline const char *TRANSPORT_TO_STRING(int p)
+{
+    switch (p) {
+    case T_TCP:
+        return "TCP";
+    case T_TLS:
+        return "TLS";
+    case T_UDP:
+        return "UDP";
+    case T_WS:
+        return "WS";
+    case T_WSS:
+        return "WSS";
+    default:
+        return "SCTP";
+    }
+}
+
+/* Is it TLS, below a WebSocket or not? */
+#define TRANSPORT_IS_TLS(p)        ((p) == T_TLS || (p) == T_WSS)
+#define TRANSPORT_IS_WS(p)         ((p) == T_WS || (p) == T_WSS)
 
 #define SIPP_MAXFDS                65536
 
@@ -322,6 +344,7 @@ MAYBE_EXTERN const char       * tls_ca_name             DEFVAL(DEFAULT_TLS_CA);
 MAYBE_EXTERN const char       * tls_crl_name            DEFVAL(DEFAULT_TLS_CRL);
 MAYBE_EXTERN double             tls_version             DEFVAL(0.0);
 MAYBE_EXTERN int                tls_handshake_timeout   DEFVAL(10000);
+MAYBE_EXTERN const char       * ws_path                 DEFVAL("/");
 
 #ifdef SO_BINDTODEVICE
 MAYBE_EXTERN const char       * bind_to_device_name     DEFVAL(nullptr);
