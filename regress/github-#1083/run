@@ -1,0 +1,25 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -aa answers an INFO outside of any call, but an INFOX is no INFO: it is
+# discarded as out of call, not taken for a call that then aborts.
+. "`dirname "$0"`/../functions"; init
+
+sippbg -sf wait.xml -aa -i 127.0.0.1 -p 27380 127.0.0.1:27389 -m 1 \
+    -timeout 5 -trace_err -error_file err.log
+sippfg -sf info.xml -i 127.0.0.1 -p 27381 -m 1 127.0.0.1:27380 \
+    -timeout 4 >/dev/null 2>&1
+info=$?
+sippfg -sf infox.xml -i 127.0.0.1 -p 27382 -m 1 127.0.0.1:27380 \
+    -timeout 4 >/dev/null 2>&1
+sleep 0.5
+discarded=`grep -c "Discarding message which can't be mapped" err.log`
+aborted=`grep -c 'Aborting call' err.log`
+rm -f err.log
+
+if test $info -ne 0; then
+    fail "the INFO was not answered ($info)"
+elif test $aborted -ne 0 || test $discarded -ne 1; then
+    fail "the INFOX was taken for a call"
+else
+    ok
+fi
