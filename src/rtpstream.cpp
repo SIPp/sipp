@@ -501,6 +501,24 @@ static void rtpstream_check_verdict(taskentry_t* taskinfo, bool video, unsigned 
     failures = 0;
 }
 
+/* The timestamp of a stream's packet at the last multiple of its packet
+ * time, where its timestamps start, and stay while it is paused. Its
+ * first packet goes at once, stamped up to a packet time earlier, and
+ * the others on the multiples of the packet time, with those of the
+ * other streams of its thread: they go in one wake-up of the thread.
+ * Streams stamped from when they started went at different phases, and
+ * the thread woke up for about each packet. */
+static unsigned long rtpstream_grid_ms(unsigned long timenow_ms, int ms_per_packet)
+{
+    return ms_per_packet > 0 ? timenow_ms - timenow_ms % ms_per_packet : timenow_ms;
+}
+
+static unsigned long long rtpstream_grid_timestamp(unsigned long timenow_ms, int ms_per_packet,
+                                                   int ticks_per_ms)
+{
+    return (unsigned long long) rtpstream_grid_ms(timenow_ms, ms_per_packet) * ticks_per_ms;
+}
+
 /* code checked */
 static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* rtpresult)
 {
@@ -596,7 +614,8 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
         taskinfo->audio_timeticks_per_packet = taskinfo->new_audio_timeticks_per_packet;
         taskinfo->audio_timeticks_per_ms = taskinfo->audio_timeticks_per_packet/taskinfo->audio_ms_per_packet;
 
-        taskinfo->last_audio_timestamp = getmilliseconds() * taskinfo->audio_timeticks_per_ms;
+        taskinfo->last_audio_timestamp = rtpstream_grid_timestamp(getmilliseconds(), taskinfo->audio_ms_per_packet,
+                                                                  taskinfo->audio_timeticks_per_ms);
         taskinfo->flags &= ~TI_PLAYFILE;
     }
 
@@ -618,7 +637,8 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
         taskinfo->audio_timeticks_per_packet = taskinfo->new_audio_timeticks_per_packet;
         taskinfo->audio_timeticks_per_ms = taskinfo->audio_timeticks_per_packet/taskinfo->audio_ms_per_packet;
 
-        taskinfo->last_audio_timestamp = getmilliseconds() * taskinfo->audio_timeticks_per_ms;
+        taskinfo->last_audio_timestamp = rtpstream_grid_timestamp(getmilliseconds(), taskinfo->audio_ms_per_packet,
+                                                                  taskinfo->audio_timeticks_per_ms);
         taskinfo->flags &= ~TI_PLAYAPATTERN;
     }
 
@@ -639,7 +659,8 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
         taskinfo->video_timeticks_per_packet = taskinfo->new_video_timeticks_per_packet;
         taskinfo->video_timeticks_per_ms = taskinfo->video_timeticks_per_packet/taskinfo->video_ms_per_packet;
 
-        taskinfo->last_video_timestamp = getmilliseconds() * taskinfo->video_timeticks_per_ms;
+        taskinfo->last_video_timestamp = rtpstream_grid_timestamp(getmilliseconds(), taskinfo->video_ms_per_packet,
+                                                                  taskinfo->video_timeticks_per_ms);
         taskinfo->flags &= ~TI_PLAYVPATTERN;
     }
     pthread_mutex_unlock(&(taskinfo->mutex));
@@ -742,7 +763,8 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
             if (paused)
             {
                 /* when paused, set timestamp so stream appears to be up to date */
-                taskinfo->last_audio_timestamp = target_timestamp;
+                taskinfo->last_audio_timestamp = rtpstream_grid_timestamp(timenow_ms, taskinfo->audio_ms_per_packet,
+                                                                          taskinfo->audio_timeticks_per_ms);
             }
             /* Waking up on the multiples of the packet time, and sending
              * a packet in the millisecond after its timestamp, sent a whole
@@ -1011,7 +1033,8 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
             if (paused)
             {
                 /* when paused, set timestamp so stream appears to be up to date */
-                taskinfo->last_video_timestamp = target_timestamp;
+                taskinfo->last_video_timestamp = rtpstream_grid_timestamp(timenow_ms, taskinfo->video_ms_per_packet,
+                                                                          taskinfo->video_timeticks_per_ms);
             }
             /* Keep an earlier wakeup the audio stream asked for: overwriting
              * it made audio go out at the video packet rate. */
@@ -2706,7 +2729,8 @@ unsigned long rtpstream_play_end(rtpstream_callinfo_t* callinfo)
     }
 
     /* A play the playback thread has not taken yet is in the flags, and
-     * starts now; one it plays has loops left (-1: endless). */
+     * starts now, stamped from the last multiple of its packet time; one it
+     * plays has loops left (-1: endless). */
     pthread_mutex_lock(&(taskinfo->mutex));
     int flags = taskinfo->flags;
     if (flags & (TI_PLAYAPATTERN | TI_PLAYVPATTERN)) {
@@ -2717,7 +2741,8 @@ unsigned long rtpstream_play_end(rtpstream_callinfo_t* callinfo)
                                          taskinfo->new_audio_file_size,
                                          taskinfo->new_audio_file_size,
                                          taskinfo->new_audio_bytes_per_packet,
-                                         getmilliseconds(), taskinfo->new_audio_ms_per_packet);
+                                         rtpstream_grid_ms(getmilliseconds(), taskinfo->new_audio_ms_per_packet),
+                                         taskinfo->new_audio_ms_per_packet);
     } else {
         audio_end = rtpstream_stream_end(flags & (TI_NULL_AUDIOIP | TI_PAUSERTP | TI_PAUSERTPAPATTERN),
                                          taskinfo->audio_loop_count,
