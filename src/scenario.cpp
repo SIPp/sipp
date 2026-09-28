@@ -270,7 +270,11 @@ static char* xp_get_string(const char *name, const char *what)
         ERROR("%s is missing the required '%s' parameter.", what, name);
     }
 
-    return strdup(ptr);
+    char *copy = strdup(ptr);
+    if (!copy) {
+        ERROR("Out of memory!");
+    }
+    return copy;
 }
 
 static double xp_get_double(const char *name, const char *what)
