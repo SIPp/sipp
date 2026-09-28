@@ -198,8 +198,6 @@ protected:
     SrtpChannel _rxUACVideo;
     SrtpChannel _txUASVideo;
     SrtpChannel _rxUASVideo;
-    char _pref_audio_cs_out[25];
-    char _pref_video_cs_out[25];
 
     /* holds the auth header and if the challenge was 401 or 407 */
     char         * dialog_authentication;
@@ -335,8 +333,6 @@ protected:
     void get_remote_media_addr(std::string const &msg);
 
     std::string extract_rtp_remote_addr(const char * message, int &ip_ver, int &audio_port, int &video_port);
-    int check_audio_ciphersuite_match(SrtpInfoParams &pA);
-    int check_video_ciphersuite_match(SrtpInfoParams &pV);
     int extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInfoParams &pV);
     void extract_rtp_remote_addr(const char* message);
 

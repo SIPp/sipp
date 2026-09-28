@@ -1,0 +1,44 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The a=crypto line the answer takes is one the offer made: the answerer
+# receives with the offered line of its answer's suite even if the first
+# line's key was ignored, the offerer sends with its line of the answer's
+# suite even if the suite of its first line is not a keyword, and warns
+# if the answer takes none of its lines. The UAC exits with 253 if the
+# echoed RTP does not match.
+. "`dirname "$0"`/../functions"; init
+
+call() {
+    rm -f uac_err.log
+    sippbg -sf $2 -i 127.0.0.1 -p 27540 -m 1 \
+        -min_rtp_port 27550 -max_rtp_port 27559 -timeout 10
+    uas=$pid
+    sippfg -sf $1 -i 127.0.0.1 -p 27541 -m 1 \
+        -min_rtp_port 27560 -max_rtp_port 27569 \
+        -trace_err -error_file uac_err.log \
+        127.0.0.1:27540 -timeout 10 >/dev/null 2>&1
+    status=$?
+    wait $uas
+}
+
+fail=
+for pair in "uac_ignored.xml uas.xml" "uac_literal.xml uas32.xml"; do
+    call $pair
+    if test $status -ne 0; then
+        fail="$pair: the UAC failed with $status"
+        break
+    fi
+done
+if test -z "$fail"; then
+    call uac_one.xml uas32.xml
+    if ! grep -q "answer a=crypto:1 AES_CM_128_HMAC_SHA1_32 is none of the offered lines" uac_err.log; then
+        fail="no warning about an answer that takes no offered line"
+    fi
+fi
+rm -f uac_err.log
+
+if test -n "$fail"; then
+    fail "$fail"
+else
+    ok
+fi
