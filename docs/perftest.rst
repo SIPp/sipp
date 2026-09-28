@@ -69,11 +69,13 @@ this scheduling.
 + max_recv_loops and max_sched_loops: received messages are read and
   treated in batch. "max_recv_loops" is the maximum number of messages
   that can be read at one time. "max sched loops" is the maximum number
-  of processing calls loops. These limits prevent SIPp from reading and
-  processing new messages from sockets to the exclusion of processing
-  existing calls, and vice versa. For heavy call rate, increase both
-  values. Be careful, those two parameters have a large influence on the
-  CPU occupation of SIPp.
+  of processing calls loops, and a loop also ends after 10 ms of
+  calls, however long each of them takes; the calls that a message
+  came in for meanwhile run first. These limits prevent SIPp
+  from reading and processing new messages from sockets to the
+  exclusion of processing existing calls, and vice versa. For heavy
+  call rate, increase both values. Be careful, those two parameters
+  have a large influence on the CPU occupation of SIPp.
 + watchdog_interval, watchdog_minor_threshold,
   watchdog_major_threshold, watchdog_minor_maxtriggers, and
   watchdog_major_maxtriggers: The watchdog timer is designed to provide

@@ -47,6 +47,9 @@
 
 task_list all_tasks;
 task_list running_tasks;
+/* The first task in the run queue that has not run yet, or its end: a
+ * task that resumes goes before it, a new task after it. */
+static task_list::iterator first_new = running_tasks.end();
 timewheel paused_tasks;
 
 /* Get the overall list of running tasks. */
@@ -94,7 +97,13 @@ int paused_tasks_count()
 task::task()
 {
     this->taskit = all_tasks.insert(all_tasks.end(), this);
-    add_to_runqueue();
+    /* A new task goes last: its first turn may be slow (a call binds
+     * its RTP sockets there), and no peer waits on it yet. */
+    this->runit = running_tasks.insert(running_tasks.end(), this);
+    this->running = true;
+    if (first_new == running_tasks.end()) {
+        first_new = this->runit;
+    }
 }
 
 task::~task()
@@ -107,10 +116,11 @@ task::~task()
     all_tasks.erase(taskit);
 }
 
-/* Put this task in the run queue. */
+/* Put this task back in the run queue: a message came in for it, or
+ * its pause is over. It goes before the tasks that have not run yet. */
 void task::add_to_runqueue()
 {
-    this->runit = running_tasks.insert(running_tasks.end(), this);
+    this->runit = running_tasks.insert(first_new, this);
     this->running = true;
 }
 
@@ -129,6 +139,9 @@ bool task::remove_from_runqueue()
 {
     if (!this->running) {
         return false;
+    }
+    if (this->runit == first_new) {
+        ++first_new;
     }
     running_tasks.erase(this->runit);
     this->running = false;
