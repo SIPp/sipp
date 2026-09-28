@@ -1908,44 +1908,25 @@ void free_socketbuf(struct socketbuf *socketbuf)
 #ifdef USE_SCTP
 void SIPpSocket::sipp_sctp_peer_params()
 {
-    if (heartbeat > 0 || pathmaxret > 0) {
+    if (heartbeat > 0 || pathmaxret > 0 || pmtu > 0) {
+        /* No address: for the association, all its peer addresses and
+         * those it has yet to learn. Set on each address only, a path
+         * MTU does not hold: the association still discovers its own. */
         struct sctp_paddrparams peerparam;
         memset(&peerparam, 0, sizeof(peerparam));
 
-        sockaddr* addresses;
-#ifdef __SUNOS
-        /* Sun takes a void** instead of a struct sockaddr** */
-        int addresscount = sctp_getpaddrs(ss_fd, 0, (void**)&addresses);
-#else
-        int addresscount = sctp_getpaddrs(ss_fd, 0, &addresses);
-#endif
-        if (addresscount < 1) WARNING("sctp_getpaddrs, errno=%d", errno);
+        peerparam.spp_hbinterval = heartbeat;
+        peerparam.spp_pathmaxrxt = pathmaxret;
+        if (heartbeat > 0) peerparam.spp_flags = SPP_HB_ENABLE;
 
-        /* The addresses are packed, each as long as its family's. */
-        char *peeraddress = (char *)addresses;
-        for (int i = 0; i < addresscount; i++) {
-            size_t len = ((sockaddr *)peeraddress)->sa_family == AF_INET6 ?
-                         sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-            memset(&peerparam.spp_address, 0, sizeof(peerparam.spp_address));
-            memcpy(&peerparam.spp_address, peeraddress, len);
-            peeraddress += len;
-
-            peerparam.spp_hbinterval = heartbeat;
-            peerparam.spp_pathmaxrxt = pathmaxret;
-            if (heartbeat > 0) peerparam.spp_flags = SPP_HB_ENABLE;
-
-            if (pmtu > 0) {
-                peerparam.spp_pathmtu = pmtu;
-                peerparam.spp_flags |= SPP_PMTUD_DISABLE;
-            }
-
-            if (setsockopt(ss_fd, IPPROTO_SCTP, SCTP_PEER_ADDR_PARAMS,
-                           &peerparam, sizeof(peerparam)) == -1) {
-                WARNING("setsockopt(SCTP_PEER_ADDR_PARAMS) failed, errno=%d", errno);
-            }
+        if (pmtu > 0) {
+            peerparam.spp_pathmtu = pmtu;
+            peerparam.spp_flags |= SPP_PMTUD_DISABLE;
         }
-        if (addresscount > 0) {
-            sctp_freepaddrs(addresses);
+
+        if (setsockopt(ss_fd, IPPROTO_SCTP, SCTP_PEER_ADDR_PARAMS,
+                       &peerparam, sizeof(peerparam)) == -1) {
+            WARNING("setsockopt(SCTP_PEER_ADDR_PARAMS) failed, errno=%d", errno);
         }
     }
 }

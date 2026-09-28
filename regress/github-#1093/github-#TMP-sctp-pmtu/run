@@ -1,0 +1,34 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -pmtu holds once messages flow, with -heartbeat or alone: the path MTU
+# of the whole association is set, and it does not discover its own.
+. "`dirname "$0"`/../functions"; init
+
+"`get_sipp`" -v | grep -q SCTP || skip "no SCTP"
+perl -e 'use Socket; socket(S, PF_INET, SOCK_STREAM, 132) || exit 1' ||
+    skip "no SCTP sockets"
+ss -SH >/dev/null 2>&1 || skip "no ss with SCTP"
+
+# The largest DATA chunk the association sends, which the path MTU sets.
+maxseg() {
+    ss -SinH "( sport = :$1 )" | sed -n 's/.* maxseg:\([0-9]*\).*/\1/p'
+}
+
+sippbg -sn uas -t s1 -i 127.0.0.1 -p 28060 -m 2 -timeout 6
+sippfg -sn uac -t s1 -i 127.0.0.1 -p 28061 127.0.0.1:28060 -m 1 \
+    -d 3000 -pmtu 1400 -heartbeat 2000 -timeout 6 >/dev/null 2>&1 &
+uac1=$!
+sippfg -sn uac -t s1 -i 127.0.0.1 -p 28062 127.0.0.1:28060 -m 1 \
+    -d 3000 -pmtu 1400 -timeout 6 >/dev/null 2>&1 &
+uac2=$!
+# Both calls are up, in their pause.
+sleep 1
+with_heartbeat=`maxseg 28061`
+alone=`maxseg 28062`
+wait $uac1 $uac2
+
+test -n "$with_heartbeat" -a -n "$alone" || fail "no maxseg in ss -Si"
+test $with_heartbeat -le 1400 ||
+    fail "-pmtu 1400 -heartbeat 2000: a maxseg of $with_heartbeat"
+test $alone -le 1400 || fail "-pmtu 1400 alone: a maxseg of $alone"
+ok
