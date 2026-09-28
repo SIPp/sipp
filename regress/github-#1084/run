@@ -1,0 +1,66 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A twin connection SIPp accepted that is reset is the peer's to make
+# again: the listener waits for it, instead of "reconnecting" to the
+# peer's source port, which fails until -max_reconnect ends the run.
+# For 3PCC controller B, and for a 3PCC extended mode master.
+. "`dirname "$0"`/../functions"; init
+
+# B: a first A connects and resets the connection; then a real A runs
+# its calls.
+sippfg -sf b.xml -3pcc 127.0.0.1:27850 -i 127.0.0.1 -p 27851 \
+    -max_reconnect 1 -reconnect_sleep 100 -timeout 8 >/dev/null 2>&1 &
+b=$!
+sleep 1
+perl -e '
+    use IO::Socket::INET; use Socket;
+    my $s = IO::Socket::INET->new(PeerAddr => "127.0.0.1:27850") or die;
+    select(undef, undef, undef, 0.2);
+    setsockopt($s, SOL_SOCKET, SO_LINGER, pack("ii", 1, 0));
+    close($s);'
+sleep 0.5
+sippfg -sf a.xml -3pcc 127.0.0.1:27850 -i 127.0.0.1 -p 27854 -m 2 \
+    -timeout 8 -timeout_error >/dev/null 2>&1
+a_status=$?
+wait $b
+b_status=$?
+
+# The master: s1 takes its connection and connects back, answers the
+# first command, resets its connection to the master, connects again
+# and answers the second.
+perl -e '
+    use IO::Socket::INET; use Socket;
+    alarm 10;
+    my $l = IO::Socket::INET->new(LocalAddr => "127.0.0.1:27852", Listen => 1, ReuseAddr => 1) or die;
+    my $in = $l->accept() or die;
+    my $out = IO::Socket::INET->new(PeerAddr => "127.0.0.1:27853") or die;
+    sub answer {
+        my $c = "";
+        while ($c !~ /\e/) { my $d; $in->recv($d, 4096); exit 1 if $d eq ""; $c .= $d; }
+        my ($id) = $c =~ /Call-ID: *(\S+)/i;
+        print $out "Call-ID: $id\r\nFrom: s1\r\n\e";
+    }
+    answer();
+    select(undef, undef, undef, 0.2);
+    setsockopt($out, SOL_SOCKET, SO_LINGER, pack("ii", 1, 0));
+    close($out);
+    $out = IO::Socket::INET->new(PeerAddr => "127.0.0.1:27853") or die;
+    answer();
+    select(undef, undef, undef, 0.5);' &
+peer=$!
+sleep 1
+sippfg -sf master.xml -master m -slave_cfg cfg -i 127.0.0.1 -p 27855 \
+    -m 2 -r 1 -max_reconnect 1 -reconnect_sleep 100 -timeout 8 \
+    -timeout_error >/dev/null 2>&1
+m_status=$?
+wait $peer
+
+if test $a_status -ne 0; then
+    fail "A's calls ended with $a_status"
+elif test $b_status -ne 0; then
+    fail "B ended with $b_status"
+elif test $m_status -ne 0; then
+    fail "the master ended with $m_status"
+else
+    ok
+fi
