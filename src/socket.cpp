@@ -3526,14 +3526,18 @@ void SIPpSocket::pollset_process(int wait)
                     }
                 }
             } else {
+                /* Reading may drop the connection already: the flush()
+                 * that an SCTP_COMM_UP notification makes can fail. */
+                unsigned before = pollnfds;
                 if ((ret = sock->empty()) <= 0) {
 #ifdef USE_SCTP
-                    if (sock->ss_transport == T_SCTP && ret == -2);
+                    if (sock->ss_transport == T_SCTP && ret == -2 && pollnfds == before);
                     else
 #endif
                     {
-                        unsigned before = pollnfds;
-                        ret = sock->read_error(ret);
+                        if (ret != -2) {
+                            ret = sock->read_error(ret);
+                        }
                         /* An error invalidates the socket too, which
                          * moves another one into its place. */
                         if (ret == 0 || pollnfds != before) {
