@@ -8,12 +8,15 @@
 
 command -v perl >/dev/null || skip "no perl"
 
-# A server that rings, then closes the connection.
+# A server that rings, then closes the connection. SIPp starts once it
+# listens: a SIPp that cannot connect fails its call, and exits with 1.
 peer() {
+    ready=`mktemp`
     perl -e '
         use IO::Socket::INET;
         my $l = IO::Socket::INET->new(LocalAddr => "127.0.0.1:5070",
             Listen => 5, ReuseAddr => 1) or die;
+        open(my $r, ">", $ARGV[0]) or die; print $r "ready"; close($r);
         alarm 20;
         while (my $c = $l->accept()) {
             my $m = "";
@@ -25,8 +28,15 @@ peer() {
                 "Content-Length: 0\r\n\r\n");
             select(undef, undef, undef, 0.2);
             close($c);
-        }' &
-    sleep 1
+        }' "$ready" &
+    i=0
+    while ! test -s "$ready" && kill -0 $! 2>/dev/null && test $i -lt 100; do
+        i=$((i+1))
+        sleep 0.1
+    done
+    test -s "$ready"; started=$?
+    rm -f "$ready"
+    test $started -eq 0 || fail "the peer did not start"
 }
 
 # Unfixed, the freed call made SIPp spin.
@@ -39,7 +49,7 @@ opts="-sn uac -t tn -i 127.0.0.1 -p 5071 -m 1 -max_reconnect 3
 peer
 uac $opts 127.0.0.1:5070
 status=$?
-pkill -P$$
+pkill -P$$; wait
 test $status -eq 1 || fail "the aborted call exited with $status, not 1"
 
 peer
