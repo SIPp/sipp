@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
 <!DOCTYPE scenario SYSTEM "sipp.dtd">
 
-<scenario name="echo each call's audio on its own port">
+<scenario name="echo the audio of a call from its ACK on">
   <recv request="INVITE" />
 
   <send>
@@ -28,14 +28,13 @@
     ]]>
   </send>
 
-  <!-- echo from the answer on: the UAC plays once it has it -->
+  <recv request="ACK" />
+
   <nop>
     <action>
       <exec rtp_echo="startaudio,0,PCMU/8000" />
     </action>
   </nop>
-
-  <recv request="ACK" />
 
   <recv request="BYE" />
 
