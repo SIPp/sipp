@@ -67,8 +67,10 @@ public:
     bool is_closed() const { return closed; }
     const std::string &error() const { return err; }
 
-    /* The frames of the messages sent before the handshake was done. */
+    /* The frames of the messages sent before the handshake was done, up
+     * to WS_HELD_MAX bytes; has it been full? */
     std::string held;
+    bool held_full = false;
 
     static std::string accept_key(const std::string &key);
     static std::string encode(int opcode, const char *data, size_t len,

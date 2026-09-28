@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!-- A large OPTIONS, then a wait: many of them fill what a WebSocket
+     client holds before its handshake is done. -->
+<scenario name="large options">
+  <send>
+    <![CDATA[
+      OPTIONS sip:uas@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:uac@[local_ip]>;tag=[call_number]
+      To: <sip:uas@[remote_ip]>
+      Call-ID: [call_id]
+      CSeq: 1 OPTIONS
+      X-Pad: [pad]
+      Content-Length: 0
+
+    ]]>
+  </send>
+  <pause milliseconds="2000"/>
+</scenario>

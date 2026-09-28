@@ -48,6 +48,10 @@
 
 extern bool do_hide;
 
+/* The WebSocket connections whose handshake is not done yet, for
+ * -ws_handshake_timeout. */
+static std::set<SIPpSocket*> ws_handshaking;
+
 SIPpSocket *ctrl_socket = nullptr;
 SIPpSocket *stdin_socket = nullptr;
 
@@ -976,6 +980,8 @@ void SIPpSocket::invalidate()
         return;
     }
 
+    ws_handshaking.erase(this);
+
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
     if (SSL *ssl = ss_ssl) {
         SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
@@ -1394,7 +1400,59 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
 
 SIPpSocket::~SIPpSocket()
 {
+    ws_handshaking.erase(this);
     delete ss_ws;
+}
+
+/* Wait -ws_handshake_timeout for this WebSocket's handshake. */
+void SIPpSocket::ws_waiting()
+{
+    ss_ws_since = getmilliseconds();
+    ws_handshaking.insert(this);
+}
+
+/* Drop the connections whose WebSocket handshake took too long. Called
+ * before the poll loop looks at the sockets, as it may remove some. */
+void SIPpSocket::check_ws_handshakes()
+{
+    if (ws_handshake_timeout <= 0 || ws_handshaking.empty()) {
+        return;
+    }
+    unsigned long now = getmilliseconds();
+    std::vector<SIPpSocket*> expired;
+    for (SIPpSocket *sock : ws_handshaking) {
+        if (now - sock->ss_ws_since >= (unsigned long)ws_handshake_timeout) {
+            expired.push_back(sock);
+        }
+    }
+    for (SIPpSocket *sock : expired) {
+        /* Unless dropping one took another along. */
+        if (ws_handshaking.count(sock)) {
+            sock->ws_handshake_expired();
+        }
+    }
+}
+
+/* A server's client sent no handshake request in time: drop it. A
+ * client got no answer: its connection failed, and is made again if
+ * -max_reconnect allows, as when a TCP one fails. */
+void SIPpSocket::ws_handshake_expired()
+{
+    ws_handshaking.erase(this);
+    nb_net_recv_errors++;
+    if (ss_accepted) {
+        WARNING("No WebSocket handshake request within %d ms, closing the %s connection",
+                ws_handshake_timeout, TRANSPORT_TO_STRING(ss_transport));
+        peer_closed(false);
+        return;
+    }
+    sockets_pending_reset.insert(this);
+    drop_connection();
+    if (reconnect_allowed()) {
+        WARNING("No WebSocket handshake answer within %d ms", ws_handshake_timeout);
+    } else {
+        ERROR("No WebSocket handshake answer within %d ms", ws_handshake_timeout);
+    }
 }
 
 static SIPpSocket* sipp_allocate_socket(bool use_ipv6, int transport, int fd) {
@@ -1588,6 +1646,7 @@ SIPpSocket* SIPpSocket::accept() {
     /* The client's WebSocket handshake comes first. */
     if (TRANSPORT_IS_WS(ret->ss_transport)) {
         ret->ss_ws = new WebSocket(true, SIPP_MAX_MSG_SIZE - 1);
+        ret->ws_waiting();
     }
     return ret;
 }
@@ -2444,7 +2503,20 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
     if (ss_ws && !ss_invalid) {
         frame = ss_ws->frame(buffer, len);
         if (!ss_ws->is_open()) {
-            /* Held until the server takes the handshake. */
+            /* Held until the server takes the handshake, up to a bound:
+             * with no -ws_handshake_timeout, a server that never answers
+             * would make it grow without end. The message is then not
+             * sent, as when the connection is full. */
+            if (ss_ws->held.size() + frame.size() > WS_HELD_MAX) {
+                if (!ss_ws->held_full) {
+                    WARNING("No WebSocket handshake answer yet, and %zu bytes wait for it: "
+                            "not sending more on this %s connection",
+                            ss_ws->held.size(), TRANSPORT_TO_STRING(ss_transport));
+                    ss_ws->held_full = true;
+                }
+                errno = ENOBUFS;
+                return -1;
+            }
             ss_ws->held += frame;
             trace_sent(buffer, len);
             return len;
@@ -2529,6 +2601,7 @@ void SIPpSocket::ws_connect()
 
     delete ss_ws;
     ss_ws = new WebSocket(false, SIPP_MAX_MSG_SIZE - 1);
+    ws_waiting();
     std::string request = ss_ws->request(host, ws_path);
     TRACE_MSG("WebSocket handshake on socket %d:\n\n%s", ss_fd, request.c_str());
     buffer_write(request.data(), request.size(), &ss_dest, false);
@@ -2570,6 +2643,7 @@ int SIPpSocket::ws_empty(struct socketbuf *socketbuf, int ret)
         switch (event) {
         case WebSocket::OPENED:
             TRACE_MSG("WebSocket open on socket %d\n", ss_fd);
+            ws_handshaking.erase(this);
             if (!ss_ws->held.empty()) {
                 buffer_write(ss_ws->held.data(), ss_ws->held.size(), &ss_dest, false);
                 ss_ws->held.clear();
@@ -3240,6 +3314,8 @@ void SIPpSocket::pollset_process(int wait)
             For UDP and TCP with 1 global socket:
                 recv_count is a flag that stays up as
                 long as there's data to read */
+
+    check_ws_handshakes();
 
 #ifndef HAVE_EPOLL
     /* What index should we try reading from? */

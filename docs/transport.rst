@@ -171,7 +171,14 @@ checks its certificate and asks for the /ws path:
     ./sipp -sn uas -t x1 -tls_cert cert.pem -tls_key key.pem -p 5061
     ./sipp -sn uac -t x1 -tls_ca cert.pem -ws_path /ws 127.0.0.1:5061
 
-A WebSocket connection is lost, and reconnected, as a TCP one is.
+A WebSocket connection is lost, and reconnected, as a TCP one is. Its
+handshake may take up to -ws_handshake_timeout (10 seconds by default,
+0 for no limit): a client that gets no answer in time drops the
+connection, and makes it again if -max_reconnect allows, or stops; a
+server drops a connection whose client sends no handshake request.
+Until the handshake is done, a client holds up to 16 times the largest
+message size of messages for it; past that, it sends no more (as when
+the connection is full) and warns.
 
 
 SCTP mono socket
