@@ -166,7 +166,7 @@ private:
                 break;
             }
 
-            switch (*src++) {
+            switch (*src) {
             case 'u':
                 output << call_number;
                 break;
@@ -179,10 +179,15 @@ private:
             case 'r':
                 output << rand();
                 break;
-            default:
+            case '%':
                 output << '%';
                 break;
+            default:
+                /* Not a conversion: keep it as it is. */
+                output << '%' << *src;
+                break;
             }
+            ++src;
         }
     }
 
@@ -7412,6 +7417,17 @@ TEST(call_id, default_mode_treats_trailing_percent_as_literal) {
 
     build_call_id(call_id, 77);
     EXPECT_STREQ("call-%", call_id);
+}
+
+TEST(call_id, default_mode_keeps_unknown_conversion) {
+    char call_id[MAX_HEADER_LEN];
+    call_id_test_state_guard guard;
+
+    call_id_mode = CID_MODE_FORMAT;
+    call_id_string = "a%xb%%c%u";
+
+    build_call_id(call_id, 77);
+    EXPECT_STREQ("a%xb%c77", call_id);
 }
 
 TEST(call_id, uuid_mode_generates_rfc4122_value) {
