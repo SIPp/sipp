@@ -321,6 +321,14 @@ static char* xp_get_string(const char *name, const char *what)
     return unescaped;
 }
 
+/* Set the n-th message of an action from the required attribute name. */
+static void xp_set_message(CAction *action, int n, const char *name, const char *what)
+{
+    char *ptr = xp_get_string(name, what);
+    action->setMessage(ptr, n);
+    free(ptr);
+}
+
 static double xp_get_double(const char *name, const char *what)
 {
     const char *ptr;
@@ -1677,22 +1685,22 @@ void scenario::parseAction(CActions *actions)
             username_ptr = password_ptr = nullptr;
         } else if(!strcmp(actionElem, "lookup")) {
             tmpAction->setVarId(xp_get_var("assign_to", "lookup"));
-            tmpAction->setMessage(xp_get_string("file", "lookup"), 0);
-            tmpAction->setMessage(xp_get_string("key", "lookup"), 1);
+            xp_set_message(tmpAction, 0, "file", "lookup");
+            xp_set_message(tmpAction, 1, "key", "lookup");
             tmpAction->setActionType(CAction::E_AT_LOOKUP);
         } else if(!strcmp(actionElem, "insert")) {
-            tmpAction->setMessage(xp_get_string("file", "insert"), 0);
-            tmpAction->setMessage(xp_get_string("value", "insert"), 1);
+            xp_set_message(tmpAction, 0, "file", "insert");
+            xp_set_message(tmpAction, 1, "value", "insert");
             tmpAction->setActionType(CAction::E_AT_INSERT);
         } else if(!strcmp(actionElem, "replace")) {
-            tmpAction->setMessage(xp_get_string("file", "replace"), 0);
-            tmpAction->setMessage(xp_get_string("line", "replace"), 1);
-            tmpAction->setMessage(xp_get_string("value", "replace"), 2);
+            xp_set_message(tmpAction, 0, "file", "replace");
+            xp_set_message(tmpAction, 1, "line", "replace");
+            xp_set_message(tmpAction, 2, "value", "replace");
             tmpAction->setActionType(CAction::E_AT_REPLACE);
         } else if(!strcmp(actionElem, "setdest")) {
-            tmpAction->setMessage(xp_get_string("host", actionElem), 0);
-            tmpAction->setMessage(xp_get_string("port", actionElem), 1);
-            tmpAction->setMessage(xp_get_string("protocol", actionElem), 2);
+            xp_set_message(tmpAction, 0, "host", "setdest");
+            xp_set_message(tmpAction, 1, "port", "setdest");
+            xp_set_message(tmpAction, 2, "protocol", "setdest");
             tmpAction->setActionType(CAction::E_AT_SET_DEST);
         } else if(!strcmp(actionElem, "closecon")) {
             tmpAction->setActionType(CAction::E_AT_CLOSE_CON);

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- A UAS with the actions whose attributes are parsed as messages. It
+     gets no call: only loading and freeing it matters. -->
+<scenario name="Actions with messages">
+  <recv request="INVITE">
+    <action>
+      <lookup assign_to="line" file="users.csv" key="[call_id]"/>
+      <insert file="users.csv" value="[call_id]"/>
+      <replace file="users.csv" line="[$line]" value="[call_id]"/>
+      <setdest host="127.0.0.1" port="5060" protocol="udp"/>
+    </action>
+  </recv>
+  <send>
+    <![CDATA[
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+    ]]>
+  </send>
+</scenario>
