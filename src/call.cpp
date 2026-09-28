@@ -2628,6 +2628,11 @@ bool call::abortCall(bool writeLog)
     } else {
         is_inv = false;
     }
+    /* The BYE starts a transaction of its own: its [branch] is that of an
+     * index no step has, not that of the step before it, which would be
+     * the ACK's after a 2xx. */
+    int byeIndex = call_scenario->messages.size();
+
     if (createsDialog() && (msg_index > 0)) {
         if ((call_established == false) && (is_inv)) {
             src_recv = last_recv_msg ;
@@ -2646,7 +2651,7 @@ bool call::abortCall(bool writeLog)
                     sendBuffer(createSendingMessage(get_default_message("ack")));
 
                     /* Send the BYE */
-                    sendBuffer(createSendingMessage(get_default_message("bye")));
+                    sendBuffer(createSendingMessage(get_default_message("bye"), byeIndex));
                     sent_bye = true;
                 } else {
                     /* Send a CANCEL */
@@ -2668,7 +2673,7 @@ bool call::abortCall(bool writeLog)
             /* The peer's own request has its From and To the other way
              * round from ours, and a CSeq of the peer's. */
             bye_after_peer_request = !get_reply_code(last_recv_msg);
-            sendBuffer(createSendingMessage(get_default_message("bye")));
+            sendBuffer(createSendingMessage(get_default_message("bye"), byeIndex));
             sent_bye = true;
         }
     }
