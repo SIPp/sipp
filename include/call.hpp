@@ -95,6 +95,7 @@ public:
     /* When should this call wake up? */
     virtual unsigned int wake();
     virtual bool  abortCall(bool writeLog); // call aborted with BYE or CANCEL
+    bool  createsDialog();
     virtual void abort();
 
     /* Dump call info to error log. */

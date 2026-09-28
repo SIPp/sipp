@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- Controller A: has B start the call, and waits. -->
+<scenario name="3PCC A">
+  <sendCmd>
+    <![CDATA[
+      Call-ID: [call_id]
+    ]]>
+  </sendCmd>
+  <pause milliseconds="2000"/>
+</scenario>

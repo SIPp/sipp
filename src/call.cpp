@@ -2561,6 +2561,21 @@ void call::abort()
     abortCall(false);
 }
 
+/* Does this call send the request that creates its dialog? Only then does
+ * an abort end the dialog. It is the call's and not the process's role: a
+ * 3PCC controller B takes commands like a server, but sends the INVITE. */
+bool call::createsDialog()
+{
+    for (message *m : call_scenario->messages) {
+        if (m->M_type == MSG_TYPE_RECV) {
+            return false;
+        } else if (m->send_scheme) {
+            return !m->send_scheme->isResponse();
+        }
+    }
+    return false;
+}
+
 bool call::abortCall(bool writeLog)
 {
     int is_inv;
@@ -2575,7 +2590,7 @@ bool call::abortCall(bool writeLog)
     } else {
         is_inv = false;
     }
-    if ((creationMode != MODE_SERVER) && (msg_index > 0)) {
+    if (createsDialog() && (msg_index > 0)) {
         if ((call_established == false) && (is_inv)) {
             src_recv = last_recv_msg ;
 
