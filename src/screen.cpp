@@ -863,10 +863,9 @@ void ScreenPrinter::draw_vars_screen()
     }
 
     lines.push_back("");
-    /* Past messages + 6 lines, the unsigned difference would wrap and
-     * push lines until memory runs out. */
-    for (unsigned int i = 0;
-         lines.size() + i < display_scenario->messages.size() + 6; i++) {
+    /* To messages + 6 lines. Past them, an unsigned difference would
+     * wrap and push lines until memory runs out. */
+    while (lines.size() < display_scenario->messages.size() + 6) {
       lines.push_back("");
     }
 }
