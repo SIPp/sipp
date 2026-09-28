@@ -4599,11 +4599,11 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         memcpy(&call_peer, src, sizeof(call_peer));
     }
 
-    /* A <nop> runs on the call's next turn, so a message can arrive before
-     * it has, as the first command in server mode or right after the
-     * message sent before it. Run it first and handle the message once the
-     * call waits for one, instead of taking it as unexpected. */
-    if (curmsg->M_type == MSG_TYPE_NOP) {
+    /* A <nop> or <sendCmd> runs on the call's next turn, so a message can
+     * arrive before it has, as the first command in server mode or right
+     * after the message sent before it. Run it first and handle the message
+     * once the call waits for one, instead of taking it as unexpected. */
+    if (curmsg->M_type == MSG_TYPE_NOP || curmsg->M_type == MSG_TYPE_SENDCMD) {
         queue_up(msg);
         paused_until = 0;
         return run();
