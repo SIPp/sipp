@@ -178,14 +178,10 @@ void ScreenPrinter::get_lines()
     unsigned const bufsiz = 80;
     char buf[bufsiz];
     if (!M_last && screen_last_error[0]) {
-      char* errstart = screen_last_error;
-      int colonsleft = 3; /* We want to skip the time. */
-      while (*errstart && colonsleft) {
-        if (*errstart == ':') {
-          colonsleft--;
-        }
-        errstart++;
-      }
+      /* Past the time, which ends with the first ": ". Counting its
+       * colons fails with -rfc3339, whose offset may have one. */
+      char* errstart = strstr(screen_last_error, ": ");
+      errstart = errstart ? errstart + 2 : screen_last_error;
       while (isspace(*errstart)) {
         errstart++;
       }
