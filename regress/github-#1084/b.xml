@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- 3PCC controller B without SIP: answers A's command. -->
+<scenario name="3PCC B">
+  <recvCmd/>
+  <sendCmd>
+    <![CDATA[
+      Call-ID: [call_id]
+    ]]>
+  </sendCmd>
+</scenario>

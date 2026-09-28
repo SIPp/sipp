@@ -2699,8 +2699,13 @@ int call::sendCmdMessage(message *curmsg)
         if(peer_dest) {
             peer_socket = get_peer_socket(peer_dest);
             rc = (*peer_socket)->write(dest, strlen(dest), WS_BUFFER, &call_peer);
-        } else {
+        } else if (twinSippSocket) {
             rc = twinSippSocket->write(dest, strlen(dest), WS_BUFFER, &call_peer);
+        } else {
+            /* Controller B until A connects again, or A once B ended. */
+            WARNING("Unable to send TCP message: %s", strerror(ENOTCONN));
+            nb_net_send_errors++;
+            rc = -1;
         }
         if(rc <  0) {
             computeStat(CStat::E_CALL_FAILED);

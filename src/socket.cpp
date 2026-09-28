@@ -2171,15 +2171,14 @@ int SIPpSocket::read_error(int ret)
                     quitting += 20;
                     return -1;
                 }
-                if (localTwinSippSocket)
-                    localTwinSippSocket->close();
-                if (twinSippMode) {
-                    if (twinSippSocket)
-                        twinSippSocket->close();
-                    if (thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
-                        WARNING("3PCC controller A has ended -> exiting");
-                        quitting += 20;
-                    } else if (!quitting) {
+                if (thirdPartyMode == MODE_3PCC_CONTROLLER_B) {
+                    /* As above, the exit closes the listener and this. */
+                    WARNING("3PCC controller A has ended -> exiting");
+                    quitting += 20;
+                } else {
+                    twinSippSocket = nullptr;
+                    close();
+                    if (!quitting) {
                         quitting = 1;
                     }
                 }
@@ -2755,6 +2754,23 @@ void SIPpSocket::reset_connection()
             return;
         }
         ss_count--;
+    }
+
+    /* A twin connection we accepted is the peer's to make again, and the
+     * listener takes it when it does: this one is only forgotten. */
+    if (ss_accepted) {
+        if (this == twinSippSocket) {
+            twinSippSocket = nullptr;
+        }
+        for (int i = 0; i < local_nb; i++) {
+            if (local_sockets[i] == this) {
+                local_sockets[i] = local_sockets[--local_nb];
+                local_sockets[local_nb] = nullptr;
+                break;
+            }
+        }
+        close();
+        return;
     }
 
     /* Sleep for some period of time before the reconnection. */
