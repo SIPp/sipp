@@ -720,11 +720,12 @@ static int createAuthHeaderAKAv1MD5(
     }
     memcpy(rnd, nonce, RANDLEN);
     memcpy(sqnxoraka, nonce + RANDLEN, SQNLEN);
+    /* The MAC is over the AMF of AUTN, as a USIM checks it (3GPP TS
+     * 33.102 6.3.3): aka_AMF is not used. */
+    memcpy(amf, nonce + RANDLEN + SQNLEN, AMFLEN);
     memcpy(mac, nonce + RANDLEN + SQNLEN + AMFLEN, MACLEN);
-    /* An omitted aka_OP or aka_AMF is all zeros, not what the buffer
-     * held. */
+    /* An omitted aka_OP is all zeros, not what the buffer held. */
     getAKAKey(aka_K, k, KLEN);
-    getAKAKey(aka_AMF, amf, AMFLEN);
     getAKAKey(aka_OP, op, OPLEN);
 
     /* Compute the AK, response and keys CK IK */
@@ -768,7 +769,9 @@ static int createAuthHeaderAKAv1MD5(
         f5star(k, rnd, ak, op);
         for(i=0; i<SQNLEN; i++)
             auts_bin[i]=sqn_ms[i]^ak[i];
-        f1star(k, rnd, sqn_ms, amf, (unsigned char * ) (auts_bin+SQNLEN), op);
+        /* AUTS has a MAC-S over a dummy AMF of zeros (3GPP TS 33.102
+         * 6.3.3) */
+        f1star(k, rnd, sqn_ms, amfstar, (unsigned char * ) (auts_bin+SQNLEN), op);
         has_auts = 1;
         /* When re-synchronisation occurs an empty password has to be used */
         /* to compute MD5 response (Cf. rfc 3310 section 3.2) */
@@ -1043,6 +1046,24 @@ TEST(DigestAuth, AKAv1MD5HexKeys) {
                                   "0x465B5CE8B199B49FAA5F0A2EE238A6BC", 1, result, sizeof(result)))
         << result;
     EXPECT_NE(nullptr, strstr(result, ",response=\"1efe54bb65c7771548e279052d82bd09\",")) << result;
+}
+
+TEST(DigestAuth, AKAv1MD5AMFOfAUTN) {
+    /* 3GPP TS 35.208 test set 1, whose AUTN has an AMF of 0xB9B9: that
+     * AMF is the one of the MAC, whatever aka_AMF is. */
+    char result[1024];
+    const char* header = "Digest realm=\"r\", nonce=\"I1U8vpY3qJ0hiuZNrke/NVXzKLQ1d7m5Sp/6w1Tfr7M=\", algorithm=AKAv1-MD5";
+    ASSERT_NE(0, createAuthHeader("alice", "", "REGISTER", "sip:example.com", "", header,
+                                  "0xCDC202D5123E20F62B6D676AC72CB318", "",
+                                  "0x465B5CE8B199B49FAA5F0A2EE238A6BC", 1, result, sizeof(result)))
+        << result;
+    EXPECT_NE(nullptr, strstr(result, ",response=\"1efe54bb65c7771548e279052d82bd09\",")) << result;
+    /* An AMF of 0xB9B8 in AUTN doesn't match its MAC */
+    header = "Digest realm=\"r\", nonce=\"I1U8vpY3qJ0hiuZNrke/NVXzKLQ1d7m4Sp/6w1Tfr7M=\", algorithm=AKAv1-MD5";
+    EXPECT_EQ(0, createAuthHeader("alice", "", "REGISTER", "sip:example.com", "", header,
+                                  "0xCDC202D5123E20F62B6D676AC72CB318", "0xB9B8",
+                                  "0x465B5CE8B199B49FAA5F0A2EE238A6BC", 1, result, sizeof(result)));
+    EXPECT_NE(nullptr, strstr(result, "MAC != expectedMAC")) << result;
 }
 
 TEST(DigestAuth, getAuthParameter) {
