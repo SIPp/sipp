@@ -2637,22 +2637,67 @@ void rtpstream_resume(rtpstream_callinfo_t* callinfo)
     }
 }
 
-bool rtpstream_is_playing(rtpstream_callinfo_t* callinfo)
+/* The millisecond that a play of a stream ends in, from the packets it
+ * has left: 0 when it has none, ULONG_MAX when the end is not known. The
+ * next packet is due in the millisecond next_ms, and the last one goes by
+ * the millisecond after its own. */
+static unsigned long rtpstream_stream_end(bool paused, int loop_count, int bytes_left,
+                                          int num_bytes, int bytes_per_packet,
+                                          unsigned long next_ms, int ms_per_packet)
+{
+    if (!loop_count) {
+        return 0;
+    }
+    if (paused || loop_count < 0 || bytes_per_packet <= 0) {
+        return ULONG_MAX;
+    }
+    unsigned long long bytes = bytes_left + (unsigned long long)(loop_count - 1) * num_bytes;
+    unsigned long long packets = (bytes + bytes_per_packet - 1) / bytes_per_packet;
+    return next_ms + (packets ? packets - 1 : 0) * ms_per_packet + 1;
+}
+
+unsigned long rtpstream_play_end(rtpstream_callinfo_t* callinfo)
 {
     taskentry_t *taskinfo = callinfo->taskinfo;
-    bool playing;
+    unsigned long audio_end, video_end;
 
     if (!taskinfo) {
-        return false;
+        return 0;
     }
 
-    /* A play the playback thread has not taken yet is in the flags;
-     * one it plays has loops left (-1: endless). */
+    /* A play the playback thread has not taken yet is in the flags, and
+     * starts now; one it plays has loops left (-1: endless). */
     pthread_mutex_lock(&(taskinfo->mutex));
-    playing = (taskinfo->flags & (TI_PLAYFILE | TI_PLAYAPATTERN | TI_PLAYVPATTERN)) ||
-              taskinfo->audio_loop_count || taskinfo->video_loop_count;
+    int flags = taskinfo->flags;
+    if (flags & (TI_PLAYAPATTERN | TI_PLAYVPATTERN)) {
+        audio_end = ULONG_MAX;
+    } else if (flags & TI_PLAYFILE) {
+        audio_end = rtpstream_stream_end(flags & (TI_NULL_AUDIOIP | TI_PAUSERTP),
+                                         taskinfo->new_audio_loop_count,
+                                         taskinfo->new_audio_file_size,
+                                         taskinfo->new_audio_file_size,
+                                         taskinfo->new_audio_bytes_per_packet,
+                                         getmilliseconds(), taskinfo->new_audio_ms_per_packet);
+    } else {
+        audio_end = rtpstream_stream_end(flags & (TI_NULL_AUDIOIP | TI_PAUSERTP | TI_PAUSERTPAPATTERN),
+                                         taskinfo->audio_loop_count,
+                                         taskinfo->audio_file_bytes_left,
+                                         taskinfo->audio_file_num_bytes,
+                                         taskinfo->audio_bytes_per_packet,
+                                         taskinfo->audio_timeticks_per_ms ?
+                                         taskinfo->last_audio_timestamp / taskinfo->audio_timeticks_per_ms : 0,
+                                         taskinfo->audio_ms_per_packet);
+    }
+    video_end = rtpstream_stream_end(flags & (TI_NULL_VIDEOIP | TI_PAUSERTP | TI_PAUSERTPVPATTERN),
+                                     taskinfo->video_loop_count,
+                                     taskinfo->video_file_bytes_left,
+                                     taskinfo->video_file_num_bytes,
+                                     taskinfo->video_bytes_per_packet,
+                                     taskinfo->video_timeticks_per_ms ?
+                                     taskinfo->last_video_timestamp / taskinfo->video_timeticks_per_ms : 0,
+                                     taskinfo->video_ms_per_packet);
     pthread_mutex_unlock(&(taskinfo->mutex));
-    return playing;
+    return std::max(audio_end, video_end);
 }
 
 void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio)

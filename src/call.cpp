@@ -2383,13 +2383,14 @@ bool call::run()
 
     if (rtpstream_wait_check) {
         /* Hold the next message until the rtp_stream playback is over */
-        if (!rtpstream_is_playing(&rtpstream_callinfo)) {
+        unsigned long play_end = rtpstream_play_end(&rtpstream_callinfo);
+        if (!play_end) {
             callDebug("rtp_stream playback over, waking up.\n");
             rtpstream_wait_check = 0;
         } else if (rtpstream_wait_until && rtpstream_wait_until <= clock_tick) {
             return rtpstreamWaitTimeout();
         } else {
-            rtpstreamWaitNextCheck();
+            rtpstreamWaitNextCheck(play_end);
             setPaused();
             return true;
         }
@@ -6047,11 +6048,12 @@ unsigned int call::recvTimeout(message *curmsg)
     return (unsigned int)timeout;
 }
 
-/* Check the rtp_stream playback again after a packet time, or at the
- * wait timeout if that comes first. */
-void call::rtpstreamWaitNextCheck()
+/* Check the rtp_stream playback again when it is due to end, or after a
+ * packet time when that is not known or has passed, or at the wait
+ * timeout if that comes first. */
+void call::rtpstreamWaitNextCheck(unsigned long play_end)
 {
-    rtpstream_wait_check = clock_tick + 20;
+    rtpstream_wait_check = play_end > clock_tick && play_end != ULONG_MAX ? play_end : clock_tick + 20;
     if (rtpstream_wait_until && rtpstream_wait_until < rtpstream_wait_check) {
         rtpstream_wait_check = rtpstream_wait_until;
     }
@@ -6678,11 +6680,12 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             rtpstream_resume(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_WAIT) {
             /* run() holds the next message while the playback lasts */
-            if (rtpstream_is_playing(&rtpstream_callinfo)) {
+            unsigned long play_end = rtpstream_play_end(&rtpstream_callinfo);
+            if (play_end) {
                 unsigned int timeout = (unsigned int)currentAction->getDoubleValue();
                 rtpstream_wait_until = timeout ? clock_tick + timeout : 0;
                 rtpstream_wait_msg = curmsg;
-                rtpstreamWaitNextCheck();
+                rtpstreamWaitNextCheck(play_end);
             }
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
             const char *fileName = createSendingMessage(currentAction->getMessage());

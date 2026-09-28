@@ -284,7 +284,7 @@ protected:
     double get_rhs(CAction *currentAction);
     double get_var_double(int varId);
     unsigned int recvTimeout(message *curmsg);
-    void rtpstreamWaitNextCheck();
+    void rtpstreamWaitNextCheck(unsigned long play_end);
     bool rtpstreamWaitTimeout();
 
     // P_index use for message index in scenario
