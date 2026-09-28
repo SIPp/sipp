@@ -2165,7 +2165,9 @@ int SIPpSocket::read_error(int ret)
         assert(errno != EAGAIN);
     }
 
-    if (ss_transport == T_TCP || ss_transport == T_TLS || TRANSPORT_IS_WS(ss_transport)) {
+    /* An SCTP association ends as a TCP connection does: a read of 0 is
+     * the peer's SHUTDOWN, and an error its ABORT. */
+    if (transport_is_reliable(ss_transport)) {
         /* A connection we accepted is the peer's to end, and there is none
          * to make again: a reset ends it as a close does. */
         bool reset = ret < 0 && errno == ECONNRESET && ss_accepted && !ss_control;
