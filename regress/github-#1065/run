@@ -1,0 +1,53 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Message texts: bad variable, transaction and counter names are called
+# what they are, and a received message without a Call-ID makes one
+# warning, which does not call it a reply.
+. "`dirname "$0"`/../functions"; init
+
+err=`sippfg -sf badvar.xml -m 1 127.0.0.1:24351 2>&1`
+case $err in
+    *"Variable names may not contain '\$' or ','"*) ;;
+    *) fail "bad variable name: '$err'" ;;
+esac
+# sipp.dtd does not let a transaction name hold a '$', nor a counter
+# name be empty: write them here.
+badtxn=`mktemp`
+sed 's/start_txn="a"/start_txn="a$b"/' txn.xml >"$badtxn"
+err=`sippfg -sf "$badtxn" -m 1 127.0.0.1:24351 2>&1`
+rm -f "$badtxn"
+case $err in
+    *"Transaction names may not contain '\$' or ','"*) ;;
+    *) fail "bad transaction name: '$err'" ;;
+esac
+badcnt=`mktemp`
+sed 's/start_txn="a"/counter=""/' txn.xml >"$badcnt"
+err=`sippfg -sf "$badcnt" -m 1 127.0.0.1:24351 2>&1`
+rm -f "$badcnt"
+case $err in
+    *"Counter names may not be empty for counter"*) ;;
+    *) fail "empty counter name: '$err'" ;;
+esac
+
+rm -f uas_*_errors.log
+sippbg -sn uas -i 127.0.0.1 -p 24350 -m 1 -timeout 4 -trace_err
+uas=$pid
+sippfg -sf uac.xml -i 127.0.0.1 -p 24351 -m 1 -timeout 4 \
+    127.0.0.1:24350 >/dev/null 2>&1
+status=$?
+wait $uas
+warnings=`grep -c 'Call-ID' uas_*_errors.log 2>/dev/null`
+text=`grep 'Call-ID' uas_*_errors.log 2>/dev/null`
+rm -f uas_*_errors.log
+
+expected="SIP message without a valid Call-ID: header discarded: 'MESSAGE sip:"
+if test $status -ne 0; then
+    fail "the UAC failed with $status"
+elif test "$warnings" != 1; then
+    fail "$warnings warnings for one message: $text"
+else
+    case $text in
+        *"$expected"*) ok ;;
+        *) fail "warned '$text'" ;;
+    esac
+fi

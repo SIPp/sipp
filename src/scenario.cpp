@@ -401,10 +401,10 @@ int scenario::get_txn(const char *txnName, const char *what, bool start, bool is
 {
     /* Check the name's validity. */
     if (txnName[0] == '\0') {
-        ERROR("Variable names may not be empty for %s", what);
+        ERROR("Transaction names may not be empty for %s", what);
     }
     if (strcspn(txnName, "$,") != strlen(txnName)) {
-        ERROR("Variable names may not contain $ or , for %s", what);
+        ERROR("Transaction names may not contain '$' or ',' for %s", what);
     }
 
     /* If this transaction has already been used, then we have nothing to do. */
@@ -493,10 +493,10 @@ int scenario::get_var(const char *varName, const char *what)
 {
     /* Check the name's validity. */
     if (varName[0] == '\0') {
-        ERROR("Transaction names may not be empty for %s", what);
+        ERROR("Variable names may not be empty for %s", what);
     }
     if (strcspn(varName, "$,") != strlen(varName)) {
-        ERROR("Transaction names may not contain '$' or ',' for %s", what);
+        ERROR("Variable names may not contain '$' or ',' for %s", what);
     }
 
     return allocVars->find(varName, true);
@@ -632,10 +632,10 @@ int scenario::get_counter(const char *ptr, const char *what)
 {
     /* Check the name's validity. */
     if (ptr[0] == '\0') {
-        ERROR("Counter names names may not be empty for %s", what);
+        ERROR("Counter names may not be empty for %s", what);
     }
     if (strcspn(ptr, "$,") != strlen(ptr)) {
-        ERROR("Counter names may not contain $ or , for %s", what);
+        ERROR("Counter names may not contain '$' or ',' for %s", what);
     }
 
     return stats->findCounter(ptr, true);

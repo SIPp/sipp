@@ -355,6 +355,8 @@ char* get_first_line(const char* message)
     return last_header;
 }
 
+/* The Call-ID of msg, or "" when it has none or the header is too long:
+ * the caller says what that means for it. */
 char* get_call_id(const char* msg)
 {
     static char call_id[MAX_HEADER_LEN];
@@ -365,7 +367,6 @@ char* get_call_id(const char* msg)
 
     content = internal_find_header(msg, "Call-ID", "i", true);
     if (!content) {
-        WARNING("(1) No valid Call-ID: header in reply '%s'", msg);
         return call_id;
     }
 
@@ -373,7 +374,6 @@ char* get_call_id(const char* msg)
     end_of_header = internal_hdrend(content);
     length = end_of_header - content;
     if (length + 1 > MAX_HEADER_LEN) {
-        WARNING("(1) Call-ID: header too long in reply '%s'", msg);
         return call_id;
     }
 
