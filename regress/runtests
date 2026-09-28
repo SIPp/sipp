@@ -1,6 +1,29 @@
 #!/bin/sh
 # This regression test is a part of SIPp.
 # Author: Walter Doekes, OSSO B.V., 2014
+#
+# usage: runtests [-j jobs]
+# The tests run as many at once as there are CPUs, or -j jobs, each in a
+# user and network namespace of its own (unshare -rn), as they use fixed
+# ports. -j 1, or no such namespaces, runs them one at a time.
+
+jobs=`nproc 2>/dev/null || echo 1`
+asked=
+while getopts j:S: opt; do
+    case $opt in
+      j) jobs=$OPTARG && asked=1 ;;
+      S)
+        # Internal: run the test $OPTARG in the new network namespace we
+        # are in, with lo up and the addresses of this host's name on it,
+        # which the tests without -i bind to.
+        ip link set lo up
+        for addr in $(getent ahosts "$(hostname)" 2>/dev/null | awk '{print $1}' | sort -u); do
+            ip addr add "$addr" dev lo 2>/dev/null
+        done
+        exec ./"$OPTARG"/run ;;
+      *) echo "usage: $0 [-j jobs]" >&2 && exit 1
+    esac
+done
 
 # Don't run from anywhere else than here!
 cd `dirname "$0"`
@@ -14,26 +37,60 @@ export SIPP
 # Set flag that we want verbose exit codes.
 export VERBOSE_EXITSTATUS=1
 
+if test "$jobs" -gt 1 && ! unshare -rn sh -c 'ip link set lo up' 2>/dev/null; then
+    test -n "$asked" &&
+        echo "No user and network namespaces (unshare -rn and ip): running one test at a time"
+    jobs=1
+fi
+
 echo "== RUNNING TESTS =="
 ok=0
 fail=0
 unexpected_ok=0
 expected_fail=0
 skip=0
-for path in *; do
-    if test -x $path/run; then
-        $path/run
-        ret=$?
-        case $ret in
-          0) ok=$((ok+1)) ;;
-          1) fail=$((fail+1)) ;;
-          2) unexpected_ok=$((unexpected_ok+1)) ;;
-          3) expected_fail=$((expected_fail+1)) ;;
-          4) skip=$((skip+1)) ;;
-          *) echo "Unexpected return value: $ret" >&2 && exit 1
-        esac
-    fi
-done
+count() {
+    case $1 in
+      0) ok=$((ok+1)) ;;
+      1) fail=$((fail+1)) ;;
+      2) unexpected_ok=$((unexpected_ok+1)) ;;
+      3) expected_fail=$((expected_fail+1)) ;;
+      4) skip=$((skip+1)) ;;
+      *) echo "Unexpected return value: $1" >&2 && exit 1
+    esac
+}
+
+if test "$jobs" -gt 1; then
+    # Each test's output and status in a file, shown in order at the end.
+    out=`mktemp -d`
+    for path in *; do
+        test -x $path/run && echo "$path"
+    done | xargs -P "$jobs" -I{} sh -c '
+        unshare -rn ./runtests -S "$1" >"$2/$1.out" 2>&1
+        echo $? >"$2/$1.ret"' sh {} "$out"
+    for path in *; do
+        if test -x $path/run; then
+            cat "$out/$path.out"
+            ret=`cat "$out/$path.ret"`
+            if test "$ret" -eq 1; then
+                # Timing-sensitive tests can fail under the load of the
+                # others: a failure counts if it fails on its own too.
+                printf "  run again alone: "
+                unshare -rn ./runtests -S "$path"
+                ret=$?
+            fi
+            count $ret
+        fi
+    done
+    rm -rf "$out"
+else
+    for path in *; do
+        if test -x $path/run; then
+            $path/run
+            count $?
+        fi
+    done
+fi
 
 echo "=="
 printf "%d success" "$ok"
