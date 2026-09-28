@@ -1,0 +1,19 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# 3PCC: a command that comes while the call still waits for the SIP
+# message before its <recvCmd> is kept for the <recvCmd>, instead of
+# aborting the call as unexpected.
+. "`dirname "$0"`/../functions"; init
+
+sippbg -sf uas.xml -i 127.0.0.1 -p 27310 -m 2
+sippbg -sf b.xml -i 127.0.0.1 -p 27311 -3pcc 127.0.0.1:27312 -m 2
+sippfg -sf a.xml -i 127.0.0.1 -p 27313 127.0.0.1:27310 \
+    -3pcc 127.0.0.1:27312 -m 2 -timeout 5 -timeout_error \
+    >/dev/null 2>&1
+status=$?
+
+if test $status -ne 0; then
+    fail "3PCC A ended with $status"
+else
+    ok
+fi

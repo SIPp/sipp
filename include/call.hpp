@@ -357,6 +357,10 @@ protected:
 
     void queue_up(const char* msg);
     char *queued_msg;
+    /* A command that came while the call waited for a SIP message, kept
+     * for the <recvCmd> that follows. */
+    char *queued_cmd;
+    bool recvCmdFollows(int index);
 
     int _callDebug(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
     char *debugBuffer;

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="3PCC B">
+  <recvCmd/>
+  <sendCmd>
+    <![CDATA[
+      Call-ID: [call_id]
+    ]]>
+  </sendCmd>
+</scenario>
