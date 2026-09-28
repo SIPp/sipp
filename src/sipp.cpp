@@ -605,6 +605,7 @@ struct sipp_option options_table[] = {
     {"tls_version", "Set the TLS protocol version to use (1.0, 1.1, 1.2, 1.3) -- default is autonegotiate", SIPP_OPTION_FLOAT, &tls_version, 1},
     {"tls_handshake_timeout", "Set how long a TLS handshake may take before its connection is dropped. SIPp handles nothing else meanwhile. 0 means no limit. Default is 10s; default unit is ms.", SIPP_OPTION_TIME_MS, &tls_handshake_timeout, 1},
     {"ws_path", "Set the path that a WebSocket client (-t w1, wn, x1 or xn) asks for in its handshake. Default is '/'.", SIPP_OPTION_STRING, &ws_path, 1},
+    {"ws_handshake_timeout", "Set how long a WebSocket handshake may take: a client that gets no answer in time, and a server that gets no request, drop the connection. 0 means no limit. Default is 10s; default unit is ms.", SIPP_OPTION_TIME_MS, &ws_handshake_timeout, 1},
 
 #ifdef USE_SCTP
     {"multihome", "Set multihome address for SCTP", SIPP_OPTION_IP, multihome_ip, 1},

@@ -1,0 +1,71 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -ws_handshake_timeout: a WebSocket client whose server never answers
+# its handshake stops, or connects again under -max_reconnect; a server
+# drops a connection whose client sends no handshake request, and goes
+# on serving. With no timeout, a client holds only so much for a server
+# that never answers, and warns.
+. "`dirname "$0"`/../functions"; init
+
+command -v python3 >/dev/null || skip "no python3"
+
+log=`mktemp -d`
+trap 'rm -rf "$log"' EXIT
+
+# A client with no answer stops, once the timeout is up.
+python3 silent.py server 26430 >"$log/count" &
+server=$!
+sleep 0.5
+start=`date +%s`
+sippfg -sn uac -t w1 -i 127.0.0.1 -p 26431 127.0.0.1:26430 -m 1 \
+    -ws_handshake_timeout 1s -timeout 8 \
+    -trace_err -error_file "$log/uac.log" >/dev/null 2>&1
+status=$?
+elapsed=$((`date +%s` - start))
+kill $server
+test $status -eq 255 || fail "the UAC with no answer exited with $status, not 255"
+test $elapsed -le 4 || fail "the UAC gave up after ${elapsed}s, not at 1s"
+grep -q 'No WebSocket handshake answer within 1000 ms' "$log/uac.log" ||
+    fail "no handshake timeout in the UAC's error log"
+
+# One that may reconnect does.
+python3 silent.py server 26432 >"$log/count" &
+server=$!
+sleep 0.5
+sippfg -sn uac -t w1 -i 127.0.0.1 -p 26433 127.0.0.1:26432 -m 1 \
+    -ws_handshake_timeout 500 -max_reconnect 1 -timeout 5 >/dev/null 2>&1
+kill $server
+connections=`tail -n 1 "$log/count"`
+test "$connections" = 2 || fail "the UAC connected ${connections:-0} time(s), not 2"
+
+# With no timeout, what waits for the handshake is bounded: 40 messages
+# of 30 kB are more than it takes.
+python3 silent.py server 26436 >"$log/count" &
+server=$!
+sleep 0.5
+pad=`head -c 30000 /dev/zero | tr '\0' x`
+sippfg -sf uac.xml -key pad "$pad" -t w1 -i 127.0.0.1 -p 26437 127.0.0.1:26436 \
+    -m 40 -r 40 -l 40 -ws_handshake_timeout 0 -timeout 3 \
+    -trace_err -error_file "$log/held.log" >/dev/null 2>&1
+kill $server
+grep -q 'No WebSocket handshake answer yet, and [0-9]* bytes wait for it' "$log/held.log" ||
+    fail "no warning when too much waits for the handshake"
+test `grep -c 'bytes wait for it' "$log/held.log"` -eq 1 ||
+    fail "not a single warning when too much waits for the handshake"
+
+# A server drops a silent client, and serves the next one.
+sippbg -sn uas -t w1 -i 127.0.0.1 -p 26434 -m 1 -ws_handshake_timeout 1s \
+    -trace_err -error_file "$log/uas.log"
+uas=$pid
+took=`python3 silent.py client 26434`
+case $took in
+0.*|1.*|2.*) ;;
+*) fail "the UAS dropped a silent client after ${took}s, not 1s" ;;
+esac
+sippfg -sn uac -t w1 -i 127.0.0.1 -p 26435 127.0.0.1:26434 -m 1 \
+    -timeout 8 -timeout_error >/dev/null 2>&1 || fail "no call after the silent client"
+wait $uas || fail "the UAS exited with $?"
+grep -q 'No WebSocket handshake request within 1000 ms' "$log/uas.log" ||
+    fail "no handshake timeout in the UAS's error log"
+
+ok

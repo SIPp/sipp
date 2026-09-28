@@ -26,6 +26,9 @@
 
 class WebSocket;
 
+/* At most so much waits for a WebSocket handshake to be done. */
+#define WS_HELD_MAX (16 * SIPP_MAX_MSG_SIZE)
+
 #ifdef USE_SCTP
 #define SCTP_DOWN 0
 #define SCTP_CONNECTING 1
@@ -77,6 +80,7 @@ class SIPpSocket {
 public:
     SIPpSocket(bool use_ipv6, int transport, int fd, int accepting);
     ~SIPpSocket();
+    static void check_ws_handshakes();
     static SIPpSocket* new_sipp_call_socket(bool use_ipv6, int transport, bool *existing);
     void set_bind_port(int bind_port);
 
@@ -151,6 +155,8 @@ private:
     int enter_congestion(int again);
     void poll_out();
     void ws_connect();
+    void ws_waiting();
+    void ws_handshake_expired();
     int ws_empty(struct socketbuf *socketbuf, int ret);
     bool to_empty(bool readable);
     void ws_reply(const std::string &reply);
@@ -170,6 +176,7 @@ private:
     WebSocket *ss_ws = nullptr; /* The WebSocket of a WS or WSS connection. */
     std::string ss_ws_close;    /* Its close frame, or a server's handshake
                                    error, to send once it ends. */
+    unsigned long ss_ws_since = 0; /* When its handshake started, in ms. */
     std::string ss_ws_pong;     /* The pong to the last ping that came while
                                    output waited. */
 
