@@ -1,0 +1,23 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An SCTP association that is refused fails as a refused TCP connect
+# does: without -max_reconnect, SIPp exits on the error, over -t s1 and
+# over -t sn, rather than waiting for the association for ever.
+. "`dirname "$0"`/../functions"; init
+
+"`get_sipp`" -v | grep -q SCTP || skip "no SCTP"
+perl -e 'use Socket; socket(S, PF_INET, SOCK_STREAM, 132) || exit 1' ||
+    skip "no SCTP sockets"
+
+# Nothing listens on 28020.
+for t in s1 sn; do
+    out=`sippfg -sn uac -t $t -i 127.0.0.1 -p 28021 127.0.0.1:28020 \
+        -m 1 -timeout 3 2>&1 >/dev/null`
+    status=$?
+    test $status -eq 255 || fail "-t $t exited with $status, not 255"
+    case $out in
+        *"Connection refused"*) ;;
+        *) fail "-t $t did not say the association was refused: $out" ;;
+    esac
+done
+ok
