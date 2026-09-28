@@ -271,11 +271,14 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
             memcpy(keyword, src,  key - src);
             keyword[key - src] = 0;
             src = key + 1;
-            // allow +/-n for numeric variables
+            // allow +/-n for numeric variables, in the name only: a
+            // parameter such as file="a-1.csv" keeps its '-'
             newcomp->offset = 0;
+            size_t name_len = strcspn(keyword, " ");
             if ((strncmp(keyword, "authentication", strlen("authentication")) &&
                     strncmp(keyword, "tdmmap", strlen("tdmmap"))) &&
-                    ((key = strchr(keyword,'+')) || (key = strchr(keyword,'-')))) {
+                    ((key = (char *)memchr(keyword, '+', name_len)) ||
+                     (key = (char *)memchr(keyword, '-', name_len)))) {
                 if (isdigit(*(key+1))) {
                     newcomp->offset = atoi(key);
                     *key = 0;
