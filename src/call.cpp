@@ -1038,6 +1038,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     nb_last_delay = 0;
     use_ipv6 = ipv6;
     queued_msg = nullptr;
+    queued_cmd = nullptr;
 
     dialog_authentication = nullptr;
     dialog_challenge_type = 0;
@@ -1343,6 +1344,8 @@ call::~call()
     free(start_time_rtd);
     free(rtd_done);
     free(debugBuffer);
+    free(queued_msg);
+    free(queued_cmd);
 
     if (srtpcheck_debug)
     {
@@ -2166,7 +2169,13 @@ bool call::executeMessage(message *curmsg)
     } else if (curmsg->M_type == MSG_TYPE_RECV
                || curmsg->M_type == MSG_TYPE_RECVCMD
               ) {
-        if (queued_msg) {
+        if (curmsg->M_type == MSG_TYPE_RECVCMD && queued_cmd) {
+            char *cmd = queued_cmd;
+            queued_cmd = nullptr;
+            bool ret = process_twinSippCom(cmd);
+            free(cmd);
+            return ret;
+        } else if (queued_msg) {
             char *msg = queued_msg;
             queued_msg = nullptr;
             bool ret = process_incoming(msg);
@@ -4419,6 +4428,20 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     return msg_buffer;
 }
 
+/* Is there a <recvCmd> after the step at index, before the call sends
+ * another command? */
+bool call::recvCmdFollows(int index)
+{
+    for (int i = index + 1; i < (int)call_scenario->messages.size(); i++) {
+        if (call_scenario->messages[i]->M_type == MSG_TYPE_RECVCMD) {
+            return true;
+        } else if (call_scenario->messages[i]->M_type == MSG_TYPE_SENDCMD) {
+            return false;
+        }
+    }
+    return false;
+}
+
 bool call::process_twinSippCom(char * msg)
 {
     int             search_index;
@@ -4438,6 +4461,16 @@ bool call::process_twinSippCom(char * msg)
                 if ((call_scenario->messages[search_index] -> optional) ||
                     (call_scenario->messages[search_index] -> M_type == MSG_TYPE_NOP)) {
                     continue;
+                }
+                /* The peer can answer a <sendCmd> before the SIP message
+                 * the call waits for comes. Keep the command for the
+                 * <recvCmd> that follows, as a message that comes before
+                 * a <sendCmd> has run is kept for its <recv>. */
+                if (call_scenario->messages[search_index]->M_type == MSG_TYPE_RECV &&
+                        !queued_cmd && recvCmdFollows(search_index)) {
+                    callDebug("Keeping the command for the <recvCmd> after index %d.\n", search_index);
+                    queued_cmd = strdup(msg);
+                    return true;
                 }
                 /* The received message is different from the expected one */
                 TRACE_MSG("Unexpected control message received (I was expecting a different type of message):\n%s\n", msg);
