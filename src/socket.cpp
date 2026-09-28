@@ -899,7 +899,13 @@ int SIPpSocket::empty()
         break;
     case T_TLS:
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
+        errno = 0;
         ret = SSL_read(ss_ssl, buffer, readsize);
+        /* wolfSSL returns 0 on a reset as on a close: tell them apart,
+         * so that a reset connection is connected again. */
+        if (ret == 0 && errno == ECONNRESET) {
+            ret = -1;
+        }
         /* XXX: Check for clean shutdown. */
 #else
         ERROR("TLS support is not enabled!");
@@ -1466,6 +1472,10 @@ static int ssl_handshake(SSL *ssl, bool accepting)
 
     while ((rc = accepting ? SSL_accept(ssl) : SSL_connect(ssl)) != 1) {
         int err = SSL_get_error(ssl, rc);
+        /* wolfSSL returns its own negative code for a protocol error. */
+        if (err < 0) {
+            err = SSL_ERROR_SSL;
+        }
         if (err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE) {
             WARNING("Error in %s: %s", name, SSL_error_string(err, rc));
             return err;
