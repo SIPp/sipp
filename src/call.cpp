@@ -4452,7 +4452,7 @@ bool call::process_twinSippCom(char * msg)
                         found = true;
                         break;
                     } else {
-                        WARNING("Unexpected sender for the received peer message\n%s\n", msg);
+                        WARNING("Unexpected sender for the received peer message\n%s", msg);
                         return rejectCall();
                     }
                 } else {
@@ -4788,7 +4788,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
     txn[0] = '\0';
 
     if (!checkAckCSeq(msg)) {
-        WARNING("ACK CSeq value does NOT match value of related INVITE CSeq -- aborting call\n");
+        WARNING("ACK CSeq value does NOT match value of related INVITE CSeq -- aborting call");
         computeStat(CStat::E_CALL_FAILED);
         delete this;
         return false;
@@ -5913,7 +5913,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         unsigned int candidate;
 
         if (call_scenario->messages[search_index]->next && M_callVariableTable->getVar(test)->isSet()) {
-            WARNING("Last message generates an error and will not be used for next sends (for last_ variables):\n%s\n", msg);
+            WARNING("Last message generates an error and will not be used for next sends (for last_ variables):\n%s", msg);
         }
 
         /* We are just waiting for a message to be received, if any of the
@@ -6056,7 +6056,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 if(currentAction->getCheckIt() == true && (strlen(msgPart) == 0)) {
                     // the sub message is not found and the checking action say it
                     // MUST match --> Call will be marked as failed but will go on
-                    WARNING("Failed regexp match: header %s not found in message\n%s\n", currentAction->getLookingChar(), msg);
+                    WARNING("Failed regexp match: header %s not found in message\n%s", currentAction->getLookingChar(), msg);
                     return(call::E_AR_HDR_NOT_FOUND);
                 }
                 haystack = msgPart;
@@ -6064,7 +6064,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 haystack = strstr(msg, "\r\n\r\n");
                 if (!haystack) {
                     if (currentAction->getCheckIt() == true) {
-                        WARNING("Failed regexp match: body not found in message\n%s\n", msg);
+                        WARNING("Failed regexp match: body not found in message\n%s", msg);
                         return(call::E_AR_HDR_NOT_FOUND);
                     }
                     msgPart[0] = '\0';
