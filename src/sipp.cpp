@@ -1564,6 +1564,13 @@ void sipp_exit(int rc, int rtp_errors, int echo_errors)
         already_exited = 1;
     }
 
+    /* Before the error file closes, and shown on stderr as the last
+     * error: nothing else tells why the exit code is 253. */
+    if (rc == EXIT_TEST_RES_UNKNOWN && (rtp_errors > 0 || echo_errors > 0)) {
+        WARNING("RTP check failed: %d RTP errors and %d echo errors",
+                rtp_errors, echo_errors);
+    }
+
     screen_exit();
     print_last_stats();
     print_errors();
