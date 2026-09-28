@@ -244,7 +244,7 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
             if (ntohs(ethhdr->ether_type) != 0x0800 /* IPv4 */
                     && ntohs(ethhdr->ether_type) != 0x86dd) { /* IPv6 */
                 fprintf(stderr, "Ignoring non IP{4,6} packet, got ether_type %hu (%04x)!\n",
-                        ntohs(ethhdr->ether_type), ethhdr->ether_type);
+                        ntohs(ethhdr->ether_type), ntohs(ethhdr->ether_type));
                 continue;
             }
             iphdr = (struct ip*)((char*)ethhdr + sizeof(*ethhdr));

@@ -1,0 +1,33 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A pcap play's non IP packet (here ARP) is ignored with its ether_type
+# in decimal and in hex: 2054 (0806), not byte-swapped.
+. "`dirname "$0"`/../functions"; init
+"`get_sipp`" -v | grep -q PCAP || skip "no PCAP"
+
+# An IPv4 UDP packet, then an ARP one, on Ethernet.
+perl -e '
+    sub rec { my ($f) = @_; pack("VVVV", 1, 0, length($f), length($f)) . $f }
+    $mac = "\x02\0\0\0\0\x01\x02\0\0\0\0\x02";
+    $udp = pack("nnnn", 5000, 6000, 20, 0) . "\x80\0" . "\0" x 10;
+    $ip = pack("CCnnnCCn", 0x45, 0, 20 + length($udp), 0, 0, 64, 17, 0)
+        . "\x7f\0\0\x01\x7f\0\0\x01" . $udp;
+    $arp = pack("nnCCn", 1, 0x0800, 6, 4, 1) . "\0" x 20;
+    print pack("VvvlVVV", 0xa1b2c3d4, 2, 4, 0, 0, 65535, 1),
+        rec($mac . "\x08\x00" . $ip), rec($mac . "\x08\x06" . $arp);
+' >play.pcap
+sippfg -sf uac.xml -i 127.0.0.1 -p 25636 127.0.0.1:25637 -m 1 \
+    -timeout 5 -timeout_error >/dev/null 2>stderr.log
+status=$?
+out=`grep -a 'Ignoring non IP' stderr.log`
+rm -f play.pcap stderr.log
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+fi
+case "$out" in
+*"got ether_type 2054 (0806)!"*)
+    ok;;
+*)
+    fail "got: ${out:-nothing}";;
+esac
