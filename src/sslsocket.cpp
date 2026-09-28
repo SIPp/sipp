@@ -316,6 +316,10 @@ enum tls_init_status TLS_init_context(void)
                            SSL_VERIFY_PEER |
                            SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
                            sip_tls_verify_callback);
+        /* A server that verifies its clients refuses to resume their
+         * sessions without an id context. */
+        SSL_CTX_set_session_id_context(sip_trp_ssl_ctx,
+                                       (const unsigned char *)"sipp", 4);
 
         SSL_CTX_set_verify(sip_trp_ssl_ctx_client,
                            SSL_VERIFY_PEER |
