@@ -125,7 +125,9 @@ private:
     void sipp_sctp_peer_params();
     void invalidate();
     void buffer_read(struct socketbuf *newbuf);
-    void buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest);
+    void buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest,
+                      bool untraced);
+    void trace_sent(const char *buffer, size_t len);
     ssize_t read_message(char *buf, size_t len, struct sockaddr_storage *src);
     struct socketbuf *ss_in = nullptr;    /* Buffered input. */
     struct socketbuf *ss_out = nullptr;   /* Buffered output. */
@@ -186,6 +188,7 @@ struct socketbuf {
     size_t len;
     size_t offset;
     struct sockaddr_storage addr;
+    bool untraced;      /* A whole message, to trace as sent once written. */
     struct socketbuf *next;
 };
 
