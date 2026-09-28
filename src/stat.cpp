@@ -788,12 +788,13 @@ void CStat::getStartTime(struct timeval *t)
 
 
 /* Use the short form standard deviation formula given the sum of the squares
- * and the sum. */
+ * and the sum. With no sample or a single one it is 0, as the formula
+ * would divide by zero. */
 double CStat::computeStdev(E_CounterName P_SumCounter,
                            E_CounterName P_NbOfCallUsed,
                            E_CounterName P_Squares)
 {
-    if (M_counters[P_NbOfCallUsed] <= 0)
+    if (M_counters[P_NbOfCallUsed] <= 1)
         return 0.0;
 
     double numerator = ((double)(M_counters[P_NbOfCallUsed]) * (double)(M_counters[P_Squares])) - ((double)(M_counters[P_SumCounter] * M_counters[P_SumCounter]));
