@@ -31,6 +31,7 @@
 #include "srtp_channel.hpp"
 
 #include <sys/time.h>
+#include <algorithm>
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -464,6 +465,21 @@ taskentry_t::~taskentry_t()
     pthread_mutex_destroy(&mutex);
 }
 
+/* Copy size bytes of a file that plays in a loop into dest, from
+ * offset on: from its start again at its end, as often as it takes
+ * for a file shorter than a packet. */
+static void rtpstream_copy_loop(char* dest, int size, const char* file, int file_size, int offset)
+{
+    while (size > 0)
+    {
+        int count = std::min(size, file_size - offset);
+        memcpy(dest, file + offset, count);
+        dest += count;
+        size -= count;
+        offset = 0;
+    }
+}
+
 /* Give the verdict of the RTP check of a task's audio or video pattern,
  * setting the pattern's bit in *rtpresult if it failed, and start the
  * check over: at the end of the task, or when it plays something else. */
@@ -714,18 +730,9 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 udp_send_audio.hdr.timestamp = htonl((uint32_t) (taskinfo->last_audio_timestamp & 0XFFFFFFFF));
                 udp_send_audio.hdr.ssrc_id = htonl(taskinfo->audio_ssrc_id);
                 /* add payload data to the packet - handle buffer wraparound */
-                if (taskinfo->audio_file_bytes_left >= taskinfo->audio_bytes_per_packet)
-                {
-                    /* no need for fancy acrobatics */
-                    memcpy(udp_send_audio.buffer + sizeof(rtp_header_t), taskinfo->audio_current_file_bytes, taskinfo->audio_bytes_per_packet);
-                }
-                else
-                {
-                    /* copy from end and then beginning of file. does not handle the */
-                    /* case where file is shorter than the packet length!! */
-                    memcpy(udp_send_audio.buffer + sizeof(rtp_header_t), taskinfo->audio_current_file_bytes, taskinfo->audio_file_bytes_left);
-                    memcpy(udp_send_audio.buffer + sizeof(rtp_header_t) + taskinfo->audio_file_bytes_left, taskinfo->audio_file_bytes_start, taskinfo->audio_bytes_per_packet - taskinfo->audio_file_bytes_left);
-                }
+                rtpstream_copy_loop(udp_send_audio.buffer + sizeof(rtp_header_t), taskinfo->audio_bytes_per_packet,
+                                    taskinfo->audio_file_bytes_start, taskinfo->audio_file_num_bytes,
+                                    taskinfo->audio_file_num_bytes - taskinfo->audio_file_bytes_left);
 
                 pthread_mutex_lock(&(taskinfo->mutex));
                 SrtpChannel* tx = taskinfo->audio_srtp && taskinfo->audio_srtp->tx.getCryptoTag() != 0 ? &taskinfo->audio_srtp->tx : nullptr;
@@ -918,13 +925,18 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     }
                     else
                     {
-                        taskinfo->audio_current_file_bytes = taskinfo->audio_file_bytes_start - taskinfo->audio_file_bytes_left;
-                        taskinfo->audio_file_bytes_left += taskinfo->audio_file_num_bytes;
-                        if (taskinfo->audio_loop_count > 0)
+                        /* from the start of the file again: more than once
+                         * in a packet, for a file shorter than a packet */
+                        do
                         {
-                            /* one less loop to play. -1 (infinite loops) will stay as is */
-                            taskinfo->audio_loop_count--;
-                        }
+                            taskinfo->audio_file_bytes_left += taskinfo->audio_file_num_bytes;
+                            if (taskinfo->audio_loop_count > 0)
+                            {
+                                /* one less loop to play. -1 (infinite loops) will stay as is */
+                                taskinfo->audio_loop_count--;
+                            }
+                        } while (taskinfo->audio_file_bytes_left <= 0);
+                        taskinfo->audio_current_file_bytes = taskinfo->audio_file_bytes_start + taskinfo->audio_file_num_bytes - taskinfo->audio_file_bytes_left;
                     }
                     if (taskinfo->last_audio_timestamp < target_timestamp)
                     {
@@ -981,18 +993,9 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 udp_send_video.hdr.timestamp = htonl((uint32_t) (taskinfo->last_video_timestamp & 0XFFFFFFFF));
                 udp_send_video.hdr.ssrc_id = htonl(taskinfo->video_ssrc_id);
                 /* add payload data to the packet - handle buffer wraparound */
-                if (taskinfo->video_file_bytes_left >= taskinfo->video_bytes_per_packet)
-                {
-                    /* no need for fancy acrobatics */
-                    memcpy(udp_send_video.buffer + sizeof(rtp_header_t), taskinfo->video_current_file_bytes, taskinfo->video_bytes_per_packet);
-                }
-                else
-                {
-                    /* copy from end and then beginning of file. does not handle the */
-                    /* case where file is shorter than the packet length!! */
-                    memcpy(udp_send_video.buffer + sizeof(rtp_header_t), taskinfo->video_current_file_bytes, taskinfo->video_file_bytes_left);
-                    memcpy(udp_send_video.buffer + sizeof(rtp_header_t) + taskinfo->video_file_bytes_left, taskinfo->video_file_bytes_start, taskinfo->video_bytes_per_packet - taskinfo->video_file_bytes_left);
-                }
+                rtpstream_copy_loop(udp_send_video.buffer + sizeof(rtp_header_t), taskinfo->video_bytes_per_packet,
+                                    taskinfo->video_file_bytes_start, taskinfo->video_file_num_bytes,
+                                    taskinfo->video_file_num_bytes - taskinfo->video_file_bytes_left);
 
                 pthread_mutex_lock(&(taskinfo->mutex));
                 SrtpChannel* tx = taskinfo->video_srtp && taskinfo->video_srtp->tx.getCryptoTag() != 0 ? &taskinfo->video_srtp->tx : nullptr;
@@ -1165,13 +1168,18 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     }
                     else
                     {
-                        taskinfo->video_current_file_bytes = taskinfo->video_file_bytes_start - taskinfo->video_file_bytes_left;
-                        taskinfo->video_file_bytes_left += taskinfo->video_file_num_bytes;
-                        if (taskinfo->video_loop_count > 0)
+                        /* from the start of the file again: more than once
+                         * in a packet, for a file shorter than a packet */
+                        do
                         {
-                            /* one less loop to play. -1 (infinite loops) will stay as is */
-                            taskinfo->video_loop_count--;
-                        }
+                            taskinfo->video_file_bytes_left += taskinfo->video_file_num_bytes;
+                            if (taskinfo->video_loop_count > 0)
+                            {
+                                /* one less loop to play. -1 (infinite loops) will stay as is */
+                                taskinfo->video_loop_count--;
+                            }
+                        } while (taskinfo->video_file_bytes_left <= 0);
+                        taskinfo->video_current_file_bytes = taskinfo->video_file_bytes_start + taskinfo->video_file_num_bytes - taskinfo->video_file_bytes_left;
                     }
                     if (taskinfo->last_video_timestamp < target_timestamp)
                     {

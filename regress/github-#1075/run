@@ -1,0 +1,34 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# rtp_stream plays a file shorter than a packet (100 bytes, 160 a
+# packet) in a loop: each packet carries the file again from its start
+# where it ends, and nothing past its end.
+. "`dirname "$0"`/../functions"; init
+
+yes 0123456789 | tr -d '\n' | head -c 100 >short.ulaw
+rm -f rtp.out
+perl -e '
+    use Socket;$|=1;(socket(S,PF_INET,SOCK_DGRAM,17)&&
+    bind(S,pack_sockaddr_in(29800,inet_aton("127.0.0.1")))&&
+    setsockopt(S,SOL_SOCKET,SO_RCVTIMEO,pack("L!L!",3,0)))||die($!);
+    while (recv(S,$o,2048,0)) { $n++; $all .= substr($o, 12) }
+    $want = substr("0123456789" x (length($all) / 10 + 1), 0, length($all));
+    print $n + 0, " ", ($all eq $want ? "same" : "different"), "\n";' >rtp.out &
+sippbg -sf uas.xml -i 127.0.0.1 -p 25626 -m 1 -timeout 10
+sippfg -sf uac.xml -i 127.0.0.1 -p 25627 -m 1 \
+    -min_rtp_port 29810 -max_rtp_port 29819 \
+    127.0.0.1:25626 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait
+read packets payload <rtp.out
+rm -f short.ulaw rtp.out
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "${packets:-0}" -lt 5; then
+    fail "${packets:-no} packets"
+elif test "$payload" != same; then
+    fail "the payloads of the $packets packets are not the file in a loop"
+else
+    ok
+fi
