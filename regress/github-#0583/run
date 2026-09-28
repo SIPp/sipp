@@ -1,0 +1,41 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The RFC 6188 SRTP suites: a UAC offers AES_256_CM then AES_192_CM keys
+# (64 and 52 base64 characters) for audio and video, and gets its media
+# back through a UAS that answers with the first, then the second suites.
+# The UAS logs whether it could decrypt each packet it echoes. Video
+# sends few packets, so allow for the checks of some whose echo is late.
+. "`dirname "$0"`/../functions"; init
+
+rm -f uac_*_messages.log debug*file* srtpctxdebugfile*
+fail=
+for bits in 256 192; do
+    sippbg -sf uas$bits.xml -i 127.0.0.1 -p 25830 -m 1 -srtpcheck_debug \
+        -min_rtp_port 25840 -max_rtp_port 25849 -timeout 15
+    sippfg -sf uac.xml -i 127.0.0.1 -p 25831 -m 1 \
+        -min_rtp_port 25850 -max_rtp_port 25859 \
+        -audiotolerance 0.2 -videotolerance 0.5 -trace_msg \
+        127.0.0.1:25830 -timeout 10 -timeout_error >/dev/null 2>&1
+    status=$?
+    wait
+    # The 4 offered keys and the 2 answered ones
+    b64='[A-Za-z0-9+/=]'
+    keys=`cat uac_*_messages.log | tr -d '\r' | grep -cE "^a=crypto:[12] AES_(256_CM_HMAC_SHA1_(80|32) inline:$b64{64}|192_CM_HMAC_SHA1_(80|32) inline:$b64{52})$"`
+    decrypted=`cat debugrefile*.log | grep -c 'processIncomingPacket() rc == 0'`
+    rejected=`cat debugrefile*.log | grep -c 'processIncomingPacket() rc == -'`
+    rm -f uac_*_messages.log debug*file* srtpctxdebugfile*
+    if test $status -ne 0; then
+        fail="UAC failed with $status against an AES_$bits answer"
+    elif test "$keys" -ne 6; then
+        fail="$keys keys of the right length, not 6"
+    elif test $rejected -ne 0 || test $decrypted -eq 0; then
+        fail="the AES_$bits UAS rejected $rejected SRTP packets, decrypted $decrypted"
+    fi
+    test -n "$fail" && break
+done
+
+if test -n "$fail"; then
+    fail "$fail"
+else
+    ok
+fi

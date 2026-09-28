@@ -40,6 +40,8 @@
 
 #define JLSRTP_VERSION              0.7
 #define JLSRTP_ENCRYPTION_KEY_LENGTH        16  // bytes
+#define JLSRTP_AES_192_KEY_LENGTH           24  // bytes
+#define JLSRTP_AES_256_KEY_LENGTH           32  // bytes
 #define JLSRTP_SALTING_KEY_LENGTH           14  // bytes
 #define JLSRTP_AUTHENTICATION_KEY_LENGTH    20  // bytes
 
@@ -90,6 +92,8 @@ typedef enum _CipherType
 {
     AES_CM_128,
     NULL_CIPHER,
+    AES_CM_192, // RFC 6188
+    AES_CM_256, // RFC 6188
     INVALID_CIPHER
 } CipherType;
 
@@ -729,7 +733,7 @@ class JLSRTP
          *
          * @param[in]       crypto_attrib   Crypto attribute whose cipher algorithm is to be obtained (PRIMARY_CRYPTO, SECONDARY_CRYPTO or ACTIVE_CRYPTO)
          *
-         * @return  <cipher_algorithm>  Cipher algorithm currently in use (AES_CM_128 or NULL_CIPHER)
+         * @return  <cipher_algorithm>  Cipher algorithm currently in use (AES_CM_128, AES_CM_192, AES_CM_256 or NULL_CIPHER)
          */
         CipherType getCipherAlgorithm(ActiveCrypto crypto_attrib = ACTIVE_CRYPTO);
 
@@ -738,11 +742,11 @@ class JLSRTP
          *
          * Selects the cipher algorithm to use
          *
-         * @param[in]   cipherType  Cipher algorithm to use (AES_CM_128 or NULL_CIPHER)
+         * @param[in]   cipherType  Cipher algorithm to use (AES_CM_128, AES_CM_192, AES_CM_256 or NULL_CIPHER)
          * @param[in]   crypto_attrib   Crypto attribute whose cipher algorithm is to be set (PRIMARY_CRYPTO, SECONDARY_CRYPTO or ACTIVE_CRYPTO)
          *
          * @return  0   SUCCESS
-         * @return  -1  FAILURE -- Invalid cipher algorithm specified
+         * @return  -1  FAILURE -- Invalid cipher algorithm specified, or one the TLS library lacks
          * @return  -2  FAILURE -- Invalid crypto attribute specified
          */
         int selectCipherAlgorithm(CipherType cipherType, ActiveCrypto crypto_attrib = ACTIVE_CRYPTO);
@@ -1028,7 +1032,8 @@ class JLSRTP
         /**
          * generateMasterKey
          *
-         * Generates a master key
+         * Generates a master key of the length the cipher algorithm takes (24 or
+         * 32 bytes for AES_CM_192 or AES_CM_256, else 16)
          *
          * @param[in]   crypto_attrib   Crypto attribute whose master key is to be generated (PRIMARY_CRYPTO, SECONDARY_CRYPTO or ACTIVE_CRYPTO)
          *
@@ -1190,6 +1195,9 @@ class JLSRTP
          */
         ~JLSRTP();
 
+#ifdef GTEST
+        friend class JLSRTPTest;
+#endif
 };
 
 #else // !USE_OPENSSL && !USE_WOLFSSL
