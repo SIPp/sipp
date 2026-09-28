@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- The 200 OK arrives while the call is still on the <sendCmd>. -->
+<scenario name="3PCC A">
+  <send>
+    <![CDATA[
+      OPTIONS sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 OPTIONS
+      Content-Length: 0
+    ]]>
+  </send>
+  <sendCmd>
+    <![CDATA[
+      Call-ID: [call_id]
+    ]]>
+  </sendCmd>
+  <recv response="200"/>
+  <recvCmd/>
+</scenario>
