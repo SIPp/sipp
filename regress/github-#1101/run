@@ -1,0 +1,31 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Calls that are slow to run hold neither the messages that come in
+# nor the calls they are for: while each INVITE takes 100 ms, a 200 OK
+# is read within its 1 s timeout, and its ACK is sent within 1 s.
+. "`dirname "$0"`/../functions"; init
+
+# Each INVITE reads slow.fifo, which blocks until the loop below opens
+# it: one INVITE per 100 ms.
+rm -f slow.fifo
+mkfifo slow.fifo
+(while :; do sleep 0.1; : >slow.fifo; done) &
+writer=$!
+sippbg -sf uas.xml -i 127.0.0.1 -p 27810 -m 30 -timeout 10
+uas=$pid
+sippfg -sf uac.xml -i 127.0.0.1 -p 27811 127.0.0.1:27810 \
+    -r 100 -m 30 -timeout 20 -timeout_error >/dev/null 2>&1
+status=$?
+wait $uas
+uas_status=$?
+kill $writer
+wait
+rm -f slow.fifo
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test $uas_status -ne 0; then
+    fail "UAS failed with $uas_status"
+else
+    ok
+fi

@@ -160,6 +160,7 @@ static inline bool transport_is_reliable(int p)
 
 #define MAX_RECV_LOOPS_PER_CYCLE   1000
 #define MAX_SCHED_LOOPS_PER_CYCLE  1000
+#define MAX_SCHED_MS_PER_CYCLE     10
 #define NB_UPDATE_PER_CYCLE        1
 
 #define MAX_PEER_SIZE              4096  /* 3pcc extended mode: max size of peer names */

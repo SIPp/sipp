@@ -1025,35 +1025,27 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
             last_timer_cycle = clock_tick;
         }
 
-        /* We should never get so busy with running calls that we can't process some messages. */
+        /* We should never get so busy with running calls that we can't
+         * process some messages: a pass over the run queue ends after
+         * max_sched_loops calls, or once it has run for
+         * MAX_SCHED_MS_PER_CYCLE, however long each call takes. The next
+         * pass starts at the head again, where the calls that resumed
+         * meanwhile go, before the new calls that have not run yet. */
         int loops = max_sched_loops;
+        unsigned long long pass_end = getmicroseconds() + MAX_SCHED_MS_PER_CYCLE * 1000ULL;
 
         /* Now we process calls that are on the run queue. */
         running_tasks = get_running_tasks();
 
-        /* Workaround hpux problem with iterators. Deleting the
-         * current object when iterating breaks the iterator and
-         * leads to iterate again on the destroyed (deleted)
-         * object. Thus, we have to wait ont step befere actual
-         * deletion of the object*/
-        task * last = nullptr;
-
-        task_list::iterator iter;
-        for (iter = running_tasks->begin(); iter != running_tasks->end(); iter++) {
-            if (last) {
-                last->run();
-                if (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
-                    last = nullptr;
-                    break;
-                }
-            }
-            last = *iter;
-            if (--loops <= 0) {
+        task_list::iterator iter = running_tasks->begin();
+        while (iter != running_tasks->end()) {
+            /* Step past the task first: running it may delete it. */
+            task *t = *iter++;
+            t->run();
+            if (--loops <= 0 || !sockets_pending_reset.empty() ||
+                    getmicroseconds() >= pass_end) {
                 break;
             }
-        }
-        if (last) {
-            last->run();
         }
         while (sockets_pending_reset.begin() != sockets_pending_reset.end()) {
             /* Off the queue first: the reset may free the socket. */

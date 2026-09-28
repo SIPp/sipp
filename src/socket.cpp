@@ -926,8 +926,13 @@ int SIPpSocket::empty()
     switch(ss_transport) {
     case T_TCP:
     case T_WS:
-    case T_UDP:
         ret = recvfrom(ss_fd, buffer, readsize, 0, (struct sockaddr *)&socketbuf->addr,  &addrlen);
+        break;
+    case T_UDP:
+        /* Without waiting: the socket is blocking, and a read past the
+         * datagram the poll found (see read_next_datagram()) may find
+         * none. */
+        ret = recvfrom(ss_fd, buffer, readsize, MSG_DONTWAIT, (struct sockaddr *)&socketbuf->addr,  &addrlen);
         break;
     case T_TLS:
     case T_WSS:
@@ -3374,6 +3379,21 @@ void free_peer_addr_map()
     }
 }
 
+/* A datagram socket gives one message per read, and a poll found it
+ * readable once: when the message it read is processed and its buffer is
+ * empty, read the next datagram it has, if any, so that the messages
+ * behind the first do not wait for the next poll, which a slow pass over
+ * the calls may hold up. Processing the message may have freed the
+ * socket, which moves another into its place: then leave it alone. */
+static void read_next_datagram(SIPpSocket *sock, unsigned pollnfds_before)
+{
+    if (pollnfds == pollnfds_before && sock->ss_transport == T_UDP &&
+            !sock->message_ready()) {
+        /* Nothing more, or an error, which the next poll reports. */
+        sock->empty();
+    }
+}
+
 void SIPpSocket::pollset_process(int wait)
 {
     int rs; /* Number of times to execute recv().
@@ -3385,11 +3405,11 @@ void SIPpSocket::pollset_process(int wait)
 
     check_ws_handshakes();
 
+    int loops = max_recv_loops;
+
 #ifndef HAVE_EPOLL
     /* What index should we try reading from? */
     static size_t read_index;
-
-    int loops = max_recv_loops;
 
     // If not using epoll, we have a queue of pending messages to spin through.
 
@@ -3401,15 +3421,18 @@ void SIPpSocket::pollset_process(int wait)
     while (pending_messages && loops > 0) {
         update_clock_tick();
         if (sockets[read_index]->ss_msglen) {
+            SIPpSocket *sock = sockets[read_index];
+            unsigned before = pollnfds;
             struct sockaddr_storage src;
             char msg[SIPP_MAX_MSG_SIZE];
-            ssize_t len = sockets[read_index]->read_message(msg, sizeof(msg), &src);
+            ssize_t len = sock->read_message(msg, sizeof(msg), &src);
             if (len > 0) {
-                process_message(sockets[read_index], msg, len, &src);
+                process_message(sock, msg, len, &src);
             } else {
                 assert(0);
             }
             loops--;
+            read_next_datagram(sock, before);
         }
         read_index = (read_index + 1) % pollnfds;
     }
@@ -3577,7 +3600,10 @@ void SIPpSocket::pollset_process(int wait)
 #ifdef HAVE_EPOLL
         unsigned old_pollnfds = pollnfds;
         update_clock_tick();
-        /* Keep processing messages until this socket is freed (changing the number of file descriptors) or we run out of messages. */
+        /* Keep processing messages until this socket is freed (changing
+         * the number of file descriptors) or we run out of messages,
+         * reading the next datagram a socket has once its buffer is
+         * empty (see read_next_datagram()). */
         while ((pollnfds == old_pollnfds) &&
                 (sock->message_ready())) {
             char msg[SIPP_MAX_MSG_SIZE];
@@ -3589,6 +3615,9 @@ void SIPpSocket::pollset_process(int wait)
                 process_message(sock, msg, len, &src);
             } else {
                 assert(0);
+            }
+            if (--loops > 0) {
+                read_next_datagram(sock, old_pollnfds);
             }
         }
 
@@ -3619,17 +3648,20 @@ void SIPpSocket::pollset_process(int wait)
         update_clock_tick();
 
         if (sockets[read_index]->ss_msglen) {
+            SIPpSocket *sock = sockets[read_index];
+            unsigned before = pollnfds;
             char msg[SIPP_MAX_MSG_SIZE];
             struct sockaddr_storage src;
             ssize_t len;
 
-            len = sockets[read_index]->read_message(msg, sizeof(msg), &src);
+            len = sock->read_message(msg, sizeof(msg), &src);
             if (len > 0) {
-                process_message(sockets[read_index], msg, len, &src);
+                process_message(sock, msg, len, &src);
             } else {
                 assert(0);
             }
             loops--;
+            read_next_datagram(sock, before);
         }
         read_index = (read_index + 1) % pollnfds;
     }
