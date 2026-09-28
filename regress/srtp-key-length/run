@@ -1,0 +1,36 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A peer's AES_CM_128 key of another length (an odd one, or an AES-256
+# one) is ignored with a warning: SIPp neither aborts on the first SRTP
+# packet nor silently runs another AES key size.
+. "`dirname "$0"`/../functions"; init
+
+odd=AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8=
+aes256=AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLg==
+fail=
+for key in $odd $aes256; do
+    rm -f err.log
+    sippbg -sf uas.xml -i 127.0.0.1 -p 26400 -m 1 \
+        -min_rtp_port 26410 -max_rtp_port 26419 \
+        -trace_err -error_file err.log -timeout 10
+    uas=$pid
+    sippfg -sf uac.xml -i 127.0.0.1 -p 26401 -m 1 -set key $key \
+        -min_rtp_port 26420 -max_rtp_port 26429 \
+        127.0.0.1:26400 -timeout 10 >/dev/null 2>&1
+    wait $uas
+    status=$?
+    warned=`grep -c "ignoring the AES_CM_128_HMAC_SHA1_80 key $key" err.log`
+    rm -f err.log
+    if test $status -ne 0; then
+        fail="the UAS failed with $status on the key $key"
+    elif test $warned -ne 1; then
+        fail="no warning about the key $key"
+    fi
+    test -n "$fail" && break
+done
+
+if test -n "$fail"; then
+    fail "$fail"
+else
+    ok
+fi

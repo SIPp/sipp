@@ -1011,11 +1011,12 @@ class JLSRTP
          *
          * @param[in]   mks     Encoded RFC4568-compliant master key/salt value (for use in the context)
          * @param[in]   crypto_attrib   Crypto attribute whose master key/salt is to be decoded (PRIMARY_CRYPTO, SECONDARY_CRYPTO or ACTIVE_CRYPTO)
+         * @param[in]   keyLength       Master key length in bytes the suite takes (0 for any AES key length)
          *
          * @return  0   SUCCESS
-         * @return  -1  FAILURE
+         * @return  -1  FAILURE (not a key of that length and a 14-byte salt)
          */
-        int decodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib = ACTIVE_CRYPTO);
+        int decodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib = ACTIVE_CRYPTO, size_t keyLength = 0);
 
         /**
          * displayCryptoContext

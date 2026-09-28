@@ -2749,14 +2749,11 @@ int JLSRTP::encodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*=
     return retVal;
 }
 
-int JLSRTP::decodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*= ACTIVE_CRYPTO*/)
+int JLSRTP::decodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*= ACTIVE_CRYPTO*/, size_t keyLength /*= 0*/)
 {
     int retVal = -1;
     std::vector<unsigned char> concat;
-    int split_pos = 0;
-    std::vector<unsigned char>::iterator it_begin;
-    std::vector<unsigned char>::iterator it_middle;
-    std::vector<unsigned char>::iterator it_end;
+    size_t split_pos = 0;
     ActiveCrypto active_crypto = INVALID_CRYPTO;
 
     if (crypto_attrib == ACTIVE_CRYPTO)
@@ -2768,84 +2765,35 @@ int JLSRTP::decodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*=
         active_crypto = crypto_attrib;
     }
 
+    // The salt is 14 bytes in all suites, the AES key what comes before
+    concat = base64Decode(mks);
+    if (concat.size() <= JLSRTP_SALTING_KEY_LENGTH)
+    {
+        return -1;
+    }
+    split_pos = concat.size() - JLSRTP_SALTING_KEY_LENGTH;
+    if (keyLength ? split_pos != keyLength :
+        split_pos != JLSRTP_ENCRYPTION_KEY_LENGTH && split_pos != JLSRTP_AES_192_KEY_LENGTH && split_pos != JLSRTP_AES_256_KEY_LENGTH)
+    {
+        return -1;
+    }
+
     switch (active_crypto)
     {
         case PRIMARY_CRYPTO:
         {
-            concat = base64Decode(mks);
-
-            //std::cout << "decodeMasterKeySalt(): concat:[";
-            //for (unsigned int i = 0; i < concat.size(); i++)
-            //{
-            //    printf("%02X", concat[i]);
-            //}
-            //std::cout << "]" << std::endl;
-
-            // The salt is 14 bytes in all suites, the key what comes before
-            if (concat.size() > JLSRTP_SALTING_KEY_LENGTH)
-            {
-                _primary_crypto.n_e = concat.size() - JLSRTP_SALTING_KEY_LENGTH;
-            }
-            split_pos = _primary_crypto.n_e;
-            it_begin = concat.begin();
-            it_middle = concat.begin();
-            it_end = concat.end();
-
-            std::advance(it_middle, split_pos);
-            _primary_crypto.master_key.assign(it_begin, it_middle);
-            _primary_crypto.master_salt.assign(it_middle, it_end);
-
-            //std::cout << "decodeMasterKeySalt():  _masterKey:[";
-            //for (unsigned int i = 0; i < _primary_crypto.master_key.size(); i++)
-            //{
-            //    printf("%02X", _primary_crypto.master_key[i]);
-            //}
-            //std::cout << "] _masterSalt:[";
-            //for (unsigned int i = 0; i < _primary_crypto.master_salt.size(); i++)
-            //{
-            //    printf("%02X", _primary_crypto.master_salt[i]);
-            //}
-            //std::cout << "]" << std::endl;
+            _primary_crypto.n_e = split_pos;
+            _primary_crypto.master_key.assign(concat.begin(), concat.begin() + split_pos);
+            _primary_crypto.master_salt.assign(concat.begin() + split_pos, concat.end());
             retVal = 0;
         }
         break;
 
         case SECONDARY_CRYPTO:
         {
-            concat = base64Decode(mks);
-
-            //std::cout << "decodeMasterKeySalt(): concat:[";
-            //for (unsigned int i = 0; i < concat.size(); i++)
-            //{
-            //    printf("%02X", concat[i]);
-            //}
-            //std::cout << "]" << std::endl;
-
-            // The salt is 14 bytes in all suites, the key what comes before
-            if (concat.size() > JLSRTP_SALTING_KEY_LENGTH)
-            {
-                _secondary_crypto.n_e = concat.size() - JLSRTP_SALTING_KEY_LENGTH;
-            }
-            split_pos = _secondary_crypto.n_e;
-            it_begin = concat.begin();
-            it_middle = concat.begin();
-            it_end = concat.end();
-
-            std::advance(it_middle, split_pos);
-            _secondary_crypto.master_key.assign(it_begin, it_middle);
-            _secondary_crypto.master_salt.assign(it_middle, it_end);
-
-            //std::cout << "decodeMasterKeySalt():  _masterKey:[";
-            //for (unsigned int i = 0; i < _secondary_crypto.master_key.size(); i++)
-            //{
-            //    printf("%02X", _secondary_crypto.master_key[i]);
-            //}
-            //std::cout << "] _masterSalt:[";
-            //for (unsigned int i = 0; i < _secondary_crypto.master_salt.size(); i++)
-            //{
-            //    printf("%02X", _secondary_crypto.master_salt[i]);
-            //}
-            //std::cout << "]" << std::endl;
+            _secondary_crypto.n_e = split_pos;
+            _secondary_crypto.master_key.assign(concat.begin(), concat.begin() + split_pos);
+            _secondary_crypto.master_salt.assign(concat.begin() + split_pos, concat.end());
             retVal = 0;
         }
         break;
@@ -3921,6 +3869,50 @@ INSTANTIATE_TEST_SUITE_P(Suites, JLSRTPRoundTrip, ::testing::Values(
     SrtpSuite{AES_CM_192, HMAC_SHA1_32, "AES_192_CM_HMAC_SHA1_32", 52, 4},
     SrtpSuite{AES_CM_256, HMAC_SHA1_80, "AES_256_CM_HMAC_SHA1_80", 64, 10},
     SrtpSuite{AES_CM_256, HMAC_SHA1_32, "AES_256_CM_HMAC_SHA1_32", 64, 4}));
+
+// The key||salt of an a=crypto line: an AES key of 16, 24 or 32 bytes
+// (or of the length asked for) and a 14-byte salt, or nothing is decoded
+TEST(JLSRTPKey, DecodeMasterKeySaltChecksTheLength)
+{
+    JLSRTP rx(0x12345678, "127.0.0.1", 0);
+    std::string aes128 = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0e";
+    std::string aes192 = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSY=";
+    std::string aes256 = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLg==";
+    std::vector<std::string> bad = {
+        "",
+        "AQIDBAUGBwgJCgsMDQ4=",                                             // a salt alone
+        "AQIDBAUGBwgJCgsMDQ4PEBESExQ=",                                     // a 6-byte key
+        "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0=",                         // 15 bytes
+        "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHw==",                     // 17 bytes
+        "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywt",     // 31 bytes
+        "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8=", // 33 bytes
+    };
+
+    EXPECT_EQ(0, rx.decodeMasterKeySalt(aes192, PRIMARY_CRYPTO));
+    EXPECT_EQ(24U, rx.getMasterKey(PRIMARY_CRYPTO).size());
+    EXPECT_EQ(0, rx.decodeMasterKeySalt(aes256, PRIMARY_CRYPTO, JLSRTP_AES_256_KEY_LENGTH));
+    EXPECT_EQ(32U, rx.getMasterKey(PRIMARY_CRYPTO).size());
+    ASSERT_EQ(0, rx.decodeMasterKeySalt(aes128, PRIMARY_CRYPTO));
+    std::vector<unsigned char> key = rx.getMasterKey(PRIMARY_CRYPTO);
+    std::vector<unsigned char> salt = rx.getMasterSalt(PRIMARY_CRYPTO);
+    EXPECT_EQ(16U, key.size());
+    EXPECT_EQ(14U, salt.size());
+
+    for (std::string mks : bad) {
+        EXPECT_EQ(-1, rx.decodeMasterKeySalt(mks, PRIMARY_CRYPTO)) << mks;
+    }
+    // A key of another suite's length
+    EXPECT_EQ(-1, rx.decodeMasterKeySalt(aes128, PRIMARY_CRYPTO, JLSRTP_AES_256_KEY_LENGTH));
+    EXPECT_EQ(-1, rx.decodeMasterKeySalt(aes256, PRIMARY_CRYPTO, JLSRTP_ENCRYPTION_KEY_LENGTH));
+    EXPECT_EQ(key, rx.getMasterKey(PRIMARY_CRYPTO));
+    EXPECT_EQ(salt, rx.getMasterSalt(PRIMARY_CRYPTO));
+
+    // The key it kept still derives the session keys
+    ASSERT_EQ(0, rx.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO));
+    EXPECT_EQ(0, rx.deriveSessionEncryptionKey());
+    EXPECT_EQ(0, rx.deriveSessionSaltingKey());
+    EXPECT_EQ(0, rx.deriveSessionAuthenticationKey());
+}
 
 #endif // GTEST
 
