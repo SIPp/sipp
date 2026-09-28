@@ -1982,7 +1982,9 @@ bool call::executeMessage(message *curmsg)
         /* Increment the number of sessions in pause state */
         curmsg->sessions++;
         do_bookkeeping(curmsg);
-        executeAction(nullptr, curmsg);
+        if (!handleActionResult(executeAction(nullptr, curmsg))) {
+            return false; /* call deleted */
+        }
         callDebug("Pausing call until %d (is now %ld).\n", paused_until, clock_tick);
         setPaused();
         return true;
@@ -2002,16 +2004,16 @@ bool call::executeMessage(message *curmsg)
         next_retrans = 0;
 
         do_bookkeeping(curmsg);
-        executeAction(nullptr, curmsg);
+        if (!handleActionResult(executeAction(nullptr, curmsg))) {
+            return false; /* call deleted */
+        }
         return(next());
     } else if(curmsg -> M_type == MSG_TYPE_NOP) {
         callDebug("Executing NOP at index %d.\n", curmsg->index);
         do_bookkeeping(curmsg);
         actionResult = executeAction(nullptr, curmsg);
-        if (actionResult != call::E_AR_NO_ERROR) {
-            // Store last action result if it is an error
-            // and go on with the scenario
-            call::last_action_result = actionResult;
+        if (!handleActionResult(actionResult)) {
+            return false; /* call deleted */
         }
         if (actionResult == E_AR_RTPECHO_ERROR)
         {
@@ -2157,10 +2159,12 @@ bool call::executeMessage(message *curmsg)
             next_retrans = 0;
         }
 
-        executeAction(msg_snd, curmsg);
-
         /* Update scenario statistics */
         curmsg -> nb_sent++;
+
+        if (!handleActionResult(executeAction(msg_snd, curmsg))) {
+            return false; /* call deleted */
+        }
 
         return next();
     } else if (curmsg->M_type == MSG_TYPE_RECV
@@ -4423,7 +4427,6 @@ bool call::process_twinSippCom(char * msg)
 {
     int             search_index;
     bool            found = false;
-    T_ActionResult  actionResult;
 
     callDebug("Processing incoming command for call-ID %s:\n%s\n\n", id, msg);
 
@@ -4471,18 +4474,8 @@ bool call::process_twinSippCom(char * msg)
             if (len >= 4 && !strcmp(msg + len - 4, "\r\n\r\n")) {
                 msg[len - 4] = 0;
             }
-            actionResult = executeAction(msg, call_scenario->messages[search_index]);
-
-            if(actionResult != call::E_AR_NO_ERROR) {
-                // Store last action result if it is an error
-                // and go on with the scenario
-                call::last_action_result = actionResult;
-                if (actionResult == E_AR_STOP_CALL) {
-                    return rejectCall();
-                } else if (actionResult == E_AR_CONNECT_FAILED) {
-                    terminate(CStat::E_FAILED_TCP_CONNECT);
-                    return false;
-                }
+            if (!handleActionResult(executeAction(msg, call_scenario->messages[search_index]))) {
+                return false; /* call deleted */
             }
         } else {
             TRACE_MSG("Unexpected control message received (no such message found):\n%s\n", msg);
@@ -4752,7 +4745,6 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
     const char*     ptr;
     int             search_index;
     bool            found = false;
-    T_ActionResult  actionResult;
     unsigned long int invite_cseq = 0;
 
     update_clock_tick();
@@ -5757,18 +5749,8 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
     if (found) {
         //WARNING("---EXECUTE_ACTION_ON_MSG---%s---", msg);
 
-        actionResult = executeAction(msg, call_scenario->messages[search_index]);
-
-        if(actionResult != call::E_AR_NO_ERROR) {
-            // Store last action result if it is an error
-            // and go on with the scenario
-            call::last_action_result = actionResult;
-            if (actionResult == E_AR_STOP_CALL) {
-                return rejectCall();
-            } else if (actionResult == E_AR_CONNECT_FAILED) {
-                terminate(CStat::E_FAILED_TCP_CONNECT);
-                return false;
-            }
+        if (!handleActionResult(executeAction(msg, call_scenario->messages[search_index]))) {
+            return false; /* call deleted */
         }
     }
 
@@ -6017,6 +5999,26 @@ bool call::rtpstreamWaitTimeout()
     }
     delete this;
     return false;
+}
+
+/* Every step's actions count the same way: a failed check marks the call
+ * as failed when it ends, stop_call and a failed setdest end it now.
+ * Returns false if the call was deleted. */
+bool call::handleActionResult(T_ActionResult actionResult)
+{
+    if (actionResult == E_AR_NO_ERROR) {
+        return true;
+    }
+    // Store last action result if it is an error
+    // and go on with the scenario
+    last_action_result = actionResult;
+    if (actionResult == E_AR_STOP_CALL) {
+        return rejectCall();
+    } else if (actionResult == E_AR_CONNECT_FAILED) {
+        terminate(CStat::E_FAILED_TCP_CONNECT);
+        return false;
+    }
+    return true;
 }
 
 call::T_ActionResult call::executeAction(const char* msg, message* curmsg)

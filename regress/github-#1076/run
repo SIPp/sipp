@@ -1,0 +1,20 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The actions of a <send> count like those of a <recv>: a failed check
+# fails the call. And stop_call on a <nop> stops the call at once.
+. "`dirname "$0"`/../functions"; init
+
+sippfg -sf send.xml -i 127.0.0.1 -p 27300 -m 1 127.0.0.1:27301 \
+    -timeout 5 -timeout_error >/dev/null 2>&1
+send_status=$?
+sippfg -sf nop.xml -i 127.0.0.1 -p 27302 -m 1 127.0.0.1:27303 \
+    -timeout 2 -timeout_error >/dev/null 2>&1
+nop_status=$?
+
+if test $send_status -ne 1; then
+    fail "the failed check on send gave $send_status, not 1"
+elif test $nop_status -ne 1; then
+    fail "stop_call on nop gave $nop_status, not 1"
+else
+    ok
+fi

@@ -273,6 +273,7 @@ protected:
 
     bool executeMessage(message *curmsg);
     T_ActionResult executeAction(const char* msg, message* message);
+    bool  handleActionResult(T_ActionResult actionResult);
     void extractSubMessage(const char* msg, char* matchingString, char* result, bool case_indep,
                            int occurrence, bool headers);
     bool  rejectCall();
