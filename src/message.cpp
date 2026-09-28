@@ -226,18 +226,15 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
 
         /* This hex encoding could be done in XML parsing, allowing us to skip
          * these conditionals and branches. */
-        if ((*src == '\\') && (*(src+1) == 'x')) {
-            /* Allows any hex coded char like '\x5B' ([) */
+        if ((*src == '\\') && (*(src+1) == 'x') && isxdigit(*(src+2))) {
+            /* Allows any hex coded char like '\x5B' ([): one or two hex
+             * digits; a "\x" without one stays as it is. */
             src += 2;
+            int val = get_decimal_from_hex(*src++);
             if (isxdigit(*src)) {
-                int val = get_decimal_from_hex(*src);
-                src++;
-                if (isxdigit(*src)) {
-                    val = (val << 4) + get_decimal_from_hex(*src);
-                }
-                *dest++ = val & 0xff;
+                val = (val << 4) + get_decimal_from_hex(*src++);
             }
-            src++;
+            *dest++ = val & 0xff;
         } else if (*src == '\n') {
             *dest++ = '\r';
             *dest++ = *src++;
@@ -712,6 +709,14 @@ TEST(SendingMessage, EscapedBracket) {
     EXPECT_STREQ("A[b ", m.getComponent(0)->literal);
     EXPECT_EQ(E_Message_Call_Number, m.getComponent(1)->type);
     EXPECT_STREQ(" c]Z", m.getComponent(2)->literal);
+}
+
+TEST(SendingMessage, HexEscape) {
+    /* One or two hex digits; nothing after them is eaten, and a "\x"
+     * without a hex digit stays as it is. */
+    SendingMessage m(nullptr, "A\\x5\nB\\xgC\\x41\\x4g1\\x", true);
+    ASSERT_EQ(1, m.numComponents());
+    EXPECT_STREQ("A\x05\r\nB\\xgCA\x04" "g1\\x", m.getComponent(0)->literal);
 }
 
 TEST(SendingMessage, NestedKeyword) {

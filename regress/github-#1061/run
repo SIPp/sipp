@@ -1,0 +1,27 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A \x escape takes the one or two hex digits after it and no more: it
+# does not eat the end of the line or the text, and a \x without a hex
+# digit stays as it is.
+. "`dirname "$0"`/../functions"; init
+
+rm -f uac_*_messages.log uac_*_logs.log
+sippfg -sf uac.xml -i 127.0.0.1 -p 24310 -m 1 -timeout 10 \
+    127.0.0.1:24311 -trace_msg -trace_logs >/dev/null 2>&1
+status=$?
+one=`grep -a '^X-One:' uac_*_messages.log 2>/dev/null | tr '\004\r' '#_'`
+two=`grep -a '^X-Two:' uac_*_messages.log 2>/dev/null | tr '\004\r' '#_'`
+logs=`cat uac_*_logs.log 2>/dev/null`
+rm -f uac_*_messages.log uac_*_logs.log
+
+if test $status -ne 0; then
+    fail "the scenario failed with $status"
+elif test "$one" != "X-One: A#_"; then
+    fail "sent '$one', not 'X-One: A#_' (^D as #, CR as _)"
+elif test "$two" != "X-Two: A#g1\\xg2_"; then
+    fail "sent '$two', not 'X-Two: A#g1\\xg2_'"
+elif test "$logs" != "A\\xg\\x"; then
+    fail "logged '$logs', not 'A\\xg\\x'"
+else
+    ok
+fi
