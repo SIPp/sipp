@@ -3435,7 +3435,7 @@ void SIPpSocket::pollset_process(int wait)
 #endif
 
 #ifdef USE_SCTP
-            if (transport == T_SCTP && sock->sctpstate != SCTP_UP);
+            if (sock->ss_transport == T_SCTP && sock->sctpstate != SCTP_UP);
             else
 #endif
             {

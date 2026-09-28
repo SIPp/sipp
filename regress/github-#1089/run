@@ -1,0 +1,25 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# 3PCC over SCTP: the controllers' commands go over their TCP twin
+# socket, which is flushed once connected as over any other transport.
+. "`dirname "$0"`/../functions"; init
+
+"`get_sipp`" -v | grep -q SCTP || skip "no SCTP"
+perl -e 'use Socket; socket(S, PF_INET, SOCK_STREAM, 132) || exit 1' ||
+    skip "no SCTP sockets"
+
+run() {
+    sippfg -t s1 -i 127.0.0.1 -m 2 -timeout 5 "$@" >/dev/null 2>&1
+}
+
+run -sn 3pcc-A -p 28010 &
+run -sn 3pcc-B -p 28012 &
+sleep 0.5
+run -sn 3pcc-C-B -p 28011 -3pcc 127.0.0.1:28014 127.0.0.1:28010 &
+sleep 0.5
+# Only controller A's calls tell: as over any transport, the other
+# roles may fail their last call as the run ends.
+run -sn 3pcc-C-A -p 28013 -3pcc 127.0.0.1:28014 127.0.0.1:28012
+status=$?
+test $status -eq 0 || fail "3pcc-C-A exited with $status"
+ok
