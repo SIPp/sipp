@@ -1,0 +1,28 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A NULL_HMAC_SHA1_32 or NULL_HMAC_SHA1_80 line marked UNENCRYPTED_SRTP
+# is received with the NULL cipher and its own tag length, as without
+# the mark. The UAC exits with 253 if the echoed RTP does not match.
+. "`dirname "$0"`/../functions"; init
+
+fail=
+for tag in 32 80; do
+    sippbg -sf uas$tag.xml -i 127.0.0.1 -p 27580 -m 1 \
+        -min_rtp_port 27590 -max_rtp_port 27599 -timeout 10
+    uas=$pid
+    sippfg -sf uac$tag.xml -i 127.0.0.1 -p 27581 -m 1 \
+        -min_rtp_port 27600 -max_rtp_port 27609 \
+        127.0.0.1:27580 -timeout 10 >/dev/null 2>&1
+    status=$?
+    wait $uas
+    if test $status -ne 0; then
+        fail="NULL_HMAC_SHA1_$tag: the UAC failed with $status"
+        break
+    fi
+done
+
+if test -n "$fail"; then
+    fail "$fail"
+else
+    ok
+fi
