@@ -875,13 +875,13 @@ static void sipp_sigusr2(int /* not used */)
     }
 }
 
+/* ERROR() and the exit it makes are not safe in a signal handler, which
+ * may have interrupted a malloc: the traffic loop acts on the timeout. */
+static std::atomic<bool> timeout_fired{false};
+
 void timeout_alarm(int /*param*/)
 {
-    if (timeout_error) {
-        ERROR("%s timed out after '%.3lf' seconds", scenario_file, ((double)clock_tick / 1000LL));
-    }
-    quitting = 11;
-    timeout_exit = true;
+    timeout_fired = true;
 }
 
 /* Send loop & traffic generation*/
@@ -930,6 +930,15 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
         }
         scheduling_loops++;
         update_clock_tick();
+
+        if (timeout_fired) {
+            timeout_fired = false;
+            if (timeout_error) {
+                ERROR("%s timed out after '%.3lf' seconds", scenario_file, ((double)clock_tick / 1000LL));
+            }
+            quitting = 11;
+            timeout_exit = true;
+        }
 
         if (signalDump) {
             /* Screen dumping in a file */
