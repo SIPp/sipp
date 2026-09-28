@@ -1,0 +1,38 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A TLS read that finds no complete record yet is retried silently, as
+# EAGAIN is on TCP: it is neither logged nor counted as a warning.
+. "`dirname "$0"`/../functions"; init
+
+"`get_sipp`" -v | grep -q TLS || skip "no TLS"
+command -v openssl >/dev/null || skip "no openssl"
+
+dir=`mktemp -d`
+openssl req -x509 -newkey rsa:2048 -nodes -keyout "$dir/key.pem" \
+    -out "$dir/cert.pem" -days 1 -subj /CN=sipp >/dev/null 2>&1 ||
+    skip "no certificate"
+tls="-t l1 -tls_cert $dir/cert.pem -tls_key $dir/key.pem"
+# No watchdog warnings on a loaded host: only the TLS reads may warn.
+wd="-watchdog_minor_threshold 60000 -watchdog_major_threshold 60000"
+
+sippbg -sn uas $tls -i 127.0.0.1 -p 26710 -m 1 -timeout 10 $wd \
+    -trace_err -error_file "$dir/uas.log"
+sippfg -sn uac $tls -i 127.0.0.1 -p 26711 -m 1 -timeout 10 $wd \
+    127.0.0.1:26710 -trace_err -error_file "$dir/uac.log" \
+    -trace_stat -stf "$dir/uac.csv" >/dev/null 2>&1
+status=$?
+wait
+warnings=`awk -F';' 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == "Warnings(C)") c = i }
+    END { print $c }' "$dir/uac.csv"`
+retries=`cat "$dir"/*.log 2>/dev/null | grep 'SSL_ERROR_WANT'`
+rm -rf "$dir"
+
+if test $status -ne 0; then
+    fail "the call failed with $status"
+elif test -n "$retries"; then
+    fail "`echo "$retries" | head -n 1`"
+elif test "$warnings" != 0; then
+    fail "$warnings warnings"
+else
+    ok
+fi

@@ -1977,9 +1977,8 @@ int SIPpSocket::read_error(int ret)
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
             /* This is benign - we just need to wait for the socket to be
              * readable/writable again, which will happen naturally as part
-             * of the poll/epoll loop. */
-            WARNING("SSL_read failed with error: %s. Retrying...",
-                    SSL_error_string(err, ret));
+             * of the poll/epoll loop. It is no more a warning than EAGAIN
+             * is on TCP. */
             return 1;
         }
     }
