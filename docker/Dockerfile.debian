@@ -1,6 +1,7 @@
 # Usage (from within the git repo):
 #   git submodule update --init
 #   docker build -t sipp -f docker/Dockerfile.debian .
+# Add --build-arg UNITTEST=1 to also build and run sipp_unittest.
 
 FROM debian:12-slim AS build
 
@@ -30,6 +31,7 @@ COPY include include
 COPY gtest gtest
 
 ARG DEBUG=''
+ARG UNITTEST=''
 RUN --mount=type=bind,target=.git,source=.git \
   git config --global --add safe.directory /sipp && \
   cmake . -G Ninja \
@@ -40,7 +42,8 @@ RUN --mount=type=bind,target=.git,source=.git \
     ${WOLFSSL:+-DUSE_WOLFSSL=1} \
     ${DEBUG:+-DDEBUG=1} \
     ${FULL:+-DUSE_SCTP=1} \
-  && ninja
+  && ninja \
+  && if [ -n "$UNITTEST" ]; then ninja sipp_unittest && ./sipp_unittest; fi
 
 FROM debian:12-slim
 CMD ["sipp"]

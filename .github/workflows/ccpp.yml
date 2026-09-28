@@ -96,4 +96,4 @@ jobs:
     - name: prepare
       run: git submodule update --init
     - name: build-wolfssl
-      run: docker build -f docker/Dockerfile.debian --build-arg WOLFSSL=1 .
+      run: docker build -f docker/Dockerfile.debian --build-arg WOLFSSL=1 --build-arg UNITTEST=1 .
