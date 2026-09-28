@@ -1,0 +1,25 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# sipp.dtd declares the elements and attributes that SIPp takes, such
+# as <recv ignoresdp advance_state>, <recvCmd optional> and <Global>:
+# the scenarios here use them, pass validation, and run.
+. "`dirname "$0"`/../functions"; init
+
+command -v xmllint >/dev/null || skip "no xmllint"
+for f in uac.xml master.xml slave.xml; do
+    xmllint --noout --dtdvalid ../../sipp.dtd $f 2>/dev/null ||
+        fail "$f does not validate against sipp.dtd"
+done
+
+sippbg -sn uas -i 127.0.0.1 -p 26300 -m 1
+sippfg -sf uac.xml -i 127.0.0.1 -p 26301 127.0.0.1:26300 -m 1 \
+    -timeout 8 -timeout_error >/dev/null 2>&1 || fail "the UAC failed"
+
+sippfg -sf slave.xml -slave s1 -slave_cfg cfg -i 127.0.0.1 -p 26304 \
+    -m 1 -timeout 8 -timeout_error >/dev/null 2>&1 &
+slave=$!
+sleep 1
+sippfg -sf master.xml -master m -slave_cfg cfg -i 127.0.0.1 -p 26305 \
+    -m 1 -timeout 8 -timeout_error >/dev/null 2>&1 || fail "the master failed"
+wait $slave || fail "the slave failed"
+ok

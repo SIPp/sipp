@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- A UAC with the elements and attributes that SIPp takes but that
+     sipp.dtd once left out. -->
+<scenario name="sipp.dtd UAC">
+  <Global variables="calls"/>
+  <User variables="seen"/>
+  <DefaultMessage id="bye">
+    <![CDATA[
+      BYE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: [service] <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 2 BYE
+      Content-Length: 0
+    ]]>
+  </DefaultMessage>
+  <send retrans="500" timeout="5000" ontimeout="end">
+    <![CDATA[
+      INVITE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: [service] <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 INVITE
+      Contact: sip:sipp@[local_ip]:[local_port]
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv response="100" optional="true"/>
+  <recv response="180" optional="global" advance_state="false"/>
+  <recv response="200" ignoresdp="true"/>
+  <send>
+    <![CDATA[
+      ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: [service] <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 1 ACK
+      Content-Length: 0
+    ]]>
+  </send>
+  <nop hide="true" hiderest="false" display="count">
+    <action>
+      <add assign_to="calls" value="1"/>
+      <assign assign_to="seen" value="1"/>
+    </action>
+  </nop>
+  <send retrans="500">
+    <![CDATA[
+      BYE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: [service] <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 2 BYE
+      Content-Length: 0
+    ]]>
+  </send>
+  <recv response="200"/>
+  <label id="end"/>
+  <timewait distribution="uniform" min="10" max="20"/>
+  <Reference variables="calls,seen"/>
+</scenario>
