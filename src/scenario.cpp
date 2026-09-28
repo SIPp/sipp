@@ -265,19 +265,12 @@ static char* xp_get_keyword_value(const char *name)
 static char* xp_get_string(const char *name, const char *what)
 {
     const char *ptr;
-    char *unescaped;
 
     if (!(ptr = xp_get_value(name))) {
         ERROR("%s is missing the required '%s' parameter.", what, name);
     }
 
-    unescaped = (char *)malloc(strlen(ptr) + 1);
-    if (!unescaped) {
-        ERROR("Out of memory!");
-    }
-    xp_unescape(ptr, unescaped);
-
-    return unescaped;
+    return strdup(ptr);
 }
 
 static double xp_get_double(const char *name, const char *what)
@@ -1885,12 +1878,12 @@ void scenario::getCommonAttributes(message *message)
 
 int createStringTable(const char* inputString, char*** stringList, int* sizeOfList)
 {
+    *stringList = nullptr;
+    *sizeOfList = 0;
+
     if(!inputString) {
         return 0;
     }
-
-    *stringList = nullptr;
-    *sizeOfList = 0;
 
     /* FIXME: temporary workaround: needs rewrite */
     char* input = const_cast<char*>(inputString);
