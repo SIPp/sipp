@@ -68,6 +68,8 @@ struct taskentry_t
     unsigned long long   last_video_timestamp;
     unsigned short       audio_seq_out;
     unsigned short       video_seq_out;
+    unsigned short       audio_seq_check; /* the first packet of the pattern */
+    unsigned short       audio_seq_echoed; /* the latest packet echoed */
     char                 audio_payload_type;
     char                 video_payload_type;
     unsigned int         audio_ssrc_id;

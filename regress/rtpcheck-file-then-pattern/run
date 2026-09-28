@@ -1,0 +1,22 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A call plays an rtp_stream file, then an apattern, which the UAS
+# echoes: the RTP check checks the pattern, not the file or its echoes.
+. "`dirname "$0"`/../functions"; init
+
+yes 0123456789 | head -c 1600 >audio.ulaw
+sippbg -sf uas.xml -i 127.0.0.1 -p 26110 -m 3 \
+    -min_rtp_port 28600 -max_rtp_port 28799
+sippfg -sf uac.xml -i 127.0.0.1 -p 26111 -m 3 -l 1 \
+    -min_rtp_port 28400 -max_rtp_port 28599 -audiotolerance 0.2 \
+    127.0.0.1:26110 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+rm -f audio.ulaw
+
+if test $status -eq 253; then
+    fail "the RTP check failed"
+elif test $status -ne 0; then
+    fail "UAC failed with $status"
+else
+    ok
+fi
