@@ -121,6 +121,22 @@ typedef enum {
     E_Message_UEAesCm128Sha1802Video,
     E_Message_UEAesCm128Sha1321Video,
     E_Message_UEAesCm128Sha1322Video,
+    E_Message_CryptoSuiteAesCm192Sha1801Audio,
+    E_Message_CryptoSuiteAesCm192Sha1802Audio,
+    E_Message_CryptoSuiteAesCm192Sha1321Audio,
+    E_Message_CryptoSuiteAesCm192Sha1322Audio,
+    E_Message_CryptoSuiteAesCm256Sha1801Audio,
+    E_Message_CryptoSuiteAesCm256Sha1802Audio,
+    E_Message_CryptoSuiteAesCm256Sha1321Audio,
+    E_Message_CryptoSuiteAesCm256Sha1322Audio,
+    E_Message_CryptoSuiteAesCm192Sha1801Video,
+    E_Message_CryptoSuiteAesCm192Sha1802Video,
+    E_Message_CryptoSuiteAesCm192Sha1321Video,
+    E_Message_CryptoSuiteAesCm192Sha1322Video,
+    E_Message_CryptoSuiteAesCm256Sha1801Video,
+    E_Message_CryptoSuiteAesCm256Sha1802Video,
+    E_Message_CryptoSuiteAesCm256Sha1321Video,
+    E_Message_CryptoSuiteAesCm256Sha1322Video,
 } MessageCompType;
 
 class SendingMessage

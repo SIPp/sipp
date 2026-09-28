@@ -46,10 +46,10 @@ struct SrtpInfoParams
     bool found;
     int primary_cryptotag;
     char primary_cryptosuite[25];
-    char primary_cryptokeyparams[42];
+    char primary_cryptokeyparams[65];
     int secondary_cryptotag;
     char secondary_cryptosuite[25];
-    char secondary_cryptokeyparams[42];
+    char secondary_cryptokeyparams[65];
     bool primary_unencrypted_srtp;
     bool secondary_unencrypted_srtp;
 };
