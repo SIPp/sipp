@@ -57,8 +57,11 @@ struct SrtpInfoParams
 struct threaddata_t;
 struct taskentry_t;
 
+/* Made with new taskentry_t(), which zeroes what has no initializer */
 struct taskentry_t
 {
+    ~taskentry_t();
+
     threaddata_t         *parent_thread;
     unsigned long        nextwake_ms;
     volatile int         flags;
@@ -118,10 +121,10 @@ struct taskentry_t
     int                  new_video_timeticks_per_packet;
 
     /* sockets for audio/video rtp_rtcp */
-    int                  audio_rtp_socket;
-    int                  audio_rtcp_socket;
-    int                  video_rtp_socket;
-    int                  video_rtcp_socket;
+    int                  audio_rtp_socket = -1;
+    int                  audio_rtcp_socket = -1;
+    int                  video_rtp_socket = -1;
+    int                  video_rtcp_socket = -1;
 
     /* audio/video SRTP echo activity indicators */
     int                  audio_srtp_echo_active;
