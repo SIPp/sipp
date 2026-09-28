@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- A slave whose first command is optional. -->
+<scenario name="sipp.dtd slave">
+  <recvCmd src="m" optional="global"/>
+  <recvCmd src="m"/>
+  <sendCmd dest="m">
+    <![CDATA[
+      Call-ID: [call_id]
+      From: s1
+    ]]>
+  </sendCmd>
+</scenario>

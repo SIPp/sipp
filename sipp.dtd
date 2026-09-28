@@ -1,4 +1,4 @@
-<!ELEMENT scenario ( init | CallLengthRepartition | ResponseTimeRepartition | Reference | send | recv | pause | nop | sendCmd | recvCmd | label | timewait)* >
+<!ELEMENT scenario ( init | CallLengthRepartition | ResponseTimeRepartition | Global | User | Reference | DefaultMessage | send | recv | pause | nop | sendCmd | recvCmd | label | timewait)* >
 <!ATTLIST scenario name CDATA #IMPLIED >
 
 <!ELEMENT init ( nop | label )* >
@@ -34,6 +34,8 @@
   condexec NMTOKEN #IMPLIED
   condexec_inverse NMTOKEN #IMPLIED
   counter NMTOKEN #IMPLIED
+  hide (true|false) #IMPLIED
+  hiderest (true|false) #IMPLIED
   '>
 
 <!ELEMENT send (#PCDATA|action)* >
@@ -42,13 +44,16 @@
 <!ATTLIST send lost NMTOKEN #IMPLIED >
 <!ATTLIST send start_txn NMTOKEN #IMPLIED >
 <!ATTLIST send ack_txn NMTOKEN #IMPLIED >
+<!ATTLIST send timeout NMTOKEN #IMPLIED >
+<!ATTLIST send ontimeout NMTOKEN #IMPLIED >
 
 <!ELEMENT recv ( action? ) >
 <!ATTLIST recv %messageCmdCommon; >
 <!ATTLIST recv response CDATA #IMPLIED >
 <!ATTLIST recv request CDATA #IMPLIED >
 <!ATTLIST recv optional (true|global|false) #IMPLIED >
-<!ATTLIST recv ignosesdp (true|false) #IMPLIED >
+<!ATTLIST recv advance_state (true|false) #IMPLIED >
+<!ATTLIST recv ignoresdp (true|false) #IMPLIED >
 <!ATTLIST recv rrs (true|false) #IMPLIED >
 <!ATTLIST recv auth (true|false) #IMPLIED >
 <!ATTLIST recv lost NMTOKEN #IMPLIED >
@@ -77,6 +82,7 @@
 <!ELEMENT recvCmd ( action? ) >
 <!ATTLIST recvCmd %messageCmdCommon; >
 <!ATTLIST recvCmd src NMTOKEN #IMPLIED >
+<!ATTLIST recvCmd optional (true|global|false) #IMPLIED >
 
 <!-- END message commands -->
 
@@ -233,8 +239,25 @@
 
 <!-- END actions -->
 
+<!-- a pause that ends the scenario, without next or ontimeout -->
 <!ELEMENT timewait EMPTY >
-<!ATTLIST timewait milliseconds CDATA #REQUIRED >
+<!ATTLIST timewait %messageCmdCommon; >
+<!ATTLIST timewait milliseconds NMTOKEN #IMPLIED >
+<!ATTLIST timewait variable NMTOKEN #IMPLIED >
+<!ATTLIST timewait distribution NMTOKEN #IMPLIED >
+<!ATTLIST timewait %distributionParams; >
+<!ATTLIST timewait sanity_check (true|false) #IMPLIED >
+
+<!ELEMENT Global EMPTY >
+<!ATTLIST Global variables CDATA #REQUIRED >
+
+<!ELEMENT User EMPTY >
+<!ATTLIST User variables CDATA #REQUIRED >
 
 <!ELEMENT Reference EMPTY >
 <!ATTLIST Reference variables CDATA #REQUIRED >
+
+<!-- replaces one of SIPp's built-in messages, such as the BYE of an
+     aborted call -->
+<!ELEMENT DefaultMessage ( #PCDATA ) >
+<!ATTLIST DefaultMessage id (3pcc_abort|ack|ack2|bye|cancel|200) #REQUIRED >
