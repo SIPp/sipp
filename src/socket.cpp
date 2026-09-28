@@ -2091,18 +2091,30 @@ int SIPpSocket::write_error(int ret)
         return -1;
     }
 
+    /* A connection that is gone, or that could not be made (a buffered
+     * message flushed once a reconnection is refused), is reset as a
+     * read finding it so would. Only warning here left it dead, and the
+     * next read took it for one the peer closed. */
+    int err = errno;
     if ((ss_transport == T_TCP || ss_transport == T_SCTP || ss_transport == T_WS)
-            && errno == EPIPE) {
+            && (err == EPIPE || err == ECONNRESET || err == ECONNREFUSED || err == ENOTCONN)) {
         nb_net_send_errors++;
         sockets_pending_reset.insert(this);
         drop_connection();
-        if (reconnect_allowed()) {
-            WARNING("Broken pipe on TCP connection, remote peer "
-                    "probably closed the socket");
+        if (err == EPIPE) {
+            if (reconnect_allowed()) {
+                WARNING("Broken pipe on TCP connection, remote peer "
+                        "probably closed the socket");
+            } else {
+                ERROR("Broken pipe on TCP connection, remote peer "
+                      "probably closed the socket");
+            }
+        } else if (reconnect_allowed()) {
+            WARNING("Error on TCP connection, remote peer probably closed the socket: %s", errstring);
         } else {
-            ERROR("Broken pipe on TCP connection, remote peer "
-                  "probably closed the socket");
+            ERROR("Error on TCP connection, remote peer probably closed the socket: %s", errstring);
         }
+        errno = err;
         return -1;
     }
 
