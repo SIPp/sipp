@@ -4970,13 +4970,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                             _rxUACAudio.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
                             _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
                         }
-                        else if (!strcmp(pA.primary_cryptosuite, "NULL_HMAC_SHA1_80") && !pA.primary_unencrypted_srtp)
+                        else if (!strcmp(pA.primary_cryptosuite, "NULL_HMAC_SHA1_80"))
                         {
                             logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_cryptosuite);
                             _rxUACAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
                             _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
                         }
-                        else if (!strcmp(pA.primary_cryptosuite, "NULL_HMAC_SHA1_32") && !pA.primary_unencrypted_srtp)
+                        else if (!strcmp(pA.primary_cryptosuite, "NULL_HMAC_SHA1_32"))
                         {
                             logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_cryptosuite);
                             _rxUACAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
@@ -5021,13 +5021,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                             _rxUACAudio.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
                             _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
                         }
-                        else if (!strcmp(pA.secondary_cryptosuite, "NULL_HMAC_SHA1_80") && !pA.secondary_unencrypted_srtp)
+                        else if (!strcmp(pA.secondary_cryptosuite, "NULL_HMAC_SHA1_80"))
                         {
                             logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_cryptosuite);
                             _rxUACAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
                             _rxUACAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
                         }
-                        else if (!strcmp(pA.secondary_cryptosuite, "NULL_HMAC_SHA1_32") && !pA.secondary_unencrypted_srtp)
+                        else if (!strcmp(pA.secondary_cryptosuite, "NULL_HMAC_SHA1_32"))
                         {
                             logSrtpInfo("call::process_incoming():  (b) RX-UAC-AUDIO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_cryptosuite);
                             _rxUACAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
@@ -5093,13 +5093,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                             _rxUASAudio.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
                             _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
                         }
-                        else if (!strcmp(pA.primary_cryptosuite, "NULL_HMAC_SHA1_80") && !pA.primary_unencrypted_srtp)
+                        else if (!strcmp(pA.primary_cryptosuite, "NULL_HMAC_SHA1_80"))
                         {
                             logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_cryptosuite);
                             _rxUASAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
                             _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
                         }
-                        else if (!strcmp(pA.primary_cryptosuite, "NULL_HMAC_SHA1_32") && !pA.primary_unencrypted_srtp)
+                        else if (!strcmp(pA.primary_cryptosuite, "NULL_HMAC_SHA1_32"))
                         {
                             logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pA.primary_cryptosuite);
                             _rxUASAudio.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
@@ -5144,13 +5144,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                             _rxUASAudio.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
                             _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
                         }
-                        else if (!strcmp(pA.secondary_cryptosuite, "NULL_HMAC_SHA1_80") && !pA.secondary_unencrypted_srtp)
+                        else if (!strcmp(pA.secondary_cryptosuite, "NULL_HMAC_SHA1_80"))
                         {
                             logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_cryptosuite);
                             _rxUASAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
                             _rxUASAudio.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
                         }
-                        else if (!strcmp(pA.secondary_cryptosuite, "NULL_HMAC_SHA1_32") && !pA.secondary_unencrypted_srtp)
+                        else if (!strcmp(pA.secondary_cryptosuite, "NULL_HMAC_SHA1_32"))
                         {
                             logSrtpInfo("call::process_incoming():  (c) RX-UAS-AUDIO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pA.secondary_cryptosuite);
                             _rxUASAudio.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
@@ -5235,13 +5235,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                             _rxUACVideo.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
                             _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
                         }
-                        else if (!strcmp(pV.primary_cryptosuite, "NULL_HMAC_SHA1_80") && !pV.primary_unencrypted_srtp)
+                        else if (!strcmp(pV.primary_cryptosuite, "NULL_HMAC_SHA1_80"))
                         {
                             logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_cryptosuite);
                             _rxUACVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
                             _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
                         }
-                        else if (!strcmp(pV.primary_cryptosuite, "NULL_HMAC_SHA1_32") && !pV.primary_unencrypted_srtp)
+                        else if (!strcmp(pV.primary_cryptosuite, "NULL_HMAC_SHA1_32"))
                         {
                             logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_cryptosuite);
                             _rxUACVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
@@ -5286,13 +5286,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                             _rxUACVideo.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
                             _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
                         }
-                        else if (!strcmp(pV.secondary_cryptosuite, "NULL_HMAC_SHA1_80") && !pV.secondary_unencrypted_srtp)
+                        else if (!strcmp(pV.secondary_cryptosuite, "NULL_HMAC_SHA1_80"))
                         {
                             logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_cryptosuite);
                             _rxUACVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
                             _rxUACVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
                         }
-                        else if (!strcmp(pV.secondary_cryptosuite, "NULL_HMAC_SHA1_32") && !pV.secondary_unencrypted_srtp)
+                        else if (!strcmp(pV.secondary_cryptosuite, "NULL_HMAC_SHA1_32"))
                         {
                             logSrtpInfo("call::process_incoming():  (b) RX-UAC-VIDEO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_cryptosuite);
                             _rxUACVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
@@ -5358,13 +5358,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                             _rxUASVideo.selectCipherAlgorithm(AES_CM_128, PRIMARY_CRYPTO);
                             _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_32, PRIMARY_CRYPTO);
                         }
-                        else if (!strcmp(pV.primary_cryptosuite, "NULL_HMAC_SHA1_80") && !pV.primary_unencrypted_srtp)
+                        else if (!strcmp(pV.primary_cryptosuite, "NULL_HMAC_SHA1_80"))
                         {
                             logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_cryptosuite);
                             _rxUASVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
                             _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_80, PRIMARY_CRYPTO);
                         }
-                        else if (!strcmp(pV.primary_cryptosuite, "NULL_HMAC_SHA1_32") && !pV.primary_unencrypted_srtp)
+                        else if (!strcmp(pV.primary_cryptosuite, "NULL_HMAC_SHA1_32"))
                         {
                             logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- ENCRYPTION -- primary cryptosuite: [%s]\n", pV.primary_cryptosuite);
                             _rxUASVideo.selectCipherAlgorithm(NULL_CIPHER, PRIMARY_CRYPTO);
@@ -5409,13 +5409,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                             _rxUASVideo.selectCipherAlgorithm(AES_CM_128, SECONDARY_CRYPTO);
                             _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_32, SECONDARY_CRYPTO);
                         }
-                        else if (!strcmp(pV.secondary_cryptosuite, "NULL_HMAC_SHA1_80") && !pV.secondary_unencrypted_srtp)
+                        else if (!strcmp(pV.secondary_cryptosuite, "NULL_HMAC_SHA1_80"))
                         {
                             logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_cryptosuite);
                             _rxUASVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
                             _rxUASVideo.selectHashAlgorithm(HMAC_SHA1_80, SECONDARY_CRYPTO);
                         }
-                        else if (!strcmp(pV.secondary_cryptosuite, "NULL_HMAC_SHA1_32") && !pV.secondary_unencrypted_srtp)
+                        else if (!strcmp(pV.secondary_cryptosuite, "NULL_HMAC_SHA1_32"))
                         {
                             logSrtpInfo("call::process_incoming():  (c) RX-UAS-VIDEO SRTP context -- ENCRYPTION -- secondary cryptosuite: [%s]\n", pV.secondary_cryptosuite);
                             _rxUASVideo.selectCipherAlgorithm(NULL_CIPHER, SECONDARY_CRYPTO);
