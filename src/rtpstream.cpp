@@ -576,6 +576,10 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
     /* Take a new play under the mutex, for rtpstream_is_playing() to see
      * it either in the flags or in the loop counts. */
     pthread_mutex_lock(&(taskinfo->mutex));
+    if (taskinfo->flags & (TI_PLAYFILE | TI_PLAYAPATTERN | TI_PLAYVPATTERN)) {
+        /* it starts now, not at the task's next wake-up */
+        taskinfo->nextwake_ms = 0;
+    }
     if (taskinfo->flags & TI_PLAYFILE) {
         rtpstream_check_verdict(taskinfo, false, rtpresult);
         /* copy playback information */
@@ -1580,7 +1584,7 @@ static void* rtpstream_playback_thread(void* params)
             {
                 if (echo_fds[0].revents)
                 {
-                    /* a new pcap play or echo: start it now */
+                    /* a new play, pcap play or echo: start it now */
                     while (read(threaddata->wake_fds[0], wake_buffer, sizeof(wake_buffer)) > 0)
                     {
                     }
@@ -1653,8 +1657,8 @@ static void* rtpstream_playback_thread(void* params)
     return nullptr;
 }
 
-/* Wake a playback thread up, to start a new pcap play or echo now and
- * not after its sleep of up to 100 ms; a full pipe means it wakes up
+/* Wake a playback thread up, to start a new play, pcap play or echo now
+ * and not after its sleep of up to 100 ms; a full pipe means it wakes up
  * anyway */
 static void rtpstream_wake(threaddata_t* threaddata)
 {
@@ -2561,6 +2565,10 @@ static void rtpstream_play_srtp(taskentry_t* taskinfo, bool video, int flag,
     }
     taskinfo->flags |= flag;
     pthread_mutex_unlock(&(taskinfo->mutex));
+
+    if (taskinfo->parent_thread) {
+        rtpstream_wake(taskinfo->parent_thread);
+    }
 }
 
 /* code checked */
