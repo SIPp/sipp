@@ -1,0 +1,46 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -trace_rtt times the calls of the -rxsn and -oocsf scenarios too, each
+# scenario in its own file: one response time in each here.
+. "`dirname "$0"`/../functions"; init
+
+rm -f ./*_rtt.csv
+sippbg -sn uas -i 127.0.0.1 -p 25960 -m 1 -timeout 15
+uas=$pid
+sippbg -sn uac -rxsn uas -oocsf ooc.xml -i 127.0.0.1 -p 25961 \
+    127.0.0.1:25960 -m 1 -d 3000 -timeout 15 -trace_rtt
+mixed=$pid
+sippfg -sn uac -i 127.0.0.1 -p 25962 127.0.0.1:25961 -m 1 -timeout 10 \
+    >/dev/null 2>&1
+rx=$?
+sippfg -sf options.xml -i 127.0.0.1 -p 25963 127.0.0.1:25961 -m 1 \
+    -timeout 10 >/dev/null 2>&1
+ooc=$?
+wait $mixed
+ret=$?
+wait $uas
+
+# The rtd names of each file's data rows.
+rtds() {
+    for f in ./$1_*_rtt.csv; do
+        test -f "$f" && awk -F';' 'NR > 1 { printf "%s ", $3 }' "$f"
+    done
+}
+main_rtds=`rtds uac`
+rx_rtds=`rtds uas`
+ooc_rtds=`rtds ooc`
+rm -f ./*_rtt.csv
+
+if test $ret -ne 0; then
+    fail "sipp with -rxsn and -oocsf exited with $ret"
+elif test $rx -ne 0 || test $ooc -ne 0; then
+    fail "rx call exit $rx, out-of-call exit $ooc"
+elif test "$main_rtds" != "1 "; then
+    fail "main scenario rtds '$main_rtds', not '1 '"
+elif test "$rx_rtds" != "1 "; then
+    fail "rx scenario rtds '$rx_rtds', not '1 '"
+elif test "$ooc_rtds" != "ooc "; then
+    fail "ooc scenario rtds '$ooc_rtds', not 'ooc '"
+else
+    ok
+fi
