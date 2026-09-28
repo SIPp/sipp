@@ -1,0 +1,22 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An <init> takes no line from a SEQUENTIAL -inf file: it reads the
+# line the first call reads, and the calls still read 1, 2, 3.
+. "`dirname "$0"`/../functions"; init
+
+printf 'SEQUENTIAL\none;\ntwo;\nthree;\n' > lines.csv
+log=`mktemp`
+sippfg -sf uac.xml -inf lines.csv -i 127.0.0.1 -p 27880 -m 3 \
+    127.0.0.1:27881 -trace_logs -log_file "$log" -timeout 5 \
+    >/dev/null 2>&1
+status=$?
+got=`grep -o 'line [a-z]* [a-z]*' "$log" | tr '\n' ' '`
+rm -f "$log" lines.csv
+
+if test $status -ne 0; then
+    fail "SIPp ended with $status"
+elif test "$got" != "line init one line call one line call two line call three "; then
+    fail "read \"$got\""
+else
+    ok
+fi

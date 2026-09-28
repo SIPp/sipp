@@ -31,7 +31,7 @@ public:
     int getLine(int line, char *dest, int len);
     int getField(int line, int field, char *dest, int len);
     int numLines();
-    int nextLine(int userId);
+    int nextLine(int userId, bool advance = true);
     void dump();
     void index(int field);
     int lookup(char *key);
