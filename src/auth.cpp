@@ -643,12 +643,14 @@ static char* base64_decode_string(const char* buf, unsigned int len, int* newlen
         return nullptr;
     }
 
-    // EVP_DecodeBlock doesn't account for padding
-    if (len > 0 && buf[len - 1] == '=') decoded_len--;
-    if (len > 1 && buf[len - 2] == '=') decoded_len--;
+    // OpenSSL decodes the '=' padding as zero bytes, wolfSSL doesn't
+    if (decoded_len == (int)(len / 4 * 3)) {
+        if (len > 0 && buf[len - 1] == '=') decoded_len--;
+        if (len > 1 && buf[len - 2] == '=') decoded_len--;
+    }
 
     out[decoded_len] = '\0';
-    *newlen = decoded_len + 1;
+    *newlen = decoded_len;
     return out;
 }
 
@@ -1024,6 +1026,33 @@ TEST(DigestAuth, SessAlgorithms) {
                                   nullptr, nullptr, nullptr, 1, result, sizeof(result)));
     EXPECT_STREQ("createAuthHeader: authentication must use MD5, MD5-sess, SHA-256, SHA-256-sess, "
                  "SHA-512-256, SHA-512-256-sess or AKAv1-MD5, not 'SHA-384'", result);
+}
+
+TEST(DigestAuth, base64_decode_string) {
+    int len;
+    char* out = base64_decode_string("YWJj", 4, &len);
+    ASSERT_NE(nullptr, out);
+    EXPECT_EQ(3, len);
+    EXPECT_STREQ("abc", out);
+    free(out);
+    out = base64_decode_string("YWJjZGU=", 8, &len);
+    ASSERT_NE(nullptr, out);
+    EXPECT_EQ(5, len);
+    EXPECT_STREQ("abcde", out);
+    free(out);
+    out = base64_decode_string("YWJjZA==", 8, &len);
+    ASSERT_NE(nullptr, out);
+    EXPECT_EQ(4, len);
+    EXPECT_STREQ("abcd", out);
+    free(out);
+    /* Zero bytes are decoded, not taken as padding */
+    out = base64_decode_string("AAAA", 4, &len);
+    ASSERT_NE(nullptr, out);
+    EXPECT_EQ(3, len);
+    EXPECT_EQ(0, memcmp("\0\0\0", out, 4));
+    free(out);
+    EXPECT_EQ(nullptr, base64_decode_string("YW!j", 4, &len));
+    EXPECT_EQ(0, len);
 }
 
 TEST(DigestAuth, AKAv1MD5HexKeys) {
