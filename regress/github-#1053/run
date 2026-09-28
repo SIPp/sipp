@@ -1,0 +1,23 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -timeout counts in milliseconds: 500ms fires (it used to arm no timer
+# at all), and 1500ms fires after 1.5 s, not after 1 s.
+. "`dirname "$0"`/../functions"; init
+
+# elapsed TIMEOUT: runs a UAS until TIMEOUT, sets $ms to how long it ran.
+elapsed() {
+    start=`date +%s%N`
+    timeout -sKILL 5 "$SIPP" -nostdin -sn uas -i 127.0.0.1 -p 23150 \
+        -timeout "$1" >/dev/null 2>&1
+    status=$?
+    ms=$(( (`date +%s%N` - start) / 1000000 ))
+    # No call made: EXIT_TEST_RES_INTERNAL
+    test $status -eq 97 || fail "-timeout $1: exit code $status after $ms ms"
+}
+
+# It never fired: killed after 5 s. A loaded machine may be slow.
+elapsed 500ms
+test $ms -lt 3000 || fail "-timeout 500ms took $ms ms"
+elapsed 1500ms
+test $ms -ge 1400 || fail "-timeout 1500ms took $ms ms"
+ok

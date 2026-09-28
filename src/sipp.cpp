@@ -907,8 +907,13 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
 
     /* Arm the global timer if needed */
     if (global_timeout > 0) {
+        /* In ms: alarm() would take whole seconds, and none at all
+         * under one. */
+        struct itimerval timer = {};
+        timer.it_value.tv_sec = global_timeout / 1000;
+        timer.it_value.tv_usec = (global_timeout % 1000) * 1000;
         signal(SIGALRM, timeout_alarm);
-        alarm(global_timeout / 1000);
+        setitimer(ITIMER_REAL, &timer, nullptr);
     }
 
     // Dump (to create file on disk) and showing screen at the beginning even if
