@@ -1471,7 +1471,9 @@ static void print_last_stats()
     if (sp) {
         sp->print_closing_stats();
     }
-    if (main_scenario) {
+    /* Not on an option error: the trace files it writes to are only
+     * opened once all the options are read and checked. */
+    if (display_scenario) {
         stattask::report();
     }
 }
