@@ -931,7 +931,12 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
 
     while (1) {
         if (exit_requested) {
-            sipp_exit(exit_request_rc, 0, 0);
+            if (exit_request_rc == EXIT_TEST_RES_UNKNOWN) {
+                /* SIGTERM or SIGINT: the RTP checks still count. */
+                rtp_errors = rtpstream_shutdown(main_scenario->fetchRtpTaskThreadIDs());
+                echo_errors = main_scenario->stats->getRtpEchoErrors();
+            }
+            sipp_exit(exit_request_rc, rtp_errors, echo_errors);
         }
         scheduling_loops++;
         update_clock_tick();
@@ -998,9 +1003,6 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
 
                 screentask::report(true);
                 stattask::report();
-                if (useScreenf == 1) {
-                    print_screens();
-                }
                 return;
             }
         }
@@ -1599,6 +1601,11 @@ void sipp_exit(int rc, int rtp_errors, int echo_errors)
     if (rc == EXIT_TEST_RES_UNKNOWN && (rtp_errors > 0 || echo_errors > 0)) {
         WARNING("RTP check failed: %d RTP errors and %d echo errors",
                 rtp_errors, echo_errors);
+    }
+
+    /* Whatever the way out: a signal, a fatal error, stop_now. */
+    if (useScreenf == 1 && screen_lfi.fptr && sp && display_scenario) {
+        print_screens();
     }
 
     screen_exit();

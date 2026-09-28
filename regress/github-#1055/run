@@ -1,0 +1,46 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# SIGTERM and a fatal error (-timeout_error) exit through the same path:
+# they still write the -trace_screen file, which they used to leave
+# empty, and SIGTERM still exits with 253 on a failed RTP check.
+. "`dirname "$0"`/../functions"; init
+
+dir=`mktemp -d`
+trap 'rm -rf "$dir"' EXIT
+cp uac.xml "$dir"
+cd "$dir"
+
+# A UAS without -rtp_echo: the pattern the UAC plays never comes back.
+sippbg -sn uas -i 127.0.0.1 -p 23170 -m 2 \
+    -min_rtp_port 23200 -max_rtp_port 23299
+
+# has_screens PID WHAT: the screen file of that run has the screens.
+has_screens() {
+    f=uac_$1_screen.log
+    test -s "$f" || fail "$2: empty screen file"
+    grep -q 'Scenario Screen' "$f" || fail "$2: no scenario screen"
+}
+
+# SIGTERM while the call plays the pattern.
+"$SIPP" -nostdin -sf uac.xml -i 127.0.0.1 -p 23171 -m 1 -d 10000 \
+    -min_rtp_port 23300 -max_rtp_port 23399 -audiotolerance 0.2 \
+    127.0.0.1:23170 -timeout 20 -trace_screen >/dev/null 2>&1 &
+pid=$!
+sleep 2
+kill -TERM $pid
+wait $pid
+status=$?
+test $status -eq 253 || fail "SIGTERM: exit code $status"
+has_screens $pid SIGTERM
+
+# A fatal error.
+"$SIPP" -nostdin -sf uac.xml -i 127.0.0.1 -p 23172 -m 1 -d 10000 \
+    -min_rtp_port 23400 -max_rtp_port 23499 \
+    127.0.0.1:23170 -timeout 1 -timeout_error -trace_screen \
+    >/dev/null 2>&1 &
+pid=$!
+wait $pid
+status=$?
+test $status -eq 255 || fail "-timeout_error: exit code $status"
+has_screens $pid -timeout_error
+ok
