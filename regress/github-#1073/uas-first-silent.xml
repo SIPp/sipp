@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<scenario name="echo the audio of each call but the first">
+  <recv request="INVITE" />
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: <sip:[local_ip]:[local_port]>
+      Content-Type: application/sdp
+      Content-Length: [len]
+
+      v=0
+      o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]
+      s=-
+      c=IN IP[media_ip_type] [media_ip]
+      t=0 0
+      m=audio [rtpstream_audio_port] RTP/AVP 0
+      a=rtpmap:0 PCMU/8000
+
+    ]]>
+  </send>
+
+  <recv request="ACK">
+    <action>
+      <assignstr assign_to="number" value="[call_number]" />
+      <todouble assign_to="n" variable="number" />
+      <test assign_to="echo" variable="n" compare="greater_than" value="1" />
+    </action>
+  </recv>
+
+  <nop condexec="echo">
+    <action>
+      <exec rtp_echo="startaudio,0,PCMU/8000" />
+    </action>
+  </nop>
+
+  <recv request="BYE" />
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <nop condexec="echo">
+    <action>
+      <exec rtp_echo="stopaudio,0,PCMU/8000" />
+    </action>
+  </nop>
+</scenario>

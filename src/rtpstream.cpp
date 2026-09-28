@@ -194,7 +194,6 @@ public:
     {
         printHex(note, reinterpret_cast<char const*>(string), size, extrainfo, moreinfo);
     }
-    void printVector(char const *note, std::vector<unsigned long> const &v) const;
     void printf(const char* format, ...) const
     {
         if (!fp)
@@ -352,24 +351,6 @@ void DebugFile::printHex(
     fprintf(fp, "]\n");
 }
 
-void DebugFile::printVector(char const* note, std::vector<unsigned long> const &v) const
-{
-    if (!rtpcheck_debug || !fp)
-    {
-        return;
-    }
-    std::lock_guard lock(mutex);
-    if (!fp || !note)
-    {
-        return;
-    }
-    fprintf(fp, "TID: %lu %s\n", tid_self(), note);
-    for (unsigned int i = 0; i < v.size(); i++)
-    {
-        fprintf(fp, "%lu\n", v[i]);
-    }
-}
-
 void RtpEchoDebugFile::printReceived(unsigned char const* data, unsigned int size) const
 {
     if (!fp)
@@ -483,8 +464,29 @@ taskentry_t::~taskentry_t()
     pthread_mutex_destroy(&mutex);
 }
 
+/* Give the verdict of the RTP check of a task's audio or video pattern,
+ * setting the pattern's bit in *rtpresult if it failed, and start the
+ * check over: at the end of the task, or when it plays something else. */
+static void rtpstream_check_verdict(taskentry_t* taskinfo, bool video, unsigned long* rtpresult)
+{
+    unsigned long& packets = video ? taskinfo->video_check_packets : taskinfo->audio_check_packets;
+    unsigned long& failures = video ? taskinfo->video_check_failures : taskinfo->audio_check_failures;
+    DebugFile const& debugfile = video ? debugvfile : debugafile;
+
+    if (packets > 0)
+    {
+        debugfile.printHex("----RTP CHECK VERDICT----", "", 0, failures, packets);
+        if ((double)failures / (double)packets >= (video ? videotolerance : audiotolerance))
+        {
+            set_bit(rtpresult, video ? taskinfo->video_pattern_id : taskinfo->audio_pattern_id);
+        }
+    }
+    packets = 0;
+    failures = 0;
+}
+
 /* code checked */
-static void rtpstream_process_task_flags(taskentry_t* taskinfo)
+static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* rtpresult)
 {
     if (taskinfo->flags & TI_RECONNECTSOCKET) {
         int remote_addr_len;
@@ -559,6 +561,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo)
      * it either in the flags or in the loop counts. */
     pthread_mutex_lock(&(taskinfo->mutex));
     if (taskinfo->flags & TI_PLAYFILE) {
+        rtpstream_check_verdict(taskinfo, false, rtpresult);
         /* copy playback information */
         taskinfo->audio_pattern_id = taskinfo->new_audio_pattern_id;
         taskinfo->audio_loop_count = taskinfo->new_audio_loop_count;
@@ -579,6 +582,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo)
 
     if (taskinfo->flags & TI_PLAYAPATTERN)
     {
+        rtpstream_check_verdict(taskinfo, false, rtpresult);
         /* copy playback information */
         taskinfo->audio_pattern_id = taskinfo->new_audio_pattern_id;
         taskinfo->audio_loop_count = taskinfo->new_audio_loop_count;
@@ -600,6 +604,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo)
 
     if (taskinfo->flags & TI_PLAYVPATTERN)
     {
+        rtpstream_check_verdict(taskinfo, true, rtpresult);
         /* copy playback information */
         taskinfo->video_pattern_id = taskinfo->new_video_pattern_id;
         taskinfo->video_loop_count = taskinfo->new_video_loop_count;
@@ -624,9 +629,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo)
 static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                                            unsigned long  timenow_ms,
                                            unsigned long* comparison_acheck,
-                                           std::vector<unsigned long> &rs_apackets,
                                            unsigned long* comparison_vcheck,
-                                           std::vector<unsigned long> &rs_vpackets,
                                            unsigned int taskindex)
 {
     int                  rc;
@@ -689,8 +692,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
     next_wake = timenow_ms + 100; /* default next wakeup time */
 
-    if ((taskinfo->audio_rtp_socket != -1) &&
-        (taskindex < rs_apackets.size()))
+    if (taskinfo->audio_rtp_socket != -1)
     {
         /* are we playing back an audio file/pattern? */
         if (taskinfo->audio_loop_count)
@@ -774,7 +776,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     rtpstream_apckts.fetch_add(1, std::memory_order_relaxed); // GLOBAL RTP packet counter
                     if (taskinfo->audio_pattern_id > 0)
                     {
-                        rs_apackets[taskindex]++; // TASK-specific counter of the pattern packets the RTP check checks
+                        taskinfo->audio_check_packets++; // the pattern packets the RTP check checks
                     }
 
                     debugafile.printHexUS("SIPP SUCCESS SEND LOG: ", audio_out.data(), audio_out.size(), rc, rtpstream_apckts);
@@ -955,8 +957,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
         }
     }
 
-    if ((taskinfo->video_rtp_socket != -1) &&
-        (taskindex < rs_vpackets.size()))
+    if (taskinfo->video_rtp_socket != -1)
     {
         /* are we playing back a video file/pattern? */
         if (taskinfo->video_loop_count)
@@ -1040,7 +1041,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     /* statistics - only count successful sends */
                     rtpstream_vbytes_out.fetch_add(taskinfo->video_bytes_per_packet + sizeof(rtp_header_t), std::memory_order_relaxed);
                     rtpstream_vpckts.fetch_add(1, std::memory_order_relaxed); // GLOBAL RTP packet counter
-                    rs_vpackets[taskindex]++; // TASK-specific RTP packet counter
+                    taskinfo->video_check_packets++; // the packets the RTP check checks
 
                     debugvfile.printHexUS("SIPP SUCCESS SEND LOG: ", video_out.data(), video_out.size(), rc, rtpstream_vpckts);
 
@@ -1422,25 +1423,15 @@ static void* rtpstream_playback_thread(void* params)
     unsigned long  comparison_acheck;
     unsigned long  comparison_vcheck;
     unsigned long  rtpresult;
-    std::vector<unsigned long> rs_apackets;
-    std::vector<unsigned long> rs_vpackets;
-    std::vector<unsigned long> rs_artpcheck;
-    std::vector<unsigned long> rs_vrtpcheck;
     /* the RTP sockets of the calls to echo, and their call, video or not */
     std::vector<struct pollfd> echo_fds;
     std::vector<std::pair<taskentry_t*, bool>> echo_tasks;
     rtpecho_buffers_t echo_buffers;
-    double verdict;
 
     comparison_acheck = 0;
     comparison_vcheck = 0;
-    rtpresult = 0; /* includes BOTH AUDIO/VIDEO checks */
-    rs_apackets.resize(threaddata->max_tasks);
-    rs_vpackets.resize(threaddata->max_tasks);
-    rs_artpcheck.resize(threaddata->max_tasks);
-    rs_vrtpcheck.resize(threaddata->max_tasks);
+    rtpresult = 0; /* the patterns that failed their RTP check, a bit each */
     echo_buffers.msg.resize(media_bufsize);
-    verdict = 0.0;
 
     rtpstream_numthreads++;
 
@@ -1511,37 +1502,40 @@ static void* rtpstream_playback_thread(void* params)
                     (&threaddata->tasklist)[taskindex--] = (&threaddata->tasklist)[--threaddata->num_tasks];
                     threaddata->del_pending--;   /* must decrease del_pending after num_tasks */
                     pthread_mutex_unlock(&(threaddata->tasklist_mutex));
+                    /* the call ended: the verdict of its RTP check */
+                    rtpstream_check_verdict(taskinfo, false, &rtpresult);
+                    rtpstream_check_verdict(taskinfo, true, &rtpresult);
                     delete taskinfo;
                     continue;
                 }
                 /* handle any other config related flags */
-                rtpstream_process_task_flags(taskinfo);
+                rtpstream_process_task_flags(taskinfo, &rtpresult);
             }
 
             /* should we update current time inbetween tasks? */
             if (taskinfo->nextwake_ms <= timenow_ms)
             {
                 /* task needs to execute now */
-                taskinfo->nextwake_ms = rtpstream_playrtptask(taskinfo, timenow_ms, &comparison_acheck, rs_apackets, &comparison_vcheck, rs_vpackets, taskindex);
+                taskinfo->nextwake_ms = rtpstream_playrtptask(taskinfo, timenow_ms, &comparison_acheck, &comparison_vcheck, taskindex);
 
                 if (comparison_acheck == 1)
                 {
-                    rs_artpcheck[taskindex]++;
-                    debugafile.printHex("----FAILED RTP CHECK----", "", 0, rs_artpcheck[taskindex], rtpstream_apckts);
+                    taskinfo->audio_check_failures++;
+                    debugafile.printHex("----FAILED RTP CHECK----", "", 0, taskinfo->audio_check_failures, rtpstream_apckts);
                 }
                 else
                 {
-                    debugafile.printHex("----PASSED RTP CHECK----", "", 0, rs_artpcheck[taskindex], rtpstream_apckts);
+                    debugafile.printHex("----PASSED RTP CHECK----", "", 0, taskinfo->audio_check_failures, rtpstream_apckts);
                 }
 
                 if (comparison_vcheck == 1)
                 {
-                    rs_vrtpcheck[taskindex]++;
-                    debugvfile.printHex("----FAILED RTP CHECK----", "", 0, rs_vrtpcheck[taskindex], rtpstream_vpckts);
+                    taskinfo->video_check_failures++;
+                    debugvfile.printHex("----FAILED RTP CHECK----", "", 0, taskinfo->video_check_failures, rtpstream_vpckts);
                 }
                 else
                 {
-                    debugvfile.printHex("----PASSED RTP CHECK----", "", 0, rs_vrtpcheck[taskindex], rtpstream_vpckts);
+                    debugvfile.printHex("----PASSED RTP CHECK----", "", 0, taskinfo->video_check_failures, rtpstream_vpckts);
                 }
             }
             if (waketime_us > taskinfo->nextwake_ms * 1000ULL)
@@ -1611,75 +1605,12 @@ static void* rtpstream_playback_thread(void* params)
         echo_tasks.clear();
     }
 
-    // EXITING... CALCULATE RESULT
-    debugafile.printVector("----RTPCHECKS----", rs_artpcheck);
-    debugvfile.printVector("----RTPCHECKS----", rs_vrtpcheck);
-    debugafile.printVector("----PACKET COUNTS----", rs_apackets);
-    debugvfile.printVector("----PACKET COUNTS----", rs_vpackets);
-
-    for (unsigned int i = 0; i < threaddata->num_tasks; i++)
+    /* the verdicts of the calls still here */
+    for (taskindex = 0; taskindex < threaddata->num_tasks; taskindex++)
     {
-        taskinfo = (&threaddata->tasklist)[i];
-
-        if (rs_apackets[i] > 0)
-        {
-            verdict = ((double)rs_artpcheck[i] / (double)rs_apackets[i]);
-            if (verdict >= audiotolerance)
-            {
-                // PACKETS TRANSMITTED IN TASK -- RTP CHECK FAILED
-                set_bit(&rtpresult, taskinfo->audio_pattern_id);
-            }
-            else
-            {
-                // PACKETS TRANSMITTED IN TASK -- RTP CHECK SUCCEEDED
-                //
-                // FIXME
-                //
-                // "rtpresult" is currently limiting us in reporting detailed
-                // results of per-task RTP check success/failures --
-                // therefore at the present time we use it to indicate
-                // the combined results of ALL tasks RTP checks for ALL
-                // RTP patterns -- which means that bits are currently only
-                // set for a given pattern in a given task if its RTP check
-                // has failed -- this does not matter if its RTP check has
-                // succeeded since "rtpresult" is initialized to ZERO by
-                // default...
-            }
-        }
-        else
-        {
-            // NO PACKETS TRANSMITTED IN TASK -- NO-OP...
-        }
-
-        if (rs_vpackets[i] > 0)
-        {
-            verdict = ((double)rs_vrtpcheck[i] / (double)rs_vpackets[i]);
-            if (verdict >= videotolerance)
-            {
-                // PACKETS TRANSMITTED IN TASK -- RTP CHECK FAILED
-                set_bit(&rtpresult, taskinfo->video_pattern_id);
-            }
-            else
-            {
-                // PACKETS TRANSMITTED IN TASK -- RTP CHECK SUCCEEDED
-                //
-                // FIXME
-                //
-                // "rtpresult" is currently limiting us in reporting detailed
-                // results of per-task RTP check success/failures --
-                // therefore at the present time we use it to indicate
-                // the combined results of ALL tasks RTP checks for ALL
-                // RTP patterns -- which means that bits are currently only
-                // set for a given pattern in a given task if its RTP check
-                // has failed -- this does not matter if its RTP check has
-                // succeeded since "rtpresult" is initialized to ZERO by
-                // default...
-            }
-        }
-        else
-        {
-            // NO PACKETS TRANSMITTED IN TASK -- NO-OP...
-        }
+        taskinfo = (&threaddata->tasklist)[taskindex];
+        rtpstream_check_verdict(taskinfo, false, &rtpresult);
+        rtpstream_check_verdict(taskinfo, true, &rtpresult);
     }
 
     /* Free all task and thread resources and exit the thread */

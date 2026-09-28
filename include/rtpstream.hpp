@@ -151,6 +151,13 @@ struct taskentry_t
     unsigned long        audio_comparison_errors;
     unsigned long        video_comparison_errors;
 
+    /* the RTP check of the pattern playing, for its verdict: the packets
+     * checked, and those whose echo didn't match or didn't come */
+    unsigned long        audio_check_packets;
+    unsigned long        audio_check_failures;
+    unsigned long        video_check_packets;
+    unsigned long        video_check_failures;
+
     int                  audio_active;
     int                  video_active;
 
