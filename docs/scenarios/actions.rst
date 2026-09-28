@@ -239,6 +239,23 @@ action controls this.
   playback.
 + <exec rtp_stream="resume" /> will resume any currently paused
   playback.
++ <exec rtp_stream="wait" [timeout="10000"] /> holds the next message
+  of the scenario until the playback of the file or pattern is over.
+  A paused playback still plays, and one that repeats forever never
+  ends. After timeout milliseconds (by default, never), the call jumps
+  to the ontimeout label of the message, or is aborted without one. As
+  with a pause, a message that the scenario expects meanwhile ends the
+  wait.
+
+Example that plays a file, and runs the next message once it has
+played, or jumps to the label too_long after 30 seconds::
+
+    <nop ontimeout="too_long">
+      <action>
+        <exec rtp_stream="announcement.wav,1,8,PCMA/8000" />
+        <exec rtp_stream="wait" timeout="30000" />
+      </action>
+    </nop>
 
 ``rtp_stream`` sends from a port of its own for each call, which the SDP
 should advertise with ``[rtpstream_audio_port]`` (or

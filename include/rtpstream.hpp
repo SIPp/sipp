@@ -218,6 +218,8 @@ int rtpstream_cache_file(char *filename,
 void rtpstream_play(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio);
 void rtpstream_pause(rtpstream_callinfo_t *callinfo);
 void rtpstream_resume(rtpstream_callinfo_t *callinfo);
+/* Whether an rtp_stream file or pattern still plays, even paused */
+bool rtpstream_is_playing(rtpstream_callinfo_t *callinfo);
 
 void rtpstream_playapattern(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio);
 void rtpstream_pauseapattern(rtpstream_callinfo_t *callinfo);

@@ -561,6 +561,10 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo)
         taskinfo->flags &= ~TI_RECONNECTSOCKET;
         pthread_mutex_unlock(&(taskinfo->mutex));
     }
+
+    /* Take a new play under the mutex, for rtpstream_is_playing() to see
+     * it either in the flags or in the loop counts. */
+    pthread_mutex_lock(&(taskinfo->mutex));
     if (taskinfo->flags & TI_PLAYFILE) {
         /* copy playback information */
         taskinfo->audio_pattern_id = taskinfo->new_audio_pattern_id;
@@ -620,6 +624,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo)
         taskinfo->last_video_timestamp = getmilliseconds() * taskinfo->video_timeticks_per_ms;
         taskinfo->flags &= ~TI_PLAYVPATTERN;
     }
+    pthread_mutex_unlock(&(taskinfo->mutex));
 }
 
 /**** todo - check code ****/
@@ -2710,6 +2715,24 @@ void rtpstream_resume(rtpstream_callinfo_t* callinfo)
     if (callinfo->taskinfo) {
         callinfo->taskinfo->flags &= ~TI_PAUSERTP;
     }
+}
+
+bool rtpstream_is_playing(rtpstream_callinfo_t* callinfo)
+{
+    taskentry_t *taskinfo = callinfo->taskinfo;
+    bool playing;
+
+    if (!taskinfo) {
+        return false;
+    }
+
+    /* A play the playback thread has not taken yet is in the flags;
+     * one it plays has loops left (-1: endless). */
+    pthread_mutex_lock(&(taskinfo->mutex));
+    playing = (taskinfo->flags & (TI_PLAYFILE | TI_PLAYAPATTERN | TI_PLAYVPATTERN)) ||
+              taskinfo->audio_loop_count || taskinfo->video_loop_count;
+    pthread_mutex_unlock(&(taskinfo->mutex));
+    return playing;
 }
 
 void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio)
