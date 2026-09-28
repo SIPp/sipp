@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- The first call ends while the second, with its Call-ID, runs on. -->
+<scenario name="uac">
+  <send retrans="500">
+    <![CDATA[
+      MESSAGE sip:s@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:c@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:s@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 MESSAGE
+      Content-Length: 0
+
+    ]]>
+  </send>
+  <recv response="200">
+    <action>
+      <assignstr assign_to="n" value="[call_number]"/>
+      <strcmp assign_to="first" variable="n" value="1"/>
+      <test assign_to="isfirst" variable="first" compare="equal" value="0"/>
+    </action>
+  </recv>
+  <pause milliseconds="1500" test="isfirst" next="end"/>
+  <pause milliseconds="1500"/>
+  <send retrans="500">
+    <![CDATA[
+      MESSAGE sip:s@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:c@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:s@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 2 MESSAGE
+      Content-Length: 0
+
+    ]]>
+  </send>
+  <recv response="200"/>
+  <label id="end"/>
+</scenario>
