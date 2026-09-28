@@ -49,11 +49,29 @@ static const EVP_CIPHER* aesEcbCipher(size_t keySize)
     }
 }
 
+/* Makes an AES-ECB context when it is first needed: most calls never
+ * use SRTP, and each context costs a cipher fetch. False if it fails. */
+static bool aesContext(EVP_CIPHER_CTX*& ctx)
+{
+    if (!ctx) {
+        ctx = EVP_CIPHER_CTX_new();
+        if (ctx && EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, nullptr, nullptr) != 1) {
+            EVP_CIPHER_CTX_free(ctx);
+            ctx = nullptr;
+        }
+    }
+    return ctx != nullptr;
+}
+
 /* Sets the key of an AES-ECB context, switching it to the AES variant of
  * the key's length. Returns 1 on success, as EVP_EncryptInit_ex() does. */
-static int setAESKey(EVP_CIPHER_CTX* ctx, const std::vector<unsigned char>& key)
+static int setAESKey(EVP_CIPHER_CTX*& ctx, const std::vector<unsigned char>& key)
 {
     const EVP_CIPHER* cipher = nullptr; // keep the context's cipher
+
+    if (!aesContext(ctx)) {
+        return 0;
+    }
 
     if (EVP_CIPHER_CTX_key_length(ctx) != static_cast<int>(key.size())) {
         cipher = aesEcbCipher(key.size());
@@ -1119,7 +1137,7 @@ int JLSRTP::setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib /*= ACTIVE_
     int rc = 0;
     int retVal = 0;
 
-    if (_pseudorandomstate.cipher != nullptr)
+    if (aesContext(_pseudorandomstate.cipher))
     {
         if (crypto_attrib == ACTIVE_CRYPTO)
         {
@@ -1180,7 +1198,7 @@ int JLSRTP::setAESSessionEncryptionKey()
     int rc = 0;
     int retVal = 0;
 
-    if (_cipherstate.cipher != nullptr)
+    if (aesContext(_cipherstate.cipher))
     {
         rc = setAESKey(_cipherstate.cipher, _session_enc_key);
         if (rc == 1)
@@ -3658,36 +3676,20 @@ bool JLSRTP::operator!=(const JLSRTP& that)
 
 JLSRTP::JLSRTP()
 {
+    /* Made with their first key: see aesContext() */
+    _pseudorandomstate.cipher = nullptr;
+    _cipherstate.cipher = nullptr;
+
     resetCryptoContext(0xCA110000, "127.0.0.1", 0);
-
-    _pseudorandomstate.cipher = EVP_CIPHER_CTX_new();
-    if (_pseudorandomstate.cipher != nullptr)
-    {
-        EVP_EncryptInit_ex(_pseudorandomstate.cipher, EVP_aes_128_ecb(), nullptr, nullptr /* primary/secondary master key set later */, nullptr);
-    }
-
-    _cipherstate.cipher = EVP_CIPHER_CTX_new();
-    if (_cipherstate.cipher != nullptr)
-    {
-        EVP_EncryptInit_ex(_cipherstate.cipher, EVP_aes_128_ecb(), nullptr, nullptr /* _session_enc_key set later */, nullptr);
-    }
 }
 
 JLSRTP::JLSRTP(unsigned int ssrc, const std::string& ipAddress, unsigned short port)
 {
+    /* Made with their first key: see aesContext() */
+    _pseudorandomstate.cipher = nullptr;
+    _cipherstate.cipher = nullptr;
+
     resetCryptoContext(ssrc, ipAddress, port);
-
-    _pseudorandomstate.cipher = EVP_CIPHER_CTX_new();
-    if (_pseudorandomstate.cipher != nullptr)
-    {
-        EVP_EncryptInit_ex(_pseudorandomstate.cipher, EVP_aes_128_ecb(), nullptr, nullptr /* primary/secondary master key set later */, nullptr);
-    }
-
-    _cipherstate.cipher = EVP_CIPHER_CTX_new();
-    if (_cipherstate.cipher != nullptr)
-    {
-        EVP_EncryptInit_ex(_cipherstate.cipher, EVP_aes_128_ecb(), nullptr, nullptr /* _session_enc_key set later */, nullptr);
-    }
 }
 
 JLSRTP::~JLSRTP()
