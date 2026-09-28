@@ -887,6 +887,8 @@ void timeout_alarm(int /*param*/)
 static pthread_t main_thread;
 static std::atomic<bool> exit_requested{false};
 static int exit_request_rc;
+/* From then on, SIGTERM and SIGINT only ask for the exit. */
+static std::atomic<bool> traffic_running{false};
 
 static void traffic_thread(int &rtp_errors, int &echo_errors)
 {
@@ -894,6 +896,7 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
     char L_file_name[MAX_PATH];
     sprintf(L_file_name, "%s_%ld_screen.log", scenario_file, (long) getpid());
 
+    traffic_running = true;
     update_clock_tick();
 
     /* Arm the global timer if needed */
@@ -1638,6 +1641,15 @@ void sipp_exit(int rc, int rtp_errors, int echo_errors)
 
 static void sipp_sighandler(int signum)
 {
+    /* Exiting here, in whatever the traffic loop was doing (a malloc,
+     * say), corrupts the heap: the loop exits for us instead. */
+    if (traffic_running) {
+        if (!exit_requested) {
+            exit_request_rc = EXIT_TEST_RES_UNKNOWN;
+            exit_requested = true;
+        }
+        return;
+    }
     sipp_exit(EXIT_TEST_RES_UNKNOWN, 0, 0);
 }
 
