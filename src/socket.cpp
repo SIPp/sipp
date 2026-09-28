@@ -1731,8 +1731,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 
     int ret;
 
-    assert(ss_transport == T_TCP || ss_transport == T_TLS || ss_transport == T_SCTP ||
-           TRANSPORT_IS_WS(ss_transport));
+    assert(transport_is_reliable(ss_transport));
 
     if (ss_transport == T_TCP || ss_transport == T_TLS || TRANSPORT_IS_WS(ss_transport)) {
         struct sockaddr_storage with_optional_port;
@@ -1949,8 +1948,7 @@ void sipp_customize_socket(SIPpSocket *socket)
     unsigned int buffsize = buff_size;
 
     /* Allows fast TCP reuse of the socket */
-    if (socket->ss_transport == T_TCP || socket->ss_transport == T_TLS ||
-            socket->ss_transport == T_SCTP || TRANSPORT_IS_WS(socket->ss_transport)) {
+    if (transport_is_reliable(socket->ss_transport)) {
         int sock_opt = 1;
 
         if (setsockopt(socket->ss_fd, SOL_SOCKET, SO_REUSEADDR, (void *)&sock_opt,
@@ -3106,8 +3104,7 @@ int open_connections()
 
     /* A 3PCC controller B or slave scenario that starts with a <recv>
      * still has its calls created by a command, like a client's. */
-    if ((!multisocket) && (transport == T_TCP || transport == T_TLS || transport == T_SCTP ||
-                           TRANSPORT_IS_WS(transport)) &&
+    if ((!multisocket) && transport_is_reliable(transport) &&
             (sendMode != MODE_SERVER ||
              (*remote_host && (thirdPartyMode == MODE_3PCC_CONTROLLER_B ||
                                thirdPartyMode == MODE_SLAVE)))) {
@@ -3149,7 +3146,7 @@ int open_connections()
     }
 
 
-    if (transport == T_TCP || transport == T_TLS || transport == T_SCTP || TRANSPORT_IS_WS(transport)) {
+    if (transport_is_reliable(transport)) {
         if (listen(main_socket->ss_fd, 100)) {
             ERROR_NO("Unable to listen main socket");
         }
@@ -3479,8 +3476,7 @@ void SIPpSocket::pollset_process(int wait)
         if (sock->to_empty(pollfiles[poll_idx].revents & POLLIN)) {
 #endif
             /* We can empty this socket. */
-            if ((transport == T_TCP || transport == T_TLS || transport == T_SCTP || TRANSPORT_IS_WS(transport)) &&
-                    sock == main_socket) {
+            if (transport_is_reliable(transport) && sock == main_socket) {
                 /* A peer that failed the TLS handshake got dropped (see
                  * accept()): nothing to do for it. */
                 sock->accept();
