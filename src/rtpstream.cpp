@@ -2826,11 +2826,7 @@ int rtpstream_rtpecho_stopaudio(rtpstream_callinfo_t* callinfo)
 
     debugrefileaudio.printf("rtpstream_rtpecho_stopaudio reached...\n");
 
-    int rc = rtpstream_rtpecho_stop(taskinfo, false);
-
-    debugrefileaudio.close();
-
-    return rc;
+    return rtpstream_rtpecho_stop(taskinfo, false);
 }
 
 int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVideo, JLSRTP& txUASVideo)
@@ -2888,11 +2884,7 @@ int rtpstream_rtpecho_stopvideo(rtpstream_callinfo_t* callinfo)
 
     debugrefilevideo.printf("rtpstream_rtpecho_stopvideo reached...\n");
 
-    int rc = rtpstream_rtpecho_stop(taskinfo, true);
-
-    debugrefilevideo.close();
-
-    return rc;
+    return rtpstream_rtpecho_stop(taskinfo, true);
 }
 
 /* code checked */
@@ -2974,6 +2966,8 @@ int rtpstream_shutdown(std::unordered_map<pthread_t, std::string>& threadIDs)
     debugrsrtpafile.close();
     debuglsrtpvfile.close();
     debugrsrtpvfile.close();
+    debugrefileaudio.close();
+    debugrefilevideo.close();
 
     return total_rtpresults;
 }
