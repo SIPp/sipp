@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- A variable name with a '$' in it. -->
+<scenario name="bad variable">
+  <nop>
+    <action>
+      <assignstr assign_to="a$b" value="x"/>
+    </action>
+  </nop>
+</scenario>

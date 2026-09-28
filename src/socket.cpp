@@ -1201,7 +1201,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
 
     const char *call_id = get_trimmed_call_id(msg);
     if (call_id[0] == '\0') {
-        WARNING("SIP message without Call-ID discarded");
+        WARNING("SIP message without a valid Call-ID: header discarded: '%s'", msg);
         return;
     }
     listener *listener_ptr = get_listener(call_id);
