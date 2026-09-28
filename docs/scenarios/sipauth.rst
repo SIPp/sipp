@@ -37,7 +37,7 @@ authentication keyword:
 
 + Digest/AKA: (example: [authentication username=HappyFeet
   aka_OP=0xCDC202D5123E20F62B6D676AC72CB318
-  aka_K=0x465B5CE8B199B49FAA5F0A2EE238A6BC aka_AMF=0xB9B9])
+  aka_K=0x465B5CE8B199B49FAA5F0A2EE238A6BC])
 
     + username : username: if no username is specified, the username is
       taken from the '-au' (authentication username) or '-s' (service)
@@ -45,8 +45,8 @@ authentication keyword:
     + aka_K : Permanent secret key. If no aka_K is provided, the
       "password" attributed is used as aka_K.
     + aka_OP : OPerator variant key
-    + aka_AMF : Authentication Management Field (indicates the algorithm
-      and key in use)
+    + aka_AMF : ignored: the Authentication Management Field is the one
+      in the challenge's AUTN, as a USIM uses it
 
 A value can also be a keyword, such as
 [authentication username=[field0] password=[field1]].
