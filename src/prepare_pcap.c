@@ -182,14 +182,10 @@ size_t get_ethertype_offset(int link, const uint8_t* pktdata)
         /* get EtherType and convert to host byte order */
         memcpy(&eth_type, pktdata + offset, sizeof(eth_type));
         eth_type = (is_le_encoded) ? le16toh(eth_type) : ntohs(eth_type);
-        if (eth_type != 0x0800 && eth_type != 0x86dd) {
-            /* check if Ethernet 802.1Q VLAN */
-            if (eth_type == 0x8100) {
-                /* vlan_tag[4] */
-                offset += 4;
-            } else {
-                ERROR("Unsupported ethernet type %d", eth_type);
-            }
+        /* check if Ethernet 802.1Q VLAN */
+        if (eth_type == 0x8100) {
+            /* vlan_tag[4] */
+            offset += 4;
         }
     }
     return offset;
@@ -209,7 +205,7 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
     const uint8_t* pktdata = NULL;
     int n_pkts = 0;
     u_long max_length = 0;
-    size_t ether_type_offset = 0;
+    size_t ether_type_offset;
     uint16_t base = 0xffff;
     u_long pktlen;
     pcap_pkt* pkt_index;
@@ -218,12 +214,15 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
     struct ip* iphdr;
     struct ip6_hdr* ip6hdr;
     struct udphdr* udphdr;
+    const uint8_t* pktend;
+    int datalink;
 
     pkts->pkts = NULL;
 
     pcap = pcap_open_offline(file, errbuf);
     if (!pcap)
         ERROR("Can't open PCAP file '%s': %s", file, errbuf);
+    datalink = pcap_datalink(pcap);
 #ifdef HAVE_PCAP_NEXT_EX
     while (pcap_next_ex(pcap, &pkthdr, &pktdata) == 1) {
 #else
@@ -233,13 +232,18 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
             ERROR("You got truncated packets. Please create a new dump with -s0");
         }
 
-        /* Determine offset from packet to ether type only once. */
-        if (!ether_type_offset) {
-            int datalink = pcap_datalink(pcap);
+        pktend = pktdata + pkthdr->caplen;
+        if (datalink == DLT_RAW) {
+            iphdr = (struct ip*)((char*)pktdata);
+        } else {
+            /* Each frame's own offset: one may have a VLAN tag and the
+             * next none, and 802.11 headers vary in length. */
             ether_type_offset = get_ethertype_offset(datalink, pktdata);
-        }
-
-        if (ether_type_offset > 0) {
+            if (!ether_type_offset) {
+                /* No EtherType: an 802.11 control or management frame. */
+                fprintf(stderr, "Ignoring non IP{4,6} packet!\n");
+                continue;
+            }
             ethhdr = (ether_type_hdr *)(pktdata + ether_type_offset);
             if (ntohs(ethhdr->ether_type) != 0x0800 /* IPv4 */
                     && ntohs(ethhdr->ether_type) != 0x86dd) { /* IPv6 */
@@ -248,18 +252,29 @@ int prepare_pkts(const char* file, pcap_pkts* pkts)
                 continue;
             }
             iphdr = (struct ip*)((char*)ethhdr + sizeof(*ethhdr));
-        } else {
-            iphdr = (struct ip*)((char*)pktdata);
         }
 
         if (iphdr && iphdr->ip_v == 6) {
             /* ipv6 */
+            uint8_t nxt;
+            const uint8_t* hdr;
+
             ip6hdr = (struct ip6_hdr*)(void*)iphdr;
-            if (ip6hdr->ip6_nxt != IPPROTO_UDP) {
+            nxt = ip6hdr->ip6_nxt;
+            hdr = (const uint8_t*)ip6hdr + sizeof(*ip6hdr);
+            /* Step over the hop-by-hop, routing and destination options
+             * headers (next header[1], length in 8 octets, less 1[1]).
+             * A fragment is not UDP to play. */
+            while ((nxt == IPPROTO_HOPOPTS || nxt == IPPROTO_ROUTING
+                    || nxt == IPPROTO_DSTOPTS) && hdr + 8 <= pktend) {
+                nxt = hdr[0];
+                hdr += (hdr[1] + 1) * 8;
+            }
+            if (nxt != IPPROTO_UDP || hdr + sizeof(*udphdr) > pktend) {
                 fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
                 continue;
             }
-            udphdr = (struct udphdr*)((char*)ip6hdr + sizeof(*ip6hdr));
+            udphdr = (struct udphdr*)(void*)hdr;
         } else {
             /* ipv4 */
             if (iphdr->ip_p != IPPROTO_UDP) {
