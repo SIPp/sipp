@@ -213,6 +213,13 @@ protected:
 
     unsigned int   paused_until;
 
+    /* Waiting for the rtp_stream playback to end before the next message:
+     * when to check it again (0: not waiting), when to give up (0: never)
+     * and the message whose ontimeout label to jump to then */
+    unsigned int   rtpstream_wait_check;
+    unsigned int   rtpstream_wait_until;
+    message       *rtpstream_wait_msg;
+
     unsigned long  start_time;
     unsigned long long *start_time_rtd;
     bool           *rtd_done;
@@ -274,6 +281,8 @@ protected:
     double get_rhs(CAction *currentAction);
     double get_var_double(int varId);
     unsigned int recvTimeout(message *curmsg);
+    void rtpstreamWaitNextCheck();
+    bool rtpstreamWaitTimeout();
 
     // P_index use for message index in scenario
     char* createSendingMessage(SendingMessage* src, int P_index=-1, int *msgLen=nullptr);

@@ -324,6 +324,10 @@ unsigned int call::wake()
         wake = recv_timeout;
     }
 
+    if (rtpstream_wait_check && (!wake || (rtpstream_wait_check < wake))) {
+        wake = rtpstream_wait_check;
+    }
+
     return wake;
 }
 
@@ -1032,6 +1036,9 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     nb_last_delay = 0;
 
     paused_until = 0;
+    rtpstream_wait_check = 0;
+    rtpstream_wait_until = 0;
+    rtpstream_wait_msg = nullptr;
 
     call_port = 0;
 
@@ -1419,6 +1426,9 @@ void call::dump()
     }
     if (recv_timeout) {
         written += snprintf(s + written, slen - written, " (recv timeout %u)", recv_timeout);
+    }
+    if (rtpstream_wait_check) {
+        written += snprintf(s + written, slen - written, " (rtp_stream wait until %u)", rtpstream_wait_until);
     }
     if (send_timeout) {
         written += snprintf(s + written, slen - written, " (send timeout %u)", send_timeout);
@@ -2345,6 +2355,20 @@ bool call::run()
         callDebug("Pause complete, waking up.\n");
         paused_until = 0;
         return next();
+    }
+
+    if (rtpstream_wait_check) {
+        /* Hold the next message until the rtp_stream playback is over */
+        if (!rtpstream_is_playing(&rtpstream_callinfo)) {
+            callDebug("rtp_stream playback over, waking up.\n");
+            rtpstream_wait_check = 0;
+        } else if (rtpstream_wait_until && rtpstream_wait_until <= clock_tick) {
+            return rtpstreamWaitTimeout();
+        } else {
+            rtpstreamWaitNextCheck();
+            setPaused();
+            return true;
+        }
     }
     return executeMessage(curmsg);
 }
@@ -5641,6 +5665,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                 msg_index = call_scenario->unexpected_jump;
                 queue_up(msg);
                 paused_until = 0;
+                rtpstream_wait_check = 0;
                 return run();
             } else {
                 if (!process_unexpected(msg)) {
@@ -5834,6 +5859,10 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
              (test == -1 || M_callVariableTable->getVar(test)->isSet()))) {
         /* If we are paused, then we need to wake up so that we properly go through the state machine. */
         paused_until = 0;
+        /* Likewise for a wait, unless the actions of this one set it. */
+        if (rtpstream_wait_msg != call_scenario->messages[search_index]) {
+            rtpstream_wait_check = 0;
+        }
         msg_index = search_index;
         return next();
     } else {
@@ -5910,6 +5939,44 @@ unsigned int call::recvTimeout(message *curmsg)
         return INT_MAX;
     }
     return (unsigned int)timeout;
+}
+
+/* Check the rtp_stream playback again after a packet time, or at the
+ * wait timeout if that comes first. */
+void call::rtpstreamWaitNextCheck()
+{
+    rtpstream_wait_check = clock_tick + 20;
+    if (rtpstream_wait_until && rtpstream_wait_until < rtpstream_wait_check) {
+        rtpstream_wait_check = rtpstream_wait_until;
+    }
+}
+
+/* The rtp_stream playback outlasted the wait: jump to the ontimeout
+ * label of the message that waits, or abort the call without one. */
+bool call::rtpstreamWaitTimeout()
+{
+    message *waitmsg = rtpstream_wait_msg;
+
+    rtpstream_wait_check = 0;
+    waitmsg->nb_timeout++;
+    if (waitmsg->on_timeout < 0) {
+        WARNING("Call-Id: %s, rtp_stream wait timeout on message %s:%d without label to jump to (ontimeout attribute): aborting call",
+                id, waitmsg->desc, waitmsg->index);
+    } else {
+        WARNING("Call-Id: %s, rtp_stream wait timeout on message %s:%d, jumping to label %d",
+                id, waitmsg->desc, waitmsg->index, waitmsg->on_timeout);
+        msg_index = waitmsg->on_timeout;
+        if (msg_index < (int)call_scenario->messages.size()) {
+            return true;
+        }
+        // special case - the label points to the end - finish the call
+    }
+    computeStat(CStat::E_CALL_FAILED);
+    if (default_behaviors & DEFAULT_BEHAVIOR_BYE) {
+        return abortCall(true);
+    }
+    delete this;
+    return false;
 }
 
 call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
@@ -6483,6 +6550,14 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             rtpstream_pause(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUME) {
             rtpstream_resume(&rtpstream_callinfo);
+        } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_WAIT) {
+            /* run() holds the next message while the playback lasts */
+            if (rtpstream_is_playing(&rtpstream_callinfo)) {
+                unsigned int timeout = (unsigned int)currentAction->getDoubleValue();
+                rtpstream_wait_until = timeout ? clock_tick + timeout : 0;
+                rtpstream_wait_msg = curmsg;
+                rtpstreamWaitNextCheck();
+            }
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
             const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);

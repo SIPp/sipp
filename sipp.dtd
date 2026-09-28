@@ -74,6 +74,7 @@
 <!ELEMENT nop ( action? ) >
 <!ATTLIST nop %messageCmdCommon; >
 <!ATTLIST nop display CDATA #IMPLIED >
+<!ATTLIST nop ontimeout NMTOKEN #IMPLIED >
 
 <!ELEMENT sendCmd ( #PCDATA ) >
 <!ATTLIST sendCmd %messageCmdCommon; >
@@ -149,6 +150,8 @@
 <!ATTLIST exec play_pcap_video CDATA #IMPLIED >
 <!ATTLIST exec play_dtmf CDATA #IMPLIED >
 <!ATTLIST exec rtp_stream CDATA #IMPLIED >
+<!-- with rtp_stream="wait" -->
+<!ATTLIST exec timeout NMTOKEN #IMPLIED >
 <!ATTLIST exec rtp_echo CDATA #IMPLIED >
 
 <!ELEMENT rtp_echo EMPTY >

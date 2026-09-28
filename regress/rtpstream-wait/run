@@ -1,0 +1,28 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# rtp_stream="wait" holds the next message until the file has played,
+# and a wait that times out jumps to the ontimeout label, or aborts the
+# call without one.
+. "`dirname "$0"`/../functions"; init
+
+# One second of PCMU.
+head -c 8000 /dev/zero | tr '\0' '\377' >audio.ulaw
+sippbg -sf uas.xml -i 127.0.0.1 -p 26730 -m 2 \
+    -min_rtp_port 29400 -max_rtp_port 29599
+sippfg -sf uac.xml -i 127.0.0.1 -p 26731 -m 1 \
+    -min_rtp_port 29200 -max_rtp_port 29399 \
+    127.0.0.1:26730 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+sippfg -sf uac-abort.xml -i 127.0.0.1 -p 26731 -m 1 \
+    -min_rtp_port 29200 -max_rtp_port 29399 \
+    127.0.0.1:26730 -timeout 10 -timeout_error >/dev/null 2>&1
+abort_status=$?
+rm -f audio.ulaw
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test $abort_status -ne 1; then
+    fail "the UAC that times out without a label exited with $abort_status"
+else
+    ok
+fi

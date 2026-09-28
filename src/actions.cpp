@@ -176,6 +176,8 @@ void CAction::printInfo(char* buf, int len)
         snprintf(buf, len, "Type[%d] - rtp_stream pause", M_action);
     } else if (M_action == E_AT_RTP_STREAM_RESUME) {
         snprintf(buf, len, "Type[%d] - rtp_stream resume", M_action);
+    } else if (M_action == E_AT_RTP_STREAM_WAIT) {
+        snprintf(buf, len, "Type[%d] - rtp_stream wait [timeout=%.0f]", M_action, M_doubleValue);
     } else if (M_action == E_AT_RTP_STREAM_PLAYAPATTERN) {
         snprintf(buf,
                  len,

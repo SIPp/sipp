@@ -1835,6 +1835,15 @@ void scenario::parseAction(CActions *actions)
                 {
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_RESUME);
                 }
+                else if (!strcmp(ptr, "wait"))
+                {
+                    tmpAction->setActionType(CAction::E_AT_RTP_STREAM_WAIT);
+                    long timeout = xp_get_long("timeout", "rtp_stream wait", 0);
+                    if (timeout < 0) {
+                        ERROR("rtp_stream wait timeout must not be negative");
+                    }
+                    tmpAction->setDoubleValue(timeout);
+                }
                 else
                 {
                     /* Check a plain filename now; a filename with

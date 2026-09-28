@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="wait for an rtp_stream file, then time out on an endless one">
+
+  <send retrans="500">
+    <![CDATA[
+
+      INVITE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 INVITE
+      Contact: sip:sipp@[local_ip]:[local_port]
+      Content-Type: application/sdp
+      Content-Length: [len]
+
+      v=0
+      o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]
+      s=-
+      c=IN IP[media_ip_type] [media_ip]
+      t=0 0
+      m=audio [rtpstream_audio_port] RTP/AVP 0
+      a=rtpmap:0 PCMU/8000
+
+    ]]>
+  </send>
+
+  <recv response="100" optional="true" />
+
+  <recv response="180" optional="true" />
+
+  <recv response="200" />
+
+  <send>
+    <![CDATA[
+
+      ACK sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 1 ACK
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <!-- The file plays for a second before the next message runs. -->
+  <nop>
+    <action>
+      <gettimeofday assign_to="s1,us1" />
+      <exec rtp_stream="audio.ulaw,1,0,PCMU/8000" />
+      <exec rtp_stream="wait" timeout="5000" />
+    </action>
+  </nop>
+
+  <nop>
+    <action>
+      <gettimeofday assign_to="s2,us2" />
+      <subtract assign_to="s2" variable="s1" />
+      <multiply assign_to="s2" value="1000000" />
+      <add assign_to="s2" variable="us2" />
+      <subtract assign_to="s2" variable="us1" />
+      <test variable="s2" compare="greater_than_equal" value="900000" check_it="true" />
+      <test variable="s2" compare="less_than" value="1500000" check_it="true" />
+    </action>
+  </nop>
+
+  <!-- An endless play outlasts the wait, which jumps to the label. -->
+  <nop ontimeout="timedout">
+    <action>
+      <gettimeofday assign_to="s1,us1" />
+      <exec rtp_stream="audio.ulaw,-1,0,PCMU/8000" />
+      <exec rtp_stream="wait" timeout="300" />
+    </action>
+  </nop>
+
+  <!-- Not reached: fails the call. -->
+  <nop>
+    <action>
+      <test variable="s1" compare="less_than" value="0" check_it="true" />
+    </action>
+  </nop>
+
+  <label id="timedout" />
+
+  <nop>
+    <action>
+      <gettimeofday assign_to="s2,us2" />
+      <subtract assign_to="s2" variable="s1" />
+      <multiply assign_to="s2" value="1000000" />
+      <add assign_to="s2" variable="us2" />
+      <subtract assign_to="s2" variable="us1" />
+      <test variable="s2" compare="greater_than_equal" value="250000" check_it="true" />
+      <test variable="s2" compare="less_than" value="1000000" check_it="true" />
+    </action>
+  </nop>
+
+  <send retrans="500">
+    <![CDATA[
+
+      BYE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 2 BYE
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv response="200" crlf="true" />
+</scenario>
