@@ -52,7 +52,7 @@ Keyword list
 ``[transport]``
 ===============
 :Default: UDP
-:Description: Depending on the value of -t parameter, this will take the values "UDP" or "TCP".
+:Description: Depending on the value of -t parameter, this will take the values "UDP", "TCP", "TLS", "SCTP", "WS" or "WSS".
 
 ``[local_ip]``
 ==============

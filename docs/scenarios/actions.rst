@@ -571,8 +571,9 @@ setdest
 The setdest action allows you to change the remote end point for a
 call. The parameters are the transport, host, and port to connect the
 call to. There are certain limitations based on SIPp's design: you can
-not change the transport for a call; and if you are using TCP then
-multi-socket support must be selected (i.e. -t tn must be specified).
+not change the transport for a call; and if you are using TCP or WS then
+multi-socket support must be selected (i.e. -t tn or -t wn must be
+specified); TLS and WSS do not support it.
 Also, be aware that frequently using setdest may reduce SIPp's
 capacity as name resolution is a blocking operation (thus potentially
 causing SIPp to stall while looking up host names). This example
