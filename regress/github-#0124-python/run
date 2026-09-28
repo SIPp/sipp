@@ -1,0 +1,39 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# SIP over WebSocket with another implementation, the Python websockets
+# library: SIPp as a client, over WS and over WSS checking the server's
+# certificate, and as a server; with fragmented messages, binary frames
+# and pings. A client that does not mask its frames gets dropped.
+. "`dirname "$0"`/../functions"; init
+
+python3 -c 'import websockets' 2>/dev/null || skip "no python3 websockets"
+
+python3 ws.py server 26410 >/dev/null &
+sleep 1
+sippfg -sn uac -t w1 -ws_path /sip -i 127.0.0.1 -p 26411 -m 1 \
+    127.0.0.1:26410 -timeout 5 -timeout_error >/dev/null 2>&1 ||
+    fail "WS UAC failed with $?"
+wait $! || fail "WS server failed"
+
+sippbg -sn uas -t w1 -i 127.0.0.1 -p 26412 -m 1
+python3 ws.py client 26412 || fail "WS client failed"
+
+if "`get_sipp`" -v | grep -q TLS && command -v openssl >/dev/null; then
+    certs=`mktemp -d`
+    trap 'rm -rf "$certs"' EXIT
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+        -nodes -keyout "$certs/key.pem" -out "$certs/cert.pem" -days 1 \
+        -subj /CN=127.0.0.1 >/dev/null 2>&1 ||
+        fail "cannot create the certificate"
+
+    python3 ws.py server 26413 "$certs/cert.pem" "$certs/key.pem" >/dev/null &
+    sleep 1
+    sippfg -sn uac -t x1 -ws_path /sip -i 127.0.0.1 -p 26414 -m 1 \
+        -tls_cert "$certs/cert.pem" -tls_key "$certs/key.pem" \
+        -tls_ca "$certs/cert.pem" 127.0.0.1:26413 \
+        -timeout 5 -timeout_error >/dev/null 2>&1 ||
+        fail "WSS UAC failed with $?"
+    wait $! || fail "WSS server failed"
+fi
+
+ok

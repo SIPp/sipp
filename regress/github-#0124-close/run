@@ -1,0 +1,37 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A SIP over WebSocket UAS and clients that close, break the rules, or
+# ping without reading. The UAS answers a message before the close that
+# came with it, then closes the connection; fails a connection with 1002
+# for a close status code no frame may carry, and with 1007 for a text or
+# a close reason that is not UTF-8; answers only the last of the pings
+# that came while its pongs waited; and survives a peer that resets the
+# connection while they wait, and one that closes in the middle of a TLS
+# record over WSS.
+. "`dirname "$0"`/../functions"; init
+
+log=`mktemp -d`
+trap 'rm -rf "$log"' EXIT
+
+sippbg -sn uas -aa -t w1 -i 127.0.0.1 -p 26420 -trace_err -error_file "$log/w1.log"
+uas=$pid
+python3 peer.py 26420 || fail "WS peer failed"
+/bin/kill -0 $uas 2>/dev/null || fail "the WS UAS exited"
+kill $uas
+
+if "`get_sipp`" -v | grep -q TLS && command -v openssl >/dev/null; then
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+        -nodes -keyout "$log/key.pem" -out "$log/cert.pem" -days 1 \
+        -subj /CN=127.0.0.1 >/dev/null 2>&1 ||
+        fail "cannot create the certificate"
+    sippbg -sn uas -aa -t x1 -i 127.0.0.1 -p 26421 \
+        -tls_cert "$log/cert.pem" -tls_key "$log/key.pem" \
+        -trace_err -error_file "$log/x1.log"
+    uas=$pid
+    python3 peer.py 26421 "$log/cert.pem" || fail "WSS peer failed"
+    sleep 0.2
+    /bin/kill -0 $uas 2>/dev/null || fail "the WSS UAS exited"
+    kill $uas
+fi
+
+ok
