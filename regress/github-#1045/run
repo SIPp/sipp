@@ -1,0 +1,33 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A TLS server that checks its clients' certificates (-tls_ca) lets a
+# client resume its session.
+. "`dirname "$0"`/../functions"; init
+
+"`get_sipp`" -v | grep -q TLS || skip "no TLS"
+command -v openssl >/dev/null || skip "no openssl"
+
+dir=`mktemp -d`
+openssl req -x509 -newkey rsa:2048 -nodes -keyout "$dir/key.pem" \
+    -out "$dir/cert.pem" -days 1 -subj /CN=sipp >/dev/null 2>&1 ||
+    skip "no certificate"
+
+sippbg -sn uas -t l1 -tls_cert "$dir/cert.pem" -tls_key "$dir/key.pem" \
+    -tls_ca "$dir/cert.pem" -i 127.0.0.1 -p 26720 -m 1 -timeout 10
+connect() {
+    echo Q | openssl s_client -connect 127.0.0.1:26720 -tls1_2 \
+        -cert "$dir/cert.pem" -key "$dir/key.pem" -CAfile "$dir/cert.pem" \
+        "$@" 2>/dev/null | grep '^\(New\|Reused\),'
+}
+first=`connect -sess_out "$dir/session.pem"`
+second=`connect -sess_in "$dir/session.pem"`
+rm -rf "$dir"
+
+case $first in
+    New,*) ;;
+    *) fail "the first connection failed" ;;
+esac
+case $second in
+    Reused,*) ok ;;
+    *) fail "the session was not resumed: ${second:-no handshake}" ;;
+esac
