@@ -1,0 +1,36 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A UAS that gets a retransmitted INVITE sends its 200 again as it sent
+# it, with the same SRTP keys; it must not make new keys and switch to
+# them, which the UAC (that took the keys of the first 200) cannot
+# decrypt.
+. "`dirname "$0"`/../functions"; init
+
+rm -f uas.log
+sippbg -sf uas.xml -i 127.0.0.1 -p 26200 -m 1 -rtcheck loose \
+    -min_rtp_port 26210 -max_rtp_port 26229 \
+    -trace_msg -message_file uas.log -timeout 20
+uas=$pid
+sippfg -sf uac.xml -i 127.0.0.1 -p 26201 -m 1 -nr \
+    -min_rtp_port 26230 -max_rtp_port 26249 -audiotolerance 0.2 \
+    127.0.0.1:26200 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait $uas
+# The a=crypto lines of the messages the UAS sent.
+awk '/message sent/ { s = 1 } /message received/ { s = 0 }
+    s && /^a=crypto:/' uas.log >crypto.log
+sent=`wc -l <crypto.log`
+keys=`sort -u crypto.log | wc -l`
+rm -f uas.log crypto.log
+
+if test $sent -ne 2; then
+    fail "the UAS sent $sent a=crypto lines, not 2"
+elif test $keys -ne 1; then
+    fail "the retransmitted 200 has other SRTP keys"
+elif test $status -eq 253; then
+    fail "the UAC did not get its media echoed back"
+elif test $status -ne 0; then
+    fail "UAC failed with $status"
+else
+    ok
+fi

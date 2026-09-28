@@ -2051,6 +2051,7 @@ bool call::executeMessage(message *curmsg)
             recv_retrans_hash       = last_recv_hash;
             recv_retrans_recv_index = last_recv_index;
             recv_retrans_send_index = curmsg->index;
+            recv_retrans_msg.assign(msg_snd, msgLen);
 
             callDebug("Set Retransmission Hash: %lu (recv index %d, send index %d)\n",
                       recv_retrans_hash, recv_retrans_recv_index, recv_retrans_send_index);
@@ -2064,6 +2065,7 @@ bool call::executeMessage(message *curmsg)
             /* A later response to the same request (a 200 after a 180): a
              * retransmission of the request gets the most recent one. */
             recv_retrans_send_index = curmsg->index;
+            recv_retrans_msg.assign(msg_snd, msgLen);
         }
 
         /* Update retransmission information */
@@ -4624,8 +4626,6 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
         cookie = hash(msg);
         if((recv_retrans_recv_index >= 0) && (recv_retrans_hash == cookie)) {
 
-            int status;
-
             if(lost(recv_retrans_recv_index)) {
                 TRACE_MSG("%s message (retrans) lost (recv).",
                           TRANSPORT_TO_STRING(transport));
@@ -4637,7 +4637,10 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 
             call_scenario->messages[recv_retrans_recv_index] -> nb_recv_retrans++;
 
-            send_scene(recv_retrans_send_index, &status, nullptr);
+            /* Send it again as it was sent: rendering it again would give
+             * new values to keywords such as the SRTP keys. */
+            int status = send_raw(recv_retrans_msg.c_str(), recv_retrans_send_index,
+                                  recv_retrans_msg.size());
 
             if(status >= 0) {
                 call_scenario->messages[recv_retrans_send_index] -> nb_sent_retrans++;
