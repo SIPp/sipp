@@ -144,6 +144,36 @@ This mode is generally used for emulating user agents calling a SIP
 server.
 
 
+WebSocket
+`````````
+
+SIPp carries SIP over WebSocket (RFC 7118), as WebRTC user agents and
+the servers they connect to do:
+
++ -t w1 and -t wn: WebSocket (WS) over TCP, with one socket, or with one
+  socket per call.
++ -t x1 and -t xn: secure WebSocket (WSS) over TLS, with one socket, or
+  with one socket per call. The certificate files and the -tls_* options
+  are those of TLS.
+
+A client connects, and asks for the sip subprotocol in its WebSocket
+handshake, on the -ws_path path ("/" by default); its SIP messages wait
+until the server accepts it. A server takes the handshake of any path.
+Each SIP message goes in a WebSocket message of its own: a text frame,
+or a binary frame if it is not UTF-8. The [transport] keyword is WS or
+WSS, as the Via transport should be.
+
+The following example runs a UAS over WSS on port 5061, and a UAC that
+checks its certificate and asks for the /ws path:
+
+::
+
+    ./sipp -sn uas -t x1 -tls_cert cert.pem -tls_key key.pem -p 5061
+    ./sipp -sn uac -t x1 -tls_ca cert.pem -ws_path /ws 127.0.0.1:5061
+
+A WebSocket connection is lost, and reconnected, as a TCP one is.
+
+
 SCTP mono socket
 ````````````````
 
