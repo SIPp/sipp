@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- An out-of-call scenario with an <init> of its own. -->
+<scenario name="ooc with init">
+  <init>
+    <nop>
+      <action>
+        <log message="ooc init"/>
+      </action>
+    </nop>
+  </init>
+  <recv request="OPTIONS"/>
+</scenario>

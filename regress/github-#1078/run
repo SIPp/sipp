@@ -1,0 +1,21 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An <init>, of the scenario or of the -oocsf one, takes no call number:
+# the first call is still number 1, with Call-ID 1-<pid>@...
+. "`dirname "$0"`/../functions"; init
+
+log=`mktemp`
+sippfg -sf uac.xml -oocsf ooc.xml -i 127.0.0.1 -p 27320 -m 1 \
+    127.0.0.1:27321 -trace_logs -log_file "$log" -timeout 5 \
+    >/dev/null 2>&1
+status=$?
+got=`sed -n 's/.*\(call [0-9]* [0-9]*\)-.*/\1/p' "$log"`
+rm -f "$log"
+
+if test $status -ne 0; then
+    fail "SIPp ended with $status"
+elif test "$got" != "call 1 1"; then
+    fail "the first call was \"$got\", not \"call 1 1\""
+else
+    ok
+fi

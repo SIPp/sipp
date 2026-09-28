@@ -1194,8 +1194,9 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     if (!isAutomatic) {
         /* Not advancing the number is safe, because for automatic calls we do not
          * assign the identifier,  the only other place it is used is for the auto
-         * media port. */
-        number = next_number++;
+         * media port. An <init> is not a call of the scenario either: the
+         * first call is number 1 all the same. */
+        number = isInitCall ? 0 : next_number++;
 
         if (use_tdmmap) {
             tdm_map_number = get_tdm_map_number();
