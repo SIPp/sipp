@@ -138,6 +138,7 @@ private:
                       bool untraced);
     void buffer_whole(const char *buffer, size_t len, const char *out, size_t out_len,
                       struct sockaddr_storage *dest);
+    void drop_out();
     void trace_sent(const char *buffer, size_t len);
     ssize_t read_message(char *buf, size_t len, struct sockaddr_storage *src);
     struct socketbuf *ss_in = nullptr;    /* Buffered input. */
