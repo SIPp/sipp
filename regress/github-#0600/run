@@ -18,7 +18,7 @@ check() {
         >/dev/null 2>"$dir/stderr"
     status=$?
     test $status -eq 253 || fail "exit code $status with '$*'"
-    grep -q 'RTP check failed: 1 RTP errors and 0 echo errors' \
+    grep -q 'RTP check failed: pattern 1$' \
         "$dir/stderr" || fail "no RTP check message with '$*'"
 }
 

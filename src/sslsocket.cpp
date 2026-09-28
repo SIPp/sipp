@@ -155,11 +155,11 @@ static int sip_tls_verify_callback(int ok , X509_STORE_CTX *store)
 
         X509_NAME_oneline(X509_get_issuer_name(cert),
                           data, 512);
-        WARNING("TLS verification error for issuer: '%s'\n", data);
+        WARNING("TLS verification error for issuer: '%s'", data);
         X509_NAME_oneline(X509_get_subject_name(cert),
                           data, 512);
-        WARNING("TLS verification error for subject: '%s'\n", data);
-        WARNING("verify error:num=%d:%s:depth=%d\n", err,
+        WARNING("TLS verification error for subject: '%s'", data);
+        WARNING("verify error:num=%d:%s:depth=%d", err,
                 X509_verify_cert_error_string(err), depth);
     }
     return ok;

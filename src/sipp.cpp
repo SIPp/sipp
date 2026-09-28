@@ -1597,8 +1597,21 @@ void sipp_exit(int rc, int rtp_errors, int echo_errors)
     /* Before the error file closes, and shown on stderr as the last
      * error: nothing else tells why the exit code is 253. */
     if (rc == EXIT_TEST_RES_UNKNOWN && (rtp_errors > 0 || echo_errors > 0)) {
-        WARNING("RTP check failed: %d RTP errors and %d echo errors",
-                rtp_errors, echo_errors);
+        /* rtp_errors has bit id - 1 set for each pattern id that failed. */
+        std::string failed;
+        int patterns = 0;
+        for (int id = 1; rtp_errors > 0 && id < 32; id++) {
+            if (rtp_errors & (1 << (id - 1))) {
+                failed += (patterns++ ? ", " : " ") + std::to_string(id);
+            }
+        }
+        if (patterns) {
+            failed = (patterns > 1 ? "patterns" : "pattern") + failed;
+        }
+        if (echo_errors > 0) {
+            failed += patterns ? " and rtp_echo" : "rtp_echo";
+        }
+        WARNING("RTP check failed: %s", failed.c_str());
     }
 
     screen_exit();
