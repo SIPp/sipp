@@ -1995,9 +1995,9 @@ bool call::executeMessage(message *curmsg)
 
         msg_snd = send_scene(msg_index, &send_status, &msgLen);
         if (!msg_snd) {
-            /* This will hit connect_if_needed, and if it fails, the
-               entire call is deleted... */
-            ERROR("Call failed, cannot continue safely...");
+            /* The connection failed and connect_socket_if_needed() deleted
+             * the call, so we should no longer access members. */
+            return false;
         }
 
         if(send_status < 0 && errno == EWOULDBLOCK) {
