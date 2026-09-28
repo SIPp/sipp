@@ -1,0 +1,29 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -srtpcheck_debug: the echo debug log keeps the lines of a call after
+# an overlapping call stops its echo.
+. "`dirname "$0"`/../functions"; init
+
+rm -f debugrefileaudio_*.log srtpctxdebugfile_uas
+sippbg -sf uas.xml -i 127.0.0.1 -p 26120 -m 2 \
+    -min_rtp_port 29000 -max_rtp_port 29199 -srtpcheck_debug -timeout 10
+uas=$pid
+# Two calls of 2 s, the second starting 1 s after the first.
+sippfg -sf uac.xml -i 127.0.0.1 -p 26121 -m 2 -l 2 -r 1 -d 2000 \
+    -min_rtp_port 28800 -max_rtp_port 28999 \
+    127.0.0.1:26120 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait $uas
+
+# The packets echoed per call, by SSRC: 50 a second.
+counts=`sed -n 's/^DATA SUCCESSFULLY RECEIVED.*\(........\)$/\1/p' \
+    debugrefileaudio_*.log 2>/dev/null | sort | uniq -c | awk '{ printf "%s ", $1 }'`
+rm -f debugrefileaudio_*.log srtpctxdebugfile_uas
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif ! echo "$counts" | awk '{ exit !(NF == 2 && $1 >= 75 && $2 >= 75) }'; then
+    fail "echoed packets logged per call: $counts"
+else
+    ok
+fi
