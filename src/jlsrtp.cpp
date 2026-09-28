@@ -29,6 +29,55 @@
 #include <iterator>
 #include <sstream> // std::ostringstream
 
+/* The AES-ECB cipher for a key of keySize bytes, nullptr if there is none
+ * or the TLS library lacks it. */
+static const EVP_CIPHER* aesEcbCipher(size_t keySize)
+{
+    switch (keySize) {
+    case JLSRTP_ENCRYPTION_KEY_LENGTH:
+        return EVP_aes_128_ecb();
+#if !defined(USE_WOLFSSL) || defined(WOLFSSL_AES_192)
+    case JLSRTP_AES_192_KEY_LENGTH:
+        return EVP_aes_192_ecb();
+#endif
+#if !defined(USE_WOLFSSL) || defined(WOLFSSL_AES_256)
+    case JLSRTP_AES_256_KEY_LENGTH:
+        return EVP_aes_256_ecb();
+#endif
+    default:
+        return nullptr;
+    }
+}
+
+/* Sets the key of an AES-ECB context, switching it to the AES variant of
+ * the key's length. Returns 1 on success, as EVP_EncryptInit_ex() does. */
+static int setAESKey(EVP_CIPHER_CTX* ctx, const std::vector<unsigned char>& key)
+{
+    const EVP_CIPHER* cipher = nullptr; // keep the context's cipher
+
+    if (EVP_CIPHER_CTX_key_length(ctx) != static_cast<int>(key.size())) {
+        cipher = aesEcbCipher(key.size());
+        if (!cipher) {
+            return 0;
+        }
+    }
+    return EVP_EncryptInit_ex(ctx, cipher, nullptr, key.data(), nullptr);
+}
+
+/* The master key length a cipher takes: RFC 6188 uses the AES key size, and
+ * the NULL cipher keeps the 128-bit PRF of RFC 4568. */
+static size_t masterKeyLength(CipherType cipher)
+{
+    switch (cipher) {
+    case AES_CM_192:
+        return JLSRTP_AES_192_KEY_LENGTH;
+    case AES_CM_256:
+        return JLSRTP_AES_256_KEY_LENGTH;
+    default:
+        return JLSRTP_ENCRYPTION_KEY_LENGTH;
+    }
+}
+
 // --------------- PRIVATE METHODS ----------------
 
 bool JLSRTP::isBase64(unsigned char c)
@@ -81,10 +130,10 @@ int JLSRTP::pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vect
             keySize = _primary_crypto.master_key.size();
 
             assert(ivSize == JLSRTP_SALTING_KEY_LENGTH);
-            assert(keySize == JLSRTP_ENCRYPTION_KEY_LENGTH);
+            assert(aesEcbCipher(keySize));
             if (ivSize == JLSRTP_SALTING_KEY_LENGTH)
             {
-                if (keySize == JLSRTP_ENCRYPTION_KEY_LENGTH)
+                if (aesEcbCipher(keySize))
                 {
                     input.resize(AES_BLOCK_SIZE);
                     output.clear();
@@ -136,10 +185,10 @@ int JLSRTP::pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vect
             keySize = _secondary_crypto.master_key.size();
 
             assert(ivSize == JLSRTP_SALTING_KEY_LENGTH);
-            assert(keySize == JLSRTP_ENCRYPTION_KEY_LENGTH);
+            assert(aesEcbCipher(keySize));
             if (ivSize == JLSRTP_SALTING_KEY_LENGTH)
             {
-                if (keySize == JLSRTP_ENCRYPTION_KEY_LENGTH)
+                if (aesEcbCipher(keySize))
                 {
                     input.resize(AES_BLOCK_SIZE);
                     output.clear();
@@ -488,6 +537,8 @@ int JLSRTP::encryptVector(std::vector<unsigned char> &invdata, std::vector<unsig
                 switch (_primary_crypto.cipher_algorithm)
                 {
                     case AES_CM_128:
+                    case AES_CM_192:
+                    case AES_CM_256:
                     {
                         ciphertext_output.resize(invdata.size());
                         resetCipherBlockOffset();
@@ -519,6 +570,8 @@ int JLSRTP::encryptVector(std::vector<unsigned char> &invdata, std::vector<unsig
                 switch (_secondary_crypto.cipher_algorithm)
                 {
                     case AES_CM_128:
+                    case AES_CM_192:
+                    case AES_CM_256:
                     {
                         ciphertext_output.resize(invdata.size());
                         resetCipherBlockOffset();
@@ -574,6 +627,8 @@ int JLSRTP::decryptVector(std::vector<unsigned char> &ciphertext_input, std::vec
                 switch (_primary_crypto.cipher_algorithm)
                 {
                     case AES_CM_128:
+                    case AES_CM_192:
+                    case AES_CM_256:
                     {
                         outvdata.resize(ciphertext_input.size());
                         resetCipherBlockOffset();
@@ -605,6 +660,8 @@ int JLSRTP::decryptVector(std::vector<unsigned char> &ciphertext_input, std::vec
                 switch (_secondary_crypto.cipher_algorithm)
                 {
                     case AES_CM_128:
+                    case AES_CM_192:
+                    case AES_CM_256:
                     {
                         outvdata.resize(ciphertext_input.size());
                         resetCipherBlockOffset();
@@ -1076,7 +1133,7 @@ int JLSRTP::setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib /*= ACTIVE_
         {
             case PRIMARY_CRYPTO:
             {
-                rc = EVP_EncryptInit_ex(_pseudorandomstate.cipher, nullptr, nullptr, _primary_crypto.master_key.data(), nullptr);
+                rc = setAESKey(_pseudorandomstate.cipher, _primary_crypto.master_key);
                 if (rc == 1)
                 {
                     retVal = 0;
@@ -1090,7 +1147,7 @@ int JLSRTP::setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib /*= ACTIVE_
 
             case SECONDARY_CRYPTO:
             {
-                rc = EVP_EncryptInit_ex(_pseudorandomstate.cipher, nullptr, nullptr, _secondary_crypto.master_key.data(), nullptr);
+                rc = setAESKey(_pseudorandomstate.cipher, _secondary_crypto.master_key);
                 if (rc == 1)
                 {
                     retVal = 0;
@@ -1124,7 +1181,7 @@ int JLSRTP::setAESSessionEncryptionKey()
 
     if (_cipherstate.cipher != nullptr)
     {
-        rc = EVP_EncryptInit_ex(_cipherstate.cipher, nullptr, nullptr, _session_enc_key.data(), nullptr);
+        rc = setAESKey(_cipherstate.cipher, _session_enc_key);
         if (rc == 1)
         {
             retVal = 0;
@@ -1180,7 +1237,7 @@ int JLSRTP::AES_ctr128_pseudorandom_EVPencrypt(const unsigned char* in,
                 if (n == 0)
                 {
                     // IMPORTANT:  Key MUST be set every single time EVP_EncryptUpdate() is to be called...
-                    rc = EVP_EncryptInit_ex(_pseudorandomstate.cipher, nullptr, nullptr, _primary_crypto.master_key.data(), nullptr);
+                    rc = setAESKey(_pseudorandomstate.cipher, _primary_crypto.master_key);
                     if (rc == 1)
                     {
                         rc = EVP_EncryptUpdate(_pseudorandomstate.cipher, ecount_buf, &nb, counter, AES_BLOCK_SIZE);
@@ -1218,7 +1275,7 @@ int JLSRTP::AES_ctr128_pseudorandom_EVPencrypt(const unsigned char* in,
                 if (n == 0)
                 {
                     // IMPORTANT:  Key MUST be set every single time EVP_EncryptUpdate() is to be called...
-                    rc = EVP_EncryptInit_ex(_pseudorandomstate.cipher, nullptr, nullptr, _secondary_crypto.master_key.data(), nullptr);
+                    rc = setAESKey(_pseudorandomstate.cipher, _secondary_crypto.master_key);
                     if (rc == 1)
                     {
                         rc = EVP_EncryptUpdate(_pseudorandomstate.cipher, ecount_buf, &nb, counter, AES_BLOCK_SIZE);
@@ -1277,7 +1334,7 @@ int JLSRTP::AES_ctr128_session_EVPencrypt(const unsigned char* in,
         if (n == 0)
         {
             // IMPORTANT:  Key MUST be set every single time EVP_EncryptUpdate() is to be called...
-            rc = EVP_EncryptInit_ex(_cipherstate.cipher, nullptr, nullptr, _session_enc_key.data(), nullptr);
+            rc = setAESKey(_cipherstate.cipher, _session_enc_key);
             if (rc == 1)
             {
                 rc = EVP_EncryptUpdate(_cipherstate.cipher, ecount_buf, &nb, counter, AES_BLOCK_SIZE);
@@ -1415,7 +1472,8 @@ int JLSRTP::deriveSessionEncryptionKey()
 
                 xorVector(keyid_encryption, _primary_crypto.master_salt, input_vector);
 
-                retVal = pseudorandomFunction(input_vector, 128, _session_enc_key);
+                // As long as the master key (RFC 6188 section 3)
+                retVal = pseudorandomFunction(input_vector, 8 * _primary_crypto.master_key.size(), _session_enc_key);
             }
             else
             {
@@ -1444,7 +1502,8 @@ int JLSRTP::deriveSessionEncryptionKey()
 
                 xorVector(keyid_encryption, _secondary_crypto.master_salt, input_vector);
 
-                retVal = pseudorandomFunction(input_vector, 128, _session_enc_key);
+                // As long as the master key (RFC 6188 section 3)
+                retVal = pseudorandomFunction(input_vector, 8 * _secondary_crypto.master_key.size(), _session_enc_key);
             }
             else
             {
@@ -1767,6 +1826,21 @@ int JLSRTP::selectCipherAlgorithm(CipherType cipherType, ActiveCrypto crypto_att
                 }
                 break;
 
+                case AES_CM_192:
+                case AES_CM_256:
+                {
+                    if (aesEcbCipher(masterKeyLength(cipherType)))
+                    {
+                        _primary_crypto.cipher_algorithm = cipherType;
+                        retVal = 0;
+                    }
+                    else
+                    {
+                        retVal = -1;
+                    }
+                }
+                break;
+
                 default:
                 {
                     retVal = -1;
@@ -1791,6 +1865,21 @@ int JLSRTP::selectCipherAlgorithm(CipherType cipherType, ActiveCrypto crypto_att
                 {
                     _secondary_crypto.cipher_algorithm = NULL_CIPHER;
                     retVal = 0;
+                }
+                break;
+
+                case AES_CM_192:
+                case AES_CM_256:
+                {
+                    if (aesEcbCipher(masterKeyLength(cipherType)))
+                    {
+                        _secondary_crypto.cipher_algorithm = cipherType;
+                        retVal = 0;
+                    }
+                    else
+                    {
+                        retVal = -1;
+                    }
                 }
                 break;
 
@@ -2433,6 +2522,33 @@ std::string JLSRTP::getCryptoSuite()
                 }
                 break;
 
+                case AES_CM_192:
+                case AES_CM_256:
+                {
+                    const char* aes = (_primary_crypto.cipher_algorithm == AES_CM_192) ? "AES_192_CM" : "AES_256_CM";
+                    switch (_primary_crypto.hmac_algorithm)
+                    {
+                        case HMAC_SHA1_80:
+                        {
+                            cryptosuite = std::string(aes) + "_HMAC_SHA1_80";
+                        }
+                        break;
+
+                        case HMAC_SHA1_32:
+                        {
+                            cryptosuite = std::string(aes) + "_HMAC_SHA1_32";
+                        }
+                        break;
+
+                        default:
+                        {
+                            cryptosuite = "";
+                        }
+                        break;
+                    }
+                }
+                break;
+
                 case NULL_CIPHER:
                 {
                     switch (_primary_crypto.hmac_algorithm)
@@ -2484,6 +2600,33 @@ std::string JLSRTP::getCryptoSuite()
                         case HMAC_SHA1_32:
                         {
                             cryptosuite = "AES_CM_128_HMAC_SHA1_32";
+                        }
+                        break;
+
+                        default:
+                        {
+                            cryptosuite = "";
+                        }
+                        break;
+                    }
+                }
+                break;
+
+                case AES_CM_192:
+                case AES_CM_256:
+                {
+                    const char* aes = (_secondary_crypto.cipher_algorithm == AES_CM_192) ? "AES_192_CM" : "AES_256_CM";
+                    switch (_secondary_crypto.hmac_algorithm)
+                    {
+                        case HMAC_SHA1_80:
+                        {
+                            cryptosuite = std::string(aes) + "_HMAC_SHA1_80";
+                        }
+                        break;
+
+                        case HMAC_SHA1_32:
+                        {
+                            cryptosuite = std::string(aes) + "_HMAC_SHA1_32";
                         }
                         break;
 
@@ -2637,6 +2780,11 @@ int JLSRTP::decodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*=
             //}
             //std::cout << "]" << std::endl;
 
+            // The salt is 14 bytes in all suites, the key what comes before
+            if (concat.size() > JLSRTP_SALTING_KEY_LENGTH)
+            {
+                _primary_crypto.n_e = concat.size() - JLSRTP_SALTING_KEY_LENGTH;
+            }
             split_pos = _primary_crypto.n_e;
             it_begin = concat.begin();
             it_middle = concat.begin();
@@ -2672,6 +2820,11 @@ int JLSRTP::decodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*=
             //}
             //std::cout << "]" << std::endl;
 
+            // The salt is 14 bytes in all suites, the key what comes before
+            if (concat.size() > JLSRTP_SALTING_KEY_LENGTH)
+            {
+                _secondary_crypto.n_e = concat.size() - JLSRTP_SALTING_KEY_LENGTH;
+            }
             split_pos = _secondary_crypto.n_e;
             it_begin = concat.begin();
             it_middle = concat.begin();
@@ -3002,6 +3155,8 @@ int JLSRTP::generateMasterKey(ActiveCrypto crypto_attrib /*= ACTIVE_CRYPTO*/)
     {
         case PRIMARY_CRYPTO:
         {
+            _primary_crypto.master_key.resize(masterKeyLength(_primary_crypto.cipher_algorithm));
+            _primary_crypto.n_e = _primary_crypto.master_key.size();
             if (RAND_bytes(_primary_crypto.master_key.data(), _primary_crypto.master_key.size()) == 1)
             {
                 retVal = 0;
@@ -3035,6 +3190,8 @@ int JLSRTP::generateMasterKey(ActiveCrypto crypto_attrib /*= ACTIVE_CRYPTO*/)
 
         case SECONDARY_CRYPTO:
         {
+            _secondary_crypto.master_key.resize(masterKeyLength(_secondary_crypto.cipher_algorithm));
+            _secondary_crypto.n_e = _secondary_crypto.master_key.size();
             if (RAND_bytes(_secondary_crypto.master_key.data(), _secondary_crypto.master_key.size()) == 1)
             {
                 retVal = 0;
@@ -3587,6 +3744,184 @@ JLSRTP::~JLSRTP()
     EVP_CIPHER_CTX_free(_pseudorandomstate.cipher);
     RAND_cleanup();
 }
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+
+static std::vector<unsigned char> fromHex(const std::string& hex)
+{
+    std::vector<unsigned char> v;
+    for (size_t i = 0; i + 1 < hex.size(); i += 2) {
+        v.push_back(static_cast<unsigned char>(std::stoi(hex.substr(i, 2), nullptr, 16)));
+    }
+    return v;
+}
+
+class JLSRTPTest : public ::testing::Test
+{
+protected:
+    // Session keys derived from a master key and salt with index 0, kdr 0
+    static void derive(JLSRTP& s, CipherType cipher, const char* key, const char* salt)
+    {
+        std::vector<unsigned char> k = fromHex(key);
+        std::vector<unsigned char> m = fromHex(salt);
+        ASSERT_EQ(0, s.selectCipherAlgorithm(cipher, PRIMARY_CRYPTO));
+        s.setMasterKey(k, PRIMARY_CRYPTO);
+        s.setMasterSalt(m, PRIMARY_CRYPTO);
+        ASSERT_EQ(0, s.deriveSessionEncryptionKey());
+        ASSERT_EQ(0, s.deriveSessionSaltingKey());
+        ASSERT_EQ(0, s.deriveSessionAuthenticationKey());
+    }
+    static std::vector<unsigned char> encKey(JLSRTP& s) { return s._session_enc_key; }
+    static std::vector<unsigned char> saltKey(JLSRTP& s) { return s._session_salt_key; }
+    static std::vector<unsigned char> authKey(JLSRTP& s) { return s._session_auth_key; }
+
+    // The keystream for packet index 0 from the given session key and salt
+    static std::vector<unsigned char> keystream(JLSRTP& s, CipherType cipher, const char* key, const char* salt, size_t len)
+    {
+        std::vector<unsigned char> zeros(len);
+        std::vector<unsigned char> out;
+        s.selectCipherAlgorithm(cipher, PRIMARY_CRYPTO);
+        s._session_enc_key = fromHex(key);
+        s._session_salt_key = fromHex(salt);
+        s.selectEncryptionKey();
+        s.computePacketIV(0);
+        s.setPacketIV();
+        s.encryptVector(zeros, out);
+        return out;
+    }
+};
+
+// RFC 3711 appendix B.3: the 128-bit key derivation stays as it was
+TEST_F(JLSRTPTest, Aes128Kdf)
+{
+    JLSRTP s(0, "127.0.0.1", 0);
+    derive(s, AES_CM_128, "e1f97a0d3e018be0d64fa32c06de4139", "0ec675ad498afeebb6960b3aabe6");
+    EXPECT_EQ(fromHex("c61e7a93744f39ee10734afe3ff7a087"), encKey(s));
+    EXPECT_EQ(fromHex("30cbbc08863d8c85d49db34a9ae1"), saltKey(s));
+    EXPECT_EQ(fromHex("cebe321f6ff7716b6fd4ab49af256a156d38baa4"), authKey(s));
+}
+
+// RFC 6188 section 7.2
+TEST_F(JLSRTPTest, Aes256Kdf)
+{
+    JLSRTP s(0, "127.0.0.1", 0);
+    derive(s, AES_CM_256, "f0f04914b513f2763a1b1fa130f10e2998f6f6e43e4309d1e622a0e332b9f1b6", "3b04803de51ee7c96423ab5b78d2");
+    EXPECT_EQ(fromHex("5ba1064e30ec51613cad926c5a28ef731ec7fb397f70a960653caf06554cd8c4"), encKey(s));
+    EXPECT_EQ(fromHex("fa31791685ca444a9e07c6c64e93"), saltKey(s));
+    EXPECT_EQ(fromHex("fd9c32d39ed5fbb5a9dc96b30818454d1313dc05"), authKey(s));
+}
+
+// RFC 6188 section 7.4
+TEST_F(JLSRTPTest, Aes192Kdf)
+{
+    JLSRTP s(0, "127.0.0.1", 0);
+    derive(s, AES_CM_192, "73edc66c4fa15776fb57f9505c17136550ffda71f3e8e5f1", "c8522f3acd4ce86d5add78edbb11");
+    EXPECT_EQ(fromHex("31874736a8f1143870c26e4857d8a5b2c4a354407faadabb"), encKey(s));
+    EXPECT_EQ(fromHex("2372b82d639b6d8503a47adc0a6c"), saltKey(s));
+    EXPECT_EQ(fromHex("355b10973cd95b9eacf4061c7e1a7151e7cfbfcb"), authKey(s));
+}
+
+// RFC 6188 sections 7.1 and 7.3: the first and last three keystream blocks
+TEST_F(JLSRTPTest, Aes256Keystream)
+{
+    JLSRTP s(0, "127.0.0.1", 0);
+    std::vector<unsigned char> ks = keystream(s, AES_CM_256, "57f82fe3613fd170a85ec93c40b1f0922ec4cb0dc025b58272147cc438944a98",
+                                              "f0f1f2f3f4f5f6f7f8f9fafbfcfd", 65282 * 16);
+    ASSERT_EQ(65282u * 16, ks.size());
+    EXPECT_EQ(fromHex("92bdd28a93c3f52511c677d08b5515a49da71b2378a854f67050756ded165bac63c4868b7096d88421b563b8c94c9a31"),
+              std::vector<unsigned char>(ks.begin(), ks.begin() + 48));
+    EXPECT_EQ(fromHex("cea518c90fd91ced9cbb18c078a547113dbc4814f4da5f00a08772b63c6a046d6eb246913062a16891433e97dd01a57f"),
+              std::vector<unsigned char>(ks.end() - 48, ks.end()));
+}
+
+TEST_F(JLSRTPTest, Aes192Keystream)
+{
+    JLSRTP s(0, "127.0.0.1", 0);
+    std::vector<unsigned char> ks = keystream(s, AES_CM_192, "eab234764e517b2d3d160d587d8c86219740f65f99b6bcf7",
+                                              "f0f1f2f3f4f5f6f7f8f9fafbfcfd", 65282 * 16);
+    ASSERT_EQ(65282u * 16, ks.size());
+    EXPECT_EQ(fromHex("35096cba4610028dc1b57503804ce37c5de986291dcce161d5165ec4568f5c9a474a40c77894bc17180202272a4c264d"),
+              std::vector<unsigned char>(ks.begin(), ks.begin() + 48));
+    EXPECT_EQ(fromHex("d108d1a31a00bad6367ec23eb044b415c8f57129fdeb970b59f917b257662d4ca5dab625811034e8cebdfeb6dc158dd3"),
+              std::vector<unsigned char>(ks.end() - 48, ks.end()));
+}
+
+struct SrtpSuite {
+    CipherType cipher;
+    HashType hash;
+    const char* name;
+    size_t inline_len; // base64 key||salt
+    size_t tag_len;
+};
+
+class JLSRTPRoundTrip : public ::testing::TestWithParam<SrtpSuite> {};
+
+// A sender's key||salt as the peer's a=crypto line carries it, and a
+// packet it protects that the peer then authenticates and decrypts
+TEST_P(JLSRTPRoundTrip, EncryptDecrypt)
+{
+    const SrtpSuite& suite = GetParam();
+    JLSRTP tx(0x12345678, "127.0.0.1", 0);
+    JLSRTP rx(0x12345678, "127.0.0.1", 0);
+    std::string mks;
+
+    ASSERT_EQ(0, tx.selectCipherAlgorithm(suite.cipher, PRIMARY_CRYPTO));
+    ASSERT_EQ(0, tx.selectHashAlgorithm(suite.hash, PRIMARY_CRYPTO));
+    ASSERT_EQ(0, tx.generateMasterKey(PRIMARY_CRYPTO));
+    ASSERT_EQ(0, tx.generateMasterSalt(PRIMARY_CRYPTO));
+    ASSERT_EQ(0, tx.encodeMasterKeySalt(mks, PRIMARY_CRYPTO));
+    EXPECT_EQ(suite.inline_len, mks.size());
+    EXPECT_EQ(suite.name, tx.getCryptoSuite());
+
+    ASSERT_EQ(0, rx.decodeMasterKeySalt(mks, PRIMARY_CRYPTO));
+    ASSERT_EQ(0, rx.selectCipherAlgorithm(suite.cipher, PRIMARY_CRYPTO));
+    ASSERT_EQ(0, rx.selectHashAlgorithm(suite.hash, PRIMARY_CRYPTO));
+    EXPECT_EQ(tx.getMasterKey(PRIMARY_CRYPTO), rx.getMasterKey(PRIMARY_CRYPTO));
+    EXPECT_EQ(tx.getMasterSalt(PRIMARY_CRYPTO), rx.getMasterSalt(PRIMARY_CRYPTO));
+
+    for (JLSRTP* s : {&tx, &rx}) {
+        s->setSrtpHeaderSize(12);
+        s->setSrtpPayloadSize(160);
+        ASSERT_EQ(0, s->deriveSessionEncryptionKey());
+        ASSERT_EQ(0, s->deriveSessionSaltingKey());
+        ASSERT_EQ(0, s->deriveSessionAuthenticationKey());
+        ASSERT_EQ(0, s->selectEncryptionKey());
+        ASSERT_EQ(0, s->resetCipherState());
+    }
+
+    for (unsigned short seq = 1000; seq < 1003; seq++) {
+        std::vector<unsigned char> header = {0x80, 0x00, static_cast<unsigned char>(seq >> 8), static_cast<unsigned char>(seq),
+                                             0x00, 0x00, 0x00, 0x01, 0x12, 0x34, 0x56, 0x78};
+        std::vector<unsigned char> payload(160);
+        for (size_t i = 0; i < payload.size(); i++) {
+            payload[i] = static_cast<unsigned char>(i + seq);
+        }
+        std::vector<unsigned char> packet;
+        ASSERT_EQ(0, tx.processOutgoingPacket(seq, header, payload, packet));
+        ASSERT_EQ(12 + 160 + suite.tag_len, packet.size());
+        EXPECT_NE(payload, std::vector<unsigned char>(packet.begin() + 12, packet.begin() + 172));
+
+        std::vector<unsigned char> rx_header;
+        std::vector<unsigned char> rx_payload;
+        std::vector<unsigned char> tampered = packet;
+        tampered[20] ^= 1;
+        EXPECT_EQ(-1, rx.processIncomingPacket(seq, tampered, rx_header, rx_payload));
+        ASSERT_EQ(0, rx.processIncomingPacket(seq, packet, rx_header, rx_payload));
+        EXPECT_EQ(header, rx_header);
+        EXPECT_EQ(payload, rx_payload);
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(Suites, JLSRTPRoundTrip, ::testing::Values(
+    SrtpSuite{AES_CM_128, HMAC_SHA1_80, "AES_CM_128_HMAC_SHA1_80", 40, 10},
+    SrtpSuite{AES_CM_128, HMAC_SHA1_32, "AES_CM_128_HMAC_SHA1_32", 40, 4},
+    SrtpSuite{AES_CM_192, HMAC_SHA1_80, "AES_192_CM_HMAC_SHA1_80", 52, 10},
+    SrtpSuite{AES_CM_192, HMAC_SHA1_32, "AES_192_CM_HMAC_SHA1_32", 52, 4},
+    SrtpSuite{AES_CM_256, HMAC_SHA1_80, "AES_256_CM_HMAC_SHA1_80", 64, 10},
+    SrtpSuite{AES_CM_256, HMAC_SHA1_32, "AES_256_CM_HMAC_SHA1_32", 64, 4}));
+
+#endif // GTEST
 
 #else // !USE_OPENSSL && !USE_WOLFSSL
 
