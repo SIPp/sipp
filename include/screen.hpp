@@ -40,6 +40,7 @@ int  screen_readkey();
 void screen_exit();
 void print_statistics(int last);
 
+extern int screen_inited;
 extern int key_backspace;
 extern int key_dc;
 

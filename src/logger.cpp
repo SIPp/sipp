@@ -46,6 +46,8 @@
 #include "logger.hpp"
 
 unsigned long total_errors = 0;
+/* screen_last_error is on stderr already: print_errors() leaves it out. */
+static bool last_error_shown = false;
 
 void log_off(struct logfile_info* lfi)
 {
@@ -417,7 +419,9 @@ void print_errors() {
         return;
     }
 
-    fprintf(stderr, "%s\n", screen_last_error);
+    if (!last_error_shown) {
+        fprintf(stderr, "%s\n", screen_last_error);
+    }
     if (total_errors > 1) {
         if (screen_logfile[0] != '\0') {
             fprintf(stderr,
@@ -458,6 +462,7 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
         _advance(c, snprintf(c, bufEnd - c, ", errno = %d (%s)", error, strerror(error)));
     }
     total_errors++;
+    last_error_shown = false;
 
     if (!error_lfi.fptr && print_all_responses) {
         rotate_errorf();
@@ -492,6 +497,8 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
     } else if (fatal) {
         fprintf(stderr, "%s\n", screen_last_error);
         fflush(stderr);
+        /* Unless the screen, closing, clears it. */
+        last_error_shown = !screen_inited;
     }
 
     if (fatal) {
