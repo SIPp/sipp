@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
 <!DOCTYPE scenario SYSTEM "sipp.dtd">
-<!-- A UAS with the actions whose attributes are parsed as messages. It
-     gets no call: only loading and freeing it matters. -->
+<!-- A UAS with the actions whose attributes, and the keywords whose
+     parameters, are parsed as messages. It gets no call: only loading
+     and freeing it matters. -->
 <scenario name="Actions with messages">
   <recv request="INVITE">
     <action>
@@ -19,6 +20,8 @@
       [last_To:];tag=[call_number]
       [last_Call-ID:]
       [last_CSeq:]
+      X-File: [file name="users.csv"]
+      X-Field: [field0 line=0]
       Content-Length: 0
     ]]>
   </send>
