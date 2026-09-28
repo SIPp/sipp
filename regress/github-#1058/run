@@ -1,0 +1,37 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The RTP rates on the scenario screen are those of the last display
+# period, whatever other screens were drawn since. Each screen drawn
+# used to take the bytes counted since the one before, over the time
+# since the period began: two SIGUSR2 dumps in a row showed a rate
+# several times too high, then about 0.
+. "`dirname "$0"`/../functions"; init
+
+dir=`mktemp -d`
+trap 'rm -rf "$dir"' EXIT
+cp uac.xml "$dir"
+cd "$dir"
+
+sippbg -sn uas -i 127.0.0.1 -p 23190 -m 1 -rtp_echo \
+    -min_rtp_port 23500 -max_rtp_port 23599
+
+# PCMU, 172 bytes every 20 ms: 8.6 kB/s.
+"$SIPP" -nostdin -sf uac.xml -i 127.0.0.1 -p 23191 -m 1 -d 4000 \
+    -min_rtp_port 23600 -max_rtp_port 23699 127.0.0.1:23190 \
+    -trace_screen -timeout 20 >/dev/null 2>&1 &
+pid=$!
+sleep 2.5
+kill -USR2 $pid
+sleep 0.05
+kill -USR2 $pid
+wait $pid
+status=$?
+test $status -eq 0 || fail "exit code $status"
+
+rates=`sed -n 's/.* \([0-9.]*\) kB\/s AUDIO RTP OUT$/\1/p' uac_${pid}_screen.log`
+test `echo "$rates" | wc -l` -eq 2 || fail "rates: $rates"
+for rate in $rates; do
+    awk "BEGIN { exit !($rate > 4 && $rate < 20) }" ||
+        fail "RTP rates `echo $rates`"
+done
+ok

@@ -62,6 +62,7 @@ void screentask::dump()
 
 void screentask::report(bool last)
 {
+    screen_take_rtp_rates();
     print_statistics(last);
     display_scenario->stats->computeStat(CStat::E_RESET_PD_COUNTERS);
     /* The screens measure the period from clock_tick, so stamp it from the

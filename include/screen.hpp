@@ -39,6 +39,7 @@ void screen_clear();
 int  screen_readkey();
 void screen_exit();
 void print_statistics(int last);
+void screen_take_rtp_rates();
 
 extern int screen_inited;
 extern int key_backspace;
