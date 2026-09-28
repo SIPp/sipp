@@ -136,9 +136,9 @@ inline const char *TRANSPORT_TO_STRING(int p)
 #define TRANSPORT_IS_WS(p)         ((p) == T_WS || (p) == T_WSS)
 
 /* Does it run over a connection (every transport but UDP)? */
-static inline bool transport_is_reliable(int transport)
+static inline bool transport_is_reliable(int p)
 {
-    return transport != T_UDP;
+    return p != T_UDP;
 }
 
 #define SIPP_MAXFDS                65536
