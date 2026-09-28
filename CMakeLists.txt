@@ -44,6 +44,24 @@ function(optional_library LIB_NAME DESCRIPTION)
   endif()
 endfunction()
 
+# A three-way cache option: AUTO, ON or OFF. ON and OFF may be given in any
+# spelling CMake takes for a boolean (1, TRUE, YES, 0, FALSE, NO, ...), as
+# packagers often pass -DOPTION=1. Sets <VAR>_MODE to AUTO, ON or OFF.
+function(tristate_option VAR DESCRIPTION)
+  set(${VAR} "AUTO" CACHE STRING "${DESCRIPTION}")
+  set_property(CACHE ${VAR} PROPERTY STRINGS AUTO ON OFF)
+  string(TOUPPER "${${VAR}}" value)
+  if(value STREQUAL "AUTO")
+    set(${VAR}_MODE AUTO PARENT_SCOPE)
+  elseif(value MATCHES "^(ON|1|TRUE|YES|Y)$")
+    set(${VAR}_MODE ON PARENT_SCOPE)
+  elseif(value MATCHES "^(OFF|0|FALSE|NO|N)$")
+    set(${VAR}_MODE OFF PARENT_SCOPE)
+  else()
+    message(FATAL_ERROR "${VAR} must be AUTO, ON or OFF, not '${${VAR}}'")
+  endif()
+endfunction()
+
 function(add_sipp_target TARGET_NAME)
   cmake_parse_arguments(SIPP "EXCLUDE_FROM_ALL" "" "SOURCES;EXTRA_LIBRARIES;EXTRA_INCLUDES;COMPILE_DEFINITIONS" ${ARGN})
 
@@ -132,23 +150,28 @@ option(TLS_KEY_LOGGING "Enable TLS session key logging (OpenSSL only)" OFF)
 
 find_package(PkgConfig QUIET)  # import pkg_check_modules() and friends
 
-set(USE_SYSTEM_PUGIXML "AUTO" CACHE STRING "Use system pugixml: AUTO, ON, or OFF")
-if(USE_SYSTEM_PUGIXML STREQUAL "AUTO" AND EXISTS ${PROJECT_SOURCE_DIR}/third_party/pugixml/CMakeLists.txt)
+# AUTO takes the bundled copy if its submodule is there, else the system one.
+tristate_option(USE_SYSTEM_PUGIXML "Use system pugixml: AUTO, ON, or OFF")
+set(BUNDLED_PUGIXML ${PROJECT_SOURCE_DIR}/third_party/pugixml)
+if(USE_SYSTEM_PUGIXML_MODE STREQUAL "OFF" OR
+        (USE_SYSTEM_PUGIXML_MODE STREQUAL "AUTO" AND EXISTS ${BUNDLED_PUGIXML}/CMakeLists.txt))
+    if(NOT EXISTS ${BUNDLED_PUGIXML}/CMakeLists.txt)
+        message(FATAL_ERROR "USE_SYSTEM_PUGIXML is OFF, but the bundled pugixml is missing: run 'git submodule update --init'")
+    endif()
     message(STATUS "Using bundled pugixml")
-    set(PUGIXML_SOURCES ${PROJECT_SOURCE_DIR}/third_party/pugixml/src/pugixml.cpp)
-    include_directories(${PROJECT_SOURCE_DIR}/third_party/pugixml/src)
+    set(PUGIXML_SOURCES ${BUNDLED_PUGIXML}/src/pugixml.cpp)
+    include_directories(${BUNDLED_PUGIXML}/src)
     set(PUGIXML_LIBRARIES "")
-    set(PUGIXML_FOUND TRUE)
-elseif(USE_SYSTEM_PUGIXML STREQUAL "AUTO" OR USE_SYSTEM_PUGIXML STREQUAL "ON")
+else()
     pkg_check_modules(PUGIXML pugixml)
     if(PUGIXML_FOUND)
         message(STATUS "Using system pugixml")
         include_directories(SYSTEM ${PUGIXML_INCLUDE_DIRS})
+    elseif(USE_SYSTEM_PUGIXML_MODE STREQUAL "ON")
+        message(FATAL_ERROR "USE_SYSTEM_PUGIXML is ON, but pkg-config cannot find pugixml: install its development package")
+    else()
+        message(FATAL_ERROR "pugixml is required. Either install the library or run 'git submodule update --init'")
     endif()
-endif()
-
-if(NOT PUGIXML_FOUND)
-    message(FATAL_ERROR "pugixml is required. Either install the library or run 'git submodule update --init'")
 endif()
 
 if(USE_WOLFSSL)
@@ -280,22 +303,27 @@ add_sipp_target(sipp
 )
 target_compile_features(sipp PUBLIC cxx_auto_type cxx_range_for)
 
-set(USE_SYSTEM_GTEST "AUTO" CACHE STRING "Use system GTest: AUTO, ON, or OFF")
-
-if(USE_SYSTEM_GTEST STREQUAL "AUTO" AND EXISTS ${PROJECT_SOURCE_DIR}/gtest/googletest)
+# AUTO takes the bundled copy if its submodule is there, else the system one,
+# and builds no unit tests if there is neither.
+tristate_option(USE_SYSTEM_GTEST "Use system GTest: AUTO, ON, or OFF")
+set(BUNDLED_GTEST ${PROJECT_SOURCE_DIR}/gtest/googletest)
+if(USE_SYSTEM_GTEST_MODE STREQUAL "OFF" OR
+        (USE_SYSTEM_GTEST_MODE STREQUAL "AUTO" AND EXISTS ${BUNDLED_GTEST}))
+  if(NOT EXISTS ${BUNDLED_GTEST})
+    message(FATAL_ERROR "USE_SYSTEM_GTEST is OFF, but the bundled GTest is missing: run 'git submodule update --init'")
+  endif()
   message(STATUS "Using bundled GTest")
   include(GoogleTest)
   add_sipp_target(sipp_unittest
     EXCLUDE_FROM_ALL
     SOURCES "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp" ${PUGIXML_SOURCES}
-            "${PROJECT_SOURCE_DIR}/gtest/googletest/src/gtest-all.cc"
+            "${BUNDLED_GTEST}/src/gtest-all.cc"
     COMPILE_DEFINITIONS "-DGTEST"
-    EXTRA_INCLUDES ${PROJECT_SOURCE_DIR}/gtest/googletest
-                   ${PROJECT_SOURCE_DIR}/gtest/googletest/include
+    EXTRA_INCLUDES ${BUNDLED_GTEST}
+                   ${BUNDLED_GTEST}/include
   )
   gtest_discover_tests(sipp_unittest TEST_PREFIX sipp_unittests:)
-elseif(USE_SYSTEM_GTEST STREQUAL "AUTO" OR USE_SYSTEM_GTEST STREQUAL "ON")
-  # Try system
+else()
   find_package(GTest QUIET)
   if(GTest_FOUND)
     message(STATUS "Using system GTest")
@@ -307,6 +335,8 @@ elseif(USE_SYSTEM_GTEST STREQUAL "AUTO" OR USE_SYSTEM_GTEST STREQUAL "ON")
     )
     target_link_libraries(sipp_unittest GTest::gtest GTest::gtest_main)
     gtest_discover_tests(sipp_unittest TEST_PREFIX sipp_unittests:)
+  elseif(USE_SYSTEM_GTEST_MODE STREQUAL "ON")
+    message(FATAL_ERROR "USE_SYSTEM_GTEST is ON, but GTest was not found: install its development package")
   else()
     message(WARNING "GTest not found. Run 'git submodule update --init' or install libgtest-dev")
   endif()

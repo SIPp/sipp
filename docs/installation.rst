@@ -64,6 +64,7 @@ Installing SIPp
     + C++ Compiler
     + curses or ncurses library
     + OpenSSL >= 1.1.1 or WolfSSL >= 3.15.0
+    + `pugixml`_: bundled as a git submodule, or the system library
     + For pcap play support: libpcap and libnet
     + For SCTP support: lksctp-tools
     + For distributed pauses: `Gnu Scientific Libraries`_
@@ -98,6 +99,22 @@ Installing SIPp
         cmake . -DUSE_GSL=1 -DUSE_PCAP=1 -DUSE_SCTP=1
         make
 
++ pugixml, and GoogleTest for the unit tests, come as git submodules
+  (``git submodule update --init``). ``-DUSE_SYSTEM_PUGIXML`` and
+  ``-DUSE_SYSTEM_GTEST`` choose between them and the system libraries:
+
+    + ``AUTO`` (the default): the submodule if it is checked out, else
+      the system library;
+    + ``ON`` (or ``1``, ``TRUE``, ``YES``): the system library, which
+      must be installed;
+    + ``OFF`` (or ``0``, ``FALSE``, ``NO``): the submodule, which must
+      be checked out.
+
+  For example, to build against the system libraries, as distribution
+  packages do::
+
+        cmake . -DUSE_SYSTEM_PUGIXML=ON -DUSE_SYSTEM_GTEST=ON
+
 
 .. warning::
   SIPp compiles under CYGWIN on Windows, provided that you
@@ -114,6 +131,7 @@ Installing SIPp
 
 .. _GNU GPL license: https://www.gnu.org/copyleft/gpl.html
 .. _Gnu Scientific Libraries: https://www.gnu.org/software/gsl/
+.. _pugixml: https://pugixml.org/
 .. _WinPcap developer package: https://www.winpcap.org/devel.htm
 .. _hewlett-packard: https://www.hp.com/
 .. _SIPp's master tree: https://github.com/SIPp/sipp/tree/master
