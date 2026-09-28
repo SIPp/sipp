@@ -1,0 +1,29 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A TLS read that finds no whole record yet (SSL_ERROR_WANT_READ) is
+# normal on a non-blocking socket, and logs no warning.
+. "`dirname "$0"`/../functions"; init
+
+"`get_sipp`" -v | grep -q TLS || skip "no TLS"
+command -v openssl >/dev/null || skip "no openssl"
+
+dir=`mktemp -d`
+trap 'rm -rf "$dir"' EXIT
+openssl req -x509 -newkey rsa:2048 -nodes -keyout "$dir/key.pem" \
+    -out "$dir/cert.pem" -days 1 -subj /CN=sipp >/dev/null 2>&1 ||
+    skip "no certificate"
+tls="-t l1 -tls_cert $dir/cert.pem -tls_key $dir/key.pem -trace_err"
+
+sippbg -sn uas $tls -error_file "$dir/uas.log" -i 127.0.0.1 -p 5070 \
+    -m 1 -timeout 10
+sippfg -sn uac $tls -error_file "$dir/uac.log" -i 127.0.0.1 -p 5071 \
+    -m 1 -timeout 10 127.0.0.1:5070 >/dev/null 2>&1
+status=$?
+wait $pid
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif cat "$dir"/*.log 2>/dev/null | grep -q "SSL_read failed"; then
+    fail "SSL_read warned"
+fi
+ok

@@ -1984,11 +1984,9 @@ int SIPpSocket::read_error(int ret)
     if (ss_transport == T_TLS) {
         int err = SSL_get_error(ss_ssl, ret);
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
-            /* This is benign - we just need to wait for the socket to be
-             * readable/writable again, which will happen naturally as part
-             * of the poll/epoll loop. */
-            WARNING("SSL_read failed with error: %s. Retrying...",
-                    SSL_error_string(err, ret));
+            /* No whole record yet, which is normal on a non-blocking
+             * socket: the poll/epoll loop calls us again once there is
+             * more to read, so there is nothing to warn about. */
             return 1;
         }
     }
