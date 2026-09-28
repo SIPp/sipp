@@ -7172,7 +7172,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
             computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
             delete this;
         } else {
-            WARNING("Continuing call on unexpected CANCEL for call: %s", (id==nullptr)?"none":id);
+            WARNING("Continuing call on an unexpected CANCEL for call: %s", (id==nullptr)?"none":id);
         }
         break ;
 
