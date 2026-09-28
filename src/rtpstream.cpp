@@ -645,6 +645,25 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
     pthread_mutex_unlock(&(taskinfo->mutex));
 }
 
+/* The millisecond to wake up in for a stream's next packet. A packet
+ * goes in the millisecond of its timestamp, so the next one is the packet
+ * after the last one if that goes now. When paused, the stream only keeps
+ * its timestamp up to date, on the multiples of its packet time. */
+static unsigned long rtpstream_next_packet_ms(unsigned long timenow_ms, bool paused,
+                                              unsigned long long last_timestamp,
+                                              unsigned long long target_timestamp,
+                                              int ms_per_packet, int ticks_per_packet,
+                                              int ticks_per_ms)
+{
+    if (paused) {
+        return timenow_ms + ms_per_packet - timenow_ms % ms_per_packet;
+    }
+    if (last_timestamp <= target_timestamp) {
+        last_timestamp += ticks_per_packet;
+    }
+    return (last_timestamp + ticks_per_ms - 1) / ticks_per_ms;
+}
+
 /**** todo - check code ****/
 static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                                            unsigned long  timenow_ms,
@@ -672,6 +691,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     unsigned short audio_seq_in = 0;
     unsigned short video_seq_in = 0;
     bool audio_echo = false; /* an echo came in */
+    bool paused;
 
     union {
         rtp_header_t hdr;
@@ -718,14 +738,22 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
         if (taskinfo->audio_loop_count)
         {
             target_timestamp = timenow_ms * taskinfo->audio_timeticks_per_ms;
-            next_wake = timenow_ms + taskinfo->audio_ms_per_packet - timenow_ms%taskinfo->audio_ms_per_packet;
-            if (taskinfo->flags & (TI_NULL_AUDIOIP | TI_PAUSERTP | TI_PAUSERTPAPATTERN))
+            paused = taskinfo->flags & (TI_NULL_AUDIOIP | TI_PAUSERTP | TI_PAUSERTPAPATTERN);
+            if (paused)
             {
                 /* when paused, set timestamp so stream appears to be up to date */
                 taskinfo->last_audio_timestamp = target_timestamp;
             }
+            /* Waking up on the multiples of the packet time, and sending
+             * a packet in the millisecond after its timestamp, sent a whole
+             * packet time late each packet of a stream that started on one,
+             * unless the thread was late itself. */
+            next_wake = rtpstream_next_packet_ms(timenow_ms, paused, taskinfo->last_audio_timestamp,
+                                                 target_timestamp, taskinfo->audio_ms_per_packet,
+                                                 taskinfo->audio_timeticks_per_packet,
+                                                 taskinfo->audio_timeticks_per_ms);
 
-            if (taskinfo->last_audio_timestamp < target_timestamp)
+            if (!paused && taskinfo->last_audio_timestamp <= target_timestamp)
             {
                 /* need to send rtp payload - build rtp packet header... */
                 memset(udp_send_audio.buffer, 0, sizeof(udp_send_audio));
@@ -942,14 +970,14 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         } while (taskinfo->audio_file_bytes_left <= 0);
                         taskinfo->audio_current_file_bytes = taskinfo->audio_file_bytes_start + taskinfo->audio_file_num_bytes - taskinfo->audio_file_bytes_left;
                     }
-                    if (taskinfo->last_audio_timestamp < target_timestamp)
+                    if (taskinfo->last_audio_timestamp <= target_timestamp)
                     {
                         /* no sleep if we are behind */
                         next_wake = timenow_ms;
                     }
                 } /* if (rc < 0) */
                 pthread_mutex_unlock(&(taskinfo->mutex));
-            } /* if (taskinfo->last_audio_timestamp < target_timestamp) */
+            } /* if (taskinfo->last_audio_timestamp <= target_timestamp) */
             else
             {
                 debugafile.printHex("TIMESTAMP NOT QUITE RIGHT...", "", 0, 0, 0);
@@ -979,16 +1007,20 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
         if (taskinfo->video_loop_count)
         {
             target_timestamp = timenow_ms * taskinfo->video_timeticks_per_ms;
-            /* Keep an earlier wakeup the audio stream asked for: overwriting
-             * it made audio go out at the video packet rate. */
-            next_wake = std::min(next_wake, timenow_ms + taskinfo->video_ms_per_packet - timenow_ms%taskinfo->video_ms_per_packet);
-            if (taskinfo->flags & (TI_NULL_VIDEOIP | TI_PAUSERTP | TI_PAUSERTPVPATTERN))
+            paused = taskinfo->flags & (TI_NULL_VIDEOIP | TI_PAUSERTP | TI_PAUSERTPVPATTERN);
+            if (paused)
             {
                 /* when paused, set timestamp so stream appears to be up to date */
                 taskinfo->last_video_timestamp = target_timestamp;
             }
+            /* Keep an earlier wakeup the audio stream asked for: overwriting
+             * it made audio go out at the video packet rate. */
+            next_wake = std::min(next_wake, rtpstream_next_packet_ms(timenow_ms, paused, taskinfo->last_video_timestamp,
+                                                                     target_timestamp, taskinfo->video_ms_per_packet,
+                                                                     taskinfo->video_timeticks_per_packet,
+                                                                     taskinfo->video_timeticks_per_ms));
 
-            if (taskinfo->last_video_timestamp < target_timestamp)
+            if (!paused && taskinfo->last_video_timestamp <= target_timestamp)
             {
                 /* need to send rtp payload - build rtp packet header... */
                 memset(udp_send_video.buffer, 0, sizeof(udp_send_video));
@@ -1185,14 +1217,14 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         } while (taskinfo->video_file_bytes_left <= 0);
                         taskinfo->video_current_file_bytes = taskinfo->video_file_bytes_start + taskinfo->video_file_num_bytes - taskinfo->video_file_bytes_left;
                     }
-                    if (taskinfo->last_video_timestamp < target_timestamp)
+                    if (taskinfo->last_video_timestamp <= target_timestamp)
                     {
                         /* no sleep if we are behind */
                         next_wake = timenow_ms;
                     }
                 } /* if (rc < 0) */
                 pthread_mutex_unlock(&(taskinfo->mutex));
-            } /* if (taskinfo->last_video_timestamp < target_timestamp) */
+            } /* if (taskinfo->last_video_timestamp <= target_timestamp) */
             else
             {
                 debugvfile.printHex("TIMESTAMP NOT QUITE RIGHT...", "", 0, 0, 0);
