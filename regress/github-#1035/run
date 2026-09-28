@@ -1,0 +1,50 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# With -t tn and -t ln, the INVITE, buffered while the connection is in
+# progress, is traced as sent by -trace_msg and -trace_shortmsg once it
+# is written, and every request is traced once.
+. "`dirname "$0"`/../functions"; init
+
+certs=`mktemp -d`
+trap 'rm -rf "$certs"' EXIT
+tls=
+if "`get_sipp`" -v | grep -q TLS && command -v openssl >/dev/null &&
+        openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+        -nodes -keyout "$certs/key.pem" -out "$certs/cert.pem" -days 1 \
+        -subj /CN=sipp >/dev/null 2>&1; then
+    tls=ln
+fi
+
+# check <transport> <port>: the problem, if there is one.
+check() {
+    tlsopts=
+    test $1 = ln && tlsopts="-tls_cert $certs/cert.pem -tls_key $certs/key.pem"
+    sippbg -sn uas -t $1 -i 127.0.0.1 -p $2 -m 1 -timeout 10 $tlsopts
+    sippfg -sn uac -t $1 -i 127.0.0.1 -p `expr $2 + 1` 127.0.0.1:$2 \
+        -m 1 -timeout 10 -timeout_error $tlsopts \
+        -trace_msg -message_file msg.log \
+        -trace_shortmsg -shortmessage_file short.log >/dev/null 2>&1
+    status=$?
+    wait
+    sent=`grep -c 'message sent \[' msg.log`
+    for m in INVITE ACK BYE; do
+        n=`grep -c "^$m sip:" msg.log`
+        test $n -eq 1 || echo "$1: $m in the message trace $n times"
+        n=`grep -c "	S	.*	$m sip:" short.log`
+        test $n -eq 1 || echo "$1: $m in the short message trace $n times"
+    done
+    test $status -eq 0 || echo "$1: UAC failed with $status"
+    test $sent -eq 3 || echo "$1: $sent messages traced as sent, not 3"
+    rm -f msg.log short.log
+}
+
+problems="`check tn 27220` `test -n "$tls" && check ln 27222`"
+problems=`echo $problems`
+
+if test -n "$problems"; then
+    fail "$problems"
+elif test -z "$tls"; then
+    skip "no TLS, TCP passed"
+else
+    ok
+fi

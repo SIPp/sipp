@@ -2085,12 +2085,14 @@ int SIPpSocket::read_error(int ret)
     return -1;
 }
 
-void SIPpSocket::buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest)
+void SIPpSocket::buffer_write(const char *buffer, size_t len, struct sockaddr_storage *dest,
+                              bool untraced)
 {
     struct socketbuf *buf = ss_out;
 
     if (!buf) {
         ss_out = alloc_socketbuf(const_cast<char*>(buffer), len, DO_COPY, dest); /* NO BUG BECAUSE OF DO_COPY */
+        ss_out->untraced = untraced;
         ss_out_tail = ss_out;
         TRACE_MSG("Added first buffered message to socket %d\n", ss_fd);
         return;
@@ -2098,6 +2100,7 @@ void SIPpSocket::buffer_write(const char *buffer, size_t len, struct sockaddr_st
 
     ss_out_tail->next = alloc_socketbuf(const_cast<char*>(buffer), len, DO_COPY, dest); /* NO BUG BECAUSE OF DO_COPY */
     ss_out_tail = ss_out_tail->next;
+    ss_out_tail->untraced = untraced;
     TRACE_MSG("Appended buffered message to socket %d\n", ss_fd);
 }
 
@@ -2267,6 +2270,31 @@ ssize_t SIPpSocket::write_primitive(const char* buffer, size_t len,
     return rc;
 }
 
+/* Trace a message that has been written whole. */
+void SIPpSocket::trace_sent(const char *buffer, size_t len)
+{
+    struct timeval currentTime;
+    GET_TIME (&currentTime);
+
+    if (useMessagef == 1) {
+        TRACE_MSG("----------------------------------------------- %s\n"
+                  "%s %smessage sent [%zu] bytes:\n\n%.*s\n",
+                  CStat::formatTime(&currentTime, true),
+                  TRANSPORT_TO_STRING(ss_transport),
+                  ss_control ? "control " : "",
+                  len, (int)len, buffer);
+    }
+
+    if (useShortMessagef == 1) {
+        /* A buffered message is not null terminated. */
+        char *msg = strndup(buffer, len);
+        const char *call_id = get_trimmed_call_id(msg);
+        TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
+                       CStat::formatTime(&currentTime, rfc3339), call_id, get_header_content(msg, "CSeq:"), get_first_line(msg));
+        free(msg);
+    }
+}
+
 /* Flush any output buffers for this socket. */
 int SIPpSocket::flush()
 {
@@ -2279,6 +2307,9 @@ int SIPpSocket::flush()
         TRACE_MSG("Wrote %d of %zu bytes in an output buffer.\n", ret, size);
         if (ret == size) {
             /* Everything is great, throw away this buffer. */
+            if (buf->untraced) {
+                trace_sent(buf->buf, buf->len);
+            }
             ss_out = buf->next;
             free_socketbuf(buf);
         } else if (ret <= 0) {
@@ -2306,7 +2337,7 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
         TRACE_MSG("Attempted socket flush returned %d\r\n", rc);
         if (rc < 0) {
             if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
-                buffer_write(buffer, len, dest);
+                buffer_write(buffer, len, dest, true);
                 return len;
             } else {
                 return rc;
@@ -2320,26 +2351,11 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
 
     if (rc == len) {
         /* Everything is great. */
-        if (useMessagef == 1) {
-            TRACE_MSG("----------------------------------------------- %s\n"
-                      "%s %smessage sent [%zu] bytes:\n\n%.*s\n",
-                      CStat::formatTime(&currentTime, true),
-                      TRANSPORT_TO_STRING(ss_transport),
-                      ss_control ? "control " : "",
-                      len, (int)len, buffer);
-        }
-
-        if (useShortMessagef == 1) {
-            char *msg = strdup(buffer);
-            const char *call_id = get_trimmed_call_id(msg);
-            TRACE_SHORTMSG("%s\tS\t%s\tCSeq:%s\t%s\n",
-                           CStat::formatTime(&currentTime, rfc3339), call_id, get_header_content(msg, "CSeq:"), get_first_line(msg));
-            free(msg);
-        }
-
+        trace_sent(buffer, len);
     } else if (rc <= 0) {
         if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
-            buffer_write(buffer, len, dest);
+            /* Traced as sent by flush(), once it is written. */
+            buffer_write(buffer, len, dest, true);
             enter_congestion(errno);
             return len;
         }
@@ -2360,7 +2376,7 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
                       TRANSPORT_TO_STRING(ss_transport),
                       rc, len, (int)len, buffer);
         }
-        buffer_write(buffer + rc, len - rc, dest);
+        buffer_write(buffer + rc, len - rc, dest, false);
         enter_congestion(errno);
     }
 
