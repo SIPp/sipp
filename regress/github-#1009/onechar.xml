@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- A send of one character: not empty. -->
+<scenario name="one character">
+  <send>
+    <![CDATA[
+      X
+    ]]>
+  </send>
+</scenario>
