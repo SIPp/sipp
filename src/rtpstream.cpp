@@ -458,36 +458,29 @@ int clear_bit(unsigned long* context, int value)
 }
 
 /* code checked */
-static void rtpstream_free_taskinfo(taskentry_t* taskinfo)
+taskentry_t::~taskentry_t()
 {
-    if (taskinfo) {
-        /* audio SRTP echo activity indicators */
-        taskinfo->audio_srtp_echo_active = 0;
-        taskinfo->video_srtp_echo_active = 0;
-
-        /* close sockets associated with this call */
-        if (taskinfo->audio_rtp_socket != -1) {
-            close(taskinfo->audio_rtp_socket);
-        }
-        if (taskinfo->audio_rtcp_socket != -1) {
-            close(taskinfo->audio_rtcp_socket);
-        }
-        if (taskinfo->video_rtp_socket != -1) {
-            close(taskinfo->video_rtp_socket);
-        }
-        if (taskinfo->video_rtcp_socket != -1) {
-            close(taskinfo->video_rtcp_socket);
-        }
-
-        delete taskinfo->audio_echo;
-        delete taskinfo->video_echo;
-        delete taskinfo->audio_srtp;
-        delete taskinfo->video_srtp;
-
-        /* cleanup pthread library structure */
-        pthread_mutex_destroy(&(taskinfo->mutex));
-        free(taskinfo);
+    /* close sockets associated with this call */
+    if (audio_rtp_socket != -1) {
+        close(audio_rtp_socket);
     }
+    if (audio_rtcp_socket != -1) {
+        close(audio_rtcp_socket);
+    }
+    if (video_rtp_socket != -1) {
+        close(video_rtp_socket);
+    }
+    if (video_rtcp_socket != -1) {
+        close(video_rtcp_socket);
+    }
+
+    delete audio_echo;
+    delete video_echo;
+    delete audio_srtp;
+    delete video_srtp;
+
+    /* cleanup pthread library structure */
+    pthread_mutex_destroy(&mutex);
 }
 
 /* code checked */
@@ -1518,7 +1511,7 @@ static void* rtpstream_playback_thread(void* params)
                     (&threaddata->tasklist)[taskindex--] = (&threaddata->tasklist)[--threaddata->num_tasks];
                     threaddata->del_pending--;   /* must decrease del_pending after num_tasks */
                     pthread_mutex_unlock(&(threaddata->tasklist_mutex));
-                    rtpstream_free_taskinfo(taskinfo);
+                    delete taskinfo;
                     continue;
                 }
                 /* handle any other config related flags */
@@ -1696,7 +1689,7 @@ static void* rtpstream_playback_thread(void* params)
         /* small chance of race condition in this code */
         taskinfo = (&threaddata->tasklist)[taskindex];
         if (taskinfo->flags & TI_KILLTASK) {
-            rtpstream_free_taskinfo(taskinfo);
+            delete taskinfo;
         } else {
             taskinfo->parent_thread = nullptr; /* no longer associated with a thread */
         }
@@ -1908,7 +1901,7 @@ static void rtpstream_stop_task(rtpstream_callinfo_t* callinfo)
         else
         {
             /* no playback thread owner, just free it */
-            rtpstream_free_taskinfo(taskinfo);
+            delete taskinfo;
         }
         callinfo->taskinfo = nullptr;
     }
@@ -1928,24 +1921,10 @@ int rtpstream_new_call(rtpstream_callinfo_t* callinfo)
     callinfo->remote_audioport = 0;
     callinfo->remote_videoport = 0;
 
-    taskinfo = (taskentry_t *) malloc(sizeof(*taskinfo));
-    if (!taskinfo) {
-        /* cannot allocate taskinfo memory - bubble error up */
-        return 0;
-    }
+    taskinfo = new taskentry_t();
     callinfo->taskinfo = taskinfo;
 
-    memset(taskinfo, 0, sizeof(*taskinfo));
     taskinfo->flags = TI_NULLIP;
-    /* socket descriptors */
-    taskinfo->audio_rtp_socket = -1;
-    taskinfo->audio_rtcp_socket = -1;
-    taskinfo->video_rtp_socket = -1;
-    taskinfo->video_rtcp_socket = -1;
-
-    /* audio/video SRTP echo activity indicators */
-    taskinfo->audio_srtp_echo_active = 0;
-    taskinfo->video_srtp_echo_active = 0;
 
     /* rtp stream members */
     taskinfo->audio_ssrc_id = global_ssrc_id++;
