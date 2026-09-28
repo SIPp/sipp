@@ -4284,18 +4284,10 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             ERROR("Authentication keyword without dialog_authentication!");
         }
 
-        int  authlen;
-
         const size_t auth_marker_len = out.find(']', auth_marker) + 1 - auth_marker;
-        /* Determine the type of credentials. */
-        char result[MAX_HEADER_LEN];
-        if (dialog_challenge_type == 401) {
-            /* Registrars use Authorization */
-            authlen = sprintf(result, "Authorization: ");
-        } else {
-            /* Proxies use Proxy-Authorization */
-            authlen = sprintf(result, "Proxy-Authorization: ");
-        }
+        /* Determine the type of credentials: registrars use
+         * Authorization, proxies Proxy-Authorization. */
+        std::string result = dialog_challenge_type == 401 ? "Authorization: " : "Proxy-Authorization: ";
 
         /* Build the auth credenticals */
         char uri[MAX_HEADER_LEN];
@@ -4312,16 +4304,16 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         createSendingMessage(auth_comp->comp_param.auth_param.aka_AMF, SM_UNUSED, my_aka_AMF, sizeof(my_aka_AMF));
         createSendingMessage(auth_comp->comp_param.auth_param.aka_OP, SM_UNUSED, my_aka_OP, sizeof(my_aka_OP));
 
-        if (createAuthHeader(
+        std::string credentials;
+        if (!createAuthHeader(
                 my_auth_user, my_auth_pass, src->getMethod(), uri,
                 body == std::string::npos ? "" : out.c_str() + body + 4, dialog_authentication, my_aka_OP, my_aka_AMF,
-                my_aka_K, next_nonce_count++, result + authlen,
-                MAX_HEADER_LEN - authlen) == 0) {
-            ERROR("%s", result + authlen);
+                my_aka_K, next_nonce_count++, credentials)) {
+            ERROR("%s", credentials.c_str());
         }
-        authlen = strlen(result);
+        result += credentials;
 
-        out.replace(auth_marker, auth_marker_len, result, authlen);
+        out.replace(auth_marker, auth_marker_len, result);
     }
 
     if (out.size() > max_len) {
