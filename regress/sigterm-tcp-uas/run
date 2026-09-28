@@ -1,0 +1,35 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# SIGTERM makes a TCP UAS with calls going on exit normally. The signal
+# handler used to exit right there, in whatever the main thread was
+# doing, often a malloc: "corrupted double-linked list" and SIGABRT. A
+# race, so several busy UAS are killed, a few rounds.
+. "`dirname "$0"`/../functions"; init
+
+for round in 0 1 2 3 4 5; do
+    uas=
+    for i in 0 1 2 3; do
+        port=$((25340 + (round * 4 + i) * 2))
+        "$SIPP" -sn uas -t t1 -i 127.0.0.1 -p $port -nostdin \
+            </dev/null >/dev/null 2>&1 &
+        uas="$uas $!"
+    done
+    sleep 0.2
+    for i in 0 1 2 3; do
+        port=$((25340 + (round * 4 + i) * 2))
+        "$SIPP" -sn uac -t t1 -i 127.0.0.1 -p $((port + 1)) -r 15000 \
+            -l 20000 -d 5000 -nostdin -timeout 5 127.0.0.1:$port \
+            </dev/null >/dev/null 2>&1 &
+    done
+    sleep 0.6
+    kill -TERM $uas
+    for pid in $uas; do
+        wait $pid
+        status=$?
+        # A normal exit: 0, or 1 if a call failed.
+        test $status -le 1 || fail "UAS exited with $status"
+    done
+    pkill -KILL -P$$
+    wait
+done
+ok
