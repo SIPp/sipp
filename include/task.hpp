@@ -25,11 +25,13 @@
 #include <sys/types.h>
 #include <string.h>
 
+#include "node_pool.hpp"
+
 /* Forward declaration of call, so that we can define the call_list iterator
  * that is referenced from call. */
 class task;
 
-typedef std::list<task *> task_list;
+typedef std::list<task *, node_allocator<task *>> task_list;
 
 /* This arrangement of wheels lets us support up to 32 bit timers.
  *

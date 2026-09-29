@@ -49,20 +49,40 @@
 /* Defined in call.cpp. */
 extern timewheel paused_calls;
 
-deadcall::deadcall(const char *id, const char *reason, bool sent_bye, bool sent_cancel) : listener(id, false)
+deadcall::deadcall(const char *id, const char *reason, int index, bool sent_bye, bool sent_cancel) :
+    listener(id, id_storage, sizeof(id_storage))
 {
     /* Listen once we are a deadcall, which startListening() checks. */
     startListening();
     this->expiration = clock_tick + deadcall_wait;
-    this->reason = strdup(reason);
+    this->reason = reason;
+    this->reason_index = index;
     this->sent_bye = sent_bye;
     this->sent_cancel = sent_cancel;
     setPaused();
 }
 
-deadcall::~deadcall()
+void *deadcall::operator new(size_t size)
 {
-    free(reason);
+    if (size != sizeof(deadcall)) {
+        return ::operator new(size);
+    }
+    return node_pool<sizeof(deadcall)>::allocate();
+}
+
+void deadcall::operator delete(void *p, size_t size)
+{
+    if (size != sizeof(deadcall)) {
+        ::operator delete(p);
+        return;
+    }
+    node_pool<sizeof(deadcall)>::deallocate(p);
+}
+
+const char *deadcall::getReason(char *buf, size_t size)
+{
+    snprintf(buf, size, reason, reason_index);
+    return buf;
 }
 
 bool deadcall::process_incoming(const char* msg, const struct sockaddr_storage* /*src*/)
@@ -89,7 +109,8 @@ bool deadcall::process_incoming(const char* msg, const struct sockaddr_storage* 
 
     CStat::globalStat(CStat::E_DEAD_CALL_MSGS);
 
-    snprintf(buffer, MAX_HEADER_LEN, "Dead call %s (%s)", id, reason);
+    char reason_buf[100];
+    snprintf(buffer, MAX_HEADER_LEN, "Dead call %s (%s)", id, getReason(reason_buf, sizeof(reason_buf)));
 
     WARNING("%s, received '%s'", buffer, msg);
 
@@ -104,7 +125,8 @@ bool deadcall::process_incoming(const char* msg, const struct sockaddr_storage* 
 bool deadcall::process_twinSippCom(char * msg)
 {
     CStat::globalStat(CStat::E_DEAD_CALL_MSGS);
-    TRACE_MSG("Received twin message for dead (%s) call %s:%s\n", reason, id, msg);
+    char reason_buf[100];
+    TRACE_MSG("Received twin message for dead (%s) call %s:%s\n", getReason(reason_buf, sizeof(reason_buf)), id, msg);
     return true;
 }
 
@@ -127,5 +149,6 @@ unsigned int deadcall::wake()
 /* Dump call info to error log. */
 void deadcall::dump()
 {
-    WARNING("%s: Dead Call (%s) expiring at %lu", id, reason, expiration);
+    char reason_buf[100];
+    WARNING("%s: Dead Call (%s) expiring at %lu", id, getReason(reason_buf, sizeof(reason_buf)), expiration);
 }
