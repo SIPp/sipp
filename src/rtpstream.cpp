@@ -519,6 +519,13 @@ static unsigned long long rtpstream_grid_timestamp(unsigned long timenow_ms, int
     return (unsigned long long) rtpstream_grid_ms(timenow_ms, ms_per_packet) * ticks_per_ms;
 }
 
+/* The tasks of a playback thread its loops walk, each added one included:
+ * see rtpstream_start_task(). */
+static unsigned int rtpstream_num_tasks(threaddata_t* threaddata)
+{
+    return __atomic_load_n(&threaddata->num_tasks, __ATOMIC_ACQUIRE);
+}
+
 /* code checked */
 static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* rtpresult)
 {
@@ -1503,14 +1510,14 @@ static void* rtpstream_playback_thread(void* params)
     rtpstream_numthreads++;
 
     // INITIALIZE AUDIO/VIDEO COMPARISON ERRORS
-    for (taskindex = 0; taskindex < threaddata->num_tasks; taskindex++)
+    for (taskindex = 0; taskindex < rtpstream_num_tasks(threaddata); taskindex++)
     {
         (&threaddata->tasklist)[taskindex]->audio_comparison_errors = 0;
         (&threaddata->tasklist)[taskindex]->video_comparison_errors = 0;
     }
 
     // ROBUSTNESS CHECK
-    for (taskindex = 0; taskindex < threaddata->num_tasks; taskindex++)
+    for (taskindex = 0; taskindex < rtpstream_num_tasks(threaddata); taskindex++)
     {
         taskinfo = (&threaddata->tasklist)[taskindex];
 
@@ -1555,10 +1562,10 @@ static void* rtpstream_playback_thread(void* params)
         echo_tasks.push_back({nullptr, false});
 
         /* iterate through tasks and handle playback and other actions */
-        for (taskindex = 0; taskindex < threaddata->num_tasks; taskindex++)
+        for (taskindex = 0; taskindex < rtpstream_num_tasks(threaddata); taskindex++)
         {
-            debugafile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, threaddata->num_tasks);
-            debugvfile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, threaddata->num_tasks);
+            debugafile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, rtpstream_num_tasks(threaddata));
+            debugvfile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, rtpstream_num_tasks(threaddata));
             taskinfo = (&threaddata->tasklist)[taskindex];
             if (taskinfo->flags & TI_CONFIGFLAGS)
             {
@@ -1673,7 +1680,7 @@ static void* rtpstream_playback_thread(void* params)
     }
 
     /* the verdicts of the calls still here */
-    for (taskindex = 0; taskindex < threaddata->num_tasks; taskindex++)
+    for (taskindex = 0; taskindex < rtpstream_num_tasks(threaddata); taskindex++)
     {
         taskinfo = (&threaddata->tasklist)[taskindex];
         rtpstream_check_verdict(taskinfo, false, &rtpresult);
@@ -1681,7 +1688,7 @@ static void* rtpstream_playback_thread(void* params)
     }
 
     /* Free all task and thread resources and exit the thread */
-    for (taskindex = 0; taskindex < threaddata->num_tasks; taskindex++)
+    for (taskindex = 0; taskindex < rtpstream_num_tasks(threaddata); taskindex++)
     {
         /* check if we should delete this thread, else let owner call clear it */
         /* small chance of race condition in this code */
@@ -1802,7 +1809,10 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
     callinfo->taskinfo->parent_thread = threaddata;
     callinfo->threadID = threaddata->id;
     pthread_mutex_lock(&(threaddata->tasklist_mutex));
-    (&threaddata->tasklist)[threaddata->num_tasks++] = callinfo->taskinfo;
+    /* The task first, then the count: the playback thread walks its tasks
+     * without the mutex, and a count ahead of its task was a null one. */
+    (&threaddata->tasklist)[threaddata->num_tasks] = callinfo->taskinfo;
+    __atomic_store_n(&threaddata->num_tasks, threaddata->num_tasks + 1, __ATOMIC_RELEASE);
     pthread_mutex_unlock(&(threaddata->tasklist_mutex));
 
     /* this check relies on playback thread to decrement num_tasks before */
