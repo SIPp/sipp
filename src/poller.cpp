@@ -50,6 +50,10 @@ bool PollPoller::modify(int fd, unsigned events, uint64_t key)
 
 bool PollPoller::remove(int fd)
 {
+    if (fd < 0) {
+        errno = EBADF;
+        return false;
+    }
     auto it = index.find(fd);
     if (it == index.end()) {
         errno = ENOENT;
@@ -130,6 +134,10 @@ bool EpollPoller::modify(int fd, unsigned events, uint64_t key)
 
 bool EpollPoller::remove(int fd)
 {
+    if (fd < 0) {
+        errno = EBADF;
+        return false;
+    }
     /* one closed already is out: it counts as removed */
     if (epoll_ctl(epfd, EPOLL_CTL_DEL, fd, nullptr) && errno != EBADF && errno != ENOENT) {
         return false;
@@ -244,6 +252,10 @@ TYPED_TEST(PollerTest, a_closed_one_removes) {
     ASSERT_TRUE(poller.add(a[0], POLLER_IN, 1));
     close(a[0]);
     EXPECT_TRUE(poller.remove(a[0]));
+    EXPECT_EQ(0u, poller.size());
+    /* no descriptor: nothing to remove, and nothing counted */
+    EXPECT_FALSE(poller.remove(-1));
+    EXPECT_EQ(EBADF, errno);
     EXPECT_EQ(0u, poller.size());
     PollerEvent ev[1];
     EXPECT_EQ(0, poller.wait(0, ev, 1));

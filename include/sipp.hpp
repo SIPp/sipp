@@ -38,9 +38,6 @@
 #endif
 #include <sys/time.h>
 #include <poll.h>
-#ifdef HAVE_EPOLL
-#include <sys/epoll.h>
-#endif
 #include <sys/resource.h>
 #include <fcntl.h>
 #include <unistd.h>

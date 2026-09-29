@@ -39,11 +39,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <type_traits>
 
 #include "config.h"
 #include "sipp.hpp"
 #include "socket.hpp"
 #include "logger.hpp"
+#include "poller.hpp"
 #include "websocket.hpp"
 
 extern bool do_hide;
@@ -63,14 +65,14 @@ static int stdin_mode;
 unsigned pollnfds;
 /* The call sockets in the pollset: what -max_socket limits. */
 static unsigned call_sockets;
-#ifdef HAVE_EPOLL
-int epollfd;
-struct epoll_event   epollfiles[SIPP_MAXFDS];
-struct epoll_event*  epollevents;
-#else
-struct pollfd        pollfiles[SIPP_MAXFDS];
-#endif
 SIPpSocket  *sockets[SIPP_MAXFDS];
+
+/* The descriptors of sockets[], each keyed by its SIPpSocket. */
+static Poller poller;
+/* The events of the pollset_process() pass under way: a socket that
+ * leaves the poller during it leaves them too (see poll_remove()). */
+static std::vector<PollerEvent> poll_events;
+static int poll_nevents;
 
 int pending_messages = 0;
 
@@ -1010,14 +1012,7 @@ void SIPpSocket::invalidate()
 
     /* In some error conditions, the socket FD has already been closed - if it hasn't, do so now. */
     if (ss_fd != -1) {
-#ifdef HAVE_EPOLL
-        int rc = epoll_ctl(epollfd, EPOLL_CTL_DEL, ss_fd, nullptr);
-        /* EPERM: a file epoll can't watch, which it never added (stdin
-         * redirected from /dev/null, say). */
-        if ((rc == -1) && (errno != EPERM)) {
-            WARNING_NO("Failed to delete FD from epoll");
-        }
-#endif
+        poll_remove();
     }
     if (ss_fd != -1 && ss_fd != stdin_fileno) {
         if (ss_transport == T_TCP || ss_transport == T_WS) {
@@ -1048,6 +1043,7 @@ void SIPpSocket::invalidate()
     ss_fd = -1;
     ss_invalid = true;
     ss_pollidx = -1;
+    ss_poll_writable = false;
 
     /* Adds call sockets in the array */
     assert(pollnfds > 0);
@@ -1056,23 +1052,6 @@ void SIPpSocket::invalidate()
     if (ss_call_socket) {
         call_sockets--;
     }
-#ifdef HAVE_EPOLL
-    if (pollidx < pollnfds) {
-        epollfiles[pollidx] = epollfiles[pollnfds];
-        epollfiles[pollidx].data.u32 = pollidx;
-        if (sockets[pollnfds]->ss_fd != -1) {
-            int rc = epoll_ctl(epollfd, EPOLL_CTL_MOD, sockets[pollnfds]->ss_fd, &epollfiles[pollidx]);
-            if ((rc == -1) && (errno != EPERM)) {
-                // Ignore "Operation not supported"  errors -
-                // otherwise we get log spam when redirecting stdout
-                // to /dev/null
-                WARNING_NO("Failed to update FD within epoll");
-            }
-        }
-    }
-#else
-    pollfiles[pollidx] = pollfiles[pollnfds];
-#endif
     /* If unequal, move the last valid socket here. */
     if (pollidx != pollnfds) {
         sockets[pollidx] = sockets[pollnfds];
@@ -1108,6 +1087,9 @@ void SIPpSocket::abort() {
         sockets_pending_reset.erase(this);
         delete this;
     } else {
+        if (ss_fd != -1) {
+            poll_remove();
+        }
         ss_fd = -1;
     }
 }
@@ -1403,24 +1385,7 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
     /* Store this socket in the tables. */
     ss_pollidx = pollnfds++;
     sockets[ss_pollidx] = this;
-#ifdef HAVE_EPOLL
-    epollfiles[ss_pollidx].data.u32 = ss_pollidx;
-    epollfiles[ss_pollidx].events   = EPOLLIN;
-    int rc = epoll_ctl(epollfd, EPOLL_CTL_ADD, ss_fd, &epollfiles[ss_pollidx]);
-    if (rc == -1) {
-        if (errno == EPERM) {
-            // Attempted to use epoll on a file that does not support
-            // it - this may happen legitimately when stdin/stdout is
-            // redirected to /dev/null, so don't warn
-        } else {
-            ERROR_NO("Failed to add FD to epoll");
-        }
-    }
-#else
-    pollfiles[ss_pollidx].fd      = ss_fd;
-    pollfiles[ss_pollidx].events  = POLLIN | POLLERR;
-    pollfiles[ss_pollidx].revents = 0;
-#endif
+    poll_add();
 }
 
 SIPpSocket::~SIPpSocket()
@@ -1852,27 +1817,12 @@ int SIPpSocket::reconnect()
         if (ss_call_socket) {
             call_sockets++;
         }
-#ifdef HAVE_EPOLL
-        epollfiles[ss_pollidx].data.u32 = ss_pollidx;
-        epollfiles[ss_pollidx].events   = EPOLLIN;
-#else
-        pollfiles[ss_pollidx].fd      = ss_fd;
-        pollfiles[ss_pollidx].events  = POLLIN | POLLERR;
-        pollfiles[ss_pollidx].revents = 0;
-#endif
 
         ss_invalid = false;
     }
 
-#ifdef HAVE_EPOLL
-    int rc = epoll_ctl(epollfd, EPOLL_CTL_ADD, ss_fd, &epollfiles[ss_pollidx]);
-    if (rc == -1) {
-        ERROR_NO("Failed to add FD to epoll");
-    }
-#else
-    /* A setdest keeps its place, but not always its descriptor. */
-    pollfiles[ss_pollidx].fd = ss_fd;
-#endif
+    /* A setdest keeps its place, but not its descriptor (see close_fd()). */
+    poll_add();
     return connect();
 }
 
@@ -2037,18 +1987,48 @@ void sipp_customize_socket(SIPpSocket *socket)
     }
 }
 
+/* Have the poll loop watch this socket's descriptor: for reading, and for
+ * writing too after poll_out(). */
+void SIPpSocket::poll_add()
+{
+    unsigned events = POLLER_IN | (ss_poll_writable ? POLLER_OUT : 0);
+    /* EPERM: a file epoll can't watch (stdin redirected from /dev/null,
+     * say), which it then never reports. */
+    if (!poller.add(ss_fd, events, (uintptr_t)this) && errno != EPERM) {
+        ERROR_NO("Failed to add FD to the pollset");
+    }
+}
+
+/* Stop watching its descriptor, before it is closed, along with any event
+ * of it that this pass has yet to process. */
+void SIPpSocket::poll_remove()
+{
+    if (!poller.remove(ss_fd) && errno != EPERM) {
+        WARNING_NO("Failed to delete FD from the pollset");
+    }
+    for (int i = 0; i < poll_nevents; i++) {
+        if (poll_events[i].key == (uintptr_t)this) {
+            poll_events[i].key = 0;
+        }
+    }
+}
+
+void SIPpSocket::close_fd()
+{
+    if (ss_fd != -1) {
+        poll_remove();
+        ::close(ss_fd);
+        ss_fd = -1;
+    }
+}
+
 /* Have the poll loop flush this socket once it can be written to. */
 void SIPpSocket::poll_out()
 {
-#ifdef HAVE_EPOLL
-    epollfiles[ss_pollidx].events |= EPOLLOUT;
-    int rc = epoll_ctl(epollfd, EPOLL_CTL_MOD, ss_fd, &epollfiles[ss_pollidx]);
-    if (rc == -1) {
-        WARNING_NO("Failed to set EPOLLOUT");
+    ss_poll_writable = true;
+    if (!poller.modify(ss_fd, POLLER_IN | POLLER_OUT, (uintptr_t)this)) {
+        WARNING_NO("Failed to set POLLOUT");
     }
-#else
-    pollfiles[ss_pollidx].events |= POLLOUT;
-#endif
 }
 
 /* This socket is congested, mark it as such and add it to the poll files. */
@@ -3394,6 +3374,13 @@ static void read_next_datagram(SIPpSocket *sock, unsigned pollnfds_before)
     }
 }
 
+/* How a pass goes: a poll() one reads every socket that has something,
+ * then processes the messages of all of them in turns, up to
+ * max_recv_loops, and the next pass processes those left before it polls
+ * again; an epoll one processes the messages of each socket as it reads
+ * it, of up to max_recv_loops ready ones. */
+static const bool read_all_first = std::is_same<Poller, PollPoller>::value;
+
 void SIPpSocket::pollset_process(int wait)
 {
     int rs; /* Number of times to execute recv().
@@ -3407,73 +3394,74 @@ void SIPpSocket::pollset_process(int wait)
 
     int loops = max_recv_loops;
 
-#ifndef HAVE_EPOLL
     /* What index should we try reading from? */
     static size_t read_index;
 
-    // If not using epoll, we have a queue of pending messages to spin through.
-
-    if (read_index >= pollnfds) {
-        read_index = 0;
-    }
-
-    /* We need to process any messages that we have left over. */
-    while (pending_messages && loops > 0) {
-        update_clock_tick();
-        if (sockets[read_index]->ss_msglen) {
-            SIPpSocket *sock = sockets[read_index];
-            unsigned before = pollnfds;
-            struct sockaddr_storage src;
-            char msg[SIPP_MAX_MSG_SIZE];
-            ssize_t len = sock->read_message(msg, sizeof(msg), &src);
-            if (len > 0) {
-                process_message(sock, msg, len, &src);
-            } else {
-                assert(0);
-            }
-            loops--;
-            read_next_datagram(sock, before);
+    /* Process the messages that the sockets hold, in turns. */
+    auto process_pending_messages = [&loops]() {
+        if (read_index >= pollnfds) {
+            read_index = 0;
         }
-        read_index = (read_index + 1) % pollnfds;
+
+        while (pending_messages && loops > 0) {
+            update_clock_tick();
+            if (sockets[read_index]->ss_msglen) {
+                SIPpSocket *sock = sockets[read_index];
+                unsigned before = pollnfds;
+                struct sockaddr_storage src;
+                char msg[SIPP_MAX_MSG_SIZE];
+                ssize_t len = sock->read_message(msg, sizeof(msg), &src);
+                if (len > 0) {
+                    process_message(sock, msg, len, &src);
+                } else {
+                    assert(0);
+                }
+                loops--;
+                read_next_datagram(sock, before);
+            }
+            read_index = (read_index + 1) % pollnfds;
+        }
+    };
+
+    if (read_all_first) {
+        /* We need to process any messages that we have left over. */
+        process_pending_messages();
+
+        /* Don't read more data if we still have some left over. */
+        if (pending_messages) {
+            return;
+        }
     }
 
-    /* Don't read more data if we still have some left over. */
-    if (pending_messages) {
-        return;
+    /* Get socket events: poll() has them all, and epoll ignores the wait
+     * parameter and always waits - when establishing TCP connections, the
+     * alternative is that we tight-loop. */
+    int max = read_all_first ? poller.size() : max_recv_loops;
+    if (poll_events.size() < (size_t)max) {
+        poll_events.resize(max);
     }
-#endif
-    /* Get socket events. */
-#ifdef HAVE_EPOLL
-    /* Ignore the wait parameter and always wait - when establishing TCP
-     * connections, the alternative is that we tight-loop. */
-    rs = epoll_wait(epollfd, epollevents, max_recv_loops, 1);
-    // If we're receiving as many epollevents as possible, flag CPU congestion
-    cpu_max = (rs > (max_recv_loops - 2));
-#else
-    rs = poll(pollfiles, pollnfds, wait ? 1 : 0);
-#endif
+    rs = poller.wait(read_all_first ? (wait ? 1 : 0) : 1, poll_events.data(), max);
+    if (!read_all_first) {
+        // If we're receiving as many events as possible, flag CPU congestion
+        cpu_max = (rs > (max_recv_loops - 2));
+    }
     if (rs < 0 && errno == EINTR) {
         return;
     }
 
     /* We need to flush all sockets and pull data into all of our buffers. */
-#ifdef HAVE_EPOLL
-    for (int event_idx = 0; event_idx < rs; event_idx++) {
-        int poll_idx = (int)epollevents[event_idx].data.u32;
-#else
-    for (size_t poll_idx = 0; rs > 0 && poll_idx < pollnfds; poll_idx++) {
-        int events = 0;
-#endif
-        SIPpSocket *sock = sockets[poll_idx];
+    poll_nevents = rs > 0 ? rs : 0;
+    for (int event_idx = 0; event_idx < poll_nevents; event_idx++) {
+        SIPpSocket *sock = (SIPpSocket *)(uintptr_t)poll_events[event_idx].key;
+        unsigned events = poll_events[event_idx].events;
         int ret = 0;
 
-        assert(sock);
+        /* None: it left the poller already (see poll_remove()). */
+        if (!sock) {
+            continue;
+        }
 
-#ifdef HAVE_EPOLL
-        if (epollevents[event_idx].events & EPOLLOUT) {
-#else
-        if (pollfiles[poll_idx].revents & POLLOUT) {
-#endif
+        if (events & POLLER_OUT) {
 
 #ifdef USE_SCTP
             if (sock->ss_transport == T_SCTP && sock->sctpstate != SCTP_UP);
@@ -3482,43 +3470,22 @@ void SIPpSocket::pollset_process(int wait)
             {
                 /* We can flush this socket. */
                 TRACE_MSG("Exit problem event on socket %d \n", sock->ss_fd);
-#ifdef HAVE_EPOLL
-                epollfiles[poll_idx].events &= ~EPOLLOUT;
-                int rc = epoll_ctl(epollfd, EPOLL_CTL_MOD, sock->ss_fd, &epollfiles[poll_idx]);
-                if (rc == -1) {
-                    ERROR_NO("Failed to clear EPOLLOUT");
+                sock->ss_poll_writable = false;
+                if (!poller.modify(sock->ss_fd, POLLER_IN, (uintptr_t)sock)) {
+                    ERROR_NO("Failed to clear POLLOUT");
                 }
-#else
-                pollfiles[poll_idx].events &= ~POLLOUT;
-                events++;
-#endif
                 sock->ss_congested = false;
 
                 unsigned before = pollnfds;
                 sock->flush();
-                /* A write error may drop the connection, which moves
-                 * another socket into its place (see below). */
+                /* A write error may drop the connection. */
                 if (pollnfds != before) {
-#ifdef HAVE_EPOLL
-                    for (int event_idx2 = event_idx + 1; event_idx2 < rs; event_idx2++) {
-                        if (epollevents[event_idx2].data.u32 == pollnfds) {
-                            epollevents[event_idx2].data.u32 = poll_idx;
-                        }
-                    }
-#else
-                    poll_idx--;
-                    rs--;
-#endif
                     continue;
                 }
             }
         }
 
-#ifdef HAVE_EPOLL
-        if (sock->to_empty(epollevents[event_idx].events & EPOLLIN)) {
-#else
-        if (sock->to_empty(pollfiles[poll_idx].revents & POLLIN)) {
-#endif
+        if (sock->to_empty(events & POLLER_IN)) {
             /* We can empty this socket. */
             if (transport_is_reliable(transport) && sock == main_socket) {
                 /* A peer that failed the TLS handshake got dropped (see
@@ -3564,40 +3531,22 @@ void SIPpSocket::pollset_process(int wait)
                         if (ret != -2) {
                             ret = sock->read_error(ret);
                         }
-                        /* An error invalidates the socket too, which
-                         * moves another one into its place. */
+                        /* An error invalidates the socket too. */
                         if (ret == 0 || pollnfds != before) {
-                            /* If read_error() then the poll_idx now belongs
-                             * to the newest/last socket added to the sockets[].
-                             * Need to re-do the same poll_idx for the "new" socket.
-                             * We do this differently when using epoll. */
-#ifdef HAVE_EPOLL
-                            for (int event_idx2 = event_idx + 1; event_idx2 < rs; event_idx2++) {
-                                if (epollevents[event_idx2].data.u32 == pollnfds) {
-                                    epollevents[event_idx2].data.u32 = poll_idx;
-                                }
-                            }
-#else
-                            poll_idx--;
-                            events++;
-                            rs--;
-#endif
                             continue;
                         }
                     }
                 }
             }
-#ifndef HAVE_EPOLL
-            events++;
-#endif
         }
 
-        /* Here the logic diverges; if we're using epoll, we want to stay in the
-         * for-each-socket loop and handle messages on that socket. If we're not using
-         * epoll, we want to wait until after that loop, and spin through our
-         * pending_messages queue again. */
+        /* Here the logic diverges: an epoll pass stays with this socket
+         * and handles its messages; a poll() one waits until after the
+         * loop, and spins through the pending messages of all. */
+        if (read_all_first) {
+            continue;
+        }
 
-#ifdef HAVE_EPOLL
         unsigned old_pollnfds = pollnfds;
         update_clock_tick();
         /* Keep processing messages until this socket is freed (changing
@@ -3620,54 +3569,14 @@ void SIPpSocket::pollset_process(int wait)
                 read_next_datagram(sock, old_pollnfds);
             }
         }
-
-        if (pollnfds != old_pollnfds) {
-            /* Processing messages has changed the number of pollnfds, so update any remaining events */
-            for (int event_idx2 = event_idx + 1; event_idx2 < rs; event_idx2++) {
-                if (epollevents[event_idx2].data.u32 == pollnfds) {
-                    epollevents[event_idx2].data.u32 = poll_idx;
-                }
-            }
-        }
-#else
-
-        if (events) {
-            rs--;
-        }
-        pollfiles[poll_idx].revents = 0;
-#endif
     }
+    poll_nevents = 0;
 
-#ifndef HAVE_EPOLL
-    if (read_index >= pollnfds) {
-        read_index = 0;
+    if (read_all_first) {
+        /* We need to process any new messages that we read. */
+        process_pending_messages();
+        cpu_max = (loops <= 0);
     }
-
-    /* We need to process any new messages that we read. */
-    while (pending_messages && (loops > 0)) {
-        update_clock_tick();
-
-        if (sockets[read_index]->ss_msglen) {
-            SIPpSocket *sock = sockets[read_index];
-            unsigned before = pollnfds;
-            char msg[SIPP_MAX_MSG_SIZE];
-            struct sockaddr_storage src;
-            ssize_t len;
-
-            len = sock->read_message(msg, sizeof(msg), &src);
-            if (len > 0) {
-                process_message(sock, msg, len, &src);
-            } else {
-                assert(0);
-            }
-            loops--;
-            read_next_datagram(sock, before);
-        }
-        read_index = (read_index + 1) % pollnfds;
-    }
-
-    cpu_max = (loops <= 0);
-#endif
 }
 
 

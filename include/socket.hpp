@@ -85,6 +85,9 @@ public:
     void set_bind_port(int bind_port);
 
     int connect(struct sockaddr_storage* dest = nullptr);
+    /* Close the descriptor, keeping the socket in its place for
+     * reconnect(), as a setdest does. */
+    void close_fd();
     int reconnect();
 
     // Reset a failed connection
@@ -154,6 +157,8 @@ private:
     void drop_connection();
     int check_for_message();
     int enter_congestion(int again);
+    void poll_add();
+    void poll_remove();
     void poll_out();
     void ws_connect();
     void ws_waiting();
@@ -172,7 +177,9 @@ private:
     SSL *ss_ssl = nullptr; /* The underlying SSL descriptor for this socket. */
 #endif
 
-    int ss_pollidx = -1; /* The index of this socket in our poll structures. */
+    int ss_pollidx = -1; /* The index of this socket in sockets[]. */
+    bool ss_poll_writable = false; /* Does the poll loop wait for it to be
+                                      writable (see poll_out())? */
 
     WebSocket *ss_ws = nullptr; /* The WebSocket of a WS or WSS connection. */
     std::string ss_ws_close;    /* Its close frame, or a server's handshake

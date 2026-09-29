@@ -6350,8 +6350,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             free(str_protocol);
 
             if (protocol == T_TCP || protocol == T_SCTP || protocol == T_WS) {
-                close(call_socket->ss_fd);
-                call_socket->ss_fd = -1;
+                call_socket->close_fd();
                 call_socket->ss_changed_dest = true;
                 if (call_socket->reconnect()) {
                     if (reconnect_allowed()) {
@@ -7388,32 +7387,6 @@ void rtp_pcap_count(unsigned long bytes)
 #include "gtest/gtest.h"
 #include "gtest/gtest.h"
 
-#ifdef HAVE_EPOLL
-extern int epollfd;
-
-class epoll_test_guard {
-public:
-    epoll_test_guard()
-    {
-        if (epollfd <= 0) {
-            epollfd = epoll_create(SIPP_MAXFDS);
-            created = true;
-        }
-    }
-
-    ~epoll_test_guard()
-    {
-        if (created) {
-            close(epollfd);
-            epollfd = 0;
-        }
-    }
-
-private:
-    bool created = false;
-};
-#endif
-
 class mockcall : public call {
 public:
     mockcall(bool is_ipv6) : listener("//testing", true), call(main_scenario, "///testing", is_ipv6, 0, nullptr) {}
@@ -7738,9 +7711,6 @@ TEST(create_sending_message, zero_content_length_keeps_later_headers) {
 }
 
 TEST(call_run, stops_after_fatal_retransmission_send_error) {
-#ifdef HAVE_EPOLL
-    epoll_test_guard epoll_guard;
-#endif
     /* Run with a one-message scenario; put the real messages back after. */
     msgvec saved_messages;
     saved_messages.swap(main_scenario->messages);
