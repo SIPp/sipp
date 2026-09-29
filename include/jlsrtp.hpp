@@ -76,6 +76,16 @@ typedef struct _AESState
     EVP_CIPHER_CTX* cipher;               // Cipher context
 } AESState;
 
+/* HMAC-SHA1 with a key: the SHA-1 states after its inner and outer pads,
+ * made once per key, and a context to copy them to for each packet. */
+typedef struct _HMACState
+{
+    EVP_MD_CTX* inner;
+    EVP_MD_CTX* outer;
+    EVP_MD_CTX* work;
+    std::vector<unsigned char> key;       // what inner and outer are for
+} HMACState;
+
 typedef union _Conversion32
 {
     unsigned long i;
@@ -150,6 +160,7 @@ class JLSRTP
         std::vector<unsigned char>      _packetIV;
         AESState                        _pseudorandomstate;
         AESState                        _cipherstate;
+        HMACState                       _hmacstate;
         unsigned int            _srtp_header_size;
         unsigned int            _srtp_payload_size;
 
