@@ -8093,9 +8093,10 @@ static int count_packets(int sock)
 
 TEST(send_packets_due, capture_pacing) {
     /* a capture that starts at 0, and whose 4th packet appears before
-     * the 3rd one: the 1st two leave at once, the 3rd and 4th 20 ms
-     * later, and the 5th 30 ms after the 4th */
-    const long ts_us[] = {0, 0, 20000, 10000, 40000};
+     * the 3rd one: played from 1 ms, it starts at 20 ms, where the 1st
+     * two leave, the 3rd and 4th 20 ms later, and the 5th 30.5 ms after
+     * the 4th, in that millisecond */
+    const long ts_us[] = {0, 0, 20000, 10000, 40500};
     pcap_pkt pkts_list[5];
     u_char data[5][sizeof(struct udphdr) + 4] = {};
     for (int i = 0; i < 5; i++) {
@@ -8128,15 +8129,18 @@ TEST(send_packets_due, capture_pacing) {
 
     unsigned long long due = 0;
     EXPECT_EQ(1, send_packets_due(sender, &play, 1000, &due));
-    EXPECT_EQ(21000u, due);
-    EXPECT_EQ(2, count_packets(receiver));
-    EXPECT_EQ(1, send_packets_due(sender, &play, 20999, &due));
-    EXPECT_EQ(21000u, due);
+    EXPECT_EQ(20000u, due);
     EXPECT_EQ(0, count_packets(receiver));
-    EXPECT_EQ(1, send_packets_due(sender, &play, 21000, &due));
-    EXPECT_EQ(51000u, due);
+    EXPECT_EQ(1, send_packets_due(sender, &play, 20000, &due));
+    EXPECT_EQ(40000u, due);
     EXPECT_EQ(2, count_packets(receiver));
-    EXPECT_EQ(0, send_packets_due(sender, &play, 60000, &due));
+    EXPECT_EQ(1, send_packets_due(sender, &play, 39999, &due));
+    EXPECT_EQ(40000u, due);
+    EXPECT_EQ(0, count_packets(receiver));
+    EXPECT_EQ(1, send_packets_due(sender, &play, 40000, &due));
+    EXPECT_EQ(70000u, due);
+    EXPECT_EQ(2, count_packets(receiver));
+    EXPECT_EQ(0, send_packets_due(sender, &play, 70000, &due));
     EXPECT_EQ(1, count_packets(receiver));
 
     media_ip_is_ipv6 = was_ipv6;
@@ -8187,20 +8191,21 @@ TEST(send_packets_due, full_send_buffer) {
     const bool was_ipv6 = media_ip_is_ipv6;
     media_ip_is_ipv6 = false;
 
-    /* the play waits for the socket, 1 ms at a time */
+    /* the play, started on a multiple of 20 ms, waits for the socket,
+     * 1 ms at a time */
     unsigned long long due = 0;
-    EXPECT_EQ(1, send_packets_due(sender, &play, 1000, &due));
-    EXPECT_EQ(2000u, due);
+    EXPECT_EQ(1, send_packets_due(sender, &play, 20000, &due));
+    EXPECT_EQ(21000u, due);
     EXPECT_EQ(pkts_list, play.next);
-    EXPECT_EQ(1, send_packets_due(sender, &play, 2000, &due));
-    EXPECT_EQ(3000u, due);
+    EXPECT_EQ(1, send_packets_due(sender, &play, 21000, &due));
+    EXPECT_EQ(22000u, due);
     EXPECT_EQ(pkts_list, play.next);
 
     /* and sends both packets once the other end has read */
     struct pollfd pfd = {receiver, POLLIN, 0};
     while (poll(&pfd, 1, 50) > 0 && recv(receiver, buffer, sizeof(buffer), 0) > 0) {
     }
-    EXPECT_EQ(0, send_packets_due(sender, &play, 3000, &due));
+    EXPECT_EQ(0, send_packets_due(sender, &play, 22000, &due));
     EXPECT_EQ(pkts.max, play.next);
 
     media_ip_is_ipv6 = was_ipv6;

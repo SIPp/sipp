@@ -300,6 +300,11 @@ static int send_packet(int sock, const play_args_t* play, const pcap_pkt* pkt_in
     return 0;
 }
 
+/* The plays start on multiples of 20 ms, the usual packet time of RTP:
+ * the plays of a capture with a packet time that divides it go at the
+ * same phase. */
+#define PLAY_SLOT_US 20000
+
 /* The time from a packet of a capture to the next, in microseconds:
  * none if the next one appears to have been sent before it. */
 static unsigned long long packet_gap_us(const pcap_pkt* pkt, const pcap_pkt* next)
@@ -319,18 +324,22 @@ int send_packets_due(int sock, play_args_t* play, unsigned long long now_us,
     const pcap_pkts *pkts = play->pcap;
     int ret;
 
-    /* The first packet leaves at once, and each next one as long after
-     * it as the gaps of the capture up to it add up to: a packet that
+    /* The play starts on the next multiple of PLAY_SLOT_US, so that the
+     * plays of a thread go at the same phase and it wakes up for them at
+     * once: each packet leaves as long after the start as the gaps of
+     * the capture up to it add up to, in that millisecond. A packet that
      * appears before the one it follows leaves with it. */
     if (!play->next) {
         play->next = pkts->pkts;
-        play->start_us = now_us;
+        play->start_us = (now_us + PLAY_SLOT_US - 1) / PLAY_SLOT_US * PLAY_SLOT_US;
         play->next_us = 0;
     }
 
     while (play->next < pkts->max) {
-        if (play->start_us + play->next_us > now_us) {
-            *due_us = play->start_us + play->next_us;
+        unsigned long long packet_us = play->start_us + play->next_us;
+
+        if (packet_us / 1000 > now_us / 1000) {
+            *due_us = packet_us - packet_us % 1000;
             return 1;
         }
         ret = send_packet(sock, play, play->next);
