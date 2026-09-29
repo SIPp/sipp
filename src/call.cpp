@@ -6672,7 +6672,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             play_args->pcap = nullptr;
 #endif
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_ECHO) {
-            rtp_echo_state = (currentAction->getDoubleValue() != 0);
+            rtp_echo_state.store(currentAction->getDoubleValue() != 0, std::memory_order_relaxed);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSE) {
             rtpstream_pause(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUME) {
