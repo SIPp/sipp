@@ -1002,6 +1002,9 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     last_send_index = 0;
     last_send_msg = nullptr;
     last_send_len = 0;
+    recv_retrans_last = false;
+    recv_retrans_msg = nullptr;
+    recv_retrans_len = 0;
 
     last_recv_hash = 0;
     last_recv_index = -1;
@@ -1313,12 +1316,9 @@ call::~call()
         free(transactions);
     }
 
-    if (last_recv_msg) {
-        free(last_recv_msg);
-    }
-    if (last_send_msg) {
-        free(last_send_msg);
-    }
+    free(last_recv_msg);
+    free(last_send_msg);
+    free(recv_retrans_msg);
     if (peer_tag) {
         free(peer_tag);
     }
@@ -2125,6 +2125,7 @@ bool call::executeMessage(message *curmsg)
         /* We have sent the message, so the timeout is no longer needed. */
         send_timeout = 0;
 
+        keepRecvRetransMsg();
         last_send_index = curmsg->index;
         last_send_len = msgLen;
         realloc_ptr = (char *) realloc(last_send_msg, msgLen+1);
@@ -2154,7 +2155,9 @@ bool call::executeMessage(message *curmsg)
             recv_retrans_send_index = curmsg->index;
             /* Only UDP retransmissions of the request get it again. */
             if (transport == T_UDP && retrans_enabled) {
-                recv_retrans_msg.assign(msg_snd, msgLen);
+                free(recv_retrans_msg);
+                recv_retrans_msg = nullptr;
+                recv_retrans_last = true;
             }
 
             callDebug("Set Retransmission Hash: %lu (recv index %d, send index %d)\n",
@@ -2173,7 +2176,9 @@ bool call::executeMessage(message *curmsg)
              * sent after the 200 of a PRACK, is not one. */
             recv_retrans_send_index = curmsg->index;
             if (transport == T_UDP && retrans_enabled) {
-                recv_retrans_msg.assign(msg_snd, msgLen);
+                free(recv_retrans_msg);
+                recv_retrans_msg = nullptr;
+                recv_retrans_last = true;
             }
         }
 
@@ -4895,8 +4900,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
 
             /* Send it again as it was sent: rendering it again would give
              * new values to keywords such as the SRTP keys. */
-            int status = send_raw(recv_retrans_msg.c_str(), recv_retrans_send_index,
-                                  recv_retrans_msg.size());
+            int status;
+            if (recv_retrans_last) {
+                status = send_raw(last_send_msg, recv_retrans_send_index, last_send_len);
+            } else {
+                status = send_raw(recv_retrans_msg ? recv_retrans_msg : "", recv_retrans_send_index,
+                                  recv_retrans_len);
+            }
 
             if(status >= 0) {
                 call_scenario->messages[recv_retrans_send_index] -> nb_sent_retrans++;
@@ -7299,6 +7309,19 @@ int call::logSrtpInfo(const char *fmt, ...)
     return 0;
 }
 
+/* The message to send again for a retransmission of the request it
+ * answered stays when last_send_msg is about to change: it takes it. */
+void call::keepRecvRetransMsg()
+{
+    if (recv_retrans_last) {
+        free(recv_retrans_msg);
+        recv_retrans_msg = last_send_msg;
+        recv_retrans_len = last_send_len;
+        last_send_msg = nullptr;
+        recv_retrans_last = false;
+    }
+}
+
 void call::startUACSrtp(SrtpChannel& tx, SrtpChannel& rx, int payloadSize, const char* media)
 {
     //
@@ -7408,6 +7431,7 @@ public:
     {
         msg_index = index;
         last_send_index = index;
+        keepRecvRetransMsg();
         last_send_len = len;
         next_retrans = retrans_at;
         free(last_send_msg);

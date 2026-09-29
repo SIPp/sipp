@@ -176,7 +176,12 @@ protected:
     unsigned long  recv_retrans_hash;
     int            recv_retrans_recv_index;
     int            recv_retrans_send_index;
-    std::string    recv_retrans_msg;
+    /* The message to send again: last_send_msg while recv_retrans_last,
+     * else one of its own, which a message sent after it leaves it */
+    bool           recv_retrans_last;
+    char         * recv_retrans_msg;
+    int            recv_retrans_len;
+    void keepRecvRetransMsg();
     unsigned int   recv_timeout;
 
     /* holds the route set */
