@@ -769,8 +769,10 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
             if (paused)
             {
                 /* when paused, set timestamp so stream appears to be up to date */
+                pthread_mutex_lock(&(taskinfo->mutex));
                 taskinfo->last_audio_timestamp = rtpstream_grid_timestamp(timenow_ms, taskinfo->audio_ms_per_packet,
                                                                           taskinfo->audio_timeticks_per_ms);
+                pthread_mutex_unlock(&(taskinfo->mutex));
             }
             /* Waking up on the multiples of the packet time, and sending
              * a packet in the millisecond after its timestamp, sent a whole
@@ -1040,8 +1042,10 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
             if (paused)
             {
                 /* when paused, set timestamp so stream appears to be up to date */
+                pthread_mutex_lock(&(taskinfo->mutex));
                 taskinfo->last_video_timestamp = rtpstream_grid_timestamp(timenow_ms, taskinfo->video_ms_per_packet,
                                                                           taskinfo->video_timeticks_per_ms);
+                pthread_mutex_unlock(&(taskinfo->mutex));
             }
             /* Keep an earlier wakeup the audio stream asked for: overwriting
              * it made audio go out at the video packet rate. */
@@ -1509,50 +1513,6 @@ static void* rtpstream_playback_thread(void* params)
 
     rtpstream_numthreads++;
 
-    // INITIALIZE AUDIO/VIDEO COMPARISON ERRORS
-    for (taskindex = 0; taskindex < threaddata->num_tasks.load(std::memory_order_acquire); taskindex++)
-    {
-        threaddata->tasklist[taskindex]->audio_comparison_errors = 0;
-        threaddata->tasklist[taskindex]->video_comparison_errors = 0;
-    }
-
-    // ROBUSTNESS CHECK
-    for (taskindex = 0; taskindex < threaddata->num_tasks.load(std::memory_order_acquire); taskindex++)
-    {
-        taskinfo = threaddata->tasklist[taskindex];
-
-        if (taskinfo->audio_active)
-        {
-            if (
-                (taskinfo->new_audio_ms_per_packet == 0) ||
-                (taskinfo->new_audio_loop_count < -1) ||
-                (taskinfo->new_audio_pattern_id < -1) ||
-                (taskinfo->new_audio_pattern_id > 6) ||
-                (taskinfo->new_audio_payload_type < 0) ||
-                (taskinfo->new_audio_payload_type > 127)
-               )
-            {
-                // AUDIO VALIDATION FAILED -- ABORT MISSION
-                threaddata->exit_flag = 1;
-            }
-        }
-        else if (taskinfo->video_active)
-        {
-            if (
-                (taskinfo->new_video_ms_per_packet == 0) ||
-                (taskinfo->new_video_loop_count < -1) ||
-                (taskinfo->new_video_pattern_id < -1) ||
-                (taskinfo->new_video_pattern_id > 6) ||
-                (taskinfo->new_video_payload_type < 0) ||
-                (taskinfo->new_video_payload_type > 127)
-               )
-            {
-                // VIDEO VALIDATION FAILED -- ABORT MISSION
-                threaddata->exit_flag = 1;
-            }
-        }
-    }
-
     while (!threaddata->exit_flag)
     {
         timenow_ms = getmilliseconds();
@@ -1721,12 +1681,12 @@ static void* rtpstream_playback_thread(void* params)
     return nullptr;
 }
 
-/* Wake a playback thread up, to start a new play, pcap play or echo now
- * and not after its sleep of up to 100 ms; a full pipe means it wakes up
- * anyway */
+/* Wake a playback thread up, if there is one, to start a new play, pcap
+ * play or echo now and not after its sleep of up to 100 ms; a full pipe
+ * means it wakes up anyway */
 static void rtpstream_wake(threaddata_t* threaddata)
 {
-    if (write(threaddata->wake_fds[1], "", 1) < 0 && errno != EAGAIN) {
+    if (threaddata && write(threaddata->wake_fds[1], "", 1) < 0 && errno != EAGAIN) {
         WARNING_NO("Could not wake an RTP playback thread up");
     }
 }
@@ -2606,12 +2566,12 @@ static int get_wav_header_size(const char *data, int size)
 }
 
 /* Hand the call's UAC SRTP contexts to its playback thread together
- * with the play flag, under the task's mutex, so that the thread cannot
- * play with the old contexts. */
+ * with the play flag, under the task's mutex that the caller holds and
+ * has set the new play under, so that the thread cannot play with the
+ * old contexts or take half a play. */
 static void rtpstream_play_srtp(taskentry_t* taskinfo, bool video, int flag,
                                 JLSRTP& txUAC, JLSRTP& rxUAC)
 {
-    pthread_mutex_lock(&(taskinfo->mutex));
     rtpsrtp_t*& srtp = video ? taskinfo->video_srtp : taskinfo->audio_srtp;
     if (srtp || txUAC.getCryptoTag() != 0 || rxUAC.getCryptoTag() != 0) {
         if (!srtp) {
@@ -2621,11 +2581,6 @@ static void rtpstream_play_srtp(taskentry_t* taskinfo, bool video, int flag,
         srtp->rx = rxUAC;
     }
     taskinfo->flags |= flag;
-    pthread_mutex_unlock(&(taskinfo->mutex));
-
-    if (taskinfo->parent_thread) {
-        rtpstream_wake(taskinfo->parent_thread);
-    }
 }
 
 /* code checked */
@@ -2659,27 +2614,31 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
     /* make sure we have an open socket from which to play the audio file */
     rtpstream_get_local_audioport(callinfo);
 
+    char *file_bytes = cached_files[file_index].bytes;
+    int file_size = cached_files[file_index].filesize;
+    /* Allow the caller to supply WAV files instead of raw audio, by skipping past headers. */
+    /* Doesn't actually parse/convert anything! */
+    const int header_size = get_wav_header_size(file_bytes, file_size);
+    if (header_size > 0 && file_size >= header_size) {
+        file_bytes += header_size;
+        file_size -= header_size;
+    }
+
     /* save file parameter in taskinfo structure */
+    pthread_mutex_lock(&(taskinfo->mutex));
     taskinfo->new_audio_pattern_id = actioninfo->pattern_id;
     taskinfo->new_audio_loop_count = actioninfo->loop_count;
     taskinfo->new_audio_bytes_per_packet = actioninfo->bytes_per_packet;
-    taskinfo->new_audio_file_size = cached_files[file_index].filesize;
-    taskinfo->new_audio_file_bytes = cached_files[file_index].bytes;
+    taskinfo->new_audio_file_size = file_size;
+    taskinfo->new_audio_file_bytes = file_bytes;
     taskinfo->new_audio_ms_per_packet = actioninfo->ms_per_packet;
     taskinfo->new_audio_timeticks_per_packet = actioninfo->ticks_per_packet;
     taskinfo->new_audio_payload_type = actioninfo->payload_type;
-    taskinfo->audio_active = actioninfo->audio_active;
-    taskinfo->video_active = actioninfo->video_active;
-    /* Allow the caller to supply WAV files instead of raw audio, by skipping past headers. */
-    /* Doesn't actually parse/convert anything! */
-    const int header_size = get_wav_header_size(taskinfo->new_audio_file_bytes, taskinfo->new_audio_file_size);
-    if (header_size > 0 && taskinfo->new_audio_file_size >= header_size) {
-        taskinfo->new_audio_file_bytes += header_size;
-        taskinfo->new_audio_file_size -= header_size;
-    }
 
     /* set flag that we have a new file to play */
     rtpstream_play_srtp(taskinfo, false, TI_PLAYFILE, txUACAudio, rxUACAudio);
+    pthread_mutex_unlock(&(taskinfo->mutex));
+    rtpstream_wake(taskinfo->parent_thread);
 }
 
 /* code checked */
@@ -2800,6 +2759,7 @@ void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     rtpstream_get_local_audioport(callinfo);
 
     /* save file parameter in taskinfo structure */
+    pthread_mutex_lock(&(taskinfo->mutex));
     taskinfo->new_audio_pattern_id = actioninfo->pattern_id;
     taskinfo->new_audio_payload_type = actioninfo->payload_type;
     taskinfo->new_audio_loop_count = actioninfo->loop_count;
@@ -2811,11 +2771,11 @@ void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     taskinfo->new_audio_bytes_per_packet = actioninfo->bytes_per_packet;
     taskinfo->new_audio_timeticks_per_packet = actioninfo->ticks_per_packet;
     taskinfo->audio_comparison_errors = 0;
-    taskinfo->audio_active = actioninfo->audio_active;
-    taskinfo->video_active = actioninfo->video_active;
 
     /* set flag that we have a new file to play */
     rtpstream_play_srtp(taskinfo, false, TI_PLAYAPATTERN, txUACAudio, rxUACAudio);
+    pthread_mutex_unlock(&(taskinfo->mutex));
+    rtpstream_wake(taskinfo->parent_thread);
 }
 
 void rtpstream_pauseapattern(rtpstream_callinfo_t* callinfo)
@@ -2869,6 +2829,7 @@ void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     rtpstream_get_local_videoport(callinfo);
 
     /* save file parameter in taskinfo structure */
+    pthread_mutex_lock(&(taskinfo->mutex));
     taskinfo->new_video_pattern_id = actioninfo->pattern_id;
     taskinfo->new_video_payload_type = actioninfo->payload_type;
     taskinfo->new_video_loop_count = actioninfo->loop_count;
@@ -2880,11 +2841,11 @@ void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     taskinfo->new_video_bytes_per_packet = actioninfo->bytes_per_packet;
     taskinfo->new_video_timeticks_per_packet = actioninfo->ticks_per_packet;
     taskinfo->video_comparison_errors = 0;
-    taskinfo->audio_active = actioninfo->audio_active;
-    taskinfo->video_active = actioninfo->video_active;
 
     /* set flag that we have a new file to play */
     rtpstream_play_srtp(taskinfo, true, TI_PLAYVPATTERN, txUACVideo, rxUACVideo);
+    pthread_mutex_unlock(&(taskinfo->mutex));
+    rtpstream_wake(taskinfo->parent_thread);
 }
 
 void rtpstream_pausevpattern(rtpstream_callinfo_t* callinfo)
@@ -2984,7 +2945,7 @@ static void rtpstream_rtpecho_set(taskentry_t* taskinfo, bool video, bool start,
     pthread_mutex_unlock(&(taskinfo->mutex));
 
     /* to watch the socket from the first packet */
-    if (start && taskinfo->parent_thread) {
+    if (start) {
         rtpstream_wake(taskinfo->parent_thread);
     }
 }

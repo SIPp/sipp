@@ -105,7 +105,7 @@ struct taskentry_t
     int                  audio_timeticks_per_ms;
     int                  video_timeticks_per_ms;
 
-    /* new file playback information */
+    /* new file playback information, set under the mutex */
     int                  new_audio_pattern_id; // FILE:  -1 (UNUSED) -- PATTERN: <id>
     int                  new_video_pattern_id; // FILE:  -1 (UNUSED) -- PATTERN: <id>
     char                 new_audio_payload_type;
@@ -160,9 +160,6 @@ struct taskentry_t
     unsigned long        audio_check_failures;
     unsigned long        video_check_packets;
     unsigned long        video_check_failures;
-
-    int                  audio_active;
-    int                  video_active;
 
     SrtpInfoParams  local_srtp_audio_params;
     SrtpInfoParams  remote_srtp_audio_params;
