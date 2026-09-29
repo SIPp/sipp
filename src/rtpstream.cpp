@@ -764,7 +764,8 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
         if (taskinfo->audio_loop_count)
         {
             target_timestamp = timenow_ms * taskinfo->audio_timeticks_per_ms;
-            paused = taskinfo->flags & (TI_NULL_AUDIOIP | TI_PAUSERTP | TI_PAUSERTPAPATTERN);
+            paused = taskinfo->flags.load(std::memory_order_relaxed) &
+                     (TI_NULL_AUDIOIP | TI_PAUSERTP | TI_PAUSERTPAPATTERN);
             if (paused)
             {
                 /* when paused, set timestamp so stream appears to be up to date */
@@ -1034,7 +1035,8 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
         if (taskinfo->video_loop_count)
         {
             target_timestamp = timenow_ms * taskinfo->video_timeticks_per_ms;
-            paused = taskinfo->flags & (TI_NULL_VIDEOIP | TI_PAUSERTP | TI_PAUSERTPVPATTERN);
+            paused = taskinfo->flags.load(std::memory_order_relaxed) &
+                     (TI_NULL_VIDEOIP | TI_PAUSERTP | TI_PAUSERTPVPATTERN);
             if (paused)
             {
                 /* when paused, set timestamp so stream appears to be up to date */
@@ -1565,9 +1567,11 @@ static void* rtpstream_playback_thread(void* params)
             debugafile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, threaddata->num_tasks.load(std::memory_order_acquire));
             debugvfile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, threaddata->num_tasks.load(std::memory_order_acquire));
             taskinfo = threaddata->tasklist[taskindex];
-            if (taskinfo->flags & TI_CONFIGFLAGS)
+            /* acquire: with what the call stored before it set a flag */
+            int flags = taskinfo->flags.load(std::memory_order_acquire);
+            if (flags & TI_CONFIGFLAGS)
             {
-                if (taskinfo->flags & TI_KILLTASK)
+                if (flags & TI_KILLTASK)
                 {
                     /* remove this task entry and release its resources */
                     pthread_mutex_lock(&(threaddata->tasklist_mutex));
@@ -2379,10 +2383,10 @@ void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char
         taskinfo->flags &= ~TI_NULL_VIDEOIP;
     }
 
+    taskinfo->flags |= TI_RECONNECTSOCKET;
+
     /* ok, we are done with the shared memory objects. let go mutex */
     pthread_mutex_unlock(&(taskinfo->mutex));
-
-    taskinfo->flags |= TI_RECONNECTSOCKET;
 
     /* may want to start a playback (listen) task here if no task running? */
     /* only makes sense if we decide to send 0-filled packets on idle */
