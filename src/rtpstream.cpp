@@ -1356,7 +1356,11 @@ static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffer
     for (int i = 0; i < RTPECHO_MAX_BURST; i++)
     {
         len = sizeof(remote_rtp_addr);
-        packet_in.resize(sizeof(rtp_header_t) + rx.getSrtpPayloadSize() + rx.getAuthenticationTagSize(), 0);
+        /* SRTP comes in the size its payload is set for, plain RTP in
+         * up to the echo buffer's */
+        packet_in.resize(rx.getCryptoTag() != 0 ?
+                         sizeof(rtp_header_t) + rx.getSrtpPayloadSize() + rx.getAuthenticationTagSize() :
+                         msg.size(), 0);
         nr = recvfrom(sock, packet_in.data(), packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
 
         if (nr < 0)
