@@ -311,8 +311,9 @@ static RtpEchoDebugFile debugrefilevideo(Type::Video);
 // thread does; guarded by the task's mutex
 struct rtpecho_t
 {
-    SrtpChannel rx;
-    SrtpChannel tx;
+    /* none for plain RTP */
+    std::unique_ptr<SrtpChannel> rx;
+    std::unique_ptr<SrtpChannel> tx;
     bool error = false; /* failed to receive */
 };
 
@@ -1350,16 +1351,16 @@ static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffer
         pthread_mutex_unlock(&(taskinfo->mutex));
         return false;
     }
-    SrtpChannel& rx = echo->rx;
-    SrtpChannel& tx = echo->tx;
+    SrtpChannel* rx = echo->rx.get();
+    SrtpChannel* tx = echo->tx.get();
 
     for (int i = 0; i < RTPECHO_MAX_BURST; i++)
     {
         len = sizeof(remote_rtp_addr);
         /* SRTP comes in the size its payload is set for, plain RTP in
          * up to the echo buffer's */
-        packet_in.resize(rx.getCryptoTag() != 0 ?
-                         sizeof(rtp_header_t) + rx.getSrtpPayloadSize() + rx.getAuthenticationTagSize() :
+        packet_in.resize(rx ?
+                         sizeof(rtp_header_t) + rx->getSrtpPayloadSize() + rx->getAuthenticationTagSize() :
                          msg.size(), 0);
         nr = recvfrom(sock, packet_in.data(), packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
 
@@ -1390,14 +1391,14 @@ static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffer
         debugrefile.printReceived(packet_in.data(), nr);
         /* The packet to echo, without SRTP. */
         size_t plain_len = nr;
-        if (rx.getCryptoTag() != 0)
+        if (rx)
         {
             rtp_header.clear();
             payload_data.clear();
 
             // DECRYPT
-            rx.setSSRC(ntohl(((rtp_header_t*)packet_in.data())->ssrc_id)); // set incoming SSRC id
-            rc = rx.processIncomingPacket(seq_num, packet_in, rtp_header, payload_data);
+            rx->setSSRC(ntohl(((rtp_header_t*)packet_in.data())->ssrc_id)); // set incoming SSRC id
+            rc = rx->processIncomingPacket(seq_num, packet_in, rtp_header, payload_data);
             debugrefile.printf("RXUAS%s -- processIncomingPacket() rc == %d\n", media, rc);
 
             host_flags = ntohs(((rtp_header_t*)packet_in.data())->flags);
@@ -1427,26 +1428,26 @@ static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffer
             memcpy(msg.data(), packet_in.data(), nr);
         }
 
-        if (tx.getCryptoTag() != 0)
+        if (tx)
         {
             packet_out.clear();
 
             // ZERO WHAT THE PACKET DID NOT FILL
-            if (plain_len < sizeof(rtp_header_t) + tx.getSrtpPayloadSize())
+            if (plain_len < sizeof(rtp_header_t) + tx->getSrtpPayloadSize())
             {
-                memset(msg.data() + plain_len, 0, sizeof(rtp_header_t) + tx.getSrtpPayloadSize() - plain_len);
+                memset(msg.data() + plain_len, 0, sizeof(rtp_header_t) + tx->getSrtpPayloadSize() - plain_len);
             }
 
             // GRAB RTP HEADER
             rtp_header.resize(sizeof(rtp_header_t), 0);
             memcpy(rtp_header.data(), msg.data(), sizeof(rtp_header_t) /*12*/);
             // GRAB RTP PAYLOAD DATA
-            payload_data.resize(tx.getSrtpPayloadSize(), 0);
-            memcpy(payload_data.data(), msg.data() + sizeof(rtp_header_t), tx.getSrtpPayloadSize());
+            payload_data.resize(tx->getSrtpPayloadSize(), 0);
+            memcpy(payload_data.data(), msg.data() + sizeof(rtp_header_t), tx->getSrtpPayloadSize());
 
             // ENCRYPT
-            tx.setSSRC(ntohl(((rtp_header_t*)packet_in.data())->ssrc_id)); // set incoming SSRC id
-            rc = tx.processOutgoingPacket(seq_num, rtp_header, payload_data, packet_out);
+            tx->setSSRC(ntohl(((rtp_header_t*)packet_in.data())->ssrc_id)); // set incoming SSRC id
+            rc = tx->processOutgoingPacket(seq_num, rtp_header, payload_data, packet_out);
             debugrefile.printf("TXUAS%s -- processOutgoingPacket() rc == %d\n", media, rc);
         }
         else
@@ -2831,6 +2832,20 @@ void rtpstream_update_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stre
 }
 #endif
 
+/* The copy of a call's SRTP context that its echo uses: none for plain
+ * RTP, which the echo only passes on */
+static void rtpecho_context(std::unique_ptr<SrtpChannel>& context, JLSRTP& from)
+{
+    if (from.getCryptoTag() == 0) {
+        context.reset();
+        return;
+    }
+    if (!context) {
+        context.reset(new SrtpChannel());
+    }
+    *context = from;
+}
+
 /* Start or update the echo of a call's audio or video, which the call's
  * playback thread does, with the call's UAS SRTP contexts. */
 static void rtpstream_rtpecho_set(taskentry_t* taskinfo, bool video, bool start,
@@ -2841,8 +2856,8 @@ static void rtpstream_rtpecho_set(taskentry_t* taskinfo, bool video, bool start,
     if (!echo) {
         echo = new rtpecho_t;
     }
-    echo->rx = rxUAS;
-    echo->tx = txUAS;
+    rtpecho_context(echo->rx, rxUAS);
+    rtpecho_context(echo->tx, txUAS);
     if (start) {
         echo->error = false;
         (video ? taskinfo->video_srtp_echo_active : taskinfo->audio_srtp_echo_active) = 1;
