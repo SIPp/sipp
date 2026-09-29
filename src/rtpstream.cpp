@@ -2383,29 +2383,6 @@ int rtpstream_set_srtp_audio_local(rtpstream_callinfo_t* callinfo, SrtpInfoParam
 
     debuglsrtpafile.printCrypto(p);
 
-    /* enter critical section to lock address updates */
-    /* may want to leave this out -- low chance of race condition */
-    pthread_mutex_lock(&(taskinfo->mutex));
-
-    /* clear out existing addresses  */
-    memset(&(taskinfo->local_srtp_audio_params), 0, sizeof(taskinfo->local_srtp_audio_params));
-
-    /* Audio */
-    if (p.found) {
-        taskinfo->local_srtp_audio_params.found = true;
-        taskinfo->local_srtp_audio_params.primary_cryptotag = p.primary_cryptotag;
-        taskinfo->local_srtp_audio_params.secondary_cryptotag = p.secondary_cryptotag;
-        strcpy(taskinfo->local_srtp_audio_params.primary_cryptosuite, p.primary_cryptosuite);
-        strcpy(taskinfo->local_srtp_audio_params.secondary_cryptosuite, p.secondary_cryptosuite);
-        strcpy(taskinfo->local_srtp_audio_params.primary_cryptokeyparams, p.primary_cryptokeyparams);
-        strcpy(taskinfo->local_srtp_audio_params.secondary_cryptokeyparams, p.secondary_cryptokeyparams);
-        taskinfo->local_srtp_audio_params.primary_unencrypted_srtp = p.primary_unencrypted_srtp;
-        taskinfo->local_srtp_audio_params.secondary_unencrypted_srtp = p.secondary_unencrypted_srtp;
-    }
-
-    /* ok, we are done with the shared memory objects. let go mutex */
-    pthread_mutex_unlock(&(taskinfo->mutex));
-
     return 0;
 }
 
@@ -2426,29 +2403,6 @@ int rtpstream_set_srtp_audio_remote(rtpstream_callinfo_t* callinfo, SrtpInfoPara
     }
 
     debugrsrtpafile.printCrypto(p);
-
-    /* enter critical section to lock address updates */
-    /* may want to leave this out -- low chance of race condition */
-    pthread_mutex_lock(&(taskinfo->mutex));
-
-    /* clear out existing addresses  */
-    memset(&(taskinfo->remote_srtp_audio_params), 0, sizeof(taskinfo->remote_srtp_audio_params));
-
-    /* Audio */
-    if (p.found) {
-        taskinfo->remote_srtp_audio_params.found = true;
-        taskinfo->remote_srtp_audio_params.primary_cryptotag = p.primary_cryptotag;
-        taskinfo->remote_srtp_audio_params.secondary_cryptotag = p.secondary_cryptotag;
-        strcpy(taskinfo->remote_srtp_audio_params.primary_cryptosuite, p.primary_cryptosuite);
-        strcpy(taskinfo->remote_srtp_audio_params.secondary_cryptosuite, p.secondary_cryptosuite);
-        strcpy(taskinfo->remote_srtp_audio_params.primary_cryptokeyparams, p.primary_cryptokeyparams);
-        strcpy(taskinfo->remote_srtp_audio_params.secondary_cryptokeyparams, p.secondary_cryptokeyparams);
-        taskinfo->remote_srtp_audio_params.primary_unencrypted_srtp = p.primary_unencrypted_srtp;
-        taskinfo->remote_srtp_audio_params.secondary_unencrypted_srtp = p.secondary_unencrypted_srtp;
-    }
-
-    /* ok, we are done with the shared memory objects. let go mutex */
-    pthread_mutex_unlock(&(taskinfo->mutex));
 
     return 0;
 }
@@ -2471,29 +2425,6 @@ int rtpstream_set_srtp_video_local(rtpstream_callinfo_t* callinfo, SrtpInfoParam
 
     debuglsrtpvfile.printCrypto(p);
 
-    /* enter critical section to lock address updates */
-    /* may want to leave this out -- low chance of race condition */
-    pthread_mutex_lock(&(taskinfo->mutex));
-
-    /* clear out existing addresses  */
-    memset(&(taskinfo->local_srtp_video_params), 0, sizeof(taskinfo->local_srtp_video_params));
-
-    /* Video */
-    if (p.found) {
-        taskinfo->local_srtp_video_params.found = true;
-        taskinfo->local_srtp_video_params.primary_cryptotag = p.primary_cryptotag;
-        taskinfo->local_srtp_video_params.secondary_cryptotag = p.secondary_cryptotag;
-        strcpy(taskinfo->local_srtp_video_params.primary_cryptosuite, p.primary_cryptosuite);
-        strcpy(taskinfo->local_srtp_video_params.secondary_cryptosuite, p.secondary_cryptosuite);
-        strcpy(taskinfo->local_srtp_video_params.primary_cryptokeyparams, p.primary_cryptokeyparams);
-        strcpy(taskinfo->local_srtp_video_params.secondary_cryptokeyparams, p.secondary_cryptokeyparams);
-        taskinfo->local_srtp_video_params.primary_unencrypted_srtp = p.primary_unencrypted_srtp;
-        taskinfo->local_srtp_video_params.secondary_unencrypted_srtp = p.secondary_unencrypted_srtp;
-    }
-
-    /* ok, we are done with the shared memory objects. let go mutex */
-    pthread_mutex_unlock(&(taskinfo->mutex));
-
     return 0;
 }
 
@@ -2514,29 +2445,6 @@ int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t* callinfo, SrtpInfoPara
     }
 
     debugrsrtpvfile.printCrypto(p);
-
-    /* enter critical section to lock address updates */
-    /* may want to leave this out -- low chance of race condition */
-    pthread_mutex_lock(&(taskinfo->mutex));
-
-    /* clear out existing addresses  */
-    memset(&(taskinfo->remote_srtp_video_params), 0, sizeof(taskinfo->remote_srtp_video_params));
-
-    /* Video */
-    if (p.found) {
-        taskinfo->remote_srtp_video_params.found = true;
-        taskinfo->remote_srtp_video_params.primary_cryptotag = p.primary_cryptotag;
-        taskinfo->remote_srtp_video_params.secondary_cryptotag = p.secondary_cryptotag;
-        strcpy(taskinfo->remote_srtp_video_params.primary_cryptosuite, p.primary_cryptosuite);
-        strcpy(taskinfo->remote_srtp_video_params.secondary_cryptosuite, p.secondary_cryptosuite);
-        strcpy(taskinfo->remote_srtp_video_params.primary_cryptokeyparams, p.primary_cryptokeyparams);
-        strcpy(taskinfo->remote_srtp_video_params.secondary_cryptokeyparams, p.secondary_cryptokeyparams);
-        taskinfo->remote_srtp_video_params.primary_unencrypted_srtp = p.primary_unencrypted_srtp;
-        taskinfo->remote_srtp_video_params.secondary_unencrypted_srtp = p.secondary_unencrypted_srtp;
-    }
-
-    /* ok, we are done with the shared memory objects. let go mutex */
-    pthread_mutex_unlock(&(taskinfo->mutex));
 
     return 0;
 }
