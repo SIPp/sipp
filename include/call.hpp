@@ -194,14 +194,14 @@ protected:
 #endif
 
     rtpstream_callinfo_t rtpstream_callinfo;
-    SrtpChannel _txUACAudio;
-    SrtpChannel _rxUACAudio;
-    SrtpChannel _txUASAudio;
-    SrtpChannel _rxUASAudio;
-    SrtpChannel _txUACVideo;
-    SrtpChannel _rxUACVideo;
-    SrtpChannel _txUASVideo;
-    SrtpChannel _rxUASVideo;
+    LazySrtpChannel _txUACAudio;
+    LazySrtpChannel _rxUACAudio;
+    LazySrtpChannel _txUASAudio;
+    LazySrtpChannel _rxUASAudio;
+    LazySrtpChannel _txUACVideo;
+    LazySrtpChannel _rxUACVideo;
+    LazySrtpChannel _txUASVideo;
+    LazySrtpChannel _rxUASVideo;
 
     /* holds the auth header and if the challenge was 401 or 407 */
     char         * dialog_authentication;
