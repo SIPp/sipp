@@ -123,11 +123,12 @@ struct taskentry_t
     int                  new_audio_timeticks_per_packet;
     int                  new_video_timeticks_per_packet;
 
-    /* sockets for audio/video rtp_rtcp */
-    int                  audio_rtp_socket = -1;
-    int                  audio_rtcp_socket = -1;
-    int                  video_rtp_socket = -1;
-    int                  video_rtcp_socket = -1;
+    /* sockets for audio/video rtp_rtcp: the call's thread sets them up
+     * as the playback thread uses them, and closes one that fails */
+    std::atomic<int>     audio_rtp_socket{-1};
+    std::atomic<int>     audio_rtcp_socket{-1};
+    std::atomic<int>     video_rtp_socket{-1};
+    std::atomic<int>     video_rtcp_socket{-1};
 
     /* audio/video SRTP echo activity indicators */
     int                  audio_srtp_echo_active;

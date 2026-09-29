@@ -544,7 +544,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
                 rc = connect(taskinfo->audio_rtcp_socket, (struct sockaddr *) & (taskinfo->remote_audio_rtcp_addr), remote_addr_len);
                 if (rc < 0) {
                     debugprint("closing audio rtcp socket %d due to error %d in rtpstream_process_task_flags taskinfo = %p\n",
-                               taskinfo->audio_rtcp_socket, errno, taskinfo);
+                               taskinfo->audio_rtcp_socket.load(), errno, taskinfo);
                     close(taskinfo->audio_rtcp_socket);
                     taskinfo->audio_rtcp_socket = -1;
                 }
@@ -555,7 +555,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
                     rc = connect(taskinfo->audio_rtp_socket, (struct sockaddr *) & (taskinfo->remote_audio_rtp_addr), remote_addr_len);
                     if (rc < 0) {
                         debugprint("closing audio rtp socket %d due to error %d in rtpstream_process_task_flags taskinfo = %p\n",
-                                   taskinfo->audio_rtp_socket, errno, taskinfo);
+                                   taskinfo->audio_rtp_socket.load(), errno, taskinfo);
                         close(taskinfo->audio_rtp_socket);
                         taskinfo->audio_rtp_socket = -1;
                     }
@@ -572,7 +572,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
                 rc = connect(taskinfo->video_rtcp_socket, (struct sockaddr *) & (taskinfo->remote_video_rtcp_addr), remote_addr_len);
                 if (rc < 0) {
                     debugprint("closing video rtcp socket %d due to error %d in rtpstream_process_task_flags taskinfo = %p\n",
-                               taskinfo->video_rtcp_socket, errno, taskinfo);
+                               taskinfo->video_rtcp_socket.load(), errno, taskinfo);
                     close(taskinfo->video_rtcp_socket);
                     taskinfo->video_rtcp_socket = -1;
                 }
@@ -582,7 +582,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
                     rc = connect(taskinfo->video_rtp_socket, (struct sockaddr *) & (taskinfo->remote_video_rtp_addr), remote_addr_len);
                     if (rc < 0) {
                         debugprint("closing video rtp socket %d due to error %d in rtpstream_process_task_flags taskinfo = %p\n",
-                                   taskinfo->video_rtp_socket, errno, taskinfo);
+                                   taskinfo->video_rtp_socket.load(), errno, taskinfo);
                         close(taskinfo->video_rtp_socket);
                         taskinfo->video_rtp_socket = -1;
                     }
@@ -833,7 +833,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     else
                     {
                         /* this looks like a permanent error  - should we ignore ENETUNREACH? */
-                        debugprint("closing rtp socket %d due to error %d in rtpstream_new_call callinfo=%p\n", taskinfo->audio_rtp_socket, errno);
+                        debugprint("closing rtp socket %d due to error %d in rtpstream_new_call callinfo=%p\n", taskinfo->audio_rtp_socket.load(), errno);
                         close(taskinfo->audio_rtp_socket);
                         taskinfo->audio_rtp_socket = -1;
                     }
@@ -1104,7 +1104,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     else
                     {
                         /* this looks like a permanent error  - should we ignore ENETUNREACH? */
-                        debugprint("closing rtp socket %d due to error %d in rtpstream_new_call callinfo=%p\n", taskinfo->video_rtp_socket, errno);
+                        debugprint("closing rtp socket %d due to error %d in rtpstream_new_call callinfo=%p\n", taskinfo->video_rtp_socket.load(), errno);
                         close(taskinfo->video_rtp_socket);
                         taskinfo->video_rtp_socket = -1;
                     }
