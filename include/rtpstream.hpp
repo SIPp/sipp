@@ -65,6 +65,9 @@ struct taskentry_t
 
     threaddata_t         *parent_thread;
     unsigned long        nextwake_ms;
+    /* the audio and video RTP sockets its thread watches for the echo,
+     * or -1 */
+    int                  echo_watched[2] = {-1, -1};
     /* TI_* flags: the call's thread and the playback thread both set and
      * clear them, with atomic read-modify-writes that lose neither's */
     std::atomic<int>     flags;
