@@ -477,11 +477,6 @@ int scenario::find_var(const char *varName)
     return allocVars->find(varName, false);
 }
 
-void scenario::addRtpTaskThreadID(pthread_t id)
-{
-    threadIDs[id] = "threadID";
-}
-
 void scenario::setFileName(const char *name)
 {
     const char* sep = strrchr(name, '/');
@@ -499,16 +494,6 @@ void scenario::setFileName(const char *name)
         fileName = sep;
     }
     stats->setFileName(fileName.c_str(), ".csv");
-}
-
-void scenario::removeRtpTaskThreadID(pthread_t id)
-{
-    threadIDs.erase(id);
-}
-
-std::unordered_map<pthread_t, std::string>& scenario::fetchRtpTaskThreadIDs()
-{
-    return threadIDs;
 }
 
 int scenario::get_var(const char *varName, const char *what)

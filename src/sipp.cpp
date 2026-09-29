@@ -933,7 +933,7 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
         if (exit_requested) {
             if (exit_request_rc == EXIT_TEST_RES_UNKNOWN) {
                 /* SIGTERM or SIGINT: the RTP checks still count. */
-                rtp_errors = rtpstream_shutdown(main_scenario->fetchRtpTaskThreadIDs());
+                rtp_errors = rtpstream_shutdown();
                 echo_errors = main_scenario->stats->getRtpEchoErrors();
             }
             sipp_exit(exit_request_rc, rtp_errors, echo_errors);
@@ -987,7 +987,7 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
             if ((quitting >= 11) || !main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall)) {
                 /* We can have calls that do not count towards our open-call count (e.g., dead calls). */
                 abort_all_tasks();
-                rtp_errors = rtpstream_shutdown(main_scenario->fetchRtpTaskThreadIDs());
+                rtp_errors = rtpstream_shutdown();
                 echo_errors = main_scenario->stats->getRtpEchoErrors();
 
                 /* Reverse order shutdown, because deleting reorders the

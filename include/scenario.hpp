@@ -206,9 +206,6 @@ public:
     const std::string &getFileName() const { return fileName; }
     const std::string &getPath() const { return path; }
 
-    void addRtpTaskThreadID(pthread_t id);
-    void removeRtpTaskThreadID(pthread_t id);
-    std::unordered_map<pthread_t, std::string>& fetchRtpTaskThreadIDs();
 
     CStat *stats;
     AllocVariableTable *allocVars;
@@ -244,7 +241,6 @@ private:
     bool hidedefault;
     bool last_recv_optional;
 
-    std::unordered_map<pthread_t, std::string> threadIDs;
 };
 
 /* There are external variable containing the current scenario */
