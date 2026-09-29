@@ -4437,7 +4437,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             // RX-UAC-AUDIO SRTP context (b) -- SSRC/IPADDRESS/PORT
             //
             CryptoContextID rxUACA;
-            rxUACA.ssrc = rtpstream_callinfo.taskinfo->audio_ssrc_id;
+            rxUACA.ssrc = rtpstream_callinfo.audio_ssrc_id;
             rxUACA.address = media_ip;
             rxUACA.port = rtpstream_callinfo.local_audioport;
             logSrtpInfo("call::createSendingMessage():  (b) RX-UAC-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUACA.ssrc, rxUACA.address.c_str(), rxUACA.port);
@@ -4465,7 +4465,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             // RX-UAC-VIDEO SRTP context (b) -- SSRC/IPADDRESS/PORT
             //
             CryptoContextID rxUACV;
-            rxUACV.ssrc = rtpstream_callinfo.taskinfo->video_ssrc_id;
+            rxUACV.ssrc = rtpstream_callinfo.video_ssrc_id;
             rxUACV.address = media_ip;
             rxUACV.port = rtpstream_callinfo.local_videoport;
             logSrtpInfo("call::createSendingMessage():  (b) RX-UAC-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUACV.ssrc, rxUACV.address.c_str(), rxUACV.port);
@@ -5041,7 +5041,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     // TX-UAC-AUDIO SRTP context (a) -- SSRC/IPADDRESS/PORT
                     //
                     CryptoContextID txUACA;
-                    txUACA.ssrc = rtpstream_callinfo.taskinfo->audio_ssrc_id;
+                    txUACA.ssrc = rtpstream_callinfo.audio_ssrc_id;
                     txUACA.address = host;
                     txUACA.port = audio_port;
                     logSrtpInfo("call::process_incoming():  (a) TX-UAC-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUACA.ssrc, txUACA.address.c_str(), txUACA.port);
@@ -5176,7 +5176,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     // TX-UAS-AUDIO SRTP context (d) -- SSRC/IPADDRESS/PORT
                     //
                     CryptoContextID txUASA;
-                    txUASA.ssrc = rtpstream_callinfo.taskinfo->audio_ssrc_id;
+                    txUASA.ssrc = rtpstream_callinfo.audio_ssrc_id;
                     txUASA.address = host;
                     txUASA.port = audio_port;
                     logSrtpInfo("call::process_incoming():  (d) TX-UAS-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUASA.ssrc, txUASA.address.c_str(), txUASA.port);
@@ -5330,7 +5330,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     // TX-UAC-VIDEO SRTP context (a) -- SSRC/IPADDRESS/PORT
                     //
                     CryptoContextID txUACV;
-                    txUACV.ssrc = rtpstream_callinfo.taskinfo->video_ssrc_id;
+                    txUACV.ssrc = rtpstream_callinfo.video_ssrc_id;
                     txUACV.address = host;
                     txUACV.port = video_port;
                     logSrtpInfo("call::process_incoming():  (a) TX-UAC-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUACV.ssrc, txUACV.address.c_str(), txUACV.port);
@@ -5465,7 +5465,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     // TX-UAS-VIDEO SRTP context (d) -- SSRC/IPADDRESS/PORT
                     //
                     CryptoContextID txUASV;
-                    txUASV.ssrc = rtpstream_callinfo.taskinfo->video_ssrc_id;
+                    txUASV.ssrc = rtpstream_callinfo.video_ssrc_id;
                     txUASV.address = host;
                     txUASV.port = video_port;
                     logSrtpInfo("call::process_incoming():  (d) TX-UAS-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUASV.ssrc, txUASV.address.c_str(), txUASV.port);
@@ -6741,7 +6741,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 // RX-UAS-AUDIO SRTP context (c) -- SSRC/IPADDRESS/PORT
                 //
                 CryptoContextID rxUASA;
-                rxUASA.ssrc = rtpstream_callinfo.taskinfo->audio_ssrc_id;
+                rxUASA.ssrc = rtpstream_callinfo.audio_ssrc_id;
                 rxUASA.address = media_ip;
                 rxUASA.port = rtpstream_callinfo.local_audioport;
                 logSrtpInfo("call::executeAction() [STARTAUDIO]:  (c) RX-UAS-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUASA.ssrc, rxUASA.address.c_str(), rxUASA.port);
@@ -6794,7 +6794,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 // RX-UAS-AUDIO SRTP context (c) -- SSRC/IPADDRESS/PORT
                 //
                 CryptoContextID rxUASA;
-                rxUASA.ssrc = rtpstream_callinfo.taskinfo->audio_ssrc_id;
+                rxUASA.ssrc = rtpstream_callinfo.audio_ssrc_id;
                 rxUASA.address = media_ip;
                 rxUASA.port = rtpstream_callinfo.local_audioport;
                 logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  (c) RX-UAS-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUASA.ssrc, rxUASA.address.c_str(), rxUASA.port);
@@ -6855,7 +6855,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 // RX-UAS-VIDEO SRTP context (c) -- SSRC/IPADDRESS/PORT
                 //
                 CryptoContextID rxUASV;
-                rxUASV.ssrc = rtpstream_callinfo.taskinfo->video_ssrc_id;
+                rxUASV.ssrc = rtpstream_callinfo.video_ssrc_id;
                 rxUASV.address = media_ip;
                 rxUASV.port = rtpstream_callinfo.local_videoport;
                 logSrtpInfo("call::executeAction() [STARTVIDEO]:  (c) RX-UAS-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUASV.ssrc, rxUASV.address.c_str(), rxUASV.port);
@@ -6908,7 +6908,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 // RX-UAS-VIDEO SRTP context (c) -- SSRC/IPADDRESS/PORT
                 //
                 CryptoContextID rxUASV;
-                rxUASV.ssrc = rtpstream_callinfo.taskinfo->video_ssrc_id;
+                rxUASV.ssrc = rtpstream_callinfo.video_ssrc_id;
                 rxUASV.address = media_ip;
                 rxUASV.port = rtpstream_callinfo.local_videoport;
                 logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  (c) RX-UAS-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUASV.ssrc, rxUASV.address.c_str(), rxUASV.port);
