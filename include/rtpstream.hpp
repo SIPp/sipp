@@ -20,6 +20,7 @@
 #define __RTPSTREAM__
 
 #include <atomic>
+#include <sys/socket.h>
 
 #ifdef PCAPPLAY
 #include "send_packets.h"
@@ -170,11 +171,22 @@ struct taskentry_t
 
 struct rtpstream_callinfo_t
 {
+    /* made on first use: most calls don't play or echo */
     taskentry_t *taskinfo;
     int local_audioport;
     int local_videoport;
     int remote_audioport;
     int remote_videoport;
+    unsigned int audio_ssrc_id;
+    unsigned int video_ssrc_id;
+    /* the remote media of the last rtpstream_set_remote() with an IP
+     * before there was a task, for the task, and whether a later one
+     * had no IP */
+    bool pending_remote;
+    bool pending_null_ip;
+    int pending_audio_port;
+    int pending_video_port;
+    struct sockaddr_storage pending_address;
 };
 
 struct rtpstream_actinfo_t

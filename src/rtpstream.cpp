@@ -1885,8 +1885,6 @@ int rtpstream_new_call(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_new_call callinfo=%p\n", callinfo);
 
-    taskentry_t  *taskinfo;
-
     /* general init */
     memset(callinfo, 0, sizeof(*callinfo));
 
@@ -1894,21 +1892,49 @@ int rtpstream_new_call(rtpstream_callinfo_t* callinfo)
     callinfo->remote_audioport = 0;
     callinfo->remote_videoport = 0;
 
+    /* rtp stream members */
+    callinfo->audio_ssrc_id = global_ssrc_id++;
+    callinfo->video_ssrc_id = global_ssrc_id++;
+
+    return 1;
+}
+
+static void rtpstream_set_remote_address(rtpstream_callinfo_t* callinfo, taskentry_t* taskinfo,
+                                         struct sockaddr_storage address, int audio_port, int video_port);
+
+/* The task of a call, made on first use */
+static taskentry_t* rtpstream_task(rtpstream_callinfo_t* callinfo)
+{
+    taskentry_t  *taskinfo = callinfo->taskinfo;
+
+    if (taskinfo) {
+        return taskinfo;
+    }
+
     taskinfo = new taskentry_t();
     callinfo->taskinfo = taskinfo;
 
     taskinfo->flags = TI_NULLIP;
 
     /* rtp stream members */
-    taskinfo->audio_ssrc_id = global_ssrc_id++;
-    taskinfo->video_ssrc_id = global_ssrc_id++;
+    taskinfo->audio_ssrc_id = callinfo->audio_ssrc_id;
+    taskinfo->video_ssrc_id = callinfo->video_ssrc_id;
     /* no echo yet: not even of the packet before the first (seq 0) */
     taskinfo->audio_seq_echoed = (unsigned short) (taskinfo->audio_seq_out - 2);
 
     /* pthread mutexes */
     pthread_mutex_init(&(callinfo->taskinfo->mutex), nullptr);
 
-    return 1;
+    /* the remote media set before */
+    if (callinfo->pending_remote) {
+        rtpstream_set_remote_address(callinfo, taskinfo, callinfo->pending_address,
+                                     callinfo->pending_audio_port, callinfo->pending_video_port);
+    }
+    if (callinfo->pending_null_ip) {
+        taskinfo->flags |= TI_NULLIP;
+    }
+
+    return taskinfo;
 }
 
 /* code checked */
@@ -2191,9 +2217,7 @@ int rtpstream_get_local_audioport(rtpstream_callinfo_t* callinfo)
     int   rtp_socket;
     int   rtcp_socket;
 
-    if (!callinfo->taskinfo) {
-        return 0;
-    }
+    rtpstream_task(callinfo);
 
     if (callinfo->local_audioport) {
         /* already a port assigned to this call */
@@ -2231,9 +2255,7 @@ int rtpstream_get_local_videoport(rtpstream_callinfo_t* callinfo)
     int   rtp_socket;
     int   rtcp_socket;
 
-    if (!callinfo->taskinfo) {
-        return 0;
-    }
+    rtpstream_task(callinfo);
 
     if (callinfo->local_videoport) {
         /* already a port assigned to this call */
@@ -2278,13 +2300,13 @@ void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char
                callinfo, ip_ver, ip_addr, audio_port, video_port);
 
     taskinfo = callinfo->taskinfo;
-    if (!taskinfo) {
-        /* no task info found - cannot set remote data. just return */
-        return;
-    }
 
     nonzero_ip = 0;
-    taskinfo->flags |= TI_NULLIP;  /// TODO: this (may) cause a gap in playback, if playback thread gets to exec while this is set and before new IP is checked.
+    if (taskinfo) {
+        taskinfo->flags |= TI_NULLIP;  /// TODO: this (may) cause a gap in playback, if playback thread gets to exec while this is set and before new IP is checked.
+    } else {
+        callinfo->pending_null_ip = true;
+    }
 
     /* test that media ip address version match remote ip address version? */
 
@@ -2320,6 +2342,23 @@ void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char
         return;
     }
 
+    if (!taskinfo) {
+        /* for the task, when there is one */
+        callinfo->pending_remote = true;
+        callinfo->pending_null_ip = false;
+        callinfo->pending_address = address;
+        callinfo->pending_audio_port = audio_port;
+        callinfo->pending_video_port = video_port;
+        return;
+    }
+
+    rtpstream_set_remote_address(callinfo, taskinfo, address, audio_port, video_port);
+}
+
+/* Set the remote media of a call's task, of the IP of address */
+static void rtpstream_set_remote_address(rtpstream_callinfo_t* callinfo, taskentry_t* taskinfo,
+                                         struct sockaddr_storage address, int audio_port, int video_port)
+{
     /* enter critical section to lock address updates */
     /* may want to leave this out -- low chance of race condition */
     pthread_mutex_lock(&(taskinfo->mutex));
@@ -2367,14 +2406,6 @@ void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char
 
 int rtpstream_set_srtp_audio_local(rtpstream_callinfo_t* callinfo, SrtpInfoParams &p)
 {
-    taskentry_t               *taskinfo;
-
-    taskinfo = callinfo->taskinfo;
-    if (!taskinfo) {
-        /* no task info found - cannot set remote data. just return */
-        return -1;
-    }
-
     if (srtpcheck_debug && !debuglsrtpafile.open())
     {
         /* error encountered opening local srtp debug file */
@@ -2388,14 +2419,6 @@ int rtpstream_set_srtp_audio_local(rtpstream_callinfo_t* callinfo, SrtpInfoParam
 
 int rtpstream_set_srtp_audio_remote(rtpstream_callinfo_t* callinfo, SrtpInfoParams &p)
 {
-    taskentry_t               *taskinfo;
-
-    taskinfo = callinfo->taskinfo;
-    if (!taskinfo) {
-        /* no task info found - cannot set remote data. just return */
-        return -1;
-    }
-
     if (srtpcheck_debug && !debugrsrtpafile.open())
     {
         /* error encountered opening remote srtp debug file */
@@ -2409,14 +2432,6 @@ int rtpstream_set_srtp_audio_remote(rtpstream_callinfo_t* callinfo, SrtpInfoPara
 
 int rtpstream_set_srtp_video_local(rtpstream_callinfo_t* callinfo, SrtpInfoParams &p)
 {
-    taskentry_t               *taskinfo;
-
-    taskinfo = callinfo->taskinfo;
-    if (!taskinfo) {
-        /* no task info found - cannot set remote data. just return */
-        return -1;
-    }
-
     if (srtpcheck_debug && !debuglsrtpvfile.open())
     {
         /* error encountered opening local srtp debug file */
@@ -2430,14 +2445,6 @@ int rtpstream_set_srtp_video_local(rtpstream_callinfo_t* callinfo, SrtpInfoParam
 
 int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t* callinfo, SrtpInfoParams &p)
 {
-    taskentry_t               *taskinfo;
-
-    taskinfo = callinfo->taskinfo;
-    if (!taskinfo) {
-        /* no task info found - cannot set remote data. just return */
-        return -1;
-    }
-
     if (srtpcheck_debug && !debugrsrtpvfile.open())
     {
         /* error encountered opening local srtp debug file */
@@ -2522,15 +2529,12 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
                                                     actioninfo->pattern_id,
                                                     actioninfo->bytes_per_packet,
                                                     0 /* AUDIO */);
-    taskentry_t   *taskinfo = callinfo->taskinfo;
+    taskentry_t   *taskinfo = rtpstream_task(callinfo);
 
     if (file_index < 0) {
         return; /* cannot find file to play */
     }
 
-    if (!taskinfo) {
-        return; /* no task data structure */
-    }
 
     /* make sure we have an open socket from which to play the audio file */
     rtpstream_get_local_audioport(callinfo);
@@ -2567,9 +2571,7 @@ void rtpstream_pause(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_pause callinfo=%p\n", callinfo);
 
-    if (callinfo->taskinfo) {
-        callinfo->taskinfo->flags |= TI_PAUSERTP;
-    }
+    rtpstream_task(callinfo)->flags |= TI_PAUSERTP;
 }
 
 /* code checked */
@@ -2577,9 +2579,7 @@ void rtpstream_resume(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_resume callinfo=%p\n", callinfo);
 
-    if (callinfo->taskinfo) {
-        callinfo->taskinfo->flags &= ~TI_PAUSERTP;
-    }
+    rtpstream_task(callinfo)->flags &= ~TI_PAUSERTP;
 }
 
 /* The millisecond that a play of a stream ends in, from the packets it
@@ -2664,17 +2664,13 @@ void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
                                                     actioninfo->pattern_id,
                                                     actioninfo->bytes_per_packet,
                                                     0 /* AUDIO */);
-    taskentry_t   *taskinfo = callinfo->taskinfo;
+    taskentry_t   *taskinfo = rtpstream_task(callinfo);
 
     if (file_index < 0)
     {
         return; /* ERROR encountered */
     }
 
-    if (!taskinfo)
-    {
-        return; /* no task data structure */
-    }
 
     /* make sure we have an open socket from which to play the audio file */
     rtpstream_get_local_audioport(callinfo);
@@ -2703,18 +2699,14 @@ void rtpstream_pauseapattern(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_pauseapattern callinfo=%p\n", callinfo);
 
-    if (callinfo->taskinfo) {
-        callinfo->taskinfo->flags |= TI_PAUSERTPAPATTERN;
-    }
+    rtpstream_task(callinfo)->flags |= TI_PAUSERTPAPATTERN;
 }
 
 void rtpstream_resumeapattern(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_resumeapattern callinfo=%p\n", callinfo);
 
-    if (callinfo->taskinfo) {
-        callinfo->taskinfo->flags &= ~TI_PAUSERTPAPATTERN;
-    }
+    rtpstream_task(callinfo)->flags &= ~TI_PAUSERTPAPATTERN;
 }
 
 void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, JLSRTP& txUACVideo, JLSRTP& rxUACVideo)
@@ -2734,17 +2726,13 @@ void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
                                                     actioninfo->pattern_id,
                                                     actioninfo->bytes_per_packet,
                                                     1 /* VIDEO */);
-    taskentry_t   *taskinfo = callinfo->taskinfo;
+    taskentry_t   *taskinfo = rtpstream_task(callinfo);
 
     if (file_index < 0)
     {
         return; /* ERROR encountered */
     }
 
-    if (!taskinfo)
-    {
-        return; /* no task data structure */
-    }
 
     /* make sure we have an open socket from which to play the video file */
     rtpstream_get_local_videoport(callinfo);
@@ -2773,18 +2761,14 @@ void rtpstream_pausevpattern(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_pausevpattern callinfo=%p\n", callinfo);
 
-    if (callinfo->taskinfo) {
-        callinfo->taskinfo->flags |= TI_PAUSERTPVPATTERN;
-    }
+    rtpstream_task(callinfo)->flags |= TI_PAUSERTPVPATTERN;
 }
 
 void rtpstream_resumevpattern(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_resumevpattern callinfo=%p\n", callinfo);
 
-    if (callinfo->taskinfo) {
-        callinfo->taskinfo->flags &= ~TI_PAUSERTPVPATTERN;
-    }
+    rtpstream_task(callinfo)->flags &= ~TI_PAUSERTPVPATTERN;
 }
 
 #ifdef PCAPPLAY
@@ -2792,9 +2776,9 @@ int rtpstream_play_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stream,
 {
     debugprint("rtpstream_play_pcap callinfo=%p stream=%d\n", callinfo, stream);
 
-    taskentry_t *taskinfo = callinfo->taskinfo;
+    taskentry_t *taskinfo = rtpstream_task(callinfo);
 
-    if (!taskinfo || (!taskinfo->parent_thread && !rtpstream_start_task(callinfo)))
+    if (!taskinfo->parent_thread && !rtpstream_start_task(callinfo))
     {
         return 0;
     }
@@ -2891,12 +2875,8 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
 {
     debugprint("rtpstream_rtpecho_startaudio callinfo=%p\n", callinfo);
 
-    taskentry_t   *taskinfo = callinfo->taskinfo;
+    taskentry_t   *taskinfo = rtpstream_task(callinfo);
 
-    if (!taskinfo)
-    {
-        return -1; /* no task data structure */
-    }
 
     if (srtpcheck_debug && !debugrefileaudio.open())
     {
@@ -2915,12 +2895,8 @@ int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASA
 {
     debugprint("rtpstream_rtpecho_updateaudio callinfo=%p\n", callinfo);
 
-    taskentry_t   *taskinfo = callinfo->taskinfo;
+    taskentry_t   *taskinfo = rtpstream_task(callinfo);
 
-    if (!taskinfo)
-    {
-        return -1; /* no task data structure */
-    }
 
     debugrefileaudio.printf("rtpstream_rtpecho_updateaudio reached...\n");
 
@@ -2933,12 +2909,8 @@ int rtpstream_rtpecho_stopaudio(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_rtpecho_stopaudio callinfo=%p\n", callinfo);
 
-    taskentry_t   *taskinfo = callinfo->taskinfo;
+    taskentry_t   *taskinfo = rtpstream_task(callinfo);
 
-    if (!taskinfo)
-    {
-        return -1; /* no task data structure */
-    }
 
     debugrefileaudio.printf("rtpstream_rtpecho_stopaudio reached...\n");
 
@@ -2949,12 +2921,8 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
 {
     debugprint("rtpstream_rtpecho_startvideo callinfo=%p\n", callinfo);
 
-    taskentry_t   *taskinfo = callinfo->taskinfo;
+    taskentry_t   *taskinfo = rtpstream_task(callinfo);
 
-    if (!taskinfo)
-    {
-        return -1; /* no task data structure */
-    }
 
     if (srtpcheck_debug && !debugrefilevideo.open())
     {
@@ -2973,12 +2941,8 @@ int rtpstream_rtpecho_updatevideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASV
 {
     debugprint("rtpstream_rtpecho_updatevideo callinfo=%p\n", callinfo);
 
-    taskentry_t   *taskinfo = callinfo->taskinfo;
+    taskentry_t   *taskinfo = rtpstream_task(callinfo);
 
-    if (!taskinfo)
-    {
-        return -1; /* no task data structure */
-    }
 
     debugrefilevideo.printf("rtpstream_rtpecho_updatevideo reached...\n");
 
@@ -2991,12 +2955,8 @@ int rtpstream_rtpecho_stopvideo(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_rtpecho_stopvideo callinfo=%p\n", callinfo);
 
-    taskentry_t   *taskinfo = callinfo->taskinfo;
+    taskentry_t   *taskinfo = rtpstream_task(callinfo);
 
-    if (!taskinfo)
-    {
-        return -1; /* no task data structure */
-    }
 
     debugrefilevideo.printf("rtpstream_rtpecho_stopvideo reached...\n");
 
