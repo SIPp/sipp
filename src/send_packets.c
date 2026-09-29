@@ -40,16 +40,24 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/udp.h>
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
-#if defined(__linux__) && defined(__has_include)
-#if __has_include(<linux/filter.h>)
-#include <linux/filter.h>
-#define HAVE_LINUX_FILTER 1
-#endif
+
+/* On Linux, the plays send their IP headers on an IPPROTO_RAW socket.
+ * A raw UDP socket gets a copy of each UDP packet to its address, and
+ * it holds its lock while the kernel delivers what it sends: with a
+ * socket per playback thread, the copies grow with the calls times the
+ * packets, and with one for all, the threads wait on its lock. An
+ * IPPROTO_RAW socket gets no packets and takes no lock to send. */
+#ifdef __linux__
+#define SEND_IP_HEADER 1
+#define RAW_PROTOCOL IPPROTO_RAW
+#else
+#define RAW_PROTOCOL IPPROTO_UDP
 #endif
 
 #include "defines.h"
@@ -139,13 +147,13 @@ int send_packets_socket(const struct sockaddr_storage* from)
 #endif
 
     if (media_ip_is_ipv6) {
-        sock = socket(PF_INET6, SOCK_RAW, IPPROTO_UDP);
+        sock = socket(PF_INET6, SOCK_RAW, RAW_PROTOCOL);
         if (sock < 0) {
             ERROR("Can't create raw IPv6 socket (need to run as root?): %s", strerror(errno));
         }
         len = sizeof(struct sockaddr_in6);
     } else {
-        sock = socket(PF_INET, SOCK_RAW, IPPROTO_UDP);
+        sock = socket(PF_INET, SOCK_RAW, RAW_PROTOCOL);
         if (sock < 0) {
             ERROR("Can't create raw IPv4 socket (need to run as root?): %s", strerror(errno));
         }
@@ -169,17 +177,6 @@ int send_packets_socket(const struct sockaddr_storage* from)
         ERROR("Can't bind media raw socket: %s", strerror(errno));
     }
 
-#if defined(HAVE_LINUX_FILTER) && defined(SO_ATTACH_FILTER)
-    /* Linux gives a raw UDP socket a copy of each UDP packet to its
-     * address, which nothing reads: a filter that drops them all keeps
-     * them from queueing up on it. */
-    {
-        struct sock_filter drop_all = BPF_STMT(BPF_RET | BPF_K, 0);
-        struct sock_fprog filter = {1, &drop_all};
-        setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
-    }
-#endif
-
 #ifndef MSG_DONTWAIT
     fd_flags = fcntl(sock, F_GETFL , NULL);
     fd_flags |= O_NONBLOCK;
@@ -198,8 +195,13 @@ static int send_packet(int sock, const play_args_t* play, const pcap_pkt* pkt_in
     const struct sockaddr_storage *from = &(play->from);
     struct udphdr *udp;
     struct sockaddr_in6 to6, from6;
-    char buffer[PCAP_MAXPACKET];
+    char buffer[sizeof(struct ip6_hdr) + PCAP_MAXPACKET];
+    size_t header_len = 0;
     int temp_sum;
+
+#ifdef SEND_IP_HEADER
+    header_len = media_ip_is_ipv6 ? sizeof(struct ip6_hdr) : sizeof(struct ip);
+#endif
 
     if (media_ip_is_ipv6) {
         from_port = &(((const struct sockaddr_in6 *)from)->sin6_port);
@@ -215,7 +217,7 @@ static int send_packet(int sock, const play_args_t* play, const pcap_pkt* pkt_in
         to_port = &(((const struct sockaddr_in *)to)->sin_port);
     }
 
-    udp = (struct udphdr *)buffer;
+    udp = (struct udphdr *)(buffer + header_len);
     memcpy(udp, pkt_index->data, pkt_index->pktlen);
     port_diff = ntohs(udp->uh_dport) - play->pcap->base;
     /* modify UDP ports */
@@ -241,20 +243,46 @@ static int send_packet(int sock, const play_args_t* play, const pcap_pkt* pkt_in
     udp->uh_sum = temp_sum;
 #endif
 
+#ifdef SEND_IP_HEADER
+    /* the kernel fills in the IPv4 checksum and ID */
+    if (media_ip_is_ipv6) {
+        struct ip6_hdr *ip6 = (struct ip6_hdr *)buffer;
+
+        memset(ip6, 0, sizeof(*ip6));
+        ip6->ip6_flow = htonl(6 << 28);
+        ip6->ip6_plen = htons(pkt_index->pktlen);
+        ip6->ip6_nxt = IPPROTO_UDP;
+        ip6->ip6_hlim = 64;
+        ip6->ip6_src = from6.sin6_addr;
+        ip6->ip6_dst = to6.sin6_addr;
+    } else {
+        struct ip *ip = (struct ip *)buffer;
+
+        memset(ip, 0, sizeof(*ip));
+        ip->ip_v = 4;
+        ip->ip_hl = sizeof(*ip) / 4;
+        ip->ip_len = htons(header_len + pkt_index->pktlen);
+        ip->ip_ttl = 64;
+        ip->ip_p = IPPROTO_UDP;
+        ip->ip_src = ((const struct sockaddr_in *)(const void *) from)->sin_addr;
+        ip->ip_dst = ((const struct sockaddr_in *)(const void *) to)->sin_addr;
+    }
+#endif
+
 #ifdef MSG_DONTWAIT
     if (!media_ip_is_ipv6) {
-        ret = sendto(sock, buffer, pkt_index->pktlen, MSG_DONTWAIT,
+        ret = sendto(sock, buffer, header_len + pkt_index->pktlen, MSG_DONTWAIT,
                      (const struct sockaddr *)to, sizeof(struct sockaddr_in));
     } else {
-        ret = sendto(sock, buffer, pkt_index->pktlen, MSG_DONTWAIT,
+        ret = sendto(sock, buffer, header_len + pkt_index->pktlen, MSG_DONTWAIT,
                      (struct sockaddr *)&to6, sizeof(struct sockaddr_in6));
     }
 #else
     if (!media_ip_is_ipv6) {
-        ret = sendto(sock, buffer, pkt_index->pktlen, 0,
+        ret = sendto(sock, buffer, header_len + pkt_index->pktlen, 0,
                      (const struct sockaddr *)to, sizeof(struct sockaddr_in));
     } else {
-        ret = sendto(sock, buffer, pkt_index->pktlen, 0,
+        ret = sendto(sock, buffer, header_len + pkt_index->pktlen, 0,
                      (struct sockaddr *)&to6, sizeof(struct sockaddr_in6));
     }
 #endif
