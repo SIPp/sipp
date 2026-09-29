@@ -853,10 +853,6 @@ static struct sipp_option *find_option(const char* option) {
 /******************** Recv Poll Processing *********************/
 
 extern unsigned pollnfds;
-#ifdef HAVE_EPOLL
-extern int epollfd;
-extern struct epoll_event*  epollevents;
-#endif
 
 extern SIPpSocket  *sockets[SIPP_MAXFDS];
 
@@ -2722,14 +2718,6 @@ int main(int argc, char *argv[])
         CallGenerationTask::set_rate(rate);
     }
 
-#ifdef HAVE_EPOLL
-    epollevents = (struct epoll_event*)malloc(sizeof(struct epoll_event) * max_recv_loops);
-    epollfd = epoll_create(SIPP_MAXFDS);
-    if (epollfd == -1) {
-        ERROR_NO("Failed to open epoll FD");
-    }
-#endif
-
     open_connections();
 
     /* Always create and Bind RTP socket */
@@ -2768,11 +2756,6 @@ int main(int argc, char *argv[])
     if (pthread3_id) {
         pthread_join(pthread3_id, nullptr);
     }
-
-#ifdef HAVE_EPOLL
-    close(epollfd);
-    free(epollevents);
-#endif
 
     sipp_exit(EXIT_TEST_RES_UNKNOWN, rtp_errors, echo_errors); // MAIN EXIT PATH HERE...);
 }

@@ -1,7 +1,7 @@
 #!/bin/sh
 # This regression test is a part of SIPp.
 # With stdin on /dev/null, which epoll can't watch, closing it at the
-# exit logs no "Failed to delete FD from epoll" warning.
+# exit logs no "Failed to delete FD from the pollset" warning.
 . "`dirname "$0"`/../functions"; init
 
 log=`mktemp`
@@ -16,8 +16,8 @@ rm -f "$log"
 
 if test $status -ne 0; then
     fail "UAC failed with $status"
-elif echo "$errors" | grep -q 'epoll'; then
-    fail "`echo "$errors" | grep epoll | head -n 1`"
+elif echo "$errors" | grep -q 'pollset'; then
+    fail "`echo "$errors" | grep pollset | head -n 1`"
 else
     ok
 fi
