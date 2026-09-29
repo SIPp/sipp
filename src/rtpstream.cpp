@@ -107,7 +107,7 @@ struct threaddata_t
      * without the mutex that adding one takes, and read it with acquire
      * loads, which see the task that the release store counts. */
     std::atomic<unsigned int> num_tasks{0};
-    volatile int    del_pending = 0;
+    int             del_pending = 0; /* tasks to delete, under the mutex */
     volatile int    exit_flag = 0;
     int             wake_fds[2]; /* a pipe to wake the thread up */
 #ifdef PCAPPLAY
@@ -1536,7 +1536,7 @@ static void* rtpstream_playback_thread(void* params)
                     /* remove this task entry and release its resources */
                     pthread_mutex_lock(&(threaddata->tasklist_mutex));
                     threaddata->tasklist[taskindex--] = threaddata->tasklist[--threaddata->num_tasks];
-                    threaddata->del_pending--;   /* must decrease del_pending after num_tasks */
+                    threaddata->del_pending--;
                     pthread_mutex_unlock(&(threaddata->tasklist_mutex));
                     /* the call ended: the verdict of its RTP check */
                     rtpstream_check_verdict(taskinfo, false, &rtpresult);
@@ -1765,11 +1765,10 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
     unsigned int num_tasks = threaddata->num_tasks.load(std::memory_order_relaxed);
     threaddata->tasklist[num_tasks] = callinfo->taskinfo;
     threaddata->num_tasks.store(num_tasks + 1, std::memory_order_release);
+    bool full = threaddata->del_pending == 0 && num_tasks + 1 >= threaddata->max_tasks;
     pthread_mutex_unlock(&(threaddata->tasklist_mutex));
 
-    /* this check relies on playback thread to decrement num_tasks before */
-    /* decrementing del_pending -- else we need to lock before this test  */
-    if ((threaddata->del_pending == 0) && (threaddata->num_tasks >= threaddata->max_tasks)) {
+    if (full) {
         /* move this thread to the busy list - no free task slots */
         /* first check if the busy list is big enough to hold new thread */
         if (num_busy_threads >= busy_threads_max) {
