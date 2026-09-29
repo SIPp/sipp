@@ -6773,6 +6773,10 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 _txUASAudio.selectEncryptionKey();
                 logSrtpInfo("call::executeAction() [STARTAUDIO]:  (d) TX-UAS-AUDIO SRTP context - SERVER resetting cipher state\n");
                 _txUASAudio.resetCipherState();
+                /* Only the playback thread's copies of the contexts, which
+                 * make their own, use AES once the keys are derived */
+                _rxUASAudio.freeCiphers();
+                _txUASAudio.freeCiphers();
                 //logSrtpInfo("call::executeAction() [STARTAUDIO]:  ******** (c) RX-UAS-AUDIO SRTP context dump ********\n");
                 //logSrtpInfo("%s", _rxUASAudio.dumpCryptoContext().c_str());
                 //logSrtpInfo("call::executeAction() [STARTAUDIO]:  ****************************************************\n");
@@ -6822,6 +6826,10 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 _txUASAudio.selectEncryptionKey();
                 logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  (d) TX-UAS-AUDIO SRTP context - SERVER resetting cipher state\n");
                 _txUASAudio.resetCipherState();
+                /* Only the playback thread's copies of the contexts, which
+                 * make their own, use AES once the keys are derived */
+                _rxUASAudio.freeCiphers();
+                _txUASAudio.freeCiphers();
                 //logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  ******** (c) RX-UAS-AUDIO SRTP context dump ********\n");
                 //logSrtpInfo("%s", _rxUASAudio.dumpCryptoContext().c_str());
                 //logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  ****************************************************\n");
@@ -6879,6 +6887,10 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 _txUASVideo.selectEncryptionKey();
                 logSrtpInfo("call::executeAction() [STARTVIDEO]:  (d) TX-UAS-VIDEO SRTP context - SERVER resetting cipher state\n");
                 _txUASVideo.resetCipherState();
+                /* Only the playback thread's copies of the contexts, which
+                 * make their own, use AES once the keys are derived */
+                _rxUASVideo.freeCiphers();
+                _txUASVideo.freeCiphers();
                 //logSrtpInfo("call::executeAction() [STARTVIDEO]:  ******** (c) RX-UAS-VIDEO SRTP context dump ********\n");
                 //logSrtpInfo("%s", _rxUASVideo.dumpCryptoContext().c_str());
                 //logSrtpInfo("call::executeAction() [STARTVIDEO]:  ****************************************************\n");
@@ -6928,6 +6940,10 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 _txUASVideo.selectEncryptionKey();
                 logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  (d) TX-UAS-VIDEO SRTP context - SERVER resetting cipher state\n");
                 _txUASVideo.resetCipherState();
+                /* Only the playback thread's copies of the contexts, which
+                 * make their own, use AES once the keys are derived */
+                _rxUASVideo.freeCiphers();
+                _txUASVideo.freeCiphers();
                 //logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  ******** (c) RX-UAS-VIDEO SRTP context dump ********\n");
                 //logSrtpInfo("%s", _rxUASVideo.dumpCryptoContext().c_str());
                 //logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  ****************************************************\n");
@@ -7321,6 +7337,10 @@ void call::startUACSrtp(SrtpChannel& tx, SrtpChannel& rx, int payloadSize, const
     rx.selectDecryptionKey();
     logSrtpInfo("call::executeAction():  (b) RX-UAC-%s SRTP context - CLIENT resetting cipher state\n", media);
     rx.resetCipherState();
+    /* Only the playback thread's copies of the contexts, which make
+     * their own, use AES once the keys are derived */
+    tx.freeCiphers();
+    rx.freeCiphers();
 }
 
 void call::setSessionState(SessionState state)

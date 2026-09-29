@@ -138,6 +138,11 @@ public:
         return get().selectDecryptionKey();
     }
 
+    void freeCiphers()
+    {
+        get().freeCiphers();
+    }
+
 private:
     unsigned int ssrc;
     std::unique_ptr<SrtpChannel> context;

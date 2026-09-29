@@ -639,6 +639,14 @@ class JLSRTP
         int resetCipherState();
 
         /**
+         * freeCiphers
+         *
+         * Frees the AES cipher contexts: every use of a key sets it in
+         * one, and makes it first if there is none
+         */
+        void freeCiphers();
+
+        /**
          * deriveSessionEncryptionKey
          *
          * Derives the session encryption key from the given master key / master salt
