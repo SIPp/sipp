@@ -1462,6 +1462,14 @@ int JLSRTP::resetCipherState()
     }
 }
 
+void JLSRTP::freeCiphers()
+{
+    EVP_CIPHER_CTX_free(_pseudorandomstate.cipher);
+    _pseudorandomstate.cipher = nullptr;
+    EVP_CIPHER_CTX_free(_cipherstate.cipher);
+    _cipherstate.cipher = nullptr;
+}
+
 int JLSRTP::deriveSessionEncryptionKey()
 {
     std::vector<unsigned char> input_vector;        // Input vector (built from applicable keyid_XXXs)
