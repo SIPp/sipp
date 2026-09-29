@@ -6670,7 +6670,6 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 ERROR("Can't create thread to send RTP packets");
             }
             play_args->pcap = nullptr;
-            call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
 #endif
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_ECHO) {
             rtp_echo_state = (currentAction->getDoubleValue() != 0);
@@ -6695,8 +6694,6 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             SrtpChannel& rx = sendMode == MODE_CLIENT ? _rxUACAudio : _rxUASAudio;
             startUACSrtp(tx, rx, currentAction->getRTPStreamActInfo()->bytes_per_packet, "AUDIO");
             rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo(), tx, rx);
-            // Obtain ID of parent thread used for the related RTP task
-            call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSEAPATTERN) {
             rtpstream_pauseapattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEAPATTERN) {
@@ -6710,8 +6707,6 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 
             logSrtpInfo("call::executeAction():  rtpstream_playapattern\n");
             rtpstream_playapattern(&rtpstream_callinfo,currentAction->getRTPStreamActInfo(), _txUACAudio, _rxUACAudio);
-            // Obtain ID of parent thread used for the related RTP task
-            call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSEVPATTERN) {
             rtpstream_pausevpattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEVPATTERN) {
@@ -6725,8 +6720,6 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 
             logSrtpInfo("call::executeAction():  rtpstream_playvpattern\n");
             rtpstream_playvpattern(&rtpstream_callinfo,currentAction->getRTPStreamActInfo(), _txUACVideo, _rxUACVideo);
-            // Obtain ID of parent thread used for the related RTP task
-            call_scenario->addRtpTaskThreadID(rtpstream_callinfo.threadID);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STARTAUDIO) {
             if (sendMode == MODE_SERVER)
             {

@@ -95,9 +95,28 @@ struct rtp_header_t
     uint32_t         ssrc_id;
 };
 
+/* Made by rtpstream_start_task() with its thread, deleted by
+ * rtpstream_shutdown() when the thread exits */
 struct threaddata_t
 {
-    explicit threaddata_t(unsigned int max_tasks) : max_tasks(max_tasks), tasklist(max_tasks) {}
+    explicit threaddata_t(unsigned int max_tasks) : max_tasks(max_tasks), tasklist(max_tasks)
+    {
+        pthread_mutex_init(&tasklist_mutex, nullptr);
+    }
+    ~threaddata_t()
+    {
+        for (int fd : wake_fds) {
+            if (fd != -1) {
+                close(fd);
+            }
+        }
+#ifdef PCAPPLAY
+        if (pcap_socket != -1) {
+            close(pcap_socket);
+        }
+#endif
+        pthread_mutex_destroy(&tasklist_mutex);
+    }
 
     pthread_t id;
     pthread_mutex_t tasklist_mutex;
@@ -108,8 +127,8 @@ struct threaddata_t
      * loads, which see the task that the release store counts. */
     std::atomic<unsigned int> num_tasks{0};
     int             del_pending = 0; /* tasks to delete, under the mutex */
-    volatile int    exit_flag = 0;
-    int             wake_fds[2]; /* a pipe to wake the thread up */
+    std::atomic<bool> exit_flag{false}; /* rtpstream_shutdown() stops it */
+    int             wake_fds[2] = {-1, -1}; /* a pipe to wake the thread up */
 #ifdef PCAPPLAY
     int             pcap_socket = -1; /* the raw socket of its pcap plays */
 #endif
@@ -1513,7 +1532,7 @@ static void* rtpstream_playback_thread(void* params)
 
     rtpstream_numthreads++;
 
-    while (!threaddata->exit_flag)
+    while (!threaddata->exit_flag.load(std::memory_order_acquire))
     {
         timenow_ms = getmilliseconds();
         waketime_us = (timenow_ms + 100) * 1000ULL; /* default sleep 100ms */
@@ -1649,11 +1668,11 @@ static void* rtpstream_playback_thread(void* params)
         rtpstream_check_verdict(taskinfo, true, &rtpresult);
     }
 
-    /* Free all task and thread resources and exit the thread */
+    /* Free the tasks of the calls that ended, and leave the others to
+     * their calls: rtpstream_shutdown() waits for the thread to exit, and
+     * then deletes its data. */
     for (taskindex = 0; taskindex < threaddata->num_tasks.load(std::memory_order_acquire); taskindex++)
     {
-        /* check if we should delete this thread, else let owner call clear it */
-        /* small chance of race condition in this code */
         taskinfo = threaddata->tasklist[taskindex];
         if (taskinfo->flags & TI_KILLTASK) {
             delete taskinfo;
@@ -1661,16 +1680,6 @@ static void* rtpstream_playback_thread(void* params)
             taskinfo->parent_thread = nullptr; /* no longer associated with a thread */
         }
     }
-    close(threaddata->wake_fds[0]);
-    close(threaddata->wake_fds[1]);
-#ifdef PCAPPLAY
-    if (threaddata->pcap_socket != -1)
-    {
-        close(threaddata->pcap_socket);
-    }
-#endif
-    pthread_mutex_destroy(&(threaddata->tasklist_mutex));
-    delete threaddata;
     rtpstream_numthreads--;
 
     // PTHREAD EXIT...
@@ -1729,19 +1738,18 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
             ready_threads = threadlist;
         }
         /* create and initialise data structure for new thread */
-        threaddata = new threaddata_t(rtp_tasks_per_thread);
-        if (pipe(threaddata->wake_fds)) {
-            delete threaddata;
+        int wake_fds[2];
+        if (pipe(wake_fds)) {
             return 0;
         }
-        fcntl(threaddata->wake_fds[0], F_SETFL, O_NONBLOCK);
-        fcntl(threaddata->wake_fds[1], F_SETFL, O_NONBLOCK);
-        pthread_mutex_init(&(threaddata->tasklist_mutex), nullptr);
+        threaddata = new threaddata_t(rtp_tasks_per_thread);
+        for (int i = 0; i < 2; i++) {
+            threaddata->wake_fds[i] = wake_fds[i];
+            fcntl(wake_fds[i], F_SETFL, O_NONBLOCK);
+        }
         /* create the thread itself */
         if (pthread_create(&threadID, nullptr, rtpstream_playback_thread, threaddata)) {
             /* error creating the thread */
-            close(threaddata->wake_fds[0]);
-            close(threaddata->wake_fds[1]);
             delete threaddata;
             return 0;
         }
@@ -1758,7 +1766,6 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
     /* now add new task to a spare slot in our thread tasklist */
     threaddata = ready_threads[ready_index];
     callinfo->taskinfo->parent_thread = threaddata;
-    callinfo->threadID = threaddata->id;
     pthread_mutex_lock(&(threaddata->tasklist_mutex));
     /* The task first, then the count: a count ahead of its task was a
      * null one. */
@@ -3082,7 +3089,7 @@ int rtpstream_rtpecho_stopvideo(rtpstream_callinfo_t* callinfo)
 }
 
 /* code checked */
-int rtpstream_shutdown(std::unordered_map<pthread_t, std::string>& threadIDs)
+int rtpstream_shutdown()
 {
     int            count = 0;
     void*          rtpresult;
@@ -3093,41 +3100,36 @@ int rtpstream_shutdown(std::unordered_map<pthread_t, std::string>& threadIDs)
 
     debugprint("rtpstream_shutdown\n");
 
-    /* signal all playback threads that they should exit */
-    if (ready_threads) {
-        for (count = 0; count < num_ready_threads; count++) {
-            ready_threads[count]->exit_flag = 1;
-        }
-        free(ready_threads);
-        ready_threads = nullptr;
+    /* every playback thread is in one of the lists */
+    std::vector<threaddata_t*> threads(ready_threads, ready_threads + num_ready_threads);
+    threads.insert(threads.end(), busy_threads, busy_threads + num_busy_threads);
+    free(ready_threads);
+    ready_threads = nullptr;
+    num_ready_threads = ready_threads_max = 0;
+    free(busy_threads);
+    busy_threads = nullptr;
+    num_busy_threads = busy_threads_max = 0;
+
+    /* signal all playback threads that they should exit, now */
+    for (threaddata_t* threaddata : threads) {
+        threaddata->exit_flag.store(true, std::memory_order_release);
+        rtpstream_wake(threaddata);
     }
 
-    if (busy_threads) {
-        for (count = 0; count < num_busy_threads; count++) {
-            busy_threads[count]->exit_flag = 1;
-        }
-        free(busy_threads);
-        busy_threads = nullptr;
-    }
-
-    /* first make sure no playback threads are accessing the file buffers */
-    /* else small chance the playback thread tries to access freed memory */
-    while (rtpstream_numthreads) {
-        usleep(50000);
-    }
-
-    // PTHREAD JOIN HERE...
-    for (std::unordered_map<pthread_t, std::string>::iterator iter = threadIDs.begin(); iter != threadIDs.end(); ++iter)
+    /* wait for them all: none may access the file buffers after they are
+     * freed, or be left to exit without being joined */
+    for (threaddata_t* threaddata : threads)
     {
-        debugafile.printHex("EXISTING THREADID: ", "", 0, getThreadId(iter->first), 0);
-        debugvfile.printHex("EXISTING THREADID: ", "", 0, getThreadId(iter->first), 0);
-        if (pthread_join(iter->first, &rtpresult))
+        debugafile.printHex("EXISTING THREADID: ", "", 0, getThreadId(threaddata->id), 0);
+        debugvfile.printHex("EXISTING THREADID: ", "", 0, getThreadId(threaddata->id), 0);
+        if (pthread_join(threaddata->id, &rtpresult))
         {
             // error joining thread
             debugafile.printHex("ERROR RETURNED BY PTHREAD_JOIN!", "", 0, 0, 0);
             debugvfile.printHex("ERROR RETURNED BY PTHREAD_JOIN!", "", 0, 0, 0);
             return -2;
         }
+        delete threaddata;
 
         total_rtpresults |= (int)(long long)rtpresult;
         debugafile.printHex("JOINED THREAD: ", "", 0, (long long)rtpresult, total_rtpresults);

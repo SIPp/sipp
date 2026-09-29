@@ -20,7 +20,6 @@
 #define __RTPSTREAM__
 
 #include <atomic>
-#include <unordered_map>
 
 #ifdef PCAPPLAY
 #include "send_packets.h"
@@ -181,7 +180,6 @@ struct rtpstream_callinfo_t
     int local_videoport;
     int remote_audioport;
     int remote_videoport;
-    pthread_t threadID;
 };
 
 struct rtpstream_actinfo_t
@@ -209,7 +207,8 @@ struct rtpecho_actinfo_t
 
 int rtpstream_new_call(rtpstream_callinfo_t *callinfo);
 void rtpstream_end_call(rtpstream_callinfo_t *callinfo);
-int rtpstream_shutdown(std::unordered_map<pthread_t, std::string>& threadIDs);
+/* Stop the playback threads: the RTP check verdicts of their patterns */
+int rtpstream_shutdown();
 
 int rtpstream_get_local_audioport(rtpstream_callinfo_t *callinfo);
 int rtpstream_get_local_videoport(rtpstream_callinfo_t *callinfo);
