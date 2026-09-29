@@ -1,0 +1,22 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# rtp_echo echoes an RTP packet whole: a 30 ms PCMU packet is longer than
+# the 20 ms the codec's packet size is set for.
+. "`dirname "$0"`/../functions"; init
+
+rm -f echo.log
+sippbg -sf uas.xml -i 127.0.0.1 -p 26130 -m 1 \
+    -min_rtp_port 28950 -max_rtp_port 28959
+sippfg -sf uac.xml -i 127.0.0.1 -p 26131 -m 1 \
+    127.0.0.1:26130 -timeout 30 -timeout_error >/dev/null 2>&1
+status=$?
+size=`cat echo.log 2>/dev/null`
+rm -f echo.log
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "${size:-0}" -ne 252; then
+    fail "a 252-byte packet echoed as ${size:-no} bytes"
+else
+    ok
+fi
