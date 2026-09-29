@@ -161,11 +161,6 @@ struct taskentry_t
     unsigned long        video_check_packets;
     unsigned long        video_check_failures;
 
-    SrtpInfoParams  local_srtp_audio_params;
-    SrtpInfoParams  remote_srtp_audio_params;
-    SrtpInfoParams  local_srtp_video_params;
-    SrtpInfoParams  remote_srtp_video_params;
-
 #ifdef PCAPPLAY
     /* the pcap plays of the call, one per stream, under the mutex; a
      * play with no pcap is not playing */
