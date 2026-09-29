@@ -3007,13 +3007,13 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             JLSRTP* rx = nullptr;
             if (sendMode == MODE_CLIENT)
             {
-                tx = video ? &_txUACVideo : &_txUACAudio;
-                rx = video ? &_rxUACVideo : &_rxUACAudio;
+                tx = video ? &_txUACVideo.get() : &_txUACAudio.get();
+                rx = video ? &_rxUACVideo.get() : &_rxUACAudio.get();
             }
             else if (sendMode == MODE_SERVER)
             {
-                tx = video ? &_txUASVideo : &_txUASAudio;
-                rx = video ? &_rxUASVideo : &_rxUASAudio;
+                tx = video ? &_txUASVideo.get() : &_txUASAudio.get();
+                rx = video ? &_rxUASVideo.get() : &_rxUASAudio.get();
             }
             logSrtpInfo("call::createSendingMessage():  %s %s cryptosuite %s\n", video ? "VIDEO" : "AUDIO",
                         crypto == PRIMARY_CRYPTO ? "PRIMARY" : "SECONDARY", suite->name);
@@ -4419,7 +4419,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     if (srtp_audio_updated)
     {
         // The lines of this SDP, and only those, are the ones an answer can take
-        JLSRTP* tx = (sendMode == MODE_CLIENT) ? &_txUACAudio : (sendMode == MODE_SERVER) ? &_txUASAudio : nullptr;
+        JLSRTP* tx = (sendMode == MODE_CLIENT) ? &_txUACAudio.get() : (sendMode == MODE_SERVER) ? &_txUASAudio.get() : nullptr;
         if (tx)
         {
             tx->setCryptoTag(pA.primary_cryptotag, PRIMARY_CRYPTO);
@@ -4447,7 +4447,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     if (srtp_video_updated)
     {
         // The lines of this SDP, and only those, are the ones an answer can take
-        JLSRTP* tx = (sendMode == MODE_CLIENT) ? &_txUACVideo : (sendMode == MODE_SERVER) ? &_txUASVideo : nullptr;
+        JLSRTP* tx = (sendMode == MODE_CLIENT) ? &_txUACVideo.get() : (sendMode == MODE_SERVER) ? &_txUASVideo.get() : nullptr;
         if (tx)
         {
             tx->setCryptoTag(pV.primary_cryptotag, PRIMARY_CRYPTO);
