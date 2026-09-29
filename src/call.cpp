@@ -357,6 +357,16 @@ static std::string find_in_sdp(std::string_view pattern, std::string_view msg)
 }
 
 #ifdef PCAPPLAY
+play_args_t& call::playArgs(rtpstream_pcap_t stream)
+{
+    if (!pcap_play_args) {
+        pcap_play_args.reset(new play_args_t[RTPSTREAM_PCAP_STREAMS]());
+        pcap_play_args[RTPSTREAM_PCAP_AUDIO].last_seq_no = 1200;
+        pcap_play_args[RTPSTREAM_PCAP_VIDEO].last_seq_no = 2400;
+    }
+    return pcap_play_args[stream];
+}
+
 void call::get_remote_media_addr(std::string const &msg)
 {
     std::string host = find_in_sdp(media_ip_is_ipv6 ? "c=IN IP6 " : "c=IN IP4 ", msg);
@@ -369,23 +379,23 @@ void call::get_remote_media_addr(std::string const &msg)
 
     std::string port = find_in_sdp("m=audio ", msg);
     if (!port.empty()) {
-        gai_getsockaddr(&play_args_a.to, host.c_str(), port.c_str(),
+        gai_getsockaddr(&playArgs(RTPSTREAM_PCAP_AUDIO).to, host.c_str(), port.c_str(),
                         AI_NUMERICHOST | AI_NUMERICSERV, family);
-        rtpstream_update_pcap(&rtpstream_callinfo, RTPSTREAM_PCAP_AUDIO, &play_args_a);
+        rtpstream_update_pcap(&rtpstream_callinfo, RTPSTREAM_PCAP_AUDIO, &playArgs(RTPSTREAM_PCAP_AUDIO));
     }
 
     port = find_in_sdp("m=image ", msg);
     if (!port.empty()) {
-        gai_getsockaddr(&play_args_i.to, host.c_str(), port.c_str(),
+        gai_getsockaddr(&playArgs(RTPSTREAM_PCAP_IMAGE).to, host.c_str(), port.c_str(),
                         AI_NUMERICHOST | AI_NUMERICSERV, family);
-        rtpstream_update_pcap(&rtpstream_callinfo, RTPSTREAM_PCAP_IMAGE, &play_args_i);
+        rtpstream_update_pcap(&rtpstream_callinfo, RTPSTREAM_PCAP_IMAGE, &playArgs(RTPSTREAM_PCAP_IMAGE));
     }
 
     port = find_in_sdp("m=video ", msg);
     if (!port.empty()) {
-        gai_getsockaddr(&play_args_v.to, host.c_str(), port.c_str(),
+        gai_getsockaddr(&playArgs(RTPSTREAM_PCAP_VIDEO).to, host.c_str(), port.c_str(),
                         AI_NUMERICHOST | AI_NUMERICSERV, family);
-        rtpstream_update_pcap(&rtpstream_callinfo, RTPSTREAM_PCAP_VIDEO, &play_args_v);
+        rtpstream_update_pcap(&rtpstream_callinfo, RTPSTREAM_PCAP_VIDEO, &playArgs(RTPSTREAM_PCAP_VIDEO));
     }
 }
 #endif
@@ -1089,8 +1099,6 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
 
 #ifdef PCAPPLAY
     hasMediaInformation = 0;
-    play_args_a.last_seq_no = 1200;
-    play_args_v.last_seq_no = 2400;
 #endif
 
     call_remote_socket = nullptr;
@@ -1181,12 +1189,6 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     this->initCall = isInitCall;
 
 #ifdef PCAPPLAY
-    memset(&(play_args_a.to), 0, sizeof(struct sockaddr_storage));
-    memset(&(play_args_i.to), 0, sizeof(struct sockaddr_storage));
-    memset(&(play_args_v.to), 0, sizeof(struct sockaddr_storage));
-    memset(&(play_args_a.from), 0, sizeof(struct sockaddr_storage));
-    memset(&(play_args_i.from), 0, sizeof(struct sockaddr_storage));
-    memset(&(play_args_v.from), 0, sizeof(struct sockaddr_storage));
     hasMediaInformation = 0;
 #endif
 
@@ -2911,13 +2913,16 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 (line_start == std::string::npos ? 0 : line_start);
             play_args_t* play_args = nullptr;
             rtpstream_pcap_t stream = RTPSTREAM_PCAP_AUDIO;
-            if (strstr(begin, "audio")) {
-                play_args = &play_args_a;
+            if (!hasMedia) {
+                /* The port of a pcap play, which a scenario without media
+                 * has none of */
+            } else if (strstr(begin, "audio")) {
+                play_args = &playArgs(RTPSTREAM_PCAP_AUDIO);
             } else if (strstr(begin, "image")) {
-                play_args = &play_args_i;
+                play_args = &playArgs(RTPSTREAM_PCAP_IMAGE);
                 stream = RTPSTREAM_PCAP_IMAGE;
             } else if (strstr(begin, "video")) {
-                play_args = &play_args_v;
+                play_args = &playArgs(RTPSTREAM_PCAP_VIDEO);
                 stream = RTPSTREAM_PCAP_VIDEO;
             } else {
                 // This check will not do, as we use the media_port in other places too.
@@ -6637,12 +6642,12 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             rtpstream_pcap_t stream = RTPSTREAM_PCAP_AUDIO;
             if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
                 (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
-                play_args = &(this->play_args_a);
+                play_args = &playArgs(RTPSTREAM_PCAP_AUDIO);
             } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_IMAGE) {
-                play_args = &(this->play_args_i);
+                play_args = &playArgs(RTPSTREAM_PCAP_IMAGE);
                 stream = RTPSTREAM_PCAP_IMAGE;
             } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) {
-                play_args = &(this->play_args_v);
+                play_args = &playArgs(RTPSTREAM_PCAP_VIDEO);
                 stream = RTPSTREAM_PCAP_VIDEO;
             } else {
                 ERROR("Can't find pcap data to play");
@@ -6661,7 +6666,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 
             /* port number is set in [auto_]media_port interpolation; without
              * it, send from the -mp port (+2 for video) rather than port 0 */
-            in_port_t port = htons(media_port + (play_args == &play_args_v ? 2 : 0));
+            in_port_t port = htons(media_port + (stream == RTPSTREAM_PCAP_VIDEO ? 2 : 0));
             if (media_ip_is_ipv6) {
                 struct sockaddr_in6* from = (struct sockaddr_in6*) &(play_args->from);
                 from->sin6_family = AF_INET6;
@@ -7443,7 +7448,7 @@ public:
     template<typename T>
     T get_audio_addr() {
         T sa;
-        std::memcpy(&sa, &play_args_a.to, sizeof(T));
+        std::memcpy(&sa, &playArgs(RTPSTREAM_PCAP_AUDIO).to, sizeof(T));
         return sa;
     }
 #endif
