@@ -1843,6 +1843,7 @@ int call::close_twin_calls()
 void call::terminate(CStat::E_Action reason)
 {
     char reason_str[100];
+    const char *dead_reason = nullptr; /* of the dead call to leave */
 
     stopListening();
 
@@ -1854,7 +1855,7 @@ void call::terminate(CStat::E_Action reason)
             computeStat(CStat::E_FAILED_REGEXP_DOESNT_MATCH);
             if (deadcall_wait && !initCall) {
                 sprintf(reason_str, "regexp match failure at index %d", msg_index);
-                new deadcall(id, reason_str);
+                dead_reason = reason_str;
             }
             break;
         case call::E_AR_REGEXP_SHOULDNT_MATCH:
@@ -1862,7 +1863,7 @@ void call::terminate(CStat::E_Action reason)
             computeStat(CStat::E_FAILED_REGEXP_SHOULDNT_MATCH);
             if (deadcall_wait && !initCall) {
                 sprintf(reason_str, "regexp matched, but shouldn't at index %d", msg_index);
-                new deadcall(id, reason_str);
+                dead_reason = reason_str;
             }
             break;
         case call::E_AR_HDR_NOT_FOUND:
@@ -1870,7 +1871,7 @@ void call::terminate(CStat::E_Action reason)
             computeStat(CStat::E_FAILED_REGEXP_HDR_NOT_FOUND);
             if (deadcall_wait && !initCall) {
                 sprintf(reason_str, "regexp header not found at index %d", msg_index);
-                new deadcall(id, reason_str);
+                dead_reason = reason_str;
             }
             break;
         case E_AR_CONNECT_FAILED:
@@ -1878,7 +1879,7 @@ void call::terminate(CStat::E_Action reason)
             computeStat(CStat::E_FAILED_TCP_CONNECT);
             if (deadcall_wait && !initCall) {
                 sprintf(reason_str, "connection failed %d", msg_index);
-                new deadcall(id, reason_str);
+                dead_reason = reason_str;
             }
             break;
         case E_AR_RTPECHO_ERROR:
@@ -1886,7 +1887,7 @@ void call::terminate(CStat::E_Action reason)
             setRtpEchoErrors(1);
             if (deadcall_wait && !initCall) {
                 sprintf(reason_str, "rtp echo error %d", msg_index);
-                new deadcall(id, reason_str);
+                dead_reason = reason_str;
             }
             break;
         case call::E_AR_NO_ERROR:
@@ -1898,7 +1899,7 @@ void call::terminate(CStat::E_Action reason)
             computeStat(CStat::E_FAILED_TEST_DOESNT_MATCH);
             if (deadcall_wait && !initCall) {
                 sprintf(reason_str, "test failure at index %d", msg_index);
-                new deadcall(id, reason_str);
+                dead_reason = reason_str;
             }
             break;
         case call::E_AR_TEST_SHOULDNT_MATCH:
@@ -1906,7 +1907,7 @@ void call::terminate(CStat::E_Action reason)
             computeStat(CStat::E_FAILED_TEST_SHOULDNT_MATCH);
             if (deadcall_wait && !initCall) {
                 sprintf(reason_str, "test succeeded, but shouldn't at index %d", msg_index);
-                new deadcall(id, reason_str);
+                dead_reason = reason_str;
             }
             break;
         case call::E_AR_STRCMP_DOESNT_MATCH:
@@ -1914,7 +1915,7 @@ void call::terminate(CStat::E_Action reason)
             computeStat(CStat::E_FAILED_STRCMP_DOESNT_MATCH);
             if (deadcall_wait && !initCall) {
                 sprintf(reason_str, "test failure at index %d", msg_index);
-                new deadcall(id, reason_str);
+                dead_reason = reason_str;
             }
             break;
         case call::E_AR_STRCMP_SHOULDNT_MATCH:
@@ -1922,7 +1923,7 @@ void call::terminate(CStat::E_Action reason)
             computeStat(CStat::E_FAILED_STRCMP_SHOULDNT_MATCH);
             if (deadcall_wait && !initCall) {
                 sprintf(reason_str, "test succeeded, but shouldn't at index %d", msg_index);
-                new deadcall(id, reason_str);
+                dead_reason = reason_str;
             }
             break;
         }
@@ -1930,7 +1931,7 @@ void call::terminate(CStat::E_Action reason)
         if (reason == CStat::E_CALL_SUCCESSFULLY_ENDED || timewait) {
             computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
             if (deadcall_wait && !initCall) {
-                new deadcall(id, "successful");
+                dead_reason = "successful";
             }
         } else {
             computeStat(CStat::E_CALL_FAILED);
@@ -1939,11 +1940,20 @@ void call::terminate(CStat::E_Action reason)
             }
             if (deadcall_wait && !initCall) {
                 sprintf(reason_str, "failed at index %d", msg_index);
-                new deadcall(id, reason_str);
+                dead_reason = reason_str;
             }
         }
     }
-    delete this;
+
+    if (dead_reason) {
+        /* Made once the call is gone, the dead call takes the place of
+         * what the call freed, as it has the same small allocations */
+        std::string dead_id(id);
+        delete this;
+        new deadcall(dead_id.c_str(), dead_reason);
+    } else {
+        delete this;
+    }
 }
 
 bool call::next()
@@ -2688,11 +2698,15 @@ bool call::abortCall(bool writeLog)
 
     stopListening();
     if (deadcall_wait && !initCall) {
+        /* made once the call is gone, as in terminate() */
         char reason[100];
         sprintf(reason, "aborted at index %d", msg_index);
-        new deadcall(id, reason, sent_bye, sent_cancel);
+        std::string dead_id(id);
+        delete this;
+        new deadcall(dead_id.c_str(), reason, sent_bye, sent_cancel);
+    } else {
+        delete this;
     }
-    delete this;
 
     return false;
 }
