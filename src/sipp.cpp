@@ -1103,7 +1103,7 @@ static void rtp_echo_thread(void* param)
                     errno);
             return;
         }
-        if (!rtp_echo_state) {
+        if (!rtp_echo_state.load(std::memory_order_relaxed)) {
             continue;
         }
         ns = sendto(sock, msg.data(), nr, 0,

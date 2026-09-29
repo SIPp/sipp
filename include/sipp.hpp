@@ -331,7 +331,8 @@ MAYBE_EXTERN int                call_id_mode            DEFVAL(CID_MODE_FORMAT);
 typedef std::unordered_map<std::string, std::string> ParamMap;
 MAYBE_EXTERN ParamMap           generic;
 
-MAYBE_EXTERN bool               rtp_echo_state          DEFVAL(true);
+/* whether the -rtp_echo threads echo, which a call's rtp_echo action sets */
+MAYBE_EXTERN std::atomic<bool> rtp_echo_state         DEFVAL(true);
 MAYBE_EXTERN bool               callidSlash             DEFVAL(false);
 
 /* TDM map */
