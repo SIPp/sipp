@@ -193,9 +193,10 @@ protected:
 
 #ifdef PCAPPLAY
     int hasMediaInformation;
-    play_args_t play_args_a;
-    play_args_t play_args_i;
-    play_args_t play_args_v;
+    /* The pcap plays of the call, per rtpstream_pcap_t stream, made on
+     * first use: in a scenario with media only */
+    std::unique_ptr<play_args_t[]> pcap_play_args;
+    play_args_t& playArgs(rtpstream_pcap_t stream);
 #endif
 
     rtpstream_callinfo_t rtpstream_callinfo;
