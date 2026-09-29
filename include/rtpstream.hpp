@@ -163,9 +163,9 @@ struct taskentry_t
     unsigned long        video_check_failures;
 
 #ifdef PCAPPLAY
-    /* the pcap plays of the call, one per stream, under the mutex; a
-     * play with no pcap is not playing */
-    play_args_t          pcap_plays[RTPSTREAM_PCAP_STREAMS];
+    /* the pcap plays of the call, one per stream, under the mutex, from
+     * the first one on; a play with no pcap is not playing */
+    play_args_t          *pcap_plays;
 #endif
 };
 

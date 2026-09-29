@@ -485,6 +485,9 @@ taskentry_t::~taskentry_t()
     delete video_echo;
     delete audio_srtp;
     delete video_srtp;
+#ifdef PCAPPLAY
+    delete[] pcap_plays;
+#endif
 
     /* cleanup pthread library structure */
     pthread_mutex_destroy(&mutex);
@@ -1487,8 +1490,9 @@ static void rtpstream_playpcaptask(taskentry_t* taskinfo, threaddata_t* threadda
     unsigned long long due_us;
 
     pthread_mutex_lock(&(taskinfo->mutex));
-    for (play_args_t& play : taskinfo->pcap_plays)
+    for (int i = 0; taskinfo->pcap_plays && i < RTPSTREAM_PCAP_STREAMS; i++)
     {
+        play_args_t& play = taskinfo->pcap_plays[i];
         if (!play.pcap)
         {
             continue;
@@ -1819,9 +1823,9 @@ static void rtpstream_stop_task(rtpstream_callinfo_t* callinfo)
 #ifdef PCAPPLAY
         /* no pcap packet of the call after it ends */
         pthread_mutex_lock(&(taskinfo->mutex));
-        for (play_args_t& play : taskinfo->pcap_plays)
+        for (int i = 0; taskinfo->pcap_plays && i < RTPSTREAM_PCAP_STREAMS; i++)
         {
-            send_packets_end(&play);
+            send_packets_end(&taskinfo->pcap_plays[i]);
         }
         pthread_mutex_unlock(&(taskinfo->mutex));
 #endif
@@ -2794,6 +2798,10 @@ int rtpstream_play_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stream,
     }
 
     pthread_mutex_lock(&(taskinfo->mutex));
+    if (!taskinfo->pcap_plays)
+    {
+        taskinfo->pcap_plays = new play_args_t[RTPSTREAM_PCAP_STREAMS]();
+    }
     play_args_t& current = taskinfo->pcap_plays[stream];
     send_packets_end(&current);
     /* a switch to T.38 often keeps the remote port: an image play ends
@@ -2822,9 +2830,9 @@ void rtpstream_update_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stre
     }
 
     pthread_mutex_lock(&(taskinfo->mutex));
-    play_args_t& current = taskinfo->pcap_plays[stream];
-    if (current.pcap)
+    if (taskinfo->pcap_plays && taskinfo->pcap_plays[stream].pcap)
     {
+        play_args_t& current = taskinfo->pcap_plays[stream];
         current.to = play->to;
         current.from = play->from;
     }
