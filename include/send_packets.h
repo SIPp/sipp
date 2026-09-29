@@ -119,8 +119,8 @@ typedef struct {
     uint16_t last_seq_no;
 
     /* the play in progress: the next packet to send (NULL before the
-     * first one), when the first one left, and how long after it the
-     * next one is due, in microseconds */
+     * first one), the slot the play started on, and how long after it
+     * the next one is due, in microseconds */
     pcap_pkt* next;
     unsigned long long start_us;
     unsigned long long next_us;

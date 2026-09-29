@@ -128,6 +128,10 @@ struct threaddata_t
     std::atomic<unsigned int> num_tasks{0};
     int             del_pending = 0; /* tasks to delete, under the mutex */
     std::atomic<bool> exit_flag{false}; /* rtpstream_shutdown() stops it */
+    /* How far ahead of the run its pcap plays count time, in us: the
+     * plays of a thread start on the same multiples of 20 ms, and those
+     * of the next thread 1 ms off, so that the threads wake up apart. */
+    unsigned long long pcap_shift_us = 0;
     int             wake_fds[2] = {-1, -1}; /* a pipe to wake the thread up */
 #ifdef PCAPPLAY
     int             pcap_socket = -1; /* the raw socket of its pcap plays */
@@ -1497,8 +1501,10 @@ static void rtpstream_playpcaptask(taskentry_t* taskinfo, threaddata_t* threadda
         {
             continue;
         }
-        if (send_packets_due(threaddata->pcap_socket, &play, getmicroseconds(), &due_us))
+        if (send_packets_due(threaddata->pcap_socket, &play,
+                             getmicroseconds() + threaddata->pcap_shift_us, &due_us))
         {
+            due_us -= threaddata->pcap_shift_us;
             if (*waketime_us > due_us)
             {
                 *waketime_us = due_us;
@@ -1755,6 +1761,9 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
             return 0;
         }
         threaddata = new threaddata_t(rtp_tasks_per_thread);
+        /* each thread 1 ms after the one before, over 20 ms */
+        static unsigned int threads_made = 0;
+        threaddata->pcap_shift_us = (threads_made++ % 20) * 1000ULL;
         for (int i = 0; i < 2; i++) {
             threaddata->wake_fds[i] = wake_fds[i];
             fcntl(wake_fds[i], F_SETFL, O_NONBLOCK);
