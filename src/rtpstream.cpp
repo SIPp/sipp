@@ -128,16 +128,23 @@ struct threaddata_t
     std::atomic<unsigned int> num_tasks{0};
     int             del_pending = 0; /* tasks to delete, under the mutex */
     std::atomic<bool> exit_flag{false}; /* rtpstream_shutdown() stops it */
-    /* How far ahead of the run its pcap plays count time, in us: the
-     * plays of a thread start on the same multiples of 20 ms, and those
-     * of the next thread 1 ms off, so that the threads wake up apart. */
-    unsigned long long pcap_shift_us = 0;
+    /* How far ahead of the run the thread counts time, in ms: its
+     * streams and plays go on the same multiples, of their packet time
+     * and of 20 ms, and those of the next thread 1 ms later, so that the
+     * threads do not all wake up in the same millisecond. */
+    unsigned long shift_ms = 0;
     int             wake_fds[2] = {-1, -1}; /* a pipe to wake the thread up */
 #ifdef PCAPPLAY
     int             pcap_socket = -1; /* the raw socket of its pcap plays */
 #endif
     std::vector<taskentry_t*> tasklist; /* max_tasks of them */
 };
+
+/* The time of a playback thread, in ms */
+static unsigned long rtpstream_thread_ms(const threaddata_t* threaddata)
+{
+    return getmilliseconds() + (threaddata ? threaddata->shift_ms : 0);
+}
 
 struct cached_file_t
 {
@@ -646,7 +653,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
         taskinfo->audio_timeticks_per_packet = taskinfo->new_audio_timeticks_per_packet;
         taskinfo->audio_timeticks_per_ms = taskinfo->audio_timeticks_per_packet/taskinfo->audio_ms_per_packet;
 
-        taskinfo->last_audio_timestamp = rtpstream_grid_timestamp(getmilliseconds(), taskinfo->audio_ms_per_packet,
+        taskinfo->last_audio_timestamp = rtpstream_grid_timestamp(rtpstream_thread_ms(taskinfo->parent_thread), taskinfo->audio_ms_per_packet,
                                                                   taskinfo->audio_timeticks_per_ms);
         taskinfo->flags &= ~TI_PLAYFILE;
     }
@@ -669,7 +676,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
         taskinfo->audio_timeticks_per_packet = taskinfo->new_audio_timeticks_per_packet;
         taskinfo->audio_timeticks_per_ms = taskinfo->audio_timeticks_per_packet/taskinfo->audio_ms_per_packet;
 
-        taskinfo->last_audio_timestamp = rtpstream_grid_timestamp(getmilliseconds(), taskinfo->audio_ms_per_packet,
+        taskinfo->last_audio_timestamp = rtpstream_grid_timestamp(rtpstream_thread_ms(taskinfo->parent_thread), taskinfo->audio_ms_per_packet,
                                                                   taskinfo->audio_timeticks_per_ms);
         taskinfo->flags &= ~TI_PLAYAPATTERN;
     }
@@ -691,7 +698,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
         taskinfo->video_timeticks_per_packet = taskinfo->new_video_timeticks_per_packet;
         taskinfo->video_timeticks_per_ms = taskinfo->video_timeticks_per_packet/taskinfo->video_ms_per_packet;
 
-        taskinfo->last_video_timestamp = rtpstream_grid_timestamp(getmilliseconds(), taskinfo->video_ms_per_packet,
+        taskinfo->last_video_timestamp = rtpstream_grid_timestamp(rtpstream_thread_ms(taskinfo->parent_thread), taskinfo->video_ms_per_packet,
                                                                   taskinfo->video_timeticks_per_ms);
         taskinfo->flags &= ~TI_PLAYVPATTERN;
     }
@@ -1502,9 +1509,8 @@ static void rtpstream_playpcaptask(taskentry_t* taskinfo, threaddata_t* threadda
             continue;
         }
         if (send_packets_due(threaddata->pcap_socket, &play,
-                             getmicroseconds() + threaddata->pcap_shift_us, &due_us))
+                             getmicroseconds() + threaddata->shift_ms * 1000ULL, &due_us))
         {
-            due_us -= threaddata->pcap_shift_us;
             if (*waketime_us > due_us)
             {
                 *waketime_us = due_us;
@@ -1544,12 +1550,14 @@ static void* rtpstream_playback_thread(void* params)
     comparison_vcheck = 0;
     rtpresult = 0; /* the patterns that failed their RTP check, a bit each */
     echo_buffers.msg.resize(media_bufsize);
+    /* the times are the thread's, and its sleeps the run's */
+    const unsigned long long shift_us = threaddata->shift_ms * 1000ULL;
 
     rtpstream_numthreads++;
 
     while (!threaddata->exit_flag.load(std::memory_order_acquire))
     {
-        timenow_ms = getmilliseconds();
+        timenow_ms = rtpstream_thread_ms(threaddata);
         waketime_us = (timenow_ms + 100) * 1000ULL; /* default sleep 100ms */
         /* first in the poll set, the pipe that a new pcap play writes to */
         echo_fds.push_back({threaddata->wake_fds[0], POLLIN, 0});
@@ -1637,7 +1645,7 @@ static void* rtpstream_playback_thread(void* params)
          * the packets that arrive meanwhile on the sockets that have one */
         for (;;)
         {
-            sleeptime_us = (long long) (waketime_us - getmicroseconds());
+            sleeptime_us = (long long) (waketime_us - getmicroseconds() - shift_us);
             /* poll() counts in milliseconds: sleep the rest without it */
             timeout_ms = sleeptime_us > 0 ? (int) (sleeptime_us / 1000) : 0;
             if ((timeout_ms > 0 || echo_fds.size() > 1) &&
@@ -1666,7 +1674,7 @@ static void* rtpstream_playback_thread(void* params)
             }
             if (timeout_ms == 0)
             {
-                sleeptime_us = (long long) (waketime_us - getmicroseconds());
+                sleeptime_us = (long long) (waketime_us - getmicroseconds() - shift_us);
                 if (sleeptime_us > 0)
                 {
                     usleep(sleeptime_us);
@@ -1763,7 +1771,7 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
         threaddata = new threaddata_t(rtp_tasks_per_thread);
         /* each thread 1 ms after the one before, over 20 ms */
         static unsigned int threads_made = 0;
-        threaddata->pcap_shift_us = (threads_made++ % 20) * 1000ULL;
+        threaddata->shift_ms = threads_made++ % 20;
         for (int i = 0; i < 2; i++) {
             threaddata->wake_fds[i] = wake_fds[i];
             fcntl(wake_fds[i], F_SETFL, O_NONBLOCK);
@@ -2637,7 +2645,8 @@ unsigned long rtpstream_play_end(rtpstream_callinfo_t* callinfo)
                                          taskinfo->new_audio_file_size,
                                          taskinfo->new_audio_file_size,
                                          taskinfo->new_audio_bytes_per_packet,
-                                         rtpstream_grid_ms(getmilliseconds(), taskinfo->new_audio_ms_per_packet),
+                                         rtpstream_grid_ms(rtpstream_thread_ms(taskinfo->parent_thread),
+                                                           taskinfo->new_audio_ms_per_packet),
                                          taskinfo->new_audio_ms_per_packet);
     } else {
         audio_end = rtpstream_stream_end(flags & (TI_NULL_AUDIOIP | TI_PAUSERTP | TI_PAUSERTPAPATTERN),
@@ -2658,7 +2667,10 @@ unsigned long rtpstream_play_end(rtpstream_callinfo_t* callinfo)
                                      taskinfo->last_video_timestamp / taskinfo->video_timeticks_per_ms : 0,
                                      taskinfo->video_ms_per_packet);
     pthread_mutex_unlock(&(taskinfo->mutex));
-    return std::max(audio_end, video_end);
+    /* in the thread's time, as the run's */
+    unsigned long end = std::max(audio_end, video_end);
+    unsigned long shift_ms = taskinfo->parent_thread ? taskinfo->parent_thread->shift_ms : 0;
+    return end && end != ULONG_MAX ? std::max(end - shift_ms, 1UL) : end;
 }
 
 void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio)
