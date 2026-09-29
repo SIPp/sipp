@@ -25,23 +25,29 @@
  * hands out small chunks to: made from blocks of their own, with their
  * list and map entries, they don't pin the free chunks between the
  * calls' messages. Not thread-safe: for the main thread's tasks and
- * listeners only. */
+ * listeners only. At exit, once none of its blocks is in use, a pool
+ * gives its slabs back, for a leak check to find nothing left. */
 template <size_t Size>
 class node_pool
 {
 public:
     static void *allocate()
     {
+        (void)&at_exit;
         if (!free_blocks) {
             const size_t count = 65536 / sizeof(block);
             block *slab = static_cast<block *>(::operator new(count * sizeof(block)));
-            for (size_t i = 0; i < count; i++) {
+            /* its first block links the slabs */
+            slab[0].next = slabs;
+            slabs = slab;
+            for (size_t i = 1; i < count; i++) {
                 slab[i].next = free_blocks;
                 free_blocks = &slab[i];
             }
         }
         block *b = free_blocks;
         free_blocks = b->next;
+        used++;
         return b;
     }
 
@@ -50,6 +56,11 @@ public:
         block *b = static_cast<block *>(p);
         b->next = free_blocks;
         free_blocks = b;
+        /* the last one out, after exit began: a container destroyed
+         * after this pool's at_exit */
+        if (!--used && exiting) {
+            release();
+        }
     }
 
 private:
@@ -57,7 +68,32 @@ private:
         block *next;
         alignas(std::max_align_t) unsigned char data[Size];
     };
+
+    static void release()
+    {
+        while (slabs) {
+            block *next = slabs->next;
+            ::operator delete(slabs);
+            slabs = next;
+        }
+        free_blocks = nullptr;
+    }
+
+    struct releaser {
+        ~releaser()
+        {
+            exiting = true;
+            if (!used) {
+                release();
+            }
+        }
+    };
+
     static inline block *free_blocks = nullptr;
+    static inline block *slabs = nullptr;
+    static inline size_t used = 0;
+    static inline bool exiting = false;
+    static inline releaser at_exit;
 };
 
 /* An allocator of container nodes from a node_pool */
