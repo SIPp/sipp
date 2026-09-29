@@ -97,18 +97,23 @@ struct rtp_header_t
 
 struct threaddata_t
 {
+    explicit threaddata_t(unsigned int max_tasks) : max_tasks(max_tasks), tasklist(max_tasks) {}
+
     pthread_t id;
     pthread_mutex_t tasklist_mutex;
-    int             busy_list_index;
+    int             busy_list_index = -1;
     unsigned int    max_tasks;
-    volatile unsigned int num_tasks;
-    volatile int    del_pending;
-    volatile int    exit_flag;
+    /* The tasks its loops walk, each added one included: they walk
+     * without the mutex that adding one takes, and read it with acquire
+     * loads, which see the task that the release store counts. */
+    std::atomic<unsigned int> num_tasks{0};
+    volatile int    del_pending = 0;
+    volatile int    exit_flag = 0;
     int             wake_fds[2]; /* a pipe to wake the thread up */
 #ifdef PCAPPLAY
-    int             pcap_socket; /* the raw socket of its pcap plays */
+    int             pcap_socket = -1; /* the raw socket of its pcap plays */
 #endif
-    taskentry_t     *tasklist;
+    std::vector<taskentry_t*> tasklist; /* max_tasks of them */
 };
 
 struct cached_file_t
@@ -517,13 +522,6 @@ static unsigned long long rtpstream_grid_timestamp(unsigned long timenow_ms, int
                                                    int ticks_per_ms)
 {
     return (unsigned long long) rtpstream_grid_ms(timenow_ms, ms_per_packet) * ticks_per_ms;
-}
-
-/* The tasks of a playback thread its loops walk, each added one included:
- * see rtpstream_start_task(). */
-static unsigned int rtpstream_num_tasks(threaddata_t* threaddata)
-{
-    return __atomic_load_n(&threaddata->num_tasks, __ATOMIC_ACQUIRE);
 }
 
 /* code checked */
@@ -1510,16 +1508,16 @@ static void* rtpstream_playback_thread(void* params)
     rtpstream_numthreads++;
 
     // INITIALIZE AUDIO/VIDEO COMPARISON ERRORS
-    for (taskindex = 0; taskindex < rtpstream_num_tasks(threaddata); taskindex++)
+    for (taskindex = 0; taskindex < threaddata->num_tasks.load(std::memory_order_acquire); taskindex++)
     {
-        (&threaddata->tasklist)[taskindex]->audio_comparison_errors = 0;
-        (&threaddata->tasklist)[taskindex]->video_comparison_errors = 0;
+        threaddata->tasklist[taskindex]->audio_comparison_errors = 0;
+        threaddata->tasklist[taskindex]->video_comparison_errors = 0;
     }
 
     // ROBUSTNESS CHECK
-    for (taskindex = 0; taskindex < rtpstream_num_tasks(threaddata); taskindex++)
+    for (taskindex = 0; taskindex < threaddata->num_tasks.load(std::memory_order_acquire); taskindex++)
     {
-        taskinfo = (&threaddata->tasklist)[taskindex];
+        taskinfo = threaddata->tasklist[taskindex];
 
         if (taskinfo->audio_active)
         {
@@ -1562,18 +1560,18 @@ static void* rtpstream_playback_thread(void* params)
         echo_tasks.push_back({nullptr, false});
 
         /* iterate through tasks and handle playback and other actions */
-        for (taskindex = 0; taskindex < rtpstream_num_tasks(threaddata); taskindex++)
+        for (taskindex = 0; taskindex < threaddata->num_tasks.load(std::memory_order_acquire); taskindex++)
         {
-            debugafile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, rtpstream_num_tasks(threaddata));
-            debugvfile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, rtpstream_num_tasks(threaddata));
-            taskinfo = (&threaddata->tasklist)[taskindex];
+            debugafile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, threaddata->num_tasks.load(std::memory_order_acquire));
+            debugvfile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, threaddata->num_tasks.load(std::memory_order_acquire));
+            taskinfo = threaddata->tasklist[taskindex];
             if (taskinfo->flags & TI_CONFIGFLAGS)
             {
                 if (taskinfo->flags & TI_KILLTASK)
                 {
                     /* remove this task entry and release its resources */
                     pthread_mutex_lock(&(threaddata->tasklist_mutex));
-                    (&threaddata->tasklist)[taskindex--] = (&threaddata->tasklist)[--threaddata->num_tasks];
+                    threaddata->tasklist[taskindex--] = threaddata->tasklist[--threaddata->num_tasks];
                     threaddata->del_pending--;   /* must decrease del_pending after num_tasks */
                     pthread_mutex_unlock(&(threaddata->tasklist_mutex));
                     /* the call ended: the verdict of its RTP check */
@@ -1680,19 +1678,19 @@ static void* rtpstream_playback_thread(void* params)
     }
 
     /* the verdicts of the calls still here */
-    for (taskindex = 0; taskindex < rtpstream_num_tasks(threaddata); taskindex++)
+    for (taskindex = 0; taskindex < threaddata->num_tasks.load(std::memory_order_acquire); taskindex++)
     {
-        taskinfo = (&threaddata->tasklist)[taskindex];
+        taskinfo = threaddata->tasklist[taskindex];
         rtpstream_check_verdict(taskinfo, false, &rtpresult);
         rtpstream_check_verdict(taskinfo, true, &rtpresult);
     }
 
     /* Free all task and thread resources and exit the thread */
-    for (taskindex = 0; taskindex < rtpstream_num_tasks(threaddata); taskindex++)
+    for (taskindex = 0; taskindex < threaddata->num_tasks.load(std::memory_order_acquire); taskindex++)
     {
         /* check if we should delete this thread, else let owner call clear it */
         /* small chance of race condition in this code */
-        taskinfo = (&threaddata->tasklist)[taskindex];
+        taskinfo = threaddata->tasklist[taskindex];
         if (taskinfo->flags & TI_KILLTASK) {
             delete taskinfo;
         } else {
@@ -1708,7 +1706,7 @@ static void* rtpstream_playback_thread(void* params)
     }
 #endif
     pthread_mutex_destroy(&(threaddata->tasklist_mutex));
-    free(threaddata);
+    delete threaddata;
     rtpstream_numthreads--;
 
     // PTHREAD EXIT...
@@ -1733,7 +1731,6 @@ static void rtpstream_wake(threaddata_t* threaddata)
 static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
 {
     int           ready_index;
-    int           allocsize;
     threaddata_t  **threadlist;
     threaddata_t  *threaddata;
     pthread_t     threadID;
@@ -1768,19 +1765,9 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
             ready_threads = threadlist;
         }
         /* create and initialise data structure for new thread */
-        allocsize = sizeof(*threaddata) + sizeof(threaddata->tasklist) * (rtp_tasks_per_thread - 1);
-        threaddata = (threaddata_t *) malloc(allocsize);
-        if (!threaddata) {
-            return 0;
-        }
-        memset(threaddata, 0, allocsize);
-        threaddata->max_tasks = rtp_tasks_per_thread;
-        threaddata->busy_list_index = -1;
-#ifdef PCAPPLAY
-        threaddata->pcap_socket = -1;
-#endif
+        threaddata = new threaddata_t(rtp_tasks_per_thread);
         if (pipe(threaddata->wake_fds)) {
-            free(threaddata);
+            delete threaddata;
             return 0;
         }
         fcntl(threaddata->wake_fds[0], F_SETFL, O_NONBLOCK);
@@ -1791,7 +1778,7 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
             /* error creating the thread */
             close(threaddata->wake_fds[0]);
             close(threaddata->wake_fds[1]);
-            free(threaddata);
+            delete threaddata;
             return 0;
         }
 
@@ -1809,10 +1796,11 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
     callinfo->taskinfo->parent_thread = threaddata;
     callinfo->threadID = threaddata->id;
     pthread_mutex_lock(&(threaddata->tasklist_mutex));
-    /* The task first, then the count: the playback thread walks its tasks
-     * without the mutex, and a count ahead of its task was a null one. */
-    (&threaddata->tasklist)[threaddata->num_tasks] = callinfo->taskinfo;
-    __atomic_store_n(&threaddata->num_tasks, threaddata->num_tasks + 1, __ATOMIC_RELEASE);
+    /* The task first, then the count: a count ahead of its task was a
+     * null one. */
+    unsigned int num_tasks = threaddata->num_tasks.load(std::memory_order_relaxed);
+    threaddata->tasklist[num_tasks] = callinfo->taskinfo;
+    threaddata->num_tasks.store(num_tasks + 1, std::memory_order_release);
     pthread_mutex_unlock(&(threaddata->tasklist_mutex));
 
     /* this check relies on playback thread to decrement num_tasks before */
