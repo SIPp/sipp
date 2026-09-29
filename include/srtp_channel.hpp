@@ -19,7 +19,6 @@ class SrtpChannel : public JLSRTP
 public:
     SrtpChannel() : JLSRTP(global_ssrc_id, "127.0.0.1", 0) {}
     explicit SrtpChannel(unsigned int ssrc) : JLSRTP(ssrc, "127.0.0.1", 0) {}
-    SrtpChannel(const JLSRTP &base) : JLSRTP(base) {}
     SrtpChannel &operator=(const JLSRTP &base)
     {
         JLSRTP::operator=(base);

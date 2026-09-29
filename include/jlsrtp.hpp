@@ -32,6 +32,7 @@
 #include <wolfssl/openssl/hmac.h>
 #endif
 
+#include <memory>
 #include <string>
 
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
@@ -68,23 +69,53 @@ typedef struct _CryptoContextID
     unsigned short port;  // port
 } CryptoContextID;
 
+/* An AES-ECB context, made with its first key. */
+class AESCipher
+{
+public:
+    /* Makes the context if there is none. False if it cannot be made. */
+    bool make();
+    /* Sets the key, switching to the AES variant of its length. Returns 1
+     * on success, as EVP_EncryptInit_ex() does. */
+    int setKey(const std::vector<unsigned char>& key);
+    EVP_CIPHER_CTX* get() const { return ctx.get(); }
+    void free() { ctx.reset(); }
+
+private:
+    struct Free
+    {
+        void operator()(EVP_CIPHER_CTX* c) const { EVP_CIPHER_CTX_free(c); }
+    };
+    std::unique_ptr<EVP_CIPHER_CTX, Free> ctx;
+};
+
 typedef struct _AESState
 {
     unsigned char ivec[AES_BLOCK_SIZE];   // ivec[0..13] (high-order bytes): 'IV' / ivec[14..15] (low-order bytes): 'counter'
     unsigned int num;                     // block byte offset
     unsigned char ecount[AES_BLOCK_SIZE]; // encrypted ivec
-    EVP_CIPHER_CTX* cipher;               // Cipher context
+    AESCipher cipher;                     // Cipher context
 } AESState;
 
 /* HMAC-SHA1 with a key: the SHA-1 states after its inner and outer pads,
  * made once per key, and a context to copy them to for each packet. */
-typedef struct _HMACState
+class HMACState
 {
-    EVP_MD_CTX* inner;
-    EVP_MD_CTX* outer;
-    EVP_MD_CTX* work;
+public:
+    /* HMAC-SHA1 of data and then more. False if a digest fails. */
+    bool digest(const std::vector<unsigned char>& key,
+                const std::vector<unsigned char>& data, const std::vector<unsigned char>& more,
+                unsigned char out[EVP_MAX_MD_SIZE], unsigned int* out_len);
+    void free();
+
+private:
+    struct Free
+    {
+        void operator()(EVP_MD_CTX* c) const { EVP_MD_CTX_free(c); }
+    };
+    std::unique_ptr<EVP_MD_CTX, Free> inner, outer, work;
     std::vector<unsigned char> key;       // what inner and outer are for
-} HMACState;
+};
 
 typedef union _Conversion32
 {
