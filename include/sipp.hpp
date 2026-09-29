@@ -206,7 +206,7 @@ cmd messages are received */
 #define DEFAULT_MIN_RTP_PORT         DEFAULT_MEDIA_PORT
 #define DEFAULT_MAX_RTP_PORT         65535
 #define DEFAULT_RTP_PAYLOAD          8
-#define DEFAULT_RTP_THREADTASKS      20
+#define DEFAULT_RTP_THREADTASKS      50
 
 /************ User controls and command line options ***********/
 
