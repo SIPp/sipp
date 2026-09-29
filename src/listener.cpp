@@ -33,9 +33,22 @@ listener::listener(const char *id, bool listening)
 {
     this->id = strdup(id);
     this->listening = false;
+    this->own_id = true;
     if (listening) {
         startListening();
     }
+}
+
+listener::listener(const char *id, char *storage, size_t size)
+{
+    size_t len = strlen(id);
+    own_id = len >= size;
+    if (own_id) {
+        this->id = strdup(id);
+    } else {
+        this->id = static_cast<char *>(memcpy(storage, id, len + 1));
+    }
+    this->listening = false;
 }
 
 void listener::startListening()
@@ -55,7 +68,11 @@ void listener::startListening()
             }
             WARNING("Call-ID '%s' is already in use by another call", id);
         }
-        ins.first->second = this;
+        /* The key is the id of the listener it maps to */
+        listener_map::node_type entry = listeners.extract(ins.first);
+        entry.key() = id;
+        entry.mapped() = this;
+        listeners.insert(std::move(entry));
     }
     listening = true;
 }
@@ -83,7 +100,9 @@ listener::~listener()
     if (listening) {
         stopListening();
     }
-    free(id);
+    if (own_id) {
+        free(id);
+    }
     id = nullptr;
 }
 

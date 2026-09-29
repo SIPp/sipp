@@ -26,6 +26,9 @@
 #include <sys/types.h>
 #include <string.h>
 #include <assert.h>
+#include <string_view>
+
+#include "node_pool.hpp"
 
 #include "sipp.hpp"
 
@@ -39,14 +42,20 @@ public:
     virtual bool process_twinSippCom(char* msg) = 0;
 
 protected:
+    /* Not listening, the id in storage of the derived class if it fits */
+    listener(const char *id, char *storage, size_t size);
+
     void startListening();
     void stopListening();
 
     char *id;
     bool listening;
+    bool own_id; /* id is ours to free */
 };
 
-typedef std::map<std::string, listener *> listener_map;
+/* Keyed by the id of the listener they map to */
+typedef std::map<std::string_view, listener *, std::less<>,
+        node_allocator<std::pair<const std::string_view, listener *>>> listener_map;
 listener * get_listener(const char *);
 
 #endif
