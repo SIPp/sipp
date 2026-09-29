@@ -1,7 +1,8 @@
 #!/bin/sh
 
 failures=0
-for file in $(find . -name '*.xml'); do
+# The XML files of SIPp, not those of the submodules.
+for file in $(find . \( -path ./third_party -o -path ./gtest \) -prune -o -name '*.xml' -print); do
     if ! xmllint --path . --dtdvalid ./sipp.dtd $file >/dev/null; then
         echo "ERROR: $file failed validation"
         failures=$((failures+1))
