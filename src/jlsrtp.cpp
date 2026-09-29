@@ -49,70 +49,65 @@ static const EVP_CIPHER* aesEcbCipher(size_t keySize)
     }
 }
 
-/* Makes an AES-ECB context when it is first needed: most calls never
- * use SRTP, and each context costs a cipher fetch. False if it fails. */
-static bool aesContext(EVP_CIPHER_CTX*& ctx)
+/* Made when it is first needed: most calls never use SRTP, and each
+ * context costs a cipher fetch. */
+bool AESCipher::make()
 {
     if (!ctx) {
-        ctx = EVP_CIPHER_CTX_new();
-        if (ctx && EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, nullptr, nullptr) != 1) {
-            EVP_CIPHER_CTX_free(ctx);
-            ctx = nullptr;
+        ctx.reset(EVP_CIPHER_CTX_new());
+        if (ctx && EVP_EncryptInit_ex(ctx.get(), EVP_aes_128_ecb(), nullptr, nullptr, nullptr) != 1) {
+            ctx.reset();
         }
     }
     return ctx != nullptr;
 }
 
-/* Sets the key of an AES-ECB context, switching it to the AES variant of
- * the key's length. Returns 1 on success, as EVP_EncryptInit_ex() does. */
-static int setAESKey(EVP_CIPHER_CTX*& ctx, const std::vector<unsigned char>& key)
+int AESCipher::setKey(const std::vector<unsigned char>& key)
 {
     const EVP_CIPHER* cipher = nullptr; // keep the context's cipher
 
-    if (!aesContext(ctx)) {
+    if (!make()) {
         return 0;
     }
 
-    if (EVP_CIPHER_CTX_key_length(ctx) != static_cast<int>(key.size())) {
+    if (EVP_CIPHER_CTX_key_length(ctx.get()) != static_cast<int>(key.size())) {
         cipher = aesEcbCipher(key.size());
         if (!cipher) {
             return 0;
         }
     }
-    return EVP_EncryptInit_ex(ctx, cipher, nullptr, key.data(), nullptr);
+    return EVP_EncryptInit_ex(ctx.get(), cipher, nullptr, key.data(), nullptr);
 }
 
-static void freeHMAC(HMACState& h)
+void HMACState::free()
 {
-    EVP_MD_CTX_free(h.inner);
-    EVP_MD_CTX_free(h.outer);
-    EVP_MD_CTX_free(h.work);
-    h.inner = h.outer = h.work = nullptr;
-    h.key.clear();
+    inner.reset();
+    outer.reset();
+    work.reset();
+    key.clear();
 }
 
-/* HMAC-SHA1 of data and then more: HMAC() did the key's pads and fetched
- * SHA-1 for each packet, half the CPU of an SRTP echo, where this copies
- * the states they left. False if a digest fails. */
-static bool hmacSHA1(HMACState& h, const std::vector<unsigned char>& key,
-                     const std::vector<unsigned char>& data, const std::vector<unsigned char>& more,
-                     unsigned char digest[EVP_MAX_MD_SIZE], unsigned int* digest_len)
+/* HMAC() did the key's pads and fetched SHA-1 for each packet, half the
+ * CPU of an SRTP echo, where this copies the states they left. */
+bool HMACState::digest(const std::vector<unsigned char>& with_key,
+                       const std::vector<unsigned char>& data, const std::vector<unsigned char>& more,
+                       unsigned char out[EVP_MAX_MD_SIZE], unsigned int* out_len)
 {
-    if (!h.inner || h.key != key) {
-        freeHMAC(h);
-        h.inner = EVP_MD_CTX_new();
-        h.outer = EVP_MD_CTX_new();
-        h.work = EVP_MD_CTX_new();
+    if (!inner || key != with_key) {
+        free();
+        inner.reset(EVP_MD_CTX_new());
+        outer.reset(EVP_MD_CTX_new());
+        work.reset(EVP_MD_CTX_new());
         unsigned char k[64] = {}; /* the key in a SHA-1 block */
         unsigned int k_len = 0;
-        bool made = h.inner && h.outer && h.work;
-        if (made && key.size() > sizeof(k)) {
-            made = EVP_Digest(key.data(), key.size(), k, &k_len, EVP_sha1(), nullptr) == 1;
+        bool made = inner && outer && work;
+        if (made && with_key.size() > sizeof(k)) {
+            made = EVP_Digest(with_key.data(), with_key.size(), k, &k_len, EVP_sha1(), nullptr) == 1;
         } else if (made) {
-            memcpy(k, key.data(), key.size());
+            memcpy(k, with_key.data(), with_key.size());
         }
         if (!made) {
-            freeHMAC(h);
+            free();
             return false;
         }
         unsigned char ipad[sizeof(k)], opad[sizeof(k)];
@@ -120,24 +115,24 @@ static bool hmacSHA1(HMACState& h, const std::vector<unsigned char>& key,
             ipad[i] = k[i] ^ 0x36;
             opad[i] = k[i] ^ 0x5c;
         }
-        if (EVP_DigestInit_ex(h.inner, EVP_sha1(), nullptr) != 1 ||
-            EVP_DigestUpdate(h.inner, ipad, sizeof(ipad)) != 1 ||
-            EVP_DigestInit_ex(h.outer, EVP_sha1(), nullptr) != 1 ||
-            EVP_DigestUpdate(h.outer, opad, sizeof(opad)) != 1) {
-            freeHMAC(h);
+        if (EVP_DigestInit_ex(inner.get(), EVP_sha1(), nullptr) != 1 ||
+            EVP_DigestUpdate(inner.get(), ipad, sizeof(ipad)) != 1 ||
+            EVP_DigestInit_ex(outer.get(), EVP_sha1(), nullptr) != 1 ||
+            EVP_DigestUpdate(outer.get(), opad, sizeof(opad)) != 1) {
+            free();
             return false;
         }
-        h.key = key;
+        key = with_key;
     }
     unsigned char inner_hash[EVP_MAX_MD_SIZE];
     unsigned int inner_len = 0;
-    return EVP_MD_CTX_copy_ex(h.work, h.inner) == 1 &&
-           EVP_DigestUpdate(h.work, data.data(), data.size()) == 1 &&
-           EVP_DigestUpdate(h.work, more.data(), more.size()) == 1 &&
-           EVP_DigestFinal_ex(h.work, inner_hash, &inner_len) == 1 &&
-           EVP_MD_CTX_copy_ex(h.work, h.outer) == 1 &&
-           EVP_DigestUpdate(h.work, inner_hash, inner_len) == 1 &&
-           EVP_DigestFinal_ex(h.work, digest, digest_len) == 1;
+    return EVP_MD_CTX_copy_ex(work.get(), inner.get()) == 1 &&
+           EVP_DigestUpdate(work.get(), data.data(), data.size()) == 1 &&
+           EVP_DigestUpdate(work.get(), more.data(), more.size()) == 1 &&
+           EVP_DigestFinal_ex(work.get(), inner_hash, &inner_len) == 1 &&
+           EVP_MD_CTX_copy_ex(work.get(), outer.get()) == 1 &&
+           EVP_DigestUpdate(work.get(), inner_hash, inner_len) == 1 &&
+           EVP_DigestFinal_ex(work.get(), out, out_len) == 1;
 }
 
 /* The master key length a cipher takes: RFC 6188 uses the AES key size, and
@@ -794,7 +789,7 @@ int JLSRTP::issueAuthenticationTag(std::vector<unsigned char> &data, std::vector
         if (rc == 0)
         {
             hash.clear();
-            if (hmacSHA1(_hmacstate, _session_auth_key, data, rocVec, digest, &digest_len) &&
+            if (_hmacstate.digest(_session_auth_key, data, rocVec, digest, &digest_len) &&
                 digest_len == JLSRTP_SHA1_HASH_LENGTH)
             {
                 hash.assign(digest, digest+JLSRTP_SHA1_HASH_LENGTH);
@@ -1189,7 +1184,7 @@ int JLSRTP::setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib /*= ACTIVE_
     int rc = 0;
     int retVal = 0;
 
-    if (aesContext(_pseudorandomstate.cipher))
+    if (_pseudorandomstate.cipher.make())
     {
         if (crypto_attrib == ACTIVE_CRYPTO)
         {
@@ -1204,7 +1199,7 @@ int JLSRTP::setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib /*= ACTIVE_
         {
             case PRIMARY_CRYPTO:
             {
-                rc = setAESKey(_pseudorandomstate.cipher, _primary_crypto.master_key);
+                rc = _pseudorandomstate.cipher.setKey(_primary_crypto.master_key);
                 if (rc == 1)
                 {
                     retVal = 0;
@@ -1218,7 +1213,7 @@ int JLSRTP::setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib /*= ACTIVE_
 
             case SECONDARY_CRYPTO:
             {
-                rc = setAESKey(_pseudorandomstate.cipher, _secondary_crypto.master_key);
+                rc = _pseudorandomstate.cipher.setKey(_secondary_crypto.master_key);
                 if (rc == 1)
                 {
                     retVal = 0;
@@ -1250,9 +1245,9 @@ int JLSRTP::setAESSessionEncryptionKey()
     int rc = 0;
     int retVal = 0;
 
-    if (aesContext(_cipherstate.cipher))
+    if (_cipherstate.cipher.make())
     {
-        rc = setAESKey(_cipherstate.cipher, _session_enc_key);
+        rc = _cipherstate.cipher.setKey(_session_enc_key);
         if (rc == 1)
         {
             retVal = 0;
@@ -1308,10 +1303,10 @@ int JLSRTP::AES_ctr128_pseudorandom_EVPencrypt(const unsigned char* in,
                 if (n == 0)
                 {
                     // IMPORTANT:  Key MUST be set every single time EVP_EncryptUpdate() is to be called...
-                    rc = setAESKey(_pseudorandomstate.cipher, _primary_crypto.master_key);
+                    rc = _pseudorandomstate.cipher.setKey(_primary_crypto.master_key);
                     if (rc == 1)
                     {
-                        rc = EVP_EncryptUpdate(_pseudorandomstate.cipher, ecount_buf, &nb, counter, AES_BLOCK_SIZE);
+                        rc = EVP_EncryptUpdate(_pseudorandomstate.cipher.get(), ecount_buf, &nb, counter, AES_BLOCK_SIZE);
                         if (rc == 1)
                         {
                             retVal = 0;
@@ -1346,10 +1341,10 @@ int JLSRTP::AES_ctr128_pseudorandom_EVPencrypt(const unsigned char* in,
                 if (n == 0)
                 {
                     // IMPORTANT:  Key MUST be set every single time EVP_EncryptUpdate() is to be called...
-                    rc = setAESKey(_pseudorandomstate.cipher, _secondary_crypto.master_key);
+                    rc = _pseudorandomstate.cipher.setKey(_secondary_crypto.master_key);
                     if (rc == 1)
                     {
-                        rc = EVP_EncryptUpdate(_pseudorandomstate.cipher, ecount_buf, &nb, counter, AES_BLOCK_SIZE);
+                        rc = EVP_EncryptUpdate(_pseudorandomstate.cipher.get(), ecount_buf, &nb, counter, AES_BLOCK_SIZE);
                         if (rc == 1)
                         {
                             retVal = 0;
@@ -1401,7 +1396,7 @@ int JLSRTP::AES_ctr128_session_EVPencrypt(const unsigned char* in,
     unsigned long l = length;
     int nb = 0;
 
-    if (l && setAESKey(_cipherstate.cipher, _session_enc_key) != 1)
+    if (l && _cipherstate.cipher.setKey(_session_enc_key) != 1)
     {
         return -1;
     }
@@ -1421,7 +1416,7 @@ int JLSRTP::AES_ctr128_session_EVPencrypt(const unsigned char* in,
             memcpy(counters + b * AES_BLOCK_SIZE, counter, AES_BLOCK_SIZE);
             AES_ctr128_increment(counter);
         }
-        if (EVP_EncryptUpdate(_cipherstate.cipher, keystream, &nb, counters, blocks * AES_BLOCK_SIZE) != 1 ||
+        if (EVP_EncryptUpdate(_cipherstate.cipher.get(), keystream, &nb, counters, blocks * AES_BLOCK_SIZE) != 1 ||
             nb != (int) (blocks * AES_BLOCK_SIZE))
         {
             *num = n;
@@ -1524,11 +1519,9 @@ int JLSRTP::resetCipherState()
 
 void JLSRTP::freeCiphers()
 {
-    EVP_CIPHER_CTX_free(_pseudorandomstate.cipher);
-    _pseudorandomstate.cipher = nullptr;
-    EVP_CIPHER_CTX_free(_cipherstate.cipher);
-    _cipherstate.cipher = nullptr;
-    freeHMAC(_hmacstate);
+    _pseudorandomstate.cipher.free();
+    _cipherstate.cipher.free();
+    _hmacstate.free();
 }
 
 int JLSRTP::deriveSessionEncryptionKey()
@@ -3745,34 +3738,27 @@ bool JLSRTP::operator!=(const JLSRTP& that)
 
 JLSRTP::JLSRTP()
 {
-    /* Made with their first key: see aesContext() and hmacSHA1() */
-    _pseudorandomstate.cipher = nullptr;
-    _cipherstate.cipher = nullptr;
-    _hmacstate.inner = _hmacstate.outer = _hmacstate.work = nullptr;
-
     resetCryptoContext(0xCA110000, "127.0.0.1", 0);
 }
 
 JLSRTP::JLSRTP(unsigned int ssrc, const std::string& ipAddress, unsigned short port)
 {
-    /* Made with their first key: see aesContext() and hmacSHA1() */
-    _pseudorandomstate.cipher = nullptr;
-    _cipherstate.cipher = nullptr;
-    _hmacstate.inner = _hmacstate.outer = _hmacstate.work = nullptr;
-
     resetCryptoContext(ssrc, ipAddress, port);
 }
 
 JLSRTP::~JLSRTP()
 {
-    EVP_CIPHER_CTX_free(_cipherstate.cipher);
-    EVP_CIPHER_CTX_free(_pseudorandomstate.cipher);
-    freeHMAC(_hmacstate);
     RAND_cleanup();
 }
 
 #ifdef GTEST
 #include "gtest/gtest.h"
+
+#include <type_traits>
+
+/* A copy would share the AES and HMAC contexts, and free them twice;
+ * operator= copies all else, and each keeps its own. */
+static_assert(!std::is_copy_constructible<JLSRTP>::value, "JLSRTP is not copy-constructible");
 
 static std::vector<unsigned char> fromHex(const std::string& hex)
 {
