@@ -1541,7 +1541,8 @@ static void* rtpstream_playback_thread(void* params)
         echo_tasks.push_back({nullptr, false});
 
         /* iterate through tasks and handle playback and other actions */
-        for (taskindex = 0; taskindex < threaddata->num_tasks.load(std::memory_order_acquire); taskindex++)
+        taskindex = 0;
+        while (taskindex < threaddata->num_tasks.load(std::memory_order_acquire))
         {
             debugafile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, threaddata->num_tasks.load(std::memory_order_acquire));
             debugvfile.printHex("----DEBUG CURRENTTASK/NUMTASKS----", "", 0, taskindex, threaddata->num_tasks.load(std::memory_order_acquire));
@@ -1552,9 +1553,10 @@ static void* rtpstream_playback_thread(void* params)
             {
                 if (flags & TI_KILLTASK)
                 {
-                    /* remove this task entry and release its resources */
+                    /* remove this task entry and release its resources: the
+                     * last one takes its place, and is walked next */
                     pthread_mutex_lock(&(threaddata->tasklist_mutex));
-                    threaddata->tasklist[taskindex--] = threaddata->tasklist[--threaddata->num_tasks];
+                    threaddata->tasklist[taskindex] = threaddata->tasklist[--threaddata->num_tasks];
                     threaddata->del_pending--;
                     pthread_mutex_unlock(&(threaddata->tasklist_mutex));
                     /* the call ended: the verdict of its RTP check */
@@ -1614,6 +1616,7 @@ static void* rtpstream_playback_thread(void* params)
                 echo_tasks.push_back({taskinfo, true});
             }
             pthread_mutex_unlock(&(taskinfo->mutex));
+            taskindex++;
         }
         /* sleep until the next iteration of the playback loop, echoing
          * the packets that arrive meanwhile on the sockets that have one */
