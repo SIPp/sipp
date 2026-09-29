@@ -19,6 +19,7 @@
 #ifndef __RTPSTREAM__
 #define __RTPSTREAM__
 
+#include <atomic>
 #include <unordered_map>
 
 #ifdef PCAPPLAY
@@ -64,7 +65,9 @@ struct taskentry_t
 
     threaddata_t         *parent_thread;
     unsigned long        nextwake_ms;
-    volatile int         flags;
+    /* TI_* flags: the call's thread and the playback thread both set and
+     * clear them, with atomic read-modify-writes that lose neither's */
+    std::atomic<int>     flags;
 
     /* rtp stream information */
     unsigned long long   last_audio_timestamp;
