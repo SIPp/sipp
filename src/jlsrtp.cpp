@@ -1392,47 +1392,55 @@ int JLSRTP::AES_ctr128_session_EVPencrypt(const unsigned char* in,
                                           unsigned char ecount_buf[AES_BLOCK_SIZE],
                                           unsigned int* num)
 {
-    int nb;
-    unsigned int n;
-    unsigned long l=length;
-    int rc = 0;
-    int retVal = 0;
+    /* The key set once for the packet, and the keystream of its blocks
+     * made in one call: setting the key and encrypting for each block was
+     * a third of the CPU of an SRTP echo. */
+    unsigned char counters[32 * AES_BLOCK_SIZE];
+    unsigned char keystream[sizeof(counters)];
+    unsigned int n = *num;
+    unsigned long l = length;
+    int nb = 0;
 
-    n = *num;
-
-    while (l--)
+    if (l && setAESKey(_cipherstate.cipher, _session_enc_key) != 1)
     {
-        if (n == 0)
-        {
-            // IMPORTANT:  Key MUST be set every single time EVP_EncryptUpdate() is to be called...
-            rc = setAESKey(_cipherstate.cipher, _session_enc_key);
-            if (rc == 1)
-            {
-                rc = EVP_EncryptUpdate(_cipherstate.cipher, ecount_buf, &nb, counter, AES_BLOCK_SIZE);
-                if (rc == 1)
-                {
-                    retVal = 0;
-                    AES_ctr128_increment(counter);
-                }
-                else
-                {
-                    retVal = -2;
-                    break;
-                }
-            }
-            else
-            {
-                retVal = -1;
-                break;
-            }
-        }
+        return -1;
+    }
+    /* the rest of the last block's keystream first */
+    while (l && n)
+    {
         *(out++) = *(in++) ^ ecount_buf[n];
-        n = (n+1) % AES_BLOCK_SIZE;
+        n = (n + 1) % AES_BLOCK_SIZE;
+        l--;
+    }
+    while (l)
+    {
+        unsigned long blocks = std::min((l + AES_BLOCK_SIZE - 1) / AES_BLOCK_SIZE,
+                                        (unsigned long) (sizeof(counters) / AES_BLOCK_SIZE));
+        for (unsigned long b = 0; b < blocks; b++)
+        {
+            memcpy(counters + b * AES_BLOCK_SIZE, counter, AES_BLOCK_SIZE);
+            AES_ctr128_increment(counter);
+        }
+        if (EVP_EncryptUpdate(_cipherstate.cipher, keystream, &nb, counters, blocks * AES_BLOCK_SIZE) != 1 ||
+            nb != (int) (blocks * AES_BLOCK_SIZE))
+        {
+            *num = n;
+            return -2;
+        }
+        unsigned long bytes = std::min(l, blocks * AES_BLOCK_SIZE);
+        for (unsigned long i = 0; i < bytes; i++)
+        {
+            out[i] = in[i] ^ keystream[i];
+        }
+        in += bytes;
+        out += bytes;
+        l -= bytes;
+        memcpy(ecount_buf, keystream + (blocks - 1) * AES_BLOCK_SIZE, AES_BLOCK_SIZE);
+        n = bytes % AES_BLOCK_SIZE;
     }
 
-    *num=n;
-
-    return retVal;
+    *num = n;
+    return 0;
 }
 
 
