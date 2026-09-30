@@ -9,6 +9,8 @@ BasedOnStyle: LLVM
 
 # Indentation
 IndentWidth: 4
+# public: and private: in the column of their class, as in all the code
+AccessModifierOffset: -4
 TabWidth: 4
 UseTab: Never
 IndentCaseLabels: false
