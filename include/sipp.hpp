@@ -210,6 +210,8 @@ cmd messages are received */
 MAYBE_EXTERN int                duration                DEFVAL(0);
 MAYBE_EXTERN double             rate                    DEFVAL(DEFAULT_RATE);
 MAYBE_EXTERN bool               rate_set                DEFVAL(false);
+/* A scenario plays pcap or DTMF: only then do calls keep where plays go */
+MAYBE_EXTERN bool               pcap_plays              DEFVAL(false);
 MAYBE_EXTERN double             rate_scale              DEFVAL(DEFAULT_RATE_SCALE);
 MAYBE_EXTERN int                rate_increase           DEFVAL(0);
 MAYBE_EXTERN int                rate_max                DEFVAL(0);

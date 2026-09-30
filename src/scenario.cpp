@@ -1768,16 +1768,19 @@ void scenario::parseAction(CActions *actions)
             } else if ((ptr = xp_get_keyword_value("play_pcap_audio"))) {
                 tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
+                pcap_plays = true;
                 hasMedia = 1;
                 free(ptr);
             } else if ((ptr = xp_get_keyword_value("play_pcap_image"))) {
                 tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_IMAGE);
+                pcap_plays = true;
                 hasMedia = 1;
                 free(ptr);
             } else if ((ptr = xp_get_keyword_value("play_pcap_video"))) {
                 tmpAction->setPcapArgs(ptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
+                pcap_plays = true;
                 hasMedia = 1;
                 free(ptr);
             } else if ((cptr = xp_get_value("play_dtmf"))) {
@@ -1794,6 +1797,7 @@ void scenario::parseAction(CActions *actions)
                 }
                 tmpAction->setMessage(cptr);
                 tmpAction->setActionType(CAction::E_AT_PLAY_DTMF);
+                pcap_plays = true;
                 hasMedia = 1;
 #else
             } else if (xp_get_value("play_pcap_audio")) {
