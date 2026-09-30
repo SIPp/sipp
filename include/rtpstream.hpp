@@ -97,6 +97,9 @@ struct taskentry_t
     /* rtp stream information */
     unsigned long long   last_audio_timestamp;
     unsigned long long   last_video_timestamp;
+    /* the playback thread's: a stream was paused at its last pass */
+    bool audio_was_paused = false;
+    bool video_was_paused = false;
     unsigned short       audio_seq_out;
     unsigned short       video_seq_out;
     unsigned short       audio_seq_check; /* the first packet of the pattern */

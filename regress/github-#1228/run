@@ -1,0 +1,39 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An rtp_stream pattern that is paused and resumed goes on with the
+# timestamp of the time it resumed in, not with that of the packet time
+# before it, which sent that packet and the current one at once.
+. "`dirname "$0"`/../functions"; init
+
+# The stream's packets as they come, arrival (ms) and timestamp, each
+# echoed back for the RTP check.
+perl -e '
+    use Socket; use Time::HiRes qw(time); $|=1;
+    socket(S, PF_INET, SOCK_DGRAM, 17) || die $!;
+    bind(S, pack_sockaddr_in(31820, inet_aton("127.0.0.1"))) || die $!;
+    setsockopt(S, SOL_SOCKET, SO_RCVTIMEO, pack("L!L!", 3, 0));
+    while (defined($from = recv(S, $p, 2048, 0))) {
+        printf "%.1f %u\n", time * 1000, unpack("N", substr($p, 4, 4));
+        send(S, $p, 0, $from);
+    }' >rtp.log &
+rtp=$!
+sippbg -sf uas.xml -i 127.0.0.1 -p 26980 -m 1
+sippfg -sf uac.xml -i 127.0.0.1 -p 26981 -m 1 \
+    -min_rtp_port 31830 -max_rtp_port 31839 \
+    127.0.0.1:26980 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait $rtp
+# Across the pause, the largest gap: the timestamp must have gone on by
+# the time that went by (8 per ms), not by a packet time (20 ms) less.
+off=`awk 'NR > 1 && $1 - t > gap { gap = $1 - t; step = $2 - ts }
+    { t = $1; ts = $2 }
+    END { d = step / 8 - gap; print (d < 0 ? -d : d) < 10 ? "ok" : int(d) }' rtp.log`
+rm -f rtp.log
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "$off" != ok; then
+    fail "the resumed timestamp is off by $off ms"
+else
+    ok
+fi
