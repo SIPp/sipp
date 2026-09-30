@@ -798,6 +798,9 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     static thread_local std::vector<unsigned char> audio_in;
     static thread_local std::vector<unsigned char> video_out;
     static thread_local std::vector<unsigned char> video_in;
+    /* A packet read whole, however bigger than the call's own: rtp_stats
+     * takes its payload, the rest of the play what fits the call's size */
+    static thread_local std::vector<unsigned char> packet_in;
     unsigned short host_flags = 0;
     unsigned short host_seqnum = 0;
     unsigned int host_timestamp = 0;
@@ -945,13 +948,14 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     }
 
                     audio_in.assign(audio_in_size, 0);
-                    while ((rc = recv(taskinfo->audio_rtp_socket, audio_in.data(), audio_in.size(), 0)) >= 0)
-                    {
+                    packet_in.resize(std::max<size_t>(media_bufsize, audio_in_size));
+                    while ((rc = recv(taskinfo->audio_rtp_socket, packet_in.data(), packet_in.size(), 0)) >= 0) {
                         audio_echo = true;
+                        memcpy(audio_in.data(), packet_in.data(), std::min<size_t>(rc, audio_in_size));
                         /* for now we will just ignore any received data or receive errors */
                         /* separate code path for RTP echo */
                         rtpstream_abytes_in.fetch_add(rc, std::memory_order_relaxed);
-                        rtpstream_count_received(taskinfo, false, audio_in.data(), rc);
+                        rtpstream_count_received(taskinfo, false, packet_in.data(), rc);
                         debugafile.printHexUS("SIPP SUCCESS RECV LOG: ", audio_in.data(), audio_in.size(), rc, rtpstream_apckts);
                     }
 
@@ -1212,13 +1216,14 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     }
 
                     video_in.assign(video_in_size, 0);
-                    while ((rc = recv(taskinfo->video_rtp_socket, video_in.data(), video_in.size(), 0)) >= 0)
-                    {
+                    packet_in.resize(std::max<size_t>(media_bufsize, video_in_size));
+                    while ((rc = recv(taskinfo->video_rtp_socket, packet_in.data(), packet_in.size(), 0)) >= 0) {
                         video_echo = true;
+                        memcpy(video_in.data(), packet_in.data(), std::min<size_t>(rc, video_in_size));
                         /* for now we will just ignore any received data or receive errors */
                         /* separate code path for RTP echo */
                         rtpstream_vbytes_in.fetch_add(rc, std::memory_order_relaxed);
-                        rtpstream_count_received(taskinfo, true, video_in.data(), rc);
+                        rtpstream_count_received(taskinfo, true, packet_in.data(), rc);
                         debugvfile.printHexUS("SIPP SUCCESS RECV LOG: ", video_in.data(), video_in.size(), rc, rtpstream_vpckts);
                     }
 
