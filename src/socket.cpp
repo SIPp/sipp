@@ -2304,20 +2304,15 @@ void SIPpSocket::buffer_read(struct socketbuf *newbuf)
 
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
 
+/* The descriptor of a TLS socket is non-blocking from the start (see
+ * the constructor and reconnect()). */
 static int send_nowait_tls(SSL* ssl, const void* msg, int len, int /*flags*/)
 {
-    int initial_fd_flags;
     int rc;
-    int fd;
-    int fd_flags;
     int i = 0;
-    if ((fd = SSL_get_fd(ssl)) == -1) {
+    if (SSL_get_fd(ssl) == -1) {
         return -1;
     }
-    fd_flags = fcntl(fd, F_GETFL, nullptr);
-    initial_fd_flags = fd_flags;
-    fd_flags |= O_NONBLOCK;
-    fcntl(fd, F_SETFL, fd_flags);
     while ((rc = SSL_write(ssl, msg, len)) < 0) {
         int err = SSL_get_error(ssl, rc);
         if ((err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) &&
@@ -2333,10 +2328,6 @@ static int send_nowait_tls(SSL* ssl, const void* msg, int len, int /*flags*/)
         }
         return rc;
     }
-    if (rc == 0) {
-        return rc;
-    }
-    fcntl(fd, F_SETFL, initial_fd_flags);
     return rc;
 }
 #endif
