@@ -1,0 +1,42 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Over SCTP, an association the peer aborts fails as a reset TCP
+# connection does, at once, rather than spinning on its error until the
+# next send or -timeout.
+. "`dirname "$0"`/../functions"; init
+
+"`get_sipp`" -v | grep -q SCTP || skip "no SCTP"
+perl -e 'use Socket; socket(S, PF_INET, SOCK_STREAM, 132) || exit 1' ||
+    skip "no SCTP sockets"
+
+# A peer that takes the association, then aborts it (SO_LINGER 0).
+perl -e '
+    use Socket; $|=1;
+    socket(L, PF_INET, SOCK_STREAM, 132) || die $!;
+    setsockopt(L, SOL_SOCKET, SO_REUSEADDR, 1);
+    bind(L, pack_sockaddr_in(28350, inet_aton("127.0.0.1"))) || die $!;
+    listen(L, 1) || die $!;
+    accept(C, L) || die $!;
+    sleep 1;
+    setsockopt(C, SOL_SOCKET, SO_LINGER, pack("ii", 1, 0));
+    close(C);
+    sleep 5;' &
+peer=$!
+sleep 0.5
+start=`date +%s`
+out=`sippfg -sn uac -t s1 -i 127.0.0.1 -p 28351 127.0.0.1:28350 -m 1 \
+    -timeout 5 2>&1`
+status=$?
+took=$((`date +%s` - start))
+kill $peer 2>/dev/null
+wait $peer 2>/dev/null
+
+if test $status -ne 255; then
+    fail "the UAC exited with $status, not 255"
+elif ! echo "$out" | grep -q "remote peer probably closed the socket"; then
+    fail "no reset: `echo "$out" | grep -v '^$' | head -1 | cut -c1-80`"
+elif test $took -ge 4; then
+    fail "the UAC took $took s, as long as its -timeout"
+else
+    ok
+fi

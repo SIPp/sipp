@@ -204,7 +204,8 @@ marked **Breaking**.
     calls work with wolfSSL (#1033), a failed handshake drops only its
     peer (#941, #996), and a read that wants more data no longer warns
     (#1032)
-  - SCTP: shutdown, refused associations, 3PCC and peer parameters
+  - SCTP: shutdown, refused associations, an association the peer
+    aborts (#1226), 3PCC and peer parameters
     (#1088, #1089, #1090, #1093)
   - 3PCC: twin connection resets and losses, the body's last CRLF, and
     a scenario with only `<sendCmd>` and `<recvCmd>` (#969, #985, #1084,

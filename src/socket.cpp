@@ -888,16 +888,19 @@ int SIPpSocket::handleSCTPNotify(char* buffer)
             ss_congested = false;
             flush();
             return -2;
-        } else if (notifMsg->sn_assoc_change.sac_state == SCTP_CANT_STR_ASSOC) {
-            TRACE_MSG("SCTP_CANT_STR_ASSOC\n");
-            /* The association never came up: the read fails with the
-             * socket's error, as that of a refused TCP connect does. */
+        } else if (notifMsg->sn_assoc_change.sac_state == SCTP_CANT_STR_ASSOC ||
+                   notifMsg->sn_assoc_change.sac_state == SCTP_COMM_LOST) {
+            bool lost = notifMsg->sn_assoc_change.sac_state == SCTP_COMM_LOST;
+            TRACE_MSG("%s\n", lost ? "SCTP_COMM_LOST" : "SCTP_CANT_STR_ASSOC");
+            /* The association never came up, or the peer aborted it: the
+             * read fails with the socket's error, as that of a refused or
+             * reset TCP connection does. */
             sctpstate = SCTP_DOWN;
             ss_congested = false;
             int err = 0;
             sipp_socklen_t len = sizeof(err);
             if (getsockopt(ss_fd, SOL_SOCKET, SO_ERROR, &err, &len) < 0 || !err) {
-                err = ECONNREFUSED;
+                err = lost ? ECONNRESET : ECONNREFUSED;
             }
             errno = err;
             return -1;
