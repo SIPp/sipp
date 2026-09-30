@@ -48,7 +48,7 @@
 
   <nop>
     <action>
-      <exec command="perl rtp.pl [$port] >>latency.log" />
+      <exec command="python3 rtp.py [$port] >>latency.log" />
     </action>
   </nop>
 
