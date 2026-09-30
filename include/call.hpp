@@ -195,7 +195,7 @@ protected:
     int hasMediaInformation;
     /* The pcap plays of the call, per rtpstream_pcap_t stream, made on
      * first use: in a scenario with media only */
-    std::unique_ptr<play_args_t[]> pcap_play_args;
+    std::unique_ptr<play_args_t> pcap_play_args[RTPSTREAM_PCAP_STREAMS];
     play_args_t& playArgs(rtpstream_pcap_t stream);
 #endif
 
