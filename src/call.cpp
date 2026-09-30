@@ -1567,20 +1567,27 @@ bool call::connect_socket_if_needed()
         } else {
             getFieldFromInputFile(ip_file, peripfield, nullptr, peripaddr, sizeof(peripaddr));
             auto i = map_perip_fd.find(peripaddr);
-            if (i == map_perip_fd.end()) {
+            SIPpSocket *sock = i != map_perip_fd.end() ? i->second : nullptr;
+            if (!sock) {
+                if (gai_getsockaddr(&saddr, peripaddr, local_port, AI_PASSIVE, AF_UNSPEC) != 0) {
+                    ERROR("Unknown host '%s' in the -ip_field of %s", peripaddr, ip_file);
+                }
+                sock = find_perip_socket(peripaddr, &saddr);
+            }
+            if (sock) {
+                // Socket exists already
+                associate_socket(sock);
+                existing = true;
+                sock->ss_count++;
+            } else {
                 // Socket does not exist
                 if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == nullptr) {
                     ERROR_NO("Unable to get a UDP socket (2)");
                 } else {
                     /* Ensure that it stays persistent, because it is recorded in the map. */
                     call_socket->ss_count++;
-                    map_perip_fd[peripaddr] = call_socket;
+                    add_perip_socket(peripaddr, &saddr, call_socket);
                 }
-            } else {
-                // Socket exists already
-                associate_socket(i->second);
-                existing = true;
-                i->second->ss_count++;
             }
         }
         if (existing) {
@@ -1589,16 +1596,14 @@ bool call::connect_socket_if_needed()
             return true;
         }
 
-        memcpy(&saddr, &local_addr_storage, sizeof(struct sockaddr_storage));
-        if (use_ipv6) {
-            saddr.ss_family       = AF_INET6;
-        } else {
-            saddr.ss_family       = AF_INET;
-        }
-
-        if (peripsocket &&
-                gai_getsockaddr(&saddr, peripaddr, local_port, AI_PASSIVE, AF_UNSPEC) != 0) {
-            ERROR("Unknown host '%s' in the -ip_field of %s", peripaddr, ip_file);
+        /* -t ui: saddr is the -ip_field address */
+        if (!peripsocket) {
+            memcpy(&saddr, &local_addr_storage, sizeof(struct sockaddr_storage));
+            if (use_ipv6) {
+                saddr.ss_family = AF_INET6;
+            } else {
+                saddr.ss_family = AF_INET;
+            }
         }
 
         if (sipp_bind_socket(call_socket, &saddr, &call_port)) {
