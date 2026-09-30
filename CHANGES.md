@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Changes that may break existing scenarios, command lines or builds are
 marked **Breaking**.
 
-## [3.7.9] - Unreleased
+## [3.7.9] - 2026-09-30
 
 ### Fixed
 
@@ -464,7 +464,7 @@ marked **Breaking**.
 
 Not documented here.
 
-[3.7.9]: https://github.com/SIPp/sipp/compare/v3.7.8...3.7
+[3.7.9]: https://github.com/SIPp/sipp/releases/tag/v3.7.9
 [3.7.8]: https://github.com/SIPp/sipp/releases/tag/v3.7.8
 [3.7.7]: https://github.com/SIPp/sipp/releases/tag/v3.7.7
 [3.7.6]: https://github.com/SIPp/sipp/releases/tag/v3.7.6
