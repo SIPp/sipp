@@ -32,6 +32,7 @@
 #include <wolfssl/openssl/hmac.h>
 #endif
 
+#include <array>
 #include <memory>
 #include <string>
 
@@ -105,7 +106,7 @@ public:
     /* HMAC-SHA1 of data and then more. False if a digest fails. */
     bool digest(const std::vector<unsigned char>& key,
                 const std::vector<unsigned char>& data, const std::vector<unsigned char>& more,
-                unsigned char out[EVP_MAX_MD_SIZE], unsigned int* out_len);
+                std::array<unsigned char, EVP_MAX_MD_SIZE>& out, unsigned int* out_len);
     void free();
 
 private:
