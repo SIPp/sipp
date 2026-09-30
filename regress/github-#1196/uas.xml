@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<!-- Takes the INVITE of a second Call-ID as dialog 2 of the call, and
+     answers each BYE with the headers of its own dialog -->
+<scenario name="dialogs UAS">
+  <recv request="INVITE" />
+
+  <send>
+    <![CDATA[
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=t1
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv request="ACK">
+    <action>
+      <ereg regexp="tag=t1" search_in="hdr" header="To:" check_it="true" assign_to="ack1" />
+    </action>
+  </recv>
+
+  <recv request="INVITE" dialog="2">
+    <action>
+      <ereg regexp="^ *100 INVITE" search_in="hdr" header="CSeq:" check_it="true" assign_to="invite2" />
+    </action>
+  </recv>
+
+  <send dialog="2">
+    <![CDATA[
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=t2
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv request="ACK" dialog="2">
+    <action>
+      <ereg regexp="tag=t2" search_in="hdr" header="To:" check_it="true" assign_to="ack2" />
+    </action>
+  </recv>
+
+  <send dialog="2">
+    <![CDATA[
+      INFO sip:sipp@127.0.0.1:29211 SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: service <sip:service@[local_ip]:[local_port]>;tag=t2
+      To: sipp <sip:sipp@[remote_ip]:[remote_port]>;tag=f2
+      Call-ID: [call_id]
+      CSeq: [cseq] INFO
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv response="200" dialog="2" />
+
+  <!-- The INFO's CSeq raised the UAC's [cseq] of dialog 2 only -->
+  <recv request="BYE" dialog="2" start_txn="bye2">
+    <action>
+      <ereg regexp="^ *102 BYE" search_in="hdr" header="CSeq:" check_it="true" assign_to="bye2" />
+    </action>
+  </recv>
+
+  <recv request="BYE">
+    <action>
+      <ereg regexp="^ *101 BYE" search_in="hdr" header="CSeq:" check_it="true" assign_to="bye1" />
+    </action>
+  </recv>
+
+  <!-- In the dialog of its transaction: [call_id] is dialog 2's -->
+  <send response_txn="bye2">
+    <![CDATA[
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      Call-ID: [call_id]
+      [last_CSeq:]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <send>
+    <![CDATA[
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <Reference variables="ack1,invite2,ack2,bye2,bye1" />
+</scenario>

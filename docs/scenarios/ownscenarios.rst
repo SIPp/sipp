@@ -264,6 +264,17 @@ List of commands with their attributes
           <send response_txn="invite">
 
         Answers the request received with start_txn="invite".
+    * -
+      - ``dialog``
+      - The dialog of the call this message is in, 1 by default (or the
+        dialog of its response_txn or ack_txn transaction). See
+        `Several dialogs in a call`_.
+      - ::
+
+          <send dialog="2">
+
+        Sends this message with the Call-ID, [cseq], peer tag and
+        [last_*] keywords of dialog 2.
     * - **<recv>**
       - response
       - Indicates what SIP message code is expected.
@@ -429,6 +440,17 @@ List of commands with their attributes
           <recv request="PRACK" start_txn="prack" />
           <send response_txn="prack"> <!-- 200 for the PRACK -->
           <send response_txn="invite"> <!-- 200 for the INVITE -->
+    * -
+      - ``dialog``
+      - The dialog of the call this message is in, 1 by default (or the
+        dialog of its response_txn transaction). A request of a dialog
+        whose Call-ID the call does not have yet starts it. See
+        `Several dialogs in a call`_.
+      - ::
+
+          <recv request="INVITE" dialog="2" />
+
+        Matches only an INVITE of dialog 2, or one that starts it.
     * - ``<pause>``
       - milliseconds
       - Specify the pause delay, in milliseconds. When this delay is not set, the value of
@@ -789,6 +811,49 @@ scenarios. For example, a UAS example will look like::
 
 The answering message, 180 Ringing in this case, is built with the
 content of headers received in the INVITE message.
+
+
+Several dialogs in a call
+`````````````````````````
+
+A call can have more than one dialog, each with a Call-ID of its own:
+for instance a REGISTER and the INVITE that comes to the registered
+user, or a transfer. The ``dialog="N"`` attribute of **<send>** and
+**<recv>** tells which dialog a message is in; without it, a message is
+in dialog 1, whose Call-ID is the call's own (the one it was created
+with, or generated for it), or in the dialog of its transaction
+(``response_txn``, ``ack_txn``).
+
+Each dialog has its own Call-ID, ``[cseq]``, peer tag
+(``[peer_tag_param]``), route set (``[routes]``, ``[next_url]``) and last
+received message (the ``[last_*]`` keywords). A message sent in a dialog
+takes those of its dialog, and a **<recv>** of a dialog matches only the
+messages of its Call-ID.
+
+The Call-ID of a dialog other than 1 is known:
+
+* when the call sends its first message: ``[call_id]`` then gives
+  ``N-`` followed by the call's Call-ID, or the Call-ID written in that
+  message is taken;
+* or when a request with a Call-ID no call has comes, and the next
+  message the call waits for is a **<recv>** of that request in a dialog
+  whose Call-ID it does not know yet. The oldest call waiting for it
+  takes it, before the request could start a new call. So in server
+  mode, a scenario whose second dialog begins with the same request as
+  the call (such as two INVITEs) works for calls one after the other.
+
+::
+
+    <recv request="INVITE" />
+    <send> <!-- 200 of the first INVITE -->
+    <recv request="ACK" />
+    <recv request="INVITE" dialog="2" /> <!-- another Call-ID -->
+    <send dialog="2"> <!-- 200 of the second INVITE -->
+    <recv request="ACK" dialog="2" />
+
+To use the Call-ID of another dialog in a message, such as in the
+``Replaces`` header of a REFER, keep it in a variable with an
+``<ereg>`` on a message of that dialog.
 
 
 

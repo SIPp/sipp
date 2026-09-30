@@ -1,0 +1,24 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A call with two dialogs (dialog="2"): the UAC sends the second INVITE
+# with a Call-ID, [cseq] and peer tag of its own, and the UAS takes it,
+# a Call-ID it did not know, as dialog 2 of its call, sends an INFO in
+# it and answers each BYE with the headers of its dialog, one by the
+# transaction the BYE started.
+. "`dirname "$0"`/../functions"; init
+
+sippbg -sf uas.xml -i 127.0.0.1 -p 29210 -m 1 -timeout 15 -timeout_error
+uas=$pid
+sippfg -sf uac.xml -i 127.0.0.1 -p 29211 -m 1 -nr -base_cseq 100 \
+    127.0.0.1:29210 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait $uas
+uas_status=$?
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test $uas_status -ne 0; then
+    fail "UAS failed with $uas_status"
+else
+    ok
+fi

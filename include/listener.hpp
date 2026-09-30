@@ -51,13 +51,17 @@ protected:
 
     void startListening();
     void stopListening();
+    /* Takes the messages of this Call-ID too, until unlisten(): key
+     * must stay until then */
+    void listen(const char *key);
+    void unlisten(const char *key);
 
     char *id;
     bool listening;
     bool own_id; /* id is ours to free */
 };
 
-/* Keyed by the id of the listener they map to */
+/* Keyed by the id of the listener they map to, or a key it listens to */
 typedef std::map<std::string_view, listener *, std::less<>,
         node_allocator<std::pair<const std::string_view, listener *>>> listener_map;
 listener * get_listener(const char *);

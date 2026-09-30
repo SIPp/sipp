@@ -126,6 +126,10 @@ static const int SM_UNUSED = -1;
 
 static unsigned int next_number = 1;
 
+/* The calls whose scenario has a <recv request> of a dialog that may be
+ * new, in the order they came */
+static std::list<call *> new_dialog_calls;
+
 class CallIdBuilder {
 public:
     explicit CallIdBuilder(unsigned int call_number)
@@ -1223,6 +1227,15 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
         transactions = nullptr;
     }
 
+    if (call_scenario->dialogs) {
+        dialogs = std::make_unique<call_dialogs>();
+        dialogs->dialogs[1];
+        if (call_scenario->new_dialogs && !isInitCall) {
+            dialogs->waiting = new_dialog_calls.insert(new_dialog_calls.end(), this);
+            dialogs->waits_new = true;
+        }
+    }
+
     // If not updated by a message we use the start time
     // information to compute rtd information
     start_time_rtd = (unsigned long long *)malloc(sizeof(unsigned long long) * call_scenario->stats->nRtds());
@@ -1393,6 +1406,21 @@ call::~call()
             free(transactions[i].response);
         }
         free(transactions);
+    }
+
+    if (dialogs) {
+        if (dialogs->waits_new) {
+            new_dialog_calls.erase(dialogs->waiting);
+        }
+        for (auto &[dialog, d] : dialogs->dialogs) {
+            if (!d.call_id.empty()) {
+                unlisten(d.call_id.c_str());
+            }
+            free(d.peer_tag);
+            free(d.last_recv_msg);
+            free(d.dialog_route_set);
+            free(d.next_req_url);
+        }
     }
 
     free(last_recv_msg);
@@ -2067,9 +2095,13 @@ void call::terminate(CStat::E_Action reason)
         /* Made once the call is gone, the dead call takes the place of
          * what the call freed, as it has the same small allocations */
         std::string dead_id(id);
+        std::vector<std::string> dead_ids = dialogIds();
         int dead_index = msg_index;
         delete this;
         new deadcall(dead_id.c_str(), dead_reason, dead_index);
+        for (const std::string &dialog_id : dead_ids) {
+            new deadcall(dialog_id.c_str(), dead_reason, dead_index);
+        }
     } else {
         delete this;
     }
@@ -2205,6 +2237,10 @@ bool call::executeMessage(message *curmsg)
             return true;
         }
 
+        if (dialogs) {
+            switchDialog(msgDialog(curmsg));
+        }
+
         /* Handle counters and RTDs for this message. */
         do_bookkeeping(curmsg);
 
@@ -2294,6 +2330,14 @@ bool call::executeMessage(message *curmsg)
         if (curmsg->start_txn) {
             transactions[curmsg->start_txn - 1].txnID = (char *)realloc(transactions[curmsg->start_txn - 1].txnID, MAX_HEADER_LEN);
             extract_transaction(transactions[curmsg->start_txn - 1].txnID, last_send_msg);
+            transactions[curmsg->start_txn - 1].dialog = dialogs ? dialogs->current : 1;
+        }
+        if (dialogs && !dialogKnown(dialogs->current)) {
+            /* A Call-ID written without [call_id] */
+            const char *sent_id = get_call_id(last_send_msg);
+            if (*sent_id) {
+                setDialogCallId(dialogs->current, sent_id);
+            }
         }
         if (curmsg->ack_txn) {
             transactions[curmsg->ack_txn - 1].ackIndex = curmsg->index;
@@ -2873,9 +2917,13 @@ bool call::abortCall(bool writeLog)
     if (deadcall_wait && !initCall) {
         /* made once the call is gone, as in terminate() */
         std::string dead_id(id);
+        std::vector<std::string> dead_ids = dialogIds();
         int dead_index = msg_index;
         delete this;
         new deadcall(dead_id.c_str(), "aborted at index %d", dead_index, sent_bye, sent_cancel);
+        for (const std::string &dialog_id : dead_ids) {
+            new deadcall(dialog_id.c_str(), "aborted at index %d", dead_index, sent_bye, sent_cancel);
+        }
     } else {
         delete this;
     }
@@ -4242,7 +4290,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             } ;
             break;
         case E_Message_Call_ID:
-            out += id;
+            out += dialogs ? dialogCallId() : id;
             break;
         case E_Message_CSEQ:
             out += std::to_string(cseq + comp->offset);
@@ -4983,9 +5031,144 @@ void call::computeRouteSetAndRemoteTargetUri(const char* rr, const char* contact
     formatNextReqUrl(targetUri.c_str());
 }
 
+static call_dialog &dialog_entry(std::map<int, call_dialog> &dialogs, int dialog)
+{
+    std::pair<std::map<int, call_dialog>::iterator, bool> ins = dialogs.try_emplace(dialog);
+    if (ins.second) {
+        ins.first->second.cseq = base_cseq;
+    }
+    return ins.first->second;
+}
+
+void call::switchDialog(int dialog)
+{
+    if (!dialogs || dialogs->current == dialog) {
+        return;
+    }
+    auto swap_state = [this](call_dialog &d) {
+        std::swap(cseq, d.cseq);
+        std::swap(last_recv_invite_cseq, d.last_recv_invite_cseq);
+        std::swap(peer_tag, d.peer_tag);
+        std::swap(last_recv_msg, d.last_recv_msg);
+        std::swap(dialog_route_set, d.dialog_route_set);
+        std::swap(next_req_url, d.next_req_url);
+    };
+    swap_state(dialogs->dialogs[dialogs->current]);
+    swap_state(dialog_entry(dialogs->dialogs, dialog));
+    dialogs->current = dialog;
+}
+
+int call::msgDialog(const message *curmsg)
+{
+    if (curmsg->dialog) {
+        return curmsg->dialog;
+    }
+    int txn = curmsg->response_txn ? curmsg->response_txn : curmsg->ack_txn;
+    if (txn && transactions[txn - 1].dialog) {
+        return transactions[txn - 1].dialog;
+    }
+    return 1;
+}
+
+int call::dialogOf(const char *msg)
+{
+    const char *call_id = get_call_id(msg);
+    for (const auto &[dialog, d] : dialogs->dialogs) {
+        if (!d.call_id.empty() && d.call_id == call_id) {
+            return dialog;
+        }
+    }
+    return 1;
+}
+
+bool call::dialogKnown(int dialog)
+{
+    if (dialog == 1) {
+        return true;
+    }
+    std::map<int, call_dialog>::iterator it = dialogs->dialogs.find(dialog);
+    return it != dialogs->dialogs.end() && !it->second.call_id.empty();
+}
+
+void call::setDialogCallId(int dialog, const char *call_id)
+{
+    /* A Call-ID of this call already, such as its own */
+    if (get_listener(call_id) == this) {
+        return;
+    }
+    call_dialog &d = dialog_entry(dialogs->dialogs, dialog);
+    d.call_id = call_id;
+    listen(d.call_id.c_str());
+}
+
+const char *call::dialogCallId()
+{
+    if (dialogs->current == 1) {
+        return id;
+    }
+    call_dialog &d = dialogs->dialogs[dialogs->current];
+    if (d.call_id.empty()) {
+        setDialogCallId(dialogs->current, (std::to_string(dialogs->current) + "-" + id).c_str());
+    }
+    return d.call_id.c_str();
+}
+
+std::vector<std::string> call::dialogIds()
+{
+    std::vector<std::string> ids;
+    if (dialogs) {
+        for (const auto &[dialog, d] : dialogs->dialogs) {
+            if (!d.call_id.empty()) {
+                ids.push_back(d.call_id);
+            }
+        }
+    }
+    return ids;
+}
+
+int call::newDialogFor(const char *msg)
+{
+    char request[65];
+    const char *end = strchr(msg, ' ');
+    if (pastLastMessage() || get_reply_code(msg) || !end || end - msg >= (int)sizeof(request)) {
+        return 0;
+    }
+    memcpy(request, msg, end - msg);
+    request[end - msg] = '\0';
+
+    for (int index = msg_index; index < (int)call_scenario->messages.size(); index++) {
+        message *curmsg = call_scenario->messages[index];
+        if (curmsg->recv_request) {
+            int dialog = msgDialog(curmsg);
+            if (!dialogKnown(dialog) && curmsg->matchesRequest(request)) {
+                return dialog;
+            }
+        }
+        if (!curmsg->optional) {
+            break;
+        }
+    }
+    return 0;
+}
+
+call *call::take_new_dialog(const char *msg)
+{
+    for (call *call_ptr : new_dialog_calls) {
+        if (int dialog = call_ptr->newDialogFor(msg)) {
+            call_ptr->setDialogCallId(dialog, get_call_id(msg));
+            return call_ptr;
+        }
+    }
+    return nullptr;
+}
+
 bool call::matches_scenario(unsigned int index, int reply_code, char * request, char * responsecseqmethod, char *txn)
 {
     message *curmsg = call_scenario->messages[index];
+
+    if (dialogs && msgDialog(curmsg) != dialogs->incoming) {
+        return false;
+    }
 
     if ((curmsg->recv_request)) {
         return curmsg->matchesRequest(request);
@@ -5163,6 +5346,11 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
     }
     responsecseqmethod[0] = '\0';
     txn[0] = '\0';
+
+    if (dialogs) {
+        dialogs->incoming = dialogOf(msg);
+        switchDialog(dialogs->incoming);
+    }
 
     if (!checkAckCSeq(msg)) {
         WARNING("ACK CSeq value does NOT match value of related INVITE CSeq -- aborting call");
@@ -6168,6 +6356,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
         txn_info.requestHash = cookie;
         txn_info.requestIndex = search_index;
         txn_info.response = nullptr;
+        txn_info.dialog = dialogs ? dialogs->current : 1;
     }
 
 

@@ -107,6 +107,7 @@ message::message(int index, const char *desc)
     start_txn = 0;
     response_txn = 0;
     ack_txn = 0;
+    dialog = 0;
     recv_response_for_cseq_method_list = nullptr; // free on exit
 }
 
@@ -1137,6 +1138,20 @@ scenario::scenario(char * filename, int deflt)
                 ERROR("Unknown element '%s' in xml scenario file", elem);
             }
 
+            if (curmsg->M_type == MSG_TYPE_SEND || curmsg->M_type == MSG_TYPE_RECV) {
+                long dialog = xp_get_long("dialog", "dialog number", 0);
+                if (xp_get_value("dialog") && (dialog < 1 || dialog > INT_MAX)) {
+                    ERROR("dialog must be a positive number, not '%s'", xp_get_value("dialog"));
+                }
+                curmsg->dialog = dialog;
+                if (dialog > 1) {
+                    dialogs = true;
+                    if (curmsg->recv_request) {
+                        new_dialogs = true;
+                    }
+                }
+            }
+
             getCommonAttributes(curmsg);
         } /** end * Message case */
         xp_close_element();
@@ -1175,6 +1190,10 @@ scenario::scenario(char * filename, int deflt)
 
     if (messages.size() == 0) {
         ERROR("Did not find any messages inside of scenario!");
+    }
+    if (messages[0]->M_type == MSG_TYPE_RECV && messages[0]->dialog > 1) {
+        ERROR("A call begins in dialog 1: its first message can not have dialog=\"%d\"",
+              messages[0]->dialog);
     }
 }
 
