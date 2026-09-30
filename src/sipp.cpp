@@ -940,6 +940,7 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
     last_rate_increase_time = clock_tick;
 
     while (1) {
+        stop_oversized_traces();
         if (exit_requested) {
             if (exit_request_rc == EXIT_TEST_RES_UNKNOWN) {
                 /* SIGTERM or SIGINT: the RTP checks still count. */
@@ -1514,14 +1515,6 @@ static void print_last_stats()
     }
 }
 
-static void stop_all_traces()
-{
-    message_lfi.fptr = nullptr;
-    log_lfi.fptr = nullptr;
-    dumpInRtt = 0;
-    dumpInFile = 0;
-}
-
 static void freeInFiles()
 {
     for (file_map::iterator file_it = inFiles.begin(); file_it != inFiles.end(); file_it++) {
@@ -1537,35 +1530,11 @@ static void freeUserVarMap()
     }
 }
 
+/* Only flag it: the traces stop outside the handler, in
+ * stop_oversized_traces(). */
 static void manage_oversized_file(int signum)
 {
-    FILE *f;
-    char L_file_name[MAX_PATH];
-    struct timeval currentTime;
-    static int managing = 0;
-
-    // we can receive this signal more than once
-    if (managing) {
-        return;
-    }
-    managing = 1;
-
-    snprintf(L_file_name, MAX_PATH, "%s_%ld_traces_oversized.log", scenario_file, (long) getpid());
-    f = fopen(L_file_name, "w");
-    if (!f) {
-        ERROR_NO("Unable to open oversized log file");
-    }
-
-    GET_TIME(&currentTime);
-    fprintf(f,
-            "-------------------------------------------- %s\n"
-            "Max file size reached - no more logs\n",
-            CStat::formatTime(&currentTime, rfc3339));
-
-    fclose(f);
-    stop_all_traces();
-    print_all_responses = 0;
-    error_lfi.fptr = nullptr;
+    file_size_exceeded = 1;
 }
 
 static void releaseGlobalAllocations()

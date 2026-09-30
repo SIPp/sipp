@@ -158,7 +158,8 @@ marked **Breaking**.
     fails (#1148), and of the sockets of an rtp_stream whose local port
     failed (#1141)
   - heap corruption when SIGTERM, SIGINT or `-timeout_error` interrupted
-    a malloc (#1042, #1052)
+    a malloc (#1042, #1052), and a SIGXFSZ handler that wrote a log and
+    dropped the trace files unclosed (#1216)
   - data races between the calls and the RTP threads (#977, #1108,
     #1140)
   - memory and socket leaks (#886, #945, #1018)
