@@ -1205,7 +1205,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
         ERROR("Could not allocate RTD times!");
     }
     rtd_done = (bool *)malloc(sizeof(bool) * call_scenario->stats->nRtds());
-    if (!start_time_rtd) {
+    if (!rtd_done) {
         ERROR("Could not allocate RTD done!");
     }
     for (i = 0; i < call_scenario->stats->nRtds(); i++) {
