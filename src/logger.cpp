@@ -305,7 +305,11 @@ static void rotatef(struct logfile_info* lfi)
                 fclose(lfi->fptr);
                 lfi->fptr = nullptr;
             }
-            rename(lfi->file_name, L_rotate_file_name);
+            if (rename(lfi->file_name, L_rotate_file_name)) {
+                /* Not rotated away: add to it rather than truncate it. */
+                lfi->nfiles--;
+                lfi->overwrite = false;
+            }
         }
     }
 
