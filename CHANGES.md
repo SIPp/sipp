@@ -6,16 +6,100 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Changes that may break existing scenarios, command lines or builds are
 marked **Breaking**.
 
+## [3.7.8] - 2026-09-23
+
+### Added
+
+- `-cid_type` selects a built-in Call-ID generator: `uuid`,
+  `uuid-compact`, `random` or `timestamp`. The default keeps using
+  `-cid_str` (#869, by Darwvin)
+- An interactive wizard that builds a command line when SIPp is started
+  without arguments on a terminal (#868, by Darwvin)
+- `sipp-multi.py`, a helper that starts and supervises several SIPp
+  instances described in a CSV file (#873, by Darwvin)
+- CMake `USE_SYSTEM_GTEST` builds the unit tests against a system-wide
+  GTest (#836, by Peter Lemenkov)
+- clang-format configuration and CONTRIBUTING.md (#855, by Peter Lemenkov)
+
+### Changed
+
+- **Breaking:** The scenario XML parser is now pugixml. It is bundled as
+  a git submodule (clone with `--recursive`), or taken from the system
+  with `-DUSE_SYSTEM_PUGIXML=ON`. Scenario files are no longer limited
+  to 64 KB (#858, by Peter Lemenkov)
+- Timing uses `std::chrono` (#854, by Peter Lemenkov)
+
+### Removed
+
+- **Breaking:** SIPp's bundled MD5, AKA and base64 code. Building now
+  requires OpenSSL (1.1.1 or later) or wolfSSL (#827, #828, #842, by
+  Peter Lemenkov)
+- The `-c` compression plugin option, for which no plugin was ever
+  distributed (#853, by Peter Lemenkov)
+
+### Fixed
+
+- Every call with `-t t1`, `tn`, `l1` or `ln` failed with "Unable to bind
+  TCP socket": the 3.7.0 `[local_port]` fix for TCP and TLS is reverted
+  (#830, by Orgad Shaneh)
+- The BYE of an aborted call follows the dialog's route set (#851, by
+  Daniel Donoghue)
+- SDP is found in multipart/mixed message bodies (#862, by Mark T)
+- Heap-use-after-free when a UDP retransmission fails to send (#876, by
+  Orgad Shaneh)
+- `get_header()` writes are bounded by its buffer (#881, by Peter Lemenkov)
+- Use-after-free and no-op bugs when clearing maps (#839, by Peter Lemenkov)
+- Data race in the debug files (#859, by Peter Lemenkov)
+- RTP debug dumps of several sessions (#848, by Orgad Shaneh)
+- An infinite loop in the build with the bundled gtest (#845, by Orgad
+  Shaneh)
+
+## [3.7.7] - 2025-12-30
+
+### Fixed
+
+- Const-correctness of an argument that is modified (#826, by Peter
+  Lemenkov)
+
+## [3.7.6] - 2025-12-22
+
+### Added
+
+- `%r` in `-cid_str` inserts a random number, for unique Call-IDs when
+  several instances run in parallel (#810, by Maksim Nesterov)
+- The `sipp` executable exports its symbols, so that plugins can use
+  them (#820, by Orgad Shaneh)
+
+### Changed
+
+- **Breaking:** Building requires a C++17 compiler (by Orgad Shaneh)
+- Bundled gtest updated to 1.17 (by Orgad Shaneh)
+
+### Fixed
+
+- SRTP: a buffer overrun and a missing null termination when parsing
+  received crypto lines, and mis-parsing of a long input line (#822, by
+  Orgad Shaneh)
+- The `-trace_logs` file name (by Orgad Shaneh)
+
 ## [3.7.5] - 2025-08-19
 
 ### Added
 
 - Enable a mixture of server-mode and client-mode operation simultaneously (by Matthew Briggs)
-- Support for regexp matching on response codes (by Orgad Shaneh)
+- Support for regexp matching on response codes (by Petr Cisar)
 - Support RFC3339 timestamp format and timezone offset (by Costis)
+- Send the SNI in the TLS client hello (#754, by Jean-Christophe Grondin)
+- Replay raw IP pcap files (#763, by Jérôme Poulin)
+- Seed the random generator with the host name and PID too, so that
+  instances started together differ (#738, by FalacerSelene)
+- A Debian-based Dockerfile (#759, by Orgad Shaneh)
 
 ### Fixed
 
+- Out-of-bounds read on invalid XML (#747, by Orgad Shaneh)
+- `<nop>` overrides the last action result only if it is a failure
+  (#766, by Tolga)
 - Fix RTPCHECK functionality regressions (by Jeannot Langlois)
 - Fix SRTPCheck testing on unlimited number of calls (by Michal Hajek)
 - Use random SSRC for SRTP instead of hardcoded value (by Orgad Shaneh)
@@ -26,7 +110,32 @@ marked **Breaking**.
 - Mark aborted calls as failed (by Orgad Shaneh)
 - Various stability and build fixes (by Orgad Shaneh, Jaco Kroon, Michal Hajek)
 
+## [3.7.4] - 2024-09-10
+
+### Fixed
+
+- Build with wolfSSL (by Orgad Shaneh)
+- Docker: update Alpine to 3.20 and fix the version resolving (#749, by
+  Orgad Shaneh)
+
 ## [3.7.3] - 2024-08-07
+
+### Added
+
+- SHA-256 Digest authentication (RFC 8760) (#676, by Marat Gareev)
+- TLS 1.3 (#695, by Orgad Shaneh)
+- `-bind_to_device` option (#630, by Ivan Gankevich)
+- Comfort noise (audio/CN) media support (#687, by Rafael Vargas)
+- TLS verification without a CRL file (#663, by Ivan Ribakov)
+- Random SSRC for RTP streams (#599, by Stefan Mititelu)
+- `hide` and `display` attributes (#718, by Michael Stovenour)
+- A define to use local IP hints (#598, by Stefan Mititelu)
+- pcap file paths that start with `~` (#607, by Rajesh Singh)
+
+### Changed
+
+- Bundled gtest updated to 1.14.0; building requires C++14 and CMake 3.5
+  (#649, #651, by Orgad Shaneh)
 
 ### Removed
 
@@ -37,6 +146,12 @@ marked **Breaking**.
 - Recovered `-mp` and `[auto_media_port]` to maintain backwards compatibility (by Orgad Shaneh)
 - Fix crash when using PCAP play with more than one call (by Pete O'Neill)
 - Fix pager on macOS by trying less and more too (by Walter Doekes)
+- `[next_url]` could return garbage (#724, by Michael Stovenour)
+- rtp_stream failed to bind on macOS, and CRLF in injection files (#729,
+  by Zac He)
+- rtpstream local port allocation (#734, by viktike), and the next RTP
+  port was always reset to the minimum (#635, by Stefan Mititelu)
+- The RTP playback thread blocked on `select()` (#690, by Shona McNeill)
 
 ## [3.7.2] - 2023-11-16
 
@@ -333,7 +448,11 @@ marked **Breaking**.
 
 Not documented here.
 
+[3.7.8]: https://github.com/SIPp/sipp/releases/tag/v3.7.8
+[3.7.7]: https://github.com/SIPp/sipp/releases/tag/v3.7.7
+[3.7.6]: https://github.com/SIPp/sipp/releases/tag/v3.7.6
 [3.7.5]: https://github.com/SIPp/sipp/releases/tag/v3.7.5
+[3.7.4]: https://github.com/SIPp/sipp/releases/tag/v3.7.4
 [3.7.3]: https://github.com/SIPp/sipp/releases/tag/v3.7.3
 [3.7.2]: https://github.com/SIPp/sipp/releases/tag/v3.7.2
 [3.7.1]: https://github.com/SIPp/sipp/releases/tag/v3.7.1
