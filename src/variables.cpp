@@ -170,6 +170,8 @@ CCallVariable::CCallVariable()
     M_matchingValue     = nullptr;
     M_stringValue     = nullptr;
     M_nbOfMatchingValue = 0;
+    M_double = 0;
+    M_bool = false;
     M_type = E_VT_UNDEFINED;
 }
 

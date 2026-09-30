@@ -951,6 +951,7 @@ CAction::CAction(scenario *scenario)
     M_varId        = 0;
     M_varInId        = 0;
     M_varIn2Id        = 0;
+    M_comp         = E_C_EQ;
 
     M_nbSubVarId    = 0;
     M_maxNbSubVarId = 0;
@@ -980,6 +981,7 @@ CAction::CAction(scenario *scenario)
 
     M_scenario     = scenario;
     M_regExpSet    = false;
+    memset(&M_internalRegExp, 0, sizeof(M_internalRegExp));
     M_regularExpression = nullptr;
 }
 
