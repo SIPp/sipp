@@ -288,8 +288,12 @@ MAYBE_EXTERN int                rtp_tasks_per_thread    DEFVAL(DEFAULT_RTP_THREA
 MAYBE_EXTERN int                rtp_buffsize            DEFVAL(65536);
 MAYBE_EXTERN bool               rtpcheck_debug          DEFVAL(0);
 MAYBE_EXTERN bool               srtpcheck_debug         DEFVAL(0);
-/* a scenario has <rtp_stats>: the calls count the RTP they receive */
+/* a scenario has <rtp_stats> or <rtp_dtmf>: the calls count the RTP
+ * they receive */
 MAYBE_EXTERN bool               rtp_stats_used          DEFVAL(false);
+/* the payload types of the scenarios' <rtp_dtmf>: the calls decode the
+ * RFC 4733 events that come with them */
+MAYBE_EXTERN bool rtp_dtmf_payload_types[128];
 MAYBE_EXTERN double             audiotolerance          DEFVAL(1.0);
 MAYBE_EXTERN double             videotolerance          DEFVAL(1.0);
 

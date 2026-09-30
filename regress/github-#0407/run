@@ -1,0 +1,30 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# rtp_dtmf gives the digits of the RFC 4733 events a call received: the
+# UAS plays DTMF with the payload type 101, which the UAC, playing
+# nothing, decodes once each, while it has no digit for 96.
+. "`dirname "$0"`/../functions"
+
+# Sending pcap plays needs a raw socket: run as root in a user and
+# network namespace of our own.
+if test -z "$SIPP_NETNS"; then
+    if unshare -rn true 2>/dev/null; then
+        SIPP_NETNS=1 exec unshare -rn "$0"
+    fi
+    init
+    skip "no user network namespaces"
+fi
+init
+"`get_sipp`" -v | grep -q PCAP || skip "no PCAP"
+ip link set lo up 2>/dev/null || skip "cannot bring up lo"
+
+sippbg -sf uas.xml -i 127.0.0.1 -p 25642 -m 1 -mp 29900 -timeout 10
+sippfg -sf uac.xml -i 127.0.0.1 -p 25643 -m 1 \
+    -min_rtp_port 29950 -max_rtp_port 29999 \
+    127.0.0.1:25642 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait
+if test $status -ne 0; then
+    fail "the UAC exited $status, not 0"
+fi
+ok

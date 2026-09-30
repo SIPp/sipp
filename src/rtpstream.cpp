@@ -116,16 +116,16 @@ static size_t rtpstream_buffer_len(int bytes_per_packet)
 }
 
 /* Count an RTP packet that came on a call's audio or video port, when a
- * scenario has <rtp_stats>: its payload is past the CSRCs and the header
- * extension, and before the padding. Called under the task's mutex. */
+ * scenario has <rtp_stats> or <rtp_dtmf>: its payload is past the CSRCs
+ * and the header extension, and before the padding. An audio packet with
+ * a payload type of <rtp_dtmf> is an RFC 4733 event: its first packet
+ * adds a digit, the others have its timestamp. Called under the task's
+ * mutex. */
 static void rtpstream_count_received(taskentry_t* taskinfo, bool video,
                                      const unsigned char* packet, size_t len)
 {
     rtpstream_received_t& received = taskinfo->received[video];
     if (!rtp_stats_used || len < sizeof(rtp_header_t) || (packet[0] >> 6) != 2) {
-        return;
-    }
-    if (received.packets++) {
         return;
     }
     size_t start = sizeof(rtp_header_t) + 4 * (packet[0] & 0x0f);
@@ -136,10 +136,23 @@ static void rtpstream_count_received(taskentry_t* taskinfo, bool video,
     if (packet[0] & 0x20) {
         end -= std::min<size_t>(packet[len - 1], len);
     }
-    received.first_pt = packet[1] & 0x7f;
-    if (start < end) {
-        received.first_payload.assign((const char*) packet + start, end - start);
+    uint8_t pt = packet[1] & 0x7f;
+    if (!received.packets++) {
+        received.first_pt = pt;
+        if (start < end) {
+            received.first_payload.assign((const char *)packet + start, end - start);
+        }
     }
+    static const char events[] = "0123456789*#ABCD";
+    if (video || !rtp_dtmf_payload_types[pt] || start + 4 > end || packet[start] >= 16) {
+        return;
+    }
+    uint32_t timestamp = ((uint32_t)packet[4] << 24) | (packet[5] << 16) | (packet[6] << 8) | packet[7];
+    if (!received.dtmf.empty() && received.dtmf.back().first == pt && received.dtmf_timestamp == timestamp) {
+        return;
+    }
+    received.dtmf.emplace_back(pt, events[packet[start]]);
+    received.dtmf_timestamp = timestamp;
 }
 
 /* Made by rtpstream_start_task() with its thread, deleted by

@@ -7079,6 +7079,15 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 hex[2 * payload.size()] = '\0';
                 M_callVariableTable->getVar(currentAction->getSubVarId(1))->setString(hex);
             }
+        } else if (currentAction->getActionType() == CAction::E_AT_RTP_DTMF) {
+            rtpstream_received_t received = rtpstream_received(&rtpstream_callinfo, false);
+            std::string digits;
+            for (const auto &[pt, digit] : received.dtmf) {
+                if (pt == currentAction->getDoubleValue()) {
+                    digits += digit;
+                }
+            }
+            M_callVariableTable->getVar(currentAction->getVarId())->setString(strdup(digits.c_str()));
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
             const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);

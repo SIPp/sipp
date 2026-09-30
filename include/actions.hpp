@@ -81,6 +81,7 @@ public:
         E_AT_RTP_STREAM_RESUME,
         E_AT_RTP_STREAM_WAIT,
         E_AT_RTP_STATS,
+        E_AT_RTP_DTMF,
         E_AT_RTP_STREAM_PLAY,
         E_AT_RTP_ECHO,
         E_AT_RTP_STREAM_PAUSEAPATTERN,
