@@ -56,8 +56,6 @@ marked **Breaking**.
   with `0x`: a leading `0` no longer means octal, and empty, malformed
   or out-of-range values are errors rather than 0 (#1066, by Orgad
   Shaneh)
-- **Breaking:** Attribute values are XML-decoded once, so `&amp;lt;`
-  gives `&lt;`, no longer `<` (#1062, by Orgad Shaneh)
 - **Breaking:** `<ereg search_in="hdr">` matches a header name only at
   the start of a line: `header="To"` no longer finds `X-Forward-To:`
   (#982, by Orgad Shaneh)
@@ -71,13 +69,14 @@ marked **Breaking**.
   and audio and video play at the same time. On Linux it sends on
   `IPPROTO_RAW` sockets, and plays start on multiples of 20 ms (#1005,
   #1111, #1113, by Orgad Shaneh)
-- Memory and CPU per call are much lower: at 12000 calls/s the built-in
-  UAS peaks at 164 MB instead of 1162 MB in 3.7.8, and 10000 calls
-  playing media take 74 MB instead of 220 MB. SRTP no longer repeats
-  its AES and HMAC setup for each packet, a header is found in one pass
-  over the message, RTP makes fewer system calls per packet, and the
-  socket loop and RTP echo wait with epoll (#1110, #1117, #1118, #1119,
-  #1122-#1131, by Orgad Shaneh)
+- Memory and CPU per call are much lower, after 3.7 had raised them
+  far above 3.6: at 12000 calls/s the built-in UAS peaks at 164 MB,
+  against 1162 MB in 3.7.8 and 282 MB in 3.6.1, and 10000 calls playing
+  media take 74 MB, against 220 MB in 3.7.8 and 31 MB in 3.6.1. SRTP no
+  longer repeats its AES and HMAC setup for each packet, a header is
+  found in one pass over the message, RTP makes fewer system calls per
+  packet, and the socket loop and RTP echo wait with epoll (#1110,
+  #1117, #1118, #1119, #1122-#1131, by Orgad Shaneh)
 - A pass over the calls ends after 10 ms and runs the calls that resume
   first, so a burst of new calls no longer leaves incoming messages
   unread for seconds (#1101), and the call rate starts with the traffic,
@@ -93,30 +92,38 @@ marked **Breaking**.
   253 (#1019, #1059, by Orgad Shaneh, based on #600 by Stefan Mititelu)
 - `-max_socket` counts only the call sockets (#1069, by Orgad Shaneh)
 - CMake fails when a requested optional library is missing (#1107, by
-  Orgad Shaneh), takes any boolean for `USE_SYSTEM_PUGIXML` and
-  `USE_SYSTEM_GTEST` (#1060, by Peter Lemenkov), and configures without
-  GTest (#891, by Orgad Shaneh)
-- Bundled pugixml updated to 1.16, which builds with GCC 16 (#1047, by
   Orgad Shaneh)
 
 ### Fixed
 
 - Crashes and memory errors (by Orgad Shaneh):
-  - buffer overflows when building messages and credentials, and in
-    rtp_echo and rtp_stream arguments (#883, #905, #963, #997, #1068)
+  - buffer overflows when building messages and credentials, in
+    rtp_echo and rtp_stream arguments, in long `-i`, `-mi`, `-ci`,
+    `-multihome`, `-3pcc` and log file name arguments, and in the
+    AES_192_CM and AES_256_CM crypto keywords (#883, #905, #963, #997,
+    #1068, #1147, #1164, #1165)
   - use-after-free when another thread hits a fatal error (#885), on TCP
-    reconnection (#935), and when one of SIPp's own messages fails to
-    send (#991)
+    reconnection (#935, #1175), when one of SIPp's own messages fails to
+    send (#991), in an `<ereg search_in="var">` that assigns to the
+    variable it searches (#1145), and in a `~user/` path (#1163)
   - crashes with a Call-ID held by a dead call (#943), in 3PCC (#927,
     #944), on a final response to an INVITE repeated before its ACK
     (#942), with over 1024 RTP sockets (#999), with both an `rtp_stream`
     file and pattern (#1003), with `-trace_rtt` in `-rxsf` and `-oocsf`
     calls (#1039), on an option error with `-trace_counts` (#1037), on an
-    SRTP key of the wrong length (#1038), and on SCTP multihoming (#1092)
+    SRTP key of the wrong length (#1038), on SCTP multihoming (#1092),
+    on a response without a blank line after its headers with a pcap
+    play (#1138), on a `<label>` without an id in `<init>` (#1158), and
+    on `trace <log> on` after `off` with `-ringbuffer_files` (#1156)
+  - reads of uninitialized memory in an `<ereg search_in="body">` of a
+    message without a body (#1146), in `[server_ip]` when getsockname()
+    fails (#1148), and of the sockets of an rtp_stream whose local port
+    failed (#1141)
   - heap corruption when SIGTERM, SIGINT or `-timeout_error` interrupted
     a malloc (#1042, #1052)
-  - data races between the calls and the RTP threads (#977, #1108)
-  - memory and socket leaks (#884, #886, #945, #1018)
+  - data races between the calls and the RTP threads (#977, #1108,
+    #1140)
+  - memory and socket leaks (#886, #945, #1018)
 - SIP (by Orgad Shaneh):
   - a late provisional response (#909), a request retransmitted after
     two responses (#910) and a repeated ACK (#911) no longer abort the
@@ -140,10 +147,13 @@ marked **Breaking**.
     (#1086), and a call whose connection closes before its timewait no
     longer fails (#889)
   - reconnection: failed and refused connections, socket options, lost
-    buffered messages and setdest descriptors (#1011, #1091, #1095,
-    #1096, #1097; #1011 based on #611 by Alex Rodikov)
+    buffered messages and setdest descriptors, and a 3PCC twin socket
+    in a TLS run (#1011, #1091, #1095, #1096, #1097, #1168; #1011 based
+    on #611 by Alex Rodikov)
   - UDP: `-t un` without `-i` (#937), setdest on a `-t un` call (#939),
-    `-max_socket` reuse (#936) and `[local_port]` (#923, #938)
+    `-max_socket` reuse (#936), `[local_port]` (#923, #938), and an
+    `-ip_field` address that does not resolve fails the call rather than
+    binding the default address (#1151)
   - TLS: intermediate certificates are sent (#940), a handshake that
     arrives in pieces completes (#951), TLS 1.0 and 1.1 work with
     OpenSSL 3 (#990), a verified client can resume its session (#1045),
@@ -158,29 +168,38 @@ marked **Breaking**.
 - RTP, SRTP and pcap play (by Orgad Shaneh):
   - rtp_echo runs per call, so overlapping calls no longer stop or
     re-key each other's echo; it echoes plain RTP, whole packets and from
-    the first packet, without spinning (#895, #897, #903, #904, #979,
-    #1001, #1022, #1041, #1109)
+    the first packet, without spinning, and counts no echo that failed
+    to go out (#895, #897, #903, #904, #979, #1001, #1022, #1041, #1109,
+    #1139)
+  - each stream goes to the c= address of its own media section (#1137),
+    and rtp_stream and pcap play take a host name in `-mi` (#1181)
   - SRTP keys are per call (#1002), and crypto lines are parsed per
     media section, with UNENCRYPTED_SRTP, key lifetimes, MKIs, NULL
     suites and a start above sequence number 32768 (#893, #894, #900,
     #1029, #1050, #1051), also with wolfSSL (#1031)
+  - SRTP offer/answer: a call without media takes the crypto lines it
+    receives (#1178), and an answer handled in `_unexp.main` no longer
+    counts as an offer too (#1176)
   - the RTP check checks each call's pattern, and a pattern never echoed
     fails (#1021, #1073, #1074)
   - packets go out on time: audio beside video, `play_dtmf` and pcap
     pacing, a play starts at once (#896, #906, #908, #1100, #1102)
   - the RTCP socket is kept (#898), WAV chunk sizes and short files are
-    read right (#902, #1075), a missing `rtp_stream` file fails the load
-    again (#975), and `play_dtmf` clears the reserved bit and checks its
-    value at load (#907, #992)
+    read right (#902, #1075), a WAV file with no audio no longer hangs
+    the playback thread (#1144), a missing `rtp_stream` file fails the
+    load again (#975), and `play_dtmf` clears the reserved bit and checks
+    its value at load (#907, #992)
   - pcap: each packet's link header is read and IPv6 extension headers
     are skipped (#1072), the `-mp` port is used when the SDP lacks
-    `[media_port]` (#978), and SDP port counts and TTLs are parsed (#961)
+    `[media_port]` (#978), SDP port counts and TTLs are parsed (#961),
+    and a refused m= line (port 0) is skipped as rtp_stream does (#1157)
 - `rtp_stream` mixes a multi-channel WAV file down to mono, plays only
   its data chunk, and plays files over 2 GB (#863, by Orgad Shaneh,
   based on #864 by Raja amirapu)
-- Authentication (by Orgad Shaneh): AKAv1-MD5 with short keys, `0x`
-  keys and wolfSSL (#926, #964, #1014), and `-sess` algorithms no longer
-  taken for the plain ones (#966)
+- Authentication (by Orgad Shaneh): AKAv1-MD5 with short keys and `0x`
+  keys (#926, #964), `-sess` algorithms no longer taken for the plain
+  ones (#966), and a cnonce of 64 random bits rather than one guessable
+  `rand()` value (#1162)
 - Scenarios and keywords (by Orgad Shaneh):
   - each scenario's `<init>` runs, `-rxsf`'s too, with call number 0 and
     no line of a SEQUENTIAL `-inf` file (#924, #1078, #1079, #1087)
@@ -202,14 +221,19 @@ marked **Breaking**.
     call (#1034), `-trace_counts` for `<nop>` (#993), `-trace_screen`
     on every exit (#1055), buffered messages in `-trace_msg` (#1035),
     and the whole SIGUSR2 dump (#957)
+  - logs: `-X_overwrite` without `-X_file` no longer fails with "Unable
+    to create ''" (#1179), `trace messages on` turns the messages log
+    back on (#1174), and a ring buffer log that fails to rotate is kept
+    (#1172)
+  - a `~/` path expands from USERPROFILE when there is no HOME (#1173)
   - screens: periods, rates, times and padding (#920, #921, #928, #929,
     #931, #958, #1056, #1057, #1058)
   - uniform pauses and `-lost` keep the per-process random seed (#956),
     and `<exec command>` keeps stdin non-blocking (#955)
   - messages and warnings: a fatal error is printed once, logs opened
     before the scenario loads are named after sipp, variable names, and
-    spurious epoll and shutdown warnings (#913, #914, #930, #989, #995,
-    #1054, #1065, #1071)
+    spurious epoll and shutdown warnings, and an unknown `~user` in one
+    line (#913, #914, #930, #989, #995, #1054, #1065, #1071, #1180)
   - help texts of `-max_retrans` and `-sendbuffer_warn` (#917, #967)
 - Documentation and tests (by Orgad Shaneh): the docs build with current
   Sphinx (#949), exit codes, media ports and receive timeouts are
