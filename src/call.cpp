@@ -4893,8 +4893,10 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
 
 void call::queue_up(const char* msg, bool sdp_read)
 {
+    /* Copied first: msg may be the message queued before. */
+    char* copy = strdup(msg);
     free(queued_msg);
-    queued_msg = strdup(msg);
+    queued_msg = copy;
     queued_sdp_read = sdp_read;
 }
 
