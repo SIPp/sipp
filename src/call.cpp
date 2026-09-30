@@ -2932,13 +2932,15 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             struct sockaddr_storage server_sockaddr;
 
             sipp_socklen_t len = sizeof(server_sockaddr);
-            getsockname(call_socket->ss_fd,
-                        (sockaddr *)(void *)&server_sockaddr, &len);
+            if (getsockname(call_socket->ss_fd,
+                            (sockaddr *)(void *)&server_sockaddr, &len) < 0) {
+                ERROR_NO("Unable to get the socket name");
+            }
 
             char address[INET6_ADDRSTRLEN];
-            if (getnameinfo(_RCAST(sockaddr*, &server_sockaddr), len, address, sizeof(address),
-                            nullptr, 0, NI_NUMERICHOST) < 0) {
-                ERROR_NO("Unable to get socket name information");
+            if (int err = getnameinfo(_RCAST(sockaddr*, &server_sockaddr), len, address, sizeof(address),
+                                      nullptr, 0, NI_NUMERICHOST)) {
+                ERROR("Unable to get socket name information: %s", gai_strerror(err));
             }
 
             out += address;
