@@ -640,8 +640,8 @@ void SendingMessage::parseAuthenticationKeyword(scenario *msg_scenario, struct M
         getKeywordParam(keyword, "password=", my_aka, false);
     }
     if (my_aka[0]==0) {
-        strncpy(my_aka, my_auth_pass, KEYWORD_SIZE);
-        my_aka[KEYWORD_SIZE] = 0;
+        /* The same size, and terminated */
+        memcpy(my_aka, my_auth_pass, sizeof(my_aka));
     }
     dst->comp_param.auth_param.aka_K = new SendingMessage(msg_scenario, my_aka, true);
 
