@@ -419,7 +419,8 @@ static bool xp_get_bool(const char *name, const char *what, bool defval)
     return xp_get_bool(name, what);
 }
 
-int scenario::get_txn(const char *txnName, const char *what, bool start, bool isInvite, bool isAck)
+int scenario::get_txn(const char *txnName, const char *what, bool start, bool isInvite, bool isAck,
+                      bool server)
 {
     /* Check the name's validity. */
     if (txnName[0] == '\0') {
@@ -429,45 +430,38 @@ int scenario::get_txn(const char *txnName, const char *what, bool start, bool is
         ERROR("Transaction names may not contain '$' or ',' for %s", what);
     }
 
-    /* If this transaction has already been used, then we have nothing to do. */
+    int txnNum;
     str_int_map::iterator txn_it = txnMap.find(txnName);
     if (txn_it != txnMap.end()) {
-        if (start) {
-            /* We need to fill in the invite field. */
-            transactions[txn_it->second - 1].started++;
-        } else if (isAck) {
-            transactions[txn_it->second - 1].acks++;
-        } else {
-            transactions[txn_it->second - 1].responses++;
-        }
-        return txn_it->second;
-    }
-
-    /* Assign this variable the next slot. */
-    struct txnControlInfo transaction;
-
-    transaction.name = txnName;
-    if (start) {
-        transaction.started = 1;
-        transaction.responses = 0;
-        transaction.acks = 0;
-        transaction.isInvite = isInvite;
-    } else if (isAck) {
-        /* Does not start or respond to this txn. */
-        transaction.started = 0;
-        transaction.responses = 0;
-        transaction.acks = 1;
-        transaction.isInvite = false;
+        txnNum = txn_it->second;
     } else {
+        /* Assign this variable the next slot. */
+        struct txnControlInfo transaction;
+
+        transaction.name = txnName;
         transaction.started = 0;
-        transaction.responses = 1;
+        transaction.responses = 0;
         transaction.acks = 0;
-        transaction.isInvite = false;
+        transaction.isInvite = start && isInvite;
+        transactions.push_back(std::move(transaction));
+        txnNum = transactions.size();
+        txnMap[txnName] = txnNum;
     }
 
-    transactions.push_back(std::move(transaction));
-    int txnNum = transactions.size();
-    txnMap[txnName] = txnNum;
+    txnControlInfo &transaction = transactions[txnNum - 1];
+    if (start) {
+        if (transaction.started && transaction.server != server) {
+            ERROR("Transaction %s is started by both a sent and a received message", txnName);
+        }
+        transaction.started++;
+        transaction.server = server;
+    } else if (isAck) {
+        transaction.acks++;
+    } else if (server) {
+        transaction.sent_responses++;
+    } else {
+        transaction.responses++;
+    }
 
     return txnNum;
 }
@@ -661,6 +655,20 @@ void scenario::validate_txn_usage()
     for (unsigned int i = 0; i < transactions.size(); i++) {
         if(transactions[i].started == 0) {
             ERROR("Transaction %s is never started!", transactions[i].name.c_str());
+        }
+        if (transactions[i].server) {
+            /* Started by a received request: we send its responses */
+            if (transactions[i].sent_responses == 0) {
+                ERROR("Transaction %s has no responses defined!", transactions[i].name.c_str());
+            } else if (transactions[i].responses || transactions[i].acks) {
+                ERROR("Transaction %s is started by a received request: it takes no received responses or ACK!",
+                      transactions[i].name.c_str());
+            }
+            continue;
+        }
+        if (transactions[i].sent_responses) {
+            ERROR("Transaction %s is started by a sent request: it takes no sent responses!",
+                  transactions[i].name.c_str());
         } else if(transactions[i].responses == 0) {
             ERROR("Transaction %s has no responses defined!", transactions[i].name.c_str());
         }
@@ -973,6 +981,9 @@ scenario::scenario(char * filename, int deflt)
                         }
                         strcpy(method_list + len, method);
                     }
+                    if (xp_get_value("response_txn")) {
+                        ERROR("response_txn can only be used for received responses or sent responses.");
+                    }
                 } else {
                     if (xp_get_value("start_txn")) {
                         ERROR("Responses can not start a transaction");
@@ -980,10 +991,9 @@ scenario::scenario(char * filename, int deflt)
                     if (xp_get_value("ack_txn")) {
                         ERROR("Responses can not ACK a transaction");
                     }
-                }
-
-                if (xp_get_value("response_txn")) {
-                    ERROR("response_txn can only be used for received messages.");
+                    if ((cptr = xp_get_value("response_txn"))) {
+                        curmsg->response_txn = get_txn(cptr, "transaction response", false, false, false, true);
+                    }
                 }
 
                 curmsg -> retrans_delay = xp_get_long("retrans", "retransmission timer", 0);
@@ -1005,6 +1015,12 @@ scenario::scenario(char * filename, int deflt)
                     curmsg->recv_request = strdup(cptr);
                     if (xp_get_value("response_txn")) {
                         ERROR("response_txn can only be used for received responses.");
+                    }
+                    if ((cptr = xp_get_value("start_txn"))) {
+                        if (!strcmp(curmsg->recv_request, "ACK")) {
+                            ERROR("An ACK message can not start a transaction!");
+                        }
+                        curmsg->start_txn = get_txn(cptr, "start transaction", true, false, false, true);
                     }
                 }
 

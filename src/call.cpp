@@ -1390,6 +1390,8 @@ call::~call()
     if (transactions) {
         for (unsigned int i = 0; i < call_scenario->transactions.size(); i++) {
             free(transactions[i].txnID);
+            free(transactions[i].request);
+            free(transactions[i].response);
         }
         free(transactions);
     }
@@ -2221,11 +2223,21 @@ bool call::executeMessage(message *curmsg)
             incr_cseq = 1;
         }
 
+        /* A response in a transaction a received request started: the
+         * [last_*] keywords are of that request. */
+        txnInstanceInfo *answered = nullptr;
+        if (curmsg->response_txn && transactions[curmsg->response_txn - 1].request) {
+            answered = &transactions[curmsg->response_txn - 1];
+            std::swap(last_recv_msg, answered->request);
+        }
         msg_snd = send_scene(msg_index, &send_status, &msgLen);
         if (!msg_snd) {
             /* The connection failed and connect_socket_if_needed() deleted
              * the call, so we should no longer access members. */
             return false;
+        }
+        if (answered) {
+            std::swap(last_recv_msg, answered->request);
         }
 
         if(send_status < 0 && errno == EWOULDBLOCK) {
@@ -2287,8 +2299,22 @@ bool call::executeMessage(message *curmsg)
         if (curmsg->ack_txn) {
             transactions[curmsg->ack_txn - 1].ackIndex = curmsg->index;
         }
+        if (answered) {
+            /* A retransmission of the request gets it again */
+            answered->response = (char *)realloc(answered->response, msgLen + 1);
+            if (!answered->response) {
+                ERROR("Out of memory!");
+            }
+            memcpy(answered->response, msg_snd, msgLen);
+            answered->response[msgLen] = '\0';
+            answered->responseLen = msgLen;
+            answered->responseIndex = curmsg->index;
+        }
 
-        if(last_recv_index >= 0 && last_recv_hash) {
+        /* A response to an earlier request than the last received is
+         * not what a retransmission of the last one should get. */
+        if(last_recv_index >= 0 && last_recv_hash &&
+                (!answered || answered->requestHash == last_recv_hash)) {
             /* We are sending just after msg reception. There is a great
              * chance that we will be asked to retransmit this message */
             recv_retrans_hash       = last_recv_hash;
@@ -5208,6 +5234,25 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
             call_scenario->messages[last_recv_index]->nb_recv_retrans++;
             return true;
         }
+
+        /* A request of a transaction started before the last message:
+         * the last response we sent in it, if any, goes again. */
+        for (unsigned int i = 0; i < call_scenario->transactions.size(); i++) {
+            txnInstanceInfo &txn_info = transactions[i];
+            if (!txn_info.request || txn_info.requestHash != cookie) {
+                continue;
+            }
+            call_scenario->messages[txn_info.requestIndex]->nb_recv_retrans++;
+            if (!txn_info.response) {
+                return true;
+            }
+            if (send_raw(txn_info.response, txn_info.responseIndex, txn_info.responseLen) < 0) {
+                return false;
+            }
+            call_scenario->messages[txn_info.responseIndex]->nb_sent_retrans++;
+            computeStat(CStat::E_RETRANSMISSION);
+            return true;
+        }
     }
 
     /* Check if message has a SDP in it; and extract media information.
@@ -6113,6 +6158,20 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
     /* If we are part of a transaction, mark this as the final response. */
     if (int checkTxn = call_scenario->messages[search_index]->response_txn) {
         transactions[checkTxn - 1].txnResp = hash(msg);
+    }
+
+    /* A request that starts a transaction: kept for its responses */
+    if (found && call_scenario->messages[search_index]->start_txn) {
+        txnInstanceInfo &txn_info = transactions[call_scenario->messages[search_index]->start_txn - 1];
+        free(txn_info.request);
+        free(txn_info.response);
+        txn_info.request = strdup(msg);
+        if (!txn_info.request) {
+            ERROR("Out of memory!");
+        }
+        txn_info.requestHash = cookie;
+        txn_info.requestIndex = search_index;
+        txn_info.response = nullptr;
     }
 
 

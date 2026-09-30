@@ -251,6 +251,19 @@ List of commands with their attributes
           <send ack_txn="invite">
 
         References the branch ID of the transaction named "invite".
+    * -
+      - ``response_txn``
+      - Indicates that this response answers the request received with
+        a start_txn attribute. The [last_*] keywords (such as [last_Via:],
+        [last_CSeq:] and [last_Request_URI]) take their values from that
+        request, not from the last message received, so a request can be
+        answered after other requests came. A retransmission of that
+        request gets the last response sent in the transaction again.
+      - ::
+
+          <send response_txn="invite">
+
+        Answers the request received with start_txn="invite".
     * - **<recv>**
       - response
       - Indicates what SIP message code is expected.
@@ -406,6 +419,16 @@ List of commands with their attributes
 
         Matches only responses to the message sent with start_txn="invite"
         attribute.
+    * -
+      - ``start_txn``
+      - Keeps this received request in the named transaction, for the
+        responses sent with a response_txn attribute.
+      - ::
+
+          <recv request="INVITE" start_txn="invite" />
+          <recv request="PRACK" start_txn="prack" />
+          <send response_txn="prack"> <!-- 200 for the PRACK -->
+          <send response_txn="invite"> <!-- 200 for the INVITE -->
     * - ``<pause>``
       - milliseconds
       - Specify the pause delay, in milliseconds. When this delay is not set, the value of

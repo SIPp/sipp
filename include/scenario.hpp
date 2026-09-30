@@ -172,6 +172,9 @@ struct txnControlInfo {
     int acks;
     int started;
     int responses;
+    /* Started by a received request, answered by sent responses */
+    bool server = false;
+    int sent_responses = 0;
 };
 typedef std::vector<txnControlInfo> txnvec;
 
@@ -234,7 +237,9 @@ private:
     void validate_variable_usage();
     void validate_txn_usage();
 
-    int get_txn(const char *txnName, const char *what, bool start, bool isInvite, bool isAck);
+    /* server: a received request starts it, or a sent response answers it */
+    int get_txn(const char *txnName, const char *what, bool start, bool isInvite, bool isAck,
+                bool server = false);
     int xp_get_var(const char *name, const char *what);
     int xp_get_var(const char *name, const char *what, int defval);
 

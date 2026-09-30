@@ -13,6 +13,9 @@ Keyword list
   until the end of the line are also discarded. If the specified header
   was present several times in the message, all occurrences are
   concatenated (comma separated) to be used in place of the '[last_*]' keyword.
+  In a ``<send response_txn="name">``, the message is the request received
+  with ``start_txn="name"``, as for ``[last_cseq_number]``, ``[last_message]``
+  and ``[last_Request_URI]``.
 
 ``[last_*.value]``
 ==================
