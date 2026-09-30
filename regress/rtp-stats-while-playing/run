@@ -1,0 +1,20 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# rtp_stats gives the whole payload of a packet the call receives while
+# it plays a stream of smaller packets: the UAC plays G.729 (20 bytes a
+# packet) and gets the UAS's PCMA ringback (160).
+. "`dirname "$0"`/../functions"; init
+
+head -c 2000 /dev/zero >g729.raw
+sippbg -sf uas.xml -i 127.0.0.1 -p 25760 -m 1 \
+    -min_rtp_port 29660 -max_rtp_port 29669 -timeout 10
+sippfg -sf uac.xml -i 127.0.0.1 -p 25761 -m 1 \
+    -min_rtp_port 29670 -max_rtp_port 29679 \
+    127.0.0.1:25760 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait
+rm -f g729.raw
+if test $status -ne 0; then
+    fail "the UAC exited $status, not 0"
+fi
+ok
