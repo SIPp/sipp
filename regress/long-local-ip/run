@@ -1,0 +1,23 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An IPv4 -i longer than 41 characters, which inet_aton() takes with
+# leading zeros, overran local_ip_w_brackets: the port in the Via of
+# the UAC's INVITE came out garbled.
+. "`dirname "$0"`/../functions"; init
+
+ip=127.0.0.0000000000000000000000000000000000000000000000000000000000001
+rm -f uac.log
+sippbg -sn uas -i 127.0.0.1 -p 5070 -m 1
+sippfg -sn uac -i $ip -p 5071 -m 1 127.0.0.1:5070 \
+    -trace_msg -message_file uac.log -timeout 8 -timeout_error >/dev/null 2>&1
+status=$?
+vias=`grep -c "^Via: SIP/2.0/UDP $ip:5071;" uac.log`
+rm -f uac.log
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test $vias -eq 0; then
+    fail "no Via with the UAC's IP and port"
+else
+    ok
+fi
