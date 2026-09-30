@@ -300,9 +300,11 @@ static void rotatef(struct logfile_info* lfi)
                         (unsigned long)(lfi->ftimes)[lfi->nfiles].start);
             }
             lfi->nfiles++;
-            fflush(lfi->fptr);
-            fclose(lfi->fptr);
-            lfi->fptr = nullptr;
+            /* None open after a "trace ... off" */
+            if (lfi->fptr) {
+                fclose(lfi->fptr);
+                lfi->fptr = nullptr;
+            }
             rename(lfi->file_name, L_rotate_file_name);
         }
     }
