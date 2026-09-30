@@ -2856,6 +2856,28 @@ static bool is_numeric_host(const char *host)
     return true;
 }
 
+/* -round_robin: the addresses of host on port in the family of
+ * remote_sockaddr, in remote_addresses. */
+static void get_remote_addresses(const char *host, int port)
+{
+    const struct addrinfo hints = {AI_PASSIVE, remote_sockaddr.ss_family, SOCK_DGRAM,};
+    struct addrinfo *res;
+    const std::string service = std::to_string(port);
+
+    if (getaddrinfo(host, service.c_str(), &hints, &res) != 0) {
+        return;
+    }
+    for (const struct addrinfo *ai = res; ai; ai = ai->ai_next) {
+        remote_address a = {};
+        memcpy(&a.addr, ai->ai_addr, ai->ai_addrlen);
+        char ip[sizeof(remote_ip)];
+        a.ip = get_inet_address(&a.addr, ip, sizeof(ip));
+        a.ip_w_brackets = a.addr.ss_family == AF_INET6 ? "[" + a.ip + "]" : a.ip;
+        remote_addresses.push_back(a);
+    }
+    freeaddrinfo(res);
+}
+
 int open_connections()
 {
     int status=0;
@@ -2867,6 +2889,9 @@ int open_connections()
             ERROR("Missing remote host parameter. This scenario requires it");
         }
     } else {
+        if (round_robin && transport_is_reliable(transport) && !multisocket) {
+            ERROR("-round_robin needs UDP or one socket per call (-t un, tn, ln...)");
+        }
         int temp_remote_port;
         get_host_and_port(remote_host, remote_host, &temp_remote_port);
         if (temp_remote_port != 0) {
@@ -2921,6 +2946,7 @@ int open_connections()
                       srv_name.c_str());
             }
             bool resolved = false;
+            const char *resolved_host = remote_host;
             if (records.empty()) {
                 resolved = gai_getsockaddr(&remote_sockaddr, remote_host,
                                            remote_port, hints.ai_flags,
@@ -2932,6 +2958,7 @@ int open_connections()
                                         r.port, hints.ai_flags,
                                         hints.ai_family, prefer) == 0) {
                     remote_port = r.port;
+                    resolved_host = r.target.c_str();
                     fprintf(stderr, "%sSRV %s: %s:%d. ",
                             naptr ? "NAPTR, " : "", srv_name.c_str(),
                             r.target.c_str(), remote_port);
@@ -2942,6 +2969,15 @@ int open_connections()
             if (!resolved) {
                 ERROR("Unknown remote host '%s'.\n"
                       "Use 'sipp -h' for details", remote_host);
+            }
+            if (round_robin) {
+                get_remote_addresses(resolved_host, remote_port);
+                if (!remote_addresses.empty()) {
+                    remote_sockaddr = remote_addresses[0].addr;
+                }
+                if (remote_addresses.size() > 1) {
+                    fprintf(stderr, "%zu addresses. ", remote_addresses.size());
+                }
             }
 
             get_inet_address(&remote_sockaddr, remote_ip, sizeof(remote_ip));

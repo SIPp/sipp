@@ -43,6 +43,7 @@ Keyword list
 ===============
 :Description: Remote IP address, resolved from the hostname as passed on the command line
   (over DNS NAPTR and SRV records, if it has no port: see :doc:`/transport`).
+  With -round_robin, the address the call was made to.
 
 ``[remote_port]``
 =================

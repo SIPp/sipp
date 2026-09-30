@@ -159,9 +159,17 @@ bool CallGenerationTask::run()
 
         // Adding a new outgoing call
         main_scenario->stats->computeStat(CStat::E_CREATE_OUTGOING_CALL);
-        call* call_ptr = call::add_call(userid,
-                                         local_ip_is_ipv6,
-                                         use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr);
+        struct sockaddr_storage *dest = use_remote_sending_addr ? &remote_sending_sockaddr : &remote_sockaddr;
+        /* -round_robin: the remote host's next address. */
+        remote_address *remote = nullptr;
+        if (remote_addresses.size() > 1) {
+            static size_t next_remote = 0;
+            remote = &remote_addresses[next_remote++ % remote_addresses.size()];
+            if (!use_remote_sending_addr) {
+                dest = &remote->addr;
+            }
+        }
+        call* call_ptr = call::add_call(userid, local_ip_is_ipv6, dest, remote);
         if(!call_ptr) {
             ERROR("Out of memory allocating call!");
         }

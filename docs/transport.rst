@@ -241,6 +241,25 @@ With no SRV records, the host name is resolved as is, on port 5060.
 An IP address, or a host name with a port, is not looked up this way.
 
 
+DNS round robin
+```````````````
+
+With ``-round_robin``, a remote host name with several addresses gets
+the calls in turn: each new call goes to the next address, and
+``[remote_ip]`` is that address. The addresses are looked up once, at
+startup, so there is no DNS lookup per call; they are those of the
+family of the first one, and for a name found through SRV, those of the
+SRV target. It works over UDP, and over TCP, TLS or SCTP with one
+socket per call (``-t tn``, ``ln``, ``sn``); with a single socket
+(``-t t1``) SIPp refuses it. Past ``-max_socket``, a call that shares
+another call's TCP, TLS or SCTP socket goes where that one is
+connected.
+
+::
+
+    ./sipp -sn uac -round_robin -t tn sip.example.com:5060
+
+
 Multi-socket limit
 ``````````````````
 
