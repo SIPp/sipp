@@ -1941,11 +1941,27 @@ void scenario::parseAction(CActions *actions)
             }
             tmpAction->setDoubleValue(cptr && !strcmp(cptr, "video"));
             rtp_stats_used = true;
+        } else if (!strcmp(actionElem, "rtp_dtmf")) {
+            tmpAction->setActionType(CAction::E_AT_RTP_DTMF);
+            if (!(cptr = xp_get_value("assign_to"))) {
+                ERROR("assign_to value is missing in rtp_dtmf");
+            }
+            tmpAction->setVarId(get_var(cptr, "rtp_dtmf assign_to"));
+            long pt = 96;
+            if ((cptr = xp_get_value("payload_type"))) {
+                pt = get_long(cptr, "rtp_dtmf payload_type");
+                if (pt < 0 || pt > 127) {
+                    ERROR("rtp_dtmf payload_type must be from 0 to 127, not %s", cptr);
+                }
+            }
+            tmpAction->setDoubleValue(pt);
+            rtp_dtmf_payload_types[pt] = true;
+            rtp_stats_used = true;
         } else if (!strcmp(actionElem, "rtp_echo")) {
             tmpAction->setActionType(CAction::E_AT_RTP_ECHO);
             handle_rhs(tmpAction, "rtp_echo");
         } else {
-          ERROR("Unknown action: %s", actionElem);
+            ERROR("Unknown action: %s", actionElem);
         }
 
         /* If the action was not well-formed, there should have already been an

@@ -183,6 +183,9 @@ void CAction::printInfo(char* buf, int len)
     } else if (M_action == E_AT_RTP_STATS) {
         snprintf(buf, len, "Type[%d] - rtp_stats %s [%s]", M_action, M_doubleValue ? "video" : "audio",
                  display_scenario->allocVars->getName(M_varId));
+    } else if (M_action == E_AT_RTP_DTMF) {
+        snprintf(buf, len, "Type[%d] - rtp_dtmf payload type %.0f [%s]", M_action, M_doubleValue,
+                 display_scenario->allocVars->getName(M_varId));
     } else if (M_action == E_AT_RTP_STREAM_PLAYAPATTERN) {
         snprintf(buf,
                  len,

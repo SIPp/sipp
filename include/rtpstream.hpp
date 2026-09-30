@@ -23,6 +23,8 @@
 #include <cstdint>
 #include <mutex>
 #include <string>
+#include <utility>
+#include <vector>
 #include <sys/socket.h>
 
 #ifdef PCAPPLAY
@@ -62,13 +64,18 @@ struct SrtpInfoParams
 struct threaddata_t;
 struct taskentry_t;
 
-/* The RTP a call received on its audio or video port, for <rtp_stats> */
+/* The RTP a call received on its audio or video port, for <rtp_stats>
+ * and <rtp_dtmf> */
 struct rtpstream_received_t
 {
     unsigned long        packets;
     /* of the first packet, as it came: with SRTP, still encrypted */
     int                  first_pt = -1;
     std::string          first_payload;
+    /* the digits of the RFC 4733 events that came, each with its payload
+     * type, and the timestamp of the last, whose repeats are the same */
+    std::vector<std::pair<uint8_t, char>> dtmf;
+    uint32_t dtmf_timestamp;
 };
 
 /* Made with new taskentry_t(), which zeroes what has no initializer */

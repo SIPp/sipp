@@ -38,6 +38,8 @@ marked **Breaking**.
   ringback (#256, by Orgad Shaneh)
 - `play_pcap_text` plays a real-time text (RFC 4103) capture to the
   port of the `m=text` line (#403, by Orgad Shaneh)
+- `<rtp_dtmf>` assigns the RFC 4733 DTMF digits a call received to a
+  variable (#407, by Orgad Shaneh)
 - `<recv timeout_variable>` takes the receive timeout from a call
   variable (#968, by Orgad Shaneh)
 - `start_rtd` and `rtd` take a comma-separated list of timers (#970, by

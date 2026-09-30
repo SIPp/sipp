@@ -286,7 +286,7 @@ The rtp_stats action assigns what the call's audio port (or its video
 port, with ``media="video"``) received: the number of RTP packets to
 the first variable of assign_to, and, if given, the payload type and
 the payload of the first packet, in hex, to the second and the third.
-When a scenario has rtp_stats, its calls count the RTP that comes on
+When a scenario has rtp_stats or rtp_dtmf, its calls count the RTP that comes on
 their ``rtp_stream`` ports from the first packet on, even when they
 play and echo nothing, as with a ringback before the call is answered. With no packet, they are 0, -1 and
 an empty string. The payload is the packet's as it came, so with SRTP
@@ -311,6 +311,26 @@ before the 200 OK::
         <ereg regexp="^(d5)+$" search_in="var" variable="payload" assign_to="ok" check_it="true" />
       </action>
     </recv>
+
+The rtp_dtmf action assigns the DTMF digits the call's audio port
+received as :RFC:`4733` (:RFC:`2833`) telephone-events to the string
+variable of assign_to, in the order they came: each event is one digit,
+from 0-9, \*, #, and A-D, however many packets it has. payload_type is
+the payload type of the events, as in the SDP (0 to 127, the default is
+96, as for play_dtmf); packets of other payload types are not events. As
+for rtp_stats, the call reads the RTP on its ``rtp_stream`` port, and
+not with SRTP; the digits are those that came so far, and with none the
+variable is empty. In-band DTMF tones are not decoded.
+
+Example that fails the call unless the far end sent the digits 1234::
+
+    <nop>
+      <action>
+        <rtp_dtmf assign_to="digits" payload_type="101" />
+        <strcmp assign_to="cmp" variable="digits" value="1234" />
+        <test assign_to="ok" variable="cmp" compare="equal" value="0" check_it="true" />
+      </action>
+    </nop>
 
 
 PCAP play commands (specified using play_pcap_audio / play_pcap_video /

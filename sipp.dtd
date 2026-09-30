@@ -105,7 +105,7 @@
 <!ELEMENT CallLengthRepartition EMPTY >
 <!ATTLIST CallLengthRepartition value CDATA #REQUIRED >
 
-<!ELEMENT action ( add | assign | assignstr | closecon | divide | ereg | error | exec | gettimeofday | index | insert | jump | log | lookup | multiply | pauserestore | replace | rtp_echo | rtp_stats | sample | setdest | strcmp | subtract | test | todouble | trim | urldecode | urlencode | verifyauth | warning )+ >
+<!ELEMENT action ( add | assign | assignstr | closecon | divide | ereg | error | exec | gettimeofday | index | insert | jump | log | lookup | multiply | pauserestore | replace | rtp_dtmf | rtp_echo | rtp_stats | sample | setdest | strcmp | subtract | test | todouble | trim | urldecode | urlencode | verifyauth | warning )+ >
 
 <!-- BEGIN actions -->
 
@@ -171,6 +171,10 @@
 <!ELEMENT rtp_stats EMPTY >
 <!ATTLIST rtp_stats assign_to CDATA #REQUIRED >
 <!ATTLIST rtp_stats media (audio|video) "audio" >
+
+<!ELEMENT rtp_dtmf EMPTY >
+<!ATTLIST rtp_dtmf assign_to CDATA #REQUIRED >
+<!ATTLIST rtp_dtmf payload_type CDATA "96" >
 
 <!ELEMENT strcmp EMPTY >
 <!ATTLIST strcmp %comparison; >
