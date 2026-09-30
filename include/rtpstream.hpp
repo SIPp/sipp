@@ -68,6 +68,8 @@ struct taskentry_t
     /* the audio and video RTP sockets its thread watches for the echo,
      * or -1 */
     int                  echo_watched[2] = {-1, -1};
+    /* when its thread next reads what came on its RTCP sockets */
+    unsigned long        rtcp_drain_ms;
     /* TI_* flags: the call's thread and the playback thread both set and
      * clear them, with atomic read-modify-writes that lose neither's */
     std::atomic<int>     flags;

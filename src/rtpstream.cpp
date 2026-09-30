@@ -65,6 +65,7 @@ template<class T> using my_unique_ptr = std::unique_ptr<T, free_delete>;
 #define RTPSTREAM_THREADBLOCKSIZE     16
 #define MAX_UDP_RECV_BUFFER           8192
 #define MAX_UDP_SEND_BUFFER           8192
+#define RTCP_DRAIN_MS                 1000
 
 #define TI_NULL_AUDIOIP               0x001
 #define TI_NULL_VIDEOIP               0x002
@@ -748,7 +749,6 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     unsigned long        next_wake;
     unsigned long long   target_timestamp;
     int                  compresult;
-    struct pollfd        pfd;
     /* packet buffers, kept by the playback thread for its next packet */
     static thread_local std::vector<unsigned char> rtp_header;
     static thread_local std::vector<unsigned char> payload_data;
@@ -765,6 +765,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     unsigned short audio_seq_in = 0;
     unsigned short video_seq_in = 0;
     bool audio_echo = false; /* an echo came in */
+    bool video_echo = false;
     bool paused;
 
     union {
@@ -792,11 +793,16 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
         char buffer[MAX_UDP_SEND_BUFFER];
     } udp_send_video;
 
-
-    pfd.events = POLLIN;
-
     *comparison_acheck = 0;
     *comparison_vcheck = 0;
+
+    /* RTCP, which is only read to keep its socket from filling up: once a
+     * second, rather than a read a packet that finds nothing */
+    const bool drain_rtcp = timenow_ms >= taskinfo->rtcp_drain_ms;
+    if (drain_rtcp)
+    {
+        taskinfo->rtcp_drain_ms = timenow_ms + RTCP_DRAIN_MS;
+    }
 
     debugafile.printHex("----AUDIO RTP SOCKET----", "", 0, taskindex, taskinfo->audio_rtp_socket);
     debugvfile.printHex("----VIDEO RTP SOCKET----", "", 0, taskindex, taskinfo->video_rtp_socket);
@@ -898,33 +904,30 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                     debugafile.printHexUS("SIPP SUCCESS SEND LOG: ", audio_out.data(), audio_out.size(), rc, rtpstream_apckts);
 
-                    /* poll(), not select(): the socket may be >= FD_SETSIZE */
-                    pfd.fd = taskinfo->audio_rtp_socket;
-                    rc = poll(&pfd, 1, 0); /* Never block */
-
-                    if (rc > 0)
+                    /* this is temp code - will have to reorganize if/when we include echo functionality */
+                    /* just keep listening on rtp socket (is this really required?) - ignore any errors */
+                    if (rx)
                     {
-                        /* this is temp code - will have to reorganize if/when we include echo functionality */
-                        /* just keep listening on rtp socket (is this really required?) - ignore any errors */
-                        if (rx)
-                        {
-                            audio_in_size = sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet + rx->getAuthenticationTagSize();
-                        }
-                        else
-                        {
-                            // NOENCRYPTION
-                            audio_in_size = sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet;
-                        }
+                        audio_in_size = sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet + rx->getAuthenticationTagSize();
+                    }
+                    else
+                    {
+                        // NOENCRYPTION
+                        audio_in_size = sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet;
+                    }
 
-                        audio_in.assign(audio_in_size, 0);
-                        while ((rc = recv(taskinfo->audio_rtp_socket, audio_in.data(), audio_in.size(), 0)) >= 0)
-                        {
-                            audio_echo = true;
-                            /* for now we will just ignore any received data or receive errors */
-                            /* separate code path for RTP echo */
-                            rtpstream_abytes_in.fetch_add(rc, std::memory_order_relaxed);
-                            debugafile.printHexUS("SIPP SUCCESS RECV LOG: ", audio_in.data(), audio_in.size(), rc, rtpstream_apckts);
-                        }
+                    audio_in.assign(audio_in_size, 0);
+                    while ((rc = recv(taskinfo->audio_rtp_socket, audio_in.data(), audio_in.size(), 0)) >= 0)
+                    {
+                        audio_echo = true;
+                        /* for now we will just ignore any received data or receive errors */
+                        /* separate code path for RTP echo */
+                        rtpstream_abytes_in.fetch_add(rc, std::memory_order_relaxed);
+                        debugafile.printHexUS("SIPP SUCCESS RECV LOG: ", audio_in.data(), audio_in.size(), rc, rtpstream_apckts);
+                    }
+
+                    if (audio_echo)
+                    {
                         if (rx)
                         {
                             // DECRYPT
@@ -1068,7 +1071,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
         }
     } // if (taskinfo->audio_rtp_socket != -1)
 
-    if (taskinfo->audio_rtcp_socket != -1)
+    if (drain_rtcp && taskinfo->audio_rtcp_socket != -1)
     {
         /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
         while ((rc = recv(taskinfo->audio_rtcp_socket, udp_recv_temp.buffer, sizeof(udp_recv_temp.buffer), 0)) >= 0)
@@ -1166,32 +1169,30 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                     debugvfile.printHexUS("SIPP SUCCESS SEND LOG: ", video_out.data(), video_out.size(), rc, rtpstream_vpckts);
 
-                    /* poll(), not select(): the socket may be >= FD_SETSIZE */
-                    pfd.fd = taskinfo->video_rtp_socket;
-                    rc = poll(&pfd, 1, 0); /* Never block */
-
-                    if (rc > 0)
+                    /* this is temp code - will have to reorganize if/when we include echo functionality */
+                    /* just keep listening on rtp socket (is this really required?) - ignore any errors */
+                    if (rx)
                     {
-                        /* this is temp code - will have to reorganize if/when we include echo functionality */
-                        /* just keep listening on rtp socket (is this really required?) - ignore any errors */
-                        if (rx)
-                        {
-                            video_in_size = sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet + rx->getAuthenticationTagSize();
-                        }
-                        else
-                        {
-                            // NOENCRYPTION
-                            video_in_size = sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet;
-                        }
+                        video_in_size = sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet + rx->getAuthenticationTagSize();
+                    }
+                    else
+                    {
+                        // NOENCRYPTION
+                        video_in_size = sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet;
+                    }
 
-                        video_in.assign(video_in_size, 0);
-                        while ((rc = recv(taskinfo->video_rtp_socket, video_in.data(), video_in.size(), 0)) >= 0)
-                        {
-                            /* for now we will just ignore any received data or receive errors */
-                            /* separate code path for RTP echo */
-                            rtpstream_vbytes_in.fetch_add(rc, std::memory_order_relaxed);
-                            debugvfile.printHexUS("SIPP SUCCESS RECV LOG: ", video_in.data(), video_in.size(), rc, rtpstream_vpckts);
-                        }
+                    video_in.assign(video_in_size, 0);
+                    while ((rc = recv(taskinfo->video_rtp_socket, video_in.data(), video_in.size(), 0)) >= 0)
+                    {
+                        video_echo = true;
+                        /* for now we will just ignore any received data or receive errors */
+                        /* separate code path for RTP echo */
+                        rtpstream_vbytes_in.fetch_add(rc, std::memory_order_relaxed);
+                        debugvfile.printHexUS("SIPP SUCCESS RECV LOG: ", video_in.data(), video_in.size(), rc, rtpstream_vpckts);
+                    }
+
+                    if (video_echo)
+                    {
 
                         if (rx)
                         {
@@ -1319,7 +1320,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
         }
     }
 
-    if (taskinfo->video_rtcp_socket != -1)
+    if (drain_rtcp && taskinfo->video_rtcp_socket != -1)
     {
         /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
         while ((rc = recv(taskinfo->video_rtcp_socket, udp_recv_temp.buffer, sizeof(udp_recv_temp), 0)) >= 0)
@@ -1343,9 +1344,14 @@ struct rtpecho_buffers_t
     std::vector<unsigned char> packet_out;
 };
 
-/* the most packets to echo for a call at a time, so that a flood on one
- * call holds neither its playback thread nor its mutex */
-#define RTPECHO_MAX_BURST 32
+/* the packets to echo for a call at a time: one, as its poller, level-
+ * triggered, returns the socket again while more wait, and a read that
+ * finds none left would be one more system call a packet */
+#define RTPECHO_MAX_BURST 1
+
+/* how long the packets to echo gather once some came, rather than the
+ * thread waking up for each one */
+#define RTPECHO_GATHER_US 1000
 
 /* Watch a call's audio or video RTP socket for the echo: fd, or -1 for
  * none. The thread calls it for a task after anything that closes one of
@@ -1704,6 +1710,11 @@ static void* rtpstream_playback_thread(void* params)
                 }
                 if (timeout_ms > 0)
                 {
+                    sleeptime_us = (long long) (waketime_us - getmicroseconds() - shift_us);
+                    if (sleeptime_us > 0)
+                    {
+                        usleep(sleeptime_us < RTPECHO_GATHER_US ? sleeptime_us : RTPECHO_GATHER_US);
+                    }
                     continue;
                 }
             }
