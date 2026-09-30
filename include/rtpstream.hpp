@@ -235,7 +235,7 @@ int rtpstream_cache_file(char *filename,
                          int id,
                          int bytes_per_packet,
                          int stream_type /* 0: AUDIO - 1: VIDEO */);
-void rtpstream_play(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio);
+void rtpstream_play(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo, const JLSRTP& txUACAudio, const JLSRTP& rxUACAudio);
 void rtpstream_pause(rtpstream_callinfo_t *callinfo);
 void rtpstream_resume(rtpstream_callinfo_t *callinfo);
 /* The millisecond the call's rtp_stream playback is due to end in: 0 when
@@ -243,11 +243,11 @@ void rtpstream_resume(rtpstream_callinfo_t *callinfo);
  * paused. */
 unsigned long rtpstream_play_end(rtpstream_callinfo_t *callinfo);
 
-void rtpstream_playapattern(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio);
+void rtpstream_playapattern(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo, const JLSRTP& txUACAudio, const JLSRTP& rxUACAudio);
 void rtpstream_pauseapattern(rtpstream_callinfo_t *callinfo);
 void rtpstream_resumeapattern(rtpstream_callinfo_t *callinfo);
 
-void rtpstream_playvpattern(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo, JLSRTP& txUACVideo, JLSRTP& rxUACVideo);
+void rtpstream_playvpattern(rtpstream_callinfo_t *callinfo, rtpstream_actinfo_t *actioninfo, const JLSRTP& txUACVideo, const JLSRTP& rxUACVideo);
 void rtpstream_pausevpattern(rtpstream_callinfo_t *callinfo);
 void rtpstream_resumevpattern(rtpstream_callinfo_t *callinfo);
 
@@ -260,12 +260,12 @@ int rtpstream_play_pcap(rtpstream_callinfo_t *callinfo, rtpstream_pcap_t stream,
 void rtpstream_update_pcap(rtpstream_callinfo_t *callinfo, rtpstream_pcap_t stream, const play_args_t *play);
 #endif
 
-int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t *callinfo, JLSRTP& rxUASAudio, JLSRTP& txUASAudio);
-int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t *callinfo, JLSRTP& rxUASAudio, JLSRTP& txUASAudio);
+int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t *callinfo, const JLSRTP& rxUASAudio, const JLSRTP& txUASAudio);
+int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t *callinfo, const JLSRTP& rxUASAudio, const JLSRTP& txUASAudio);
 int rtpstream_rtpecho_stopaudio(rtpstream_callinfo_t *callinfo);
 
-int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t *callinfo, JLSRTP& rxUASVideo, JLSRTP& txUASVideo);
-int rtpstream_rtpecho_updatevideo(rtpstream_callinfo_t *callinfo, JLSRTP& rxUASVideo, JLSRTP& txUASVideo);
+int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t *callinfo, const JLSRTP& rxUASVideo, const JLSRTP& txUASVideo);
+int rtpstream_rtpecho_updatevideo(rtpstream_callinfo_t *callinfo, const JLSRTP& rxUASVideo, const JLSRTP& txUASVideo);
 int rtpstream_rtpecho_stopvideo(rtpstream_callinfo_t *callinfo);
 
 

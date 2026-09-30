@@ -2516,7 +2516,7 @@ int JLSRTP::setCryptoTag(unsigned int tag, ActiveCrypto crypto_attrib /*= ACTIVE
     return retVal;
 }
 
-unsigned int JLSRTP::getCryptoTag(ActiveCrypto crypto_attrib /*= ACTIVE_CRYPTO*/)
+unsigned int JLSRTP::getCryptoTag(ActiveCrypto crypto_attrib /*= ACTIVE_CRYPTO*/) const
 {
     int retVal = -1;
     ActiveCrypto active_crypto = INVALID_CRYPTO;

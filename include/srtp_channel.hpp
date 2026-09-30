@@ -46,6 +46,21 @@ public:
         return get();
     }
 
+    /* Whether the call has made this context: one without SRTP makes none */
+    bool made() const
+    {
+        return context != nullptr;
+    }
+
+    /* The context to hand a playback thread, which copies only one with
+     * a crypto tag: without SRTP, a shared one without keys, rather than
+     * one made for the call */
+    const SrtpChannel &forPlayback() const
+    {
+        static const SrtpChannel none(0);
+        return context ? *context : none;
+    }
+
     /* The methods of SrtpChannel that a call uses */
     int selectHashAlgorithm(HashType hashType, ActiveCrypto crypto_attrib = ACTIVE_CRYPTO)
     {

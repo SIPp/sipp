@@ -6707,10 +6707,10 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);
             /* A server plays with the keys of its own answer, as it echoes. */
-            SrtpChannel& tx = sendMode == MODE_CLIENT ? _txUACAudio : _txUASAudio;
-            SrtpChannel& rx = sendMode == MODE_CLIENT ? _rxUACAudio : _rxUASAudio;
+            LazySrtpChannel& tx = sendMode == MODE_CLIENT ? _txUACAudio : _txUASAudio;
+            LazySrtpChannel& rx = sendMode == MODE_CLIENT ? _rxUACAudio : _rxUASAudio;
             startUACSrtp(tx, rx, currentAction->getRTPStreamActInfo()->bytes_per_packet, "AUDIO");
-            rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo(), tx, rx);
+            rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo(), tx.forPlayback(), rx.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSEAPATTERN) {
             rtpstream_pauseapattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEAPATTERN) {
@@ -6723,7 +6723,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             logSrtpInfo("call::executeAction():  rtpstream_playapattern\n");
-            rtpstream_playapattern(&rtpstream_callinfo,currentAction->getRTPStreamActInfo(), _txUACAudio, _rxUACAudio);
+            rtpstream_playapattern(&rtpstream_callinfo,currentAction->getRTPStreamActInfo(), _txUACAudio.forPlayback(), _rxUACAudio.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSEVPATTERN) {
             rtpstream_pausevpattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEVPATTERN) {
@@ -6736,9 +6736,9 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             logSrtpInfo("call::executeAction():  rtpstream_playvpattern\n");
-            rtpstream_playvpattern(&rtpstream_callinfo,currentAction->getRTPStreamActInfo(), _txUACVideo, _rxUACVideo);
+            rtpstream_playvpattern(&rtpstream_callinfo,currentAction->getRTPStreamActInfo(), _txUACVideo.forPlayback(), _rxUACVideo.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STARTAUDIO) {
-            if (sendMode == MODE_SERVER)
+            if (sendMode == MODE_SERVER && (_rxUASAudio.made() || _txUASAudio.made()))
             {
                 //
                 // RX-UAS-AUDIO SRTP context (c) -- SSRC/IPADDRESS/PORT
@@ -6789,9 +6789,9 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             logSrtpInfo("call::executeAction() [STARTAUDIO]:  rtpstream_rtpecho_startaudio\n");
-            rtpstream_rtpecho_startaudio(&rtpstream_callinfo, _rxUASAudio, _txUASAudio);
+            rtpstream_rtpecho_startaudio(&rtpstream_callinfo, _rxUASAudio.forPlayback(), _txUASAudio.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_UPDATEAUDIO) {
-            if (sendMode == MODE_SERVER)
+            if (sendMode == MODE_SERVER && (_rxUASAudio.made() || _txUASAudio.made()))
             {
                 //
                 // RX-UAS-AUDIO SRTP context (c) -- SSRC/IPADDRESS/PORT
@@ -6842,7 +6842,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  rtpstream_rtpecho_updateaudio\n");
-            rtpstream_rtpecho_updateaudio(&rtpstream_callinfo, _rxUASAudio, _txUASAudio);
+            rtpstream_rtpecho_updateaudio(&rtpstream_callinfo, _rxUASAudio.forPlayback(), _txUASAudio.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STOPAUDIO) {
             logSrtpInfo("call::executeAction() [STOPAUDIO]:  rtpstream_rtpecho_stopaudio\n");
             rc = rtpstream_rtpecho_stopaudio(&rtpstream_callinfo);
@@ -6852,7 +6852,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 return call::E_AR_RTPECHO_ERROR;
             }
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STARTVIDEO) {
-            if (sendMode == MODE_SERVER)
+            if (sendMode == MODE_SERVER && (_rxUASVideo.made() || _txUASVideo.made()))
             {
                 //
                 // RX-UAS-VIDEO SRTP context (c) -- SSRC/IPADDRESS/PORT
@@ -6903,9 +6903,9 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             logSrtpInfo("call::executeAction() [STARTVIDEO]:  rtpstream_rtpecho_startvideo\n");
-            rtpstream_rtpecho_startvideo(&rtpstream_callinfo, _rxUASVideo, _txUASVideo);
+            rtpstream_rtpecho_startvideo(&rtpstream_callinfo, _rxUASVideo.forPlayback(), _txUASVideo.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_UPDATEVIDEO) {
-            if (sendMode == MODE_SERVER)
+            if (sendMode == MODE_SERVER && (_rxUASVideo.made() || _txUASVideo.made()))
             {
                 //
                 // RX-UAS-VIDEO SRTP context (c) -- SSRC/IPADDRESS/PORT
@@ -6956,7 +6956,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  rtpstream_rtpecho_updatevideo\n");
-            rtpstream_rtpecho_updatevideo(&rtpstream_callinfo, _rxUASVideo, _txUASVideo);
+            rtpstream_rtpecho_updatevideo(&rtpstream_callinfo, _rxUASVideo.forPlayback(), _txUASVideo.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STOPVIDEO) {
             logSrtpInfo("call::executeAction() [STOPVIDEO]:  rtpstream_rtpecho_stopvideo\n");
             rc = rtpstream_rtpecho_stopvideo(&rtpstream_callinfo);
@@ -7326,8 +7326,13 @@ void call::keepRecvRetransMsg()
     }
 }
 
-void call::startUACSrtp(SrtpChannel& tx, SrtpChannel& rx, int payloadSize, const char* media)
+void call::startUACSrtp(LazySrtpChannel& tx, LazySrtpChannel& rx, int payloadSize, const char* media)
 {
+    /* Without SRTP, the call has no keys to derive */
+    if (!tx.made() && !rx.made()) {
+        return;
+    }
+
     //
     // TX/RX-UAC SRTP context (a)(b) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
     // WE ASSUME THE SAME CODEC PAYLOAD SIZE WILL BE USED IN BOTH DIRECTIONS

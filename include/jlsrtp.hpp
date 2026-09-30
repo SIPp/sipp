@@ -1018,7 +1018,7 @@ class JLSRTP
          *
          * @return  <crypto_tag>    Crypto tag value currently in use
          */
-        unsigned int getCryptoTag(ActiveCrypto crypto_attrib = ACTIVE_CRYPTO);
+        unsigned int getCryptoTag(ActiveCrypto crypto_attrib = ACTIVE_CRYPTO) const;
 
         /**
          * getCryptoSuite
