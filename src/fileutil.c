@@ -60,10 +60,13 @@ int expand_user_path(const char* path, char* expanded_home_path /*The buffer*/, 
         free(username);
         if (result == NULL) {
             free(buffer);
-            if (retcode != 0) {
+            /* No such user: no errno to tell. */
+            if (retcode == 0) {
+                WARNING("Unable to resolve home path for [%s]", path);
+            } else {
                 errno = retcode;
+                WARNING_NO("Unable to resolve home path for [%s]", path);
             }
-            WARNING_NO("Unable to resolve home path for [%s]\n", path);
             return -1;
         }
 
