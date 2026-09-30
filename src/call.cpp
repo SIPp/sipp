@@ -6917,10 +6917,12 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 }
             }
 
-            if (!call_socket && protocol == T_UDP && transport == T_UDP) {
-                /* A UDP call socket is bound, not connected: the new
-                 * destination below applies to it as well. */
-                connect_socket_if_needed();
+            /* A UDP call socket is bound, not connected: the new
+             * destination below applies to it as well. Only a failed
+             * connection deletes the call, which a UDP socket makes none
+             * of. */
+            if (!call_socket && protocol == T_UDP && transport == T_UDP && !connect_socket_if_needed()) {
+                ERROR("Internal error: a UDP call socket deleted its call");
             }
 
             if (!call_socket) {
