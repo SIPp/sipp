@@ -357,14 +357,19 @@ static std::string find_in_sdp(std::string_view pattern, std::string_view msg)
 }
 
 #ifdef PCAPPLAY
+/* A stream's own, made on its first use: most calls have only audio */
 play_args_t& call::playArgs(rtpstream_pcap_t stream)
 {
-    if (!pcap_play_args) {
-        pcap_play_args.reset(new play_args_t[RTPSTREAM_PCAP_STREAMS]());
-        pcap_play_args[RTPSTREAM_PCAP_AUDIO].last_seq_no = 1200;
-        pcap_play_args[RTPSTREAM_PCAP_VIDEO].last_seq_no = 2400;
+    std::unique_ptr<play_args_t>& args = pcap_play_args[stream];
+    if (!args) {
+        args.reset(new play_args_t());
+        if (stream == RTPSTREAM_PCAP_AUDIO) {
+            args->last_seq_no = 1200;
+        } else if (stream == RTPSTREAM_PCAP_VIDEO) {
+            args->last_seq_no = 2400;
+        }
     }
-    return pcap_play_args[stream];
+    return *args;
 }
 
 void call::get_remote_media_addr(std::string const &msg)
