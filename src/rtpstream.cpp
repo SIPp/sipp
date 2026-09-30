@@ -1807,11 +1807,13 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
         /* each thread 1 ms after the one before, over 20 ms */
         static unsigned int threads_made = 0;
         threaddata->shift_ms = threads_made++ % 20;
+        bool nonblocking = true;
         for (int i = 0; i < 2; i++) {
             threaddata->wake_fds[i] = wake_fds[i];
-            fcntl(wake_fds[i], F_SETFL, O_NONBLOCK);
+            /* a wake-up must not block the call's thread, nor its drain the playback thread */
+            nonblocking = nonblocking && fcntl(wake_fds[i], F_SETFL, O_NONBLOCK) == 0;
         }
-        if (!threaddata->poller.valid() || !threaddata->poller.add(wake_fds[0], POLLER_IN, 0)) {
+        if (!nonblocking || !threaddata->poller.valid() || !threaddata->poller.add(wake_fds[0], POLLER_IN, 0)) {
             delete threaddata;
             return 0;
         }
