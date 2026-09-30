@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Changes that may break existing scenarios, command lines or builds are
 marked **Breaking**.
 
+## [3.7.9] - Unreleased
+
+### Fixed
+
+- Attribute values are XML-decoded once again, as before 3.7.8, so
+  `&amp;lt;` gives `&lt;` (#1062, #1098, by Orgad Shaneh)
+- A memory leak in every MD5 digest, since 3.7.8 (#884, by Orgad Shaneh)
+- AKAv1-MD5 with wolfSSL lost the last byte of a padded nonce, since
+  3.7.8 (#1014, by Orgad Shaneh)
+- Configuring without GTest failed, since 3.7.8 (#891, by Orgad Shaneh)
+- CMake takes any boolean for `USE_SYSTEM_PUGIXML` and
+  `USE_SYSTEM_GTEST`, such as the Fedora package's `1` (#1060, by Peter
+  Lemenkov)
+- Building with GCC 16: the bundled pugixml is updated to 1.16 (#1047,
+  by Orgad Shaneh)
+
 ## [3.7.8] - 2026-09-23
 
 ### Added
@@ -448,6 +464,7 @@ marked **Breaking**.
 
 Not documented here.
 
+[3.7.9]: https://github.com/SIPp/sipp/compare/v3.7.8...3.7
 [3.7.8]: https://github.com/SIPp/sipp/releases/tag/v3.7.8
 [3.7.7]: https://github.com/SIPp/sipp/releases/tag/v3.7.7
 [3.7.6]: https://github.com/SIPp/sipp/releases/tag/v3.7.6
