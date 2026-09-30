@@ -1,0 +1,48 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# <exec verify> runs a command without blocking SIPp: the call waits for
+# it before its next message, and a non-zero exit, or a signal, fails
+# the call.
+. "`dirname "$0"`/../functions"; init
+
+rm -f verified.* errors.log
+sippbg -sf uas.xml -i 127.0.0.1 -p 27700 -m 16 -timeout 30
+
+uac() {
+    sippfg -sf uac.xml -i 127.0.0.1 -p 27701 127.0.0.1:27700 \
+        -timeout 15 -timeout_error "$@" >/dev/null 2>&1
+}
+
+uac -m 3 -key first true -key second true
+pass_status=$?
+uac -m 2 -key first 'exit 3' -key second true \
+    -trace_err -error_file errors.log
+fail_status=$?
+returned=`grep -c "; exit 3' returned 3" errors.log`
+uac -m 1 -key first 'kill -9 $$' -key second true \
+    -trace_err -error_file errors.log
+signal_status=$?
+killed=`grep -c "; kill -9 \\$\\$' was killed by signal 9" errors.log`
+# The second command finds the file of the first one only if the call
+# waited for it, and ten half-second commands in a row would take 5 s.
+start=`date +%s`
+uac -r 10 -m 10 -l 10 -key first 'sleep 0.5; touch verified.$n' \
+    -key second 'test -f verified.$n'
+wait_status=$?
+elapsed=$((`date +%s` - start))
+kill $pid 2>/dev/null
+rm -f verified.* errors.log
+
+if test $pass_status -ne 0; then
+    fail "passing commands gave $pass_status"
+elif test $fail_status -ne 1 || test "$returned" != 2; then
+    fail "exit 3 gave $fail_status, logged $returned times"
+elif test $signal_status -ne 1 || test "$killed" != 1; then
+    fail "a killed command gave $signal_status, logged $killed times"
+elif test $wait_status -ne 0; then
+    fail "the call did not wait for its command: $wait_status"
+elif test $elapsed -gt 3; then
+    fail "ten 0.5 s commands took $elapsed s"
+else
+    ok
+fi

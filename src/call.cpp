@@ -108,6 +108,14 @@ std::string_view trim(std::string_view s) {
 
 extern  std::map<std::string, SIPpSocket *>     map_perip_fd;
 
+/* The <exec verify> commands running, by pid: the call that waits for
+ * each, nullptr once that call is gone, and the command for the logs */
+struct verify_command {
+    call *waiting;
+    std::string command;
+};
+static std::map<pid_t, verify_command> verify_commands;
+
 int call::dynamicId       = 0;
 int call::maxDynamicId    = 10000+2000*4;      // FIXME both param to be in command line !!!!
 int call::startDynamicId  = 10000;             // FIXME both param to be in command line !!!!
@@ -1096,6 +1104,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     rtpstream_wait_check = 0;
     rtpstream_wait_until = 0;
     rtpstream_wait_msg = nullptr;
+    verify_pending = 0;
 
     call_port = 0;
 
@@ -1409,6 +1418,15 @@ call::~call()
     free(queued_msg);
     free(queued_cmd);
 
+    if (verify_pending) {
+        /* Its commands run on, and their end is ignored */
+        for (auto& v : verify_commands) {
+            if (v.second.waiting == this) {
+                v.second.waiting = nullptr;
+            }
+        }
+    }
+
     if (srtpcheck_debug)
     {
         fclose(_srtpctxdebugfile);
@@ -1479,6 +1497,9 @@ void call::dump()
     }
     if (rtpstream_wait_check) {
         written += snprintf(s + written, slen - written, " (rtp_stream wait until %u)", rtpstream_wait_until);
+    }
+    if (verify_pending) {
+        written += snprintf(s + written, slen - written, " (%d exec verify running)", verify_pending);
     }
     if (send_timeout) {
         written += snprintf(s + written, slen - written, " (send timeout %u)", send_timeout);
@@ -1945,6 +1966,12 @@ void call::terminate(CStat::E_Action reason)
                 dead_reason = "rtp echo error %d";
             }
             break;
+        case E_AR_VERIFY_FAILED:
+            computeStat(CStat::E_CALL_FAILED);
+            if (deadcall_wait && !initCall) {
+                dead_reason = "exec verify failure at index %d";
+            }
+            break;
         case call::E_AR_NO_ERROR:
         case call::E_AR_STOP_CALL:
             /* Do nothing. */
@@ -2032,6 +2059,14 @@ bool call::next()
     msg_index = new_msg_index;
     recv_timeout = 0;
     if (msg_index >= (int)((*msgs).size())) {
+        if (verify_pending) {
+            /* verifyDone() ends the call, which has nothing left to wait
+             * for but the commands. */
+            next_retrans = 0;
+            rtpstream_wait_check = 0;
+            setPaused();
+            return true;
+        }
         terminate(CStat::E_CALL_SUCCESSFULLY_ENDED);
         return false;
     }
@@ -2344,6 +2379,11 @@ bool call::run()
 
     update_clock_tick();
 
+    if (verify_pending && pastLastMessage()) {
+        setPaused();
+        return true;
+    }
+
     message *curmsg;
     if (initCall) {
         if(msg_index >= (int)call_scenario->initmessages.size()) {
@@ -2460,6 +2500,13 @@ bool call::run()
             setPaused();
             return true;
         }
+    }
+
+    if (verify_pending) {
+        /* Hold the next message until verifyDone() wakes the call */
+        callDebug("Waiting for %d exec verify commands.\n", verify_pending);
+        setPaused();
+        return true;
     }
     return executeMessage(curmsg);
 }
@@ -4921,6 +4968,12 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
     callDebug("Processing %zu byte incoming message for call-ID %s (hash %lu):\n%s\n\n",
               strlen(msg), id, hash(msg), msg);
 
+    /* Over but for its <exec verify> commands, the call takes no more
+     * messages. */
+    if (pastLastMessage()) {
+        return true;
+    }
+
     setRunning();
     message *curmsg = call_scenario->messages[msg_index];
 
@@ -6183,6 +6236,76 @@ bool call::rtpstreamWaitTimeout()
     return false;
 }
 
+/* Past its last message, the call waits for its <exec verify> commands
+ * to end, see next(). */
+bool call::pastLastMessage()
+{
+    return msg_index >= (int)(initCall ? call_scenario->initmessages : call_scenario->messages).size();
+}
+
+/* Run an <exec verify> command, which the call waits for before its next
+ * message. The command runs as system() runs it, but without waiting. */
+void call::startVerify(const char *command)
+{
+    TRACE_MSG("Executing '%s'\n", command);
+    pid_t pid = fork();
+    if (pid < 0) {
+        ERROR_NO("Forking error main");
+    }
+    if (pid == 0) {
+        /* _exit(), as the children of an <exec command> */
+        execl("/bin/sh", "sh", "-c", command, (char *) nullptr);
+        _exit(127);
+    }
+    verify_commands[pid] = {this, command};
+    verify_pending++;
+}
+
+/* An <exec verify> command ended: a non-zero exit fails the call. */
+void call::verifyDone(const char *command, int status)
+{
+    if (WIFEXITED(status)) {
+        TRACE_MSG("'%s' returned %d\n", command, WEXITSTATUS(status));
+        if (WEXITSTATUS(status) != 0) {
+            WARNING("Call-Id: %s, '%s' returned %d", id, command, WEXITSTATUS(status));
+            last_action_result = E_AR_VERIFY_FAILED;
+        }
+    } else {
+        TRACE_MSG("'%s' was killed by signal %d\n", command, WTERMSIG(status));
+        WARNING("Call-Id: %s, '%s' was killed by signal %d", id, command, WTERMSIG(status));
+        last_action_result = E_AR_VERIFY_FAILED;
+    }
+
+    if (--verify_pending) {
+        return;
+    }
+    if (pastLastMessage()) {
+        terminate(CStat::E_CALL_SUCCESSFULLY_ENDED);
+    } else {
+        setRunning();
+    }
+}
+
+void call::reap_verify_commands()
+{
+    int status;
+    pid_t pid;
+
+    /* SIPp waits for no other child while one runs: it reaps the first
+     * child of an <exec command> as soon as it forks it. */
+    while (!verify_commands.empty() && (pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        auto it = verify_commands.find(pid);
+        if (it == verify_commands.end()) {
+            continue; /* an orphan, adopted when SIPp is PID 1 */
+        }
+        verify_command done = std::move(it->second);
+        verify_commands.erase(it);
+        if (done.waiting) {
+            done.waiting->verifyDone(done.command.c_str(), status);
+        }
+    }
+}
+
 /* Every step's actions count the same way: a failed check marks the call
  * as failed when it ends, stop_call and a failed setdest end it now.
  * Returns false if the call was deleted. */
@@ -6701,6 +6824,8 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 }
                 break;
             }
+        } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_CMD) {
+            startVerify(createSendingMessage(currentAction->getMessage()));
         } else if (currentAction->getActionType() == CAction::E_AT_EXEC_INTCMD) {
             switch (currentAction->getIntCmd()) {
             case CAction::E_INTCMD_STOP_ALL:
