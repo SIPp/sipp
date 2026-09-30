@@ -892,11 +892,12 @@ scenario::scenario(char * filename, int deflt)
                     getCommonAttributes(nopmsg);
                 } else if (!strcmp(initelem, "label")) {
                     /* Add an init label. */
-                    cptr = xp_get_value("id");
-                    if (initLabelMap.find(cptr) != initLabelMap.end()) {
-                        ERROR("The label name '%s' is used twice.", cptr);
+                    ptr = xp_get_string("id", "label");
+                    if (initLabelMap.find(ptr) != initLabelMap.end()) {
+                        ERROR("The label name '%s' is used twice.", ptr);
                     }
-                    initLabelMap[cptr] = initmessages.size();
+                    initLabelMap[ptr] = initmessages.size();
+                    free(ptr);
                 } else {
                     ERROR("Invalid element in an init stanza: '%s'", initelem);
                 }
