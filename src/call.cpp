@@ -5295,7 +5295,7 @@ void call::remember_request_source(const char *msg, const struct sockaddr_storag
         rs.socket = socket;
         socket->ss_count++;
     }
-    request_sources.push_back(rs);
+    request_sources.push_back(std::move(rs));
 }
 
 bool call::process_incoming(const char* msg, const struct sockaddr_storage* src, SIPpSocket *socket)
@@ -5692,7 +5692,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
                     //
                     CryptoContextID txUASA;
                     txUASA.ssrc = rtpstream_callinfo.audio_ssrc_id;
-                    txUASA.address = audio_host;
+                    txUASA.address = std::move(audio_host);
                     txUASA.port = audio_port;
                     logSrtpInfo("call::process_incoming():  (d) TX-UAS-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUASA.ssrc, txUASA.address.c_str(), txUASA.port);
                     _txUASAudio.setID(std::move(txUASA));
@@ -5981,7 +5981,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
                     //
                     CryptoContextID txUASV;
                     txUASV.ssrc = rtpstream_callinfo.video_ssrc_id;
-                    txUASV.address = video_host;
+                    txUASV.address = std::move(video_host);
                     txUASV.port = video_port;
                     logSrtpInfo("call::process_incoming():  (d) TX-UAS-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUASV.ssrc, txUASV.address.c_str(), txUASV.port);
                     _txUASVideo.setID(std::move(txUASV));

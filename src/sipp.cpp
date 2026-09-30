@@ -276,7 +276,7 @@ static std::vector<std::string> split_simple_args(const std::string &input)
 
     /* Keep parsing intentionally simple: this mirrors a shell-style word list. */
     while (words >> word) {
-        result.push_back(word);
+        result.push_back(std::move(word));
     }
 
     return result;
