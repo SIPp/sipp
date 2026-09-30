@@ -119,10 +119,7 @@ static size_t rtpstream_buffer_len(int bytes_per_packet)
  * rtpstream_shutdown() when the thread exits */
 struct threaddata_t
 {
-    explicit threaddata_t(unsigned int max_tasks) : max_tasks(max_tasks), tasklist(max_tasks)
-    {
-        pthread_mutex_init(&tasklist_mutex, nullptr);
-    }
+    explicit threaddata_t(unsigned int max_tasks) : max_tasks(max_tasks), tasklist(max_tasks) {}
     ~threaddata_t()
     {
         for (int fd : wake_fds) {
@@ -135,11 +132,10 @@ struct threaddata_t
             close(pcap_socket);
         }
 #endif
-        pthread_mutex_destroy(&tasklist_mutex);
     }
 
     pthread_t id;
-    pthread_mutex_t tasklist_mutex;
+    std::mutex tasklist_mutex;
     int             busy_list_index = -1;
     unsigned int    max_tasks;
     /* The tasks its loops walk, each added one included: they walk
@@ -523,9 +519,6 @@ taskentry_t::~taskentry_t()
 #ifdef PCAPPLAY
     delete[] pcap_plays;
 #endif
-
-    /* cleanup pthread library structure */
-    pthread_mutex_destroy(&mutex);
 }
 
 /* Copy size bytes of a file that plays in a loop into dest, from
@@ -593,7 +586,7 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
 
         /* enter critical section to lock address updates */
         /* may want to leave this out -- low chance of race condition */
-        pthread_mutex_lock(&(taskinfo->mutex));
+        std::lock_guard lock(taskinfo->mutex);
 
         /* If we have valid ip and port numbers for audio rtp stream */
         if (!(taskinfo->flags & TI_NULL_AUDIOIP))
@@ -651,12 +644,11 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
         }
 
         taskinfo->flags &= ~TI_RECONNECTSOCKET;
-        pthread_mutex_unlock(&(taskinfo->mutex));
     }
 
     /* Take a new play under the mutex, for rtpstream_is_playing() to see
      * it either in the flags or in the loop counts. */
-    pthread_mutex_lock(&(taskinfo->mutex));
+    std::lock_guard lock(taskinfo->mutex);
     if (taskinfo->flags & (TI_PLAYFILE | TI_PLAYAPATTERN | TI_PLAYVPATTERN)) {
         /* it starts now, not at the task's next wake-up */
         taskinfo->nextwake_ms = 0;
@@ -726,7 +718,6 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
                                                                   taskinfo->video_timeticks_per_ms);
         taskinfo->flags &= ~TI_PLAYVPATTERN;
     }
-    pthread_mutex_unlock(&(taskinfo->mutex));
 }
 
 /* The millisecond to wake up in for a stream's next packet. A packet
@@ -817,10 +808,9 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
             if (paused)
             {
                 /* when paused, set timestamp so stream appears to be up to date */
-                pthread_mutex_lock(&(taskinfo->mutex));
+                std::lock_guard lock(taskinfo->mutex);
                 taskinfo->last_audio_timestamp = rtpstream_grid_timestamp(timenow_ms, taskinfo->audio_ms_per_packet,
                                                                           taskinfo->audio_timeticks_per_ms);
-                pthread_mutex_unlock(&(taskinfo->mutex));
             }
             /* Waking up on the multiples of the packet time, and sending
              * a packet in the millisecond after its timestamp, sent a whole
@@ -847,7 +837,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                                     taskinfo->audio_file_bytes_start, taskinfo->audio_file_num_bytes,
                                     taskinfo->audio_file_num_bytes - taskinfo->audio_file_bytes_left);
 
-                pthread_mutex_lock(&(taskinfo->mutex));
+                std::lock_guard lock(taskinfo->mutex);
                 SrtpChannel* tx = taskinfo->audio_srtp && taskinfo->audio_srtp->tx.getCryptoTag() != 0 ? &taskinfo->audio_srtp->tx : nullptr;
                 SrtpChannel* rx = taskinfo->audio_srtp && taskinfo->audio_srtp->rx.getCryptoTag() != 0 ? &taskinfo->audio_srtp->rx : nullptr;
                 if (tx)
@@ -1054,7 +1044,6 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         next_wake = timenow_ms;
                     }
                 } /* if (rc < 0) */
-                pthread_mutex_unlock(&(taskinfo->mutex));
             } /* if (taskinfo->last_audio_timestamp <= target_timestamp) */
             else
             {
@@ -1090,10 +1079,9 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
             if (paused)
             {
                 /* when paused, set timestamp so stream appears to be up to date */
-                pthread_mutex_lock(&(taskinfo->mutex));
+                std::lock_guard lock(taskinfo->mutex);
                 taskinfo->last_video_timestamp = rtpstream_grid_timestamp(timenow_ms, taskinfo->video_ms_per_packet,
                                                                           taskinfo->video_timeticks_per_ms);
-                pthread_mutex_unlock(&(taskinfo->mutex));
             }
             /* Keep an earlier wakeup the audio stream asked for: overwriting
              * it made audio go out at the video packet rate. */
@@ -1118,7 +1106,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                                     taskinfo->video_file_bytes_start, taskinfo->video_file_num_bytes,
                                     taskinfo->video_file_num_bytes - taskinfo->video_file_bytes_left);
 
-                pthread_mutex_lock(&(taskinfo->mutex));
+                std::lock_guard lock(taskinfo->mutex);
                 SrtpChannel* tx = taskinfo->video_srtp && taskinfo->video_srtp->tx.getCryptoTag() != 0 ? &taskinfo->video_srtp->tx : nullptr;
                 SrtpChannel* rx = taskinfo->video_srtp && taskinfo->video_srtp->rx.getCryptoTag() != 0 ? &taskinfo->video_srtp->rx : nullptr;
                 if (tx)
@@ -1306,7 +1294,6 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         next_wake = timenow_ms;
                     }
                 } /* if (rc < 0) */
-                pthread_mutex_unlock(&(taskinfo->mutex));
             } /* if (taskinfo->last_video_timestamp <= target_timestamp) */
             else
             {
@@ -1396,12 +1383,11 @@ static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffer
     unsigned int host_timestamp = 0;
     unsigned int host_ssrc = 0;
 
-    pthread_mutex_lock(&(taskinfo->mutex));
+    std::lock_guard lock(taskinfo->mutex);
     rtpecho_t* echo = video ? taskinfo->video_echo : taskinfo->audio_echo;
     int sock = video ? taskinfo->video_rtp_socket : taskinfo->audio_rtp_socket;
     if (!(video ? taskinfo->video_srtp_echo_active : taskinfo->audio_srtp_echo_active) || !echo || sock == -1)
     {
-        pthread_mutex_unlock(&(taskinfo->mutex));
         return false;
     }
     SrtpChannel* rx = echo->rx.get();
@@ -1526,7 +1512,6 @@ static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffer
             rtp_bytes.fetch_add(ns, std::memory_order_relaxed);
         }
     }
-    pthread_mutex_unlock(&(taskinfo->mutex));
 
     return watch;
 }
@@ -1539,7 +1524,7 @@ static void rtpstream_playpcaptask(taskentry_t* taskinfo, threaddata_t* threadda
 {
     unsigned long long due_us;
 
-    pthread_mutex_lock(&(taskinfo->mutex));
+    std::lock_guard lock(taskinfo->mutex);
     for (int i = 0; taskinfo->pcap_plays && i < RTPSTREAM_PCAP_STREAMS; i++)
     {
         play_args_t& play = taskinfo->pcap_plays[i];
@@ -1560,7 +1545,6 @@ static void rtpstream_playpcaptask(taskentry_t* taskinfo, threaddata_t* threadda
             send_packets_end(&play);
         }
     }
-    pthread_mutex_unlock(&(taskinfo->mutex));
 }
 #endif
 
@@ -1612,10 +1596,10 @@ static void* rtpstream_playback_thread(void* params)
                 {
                     /* remove this task entry and release its resources: the
                      * last one takes its place, and is walked next */
-                    pthread_mutex_lock(&(threaddata->tasklist_mutex));
+                    std::unique_lock list_lock(threaddata->tasklist_mutex);
                     threaddata->tasklist[taskindex] = threaddata->tasklist[--threaddata->num_tasks];
                     threaddata->del_pending--;
-                    pthread_mutex_unlock(&(threaddata->tasklist_mutex));
+                    list_lock.unlock();
                     /* the call ended: the verdict of its RTP check */
                     rtpstream_check_verdict(taskinfo, false, &rtpresult);
                     rtpstream_check_verdict(taskinfo, true, &rtpresult);
@@ -1663,12 +1647,12 @@ static void* rtpstream_playback_thread(void* params)
 #endif
 
             /* watch the sockets of the calls to echo */
-            pthread_mutex_lock(&(taskinfo->mutex));
+            std::unique_lock lock(taskinfo->mutex);
             rtpstream_watch_echo(threaddata, taskinfo, false,
                                  taskinfo->audio_srtp_echo_active ? taskinfo->audio_rtp_socket.load() : -1);
             rtpstream_watch_echo(threaddata, taskinfo, true,
                                  taskinfo->video_srtp_echo_active ? taskinfo->video_rtp_socket.load() : -1);
-            pthread_mutex_unlock(&(taskinfo->mutex));
+            lock.unlock();
             taskindex++;
         }
         /* sleep until the next iteration of the playback loop, echoing
@@ -1848,14 +1832,14 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
     /* now add new task to a spare slot in our thread tasklist */
     threaddata = ready_threads[ready_index];
     callinfo->taskinfo->parent_thread = threaddata;
-    pthread_mutex_lock(&(threaddata->tasklist_mutex));
+    std::unique_lock list_lock(threaddata->tasklist_mutex);
     /* The task first, then the count: a count ahead of its task was a
      * null one. */
     unsigned int num_tasks = threaddata->num_tasks.load(std::memory_order_relaxed);
     threaddata->tasklist[num_tasks] = callinfo->taskinfo;
     threaddata->num_tasks.store(num_tasks + 1, std::memory_order_release);
     bool full = threaddata->del_pending == 0 && num_tasks + 1 >= threaddata->max_tasks;
-    pthread_mutex_unlock(&(threaddata->tasklist_mutex));
+    list_lock.unlock();
 
     if (full) {
         /* move this thread to the busy list - no free task slots */
@@ -1892,12 +1876,12 @@ static void rtpstream_stop_task(rtpstream_callinfo_t* callinfo)
     {
 #ifdef PCAPPLAY
         /* no pcap packet of the call after it ends */
-        pthread_mutex_lock(&(taskinfo->mutex));
+        std::unique_lock lock(taskinfo->mutex);
         for (int i = 0; taskinfo->pcap_plays && i < RTPSTREAM_PCAP_STREAMS; i++)
         {
             send_packets_end(&taskinfo->pcap_plays[i]);
         }
-        pthread_mutex_unlock(&(taskinfo->mutex));
+        lock.unlock();
 #endif
         if (taskinfo->parent_thread)
         {
@@ -1939,10 +1923,9 @@ static void rtpstream_stop_task(rtpstream_callinfo_t* callinfo)
                 }
             }
             /* then ask the thread to destroy this task (and its memory) */
-            pthread_mutex_lock(&(taskinfo->parent_thread->tasklist_mutex));
+            std::lock_guard list_lock(taskinfo->parent_thread->tasklist_mutex);
             taskinfo->parent_thread->del_pending++;
             taskinfo->flags |= TI_KILLTASK;
-            pthread_mutex_unlock(&(taskinfo->parent_thread->tasklist_mutex));
 
             // PTHREAD IS NOT JOINABLE HERE...
         }
@@ -1996,9 +1979,6 @@ static taskentry_t* rtpstream_task(rtpstream_callinfo_t* callinfo)
     taskinfo->video_ssrc_id = callinfo->video_ssrc_id;
     /* no echo yet: not even of the packet before the first (seq 0) */
     taskinfo->audio_seq_echoed = (unsigned short) (taskinfo->audio_seq_out - 2);
-
-    /* pthread mutexes */
-    pthread_mutex_init(&(callinfo->taskinfo->mutex), nullptr);
 
     /* the remote media set before */
     if (callinfo->pending_remote) {
@@ -2436,7 +2416,7 @@ static void rtpstream_set_remote_address(rtpstream_callinfo_t* callinfo, taskent
 {
     /* enter critical section to lock address updates */
     /* may want to leave this out -- low chance of race condition */
-    pthread_mutex_lock(&(taskinfo->mutex));
+    std::lock_guard lock(taskinfo->mutex);
 
     /* clear out existing addresses  */
     memset(&(taskinfo->remote_audio_rtp_addr), 0, sizeof(taskinfo->remote_audio_rtp_addr));
@@ -2471,9 +2451,6 @@ static void rtpstream_set_remote_address(rtpstream_callinfo_t* callinfo, taskent
     }
 
     taskinfo->flags |= TI_RECONNECTSOCKET;
-
-    /* ok, we are done with the shared memory objects. let go mutex */
-    pthread_mutex_unlock(&(taskinfo->mutex));
 
     /* may want to start a playback (listen) task here if no task running? */
     /* only makes sense if we decide to send 0-filled packets on idle */
@@ -2625,7 +2602,7 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
     }
 
     /* save file parameter in taskinfo structure */
-    pthread_mutex_lock(&(taskinfo->mutex));
+    std::unique_lock lock(taskinfo->mutex);
     taskinfo->new_audio_pattern_id = actioninfo->pattern_id;
     taskinfo->new_audio_loop_count = actioninfo->loop_count;
     taskinfo->new_audio_bytes_per_packet = actioninfo->bytes_per_packet;
@@ -2637,7 +2614,7 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
 
     /* set flag that we have a new file to play */
     rtpstream_play_srtp(taskinfo, false, TI_PLAYFILE, txUACAudio, rxUACAudio);
-    pthread_mutex_unlock(&(taskinfo->mutex));
+    lock.unlock();
     rtpstream_wake(taskinfo->parent_thread);
 }
 
@@ -2688,7 +2665,7 @@ unsigned long rtpstream_play_end(rtpstream_callinfo_t* callinfo)
     /* A play the playback thread has not taken yet is in the flags, and
      * starts now, stamped from the last multiple of its packet time; one it
      * plays has loops left (-1: endless). */
-    pthread_mutex_lock(&(taskinfo->mutex));
+    std::unique_lock lock(taskinfo->mutex);
     int flags = taskinfo->flags;
     if (flags & (TI_PLAYAPATTERN | TI_PLAYVPATTERN)) {
         audio_end = ULONG_MAX;
@@ -2719,7 +2696,7 @@ unsigned long rtpstream_play_end(rtpstream_callinfo_t* callinfo)
                                      taskinfo->video_timeticks_per_ms ?
                                      taskinfo->last_video_timestamp / taskinfo->video_timeticks_per_ms : 0,
                                      taskinfo->video_ms_per_packet);
-    pthread_mutex_unlock(&(taskinfo->mutex));
+    lock.unlock();
     /* in the thread's time, as the run's */
     unsigned long end = std::max(audio_end, video_end);
     unsigned long shift_ms = taskinfo->parent_thread ? taskinfo->parent_thread->shift_ms : 0;
@@ -2755,7 +2732,7 @@ void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     rtpstream_get_local_audioport(callinfo);
 
     /* save file parameter in taskinfo structure */
-    pthread_mutex_lock(&(taskinfo->mutex));
+    std::unique_lock lock(taskinfo->mutex);
     taskinfo->new_audio_pattern_id = actioninfo->pattern_id;
     taskinfo->new_audio_payload_type = actioninfo->payload_type;
     taskinfo->new_audio_loop_count = actioninfo->loop_count;
@@ -2770,7 +2747,7 @@ void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
 
     /* set flag that we have a new file to play */
     rtpstream_play_srtp(taskinfo, false, TI_PLAYAPATTERN, txUACAudio, rxUACAudio);
-    pthread_mutex_unlock(&(taskinfo->mutex));
+    lock.unlock();
     rtpstream_wake(taskinfo->parent_thread);
 }
 
@@ -2817,7 +2794,7 @@ void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
     rtpstream_get_local_videoport(callinfo);
 
     /* save file parameter in taskinfo structure */
-    pthread_mutex_lock(&(taskinfo->mutex));
+    std::unique_lock lock(taskinfo->mutex);
     taskinfo->new_video_pattern_id = actioninfo->pattern_id;
     taskinfo->new_video_payload_type = actioninfo->payload_type;
     taskinfo->new_video_loop_count = actioninfo->loop_count;
@@ -2832,7 +2809,7 @@ void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t*
 
     /* set flag that we have a new file to play */
     rtpstream_play_srtp(taskinfo, true, TI_PLAYVPATTERN, txUACVideo, rxUACVideo);
-    pthread_mutex_unlock(&(taskinfo->mutex));
+    lock.unlock();
     rtpstream_wake(taskinfo->parent_thread);
 }
 
@@ -2871,7 +2848,7 @@ int rtpstream_play_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stream,
         threaddata->pcap_socket = send_packets_socket(&play->from);
     }
 
-    pthread_mutex_lock(&(taskinfo->mutex));
+    std::unique_lock lock(taskinfo->mutex);
     if (!taskinfo->pcap_plays)
     {
         taskinfo->pcap_plays = new play_args_t[RTPSTREAM_PCAP_STREAMS]();
@@ -2887,7 +2864,7 @@ int rtpstream_play_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stream,
     }
     current = *play;
     current.next = nullptr;
-    pthread_mutex_unlock(&(taskinfo->mutex));
+    lock.unlock();
 
     rtpstream_wake(threaddata);
 
@@ -2903,14 +2880,13 @@ void rtpstream_update_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stre
         return;
     }
 
-    pthread_mutex_lock(&(taskinfo->mutex));
+    std::lock_guard lock(taskinfo->mutex);
     if (taskinfo->pcap_plays && taskinfo->pcap_plays[stream].pcap)
     {
         play_args_t& current = taskinfo->pcap_plays[stream];
         current.to = play->to;
         current.from = play->from;
     }
-    pthread_mutex_unlock(&(taskinfo->mutex));
 }
 #endif
 
@@ -2933,7 +2909,7 @@ static void rtpecho_context(std::unique_ptr<SrtpChannel>& context, const JLSRTP&
 static void rtpstream_rtpecho_set(taskentry_t* taskinfo, bool video, bool start,
                                   const JLSRTP& rxUAS, const JLSRTP& txUAS)
 {
-    pthread_mutex_lock(&(taskinfo->mutex));
+    std::unique_lock lock(taskinfo->mutex);
     rtpecho_t*& echo = video ? taskinfo->video_echo : taskinfo->audio_echo;
     if (!echo) {
         echo = new rtpecho_t;
@@ -2944,7 +2920,7 @@ static void rtpstream_rtpecho_set(taskentry_t* taskinfo, bool video, bool start,
         echo->error = false;
         (video ? taskinfo->video_srtp_echo_active : taskinfo->audio_srtp_echo_active) = 1;
     }
-    pthread_mutex_unlock(&(taskinfo->mutex));
+    lock.unlock();
 
     /* to watch the socket from the first packet */
     if (start) {
@@ -2957,13 +2933,12 @@ static int rtpstream_rtpecho_stop(taskentry_t* taskinfo, bool video)
 {
     int rc = 0;
 
-    pthread_mutex_lock(&(taskinfo->mutex));
+    std::lock_guard lock(taskinfo->mutex);
     rtpecho_t* echo = video ? taskinfo->video_echo : taskinfo->audio_echo;
     (video ? taskinfo->video_srtp_echo_active : taskinfo->audio_srtp_echo_active) = 0;
     if (echo && echo->error) {
         rc = -1;
     }
-    pthread_mutex_unlock(&(taskinfo->mutex));
 
     return rc;
 }

@@ -20,6 +20,7 @@
 #define __RTPSTREAM__
 
 #include <atomic>
+#include <mutex>
 #include <sys/socket.h>
 
 #ifdef PCAPPLAY
@@ -155,7 +156,7 @@ struct taskentry_t
     /* share mutexes across calls? makes the per-call code more complex */
 
     /* thread mananagment structures */
-    pthread_mutex_t      mutex;
+    std::mutex           mutex;
 
     unsigned long        audio_comparison_errors;
     unsigned long        video_comparison_errors;

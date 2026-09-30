@@ -889,7 +889,7 @@ void timeout_alarm(int /*param*/)
  * releaseGlobalAllocations() frees. A fatal error in any other thread
  * (pcap playback, rtpstream) hands its exit code to the main thread and
  * stops the thread that hit it. */
-static pthread_t main_thread;
+static std::thread::id main_thread;
 static std::atomic<bool> exit_requested{false};
 static int exit_request_rc;
 /* From then on, SIGTERM and SIGINT only ask for the exit. */
@@ -1570,7 +1570,7 @@ void sipp_exit(int rc, int rtp_errors, int echo_errors)
     unsigned long counter_value_failed = 0;
     unsigned long counter_value_success = 0;
 
-    if (!pthread_equal(pthread_self(), main_thread)) {
+    if (std::this_thread::get_id() != main_thread) {
         exit_request_rc = rc;
         exit_requested = true;
         pthread_exit(nullptr);
@@ -1870,7 +1870,7 @@ int main(int argc, char *argv[])
         mallopt(M_ARENA_MAX, 2);
     }
 #endif
-    main_thread = pthread_self();
+    main_thread = std::this_thread::get_id();
     int                  argi = 0;
     pthread_t pthread2_id = 0, pthread3_id = 0;
     bool                 slave_masterSet = false;
