@@ -1497,6 +1497,12 @@ static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffer
 
         ns = sendto(sock, packet_out.data(), packet_out.size(), MSG_DONTWAIT, (sockaddr *) (void *) &remote_rtp_addr, len);
 
+        if (ns < 0) {
+            /* nothing went out, so nothing to count */
+            debugrefile.printf("Error on RTP echo transmission [%s] seq_num = [%u] -- errno = %d\n",
+                               media, seq_num, errno);
+            continue;
+        }
         if (ns != nr) {
             debugrefile.printf("DATA SUCCESSFULLY SENT [%s] seq_num = [%u] -- MISMATCHED RECV/SENT BYTE COUNT -- errno = %d nr = %d ns = %d\n",
                                media, seq_num, errno, int(nr), int(ns));
