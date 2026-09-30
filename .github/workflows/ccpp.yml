@@ -10,7 +10,7 @@ concurrency:
 jobs:
   lint:
 
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
     - uses: actions/checkout@v7
@@ -23,7 +23,7 @@ jobs:
 
   build:
 
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
     - uses: actions/checkout@v7
@@ -45,7 +45,7 @@ jobs:
 
   build-system-gtest:
 
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
     - uses: actions/checkout@v7
@@ -82,7 +82,7 @@ jobs:
 
 
   build-static:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
     - uses: actions/checkout@v7
     - name: prepare
@@ -95,7 +95,7 @@ jobs:
          path: ./sipp
 
   build-wolfssl:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
     - uses: actions/checkout@v7
     - name: prepare
