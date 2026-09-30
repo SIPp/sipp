@@ -250,13 +250,8 @@ truncated:
     /* Remove leading whitespaces */
     for (start = last_header; *start == ' '; start++);
 
-    /* remove enclosed CRs in multilines */
-    /* don't remove enclosed CRs for multiple headers (e.g. Via) (Rhys) */
-    while ((ptr = strstr(last_header, "\r\n")) != nullptr &&
-           (*(ptr + 2) == ' ' || *(ptr + 2) == '\r' || *(ptr + 2) == '\t')) {
-        /* Use strlen(ptr) to include trailing zero */
-        memmove(ptr, ptr+1, strlen(ptr));
-    }
+    /* A header folded on several lines keeps its CRLFs: a [last_*]
+     * keyword sends it as it came, with no bare LF in it. */
 
     /* Remove illegal double CR characters */
     while ((ptr = strstr(last_header, "\r\r")) != nullptr) {
@@ -668,6 +663,18 @@ SIP/2.0/UDP 85.55.55.12:4050;branch=z9hG4bK831a.2bb3de86.0", get_header(data, "V
 <sip:10.231.33.77;lr=on>", get_header(data, "Record-Route:", true));
 
     EXPECT_STREQ("<sip:12999999999@85.55.55.12;did=a19.a2e590e>", get_header(data, "Contact:", true));
+}
+
+TEST(Parser, get_header_folded)
+{
+    const char *data = "SIP/2.0 200 OK\r\n"
+                       "Subject: first part\r\n"
+                       "\tsecond part\r\n"
+                       "To: <sip:b@example.com>\r\n"
+                       "\r\n";
+    EXPECT_STREQ("Subject: first part\r\n\tsecond part", get_header(data, "Subject:", false));
+    EXPECT_STREQ("first part\r\n\tsecond part", get_header(data, "Subject:", true));
+    EXPECT_STREQ("<sip:b@example.com>", get_header(data, "To:", true));
 }
 
 TEST(Parser, get_header_last) {
