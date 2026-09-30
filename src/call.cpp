@@ -7311,8 +7311,10 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
         old_last_recv_msg = nullptr;
         if (last_recv_msg != nullptr) {
             last_recv_msg_saved = true;
-            old_last_recv_msg = (char *) malloc(strlen(last_recv_msg)+1);
-            strcpy(old_last_recv_msg, last_recv_msg);
+            old_last_recv_msg = strdup(last_recv_msg);
+            if (!old_last_recv_msg) {
+                ERROR("Out of memory!");
+            }
         }
         // usage of last_ keywords
         realloc_ptr = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
@@ -7334,21 +7336,8 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
 
         // restore previous last msg
         if (last_recv_msg_saved == true) {
-            realloc_ptr = (char *) realloc(last_recv_msg, strlen(old_last_recv_msg) + 1);
-            if (realloc_ptr) {
-                last_recv_msg = realloc_ptr;
-            } else {
-                free(last_recv_msg);
-                ERROR("Out of memory!");
-                return false;
-            }
-
-
-            strcpy(last_recv_msg, old_last_recv_msg);
-            if (old_last_recv_msg != nullptr) {
-                free(old_last_recv_msg);
-                old_last_recv_msg = nullptr;
-            }
+            free(last_recv_msg);
+            last_recv_msg = old_last_recv_msg;
         }
         CStat::globalStat(CStat::E_AUTO_ANSWERED);
         return true;
