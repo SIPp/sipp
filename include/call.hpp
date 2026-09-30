@@ -42,6 +42,8 @@
 #endif
 #include "sip_parser.hpp"
 
+struct remote_address;
+
 #define UDP_MAX_RETRANS_INVITE_TRANSACTION 5
 #define UDP_MAX_RETRANS_NON_INVITE_TRANSACTION 9
 #define UDP_MAX_RETRANS MAX(UDP_MAX_RETRANS_INVITE_TRANSACTION, UDP_MAX_RETRANS_NON_INVITE_TRANSACTION)
@@ -79,7 +81,9 @@ public:
     //call(char * p_id, int userId, bool ipv6, bool isAutomatic);
     call(scenario *call_scenario, const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest);
     call(scenario *call_scenario, const char *p_id, SIPpSocket *socket, struct sockaddr_storage *dest);
-    static call *add_call(int userId, bool ipv6, struct sockaddr_storage *dest);
+    /* An outgoing call to dest; remote is its -round_robin address. */
+    static call *add_call(int userId, bool ipv6, struct sockaddr_storage *dest,
+                          remote_address *remote = nullptr);
     call(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
 
     virtual ~call();
@@ -132,6 +136,8 @@ private:
     bool initCall;
 
     struct sockaddr_storage call_peer;
+    /* The -round_robin address the call was made to, if any. */
+    remote_address *remote;
 
     scenario *call_scenario;
     unsigned int   number;

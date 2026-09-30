@@ -498,6 +498,16 @@ MAYBE_EXTERN struct sockaddr_storage remote_sockaddr;
 MAYBE_EXTERN short         use_remote_sending_addr      DEFVAL(0);
 MAYBE_EXTERN struct sockaddr_storage remote_sending_sockaddr;
 
+/* With -round_robin, the addresses of the remote host, which new calls
+ * take in turn; the first is remote_sockaddr. */
+struct remote_address {
+    struct sockaddr_storage addr;
+    std::string ip;               /* as remote_ip */
+    std::string ip_w_brackets;    /* as remote_ip_w_brackets */
+};
+MAYBE_EXTERN bool          round_robin                  DEFVAL(false);
+MAYBE_EXTERN std::vector<remote_address> remote_addresses;
+
 enum E_Alter_YesNo {
     E_ALTER_YES=0,
     E_ALTER_NO

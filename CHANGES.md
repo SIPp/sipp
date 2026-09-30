@@ -10,6 +10,8 @@ marked **Breaking**.
 
 ### Added
 
+- `-round_robin` sends the calls to the addresses of a remote host name
+  in turn, over UDP or one socket per call (#33, by Orgad Shaneh)
 - A remote host name given without a port is looked up with DNS NAPTR
   and SRV records (RFC 3263) for the transport of `-t`, at startup
   (#117, by Orgad Shaneh)

@@ -1020,7 +1020,8 @@ call::call(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage
     init(call_scenario, socket, dest, p_id, userId, ipv6, isAutomatic, isInitialization);
 }
 
-call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
+call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest,
+                     remote_address *remote)
 {
     static char call_id[MAX_HEADER_LEN];
 
@@ -1030,7 +1031,9 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest)
 
     build_call_id(call_id, next_number);
 
-    return new call(main_scenario, nullptr, dest, call_id, userId, ipv6, false /* Not Auto. */, false);
+    call *new_call = new call(main_scenario, nullptr, dest, call_id, userId, ipv6, false /* Not Auto. */, false);
+    new_call->remote = remote;
+    return new_call;
 }
 
 
@@ -1173,6 +1176,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     } else {
         memset(&call_peer, 0, sizeof(call_peer));
     }
+    remote = nullptr;
 
     // initialising the CallVariable with the Scenario variable
     int i;
@@ -1545,7 +1549,7 @@ bool call::connect_socket_if_needed()
             ERROR_NO("Unable to bind UDP socket");
         }
     } else { /* TCP, SCTP or TLS. */
-        struct sockaddr_storage *L_dest = &remote_sockaddr;
+        struct sockaddr_storage *L_dest = remote ? &remote->addr : &remote_sockaddr;
 
         if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == nullptr) {
             ERROR_NO("Unable to get a TCP/SCTP/TLS socket");
@@ -2912,7 +2916,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             break;
         case E_Message_Remote_IP:
-            out += remote_ip_w_brackets;
+            out += remote ? remote->ip_w_brackets.c_str() : remote_ip_w_brackets;
             break;
         case E_Message_Remote_Host:
             out += remote_host;
@@ -4433,7 +4437,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
         /* Build the auth credenticals */
         char uri[MAX_HEADER_LEN];
-        sprintf (uri, "%s:%d", remote_ip, remote_port);
+        sprintf (uri, "%s:%d", remote ? remote->ip.c_str() : remote_ip, remote_port);
         char my_auth_user[MAX_HEADER_LEN + 2];
         char my_auth_pass[MAX_HEADER_LEN + 2];
         char my_aka_OP[MAX_HEADER_LEN + 2];

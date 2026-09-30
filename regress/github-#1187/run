@@ -1,0 +1,53 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# With -round_robin, a remote host name with several addresses gets the
+# calls in turn, over UDP and over TCP with a socket per call, and
+# [remote_ip] is the call's address. A single TCP socket is refused.
+. "`dirname "$0"`/../functions"
+
+# Our own hosts file: run as root in a user, mount and network namespace
+# of our own.
+if test -z "$SIPP_NETNS"; then
+    if unshare -rmn true 2>/dev/null; then
+        SIPP_NETNS=1 exec unshare -rmn "$0"
+    fi
+    init
+    skip "no user mount and network namespaces"
+fi
+init
+ip link set lo up 2>/dev/null || skip "cannot bring up lo"
+
+tmp=`mktemp -d`
+trap 'rm -rf "$tmp"' EXIT
+printf '127.0.0.1 localhost\n127.0.0.2 rr.test\n127.0.0.3 rr.test\n' \
+    >"$tmp/hosts"
+echo "hosts: files" >"$tmp/nsswitch.conf"
+for f in hosts nsswitch.conf; do
+    mount --bind "$tmp/$f" "/etc/$f" 2>/dev/null ||
+        skip "cannot mount over /etc/$f"
+done
+
+# uac transport: 4 calls to rr.test, 2 for each UAS, which ends after
+# its 2 calls, so a third call to one of them fails.
+uac() {
+    rm -f "$tmp"/uac_*_messages.log
+    sippbg -sn uas -t $1 -i 127.0.0.2 -p 25818 -m 2
+    sippbg -sn uas -t $1 -i 127.0.0.3 -p 25818 -m 2
+    sippfg -sn uac -t $1 -i 127.0.0.1 -m 4 -l 1 -timeout 10 -timeout_error \
+        -round_robin -trace_msg -message_file "$tmp/uac_messages.log" \
+        rr.test:25818 >/dev/null 2>"$tmp/err" || return 1
+    grep -q "Resolving remote host 'rr\.test'\.\.\. 2 addresses\. Done\." \
+        "$tmp/err" || return 1
+    for ip in 127.0.0.2 127.0.0.3; do
+        test "`grep -c "^INVITE sip:service@$ip:25818 " "$tmp/uac_messages.log"`" \
+            -eq 2 || return 1
+    done
+}
+
+uac u1 || fail "UDP"
+uac tn || fail "TCP"
+
+sippfg -sn uac -t t1 -round_robin -m 1 rr.test:25818 >/dev/null 2>&1 &&
+    fail "-round_robin with -t t1"
+
+ok

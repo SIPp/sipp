@@ -603,6 +603,7 @@ struct sipp_option options_table[] = {
     {"reconnect_close", "Should calls be closed on reconnect?", SIPP_OPTION_BOOL, &reset_close, 1},
     {"reconnect_sleep", "How long (in milliseconds) to sleep between the close and reconnect?", SIPP_OPTION_TIME_MS, &reset_sleep, 1},
     {"rsa", "Set the remote sending address to host:port for sending the messages.", SIPP_OPTION_RSA, nullptr, 2},
+    {"round_robin", "Send each new call to the next address of the remote host, in turn, when its name has several (DNS round robin). They are looked up once, at startup, in the family of the first one, and [remote_ip] is the call's. It needs UDP or one socket per call (-t un, tn, ln...).", SIPP_OPTION_SETFLAG, &round_robin, 1},
 
     {"tls_cert", "Set the name for TLS Certificate file, which may be followed by its intermediate CA certificates. Default is 'cacert.pem'. A client goes without a certificate when neither -tls_cert nor -tls_key is given and neither default file exists", SIPP_OPTION_STRING, &tls_cert_name, 1},
     {"tls_key", "Set the name for TLS Private Key file. Default is 'cakey.pem' (see -tls_cert)", SIPP_OPTION_STRING, &tls_key_name, 1},
