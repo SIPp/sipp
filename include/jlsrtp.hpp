@@ -217,7 +217,7 @@ class JLSRTP
          * @return  0   SUCCESS
          * @return  -1  FAILURE
          */
-        int resetPseudoRandomState(std::vector<unsigned char> iv);
+        int resetPseudoRandomState(const std::vector<unsigned char> &iv);
 
         /**
          * pseudorandomFunction
@@ -234,7 +234,7 @@ class JLSRTP
          * @return  -3  FAILURE -- Could not set encryption key
          * @return  -4  FAILURE -- Invalid crypto attribute specified
          */
-        int pseudorandomFunction(std::vector<unsigned char> iv, int n, std::vector<unsigned char> &output);
+        int pseudorandomFunction(const std::vector<unsigned char> &iv, int n, std::vector<unsigned char> &output);
 
         /**
          * shiftVectorLeft
