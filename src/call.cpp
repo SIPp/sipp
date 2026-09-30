@@ -380,6 +380,10 @@ void call::get_remote_media_addr(std::string const &msg)
     }
 
     hasMediaInformation = 1;
+    /* where pcap plays go: none to keep without them */
+    if (!pcap_plays) {
+        return;
+    }
     const int family = media_ip_is_ipv6 ? AF_INET6 : AF_INET;
 
     std::string port = find_in_sdp("m=audio ", msg);
@@ -2918,9 +2922,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 (line_start == std::string::npos ? 0 : line_start);
             play_args_t* play_args = nullptr;
             rtpstream_pcap_t stream = RTPSTREAM_PCAP_AUDIO;
-            if (!hasMedia) {
+            if (!hasMedia || !pcap_plays) {
                 /* The port of a pcap play, which a scenario without media
-                 * has none of */
+                 * or pcap plays has none of */
             } else if (strstr(begin, "audio")) {
                 play_args = &playArgs(RTPSTREAM_PCAP_AUDIO);
             } else if (strstr(begin, "image")) {
@@ -7937,6 +7941,7 @@ TEST(srtp_sdp, plain_video_first_does_not_take_the_audio_crypto) {
 #ifdef PCAPPLAY
 TEST(sdp, good_remote_media_addr_v4) {
     media_ip_is_ipv6 = false;
+    pcap_plays = true;
 
     struct sockaddr_in reference;
     reference.sin_family = AF_INET;
@@ -7951,6 +7956,7 @@ TEST(sdp, good_remote_media_addr_v4) {
 
 TEST(sdp, good_remote_media_addr_v6) {
     media_ip_is_ipv6 = true;
+    pcap_plays = true;
 
     struct sockaddr_in6 reference;
     reference.sin6_family = AF_INET6;
