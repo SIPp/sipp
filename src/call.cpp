@@ -5014,13 +5014,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
 
     /* Check if message has a SDP in it; and extract media information.
      * Also handle multipart/mixed bodies that contain an application/sdp part
-     * (e.g. SIP messages carrying both SDP and PIDF-LO geolocation). */
+     * (e.g. SIP messages carrying both SDP and PIDF-LO geolocation).
+     * Its crypto lines and the offer/answer state are taken without
+     * media too, for the crypto keywords of the next SDP. */
     const char* ct_hdr = get_header_content(msg, "Content-Type:");
     bool has_sdp_content = !strcmp(ct_hdr, "application/sdp") ||
                            (strstr(ct_hdr, "multipart/") && strstr(msg, "application/sdp"));
-    if (has_sdp_content && !sdp_read &&
-          (hasMedia == 1) &&
-          (!curmsg->ignoresdp))
+    if (has_sdp_content && !sdp_read && !curmsg->ignoresdp)
     {
         const char* ptr = 0;
         int audio_port = 0;
@@ -5077,18 +5077,19 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
             pV.primary_unencrypted_srtp = false;
             pV.secondary_unencrypted_srtp = false;
 
-            extract_rtp_remote_addr(msg, audio_host, audio_port, video_host, video_port);
-
             if (extract_srtp_remote_info(msg, pA, pV) < 0) {
                 WARNING("extract_rtp_remote_addr: error extracting SRTP parameters from SDP message body");
                 return rejectCall();
             }
 
-            if ((audio_port==0) && (video_port==0)) {
-                WARNING("extract_rtp_remote_addr: no m=audio or m=video or m=image line found in SDP message body");
-            } else {
-                rtpstream_set_remote(&rtpstream_callinfo, audio_host.c_str(), audio_port,
-                                     video_host.c_str(), video_port);
+            if (hasMedia == 1) {
+                extract_rtp_remote_addr(msg, audio_host, audio_port, video_host, video_port);
+                if ((audio_port==0) && (video_port==0)) {
+                    WARNING("extract_rtp_remote_addr: no m=audio or m=video or m=image line found in SDP message body");
+                } else {
+                    rtpstream_set_remote(&rtpstream_callinfo, audio_host.c_str(), audio_port,
+                                         video_host.c_str(), video_port);
+                }
             }
 
             // PASS INCOMING SRTP PARAMETERS...

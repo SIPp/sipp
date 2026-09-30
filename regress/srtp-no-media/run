@@ -1,0 +1,25 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A call with no media action takes the offer's a=crypto lines all the
+# same: its answer's crypto keywords answer them, and the UAS warns that
+# the suite it answers with is of no line of the offer.
+. "`dirname "$0"`/../functions"; init
+
+rm -f uas.err
+sippbg -sf uas.xml -i 127.0.0.1 -p 26500 -m 1 \
+    -trace_err -error_file uas.err -timeout 10
+uas=$pid
+sippfg -sf uac.xml -i 127.0.0.1 -p 26501 -m 1 \
+    127.0.0.1:26500 -timeout 8 -timeout_error >/dev/null 2>&1
+status=$?
+wait $uas
+warned=`grep -c "SRTP: answering AES_CM_128_HMAC_SHA1_32, the suite of no a=crypto line taken from the offer" uas.err 2>/dev/null`
+rm -f uas.err
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "${warned:-0}" -eq 0; then
+    fail "the UAS took no a=crypto line of the offer"
+else
+    ok
+fi
