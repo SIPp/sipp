@@ -378,7 +378,7 @@ protected:
     int debugLength;
 
     FILE* _srtpctxdebugfile;
-    int logSrtpInfo(const char *fmt, ...);
+    int logSrtpInfo(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
     void startUACSrtp(LazySrtpChannel& tx, LazySrtpChannel& rx, int payloadSize, const char* media);
 
     SessionState _sessionStateCurrent;
