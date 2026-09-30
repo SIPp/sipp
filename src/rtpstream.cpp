@@ -115,6 +115,33 @@ static size_t rtpstream_buffer_len(int bytes_per_packet)
     return sizeof(rtp_header_t) + (bytes_per_packet > 0 ? bytes_per_packet : 0);
 }
 
+/* Count an RTP packet that came on a call's audio or video port, when a
+ * scenario has <rtp_stats>: its payload is past the CSRCs and the header
+ * extension, and before the padding. Called under the task's mutex. */
+static void rtpstream_count_received(taskentry_t* taskinfo, bool video,
+                                     const unsigned char* packet, size_t len)
+{
+    rtpstream_received_t& received = taskinfo->received[video];
+    if (!rtp_stats_used || len < sizeof(rtp_header_t) || (packet[0] >> 6) != 2) {
+        return;
+    }
+    if (received.packets++) {
+        return;
+    }
+    size_t start = sizeof(rtp_header_t) + 4 * (packet[0] & 0x0f);
+    if ((packet[0] & 0x10) && start + 4 <= len) {
+        start += 4 + 4 * ((packet[start + 2] << 8) | packet[start + 3]);
+    }
+    size_t end = len;
+    if (packet[0] & 0x20) {
+        end -= std::min<size_t>(packet[len - 1], len);
+    }
+    received.first_pt = packet[1] & 0x7f;
+    if (start < end) {
+        received.first_payload.assign((const char*) packet + start, end - start);
+    }
+}
+
 /* Made by rtpstream_start_task() with its thread, deleted by
  * rtpstream_shutdown() when the thread exits */
 struct threaddata_t
@@ -911,6 +938,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         /* for now we will just ignore any received data or receive errors */
                         /* separate code path for RTP echo */
                         rtpstream_abytes_in.fetch_add(rc, std::memory_order_relaxed);
+                        rtpstream_count_received(taskinfo, false, audio_in.data(), rc);
                         debugafile.printHexUS("SIPP SUCCESS RECV LOG: ", audio_in.data(), audio_in.size(), rc, rtpstream_apckts);
                     }
 
@@ -1177,6 +1205,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         /* for now we will just ignore any received data or receive errors */
                         /* separate code path for RTP echo */
                         rtpstream_vbytes_in.fetch_add(rc, std::memory_order_relaxed);
+                        rtpstream_count_received(taskinfo, true, video_in.data(), rc);
                         debugvfile.printHexUS("SIPP SUCCESS RECV LOG: ", video_in.data(), video_in.size(), rc, rtpstream_vpckts);
                     }
 
@@ -1429,6 +1458,7 @@ static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffer
         seq_num = (packet_in[2] << 8) | packet_in[3];
 
         debugrefile.printReceived(packet_in.data(), nr);
+        rtpstream_count_received(taskinfo, video, packet_in.data(), nr);
         /* The packet to echo, without SRTP. */
         size_t plain_len = nr;
         if (rx)
@@ -1523,6 +1553,33 @@ static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffer
     return watch;
 }
 
+/* The audio or video of a call its thread reads for <rtp_stats>, when
+ * nothing else does: the playback reads the echoes of what it sends,
+ * the echo what it sends back */
+static bool rtpstream_listens(taskentry_t* taskinfo, bool video)
+{
+    return rtp_stats_used &&
+           !(video ? taskinfo->video_srtp_echo_active : taskinfo->audio_srtp_echo_active) &&
+           !(video ? taskinfo->video_loop_count : taskinfo->audio_loop_count);
+}
+
+/* Count the packets waiting on a call's audio or video RTP socket; false
+ * if there is nothing more to watch on it */
+static bool rtpstream_listentask(taskentry_t* taskinfo, bool video, rtpecho_buffers_t& buffers)
+{
+    std::lock_guard lock(taskinfo->mutex);
+    int sock = video ? taskinfo->video_rtp_socket : taskinfo->audio_rtp_socket;
+    if (sock == -1 || !rtpstream_listens(taskinfo, video)) {
+        return false;
+    }
+    buffers.packet_in.resize(buffers.msg.size());
+    ssize_t nr = recv(sock, buffers.packet_in.data(), buffers.packet_in.size(), MSG_DONTWAIT);
+    if (nr >= 0) {
+        rtpstream_count_received(taskinfo, video, buffers.packet_in.data(), nr);
+    }
+    return nr >= 0 || errno == EAGAIN || errno == EWOULDBLOCK || errno == ECONNREFUSED;
+}
+
 #ifdef PCAPPLAY
 /* Send the packets of a call's pcap plays that are due, and bring
  * *waketime_us forward to when the next one is */
@@ -1571,7 +1628,8 @@ static void* rtpstream_playback_thread(void* params)
     unsigned long  comparison_acheck;
     unsigned long  comparison_vcheck;
     unsigned long  rtpresult;
-    /* the RTP sockets of the calls to echo, and their call, video or not */
+    /* the RTP sockets of the calls to echo or listen to, and their call,
+     * video or not */
     PollerEvent    echo_events[64];
     rtpecho_buffers_t echo_buffers;
 
@@ -1653,12 +1711,14 @@ static void* rtpstream_playback_thread(void* params)
             rtpstream_playpcaptask(taskinfo, threaddata, &waketime_us);
 #endif
 
-            /* watch the sockets of the calls to echo */
+            /* watch the sockets of the calls to echo, or to listen to */
             std::unique_lock lock(taskinfo->mutex);
             rtpstream_watch_echo(threaddata, taskinfo, false,
-                                 taskinfo->audio_srtp_echo_active ? taskinfo->audio_rtp_socket.load() : -1);
+                                 taskinfo->audio_srtp_echo_active || rtpstream_listens(taskinfo, false) ?
+                                 taskinfo->audio_rtp_socket.load() : -1);
             rtpstream_watch_echo(threaddata, taskinfo, true,
-                                 taskinfo->video_srtp_echo_active ? taskinfo->video_rtp_socket.load() : -1);
+                                 taskinfo->video_srtp_echo_active || rtpstream_listens(taskinfo, true) ?
+                                 taskinfo->video_rtp_socket.load() : -1);
             lock.unlock();
             taskindex++;
         }
@@ -1685,7 +1745,8 @@ static void* rtpstream_playback_thread(void* params)
                     {
                         woken = true;
                     }
-                    else if (!rtpstream_echotask(echo_task, video, echo_buffers))
+                    else if (!rtpstream_echotask(echo_task, video, echo_buffers) &&
+                             !rtpstream_listentask(echo_task, video, echo_buffers))
                     {
                         /* nothing more to watch on it, until the next pass */
                         rtpstream_watch_echo(threaddata, echo_task, video, -1);
@@ -3148,6 +3209,15 @@ int rtpstream_rtpecho_stopvideo(rtpstream_callinfo_t* callinfo)
     debugrefilevideo.printf("rtpstream_rtpecho_stopvideo reached...\n");
 
     return rtpstream_rtpecho_stop(taskinfo, true);
+}
+
+rtpstream_received_t rtpstream_received(rtpstream_callinfo_t* callinfo, bool video)
+{
+    if (!callinfo->taskinfo) {
+        return {};
+    }
+    std::lock_guard lock(callinfo->taskinfo->mutex);
+    return callinfo->taskinfo->received[video];
 }
 
 /* code checked */

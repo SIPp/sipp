@@ -1911,6 +1911,27 @@ void scenario::parseAction(CActions *actions)
             } else {
                 ERROR("illegal <exec> in the scenario");
             }
+        } else if (!strcmp(actionElem, "rtp_stats")) {
+            tmpAction->setActionType(CAction::E_AT_RTP_STATS);
+            if (!(cptr = xp_get_value("assign_to"))) {
+                ERROR("assign_to value is missing in rtp_stats");
+            }
+            createStringTable(cptr, &currentTabVarName, &currentNbVarNames);
+            if (currentNbVarNames < 1 || currentNbVarNames > 3) {
+                ERROR("rtp_stats assigns one to three variables: the packets, and the payload type and payload of the first");
+            }
+            tmpAction->setVarId(get_var(currentTabVarName[0], "rtp_stats packets assign_to"));
+            tmpAction->setNbSubVarId(currentNbVarNames - 1);
+            for (int i = 1; i < currentNbVarNames; i++) {
+                tmpAction->setSubVarId(get_var(currentTabVarName[i], "rtp_stats assign_to"));
+            }
+            freeStringTable(currentTabVarName, currentNbVarNames);
+            cptr = xp_get_value("media");
+            if (cptr && strcmp(cptr, "audio") && strcmp(cptr, "video")) {
+                ERROR("rtp_stats media must be audio or video, not %s", cptr);
+            }
+            tmpAction->setDoubleValue(cptr && !strcmp(cptr, "video"));
+            rtp_stats_used = true;
         } else if (!strcmp(actionElem, "rtp_echo")) {
             tmpAction->setActionType(CAction::E_AT_RTP_ECHO);
             handle_rhs(tmpAction, "rtp_echo");
