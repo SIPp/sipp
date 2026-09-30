@@ -36,6 +36,9 @@
  */
 
 #include <dlfcn.h>
+#ifdef __GLIBC__
+#include <malloc.h>
+#endif
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -1857,6 +1860,16 @@ void randomseed(void)
 /* Main */
 int main(int argc, char *argv[])
 {
+#ifdef __GLIBC__
+    /* glibc gives each thread that allocates its own arena, with 64 MB of
+     * address space, up to 8 per CPU: hundreds for the playback threads.
+     * They allocate little, and glibc's per-thread cache serves most of
+     * it without an arena's lock: two arenas do, unless MALLOC_ARENA_MAX
+     * says otherwise. */
+    if (!getenv("MALLOC_ARENA_MAX")) {
+        mallopt(M_ARENA_MAX, 2);
+    }
+#endif
     main_thread = pthread_self();
     int                  argi = 0;
     pthread_t pthread2_id = 0, pthread3_id = 0;
