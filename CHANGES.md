@@ -55,6 +55,11 @@ marked **Breaking**.
   (#1015, by Orgad Shaneh, based on #601 by Stefan Mititelu)
 - `regress/runtests` runs the tests in parallel, each in a network
   namespace of its own (#1017, by Orgad Shaneh)
+- With `-max_reconnect` and `-reconnect_close false`, a call goes on
+  when its connection fails over, to the backup of a proxy say: what it
+  could not send, and a request that the old connection lost without a
+  response, go on the new connection. Over TLS too, whose failed writes
+  now make the connection again as over TCP (#782, by Orgad Shaneh)
 
 ### Changed
 

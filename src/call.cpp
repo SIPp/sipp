@@ -1080,6 +1080,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     last_send_index = 0;
     last_send_msg = nullptr;
     last_send_len = 0;
+    last_send_unanswered = false;
     recv_retrans_last = false;
     recv_retrans_msg = nullptr;
     recv_retrans_len = 0;
@@ -1722,7 +1723,9 @@ int call::send_raw(const char * msg, int index, int len)
         }
     }
 
-    rc = sock->write(msg, len, WS_BUFFER, dest);
+    /* A message of the scenario waits for the connection to be made
+     * again, if it failed; one of our own reports the failure. */
+    rc = sock->write(msg, len, index != -1 ? WS_BUFFER | WS_KEEP : WS_BUFFER, dest);
     if(rc < 0 && errno == EWOULDBLOCK) {
         return rc;
     }
@@ -1904,6 +1907,18 @@ void call::do_bookkeeping(message *curmsg)
                 rtd_done[rtd - 1] = true;
             }
         }
+    }
+}
+
+/* Its connection failed and was made again, with the calls kept: a
+ * request that the old one took, with no response yet, may have been
+ * lost with it, and goes on the new one (see
+ * SIPpSocket::resume_calls()). */
+void call::tcpReconnected()
+{
+    if (last_send_unanswered) {
+        callDebug("Sending the unanswered request again on a new connection\n");
+        send_raw(last_send_msg, last_send_index, last_send_len);
     }
 }
 
@@ -2258,6 +2273,11 @@ bool call::executeMessage(message *curmsg)
         }
         memcpy(last_send_msg, msg_snd, msgLen);
         last_send_msg[msgLen] = '\0';
+        /* Not one that waits for the connection to be made again: that
+         * sends it (see SIPpSocket::keep()). */
+        last_send_unanswered = !curmsg->send_scheme->isResponse() &&
+                               !curmsg->send_scheme->isAck() &&
+                               call_socket && call_socket->all_written();
 
         if (curmsg->start_txn) {
             transactions[curmsg->start_txn - 1].txnID = (char *)realloc(transactions[curmsg->start_txn - 1].txnID, MAX_HEADER_LEN);
@@ -5074,6 +5094,11 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
     update_clock_tick();
     callDebug("Processing %zu byte incoming message for call-ID %s (hash %lu):\n%s\n\n",
               strlen(msg), id, hash(msg), msg);
+
+    if (last_send_unanswered && !strncmp(msg, "SIP/2.0", 7) &&
+            same_cseq(last_send_msg, msg)) {
+        last_send_unanswered = false;
+    }
 
     /* Over but for its <exec verify> commands, the call takes no more
      * messages. */

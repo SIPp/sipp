@@ -101,6 +101,16 @@ control this behaviour:
 + -reconnect_sleep int : How long to sleep (in milliseconds) between
   the close and reconnect?
 
+With -reconnect_close false, the calls go on on the new connection, as
+in a failover test, where a proxy's address moves to its backup: the
+scenario messages that the old connection did not take are sent on the
+new one, and so is a call's last request that has no response yet, as
+it may have been lost with the old connection (a BYE that the backup,
+which does not know that connection, answers with a reset). For
+instance::
+
+    ./sipp -sn uac -t t1 -max_reconnect 1 -reconnect_close false proxy:5060
+
 
 
 TLS mono socket
