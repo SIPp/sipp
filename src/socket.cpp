@@ -2073,9 +2073,12 @@ int SIPpSocket::write_error(int ret)
     /* A connection that is gone, or that could not be made (a buffered
      * message flushed once a reconnection is refused), is reset as a
      * read finding it so would. Only warning here left it dead, and the
-     * next read took it for one the peer closed. */
+     * next read took it for one the peer closed. So is a TLS client's:
+     * it only warned, and asked the SSL object of a connection that the
+     * peer had closed, which was freed, for the error. */
     int err = errno;
-    if ((ss_transport == T_TCP || ss_transport == T_SCTP || ss_transport == T_WS)
+    bool tls_client = TRANSPORT_IS_TLS(ss_transport) && !ss_accepted;
+    if ((ss_transport == T_TCP || ss_transport == T_SCTP || ss_transport == T_WS || tls_client)
             && (err == EPIPE || err == ECONNRESET || err == ECONNREFUSED || err == ENOTCONN)) {
         nb_net_send_errors++;
         sockets_pending_reset.insert(this);
@@ -2260,6 +2263,29 @@ void SIPpSocket::buffer_write(const char *buffer, size_t len, struct sockaddr_st
     ss_out_tail = ss_out_tail->next;
     ss_out_tail->untraced = untraced;
     TRACE_MSG("Appended buffered message to socket %d\n", ss_fd);
+}
+
+/* A connection that failed, to be made again for its calls, keeps what
+ * they write until then, for the new one: a WebSocket's once the new
+ * connection's handshake is done (see reset_connection()). */
+bool SIPpSocket::keep(const char *buffer, size_t len, int flags, struct sockaddr_storage *dest)
+{
+    if (!(flags & WS_KEEP) || !ss_invalid || reset_close || ss_accepted || ss_control ||
+            !sockets_pending_reset.count(this)) {
+        return false;
+    }
+    if (ss_ws) {
+        ss_ws->held += ss_ws->frame(buffer, len);
+        trace_sent(buffer, len);
+    } else {
+        buffer_whole(buffer, len, buffer, len, dest);
+    }
+    return true;
+}
+
+bool SIPpSocket::all_written()
+{
+    return !ss_invalid && !ss_out && !(ss_ws && !ss_ws->held.empty());
 }
 
 /* Throw away the output still waiting to be written. */
@@ -2542,6 +2568,8 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
             if ((errno == EWOULDBLOCK) && (flags & WS_BUFFER)) {
                 buffer_whole(buffer, len, out, out_len, dest);
                 return len;
+            } else if (keep(buffer, len, flags, dest)) {
+                return len;
             } else {
                 return rc;
             }
@@ -2569,7 +2597,8 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
                       TRANSPORT_TO_STRING(ss_transport),
                       (int)len, buffer);
         }
-        return write_error(errno);
+        rc = write_error(errno);
+        return keep(buffer, len, flags, dest) ? len : rc;
     } else {
         /* We have a truncated message, which must be handled internally to the write function. */
         if (useMessagef == 1) {
@@ -2579,7 +2608,9 @@ int SIPpSocket::write(const char *buffer, ssize_t len, int flags, struct sockadd
                       TRANSPORT_TO_STRING(ss_transport),
                       rc, out_len, (int)len, buffer);
         }
-        buffer_write(out + rc, out_len - rc, dest, false);
+        /* Whole, for a new connection to send it whole. */
+        buffer_write(out, out_len, dest, false);
+        ss_out_tail->offset = rc;
         enter_congestion(errno);
     }
 
@@ -2631,7 +2662,9 @@ void SIPpSocket::ws_reply(const std::string &reply)
         }
         rc = rc < 0 ? 0 : rc;
     }
-    buffer_write(reply.data() + rc, reply.size() - rc, &ss_dest, false);
+    /* Whole, as write() does. */
+    buffer_write(reply.data(), reply.size(), &ss_dest, false);
+    ss_out_tail->offset = rc;
     poll_out();
 }
 
@@ -2775,6 +2808,17 @@ void SIPpSocket::reset_connection()
     /* Sleep for some period of time before the reconnection. */
     usleep(1000 * reset_sleep);
 
+    /* What a WebSocket's connection did not take waits for the handshake
+     * of the new one: the messages held for its own handshake, or once
+     * that was done, the frames in its output, each whole. */
+    std::string held;
+    if (ss_ws) {
+        for (struct socketbuf *buf = ss_ws->is_open() ? ss_out : nullptr; buf; buf = buf->next) {
+            held.append(buf->buf, buf->len);
+        }
+        held += ss_ws->held;
+    }
+
     if (int rc = reconnect()) {
         /* A TLS handshake that fails returns its SSL error, which
          * connect() warned about, rather than -1 and errno. */
@@ -2786,7 +2830,30 @@ void SIPpSocket::reset_connection()
         close_calls();
     } else {
         WARNING("Socket required a reconnection.");
+        if (!reset_close) {
+            resume_calls(held);
+        }
     }
+}
+
+/* The calls kept over a reconnection go on on the new connection: what
+ * the old one did not take goes on it, whole, and a request that it took
+ * but that has no response is sent again, as it may have been lost with
+ * it. */
+void SIPpSocket::resume_calls(const std::string &held)
+{
+    if (ss_ws) {
+        ss_ws->held = held;
+    } else if (ss_out) {
+        ss_out->offset = 0;
+        poll_out();
+    }
+
+    owner_list *owners = get_owners_for_socket(this);
+    for (socketowner *owner : *owners) {
+        owner->tcpReconnected();
+    }
+    delete owners;
 }
 
 /* Close just those calls for a given socket (e.g., if the remote end closes

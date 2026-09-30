@@ -33,6 +33,8 @@ public:
 
     /* Notification of TCP Close events. Returns whether it failed the call. */
     virtual bool tcpClose() = 0;
+    /* The connection was made again, with the calls kept. */
+    virtual void tcpReconnected() = 0;
 protected:
     /* What socket is this call bound to. */
     SIPpSocket *call_socket;

@@ -1,0 +1,35 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# With -max_reconnect and -reconnect_close false, a call whose connection
+# fails goes on on a new one, as when a proxy fails over to its backup:
+# the BYE that the old connection lost, reset when it came (#782), or
+# that could not be written to it once the peer had closed it, is sent
+# on the new connection. Calls closed on a reconnection still fail.
+. "`dirname "$0"`/../functions"; init
+
+uac() {
+    sippfg -sn uac -t t1 -i 127.0.0.1 -p 27961 127.0.0.1:27960 -m 1 -d 500 \
+        -max_reconnect 1 -reconnect_sleep 100 -timeout 4 "$@" >/dev/null 2>&1
+}
+
+for mode in reset close; do
+    python3 peer.py 27960 $mode &
+    peer=$!
+    sleep 0.3
+    uac -reconnect_close false
+    status=$?
+    wait $peer
+    got=$?
+    test $status -eq 0 || fail "$mode: the UAC exited with $status"
+    test $got -eq 0 || fail "$mode: the BYE did not come on a new connection"
+done
+
+python3 peer.py 27960 reset >/dev/null 2>&1 &
+peer=$!
+sleep 0.3
+uac
+status=$?
+kill $peer 2>/dev/null
+wait $peer 2>/dev/null
+test $status -eq 1 || fail "a call closed on the reconnection exited with $status"
+ok

@@ -96,6 +96,7 @@ public:
     /* Terminate this call, depending on action results and timewait. */
     virtual void terminate(CStat::E_Action reason);
     virtual bool tcpClose();
+    virtual void tcpReconnected();
     /* The -3pcc twin connection is lost: fail the calls waiting for a
      * command. Returns how many failed. */
     static int close_twin_calls();
@@ -181,6 +182,9 @@ protected:
     int            last_send_index;
     char         * last_send_msg;
     int            last_send_len;
+    /* Is last_send_msg a request that a connection took, with no
+     * response yet? */
+    bool           last_send_unanswered;
 
     /* How long until sending this message times out. */
     unsigned int   send_timeout;

@@ -110,6 +110,10 @@ public:
     // Have we read a message from this socket?
     bool message_ready() { return ss_msglen > 0; };
 
+    /* Did the connection take all that was written to it: nothing waits
+     * to be written, and it is up? */
+    bool all_written();
+
 #ifdef SO_BINDTODEVICE
     // Bind to specific network device.
     int bind_to_device(const char* device_name);
@@ -142,6 +146,7 @@ private:
     void buffer_whole(const char *buffer, size_t len, const char *out, size_t out_len,
                       struct sockaddr_storage *dest);
     void drop_out();
+    bool keep(const char *buffer, size_t len, int flags, struct sockaddr_storage *dest);
     void trace_sent(const char *buffer, size_t len);
     ssize_t read_message(char *buf, size_t len, struct sockaddr_storage *src);
     struct socketbuf *ss_in = nullptr;    /* Buffered input. */
@@ -150,6 +155,7 @@ private:
     size_t ss_msglen = 0;           /* Is there a complete SIP message waiting, and if so how big? */
 
     int close_calls();
+    void resume_calls(const std::string &held);
     void peer_closed(bool reset);
     int flush();
     int write_error(int ret);
@@ -228,6 +234,7 @@ struct socketbuf {
 
 #define WS_EAGAIN 1 /* Return EAGAIN if there is no room for writing the message. */
 #define WS_BUFFER 2 /* Buffer the message if there is no room for writing the message. */
+#define WS_KEEP 4   /* Keep the message for the new connection of one that failed (see keep()). */
 
 
 #if defined (__hpux) || (defined (__alpha) && !defined (__FreeBSD__) && !defined (__linux__))
