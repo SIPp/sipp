@@ -356,6 +356,37 @@ static std::string find_in_sdp(std::string_view pattern, std::string_view msg)
     return std::string(msg.substr(begin, end - begin));
 }
 
+/* The address of the c= line of a part of an SDP, "" if it has none; ipv6
+ * tells whether it is an IPv6 one. */
+static std::string sdp_connection(std::string_view part, bool &ipv6)
+{
+    std::string host = find_in_sdp("c=IN IP4 ", part);
+    ipv6 = host.empty();
+    if (ipv6) {
+        host = find_in_sdp("c=IN IP6 ", part);
+    }
+    return host;
+}
+
+/* The media section of an SDP from its m= line at pos to the next one */
+static std::string_view sdp_media_section(std::string_view sdp, size_t pos)
+{
+    const size_t end = sdp.find("\nm=", pos + 1);
+    return sdp.substr(pos, end == std::string_view::npos ? end : end - pos);
+}
+
+/* The connection address of a media section of an SDP: that of its own c=
+ * line, else that of the session part before the first m= line (RFC 4566
+ * 5.7). */
+static std::string sdp_media_connection(std::string_view sdp, std::string_view section, bool &ipv6)
+{
+    std::string host = sdp_connection(section, ipv6);
+    if (host.empty()) {
+        host = sdp_connection(sdp.substr(0, sdp.find("\nm=")), ipv6);
+    }
+    return host;
+}
+
 #ifdef PCAPPLAY
 /* A stream's own, made on its first use: most calls have only audio */
 play_args_t& call::playArgs(rtpstream_pcap_t stream)
@@ -374,8 +405,7 @@ play_args_t& call::playArgs(rtpstream_pcap_t stream)
 
 void call::get_remote_media_addr(std::string const &msg)
 {
-    std::string host = find_in_sdp(media_ip_is_ipv6 ? "c=IN IP6 " : "c=IN IP4 ", msg);
-    if (host.empty()) {
+    if (find_in_sdp(media_ip_is_ipv6 ? "c=IN IP6 " : "c=IN IP4 ", msg).empty()) {
         return;
     }
 
@@ -386,25 +416,30 @@ void call::get_remote_media_addr(std::string const &msg)
     }
     const int family = media_ip_is_ipv6 ? AF_INET6 : AF_INET;
 
-    std::string port = find_in_sdp("m=audio ", msg);
-    if (!port.empty()) {
-        gai_getsockaddr(&playArgs(RTPSTREAM_PCAP_AUDIO).to, host.c_str(), port.c_str(),
+    static const struct {
+        const char* prefix;
+        rtpstream_pcap_t stream;
+    } media[] = {
+        {"\nm=audio ", RTPSTREAM_PCAP_AUDIO},
+        {"\nm=image ", RTPSTREAM_PCAP_IMAGE},
+        {"\nm=video ", RTPSTREAM_PCAP_VIDEO},
+    };
+    for (const auto& m : media) {
+        const size_t pos = msg.find(m.prefix);
+        if (pos == std::string::npos) {
+            continue;
+        }
+        const std::string_view section = sdp_media_section(msg, pos);
+        const std::string port = find_in_sdp(m.prefix + 1, section);
+        bool ipv6;
+        const std::string host = sdp_media_connection(msg, section, ipv6);
+        /* none to play to on an address of the other IP version */
+        if (port.empty() || host.empty() || ipv6 != media_ip_is_ipv6) {
+            continue;
+        }
+        gai_getsockaddr(&playArgs(m.stream).to, host.c_str(), port.c_str(),
                         AI_NUMERICHOST | AI_NUMERICSERV, family);
-        rtpstream_update_pcap(&rtpstream_callinfo, RTPSTREAM_PCAP_AUDIO, &playArgs(RTPSTREAM_PCAP_AUDIO));
-    }
-
-    port = find_in_sdp("m=image ", msg);
-    if (!port.empty()) {
-        gai_getsockaddr(&playArgs(RTPSTREAM_PCAP_IMAGE).to, host.c_str(), port.c_str(),
-                        AI_NUMERICHOST | AI_NUMERICSERV, family);
-        rtpstream_update_pcap(&rtpstream_callinfo, RTPSTREAM_PCAP_IMAGE, &playArgs(RTPSTREAM_PCAP_IMAGE));
-    }
-
-    port = find_in_sdp("m=video ", msg);
-    if (!port.empty()) {
-        gai_getsockaddr(&playArgs(RTPSTREAM_PCAP_VIDEO).to, host.c_str(), port.c_str(),
-                        AI_NUMERICHOST | AI_NUMERICSERV, family);
-        rtpstream_update_pcap(&rtpstream_callinfo, RTPSTREAM_PCAP_VIDEO, &playArgs(RTPSTREAM_PCAP_VIDEO));
+        rtpstream_update_pcap(&rtpstream_callinfo, m.stream, &playArgs(m.stream));
     }
 }
 #endif
@@ -415,14 +450,17 @@ void call::get_remote_media_addr(std::string const &msg)
 #define SDP_AUDIOPORT_PREFIX "\nm=audio"
 #define SDP_VIDEOPORT_PREFIX "\nm=video"
 
-/* Port of the first media line with the given prefix at or after pos, or 0.
- * Leaves pos after that port, so that the next call finds the next line. */
-static int sdp_media_port(std::string_view sdp, std::string_view prefix, size_t &pos)
+/* Port of the first media line with the given prefix at or after pos, or 0,
+ * and its media section. Leaves pos after that port, so that the next call
+ * finds the next line. */
+static int sdp_media_port(std::string_view sdp, std::string_view prefix, size_t &pos,
+                          std::string_view &section)
 {
     pos = sdp.find(prefix, pos);
     if (pos == std::string_view::npos) {
         return 0;
     }
+    section = sdp_media_section(sdp, pos);
     pos += prefix.size() + 1; /* skip the prefix and the whitespace after it */
     const size_t end = sdp.find(' ', pos);
     int port = 0;
@@ -433,7 +471,31 @@ static int sdp_media_port(std::string_view sdp, std::string_view prefix, size_t 
     return port;
 }
 
-std::string call::extract_rtp_remote_addr(const char* msg, int &ip_ver, int &audio_port, int &video_port)
+/* The connection address and the port of the media of a kind, "" and 0 if
+ * there is none. If the first m-line of the kind has port ZERO, use the
+ * second one. */
+static std::string sdp_media_remote(std::string_view sdp, std::string_view prefix, int &port)
+{
+    size_t pos = 0;
+    std::string_view section;
+    port = sdp_media_port(sdp, prefix, pos, section);
+    if (port == 0) {
+        port = sdp_media_port(sdp, prefix, pos, section);
+    }
+    if (port == 0) {
+        return "";
+    }
+
+    bool ipv6;
+    std::string host = sdp_media_connection(sdp, section, ipv6);
+    if (host.empty()) {
+        ERROR("extract_rtp_remote_addr: no c= line for %s in SDP message body", prefix.data() + 1);
+    }
+    return host;
+}
+
+void call::extract_rtp_remote_addr(const char* msg, std::string &audio_host, int &audio_port,
+                                   std::string &video_host, int &video_port)
 {
     /* Look for start of message body */
     const char *search = strstr(msg, "\r\n\r\n");
@@ -443,32 +505,8 @@ std::string call::extract_rtp_remote_addr(const char* msg, int &ip_ver, int &aud
     /* Point to the blank line before the body, so every SDP line starts with '\n'. */
     const std::string_view sdp(search + 2);
 
-    /* Now search for IP address field */
-    std::string host = find_in_sdp("c=IN IP4 ", sdp);
-    if (host.empty()) {
-        host = find_in_sdp("c=IN IP6 ", sdp);
-        if (host.empty()) {
-            ERROR("extract_rtp_remote_addr: invalid IP version in SDP message body");
-        }
-        ip_ver = 6;
-    } else {
-        ip_ver = 4;
-    }
-
-    /* If the first m-line of a kind has port ZERO, use the second one. */
-    size_t pos = 0;
-    audio_port = sdp_media_port(sdp, SDP_AUDIOPORT_PREFIX, pos);
-    if (audio_port == 0) {
-        audio_port = sdp_media_port(sdp, SDP_AUDIOPORT_PREFIX, pos);
-    }
-
-    pos = 0;
-    video_port = sdp_media_port(sdp, SDP_VIDEOPORT_PREFIX, pos);
-    if (video_port == 0) {
-        video_port = sdp_media_port(sdp, SDP_VIDEOPORT_PREFIX, pos);
-    }
-
-    return host;
+    audio_host = sdp_media_remote(sdp, SDP_AUDIOPORT_PREFIX, audio_port);
+    video_host = sdp_media_remote(sdp, SDP_VIDEOPORT_PREFIX, video_port);
 }
 
 /* The AES_192_CM and AES_256_CM suites of RFC 6188 */
@@ -4962,10 +5000,10 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
           (!curmsg->ignoresdp))
     {
         const char* ptr = 0;
-        int ip_ver = 0;
         int audio_port = 0;
         int video_port = 0;
-        std::string host;
+        std::string audio_host;
+        std::string video_host;
 
         bool audio_answer = false;
         bool video_answer = false;
@@ -5016,7 +5054,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
             pV.primary_unencrypted_srtp = false;
             pV.secondary_unencrypted_srtp = false;
 
-            host = extract_rtp_remote_addr(msg, ip_ver, audio_port, video_port);
+            extract_rtp_remote_addr(msg, audio_host, audio_port, video_host, video_port);
 
             if (extract_srtp_remote_info(msg, pA, pV) < 0) {
                 WARNING("extract_rtp_remote_addr: error extracting SRTP parameters from SDP message body");
@@ -5026,7 +5064,8 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
             if ((audio_port==0) && (video_port==0)) {
                 WARNING("extract_rtp_remote_addr: no m=audio or m=video or m=image line found in SDP message body");
             } else {
-                rtpstream_set_remote(&rtpstream_callinfo, ip_ver, host.c_str(), audio_port, video_port);
+                rtpstream_set_remote(&rtpstream_callinfo, audio_host.c_str(), audio_port,
+                                     video_host.c_str(), video_port);
             }
 
             // PASS INCOMING SRTP PARAMETERS...
@@ -5055,7 +5094,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     //
                     CryptoContextID txUACA;
                     txUACA.ssrc = rtpstream_callinfo.audio_ssrc_id;
-                    txUACA.address = host;
+                    txUACA.address = audio_host;
                     txUACA.port = audio_port;
                     logSrtpInfo("call::process_incoming():  (a) TX-UAC-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUACA.ssrc, txUACA.address.c_str(), txUACA.port);
                     _txUACAudio.setID(txUACA);
@@ -5190,7 +5229,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     //
                     CryptoContextID txUASA;
                     txUASA.ssrc = rtpstream_callinfo.audio_ssrc_id;
-                    txUASA.address = host;
+                    txUASA.address = audio_host;
                     txUASA.port = audio_port;
                     logSrtpInfo("call::process_incoming():  (d) TX-UAS-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUASA.ssrc, txUASA.address.c_str(), txUASA.port);
                     _txUASAudio.setID(txUASA);
@@ -5344,7 +5383,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     //
                     CryptoContextID txUACV;
                     txUACV.ssrc = rtpstream_callinfo.video_ssrc_id;
-                    txUACV.address = host;
+                    txUACV.address = video_host;
                     txUACV.port = video_port;
                     logSrtpInfo("call::process_incoming():  (a) TX-UAC-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUACV.ssrc, txUACV.address.c_str(), txUACV.port);
                     _txUACVideo.setID(txUACV);
@@ -5479,7 +5518,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     //
                     CryptoContextID txUASV;
                     txUASV.ssrc = rtpstream_callinfo.video_ssrc_id;
-                    txUASV.address = host;
+                    txUASV.address = video_host;
                     txUASV.port = video_port;
                     logSrtpInfo("call::process_incoming():  (d) TX-UAS-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUASV.ssrc, txUASV.address.c_str(), txUASV.port);
                     _txUASVideo.setID(txUASV);
@@ -7433,10 +7472,15 @@ public:
     bool has_media() { return hasMediaInformation; }
 
     template<typename T>
-    T get_audio_addr() {
+    T get_addr(rtpstream_pcap_t stream) {
         T sa;
-        std::memcpy(&sa, &playArgs(RTPSTREAM_PCAP_AUDIO).to, sizeof(T));
+        std::memcpy(&sa, &playArgs(stream).to, sizeof(T));
         return sa;
+    }
+
+    template<typename T>
+    T get_audio_addr() {
+        return get_addr<T>(RTPSTREAM_PCAP_AUDIO);
     }
 #endif
 };
@@ -7651,11 +7695,80 @@ TEST(sdp, extract_rtp_remote_addr_skips_zero_port) {
                             "m=video 7000/2 RTP/AVP 31\r\n"
                             "m=audio 6000 RTP/AVP 0\r\n";
     mockcall test_call(false);
-    int ip_ver = 0, audio_port = 0, video_port = 0;
+    std::string audio_host, video_host;
+    int audio_port = 0, video_port = 0;
 
-    EXPECT_EQ("::1", test_call.extract_rtp_remote_addr(msg.c_str(), ip_ver, audio_port, video_port));
-    EXPECT_EQ(6, ip_ver);
+    test_call.extract_rtp_remote_addr(msg.c_str(), audio_host, audio_port, video_host, video_port);
+    EXPECT_EQ("::1", audio_host);
     EXPECT_EQ(6000, audio_port);
+    EXPECT_EQ("::1", video_host);
+    EXPECT_EQ(7000, video_port);
+}
+
+/* The connection address of the media section at the first prefix */
+static std::string media_connection(std::string_view sdp, std::string_view prefix, bool &ipv6)
+{
+    return sdp_media_connection(sdp, sdp_media_section(sdp, sdp.find(prefix)), ipv6);
+}
+
+TEST(sdp, media_connection_session_level_only) {
+    bool ipv6 = true;
+    EXPECT_EQ("127.0.0.1", media_connection(test_sdp_v4, "\nm=audio", ipv6));
+    EXPECT_FALSE(ipv6);
+    EXPECT_EQ("::1", media_connection(test_sdp_v6, "\nm=audio", ipv6));
+    EXPECT_TRUE(ipv6);
+}
+
+TEST(sdp, media_connection_media_level_only) {
+    const std::string sdp = "v=0\r\n"
+                            "o=- 1 1 IN IP4 192.0.2.9\r\n"
+                            "t=0 0\r\n"
+                            "m=audio 6000 RTP/AVP 0\r\n"
+                            "c=IN IP4 192.0.2.1\r\n"
+                            "m=video 7000 RTP/AVP 31\r\n"
+                            "c=IN IP4 192.0.2.2\r\n";
+    bool ipv6;
+    EXPECT_EQ("192.0.2.1", media_connection(sdp, "\nm=audio", ipv6));
+    EXPECT_EQ("192.0.2.2", media_connection(sdp, "\nm=video", ipv6));
+    EXPECT_EQ("m=video 7000 RTP/AVP 31\r\nc=IN IP4 192.0.2.2\r\n",
+              sdp_media_section(sdp, sdp.find("\nm=video")).substr(1));
+}
+
+TEST(sdp, media_connection_overrides_session_level) {
+    const std::string sdp = "v=0\r\n"
+                            "c=IN IP4 192.0.2.1\r\n"
+                            "t=0 0\r\n"
+                            "m=audio 6000 RTP/AVP 0\r\n"
+                            "m=video 7000 RTP/AVP 31\r\n"
+                            "c=IN IP6 2001:db8::2\r\n"
+                            "m=image 8000 udptl t38\r\n";
+    bool ipv6;
+    EXPECT_EQ("192.0.2.1", media_connection(sdp, "\nm=audio", ipv6));
+    EXPECT_FALSE(ipv6);
+    EXPECT_EQ("2001:db8::2", media_connection(sdp, "\nm=video", ipv6));
+    EXPECT_TRUE(ipv6);
+    EXPECT_EQ("192.0.2.1", media_connection(sdp, "\nm=image", ipv6));
+    EXPECT_FALSE(ipv6);
+}
+
+TEST(sdp, extract_rtp_remote_addr_of_each_media_section) {
+    const std::string msg = "SIP/2.0 200 OK\r\n"
+                            "Content-Type: application/sdp\r\n\r\n"
+                            "v=0\r\n"
+                            "c=IN IP4 192.0.2.1\r\n"
+                            "m=audio 0 RTP/AVP 0\r\n"
+                            "c=IN IP4 192.0.2.3\r\n"
+                            "m=video 7000 RTP/AVP 31\r\n"
+                            "c=IN IP4 192.0.2.2\r\n"
+                            "m=audio 6000 RTP/AVP 0\r\n";
+    mockcall test_call(false);
+    std::string audio_host, video_host;
+    int audio_port = 0, video_port = 0;
+
+    test_call.extract_rtp_remote_addr(msg.c_str(), audio_host, audio_port, video_host, video_port);
+    EXPECT_EQ("192.0.2.1", audio_host);
+    EXPECT_EQ(6000, audio_port);
+    EXPECT_EQ("192.0.2.2", video_host);
     EXPECT_EQ(7000, video_port);
 }
 
@@ -7967,6 +8080,28 @@ TEST(sdp, good_remote_media_addr_v6) {
     call.parse_media_addr(test_sdp_v6);
     ASSERT_EQ(call.has_media(), true);
     ASSERT_EQ(reference, call.get_audio_addr<struct sockaddr_in6>());
+}
+
+TEST(sdp, remote_media_addr_of_each_media_section) {
+    media_ip_is_ipv6 = false;
+    pcap_plays = true;
+
+    struct sockaddr_in audio, video;
+    audio.sin_family = video.sin_family = AF_INET;
+    audio.sin_port = htons(6000);
+    video.sin_port = htons(7000);
+    inet_pton(AF_INET, "192.0.2.1", &audio.sin_addr);
+    inet_pton(AF_INET, "192.0.2.2", &video.sin_addr);
+
+    mockcall call(false);
+    call.parse_media_addr("v=0\r\n"
+                          "c=IN IP4 192.0.2.1\r\n"
+                          "m=audio 6000 RTP/AVP 0\r\n"
+                          "m=video 7000 RTP/AVP 31\r\n"
+                          "c=IN IP4 192.0.2.2\r\n");
+    ASSERT_EQ(call.has_media(), true);
+    ASSERT_EQ(audio, call.get_addr<struct sockaddr_in>(RTPSTREAM_PCAP_AUDIO));
+    ASSERT_EQ(video, call.get_addr<struct sockaddr_in>(RTPSTREAM_PCAP_VIDEO));
 }
 
 /* The RTP payload type of packet n of a play_dtmf; the first 20 are

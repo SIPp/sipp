@@ -352,7 +352,8 @@ protected:
 
     void get_remote_media_addr(std::string const &msg);
 
-    std::string extract_rtp_remote_addr(const char * message, int &ip_ver, int &audio_port, int &video_port);
+    void extract_rtp_remote_addr(const char* message, std::string &audio_host, int &audio_port,
+                                 std::string &video_host, int &video_port);
     int extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInfoParams &pV);
     void extract_rtp_remote_addr(const char* message);
 
