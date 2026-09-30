@@ -207,6 +207,9 @@ int handle_ctrl_socket();
 void handle_stdin_socket();
 
 void process_message(SIPpSocket* socket, char *msg, ssize_t msg_size, struct sockaddr_storage *src);
+/* The Call-ID of msg without its "///" prefix (unless -callid_slash_ign):
+ * the key of the call it is for. full, if given, gets the whole value. */
+const char *get_trimmed_call_id(const char *msg, const char **full = nullptr);
 bool reconnect_allowed();
 
 /********************** Network Interfaces ********************/
