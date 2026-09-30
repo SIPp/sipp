@@ -1774,7 +1774,6 @@ static void setup_media_sockets()
 {
     struct addrinfo hints = {0,};
     struct addrinfo* local_addr;
-    struct sockaddr_storage media_sockaddr = {0,};
     int try_counter = 0;
     int max_tries = (min_rtp_port < (max_rtp_port - 2)) ? 100 : 1;
 

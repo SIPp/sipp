@@ -456,6 +456,8 @@ MAYBE_EXTERN int media_socket_audio                     DEFVAL(0);
 MAYBE_EXTERN int media_socket_video                     DEFVAL(0);
 
 MAYBE_EXTERN struct sockaddr_storage local_sockaddr;
+/* media_ip resolved, as it may be a host name */
+MAYBE_EXTERN struct sockaddr_storage media_sockaddr;
 MAYBE_EXTERN struct sockaddr_storage localTwin_sockaddr;
 MAYBE_EXTERN int           user_port                    DEFVAL(0);
 MAYBE_EXTERN char          hostname[80];
