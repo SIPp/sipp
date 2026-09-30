@@ -578,7 +578,10 @@ static unsigned long long rtpstream_grid_timestamp(unsigned long timenow_ms, int
 /* code checked */
 static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* rtpresult)
 {
-    if (taskinfo->flags & TI_RECONNECTSOCKET) {
+    /* Clear the flag before connecting: the call's thread sets it
+     * again, without the mutex, for a socket it adds meanwhile, which
+     * clearing it afterwards left unconnected. */
+    if (taskinfo->flags.fetch_and(~TI_RECONNECTSOCKET) & TI_RECONNECTSOCKET) {
         int remote_addr_len;
         int rc = -1;
 
@@ -642,8 +645,6 @@ static void rtpstream_process_task_flags(taskentry_t* taskinfo, unsigned long* r
                 }
             }
         }
-
-        taskinfo->flags &= ~TI_RECONNECTSOCKET;
     }
 
     /* Take a new play under the mutex, for rtpstream_is_playing() to see
