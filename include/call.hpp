@@ -297,8 +297,6 @@ protected:
     SIPpSocket *call_remote_socket;
     int            call_port;
 
-    int            deleted;
-
     bool           call_established; // == true when the call is established
     // ie ACK received or sent
     // => init to false
