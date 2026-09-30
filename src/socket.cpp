@@ -296,7 +296,7 @@ static void process_trace(char* what)
         }
         if (on) {
             useMessagef = 1;
-            rotate_logfile();
+            rotate_messagef();
         } else {
             useMessagef = 0;
             log_off(&message_lfi);
