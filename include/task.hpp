@@ -118,7 +118,7 @@ private:
     /* If we are paused, the iterator to remove us from the paused list. */
     task_list::iterator pauseit;
     /* The list that we are stored in (only when paused) . */
-    task_list *pauselist;
+    task_list *pauselist = nullptr;
     /* The timing wheel is our friend so that it can update our list pointer. */
     friend class timewheel;
 };

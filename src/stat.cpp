@@ -1070,6 +1070,7 @@ CStat::CStat ()
     M_time_ref = 0.0                   ;
     M_dumpRespTime = nullptr              ;
     M_counterDumpRespTime = 0          ;
+    M_report_freq_dumpRtt = 0;
     M_dumpRespTime = nullptr;
     M_rtdInfo = nullptr;
     M_rtpEchoErrors = 0;
