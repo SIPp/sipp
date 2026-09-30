@@ -112,6 +112,10 @@ function(apply_common_sipp_dependencies TARGET_NAME)
     target_link_libraries(${TARGET_NAME} ${RT_LIBRARY})
   endif()
 
+  if(RESOLV_LIBRARY)
+    target_link_libraries(${TARGET_NAME} ${RESOLV_LIBRARY})
+  endif()
+
   if(USE_GSL AND GSL_LIBRARY AND GSLCBLAS_LIBRARY)
     target_link_libraries(${TARGET_NAME} ${GSL_LIBRARY} ${GSLCBLAS_LIBRARY})
   endif()
@@ -280,6 +284,9 @@ if(BUILD_STATIC)
 endif(BUILD_STATIC)
 
 find_library(RT_LIBRARY NAMES rt)
+# res_query() for DNS NAPTR and SRV: in libresolv on macOS and glibc before 2.34,
+# in libc on musl.
+find_library(RESOLV_LIBRARY NAMES resolv)
 
 if(USE_GSL)
   find_library(GSLCBLAS_LIBRARY gslcblas)

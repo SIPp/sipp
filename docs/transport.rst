@@ -225,6 +225,22 @@ addresses prefers one in the family of the -i address: with -i
 127.0.0.1, localhost is 127.0.0.1 even where it is ::1 first.
 
 
+DNS NAPTR and SRV
+`````````````````
+
+A remote host name given without a port is looked up first with DNS
+NAPTR and SRV records (RFC 3263), for the transport of -t: UDP, TCP,
+TLS or SCTP (not WebSocket). The transport stays the one of -t: a NAPTR
+record for it gives the SRV name, else it is ``_sip._udp``,
+``_sip._tcp``, ``_sips._tcp`` or ``_sip._sctp`` followed by the host
+name. Of the SRV records, SIPp takes the first target that resolves, in
+the order of RFC 2782 (by priority, then weighted at random), and its
+port: ``[remote_ip]`` and ``[remote_port]`` come from it, while
+``[remote_host]`` stays the name. It is looked up once, at startup.
+With no SRV records, the host name is resolved as is, on port 5060.
+An IP address, or a host name with a port, is not looked up this way.
+
+
 Multi-socket limit
 ``````````````````
 
