@@ -60,6 +60,14 @@ struct txnInstanceInfo {
     char *txnID;
     unsigned long txnResp;
     int ackIndex;
+    /* A transaction a received request starts: the request, its hash
+     * and index, and the last response we sent in it */
+    char *request;
+    unsigned long requestHash;
+    int requestIndex;
+    char *response;
+    int responseLen;
+    int responseIndex;
 };
 
 typedef enum
