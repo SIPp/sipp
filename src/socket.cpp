@@ -46,6 +46,7 @@
 #include "socket.hpp"
 #include "logger.hpp"
 #include "poller.hpp"
+#include "dns.hpp"
 #include "websocket.hpp"
 
 extern bool do_hide;
@@ -2837,6 +2838,45 @@ int SIPpSocket::close_calls()
     return failed;
 }
 
+/* The NAPTR service and the SRV name prefix of a SIP transport
+ * (RFC 3263); false for WebSocket, which has none. */
+static bool sip_dns_service(int transport, const char **service,
+                            const char **prefix)
+{
+    switch (transport) {
+    case T_UDP:
+        *service = "SIP+D2U";
+        *prefix = "_sip._udp.";
+        return true;
+    case T_TCP:
+        *service = "SIP+D2T";
+        *prefix = "_sip._tcp.";
+        return true;
+    case T_TLS:
+        *service = "SIPS+D2T";
+        *prefix = "_sips._tcp.";
+        return true;
+    case T_SCTP:
+        *service = "SIP+D2S";
+        *prefix = "_sip._sctp.";
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool is_numeric_host(const char *host)
+{
+    const struct addrinfo hints = {AI_NUMERICHOST, AF_UNSPEC,};
+    struct addrinfo *res;
+
+    if (getaddrinfo(host, nullptr, &hints, &res) != 0) {
+        return false;
+    }
+    freeaddrinfo(res);
+    return true;
+}
+
 int open_connections()
 {
     int status=0;
@@ -2882,12 +2922,45 @@ int open_connections()
             }
 #endif
 
-            /* FIXME: add DNS SRV support using liburli? */
             /* An address in the family of the IP we bind on, if there
              * is one: we could not reach the others. */
-            if (gai_getsockaddr(&remote_sockaddr, remote_host, remote_port,
-                                hints.ai_flags, hints.ai_family,
-                                *local_ip ? gai_family(local_ip) : AF_UNSPEC) != 0) {
+            int prefer = *local_ip ? gai_family(local_ip) : AF_UNSPEC;
+            /* A host name without a port: its NAPTR and SRV records
+             * first (RFC 3263), for the transport of -t, taking the
+             * first target that resolves. */
+            const char *service, *prefix;
+            std::string srv_name;
+            bool naptr = false;
+            std::vector<srv_record> records;
+            if (!temp_remote_port && !is_numeric_host(remote_host) &&
+                    sip_dns_service(transport, &service, &prefix)) {
+                records = sip_srv_lookup(remote_host, service, prefix,
+                                         srv_name, naptr);
+            }
+            if (records.size() == 1 && records[0].target == ".") {
+                ERROR("SRV %s: the service is not available",
+                      srv_name.c_str());
+            }
+            bool resolved = false;
+            if (records.empty()) {
+                resolved = gai_getsockaddr(&remote_sockaddr, remote_host,
+                                           remote_port, hints.ai_flags,
+                                           hints.ai_family, prefer) == 0;
+            }
+            for (const srv_record &r : records) {
+                if (r.port && r.target != "." &&
+                        gai_getsockaddr(&remote_sockaddr, r.target.c_str(),
+                                        r.port, hints.ai_flags,
+                                        hints.ai_family, prefer) == 0) {
+                    remote_port = r.port;
+                    fprintf(stderr, "%sSRV %s: %s:%d. ",
+                            naptr ? "NAPTR, " : "", srv_name.c_str(),
+                            r.target.c_str(), remote_port);
+                    resolved = true;
+                    break;
+                }
+            }
+            if (!resolved) {
                 ERROR("Unknown remote host '%s'.\n"
                       "Use 'sipp -h' for details", remote_host);
             }

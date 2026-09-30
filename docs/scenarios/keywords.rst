@@ -41,12 +41,14 @@ Keyword list
 
 ``[remote_ip]``
 ===============
-:Description: Remote IP address, resolved from the hostname as passed on the command line.
+:Description: Remote IP address, resolved from the hostname as passed on the command line
+  (over DNS NAPTR and SRV records, if it has no port: see :doc:`/transport`).
 
 ``[remote_port]``
 =================
 :Default: 5060
-:Description: Remote IP port, as passed on the command line.
+:Description: Remote IP port, as passed on the command line, or from the DNS SRV record
+  of a remote host passed without one.
   You can add a computed offset [remote_port+3] to this value.
 
 ``[transport]``

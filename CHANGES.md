@@ -10,6 +10,9 @@ marked **Breaking**.
 
 ### Added
 
+- A remote host name given without a port is looked up with DNS NAPTR
+  and SRV records (RFC 3263) for the transport of `-t`, at startup
+  (#117, by Orgad Shaneh)
 - SIP over WebSocket (RFC 7118), with no extra library: `-t w1` and `wn`
   over TCP, `-t x1` and `xn` over TLS, with `-ws_path` and
   `-ws_handshake_timeout` (#1028, by Orgad Shaneh, based on #817 by

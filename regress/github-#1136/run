@@ -1,0 +1,85 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A host name without a port is looked up with NAPTR and SRV records
+# (RFC 3263) for the transport: the SRV target of the best priority that
+# resolves is the remote address, through the SRV name of a NAPTR record
+# for the transport if there is one. With a port, there is no lookup.
+. "`dirname "$0"`/../functions"
+
+# Our own DNS server, resolv.conf and hosts: run as root in a user,
+# mount and network namespace of our own.
+if test -z "$SIPP_NETNS"; then
+    if unshare -rmn true 2>/dev/null; then
+        SIPP_NETNS=1 exec unshare -rmn "$0"
+    fi
+    init
+    skip "no user mount and network namespaces"
+fi
+init
+command -v python3 >/dev/null || skip "no python3"
+ip link set lo up 2>/dev/null || skip "cannot bring up lo"
+
+tmp=`mktemp -d`
+trap 'rm -rf "$tmp"' EXIT
+echo "nameserver 127.0.0.1" >"$tmp/resolv.conf"
+printf '127.0.0.1 localhost\n127.0.0.2 sip1.test\n127.0.0.3 sip2.test\n' \
+    >"$tmp/hosts"
+echo "hosts: files dns" >"$tmp/nsswitch.conf"
+for f in resolv.conf hosts nsswitch.conf; do
+    mount --bind "$tmp/$f" "/etc/$f" 2>/dev/null ||
+        skip "cannot mount over /etc/$f"
+done
+
+python3 dns.py "$tmp/queries" "$tmp/ready" &
+for i in 1 2 3 4 5 6 7 8 9 10; do
+    test -f "$tmp/ready" && break
+    sleep 0.5
+done
+test -f "$tmp/ready" || fail "the DNS server did not start"
+
+sippbg -sn uas -i 127.0.0.2 -p 25814
+sippbg -sn uas -t t1 -i 127.0.0.2 -p 25816
+
+# uac host [options]: a call to host, from 127.0.0.1; its stderr in
+# $tmp/err.
+uac() {
+    host=$1
+    shift
+    sippfg -sn uac -i 127.0.0.1 -p 25817 -m 1 -timeout 10 -timeout_error \
+        "$@" "$host" >/dev/null 2>"$tmp/err"
+}
+
+# What the last call resolved, or why it failed to.
+resolved() {
+    grep -a Resolving "$tmp/err" | sed 's/\.\.\. .*[0-9]: /... /'
+}
+
+uac example.test ||
+    fail "UDP SRV: `resolved`"
+grep -q "Resolving remote host 'example.test'\.\.\. .*SRV _sip\._udp\.example\.test: sip1\.test:25814\. Done\." "$tmp/err" ||
+    fail "UDP SRV: `resolved`"
+
+uac example.test -t t1 ||
+    fail "TCP SRV: `resolved`"
+grep -q "SRV _sip\._tcp\.example\.test: sip1\.test:25816\. Done\." "$tmp/err" ||
+    fail "TCP SRV: `resolved`"
+
+uac naptr.test ||
+    fail "NAPTR: `resolved`"
+grep -q "NAPTR, SRV _udp\.naptr\.test: sip1\.test:25814\. Done\." "$tmp/err" ||
+    fail "NAPTR: `resolved`"
+
+uac other.test ||
+    fail "NAPTR for SCTP only: `resolved`"
+grep -q "\.\.\. SRV _sip\._udp\.other\.test: sip1\.test:25814\. Done\." "$tmp/err" ||
+    fail "NAPTR for SCTP only: `resolved`"
+
+# With a port: example.test itself, which has no address.
+before=`grep -c '^3[35] ' "$tmp/queries"`
+uac example.test:25814 && fail "example.test:25814 was looked up with SRV"
+grep -q "Unknown remote host 'example.test'" "$tmp/err" ||
+    fail "example.test:25814: `resolved`"
+test "`grep -c '^3[35] ' "$tmp/queries"`" -eq "$before" ||
+    fail "example.test:25814 was looked up with NAPTR or SRV"
+
+ok
