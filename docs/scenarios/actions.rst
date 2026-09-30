@@ -223,7 +223,11 @@ Media/RTP commands
 
 RTP streaming allows you to stream audio from a PCMA, PCMU, G722,
 iLBC or G729-encoded audio file (e.g. a .wav file). The "rtp_stream"
-action controls this.
+action controls this. Of a .wav file, the audio of its data chunk
+plays as the payload, as it is: SIPp does not convert or resample it,
+but mixes its channels down to one, as their mean for 8- or 16-bit
+PCM, and as the first channel for other formats, such as A-law and
+mu-law.
 
 
 + <exec rtp_stream="file.wav" /> will stream the audio contained in

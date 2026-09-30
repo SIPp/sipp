@@ -1,0 +1,35 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# rtp_stream plays a stereo WAV file mixed down to mono: the mean of its
+# two channels, at the rate of the payload type. It played the channels
+# interleaved, at half the rate.
+. "`dirname "$0"`/../functions"; init
+
+# Half a second of 8 kHz 8-bit PCM: 0x40 on the left, 0x60 on the right,
+# which mix down to 0x50: 4000 bytes, in 25 packets of 160.
+python3 -c '
+import wave
+w = wave.open("stereo.wav", "wb")
+w.setnchannels(2)
+w.setsampwidth(1)
+w.setframerate(8000)
+w.writeframes(b"\x40\x60" * 4000)
+w.close()
+'
+python3 rtp.py 127.0.0.1:30510 >rtp.out &
+sippbg -sf uas.xml -i 127.0.0.1 -p 30500 -m 1 -timeout 10
+sippfg -sf uac.xml -i 127.0.0.1 -p 30501 -m 1 \
+    -min_rtp_port 30520 -max_rtp_port 30539 \
+    127.0.0.1:30500 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait
+read bytes mixed <rtp.out
+rm -f rtp.out stereo.wav
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "$bytes" != 4000 || test "$mixed" != "$bytes"; then
+    fail "$bytes bytes played, $mixed of them mixed down, not 4000"
+else
+    ok
+fi
