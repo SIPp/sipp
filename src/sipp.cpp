@@ -793,7 +793,7 @@ struct sipp_option options_table[] = {
     {"stf", "Set the file name to use to dump statistics", SIPP_OPTION_ARGI, &argiFileName, 1},
     {"fd", "Set the statistics dump log report frequency. Default is 60 and default unit is seconds.", SIPP_OPTION_TIME_SEC, &report_freq_dumpLog, 1},
     {"rfc3339", "Use timestamps in RFC3339 format.", SIPP_OPTION_SETFLAG, &rfc3339, 1},
-    {"periodic_rtd", "Reset response time partition counters each logging interval.", SIPP_OPTION_SETFLAG, &periodic_rtd, 1},
+    {"periodic_rtd", "Deprecated and ignored: the statistics file has periodic (P) and cumulative (C) repartition columns.", SIPP_OPTION_SETFLAG, &periodic_rtd, 1},
 
     {"trace_msg", "Displays sent and received SIP messages in <scenario file name>_<pid>_messages.log", SIPP_OPTION_SETFLAG, &useMessagef, 1},
     {"message_file", "Set the name of the message log file.", SIPP_OPTION_LFNAME, &message_lfi, 1},
@@ -2645,6 +2645,11 @@ int main(int argc, char *argv[])
                     "the -l option or the -max_socket option",
                     max_sockets_needed, open_calls_allowed, (unsigned long)rlimit.rlim_cur);
         }
+    }
+
+    if (periodic_rtd) {
+        WARNING("-periodic_rtd is deprecated and ignored: the statistics file "
+                "has periodic (P) and cumulative (C) repartition columns");
     }
 
     /*

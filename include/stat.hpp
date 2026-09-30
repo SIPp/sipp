@@ -71,10 +71,12 @@ public:
      * This struct is used for repartition table
      * border max is the max value allow for this range
      * nbInThisBorder is the counter of value in this range
+     * nbInThisBorderPL is the same counter since the last statistics dump
      */
     typedef struct _T_dynamicalRepartition {
         unsigned int  borderMax;
         unsigned long nbInThisBorder;
+        unsigned long nbInThisBorderPL;
     } T_dynamicalRepartition;
 
     typedef struct _T_value_rtt {
@@ -522,7 +524,7 @@ private:
 
     /**
      * resetRepartition
-     * Zeros out all repartition counters.
+     * Zeros out the periodic repartition counters.
      */
     void  resetRepartition(T_dynamicalRepartition* P_tabReport,
                            int P_sizeOfTab);
