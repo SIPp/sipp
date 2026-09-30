@@ -94,7 +94,7 @@ public:
 
     void setID(CryptoContextID id)
     {
-        get().setID(id);
+        get().setID(std::move(id));
     }
 
     void setSrtpPayloadSize(unsigned int size)

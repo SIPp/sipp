@@ -4493,7 +4493,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             rxUACA.address = media_ip;
             rxUACA.port = rtpstream_callinfo.local_audioport;
             logSrtpInfo("call::createSendingMessage():  (b) RX-UAC-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUACA.ssrc, rxUACA.address.c_str(), rxUACA.port);
-            _rxUACAudio.setID(rxUACA);
+            _rxUACAudio.setID(std::move(rxUACA));
         }
     }
     if (srtp_video_updated)
@@ -4521,7 +4521,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             rxUACV.address = media_ip;
             rxUACV.port = rtpstream_callinfo.local_videoport;
             logSrtpInfo("call::createSendingMessage():  (b) RX-UAC-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUACV.ssrc, rxUACV.address.c_str(), rxUACV.port);
-            _rxUACVideo.setID(rxUACV);
+            _rxUACVideo.setID(std::move(rxUACV));
         }
     }
 
@@ -5103,7 +5103,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     txUACA.address = audio_host;
                     txUACA.port = audio_port;
                     logSrtpInfo("call::process_incoming():  (a) TX-UAC-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUACA.ssrc, txUACA.address.c_str(), txUACA.port);
-                    _txUACAudio.setID(txUACA);
+                    _txUACAudio.setID(std::move(txUACA));
 
                     if (audio_answer)
                     {
@@ -5238,7 +5238,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     txUASA.address = audio_host;
                     txUASA.port = audio_port;
                     logSrtpInfo("call::process_incoming():  (d) TX-UAS-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUASA.ssrc, txUASA.address.c_str(), txUASA.port);
-                    _txUASAudio.setID(txUASA);
+                    _txUASAudio.setID(std::move(txUASA));
 
                     if (audio_answer)
                     {
@@ -5392,7 +5392,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     txUACV.address = video_host;
                     txUACV.port = video_port;
                     logSrtpInfo("call::process_incoming():  (a) TX-UAC-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUACV.ssrc, txUACV.address.c_str(), txUACV.port);
-                    _txUACVideo.setID(txUACV);
+                    _txUACVideo.setID(std::move(txUACV));
 
                     if (video_answer)
                     {
@@ -5527,7 +5527,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     txUASV.address = video_host;
                     txUASV.port = video_port;
                     logSrtpInfo("call::process_incoming():  (d) TX-UAS-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", txUASV.ssrc, txUASV.address.c_str(), txUASV.port);
-                    _txUASVideo.setID(txUASV);
+                    _txUASVideo.setID(std::move(txUASV));
 
                     if (video_answer)
                     {
@@ -6607,7 +6607,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_URLDECODE) {
             CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
             std::string input = var->getString();
-            std::string output = url_decode(input);
+            std::string output = url_decode(std::move(input));
             char *char_output = strdup(output.c_str());
             var->setString(char_output);
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_URLENCODE) {
@@ -6812,7 +6812,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 rxUASA.address = media_ip;
                 rxUASA.port = rtpstream_callinfo.local_audioport;
                 logSrtpInfo("call::executeAction() [STARTAUDIO]:  (c) RX-UAS-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUASA.ssrc, rxUASA.address.c_str(), rxUASA.port);
-                _rxUASAudio.setID(rxUASA);
+                _rxUASAudio.setID(std::move(rxUASA));
 
                 //
                 // RX/TX-UAS-AUDIO SRTP context (c)(d) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
@@ -6865,7 +6865,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 rxUASA.address = media_ip;
                 rxUASA.port = rtpstream_callinfo.local_audioport;
                 logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  (c) RX-UAS-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUASA.ssrc, rxUASA.address.c_str(), rxUASA.port);
-                _rxUASAudio.setID(rxUASA);
+                _rxUASAudio.setID(std::move(rxUASA));
 
                 //
                 // RX/TX-UAS-AUDIO SRTP context (c)(d) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
@@ -6926,7 +6926,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 rxUASV.address = media_ip;
                 rxUASV.port = rtpstream_callinfo.local_videoport;
                 logSrtpInfo("call::executeAction() [STARTVIDEO]:  (c) RX-UAS-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUASV.ssrc, rxUASV.address.c_str(), rxUASV.port);
-                _rxUASVideo.setID(rxUASV);
+                _rxUASVideo.setID(std::move(rxUASV));
 
                 //
                 // RX/TX-UAS-VIDEO SRTP context (c)(d) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
@@ -6979,7 +6979,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 rxUASV.address = media_ip;
                 rxUASV.port = rtpstream_callinfo.local_videoport;
                 logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  (c) RX-UAS-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUASV.ssrc, rxUASV.address.c_str(), rxUASV.port);
-                _rxUASVideo.setID(rxUASV);
+                _rxUASVideo.setID(std::move(rxUASV));
 
                 //
                 // RX/TX-UAS-VIDEO SRTP context (c)(d) -- SRTP PAYLOAD SIZE + DERIVE SESSION ENCRYPTION/SALTING/AUTHENTICATION KEYS + SELECT ENCRYPTION KEY + RESET CIPHER STATE
