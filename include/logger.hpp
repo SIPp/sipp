@@ -3,6 +3,7 @@
 
 /************************** Trace Files ***********************/
 
+#include <signal.h>
 #include <time.h>
 #include "sipp.hpp"
 
@@ -37,6 +38,9 @@ MAYBE_EXTERN int    ringbuffer_files    DEFVAL(0);
 MAYBE_EXTERN char   screen_last_error[32768];
 MAYBE_EXTERN std::string screen_logfile;
 
+/* Set by the SIGXFSZ handler: a trace went over the file size limit. */
+MAYBE_EXTERN volatile sig_atomic_t file_size_exceeded DEFVAL(0);
+
 /* Log Rotation Functions. */
 struct logfile_id {
     time_t start;
@@ -63,6 +67,9 @@ void print_tdm_map();
 void print_screens(void);
 
 void log_off(struct logfile_info *lfi);
+/* Once a trace went over the file size limit, say so in a file of its
+ * own and stop the traces, as the signal handler cannot. */
+void stop_oversized_traces();
 
 #ifdef GLOBALS_FULL_DEFINITION
 #define LOGFILE(name, s, check) \

@@ -344,9 +344,52 @@ void rotate_errorf()
     screen_logfile = error_lfi.file_name;
 }
 
+static void close_trace(struct logfile_info *lfi)
+{
+    if (lfi->fptr) {
+        fclose(lfi->fptr);
+        lfi->fptr = nullptr;
+    }
+}
+
+void stop_oversized_traces()
+{
+    static bool stopped = false;
+
+    // we can receive the signal more than once
+    if (!file_size_exceeded || stopped) {
+        return;
+    }
+    stopped = true;
+
+    char L_file_name[MAX_PATH];
+    snprintf(L_file_name, MAX_PATH, "%s_%ld_traces_oversized.log", scenario_file, (long)getpid());
+    FILE *f = fopen(L_file_name, "w");
+    if (!f) {
+        ERROR_NO("Unable to open oversized log file");
+    }
+
+    struct timeval currentTime;
+    GET_TIME(&currentTime);
+    fprintf(f,
+            "-------------------------------------------- %s\n"
+            "Max file size reached - no more logs\n",
+            CStat::formatTime(&currentTime, rfc3339));
+
+    fclose(f);
+    close_trace(&message_lfi);
+    close_trace(&log_lfi);
+    dumpInRtt = 0;
+    dumpInFile = 0;
+    print_all_responses = 0;
+    close_trace(&error_lfi);
+}
+
 static int _trace(struct logfile_info* lfi, const char* fmt, va_list ap)
 {
     int ret = 0;
+    /* Not into a file over the size limit */
+    stop_oversized_traces();
     if (lfi->fptr) {
         ret = vfprintf(lfi->fptr, fmt, ap);
         fflush(lfi->fptr);
