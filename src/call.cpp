@@ -6218,15 +6218,15 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 haystack = msgPart;
             } else if(currentAction->getLookingPlace() == CAction::E_LP_BODY) {
                 haystack = strstr(msg, "\r\n\r\n");
-                if (!haystack) {
+                if (haystack) {
+                    haystack += strlen("\r\n\r\n");
+                } else {
                     if (currentAction->getCheckIt() == true) {
                         WARNING("Failed regexp match: body not found in message\n%s", msg);
                         return(call::E_AR_HDR_NOT_FOUND);
                     }
-                    msgPart[0] = '\0';
-                    haystack = msgPart;
+                    haystack = "";
                 }
-                haystack += strlen("\r\n\r\n");
             } else if(currentAction->getLookingPlace() == CAction::E_LP_MSG) {
                 haystack = msg;
             } else if(currentAction->getLookingPlace() == CAction::E_LP_VAR) {
