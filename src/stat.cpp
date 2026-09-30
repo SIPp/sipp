@@ -300,39 +300,12 @@ int CStat::createIntegerTable(char * P_listeStr,
 
 void CStat::setFileName(const char* P_name, const char* P_extension)
 {
-    int sizeOf, sizeOfExtension;
-
     if(P_name != nullptr) {
-        // +6 for PID
-        sizeOf = strlen(P_name) + 6;
-        if(sizeOf > 0) {
-            if(P_extension != nullptr) {
-                sizeOfExtension = strlen(P_extension);
-                if(sizeOfExtension > 0) {
-                    if(M_fileName != nullptr)
-                        delete [] M_fileName;
-                    M_fileName = new char[MAX_PATH];
-                    sprintf(M_fileName, "%s_%ld_", P_name, (long) getpid());
-                    strcat(M_fileName, P_extension);
-                } else {
-                    if(M_fileName != nullptr)
-                        delete [] M_fileName;
-                    M_fileName = new char[MAX_PATH];
-                    sprintf(M_fileName, "%s_%ld_", P_name, (long) getpid());
-                    strcat(M_fileName, DEFAULT_EXTENSION);
-                }
-            } else {
-                if(M_fileName != nullptr)
-                    delete [] M_fileName;
-                M_fileName = new char[MAX_PATH];
-                sprintf(M_fileName, "%s_%ld_", P_name, (long) getpid());
-                strcat(M_fileName, DEFAULT_EXTENSION);
-            }
-        } else {
-            std::cerr << "new file name length is null - "
-                 << "keeping the default filename : "
-                 << DEFAULT_FILE_NAME << std::endl;
-        }
+        const char *extension = P_extension && *P_extension ? P_extension : DEFAULT_EXTENSION;
+        std::string name = std::string(P_name) + "_" + std::to_string(getpid()) + "_" + extension;
+        delete[] M_fileName;
+        M_fileName = new char[name.size() + 1];
+        memcpy(M_fileName, name.c_str(), name.size() + 1);
     } else {
         std::cerr << "new file name is NULL ! - keeping the default filename : "
              << DEFAULT_FILE_NAME << std::endl;

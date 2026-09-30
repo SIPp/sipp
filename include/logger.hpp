@@ -35,7 +35,7 @@ MAYBE_EXTERN unsigned long long ringbuffer_size DEFVAL(0);
 MAYBE_EXTERN int    ringbuffer_files    DEFVAL(0);
 
 MAYBE_EXTERN char   screen_last_error[32768];
-MAYBE_EXTERN char   screen_logfile[MAX_PATH] DEFVAL("");
+MAYBE_EXTERN std::string screen_logfile;
 
 /* Log Rotation Functions. */
 struct logfile_id {
@@ -49,7 +49,7 @@ struct logfile_info {
     FILE *fptr;
     int nfiles;
     struct logfile_id *ftimes;
-    char file_name[MAX_PATH];
+    std::string file_name;
     bool overwrite;
     bool fixedname;
     time_t starttime;

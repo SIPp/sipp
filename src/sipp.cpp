@@ -912,10 +912,6 @@ static std::atomic<bool> traffic_running{false};
 
 static void traffic_thread(int &rtp_errors, int &echo_errors)
 {
-    /* create the file */
-    char L_file_name[MAX_PATH];
-    sprintf(L_file_name, "%s_%ld_screen.log", scenario_file, (long) getpid());
-
     traffic_running = true;
     update_clock_tick();
 
@@ -2470,7 +2466,7 @@ int main(int argc, char *argv[])
                 CHECK_PASS();
                 struct logfile_info* lfi = (struct logfile_info*)option->data;
                 lfi->fixedname = true;
-                copy_arg(lfi->file_name, sizeof(lfi->file_name), argv[argi], argv[argi - 1]);
+                lfi->file_name = argv[argi];
             }
             break;
             case SIPP_OPTION_LFOVERWRITE:
@@ -2591,21 +2587,19 @@ int main(int argc, char *argv[])
      } */
 
     if (useCountf == 1) {
-        char L_file_name [MAX_PATH];
-        sprintf(L_file_name, "%s_%ld_counts.csv", scenario_file, (long) getpid());
-        countf = fopen(L_file_name, "w");
+        std::string L_file_name = std::string(scenario_file) + "_" + std::to_string(getpid()) + "_counts.csv";
+        countf = fopen(L_file_name.c_str(), "w");
         if (!countf) {
-            ERROR("Unable to create '%s'", L_file_name);
+            ERROR("Unable to create '%s'", L_file_name.c_str());
         }
         print_count_file(countf, 1);
     }
 
     if (useErrorCodesf == 1) {
-        char L_file_name [MAX_PATH];
-        sprintf(L_file_name, "%s_%ld_error_codes.csv", scenario_file, (long) getpid());
-        codesf = fopen(L_file_name, "w");
+        std::string L_file_name = std::string(scenario_file) + "_" + std::to_string(getpid()) + "_error_codes.csv";
+        codesf = fopen(L_file_name.c_str(), "w");
         if (!codesf) {
-            ERROR("Unable to create '%s'", L_file_name);
+            ERROR("Unable to create '%s'", L_file_name.c_str());
         }
     }
 
