@@ -366,8 +366,12 @@ protected:
     void computeStat (CStat::E_Action P_action, unsigned long P_value);
     void computeStat (CStat::E_Action P_action, unsigned long P_value, int which);
 
-    void queue_up(const char* msg);
+    /* sdp_read: the message was queued for _unexp.main after its SDP was
+     * read when it came; reading it again would count it twice. */
+    bool process_incoming(const char* msg, const struct sockaddr_storage* src, bool sdp_read);
+    void queue_up(const char* msg, bool sdp_read = false);
     char *queued_msg;
+    bool queued_sdp_read;
     /* A command that came while the call waited for a SIP message, kept
      * for the <recvCmd> that follows. */
     char *queued_cmd;

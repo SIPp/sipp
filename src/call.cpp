@@ -1108,6 +1108,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     nb_last_delay = 0;
     use_ipv6 = ipv6;
     queued_msg = nullptr;
+    queued_sdp_read = false;
     queued_cmd = nullptr;
 
     dialog_authentication = nullptr;
@@ -2273,7 +2274,7 @@ bool call::executeMessage(message *curmsg)
         } else if (queued_msg) {
             char *msg = queued_msg;
             queued_msg = nullptr;
-            bool ret = process_incoming(msg);
+            bool ret = process_incoming(msg, nullptr, queued_sdp_read);
             free(msg);
             return ret;
         } else if (recv_timeout) {
@@ -4890,13 +4891,19 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
     return false;
 }
 
-void call::queue_up(const char* msg)
+void call::queue_up(const char* msg, bool sdp_read)
 {
     free(queued_msg);
     queued_msg = strdup(msg);
+    queued_sdp_read = sdp_read;
 }
 
 bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
+{
+    return process_incoming(msg, src, false);
+}
+
+bool call::process_incoming(const char* msg, const struct sockaddr_storage* src, bool sdp_read)
 {
     int             reply_code = 0;
     static char     request[65];
@@ -5011,7 +5018,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
     const char* ct_hdr = get_header_content(msg, "Content-Type:");
     bool has_sdp_content = !strcmp(ct_hdr, "application/sdp") ||
                            (strstr(ct_hdr, "multipart/") && strstr(msg, "application/sdp"));
-    if (has_sdp_content &&
+    if (has_sdp_content && !sdp_read &&
           (hasMedia == 1) &&
           (!curmsg->ignoresdp))
     {
@@ -5681,7 +5688,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                 return false; // Call aborted by unexpected message handling
             }
 #ifdef PCAPPLAY
-        } else if (hasMedia == 1 && !curmsg->ignoresdp) {
+        } else if (!sdp_read && hasMedia == 1 && !curmsg->ignoresdp) {
             /* Get media info if we find something like an SDP: a
              * response need not end its headers with a blank line. */
             const char *body = strstr(msg, "\r\n\r\n");
@@ -5723,7 +5730,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
             if (((strncmp(request, "INVITE", 6) == 0)
                     || (strncmp(request, "ACK", 3) == 0)
                     || (strncmp(request, "PRACK", 5) == 0))
-                    && hasMedia == 1 && !curmsg->ignoresdp) {
+                    && !sdp_read && hasMedia == 1 && !curmsg->ignoresdp) {
                 get_remote_media_addr(msg);
             }
 #endif
@@ -5866,7 +5873,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                     M_callVariableTable->getVar(call_scenario->pausedaddr)->setDouble(paused_until);
                 }
                 msg_index = call_scenario->unexpected_jump;
-                queue_up(msg);
+                queue_up(msg, true);
                 paused_until = 0;
                 rtpstream_wait_check = 0;
                 return run();
