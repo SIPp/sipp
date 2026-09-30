@@ -394,6 +394,14 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
                 newcomp->type = E_Message_Last_Header;
                 newcomp->literal = strdup(keyword + strlen("last_"));
                 newcomp->literalLen = strlen(newcomp->literal);
+                /* [last_From.value]: the value alone, without "From: " */
+                const int suffix = strlen(".value");
+                if (newcomp->literalLen > suffix &&
+                        !strcmp(newcomp->literal + newcomp->literalLen - suffix, ".value")) {
+                    newcomp->type = E_Message_Last_Header_Value;
+                    newcomp->literalLen -= suffix;
+                    newcomp->literal[newcomp->literalLen] = '\0';
+                }
             } else if(!strncmp(keyword, "authentication", strlen("authentication"))) {
                 parseAuthenticationKeyword(msg_scenario, newcomp, keyword);
             } else {

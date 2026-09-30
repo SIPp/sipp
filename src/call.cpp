@@ -4393,12 +4393,14 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             break;
         }
-        case E_Message_Last_Header: {
+        case E_Message_Last_Header:
+        case E_Message_Last_Header_Value: {
             /* "From" or "From:" (the name without the colon) */
             std::string name = comp->literal;
             if (!name.empty() && name.back() == ':') {
                 name.pop_back();
             }
+            const bool value_only = comp->type == E_Message_Last_Header_Value;
             const char *other = nullptr;
             if (bye_after_peer_request && !strcasecmp(name.c_str(), "From")) {
                 other = "To:";
@@ -4408,8 +4410,10 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if (other) {
                 char *value = get_header_content(last_recv_msg, other);
                 if (*value) {
-                    out += name + ": " + value;
+                    out += value_only ? value : name + ": " + value;
                 }
+            } else if (value_only) {
+                out += get_header_content(last_recv_msg, (name + ":").c_str());
             } else {
                 char *last_header = get_last_header(comp->literal);
                 if (last_header) {

@@ -51,6 +51,8 @@ marked **Breaking**.
 - Keywords in a keyword's parameters, such as
   `[authentication username=[field0] password=[field1]]` (#963, by Orgad
   Shaneh)
+- `[last_From.value]`, a header's value without its name, as in
+  `To: [last_From.value]` (#132, by Orgad Shaneh)
 - A TLS client runs without a certificate when none is given or found
   (#1015, by Orgad Shaneh, based on #601 by Stefan Mititelu)
 - `regress/runtests` runs the tests in parallel, each in a network
