@@ -3048,6 +3048,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                     video = k.video;
                 }
             }
+            if (!suite) {
+                ERROR("Internal error: keyword %d is no RFC 6188 crypto suite", comp->type);
+            }
             SrtpInfoParams& p = video ? pV : pA;
             JLSRTP* tx = nullptr;
             JLSRTP* rx = nullptr;
@@ -3083,11 +3086,11 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                     logSrtpInfo("call::createSendingMessage():  Preferred ANSWER cryptosuite mismatch -- SWAPPING...\n");
                     rx->swapCrypto();
                 }
-                strcpy(p.primary_cryptosuite, suite->name);
+                snprintf(p.primary_cryptosuite, sizeof(p.primary_cryptosuite), "%s", suite->name);
             }
             else
             {
-                strcpy(p.secondary_cryptosuite, suite->name);
+                snprintf(p.secondary_cryptosuite, sizeof(p.secondary_cryptosuite), "%s", suite->name);
             }
             p.found = true;
             out += suite->name;
