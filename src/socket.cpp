@@ -2968,9 +2968,9 @@ int open_connections()
             get_inet_address(&remote_sockaddr, remote_ip, sizeof(remote_ip));
             family_hint = remote_sockaddr.ss_family;
             if (remote_sockaddr.ss_family == AF_INET) {
-                strcpy(remote_ip_w_brackets, remote_ip);
+                snprintf(remote_ip_w_brackets, sizeof(remote_ip_w_brackets), "%s", remote_ip);
             } else {
-                sprintf(remote_ip_w_brackets, "[%.39s]", remote_ip);
+                snprintf(remote_ip_w_brackets, sizeof(remote_ip_w_brackets), "[%s]", remote_ip);
             }
             fprintf(stderr, "Done.\n");
         }
@@ -3047,13 +3047,13 @@ int open_connections()
         memcpy(&local_addr_storage, &local_sockaddr, sizeof(local_sockaddr));
 
         if (local_sockaddr.ss_family == AF_INET) {
-            strcpy(local_ip_w_brackets, local_ip);
+            snprintf(local_ip_w_brackets, sizeof(local_ip_w_brackets), "%s", local_ip);
             if (!bind_specific) {
                 _RCAST(struct sockaddr_in*, &local_sockaddr)->sin_addr.s_addr = INADDR_ANY;
             }
         } else {
             local_ip_is_ipv6 = true;
-            sprintf(local_ip_w_brackets, "[%.39s]", local_ip);
+            snprintf(local_ip_w_brackets, sizeof(local_ip_w_brackets), "[%s]", local_ip);
             if (!bind_specific) {
                 memcpy(&_RCAST(struct sockaddr_in6*, &local_sockaddr)->sin6_addr, &in6addr_any, sizeof(in6addr_any));
             }
