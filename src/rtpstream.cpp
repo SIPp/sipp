@@ -115,6 +115,14 @@ static size_t rtpstream_buffer_len(int bytes_per_packet)
     return sizeof(rtp_header_t) + (bytes_per_packet > 0 ? bytes_per_packet : 0);
 }
 
+/* The authentication tag of a channel's SRTP packets: none for the
+ * negative error JLSRTP returns for an HMAC it does not know */
+static size_t rtpstream_tag_len(SrtpChannel *channel)
+{
+    int len = channel->getAuthenticationTagSize();
+    return len > 0 ? len : 0;
+}
+
 /* Count an RTP packet that came on a call's audio or video port, when a
  * scenario has <rtp_stats> or <rtp_dtmf>: its payload is past the CSRCs
  * and the header extension, and before the padding. An audio packet with
@@ -939,7 +947,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     /* just keep listening on rtp socket (is this really required?) - ignore any errors */
                     if (rx)
                     {
-                        audio_in_size = sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet + rx->getAuthenticationTagSize();
+                        audio_in_size = sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet + rtpstream_tag_len(rx);
                     }
                     else
                     {
@@ -1207,7 +1215,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     /* just keep listening on rtp socket (is this really required?) - ignore any errors */
                     if (rx)
                     {
-                        video_in_size = sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet + rx->getAuthenticationTagSize();
+                        video_in_size = sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet + rtpstream_tag_len(rx);
                     }
                     else
                     {
@@ -1446,9 +1454,7 @@ static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffer
         len = sizeof(remote_rtp_addr);
         /* SRTP comes in the size its payload is set for, plain RTP in
          * up to the echo buffer's */
-        packet_in.resize(rx ?
-                         sizeof(rtp_header_t) + rx->getSrtpPayloadSize() + rx->getAuthenticationTagSize() :
-                         msg.size(), 0);
+        packet_in.resize(rx ? sizeof(rtp_header_t) + rx->getSrtpPayloadSize() + rtpstream_tag_len(rx) : msg.size(), 0);
         nr = recvfrom(sock, packet_in.data(), packet_in.size(), MSG_DONTWAIT /* NON-BLOCKING */, (sockaddr *) (void *) &remote_rtp_addr, &len);
 
         if (nr < 0)
