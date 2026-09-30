@@ -91,7 +91,7 @@ void HMACState::free()
  * CPU of an SRTP echo, where this copies the states they left. */
 bool HMACState::digest(const std::vector<unsigned char>& with_key,
                        const std::vector<unsigned char>& data, const std::vector<unsigned char>& more,
-                       unsigned char out[EVP_MAX_MD_SIZE], unsigned int* out_len)
+                       std::array<unsigned char, EVP_MAX_MD_SIZE>& out, unsigned int* out_len)
 {
     /* the digest's own, one for all the keys of the thread */
     static thread_local std::unique_ptr<EVP_MD_CTX, Free> work(EVP_MD_CTX_new());
@@ -136,7 +136,7 @@ bool HMACState::digest(const std::vector<unsigned char>& with_key,
            EVP_DigestFinal_ex(work.get(), inner_hash, &inner_len) == 1 &&
            EVP_MD_CTX_copy_ex(work.get(), outer.get()) == 1 &&
            EVP_DigestUpdate(work.get(), inner_hash, inner_len) == 1 &&
-           EVP_DigestFinal_ex(work.get(), out, out_len) == 1;
+           EVP_DigestFinal_ex(work.get(), out.data(), out_len) == 1;
 }
 
 /* The master key length a cipher takes: RFC 6188 uses the AES key size, and
@@ -780,7 +780,7 @@ int JLSRTP::decryptVector(std::vector<unsigned char> &ciphertext_input, std::vec
 
 int JLSRTP::issueAuthenticationTag(std::vector<unsigned char> &data, std::vector<unsigned char> &hash)
 {
-    unsigned char digest[EVP_MAX_MD_SIZE];
+    std::array<unsigned char, EVP_MAX_MD_SIZE> digest;
     unsigned int digest_len = 0;
     int retVal = -1;
     static thread_local std::vector<unsigned char> rocVec; /* convertROC() fills it */
@@ -796,7 +796,7 @@ int JLSRTP::issueAuthenticationTag(std::vector<unsigned char> &data, std::vector
             if (_hmacstate.digest(_session_auth_key, data, rocVec, digest, &digest_len) &&
                 digest_len == JLSRTP_SHA1_HASH_LENGTH)
             {
-                hash.assign(digest, digest+JLSRTP_SHA1_HASH_LENGTH);
+                hash.assign(digest.begin(), digest.begin() + JLSRTP_SHA1_HASH_LENGTH);
 
                 switch (_active_crypto)
                 {
