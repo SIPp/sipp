@@ -1795,7 +1795,7 @@ int SIPpSocket::reconnect()
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
         ss_ssl = nullptr;
 
-        if (TRANSPORT_IS_TLS(transport)) {
+        if (TRANSPORT_IS_TLS(ss_transport)) {
             /* Non-blocking, as in the constructor: connect() keeps the
              * flags it finds, and a blocking SSL_connect() could wait
              * past -tls_handshake_timeout for a silent server. */
