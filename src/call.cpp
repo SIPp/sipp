@@ -5665,9 +5665,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
                 return false; // Call aborted by unexpected message handling
             }
 #ifdef PCAPPLAY
-        } else if (hasMedia == 1 && !curmsg->ignoresdp && *(strstr(msg, "\r\n\r\n") + 4) != '\0') {
-            /* Get media info if we find something like an SDP */
-            get_remote_media_addr(msg);
+        } else if (hasMedia == 1 && !curmsg->ignoresdp) {
+            /* Get media info if we find something like an SDP: a
+             * response need not end its headers with a blank line. */
+            const char *body = strstr(msg, "\r\n\r\n");
+            if (body && body[4]) {
+                get_remote_media_addr(msg);
+            }
 #endif
         }
         /* It is a response: update peer_tag */
