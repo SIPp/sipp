@@ -225,6 +225,8 @@ marked **Breaking**.
   - SRTP offer/answer: a call without media takes the crypto lines it
     receives (#1178), and an answer handled in `_unexp.main` no longer
     counts as an offer too (#1176)
+  - a server's `rtp_stream` pattern goes out over SRTP when its answer
+    has keys, as a file does (#1227)
   - the RTP check checks each call's pattern, and a pattern never echoed
     fails (#1021, #1073, #1074)
   - packets go out on time: audio beside video, `play_dtmf` and pcap

@@ -7362,12 +7362,14 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYAPATTERN) {
             const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);
-            if (sendMode == MODE_CLIENT) {
-                startUACSrtp(_txUACAudio, _rxUACAudio, currentAction->getRTPStreamActInfo()->bytes_per_packet, "AUDIO");
-            }
+            /* A server plays with the keys of its own answer, as it echoes. */
+            LazySrtpChannel &tx = sendMode == MODE_CLIENT ? _txUACAudio : _txUASAudio;
+            LazySrtpChannel &rx = sendMode == MODE_CLIENT ? _rxUACAudio : _rxUASAudio;
+            startUACSrtp(tx, rx, currentAction->getRTPStreamActInfo()->bytes_per_packet, "AUDIO");
 
             logSrtpInfo("call::executeAction():  rtpstream_playapattern\n");
-            rtpstream_playapattern(&rtpstream_callinfo,currentAction->getRTPStreamActInfo(), _txUACAudio.forPlayback(), _rxUACAudio.forPlayback());
+            rtpstream_playapattern(&rtpstream_callinfo, currentAction->getRTPStreamActInfo(), tx.forPlayback(),
+                                   rx.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSEVPATTERN) {
             rtpstream_pausevpattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEVPATTERN) {
@@ -7375,12 +7377,14 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYVPATTERN) {
             const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);
-            if (sendMode == MODE_CLIENT) {
-                startUACSrtp(_txUACVideo, _rxUACVideo, currentAction->getRTPStreamActInfo()->bytes_per_packet, "VIDEO");
-            }
+            /* A server plays with the keys of its own answer, as it echoes. */
+            LazySrtpChannel &tx = sendMode == MODE_CLIENT ? _txUACVideo : _txUASVideo;
+            LazySrtpChannel &rx = sendMode == MODE_CLIENT ? _rxUACVideo : _rxUASVideo;
+            startUACSrtp(tx, rx, currentAction->getRTPStreamActInfo()->bytes_per_packet, "VIDEO");
 
             logSrtpInfo("call::executeAction():  rtpstream_playvpattern\n");
-            rtpstream_playvpattern(&rtpstream_callinfo,currentAction->getRTPStreamActInfo(), _txUACVideo.forPlayback(), _rxUACVideo.forPlayback());
+            rtpstream_playvpattern(&rtpstream_callinfo, currentAction->getRTPStreamActInfo(), tx.forPlayback(),
+                                   rx.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STARTAUDIO) {
             if (sendMode == MODE_SERVER && (_rxUASAudio.made() || _txUASAudio.made()))
             {
