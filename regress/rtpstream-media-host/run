@@ -1,0 +1,33 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A -mi that getaddrinfo() takes and inet_pton() does not, here 127.1,
+# still binds the RTP sockets of rtp_stream, which then plays.
+. "`dirname "$0"`/../functions"; init
+
+command -v python3 >/dev/null || skip "no python3"
+
+rm -f rtp.len
+head -c 1600 /dev/zero >silence.raw
+python3 -c '
+import socket
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.bind(("127.0.0.1", 26560))
+s.settimeout(5)
+print(len(s.recv(2048)))' >rtp.len 2>/dev/null &
+listener=$!
+sippbg -sf uas.xml -i 127.0.0.1 -mi 127.1 -p 26550 -m 1 \
+    -min_rtp_port 26552 -max_rtp_port 26559
+sippfg -sf uac.xml -i 127.0.0.1 -p 26551 -m 1 \
+    127.0.0.1:26550 -timeout 8 -timeout_error >/dev/null 2>&1
+status=$?
+wait $listener
+len=`cat rtp.len`
+rm -f rtp.len silence.raw
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "$len" != 172; then
+    fail "got a ${len:-no} byte RTP packet, not 172"
+else
+    ok
+fi

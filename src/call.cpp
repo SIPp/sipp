@@ -6751,14 +6751,14 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             if (media_ip_is_ipv6) {
                 struct sockaddr_in6* from = (struct sockaddr_in6*) &(play_args->from);
                 from->sin6_family = AF_INET6;
-                inet_pton(AF_INET6, media_ip, &(from->sin6_addr));
+                from->sin6_addr = _RCAST(struct sockaddr_in6*, &media_sockaddr)->sin6_addr;
                 if (!from->sin6_port) {
                     from->sin6_port = port;
                 }
             } else {
                 struct sockaddr_in* from = (struct sockaddr_in*) &(play_args->from);
                 from->sin_family = AF_INET;
-                from->sin_addr.s_addr = inet_addr(media_ip);
+                from->sin_addr = _RCAST(struct sockaddr_in*, &media_sockaddr)->sin_addr;
                 if (!from->sin_port) {
                     from->sin_port = port;
                 }

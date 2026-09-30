@@ -2351,15 +2351,8 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
         next_rtp_port = min_rtp_port;
     }
 
-    /* initialise address family and IP address for media socket */
-    memset(&address, 0, sizeof(address));
-    address.ss_family = media_ip_is_ipv6 ? AF_INET6 : AF_INET;
-    if ((media_ip_is_ipv6?
-         inet_pton(AF_INET6, media_ip, &((_RCAST(struct sockaddr_in6 *, &address))->sin6_addr)):
-         inet_pton(AF_INET, media_ip, &((_RCAST(struct sockaddr_in *, &address))->sin_addr))) != 1) {
-        WARNING("Could not set up media IP for RTP streaming");
-        return 0;
-    }
+    /* the media IP, which may have been a host name */
+    memcpy(&address, &media_sockaddr, sizeof(address));
 
     /* create new UDP listen socket */
     *rtpsocket = socket(media_ip_is_ipv6?PF_INET6:PF_INET, SOCK_DGRAM, 0);
