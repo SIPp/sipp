@@ -1958,7 +1958,8 @@ int rtpstream_new_call(rtpstream_callinfo_t* callinfo)
 }
 
 static void rtpstream_set_remote_address(rtpstream_callinfo_t* callinfo, taskentry_t* taskinfo,
-                                         struct sockaddr_storage address, int audio_port, int video_port);
+                                         struct sockaddr_storage audio_address, int audio_port,
+                                         struct sockaddr_storage video_address, int video_port);
 
 /* The task of a call, made on first use */
 static taskentry_t* rtpstream_task(rtpstream_callinfo_t* callinfo)
@@ -1982,8 +1983,9 @@ static taskentry_t* rtpstream_task(rtpstream_callinfo_t* callinfo)
 
     /* the remote media set before */
     if (callinfo->pending_remote) {
-        rtpstream_set_remote_address(callinfo, taskinfo, callinfo->pending_address,
-                                     callinfo->pending_audio_port, callinfo->pending_video_port);
+        rtpstream_set_remote_address(callinfo, taskinfo,
+                                     callinfo->pending_audio_address, callinfo->pending_audio_port,
+                                     callinfo->pending_video_address, callinfo->pending_video_port);
     }
     if (callinfo->pending_null_ip) {
         taskinfo->flags |= TI_NULLIP;
@@ -2340,60 +2342,61 @@ int rtpstream_get_local_videoport(rtpstream_callinfo_t* callinfo)
     return callinfo->local_videoport;
 }
 
-/* code checked */
-void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char* ip_addr,
-                          int audio_port, int video_port)
+/* The address of ip_addr in the media IP version, false if it is not one
+ * or it is all zeros */
+static bool rtpstream_remote_ip(const char* ip_addr, struct sockaddr_storage* address)
 {
-    struct sockaddr_storage   address;
-    struct in_addr            *ip4_addr;
-    struct in6_addr           *ip6_addr;
-    taskentry_t               *taskinfo;
-    unsigned                  count;
-    int                       nonzero_ip;
+    unsigned char *ip;
+    unsigned size;
 
-    debugprint("rtpstream_set_remote callinfo=%p, ip_ver %d ip_addr %s audio %d video %d\n",
-               callinfo, ip_ver, ip_addr, audio_port, video_port);
+    memset(address, 0, sizeof(*address));
+    if (media_ip_is_ipv6) {
+        address->ss_family = AF_INET6;
+        ip = (unsigned char*) &((_RCAST(struct sockaddr_in6 *, address))->sin6_addr);
+        size = sizeof(struct in6_addr);
+    } else {
+        address->ss_family = AF_INET;
+        ip = (unsigned char*) &((_RCAST(struct sockaddr_in *, address))->sin_addr);
+        size = sizeof(struct in_addr);
+    }
+    if (inet_pton(address->ss_family, ip_addr, ip) != 1) {
+        return false;
+    }
+    for (unsigned count = 0; count < size; count++) {
+        if (ip[count]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* code checked */
+void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, const char* audio_ip, int audio_port,
+                          const char* video_ip, int video_port)
+{
+    struct sockaddr_storage   audio_address;
+    struct sockaddr_storage   video_address;
+    taskentry_t               *taskinfo;
+
+    debugprint("rtpstream_set_remote callinfo=%p, audio %s %d video %s %d\n",
+               callinfo, audio_ip, audio_port, video_ip, video_port);
 
     taskinfo = callinfo->taskinfo;
 
-    nonzero_ip = 0;
     if (taskinfo) {
         taskinfo->flags |= TI_NULLIP;  /// TODO: this (may) cause a gap in playback, if playback thread gets to exec while this is set and before new IP is checked.
     } else {
         callinfo->pending_null_ip = true;
     }
 
-    /* test that media ip address version match remote ip address version? */
-
-    /* initialise address family and IP address for remote socket */
-    memset(&address, 0, sizeof(address));
-    if (media_ip_is_ipv6) {
-        /* process ipv6 address */
-        address.ss_family = AF_INET6;
-        ip6_addr = &((_RCAST(struct sockaddr_in6 *, &address))->sin6_addr);
-        if (inet_pton(AF_INET6, ip_addr, ip6_addr) == 1) {
-            for (count = 0; count < sizeof(*ip6_addr); count++) {
-                if (((char*)ip6_addr)[count]) {
-                    nonzero_ip = 1;
-                    break;
-                }
-            }
-        }
-    } else {
-        /* process ipv4 address */
-        address.ss_family = AF_INET;
-        ip4_addr = &((_RCAST(struct sockaddr_in *, &address))->sin_addr);
-        if (inet_pton(AF_INET, ip_addr, ip4_addr) == 1) {
-            for (count = 0; count < sizeof(*ip4_addr); count++) {
-                if (((char*)ip4_addr)[count]) {
-                    nonzero_ip = 1;
-                    break;
-                }
-            }
-        }
+    /* a stream without an IP is not sent */
+    if (!rtpstream_remote_ip(audio_ip, &audio_address)) {
+        audio_port = 0;
     }
-
-    if (!nonzero_ip) {
+    if (!rtpstream_remote_ip(video_ip, &video_address)) {
+        video_port = 0;
+    }
+    if (!audio_port && !video_port) {
         return;
     }
 
@@ -2401,18 +2404,21 @@ void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char
         /* for the task, when there is one */
         callinfo->pending_remote = true;
         callinfo->pending_null_ip = false;
-        callinfo->pending_address = address;
+        callinfo->pending_audio_address = audio_address;
         callinfo->pending_audio_port = audio_port;
+        callinfo->pending_video_address = video_address;
         callinfo->pending_video_port = video_port;
         return;
     }
 
-    rtpstream_set_remote_address(callinfo, taskinfo, address, audio_port, video_port);
+    rtpstream_set_remote_address(callinfo, taskinfo, audio_address, audio_port,
+                                 video_address, video_port);
 }
 
-/* Set the remote media of a call's task, of the IP of address */
+/* Set the remote media of a call's task, of the IPs of the addresses */
 static void rtpstream_set_remote_address(rtpstream_callinfo_t* callinfo, taskentry_t* taskinfo,
-                                         struct sockaddr_storage address, int audio_port, int video_port)
+                                         struct sockaddr_storage audio_address, int audio_port,
+                                         struct sockaddr_storage video_address, int video_port)
 {
     /* enter critical section to lock address updates */
     /* may want to leave this out -- low chance of race condition */
@@ -2428,11 +2434,11 @@ static void rtpstream_set_remote_address(rtpstream_callinfo_t* callinfo, taskent
     if (audio_port) {
         // store remote audio port for later reference
         callinfo->remote_audioport = audio_port;
-        sockaddr_update_port(&address, audio_port);
-        memcpy(&(taskinfo->remote_audio_rtp_addr), &address, sizeof(address));
+        sockaddr_update_port(&audio_address, audio_port);
+        memcpy(&(taskinfo->remote_audio_rtp_addr), &audio_address, sizeof(audio_address));
 
-        sockaddr_update_port(&address, audio_port + 1);
-        memcpy(&(taskinfo->remote_audio_rtcp_addr), &address, sizeof(address));
+        sockaddr_update_port(&audio_address, audio_port + 1);
+        memcpy(&(taskinfo->remote_audio_rtcp_addr), &audio_address, sizeof(audio_address));
 
         taskinfo->flags &= ~TI_NULL_AUDIOIP;
     }
@@ -2441,11 +2447,11 @@ static void rtpstream_set_remote_address(rtpstream_callinfo_t* callinfo, taskent
     if (video_port) {
         // store remote video port for later reference
         callinfo->remote_videoport = video_port;
-        sockaddr_update_port(&address, video_port);
-        memcpy(&(taskinfo->remote_video_rtp_addr), &address, sizeof(address));
+        sockaddr_update_port(&video_address, video_port);
+        memcpy(&(taskinfo->remote_video_rtp_addr), &video_address, sizeof(video_address));
 
-        sockaddr_update_port(&address, video_port + 1);
-        memcpy(&(taskinfo->remote_video_rtcp_addr), &address, sizeof(address));
+        sockaddr_update_port(&video_address, video_port + 1);
+        memcpy(&(taskinfo->remote_video_rtcp_addr), &video_address, sizeof(video_address));
 
         taskinfo->flags &= ~TI_NULL_VIDEOIP;
     }

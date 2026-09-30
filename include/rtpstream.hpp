@@ -192,7 +192,8 @@ struct rtpstream_callinfo_t
     bool pending_null_ip;
     int pending_audio_port;
     int pending_video_port;
-    struct sockaddr_storage pending_address;
+    struct sockaddr_storage pending_audio_address;
+    struct sockaddr_storage pending_video_address;
 };
 
 struct rtpstream_actinfo_t
@@ -225,8 +226,8 @@ int rtpstream_shutdown();
 
 int rtpstream_get_local_audioport(rtpstream_callinfo_t *callinfo);
 int rtpstream_get_local_videoport(rtpstream_callinfo_t *callinfo);
-void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, int ip_ver, const char* ip_addr,
-                          int audio_port, int video_port);
+void rtpstream_set_remote(rtpstream_callinfo_t* callinfo, const char* audio_ip, int audio_port,
+                          const char* video_ip, int video_port);
 
 int rtpstream_set_srtp_audio_local(rtpstream_callinfo_t *callinfo, SrtpInfoParams &p);
 int rtpstream_set_srtp_audio_remote(rtpstream_callinfo_t *callinfo, SrtpInfoParams &p);

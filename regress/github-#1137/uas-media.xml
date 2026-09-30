@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<!-- Answers with a c= line in each media section only. -->
+<scenario name="answer with media-level c= lines only">
+  <recv request="INVITE" />
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: <sip:[local_ip]:[local_port]>
+      Content-Type: application/sdp
+      Content-Length: [len]
+
+      v=0
+      o=uas 0 0 IN IP4 127.0.0.1
+      s=-
+      t=0 0
+      m=audio 26470 RTP/AVP 0 8
+      c=IN IP4 127.0.0.3
+      m=video 26472 RTP/AVP 99 8
+      c=IN IP4 127.0.0.4
+
+    ]]>
+  </send>
+
+  <recv request="ACK" />
+
+  <recv request="BYE" />
+
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+
+    ]]>
+  </send>
+</scenario>
