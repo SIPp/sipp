@@ -88,6 +88,8 @@ struct sipp_option {
     /* Pass 1: All other options. */
     /* Pass 2: Scenario parsing. */
     int pass;
+    /* SIPP_OPTION_IP: the size of the buffer at data. */
+    size_t size;
 };
 
 #define SIPP_OPTION_HELP           1
@@ -587,13 +589,13 @@ struct sipp_option options_table[] = {
 #endif
         , SIPP_OPTION_TRANSPORT, nullptr, 1
     },
-    {"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address. A host name (remote host, -rsa, setdest) that resolves to several addresses prefers one in the family of the -i address.\n", SIPP_OPTION_IP, local_ip, 1},
+    {"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address. A host name (remote host, -rsa, setdest) that resolves to several addresses prefers one in the family of the -i address.\n", SIPP_OPTION_IP, local_ip, 1, sizeof(local_ip)},
     {"p", "Set the local port number.  Default is a random free port chosen by the system.", SIPP_OPTION_INT, &user_port, 1},
     {"bind_local", "Bind socket to local IP address, i.e. the local IP address is used as the source IP address.  If SIPp runs in server mode it will only listen on the local IP address instead of all IP addresses.", SIPP_OPTION_SETFLAG, &bind_local, 1},
 #ifdef SO_BINDTODEVICE
     {"bind_to_device", "Bind socket to the specified network device. Requires superuser permissions.", SIPP_OPTION_STRING, &bind_to_device_name, 1},
 #endif
-    {"ci", "Set the local control IP address", SIPP_OPTION_IP, control_ip, 1},
+    {"ci", "Set the local control IP address", SIPP_OPTION_IP, control_ip, 1, sizeof(control_ip)},
     {"cp", "Set the local control port number. Default is 8888.", SIPP_OPTION_INT, &control_port, 1},
     {"max_socket", "Set the max number of call sockets to open simultaneously, if you use one socket per call (-t un, tn, ln). The main, control and stdin sockets don't count. Once this limit is reached, traffic is distributed over the sockets already opened. Default value is 50000", SIPP_OPTION_MAX_SOCKET, nullptr, 1},
     {"max_reconnect", "Set the the maximum number of reconnection.", SIPP_OPTION_INT, &reset_number, 1},
@@ -611,7 +613,7 @@ struct sipp_option options_table[] = {
     {"ws_handshake_timeout", "Set how long a WebSocket handshake may take: a client that gets no answer in time, and a server that gets no request, drop the connection. 0 means no limit. Default is 10s; default unit is ms.", SIPP_OPTION_TIME_MS, &ws_handshake_timeout, 1},
 
 #ifdef USE_SCTP
-    {"multihome", "Set multihome address for SCTP", SIPP_OPTION_IP, multihome_ip, 1},
+    {"multihome", "Set multihome address for SCTP", SIPP_OPTION_IP, multihome_ip, 1, sizeof(multihome_ip)},
     {"heartbeat", "Set heartbeat interval in ms for SCTP", SIPP_OPTION_INT, &heartbeat, 1},
     {"assocmaxret", "Set association max retransmit counter for SCTP", SIPP_OPTION_INT, &assocmaxret, 1},
     {"pathmaxret", "Set path max retransmit counter for SCTP", SIPP_OPTION_INT, &pathmaxret, 1},
@@ -695,7 +697,7 @@ struct sipp_option options_table[] = {
 
 
     {"", "RTP behaviour options:", SIPP_HELP_TEXT_HEADER, nullptr, 0},
-    {"mi", "Set the local media IP address (default: local primary host IP address)", SIPP_OPTION_IP, media_ip, 1},
+    {"mi", "Set the local media IP address (default: local primary host IP address)", SIPP_OPTION_IP, media_ip, 1, sizeof(media_ip)},
     {"rtp_echo", "Enable RTP echo. RTP/UDP packets received on media port are echoed to their sender.\n"
      "RTP/UDP packets coming on this port + 2 are also echoed to their sender (used for sound and video echo).",
      SIPP_OPTION_SETFLAG, &rtp_echo_enabled, 1},
@@ -830,6 +832,17 @@ struct sipp_option options_table[] = {
     {"max_log_size", "What is the limit for error, message, shortmessage and calldebug file sizes.", SIPP_OPTION_LONG_LONG, &max_log_size, 1},
 
 };
+
+/* Copy the argument of an option to a buffer of size bytes, or fail. */
+static void copy_arg(char *dst, size_t size, const char *arg, const char *option)
+{
+    size_t len = strlen(arg);
+    if (len >= size) {
+        ERROR("The argument of %s is too long, %zu characters at most: '%s'",
+              option, size - 1, arg);
+    }
+    memcpy(dst, arg, len + 1);
+}
 
 static struct sipp_option *find_option(const char* option) {
     int i;
@@ -2210,7 +2223,7 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
 
-                strcpy(ptr, argv[argi]);
+                copy_arg(ptr, option->size, argv[argi], argv[argi - 1]);
                 get_host_and_port(ptr, ptr, &dummy_port);
             }
             break;
@@ -2260,7 +2273,7 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 twinSippMode = true;
-                strcpy(twinSippHost, argv[argi]);
+                copy_arg(twinSippHost, sizeof(twinSippHost), argv[argi], argv[argi - 1]);
                 get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
                 break;
             case SIPP_OPTION_SCENARIO:
@@ -2444,12 +2457,14 @@ int main(int argc, char *argv[])
                 }
                 break;
             }
-            case SIPP_OPTION_LFNAME:
+            case SIPP_OPTION_LFNAME: {
                 REQUIRE_ARG();
                 CHECK_PASS();
-                ((struct logfile_info*)option->data)->fixedname = true;
-                strcpy(((struct logfile_info*)option->data)->file_name, argv[argi]);
-                break;
+                struct logfile_info* lfi = (struct logfile_info*)option->data;
+                lfi->fixedname = true;
+                copy_arg(lfi->file_name, sizeof(lfi->file_name), argv[argi], argv[argi - 1]);
+            }
+            break;
             case SIPP_OPTION_LFOVERWRITE:
                 REQUIRE_ARG();
                 CHECK_PASS();
