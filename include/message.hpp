@@ -74,6 +74,7 @@ typedef enum {
     E_Message_Fill,
     E_Message_Injection,
     E_Message_Last_Header,
+    E_Message_Last_Header_Value,
     E_Message_Last_Request_URI,
     E_Message_Last_CSeq_Number,
     E_Message_Last_Message,

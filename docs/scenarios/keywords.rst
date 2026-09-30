@@ -12,7 +12,13 @@ Keyword list
   no message has been received, the '[last_*]' keyword is discarded, and all bytes
   until the end of the line are also discarded. If the specified header
   was present several times in the message, all occurrences are
-  concatenated (CRLF separated) to be used in place of the '[last_*]' keyword.
+  concatenated (comma separated) to be used in place of the '[last_*]' keyword.
+
+``[last_*.value]``
+==================
+:Description: Like '[last_*]', but without the header name: ``[last_From.value]``
+  is replaced by the value of the ``From:`` header alone, so that
+  ``To: [last_From.value]`` puts it in another header.
 
 ``[last_cseq_number]``
 ======================
