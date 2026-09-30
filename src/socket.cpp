@@ -1310,7 +1310,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
                     /* This should have the real address that the message came from. */
                     call *call_ptr = new call(ooc_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
                     CStat::globalStat(CStat::E_AUTO_ANSWERED);
-                    call_ptr->process_incoming(msg, src);
+                    call_ptr->process_incoming(msg, src, socket);
                 } else {
                     /* We received a response not relating to any known call */
                     /* Do nothing, even if in auto answer mode */
@@ -1323,7 +1323,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
                 aa_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
                 /* This should have the real address that the message came from. */
                 call *call_ptr = new call(aa_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
-                if (call_ptr->process_incoming(msg, src)) {
+                if (call_ptr->process_incoming(msg, src, socket)) {
                     aa_scenario->stats->computeStat(CStat::E_CALL_SUCCESSFULLY_ENDED);
                     delete call_ptr;
                 }
@@ -1343,7 +1343,7 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
         listener_ptr -> process_twinSippCom(msg);
     } else {
         /* This is a message on a known call - process it */
-        listener_ptr -> process_incoming(msg, src);
+        listener_ptr -> process_incoming(msg, src, socket);
     }
 }
 

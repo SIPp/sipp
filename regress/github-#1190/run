@@ -1,0 +1,23 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A response goes where the request it answers came from: a peer that
+# sends a re-INVITE, its CANCEL and a BYE from another UDP port, or on
+# another TCP connection, than the call's INVITE gets their responses
+# there, not at the call's first port.
+. "`dirname "$0"`/../functions"; init
+
+command -v python3 >/dev/null || skip "no python3"
+
+for proto in udp tcp; do
+    case $proto in
+    udp) t=u1; port=24400 ;;
+    tcp) t=t1; port=24410 ;;
+    esac
+    sippbg -sf uas.xml -t $t -i 127.0.0.1 -p $port -m 1 \
+        -timeout 15 -timeout_error
+    sipp=$pid
+    python3 peer.py $proto $port $((port + 1)) $((port + 2)) ||
+        fail "$proto: responses to the second port went elsewhere"
+    wait $sipp || fail "$proto: the UAS exited with $?"
+done
+ok

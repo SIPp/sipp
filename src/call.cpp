@@ -1370,6 +1370,9 @@ call::~call()
     if (call_remote_socket && (call_remote_socket != main_remote_socket)) {
         call_remote_socket->close();
     }
+    while (!request_sources.empty()) {
+        forget_request_source(request_sources.begin());
+    }
 
     /* Deletion of the call variable */
     if(M_callVariableTable) {
@@ -1702,7 +1705,24 @@ int call::send_raw(const char * msg, int index, int len)
 
     assert(sock);
 
-    rc = sock->write(msg, len, WS_BUFFER, &call_peer);
+    /* A response to a request that came from elsewhere goes back there. */
+    struct sockaddr_storage *dest = &call_peer;
+    if (!request_sources.empty() && !strncmp(msg, "SIP/2.0 ", 8)) {
+        char branch[MAX_HEADER_LEN];
+        extract_transaction(branch, msg);
+        for (request_source &rs : request_sources) {
+            if (rs.branch == branch) {
+                if (!rs.socket) {
+                    dest = &rs.addr;
+                } else if (rs.socket->ss_fd != -1) {
+                    sock = rs.socket;
+                }
+                break;
+            }
+        }
+    }
+
+    rc = sock->write(msg, len, WS_BUFFER, dest);
     if(rc < 0 && errno == EWOULDBLOCK) {
         return rc;
     }
@@ -2313,7 +2333,7 @@ bool call::executeMessage(message *curmsg)
         } else if (queued_msg) {
             char *msg = queued_msg;
             queued_msg = nullptr;
-            bool ret = process_incoming(msg, nullptr, queued_sdp_read);
+            bool ret = process_incoming(msg, nullptr, nullptr, queued_sdp_read);
             free(msg);
             return ret;
         } else if (recv_timeout) {
@@ -4951,12 +4971,92 @@ void call::queue_up(const char* msg, bool sdp_read)
     queued_sdp_read = sdp_read;
 }
 
-bool call::process_incoming(const char* msg, const struct sockaddr_storage* src)
+/* Whether a and b are the same address and port. */
+static bool same_address(const struct sockaddr_storage *a, const struct sockaddr_storage *b)
 {
-    return process_incoming(msg, src, false);
+    if (a->ss_family != b->ss_family) {
+        return false;
+    }
+    if (a->ss_family == AF_INET) {
+        const struct sockaddr_in *a4 = (const struct sockaddr_in *)a;
+        const struct sockaddr_in *b4 = (const struct sockaddr_in *)b;
+        return a4->sin_port == b4->sin_port && a4->sin_addr.s_addr == b4->sin_addr.s_addr;
+    }
+    if (a->ss_family == AF_INET6) {
+        const struct sockaddr_in6 *a6 = (const struct sockaddr_in6 *)a;
+        const struct sockaddr_in6 *b6 = (const struct sockaddr_in6 *)b;
+        return a6->sin6_port == b6->sin6_port &&
+               !memcmp(&a6->sin6_addr, &b6->sin6_addr, sizeof(a6->sin6_addr));
+    }
+    return !memcmp(a, b, sizeof(*a));
 }
 
-bool call::process_incoming(const char* msg, const struct sockaddr_storage* src, bool sdp_read)
+void call::forget_request_source(std::vector<request_source>::iterator it)
+{
+    if (it->socket) {
+        it->socket->close();
+    }
+    request_sources.erase(it);
+}
+
+/* Remember where a request that did not come from the call's destination
+ * came from, for its responses: RFC 3261 18.2.2 sends a response back to
+ * the source of its request, as rport (RFC 3581) does in practice. It is
+ * found by the request's top Via branch, which the response copies; a
+ * CANCEL has its INVITE's, and comes from the same hop. -rsa sends every
+ * message to its address. */
+void call::remember_request_source(const char *msg, const struct sockaddr_storage *src,
+                                   SIPpSocket *socket)
+{
+    static const size_t max_request_sources = 4;
+
+    if (use_remote_sending_addr || !strncmp(msg, "SIP/2.0 ", 8) || !strncmp(msg, "ACK ", 4)) {
+        return;
+    }
+    bool elsewhere = transport == T_UDP ? !same_address(src, &call_peer)
+                                        : socket && socket != call_socket;
+    if (!elsewhere && request_sources.empty()) {
+        return;
+    }
+
+    char branch[MAX_HEADER_LEN];
+    extract_transaction(branch, msg);
+    if (!*branch) {
+        return;
+    }
+    auto it = request_sources.begin();
+    while (it != request_sources.end() && it->branch != branch) {
+        ++it;
+    }
+    if (it != request_sources.end()) {
+        /* A request of this transaction again: it is answered where the
+         * last one came from. */
+        forget_request_source(it);
+    }
+    if (!elsewhere) {
+        return;
+    }
+    if (request_sources.size() == max_request_sources) {
+        forget_request_source(request_sources.begin());
+    }
+    request_source rs;
+    rs.branch = branch;
+    memcpy(&rs.addr, src, sizeof(rs.addr));
+    rs.socket = nullptr;
+    if (transport != T_UDP) {
+        rs.socket = socket;
+        socket->ss_count++;
+    }
+    request_sources.push_back(rs);
+}
+
+bool call::process_incoming(const char* msg, const struct sockaddr_storage* src, SIPpSocket *socket)
+{
+    return process_incoming(msg, src, socket, false);
+}
+
+bool call::process_incoming(const char* msg, const struct sockaddr_storage* src, SIPpSocket *socket,
+                            bool sdp_read)
 {
     int             reply_code = 0;
     static char     request[65];
@@ -4989,6 +5089,9 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
     /* Get our destination if we have none. */
     if (call_peer.ss_family == AF_UNSPEC && src) {
         memcpy(&call_peer, src, sizeof(call_peer));
+    }
+    if (src) {
+        remember_request_source(msg, src, socket);
     }
 
     /* A <nop> or <sendCmd> runs on the call's next turn, so a message can

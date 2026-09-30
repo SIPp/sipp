@@ -85,7 +85,8 @@ const char *deadcall::getReason(char *buf, size_t size)
     return buf;
 }
 
-bool deadcall::process_incoming(const char* msg, const struct sockaddr_storage* /*src*/)
+bool deadcall::process_incoming(const char* msg, const struct sockaddr_storage* /*src*/,
+                                SIPpSocket* /*socket*/)
 {
     char buffer[MAX_HEADER_LEN];
 

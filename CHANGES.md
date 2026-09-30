@@ -103,6 +103,11 @@ marked **Breaking**.
 - `-max_socket` counts only the call sockets (#1069, by Orgad Shaneh)
 - CMake fails when a requested optional library is missing (#1107, by
   Orgad Shaneh)
+- A response goes where the request it answers came from, matched by
+  its top Via branch: a request from another address or connection
+  than the call's destination, such as a BYE after a proxy fails over,
+  is answered there instead of at the destination. `-rsa` still sends
+  every message to its address (#240, by Orgad Shaneh)
 
 ### Fixed
 
