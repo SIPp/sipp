@@ -246,15 +246,28 @@ void print_screens(void)
     currentRepartitionToDisplay = oldRepartition;
 }
 
-static void rotatef(struct logfile_info* lfi)
+/* <scenario>_<pid>_<name>, the start of the name of a log file. */
+static std::string log_file_stem(const struct logfile_info *lfi)
 {
-    char L_rotate_file_name[MAX_PATH];
     /* An error while the scenario loads comes before it has a name. */
-    const char *scenario_file = ::scenario_file ? ::scenario_file : "sipp";
+    const char *scenario = scenario_file ? scenario_file : "sipp";
+    return std::string(scenario) + "_" + std::to_string(getpid()) + "_" + lfi->name;
+}
 
+/* The name a log file is rotated away to. */
+static std::string rotated_file_name(const struct logfile_info *lfi, const struct logfile_id &id)
+{
+    std::string name = log_file_stem(lfi) + "_" + std::to_string((unsigned long)id.start);
+    if (id.n) {
+        name += "." + std::to_string(id.n);
+    }
+    return name + ".log";
+}
+
+static void rotatef(struct logfile_info *lfi)
+{
     if (!lfi->fixedname) {
-        sprintf(lfi->file_name, "%s_%ld_%s.log", scenario_file, (long)getpid(),
-                lfi->name);
+        lfi->file_name = log_file_stem(lfi) + ".log";
     }
 
     if (ringbuffer_files > 0) {
@@ -264,17 +277,7 @@ static void rotatef(struct logfile_info* lfi)
         }
         /* We need to rotate away an existing file. */
         if (lfi->nfiles == ringbuffer_files) {
-            if ((lfi->ftimes)[0].n) {
-                sprintf(L_rotate_file_name, "%s_%ld_%s_%lu.%d.log",
-                        scenario_file, (long)getpid(), lfi->name,
-                        (unsigned long)(lfi->ftimes)[0].start,
-                        (lfi->ftimes)[0].n);
-            } else {
-                sprintf(L_rotate_file_name, "%s_%ld_%s_%lu.log", scenario_file,
-                        (long)getpid(), lfi->name,
-                        (unsigned long)(lfi->ftimes)[0].start);
-            }
-            unlink(L_rotate_file_name);
+            unlink(rotated_file_name(lfi, (lfi->ftimes)[0]).c_str());
             lfi->nfiles--;
             memmove(lfi->ftimes, &((lfi->ftimes)[1]),
                     sizeof(struct logfile_id) * (lfi->nfiles));
@@ -289,23 +292,14 @@ static void rotatef(struct logfile_info* lfi)
                 (lfi->ftimes)[lfi->nfiles].n =
                     (lfi->ftimes)[lfi->nfiles - 1].n + 1;
             }
-            if ((lfi->ftimes)[lfi->nfiles].n) {
-                sprintf(L_rotate_file_name, "%s_%ld_%s_%lu.%d.log",
-                        scenario_file, (long)getpid(), lfi->name,
-                        (unsigned long)(lfi->ftimes)[lfi->nfiles].start,
-                        (lfi->ftimes)[lfi->nfiles].n);
-            } else {
-                sprintf(L_rotate_file_name, "%s_%ld_%s_%lu.log", scenario_file,
-                        (long)getpid(), lfi->name,
-                        (unsigned long)(lfi->ftimes)[lfi->nfiles].start);
-            }
+            std::string rotate_file_name = rotated_file_name(lfi, (lfi->ftimes)[lfi->nfiles]);
             lfi->nfiles++;
             /* None open after a "trace ... off" */
             if (lfi->fptr) {
                 fclose(lfi->fptr);
                 lfi->fptr = nullptr;
             }
-            if (rename(lfi->file_name, L_rotate_file_name)) {
+            if (rename(lfi->file_name.c_str(), rotate_file_name.c_str())) {
                 /* Not rotated away: add to it rather than truncate it. */
                 lfi->nfiles--;
                 lfi->overwrite = false;
@@ -322,15 +316,15 @@ static void rotatef(struct logfile_info* lfi)
 
     time(&lfi->starttime);
     if (lfi->overwrite) {
-        lfi->fptr = fopen(lfi->file_name, "w");
+        lfi->fptr = fopen(lfi->file_name.c_str(), "w");
     } else {
-        lfi->fptr = fopen(lfi->file_name, "a");
+        lfi->fptr = fopen(lfi->file_name.c_str(), "a");
         lfi->overwrite = true;
     }
     if (lfi->check && !lfi->fptr) {
         /* We can not use the error functions from this function, as we may be
          * rotating the error log itself! */
-        ERROR("Unable to create '%s'", lfi->file_name);
+        ERROR("Unable to create '%s'", lfi->file_name.c_str());
     }
 }
 
@@ -347,7 +341,7 @@ void rotate_logfile() { rotatef(&log_lfi); }
 void rotate_errorf()
 {
     rotatef(&error_lfi);
-    strcpy(screen_logfile, error_lfi.file_name);
+    screen_logfile = error_lfi.file_name;
 }
 
 static int _trace(struct logfile_info* lfi, const char* fmt, va_list ap)
@@ -429,10 +423,8 @@ void print_errors() {
         fprintf(stderr, "%s\n", screen_last_error);
     }
     if (total_errors > 1) {
-        if (screen_logfile[0] != '\0') {
-            fprintf(stderr,
-                    "There were more errors, see '%s' file\n",
-                    screen_logfile);
+        if (!screen_logfile.empty()) {
+            fprintf(stderr, "There were more errors, see '%s' file\n", screen_logfile.c_str());
         } else {
             fprintf(stderr,
                     "There were more errors, enable -trace_err to log them.\n");
@@ -477,8 +469,8 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
             fflush(error_lfi.fptr);
         } else {
             if (c < bufEnd) {
-                _advance(c, snprintf(c, bufEnd - c, "Unable to create '%s': %s.\n",
-                                     screen_logfile, strerror(errno)));
+                _advance(c, snprintf(c, bufEnd - c, "Unable to create '%s': %s.\n", screen_logfile.c_str(),
+                                     strerror(errno)));
             }
             sipp_exit(EXIT_FATAL_ERROR, 0, 0);
         }

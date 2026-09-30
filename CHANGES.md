@@ -136,9 +136,10 @@ marked **Breaking**.
 - Crashes and memory errors (by Orgad Shaneh):
   - buffer overflows when building messages and credentials, in
     rtp_echo and rtp_stream arguments, in long `-i`, `-mi`, `-ci`,
-    `-multihome`, `-3pcc` and log file name arguments, and in the
-    AES_192_CM and AES_256_CM crypto keywords (#883, #905, #963, #997,
-    #1068, #1147, #1164, #1165)
+    `-multihome`, `-3pcc` and log file name arguments, in the file names
+    made from a long scenario name, and in the AES_192_CM and AES_256_CM
+    crypto keywords (#883, #905, #963, #997, #1068, #1147, #1164, #1165,
+    #1215)
   - use-after-free when another thread hits a fatal error (#885), on TCP
     reconnection (#935, #1175), when one of SIPp's own messages fails to
     send (#991), in an `<ereg search_in="var">` that assigns to the

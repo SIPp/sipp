@@ -1,0 +1,37 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The files named after a long scenario name have its whole name: the
+# logs, rotated logs, counts, error codes and statistics, and an error
+# log whose name is too long for the file system shows it in the error.
+. "`dirname "$0"`/../functions"; init
+
+sipp="`get_sipp`"
+dir=`mktemp -d`
+trap 'rm -rf "$dir"' EXIT
+cd "$dir"
+
+# Names that fit the file system, but not 250 characters.
+stem=`printf '%0223d' 0 | tr 0 s`
+"$sipp" -sd uac >$stem.xml
+sippbg -sn uas -i 127.0.0.1 -p 26170 -m 5 -timeout 10
+sippfg -sf $stem.xml -i 127.0.0.1 -p 26171 -m 5 127.0.0.1:26170 \
+    -timeout 10 -trace_msg -ringbuffer_files 2 -ringbuffer_size 1000 \
+    -trace_counts -trace_error_codes -trace_stat >/dev/null 2>&1
+status=$?
+names=`ls | grep -v '\.xml$' | sed "s/^$stem/S/;s/_[0-9]*_/_P_/;s/_[0-9]*\(\.[0-9]*\)*\.log$/_T.log/" | LC_ALL=C sort -u | tr '\n' ' '`
+
+# A name too long for the file system.
+long=`printf '%0250d' 0 | tr 0 l`
+"$sipp" -sd uac >$long.xml
+err=`sippfg -sf $long.xml -i 127.0.0.1 -p 26172 -m 1 127.0.0.1:26173 \
+    -timeout 5 -trace_err 2>&1 >/dev/null`
+
+if test $status -ne 0; then
+    fail "exited with $status"
+elif test "$names" != "S_P_.csv S_P_counts.csv S_P_error_codes.csv S_P_messages.log S_P_messages_T.log "; then
+    fail "files: $names"
+elif ! echo "$err" | grep -q "Unable to create '${long}_[0-9]*_errors.log'"; then
+    fail "error: `echo "$err" | sed 's/l\{20,\}/<long>/g' | tr -cd '[:print:]' | cut -c1-120`"
+else
+    ok
+fi
