@@ -2556,7 +2556,7 @@ static int get_wav_header_size(const char *data, int size)
  * has set the new play under, so that the thread cannot play with the
  * old contexts or take half a play. */
 static void rtpstream_play_srtp(taskentry_t* taskinfo, bool video, int flag,
-                                JLSRTP& txUAC, JLSRTP& rxUAC)
+                                const JLSRTP& txUAC, const JLSRTP& rxUAC)
 {
     rtpsrtp_t*& srtp = video ? taskinfo->video_srtp : taskinfo->audio_srtp;
     if (srtp || txUAC.getCryptoTag() != 0 || rxUAC.getCryptoTag() != 0) {
@@ -2570,7 +2570,7 @@ static void rtpstream_play_srtp(taskentry_t* taskinfo, bool video, int flag,
 }
 
 /* code checked */
-void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio)
+void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, const JLSRTP& txUACAudio, const JLSRTP& rxUACAudio)
 {
     debugprint("rtpstream_play callinfo=%p filename %s pattern_id %d loop %d bytes %d payload %d ptime %d tick %d\n",
         callinfo,
@@ -2709,7 +2709,7 @@ unsigned long rtpstream_play_end(rtpstream_callinfo_t* callinfo)
     return end && end != ULONG_MAX ? std::max(end - shift_ms, 1UL) : end;
 }
 
-void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, JLSRTP& txUACAudio, JLSRTP& rxUACAudio)
+void rtpstream_playapattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, const JLSRTP& txUACAudio, const JLSRTP& rxUACAudio)
 {
     debugprint("rtpstream_playapattern callinfo=%p filename %s pattern_id %d loop %d bytes %d payload %d ptime %d tick %d\n",
             callinfo,
@@ -2771,7 +2771,7 @@ void rtpstream_resumeapattern(rtpstream_callinfo_t* callinfo)
     rtpstream_task(callinfo)->flags &= ~TI_PAUSERTPAPATTERN;
 }
 
-void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, JLSRTP& txUACVideo, JLSRTP& rxUACVideo)
+void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, const JLSRTP& txUACVideo, const JLSRTP& rxUACVideo)
 {
     debugprint("rtpstream_playvpattern callinfo=%p filename %s pattern_id %d loop %d bytes %d payload %d ptime %d tick %d\n",
             callinfo,
@@ -2899,7 +2899,7 @@ void rtpstream_update_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stre
 
 /* The copy of a call's SRTP context that its echo uses: none for plain
  * RTP, which the echo only passes on */
-static void rtpecho_context(std::unique_ptr<SrtpChannel>& context, JLSRTP& from)
+static void rtpecho_context(std::unique_ptr<SrtpChannel>& context, const JLSRTP& from)
 {
     if (from.getCryptoTag() == 0) {
         context.reset();
@@ -2914,7 +2914,7 @@ static void rtpecho_context(std::unique_ptr<SrtpChannel>& context, JLSRTP& from)
 /* Start or update the echo of a call's audio or video, which the call's
  * playback thread does, with the call's UAS SRTP contexts. */
 static void rtpstream_rtpecho_set(taskentry_t* taskinfo, bool video, bool start,
-                                  JLSRTP& rxUAS, JLSRTP& txUAS)
+                                  const JLSRTP& rxUAS, const JLSRTP& txUAS)
 {
     pthread_mutex_lock(&(taskinfo->mutex));
     rtpecho_t*& echo = video ? taskinfo->video_echo : taskinfo->audio_echo;
@@ -2951,7 +2951,7 @@ static int rtpstream_rtpecho_stop(taskentry_t* taskinfo, bool video)
     return rc;
 }
 
-int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAudio, JLSRTP& txUASAudio)
+int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, const JLSRTP& rxUASAudio, const JLSRTP& txUASAudio)
 {
     debugprint("rtpstream_rtpecho_startaudio callinfo=%p\n", callinfo);
 
@@ -2971,7 +2971,7 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAu
     return 0;
 }
 
-int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASAudio, JLSRTP& txUASAudio)
+int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t* callinfo, const JLSRTP& rxUASAudio, const JLSRTP& txUASAudio)
 {
     debugprint("rtpstream_rtpecho_updateaudio callinfo=%p\n", callinfo);
 
@@ -2997,7 +2997,7 @@ int rtpstream_rtpecho_stopaudio(rtpstream_callinfo_t* callinfo)
     return rtpstream_rtpecho_stop(taskinfo, false);
 }
 
-int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVideo, JLSRTP& txUASVideo)
+int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, const JLSRTP& rxUASVideo, const JLSRTP& txUASVideo)
 {
     debugprint("rtpstream_rtpecho_startvideo callinfo=%p\n", callinfo);
 
@@ -3017,7 +3017,7 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVi
     return 0;
 }
 
-int rtpstream_rtpecho_updatevideo(rtpstream_callinfo_t* callinfo, JLSRTP& rxUASVideo, JLSRTP& txUASVideo)
+int rtpstream_rtpecho_updatevideo(rtpstream_callinfo_t* callinfo, const JLSRTP& rxUASVideo, const JLSRTP& txUASVideo)
 {
     debugprint("rtpstream_rtpecho_updatevideo callinfo=%p\n", callinfo);
 
