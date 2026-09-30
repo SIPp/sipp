@@ -79,6 +79,17 @@ int pending_messages = 0;
 
 std::map<std::string, SIPpSocket *>     map_perip_fd;
 
+/* Make fd non-blocking. Returns its flags from before, or -1. */
+static int set_nonblocking(int fd)
+{
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        WARNING_NO("Unable to make descriptor %d non-blocking", fd);
+        return -1;
+    }
+    return flags;
+}
+
 static void trim(char *s)
 {
     char *p = s;
@@ -587,9 +598,10 @@ void reset_stdin()
 void setup_stdin_socket()
 {
     stdin_fileno = fileno(stdin);
-    stdin_mode = fcntl(stdin_fileno, F_GETFL);
-    atexit(reset_stdin);
-    fcntl(stdin_fileno, F_SETFL, stdin_mode | O_NONBLOCK);
+    stdin_mode = set_nonblocking(stdin_fileno);
+    if (stdin_mode != -1) {
+        atexit(reset_stdin);
+    }
 
     stdin_socket = new SIPpSocket(0, T_TCP, stdin_fileno, 0);
 }
@@ -1076,11 +1088,12 @@ void SIPpSocket::abort() {
     struct linger flush;
     flush.l_onoff = 1;
     flush.l_linger = 0;
-    setsockopt(ss_fd, SOL_SOCKET, SO_LINGER, &flush, sizeof(flush));
+    if (setsockopt(ss_fd, SOL_SOCKET, SO_LINGER, &flush, sizeof(flush)) < 0) {
+        WARNING_NO("Unable to set SO_LINGER option to reset socket %d", ss_fd);
+    }
 
     /* Mark the socket as non-blocking.  It's not clear whether this is required but can't hurt. */
-    int flags = fcntl(ss_fd, F_GETFL, 0);
-    fcntl(ss_fd, F_SETFL, flags | O_NONBLOCK);
+    set_nonblocking(ss_fd);
 
     int count = --ss_count;
     if (count == 0) {
@@ -1104,7 +1117,9 @@ void SIPpSocket::drop_connection()
         struct linger flush;
         flush.l_onoff = 1;
         flush.l_linger = 0;
-        setsockopt(ss_fd, SOL_SOCKET, SO_LINGER, &flush, sizeof(flush));
+        if (setsockopt(ss_fd, SOL_SOCKET, SO_LINGER, &flush, sizeof(flush)) < 0) {
+            WARNING_NO("Unable to set SO_LINGER option to reset socket %d", ss_fd);
+        }
     }
     invalidate();
 }
@@ -1368,8 +1383,7 @@ SIPpSocket::SIPpSocket(bool use_ipv6, int transport, int fd, int accepting):
 
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
     if (TRANSPORT_IS_TLS(transport)) {
-        int flags = fcntl(fd, F_GETFL, 0);
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+        set_nonblocking(fd);
 
         if (!(ss_ssl = (accepting ? SSL_new_server() : SSL_new_client()))) {
             ERROR("Unable to create SSL object : Problem with SSL_new()");
@@ -1733,8 +1747,7 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
 #endif
     }
 
-    int flags = fcntl(ss_fd, F_GETFL, 0);
-    fcntl(ss_fd, F_SETFL, flags | O_NONBLOCK);
+    int flags = set_nonblocking(ss_fd);
 
     errno = 0;
     ret = ::connect(ss_fd, _RCAST(struct sockaddr *, &ss_dest), socklen_from_addr(&ss_dest));
@@ -1748,7 +1761,9 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
         }
     }
 
-    fcntl(ss_fd, F_SETFL, flags);
+    if (flags != -1 && fcntl(ss_fd, F_SETFL, flags) == -1) {
+        WARNING_NO("Unable to restore the flags of socket %d", ss_fd);
+    }
 
     if (TRANSPORT_IS_TLS(ss_transport)) {
 #if defined(USE_OPENSSL) || defined(USE_WOLFSSL)
@@ -1799,8 +1814,7 @@ int SIPpSocket::reconnect()
             /* Non-blocking, as in the constructor: connect() keeps the
              * flags it finds, and a blocking SSL_connect() could wait
              * past -tls_handshake_timeout for a silent server. */
-            int flags = fcntl(ss_fd, F_GETFL, 0);
-            fcntl(ss_fd, F_SETFL, flags | O_NONBLOCK);
+            set_nonblocking(ss_fd);
 
             if (!(ss_ssl = SSL_new_client())) {
                 ERROR("Unable to create SSL object : Problem with SSL_new()");
