@@ -35,7 +35,8 @@ int expand_user_path(const char* path, char* expanded_home_path /*The buffer*/, 
         home_dir = getenv("HOME");
         if (home_dir == NULL) {
             home_dir = getenv("USERPROFILE");
-        } else {
+        }
+        if (home_dir != NULL) {
             snprintf(expanded_home_path, buflen - 1, "%s%s", home_dir, path + 1);
         }
     } else {

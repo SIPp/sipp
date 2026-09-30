@@ -57,3 +57,19 @@ TEST(find_file, ExpandsUserHome) {
     EXPECT_EQ(home + "/file.pcap", path);
     free(path);
 }
+
+TEST(find_file, ExpandsHomeFromUserProfile) {
+    const char* home = getenv("HOME");
+    std::string saved = home ? home : "";
+    unsetenv("HOME");
+    setenv("USERPROFILE", "/profile", 1);
+
+    char* path = find_file("~/file.pcap", "");
+    EXPECT_STREQ("/profile/file.pcap", path);
+    free(path);
+
+    unsetenv("USERPROFILE");
+    if (home) {
+        setenv("HOME", saved.c_str(), 1);
+    }
+}
