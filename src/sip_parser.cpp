@@ -279,30 +279,20 @@ truncated:
     return start;
 }
 
+/* The first line of message that starts with hdr or compact_hdr, both
+ * with their newline: one pass over its lines, rather than searching all
+ * of what is left of the message for each form, as strcasestr() did */
 char* internal_match_header(char* message, const char* hdr, const char* compact_hdr) {
-    // Attempt to find the header
-    char* header_match = strcasestr(message, hdr);
-    if (!compact_hdr) {
-        // Exit when there is no compact header to compare to
-        return header_match;
-    }
+    const size_t hdr_len = strlen(hdr);
+    const size_t compact_len = compact_hdr ? strlen(compact_hdr) : 0;
 
-    char* compact_header_match = strcasestr(message, compact_hdr);
-
-    // Return the other if one is null
-    if (header_match == nullptr) {
-        return compact_header_match;
+    for (char* line = strchr(message, '\n'); line; line = strchr(line + 1, '\n')) {
+        if (!strncasecmp(line, hdr, hdr_len) ||
+            (compact_hdr && !strncasecmp(line, compact_hdr, compact_len))) {
+            return line;
+        }
     }
-    if (compact_header_match == nullptr) {
-        return header_match;
-    }
-
-    // Value exists return the smaller of the two.
-    if (header_match < compact_header_match) {
-        return header_match;
-    }
-
-    return compact_header_match;
+    return nullptr;
 }
 
 const char* internal_compact_header_name(const char* name)
