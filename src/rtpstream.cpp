@@ -66,6 +66,10 @@ template<class T> using my_unique_ptr = std::unique_ptr<T, free_delete>;
 #define MAX_UDP_RECV_BUFFER           8192
 #define MAX_UDP_SEND_BUFFER           8192
 #define RTCP_DRAIN_MS                 1000
+/* a playback thread's stack: its RTP, SRTP and pcap plays and echoes run
+ * in 64 KB, where the 8 MB default of hundreds of threads would take
+ * gigabytes of address space */
+#define RTPSTREAM_THREAD_STACK        (256 * 1024)
 
 #define TI_NULL_AUDIOIP               0x001
 #define TI_NULL_VIDEOIP               0x002
@@ -1825,7 +1829,12 @@ static int rtpstream_start_task(rtpstream_callinfo_t* callinfo)
             return 0;
         }
         /* create the thread itself */
-        if (pthread_create(&threadID, nullptr, rtpstream_playback_thread, threaddata)) {
+        pthread_attr_t attr;
+        pthread_attr_init(&attr);
+        pthread_attr_setstacksize(&attr, RTPSTREAM_THREAD_STACK);
+        int rc = pthread_create(&threadID, &attr, rtpstream_playback_thread, threaddata);
+        pthread_attr_destroy(&attr);
+        if (rc) {
             /* error creating the thread */
             delete threaddata;
             return 0;
