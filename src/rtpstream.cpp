@@ -870,9 +870,13 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
             target_timestamp = timenow_ms * taskinfo->audio_timeticks_per_ms;
             paused = taskinfo->flags.load(std::memory_order_relaxed) &
                      (TI_NULL_AUDIOIP | TI_PAUSERTP | TI_PAUSERTPAPATTERN);
-            if (paused)
-            {
-                /* when paused, set timestamp so stream appears to be up to date */
+            /* when paused, and as it resumes, set timestamp so stream
+             * appears to be up to date: resuming with the timestamp of
+             * the pass before sent that packet, and the current one right
+             * after it */
+            const bool resumed = !paused && taskinfo->audio_was_paused;
+            taskinfo->audio_was_paused = paused;
+            if (paused || resumed) {
                 std::lock_guard lock(taskinfo->mutex);
                 taskinfo->last_audio_timestamp = rtpstream_grid_timestamp(timenow_ms, taskinfo->audio_ms_per_packet,
                                                                           taskinfo->audio_timeticks_per_ms);
@@ -1143,9 +1147,10 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
             target_timestamp = timenow_ms * taskinfo->video_timeticks_per_ms;
             paused = taskinfo->flags.load(std::memory_order_relaxed) &
                      (TI_NULL_VIDEOIP | TI_PAUSERTP | TI_PAUSERTPVPATTERN);
-            if (paused)
-            {
-                /* when paused, set timestamp so stream appears to be up to date */
+            /* when paused, and as it resumes, as for audio */
+            const bool resumed = !paused && taskinfo->video_was_paused;
+            taskinfo->video_was_paused = paused;
+            if (paused || resumed) {
                 std::lock_guard lock(taskinfo->mutex);
                 taskinfo->last_video_timestamp = rtpstream_grid_timestamp(timenow_ms, taskinfo->video_ms_per_packet,
                                                                           taskinfo->video_timeticks_per_ms);
@@ -2839,7 +2844,10 @@ void rtpstream_resume(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_resume callinfo=%p\n", callinfo);
 
-    rtpstream_task(callinfo)->flags &= ~TI_PAUSERTP;
+    taskentry_t *taskinfo = rtpstream_task(callinfo);
+    taskinfo->flags &= ~TI_PAUSERTP;
+    /* at once, not after the thread's sleep */
+    rtpstream_wake(taskinfo->parent_thread);
 }
 
 /* The millisecond that a play of a stream ends in, from the packets it
@@ -2964,7 +2972,10 @@ void rtpstream_resumeapattern(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_resumeapattern callinfo=%p\n", callinfo);
 
-    rtpstream_task(callinfo)->flags &= ~TI_PAUSERTPAPATTERN;
+    taskentry_t *taskinfo = rtpstream_task(callinfo);
+    taskinfo->flags &= ~TI_PAUSERTPAPATTERN;
+    /* at once, not after the thread's sleep */
+    rtpstream_wake(taskinfo->parent_thread);
 }
 
 void rtpstream_playvpattern(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioninfo, const JLSRTP& txUACVideo, const JLSRTP& rxUACVideo)
@@ -3027,7 +3038,10 @@ void rtpstream_resumevpattern(rtpstream_callinfo_t* callinfo)
 {
     debugprint("rtpstream_resumevpattern callinfo=%p\n", callinfo);
 
-    rtpstream_task(callinfo)->flags &= ~TI_PAUSERTPVPATTERN;
+    taskentry_t *taskinfo = rtpstream_task(callinfo);
+    taskinfo->flags &= ~TI_PAUSERTPVPATTERN;
+    /* at once, not after the thread's sleep */
+    rtpstream_wake(taskinfo->parent_thread);
 }
 
 #ifdef PCAPPLAY

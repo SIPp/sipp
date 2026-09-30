@@ -231,6 +231,9 @@ marked **Breaking**.
     fails (#1021, #1073, #1074)
   - packets go out on time: audio beside video, `play_dtmf` and pcap
     pacing, a play starts at once (#896, #906, #908, #1100, #1102)
+  - a paused `rtp_stream` resumes at once, with the timestamp of the
+    packet time it resumes in, rather than sending the packet before it
+    and the current one together (#1228)
   - the RTCP socket is kept (#898), WAV chunk sizes and short files are
     read right (#902, #1075), a WAV file with no audio no longer hangs
     the playback thread (#1144), a missing `rtp_stream` file fails the
