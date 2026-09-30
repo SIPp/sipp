@@ -283,7 +283,7 @@ int FileContents::getField(int lineNum, int field, char *dest, int len)
         long long value = (long long)printfOffset + (long long)lineNum * printfMultiple;
         out = expand_printf_field(x, value);
     } else {
-        out = x;
+        out = std::move(x);
     }
 
     /* Return only what was actually stored, so callers can advance their
