@@ -153,7 +153,6 @@ private:
     void peer_closed(bool reset);
     int flush();
     int write_error(int ret);
-    void abort();
     void drop_connection();
     int check_for_message();
     int enter_congestion(int again);

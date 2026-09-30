@@ -1083,34 +1083,8 @@ void SIPpSocket::invalidate()
 #endif
 }
 
-void SIPpSocket::abort() {
-    /* Disable linger - we'll send a RST when we close. */
-    struct linger flush;
-    flush.l_onoff = 1;
-    flush.l_linger = 0;
-    if (setsockopt(ss_fd, SOL_SOCKET, SO_LINGER, &flush, sizeof(flush)) < 0) {
-        WARNING_NO("Unable to set SO_LINGER option to reset socket %d", ss_fd);
-    }
-
-    /* Mark the socket as non-blocking.  It's not clear whether this is required but can't hurt. */
-    set_nonblocking(ss_fd);
-
-    int count = --ss_count;
-    if (count == 0) {
-        invalidate();
-        sockets_pending_reset.erase(this);
-        delete this;
-    } else {
-        if (ss_fd != -1) {
-            poll_remove();
-        }
-        ss_fd = -1;
-    }
-}
-
 /* Close the connection with a reset, but keep the socket, which a call or
- * a global may still use: reset_connection() connects it again. abort()
- * would drop a reference, and free the socket along with its last one. */
+ * a global may still use: reset_connection() connects it again. */
 void SIPpSocket::drop_connection()
 {
     if (ss_fd != -1) {
@@ -1795,7 +1769,7 @@ int SIPpSocket::reconnect()
     if ((!ss_invalid) &&
             (ss_fd != -1)) {
         WARNING("When reconnecting socket, already have file descriptor %d", ss_fd);
-        abort();
+        drop_connection();
     }
 
     ss_fd = socket_fd(ss_ipv6, ss_transport);
