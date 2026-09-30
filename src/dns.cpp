@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <utility>
 #include <strings.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -125,7 +126,7 @@ bool naptr_parse(const unsigned char *msg, int len,
         if (dns_name(msg, len, p, length, r.replacement) < 0) {
             return false;
         }
-        records.push_back(r);
+        records.push_back(std::move(r));
         return true;
     });
 }
@@ -143,7 +144,7 @@ bool srv_parse(const unsigned char *msg, int len,
         r.priority = get16(p);
         r.weight = get16(p + 2);
         r.port = get16(p + 4);
-        records.push_back(r);
+        records.push_back(std::move(r));
         return true;
     });
 }
