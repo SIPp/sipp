@@ -177,6 +177,8 @@ marked **Breaking**.
     in a `<recv>` (#1076)
   - a dead call no longer warns about the answers to its BYE or CANCEL,
     nor takes a live call's Call-ID (#984, #1008)
+  - a header folded on several lines keeps its CRLFs in the [last_*]
+    keywords, rather than going out with a bare LF (#1211)
 - Transports (by Orgad Shaneh):
   - TCP: connections close with their last call and are freed once the
     peer closes them (#886, #987), a reset of an accepted connection is
