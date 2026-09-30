@@ -202,6 +202,21 @@ Example that execute a system echo for every INVITE received::
       </action>
     </recv>
 
+SIPp does not wait for a command. With the verify attribute instead,
+the call waits for the command to end before it goes on to its next
+message (or ends), and fails if the command exits with a non-zero
+code or is killed by a signal: the call is counted as failed when it
+ends, and the error log says what the command returned. SIPp itself
+does not wait: the other calls go on meanwhile, and so do messages the
+call receives, as during a pause. Example that checks the call's
+record as its last step::
+
+    <nop>
+      <action>
+        <exec verify="./check_record.sh [call_number]"/>
+      </action>
+    </nop>
+
 .. warning::
 
    The command is expanded like a message and then passed to the shell

@@ -27,6 +27,10 @@ marked **Breaking**.
   #1007, by Orgad Shaneh)
 - `<exec rtp_stream="wait"/>` holds the next message until the playback
   ends, with an optional `timeout` (#1049, by Orgad Shaneh)
+- `<exec verify="command"/>` runs a command that the call waits for
+  before its next message, without blocking SIPp, and fails the call
+  if it exits with a non-zero code (#7, by Orgad Shaneh, based on #423
+  by Stanislav Litvinenko)
 - `<recv timeout_variable>` takes the receive timeout from a call
   variable (#968, by Orgad Shaneh)
 - `start_rtd` and `rtd` take a comma-separated list of timers (#970, by

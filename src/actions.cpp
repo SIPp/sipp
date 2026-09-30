@@ -111,6 +111,8 @@ void CAction::printInfo(char* buf, int len)
         }
     } else if (M_action == E_AT_EXECUTE_CMD) {
         snprintf(buf, len, "Type[%d] - command[%-32.32s]", M_action, M_message_str[0]);
+    } else if (M_action == E_AT_VERIFY_CMD) {
+        snprintf(buf, len, "Type[%d] - verify[%-32.32s]", M_action, M_message_str[0]);
     } else if (M_action == E_AT_EXEC_INTCMD) {
         snprintf(buf, len, "Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
     } else if (M_action == E_AT_LOG_TO_FILE) {

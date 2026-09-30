@@ -1022,6 +1022,8 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
 
         update_clock_tick();
 
+        call::reap_verify_commands();
+
         /* Schedule all pending calls and process their timers */
         task_list *running_tasks;
         if ((clock_tick - last_timer_cycle) > timer_resolution) {

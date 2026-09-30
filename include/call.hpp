@@ -94,6 +94,9 @@ public:
     /* The -3pcc twin connection is lost: fail the calls waiting for a
      * command. Returns how many failed. */
     static int close_twin_calls();
+    /* Collect the <exec verify> commands that exited and wake the calls
+     * that wait for them. */
+    static void reap_verify_commands();
 
     /* When should this call wake up? */
     virtual unsigned int wake();
@@ -228,6 +231,10 @@ protected:
     unsigned int   rtpstream_wait_until;
     message       *rtpstream_wait_msg;
 
+    /* How many <exec verify> commands the call waits for before its next
+     * message */
+    int            verify_pending;
+
     unsigned long  start_time;
     unsigned long long *start_time_rtd;
     bool           *rtd_done;
@@ -269,7 +276,8 @@ protected:
         E_AR_TEST_SHOULDNT_MATCH,
         E_AR_STRCMP_DOESNT_MATCH,
         E_AR_STRCMP_SHOULDNT_MATCH,
-        E_AR_RTPECHO_ERROR
+        E_AR_RTPECHO_ERROR,
+        E_AR_VERIFY_FAILED
     };
 
     /* Store the last action result to allow  */
@@ -292,6 +300,9 @@ protected:
     unsigned int recvTimeout(message *curmsg);
     void rtpstreamWaitNextCheck(unsigned long play_end);
     bool rtpstreamWaitTimeout();
+    bool pastLastMessage();
+    void startVerify(const char *command);
+    void verifyDone(const char *command, int status);
 
     // P_index use for message index in scenario
     char* createSendingMessage(SendingMessage* src, int P_index=-1, int *msgLen=nullptr);
