@@ -3952,7 +3952,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             else if (sendMode == MODE_SERVER)
             {
-                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Video() - PRIMARY - SERVER - component offset:\n", comp->offset);
+                logSrtpInfo("call::createSendingMessage():  E_Message_CryptoKeyParams1Video() - PRIMARY - SERVER - component offset:%d\n", comp->offset);
                 if (comp->offset >= 0)
                 {
                     _txUASVideo.generateMasterKey(PRIMARY_CRYPTO);
