@@ -21,15 +21,15 @@ is much more likely to be reviewed and merged:
 
 ## Code Formatting
 
-This project uses [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to maintain consistent code style. Pull requests are automatically checked for formatting compliance.
+This project uses [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to maintain consistent code style. CI checks that the lines each pull request changes follow it. Much of the existing code predates this style, so leave the lines you don't change as they are.
 
 ### Setup
 
-Install clang-format (version 18 recommended):
+Install clang-format (CI uses the version Ubuntu 26.04 ships):
 
 ```bash
 # Ubuntu/Debian
-sudo apt install clang-format-18
+sudo apt install clang-format
 
 # macOS
 brew install clang-format
@@ -50,6 +50,12 @@ Format all source files:
 
 ```bash
 find src include -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.c' -o -name '*.h' \) | xargs clang-format -i
+```
+
+Format only the lines you changed since master, as CI checks them:
+
+```bash
+git clang-format origin/master
 ```
 
 Check formatting without modifying files:
