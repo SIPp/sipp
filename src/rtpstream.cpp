@@ -174,7 +174,7 @@ struct threaddata_t
 #endif
     }
 
-    pthread_t id;
+    pthread_t id{};
     std::mutex tasklist_mutex;
     int             busy_list_index = -1;
     unsigned int    max_tasks;
