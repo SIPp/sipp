@@ -1,0 +1,29 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A server that rtp_streams a pattern in a call with SRTP keys sends SRTP
+# (the payload plus a 10-byte AES_CM_128_HMAC_SHA1_80 tag), not plain RTP,
+# as it does for a file.
+. "`dirname "$0"`/../functions"; init
+
+rm -f rtp.len
+perl -e '
+    use Socket;$|=1;(socket(S,PF_INET,SOCK_DGRAM,17)&&
+    bind(S,pack_sockaddr_in(26739,inet_aton("127.0.0.1")))&&
+    setsockopt(S,SOL_SOCKET,SO_RCVTIMEO,pack("L!L!",5,0))&&
+    recv(S,$o,2048,0))||die($!);print length($o),"\n";' >rtp.len &
+sippbg -sf uas.xml -i 127.0.0.1 -p 25750 -m 1 \
+    -min_rtp_port 26733 -max_rtp_port 26738
+sippfg -sf uac.xml -i 127.0.0.1 -p 25751 -m 1 \
+    127.0.0.1:25750 -timeout 8 -timeout_error >/dev/null 2>&1
+status=$?
+wait
+len=`cat rtp.len`
+rm -f rtp.len
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "$len" != 182; then
+    fail "got a ${len:-no} byte RTP packet, not 182 (SRTP)"
+else
+    ok
+fi
