@@ -98,7 +98,7 @@ typedef struct _AESState
 } AESState;
 
 /* HMAC-SHA1 with a key: the SHA-1 states after its inner and outer pads,
- * made once per key, and a context to copy them to for each packet. */
+ * made once per key, copied to a context of the thread for each packet. */
 class HMACState
 {
 public:
@@ -113,7 +113,7 @@ private:
     {
         void operator()(EVP_MD_CTX* c) const { EVP_MD_CTX_free(c); }
     };
-    std::unique_ptr<EVP_MD_CTX, Free> inner, outer, work;
+    std::unique_ptr<EVP_MD_CTX, Free> inner, outer;
     std::vector<unsigned char> key;       // what inner and outer are for
 };
 

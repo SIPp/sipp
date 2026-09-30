@@ -83,7 +83,6 @@ void HMACState::free()
 {
     inner.reset();
     outer.reset();
-    work.reset();
     key.clear();
 }
 
@@ -93,14 +92,18 @@ bool HMACState::digest(const std::vector<unsigned char>& with_key,
                        const std::vector<unsigned char>& data, const std::vector<unsigned char>& more,
                        unsigned char out[EVP_MAX_MD_SIZE], unsigned int* out_len)
 {
+    /* the digest's own, one for all the keys of the thread */
+    static thread_local std::unique_ptr<EVP_MD_CTX, Free> work(EVP_MD_CTX_new());
+    if (!work) {
+        return false;
+    }
     if (!inner || key != with_key) {
         free();
         inner.reset(EVP_MD_CTX_new());
         outer.reset(EVP_MD_CTX_new());
-        work.reset(EVP_MD_CTX_new());
         unsigned char k[64] = {}; /* the key in a SHA-1 block */
         unsigned int k_len = 0;
-        bool made = inner && outer && work;
+        bool made = inner && outer;
         if (made && with_key.size() > sizeof(k)) {
             made = EVP_Digest(with_key.data(), with_key.size(), k, &k_len, EVP_sha1(), nullptr) == 1;
         } else if (made) {
