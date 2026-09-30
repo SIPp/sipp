@@ -102,6 +102,10 @@ Both ResponseTime and CallLength statistics can be tuned using
 ResponseTimeRepartition and CallLengthRepartition commands in the
 scenario.
 
+Each range of a repartition has a periodic (P) and a cumulative (C)
+column: first the (P) columns of all its ranges, then the (C) ones.
+The repartition screens show the cumulative counts.
+
 The standard deviation (STDev) is also available in the log stat file
 for these two statistics.
 

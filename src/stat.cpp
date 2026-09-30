@@ -471,8 +471,9 @@ void CStat::initRepartition(unsigned int* repartition,
 
     // copying the repartition table in the local table
     for(i=0; i<nombre; i++) {
-        (*tabRepartition)[i].borderMax      = repartition[i];
-        (*tabRepartition)[i].nbInThisBorder = 0;
+        (*tabRepartition)[i].borderMax        = repartition[i];
+        (*tabRepartition)[i].nbInThisBorder   = 0;
+        (*tabRepartition)[i].nbInThisBorderPL = 0;
     }
 
     // sorting the repartition table
@@ -494,6 +495,7 @@ void CStat::initRepartition(unsigned int* repartition,
     (*tabRepartition)[nombre].borderMax =
         (*tabRepartition)[nombre-1].borderMax;
     (*tabRepartition)[nombre].nbInThisBorder = 0;
+    (*tabRepartition)[nombre].nbInThisBorderPL = 0;
 }
 
 void CStat::setRtpEchoErrors(int value)
@@ -690,11 +692,9 @@ int CStat::computeStat (E_Action P_action)
         //       "C_Stat::computeStat : RESET_PL_COUNTERS");
         RESET_PL_COUNTERS;
         GET_TIME (&M_plStartTime);
-        if (periodic_rtd) {
-            resetRepartition(M_CallLengthRepartition, M_SizeOfCallLengthRepartition);
-            for (int i = 0; i < nRtds(); i++) {
-                resetRepartition(M_ResponseTimeRepartition[i], M_SizeOfResponseTimeRepartition);
-            }
+        resetRepartition(M_CallLengthRepartition, M_SizeOfCallLengthRepartition);
+        for (int i = 0; i < nRtds(); i++) {
+            resetRepartition(M_ResponseTimeRepartition[i], M_SizeOfResponseTimeRepartition);
         }
         break;
 
@@ -1031,6 +1031,7 @@ void CStat::updateRepartition(T_dynamicalRepartition* P_tabReport,
     for (int i = 0; i < P_sizeOfTab - 1; i++) {
         if (P_value < P_tabReport[i].borderMax) {
             P_tabReport[i].nbInThisBorder++;
+            P_tabReport[i].nbInThisBorderPL++;
             return;
         }
     }
@@ -1038,6 +1039,7 @@ void CStat::updateRepartition(T_dynamicalRepartition* P_tabReport,
     /* If this is not true, we never should have gotten here. */
     assert(P_value >= P_tabReport[P_sizeOfTab-1].borderMax);
     P_tabReport[P_sizeOfTab-1].nbInThisBorder ++;
+    P_tabReport[P_sizeOfTab-1].nbInThisBorderPL ++;
 }
 
 void CStat::resetRepartition(T_dynamicalRepartition* P_tabReport,
@@ -1048,7 +1050,7 @@ void CStat::resetRepartition(T_dynamicalRepartition* P_tabReport,
     }
 
     for (int i = 0; i < P_sizeOfTab; i++) {
-        P_tabReport[i].nbInThisBorder = 0;
+        P_tabReport[i].nbInThisBorderPL = 0;
     }
 }
 
@@ -1089,14 +1091,16 @@ char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
     if(tabRepartition != nullptr) {
         repartitionHeader = (char *)realloc(repartitionHeader, strlen(P_repartitionName) + dlen + 1);
         sprintf(repartitionHeader, "%s%s", P_repartitionName, stat_delimiter);
-        for(int i=0; i<(sizeOfTab-1); i++) {
-            sprintf(buffer, "%s_<%d%s", P_repartitionName, tabRepartition[i].borderMax, stat_delimiter);
+        for (const char *kind : {"(P)", "(C)"}) {
+            for(int i=0; i<(sizeOfTab-1); i++) {
+                sprintf(buffer, "%s_<%d%s%s", P_repartitionName, tabRepartition[i].borderMax, kind, stat_delimiter);
+                repartitionHeader = (char *)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
+                strcat(repartitionHeader, buffer);
+            }
+            sprintf(buffer, "%s_>=%d%s%s", P_repartitionName, tabRepartition[sizeOfTab-1].borderMax, kind, stat_delimiter);
             repartitionHeader = (char *)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
             strcat(repartitionHeader, buffer);
         }
-        sprintf(buffer, "%s_>=%d%s", P_repartitionName, tabRepartition[sizeOfTab-1].borderMax, stat_delimiter);
-        repartitionHeader = (char *)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
-        strcat(repartitionHeader, buffer);
     } else {
         repartitionHeader = (char *)realloc(repartitionHeader, 2);
         strcpy(repartitionHeader, "");
@@ -1116,14 +1120,14 @@ char* CStat::sRepartitionInfo(T_dynamicalRepartition * tabRepartition,
         // if a repartition is present, this field match the repartition name
         repartitionInfo = (char *)realloc(repartitionInfo, dlen + 1);
         sprintf(repartitionInfo, "%s", stat_delimiter);
-        for(int i=0; i<(sizeOfTab-1); i++) {
-            sprintf(buffer, "%lu%s", tabRepartition[i].nbInThisBorder, stat_delimiter);
-            repartitionInfo = (char *)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
-            strcat(repartitionInfo, buffer);
+        for (bool periodic : {true, false}) {
+            for(int i=0; i<sizeOfTab; i++) {
+                sprintf(buffer, "%lu%s", periodic ? tabRepartition[i].nbInThisBorderPL
+                                                  : tabRepartition[i].nbInThisBorder, stat_delimiter);
+                repartitionInfo = (char *)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
+                strcat(repartitionInfo, buffer);
+            }
         }
-        sprintf(buffer, "%lu%s", tabRepartition[sizeOfTab-1].nbInThisBorder, stat_delimiter);
-        repartitionInfo = (char *)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
-        strcat(repartitionInfo, buffer);
     } else {
         repartitionInfo = (char *)realloc(repartitionInfo, 2);
         repartitionInfo[0] = '\0';
@@ -1921,5 +1925,40 @@ TEST(CStat, rtt_file_keeps_microseconds) {
     unlink(path);
     EXPECT_EQ(header, "Date_ms;response_time_ms;rtd_no");
     EXPECT_EQ(row, "1234567890.123;2.500;1");
+}
+
+static bool ends_with(const std::string &s, const std::string &suffix)
+{
+    return s.size() >= suffix.size() &&
+           s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+TEST(CStat, repartition_has_periodic_and_cumulative_columns) {
+    std::string path = testing::TempDir() + "sipp_stat_repartition.csv";
+    CStat stat;
+    stat.setFileName(path.c_str());
+    unsigned int borders[] = {20, 10};
+    stat.setRepartitionCallLength(borders, 2);
+
+    stat.computeStat(CStat::E_ADD_CALL_DURATION, 5);
+    stat.computeStat(CStat::E_ADD_CALL_DURATION, 25);
+    stat.dumpData();
+    stat.computeStat(CStat::E_RESET_PL_COUNTERS);
+    stat.computeStat(CStat::E_ADD_CALL_DURATION, 15);
+    stat.dumpData();
+
+    std::ifstream f(path);
+    std::string header, row1, row2;
+    std::getline(f, header);
+    std::getline(f, row1);
+    std::getline(f, row2);
+    unlink(path.c_str());
+    EXPECT_TRUE(ends_with(header, ";CallLengthRepartition;"
+                          "CallLengthRepartition_<10(P);CallLengthRepartition_<20(P);"
+                          "CallLengthRepartition_>=20(P);"
+                          "CallLengthRepartition_<10(C);CallLengthRepartition_<20(C);"
+                          "CallLengthRepartition_>=20(C);")) << header;
+    EXPECT_TRUE(ends_with(row1, ";;1;0;1;1;0;1;")) << row1;
+    EXPECT_TRUE(ends_with(row2, ";;0;1;0;1;1;1;")) << row2;
 }
 #endif

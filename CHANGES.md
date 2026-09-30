@@ -69,6 +69,10 @@ marked **Breaking**.
   option, exits with 255 as documented, not 1 (#934, by Orgad Shaneh)
 - **Breaking:** AKAv1-MD5 checks the MAC over the AMF of the challenge's
   AUTN; `aka_AMF` is ignored (#1013, by Orgad Shaneh)
+- **Breaking:** The `-trace_stat` file has periodic (P) and cumulative
+  (C) columns for each ResponseTimeRepartition and CallLengthRepartition
+  range; `-periodic_rtd` is deprecated and ignored (#19, by Orgad
+  Shaneh)
 - Default for `-rtp_threadtasks` (media calls per thread) raised from 20
   to 50 (#1116, by Orgad Shaneh)
 - pcap play runs in the RTP playback threads, not in a thread per play,
