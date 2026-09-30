@@ -1751,11 +1751,17 @@ int SIPpSocket::connect(struct sockaddr_storage* dest)
         } else {
             (_RCAST(struct sockaddr_in*, &with_optional_port))->sin_port = htons(ss_bind_port);
         }
-        sipp_bind_socket(this, &with_optional_port, &port);
+        if (sipp_bind_socket(this, &with_optional_port, &port)) {
+            /* As before: the kernel picks the address, as when a
+             * reconnection finds the -p port still taken. */
+            WARNING_NO("Unable to bind socket %d before connecting it", ss_fd);
+        }
 #ifdef USE_SCTP
     } else if (ss_transport == T_SCTP) {
         int port = -1;
-        sipp_bind_socket(this, &local_sockaddr, &port);
+        if (sipp_bind_socket(this, &local_sockaddr, &port)) {
+            WARNING_NO("Unable to bind socket %d before connecting it", ss_fd);
+        }
 #endif
     }
 
