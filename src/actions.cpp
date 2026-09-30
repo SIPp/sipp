@@ -43,7 +43,6 @@ static const char* strIntCmd(CAction::T_IntCmdType type)
     case CAction::E_INTCMD_INVALID:
         return "invalid";
     }
-    return "invalid";
 }
 
 const char * CAction::comparatorToString(T_Comparator comp)
@@ -906,43 +905,6 @@ void CAction::setRTPStreamActInfo(rtpstream_actinfo_t *P_value)
 void CAction::setScenario(scenario *     P_scenario)
 {
     M_scenario = P_scenario;
-}
-
-void CAction::setAction(CAction P_action)
-{
-    if (P_action.getActionType() == CAction::E_AT_ASSIGN_FROM_SAMPLE) {
-        assert(P_action.getDistribution() != nullptr);
-    }
-    int L_i;
-    setActionType   ( P_action.getActionType()   );
-    setLookingPlace ( P_action.getLookingPlace() );
-    setVarId        ( P_action.getVarId()        );
-    setVarInId      ( P_action.getVarInId()      );
-    setDoubleValue  ( P_action.getDoubleValue()  );
-    setDistribution ( P_action.getDistribution() );
-    setScenario     ( P_action.M_scenario        );
-
-    setNbSubVarId   ( P_action.getNbSubVarId()   );
-    for (L_i = 0; L_i < P_action.getNbSubVarId() ; L_i++ ) {
-        setSubVarId (P_action.getSubVarId(L_i));
-    }
-
-    setLookingChar  ( P_action.getLookingChar()  );
-    setCheckIt      ( P_action.getCheckIt()      );
-    setCheckItInverse      ( P_action.getCheckItInverse()      );
-    setCaseIndep    ( P_action.getCaseIndep()    );
-    setOccurrence   ( P_action.getOccurrence()   );
-    setHeadersOnly  ( P_action.getHeadersOnly()  );
-    for (L_i = 0; L_i < MAX_ACTION_MESSAGE; L_i++) {
-        setMessage(P_action.M_message_str[L_i], L_i);
-    }
-    setRegExp       ( P_action.M_regularExpression);
-    setIntCmd       ( P_action.M_IntCmd          );
-#ifdef PCAPPLAY
-    setPcapArgs     ( P_action.M_pcapArgs        );
-#endif
-    setRTPEchoActInfo(&(P_action.M_rtpecho_actinfo));
-    setRTPStreamActInfo(&(P_action.M_rtpstream_actinfo));
 }
 
 CAction::CAction(scenario *scenario)

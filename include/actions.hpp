@@ -158,7 +158,6 @@ public:
     void setVarInId      (int            P_value);
     void setVarIn2Id      (int           P_value);
     void setLookingChar(const char* P_value);
-    void setAction       (CAction        P_action);
     void setCaseIndep    (bool           P_action);
     void setOccurrence   (int            P_value);
     void setHeadersOnly  (bool           P_value);
@@ -190,6 +189,9 @@ public:
 
     CAction(scenario *scenario);
     ~CAction();
+    /* It owns what its pointers point to */
+    CAction(const CAction&) = delete;
+    CAction& operator=(const CAction&) = delete;
 
 private:
     T_ActionType   M_action;
