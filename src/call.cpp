@@ -4646,10 +4646,13 @@ bool call::process_twinSippCom(char * msg)
                     continue;
                 }
                 /* The peer can answer a <sendCmd> before the SIP message
-                 * the call waits for comes. Keep the command for the
-                 * <recvCmd> that follows, as a message that comes before
-                 * a <sendCmd> has run is kept for its <recv>. */
-                if (call_scenario->messages[search_index]->M_type == MSG_TYPE_RECV &&
+                 * the call waits for comes, or before the call has sent
+                 * the one after the <sendCmd>, which runs on its next
+                 * turn. Keep the command for the <recvCmd> that follows,
+                 * as a message that comes before a <sendCmd> has run is
+                 * kept for its <recv>. */
+                int type = call_scenario->messages[search_index]->M_type;
+                if ((type == MSG_TYPE_RECV || type == MSG_TYPE_SEND) &&
                         !queued_cmd && recvCmdFollows(search_index)) {
                     callDebug("Keeping the command for the <recvCmd> after index %d.\n", search_index);
                     queued_cmd = strdup(msg);
