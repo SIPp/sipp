@@ -161,6 +161,8 @@ marked **Breaking**.
   - data races between the calls and the RTP threads (#977, #1108,
     #1140)
   - memory and socket leaks (#886, #945, #1018)
+  - a crash at the end of a call with `-srtpcheck_debug` when its debug
+    file can't be created (#1213)
 - SIP (by Orgad Shaneh):
   - a late provisional response (#909), a request retransmitted after
     two responses (#910) and a repeated ACK (#911) no longer abort the
