@@ -6200,6 +6200,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 
             /* Where to look. */
             const char* haystack = nullptr;
+            std::string var_value;
 
             if(currentAction->getLookingPlace() == CAction::E_LP_HDR) {
                 extractSubMessage (msg,
@@ -6230,13 +6231,18 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 haystack = msg;
             } else if(currentAction->getLookingPlace() == CAction::E_LP_VAR) {
                 /* Get the input variable. */
-                haystack = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
-                if (!haystack) {
+                const char* value = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
+                if (!value) {
                     if (currentAction->getCheckIt() == true) {
                         WARNING("Failed regexp match: variable $%d not set", currentAction->getVarInId());
                         return(call::E_AR_HDR_NOT_FOUND);
                     }
+                    value = "";
                 }
+                /* A copy: a match assigned to the variable it searches
+                 * frees the value searched. */
+                var_value = value;
+                haystack = var_value.c_str();
             } else {
                 ERROR("Invalid looking place: %d", currentAction->getLookingPlace());
             }
