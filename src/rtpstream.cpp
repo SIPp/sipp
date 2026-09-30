@@ -2126,14 +2126,15 @@ int rtpstream_cache_file(char* filename,
             count++;
         }
 
-        /* Allocate memory and load file */
-        if (stat(filename, &statbuffer)) {
-            /* could not get file information */
-            return -1;
-        }
+        /* Allocate memory and load file: the size of the one opened */
         f = fopen(filename, "rb");
         if (!f) {
             /* could not open file */
+            return -1;
+        }
+        if (fstat(fileno(f), &statbuffer) || statbuffer.st_size <= 0) {
+            /* could not get file information, or nothing to play */
+            fclose(f);
             return -1;
         }
 
@@ -2143,7 +2144,7 @@ int rtpstream_cache_file(char* filename,
             /* could not alloc mem */
             return -1;
         }
-        if (!fread(filecontents, statbuffer.st_size, 1, f)) {
+        if (fread(filecontents, 1, statbuffer.st_size, f) != (size_t) statbuffer.st_size) {
             /* could not read file */
             free(filecontents);
             fclose(f);
