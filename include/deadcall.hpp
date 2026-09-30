@@ -12,7 +12,7 @@ public:
     static void *operator new(size_t size);
     static void operator delete(void *p, size_t size);
 
-    virtual bool process_incoming(const char* msg, const struct sockaddr_storage *);
+    virtual bool process_incoming(const char* msg, const struct sockaddr_storage *, SIPpSocket *);
     virtual bool process_twinSippCom(char* msg);
 
     virtual bool run();

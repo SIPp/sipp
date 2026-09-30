@@ -32,13 +32,17 @@
 
 #include "sipp.hpp"
 
+class SIPpSocket;
+
 class listener
 {
 public:
     listener(const char *id, bool listening);
     virtual ~listener();
     char *getId();
-    virtual bool process_incoming(const char* msg, const struct sockaddr_storage* src) = 0;
+    /* socket: the one msg came on. */
+    virtual bool process_incoming(const char* msg, const struct sockaddr_storage* src,
+                                  SIPpSocket *socket) = 0;
     virtual bool process_twinSippCom(char* msg) = 0;
 
 protected:

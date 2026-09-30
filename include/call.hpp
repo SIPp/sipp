@@ -88,7 +88,8 @@ public:
 
     virtual ~call();
 
-    virtual bool process_incoming(const char* msg, const struct sockaddr_storage* src = nullptr);
+    virtual bool process_incoming(const char* msg, const struct sockaddr_storage* src = nullptr,
+                                  SIPpSocket *socket = nullptr);
     virtual bool process_twinSippCom(char* msg);
 
     virtual bool run();
@@ -139,6 +140,21 @@ private:
     bool initCall;
 
     struct sockaddr_storage call_peer;
+
+    /* A request that came from elsewhere than the call's destination (from
+     * another address over UDP, on another connection otherwise) is
+     * answered where it came from: the response with its top Via branch
+     * goes there. Only the last few such requests are kept. */
+    struct request_source {
+        std::string branch;
+        struct sockaddr_storage addr;
+        SIPpSocket *socket; /* Held with ss_count; nullptr over UDP. */
+    };
+    std::vector<request_source> request_sources;
+    void remember_request_source(const char *msg, const struct sockaddr_storage *src,
+                                 SIPpSocket *socket);
+    void forget_request_source(std::vector<request_source>::iterator it);
+
     /* The -round_robin address the call was made to, if any. */
     remote_address *remote;
 
@@ -385,7 +401,8 @@ protected:
 
     /* sdp_read: the message was queued for _unexp.main after its SDP was
      * read when it came; reading it again would count it twice. */
-    bool process_incoming(const char* msg, const struct sockaddr_storage* src, bool sdp_read);
+    bool process_incoming(const char* msg, const struct sockaddr_storage* src,
+                          SIPpSocket *socket, bool sdp_read);
     void queue_up(const char* msg, bool sdp_read = false);
     char *queued_msg;
     bool queued_sdp_read;

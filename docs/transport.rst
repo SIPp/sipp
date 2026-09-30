@@ -260,6 +260,32 @@ connected.
     ./sipp -sn uac -round_robin -t tn sip.example.com:5060
 
 
+Where responses go
+``````````````````
+
+SIPp sends the messages of a call to its destination: the remote host,
+or, for a call that starts with a request it receives, where that
+request came from. ``-rsa`` and ``<setdest>`` change it. A response
+goes where the request it answers came from (RFC 3261 section 18.2.2,
+as rport of RFC 3581 does): a request that comes from another address
+than the call's destination over UDP, or on another connection over
+TCP, TLS, SCTP or WebSocket, such as a BYE that a proxy sends from
+another node after a failover, gets its responses there. SIPp matches a
+response to its request by the branch of its top Via, which the
+scenario copies from the request with ``[last_Via:]``. A CANCEL has the
+branch of the INVITE it cancels and comes from the same hop, so the 487
+to the INVITE and the 200 to the CANCEL both go there. A response that
+matches none of the last few such requests, or whose request came on a
+connection that is closed since, goes to the call's destination, as
+before. Over UDP it leaves from the call's socket.
+
+The requests SIPp sends still go to the call's destination. With
+``-rsa`` every message goes to its address, responses included, as the
+option asks. Whether a request came from elsewhere is decided when it
+arrives: after a ``<setdest>``, a request from the new destination is
+answered there, and one from anywhere else where it came from.
+
+
 Multi-socket limit
 ``````````````````
 
