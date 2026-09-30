@@ -1,0 +1,38 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# pcap plays skip a refused stream: when the first m=audio line of the
+# answer has port 0, audio goes to the second one, as rtp_stream does.
+. "`dirname "$0"`/../functions"
+
+# pcap plays need a raw socket: run as root in a user and network
+# namespace of our own.
+if test -z "$SIPP_NETNS"; then
+    if unshare -rn true 2>/dev/null; then
+        SIPP_NETNS=1 exec unshare -rn "$0"
+    fi
+    init
+    skip "no user network namespaces"
+fi
+init
+"`get_sipp`" -v | grep -q PCAP || skip "no PCAP"
+ip link set lo up 2>/dev/null || skip "cannot bring up lo"
+
+python3 rtp.py 127.0.0.1:26470 127.0.0.2:26472 >rtp.out &
+sippbg -sf uas.xml -i 127.0.0.1 -p 26464 -m 1 -timeout 10
+sippfg -sf uac.xml -i 127.0.0.1 -p 26465 -m 1 \
+    -min_rtp_port 26480 -max_rtp_port 26499 \
+    127.0.0.1:26464 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait
+read audio_packets video_packets <rtp.out
+rm -f rtp.out
+
+if test "${audio_packets:-0}" -eq 0; then
+    fail "no audio at 127.0.0.1:26470"
+elif test "${video_packets:-0}" -eq 0; then
+    fail "no video at 127.0.0.2:26472"
+elif test $status -ne 0; then
+    fail "UAC failed with $status"
+else
+    ok
+fi

@@ -425,16 +425,26 @@ void call::get_remote_media_addr(std::string const &msg)
         {"\nm=video ", RTPSTREAM_PCAP_VIDEO},
     };
     for (const auto& m : media) {
-        const size_t pos = msg.find(m.prefix);
-        if (pos == std::string::npos) {
+        /* If the first m-line of the kind has port ZERO (a stream
+         * refused, RFC 3264 6), use the second one, as rtp_stream does. */
+        std::string port;
+        std::string_view section;
+        size_t pos = msg.find(m.prefix);
+        for (int i = 0; i < 2 && pos != std::string::npos; i++) {
+            section = sdp_media_section(msg, pos);
+            port = find_in_sdp(m.prefix + 1, section);
+            if (port != "0") {
+                break;
+            }
+            pos = msg.find(m.prefix, pos + 1);
+        }
+        if (port.empty() || port == "0") {
             continue;
         }
-        const std::string_view section = sdp_media_section(msg, pos);
-        const std::string port = find_in_sdp(m.prefix + 1, section);
         bool ipv6;
         const std::string host = sdp_media_connection(msg, section, ipv6);
         /* none to play to on an address of the other IP version */
-        if (port.empty() || host.empty() || ipv6 != media_ip_is_ipv6) {
+        if (host.empty() || ipv6 != media_ip_is_ipv6) {
             continue;
         }
         gai_getsockaddr(&playArgs(m.stream).to, host.c_str(), port.c_str(),
@@ -8107,6 +8117,25 @@ TEST(sdp, remote_media_addr_of_each_media_section) {
     ASSERT_EQ(call.has_media(), true);
     ASSERT_EQ(audio, call.get_addr<struct sockaddr_in>(RTPSTREAM_PCAP_AUDIO));
     ASSERT_EQ(video, call.get_addr<struct sockaddr_in>(RTPSTREAM_PCAP_VIDEO));
+}
+
+TEST(sdp, remote_media_addr_skips_zero_port) {
+    media_ip_is_ipv6 = false;
+    pcap_plays = true;
+
+    struct sockaddr_in audio;
+    audio.sin_family = AF_INET;
+    audio.sin_port = htons(6000);
+    inet_pton(AF_INET, "192.0.2.3", &audio.sin_addr);
+
+    mockcall call(false);
+    call.parse_media_addr("v=0\r\n"
+                          "c=IN IP4 192.0.2.1\r\n"
+                          "m=audio 0 RTP/AVP 0\r\n"
+                          "m=video 7000 RTP/AVP 31\r\n"
+                          "m=audio 6000 RTP/AVP 8\r\n"
+                          "c=IN IP4 192.0.2.3\r\n");
+    ASSERT_EQ(audio, call.get_addr<struct sockaddr_in>(RTPSTREAM_PCAP_AUDIO));
 }
 
 /* The RTP payload type of packet n of a play_dtmf; the first 20 are
