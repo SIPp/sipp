@@ -749,12 +749,13 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     unsigned long long   target_timestamp;
     int                  compresult;
     struct pollfd        pfd;
-    std::vector<unsigned char> rtp_header;
-    std::vector<unsigned char> payload_data;
-    std::vector<unsigned char> audio_out;
-    std::vector<unsigned char> audio_in;
-    std::vector<unsigned char> video_out;
-    std::vector<unsigned char> video_in;
+    /* packet buffers, kept by the playback thread for its next packet */
+    static thread_local std::vector<unsigned char> rtp_header;
+    static thread_local std::vector<unsigned char> payload_data;
+    static thread_local std::vector<unsigned char> audio_out;
+    static thread_local std::vector<unsigned char> audio_in;
+    static thread_local std::vector<unsigned char> video_out;
+    static thread_local std::vector<unsigned char> video_in;
     unsigned short host_flags = 0;
     unsigned short host_seqnum = 0;
     unsigned int host_timestamp = 0;
@@ -915,7 +916,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             audio_in_size = sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet;
                         }
 
-                        audio_in.resize(audio_in_size, 0);
+                        audio_in.assign(audio_in_size, 0);
                         while ((rc = recv(taskinfo->audio_rtp_socket, audio_in.data(), audio_in.size(), 0)) >= 0)
                         {
                             audio_echo = true;
@@ -1183,7 +1184,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             video_in_size = sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet;
                         }
 
-                        video_in.resize(video_in_size, 0);
+                        video_in.assign(video_in_size, 0);
                         while ((rc = recv(taskinfo->video_rtp_socket, video_in.data(), video_in.size(), 0)) >= 0)
                         {
                             /* for now we will just ignore any received data or receive errors */

@@ -492,7 +492,7 @@ class JLSRTP
          * @return  -3  FAILURE -- Invalid HMAC algorithm specified
          * @return  -4  FAILURE -- Invalid crypto attribute specified
          */
-        int extractAuthenticationTag(std::vector<unsigned char> srtp_packet, std::vector<unsigned char> &hash);
+        int extractAuthenticationTag(const std::vector<unsigned char> &srtp_packet, std::vector<unsigned char> &hash);
 
         /**
          * extractSRTPHeader
@@ -506,7 +506,7 @@ class JLSRTP
          * @return  -1  FAILURE -- SRTP header size is ZERO
          * @return  -2  FAILURE -- Given SRTP packet smaller than SRTP header size
          */
-        int extractSRTPHeader(std::vector<unsigned char> srtp_packet, std::vector<unsigned char> &header);
+        int extractSRTPHeader(const std::vector<unsigned char> &srtp_packet, std::vector<unsigned char> &header);
 
         /**
          * extractSRTPPayload
@@ -521,7 +521,7 @@ class JLSRTP
          * @return  -2  FAILURE -- SRTP payload size is ZERO
          * @return  -3  FAILURE -- Given SRTP packet smaller than SRTP header+payload size
          */
-        int extractSRTPPayload(std::vector<unsigned char> srtp_packet, std::vector<unsigned char> &payload);
+        int extractSRTPPayload(const std::vector<unsigned char> &srtp_packet, std::vector<unsigned char> &payload);
 
         /**
          * base64Encode
