@@ -2978,7 +2978,7 @@ static void get_remote_addresses(const char *host, int port)
         char ip[sizeof(remote_ip)];
         a.ip = get_inet_address(&a.addr, ip, sizeof(ip));
         a.ip_w_brackets = a.addr.ss_family == AF_INET6 ? "[" + a.ip + "]" : a.ip;
-        remote_addresses.push_back(a);
+        remote_addresses.push_back(std::move(a));
     }
     freeaddrinfo(res);
 }
