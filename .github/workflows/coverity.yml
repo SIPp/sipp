@@ -9,6 +9,14 @@ on:
       - '.github/workflows/coverity.yml'
       - 'include/**'
       - 'src/**'
+  # to submit master again, as when Coverity refused a build while
+  # another waited in its queue
+  workflow_dispatch:
+
+# A newer push or merge supersedes the runs before it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   coverity:
