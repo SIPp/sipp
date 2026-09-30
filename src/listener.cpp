@@ -54,8 +54,21 @@ listener::listener(const char *id, char *storage, size_t size)
 void listener::startListening()
 {
     assert(!listening);
+    listen(id);
+    listening = true;
+}
+
+void listener::stopListening()
+{
+    assert(listening);
+    unlisten(id);
+    listening = false;
+}
+
+void listener::listen(const char *key)
+{
     std::pair<listener_map::iterator, bool> ins =
-        listeners.insert(std::pair<listener_map::key_type,listener *>(listener_map::key_type(id),this));
+        listeners.insert(std::pair<listener_map::key_type,listener *>(listener_map::key_type(key),this));
     if (!ins.second) {
         /* Another listener has this Call-ID, most likely the dead call
          * of an earlier call: the messages are ours from now on, and it
@@ -63,31 +76,25 @@ void listener::startListening()
          * call's messages to it. */
         if (!dynamic_cast<deadcall *>(ins.first->second)) {
             if (dynamic_cast<deadcall *>(this)) {
-                listening = true;
                 return;
             }
-            WARNING("Call-ID '%s' is already in use by another call", id);
+            WARNING("Call-ID '%s' is already in use by another call", key);
         }
-        /* The key is the id of the listener it maps to */
+        /* The key is in the storage of the listener it maps to */
         listener_map::node_type entry = listeners.extract(ins.first);
-        entry.key() = id;
+        entry.key() = key;
         entry.mapped() = this;
         listeners.insert(std::move(entry));
     }
-    listening = true;
 }
 
-void listener::stopListening()
+void listener::unlisten(const char *key)
 {
-    assert(listening);
-
     listener_map::iterator listener_it;
-    listener_it = listeners.find(listener_map::key_type(id));
+    listener_it = listeners.find(listener_map::key_type(key));
     if (listener_it != listeners.end() && listener_it->second == this) {
         listeners.erase(listener_it);
     }
-
-    listening = false;
 }
 
 char *listener::getId()

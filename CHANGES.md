@@ -10,6 +10,10 @@ marked **Breaking**.
 
 ### Added
 
+- Several dialogs in a call: `dialog="N"` on `<send>` and `<recv>`, each
+  dialog with its own Call-ID, `[cseq]`, peer tag, route set and
+  [last_*] keywords; a request with a Call-ID no call has starts a
+  dialog of the call waiting for it (#2, by Orgad Shaneh)
 - Server transactions: `<recv request start_txn>` keeps the request and
   `<send response_txn>` answers it, with the [last_*] keywords of that
   request, after other requests came; a retransmission of it gets the

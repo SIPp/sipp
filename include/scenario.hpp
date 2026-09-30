@@ -152,6 +152,8 @@ public:
     int            start_txn;
     int            ack_txn;
     int            response_txn;
+    /* dialog="N", 0 if not given: dialog 1, or its transaction's */
+    int            dialog;
     int            index;
     const char *   desc;
 
@@ -193,6 +195,9 @@ public:
     int duration;
     txnvec transactions;
     int unexpected_jump;
+    /* A message has dialog="N" with N > 1; a <recv request> does */
+    bool dialogs = false;
+    bool new_dialogs = false;
     int retaddr;
     int pausedaddr;
 

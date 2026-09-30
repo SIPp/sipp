@@ -24,6 +24,7 @@
 
 #include <map>
 #include <list>
+#include <memory>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
@@ -68,6 +69,21 @@ struct txnInstanceInfo {
     char *response;
     int responseLen;
     int responseIndex;
+    /* The dialog of the message that started it, 0 before */
+    int dialog;
+};
+
+/* A dialog of a call whose scenario has dialog="N" messages */
+struct call_dialog {
+    /* Empty for dialog 1, the call's id, and until known */
+    std::string call_id;
+    /* The state of the dialog while another one is the call's */
+    unsigned int cseq = 0;
+    unsigned long int last_recv_invite_cseq = 0;
+    char *peer_tag = nullptr;
+    char *last_recv_msg = nullptr;
+    char *dialog_route_set = nullptr;
+    char *next_req_url = nullptr;
 };
 
 typedef enum
@@ -111,6 +127,9 @@ public:
     /* Collect the <exec verify> commands that exited and wake the calls
      * that wait for them. */
     static void reap_verify_commands();
+    /* The call that a request of a Call-ID no call has starts a new
+     * dialog in, if one waits for it */
+    static call *take_new_dialog(const char *msg);
 
     /* When should this call wake up? */
     virtual unsigned int wake();
@@ -372,6 +391,28 @@ protected:
 
     /* Is this call just around for final retransmissions. */
     bool timewait;
+
+    /* The dialogs, if the scenario has dialog="N" messages: the state of
+     * the current one is in the call's members. incoming is the dialog
+     * of the message being processed. */
+    struct call_dialogs {
+        std::map<int, call_dialog> dialogs;
+        int current = 1;
+        int incoming = 1;
+        bool waits_new = false;
+        std::list<call *>::iterator waiting;
+    };
+    std::unique_ptr<call_dialogs> dialogs;
+    void switchDialog(int dialog);
+    int msgDialog(const message *curmsg);
+    int dialogOf(const char *msg);
+    bool dialogKnown(int dialog);
+    void setDialogCallId(int dialog, const char *call_id);
+    const char *dialogCallId();
+    std::vector<std::string> dialogIds();
+    /* The dialog a request of a Call-ID no call has starts here, 0 if
+     * none: the next message waited for is a <recv> of it */
+    int newDialogFor(const char *msg);
 
     /* rc == true means call not deleted by processing */
     bool next();
