@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <random>
 #include <string>
 #include "milenage.h"
 #include "screen.hpp"
@@ -491,7 +492,9 @@ static bool createAuthHeaderDigest(
         } else if (stristr(authtype, "auth")) {
             strncpy(authtype, "auth", sizeof(authtype) - 1);
         }
-        sprintf(cnonce, "%x", rand());
+        /* Unpredictable, against a server choosing the plaintext */
+        std::random_device rd;
+        snprintf(cnonce, sizeof(cnonce), "%08x%08x", rd(), rd());
         sprintf(nc, "%08x", nonce_count);
     }
 
