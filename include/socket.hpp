@@ -69,6 +69,12 @@ int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
 int gai_getsockaddr(struct sockaddr_storage* ss, const char* host,
                     const char *service, int flags, int family,
                     int prefer = AF_UNSPEC);
+/* -t ui: the socket of the address ss that the -ip_field text peripaddr
+ * resolves to, if another name of it has one (peripaddr then maps to it
+ * too); and a new socket for both. */
+SIPpSocket *find_perip_socket(const char *peripaddr, const struct sockaddr_storage *ss);
+void add_perip_socket(const char *peripaddr, const struct sockaddr_storage *ss, SIPpSocket *sock);
+
 /* The family of the first address of host, AF_UNSPEC if it has none. */
 int gai_family(const char *host);
 void sockaddr_update_port(struct sockaddr_storage* ss, short port);

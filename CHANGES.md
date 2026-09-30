@@ -192,7 +192,8 @@ marked **Breaking**.
   - UDP: `-t un` without `-i` (#937), setdest on a `-t un` call (#939),
     `-max_socket` reuse (#936), `[local_port]` (#923, #938), and an
     `-ip_field` address that does not resolve fails the call rather than
-    binding the default address (#1151)
+    binding the default address (#1151), and two names of an `-ip_field`
+    address share its socket rather than failing to bind it twice (#1212)
   - TLS: intermediate certificates are sent (#940), a handshake that
     arrives in pieces completes (#951), TLS 1.0 and 1.1 work with
     OpenSSL 3 (#990), a verified client can resume its session (#1045),

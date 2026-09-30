@@ -403,6 +403,31 @@ static char* get_inet_address(const struct sockaddr_storage* addr, char* dst, in
     return dst;
 }
 
+/* The sockets of -t ui are keyed by the -ip_field text and by the
+ * address it resolves to, so that another name of an address takes the
+ * socket bound to it rather than binding the address again. */
+static std::string perip_key(const struct sockaddr_storage *ss)
+{
+    char ip[NI_MAXHOST];
+    return get_inet_address(ss, ip, sizeof(ip));
+}
+
+SIPpSocket *find_perip_socket(const char *peripaddr, const struct sockaddr_storage *ss)
+{
+    auto i = map_perip_fd.find(perip_key(ss));
+    if (i == map_perip_fd.end()) {
+        return nullptr;
+    }
+    map_perip_fd[peripaddr] = i->second;
+    return i->second;
+}
+
+void add_perip_socket(const char *peripaddr, const struct sockaddr_storage *ss, SIPpSocket *sock)
+{
+    map_perip_fd[peripaddr] = sock;
+    map_perip_fd[perip_key(ss)] = sock;
+}
+
 static bool process_key(int c)
 {
     switch (c) {
@@ -3238,7 +3263,7 @@ int open_connections()
 
     if (peripsocket) {
         // Add the main socket to the socket per subscriber map
-        map_perip_fd[peripaddr] = main_socket;
+        add_perip_socket(peripaddr, &local_sockaddr, main_socket);
     }
 
     // Create additional server sockets when running in socket per
@@ -3259,6 +3284,9 @@ int open_connections()
                     ERROR("Unknown remote host '%s'.\n"
                           "Use 'sipp -h' for details", peripaddr);
                 }
+                if (find_perip_socket(peripaddr, &server_sockaddr)) {
+                    continue;
+                }
 
                 bool is_ipv6 = (server_sockaddr.ss_family == AF_INET6);
 
@@ -3271,7 +3299,7 @@ int open_connections()
                     ERROR_NO("Unable to bind server socket");
                 }
 
-                map_perip_fd[peripaddr] = sock;
+                add_perip_socket(peripaddr, &server_sockaddr, sock);
             }
         }
     }
