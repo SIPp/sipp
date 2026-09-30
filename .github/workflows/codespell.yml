@@ -2,7 +2,10 @@
 # https://github.com/codespell-project/actions-codespell
 # https://github.com/codespell-project/codespell
 name: codespell
-on: [push, pull_request]
+on:
+  push:
+    branches: [master, '3.*']
+  pull_request:
 # A newer push or merge supersedes the runs before it.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -1,6 +1,10 @@
 name: C/C++ CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [master, '3.*']
+    tags: ['*']
+  pull_request:
 
 # A newer push or merge supersedes the runs before it.
 concurrency:
