@@ -7081,9 +7081,11 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_DTMF) {
             rtpstream_received_t received = rtpstream_received(&rtpstream_callinfo, false);
+            /* the payload type, from 0 to 127 */
+            int payload_type = (int)currentAction->getDoubleValue();
             std::string digits;
             for (const auto &[pt, digit] : received.dtmf) {
-                if (pt == currentAction->getDoubleValue()) {
+                if (pt == payload_type) {
                     digits += digit;
                 }
             }
