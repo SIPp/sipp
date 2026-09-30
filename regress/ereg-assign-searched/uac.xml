@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<!-- An ereg that searches a variable and assigns its match to that
+     variable, then a submatch to another. -->
+<scenario name="ereg on the variable it assigns to">
+  <nop>
+    <action>
+      <assignstr assign_to="s" value="0123456789abcdefghijklmnopqrstuvwxyz" />
+      <ereg regexp=".*" search_in="var" variable="s" assign_to="x" />
+      <ereg regexp="^(.{8})" search_in="var" variable="x" assign_to="x,y" />
+      <strcmp variable="y" value="01234567" check_it="true" />
+    </action>
+  </nop>
+
+  <send>
+    <![CDATA[
+
+      OPTIONS sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 OPTIONS
+      Content-Length: 0
+
+    ]]>
+  </send>
+</scenario>
