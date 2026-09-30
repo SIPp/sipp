@@ -260,7 +260,7 @@ static bool parse_transport_choice(const std::string &value, std::string *transp
         if (lowered.size() == 2 && lowered[0] == transport.code &&
                 (lowered[1] == '1' || lowered[1] == 'n' ||
                  (lowered[1] == 'i' && transport.code == 'u'))) {
-            *transport_arg = lowered;
+            *transport_arg = std::move(lowered);
             return true;
         }
     }
@@ -478,40 +478,41 @@ static std::vector<std::string> launch_startup_wizard(const char *program_name)
     /* Render the collected answers back into the same argv shape normal parsing uses. */
     args.push_back(program_name);
     if (!remote_host_value.empty()) {
-        args.push_back(remote_host_value);
+        args.push_back(std::move(remote_host_value));
     }
 
     if (scenario_choice->use_scenario_file) {
         args.push_back("-sf");
-        args.push_back(scenario_path);
+        args.push_back(std::move(scenario_path));
     } else {
         args.push_back("-sn");
         args.push_back(scenario_choice->scenario_name);
     }
 
     args.push_back("-t");
-    args.push_back(transport_arg);
+    args.push_back(std::move(transport_arg));
 
     if (!service_value.empty()) {
         args.push_back("-s");
-        args.push_back(service_value);
+        args.push_back(std::move(service_value));
     }
     if (!rate_value.empty()) {
         args.push_back("-r");
-        args.push_back(rate_value);
+        args.push_back(std::move(rate_value));
     }
     if (!max_calls_value.empty()) {
         args.push_back("-m");
-        args.push_back(max_calls_value);
+        args.push_back(std::move(max_calls_value));
     }
     if (!concurrent_calls_value.empty()) {
         args.push_back("-l");
-        args.push_back(concurrent_calls_value);
+        args.push_back(std::move(concurrent_calls_value));
     }
 
     /* Preserve advanced options without trying to duplicate the main option parser here. */
     std::vector<std::string> extra_words = split_simple_args(extra_args);
-    args.insert(args.end(), extra_words.begin(), extra_words.end());
+    args.insert(args.end(), std::make_move_iterator(extra_words.begin()),
+                std::make_move_iterator(extra_words.end()));
 
     std::cout << "\nCommand:\n  ";
     for (size_t i = 0; i < args.size(); ++i) {
