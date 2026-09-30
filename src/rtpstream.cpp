@@ -109,6 +109,12 @@ static size_t rtpstream_packet_len(int bytes_per_packet)
     return std::min(len, (size_t) MAX_UDP_SEND_BUFFER);
 }
 
+/* A packet buffer of a stream: its header and payload */
+static size_t rtpstream_buffer_len(int bytes_per_packet)
+{
+    return sizeof(rtp_header_t) + (bytes_per_packet > 0 ? bytes_per_packet : 0);
+}
+
 /* Made by rtpstream_start_task() with its thread, deleted by
  * rtpstream_shutdown() when the thread exits */
 struct threaddata_t
@@ -772,30 +778,14 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     bool video_echo = false;
     bool paused;
 
-    union {
-        rtp_header_t hdr;
-        char buffer[MAX_UDP_RECV_BUFFER];
-    } udp_recv_temp;
-
-    union {
-        rtp_header_t hdr;
-        char buffer[MAX_UDP_RECV_BUFFER];
-    } udp_recv_audio;
-
-    union {
-        rtp_header_t hdr;
-        char buffer[MAX_UDP_SEND_BUFFER];
-    } udp_send_audio;
-
-    union {
-        rtp_header_t hdr;
-        char buffer[MAX_UDP_RECV_BUFFER];
-    } udp_recv_video;
-
-    union {
-        rtp_header_t hdr;
-        char buffer[MAX_UDP_SEND_BUFFER];
-    } udp_send_video;
+    /* the packets sent and received, sized to the stream's: 8 KB buffers
+     * on the stack each kept a page of every playback thread in memory */
+    static thread_local std::vector<char> udp_recv_audio;
+    static thread_local std::vector<char> udp_send_audio;
+    static thread_local std::vector<char> udp_recv_video;
+    static thread_local std::vector<char> udp_send_video;
+    /* what an RTCP datagram is read into: none of it, which drops all of it */
+    char rtcp_discard;
 
     *comparison_acheck = 0;
     *comparison_vcheck = 0;
@@ -844,13 +834,16 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
             if (!paused && taskinfo->last_audio_timestamp <= target_timestamp)
             {
                 /* need to send rtp payload - build rtp packet header... */
-                memset(udp_send_audio.buffer, 0, rtpstream_packet_len(taskinfo->audio_bytes_per_packet));
-                udp_send_audio.hdr.flags = htons(0x8000 | taskinfo->audio_payload_type);
-                udp_send_audio.hdr.seq = htons(taskinfo->audio_seq_out);
-                udp_send_audio.hdr.timestamp = htonl((uint32_t) (taskinfo->last_audio_timestamp & 0XFFFFFFFF));
-                udp_send_audio.hdr.ssrc_id = htonl(taskinfo->audio_ssrc_id);
+                udp_send_audio.resize(rtpstream_buffer_len(taskinfo->audio_bytes_per_packet));
+                udp_recv_audio.resize(udp_send_audio.size());
+                rtp_header_t* send_audio_hdr = (rtp_header_t*) udp_send_audio.data();
+                memset(udp_send_audio.data(), 0, rtpstream_packet_len(taskinfo->audio_bytes_per_packet));
+                send_audio_hdr->flags = htons(0x8000 | taskinfo->audio_payload_type);
+                send_audio_hdr->seq = htons(taskinfo->audio_seq_out);
+                send_audio_hdr->timestamp = htonl((uint32_t) (taskinfo->last_audio_timestamp & 0XFFFFFFFF));
+                send_audio_hdr->ssrc_id = htonl(taskinfo->audio_ssrc_id);
                 /* add payload data to the packet - handle buffer wraparound */
-                rtpstream_copy_loop(udp_send_audio.buffer + sizeof(rtp_header_t), taskinfo->audio_bytes_per_packet,
+                rtpstream_copy_loop(udp_send_audio.data() + sizeof(rtp_header_t), taskinfo->audio_bytes_per_packet,
                                     taskinfo->audio_file_bytes_start, taskinfo->audio_file_num_bytes,
                                     taskinfo->audio_file_num_bytes - taskinfo->audio_file_bytes_left);
 
@@ -861,10 +854,10 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 {
                     // GRAB RTP HEADER
                     rtp_header.resize(sizeof(rtp_header_t), 0);
-                    memcpy(rtp_header.data(), udp_send_audio.buffer, sizeof(rtp_header_t) /*12*/);
+                    memcpy(rtp_header.data(), udp_send_audio.data(), sizeof(rtp_header_t) /*12*/);
                     // GRAB RTP PAYLOAD DATA
                     payload_data.resize(taskinfo->audio_bytes_per_packet, 0);
-                    memcpy(payload_data.data(), udp_send_audio.buffer + sizeof(rtp_header_t), taskinfo->audio_bytes_per_packet);
+                    memcpy(payload_data.data(), udp_send_audio.data() + sizeof(rtp_header_t), taskinfo->audio_bytes_per_packet);
 
                     // ENCRYPT
                     rc = tx->processOutgoingPacket(taskinfo->audio_seq_out, rtp_header, payload_data, audio_out);
@@ -874,7 +867,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 {
                     // NOENCRYPTION
                     audio_out.resize(sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet, 0);
-                    memcpy(audio_out.data(), udp_send_audio.buffer, sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet);
+                    memcpy(audio_out.data(), udp_send_audio.data(), sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet);
                 }
 
                 /* now send the actual packet */
@@ -960,9 +953,9 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             audio_in[10] = (host_ssrc >> 8) & 0xFF;
                             audio_in[11] = host_ssrc & 0xFF;
 
-                            memset(udp_recv_audio.buffer, 0, rtpstream_packet_len(taskinfo->audio_bytes_per_packet));
-                            memcpy(udp_recv_audio.buffer, rtp_header.data(), rtp_header.size());
-                            memcpy(udp_recv_audio.buffer + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
+                            memset(udp_recv_audio.data(), 0, rtpstream_packet_len(taskinfo->audio_bytes_per_packet));
+                            memcpy(udp_recv_audio.data(), rtp_header.data(), rtp_header.size());
+                            memcpy(udp_recv_audio.data() + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
                         }
                         else
                         {
@@ -985,8 +978,8 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             audio_in[10] = (host_ssrc >> 8) & 0xFF;
                             audio_in[11] = host_ssrc & 0xFF;
 
-                            memset(udp_recv_audio.buffer, 0, rtpstream_packet_len(taskinfo->audio_bytes_per_packet));
-                            memcpy(udp_recv_audio.buffer, audio_in.data(), audio_in.size());
+                            memset(udp_recv_audio.data(), 0, rtpstream_packet_len(taskinfo->audio_bytes_per_packet));
+                            memcpy(udp_recv_audio.data(), audio_in.data(), audio_in.size());
                         }
 
                         // VALIDATION TEST
@@ -998,8 +991,8 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         if (taskinfo->audio_pattern_id > 0 &&
                             (!audio_echo || (unsigned short) (host_seqnum - taskinfo->audio_seq_check) < 0x8000))
                         {
-                            compresult = memcmp(udp_send_audio.buffer + sizeof(rtp_header_t),
-                                                udp_recv_audio.buffer + sizeof(rtp_header_t),
+                            compresult = memcmp(udp_send_audio.data() + sizeof(rtp_header_t),
+                                                udp_recv_audio.data() + sizeof(rtp_header_t),
                                                 taskinfo->audio_bytes_per_packet /* PAYLOAD comparison ONLY -- header EXCLUDED*/);
                         }
                         /* else not the echo of a pattern packet: nothing to check */
@@ -1078,7 +1071,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     if (drain_rtcp && taskinfo->audio_rtcp_socket != -1)
     {
         /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
-        while ((rc = recv(taskinfo->audio_rtcp_socket, udp_recv_temp.buffer, sizeof(udp_recv_temp.buffer), 0)) >= 0)
+        while ((rc = recv(taskinfo->audio_rtcp_socket, &rtcp_discard, 0, 0)) >= 0)
         {
             /*
              * rtpstream_abytes_in += rc;
@@ -1112,13 +1105,16 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
             if (!paused && taskinfo->last_video_timestamp <= target_timestamp)
             {
                 /* need to send rtp payload - build rtp packet header... */
-                memset(udp_send_video.buffer, 0, rtpstream_packet_len(taskinfo->video_bytes_per_packet));
-                udp_send_video.hdr.flags = htons(0x8000 | taskinfo->video_payload_type);
-                udp_send_video.hdr.seq = htons(taskinfo->video_seq_out);
-                udp_send_video.hdr.timestamp = htonl((uint32_t) (taskinfo->last_video_timestamp & 0XFFFFFFFF));
-                udp_send_video.hdr.ssrc_id = htonl(taskinfo->video_ssrc_id);
+                udp_send_video.resize(rtpstream_buffer_len(taskinfo->video_bytes_per_packet));
+                udp_recv_video.resize(udp_send_video.size());
+                rtp_header_t* send_video_hdr = (rtp_header_t*) udp_send_video.data();
+                memset(udp_send_video.data(), 0, rtpstream_packet_len(taskinfo->video_bytes_per_packet));
+                send_video_hdr->flags = htons(0x8000 | taskinfo->video_payload_type);
+                send_video_hdr->seq = htons(taskinfo->video_seq_out);
+                send_video_hdr->timestamp = htonl((uint32_t) (taskinfo->last_video_timestamp & 0XFFFFFFFF));
+                send_video_hdr->ssrc_id = htonl(taskinfo->video_ssrc_id);
                 /* add payload data to the packet - handle buffer wraparound */
-                rtpstream_copy_loop(udp_send_video.buffer + sizeof(rtp_header_t), taskinfo->video_bytes_per_packet,
+                rtpstream_copy_loop(udp_send_video.data() + sizeof(rtp_header_t), taskinfo->video_bytes_per_packet,
                                     taskinfo->video_file_bytes_start, taskinfo->video_file_num_bytes,
                                     taskinfo->video_file_num_bytes - taskinfo->video_file_bytes_left);
 
@@ -1129,10 +1125,10 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 {
                     // GRAB RTP HEADER
                     rtp_header.resize(sizeof(rtp_header_t), 0);
-                    memcpy(rtp_header.data(), udp_send_video.buffer, sizeof(rtp_header_t) /*12*/);
+                    memcpy(rtp_header.data(), udp_send_video.data(), sizeof(rtp_header_t) /*12*/);
                     // GRAB RTP PAYLOAD DATA
                     payload_data.resize(taskinfo->video_bytes_per_packet, 0);
-                    memcpy(payload_data.data(), udp_send_video.buffer + sizeof(rtp_header_t), taskinfo->video_bytes_per_packet);
+                    memcpy(payload_data.data(), udp_send_video.data() + sizeof(rtp_header_t), taskinfo->video_bytes_per_packet);
 
                     // ENCRYPT
                     rc = tx->processOutgoingPacket(taskinfo->video_seq_out, rtp_header, payload_data, video_out);
@@ -1142,7 +1138,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                 {
                     // NOENCRYPTION
                     video_out.resize(sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet, 0);
-                    memcpy(video_out.data(), udp_send_video.buffer, sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet);
+                    memcpy(video_out.data(), udp_send_video.data(), sizeof(rtp_header_t) + taskinfo->video_bytes_per_packet);
                 }
 
                 /* now send the actual packet */
@@ -1225,9 +1221,9 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             video_in[10] = (host_ssrc >> 8) & 0xFF;
                             video_in[11] = host_ssrc & 0xFF;
 
-                            memset(udp_recv_video.buffer, 0, rtpstream_packet_len(taskinfo->video_bytes_per_packet));
-                            memcpy(udp_recv_video.buffer, rtp_header.data(), rtp_header.size());
-                            memcpy(udp_recv_video.buffer + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
+                            memset(udp_recv_video.data(), 0, rtpstream_packet_len(taskinfo->video_bytes_per_packet));
+                            memcpy(udp_recv_video.data(), rtp_header.data(), rtp_header.size());
+                            memcpy(udp_recv_video.data() + sizeof(rtp_header_t), payload_data.data(), payload_data.size());
                         }
                         else
                         {
@@ -1250,14 +1246,14 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                             video_in[10] = (host_ssrc >> 8) & 0xFF;
                             video_in[11] = host_ssrc & 0xFF;
 
-                            memset(udp_recv_video.buffer, 0, rtpstream_packet_len(taskinfo->video_bytes_per_packet));
-                            memcpy(udp_recv_video.buffer, video_in.data(), video_in.size());
+                            memset(udp_recv_video.data(), 0, rtpstream_packet_len(taskinfo->video_bytes_per_packet));
+                            memcpy(udp_recv_video.data(), video_in.data(), video_in.size());
                         }
 
                         // VALIDATION TEST
                         compresult = 0;
-                        compresult = memcmp(udp_send_video.buffer + sizeof(rtp_header_t),
-                                            udp_recv_video.buffer + sizeof(rtp_header_t),
+                        compresult = memcmp(udp_send_video.data() + sizeof(rtp_header_t),
+                                            udp_recv_video.data() + sizeof(rtp_header_t),
                                             taskinfo->video_bytes_per_packet /* PAYLOAD comparison ONLY -- header EXCLUDED*/);
                         if (compresult == 0)
                         {
@@ -1327,7 +1323,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     if (drain_rtcp && taskinfo->video_rtcp_socket != -1)
     {
         /* just keep listening on rtcp socket (is this really required?) - ignore any errors */
-        while ((rc = recv(taskinfo->video_rtcp_socket, udp_recv_temp.buffer, sizeof(udp_recv_temp), 0)) >= 0)
+        while ((rc = recv(taskinfo->video_rtcp_socket, &rtcp_discard, 0, 0)) >= 0)
         {
             /*
              * rtpstream_vbytes_in += rc;
