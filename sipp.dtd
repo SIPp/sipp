@@ -1,5 +1,14 @@
-<!ELEMENT scenario ( init | CallLengthRepartition | ResponseTimeRepartition | Global | User | Reference | DefaultMessage | send | recv | pause | nop | sendCmd | recvCmd | label | timewait)* >
-<!ATTLIST scenario name CDATA #IMPLIED >
+<!ELEMENT scenario ( init | CallLengthRepartition | ResponseTimeRepartition | Global | User | Reference | DefaultMessage | send | recv | pause | nop | sendCmd | recvCmd | label | timewait | xi:include)* >
+<!ATTLIST scenario
+  name CDATA #IMPLIED
+  xmlns:xi CDATA #IMPLIED
+>
+
+<!-- Replaced by the file href names: the children of its <scenario>, or
+     else its root element. A relative href is relative to the file that
+     includes it. -->
+<!ELEMENT xi:include EMPTY >
+<!ATTLIST xi:include href CDATA #REQUIRED >
 
 <!ELEMENT init ( nop | label )* >
 

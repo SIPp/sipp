@@ -18,3 +18,4 @@ Create your own XML scenarios
    cond_branching
    sipauth
    init_stanza
+   include

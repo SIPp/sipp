@@ -35,16 +35,100 @@ static std::string xp_cdata_buffer;
 static char xp_elem_name[256];
 static int xp_invalid_line = 0;
 
+static std::string xp_error;
+
+/* pugi::parse_ws_pcdata preserves whitespace in text nodes (CDATA).
+ * pugi::parse_declaration skips <?xml ...?> declarations. */
+static const unsigned int xp_flags = pugi::parse_default |
+                                     pugi::parse_ws_pcdata |
+                                     pugi::parse_declaration;
+
+/* Deep enough for any real scenario, low enough to stop a loop. */
+#define XP_MAX_INCLUDE_DEPTH 16
+
+static bool xp_expand_includes(pugi::xml_node node, const std::string &dir,
+                               int depth);
+
+/* Replace <xi:include href="file"/> with the content of file: the
+ * children of its <scenario> root, or else its root element. */
+static bool xp_include(pugi::xml_node include, const std::string &dir,
+                       int depth)
+{
+    const char *href = include.attribute("href").value();
+    if (!*href) {
+        xp_error = "<xi:include> without an href";
+        return false;
+    }
+
+    std::string path = href[0] == '/' ? href : dir + href;
+    if (depth >= XP_MAX_INCLUDE_DEPTH) {
+        xp_error = "cannot include '" + path + "': more than " +
+                   std::to_string(XP_MAX_INCLUDE_DEPTH) + " nested includes";
+        return false;
+    }
+
+    pugi::xml_document doc;
+    pugi::xml_parse_result result = doc.load_file(path.c_str(), xp_flags);
+    if (!result) {
+        xp_error = "cannot include '" + path + "': " + result.description();
+        return false;
+    }
+
+    size_t slash = path.rfind('/');
+    std::string included_dir = slash == std::string::npos ? "" :
+                               path.substr(0, slash + 1);
+    if (!xp_expand_includes(doc, included_dir, depth + 1))
+        return false;
+
+    pugi::xml_node parent = include.parent();
+    pugi::xml_node root = doc.document_element();
+    if (!strcmp(root.name(), "scenario")) {
+        for (pugi::xml_node child = root.first_child(); child;
+             child = child.next_sibling()) {
+            parent.insert_copy_before(child, include);
+        }
+    } else {
+        parent.insert_copy_before(root, include);
+    }
+    parent.remove_child(include);
+    return true;
+}
+
+static bool xp_expand_includes(pugi::xml_node node, const std::string &dir,
+                               int depth)
+{
+    pugi::xml_node child = node.first_child();
+    while (child) {
+        pugi::xml_node next = child.next_sibling();
+        if (!strcmp(child.name(), "xi:include")) {
+            if (!xp_include(child, dir, depth))
+                return false;
+        } else if (!xp_expand_includes(child, dir, depth)) {
+            return false;
+        }
+        child = next;
+    }
+    return true;
+}
+
+/* Expand the includes of the loaded document, relative to dir. */
+static bool xp_loaded(const std::string &dir)
+{
+    if (!xp_expand_includes(xp_doc, dir, 0))
+        return false;
+
+    /* Push the document root so xp_open_element(0) finds the first element */
+    xp_stack.push_back(xp_doc);
+    return true;
+}
+
 static bool xp_load(const char *xml_text)
 {
     xp_stack.clear();
     xp_invalid_line = 0;
+    xp_error.clear();
 
-    /* pugi::parse_ws_pcdata preserves whitespace in text nodes (CDATA).
-     * pugi::parse_declaration skips <?xml ...?> declarations. */
-    unsigned int flags = pugi::parse_default | pugi::parse_ws_pcdata |
-                         pugi::parse_declaration;
-    pugi::xml_parse_result result = xp_doc.load_string(xml_text, flags);
+    pugi::xml_parse_result result = xp_doc.load_string(xml_text, xp_flags);
 
     if (!result) {
         /* Compute line number from byte offset */
@@ -57,9 +141,7 @@ static bool xp_load(const char *xml_text)
         return false;
     }
 
-    /* Push the document root so xp_open_element(0) finds the first element */
-    xp_stack.push_back(xp_doc);
-    return true;
+    return xp_loaded("");
 }
 
 int xp_set_xml_buffer_from_string(const char *str)
@@ -74,18 +156,22 @@ int xp_set_xml_buffer_from_file(const char *filename)
 {
     xp_stack.clear();
     xp_invalid_line = 0;
+    xp_error.clear();
 
-    unsigned int flags = pugi::parse_default | pugi::parse_ws_pcdata |
-                         pugi::parse_declaration;
-    pugi::xml_parse_result result = xp_doc.load_file(filename, flags);
+    pugi::xml_parse_result result = xp_doc.load_file(filename, xp_flags);
 
     if (!result) {
         xp_invalid_line = result.offset > 0 ? 1 : 0;
         return 0;
     }
 
-    xp_stack.push_back(xp_doc);
-    return 1;
+    const char *slash = strrchr(filename, '/');
+    return xp_loaded(slash ? std::string(filename, slash + 1 - filename) : "");
+}
+
+const char *xp_get_error(void)
+{
+    return xp_error.c_str();
 }
 
 /* Process backslash escapes in attribute values for backward compatibility.
