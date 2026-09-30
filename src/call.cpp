@@ -1525,8 +1525,9 @@ bool call::connect_socket_if_needed()
             saddr.ss_family       = AF_INET;
         }
 
-        if (peripsocket) {
-            gai_getsockaddr(&saddr, peripaddr, local_port, AI_PASSIVE, AF_UNSPEC);
+        if (peripsocket &&
+                gai_getsockaddr(&saddr, peripaddr, local_port, AI_PASSIVE, AF_UNSPEC) != 0) {
+            ERROR("Unknown host '%s' in the -ip_field of %s", peripaddr, ip_file);
         }
 
         if (sipp_bind_socket(call_socket, &saddr, &call_port)) {
