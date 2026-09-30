@@ -175,6 +175,9 @@ marked **Breaking**.
   - pcap: each packet's link header is read and IPv6 extension headers
     are skipped (#1072), the `-mp` port is used when the SDP lacks
     `[media_port]` (#978), and SDP port counts and TTLs are parsed (#961)
+- `rtp_stream` mixes a multi-channel WAV file down to mono, plays only
+  its data chunk, and plays files over 2 GB (#863, by Orgad Shaneh,
+  based on #864 by Raja amirapu)
 - Authentication (by Orgad Shaneh): AKAv1-MD5 with short keys, `0x`
   keys and wolfSSL (#926, #964, #1014), and `-sess` algorithms no longer
   taken for the plain ones (#966)

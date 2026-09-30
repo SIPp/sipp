@@ -168,16 +168,16 @@ static unsigned long rtpstream_thread_ms(const threaddata_t* threaddata)
 
 struct cached_file_t
 {
-    char   filename[RTPSTREAM_MAX_FILENAMELEN];
-    char   *bytes;
-    int    filesize;
+    char    filename[RTPSTREAM_MAX_FILENAMELEN];
+    char    *bytes;
+    int64_t filesize;
 };
 
 struct cached_pattern_t
 {
-    int    id;
-    char   *bytes;
-    int  filesize;
+    int     id;
+    char    *bytes;
+    int64_t filesize;
 };
 
 cached_file_t  *cached_files = nullptr;
@@ -524,11 +524,11 @@ taskentry_t::~taskentry_t()
 /* Copy size bytes of a file that plays in a loop into dest, from
  * offset on: from its start again at its end, as often as it takes
  * for a file shorter than a packet. */
-static void rtpstream_copy_loop(char* dest, int size, const char* file, int file_size, int offset)
+static void rtpstream_copy_loop(char* dest, int size, const char* file, int64_t file_size, int64_t offset)
 {
     while (size > 0)
     {
-        int count = std::min(size, file_size - offset);
+        int count = (int)std::min<int64_t>(size, file_size - offset);
         memcpy(dest, file + offset, count);
         dest += count;
         size -= count;
@@ -2016,6 +2016,130 @@ void rtpstream_end_call(rtpstream_callinfo_t* callinfo)
     callinfo->remote_videoport = 0;
 }
 
+static inline uint16_t uint16_val(const char *ptr)
+{
+    // Read as little-endian. Do not dereference as short, since it can be misaligned.
+    const unsigned char *p = reinterpret_cast<const unsigned char *>(ptr);
+    return static_cast<uint16_t>(p[0] | (p[1] << 8));
+}
+
+static inline uint32_t uint_val(const char *ptr)
+{
+    // Read as little-endian. Do not dereference as int, since it can be misaligned.
+    const unsigned char *p = reinterpret_cast<const unsigned char *>(ptr);
+    return static_cast<uint32_t>(p[0] | (p[1] << 8) | (p[2] << 16) | (static_cast<uint32_t>(p[3]) << 24));
+}
+
+/* The audio of a file to play: where it starts in the file and its
+ * size, and the fields of a WAV file's fmt chunk (rate 0: none). */
+struct wav_audio_t
+{
+    int64_t  offset;
+    int64_t  size;
+    unsigned format;
+    unsigned channels;
+    uint32_t rate;
+    unsigned block_align;
+    unsigned bits;
+};
+
+// wav format details:
+// https://www.fatalerrors.org/a/detailed-explanation-of-wav-file-format.html
+static wav_audio_t rtpstream_wav_audio(const char *data, int64_t size)
+{
+    wav_audio_t audio = {0, size, 0, 1, 0, 0, 0};
+
+    /* a file of no RIFF header plays as it is */
+    if (size < 42 || memcmp(data, "RIFF", 4))
+        return audio;
+    if (memcmp(data + 8, "WAVE", 4)) {
+        /* a RIFF file of another form plays past its RIFF header */
+        audio.offset = 8;
+        audio.size = size - 8;
+        return audio;
+    }
+    int64_t pos = 12;
+    while (size - pos >= 8) {
+        const char *chunk = data + pos;
+        const int64_t chunk_size = uint_val(chunk + 4);
+        pos += 8;
+        if (!memcmp(chunk, "data", 4)) {
+            audio.offset = pos;
+            audio.size = std::min(chunk_size, size - pos);
+            return audio;
+        }
+        if (!memcmp(chunk, "fmt ", 4) && chunk_size >= 16 && size - pos >= 16) {
+            const char *fmt = data + pos;
+            audio.format = uint16_val(fmt);
+            audio.channels = uint16_val(fmt + 2);
+            audio.rate = uint_val(fmt + 4);
+            audio.block_align = uint16_val(fmt + 12);
+            audio.bits = uint16_val(fmt + 14);
+            /* WAVE_FORMAT_EXTENSIBLE: the format is in its SubFormat */
+            if (audio.format == 0xFFFE && chunk_size >= 40 && size - pos >= 40)
+                audio.format = uint16_val(fmt + 24);
+        }
+        if (chunk_size > size - pos) {
+            /* a chunk past the end of the file: play all of it */
+            return {0, size, 0, 1, 0, 0, 0};
+        }
+        /* each chunk is padded to an even size */
+        pos += chunk_size + (chunk_size & 1);
+    }
+    /* no data chunk: play what is after the last chunk */
+    audio.offset = std::min(pos, size);
+    audio.size = size - audio.offset;
+    return audio;
+}
+
+/* Mix the channels of a WAV file's audio down to the one of an RTP
+ * stream, in place, and give the size of the mix. The bytes of the
+ * file are the payload of the stream, so only linear PCM (format 1),
+ * of 8-bit unsigned or 16-bit signed samples, mixes: as the mean of its
+ * channels. Of the other formats of whole-byte samples, whose samples
+ * do not add up, such as A-law (6) and mu-law (7), the first channel
+ * plays. Other formats play as they are. */
+static int64_t rtpstream_wav_mix_down(char *bytes, const wav_audio_t &audio,
+                                      const char *filename)
+{
+    const unsigned channels = audio.channels;
+    const unsigned sample = audio.bits / 8;
+
+    if (channels <= 1)
+        return audio.size;
+    if (!sample || audio.bits % 8 || audio.block_align != channels * sample) {
+        WARNING("rtp_stream file %s: %u channels of format %u do not mix, playing them as they are",
+                filename, channels, audio.format);
+        return audio.size;
+    }
+    const bool pcm = audio.format == 1 && sample <= 2;
+    if (!pcm) {
+        WARNING("rtp_stream file %s: %u channels of format %u do not mix, playing the first one",
+                filename, channels, audio.format);
+    }
+    const int64_t frames = audio.size / audio.block_align;
+    const char *in = bytes;
+    char *out = bytes;
+    for (int64_t i = 0; i < frames; i++, in += audio.block_align, out += sample) {
+        if (!pcm) {
+            memmove(out, in, sample);
+            continue;
+        }
+        int64_t sum = 0;
+        for (unsigned c = 0; c < channels; c++) {
+            sum += sample == 1 ? (unsigned char)in[c] - 128 : (int16_t)uint16_val(in + 2 * c);
+        }
+        const int mean = (int)(sum / (int)channels);
+        if (sample == 1) {
+            out[0] = (char)(mean + 128);
+        } else {
+            out[0] = (char)mean;
+            out[1] = (char)((uint16_t)mean >> 8);
+        }
+    }
+    return frames * sample;
+}
+
 /* code checked */
 int rtpstream_cache_file(char* filename,
                           int mode /* 0: FILE -- 1: PATTERN */,
@@ -2132,8 +2256,9 @@ int rtpstream_cache_file(char* filename,
             /* could not open file */
             return -1;
         }
-        if (fstat(fileno(f), &statbuffer) || statbuffer.st_size <= 0) {
-            /* could not get file information, or nothing to play */
+        if (fstat(fileno(f), &statbuffer) || statbuffer.st_size <= 0 ||
+                (uint64_t)statbuffer.st_size > SIZE_MAX) {
+            /* could not get file information, nothing to play, or too big */
             fclose(f);
             return -1;
         }
@@ -2152,6 +2277,23 @@ int rtpstream_cache_file(char* filename,
         }
         fclose(f);
 
+        /* Play the audio of a WAV file, mixed down to one channel, in
+         * the memory of the file. SIPp does not resample it. */
+        const wav_audio_t audio = rtpstream_wav_audio(filecontents, statbuffer.st_size);
+        if ((audio.format == 1 || audio.format == 6 || audio.format == 7) &&
+                audio.rate != 8000) {
+            WARNING("rtp_stream file %s: %u Hz plays at the rate of the payload type, not resampled",
+                    filename, audio.rate);
+        }
+        memmove(filecontents, filecontents + audio.offset, audio.size);
+        const int64_t filesize = rtpstream_wav_mix_down(filecontents, audio, filename);
+        if (filesize && filesize < statbuffer.st_size) {
+            char *shrunk = (char *)realloc(filecontents, filesize);
+            if (shrunk) {
+                filecontents = shrunk;
+            }
+        }
+
         if (!(num_cached_files%RTPSTREAM_FILESPERBLOCK)) {
             /* Time to allocate more memory for the next block of files */
             newfilecachelist = (cached_file_t*) realloc(cached_files, sizeof(*cached_files) * (num_cached_files + RTPSTREAM_FILESPERBLOCK));
@@ -2164,7 +2306,7 @@ int rtpstream_cache_file(char* filename,
         }
         cached_files[num_cached_files].bytes = filecontents;
         strncpy(cached_files[num_cached_files].filename, filename, sizeof(cached_files[num_cached_files].filename) - 1);
-        cached_files[num_cached_files].filesize = statbuffer.st_size;
+        cached_files[num_cached_files].filesize = filesize;
         return num_cached_files++;
     }
 }
@@ -2528,43 +2670,6 @@ int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t* callinfo, SrtpInfoPara
     return 0;
 }
 
-static inline uint32_t uint_val(const char *ptr)
-{
-    // Read as little-endian. Do not dereference as int, since it can be misaligned.
-    const unsigned char *p = reinterpret_cast<const unsigned char *>(ptr);
-    return static_cast<uint32_t>(p[0] | (p[1] << 8) | (p[2] << 16) | (static_cast<uint32_t>(p[3]) << 24));
-}
-
-// wav format details:
-// https://www.fatalerrors.org/a/detailed-explanation-of-wav-file-format.html
-static int get_wav_header_size(const char *data, int size)
-{
-    const char *ptr = data;
-    const char *limit = data + size;
-    if (size < 42)
-        return 0;
-    if (!(ptr[0] == 'R' && ptr[1] == 'I' && ptr[2] == 'F' && ptr[3] == 'F'))
-        return 0;
-    ptr += 8;
-    if (!(ptr[0] == 'W' && ptr[1] == 'A' && ptr[2] == 'V' && ptr[3] == 'E'))
-        return ptr - data;
-    ptr += 4;
-    for (;;) {
-        if (ptr + 8 > limit)
-            break;
-        const uint32_t chunk_size = uint_val(ptr + 4);
-        const bool is_data = (ptr[0] == 'd' && ptr[1] == 'a' && ptr[2] == 't' && ptr[3] == 'a');
-
-        ptr += 8;
-        if (ptr > limit)
-            return limit - data;
-        if (is_data)
-            return ptr - data;
-        ptr += chunk_size;
-    }
-    return ptr - data;
-}
-
 /* Hand the call's UAC SRTP contexts to its playback thread together
  * with the play flag, under the task's mutex that the caller holds and
  * has set the new play under, so that the thread cannot play with the
@@ -2612,14 +2717,7 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
     rtpstream_get_local_audioport(callinfo);
 
     char *file_bytes = cached_files[file_index].bytes;
-    int file_size = cached_files[file_index].filesize;
-    /* Allow the caller to supply WAV files instead of raw audio, by skipping past headers. */
-    /* Doesn't actually parse/convert anything! */
-    const int header_size = get_wav_header_size(file_bytes, file_size);
-    if (header_size > 0 && file_size >= header_size) {
-        file_bytes += header_size;
-        file_size -= header_size;
-    }
+    int64_t file_size = cached_files[file_index].filesize;
     if (!file_size) {
         /* a WAV file of no audio: nothing to play, which looped forever */
         return;
@@ -2662,8 +2760,8 @@ void rtpstream_resume(rtpstream_callinfo_t* callinfo)
  * has left: 0 when it has none, ULONG_MAX when the end is not known. The
  * next packet is due in the millisecond next_ms, and the last one goes by
  * the millisecond after its own. */
-static unsigned long rtpstream_stream_end(bool paused, int loop_count, int bytes_left,
-                                          int num_bytes, int bytes_per_packet,
+static unsigned long rtpstream_stream_end(bool paused, int loop_count, int64_t bytes_left,
+                                          int64_t num_bytes, int bytes_per_packet,
                                           unsigned long next_ms, int ms_per_packet)
 {
     if (!loop_count) {
@@ -3177,6 +3275,180 @@ TEST(RtpstreamCacheFile, FileAndPattern) {
     EXPECT_EQ((char)PATTERN3, cached_patterns[apattern].bytes[159]);
     EXPECT_EQ(1280, cached_patterns[vpattern].filesize);
     EXPECT_EQ((char)PATTERN4, cached_patterns[vpattern].bytes[1279]);
+}
+
+static std::string wav_le16(unsigned v)
+{
+    return std::string{(char)v, (char)(v >> 8)};
+}
+
+static std::string wav_le32(uint32_t v)
+{
+    return wav_le16(v & 0xFFFF) + wav_le16(v >> 16);
+}
+
+/* A RIFF chunk: its id, its size, its body and a pad byte to even size */
+static std::string wav_chunk(const char* id, const std::string& body, uint32_t size)
+{
+    return id + wav_le32(size) + body + (body.size() & 1 ? std::string(1, '\0') : "");
+}
+
+static std::string wav_chunk(const char* id, const std::string& body)
+{
+    return wav_chunk(id, body, body.size());
+}
+
+static std::string wav_fmt(unsigned format, unsigned channels, unsigned bits, uint32_t rate = 8000)
+{
+    unsigned block_align = channels * bits / 8;
+    return wav_chunk("fmt ", wav_le16(format) + wav_le16(channels) + wav_le32(rate) +
+                     wav_le32(rate * block_align) + wav_le16(block_align) + wav_le16(bits));
+}
+
+static std::string wav_file(const std::string& chunks)
+{
+    return "RIFF" + wav_le32(4 + chunks.size()) + "WAVE" + chunks;
+}
+
+static std::string wav_audio_of(const std::string& file)
+{
+    wav_audio_t audio = rtpstream_wav_audio(file.data(), file.size());
+    return file.substr(audio.offset, audio.size);
+}
+
+/* The bytes that rtp_stream caches of a file of the given bytes */
+static std::string wav_cached(const std::string& file)
+{
+    char name[] = "/tmp/sipp_rtpstream_XXXXXX";
+    int fd = mkstemp(name);
+    EXPECT_GE(fd, 0);
+    EXPECT_EQ((ssize_t)file.size(), write(fd, file.data(), file.size()));
+    close(fd);
+    int index = rtpstream_cache_file(name, 0, 0, 160, 0);
+    unlink(name);
+    if (index < 0) {
+        ADD_FAILURE() << "not cached";
+        return "";
+    }
+    return std::string(cached_files[index].bytes, cached_files[index].filesize);
+}
+
+TEST(RtpstreamWav, MonoPcm) {
+    std::string audio(100, 'a');
+    std::string file = wav_file(wav_fmt(1, 1, 8) + wav_chunk("data", audio));
+    wav_audio_t wav = rtpstream_wav_audio(file.data(), file.size());
+    EXPECT_EQ(44, wav.offset);
+    EXPECT_EQ(100, wav.size);
+    EXPECT_EQ(1u, wav.format);
+    EXPECT_EQ(1u, wav.channels);
+    EXPECT_EQ(8000u, wav.rate);
+    EXPECT_EQ(8u, wav.bits);
+    EXPECT_EQ(audio, wav_cached(file));
+}
+
+TEST(RtpstreamWav, DataSize) {
+    std::string audio(100, 'a');
+    /* the declared size plays, not a chunk after it */
+    EXPECT_EQ(audio, wav_audio_of(wav_file(wav_fmt(7, 1, 8) + wav_chunk("data", audio) +
+                                           wav_chunk("LIST", "INFOjunk"))));
+    /* of a data chunk past the end of the file, what there is */
+    EXPECT_EQ(audio, wav_audio_of(wav_file(wav_fmt(7, 1, 8) + wav_chunk("data", audio, 1000))));
+    EXPECT_EQ(audio, wav_audio_of(wav_file(wav_fmt(7, 1, 8) + wav_chunk("data", audio, 0xFFFFFFFF))));
+    EXPECT_EQ("", wav_audio_of(wav_file(wav_fmt(7, 1, 8) + wav_chunk("data", ""))));
+}
+
+TEST(RtpstreamWav, OddChunkPadding) {
+    std::string audio(100, 'a');
+    std::string file = wav_file(wav_chunk("LIST", "odd") + wav_fmt(6, 1, 8) + wav_chunk("data", audio));
+    wav_audio_t wav = rtpstream_wav_audio(file.data(), file.size());
+    EXPECT_EQ(56, wav.offset);
+    EXPECT_EQ(6u, wav.format);
+    EXPECT_EQ(audio, wav_audio_of(file));
+}
+
+TEST(RtpstreamWav, ChunkPastTheEnd) {
+    /* 8 + 0xFFFFFFF8 wraps to 0 in 32 bits: this looped forever */
+    std::string file = wav_file(wav_fmt(1, 2, 16) + "JUNK" + wav_le32(0xFFFFFFF8) +
+                                wav_chunk("data", std::string(100, 'a')));
+    wav_audio_t wav = rtpstream_wav_audio(file.data(), file.size());
+    EXPECT_EQ(0, wav.offset);
+    EXPECT_EQ((int64_t)file.size(), wav.size);
+    EXPECT_EQ(1u, wav.channels);
+    EXPECT_EQ(file, wav_cached(file));
+}
+
+TEST(RtpstreamWav, NoFmt) {
+    std::string audio(100, 'a');
+    /* of no fmt chunk, or one too short, the data plays as it is */
+    EXPECT_EQ(audio, wav_audio_of(wav_file(wav_chunk("data", audio))));
+    EXPECT_EQ(audio, wav_cached(wav_file(wav_chunk("data", audio))));
+    std::string file = wav_file(wav_chunk("fmt ", wav_le16(1) + wav_le16(2)) + wav_chunk("data", audio));
+    wav_audio_t wav = rtpstream_wav_audio(file.data(), file.size());
+    EXPECT_EQ(1u, wav.channels);
+    EXPECT_EQ(0u, wav.rate);
+    EXPECT_EQ(audio, wav_cached(file));
+}
+
+TEST(RtpstreamWav, NotWav) {
+    std::string raw(100, 'a');
+    EXPECT_EQ(raw, wav_audio_of(raw));
+    EXPECT_EQ(raw, wav_cached(raw));
+    /* a RIFF header too short to be of a WAV file */
+    std::string riff = wav_file(wav_chunk("data", "abc"));
+    EXPECT_EQ(riff, wav_audio_of(riff));
+    /* a WAV file of no data chunk: past its last chunk */
+    EXPECT_EQ("", wav_audio_of(wav_file(wav_fmt(1, 1, 16) + wav_chunk("LIST", "INFOjunk"))));
+}
+
+TEST(RtpstreamWav, MixDown16) {
+    std::string audio = wav_le16(1000) + wav_le16(3000) +
+                        wav_le16(-1000) + wav_le16(-3001) +
+                        wav_le16(32767) + wav_le16(32767) +
+                        wav_le16(-32768) + wav_le16(-32768) + "x";
+    std::string mix = wav_le16(2000) + wav_le16(-2000) + wav_le16(32767) + wav_le16(-32768);
+    EXPECT_EQ(mix, wav_cached(wav_file(wav_chunk("LIST", "odd") + wav_fmt(1, 2, 16) +
+                                       wav_chunk("data", audio))));
+}
+
+TEST(RtpstreamWav, MixDown8) {
+    /* unsigned, of silence at 128 */
+    std::string audio("\xC8\x64\x00\xFF\x80\x81\x10\x20\x30", 9);
+    EXPECT_EQ("\x96\x80\x80\x18", wav_cached(wav_file(wav_fmt(1, 2, 8) + wav_chunk("data", audio))));
+}
+
+TEST(RtpstreamWav, G711FirstChannel) {
+    std::string audio = "\x11\x22\x33\x44\x55\x66";
+    EXPECT_EQ("\x11\x33\x55", wav_cached(wav_file(wav_fmt(6, 2, 8) + wav_chunk("data", audio))));
+    EXPECT_EQ("\x11\x33\x55", wav_cached(wav_file(wav_fmt(7, 2, 8) + wav_chunk("data", audio))));
+    /* 24-bit PCM, which does not mix either */
+    EXPECT_EQ("\x11\x22\x33", wav_cached(wav_file(wav_fmt(1, 2, 24) + wav_chunk("data", audio))));
+}
+
+TEST(RtpstreamWav, Extensible) {
+    std::string audio = wav_le16(1000) + wav_le16(3000);
+    /* WAVE_FORMAT_EXTENSIBLE of 2 16-bit channels of a SubFormat */
+    std::string fmt = wav_le16(0xFFFE) + wav_le16(2) + wav_le32(8000) + wav_le32(32000) +
+                      wav_le16(4) + wav_le16(16) + wav_le16(22) + wav_le16(16) + wav_le32(3);
+    std::string guid("\x00\x00\x00\x00\x10\x00\x80\x00\x00\xAA\x00\x38\x9B\x71", 14);
+    std::string pcm = wav_file(wav_chunk("fmt ", fmt + wav_le16(1) + guid) + wav_chunk("data", audio));
+    wav_audio_t wav = rtpstream_wav_audio(pcm.data(), pcm.size());
+    EXPECT_EQ(1u, wav.format);
+    EXPECT_EQ(wav_le16(2000), wav_cached(pcm));
+    std::string ulaw = wav_file(wav_chunk("fmt ", fmt + wav_le16(7) + guid) + wav_chunk("data", audio));
+    wav = rtpstream_wav_audio(ulaw.data(), ulaw.size());
+    EXPECT_EQ(7u, wav.format);
+    EXPECT_EQ(wav_le16(1000), wav_cached(ulaw));
+    /* of no SubFormat, it does not mix */
+    std::string none = wav_file(wav_chunk("fmt ", fmt.substr(0, 18)) + wav_chunk("data", audio));
+    wav = rtpstream_wav_audio(none.data(), none.size());
+    EXPECT_EQ(0xFFFEu, wav.format);
+    EXPECT_EQ(wav_le16(1000), wav_cached(none));
+}
+
+TEST(RtpstreamWav, Unmixable) {
+    /* 4-bit IMA ADPCM plays as it is */
+    std::string audio(100, 'a');
+    EXPECT_EQ(audio, wav_cached(wav_file(wav_fmt(0x11, 2, 4) + wav_chunk("data", audio))));
 }
 
 #endif //GTEST
