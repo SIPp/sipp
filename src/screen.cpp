@@ -117,14 +117,14 @@ static bool display_server()
 void ScreenPrinter::print_closing_stats() {
     M_last = true;
     get_lines();
-    for (auto line : lines) {
+    for (const auto& line : lines) {
         printf("%s\n", line.c_str());
     }
 
     if (currentScreenToDisplay != DISPLAY_STAT_SCREEN) {
         currentScreenToDisplay = DISPLAY_STAT_SCREEN;
         get_lines();
-        for (auto line : lines) {
+        for (const auto& line : lines) {
             printf("%s\n", line.c_str());
         }
     }
@@ -134,7 +134,7 @@ void ScreenPrinter::print_closing_stats() {
 void ScreenPrinter::print_to_file(FILE* f)
 {
     get_lines();
-    for (auto line : lines) {
+    for (const auto& line : lines) {
         fprintf(f, "%s\n", line.c_str());
     }
 }
@@ -148,7 +148,7 @@ void ScreenPrinter::redraw()
     if (!M_headless) {
         get_lines();
         erase();
-        for (auto line : lines) {
+        for (const auto& line : lines) {
             printw("%s\n", line.c_str());
         }
 
