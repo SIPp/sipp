@@ -779,7 +779,7 @@ int JLSRTP::issueAuthenticationTag(std::vector<unsigned char> &data, std::vector
     unsigned char digest[EVP_MAX_MD_SIZE];
     unsigned int digest_len = 0;
     int retVal = -1;
-    std::vector<unsigned char> rocVec;
+    static thread_local std::vector<unsigned char> rocVec; /* convertROC() fills it */
     int rc = -1;
 
     assert(!_session_auth_key.empty());
@@ -865,10 +865,10 @@ int JLSRTP::issueAuthenticationTag(std::vector<unsigned char> &data, std::vector
     return retVal;
 }
 
-int JLSRTP::extractAuthenticationTag(std::vector<unsigned char> srtp_packet, std::vector<unsigned char> &hash)
+int JLSRTP::extractAuthenticationTag(const std::vector<unsigned char> &srtp_packet, std::vector<unsigned char> &hash)
 {
     int retVal = -1;
-    std::vector<unsigned char>::iterator it = srtp_packet.begin();
+    std::vector<unsigned char>::const_iterator it = srtp_packet.begin();
     int authtag_pos = 0;
 
     assert(!_session_auth_key.empty());
@@ -971,10 +971,10 @@ int JLSRTP::extractAuthenticationTag(std::vector<unsigned char> srtp_packet, std
     return retVal;
 }
 
-int JLSRTP::extractSRTPHeader(std::vector<unsigned char> srtp_packet, std::vector<unsigned char> &header)
+int JLSRTP::extractSRTPHeader(const std::vector<unsigned char> &srtp_packet, std::vector<unsigned char> &header)
 {
     int retVal = -1;
-    std::vector<unsigned char>::iterator it = srtp_packet.begin();
+    std::vector<unsigned char>::const_iterator it = srtp_packet.begin();
 
     if (_srtp_header_size > 0)
     {
@@ -998,11 +998,11 @@ int JLSRTP::extractSRTPHeader(std::vector<unsigned char> srtp_packet, std::vecto
     return retVal;
 }
 
-int JLSRTP::extractSRTPPayload(std::vector<unsigned char> srtp_packet, std::vector<unsigned char> &payload)
+int JLSRTP::extractSRTPPayload(const std::vector<unsigned char> &srtp_packet, std::vector<unsigned char> &payload)
 {
     int retVal = -1;
-    std::vector<unsigned char>::iterator it_payload_begin = srtp_packet.begin();
-    std::vector<unsigned char>::iterator it_payload_end = srtp_packet.begin();
+    std::vector<unsigned char>::const_iterator it_payload_begin = srtp_packet.begin();
+    std::vector<unsigned char>::const_iterator it_payload_end = srtp_packet.begin();
     unsigned int header_payload_size = 0;
 
     header_payload_size = _srtp_header_size + _srtp_payload_size;
@@ -2242,10 +2242,14 @@ int JLSRTP::processOutgoingPacket(unsigned short SEQ_s,
     bool check = false;
     unsigned long v_s = 0;
     unsigned long long i_s = 0LL; /* TEST PACKET INDEX */
-    std::vector<unsigned char> srtp_payload; /* ENCRYPTED PAYLOAD */
-    std::vector<unsigned char> auth_tag;
-    std::vector<unsigned char> auth_portion;
+    /* each packet's scratch, kept by the thread for the next packet */
+    static thread_local std::vector<unsigned char> srtp_payload; /* ENCRYPTED PAYLOAD */
+    static thread_local std::vector<unsigned char> auth_tag;
+    static thread_local std::vector<unsigned char> auth_portion;
     int retVal = -1;
+    srtp_payload.clear();
+    auth_tag.clear();
+    auth_portion.clear();
 
     // 1.  Determine crypto context to use
     // NO-OP (IMPLICIT)
@@ -2345,11 +2349,16 @@ int JLSRTP::processIncomingPacket(unsigned short SEQ_r,
     bool check = false;
     unsigned long v_r = 0;
     unsigned long long i_r = 0LL; /* TEST PACKET INDEX */
-    std::vector<unsigned char> auth_tag_generated;
-    std::vector<unsigned char> auth_portion;
-    std::vector<unsigned char> auth_tag_received;
-    std::vector<unsigned char> srtp_payload; /* ENCRYPTED PAYLOAD */
+    /* each packet's scratch, kept by the thread for the next packet */
+    static thread_local std::vector<unsigned char> auth_tag_generated;
+    static thread_local std::vector<unsigned char> auth_portion;
+    static thread_local std::vector<unsigned char> auth_tag_received;
+    static thread_local std::vector<unsigned char> srtp_payload; /* ENCRYPTED PAYLOAD */
     int retVal = -1;
+    auth_tag_generated.clear();
+    auth_portion.clear();
+    auth_tag_received.clear();
+    srtp_payload.clear();
 
     rtp_header.clear();
     rtp_payload.clear();
