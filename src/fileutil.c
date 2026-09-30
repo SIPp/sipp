@@ -49,29 +49,25 @@ int expand_user_path(const char* path, char* expanded_home_path /*The buffer*/, 
         }
 
         struct passwd pwd;
-        struct passwd* result;
-        const size_t bufsize  = sysconf(_SC_GETPW_R_SIZE_MAX) + 1;
-        char* buffer = malloc(bufsize * sizeof(char));
-        int retcode = getpwnam_r(username, &pwd, buffer, bufsize - 1, &result);
+        struct passwd* result = NULL;
+        /* -1 is no limit, as on musl: take as much as glibc suggests. */
+        long pwsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+        const size_t bufsize = pwsize > 0 ? pwsize : 16384;
+        /* It holds the strings of pwd, pw_dir among them. */
+        char* buffer = malloc(bufsize);
+        int retcode = buffer ? getpwnam_r(username, &pwd, buffer, bufsize, &result) : ENOMEM;
         free(username);
-        free(buffer);
         if (result == NULL) {
+            free(buffer);
             if (retcode != 0) {
                 errno = retcode;
             }
             WARNING_NO("Unable to resolve home path for [%s]\n", path);
             return -1;
-        } else {
-            home_dir = result->pw_dir;
         }
 
-        if (home_dir != NULL) {
-            if (first_slash != NULL) {                                                      /* '~username/path' case */
-                snprintf(expanded_home_path, buflen - 1, "%s%s", home_dir, first_slash);
-            } else {                                                                        /* '~username' case should be eliminated above, but just in case it is modified in future*/
-                return -1;
-            }
-        }
+        snprintf(expanded_home_path, buflen - 1, "%s%s", result->pw_dir, first_slash);
+        free(buffer);
     }
 
     return 1;
