@@ -7051,6 +7051,24 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 rtpstream_wait_msg = curmsg;
                 rtpstreamWaitNextCheck(play_end);
             }
+        } else if (currentAction->getActionType() == CAction::E_AT_RTP_STATS) {
+            rtpstream_received_t received = rtpstream_received(&rtpstream_callinfo, currentAction->getDoubleValue() != 0);
+            M_callVariableTable->getVar(currentAction->getVarId())->setDouble(received.packets);
+            if (currentAction->getNbSubVarId() > 0) {
+                M_callVariableTable->getVar(currentAction->getSubVarId(0))->setDouble(received.first_pt);
+            }
+            if (currentAction->getNbSubVarId() > 1) {
+                /* the payload in hex */
+                static const char digits[] = "0123456789abcdef";
+                const std::string& payload = received.first_payload;
+                char* hex = (char*) malloc(2 * payload.size() + 1);
+                for (size_t i = 0; i < payload.size(); i++) {
+                    hex[2 * i] = digits[(unsigned char) payload[i] >> 4];
+                    hex[2 * i + 1] = digits[payload[i] & 0x0f];
+                }
+                hex[2 * payload.size()] = '\0';
+                M_callVariableTable->getVar(currentAction->getSubVarId(1))->setString(hex);
+            }
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
             const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);

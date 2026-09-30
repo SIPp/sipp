@@ -281,6 +281,36 @@ should advertise with ``[rtpstream_audio_port]`` (or
 ``[rtpstream_video_port]``), not ``[media_port]``. The PCAP play
 commands below send from ``[media_port]`` instead. See the keyword list.
 
+The rtp_stats action assigns what the call's audio port (or its video
+port, with ``media="video"``) received: the number of RTP packets to
+the first variable of assign_to, and, if given, the payload type and
+the payload of the first packet, in hex, to the second and the third.
+When a scenario has rtp_stats, its calls count the RTP that comes on
+their ``rtp_stream`` ports from the first packet on, even when they
+play and echo nothing, as with a ringback before the call is answered. With no packet, they are 0, -1 and
+an empty string. The payload is the packet's as it came, so with SRTP
+it is still encrypted. The packets are those read so far: those of
+the last few milliseconds (or packet time, while the call plays) may
+not be counted yet.
+
+Example that fails the call unless a PCMA ringback of 0xd5 bytes came
+before the 200 OK::
+
+    <send>
+      ... INVITE with m=audio [rtpstream_audio_port] ...
+    </send>
+
+    <recv response="180" />
+
+    <recv response="200">
+      <action>
+        <rtp_stats assign_to="packets,pt,payload" />
+        <test assign_to="ok" variable="packets" compare="greater_than" value="0" check_it="true" />
+        <test assign_to="ok" variable="pt" compare="equal" value="8" check_it="true" />
+        <ereg regexp="^(d5)+$" search_in="var" variable="payload" assign_to="ok" check_it="true" />
+      </action>
+    </recv>
+
 
 PCAP play commands (specified using play_pcap_audio / play_pcap_video
 attributes) allow you to send a pre-recorded RTP stream using the

@@ -1,0 +1,18 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# rtp_stats gives the RTP a call received: the UAS plays a PCMA pattern
+# with its 183 (a ringback), which the UAC, playing nothing, counts; it
+# has its payload type and payload.
+. "`dirname "$0"`/../functions"; init
+
+sippbg -sf uas.xml -i 127.0.0.1 -p 25640 -m 1 \
+    -min_rtp_port 29600 -max_rtp_port 29649 -timeout 10
+sippfg -sf uac.xml -i 127.0.0.1 -p 25641 -m 1 \
+    -min_rtp_port 29650 -max_rtp_port 29699 \
+    127.0.0.1:25640 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait
+if test $status -ne 0; then
+    fail "the UAC exited $status, not 0"
+fi
+ok

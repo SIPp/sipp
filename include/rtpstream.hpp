@@ -22,6 +22,7 @@
 #include <atomic>
 #include <cstdint>
 #include <mutex>
+#include <string>
 #include <sys/socket.h>
 
 #ifdef PCAPPLAY
@@ -59,6 +60,15 @@ struct SrtpInfoParams
 
 struct threaddata_t;
 struct taskentry_t;
+
+/* The RTP a call received on its audio or video port, for <rtp_stats> */
+struct rtpstream_received_t
+{
+    unsigned long        packets;
+    /* of the first packet, as it came: with SRTP, still encrypted */
+    int                  first_pt = -1;
+    std::string          first_payload;
+};
 
 /* Made with new taskentry_t(), which zeroes what has no initializer */
 struct taskentry_t
@@ -169,6 +179,9 @@ struct taskentry_t
     unsigned long        video_check_packets;
     unsigned long        video_check_failures;
 
+    /* what came in, audio and video, under the mutex */
+    rtpstream_received_t received[2];
+
 #ifdef PCAPPLAY
     /* the pcap plays of the call, one per stream, under the mutex, from
      * the first one on; a play with no pcap is not playing */
@@ -264,6 +277,10 @@ int rtpstream_play_pcap(rtpstream_callinfo_t *callinfo, rtpstream_pcap_t stream,
 /* The addresses of the pcap play on a stream have changed */
 void rtpstream_update_pcap(rtpstream_callinfo_t *callinfo, rtpstream_pcap_t stream, const play_args_t *play);
 #endif
+
+/* What the call's audio or video port received, when a scenario has
+ * <rtp_stats> */
+rtpstream_received_t rtpstream_received(rtpstream_callinfo_t *callinfo, bool video);
 
 int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t *callinfo, const JLSRTP& rxUASAudio, const JLSRTP& txUASAudio);
 int rtpstream_rtpecho_updateaudio(rtpstream_callinfo_t *callinfo, const JLSRTP& rxUASAudio, const JLSRTP& txUASAudio);

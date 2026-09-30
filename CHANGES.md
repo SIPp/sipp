@@ -33,6 +33,9 @@ marked **Breaking**.
   before its next message, without blocking SIPp, and fails the call
   if it exits with a non-zero code (#7, by Orgad Shaneh, based on #423
   by Stanislav Litvinenko)
+- `<rtp_stats>` assigns the RTP packets a call received, and the payload
+  type and payload of the first, to variables: a scenario can check a
+  ringback (#256, by Orgad Shaneh)
 - `<recv timeout_variable>` takes the receive timeout from a call
   variable (#968, by Orgad Shaneh)
 - `start_rtd` and `rtd` take a comma-separated list of timers (#970, by
