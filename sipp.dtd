@@ -53,6 +53,7 @@
 <!ATTLIST send lost NMTOKEN #IMPLIED >
 <!ATTLIST send start_txn NMTOKEN #IMPLIED >
 <!ATTLIST send ack_txn NMTOKEN #IMPLIED >
+<!ATTLIST send response_txn NMTOKEN #IMPLIED >
 <!ATTLIST send timeout NMTOKEN #IMPLIED >
 <!ATTLIST send ontimeout NMTOKEN #IMPLIED >
 
@@ -71,6 +72,7 @@
 <!ATTLIST recv ontimeout NMTOKEN #IMPLIED >
 <!ATTLIST recv regexp_match (true|false) #IMPLIED >
 <!ATTLIST recv response_txn NMTOKEN #IMPLIED >
+<!ATTLIST recv start_txn NMTOKEN #IMPLIED >
 
 <!ELEMENT pause EMPTY >
 <!ATTLIST pause %messageCmdCommon; >
