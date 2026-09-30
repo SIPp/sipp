@@ -237,6 +237,9 @@ marked **Breaking**.
     are skipped (#1072), the `-mp` port is used when the SDP lacks
     `[media_port]` (#978), SDP port counts and TTLs are parsed (#961),
     and a refused m= line (port 0) is skipped as rtp_stream does (#1157)
+  - with `-srtpcheck_debug` or `-rtpcheck_debug`, a debug file that
+    can't be created is warned about, and rtp_echo and rtp_stream go on
+    without it (#1225)
 - `rtp_stream` mixes a multi-channel WAV file down to mono, plays only
   its data chunk, and plays files over 2 GB (#863, by Orgad Shaneh,
   based on #864 by Raja amirapu)

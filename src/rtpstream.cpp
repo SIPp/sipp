@@ -261,14 +261,26 @@ public:
         }
     }
 
+    /* A file that can't be created is warned about once: the run goes
+     * on without it. */
     bool open(const char* filename)
     {
         std::lock_guard lock(mutex);
         if (fp) return true;
         int fd = ::open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        if (fd < 0) return false;
-        fp = fdopen(fd, "w");
-        return !!fp;
+        FILE *f = fd < 0 ? nullptr : fdopen(fd, "w");
+        if (!f) {
+            if (fd >= 0) {
+                ::close(fd);
+            }
+            if (!warned) {
+                warned = true;
+                WARNING_NO("Unable to create debug file '%s'", filename);
+            }
+            return false;
+        }
+        fp = f;
+        return true;
     }
 
     void close()
@@ -320,6 +332,7 @@ protected:
     /* checked before locking, so a closed file costs no lock */
     std::atomic<FILE*> fp{nullptr};
     mutable std::mutex mutex;
+    bool warned = false;
 };
 
 class RtpEchoDebugFile : public DebugFile
@@ -2249,15 +2262,11 @@ int rtpstream_cache_file(char* filename,
 
     if (rtpcheck_debug)
     {
-        if ((stream_type == 0) && !debugafile.open("debugafile"))
-        {
-            /* error encountered opening audio debug file */
-            return -1;
+        if (stream_type == 0) {
+            debugafile.open("debugafile");
         }
-        if ((stream_type == 1) && !debugvfile.open("debugvfile"))
-        {
-            /* error encountered opening video debug file */
-            return -1;
+        if (stream_type == 1) {
+            debugvfile.open("debugvfile");
         }
     }
 
@@ -2704,10 +2713,8 @@ static void rtpstream_set_remote_address(rtpstream_callinfo_t* callinfo, taskent
 
 int rtpstream_set_srtp_audio_local(rtpstream_callinfo_t* callinfo, SrtpInfoParams &p)
 {
-    if (srtpcheck_debug && !debuglsrtpafile.open())
-    {
-        /* error encountered opening local srtp debug file */
-        return -1;
+    if (srtpcheck_debug) {
+        debuglsrtpafile.open();
     }
 
     debuglsrtpafile.printCrypto(p);
@@ -2717,10 +2724,8 @@ int rtpstream_set_srtp_audio_local(rtpstream_callinfo_t* callinfo, SrtpInfoParam
 
 int rtpstream_set_srtp_audio_remote(rtpstream_callinfo_t* callinfo, SrtpInfoParams &p)
 {
-    if (srtpcheck_debug && !debugrsrtpafile.open())
-    {
-        /* error encountered opening remote srtp debug file */
-        return -1;
+    if (srtpcheck_debug) {
+        debugrsrtpafile.open();
     }
 
     debugrsrtpafile.printCrypto(p);
@@ -2730,10 +2735,8 @@ int rtpstream_set_srtp_audio_remote(rtpstream_callinfo_t* callinfo, SrtpInfoPara
 
 int rtpstream_set_srtp_video_local(rtpstream_callinfo_t* callinfo, SrtpInfoParams &p)
 {
-    if (srtpcheck_debug && !debuglsrtpvfile.open())
-    {
-        /* error encountered opening local srtp debug file */
-        return -1;
+    if (srtpcheck_debug) {
+        debuglsrtpvfile.open();
     }
 
     debuglsrtpvfile.printCrypto(p);
@@ -2743,10 +2746,8 @@ int rtpstream_set_srtp_video_local(rtpstream_callinfo_t* callinfo, SrtpInfoParam
 
 int rtpstream_set_srtp_video_remote(rtpstream_callinfo_t* callinfo, SrtpInfoParams &p)
 {
-    if (srtpcheck_debug && !debugrsrtpvfile.open())
-    {
-        /* error encountered opening local srtp debug file */
-        return -1;
+    if (srtpcheck_debug) {
+        debugrsrtpvfile.open();
     }
 
     debugrsrtpvfile.printCrypto(p);
@@ -3152,10 +3153,8 @@ int rtpstream_rtpecho_startaudio(rtpstream_callinfo_t* callinfo, const JLSRTP& r
     taskentry_t   *taskinfo = rtpstream_task(callinfo);
 
 
-    if (srtpcheck_debug && !debugrefileaudio.open())
-    {
-        /* error encountered opening audio debug file */
-        return -2;
+    if (srtpcheck_debug) {
+        debugrefileaudio.open();
     }
 
     debugrefileaudio.printf("rtpstream_rtpecho_startaudio reached...\n");
@@ -3198,10 +3197,8 @@ int rtpstream_rtpecho_startvideo(rtpstream_callinfo_t* callinfo, const JLSRTP& r
     taskentry_t   *taskinfo = rtpstream_task(callinfo);
 
 
-    if (srtpcheck_debug && !debugrefilevideo.open())
-    {
-        /* error encountered opening video debug file */
-        return -2;
+    if (srtpcheck_debug) {
+        debugrefilevideo.open();
     }
 
     debugrefilevideo.printf("rtpstream_rtpecho_startvideo reached...\n");

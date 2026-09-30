@@ -1,0 +1,60 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# Debug files that cannot be created are warned about and done without:
+# with -srtpcheck_debug, a UAS still echoes the SRTP of its call, and
+# with -rtpcheck_debug, a UAC still plays its rtp_stream file.
+. "`dirname "$0"`/../functions"; init
+
+# Root writes in a read-only directory: drop the capabilities.
+nocaps=
+if test "`id -u`" -eq 0; then
+    setpriv --inh-caps=-all --bounding-set=-all true 2>/dev/null ||
+        skip "root with no setpriv"
+    nocaps="setpriv --inh-caps=-all --bounding-set=-all"
+fi
+
+sipp="`get_sipp`"
+here=`pwd`
+head -c 1600 /dev/zero >silence.raw
+dir=`mktemp -d`
+chmod 555 $dir
+
+# The echo, with -srtpcheck_debug: the UAC's pattern comes back.
+(cd $dir && exec $nocaps timeout -sKILL 20 "$sipp" -nostdin \
+    -sf "$here/uasl.xml" -i 127.0.0.1 -p 26570 -m 1 -srtpcheck_debug \
+    -min_rtp_port 26580 -max_rtp_port 26589 -timeout 15 \
+    >/dev/null 2>"$here/uas.err") &
+uas=$!
+sleep 1
+sippfg -sf uacp.xml -i 127.0.0.1 -p 26571 -m 1 \
+    -min_rtp_port 26590 -max_rtp_port 26599 -audiotolerance 0.2 \
+    127.0.0.1:26570 -timeout 10 -timeout_error >/dev/null 2>&1
+echo_status=$?
+wait $uas
+uas_status=$?
+
+# The rtp_stream file, with -rtpcheck_debug.
+sippbg -sf uasl.xml -i 127.0.0.1 -p 26572 -m 1 \
+    -min_rtp_port 26580 -max_rtp_port 26589 -timeout 15
+uas=$pid
+(cd $dir && exec $nocaps timeout -sKILL 20 "$sipp" -nostdin \
+    -sf "$here/uac.xml" -i 127.0.0.1 -p 26573 -m 1 -rtpcheck_debug \
+    -min_rtp_port 26590 -max_rtp_port 26599 127.0.0.1:26572 \
+    -timeout 10 -timeout_error >/dev/null 2>"$here/uac.err")
+play_status=$?
+wait $uas
+warned=`grep -c "Unable to create debug file 'debugafile'" uac.err`
+chmod 755 $dir
+rm -rf $dir silence.raw uas.err uac.err
+
+if test $uas_status -ne 0; then
+    fail "echoing UAS exited with $uas_status"
+elif test $echo_status -ne 0; then
+    fail "UAC of the echo exited with $echo_status"
+elif test $play_status -ne 0; then
+    fail "UAC playing a file exited with $play_status"
+elif test $warned -eq 0; then
+    fail "no warning about the debugafile"
+else
+    ok
+fi
