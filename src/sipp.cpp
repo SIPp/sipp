@@ -2469,7 +2469,6 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_LFOVERWRITE:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                ((struct logfile_info*)option->data)->fixedname = true;
                 ((struct logfile_info*)option->data)->overwrite = get_bool(argv[argi], argv[argi - 1]);
                 break;
             case SIPP_OPTION_PLUGIN: {
