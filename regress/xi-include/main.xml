@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- Blocks from other files, found relative to this one. -->
+<scenario name="includes" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="lib/first.xml"/>
+  <nop>
+    <action>
+      <log message="main"/>
+    </action>
+  </nop>
+  <xi:include href="lib/third.xml"/>
+</scenario>

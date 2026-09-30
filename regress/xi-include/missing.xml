@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- A file that is not there. -->
+<scenario name="missing" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="lib/nosuch.xml"/>
+</scenario>

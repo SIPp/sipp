@@ -777,6 +777,10 @@ scenario::scenario(char * filename, int deflt)
 
     if(filename) {
         if(!xp_set_xml_buffer_from_file(filename)) {
+            if (*xp_get_error()) {
+                ERROR("Unable to load '%s' xml scenario file: %s", filename,
+                      xp_get_error());
+            }
             ERROR("Unable to load or parse '%s' xml scenario file", filename);
         }
     } else {

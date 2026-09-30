@@ -1,0 +1,31 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# <xi:include> puts the commands of another file in a scenario, or its
+# one command; a relative href is relative to the file that has it.
+. "`dirname "$0"`/../functions"; init
+
+load() {
+    sippfg -sf $1.xml -m 1 127.0.0.1:9 2>&1 >/dev/null
+}
+
+cd lib
+rm -f logs.log
+sippfg -sf ../main.xml -m 1 -trace_logs -log_file logs.log 127.0.0.1:9 \
+    >/dev/null 2>&1
+status=$?
+logged=`cat logs.log 2>/dev/null | tr '\n' ' '`
+rm -f logs.log
+cd ..
+
+test $status -eq 0 || fail "the call with the included send failed: $status"
+test "$logged" = "first second main " ||
+    fail "the included commands ran as: $logged"
+case `load loop` in
+    *"cannot include 'loop.xml': more than 16 nested includes"*) ;;
+    *) fail "a file that includes itself is not caught" ;;
+esac
+case `load missing` in
+    *"cannot include 'lib/nosuch.xml': File was not found"*) ;;
+    *) fail "a missing file is not named" ;;
+esac
+ok
