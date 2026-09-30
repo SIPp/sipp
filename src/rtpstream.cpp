@@ -3033,8 +3033,7 @@ int rtpstream_play_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stream,
     send_packets_end(&current);
     /* a switch to T.38 often keeps the remote port: an image play ends
      * the audio one, and the other way round, not to mix RTP and UDPTL */
-    if (stream != RTPSTREAM_PCAP_VIDEO)
-    {
+    if (stream == RTPSTREAM_PCAP_AUDIO || stream == RTPSTREAM_PCAP_IMAGE) {
         send_packets_end(&taskinfo->pcap_plays[stream == RTPSTREAM_PCAP_AUDIO ?
                                                RTPSTREAM_PCAP_IMAGE : RTPSTREAM_PCAP_AUDIO]);
     }

@@ -167,7 +167,8 @@ Execute a command
 +++++++++++++++++
 
 The "exec" action allows you to execute "internal", "external",
-"play_pcap_audio" or "play_pcap_video" commands.
+"play_pcap_audio", "play_pcap_video", "play_pcap_image" or
+"play_pcap_text" commands.
 
 
 Internal commands
@@ -227,8 +228,8 @@ record as its last step::
    command that you trust, or write them to a file with ``log`` instead.
    The same applies to the file name given to ``rtp_stream`` and to the
    ``[file name=...]`` keyword, which a peer-controlled value could point
-   at any file SIPp can read. The file names given to ``play_pcap_audio``
-   and ``play_pcap_video`` are read when the scenario is loaded and are
+   at any file SIPp can read. The file names given to the
+   ``play_pcap_*`` actions are read when the scenario is loaded and are
    not expanded.
 
 
@@ -312,14 +313,28 @@ before the 200 OK::
     </recv>
 
 
-PCAP play commands (specified using play_pcap_audio / play_pcap_video
-attributes) allow you to send a pre-recorded RTP stream using the
-`pcap library`_.
+PCAP play commands (specified using play_pcap_audio / play_pcap_video /
+play_pcap_image / play_pcap_text attributes) allow you to send a
+pre-recorded RTP stream using the `pcap library`_.
 Choose play_pcap_audio to send the pre-recorded RTP stream using the
 "m=audio" SIP/SDP line port as a base for the replay.
 
 Choose play_pcap_video to send the pre-recorded RTP stream using the
 "m=video" SIP/SDP line port as a base.
+
+Choose play_pcap_image to send pre-recorded UDPTL (T.38 fax) packets
+using the "m=image" SIP/SDP line port as a base.
+
+Choose play_pcap_text to send a pre-recorded real-time text stream
+(T.140 over RTP, RFC 4103, with or without the RFC 2198 redundancy)
+using the "m=text" SIP/SDP line port as a base.
+
+The packets play as they were captured, with their destination ports
+moved by the same offset: the lowest destination port of the file goes
+to the port of the SDP line, so an RTCP port above it goes to the port
+above that. Keep only the stream to play in the file, e.g. with
+``tshark -r call.pcap -w text.pcap udp.srcport==11078 or
+udp.srcport==11079``: its SIP packets would play too.
 
 The play_pcap_audio/video command has the following format:
 play_pcap_audio="[file_to_play]" with:
@@ -349,8 +364,8 @@ iLBC  98         50 bytes    30 ms       -f ilbc -ar 8k -ac 1 -b:a 13.33k
   immediately. If needed, you will need to add a pause to wait for the
   end of the pcap play.
 .. note::
-  A video play goes on while an audio or image one plays, but a new
-  play ends the one still playing on its stream. Audio and image share
+  A video or text play goes on while an audio or image one plays, but a
+  new play ends the one still playing on its stream. Audio and image share
   one, as a switch to T.38 often keeps the remote port: a
   play_pcap_image ends a play_pcap_audio, and the other way round.
 
