@@ -2606,6 +2606,10 @@ void rtpstream_play(rtpstream_callinfo_t* callinfo, rtpstream_actinfo_t* actioni
         file_bytes += header_size;
         file_size -= header_size;
     }
+    if (!file_size) {
+        /* a WAV file of no audio: nothing to play, which looped forever */
+        return;
+    }
 
     /* save file parameter in taskinfo structure */
     std::unique_lock lock(taskinfo->mutex);
