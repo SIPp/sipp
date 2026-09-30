@@ -172,22 +172,14 @@ char* get_header(const char* message, const char* name, bool content)
             first_time = false;
         }
 
-        if (content || !first_time) {
-            /* Just want the header's content, so skip over the header
-             * and newline */
-
-            /* Skip over header */
-            while (*src != ':') {
-                src++;
-            }
+        /* Skip over the header name, which !content wrote once above */
+        while (*src != ':') {
             src++;
+        }
+        src++;
 
-            /* Skip over leading spaces. */
-            while (*src == ' ') {
-                src++;
-            }
-        } else {
-            /* Just skip the newline */
+        /* Skip over leading spaces. */
+        while (*src == ' ') {
             src++;
         }
         ptr = strchr(src, '\n');
