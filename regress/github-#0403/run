@@ -1,0 +1,59 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# play_pcap_text plays real-time text (RFC 4103) to the port of the
+# m=text line, from the port [media_port] put on the local one, while
+# the play_pcap_audio of the call goes on.
+. "`dirname "$0"`/../functions"
+
+# Sending pcap plays needs a raw socket: run as root in a user and
+# network namespace of our own.
+if test -z "$SIPP_NETNS"; then
+    if unshare -rn true 2>/dev/null; then
+        SIPP_NETNS=1 exec unshare -rn "$0"
+    fi
+    init
+    skip "no user network namespaces"
+fi
+init
+"`get_sipp`" -v | grep -q PCAP || skip "no PCAP"
+ip link set lo up 2>/dev/null || skip "cannot bring up lo"
+
+sippbg -sf uas.xml -i 127.0.0.1 -p 25790 -m 1 -timeout 10
+# The packets on the audio and on the text port, and the source ports
+# of the text ones.
+rm -f rtp.out
+perl -e '
+    use Socket;
+    for $p (26750, 26760) {
+        socket($s{$p}, PF_INET, SOCK_DGRAM, 17) || die($!);
+        bind($s{$p}, pack_sockaddr_in($p, inet_aton("127.0.0.1"))) || die($!);
+    }
+    while (1) {
+        $r = ""; vec($r, fileno($s{$_}), 1) = 1 for keys %s;
+        select($r, undef, undef, $n ? 1 : 5) > 0 || last;
+        for $p (keys %s) {
+            vec($r, fileno($s{$p}), 1) || next;
+            $from = recv($s{$p}, $o, 2048, 0);
+            $n++; $n{$p}++;
+            $p == 26760 && ($src{(unpack_sockaddr_in($from))[0]} = 1);
+        }
+    }
+    printf("%d %d %s\n", $n{26750}, $n{26760}, join(",", sort keys %src) || "-");' >rtp.out &
+rtp=$!
+sippfg -sf uac.xml -i 127.0.0.1 -p 25791 -mp 26000 -m 1 127.0.0.1:25790 \
+    -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait $rtp
+read audio text from <rtp.out
+rm -f rtp.out
+
+# 2.5 s of audio and 2 s of text, at about 33 packets a second
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "${audio:-0}" -lt 60 || test "${text:-0}" -lt 50; then
+    fail "${audio:-0} audio and ${text:-0} text packets"
+elif test "$from" != 26004; then
+    fail "text packets from port $from, not 26004"
+else
+    ok
+fi

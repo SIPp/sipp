@@ -158,6 +158,7 @@
 <!ATTLIST exec play_pcap_audio CDATA #IMPLIED >
 <!ATTLIST exec play_pcap_image CDATA #IMPLIED >
 <!ATTLIST exec play_pcap_video CDATA #IMPLIED >
+<!ATTLIST exec play_pcap_text CDATA #IMPLIED >
 <!ATTLIST exec play_dtmf CDATA #IMPLIED >
 <!ATTLIST exec rtp_stream CDATA #IMPLIED >
 <!-- with rtp_stream="wait" -->

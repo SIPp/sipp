@@ -119,10 +119,10 @@ Keyword list
 :Description: Depending on the locally selected media port, which in turn
   depends on the -min_rtp_port/-max_rtp_port parameters, it is local RTP echo
   port number. You can add a computed offset [media_port+3] to this value.
-  It is the same port for every call. Used on an ``m=audio``, ``m=video``
-  or ``m=image`` line, it also sets the port that ``play_pcap_audio``
-  (and ``play_dtmf``), ``play_pcap_video`` and ``play_pcap_image`` send
-  from.
+  It is the same port for every call. Used on an ``m=audio``,
+  ``m=video``, ``m=image`` or ``m=text`` line, it also sets the port that
+  ``play_pcap_audio`` (and ``play_dtmf``), ``play_pcap_video``,
+  ``play_pcap_image`` and ``play_pcap_text`` send from.
 
 ``[auto_media_port]``
 =====================
@@ -153,12 +153,12 @@ Keyword list
     ``m=audio [rtpstream_audio_port] RTP/AVP 8``. ``[media_port]`` and
     ``[auto_media_port]`` do not change which port ``rtp_stream`` uses,
     they only change the SDP text.
-  + ``play_pcap_audio``, ``play_pcap_video``, ``play_pcap_image`` and
-    ``play_dtmf`` send from the port that ``[media_port]`` or
-    ``[auto_media_port]`` put on the ``m=`` line. If the port is written
-    any other way (e.g. a literal number or a ``[field0]``), they send
-    from the -mp port instead (two above it for video), whatever the
-    ``m=`` line says.
+  + ``play_pcap_audio``, ``play_pcap_video``, ``play_pcap_image``,
+    ``play_pcap_text`` and ``play_dtmf`` send from the port that
+    ``[media_port]`` or ``[auto_media_port]`` put on the ``m=`` line. If
+    the port is written any other way (e.g. a literal number or a
+    ``[field0]``), they send from the -mp port instead (two above it for
+    video, four for text), whatever the ``m=`` line says.
 
   One ``m=audio`` line cannot advertise both ports, so a call cannot
   mix ``rtp_stream`` with pcap play (or ``play_dtmf``) on the same

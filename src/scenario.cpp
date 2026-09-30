@@ -1791,6 +1791,12 @@ void scenario::parseAction(CActions *actions)
                 pcap_plays = true;
                 hasMedia = 1;
                 free(ptr);
+            } else if ((ptr = xp_get_keyword_value("play_pcap_text"))) {
+                tmpAction->setPcapArgs(ptr);
+                tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_TEXT);
+                pcap_plays = true;
+                hasMedia = 1;
+                free(ptr);
             } else if ((cptr = xp_get_value("play_dtmf"))) {
                 /* without keywords, what would be played is known now */
                 if (!strchr(cptr, '[')) {
@@ -1814,6 +1820,9 @@ void scenario::parseAction(CActions *actions)
                 ERROR("Scenario specifies a play_pcap_image action, but this version of SIPp does not have PCAP support");
             } else if (xp_get_value("play_pcap_video")) {
                 ERROR("Scenario specifies a play_pcap_video action, but this version of SIPp does not have PCAP support");
+            } else if (xp_get_value("play_pcap_text")) {
+                ERROR(
+                    "Scenario specifies a play_pcap_text action, but this version of SIPp does not have PCAP support");
             } else if (xp_get_value("play_dtmf")) {
                 ERROR("Scenario specifies a play_dtmf action, but this version of SIPp does not have PCAP support");
 #endif

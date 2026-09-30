@@ -431,6 +431,7 @@ void call::get_remote_media_addr(std::string const &msg)
         {"\nm=audio ", RTPSTREAM_PCAP_AUDIO},
         {"\nm=image ", RTPSTREAM_PCAP_IMAGE},
         {"\nm=video ", RTPSTREAM_PCAP_VIDEO},
+        {"\nm=text ", RTPSTREAM_PCAP_TEXT},
     };
     for (const auto& m : media) {
         /* If the first m-line of the kind has port ZERO (a stream
@@ -3076,6 +3077,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             } else if (strstr(begin, "video")) {
                 play_args = &playArgs(RTPSTREAM_PCAP_VIDEO);
                 stream = RTPSTREAM_PCAP_VIDEO;
+            } else if (strstr(begin, "m=text")) {
+                play_args = &playArgs(RTPSTREAM_PCAP_TEXT);
+                stream = RTPSTREAM_PCAP_TEXT;
             } else {
                 // This check will not do, as we use the media_port in other places too.
                 //ERROR("media_port keyword with no audio or video on the current line (%s)", begin);
@@ -6984,6 +6988,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if ((currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_AUDIO) ||
                    (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_IMAGE) ||
                    (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) ||
+                   (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_TEXT) ||
                    (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF)) {
             play_args_t* play_args = 0;
             rtpstream_pcap_t stream = RTPSTREAM_PCAP_AUDIO;
@@ -6996,6 +7001,9 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_VIDEO) {
                 play_args = &playArgs(RTPSTREAM_PCAP_VIDEO);
                 stream = RTPSTREAM_PCAP_VIDEO;
+            } else if (currentAction->getActionType() == CAction::E_AT_PLAY_PCAP_TEXT) {
+                play_args = &playArgs(RTPSTREAM_PCAP_TEXT);
+                stream = RTPSTREAM_PCAP_TEXT;
             } else {
                 ERROR("Can't find pcap data to play");
             }
@@ -7012,8 +7020,10 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
 
             /* port number is set in [auto_]media_port interpolation; without
-             * it, send from the -mp port (+2 for video) rather than port 0 */
-            in_port_t port = htons(media_port + (stream == RTPSTREAM_PCAP_VIDEO ? 2 : 0));
+             * it, send from the -mp port (+2 for video, +4 for text) rather
+             * than port 0 */
+            int offset = stream == RTPSTREAM_PCAP_VIDEO ? 2 : stream == RTPSTREAM_PCAP_TEXT ? 4 : 0;
+            in_port_t port = htons(media_port + offset);
             if (media_ip_is_ipv6) {
                 struct sockaddr_in6* from = (struct sockaddr_in6*) &(play_args->from);
                 from->sin6_family = AF_INET6;
@@ -8409,6 +8419,28 @@ TEST(sdp, remote_media_addr_of_each_media_section) {
     ASSERT_EQ(call.has_media(), true);
     ASSERT_EQ(audio, call.get_addr<struct sockaddr_in>(RTPSTREAM_PCAP_AUDIO));
     ASSERT_EQ(video, call.get_addr<struct sockaddr_in>(RTPSTREAM_PCAP_VIDEO));
+}
+
+TEST(sdp, remote_media_addr_of_text)
+{
+    media_ip_is_ipv6 = false;
+    pcap_plays = true;
+
+    struct sockaddr_in text;
+    text.sin_family = AF_INET;
+    text.sin_port = htons(8000);
+    inet_pton(AF_INET, "192.0.2.1", &text.sin_addr);
+
+    mockcall call(false);
+    call.parse_media_addr("v=0\r\n"
+                          "c=IN IP4 192.0.2.1\r\n"
+                          "m=audio 6000 RTP/AVP 0\r\n"
+                          "m=video 0 RTP/AVP 31\r\n"
+                          "m=text 8000 RTP/AVP 98 100\r\n"
+                          "a=rtpmap:98 t140/1000\r\n"
+                          "a=rtpmap:100 red/1000\r\n");
+    ASSERT_EQ(call.has_media(), true);
+    ASSERT_EQ(text, call.get_addr<struct sockaddr_in>(RTPSTREAM_PCAP_TEXT));
 }
 
 TEST(sdp, remote_media_addr_skips_zero_port) {

@@ -28,12 +28,13 @@
 #ifdef PCAPPLAY
 #include "send_packets.h"
 
-/* the streams of the pcap plays of a call: video plays at once with
- * audio or image, but an audio play and an image one end each other */
+/* the streams of the pcap plays of a call: video and text play at once
+ * with audio or image, but an audio play and an image one end each other */
 enum rtpstream_pcap_t {
     RTPSTREAM_PCAP_AUDIO, /* play_pcap_audio and play_dtmf */
     RTPSTREAM_PCAP_IMAGE,
     RTPSTREAM_PCAP_VIDEO,
+    RTPSTREAM_PCAP_TEXT, /* real-time text, RFC 4103 */
     RTPSTREAM_PCAP_STREAMS
 };
 #endif
