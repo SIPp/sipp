@@ -1466,8 +1466,7 @@ call::~call()
         }
     }
 
-    if (srtpcheck_debug)
-    {
+    if (_srtpctxdebugfile) {
         fclose(_srtpctxdebugfile);
         _srtpctxdebugfile = nullptr;
     }
