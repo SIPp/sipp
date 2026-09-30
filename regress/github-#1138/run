@@ -1,0 +1,23 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A response whose headers do not end with a blank line, to a scenario
+# that plays pcap and so reads the SDP of responses, must not crash
+# SIPp.
+. "`dirname "$0"`/../functions"; init
+
+"`get_sipp`" -v | grep -q PCAP || skip "no PCAP"
+command -v python3 >/dev/null || skip "no python3"
+
+python3 uas.py &
+uas=$!
+sleep 0.5
+sippfg -sf uac.xml -i 127.0.0.1 -p 26463 -m 1 127.0.0.1:26462 \
+    -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait $uas
+
+if test $status -ne 0; then
+    fail "UAC exited with $status"
+else
+    ok
+fi
