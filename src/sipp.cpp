@@ -1971,7 +1971,12 @@ int main(int argc, char *argv[])
                     if ((pass == 0) && (remote_host[0] != 0)) {
                         ERROR("remote_host given multiple times on command-line (%s and %s)", remote_host, argv[argi]);
                     }
-                    strncpy(remote_host, argv[argi], sizeof(remote_host) - 1);
+                    size_t len = strlen(argv[argi]);
+                    if (len >= sizeof(remote_host)) {
+                        ERROR("The remote host is too long, %zu characters at most: '%s'", sizeof(remote_host) - 1,
+                              argv[argi]);
+                    }
+                    memcpy(remote_host, argv[argi], len + 1);
                     continue;
                 }
                 help();

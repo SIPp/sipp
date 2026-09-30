@@ -1,0 +1,28 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A remote host or a -slave_cfg host too long for its buffer fails with
+# an error that shows it whole, and is not cut short.
+. "`dirname "$0"`/../functions"; init
+
+host=`printf '%0300d' 0 | tr 0 a`.example
+cfg=`mktemp`
+printf 'm;%s:26161;\ns1;127.0.0.1:26162;\n' $host >$cfg
+
+remote=`sippfg -sn uac -i 127.0.0.1 -p 26160 -m 1 -timeout 5 $host 2>&1`
+remote_status=$?
+twin=`sippfg -sf master.xml -master m -slave_cfg $cfg -i 127.0.0.1 \
+    -p 26160 -m 1 -timeout 5 2>&1`
+twin_status=$?
+rm -f $cfg
+
+if test $remote_status -ne 255; then
+    fail "remote host: exited with $remote_status"
+elif ! echo "$remote" | grep -q "The remote host is too long, 254 characters at most: '$host'"; then
+    fail "remote host: `echo "$remote" | head -1 | cut -c1-80`"
+elif test $twin_status -ne 255; then
+    fail "-slave_cfg host: exited with $twin_status"
+elif ! echo "$twin" | grep -q "The -slave_cfg host of m is too long, 254 characters at most: '$host:26161'"; then
+    fail "-slave_cfg host: `echo "$twin" | head -1 | cut -c1-80`"
+else
+    ok
+fi

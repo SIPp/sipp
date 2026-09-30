@@ -2983,6 +2983,18 @@ static void get_remote_addresses(const char *host, int port)
     freeaddrinfo(res);
 }
 
+/* Take the -slave_cfg host of a peer as the twin host, or fail. */
+static void set_twin_host(char *peer)
+{
+    const char *host = get_peer_addr(peer);
+    size_t len = strlen(host);
+    if (len >= sizeof(twinSippHost)) {
+        ERROR("The -slave_cfg host of %s is too long, %zu characters at most: '%s'", peer, sizeof(twinSippHost) - 1,
+              host);
+    }
+    memcpy(twinSippHost, host, len + 1);
+}
+
 int open_connections()
 {
     int status=0;
@@ -3366,12 +3378,12 @@ int open_connections()
         }
     } else if (extendedTwinSippMode) {
         if (thirdPartyMode == MODE_MASTER || thirdPartyMode == MODE_MASTER_PASSIVE) {
-            strncpy(twinSippHost, get_peer_addr(master_name), sizeof(twinSippHost) - 1);
+            set_twin_host(master_name);
             get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
             connect_local_twin_socket(twinSippHost);
             connect_to_all_peers();
         } else if (thirdPartyMode == MODE_SLAVE) {
-            strncpy(twinSippHost, get_peer_addr(slave_number), sizeof(twinSippHost) - 1);
+            set_twin_host(slave_number);
             get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
             connect_local_twin_socket(twinSippHost);
         } else {

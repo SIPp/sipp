@@ -275,6 +275,8 @@ marked **Breaking**.
     spurious epoll and shutdown warnings, and an unknown `~user` in one
     line (#913, #914, #930, #989, #995, #1054, #1065, #1071, #1180)
   - help texts of `-max_retrans` and `-sendbuffer_warn` (#917, #967)
+  - a remote host or `-slave_cfg` host over 254 characters is refused
+    rather than cut short (#1214)
 - Documentation and tests (by Orgad Shaneh): the docs build with current
   Sphinx (#949), exit codes, media ports and receive timeouts are
   documented (#950, #952, #953), CONTRIBUTING.md says what makes a PR
