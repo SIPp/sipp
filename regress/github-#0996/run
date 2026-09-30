@@ -17,7 +17,7 @@ tls="-tls_cert $certs/cert.pem -tls_key $certs/key.pem"
 sippbg -sn uas -t l1 -i 127.0.0.1 -p 5070 -m 1 $tls
 # A proxy to the UAS that resets the UAC's connection after a second,
 # then answers its reconnection with bytes that are not TLS.
-perl -MIO::Socket::INET -MIO::Select -e '
+perl -MIO::Socket::INET -MIO::Select -MTime::HiRes=time -e '
     $l = IO::Socket::INET->new(LocalAddr => "127.0.0.1:5071",
         Listen => 1, ReuseAddr => 1) or die;
     alarm 15;

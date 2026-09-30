@@ -60,7 +60,7 @@ fi
 # accepts its reconnection and stays silent: the new socket must not
 # block in the handshake.
 sippbg -sn uas -t l1 -i 127.0.0.1 -p 25424 -m 1 $tls
-perl -MIO::Socket::INET -MIO::Select -e '
+perl -MIO::Socket::INET -MIO::Select -MTime::HiRes=time -e '
     $l = IO::Socket::INET->new(LocalAddr => "127.0.0.1:25425",
         Listen => 1, ReuseAddr => 1) or die;
     $c = $l->accept;
