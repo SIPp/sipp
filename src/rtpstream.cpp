@@ -2191,6 +2191,10 @@ static int rtpstream_get_localport(int* rtpsocket, int* rtcpsocket)
 
     debugprint("rtpstream_get_localport\n");
 
+    /* none, if it fails: the caller keeps them in the call's task */
+    *rtpsocket = -1;
+    *rtcpsocket = -1;
+
     if (next_rtp_port == 0) {
         next_rtp_port = min_rtp_port;
     }
