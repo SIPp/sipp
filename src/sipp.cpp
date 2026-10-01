@@ -1143,89 +1143,6 @@ static void rtp_echo_thread(void* param)
     }
 }
 
-/* Wrap the help text. */
-static char* wrap(const char* in, int offset, int size)
-{
-    int pos = 0;
-    int i, j;
-    int l = strlen(in);
-    int alloced = l + 1;
-    char* out = (char*)malloc(alloced);
-    int indent = 0;
-
-    if (!out) {
-        ERROR_NO("malloc");
-    }
-
-    for (i = j = 0; i < l; i++) {
-        out[j++] = in[i];
-        if (in[i] == '\n') {
-            out = (char*)realloc(out, alloced += offset);
-            if (!out) {
-                ERROR_NO("realloc");
-            }
-            pos = 0;
-            for (int k = 0; k < offset; k++) {
-                out[j++] = ' ';
-            }
-            if (indent) {
-                indent = 0;
-            }
-        }
-        if (in[i] == '-' && i > 0 && in[i - 1] == '\n') {
-            indent = 1;
-        }
-        if (++pos > size) {
-            int k;
-            for (k = j - 1; k > 0 && !isspace(out[k]); k--);
-            int useoffset = offset;
-
-            if (indent) {
-                useoffset += 2;
-            }
-
-            if (k == 0 || out[k] == '\n') {
-                pos = 0;
-                out[j++] = '\n';
-                out = (char*)realloc(out, alloced += useoffset);
-                if (!out) {
-                    ERROR_NO("realloc");
-                }
-                for (k = 0; k < useoffset; k++) {
-                    out[j++] = ' ';
-                }
-            } else {
-                int m;
-                int move_back = 0;
-
-                out[k] = '\n';
-                pos = j - k;
-                // move_back is used to step back in the in and out buffers when a
-                // word is longer than useoffset.
-                if (i > (k + useoffset)) {
-                    move_back = i - (k + useoffset);
-                    i -= move_back;
-                }
-                k++;
-                out = (char*)realloc(out, alloced += useoffset);
-                if (!out) {
-                    ERROR_NO("realloc");
-                }
-                for (m = 0; m < useoffset; m++) {
-                    if (k + useoffset + m < alloced) {
-                        out[k + useoffset + m] = out[k + m];
-                    }
-                    out[k + m] = ' ';
-                }
-                j += useoffset - move_back;
-            }
-        }
-    }
-    out[j] = '\0';
-
-    return out;
-}
-
 /* If stdout is a TTY, wrap stdout in a call to PAGER (generally less(1)).
  * Returns a pid_t you'll have to pass to end_pager(). */
 static pid_t begin_pager() {
@@ -1359,17 +1276,15 @@ static void help()
      * introduce a new option and keep the code a bit cleaner. */
     max = sizeof(options_table) / sizeof(options_table[0]);
     for (i = 0; i < max; i++) {
-        char *formatted;
         if (!options_table[i].help) {
             continue;
         }
-        formatted = wrap(options_table[i].help, 22, 77);
+        std::string formatted = wrap(options_table[i].help, 22, 77);
         if (options_table[i].type == SIPP_HELP_TEXT_HEADER) {
-            printf("\n*** %s\n\n", formatted);
+            printf("\n*** %s\n\n", formatted.c_str());
         } else {
-            printf("   -%-16s: %s\n", options_table[i].option, formatted);
+            printf("   -%-16s: %s\n", options_table[i].option, formatted.c_str());
         }
-        free(formatted);
     }
 
     printf

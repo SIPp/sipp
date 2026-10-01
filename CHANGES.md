@@ -147,6 +147,8 @@ marked **Breaking**.
     made from a long scenario name, and in the AES_192_CM and AES_256_CM
     crypto keywords (#883, #905, #963, #997, #1068, #1147, #1164, #1165,
     #1215)
+  - a heap overflow in the help's wrapping of a word longer than a line
+    (#1240)
   - use-after-free when another thread hits a fatal error (#885), on TCP
     reconnection (#935, #1175), when one of SIPp's own messages fails to
     send (#991), in an `<ereg search_in="var">` that assigns to the
