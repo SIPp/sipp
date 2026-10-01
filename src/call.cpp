@@ -2971,13 +2971,30 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, int *msgLen)
 
 char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buffer, int buf_len, int *msgLen)
 {
-    /* The message is built in a string and copied into msg_buffer at the
-     * end, cut to what fits there. Until then msg_buffer is only scratch
-     * space for the keywords that fill a char buffer. */
+    /* Room for most messages, rather than growing it a piece at a time */
+    const std::string out = buildSendingMessage(src, P_index, msg_buffer, buf_len, 2048);
+    memcpy(msg_buffer, out.c_str(), out.size() + 1);
+    if (msgLen) {
+        *msgLen = out.size();
+    }
+    return msg_buffer;
+}
+
+std::string call::createSendingString(SendingMessage *src, int P_index)
+{
+    /* Not the buffer createSendingMessage() returns, which holds the
+     * message sent while its actions run. */
+    static char scratch[SIPP_MAX_MSG_SIZE + 1];
+    return buildSendingMessage(src, P_index, scratch, sizeof(scratch), 0);
+}
+
+/* The message, cut to buf_len - 1 bytes. The keywords that fill a char
+ * buffer use scratch, of buf_len bytes. */
+std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *scratch, int buf_len, size_t reserve)
+{
     const size_t max_len = buf_len - 1;
     std::string out;
-    /* Room for most messages, rather than growing it a piece at a time */
-    out.reserve(std::min<size_t>(max_len, 2048));
+    out.reserve(std::min(max_len, reserve));
     size_t length_marker = std::string::npos;
     size_t auth_marker = std::string::npos;
     MessageComponent *auth_comp = nullptr;
@@ -4398,8 +4415,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
         case E_Message_Injection: {
             const size_t orig_len = out.size();
-            out.append(msg_buffer, getFieldFromInputFile(comp->field_param.filename.c_str(), comp->field_param.field,
-                                                         comp->field_param.line, msg_buffer, buf_len));
+            out.append(scratch, getFieldFromInputFile(comp->field_param.filename.c_str(), comp->field_param.field,
+                                                      comp->field_param.line, scratch, buf_len));
             /* We are injecting an authentication line. */
             if (size_t tmp = out.find("[authentication", orig_len); tmp != std::string::npos) {
                 if (auth_marker != std::string::npos) {
@@ -4459,8 +4476,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             /* Keywords registered by plugins: don't trust the returned
              * length to stay inside the space we gave them. */
             const int room = max_len - out.size() + 1;
-            const int n = comp->comp_param.fxn(this, comp, msg_buffer, room);
-            out.append(msg_buffer, std::clamp(n, 0, room - 1));
+            const int n = comp->comp_param.fxn(this, comp, scratch, room);
+            out.append(scratch, std::clamp(n, 0, room - 1));
             if (n >= room) {
                 truncated = true;
             }
@@ -4593,11 +4610,6 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             warned = true;
         }
     }
-    memcpy(msg_buffer, out.c_str(), out.size() + 1);
-    if (msgLen) {
-        *msgLen = out.size();
-    }
-
     if (auth_comp_allocated) {
         SendingMessage::freeMessageComponent(auth_comp);
     }
@@ -4661,8 +4673,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
     }
 
     if (body != std::string::npos &&
-        !strcmp(get_header_content(msg_buffer, (char*)"Content-Type:"), "application/sdp"))
-    {
+        !strcmp(get_header_content(out.c_str(), (char *)"Content-Type:"), "application/sdp")) {
         if (getSessionStateCurrent() == eNoSession)
         {
             logSrtpInfo("call::createSendingMessage():  Switching session state:  eNoSession --> eOfferSent\n");
@@ -4682,7 +4693,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
     }
 
-    return msg_buffer;
+    return out;
 }
 
 /* Is there a <recvCmd> after the step at index, before the call sends
@@ -6722,61 +6733,58 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             M_callVariableTable->getVar(currentAction->getSubVarId(0))->setDouble((double)tv.tv_usec);
         } else if (currentAction->getActionType() == CAction::E_AT_LOOKUP) {
             /* Create strings from the sending messages. */
-            char *file = strdup(createSendingMessage(currentAction->getMessage(0)));
-            char *key = strdup(createSendingMessage(currentAction->getMessage(1)));
+            std::string file = createSendingString(currentAction->getMessage(0));
+            std::string key = createSendingString(currentAction->getMessage(1));
 
-            if (inFiles.find(file) == inFiles.end()) {
-                ERROR("Invalid injection file for insert: %s", file);
+            auto in_file = inFiles.find(file.c_str());
+            if (in_file == inFiles.end()) {
+                ERROR("Invalid injection file for insert: %s", file.c_str());
             }
 
-            double value = inFiles[file]->lookup(key);
+            double value = in_file->second->lookup(key.data());
 
             M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
-            free(file);
-            free(key);
         } else if (currentAction->getActionType() == CAction::E_AT_INSERT) {
             /* Create strings from the sending messages. */
-            char *file = strdup(createSendingMessage(currentAction->getMessage(0)));
-            char *value = strdup(createSendingMessage(currentAction->getMessage(1)));
+            std::string file = createSendingString(currentAction->getMessage(0));
+            std::string value = createSendingString(currentAction->getMessage(1));
 
-            if (inFiles.find(file) == inFiles.end()) {
-                ERROR("Invalid injection file for insert: %s", file);
+            auto in_file = inFiles.find(file.c_str());
+            if (in_file == inFiles.end()) {
+                ERROR("Invalid injection file for insert: %s", file.c_str());
             }
 
-            inFiles[file]->insert(value);
-
-            free(file);
-            free(value);
+            in_file->second->insert(value.data());
         } else if (currentAction->getActionType() == CAction::E_AT_REPLACE) {
             /* Create strings from the sending messages. */
-            char *file = strdup(createSendingMessage(currentAction->getMessage(0)));
-            char *line = strdup(createSendingMessage(currentAction->getMessage(1)));
-            char *value = strdup(createSendingMessage(currentAction->getMessage(2)));
+            std::string file = createSendingString(currentAction->getMessage(0));
+            std::string line = createSendingString(currentAction->getMessage(1));
+            std::string value = createSendingString(currentAction->getMessage(2));
 
-            if (inFiles.find(file) == inFiles.end()) {
-                ERROR("Invalid injection file for replace: %s", file);
+            auto in_file = inFiles.find(file.c_str());
+            if (in_file == inFiles.end()) {
+                ERROR("Invalid injection file for replace: %s", file.c_str());
             }
 
             char *endptr;
-            int lineNum = (int)strtod(line, &endptr);
+            int lineNum = (int)strtod(line.c_str(), &endptr);
             if (*endptr) {
-                ERROR("Invalid line number for replace: %s", line);
+                ERROR("Invalid line number for replace: %s", line.c_str());
             }
 
-            inFiles[file]->replace(lineNum, value);
-
-            free(file);
-            free(line);
-            free(value);
+            in_file->second->replace(lineNum, value.data());
         } else if (currentAction->getActionType() == CAction::E_AT_CLOSE_CON) {
             if (call_socket) {
                 dissociate_socket()->close();
             }
         } else if (currentAction->getActionType() == CAction::E_AT_SET_DEST) {
             /* Change the destination for this call. */
-            char *str_host = strdup(createSendingMessage(currentAction->getMessage(0)));
-            char *str_port = strdup(createSendingMessage(currentAction->getMessage(1)));
-            char *str_protocol = strdup(createSendingMessage(currentAction->getMessage(2)));
+            const std::string host = createSendingString(currentAction->getMessage(0));
+            const std::string port_text = createSendingString(currentAction->getMessage(1));
+            const std::string protocol_text = createSendingString(currentAction->getMessage(2));
+            const char *str_host = host.c_str();
+            const char *str_port = port_text.c_str();
+            const char *str_protocol = protocol_text.c_str();
 
             char *endptr;
             int port = (int)strtod(str_port, &endptr);
@@ -6855,10 +6863,6 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
             memcpy(&call_socket->ss_dest, &call_peer, sizeof(call_peer));
 
-            free(str_host);
-            free(str_port);
-            free(str_protocol);
-
             if (protocol == T_TCP || protocol == T_SCTP || protocol == T_WS) {
                 call_socket->close_fd();
                 call_socket->ss_changed_dest = true;
@@ -6902,18 +6906,14 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             } else if (lf < end) {
                 result = false;
             } else {
-                char *auth = get_header(msg, "Authorization:", true);
-                auth = strdup(auth); // make a copy to avoid later get_header function call(clear its content)
-                char *method = (char *)malloc(end - msg + 1);
-                strncpy(method, msg, end - msg);
-                method[end - msg] = '\0';
+                // a copy: a later get_header() call clears its content
+                const std::string auth = get_header(msg, "Authorization:", true);
+                const std::string method(msg, end - msg);
 
                 /* Generate the username to verify it against. */
-                char *tmp = createSendingMessage(currentAction->getMessage(0));
-                char *username = strdup(tmp);
+                const std::string username = createSendingString(currentAction->getMessage(0));
                 /* Generate the password to verify it against. */
-                tmp= createSendingMessage(currentAction->getMessage(1));
-                char *password = strdup(tmp);
+                const std::string password = createSendingString(currentAction->getMessage(1));
                 /* Need the body for length and auth-int calculation */
                 const char *body;
                 const char *auth_body = nullptr;
@@ -6925,12 +6925,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                     auth_body = "";
                 }
 
-                result = verifyAuthHeader(username, password, method, auth, auth_body);
-
-                free(username);
-                free(password);
-                free(method);
-                free(auth);
+                result = verifyAuthHeader(username.c_str(), password.c_str(), method.c_str(), auth.c_str(), auth_body);
             }
 
             M_callVariableTable->getVar(currentAction->getVarId())->setBool(result);
@@ -7069,18 +7064,16 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
         } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_STRING) {
             M_callVariableTable->getVar(currentAction->getVarId())
-                ->setString(createSendingMessage(currentAction->getMessage()));
+                ->setString(createSendingString(currentAction->getMessage()));
         } else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
-            char* x = createSendingMessage(currentAction->getMessage());
-            LOG_MSG("%s\n", x);
+            LOG_MSG("%s\n", createSendingString(currentAction->getMessage()).c_str());
         } else if (currentAction->getActionType() == CAction::E_AT_LOG_WARNING) {
-            char* x = createSendingMessage(currentAction->getMessage());
-            WARNING("%s", x);
+            WARNING("%s", createSendingString(currentAction->getMessage()).c_str());
         } else if (currentAction->getActionType() == CAction::E_AT_LOG_ERROR) {
-            char* x = createSendingMessage(currentAction->getMessage());
-            ERROR("%s", x);
+            ERROR("%s", createSendingString(currentAction->getMessage()).c_str());
         } else if (currentAction->getActionType() == CAction::E_AT_EXECUTE_CMD) {
-            char* x = createSendingMessage(currentAction->getMessage());
+            const std::string command = createSendingString(currentAction->getMessage());
+            const char *x = command.c_str();
             // TRACE_MSG("Trying to execute [%s]", x);
             pid_t l_pid;
             switch(l_pid = fork()) {
@@ -7116,7 +7109,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 break;
             }
         } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_CMD) {
-            startVerify(createSendingMessage(currentAction->getMessage()));
+            startVerify(createSendingString(currentAction->getMessage()).c_str());
         } else if (currentAction->getActionType() == CAction::E_AT_EXEC_INTCMD) {
             switch (currentAction->getIntCmd()) {
             case CAction::E_INTCMD_STOP_ALL:
@@ -7158,9 +7151,9 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 
             /* the playback thread plays a copy, which owns a dtmf pcap */
             if (currentAction->getActionType() == CAction::E_AT_PLAY_DTMF) {
-                char* digits = createSendingMessage(currentAction->getMessage());
+                const std::string digits = createSendingString(currentAction->getMessage());
                 play_args->pcap = (pcap_pkts *) malloc(sizeof(pcap_pkts));
-                play_args->last_seq_no += parse_dtmf_play_args(digits, play_args->pcap, play_args->last_seq_no);
+                play_args->last_seq_no += parse_dtmf_play_args(digits.c_str(), play_args->pcap, play_args->last_seq_no);
                 play_args->free_pcap_when_done = 1;
             } else {
                 play_args->pcap = currentAction->getPcapPkts();
@@ -7238,8 +7231,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
             M_callVariableTable->getVar(currentAction->getVarId())->setString(std::move(digits));
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
-            const char *fileName = createSendingMessage(currentAction->getMessage());
-            currentAction->setRTPStreamActInfo(fileName);
+            currentAction->setRTPStreamActInfo(createSendingString(currentAction->getMessage()).c_str());
             /* A server plays with the keys of its own answer, as it echoes. */
             LazySrtpChannel& tx = sendMode == MODE_CLIENT ? _txUACAudio : _txUASAudio;
             LazySrtpChannel& rx = sendMode == MODE_CLIENT ? _rxUACAudio : _rxUASAudio;
@@ -7250,8 +7242,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEAPATTERN) {
             rtpstream_resumeapattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYAPATTERN) {
-            const char *fileName = createSendingMessage(currentAction->getMessage());
-            currentAction->setRTPStreamActInfo(fileName);
+            currentAction->setRTPStreamActInfo(createSendingString(currentAction->getMessage()).c_str());
             /* A server plays with the keys of its own answer, as it echoes. */
             LazySrtpChannel &tx = sendMode == MODE_CLIENT ? _txUACAudio : _txUASAudio;
             LazySrtpChannel &rx = sendMode == MODE_CLIENT ? _rxUACAudio : _rxUASAudio;
@@ -7265,8 +7256,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEVPATTERN) {
             rtpstream_resumevpattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAYVPATTERN) {
-            const char *fileName = createSendingMessage(currentAction->getMessage());
-            currentAction->setRTPStreamActInfo(fileName);
+            currentAction->setRTPStreamActInfo(createSendingString(currentAction->getMessage()).c_str());
             /* A server plays with the keys of its own answer, as it echoes. */
             LazySrtpChannel &tx = sendMode == MODE_CLIENT ? _txUACVideo : _txUASVideo;
             LazySrtpChannel &rx = sendMode == MODE_CLIENT ? _rxUACVideo : _rxUASVideo;
@@ -7864,8 +7854,9 @@ public:
     mockcall(bool is_ipv6, struct sockaddr_storage *dest) : listener("//testing", true), call(main_scenario, "///testing", is_ipv6, 0, dest) {}
 
     /* Helpers to poke at protected internals */
-    using call::extract_rtp_remote_addr;
     using call::createSendingMessage;
+    using call::createSendingString;
+    using call::extract_rtp_remote_addr;
     void set_last_recv_msg(const char *msg)
     {
         assign_exact(last_recv_msg, msg);
@@ -8263,6 +8254,17 @@ TEST(create_sending_message, zero_content_length_keeps_later_headers) {
 
     EXPECT_STREQ("BYE sip:a@b SIP/2.0\r\nContent-Length:     0\r\nX-Foo: bar\r\n\r\n", out);
     EXPECT_EQ((size_t)len, strlen(out));
+}
+
+TEST(create_sending_message, string_leaves_the_message_buffer)
+{
+    mockcall test_call(false);
+    SendingMessage msg(main_scenario, "BYE sip:a@b SIP/2.0\nContent-Length: [len]\n\n", true);
+    SendingMessage text(main_scenario, "abc", true);
+    const char *out = test_call.createSendingMessage(&msg, -1);
+
+    EXPECT_EQ("abc", test_call.createSendingString(&text));
+    EXPECT_STREQ("BYE sip:a@b SIP/2.0\r\nContent-Length:     0\r\n\r\n", out);
 }
 
 TEST(call_run, stops_after_fatal_retransmission_send_error) {

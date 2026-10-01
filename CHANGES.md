@@ -284,6 +284,9 @@ marked **Breaking**.
     #933, #1012)
   - `[dynamic_id]` goes back to `-dynamicStart` without overflowing an
     int (#1242)
+  - an `<ereg search_in="msg">` of a `<send>` searches the message sent
+    also after an `<assignstr>`, `<log>` or other action that makes a
+    text (#1248)
 - Options, statistics and screens (by Orgad Shaneh):
   - `-timeout` fires to the millisecond (#1053), `-nd` works on
     big-endian hosts (#915), and `-tdmmap` frees each call's circuit and
