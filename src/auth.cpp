@@ -59,36 +59,31 @@ static constexpr size_t MAX_OPAQUE_LEN = 63;
 /* AKA */
 
 #define KLEN 16
-typedef u_char K[KLEN];
+typedef std::array<u_char, KLEN> K;
 #define RANDLEN 16
-typedef u_char RAND[RANDLEN];
+typedef std::array<u_char, RANDLEN> RAND;
 #define AUTNLEN 16
-typedef u_char AUTN[AUTNLEN];
 
 #define AKLEN 6
-typedef u_char AK[AKLEN];
+typedef std::array<u_char, AKLEN> AK;
 #define AMFLEN 2
-typedef u_char AMF[AMFLEN];
+typedef std::array<u_char, AMFLEN> AMF;
 #define MACLEN 8
-typedef u_char MAC[MACLEN];
+typedef std::array<u_char, MACLEN> MAC;
 #define CKLEN 16
-typedef u_char CK[CKLEN];
+typedef std::array<u_char, CKLEN> CK;
 #define IKLEN 16
-typedef u_char IK[IKLEN];
+typedef std::array<u_char, IKLEN> IK;
 #define SQNLEN 6
-typedef u_char SQN[SQNLEN];
+typedef std::array<u_char, SQNLEN> SQN;
 #define AUTSLEN 14
-typedef char AUTS[AUTSLEN];
-#define AUTS64LEN 29
-typedef char AUTS64[AUTS64LEN];
+typedef std::array<u_char, AUTSLEN> AUTS;
 #define RESLEN 8
-typedef unsigned char RES[RESLEN+1];
-#define RESHEXLEN 17
-typedef char RESHEX[RESHEXLEN];
+typedef std::array<u_char, RESLEN> RES;
 #define OPLEN 16
-typedef u_char OP[OPLEN];
+typedef std::array<u_char, OPLEN> OP;
 
-AMF amfstar="\0";
+AMF amfstar = {};
 SQN sqn_he= {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 /* end AKA */
@@ -624,21 +619,16 @@ int verifyAuthHeader(std::string_view user, std::string_view password, std::stri
     return !response.empty() && result.view() == response;
 }
 
-static char* base64_decode_string(const char* buf, unsigned int len, int* newlen)
+/* The bytes of the base64 text buf: none if it is not base64 */
+static std::string base64_decode_string(std::string_view buf)
 {
-    char* out = (char*)malloc((len * 3 / 4) + 8);
-    if (!out) {
-        *newlen = 0;
-        return nullptr;
-    }
+    const unsigned int len = buf.size();
+    std::string out(len * 3 / 4 + 8, '\0');
 
-    int decoded_len = EVP_DecodeBlock((unsigned char*)out,
-                                       (const unsigned char*)buf, len);
+    int decoded_len = EVP_DecodeBlock((unsigned char *)&out[0], (const unsigned char *)buf.data(), len);
 
     if (decoded_len < 0) {
-        free(out);
-        *newlen = 0;
-        return nullptr;
+        return {};
     }
 
     // OpenSSL decodes the '=' padding as zero bytes, wolfSSL doesn't
@@ -647,30 +637,27 @@ static char* base64_decode_string(const char* buf, unsigned int len, int* newlen
         if (len > 1 && buf[len - 2] == '=') decoded_len--;
     }
 
-    out[decoded_len] = '\0';
-    *newlen = decoded_len;
+    out.resize(decoded_len);
     return out;
 }
 
-char hexa[17] = "0123456789abcdef";
-
 /* An AKA key's bytes: those of its text, or those its hex digits after
  * "0x" give, with zeros past their end. */
-static void getAKAKey(const char* text, u_char* key, size_t len)
+static void getAKAKey(std::string_view text, u_char *key, size_t len)
 {
     size_t n = 0;
 
     memset(key, 0, len);
-    if (text[0] == '0' && text[1] == 'x') {
-        for (text += 2; n < len && isxdigit(*text); n++) {
-            int val = get_decimal_from_hex(*text++);
-            if (isxdigit(*text)) {
-                val = (val << 4) + get_decimal_from_hex(*text++);
+    if (text.size() >= 2 && text[0] == '0' && text[1] == 'x') {
+        for (size_t i = 2; n < len && i < text.size() && isxdigit(text[i]); n++) {
+            int val = get_decimal_from_hex(text[i++]);
+            if (i < text.size() && isxdigit(text[i])) {
+                val = (val << 4) + get_decimal_from_hex(text[i++]);
             }
             key[n] = val;
         }
     } else {
-        memcpy(key, text, strnlen(text, len));
+        memcpy(key, text.data(), std::min(text.size(), len));
     }
 }
 
@@ -681,13 +668,11 @@ static bool createAuthHeaderAKAv1MD5(std::string_view user, const char *aka_OP, 
 {
 
     int has_auts = 0;
-    char *nonce;
-    int noncelen;
     AMF amf;
     OP op;
     RAND rnd;
     AUTS auts_bin;
-    AUTS64 auts_hex;
+    std::array<char, 2 * AUTSLEN> auts_hex;
     MAC mac, xmac;
     SQN sqn, sqnxoraka, sqn_ms;
     K k;
@@ -705,36 +690,32 @@ static bool createAuthHeaderAKAv1MD5(std::string_view user, const char *aka_OP, 
     }
 
     /* Compute the AKA RES */
-    nonce = base64_decode_string(nonce64.data(), nonce64.size(), &noncelen);
-    if (noncelen < RANDLEN + AUTNLEN) {
-        if (nonce)
-            free(nonce);
-        result = "createAuthHeaderAKAv1MD5 : Nonce is too short " + std::to_string(noncelen) +
-                 " < " + std::to_string(RANDLEN + AUTNLEN) + " expected\n";
+    const std::string nonce = base64_decode_string(nonce64);
+    if (nonce.size() < RANDLEN + AUTNLEN) {
+        result = "createAuthHeaderAKAv1MD5 : Nonce is too short " + std::to_string(nonce.size()) + " < " +
+                 std::to_string(RANDLEN + AUTNLEN) + " expected\n";
         return false;
     }
-    memcpy(rnd, nonce, RANDLEN);
-    memcpy(sqnxoraka, nonce + RANDLEN, SQNLEN);
+    memcpy(rnd.data(), nonce.data(), RANDLEN);
+    memcpy(sqnxoraka.data(), nonce.data() + RANDLEN, SQNLEN);
     /* The MAC is over the AMF of AUTN, as a USIM checks it (3GPP TS
      * 33.102 6.3.3): aka_AMF is not used. */
-    memcpy(amf, nonce + RANDLEN + SQNLEN, AMFLEN);
-    memcpy(mac, nonce + RANDLEN + SQNLEN + AMFLEN, MACLEN);
+    memcpy(amf.data(), nonce.data() + RANDLEN + SQNLEN, AMFLEN);
+    memcpy(mac.data(), nonce.data() + RANDLEN + SQNLEN + AMFLEN, MACLEN);
     /* An omitted aka_OP is all zeros, not what the buffer held. */
-    getAKAKey(aka_K, k, KLEN);
-    getAKAKey(aka_OP, op, OPLEN);
+    getAKAKey(aka_K, k.data(), KLEN);
+    getAKAKey(aka_OP, op.data(), OPLEN);
 
     /* Compute the AK, response and keys CK IK */
-    f2345(k, rnd, res, ck, ik, ak, op);
-    res[RESLEN] = '\0';
+    f2345(k.data(), rnd.data(), res.data(), ck.data(), ik.data(), ak.data(), op.data());
 
     /* Compute sqn encoded in AUTN */
     for (i=0; i < SQNLEN; i++)
         sqn[i] = sqnxoraka[i] ^ ak[i];
 
     /* compute XMAC */
-    f1(k, rnd, sqn, amf, xmac, op);
-    if (memcmp(mac, xmac, MACLEN) != 0) {
-        free(nonce);
+    f1(k.data(), rnd.data(), sqn.data(), amf.data(), xmac.data(), op.data());
+    if (mac != xmac) {
         result = "createAuthHeaderAKAv1MD5 : MAC != expectedMAC -> Server might not know the secret (man-in-the-middle attack?)\n";
         return false;
     }
@@ -747,41 +728,36 @@ static bool createAuthHeaderAKAv1MD5(std::string_view user, const char *aka_OP, 
         sqn_he[5] = sqn[5];
         has_auts = 0;
         /* RES has to be used as password to compute response */
-        if (!createAuthHeaderDigest(EVP_md5(), false, user, std::string_view((const char *)res, RESLEN), method, uri,
-                                    msgbody, auth, algo, nonce_count, result)) {
-            free(nonce);
+        if (!createAuthHeaderDigest(EVP_md5(), false, user, std::string_view((const char *)res.data(), RESLEN), method,
+                                    uri, msgbody, auth, algo, nonce_count, result)) {
             result = "createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderDigest\n";
             return false;
         }
     } else {
         sqn_ms[5] = sqn_he[5] + 1;
-        f5star(k, rnd, ak, op);
+        f5star(k.data(), rnd.data(), ak.data(), op.data());
         for(i=0; i<SQNLEN; i++)
             auts_bin[i]=sqn_ms[i]^ak[i];
         /* AUTS has a MAC-S over a dummy AMF of zeros (3GPP TS 33.102
          * 6.3.3) */
-        f1star(k, rnd, sqn_ms, amfstar, (unsigned char * ) (auts_bin+SQNLEN), op);
+        f1star(k.data(), rnd.data(), sqn_ms.data(), amfstar.data(), auts_bin.data() + SQNLEN, op.data());
         has_auts = 1;
         /* When re-synchronisation occurs an empty password has to be used */
         /* to compute MD5 response (Cf. rfc 3310 section 3.2) */
         if (!createAuthHeaderDigest(EVP_md5(), false, user, "", method, uri, msgbody, auth, algo, nonce_count,
                                     result)) {
-            free(nonce);
             result = "createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderDigest\n";
             return false;
         }
     }
     if (has_auts) {
         /* Format data for output in the SIP message */
-        for (i = 0; i < AUTSLEN; i++) {
-            auts_hex[2*i] = hexa[(auts_bin[i]&0xF0)>>4];
-            auts_hex[2*i+1] = hexa[auts_bin[i]&0x0F];
-        }
-        auts_hex[AUTS64LEN-1] = 0;
+        hashToHex(auts_bin.data(), AUTSLEN, auts_hex.data());
 
-        result += std::string(",auts=\"") + auts_hex + "\"";
+        result += ",auts=\"";
+        result.append(auts_hex.data(), auts_hex.size());
+        result += "\"";
     }
-    free(nonce);
     return true;
 }
 
@@ -1019,30 +995,12 @@ TEST(DigestAuth, SessAlgorithms) {
 }
 
 TEST(DigestAuth, base64_decode_string) {
-    int len;
-    char* out = base64_decode_string("YWJj", 4, &len);
-    ASSERT_NE(nullptr, out);
-    EXPECT_EQ(3, len);
-    EXPECT_STREQ("abc", out);
-    free(out);
-    out = base64_decode_string("YWJjZGU=", 8, &len);
-    ASSERT_NE(nullptr, out);
-    EXPECT_EQ(5, len);
-    EXPECT_STREQ("abcde", out);
-    free(out);
-    out = base64_decode_string("YWJjZA==", 8, &len);
-    ASSERT_NE(nullptr, out);
-    EXPECT_EQ(4, len);
-    EXPECT_STREQ("abcd", out);
-    free(out);
+    EXPECT_EQ("abc", base64_decode_string("YWJj"));
+    EXPECT_EQ("abcde", base64_decode_string("YWJjZGU="));
+    EXPECT_EQ("abcd", base64_decode_string("YWJjZA=="));
     /* Zero bytes are decoded, not taken as padding */
-    out = base64_decode_string("AAAA", 4, &len);
-    ASSERT_NE(nullptr, out);
-    EXPECT_EQ(3, len);
-    EXPECT_EQ(0, memcmp("\0\0\0", out, 4));
-    free(out);
-    EXPECT_EQ(nullptr, base64_decode_string("YW!j", 4, &len));
-    EXPECT_EQ(0, len);
+    EXPECT_EQ(std::string(3, '\0'), base64_decode_string("AAAA"));
+    EXPECT_EQ("", base64_decode_string("YW!j"));
 }
 
 TEST(DigestAuth, AKAv1MD5HexKeys) {
