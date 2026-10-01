@@ -1752,7 +1752,7 @@ int call::send_raw(const char * msg, int index, int len)
     struct sockaddr_storage *dest = &call_peer;
     if (!peekCold().request_sources.empty() && !strncmp(msg, "SIP/2.0 ", 8)) {
         char branch[MAX_HEADER_LEN];
-        extract_transaction(branch, msg);
+        extract_transaction(branch, sizeof(branch), msg);
         for (request_source &rs : cold_state->request_sources) {
             if (rs.branch == branch) {
                 if (!rs.socket) {
@@ -2331,7 +2331,7 @@ bool call::executeMessage(message *curmsg)
 
         if (curmsg->start_txn) {
             char branch[MAX_HEADER_LEN];
-            extract_transaction(branch, last_send_msg.c_str());
+            extract_transaction(branch, sizeof(branch), last_send_msg.c_str());
             transactions[curmsg->start_txn - 1].txnID = branch;
             transactions[curmsg->start_txn - 1].dialog = dialogs ? dialogs->current : 1;
         }
@@ -4905,7 +4905,8 @@ void call::extract_cseq_method(char* method, size_t size, const char* msg)
     method[nbytes] = '\0';
 }
 
-void call::extract_transaction(char* txn, const char* msg)
+/* The first branch in the Via headers of msg, cut to fit in size bytes */
+void call::extract_transaction(char *txn, size_t size, const char *msg)
 {
     char *via = get_header_content(msg, "via:");
     if (!via) {
@@ -4920,7 +4921,8 @@ void call::extract_transaction(char* txn, const char* msg)
     }
 
     branch += strlen(";branch=");
-    while (*branch && *branch != ';' && *branch != ',' && !isspace(*branch)) {
+    const char *end = txn + size - 1;
+    while (txn < end && *branch && *branch != ';' && *branch != ',' && !isspace(*branch)) {
         *txn++ = *branch++;
     }
     *txn = '\0';
@@ -5237,7 +5239,7 @@ void call::remember_request_source(const char *msg, const struct sockaddr_storag
     std::vector<request_source> &request_sources = cold().request_sources;
 
     char branch[MAX_HEADER_LEN];
-    extract_transaction(branch, msg);
+    extract_transaction(branch, sizeof(branch), msg);
     if (!*branch) {
         return;
     }
@@ -6115,7 +6117,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
         request[0] = 0;
         // extract the cseq method from the response
         extract_cseq_method(responsecseqmethod, sizeof(responsecseqmethod), msg);
-        extract_transaction(txn, msg);
+        extract_transaction(txn, sizeof(txn), msg);
     } else if ((ptr = strchr(msg, ' '))) {
         if ((ptr - msg) < 64) {
             memcpy(request, msg, ptr - msg);
