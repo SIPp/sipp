@@ -45,7 +45,6 @@ message::message(int index, const char *desc)
     this->desc = desc;
     pause_distribution = nullptr; // delete on exit
     pause_variable = -1;
-    pause_desc = nullptr; // free on exit
     sessions = 0;
     bShouldRecordRoutes = 0;
     bShouldAuthenticate = 0;
@@ -55,9 +54,7 @@ message::message(int index, const char *desc)
     timeout = 0;
     timeout_variable = -1;
 
-    recv_response = nullptr; // free on exit
     recv_response_code = 0;
-    recv_request = nullptr; // free on exit
     optional = 0;
     advance_state = true;
     regexp_match = 0;
@@ -69,20 +66,13 @@ message::message(int index, const char *desc)
     crlf = 0;
     ignoresdp = false;
     hide = 0;
-    display_str = nullptr; // free on exit
     test = -1;
     condexec = -1;
     condexec_inverse = false;
     chance = 0;/* meaning always */
     next = -1;
-    nextLabel = nullptr; // free on exit
     on_timeout = -1;
-    onTimeoutLabel = nullptr; // free on exit
     timewait = false;
-
-    /* 3pcc extended mode */
-    peer_dest = nullptr; // free on exit
-    peer_src = nullptr; // free on exit
 
     /* Statistics */
     nb_sent = 0;
@@ -109,31 +99,19 @@ message::message(int index, const char *desc)
     response_txn = 0;
     ack_txn = 0;
     dialog = 0;
-    recv_response_for_cseq_method_list = nullptr; // free on exit
 }
 
 message::~message()
 {
     delete pause_distribution;
-    free(pause_desc);
     delete send_scheme;
-    free(recv_request);
-    free(recv_response);
     if (regexp_compile != nullptr) {
         regfree(regexp_compile);
     }
     delete regexp_compile;
 
-    free(display_str);
-    free(nextLabel);
-    free(onTimeoutLabel);
-
-    free(peer_dest);
-    free(peer_src);
-
     delete M_actions;
     delete M_sendCmdData;
-    free(recv_response_for_cseq_method_list);
 }
 
 bool message::matchesRequest(const char *method)
@@ -142,15 +120,15 @@ bool message::matchesRequest(const char *method)
         return false;
     }
     if (!regexp_match) {
-        return !strcmp(recv_request, method);
+        return *recv_request == method;
     }
     if (regexp_compile == nullptr) {
         regex_t *re = new regex_t;
         /* No regex match position needed (NOSUB), we're simply
          * looking for the <request method="INVITE|REGISTER"../>
          * regex. */
-        if (regcomp(re, recv_request, REGCOMP_PARAMS | REG_NOSUB)) {
-            ERROR("Invalid regular expression for index %d: %s", index, recv_request);
+        if (regcomp(re, recv_request->c_str(), REGCOMP_PARAMS | REG_NOSUB)) {
+            ERROR("Invalid regular expression for index %d: %s", index, recv_request->c_str());
         }
         regexp_compile = re;
     }
@@ -167,8 +145,8 @@ bool message::matchesResponse(int code)
     }
     if (regexp_compile == nullptr) {
         regex_t *re = new regex_t;
-        if (regcomp(re, recv_response, REGCOMP_PARAMS | REG_NOSUB)) {
-            ERROR("Invalid regular expression for index %d: %s", index, recv_response);
+        if (regcomp(re, recv_response->c_str(), REGCOMP_PARAMS | REG_NOSUB)) {
+            ERROR("Invalid regular expression for index %d: %s", index, recv_response->c_str());
         }
         regexp_compile = re;
     }
@@ -192,8 +170,6 @@ int creationMode = MODE_CLIENT;
 int sendMode = MODE_CLIENT;
 /* This describes what our 3PCC behavior is. */
 int thirdPartyMode = MODE_3PCC_NONE;
-
-#define KEYWORD_SIZE 256
 
 /*************** Helper functions for various types *****************/
 /* Integers are decimal, or hexadecimal after "0x": a leading 0 does not
@@ -309,28 +285,28 @@ double get_double(const char *ptr, const char *what)
 #ifdef PCAPPLAY
 /* If the value is enclosed in [brackets], it is assumed to be
  * a command-line supplied keyword value (-key). */
-static char* xp_get_keyword_value(const char *name)
+static std::optional<std::string> xp_get_keyword_value(const char *name)
 {
     const char* ptr = xp_get_value(name);
     size_t len;
-    char keyword[KEYWORD_SIZE + 1];
 
     if (ptr && ptr[0] == '[' && (len = strlen(ptr)) && ptr[len - 1] == ']') {
-        memcpy(keyword, ptr + 1, len - 2);
-
-        auto gen = generic.find(keyword);
+        auto gen = generic.find(std::string(ptr + 1, len - 2));
         if (gen != generic.end()) {
-            return strdup((*gen).second.c_str());
+            return (*gen).second;
         }
 
         ERROR("%s \"%s\" looks like a keyword value, but keyword not supplied!", name, ptr);
     }
 
-    return ptr ? strdup(ptr) : nullptr;
+    if (ptr) {
+        return ptr;
+    }
+    return std::nullopt;
 }
 #endif
 
-static char* xp_get_string(const char *name, const char *what)
+static std::string xp_get_string(const char *name, const char *what)
 {
     const char *ptr;
 
@@ -338,53 +314,39 @@ static char* xp_get_string(const char *name, const char *what)
         ERROR("%s is missing the required '%s' parameter.", what, name);
     }
 
-    char *copy = strdup(ptr);
-    if (!copy) {
-        ERROR("Out of memory!");
-    }
-    return copy;
+    return ptr;
 }
 
 /* Set the n-th message of an action from the required attribute name. */
 static void xp_set_message(CAction *action, int n, const char *name, const char *what)
 {
-    char *ptr = xp_get_string(name, what);
-    action->setMessage(ptr, n);
-    free(ptr);
+    action->setMessage(xp_get_string(name, what), n);
+}
+
+/* The text naming a required parameter in an error */
+static std::string xp_helptext(const char *name, const char *what)
+{
+    return std::string(what) + " '" + name + "' parameter";
 }
 
 static double xp_get_double(const char *name, const char *what)
 {
     const char *ptr;
-    char *helptext;
-    double val;
 
     if (!(ptr = xp_get_value(name))) {
         ERROR("%s is missing the required '%s' parameter.", what, name);
     }
-    helptext = (char *)malloc(100 + strlen(name) + strlen(what));
-    sprintf(helptext, "%s '%s' parameter", what, name);
-    val = get_double(ptr, helptext);
-    free(helptext);
-
-    return val;
+    return get_double(ptr, xp_helptext(name, what).c_str());
 }
 
 static long xp_get_long(const char *name, const char *what)
 {
     const char *ptr;
-    char *helptext;
-    long val;
 
     if (!(ptr = xp_get_value(name))) {
         ERROR("%s is missing the required '%s' parameter.", what, name);
     }
-    helptext = (char *)malloc(100 + strlen(name) + strlen(what));
-    sprintf(helptext, "%s '%s' parameter", what, name);
-    val = get_long(ptr, helptext);
-    free(helptext);
-
-    return val;
+    return get_long(ptr, xp_helptext(name, what).c_str());
 }
 
 static long xp_get_long(const char *name, const char *what, long defval)
@@ -399,18 +361,11 @@ static long xp_get_long(const char *name, const char *what, long defval)
 static bool xp_get_bool(const char *name, const char *what)
 {
     const char *ptr;
-    char *helptext;
-    bool val;
 
     if (!(ptr = xp_get_value(name))) {
         ERROR("%s is missing the required '%s' parameter.", what, name);
     }
-    helptext = (char *)malloc(100 + strlen(name) + strlen(what));
-    sprintf(helptext, "%s '%s' parameter", what, name);
-    val = get_bool(ptr, helptext);
-    free(helptext);
-
-    return val;
+    return get_bool(ptr, xp_helptext(name, what).c_str());
 }
 
 static bool xp_get_bool(const char *name, const char *what, bool defval)
@@ -688,70 +643,59 @@ void scenario::apply_labels(msgvec v, str_int_map labels)
 {
     for (unsigned int i = 0; i < v.size(); i++) {
         if (v[i]->nextLabel) {
-            str_int_map::iterator label_it = labels.find(v[i]->nextLabel);
+            str_int_map::iterator label_it = labels.find(*v[i]->nextLabel);
             if (label_it == labels.end()) {
-                ERROR("The label '%s' was not defined (index %d, next attribute)", v[i]->nextLabel, i);
+                ERROR("The label '%s' was not defined (index %d, next attribute)", v[i]->nextLabel->c_str(), i);
             }
             v[i]->next = label_it->second;
         }
         if (v[i]->onTimeoutLabel) {
-            str_int_map::iterator label_it = labels.find(v[i]->onTimeoutLabel);
+            str_int_map::iterator label_it = labels.find(*v[i]->onTimeoutLabel);
             if (label_it == labels.end()) {
-                ERROR("The label '%s' was not defined (index %d, ontimeout attribute)", v[i]->onTimeoutLabel, i);
+                ERROR("The label '%s' was not defined (index %d, ontimeout attribute)", v[i]->onTimeoutLabel->c_str(),
+                      i);
             }
             v[i]->on_timeout = label_it->second;
         }
     }
 }
 
-static char* clean_cdata(char *ptr, int *removed_crlf = nullptr)
+/* Remove the character at offset which of each pair in msg, until none is left */
+static void remove_pairs(std::string &msg, const char *pair, int which)
 {
-    char * msg;
+    size_t pos;
+    while ((pos = msg.find(pair)) != std::string::npos) {
+        msg.erase(pos + which, 1);
+    }
+}
 
+static std::string clean_cdata(const char *ptr, int *removed_crlf = nullptr)
+{
     while((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) ptr++;
 
-    msg = (char *) malloc(strlen(ptr) + 3);
-    if(!msg) {
-        ERROR("Memory Overflow");
-    }
-    strcpy(msg, ptr);
+    std::string msg = ptr;
 
-    ptr = msg + strlen(msg);
-    ptr--;
-
-    while((ptr >= msg) &&
-            ((*ptr == ' ')  ||
-             (*ptr == '\t') ||
-             (*ptr == '\n'))) {
-        if(*ptr == '\n' && removed_crlf) {
+    while (!msg.empty() && (msg.back() == ' ' || msg.back() == '\t' || msg.back() == '\n')) {
+        if (msg.back() == '\n' && removed_crlf) {
             (*removed_crlf)++;
         }
-        *ptr-- = 0;
+        msg.pop_back();
     }
 
-    if (!*msg) {
+    if (msg.empty()) {
         ERROR("Empty cdata in xml scenario file");
     }
-    while ((ptr = strstr(msg, "\n "))) {
-        memmove(ptr + 1, ptr + 2, strlen(ptr) - 1);
-    }
-    while ((ptr = strstr(msg, " \n"))) {
-        memmove(ptr, ptr + 1, strlen(ptr));
-    }
-    while ((ptr = strstr(msg, "\n\t"))) {
-        memmove(ptr + 1, ptr + 2, strlen(ptr) - 1);
-    }
-    while ((ptr = strstr(msg, "\t\n"))) {
-        memmove(ptr, ptr + 1, strlen(ptr));
-    }
+    remove_pairs(msg, "\n ", 1);
+    remove_pairs(msg, " \n", 0);
+    remove_pairs(msg, "\n\t", 1);
+    remove_pairs(msg, "\t\n", 0);
 
-    if (!strstr(msg, "\n\n")) {
-        strcat(msg, "\n\n");
+    if (msg.find("\n\n") == std::string::npos) {
+        msg += "\n\n";
     }
 
     return msg;
 }
-
 
 
 /********************** Scenario File analyser **********************/
@@ -767,10 +711,10 @@ void scenario::checkOptionalRecv(char *elem, unsigned int scenario_file_cursor)
 scenario::scenario(char * filename, int deflt)
 {
     char * elem;
-    char *method_list = nullptr;
+    /* The methods of the requests sent so far, run together */
+    std::string method_list;
     unsigned int scenario_file_cursor = 0;
-    int    L_content_length = 0 ;
-    char * peer;
+    int L_content_length = 0;
     const char* cptr;
 
     last_recv_optional = false;
@@ -806,9 +750,7 @@ scenario::scenario(char * filename, int deflt)
     }
 
     if ((cptr = xp_get_value("name"))) {
-        name = strdup(cptr);
-    } else {
-        name = strdup("");
+        name = cptr;
     }
 
     duration = 0;
@@ -821,68 +763,38 @@ scenario::scenario(char * filename, int deflt)
         scenario_file_cursor ++;
 
         if(!strcmp(elem, "CallLengthRepartition")) {
-            ptr = xp_get_string("value", "CallLengthRepartition");
-            stats->setRepartitionCallLength(ptr);
-            free(ptr);
+            stats->setRepartitionCallLength(xp_get_string("value", "CallLengthRepartition").data());
         } else if(!strcmp(elem, "ResponseTimeRepartition")) {
-            ptr = xp_get_string("value", "ResponseTimeRepartition");
-            stats->setRepartitionResponseTime(ptr);
-            free(ptr);
+            stats->setRepartitionResponseTime(xp_get_string("value", "ResponseTimeRepartition").data());
         } else if(!strcmp(elem, "Global")) {
-            ptr = xp_get_string("variables", "Global");
-
-            char **       currentTabVarName = nullptr;
-            int           currentNbVarNames;
-
-            createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
-            for (int i = 0; i < currentNbVarNames; i++) {
-                globalVariables->find(currentTabVarName[i], true);
+            for (const std::string &varName : createStringTable(xp_get_string("variables", "Global"))) {
+                globalVariables->find(varName.c_str(), true);
             }
-            freeStringTable(currentTabVarName, currentNbVarNames);
-            free(ptr);
         } else if(!strcmp(elem, "User")) {
-            ptr = xp_get_string("variables", "User");
-
-            char **       currentTabVarName = nullptr;
-            int           currentNbVarNames;
-
-            createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
-            for (int i = 0; i < currentNbVarNames; i++) {
-                userVariables->find(currentTabVarName[i], true);
+            for (const std::string &varName : createStringTable(xp_get_string("variables", "User"))) {
+                userVariables->find(varName.c_str(), true);
             }
-            freeStringTable(currentTabVarName, currentNbVarNames);
-            free(ptr);
         } else if(!strcmp(elem, "Reference")) {
-            ptr = xp_get_string("variables", "Reference");
-
-            char **       currentTabVarName = nullptr;
-            int           currentNbVarNames;
-
-            createStringTable(ptr, &currentTabVarName, &currentNbVarNames);
-            for (int i = 0; i < currentNbVarNames; i++) {
-                int id = allocVars->find(currentTabVarName[i], false);
+            for (const std::string &varName : createStringTable(xp_get_string("variables", "Reference"))) {
+                int id = allocVars->find(varName.c_str(), false);
                 if (id == -1) {
-                    ERROR("Could not reference non-existent variable '%s'", currentTabVarName[i]);
+                    ERROR("Could not reference non-existent variable '%s'", varName.c_str());
                 }
             }
-            freeStringTable(currentTabVarName, currentNbVarNames);
-            free(ptr);
         } else if(!strcmp(elem, "DefaultMessage")) {
-            char *id = xp_get_string("id", "DefaultMessage");
+            std::string id = xp_get_string("id", "DefaultMessage");
             if(!(ptr = xp_get_cdata())) {
                 ERROR("No CDATA in 'send' section of xml scenario file");
             }
-            char *msg = clean_cdata(ptr);
-            set_default_message(id, msg);
-            free(id);
+            /* Kept for the rest of the run */
+            set_default_message(id.c_str(), strdup(clean_cdata(ptr).c_str()));
             /* XXX: This should really be per scenario. */
         } else if(!strcmp(elem, "label")) {
-            ptr = xp_get_string("id", "label");
-            if (labelMap.find(ptr) != labelMap.end()) {
-                ERROR("The label name '%s' is used twice.", ptr);
+            std::string id = xp_get_string("id", "label");
+            if (labelMap.find(id) != labelMap.end()) {
+                ERROR("The label name '%s' is used twice.", id.c_str());
             }
-            labelMap[ptr] = messages.size();
-            free(ptr);
+            labelMap[id] = messages.size();
         } else if (!strcmp(elem, "init")) {
             /* We have an init section, which must be full of nops or labels. */
             int nop_cursor = 0;
@@ -896,12 +808,11 @@ scenario::scenario(char * filename, int deflt)
                     getCommonAttributes(nopmsg);
                 } else if (!strcmp(initelem, "label")) {
                     /* Add an init label. */
-                    ptr = xp_get_string("id", "label");
-                    if (initLabelMap.find(ptr) != initLabelMap.end()) {
-                        ERROR("The label name '%s' is used twice.", ptr);
+                    std::string id = xp_get_string("id", "label");
+                    if (initLabelMap.find(id) != initLabelMap.end()) {
+                        ERROR("The label name '%s' is used twice.", id.c_str());
                     }
-                    initLabelMap[ptr] = initmessages.size();
-                    free(ptr);
+                    initLabelMap[id] = initmessages.size();
                 } else {
                     ERROR("Invalid element in an init stanza: '%s'", initelem);
                 }
@@ -911,7 +822,7 @@ scenario::scenario(char * filename, int deflt)
             if (found_timewait) {
                 ERROR("<timewait> can only be the last message in a scenario!");
             }
-            message *curmsg = new message(messages.size(), name ? name : "unknown scenario");
+            message *curmsg = new message(messages.size(), name.c_str());
             messages.push_back(curmsg);
 
             if(!strcmp(elem, "send")) {
@@ -923,9 +834,9 @@ scenario::scenario(char * filename, int deflt)
                 }
 
                 int removed_clrf = 0;
-                char * msg = clean_cdata(ptr, &removed_clrf);
+                std::string msg = clean_cdata(ptr, &removed_clrf);
 
-                char* cl_str = get_header(msg, "Content-Length:", true);
+                char *cl_str = get_header(msg.c_str(), "Content-Length:", true);
                 L_content_length = (cl_str && *cl_str) ? atoi(cl_str) : -1;
                 switch (L_content_length) {
                 case  -1 :
@@ -941,13 +852,10 @@ scenario::scenario(char * filename, int deflt)
                     break ;
                 }
 
-                if((msg[strlen(msg) - 1] != '\n') && (removed_clrf)) {
-                    strcat(msg, "\n");
+                if ((msg.back() != '\n') && (removed_clrf)) {
+                    msg += "\n";
                 }
-                char *tsrc = msg;
-                while(*tsrc++);
-                curmsg -> send_scheme = new SendingMessage(this, msg);
-                free(msg);
+                curmsg->send_scheme = new SendingMessage(this, msg.c_str());
 
                 // If this is a request we are sending, then store our transaction/method matching information.
                 if (!curmsg->send_scheme->isResponse()) {
@@ -966,12 +874,7 @@ scenario::scenario(char * filename, int deflt)
                         }
                         curmsg->ack_txn = get_txn(cptr, "ack transaction", false, false, true);
                     } else {
-                        int len = method_list ? strlen(method_list) : 0;
-                        method_list = (char *)realloc(method_list, len + strlen(method) + 1);
-                        if (!method_list) {
-                            ERROR_NO("Out of memory allocating method_list!");
-                        }
-                        strcpy(method_list + len, method);
+                        method_list += method;
                     }
                     if (xp_get_value("response_txn")) {
                         ERROR("response_txn can only be used for received responses or sent responses.");
@@ -994,23 +897,21 @@ scenario::scenario(char * filename, int deflt)
                 curmsg->M_type = MSG_TYPE_RECV;
                 /* Received messages descriptions */
                 if((cptr = xp_get_value("response"))) {
-                    curmsg ->recv_response = strdup(cptr);
+                    curmsg->recv_response = cptr;
                     curmsg->recv_response_code = atoi(cptr);
-                    if (method_list) {
-                        curmsg->recv_response_for_cseq_method_list = strdup(method_list);
-                    }
+                    curmsg->recv_response_for_cseq_method_list = method_list;
                     if ((cptr = xp_get_value("response_txn"))) {
                         curmsg->response_txn = get_txn(cptr, "transaction response", false, false, false);
                     }
                 }
 
                 if ((cptr = xp_get_value("request"))) {
-                    curmsg->recv_request = strdup(cptr);
+                    curmsg->recv_request = cptr;
                     if (xp_get_value("response_txn")) {
                         ERROR("response_txn can only be used for received responses.");
                     }
                     if ((cptr = xp_get_value("start_txn"))) {
-                        if (!strcmp(curmsg->recv_request, "ACK")) {
+                        if (*curmsg->recv_request == "ACK") {
                             ERROR("An ACK message can not start a transaction!");
                         }
                         curmsg->start_txn = get_txn(cptr, "start transaction", true, false, false, true);
@@ -1090,7 +991,7 @@ scenario::scenario(char * filename, int deflt)
 
                 /* 3pcc extended mode */
                 if ((cptr = xp_get_value("src"))) {
-                    curmsg->peer_src = strdup(cptr);
+                    curmsg->peer_src = cptr;
                 } else if (extendedTwinSippMode) {
                     ERROR("You must specify a 'src' for recvCmd when using extended 3pcc mode!");
                 }
@@ -1101,10 +1002,10 @@ scenario::scenario(char * filename, int deflt)
 
                 /* 3pcc extended mode */
                 if ((cptr = xp_get_value("dest"))) {
-                    peer = strdup(cptr);
-                    curmsg->peer_dest = peer;
+                    curmsg->peer_dest = cptr;
+                    const std::string &peer = curmsg->peer_dest;
                     peer_map::iterator peer_it;
-                    peer_it = peers.find(peer_map::key_type(peer));
+                    peer_it = peers.find(peer);
                     if(peer_it == peers.end())
                         /* the peer (slave or master)
                         has not been added in the map
@@ -1112,8 +1013,8 @@ scenario::scenario(char * filename, int deflt)
                     {
                         T_peer_infos infos = {};
                         infos.peer_socket = 0;
-                        strncpy(infos.peer_host, get_peer_addr(peer), sizeof(infos.peer_host) - 1);
-                        peers[std::string(peer)] = infos;
+                        strncpy(infos.peer_host, get_peer_addr(peer.c_str()), sizeof(infos.peer_host) - 1);
+                        peers[peer] = infos;
                     }
                 } else if (extendedTwinSippMode) {
                     ERROR("You must specify a 'dest' for sendCmd with extended 3pcc mode!");
@@ -1122,10 +1023,7 @@ scenario::scenario(char * filename, int deflt)
                 if (!(ptr = xp_get_cdata())) {
                     ERROR("No CDATA in 'sendCmd' section of xml scenario file");
                 }
-                char *msg = clean_cdata(ptr);
-
-                curmsg -> M_sendCmdData = new SendingMessage(this, msg, true /* skip sanity */);
-                free(msg);
+                curmsg->M_sendCmdData = new SendingMessage(this, clean_cdata(ptr).c_str(), true /* skip sanity */);
             } else {
                 ERROR("Unknown element '%s' in xml scenario file", elem);
             }
@@ -1148,8 +1046,6 @@ scenario::scenario(char * filename, int deflt)
         } /** end * Message case */
         xp_close_element();
     } // end while
-
-    free(method_list);
 
     /* Close scenario element */
     xp_close_element();
@@ -1208,8 +1104,6 @@ scenario::~scenario()
         delete *i;
     }
     initmessages.clear();
-
-    free(name);
 
     allocVars->putTable();
     delete stats;
@@ -1511,17 +1405,14 @@ void scenario::parseAction(CActions *actions)
 {
     char *        actionElem;
     unsigned int recvScenarioLen = 0;
-    char **       currentTabVarName = nullptr;
-    int           currentNbVarNames;
-    int           sub_currentNbVarId;
-    char* ptr;
+    int sub_currentNbVarId;
     const char* cptr;
 
     while((actionElem = xp_open_element(recvScenarioLen))) {
         CAction *tmpAction = new CAction(this);
 
         if(!strcmp(actionElem, "ereg")) {
-            ptr = xp_get_string("regexp", "ereg");
+            std::string regexp = xp_get_string("regexp", "ereg");
 
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_REGEXP);
 
@@ -1573,38 +1464,28 @@ void scenario::parseAction(CActions *actions)
                 ERROR("assign_to value is missing");
             }
 
-            createStringTable(cptr, &currentTabVarName, &currentNbVarNames);
+            std::vector<std::string> varNames = createStringTable(cptr);
 
-            int varId = get_var(currentTabVarName[0], "assign_to");
+            int varId = get_var(varNames[0].c_str(), "assign_to");
             tmpAction->setVarId(varId);
 
-            tmpAction->setRegExp(ptr);
-            if (currentNbVarNames > 1 ) {
-                sub_currentNbVarId = currentNbVarNames - 1 ;
+            tmpAction->setRegExp(regexp);
+            if (varNames.size() > 1) {
+                sub_currentNbVarId = varNames.size() - 1;
                 tmpAction->setNbSubVarId(sub_currentNbVarId);
 
                 for(int i=1; i<= sub_currentNbVarId; i++) {
-                    int varId = get_var(currentTabVarName[i], "sub expression assign_to");
-                    tmpAction->setSubVarId(varId);
+                    tmpAction->setSubVarId(get_var(varNames[i].c_str(), "sub expression assign_to"));
                 }
             }
-
-            freeStringTable(currentTabVarName, currentNbVarNames);
-            free(ptr);
         } /* end !strcmp(actionElem, "ereg") */ else if(!strcmp(actionElem, "log")) {
-            ptr = xp_get_string("message", "log");
-            tmpAction->setMessage(ptr);
-            free(ptr);
+            tmpAction->setMessage(xp_get_string("message", "log"));
             tmpAction->setActionType(CAction::E_AT_LOG_TO_FILE);
         } else if(!strcmp(actionElem, "warning")) {
-            ptr = xp_get_string("message", "warning");
-            tmpAction->setMessage(ptr);
-            free(ptr);
+            tmpAction->setMessage(xp_get_string("message", "warning"));
             tmpAction->setActionType(CAction::E_AT_LOG_WARNING);
         } else if(!strcmp(actionElem, "error")) {
-            ptr = xp_get_string("message", "error");
-            tmpAction->setMessage(ptr);
-            free(ptr);
+            tmpAction->setMessage(xp_get_string("message", "error"));
             tmpAction->setActionType(CAction::E_AT_LOG_ERROR);
         } else if(!strcmp(actionElem, "assign")) {
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_VALUE);
@@ -1612,27 +1493,23 @@ void scenario::parseAction(CActions *actions)
         } else if(!strcmp(actionElem, "assignstr")) {
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_STRING);
             tmpAction->setVarId(xp_get_var("assign_to", "assignstr"));
-            ptr = xp_get_string("value", "assignstr");
-            tmpAction->setMessage(ptr);
-            free(ptr);
+            tmpAction->setMessage(xp_get_string("value", "assignstr"));
         } else if(!strcmp(actionElem, "gettimeofday")) {
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_GETTIMEOFDAY);
 
             if (!(cptr = xp_get_value("assign_to"))) {
                 ERROR("assign_to value is missing");
             }
-            createStringTable(cptr, &currentTabVarName, &currentNbVarNames);
-            if (currentNbVarNames != 2 ) {
+            std::vector<std::string> varNames = createStringTable(cptr);
+            if (varNames.size() != 2) {
                 ERROR("The gettimeofday action requires two output variables!");
             }
             tmpAction->setNbSubVarId(1);
 
-            int varId = get_var(currentTabVarName[0], "gettimeofday seconds assign_to");
+            int varId = get_var(varNames[0].c_str(), "gettimeofday seconds assign_to");
             tmpAction->setVarId(varId);
-            varId = get_var(currentTabVarName[1], "gettimeofday useconds assign_to");
+            varId = get_var(varNames[1].c_str(), "gettimeofday useconds assign_to");
             tmpAction->setSubVarId(varId);
-
-            freeStringTable(currentTabVarName, currentNbVarNames);
         } else if(!strcmp(actionElem, "index")) {
             tmpAction->setVarId(xp_get_var("assign_to", "index"));
             tmpAction->setActionType(CAction::E_AT_ASSIGN_FROM_INDEX);
@@ -1692,33 +1569,29 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setVarIn2Id(xp_get_var("variable2", "test"));
             }
             tmpAction->setActionType(CAction::E_AT_VAR_TEST);
-            ptr = xp_get_string("compare", "test");
-            if (!strcmp(ptr, "equal")) {
+            std::string compare = xp_get_string("compare", "test");
+            if (compare == "equal") {
                 tmpAction->setComparator(CAction::E_C_EQ);
-            } else if (!strcmp(ptr, "not_equal")) {
+            } else if (compare == "not_equal") {
                 tmpAction->setComparator(CAction::E_C_NE);
-            } else if (!strcmp(ptr, "greater_than")) {
+            } else if (compare == "greater_than") {
                 tmpAction->setComparator(CAction::E_C_GT);
-            } else if (!strcmp(ptr, "less_than")) {
+            } else if (compare == "less_than") {
                 tmpAction->setComparator(CAction::E_C_LT);
-            } else if (!strcmp(ptr, "greater_than_equal")) {
+            } else if (compare == "greater_than_equal") {
                 tmpAction->setComparator(CAction::E_C_GEQ);
-            } else if (!strcmp(ptr, "less_than_equal")) {
+            } else if (compare == "less_than_equal") {
                 tmpAction->setComparator(CAction::E_C_LEQ);
             } else {
-                ERROR("Invalid 'compare' parameter: %s", ptr);
+                ERROR("Invalid 'compare' parameter: %s", compare.c_str());
             }
-            free(ptr);
         } else if(!strcmp(actionElem, "verifyauth")) {
             tmpAction->setVarId(xp_get_var("assign_to", "verifyauth"));
-            char* username_ptr = xp_get_string("username", "verifyauth");
-            char* password_ptr = xp_get_string("password", "verifyauth");
-            tmpAction->setMessage(username_ptr, 0);
-            tmpAction->setMessage(password_ptr, 1);
+            std::string username = xp_get_string("username", "verifyauth");
+            std::string password = xp_get_string("password", "verifyauth");
+            tmpAction->setMessage(username, 0);
+            tmpAction->setMessage(password, 1);
             tmpAction->setActionType(CAction::E_AT_VERIFY_AUTH);
-            free(username_ptr);
-            free(password_ptr);
-            username_ptr = password_ptr = nullptr;
         } else if(!strcmp(actionElem, "lookup")) {
             tmpAction->setVarId(xp_get_var("assign_to", "lookup"));
             xp_set_message(tmpAction, 0, "file", "lookup");
@@ -1757,9 +1630,7 @@ void scenario::parseAction(CActions *actions)
             }
             tmpAction->setVarInId(xp_get_var("variable", "strcmp"));
             if (xp_get_value("value")) {
-                ptr = xp_get_string("value", "strcmp");
-                tmpAction->setStringValue(ptr);
-                free(ptr);
+                tmpAction->setStringValue(xp_get_string("value", "strcmp"));
                 if (xp_get_value("variable2")) {
                     ERROR("Can not have both a value and a variable2 for strcmp!");
                 }
@@ -1799,38 +1670,33 @@ void scenario::parseAction(CActions *actions)
                 tmpAction->setActionType(CAction::E_AT_EXEC_INTCMD);
                 tmpAction->setIntCmd(type);
 #ifdef PCAPPLAY
-            } else if ((ptr = xp_get_keyword_value("play_pcap_audio"))) {
-                tmpAction->setPcapArgs(ptr);
+            } else if (std::optional<std::string> args = xp_get_keyword_value("play_pcap_audio")) {
+                tmpAction->setPcapArgs(args->c_str());
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_AUDIO);
                 pcap_plays = true;
                 hasMedia = 1;
-                free(ptr);
-            } else if ((ptr = xp_get_keyword_value("play_pcap_image"))) {
-                tmpAction->setPcapArgs(ptr);
+            } else if (std::optional<std::string> args = xp_get_keyword_value("play_pcap_image")) {
+                tmpAction->setPcapArgs(args->c_str());
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_IMAGE);
                 pcap_plays = true;
                 hasMedia = 1;
-                free(ptr);
-            } else if ((ptr = xp_get_keyword_value("play_pcap_video"))) {
-                tmpAction->setPcapArgs(ptr);
+            } else if (std::optional<std::string> args = xp_get_keyword_value("play_pcap_video")) {
+                tmpAction->setPcapArgs(args->c_str());
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_VIDEO);
                 pcap_plays = true;
                 hasMedia = 1;
-                free(ptr);
-            } else if ((ptr = xp_get_keyword_value("play_pcap_text"))) {
-                tmpAction->setPcapArgs(ptr);
+            } else if (std::optional<std::string> args = xp_get_keyword_value("play_pcap_text")) {
+                tmpAction->setPcapArgs(args->c_str());
                 tmpAction->setActionType(CAction::E_AT_PLAY_PCAP_TEXT);
                 pcap_plays = true;
                 hasMedia = 1;
-                free(ptr);
             } else if ((cptr = xp_get_value("play_dtmf"))) {
                 /* without keywords, what would be played is known now */
                 if (!strchr(cptr, '[')) {
                     unsigned long tone_len;
                     uint8_t payload_type;
-                    char *args = strdup(cptr);
-                    const char *error = parse_dtmf(args, &tone_len, &payload_type);
-                    free(args);
+                    std::string args = cptr;
+                    const char *error = parse_dtmf(args.data(), &tone_len, &payload_type);
                     if (error) {
                         ERROR("Invalid play_dtmf \"%s\": %s", cptr, error);
                     }
@@ -1853,7 +1719,8 @@ void scenario::parseAction(CActions *actions)
                 ERROR("Scenario specifies a play_dtmf action, but this version of SIPp does not have PCAP support");
 #endif
             } else if ((cptr = xp_get_value("rtp_stream"))) {
-                ptr = strdup(cptr);
+                std::string value = cptr;
+                const char *ptr = value.c_str();
                 hasMedia = 1;
                 if (!strcmp(ptr, "pauseapattern"))
                 {
@@ -1908,9 +1775,9 @@ void scenario::parseAction(CActions *actions)
                     tmpAction->setMessage(ptr);
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_PLAY);
                 }
-                free(ptr);
             } else if ((cptr = xp_get_value("rtp_echo"))) {
-                ptr = strdup(cptr);
+                std::string value = cptr;
+                const char *ptr = value.c_str();
                 hasMedia = 1;
                 if (!strncmp(ptr, "startaudio", 10))
                 {
@@ -1942,7 +1809,6 @@ void scenario::parseAction(CActions *actions)
                     tmpAction->setRTPEchoActInfo(ptr);
                     tmpAction->setActionType(CAction::E_AT_RTP_STREAM_RTPECHO_STOPVIDEO);
                 }
-                free(ptr);
             } else {
                 ERROR("illegal <exec> in the scenario");
             }
@@ -1951,16 +1817,15 @@ void scenario::parseAction(CActions *actions)
             if (!(cptr = xp_get_value("assign_to"))) {
                 ERROR("assign_to value is missing in rtp_stats");
             }
-            createStringTable(cptr, &currentTabVarName, &currentNbVarNames);
-            if (currentNbVarNames < 1 || currentNbVarNames > 3) {
+            std::vector<std::string> varNames = createStringTable(cptr);
+            if (varNames.size() < 1 || varNames.size() > 3) {
                 ERROR("rtp_stats assigns one to three variables: the packets, and the payload type and payload of the first");
             }
-            tmpAction->setVarId(get_var(currentTabVarName[0], "rtp_stats packets assign_to"));
-            tmpAction->setNbSubVarId(currentNbVarNames - 1);
-            for (int i = 1; i < currentNbVarNames; i++) {
-                tmpAction->setSubVarId(get_var(currentTabVarName[i], "rtp_stats assign_to"));
+            tmpAction->setVarId(get_var(varNames[0].c_str(), "rtp_stats packets assign_to"));
+            tmpAction->setNbSubVarId(varNames.size() - 1);
+            for (size_t i = 1; i < varNames.size(); i++) {
+                tmpAction->setSubVarId(get_var(varNames[i].c_str(), "rtp_stats assign_to"));
             }
-            freeStringTable(currentTabVarName, currentNbVarNames);
             cptr = xp_get_value("media");
             if (cptr && strcmp(cptr, "audio") && strcmp(cptr, "video")) {
                 ERROR("rtp_stats media must be audio or video, not %s", cptr);
@@ -2072,7 +1937,7 @@ void scenario::getCommonAttributes(message *message)
     }
     message -> hide = xp_get_bool("hide", "hide", hidedefault);
     if((ptr = xp_get_value((char *)"display"))) {
-        message -> display_str = strdup(ptr);
+        message->display_str = ptr;
     }
 
     message -> condexec = xp_get_var("condexec", "condexec variable", -1);
@@ -2082,7 +1947,7 @@ void scenario::getCommonAttributes(message *message)
         if (found_timewait) {
             ERROR("next labels are not allowed in <timewait> elements.");
         }
-        message->nextLabel = strdup(ptr);
+        message->nextLabel = ptr;
         message->test = xp_get_var("test", "test variable", -1);
         if ( 0 != ( ptr = xp_get_value((char *)"chance") ) ) {
             float chance = get_double(ptr,"chance");
@@ -2100,43 +1965,21 @@ void scenario::getCommonAttributes(message *message)
         if (found_timewait) {
             ERROR("ontimeout labels are not allowed in <timewait> elements.");
         }
-        message -> onTimeoutLabel = strdup(ptr);
+        message->onTimeoutLabel = ptr;
     }
 }
 
-int createStringTable(const char* inputString, char*** stringList, int* sizeOfList)
+std::vector<std::string> createStringTable(std::string_view inputString)
 {
-    *stringList = nullptr;
-    *sizeOfList = 0;
+    std::vector<std::string> stringList;
+    size_t comma;
 
-    if(!inputString) {
-        return 0;
+    while ((comma = inputString.find(',')) != std::string_view::npos) {
+        stringList.emplace_back(inputString.substr(0, comma));
+        inputString.remove_prefix(comma + 1);
     }
-
-    /* FIXME: temporary workaround: needs rewrite */
-    char* input = const_cast<char*>(inputString);
-    do {
-        char* p = strchr(input, ',');
-        if (p) {
-            *p++ = '\0';
-        }
-
-        *stringList = (char **)realloc(*stringList, sizeof(char *) * (*sizeOfList + 1));
-        (*stringList)[*sizeOfList] = strdup(input);
-        (*sizeOfList)++;
-
-        input = p;
-    } while (input);
-
-    return 1;
-}
-
-void freeStringTable(char ** stringList, int sizeOfList)
-{
-    for (int i = 0; i < sizeOfList; i++) {
-        free(stringList[i]);
-    }
-    free(stringList);
+    stringList.emplace_back(inputString);
+    return stringList;
 }
 
 /* These are the names of the scenarios, they must match the default_scenario table. */

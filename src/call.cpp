@@ -2795,9 +2795,9 @@ bool call::process_unexpected(const char* msg)
 
     if (curmsg -> M_type == MSG_TYPE_RECV) {
         if (curmsg -> recv_request) {
-            sb << "while expecting '" << curmsg -> recv_request << "' ";
+            sb << "while expecting '" << *curmsg->recv_request << "' ";
         } else {
-            sb << "while expecting '" << curmsg -> recv_response << "' ";
+            sb << "while expecting '" << curmsg->recv_response.value_or("") << "' ";
         }
     } else if (curmsg -> M_type == MSG_TYPE_SEND) {
         sb << "while sending ";
@@ -2989,7 +2989,6 @@ int call::sendCmdMessage(message *curmsg)
     delimitor[1]=0;
 
     /* 3pcc extended mode */
-    char * peer_dest;
     SIPpSocket **peer_socket;
 
     if(curmsg -> M_sendCmdData) {
@@ -3001,9 +3000,8 @@ int call::sendCmdMessage(message *curmsg)
         int rc;
 
         /* 3pcc extended mode */
-        peer_dest = curmsg->peer_dest;
-        if(peer_dest) {
-            peer_socket = get_peer_socket(peer_dest);
+        if (!curmsg->peer_dest.empty()) {
+            peer_socket = get_peer_socket(curmsg->peer_dest.c_str());
             rc = (*peer_socket)->write(dest, strlen(dest), WS_BUFFER, &call_peer);
         } else if (twinSippSocket) {
             rc = twinSippSocket->write(dest, strlen(dest), WS_BUFFER, &call_peer);
@@ -4937,7 +4935,7 @@ bool call::check_peer_src(char * msg, int search_index)
     }
     L_backup = *L_ptr2;
     *L_ptr2 = 0;
-    if (strcmp(L_ptr1, call_scenario->messages[search_index] -> peer_src) == 0) {
+    if (strcmp(L_ptr1, call_scenario->messages[search_index]->peer_src.c_str()) == 0) {
         *L_ptr2 = L_backup;
         return(true);
     }
@@ -5234,8 +5232,8 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
        } else if (index == 0) {
            /* Always true for the first message. */
            return true;
-       } else if (curmsg->recv_response_for_cseq_method_list &&
-                  strstr(curmsg->recv_response_for_cseq_method_list, responsecseqmethod)) {
+       } else if (!curmsg->recv_response_for_cseq_method_list.empty() &&
+                  strstr(curmsg->recv_response_for_cseq_method_list.c_str(), responsecseqmethod)) {
            /* If we do not have a transaction defined, we just check the CSEQ method. */
            return true;
        } else {

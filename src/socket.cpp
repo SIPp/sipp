@@ -3444,7 +3444,8 @@ static void connect_to_peer(
     sipp_customize_socket(*peer_socket);
 }
 
-SIPpSocket **get_peer_socket(char * peer) {
+SIPpSocket **get_peer_socket(const char *peer)
+{
     peer_map::iterator peer_it;
     peer_it = peers.find(peer_map::key_type(peer));
     if (peer_it != peers.end()) {
@@ -3455,7 +3456,7 @@ SIPpSocket **get_peer_socket(char * peer) {
     return nullptr;
 }
 
-char * get_peer_addr(char * peer)
+char *get_peer_addr(const char *peer)
 {
     char * addr;
     peer_addr_map::iterator peer_addr_it;

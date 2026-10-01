@@ -25,6 +25,9 @@
 #define __SCENARIO__
 
 #include <map>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -69,7 +72,7 @@ public:
     CSample        *pause_distribution;
     int            pause_variable;
     /* This string is used for the display screen. */
-    char           *pause_desc;
+    std::string pause_desc;
     /* Is this a final pause, intended for catching retransmissions? */
     bool           timewait;
 
@@ -91,15 +94,15 @@ public:
     int            timeout_variable;
 
     /* 3pcc extended mode: if this is a sendCmd */
-    char         * peer_dest;
+    std::string peer_dest;
 
     /* 3pcc extended mode: if this is a recvCmd */
-    char         * peer_src;
+    std::string peer_src;
 
     /* If this is a recv */
-    char         * recv_response;
+    std::optional<std::string> recv_response;
     int recv_response_code; /* atoi(recv_response) */
-    char         * recv_request;
+    std::optional<std::string> recv_request;
     int            optional;
     bool           advance_state;
     int            regexp_match;
@@ -114,15 +117,15 @@ public:
     int            crlf;
     bool           ignoresdp;
     bool           hide;
-    char *         display_str;
+    std::optional<std::string> display_str;
     int            next;
-    char *         nextLabel;
+    std::optional<std::string> nextLabel;
     int            test;
     int            condexec;
     bool           condexec_inverse;
     int            chance;/* 0=always, RAND_MAX+1=never (test rand() >= chance) */
     int            on_timeout;
-    char *         onTimeoutLabel;
+    std::optional<std::string> onTimeoutLabel;
 
     /* Statistics */
     unsigned long   nb_sent;
@@ -149,7 +152,7 @@ public:
 
     ContentLengthFlag   content_length_flag ;
 
-    char           *recv_response_for_cseq_method_list;
+    std::string recv_response_for_cseq_method_list;
     int            start_txn;
     int            ack_txn;
     int            response_txn;
@@ -192,7 +195,7 @@ public:
 
     msgvec messages;
     msgvec initmessages;
-    char *name;
+    std::string name;
     int duration;
     txnvec transactions;
     int unexpected_jump;
@@ -275,10 +278,8 @@ void parse_slave_cfg();
 void getActionForThisMessage();
 CSample *parse_distribution(bool oldstyle);
 
-/* String table functions. */
-int createStringTable(const char* inputString, char*** stringList, int* sizeOfList);
-void freeStringTable(char ** stringList, int sizeOfList);
-
+/* The comma-separated items of a list */
+std::vector<std::string> createStringTable(std::string_view inputString);
 
 
 int find_scenario(const char *scenario);

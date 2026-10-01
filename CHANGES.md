@@ -169,6 +169,10 @@ marked **Breaking**.
     failed (#1141)
   - a read of the byte before a message that starts with a newline, when
     its Call-ID or To tag is looked up (#1231)
+  - null strings printed in the actions screen for an `<ereg>` on the
+    body or a variable, and in the error of a `<recv>` without request
+    or response, and a play_pcap `[keyword]` looked up unterminated
+    (#1235)
   - heap corruption when SIGTERM, SIGINT or `-timeout_error` interrupted
     a malloc (#1042, #1052), and a SIGXFSZ handler that wrote a log and
     dropped the trace files unclosed (#1216)

@@ -116,7 +116,7 @@ void print_count_file(FILE* f, int header)
             }
         } else if (curmsg->recv_response) {
             if (header) {
-                sprintf(temp_str, "%u_%s_", index, curmsg->recv_response);
+                sprintf(temp_str, "%u_%s_", index, curmsg->recv_response->c_str());
 
                 fprintf(f, "%sRecv%s", temp_str, stat_delimiter);
                 fprintf(f, "%sRetrans%s", temp_str, stat_delimiter);
@@ -136,7 +136,7 @@ void print_count_file(FILE* f, int header)
             }
         } else if (curmsg->recv_request) {
             if (header) {
-                sprintf(temp_str, "%u_%s_", index, curmsg->recv_request);
+                sprintf(temp_str, "%u_%s_", index, curmsg->recv_request->c_str());
 
                 fprintf(f, "%sRecv%s", temp_str, stat_delimiter);
                 fprintf(f, "%sRetrans%s", temp_str, stat_delimiter);
