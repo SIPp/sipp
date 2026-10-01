@@ -1,0 +1,30 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An error in the options goes to the -trace_err log wherever -trace_err
+# is on the command line, with its -error_file, also for an unknown
+# option or a missing argument.
+. "`dirname "$0"`/../functions"; init
+
+check() {
+    file="$1"; expected="$2"; shift 2
+    rm -f sipp_*_errors.log e.log
+    sippfg -sn uac -i 127.0.0.1 -p 24500 "$@" >/dev/null 2>&1
+    errors=`cat $file 2>/dev/null`
+    rm -f sipp_*_errors.log e.log
+    case $errors in
+        *"$expected"*) ;;
+        *) fail "$*: '$expected' not in $file" ;;
+    esac
+}
+
+check "sipp_*_errors.log" '-m, "abc" is not a valid integer!' \
+    -trace_err -m abc 127.0.0.1:24501
+check "sipp_*_errors.log" '-m, "abc" is not a valid integer!' \
+    -m abc -trace_err 127.0.0.1:24501
+check e.log '-m, "abc" is not a valid integer!' \
+    -m abc -error_file e.log -trace_err 127.0.0.1:24501
+check e.log "Invalid argument: '-foo'." \
+    -foo -trace_err -error_file e.log 127.0.0.1:24501
+check e.log "Missing argument for param '-m'." \
+    -trace_err -error_file e.log 127.0.0.1:24501 -m
+ok

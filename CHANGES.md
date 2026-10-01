@@ -294,6 +294,8 @@ marked **Breaking**.
     to create ''" (#1179), `trace messages on` turns the messages log
     back on (#1174), and a ring buffer log that fails to rotate is kept
     (#1172)
+  - an error in the options reaches the `-trace_err` log wherever
+    `-trace_err` is on the command line (#1243)
   - a `~/` path expands from USERPROFILE when there is no HOME (#1173)
   - `sipp -` and `sipp --` are an invalid argument, not an internal
     error (#1237)
