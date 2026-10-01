@@ -25,6 +25,8 @@
 #include <map>
 #include <list>
 #include <memory>
+#include <optional>
+#include <string>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
@@ -58,7 +60,8 @@ struct remote_address;
 
 
 struct txnInstanceInfo {
-    char *txnID = nullptr;
+    /* The branch of the request we sent that started it, none before */
+    std::optional<std::string> txnID;
     unsigned long txnResp = 0;
     int ackIndex = 0;
     /* A transaction a received request starts: the request, its hash
@@ -79,10 +82,10 @@ struct call_dialog {
     /* The state of the dialog while another one is the call's */
     unsigned int cseq = 0;
     unsigned long int last_recv_invite_cseq = 0;
-    char *peer_tag = nullptr;
+    std::optional<std::string> peer_tag;
     std::string last_recv_msg;
-    char *dialog_route_set = nullptr;
-    char *next_req_url = nullptr;
+    std::optional<std::string> dialog_route_set;
+    std::string next_req_url;
 };
 
 typedef enum
@@ -199,8 +202,7 @@ protected:
     unsigned int   tdm_map_number;
 
     int            msg_index;
-    int            zombie;
-    char *         realloc_ptr = nullptr;
+    int zombie;
 
     /* Last message sent from scenario step (retransmitions do not
      * change this index. Only message sent from the scenario
@@ -239,9 +241,9 @@ protected:
     void keepRecvRetransMsg();
     unsigned int   recv_timeout;
 
-    /* holds the route set */
-    char         * dialog_route_set;
-    char         * next_req_url;
+    /* holds the route set, once recorded */
+    std::optional<std::string> dialog_route_set;
+    std::string next_req_url;
 
     /* cseq value for [cseq] keyword */
     unsigned int   cseq;
@@ -265,7 +267,7 @@ protected:
     LazySrtpChannel _rxUASVideo;
 
     /* holds the auth header and if the challenge was 401 or 407 */
-    char         * dialog_authentication;
+    std::string dialog_authentication;
     int            dialog_challenge_type;
 
     unsigned int   next_nonce_count;
@@ -291,7 +293,8 @@ protected:
     unsigned long long *start_time_rtd;
     bool           *rtd_done;
 
-    char           *peer_tag;
+    /* The To tag of the last response that had one */
+    std::optional<std::string> peer_tag;
 
     SIPpSocket *call_remote_socket;
     int            call_port;
@@ -463,8 +466,7 @@ protected:
     bool recvCmdFollows(int index);
 
     int _callDebug(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
-    char *debugBuffer;
-    int debugLength;
+    std::string debugBuffer;
 
     FILE* _srtpctxdebugfile;
     int logSrtpInfo(const char *fmt, ...) __attribute__((format(printf, 2, 3)));

@@ -1139,9 +1139,6 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     this->call_scenario = call_scenario;
     zombie = false;
 
-    debugBuffer = nullptr;
-    debugLength = 0;
-
     msg_index = 0;
     last_send_index = 0;
     last_send_unanswered = false;
@@ -1155,9 +1152,6 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     recv_retrans_hash = 0;
     recv_retrans_recv_index = -1;
     recv_retrans_send_index = -1;
-
-    dialog_route_set = nullptr;
-    next_req_url = nullptr;
 
     cseq = 0;
 
@@ -1182,7 +1176,6 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     use_ipv6 = ipv6;
     queued_sdp_read = false;
 
-    dialog_authentication = nullptr;
     dialog_challenge_type = 0;
 
     next_nonce_count = 1;
@@ -1328,7 +1321,6 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     hasMediaInformation = 0;
 #endif
 
-    peer_tag = nullptr;
     recv_timeout = 0;
     send_timeout = 0;
     timewait = false;
@@ -1412,17 +1404,16 @@ int call::_callDebug(const char *fmt, ...)
     int ret = vsnprintf(nullptr, 0, fmt, ap);
     va_end(ap);
 
-    debugBuffer = (char *)realloc(debugBuffer, debugLength + ret + TIME_LENGTH + 2);
-    if (!debugBuffer) {
-        ERROR("Could not allocate buffer (%d bytes) for callDebug file!", debugLength + ret + TIME_LENGTH + 2);
-    }
-
     struct timeval now;
     gettimeofday(&now, nullptr);
-    debugLength += snprintf(debugBuffer + debugLength, TIME_LENGTH + 2, "%s ", CStat::formatTime(&now, rfc3339));
+    debugBuffer += CStat::formatTime(&now, rfc3339);
+    debugBuffer += ' ';
 
+    /* Written in place: vsnprintf() ends it with the string's own NUL */
+    const size_t at = debugBuffer.size();
+    debugBuffer.resize(at + ret);
     va_start(ap, fmt);
-    debugLength += vsnprintf(debugBuffer + debugLength, ret + 1, fmt, ap);
+    vsnprintf(debugBuffer.data() + at, ret + 1, fmt, ap);
     va_end(ap);
 
     return ret;
@@ -1450,12 +1441,6 @@ call::~call()
         CallGenerationTask::free_user(userId);
     }
 
-    if (transactions) {
-        for (unsigned int i = 0; i < call_scenario->transactions.size(); i++) {
-            free(transactions[i].txnID);
-        }
-    }
-
     if (dialogs) {
         if (dialogs->waits_new) {
             new_dialog_calls.erase(dialogs->waiting);
@@ -1464,29 +1449,10 @@ call::~call()
             if (!d.call_id.empty()) {
                 unlisten(d.call_id.c_str());
             }
-            free(d.peer_tag);
-            free(d.dialog_route_set);
-            free(d.next_req_url);
         }
     }
 
-    if (peer_tag) {
-        free(peer_tag);
-    }
-
-    if (dialog_route_set) {
-        free(dialog_route_set);
-    }
-
-    if (next_req_url) {
-        free(next_req_url);
-    }
-
     rtpstream_end_call(&rtpstream_callinfo);
-
-    if (dialog_authentication) {
-        free(dialog_authentication);
-    }
 
     /* tdm_map_number counts from 1, and is 0 for a call that got no
      * circuit. */
@@ -1496,7 +1462,6 @@ call::~call()
 
     free(start_time_rtd);
     free(rtd_done);
-    free(debugBuffer);
 
     if (verify_pending) {
         /* Its commands run on, and their end is ignored */
@@ -2364,8 +2329,9 @@ bool call::executeMessage(message *curmsg)
                                call_socket && call_socket->all_written();
 
         if (curmsg->start_txn) {
-            transactions[curmsg->start_txn - 1].txnID = (char *)realloc(transactions[curmsg->start_txn - 1].txnID, MAX_HEADER_LEN);
-            extract_transaction(transactions[curmsg->start_txn - 1].txnID, last_send_msg.c_str());
+            char branch[MAX_HEADER_LEN];
+            extract_transaction(branch, last_send_msg.c_str());
+            transactions[curmsg->start_txn - 1].txnID = branch;
             transactions[curmsg->start_txn - 1].dialog = dialogs ? dialogs->current : 1;
         }
         if (dialogs && !dialogKnown(dialogs->current)) {
@@ -2914,7 +2880,7 @@ bool call::abortCall(bool writeLog)
     if (writeLog && useCallDebugf) {
         TRACE_CALLDEBUG ("-------------------------------------------------------------------------------\n");
         TRACE_CALLDEBUG ("Call debugging information for call %s:\n", id);
-        TRACE_CALLDEBUG("%s", debugBuffer);
+        TRACE_CALLDEBUG("%s", debugBuffer.c_str());
     }
 
     stopListening();
@@ -4322,7 +4288,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             append_number(out, P_index);
             break;
         case E_Message_Next_Url:
-            if (next_req_url && *next_req_url) {
+            if (!next_req_url.empty()) {
                 out += next_req_url;
             } else {
                 out += get_last_request_uri();
@@ -4344,13 +4310,13 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         case E_Message_Peer_Tag_Param:
             if (peer_tag) {
                 out += ";tag=";
-                out += peer_tag;
+                out += *peer_tag;
             }
             break;
         case E_Message_Routes:
             if (dialog_route_set) {
                 out += "Route: ";
-                out += dialog_route_set;
+                out += *dialog_route_set;
             } else if (!out.empty() && out.back() == '\n') {
                 suppresscrlf = true;
             }
@@ -4596,7 +4562,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
      * been keyword substituted) to build the md5 hash
      */
     if (auth_marker != std::string::npos) {
-        if (!dialog_authentication) {
+        if (dialog_authentication.empty()) {
             ERROR("Authentication keyword without dialog_authentication!");
         }
 
@@ -4621,10 +4587,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         createSendingMessage(auth_comp->comp_param.auth_param.aka_OP, SM_UNUSED, my_aka_OP, sizeof(my_aka_OP));
 
         std::string credentials;
-        if (!createAuthHeader(
-                my_auth_user, my_auth_pass, src->getMethod(), uri,
-                body == std::string::npos ? "" : out.c_str() + body + 4, dialog_authentication, my_aka_OP, my_aka_AMF,
-                my_aka_K, next_nonce_count++, credentials)) {
+        if (!createAuthHeader(my_auth_user, my_auth_pass, src->getMethod(), uri,
+                              body == std::string::npos ? "" : out.c_str() + body + 4, dialog_authentication.c_str(),
+                              my_aka_OP, my_aka_AMF, my_aka_K, next_nonce_count++, credentials)) {
             ERROR("%s", credentials.c_str());
         }
         result += credentials;
@@ -4961,12 +4926,9 @@ void call::formatNextReqUrl(const char* contact)
     if ((start && end)  && (start < end)) {
         contact = start;
         contact++;
-        next_req_url[0] = '\0';
-        strncat(next_req_url, contact,
-                std::min(MAX_HEADER_LEN - 1, (int)(end - contact))); /* fits MAX_HEADER_LEN */
+        next_req_url.assign(contact, std::min(MAX_HEADER_LEN - 1, (int)(end - contact))); /* fits MAX_HEADER_LEN */
     } else {
-        next_req_url[0] = '\0';
-        strncat(next_req_url, contact, MAX_HEADER_LEN - 1);
+        next_req_url.assign(contact, strnlen(contact, MAX_HEADER_LEN - 1));
     }
 }
 
@@ -5030,7 +4992,7 @@ void call::computeRouteSetAndRemoteTargetUri(const char* rr, const char* contact
     }
 
     if (routes.size()) {
-        dialog_route_set = strdup(join(routes, ", ").c_str());
+        dialog_route_set = join(routes, ", ");
     }
 
     formatNextReqUrl(targetUri.c_str());
@@ -5186,7 +5148,7 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
         }
        /* This is a potential candidate, we need to match transactions. */
        if (curmsg->response_txn) {
-           if (transactions[curmsg->response_txn - 1].txnID && !strcmp(transactions[curmsg->response_txn - 1].txnID, txn)) {
+           if (transactions[curmsg->response_txn - 1].txnID && *transactions[curmsg->response_txn - 1].txnID == txn) {
                return true;
            } else {
                return false;
@@ -6134,13 +6096,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
             if(strlen(ptr) > (MAX_HEADER_LEN - 1)) {
                 ERROR("Peer tag too long. Change MAX_HEADER_LEN and recompile sipp");
             }
-            if(peer_tag) {
-                free(peer_tag);
-            }
-            peer_tag = strdup(ptr);
-            if (!peer_tag) {
-                ERROR("Out of memory allocating peer tag.");
-            }
+            peer_tag = ptr;
         }
         request[0] = 0;
         // extract the cseq method from the response
@@ -6216,7 +6172,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
                 } else {
                     if (int checkTxn = call_scenario->messages[search_index]->response_txn) {
                         /* This is a reply to an old transaction. */
-                        if (!strcmp(transactions[checkTxn - 1].txnID, txn)) {
+                        if (*transactions[checkTxn - 1].txnID == txn) {
                             /* This reply is provisional, so it should have no effect if we receive it out-of-order. */
                             if (reply_code >= 100 && reply_code <= 199) {
                                 TRACE_MSG("-----------------------------------------------\n"
@@ -6413,18 +6369,9 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
     }
 
     /* store the route set only once. TODO: does not support target refreshes!! */
-    if (call_scenario->messages[search_index]->bShouldRecordRoutes &&
-            dialog_route_set == nullptr) {
-        realloc_ptr = (char*)realloc(next_req_url, MAX_HEADER_LEN);
-        if (realloc_ptr) {
-            next_req_url = realloc_ptr;
-            /* Ensure next_req_url has an empty value in case contact is missing */
-            next_req_url[0] = '\0';
-        } else {
-            free(next_req_url);
-            ERROR("Out of memory!");
-            return false;
-        }
+    if (call_scenario->messages[search_index]->bShouldRecordRoutes && !dialog_route_set) {
+        /* Ensure next_req_url has an empty value in case contact is missing */
+        next_req_url.clear();
 
         /* cache the route set and the contact */
         char rr[MAX_HEADER_LEN], contact[MAX_HEADER_LEN];
@@ -6452,17 +6399,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
         }
         selectAuthChallenge(auth);
 
-        realloc_ptr = (char *) realloc(dialog_authentication, strlen(auth) + 2);
-        if (realloc_ptr) {
-            dialog_authentication = realloc_ptr;
-        } else {
-            free(dialog_authentication);
-            ERROR("Out of memory!");
-            return false;
-        }
-
-
-        sprintf(dialog_authentication, "%s", auth);
+        dialog_authentication = auth;
 
         /* Store the code of the challenge for building the proper header */
         dialog_challenge_type = reply_code;
