@@ -28,23 +28,30 @@
 
 /*--------------------------- helpers -----------------------------*/
 
+/* An AES-128 context with key, for the blocks of a function: keying
+ * it, which fetches the cipher in OpenSSL 3, costs more than a block */
+static EVP_CIPHER_CTX *aes128_new(const uint8_t key[16])
+{
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, key, NULL);
+    EVP_CIPHER_CTX_set_padding(ctx, 0);  // No PKCS padding for raw blocks
+    return ctx;
+}
+
+static void aes128_encrypt_block(EVP_CIPHER_CTX *ctx, const uint8_t in[16], uint8_t out[16])
+{
+    int outlen;
+    EVP_EncryptUpdate(ctx, out, &outlen, in, 16);
+}
+
 /*-------------------------------------------------------------------
  *  Function to compute OPc from OP and K.  Assumes key schedule has
     already been performed.
  *-----------------------------------------------------------------*/
 
-static void aes128_encrypt_block(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]) {
-    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-    int outlen;
-    EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, key, NULL);
-    EVP_CIPHER_CTX_set_padding(ctx, 0);  // No PKCS padding for raw blocks
-    EVP_EncryptUpdate(ctx, out, &outlen, in, 16);
-    EVP_CIPHER_CTX_free(ctx);
-}
-
-static void ComputeOPc(const uint8_t k[16], uint8_t op_c[16], uint8_t op[16])
+static void ComputeOPc(EVP_CIPHER_CTX *aes, uint8_t op_c[16], uint8_t op[16])
 {
-    aes128_encrypt_block(k, op, op_c);
+    aes128_encrypt_block(aes, op, op_c);
     for (uint8_t i = 0; i < 16; i++)
         op_c[i] ^= op[i];
 }
@@ -71,11 +78,13 @@ void f1(uint8_t k[16], uint8_t rand[16], uint8_t sqn[6], uint8_t amf[2],
     uint8_t rijndaelInput[16];
     uint8_t i;
 
-    ComputeOPc(k, op_c, op);
+    EVP_CIPHER_CTX *aes = aes128_new(k);
+
+    ComputeOPc(aes, op_c, op);
 
     for (i=0; i<16; i++)
         rijndaelInput[i] = rand[i] ^ op_c[i];
-    aes128_encrypt_block(k, rijndaelInput, temp);
+    aes128_encrypt_block(aes, rijndaelInput, temp);
 
     for (i=0; i<6; i++) {
         in1[i]    = sqn[i];
@@ -97,13 +106,14 @@ void f1(uint8_t k[16], uint8_t rand[16], uint8_t sqn[6], uint8_t amf[2],
     for (i=0; i<16; i++)
         rijndaelInput[i] ^= temp[i];
 
-    aes128_encrypt_block(k, rijndaelInput, out1);
+    aes128_encrypt_block(aes, rijndaelInput, out1);
     for (i=0; i<16; i++)
         out1[i] ^= op_c[i];
 
     for (i=0; i<8; i++)
         mac_a[i] = out1[i];
 
+    EVP_CIPHER_CTX_free(aes);
     return;
 } /* end of function f1 */
 
@@ -125,11 +135,13 @@ void f2345(uint8_t k[16], uint8_t rand[16],
     uint8_t rijndaelInput[16];
     uint8_t i;
 
-    ComputeOPc(k, op_c, op);
+    EVP_CIPHER_CTX *aes = aes128_new(k);
+
+    ComputeOPc(aes, op_c, op);
 
     for (i=0; i<16; i++)
         rijndaelInput[i] = rand[i] ^ op_c[i];
-    aes128_encrypt_block(k, rijndaelInput, temp);
+    aes128_encrypt_block(aes, rijndaelInput, temp);
 
     /* To obtain output block OUT2: XOR OPc and TEMP,    *
      * rotate by r2=0, and XOR on the constant c2 (which *
@@ -139,7 +151,7 @@ void f2345(uint8_t k[16], uint8_t rand[16],
         rijndaelInput[i] = temp[i] ^ op_c[i];
     rijndaelInput[15] ^= 1;
 
-    aes128_encrypt_block(k, rijndaelInput, out);
+    aes128_encrypt_block(aes, rijndaelInput, out);
     for (i=0; i<16; i++)
         out[i] ^= op_c[i];
 
@@ -156,7 +168,7 @@ void f2345(uint8_t k[16], uint8_t rand[16],
         rijndaelInput[(i+12) % 16] = temp[i] ^ op_c[i];
     rijndaelInput[15] ^= 2;
 
-    aes128_encrypt_block(k, rijndaelInput, out);
+    aes128_encrypt_block(aes, rijndaelInput, out);
     for (i=0; i<16; i++)
         out[i] ^= op_c[i];
 
@@ -171,13 +183,14 @@ void f2345(uint8_t k[16], uint8_t rand[16],
         rijndaelInput[(i+8) % 16] = temp[i] ^ op_c[i];
     rijndaelInput[15] ^= 4;
 
-    aes128_encrypt_block(k, rijndaelInput, out);
+    aes128_encrypt_block(aes, rijndaelInput, out);
     for (i=0; i<16; i++)
         out[i] ^= op_c[i];
 
     for (i=0; i<16; i++)
         ik[i] = out[i];
 
+    EVP_CIPHER_CTX_free(aes);
     return;
 } /* end of function f2345 */
 
@@ -202,11 +215,13 @@ void f1star(uint8_t k[16], uint8_t rand[16], uint8_t sqn[6], uint8_t amf[2],
     uint8_t rijndaelInput[16];
     uint8_t i;
 
-    ComputeOPc(k, op_c, op);
+    EVP_CIPHER_CTX *aes = aes128_new(k);
+
+    ComputeOPc(aes, op_c, op);
 
     for (i=0; i<16; i++)
         rijndaelInput[i] = rand[i] ^ op_c[i];
-    aes128_encrypt_block(k, rijndaelInput, temp);
+    aes128_encrypt_block(aes, rijndaelInput, temp);
 
     for (i=0; i<6; i++) {
         in1[i]    = sqn[i];
@@ -228,13 +243,14 @@ void f1star(uint8_t k[16], uint8_t rand[16], uint8_t sqn[6], uint8_t amf[2],
     for (i=0; i<16; i++)
         rijndaelInput[i] ^= temp[i];
 
-    aes128_encrypt_block(k, rijndaelInput, out1);
+    aes128_encrypt_block(aes, rijndaelInput, out1);
     for (i=0; i<16; i++)
         out1[i] ^= op_c[i];
 
     for (i=0; i<8; i++)
         mac_s[i] = out1[i+8];
 
+    EVP_CIPHER_CTX_free(aes);
     return;
 } /* end of function f1star */
 
@@ -257,11 +273,13 @@ void f5star(uint8_t k[16], uint8_t rand[16],
     uint8_t rijndaelInput[16];
     uint8_t i;
 
-    ComputeOPc(k, op_c, op);
+    EVP_CIPHER_CTX *aes = aes128_new(k);
+
+    ComputeOPc(aes, op_c, op);
 
     for (i=0; i<16; i++)
         rijndaelInput[i] = rand[i] ^ op_c[i];
-    aes128_encrypt_block(k, rijndaelInput, temp);
+    aes128_encrypt_block(aes, rijndaelInput, temp);
 
     /* To obtain output block OUT5: XOR OPc and TEMP,         *
      * rotate by r5=96, and XOR on the constant c5 (which     *
@@ -271,12 +289,13 @@ void f5star(uint8_t k[16], uint8_t rand[16],
         rijndaelInput[(i+4) % 16] = temp[i] ^ op_c[i];
     rijndaelInput[15] ^= 8;
 
-    aes128_encrypt_block(k, rijndaelInput, out);
+    aes128_encrypt_block(aes, rijndaelInput, out);
     for (i=0; i<16; i++)
         out[i] ^= op_c[i];
 
     for (i=0; i<6; i++)
         ak[i] = out[i];
 
+    EVP_CIPHER_CTX_free(aes);
     return;
 } /* end of function f5star */
