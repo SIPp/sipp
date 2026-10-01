@@ -291,6 +291,8 @@ marked **Breaking**.
   - a `~/` path expands from USERPROFILE when there is no HOME (#1173)
   - screens: periods, rates, times and padding (#920, #921, #928, #929,
     #931, #958, #1056, #1057, #1058)
+  - a pager that can't be run no longer leaves a second SIPp printing
+    the help (#1241)
   - uniform pauses and `-lost` keep the per-process random seed (#956),
     and `<exec command>` keeps stdin non-blocking (#955)
   - messages and warnings: a fatal error is printed once, logs opened

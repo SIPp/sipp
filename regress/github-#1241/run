@@ -1,0 +1,23 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# On a terminal, with a PAGER that can't be run, the child that failed
+# to run it exits: the help and the error are printed once, by sipp
+# itself, rather than once by each of two sipp processes.
+. "`dirname "$0"`/../functions"; init
+
+script -qec true /dev/null >/dev/null 2>&1 </dev/null ||
+    skip "no util-linux script to run sipp on a terminal"
+
+out=`PAGER=/ script -qec "'$SIPP' -nosuchoption" /dev/null 2>&1 </dev/null`
+status=$?
+errors=`echo "$out" | grep -c "Invalid argument: '-nosuchoption'"`
+helps=`echo "$out" | grep -c "Available options"`
+if test $status -ne 255; then
+    fail "sipp exited with $status, not 255"
+elif test $errors -ne 1 || test $helps -ne 1; then
+    fail "the error was printed $errors times, the help $helps times"
+fi
+case $out in
+    *"execve: Permission denied"*) ok ;;
+    *) fail "no error about the pager: `echo "$out" | head -n 1`" ;;
+esac
