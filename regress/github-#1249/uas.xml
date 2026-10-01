@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="uas-cseq-method">
+
+  <recv request="INVITE"/>
+
+  <!-- "CSeq" in another header, before the CSeq header -->
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[pid]SIPpTag01[call_number]
+      [last_Call-ID:]
+      X-Orig-CSeq: 7 OPTIONS
+      [last_CSeq:]
+      Contact: sip:[service]@[local_ip]:[local_port]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv request="ACK"/>
+
+  <recv request="BYE"/>
+
+  <!-- A lowercase CSeq header, and "CSeq" in the body -->
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      cseq: 2 BYE
+      Content-Type: text/plain
+      Content-Length: [len]
+
+      CSeq: 7 OPTIONS
+    ]]>
+  </send>
+
+</scenario>

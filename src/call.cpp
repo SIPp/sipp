@@ -4870,24 +4870,19 @@ bool call::check_peer_src(char * msg, int search_index)
 
 void call::extract_cseq_method(char* method, size_t size, const char* msg)
 {
-    const char* cseq;
-    method[0] = '\0';
-    if ((cseq = strstr (msg, "CSeq"))) {
-        const char* value;
-        if ((value = strchr(cseq, ':'))) {
-            value++;
-            while (isspace(*value)) value++;  // ignore any white spaces after the :
-            while (*value && !isspace(*value)) value++;  // ignore the CSEQ number
-            while (isspace(*value)) value++;  // ignore spaces after CSEQ number
-            /* A '\r' terminates the line, so we want to catch that too. */
-            size_t nbytes = strcspn(value, "\r\n");
-            if (nbytes >= size) {
-                nbytes = size - 1;
-            }
-            memcpy(method, value, nbytes);
-            method[nbytes] = '\0';
-        }
+    /* The CSeq header, in any case, not "CSeq" elsewhere in the message */
+    const char *value = get_header_content(msg, "CSeq:");
+    /* Skip the CSeq number, and the blanks around it */
+    value += strspn(value, " \t\r\n");
+    value += strcspn(value, " \t\r\n");
+    value += strspn(value, " \t\r\n");
+    /* A '\r' terminates the line, so we want to catch that too. */
+    size_t nbytes = strcspn(value, "\r\n");
+    if (nbytes >= size) {
+        nbytes = size - 1;
     }
+    memcpy(method, value, nbytes);
+    method[nbytes] = '\0';
 }
 
 void call::extract_transaction(char* txn, const char* msg)
@@ -8591,6 +8586,20 @@ TEST(extract_cseq_method, method) {
     call::extract_cseq_method(method, sizeof(method), "SIP/2.0 200 OK\r\nCSeq: 2 BYE\r\n\r\n");
     EXPECT_STREQ("BYE", method);
     call::extract_cseq_method(method, sizeof(method), "SIP/2.0 200 OK\r\n\r\n");
+    EXPECT_STREQ("", method);
+}
+
+TEST(extract_cseq_method, only_the_cseq_header)
+{
+    char method[16];
+    call::extract_cseq_method(method, sizeof(method), "SIP/2.0 200 OK\r\ncseq: 2 BYE\r\n\r\n");
+    EXPECT_STREQ("BYE", method);
+    call::extract_cseq_method(method, sizeof(method),
+                              "SIP/2.0 200 OK\r\nX-Orig-CSeq: 1 OPTIONS\r\nCSeq: 2 BYE\r\n\r\n");
+    EXPECT_STREQ("BYE", method);
+    call::extract_cseq_method(method, sizeof(method), "SIP/2.0 200 OK\r\nCSEQ: 2 BYE\r\n\r\nCSeq: 1 INFO\r\n");
+    EXPECT_STREQ("BYE", method);
+    call::extract_cseq_method(method, sizeof(method), "SIP/2.0 200 OK\r\n\r\nCSeq: 1 INFO\r\n");
     EXPECT_STREQ("", method);
 }
 
