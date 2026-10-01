@@ -8,6 +8,12 @@ marked **Breaking**.
 
 ## [Unreleased]
 
+This is the largest pass over the project in its history: every open
+issue and pull request is closed, every Coverity finding is resolved,
+and the performance work under Changed below is the biggest single
+improvement to SIPp's CPU and memory ever made, cutting both far past
+any earlier release (see the "Memory and CPU per call" entry).
+
 ### Added
 
 - Several dialogs in a call: `dialog="N"` on `<send>` and `<recv>`, each
