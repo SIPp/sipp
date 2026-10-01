@@ -1,0 +1,21 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# With -rfc3339 anywhere on the command line, an error in the options
+# is timed in RFC 3339, with the UTC offset, also in an option before
+# -rfc3339.
+. "`dirname "$0"`/../functions"; init
+
+# check TZ OFFSET OPTION...: XYZ-3 is UTC+3, with no time zone database.
+check() {
+    tz=$1; offset=$2; shift 2
+    error=`TZ=$tz sippfg "$@" 2>&1 >/dev/null | head -1`
+    case $error in
+        [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9]$offset": -m, \"abc\" is not a valid integer!") ;;
+        *) fail "TZ=$tz $*: $error" ;;
+    esac
+}
+
+check XYZ-3 +03:00 -rfc3339 -m abc 127.0.0.1:24511
+check XYZ-3 +03:00 -m abc -rfc3339 127.0.0.1:24511
+check UTC0 Z -m abc 127.0.0.1:24511 -rfc3339
+ok
