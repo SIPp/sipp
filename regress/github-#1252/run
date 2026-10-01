@@ -1,0 +1,24 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A challenge's opaque of 2100 characters and a qop list longer than 15
+# are answered whole: the opaque returned as it came, qop=auth.
+. "`dirname "$0"`/../functions"; init
+
+opaque=`printf '%2100s' '' | tr ' ' o`
+sippfg -sf uas.xml -key opaque "$opaque" -i 127.0.0.1 -p 26561 -m 1 \
+    -timeout 8 -timeout_error >/dev/null 2>&1 &
+uas=$!
+sleep 1
+sippfg -sf uac.xml -i 127.0.0.1 -p 26560 -m 1 127.0.0.1:26561 \
+    -timeout 6 -timeout_error >/dev/null 2>&1
+uac_status=$?
+wait $uas
+uas_status=$?
+
+if test $uac_status -ne 0; then
+    fail "UAC failed with $uac_status"
+elif test $uas_status -ne 0; then
+    fail "UAS failed with $uas_status: the opaque or qop was cut"
+else
+    ok
+fi

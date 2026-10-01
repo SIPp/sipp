@@ -271,8 +271,10 @@ marked **Breaking**.
   based on #864 by Raja amirapu)
 - Authentication (by Orgad Shaneh): AKAv1-MD5 with short keys and `0x`
   keys (#926, #964), `-sess` algorithms no longer taken for the plain
-  ones (#966), and a cnonce of 64 random bits rather than one guessable
-  `rand()` value (#1162)
+  ones (#966), a cnonce of 64 random bits rather than one guessable
+  `rand()` value (#1162), and a challenge's opaque, qop and header
+  answered whole, not cut at 63, 15 and 2048 characters, as are long
+  values in `<verifyauth>` and `-auth_uri` (#1252)
 - Scenarios and keywords (by Orgad Shaneh):
   - each scenario's `<init>` runs, `-rxsf`'s too, with call number 0 and
     no line of a SEQUENTIAL `-inf` file (#924, #1078, #1079, #1087)
