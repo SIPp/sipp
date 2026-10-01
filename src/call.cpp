@@ -4690,8 +4690,10 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
         }
     }
 
-    if (body != std::string::npos &&
-        !strcmp(get_header_content(out.c_str(), (char *)"Content-Type:"), "application/sdp")) {
+    /* An SDP is an offer or an answer, whether or not a [len] or an
+     * [authentication] had its body found above */
+    if (out.find("\r\n\r\n") != std::string::npos &&
+        is_sdp_content_type(get_header_content(out.c_str(), "Content-Type:"))) {
         if (getSessionStateCurrent() == eNoSession)
         {
             logSrtpInfo("call::createSendingMessage():  Switching session state:  eNoSession --> eOfferSent\n");
