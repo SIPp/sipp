@@ -238,20 +238,6 @@ class JLSRTP
         int pseudorandomFunction(const std::vector<unsigned char> &iv, int n, std::vector<unsigned char> &output);
 
         /**
-         * shiftVectorLeft
-         *
-         * Shifts a given vector to the left by a predetermined number of bytes
-         *
-         * @param[out]  shifted_vec Shifted vector
-         * @param[in]   original_vec    Original vector to shift
-         * @param[in]   shift_value Number of bytes to shift original vector by
-         *
-         * @return  0   SUCCESS
-         * @return  -1  FAILURE
-         */
-        int shiftVectorLeft(std::vector<unsigned char> &shifted_vec, std::vector<unsigned char> &original_vec, int shift_value);
-
-        /**
          * shiftVectorRight
          *
          * Shifts a given vector to the right by a predetermined number of bytes
@@ -298,32 +284,6 @@ class JLSRTP
          * @return  0   Current machine does NOT use LITTLE ENDIAN byte ordering
          */
         int isLittleEndian();
-
-        /**
-         * convertSsrc
-         *
-         * Converts the given numeric 32-bit ssrc to its vector version
-         *
-         * @param[in]   ssrc    Numerical SSRC to convert
-         * @param[out]  result  Vector-based SSRC
-         *
-         * @return  0   SUCCESS
-         * @return  -1  FAILURE
-         */
-        int convertSsrc(unsigned long ssrc, std::vector<unsigned char> &result);
-
-        /**
-         * convertPacketIndex
-         *
-         * Converts the given numeric 48-bit packet index to its vector version
-         *
-         * @param[in]   ssrc    Numerical packet index to convert
-         * @param[out]  result  Vector-based packet index
-         *
-         * @return  0   SUCCESS
-         * @return  -1  FAILURE
-         */
-        int convertPacketIndex(unsigned long long i, std::vector<unsigned char> &result);
 
         /**
          * convertROC
