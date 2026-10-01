@@ -30,6 +30,7 @@
 #include "rtpstream.hpp"
 #include "poller.hpp"
 #include "srtp_channel.hpp"
+#include "srtp_stream.hpp"
 
 #include <sys/time.h>
 #include <algorithm>
@@ -117,7 +118,7 @@ static size_t rtpstream_buffer_len(int bytes_per_packet)
 
 /* The authentication tag of a channel's SRTP packets: none for the
  * negative error JLSRTP returns for an HMAC it does not know */
-static size_t rtpstream_tag_len(SrtpChannel *channel)
+static size_t rtpstream_tag_len(const SrtpStream *channel)
 {
     int len = channel->getAuthenticationTagSize();
     return len > 0 ? len : 0;
@@ -404,8 +405,8 @@ static RtpEchoDebugFile debugrefilevideo(Type::Video);
 struct rtpecho_t
 {
     /* none for plain RTP */
-    std::unique_ptr<SrtpChannel> rx;
-    std::unique_ptr<SrtpChannel> tx;
+    std::unique_ptr<SrtpStream> rx;
+    std::unique_ptr<SrtpStream> tx;
     bool error = false; /* failed to receive */
 };
 
@@ -413,8 +414,8 @@ struct rtpecho_t
 // thread sends and receives with; guarded by the task's mutex
 struct rtpsrtp_t
 {
-    SrtpChannel tx;
-    SrtpChannel rx;
+    SrtpStream tx;
+    SrtpStream rx;
 };
 
 //===================================================================================================
@@ -907,8 +908,12 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                                     taskinfo->audio_file_num_bytes - taskinfo->audio_file_bytes_left);
 
                 std::lock_guard lock(taskinfo->mutex);
-                SrtpChannel* tx = taskinfo->audio_srtp && taskinfo->audio_srtp->tx.getCryptoTag() != 0 ? &taskinfo->audio_srtp->tx : nullptr;
-                SrtpChannel* rx = taskinfo->audio_srtp && taskinfo->audio_srtp->rx.getCryptoTag() != 0 ? &taskinfo->audio_srtp->rx : nullptr;
+                SrtpStream *tx = taskinfo->audio_srtp && taskinfo->audio_srtp->tx.getCryptoTag() != 0
+                                     ? &taskinfo->audio_srtp->tx
+                                     : nullptr;
+                SrtpStream *rx = taskinfo->audio_srtp && taskinfo->audio_srtp->rx.getCryptoTag() != 0
+                                     ? &taskinfo->audio_srtp->rx
+                                     : nullptr;
                 if (tx)
                 {
                     // GRAB RTP HEADER
@@ -1179,8 +1184,12 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                                     taskinfo->video_file_num_bytes - taskinfo->video_file_bytes_left);
 
                 std::lock_guard lock(taskinfo->mutex);
-                SrtpChannel* tx = taskinfo->video_srtp && taskinfo->video_srtp->tx.getCryptoTag() != 0 ? &taskinfo->video_srtp->tx : nullptr;
-                SrtpChannel* rx = taskinfo->video_srtp && taskinfo->video_srtp->rx.getCryptoTag() != 0 ? &taskinfo->video_srtp->rx : nullptr;
+                SrtpStream *tx = taskinfo->video_srtp && taskinfo->video_srtp->tx.getCryptoTag() != 0
+                                     ? &taskinfo->video_srtp->tx
+                                     : nullptr;
+                SrtpStream *rx = taskinfo->video_srtp && taskinfo->video_srtp->rx.getCryptoTag() != 0
+                                     ? &taskinfo->video_srtp->rx
+                                     : nullptr;
                 if (tx)
                 {
                     // GRAB RTP HEADER
@@ -1464,8 +1473,8 @@ static bool rtpstream_echotask(taskentry_t* taskinfo, bool video, rtpecho_buffer
     {
         return false;
     }
-    SrtpChannel* rx = echo->rx.get();
-    SrtpChannel* tx = echo->tx.get();
+    SrtpStream *rx = echo->rx.get();
+    SrtpStream *tx = echo->tx.get();
 
     for (int i = 0; i < RTPECHO_MAX_BURST; i++)
     {
@@ -3108,14 +3117,14 @@ void rtpstream_update_pcap(rtpstream_callinfo_t* callinfo, rtpstream_pcap_t stre
 
 /* The copy of a call's SRTP context that its echo uses: none for plain
  * RTP, which the echo only passes on */
-static void rtpecho_context(std::unique_ptr<SrtpChannel>& context, const JLSRTP& from)
+static void rtpecho_context(std::unique_ptr<SrtpStream> &context, const JLSRTP &from)
 {
     if (from.getCryptoTag() == 0) {
         context.reset();
         return;
     }
     if (!context) {
-        context.reset(new SrtpChannel());
+        context.reset(new SrtpStream());
     }
     *context = from;
 }
