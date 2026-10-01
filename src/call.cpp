@@ -176,35 +176,36 @@ private:
 
         while (*src) {
             if (*src != '%') {
-                output << *src++;
+                output += *src++;
                 continue;
             }
 
             ++src;
             if (*src == '\0') {
-                output << '%';
+                output += '%';
                 break;
             }
 
             switch (*src) {
             case 'u':
-                output << call_number;
+                append_number(output, call_number);
                 break;
             case 'p':
-                output << pid;
+                append_number(output, pid);
                 break;
             case 's':
-                output << local_ip;
+                output += local_ip;
                 break;
             case 'r':
-                output << rand();
+                append_number(output, rand());
                 break;
             case '%':
-                output << '%';
+                output += '%';
                 break;
             default:
                 /* Not a conversion: keep it as it is. */
-                output << '%' << *src;
+                output += '%';
+                output += *src;
                 break;
             }
             ++src;
@@ -221,22 +222,23 @@ private:
 
         append_hex_bytes(bytes, 4);
         if (!compact) {
-            output << '-';
+            output += '-';
         }
         append_hex_bytes(bytes + 4, 2);
         if (!compact) {
-            output << '-';
+            output += '-';
         }
         append_hex_bytes(bytes + 6, 2);
         if (!compact) {
-            output << '-';
+            output += '-';
         }
         append_hex_bytes(bytes + 8, 2);
         if (!compact) {
-            output << '-';
+            output += '-';
         }
         append_hex_bytes(bytes + 10, 6);
-        output << '@' << local_ip;
+        output += '@';
+        output += local_ip;
     }
 
     void build_random()
@@ -244,14 +246,22 @@ private:
         unsigned char bytes[16];
 
         fill_bytes(bytes, sizeof(bytes));
-        output << call_number << '-';
+        append_number(output, call_number);
+        output += '-';
         append_hex_bytes(bytes, sizeof(bytes));
-        output << '@' << local_ip;
+        output += '@';
+        output += local_ip;
     }
 
     void build_timestamp()
     {
-        output << timestamp_micros() << '-' << call_number << '-' << pid << '@' << local_ip;
+        append_number(output, timestamp_micros());
+        output += '-';
+        append_number(output, call_number);
+        output += '-';
+        append_number(output, pid);
+        output += '@';
+        output += local_ip;
     }
 
     void fill_bytes(unsigned char *bytes, size_t size) const
@@ -270,11 +280,12 @@ private:
 
     void append_hex_bytes(const unsigned char *bytes, size_t size)
     {
+        static const char hex[] = "0123456789abcdef";
+
         for (size_t i = 0; i < size; ++i) {
-            output << std::hex << std::nouppercase << std::setw(2) << std::setfill('0')
-                   << static_cast<unsigned int>(bytes[i]);
+            output += hex[bytes[i] >> 4];
+            output += hex[bytes[i] & 0x0f];
         }
-        output << std::dec << std::setfill(' ');
     }
 
     static uint64_t timestamp_micros()
@@ -287,14 +298,13 @@ private:
 
     void copy_to(char *call_id) const
     {
-        std::string value = output.str();
-        size_t length = std::min(value.size(), static_cast<size_t>(MAX_HEADER_LEN - 1));
-        memcpy(call_id, value.data(), length);
+        size_t length = std::min(output.size(), static_cast<size_t>(MAX_HEADER_LEN - 1));
+        memcpy(call_id, output.data(), length);
         call_id[length] = '\0';
     }
 
     unsigned int call_number;
-    std::ostringstream output;
+    std::string output;
 };
 
 static void build_call_id(char *call_id, unsigned int call_number)
