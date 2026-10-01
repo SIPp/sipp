@@ -2227,8 +2227,7 @@ int main(int argc, char *argv[])
                     ERROR("-slave_cfg/-secondary_cfg and -3pcc options are not compatible");
                 }
                 extendedTwinSippMode = true;
-                slave_cfg_file = new char [strlen(argv[argi]) + 1];
-                sprintf(slave_cfg_file,"%s", argv[argi]);
+                slave_cfg_file = argv[argi];
                 parse_slave_cfg();
                 break;
             case SIPP_OPTION_3PCC_EXTENDED:
@@ -2240,7 +2239,7 @@ int main(int argc, char *argv[])
                 if (twinSippMode) {
                     ERROR("-master/-primary and -slave/-secondary options are not compatible with -3PCC option");
                 }
-                *((char**)option->data) = argv[argi];
+                *(std::optional<std::string> *)option->data = std::string(argv[argi]);
                 slave_masterSet = true;
                 break;
             case SIPP_OPTION_RSA: {

@@ -29,7 +29,7 @@ MAYBE_EXTERN bool   useLogf             DEFVAL(0);
 MAYBE_EXTERN bool   dumpInFile          DEFVAL(0);
 MAYBE_EXTERN bool   dumpInRtt           DEFVAL(0);
 MAYBE_EXTERN bool   useCountf           DEFVAL(0);
-MAYBE_EXTERN char * slave_cfg_file;
+MAYBE_EXTERN const char *slave_cfg_file;
 
 MAYBE_EXTERN unsigned long long max_log_size DEFVAL(0);
 MAYBE_EXTERN unsigned long long ringbuffer_size DEFVAL(0);

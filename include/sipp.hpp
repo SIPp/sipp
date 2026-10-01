@@ -50,6 +50,7 @@
 #include <limits.h>
 #include <atomic>
 #include <vector>
+#include <optional>
 #include <string>
 #include <map>
 #include <set>
@@ -315,8 +316,8 @@ MAYBE_EXTERN int                lose_packets            DEFVAL(0);
 MAYBE_EXTERN double             global_lost             DEFVAL(0.0);
 MAYBE_EXTERN std::string remote_host;
 MAYBE_EXTERN std::string twinSippHost;
-MAYBE_EXTERN char             * master_name;
-MAYBE_EXTERN char             * slave_number;
+MAYBE_EXTERN std::optional<std::string> master_name;
+MAYBE_EXTERN std::optional<std::string> slave_number;
 MAYBE_EXTERN int                twinSippPort            DEFVAL(DEFAULT_3PCC_PORT);
 MAYBE_EXTERN bool               twinSippMode            DEFVAL(false);
 MAYBE_EXTERN bool               extendedTwinSippMode    DEFVAL(false);
@@ -487,7 +488,7 @@ typedef struct _T_peer_infos {
     SIPpSocket *peer_socket;
 } T_peer_infos;
 
-typedef std::map<std::string, char*> peer_addr_map;
+typedef std::map<std::string, std::string> peer_addr_map;
 MAYBE_EXTERN peer_addr_map peer_addrs;
 typedef std::map<std::string, T_peer_infos> peer_map;
 MAYBE_EXTERN peer_map      peers;
@@ -524,7 +525,7 @@ enum E_Alter_YesNo {
 
 void sipp_exit(int rc, int rtp_errors, int echo_errors);
 
-char *get_peer_addr(const char *);
+const std::string &get_peer_addr(const std::string &peer);
 
 bool reconnect_allowed();
 void reset_connection(SIPpSocket *);
@@ -541,7 +542,6 @@ void connect_to_all_peers();
 void connect_local_twin_socket();
 void close_peer_sockets();
 void close_local_sockets();
-void free_peer_addr_map();
 void randomseed();
 
 /********************* Reset global kludge  *******************/
