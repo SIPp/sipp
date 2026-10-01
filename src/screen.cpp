@@ -32,7 +32,9 @@ ScreenPrinter* sp;
 
 /* The RTP rates of the last display period, in kB/s, which every screen
  * drawn until the next one shows. */
+#ifdef PCAPPLAY
 static double last_pcap_rate = 0;
+#endif
 static double last_echo_rate = 0;
 static double last_echo2_rate = 0;
 static double last_artpstream_rate_out = 0;
