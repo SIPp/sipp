@@ -58,19 +58,18 @@ struct remote_address;
 
 
 struct txnInstanceInfo {
-    char *txnID;
-    unsigned long txnResp;
-    int ackIndex;
+    char *txnID = nullptr;
+    unsigned long txnResp = 0;
+    int ackIndex = 0;
     /* A transaction a received request starts: the request, its hash
      * and index, and the last response we sent in it */
-    char *request;
-    unsigned long requestHash;
-    int requestIndex;
-    char *response;
-    int responseLen;
-    int responseIndex;
+    std::string request;
+    unsigned long requestHash = 0;
+    int requestIndex = 0;
+    std::string response;
+    int responseIndex = 0;
     /* The dialog of the message that started it, 0 before */
-    int dialog;
+    int dialog = 0;
 };
 
 /* A dialog of a call whose scenario has dialog="N" messages */
@@ -81,7 +80,7 @@ struct call_dialog {
     unsigned int cseq = 0;
     unsigned long int last_recv_invite_cseq = 0;
     char *peer_tag = nullptr;
-    char *last_recv_msg = nullptr;
+    std::string last_recv_msg;
     char *dialog_route_set = nullptr;
     char *next_req_url = nullptr;
 };
@@ -153,7 +152,7 @@ public:
     void setLastMsg(const char *msg);
     bool  automaticResponseMode(T_AutoMode P_case, const char* P_recv);
     const char *getLastReceived() {
-        return last_recv_msg;
+        return last_recv_msg.empty() ? nullptr : last_recv_msg.c_str();
     };
 
     static void extract_cseq_method(char* responseCseq, size_t size, const char* msg);
@@ -207,8 +206,8 @@ protected:
      * change this index. Only message sent from the scenario
      * are kept in this index.) */
     int            last_send_index;
-    char         * last_send_msg;
-    int            last_send_len;
+    /* As sent: it can hold a NUL */
+    std::string last_send_msg;
     /* Is last_send_msg a request that a connection took, with no
      * response yet? */
     bool           last_send_unanswered;
@@ -221,7 +220,8 @@ protected:
      * scenario steps sends a message */
     unsigned long  last_recv_hash;
     int            last_recv_index;
-    char         * last_recv_msg;
+    /* Empty until a message comes */
+    std::string last_recv_msg;
 
     unsigned long int last_recv_invite_cseq;
 
@@ -235,8 +235,7 @@ protected:
     /* The message to send again: last_send_msg while recv_retrans_last,
      * else one of its own, which a message sent after it leaves it */
     bool           recv_retrans_last;
-    char         * recv_retrans_msg;
-    int            recv_retrans_len;
+    std::string recv_retrans_msg;
     void keepRecvRetransMsg();
     unsigned int   recv_timeout;
 
@@ -313,7 +312,7 @@ protected:
     VariableTable *M_callVariableTable;
 
     /* Our transaction IDs. */
-    struct txnInstanceInfo *transactions;
+    std::unique_ptr<txnInstanceInfo[]> transactions;
 
     /* result of execute action */
     enum T_ActionResult {
@@ -455,11 +454,12 @@ protected:
     bool process_incoming(const char* msg, const struct sockaddr_storage* src,
                           SIPpSocket *socket, bool sdp_read);
     void queue_up(const char* msg, bool sdp_read = false);
-    char *queued_msg;
+    /* Empty when none: a message is never empty */
+    std::string queued_msg;
     bool queued_sdp_read;
     /* A command that came while the call waited for a SIP message, kept
      * for the <recvCmd> that follows. */
-    char *queued_cmd;
+    std::string queued_cmd;
     bool recvCmdFollows(int index);
 
     int _callDebug(const char *fmt, ...) __attribute__((format(printf, 2, 3)));

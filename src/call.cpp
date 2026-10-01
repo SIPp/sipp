@@ -50,6 +50,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <assert.h>
@@ -988,6 +989,30 @@ static bool same_cseq(const char* a, const char* b)
     return cseq == get_header_content(b, "CSeq:");
 }
 
+/* Free the text s holds, whose buffer clear() would keep */
+static void release(std::string &s)
+{
+    if (!s.empty()) {
+        std::string().swap(s);
+    }
+}
+
+/* s = the n bytes at p, in a buffer of about their size, as realloc()
+ * gave: assign() keeps a larger buffer, and grows one to twice its size */
+static void assign_exact(std::string &s, const char *p, size_t n)
+{
+    if (n > s.capacity() || n + 32 <= s.capacity()) {
+        s = std::string(p, n);
+    } else {
+        s.assign(p, n);
+    }
+}
+
+static void assign_exact(std::string &s, const char *p)
+{
+    assign_exact(s, p, strlen(p));
+}
+
 /******* Very simple hash for retransmission detection  *******/
 
 /* The hash of the loop below (hash * 65599 + c for each character) of
@@ -1119,16 +1144,11 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
 
     msg_index = 0;
     last_send_index = 0;
-    last_send_msg = nullptr;
-    last_send_len = 0;
     last_send_unanswered = false;
     recv_retrans_last = false;
-    recv_retrans_msg = nullptr;
-    recv_retrans_len = 0;
 
     last_recv_hash = 0;
     last_recv_index = -1;
-    last_recv_msg = nullptr;
 
     last_recv_invite_cseq = 0;
 
@@ -1157,13 +1177,10 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     call_established=false ;
     ack_is_pending=false ;
     bye_after_peer_request = false;
-    last_recv_msg = nullptr;
     cseq = base_cseq;
     nb_last_delay = 0;
     use_ipv6 = ipv6;
-    queued_msg = nullptr;
     queued_sdp_read = false;
-    queued_cmd = nullptr;
 
     dialog_authentication = nullptr;
     dialog_challenge_type = 0;
@@ -1258,10 +1275,7 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     }
 
     if (call_scenario->transactions.size() > 0) {
-        transactions = (struct txnInstanceInfo *)malloc(sizeof(txnInstanceInfo) * call_scenario->transactions.size());
-        memset(transactions, 0, sizeof(struct txnInstanceInfo) * call_scenario->transactions.size());
-    } else {
-        transactions = nullptr;
+        transactions = std::make_unique<txnInstanceInfo[]>(call_scenario->transactions.size());
     }
 
     if (call_scenario->dialogs) {
@@ -1439,10 +1453,7 @@ call::~call()
     if (transactions) {
         for (unsigned int i = 0; i < call_scenario->transactions.size(); i++) {
             free(transactions[i].txnID);
-            free(transactions[i].request);
-            free(transactions[i].response);
         }
-        free(transactions);
     }
 
     if (dialogs) {
@@ -1454,15 +1465,11 @@ call::~call()
                 unlisten(d.call_id.c_str());
             }
             free(d.peer_tag);
-            free(d.last_recv_msg);
             free(d.dialog_route_set);
             free(d.next_req_url);
         }
     }
 
-    free(last_recv_msg);
-    free(last_send_msg);
-    free(recv_retrans_msg);
     if (peer_tag) {
         free(peer_tag);
     }
@@ -1490,8 +1497,6 @@ call::~call()
     free(start_time_rtd);
     free(rtd_done);
     free(debugBuffer);
-    free(queued_msg);
-    free(queued_cmd);
 
     if (verify_pending) {
         /* Its commands run on, and their end is ignored */
@@ -1849,7 +1854,7 @@ char * call::get_last_header(const char * name)
 {
     int len;
 
-    if (!last_recv_msg || !*last_recv_msg) {
+    if (last_recv_msg.empty()) {
         return nullptr;
     }
 
@@ -1862,11 +1867,11 @@ char * call::get_last_header(const char * name)
     }
 
     if (name[len - 1] == ':') {
-        return get_header(last_recv_msg, name, false);
+        return get_header(last_recv_msg.c_str(), name, false);
     } else {
         char with_colon[MAX_HEADER_LEN+2];
         snprintf(with_colon, MAX_HEADER_LEN+2, "%s:", name);
-        return get_header(last_recv_msg, with_colon, false);
+        return get_header(last_recv_msg.c_str(), with_colon, false);
     }
 }
 
@@ -1989,7 +1994,7 @@ void call::tcpReconnected()
 {
     if (last_send_unanswered) {
         callDebug("Sending the unanswered request again on a new connection\n");
-        send_raw(last_send_msg, last_send_index, last_send_len);
+        send_raw(last_send_msg.c_str(), last_send_index, last_send_msg.size());
     }
 }
 
@@ -2302,7 +2307,7 @@ bool call::executeMessage(message *curmsg)
         /* A response in a transaction a received request started: the
          * [last_*] keywords are of that request. */
         txnInstanceInfo *answered = nullptr;
-        if (curmsg->response_txn && transactions[curmsg->response_txn - 1].request) {
+        if (curmsg->response_txn && !transactions[curmsg->response_txn - 1].request.empty()) {
             answered = &transactions[curmsg->response_txn - 1];
             std::swap(last_recv_msg, answered->request);
         }
@@ -2351,17 +2356,7 @@ bool call::executeMessage(message *curmsg)
 
         keepRecvRetransMsg();
         last_send_index = curmsg->index;
-        last_send_len = msgLen;
-        realloc_ptr = (char *) realloc(last_send_msg, msgLen+1);
-        if (realloc_ptr) {
-            last_send_msg = realloc_ptr;
-        } else {
-            free(last_send_msg);
-            ERROR("Out of memory!");
-            return false;
-        }
-        memcpy(last_send_msg, msg_snd, msgLen);
-        last_send_msg[msgLen] = '\0';
+        assign_exact(last_send_msg, msg_snd, msgLen);
         /* Not one that waits for the connection to be made again: that
          * sends it (see SIPpSocket::keep()). */
         last_send_unanswered = !curmsg->send_scheme->isResponse() &&
@@ -2370,12 +2365,12 @@ bool call::executeMessage(message *curmsg)
 
         if (curmsg->start_txn) {
             transactions[curmsg->start_txn - 1].txnID = (char *)realloc(transactions[curmsg->start_txn - 1].txnID, MAX_HEADER_LEN);
-            extract_transaction(transactions[curmsg->start_txn - 1].txnID, last_send_msg);
+            extract_transaction(transactions[curmsg->start_txn - 1].txnID, last_send_msg.c_str());
             transactions[curmsg->start_txn - 1].dialog = dialogs ? dialogs->current : 1;
         }
         if (dialogs && !dialogKnown(dialogs->current)) {
             /* A Call-ID written without [call_id] */
-            const char *sent_id = get_call_id(last_send_msg);
+            const char *sent_id = get_call_id(last_send_msg.c_str());
             if (*sent_id) {
                 setDialogCallId(dialogs->current, sent_id);
             }
@@ -2385,13 +2380,7 @@ bool call::executeMessage(message *curmsg)
         }
         if (answered) {
             /* A retransmission of the request gets it again */
-            answered->response = (char *)realloc(answered->response, msgLen + 1);
-            if (!answered->response) {
-                ERROR("Out of memory!");
-            }
-            memcpy(answered->response, msg_snd, msgLen);
-            answered->response[msgLen] = '\0';
-            answered->responseLen = msgLen;
+            assign_exact(answered->response, msg_snd, msgLen);
             answered->responseIndex = curmsg->index;
         }
 
@@ -2406,8 +2395,7 @@ bool call::executeMessage(message *curmsg)
             recv_retrans_send_index = curmsg->index;
             /* Only UDP retransmissions of the request get it again. */
             if (transport == T_UDP && retrans_enabled) {
-                free(recv_retrans_msg);
-                recv_retrans_msg = nullptr;
+                release(recv_retrans_msg);
                 recv_retrans_last = true;
             }
 
@@ -2418,17 +2406,15 @@ bool call::executeMessage(message *curmsg)
              * in the next valid send */
             last_recv_hash = 0;
         } else if (last_recv_index >= 0 && recv_retrans_recv_index == last_recv_index &&
-                   call_scenario->messages[last_recv_index]->recv_request &&
-                   curmsg->send_scheme->isResponse() &&
-                   same_cseq(last_send_msg, last_recv_msg)) {
+                   call_scenario->messages[last_recv_index]->recv_request && curmsg->send_scheme->isResponse() &&
+                   same_cseq(last_send_msg.c_str(), last_recv_msg.c_str())) {
             /* A later response to the same request (a 200 after a 180): a
              * retransmission of the request gets the most recent one. A
              * response to another request, such as the 200 of an INVITE
              * sent after the 200 of a PRACK, is not one. */
             recv_retrans_send_index = curmsg->index;
             if (transport == T_UDP && retrans_enabled) {
-                free(recv_retrans_msg);
-                recv_retrans_msg = nullptr;
+                release(recv_retrans_msg);
                 recv_retrans_last = true;
             }
         }
@@ -2455,18 +2441,12 @@ bool call::executeMessage(message *curmsg)
     } else if (curmsg->M_type == MSG_TYPE_RECV
                || curmsg->M_type == MSG_TYPE_RECVCMD
               ) {
-        if (curmsg->M_type == MSG_TYPE_RECVCMD && queued_cmd) {
-            char *cmd = queued_cmd;
-            queued_cmd = nullptr;
-            bool ret = process_twinSippCom(cmd);
-            free(cmd);
-            return ret;
-        } else if (queued_msg) {
-            char *msg = queued_msg;
-            queued_msg = nullptr;
-            bool ret = process_incoming(msg, nullptr, nullptr, queued_sdp_read);
-            free(msg);
-            return ret;
+        if (curmsg->M_type == MSG_TYPE_RECVCMD && !queued_cmd.empty()) {
+            std::string cmd = std::exchange(queued_cmd, std::string());
+            return process_twinSippCom(cmd.data());
+        } else if (!queued_msg.empty()) {
+            std::string msg = std::exchange(queued_msg, std::string());
+            return process_incoming(msg.c_str(), nullptr, nullptr, queued_sdp_read);
         } else if (recv_timeout) {
             if(recv_timeout > getmilliseconds()) {
                 setPaused();
@@ -2569,7 +2549,7 @@ bool call::run()
     if(next_retrans && (next_retrans < clock_tick)) {
         nb_retrans++;
 
-        if ( (0 == strncmp (last_send_msg, "INVITE", 6)) ) {
+        if ((0 == strncmp(last_send_msg.c_str(), "INVITE", 6))) {
             bInviteTransaction = true;
         }
 
@@ -2619,7 +2599,7 @@ bool call::run()
                     nb_last_delay = global_t2;
                 }
             }
-            if (send_raw(last_send_msg, last_send_index, last_send_len) < 0) {
+            if (send_raw(last_send_msg.c_str(), last_send_index, last_send_msg.size()) < 0) {
                 return false;
             }
             call_scenario->messages[last_send_index] -> nb_sent_retrans++;
@@ -2837,16 +2817,7 @@ bool call::process_unexpected(const char* msg)
         }
 
         // usage of last_ keywords => for call aborting
-        realloc_ptr = (char *) realloc(last_recv_msg, strlen(msg) + 1);
-        if (realloc_ptr) {
-            last_recv_msg = realloc_ptr;
-        } else {
-            free(last_recv_msg);
-            ERROR("Out of memory!");
-            return false;
-        }
-
-        strcpy(last_recv_msg, msg);
+        assign_exact(last_recv_msg, msg);
 
         computeStat(CStat::E_CALL_FAILED);
         computeStat(CStat::E_FAILED_UNEXPECTED_MSG);
@@ -2889,15 +2860,9 @@ bool call::abortCall(bool writeLog)
     int is_inv;
     bool sent_bye = false, sent_cancel = false;
 
-    char * src_recv = nullptr ;
-
     callDebug("Aborting call %s (index %d).\n", id, msg_index);
 
-    if (last_send_msg != nullptr) {
-        is_inv = !strncmp(last_send_msg, "INVITE", 6);
-    } else {
-        is_inv = false;
-    }
+    is_inv = !strncmp(last_send_msg.c_str(), "INVITE", 6);
     /* The BYE starts a transaction of its own: its [branch] is that of an
      * index no step has, not that of the step before it, which would be
      * the ACK's after a 2xx. */
@@ -2905,13 +2870,11 @@ bool call::abortCall(bool writeLog)
 
     if (createsDialog() && (msg_index > 0)) {
         if ((call_established == false) && (is_inv)) {
-            src_recv = last_recv_msg ;
-
             // Answer unexpected errors (4XX, 5XX and beyond) with an ACK
             // Contributed by F. Tarek Rogers
-            if((src_recv) && (get_reply_code(src_recv) >= 400)) {
+            if (!last_recv_msg.empty() && (get_reply_code(last_recv_msg.c_str()) >= 400)) {
                 sendBuffer(createSendingMessage(get_default_message("ack")));
-            } else if (src_recv) {
+            } else if (!last_recv_msg.empty()) {
                 /* Call is not established and the reply is not a 4XX, 5XX */
                 /* And we already received a message. */
                 if (ack_is_pending == true) {
@@ -2935,14 +2898,14 @@ bool call::abortCall(bool writeLog)
                 /* any answer. */
                 /* Do nothing ! */
             }
-        } else if (last_recv_msg) {
+        } else if (!last_recv_msg.empty()) {
             /* The call may not be established, if we haven't yet received a message,
              * because the earlier check depends on the first message being an INVITE
              * (although it could be something like a message message, therefore we
              * check that we received a message. */
             /* The peer's own request has its From and To the other way
              * round from ours, and a CSeq of the peer's. */
-            bye_after_peer_request = !get_reply_code(last_recv_msg);
+            bye_after_peer_request = !get_reply_code(last_recv_msg.c_str());
             sendBuffer(createSendingMessage(get_default_message("bye"), byeIndex));
             sent_bye = true;
         }
@@ -4526,12 +4489,12 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 other = "From:";
             }
             if (other) {
-                char *value = get_header_content(last_recv_msg, other);
+                char *value = get_header_content(last_recv_msg.c_str(), other);
                 if (*value) {
                     out += value_only ? value : name + ": " + value;
                 }
             } else if (value_only) {
-                out += get_header_content(last_recv_msg, (name + ":").c_str());
+                out += get_header_content(last_recv_msg.c_str(), (name + ":").c_str());
             } else {
                 char *last_header = get_last_header(comp->literal.c_str());
                 if (last_header) {
@@ -4555,9 +4518,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         }
         case E_Message_Last_Message:
-            if (last_recv_msg && *last_recv_msg) {
-                out += last_recv_msg;
-            }
+            out += last_recv_msg;
             break;
         case E_Message_Last_Request_URI: {
             out += get_last_request_uri();
@@ -4814,10 +4775,10 @@ bool call::process_twinSippCom(char * msg)
                  * as a message that comes before a <sendCmd> has run is
                  * kept for its <recv>. */
                 int type = call_scenario->messages[search_index]->M_type;
-                if ((type == MSG_TYPE_RECV || type == MSG_TYPE_SEND) &&
-                        !queued_cmd && recvCmdFollows(search_index)) {
+                if ((type == MSG_TYPE_RECV || type == MSG_TYPE_SEND) && queued_cmd.empty() &&
+                    recvCmdFollows(search_index)) {
                     callDebug("Keeping the command for the <recvCmd> after index %d.\n", search_index);
-                    queued_cmd = strdup(msg);
+                    queued_cmd = msg;
                     return true;
                 }
                 /* The received message is different from the expected one */
@@ -5247,10 +5208,7 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
 
 void call::queue_up(const char* msg, bool sdp_read)
 {
-    /* Copied first: msg may be the message queued before. */
-    char* copy = strdup(msg);
-    free(queued_msg);
-    queued_msg = copy;
+    queued_msg = msg;
     queued_sdp_read = sdp_read;
 }
 
@@ -5355,8 +5313,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
     callDebug("Processing %zu byte incoming message for call-ID %s (hash %lu):\n%s\n\n",
               strlen(msg), id, hash(msg), msg);
 
-    if (last_send_unanswered && !strncmp(msg, "SIP/2.0", 7) &&
-            same_cseq(last_send_msg, msg)) {
+    if (last_send_unanswered && !strncmp(msg, "SIP/2.0", 7) && same_cseq(last_send_msg.c_str(), msg)) {
         last_send_unanswered = false;
     }
 
@@ -5432,10 +5389,9 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
              * new values to keywords such as the SRTP keys. */
             int status;
             if (recv_retrans_last) {
-                status = send_raw(last_send_msg, recv_retrans_send_index, last_send_len);
+                status = send_raw(last_send_msg.c_str(), recv_retrans_send_index, last_send_msg.size());
             } else {
-                status = send_raw(recv_retrans_msg ? recv_retrans_msg : "", recv_retrans_send_index,
-                                  recv_retrans_len);
+                status = send_raw(recv_retrans_msg.c_str(), recv_retrans_send_index, recv_retrans_msg.size());
             }
 
             if(status >= 0) {
@@ -5470,14 +5426,14 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
          * the last response we sent in it, if any, goes again. */
         for (unsigned int i = 0; i < call_scenario->transactions.size(); i++) {
             txnInstanceInfo &txn_info = transactions[i];
-            if (!txn_info.request || txn_info.requestHash != cookie) {
+            if (txn_info.request.empty() || txn_info.requestHash != cookie) {
                 continue;
             }
             call_scenario->messages[txn_info.requestIndex]->nb_recv_retrans++;
-            if (!txn_info.response) {
+            if (txn_info.response.empty()) {
                 return true;
             }
-            if (send_raw(txn_info.response, txn_info.responseIndex, txn_info.responseLen) < 0) {
+            if (send_raw(txn_info.response.c_str(), txn_info.responseIndex, txn_info.response.size()) < 0) {
                 return false;
             }
             call_scenario->messages[txn_info.responseIndex]->nb_sent_retrans++;
@@ -6394,15 +6350,10 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
     /* A request that starts a transaction: kept for its responses */
     if (found && call_scenario->messages[search_index]->start_txn) {
         txnInstanceInfo &txn_info = transactions[call_scenario->messages[search_index]->start_txn - 1];
-        free(txn_info.request);
-        free(txn_info.response);
-        txn_info.request = strdup(msg);
-        if (!txn_info.request) {
-            ERROR("Out of memory!");
-        }
+        assign_exact(txn_info.request, msg);
         txn_info.requestHash = cookie;
         txn_info.requestIndex = search_index;
-        txn_info.response = nullptr;
+        txn_info.response.clear();
         txn_info.dialog = dialogs ? dialogs->current : 1;
     }
 
@@ -6530,17 +6481,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
     last_recv_index = search_index;
     last_recv_hash = cookie;
     callDebug("Set Last Recv Hash: %lu (recv index %d)\n", last_recv_hash, last_recv_index);
-    realloc_ptr = (char *) realloc(last_recv_msg, strlen(msg) + 1);
-    if (realloc_ptr) {
-        last_recv_msg = realloc_ptr;
-    } else {
-        free(last_recv_msg);
-        ERROR("Out of memory!");
-        return false;
-    }
-
-
-    strcpy(last_recv_msg, msg);
+    assign_exact(last_recv_msg, msg);
 
     /* If this was a mandatory message, or if there is an explicit next label set
      * we must update our state machine.  */
@@ -7793,39 +7734,19 @@ call::T_AutoMode call::checkAutomaticResponseMode(char* P_recv)
 
 void call::setLastMsg(const char *msg)
 {
-    realloc_ptr = (char *) realloc(last_recv_msg, strlen(msg) + 1);
-    if (realloc_ptr) {
-        last_recv_msg = realloc_ptr;
-    } else {
-        free(last_recv_msg);
-        ERROR("Out of memory!");
-        return;
-    }
-
-    strcpy(last_recv_msg, msg);
+    assign_exact(last_recv_msg, msg);
 }
 
 bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
 {
 
     int res ;
-    char * old_last_recv_msg = nullptr;
-    bool last_recv_msg_saved = false;
+    std::string old_last_recv_msg;
 
     switch (P_case) {
     case E_AM_UNEXP_BYE: // response for an unexpected BYE
         // usage of last_ keywords
-        realloc_ptr = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
-        if (realloc_ptr) {
-            last_recv_msg = realloc_ptr;
-        } else {
-            free(last_recv_msg);
-            ERROR("Out of memory!");
-            return false;
-        }
-
-
-        strcpy(last_recv_msg, P_recv);
+        assign_exact(last_recv_msg, P_recv);
 
         // The BYE is unexpected, count it
         call_scenario->messages[msg_index] -> nb_unexp++;
@@ -7853,17 +7774,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
 
     case E_AM_UNEXP_CANCEL: // response for an unexpected cancel
         // usage of last_ keywords
-        realloc_ptr = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
-        if (realloc_ptr) {
-            last_recv_msg = realloc_ptr;
-        } else {
-            free(last_recv_msg);
-            ERROR("Out of memory!");
-            return false;
-        }
-
-
-        strcpy(last_recv_msg, P_recv);
+        assign_exact(last_recv_msg, P_recv);
 
         // The CANCEL is unexpected, count it
         call_scenario->messages[msg_index] -> nb_unexp++;
@@ -7892,17 +7803,7 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
 
     case E_AM_PING: // response for a random ping
         // usage of last_ keywords
-        realloc_ptr = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
-        if (realloc_ptr) {
-            last_recv_msg = realloc_ptr;
-        } else {
-            free(last_recv_msg);
-            ERROR("Out of memory!");
-            return false;
-        }
-
-
-        strcpy(last_recv_msg, P_recv);
+        assign_exact(last_recv_msg, P_recv);
 
         if (default_behaviors & DEFAULT_BEHAVIOR_PINGREPLY) {
             WARNING("Automatic response mode for an unexpected PING for call: %s", (id==nullptr)?"none":id);
@@ -7930,36 +7831,17 @@ bool call::automaticResponseMode(T_AutoMode P_case, const char* P_recv)
         // store previous last msg if msg is INFO, NOTIFY, OPTIONS or UPDATE
         // restore last_recv_msg to previous one
         // after sending ok
-        old_last_recv_msg = nullptr;
-        if (last_recv_msg != nullptr) {
-            last_recv_msg_saved = true;
-            old_last_recv_msg = strdup(last_recv_msg);
-            if (!old_last_recv_msg) {
-                ERROR("Out of memory!");
-            }
-        }
+        old_last_recv_msg = std::move(last_recv_msg);
         // usage of last_ keywords
-        realloc_ptr = (char *) realloc(last_recv_msg, strlen(P_recv) + 1);
-        if (realloc_ptr) {
-            last_recv_msg = realloc_ptr;
-        } else {
-            free(last_recv_msg);
-            free(old_last_recv_msg);
-            ERROR("Out of memory!");
-            return false;
-        }
-
-
-        strcpy(last_recv_msg, P_recv);
+        assign_exact(last_recv_msg, P_recv);
 
         TRACE_CALLDEBUG("Automatic response mode for an unexpected INFO, NOTIFY, OPTIONS or UPDATE for call: %s",
                         (id == nullptr) ? "none" : id);
         sendBuffer(createSendingMessage(get_default_message("200")));
 
         // restore previous last msg
-        if (last_recv_msg_saved == true) {
-            free(last_recv_msg);
-            last_recv_msg = old_last_recv_msg;
+        if (!old_last_recv_msg.empty()) {
+            last_recv_msg = std::move(old_last_recv_msg);
         }
         CStat::globalStat(CStat::E_AUTO_ANSWERED);
         return true;
@@ -7992,10 +7874,7 @@ int call::logSrtpInfo(const char *fmt, ...)
 void call::keepRecvRetransMsg()
 {
     if (recv_retrans_last) {
-        free(recv_retrans_msg);
-        recv_retrans_msg = last_send_msg;
-        recv_retrans_len = last_send_len;
-        last_send_msg = nullptr;
+        recv_retrans_msg = std::move(last_send_msg);
         recv_retrans_last = false;
     }
 }
@@ -8076,8 +7955,7 @@ public:
     using call::createSendingMessage;
     void set_last_recv_msg(const char *msg)
     {
-        free(last_recv_msg);
-        last_recv_msg = strdup(msg);
+        assign_exact(last_recv_msg, msg);
     }
     void parse_media_addr(std::string const& msg) { get_remote_media_addr(msg); }
     int parse_srtp(const char *msg, SrtpInfoParams &pA, SrtpInfoParams &pV)
@@ -8089,10 +7967,8 @@ public:
         msg_index = index;
         last_send_index = index;
         keepRecvRetransMsg();
-        last_send_len = len;
         next_retrans = retrans_at;
-        free(last_send_msg);
-        last_send_msg = strdup(msg);
+        last_send_msg.assign(msg, len);
     }
 #ifdef PCAPPLAY
     bool has_media() { return hasMediaInformation; }
