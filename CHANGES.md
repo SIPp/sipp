@@ -104,11 +104,14 @@ marked **Breaking**.
 - Memory and CPU per call are much lower, after 3.7 had raised them
   far above 3.6: at 12000 calls/s the built-in UAS peaks at 164 MB,
   against 1162 MB in 3.7.8 and 282 MB in 3.6.1, and 10000 calls playing
-  media take 74 MB, against 220 MB in 3.7.8 and 31 MB in 3.6.1. SRTP no
-  longer repeats its AES and HMAC setup for each packet, a header is
-  found in one pass over the message, RTP makes fewer system calls per
+  media take 74 MB, against 220 MB in 3.7.8 and 31 MB in 3.6.1. The
+  built-in UAC and UAS keep up with 26000 calls/s, where they fell
+  behind and failed calls from 24000. SRTP no longer repeats its AES and
+  HMAC setup for each packet, a header is read in one pass over the
+  message, where it is, rather than copied for each lookup, messages
+  are built without temporary strings, RTP makes fewer system calls per
   packet, and the socket loop and RTP echo wait with epoll (#1110,
-  #1117, #1118, #1119, #1122-#1131, by Orgad Shaneh)
+  #1117, #1118, #1119, #1122-#1131, #1230, by Orgad Shaneh)
 - A pass over the calls ends after 10 ms and runs the calls that resume
   first, so a burst of new calls no longer leaves incoming messages
   unread for seconds (#1101), and the call rate starts with the traffic,
