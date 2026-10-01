@@ -1250,9 +1250,11 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
     GET_TIME (&currentTime);
 
     if (useShortMessagef == 1) {
+        const header_value cseq = get_header_content(msg, "CSeq:");
         const std::string_view first_line = get_first_line(msg);
-        TRACE_SHORTMSG("%s\tR\t%.*s\tCSeq:%s\t%.*s\n", CStat::formatTime(&currentTime, rfc3339), (int)call_id.size(),
-                       call_id.data(), get_header_content(msg, "CSeq:"), (int)first_line.size(), first_line.data());
+        TRACE_SHORTMSG("%s\tR\t%.*s\tCSeq:%.*s\t%.*s\n", CStat::formatTime(&currentTime, rfc3339), (int)call_id.size(),
+                       call_id.data(), (int)cseq.view().size(), cseq.view().data(), (int)first_line.size(),
+                       first_line.data());
     }
 
     if (useMessagef == 1) {
@@ -2520,9 +2522,11 @@ void SIPpSocket::trace_sent(const char *buffer, size_t len)
         /* A buffered message is not null terminated. */
         char *msg = strndup(buffer, len);
         const std::string_view call_id = get_trimmed_call_id(msg);
+        const header_value cseq = get_header_content(msg, "CSeq:");
         const std::string_view first_line = get_first_line(msg);
-        TRACE_SHORTMSG("%s\tS\t%.*s\tCSeq:%s\t%.*s\n", CStat::formatTime(&currentTime, rfc3339), (int)call_id.size(),
-                       call_id.data(), get_header_content(msg, "CSeq:"), (int)first_line.size(), first_line.data());
+        TRACE_SHORTMSG("%s\tS\t%.*s\tCSeq:%.*s\t%.*s\n", CStat::formatTime(&currentTime, rfc3339), (int)call_id.size(),
+                       call_id.data(), (int)cseq.view().size(), cseq.view().data(), (int)first_line.size(),
+                       first_line.data());
         free(msg);
     }
 }

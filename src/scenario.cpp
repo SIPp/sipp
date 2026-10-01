@@ -836,8 +836,8 @@ scenario::scenario(char * filename, int deflt)
                 int removed_clrf = 0;
                 std::string msg = clean_cdata(ptr, &removed_clrf);
 
-                char *cl_str = get_header(msg.c_str(), "Content-Length:", true);
-                L_content_length = (cl_str && *cl_str) ? atoi(cl_str) : -1;
+                const header_value cl = get_header(msg.c_str(), "Content-Length:", true);
+                L_content_length = !cl.empty() ? (int)header_number(cl.view()) : -1;
                 switch (L_content_length) {
                 case  -1 :
                     // the msg does not contain content-length field

@@ -38,8 +38,10 @@
  */
 
 #include <ctype.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <charconv>
 #include <string_view>
 
 #include "screen.hpp"
@@ -69,10 +71,21 @@ static const char* internal_hdrchr(const char* ptr, const char needle);
  * broken, at the ASCIIZ NUL. */
 static const char* internal_hdrend(const char* ptr);
 
-static const char* internal_compact_header_name(const char* name);
-static const char *internal_match_header(const char *message, const char *ptr, const char *name, size_t name_len,
-                                         const char *compact_name);
-static bool internal_append(char **dest, const char *end, const char *src, size_t len);
+/* A header name looked for, with its colon, and its compact form if it
+ * has one, "v:" for "Via:"; their first letters in lower case, compared
+ * before the rest */
+struct header_name {
+    std::string_view name;
+    const char *compact;
+    int first, second, compact_first;
+};
+
+static const char *internal_compact_header_name(std::string_view name);
+static header_name internal_header_name(std::string_view name);
+static const char *internal_match_header(const char *message, const char *ptr, const header_name &h);
+static const char *internal_header_value(const char *line, const char **end);
+static std::string internal_join_headers(const char *message, const char *line, const header_name &h, bool content);
+static bool internal_append(std::string &dest, const char *src, size_t len, bool *cut);
 
 
 /*************************** Mini SIP parser (externals) ***************/
@@ -110,155 +123,218 @@ std::optional<std::string_view> get_peer_tag(const char *msg)
     return std::string_view(ptr, len < MAX_HEADER_LEN - 1 ? len : MAX_HEADER_LEN - 1);
 }
 
-char* get_header_content(const char* message, const char* name)
+header_value get_header_content(const char *message, std::string_view name)
 {
     return get_header(message, name, true);
 }
 
 /* If content is true, we only return the header's contents. */
-char* get_header(const char* message, const char* name, bool content)
+header_value get_header(const char *message, std::string_view name, bool content)
 {
-    /* non reentrant. consider accepting char buffer as param */
-    static char last_header[MAX_HEADER_LEN * 10];
-    const char *last_header_end = last_header + sizeof(last_header);
-    const char *src, *eol, *value_end;
-    char *dest, *start, *ptr;
-    bool first_time = true;
-    size_t name_len;
-
-    const char *compact_name;
-
     /* returns empty string in case of error */
-    last_header[0] = '\0';
-
     if (!message || !*message) {
-        return last_header;
+        return header_value();
     }
 
     /* for safety's sake */
-    if (!name || !strrchr(name, ':')) {
-        WARNING("Can not search for header (no colon): %s", name ? name : "(null)");
-        return last_header;
+    if (name.empty() || (name.back() != ':' && name.find(':') == std::string_view::npos)) {
+        WARNING("Can not search for header (no colon): %.*s", (int)name.size(), name.data());
+        return header_value();
     }
 
-    name_len = strlen(name);
-    compact_name = internal_compact_header_name(name);
+    const header_name h = internal_header_name(name);
 
     /* The headers are read where they are, up to the blank line that
      * ends them, or to the end of a message that has none */
-    src = message;
-    dest = last_header;
+    const char *line = internal_match_header(message, message, h);
+    if (!line) {
+        return header_value();
+    }
 
-    while ((src = internal_match_header(message, src, name, name_len, compact_name ? compact_name + 1 : nullptr))) {
-        if (!content && first_time) {
-            if (!internal_append(&dest, last_header_end, name, name_len))
-                goto truncated;
-            first_time = false;
-        }
+    const char *end;
+    const char *value = internal_header_value(line, &end);
+    if (internal_match_header(message, *value ? value + 1 : value, h)) {
+        return header_value(internal_join_headers(message, line, h, content));
+    }
 
-        /* Skip over the header name, which !content wrote once above */
-        while (*src != ':') {
-            src++;
+    /* A header alone is returned where it is, without the spaces, tabs
+     * and CRs after it, when the message has it as it is returned: the
+     * name asked for, its only colon at its end, and one space before
+     * the value unless content, and no doubled CR that the join drops (a
+     * value has no doubled LF: a space or tab follows each LF in it). */
+    const char *text, *min_end;
+    if (content) {
+        if (end == value) {
+            return header_value();
         }
+        /* The first character stays, as in the join */
+        text = value;
+        min_end = value + 1;
+    } else {
+        text = line + 1;
+        min_end = text + name.size();
+        /* Not the compact form, whose colon is second, unless it is
+         * the name: then the line has the name's characters */
+        if (name.back() != ':' || memchr(name.data(), ':', name.size() - 1) || name[0] == ' ' ||
+            (text[1] == ':' && name.size() > 2) || std::string_view(text, name.size()) != name) {
+            return header_value(internal_join_headers(message, line, h, content));
+        }
+    }
+    const size_t joined_size = (content ? 0 : name.size() + 1) + (end - value);
+    while (end > min_end && (end[-1] == ' ' || end[-1] == '\r' || end[-1] == '\t')) {
+        end--;
+    }
+    const std::string_view found(text, end - text);
+    if ((!content && end > min_end && (value != min_end + 1 || *min_end != ' ')) ||
+        joined_size > MAX_HEADER_LEN * 10 - 1 ||
+        (memchr(found.data(), '\r', found.size()) && found.find("\r\r") != std::string_view::npos)) {
+        return header_value(internal_join_headers(message, line, h, content));
+    }
+    return header_value(found);
+}
+
+long header_number(std::string_view value)
+{
+    const char *p = value.data(), *end = p + value.size();
+    long number = 0;
+
+    while (p < end && isspace((unsigned char)*p)) {
+        p++;
+    }
+    /* from_chars() takes a '-' but no '+' */
+    if (p + 1 < end && *p == '+' && p[1] != '-') {
+        p++;
+    }
+    if (std::from_chars(p, end, number).ec == std::errc::result_out_of_range) {
+        number = *p == '-' ? LONG_MIN : LONG_MAX;
+    }
+    return number;
+}
+
+/* The value of the header whose line starts after the newline at line:
+ * from after the spaces after its colon to where its last line ends, at
+ * *end. The CRLF of the blank line after it is not part of it. */
+static const char *internal_header_value(const char *line, const char **end)
+{
+    const char *src = line;
+    const char *eol;
+
+    /* Skip over the header name */
+    while (*src != ':') {
         src++;
+    }
+    src++;
 
-        /* Skip over leading spaces. */
-        while (*src == ' ') {
-            src++;
-        }
-        eol = strchr(src, '\n');
+    /* Skip over leading spaces. */
+    while (*src == ' ') {
+        src++;
+    }
+    eol = strchr(src, '\n');
 
-        /* Multiline headers always begin with a tab or a space
-         * on the subsequent lines. Skip those lines. */
-        while (eol && (*(eol + 1) == ' ' || *(eol + 1) == '\t')) {
-            eol = strchr(eol + 1, '\n');
-        }
+    /* Multiline headers always begin with a tab or a space
+     * on the subsequent lines. Skip those lines. */
+    while (eol && (*(eol + 1) == ' ' || *(eol + 1) == '\t')) {
+        eol = strchr(eol + 1, '\n');
+    }
 
-        if (!eol) {
-            value_end = src + strlen(src);
-        } else if (eol[-1] == '\r' && eol[1] == '\r' && eol[2] == '\n') {
-            value_end = eol - 1; /* the blank line's CRLF ends this header */
-        } else {
-            value_end = eol;
-        }
+    if (!eol) {
+        *end = src + strlen(src);
+    } else if (eol[-1] == '\r' && eol[1] == '\r' && eol[2] == '\n') {
+        *end = eol - 1; /* the blank line's CRLF ends this header */
+    } else {
+        *end = eol;
+    }
+    return src;
+}
+
+/* The headers of name from the one at line on, joined with ", ", the
+ * name before them unless content; the spaces, tabs and CRs around
+ * them trimmed and doubled CRs and LFs dropped. They end before the
+ * first that doesn't fit in MAX_HEADER_LEN * 10 - 1 characters, or are
+ * as much of it as fits when it is the first. */
+static std::string internal_join_headers(const char *message, const char *line, const header_name &h, bool content)
+{
+    const std::string_view name = h.name;
+    std::string dest;
+    bool cut = false;
+
+    if (!content && !internal_append(dest, name.data(), name.size(), &cut)) {
+        line = nullptr;
+    }
+
+    while (line) {
+        const char *value_end;
+        const char *src = internal_header_value(line, &value_end);
 
         // Add ", " when several headers are present
-        if (dest != last_header) {
+        if (!dest.empty()) {
             /* Remove trailing whitespaces, tabs, and CRs */
-            while (dest > last_header &&
-                   (*(dest-1) == ' ' ||
-                    *(dest-1) == '\r' ||
-                    *(dest-1) == '\n' ||
-                    *(dest-1) == '\t')) {
-                *(--dest) = 0;
+            while (!dest.empty() &&
+                   (dest.back() == ' ' || dest.back() == '\r' || dest.back() == '\n' || dest.back() == '\t')) {
+                dest.pop_back();
             }
 
-            if (dest > last_header && *(dest - 1) == ':') {
-                if (!internal_append(&dest, last_header_end, " ", 1))
-                    goto truncated;
+            if (!dest.empty() && dest.back() == ':') {
+                if (!internal_append(dest, " ", 1, &cut))
+                    break;
             } else {
-                if (!internal_append(&dest, last_header_end, ", ", 2))
-                    goto truncated;
+                if (!internal_append(dest, ", ", 2, &cut))
+                    break;
             }
         }
 
-        if (!internal_append(&dest, last_header_end, src, value_end - src)) {
-            goto truncated;
+        if (!internal_append(dest, src, value_end - src, &cut)) {
+            break;
         }
 
-        if (*src) {
-            src++;
-        }
+        line = internal_match_header(message, *src ? src + 1 : src, h);
     }
 
-truncated:
     /* No header found? */
-    if (dest == last_header) {
-        return last_header;
+    if (dest.empty() || cut) {
+        return dest;
     }
-
-    *(dest--) = 0;
 
     /* Remove trailing whitespaces, tabs, and CRs */
-    while (dest > last_header &&
-           (*dest == ' ' || *dest == '\r' || *dest == '\t')) {
-        *(dest--) = 0;
+    while (dest.size() > 1 && (dest.back() == ' ' || dest.back() == '\r' || dest.back() == '\t')) {
+        dest.pop_back();
     }
 
     /* Remove leading whitespaces */
-    for (start = last_header; *start == ' '; start++);
+    dest.erase(0, dest.find_first_not_of(' '));
 
     /* A header folded on several lines keeps its CRLFs: a [last_*]
      * keyword sends it as it came, with no bare LF in it. */
 
-    if (strpbrk(start, "\r\n")) {
-        /* Remove illegal double CR characters */
-        while ((ptr = strstr(last_header, "\r\r")) != nullptr) {
-            memmove(ptr, ptr + 1, strlen(ptr));
+    /* Remove illegal double CR and double Newline characters */
+    for (const char c : {'\r', '\n'}) {
+        size_t kept = 0;
+        for (size_t i = 0; i < dest.size(); i++) {
+            if (dest[i] != c || !kept || dest[kept - 1] != c) {
+                dest[kept++] = dest[i];
+            }
         }
-        /* Remove illegal double Newline characters */
-        while ((ptr = strstr(last_header, "\n\n")) != nullptr) {
-            memmove(ptr, ptr + 1, strlen(ptr));
-        }
+        dest.resize(kept);
     }
 
-    return start;
+    return dest;
 }
 
-/* Append len bytes of src at *dest, as snprintf("%s") would: false when
- * they don't fit, with what fits written. */
-static bool internal_append(char **dest, const char *end, const char *src, size_t len)
+/* Append len bytes of src to dest, if they fit in MAX_HEADER_LEN * 10 -
+ * 1 characters: false when they don't, with *cut set and as many as fit
+ * written to an empty dest. */
+static bool internal_append(std::string &dest, const char *src, size_t len, bool *cut)
 {
-    size_t room = end - *dest;
+    const size_t room = MAX_HEADER_LEN * 10 - 1 - dest.size();
 
-    if (len >= room) {
-        memcpy(*dest, src, room - 1);
-        (*dest)[room - 1] = '\0';
+    if (len > room) {
+        if (dest.empty()) {
+            dest.assign(src, room);
+            *cut = true;
+        }
         return false;
     }
-    memcpy(*dest, src, len);
-    *dest += len;
-    **dest = '\0';
+    dest.append(src, len);
     return true;
 }
 
@@ -267,31 +343,40 @@ static bool internal_append(char **dest, const char *end, const char *src, size_
  * their blank line or at the end of message. One pass over its lines,
  * rather than searching all of what is left of the message for each
  * form, as strcasestr() did */
-static const char *internal_match_header(const char *message, const char *ptr, const char *name, size_t name_len,
-                                         const char *compact_name)
+static inline const char *internal_match_header(const char *message, const char *ptr, const header_name &h)
 {
-    /* The first two letters are compared before strncasecmp() is called */
-    const int first = tolower((unsigned char)name[0]);
-    const int second = name_len > 1 ? tolower((unsigned char)name[1]) : -1;
-    const int compact_first = compact_name ? tolower((unsigned char)compact_name[0]) : -1;
-
     for (const char *line = strchr(ptr, '\n'); line; line = strchr(line + 1, '\n')) {
         if (line[1] == '\r' && line[2] == '\n' && line != message && line[-1] == '\r') {
             return nullptr;
         }
         const int c = tolower((unsigned char)line[1]);
-        if (c == first && (second < 0 || tolower((unsigned char)line[2]) == second) &&
-            !strncasecmp(line + 1, name, name_len)) {
+        if (c == h.first && (h.second < 0 || tolower((unsigned char)line[2]) == h.second) &&
+            !strncasecmp(line + 1, h.name.data(), h.name.size())) {
             return line;
         }
-        if (c == compact_first && line[2] == compact_name[1]) {
+        if (c == h.compact_first && line[2] == h.compact[1]) {
             return line;
         }
     }
     return nullptr;
 }
 
-const char* internal_compact_header_name(const char* name)
+static header_name internal_header_name(std::string_view name)
+{
+    header_name h;
+
+    h.name = name;
+    h.compact = internal_compact_header_name(name);
+    if (h.compact) {
+        h.compact++;
+    }
+    h.first = tolower((unsigned char)name[0]);
+    h.second = name.size() > 1 ? tolower((unsigned char)name[1]) : -1;
+    h.compact_first = h.compact ? tolower((unsigned char)h.compact[0]) : -1;
+    return h;
+}
+
+const char *internal_compact_header_name(std::string_view name)
 {
     static const struct {
         std::string_view name;
@@ -306,11 +391,12 @@ const char* internal_compact_header_name(const char* name)
         {"to:", "\nt:"},
         {"via:", "\nv:"},
     };
-    const size_t len = strlen(name);
+    const int first = tolower((unsigned char)name[0]);
 
     for (const auto &c : compact_names) {
         /* Only the name of the same length and first letter */
-        if (c.name.size() == len && c.name[0] == tolower((unsigned char)name[0]) && !strcasecmp(name, c.name.data())) {
+        if (c.name.size() == name.size() && c.name[0] == first &&
+            !strncasecmp(name.data(), c.name.data(), name.size())) {
             return c.compact;
         }
     }
@@ -549,7 +635,7 @@ TEST(Parser, internal_find_header) {
 "From: def\r\n"
 "\r\n";
     const char *eq = strstr(data, "To\t :");
-    EXPECT_STREQ(eq, internal_find_header(data, "To", "t", false));
+    EXPECT_EQ(eq, internal_find_header(data, "To", "t", false));
     EXPECT_STREQ(eq + 8, internal_find_header(data, "To", "t", true));
 }
 
@@ -640,27 +726,31 @@ a=maxptime:150\r\n\
 a=sendrecv\r\n\
 a=rtcp:41605\r\n\
 ";
-    EXPECT_STREQ("Via: SIP/2.0/UDP 85.55.55.12:6090;branch=z9hG4bK831a.2bb3de85.0, \
+    EXPECT_EQ("Via: SIP/2.0/UDP 85.55.55.12:6090;branch=z9hG4bK831a.2bb3de85.0, \
 SIP/2.0/UDP 85.55.55.12:5090;branch=z9hG4bK831a.2bb3de85.0, \
 SIP/2.0/UDP 85.55.55.12:5060;branch=z9hG4bK831a.2bb3de87.0, \
 SIP/2.0/UDP 85.55.55.12:4060;branch=z9hG4bK831a.2bb3de86.0, \
-SIP/2.0/UDP 85.55.55.12:4050;branch=z9hG4bK831a.2bb3de86.0", get_header(data, "Via:", false));
+SIP/2.0/UDP 85.55.55.12:4050;branch=z9hG4bK831a.2bb3de86.0",
+              get_header(data, "Via:", false).view());
 
-    EXPECT_STREQ("SIP/2.0/UDP 85.55.55.12:6090;branch=z9hG4bK831a.2bb3de85.0, \
+    EXPECT_EQ("SIP/2.0/UDP 85.55.55.12:6090;branch=z9hG4bK831a.2bb3de85.0, \
 SIP/2.0/UDP 85.55.55.12:5090;branch=z9hG4bK831a.2bb3de85.0, \
 SIP/2.0/UDP 85.55.55.12:5060;branch=z9hG4bK831a.2bb3de87.0, \
 SIP/2.0/UDP 85.55.55.12:4060;branch=z9hG4bK831a.2bb3de86.0, \
-SIP/2.0/UDP 85.55.55.12:4050;branch=z9hG4bK831a.2bb3de86.0", get_header(data, "Via:", true));
+SIP/2.0/UDP 85.55.55.12:4050;branch=z9hG4bK831a.2bb3de86.0",
+              get_header(data, "Via:", true).view());
 
-    EXPECT_STREQ("Record-Route: <sip:85.55.55.12:5090;r2=on;lr>, \
+    EXPECT_EQ("Record-Route: <sip:85.55.55.12:5090;r2=on;lr>, \
 <sip:10.231.33.44;r2=on;lr>, \
-<sip:10.231.33.77;lr=on>", get_header(data, "Record-Route:", false));
+<sip:10.231.33.77;lr=on>",
+              get_header(data, "Record-Route:", false).view());
 
-    EXPECT_STREQ("<sip:85.55.55.12:5090;r2=on;lr>, \
+    EXPECT_EQ("<sip:85.55.55.12:5090;r2=on;lr>, \
 <sip:10.231.33.44;r2=on;lr>, \
-<sip:10.231.33.77;lr=on>", get_header(data, "Record-Route:", true));
+<sip:10.231.33.77;lr=on>",
+              get_header(data, "Record-Route:", true).view());
 
-    EXPECT_STREQ("<sip:12999999999@85.55.55.12;did=a19.a2e590e>", get_header(data, "Contact:", true));
+    EXPECT_EQ("<sip:12999999999@85.55.55.12;did=a19.a2e590e>", get_header(data, "Contact:", true).view());
 }
 
 TEST(Parser, get_header_folded)
@@ -670,9 +760,9 @@ TEST(Parser, get_header_folded)
                        "\tsecond part\r\n"
                        "To: <sip:b@example.com>\r\n"
                        "\r\n";
-    EXPECT_STREQ("Subject: first part\r\n\tsecond part", get_header(data, "Subject:", false));
-    EXPECT_STREQ("first part\r\n\tsecond part", get_header(data, "Subject:", true));
-    EXPECT_STREQ("<sip:b@example.com>", get_header(data, "To:", true));
+    EXPECT_EQ("Subject: first part\r\n\tsecond part", get_header(data, "Subject:", false).view());
+    EXPECT_EQ("first part\r\n\tsecond part", get_header(data, "Subject:", true).view());
+    EXPECT_EQ("<sip:b@example.com>", get_header(data, "To:", true).view());
 }
 
 TEST(Parser, get_header_folded_last)
@@ -684,8 +774,8 @@ TEST(Parser, get_header_folded_last)
                        " second\r\n"
                        "\r\n"
                        "Subject: in the body\r\n";
-    EXPECT_STREQ("Subject: first\r\n second", get_header(data, "Subject:", false));
-    EXPECT_STREQ("first\r\n second", get_header(data, "Subject:", true));
+    EXPECT_EQ("Subject: first\r\n second", get_header(data, "Subject:", false).view());
+    EXPECT_EQ("first\r\n second", get_header(data, "Subject:", true).view());
 }
 
 TEST(Parser, get_header_compact_name)
@@ -695,9 +785,9 @@ TEST(Parser, get_header_compact_name)
                        "v: SIP/2.0/UDP a\r\n"
                        "i: abc\r\n"
                        "\r\n";
-    EXPECT_STREQ("Via: SIP/2.0/UDP a", get_header(data, "Via:", false));
-    EXPECT_STREQ("abc", get_header(data, "Call-ID:", true));
-    EXPECT_STREQ("abc", get_header(data, "call-id:", true));
+    EXPECT_EQ("Via: SIP/2.0/UDP a", get_header(data, "Via:", false).view());
+    EXPECT_EQ("abc", get_header(data, "Call-ID:", true).view());
+    EXPECT_EQ("abc", get_header(data, "call-id:", true).view());
 }
 
 TEST(Parser, get_header_stops_at_body)
@@ -707,10 +797,10 @@ TEST(Parser, get_header_stops_at_body)
                        "Subject:\r\n"
                        "\r\n"
                        "Via: in the body\r\n";
-    EXPECT_STREQ("", get_header(data, "Via:", true));
-    EXPECT_STREQ("Subject:", get_header(data, "Subject:", false));
-    EXPECT_STREQ("", get_header(data, "Subject:", true));
-    EXPECT_STREQ("<sip:b@example.com>", get_header(data, "To:", true));
+    EXPECT_EQ("", get_header(data, "Via:", true).view());
+    EXPECT_EQ("Subject:", get_header(data, "Subject:", false).view());
+    EXPECT_EQ("", get_header(data, "Subject:", true).view());
+    EXPECT_EQ("<sip:b@example.com>", get_header(data, "To:", true).view());
 }
 
 TEST(Parser, get_header_no_blank_line)
@@ -719,8 +809,8 @@ TEST(Parser, get_header_no_blank_line)
                        "To: <sip:b@example.com>  \r\n"
                        "Via: x\r\n"
                        "Via: y";
-    EXPECT_STREQ("x, y", get_header(data, "Via:", true));
-    EXPECT_STREQ("<sip:b@example.com>", get_header(data, "To:", true));
+    EXPECT_EQ("x, y", get_header(data, "Via:", true).view());
+    EXPECT_EQ("<sip:b@example.com>", get_header(data, "To:", true).view());
 }
 
 TEST(Parser, get_header_spaces)
@@ -734,10 +824,10 @@ TEST(Parser, get_header_spaces)
                        "Route: \t<b>\r\n"
                        "To:    a\r\n"
                        "\r\n";
-    EXPECT_STREQ("Via: x", get_header(data, "Via:", false));
-    EXPECT_STREQ("<a>, \t<b>", get_header(data, "Route:", true));
-    EXPECT_STREQ("a", get_header(data, "To:", true));
-    EXPECT_STREQ("To: a", get_header(data, "To:", false));
+    EXPECT_EQ("Via: x", get_header(data, "Via:", false).view());
+    EXPECT_EQ("<a>, \t<b>", get_header(data, "Route:", true).view());
+    EXPECT_EQ("a", get_header(data, "To:", true).view());
+    EXPECT_EQ("To: a", get_header(data, "To:", false).view());
 }
 
 TEST(Parser, get_header_oversized_join)
@@ -753,10 +843,79 @@ TEST(Parser, get_header_oversized_join)
     }
     msg += "\r\n";
 
-    std::string result = get_header(msg.c_str(), "Via:", true);
+    std::string result(get_header(msg.c_str(), "Via:", true).view());
     EXPECT_EQ(20472u, result.size());
     EXPECT_EQ(joined.substr(0, result.size()), result);
     EXPECT_EQ(',', result.back());
+}
+
+/* Whether value is a view into msg */
+static bool in_place(const header_value &value, const char *msg)
+{
+    return value.view().data() >= msg && value.view().data() <= msg + strlen(msg);
+}
+
+TEST(Parser, get_header_in_place)
+{
+    /* One header on one line is returned where it is, but for the
+     * spaces, tabs and CRs after it */
+    const char *data = "SIP/2.0 200 OK\r\n"
+                       "Via: SIP/2.0/UDP a  \t\r\n"
+                       "To:   <sip:b@example.com>\r\n"
+                       "Subject: first\r\n"
+                       " second\r\n"
+                       "\r\n";
+    const header_value via = get_header(data, "Via:", false);
+    EXPECT_EQ("Via: SIP/2.0/UDP a", via.view());
+    EXPECT_TRUE(in_place(via, data));
+    EXPECT_TRUE(in_place(get_header_content(data, "Via:"), data));
+    EXPECT_TRUE(in_place(get_header_content(data, "To:"), data));
+    EXPECT_TRUE(in_place(get_header_content(data, "Subject:"), data));
+    EXPECT_TRUE(in_place(get_header(data, "Subject:", false), data));
+    EXPECT_EQ("Subject: first\r\n second", get_header(data, "Subject:", false).view());
+
+    /* With the name asked for and one space before the value: a text
+     * of its own otherwise */
+    EXPECT_EQ("To: <sip:b@example.com>", get_header(data, "To:", false).view());
+    EXPECT_FALSE(in_place(get_header(data, "To:", false), data));
+    EXPECT_EQ("via: SIP/2.0/UDP a", get_header(data, "via:", false).view());
+    EXPECT_FALSE(in_place(get_header(data, "via:", false), data));
+    EXPECT_EQ("SIP/2.0/UDP a", get_header_content(data, "via:").view());
+    EXPECT_TRUE(in_place(get_header_content(data, "via:"), data));
+}
+
+TEST(Parser, get_header_odd_forms)
+{
+    EXPECT_EQ("Via: x", get_header("SIP/2.0 200 OK\r\nVia:x\r\n\r\n", "Via:", false).view());
+    EXPECT_EQ("Via: x", get_header("SIP/2.0 200 OK\r\nvia: x\r\n\r\n", "Via:", false).view());
+    /* An empty value before another is joined with a comma */
+    EXPECT_EQ(", x", get_header_content("SIP/2.0 200 OK\r\nVia:\r\nVia: x\r\n\r\n", "Via:").view());
+    /* A lone CR stays, a doubled one goes */
+    EXPECT_EQ("a\rb", get_header_content("SIP/2.0 200 OK\r\nVia: a\rb\r\n\r\n", "Via:").view());
+    EXPECT_EQ("a\rb", get_header_content("SIP/2.0 200 OK\r\nVia: a\r\rb\r\n\r\n", "Via:").view());
+    /* The first character of a value stays */
+    EXPECT_EQ("\t", get_header_content("SIP/2.0 200 OK\r\nTo: \t\r\n\r\n", "To:").view());
+    EXPECT_EQ("To:", get_header("SIP/2.0 200 OK\r\nTo: \t\r\n\r\n", "To:", false).view());
+    /* The value starts after the first colon */
+    EXPECT_EQ("X:Y: Y: z", get_header("SIP/2.0 200 OK\r\nX:Y: z\r\n\r\n", "X:Y:", false).view());
+    EXPECT_EQ("", get_header("SIP/2.0 200 OK\r\nVia: x\r\n\r\n", "Via", false).view());
+}
+
+TEST(Parser, get_header_oversized_name_form)
+{
+    /* A value too long for the name before it is left out */
+    std::string msg = "SIP/2.0 200 OK\r\nSubject: " + std::string(MAX_HEADER_LEN * 10, 'A') + "\r\n\r\n";
+    EXPECT_EQ("Subject:", get_header(msg.c_str(), "Subject:", false).view());
+}
+
+TEST(Parser, header_number)
+{
+    for (const char *text : {"0", "129", "  42 INVITE", "\t7", "+5", "-3", "+-5", "--5", "+", "-", "", "x1",
+                             "99999999999999999999", "-99999999999999999999", "007", "12abc", "0x1A"}) {
+        EXPECT_EQ(strtol(text, nullptr, 10), header_number(text)) << text;
+    }
+    /* Only the characters of the view */
+    EXPECT_EQ(12, header_number(std::string_view("1234", 2)));
 }
 
 TEST(Parser, get_header_last) {
@@ -764,7 +923,7 @@ TEST(Parser, get_header_last) {
 From: SIP/2.0/UDP 85.55.55.12:6090;branch=z9hG4bK831a.2bb3de85.0\r\n\
 \r\n\
 ";
-    EXPECT_STREQ("", get_header(data, "Via:", false));
+    EXPECT_EQ("", get_header(data, "Via:", false).view());
 }
 
 TEST(Parser, get_header_oversized_single) {
@@ -776,10 +935,10 @@ TEST(Parser, get_header_oversized_single) {
     msg += std::string(MAX_HEADER_LEN * 12, 'A');
     msg += "\r\n\r\n";
 
-    char* result = get_header(msg.c_str(), "Subject:", true);
-    ASSERT_NE(result, nullptr);
-    EXPECT_EQ(result[0], 'A');
-    EXPECT_LT(strlen(result), (size_t)(MAX_HEADER_LEN * 10));
+    const header_value result = get_header(msg.c_str(), "Subject:", true);
+    ASSERT_FALSE(result.empty());
+    EXPECT_EQ(result.view()[0], 'A');
+    EXPECT_EQ(result.view(), std::string(MAX_HEADER_LEN * 10 - 1, 'A'));
 }
 
 TEST(Parser, get_header_oversized_repeated) {
@@ -793,9 +952,8 @@ TEST(Parser, get_header_oversized_repeated) {
     }
     msg += "\r\n";
 
-    char* result = get_header(msg.c_str(), "Via:", true);
-    ASSERT_NE(result, nullptr);
-    EXPECT_LT(strlen(result), (size_t)(MAX_HEADER_LEN * 10));
+    const header_value result = get_header(msg.c_str(), "Via:", true);
+    EXPECT_LT(result.view().size(), (size_t)(MAX_HEADER_LEN * 10));
 }
 
 TEST(Parser, get_peer_tag__notag) {
