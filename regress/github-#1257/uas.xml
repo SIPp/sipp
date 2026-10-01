@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="uas-long-contact-and-record-route">
+
+  <recv request="INVITE"/>
+
+  <send retrans="500">
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      Record-Route: [rr]
+      [last_From:]
+      [last_To:];tag=[pid]SIPpTag01[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: <sip:uas@[local_ip]:[local_port];pad=[pad];end=1>
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv request="ACK">
+    <action>
+      <ereg regexp="ACK sip:uas@127\.0\.0\.1:26800;pad=o+;end=1 SIP/2\.0" search_in="msg" assign_to="ok" check_it="true"/>
+      <ereg regexp="Route: &lt;sip:rr40\.proxy\.example\.com;lr;x=a+>, &lt;sip:rr39\." search_in="msg" assign_to="ok" check_it="true"/>
+      <ereg regexp="&lt;sip:rr01\.proxy\.example\.com;lr;x=a+>" search_in="msg" assign_to="ok" check_it="true"/>
+    </action>
+  </recv>
+
+</scenario>

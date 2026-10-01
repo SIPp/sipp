@@ -4912,10 +4912,9 @@ void call::formatNextReqUrl(const char* contact)
     if ((start && end)  && (start < end)) {
         contact = start;
         contact++;
-        cold().next_req_url.assign(contact,
-                                   std::min(MAX_HEADER_LEN - 1, (int)(end - contact))); /* fits MAX_HEADER_LEN */
+        cold().next_req_url.assign(contact, end - contact);
     } else {
-        cold().next_req_url.assign(contact, strnlen(contact, MAX_HEADER_LEN - 1));
+        cold().next_req_url.assign(contact);
     }
 }
 
@@ -6355,8 +6354,8 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
         cold().next_req_url.clear();
 
         /* cache the route set and the contact */
-        const std::string rr(get_header_content(msg, "Record-Route:").view().substr(0, MAX_HEADER_LEN - 1));
-        const std::string contact(get_header_content(msg, "Contact:").view().substr(0, MAX_HEADER_LEN - 1));
+        const std::string rr(get_header_content(msg, "Record-Route:").view());
+        const std::string contact(get_header_content(msg, "Contact:").view());
         computeRouteSetAndRemoteTargetUri(rr.c_str(), contact.c_str(), !reply_code);
         // WARNING("next_req_url is [%s]", next_req_url);
     }
