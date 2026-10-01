@@ -980,14 +980,32 @@ static bool same_cseq(const char* a, const char* b)
 
 /******* Very simple hash for retransmission detection  *******/
 
+/* The hash of the loop below (hash * 65599 + c for each character) of
+ * the len characters of s, taken four at a time: each step then waits
+ * for one multiplication of the step before, not four. */
+static unsigned long sdbm_hash(const char *s, size_t len)
+{
+    const unsigned long p1 = 65599, p2 = p1 * p1, p3 = p2 * p1, p4 = p3 * p1;
+    unsigned long hash = 0;
+    size_t i = 0;
+
+    for (; i + 4 <= len; i += 4) {
+        hash = hash * p4 + (unsigned long)s[i] * p3 + (unsigned long)s[i + 1] * p2 + (unsigned long)s[i + 2] * p1 +
+               (unsigned long)s[i + 3];
+    }
+    for (; i < len; i++) {
+        hash = hash * p1 + (unsigned long)s[i];
+    }
+    return hash;
+}
+
 unsigned long call::hash(const char * msg)
 {
     unsigned long hash = 0;
     int c;
 
     if (rtcheck == RTCHECK_FULL) {
-        while ((c = *msg++))
-            hash = c + (hash << 6) + (hash << 16) - hash;
+        hash = sdbm_hash(msg, strlen(msg));
     } else if (rtcheck == RTCHECK_LOOSE) {
         /* Based on section 11.5 (bullet 2) of RFC2543 we only take into account
          * the To, From, Call-ID, and CSeq values. */
@@ -8153,6 +8171,19 @@ private:
     unsigned int saved_pid;
     char saved_local_ip[sizeof(local_ip)];
 };
+
+TEST(hash, sdbm_hash_four_characters_at_a_time)
+{
+    const char text[] = "INVITE sip:a@b SIP/2.0\r\n\xe9\x80\xff tail";
+    for (size_t len = 0; len < sizeof(text); len++) {
+        unsigned long expected = 0;
+        for (size_t i = 0; i < len; i++) {
+            int c = text[i];
+            expected = c + (expected << 6) + (expected << 16) - expected;
+        }
+        EXPECT_EQ(expected, sdbm_hash(text, len));
+    }
+}
 
 TEST(call_id, default_mode_uses_cid_str_template) {
     char call_id[MAX_HEADER_LEN];
