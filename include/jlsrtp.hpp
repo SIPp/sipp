@@ -70,20 +70,29 @@ typedef struct _CryptoContextID
     unsigned short port;  // port
 } CryptoContextID;
 
-/* An AES-ECB context, made with its first key. */
+/* An AES context, made with its first key: AES-ECB, or AES-CTR for the
+ * keystream of packets. */
 class AESCipher
 {
 public:
     /* Makes the context if there is none. False if it cannot be made. */
     bool make();
-    /* Sets the key, switching to the AES variant of its length. Returns 1
-     * on success, as EVP_EncryptInit_ex() does. */
+    /* Sets the key for AES-ECB, switching to the AES variant of its
+     * length. Returns 1 on success, as EVP_EncryptInit_ex() does. */
     int setKey(const std::vector<unsigned char>& key);
     int setKey(const unsigned char *key, size_t length);
+    /* Whether the TLS library has AES-CTR for a key of length bytes */
+    static bool hasCtr(size_t length);
+    /* AES-CTR of length bytes of in to out with key, from the counter
+     * block iv. Returns 1 on success. */
+    int ctr(const unsigned char *key, size_t key_length, const unsigned char *iv, const unsigned char *in,
+            unsigned char *out, int length);
     EVP_CIPHER_CTX* get() const { return ctx.get(); }
     void free() { ctx.reset(); }
 
 private:
+    int init(const unsigned char *key, size_t length, const unsigned char *iv, bool ctr);
+
     struct Free
     {
         void operator()(EVP_CIPHER_CTX* c) const { EVP_CIPHER_CTX_free(c); }

@@ -107,12 +107,15 @@ marked **Breaking**.
   media take 74 MB, against 220 MB in 3.7.8 and 31 MB in 3.6.1. The
   built-in UAC and UAS keep up with 26000 calls/s, where they fell
   behind and failed calls from 24000. SRTP no longer repeats its AES and
-  HMAC setup for each packet, a header is read in one pass over the
-  message, where it is, rather than copied for each lookup, messages
-  are built without temporary strings, a socket read keeps only what it
-  got rather than 64 KB, RTP makes fewer system calls per packet, and
-  the socket loop and RTP echo wait with epoll (#1110, #1117, #1118,
-  #1119, #1122-#1131, #1230, #1232, by Orgad Shaneh)
+  HMAC setup for each packet, its media threads keep only the session
+  keys, and it encrypts with AES-CTR: 5000 SRTP echo calls take a fifth
+  less CPU and a quarter less memory. A header is read in one pass
+  over the message, where it is, rather than copied for each lookup,
+  messages are built without temporary strings, a socket read keeps
+  only what it got rather than 64 KB, RTP makes fewer system calls per
+  packet, and the socket loop and RTP echo wait with epoll (#1110,
+  #1117, #1118, #1119, #1122-#1131, #1230, #1232, #1233, by Orgad
+  Shaneh)
 - A pass over the calls ends after 10 ms and runs the calls that resume
   first, so a burst of new calls no longer leaves incoming messages
   unread for seconds (#1101), and the call rate starts with the traffic,

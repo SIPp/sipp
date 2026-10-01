@@ -171,11 +171,9 @@ int SrtpStream::computePacketIV(unsigned long long i, unsigned char iv[AES_BLOCK
     return 0;
 }
 
-/* The key set once for the packet, and the keystream of its blocks made
- * in one call: setting the key and encrypting for each block was a third
- * of the CPU of an SRTP echo. The context is the thread's, for all its
- * streams: one for each stream cost each call 1.3 KB, and as the key is
- * set for each packet anyway, little else. */
+/* AES-CM with AES-ECB, for a TLS library without AES-CTR: the key set
+ * once for the packet, and the keystream of its blocks made in one call.
+ * The context is the thread's, for all its streams, as for AES-CTR. */
 void SrtpStream::aesCm(const unsigned char iv[AES_BLOCK_SIZE], const unsigned char *in, unsigned char *out,
                        size_t length)
 {
@@ -221,10 +219,19 @@ int SrtpStream::crypt(const unsigned char *in, size_t length, const unsigned cha
     case AES_CM_128:
     case AES_CM_192:
     case AES_CM_256: {
-        /* the zeros of the keystream of a key AES does not take */
+        /* The context is the thread's, for all its streams: one for each
+         * stream cost each call 1.3 KB, for the key it sets in it for each
+         * packet anyway. The TLS library makes and XORs the keystream,
+         * where encrypting the counter blocks with AES-ECB took twice the
+         * instructions. A key AES does not take leaves the zeros. */
+        static thread_local AESCipher aes;
         size_t at = out.size();
         out.resize(at + length);
-        aesCm(iv, in, out.data() + at, length);
+        if (AESCipher::hasCtr(_enc_key_length)) {
+            aes.ctr(_enc_key.data(), _enc_key_length, iv, in, out.data() + at, length);
+        } else {
+            aesCm(iv, in, out.data() + at, length);
+        }
         return 0;
     }
     case NULL_CIPHER:
