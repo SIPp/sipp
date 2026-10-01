@@ -275,6 +275,8 @@ marked **Breaking**.
     CDATA (#1009)
   - sipp.dtd declares what the parser accepts (#662, by Renato Costallat;
     #933, #1012)
+  - `[dynamic_id]` goes back to `-dynamicStart` without overflowing an
+    int (#1242)
 - Options, statistics and screens (by Orgad Shaneh):
   - `-timeout` fires to the millisecond (#1053), `-nd` works on
     big-endian hosts (#915), and `-tdmmap` frees each call's circuit and

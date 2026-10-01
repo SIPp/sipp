@@ -4329,11 +4329,12 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         case E_Message_DynamicId:
             append_number(out, call::dynamicId);
-            // increment at each request
-            dynamicId += stepDynamicId;
-            if ( this->dynamicId > maxDynamicId ) {
-                call::dynamicId = call::startDynamicId;
-            } ;
+            // increment at each request, back to the start past the maximum
+            // or below the lowest int
+            {
+                long long next = (long long)dynamicId + stepDynamicId;
+                dynamicId = next > maxDynamicId || next < INT_MIN ? startDynamicId : (int)next;
+            }
             break;
         case E_Message_Call_ID:
             out += dialogs ? dialogCallId() : id;
