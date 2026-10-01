@@ -287,7 +287,8 @@ marked **Breaking**.
     before the scenario loads are named after sipp, variable names, and
     spurious epoll and shutdown warnings, and an unknown `~user` in one
     line (#913, #914, #930, #989, #995, #1054, #1065, #1071, #1180)
-  - help texts of `-max_retrans` and `-sendbuffer_warn` (#917, #967)
+  - help texts of `-max_retrans`, `-sendbuffer_warn` and `-timer_resol`
+    (#917, #967, #1229)
   - a remote host or `-slave_cfg` host over 254 characters is refused
     rather than cut short (#1214)
 - Documentation and tests (by Orgad Shaneh): the docs build with current

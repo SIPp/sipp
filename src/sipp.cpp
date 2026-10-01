@@ -536,7 +536,9 @@ static std::vector<std::string> launch_startup_wizard(const char *program_name)
     return args;
 }
 
-/* Put each option, its help text, and type in this table. */
+/* Put each option, its help text, and type in this table, which keeps
+ * its own layout. */
+// clang-format off
 struct sipp_option options_table[] = {
     {"h", nullptr, SIPP_OPTION_HELP, nullptr, 0},
     {"help", nullptr, SIPP_OPTION_HELP, nullptr, 0},
@@ -771,9 +773,9 @@ struct sipp_option options_table[] = {
     {"secondary_cfg", "3pcc extended mode: same as -slave_cfg", SIPP_OPTION_SLAVE_CFG, nullptr, 1},
 
     {"", "Performance and watchdog options:", SIPP_HELP_TEXT_HEADER, nullptr, 0},
-    {"timer_resol", "Set the timer resolution. Default unit is milliseconds.  This option has an impact on timers precision."
-     "Small values allow more precise scheduling but impacts CPU usage."
-     "The default value is 10ms.", SIPP_OPTION_TIME_MS, &timer_resolution, 1},
+    {"timer_resol", "Set the timer resolution. Default unit is milliseconds.  This option has an impact on timers precision. "
+     "Small values allow more precise scheduling but impacts CPU usage. "
+     "The default value is 1ms.", SIPP_OPTION_TIME_MS, &timer_resolution, 1},
     {"max_recv_loops", "Set the maximum number of messages received read per cycle. Increase this value for high traffic level.  The default value is 1000.", SIPP_OPTION_INT, &max_recv_loops, 1},
     {"max_sched_loops", "Set the maximum number of calls run per event loop. Increase this value for high traffic level.  The default value is 1000.", SIPP_OPTION_INT, &max_sched_loops, 1},
 
@@ -834,6 +836,7 @@ struct sipp_option options_table[] = {
     {"max_log_size", "What is the limit for error, message, shortmessage and calldebug file sizes.", SIPP_OPTION_LONG_LONG, &max_log_size, 1},
 
 };
+// clang-format on
 
 /* Copy the argument of an option to a buffer of size bytes, or fail. */
 static void copy_arg(char *dst, size_t size, const char *arg, const char *option)
