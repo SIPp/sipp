@@ -70,19 +70,60 @@ int AESCipher::setKey(const std::vector<unsigned char>& key)
 
 int AESCipher::setKey(const unsigned char *key, size_t length)
 {
+    return init(key, length, nullptr, false);
+}
+
+/* The AES-CTR cipher for a key of keySize bytes, as aesEcbCipher() */
+static const EVP_CIPHER *aesCtrCipher(size_t keySize)
+{
+    switch (keySize) {
+#if !defined(USE_WOLFSSL) || defined(WOLFSSL_AES_COUNTER)
+    case JLSRTP_ENCRYPTION_KEY_LENGTH:
+        return EVP_aes_128_ctr();
+#if !defined(USE_WOLFSSL) || defined(WOLFSSL_AES_192)
+    case JLSRTP_AES_192_KEY_LENGTH:
+        return EVP_aes_192_ctr();
+#endif
+#if !defined(USE_WOLFSSL) || defined(WOLFSSL_AES_256)
+    case JLSRTP_AES_256_KEY_LENGTH:
+        return EVP_aes_256_ctr();
+#endif
+#endif
+    default:
+        return nullptr;
+    }
+}
+
+bool AESCipher::hasCtr(size_t length)
+{
+    return aesCtrCipher(length) != nullptr;
+}
+
+int AESCipher::init(const unsigned char *key, size_t length, const unsigned char *iv, bool ctr)
+{
     const EVP_CIPHER* cipher = nullptr; // keep the context's cipher
 
     if (!make()) {
         return 0;
     }
 
-    if (EVP_CIPHER_CTX_key_length(ctx.get()) != static_cast<int>(length)) {
-        cipher = aesEcbCipher(length);
+    if (EVP_CIPHER_CTX_key_length(ctx.get()) != static_cast<int>(length) ||
+        (EVP_CIPHER_CTX_mode(ctx.get()) == EVP_CIPH_CTR_MODE) != ctr) {
+        cipher = ctr ? aesCtrCipher(length) : aesEcbCipher(length);
         if (!cipher) {
             return 0;
         }
     }
-    return EVP_EncryptInit_ex(ctx.get(), cipher, nullptr, key, nullptr);
+    return EVP_EncryptInit_ex(ctx.get(), cipher, nullptr, key, iv);
+}
+
+int AESCipher::ctr(const unsigned char *key, size_t key_length, const unsigned char *iv, const unsigned char *in,
+                   unsigned char *out, int length)
+{
+    int n = 0;
+
+    return init(key, key_length, iv, true) == 1 && EVP_EncryptUpdate(ctx.get(), out, &n, in, length) == 1 &&
+           n == length;
 }
 
 /* The master key length a cipher takes: RFC 6188 uses the AES key size, and
@@ -906,7 +947,7 @@ int JLSRTP::selectEncryptionKey()
     assert(!_session_enc_key.empty());
     if (!_session_enc_key.empty()) {
         /* the stream that takes the key sets it in its own AES context */
-        if (aesEcbCipher(_session_enc_key.size())) {
+        if (aesCtrCipher(_session_enc_key.size()) || aesEcbCipher(_session_enc_key.size())) {
             return 0;
         }
 
@@ -921,7 +962,7 @@ int JLSRTP::selectDecryptionKey()
     assert(!_session_enc_key.empty());
     if (!_session_enc_key.empty()) {
         /* the stream that takes the key sets it in its own AES context */
-        if (aesEcbCipher(_session_enc_key.size())) {
+        if (aesCtrCipher(_session_enc_key.size()) || aesEcbCipher(_session_enc_key.size())) {
             return 0;
         }
 
