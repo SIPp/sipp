@@ -446,7 +446,7 @@ protected:
     bool process_unexpected(const char* msg);
     void do_bookkeeping(message *curmsg);
 
-    void  extract_transaction (char* txn, const char* msg);
+    void extract_transaction(char *txn, size_t size, const char *msg);
 
     int   send_raw(const char * msg, int index, int len);
     char * send_scene(int index, int *send_status, int *msgLen);
