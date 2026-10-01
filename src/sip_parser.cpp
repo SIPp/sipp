@@ -77,18 +77,16 @@ static bool internal_append(char **dest, const char *end, const char *src, size_
 
 /*************************** Mini SIP parser (externals) ***************/
 
-char* get_peer_tag(const char* msg)
+std::optional<std::string_view> get_peer_tag(const char *msg)
 {
-    static char   tag[MAX_HEADER_LEN];
-    const char  * to_hdr;
-    const char  * ptr;
-    int           tag_i = 0;
+    const char *to_hdr;
+    const char *ptr;
 
     /* Find start of header */
     to_hdr = internal_find_header(msg, "To", "t", true);
     if (!to_hdr) {
         WARNING("No valid To: header in reply");
-        return nullptr;
+        return std::nullopt;
     }
 
     /* Skip past display-name */
@@ -104,16 +102,12 @@ char* get_peer_tag(const char* msg)
     /* Find tag in this header */
     ptr = internal_find_param(ptr, "tag");
     if (!ptr) {
-        return nullptr;
+        return std::nullopt;
     }
 
-    while (*ptr && *ptr != ' ' && *ptr != ';' && *ptr != '\t' &&
-           *ptr != '\r' && *ptr != '\n' && tag_i < (int) sizeof(tag) - 1) {
-        tag[tag_i++] = *(ptr++);
-    }
-    tag[tag_i] = '\0';
-
-    return tag;
+    /* At most MAX_HEADER_LEN - 1 characters of it */
+    const size_t len = strcspn(ptr, " ;\t\r\n");
+    return std::string_view(ptr, len < MAX_HEADER_LEN - 1 ? len : MAX_HEADER_LEN - 1);
 }
 
 char* get_header_content(const char* message, const char* name)
@@ -323,59 +317,33 @@ const char* internal_compact_header_name(const char* name)
     return nullptr;
 }
 
-char* get_first_line(const char* message)
+std::string_view get_first_line(const char *message)
 {
-    /* non reentrant. consider accepting char buffer as param */
-    static char last_header[MAX_HEADER_LEN * 10];
-    const char* src;
-
-    /* returns empty string in case of error */
-    memset(last_header, 0, sizeof(last_header));
-
-    if (!message || !*message) {
-        return last_header;
+    if (!message) {
+        return "";
     }
-
-    src = message;
-
-    int i=0;
-    while (*src) {
-        if (*src == '\n' || *src == '\r') {
-            break;
-        }
-        last_header[i] = *src;
-        i++;
-        src++;
-    }
-
-    return last_header;
+    return std::string_view(message, strcspn(message, "\r\n"));
 }
 
 /* The Call-ID of msg, or "" when it has none or the header is too long:
  * the caller says what that means for it. */
-char* get_call_id(const char* msg)
+std::string_view get_call_id(const char *msg)
 {
-    static char call_id[MAX_HEADER_LEN];
     const char *content, *end_of_header;
-    unsigned length;
-
-    call_id[0] = '\0';
+    size_t length;
 
     content = internal_find_header(msg, "Call-ID", "i", true);
     if (!content) {
-        return call_id;
+        return "";
     }
 
     /* Always returns something */
     end_of_header = internal_hdrend(content);
     length = end_of_header - content;
     if (length + 1 > MAX_HEADER_LEN) {
-        return call_id;
+        return "";
     }
-
-    memcpy(call_id, content, length);
-    call_id[length] = '\0';
-    return call_id;
+    return std::string_view(content, length);
 }
 
 unsigned long int get_cseq_value(const char* msg)
@@ -831,60 +799,92 @@ TEST(Parser, get_header_oversized_repeated) {
 }
 
 TEST(Parser, get_peer_tag__notag) {
-    EXPECT_STREQ(nullptr, get_peer_tag("...\r\nTo: <abc>\r\n;tag=notag\r\n\r\n"));
+    EXPECT_FALSE(get_peer_tag("...\r\nTo: <abc>\r\n;tag=notag\r\n\r\n"));
 }
 
 TEST(Parser, get_peer_tag__normal) {
-    EXPECT_STREQ("normal", get_peer_tag("...\r\nTo: <abc>;t2=x;tag=normal;t3=y\r\n\r\n"));
+    EXPECT_EQ("normal", get_peer_tag("...\r\nTo: <abc>;t2=x;tag=normal;t3=y\r\n\r\n").value_or("(none)"));
 }
 
 TEST(Parser, get_peer_tag__upper) {
-    EXPECT_STREQ("upper", get_peer_tag("...\r\nTo: <abc>;t2=x;TAG=upper;t3=y\r\n\r\n"));
+    EXPECT_EQ("upper", get_peer_tag("...\r\nTo: <abc>;t2=x;TAG=upper;t3=y\r\n\r\n").value_or("(none)"));
 }
 
 TEST(Parser, get_peer_tag__normal_2) {
-    EXPECT_STREQ("normal2", get_peer_tag("...\r\nTo: abc;tag=normal2\r\n\r\n"));
+    EXPECT_EQ("normal2", get_peer_tag("...\r\nTo: abc;tag=normal2\r\n\r\n").value_or("(none)"));
 }
 
 TEST(Parser, get_peer_tag__folded) {
-    EXPECT_STREQ("folded", get_peer_tag("...\r\nTo: <abc>\r\n ;tag=folded\r\n\r\n"));
+    EXPECT_EQ("folded", get_peer_tag("...\r\nTo: <abc>\r\n ;tag=folded\r\n\r\n").value_or("(none)"));
 }
 
 TEST(Parser, get_peer_tag__space) {
-    EXPECT_STREQ("space", get_peer_tag("...\r\nTo: <abc> ;tag=space\r\n\r\n"));
+    EXPECT_EQ("space", get_peer_tag("...\r\nTo: <abc> ;tag=space\r\n\r\n").value_or("(none)"));
 }
 
 TEST(Parser, get_peer_tag__space_2) {
-    EXPECT_STREQ("space2", get_peer_tag("...\r\nTo \t:\r\n abc\r\n ;tag=space2\r\n\r\n"));
+    EXPECT_EQ("space2", get_peer_tag("...\r\nTo \t:\r\n abc\r\n ;tag=space2\r\n\r\n").value_or("(none)"));
 }
 
 TEST(Parser, get_call_id_1) {
-    EXPECT_STREQ("test1", get_call_id("...\r\nCall-ID: test1\r\n\r\n"));
+    EXPECT_EQ("test1", get_call_id("...\r\nCall-ID: test1\r\n\r\n"));
 }
 
 TEST(Parser, get_call_id_2) {
-    EXPECT_STREQ("test2", get_call_id("...\r\nCALL-ID:\r\n test2\r\n\r\n"));
+    EXPECT_EQ("test2", get_call_id("...\r\nCALL-ID:\r\n test2\r\n\r\n"));
 }
 
 TEST(Parser, get_call_id_3) {
-    EXPECT_STREQ("test3", get_call_id("...\r\ncall-id:\r\n\t    test3\r\n\r\n"));
+    EXPECT_EQ("test3", get_call_id("...\r\ncall-id:\r\n\t    test3\r\n\r\n"));
 }
 
 TEST(Parser, get_call_id_leading_newline)
 {
     /* The byte before the message is not read */
     const char buf[] = "\r\nCall-ID: test4\r\n\r\n";
-    EXPECT_STREQ("", get_call_id(buf + 1));
+    EXPECT_EQ("", get_call_id(buf + 1));
 }
 
 TEST(Parser, get_call_id_short_1) {
-    EXPECT_STREQ("testshort1", get_call_id("...\r\ni: testshort1\r\n\r\n"));
+    EXPECT_EQ("testshort1", get_call_id("...\r\ni: testshort1\r\n\r\n"));
 }
 
 TEST(Parser, get_call_id_short_2) {
     /* The WS surrounding the colon belongs with HCOLON, but the
      * trailing WS does not. */
-    EXPECT_STREQ("testshort2 \t ", get_call_id("...\r\nI:\r\n \r\n \t testshort2 \t \r\n\r\n"));
+    EXPECT_EQ("testshort2 \t ", get_call_id("...\r\nI:\r\n \r\n \t testshort2 \t \r\n\r\n"));
+}
+
+TEST(Parser, get_peer_tag__empty)
+{
+    /* A tag with no value is there, unlike none */
+    EXPECT_EQ("", get_peer_tag("...\r\nTo: <abc>;tag=\r\n\r\n").value_or("(none)"));
+    EXPECT_FALSE(get_peer_tag("...\r\nTo: <abc>\r\n\r\n"));
+    EXPECT_FALSE(get_peer_tag("...\r\nFrom: <abc>;tag=x\r\n\r\n"));
+}
+
+TEST(Parser, get_peer_tag__long)
+{
+    /* At most MAX_HEADER_LEN - 1 characters */
+    std::string msg = "...\r\nTo: <abc>;tag=" + std::string(MAX_HEADER_LEN + 10, 'x') + "\r\n\r\n";
+    EXPECT_EQ(std::string(MAX_HEADER_LEN - 1, 'x'), get_peer_tag(msg.c_str()).value_or("(none)"));
+}
+
+TEST(Parser, get_call_id_too_long)
+{
+    std::string id(MAX_HEADER_LEN - 1, 'a');
+    EXPECT_EQ(id, get_call_id(("...\r\nCall-ID: " + id + "\r\n\r\n").c_str()));
+    EXPECT_EQ("", get_call_id(("...\r\nCall-ID: " + id + "a\r\n\r\n").c_str()));
+    EXPECT_EQ("", get_call_id("...\r\nTo: <abc>\r\n\r\n"));
+}
+
+TEST(Parser, get_first_line)
+{
+    EXPECT_EQ("SIP/2.0 200 OK", get_first_line("SIP/2.0 200 OK\r\nTo: <abc>\r\n\r\n"));
+    EXPECT_EQ("INVITE sip:a SIP/2.0", get_first_line("INVITE sip:a SIP/2.0\nTo: <abc>\r\n"));
+    EXPECT_EQ("OPTIONS", get_first_line("OPTIONS"));
+    EXPECT_EQ("", get_first_line("\r\nTo: <abc>\r\n"));
+    EXPECT_EQ("", get_first_line(""));
 }
 
 TEST(Parser, get_reply_code)
@@ -925,7 +925,7 @@ TEST(Parser, get_call_id_github_0101) { // github-#0101
         "v=0\r\no=user1 53655765 2353687637 IN IP4 127.0.0.1\r\n"
         "s=-\r\nc=IN IP4 127.0.0.1\r\nt=0 0\r\n"
         "m=audio 6000 RTP/AVP 0\r\na=rtpmap:0 PCMU/8000";
-    EXPECT_STREQ("1-18220@127.0.0.1", get_call_id(input));
+    EXPECT_EQ("1-18220@127.0.0.1", get_call_id(input));
 }
 
 #endif //GTEST

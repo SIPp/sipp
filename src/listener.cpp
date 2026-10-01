@@ -103,15 +103,15 @@ static void grow(listener_part &part)
 }
 
 /* The slot of the key, nullptr if it has none */
-static listener_slot *find_slot(const char *key)
+static listener_slot *find_slot(std::string_view key)
 {
-    uint32_t len = strlen(key);
-    uint32_t hash = key_hash(key, len);
+    uint32_t len = key.size();
+    uint32_t hash = key_hash(key.data(), len);
     const listener_part &part = part_of(hash);
     if (!part.slots) {
         return nullptr;
     }
-    listener_slot *slot = probe(part, key, len, hash);
+    listener_slot *slot = probe(part, key.data(), len, hash);
     return slot->owner ? slot : nullptr;
 }
 
@@ -148,9 +148,9 @@ static void free_slot(listener_slot *slot)
     part.used--;
 }
 
-listener::listener(const char *id, bool listening)
+listener::listener(std::string_view id, bool listening)
 {
-    this->id = strdup(id);
+    this->id = strndup(id.data(), id.size());
     this->listening = false;
     this->own_id = true;
     if (listening) {
@@ -229,7 +229,7 @@ listener::~listener()
     id = nullptr;
 }
 
-listener *get_listener(const char *id)
+listener *get_listener(std::string_view id)
 {
     listener_slot *slot = find_slot(id);
     return slot ? slot->owner : nullptr;

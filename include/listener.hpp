@@ -22,6 +22,7 @@
 
 #include <iterator>
 #include <list>
+#include <string_view>
 #include <sys/types.h>
 #include <string.h>
 #include <assert.h>
@@ -33,7 +34,7 @@ class SIPpSocket;
 class listener
 {
 public:
-    listener(const char *id, bool listening);
+    listener(std::string_view id, bool listening);
     virtual ~listener();
     char *getId();
     /* socket: the one msg came on. */
@@ -58,6 +59,6 @@ protected:
 };
 
 /* The listener of the id, or of a key it listens to */
-listener * get_listener(const char *);
+listener *get_listener(std::string_view id);
 
 #endif

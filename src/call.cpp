@@ -1084,17 +1084,21 @@ unsigned long call::hash(const char * msg)
 }
 
 /******************* Call class implementation ****************/
-call::call(scenario *call_scenario, const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest) : listener(p_id, true)
+call::call(scenario *call_scenario, std::string_view p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest)
+    : listener(p_id, true)
 {
     init(call_scenario, nullptr, dest, p_id, userId, use_ipv6, false, false);
 }
 
-call::call(scenario *call_scenario, const char *p_id, SIPpSocket *socket, struct sockaddr_storage *dest) : listener(p_id, true)
+call::call(scenario *call_scenario, std::string_view p_id, SIPpSocket *socket, struct sockaddr_storage *dest)
+    : listener(p_id, true)
 {
     init(call_scenario, socket, dest, p_id, 0 /* No User. */, socket->ss_ipv6, false /* Not Auto. */, false);
 }
 
-call::call(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitialization) : listener(p_id, true)
+call::call(scenario *call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, std::string_view p_id,
+           int userId, bool ipv6, bool isAutomatic, bool isInitialization)
+    : listener(p_id, true)
 {
     init(call_scenario, socket, dest, p_id, userId, ipv6, isAutomatic, isInitialization);
 }
@@ -1116,7 +1120,8 @@ call *call::add_call(int userId, bool ipv6, struct sockaddr_storage *dest,
 }
 
 
-void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall)
+void call::init(scenario *call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, std::string_view p_id,
+                int userId, bool ipv6, bool isAutomatic, bool isInitCall)
 {
     _srtpctxdebugfile = nullptr;
 
@@ -2337,8 +2342,8 @@ bool call::executeMessage(message *curmsg)
         }
         if (dialogs && !dialogKnown(dialogs->current)) {
             /* A Call-ID written without [call_id] */
-            const char *sent_id = get_call_id(last_send_msg.c_str());
-            if (*sent_id) {
+            const std::string_view sent_id = get_call_id(last_send_msg.c_str());
+            if (!sent_id.empty()) {
                 setDialogCallId(dialogs->current, sent_id);
             }
         }
@@ -5055,8 +5060,8 @@ int call::dialogOf(const char *msg)
 {
     /* The peer echoes a "///" prefix written before [call_id]: the
      * Call-ID of the dialog is what follows it, as for the call's */
-    const char *full_call_id;
-    const char *call_id = get_trimmed_call_id(msg, &full_call_id);
+    std::string_view full_call_id;
+    const std::string_view call_id = get_trimmed_call_id(msg, &full_call_id);
     for (const auto &[dialog, d] : dialogs->dialogs) {
         if (!d.call_id.empty() && (d.call_id == full_call_id || d.call_id == call_id)) {
             return dialog;
@@ -5074,7 +5079,7 @@ bool call::dialogKnown(int dialog)
     return it != dialogs->dialogs.end() && !it->second.call_id.empty();
 }
 
-void call::setDialogCallId(int dialog, const char *call_id)
+void call::setDialogCallId(int dialog, std::string_view call_id)
 {
     /* A Call-ID of this call already, such as its own */
     if (get_listener(call_id) == this) {
@@ -6107,12 +6112,8 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
 #endif
         }
         /* It is a response: update peer_tag */
-        ptr = get_peer_tag(msg);
-        if (ptr) {
-            if(strlen(ptr) > (MAX_HEADER_LEN - 1)) {
-                ERROR("Peer tag too long. Change MAX_HEADER_LEN and recompile sipp");
-            }
-            peer_tag = ptr;
+        if (const std::optional<std::string_view> tag = get_peer_tag(msg)) {
+            peer_tag = *tag;
         }
         request[0] = 0;
         // extract the cseq method from the response
