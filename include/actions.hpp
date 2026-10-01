@@ -23,6 +23,8 @@
 #ifndef _CACTIONS
 #define _CACTIONS
 
+#include <string>
+
 #include "variables.hpp"
 #include "message.hpp"
 class CSample;
@@ -143,8 +145,8 @@ public:
     int            getVarInId();
     int            getVarIn2Id();
     int            getOccurrence();
-    char*          getLookingChar();
-    char*          getRegularExpression();
+    const char *getLookingChar();
+    const char *getRegularExpression();
     SendingMessage *getMessage(int n = 0);  /* log specific function  */
     T_IntCmdType   getIntCmd();   /* exec specific function */
 #ifdef PCAPPLAY
@@ -161,18 +163,18 @@ public:
     void setVarId        (int            P_value);
     void setVarInId      (int            P_value);
     void setVarIn2Id      (int           P_value);
-    void setLookingChar(const char* P_value);
+    void setLookingChar(const std::string &P_value);
     void setCaseIndep    (bool           P_action);
     void setOccurrence   (int            P_value);
     void setHeadersOnly  (bool           P_value);
     void setScenario     (scenario *     P_scenario);
-    void setRegExp       (const char*    P_value);  /* ereg specific function. */
+    void setRegExp(const std::string &P_value); /* ereg specific function. */
     int  executeRegExp   (const char*    P_string, VariableTable *P_callVarTable);
-    void setMessage(const char* P_value, int n = 0);  /* log specific function  */
+    void setMessage(const std::string &P_value, int n = 0); /* log specific function  */
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
     void setDistribution (CSample *      P_value);  /* sample specific function  */
     void setDoubleValue  (double         P_value);  /* assign value specific function  */
-    void setStringValue  (char *         P_value);  /* strcmp value specific function  */
+    void setStringValue(const std::string &P_value); /* strcmp value specific function  */
 #ifdef PCAPPLAY
     void setPcapArgs(const char* P_value);          /* send_packets specific function */
     void setPcapArgs     (pcap_pkts   *  P_value);  /* send_packets specific function */
@@ -189,7 +191,7 @@ public:
     int* getSubVarId() ;
     CSample *getDistribution ();  /* sample specific function  */
     double getDoubleValue ();  /* assign value specific function  */
-    char * getStringValue ();  /* strcmp specific function  */
+    const char *getStringValue(); /* strcmp specific function  */
 
     CAction(scenario *scenario);
     ~CAction();
@@ -213,10 +215,10 @@ private:
     int            M_maxNbSubVarId;
     int *          M_subVarId;
 
-    char *         M_lookingChar;
+    std::string M_lookingChar;
     /* log specific member  */
     SendingMessage * M_message[MAX_ACTION_MESSAGE];
-    char *         M_message_str[MAX_ACTION_MESSAGE];
+    std::string M_message_str[MAX_ACTION_MESSAGE];
     /* exec specific member */
     T_IntCmdType   M_IntCmd;
     /* sample specific member. */
@@ -224,13 +226,13 @@ private:
     /* assign value specific member. */
     double         M_doubleValue;
     /* strcmp specific member. */
-    char *         M_stringValue;
+    std::string M_stringValue;
     /* what scenario we belong to. */
     scenario *     M_scenario;
     /* Our regular expression. */
     bool           M_regExpSet;
     regex_t        M_internalRegExp;
-    char *         M_regularExpression;
+    std::string M_regularExpression;
 #ifdef PCAPPLAY
     /* pcap specific member */
     pcap_pkts *    M_pcapArgs;

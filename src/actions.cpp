@@ -93,34 +93,26 @@ void CAction::printInfo(char* buf, int len)
 {
     if (M_action == E_AT_ASSIGN_FROM_REGEXP) {
         if (M_lookingPlace == E_LP_MSG) {
-            snprintf(buf, len, "Type[%d] - regexp[%s] where[%s] - checkIt[%d] - checkItInverse[%d] - $%s",
-                   M_action,
-                   M_regularExpression,
-                   "Full Msg",
-                   M_checkIt,
-                   M_checkItInverse,
-                   display_scenario->allocVars->getName(M_varId));
+            snprintf(buf, len, "Type[%d] - regexp[%s] where[%s] - checkIt[%d] - checkItInverse[%d] - $%s", M_action,
+                     M_regularExpression.c_str(), "Full Msg", M_checkIt, M_checkItInverse,
+                     display_scenario->allocVars->getName(M_varId));
         } else {
-            snprintf(buf, len, "Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - checkItInverse[%d] - $%s",
-                   M_action,
-                   M_regularExpression,
-                   "Header",
-                   M_lookingChar,
-                   M_checkIt,
-                   M_checkItInverse, display_scenario->allocVars->getName(M_varId));
+            snprintf(buf, len, "Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - checkItInverse[%d] - $%s", M_action,
+                     M_regularExpression.c_str(), "Header", M_lookingChar.c_str(), M_checkIt, M_checkItInverse,
+                     display_scenario->allocVars->getName(M_varId));
         }
     } else if (M_action == E_AT_EXECUTE_CMD) {
-        snprintf(buf, len, "Type[%d] - command[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - command[%-32.32s]", M_action, M_message_str[0].c_str());
     } else if (M_action == E_AT_VERIFY_CMD) {
-        snprintf(buf, len, "Type[%d] - verify[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - verify[%-32.32s]", M_action, M_message_str[0].c_str());
     } else if (M_action == E_AT_EXEC_INTCMD) {
         snprintf(buf, len, "Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
     } else if (M_action == E_AT_LOG_TO_FILE) {
-        snprintf(buf, len, "Type[%d] - message[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - message[%-32.32s]", M_action, M_message_str[0].c_str());
     } else if (M_action == E_AT_LOG_WARNING) {
-        snprintf(buf, len, "Type[%d] - warning[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - warning[%-32.32s]", M_action, M_message_str[0].c_str());
     } else if (M_action == E_AT_LOG_ERROR) {
-        snprintf(buf, len, "Type[%d] - error[%-32.32s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - error[%-32.32s]", M_action, M_message_str[0].c_str());
     } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
         char tmp[40];
         M_distribution->textDescr(tmp, sizeof(tmp));
@@ -132,7 +124,8 @@ void CAction::printInfo(char* buf, int len)
     } else if (M_action == E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
         snprintf(buf, len, "Type[%d] - assign gettimeofday[%s, %s]", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_subVarId[0]));
     } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
-        snprintf(buf, len, "Type[%d] - string assign varId[%s] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - string assign varId[%s] [%-32.32s]", M_action,
+                 display_scenario->allocVars->getName(M_varId), M_message_str[0].c_str());
     } else if (M_action == E_AT_JUMP) {
         snprintf(buf, len, "Type[%d] - jump varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
     } else if (M_action == E_AT_PAUSE_RESTORE) {
@@ -160,7 +153,7 @@ void CAction::printInfo(char* buf, int len)
                (M_action == E_AT_PLAY_PCAP_VIDEO) || (M_action == E_AT_PLAY_PCAP_TEXT)) {
         snprintf(buf, len, "Type[%d] - file[%s]", M_action, M_pcapArgs->file);
     } else if (M_action == E_AT_PLAY_DTMF) {
-        snprintf(buf, len, "Type[%d] - play DTMF digits [%s]", M_action, M_message_str[0]);
+        snprintf(buf, len, "Type[%d] - play DTMF digits [%s]", M_action, M_message_str[0].c_str());
 #endif
     } else if (M_action == E_AT_RTP_STREAM_PLAY) {
         snprintf(buf,
@@ -285,9 +278,9 @@ int            CAction::getVarIn2Id()
 {
     return(M_varIn2Id);
 }
-char*          CAction::getLookingChar()
+const char *CAction::getLookingChar()
 {
-    return(M_lookingChar);
+    return M_lookingChar.c_str();
 }
 SendingMessage *CAction::getMessage(int n)
 {
@@ -301,9 +294,9 @@ double         CAction::getDoubleValue()
 {
     return(M_doubleValue);
 }
-char*          CAction::getStringValue()
+const char *CAction::getStringValue()
 {
-    return(M_stringValue);
+    return M_stringValue.c_str();
 }
 #ifdef PCAPPLAY
 pcap_pkts *CAction::getPcapPkts()
@@ -382,9 +375,9 @@ void CAction::setDoubleValue (double P_value)
 }
 
 /* strcmp specific function. */
-void CAction::setStringValue (char *P_value)
+void CAction::setStringValue(const std::string &P_value)
 {
-    M_stringValue       = P_value;
+    M_stringValue = P_value;
 }
 
 void CAction::setSubVarId (int    P_value)
@@ -421,56 +414,39 @@ int  CAction::getNbSubVarId ()
 }
 
 
-void CAction::setLookingChar(const char* P_value)
+void CAction::setLookingChar(const std::string &P_value)
 {
-    if (M_lookingChar != nullptr) {
-        delete [] M_lookingChar;
-        M_lookingChar = nullptr;
-    }
-
-    if (P_value != nullptr) {
-        M_lookingChar = new char[strlen(P_value)+1];
-        strcpy(M_lookingChar, P_value);
-    }
+    M_lookingChar = P_value;
 }
 
-void CAction::setMessage(const char* P_value, int n)
+void CAction::setMessage(const std::string &P_value, int n)
 {
-    if (M_message[n] != nullptr) {
-        delete M_message[n];
-        M_message[n] = nullptr;
-    }
-    free(M_message_str[n]);
-    M_message_str[n] = nullptr;
-
-    if (P_value != nullptr) {
-        M_message_str[n] = strdup(P_value);
-        M_message[n] = new SendingMessage(M_scenario, P_value, true /* skip sanity */);
-    }
+    delete M_message[n];
+    M_message_str[n] = P_value;
+    M_message[n] = new SendingMessage(M_scenario, P_value.c_str(), true /* skip sanity */);
 }
 
-void CAction::setRegExp(const char *P_value)
+void CAction::setRegExp(const std::string &P_value)
 {
     int errorCode;
 
-    free(M_regularExpression);
-    M_regularExpression = strdup(P_value);
+    M_regularExpression = P_value;
     M_regExpSet = true;
 
-    errorCode = regcomp(&M_internalRegExp, P_value, REGCOMP_PARAMS);
+    errorCode = regcomp(&M_internalRegExp, P_value.c_str(), REGCOMP_PARAMS);
     if (errorCode != 0) {
         char buffer[MAX_HEADER_LEN];
         regerror(errorCode, &M_internalRegExp, buffer, sizeof(buffer));
-        ERROR("recomp error : regular expression '%s' - error '%s'", M_regularExpression, buffer);
+        ERROR("recomp error : regular expression '%s' - error '%s'", M_regularExpression.c_str(), buffer);
     }
 }
 
-char *CAction::getRegularExpression()
+const char *CAction::getRegularExpression()
 {
     if (!M_regExpSet) {
         ERROR("Trying to get a regular expression for an action that does not have one!");
     }
-    return M_regularExpression;
+    return M_regularExpression.c_str();
 }
 
 int CAction::executeRegExp(const char* P_string, VariableTable *P_callVarTable)
@@ -931,17 +907,14 @@ CAction::CAction(scenario *scenario)
     M_checkIt      = false;
     M_checkItInverse      = false;
     M_lookingPlace = E_LP_MSG;
-    M_lookingChar  = nullptr;
     M_caseIndep    = false;
     M_occurrence   = 1;
     M_headersOnly  = true;
     for (int i = 0; i < MAX_ACTION_MESSAGE; i++) {
-        M_message[i]   = nullptr;
-        M_message_str[i] = nullptr;
+        M_message[i] = nullptr;
     }
     M_IntCmd       = E_INTCMD_INVALID;
-    M_doubleValue  = 0;
-    M_stringValue  = nullptr;
+    M_doubleValue = 0;
     M_distribution = nullptr;
 #ifdef PCAPPLAY
     M_pcapArgs     = nullptr;
@@ -953,28 +926,20 @@ CAction::CAction(scenario *scenario)
     M_scenario     = scenario;
     M_regExpSet    = false;
     memset(&M_internalRegExp, 0, sizeof(M_internalRegExp));
-    M_regularExpression = nullptr;
 }
 
 CAction::~CAction()
 {
-    if (M_lookingChar != nullptr) {
-        delete [] M_lookingChar;
-        M_lookingChar = nullptr;
-    }
     for (int i = 0; i < MAX_ACTION_MESSAGE; i++) {
         if (M_message[i] != nullptr) {
             delete M_message[i];
             M_message[i] = nullptr;
         }
-        free(M_message_str[i]);
-        M_message_str[i] = nullptr;
     }
     if (M_subVarId != nullptr) {
         delete [] M_subVarId;
         M_subVarId      = nullptr;
     }
-    free(M_stringValue);
 #ifdef PCAPPLAY
     if (M_pcapArgs != nullptr) {
         free_pcaps(M_pcapArgs);
@@ -983,7 +948,6 @@ CAction::~CAction()
 #endif
     if (M_regExpSet) {
         regfree(&M_internalRegExp);
-        free(M_regularExpression);
     }
     if (M_distribution) {
         delete M_distribution;
