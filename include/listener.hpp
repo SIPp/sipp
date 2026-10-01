@@ -20,15 +20,11 @@
 #ifndef __LISTENER__
 #define __LISTENER__
 
-#include <map>
 #include <iterator>
 #include <list>
 #include <sys/types.h>
 #include <string.h>
 #include <assert.h>
-#include <string_view>
-
-#include "node_pool.hpp"
 
 #include "sipp.hpp"
 
@@ -61,9 +57,7 @@ protected:
     bool own_id; /* id is ours to free */
 };
 
-/* Keyed by the id of the listener they map to, or a key it listens to */
-typedef std::map<std::string_view, listener *, std::less<>,
-        node_allocator<std::pair<const std::string_view, listener *>>> listener_map;
+/* The listener of the id, or of a key it listens to */
 listener * get_listener(const char *);
 
 #endif
