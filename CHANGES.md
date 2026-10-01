@@ -287,6 +287,8 @@ marked **Breaking**.
   - an `<ereg search_in="msg">` of a `<send>` searches the message sent
     also after an `<assignstr>`, `<log>` or other action that makes a
     text (#1248)
+  - a response's method comes from its CSeq header, in any case, not
+    from the first "CSeq" anywhere in the message (#1249)
 - Options, statistics and screens (by Orgad Shaneh):
   - `-timeout` fires to the millisecond (#1053), `-nd` works on
     big-endian hosts (#915), and `-tdmmap` frees each call's circuit and
