@@ -169,6 +169,9 @@ marked **Breaking**.
     failed (#1141)
   - a read of the byte before a message that starts with a newline, when
     its Call-ID or To tag is looked up (#1231)
+  - a read past the buffer of an `<ereg search_in="hdr">` with 2049 or
+    more bytes of the message after the header name, which also cut a
+    header longer than 2048 characters (#1254)
   - null strings printed in the actions screen for an `<ereg>` on the
     body or a variable, and in the error of a `<recv>` without request
     or response, and a play_pcap `[keyword]` looked up unterminated

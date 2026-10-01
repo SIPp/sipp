@@ -6668,26 +6668,22 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
         }
 
         if(currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_REGEXP) {
-            char msgPart[MAX_SUB_MESSAGE_LENGTH];
+            std::string msgPart;
 
             /* Where to look. */
             const char* haystack = nullptr;
             std::string var_value;
 
             if(currentAction->getLookingPlace() == CAction::E_LP_HDR) {
-                extractSubMessage (msg,
-                                   currentAction->getLookingChar(),
-                                   msgPart,
-                                   currentAction->getCaseIndep(),
-                                   currentAction->getOccurrence(),
-                                   currentAction->getHeadersOnly());
-                if(currentAction->getCheckIt() == true && (strlen(msgPart) == 0)) {
+                msgPart = extractSubMessage(msg, currentAction->getLookingChar(), currentAction->getCaseIndep(),
+                                            currentAction->getOccurrence(), currentAction->getHeadersOnly());
+                if (currentAction->getCheckIt() == true && msgPart.empty()) {
                     // the sub message is not found and the checking action say it
                     // MUST match --> Call will be marked as failed but will go on
                     WARNING("Failed regexp match: header %s not found in message\n%s", currentAction->getLookingChar(), msg);
                     return(call::E_AR_HDR_NOT_FOUND);
                 }
-                haystack = msgPart;
+                haystack = msgPart.c_str();
             } else if(currentAction->getLookingPlace() == CAction::E_LP_BODY) {
                 haystack = strstr(msg, "\r\n\r\n");
                 if (haystack) {
@@ -7511,13 +7507,12 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
     return(call::E_AR_NO_ERROR);
 }
 
-void call::extractSubMessage(const char *msg, const char *matchingString, char *result, bool case_indep, int occurrence,
-                             bool headers)
+/* What follows matchingString on its line, "" if it is not found */
+std::string call::extractSubMessage(const char *msg, const char *matchingString, bool case_indep, int occurrence,
+                                    bool headers)
 {
 
     const char *ptr, *ptr1;
-    int sizeOf;
-    int i = 0;
     int len = strlen(matchingString);
     char mat1 = tolower(*matchingString);
     char mat2 = toupper(*matchingString);
@@ -7584,17 +7579,11 @@ void call::extractSubMessage(const char *msg, const char *matchingString, char *
         ++ptr;
     }
 
-    if(ptr != nullptr && *ptr != 0) {
-        strncpy(result, ptr+len, MAX_SUB_MESSAGE_LENGTH);
-        sizeOf = strlen(result);
-        if(sizeOf >= MAX_SUB_MESSAGE_LENGTH)
-            sizeOf = MAX_SUB_MESSAGE_LENGTH-1;
-        while((i<sizeOf) && (result[i] != '\n') && (result[i] != '\r'))
-            i++;
-        result[i] = '\0';
-    } else {
-        result[0] = '\0';
+    if (ptr != nullptr && *ptr != 0) {
+        const char *rest = ptr + len;
+        return std::string(rest, strcspn(rest, "\r\n"));
     }
+    return "";
 }
 
 int call::getFieldFromInputFile(const char *fileName, int field, SendingMessage *lineMsg, char* dest, int len)
