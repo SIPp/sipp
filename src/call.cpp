@@ -8585,20 +8585,17 @@ TEST(play_dtmf, payload_type) {
 
 /* What parse_dtmf says of args, NULL if it is valid, with the values
  * it parsed. */
-static const char* dtmf_error(const char* args, unsigned long* tone_len = nullptr,
-                              uint8_t* payload_type = nullptr)
+static const char *dtmf_error(std::string args, unsigned long *tone_len = nullptr, uint8_t *payload_type = nullptr)
 {
-    char* copy = strdup(args);
     unsigned long len;
     uint8_t pt;
-    const char* error = parse_dtmf(copy, &len, &pt);
+    const char *error = parse_dtmf(args.data(), &len, &pt);
     if (tone_len) {
         *tone_len = len;
     }
     if (payload_type) {
         *payload_type = pt;
     }
-    free(copy);
     return error;
 }
 
