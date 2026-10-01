@@ -861,7 +861,11 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     /* OK, now to play - sockets are supposed to be non-blocking */
     /* no support for video stream at this stage. will need some work */
 
-    next_wake = timenow_ms + 100; /* default next wakeup time */
+    /* The next wake-up with no packet to send: on the multiples of 100
+     * ms, those of all the tasks of the thread at once. 100 ms after
+     * each task's own, a thread that only echoes, whose tasks started
+     * at different times, walked all of them every few milliseconds. */
+    next_wake = timenow_ms + 100 - timenow_ms % 100;
 
     if (taskinfo->audio_rtp_socket != -1)
     {
