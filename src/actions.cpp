@@ -454,7 +454,6 @@ int CAction::executeRegExp(const char* P_string, VariableTable *P_callVarTable)
     regmatch_t pmatch[10];
     int error;
     int nbOfMatch = 0;
-    char* result = nullptr ;
 
     if (!M_regExpSet) {
         ERROR("Trying to perform regular expression match on action that does not have one!");
@@ -472,8 +471,8 @@ int CAction::executeRegExp(const char* P_string, VariableTable *P_callVarTable)
 
         for (int i = 0; i <= getNbSubVarId(); i++) {
             if (pmatch[i].rm_eo != -1) {
-                setSubString(&result, P_string, pmatch[i].rm_so, pmatch[i].rm_eo);
-                L_callVar->setMatchingValue(result);
+                L_callVar->setMatchingValue(
+                    std::string_view(P_string + pmatch[i].rm_so, pmatch[i].rm_eo - pmatch[i].rm_so));
                 nbOfMatch++;
             }
             if (i == getNbSubVarId()) {
@@ -484,25 +483,6 @@ int CAction::executeRegExp(const char* P_string, VariableTable *P_callVarTable)
     }
     return(nbOfMatch);
 }
-
-void CAction::setSubString(char** P_target, const char* P_source, int P_start, int P_stop)
-{
-    int sizeOf;
-
-    if (P_source != nullptr) {
-        sizeOf = P_stop - P_start;
-        (*P_target) = new char[sizeOf + 1];
-
-        if (sizeOf > 0) {
-            memcpy((*P_target), &(P_source[P_start]), sizeOf);
-        }
-
-        (*P_target)[sizeOf] = '\0';
-    } else {
-        *P_target = nullptr ;
-    }
-}
-
 
 #ifdef PCAPPLAY
 void CAction::setPcapArgs (pcap_pkts  *  P_value)
@@ -1068,6 +1048,28 @@ TEST(actions, NonMatchingRegexp) {
     ASSERT_EQ(0, results);
     ASSERT_STREQ("", vt.getVar(id)->getString());
     ASSERT_STREQ("", vt.getVar(sub1_id)->getString());
+}
+
+TEST(actions, VariableValues)
+{
+    CCallVariable var;
+    ASSERT_STREQ("", var.getString());
+    /* A C string: up to its first NUL */
+    var.setString(std::string("ab\0cd", 5));
+    ASSERT_STREQ("ab", var.getString());
+    ASSERT_EQ(nullptr, var.getMatchingValue());
+    var.setMatchingValue("12.5 and more");
+    var.setMatchingValue("12.5");
+    ASSERT_STREQ("12.5", var.getMatchingValue());
+    ASSERT_STREQ("12.5", var.getString());
+    double value = 0;
+    ASSERT_TRUE(var.toDouble(&value));
+    ASSERT_EQ(12.5, value);
+    var.setString(" 7");
+    ASSERT_TRUE(var.toDouble(&value));
+    ASSERT_EQ(7, value);
+    var.setString("7x");
+    ASSERT_FALSE(var.toDouble(&value));
 }
 
 #endif

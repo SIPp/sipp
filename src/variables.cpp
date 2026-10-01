@@ -65,24 +65,19 @@ bool CCallVariable::isString()
     return (M_type == E_VT_STRING);
 }
 
-// WARNING : setMatchingValue doesn't allocate the memory for the matching value
-// but the destructor free the memory
-void CCallVariable::setMatchingValue(char* P_matchingVal)
+void CCallVariable::setMatchingValue(std::string_view P_matchingVal)
 {
     M_type = E_VT_REGEXP;
-    if(M_matchingValue != nullptr) {
-        delete [] M_matchingValue;
-    }
-    M_matchingValue     = P_matchingVal;
+    assign_exact(M_value, P_matchingVal.data(), P_matchingVal.size());
     M_nbOfMatchingValue++;
 }
 
-char* CCallVariable::getMatchingValue()
+const char *CCallVariable::getMatchingValue()
 {
     if (M_type != E_VT_REGEXP) {
         return nullptr;
     }
-    return(M_matchingValue);
+    return M_value.c_str();
 }
 
 void CCallVariable::setDouble(double val)
@@ -99,22 +94,24 @@ double CCallVariable::getDouble()
     return(M_double);
 }
 
-void CCallVariable::setString(char *P_val)
+void CCallVariable::setString(std::string P_val)
 {
     M_type = E_VT_STRING;
-    free(M_stringValue);
-    M_stringValue     = P_val;
+    P_val.resize(strlen(P_val.c_str()));
+    /* Kept in a buffer of about its size */
+    if (P_val.capacity() < P_val.size() + 32) {
+        M_value = std::move(P_val);
+    } else {
+        assign_exact(M_value, P_val.data(), P_val.size());
+    }
 }
 
-char *CCallVariable::getString()
+const char *CCallVariable::getString()
 {
-    if (M_type == E_VT_STRING) {
-        return(M_stringValue);
-    } else if (M_type == E_VT_REGEXP && M_matchingValue) {
-        return(M_matchingValue);
-    } else {
-        return const_cast<char*>(""); /* BUG BUT NOT SO SERIOUS */
+    if (M_type == E_VT_STRING || M_type == E_VT_REGEXP) {
+        return M_value.c_str();
     }
+    return ""; /* BUG BUT NOT SO SERIOUS */
 }
 
 /* Convert this variable to a double. Returns true on success, false on failure. */
@@ -127,14 +124,14 @@ bool CCallVariable::toDouble(double *newValue)
         if(M_nbOfMatchingValue < 1) {
             return false;
         }
-        *newValue = strtod(M_matchingValue, &p);
-        if (p == M_matchingValue || *p) {
+        *newValue = strtod(M_value.c_str(), &p);
+        if (p == M_value.c_str() || *p) {
             return false;
         }
         break;
     case E_VT_STRING:
-        *newValue = strtod(M_stringValue, &p);
-        if (p == M_stringValue || *p) {
+        *newValue = strtod(M_value.c_str(), &p);
+        if (p == M_value.c_str() || *p) {
             return false;
         }
         break;
@@ -164,24 +161,12 @@ bool CCallVariable::getBool()
     return(M_bool);
 }
 
-// Constructor and destructor
+// Constructor
 CCallVariable::CCallVariable()
 {
-    M_matchingValue     = nullptr;
-    M_stringValue     = nullptr;
     M_nbOfMatchingValue = 0;
     M_double = 0;
-    M_bool = false;
     M_type = E_VT_UNDEFINED;
-}
-
-CCallVariable::~CCallVariable()
-{
-    if(M_matchingValue != nullptr) {
-        delete [] M_matchingValue;
-    }
-    M_matchingValue = nullptr;
-    free(M_stringValue);
 }
 
 #define LEVEL_BITS 8
