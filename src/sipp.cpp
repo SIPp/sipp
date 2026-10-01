@@ -1156,6 +1156,7 @@ static pid_t begin_pager() {
 
     int stdout_fd = fileno(stdout);
     int read_write[2];
+    int exec_status[2];
     pid_t ret;
 
     if (!isatty(stdout_fd)) {
@@ -1193,6 +1194,15 @@ static pid_t begin_pager() {
         perror("pipe");
         return 0;
     }
+    /* The child writes to exec_status if it can't start the pager, which
+     * closes it on exec. */
+    if (pipe(exec_status) < 0) {
+        perror("pipe");
+        close(read_write[0]);
+        close(read_write[1]);
+        return 0;
+    }
+    fcntl(exec_status[1], F_SETFD, FD_CLOEXEC);
     if ((ret = fork()) < 0) {
         perror("fork");
         return 0;
@@ -1200,6 +1210,20 @@ static pid_t begin_pager() {
 
     /* Switch stdout FD in parent */
     if (ret != 0) {
+        char failed;
+        ssize_t n;
+        close(exec_status[1]);
+        do {
+            n = read(exec_status[0], &failed, 1);
+        } while (n < 0 && errno == EINTR);
+        close(exec_status[0]);
+        if (n > 0) {
+            /* No pager: go on without it. */
+            close(read_write[0]);
+            close(read_write[1]);
+            waitpid(ret, nullptr, 0);
+            return 0;
+        }
         fflush(stdout);
         close(stdout_fd);
         close(read_write[0]);
@@ -1218,6 +1242,7 @@ static pid_t begin_pager() {
 
     close(STDIN_FILENO);
     close(read_write[1]);
+    close(exec_status[0]);
     if (dup2(read_write[0], STDIN_FILENO) < 0) {
         perror("dup2");
     } else {
@@ -1227,7 +1252,10 @@ static pid_t begin_pager() {
 
     /* This was not supposed to happen. Missing binary? */
     perror("execve");
-    return 0;
+    if (write(exec_status[1], "", 1) < 0) {
+        perror("write");
+    }
+    _exit(EXIT_FAILURE);
 }
 
 /* Make sure we flush and close, or the child won't get all the data (and know
