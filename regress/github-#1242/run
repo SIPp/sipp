@@ -1,0 +1,23 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# [dynamic_id] goes back to -dynamicStart when its step would take it
+# past -dynamicMax, or below the lowest int with a negative step, rather
+# than overflowing.
+. "`dirname "$0"`/../functions"; init
+
+check() {
+    expected="$1"; shift
+    rm -f uac_*_logs.log
+    sippfg -sf uac.xml -m 1 -i 127.0.0.1 -p 24490 127.0.0.1:24491 \
+        -timeout 5 -trace_logs "$@" >/dev/null 2>&1
+    logs=`cat uac_*_logs.log 2>/dev/null`
+    rm -f uac_*_logs.log
+    test "$logs" = "$expected" || fail "$*: logged '$logs', not '$expected'"
+}
+
+check "2147483640 2147483643 2147483646 2147483640 2147483643" \
+    -dynamicStart 2147483640 -dynamicMax 2147483647 -dynamicStep 3
+check "-2147483640 -2147483645 -2147483640 -2147483645 -2147483640" \
+    -dynamicStart -2147483640 -dynamicMax 0 -dynamicStep -5
+check "10 12 14 10 12" -dynamicStart 10 -dynamicMax 14 -dynamicStep 2
+ok

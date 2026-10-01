@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- Sends a MESSAGE and logs [dynamic_id] five times. -->
+<scenario name="dynamic_id">
+  <send>
+    <![CDATA[
+      MESSAGE sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:c@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 MESSAGE
+      Content-Length: 0
+
+    ]]>
+  </send>
+  <nop>
+    <action>
+      <log message="[dynamic_id] [dynamic_id] [dynamic_id] [dynamic_id] [dynamic_id]"/>
+    </action>
+  </nop>
+</scenario>
