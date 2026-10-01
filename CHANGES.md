@@ -114,10 +114,13 @@ marked **Breaking**.
   messages are built without temporary strings, a socket read keeps
   only what it got rather than 64 KB, a Call-ID is found in a hash
   table rather than a tree, a Digest response reuses its hash contexts,
-  RTP makes fewer system calls per packet, reading echoes with
-  recvmmsg(), idle playback tasks wake together, and the socket loop and
-  RTP echo wait with epoll (#1110, #1117, #1118, #1119, #1122-#1131,
-  #1230, #1232-#1234, #1247, #1253, by Orgad Shaneh)
+  the paused calls of the next 4 s move into the timer wheel a few at a
+  time rather than all at once, which held up the main loop for 30-45
+  ms every 4 s, RTP makes fewer system calls per packet, reading echoes
+  with recvmmsg(), idle playback tasks wake together, and the socket
+  loop and RTP echo wait with epoll (#1110, #1117, #1118, #1119,
+  #1122-#1131, #1230, #1232-#1234, #1247, #1253, #1255, by Orgad
+  Shaneh)
 - A pass over the calls ends after 10 ms and runs the calls that resume
   first, so a burst of new calls no longer leaves incoming messages
   unread for seconds (#1101), and the call rate starts with the traffic,
@@ -173,6 +176,8 @@ marked **Breaking**.
   - a read past the buffer of an `<ereg search_in="hdr">` with 2049 or
     more bytes of the message after the header name, which also cut a
     header longer than 2048 characters (#1254)
+  - a read past the timer wheel once the clock passes 2^32 ms, after
+    49.7 days (#1255)
   - null strings printed in the actions screen for an `<ereg>` on the
     body or a variable, and in the error of a `<recv>` without request
     or response, and a play_pcap `[keyword]` looked up unterminated

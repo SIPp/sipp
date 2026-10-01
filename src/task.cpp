@@ -187,13 +187,17 @@ task_list *timewheel::task2list(unsigned int wake)
         assert(wheel_base <= clock_tick);
     }
 
-    unsigned int slot_in_first_wheel = wake % LEVEL_ONE_SLOTS;
-    unsigned int slot_in_second_wheel = (wake / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS;
-    unsigned int slot_in_third_wheel = (wake / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS));
+    unsigned long window = wheel_base / LEVEL_ONE_SLOTS;
+    unsigned long wake_window = wake / LEVEL_ONE_SLOTS;
+    unsigned int slot_in_first_wheel = wake % (2 * LEVEL_ONE_SLOTS);
+    unsigned int slot_in_second_wheel = wake_window % LEVEL_TWO_SLOTS;
+    unsigned int slot_in_third_wheel = wake_window / LEVEL_TWO_SLOTS;
 
-    bool fits_in_first_wheel = ((wake / LEVEL_ONE_SLOTS) == (wheel_base / LEVEL_ONE_SLOTS));
-    bool fits_in_second_wheel = ((wake / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS)) ==
-            (wheel_base / (LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS)));
+    /* The second wheel holds the windows up to the boundary after the
+     * next window's start, so the next window's tasks wait there in
+     * the last window before a boundary too. */
+    bool fits_in_first_wheel = (wake_window == window);
+    bool fits_in_second_wheel = (wake_window / LEVEL_TWO_SLOTS == (window + 1) / LEVEL_TWO_SLOTS);
     bool fits_in_third_wheel = (slot_in_third_wheel < LEVEL_THREE_SLOTS);
 
     if (fits_in_first_wheel) {
@@ -217,53 +221,39 @@ int timewheel::expire_paused_tasks()
     // This while loop counts up from the wheel_base (i.e. the time
     // this function last ran) to the current scheduler time (i.e. clock_tick).
     while (wheel_base < clock_tick) {
-        int slot1 = wheel_base % LEVEL_ONE_SLOTS;
+        unsigned long window = wheel_base / LEVEL_ONE_SLOTS;
+        /* The ms of this window still to go, this one included. */
+        unsigned long ms_left = LEVEL_ONE_SLOTS - wheel_base % LEVEL_ONE_SLOTS;
 
-        /* If slot1 is 0 (i.e. wheel_base is a multiple of 4096ms),
-         * we need to repopulate the first timer wheel with the
-         * contents of the first available slot of the second wheel. */
-        if (slot1 == 0) {
-
-          /* slot2 represents the slot in the second timer wheel
-           * containing the tasks for the next ~4s. So when
-           * wheel_base is 4096, wheel2[1] will be moved into wheel 1,
-           * when wheel_base of 8192 wheel2[2] will be moved into
-           * wheel 1, etc. */
-            int slot2 = (wheel_base / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS;
-
-            /* If slot2 is also zero, we must migrate tasks from slot3 into slot2. */
-            if (slot2 == 0) {
-              /* Same logic above, except that each slot of wheel3
-                contains the next 69 minutes of tasks, enough to
-                completely fill wheel 2. */
-                int slot3 = ((wheel_base / LEVEL_ONE_SLOTS) / LEVEL_TWO_SLOTS);
-                assert(slot3 < LEVEL_THREE_SLOTS);
-
-                /* Migrate these tasks to wheel two. */
-                for (size_t n = wheel_three[slot3].size(); n; n--) {
-                    relocate(wheel_three[slot3].front());
-                }
+        /* As the last window before a 2^22ms boundary starts, the
+         * slot of the third wheel for the next 2^22ms moves into the
+         * second wheel (its tasks of the next window into the first). */
+        if (ms_left == LEVEL_ONE_SLOTS && (window + 1) % LEVEL_TWO_SLOTS == 0) {
+            task_list &later = wheel_three[((window + 1) / LEVEL_TWO_SLOTS) % LEVEL_THREE_SLOTS];
+            for (size_t n = later.size(); n; n--) {
+                relocate(later.front());
             }
+        }
 
-            /* Repopulate wheel 1 from wheel 2 (which will now be full
-               of the tasks pulled from wheel 3, if that was
-               necessary) */
-            for (size_t n = wheel_two[slot2].size(); n; n--) {
-                relocate(wheel_two[slot2].front());
-            }
+        /* Move the tasks of the next window into the first wheel in
+         * the order they came, a share of those left each ms: the
+         * last ms of this window moves the rest. */
+        task_list &next = wheel_two[(window + 1) % LEVEL_TWO_SLOTS];
+        for (size_t n = (next.size() + ms_left - 1) / ms_left; n; n--) {
+            relocate(next.front());
         }
 
         /* Move tasks from the current slot of wheel 1 (i.e. the tasks
         scheduled to fire in the 1ms interval represented by
         wheel_base) onto a run queue. */
-        found += wheel_one[slot1].size();
-        for(task_list::iterator it = wheel_one[slot1].begin();
-                it != wheel_one[slot1].end(); it++) {
+        task_list &due = wheel_one[wheel_base % (2 * LEVEL_ONE_SLOTS)];
+        found += due.size();
+        for (task_list::iterator it = due.begin(); it != due.end(); it++) {
             (*it)->add_to_runqueue();
             // Decrement the total number of tasks in this wheel.
             count--;
         }
-        wheel_one[slot1].clear();
+        due.clear();
 
         wheel_base++; // Move wheel_base to the next 1ms interval
     }
@@ -286,7 +276,8 @@ void timewheel::add_paused_task(task *task)
     count++;
 }
 
-/* The list node moves with the task, so its iterator stays valid. */
+/* The list node moves with the task, so its iterator stays valid. A
+ * task of the next window moves into the first wheel. */
 void timewheel::relocate(task *task)
 {
     unsigned int wake = task->wake();
@@ -295,7 +286,12 @@ void timewheel::relocate(task *task)
         task->add_to_runqueue();
         return;
     }
-    task_list *list = task2list(wake);
+    task_list *list;
+    if (wake / LEVEL_ONE_SLOTS == wheel_base / LEVEL_ONE_SLOTS + 1) {
+        list = &wheel_one[wake % (2 * LEVEL_ONE_SLOTS)];
+    } else {
+        list = task2list(wake);
+    }
     list->splice(list->end(), *task->pauselist, task->pauseit);
     task->pauselist = list;
 }
@@ -413,6 +409,11 @@ protected:
         return woken;
     }
 
+    size_t second_wheel_slot(unsigned long at)
+    {
+        return wheel->wheel_two[(at / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS].size();
+    }
+
     /* Random pauses, resumes and clock steps from start, against a
      * reference: a task wakes once the clock is past its wake time,
      * in the order of the wake times, then of the pauses. */
@@ -522,6 +523,54 @@ TEST_F(TimewheelTest, MatchesReferenceBeforeThirdWheel)
 TEST_F(TimewheelTest, MatchesReferenceLater)
 {
     check_against_reference(7UL * LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS - 50, 4);
+}
+
+TEST_F(TimewheelTest, MatchesReferenceUpTo32Bits)
+{
+    check_against_reference((1UL << 32) - 3 * LEVEL_ONE_SLOTS - 77, 5);
+}
+
+/* The tasks of the next window move into the first wheel a share at a
+ * time, and still wake on time and in order. */
+TEST_F(TimewheelTest, SpreadsTheMove)
+{
+    const unsigned long n = 20000, window = LEVEL_ONE_SLOTS;
+    std::mt19937 rng(6);
+    std::vector<std::pair<unsigned int, task *>> order;
+
+    start(0);
+    for (unsigned long i = 0; i < n; i++) {
+        wheel_test_task *t = new_task();
+        ASSERT_TRUE(pause(t, 2 * window + rng() % window));
+        order.emplace_back(t->at, t);
+    }
+    std::stable_sort(order.begin(), order.end(),
+                     [](const std::pair<unsigned int, task *> &a, const std::pair<unsigned int, task *> &b) {
+                         return a.first < b.first;
+                     });
+    ASSERT_TRUE(expire(window).empty());
+    size_t left = second_wheel_slot(2 * window);
+    ASSERT_EQ(n, left);
+    for (unsigned long now = window + 1; now <= 2 * window; now++) {
+        ASSERT_TRUE(expire(now).empty());
+        size_t after = second_wheel_slot(2 * window);
+        ASSERT_LE(left - after, (n + window - 1) / window) << "at " << now;
+        left = after;
+    }
+    EXPECT_EQ(0U, left);
+
+    std::vector<task *> woken, expected;
+    for (unsigned long now = 2 * window + 1; now <= 3 * window; now++) {
+        for (task *t : expire(now)) {
+            ASSERT_EQ(now - 1, ((wheel_test_task *)t)->at);
+            woken.push_back(t);
+        }
+    }
+    for (auto &o : order) {
+        expected.push_back(o.second);
+    }
+    EXPECT_EQ(expected, woken);
+    EXPECT_EQ(0, wheel->size());
 }
 
 /* A task whose wake time changes as it waits in the second wheel wakes
