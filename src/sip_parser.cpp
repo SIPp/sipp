@@ -445,10 +445,12 @@ static const char* internal_find_header(const char* msg, const char* name, const
             }
         }
 
-        /* Seek to next line, but not past EOH */
+        /* Seek to next line, but not past EOH. A message that starts
+         * with its newline has no CR before it, nor anything to read. */
         ptr = strchr(ptr, '\n');
-        if (!ptr || ptr[-1] != '\r' || (ptr[1] == '\r' && ptr[2] == '\n')) {
-            if (ptr && ptr[-1] != '\r') {
+        const bool no_cr = ptr && (ptr == msg || ptr[-1] != '\r');
+        if (!ptr || no_cr || (ptr[1] == '\r' && ptr[2] == '\n')) {
+            if (no_cr) {
                 WARNING("Missing CR during header scan at pos %d", int(ptr - msg));
                 /* continue? */
             }
@@ -754,6 +756,13 @@ TEST(Parser, get_call_id_2) {
 
 TEST(Parser, get_call_id_3) {
     EXPECT_STREQ("test3", get_call_id("...\r\ncall-id:\r\n\t    test3\r\n\r\n"));
+}
+
+TEST(Parser, get_call_id_leading_newline)
+{
+    /* The byte before the message is not read */
+    const char buf[] = "\r\nCall-ID: test4\r\n\r\n";
+    EXPECT_STREQ("", get_call_id(buf + 1));
 }
 
 TEST(Parser, get_call_id_short_1) {

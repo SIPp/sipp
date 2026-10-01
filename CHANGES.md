@@ -157,6 +157,8 @@ marked **Breaking**.
     message without a body (#1146), in `[server_ip]` when getsockname()
     fails (#1148), and of the sockets of an rtp_stream whose local port
     failed (#1141)
+  - a read of the byte before a message that starts with a newline, when
+    its Call-ID or To tag is looked up (#1231)
   - heap corruption when SIGTERM, SIGINT or `-timeout_error` interrupted
     a malloc (#1042, #1052), and a SIGXFSZ handler that wrote a log and
     dropped the trace files unclosed (#1216)
