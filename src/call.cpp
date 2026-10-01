@@ -130,6 +130,14 @@ static unsigned int next_number = 1;
  * new, in the order they came */
 static std::list<call *> new_dialog_calls;
 
+/* out += std::to_string(n), without the temporary string */
+template <typename T> static void append_number(std::string &out, T n)
+{
+    static_assert(std::is_integral_v<T>);
+    char buf[24];
+    out.append(buf, std::to_chars(buf, buf + sizeof(buf), n).ptr - buf);
+}
+
 class CallIdBuilder {
 public:
     explicit CallIdBuilder(unsigned int call_number)
@@ -1813,7 +1821,7 @@ char * call::get_last_header(const char * name)
 {
     int len;
 
-    if((!last_recv_msg) || (!strlen(last_recv_msg))) {
+    if (!last_recv_msg || !*last_recv_msg) {
         return nullptr;
     }
 
@@ -3030,6 +3038,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
      * space for the keywords that fill a char buffer. */
     const size_t max_len = buf_len - 1;
     std::string out;
+    /* Room for most messages, rather than growing it a piece at a time */
+    out.reserve(std::min<size_t>(max_len, 2048));
     size_t length_marker = std::string::npos;
     size_t auth_marker = std::string::npos;
     MessageComponent *auth_comp = nullptr;
@@ -3088,7 +3098,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             out += remote_host;
             break;
         case E_Message_Remote_Port:
-            out += std::to_string(remote_port + comp->offset);
+            append_number(out, remote_port + comp->offset);
             break;
         case E_Message_Local_IP:
             out += local_ip_w_brackets;
@@ -3100,7 +3110,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             } else {
                 port =  local_port;
             }
-            out += std::to_string(port + comp->offset);
+            append_number(out, port + comp->offset);
             break;
         case E_Message_Transport:
             out += TRANSPORT_TO_STRING(transport);
@@ -3171,7 +3181,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 rtpstream_update_pcap(&rtpstream_callinfo, stream, play_args);
             }
 #endif
-            out += std::to_string(port);
+            append_number(out, port);
             break;
         }
         case E_Message_RTPStream_Audio_Port:
@@ -3188,7 +3198,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
               temp_audio_port = rtpstream_callinfo.local_audioport + comp->offset;
           }
           logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Audio_Port: %d\n", temp_audio_port);
-          out += std::to_string(temp_audio_port);
+          append_number(out, temp_audio_port);
         }
         break;
         case E_Message_RTPStream_Video_Port:
@@ -3205,7 +3215,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
               temp_video_port = rtpstream_callinfo.local_videoport + comp->offset;
           }
           logSrtpInfo("call::createSendingMessage():  E_Message_RTPStream_Video_Port: %d\n", temp_video_port);
-          out += std::to_string(temp_video_port);
+          append_number(out, temp_video_port);
         }
         break;
         case E_Message_CryptoSuiteAesCm192Sha1801Audio:
@@ -3305,7 +3315,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag1Audio() - PRIMARY - SERVER: %d\n", pA.primary_cryptotag);
                 _txUASAudio.setCryptoTag(pA.primary_cryptotag, PRIMARY_CRYPTO);
             }
-            out += std::to_string(pA.primary_cryptotag);
+            append_number(out, pA.primary_cryptotag);
             srtp_audio_updated = true;
         }
         break;
@@ -3323,7 +3333,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag2Audio() - SECONDARY - SERVER: %d\n", pA.secondary_cryptotag);
                 _txUASAudio.setCryptoTag(pA.secondary_cryptotag, SECONDARY_CRYPTO);
             }
-            out += std::to_string(pA.secondary_cryptotag);
+            append_number(out, pA.secondary_cryptotag);
             srtp_audio_updated = true;
         }
         break;
@@ -3801,7 +3811,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag1Video() - PRIMARY - SERVER: %d\n", pV.primary_cryptotag);
                 _txUASVideo.setCryptoTag(pV.primary_cryptotag, PRIMARY_CRYPTO);
             }
-            out += std::to_string(pV.primary_cryptotag);
+            append_number(out, pV.primary_cryptotag);
             srtp_video_updated = true;
         }
         break;
@@ -3819,7 +3829,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 logSrtpInfo("call::createSendingMessage():  E_Message_CryptoTag2Video() - SECONDARY - SERVER: %d\n", pV.secondary_cryptotag);
                 _txUASVideo.setCryptoTag(pV.secondary_cryptotag, SECONDARY_CRYPTO);
             }
-            out += std::to_string(pV.secondary_cryptotag);
+            append_number(out, pV.secondary_cryptotag);
             srtp_video_updated = true;
         }
         break;
@@ -4287,10 +4297,10 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             out += (media_ip_is_ipv6 ? "6" : "4");
             break;
         case E_Message_Call_Number:
-            out += std::to_string(number);
+            append_number(out, number);
             break;
         case E_Message_DynamicId:
-            out += std::to_string(call::dynamicId);
+            append_number(out, call::dynamicId);
             // increment at each request
             dynamicId += stepDynamicId;
             if ( this->dynamicId > maxDynamicId ) {
@@ -4301,24 +4311,25 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             out += dialogs ? dialogCallId() : id;
             break;
         case E_Message_CSEQ:
-            out += std::to_string(cseq + comp->offset);
+            append_number(out, cseq + comp->offset);
             break;
         case E_Message_PID:
-            out += std::to_string(pid);
+            append_number(out, pid);
             break;
         case E_Message_Service:
             out += service;
             break;
         case E_Message_Branch:
             /* Branch is magic cookie + call number + message index in scenario */
-            if (P_index == -1) {
-                out += "z9hG4bK-" + std::to_string(pid) + "-" + std::to_string(number) + "-" + std::to_string(msg_index - 1 + comp->offset);
-            } else {
-                out += "z9hG4bK-" + std::to_string(pid) + "-" + std::to_string(number) + "-" + std::to_string(P_index + comp->offset);
-            }
+            out += "z9hG4bK-";
+            append_number(out, pid);
+            out += '-';
+            append_number(out, number);
+            out += '-';
+            append_number(out, (P_index == -1 ? msg_index - 1 : P_index) + comp->offset);
             break;
         case E_Message_Index:
-            out += std::to_string(P_index);
+            append_number(out, P_index);
             break;
         case E_Message_Next_Url:
             if (next_req_url && *next_req_url) {
@@ -4355,7 +4366,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             break;
         case E_Message_ClockTick:
-            out += std::to_string(clock_tick);
+            append_number(out, clock_tick);
             break;
         case E_Message_Timestamp:
             struct timeval currentTime;
@@ -4374,10 +4385,10 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             out += buf;
             break;
         case E_Message_Users:
-            out += std::to_string(users);
+            append_number(out, users);
             break;
         case E_Message_UserID:
-            out += std::to_string(userId);
+            append_number(out, userId);
             break;
         case E_Message_SippVersion:
             /* Drop the initial "v" from the SIPP_VERSION string for legacy reasons. */
@@ -4519,7 +4530,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             break;
         }
         case E_Message_Last_Message:
-            if(last_recv_msg && strlen(last_recv_msg)) {
+            if (last_recv_msg && *last_recv_msg) {
                 out += last_recv_msg;
             }
             break;
@@ -4539,7 +4550,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
                 while(isspace(*last_header)) last_header++;
                 sscanf(last_header, "%d", &last_cseq);
             }
-            out += std::to_string(last_cseq + comp->offset);
+            append_number(out, last_cseq + comp->offset);
             break;
         }
         case E_Message_TDM_Map:
