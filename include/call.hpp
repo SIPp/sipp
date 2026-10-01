@@ -506,6 +506,6 @@ protected:
 void init_default_messages();
 void free_default_messages();
 SendingMessage *get_default_message(const char *which);
-void set_default_message(const char *which, char *message);
+void set_default_message(const char *which, std::string message);
 
 #endif

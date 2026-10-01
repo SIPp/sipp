@@ -1336,15 +1336,9 @@ void process_message(SIPpSocket *socket, char *msg, ssize_t msg_size, struct soc
             // This is a message that is not relating to any known call
             if (ooc_scenario) {
                 if (!get_reply_code(msg)) {
-                    char *msg_start = strdup(msg);
-                    char *msg_start_end = msg_start;
-                    while (!isspace(*msg_start_end) && (*msg_start_end != '\0')) {
-                        msg_start_end++;
-                    }
-                    *msg_start_end = '\0';
+                    size_t method_len = strcspn(msg, " \t\n\v\f\r");
                     ooc_scenario->stats->computeStat(CStat::E_CREATE_INCOMING_CALL);
-                    WARNING("Received out-of-call %s message, using the out-of-call scenario", msg_start);
-                    free(msg_start);
+                    WARNING("Received out-of-call %.*s message, using the out-of-call scenario", (int)method_len, msg);
                     /* This should have the real address that the message came from. */
                     call *call_ptr = new call(ooc_scenario, socket, use_remote_sending_addr ? &remote_sending_sockaddr : src, call_id, 0 /* no user. */, socket->ss_ipv6, true, false);
                     CStat::globalStat(CStat::E_AUTO_ANSWERED);
