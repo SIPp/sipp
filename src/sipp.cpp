@@ -526,7 +526,7 @@ static std::vector<std::string> launch_startup_wizard(const char *program_name)
     if (!wizard_prompt_line("Run this command now? [Y/n]: ", &input, "y")) {
         return {};
     }
-    std::string lowered = lowercase_copy(input);
+    std::string lowered = lowercase_copy(std::move(input));
     if (!(lowered == "y" || lowered == "yes")) {
         std::cout << "Wizard cancelled.\n";
         return {};
