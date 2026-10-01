@@ -120,6 +120,48 @@ int get_decimal_from_hex(char hex)
         return tolower(hex) - 'a' + 10;
 }
 
+/* Wrap a help text: break a line longer than size characters at its last
+ * space, or a word longer than a line where the line ends, and indent the
+ * lines after the first by offset spaces, two more in an item starting
+ * with '-'. */
+std::string wrap(const char *in, int offset, int size)
+{
+    std::string out;
+    size_t line = 0; /* where the text of the current line starts */
+    int pos = 0;
+    bool indent = false;
+
+    for (const char *p = in; *p; p++) {
+        out += *p;
+        if (*p == '\n') {
+            out.append(offset, ' ');
+            line = out.size();
+            pos = 0;
+            indent = p[1] == '-';
+        }
+        if (++pos <= size) {
+            continue;
+        }
+        std::string newline = "\n" + std::string(offset + (indent ? 2 : 0), ' ');
+        size_t k = out.size() - 1;
+        while (k > line && !isspace((unsigned char)out[k])) {
+            k--;
+        }
+        if (k > line) {
+            /* Break at the last space: the rest goes to the next line. */
+            out.replace(k, 1, newline);
+            line = k + newline.size();
+            pos = out.size() - line + 1;
+        } else {
+            /* A word longer than a line: break it before this character. */
+            out.insert(out.size() - 1, newline);
+            line = out.size() - 1;
+            pos = 2;
+        }
+    }
+    return out;
+}
+
 #ifdef GTEST
 #include "gtest/gtest.h"
 
@@ -183,6 +225,25 @@ TEST(GetHostAndPort, DNSAndPort) {
     get_host_and_port("sipp.sf.net:999", host_result, &port_result);
     EXPECT_EQ(999, port_result);
     EXPECT_STREQ("sipp.sf.net", host_result);
+}
+
+TEST(Wrap, BreaksAtLastSpace)
+{
+    EXPECT_EQ("abc def\n  ghi", wrap("abc def ghi", 2, 10));
+    EXPECT_EQ("abc\n  - def ghi\n    jkl", wrap("abc\n- def ghi jkl", 2, 10));
+}
+
+TEST(Wrap, LongWord)
+{
+    std::string x(80, 'x');
+    EXPECT_EQ(x.substr(0, 77) + "\n" + std::string(22, ' ') + "xxx", wrap(x.c_str(), 22, 77));
+    EXPECT_EQ("xxxxxxxxxx\n  xxxxxxxxx\n  xxxxxx", wrap(std::string(25, 'x').c_str(), 2, 10));
+}
+
+TEST(Wrap, LongWordAfterFirstLine)
+{
+    std::string x9(9, 'x');
+    EXPECT_EQ("a\n  " + x9 + "\n  " + x9 + "\n  xxxxxxx", wrap(("a " + std::string(25, 'x')).c_str(), 2, 10));
 }
 
 #endif //GTEST
