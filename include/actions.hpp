@@ -239,7 +239,6 @@ private:
 #endif
     rtpecho_actinfo_t M_rtpecho_actinfo;
     rtpstream_actinfo_t M_rtpstream_actinfo;
-    void setSubString(char** P_target, const char* P_source, int P_start, int P_stop);
 };
 
 class CActions

@@ -1000,22 +1000,6 @@ static void release(std::string &s)
     }
 }
 
-/* s = the n bytes at p, in a buffer of about their size, as realloc()
- * gave: assign() keeps a larger buffer, and grows one to twice its size */
-static void assign_exact(std::string &s, const char *p, size_t n)
-{
-    if (n > s.capacity() || n + 32 <= s.capacity()) {
-        s = std::string(p, n);
-    } else {
-        s.assign(p, n);
-    }
-}
-
-static void assign_exact(std::string &s, const char *p)
-{
-    assign_exact(s, p, strlen(p));
-}
-
 /******* Very simple hash for retransmission detection  *******/
 
 /* The hash of the loop below (hash * 65599 + c for each character) of
@@ -7021,7 +7005,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 M_callVariableTable->getVar(currentAction->getVarId())->setBool(value);
             }
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_STRCMP) {
-            char *lhs = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
+            const char *lhs = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
             const char *rhs = currentAction->getVarIn2Id()
                                   ? M_callVariableTable->getVar(currentAction->getVarIn2Id())->getString()
                                   : currentAction->getStringValue();
@@ -7055,29 +7039,21 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TRIM) {
             CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
-            char *in = var->getString();
-            char *p = in;
+            const char *p = var->getString();
             while (isspace(*p)) {
                 p++;
             }
-            char *q = strdup(p);
-            var->setString(q);
-            int l = strlen(q);
-            for (int i = l - 1; (i >= 0) && isspace(q[i]); i--) {
-                q[i] = '\0';
+            const char *end = p + strlen(p);
+            while (end > p && isspace(end[-1])) {
+                end--;
             }
+            var->setString(std::string(p, end));
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_URLDECODE) {
             CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
-            std::string input = var->getString();
-            std::string output = url_decode(std::move(input));
-            char *char_output = strdup(output.c_str());
-            var->setString(char_output);
+            var->setString(url_decode(var->getString()));
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_URLENCODE) {
             CCallVariable *var = M_callVariableTable->getVar(currentAction->getVarId());
-            std::string input = var->getString();
-            std::string output = url_encode(input);
-            char *char_output = strdup(output.c_str());
-            var->setString(char_output);
+            var->setString(url_encode(var->getString()));
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_TO_DOUBLE) {
             double value;
 
@@ -7092,12 +7068,8 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             double value = currentAction->getDistribution()->sample();
             M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
         } else if (currentAction->getActionType() == CAction::E_AT_ASSIGN_FROM_STRING) {
-            char* x = createSendingMessage(currentAction->getMessage());
-            char *str = strdup(x);
-            if (!str) {
-                ERROR("Out of memory duplicating string for assignment!");
-            }
-            M_callVariableTable->getVar(currentAction->getVarId())->setString(str);
+            M_callVariableTable->getVar(currentAction->getVarId())
+                ->setString(createSendingMessage(currentAction->getMessage()));
         } else if (currentAction->getActionType() == CAction::E_AT_LOG_TO_FILE) {
             char* x = createSendingMessage(currentAction->getMessage());
             LOG_MSG("%s\n", x);
@@ -7247,13 +7219,12 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 /* the payload in hex */
                 static const char digits[] = "0123456789abcdef";
                 const std::string& payload = received.first_payload;
-                char* hex = (char*) malloc(2 * payload.size() + 1);
+                std::string hex(2 * payload.size(), '\0');
                 for (size_t i = 0; i < payload.size(); i++) {
                     hex[2 * i] = digits[(unsigned char) payload[i] >> 4];
                     hex[2 * i + 1] = digits[payload[i] & 0x0f];
                 }
-                hex[2 * payload.size()] = '\0';
-                M_callVariableTable->getVar(currentAction->getSubVarId(1))->setString(hex);
+                M_callVariableTable->getVar(currentAction->getSubVarId(1))->setString(std::move(hex));
             }
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_DTMF) {
             rtpstream_received_t received = rtpstream_received(&rtpstream_callinfo, false);
@@ -7265,7 +7236,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                     digits += digit;
                 }
             }
-            M_callVariableTable->getVar(currentAction->getVarId())->setString(strdup(digits.c_str()));
+            M_callVariableTable->getVar(currentAction->getVarId())->setString(std::move(digits));
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PLAY) {
             const char *fileName = createSendingMessage(currentAction->getMessage());
             currentAction->setRTPStreamActInfo(fileName);

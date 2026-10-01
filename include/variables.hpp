@@ -24,6 +24,7 @@
 #define _CVARIABLE
 
 #include <string>
+#include <string_view>
 #include <map>
 #include <sys/types.h>
 #include <regex.h>
@@ -54,16 +55,13 @@ public:
     bool isRegExp();
     bool isString();
 
-    // WARNING : setMatchingValue doesn't allocate the memory for the matching value
-    // but the destructor free the memory
-    void setMatchingValue(char* P_matchingValue);
-    char* getMatchingValue();
+    void setMatchingValue(std::string_view P_matchingValue);
+    const char *getMatchingValue();
 
     /* When the variable is used for a string, these functions should be called. */
-    // WARNING : setString doesn't allocate the memory for the matching value
-    // but the destructor free the memory
-    void setString(char *s);
-    char *getString();
+    /* The value is a C string: it ends at a NUL in s. */
+    void setString(std::string s);
+    const char *getString();
 
     /* When the variable is used for a double, these functions should be called. */
     void setDouble(double val);
@@ -76,17 +74,19 @@ public:
     /* Cast this to a double variable, return the result in newValue. */
     bool toDouble(double *newValue);
 
-    // constructor and destructor
+    // constructor
     CCallVariable();
-    ~CCallVariable();
 
 private:
-    T_VarType   M_type;
-    char*       M_matchingValue;
-    int         M_nbOfMatchingValue;
-    double      M_double;
-    char*       M_stringValue;
-    bool        M_bool;
+    T_VarType M_type;
+    int M_nbOfMatchingValue;
+    /* Whichever M_type says, as M_value */
+    union {
+        double M_double;
+        bool M_bool;
+    };
+    /* The string, or the value a regular expression matched */
+    std::string M_value;
 };
 
 class AllocVariableTable;

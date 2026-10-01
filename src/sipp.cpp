@@ -2186,7 +2186,7 @@ int main(int argc, char *argv[])
                         globalVariables->dump();
                         ERROR("Can not set the global variable %s, because it does not exist.", argv[argi - 1]);
                     }
-                    globalVariables->getVar(varId)->setString(strdup(argv[argi]));
+                    globalVariables->getVar(varId)->setString(argv[argi]);
                 }
                 break;
             case SIPP_OPTION_3PCC:
