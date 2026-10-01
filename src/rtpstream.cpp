@@ -19,6 +19,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 
 #include "sipp.hpp"
 #include <unistd.h>
@@ -802,6 +803,115 @@ static unsigned long rtpstream_next_packet_ms(unsigned long timenow_ms, bool pau
     return (last_timestamp + ticks_per_ms - 1) / ticks_per_ms;
 }
 
+/* the datagrams that one recvmmsg() reads at most */
+#define RTPSTREAM_RECV_BATCH 8
+
+/* What RtpstreamReader reads into, kept by a thread for its next reads.
+ * Mapped, and not from the heap, so that only the pages that datagrams
+ * come into are in memory: mostly that of the first ones of a batch,
+ * where the heap kept all of them in memory, in each thread. */
+class RtpstreamBuffer
+{
+public:
+    ~RtpstreamBuffer()
+    {
+        release();
+    }
+
+    /* n bytes, or nullptr if they cannot be mapped */
+    unsigned char *get(size_t n)
+    {
+        if (n > size) {
+            release();
+            void *p = mmap(nullptr, n, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+            if (p == MAP_FAILED) {
+                return nullptr;
+            }
+            data = (unsigned char *)p;
+            size = n;
+        }
+        return data;
+    }
+
+private:
+    void release()
+    {
+        if (data) {
+            munmap(data, size);
+            data = nullptr;
+            size = 0;
+        }
+    }
+
+    unsigned char *data = nullptr;
+    size_t size = 0;
+};
+
+/* The datagrams waiting on a socket, of up to size bytes each, read a
+ * batch at a time into buffer: one recvmmsg() for what one recv() a
+ * datagram took, and without the last recv(), the one that found none
+ * left. */
+class RtpstreamReader
+{
+public:
+    RtpstreamReader(int sock, RtpstreamBuffer &buffer, size_t size) : sock(sock), size(size)
+    {
+#ifdef HAVE_RECVMMSG
+        data = buffer.get(RTPSTREAM_RECV_BATCH * size);
+        memset(msgs, 0, sizeof(msgs));
+        for (int i = 0; data && i < RTPSTREAM_RECV_BATCH; i++) {
+            iovs[i].iov_base = data + i * size;
+            iovs[i].iov_len = size;
+            msgs[i].msg_hdr.msg_iov = &iovs[i];
+            msgs[i].msg_hdr.msg_iovlen = 1;
+        }
+#else
+        data = buffer.get(size);
+#endif
+    }
+
+    /* The size of the next datagram, in *packet, or -1 once none is left */
+    ssize_t next(const unsigned char **packet)
+    {
+        if (!data) {
+            errno = ENOMEM;
+            return -1;
+        }
+#ifdef HAVE_RECVMMSG
+        if (index == count) {
+            /* fewer than a batch came last time: none were left */
+            if (count < RTPSTREAM_RECV_BATCH) {
+                return -1;
+            }
+            int n = recvmmsg(sock, msgs, RTPSTREAM_RECV_BATCH, MSG_DONTWAIT, nullptr);
+            count = n > 0 ? n : 0;
+            index = 0;
+            if (!count) {
+                return -1;
+            }
+        }
+        *packet = data + index * size;
+        return msgs[index++].msg_len;
+#else
+        *packet = data;
+        return recv(sock, data, size, 0);
+#endif
+    }
+
+private:
+    int sock;
+    unsigned char *data;
+    size_t size;
+#ifdef HAVE_RECVMMSG
+    struct mmsghdr msgs[RTPSTREAM_RECV_BATCH];
+    struct iovec iovs[RTPSTREAM_RECV_BATCH];
+    /* the datagrams of the last batch, and the next one of them: a full
+     * batch, all read, before the first */
+    int count = RTPSTREAM_RECV_BATCH;
+    int index = RTPSTREAM_RECV_BATCH;
+#endif
+};
+
 /**** todo - check code ****/
 static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                                            unsigned long  timenow_ms,
@@ -822,7 +932,7 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
     static thread_local std::vector<unsigned char> video_in;
     /* A packet read whole, however bigger than the call's own: rtp_stats
      * takes its payload, the rest of the play what fits the call's size */
-    static thread_local std::vector<unsigned char> packet_in;
+    static thread_local RtpstreamBuffer packet_in;
     unsigned short host_flags = 0;
     unsigned short host_seqnum = 0;
     unsigned int host_timestamp = 0;
@@ -982,14 +1092,16 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     }
 
                     audio_in.assign(audio_in_size, 0);
-                    packet_in.resize(std::max<size_t>(media_bufsize, audio_in_size));
-                    while ((rc = recv(taskinfo->audio_rtp_socket, packet_in.data(), packet_in.size(), 0)) >= 0) {
+                    RtpstreamReader reader(taskinfo->audio_rtp_socket, packet_in,
+                                           std::max<size_t>(media_bufsize, audio_in_size));
+                    const unsigned char *packet;
+                    while ((rc = reader.next(&packet)) >= 0) {
                         audio_echo = true;
-                        memcpy(audio_in.data(), packet_in.data(), std::min<size_t>(rc, audio_in_size));
+                        memcpy(audio_in.data(), packet, std::min<size_t>(rc, audio_in_size));
                         /* for now we will just ignore any received data or receive errors */
                         /* separate code path for RTP echo */
                         rtpstream_abytes_in.fetch_add(rc, std::memory_order_relaxed);
-                        rtpstream_count_received(taskinfo, false, packet_in.data(), rc);
+                        rtpstream_count_received(taskinfo, false, packet, rc);
                         debugafile.printHexUS("SIPP SUCCESS RECV LOG: ", audio_in.data(), audio_in.size(), rc, rtpstream_apckts);
                     }
 
@@ -1255,14 +1367,16 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                     }
 
                     video_in.assign(video_in_size, 0);
-                    packet_in.resize(std::max<size_t>(media_bufsize, video_in_size));
-                    while ((rc = recv(taskinfo->video_rtp_socket, packet_in.data(), packet_in.size(), 0)) >= 0) {
+                    RtpstreamReader reader(taskinfo->video_rtp_socket, packet_in,
+                                           std::max<size_t>(media_bufsize, video_in_size));
+                    const unsigned char *packet;
+                    while ((rc = reader.next(&packet)) >= 0) {
                         video_echo = true;
-                        memcpy(video_in.data(), packet_in.data(), std::min<size_t>(rc, video_in_size));
+                        memcpy(video_in.data(), packet, std::min<size_t>(rc, video_in_size));
                         /* for now we will just ignore any received data or receive errors */
                         /* separate code path for RTP echo */
                         rtpstream_vbytes_in.fetch_add(rc, std::memory_order_relaxed);
-                        rtpstream_count_received(taskinfo, true, packet_in.data(), rc);
+                        rtpstream_count_received(taskinfo, true, packet, rc);
                         debugvfile.printHexUS("SIPP SUCCESS RECV LOG: ", video_in.data(), video_in.size(), rc, rtpstream_vpckts);
                     }
 

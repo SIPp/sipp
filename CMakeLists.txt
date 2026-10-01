@@ -226,6 +226,9 @@ CHECK_INCLUDE_FILE("endian.h" HAVE_ENDIAN_H)
 CHECK_INCLUDE_FILE("sys/endian.h" HAVE_SYS_ENDIAN_H)
 CHECK_INCLUDE_FILE("libkern/OSByteOrder.h" HAVE_OSBYTEORDER_H)
 CHECK_INCLUDE_FILE("sys/epoll.h" HAVE_EPOLL)
+set(CMAKE_REQUIRED_DEFINITIONS -D_GNU_SOURCE)
+CHECK_SYMBOL_EXISTS(recvmmsg "sys/socket.h" HAVE_RECVMMSG)
+unset(CMAKE_REQUIRED_DEFINITIONS)
 CHECK_STRUCT_HAS_MEMBER("struct udphdr" uh_sport "sys/types.h;netinet/udp.h"  HAVE_UDP_UH_PREFIX)
 
 configure_file("${PROJECT_SOURCE_DIR}/include/config.h.in"
