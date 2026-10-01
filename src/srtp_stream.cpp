@@ -173,7 +173,9 @@ int SrtpStream::computePacketIV(unsigned long long i, unsigned char iv[AES_BLOCK
 
 /* The key set once for the packet, and the keystream of its blocks made
  * in one call: setting the key and encrypting for each block was a third
- * of the CPU of an SRTP echo. */
+ * of the CPU of an SRTP echo. The context is the thread's, for all its
+ * streams: one for each stream cost each call 1.3 KB, and as the key is
+ * set for each packet anyway, little else. */
 void SrtpStream::aesCm(const unsigned char iv[AES_BLOCK_SIZE], const unsigned char *in, unsigned char *out,
                        size_t length)
 {
@@ -181,8 +183,9 @@ void SrtpStream::aesCm(const unsigned char iv[AES_BLOCK_SIZE], const unsigned ch
     unsigned char counters[32 * AES_BLOCK_SIZE];
     unsigned char keystream[sizeof(counters)];
     int nb = 0;
+    static thread_local AESCipher aes;
 
-    if (_aes.setKey(_enc_key.data(), _enc_key_length) != 1) {
+    if (aes.setKey(_enc_key.data(), _enc_key_length) != 1) {
         return;
     }
     memcpy(counter, iv, AES_BLOCK_SIZE);
@@ -193,7 +196,7 @@ void SrtpStream::aesCm(const unsigned char iv[AES_BLOCK_SIZE], const unsigned ch
             /* the counter is the IV plus the block number */
             for (int c = AES_BLOCK_SIZE - 1; c >= 0 && ++counter[c] == 0; c--) {}
         }
-        if (EVP_EncryptUpdate(_aes.get(), keystream, &nb, counters, blocks * AES_BLOCK_SIZE) != 1 ||
+        if (EVP_EncryptUpdate(aes.get(), keystream, &nb, counters, blocks * AES_BLOCK_SIZE) != 1 ||
             nb != static_cast<int>(blocks * AES_BLOCK_SIZE)) {
             return;
         }

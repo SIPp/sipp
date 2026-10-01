@@ -116,7 +116,6 @@ private:
     bool _auth_key_set = false;
     std::array<unsigned char, JLSRTP_SALTING_KEY_LENGTH> _salt_key = {};
     std::array<unsigned char, JLSRTP_AUTHENTICATION_KEY_LENGTH> _auth_key = {};
-    AESCipher _aes;
     HMACState _hmac;
 
 #ifdef GTEST
