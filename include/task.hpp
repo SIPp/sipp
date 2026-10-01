@@ -54,7 +54,7 @@ public:
 
     int expire_paused_tasks();
     /* Add a paused task and increment count. */
-    void add_paused_task(task *task, bool increment);
+    void add_paused_task(task *task);
     void remove_paused_task(task *task);
     int size();
 private:
@@ -77,8 +77,13 @@ private:
     /* Calls that are paused indefinitely. */
     task_list forever_list;
 
-    /* Turn a task into a list (based on wakeup). */
-    task_list *task2list(task *task);
+    /* The list for a task that wakes up at wake. */
+    task_list *task2list(unsigned int wake);
+    /* Move a task in a wheel to the list for its wake time. */
+    void relocate(task *task);
+#ifdef GTEST
+    friend class TimewheelTest;
+#endif
 };
 
 class task
@@ -108,8 +113,7 @@ private:
     /* Run and Pause Queue Maintenance. */
     void add_to_runqueue();
     bool remove_from_runqueue();
-    void add_to_paused_tasks(bool increment);
-    void recalculate_wheel();
+    void add_to_paused_tasks();
 
     /* This is for our complete task list. */
     task_list::iterator taskit;
@@ -121,6 +125,9 @@ private:
     task_list *pauselist = nullptr;
     /* The timing wheel is our friend so that it can update our list pointer. */
     friend class timewheel;
+#ifdef GTEST
+    friend class TimewheelTest;
+#endif
 };
 
 task_list * get_running_tasks();
