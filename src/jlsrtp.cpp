@@ -65,78 +65,24 @@ bool AESCipher::make()
 
 int AESCipher::setKey(const std::vector<unsigned char>& key)
 {
+    return setKey(key.data(), key.size());
+}
+
+int AESCipher::setKey(const unsigned char *key, size_t length)
+{
     const EVP_CIPHER* cipher = nullptr; // keep the context's cipher
 
     if (!make()) {
         return 0;
     }
 
-    if (EVP_CIPHER_CTX_key_length(ctx.get()) != static_cast<int>(key.size())) {
-        cipher = aesEcbCipher(key.size());
+    if (EVP_CIPHER_CTX_key_length(ctx.get()) != static_cast<int>(length)) {
+        cipher = aesEcbCipher(length);
         if (!cipher) {
             return 0;
         }
     }
-    return EVP_EncryptInit_ex(ctx.get(), cipher, nullptr, key.data(), nullptr);
-}
-
-void HMACState::free()
-{
-    inner.reset();
-    outer.reset();
-    key.clear();
-}
-
-/* HMAC() did the key's pads and fetched SHA-1 for each packet, half the
- * CPU of an SRTP echo, where this copies the states they left. */
-bool HMACState::digest(const std::vector<unsigned char>& with_key,
-                       const std::vector<unsigned char>& data, const std::vector<unsigned char>& more,
-                       std::array<unsigned char, EVP_MAX_MD_SIZE>& out, unsigned int* out_len)
-{
-    /* the digest's own, one for all the keys of the thread */
-    static thread_local std::unique_ptr<EVP_MD_CTX, Free> work(EVP_MD_CTX_new());
-    if (!work) {
-        return false;
-    }
-    if (!inner || key != with_key) {
-        free();
-        inner.reset(EVP_MD_CTX_new());
-        outer.reset(EVP_MD_CTX_new());
-        unsigned char k[64] = {}; /* the key in a SHA-1 block */
-        unsigned int k_len = 0;
-        bool made = inner && outer;
-        if (made && with_key.size() > sizeof(k)) {
-            made = EVP_Digest(with_key.data(), with_key.size(), k, &k_len, EVP_sha1(), nullptr) == 1;
-        } else if (made) {
-            memcpy(k, with_key.data(), with_key.size());
-        }
-        if (!made) {
-            free();
-            return false;
-        }
-        unsigned char ipad[sizeof(k)], opad[sizeof(k)];
-        for (size_t i = 0; i < sizeof(k); i++) {
-            ipad[i] = k[i] ^ 0x36;
-            opad[i] = k[i] ^ 0x5c;
-        }
-        if (EVP_DigestInit_ex(inner.get(), EVP_sha1(), nullptr) != 1 ||
-            EVP_DigestUpdate(inner.get(), ipad, sizeof(ipad)) != 1 ||
-            EVP_DigestInit_ex(outer.get(), EVP_sha1(), nullptr) != 1 ||
-            EVP_DigestUpdate(outer.get(), opad, sizeof(opad)) != 1) {
-            free();
-            return false;
-        }
-        key = with_key;
-    }
-    unsigned char inner_hash[EVP_MAX_MD_SIZE];
-    unsigned int inner_len = 0;
-    return EVP_MD_CTX_copy_ex(work.get(), inner.get()) == 1 &&
-           EVP_DigestUpdate(work.get(), data.data(), data.size()) == 1 &&
-           EVP_DigestUpdate(work.get(), more.data(), more.size()) == 1 &&
-           EVP_DigestFinal_ex(work.get(), inner_hash, &inner_len) == 1 &&
-           EVP_MD_CTX_copy_ex(work.get(), outer.get()) == 1 &&
-           EVP_DigestUpdate(work.get(), inner_hash, inner_len) == 1 &&
-           EVP_DigestFinal_ex(work.get(), out.data(), out_len) == 1;
+    return EVP_EncryptInit_ex(ctx.get(), cipher, nullptr, key, nullptr);
 }
 
 /* The master key length a cipher takes: RFC 6188 uses the AES key size, and
@@ -197,129 +143,109 @@ int JLSRTP::pseudorandomFunction(const std::vector<unsigned char> &iv, int n, st
     unsigned int keySize = 0;
     int retVal = 0;
 
-    switch (_active_crypto)
-    {
-        case PRIMARY_CRYPTO:
-        {
-            ivSize = iv.size();
-            keySize = _primary_crypto.master_key.size();
+    switch (_active_crypto) {
+    case PRIMARY_CRYPTO: {
+        ivSize = iv.size();
+        keySize = _primary_crypto.master_key.size();
 
-            assert(ivSize == JLSRTP_SALTING_KEY_LENGTH);
-            assert(aesEcbCipher(keySize));
-            if (ivSize == JLSRTP_SALTING_KEY_LENGTH)
-            {
-                if (aesEcbCipher(keySize))
-                {
-                    input.resize(AES_BLOCK_SIZE);
-                    output.clear();
+        assert(ivSize == JLSRTP_SALTING_KEY_LENGTH);
+        assert(aesEcbCipher(keySize));
+        if (ivSize == JLSRTP_SALTING_KEY_LENGTH) {
+            if (aesEcbCipher(keySize)) {
+                input.resize(AES_BLOCK_SIZE);
+                output.clear();
 
-                    // Determine how many AES_BLOCK_SIZE-byte encryption loops will be necessary to achieve at least n/8 bytes of pseudorandom ciphertext
-                    num_loops = (n % JLSRTP_PSEUDORANDOM_BITS) ? ((n / JLSRTP_PSEUDORANDOM_BITS) + 1) : (n / JLSRTP_PSEUDORANDOM_BITS);
+                // Determine how many AES_BLOCK_SIZE-byte encryption loops will be necessary to achieve at least n/8 bytes of pseudorandom ciphertext
+                num_loops = (n % JLSRTP_PSEUDORANDOM_BITS) ? ((n / JLSRTP_PSEUDORANDOM_BITS) + 1)
+                                                           : (n / JLSRTP_PSEUDORANDOM_BITS);
 
-                    // Set encryption key
-                    rc = setAESPseudoRandomFunctionKey(_active_crypto);
-                    if (rc == 0)
-                    {
-                        // Reset IV/counter state
-                        resetPseudoRandomState(iv);
+                // Set encryption key
+                rc = setAESPseudoRandomFunctionKey(_active_crypto);
+                if (rc == 0) {
+                    // Reset IV/counter state
+                    resetPseudoRandomState(iv);
 
-                        for (unsigned int i = 0; i < num_loops; i++)
-                        {
-                            // Encrypt given _pseudorandomstate.ivec input using aes_key to block
-                            block.clear();
-                            block.resize(AES_BLOCK_SIZE);
-                            AES_ctr128_pseudorandom_EVPencrypt(input.data(), block.data(), AES_BLOCK_SIZE, _pseudorandomstate.ivec, _pseudorandomstate.ecount, &_pseudorandomstate.num);
-                            output.insert(output.end(), block.begin(), block.end());
-                        }
-
-                        // Truncate output to n/8 bytes
-                        output.resize(n / 8);
-
-                        retVal = 0;
+                    for (unsigned int i = 0; i < num_loops; i++) {
+                        // Encrypt given _pseudorandomstate.ivec input using aes_key to block
+                        block.clear();
+                        block.resize(AES_BLOCK_SIZE);
+                        AES_ctr128_pseudorandom_EVPencrypt(input.data(), block.data(), AES_BLOCK_SIZE,
+                                                           _pseudorandomstate.ivec, _pseudorandomstate.ecount,
+                                                           &_pseudorandomstate.num);
+                        output.insert(output.end(), block.begin(), block.end());
                     }
-                    else
-                    {
-                        retVal = -3;
-                    }
+
+                    // Truncate output to n/8 bytes
+                    output.resize(n / 8);
+
+                    retVal = 0;
+                } else {
+                    retVal = -3;
                 }
-                else
-                {
-                    retVal = -2;
-                }
+            } else {
+                retVal = -2;
             }
-            else
-            {
-                retVal = -1;
-            }
+        } else {
+            retVal = -1;
         }
-        break;
+    } break;
 
-        case SECONDARY_CRYPTO:
-        {
-            ivSize = iv.size();
-            keySize = _secondary_crypto.master_key.size();
+    case SECONDARY_CRYPTO: {
+        ivSize = iv.size();
+        keySize = _secondary_crypto.master_key.size();
 
-            assert(ivSize == JLSRTP_SALTING_KEY_LENGTH);
-            assert(aesEcbCipher(keySize));
-            if (ivSize == JLSRTP_SALTING_KEY_LENGTH)
-            {
-                if (aesEcbCipher(keySize))
-                {
-                    input.resize(AES_BLOCK_SIZE);
-                    output.clear();
+        assert(ivSize == JLSRTP_SALTING_KEY_LENGTH);
+        assert(aesEcbCipher(keySize));
+        if (ivSize == JLSRTP_SALTING_KEY_LENGTH) {
+            if (aesEcbCipher(keySize)) {
+                input.resize(AES_BLOCK_SIZE);
+                output.clear();
 
-                    // Determine how many AES_BLOCK_SIZE-byte encryption loops will be necessary to achieve at least n/8 bytes of pseudorandom ciphertext
-                    num_loops = (n % JLSRTP_PSEUDORANDOM_BITS) ? ((n / JLSRTP_PSEUDORANDOM_BITS) + 1) : (n / JLSRTP_PSEUDORANDOM_BITS);
+                // Determine how many AES_BLOCK_SIZE-byte encryption loops will be necessary to achieve at least n/8 bytes of pseudorandom ciphertext
+                num_loops = (n % JLSRTP_PSEUDORANDOM_BITS) ? ((n / JLSRTP_PSEUDORANDOM_BITS) + 1)
+                                                           : (n / JLSRTP_PSEUDORANDOM_BITS);
 
-                    // Set encryption key
-                    rc = setAESPseudoRandomFunctionKey(_active_crypto);
-                    if (rc == 0)
-                    {
-                        // Reset IV/counter state
-                        resetPseudoRandomState(iv);
+                // Set encryption key
+                rc = setAESPseudoRandomFunctionKey(_active_crypto);
+                if (rc == 0) {
+                    // Reset IV/counter state
+                    resetPseudoRandomState(iv);
 
-                        for (unsigned int i = 0; i < num_loops; i++)
-                        {
-                            // Encrypt given _pseudorandomstate.ivec input using aes_key to block
-                            block.clear();
-                            block.resize(AES_BLOCK_SIZE);
-                            AES_ctr128_pseudorandom_EVPencrypt(input.data(), block.data(), AES_BLOCK_SIZE, _pseudorandomstate.ivec, _pseudorandomstate.ecount, &_pseudorandomstate.num);
-                            output.insert(output.end(), block.begin(), block.end());
-                        }
-
-                        // Truncate output to n/8 bytes
-                        output.resize(n / 8);
-
-                        retVal = 0;
+                    for (unsigned int i = 0; i < num_loops; i++) {
+                        // Encrypt given _pseudorandomstate.ivec input using aes_key to block
+                        block.clear();
+                        block.resize(AES_BLOCK_SIZE);
+                        AES_ctr128_pseudorandom_EVPencrypt(input.data(), block.data(), AES_BLOCK_SIZE,
+                                                           _pseudorandomstate.ivec, _pseudorandomstate.ecount,
+                                                           &_pseudorandomstate.num);
+                        output.insert(output.end(), block.begin(), block.end());
                     }
-                    else
-                    {
-                        retVal = -3;
-                    }
-                }
-                else
-                {
-                    retVal = -2;
-                }
-            }
-            else
-            {
-                retVal = -1;
-            }
-        }
-        break;
 
-        default:
-        {
-            retVal = -4;
+                    // Truncate output to n/8 bytes
+                    output.resize(n / 8);
+
+                    retVal = 0;
+                } else {
+                    retVal = -3;
+                }
+            } else {
+                retVal = -2;
+            }
+        } else {
+            retVal = -1;
         }
-        break;
+    } break;
+
+    default: {
+        retVal = -4;
+    } break;
     }
 
     return retVal;
 }
 
-int JLSRTP::shiftVectorRight(std::vector<unsigned char> &shifted_vec, std::vector<unsigned char> &original_vec, int shift_value)
+int JLSRTP::shiftVectorRight(std::vector<unsigned char> &shifted_vec, std::vector<unsigned char> &original_vec,
+                             int shift_value)
 {
     shifted_vec.clear();
     shifted_vec.resize(original_vec.size());
@@ -335,628 +261,12 @@ int JLSRTP::xorVector(std::vector<unsigned char> &a, std::vector<unsigned char> 
 {
     int retVal = -1;
 
-    if (a.size() == b.size())
-    {
+    if (a.size() == b.size()) {
         result.clear();
         result.resize(a.size());
         std::transform(a.begin(), a.end(), b.begin(), result.begin(), std::bit_xor<unsigned char>());
         retVal = 0;
-    }
-    else
-    {
-        retVal = -1;
-    }
-
-    return retVal;
-}
-
-int JLSRTP::isBigEndian()
-{
-    Conversion32 bint = {0x01020304};
-
-    return (bint.c[0] == 0x01);
-}
-
-int JLSRTP::isLittleEndian()
-{
-    Conversion32 bint = {0x01020304};
-
-    return (bint.c[0] == 0x04);
-}
-
-int JLSRTP::convertROC(unsigned long ROC, std::vector<unsigned char> &result)
-{
-    Conversion32 exchange_roc = {ROC};
-
-    result.clear();
-    result.resize(4);
-
-    if (isLittleEndian())
-    {
-        result[0] = exchange_roc.c[3];
-        result[1] = exchange_roc.c[2];
-        result[2] = exchange_roc.c[1];
-        result[3] = exchange_roc.c[0];
-    }
-    else
-    {
-        result[0] = exchange_roc.c[0];
-        result[1] = exchange_roc.c[1];
-        result[2] = exchange_roc.c[2];
-        result[3] = exchange_roc.c[3];
-    }
-
-    return 0;
-}
-
-unsigned long JLSRTP::determineV(unsigned short SEQ)
-{
-    unsigned long v = 0;
-
-    /* Nothing to compare the first packet with: its SEQ becomes s_l
-     * (RFC 3711 section 3.3.1). Comparing it with the initial 0 instead
-     * took any first SEQ above 32768, as RFC 3550 senders pick at random,
-     * for one from before a rollover, and ROC-1 wrapped. */
-    if (!_s_l_set)
-    {
-        return _ROC;
-    }
-
-    if (_s_l < 32768)
-    {
-        if ((SEQ - _s_l) > 32768)
-        {
-            v = (_ROC > 0) ? _ROC-1 : 0;
-        }
-        else
-        {
-            v = _ROC;
-        }
-    }
-    else
-    {
-        if ((SEQ - _s_l) < -32768)
-        {
-            v = _ROC+1;
-        }
-        else
-        {
-            v = _ROC;
-        }
-    }
-
-    return v;
-}
-
-bool JLSRTP::updateRollOverCounter(unsigned long v)
-{
-    _ROC = v;
-
-    return true;
-}
-
-unsigned long JLSRTP::fetchRollOverCounter()
-{
-    return _ROC;
-}
-
-bool JLSRTP::updateSL(unsigned short s)
-{
-    _s_l = s;
-    _s_l_set = true;
-
-    return true;
-}
-
-unsigned short JLSRTP::fetchSL()
-{
-    return _s_l;
-}
-
-unsigned long long JLSRTP::determinePacketIndex(unsigned long ROC, unsigned short SEQ)
-{
-    return ((JLSRTP_MAX_SEQUENCE_NUMBERS * ROC) + SEQ);
-}
-
-int JLSRTP::setPacketIV()
-{
-    unsigned int ivSize = 0;
-
-    ivSize = _packetIV.size();
-    assert(ivSize == JLSRTP_SALTING_KEY_LENGTH);
-    if (ivSize == JLSRTP_SALTING_KEY_LENGTH)
-    {
-        // Copy 'IV' into high-order bytes [0..13] -- low-order bytes [14..15] remain zero
-        memcpy(_cipherstate.ivec, _packetIV.data(), _packetIV.size());
-
-        return 0;
-    }
-    else
-    {
-        return -1;
-    }
-}
-
-int JLSRTP::computePacketIV(unsigned long long i)
-{
-    /* IV = (k_s * 2^16) XOR (SSRC * 2^64) XOR (i * 2^16), in place: the
-     * vectors it was made of took six allocations each packet. */
-    unsigned char iv[AES_BLOCK_SIZE] = {};
-    unsigned long ssrc = _id.ssrc; // SSRC
-    unsigned int saltSize = 0;
-
-    _packetIV.clear();
-
-    saltSize = _session_salt_key.size();
-    assert(saltSize == JLSRTP_SALTING_KEY_LENGTH);
-    if (saltSize == JLSRTP_SALTING_KEY_LENGTH)
-    {
-        memcpy(iv, _session_salt_key.data(), saltSize);
-        for (int b = 0; b < 4; b++) {
-            iv[4 + b] ^= (ssrc >> (24 - 8 * b)) & 0xFF; // bytes [4..7]
-        }
-        for (int b = 0; b < 8; b++) {
-            iv[6 + b] ^= (i >> (56 - 8 * b)) & 0xFF; // bytes [6..13]
-        }
-
-        // Truncate output IV to 14 bytes
-        _packetIV.assign(iv, iv + 14);
-
-        return 0;
-    }
-    else
-    {
-        return -1;
-    }
-}
-
-void JLSRTP::displayPacketIV()
-{
-    printf("packet_iv                  : [");
-    for (unsigned int i = 0; i < _packetIV.size(); i++)
-    {
-        printf("%02x", _packetIV[i]);
-    }
-    printf("]\n");
-}
-
-int JLSRTP::encryptVector(std::vector<unsigned char> &invdata, std::vector<unsigned char> &ciphertext_output)
-{
-    int retVal = 0;
-
-    assert(!invdata.empty());
-    if (!invdata.empty())
-    {
-        switch (_active_crypto)
-        {
-            case PRIMARY_CRYPTO:
-            {
-                switch (_primary_crypto.cipher_algorithm)
-                {
-                    case AES_CM_128:
-                    case AES_CM_192:
-                    case AES_CM_256:
-                    {
-                        ciphertext_output.resize(invdata.size());
-                        resetCipherBlockOffset();
-                        resetCipherOutputBlock();
-                        resetCipherBlockCounter();
-                        AES_ctr128_session_EVPencrypt(invdata.data(), ciphertext_output.data(), invdata.size(), _cipherstate.ivec, _cipherstate.ecount, &_cipherstate.num);
-                        retVal = 0;
-                    }
-                    break;
-
-                    case NULL_CIPHER:
-                    {
-                        ciphertext_output = invdata;
-                        retVal = 0;
-                    }
-                    break;
-
-                    default:
-                    {
-                        retVal = -3;
-                    }
-                    break;
-                }
-            }
-            break;
-
-            case SECONDARY_CRYPTO:
-            {
-                switch (_secondary_crypto.cipher_algorithm)
-                {
-                    case AES_CM_128:
-                    case AES_CM_192:
-                    case AES_CM_256:
-                    {
-                        ciphertext_output.resize(invdata.size());
-                        resetCipherBlockOffset();
-                        resetCipherOutputBlock();
-                        resetCipherBlockCounter();
-                        AES_ctr128_session_EVPencrypt(invdata.data(), ciphertext_output.data(), invdata.size(), _cipherstate.ivec, _cipherstate.ecount, &_cipherstate.num);
-                        retVal = 0;
-                    }
-                    break;
-
-                    case NULL_CIPHER:
-                    {
-                        ciphertext_output = invdata;
-                        retVal = 0;
-                    }
-                    break;
-
-                    default:
-                    {
-                        retVal = -3;
-                    }
-                    break;
-                }
-            }
-            break;
-
-            default:
-            {
-                retVal = -4;
-            }
-            break;
-        }
-    }
-    else
-    {
-        retVal = -1;
-    }
-
-    return retVal;
-}
-
-int JLSRTP::decryptVector(std::vector<unsigned char> &ciphertext_input, std::vector<unsigned char> &outvdata)
-{
-    int retVal = 0;
-
-    assert(!ciphertext_input.empty());
-    if (!ciphertext_input.empty())
-    {
-        switch (_active_crypto)
-        {
-            case PRIMARY_CRYPTO:
-            {
-                switch (_primary_crypto.cipher_algorithm)
-                {
-                    case AES_CM_128:
-                    case AES_CM_192:
-                    case AES_CM_256:
-                    {
-                        outvdata.resize(ciphertext_input.size());
-                        resetCipherBlockOffset();
-                        resetCipherOutputBlock();
-                        resetCipherBlockCounter();
-                        AES_ctr128_session_EVPencrypt(ciphertext_input.data(), outvdata.data(), ciphertext_input.size(), _cipherstate.ivec, _cipherstate.ecount, &_cipherstate.num);
-                        retVal = 0;
-                    }
-                    break;
-
-                    case NULL_CIPHER:
-                    {
-                        outvdata = ciphertext_input;
-                        retVal = 0;
-                    }
-                    break;
-
-                    default:
-                    {
-                        retVal = -3;
-                    }
-                    break;
-                }
-            }
-            break;
-
-            case SECONDARY_CRYPTO:
-            {
-                switch (_secondary_crypto.cipher_algorithm)
-                {
-                    case AES_CM_128:
-                    case AES_CM_192:
-                    case AES_CM_256:
-                    {
-                        outvdata.resize(ciphertext_input.size());
-                        resetCipherBlockOffset();
-                        resetCipherOutputBlock();
-                        resetCipherBlockCounter();
-                        AES_ctr128_session_EVPencrypt(ciphertext_input.data(), outvdata.data(), ciphertext_input.size(), _cipherstate.ivec, _cipherstate.ecount, &_cipherstate.num);
-                        retVal = 0;
-                    }
-                    break;
-
-                    case NULL_CIPHER:
-                    {
-                        outvdata = ciphertext_input;
-                        retVal = 0;
-                    }
-                    break;
-
-                    default:
-                    {
-                        retVal = -3;
-                    }
-                    break;
-                }
-            }
-            break;
-
-            default:
-            {
-                retVal = -4;
-            }
-            break;
-        }
-    }
-    else
-    {
-        retVal = -1;
-    }
-
-    return retVal;
-}
-
-int JLSRTP::issueAuthenticationTag(std::vector<unsigned char> &data, std::vector<unsigned char> &hash)
-{
-    std::array<unsigned char, EVP_MAX_MD_SIZE> digest;
-    unsigned int digest_len = 0;
-    int retVal = -1;
-    static thread_local std::vector<unsigned char> rocVec; /* convertROC() fills it */
-    int rc = -1;
-
-    assert(!_session_auth_key.empty());
-    if (!_session_auth_key.empty())
-    {
-        rc = convertROC(_ROC, rocVec);
-        if (rc == 0)
-        {
-            hash.clear();
-            if (_hmacstate.digest(_session_auth_key, data, rocVec, digest, &digest_len) &&
-                digest_len == JLSRTP_SHA1_HASH_LENGTH)
-            {
-                hash.assign(digest.begin(), digest.begin() + JLSRTP_SHA1_HASH_LENGTH);
-
-                switch (_active_crypto)
-                {
-                    case PRIMARY_CRYPTO:
-                    {
-                        switch (_primary_crypto.hmac_algorithm)
-                        {
-                            case HMAC_SHA1_80:
-                                hash.resize(JLSRTP_AUTHENTICATION_TAG_SIZE_SHA1_80); // Truncate to 10 bytes (80 bits / 8 bits/byte = 10 bytes)
-                                retVal = 0;
-                            break;
-
-                            case HMAC_SHA1_32:
-                                hash.resize(JLSRTP_AUTHENTICATION_TAG_SIZE_SHA1_32);  // Truncate to  4 bytes (32 bits / 8 bits/byte = 4 bytes)
-                                retVal = 0;
-                            break;
-
-                            default:
-                                // Unrecognized input value -- NO-OP...
-                                retVal = -3;
-                            break;
-                        }
-                    }
-                    break;
-
-                    case SECONDARY_CRYPTO:
-                    {
-                        switch (_secondary_crypto.hmac_algorithm)
-                        {
-                            case HMAC_SHA1_80:
-                                hash.resize(JLSRTP_AUTHENTICATION_TAG_SIZE_SHA1_80); // Truncate to 10 bytes (80 bits / 8 bits/byte = 10 bytes)
-                                retVal = 0;
-                            break;
-
-                            case HMAC_SHA1_32:
-                                hash.resize(JLSRTP_AUTHENTICATION_TAG_SIZE_SHA1_32);  // Truncate to  4 bytes (32 bits / 8 bits/byte = 4 bytes)
-                                retVal = 0;
-                            break;
-
-                            default:
-                                // Unrecognized input value -- NO-OP...
-                                retVal = -3;
-                            break;
-                        }
-                    }
-                    break;
-
-                    default:
-                    {
-                        retVal = -5;
-                    }
-                    break;
-                }
-            }
-            else
-            {
-                retVal = -2;
-            }
-        }
-        else
-        {
-            retVal = -4;
-        }
-    }
-    else
-    {
-        retVal = -1;
-    }
-
-    return retVal;
-}
-
-int JLSRTP::extractAuthenticationTag(const std::vector<unsigned char> &srtp_packet, std::vector<unsigned char> &hash)
-{
-    int retVal = -1;
-    std::vector<unsigned char>::const_iterator it = srtp_packet.begin();
-    int authtag_pos = 0;
-
-    assert(!_session_auth_key.empty());
-    if (!_session_auth_key.empty())
-    {
-        switch (_active_crypto)
-        {
-            case PRIMARY_CRYPTO:
-            {
-                switch (_primary_crypto.hmac_algorithm)
-                {
-                    case HMAC_SHA1_80:
-                        if (srtp_packet.size() >= JLSRTP_AUTHENTICATION_TAG_SIZE_SHA1_80)
-                        {
-                            authtag_pos = srtp_packet.size() - 10;
-                            std::advance(it, authtag_pos);
-                            hash.assign(it, srtp_packet.end()); // Fetch trailing 10 bytes (80 bits / 8 bits/byte = 10 bytes)
-                            retVal = 0;
-                        }
-                        else
-                        {
-                            retVal = -2;
-                        }
-                    break;
-
-                    case HMAC_SHA1_32:
-                        if (srtp_packet.size() >= JLSRTP_AUTHENTICATION_TAG_SIZE_SHA1_32)
-                        {
-                            authtag_pos = srtp_packet.size() - 4;
-                            std::advance(it, authtag_pos);
-                            hash.assign(it, srtp_packet.end());  // Fetch trailing  4 bytes (32 bits / 8 bits/byte = 4 bytes)
-                            retVal = 0;
-                        }
-                        else
-                        {
-                            retVal = -2;
-                        }
-                    break;
-
-                    default:
-                        // Unrecognized input value -- NO-OP...
-                        retVal = -3;
-                    break;
-                }
-            }
-            break;
-
-            case SECONDARY_CRYPTO:
-            {
-                switch (_secondary_crypto.hmac_algorithm)
-                {
-                    case HMAC_SHA1_80:
-                        if (srtp_packet.size() >= JLSRTP_AUTHENTICATION_TAG_SIZE_SHA1_80)
-                        {
-                            authtag_pos = srtp_packet.size() - 10;
-                            std::advance(it, authtag_pos);
-                            hash.assign(it, srtp_packet.end()); // Fetch trailing 10 bytes (80 bits / 8 bits/byte = 10 bytes)
-                            retVal = 0;
-                        }
-                        else
-                        {
-                            retVal = -2;
-                        }
-                    break;
-
-                    case HMAC_SHA1_32:
-                        if (srtp_packet.size() >= JLSRTP_AUTHENTICATION_TAG_SIZE_SHA1_32)
-                        {
-                            authtag_pos = srtp_packet.size() - 4;
-                            std::advance(it, authtag_pos);
-                            hash.assign(it, srtp_packet.end());  // Fetch trailing  4 bytes (32 bits / 8 bits/byte = 4 bytes)
-                            retVal = 0;
-                        }
-                        else
-                        {
-                            retVal = -2;
-                        }
-                    break;
-
-                    default:
-                        // Unrecognized input value -- NO-OP...
-                        retVal = -3;
-                    break;
-                }
-            }
-            break;
-
-            default:
-            {
-                retVal = -4;
-            }
-            break;
-        }
-    }
-    else
-    {
-        retVal = -1;
-    }
-
-    return retVal;
-}
-
-int JLSRTP::extractSRTPHeader(const std::vector<unsigned char> &srtp_packet, std::vector<unsigned char> &header)
-{
-    int retVal = -1;
-    std::vector<unsigned char>::const_iterator it = srtp_packet.begin();
-
-    if (_srtp_header_size > 0)
-    {
-        if (srtp_packet.size() >= _srtp_header_size)
-        {
-            header.clear();
-            std::advance(it, _srtp_header_size);
-            header.assign(srtp_packet.begin(), it); // Fetch leading 12 bytes
-            retVal = 0;
-        }
-        else
-        {
-            retVal = -2;
-        }
-    }
-    else
-    {
-        retVal = -1;
-    }
-
-    return retVal;
-}
-
-int JLSRTP::extractSRTPPayload(const std::vector<unsigned char> &srtp_packet, std::vector<unsigned char> &payload)
-{
-    int retVal = -1;
-    std::vector<unsigned char>::const_iterator it_payload_begin = srtp_packet.begin();
-    std::vector<unsigned char>::const_iterator it_payload_end = srtp_packet.begin();
-    unsigned int header_payload_size = 0;
-
-    header_payload_size = _srtp_header_size + _srtp_payload_size;
-
-    if (_srtp_header_size > 0)
-    {
-        if (_srtp_payload_size > 0)
-        {
-            if (srtp_packet.size() >= header_payload_size)
-            {
-                payload.clear();
-                std::advance(it_payload_begin, _srtp_header_size);
-                std::advance(it_payload_end, header_payload_size);
-                payload.assign(it_payload_begin, it_payload_end); // Fetch payload bytes
-                retVal = 0;
-            }
-            else
-            {
-                retVal = -3;
-            }
-        }
-        else
-        {
-            retVal = -2;
-        }
-    }
-    else
-    {
+    } else {
         retVal = -1;
     }
 
@@ -1082,28 +392,6 @@ std::vector<unsigned char> JLSRTP::base64Decode(std::string const& encoded_strin
     return ret;
 }
 
-int JLSRTP::resetCipherBlockOffset()
-{
-    _cipherstate.num = 0;
-
-    return 0;
-}
-
-int JLSRTP::resetCipherOutputBlock()
-{
-    memset(_cipherstate.ecount, 0, sizeof(_cipherstate.ecount));
-
-    return 0;
-}
-
-int JLSRTP::resetCipherBlockCounter()
-{
-    // Clear low-order bytes [14..15] for 'counter'
-    memset(_cipherstate.ivec+14, 0, 2);
-
-    return 0;
-}
-
 int JLSRTP::setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib /*= ACTIVE_CRYPTO*/)
 {
     ActiveCrypto active_crypto = INVALID_CRYPTO;
@@ -1156,31 +444,6 @@ int JLSRTP::setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib /*= ACTIVE_
                 retVal = -4;
             }
             break;
-        }
-    }
-    else
-    {
-        retVal = -1;
-    }
-
-    return retVal;
-}
-
-int JLSRTP::setAESSessionEncryptionKey()
-{
-    int rc = 0;
-    int retVal = 0;
-
-    if (_cipherstate.cipher.make())
-    {
-        rc = _cipherstate.cipher.setKey(_session_enc_key);
-        if (rc == 1)
-        {
-            retVal = 0;
-        }
-        else
-        {
-            retVal = -2;
         }
     }
     else
@@ -1306,65 +569,6 @@ int JLSRTP::AES_ctr128_pseudorandom_EVPencrypt(const unsigned char* in,
     return retVal;
 }
 
-int JLSRTP::AES_ctr128_session_EVPencrypt(const unsigned char* in,
-                                          unsigned char* out,
-                                          const unsigned long length,
-                                          unsigned char counter[AES_BLOCK_SIZE],
-                                          unsigned char ecount_buf[AES_BLOCK_SIZE],
-                                          unsigned int* num)
-{
-    /* The key set once for the packet, and the keystream of its blocks
-     * made in one call: setting the key and encrypting for each block was
-     * a third of the CPU of an SRTP echo. */
-    unsigned char counters[32 * AES_BLOCK_SIZE];
-    unsigned char keystream[sizeof(counters)];
-    unsigned int n = *num;
-    unsigned long l = length;
-    int nb = 0;
-
-    if (l && _cipherstate.cipher.setKey(_session_enc_key) != 1)
-    {
-        return -1;
-    }
-    /* the rest of the last block's keystream first */
-    while (l && n)
-    {
-        *(out++) = *(in++) ^ ecount_buf[n];
-        n = (n + 1) % AES_BLOCK_SIZE;
-        l--;
-    }
-    while (l)
-    {
-        unsigned long blocks = std::min((l + AES_BLOCK_SIZE - 1) / AES_BLOCK_SIZE,
-                                        (unsigned long) (sizeof(counters) / AES_BLOCK_SIZE));
-        for (unsigned long b = 0; b < blocks; b++)
-        {
-            memcpy(counters + b * AES_BLOCK_SIZE, counter, AES_BLOCK_SIZE);
-            AES_ctr128_increment(counter);
-        }
-        if (EVP_EncryptUpdate(_cipherstate.cipher.get(), keystream, &nb, counters, blocks * AES_BLOCK_SIZE) != 1 ||
-            nb != (int) (blocks * AES_BLOCK_SIZE))
-        {
-            *num = n;
-            return -2;
-        }
-        unsigned long bytes = std::min(l, blocks * AES_BLOCK_SIZE);
-        for (unsigned long i = 0; i < bytes; i++)
-        {
-            out[i] = in[i] ^ keystream[i];
-        }
-        in += bytes;
-        out += bytes;
-        l -= bytes;
-        memcpy(ecount_buf, keystream + (blocks - 1) * AES_BLOCK_SIZE, AES_BLOCK_SIZE);
-        n = bytes % AES_BLOCK_SIZE;
-    }
-
-    *num = n;
-    return 0;
-}
-
-
 // --------------- PUBLIC METHODS ----------------
 
 void JLSRTP::resetCryptoContext(unsigned int ssrc, std::string ipAddress, unsigned short port)
@@ -1372,9 +576,6 @@ void JLSRTP::resetCryptoContext(unsigned int ssrc, std::string ipAddress, unsign
     _id.ssrc = ssrc;
     _id.address = std::move(ipAddress);
     _id.port = port;
-    _ROC = 0;
-    _s_l = 0;
-    _s_l_set = false;
     _primary_crypto.cipher_algorithm = AES_CM_128;
     _primary_crypto.hmac_algorithm = HMAC_SHA1_80;
     _primary_crypto.MKI = 0;
@@ -1406,13 +607,9 @@ void JLSRTP::resetCryptoContext(unsigned int ssrc, std::string ipAddress, unsign
     _session_enc_key.resize(JLSRTP_ENCRYPTION_KEY_LENGTH);
     _session_salt_key.resize(JLSRTP_SALTING_KEY_LENGTH);
     _session_auth_key.resize(JLSRTP_AUTHENTICATION_KEY_LENGTH);
-    _packetIV.resize(JLSRTP_SALTING_KEY_LENGTH);
     memset(_pseudorandomstate.ivec, 0, sizeof(_pseudorandomstate.ivec));
     _pseudorandomstate.num = 0;
     memset(_pseudorandomstate.ecount, 0, sizeof(_pseudorandomstate.ecount));
-    memset(_cipherstate.ivec, 0, sizeof(_cipherstate.ivec));
-    _cipherstate.num = 0;
-    memset(_cipherstate.ecount, 0, sizeof(_cipherstate.ecount));
     _srtp_header_size = JLSRTP_SRTP_DEFAULT_HEADER_SIZE;
     _srtp_payload_size = 0;
     _active_crypto = PRIMARY_CRYPTO;
@@ -1420,25 +617,12 @@ void JLSRTP::resetCryptoContext(unsigned int ssrc, std::string ipAddress, unsign
 
 int JLSRTP::resetCipherState()
 {
-    unsigned int ivSize = 0;
+    unsigned int saltSize = 0;
 
-    ivSize = _packetIV.size();
-    assert(ivSize == JLSRTP_SALTING_KEY_LENGTH);
-    if (ivSize == JLSRTP_SALTING_KEY_LENGTH)
-    {
-        // aes_ctr128_encrypt() requires 'num' and 'ecount' to be set to zero on the first call
-        resetCipherBlockOffset();
-        resetCipherOutputBlock();
-
-        // Clear BOTH high-order bytes [0..13] for 'IV' AND low-order bytes [14..15] for 'counter'
-        memset(_cipherstate.ivec, 0, AES_BLOCK_SIZE);
-        // Copy 'IV' into high-order bytes [0..13] -- low-order bytes [14..15] remain zero
-        memcpy(_cipherstate.ivec, _packetIV.data(), _packetIV.size());
-
+    saltSize = _session_salt_key.size();
+    if (saltSize == JLSRTP_SALTING_KEY_LENGTH) {
         return 0;
-    }
-    else
-    {
+    } else {
         return -1;
     }
 }
@@ -1446,8 +630,6 @@ int JLSRTP::resetCipherState()
 void JLSRTP::freeCiphers()
 {
     _pseudorandomstate.cipher.free();
-    _cipherstate.cipher.free();
-    _hmacstate.free();
 }
 
 int JLSRTP::deriveSessionEncryptionKey()
@@ -1721,42 +903,30 @@ void JLSRTP::displaySessionAuthenticationKey()
 
 int JLSRTP::selectEncryptionKey()
 {
-    int rc = 0;
-
     assert(!_session_enc_key.empty());
-    if (!_session_enc_key.empty())
-    {
-        rc = setAESSessionEncryptionKey();
-        if (rc == 0)
-        {
+    if (!_session_enc_key.empty()) {
+        /* the stream that takes the key sets it in its own AES context */
+        if (aesEcbCipher(_session_enc_key.size())) {
             return 0;
         }
 
-        return  -2;
-    }
-    else
-    {
+        return -2;
+    } else {
         return -1;
     }
 }
 
 int JLSRTP::selectDecryptionKey()
 {
-    int rc = 0;
-
     assert(!_session_enc_key.empty());
-    if (!_session_enc_key.empty())
-    {
-        rc = setAESSessionEncryptionKey();
-        if (rc == 0)
-        {
+    if (!_session_enc_key.empty()) {
+        /* the stream that takes the key sets it in its own AES context */
+        if (aesEcbCipher(_session_enc_key.size())) {
             return 0;
         }
 
         return -2;
-    }
-    else
-    {
+    } else {
         return -1;
     }
 }
@@ -2157,258 +1327,6 @@ unsigned int JLSRTP::getSrtpPayloadSize()
 void JLSRTP::setSrtpPayloadSize(unsigned int size)
 {
     _srtp_payload_size = size;
-}
-
-int JLSRTP::processOutgoingPacket(unsigned short SEQ_s,
-                                  std::vector<unsigned char> &rtp_header,
-                                  std::vector<unsigned char> &rtp_payload,
-                                  std::vector<unsigned char> &srtp_packet)
-{
-    int rc = 0;
-    bool check = false;
-    unsigned long v_s = 0;
-    unsigned long long i_s = 0LL; /* TEST PACKET INDEX */
-    /* each packet's scratch, kept by the thread for the next packet */
-    static thread_local std::vector<unsigned char> srtp_payload; /* ENCRYPTED PAYLOAD */
-    static thread_local std::vector<unsigned char> auth_tag;
-    static thread_local std::vector<unsigned char> auth_portion;
-    int retVal = -1;
-    srtp_payload.clear();
-    auth_tag.clear();
-    auth_portion.clear();
-
-    // 1.  Determine crypto context to use
-    // NO-OP (IMPLICIT)
-
-    // 2.  Determine packet index (i) using RoC + _s_l + SEQ (section 3.3.1)
-    //std::cout << "[processOutgoingPacket] SEQ_s: " << SEQ_s << " current ROC_s: " << _ROC << " current s_l_s: " << _s_l << " ";
-    v_s = determineV(SEQ_s);
-    //std::cout << "v_s: " << v_s << " ";
-    i_s = determinePacketIndex(v_s, SEQ_s);
-    //std::cout << "i_s: " << i_s << std::endl;
-
-    // 3.  Determine master key / master salt using packet index (i) OR MKI (section 8.1)
-    // NO-OP -- MASTER KEY / MASTER SALT ASSUMED TO BE UNIQUE WITHIN CONTEXT
-
-    // 4.  Determine session key / session salt (section 4.3) using master key + master salt + key_derivation_rate + session key-lengths + packet index (i)
-    // NO-OP -- SESSION KEY / SESSION SALT ALREADY DETERMINED AT THIS POINT
-
-    // 5.  Encrypt PAYLOAD to produce encrypted portion (section 4.1) using encryption algorithm + session encryption key + session salting key + packet index (i)
-    rc = computePacketIV(i_s);
-    if (rc == 0)
-    {
-        rc = setPacketIV();
-        if (rc == 0)
-        {
-            rc = encryptVector(rtp_payload, srtp_payload);
-            if (rc == 0)
-            {
-                //printf("[processOutgoingPacket] CIPHERTEXT: [");
-                //for (unsigned int i = 0; i < srtp_payload.size(); i++) {
-                //    printf("%02x", srtp_payload[i]);
-                //}
-                //printf("]\n");
-
-                auth_portion.insert(auth_portion.end(), rtp_header.begin(), rtp_header.end());
-                auth_portion.insert(auth_portion.end(), srtp_payload.begin(), srtp_payload.end());
-
-                // 6.  If MKI is 1 then append MKI to packet
-                // NO-OP -- MKI NOT USED
-
-                // 7A. Compute authentication tag from authenticated portion of the packet (section 4.2) using RoC + authentication algorithm + session authentication key
-                rc = issueAuthenticationTag(auth_portion, auth_tag);
-                if (rc == 0)
-                {
-                    // 7B. Append authentication tag to the packet to produce encrypted+authenticated portion
-                    srtp_packet.clear();
-                    srtp_packet.insert(srtp_packet.end(), auth_portion.begin(), auth_portion.end());
-                    srtp_packet.insert(srtp_packet.end(), auth_tag.begin(), auth_tag.end());
-
-                    // 8.  If necessary update RoC (section 3.3.1) using packet index (i)
-                    check = updateRollOverCounter(v_s);
-                    if (check)
-                    {
-                        check = updateSL(SEQ_s);
-                        if (check)
-                        {
-                            retVal = 0;
-                        }
-                        else
-                        {
-                            retVal = -6;
-                        }
-                    }
-                    else
-                    {
-                        retVal = -5;
-                    }
-                }
-                else
-                {
-                    retVal = -2;
-                }
-            }
-            else
-            {
-                retVal = -1; // ENCRYPTION FAILURE
-            }
-        }
-        else
-        {
-            retVal = -4;
-        }
-    }
-    else
-    {
-        retVal = -3;
-    }
-
-    return retVal;
-}
-
-int JLSRTP::processIncomingPacket(unsigned short SEQ_r,
-                                  std::vector<unsigned char> &srtp_packet,
-                                  std::vector<unsigned char> &rtp_header,
-                                  std::vector<unsigned char> &rtp_payload)
-{
-    int rc = 0;
-    bool check = false;
-    unsigned long v_r = 0;
-    unsigned long long i_r = 0LL; /* TEST PACKET INDEX */
-    /* each packet's scratch, kept by the thread for the next packet */
-    static thread_local std::vector<unsigned char> auth_tag_generated;
-    static thread_local std::vector<unsigned char> auth_portion;
-    static thread_local std::vector<unsigned char> auth_tag_received;
-    static thread_local std::vector<unsigned char> srtp_payload; /* ENCRYPTED PAYLOAD */
-    int retVal = -1;
-    auth_tag_generated.clear();
-    auth_portion.clear();
-    auth_tag_received.clear();
-    srtp_payload.clear();
-
-    rtp_header.clear();
-    rtp_payload.clear();
-
-    // 1.  Determine crypto context to use
-    // NO-OP (IMPLICIT)
-
-    // 2.  Determine packet index (i) using RoC + _s_l (section 3.3.1)
-    //std::cout << "[processIncomingPacket] SEQ_r: " << SEQ_r << " current ROC_r: " << _ROC << " current s_l_r: " << _s_l << " ";
-    v_r = determineV(SEQ_r);
-    //std::cout << "v_r: " << v_r << " ";
-    i_r = determinePacketIndex(v_r, SEQ_r);
-    //std::cout << "i_r: " << i_r << " " << std::endl;
-
-    // 3.  Determine master key / master salt -- if MKI is 1 then use MKI in packet otherwise use packet index (i) (section 8.1)
-    // NO-OP -- MASTER KEY / MASTER SALT ASSUMED TO BE UNIQUE WITHIN CONTEXT
-
-    // 4.  Determine session key / session salt (section 4.3) using master key + master salt + key_derivation_rate + session key-lengths + packet index (i)
-    // NO-OP -- SESSION KEY / SESSION SALT ALREADY DETERMINED AT THIS POINT
-
-    // 5A. Check if packet has been replayed (section 3.3.2) using replay list + packet index (i) -- discard packet if replayed
-    // NO-OP -- REPLAY LIST NOT USED
-
-    // 5B. Verify authentication tag using RoC + authentication algorithm + session authentication key -- if authentication failure (section 4.2) discard packet
-
-    rc = extractAuthenticationTag(srtp_packet, auth_tag_received);
-    if (rc == 0)
-    {
-        rc = extractSRTPHeader(srtp_packet, rtp_header);
-        if (rc == 0)
-        {
-            rc = extractSRTPPayload(srtp_packet, srtp_payload);
-            if (rc == 0)
-            {
-                auth_portion.insert(auth_portion.end(), rtp_header.begin(), rtp_header.end());
-                auth_portion.insert(auth_portion.end(), srtp_payload.begin(), srtp_payload.end());
-
-                rc = issueAuthenticationTag(auth_portion, auth_tag_generated);
-                if (rc == 0)
-                {
-                    if (auth_tag_received == auth_tag_generated)
-                    {
-                        // 6.  Decrypt PAYLOAD (section 4.1) using decryption algorithm + session encryption key + session salting key
-                        //printf("[processIncomingPacket] CIPHERTEXT: [");
-                        //for (unsigned int i = 0; i < srtp_payload.size(); i++) {
-                        //    printf("%02x", srtp_payload[i]);
-                        //}
-                        //printf("]\n");
-
-                        rc = computePacketIV(i_r);
-                        if (rc == 0)
-                        {
-                            rc = setPacketIV();
-                            if (rc == 0)
-                            {
-                                rc = decryptVector(srtp_payload, rtp_payload);
-                                if (rc == 0)
-                                {
-                                    // 7A. Update RoC / _s_l (section 3.3.1) using estimated packet index (i)
-                                    check = updateRollOverCounter(v_r);
-                                    if (check)
-                                    {
-                                        check = updateSL(SEQ_r);
-                                        if (check)
-                                        {
-                                            // 7B. Update replay list if applicable (section 3.3.2)
-                                            // NO-OP -- REPLAY LIST NOT USED
-
-                                            // 8.  Remove MKI + authentication tag fields from packet if present
-                                            // NO-OP -- AUTOMATICALLY DONE BY PREVIOUS RTP HEADER+PAYLOAD EXTRACTION
-
-                                            retVal = 0;
-                                        }
-                                        else
-                                        {
-                                            retVal = -10;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        retVal = -9;
-                                    }
-                                }
-                                else
-                                {
-                                    retVal = -2;  // DECRYPTION FAILURE
-                                }
-                            }
-                            else
-                            {
-                                retVal = -8;
-                            }
-                        }
-                        else
-                        {
-                            retVal = -7;
-                        }
-                    }
-                    else
-                    {
-                        retVal = -1; // AUTHENTICATION FAILURE
-                    }
-                }
-                else
-                {
-                    retVal = -6;
-                }
-            }
-            else
-            {
-                retVal = -5;
-            }
-        }
-        else
-        {
-            retVal = -4;
-        }
-    }
-    else
-    {
-        retVal = -3;
-    }
-
-    return retVal;
 }
 
 int JLSRTP::setCryptoTag(unsigned int tag, ActiveCrypto crypto_attrib /*= ACTIVE_CRYPTO*/)
@@ -2826,9 +1744,8 @@ int JLSRTP::decodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib /*=
 
 void JLSRTP::displayCryptoContext()
 {
-    std::cout << "_id                                          : " << "(" << _id.ssrc << ", " << _id.address << ", " << _id.port << ")" << std::endl;
-    std::cout << "_ROC                                         : " << _ROC << std::endl;
-    std::cout << "_s_l                                         : " << _s_l << std::endl;
+    std::cout << "_id                                          : " << "(" << _id.ssrc << ", " << _id.address << ", "
+              << _id.port << ")" << std::endl;
     std::cout << "_primary_crypto.cipher_algorithm             : " << _primary_crypto.cipher_algorithm << std::endl;
     std::cout << "_primary_crypto.hmac_algorithm               : " << _primary_crypto.hmac_algorithm << std::endl;
     std::cout << "_primary_crypto.MKI                          : " << _primary_crypto.MKI << std::endl;
@@ -2911,12 +1828,6 @@ void JLSRTP::displayCryptoContext()
         printf("%02x", _session_auth_key[i]);
     }
     printf("]\n");
-    printf("_packet_iv                                   : [");
-    for (unsigned int i = 0; i < _packetIV.size(); i++)
-    {
-        printf("%02x", _packetIV[i]);
-    }
-    printf("]\n");
 
     std::cout << "_pseudorandomstate.ivec                      : [";
     for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
@@ -2932,19 +1843,6 @@ void JLSRTP::displayCryptoContext()
     }
     std::cout << "]" << std::endl;
 
-    std::cout << "_cipherstate.ivec                            : [";
-    for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
-    {
-        printf("%02x", _cipherstate.ivec[i]);
-    }
-    std::cout << "]" << std::endl;
-    std::cout << "_cipherstate.num                             : " << _cipherstate.num << std::endl;
-    std::cout << "_cipherstate.ecount                          : [";
-    for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
-    {
-        printf("%02x", _cipherstate.ecount[i]);
-    }
-    std::cout << "]" << std::endl;
     std::cout << "_srtp_header_size                            : " << _srtp_header_size << std::endl;
     std::cout << "_srtp_payload_size                           : " << _srtp_payload_size << std::endl;
     std::cout << "_active_crypto                               : " << _active_crypto << std::endl;
@@ -2956,9 +1854,8 @@ std::string JLSRTP::dumpCryptoContext()
 
     oss.str("");
 
-    oss << "_id                                          : " << "(" << _id.ssrc << ", " << _id.address << ", " << _id.port << ")" << std::endl;
-    oss << "_ROC                                         : " << _ROC << std::endl;
-    oss << "_s_l                                         : " << _s_l << std::endl;
+    oss << "_id                                          : " << "(" << _id.ssrc << ", " << _id.address << ", "
+        << _id.port << ")" << std::endl;
     oss << "_primary_crypto.cipher_algorithm             : " << _primary_crypto.cipher_algorithm << std::endl;
     oss << "_primary_crypto.hmac_algorithm               : " << _primary_crypto.hmac_algorithm << std::endl;
     oss << "_primary_crypto.MKI                          : " << _primary_crypto.MKI << std::endl;
@@ -3046,15 +1943,6 @@ std::string JLSRTP::dumpCryptoContext()
     }
     oss.unsetf(std::ios::hex);
     oss << "]" << std::endl;
-    oss << "_packet_iv                             : [";
-    oss.setf(std::ios::hex, std::ios::basefield);
-    for (unsigned int i = 0; i < _packetIV.size(); i++)
-    {
-        oss << std::setw(2) << std::setfill('0');
-        oss << static_cast<int>(_packetIV[i]);
-    }
-    oss.unsetf(std::ios::hex);
-    oss << "]" << std::endl;
 
     oss << "_pseudorandomstate.ivec                      : [";
     oss.setf(std::ios::hex, std::ios::basefield);
@@ -3076,25 +1964,6 @@ std::string JLSRTP::dumpCryptoContext()
     oss.unsetf(std::ios::hex);
     oss << "]" << std::endl;
 
-    oss << "_cipherstate.ivec                            : [";
-    oss.setf(std::ios::hex, std::ios::basefield);
-    for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
-    {
-        oss << std::setw(2) << std::setfill('0');
-        oss << static_cast<int>(_cipherstate.ivec[i]);
-    }
-    oss.unsetf(std::ios::hex);
-    oss << "]" << std::endl;
-    oss << "_cipherstate.num                             : " << _cipherstate.num << std::endl;
-    oss << "_cipherstate.ecount                          : [";
-    oss.setf(std::ios::hex, std::ios::basefield);
-    for (unsigned int i = 0; i < AES_BLOCK_SIZE; i++)
-    {
-        oss << std::setw(2) << std::setfill('0');
-        oss << static_cast<int>(_cipherstate.ecount[i]);
-    }
-    oss.unsetf(std::ios::hex);
-    oss << "]" << std::endl;
     oss << "_srtp_header_size                            : " << _srtp_header_size << std::endl;
     oss << "_srtp_payload_size                           : " << _srtp_payload_size << std::endl;
     oss << "_active_crypto                               : " << _active_crypto << std::endl;
@@ -3489,9 +2358,6 @@ JLSRTP& JLSRTP::operator=(const JLSRTP& that)
     _id.ssrc = that._id.ssrc;
     _id.address = that._id.address;
     _id.port = that._id.port;
-    _ROC = that._ROC;
-    _s_l = that._s_l;
-    _s_l_set = that._s_l_set;
     _primary_crypto.cipher_algorithm = that._primary_crypto.cipher_algorithm;
     _primary_crypto.hmac_algorithm = that._primary_crypto.hmac_algorithm;
     _primary_crypto.MKI = that._primary_crypto.MKI;
@@ -3523,13 +2389,9 @@ JLSRTP& JLSRTP::operator=(const JLSRTP& that)
     _session_enc_key = that._session_enc_key;
     _session_salt_key = that._session_salt_key;
     _session_auth_key = that._session_auth_key;
-    _packetIV = that._packetIV;
     memcpy(_pseudorandomstate.ivec, that._pseudorandomstate.ivec, sizeof(_pseudorandomstate.ivec));
     _pseudorandomstate.num = that._pseudorandomstate.num;
     memcpy(_pseudorandomstate.ecount, that._pseudorandomstate.ecount, sizeof(_pseudorandomstate.ecount));
-    memcpy(_cipherstate.ivec, that._cipherstate.ivec, sizeof(_cipherstate.ivec));
-    _cipherstate.num = that._cipherstate.num;
-    memcpy(_cipherstate.ecount, that._cipherstate.ecount, sizeof(_cipherstate.ecount));
     _srtp_header_size = that._srtp_header_size;
     _srtp_payload_size = that._srtp_payload_size;
     _active_crypto = that._active_crypto;
@@ -3539,12 +2401,7 @@ JLSRTP& JLSRTP::operator=(const JLSRTP& that)
 
 bool JLSRTP::operator==(const JLSRTP& that)
 {
-    if (
-        (_id.ssrc == that._id.ssrc) &&
-        (_id.address == that._id.address) &&
-        (_id.port == that._id.port) &&
-        (_ROC == that._ROC) &&
-        (_s_l == that._s_l) &&
+    if ((_id.ssrc == that._id.ssrc) && (_id.address == that._id.address) && (_id.port == that._id.port) &&
         (_primary_crypto.cipher_algorithm == that._primary_crypto.cipher_algorithm) &&
         (_primary_crypto.hmac_algorithm == that._primary_crypto.hmac_algorithm) &&
         (_primary_crypto.MKI == that._primary_crypto.MKI) &&
@@ -3552,13 +2409,11 @@ bool JLSRTP::operator==(const JLSRTP& that)
         (_primary_crypto.active_MKI == that._primary_crypto.active_MKI) &&
         (_primary_crypto.master_key == that._primary_crypto.master_key) &&
         (_primary_crypto.master_key_counter == that._primary_crypto.master_key_counter) &&
-        (_primary_crypto.n_e == that._primary_crypto.n_e) &&
-        (_primary_crypto.n_a == that._primary_crypto.n_a) &&
+        (_primary_crypto.n_e == that._primary_crypto.n_e) && (_primary_crypto.n_a == that._primary_crypto.n_a) &&
         (_primary_crypto.master_salt == that._primary_crypto.master_salt) &&
         (_primary_crypto.master_key_derivation_rate == that._primary_crypto.master_key_derivation_rate) &&
         (_primary_crypto.master_mki_value == that._primary_crypto.master_mki_value) &&
-        (_primary_crypto.n_s == that._primary_crypto.n_s) &&
-        (_primary_crypto.tag == that._primary_crypto.tag) &&
+        (_primary_crypto.n_s == that._primary_crypto.n_s) && (_primary_crypto.tag == that._primary_crypto.tag) &&
         (_secondary_crypto.cipher_algorithm == that._secondary_crypto.cipher_algorithm) &&
         (_secondary_crypto.hmac_algorithm == that._secondary_crypto.hmac_algorithm) &&
         (_secondary_crypto.MKI == that._secondary_crypto.MKI) &&
@@ -3572,26 +2427,15 @@ bool JLSRTP::operator==(const JLSRTP& that)
         (_secondary_crypto.master_key_derivation_rate == that._secondary_crypto.master_key_derivation_rate) &&
         (_secondary_crypto.master_mki_value == that._secondary_crypto.master_mki_value) &&
         (_secondary_crypto.n_s == that._secondary_crypto.n_s) &&
-        (_secondary_crypto.tag == that._secondary_crypto.tag) &&
-        (_session_enc_key == that._session_enc_key) &&
-        (_session_salt_key == that._session_salt_key) &&
-        (_session_auth_key == that._session_auth_key) &&
-        (_packetIV == that._packetIV) &&
+        (_secondary_crypto.tag == that._secondary_crypto.tag) && (_session_enc_key == that._session_enc_key) &&
+        (_session_salt_key == that._session_salt_key) && (_session_auth_key == that._session_auth_key) &&
         (memcmp(_pseudorandomstate.ivec, that._pseudorandomstate.ivec, sizeof(_pseudorandomstate.ivec)) == 0) &&
         (_pseudorandomstate.num == that._pseudorandomstate.num) &&
         (memcmp(_pseudorandomstate.ecount, that._pseudorandomstate.ecount, sizeof(_pseudorandomstate.ecount)) == 0) &&
-        (memcmp(_cipherstate.ivec, that._cipherstate.ivec, sizeof(_cipherstate.ivec)) == 0) &&
-        (_cipherstate.num == that._cipherstate.num) &&
-        (memcmp(_cipherstate.ecount, that._cipherstate.ecount, sizeof(_cipherstate.ecount)) == 0) &&
-        (_srtp_header_size == that._srtp_header_size) &&
-        (_srtp_payload_size == that._srtp_payload_size) &&
-        (_active_crypto == that._active_crypto)
-       )
-    {
+        (_srtp_header_size == that._srtp_header_size) && (_srtp_payload_size == that._srtp_payload_size) &&
+        (_active_crypto == that._active_crypto)) {
         return true;
-    }
-    else
-    {
+    } else {
         return false;
     }
 }
@@ -3625,6 +2469,7 @@ JLSRTP::~JLSRTP()
 
 #ifdef GTEST
 #include "gtest/gtest.h"
+#include "srtp_stream.hpp"
 
 #include <type_traits>
 
@@ -3665,23 +2510,27 @@ protected:
     {
         std::vector<unsigned char> zeros(len);
         std::vector<unsigned char> out;
+        SrtpStream stream;
+        unsigned char iv[AES_BLOCK_SIZE];
         s.selectCipherAlgorithm(cipher, PRIMARY_CRYPTO);
         s._session_enc_key = fromHex(key);
         s._session_salt_key = fromHex(salt);
-        s.selectEncryptionKey();
-        s.computePacketIV(0);
-        s.setPacketIV();
-        s.encryptVector(zeros, out);
+        stream = s;
+        stream.computePacketIV(0, iv);
+        stream.crypt(zeros.data(), zeros.size(), iv, out);
         return out;
     }
 
     // The IV of a packet of the given SSRC and index
     static std::vector<unsigned char> packetIV(JLSRTP &s, const char *salt, unsigned int ssrc, unsigned long long i)
     {
+        SrtpStream stream;
+        unsigned char iv[AES_BLOCK_SIZE];
         s._session_salt_key = fromHex(salt);
         s.setSSRC(ssrc);
-        s.computePacketIV(i);
-        return s._packetIV;
+        stream = s;
+        stream.computePacketIV(i, iv);
+        return std::vector<unsigned char>(iv, iv + JLSRTP_SALTING_KEY_LENGTH);
     }
 };
 
@@ -3793,6 +2642,11 @@ TEST_P(JLSRTPRoundTrip, EncryptDecrypt)
         ASSERT_EQ(0, s->selectEncryptionKey());
         ASSERT_EQ(0, s->resetCipherState());
     }
+    SrtpStream txStream;
+    SrtpStream rxStream;
+    txStream = tx;
+    rxStream = rx;
+    EXPECT_EQ(static_cast<int>(suite.tag_len), rxStream.getAuthenticationTagSize());
 
     for (unsigned short seq = 1000; seq < 1003; seq++) {
         std::vector<unsigned char> header = {0x80, 0x00, static_cast<unsigned char>(seq >> 8), static_cast<unsigned char>(seq),
@@ -3802,7 +2656,7 @@ TEST_P(JLSRTPRoundTrip, EncryptDecrypt)
             payload[i] = static_cast<unsigned char>(i + seq);
         }
         std::vector<unsigned char> packet;
-        ASSERT_EQ(0, tx.processOutgoingPacket(seq, header, payload, packet));
+        ASSERT_EQ(0, txStream.processOutgoingPacket(seq, header, payload, packet));
         ASSERT_EQ(12 + 160 + suite.tag_len, packet.size());
         EXPECT_NE(payload, std::vector<unsigned char>(packet.begin() + 12, packet.begin() + 172));
 
@@ -3810,12 +2664,13 @@ TEST_P(JLSRTPRoundTrip, EncryptDecrypt)
         std::vector<unsigned char> rx_payload;
         std::vector<unsigned char> tampered = packet;
         tampered[20] ^= 1;
-        EXPECT_EQ(-1, rx.processIncomingPacket(seq, tampered, rx_header, rx_payload));
-        ASSERT_EQ(0, rx.processIncomingPacket(seq, packet, rx_header, rx_payload));
+        EXPECT_EQ(-1, rxStream.processIncomingPacket(seq, tampered, rx_header, rx_payload));
+        ASSERT_EQ(0, rxStream.processIncomingPacket(seq, packet, rx_header, rx_payload));
         EXPECT_EQ(header, rx_header);
         EXPECT_EQ(payload, rx_payload);
     }
 }
+
 
 INSTANTIATE_TEST_SUITE_P(Suites, JLSRTPRoundTrip, ::testing::Values(
     SrtpSuite{AES_CM_128, HMAC_SHA1_80, "AES_CM_128_HMAC_SHA1_80", 40, 10},

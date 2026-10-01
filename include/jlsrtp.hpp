@@ -79,6 +79,7 @@ public:
     /* Sets the key, switching to the AES variant of its length. Returns 1
      * on success, as EVP_EncryptInit_ex() does. */
     int setKey(const std::vector<unsigned char>& key);
+    int setKey(const unsigned char *key, size_t length);
     EVP_CIPHER_CTX* get() const { return ctx.get(); }
     void free() { ctx.reset(); }
 
@@ -97,38 +98,6 @@ typedef struct _AESState
     unsigned char ecount[AES_BLOCK_SIZE]; // encrypted ivec
     AESCipher cipher;                     // Cipher context
 } AESState;
-
-/* HMAC-SHA1 with a key: the SHA-1 states after its inner and outer pads,
- * made once per key, copied to a context of the thread for each packet. */
-class HMACState
-{
-public:
-    /* HMAC-SHA1 of data and then more. False if a digest fails. */
-    bool digest(const std::vector<unsigned char>& key,
-                const std::vector<unsigned char>& data, const std::vector<unsigned char>& more,
-                std::array<unsigned char, EVP_MAX_MD_SIZE>& out, unsigned int* out_len);
-    void free();
-
-private:
-    struct Free
-    {
-        void operator()(EVP_MD_CTX* c) const { EVP_MD_CTX_free(c); }
-    };
-    std::unique_ptr<EVP_MD_CTX, Free> inner, outer;
-    std::vector<unsigned char> key;       // what inner and outer are for
-};
-
-typedef union _Conversion32
-{
-    unsigned long i;
-    unsigned char c[4];
-} Conversion32;
-
-typedef union _Conversion64
-{
-    unsigned long long i;
-    unsigned char c[8];
-} Conversion64;
 
 typedef enum _CipherType
 {
@@ -179,20 +148,14 @@ typedef enum _ActiveCrypto
 class JLSRTP
 {
     private:
-        CryptoContextID         _id;
-        unsigned long           _ROC;
-        unsigned short          _s_l;
-        bool                    _s_l_set;       // a packet has set _s_l
+        CryptoContextID _id;
         CryptoAttribute         _primary_crypto;
         CryptoAttribute                 _secondary_crypto;
         ActiveCrypto            _active_crypto;
         std::vector<unsigned char>  _session_enc_key;
         std::vector<unsigned char>  _session_salt_key;
-        std::vector<unsigned char>  _session_auth_key;
-        std::vector<unsigned char>      _packetIV;
-        AESState                        _pseudorandomstate;
-        AESState                        _cipherstate;
-        HMACState                       _hmacstate;
+        std::vector<unsigned char> _session_auth_key;
+        AESState _pseudorandomstate;
         unsigned int            _srtp_header_size;
         unsigned int            _srtp_payload_size;
 
@@ -266,225 +229,6 @@ class JLSRTP
         int xorVector(std::vector<unsigned char> &a, std::vector<unsigned char> &b, std::vector<unsigned char> &result);
 
         /**
-         * isBigEndian
-         *
-         * Checks whether the current machine uses BIG ENDIAN byte ordering or not
-         *
-         * @return  1   Current machine uses BIG ENDIAN byte ordering
-         * @return  0   Current machine does NOT use BIG ENDIAN byte ordering
-         */
-        int isBigEndian();
-
-        /**
-         * isLittleEndian
-         *
-         * Checks whether the current machine uses LITTLE ENDIAN byte ordering or not
-         *
-         * @return  1   Current machine uses LITTLE ENDIAN byte ordering
-         * @return  0   Current machine does NOT use LITTLE ENDIAN byte ordering
-         */
-        int isLittleEndian();
-
-        /**
-         * convertROC
-         *
-         * Converts the given numeric 32-bit roll-over-counter to its vector version
-         *
-         * @param[in]   roc Numerical roll-over-counter to convert
-         * @param[out]  result  Vector-based roll-over-counter
-         *
-         * @return  0   SUCCESS
-         * @return  -1  FAILURE
-         */
-        int convertROC(unsigned long ROC, std::vector<unsigned char> &result);
-
-        /**
-         * determineV
-         *
-         * Determines new ROC from existing ROC / s_l / SEQ values
-         *
-         * @param[in]   SEQ     Packet sequence number
-         *
-         * @return  <updated_ROC>   Updated ROC based on existing ROC / s_l / SEQ values
-         */
-        unsigned long determineV(unsigned short SEQ);
-
-        /**
-         * updateRollOverCounter
-         *
-         * Updates ROC with given value v
-         *
-         * @param[in]   v       Value to update ROC with
-         *
-         * @return      TRUE    SUCCESS
-         * @return      FALSE   FAILURE
-         */
-        bool updateRollOverCounter(unsigned long v);
-
-        /**
-         * fetchRollOverCounter
-         *
-         * Fetches current ROC value
-         *
-         * @return  <current_ROC>
-         */
-        unsigned long fetchRollOverCounter();
-
-        /**
-         * updateSL
-         *
-         * Updates s_l with given value s
-         *
-         * @param[in]   s       Value to update s_l with
-         *
-         * @return      TRUE    SUCCESS
-         * @return      FALSE   FAILURE
-         */
-        bool updateSL(unsigned short s);
-
-        /**
-         * fetchSL
-         *
-         * Fetches current s_l value
-         *
-         * @return  <current_s_l>
-         */
-        unsigned short fetchSL();
-
-        /**
-         * determinePacketIndex
-         *
-         * Determine index of packet from ROC and SEQ
-         *
-         * @param[in]   ROC     RollOverCounter
-         * @param[in]   SEQ     Packet sequence number
-         *
-         * @return <packet_index>   Packet index based on ROC and SEQ
-         */
-        unsigned long long determinePacketIndex(unsigned long ROC, unsigned short SEQ);
-
-        /**
-         * setPacketIV
-         *
-         * Sets the current computed packet IV into the cipher state prior to encryption/decryption of a packet
-         *
-         * @return  0   SUCCESS
-         * @return  -1  FAILURE
-         */
-        int setPacketIV();
-
-        /**
-         * computePacketIV
-         *
-         * Computes the Input Vector for the given session salting key / ssrc / packet index
-         *
-         * @param[in]   i           Packet index to use
-         *
-         * @return  0   SUCCESS
-         * @return  -1  FAILURE -- Incorrect salting key length
-         */
-        int computePacketIV(unsigned long long i);
-
-        /**
-         * displayPacketIV
-         *
-         * Displays the current computed packet Input Vector
-         */
-        void displayPacketIV();
-
-        /**
-         * encryptVector
-         *
-         * Encrypts the given plaintext input vector into the ciphertext output one using selected session encryption key
-         *
-         * @param[in]   invdata         Input plaintext vector
-         * @param[out]  ciphertext_output   Output ciphertext vector
-         *
-         * @return  0   SUCCESS
-         * @return  -1  FAILURE -- Empty input data vector
-         * @return  -3  FAILURE -- Invalid cipher type specified
-         * @return  -4  FAILURE -- Invalid crypto attribute specified
-         */
-        int encryptVector(std::vector<unsigned char> &invdata, std::vector<unsigned char> &ciphertext_output);
-
-        /**
-         * decryptVector
-         *
-         * Decrypts the given ciphertext input vector into the plaintext output one using selected session decryption key
-         *
-         * @param[in]   ciphertext_input    Input ciphertext vector
-         * @param[out]  outvdata        Output plaintext vector
-         *
-         * @return  0   SUCCESS
-         * @return  -1  FAILURE -- Empty input data vector
-         * @return  -3  FAILURE -- Invalid cipher type specified
-         * @return  -4  FAILURE -- Invalid crypto attribute specified
-         */
-        int decryptVector(std::vector<unsigned char> &ciphertext_input, std::vector<unsigned char> &outvdata);
-
-        /**
-         * issueAuthenticationTag
-         *
-         * Issues a SHA1 hash of a given bit length from the provided data using the given authentication key
-         *
-         * @param[in]   data        Data to hash
-         * @param[out]  hash        Hash
-         *
-         * @return  0   SUCCESS
-         * @return  -1  FAILURE -- Empty session authentication key
-         * @return  -2  FAILURE -- Internal error generating digest
-         * @return  -3  FAILURE -- Invalid HMAC algorithm specified
-         * @return  -4  FAILURE -- Internal error converting ROC
-         * @return  -5  FAILURE -- Invalid crypto attribute specified
-         */
-        int issueAuthenticationTag(std::vector<unsigned char> &data, std::vector<unsigned char> &hash);
-
-        /**
-         * extractAuthenticationTag
-         *
-         * Extracts SHA1 hash of a given bit length from the provided SRTP packet
-         *
-         * @param[in]   srtp_packet SRTP packet to extract SHA1 hash from
-         * @param[out]  hash        Hash
-         *
-         * @return  0   SUCCESS
-         * @return  -1  FAILURE -- Empty session authentication key
-         * @return  -2  FAILURE -- Given SRTP packet smaller than authentication tag size
-         * @return  -3  FAILURE -- Invalid HMAC algorithm specified
-         * @return  -4  FAILURE -- Invalid crypto attribute specified
-         */
-        int extractAuthenticationTag(const std::vector<unsigned char> &srtp_packet, std::vector<unsigned char> &hash);
-
-        /**
-         * extractSRTPHeader
-         *
-         * Extracts the SRTP header from the provided SRTP packet
-         *
-         * @param[in]   srtp_packet SRTP packet to extract SRTP header from
-         * @param[out]  header      SRTP header
-         *
-         * @return  0   SUCCESS
-         * @return  -1  FAILURE -- SRTP header size is ZERO
-         * @return  -2  FAILURE -- Given SRTP packet smaller than SRTP header size
-         */
-        int extractSRTPHeader(const std::vector<unsigned char> &srtp_packet, std::vector<unsigned char> &header);
-
-        /**
-         * extractSRTPPayload
-         *
-         * Extracts the SRTP payload from the provided SRTP packet
-         *
-         * @param[in]   srtp_packet SRTP packet to extract SRTP payload from
-         * @param[out]  payload     SRTP payload
-         *
-         * @return  0   SUCCESS
-         * @return  -1  FAILURE -- SRTP header size is ZERO
-         * @return  -2  FAILURE -- SRTP payload size is ZERO
-         * @return  -3  FAILURE -- Given SRTP packet smaller than SRTP header+payload size
-         */
-        int extractSRTPPayload(const std::vector<unsigned char> &srtp_packet, std::vector<unsigned char> &payload);
-
-        /**
          * base64Encode
          *
          * Encodes the given bytes to a base64 string
@@ -507,36 +251,6 @@ class JLSRTP
         std::vector<unsigned char> base64Decode(std::string const& s);
 
         /**
-         * resetCipherBlockOffset
-         *
-         * Resets the block offset of the AES counter mode encryption/decryption cipher
-         *
-         * @return 0    SUCCESS
-         * @return -1   FAILURE
-         */
-        int resetCipherBlockOffset();
-
-        /**
-         * resetCipherOutputBlock
-         *
-         * Resets the output block of the AES counter mode encryption/decryption cipher
-         *
-         * @return 0    SUCCESS
-         * @return -1   FAILURE
-         */
-        int resetCipherOutputBlock();
-
-        /**
-         * resetCipherBlockCounter
-         *
-         * Resets the block counter of the AES counter mode encryption/decryption cipher
-         *
-         * @return 0    SUCCESS
-         * @return -1   FAILURE
-         */
-        int resetCipherBlockCounter();
-
-        /**
          * setAESPseudoRandomFunctionKey
          *
          * Sets the AES key used by the pseudorandom function
@@ -550,17 +264,6 @@ class JLSRTP
          * @return -4   FAILURE -- Invalid crypto attribute specified
          */
         int setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib = ACTIVE_CRYPTO);
-
-        /**
-         * setAESSessionEncryptionKey
-         *
-         * Sets the AES key used by the session encryption function
-         *
-         * @return 0    SUCCESS
-         * @return -1   FAILURE -- Session encryption EVP_CIPHER_CTX context is NULL
-         * @return -2   FAILURE -- Internal EVP_EncryptInit_ex() error encountered while attempting to set AES key for session encryption function
-         */
-        int setAESSessionEncryptionKey();
 
         /**
          * AES_ctr128_increment
@@ -595,29 +298,6 @@ class JLSRTP
                                                unsigned char ecount_buf[AES_BLOCK_SIZE],
                                                unsigned int* num);
 
-        /**
-         * AES_ctr128_session_EVPencrypt
-         *
-         * Encrypts given input using AES 128-bit counter mode algorithm for session encryption context
-         *
-         * @param[in]       in          Input plaintext
-         * @param[out]      out         Output ciphertext
-         * @param[in]       length      Input/output size
-         * @param[in]       counter     Concatenated IV/counter array
-         * @param[in]       ecount_buf  Encrypted IV/counter
-         * @param[in]       num         Block byte offset
-         *
-         * @return 0    SUCCESS
-         * @return -1   FAILURE -- Internal EVP_EncryptInit_ex() error encountered
-         * @return -2   FAILURE -- Internal EVP_EncryptUpdate() error encountered
-         */
-        int AES_ctr128_session_EVPencrypt(const unsigned char* in,
-                                          unsigned char* out,
-                                          const unsigned long length,
-                                          unsigned char counter[AES_BLOCK_SIZE],
-                                          unsigned char ecount_buf[AES_BLOCK_SIZE],
-                                          unsigned int* num);
-
     public:
 
         /**
@@ -634,7 +314,8 @@ class JLSRTP
         /**
          * resetCipherState
          *
-         * Resets the state of the AES counter mode encryption/decryption cipher
+         * Checks the salting key a stream that takes the context starts
+         * its AES counter mode encryption/decryption with
          *
          * @return  0   SUCCESS
          * @return  -1  FAILURE -- Incorrect salting key length
@@ -644,8 +325,8 @@ class JLSRTP
         /**
          * freeCiphers
          *
-         * Frees the AES cipher contexts: every use of a key sets it in
-         * one, and makes it first if there is none
+         * Frees the AES cipher context of the key derivation: every use of
+         * a key sets it in one, and makes it first if there is none
          */
         void freeCiphers();
 
@@ -718,7 +399,7 @@ class JLSRTP
         /**
          * selectEncryptionKey
          *
-         * Selects the session key used for encryption
+         * Checks the session key used for encryption is one AES takes
          *
          * @return  0   SUCCESS
          * @return  -1  FAILURE -- Empty session encryption key
@@ -729,7 +410,7 @@ class JLSRTP
         /**
          * selectDecryptionKey
          *
-         * Selects the session key used for decryption
+         * Checks the session key used for decryption is one AES takes
          *
          * @return  0   SUCCESS
          * @return  -1  FAILURE -- Empty session encryption key
@@ -906,56 +587,6 @@ class JLSRTP
          * @param[in]   size    Current SRTP payload size to use
          */
         void setSrtpPayloadSize(unsigned int size);
-
-        /**
-         * processOutgoingPacket
-         *
-         * Processes an outgoing RTP packet (encrypt+authenticate) to become an SRTP packet
-         *
-         * @param[in]   SEQ_s           Input RTP packet sequence number
-         * @param[in]   rtp_header  Input RTP header
-         * @param[in]   rtp_payload Input RTP payload
-         * @param[out]  srtp_packet Output SRTP packet
-         *
-         * @return  0   SUCCESS
-         * @return  -1  ENCRYPTION_FAILURE
-         * @return  -2  Error issuing authentication tag
-         * @return  -3  Error encountered while computing packet IV
-         * @return  -4  Error encountered while setting packet IV
-         * @return  -5  Error updating rollover counter
-         * @return  -6  Error updating SL
-         */
-        int processOutgoingPacket(unsigned short SEQ_s,
-                                  std::vector<unsigned char> &rtp_header,
-                                  std::vector<unsigned char> &rtp_payload,
-                                  std::vector<unsigned char> &srtp_packet);
-
-        /**
-         * processIncomingPacket
-         *
-         * Processes an incoming SRTP packet (authenticate+decrypt) to become an RTP packet
-         *
-         * @param[in]   SEQ_r           Input SRTP packet sequence number
-         * @param[in]   srtp_packet Input SRTP packet
-         * @param[out]  rtp_header  Output RTP header
-         * @param[out]  rtp_payload Output RTP payload
-         *
-         * @return  0   SUCCESS
-         * @return  -1  AUTHENTICATION_FAILURE
-         * @return  -2  DECRYPTION_FAILURE
-         * @return  -3  Error extracting authentication tag
-         * @return  -4  Error extracting SRTP header
-         * @return  -5  Error extracting SRTP payload
-         * @return  -6  Error issuing authentication tag
-         * @return  -7  Error encountered while computing packet IV
-         * @return  -8  Error encountered while setting packet IV
-         * @return  -9  Error updating rollover counter
-         * @return  -10 Error updating SL
-         */
-        int processIncomingPacket(unsigned short SEQ_r,
-                                  std::vector<unsigned char> &srtp_packet,
-                                  std::vector<unsigned char> &rtp_header,
-                                  std::vector<unsigned char> &rtp_payload);
 
         /**
          * setCryptoTag
@@ -1209,6 +840,8 @@ class JLSRTP
          */
         ~JLSRTP();
 
+        /* takes the session keys of the active crypto */
+        friend class SrtpStream;
 #ifdef GTEST
         friend class JLSRTPTest;
 #endif
