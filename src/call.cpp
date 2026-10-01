@@ -370,6 +370,24 @@ unsigned int call::wake()
     return wake;
 }
 
+/* Is the media type of a Content-Type application/sdp? Its case does not
+ * matter, nor its blanks, and parameters (";charset=utf-8") may follow. */
+static bool is_sdp_content_type(const char *ct)
+{
+    const char *sdp = "application/sdp";
+
+    for (; *ct && *ct != ';'; ct++) {
+        if (*ct == ' ' || *ct == '\t' || *ct == '\r' || *ct == '\n') {
+            continue;
+        }
+        if (!*sdp || tolower((unsigned char)*ct) != *sdp) {
+            return false;
+        }
+        sdp++;
+    }
+    return !*sdp;
+}
+
 static std::string find_in_sdp(std::string_view pattern, std::string_view msg)
 {
     std::string_view::size_type begin, end;
@@ -5404,8 +5422,8 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
      * Its crypto lines and the offer/answer state are taken without
      * media too, for the crypto keywords of the next SDP. */
     const char* ct_hdr = get_header_content(msg, "Content-Type:");
-    bool has_sdp_content = !strcmp(ct_hdr, "application/sdp") ||
-                           (strstr(ct_hdr, "multipart/") && strstr(msg, "application/sdp"));
+    bool has_sdp_content =
+        is_sdp_content_type(ct_hdr) || (strstr(ct_hdr, "multipart/") && strstr(msg, "application/sdp"));
     if (has_sdp_content && !sdp_read && !curmsg->ignoresdp)
     {
         const char* ptr = 0;
