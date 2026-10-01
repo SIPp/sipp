@@ -385,6 +385,10 @@ protected:
     char* createSendingMessage(SendingMessage* src, int P_index=-1, int *msgLen=nullptr);
     char* createSendingMessage(char* src, int P_index, bool skip_sanity=false);
     char* createSendingMessage(SendingMessage*src, int P_index, char *msg_buffer, int buflen, int *msgLen=nullptr);
+    /* The message in a string of its own, which the next one leaves alone */
+    std::string createSendingString(SendingMessage *src, int P_index = -1);
+
+    std::string buildSendingMessage(SendingMessage *src, int P_index, char *scratch, int buf_len, size_t reserve);
 
     // method for the management of unexpected messages
     bool  checkInternalCmd(char* cmd);  // check of specific internal command
