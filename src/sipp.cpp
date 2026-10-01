@@ -84,6 +84,7 @@ struct sipp_option {
     const char *help;
     int type;
     void *data;
+    /* Pass -1: The error log, so that it logs an error in any option. */
     /* Pass 0: Help and other options that should exit immediately. */
     /* Pass 1: All other options. */
     /* Pass 2: Scenario parsing. */
@@ -807,9 +808,9 @@ struct sipp_option options_table[] = {
 
     {"trace_counts", "Dumps individual message counts in a CSV file.", SIPP_OPTION_SETFLAG, &useCountf, 1},
 
-    {"trace_err", "Trace all unexpected messages in <scenario file name>_<pid>_errors.log.", SIPP_OPTION_SETFLAG, &print_all_responses, 1},
-    {"error_file", "Set the name of the error log file.", SIPP_OPTION_LFNAME, &error_lfi, 1},
-    {"error_overwrite", "Overwrite the error log file (default true).", SIPP_OPTION_LFOVERWRITE, &error_lfi, 1},
+    {"trace_err", "Trace all unexpected messages in <scenario file name>_<pid>_errors.log.", SIPP_OPTION_SETFLAG, &print_all_responses, -1},
+    {"error_file", "Set the name of the error log file.", SIPP_OPTION_LFNAME, &error_lfi, -1},
+    {"error_overwrite", "Overwrite the error log file (default true).", SIPP_OPTION_LFOVERWRITE, &error_lfi, -1},
 
     {"trace_error_codes", "Dumps the SIP response codes of unexpected messages to <scenario file name>_<pid>_error_codes.log.", SIPP_OPTION_SETFLAG, &useErrorCodesf, 1},
 //     {"trace_timeout", "Displays call ids for calls with timeouts in <scenario file name>_<pid>_timeout.log", SIPP_OPTION_SETFLAG, &useTimeoutf, 1},
@@ -1927,14 +1928,23 @@ int main(int argc, char *argv[])
     userVariables = new AllocVariableTable(globalVariables);
 
     /* Command line parsing */
-#define REQUIRE_ARG() if ((++argi) >= argc) { \
-    ERROR("Missing argument for param '%s'.\nUse 'sipp -h' for details",  argv[argi - 1]); }
+#define REQUIRE_ARG()                                                                         \
+    if ((++argi) >= argc) {                                                                   \
+        if (pass < 0) {                                                                       \
+            break;                                                                            \
+        }                                                                                     \
+        ERROR("Missing argument for param '%s'.\nUse 'sipp -h' for details", argv[argi - 1]); \
+    }
 #define CHECK_PASS() if (option->pass != pass) { break; }
 
-    for (int pass = 0; pass <= 3; pass++) {
+    /* Pass -1 skips what pass 0 fails on, and leaves the failure to it. */
+    for (int pass = -1; pass <= 3; pass++) {
         for(argi = 1; argi < argc; argi++) {
             struct sipp_option *option = find_option(argv[argi]);
             if (!option) {
+                if (pass < 0) {
+                    continue;
+                }
                 if (argv[argi][0] != '-') {
                     if ((pass == 0) && (remote_host[0] != 0)) {
                         ERROR("remote_host given multiple times on command-line (%s and %s)", remote_host, argv[argi]);
@@ -1954,6 +1964,7 @@ int main(int argc, char *argv[])
 
             switch(option->type) {
             case SIPP_OPTION_HELP:
+                CHECK_PASS();
                 if (argi + 1 < argc && !strcmp(argv[argi + 1], "stat")) {
                     help_stats();
                 } else {
@@ -1961,6 +1972,7 @@ int main(int argc, char *argv[])
                 }
                 exit(EXIT_OTHER);
             case SIPP_OPTION_VERSION:
+                CHECK_PASS();
                 printf("\n %s.\n\n",
                        /* SIPp v1.2.3-TLS-PCAP */
                        "SIPp " SIPP_VERSION
