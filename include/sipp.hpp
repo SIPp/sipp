@@ -264,19 +264,19 @@ MAYBE_EXTERN int                max_sched_loops         DEFVAL(MAX_SCHED_LOOPS_P
 
 MAYBE_EXTERN unsigned int       global_t2               DEFVAL(DEFAULT_T2_TIMER_VALUE);
 
-MAYBE_EXTERN char               local_ip[127];          /* also used for hostnames */
-MAYBE_EXTERN char               local_ip_w_brackets[sizeof(local_ip) + 2]; /* with [brackets] in case of IPv6 */
+MAYBE_EXTERN std::string local_ip;            /* also used for hostnames */
+MAYBE_EXTERN std::string local_ip_w_brackets; /* with [brackets] in case of IPv6 */
 MAYBE_EXTERN bool               local_ip_is_ipv6;
 MAYBE_EXTERN int                local_port              DEFVAL(0);
 #ifdef USE_SCTP
-MAYBE_EXTERN char               multihome_ip[40];
+MAYBE_EXTERN std::string multihome_ip;
 MAYBE_EXTERN int                heartbeat               DEFVAL(0);
 MAYBE_EXTERN int                assocmaxret             DEFVAL(0);
 MAYBE_EXTERN int                pathmaxret              DEFVAL(0);
 MAYBE_EXTERN int                pmtu                    DEFVAL(0);
 MAYBE_EXTERN bool               gracefulclose           DEFVAL(true);
 #endif
-MAYBE_EXTERN char               control_ip[40];
+MAYBE_EXTERN std::string control_ip;
 MAYBE_EXTERN int                control_port            DEFVAL(0);
 MAYBE_EXTERN int                buff_size               DEFVAL(65536);
 MAYBE_EXTERN int                tcp_readsize            DEFVAL(65536);
@@ -298,12 +298,12 @@ MAYBE_EXTERN double             audiotolerance          DEFVAL(1.0);
 MAYBE_EXTERN double             videotolerance          DEFVAL(1.0);
 
 MAYBE_EXTERN bool               rtp_echo_enabled        DEFVAL(0);
-MAYBE_EXTERN char               media_ip[127];          /* also used for hostnames */
+MAYBE_EXTERN std::string media_ip; /* also used for hostnames */
 MAYBE_EXTERN int                media_port              DEFVAL(0);
 MAYBE_EXTERN size_t             media_bufsize           DEFVAL(2048);
 MAYBE_EXTERN bool               media_ip_is_ipv6        DEFVAL(false);
-MAYBE_EXTERN char               remote_ip[127];         /* also used for hostnames */
-MAYBE_EXTERN char               remote_ip_w_brackets[sizeof(remote_ip) + 2]; /* with [brackets] in case of IPv6 */
+MAYBE_EXTERN std::string remote_ip;            /* also used for hostnames */
+MAYBE_EXTERN std::string remote_ip_w_brackets; /* with [brackets] in case of IPv6 */
 MAYBE_EXTERN int                remote_port             DEFVAL(DEFAULT_PORT);
 MAYBE_EXTERN unsigned int       pid                     DEFVAL(0);
 MAYBE_EXTERN bool               print_all_responses     DEFVAL(false);
@@ -313,9 +313,8 @@ MAYBE_EXTERN int                interrupt               DEFVAL(0);
 MAYBE_EXTERN bool               paused                  DEFVAL(false);
 MAYBE_EXTERN int                lose_packets            DEFVAL(0);
 MAYBE_EXTERN double             global_lost             DEFVAL(0.0);
-MAYBE_EXTERN char               remote_host[255];
-MAYBE_EXTERN char               twinSippHost[255];
-MAYBE_EXTERN char               twinSippIp[40];
+MAYBE_EXTERN std::string remote_host;
+MAYBE_EXTERN std::string twinSippHost;
 MAYBE_EXTERN char             * master_name;
 MAYBE_EXTERN char             * slave_number;
 MAYBE_EXTERN int                twinSippPort            DEFVAL(DEFAULT_3PCC_PORT);
@@ -465,8 +464,7 @@ MAYBE_EXTERN struct sockaddr_storage local_sockaddr;
 /* media_ip resolved, as it may be a host name */
 MAYBE_EXTERN struct sockaddr_storage media_sockaddr;
 MAYBE_EXTERN struct sockaddr_storage localTwin_sockaddr;
-MAYBE_EXTERN int           user_port                    DEFVAL(0);
-MAYBE_EXTERN char          hostname[80];
+MAYBE_EXTERN int user_port DEFVAL(0);
 
 MAYBE_EXTERN int           reset_number                 DEFVAL(0);
 MAYBE_EXTERN bool          reset_close                  DEFVAL(true);
@@ -483,10 +481,9 @@ MAYBE_EXTERN struct sockaddr_storage twinSipp_sockaddr;
 
 /* 3pcc extended mode */
 typedef struct _T_peer_infos {
-    char peer_host[40];
+    std::string peer_host;
     int peer_port;
     struct sockaddr_storage peer_sockaddr;
-    char peer_ip[40];
     SIPpSocket *peer_socket;
 } T_peer_infos;
 
@@ -541,7 +538,7 @@ SIPpSocket **get_peer_socket(const char *);
 bool is_a_peer_socket(SIPpSocket *);
 bool is_a_local_socket(SIPpSocket *);
 void connect_to_all_peers();
-void connect_local_twin_socket(char *);
+void connect_local_twin_socket();
 void close_peer_sockets();
 void close_local_sockets();
 void free_peer_addr_map();

@@ -89,8 +89,6 @@ struct sipp_option {
     /* Pass 1: All other options. */
     /* Pass 2: Scenario parsing. */
     int pass;
-    /* SIPP_OPTION_IP: the size of the buffer at data. */
-    size_t size;
 };
 
 #define SIPP_OPTION_HELP           1
@@ -588,13 +586,13 @@ struct sipp_option options_table[] = {
 #endif
         , SIPP_OPTION_TRANSPORT, nullptr, 1
     },
-    {"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address. A host name (remote host, -rsa, setdest) that resolves to several addresses prefers one in the family of the -i address.\n", SIPP_OPTION_IP, local_ip, 1, sizeof(local_ip)},
+    {"i", "Set the local IP address for 'Contact:','Via:', and 'From:' headers. Default is primary host IP address. A host name (remote host, -rsa, setdest) that resolves to several addresses prefers one in the family of the -i address.\n", SIPP_OPTION_IP, &local_ip, 1},
     {"p", "Set the local port number.  Default is a random free port chosen by the system.", SIPP_OPTION_INT, &user_port, 1},
     {"bind_local", "Bind socket to local IP address, i.e. the local IP address is used as the source IP address.  If SIPp runs in server mode it will only listen on the local IP address instead of all IP addresses.", SIPP_OPTION_SETFLAG, &bind_local, 1},
 #ifdef SO_BINDTODEVICE
     {"bind_to_device", "Bind socket to the specified network device. Requires superuser permissions.", SIPP_OPTION_STRING, &bind_to_device_name, 1},
 #endif
-    {"ci", "Set the local control IP address", SIPP_OPTION_IP, control_ip, 1, sizeof(control_ip)},
+    {"ci", "Set the local control IP address", SIPP_OPTION_IP, &control_ip, 1},
     {"cp", "Set the local control port number. Default is 8888.", SIPP_OPTION_INT, &control_port, 1},
     {"max_socket", "Set the max number of call sockets to open simultaneously, if you use one socket per call (-t un, tn, ln). The main, control and stdin sockets don't count. Once this limit is reached, traffic is distributed over the sockets already opened. Default value is 50000", SIPP_OPTION_MAX_SOCKET, nullptr, 1},
     {"max_reconnect", "Set the maximum number of times a connection that fails is made again (-1: no limit). Default is 0.", SIPP_OPTION_INT, &reset_number, 1},
@@ -613,7 +611,7 @@ struct sipp_option options_table[] = {
     {"ws_handshake_timeout", "Set how long a WebSocket handshake may take: a client that gets no answer in time, and a server that gets no request, drop the connection. 0 means no limit. Default is 10s; default unit is ms.", SIPP_OPTION_TIME_MS, &ws_handshake_timeout, 1},
 
 #ifdef USE_SCTP
-    {"multihome", "Set multihome address for SCTP", SIPP_OPTION_IP, multihome_ip, 1, sizeof(multihome_ip)},
+    {"multihome", "Set multihome address for SCTP", SIPP_OPTION_IP, &multihome_ip, 1},
     {"heartbeat", "Set heartbeat interval in ms for SCTP", SIPP_OPTION_INT, &heartbeat, 1},
     {"assocmaxret", "Set association max retransmit counter for SCTP", SIPP_OPTION_INT, &assocmaxret, 1},
     {"pathmaxret", "Set path max retransmit counter for SCTP", SIPP_OPTION_INT, &pathmaxret, 1},
@@ -697,7 +695,7 @@ struct sipp_option options_table[] = {
 
 
     {"", "RTP behaviour options:", SIPP_HELP_TEXT_HEADER, nullptr, 0},
-    {"mi", "Set the local media IP address (default: local primary host IP address)", SIPP_OPTION_IP, media_ip, 1, sizeof(media_ip)},
+    {"mi", "Set the local media IP address (default: local primary host IP address)", SIPP_OPTION_IP, &media_ip, 1},
     {"rtp_echo", "Enable RTP echo. RTP/UDP packets received on media port are echoed to their sender.\n"
      "RTP/UDP packets coming on this port + 2 are also echoed to their sender (used for sound and video echo).",
      SIPP_OPTION_SETFLAG, &rtp_echo_enabled, 1},
@@ -833,17 +831,6 @@ struct sipp_option options_table[] = {
 
 };
 // clang-format on
-
-/* Copy the argument of an option to a buffer of size bytes, or fail. */
-static void copy_arg(char *dst, size_t size, const char *arg, const char *option)
-{
-    size_t len = strlen(arg);
-    if (len >= size) {
-        ERROR("The argument of %s is too long, %zu characters at most: '%s'",
-              option, size - 1, arg);
-    }
-    memcpy(dst, arg, len + 1);
-}
 
 static struct sipp_option *find_option(const char* option) {
     int i;
@@ -1640,7 +1627,7 @@ static int create_socket(struct sockaddr_storage* media_sa, int try_port, bool l
 
     if (::bind(s, (sockaddr*)media_sa, socklen_from_addr(media_sa)) != 0) {
         if (last_attempt) {
-            ERROR_NO("Unable to bind %s RTP socket (IP=%s, port=%d)", type, media_ip, try_port);
+            ERROR_NO("Unable to bind %s RTP socket (IP=%s, port=%d)", type, media_ip.c_str(), try_port);
         }
         ::close(s);
         return -1;
@@ -1697,8 +1684,8 @@ static void setup_media_sockets()
     // strcpy() to happen outside of the if-block...
     //
     /* Defaults for media sockets */
-    if (media_ip[0] == '\0') {
-        strcpy(media_ip, local_ip);
+    if (media_ip.empty()) {
+        media_ip = local_ip;
     }
 
     // assert that an IPv6 'media_ip' is not surrounded by brackets?
@@ -1707,12 +1694,10 @@ static void setup_media_sockets()
     hints.ai_family = PF_UNSPEC; /* use local_ip_is_ipv6 as hint? */
 
     /* Resolving local IP */
-    if (getaddrinfo(media_ip,
-                    nullptr,
-                    &hints,
-                    &local_addr) != 0) {
+    if (getaddrinfo(media_ip.c_str(), nullptr, &hints, &local_addr) != 0) {
         ERROR("Unknown RTP address '%s'.\n"
-              "Use 'sipp -h' for details", media_ip);
+              "Use 'sipp -h' for details",
+              media_ip.c_str());
     }
     memcpy(&media_sockaddr, local_addr->ai_addr, socklen_from_addr(_RCAST(struct sockaddr_storage*, local_addr->ai_addr)));
     freeaddrinfo(local_addr);
@@ -1854,12 +1839,6 @@ int main(int argc, char *argv[])
     }
 
     pid = getpid();
-    memset(local_ip, 0, sizeof(local_ip));
-#ifdef USE_SCTP
-    memset(multihome_ip, 0, sizeof(multihome_ip));
-#endif
-    memset(media_ip, 0, sizeof(media_ip));
-    memset(control_ip, 0, sizeof(control_ip));
 
     /* Initialize our global variable structure. */
     globalVariables = new AllocVariableTable(nullptr);
@@ -1884,15 +1863,11 @@ int main(int argc, char *argv[])
                     continue;
                 }
                 if (argv[argi][0] != '-') {
-                    if ((pass == 0) && (remote_host[0] != 0)) {
-                        ERROR("remote_host given multiple times on command-line (%s and %s)", remote_host, argv[argi]);
-                    }
-                    size_t len = strlen(argv[argi]);
-                    if (len >= sizeof(remote_host)) {
-                        ERROR("The remote host is too long, %zu characters at most: '%s'", sizeof(remote_host) - 1,
+                    if ((pass == 0) && !remote_host.empty()) {
+                        ERROR("remote_host given multiple times on command-line (%s and %s)", remote_host.c_str(),
                               argv[argi]);
                     }
-                    memcpy(remote_host, argv[argi], len + 1);
+                    remote_host = argv[argi];
                     continue;
                 }
                 help();
@@ -2145,12 +2120,10 @@ int main(int argc, char *argv[])
                 break;
             case SIPP_OPTION_IP: {
                 int dummy_port;
-                char* ptr = (char*)option->data;
                 REQUIRE_ARG();
                 CHECK_PASS();
 
-                copy_arg(ptr, option->size, argv[argi], argv[argi - 1]);
-                get_host_and_port(ptr, ptr, &dummy_port);
+                *(std::string *)option->data = get_host_and_port(argv[argi], &dummy_port);
             }
             break;
             case SIPP_OPTION_LIMIT:
@@ -2199,8 +2172,7 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
                 twinSippMode = true;
-                copy_arg(twinSippHost, sizeof(twinSippHost), argv[argi], argv[argi - 1]);
-                get_host_and_port(twinSippHost, twinSippHost, &twinSippPort);
+                twinSippHost = get_host_and_port(argv[argi], &twinSippPort);
                 break;
             case SIPP_OPTION_SCENARIO:
                 REQUIRE_ARG();
@@ -2274,25 +2246,23 @@ int main(int argc, char *argv[])
             case SIPP_OPTION_RSA: {
                 REQUIRE_ARG();
                 CHECK_PASS();
-                char *remote_s_address;
                 int   remote_s_p = DEFAULT_PORT;
                 int   temp_remote_s_p;
 
                 temp_remote_s_p = 0;
-                remote_s_address = argv[argi];
-                get_host_and_port(remote_s_address, remote_s_address, &temp_remote_s_p);
+                const std::string remote_s_address = get_host_and_port(argv[argi], &temp_remote_s_p);
                 if (temp_remote_s_p != 0) {
                     remote_s_p = temp_remote_s_p;
                 }
 
-                printf("Resolving remote sending address %s...\n", remote_s_address);
+                printf("Resolving remote sending address %s...\n", remote_s_address.c_str());
 
                 /* FIXME: add DNS SRV support using liburli? */
-                if (gai_getsockaddr(&remote_sending_sockaddr, remote_s_address, remote_s_p,
-                                    AI_PASSIVE, AF_UNSPEC,
-                                    *local_ip ? gai_family(local_ip) : AF_UNSPEC) != 0) {
+                if (gai_getsockaddr(&remote_sending_sockaddr, remote_s_address.c_str(), remote_s_p, AI_PASSIVE,
+                                    AF_UNSPEC, local_ip.empty() ? AF_UNSPEC : gai_family(local_ip.c_str())) != 0) {
                     ERROR("Unknown remote host '%s'.\n"
-                          "Use 'sipp -h' for details", remote_s_address);
+                          "Use 'sipp -h' for details",
+                          remote_s_address.c_str());
                 }
 
                 use_remote_sending_addr = 1;

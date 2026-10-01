@@ -1,7 +1,7 @@
 #!/bin/sh
 # This regression test is a part of SIPp.
-# A remote host or a -slave_cfg host too long for its buffer fails with
-# an error that shows it whole, and is not cut short.
+# A long remote host or -slave_cfg host that does not resolve fails
+# with an error that shows it whole, and is not cut short.
 . "`dirname "$0"`/../functions"; init
 
 host=`printf '%0300d' 0 | tr 0 a`.example
@@ -17,11 +17,11 @@ rm -f $cfg
 
 if test $remote_status -ne 255; then
     fail "remote host: exited with $remote_status"
-elif ! echo "$remote" | grep -q "The remote host is too long, 254 characters at most: '$host'"; then
+elif ! echo "$remote" | grep -q "Unknown remote host '$host'"; then
     fail "remote host: `echo "$remote" | head -1 | cut -c1-80`"
 elif test $twin_status -ne 255; then
     fail "-slave_cfg host: exited with $twin_status"
-elif ! echo "$twin" | grep -q "The -slave_cfg host of m is too long, 254 characters at most: '$host:26161'"; then
+elif ! echo "$twin" | grep -q "Unknown twin host '$host'"; then
     fail "-slave_cfg host: `echo "$twin" | head -1 | cut -c1-80`"
 else
     ok

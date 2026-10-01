@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
 <!DOCTYPE scenario SYSTEM "sipp.dtd">
-<!-- A 3PCC extended master: a command to s1, which never runs, as the
-     master's own -slave_cfg host does not resolve. -->
+<!-- A 3PCC extended master without SIP: a command to s1, and its
+     answer. -->
 <scenario name="3pcc extended master">
   <sendCmd dest="s1">
     <![CDATA[
@@ -9,4 +9,5 @@
       From: m
     ]]>
   </sendCmd>
+  <recvCmd src="s1"/>
 </scenario>

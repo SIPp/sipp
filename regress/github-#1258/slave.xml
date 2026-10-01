@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- The 3PCC extended slave s1: answers the master's command. -->
+<scenario name="3pcc extended slave">
+  <recvCmd src="m"/>
+  <sendCmd dest="m">
+    <![CDATA[
+      Call-ID: [call_id]
+      From: s1
+    ]]>
+  </sendCmd>
+</scenario>

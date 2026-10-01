@@ -41,7 +41,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-void get_host_and_port(const char * addr, char * host, int * port)
+std::string get_host_and_port(const char *addr, int *port)
 {
     /* Separate the port number (if any) from the host name.
      * Thing is, the separator is a colon (':').  The colon may also exist
@@ -49,60 +49,32 @@ void get_host_and_port(const char * addr, char * host, int * port)
      * RFC 2732).  If that's the case, then we need to skip past the IPv6
      * address, which should be contained within square brackets ('[',']').
      */
-    const char *has_brackets;
-    int len;
+    std::string host;
     int port_result = 0;
 
-    has_brackets = strchr(addr, '[');
-    if (has_brackets != nullptr) {
-        has_brackets = strchr(has_brackets, ']');
-    }
-    if (has_brackets == nullptr) {
+    const char *initial_bracket = strchr(addr, '[');
+    const char *second_bracket = initial_bracket ? strchr(initial_bracket, ']') : nullptr;
+    if (second_bracket == nullptr) {
         /* addr is not a []-enclosed IPv6 address, but might still be IPv6 (without
          * a port), or IPv4 or a hostname (with or without a port) */
-        char *first_colon_location;
-        char *second_colon_location;
-
-        len = strlen(addr) + 1;
-        memmove(host, addr, len);
-
-        first_colon_location = strchr(host, ':');
-        if (first_colon_location == nullptr) {
-            /* No colon - just set the port to 0 */
-            port_result = 0;
+        const char *first_colon_location = strchr(addr, ':');
+        if (first_colon_location != nullptr && strchr(first_colon_location + 1, ':') == nullptr) {
+            /* IPv4 address or hostname with a colon in it: the value after
+             * it is the port */
+            host.assign(addr, first_colon_location - addr);
+            port_result = atol(first_colon_location + 1);
         } else {
-            second_colon_location = strchr(first_colon_location + 1, ':');
-            if (second_colon_location != nullptr) {
-                /* Found a second colon in addr - so this is an IPv6 address
-                 * without a port. Set the port to 0 */
-                port_result = 0;
-            } else {
-                /* IPv4 address or hostname with a colon in it - convert the colon to
-                 * a NUL terminator, and set the value after it as the port */
-                *first_colon_location = '\0';
-                port_result = atol(first_colon_location + 1);
-            }
+            /* No colon, or a second one: an IPv6 address without a port */
+            host = addr;
         }
-
-    } else {                                      /* If '['..']' found,       */
-        const char *initial_bracket;                /* extract the remote_host  */
-        char *second_bracket;
-        char *colon_before_port;
-
-        initial_bracket = strchr( addr, '[' );
-        initial_bracket++; /* Step forward one character */
-        len = strlen(initial_bracket) + 1;
-        memmove(host, initial_bracket, len);
-
-        second_bracket = strchr( host, ']' );
-        *second_bracket = '\0';
+    } else {
+        /* If '['..']' found, extract the host in them */
+        host.assign(initial_bracket + 1, second_bracket - initial_bracket - 1);
 
         /* Check for a port specified after the ] */
-        colon_before_port = strchr(second_bracket + 1, ':');
+        const char *colon_before_port = strchr(second_bracket + 1, ':');
         if (colon_before_port != nullptr) {
             port_result = atol(colon_before_port + 1);
-        } else {
-            port_result = 0;
         }
     }
 
@@ -110,6 +82,7 @@ void get_host_and_port(const char * addr, char * host, int * port)
     if (port != nullptr) {
         *port = port_result;
     }
+    return host;
 }
 
 int get_decimal_from_hex(char hex)
@@ -167,64 +140,56 @@ std::string wrap(const char *in, int offset, int size)
 
 TEST(GetHostAndPort, IPv6) {
     int port_result = -1;
-    char host_result[255];
-    get_host_and_port("fe80::92a4:deff:fe74:7af5", host_result, &port_result);
+    const std::string host_result = get_host_and_port("fe80::92a4:deff:fe74:7af5", &port_result);
     EXPECT_EQ(0, port_result);
-    EXPECT_STREQ("fe80::92a4:deff:fe74:7af5", host_result);
+    EXPECT_EQ("fe80::92a4:deff:fe74:7af5", host_result);
 }
 
 TEST(GetHostAndPort, IPv6Brackets) {
     int port_result = -1;
-    char host_result[255];
-    get_host_and_port("[fe80::92a4:deff:fe74:7af5]", host_result, &port_result);
+    const std::string host_result = get_host_and_port("[fe80::92a4:deff:fe74:7af5]", &port_result);
     EXPECT_EQ(0, port_result);
-    EXPECT_STREQ("fe80::92a4:deff:fe74:7af5", host_result);
+    EXPECT_EQ("fe80::92a4:deff:fe74:7af5", host_result);
 }
 
 TEST(GetHostAndPort, IPv6BracketsAndPort) {
     int port_result = -1;
-    char host_result[255];
-    get_host_and_port("[fe80::92a4:deff:fe74:7af5]:999", host_result, &port_result);
+    const std::string host_result = get_host_and_port("[fe80::92a4:deff:fe74:7af5]:999", &port_result);
     EXPECT_EQ(999, port_result);
-    EXPECT_STREQ("fe80::92a4:deff:fe74:7af5", host_result);
+    EXPECT_EQ("fe80::92a4:deff:fe74:7af5", host_result);
 }
 
 TEST(GetHostAndPort, IPv4) {
     int port_result = -1;
-    char host_result[255];
-    get_host_and_port("127.0.0.1", host_result, &port_result);
+    const std::string host_result = get_host_and_port("127.0.0.1", &port_result);
     EXPECT_EQ(0, port_result);
-    EXPECT_STREQ("127.0.0.1", host_result);
+    EXPECT_EQ("127.0.0.1", host_result);
 }
 
 TEST(GetHostAndPort, IPv4AndPort) {
     int port_result = -1;
-    char host_result[255];
-    get_host_and_port("127.0.0.1:999", host_result, &port_result);
+    const std::string host_result = get_host_and_port("127.0.0.1:999", &port_result);
     EXPECT_EQ(999, port_result);
-    EXPECT_STREQ("127.0.0.1", host_result);
+    EXPECT_EQ("127.0.0.1", host_result);
 }
 
 TEST(GetHostAndPort, IgnorePort) {
-    char host_result[255];
-    get_host_and_port("127.0.0.1", host_result, nullptr);
-    EXPECT_STREQ("127.0.0.1", host_result);
+    const std::string host_result = get_host_and_port("127.0.0.1", nullptr);
+    EXPECT_EQ("127.0.0.1", host_result);
 }
 
 TEST(GetHostAndPort, DNS) {
     int port_result = -1;
-    char host_result[255];
-    get_host_and_port("sipp.sf.net", host_result, &port_result);
+    const std::string host_result = get_host_and_port("sipp.sf.net", &port_result);
     EXPECT_EQ(0, port_result);
-    EXPECT_STREQ("sipp.sf.net", host_result);
+    EXPECT_EQ("sipp.sf.net", host_result);
 }
 
 TEST(GetHostAndPort, DNSAndPort) {
     int port_result = -1;
-    char host_result[255];
-    get_host_and_port("sipp.sf.net:999", host_result, &port_result);
+    const std::string host_result = get_host_and_port("sipp.sf.net:999", &port_result);
     EXPECT_EQ(999, port_result);
-    EXPECT_STREQ("sipp.sf.net", host_result);
+    EXPECT_EQ("sipp.sf.net", host_result);
 }
 
 TEST(Wrap, BreaksAtLastSpace)

@@ -129,8 +129,8 @@ SSL* SSL_new_client()
     // Inject the ServerNameIndication (SNI).
     // It requires to be a hostname. However, SSL takes whatever we set.
     // Ref https://datatracker.ietf.org/doc/html/rfc6066#section-3
-    if (strcmp(remote_ip, remote_host)) {
-        SSL_set_tlsext_host_name(ssl, remote_host);
+    if (remote_ip != remote_host) {
+        SSL_set_tlsext_host_name(ssl, remote_host.c_str());
     }
 
     return ssl;

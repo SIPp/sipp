@@ -325,21 +325,16 @@ void ScreenPrinter::draw_scenario_screen()
         if (users >= 0) {
             lines.push_back("  Users (length)   Port   Total-time  "
                             "Total-calls  Remote-host");
-            snprintf(buf, bufsiz,
-                     "  %d (%d ms)   %-5d %6lu.%02lu s     %8llu  %.20s:%d(%s)",
-                     users, duration, local_port, clock_tick / 1000,
-                     (clock_tick % 1000) / 10, total_calls, remote_ip,
+            snprintf(buf, bufsiz, "  %d (%d ms)   %-5d %6lu.%02lu s     %8llu  %.20s:%d(%s)", users, duration,
+                     local_port, clock_tick / 1000, (clock_tick % 1000) / 10, total_calls, remote_ip.c_str(),
                      remote_port, TRANSPORT_TO_STRING(transport));
             lines.push_back(buf);
         } else {
             lines.push_back("  Call rate (length)   Port   Total-time  "
                             "Total-calls  Remote-host");
-            snprintf(
-                buf, bufsiz,
-                "  %3.1f(%d ms)/%5.3fs   %-5d %6lu.%02lu s     %8llu  %.20s:%d(%s)",
-                rate, duration, (double)rate_period_ms / 1000.0, local_port,
-                clock_tick / 1000, (clock_tick % 1000) / 10, total_calls,
-                remote_ip, remote_port, TRANSPORT_TO_STRING(transport));
+            snprintf(buf, bufsiz, "  %3.1f(%d ms)/%5.3fs   %-5d %6lu.%02lu s     %8llu  %.20s:%d(%s)", rate, duration,
+                     (double)rate_period_ms / 1000.0, local_port, clock_tick / 1000, (clock_tick % 1000) / 10,
+                     total_calls, remote_ip.c_str(), remote_port, TRANSPORT_TO_STRING(transport));
             lines.push_back(buf);
         }
     }

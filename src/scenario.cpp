@@ -1013,7 +1013,7 @@ scenario::scenario(char * filename, int deflt)
                     {
                         T_peer_infos infos = {};
                         infos.peer_socket = 0;
-                        strncpy(infos.peer_host, get_peer_addr(peer.c_str()), sizeof(infos.peer_host) - 1);
+                        infos.peer_host = get_peer_addr(peer.c_str());
                         peers[peer] = infos;
                     }
                 } else if (extendedTwinSippMode) {
