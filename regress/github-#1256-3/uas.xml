@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<!-- Waits for an OPTIONS that does not come -->
+<scenario name="options">
+  <recv request="OPTIONS" />
+</scenario>

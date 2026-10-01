@@ -178,6 +178,10 @@ marked **Breaking**.
     header longer than 2048 characters (#1254)
   - a read past the timer wheel once the clock passes 2^32 ms, after
     49.7 days (#1255)
+  - a crash on a Via branch longer than 2048 characters, stale digits in
+    `[last_cseq_number]` for a message without a CSeq, and a status
+    code read beyond the first line or past the end of a message, which
+    took a request for a response (#1256)
   - null strings printed in the actions screen for an `<ereg>` on the
     body or a variable, and in the error of a `<recv>` without request
     or response, and a play_pcap `[keyword]` looked up unterminated
