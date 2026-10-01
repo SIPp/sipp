@@ -27,6 +27,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
@@ -104,12 +105,13 @@ class call : virtual public task, virtual public listener, public virtual socket
 public:
     /* These are wrappers for various circumstances, (private) init does the real work. */
     //call(char * p_id, int userId, bool ipv6, bool isAutomatic);
-    call(scenario *call_scenario, const char *p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest);
-    call(scenario *call_scenario, const char *p_id, SIPpSocket *socket, struct sockaddr_storage *dest);
+    call(scenario *call_scenario, std::string_view p_id, bool use_ipv6, int userId, struct sockaddr_storage *dest);
+    call(scenario *call_scenario, std::string_view p_id, SIPpSocket *socket, struct sockaddr_storage *dest);
     /* An outgoing call to dest; remote is its -round_robin address. */
     static call *add_call(int userId, bool ipv6, struct sockaddr_storage *dest,
                           remote_address *remote = nullptr);
-    call(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
+    call(scenario *call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, std::string_view p_id, int userId,
+         bool ipv6, bool isAutomatic, bool isInitCall);
 
     virtual ~call();
 
@@ -161,7 +163,8 @@ public:
 
 private:
     /* This is the core constructor function. */
-    void init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, const char * p_id, int userId, bool ipv6, bool isAutomatic, bool isInitCall);
+    void init(scenario *call_scenario, SIPpSocket *socket, struct sockaddr_storage *dest, std::string_view p_id,
+              int userId, bool ipv6, bool isAutomatic, bool isInitCall);
 
     bool checkAckCSeq(const char* msg);
 
@@ -434,7 +437,7 @@ protected:
     int msgDialog(const message *curmsg);
     int dialogOf(const char *msg);
     bool dialogKnown(int dialog);
-    void setDialogCallId(int dialog, const char *call_id);
+    void setDialogCallId(int dialog, std::string_view call_id);
     const char *dialogCallId();
     std::vector<std::string> dialogIds();
     /* The dialog a request of a Call-ID no call has starts here, 0 if

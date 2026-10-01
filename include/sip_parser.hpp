@@ -23,17 +23,21 @@
 #ifndef __SIPP_SIP_PARSER_H__
 #define __SIPP_SIP_PARSER_H__
 
+#include <optional>
+#include <string_view>
+
 #define MAX_HEADER_LEN 2049
 
-char *get_call_id(const char* msg);
-char *get_peer_tag(const char* msg);
+/* These return views into the message they read */
+std::string_view get_call_id(const char *msg);
+/* The tag of the To header; none when it has no tag parameter */
+std::optional<std::string_view> get_peer_tag(const char *msg);
 
-int get_method(char *msg);
 unsigned long int get_cseq_value(const char* msg);
 unsigned long get_reply_code(const char* msg);
 
 char *get_header_content(const char* message, const char* name);
 char *get_header(const char* message, const char* name, bool content);
-char *get_first_line(const char* message);
+std::string_view get_first_line(const char *message);
 
 #endif /* __SIPP_SIP_PARSER_H__ */
