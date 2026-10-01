@@ -372,15 +372,18 @@ unsigned int call::wake()
 
 /* Is the media type of a Content-Type application/sdp? Its case does not
  * matter, nor its blanks, and parameters (";charset=utf-8") may follow. */
-static bool is_sdp_content_type(const char *ct)
+static bool is_sdp_content_type(std::string_view ct)
 {
     const char *sdp = "application/sdp";
 
-    for (; *ct && *ct != ';'; ct++) {
-        if (*ct == ' ' || *ct == '\t' || *ct == '\r' || *ct == '\n') {
+    for (const char c : ct) {
+        if (c == ';') {
+            break;
+        }
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
             continue;
         }
-        if (!*sdp || tolower((unsigned char)*ct) != *sdp) {
+        if (!*sdp || tolower((unsigned char)c) != *sdp) {
             return false;
         }
         sdp++;
@@ -1006,8 +1009,7 @@ int call::extract_srtp_remote_info(const char * msg, SrtpInfoParams &pA, SrtpInf
 /* Whether two messages have the same CSeq, number and method. */
 static bool same_cseq(const char* a, const char* b)
 {
-    std::string cseq = get_header_content(a, "CSeq:");
-    return cseq == get_header_content(b, "CSeq:");
+    return get_header_content(a, "CSeq:").view() == get_header_content(b, "CSeq:").view();
 }
 
 /* Free the text s holds, whose buffer clear() would keep */
@@ -1049,23 +1051,17 @@ unsigned long call::hash(const char * msg)
     } else if (rtcheck == RTCHECK_LOOSE) {
         /* Based on section 11.5 (bullet 2) of RFC2543 we only take into account
          * the To, From, Call-ID, and CSeq values. */
-        const char *hdr = get_header_content(msg, "To:");
-        while ((c = *hdr++))
-            hash = c + (hash << 6) + (hash << 16) - hash;
-        hdr = get_header_content(msg, "From:");
-        while ((c = *hdr++))
-            hash = c + (hash << 6) + (hash << 16) - hash;
-        hdr = get_header_content(msg, "Call-ID:");
-        while ((c = *hdr++))
-            hash = c + (hash << 6) + (hash << 16) - hash;
-        hdr = get_header_content(msg, "CSeq:");
-        while ((c = *hdr++))
-            hash = c + (hash << 6) + (hash << 16) - hash;
+        for (const char *name : {"To:", "From:", "Call-ID:", "CSeq:"}) {
+            const header_value value = get_header_content(msg, name);
+            for (const char v : value.view()) {
+                hash = v + (hash << 6) + (hash << 16) - hash;
+            }
+        }
         /* For responses, we should also consider the code and body (if any),
          * because they are not nearly as well defined as the request retransmission. */
         if (!strncmp(msg, "SIP/2.0", strlen("SIP/2.0"))) {
             /* Add the first line into the hash. */
-            hdr = msg + strlen("SIP/2.0");
+            const char *hdr = msg + strlen("SIP/2.0");
             while ((c = *hdr++) && (c != '\r'))
                 hash = c + (hash << 6) + (hash << 16) - hash;
             /* Add the body (if any) into the hash. */
@@ -1802,60 +1798,35 @@ void call::sendBuffer(char * msg, int len)
     }
 }
 
-char * call::get_header_field_code(const char *msg, const char * name)
+/* The header of name, "From" or "From:", of the last message received, or
+ * nothing when none was */
+header_value call::get_last_header(std::string_view name)
 {
-    static char code[MAX_HEADER_LEN];
-    const char * last_header;
-    int i;
-
-    last_header = nullptr;
-    i = 0;
-    /* If we find the field in msg */
-    last_header = get_header_content(msg, name);
-    if(last_header) {
-        /* Extract the integer value of the field */
-        while(isspace(*last_header)) last_header++;
-        sscanf(last_header, "%d", &i);
-        sprintf(code, "%s %d", name, i);
-    }
-    return code;
-}
-
-char * call::get_last_header(const char * name)
-{
-    int len;
-
     if (last_recv_msg.empty()) {
-        return nullptr;
+        return header_value();
     }
-
-    len = strlen(name);
 
     /* Ideally this check should be moved to the XML parser so that it is not
      * along a critical path.  We could also handle lowercasing there. */
-    if (len > MAX_HEADER_LEN) {
-        ERROR("call::get_last_header: Header to parse bigger than %d (%zu)", MAX_HEADER_LEN, strlen(name));
+    if (name.size() > MAX_HEADER_LEN) {
+        ERROR("call::get_last_header: Header to parse bigger than %d (%zu)", MAX_HEADER_LEN, name.size());
     }
 
-    if (name[len - 1] == ':') {
+    if (!name.empty() && name.back() == ':') {
         return get_header(last_recv_msg.c_str(), name, false);
-    } else {
-        char with_colon[MAX_HEADER_LEN+2];
-        snprintf(with_colon, MAX_HEADER_LEN+2, "%s:", name);
-        return get_header(last_recv_msg.c_str(), with_colon, false);
     }
+    char with_colon[MAX_HEADER_LEN + 1];
+    memcpy(with_colon, name.data(), name.size());
+    with_colon[name.size()] = ':';
+    return get_header(last_recv_msg.c_str(), std::string_view(with_colon, name.size() + 1), false);
 }
 
 /* Return the last request URI from the To header. On any error returns the
  * empty string. */
 std::string call::get_last_request_uri()
 {
-    char * last_To = get_last_header("To:");
-    if (!last_To) {
-        return "";
-    }
-
-    const std::string_view to(last_To);
+    const header_value last_To = get_last_header("To:");
+    const std::string_view to = last_To.view();
     const size_t begin = to.find('<');
     const size_t end = to.find('>', begin);
     if (begin == std::string_view::npos || end == std::string_view::npos) {
@@ -4466,29 +4437,30 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
         case E_Message_Last_Header:
         case E_Message_Last_Header_Value: {
             /* "From" or "From:" (the name without the colon) */
-            std::string name = comp->literal;
+            std::string_view name = comp->literal;
             if (!name.empty() && name.back() == ':') {
-                name.pop_back();
+                name.remove_suffix(1);
             }
             const bool value_only = comp->type == E_Message_Last_Header_Value;
             const char *other = nullptr;
-            if (bye_after_peer_request && !strcasecmp(name.c_str(), "From")) {
+            if (bye_after_peer_request && name.size() == 4 && !strncasecmp(name.data(), "From", 4)) {
                 other = "To:";
-            } else if (bye_after_peer_request && !strcasecmp(name.c_str(), "To")) {
+            } else if (bye_after_peer_request && name.size() == 2 && !strncasecmp(name.data(), "To", 2)) {
                 other = "From:";
             }
             if (other) {
-                char *value = get_header_content(last_recv_msg.c_str(), other);
-                if (*value) {
-                    out += value_only ? value : name + ": " + value;
+                const header_value value = get_header_content(last_recv_msg.c_str(), other);
+                if (!value.empty()) {
+                    if (!value_only) {
+                        out += name;
+                        out += ": ";
+                    }
+                    out += value.view();
                 }
             } else if (value_only) {
-                out += get_header_content(last_recv_msg.c_str(), (name + ":").c_str());
+                out += get_header_content(last_recv_msg.c_str(), std::string(name) + ":").view();
             } else {
-                char *last_header = get_last_header(comp->literal.c_str());
-                if (last_header) {
-                    out += last_header;
-                }
+                out += get_last_header(comp->literal).view();
             }
             if (!out.empty() && out.back() == '\n') {
                 suppresscrlf = true;
@@ -4516,14 +4488,12 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
         case E_Message_Last_CSeq_Number: {
             int last_cseq = 0;
 
-            char *last_header = get_last_header("CSeq:");
+            const header_value last_header = get_last_header("CSeq:");
             if (bye_after_peer_request) {
                 last_cseq = cseq;
-            } else if (last_header && *last_header) {
-                last_header += 5;
+            } else if (!last_header.empty()) {
                 /* Extract the integer value of the field */
-                while(isspace(*last_header)) last_header++;
-                sscanf(last_header, "%d", &last_cseq);
+                last_cseq = header_number(last_header.view().substr(strlen("CSeq:")));
             }
             append_number(out, last_cseq + comp->offset);
             break;
@@ -4698,7 +4668,7 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
     /* An SDP is an offer or an answer, whether or not a [len] or an
      * [authentication] had its body found above */
     if (out.find("\r\n\r\n") != std::string::npos &&
-        is_sdp_content_type(get_header_content(out.c_str(), "Content-Type:"))) {
+        is_sdp_content_type(get_header_content(out.c_str(), "Content-Type:").view())) {
         if (getSessionStateCurrent() == eNoSession)
         {
             logSrtpInfo("call::createSendingMessage():  Switching session state:  eNoSession --> eOfferSent\n");
@@ -4896,39 +4866,37 @@ bool call::check_peer_src(char * msg, int search_index)
 void call::extract_cseq_method(char* method, size_t size, const char* msg)
 {
     /* The CSeq header, in any case, not "CSeq" elsewhere in the message */
-    const char *value = get_header_content(msg, "CSeq:");
+    const header_value cseq = get_header_content(msg, "CSeq:");
+    std::string_view value = cseq.view();
     /* Skip the CSeq number, and the blanks around it */
-    value += strspn(value, " \t\r\n");
-    value += strcspn(value, " \t\r\n");
-    value += strspn(value, " \t\r\n");
+    value.remove_prefix(std::min(value.find_first_not_of(" \t\r\n"), value.size()));
+    value.remove_prefix(std::min(value.find_first_of(" \t\r\n"), value.size()));
+    value.remove_prefix(std::min(value.find_first_not_of(" \t\r\n"), value.size()));
     /* A '\r' terminates the line, so we want to catch that too. */
-    size_t nbytes = strcspn(value, "\r\n");
+    size_t nbytes = std::min(value.find_first_of("\r\n"), value.size());
     if (nbytes >= size) {
         nbytes = size - 1;
     }
-    memcpy(method, value, nbytes);
+    memcpy(method, value.data(), nbytes);
     method[nbytes] = '\0';
 }
 
 /* The first branch in the Via headers of msg, cut to fit in size bytes */
 void call::extract_transaction(char *txn, size_t size, const char *msg)
 {
-    char *via = get_header_content(msg, "via:");
-    if (!via) {
-        txn[0] = '\0';
-        return;
-    }
-
-    char *branch = strstr(via, ";branch=");
-    if (!branch) {
+    const header_value via = get_header_content(msg, "via:");
+    const std::string_view text = via.view();
+    size_t branch = text.find(";branch=");
+    if (branch == std::string_view::npos) {
         txn[0] = '\0';
         return;
     }
 
     branch += strlen(";branch=");
     const char *end = txn + size - 1;
-    while (txn < end && *branch && *branch != ';' && *branch != ',' && !isspace(*branch)) {
-        *txn++ = *branch++;
+    while (txn < end && branch < text.size() && text[branch] != ';' && text[branch] != ',' &&
+           !isspace((unsigned char)text[branch])) {
+        *txn++ = text[branch++];
     }
     *txn = '\0';
 }
@@ -5347,7 +5315,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
     }
 
     /* Check that we have a To:-header */
-    if (!get_header(msg, "To:", false)[0] && !process_unexpected(msg)) {
+    if (get_header(msg, "To:", false).empty() && !process_unexpected(msg)) {
         return false;
     }
 
@@ -5430,12 +5398,11 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
      * (e.g. SIP messages carrying both SDP and PIDF-LO geolocation).
      * Its crypto lines and the offer/answer state are taken without
      * media too, for the crypto keywords of the next SDP. */
-    const char* ct_hdr = get_header_content(msg, "Content-Type:");
-    bool has_sdp_content =
-        is_sdp_content_type(ct_hdr) || (strstr(ct_hdr, "multipart/") && strstr(msg, "application/sdp"));
-    if (has_sdp_content && !sdp_read && !curmsg->ignoresdp)
-    {
-        const char* ptr = 0;
+    const header_value content_type = get_header_content(msg, "Content-Type:");
+    const std::string_view ct_hdr = content_type.view();
+    bool has_sdp_content = is_sdp_content_type(ct_hdr) ||
+                           (ct_hdr.find("multipart/") != std::string_view::npos && strstr(msg, "application/sdp"));
+    if (has_sdp_content && !sdp_read && !curmsg->ignoresdp) {
         int audio_port = 0;
         int video_port = 0;
         std::string audio_host;
@@ -5444,10 +5411,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
         bool audio_answer = false;
         bool video_answer = false;
 
-        ptr = get_header_content(msg, "Content-Length:");
-
-        if (ptr && atoll(ptr) > 0)
-        {
+        if (header_number(get_header_content(msg, "Content-Length:").view()) > 0) {
             if (getSessionStateCurrent() == eNoSession)
             {
                 logSrtpInfo("call::process_incoming():  Switching session state:  eNoSession --> eOfferReceived\n");
@@ -6391,12 +6355,9 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
         cold().next_req_url.clear();
 
         /* cache the route set and the contact */
-        char rr[MAX_HEADER_LEN], contact[MAX_HEADER_LEN];
-        rr[0] = contact[0] = '\0';
-        /* yuck, get_header_content returns a static buffer :( */
-        strncat(rr, get_header_content(msg, "Record-Route:"), MAX_HEADER_LEN - 1);
-        strncat(contact, get_header_content(msg, "Contact:"), MAX_HEADER_LEN - 1);
-        computeRouteSetAndRemoteTargetUri(rr, contact, !reply_code);
+        const std::string rr(get_header_content(msg, "Record-Route:").view().substr(0, MAX_HEADER_LEN - 1));
+        const std::string contact(get_header_content(msg, "Contact:").view().substr(0, MAX_HEADER_LEN - 1));
+        computeRouteSetAndRemoteTargetUri(rr.c_str(), contact.c_str(), !reply_code);
         // WARNING("next_req_url is [%s]", next_req_url);
     }
 
@@ -6405,7 +6366,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
             (reply_code == 401 || reply_code == 407)) {
 
         /* is a challenge */
-        std::string auth = get_header_content(msg, "Proxy-Authenticate:");
+        header_value auth = get_header_content(msg, "Proxy-Authenticate:");
         if (auth.empty()) {
             auth = get_header_content(msg, "WWW-Authenticate:");
         }
@@ -6413,7 +6374,7 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
             ERROR("Couldn't find 'Proxy-Authenticate' or 'WWW-Authenticate' in 401 or 407!");
         }
         call_cold &c = cold();
-        c.dialog_authentication = selectAuthChallenge(auth);
+        c.dialog_authentication = selectAuthChallenge(auth.view());
 
         /* Store the code of the challenge for building the proper header */
         c.dialog_challenge_type = reply_code;
@@ -6916,8 +6877,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             } else if (lf < end) {
                 result = false;
             } else {
-                // a copy: a later get_header() call clears its content
-                const std::string auth = get_header(msg, "Authorization:", true);
+                const header_value auth = get_header(msg, "Authorization:", true);
                 const std::string method(msg, end - msg);
 
                 /* Generate the username to verify it against. */
@@ -6935,7 +6895,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                     auth_body = "";
                 }
 
-                result = verifyAuthHeader(username.c_str(), password.c_str(), method.c_str(), auth.c_str(), auth_body);
+                result = verifyAuthHeader(username.c_str(), password.c_str(), method.c_str(), auth.view(), auth_body);
             }
 
             M_callVariableTable->getVar(currentAction->getVarId())->setBool(result);

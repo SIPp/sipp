@@ -455,8 +455,7 @@ protected:
     char * send_scene(int index, int *send_status, int *msgLen);
     bool   connect_socket_if_needed();
 
-    char * get_header_field_code(const char * msg, const char * code);
-    char * get_last_header(const char * name);
+    header_value get_last_header(std::string_view name);
     std::string get_last_request_uri();
     unsigned long hash(const char * msg);
 
