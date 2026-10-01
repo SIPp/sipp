@@ -1,0 +1,12 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -rxrn, a misspelt -rxsn that never worked, is no longer in the help,
+# and is an invalid argument rather than an internal error.
+. "`dirname "$0"`/../functions"; init
+
+out=`sippfg -rxrn uas 2>&1`
+case $out in
+    *"   -rxrn"*) fail "the help lists -rxrn" ;;
+    *"Available options"*"Invalid argument: '-rxrn'."*) ok ;;
+    *) fail "`echo "$out" | tail -n 1`" ;;
+esac

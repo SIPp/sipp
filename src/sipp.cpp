@@ -567,11 +567,6 @@ struct sipp_option options_table[] = {
         "- '3pcc-A'   : A side.\n"
         "- '3pcc-B'   : B side.\n", SIPP_OPTION_SCENARIO, nullptr, 2
     },
-    {
-        "rxrn", "Use a default scenario (embedded in the sipp executable) for the second scenario - enabling a mixture of originating and terminating calls to be executed.\n"
-        "If this is included then the second scenario MUST be a server mode scenario, and the first scenario (specified in -sf / -sn) MUST be a client-mode scenario.\n"
-        "If both -snrx and -sfrx are omitted then only a single scenario is executed.\n", SIPP_OPTION_RX_SCENARIO, NULL, 2
-    },
 
     {"", "IP, port and protocol options:", SIPP_HELP_TEXT_HEADER, nullptr, 0},
         {
