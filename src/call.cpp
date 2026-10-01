@@ -2596,7 +2596,7 @@ const char *default_message_names[] = {
     "cancel",
     "200",
 };
-const char *default_message_strings[] = {
+std::string default_message_strings[] = {
     /* 3pcc_abort */
     "call-id: [call_id]\ninternal-cmd: abort_call\n\n",
     /* ack */
@@ -2650,8 +2650,7 @@ const char *default_message_strings[] = {
     "[last_Call-ID:]\n"
     "[last_CSeq:]\n"
     "Contact: <sip:[local_ip]:[local_port];transport=[transport]>\n"
-    "Content-Length: 0\n\n"
-};
+    "Content-Length: 0\n\n"};
 
 SendingMessage **default_messages;
 
@@ -2660,7 +2659,7 @@ void init_default_messages()
     int messages = sizeof(default_message_strings)/sizeof(default_message_strings[0]);
     default_messages = new SendingMessage* [messages];
     for (int i = 0; i < messages; i++) {
-        default_messages[i] = new SendingMessage(main_scenario, const_cast<char*>(default_message_strings[i]));
+        default_messages[i] = new SendingMessage(main_scenario, default_message_strings[i].c_str());
     }
 }
 
@@ -2687,12 +2686,12 @@ SendingMessage *get_default_message(const char *which)
     ERROR("Internal Error: Unknown default message: %s!", which);
 }
 
-void set_default_message(const char *which, char *msg)
+void set_default_message(const char *which, std::string msg)
 {
     int messages = sizeof(default_message_names)/sizeof(default_message_names[0]);
     for (int i = 0; i < messages; i++) {
         if (!strcmp(which, default_message_names[i])) {
-            default_message_strings[i] = msg;
+            default_message_strings[i] = std::move(msg);
             return;
         }
     }
@@ -8170,7 +8169,7 @@ TEST(create_sending_message, default_ack_with_oversized_peer_headers_is_bounded)
     mockcall test_call(false);
     test_call.set_last_recv_msg(received.c_str());
 
-    SendingMessage ack(main_scenario, default_message_strings[1], true);
+    SendingMessage ack(main_scenario, default_message_strings[1].c_str(), true);
     int len = -1;
     char *out = test_call.createSendingMessage(&ack, -1, &len);
 

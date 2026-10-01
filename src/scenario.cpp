@@ -786,8 +786,7 @@ scenario::scenario(char * filename, int deflt)
             if(!(ptr = xp_get_cdata())) {
                 ERROR("No CDATA in 'send' section of xml scenario file");
             }
-            /* Kept for the rest of the run */
-            set_default_message(id.c_str(), strdup(clean_cdata(ptr).c_str()));
+            set_default_message(id.c_str(), clean_cdata(ptr));
             /* XXX: This should really be per scenario. */
         } else if(!strcmp(elem, "label")) {
             std::string id = xp_get_string("id", "label");
