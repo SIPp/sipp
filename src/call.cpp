@@ -6411,10 +6411,8 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
         if (auth[0] == 0) {
             ERROR("Couldn't find 'Proxy-Authenticate' or 'WWW-Authenticate' in 401 or 407!");
         }
-        selectAuthChallenge(auth);
-
         call_cold &c = cold();
-        c.dialog_authentication = auth;
+        c.dialog_authentication = selectAuthChallenge(auth);
 
         /* Store the code of the challenge for building the proper header */
         c.dialog_challenge_type = reply_code;

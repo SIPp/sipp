@@ -29,8 +29,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <algorithm>
+#include <array>
 #include <random>
 #include <string>
+#include <string_view>
 #include "milenage.h"
 #include "screen.hpp"
 #include "logger.hpp"
@@ -45,6 +48,13 @@
 
 #define MAX_HEADER_LEN  2049
 #define HASH_HEX_MAX_SIZE (2 * EVP_MAX_MD_SIZE)
+
+/* The most characters used of a parameter's value, as the buffers it was
+ * read in held: a longer value is cut. */
+static constexpr size_t MAX_VALUE_LEN = MAX_HEADER_LEN - 1;
+static constexpr size_t MAX_ALGORITHM_LEN = 31; // in createAuthHeader()'s error
+static constexpr size_t MAX_QOP_LEN = 15;
+static constexpr size_t MAX_OPAQUE_LEN = 63;
 
 /* AKA */
 
@@ -83,26 +93,33 @@ SQN sqn_he= {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 /* end AKA */
 
+/* A hash in hex, of up to EVP_MAX_MD_SIZE bytes */
+struct HashHex {
+    std::array<char, HASH_HEX_MAX_SIZE> digits;
+    size_t size = 0;
 
-static bool createAuthHeaderDigest(
-    const EVP_MD* md, bool sess, const char* user, const char* password,
-    int password_len, const char* method, const char* uri,
-    const char* msgbody, const char* auth, const char* algo,
-    unsigned int nonce_count, std::string& result);
+    std::string_view view() const
+    {
+        return {digits.data(), size};
+    }
+};
 
-static bool createAuthHeaderAKAv1MD5(
-    const char* user, const char* OP, const char* AMF, const char* K,
-    const char* method, const char* uri, const char* msgbody,
-    const char* auth, const char* algo, unsigned int nonce_count,
-    std::string& result);
+static bool createAuthHeaderDigest(const EVP_MD *md, bool sess, std::string_view user, std::string_view password,
+                                   std::string_view method, std::string_view uri, std::string_view msgbody,
+                                   std::string_view auth, std::string_view algo, unsigned int nonce_count,
+                                   std::string &result);
+
+static bool createAuthHeaderAKAv1MD5(std::string_view user, const char *aka_OP, const char *aka_AMF, const char *aka_K,
+                                     std::string_view method, std::string_view uri, std::string_view msgbody,
+                                     std::string_view auth, std::string_view algo, unsigned int nonce_count,
+                                     std::string &result);
 
 /* This function is from RFC 2617 Section 5 */
 
-static void hashToHex(unsigned char* _b_raw, unsigned char* _h, unsigned short size)
+static void hashToHex(const unsigned char *_b, size_t size, char *_h)
 {
-    unsigned short i;
+    size_t i;
     unsigned char j;
-    unsigned char *_b = (unsigned char *) _b_raw;
 
     for (i = 0; i < size; i++) {
         j = (_b[i] >> 4) & 0xf;
@@ -118,34 +135,39 @@ static void hashToHex(unsigned char* _b_raw, unsigned char* _h, unsigned short s
             _h[i * 2 + 1] = (j + 'a' - 10);
         }
     };
-    _h[2 * size] = '\0';
 }
 
-static char *stristr(const char* s1, const char* s2)
+/* Whether s2 is in s1, in any case */
+static bool stristr(std::string_view s1, std::string_view s2)
 {
-    char *cp = (char*) s1;
-    char *p1, *p2, *endp;
-    char l, r;
-
-    endp = (char*)s1 + (strlen(s1) - strlen(s2)) ;
-    while (*cp && (cp <= endp)) {
-        p1 = cp;
-        p2 = (char*)s2;
-        while (*p1 && *p2) {
-            l = toupper(*p1);
-            r = toupper(*p2);
-            if (l != r) {
-                break;
-            }
-            p1++;
-            p2++;
+    for (size_t at = 0; at + s2.size() <= s1.size(); at++) {
+        size_t i = 0;
+        while (i < s2.size() && toupper(s1[at + i]) == toupper(s2[i])) {
+            i++;
         }
-        if (*p2 == 0) {
-            return cp;
+        if (i == s2.size()) {
+            return true;
         }
-        cp++;
     }
-    return 0;
+    return false;
+}
+
+/* Whether s1 and s2 are the same, in any case */
+static bool equalNoCase(std::string_view s1, std::string_view s2)
+{
+    return s1.size() == s2.size() && !strncasecmp(s1.data(), s2.data(), s1.size());
+}
+
+/* Where in s, at or past at, the first character not in set is, as
+ * strspn(); and the first in it, as strcspn(): s.size() if none */
+static size_t span(std::string_view s, size_t at, std::string_view set)
+{
+    return std::min(s.find_first_not_of(set, at), s.size());
+}
+
+static size_t cspan(std::string_view s, size_t at, std::string_view set)
+{
+    return std::min(s.find_first_of(set, at), s.size());
 }
 
 static const EVP_MD* sha512_256()
@@ -174,27 +196,27 @@ static const struct DigestAlgorithm {
     {"SHA-512-256-sess", sha512_256, true},
 };
 
-static const DigestAlgorithm* digestAlgorithm(const char* algo)
+static const DigestAlgorithm *digestAlgorithm(std::string_view algo)
 {
     for (const DigestAlgorithm& a : digestAlgorithms) {
-        if (!strcasecmp(algo, a.name)) {
+        if (equalNoCase(algo, a.name)) {
             return &a;
         }
     }
     return nullptr;
 }
 
-bool createAuthHeader(
-    const char* user, const char* password, const char* method,
-    const char* uri, const char* msgbody, const char* auth,
-    const char* aka_OP, const char* aka_AMF, const char* aka_K,
-    unsigned int nonce_count, std::string& result)
+/* The value of parameter name in header, cut to max_len characters */
+static std::string_view getAuthParameter(std::string_view name, std::string_view header, size_t max_len)
 {
+    return getAuthParameter(name, header).substr(0, max_len);
+}
 
-    char algo[32] = "MD5";
-    char *start;
-
-    if ((start = stristr(auth, "Digest")) == nullptr) {
+bool createAuthHeader(std::string_view user, std::string_view password, const char *method, std::string_view uri,
+                      std::string_view msgbody, std::string_view auth, const char *aka_OP, const char *aka_AMF,
+                      const char *aka_K, unsigned int nonce_count, std::string &result)
+{
+    if (!stristr(auth, "Digest")) {
         result = "createAuthHeader: authentication must be digest";
         return false;
     }
@@ -204,12 +226,12 @@ bool createAuthHeader(
         return false;
     }
 
-    getAuthParameter("algorithm", auth, algo, sizeof(algo));
-    if (algo[0] == '\0') {
-        strcpy(algo, "MD5");
+    std::string_view algo = getAuthParameter("algorithm", auth, MAX_ALGORITHM_LEN);
+    if (algo.empty()) {
+        algo = "MD5";
     }
 
-    if (strcasecmp(algo, "AKAv1-MD5")==0) {
+    if (equalNoCase(algo, "AKAv1-MD5")) {
         if (!aka_K) {
             result = "createAuthHeader: AKAv1-MD5 authentication requires a key";
             return false;
@@ -217,179 +239,155 @@ bool createAuthHeader(
         return createAuthHeaderAKAv1MD5(
             user, aka_OP, aka_AMF, aka_K, method, uri, msgbody, auth,
             algo, nonce_count, result);
-    } else if (const DigestAlgorithm* a = digestAlgorithm(algo)) {
+    } else if (const DigestAlgorithm *a = digestAlgorithm(algo)) {
         if (!a->md()) {
             result = std::string("createAuthHeader: ") + a->name + " is not supported by the SSL library SIPp is built with";
             return false;
         }
-        return createAuthHeaderDigest(
-            a->md(), a->sess, user, password, strlen(password), method,
-            uri, msgbody, auth, algo, nonce_count, result);
+        return createAuthHeaderDigest(a->md(), a->sess, user, password, method, uri, msgbody, auth, algo, nonce_count,
+                                      result);
     } else {
-        result = std::string("createAuthHeader: authentication must use MD5, MD5-sess, SHA-256, SHA-256-sess, SHA-512-256, SHA-512-256-sess or AKAv1-MD5, not '") + algo + "'";
+        result = "createAuthHeader: authentication must use MD5, MD5-sess, SHA-256, SHA-256-sess, SHA-512-256, "
+                 "SHA-512-256-sess or AKAv1-MD5, not '";
+        result += algo;
+        result += "'";
         return false;
     }
-
-
 }
 
 
-/* Where the value of parameter name starts in header, or nullptr: the
+/* Where the value of parameter name starts in header, or npos: the
  * name must begin the header or follow a ',' or a space, outside a
  * quoted string, and have an '=' after it, with spaces around allowed.
  * So "nonce" isn't found in "cnonce", nor in realm="a, nonce=b". */
-static const char* findAuthParameter(const char* name, const char* header)
+static size_t findAuthParameter(std::string_view name, std::string_view header)
 {
-    size_t n = strlen(name);
+    const size_t n = name.size();
     bool quoted = false;
-    const char* p = header;
+    size_t p = 0;
 
-    while (*p) {
-        if (quoted && *p == '\\' && p[1]) {
-            p += 2;  // an escaped character
+    while (p < header.size()) {
+        if (quoted && header[p] == '\\' && p + 1 < header.size()) {
+            p += 2; // an escaped character
             continue;
         }
-        if (*p == '"') {
+        if (header[p] == '"') {
             quoted = !quoted;
-        } else if (!quoted && (p == header || p[-1] == ',' || isspace(p[-1])) &&
-                   !strncasecmp(p, name, n)) {
-            const char* eq = p + n + strspn(p + n, " \t\r\n");
-            if (*eq == '=') {
-                return eq + 1 + strspn(eq + 1, " \t\r\n");
+        } else if (!quoted && (p == 0 || header[p - 1] == ',' || isspace(header[p - 1])) && header.size() - p >= n &&
+                   !strncasecmp(header.data() + p, name.data(), n)) {
+            const size_t eq = span(header, p + n, " \t\r\n");
+            if (eq < header.size() && header[eq] == '=') {
+                return span(header, eq + 1, " \t\r\n");
             }
         }
         p++;
     }
-    return nullptr;
+    return std::string_view::npos;
 }
 
-int getAuthParameter(const char *name, const char *header, char *result, int len)
+std::string_view getAuthParameter(std::string_view name, std::string_view header)
 {
-    const char *start = findAuthParameter(name, header);
-    const char *end;
+    size_t start = findAuthParameter(name, header);
+    size_t end;
 
-    if (!start) {
-        result[0] = '\0';
-        return 0;
+    if (start == std::string_view::npos) {
+        return {};
     }
-    if (*start == '"') {
+    if (start < header.size() && header[start] == '"') {
         start++;
-        end = start;
-        while (*end != '"' && *end) {
-            end++;
-        }
+        end = cspan(header, start, "\"");
     } else {
-        end = start + strcspn(start, " ,\"\r\n");
+        end = cspan(header, start, " ,\"\r\n");
     }
 
-    if (end - start >= len) {
-        strncpy(result, start, len - 1);
-        result[len - 1] = '\0';
-    } else {
-        strncpy(result, start, end - start);
-        result[end - start] = '\0';
-    }
-
-    return end - start;
+    return header.substr(start, end - start);
 }
 
 /* The challenge after the one at p: past a comma, outside quotes, a
  * token followed by spaces, then by neither '=' nor ',', is the next
  * one's scheme. So the auth-int of a bare qop=auth,auth-int is not. */
-static char* nextChallenge(char* p)
+static size_t nextChallenge(std::string_view auth, size_t p)
 {
     bool quoted = false;
 
-    while (*p) {
-        if (quoted && *p == '\\' && p[1]) {
-            p += 2;  // an escaped character
+    while (p < auth.size()) {
+        if (quoted && auth[p] == '\\' && p + 1 < auth.size()) {
+            p += 2; // an escaped character
             continue;
         }
-        if (*p == '"') {
+        if (auth[p] == '"') {
             quoted = !quoted;
-        } else if (*p == ',' && !quoted) {
-            char* start = p + 1 + strspn(p + 1, " \t\r\n");
-            char* end = start + strcspn(start, " \t\r\n=,");
-            char* after = end + strspn(end, " \t\r\n");
-            if (end > start && after > end && *after && *after != '=' &&
-                    *after != ',') {
+        } else if (auth[p] == ',' && !quoted) {
+            const size_t start = span(auth, p + 1, " \t\r\n");
+            const size_t end = cspan(auth, start, " \t\r\n=,");
+            const size_t after = span(auth, end, " \t\r\n");
+            if (end > start && after > end && after < auth.size() && auth[after] != '=' && auth[after] != ',') {
                 return start;
             }
         }
         p++;
     }
-    return nullptr;
+    return std::string_view::npos;
 }
 
-/* Keep, of the challenges in auth (headers joined by ", "), the first
- * that createAuthHeader() can answer; all of them if none. */
-void selectAuthChallenge(char* auth)
+std::string_view selectAuthChallenge(std::string_view auth)
 {
-    char* start = auth + strspn(auth, " \t");
+    size_t start = span(auth, 0, " \t");
 
-    while (start) {
-        char* next = nextChallenge(start);
-        size_t len = next ? next - start : strlen(start);
+    while (start != std::string_view::npos) {
+        const size_t next = nextChallenge(auth, start);
+        const std::string_view challenge = auth.substr(start, next - start);
 
-        if (!strncasecmp(start, "Digest", 6) && isspace(start[6])) {
-            std::string challenge(start, len);
-            char algo[32], qop[16];
+        if (auth.size() - start > 6 && !strncasecmp(challenge.data(), "Digest", 6) && isspace(auth[start + 6])) {
+            const std::string_view algo = getAuthParameter("algorithm", challenge);
             const DigestAlgorithm* a;
 
-            getAuthParameter("algorithm", challenge.c_str(), algo, sizeof(algo));
             // A -sess one has no cnonce to answer with without a qop
-            if (!algo[0] || !strcasecmp(algo, "AKAv1-MD5") ||
-                    ((a = digestAlgorithm(algo)) && a->md() &&
-                     (!a->sess || getAuthParameter("qop", challenge.c_str(), qop, sizeof(qop))))) {
-                while (len && strchr(" \t\r\n,", start[len - 1])) {
-                    len--;
-                }
-                memmove(auth, start, len);
-                auth[len] = '\0';
-                return;
+            if (algo.empty() || equalNoCase(algo, "AKAv1-MD5") ||
+                ((a = digestAlgorithm(algo)) && a->md() && (!a->sess || !getAuthParameter("qop", challenge).empty()))) {
+                return challenge.substr(0, challenge.find_last_not_of(" \t\r\n,") + 1);
             }
         }
         start = next;
     }
+    return auth;
 }
 
-static void digestString(EVP_MD_CTX* mdctx, const char* s)
+static void digestString(EVP_MD_CTX *mdctx, std::string_view s)
 {
-    EVP_DigestUpdate(mdctx, s, strlen(s));
+    EVP_DigestUpdate(mdctx, s.data(), s.size());
 }
 
 /* Ends the hash in mdctx, and writes it in hex: its length, 0 if the
  * SSL library failed it */
-static size_t digestFinalHex(EVP_MD_CTX* mdctx, unsigned char* hex)
+static size_t digestFinalHex(EVP_MD_CTX *mdctx, HashHex &hex)
 {
-    unsigned char hash[EVP_MAX_MD_SIZE];
+    std::array<unsigned char, EVP_MAX_MD_SIZE> hash;
     unsigned int len = 0;
 
-    if (!EVP_DigestFinal_ex(mdctx, hash, &len)) {
+    if (!EVP_DigestFinal_ex(mdctx, hash.data(), &len)) {
         len = 0;
     }
-    hashToHex(hash, hex, len);
-    return 2 * len;
+    hashToHex(hash.data(), len, hex.digits.data());
+    hex.size = 2 * len;
+    return hex.size;
 }
 
 /* The response, in hex, to a Digest challenge by the hash md, of a
  * -sess algorithm if sess: false, and none, if the SSL library can't
  * compute it (MD5 in FIPS mode) */
-static bool createAuthResponse(
-    const EVP_MD* md, bool sess, const char* user, const char* password,
-    int password_len, const char* method, const char* uri,
-    const char* authtype, const char* msgbody, const char* realm,
-    const char* nonce, const char* cnonce, const char* nc,
-    unsigned char* result)
+static bool createAuthResponse(const EVP_MD *md, bool sess, std::string_view user, std::string_view password,
+                               std::string_view method, std::string_view uri, std::string_view authtype,
+                               std::string_view msgbody, std::string_view realm, std::string_view nonce,
+                               std::string_view cnonce, std::string_view nc, HashHex &result)
 {
-    unsigned char body_hex[HASH_HEX_MAX_SIZE + 1];
-    unsigned char ha1_hex[HASH_HEX_MAX_SIZE + 1], ha2_hex[HASH_HEX_MAX_SIZE + 1];
+    HashHex body_hex, ha1_hex, ha2_hex;
     size_t hex_len;
-    char tmp[MAX_HEADER_LEN];
+    const bool auth_int = stristr(authtype, "auth-int");
     bool ok = false;
     EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
 
-    result[0] = '\0';
+    result.size = 0;
     // Load in A1
     if (!mdctx || !EVP_DigestInit_ex(mdctx, md, nullptr)) {
         goto end;
@@ -398,7 +396,7 @@ static bool createAuthResponse(
     digestString(mdctx, ":");
     digestString(mdctx, realm);
     digestString(mdctx, ":");
-    EVP_DigestUpdate(mdctx, password, password_len);
+    digestString(mdctx, password);
     if (!(hex_len = digestFinalHex(mdctx, ha1_hex))) {
         goto end;
     }
@@ -406,7 +404,7 @@ static bool createAuthResponse(
         if (!EVP_DigestInit_ex(mdctx, md, nullptr)) {
             goto end;
         }
-        EVP_DigestUpdate(mdctx, ha1_hex, hex_len);
+        digestString(mdctx, ha1_hex.view());
         digestString(mdctx, ":");
         digestString(mdctx, nonce);
         digestString(mdctx, ":");
@@ -416,13 +414,8 @@ static bool createAuthResponse(
         }
     }
 
-    if (auth_uri) {
-        snprintf(tmp, sizeof(tmp), "sip:%s", auth_uri);
-    } else {
-        snprintf(tmp, sizeof(tmp), "%s", uri);
-    }
     // If using Auth-Int make a hash of the body - which is NULL for REG
-    if (stristr(authtype, "auth-int") != nullptr) {
+    if (auth_int) {
         if (!EVP_DigestInit_ex(mdctx, md, nullptr)) {
             goto end;
         }
@@ -438,19 +431,24 @@ static bool createAuthResponse(
     }
     digestString(mdctx, method);
     digestString(mdctx, ":");
-    digestString(mdctx, tmp);
-    if (stristr(authtype, "auth-int") != nullptr) {
+    if (auth_uri) {
+        digestString(mdctx, "sip:");
+        digestString(mdctx, std::string_view(auth_uri).substr(0, MAX_VALUE_LEN - 4));
+    } else {
+        digestString(mdctx, uri.substr(0, MAX_VALUE_LEN));
+    }
+    if (auth_int) {
         digestString(mdctx, ":");
-        EVP_DigestUpdate(mdctx, body_hex, hex_len);
+        digestString(mdctx, body_hex.view());
     }
     if (digestFinalHex(mdctx, ha2_hex) != hex_len ||
             !EVP_DigestInit_ex(mdctx, md, nullptr)) {
         goto end;
     }
-    EVP_DigestUpdate(mdctx, ha1_hex, hex_len);
+    digestString(mdctx, ha1_hex.view());
     digestString(mdctx, ":");
     digestString(mdctx, nonce);
-    if (cnonce[0] != '\0') {
+    if (!cnonce.empty()) {
         digestString(mdctx, ":");
         digestString(mdctx, nc);
         digestString(mdctx, ":");
@@ -459,71 +457,76 @@ static bool createAuthResponse(
         digestString(mdctx, authtype);
     }
     digestString(mdctx, ":");
-    EVP_DigestUpdate(mdctx, ha2_hex, hex_len);
+    digestString(mdctx, ha2_hex.view());
     ok = digestFinalHex(mdctx, result) == hex_len;
 end:
     EVP_MD_CTX_free(mdctx);
     return ok;
 }
 
-static bool createAuthHeaderDigest(
-    const EVP_MD* md, bool sess, const char* user, const char* password,
-    int password_len, const char* method, const char* uri,
-    const char* msgbody, const char* auth, const char* algo,
-    unsigned int nonce_count, std::string& result)
+static bool createAuthHeaderDigest(const EVP_MD *md, bool sess, std::string_view user, std::string_view password,
+                                   std::string_view method, std::string_view uri, std::string_view msgbody,
+                                   std::string_view auth, std::string_view algo, unsigned int nonce_count,
+                                   std::string &result)
 {
-
-    unsigned char resp_hex[HASH_HEX_MAX_SIZE + 1];
-    char realm[MAX_HEADER_LEN],
-        sipuri[MAX_HEADER_LEN],
-        nonce[MAX_HEADER_LEN],
-        authtype[16],
-        cnonce[32],
-        nc[32],
-        opaque[64];
-    int has_opaque = 0;
+    HashHex resp_hex;
+    std::array<char, 17> cnonce_digits;
+    std::array<char, 9> nc_digits;
+    std::string_view cnonce, nc;
 
     // Extract the Auth Type - If not present, using 'none'
-    cnonce[0] = '\0';
-    if (getAuthParameter("qop", auth, authtype, sizeof(authtype))) {
+    std::string_view authtype = getAuthParameter("qop", auth, MAX_QOP_LEN);
+    if (!authtype.empty()) {
         // Sloppy auth type recognition (may be "auth,auth-int")
         if (stristr(authtype, "auth-int")) {
-            strncpy(authtype, "auth-int", sizeof(authtype) - 1);
+            authtype = "auth-int";
         } else if (stristr(authtype, "auth")) {
-            strncpy(authtype, "auth", sizeof(authtype) - 1);
+            authtype = "auth";
         }
         /* Unpredictable, against a server choosing the plaintext */
         std::random_device rd;
-        snprintf(cnonce, sizeof(cnonce), "%08x%08x", rd(), rd());
-        sprintf(nc, "%08x", nonce_count);
+        snprintf(cnonce_digits.data(), cnonce_digits.size(), "%08x%08x", rd(), rd());
+        cnonce = std::string_view(cnonce_digits.data(), cnonce_digits.size() - 1);
+        snprintf(nc_digits.data(), nc_digits.size(), "%08x", nonce_count);
+        nc = std::string_view(nc_digits.data(), nc_digits.size() - 1);
     }
 
-    if (sess && !cnonce[0]) {
-        result = std::string("createAuthHeader: ") + algo + " needs a qop in the challenge, for a cnonce";
+    if (sess && cnonce.empty()) {
+        result = "createAuthHeader: ";
+        result += algo;
+        result += " needs a qop in the challenge, for a cnonce";
         return false;
     }
 
     // Extract the Opaque value - if present
-    if (getAuthParameter("opaque", auth, opaque, sizeof(opaque))) {
-        has_opaque = 1;
-    }
+    const std::string_view opaque = getAuthParameter("opaque", auth, MAX_OPAQUE_LEN);
 
     // Extract the Realm
-    if (!getAuthParameter("realm", auth, realm, sizeof(realm))) {
-        result = std::string("createAuthHeader: couldn't parse realm in '") + auth + "'";
+    const std::string_view realm = getAuthParameter("realm", auth, MAX_VALUE_LEN);
+    if (realm.empty()) {
+        result = "createAuthHeader: couldn't parse realm in '";
+        result += auth;
+        result += "'";
         return false;
     }
 
-    result = std::string("Digest username=\"") + user + "\",realm=\"" + realm + "\"";
-
-    // Construct the URI
-    if (auth_uri == nullptr) {
-        snprintf(sipuri, sizeof(sipuri), "sip:%s", uri);
-    } else {
-        snprintf(sipuri, sizeof(sipuri), "sip:%s", auth_uri);
+    // Extract the Nonce
+    const std::string_view nonce = getAuthParameter("nonce", auth, MAX_VALUE_LEN);
+    if (nonce.empty()) {
+        result = "createAuthHeader: couldn't parse nonce";
+        return false;
     }
 
-    if (cnonce[0] != '\0') {
+    // Construct the URI
+    const std::string_view sipuri_rest = (auth_uri ? std::string_view(auth_uri) : uri).substr(0, MAX_VALUE_LEN - 4);
+
+    result.reserve(256 + user.size() + realm.size() + sipuri_rest.size() + nonce.size() + opaque.size());
+    result = "Digest username=\"";
+    result += user;
+    result += "\",realm=\"";
+    result += realm;
+    result += "\"";
+    if (!cnonce.empty()) {
         // No double quotes around nc and qop (RFC3261):
         //
         // dig-resp = username / realm / nonce / digest-uri / dresponse
@@ -536,88 +539,89 @@ static bool createAuthHeaderDigest(
         // digest-cln = realm / domain / nonce / opaque / stale / algorithm
         //                / qop-options / auth-param
         // qop-options = "qop" EQUAL LDQUOT qop-value *("," qop-value) RDQUOT
-        result += std::string(",cnonce=\"") + cnonce + "\",nc=" + nc + ",qop=" + authtype;
+        result += ",cnonce=\"";
+        result += cnonce;
+        result += "\",nc=";
+        result += nc;
+        result += ",qop=";
+        result += authtype;
     }
-    result += std::string(",uri=\"") + sipuri + "\"";
+    result += ",uri=\"";
+    const size_t sipuri_at = result.size();
+    result += "sip:";
+    result += sipuri_rest;
 
-    // Extract the Nonce
-    if (!getAuthParameter("nonce", auth, nonce, sizeof(nonce))) {
-        result = "createAuthHeader: couldn't parse nonce";
+    /* The URI as written in result, which nothing changes until the
+     * response is computed */
+    const std::string_view sipuri = std::string_view(result).substr(sipuri_at);
+    if (!createAuthResponse(md, sess, user, password, method, sipuri, authtype, msgbody, realm, nonce, cnonce, nc,
+                            resp_hex)) {
+        result = "createAuthHeader: the SSL library failed to compute the ";
+        result += algo;
+        result += " response";
         return false;
     }
 
-    if (!createAuthResponse(
-            md, sess, user, password, password_len, method, sipuri,
-            authtype, msgbody, realm, nonce, cnonce, nc, &resp_hex[0])) {
-        result = std::string("createAuthHeader: the SSL library failed to compute the ") + algo + " response";
-        return false;
-    }
-
-    result += std::string(",nonce=\"") + nonce + "\",response=\"" + (char*)resp_hex + "\",algorithm=" + algo;
-    if (has_opaque) {
-        result += std::string(",opaque=\"") + opaque + "\"";
+    result += "\",nonce=\"";
+    result += nonce;
+    result += "\",response=\"";
+    result += resp_hex.view();
+    result += "\",algorithm=";
+    result += algo;
+    if (!opaque.empty()) {
+        result += ",opaque=\"";
+        result += opaque;
+        result += "\"";
     }
 
     return true;
 }
 
-int verifyAuthHeader(const char *user, const char *password, const char *method, const char *auth, const char *msgbody)
+int verifyAuthHeader(std::string_view user, std::string_view password, std::string_view method, std::string_view auth,
+                     std::string_view msgbody)
 {
-    char algo[MAX_HEADER_LEN];
-    char realm[MAX_HEADER_LEN];
-    char nonce[MAX_HEADER_LEN];
-    char cnonce[MAX_HEADER_LEN];
-    char authtype[MAX_HEADER_LEN];
-    char nc[MAX_HEADER_LEN];
-    char uri[MAX_HEADER_LEN];
-    char *start;
-
-    if ((start = stristr(auth, "Digest")) == nullptr) {
-        WARNING("verifyAuthHeader: authentication must be digest is %s", auth);
+    if (!stristr(auth, "Digest")) {
+        WARNING("verifyAuthHeader: authentication must be digest is %.*s", (int)auth.size(), auth.data());
         return 0;
     }
 
-    getAuthParameter("algorithm", auth, algo, sizeof(algo));
-    if (algo[0] == '\0') {
-        strcpy(algo, "MD5");
+    std::string_view algo = getAuthParameter("algorithm", auth, MAX_VALUE_LEN);
+    if (algo.empty()) {
+        algo = "MD5";
     }
     const DigestAlgorithm* a = digestAlgorithm(algo);
     if (!a) {
-        WARNING("verifyAuthHeader: authentication must use MD5, MD5-sess, SHA-256, SHA-256-sess, SHA-512-256 or SHA-512-256-sess, value is '%s'", algo);
+        WARNING("verifyAuthHeader: authentication must use MD5, MD5-sess, SHA-256, SHA-256-sess, SHA-512-256 or "
+                "SHA-512-256-sess, value is '%.*s'",
+                (int)algo.size(), algo.data());
         return 0;
     }
     if (!a->md()) {
         WARNING("verifyAuthHeader: %s is not supported by the SSL library SIPp is built with", a->name);
         return 0;
     }
-    unsigned char result[HASH_HEX_MAX_SIZE + 1];
-    char response[HASH_HEX_MAX_SIZE + 1];
-    getAuthParameter("realm", auth, realm, sizeof(realm));
-    getAuthParameter("uri", auth, uri, sizeof(uri));
-    getAuthParameter("nonce", auth, nonce, sizeof(nonce));
-    getAuthParameter("cnonce", auth, cnonce, sizeof(cnonce));
-    getAuthParameter("nc", auth, nc, sizeof(nc));
-    getAuthParameter("qop", auth, authtype, sizeof(authtype));
-    if (a->sess && !*cnonce) {
+    HashHex result;
+    const std::string_view realm = getAuthParameter("realm", auth, MAX_VALUE_LEN);
+    const std::string_view uri = getAuthParameter("uri", auth, MAX_VALUE_LEN);
+    const std::string_view nonce = getAuthParameter("nonce", auth, MAX_VALUE_LEN);
+    const std::string_view cnonce = getAuthParameter("cnonce", auth, MAX_VALUE_LEN);
+    const std::string_view nc = getAuthParameter("nc", auth, MAX_VALUE_LEN);
+    const std::string_view authtype = getAuthParameter("qop", auth, MAX_VALUE_LEN);
+    if (a->sess && cnonce.empty()) {
         return 0;  // no HA1 without a cnonce
     }
-    if (!createAuthResponse(
-            a->md(), a->sess, user, password, strlen(password), method,
-            uri, authtype, msgbody, realm, nonce, cnonce, nc, result)) {
-        WARNING("verifyAuthHeader: the SSL library failed to compute the %s response", algo);
+    if (!createAuthResponse(a->md(), a->sess, user, password, method, uri, authtype, msgbody, realm, nonce, cnonce, nc,
+                            result)) {
+        WARNING("verifyAuthHeader: the SSL library failed to compute the %.*s response", (int)algo.size(), algo.data());
         return 0;
     }
-    getAuthParameter("response", auth, response, sizeof(response));
-    TRACE_CALLDEBUG("Processing verifyauth command - user %s, password %s, method %s, uri %s, realm %s, nonce %s, result expected %s, response from user %s\n",
-            user,
-            password,
-            method,
-            uri,
-            realm,
-            nonce,
-            (char*)result,
-            response);
-    return *response && !strcmp((char *)result, response);
+    const std::string_view response = getAuthParameter("response", auth, HASH_HEX_MAX_SIZE);
+    TRACE_CALLDEBUG("Processing verifyauth command - user %.*s, password %.*s, method %.*s, uri %.*s, realm %.*s, "
+                    "nonce %.*s, result expected %.*s, response from user %.*s\n",
+                    (int)user.size(), user.data(), (int)password.size(), password.data(), (int)method.size(),
+                    method.data(), (int)uri.size(), uri.data(), (int)realm.size(), realm.data(), (int)nonce.size(),
+                    nonce.data(), (int)result.size, result.digits.data(), (int)response.size(), response.data());
+    return !response.empty() && result.view() == response;
 }
 
 static char* base64_decode_string(const char* buf, unsigned int len, int* newlen)
@@ -670,16 +674,14 @@ static void getAKAKey(const char* text, u_char* key, size_t len)
     }
 }
 
-static bool createAuthHeaderAKAv1MD5(
-    const char* user, const char* aka_OP, const char* aka_AMF,
-    const char* aka_K, const char* method, const char* uri,
-    const char* msgbody, const char* auth, const char* algo,
-    unsigned int nonce_count, std::string& result)
+static bool createAuthHeaderAKAv1MD5(std::string_view user, const char *aka_OP, const char *aka_AMF, const char *aka_K,
+                                     std::string_view method, std::string_view uri, std::string_view msgbody,
+                                     std::string_view auth, std::string_view algo, unsigned int nonce_count,
+                                     std::string &result)
 {
 
-    char tmp[MAX_HEADER_LEN];
     int has_auts = 0;
-    char *nonce64, *nonce;
+    char *nonce;
     int noncelen;
     AMF amf;
     OP op;
@@ -696,14 +698,14 @@ static bool createAuthHeaderAKAv1MD5(
     int i;
 
     // Extract the Nonce
-    if (!getAuthParameter("nonce", auth, tmp, sizeof(tmp))) {
+    const std::string_view nonce64 = getAuthParameter("nonce", auth, MAX_VALUE_LEN);
+    if (nonce64.empty()) {
         result = "createAuthHeaderAKAv1MD5: couldn't parse nonce";
         return false;
     }
 
     /* Compute the AKA RES */
-    nonce64 = tmp;
-    nonce = base64_decode_string(nonce64, strlen(tmp), &noncelen);
+    nonce = base64_decode_string(nonce64.data(), nonce64.size(), &noncelen);
     if (noncelen < RANDLEN + AUTNLEN) {
         if (nonce)
             free(nonce);
@@ -745,9 +747,8 @@ static bool createAuthHeaderAKAv1MD5(
         sqn_he[5] = sqn[5];
         has_auts = 0;
         /* RES has to be used as password to compute response */
-        if (!createAuthHeaderDigest(
-                EVP_md5(), false, user, (const char *)res, RESLEN, method, uri,
-                msgbody, auth, algo, nonce_count, result)) {
+        if (!createAuthHeaderDigest(EVP_md5(), false, user, std::string_view((const char *)res, RESLEN), method, uri,
+                                    msgbody, auth, algo, nonce_count, result)) {
             free(nonce);
             result = "createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderDigest\n";
             return false;
@@ -763,9 +764,8 @@ static bool createAuthHeaderAKAv1MD5(
         has_auts = 1;
         /* When re-synchronisation occurs an empty password has to be used */
         /* to compute MD5 response (Cf. rfc 3310 section 3.2) */
-        if (!createAuthHeaderDigest(
-                EVP_md5(), false, user, "", 0, method, uri, msgbody, auth, algo,
-                nonce_count, result)) {
+        if (!createAuthHeaderDigest(EVP_md5(), false, user, "", method, uri, msgbody, auth, algo, nonce_count,
+                                    result)) {
             free(nonce);
             result = "createAuthHeaderAKAv1MD5 : Unexpected return value from createAuthHeaderDigest\n";
             return false;
@@ -790,37 +790,36 @@ static bool createAuthHeaderAKAv1MD5(
 #include "gtest/gtest.h"
 
 TEST(DigestAuth, nonce) {
-    char nonce[40];
-    getAuthParameter("nonce", " Authorization: Digest cnonce=\"c7e1249f\",nonce=\"a6ca2bf13de1433183f7c48781bd9304\"", nonce, sizeof(nonce));
-    EXPECT_STREQ("a6ca2bf13de1433183f7c48781bd9304", nonce);
-    getAuthParameter("nonce", " Authorization: Digest nonce=\"a6ca2bf13de1433183f7c48781bd9304\", cnonce=\"c7e1249f\"", nonce, sizeof(nonce));
-    EXPECT_STREQ("a6ca2bf13de1433183f7c48781bd9304", nonce);
+    EXPECT_EQ("a6ca2bf13de1433183f7c48781bd9304",
+              getAuthParameter(
+                  "nonce", " Authorization: Digest cnonce=\"c7e1249f\",nonce=\"a6ca2bf13de1433183f7c48781bd9304\""));
+    EXPECT_EQ("a6ca2bf13de1433183f7c48781bd9304",
+              getAuthParameter(
+                  "nonce", " Authorization: Digest nonce=\"a6ca2bf13de1433183f7c48781bd9304\", cnonce=\"c7e1249f\""));
 }
 
 TEST(DigestAuth, cnonce) {
-    char cnonce[10];
-    getAuthParameter("cnonce", " Authorization: Digest cnonce=\"c7e1249f\",nonce=\"a6ca2bf13de1433183f7c48781bd9304\"", cnonce, sizeof(cnonce));
-    EXPECT_STREQ("c7e1249f", cnonce);
-    getAuthParameter("cnonce", " Authorization: Digest nonce=\"a6ca2bf13de1433183f7c48781bd9304\", cnonce=\"c7e1249f\"", cnonce, sizeof(cnonce));
-    EXPECT_STREQ("c7e1249f", cnonce);
+    EXPECT_EQ("c7e1249f",
+              getAuthParameter(
+                  "cnonce", " Authorization: Digest cnonce=\"c7e1249f\",nonce=\"a6ca2bf13de1433183f7c48781bd9304\""));
+    EXPECT_EQ("c7e1249f",
+              getAuthParameter(
+                  "cnonce", " Authorization: Digest nonce=\"a6ca2bf13de1433183f7c48781bd9304\", cnonce=\"c7e1249f\""));
 }
 
 TEST(DigestAuth, MissingParameter) {
-    char cnonce[10];
-    getAuthParameter("cnonce", " Authorization: Digest nonce=\"a6ca2bf13de1433183f7c48781bd9304\"", cnonce, sizeof(cnonce));
-    EXPECT_EQ('\0', cnonce[0]);
+    EXPECT_EQ("", getAuthParameter("cnonce", " Authorization: Digest nonce=\"a6ca2bf13de1433183f7c48781bd9304\""));
 }
 
 TEST(DigestAuth, BasicVerification) {
-    char* header = strdup(("Digest \r\n"
-                           " realm=\"testrealm@host.com\",\r\n"
-                           " nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\"\r\n,"
-                           " opaque=\"5ccc069c403ebaf9f0171e9517f40e41\""));
+    const char *header = "Digest \r\n"
+                         " realm=\"testrealm@host.com\",\r\n"
+                         " nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\"\r\n,"
+                         " opaque=\"5ccc069c403ebaf9f0171e9517f40e41\"";
     std::string result;
     createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, nullptr, nullptr, nullptr, 1, result);
     EXPECT_EQ("Digest username=\"testuser\",realm=\"testrealm@host.com\",uri=\"sip:sip:example.com\",nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\",response=\"db94e01e92f2b09a52a234eeca8b90f7\",algorithm=MD5,opaque=\"5ccc069c403ebaf9f0171e9517f40e41\"", result);
-    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result.c_str(), "hello world"));
-    free(header);
+    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
 }
 
 TEST(DigestAuth, LongChallenge) {
@@ -828,31 +827,30 @@ TEST(DigestAuth, LongChallenge) {
     const std::string realm(MAX_HEADER_LEN - 100, 'r'), nonce(MAX_HEADER_LEN - 100, 'n');
     const std::string header = "Digest realm=\"" + realm + "\", nonce=\"" + nonce + "\"";
     std::string result;
-    ASSERT_TRUE(createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "", header.c_str(),
-                                 nullptr, nullptr, nullptr, 1, result)) << result;
+    ASSERT_TRUE(createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "", header, nullptr, nullptr,
+                                 nullptr, 1, result))
+        << result;
     EXPECT_NE(std::string::npos, result.find(",realm=\"" + realm + "\","));
     EXPECT_NE(std::string::npos, result.find(",nonce=\"" + nonce + "\","));
-    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result.c_str(), ""));
+    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, ""));
 }
 
 TEST(DigestAuth, BasicVerificationSHA256) {
-    char* header = strdup(("Digest \r\n"
-                           " realm=\"testrealm@host.com\",\r\n"
-                           " nonce=\"ZaGxV2WhsCtREI2EsiD1LR0RYd\"\r\n,"
-                           " algorithm=SHA-256"));
+    const char *header = "Digest \r\n"
+                         " realm=\"testrealm@host.com\",\r\n"
+                         " nonce=\"ZaGxV2WhsCtREI2EsiD1LR0RYd\"\r\n,"
+                         " algorithm=SHA-256";
     std::string result;
     createAuthHeader("testuser", "secret", "REGISTER", "sip:example.com", "hello world", header, nullptr, nullptr, nullptr, 1, result);
     EXPECT_EQ("Digest username=\"testuser\",realm=\"testrealm@host.com\",uri=\"sip:sip:example.com\",nonce=\"ZaGxV2WhsCtREI2EsiD1LR0RYd\",response=\"91b58523b983191b52d14455a2599631990110c974ed2e4b4b49bc6053af04ce\",algorithm=SHA-256", result);
-    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result.c_str(), "hello world"));
-    free(header);
+    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
 }
 
 TEST(DigestAuth, MissingResponse) {
     /* Not the response of any password, were none computed */
     const char* header = "Digest username=\"testuser\",realm=\"r\",uri=\"sip:x\",nonce=\"n\",algorithm=MD5";
     EXPECT_EQ(0, verifyAuthHeader("testuser", "secret", "REGISTER", header, ""));
-    EXPECT_EQ(0, verifyAuthHeader("testuser", "secret", "REGISTER",
-                                  (std::string(header) + ",response=\"\"").c_str(), ""));
+    EXPECT_EQ(0, verifyAuthHeader("testuser", "secret", "REGISTER", std::string(header) + ",response=\"\"", ""));
 }
 
 /* An Authorization of the example of RFC 7616 3.9.1 */
@@ -878,17 +876,14 @@ static void expectRFC7616(const char* algo, const char* method,
         return;  // not in this SSL library
     }
     std::string auth = rfc7616Authorization(algo, uri, nc, qop, response);
-    EXPECT_EQ(1, verifyAuthHeader("Mufasa", "Circle of Life", method, auth.c_str(), body)) << auth;
-    EXPECT_EQ(0, verifyAuthHeader("Mufasa", "Circle of life", method, auth.c_str(), body)) << auth;
+    EXPECT_EQ(1, verifyAuthHeader("Mufasa", "Circle of Life", method, auth, body)) << auth;
+    EXPECT_EQ(0, verifyAuthHeader("Mufasa", "Circle of life", method, auth, body)) << auth;
 
-    unsigned char result[HASH_HEX_MAX_SIZE + 1];
-    EXPECT_TRUE(createAuthResponse(a->md(), a->sess, "Mufasa", "Circle of Life",
-                                   strlen("Circle of Life"), method, uri, qop, body,
-                                   "http-auth@example.org",
-                                   "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v",
-                                   "f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ",
-                                   nc, result));
-    EXPECT_STREQ(response, (char*)result) << algo;
+    HashHex result;
+    EXPECT_TRUE(createAuthResponse(a->md(), a->sess, "Mufasa", "Circle of Life", method, uri, qop, body,
+                                   "http-auth@example.org", "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v",
+                                   "f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ", nc, result));
+    EXPECT_EQ(response, result.view()) << algo;
 }
 
 TEST(DigestAuth, RFC7616) {
@@ -939,11 +934,11 @@ TEST(DigestAuth, RFC7616SHA512256) {
 
 TEST(DigestAuth, qop) {
     std::string result;
-    char* header = strdup(("Digest \r\n"
-                           "\trealm=\"testrealm@host.com\",\r\n"
-                           "\tqop=\"auth,auth-int\",\r\n"
-                           "\tnonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\"\r\n,"
-                           "\topaque=\"5ccc069c403ebaf9f0171e9517f40e41\""));
+    const char *header = "Digest \r\n"
+                         "\trealm=\"testrealm@host.com\",\r\n"
+                         "\tqop=\"auth,auth-int\",\r\n"
+                         "\tnonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\"\r\n,"
+                         "\topaque=\"5ccc069c403ebaf9f0171e9517f40e41\"";
     createAuthHeader("testuser",
                      "secret",
                      "REGISTER",
@@ -956,8 +951,7 @@ TEST(DigestAuth, qop) {
                      1,
                      result);
     EXPECT_NE(std::string::npos, result.find(",qop=auth-int,")); // no double quotes around qop-value
-    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result.c_str(), "hello world"));
-    free(header);
+    EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "hello world"));
 }
 
 TEST(DigestAuth, SessAlgorithms) {
@@ -972,15 +966,16 @@ TEST(DigestAuth, SessAlgorithms) {
         for (const char* qop : qops) {
             std::string challenge = std::string("Digest realm=\"r\", nonce=\"n\", qop=\"") + qop +
                                     "\", algorithm=" + algo;
-            ASSERT_TRUE(createAuthHeader("testuser", "secret", "INVITE", "bob@example.com", "v=0\r\n",
-                                         challenge.c_str(), nullptr, nullptr, nullptr, 1, result)) << result;
+            ASSERT_TRUE(createAuthHeader("testuser", "secret", "INVITE", "bob@example.com", "v=0\r\n", challenge,
+                                         nullptr, nullptr, nullptr, 1, result))
+                << result;
             /* The algorithm as the challenge has it */
             EXPECT_NE(std::string::npos, result.find(std::string(",algorithm=") + algo)) << result;
-            EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "INVITE", result.c_str(), "v=0\r\n")) << result;
+            EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "INVITE", result, "v=0\r\n")) << result;
             /* auth-int covers the body */
-            EXPECT_EQ(!strcmp(qop, "auth"),
-                      verifyAuthHeader("testuser", "secret", "INVITE", result.c_str(), "v=1\r\n")) << result;
-            EXPECT_EQ(0, verifyAuthHeader("testuser", "Secret", "INVITE", result.c_str(), "v=0\r\n")) << result;
+            EXPECT_EQ(!strcmp(qop, "auth"), verifyAuthHeader("testuser", "secret", "INVITE", result, "v=1\r\n"))
+                << result;
+            EXPECT_EQ(0, verifyAuthHeader("testuser", "Secret", "INVITE", result, "v=0\r\n")) << result;
             /* Not the response of the algorithm without -sess */
             std::string other = result;
             size_t at = other.find("-sess");
@@ -989,8 +984,7 @@ TEST(DigestAuth, SessAlgorithms) {
             }
             if (at != std::string::npos) {
                 other.erase(at, 5);
-                EXPECT_EQ(0, verifyAuthHeader("testuser", "secret", "INVITE", other.c_str(), "v=0\r\n"))
-                    << other;
+                EXPECT_EQ(0, verifyAuthHeader("testuser", "secret", "INVITE", other, "v=0\r\n")) << other;
             }
         }
     }
@@ -1000,19 +994,20 @@ TEST(DigestAuth, SessAlgorithms) {
                                   "Digest realm=\"r\", nonce=\"n\", algorithm=MD5-sess",
                                   nullptr, nullptr, nullptr, 1, result));
     EXPECT_EQ("createAuthHeader: MD5-sess needs a qop in the challenge, for a cnonce", result);
-    unsigned char response[HASH_HEX_MAX_SIZE + 1];
-    EXPECT_TRUE(createAuthResponse(EVP_md5(), true, "testuser", "secret", strlen("secret"), "REGISTER",
-                                   "sip:x", "", "", "r", "n", "", "", response));
+    HashHex response;
+    EXPECT_TRUE(createAuthResponse(EVP_md5(), true, "testuser", "secret", "REGISTER", "sip:x", "", "", "r", "n", "", "",
+                                   response));
     EXPECT_EQ(0, verifyAuthHeader("testuser", "secret", "REGISTER",
-                                  (std::string("Digest username=\"testuser\",realm=\"r\",uri=\"sip:x\",nonce=\"n\","
-                                               "response=\"") + (char*)response + "\",algorithm=MD5-sess").c_str(), ""));
+                                  "Digest username=\"testuser\",realm=\"r\",uri=\"sip:x\",nonce=\"n\",response=\"" +
+                                      std::string(response.view()) + "\",algorithm=MD5-sess",
+                                  ""));
     /* SHA-512-256 without a qop, as RFC 2069 */
     if (sha512_256()) {
         ASSERT_TRUE(createAuthHeader("testuser", "secret", "REGISTER", "example.com", "",
                                      "Digest realm=\"r\", nonce=\"n\", algorithm=SHA-512-256",
                                      nullptr, nullptr, nullptr, 1, result));
         EXPECT_EQ(std::string::npos, result.find("cnonce")) << result;
-        EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result.c_str(), "")) << result;
+        EXPECT_EQ(1, verifyAuthHeader("testuser", "secret", "REGISTER", result, "")) << result;
     }
 
     /* Still none of another algorithm */
@@ -1087,32 +1082,104 @@ TEST(DigestAuth, AKAv1MD5AMFOfAUTN) {
     EXPECT_NE(std::string::npos, result.find("MAC != expectedMAC")) << result;
 }
 
+TEST(DigestAuth, AKAv1MD5Header)
+{
+    /* Test set 1 again, whole: RES is the password, of 8 bytes (as
+     * Python's hashlib computes it) */
+    std::string result;
+    ASSERT_TRUE(createAuthHeader("alice", "", "REGISTER", "example.com", "",
+                                 "Digest realm=\"r\", nonce=\"I1U8vpY3qJ0hiuZNrke/NVXzKLQ1d7m5Sp/6w1Tfr7M=\", "
+                                 "algorithm=AKAv1-MD5, opaque=\"o\"",
+                                 "0xCDC202D5123E20F62B6D676AC72CB318", "", "0x465B5CE8B199B49FAA5F0A2EE238A6BC", 1,
+                                 result))
+        << result;
+    EXPECT_EQ("Digest username=\"alice\",realm=\"r\",uri=\"sip:example.com\","
+              "nonce=\"I1U8vpY3qJ0hiuZNrke/NVXzKLQ1d7m5Sp/6w1Tfr7M=\","
+              "response=\"c967d9c99f26c4da203ee73f572b5364\",algorithm=AKAv1-MD5,opaque=\"o\"",
+              result);
+    /* A nonce too short for a RAND and an AUTN */
+    EXPECT_FALSE(createAuthHeader("alice", "", "REGISTER", "example.com", "",
+                                  "Digest realm=\"r\", nonce=\"YWJj\", algorithm=AKAv1-MD5", "", "", "", 1, result));
+    EXPECT_EQ("createAuthHeaderAKAv1MD5 : Nonce is too short 3 < 32 expected\n", result);
+    EXPECT_FALSE(createAuthHeader("alice", "", "REGISTER", "example.com", "",
+                                  "Digest realm=\"r\", nonce=\"Y!Jj\", algorithm=AKAv1-MD5", "", "", "", 1, result));
+    EXPECT_EQ("createAuthHeaderAKAv1MD5 : Nonce is too short 0 < 32 expected\n", result);
+}
+
 TEST(DigestAuth, getAuthParameter) {
-    char v[64];
-    EXPECT_EQ(3, getAuthParameter("nonce", "Digest nonce=abc", v, sizeof(v)));
-    EXPECT_STREQ("abc", v);
+    EXPECT_EQ("abc", getAuthParameter("nonce", "Digest nonce=abc"));
     /* Spaces around '=', a quoted value */
-    getAuthParameter("algorithm", "Digest realm=\"r\", algorithm = SHA-256", v, sizeof(v));
-    EXPECT_STREQ("SHA-256", v);
-    getAuthParameter("realm", "Digest realm= \"a b\"", v, sizeof(v));
-    EXPECT_STREQ("a b", v);
+    EXPECT_EQ("SHA-256", getAuthParameter("algorithm", "Digest realm=\"r\", algorithm = SHA-256"));
+    EXPECT_EQ("a b", getAuthParameter("realm", "Digest realm= \"a b\""));
     /* Not in cnonce, nor in another parameter's quoted value */
-    getAuthParameter("nonce", "Digest cnonce=\"x\", nonce=\"y\"", v, sizeof(v));
-    EXPECT_STREQ("y", v);
-    getAuthParameter("algorithm", "Digest realm=\"a, algorithm=SHA-256\", algorithm=MD5", v, sizeof(v));
-    EXPECT_STREQ("MD5", v);
-    getAuthParameter("nonce", "Digest realm=\"a\\\", nonce=bad\", nonce=good", v, sizeof(v));
-    EXPECT_STREQ("good", v);
-    EXPECT_EQ(0, getAuthParameter("opaque", "Digest realm=\"opaque=x\"", v, sizeof(v)));
-    EXPECT_STREQ("", v);
+    EXPECT_EQ("y", getAuthParameter("nonce", "Digest cnonce=\"x\", nonce=\"y\""));
+    EXPECT_EQ("MD5", getAuthParameter("algorithm", "Digest realm=\"a, algorithm=SHA-256\", algorithm=MD5"));
+    EXPECT_EQ("good", getAuthParameter("nonce", "Digest realm=\"a\\\", nonce=bad\", nonce=good"));
+    EXPECT_EQ("", getAuthParameter("opaque", "Digest realm=\"opaque=x\""));
+    /* A quoted value ends at a quote or the end, another at a space, a
+     * comma, a quote or a line end */
+    EXPECT_EQ("a,b", getAuthParameter("realm", "Digest realm=\"a,b"));
+    EXPECT_EQ("", getAuthParameter("realm", "Digest realm=\"\", nonce=n"));
+    EXPECT_EQ("", getAuthParameter("realm", "Digest realm="));
+    EXPECT_EQ("a\tb", getAuthParameter("nonce", "Digest nonce=a\tb,c"));
+    EXPECT_EQ("a", getAuthParameter("nonce", "Digest nonce=a\"b"));
+    EXPECT_EQ("a", getAuthParameter("nonce", "Digest nonce=a\r\n"));
+    /* The name whole, after a tab too */
+    EXPECT_EQ("", getAuthParameter("nonc", "Digest nonce=a"));
+    EXPECT_EQ("n", getAuthParameter("NONCE", "Digest\tnonce=n"));
+}
+
+TEST(DigestAuth, ValueLimits)
+{
+    /* The parts of the values that are used, as they were */
+    std::string result;
+    const std::string opaque(70, 'o');
+    ASSERT_TRUE(createAuthHeader("u", "p", "INVITE", "h", "",
+                                 "Digest realm=\"r\", nonce=\"n\", opaque=\"" + opaque + "\"", nullptr, nullptr,
+                                 nullptr, 1, result));
+    EXPECT_NE(std::string::npos, result.find(",opaque=\"" + opaque.substr(0, 63) + "\"")) << result;
+    /* The first 15 characters of a qop: auth here, auth-int past them */
+    ASSERT_TRUE(createAuthHeader("u", "p", "INVITE", "h", "",
+                                 "Digest realm=\"r\", nonce=\"n\", qop=\"token,auth-conf,auth-int\"", nullptr, nullptr,
+                                 nullptr, 1, result));
+    EXPECT_NE(std::string::npos, result.find(",qop=auth,")) << result;
+    ASSERT_TRUE(createAuthHeader("u", "p", "INVITE", "h", "",
+                                 "Digest realm=\"r\", nonce=\"n\", qop=\"token-of-twenty-two\"", nullptr, nullptr,
+                                 nullptr, 1, result));
+    EXPECT_NE(std::string::npos, result.find(",qop=token-of-twenty,")) << result;
+    EXPECT_EQ(1, verifyAuthHeader("u", "p", "INVITE", result, "")) << result;
+    EXPECT_FALSE(createAuthHeader("u", "p", "INVITE", "h", "",
+                                  "Digest realm=\"r\", nonce=\"n\", algorithm=" + std::string(40, 'a'), nullptr,
+                                  nullptr, nullptr, 1, result));
+    EXPECT_EQ("createAuthHeader: authentication must use MD5, MD5-sess, SHA-256, SHA-256-sess, "
+              "SHA-512-256, SHA-512-256-sess or AKAv1-MD5, not '" +
+                  std::string(31, 'a') + "'",
+              result);
+
+    /* -auth_uri, of up to 2044 characters after "sip:" */
+    char *const saved_auth_uri = auth_uri;
+    std::string forced(3000, 'f');
+    auth_uri = &forced[0];
+    ASSERT_TRUE(createAuthHeader("u", "p", "INVITE", "h", "", "Digest realm=\"r\", nonce=\"n\"", nullptr, nullptr,
+                                 nullptr, 1, result));
+    EXPECT_NE(std::string::npos, result.find(",uri=\"sip:" + forced.substr(0, 2044) + "\",")) << result;
+    EXPECT_EQ(1, verifyAuthHeader("u", "p", "INVITE", result, "")) << result;
+    /* verifyauth uses it too, not the uri of the credentials */
+    forced[0] = 'g';
+    EXPECT_EQ(0, verifyAuthHeader("u", "p", "INVITE", result, "")) << result;
+    auth_uri = saved_auth_uri;
+
+    /* verifyauth uses the first 2048 characters of a value */
+    const std::string realm(2048, 'r');
+    ASSERT_TRUE(createAuthHeader("u", "p", "INVITE", "h", "", "Digest realm=\"" + realm + "\", nonce=\"n\"", nullptr,
+                                 nullptr, nullptr, 1, result));
+    result.insert(result.find(realm) + realm.size(), "R");
+    EXPECT_EQ(1, verifyAuthHeader("u", "p", "INVITE", result, "")) << result;
 }
 
 static std::string selectedChallenge(const char* auth)
 {
-    char buf[1024];
-    strcpy(buf, auth);
-    selectAuthChallenge(buf);
-    return buf;
+    return std::string(selectAuthChallenge(auth));
 }
 
 TEST(DigestAuth, SelectChallenge) {
@@ -1150,6 +1217,13 @@ TEST(DigestAuth, SelectChallenge) {
     /* None to answer: all, for the error to name the first */
     EXPECT_EQ("Digest realm=\"a\", algorithm=SHA-384, Digest realm=\"b\", algorithm=AKAv2-MD5",
               selectedChallenge("Digest realm=\"a\", algorithm=SHA-384, Digest realm=\"b\", algorithm=AKAv2-MD5"));
+    /* The one kept without the spaces and commas around it, or all of
+     * them as they are */
+    EXPECT_EQ("Digest realm=\"a\"", selectedChallenge(" \tDigest realm=\"a\" ,\r\n"));
+    EXPECT_EQ(" Digest realm=\"a\", algorithm=SHA-384 ", selectedChallenge(" Digest realm=\"a\", algorithm=SHA-384 "));
+    EXPECT_EQ("DIGEST realm=\"b\"", selectedChallenge("Digest\trealm=\"a\", algorithm=X, DIGEST realm=\"b\", "));
+    EXPECT_EQ("Digest", selectedChallenge("Digest"));
+    EXPECT_EQ("", selectedChallenge(""));
 }
 
 #endif //GTEST
