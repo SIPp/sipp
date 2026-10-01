@@ -98,6 +98,7 @@ public:
 
     /* If this is a recv */
     char         * recv_response;
+    int recv_response_code; /* atoi(recv_response) */
     char         * recv_request;
     int            optional;
     bool           advance_state;

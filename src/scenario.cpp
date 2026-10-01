@@ -56,6 +56,7 @@ message::message(int index, const char *desc)
     timeout_variable = -1;
 
     recv_response = nullptr; // free on exit
+    recv_response_code = 0;
     recv_request = nullptr; // free on exit
     optional = 0;
     advance_state = true;
@@ -162,7 +163,7 @@ bool message::matchesResponse(int code)
         return false;
     }
     if (!regexp_match) {
-        return atoi(recv_response) == code;
+        return recv_response_code == code;
     }
     if (regexp_compile == nullptr) {
         regex_t *re = new regex_t;
@@ -1004,6 +1005,7 @@ scenario::scenario(char * filename, int deflt)
                 /* Received messages descriptions */
                 if((cptr = xp_get_value("response"))) {
                     curmsg ->recv_response = strdup(cptr);
+                    curmsg->recv_response_code = atoi(cptr);
                     if (method_list) {
                         curmsg->recv_response_for_cseq_method_list = strdup(method_list);
                     }
