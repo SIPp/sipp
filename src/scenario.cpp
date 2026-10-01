@@ -1013,7 +1013,7 @@ scenario::scenario(char * filename, int deflt)
                     {
                         T_peer_infos infos = {};
                         infos.peer_socket = 0;
-                        infos.peer_host = get_peer_addr(peer.c_str());
+                        infos.peer_host = get_peer_addr(peer);
                         peers[peer] = infos;
                     }
                 } else if (extendedTwinSippMode) {
@@ -1217,8 +1217,7 @@ void parse_slave_cfg()
     FILE * f;
     char line[MAX_PEER_SIZE];
     char * temp_peer;
-    char * temp_host;
-    char * peer_host;
+    char *temp_host;
 
     f = fopen(slave_cfg_file, "r");
     if(f) {
@@ -1231,11 +1230,7 @@ void parse_slave_cfg()
             if (!temp_host)
                 continue;
 
-            peer_host = strdup(temp_host);
-            if (!peer_host)
-                ERROR("Cannot allocate memory!");
-
-            peer_addrs[std::string(temp_peer)] = peer_host;
+            peer_addrs[temp_peer] = temp_host;
         }
     } else {
         ERROR("Can not open -slave_cfg/-secondary_cfg file %s", slave_cfg_file);

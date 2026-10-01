@@ -3374,11 +3374,11 @@ int open_connections()
         }
     } else if (extendedTwinSippMode) {
         if (thirdPartyMode == MODE_MASTER || thirdPartyMode == MODE_MASTER_PASSIVE) {
-            twinSippHost = get_host_and_port(get_peer_addr(master_name), &twinSippPort);
+            twinSippHost = get_host_and_port(get_peer_addr(*master_name).c_str(), &twinSippPort);
             connect_local_twin_socket();
             connect_to_all_peers();
         } else if (thirdPartyMode == MODE_SLAVE) {
-            twinSippHost = get_host_and_port(get_peer_addr(slave_number), &twinSippPort);
+            twinSippHost = get_host_and_port(get_peer_addr(*slave_number).c_str(), &twinSippPort);
             connect_local_twin_socket();
         } else {
             ERROR("extendedTwinSipp Mode enabled but thirdPartyMode is different "
@@ -3443,18 +3443,13 @@ SIPpSocket **get_peer_socket(const char *peer)
     return nullptr;
 }
 
-char *get_peer_addr(const char *peer)
+const std::string &get_peer_addr(const std::string &peer)
 {
-    char * addr;
-    peer_addr_map::iterator peer_addr_it;
-    peer_addr_it = peer_addrs.find(peer_addr_map::key_type(peer));
-    if (peer_addr_it != peer_addrs.end()) {
-        addr =  peer_addr_it->second;
-        return addr;
-    } else {
-        ERROR("get_peer_addr: Peer %s not found", peer);
+    peer_addr_map::const_iterator peer_addr_it = peer_addrs.find(peer);
+    if (peer_addr_it == peer_addrs.end()) {
+        ERROR("get_peer_addr: Peer %s not found", peer.c_str());
     }
-    return nullptr;
+    return peer_addr_it->second;
 }
 
 bool is_a_peer_socket(SIPpSocket *peer_socket)
@@ -3547,14 +3542,6 @@ bool is_a_local_socket(SIPpSocket *s)
             return true;
     }
     return (false);
-}
-
-void free_peer_addr_map()
-{
-    peer_addr_map::iterator peer_addr_it;
-    for (peer_addr_it = peer_addrs.begin(); peer_addr_it != peer_addrs.end(); peer_addr_it++) {
-        free(peer_addr_it->second);
-    }
 }
 
 /* A datagram socket gives one message per read, and a poll found it
