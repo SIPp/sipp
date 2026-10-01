@@ -319,18 +319,6 @@ int JLSRTP::pseudorandomFunction(const std::vector<unsigned char> &iv, int n, st
     return retVal;
 }
 
-int JLSRTP::shiftVectorLeft(std::vector<unsigned char> &shifted_vec, std::vector<unsigned char> &original_vec, int shift_value)
-{
-    shifted_vec.clear();
-    shifted_vec.resize(original_vec.size());
-
-    for (unsigned int i = shift_value, j = 0; i < original_vec.size(); i++, j++) {
-        shifted_vec[j] = original_vec[i];
-    }
-
-    return 0;
-}
-
 int JLSRTP::shiftVectorRight(std::vector<unsigned char> &shifted_vec, std::vector<unsigned char> &original_vec, int shift_value)
 {
     shifted_vec.clear();
@@ -374,64 +362,6 @@ int JLSRTP::isLittleEndian()
     Conversion32 bint = {0x01020304};
 
     return (bint.c[0] == 0x04);
-}
-
-int JLSRTP::convertSsrc(unsigned long ssrc, std::vector<unsigned char> &result)
-{
-    Conversion32 exchange_ssrc = {ssrc};
-
-    result.clear();
-    result.resize(16);
-
-    if (isLittleEndian())
-    {
-        result[12] = exchange_ssrc.c[3];
-        result[13] = exchange_ssrc.c[2];
-        result[14] = exchange_ssrc.c[1];
-        result[15] = exchange_ssrc.c[0];
-    }
-    else
-    {
-        result[12] = exchange_ssrc.c[0];
-        result[13] = exchange_ssrc.c[1];
-        result[14] = exchange_ssrc.c[2];
-        result[15] = exchange_ssrc.c[3];
-    }
-
-    return 0;
-}
-
-int JLSRTP::convertPacketIndex(unsigned long long i, std::vector<unsigned char> &result)
-{
-    Conversion64 exchange_i = {i};
-
-    result.clear();
-    result.resize(16);
-
-    if (isLittleEndian())
-    {
-        result[8]  = exchange_i.c[7];
-        result[9]  = exchange_i.c[6];
-        result[10] = exchange_i.c[5];
-        result[11] = exchange_i.c[4];
-        result[12] = exchange_i.c[3];
-        result[13] = exchange_i.c[2];
-        result[14] = exchange_i.c[1];
-        result[15] = exchange_i.c[0];
-    }
-    else
-    {
-        result[8]  = exchange_i.c[0];
-        result[9]  = exchange_i.c[1];
-        result[10] = exchange_i.c[2];
-        result[11] = exchange_i.c[3];
-        result[12] = exchange_i.c[4];
-        result[13] = exchange_i.c[5];
-        result[14] = exchange_i.c[6];
-        result[15] = exchange_i.c[7];
-    }
-
-    return 0;
 }
 
 int JLSRTP::convertROC(unsigned long ROC, std::vector<unsigned char> &result)
@@ -549,12 +479,9 @@ int JLSRTP::setPacketIV()
 
 int JLSRTP::computePacketIV(unsigned long long i)
 {
-    std::vector<unsigned char> padded_salt;
-    std::vector<unsigned char> ssrc_vec;
-    std::vector<unsigned char> i_vec;
-    std::vector<unsigned char> shifted_ssrc;
-    std::vector<unsigned char> shifted_i;
-    std::vector<unsigned char> intermediate;
+    /* IV = (k_s * 2^16) XOR (SSRC * 2^64) XOR (i * 2^16), in place: the
+     * vectors it was made of took six allocations each packet. */
+    unsigned char iv[AES_BLOCK_SIZE] = {};
     unsigned long ssrc = _id.ssrc; // SSRC
     unsigned int saltSize = 0;
 
@@ -564,21 +491,16 @@ int JLSRTP::computePacketIV(unsigned long long i)
     assert(saltSize == JLSRTP_SALTING_KEY_LENGTH);
     if (saltSize == JLSRTP_SALTING_KEY_LENGTH)
     {
-        padded_salt = _session_salt_key;
-        padded_salt.push_back(0x00); // 1-byte PAD
-        padded_salt.push_back(0x00); // 1-byte PAD
-
-        convertSsrc(ssrc, ssrc_vec);
-        convertPacketIndex(i, i_vec);
-
-        shiftVectorLeft(shifted_ssrc, ssrc_vec, 8);
-        shiftVectorLeft(shifted_i, i_vec, 2);
-
-        xorVector(padded_salt, shifted_ssrc, intermediate);
-        xorVector(intermediate, shifted_i, _packetIV);
+        memcpy(iv, _session_salt_key.data(), saltSize);
+        for (int b = 0; b < 4; b++) {
+            iv[4 + b] ^= (ssrc >> (24 - 8 * b)) & 0xFF; // bytes [4..7]
+        }
+        for (int b = 0; b < 8; b++) {
+            iv[6 + b] ^= (i >> (56 - 8 * b)) & 0xFF; // bytes [6..13]
+        }
 
         // Truncate output IV to 14 bytes
-        _packetIV.resize(14);
+        _packetIV.assign(iv, iv + 14);
 
         return 0;
     }
@@ -3752,7 +3674,27 @@ protected:
         s.encryptVector(zeros, out);
         return out;
     }
+
+    // The IV of a packet of the given SSRC and index
+    static std::vector<unsigned char> packetIV(JLSRTP &s, const char *salt, unsigned int ssrc, unsigned long long i)
+    {
+        s._session_salt_key = fromHex(salt);
+        s.setSSRC(ssrc);
+        s.computePacketIV(i);
+        return s._packetIV;
+    }
 };
+
+// RFC 3711 section 4.1.1: the salt, the SSRC at bit 64 and the index at bit 16
+TEST_F(JLSRTPTest, PacketIV)
+{
+    JLSRTP s(0, "127.0.0.1", 0);
+    EXPECT_EQ(fromHex("f0f1f2f3f4f5f6f7f8f9fafbfcfd"), packetIV(s, "f0f1f2f3f4f5f6f7f8f9fafbfcfd", 0, 0));
+    EXPECT_EQ(fromHex("f0f1f2f3e6c1a08f6245240bfefe"),
+              packetIV(s, "f0f1f2f3f4f5f6f7f8f9fafbfcfd", 0x12345678, 0x9abcdef00203ULL));
+    EXPECT_EQ(fromHex("00000000ffffffffffffffffffff"),
+              packetIV(s, "0000000000000000000000000000", 0xffffffff, 0xffffffffffffULL));
+}
 
 // RFC 3711 appendix B.3: the 128-bit key derivation stays as it was
 TEST_F(JLSRTPTest, Aes128Kdf)
