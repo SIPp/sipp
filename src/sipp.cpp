@@ -2078,7 +2078,7 @@ int main(int argc, char *argv[])
                 REQUIRE_ARG();
                 CHECK_PASS();
 
-                if (strlen(argv[argi]) != 2) {
+                if (strlen(argv[argi]) != 2 || !strchr("utslwx", argv[argi][0]) || !strchr("1ni", argv[argi][1])) {
                     ERROR("Invalid argument for -t param : '%s'.\n"
                           "Use 'sipp -h' for details",  argv[argi]);
                 }

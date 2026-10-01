@@ -1,0 +1,22 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -t refuses a transport that is not one of those in 'sipp -h', such as
+# "xx", which was taken as WSS, and takes all those that are.
+. "`dirname "$0"`/../functions"; init
+
+# check TRANSPORT EXPECTED: -m abc after -t fails once -t is read.
+check() {
+    error=`sippfg -sn uac -t "$1" -m abc 127.0.0.1:24531 2>&1 >/dev/null`
+    case $error in
+        *"$2"*) ;;
+        *) fail "-t '$1': $error" ;;
+    esac
+}
+
+for t in xx w2 ux 1u t u10 ''; do
+    check "$t" "Invalid argument for -t param : '$t'."
+done
+for t in u1 un ui t1 tn l1 ln w1 wn x1 xn; do
+    check $t '-m, "abc" is not a valid integer!'
+done
+ok

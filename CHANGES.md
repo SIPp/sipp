@@ -226,6 +226,7 @@ marked **Breaking**.
   - 3PCC: twin connection resets and losses, the body's last CRLF, and
     a scenario with only `<sendCmd>` and `<recvCmd>` (#969, #985, #1084,
     #1085)
+  - `-t` refuses a value that is not a transport and socket mode (#1246)
 - RTP, SRTP and pcap play (by Orgad Shaneh):
   - rtp_echo runs per call, so overlapping calls no longer stop or
     re-key each other's echo; it echoes plain RTP, whole packets and from
