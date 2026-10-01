@@ -414,7 +414,7 @@ protected:
     static void readInputFileContents(const char* fileName);
     static void dumpFileContents(void);
 
-    int getFieldFromInputFile(const char* fileName, int field, SendingMessage *line, char* dest, int len);
+    std::string getFieldFromInputFile(const std::string &fileName, int field, SendingMessage *line);
 
     /* Associate a user with this call. */
     void setUser(int userId);

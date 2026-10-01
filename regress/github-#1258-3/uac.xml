@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<!-- Looks up, inserts and replaces lines of the indexed users.csv, and
+     logs what the lookups found; the OPTIONS makes it a client. -->
+<scenario name="infindex">
+  <nop>
+    <action>
+      <lookup assign_to="bob" file="users.csv" key="bob"/>
+      <insert file="users.csv" value="carol;3;"/>
+      <lookup assign_to="carol" file="users.csv" key="carol"/>
+      <replace file="users.csv" line="1" value="dave;4;"/>
+      <lookup assign_to="gone" file="users.csv" key="bob"/>
+      <lookup assign_to="dave" file="users.csv" key="dave"/>
+      <log message="bob=[$bob] carol=[$carol] gone=[$gone] dave=[$dave] [field0 file=users.csv line=2]"/>
+    </action>
+  </nop>
+  <send>
+    <![CDATA[
+      OPTIONS sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 OPTIONS
+      Content-Length: 0
+
+    ]]>
+  </send>
+</scenario>

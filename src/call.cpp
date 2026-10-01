@@ -1566,18 +1566,17 @@ bool call::connect_socket_if_needed()
         if(sendMode != MODE_CLIENT)
             return true;
 
-        char peripaddr[256];
         if (!peripsocket) {
             if ((associate_socket(SIPpSocket::new_sipp_call_socket(use_ipv6, transport, &existing))) == nullptr) {
                 ERROR_NO("Unable to get a UDP socket (1)");
             }
         } else {
-            getFieldFromInputFile(ip_file, peripfield, nullptr, peripaddr, sizeof(peripaddr));
+            const std::string peripaddr = getFieldFromInputFile(ip_file, peripfield, nullptr);
             auto i = map_perip_fd.find(peripaddr);
             SIPpSocket *sock = i != map_perip_fd.end() ? i->second : nullptr;
             if (!sock) {
-                if (gai_getsockaddr(&saddr, peripaddr, local_port, AI_PASSIVE, AF_UNSPEC) != 0) {
-                    ERROR("Unknown host '%s' in the -ip_field of %s", peripaddr, ip_file);
+                if (gai_getsockaddr(&saddr, peripaddr.c_str(), local_port, AI_PASSIVE, AF_UNSPEC) != 0) {
+                    ERROR("Unknown host '%s' in the -ip_field of %s", peripaddr.c_str(), ip_file.c_str());
                 }
                 sock = find_perip_socket(peripaddr, &saddr);
             }
@@ -4409,8 +4408,7 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
         }
         case E_Message_Injection: {
             const size_t orig_len = out.size();
-            out.append(scratch, getFieldFromInputFile(comp->field_param.filename.c_str(), comp->field_param.field,
-                                                      comp->field_param.line, scratch, buf_len));
+            out += getFieldFromInputFile(comp->field_param.filename, comp->field_param.field, comp->field_param.line);
             /* We are injecting an authentication line. */
             if (size_t tmp = out.find("[authentication", orig_len); tmp != std::string::npos) {
                 if (auth_marker != std::string::npos) {
@@ -6710,7 +6708,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 ERROR("Invalid injection file for insert: %s", file.c_str());
             }
 
-            double value = in_file->second->lookup(key.data());
+            double value = in_file->second->lookup(key);
 
             M_callVariableTable->getVar(currentAction->getVarId())->setDouble(value);
         } else if (currentAction->getActionType() == CAction::E_AT_INSERT) {
@@ -6723,7 +6721,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 ERROR("Invalid injection file for insert: %s", file.c_str());
             }
 
-            in_file->second->insert(value.data());
+            in_file->second->insert(value);
         } else if (currentAction->getActionType() == CAction::E_AT_REPLACE) {
             /* Create strings from the sending messages. */
             std::string file = createSendingString(currentAction->getMessage(0));
@@ -6741,7 +6739,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 ERROR("Invalid line number for replace: %s", line.c_str());
             }
 
-            in_file->second->replace(lineNum, value.data());
+            in_file->second->replace(lineNum, value);
         } else if (currentAction->getActionType() == CAction::E_AT_CLOSE_CON) {
             if (call_socket) {
                 dissociate_socket()->close();
@@ -7547,14 +7545,14 @@ std::string call::extractSubMessage(const char *msg, const char *matchingString,
     return "";
 }
 
-int call::getFieldFromInputFile(const char *fileName, int field, SendingMessage *lineMsg, char* dest, int len)
+std::string call::getFieldFromInputFile(const std::string &fileName, int field, SendingMessage *lineMsg)
 {
-    dest[0] = '\0';
     if (m_lineNumber == nullptr) {
         ERROR("Automatic calls (created by -aa, -oocsn or -oocsf) cannot use input files!");
     }
-    if (inFiles.find(fileName) == inFiles.end()) {
-        ERROR("Invalid injection file: %s", fileName);
+    const file_map::iterator in_file = inFiles.find(fileName);
+    if (in_file == inFiles.end()) {
+        ERROR("Invalid injection file: %s", fileName.c_str());
     }
     int line = (*m_lineNumber)[fileName];
     if (lineMsg) {
@@ -7567,14 +7565,14 @@ int call::getFieldFromInputFile(const char *fileName, int field, SendingMessage 
                 strlen(lineBuffer) == sizeof(lineBuffer) - 1) {
             ERROR("Invalid line number generated: '%s'", lineBuffer);
         }
-        if (line > inFiles[fileName]->numLines()) {
+        if (line > in_file->second->numLines()) {
             line = -1;
         }
     }
     if (line < 0) {
-        return 0;
+        return "";
     }
-    return inFiles[fileName]->getField(line, field, dest, len);
+    return in_file->second->getField(line, field);
 }
 
 call::T_AutoMode call::checkAutomaticResponseMode(char* P_recv)

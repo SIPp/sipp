@@ -1,0 +1,41 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The <lookup>, <insert> and <replace> actions on a file with an
+# -infindex find, add and drop its keys, and the index is freed with
+# the file at exit, not leaked.
+. "`dirname "$0"`/../functions"; init
+
+printf 'SEQUENTIAL\nalice;1;\nbob;2;\n' >users.csv
+sippfg -sf uac.xml -inf users.csv -infindex users.csv 0 -i 127.0.0.1 \
+    -p 26240 127.0.0.1:26241 -m 1 -timeout 5 -timeout_error \
+    -trace_logs -log_file logs.log >/dev/null 2>&1
+status=$?
+logged=`cat logs.log 2>/dev/null`
+rm -f logs.log
+
+if test $status -ne 0; then
+    rm -f users.csv
+    fail "exited with $status"
+elif test "$logged" != "bob=1.000000 carol=2.000000 gone=-1.000000 dave=1.000000 carol"; then
+    rm -f users.csv
+    fail "logged '$logged'"
+fi
+
+# The leak needs valgrind.
+if test -n "$TEST_SKIP_VALGRIND" || ! which valgrind >/dev/null; then
+    rm -f users.csv
+    ok
+fi
+
+valgrind --xml=yes --xml-file=uac.vg --leak-check=full \
+    --errors-for-leak-kinds=definite `get_sipp` -sf uac.xml -nostdin \
+    -inf users.csv -infindex users.csv 0 -i 127.0.0.1 -p 26240 \
+    127.0.0.1:26241 -m 1 -timeout 5 >/dev/null 2>&1
+leaks=`grep -c '<kind>Leak_DefinitelyLost</kind>' uac.vg`
+rm -f uac.vg users.csv
+
+if test $leaks -ne 0; then
+    fail "valgrind found $leaks leaks"
+else
+    ok
+fi

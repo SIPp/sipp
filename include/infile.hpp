@@ -22,21 +22,24 @@
 #ifndef __FILECONTENTS__
 #define __FILECONTENTS__
 
+#include <string>
 #include <vector>
 
 class FileContents
 {
 public:
     FileContents(const char *file);
-    int getLine(int line, char *dest, int len);
-    int getField(int line, int field, char *dest, int len);
+    const std::string &getLine(int line);
+    /* Field field of line line, "" if there is none */
+    std::string getField(int line, int field);
     int numLines();
     int nextLine(int userId, bool advance = true);
     void dump();
     void index(int field);
-    int lookup(char *key);
-    void insert(char *value);
-    void replace(int line, char *value);
+    int lookup(const std::string &key);
+    void insert(const std::string &value);
+    void replace(int line, const std::string &value);
+
 private:
     void reIndex(int line);
     void deIndex(int line);
@@ -58,7 +61,7 @@ private:
     int realLinesInFile;
 
     int indexField;
-    str_int_map *indexMap;
+    str_int_map indexMap;
 };
 
 #endif

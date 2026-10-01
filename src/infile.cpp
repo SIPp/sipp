@@ -134,16 +134,15 @@ FileContents::FileContents(const char *fileName)
         numLinesInFile = realLinesInFile;
     }
 
-    indexMap = nullptr;
     indexField = -1;
 }
 
-int FileContents::getLine(int line, char *dest, int len)
+const std::string &FileContents::getLine(int line)
 {
     if (printfFile) {
         line %= realLinesInFile;
     }
-    return snprintf(dest, len, "%s", fileLines[line].c_str());
+    return fileLines[line];
 }
 
 /* Expands a PRINTF injection field: each "%[-][0][width][.precision]d" is
@@ -223,17 +222,13 @@ static std::string expand_printf_field(const std::string &field, long long value
     return out;
 }
 
-int FileContents::getField(int lineNum, int field, char *dest, int len)
+std::string FileContents::getField(int lineNum, int field)
 {
     int curfield = field;
     int curline = lineNum;
 
-    if (len <= 0) {
-        return 0;
-    }
-    dest[0] = '\0';
     if (lineNum < 0 || lineNum >= numLinesInFile) {
-        return 0;
+        return "";
     }
 
     if (printfFile) {
@@ -264,12 +259,12 @@ int FileContents::getField(int lineNum, int field, char *dest, int len)
 
     if (curfield) {
         WARNING("Field %d not found in the file %s", field, fileName);
-        return 0;
+        return "";
     }
 
 
     if (std::string::npos == oldpos) {
-        return 0;
+        return "";
     }
 
     if (std::string::npos != pos) {
@@ -278,20 +273,11 @@ int FileContents::getField(int lineNum, int field, char *dest, int len)
     }
 
     std::string x = line.substr(oldpos, pos);
-    std::string out;
     if (printfFile) {
         long long value = (long long)printfOffset + (long long)lineNum * printfMultiple;
-        out = expand_printf_field(x, value);
-    } else {
-        out = std::move(x);
+        return expand_printf_field(x, value);
     }
-
-    /* Return only what was actually stored, so callers can advance their
-     * pointer by it without running past the end of dest. */
-    int copied = std::min<size_t>(out.length(), len - 1);
-    memcpy(dest, out.data(), copied);
-    dest[copied] = '\0';
-    return copied;
+    return x;
 }
 
 int FileContents::numLines()
@@ -342,30 +328,27 @@ void FileContents::index(int field)
 {
     this->indexField = field;
 
-    indexMap = new str_int_map;
+    indexMap.clear();
     for (int line = 0; line < numLines(); line++) {
         reIndex(line);
     }
 }
 
-int FileContents::lookup(char *key)
+int FileContents::lookup(const std::string &key)
 {
     if (indexField == -1) {
         ERROR("Invalid Index File: %s", fileName);
     }
-    if (!indexMap) {
-        ERROR("Invalid Index File: %s", fileName);
-    }
 
-    str_int_map::iterator index_it = indexMap->find(key);
-    if (index_it == indexMap->end()) {
+    str_int_map::iterator index_it = indexMap.find(key);
+    if (index_it == indexMap.end()) {
         return -1;
     }
     return index_it->second;
 }
 
 
-void FileContents::insert(char *value)
+void FileContents::insert(const std::string &value)
 {
     if (printfFile) {
         ERROR("Can not insert or replace into a printf file: %s", fileName);
@@ -376,13 +359,9 @@ void FileContents::insert(char *value)
     if (indexField != -1) {
         reIndex(realLinesInFile - 1);
     }
-    char line[1024];
-    getLine(realLinesInFile - 1, line, sizeof(line));
-    char tmp[1024];
-    getField(realLinesInFile - 1, 0, tmp, sizeof(tmp));
 }
 
-void FileContents::replace(int line, char *value)
+void FileContents::replace(int line, const std::string &value)
 {
     if (printfFile) {
         ERROR("Can not insert or replace into a printf file: %s", fileName);
@@ -403,13 +382,8 @@ void FileContents::reIndex(int line)
     assert(line >= 0);
     assert(line < realLinesInFile);
 
-    char tmp[SIPP_MAX_MSG_SIZE];
-    getField(line, indexField, tmp, SIPP_MAX_MSG_SIZE);
-    str_int_map::iterator index_it = indexMap->find(str_int_map::key_type(tmp));
-    if (index_it != indexMap->end()) {
-        indexMap->erase(index_it);
-    }
-    indexMap->insert(std::pair<str_int_map::key_type,int>(str_int_map::key_type(tmp), line));
+    /* The line now has the key, whichever had it before */
+    indexMap[getField(line, indexField)] = line;
 }
 
 void FileContents::deIndex(int line)
@@ -420,12 +394,10 @@ void FileContents::deIndex(int line)
     assert(line >= 0);
     assert(line < realLinesInFile);
 
-    char tmp[SIPP_MAX_MSG_SIZE];
-    getField(line, indexField, tmp, SIPP_MAX_MSG_SIZE);
-    str_int_map::iterator index_it = indexMap->find(str_int_map::key_type(tmp));
-    if (index_it != indexMap->end()) {
+    str_int_map::iterator index_it = indexMap.find(getField(line, indexField));
+    if (index_it != indexMap.end()) {
         if (index_it->second == line) {
-            indexMap->erase(index_it);
+            indexMap.erase(index_it);
         }
     }
 }
@@ -434,29 +406,26 @@ void FileContents::deIndex(int line)
 #include "gtest/gtest.h"
 #include <fstream>
 
-TEST(infile, get_field_is_bounded_by_dest_size) {
+TEST(infile, get_field_is_whole)
+{
     std::string path = testing::TempDir() + "sipp_infile_get_field.csv";
     {
         std::ofstream out(path);
         out << "SEQUENTIAL\n"
-            << "short;" << std::string(100, 'x') << ";\n";
+            << "short;" << std::string(100000, 'x') << ";last\n";
     }
     FileContents contents(path.c_str());
 
-    char buf[16];
-
-    EXPECT_EQ(5, contents.getField(0, 0, buf, sizeof(buf)));
-    EXPECT_STREQ("short", buf);
-
-    /* The return value is what was stored, not the field's full length,
-     * so callers can advance their pointer by it. */
-    EXPECT_EQ(15, contents.getField(0, 1, buf, sizeof(buf)));
-    EXPECT_EQ(std::string(15, 'x'), buf);
+    EXPECT_EQ("short", contents.getField(0, 0));
+    EXPECT_EQ(std::string(100000, 'x'), contents.getField(0, 1));
+    EXPECT_EQ("last", contents.getField(0, 2));
+    EXPECT_EQ("", contents.getField(1, 0));
 
     remove(path.c_str());
 }
 
-TEST(infile, printf_get_field_is_bounded_by_dest_size) {
+TEST(infile, printf_get_field_is_whole)
+{
     std::string path = testing::TempDir() + "sipp_infile_printf_get_field.csv";
     {
         std::ofstream out(path);
@@ -465,10 +434,36 @@ TEST(infile, printf_get_field_is_bounded_by_dest_size) {
     }
     FileContents contents(path.c_str());
 
-    char buf[16];
+    EXPECT_EQ("user0000000003" + std::string(100, 'y'), contents.getField(3, 0));
 
-    EXPECT_EQ(15, contents.getField(3, 0, buf, sizeof(buf)));
-    EXPECT_STREQ("user0000000003y", buf);
+    remove(path.c_str());
+}
+
+TEST(infile, index)
+{
+    std::string path = testing::TempDir() + "sipp_infile_index.csv";
+    {
+        std::ofstream out(path);
+        out << "SEQUENTIAL\n"
+            << "alice;1;\n"
+            << "bob;2;\n";
+    }
+    FileContents contents(path.c_str());
+
+    EXPECT_DEATH(contents.lookup("bob"), "Invalid Index File: ");
+    contents.index(0);
+    EXPECT_EQ(1, contents.lookup("bob"));
+    EXPECT_EQ(-1, contents.lookup("carol"));
+    contents.insert("carol;3;");
+    EXPECT_EQ(2, contents.lookup("carol"));
+    EXPECT_EQ("carol;3;", contents.getLine(2));
+    contents.replace(0, "dave;4;");
+    EXPECT_EQ(-1, contents.lookup("alice"));
+    EXPECT_EQ(0, contents.lookup("dave"));
+    /* Indexing again starts over */
+    contents.index(1);
+    EXPECT_EQ(-1, contents.lookup("dave"));
+    EXPECT_EQ(1, contents.lookup("2"));
 
     remove(path.c_str());
 }
@@ -496,9 +491,7 @@ TEST(infile, printf_get_field_matches_printf) {
         std::string fmt = std::string("<") + specs[field] + ">";
         snprintf(expected, sizeof(expected), fmt.c_str(), 1042);
 
-        char buf[64];
-        contents.getField(42, field, buf, sizeof(buf));
-        EXPECT_STREQ(expected, buf) << "spec " << specs[field];
+        EXPECT_EQ(expected, contents.getField(42, field)) << "spec " << specs[field];
     }
 
     remove(path.c_str());
@@ -515,10 +508,8 @@ TEST(infile, printf_keys_match_whole) {
     }
     FileContents contents(path.c_str());
 
-    char buf[16];
     EXPECT_EQ(10, contents.numLines());
-    contents.getField(3, 0, buf, sizeof(buf));
-    EXPECT_STREQ("user106", buf);
+    EXPECT_EQ("user106", contents.getField(3, 0));
 
     {
         std::ofstream out(path);

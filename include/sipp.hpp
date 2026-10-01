@@ -369,11 +369,9 @@ MAYBE_EXTERN const char       * scenario_file           DEFVAL(nullptr);
 // extern field file management
 typedef std::map<std::string, FileContents *> file_map;
 MAYBE_EXTERN file_map inFiles;
-typedef std::map<std::string, str_int_map *> file_index;
-MAYBE_EXTERN char *rx_ip_file DEFVAL(NULL);
-MAYBE_EXTERN char *rx_default_file DEFVAL(NULL);
-MAYBE_EXTERN char *ip_file DEFVAL(nullptr);
-MAYBE_EXTERN char *default_file DEFVAL(nullptr);
+/* The names of the first -inf file, "" without one */
+MAYBE_EXTERN std::string ip_file;
+MAYBE_EXTERN std::string default_file;
 
 // free user id list
 MAYBE_EXTERN std::list<int> freeUsers;
