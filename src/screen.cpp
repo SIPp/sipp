@@ -522,11 +522,11 @@ void ScreenPrinter::draw_scenario_screen()
             }
         } else if (curmsg->recv_response) {
             if (display_server()) {
-                buf_len += snprintf(buf + buf_len, bufsiz - buf_len,
-                                    "  ----------> %-10s ", curmsg->recv_response);
+                buf_len +=
+                    snprintf(buf + buf_len, bufsiz - buf_len, "  ----------> %-10s ", curmsg->recv_response->c_str());
             } else {
-                buf_len += snprintf(buf + buf_len, bufsiz - buf_len,
-                                    "  %10s <---------- ", curmsg->recv_response);
+                buf_len +=
+                    snprintf(buf + buf_len, bufsiz - buf_len, "  %10s <---------- ", curmsg->recv_response->c_str());
             }
 
             if (!curmsg->start_rtd.empty()) {
@@ -548,9 +548,8 @@ void ScreenPrinter::draw_scenario_screen()
                                     : "");
         } else if (curmsg->pause_distribution ||
                    (curmsg->pause_variable != -1)) {
-            char* desc = curmsg->pause_desc;
-            if (!desc) {
-                desc = (char*)malloc(24);
+            if (curmsg->pause_desc.empty()) {
+                char desc[24];
                 if (curmsg->pause_distribution) {
                     desc[0] = '\0';
                     curmsg->pause_distribution->timeDescr(desc, 23);
@@ -562,7 +561,8 @@ void ScreenPrinter::draw_scenario_screen()
                 desc[23] = '\0';
                 curmsg->pause_desc = desc;
             }
-            int len = strlen(desc) < 9 ? 9 : strlen(desc);
+            const char *desc = curmsg->pause_desc.c_str();
+            int len = curmsg->pause_desc.size() < 9 ? 9 : curmsg->pause_desc.size();
 
             if (display_server()) {
                 snprintf(left_buf, 40, "  [%9s] Pause%*s", desc,
@@ -579,12 +579,10 @@ void ScreenPrinter::draw_scenario_screen()
         } else if (curmsg->recv_request) {
             if (display_server()) {
                 buf_len +=
-                    snprintf(buf + buf_len, bufsiz - buf_len,
-                             "  ----------> %-10s ", curmsg->recv_request);
+                    snprintf(buf + buf_len, bufsiz - buf_len, "  ----------> %-10s ", curmsg->recv_request->c_str());
             } else {
                 buf_len +=
-                    snprintf(buf + buf_len, bufsiz - buf_len, "  %10s <---------- ",
-                             curmsg->recv_request);
+                    snprintf(buf + buf_len, bufsiz - buf_len, "  %10s <---------- ", curmsg->recv_request->c_str());
             }
 
             if (!curmsg->start_rtd.empty()) {
@@ -606,7 +604,7 @@ void ScreenPrinter::draw_scenario_screen()
                                     : "");
         } else if (curmsg->M_type == MSG_TYPE_NOP) {
             if (curmsg->display_str) {
-                snprintf(buf, bufsiz, " %s", curmsg->display_str);
+                snprintf(buf, bufsiz, " %s", curmsg->display_str->c_str());
             } else {
                 snprintf(buf, bufsiz, "              [ NOP ]              ");
             }

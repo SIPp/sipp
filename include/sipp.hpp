@@ -527,7 +527,7 @@ enum E_Alter_YesNo {
 
 void sipp_exit(int rc, int rtp_errors, int echo_errors);
 
-char *get_peer_addr(char *);
+char *get_peer_addr(const char *);
 
 bool reconnect_allowed();
 void reset_connection(SIPpSocket *);
@@ -537,7 +537,7 @@ int open_connections();
 void timeout_alarm(int);
 
 /* extended 3PCC mode */
-SIPpSocket **get_peer_socket(char *);
+SIPpSocket **get_peer_socket(const char *);
 bool is_a_peer_socket(SIPpSocket *);
 bool is_a_local_socket(SIPpSocket *);
 void connect_to_all_peers();
