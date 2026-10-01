@@ -348,6 +348,84 @@ std::string_view selectAuthChallenge(std::string_view auth)
     return auth;
 }
 
+#if defined(USE_OPENSSL) && OPENSSL_VERSION_NUMBER >= 0x30000000L
+#define FETCH_DIGESTS
+#endif
+
+namespace
+{
+/* A hash of the thread, its context and implementation */
+struct DigestSlot {
+    const EVP_MD *md = nullptr;
+    EVP_MD_CTX *ctx = nullptr;
+#ifdef FETCH_DIGESTS
+    EVP_MD *fetched = nullptr;
+#endif
+};
+
+/* The hashes of the thread: MD5, SHA-256 and SHA-512/256 */
+struct DigestSlots {
+    std::array<DigestSlot, 3> slots;
+
+    ~DigestSlots()
+    {
+        for (DigestSlot &slot : slots) {
+            EVP_MD_CTX_free(slot.ctx);
+#ifdef FETCH_DIGESTS
+            EVP_MD_free(slot.fetched);
+#endif
+        }
+    }
+};
+
+/* The hashes of md, in a context of the thread kept from one response
+ * to the next: a new context for each, and the fetch of the
+ * implementation of md that OpenSSL 3 does for each EVP_DigestInit_ex()
+ * of an EVP_md5(), cost more than hashing the short texts of a
+ * response. */
+class Digest
+{
+public:
+    explicit Digest(const EVP_MD *md)
+    {
+        static thread_local DigestSlots digests;
+
+        for (DigestSlot &slot : digests.slots) {
+            if (slot.md && slot.md != md) {
+                continue;
+            }
+            slot.md = md;
+            if (!slot.ctx) {
+                slot.ctx = EVP_MD_CTX_new();
+            }
+            impl = md;
+#ifdef FETCH_DIGESTS
+            /* none for MD5 in FIPS mode: EVP_DigestInit_ex() fails */
+            if (!slot.fetched) {
+                slot.fetched = EVP_MD_fetch(nullptr, EVP_MD_get0_name(md), nullptr);
+            }
+            if (slot.fetched) {
+                impl = slot.fetched;
+            }
+#endif
+            ctx = slot.ctx;
+            return;
+        }
+    }
+
+    /* Starts a hash in ctx: false if the SSL library failed it */
+    bool init()
+    {
+        return ctx && EVP_DigestInit_ex(ctx, impl, nullptr);
+    }
+
+    EVP_MD_CTX *ctx = nullptr;
+
+private:
+    const EVP_MD *impl = nullptr;
+};
+} // namespace
+
 static void digestString(EVP_MD_CTX *mdctx, std::string_view s)
 {
     EVP_DigestUpdate(mdctx, s.data(), s.size());
@@ -379,13 +457,13 @@ static bool createAuthResponse(const EVP_MD *md, bool sess, std::string_view use
     HashHex body_hex, ha1_hex, ha2_hex;
     size_t hex_len;
     const bool auth_int = stristr(authtype, "auth-int");
-    bool ok = false;
-    EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
+    Digest digest(md);
+    EVP_MD_CTX *const mdctx = digest.ctx;
 
     result.size = 0;
     // Load in A1
-    if (!mdctx || !EVP_DigestInit_ex(mdctx, md, nullptr)) {
-        goto end;
+    if (!digest.init()) {
+        return false;
     }
     digestString(mdctx, user);
     digestString(mdctx, ":");
@@ -393,11 +471,11 @@ static bool createAuthResponse(const EVP_MD *md, bool sess, std::string_view use
     digestString(mdctx, ":");
     digestString(mdctx, password);
     if (!(hex_len = digestFinalHex(mdctx, ha1_hex))) {
-        goto end;
+        return false;
     }
     if (sess) {
-        if (!EVP_DigestInit_ex(mdctx, md, nullptr)) {
-            goto end;
+        if (!digest.init()) {
+            return false;
         }
         digestString(mdctx, ha1_hex.view());
         digestString(mdctx, ":");
@@ -405,24 +483,24 @@ static bool createAuthResponse(const EVP_MD *md, bool sess, std::string_view use
         digestString(mdctx, ":");
         digestString(mdctx, cnonce);
         if (digestFinalHex(mdctx, ha1_hex) != hex_len) {
-            goto end;
+            return false;
         }
     }
 
     // If using Auth-Int make a hash of the body - which is NULL for REG
     if (auth_int) {
-        if (!EVP_DigestInit_ex(mdctx, md, nullptr)) {
-            goto end;
+        if (!digest.init()) {
+            return false;
         }
         digestString(mdctx, msgbody);
         if (digestFinalHex(mdctx, body_hex) != hex_len) {
-            goto end;
+            return false;
         }
     }
 
     // Load in A2
-    if (!EVP_DigestInit_ex(mdctx, md, nullptr)) {
-        goto end;
+    if (!digest.init()) {
+        return false;
     }
     digestString(mdctx, method);
     digestString(mdctx, ":");
@@ -436,9 +514,8 @@ static bool createAuthResponse(const EVP_MD *md, bool sess, std::string_view use
         digestString(mdctx, ":");
         digestString(mdctx, body_hex.view());
     }
-    if (digestFinalHex(mdctx, ha2_hex) != hex_len ||
-            !EVP_DigestInit_ex(mdctx, md, nullptr)) {
-        goto end;
+    if (digestFinalHex(mdctx, ha2_hex) != hex_len || !digest.init()) {
+        return false;
     }
     digestString(mdctx, ha1_hex.view());
     digestString(mdctx, ":");
@@ -453,10 +530,7 @@ static bool createAuthResponse(const EVP_MD *md, bool sess, std::string_view use
     }
     digestString(mdctx, ":");
     digestString(mdctx, ha2_hex.view());
-    ok = digestFinalHex(mdctx, result) == hex_len;
-end:
-    EVP_MD_CTX_free(mdctx);
-    return ok;
+    return digestFinalHex(mdctx, result) == hex_len;
 }
 
 static bool createAuthHeaderDigest(const EVP_MD *md, bool sess, std::string_view user, std::string_view password,
@@ -1062,6 +1136,33 @@ TEST(DigestAuth, AKAv1MD5Header)
     EXPECT_FALSE(createAuthHeader("alice", "", "REGISTER", "example.com", "",
                                   "Digest realm=\"r\", nonce=\"Y!Jj\", algorithm=AKAv1-MD5", "", "", "", 1, result));
     EXPECT_EQ("createAuthHeaderAKAv1MD5 : Nonce is too short 0 < 32 expected\n", result);
+}
+
+TEST(DigestAuth, Milenage)
+{
+    /* 3GPP TS 35.208 test set 1, all of whose functions each key once */
+    K k = {0x46, 0x5b, 0x5c, 0xe8, 0xb1, 0x99, 0xb4, 0x9f, 0xaa, 0x5f, 0x0a, 0x2e, 0xe2, 0x38, 0xa6, 0xbc};
+    RAND rnd = {0x23, 0x55, 0x3c, 0xbe, 0x96, 0x37, 0xa8, 0x9d, 0x21, 0x8a, 0xe6, 0x4d, 0xae, 0x47, 0xbf, 0x35};
+    SQN sqn = {0xff, 0x9b, 0xb4, 0xd0, 0xb6, 0x07};
+    AMF amf = {0xb9, 0xb9};
+    OP op = {0xcd, 0xc2, 0x02, 0xd5, 0x12, 0x3e, 0x20, 0xf6, 0x2b, 0x6d, 0x67, 0x6a, 0xc7, 0x2c, 0xb3, 0x18};
+    MAC mac;
+    RES res;
+    CK ck;
+    IK ik;
+    AK ak;
+
+    f1(k.data(), rnd.data(), sqn.data(), amf.data(), mac.data(), op.data());
+    EXPECT_EQ((MAC{0x4a, 0x9f, 0xfa, 0xc3, 0x54, 0xdf, 0xaf, 0xb3}), mac);
+    f1star(k.data(), rnd.data(), sqn.data(), amf.data(), mac.data(), op.data());
+    EXPECT_EQ((MAC{0x01, 0xcf, 0xaf, 0x9e, 0xc4, 0xe8, 0x71, 0xe9}), mac);
+    f2345(k.data(), rnd.data(), res.data(), ck.data(), ik.data(), ak.data(), op.data());
+    EXPECT_EQ((RES{0xa5, 0x42, 0x11, 0xd5, 0xe3, 0xba, 0x50, 0xbf}), res);
+    EXPECT_EQ((CK{0xb4, 0x0b, 0xa9, 0xa3, 0xc5, 0x8b, 0x2a, 0x05, 0xbb, 0xf0, 0xd9, 0x87, 0xb2, 0x1b, 0xf8, 0xcb}), ck);
+    EXPECT_EQ((IK{0xf7, 0x69, 0xbc, 0xd7, 0x51, 0x04, 0x46, 0x04, 0x12, 0x76, 0x72, 0x71, 0x1c, 0x6d, 0x34, 0x41}), ik);
+    EXPECT_EQ((AK{0xaa, 0x68, 0x9c, 0x64, 0x83, 0x70}), ak);
+    f5star(k.data(), rnd.data(), ak.data(), op.data());
+    EXPECT_EQ((AK{0x45, 0x1e, 0x8b, 0xec, 0xa4, 0x3b}), ak);
 }
 
 TEST(DigestAuth, getAuthParameter) {
