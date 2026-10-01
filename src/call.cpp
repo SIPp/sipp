@@ -6402,13 +6402,11 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
             (reply_code == 401 || reply_code == 407)) {
 
         /* is a challenge */
-        char auth[MAX_HEADER_LEN];
-        *auth = 0;
-        strncat(auth, get_header_content(msg, (char*)"Proxy-Authenticate:"), sizeof(auth) - 1);
-        if (auth[0] == 0) {
-            strncat(auth, get_header_content(msg, (char*)"WWW-Authenticate:"), sizeof(auth) - 1);
+        std::string auth = get_header_content(msg, "Proxy-Authenticate:");
+        if (auth.empty()) {
+            auth = get_header_content(msg, "WWW-Authenticate:");
         }
-        if (auth[0] == 0) {
+        if (auth.empty()) {
             ERROR("Couldn't find 'Proxy-Authenticate' or 'WWW-Authenticate' in 401 or 407!");
         }
         call_cold &c = cold();
