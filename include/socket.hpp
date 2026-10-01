@@ -174,7 +174,7 @@ private:
     void ws_connect();
     void ws_waiting();
     void ws_handshake_expired();
-    int ws_empty(struct socketbuf *socketbuf, int ret);
+    int ws_empty(const char *data, int ret, struct sockaddr_storage *from);
     bool to_empty(bool readable);
     void ws_reply(const std::string &reply);
     ssize_t write_primitive(const char* buffer, size_t len,
