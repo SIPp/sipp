@@ -109,9 +109,10 @@ marked **Breaking**.
   behind and failed calls from 24000. SRTP no longer repeats its AES and
   HMAC setup for each packet, a header is read in one pass over the
   message, where it is, rather than copied for each lookup, messages
-  are built without temporary strings, RTP makes fewer system calls per
-  packet, and the socket loop and RTP echo wait with epoll (#1110,
-  #1117, #1118, #1119, #1122-#1131, #1230, by Orgad Shaneh)
+  are built without temporary strings, a socket read keeps only what it
+  got rather than 64 KB, RTP makes fewer system calls per packet, and
+  the socket loop and RTP echo wait with epoll (#1110, #1117, #1118,
+  #1119, #1122-#1131, #1230, #1232, by Orgad Shaneh)
 - A pass over the calls ends after 10 ms and runs the calls that resume
   first, so a burst of new calls no longer leaves incoming messages
   unread for seconds (#1101), and the call rate starts with the traffic,

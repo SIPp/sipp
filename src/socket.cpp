@@ -954,8 +954,14 @@ int SIPpSocket::empty()
         readsize = tcp_readsize;
     }
 
-    struct socketbuf *socketbuf;
-    char *buffer;
+    /* One buffer for every read, made once: the main loop reads one
+     * socket at a time, and only what a read got is kept. */
+    static std::vector<char> read_buffer;
+    if (read_buffer.size() < (size_t)readsize) {
+        read_buffer.resize(readsize);
+    }
+    char *buffer = read_buffer.data();
+    struct sockaddr_storage from = {};
     int ret = -1;
     /* Where should we start sending packets to, ideally we should begin to parse
      * the Via, Contact, and Route headers.  But for now SIPp always sends to the
@@ -963,22 +969,16 @@ int SIPpSocket::empty()
      * sent the last message. */
     sipp_socklen_t addrlen = sizeof(struct sockaddr_storage);
 
-    buffer = (char *)malloc(readsize);
-    if (!buffer) {
-        ERROR("Could not allocate memory for read!");
-    }
-    socketbuf = alloc_socketbuf(buffer, readsize, NO_COPY, nullptr);
-
     switch(ss_transport) {
     case T_TCP:
     case T_WS:
-        ret = recvfrom(ss_fd, buffer, readsize, 0, (struct sockaddr *)&socketbuf->addr,  &addrlen);
+        ret = recvfrom(ss_fd, buffer, readsize, 0, (struct sockaddr *)&from, &addrlen);
         break;
     case T_UDP:
         /* Without waiting: the socket is blocking, and a read past the
          * datagram the poll found (see read_next_datagram()) may find
          * none. */
-        ret = recvfrom(ss_fd, buffer, readsize, MSG_DONTWAIT, (struct sockaddr *)&socketbuf->addr,  &addrlen);
+        ret = recvfrom(ss_fd, buffer, readsize, MSG_DONTWAIT, (struct sockaddr *)&from, &addrlen);
         break;
     case T_TLS:
     case T_WSS:
@@ -1001,8 +1001,7 @@ int SIPpSocket::empty()
         memset(&recvinfo, 0, sizeof(recvinfo));
         int msg_flags = 0;
 
-        ret = sctp_recvmsg(ss_fd, (void*)buffer, readsize,
-                           (struct sockaddr *) &socketbuf->addr, &addrlen, &recvinfo, &msg_flags);
+        ret = sctp_recvmsg(ss_fd, (void *)buffer, readsize, (struct sockaddr *)&from, &addrlen, &recvinfo, &msg_flags);
 
         if (MSG_NOTIFICATION & msg_flags) {
             errno = 0;
@@ -1014,17 +1013,14 @@ int SIPpSocket::empty()
         break;
     }
     if (ret <= 0) {
-        free_socketbuf(socketbuf);
         return ret;
     }
 
-    socketbuf->len = ret;
-
     if (ss_ws) {
-        return ws_empty(socketbuf, ret);
+        return ws_empty(buffer, ret, &from);
     }
 
-    buffer_read(socketbuf);
+    buffer_read(alloc_socketbuf(buffer, ret, DO_COPY, &from));
 
     /* Do we have a complete SIP message? */
     if (!ss_msglen) {
@@ -2719,12 +2715,12 @@ void SIPpSocket::ws_reply(const std::string &reply)
  * answer its handshake and control frames. Once it closed or failed, the
  * messages that came before are processed, and their answers sent, before
  * its close (RFC 6455 section 5.5.1): then empty() ends it. */
-int SIPpSocket::ws_empty(struct socketbuf *socketbuf, int ret)
+int SIPpSocket::ws_empty(const char *data, int ret, struct sockaddr_storage *from)
 {
     std::string payload, reply;
     WebSocket::Event event;
 
-    ss_ws->feed(socketbuf->buf, socketbuf->len);
+    ss_ws->feed(data, ret);
     while ((event = ss_ws->next(payload, reply)) != WebSocket::NEED_MORE) {
         switch (event) {
         case WebSocket::OPENED:
@@ -2739,7 +2735,7 @@ int SIPpSocket::ws_empty(struct socketbuf *socketbuf, int ret)
         case WebSocket::MESSAGE:
             /* Each is one SIP message (RFC 7118 section 5.2). */
             if (!payload.empty()) {
-                buffer_read(alloc_socketbuf(&payload[0], payload.size(), DO_COPY, &socketbuf->addr));
+                buffer_read(alloc_socketbuf(&payload[0], payload.size(), DO_COPY, from));
             }
             break;
         case WebSocket::REPLY:
@@ -2766,7 +2762,6 @@ int SIPpSocket::ws_empty(struct socketbuf *socketbuf, int ret)
             ws_reply(reply);
         }
     }
-    free_socketbuf(socketbuf);
 
     if (!ss_msglen) {
         if (int msg_len = check_for_message()) {
