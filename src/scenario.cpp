@@ -704,16 +704,6 @@ void scenario::apply_labels(msgvec v, str_int_map labels)
     }
 }
 
-int get_cr_number(const char *src)
-{
-    int res=0;
-    while(*src) {
-        if(*src == '\n') res++;
-        src++;
-    }
-    return res;
-}
-
 static char* clean_cdata(char *ptr, int *removed_crlf = nullptr)
 {
     char * msg;
@@ -961,7 +951,7 @@ scenario::scenario(char * filename, int deflt)
 
                 // If this is a request we are sending, then store our transaction/method matching information.
                 if (!curmsg->send_scheme->isResponse()) {
-                    char *method = curmsg->send_scheme->getMethod();
+                    const char *method = curmsg->send_scheme->getMethod();
                     bool isInvite = !strcmp(method, "INVITE");
                     bool isAck = !strcmp(method, "ACK");
 

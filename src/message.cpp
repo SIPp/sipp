@@ -193,24 +193,17 @@ static char* find_param(char* s, const char* param)
     return nullptr;
 }
 
-SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bool skip_sanity)
+SendingMessage::SendingMessage(scenario *msg_scenario, const char *osrc, bool skip_sanity)
 {
-    char * src = strdup(const_src);
-    char * osrc = src;
-    char * literal;
-    int    literalLen;
-    char * dest;
+    const char *src = osrc;
+    std::string literal;
     char * key;
     char   current_line[MAX_HEADER_LEN];
-    char * line_mark = nullptr;
-    int    num_cr = get_cr_number(src);
+    const char *line_mark = nullptr;
 
     this->msg_scenario = msg_scenario;
 
-    dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
-
     current_line[0] = '\0';
-    *dest = 0;
 
     while(*src) {
         if (current_line[0] == '\0') {
@@ -234,44 +227,25 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
             if (isxdigit(*src)) {
                 val = (val << 4) + get_decimal_from_hex(*src++);
             }
-            *dest++ = val & 0xff;
+            literal += (char)(val & 0xff);
         } else if (*src == '\n') {
-            *dest++ = '\r';
-            *dest++ = *src++;
+            literal += '\r';
+            literal += *src++;
             current_line[0] = '\0';
         } else if (*src != '[') {
-            *dest++ = *src++;
+            literal += *src++;
         } else {
             /* We have found a keyword, store the literal that we have been generating. */
-            literalLen = dest - literal;
-            if (literalLen) {
-                *dest = '\0';
-                literal = (char *)realloc(literal, literalLen + 1);
-                if (!literal) {
-                    ERROR("Out of memory!");
-                }
-
-                MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
-                if (!newcomp) {
-                    ERROR("Out of memory!");
-                }
-
+            if (!literal.empty()) {
+                MessageComponent *newcomp = new MessageComponent();
                 newcomp->type = E_Message_Literal;
-                newcomp->literal = literal;
-                newcomp->literalLen = literalLen; // length without the terminator
+                newcomp->literal = std::move(literal);
                 messageComponents.push_back(newcomp);
-            } else {
-                free(literal);
             }
-
-            dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
-            *dest = '\0';
+            literal.clear();
 
             /* Now lets determine which keyword we have. */
-            MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
-            if (!newcomp) {
-                ERROR("Out of memory!");
-            }
+            MessageComponent *newcomp = new MessageComponent();
 
             char keyword [KEYWORD_SIZE+1];
             src++;
@@ -334,7 +308,7 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
                 newcomp->type = E_Message_Injection;
 
                 /* Parse out the interesting things like file and number. */
-                newcomp->comp_param.field_param.field = atoi(keyword + strlen("field"));
+                newcomp->field_param.field = atoi(keyword + strlen("field"));
 
                 char fileName[KEYWORD_SIZE];
                 getKeywordParam(keyword, "file=", fileName);
@@ -342,11 +316,11 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
                     if (!default_file) {
                         ERROR("No injection file was specified!");
                     }
-                    newcomp->comp_param.field_param.filename = strdup(default_file);
+                    newcomp->field_param.filename = default_file;
                 } else {
-                    newcomp->comp_param.field_param.filename = strdup(fileName);
+                    newcomp->field_param.filename = fileName;
                 }
-                if (inFiles.find(newcomp->comp_param.field_param.filename) == inFiles.end()) {
+                if (inFiles.find(newcomp->field_param.filename) == inFiles.end()) {
                     ERROR("Invalid injection file: %s", fileName);
                 }
 
@@ -354,7 +328,7 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
                 getKeywordParam(keyword, "line=", line);
                 if (line[0]) {
                     /* Turn this into a new message component. */
-                    newcomp->comp_param.field_param.line = new SendingMessage(msg_scenario, line, true);
+                    newcomp->field_param.line = new SendingMessage(msg_scenario, line, true);
                 }
             } else if(!strncmp(keyword, "file", strlen("file"))) {
                 newcomp->type = E_Message_File;
@@ -384,23 +358,20 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
                 }
                 getKeywordParam(keyword, "variable=", varName);
 
-                newcomp->literal = strdup(filltext);
-                newcomp->literalLen = strlen(newcomp->literal);
+                newcomp->literal = filltext;
                 if (!msg_scenario) {
                     ERROR("SendingMessage with variable usage outside of scenario!");
                 }
                 newcomp->varId = msg_scenario->get_var(varName, "Fill Variable");
             } else if(!strncmp(keyword, "last_", strlen("last_"))) {
                 newcomp->type = E_Message_Last_Header;
-                newcomp->literal = strdup(keyword + strlen("last_"));
-                newcomp->literalLen = strlen(newcomp->literal);
+                newcomp->literal = keyword + strlen("last_");
                 /* [last_From.value]: the value alone, without "From: " */
-                const int suffix = strlen(".value");
-                if (newcomp->literalLen > suffix &&
-                        !strcmp(newcomp->literal + newcomp->literalLen - suffix, ".value")) {
+                const size_t suffix = strlen(".value");
+                if (newcomp->literal.size() > suffix &&
+                    !newcomp->literal.compare(newcomp->literal.size() - suffix, suffix, ".value")) {
                     newcomp->type = E_Message_Last_Header_Value;
-                    newcomp->literalLen -= suffix;
-                    newcomp->literal[newcomp->literalLen] = '\0';
+                    newcomp->literal.resize(newcomp->literal.size() - suffix);
                 }
             } else if(!strncmp(keyword, "authentication", strlen("authentication"))) {
                 parseAuthenticationKeyword(msg_scenario, newcomp, keyword);
@@ -409,8 +380,7 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
                 auto gen = generic.find(keyword);
                 if (gen != generic.end()) {
                     newcomp->type = E_Message_Literal;
-                    newcomp->literal = strdup((*gen).second.c_str());
-                    newcomp->literalLen = strlen(newcomp->literal);
+                    newcomp->literal = (*gen).second;
                 } else {
                     ERROR("Unsupported keyword '%s' in xml scenario file",
                           keyword);
@@ -421,30 +391,14 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
         }
     }
     if (literal[0]) {
-        *dest++ = '\0';
-        literalLen = dest - literal;
-        literal = (char *)realloc(literal, literalLen);
-        if (!literal) {
-            ERROR("Out of memory!");
-        }
-
-        MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
-        if (!newcomp) {
-            ERROR("Out of memory!");
-        }
-
+        MessageComponent *newcomp = new MessageComponent();
         newcomp->type = E_Message_Literal;
-        newcomp->literal = literal;
-        newcomp->literalLen = literalLen-1;
+        newcomp->literal = std::move(literal);
         messageComponents.push_back(newcomp);
-    } else {
-        free(literal);
     }
 
     if (skip_sanity) {
         cancel = response = ack = false;
-        method = nullptr;
-        free(osrc);
         return;
     }
 
@@ -455,19 +409,21 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
         ERROR("You can not use a keyword for the METHOD or to generate \"SIP/2.0\" to ensure proper [cseq] operation!\n%s\n", osrc);
     }
 
-    char *p = method = strdup(getComponent(0)->literal);
+    /* The first word, the method or "SIP/2.0", is cut at q */
+    std::string first = getComponent(0)->literal;
+    char *p = first.data();
     char *q;
     while (isspace(*p)) {
         p++;
     }
-    if (!(q = strchr(method, ' '))) {
+    if (!(q = strchr(first.data(), ' '))) {
         ERROR("You can not use a keyword for the METHOD or to generate \"SIP/2.0\" to ensure proper [cseq] operation!\n%s\n", osrc);
     }
     *q++ = '\0';
     while (isspace(*q)) {
         q++;
     }
-    if (!strcmp(method, "SIP/2.0")) {
+    if (!strcmp(first.c_str(), "SIP/2.0")) {
         char *endptr;
         code = strtol(q, &endptr, 10);
         if (*endptr && !isspace(*endptr)) {
@@ -479,21 +435,12 @@ SendingMessage::SendingMessage(scenario* msg_scenario, const char* const_src, bo
         response = true;
         ack = false;
         cancel = false;
-        free(method);
-        method = nullptr;
     } else {
-        if (p != method) {
-            memmove(method, p, strlen(p) + 1);
-        }
-        method = (char *)realloc(method, strlen(method) + 1);
-        if (!method) {
-            ERROR("Out of memory");
-        }
-        ack = (!strcmp(method, "ACK"));
-        cancel = (!strcmp(method, "CANCEL"));
+        method = p;
+        ack = *method == "ACK";
+        cancel = *method == "CANCEL";
         response = false;
     };
-    free(osrc);
 }
 
 SendingMessage::~SendingMessage()
@@ -501,7 +448,6 @@ SendingMessage::~SendingMessage()
     for (int i = 0; i < numComponents(); i++) {
         freeMessageComponent(messageComponents[i]);
     }
-    free(method);
 }
 
 bool SendingMessage::isAck()
@@ -516,9 +462,9 @@ bool SendingMessage::isResponse()
 {
     return response;
 }
-char *SendingMessage::getMethod()
+const char *SendingMessage::getMethod()
 {
-    return method;
+    return method ? method->c_str() : nullptr;
 }
 int SendingMessage::getCode()
 {
@@ -653,7 +599,6 @@ void SendingMessage::parseAuthenticationKeyword(scenario *msg_scenario, struct M
 
 void SendingMessage::freeMessageComponent(struct MessageComponent *comp)
 {
-    free(comp->literal);
     if (comp->type == E_Message_Authentication) {
         if (comp->comp_param.auth_param.auth_user) {
             delete comp->comp_param.auth_param.auth_user;
@@ -671,12 +616,11 @@ void SendingMessage::freeMessageComponent(struct MessageComponent *comp)
             delete comp->comp_param.auth_param.aka_OP;
         }
     } else if (comp->type == E_Message_Injection) {
-        free(comp->comp_param.field_param.filename);
-        delete comp->comp_param.field_param.line;
+        delete comp->field_param.line;
     } else if (comp->type == E_Message_File) {
         delete comp->comp_param.filename;
     }
-    free(comp);
+    delete comp;
 }
 
 int SendingMessage::numComponents()
@@ -714,9 +658,9 @@ TEST(SendingMessage, UnclosedKeyword) {
 TEST(SendingMessage, EscapedBracket) {
     SendingMessage m(nullptr, "A\\x5Bb [call_number] c]Z", true);
     ASSERT_EQ(3, m.numComponents());
-    EXPECT_STREQ("A[b ", m.getComponent(0)->literal);
+    EXPECT_STREQ("A[b ", m.getComponent(0)->literal.c_str());
     EXPECT_EQ(E_Message_Call_Number, m.getComponent(1)->type);
-    EXPECT_STREQ(" c]Z", m.getComponent(2)->literal);
+    EXPECT_STREQ(" c]Z", m.getComponent(2)->literal.c_str());
 }
 
 TEST(SendingMessage, HexEscape) {
@@ -724,14 +668,16 @@ TEST(SendingMessage, HexEscape) {
      * without a hex digit stays as it is. */
     SendingMessage m(nullptr, "A\\x5\nB\\xgC\\x41\\x4g1\\x", true);
     ASSERT_EQ(1, m.numComponents());
-    EXPECT_STREQ("A\x05\r\nB\\xgCA\x04" "g1\\x", m.getComponent(0)->literal);
+    EXPECT_STREQ("A\x05\r\nB\\xgCA\x04"
+                 "g1\\x",
+                 m.getComponent(0)->literal.c_str());
 }
 
 TEST(SendingMessage, NestedKeyword) {
     SendingMessage m(nullptr, "A[authentication username=[call_number] password=\"[call_id]\" aka_K=[call_number]]Z", true);
     ASSERT_EQ(3, m.numComponents());
-    EXPECT_STREQ("A", m.getComponent(0)->literal);
-    EXPECT_STREQ("Z", m.getComponent(2)->literal);
+    EXPECT_STREQ("A", m.getComponent(0)->literal.c_str());
+    EXPECT_STREQ("Z", m.getComponent(2)->literal.c_str());
     MessageComponent *auth = m.getComponent(1);
     ASSERT_EQ(E_Message_Authentication, auth->type);
     SendingMessage *user = auth->comp_param.auth_param.auth_user;
@@ -754,10 +700,10 @@ TEST(SendingMessage, NestedKeyword) {
     ASSERT_EQ(E_Message_File, user->getComponent(0)->type);
     SendingMessage *name = user->getComponent(0)->comp_param.filename;
     ASSERT_EQ(1, name->numComponents());
-    EXPECT_STREQ("x\"]y", name->getComponent(0)->literal);
+    EXPECT_STREQ("x\"]y", name->getComponent(0)->literal.c_str());
     pass = q.getComponent(0)->comp_param.auth_param.auth_pass;
     ASSERT_EQ(1, pass->numComponents());
-    EXPECT_STREQ("p", pass->getComponent(0)->literal);
+    EXPECT_STREQ("p", pass->getComponent(0)->literal.c_str());
 
     /* A parameter is not found in a quoted or nested value of another */
     SendingMessage s(nullptr, "[authentication username=[file name=\"password=x\"] password=[call_id]]", true);
@@ -767,7 +713,7 @@ TEST(SendingMessage, NestedKeyword) {
     SendingMessage t(nullptr, "[authentication username=\"password=x\" password=[call_id]]", true);
     user = t.getComponent(0)->comp_param.auth_param.auth_user;
     ASSERT_EQ(1, user->numComponents());
-    EXPECT_STREQ("password=x", user->getComponent(0)->literal);
+    EXPECT_STREQ("password=x", user->getComponent(0)->literal.c_str());
     pass = t.getComponent(0)->comp_param.auth_param.auth_pass;
     ASSERT_EQ(1, pass->numComponents());
     EXPECT_EQ(E_Message_Call_ID, pass->getComponent(0)->type);
