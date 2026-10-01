@@ -182,6 +182,8 @@ marked **Breaking**.
     `[last_cseq_number]` for a message without a CSeq, and a status
     code read beyond the first line or past the end of a message, which
     took a request for a response (#1256)
+  - a Contact or Record-Route longer than 2048 characters cut short in
+    `[next_url]` and `[routes]` (#1257)
   - null strings printed in the actions screen for an `<ereg>` on the
     body or a variable, and in the error of a `<recv>` without request
     or response, and a play_pcap `[keyword]` looked up unterminated

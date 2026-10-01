@@ -1,0 +1,29 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A Contact of 2500 characters and a Record-Route of 40 entries (more
+# than 2500 characters) are used whole for [next_url] and [routes].
+. "`dirname "$0"`/../functions"; init
+
+pad=`printf '%2500s' '' | tr ' ' o`
+rr=
+for i in `seq 1 40`; do
+    rr="$rr`printf '<sip:rr%02d.proxy.example.com;lr;x=aaaaaaaaaaaaaaaaaaaa>' $i`, "
+done
+rr=`echo "$rr" | sed 's/, $//'`
+sippfg -sf uas.xml -key pad "$pad" -key rr "$rr" -i 127.0.0.1 -p 26800 -m 1 \
+    -timeout 8 -timeout_error >/dev/null 2>&1 &
+uas=$!
+sleep 1
+sippfg -sf uac.xml -i 127.0.0.1 -p 26801 -m 1 127.0.0.1:26800 \
+    -timeout 6 -timeout_error >/dev/null 2>&1
+uac_status=$?
+wait $uas
+uas_status=$?
+
+if test $uac_status -ne 0; then
+    fail "UAC failed with $uac_status"
+elif test $uas_status -ne 0; then
+    fail "UAS failed with $uas_status: the Contact or Record-Route was cut"
+else
+    ok
+fi
