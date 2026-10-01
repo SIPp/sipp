@@ -50,7 +50,6 @@ struct remote_address;
 #define UDP_MAX_RETRANS_INVITE_TRANSACTION 5
 #define UDP_MAX_RETRANS_NON_INVITE_TRANSACTION 9
 #define UDP_MAX_RETRANS MAX(UDP_MAX_RETRANS_INVITE_TRANSACTION, UDP_MAX_RETRANS_NON_INVITE_TRANSACTION)
-#define MAX_SUB_MESSAGE_LENGTH  2049
 #define DEFAULT_T2_TIMER_VALUE  4000
 #define SIP_TRANSACTION_TIMEOUT 32000
 
@@ -369,8 +368,8 @@ protected:
     bool executeMessage(message *curmsg);
     T_ActionResult executeAction(const char* msg, message* message);
     bool  handleActionResult(T_ActionResult actionResult);
-    void extractSubMessage(const char *msg, const char *matchingString, char *result, bool case_indep, int occurrence,
-                           bool headers);
+    std::string extractSubMessage(const char *msg, const char *matchingString, bool case_indep, int occurrence,
+                                  bool headers);
     bool  rejectCall();
     double get_rhs(CAction *currentAction);
     double get_var_double(int varId);

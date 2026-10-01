@@ -1,0 +1,20 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# An <ereg search_in="hdr"> on a header longer than 2048 characters
+# searches all of it, rather than its first 2048 characters.
+. "`dirname "$0"`/../functions"; init
+
+printf 'SEQUENTIAL\n%03000d\n' 0 | tr 0 a > long.csv
+sippfg -sf uac.xml -inf long.csv -i 127.0.0.1 -p 26091 -m 1 127.0.0.1:26090 \
+    -timeout 2 -trace_err -trace_logs -log_file log.log >/dev/null 2>&1
+status=$?
+log=`cat log.log 2>/dev/null`
+rm -f long.csv log.log uac_*_errors.log
+
+if test $status -ne 0; then
+    fail "exit status $status"
+elif test "$log" != "END"; then
+    fail "logged '$log'"
+else
+    ok
+fi

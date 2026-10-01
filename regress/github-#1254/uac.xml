@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<!-- An ereg on a header longer than 2048 characters searches it whole. -->
+<scenario name="ereg on a long header">
+  <send>
+    <![CDATA[
+
+      OPTIONS sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sipp <sip:sipp@[local_ip]:[local_port]>;tag=[call_number]
+      To: <sip:[service]@[remote_ip]:[remote_port]>
+      Call-ID: [call_id]
+      CSeq: 1 OPTIONS
+      X-Long: [field0]END
+      Content-Length: 0
+
+    ]]>
+    <action>
+      <ereg regexp="[A-Z]+$" search_in="hdr" header="X-Long:" assign_to="x" check_it="true" />
+      <log message="[$x]" />
+    </action>
+  </send>
+</scenario>
