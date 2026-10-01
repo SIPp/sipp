@@ -206,8 +206,6 @@ int CStat::init ()
 
     std::vector<int> error_codes(0);
 
-    getTimezoneOffset();
-
     return(1);
 }
 
@@ -1460,6 +1458,7 @@ char* CStat::formatTime (struct timeval* P_tv, bool with_epoch)
         memset (L_time, 0, TIME_LENGTH);
     } else {
         if (with_epoch) {
+            getTimezoneOffset();
             sprintf(L_time, "%4.4d-%2.2d-%2.2dT%2.2d:%2.2d:%2.2d.%06ld%s",
                     L_currentDate->tm_year + 1900,
                     L_currentDate->tm_mon + 1,

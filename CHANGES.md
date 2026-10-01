@@ -298,6 +298,8 @@ marked **Breaking**.
     (#1172)
   - an error in the options reaches the `-trace_err` log wherever
     `-trace_err` is on the command line (#1243)
+  - an error in the options is timed in RFC 3339, with its UTC offset,
+    wherever `-rfc3339` is on the command line (#1245)
   - a `~/` path expands from USERPROFILE when there is no HOME (#1173)
   - `sipp -` and `sipp --` are an invalid argument, not an internal
     error (#1237)

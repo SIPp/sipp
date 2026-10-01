@@ -84,7 +84,7 @@ struct sipp_option {
     const char *help;
     int type;
     void *data;
-    /* Pass -1: The error log, so that it logs an error in any option. */
+    /* Pass -1: The error log and its time format, for an error in any option. */
     /* Pass 0: Help and other options that should exit immediately. */
     /* Pass 1: All other options. */
     /* Pass 2: Scenario parsing. */
@@ -790,7 +790,7 @@ struct sipp_option options_table[] = {
     {"stat_delimiter", "Set the delimiter for the statistics file", SIPP_OPTION_STRING, &stat_delimiter, 1},
     {"stf", "Set the file name to use to dump statistics", SIPP_OPTION_ARGI, &argiFileName, 1},
     {"fd", "Set the statistics dump log report frequency. Default is 60 and default unit is seconds.", SIPP_OPTION_TIME_SEC, &report_freq_dumpLog, 1},
-    {"rfc3339", "Use timestamps in RFC3339 format.", SIPP_OPTION_SETFLAG, &rfc3339, 1},
+    {"rfc3339", "Use timestamps in RFC3339 format.", SIPP_OPTION_SETFLAG, &rfc3339, -1},
     {"periodic_rtd", "Deprecated and ignored: the statistics file has periodic (P) and cumulative (C) repartition columns.", SIPP_OPTION_SETFLAG, &periodic_rtd, 1},
 
     {"trace_msg", "Displays sent and received SIP messages in <scenario file name>_<pid>_messages.log", SIPP_OPTION_SETFLAG, &useMessagef, 1},
