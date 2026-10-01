@@ -7142,9 +7142,9 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             }
         } else if (currentAction->getActionType() == CAction::E_AT_VAR_STRCMP) {
             char *lhs = M_callVariableTable->getVar(currentAction->getVarInId())->getString();
-            char *rhs = currentAction->getVarIn2Id() ?
-                M_callVariableTable->getVar(currentAction->getVarIn2Id())->getString() :
-                currentAction->getStringValue();
+            const char *rhs = currentAction->getVarIn2Id()
+                                  ? M_callVariableTable->getVar(currentAction->getVarIn2Id())->getString()
+                                  : currentAction->getStringValue();
             int value = strcmp(lhs, rhs);
             if ((currentAction->getCheckIt() && value) ||
                 (currentAction->getCheckItInverse() && !value)
@@ -7659,7 +7659,8 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
     return(call::E_AR_NO_ERROR);
 }
 
-void call::extractSubMessage(const char* msg, char* matchingString, char* result, bool case_indep, int occurrence, bool headers)
+void call::extractSubMessage(const char *msg, const char *matchingString, char *result, bool case_indep, int occurrence,
+                             bool headers)
 {
 
     const char *ptr, *ptr1;

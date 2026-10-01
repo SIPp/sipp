@@ -1545,10 +1545,8 @@ void scenario::parseAction(CActions *actions)
 
                 if (strcmp(cptr, "msg") == 0) {
                     tmpAction->setLookingPlace(CAction::E_LP_MSG);
-                    tmpAction->setLookingChar (nullptr);
                 } else if (strcmp(cptr, "body") == 0) {
                     tmpAction->setLookingPlace(CAction::E_LP_BODY);
-                    tmpAction->setLookingChar (nullptr);
                 } else if (strcmp(cptr, "var") == 0) {
                     tmpAction->setVarInId(xp_get_var("variable", "ereg"));
                     tmpAction->setLookingPlace(CAction::E_LP_VAR);
@@ -1570,7 +1568,6 @@ void scenario::parseAction(CActions *actions)
                 }
             } else {
                 tmpAction->setLookingPlace(CAction::E_LP_MSG);
-                tmpAction->setLookingChar(nullptr);
             } // end if-else search_in
 
             if (xp_get_value("check_it")) {
@@ -1770,7 +1767,9 @@ void scenario::parseAction(CActions *actions)
             }
             tmpAction->setVarInId(xp_get_var("variable", "strcmp"));
             if (xp_get_value("value")) {
-                tmpAction->setStringValue(xp_get_string("value", "strcmp"));
+                ptr = xp_get_string("value", "strcmp");
+                tmpAction->setStringValue(ptr);
+                free(ptr);
                 if (xp_get_value("variable2")) {
                     ERROR("Can not have both a value and a variable2 for strcmp!");
                 }
