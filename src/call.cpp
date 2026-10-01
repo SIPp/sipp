@@ -4514,7 +4514,7 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
             char *last_header = get_last_header("CSeq:");
             if (bye_after_peer_request) {
                 last_cseq = cseq;
-            } else if(last_header) {
+            } else if (last_header && *last_header) {
                 last_header += 5;
                 /* Extract the integer value of the field */
                 while(isspace(*last_header)) last_header++;

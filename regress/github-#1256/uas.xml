@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<!-- [last_cseq_number] of a request without a CSeq header, read just
+     after another [last_*] keyword -->
+<scenario name="last CSeq number of a request without one">
+  <recv request="OPTIONS" />
+  <nop>
+    <action>
+      <log message="[last_To:] [last_cseq_number]" />
+    </action>
+  </nop>
+</scenario>
