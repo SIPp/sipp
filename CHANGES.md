@@ -244,6 +244,8 @@ marked **Breaking**.
     counts as an offer too (#1176)
   - a server's `rtp_stream` pattern goes out over SRTP when its answer
     has keys, as a file does (#1227)
+  - an SDP is found with a Content-Type in any case or with parameters
+    (`application/sdp;charset=utf-8`) (#1250)
   - the RTP check checks each call's pattern, and a pattern never echoed
     fails (#1021, #1073, #1074)
   - packets go out on time: audio beside video, `play_dtmf` and pcap
