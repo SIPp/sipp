@@ -38,6 +38,8 @@
 #ifndef __MESSAGE__
 #define __MESSAGE__
 
+#include <optional>
+#include <string>
 #include <vector>
 
 class scenario;
@@ -149,7 +151,7 @@ public:
     struct MessageComponent *getComponent(int);
     int numComponents();
 
-    char *getMethod();
+    const char *getMethod();
     int getCode();
 
     bool isResponse();
@@ -161,7 +163,8 @@ public:
 private:
     std::vector <struct MessageComponent *> messageComponents;
 
-    char *method = nullptr;
+    /* None for a response, or a message parsed without its sanity check */
+    std::optional<std::string> method;
     int code = 0;
 
     bool ack = false;
@@ -185,10 +188,15 @@ int registerKeyword(char *keyword, customKeyword fxn);
 
 struct MessageComponent {
     MessageCompType type;
-    char *literal;
-    int literalLen;
+    std::string literal;
     int offset;
     int varId;
+    /* Field Substitution. */
+    struct {
+        std::string filename;
+        int field;
+        SendingMessage *line;
+    } field_param;
     union u {
         /* Authentication Parameters. */
         struct {
@@ -198,12 +206,6 @@ struct MessageComponent {
             SendingMessage *aka_AMF;
             SendingMessage *aka_K;
         } auth_param;
-        /* Field Substitution. */
-        struct {
-            char *filename;
-            int field;
-            SendingMessage *line;
-        } field_param;
         SendingMessage *filename;
         customKeyword fxn;
     } comp_param;

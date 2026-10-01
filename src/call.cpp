@@ -3111,12 +3111,12 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         switch(comp->type) {
         case E_Message_Literal:
             if (suppresscrlf) {
-                char *ptr = comp->literal;
+                const char *ptr = comp->literal.c_str();
                 while (isspace(*ptr)) ptr++;
                 out += ptr;
                 suppresscrlf = false;
             } else {
-                out.append(comp->literal, comp->literalLen);
+                out += comp->literal;
             }
             break;
         case E_Message_Remote_IP:
@@ -4449,7 +4449,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             if (length < 0) {
                 length = 0;
             }
-            char *filltext = comp->literal;
+            const char *filltext = comp->literal.c_str();
             int filllen = strlen(filltext);
             if (filllen == 0) {
                 ERROR("Internal error: [fill] keyword has zero-length text.");
@@ -4487,17 +4487,15 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
         }
         case E_Message_Injection: {
             const size_t orig_len = out.size();
-            out.append(msg_buffer, getFieldFromInputFile(comp->comp_param.field_param.filename, comp->comp_param.field_param.field, comp->comp_param.field_param.line, msg_buffer, buf_len));
+            out.append(msg_buffer, getFieldFromInputFile(comp->field_param.filename.c_str(), comp->field_param.field,
+                                                         comp->field_param.line, msg_buffer, buf_len));
             /* We are injecting an authentication line. */
             if (size_t tmp = out.find("[authentication", orig_len); tmp != std::string::npos) {
                 if (auth_marker != std::string::npos) {
                     ERROR("Only one [authentication] keyword is currently supported!");
                 }
                 auth_marker = tmp;
-                auth_comp = (struct MessageComponent *)calloc(1, sizeof(struct MessageComponent));
-                if (!auth_comp) {
-                    ERROR("Out of memory!");
-                }
+                auth_comp = new MessageComponent();
                 auth_comp_allocated = true;
 
                 const size_t end = out.find(']', auth_marker);
@@ -4536,7 +4534,7 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             } else if (value_only) {
                 out += get_header_content(last_recv_msg, (name + ":").c_str());
             } else {
-                char *last_header = get_last_header(comp->literal);
+                char *last_header = get_last_header(comp->literal.c_str());
                 if (last_header) {
                     out += last_header;
                 }
