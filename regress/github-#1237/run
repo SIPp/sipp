@@ -1,0 +1,15 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A lone - or -- is an invalid argument, as any unknown option is: sipp
+# prints its help and says so, rather than taking it for a section of
+# the help.
+. "`dirname "$0"`/../functions"; init
+
+for arg in - --; do
+    out=`sippfg "$arg" 2>&1`
+    case $out in
+        *"Available options"*"Invalid argument: '$arg'."*) ;;
+        *) fail "sipp $arg: `echo "$out" | tail -n 1`" ;;
+    esac
+done
+ok
