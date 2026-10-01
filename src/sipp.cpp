@@ -2257,45 +2257,45 @@ int main(int argc, char *argv[])
                 CHECK_PASS();
                 if (main_scenario) {
                     ERROR("Only one scenario may be given: -sf and -sn can't be combined or repeated");
-                } else if (!strcmp(argv[argi - 1], "-sf")) {
+                } else if (!strcmp(option->option, "sf")) {
                     main_scenario = new scenario(argv[argi], 0);
-                } else if (!strcmp(argv[argi - 1], "-sn")) {
+                } else if (!strcmp(option->option, "sn")) {
                     int i = find_scenario(argv[argi]);
                     main_scenario = new scenario(0, i);
                     main_scenario->setFileName(argv[argi]);
-                } else if (!strcmp(argv[argi - 1], "-sd")) {
+                } else if (!strcmp(option->option, "sd")) {
                     int i = find_scenario(argv[argi]);
                     fprintf(stdout, "%s", default_scenario[i]);
                     exit(EXIT_OTHER);
                 } else {
-                    ERROR("Internal error, I don't recognize %s as a scenario option", argv[argi] - 1);
+                    ERROR("Internal error, I don't recognize %s as a scenario option", argv[argi - 1]);
                 }
                 break;
             case SIPP_OPTION_RX_SCENARIO:
                 REQUIRE_ARG();
                 CHECK_PASS();
                 creationMode = MODE_MIXED;
-                if (!strcmp(argv[argi - 1], "-rxsf")) {
+                if (!strcmp(option->option, "rxsf")) {
                     rx_scenario = new scenario(argv[argi], 0);
-                } else if (!strcmp(argv[argi - 1], "-rxsn")) {
+                } else if (!strcmp(option->option, "rxsn")) {
                     int i = find_scenario(argv[argi]);
                     rx_scenario = new scenario(0, i);
                     rx_scenario->setFileName(argv[argi]);
                 } else {
-                    ERROR("Internal error, I don't recognize %s as a scenario option\n", argv[argi] - 1);
+                    ERROR("Internal error, I don't recognize %s as a scenario option\n", argv[argi - 1]);
                 }
                 break;
             case SIPP_OPTION_OOC_SCENARIO:
                 REQUIRE_ARG();
                 CHECK_PASS();
-                if (!strcmp(argv[argi - 1], "-oocsf")) {
+                if (!strcmp(option->option, "oocsf")) {
                     ooc_scenario = new scenario(argv[argi], 0);
-                } else if (!strcmp(argv[argi - 1], "-oocsn")) {
+                } else if (!strcmp(option->option, "oocsn")) {
                     int i = find_scenario(argv[argi]);
                     ooc_scenario = new scenario(0, i);
                     ooc_scenario->setFileName(argv[argi]);
                 } else {
-                    ERROR("Internal error, I don't recognize %s as a scenario option", argv[argi] - 1);
+                    ERROR("Internal error, I don't recognize %s as a scenario option", argv[argi - 1]);
                 }
                 break;
             case SIPP_OPTION_SLAVE_CFG:

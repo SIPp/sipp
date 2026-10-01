@@ -295,6 +295,7 @@ marked **Breaking**.
     #931, #958, #1056, #1057, #1058)
   - uniform pauses and `-lost` keep the per-process random seed (#956),
     and `<exec command>` keeps stdin non-blocking (#955)
+  - the scenario options take `--`, as the others do (#1238)
   - messages and warnings: a fatal error is printed once, logs opened
     before the scenario loads are named after sipp, variable names, and
     spurious epoll and shutdown warnings, and an unknown `~user` in one
