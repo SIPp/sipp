@@ -124,14 +124,9 @@ void task::add_to_runqueue()
     this->running = true;
 }
 
-void task::add_to_paused_tasks(bool increment)
+void task::add_to_paused_tasks()
 {
-    paused_tasks.add_paused_task(this, increment);
-}
-
-void task::recalculate_wheel()
-{
-    add_to_paused_tasks(false);
+    paused_tasks.add_paused_task(this);
 }
 
 /* Remove this task from the run queue. */
@@ -167,7 +162,7 @@ void task::setPaused()
         paused_tasks.remove_paused_task(this);
     }
     assert(running == false);
-    add_to_paused_tasks(true);
+    add_to_paused_tasks();
 }
 
 void task::abort()
@@ -180,10 +175,8 @@ void task::abort()
 // Based on the time a given task should next be woken up, finds the
 // correct time wheel for it and returns a list of other tasks
 // occurring at that point.
-task_list *timewheel::task2list(task *task)
+task_list *timewheel::task2list(unsigned int wake)
 {
-    unsigned int wake = task->wake();
-
     if (wake == 0) {
         return &forever_list;
     }
@@ -246,27 +239,18 @@ int timewheel::expire_paused_tasks()
                 int slot3 = ((wheel_base / LEVEL_ONE_SLOTS) / LEVEL_TWO_SLOTS);
                 assert(slot3 < LEVEL_THREE_SLOTS);
 
-                for (task_list::iterator l3it = wheel_three[slot3].begin();
-                        l3it != wheel_three[slot3].end();
-                        l3it++) {
-                    /* Migrate this task to wheel two. */
-                  (*l3it)->recalculate_wheel();
+                /* Migrate these tasks to wheel two. */
+                for (size_t n = wheel_three[slot3].size(); n; n--) {
+                    relocate(wheel_three[slot3].front());
                 }
-
-                wheel_three[slot3].clear();
             }
 
             /* Repopulate wheel 1 from wheel 2 (which will now be full
                of the tasks pulled from wheel 3, if that was
                necessary) */
-            for (task_list::iterator l2it = wheel_two[slot2].begin();
-                    l2it != wheel_two[slot2].end();
-                    l2it++) {
-                /* Migrate this task to wheel one. */
-              (*l2it)->recalculate_wheel();
+            for (size_t n = wheel_two[slot2].size(); n; n--) {
+                relocate(wheel_two[slot2].front());
             }
-
-            wheel_two[slot2].clear();
         }
 
         /* Move tasks from the current slot of wheel 1 (i.e. the tasks
@@ -287,23 +271,33 @@ int timewheel::expire_paused_tasks()
     return found;
 }
 
-// Adds a task to the correct timewheel. When increment is false, does
-// not increment the count of tasks owned by this timewheel, and so
-// can be used for recalculating the wheel of an existing task.
-void timewheel::add_paused_task(task *task, bool increment)
+// Adds a task to the correct timewheel, or to the run queue if its
+// wake time is past.
+void timewheel::add_paused_task(task *task)
 {
-    task_list::iterator task_it;
-    if (task->wake() && task->wake() < wheel_base) {
+    unsigned int wake = task->wake();
+    if (wake && wake < wheel_base) {
         task->add_to_runqueue();
         return;
     }
-    task_list *list = task2list(task);
-    task_it = list->insert(list->end(), task);
+    task_list *list = task2list(wake);
+    task->pauseit = list->insert(list->end(), task);
     task->pauselist = list;
-    task->pauseit = task_it;
-    if (increment) {
-        count++;
+    count++;
+}
+
+/* The list node moves with the task, so its iterator stays valid. */
+void timewheel::relocate(task *task)
+{
+    unsigned int wake = task->wake();
+    if (wake && wake < wheel_base) {
+        remove_paused_task(task);
+        task->add_to_runqueue();
+        return;
     }
+    task_list *list = task2list(wake);
+    list->splice(list->end(), *task->pauselist, task->pauseit);
+    task->pauselist = list;
 }
 
 void timewheel::remove_paused_task(task *task)
@@ -323,3 +317,255 @@ int timewheel::size()
 {
     return count;
 }
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+
+#include <climits>
+#include <memory>
+#include <random>
+#include <set>
+#include <vector>
+
+/* A task that wakes up when it is told. */
+class wheel_test_task : public task
+{
+public:
+    unsigned int at = 0;
+    bool run() override
+    {
+        return true;
+    }
+    void dump() override {}
+    unsigned int wake() override
+    {
+        return at;
+    }
+};
+
+class TimewheelTest : public ::testing::Test
+{
+protected:
+    std::unique_ptr<timewheel> wheel;
+    std::vector<std::unique_ptr<wheel_test_task>> tasks;
+    std::set<task *> paused;
+    unsigned long saved_clock = clock_tick;
+
+    void start(unsigned long now)
+    {
+        clock_tick = now;
+        wheel.reset(new timewheel());
+    }
+
+    void TearDown() override
+    {
+        for (auto &t : tasks) {
+            resume(t.get());
+        }
+        tasks.clear();
+        clock_tick = saved_clock;
+    }
+
+    wheel_test_task *new_task()
+    {
+        tasks.emplace_back(new wheel_test_task());
+        return tasks.back().get();
+    }
+
+    /* Pause a running task until at: false if it runs right away. */
+    bool pause(wheel_test_task *t, unsigned int at)
+    {
+        t->at = at;
+        t->remove_from_runqueue();
+        wheel->add_paused_task(t);
+        if (t->running) {
+            return false;
+        }
+        paused.insert(t);
+        return true;
+    }
+
+    void resume(task *t)
+    {
+        if (paused.erase(t)) {
+            wheel->remove_paused_task(t);
+            t->add_to_runqueue();
+        }
+    }
+
+    /* The tasks that the clock at now wakes, in their run queue order. */
+    std::vector<task *> expire(unsigned long now, int *found = nullptr)
+    {
+        clock_tick = now;
+        int n = wheel->expire_paused_tasks();
+        if (found) {
+            *found = n;
+        }
+        /* They went last in the run queue, before the new tasks. */
+        std::vector<task *> woken;
+        for (task_list::iterator it = first_new; it != running_tasks.begin();) {
+            if (!paused.erase(*--it)) {
+                break;
+            }
+            woken.push_back(*it);
+        }
+        std::reverse(woken.begin(), woken.end());
+        return woken;
+    }
+
+    /* Random pauses, resumes and clock steps from start, against a
+     * reference: a task wakes once the clock is past its wake time,
+     * in the order of the wake times, then of the pauses. */
+    void check_against_reference(unsigned long now, unsigned int seed)
+    {
+        std::mt19937_64 rng(seed);
+        auto below = [&rng](unsigned long n) { return (unsigned long)(rng() % n); };
+        std::map<std::pair<unsigned long, unsigned long>, task *> due;
+        std::map<task *, std::pair<unsigned long, unsigned long>> slot;
+        std::set<task *> forever;
+        unsigned long seq = 0;
+
+        start(now);
+        for (int i = 0; i < 300; i++) {
+            new_task();
+        }
+        for (int step = 0; step < 100000; step++) {
+            int what = below(100);
+            if (what < 45) {
+                unsigned long r = below(100);
+                if (r < 60) {
+                    now += 1;
+                } else if (r < 85) {
+                    now += 2 + below(20);
+                } else if (r < 95) {
+                    now += 20 + below(1000);
+                } else {
+                    now += 1000 + below(20000);
+                }
+                int found;
+                std::vector<task *> woken = expire(now, &found);
+                std::vector<task *> expected;
+                while (!due.empty() && due.begin()->first.first < now) {
+                    expected.push_back(due.begin()->second);
+                    slot.erase(due.begin()->second);
+                    due.erase(due.begin());
+                }
+                ASSERT_EQ(expected, woken) << "at " << now;
+                ASSERT_EQ((int)woken.size(), found);
+            } else if (what < 85) {
+                wheel_test_task *t = tasks[below(tasks.size())].get();
+                if (!t->running) {
+                    continue;
+                }
+                unsigned long r = below(100), at;
+                if (r < 5) {
+                    at = 0;
+                } else if (r < 15) {
+                    at = now - below(std::min(now, 5000UL) + 1);
+                } else if (r < 20) {
+                    at = now;
+                } else if (r < 40) {
+                    at = now + below(LEVEL_ONE_SLOTS);
+                } else if (r < 55) {
+                    at = now + below(3 * LEVEL_ONE_SLOTS);
+                } else if (r < 65) {
+                    /* many on the same ms */
+                    at = (now / 1000 + 1 + below(12)) * 1000;
+                } else if (r < 70) {
+                    /* the same ms, paused long apart */
+                    unsigned long order = below(2) ? 22 : 12;
+                    at = ((now >> order) + 1 + below(2)) << order | below(3);
+                } else if (r < 90) {
+                    at = now + below(1UL << 23);
+                } else {
+                    at = now + below(1UL << 31);
+                }
+                at = std::min(at, (unsigned long)UINT_MAX);
+                bool waits = pause(t, at);
+                if (!at) {
+                    forever.insert(t);
+                } else if (at >= now) {
+                    std::pair<unsigned long, unsigned long> key(at, seq++);
+                    due[key] = t;
+                    slot[t] = key;
+                }
+                ASSERT_EQ(!at || at >= now, waits) << "at " << now;
+            } else {
+                task *t = tasks[below(tasks.size())].get();
+                if (slot.count(t)) {
+                    due.erase(slot[t]);
+                    slot.erase(t);
+                }
+                forever.erase(t);
+                resume(t);
+            }
+            ASSERT_EQ((int)(due.size() + forever.size()), wheel->size());
+        }
+    }
+};
+
+TEST_F(TimewheelTest, MatchesReference)
+{
+    check_against_reference(0, 1);
+}
+
+TEST_F(TimewheelTest, MatchesReferenceMidWindow)
+{
+    check_against_reference(5 * LEVEL_ONE_SLOTS - 300, 2);
+}
+
+TEST_F(TimewheelTest, MatchesReferenceBeforeThirdWheel)
+{
+    check_against_reference(LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS - LEVEL_ONE_SLOTS - 500, 3);
+}
+
+TEST_F(TimewheelTest, MatchesReferenceLater)
+{
+    check_against_reference(7UL * LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS - 50, 4);
+}
+
+/* A task whose wake time changes as it waits in the second wheel wakes
+ * at the new time. */
+TEST_F(TimewheelTest, WakeMovedLater)
+{
+    start(0);
+    wheel_test_task *t = new_task();
+    ASSERT_TRUE(pause(t, 2 * LEVEL_ONE_SLOTS + 10));
+    expire(100);
+    t->at = 3 * LEVEL_ONE_SLOTS + 20;
+    for (unsigned long now = 101; now <= t->at; now++) {
+        ASSERT_TRUE(expire(now).empty()) << "at " << now;
+    }
+    EXPECT_EQ(std::vector<task *>({t}), expire(t->at + 1));
+    EXPECT_EQ(0, wheel->size());
+}
+
+/* Moved to a past time, it wakes at the latest when its first time's
+ * window starts. */
+TEST_F(TimewheelTest, WakeMovedEarlier)
+{
+    start(0);
+    wheel_test_task *t = new_task();
+    ASSERT_TRUE(pause(t, 2 * LEVEL_ONE_SLOTS + 10));
+    expire(100);
+    t->at = 50;
+    unsigned long now = 100;
+    while (expire(++now).empty()) {
+        ASSERT_LE(now, 2 * LEVEL_ONE_SLOTS) << "not woken";
+    }
+    EXPECT_EQ(0, wheel->size());
+}
+
+/* A task that never wakes stays until it is resumed. */
+TEST_F(TimewheelTest, Forever)
+{
+    start(0);
+    wheel_test_task *t = new_task();
+    ASSERT_TRUE(pause(t, 0));
+    EXPECT_TRUE(expire(10UL * LEVEL_ONE_SLOTS * LEVEL_TWO_SLOTS).empty());
+    EXPECT_EQ(1, wheel->size());
+    resume(t);
+    EXPECT_EQ(0, wheel->size());
+}
+
+#endif // GTEST
