@@ -193,7 +193,8 @@ marked **Breaking**.
     dropped the trace files unclosed (#1216)
   - data races between the calls and the RTP threads (#977, #1108,
     #1140)
-  - memory and socket leaks (#886, #945, #1018)
+  - memory and socket leaks (#886, #945, #1018), and the index of an
+    `-infindex` file (#1258)
   - a crash at the end of a call with `-srtpcheck_debug` when its debug
     file can't be created (#1213)
 - SIP (by Orgad Shaneh):
@@ -345,7 +346,7 @@ marked **Breaking**.
   - a host of any length is taken whole: the remote host and the hosts
     of `-i`, `-mi`, `-ci`, `-multihome`, `-3pcc` and `-slave_cfg`, which
     were refused over 254, 126 or 39 characters, or cut to 39 for the
-    peer of a `<sendCmd>` (#1214, #1258)
+    peer of a `<sendCmd>` and to 255 in an `-ip_field` (#1214, #1258)
 - Documentation and tests (by Orgad Shaneh): the docs build with current
   Sphinx (#949), exit codes, media ports and receive timeouts are
   documented (#950, #952, #953), CONTRIBUTING.md says what makes a PR

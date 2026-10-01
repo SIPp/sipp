@@ -1986,10 +1986,10 @@ int main(int argc, char *argv[])
                 assert(name);
                 inFiles[name] = data;
                 /* By default, the first file is used for IP address input. */
-                if (!ip_file) {
+                if (ip_file.empty()) {
                     ip_file = name;
                 }
-                if (!default_file) {
+                if (default_file.empty()) {
                     default_file = name;
                 }
             }
@@ -2007,13 +2007,6 @@ int main(int argc, char *argv[])
                 }
                 assert(name);
                 inFiles[name] = rxData;
-                /* By default, the first file is used for IP address input. */
-                if (!rx_ip_file) {
-                    rx_ip_file = name;
-                }
-                if (!rx_default_file) {
-                    rx_default_file = name;
-                }
             }
             break;
             case SIPP_OPTION_INDEX_FILE:
@@ -2414,7 +2407,7 @@ int main(int argc, char *argv[])
     }
 
     if (stop_after_csv) {
-        if (!default_file) {
+        if (default_file.empty()) {
             ERROR("-m_csv needs an -inf file");
         }
         if (stop_after != 0xffffffff) {
@@ -2424,7 +2417,7 @@ int main(int argc, char *argv[])
     }
 
     if (peripsocket) {
-        if (!ip_file) {
+        if (ip_file.empty()) {
             ERROR("You must use the -inf option when using -t ui.\n"
                   "Use 'sipp -h' for details");
         }

@@ -411,7 +411,7 @@ static std::string perip_key(const struct sockaddr_storage *ss)
     return get_inet_address(ss);
 }
 
-SIPpSocket *find_perip_socket(const char *peripaddr, const struct sockaddr_storage *ss)
+SIPpSocket *find_perip_socket(const std::string &peripaddr, const struct sockaddr_storage *ss)
 {
     auto i = map_perip_fd.find(perip_key(ss));
     if (i == map_perip_fd.end()) {
@@ -421,7 +421,7 @@ SIPpSocket *find_perip_socket(const char *peripaddr, const struct sockaddr_stora
     return i->second;
 }
 
-void add_perip_socket(const char *peripaddr, const struct sockaddr_storage *ss, SIPpSocket *sock)
+void add_perip_socket(const std::string &peripaddr, const struct sockaddr_storage *ss, SIPpSocket *sock)
 {
     map_perip_fd[peripaddr] = sock;
     map_perip_fd[perip_key(ss)] = sock;
@@ -3205,7 +3205,7 @@ int open_connections()
 #endif
 
     /* Trying to bind local port */
-    char peripaddr[256];
+    std::string peripaddr;
     if (!user_port) {
         unsigned short l_port;
         for (l_port = DEFAULT_PORT;
@@ -3219,11 +3219,11 @@ int open_connections()
                     // IP address.
                     // For the socket per IP mode, bind the main socket to the
                     // first IP address specified in the inject file.
-                    inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
-                    if (gai_getsockaddr(&local_sockaddr, peripaddr, nullptr,
-                                        AI_PASSIVE, AF_UNSPEC) != 0) {
+                    peripaddr = inFiles[ip_file]->getField(0, peripfield);
+                    if (gai_getsockaddr(&local_sockaddr, peripaddr.c_str(), nullptr, AI_PASSIVE, AF_UNSPEC) != 0) {
                         ERROR("Unknown host '%s'.\n"
-                              "Use 'sipp -h' for details", peripaddr);
+                              "Use 'sipp -h' for details",
+                              peripaddr.c_str());
                     }
                 } else {
                     if (gai_getsockaddr(&local_sockaddr, local_ip.c_str(), nullptr, AI_PASSIVE, AF_UNSPEC) != 0) {
@@ -3250,11 +3250,11 @@ int open_connections()
                 // IP address.
                 // For the socket per IP mode, bind the main socket to the
                 // first IP address specified in the inject file.
-                inFiles[ip_file]->getField(0, peripfield, peripaddr, sizeof(peripaddr));
-                if (gai_getsockaddr(&local_sockaddr, peripaddr, nullptr,
-                                    AI_PASSIVE, AF_UNSPEC) != 0) {
+                peripaddr = inFiles[ip_file]->getField(0, peripfield);
+                if (gai_getsockaddr(&local_sockaddr, peripaddr.c_str(), nullptr, AI_PASSIVE, AF_UNSPEC) != 0) {
                     ERROR("Unknown host '%s'.\n"
-                          "Use 'sipp -h' for details", peripaddr);
+                          "Use 'sipp -h' for details",
+                          peripaddr.c_str());
                 }
             } else {
                 if (gai_getsockaddr(&local_sockaddr, local_ip.c_str(), nullptr, AI_PASSIVE, AF_UNSPEC) != 0) {
@@ -3280,21 +3280,20 @@ int open_connections()
     // IP address mode.
     if (peripsocket && sendMode == MODE_SERVER) {
         struct sockaddr_storage server_sockaddr;
-        char peripaddr[256];
         SIPpSocket *sock;
 
         unsigned int lines = inFiles[ip_file]->numLines();
         for (unsigned int i = 0; i < lines; i++) {
-            inFiles[ip_file]->getField(i, peripfield, peripaddr, sizeof(peripaddr));
-            auto j = map_perip_fd.find(peripaddr);
+            const std::string server_ip = inFiles[ip_file]->getField(i, peripfield);
+            auto j = map_perip_fd.find(server_ip);
 
             if (j == map_perip_fd.end()) {
-                if (gai_getsockaddr(&server_sockaddr, peripaddr, local_port,
-                                    AI_PASSIVE, AF_UNSPEC) != 0) {
+                if (gai_getsockaddr(&server_sockaddr, server_ip.c_str(), local_port, AI_PASSIVE, AF_UNSPEC) != 0) {
                     ERROR("Unknown remote host '%s'.\n"
-                          "Use 'sipp -h' for details", peripaddr);
+                          "Use 'sipp -h' for details",
+                          server_ip.c_str());
                 }
-                if (find_perip_socket(peripaddr, &server_sockaddr)) {
+                if (find_perip_socket(server_ip, &server_sockaddr)) {
                     continue;
                 }
 
@@ -3309,7 +3308,7 @@ int open_connections()
                     ERROR_NO("Unable to bind server socket");
                 }
 
-                add_perip_socket(peripaddr, &server_sockaddr, sock);
+                add_perip_socket(server_ip, &server_sockaddr, sock);
             }
         }
     }

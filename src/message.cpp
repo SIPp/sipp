@@ -313,7 +313,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, const char *osrc, bool sk
                 char fileName[KEYWORD_SIZE];
                 getKeywordParam(keyword, "file=", fileName);
                 if (fileName[0] == '\0') {
-                    if (!default_file) {
+                    if (default_file.empty()) {
                         ERROR("No injection file was specified!");
                     }
                     newcomp->field_param.filename = default_file;
