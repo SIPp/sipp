@@ -122,6 +122,9 @@ int call::maxDynamicId    = 10000+2000*4;      // FIXME both param to be in comm
 int call::startDynamicId  = 10000;             // FIXME both param to be in command line !!!!
 int call::stepDynamicId   = 4;                // FIXME both param to be in command line !!!!
 
+/* What peekCold() reads in a call that has no cold state */
+const call::call_cold call::no_cold_state;
+
 /************** Call map and management routines **************/
 static const int SM_UNUSED = -1;
 
@@ -1174,11 +1177,6 @@ void call::init(scenario * call_scenario, SIPpSocket *socket, struct sockaddr_st
     cseq = base_cseq;
     nb_last_delay = 0;
     use_ipv6 = ipv6;
-    queued_sdp_read = false;
-
-    dialog_challenge_type = 0;
-
-    next_nonce_count = 1;
 
     //
     // JLSRTP CLIENT context constants
@@ -1406,14 +1404,15 @@ int call::_callDebug(const char *fmt, ...)
 
     struct timeval now;
     gettimeofday(&now, nullptr);
-    debugBuffer += CStat::formatTime(&now, rfc3339);
-    debugBuffer += ' ';
+    std::string &debug = cold().debugBuffer;
+    debug += CStat::formatTime(&now, rfc3339);
+    debug += ' ';
 
     /* Written in place: vsnprintf() ends it with the string's own NUL */
-    const size_t at = debugBuffer.size();
-    debugBuffer.resize(at + ret);
+    const size_t at = debug.size();
+    debug.resize(at + ret);
     va_start(ap, fmt);
-    vsnprintf(debugBuffer.data() + at, ret + 1, fmt, ap);
+    vsnprintf(debug.data() + at, ret + 1, fmt, ap);
     va_end(ap);
 
     return ret;
@@ -1426,8 +1425,8 @@ call::~call()
     if (call_remote_socket && (call_remote_socket != main_remote_socket)) {
         call_remote_socket->close();
     }
-    while (!request_sources.empty()) {
-        forget_request_source(request_sources.begin());
+    while (!peekCold().request_sources.empty()) {
+        forget_request_source(cold_state->request_sources.begin());
     }
 
     /* Deletion of the call variable */
@@ -1749,10 +1748,10 @@ int call::send_raw(const char * msg, int index, int len)
 
     /* A response to a request that came from elsewhere goes back there. */
     struct sockaddr_storage *dest = &call_peer;
-    if (!request_sources.empty() && !strncmp(msg, "SIP/2.0 ", 8)) {
+    if (!peekCold().request_sources.empty() && !strncmp(msg, "SIP/2.0 ", 8)) {
         char branch[MAX_HEADER_LEN];
         extract_transaction(branch, msg);
-        for (request_source &rs : request_sources) {
+        for (request_source &rs : cold_state->request_sources) {
             if (rs.branch == branch) {
                 if (!rs.socket) {
                     dest = &rs.addr;
@@ -2407,12 +2406,12 @@ bool call::executeMessage(message *curmsg)
     } else if (curmsg->M_type == MSG_TYPE_RECV
                || curmsg->M_type == MSG_TYPE_RECVCMD
               ) {
-        if (curmsg->M_type == MSG_TYPE_RECVCMD && !queued_cmd.empty()) {
-            std::string cmd = std::exchange(queued_cmd, std::string());
+        if (curmsg->M_type == MSG_TYPE_RECVCMD && !peekCold().queued_cmd.empty()) {
+            std::string cmd = std::exchange(cold_state->queued_cmd, std::string());
             return process_twinSippCom(cmd.data());
-        } else if (!queued_msg.empty()) {
-            std::string msg = std::exchange(queued_msg, std::string());
-            return process_incoming(msg.c_str(), nullptr, nullptr, queued_sdp_read);
+        } else if (!peekCold().queued_msg.empty()) {
+            std::string msg = std::exchange(cold_state->queued_msg, std::string());
+            return process_incoming(msg.c_str(), nullptr, nullptr, cold_state->queued_sdp_read);
         } else if (recv_timeout) {
             if(recv_timeout > getmilliseconds()) {
                 setPaused();
@@ -2880,7 +2879,7 @@ bool call::abortCall(bool writeLog)
     if (writeLog && useCallDebugf) {
         TRACE_CALLDEBUG ("-------------------------------------------------------------------------------\n");
         TRACE_CALLDEBUG ("Call debugging information for call %s:\n", id);
-        TRACE_CALLDEBUG("%s", debugBuffer.c_str());
+        TRACE_CALLDEBUG("%s", peekCold().debugBuffer.c_str());
     }
 
     stopListening();
@@ -4288,8 +4287,8 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             append_number(out, P_index);
             break;
         case E_Message_Next_Url:
-            if (!next_req_url.empty()) {
-                out += next_req_url;
+            if (!peekCold().next_req_url.empty()) {
+                out += peekCold().next_req_url;
             } else {
                 out += get_last_request_uri();
             }
@@ -4314,9 +4313,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
             }
             break;
         case E_Message_Routes:
-            if (dialog_route_set) {
+            if (peekCold().dialog_route_set) {
                 out += "Route: ";
-                out += *dialog_route_set;
+                out += *peekCold().dialog_route_set;
             } else if (!out.empty() && out.back() == '\n') {
                 suppresscrlf = true;
             }
@@ -4562,14 +4561,15 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
      * been keyword substituted) to build the md5 hash
      */
     if (auth_marker != std::string::npos) {
-        if (dialog_authentication.empty()) {
+        if (peekCold().dialog_authentication.empty()) {
             ERROR("Authentication keyword without dialog_authentication!");
         }
+        call_cold &auth = *cold_state;
 
         const size_t auth_marker_len = out.find(']', auth_marker) + 1 - auth_marker;
         /* Determine the type of credentials: registrars use
          * Authorization, proxies Proxy-Authorization. */
-        std::string result = dialog_challenge_type == 401 ? "Authorization: " : "Proxy-Authorization: ";
+        std::string result = auth.dialog_challenge_type == 401 ? "Authorization: " : "Proxy-Authorization: ";
 
         /* Build the auth credenticals */
         char uri[MAX_HEADER_LEN];
@@ -4588,8 +4588,9 @@ char* call::createSendingMessage(SendingMessage *src, int P_index, char *msg_buf
 
         std::string credentials;
         if (!createAuthHeader(my_auth_user, my_auth_pass, src->getMethod(), uri,
-                              body == std::string::npos ? "" : out.c_str() + body + 4, dialog_authentication.c_str(),
-                              my_aka_OP, my_aka_AMF, my_aka_K, next_nonce_count++, credentials)) {
+                              body == std::string::npos ? "" : out.c_str() + body + 4,
+                              auth.dialog_authentication.c_str(), my_aka_OP, my_aka_AMF, my_aka_K,
+                              auth.next_nonce_count++, credentials)) {
             ERROR("%s", credentials.c_str());
         }
         result += credentials;
@@ -4740,10 +4741,10 @@ bool call::process_twinSippCom(char * msg)
                  * as a message that comes before a <sendCmd> has run is
                  * kept for its <recv>. */
                 int type = call_scenario->messages[search_index]->M_type;
-                if ((type == MSG_TYPE_RECV || type == MSG_TYPE_SEND) && queued_cmd.empty() &&
+                if ((type == MSG_TYPE_RECV || type == MSG_TYPE_SEND) && peekCold().queued_cmd.empty() &&
                     recvCmdFollows(search_index)) {
                     callDebug("Keeping the command for the <recvCmd> after index %d.\n", search_index);
-                    queued_cmd = msg;
+                    cold().queued_cmd = msg;
                     return true;
                 }
                 /* The received message is different from the expected one */
@@ -4926,9 +4927,10 @@ void call::formatNextReqUrl(const char* contact)
     if ((start && end)  && (start < end)) {
         contact = start;
         contact++;
-        next_req_url.assign(contact, std::min(MAX_HEADER_LEN - 1, (int)(end - contact))); /* fits MAX_HEADER_LEN */
+        cold().next_req_url.assign(contact,
+                                   std::min(MAX_HEADER_LEN - 1, (int)(end - contact))); /* fits MAX_HEADER_LEN */
     } else {
-        next_req_url.assign(contact, strnlen(contact, MAX_HEADER_LEN - 1));
+        cold().next_req_url.assign(contact, strnlen(contact, MAX_HEADER_LEN - 1));
     }
 }
 
@@ -4992,7 +4994,7 @@ void call::computeRouteSetAndRemoteTargetUri(const char* rr, const char* contact
     }
 
     if (routes.size()) {
-        dialog_route_set = join(routes, ", ");
+        cold().dialog_route_set = join(routes, ", ");
     }
 
     formatNextReqUrl(targetUri.c_str());
@@ -5017,8 +5019,8 @@ void call::switchDialog(int dialog)
         std::swap(last_recv_invite_cseq, d.last_recv_invite_cseq);
         std::swap(peer_tag, d.peer_tag);
         std::swap(last_recv_msg, d.last_recv_msg);
-        std::swap(dialog_route_set, d.dialog_route_set);
-        std::swap(next_req_url, d.next_req_url);
+        std::swap(cold().dialog_route_set, d.dialog_route_set);
+        std::swap(cold().next_req_url, d.next_req_url);
     };
     swap_state(dialogs->dialogs[dialogs->current]);
     swap_state(dialog_entry(dialogs->dialogs, dialog));
@@ -5170,8 +5172,9 @@ bool call::matches_scenario(unsigned int index, int reply_code, char * request, 
 
 void call::queue_up(const char* msg, bool sdp_read)
 {
-    queued_msg = msg;
-    queued_sdp_read = sdp_read;
+    call_cold &c = cold();
+    c.queued_msg = msg;
+    c.queued_sdp_read = sdp_read;
 }
 
 /* Whether a and b are the same address and port. */
@@ -5199,7 +5202,7 @@ void call::forget_request_source(std::vector<request_source>::iterator it)
     if (it->socket) {
         it->socket->close();
     }
-    request_sources.erase(it);
+    cold_state->request_sources.erase(it);
 }
 
 /* Remember where a request that did not come from the call's destination
@@ -5218,9 +5221,10 @@ void call::remember_request_source(const char *msg, const struct sockaddr_storag
     }
     bool elsewhere = transport == T_UDP ? !same_address(src, &call_peer)
                                         : socket && socket != call_socket;
-    if (!elsewhere && request_sources.empty()) {
+    if (!elsewhere && peekCold().request_sources.empty()) {
         return;
     }
+    std::vector<request_source> &request_sources = cold().request_sources;
 
     char branch[MAX_HEADER_LEN];
     extract_transaction(branch, msg);
@@ -6369,9 +6373,9 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
     }
 
     /* store the route set only once. TODO: does not support target refreshes!! */
-    if (call_scenario->messages[search_index]->bShouldRecordRoutes && !dialog_route_set) {
+    if (call_scenario->messages[search_index]->bShouldRecordRoutes && !peekCold().dialog_route_set) {
         /* Ensure next_req_url has an empty value in case contact is missing */
-        next_req_url.clear();
+        cold().next_req_url.clear();
 
         /* cache the route set and the contact */
         char rr[MAX_HEADER_LEN], contact[MAX_HEADER_LEN];
@@ -6399,12 +6403,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
         }
         selectAuthChallenge(auth);
 
-        dialog_authentication = auth;
+        call_cold &c = cold();
+        c.dialog_authentication = auth;
 
         /* Store the code of the challenge for building the proper header */
-        dialog_challenge_type = reply_code;
+        c.dialog_challenge_type = reply_code;
 
-        next_nonce_count = 1;
+        c.next_nonce_count = 1;
     }
 
     /* If we are not advancing state, we should quite before we change this stuff. */

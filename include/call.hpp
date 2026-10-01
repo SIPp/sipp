@@ -180,13 +180,47 @@ private:
         struct sockaddr_storage addr;
         SIPpSocket *socket; /* Held with ss_count; nullptr over UDP. */
     };
-    std::vector<request_source> request_sources;
     void remember_request_source(const char *msg, const struct sockaddr_storage *src,
                                  SIPpSocket *socket);
     void forget_request_source(std::vector<request_source>::iterator it);
 
     /* The -round_robin address the call was made to, if any. */
     remote_address *remote;
+
+    /* The state that most calls never have, made when first set: cold()
+     * makes it, peekCold() reads it, or defaults if there is none. */
+    struct call_cold {
+        std::vector<request_source> request_sources;
+        /* holds the route set, once recorded */
+        std::optional<std::string> dialog_route_set;
+        std::string next_req_url;
+        /* holds the auth header and if the challenge was 401 or 407 */
+        std::string dialog_authentication;
+        int dialog_challenge_type = 0;
+        unsigned int next_nonce_count = 1;
+        /* A message that came before the call waited for one, kept for
+         * its <recv>: empty when none, as a message is never empty */
+        std::string queued_msg;
+        bool queued_sdp_read = false;
+        /* A command that came while the call waited for a SIP message,
+         * kept for the <recvCmd> that follows. */
+        std::string queued_cmd;
+        /* The -trace_calldebug text */
+        std::string debugBuffer;
+    };
+    std::unique_ptr<call_cold> cold_state;
+    static const call_cold no_cold_state;
+    call_cold &cold()
+    {
+        if (!cold_state) {
+            cold_state = std::make_unique<call_cold>();
+        }
+        return *cold_state;
+    }
+    const call_cold &peekCold() const
+    {
+        return cold_state ? *cold_state : no_cold_state;
+    }
 
     scenario *call_scenario;
     unsigned int   number;
@@ -241,10 +275,6 @@ protected:
     void keepRecvRetransMsg();
     unsigned int   recv_timeout;
 
-    /* holds the route set, once recorded */
-    std::optional<std::string> dialog_route_set;
-    std::string next_req_url;
-
     /* cseq value for [cseq] keyword */
     unsigned int   cseq;
 
@@ -265,12 +295,6 @@ protected:
     LazySrtpChannel _rxUACVideo;
     LazySrtpChannel _txUASVideo;
     LazySrtpChannel _rxUASVideo;
-
-    /* holds the auth header and if the challenge was 401 or 407 */
-    std::string dialog_authentication;
-    int            dialog_challenge_type;
-
-    unsigned int   next_nonce_count;
 
     unsigned int   next_retrans;
     int            nb_retrans;
@@ -456,17 +480,10 @@ protected:
      * read when it came; reading it again would count it twice. */
     bool process_incoming(const char* msg, const struct sockaddr_storage* src,
                           SIPpSocket *socket, bool sdp_read);
-    void queue_up(const char* msg, bool sdp_read = false);
-    /* Empty when none: a message is never empty */
-    std::string queued_msg;
-    bool queued_sdp_read;
-    /* A command that came while the call waited for a SIP message, kept
-     * for the <recvCmd> that follows. */
-    std::string queued_cmd;
+    void queue_up(const char *msg, bool sdp_read = false);
     bool recvCmdFollows(int index);
 
     int _callDebug(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
-    std::string debugBuffer;
 
     FILE* _srtpctxdebugfile;
     int logSrtpInfo(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
