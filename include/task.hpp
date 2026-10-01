@@ -65,12 +65,14 @@ private:
 
     /* The actual wheels. This is a variation on having one wheel for
      * seconds, another for minutes and a third for hours - in this
-     * model, the first wheel holds tasks that should be scheduled in
-     * the next 2^12ms (~4s), the second wheel holds tasks that
-     * should be scheduled between 2^12 and 2^22ms (~4s-~69m), and
-     * the third wheel holds tasks that should be scheduled between
-     * 2^22ms and 2^32ms (~69m-~8 years). */
-    task_list wheel_one[LEVEL_ONE_SLOTS];
+     * model, time goes in windows of 2^12ms (~4s): the first wheel
+     * holds tasks that should be scheduled in this window and the
+     * next one, the second wheel holds the tasks of the next windows
+     * up to a 2^22ms (~69m) boundary, and the third wheel holds the
+     * later ones up to 2^32ms (~49 days). The tasks of the next window
+     * wait in the second wheel and move into the first one during this
+     * window, a share of them each ms, so that no ms moves them all. */
+    task_list wheel_one[2 * LEVEL_ONE_SLOTS];
     task_list wheel_two[LEVEL_TWO_SLOTS];
     task_list wheel_three[LEVEL_THREE_SLOTS];
 
