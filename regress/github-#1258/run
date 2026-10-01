@@ -1,0 +1,38 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# A host of any length is taken whole: here 127.0.0.1 written in 300
+# characters as the remote host, -i, -mi, -ci, a -3pcc twin and the
+# master and slave of a -slave_cfg, which were refused over 254, 126 or
+# 39 characters, or cut to 39 for the peer of a <sendCmd>.
+. "`dirname "$0"`/../functions"; init
+
+long=127.0.0.`printf '%0292d' 1`
+
+sippbg -sn uas -i 127.0.0.1 -p 26190 -m 1 -timeout 10
+sippfg -sn uac -i $long -mi $long -ci $long -p 26191 -m 1 $long:26190 \
+    -timeout 5 -timeout_error >/dev/null 2>&1
+uac_status=$?
+
+sippbg -sf b.xml -3pcc $long:26192 -i 127.0.0.1 -p 26193 -m 1 -timeout 10
+sippfg -sf a.xml -3pcc $long:26192 -i 127.0.0.1 -p 26194 -m 1 \
+    -timeout 5 -timeout_error >/dev/null 2>&1
+twin_status=$?
+
+cfg=`mktemp`
+printf 's1;%s:26195;\nm;%s:26196;\n' $long $long >$cfg
+sippbg -sf slave.xml -slave s1 -slave_cfg $cfg -i 127.0.0.1 -p 26197 \
+    -m 1 -timeout 10
+sippfg -sf master.xml -master m -slave_cfg $cfg -i 127.0.0.1 -p 26198 \
+    127.0.0.1:26199 -m 1 -timeout 5 -timeout_error >/dev/null 2>&1
+master_status=$?
+rm -f $cfg
+
+if test $uac_status -ne 0; then
+    fail "the UAC exited with $uac_status"
+elif test $twin_status -ne 0; then
+    fail "3PCC A exited with $twin_status"
+elif test $master_status -ne 0; then
+    fail "the master exited with $master_status"
+else
+    ok
+fi

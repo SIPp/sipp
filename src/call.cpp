@@ -3041,7 +3041,7 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
             }
             break;
         case E_Message_Remote_IP:
-            out += remote ? remote->ip_w_brackets.c_str() : remote_ip_w_brackets;
+            out += remote ? remote->ip_w_brackets : remote_ip_w_brackets;
             break;
         case E_Message_Remote_Host:
             out += remote_host;
@@ -4566,8 +4566,7 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
         std::string result = auth.dialog_challenge_type == 401 ? "Authorization: " : "Proxy-Authorization: ";
 
         /* Build the auth credenticals */
-        char uri[MAX_HEADER_LEN];
-        sprintf (uri, "%s:%d", remote ? remote->ip.c_str() : remote_ip, remote_port);
+        const std::string uri = (remote ? remote->ip : remote_ip) + ":" + std::to_string(remote_port);
         char my_auth_user[MAX_HEADER_LEN + 2];
         char my_auth_pass[MAX_HEADER_LEN + 2];
         char my_aka_OP[MAX_HEADER_LEN + 2];
@@ -7900,11 +7899,9 @@ static bool is_lower_hex_string(const std::string &value)
 class call_id_test_state_guard {
 public:
     call_id_test_state_guard()
-        : saved_call_id_string(call_id_string),
-          saved_call_id_mode(call_id_mode),
-          saved_pid(pid)
+        : saved_call_id_string(call_id_string), saved_call_id_mode(call_id_mode), saved_pid(pid),
+          saved_local_ip(local_ip)
     {
-        strcpy(saved_local_ip, local_ip);
     }
 
     ~call_id_test_state_guard()
@@ -7912,14 +7909,14 @@ public:
         call_id_string = saved_call_id_string;
         call_id_mode = saved_call_id_mode;
         pid = saved_pid;
-        strcpy(local_ip, saved_local_ip);
+        local_ip = saved_local_ip;
     }
 
 private:
     const char *saved_call_id_string;
     int saved_call_id_mode;
     unsigned int saved_pid;
-    char saved_local_ip[sizeof(local_ip)];
+    std::string saved_local_ip;
 };
 
 TEST(hash, sdbm_hash_four_characters_at_a_time)
@@ -7942,7 +7939,7 @@ TEST(call_id, default_mode_uses_cid_str_template) {
     call_id_mode = CID_MODE_FORMAT;
     call_id_string = "%u-%p@%s";
     pid = 4321;
-    strcpy(local_ip, "192.0.2.10");
+    local_ip = "192.0.2.10";
 
     build_call_id(call_id, 77);
     EXPECT_STREQ("77-4321@192.0.2.10", call_id);
@@ -7976,7 +7973,7 @@ TEST(call_id, uuid_mode_generates_rfc4122_value) {
 
     call_id_mode = CID_MODE_UUID;
     pid = 9001;
-    strcpy(local_ip, "198.51.100.25");
+    local_ip = "198.51.100.25";
 
     build_call_id(call_id, 15);
 
@@ -8002,7 +7999,7 @@ TEST(call_id, uuid_compact_mode_generates_hex_value) {
 
     call_id_mode = CID_MODE_UUID_COMPACT;
     pid = 1337;
-    strcpy(local_ip, "203.0.113.8");
+    local_ip = "203.0.113.8";
 
     build_call_id(call_id, 22);
 
@@ -8020,7 +8017,7 @@ TEST(call_id, random_mode_generates_unique_token_with_call_number) {
 
     call_id_mode = CID_MODE_RANDOM;
     pid = 5150;
-    strcpy(local_ip, "203.0.113.44");
+    local_ip = "203.0.113.44";
 
     build_call_id(call_id, 31);
 
@@ -8037,7 +8034,7 @@ TEST(call_id, timestamp_mode_embeds_call_number_and_pid) {
 
     call_id_mode = CID_MODE_TIMESTAMP;
     pid = 2718;
-    strcpy(local_ip, "192.0.2.44");
+    local_ip = "192.0.2.44";
 
     build_call_id(call_id, 52);
 

@@ -25,7 +25,9 @@
 #include <string.h>
 
 int get_decimal_from_hex(char hex);
-void get_host_and_port(const char *addr, char *host, int *port);
+/* The host of addr, without the [brackets] of an IPv6 address, and its
+ * port in port: 0 if it has none */
+std::string get_host_and_port(const char *addr, int *port);
 std::string wrap(const char *in, int offset, int size);
 
 /* s = the n bytes at p, in a buffer of about their size, as realloc()

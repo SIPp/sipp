@@ -342,8 +342,10 @@ marked **Breaking**.
     line (#913, #914, #930, #989, #995, #1054, #1065, #1071, #1180)
   - help texts of `-max_retrans`, `-sendbuffer_warn` and `-timer_resol`,
     and no `-rxrn`, which never worked (#917, #967, #1229, #1239)
-  - a remote host or `-slave_cfg` host over 254 characters is refused
-    rather than cut short (#1214)
+  - a host of any length is taken whole: the remote host and the hosts
+    of `-i`, `-mi`, `-ci`, `-multihome`, `-3pcc` and `-slave_cfg`, which
+    were refused over 254, 126 or 39 characters, or cut to 39 for the
+    peer of a `<sendCmd>` (#1214, #1258)
 - Documentation and tests (by Orgad Shaneh): the docs build with current
   Sphinx (#949), exit codes, media ports and receive timeouts are
   documented (#950, #952, #953), CONTRIBUTING.md says what makes a PR
