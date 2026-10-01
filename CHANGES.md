@@ -288,6 +288,8 @@ marked **Breaking**.
     back on (#1174), and a ring buffer log that fails to rotate is kept
     (#1172)
   - a `~/` path expands from USERPROFILE when there is no HOME (#1173)
+  - `sipp -` and `sipp --` are an invalid argument, not an internal
+    error (#1237)
   - screens: periods, rates, times and padding (#920, #921, #928, #929,
     #931, #958, #1056, #1057, #1058)
   - uniform pauses and `-lost` keep the per-process random seed (#956),

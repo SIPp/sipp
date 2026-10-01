@@ -863,7 +863,7 @@ static struct sipp_option *find_option(const char* option) {
     }
 
     for (i = 0; i < max; i++) {
-        if (!strcmp(options_table[i].option, option)) {
+        if (options_table[i].type != SIPP_HELP_TEXT_HEADER && !strcmp(options_table[i].option, option)) {
             return &(options_table[i]);
         }
     }
