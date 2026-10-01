@@ -412,14 +412,20 @@ unsigned long int get_cseq_value(const char* msg)
     return strtoul(ptr1, nullptr, 10);
 }
 
+/* The status code, after the first blank of the first line: 0 for a
+ * request, or a first line without one */
 unsigned long get_reply_code(const char* msg)
 {
-    while (msg && *msg != ' ' && *msg != '\t')
+    if (!msg) {
+        return 0;
+    }
+    const char *end = msg + strcspn(msg, "\r\n");
+    while (msg < end && *msg != ' ' && *msg != '\t')
         ++msg;
-    while (msg && (*msg == ' ' || *msg == '\t'))
+    while (msg < end && (*msg == ' ' || *msg == '\t'))
         ++msg;
 
-    if (msg && strlen(msg) > 0) {
+    if (msg < end) {
         return atol(msg);
     }
     return 0;
@@ -879,6 +885,20 @@ TEST(Parser, get_call_id_short_2) {
     /* The WS surrounding the colon belongs with HCOLON, but the
      * trailing WS does not. */
     EXPECT_STREQ("testshort2 \t ", get_call_id("...\r\nI:\r\n \r\n \t testshort2 \t \r\n\r\n"));
+}
+
+TEST(Parser, get_reply_code)
+{
+    EXPECT_EQ(200u, get_reply_code("SIP/2.0 200 OK\r\n\r\n"));
+    EXPECT_EQ(0u, get_reply_code("INVITE sip:a SIP/2.0\r\n\r\n"));
+    /* Not past the end of a message without a blank */
+    const char data[] = "SIP/2.0\r\n\r\n\0 486";
+    EXPECT_EQ(0u, get_reply_code(data));
+    /* Nor past its first line */
+    EXPECT_EQ(0u, get_reply_code("SIP/2.0\r\nX-Pad: x 486\r\n\r\n"));
+    EXPECT_EQ(0u, get_reply_code("SIP/2.0 abc\r\n\r\n"));
+    EXPECT_EQ(0u, get_reply_code("SIP/2.0"));
+    EXPECT_EQ(180u, get_reply_code("SIP/2.0\t180 Ringing"));
 }
 
 TEST(Parser, get_short_header_via) {
