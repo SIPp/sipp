@@ -492,7 +492,13 @@ protected:
 
     FILE* _srtpctxdebugfile;
     int logSrtpInfo(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
-    void startUACSrtp(LazySrtpChannel& tx, LazySrtpChannel& rx, int payloadSize, const char* media);
+    SrtpMedia srtpMedia(bool video)
+    {
+        return video ? SrtpMedia{_txUACVideo, _rxUACVideo, _txUASVideo, _rxUASVideo}
+                     : SrtpMedia{_txUACAudio, _rxUACAudio, _txUASAudio, _rxUASAudio};
+    }
+    void startSrtp(bool video, bool client, int payloadSize);
+    void startUASSrtp(bool video, int payloadSize);
 
     SessionState _sessionStateCurrent;
     SessionState _sessionStateOld;
