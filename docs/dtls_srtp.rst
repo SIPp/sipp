@@ -19,6 +19,8 @@ A client certificate and private key are required::
       --cert client.crt \
       --key client.key
 
+IPv6 endpoints use bracket notation, for example ``[2001:db8::20]:50000``.
+
 The default SRTP profile is ``SRTP_AES128_CM_SHA1_80``. The
 ``SRTP_AES128_CM_SHA1_32`` profile is also supported::
 
@@ -45,20 +47,28 @@ For WebRTC tests, pass the fingerprint advertised in SDP::
       'sha-256 AA:BB:CC:DD:...'
 
 The helper computes SHA-256 over the peer certificate in DER form and fails
-the handshake result if it does not match the expected SDP fingerprint.
+the handshake result if it does not match the expected SDP fingerprint. When
+no expected fingerprint is supplied, the result reports
+``peer_authenticated: false`` and is diagnostic only.
 
 Sensitive key output
 --------------------
 
-By default the JSON result includes only the negotiated SRTP profile and the
-peer certificate fingerprint. Exported SRTP keys are deliberately redacted.
-Use ``--show-keys`` only in an isolated test environment when the actual
-master key/salt values are required::
+By default the JSON result includes only the negotiated SRTP profile, the peer
+certificate fingerprint and whether the peer was authenticated. Exported SRTP
+keys are deliberately redacted.
+
+``--show-keys`` is accepted only together with ``--peer-fingerprint``. This
+prevents key material from being consumed after an unauthenticated DTLS
+handshake::
 
     python3 tools/sipp_dtls_srtp.py 203.0.113.20:50000 \
-      --cert client.crt --key client.key --show-keys
+      --cert client.crt --key client.key \
+      --peer-fingerprint 'sha-256 AA:BB:CC:DD:...' \
+      --show-keys
 
-Do not store this output in shared CI logs.
+Use key output only in an isolated test environment and do not store it in
+shared CI logs.
 
 Scope
 -----
