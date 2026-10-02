@@ -21,11 +21,11 @@ BINDING_REQUEST = 0x0001
 BINDING_SUCCESS = 0x0101
 ALLOCATE_REQUEST = 0x0003
 ALLOCATE_SUCCESS = 0x0103
-ERROR_RESPONSE_BIT = 0x0010
 
 USERNAME = 0x0006
 MESSAGE_INTEGRITY = 0x0008
 ERROR_CODE = 0x0009
+LIFETIME = 0x000D
 REALM = 0x0014
 NONCE = 0x0015
 XOR_RELAYED_ADDRESS = 0x0016
@@ -36,7 +36,6 @@ USE_CANDIDATE = 0x0025
 FINGERPRINT = 0x8028
 ICE_CONTROLLING = 0x802A
 ICE_CONTROLLED = 0x8029
-LIFETIME = 0x000D
 
 
 @dataclass(frozen=True)
@@ -73,8 +72,6 @@ def build_message(message_type: int, attributes: Iterable[Tuple[int, bytes]] = (
     txid = os.urandom(12) if txid is None else txid
     body = b"".join(_attribute(kind, value) for kind, value in attributes)
     if integrity_key is not None:
-        # RFC 5389: the HMAC input ends immediately before MESSAGE-INTEGRITY,
-        # while the header length is adjusted as if the attribute were present.
         mi_length = len(body) + 24
         digest = hmac.new(integrity_key, _header(message_type, mi_length, txid) + body, hashlib.sha1).digest()
         body += _attribute(MESSAGE_INTEGRITY, digest)
@@ -112,6 +109,47 @@ def parse_message(data: bytes) -> StunMessage:
     return StunMessage(message_type, txid, attrs)
 
 
+def _find_attribute(data: bytes, wanted: int) -> Optional[Tuple[int, bytes]]:
+    length = struct.unpack_from("!H", data, 2)[0]
+    offset, end = 20, 20 + length
+    while offset + 4 <= end:
+        start = offset
+        kind, size = struct.unpack_from("!HH", data, offset)
+        offset += 4
+        if offset + size > end:
+            raise ValueError("truncated STUN attribute value")
+        value = data[offset:offset + size]
+        if kind == wanted:
+            return start, value
+        offset += (size + 3) & ~3
+    return None
+
+
+def verify_fingerprint(data: bytes) -> bool:
+    found = _find_attribute(data, FINGERPRINT)
+    if found is None:
+        return True
+    offset, value = found
+    if len(value) != 4:
+        return False
+    expected = (binascii.crc32(data[:offset]) & 0xFFFFFFFF) ^ 0x5354554E
+    return hmac.compare_digest(value, struct.pack("!I", expected))
+
+
+def verify_message_integrity(data: bytes, key: bytes) -> bool:
+    found = _find_attribute(data, MESSAGE_INTEGRITY)
+    if found is None:
+        return False
+    offset, supplied = found
+    if len(supplied) != 20:
+        return False
+    message_type = struct.unpack_from("!H", data, 0)[0]
+    txid = data[8:20]
+    body_before = data[20:offset]
+    digest = hmac.new(key, _header(message_type, len(body_before) + 24, txid) + body_before, hashlib.sha1).digest()
+    return hmac.compare_digest(supplied, digest)
+
+
 def decode_xor_address(value: bytes, txid: bytes) -> Tuple[str, int]:
     if len(value) < 4:
         raise ValueError("truncated XOR address")
@@ -138,7 +176,7 @@ def _error_code(message: StunMessage) -> Optional[int]:
     return (value[2] & 0x07) * 100 + value[3]
 
 
-def _request(server: Tuple[str, int], packet: bytes, timeout: float) -> StunMessage:
+def _request(server: Tuple[str, int], packet: bytes, timeout: float) -> Tuple[StunMessage, bytes]:
     family = socket.AF_INET6 if ":" in server[0] else socket.AF_INET
     with socket.socket(family, socket.SOCK_DGRAM) as sock:
         sock.settimeout(timeout)
@@ -147,12 +185,14 @@ def _request(server: Tuple[str, int], packet: bytes, timeout: float) -> StunMess
     response = parse_message(data)
     if response.transaction_id != packet[8:20]:
         raise RuntimeError("STUN response transaction id mismatch")
-    return response
+    if not verify_fingerprint(data):
+        raise RuntimeError("STUN response fingerprint mismatch")
+    return response, data
 
 
 def stun_binding(server: Tuple[str, int], timeout: float = 3.0) -> Tuple[str, int]:
     request = build_message(BINDING_REQUEST)
-    response = _request(server, request, timeout)
+    response, _ = _request(server, request, timeout)
     if response.message_type != BINDING_SUCCESS:
         raise RuntimeError(f"STUN binding failed with error {_error_code(response)}")
     value = response.first(XOR_MAPPED_ADDRESS)
@@ -167,14 +207,17 @@ def ice_check(server: Tuple[str, int], local_ufrag: str, remote_ufrag: str, remo
     attrs: List[Tuple[int, bytes]] = [
         (USERNAME, f"{remote_ufrag}:{local_ufrag}".encode()),
         (PRIORITY, struct.pack("!I", priority)),
-        (ICE_CONTROLLING if controlling else ICE_CONTROLLED, struct.pack("!Q", int.from_bytes(os.urandom(8), "big"))),
+        (ICE_CONTROLLING if controlling else ICE_CONTROLLED, os.urandom(8)),
     ]
     if use_candidate:
         attrs.append((USE_CANDIDATE, b""))
-    request = build_message(BINDING_REQUEST, attrs, integrity_key=remote_password.encode())
-    response = _request(server, request, timeout)
+    key = remote_password.encode()
+    request = build_message(BINDING_REQUEST, attrs, integrity_key=key)
+    response, raw = _request(server, request, timeout)
     if response.message_type != BINDING_SUCCESS:
         raise RuntimeError(f"ICE connectivity check failed with error {_error_code(response)}")
+    if not verify_message_integrity(raw, key):
+        raise RuntimeError("ICE response MESSAGE-INTEGRITY mismatch")
     value = response.first(XOR_MAPPED_ADDRESS)
     if value is None:
         raise RuntimeError("ICE response has no XOR-MAPPED-ADDRESS")
@@ -189,22 +232,20 @@ def turn_allocate(server: Tuple[str, int], username: str, password: str,
                   timeout: float = 3.0) -> Tuple[Tuple[str, int], Optional[int]]:
     requested_udp = struct.pack("!I", 17 << 24)
     first = build_message(ALLOCATE_REQUEST, [(REQUESTED_TRANSPORT, requested_udp)])
-    challenge = _request(server, first, timeout)
+    challenge, _ = _request(server, first, timeout)
     realm_raw, nonce_raw = challenge.first(REALM), challenge.first(NONCE)
     if _error_code(challenge) not in (401, 438) or realm_raw is None or nonce_raw is None:
         raise RuntimeError(f"TURN server did not return an authentication challenge: {_error_code(challenge)}")
     realm = realm_raw.decode("utf-8")
     key = _turn_key(username, realm, password)
-    attrs = [
-        (USERNAME, username.encode()),
-        (REALM, realm_raw),
-        (NONCE, nonce_raw),
-        (REQUESTED_TRANSPORT, requested_udp),
-    ]
+    attrs = [(USERNAME, username.encode()), (REALM, realm_raw), (NONCE, nonce_raw),
+             (REQUESTED_TRANSPORT, requested_udp)]
     request = build_message(ALLOCATE_REQUEST, attrs, integrity_key=key)
-    response = _request(server, request, timeout)
+    response, raw = _request(server, request, timeout)
     if response.message_type != ALLOCATE_SUCCESS:
         raise RuntimeError(f"TURN allocation failed with error {_error_code(response)}")
+    if not verify_message_integrity(raw, key):
+        raise RuntimeError("TURN allocation MESSAGE-INTEGRITY mismatch")
     relayed = response.first(XOR_RELAYED_ADDRESS)
     if relayed is None:
         raise RuntimeError("TURN allocation has no XOR-RELAYED-ADDRESS")
