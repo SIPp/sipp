@@ -16,6 +16,9 @@ Or listen for RTCP datagrams on UDP::
 
     python3 tools/sipp_rtcp_qos.py --listen 127.0.0.1:9001 --clock-rate 8000
 
+IPv6 listen endpoints use bracket notation, for example
+``[2001:db8::10]:9001``.
+
 For each SR/RR report block the output includes:
 
 * interval packet-loss percentage from ``fraction lost``
@@ -38,13 +41,16 @@ AES-CM SRTCP packets can be authenticated and decrypted when the SDP SDES
       --listen 127.0.0.1:9001 \
       --srtcp-inline '<base64-master-key-and-salt>'
 
-SRTCP support currently covers the SDES suites used by SIPp's AES-CM SRTP
-paths: 128-bit AES-CM with HMAC-SHA1 80-bit or 32-bit authentication tags.
-Use ``--srtcp-tag-bytes 4`` for the 32-bit tag variant; the default is 10.
+SRTCP support in this stage is deliberately narrow: SDES
+``AES_CM_128_HMAC_SHA1_80`` with a 16-byte master key, 14-byte master salt and
+80-bit authentication tag. The inline value must decode to exactly 30 bytes.
+Other SRTCP suites and 32-bit authentication tags are rejected rather than
+silently interpreted with the wrong profile.
 
 SRTCP AES support uses the optional Python ``cryptography`` package. Plain
 RTCP parsing and QoS/MOS calculations require only the Python standard
-library.
+library. The tests include independent SRTCP KDF vectors in addition to a
+round-trip authentication/decryption test.
 
 Security notes
 --------------
