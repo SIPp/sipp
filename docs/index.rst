@@ -17,6 +17,7 @@ Welcome to SIPp reference documentation!
    scenarios/index
    3PCC_extended
    controlling
+   control_api
    transport
    multi_instance
    media
