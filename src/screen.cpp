@@ -729,11 +729,10 @@ void ScreenPrinter::draw_stats_screen()
         DISPLAY_CROSS_LINE ();
     }
     for (unsigned int i = 1; i < s->M_genericMap.size() + 1; i++) {
-        char *disp = (char *)malloc(20 + s->M_genericDisplay[i].size());
-        sprintf(disp, "Counter %s", s->M_genericDisplay[i].c_str());
+        std::string disp = "Counter " + s->M_genericDisplay[i];
 
-        DISPLAY_2VAL(disp, s->M_genericCounters[(i - 1)* GENERIC_TYPES + GENERIC_PD], s->M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_C]);
-        free(disp);
+        DISPLAY_2VAL(disp.c_str(), s->M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_PD],
+                     s->M_genericCounters[(i - 1) * GENERIC_TYPES + GENERIC_C]);
     }
 
     DISPLAY_CROSS_LINE ();
