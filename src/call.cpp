@@ -585,12 +585,18 @@ struct SrtpSuite {
 
 enum { AES128_80, AES128_32, NULL_80, NULL_32, AES192_80, AES192_32, AES256_80, AES256_32 };
 
+// clang-format off
 static const SrtpSuite srtp_suites[] = {
-    {"AES_CM_128_HMAC_SHA1_80", AES_CM_128, HMAC_SHA1_80}, {"AES_CM_128_HMAC_SHA1_32", AES_CM_128, HMAC_SHA1_32},
-    {"NULL_HMAC_SHA1_80", NULL_CIPHER, HMAC_SHA1_80},      {"NULL_HMAC_SHA1_32", NULL_CIPHER, HMAC_SHA1_32},
-    {"AES_192_CM_HMAC_SHA1_80", AES_CM_192, HMAC_SHA1_80}, {"AES_192_CM_HMAC_SHA1_32", AES_CM_192, HMAC_SHA1_32},
-    {"AES_256_CM_HMAC_SHA1_80", AES_CM_256, HMAC_SHA1_80}, {"AES_256_CM_HMAC_SHA1_32", AES_CM_256, HMAC_SHA1_32},
+    {"AES_CM_128_HMAC_SHA1_80", AES_CM_128, HMAC_SHA1_80},
+    {"AES_CM_128_HMAC_SHA1_32", AES_CM_128, HMAC_SHA1_32},
+    {"NULL_HMAC_SHA1_80", NULL_CIPHER, HMAC_SHA1_80},
+    {"NULL_HMAC_SHA1_32", NULL_CIPHER, HMAC_SHA1_32},
+    {"AES_192_CM_HMAC_SHA1_80", AES_CM_192, HMAC_SHA1_80},
+    {"AES_192_CM_HMAC_SHA1_32", AES_CM_192, HMAC_SHA1_32},
+    {"AES_256_CM_HMAC_SHA1_80", AES_CM_256, HMAC_SHA1_80},
+    {"AES_256_CM_HMAC_SHA1_32", AES_CM_256, HMAC_SHA1_32},
 };
+// clang-format on
 
 /* The SRTP keywords of a message, in the order of MessageCompType: [cryptotag1audio],
  * [cryptosuiteaescm128sha1801audio], [ueaescm128sha1321video], [cryptokeyparams2video]... */
@@ -3284,12 +3290,12 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
             break;
         case E_Message_SippVersion:
             /* Drop the initial "v" from the SIPP_VERSION string for legacy reasons. */
-            out += (const char*)SIPP_VERSION + 1;
+            out += (const char *)SIPP_VERSION + 1;
             break;
         case E_Message_Variable: {
             int varId = comp->varId;
             CCallVariable *var = M_callVariableTable->getVar(varId);
-            if(var->isSet()) {
+            if (var->isSet()) {
                 if (var->isRegExp()) {
                     out += var->getMatchingValue();
                 } else if (var->isDouble()) {
@@ -3309,7 +3315,7 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
         }
         case E_Message_Fill: {
             int varId = comp->varId;
-            int length = (int) M_callVariableTable->getVar(varId)->getDouble();
+            int length = (int)M_callVariableTable->getVar(varId)->getDouble();
             if (length < 0) {
                 length = 0;
             }
@@ -3555,61 +3561,11 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
     }
 
     // PASS OUTGOING SRTP PARAMETERS...
-    if (srtp_audio_updated)
-    {
-        // The lines of this SDP, and only those, are the ones an answer can take
-        JLSRTP* tx = (sendMode == MODE_CLIENT) ? &_txUACAudio.get() : (sendMode == MODE_SERVER) ? &_txUASAudio.get() : nullptr;
-        if (tx)
-        {
-            tx->setCryptoTag(pA.primary_cryptotag, PRIMARY_CRYPTO);
-            tx->setCryptoTag(pA.secondary_cryptotag, SECONDARY_CRYPTO);
-            tx->setOfferedCryptoSuite(pA.primary_cryptosuite, PRIMARY_CRYPTO);
-            tx->setOfferedCryptoSuite(pA.secondary_cryptosuite, SECONDARY_CRYPTO);
-        }
+    if (srtp_audio_updated) {
+        passLocalSrtp(false, pA);
     }
-    if (srtp_audio_updated && (pA.primary_cryptotag != 0))
-    {
-        rtpstream_set_srtp_audio_local(&rtpstream_callinfo, pA);
-        if (sendMode == MODE_CLIENT)
-        {
-            //
-            // RX-UAC-AUDIO SRTP context (b) -- SSRC/IPADDRESS/PORT
-            //
-            CryptoContextID rxUACA;
-            rxUACA.ssrc = rtpstream_callinfo.audio_ssrc_id;
-            rxUACA.address = media_ip;
-            rxUACA.port = rtpstream_callinfo.local_audioport;
-            logSrtpInfo("call::createSendingMessage():  (b) RX-UAC-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUACA.ssrc, rxUACA.address.c_str(), rxUACA.port);
-            _rxUACAudio->setID(std::move(rxUACA));
-        }
-    }
-    if (srtp_video_updated)
-    {
-        // The lines of this SDP, and only those, are the ones an answer can take
-        JLSRTP* tx = (sendMode == MODE_CLIENT) ? &_txUACVideo.get() : (sendMode == MODE_SERVER) ? &_txUASVideo.get() : nullptr;
-        if (tx)
-        {
-            tx->setCryptoTag(pV.primary_cryptotag, PRIMARY_CRYPTO);
-            tx->setCryptoTag(pV.secondary_cryptotag, SECONDARY_CRYPTO);
-            tx->setOfferedCryptoSuite(pV.primary_cryptosuite, PRIMARY_CRYPTO);
-            tx->setOfferedCryptoSuite(pV.secondary_cryptosuite, SECONDARY_CRYPTO);
-        }
-    }
-    if (srtp_video_updated && (pV.primary_cryptotag != 0))
-    {
-        rtpstream_set_srtp_video_local(&rtpstream_callinfo, pV);
-        if (sendMode == MODE_CLIENT)
-        {
-            //
-            // RX-UAC-VIDEO SRTP context (b) -- SSRC/IPADDRESS/PORT
-            //
-            CryptoContextID rxUACV;
-            rxUACV.ssrc = rtpstream_callinfo.video_ssrc_id;
-            rxUACV.address = media_ip;
-            rxUACV.port = rtpstream_callinfo.local_videoport;
-            logSrtpInfo("call::createSendingMessage():  (b) RX-UAC-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUACV.ssrc, rxUACV.address.c_str(), rxUACV.port);
-            _rxUACVideo->setID(std::move(rxUACV));
-        }
+    if (srtp_video_updated) {
+        passLocalSrtp(true, pV);
     }
 
     /* An SDP is an offer or an answer, whether or not a [len] or an
@@ -4269,18 +4225,17 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
         /* Detects retransmissions from peer and retransmit the
          * message which was sent just after this one was received */
         cookie = hash(msg);
-        if((recv_retrans_recv_index >= 0) && (recv_retrans_hash == cookie)) {
+        if ((recv_retrans_recv_index >= 0) && (recv_retrans_hash == cookie)) {
 
-            if(lost(recv_retrans_recv_index)) {
-                TRACE_MSG("%s message (retrans) lost (recv).",
-                          TRANSPORT_TO_STRING(transport));
+            if (lost(recv_retrans_recv_index)) {
+                TRACE_MSG("%s message (retrans) lost (recv).", TRANSPORT_TO_STRING(transport));
                 callDebug("%s message (retrans) lost (recv) (hash %lu)\n", TRANSPORT_TO_STRING(transport), hash(msg));
 
-                call_scenario->messages[recv_retrans_recv_index] -> nb_lost++;
+                call_scenario->messages[recv_retrans_recv_index]->nb_lost++;
                 return true;
             }
 
-            call_scenario->messages[recv_retrans_recv_index] -> nb_recv_retrans++;
+            call_scenario->messages[recv_retrans_recv_index]->nb_recv_retrans++;
 
             /* Send it again as it was sent: rendering it again would give
              * new values to keywords such as the SRTP keys. */
@@ -4291,17 +4246,17 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
                 status = send_raw(recv_retrans_msg.c_str(), recv_retrans_send_index, recv_retrans_msg.size());
             }
 
-            if(status >= 0) {
-                call_scenario->messages[recv_retrans_send_index] -> nb_sent_retrans++;
+            if (status >= 0) {
+                call_scenario->messages[recv_retrans_send_index]->nb_sent_retrans++;
                 computeStat(CStat::E_RETRANSMISSION);
-            } else if(status < 0) {
+            } else {
                 return false;
             }
 
             return true;
         }
 
-        if((last_recv_index >= 0) && (last_recv_hash == cookie)) {
+        if ((last_recv_index >= 0) && (last_recv_hash == cookie)) {
             /* This one has already been received, but not processed
              * yet => (has not triggered something yet) so we can discard.
              *
@@ -4355,18 +4310,13 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
         std::string video_host;
 
         if (header_number(get_header_content(msg, "Content-Length:").view()) > 0) {
-            if (getSessionStateCurrent() == eNoSession)
-            {
+            if (getSessionStateCurrent() == eNoSession) {
                 logSrtpInfo("call::process_incoming():  Switching session state:  eNoSession --> eOfferReceived\n");
                 setSessionState(eOfferReceived);
-            }
-            else if (getSessionStateCurrent() == eCompleted)
-            {
+            } else if (getSessionStateCurrent() == eCompleted) {
                 logSrtpInfo("call::process_incoming():  Switching session state:  eCompleted --> eOfferReceived\n");
                 setSessionState(eOfferReceived);
-            }
-            else if (getSessionStateCurrent() == eOfferSent)
-            {
+            } else if (getSessionStateCurrent() == eOfferSent) {
                 logSrtpInfo("call::process_incoming():  Switching session state:  eOfferSent --> eAnswerReceived\n");
                 setSessionState(eAnswerReceived);
                 logSrtpInfo("call::process_incoming();  Switching session state:  eAnswerReceived --> eCompleted\n");
@@ -4384,11 +4334,11 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
 
             if (hasMedia == 1) {
                 extract_rtp_remote_addr(msg, audio_host, audio_port, video_host, video_port);
-                if ((audio_port==0) && (video_port==0)) {
+                if ((audio_port == 0) && (video_port == 0)) {
                     WARNING("extract_rtp_remote_addr: no m=audio or m=video or m=image line found in SDP message body");
                 } else {
-                    rtpstream_set_remote(&rtpstream_callinfo, audio_host.c_str(), audio_port,
-                                         video_host.c_str(), video_port);
+                    rtpstream_set_remote(&rtpstream_callinfo, audio_host.c_str(), audio_port, video_host.c_str(),
+                                         video_port);
                 }
             }
 
@@ -5906,16 +5856,59 @@ void call::keepRecvRetransMsg()
     }
 }
 
+/* The context of the call's role that sends, or receives, a media's SRTP,
+ * made on use; none in any other mode */
+SrtpChannel *call::srtpTx(bool video)
+{
+    return sendMode == MODE_CLIENT   ? &srtpMedia(video).txUAC.get()
+           : sendMode == MODE_SERVER ? &srtpMedia(video).txUAS.get()
+                                     : nullptr;
+}
+
+SrtpChannel *call::srtpRx(bool video)
+{
+    return sendMode == MODE_CLIENT   ? &srtpMedia(video).rxUAC.get()
+           : sendMode == MODE_SERVER ? &srtpMedia(video).rxUAS.get()
+                                     : nullptr;
+}
+
+/* The a=crypto lines of an SDP we send, and the address we receive on: the
+ * lines, and only those, are the ones an answer can take. */
+void call::passLocalSrtp(bool video, SrtpInfoParams &p)
+{
+    if (SrtpChannel *tx = srtpTx(video)) {
+        tx->setCryptoTag(p.primary_cryptotag, PRIMARY_CRYPTO);
+        tx->setCryptoTag(p.secondary_cryptotag, SECONDARY_CRYPTO);
+        tx->setOfferedCryptoSuite(p.primary_cryptosuite, PRIMARY_CRYPTO);
+        tx->setOfferedCryptoSuite(p.secondary_cryptosuite, SECONDARY_CRYPTO);
+    }
+    if (p.primary_cryptotag == 0) {
+        return;
+    }
+
+    if (video) {
+        rtpstream_set_srtp_video_local(&rtpstream_callinfo, p);
+    } else {
+        rtpstream_set_srtp_audio_local(&rtpstream_callinfo, p);
+    }
+    if (sendMode == MODE_CLIENT) {
+        CryptoContextID id;
+        id.ssrc = video ? rtpstream_callinfo.video_ssrc_id : rtpstream_callinfo.audio_ssrc_id;
+        id.address = media_ip;
+        id.port = video ? rtpstream_callinfo.local_videoport : rtpstream_callinfo.local_audioport;
+        logSrtpInfo("call::createSendingMessage():  RX-UAC-%s SRTP context - ssrc:0x%08x address:%s port:%d\n",
+                    video ? "VIDEO" : "AUDIO", id.ssrc, id.address.c_str(), id.port);
+        srtpMedia(video).rxUAC->setID(std::move(id));
+    }
+}
+
 /* An SRTP keyword of a message we send: it sets what the context that sends
  * takes from the keyword, and writes it. */
 void call::appendSrtpKeyword(const SrtpKeyword &keyword, const MessageComponent &comp, std::string &out,
                              SrtpInfoParams &p)
 {
     const bool primary = keyword.crypto == PRIMARY_CRYPTO;
-    SrtpMedia media = srtpMedia(keyword.video);
-    SrtpChannel *tx = sendMode == MODE_CLIENT   ? &media.txUAC.get()
-                      : sendMode == MODE_SERVER ? &media.txUAS.get()
-                                                : nullptr;
+    SrtpChannel *tx = srtpTx(keyword.video);
 
     p.found = true;
     switch (keyword.what) {
@@ -5944,9 +5937,7 @@ void call::appendSrtpKeyword(const SrtpKeyword &keyword, const MessageComponent 
         if (unencrypted) {
             (primary ? p.primary_unencrypted_srtp : p.secondary_unencrypted_srtp) = true;
         } else if (primary) {
-            SrtpChannel *rx = sendMode == MODE_CLIENT   ? &media.rxUAC.get()
-                              : sendMode == MODE_SERVER ? &media.rxUAS.get()
-                                                        : nullptr;
+            SrtpChannel *rx = srtpRx(keyword.video);
             if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted)) {
                 logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
             } else if ((getSessionStateCurrent() == eOfferReceived) && rx && answer_swaps_crypto(*rx, suite.name)) {

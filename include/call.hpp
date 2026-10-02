@@ -498,6 +498,9 @@ protected:
         return video ? SrtpMedia{_txUACVideo, _rxUACVideo, _txUASVideo, _rxUASVideo}
                      : SrtpMedia{_txUACAudio, _rxUACAudio, _txUASAudio, _rxUASAudio};
     }
+    SrtpChannel *srtpTx(bool video);
+    SrtpChannel *srtpRx(bool video);
+    void passLocalSrtp(bool video, SrtpInfoParams &p);
     void appendSrtpKeyword(const SrtpKeyword &keyword, const MessageComponent &comp, std::string &out,
                            SrtpInfoParams &p);
     void takeRemoteSrtp(bool video, const SrtpInfoParams &p, const std::string &host, int port, bool answer);
