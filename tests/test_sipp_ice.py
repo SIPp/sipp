@@ -16,6 +16,16 @@ sys.modules[spec.name] = ice
 spec.loader.exec_module(ice)
 
 TXID = bytes.fromhex("0102030405060708090a0b0c")
+RFC5769_REQUEST = bytes.fromhex(
+    "000100582112a442b7e7a701bc34d686fa87dfae"
+    "802200105354554e207465737420636c69656e74"
+    "002400046e0001ff"
+    "80290008932ff9b151263b36"
+    "000600096576746a3a68367659202020"
+    "000800149aeaa70cbfd8cb56781ef2b5b2d3f249c1b571a2"
+    "80280004e57a3bcf"
+)
+RFC5769_PASSWORD = b"VOkJxbRl1RmTxUk/WvJxBt"
 
 
 def xor_ipv4(address="192.0.2.1", port=3478):
@@ -41,6 +51,12 @@ class StunCodecTests(unittest.TestCase):
                                    txid=TXID, integrity_key=key)
         self.assertTrue(ice.verify_message_integrity(packet, key))
         self.assertFalse(ice.verify_message_integrity(packet, b"wrong"))
+
+    def test_rfc5769_message_integrity_and_fingerprint(self):
+        message = ice.parse_message(RFC5769_REQUEST)
+        self.assertEqual(message.message_type, ice.BINDING_REQUEST)
+        self.assertTrue(ice.verify_message_integrity(RFC5769_REQUEST, RFC5769_PASSWORD))
+        self.assertTrue(ice.verify_fingerprint(RFC5769_REQUEST))
 
     def test_fingerprint_detects_tampering(self):
         packet = bytearray(ice.build_message(ice.BINDING_REQUEST, txid=TXID))
