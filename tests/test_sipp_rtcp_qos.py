@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 
+import argparse
 import base64
 import hashlib
 import hmac
@@ -67,6 +68,10 @@ class RtcpParserTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             qos.parse_rtcp(bytes(data))
 
+    def test_bracketed_ipv6_listener_endpoint(self):
+        self.assertEqual(qos._host_port("[2001:db8::1]:9001"), ("2001:db8::1", 9001))
+        self.assertEqual(qos._host_port("127.0.0.1:9001"), ("127.0.0.1", 9001))
+
 
 class QosTests(unittest.TestCase):
     def test_rtt_from_lsr_dlsr(self):
@@ -87,6 +92,13 @@ class QosTests(unittest.TestCase):
         self.assertGreater(qos.estimate_mos(clean, 8000, 20.0)["mos_lq"],
                            qos.estimate_mos(lossy, 8000, 20.0)["mos_lq"])
 
+    def test_non_positive_clock_rate_is_rejected(self):
+        report = qos.parse_rtcp(receiver_report())[0].reports[0]
+        with self.assertRaises(ValueError):
+            qos.estimate_mos(report, 0, 20.0)
+        with self.assertRaises(ValueError):
+            qos.decode(receiver_report(), -1)
+
 
 class SrtcpTests(unittest.TestCase):
     @classmethod
@@ -95,6 +107,19 @@ class SrtcpTests(unittest.TestCase):
             import cryptography  # noqa: F401
         except ImportError:
             raise unittest.SkipTest("cryptography package is not installed")
+
+    def test_rfc3711_srtcp_kdf_vectors(self):
+        # Independent AES-CM/SRTCP key derivation vector used by established
+        # SRTP implementations: master key/salt from RFC 3711 Appendix B.3,
+        # with SRTCP labels 0x03, 0x04 and 0x05.
+        key = bytes.fromhex("e1f97a0d3e018be0d64fa32c06de4139")
+        salt = bytes.fromhex("0ec675ad498afeebb6960b3aabe6")
+        self.assertEqual(qos._srtcp_kdf(key, salt, 0x03, 16).hex(),
+                         "4c1aa45a81f73d61c800bbb00fbb1eaa")
+        self.assertEqual(qos._srtcp_kdf(key, salt, 0x04, 20).hex(),
+                         "8d54534feb49ae8e7993a6bd0b844fc323a93dfd")
+        self.assertEqual(qos._srtcp_kdf(key, salt, 0x05, 14).hex(),
+                         "9581c7ad87b3e530bf3e4454a8b3")
 
     def test_authenticate_and_decrypt(self):
         material = bytes(range(30))
@@ -113,6 +138,16 @@ class SrtcpTests(unittest.TestCase):
         packet[-1] ^= 0x01
         with self.assertRaisesRegex(ValueError, "authentication"):
             qos.decrypt_srtcp(bytes(packet), inline)
+
+    def test_invalid_kdf_label_is_rejected(self):
+        key = bytes(range(16))
+        salt = bytes(range(14))
+        with self.assertRaises(ValueError):
+            qos._srtcp_kdf(key, salt, 0x06, 16)
+
+    def test_sdes_material_requires_exact_key_and_salt_length(self):
+        with self.assertRaises(ValueError):
+            qos._sdes_material(base64.b64encode(bytes(range(31))).decode("ascii"))
 
 
 if __name__ == "__main__":
