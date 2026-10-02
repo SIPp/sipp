@@ -49,6 +49,27 @@ class ImpairmentTests(unittest.TestCase):
         self.assertEqual(len(sock.sent), 2)
         self.assertEqual(engine.counters.duplicated, 1)
 
+    def test_reordering_inverts_adjacent_packets(self):
+        sock = FakeSocket()
+        profile = impair.Profile(reorder_percent=100, reorder_delay_ms=40)
+        engine = impair.ImpairmentEngine(profile, seed=1)
+        engine.submit(sock, ("127.0.0.1", 9000), b"first", 1.000)
+        engine.submit(sock, ("127.0.0.1", 9000), b"second", 1.010)
+        engine.flush(2.0)
+        self.assertEqual([data for data, _ in sock.sent], [b"second", b"first"])
+        self.assertEqual(engine.counters.reordered, 1)
+
+    def test_reorder_hold_expires_without_losing_packet(self):
+        sock = FakeSocket()
+        profile = impair.Profile(reorder_percent=100, reorder_delay_ms=40)
+        engine = impair.ImpairmentEngine(profile, seed=1)
+        engine.submit(sock, ("127.0.0.1", 9000), b"only", 1.0)
+        engine.flush(1.039)
+        self.assertEqual(sock.sent, [])
+        engine.flush(1.041)
+        self.assertEqual([data for data, _ in sock.sent], [b"only"])
+        self.assertEqual(engine.counters.reordered, 0)
+
     def test_burst_loss(self):
         sock = FakeSocket()
         profile = impair.Profile(burst_start_percent=100, burst_length=3)
@@ -63,6 +84,12 @@ class ImpairmentTests(unittest.TestCase):
             impair.Profile(loss_percent=101).validate()
         with self.assertRaises(ValueError):
             impair.Profile(jitter_ms=-1).validate()
+        with self.assertRaises(ValueError):
+            impair.Profile(reorder_percent=1, reorder_delay_ms=0).validate()
+
+    def test_endpoint_parser_accepts_ipv4_and_bracketed_ipv6(self):
+        self.assertEqual(impair.parse_endpoint("127.0.0.1:9000"), ("127.0.0.1", 9000))
+        self.assertEqual(impair.parse_endpoint("[2001:db8::1]:9000"), ("2001:db8::1", 9000))
 
 
 if __name__ == "__main__":
