@@ -2992,26 +2992,6 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
     SrtpInfoParams pA;
     SrtpInfoParams pV;
 
-    pA.found = false;
-    pA.primary_cryptotag = 0;
-    *pA.primary_cryptosuite = 0;
-    *pA.primary_cryptokeyparams = 0;
-    pA.secondary_cryptotag = 0;
-    *pA.secondary_cryptosuite = 0;
-    *pA.secondary_cryptokeyparams = 0;
-    pA.primary_unencrypted_srtp = false;
-    pA.secondary_unencrypted_srtp = false;
-
-    pV.found = false;
-    pV.primary_cryptotag = 0;
-    *pV.primary_cryptosuite = 0;
-    *pV.primary_cryptokeyparams = 0;
-    pV.secondary_cryptotag = 0;
-    *pV.secondary_cryptosuite = 0;
-    *pV.secondary_cryptokeyparams = 0;
-    pV.primary_unencrypted_srtp = false;
-    pV.secondary_unencrypted_srtp = false;
-
     /* Set wherever a keyword is cut short to fit; the size check after the
      * loop catches the rest. */
     bool truncated = false;
@@ -5419,26 +5399,6 @@ bool call::process_incoming(const char* msg, const struct sockaddr_storage* src,
             // INCOMING SRTP PARAM CONTEXT
             SrtpInfoParams pA;
             SrtpInfoParams pV;
-
-            pA.found = false;
-            pA.primary_cryptotag = 0;
-            *pA.primary_cryptosuite = 0;
-            *pA.primary_cryptokeyparams = 0;
-            pA.secondary_cryptotag = 0;
-            *pA.secondary_cryptosuite = 0;
-            *pA.secondary_cryptokeyparams = 0;
-            pA.primary_unencrypted_srtp = false;
-            pA.secondary_unencrypted_srtp = false;
-
-            pV.found = false;
-            pV.primary_cryptotag = 0;
-            *pV.primary_cryptosuite = 0;
-            *pV.primary_cryptokeyparams = 0;
-            pV.secondary_cryptotag = 0;
-            *pV.secondary_cryptosuite = 0;
-            *pV.secondary_cryptokeyparams = 0;
-            pV.primary_unencrypted_srtp = false;
-            pV.secondary_unencrypted_srtp = false;
 
             if (extract_srtp_remote_info(msg, pA, pV) < 0) {
                 WARNING("extract_rtp_remote_addr: error extracting SRTP parameters from SDP message body");

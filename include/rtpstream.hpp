@@ -50,15 +50,15 @@ class JLSRTP;
 
 struct SrtpInfoParams
 {
-    bool found;
-    int primary_cryptotag;
-    char primary_cryptosuite[25];
-    char primary_cryptokeyparams[65];
-    int secondary_cryptotag;
-    char secondary_cryptosuite[25];
-    char secondary_cryptokeyparams[65];
-    bool primary_unencrypted_srtp;
-    bool secondary_unencrypted_srtp;
+    bool found = false;
+    int primary_cryptotag = 0;
+    char primary_cryptosuite[25] = "";
+    char primary_cryptokeyparams[65] = "";
+    int secondary_cryptotag = 0;
+    char secondary_cryptosuite[25] = "";
+    char secondary_cryptokeyparams[65] = "";
+    bool primary_unencrypted_srtp = false;
+    bool secondary_unencrypted_srtp = false;
 };
 
 struct threaddata_t;
