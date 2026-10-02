@@ -1238,13 +1238,13 @@ void call::init(scenario *call_scenario, SIPpSocket *socket, struct sockaddr_sto
         if (sendMode == MODE_CLIENT)
         {
             logSrtpInfo("call::init():  (a) TX-UAC-AUDIO SRTP context - CLIENT setting SRTP header size to 12\n");
-            _txUACAudio.setSrtpHeaderSize(12);
+            _txUACAudio->setSrtpHeaderSize(12);
             logSrtpInfo("call::init():  (a) TX-UAC-VIDEO SRTP context - CLIENT setting SRTP header size to 12\n");
-            _txUACVideo.setSrtpHeaderSize(12);
+            _txUACVideo->setSrtpHeaderSize(12);
             logSrtpInfo("call::init():  (b) RX-UAC-AUDIO SRTP context - CLIENT setting SRTP header size to 12\n");
-            _rxUACAudio.setSrtpHeaderSize(12);
+            _rxUACAudio->setSrtpHeaderSize(12);
             logSrtpInfo("call::init():  (b) RX-UAC-VIDEO SRTP context - CLIENT setting SRTP header size to 12\n");
-            _rxUACVideo.setSrtpHeaderSize(12);
+            _rxUACVideo->setSrtpHeaderSize(12);
         }
     }
 
@@ -1256,13 +1256,13 @@ void call::init(scenario *call_scenario, SIPpSocket *socket, struct sockaddr_sto
         if (sendMode == MODE_SERVER)
         {
             logSrtpInfo("call::init():  (c) RX-UAS-AUDIO SRTP context - SERVER setting SRTP header size to 12\n");
-            _rxUASAudio.setSrtpHeaderSize(12);
+            _rxUASAudio->setSrtpHeaderSize(12);
             logSrtpInfo("call::init():  (c) RX-UAS-VIDEO SRTP context - SERVER setting SRTP header size to 12\n");
-            _rxUASVideo.setSrtpHeaderSize(12);
+            _rxUASVideo->setSrtpHeaderSize(12);
             logSrtpInfo("call::init():  (d) TX-UAS-AUDIO SRTP context - SERVER setting SRTP header size to 12\n");
-            _txUASAudio.setSrtpHeaderSize(12);
+            _txUASAudio->setSrtpHeaderSize(12);
             logSrtpInfo("call::init():  (d) TX-UAS-VIDEO SRTP context - SERVER setting SRTP header size to 12\n");
-            _txUASVideo.setSrtpHeaderSize(12);
+            _txUASVideo->setSrtpHeaderSize(12);
         }
     }
 
@@ -3580,7 +3580,7 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
             rxUACA.address = media_ip;
             rxUACA.port = rtpstream_callinfo.local_audioport;
             logSrtpInfo("call::createSendingMessage():  (b) RX-UAC-AUDIO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUACA.ssrc, rxUACA.address.c_str(), rxUACA.port);
-            _rxUACAudio.setID(std::move(rxUACA));
+            _rxUACAudio->setID(std::move(rxUACA));
         }
     }
     if (srtp_video_updated)
@@ -3608,7 +3608,7 @@ std::string call::buildSendingMessage(SendingMessage *src, int P_index, char *sc
             rxUACV.address = media_ip;
             rxUACV.port = rtpstream_callinfo.local_videoport;
             logSrtpInfo("call::createSendingMessage():  (b) RX-UAC-VIDEO SRTP context - ssrc:0x%08x address:%s port:%d\n", rxUACV.ssrc, rxUACV.address.c_str(), rxUACV.port);
-            _rxUACVideo.setID(std::move(rxUACV));
+            _rxUACVideo->setID(std::move(rxUACV));
         }
     }
 
@@ -5913,7 +5913,9 @@ void call::appendSrtpKeyword(const SrtpKeyword &keyword, const MessageComponent 
 {
     const bool primary = keyword.crypto == PRIMARY_CRYPTO;
     SrtpMedia media = srtpMedia(keyword.video);
-    LazySrtpChannel *tx = sendMode == MODE_CLIENT ? &media.txUAC : sendMode == MODE_SERVER ? &media.txUAS : nullptr;
+    SrtpChannel *tx = sendMode == MODE_CLIENT   ? &media.txUAC.get()
+                      : sendMode == MODE_SERVER ? &media.txUAS.get()
+                                                : nullptr;
 
     p.found = true;
     switch (keyword.what) {
@@ -5942,9 +5944,9 @@ void call::appendSrtpKeyword(const SrtpKeyword &keyword, const MessageComponent 
         if (unencrypted) {
             (primary ? p.primary_unencrypted_srtp : p.secondary_unencrypted_srtp) = true;
         } else if (primary) {
-            LazySrtpChannel *rx = sendMode == MODE_CLIENT   ? &media.rxUAC
-                                  : sendMode == MODE_SERVER ? &media.rxUAS
-                                                            : nullptr;
+            SrtpChannel *rx = sendMode == MODE_CLIENT   ? &media.rxUAC.get()
+                              : sendMode == MODE_SERVER ? &media.rxUAS.get()
+                                                        : nullptr;
             if ((getSessionStateCurrent() == eNoSession) || (getSessionStateCurrent() == eCompleted)) {
                 logSrtpInfo("call::createSendingMessage():  Marking preferred OFFER cryptosuite...\n");
             } else if ((getSessionStateCurrent() == eOfferReceived) && rx && answer_swaps_crypto(*rx, suite.name)) {
@@ -5996,7 +5998,7 @@ void call::takeRemoteSrtp(bool video, const SrtpInfoParams &p, const std::string
     id.port = port;
     logSrtpInfo("call::process_incoming():  TX-%s SRTP context - ssrc:0x%08x address:%s port:%d\n", name, id.ssrc,
                 id.address.c_str(), id.port);
-    tx.setID(std::move(id));
+    tx->setID(std::move(id));
 
     if (answer) {
         logSrtpInfo("call::process_incoming():  TX-%s SRTP context -- CIPHERSUITE CHOICE...\n", name);
@@ -6021,13 +6023,13 @@ void call::takeRemoteSrtp(bool video, const SrtpInfoParams &p, const std::string
                         "cryptosuite: [%s]%s\n",
                         name, line.crypto == PRIMARY_CRYPTO ? "primary" : "secondary", mks.c_str(), line.tag,
                         line.suite, line.unencrypted ? " UNENCRYPTED_SRTP" : "");
-            rx.setCryptoTag(line.tag, line.crypto);
-            rx.setOfferedCryptoSuite(line.suite, line.crypto);
+            rx->setCryptoTag(line.tag, line.crypto);
+            rx->setOfferedCryptoSuite(line.suite, line.crypto);
             select_srtp_suite(rx, line.suite, line.unencrypted, line.crypto);
         } else {
             // No line, or an ignored one: nothing to receive with in the slot
-            rx.setCryptoTag(0, line.crypto);
-            rx.setOfferedCryptoSuite("", line.crypto);
+            rx->setCryptoTag(0, line.crypto);
+            rx->setOfferedCryptoSuite("", line.crypto);
         }
     }
 }
@@ -6049,18 +6051,18 @@ void call::startSrtp(bool video, bool client, int payloadSize)
                 "encryption/salting/authentication keys\n",
                 name, payloadSize);
     for (LazySrtpChannel *context : {&tx, &rx}) {
-        context->setSrtpPayloadSize(payloadSize);
-        context->deriveSessionEncryptionKey();
-        context->deriveSessionSaltingKey();
-        context->deriveSessionAuthenticationKey();
-        context->resetCipherState();
+        (*context)->setSrtpPayloadSize(payloadSize);
+        (*context)->deriveSessionEncryptionKey();
+        (*context)->deriveSessionSaltingKey();
+        (*context)->deriveSessionAuthenticationKey();
+        (*context)->resetCipherState();
     }
-    tx.selectEncryptionKey();
-    rx.selectDecryptionKey();
+    tx->selectEncryptionKey();
+    rx->selectDecryptionKey();
     /* Only the playback thread's copies of the contexts, which make
      * their own, use AES once the keys are derived */
-    tx.freeCiphers();
-    rx.freeCiphers();
+    tx->freeCiphers();
+    rx->freeCiphers();
 }
 
 /* A server echoing or updating its RTP echo: its receiving context's ID, then its keys */
@@ -6077,7 +6079,7 @@ void call::startUASSrtp(bool video, int payloadSize)
     id.port = video ? rtpstream_callinfo.local_videoport : rtpstream_callinfo.local_audioport;
     logSrtpInfo("call::executeAction():  RX-UAS-%s SRTP context - ssrc:0x%08x address:%s port:%d\n",
                 video ? "VIDEO" : "AUDIO", id.ssrc, id.address.c_str(), id.port);
-    media.rxUAS.setID(std::move(id));
+    media.rxUAS->setID(std::move(id));
     startSrtp(video, false, payloadSize);
 }
 
