@@ -1187,7 +1187,15 @@ static pid_t begin_pager() {
         close(read_write[1]);
         return 0;
     }
-    fcntl(exec_status[1], F_SETFD, FD_CLOEXEC);
+    if (fcntl(exec_status[1], F_SETFD, FD_CLOEXEC) < 0) {
+        /* Without it the parent would wait for the pager to exit. */
+        perror("fcntl");
+        close(read_write[0]);
+        close(read_write[1]);
+        close(exec_status[0]);
+        close(exec_status[1]);
+        return 0;
+    }
     if ((ret = fork()) < 0) {
         perror("fork");
         return 0;
