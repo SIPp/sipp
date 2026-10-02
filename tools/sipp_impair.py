@@ -21,14 +21,25 @@ class Profile:
     loss_percent: float = 0.0
     delay_ms: float = 0.0
     jitter_ms: float = 0.0
+    duplicate_percent: float = 0.0
+    reorder_percent: float = 0.0
+    reorder_delay_ms: float = 20.0
+    burst_start_percent: float = 0.0
+    burst_length: int = 0
 
     def validate(self) -> None:
-        if not 0.0 <= self.loss_percent <= 100.0:
-            raise ValueError("loss-percent must be between 0 and 100")
-        if self.delay_ms < 0.0:
-            raise ValueError("delay-ms must be non-negative")
-        if self.jitter_ms < 0.0:
-            raise ValueError("jitter-ms must be non-negative")
+        for name, value in (
+            ("loss-percent", self.loss_percent),
+            ("duplicate-percent", self.duplicate_percent),
+            ("reorder-percent", self.reorder_percent),
+            ("burst-start-percent", self.burst_start_percent),
+        ):
+            if not 0.0 <= value <= 100.0:
+                raise ValueError(f"{name} must be between 0 and 100")
+        if self.delay_ms < 0.0 or self.jitter_ms < 0.0 or self.reorder_delay_ms < 0.0:
+            raise ValueError("delay values must be non-negative")
+        if self.burst_length < 0:
+            raise ValueError("burst-length must be non-negative")
 
 
 @dataclass(order=True)
@@ -45,6 +56,9 @@ class Counters:
     received: int = 0
     forwarded: int = 0
     dropped: int = 0
+    duplicated: int = 0
+    reordered: int = 0
+    burst_dropped: int = 0
 
 
 class ImpairmentEngine:
@@ -54,17 +68,45 @@ class ImpairmentEngine:
         self.random = random.Random(seed)
         self.queue: List[ScheduledPacket] = []
         self.sequence = 0
+        self.burst_remaining = 0
         self.counters = Counters()
+
+    def _chance(self, percent: float) -> bool:
+        return percent > 0.0 and self.random.random() * 100.0 < percent
+
+    def _schedule(self, sock: socket.socket, target: Address, data: bytes, due: float) -> None:
+        self.sequence += 1
+        heapq.heappush(self.queue, ScheduledPacket(due, self.sequence, sock, target, data))
 
     def submit(self, sock: socket.socket, target: Address, data: bytes, now: float) -> None:
         self.counters.received += 1
-        if self.random.random() * 100.0 < self.profile.loss_percent:
+        if self.burst_remaining > 0:
+            self.burst_remaining -= 1
+            self.counters.dropped += 1
+            self.counters.burst_dropped += 1
+            return
+        if self.profile.burst_length and self._chance(self.profile.burst_start_percent):
+            self.burst_remaining = max(0, self.profile.burst_length - 1)
+            self.counters.dropped += 1
+            self.counters.burst_dropped += 1
+            return
+        if self._chance(self.profile.loss_percent):
             self.counters.dropped += 1
             return
+
         jitter = self.random.uniform(-self.profile.jitter_ms, self.profile.jitter_ms)
-        delay = max(0.0, self.profile.delay_ms + jitter) / 1000.0
-        self.sequence += 1
-        heapq.heappush(self.queue, ScheduledPacket(now + delay, self.sequence, sock, target, data))
+        delay = max(0.0, self.profile.delay_ms + jitter)
+        if self._chance(self.profile.reorder_percent):
+            delay += self.profile.reorder_delay_ms
+            self.counters.reordered += 1
+        due = now + delay / 1000.0
+        self._schedule(sock, target, data, due)
+
+        if self._chance(self.profile.duplicate_percent):
+            # A tiny deterministic separation keeps the duplicate observable
+            # while preserving the original packet's configured delay.
+            self._schedule(sock, target, data, due + 0.000001)
+            self.counters.duplicated += 1
 
     def flush(self, now: float) -> None:
         while self.queue and self.queue[0].due <= now:
@@ -129,9 +171,25 @@ def main() -> int:
     parser.add_argument("--loss-percent", type=float, default=0.0)
     parser.add_argument("--delay-ms", type=float, default=0.0)
     parser.add_argument("--jitter-ms", type=float, default=0.0)
+    parser.add_argument("--duplicate-percent", type=float, default=0.0)
+    parser.add_argument("--reorder-percent", type=float, default=0.0)
+    parser.add_argument("--reorder-delay-ms", type=float, default=20.0)
+    parser.add_argument("--burst-start-percent", type=float, default=0.0,
+                        help="chance that a packet starts a consecutive loss burst")
+    parser.add_argument("--burst-length", type=int, default=0,
+                        help="number of consecutive packets dropped by a burst")
     parser.add_argument("--seed", type=int, help="seed for reproducible impairment")
     args = parser.parse_args()
-    profile = Profile(args.loss_percent, args.delay_ms, args.jitter_ms)
+    profile = Profile(
+        loss_percent=args.loss_percent,
+        delay_ms=args.delay_ms,
+        jitter_ms=args.jitter_ms,
+        duplicate_percent=args.duplicate_percent,
+        reorder_percent=args.reorder_percent,
+        reorder_delay_ms=args.reorder_delay_ms,
+        burst_start_percent=args.burst_start_percent,
+        burst_length=args.burst_length,
+    )
     try:
         profile.validate()
     except ValueError as exc:
