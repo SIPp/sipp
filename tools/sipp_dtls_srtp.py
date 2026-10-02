@@ -5,8 +5,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import json
 import re
+import ssl
 import subprocess
 from dataclasses import asdict, dataclass
 from typing import Iterable, Optional, Tuple
@@ -16,6 +19,7 @@ SUPPORTED_PROFILES = {
     "SRTP_AES128_CM_SHA1_80": (16, 14),
     "SRTP_AES128_CM_SHA1_32": (16, 14),
 }
+CERT_RE = re.compile(r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -57,9 +61,39 @@ def parse_openssl_output(output: str) -> Tuple[str, bytes]:
     return profile_match.group(1), material
 
 
+def peer_certificate_fingerprint(output: str) -> str:
+    match = CERT_RE.search(output)
+    if not match:
+        raise RuntimeError("OpenSSL output contains no peer certificate")
+    try:
+        der = ssl.PEM_cert_to_DER_cert(match.group(0))
+    except ValueError as exc:
+        raise RuntimeError("invalid peer certificate in OpenSSL output") from exc
+    digest = hashlib.sha256(der).hexdigest().upper()
+    return ":".join(digest[i:i + 2] for i in range(0, len(digest), 2))
+
+
+def normalize_fingerprint(value: str) -> str:
+    value = value.strip().upper()
+    value = re.sub(r"^SHA[- ]?256\s*[:=]?\s*", "", value)
+    compact = re.sub(r"[^0-9A-F]", "", value)
+    if len(compact) != 64:
+        raise ValueError("peer fingerprint must contain a SHA-256 digest")
+    return ":".join(compact[i:i + 2] for i in range(0, 64, 2))
+
+
+def verify_peer_fingerprint(output: str, expected: str) -> str:
+    actual = peer_certificate_fingerprint(output)
+    normalized = normalize_fingerprint(expected)
+    if not hmac.compare_digest(actual, normalized):
+        raise RuntimeError(f"DTLS peer fingerprint mismatch: got {actual}, expected {normalized}")
+    return actual
+
+
 def run_handshake(remote: Tuple[str, int], *, cert: str, key: str,
                   profile: str = "SRTP_AES128_CM_SHA1_80", bind: Optional[str] = None,
-                  openssl: str = "openssl", timeout: float = 10.0) -> Tuple[SrtpKeys, str]:
+                  peer_fingerprint: Optional[str] = None, openssl: str = "openssl",
+                  timeout: float = 10.0) -> Tuple[SrtpKeys, str, str]:
     sizes = SUPPORTED_PROFILES.get(profile)
     if sizes is None:
         raise ValueError(f"unsupported SRTP profile {profile!r}")
@@ -85,7 +119,9 @@ def run_handshake(remote: Tuple[str, int], *, cert: str, key: str,
     negotiated, material = parse_openssl_output(completed.stdout)
     if negotiated != profile:
         raise RuntimeError(f"peer negotiated {negotiated}, expected {profile}")
-    return split_keying_material(negotiated, material), completed.stdout
+    fingerprint = (verify_peer_fingerprint(completed.stdout, peer_fingerprint)
+                   if peer_fingerprint else peer_certificate_fingerprint(completed.stdout))
+    return split_keying_material(negotiated, material), fingerprint, completed.stdout
 
 
 def _remote(value: str) -> Tuple[str, int]:
@@ -108,15 +144,22 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser.add_argument("--key", required=True, help="local PEM private key")
     parser.add_argument("--profile", choices=tuple(SUPPORTED_PROFILES), default="SRTP_AES128_CM_SHA1_80")
     parser.add_argument("--bind", help="optional local HOST:PORT passed to openssl s_client")
+    parser.add_argument("--peer-fingerprint", help="expected SDP SHA-256 fingerprint")
+    parser.add_argument("--show-keys", action="store_true", help="include sensitive SRTP key material in JSON output")
     parser.add_argument("--openssl", default="openssl")
     parser.add_argument("--timeout", type=float, default=10.0)
     args = parser.parse_args(argv)
     try:
-        keys, _ = run_handshake(args.remote, cert=args.cert, key=args.key, profile=args.profile,
-                                bind=args.bind, openssl=args.openssl, timeout=args.timeout)
+        keys, fingerprint, _ = run_handshake(
+            args.remote, cert=args.cert, key=args.key, profile=args.profile,
+            bind=args.bind, peer_fingerprint=args.peer_fingerprint,
+            openssl=args.openssl, timeout=args.timeout)
     except (ValueError, RuntimeError) as exc:
         parser.error(str(exc))
-    print(json.dumps(asdict(keys), sort_keys=True))
+    output = {"profile": keys.profile, "peer_fingerprint_sha256": fingerprint}
+    if args.show_keys:
+        output["keys"] = asdict(keys)
+    print(json.dumps(output, sort_keys=True))
     return 0
 
 
