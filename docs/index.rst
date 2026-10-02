@@ -20,6 +20,7 @@ Welcome to SIPp reference documentation!
    transport
    multi_instance
    media
+   media_impairment
    statistics
    error
    perftest
