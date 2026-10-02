@@ -37,9 +37,12 @@ def build_control(action: str, value: Optional[object] = None) -> str:
         raise ValueError(f"unsupported action {action!r}")
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
         raise ValueError(f"{action} requires a finite numeric value")
-    if action in {"users", "limit"} and int(value) != float(value):
+    numeric = float(value)
+    if numeric < 0:
+        raise ValueError(f"{action} requires a non-negative value")
+    if action in {"users", "limit"} and int(value) != numeric:
         raise ValueError(f"{action} requires an integer value")
-    text = str(int(value)) if int(value) == float(value) else str(float(value))
+    text = str(int(value)) if int(value) == numeric else str(numeric)
     return "c" + template.format(value=text)
 
 
