@@ -18,10 +18,17 @@ from sipp_metrics import StatFileReader, find_latest_stat_file, metric_name
 def build_otlp(values: Dict[str, float], timestamp: float, service_name: str) -> dict:
     time_unix_nano = str(int(timestamp * 1_000_000_000))
     metrics = []
+    seen: Dict[str, int] = {}
     for column, value in values.items():
+        name = metric_name(column)
+        if name in seen:
+            seen[name] += 1
+            name = f"{name}_{seen[name]}"
+        else:
+            seen[name] = 1
         metrics.append(
             {
-                "name": metric_name(column),
+                "name": name,
                 "gauge": {
                     "dataPoints": [
                         {
@@ -75,7 +82,12 @@ def parse_headers(items: list[str]) -> Dict[str, str]:
         if "=" not in item:
             raise ValueError(f"invalid header {item!r}; expected NAME=VALUE")
         name, value = item.split("=", 1)
-        result[name.strip()] = value.strip()
+        name = name.strip()
+        if not name:
+            raise ValueError("OTLP header name cannot be empty")
+        if "\r" in name or "\n" in name or "\r" in value or "\n" in value:
+            raise ValueError("OTLP header contains a newline")
+        result[name] = value.strip()
     return result
 
 
@@ -92,6 +104,10 @@ def main() -> int:
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
 
+    if args.interval <= 0:
+        parser.error("--interval must be positive")
+    if args.timeout <= 0:
+        parser.error("--timeout must be positive")
     try:
         headers = parse_headers(args.header)
     except ValueError as exc:
