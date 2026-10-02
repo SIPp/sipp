@@ -161,3 +161,18 @@ private:
     unsigned int ssrc;
     std::unique_ptr<SrtpChannel> context;
 };
+
+/* A call's SRTP contexts of one media: as the client (UAC) and as the
+ * server (UAS), each sends with one and receives with one. */
+struct SrtpMedia {
+    LazySrtpChannel &txUAC, &rxUAC, &txUAS, &rxUAS;
+
+    LazySrtpChannel &tx(bool client) const
+    {
+        return client ? txUAC : txUAS;
+    }
+    LazySrtpChannel &rx(bool client) const
+    {
+        return client ? rxUAC : rxUAS;
+    }
+};
