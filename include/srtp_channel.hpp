@@ -75,13 +75,13 @@ private:
 /* A call's SRTP contexts of one media: as the client (UAC) and as the
  * server (UAS), each sends with one and receives with one. */
 struct SrtpMedia {
-    LazySrtpChannel &txUAC, &rxUAC, &txUAS, &rxUAS;
+    LazySrtpChannel txUAC, rxUAC, txUAS, rxUAS;
 
-    LazySrtpChannel &tx(bool client) const
+    LazySrtpChannel &tx(bool client)
     {
         return client ? txUAC : txUAS;
     }
-    LazySrtpChannel &rx(bool client) const
+    LazySrtpChannel &rx(bool client)
     {
         return client ? rxUAC : rxUAS;
     }
