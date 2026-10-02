@@ -1888,15 +1888,13 @@ int main(int argc, char *argv[])
                 CHECK_PASS();
                 printf("\n %s.\n\n",
                        /* SIPp v1.2.3-TLS-PCAP */
-                       "SIPp " SIPP_VERSION
-                       "-TLS"
+                       "SIPp " SIPP_VERSION "-TLS"
 #ifdef USE_SCTP
                        "-SCTP"
 #endif
 #ifdef PCAPPLAY
                        "-PCAP"
 #endif
-                       "-SHA256"
                        );
 
                 printf
