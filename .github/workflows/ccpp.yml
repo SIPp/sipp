@@ -31,8 +31,8 @@ jobs:
       run: |
         sudo apt-get install --yes clang-format
         git clang-format --diff HEAD^ -- src include
-    - name: test-multi-instance-launcher
-      run: python3 -m unittest discover -s tests -p 'test_sipp_multi.py'
+    - name: test-python-tools
+      run: python3 -m unittest discover -s tests -p 'test_sipp_*.py'
 
   build:
 
