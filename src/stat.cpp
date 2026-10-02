@@ -1051,60 +1051,48 @@ CStat::CStat ()
     init();
 }
 
-char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
-                                int sizeOfTab,
-                                const char * P_repartitionName)
+std::string CStat::sRepartitionHeader(T_dynamicalRepartition *tabRepartition, int sizeOfTab,
+                                      const char *P_repartitionName)
 {
-    static char *repartitionHeader = nullptr;
     char buffer[MAX_CHAR_BUFFER_SIZE];
-    int dlen = strlen(stat_delimiter);
 
-    if(tabRepartition != nullptr) {
-        repartitionHeader = (char *)realloc(repartitionHeader, strlen(P_repartitionName) + dlen + 1);
-        sprintf(repartitionHeader, "%s%s", P_repartitionName, stat_delimiter);
-        for (const char *kind : {"(P)", "(C)"}) {
-            for(int i=0; i<(sizeOfTab-1); i++) {
-                sprintf(buffer, "%s_<%d%s%s", P_repartitionName, tabRepartition[i].borderMax, kind, stat_delimiter);
-                repartitionHeader = (char *)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
-                strcat(repartitionHeader, buffer);
-            }
-            sprintf(buffer, "%s_>=%d%s%s", P_repartitionName, tabRepartition[sizeOfTab-1].borderMax, kind, stat_delimiter);
-            repartitionHeader = (char *)realloc(repartitionHeader, strlen(repartitionHeader) + strlen(buffer) + 1);
-            strcat(repartitionHeader, buffer);
-        }
-    } else {
-        repartitionHeader = (char *)realloc(repartitionHeader, 2);
-        strcpy(repartitionHeader, "");
+    if (!tabRepartition) {
+        return {};
     }
 
-    return(repartitionHeader);
+    std::string repartitionHeader = std::string(P_repartitionName) + stat_delimiter;
+    for (const char *kind : {"(P)", "(C)"}) {
+        for (int i = 0; i < (sizeOfTab - 1); i++) {
+            sprintf(buffer, "%s_<%d%s%s", P_repartitionName, tabRepartition[i].borderMax, kind, stat_delimiter);
+            repartitionHeader += buffer;
+        }
+        sprintf(buffer, "%s_>=%d%s%s", P_repartitionName, tabRepartition[sizeOfTab - 1].borderMax, kind,
+                stat_delimiter);
+        repartitionHeader += buffer;
+    }
+
+    return repartitionHeader;
 }
 
-char* CStat::sRepartitionInfo(T_dynamicalRepartition * tabRepartition,
-                              int sizeOfTab)
+std::string CStat::sRepartitionInfo(T_dynamicalRepartition *tabRepartition, int sizeOfTab)
 {
-    static char *repartitionInfo;
     char buffer[MAX_CHAR_BUFFER_SIZE];
-    int dlen = strlen(stat_delimiter);
 
-    if(tabRepartition != nullptr) {
-        // if a repartition is present, this field match the repartition name
-        repartitionInfo = (char *)realloc(repartitionInfo, dlen + 1);
-        sprintf(repartitionInfo, "%s", stat_delimiter);
-        for (bool periodic : {true, false}) {
-            for(int i=0; i<sizeOfTab; i++) {
-                sprintf(buffer, "%lu%s", periodic ? tabRepartition[i].nbInThisBorderPL
-                                                  : tabRepartition[i].nbInThisBorder, stat_delimiter);
-                repartitionInfo = (char *)realloc(repartitionInfo, strlen(repartitionInfo) + strlen(buffer) + 1);
-                strcat(repartitionInfo, buffer);
-            }
-        }
-    } else {
-        repartitionInfo = (char *)realloc(repartitionInfo, 2);
-        repartitionInfo[0] = '\0';
+    if (!tabRepartition) {
+        return {};
     }
 
-    return(repartitionInfo);
+    // if a repartition is present, this field match the repartition name
+    std::string repartitionInfo = stat_delimiter;
+    for (bool periodic : {true, false}) {
+        for (int i = 0; i < sizeOfTab; i++) {
+            sprintf(buffer, "%lu%s", periodic ? tabRepartition[i].nbInThisBorderPL : tabRepartition[i].nbInThisBorder,
+                    stat_delimiter);
+            repartitionInfo += buffer;
+        }
+    }
+
+    return repartitionInfo;
 }
 
 void CStat::dumpData ()

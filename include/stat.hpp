@@ -533,17 +533,15 @@ private:
      * sRepartitionHeader
      * return a string with the range description of the given repartition
      */
-    char* sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
-                             int sizeOfTab,
-                             const char* P_repartitionName);
+    std::string sRepartitionHeader(T_dynamicalRepartition *tabRepartition, int sizeOfTab,
+                                   const char *P_repartitionName);
 
     /**
      * sRepartitionInfo
      * return a string with the number of value in the differente range of the
      * given repartition
      */
-    char* sRepartitionInfo(T_dynamicalRepartition * tabRepartition,
-                           int sizeOfTab);
+    std::string sRepartitionInfo(T_dynamicalRepartition *tabRepartition, int sizeOfTab);
 
     /**
      * UpdateAverageCounter
