@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import importlib.util
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,13 +14,12 @@ def load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
 
 metrics = load("sipp_metrics", ROOT / "tools" / "sipp_metrics.py")
-import sys
-sys.modules["sipp_metrics"] = metrics
 otlp = load("sipp_otlp", ROOT / "tools" / "sipp_otlp.py")
 
 
