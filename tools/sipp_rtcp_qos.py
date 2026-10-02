@@ -125,6 +125,8 @@ def estimate_mos(report: ReportBlock, clock_rate: int, round_trip_ms: Optional[f
 
 
 def decode(data: bytes, clock_rate: int = 8000, arrival_middle_ntp: Optional[int] = None) -> list:
+    if clock_rate <= 0:
+        raise ValueError("clock rate must be positive")
     arrival = ntp_middle_32() if arrival_middle_ntp is None else arrival_middle_ntp
     output = []
     for packet in parse_rtcp(data):
@@ -149,6 +151,10 @@ def _srtcp_kdf(master_key: bytes, master_salt: bytes, label: int, length: int) -
     """RFC 3711 AES-CM KDF with kdr=0, using SRTCP labels 3/4/5."""
     if len(master_key) != 16 or len(master_salt) != 14:
         raise ValueError("AES_CM_128 SRTCP requires a 16-byte master key and 14-byte master salt")
+    if label not in (0x03, 0x04, 0x05):
+        raise ValueError("SRTCP KDF label must be 0x03, 0x04 or 0x05")
+    if length <= 0:
+        raise ValueError("derived key length must be positive")
     x = bytearray(master_salt + b"\x00\x00")
     x[7] ^= label
     return _aes_ctr(master_key, bytes(x), b"\x00" * length)
@@ -160,8 +166,8 @@ def _sdes_material(inline_key: str) -> tuple[bytes, bytes]:
         material = base64.b64decode(text, validate=True)
     except Exception as exc:
         raise ValueError("invalid SDES inline base64 key") from exc
-    if len(material) < 30:
-        raise ValueError("SDES inline key must contain at least 30 decoded bytes")
+    if len(material) != 30:
+        raise ValueError("AES_CM_128 SDES inline key must contain exactly 30 decoded bytes")
     return material[:16], material[16:30]
 
 
@@ -205,9 +211,17 @@ def decode_datagram(data: bytes, clock_rate: int, srtcp_inline: Optional[str]) -
 
 
 def _host_port(value: str) -> tuple[str, int]:
-    host, sep, port = value.rpartition(":")
-    if not sep or not host:
-        raise argparse.ArgumentTypeError("expected HOST:PORT")
+    value = value.strip()
+    if value.startswith("["):
+        end = value.find("]")
+        if end <= 1 or end + 1 >= len(value) or value[end + 1] != ":":
+            raise argparse.ArgumentTypeError("expected [IPv6]:PORT")
+        host = value[1:end]
+        port = value[end + 2:]
+    else:
+        host, sep, port = value.rpartition(":")
+        if not sep or not host:
+            raise argparse.ArgumentTypeError("expected HOST:PORT")
     try:
         parsed = int(port)
     except ValueError as exc:
@@ -215,6 +229,24 @@ def _host_port(value: str) -> tuple[str, int]:
     if not 1 <= parsed <= 65535:
         raise argparse.ArgumentTypeError("port must be 1..65535")
     return host, parsed
+
+
+def _bind_udp(endpoint: tuple[str, int]) -> socket.socket:
+    host, port = endpoint
+    try:
+        infos = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_DGRAM, 0, socket.AI_PASSIVE)
+    except socket.gaierror as exc:
+        raise RuntimeError(f"cannot resolve {host}:{port}: {exc}") from exc
+    last_error: Optional[OSError] = None
+    for family, socktype, proto, _, sockaddr in infos:
+        sock = socket.socket(family, socktype, proto)
+        try:
+            sock.bind(sockaddr)
+            return sock
+        except OSError as exc:
+            last_error = exc
+            sock.close()
+    raise RuntimeError(f"cannot bind {host}:{port}: {last_error or 'no usable address'}")
 
 
 def main(argv: Optional[Iterable[str]] = None) -> int:
@@ -225,6 +257,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser.add_argument("--clock-rate", type=int, default=8000, help="RTP clock rate for jitter conversion")
     parser.add_argument("--srtcp-inline", help="SDES inline base64 master key+salt for AES_CM_128_HMAC_SHA1")
     args = parser.parse_args(argv)
+    if args.clock_rate <= 0:
+        parser.error("--clock-rate must be positive")
 
     if args.hex_data is not None:
         try:
@@ -234,9 +268,11 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             parser.error(str(exc))
         return 0
 
-    host, port = args.listen
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.bind((host, port))
+    try:
+        sock = _bind_udp(args.listen)
+    except RuntimeError as exc:
+        parser.error(str(exc))
+    with sock:
         while True:
             data, peer = sock.recvfrom(65535)
             try:
