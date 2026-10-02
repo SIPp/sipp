@@ -316,8 +316,8 @@ protected:
     int            verify_pending;
 
     unsigned long  start_time;
-    unsigned long long *start_time_rtd;
-    bool           *rtd_done;
+    std::vector<unsigned long long> start_time_rtd;
+    std::vector<bool> rtd_done;
 
     /* The To tag of the last response that had one */
     std::optional<std::string> peer_tag;

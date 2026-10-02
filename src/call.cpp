@@ -1283,14 +1283,8 @@ void call::init(scenario *call_scenario, SIPpSocket *socket, struct sockaddr_sto
 
     // If not updated by a message we use the start time
     // information to compute rtd information
-    start_time_rtd = (unsigned long long *)malloc(sizeof(unsigned long long) * call_scenario->stats->nRtds());
-    if (!start_time_rtd) {
-        ERROR("Could not allocate RTD times!");
-    }
-    rtd_done = (bool *)malloc(sizeof(bool) * call_scenario->stats->nRtds());
-    if (!rtd_done) {
-        ERROR("Could not allocate RTD done!");
-    }
+    start_time_rtd.resize(call_scenario->stats->nRtds());
+    rtd_done.resize(call_scenario->stats->nRtds());
     for (i = 0; i < call_scenario->stats->nRtds(); i++) {
         start_time_rtd[i] = getmicroseconds();
         rtd_done[i] = false;
@@ -1461,9 +1455,6 @@ call::~call()
     if (use_tdmmap && tdm_map_number) {
         tdm_map[tdm_map_number - 1] = false;
     }
-
-    free(start_time_rtd);
-    free(rtd_done);
 
     if (verify_pending) {
         /* Its commands run on, and their end is ignored */
