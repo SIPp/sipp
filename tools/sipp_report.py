@@ -39,7 +39,10 @@ class Threshold:
         if not match:
             raise ValueError(f"invalid threshold {text!r}; expected COLUMN<OP>NUMBER")
         column, op, target = match.groups()
-        return cls(column.strip(), op, float(target))
+        column = column.strip()
+        if not column:
+            raise ValueError("threshold column cannot be empty")
+        return cls(column, op, float(target))
 
 
 @dataclass(frozen=True)
@@ -65,8 +68,13 @@ class StatResult:
         data = rows[-1]
         if len(data) < len(header):
             raise ValueError(f"{self.path} ends with an incomplete statistics row")
+        named = [name for name in header if name]
+        if len(named) != len(set(named)):
+            raise ValueError(f"{self.path} contains duplicate statistics column names")
         result: Dict[str, float] = {}
         for name, raw in zip(header, data):
+            if not name:
+                continue
             try:
                 value = float(raw.strip())
             except ValueError:
@@ -168,10 +176,14 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     else:
         for result in results:
             print(("PASS" if result.passed else "FAIL") + "  " + result.message)
-    if args.json_out:
-        args.json_out.write_text(json_text + "\n", encoding="utf-8")
-    if args.junit_out:
-        args.junit_out.write_text(junit_xml(results, str(args.stat_file)), encoding="utf-8")
+    try:
+        if args.json_out:
+            args.json_out.write_text(json_text + "\n", encoding="utf-8")
+        if args.junit_out:
+            args.junit_out.write_text(junit_xml(results, str(args.stat_file)), encoding="utf-8")
+    except OSError as exc:
+        print(f"sipp_report: cannot write report: {exc}")
+        return 2
     return 0 if all(result.passed for result in results) else 1
 
 
