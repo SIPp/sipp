@@ -103,6 +103,8 @@ void CAction::printInfo(char* buf, int len)
         }
     } else if (M_action == E_AT_EXECUTE_CMD) {
         snprintf(buf, len, "Type[%d] - command[%-32.32s]", M_action, M_message_str[0].c_str());
+    } else if (M_action == E_AT_EXEC_LUA) {
+        snprintf(buf, len, "Type[%d] - lua[%-32.32s]", M_action, M_message_str[0].c_str());
     } else if (M_action == E_AT_VERIFY_CMD) {
         snprintf(buf, len, "Type[%d] - verify[%-32.32s]", M_action, M_message_str[0].c_str());
     } else if (M_action == E_AT_EXEC_INTCMD) {

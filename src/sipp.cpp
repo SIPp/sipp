@@ -66,6 +66,7 @@ extern char** environ;
 #include "sip_parser.hpp"
 #include "socket.hpp"
 #include "logger.hpp"
+#include "luascript.hpp"
 #include "assert.h"
 #include "config.h"
 #include "version.h"
@@ -76,6 +77,7 @@ static bool random_base_ssrc = false;
 
 /* These could be local to main, but for the option processing table. */
 static int argiFileName;
+static int argiLuaFile;
 static std::atomic<bool> run_echo_thread(true);
 
 /***************** Option Handling Table *****************/
@@ -632,6 +634,7 @@ struct sipp_option options_table[] = {
    {"bg", "Launch SIPp in background mode.", SIPP_OPTION_SETFLAG, &backgroundMode, 1},
    {"nostdin", "Disable stdin.\n", SIPP_OPTION_SETFLAG, &nostdin, 1},
    {"plugin", "Load a plugin.", SIPP_OPTION_PLUGIN, nullptr, 1},
+   {"lua_file", "Load a Lua file, whose functions <exec lua=\"function arg ...\"/> calls.", SIPP_OPTION_ARGI, &argiLuaFile, 1},
    {"sleep", "How long to sleep for at startup. Default unit is seconds.", SIPP_OPTION_TIME_SEC, &sleeptime, 1},
    {"skip_rlimit", "Do not perform rlimit tuning of file descriptor limits.  Default: false.", SIPP_OPTION_SETFLAG, &skip_rlimit, 1},
    {"buff_size", "Set the send and receive buffer size.", SIPP_OPTION_INT, &buff_size, 1},
@@ -1895,7 +1898,10 @@ int main(int argc, char *argv[])
 #ifdef PCAPPLAY
                        "-PCAP"
 #endif
-                       );
+#ifdef USE_LUA
+                       "-LUA"
+#endif
+                );
 
                 printf
                 (" This program is free software; you can redistribute it and/or\n"
@@ -2391,6 +2397,10 @@ int main(int argc, char *argv[])
 
     if (call_id_mode_string && !parse_call_id_mode(call_id_mode_string, &call_id_mode)) {
         ERROR("Unknown Call-ID mode '%s'. Use default, format, legacy, uuid, uuid-compact, uuidcompact, uuid32, random, random-hex, timestamp, or time.", call_id_mode_string);
+    }
+
+    if (argiLuaFile) {
+        lua_script_load(argv[argiLuaFile]);
     }
 
     /* generate random ssrc */

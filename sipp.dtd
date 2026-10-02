@@ -157,6 +157,7 @@
 <!ELEMENT exec EMPTY >
 <!-- exactly one of these must be present -->
 <!ATTLIST exec command CDATA #IMPLIED >
+<!ATTLIST exec lua CDATA #IMPLIED >
 <!ATTLIST exec verify CDATA #IMPLIED >
 <!ATTLIST exec int_cmd (stop_now|stop_gracefully|stop_call) "stop_call" >
 <!ATTLIST exec play_pcap_audio CDATA #IMPLIED >

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="Lua function setting variables">
+
+  <nop>
+    <action>
+      <assignstr assign_to="input" value="20"/>
+      <exec lua="broken [$input]"/>
+    </action>
+  </nop>
+
+  <send>
+    <![CDATA[
+
+      OPTIONS sip:[service]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: sip:[service]@[local_ip]:[local_port];tag=[pid]SIPpTag00[call_number]
+      To: sip:[service]@[remote_ip]:[remote_port]
+      Call-ID: [call_id]
+      CSeq: [cseq] OPTIONS
+      X-Greeting: [$greeting]
+      X-Count: [$count]
+      Content-Length: 0
+
+    ]]>
+  </send>
+
+</scenario>

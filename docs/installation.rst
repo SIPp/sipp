@@ -67,6 +67,9 @@ Installing SIPp
     + `pugixml`_: bundled as a git submodule, or the system library
     + For pcap play support: libpcap and libnet
     + For SCTP support: lksctp-tools
+    + For Lua scripting: Lua (5.3 or 5.4) and its development files,
+      found with pkg-config; built in if found, or with ``-DUSE_LUA=1``
+      (``-DUSE_LUA=0`` to leave it out)
     + For distributed pauses: `Gnu Scientific Libraries`_
 
 + You have four options to compile SIPp:
