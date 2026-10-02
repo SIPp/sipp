@@ -496,7 +496,6 @@ static const char* internal_find_header(const char* msg, const char* name, const
     const int short_first = shortname ? tolower((unsigned char)*shortname) : 0;
 
     while (1) {
-        int is_short = 0;
         const int c = tolower((unsigned char)*ptr);
         /* RFC3261, 7.3.1: When comparing header fields, field names
          * are always case-insensitive.  Unless otherwise stated in
@@ -511,8 +510,10 @@ static const char* internal_find_header(const char* msg, const char* name, const
          * But:
          *   Warning: "something" != Warning: "SoMeThInG"
          */
-        if ((c == first && strncasecmp(ptr, name, namelen) == 0) ||
-            (shortname && (is_short = 1) && c == short_first && strncasecmp(ptr, shortname, shortnamelen) == 0)) {
+        const bool is_long = c == first && strncasecmp(ptr, name, namelen) == 0;
+        const bool is_short =
+            !is_long && shortname && c == short_first && strncasecmp(ptr, shortname, shortnamelen) == 0;
+        if (is_long || is_short) {
             const char *tmp = ptr + (is_short ? strlen(shortname) : strlen(name));
             while (*tmp == ' ' || *tmp == '\t') {
                 ++tmp;
