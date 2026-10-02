@@ -52,7 +52,7 @@ struct logfile_info {
     bool check;
     FILE *fptr;
     int nfiles;
-    struct logfile_id *ftimes;
+    std::vector<logfile_id> ftimes;
     std::string file_name;
     bool overwrite;
     bool fixedname;
@@ -72,8 +72,7 @@ void log_off(struct logfile_info *lfi);
 void stop_oversized_traces();
 
 #ifdef GLOBALS_FULL_DEFINITION
-#define LOGFILE(name, s, check) \
-    struct logfile_info name = { s, check, nullptr, 0, nullptr, "", true, false, 0, 0 }
+#define LOGFILE(name, s, check) struct logfile_info name = {s, check, nullptr, 0, {}, "", true, false, 0, 0}
 #else
 #define LOGFILE(name, s, check) \
     extern struct logfile_info name

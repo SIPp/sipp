@@ -271,16 +271,14 @@ static void rotatef(struct logfile_info *lfi)
     }
 
     if (ringbuffer_files > 0) {
-        if (!lfi->ftimes) {
-            lfi->ftimes = (struct logfile_id*)calloc(ringbuffer_files,
-                                                     sizeof(struct logfile_id));
+        if (lfi->ftimes.empty()) {
+            lfi->ftimes.resize(ringbuffer_files);
         }
         /* We need to rotate away an existing file. */
         if (lfi->nfiles == ringbuffer_files) {
             unlink(rotated_file_name(lfi, (lfi->ftimes)[0]).c_str());
             lfi->nfiles--;
-            memmove(lfi->ftimes, &((lfi->ftimes)[1]),
-                    sizeof(struct logfile_id) * (lfi->nfiles));
+            memmove(lfi->ftimes.data(), &((lfi->ftimes)[1]), sizeof(struct logfile_id) * (lfi->nfiles));
         }
         if (lfi->starttime) {
             (lfi->ftimes)[lfi->nfiles].start = lfi->starttime;
