@@ -43,7 +43,7 @@ jobs:
     - name: prepare
       run: git submodule update --init
     - name: installdeps
-      run: sudo apt-get update && sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses-dev libncurses6 python3-websockets
+      run: sudo apt-get update && sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev liblua5.4-dev libncurses-dev libncurses6 python3-websockets
     - name: build
       run: ./build.sh --full
     - name: install
@@ -63,7 +63,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - name: installdeps
-      run: sudo apt-get update && sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev libncurses-dev libncurses6 libgtest-dev libpugixml-dev python3-websockets
+      run: sudo apt-get update && sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev liblua5.4-dev libncurses-dev libncurses6 libgtest-dev libpugixml-dev python3-websockets
     - name: build
       run: |
         cmake . -DUSE_SCTP=1 -DUSE_PCAP=1 -DUSE_GSL=1 -DUSE_SYSTEM_GTEST=ON -DUSE_SYSTEM_PUGIXML=ON

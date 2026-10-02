@@ -202,6 +202,8 @@ public:
     /* A message has dialog="N" with N > 1; a <recv request> does */
     bool dialogs = false;
     bool new_dialogs = false;
+    /* A <exec lua> can use any variable, so one referenced once is fine */
+    bool uses_lua = false;
     int retaddr;
     int pausedaddr;
 

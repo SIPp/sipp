@@ -604,7 +604,9 @@ int scenario::get_counter(const char *ptr, const char *what)
 
 void scenario::validate_variable_usage()
 {
-    allocVars->validate();
+    if (!uses_lua) {
+        allocVars->validate();
+    }
 }
 
 void scenario::validate_txn_usage()
@@ -1645,10 +1647,17 @@ void scenario::parseAction(CActions *actions)
             if ((cptr = xp_get_value("command"))) {
                 tmpAction->setActionType(CAction::E_AT_EXECUTE_CMD);
                 tmpAction->setMessage(cptr);
+            } else if ((cptr = xp_get_value("lua"))) {
+#ifndef USE_LUA
+                ERROR("Scenario specifies a lua action, but this version of SIPp does not have Lua support");
+#endif
+                uses_lua = true;
+                tmpAction->setActionType(CAction::E_AT_EXEC_LUA);
+                tmpAction->setMessage(cptr);
             } else if ((cptr = xp_get_value("verify"))) {
                 tmpAction->setActionType(CAction::E_AT_VERIFY_CMD);
                 tmpAction->setMessage(cptr);
-            } else if((cptr = xp_get_value("int_cmd"))) {
+            } else if ((cptr = xp_get_value("int_cmd"))) {
                 CAction::T_IntCmdType type(CAction::E_INTCMD_STOPCALL); /* assume the default */
 
                 if (strcmp(cptr, "stop_now") == 0) {

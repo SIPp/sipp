@@ -24,6 +24,10 @@ any earlier release (see the "Memory and CPU per call" entry).
   `<send response_txn>` answers it, with the [last_*] keywords of that
   request, after other requests came; a retransmission of it gets the
   last response sent in it again (#12, by Orgad Shaneh)
+- Lua scripting: `-lua_file` loads a Lua file, and `<exec lua="function
+  arg ..."/>` calls one of its functions, which reads and writes the
+  call's variables with `sipp.get` and `sipp.set`. Built in if Lua is
+  found, or with `-DUSE_LUA=1` (based on #577 by Nathan Franzmeier)
 - `-round_robin` sends the calls to the addresses of a remote host name
   in turn, over UDP or one socket per call (#33, by Orgad Shaneh)
 - A remote host name given without a port is looked up with DNS NAPTR

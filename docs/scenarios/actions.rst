@@ -7,7 +7,7 @@ an action. Several actions are available:
 
 + `Regular expressions`_ (ereg)
 + Log something in a log file (log)
-+ Execute an external (system), internal (int_cmd) or
++ Execute an external (system), internal (int_cmd), Lua (lua) or
   pcap_play_audio/pcap_play_video command (exec)
 + Manipulate double precision variables using arithmetic
 + Assign string values to a variable
@@ -167,8 +167,19 @@ Execute a command
 +++++++++++++++++
 
 The "exec" action allows you to execute "internal", "external",
-"play_pcap_audio", "play_pcap_video", "play_pcap_image" or
-"play_pcap_text" commands.
+"play_pcap_audio", "play_pcap_video", "play_pcap_image",
+"play_pcap_text" or "lua" commands.
+
+
+Lua functions
++++++++++++++
+
+The lua attribute calls a function of the Lua file given with
+``-lua_file``, which can read and write the variables of the call::
+
+    <exec lua="translate [$called]"/>
+
+See :doc:`lua` for what the functions can do, and examples.
 
 
 Internal commands

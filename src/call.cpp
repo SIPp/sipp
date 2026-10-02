@@ -66,6 +66,7 @@
 #include "auth.hpp"
 #include "urlcoder.hpp"
 #include "deadcall.hpp"
+#include "luascript.hpp"
 #include "config.h"
 #include "version.h"
 
@@ -5382,6 +5383,9 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
                 }
                 break;
             }
+        } else if (currentAction->getActionType() == CAction::E_AT_EXEC_LUA) {
+            lua_script_exec(createSendingString(currentAction->getMessage()), M_callVariableTable,
+                            call_scenario->allocVars);
         } else if (currentAction->getActionType() == CAction::E_AT_VERIFY_CMD) {
             startVerify(createSendingString(currentAction->getMessage()).c_str());
         } else if (currentAction->getActionType() == CAction::E_AT_EXEC_INTCMD) {

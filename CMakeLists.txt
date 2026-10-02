@@ -143,6 +143,18 @@ function(apply_common_sipp_dependencies TARGET_NAME)
     target_link_libraries(${TARGET_NAME} ${SCTP_LIBRARY})
   endif()
 
+  if(LUA_FOUND)
+    if(BUILD_STATIC AND LUA_STATIC_LIBRARIES)
+      target_link_libraries(${TARGET_NAME} ${LUA_STATIC_LIBRARIES})
+    else()
+      target_link_libraries(${TARGET_NAME} ${LUA_LIBRARIES})
+    endif()
+    target_include_directories(${TARGET_NAME} SYSTEM PUBLIC ${LUA_INCLUDE_DIRS})
+    if(LUA_LIBRARY_DIRS)
+      target_link_directories(${TARGET_NAME} PRIVATE ${LUA_LIBRARY_DIRS})
+    endif()
+  endif()
+
   if(BUILD_STATIC AND MSYS)
     target_link_libraries(${TARGET_NAME} crypt32)
   endif()
@@ -156,6 +168,22 @@ option(USE_WOLFSSL "Use WolfSSL instead of OpenSSL" OFF)
 option(TLS_KEY_LOGGING "Enable TLS session key logging (OpenSSL only)" OFF)
 
 find_package(PkgConfig QUIET)  # import pkg_check_modules() and friends
+
+# AUTO builds with Lua if pkg-config finds it.
+tristate_option(USE_LUA "Build with Lua scripting: AUTO, ON, or OFF")
+if(NOT USE_LUA_MODE STREQUAL "OFF")
+  if(PKG_CONFIG_FOUND)
+    pkg_search_module(LUA lua5.4 lua-5.4 lua5.3 lua-5.3 lua)
+  endif()
+  if(LUA_FOUND)
+    message(STATUS "Lua is enabled")
+    add_definitions("-DUSE_LUA")
+  elseif(USE_LUA_MODE STREQUAL "ON")
+    message(FATAL_ERROR "USE_LUA is ON, but pkg-config cannot find Lua: install its development package")
+  else()
+    message(STATUS "Lua is disabled")
+  endif()
+endif()
 
 # AUTO takes the bundled copy if its submodule is there, else the system one.
 tristate_option(USE_SYSTEM_PUGIXML "Use system pugixml: AUTO, ON, or OFF")

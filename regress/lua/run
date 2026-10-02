@@ -1,0 +1,28 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# <exec lua="..."/> calls a function of the -lua_file, which reads and
+# writes the call's variables, also those the scenario uses once; an error
+# in it ends SIPp.
+. "`dirname "$0"`/../functions"; init
+
+sippversion | grep -q -- -LUA || skip "no Lua support"
+
+udplisten 25601 >udplisten.log &
+sleep 1
+sippfg -sf uac.xml -lua_file script.lua -i 127.0.0.1 -p 25600 -m 1 \
+    -trace_logs -log_file lua.log 127.0.0.1:25601 -timeout 5 >/dev/null 2>&1
+test $? -ne 0 && fail "SIPp failed"
+wait
+
+grep -q '^X-Greeting: hello world 21' udplisten.log ||
+    fail "no greeting set by Lua"
+grep -q '^X-Count: 40' udplisten.log || fail "no count set by Lua"
+grep -q 'input was 20' lua*.log || fail "no sipp.log or sipp.get"
+
+out=`sippfg -sf broken.xml -lua_file script.lua -i 127.0.0.1 -p 25600 \
+    -m 1 127.0.0.1:25601 -timeout 5 2>&1`
+test $? -eq 255 || fail "no error for a Lua error"
+echo "$out" | grep -q "unknown SIPp variable 'nosuchvar'" ||
+    fail "no message for a Lua error"
+
+ok
