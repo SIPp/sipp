@@ -21,6 +21,7 @@ Welcome to SIPp reference documentation!
    multi_instance
    media
    statistics
+   ci_reports
    error
    perftest
    tools
