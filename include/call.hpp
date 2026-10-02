@@ -226,7 +226,7 @@ private:
     }
 
     scenario *call_scenario;
-    unsigned int   number;
+    unsigned int number = 0; /* 0 for an automatic call or an <init> */
 
 public:
     static   int   maxDynamicId;    // max value for dynamicId; this value is reached !
@@ -234,9 +234,7 @@ public:
     static   int   stepDynamicId;   // step of increment for dynamicId
     static   int   dynamicId;       // a counter for general use, incrementing  by  stepDynamicId starting at startDynamicId  wrapping at maxDynamicId  GLOBALY
 protected:
-
-
-    unsigned int   tdm_map_number;
+    unsigned int tdm_map_number = 0;
 
     int            msg_index;
     int zombie;
