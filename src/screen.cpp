@@ -142,7 +142,7 @@ void ScreenPrinter::print_to_file(FILE* f)
 }
 
 extern int command_mode;
-extern char* command_buffer;
+extern std::string command_buffer;
 
 
 void ScreenPrinter::redraw()
@@ -155,7 +155,7 @@ void ScreenPrinter::redraw()
         }
 
         if (command_mode) {
-            printw("\nCommand: %s", command_buffer ? command_buffer : "");
+            printw("\nCommand: %s", command_buffer.c_str());
         }
 
         refresh();
