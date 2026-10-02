@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<scenario name="auth_MD5_auth-int uas">
+  <recv request="REGISTER"/>
+  <send><![CDATA[
+      SIP/2.0 401 Unauthorized
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[pid]SIPpTag01[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      WWW-Authenticate: Digest realm="sipp.test", nonce="abcdef0123456789", algorithm=MD5, qop="auth-int"
+      Content-Length: 0
+
+    ]]></send>
+  <recv request="REGISTER">
+    <action>
+      <verifyauth assign_to="authvalid" username="user1" password="secret"/>
+    </action>
+  </recv>
+  <nop test="authvalid" next="goodauth"/>
+  <send next="done"><![CDATA[
+      SIP/2.0 403 Forbidden
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[pid]SIPpTag01[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+
+    ]]></send>
+  <label id="goodauth"/>
+  <send><![CDATA[
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[pid]SIPpTag01[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Content-Length: 0
+
+    ]]></send>
+  <label id="done"/>
+</scenario>
