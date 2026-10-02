@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import importlib.util
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("sipp_control", ROOT / "tools" / "sipp_control.py")
 control = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
+sys.modules[spec.name] = control
 spec.loader.exec_module(control)
 
 
@@ -29,6 +31,17 @@ class ControlTests(unittest.TestCase):
             control.build_control("limit", 1.5)
         with self.assertRaises(ValueError):
             control.build_control("rate", float("inf"))
+        with self.assertRaises(ValueError):
+            control.build_control("rate", -1)
+        with self.assertRaises(ValueError):
+            control.build_control("users", -1)
+        with self.assertRaises(ValueError):
+            control.build_control("limit", -1)
+
+    def test_zero_is_valid(self):
+        self.assertEqual(control.build_control("rate", 0), "cset rate 0")
+        self.assertEqual(control.build_control("users", 0), "cset users 0")
+        self.assertEqual(control.build_control("limit", 0), "cset limit 0")
 
     def test_statistics_snapshot(self):
         with tempfile.TemporaryDirectory() as tmp:
