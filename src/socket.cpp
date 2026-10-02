@@ -365,7 +365,7 @@ static bool process_command(char* command)
 }
 
 int command_mode = 0;
-char *command_buffer = nullptr;
+std::string command_buffer;
 
 extern bool sipMsgCheck (const char *P_msg, SIPpSocket *socket);
 
@@ -542,15 +542,8 @@ int handle_ctrl_socket()
     }
 
     if (bufrcv[0] == 'c') {
-        /* No 'c', but we need one for '\0'. */
-        char *command = (char *)malloc(ret);
-        if (!command) {
-            ERROR("Out of memory allocated command buffer.");
-        }
-        memcpy(command, bufrcv + 1, ret - 1);
-        command[ret - 1] = '\0';
-        process_command(command);
-        free(command);
+        std::string command(reinterpret_cast<char *>(bufrcv + 1), ret - 1);
+        process_command(command.data());
     } else {
         process_key(bufrcv[0]);
     }
@@ -649,11 +642,11 @@ void handle_stdin_socket()
         chars++;
         if (command_mode) {
             if (c == '\n') {
-                bool quit = process_command(command_buffer);
+                bool quit = process_command(command_buffer.data());
                 if (quit) {
                     return;
                 }
-                command_buffer[0] = '\0';
+                command_buffer.clear();
                 command_mode = 0;
             }
 #ifndef __SUNOS
@@ -662,36 +655,17 @@ void handle_stdin_socket()
             else if (c == 14)
 #endif
             {
-                int command_len = strlen(command_buffer);
-                if (command_len > 0) {
-                    command_buffer[command_len--] = '\0';
+                if (!command_buffer.empty()) {
+                    command_buffer.pop_back();
                 }
             } else {
-                int command_len = strlen(command_buffer);
-                char *realloc_ptr = (char *)realloc(command_buffer, command_len + 2);
-                if (realloc_ptr) {
-                    command_buffer = realloc_ptr;
-                } else {
-                    free(command_buffer);
-                    ERROR("Out of memory");
-                    return;
-                }
-                command_buffer[command_len++] = c;
-                command_buffer[command_len] = '\0';
+                command_buffer.push_back(c);
                 putchar(c);
                 fflush(stdout);
             }
         } else if (c == 'c') {
             command_mode = 1;
-            char *realloc_ptr = (char *)realloc(command_buffer, 1);
-            if (realloc_ptr) {
-                command_buffer = realloc_ptr;
-            } else {
-                free(command_buffer);
-                ERROR("Out of memory");
-                return;
-            }
-            command_buffer[0] = '\0';
+            command_buffer.clear();
         } else {
             process_key(c);
         }
