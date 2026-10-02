@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import importlib.util
+import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -38,6 +40,18 @@ class MetricsTests(unittest.TestCase):
             self.assertEqual(snap.values["CallRate(C)"], 12.5)
             self.assertNotIn("Label", snap.values)
 
+    def test_stat_discovery_ignores_rtt_trace(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            stat = root / "scenario.csv"
+            rtt = root / "scenario_123_rtt.csv"
+            stat.write_text("A\n1\n", encoding="utf-8")
+            rtt.write_text("B\n2\n", encoding="utf-8")
+            now = time.time()
+            os.utime(stat, (now - 10, now - 10))
+            os.utime(rtt, (now, now))
+            self.assertEqual(metrics.find_latest_stat_file(root), stat)
+
     def test_prometheus_names_are_valid(self):
         self.assertEqual(metrics.metric_name("SuccessfulCall(C)"), "sipp_successfulcall_c")
         self.assertEqual(metrics.metric_name("1xx response"), "sipp_field_1xx_response")
@@ -48,6 +62,19 @@ class MetricsTests(unittest.TestCase):
         point = resource["scopeMetrics"][0]["metrics"][0]["gauge"]["dataPoints"][0]
         self.assertEqual(point["asDouble"], 42.0)
         self.assertEqual(point["timeUnixNano"], "1500000000")
+
+    def test_otlp_de_duplicates_sanitized_names(self):
+        payload = otlp.build_otlp({"A-B": 1.0, "A B": 2.0}, 1.0, "loadtest")
+        names = [m["name"] for m in payload["resourceMetrics"][0]["scopeMetrics"][0]["metrics"]]
+        self.assertEqual(names, ["sipp_a_b", "sipp_a_b_2"])
+
+    def test_header_validation(self):
+        self.assertEqual(otlp.parse_headers(["Authorization=Bearer token"]),
+                         {"Authorization": "Bearer token"})
+        with self.assertRaises(ValueError):
+            otlp.parse_headers(["=value"])
+        with self.assertRaises(ValueError):
+            otlp.parse_headers(["X-Test=value\nInjected: true"])
 
 
 if __name__ == "__main__":
