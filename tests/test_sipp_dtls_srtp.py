@@ -53,6 +53,20 @@ class FingerprintTests(unittest.TestCase):
             dtls.normalize_fingerprint("AA:BB")
 
 
+class EndpointTests(unittest.TestCase):
+    def test_remote_parser_and_formatter(self):
+        self.assertEqual(dtls._remote("192.0.2.1:4444"), ("192.0.2.1", 4444))
+        self.assertEqual(dtls._remote("[2001:db8::1]:4444"), ("2001:db8::1", 4444))
+        self.assertEqual(dtls.format_endpoint(("192.0.2.1", 4444)), "192.0.2.1:4444")
+        self.assertEqual(dtls.format_endpoint(("2001:db8::1", 4444)), "[2001:db8::1]:4444")
+
+    def test_invalid_endpoint_is_rejected(self):
+        with self.assertRaises(ValueError):
+            dtls.format_endpoint(("", 4444))
+        with self.assertRaises(ValueError):
+            dtls.format_endpoint(("192.0.2.1", 0))
+
+
 class HandshakeWrapperTests(unittest.TestCase):
     def test_builds_openssl_dtls_srtp_command(self):
         material = bytes(range(60)).hex()
@@ -78,6 +92,33 @@ class HandshakeWrapperTests(unittest.TestCase):
         self.assertIn("-bind", command)
         self.assertEqual(keys.profile, "SRTP_AES128_CM_SHA1_80")
         self.assertEqual(actual_fingerprint, fingerprint)
+
+    def test_ipv6_connect_is_bracketed(self):
+        material = bytes(range(60)).hex()
+        output = (
+            "SRTP Extension negotiated, profile=SRTP_AES128_CM_SHA1_80\n"
+            f"Keying material: {material}\n"
+        )
+        completed = subprocess.CompletedProcess([], 0, stdout=output)
+        fingerprint = ":".join(["11"] * 32)
+        with mock.patch.object(dtls.subprocess, "run", return_value=completed) as run, \
+             mock.patch.object(dtls, "peer_certificate_fingerprint", return_value=fingerprint):
+            dtls.run_handshake(("2001:db8::10", 4444), cert="client.crt", key="client.key")
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index("-connect") + 1], "[2001:db8::10]:4444")
+
+    def test_invalid_timeout_is_rejected_before_process_start(self):
+        with mock.patch.object(dtls.subprocess, "run") as run:
+            with self.assertRaises(ValueError):
+                dtls.run_handshake(("192.0.2.10", 4444), cert="c", key="k", timeout=0)
+        run.assert_not_called()
+
+    def test_invalid_fingerprint_is_rejected_before_process_start(self):
+        with mock.patch.object(dtls.subprocess, "run") as run:
+            with self.assertRaises(ValueError):
+                dtls.run_handshake(("192.0.2.10", 4444), cert="c", key="k",
+                                   peer_fingerprint="AA:BB")
+        run.assert_not_called()
 
     def test_nonzero_openssl_exit_is_error(self):
         completed = subprocess.CompletedProcess([], 1, stdout="handshake failure")
