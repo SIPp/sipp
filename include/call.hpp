@@ -47,6 +47,7 @@
 #include "sip_parser.hpp"
 
 struct remote_address;
+struct SrtpKeyword;
 
 #define UDP_MAX_RETRANS_INVITE_TRANSACTION 5
 #define UDP_MAX_RETRANS_NON_INVITE_TRANSACTION 9
@@ -497,6 +498,8 @@ protected:
         return video ? SrtpMedia{_txUACVideo, _rxUACVideo, _txUASVideo, _rxUASVideo}
                      : SrtpMedia{_txUACAudio, _rxUACAudio, _txUASAudio, _rxUASAudio};
     }
+    void appendSrtpKeyword(const SrtpKeyword &keyword, const MessageComponent &comp, std::string &out,
+                           SrtpInfoParams &p);
     void takeRemoteSrtp(bool video, const SrtpInfoParams &p, const std::string &host, int port, bool answer);
     void startSrtp(bool video, bool client, int payloadSize);
     void startUASSrtp(bool video, int payloadSize);
