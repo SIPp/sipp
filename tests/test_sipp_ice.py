@@ -4,6 +4,7 @@
 import importlib.util
 import socket
 import struct
+import sys
 import unittest
 from pathlib import Path
 
@@ -11,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("sipp_ice", ROOT / "tools" / "sipp_ice.py")
 ice = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
+sys.modules[spec.name] = ice
 spec.loader.exec_module(ice)
 
 TXID = bytes.fromhex("0102030405060708090a0b0c")
