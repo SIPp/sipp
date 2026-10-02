@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SIPp Control</title>
+<style>
+:root{font-family:system-ui,sans-serif;color-scheme:light dark}body{max-width:1100px;margin:2rem auto;padding:0 1rem}button,input{font:inherit;padding:.55rem .75rem;margin:.2rem}button{cursor:pointer}.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}.card{border:1px solid #8885;border-radius:10px;padding:1rem;margin:1rem 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.6rem}.metric{padding:.6rem;border-radius:8px;background:#8881}.metric b{display:block;font-size:.82rem;opacity:.7;overflow-wrap:anywhere}.metric span{font-size:1.25rem}pre{overflow:auto;max-height:16rem}.danger{border-color:#c44}#error{white-space:pre-wrap;color:#d44}
+</style>
+</head>
+<body>
+<h1>SIPp Control</h1>
+<p>Local control API and live <code>-trace_stat</code> view.</p>
+<div class="card">
+  <div class="row">
+    <button onclick="action('pause')">Pause / resume</button>
+    <button onclick="action('rate-up')">Rate +</button>
+    <button onclick="action('rate-down')">Rate −</button>
+    <button onclick="action('rate-up-10x')">Rate ×10 step</button>
+    <button onclick="action('rate-down-10x')">Rate ÷10 step</button>
+  </div>
+  <div class="row">
+    <label>Rate <input id="rate" type="number" min="0" step="any"></label>
+    <button onclick="action('rate', value('rate'))">Set rate</button>
+    <label>Users <input id="users" type="number" min="0" step="1"></label>
+    <button onclick="action('users', value('users'))">Set users</button>
+    <label>Limit <input id="limit" type="number" min="0" step="1"></label>
+    <button onclick="action('limit', value('limit'))">Set limit</button>
+  </div>
+  <div class="row">
+    <button onclick="action('quit')">Graceful quit</button>
+    <button class="danger" onclick="confirm('Quit SIPp immediately?')&&action('quit-now')">Quit now</button>
+  </div>
+  <div id="error"></div>
+</div>
+<div class="card"><h2>Status</h2><div id="target"></div><div id="metrics" class="grid"></div></div>
+<div class="card"><h2>Last action</h2><pre id="last">none</pre></div>
+<script>
+const $=id=>document.getElementById(id);
+function value(id){const n=Number($(id).value);if(!Number.isFinite(n))throw new Error('Enter a numeric value');return n}
+async function action(name,val){
+  try{
+    const body={action:name}; if(val!==undefined)body.value=val;
+    const r=await fetch('/api/v1/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json(); if(!r.ok)throw new Error(j.error||r.statusText); $('error').textContent=''; await refresh();
+  }catch(e){$('error').textContent=String(e)}
+}
+async function refresh(){
+  try{
+    const r=await fetch('/api/v1/status',{cache:'no-store'});const j=await r.json();
+    $('target').textContent=`Target: ${j.target.host}:${j.target.port} · API uptime ${Math.round(j.uptime_seconds)}s`;
+    $('last').textContent=j.last_action?JSON.stringify(j.last_action,null,2):'none';
+    const stats=j.statistics||{};$('metrics').replaceChildren(...Object.entries(stats).map(([k,v])=>{const d=document.createElement('div');d.className='metric';const b=document.createElement('b');b.textContent=k;const s=document.createElement('span');s.textContent=String(v);d.append(b,s);return d}));
+  }catch(e){$('error').textContent=String(e)}
+}
+refresh();setInterval(refresh,1000);
+</script>
+</body>
+</html>
