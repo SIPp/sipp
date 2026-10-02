@@ -10,9 +10,10 @@ import json
 import math
 import operator
 import re
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional
 
 
 _THRESHOLD_RE = re.compile(r"^\s*(.+?)\s*(<=|>=|==|!=|<|>)\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*$")
@@ -83,17 +84,6 @@ class StatResult:
         return ThresholdResult(threshold, actual, passed, message)
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Assert thresholds against SIPp -trace_stat output")
-    parser.add_argument("stat_file", type=Path)
-    parser.add_argument("--delimiter", default=";")
-    parser.add_argument("--threshold", action="append", default=[], metavar="EXPR",
-                        help="repeatable expression such as 'SuccessfulCall(C)>=1000'")
-    parser.add_argument("--threshold-file", type=Path, help="JSON object mapping column names to expressions")
-    parser.add_argument("--json", action="store_true", help="print machine-readable JSON")
-    return parser
-
-
 def load_threshold_file(path: Path) -> List[Threshold]:
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
@@ -123,7 +113,39 @@ def result_json(results: List[ThresholdResult]) -> str:
             ],
         },
         sort_keys=True,
+        indent=2,
     )
+
+
+def junit_xml(results: List[ThresholdResult], source: str) -> str:
+    suite = ET.Element(
+        "testsuite",
+        name="sipp.thresholds",
+        tests=str(len(results)),
+        failures=str(sum(not result.passed for result in results)),
+    )
+    props = ET.SubElement(suite, "properties")
+    ET.SubElement(props, "property", name="source", value=source)
+    for result in results:
+        case = ET.SubElement(suite, "testcase", classname="sipp.threshold", name=result.threshold.column)
+        ET.SubElement(case, "system-out").text = result.message
+        if not result.passed:
+            failure = ET.SubElement(case, "failure", message=result.message, type="ThresholdFailure")
+            failure.text = result.message
+    return ET.tostring(suite, encoding="unicode") + "\n"
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Assert thresholds against SIPp -trace_stat output")
+    parser.add_argument("stat_file", type=Path)
+    parser.add_argument("--delimiter", default=";")
+    parser.add_argument("--threshold", action="append", default=[], metavar="EXPR",
+                        help="repeatable expression such as 'SuccessfulCall(C)>=1000'")
+    parser.add_argument("--threshold-file", type=Path, help="JSON object mapping column names to expressions")
+    parser.add_argument("--json", action="store_true", help="print machine-readable JSON")
+    parser.add_argument("--json-out", type=Path, help="write JSON report to this path")
+    parser.add_argument("--junit-out", type=Path, help="write JUnit XML report to this path")
+    return parser
 
 
 def main(argv: Optional[Iterable[str]] = None) -> int:
@@ -140,11 +162,16 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         return 2
 
     results = [stat.evaluate(threshold) for threshold in thresholds]
+    json_text = result_json(results)
     if args.json:
-        print(result_json(results))
+        print(json_text)
     else:
         for result in results:
             print(("PASS" if result.passed else "FAIL") + "  " + result.message)
+    if args.json_out:
+        args.json_out.write_text(json_text + "\n", encoding="utf-8")
+    if args.junit_out:
+        args.junit_out.write_text(junit_xml(results, str(args.stat_file)), encoding="utf-8")
     return 0 if all(result.passed for result in results) else 1
 
 
