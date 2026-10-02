@@ -26,6 +26,7 @@
 #include <string>
 #include <string_view>
 #include <map>
+#include <vector>
 #include <sys/types.h>
 #include <regex.h>
 
@@ -106,7 +107,7 @@ protected:
     void expand(int size);
     int count;
     int level;
-    CCallVariable **variableTable;
+    std::vector<CCallVariable *> variableTable;
     VariableTable *parent;
 };
 

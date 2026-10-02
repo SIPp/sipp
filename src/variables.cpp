@@ -185,13 +185,9 @@ VariableTable::VariableTable(VariableTable *parent, int size)
     count = 1;
     this->size = size;
     if (size == 0) {
-        variableTable = nullptr;
         return;
     }
-    variableTable = (CCallVariable **)malloc(size * sizeof(CCallVariable *));
-    if (!variableTable) {
-        ERROR("Could not allocate variable table!");
-    }
+    variableTable.resize(size);
     for (int i = 0; i < size; i++) {
         variableTable[i] = new CCallVariable();
     }
@@ -211,15 +207,10 @@ VariableTable::VariableTable(AllocVariableTable *src)
     }
     this->size = src->size;
     if (size == 0) {
-        variableTable = nullptr;
         return;
     }
 
-    variableTable = (CCallVariable **)malloc(size * sizeof(CCallVariable *));
-    if (!variableTable) {
-        ERROR("Could not allocate variable table!");
-    }
-
+    variableTable.resize(size);
     for (int i = 0; i < size; i++) {
         variableTable[i] = new CCallVariable();
     }
@@ -232,10 +223,7 @@ void VariableTable::expand(int size)
         return;
     }
 
-    variableTable = (CCallVariable **)realloc(variableTable, size * sizeof(CCallVariable *));
-    if (!variableTable) {
-        ERROR("Could not expand variable table!");
-    }
+    variableTable.resize(size);
 
     for (int i = this->size; i < size; i++) {
         variableTable[i] = new CCallVariable();
@@ -252,7 +240,6 @@ VariableTable::~VariableTable()
     for (int i = 0; i < size; i++) {
         delete variableTable[i];
     }
-    free(variableTable);
 }
 
 VariableTable *VariableTable::getTable()
