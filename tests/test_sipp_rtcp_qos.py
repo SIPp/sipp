@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import importlib.util
 import struct
+import sys
 import unittest
 from pathlib import Path
 
@@ -13,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("sipp_rtcp_qos", ROOT / "tools" / "sipp_rtcp_qos.py")
 qos = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
+sys.modules[spec.name] = qos
 spec.loader.exec_module(qos)
 
 
