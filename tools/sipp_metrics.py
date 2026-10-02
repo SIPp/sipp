@@ -70,7 +70,10 @@ class MetricsSnapshot:
                 seen[name] = 1
             lines.append(f"# TYPE {name} gauge")
             lines.append(f"{name} {value:.17g}")
-        lines.append(f"sipp_exporter_last_scrape_timestamp_seconds {self.collected_at:.6f}")
+        lines.extend([
+            "# TYPE sipp_exporter_last_scrape_timestamp_seconds gauge",
+            f"sipp_exporter_last_scrape_timestamp_seconds {self.collected_at:.6f}",
+        ])
         return "\n".join(lines) + "\n"
 
 
@@ -109,9 +112,14 @@ class StatFileReader:
 
 
 def find_latest_stat_file(directory: Path) -> Path:
-    candidates = [p for p in directory.glob("*.csv") if p.is_file()]
+    # -trace_rtt writes <scenario>_<pid>_rtt.csv.  Do not accidentally
+    # select that file when --stat-dir is intended to discover -trace_stat.
+    candidates = [
+        p for p in directory.glob("*.csv")
+        if p.is_file() and not p.name.endswith("_rtt.csv")
+    ]
     if not candidates:
-        raise RuntimeError(f"no CSV statistics file found in {directory}")
+        raise RuntimeError(f"no SIPp statistics CSV file found in {directory}")
     return max(candidates, key=lambda p: p.stat().st_mtime_ns)
 
 
