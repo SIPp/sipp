@@ -290,14 +290,8 @@ protected:
 #endif
 
     rtpstream_callinfo_t rtpstream_callinfo;
-    LazySrtpChannel _txUACAudio;
-    LazySrtpChannel _rxUACAudio;
-    LazySrtpChannel _txUASAudio;
-    LazySrtpChannel _rxUASAudio;
-    LazySrtpChannel _txUACVideo;
-    LazySrtpChannel _rxUACVideo;
-    LazySrtpChannel _txUASVideo;
-    LazySrtpChannel _rxUASVideo;
+    SrtpMedia _srtpAudio;
+    SrtpMedia _srtpVideo;
 
     unsigned int   next_retrans;
     int            nb_retrans;
@@ -493,10 +487,9 @@ protected:
 
     FILE* _srtpctxdebugfile;
     int logSrtpInfo(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
-    SrtpMedia srtpMedia(bool video)
+    SrtpMedia &srtpMedia(bool video)
     {
-        return video ? SrtpMedia{_txUACVideo, _rxUACVideo, _txUASVideo, _rxUASVideo}
-                     : SrtpMedia{_txUACAudio, _rxUACAudio, _txUASAudio, _rxUASAudio};
+        return video ? _srtpVideo : _srtpAudio;
     }
     SrtpChannel *srtpTx(bool video);
     SrtpChannel *srtpRx(bool video);

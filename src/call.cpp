@@ -1244,13 +1244,13 @@ void call::init(scenario *call_scenario, SIPpSocket *socket, struct sockaddr_sto
         if (sendMode == MODE_CLIENT)
         {
             logSrtpInfo("call::init():  (a) TX-UAC-AUDIO SRTP context - CLIENT setting SRTP header size to 12\n");
-            _txUACAudio->setSrtpHeaderSize(12);
+            _srtpAudio.txUAC->setSrtpHeaderSize(12);
             logSrtpInfo("call::init():  (a) TX-UAC-VIDEO SRTP context - CLIENT setting SRTP header size to 12\n");
-            _txUACVideo->setSrtpHeaderSize(12);
+            _srtpVideo.txUAC->setSrtpHeaderSize(12);
             logSrtpInfo("call::init():  (b) RX-UAC-AUDIO SRTP context - CLIENT setting SRTP header size to 12\n");
-            _rxUACAudio->setSrtpHeaderSize(12);
+            _srtpAudio.rxUAC->setSrtpHeaderSize(12);
             logSrtpInfo("call::init():  (b) RX-UAC-VIDEO SRTP context - CLIENT setting SRTP header size to 12\n");
-            _rxUACVideo->setSrtpHeaderSize(12);
+            _srtpVideo.rxUAC->setSrtpHeaderSize(12);
         }
     }
 
@@ -1262,13 +1262,13 @@ void call::init(scenario *call_scenario, SIPpSocket *socket, struct sockaddr_sto
         if (sendMode == MODE_SERVER)
         {
             logSrtpInfo("call::init():  (c) RX-UAS-AUDIO SRTP context - SERVER setting SRTP header size to 12\n");
-            _rxUASAudio->setSrtpHeaderSize(12);
+            _srtpAudio.rxUAS->setSrtpHeaderSize(12);
             logSrtpInfo("call::init():  (c) RX-UAS-VIDEO SRTP context - SERVER setting SRTP header size to 12\n");
-            _rxUASVideo->setSrtpHeaderSize(12);
+            _srtpVideo.rxUAS->setSrtpHeaderSize(12);
             logSrtpInfo("call::init():  (d) TX-UAS-AUDIO SRTP context - SERVER setting SRTP header size to 12\n");
-            _txUASAudio->setSrtpHeaderSize(12);
+            _srtpAudio.txUAS->setSrtpHeaderSize(12);
             logSrtpInfo("call::init():  (d) TX-UAS-VIDEO SRTP context - SERVER setting SRTP header size to 12\n");
-            _txUASVideo->setSrtpHeaderSize(12);
+            _srtpVideo.txUAS->setSrtpHeaderSize(12);
         }
     }
 
@@ -5510,7 +5510,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             const bool client = sendMode == MODE_CLIENT;
             startSrtp(false, client, currentAction->getRTPStreamActInfo()->bytes_per_packet);
             rtpstream_play(&rtpstream_callinfo, currentAction->getRTPStreamActInfo(),
-                           srtpMedia(false).tx(client).forPlayback(), srtpMedia(false).rx(client).forPlayback());
+                           _srtpAudio.tx(client).forPlayback(), _srtpAudio.rx(client).forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSEAPATTERN) {
             rtpstream_pauseapattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEAPATTERN) {
@@ -5523,8 +5523,7 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 
             logSrtpInfo("call::executeAction():  rtpstream_playapattern\n");
             rtpstream_playapattern(&rtpstream_callinfo, currentAction->getRTPStreamActInfo(),
-                                   srtpMedia(false).tx(client).forPlayback(),
-                                   srtpMedia(false).rx(client).forPlayback());
+                                   _srtpAudio.tx(client).forPlayback(), _srtpAudio.rx(client).forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_PAUSEVPATTERN) {
             rtpstream_pausevpattern(&rtpstream_callinfo);
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RESUMEVPATTERN) {
@@ -5537,17 +5536,19 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
 
             logSrtpInfo("call::executeAction():  rtpstream_playvpattern\n");
             rtpstream_playvpattern(&rtpstream_callinfo, currentAction->getRTPStreamActInfo(),
-                                   srtpMedia(true).tx(client).forPlayback(), srtpMedia(true).rx(client).forPlayback());
+                                   _srtpVideo.tx(client).forPlayback(), _srtpVideo.rx(client).forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STARTAUDIO) {
             startUASSrtp(false, currentAction->getRTPEchoActInfo()->bytes_per_packet);
 
             logSrtpInfo("call::executeAction() [STARTAUDIO]:  rtpstream_rtpecho_startaudio\n");
-            rtpstream_rtpecho_startaudio(&rtpstream_callinfo, _rxUASAudio.forPlayback(), _txUASAudio.forPlayback());
+            rtpstream_rtpecho_startaudio(&rtpstream_callinfo, _srtpAudio.rxUAS.forPlayback(),
+                                         _srtpAudio.txUAS.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_UPDATEAUDIO) {
             startUASSrtp(false, currentAction->getRTPEchoActInfo()->bytes_per_packet);
 
             logSrtpInfo("call::executeAction() [UPDATEAUDIO]:  rtpstream_rtpecho_updateaudio\n");
-            rtpstream_rtpecho_updateaudio(&rtpstream_callinfo, _rxUASAudio.forPlayback(), _txUASAudio.forPlayback());
+            rtpstream_rtpecho_updateaudio(&rtpstream_callinfo, _srtpAudio.rxUAS.forPlayback(),
+                                          _srtpAudio.txUAS.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STOPAUDIO) {
             logSrtpInfo("call::executeAction() [STOPAUDIO]:  rtpstream_rtpecho_stopaudio\n");
             rc = rtpstream_rtpecho_stopaudio(&rtpstream_callinfo);
@@ -5560,12 +5561,14 @@ call::T_ActionResult call::executeAction(const char* msg, message* curmsg)
             startUASSrtp(true, currentAction->getRTPEchoActInfo()->bytes_per_packet);
 
             logSrtpInfo("call::executeAction() [STARTVIDEO]:  rtpstream_rtpecho_startvideo\n");
-            rtpstream_rtpecho_startvideo(&rtpstream_callinfo, _rxUASVideo.forPlayback(), _txUASVideo.forPlayback());
+            rtpstream_rtpecho_startvideo(&rtpstream_callinfo, _srtpVideo.rxUAS.forPlayback(),
+                                         _srtpVideo.txUAS.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_UPDATEVIDEO) {
             startUASSrtp(true, currentAction->getRTPEchoActInfo()->bytes_per_packet);
 
             logSrtpInfo("call::executeAction() [UPDATEVIDEO]:  rtpstream_rtpecho_updatevideo\n");
-            rtpstream_rtpecho_updatevideo(&rtpstream_callinfo, _rxUASVideo.forPlayback(), _txUASVideo.forPlayback());
+            rtpstream_rtpecho_updatevideo(&rtpstream_callinfo, _srtpVideo.rxUAS.forPlayback(),
+                                          _srtpVideo.txUAS.forPlayback());
         } else if (currentAction->getActionType() == CAction::E_AT_RTP_STREAM_RTPECHO_STOPVIDEO) {
             logSrtpInfo("call::executeAction() [STOPVIDEO]:  rtpstream_rtpecho_stopvideo\n");
             rc = rtpstream_rtpecho_stopvideo(&rtpstream_callinfo);
@@ -5978,7 +5981,7 @@ void call::takeRemoteSrtp(bool video, const SrtpInfoParams &p, const std::string
         return;
     }
     const bool client = sendMode == MODE_CLIENT;
-    SrtpMedia media = srtpMedia(video);
+    SrtpMedia &media = srtpMedia(video);
     LazySrtpChannel &tx = media.tx(client);
     LazySrtpChannel &rx = media.rx(client);
     const char *name = video ? (client ? "UAC-VIDEO" : "UAS-VIDEO") : (client ? "UAC-AUDIO" : "UAS-AUDIO");
@@ -6030,7 +6033,7 @@ void call::takeRemoteSrtp(bool video, const SrtpInfoParams &p, const std::string
  * the codec is assumed the same in both directions. */
 void call::startSrtp(bool video, bool client, int payloadSize)
 {
-    SrtpMedia media = srtpMedia(video);
+    SrtpMedia &media = srtpMedia(video);
     LazySrtpChannel &tx = media.tx(client);
     LazySrtpChannel &rx = media.rx(client);
     if (!tx.made() && !rx.made()) {
@@ -6059,7 +6062,7 @@ void call::startSrtp(bool video, bool client, int payloadSize)
 /* A server echoing or updating its RTP echo: its receiving context's ID, then its keys */
 void call::startUASSrtp(bool video, int payloadSize)
 {
-    SrtpMedia media = srtpMedia(video);
+    SrtpMedia &media = srtpMedia(video);
     if (sendMode != MODE_SERVER || (!media.rxUAS.made() && !media.txUAS.made())) {
         return;
     }
