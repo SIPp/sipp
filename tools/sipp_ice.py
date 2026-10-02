@@ -72,6 +72,8 @@ def build_message(message_type: int, attributes: Iterable[Tuple[int, bytes]] = (
     txid = os.urandom(12) if txid is None else txid
     body = b"".join(_attribute(kind, value) for kind, value in attributes)
     if integrity_key is not None:
+        # RFC 5389/8489 MESSAGE-INTEGRITY: the HMAC input stops before the
+        # attribute itself, while the header length points through its value.
         mi_length = len(body) + 24
         digest = hmac.new(integrity_key, _header(message_type, mi_length, txid) + body, hashlib.sha1).digest()
         body += _attribute(MESSAGE_INTEGRITY, digest)
@@ -91,7 +93,7 @@ def parse_message(data: bytes) -> StunMessage:
         raise ValueError("invalid STUN message type")
     if cookie != MAGIC_COOKIE:
         raise ValueError("invalid STUN magic cookie")
-    if length % 4 or 20 + length > len(data):
+    if length % 4 or 20 + length != len(data):
         raise ValueError("invalid STUN message length")
     txid = data[8:20]
     attrs: List[Tuple[int, bytes]] = []
@@ -110,7 +112,11 @@ def parse_message(data: bytes) -> StunMessage:
 
 
 def _find_attribute(data: bytes, wanted: int) -> Optional[Tuple[int, bytes]]:
+    if len(data) < 20:
+        raise ValueError("truncated STUN header")
     length = struct.unpack_from("!H", data, 2)[0]
+    if 20 + length != len(data):
+        raise ValueError("invalid STUN message length")
     offset, end = 20, 20 + length
     while offset + 4 <= end:
         start = offset
@@ -176,18 +182,38 @@ def _error_code(message: StunMessage) -> Optional[int]:
     return (value[2] & 0x07) * 100 + value[3]
 
 
+def _resolved_udp(server: Tuple[str, int]):
+    host, port = server
+    try:
+        infos = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_DGRAM)
+    except socket.gaierror as exc:
+        raise RuntimeError(f"cannot resolve {host}:{port}: {exc}") from exc
+    if not infos:
+        raise RuntimeError(f"cannot resolve {host}:{port}")
+    return infos
+
+
 def _request(server: Tuple[str, int], packet: bytes, timeout: float) -> Tuple[StunMessage, bytes]:
-    family = socket.AF_INET6 if ":" in server[0] else socket.AF_INET
-    with socket.socket(family, socket.SOCK_DGRAM) as sock:
-        sock.settimeout(timeout)
-        sock.sendto(packet, server)
-        data, _ = sock.recvfrom(65535)
-    response = parse_message(data)
-    if response.transaction_id != packet[8:20]:
-        raise RuntimeError("STUN response transaction id mismatch")
-    if not verify_fingerprint(data):
-        raise RuntimeError("STUN response fingerprint mismatch")
-    return response, data
+    if timeout <= 0:
+        raise ValueError("timeout must be positive")
+    last_error: Optional[BaseException] = None
+    for family, socktype, proto, _, sockaddr in _resolved_udp(server):
+        try:
+            with socket.socket(family, socktype, proto) as sock:
+                sock.settimeout(timeout)
+                sock.sendto(packet, sockaddr)
+                data, _ = sock.recvfrom(65535)
+        except (OSError, socket.timeout) as exc:
+            last_error = exc
+            continue
+        response = parse_message(data)
+        if response.transaction_id != packet[8:20]:
+            last_error = RuntimeError("STUN response transaction id mismatch")
+            continue
+        if not verify_fingerprint(data):
+            raise RuntimeError("STUN response fingerprint mismatch")
+        return response, data
+    raise RuntimeError(f"STUN request failed: {last_error or 'no usable address'}")
 
 
 def stun_binding(server: Tuple[str, int], timeout: float = 3.0) -> Tuple[str, int]:
@@ -204,6 +230,10 @@ def stun_binding(server: Tuple[str, int], timeout: float = 3.0) -> Tuple[str, in
 def ice_check(server: Tuple[str, int], local_ufrag: str, remote_ufrag: str, remote_password: str,
               *, priority: int = 1845501695, controlling: bool = True,
               use_candidate: bool = False, timeout: float = 3.0) -> Tuple[str, int]:
+    if not local_ufrag or not remote_ufrag or not remote_password:
+        raise ValueError("ICE ufrags and remote password must be non-empty")
+    if not 0 <= priority <= 0xFFFFFFFF:
+        raise ValueError("ICE priority must fit in an unsigned 32-bit integer")
     attrs: List[Tuple[int, bytes]] = [
         (USERNAME, f"{remote_ufrag}:{local_ufrag}".encode()),
         (PRIORITY, struct.pack("!I", priority)),
@@ -228,20 +258,45 @@ def _turn_key(username: str, realm: str, password: str) -> bytes:
     return hashlib.md5(f"{username}:{realm}:{password}".encode()).digest()
 
 
+def _turn_allocate_authenticated(server: Tuple[str, int], username: str, password: str,
+                                 realm_raw: bytes, nonce_raw: bytes, requested_udp: bytes,
+                                 timeout: float) -> Tuple[StunMessage, bytes, bytes]:
+    try:
+        realm = realm_raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise RuntimeError("TURN realm is not valid UTF-8") from exc
+    key = _turn_key(username, realm, password)
+    attrs = [(USERNAME, username.encode()), (REALM, realm_raw), (NONCE, nonce_raw),
+             (REQUESTED_TRANSPORT, requested_udp)]
+    request = build_message(ALLOCATE_REQUEST, attrs, integrity_key=key)
+    response, raw = _request(server, request, timeout)
+    return response, raw, key
+
+
 def turn_allocate(server: Tuple[str, int], username: str, password: str,
                   timeout: float = 3.0) -> Tuple[Tuple[str, int], Optional[int]]:
+    if not username or not password:
+        raise ValueError("TURN username and password must be non-empty")
     requested_udp = struct.pack("!I", 17 << 24)
     first = build_message(ALLOCATE_REQUEST, [(REQUESTED_TRANSPORT, requested_udp)])
     challenge, _ = _request(server, first, timeout)
     realm_raw, nonce_raw = challenge.first(REALM), challenge.first(NONCE)
     if _error_code(challenge) not in (401, 438) or realm_raw is None or nonce_raw is None:
         raise RuntimeError(f"TURN server did not return an authentication challenge: {_error_code(challenge)}")
-    realm = realm_raw.decode("utf-8")
-    key = _turn_key(username, realm, password)
-    attrs = [(USERNAME, username.encode()), (REALM, realm_raw), (NONCE, nonce_raw),
-             (REQUESTED_TRANSPORT, requested_udp)]
-    request = build_message(ALLOCATE_REQUEST, attrs, integrity_key=key)
-    response, raw = _request(server, request, timeout)
+
+    response, raw, key = _turn_allocate_authenticated(
+        server, username, password, realm_raw, nonce_raw, requested_udp, timeout)
+
+    # RFC 5766/8656 servers may invalidate a nonce between the challenge and
+    # authenticated request. Retry exactly once with the fresh realm/nonce.
+    if _error_code(response) == 438:
+        new_realm = response.first(REALM) or realm_raw
+        new_nonce = response.first(NONCE)
+        if new_nonce is None:
+            raise RuntimeError("TURN stale-nonce response has no NONCE")
+        response, raw, key = _turn_allocate_authenticated(
+            server, username, password, new_realm, new_nonce, requested_udp, timeout)
+
     if response.message_type != ALLOCATE_SUCCESS:
         raise RuntimeError(f"TURN allocation failed with error {_error_code(response)}")
     if not verify_message_integrity(raw, key):
@@ -255,16 +310,24 @@ def turn_allocate(server: Tuple[str, int], username: str, password: str,
 
 
 def _server(value: str) -> Tuple[str, int]:
-    host, sep, raw_port = value.rpartition(":")
-    if not sep or not host:
-        raise argparse.ArgumentTypeError("expected HOST:PORT")
+    value = value.strip()
+    if value.startswith("["):
+        end = value.find("]")
+        if end <= 1 or end + 1 >= len(value) or value[end + 1] != ":":
+            raise argparse.ArgumentTypeError("expected [IPv6]:PORT")
+        host = value[1:end]
+        raw_port = value[end + 2:]
+    else:
+        host, sep, raw_port = value.rpartition(":")
+        if not sep or not host:
+            raise argparse.ArgumentTypeError("expected HOST:PORT")
     try:
         port = int(raw_port)
     except ValueError as exc:
         raise argparse.ArgumentTypeError("invalid port") from exc
     if not 1 <= port <= 65535:
         raise argparse.ArgumentTypeError("port must be 1..65535")
-    return host.strip("[]"), port
+    return host, port
 
 
 def main(argv: Optional[Iterable[str]] = None) -> int:
@@ -290,17 +353,22 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     turn.add_argument("--password", required=True)
 
     args = parser.parse_args(argv)
-    if args.command == "stun":
-        address = stun_binding(args.server, args.timeout)
-        print(f"{address[0]}:{address[1]}")
-    elif args.command == "ice-check":
-        address = ice_check(args.server, args.local_ufrag, args.remote_ufrag, args.remote_password,
-                            priority=args.priority, controlling=not args.controlled,
-                            use_candidate=args.use_candidate, timeout=args.timeout)
-        print(f"{address[0]}:{address[1]}")
-    else:
-        address, lifetime = turn_allocate(args.server, args.username, args.password, args.timeout)
-        print(f"{address[0]}:{address[1]} lifetime={lifetime if lifetime is not None else 'unknown'}")
+    if args.timeout <= 0:
+        parser.error("--timeout must be positive")
+    try:
+        if args.command == "stun":
+            address = stun_binding(args.server, args.timeout)
+            print(f"{address[0]}:{address[1]}")
+        elif args.command == "ice-check":
+            address = ice_check(args.server, args.local_ufrag, args.remote_ufrag, args.remote_password,
+                                priority=args.priority, controlling=not args.controlled,
+                                use_candidate=args.use_candidate, timeout=args.timeout)
+            print(f"{address[0]}:{address[1]}")
+        else:
+            address, lifetime = turn_allocate(args.server, args.username, args.password, args.timeout)
+            print(f"{address[0]}:{address[1]} lifetime={lifetime if lifetime is not None else 'unknown'}")
+    except (ValueError, RuntimeError) as exc:
+        parser.error(str(exc))
     return 0
 
 
