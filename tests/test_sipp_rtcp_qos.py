@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 
+import base64
+import hashlib
+import hmac
 import importlib.util
 import struct
 import unittest
@@ -22,6 +25,19 @@ def receiver_report(*, fraction=64, lost=3, jitter=80, lsr=0x00010000, dlsr=0x00
         + struct.pack("!IIII", 0x00010002, jitter, lsr, dlsr)
     )
     return struct.pack("!BBH", 0x81, 201, 7) + struct.pack("!I", 0x55667788) + block
+
+
+def make_srtcp(plain, inline_key, index=7, tag_bytes=10):
+    master_key, master_salt = qos._sdes_material(inline_key)
+    enc_key = qos._srtcp_kdf(master_key, master_salt, 0x03, 16)
+    auth_key = qos._srtcp_kdf(master_key, master_salt, 0x04, 20)
+    salt_key = qos._srtcp_kdf(master_key, master_salt, 0x05, 14)
+    ssrc = struct.unpack_from("!I", plain, 4)[0]
+    iv_int = int.from_bytes(salt_key + b"\x00\x00", "big") ^ (ssrc << 64) ^ (index << 16)
+    encrypted = plain[:8] + qos._aes_ctr(enc_key, iv_int.to_bytes(16, "big"), plain[8:])
+    authenticated = encrypted + struct.pack("!I", 0x80000000 | index)
+    tag = hmac.new(auth_key, authenticated, hashlib.sha1).digest()[:tag_bytes]
+    return authenticated + tag
 
 
 class RtcpParserTests(unittest.TestCase):
@@ -68,6 +84,33 @@ class QosTests(unittest.TestCase):
         lossy = qos.parse_rtcp(receiver_report(fraction=64, lsr=0, dlsr=0))[0].reports[0]
         self.assertGreater(qos.estimate_mos(clean, 8000, 20.0)["mos_lq"],
                            qos.estimate_mos(lossy, 8000, 20.0)["mos_lq"])
+
+
+class SrtcpTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            raise unittest.SkipTest("cryptography package is not installed")
+
+    def test_authenticate_and_decrypt(self):
+        material = bytes(range(30))
+        inline = base64.b64encode(material).decode("ascii")
+        plain = receiver_report(fraction=8, jitter=40)
+        packet = make_srtcp(plain, inline, index=23)
+        decoded, index, encrypted = qos.decrypt_srtcp(packet, inline)
+        self.assertEqual(decoded, plain)
+        self.assertEqual(index, 23)
+        self.assertTrue(encrypted)
+
+    def test_authentication_failure(self):
+        material = bytes(range(30))
+        inline = base64.b64encode(material).decode("ascii")
+        packet = bytearray(make_srtcp(receiver_report(), inline))
+        packet[-1] ^= 0x01
+        with self.assertRaisesRegex(ValueError, "authentication"):
+            qos.decrypt_srtcp(bytes(packet), inline)
 
 
 if __name__ == "__main__":
