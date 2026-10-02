@@ -12,6 +12,7 @@ import re
 import ssl
 import subprocess
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Iterable, Optional, Tuple
 
 EXPORTER_LABEL = "EXTRACTOR-dtls_srtp"
@@ -90,6 +91,16 @@ def verify_peer_fingerprint(output: str, expected: str) -> str:
     return actual
 
 
+def format_endpoint(endpoint: Tuple[str, int]) -> str:
+    host, port = endpoint
+    if not 1 <= port <= 65535:
+        raise ValueError("port must be 1..65535")
+    host = host.strip()
+    if not host:
+        raise ValueError("host cannot be empty")
+    return f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+
+
 def run_handshake(remote: Tuple[str, int], *, cert: str, key: str,
                   profile: str = "SRTP_AES128_CM_SHA1_80", bind: Optional[str] = None,
                   peer_fingerprint: Optional[str] = None, openssl: str = "openssl",
@@ -97,9 +108,16 @@ def run_handshake(remote: Tuple[str, int], *, cert: str, key: str,
     sizes = SUPPORTED_PROFILES.get(profile)
     if sizes is None:
         raise ValueError(f"unsupported SRTP profile {profile!r}")
+    if timeout <= 0:
+        raise ValueError("timeout must be positive")
+    if not openssl.strip():
+        raise ValueError("OpenSSL executable cannot be empty")
+    if peer_fingerprint:
+        # Fail before starting the handshake for malformed SDP fingerprints.
+        normalize_fingerprint(peer_fingerprint)
     export_len = 2 * sum(sizes)
     command = [
-        openssl, "s_client", "-dtls1_2", "-connect", f"{remote[0]}:{remote[1]}",
+        openssl, "s_client", "-dtls1_2", "-connect", format_endpoint(remote),
         "-use_srtp", profile,
         "-keymatexport", EXPORTER_LABEL,
         "-keymatexportlen", str(export_len),
@@ -125,16 +143,24 @@ def run_handshake(remote: Tuple[str, int], *, cert: str, key: str,
 
 
 def _remote(value: str) -> Tuple[str, int]:
-    host, sep, raw_port = value.rpartition(":")
-    if not sep or not host:
-        raise argparse.ArgumentTypeError("expected HOST:PORT")
+    value = value.strip()
+    if value.startswith("["):
+        end = value.find("]")
+        if end <= 1 or end + 1 >= len(value) or value[end + 1] != ":":
+            raise argparse.ArgumentTypeError("expected [IPv6]:PORT")
+        host = value[1:end]
+        raw_port = value[end + 2:]
+    else:
+        host, sep, raw_port = value.rpartition(":")
+        if not sep or not host:
+            raise argparse.ArgumentTypeError("expected HOST:PORT")
     try:
         port = int(raw_port)
     except ValueError as exc:
         raise argparse.ArgumentTypeError("invalid port") from exc
     if not 1 <= port <= 65535:
         raise argparse.ArgumentTypeError("port must be 1..65535")
-    return host.strip("[]"), port
+    return host, port
 
 
 def main(argv: Optional[Iterable[str]] = None) -> int:
@@ -149,6 +175,11 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser.add_argument("--openssl", default="openssl")
     parser.add_argument("--timeout", type=float, default=10.0)
     args = parser.parse_args(argv)
+    if args.show_keys and not args.peer_fingerprint:
+        parser.error("--show-keys requires --peer-fingerprint so the DTLS peer is authenticated")
+    for label, path in (("certificate", args.cert), ("private key", args.key)):
+        if not Path(path).is_file():
+            parser.error(f"local {label} file does not exist: {path}")
     try:
         keys, fingerprint, _ = run_handshake(
             args.remote, cert=args.cert, key=args.key, profile=args.profile,
@@ -156,7 +187,11 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             openssl=args.openssl, timeout=args.timeout)
     except (ValueError, RuntimeError) as exc:
         parser.error(str(exc))
-    output = {"profile": keys.profile, "peer_fingerprint_sha256": fingerprint}
+    output = {
+        "profile": keys.profile,
+        "peer_fingerprint_sha256": fingerprint,
+        "peer_authenticated": bool(args.peer_fingerprint),
+    }
     if args.show_keys:
         output["keys"] = asdict(keys)
     print(json.dumps(output, sort_keys=True))
