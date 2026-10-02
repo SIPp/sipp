@@ -18,6 +18,7 @@ from typing import Iterable, List, Optional
 
 
 NTP_EPOCH = 2208988800
+SRTCP_AUTH_TAG_BYTES = 10
 
 
 @dataclass(frozen=True)
@@ -164,10 +165,10 @@ def _sdes_material(inline_key: str) -> tuple[bytes, bytes]:
     return material[:16], material[16:30]
 
 
-def decrypt_srtcp(packet: bytes, inline_key: str, tag_bytes: int = 10) -> tuple[bytes, int, bool]:
+def decrypt_srtcp(packet: bytes, inline_key: str, tag_bytes: int = SRTCP_AUTH_TAG_BYTES) -> tuple[bytes, int, bool]:
     """Authenticate and decrypt AES_CM_128_HMAC_SHA1 SRTCP (RFC 3711)."""
-    if tag_bytes not in (4, 10):
-        raise ValueError("SRTCP authentication tag must be 4 or 10 bytes")
+    if tag_bytes != SRTCP_AUTH_TAG_BYTES:
+        raise ValueError("supported AES-CM SRTCP suites require an 80-bit authentication tag")
     if len(packet) < 8 + 4 + tag_bytes:
         raise ValueError("truncated SRTCP packet")
     master_key, master_salt = _sdes_material(inline_key)
@@ -195,10 +196,10 @@ def decrypt_srtcp(packet: bytes, inline_key: str, tag_bytes: int = 10) -> tuple[
     return rtcp, index, encrypted
 
 
-def decode_datagram(data: bytes, clock_rate: int, srtcp_inline: Optional[str], tag_bytes: int) -> dict:
+def decode_datagram(data: bytes, clock_rate: int, srtcp_inline: Optional[str]) -> dict:
     metadata = {"srtcp": False}
     if srtcp_inline:
-        data, index, encrypted = decrypt_srtcp(data, srtcp_inline, tag_bytes)
+        data, index, encrypted = decrypt_srtcp(data, srtcp_inline)
         metadata = {"srtcp": True, "srtcp_index": index, "encrypted": encrypted}
     return {**metadata, "rtcp": decode(data, clock_rate)}
 
@@ -223,13 +224,12 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     source.add_argument("--listen", type=_host_port, metavar="HOST:PORT", help="listen for RTCP/SRTCP UDP datagrams")
     parser.add_argument("--clock-rate", type=int, default=8000, help="RTP clock rate for jitter conversion")
     parser.add_argument("--srtcp-inline", help="SDES inline base64 master key+salt for AES_CM_128_HMAC_SHA1")
-    parser.add_argument("--srtcp-tag-bytes", type=int, choices=(4, 10), default=10)
     args = parser.parse_args(argv)
 
     if args.hex_data is not None:
         try:
             data = bytes.fromhex(args.hex_data)
-            print(json.dumps(decode_datagram(data, args.clock_rate, args.srtcp_inline, args.srtcp_tag_bytes), sort_keys=True))
+            print(json.dumps(decode_datagram(data, args.clock_rate, args.srtcp_inline), sort_keys=True))
         except (ValueError, RuntimeError) as exc:
             parser.error(str(exc))
         return 0
@@ -241,7 +241,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             data, peer = sock.recvfrom(65535)
             try:
                 payload = {"peer": f"{peer[0]}:{peer[1]}",
-                           **decode_datagram(data, args.clock_rate, args.srtcp_inline, args.srtcp_tag_bytes)}
+                           **decode_datagram(data, args.clock_rate, args.srtcp_inline)}
             except (ValueError, RuntimeError) as exc:
                 payload = {"peer": f"{peer[0]}:{peer[1]}", "error": str(exc)}
             print(json.dumps(payload, sort_keys=True), flush=True)
