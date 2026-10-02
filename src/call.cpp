@@ -2305,11 +2305,16 @@ bool call::executeMessage(message *curmsg)
              * the call, so we should no longer access members. */
             return false;
         }
+        if (send_status < 0 && errno != EWOULDBLOCK) { /* Send error */
+            /* The call was already deleted by send_raw, so we should no
+             * longer access members. */
+            return false;
+        }
         if (answered) {
             std::swap(last_recv_msg, answered->request);
         }
 
-        if(send_status < 0 && errno == EWOULDBLOCK) {
+        if (send_status < 0) {
             if (incr_cseq) --cseq;
             /* Have we set the timeout yet? */
             if (send_timeout) {
@@ -2334,10 +2339,6 @@ bool call::executeMessage(message *curmsg)
                 send_timeout = clock_tick + defl_send_timeout;
             }
             return true; /* No step, nothing done, retry later */
-        } else if(send_status < 0) { /* Send error */
-            /* The call was already deleted by connect_socket_if_needed or send_raw,
-             * so we should no longer access members. */
-            return false;
         }
         /* We have sent the message, so the timeout is no longer needed. */
         send_timeout = 0;
