@@ -210,9 +210,11 @@ int JLSRTP::pseudorandomFunction(const std::vector<unsigned char> &iv, int n, st
                         // Encrypt given _pseudorandomstate.ivec input using aes_key to block
                         block.clear();
                         block.resize(AES_BLOCK_SIZE);
-                        AES_ctr128_pseudorandom_EVPencrypt(input.data(), block.data(), AES_BLOCK_SIZE,
-                                                           _pseudorandomstate.ivec, _pseudorandomstate.ecount,
-                                                           &_pseudorandomstate.num);
+                        if (AES_ctr128_pseudorandom_EVPencrypt(input.data(), block.data(), AES_BLOCK_SIZE,
+                                                               _pseudorandomstate.ivec, _pseudorandomstate.ecount,
+                                                               &_pseudorandomstate.num) != 0) {
+                            return -3;
+                        }
                         output.insert(output.end(), block.begin(), block.end());
                     }
 
@@ -256,9 +258,11 @@ int JLSRTP::pseudorandomFunction(const std::vector<unsigned char> &iv, int n, st
                         // Encrypt given _pseudorandomstate.ivec input using aes_key to block
                         block.clear();
                         block.resize(AES_BLOCK_SIZE);
-                        AES_ctr128_pseudorandom_EVPencrypt(input.data(), block.data(), AES_BLOCK_SIZE,
-                                                           _pseudorandomstate.ivec, _pseudorandomstate.ecount,
-                                                           &_pseudorandomstate.num);
+                        if (AES_ctr128_pseudorandom_EVPencrypt(input.data(), block.data(), AES_BLOCK_SIZE,
+                                                               _pseudorandomstate.ivec, _pseudorandomstate.ecount,
+                                                               &_pseudorandomstate.num) != 0) {
+                            return -3;
+                        }
                         output.insert(output.end(), block.begin(), block.end());
                     }
 
@@ -320,7 +324,7 @@ std::string JLSRTP::base64Encode(std::vector<unsigned char> const& s)
     int j = 0;
     unsigned char char_array_3[3];
     unsigned char char_array_4[4];
-    unsigned char const* bytes_to_encode = &s.front();
+    unsigned char const *bytes_to_encode = s.data();
     unsigned int in_len = s.size();
     std::string ret;
     // Reserve enough space in 'ret' to avoid multiple allocations.
@@ -497,13 +501,8 @@ int JLSRTP::setAESPseudoRandomFunctionKey(ActiveCrypto crypto_attrib /*= ACTIVE_
 
 void JLSRTP::AES_ctr128_increment(unsigned char* counter)
 {
-    unsigned char* cur_pos = nullptr;
-
-    for (cur_pos = counter + 15; cur_pos >= counter; cur_pos--)
-    {
-        (*cur_pos)++;
-        if (*cur_pos != 0)
-        {
+    for (int i = AES_BLOCK_SIZE - 1; i >= 0; i--) {
+        if (++counter[i] != 0) {
             break;
         }
     }
@@ -1345,9 +1344,7 @@ void JLSRTP::setPort(unsigned short port)
 
 void JLSRTP::setID(CryptoContextID id)
 {
-    _id.ssrc = id.ssrc;
-    _id.address = id.address;
-    _id.port = id.port;
+    _id = std::move(id);
 }
 
 unsigned int JLSRTP::getSrtpHeaderSize()
@@ -2413,6 +2410,7 @@ JLSRTP& JLSRTP::operator=(const JLSRTP& that)
     _primary_crypto.master_mki_value = that._primary_crypto.master_mki_value;
     _primary_crypto.n_s = that._primary_crypto.n_s;
     _primary_crypto.tag = that._primary_crypto.tag;
+    _primary_crypto.offered_suite = that._primary_crypto.offered_suite;
     _secondary_crypto.cipher_algorithm = that._secondary_crypto.cipher_algorithm;
     _secondary_crypto.hmac_algorithm = that._secondary_crypto.hmac_algorithm;
     _secondary_crypto.MKI = that._secondary_crypto.MKI;
@@ -2427,6 +2425,7 @@ JLSRTP& JLSRTP::operator=(const JLSRTP& that)
     _secondary_crypto.master_mki_value = that._secondary_crypto.master_mki_value;
     _secondary_crypto.n_s = that._secondary_crypto.n_s;
     _secondary_crypto.tag = that._secondary_crypto.tag;
+    _secondary_crypto.offered_suite = that._secondary_crypto.offered_suite;
     _session_enc_key = that._session_enc_key;
     _session_salt_key = that._session_salt_key;
     _session_auth_key = that._session_auth_key;
@@ -2455,6 +2454,7 @@ bool JLSRTP::operator==(const JLSRTP& that)
         (_primary_crypto.master_key_derivation_rate == that._primary_crypto.master_key_derivation_rate) &&
         (_primary_crypto.master_mki_value == that._primary_crypto.master_mki_value) &&
         (_primary_crypto.n_s == that._primary_crypto.n_s) && (_primary_crypto.tag == that._primary_crypto.tag) &&
+        (_primary_crypto.offered_suite == that._primary_crypto.offered_suite) &&
         (_secondary_crypto.cipher_algorithm == that._secondary_crypto.cipher_algorithm) &&
         (_secondary_crypto.hmac_algorithm == that._secondary_crypto.hmac_algorithm) &&
         (_secondary_crypto.MKI == that._secondary_crypto.MKI) &&
@@ -2468,8 +2468,10 @@ bool JLSRTP::operator==(const JLSRTP& that)
         (_secondary_crypto.master_key_derivation_rate == that._secondary_crypto.master_key_derivation_rate) &&
         (_secondary_crypto.master_mki_value == that._secondary_crypto.master_mki_value) &&
         (_secondary_crypto.n_s == that._secondary_crypto.n_s) &&
-        (_secondary_crypto.tag == that._secondary_crypto.tag) && (_session_enc_key == that._session_enc_key) &&
-        (_session_salt_key == that._session_salt_key) && (_session_auth_key == that._session_auth_key) &&
+        (_secondary_crypto.tag == that._secondary_crypto.tag) &&
+        (_secondary_crypto.offered_suite == that._secondary_crypto.offered_suite) &&
+        (_session_enc_key == that._session_enc_key) && (_session_salt_key == that._session_salt_key) &&
+        (_session_auth_key == that._session_auth_key) &&
         (memcmp(_pseudorandomstate.ivec, that._pseudorandomstate.ivec, sizeof(_pseudorandomstate.ivec)) == 0) &&
         (_pseudorandomstate.num == that._pseudorandomstate.num) &&
         (memcmp(_pseudorandomstate.ecount, that._pseudorandomstate.ecount, sizeof(_pseudorandomstate.ecount)) == 0) &&
