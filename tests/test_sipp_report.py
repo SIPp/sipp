@@ -22,6 +22,10 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(threshold.operator, ">=")
         self.assertEqual(threshold.target, 1000.0)
 
+    def test_rejects_empty_threshold_column(self):
+        with self.assertRaises(ValueError):
+            report.Threshold.parse("   >=1")
+
     def test_evaluation_and_junit(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "run.csv"
@@ -48,6 +52,20 @@ class ReportTests(unittest.TestCase):
             result = report.StatResult(path).evaluate(report.Threshold.parse("NoSuchColumn>0"))
             self.assertFalse(result.passed)
             self.assertIsNone(result.actual)
+
+    def test_duplicate_columns_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "run.csv"
+            path.write_text("CallRate(C);CallRate(C)\n10;20\n", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                report.StatResult(path)
+
+    def test_junit_escapes_column_names(self):
+        threshold = report.Threshold("A&B<1", ">", 0)
+        result = report.ThresholdResult(threshold, 1.0, True, "A&B<1: 1 > 0")
+        xml = report.junit_xml([result], "source&file")
+        self.assertIn("A&amp;B&lt;1", xml)
+        self.assertIn("source&amp;file", xml)
 
 
 if __name__ == "__main__":
