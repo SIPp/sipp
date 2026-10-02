@@ -61,100 +61,10 @@ public:
         return context ? *context : none;
     }
 
-    /* The methods of SrtpChannel that a call uses */
-    int selectHashAlgorithm(HashType hashType, ActiveCrypto crypto_attrib = ACTIVE_CRYPTO)
+    /* The context's methods, made on first use */
+    SrtpChannel *operator->()
     {
-        return get().selectHashAlgorithm(hashType, crypto_attrib);
-    }
-
-    int selectCipherAlgorithm(CipherType cipherType, ActiveCrypto crypto_attrib = ACTIVE_CRYPTO)
-    {
-        return get().selectCipherAlgorithm(cipherType, crypto_attrib);
-    }
-
-    int setCryptoTag(unsigned int tag, ActiveCrypto crypto_attrib = ACTIVE_CRYPTO)
-    {
-        return get().setCryptoTag(tag, crypto_attrib);
-    }
-
-    int swapCrypto()
-    {
-        return get().swapCrypto();
-    }
-
-    void setOfferedCryptoSuite(const std::string &suite, ActiveCrypto crypto_attrib)
-    {
-        get().setOfferedCryptoSuite(suite, crypto_attrib);
-    }
-
-    int encodeMasterKeySalt(std::string &mks, ActiveCrypto crypto_attrib = ACTIVE_CRYPTO)
-    {
-        return get().encodeMasterKeySalt(mks, crypto_attrib);
-    }
-
-    void setID(CryptoContextID id)
-    {
-        get().setID(std::move(id));
-    }
-
-    void setSrtpPayloadSize(unsigned int size)
-    {
-        get().setSrtpPayloadSize(size);
-    }
-
-    void setSrtpHeaderSize(unsigned int size)
-    {
-        get().setSrtpHeaderSize(size);
-    }
-
-    int resetCipherState()
-    {
-        return get().resetCipherState();
-    }
-
-    int generateMasterSalt(ActiveCrypto crypto_attrib = ACTIVE_CRYPTO)
-    {
-        return get().generateMasterSalt(crypto_attrib);
-    }
-
-    int generateMasterKey(ActiveCrypto crypto_attrib = ACTIVE_CRYPTO)
-    {
-        return get().generateMasterKey(crypto_attrib);
-    }
-
-    std::string dumpCryptoContext()
-    {
-        return get().dumpCryptoContext();
-    }
-
-    int deriveSessionSaltingKey()
-    {
-        return get().deriveSessionSaltingKey();
-    }
-
-    int deriveSessionEncryptionKey()
-    {
-        return get().deriveSessionEncryptionKey();
-    }
-
-    int deriveSessionAuthenticationKey()
-    {
-        return get().deriveSessionAuthenticationKey();
-    }
-
-    int selectEncryptionKey()
-    {
-        return get().selectEncryptionKey();
-    }
-
-    int selectDecryptionKey()
-    {
-        return get().selectDecryptionKey();
-    }
-
-    void freeCiphers()
-    {
-        get().freeCiphers();
+        return &get();
     }
 
 private:
