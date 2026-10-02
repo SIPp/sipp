@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 Address = Tuple[str, int]
+SocketAddress = tuple
 
 
 @dataclass
@@ -23,7 +24,7 @@ class Profile:
     jitter_ms: float = 0.0
     duplicate_percent: float = 0.0
     reorder_percent: float = 0.0
-    reorder_delay_ms: float = 20.0
+    reorder_delay_ms: float = 40.0
     burst_start_percent: float = 0.0
     burst_length: int = 0
 
@@ -38,6 +39,8 @@ class Profile:
                 raise ValueError(f"{name} must be between 0 and 100")
         if self.delay_ms < 0.0 or self.jitter_ms < 0.0 or self.reorder_delay_ms < 0.0:
             raise ValueError("delay values must be non-negative")
+        if self.reorder_percent > 0.0 and self.reorder_delay_ms <= 0.0:
+            raise ValueError("reorder-delay-ms must be positive when reordering is enabled")
         if self.burst_length < 0:
             raise ValueError("burst-length must be non-negative")
 
@@ -47,8 +50,17 @@ class ScheduledPacket:
     due: float
     sequence: int
     sock: socket.socket
-    target: Address
+    target: SocketAddress
     data: bytes
+
+
+@dataclass
+class HeldPacket:
+    sock: socket.socket
+    target: SocketAddress
+    data: bytes
+    due: float
+    deadline: float
 
 
 @dataclass
@@ -69,65 +81,121 @@ class ImpairmentEngine:
         self.queue: List[ScheduledPacket] = []
         self.sequence = 0
         self.burst_remaining = 0
+        self.held_reorder: Optional[HeldPacket] = None
         self.counters = Counters()
 
     def _chance(self, percent: float) -> bool:
         return percent > 0.0 and self.random.random() * 100.0 < percent
 
-    def _schedule(self, sock: socket.socket, target: Address, data: bytes, due: float) -> None:
+    def _schedule(self, sock: socket.socket, target: SocketAddress, data: bytes, due: float) -> None:
         self.sequence += 1
         heapq.heappush(self.queue, ScheduledPacket(due, self.sequence, sock, target, data))
 
-    def submit(self, sock: socket.socket, target: Address, data: bytes, now: float) -> None:
-        self.counters.received += 1
+    def _schedule_packet(self, sock: socket.socket, target: SocketAddress, data: bytes, due: float) -> None:
+        self._schedule(sock, target, data, due)
+        if self._chance(self.profile.duplicate_percent):
+            self._schedule(sock, target, data, due + 0.000001)
+            self.counters.duplicated += 1
+
+    def _base_due(self, now: float) -> float:
+        jitter = self.random.uniform(-self.profile.jitter_ms, self.profile.jitter_ms)
+        delay = max(0.0, self.profile.delay_ms + jitter)
+        return now + delay / 1000.0
+
+    def _drop(self) -> bool:
         if self.burst_remaining > 0:
             self.burst_remaining -= 1
             self.counters.dropped += 1
             self.counters.burst_dropped += 1
-            return
+            return True
         if self.profile.burst_length and self._chance(self.profile.burst_start_percent):
             self.burst_remaining = max(0, self.profile.burst_length - 1)
             self.counters.dropped += 1
             self.counters.burst_dropped += 1
-            return
+            return True
         if self._chance(self.profile.loss_percent):
             self.counters.dropped += 1
+            return True
+        return False
+
+    def submit(self, sock: socket.socket, target: SocketAddress, data: bytes, now: float) -> None:
+        self.counters.received += 1
+        if self._drop():
             return
 
-        jitter = self.random.uniform(-self.profile.jitter_ms, self.profile.jitter_ms)
-        delay = max(0.0, self.profile.delay_ms + jitter)
-        if self._chance(self.profile.reorder_percent):
-            delay += self.profile.reorder_delay_ms
-            self.counters.reordered += 1
-        due = now + delay / 1000.0
-        self._schedule(sock, target, data, due)
+        due = self._base_due(now)
 
-        if self._chance(self.profile.duplicate_percent):
-            # A tiny deterministic separation keeps the duplicate observable
-            # while preserving the original packet's configured delay.
-            self._schedule(sock, target, data, due + 0.000001)
-            self.counters.duplicated += 1
+        # A selected packet is held for at most reorder_delay_ms.  If another
+        # non-dropped packet arrives first, send that one before the held one,
+        # producing a real adjacent-packet inversion rather than merely adding
+        # the same delay to every selected packet.
+        if self.held_reorder is not None:
+            held = self.held_reorder
+            self.held_reorder = None
+            self._schedule_packet(sock, target, data, due)
+            held_due = max(held.deadline, due + 0.000001)
+            self._schedule_packet(held.sock, held.target, held.data, held_due)
+            self.counters.reordered += 1
+            return
+
+        if self._chance(self.profile.reorder_percent):
+            deadline = due + self.profile.reorder_delay_ms / 1000.0
+            self.held_reorder = HeldPacket(sock, target, data, due, deadline)
+            return
+
+        self._schedule_packet(sock, target, data, due)
+
+    def _release_expired_reorder(self, now: float) -> None:
+        held = self.held_reorder
+        if held is not None and held.deadline <= now:
+            self.held_reorder = None
+            self._schedule_packet(held.sock, held.target, held.data, held.deadline)
 
     def flush(self, now: float) -> None:
+        self._release_expired_reorder(now)
         while self.queue and self.queue[0].due <= now:
             packet = heapq.heappop(self.queue)
             packet.sock.sendto(packet.data, packet.target)
             self.counters.forwarded += 1
 
     def timeout(self, now: float, default: float = 0.1) -> float:
-        if not self.queue:
+        deadlines = []
+        if self.queue:
+            deadlines.append(self.queue[0].due)
+        if self.held_reorder is not None:
+            deadlines.append(self.held_reorder.deadline)
+        if not deadlines:
             return default
-        return max(0.0, min(default, self.queue[0].due - now))
+        return max(0.0, min(default, min(deadlines) - now))
+
+
+def _resolve(endpoint: Address, passive: bool = False) -> tuple[int, SocketAddress]:
+    host, port = endpoint
+    flags = socket.AI_PASSIVE if passive else 0
+    try:
+        infos = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_DGRAM, 0, flags)
+    except socket.gaierror as exc:
+        raise ValueError(f"cannot resolve {host}:{port}: {exc}") from exc
+    if not infos:
+        raise ValueError(f"cannot resolve {host}:{port}")
+    family, _, _, _, sockaddr = infos[0]
+    return family, sockaddr
 
 
 class Proxy:
     def __init__(self, listen: Address, upstream: Address, engine: ImpairmentEngine) -> None:
-        self.listen = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.listen.bind(listen)
-        self.upstream = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.upstream.bind((listen[0], 0))
-        self.upstream_target = upstream
-        self.client: Optional[Address] = None
+        listen_family, listen_addr = _resolve(listen, passive=True)
+        upstream_family, upstream_addr = _resolve(upstream)
+
+        self.listen = socket.socket(listen_family, socket.SOCK_DGRAM)
+        self.listen.bind(listen_addr)
+
+        self.upstream = socket.socket(upstream_family, socket.SOCK_DGRAM)
+        wildcard: SocketAddress = ("::", 0, 0, 0) if upstream_family == socket.AF_INET6 else ("0.0.0.0", 0)
+        self.upstream.bind(wildcard)
+
+        self.upstream_target = upstream_addr
+        self.client: Optional[SocketAddress] = None
         self.engine = engine
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.listen, selectors.EVENT_READ, "client")
@@ -152,9 +220,17 @@ class Proxy:
 
 
 def parse_endpoint(text: str) -> Address:
-    host, sep, port = text.rpartition(":")
-    if not sep or not host:
-        raise argparse.ArgumentTypeError("endpoint must be HOST:PORT")
+    text = text.strip()
+    if text.startswith("["):
+        end = text.find("]")
+        if end <= 1 or end + 1 >= len(text) or text[end + 1] != ":":
+            raise argparse.ArgumentTypeError("endpoint must be [IPv6]:PORT")
+        host = text[1:end]
+        port = text[end + 2:]
+    else:
+        host, sep, port = text.rpartition(":")
+        if not sep or not host:
+            raise argparse.ArgumentTypeError("endpoint must be HOST:PORT")
     try:
         number = int(port)
     except ValueError as exc:
@@ -173,7 +249,7 @@ def main() -> int:
     parser.add_argument("--jitter-ms", type=float, default=0.0)
     parser.add_argument("--duplicate-percent", type=float, default=0.0)
     parser.add_argument("--reorder-percent", type=float, default=0.0)
-    parser.add_argument("--reorder-delay-ms", type=float, default=20.0)
+    parser.add_argument("--reorder-delay-ms", type=float, default=40.0)
     parser.add_argument("--burst-start-percent", type=float, default=0.0,
                         help="chance that a packet starts a consecutive loss burst")
     parser.add_argument("--burst-length", type=int, default=0,
@@ -192,9 +268,10 @@ def main() -> int:
     )
     try:
         profile.validate()
+        proxy = Proxy(args.listen, args.upstream, ImpairmentEngine(profile, args.seed))
     except ValueError as exc:
         parser.error(str(exc))
-    Proxy(args.listen, args.upstream, ImpairmentEngine(profile, args.seed)).run()
+    proxy.run()
     return 0
 
 
