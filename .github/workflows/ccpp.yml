@@ -23,7 +23,7 @@ jobs:
     - name: lint
       run: ./validate-src.sh
     - name: lint-xml
-      run: sudo apt-get update && sudo apt-get install --yes libxml2-utils && ./dtd_check.sh
+      run: sudo apt-get update && sudo apt-get install --yes libxml2-utils python3-cryptography && ./dtd_check.sh
     # Only the lines a PR changes: most of the code predates .clang-format.
     # HEAD is the PR merged into its base, so HEAD^ is the base.
     - name: clang-format

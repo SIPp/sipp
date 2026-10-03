@@ -20,6 +20,7 @@ Welcome to SIPp reference documentation!
    transport
    multi_instance
    media
+   rtcp_qos
    statistics
    ci_reports
    error
