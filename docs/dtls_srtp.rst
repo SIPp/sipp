@@ -1,5 +1,5 @@
 DTLS-SRTP diagnostic handshake probe
-===================================
+====================================
 
 ``tools/sipp_dtls_srtp.py`` performs a DTLS 1.2 handshake with an RTP peer,
 negotiates an SRTP protection profile and inspects the RFC 5764 exporter
