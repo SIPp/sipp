@@ -33,6 +33,10 @@ jobs:
         git clang-format --diff HEAD^ -- src include
     - name: test-multi-instance-launcher
       run: python3 -m unittest discover -s tests -p 'test_sipp_multi.py'
+    - name: test-rtcp-qos
+      run: |
+        sudo apt-get install --yes python3-cryptography
+        python3 -m unittest tests/test_sipp_rtcp_qos.py
 
   build:
 
