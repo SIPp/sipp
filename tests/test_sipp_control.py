@@ -51,6 +51,31 @@ class ControlTests(unittest.TestCase):
             self.assertEqual(snapshot["CallRate(C)"], 42.5)
             self.assertEqual(snapshot["SuccessfulCall(C)"], 100.0)
 
+    def test_statistics_uses_latest_complete_row(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "stats.csv"
+            path.write_text(
+                "CallRate(C);SuccessfulCall(C)\n"
+                "10;20\n"
+                "42.5;100\n"
+                "99",
+                encoding="utf-8",
+            )
+            old_chunk = control.STAT_TAIL_CHUNK
+            control.STAT_TAIL_CHUNK = 16
+            try:
+                snapshot = control.read_stat(path)
+            finally:
+                control.STAT_TAIL_CHUNK = old_chunk
+            self.assertEqual(snapshot["CallRate(C)"], 42.5)
+            self.assertEqual(snapshot["SuccessfulCall(C)"], 100.0)
+
+    def test_statistics_without_data_reports_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "stats.csv"
+            path.write_text("CallRate(C);SuccessfulCall(C)\n", encoding="utf-8")
+            self.assertIn("stat_error", control.read_stat(path))
+
 
 if __name__ == "__main__":
     unittest.main()
