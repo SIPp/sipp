@@ -12,7 +12,6 @@ import os
 import socket
 import stringprep
 import struct
-import sys
 import time
 import unicodedata
 from dataclasses import dataclass
@@ -255,9 +254,13 @@ def _request(server: Tuple[str, int], packet: bytes, timeout: float, *,
     last_error: Optional[BaseException] = None
     targets = [target] if target is not None else _resolved_udp(server)
 
-    for candidate in targets:
-        if time.monotonic() >= deadline:
+    for index, candidate in enumerate(targets):
+        now = time.monotonic()
+        if now >= deadline:
             break
+        remaining_targets = len(targets) - index
+        candidate_deadline = min(
+            deadline, now + (deadline - now) / remaining_targets)
         try:
             with socket.socket(candidate.family, candidate.socktype, candidate.proto) as sock:
                 if bind is not None:
@@ -266,10 +269,10 @@ def _request(server: Tuple[str, int], packet: bytes, timeout: float, *,
                 rto = INITIAL_RTO
                 for _ in range(MAX_RETRANSMITS + 1):
                     now = time.monotonic()
-                    if now >= deadline:
+                    if now >= candidate_deadline:
                         break
                     sock.sendto(packet, candidate.sockaddr)
-                    receive_deadline = min(deadline, now + rto)
+                    receive_deadline = min(candidate_deadline, now + rto)
 
                     while True:
                         remaining = receive_deadline - time.monotonic()
