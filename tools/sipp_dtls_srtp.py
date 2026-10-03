@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Run an OpenSSL DTLS-SRTP handshake and export RFC 5764 key material."""
+"""Run a diagnostic OpenSSL DTLS-SRTP handshake and inspect RFC 5764 key material."""
 
 from __future__ import annotations
 
@@ -17,10 +17,19 @@ from typing import Iterable, Optional, Tuple
 
 EXPORTER_LABEL = "EXTRACTOR-dtls_srtp"
 SUPPORTED_PROFILES = {
+    "SRTP_AEAD_AES_128_GCM": (16, 12),
     "SRTP_AES128_CM_SHA1_80": (16, 14),
     "SRTP_AES128_CM_SHA1_32": (16, 14),
 }
+DEFAULT_PROFILES = tuple(SUPPORTED_PROFILES)
 CERT_RE = re.compile(r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", re.DOTALL)
+PROFILE_RE = re.compile(r"^SRTP Extension negotiated, profile=([^\s]+)\s*$", re.MULTILINE)
+KEYING_RE = re.compile(r"^\s*Keying material:\s*([0-9A-Fa-f]+)\s*$", re.MULTILINE)
+KEYING_LINE_RE = re.compile(r"^\s*Keying material:.*$", re.MULTILINE)
+FINGERPRINT_RE = re.compile(
+    r"^sha-256\s+((?:[0-9A-Fa-f]{2}:){31}[0-9A-Fa-f]{2})$",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -30,6 +39,25 @@ class SrtpKeys:
     server_master_key: str
     client_master_salt: str
     server_master_salt: str
+
+
+def _exporter_length(profile: str) -> int:
+    sizes = SUPPORTED_PROFILES.get(profile)
+    if sizes is None:
+        raise ValueError(f"unsupported SRTP profile {profile!r}")
+    return 2 * sum(sizes)
+
+
+def _parse_profiles(value: str) -> Tuple[str, ...]:
+    profiles = tuple(part.strip() for part in value.split(":") if part.strip())
+    if not profiles:
+        raise ValueError("at least one SRTP profile is required")
+    unsupported = [profile for profile in profiles if profile not in SUPPORTED_PROFILES]
+    if unsupported:
+        raise ValueError(f"unsupported SRTP profile {unsupported[0]!r}")
+    if len(set(profiles)) != len(profiles):
+        raise ValueError("SRTP profile list contains duplicates")
+    return profiles
 
 
 def split_keying_material(profile: str, material: bytes) -> SrtpKeys:
@@ -48,11 +76,26 @@ def split_keying_material(profile: str, material: bytes) -> SrtpKeys:
     return SrtpKeys(profile, client_key.hex(), server_key.hex(), client_salt.hex(), server_salt.hex())
 
 
+def _handshake_output(output: str) -> str:
+    """Return only OpenSSL's handshake/export section, excluding peer app data."""
+    key_match = KEYING_RE.search(output)
+    if not key_match:
+        raise RuntimeError("OpenSSL did not print DTLS exporter keying material")
+    # s_client prints the exporter line before relaying peer application data.
+    # Stop there so peer-controlled text cannot influence subsequent parsing.
+    return output[:key_match.end()]
+
+
+def _redact_keying_material(output: str) -> str:
+    return KEYING_LINE_RE.sub("Keying material: <redacted>", output)
+
+
 def parse_openssl_output(output: str) -> Tuple[str, bytes]:
-    profile_match = re.search(r"SRTP Extension negotiated, profile=([^\s]+)", output)
+    section = _handshake_output(output)
+    profile_match = PROFILE_RE.search(section)
     if not profile_match:
         raise RuntimeError("OpenSSL did not negotiate an SRTP protection profile")
-    key_match = re.search(r"Keying material:\s*([0-9A-Fa-f]+)", output)
+    key_match = KEYING_RE.search(section)
     if not key_match:
         raise RuntimeError("OpenSSL did not print DTLS exporter keying material")
     try:
@@ -75,12 +118,12 @@ def peer_certificate_fingerprint(output: str) -> str:
 
 
 def normalize_fingerprint(value: str) -> str:
-    value = value.strip().upper()
-    value = re.sub(r"^SHA[- ]?256\s*[:=]?\s*", "", value)
-    compact = re.sub(r"[^0-9A-F]", "", value)
-    if len(compact) != 64:
-        raise ValueError("peer fingerprint must contain a SHA-256 digest")
-    return ":".join(compact[i:i + 2] for i in range(0, 64, 2))
+    match = FINGERPRINT_RE.fullmatch(value.strip())
+    if not match:
+        raise ValueError(
+            "peer fingerprint must be 'sha-256' followed by 32 colon-separated hex pairs"
+        )
+    return match.group(1).upper()
 
 
 def verify_peer_fingerprint(output: str, expected: str) -> str:
@@ -101,13 +144,18 @@ def format_endpoint(endpoint: Tuple[str, int]) -> str:
     return f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
 
 
+def _error_tail(output: Optional[str], lines: int = 12) -> str:
+    if not output:
+        return ""
+    safe = _redact_keying_material(output)
+    return "\n".join(safe.splitlines()[-lines:])
+
+
 def run_handshake(remote: Tuple[str, int], *, cert: str, key: str,
-                  profile: str = "SRTP_AES128_CM_SHA1_80", bind: Optional[str] = None,
+                  profile: str = ":".join(DEFAULT_PROFILES), bind: Optional[str] = None,
                   peer_fingerprint: Optional[str] = None, openssl: str = "openssl",
-                  timeout: float = 10.0) -> Tuple[SrtpKeys, str, str]:
-    sizes = SUPPORTED_PROFILES.get(profile)
-    if sizes is None:
-        raise ValueError(f"unsupported SRTP profile {profile!r}")
+                  timeout: float = 10.0) -> Tuple[SrtpKeys, str]:
+    profiles = _parse_profiles(profile)
     if timeout <= 0:
         raise ValueError("timeout must be positive")
     if not openssl.strip():
@@ -115,13 +163,18 @@ def run_handshake(remote: Tuple[str, int], *, cert: str, key: str,
     if peer_fingerprint:
         # Fail before starting the handshake for malformed SDP fingerprints.
         normalize_fingerprint(peer_fingerprint)
-    export_len = 2 * sum(sizes)
+
+    # OpenSSL requires a fixed exporter length before negotiation. Asking for the
+    # maximum length is safe for TLS 1.2 exporters; shorter SRTP profiles consume
+    # the corresponding prefix after the profile is known.
+    export_len = max(_exporter_length(item) for item in profiles)
     command = [
         openssl, "s_client", "-dtls1_2", "-connect", format_endpoint(remote),
-        "-use_srtp", profile,
+        "-use_srtp", ":".join(profiles),
         "-keymatexport", EXPORTER_LABEL,
         "-keymatexportlen", str(export_len),
         "-cert", cert, "-key", key,
+        "-pass", "pass:",
         "-showcerts", "-timeout",
     ]
     if bind:
@@ -129,17 +182,32 @@ def run_handshake(remote: Tuple[str, int], *, cert: str, key: str,
     try:
         completed = subprocess.run(command, input="", text=True, stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT, timeout=timeout, check=False)
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except subprocess.TimeoutExpired as exc:
+        captured = exc.stdout.decode(errors="replace") if isinstance(exc.stdout, bytes) else exc.stdout
+        tail = _error_tail(captured)
+        detail = f"\n{tail}" if tail else ""
+        raise RuntimeError(f"OpenSSL DTLS handshake timed out after {timeout:g}s{detail}") from exc
+    except OSError as exc:
         raise RuntimeError(f"DTLS handshake failed to execute: {exc}") from exc
+
     if completed.returncode != 0:
-        tail = "\n".join(completed.stdout.splitlines()[-12:])
-        raise RuntimeError(f"OpenSSL DTLS handshake failed ({completed.returncode}):\n{tail}")
-    negotiated, material = parse_openssl_output(completed.stdout)
-    if negotiated != profile:
-        raise RuntimeError(f"peer negotiated {negotiated}, expected {profile}")
-    fingerprint = (verify_peer_fingerprint(completed.stdout, peer_fingerprint)
-                   if peer_fingerprint else peer_certificate_fingerprint(completed.stdout))
-    return split_keying_material(negotiated, material), fingerprint, completed.stdout
+        tail = _error_tail(completed.stdout)
+        detail = f":\n{tail}" if tail else ""
+        raise RuntimeError(f"OpenSSL DTLS handshake failed ({completed.returncode}){detail}")
+
+    section = _handshake_output(completed.stdout)
+    negotiated, material = parse_openssl_output(section)
+    if negotiated not in profiles:
+        raise RuntimeError(f"peer negotiated unoffered SRTP profile {negotiated}")
+    expected_len = _exporter_length(negotiated)
+    if len(material) < expected_len:
+        raise RuntimeError(
+            f"OpenSSL exported {len(material)} bytes for {negotiated}, expected at least {expected_len}"
+        )
+    keys = split_keying_material(negotiated, material[:expected_len])
+    fingerprint = (verify_peer_fingerprint(section, peer_fingerprint)
+                   if peer_fingerprint else peer_certificate_fingerprint(section))
+    return keys, fingerprint
 
 
 def _remote(value: str) -> Tuple[str, int]:
@@ -164,24 +232,28 @@ def _remote(value: str) -> Tuple[str, int]:
 
 
 def main(argv: Optional[Iterable[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="DTLS-SRTP handshake probe for SIPp media tests")
+    parser = argparse.ArgumentParser(description="DTLS-SRTP diagnostic handshake probe for SIPp media tests")
     parser.add_argument("remote", type=_remote)
     parser.add_argument("--cert", required=True, help="local PEM certificate")
-    parser.add_argument("--key", required=True, help="local PEM private key")
-    parser.add_argument("--profile", choices=tuple(SUPPORTED_PROFILES), default="SRTP_AES128_CM_SHA1_80")
+    parser.add_argument("--key", required=True, help="local PEM private key (unencrypted only)")
+    parser.add_argument(
+        "--profile",
+        default=":".join(DEFAULT_PROFILES),
+        help="colon-separated SRTP profile preference list passed to openssl -use_srtp",
+    )
     parser.add_argument("--bind", help="optional local HOST:PORT passed to openssl s_client")
-    parser.add_argument("--peer-fingerprint", help="expected SDP SHA-256 fingerprint")
-    parser.add_argument("--show-keys", action="store_true", help="include sensitive SRTP key material in JSON output")
+    parser.add_argument("--peer-fingerprint", help="expected SDP fingerprint: sha-256 XX:XX:...")
+    parser.add_argument("--show-keys", action="store_true", help="include diagnostic SRTP key material in JSON output")
     parser.add_argument("--openssl", default="openssl")
     parser.add_argument("--timeout", type=float, default=10.0)
     args = parser.parse_args(argv)
     if args.show_keys and not args.peer_fingerprint:
-        parser.error("--show-keys requires --peer-fingerprint so the DTLS peer is authenticated")
+        parser.error("--show-keys requires --peer-fingerprint so the DTLS peer fingerprint is verified")
     for label, path in (("certificate", args.cert), ("private key", args.key)):
         if not Path(path).is_file():
             parser.error(f"local {label} file does not exist: {path}")
     try:
-        keys, fingerprint, _ = run_handshake(
+        keys, fingerprint = run_handshake(
             args.remote, cert=args.cert, key=args.key, profile=args.profile,
             bind=args.bind, peer_fingerprint=args.peer_fingerprint,
             openssl=args.openssl, timeout=args.timeout)
