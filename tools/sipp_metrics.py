@@ -23,6 +23,7 @@ from typing import Dict, Iterable, Optional
 
 _NUMBER_RE = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
 _METRIC_RE = re.compile(r"[^a-zA-Z0-9_:]")
+STAT_TAIL_CHUNK = 8192
 
 
 def _number(value: str) -> Optional[float]:
@@ -43,6 +44,40 @@ def metric_name(column: str) -> str:
     if name[0].isdigit():
         name = "field_" + name
     return "sipp_" + name
+
+
+def _parse_csv_line(raw: bytes, delimiter: str) -> list[str]:
+    return next(csv.reader([raw.decode("utf-8")], delimiter=delimiter))
+
+
+def _latest_complete_row(handle, data_start: int, field_count: int, delimiter: str) -> Optional[list[str]]:
+    """Read backwards until the newest complete statistics row is found."""
+    handle.seek(0, 2)
+    pos = handle.tell()
+    carry = b""
+
+    while pos > data_start:
+        start = max(data_start, pos - STAT_TAIL_CHUNK)
+        handle.seek(start)
+        data = handle.read(pos - start) + carry
+        lines = data.splitlines()
+
+        if start > data_start:
+            carry = lines[0] if lines else data
+            candidates = lines[1:]
+        else:
+            carry = b""
+            candidates = lines
+
+        for raw in reversed(candidates):
+            if not raw.strip():
+                continue
+            row = _parse_csv_line(raw, delimiter)
+            if len(row) >= field_count:
+                return row
+        pos = start
+
+    return None
 
 
 @dataclass(frozen=True)
@@ -86,17 +121,19 @@ class StatFileReader:
 
     def read(self) -> MetricsSnapshot:
         try:
-            with self.path.open("r", encoding="utf-8", newline="") as handle:
-                rows = list(csv.reader(handle, delimiter=self.delimiter))
-        except OSError as exc:
+            with self.path.open("rb") as handle:
+                header_raw = handle.readline()
+                if not header_raw:
+                    raise RuntimeError(f"{self.path} has no complete statistics row")
+                header = [field.strip() for field in _parse_csv_line(header_raw, self.delimiter)]
+                data_start = handle.tell()
+                data = _latest_complete_row(handle, data_start, len(header), self.delimiter)
+        except RuntimeError:
+            raise
+        except (OSError, UnicodeDecodeError, csv.Error, TypeError) as exc:
             raise RuntimeError(f"cannot read {self.path}: {exc}") from exc
-        rows = [row for row in rows if any(field.strip() for field in row)]
-        if len(rows) < 2:
+        if not header or data is None:
             raise RuntimeError(f"{self.path} has no complete statistics row")
-        header = [field.strip() for field in rows[0]]
-        data = rows[-1]
-        if len(data) < len(header):
-            raise RuntimeError(f"{self.path} ends with an incomplete statistics row")
         values: Dict[str, float] = {}
         duplicate_count: Dict[str, int] = {}
         for name, raw in zip(header, data):
@@ -219,6 +256,8 @@ def _reader_from_args(args: argparse.Namespace) -> StatFileReader:
 
 def main(argv: Optional[Iterable[str]] = None) -> int:
     args = build_parser().parse_args(argv)
+    if len(args.delimiter) != 1:
+        raise SystemExit("--delimiter must be exactly one character")
     reader = _reader_from_args(args)
     if args.serve:
         serve(SnapshotStore(reader), args.listen, args.port)
