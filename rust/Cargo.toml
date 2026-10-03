@@ -1,0 +1,52 @@
+[package]
+name = "sipp-rs"
+version = "0.1.0"
+edition = "2021"
+description = "A Rust port of SIPp"
+license = "GPL-2.0-or-later"
+
+[dependencies]
+aes = "0.8"
+hmac = "0.12"
+libc = "0.2"
+md-5 = "0.10"
+mlua = { version = "0.12", default-features = false, features = ["lua54", "vendored"], optional = true }
+openssl = { version = "0.10", optional = true }
+quick-xml = "0.42"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+sha1 = "0.10"
+sha2 = "0.10"
+sipp-plugin = { path = "plugin" }
+socket2 = "0.6"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Networking_WinSock",
+    "Win32_Security_Cryptography",
+    "Win32_Media",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
+    "Win32_System_IO",
+    "Win32_System_Pipes",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading",
+] }
+
+[build-dependencies]
+# musl's regex, compiled for Windows only (build.rs).
+cc = "1"
+
+[workspace]
+members = [".", "plugin", "plugin/example"]
+
+[[bin]]
+name = "sipp-rs"
+path = "src/main.rs"
+
+[features]
+# <exec lua> and -lua_file, with a Lua 5.4 built from source.
+default = ["lua"]
+lua = ["dep:mlua"]
+# -tls_version 1.0 and 1.1 through OpenSSL, which rustls lacks.
+legacy-tls = ["dep:openssl"]

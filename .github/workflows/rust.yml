@@ -1,0 +1,81 @@
+name: sipp-rs
+
+on:
+  push:
+    branches: [rust]
+  pull_request:
+    branches: [rust]
+  workflow_dispatch:
+
+# A newer push or merge supersedes the runs before it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    working-directory: rust
+
+jobs:
+  linux:
+    runs-on: ubuntu-26.04
+    steps:
+    - uses: actions/checkout@v7
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: rust
+    - name: installdeps
+      # libssl-dev: the legacy-tls build regress.sh makes; gdb: regress.sh's
+      # backtraces of a test that hangs
+      run: sudo apt-get update && sudo apt-get install --yes python3-websockets libssl-dev pkg-config gdb
+    - name: test
+      run: cargo test --workspace --locked --no-fail-fast
+    - name: build
+      run: cargo build --release --locked
+    - name: allow-userns
+      # the raw socket tests re-run in a user and network namespace, and
+      # regress.sh gives the tests their /etc/hosts in a mount namespace
+      run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+    - name: regress
+      timeout-minutes: 7
+      run: TEST_SKIP_VALGRIND=1 ./regress.sh
+
+  macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: rust
+    - name: test
+      run: cargo test --workspace --locked --no-fail-fast
+
+  windows:
+    runs-on: windows-latest
+    env:
+      # As windows.sh: llvm-mingw's clang, static CRT. Build scripts
+      # still build for the runner's MSVC host.
+      LLVM_MINGW: llvm-mingw-20260922-ucrt-x86_64
+      CARGO_BUILD_TARGET: x86_64-pc-windows-gnullvm
+      CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER: x86_64-w64-mingw32-clang
+      CC_x86_64_pc_windows_gnullvm: x86_64-w64-mingw32-clang
+      AR_x86_64_pc_windows_gnullvm: llvm-ar
+      CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS: -C target-feature=+crt-static -C link-arg=-Wno-unused-command-line-argument
+    steps:
+    - uses: actions/checkout@v7
+    - name: llvm-mingw
+      working-directory: ${{ runner.temp }}
+      run: |
+        curl.exe -fsSLO "https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/$env:LLVM_MINGW.zip"
+        7z x -bd "$env:LLVM_MINGW.zip" | Out-Null
+        "$env:RUNNER_TEMP\$env:LLVM_MINGW\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+    - name: target
+      run: rustup target add $env:CARGO_BUILD_TARGET
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: rust
+    - name: test
+      run: cargo test --workspace --locked --no-fail-fast
