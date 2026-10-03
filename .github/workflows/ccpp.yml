@@ -23,7 +23,7 @@ jobs:
     - name: lint
       run: ./validate-src.sh
     - name: lint-xml
-      run: sudo apt-get update && sudo apt-get install --yes libxml2-utils && ./dtd_check.sh
+      run: sudo apt-get update && sudo apt-get install --yes libxml2-utils python3-cryptography && ./dtd_check.sh
     # Only the lines a PR changes: most of the code predates .clang-format.
     # HEAD is the PR merged into its base, so HEAD^ is the base.
     - name: clang-format
@@ -31,12 +31,8 @@ jobs:
       run: |
         sudo apt-get install --yes clang-format
         git clang-format --diff HEAD^ -- src include
-    - name: test-multi-instance-launcher
-      run: python3 -m unittest discover -s tests -p 'test_sipp_multi.py'
-    - name: test-rtcp-qos
-      run: |
-        sudo apt-get install --yes python3-cryptography
-        python3 -m unittest tests/test_sipp_rtcp_qos.py
+    - name: test-python-tools
+      run: python3 -m unittest discover -s tests -p 'test_sipp_*.py'
 
   build:
 
