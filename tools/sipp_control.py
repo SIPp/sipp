@@ -18,6 +18,7 @@ from typing import Dict, Optional, Tuple
 HOTKEYS = {"pause": "p", "quit": "q", "quit-now": "Q", "rate-up": "+", "rate-down": "-", "rate-up-10x": "*", "rate-down-10x": "/"}
 COMMANDS = {"rate": "set rate {value}", "rate-scale": "set rate-scale {value}", "users": "set users {value}", "limit": "set limit {value}"}
 DASHBOARD = Path(__file__).with_name("sipp_control.html")
+STAT_TAIL_CHUNK = 8192
 
 
 def send_control(host: str, port: int, payload: str, timeout: float = 1.0) -> None:
@@ -46,18 +47,59 @@ def build_control(action: str, value: Optional[object] = None) -> str:
     return "c" + template.format(value=text)
 
 
+def _parse_csv_line(raw: bytes, delimiter: str) -> list[str]:
+    return next(csv.reader([raw.decode("utf-8")], delimiter=delimiter))
+
+
+def _latest_complete_row(handle, data_start: int, field_count: int, delimiter: str) -> Optional[list[str]]:
+    """Read backwards until the newest complete statistics row is found."""
+    handle.seek(0, 2)
+    pos = handle.tell()
+    carry = b""
+
+    while pos > data_start:
+        start = max(data_start, pos - STAT_TAIL_CHUNK)
+        handle.seek(start)
+        data = handle.read(pos - start) + carry
+        lines = data.splitlines()
+
+        # Unless we reached the first data byte, the first item may begin in
+        # the middle of a CSV row. Carry it into the next backwards chunk.
+        if start > data_start:
+            carry = lines[0] if lines else data
+            candidates = lines[1:]
+        else:
+            carry = b""
+            candidates = lines
+
+        for raw in reversed(candidates):
+            if not raw.strip():
+                continue
+            row = _parse_csv_line(raw, delimiter)
+            if len(row) >= field_count:
+                return row
+        pos = start
+
+    return None
+
+
 def read_stat(path: Optional[Path], delimiter: str = ";") -> Dict[str, object]:
     if path is None:
         return {}
     try:
-        with path.open("r", encoding="utf-8", newline="") as handle:
-            rows = [row for row in csv.reader(handle, delimiter=delimiter) if any(v.strip() for v in row)]
-    except OSError as exc:
+        with path.open("rb") as handle:
+            header_raw = handle.readline()
+            if not header_raw:
+                return {"stat_error": "no complete statistics row"}
+            header = _parse_csv_line(header_raw, delimiter)
+            data_start = handle.tell()
+            row = _latest_complete_row(handle, data_start, len(header), delimiter)
+    except (OSError, UnicodeDecodeError, csv.Error, TypeError) as exc:
         return {"stat_error": str(exc)}
-    if len(rows) < 2 or len(rows[-1]) < len(rows[0]):
+    if not header or row is None:
         return {"stat_error": "no complete statistics row"}
     result: Dict[str, object] = {}
-    for name, raw in zip(rows[0], rows[-1]):
+    for name, raw in zip(header, row):
         raw = raw.strip()
         try:
             number = float(raw)
@@ -160,6 +202,8 @@ def main() -> int:
     args = parser.parse_args()
     if not 1 <= args.sipp_port <= 65535 or not 1 <= args.port <= 65535:
         parser.error("ports must be between 1 and 65535")
+    if len(args.delimiter) != 1:
+        parser.error("delimiter must be exactly one character")
     serve(ControlState((args.sipp_host, args.sipp_port), args.stat_file, args.delimiter), args.listen, args.port)
     return 0
 
