@@ -3471,10 +3471,9 @@ void close_peer_sockets()
     for (peer_it = peers.begin(), __end = peers.end();
          peer_it != __end;
          ++peer_it) {
-        T_peer_infos infos = peer_it->second;
+        T_peer_infos &infos = peer_it->second;
         infos.peer_socket->close();
         infos.peer_socket = nullptr;
-        peers[std::string(peer_it->first)] = infos;
     }
 
     peers_connected = 0;
