@@ -22,6 +22,7 @@ Welcome to SIPp reference documentation!
    multi_instance
    media
    dtls_srtp
+   media_impairment
    statistics
    observability
    ci_reports
