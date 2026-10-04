@@ -58,8 +58,9 @@ any earlier release (see the "Memory and CPU per call" entry).
   port of the `m=text` line (#403, by Orgad Shaneh)
 - `<rtp_dtmf>` assigns the RFC 4733 DTMF digits a call received to a
   variable (#407, by Orgad Shaneh)
-- `<recv timeout_variable>` takes the receive timeout from a call
-  variable (#968, by Orgad Shaneh)
+- `<recv timeout>` may contain keywords, such as `[field3]` or
+  `[$wait]`, for a receive timeout that varies per call (#968, by Orgad
+  Shaneh)
 - `start_rtd` and `rtd` take a comma-separated list of timers (#970, by
   Orgad Shaneh)
 - `-m_csv` stops after as many calls as the first `-inf` file has lines

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="ISO-8859-1" ?>
 <!DOCTYPE scenario SYSTEM "sipp.dtd">
-<scenario name="recv timeout from a variable">
+<scenario name="recv timeout with a keyword">
   <send>
     <![CDATA[
       OPTIONS sip:[service]@[remote_ip]:[remote_port] SIP/2.0
@@ -14,13 +14,7 @@
     ]]>
   </send>
 
-  <nop>
-    <action>
-      <assignstr assign_to="wait" value="[field0]" />
-    </action>
-  </nop>
-
-  <recv request="BYE" timeout_variable="wait" ontimeout="done" />
+  <recv request="BYE" timeout="[field0]" ontimeout="done" />
 
   <label id="done" />
   <nop />

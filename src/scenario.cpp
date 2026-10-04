@@ -52,7 +52,7 @@ message::message(int index, const char *desc)
     send_scheme = nullptr; // delete on exit
     retrans_delay = 0;
     timeout = 0;
-    timeout_variable = -1;
+    timeout_scheme = nullptr; // delete on exit
 
     recv_response_code = 0;
     optional = 0;
@@ -105,6 +105,7 @@ message::~message()
 {
     delete pause_distribution;
     delete send_scheme;
+    delete timeout_scheme;
     if (regexp_compile != nullptr) {
         regfree(regexp_compile);
     }
@@ -932,10 +933,10 @@ scenario::scenario(char * filename, int deflt)
                     }
                 }
 
-                curmsg->timeout = xp_get_long("timeout", "message timeout", 0);
-                curmsg->timeout_variable = xp_get_var("timeout_variable", "recv", -1);
-                if (curmsg->timeout_variable != -1 && xp_get_value("timeout")) {
-                    ERROR("timeout and timeout_variable cannot both be set (index = %zu)", messages.size() - 1);
+                if ((cptr = xp_get_value("timeout")) && strchr(cptr, '[')) {
+                    curmsg->timeout_scheme = new SendingMessage(this, cptr, true /* skip sanity */);
+                } else {
+                    curmsg->timeout = xp_get_long("timeout", "message timeout", 0);
                 }
 
                 /* record the route set  */
