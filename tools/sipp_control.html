@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SIPp Control</title>
+<style>
+:root{font-family:system-ui,sans-serif;color-scheme:light dark}body{max-width:1100px;margin:2rem auto;padding:0 1rem}button,input{font:inherit;padding:.55rem .75rem;margin:.2rem}button{cursor:pointer}.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}.card{border:1px solid #8885;border-radius:10px;padding:1rem;margin:1rem 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.6rem}.metric{padding:.6rem;border-radius:8px;background:#8881}.metric b{display:block;font-size:.82rem;opacity:.7;overflow-wrap:anywhere}.metric span{font-size:1.25rem}.stale .metric{opacity:.45}.note{opacity:.75;font-size:.9rem}pre{overflow:auto;max-height:16rem}.danger{border-color:#c44}#error,#stale{white-space:pre-wrap;color:#d44}
+</style>
+</head>
+<body>
+<h1>SIPp Control</h1>
+<p class="note">SIPp does not acknowledge control commands: a sent command may still be ignored, for example
+<code>set rate</code> when SIPp runs with <code>-users</code>. Watch the statistics below for the effect.</p>
+<div class="card">
+  <div class="row">
+    <button data-action="pause">Pause / resume (toggle)</button>
+    <span class="note" id="toggles"></span>
+  </div>
+  <div class="row">
+    <button data-action="step-up">+1 step</button>
+    <button data-action="step-down">−1 step</button>
+    <button data-action="step-up-10">+10 steps</button>
+    <button data-action="step-down-10">−10 steps</button>
+    <span class="note">A step is rate_scale calls/s, or rate_scale users with <code>-users</code>.</span>
+  </div>
+  <div class="row">
+    <label>Rate <input id="rate" type="number" min="0" step="any"></label>
+    <button data-action="rate" data-input="rate">Set rate</button>
+    <label>Rate scale <input id="rate-scale" type="number" min="0" step="any"></label>
+    <button data-action="rate-scale" data-input="rate-scale">Set rate scale</button>
+  </div>
+  <div class="row">
+    <label>Users <input id="users" type="number" min="0" step="1"></label>
+    <button data-action="users" data-input="users">Set users</button>
+    <label>Limit <input id="limit" type="number" min="0" step="1"></label>
+    <button data-action="limit" data-input="limit">Set limit</button>
+  </div>
+  <div class="row">
+    <button id="quit" data-action="quit">Graceful quit</button>
+    <button class="danger" data-action="quit-now" data-confirm="Quit SIPp immediately?">Quit now</button>
+    <label class="note">API token <input id="token" type="password" autocomplete="off"></label>
+  </div>
+  <div id="error"></div>
+</div>
+<div class="card">
+  <h2>Statistics</h2>
+  <div id="target"></div>
+  <div id="stale"></div>
+  <div id="metrics" class="grid"></div>
+</div>
+<div class="card"><h2>Last command sent</h2><pre id="last">none</pre></div>
+<script>
+const $=id=>document.getElementById(id);
+function headers(extra){const h=Object.assign({},extra);const t=$('token').value;if(t)h.Authorization='Bearer '+t;return h}
+function value(id){
+  const raw=$(id).value.trim();
+  if(raw==='')throw new Error('Enter a value for '+id);
+  const n=Number(raw);
+  if(!Number.isFinite(n))throw new Error('Enter a numeric value for '+id);
+  return n;
+}
+async function action(button){
+  const name=button.dataset.action;
+  try{
+    if(button.dataset.confirm&&!confirm(button.dataset.confirm))return;
+    const body={action:name};
+    if(button.dataset.input)body.value=value(button.dataset.input);
+    button.disabled=true;
+    const r=await fetch('/api/v1/control',{method:'POST',headers:headers({'Content-Type':'application/json'}),body:JSON.stringify(body)});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.error||r.statusText);
+    $('error').textContent='';
+    await refresh();
+  }catch(e){$('error').textContent=String(e.message||e)}
+  finally{
+    // A second 'q' makes SIPp quit immediately, so keep the button off for a while.
+    if(name==='quit')setTimeout(()=>{button.disabled=false},3000);else button.disabled=false;
+  }
+}
+function metric(name,val){
+  const d=document.createElement('div');d.className='metric';
+  const b=document.createElement('b');b.textContent=name;
+  const s=document.createElement('span');s.textContent=Number.isInteger(val)?String(val):val.toFixed(3);
+  d.append(b,s);return d;
+}
+async function refresh(){
+  try{
+    const r=await fetch('/api/v1/status',{cache:'no-store',headers:headers({})});const j=await r.json();
+    if(!r.ok)throw new Error(j.error||r.statusText);
+    $('target').textContent=`Target: ${j.target.host}:${j.target.port}`+(j.mode?` · ${j.mode} mode`:'');
+    $('toggles').textContent=`toggles sent: ${j.pause_toggles_sent} (the state is shown on the SIPp screen)`;
+    $('last').textContent=j.last_sent?JSON.stringify(j.last_sent,null,2):'none';
+    const st=j.statistics||{};
+    let warn=st.error||'';
+    if(!warn&&st.stale)warn=st.sipp_running===false?`SIPp (pid ${st.pid}) has exited; values are final.`:`No update for ${st.age_seconds}s; values may be out of date.`;
+    $('stale').textContent=warn;
+    $('metrics').classList.toggle('stale',Boolean(warn));
+    $('metrics').replaceChildren(...Object.entries(st.values||{}).map(([k,v])=>metric(k,v)));
+  }catch(e){$('error').textContent=String(e.message||e)}
+}
+document.querySelectorAll('button[data-action]').forEach(b=>b.addEventListener('click',()=>action(b)));
+refresh();setInterval(refresh,1000);
+</script>
+</body>
+</html>
