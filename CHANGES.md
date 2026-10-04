@@ -113,25 +113,16 @@ any earlier release (see the "Memory and CPU per call" entry).
   `IPPROTO_RAW` sockets, and plays start on multiples of 20 ms (#1005,
   #1111, #1113, by Orgad Shaneh)
 - Memory and CPU per call are much lower, after 3.7 had raised them
-  far above 3.6: at 12000 calls/s the built-in UAS peaks at 164 MB,
-  against 1162 MB in 3.7.8 and 282 MB in 3.6.1, and 10000 calls playing
-  media take 74 MB, against 220 MB in 3.7.8 and 31 MB in 3.6.1. The
-  built-in UAC and UAS keep up with 26000 calls/s, where they fell
-  behind and failed calls from 24000. SRTP no longer repeats its AES and
-  HMAC setup for each packet, its media threads keep only the session
-  keys, and it encrypts with AES-CTR: 5000 SRTP echo calls take a fifth
-  less CPU and a quarter less memory. A header is read in one pass
-  over the message, where it is, rather than copied for each lookup,
-  messages are built without temporary strings, a socket read keeps
-  only what it got rather than 64 KB, a Call-ID is found in a hash
-  table rather than a tree, a Digest response reuses its hash contexts,
-  the paused calls of the next 4 s move into the timer wheel a few at a
-  time rather than all at once, which held up the main loop for 30-45
-  ms every 4 s, RTP makes fewer system calls per packet, reading echoes
-  with recvmmsg(), idle playback tasks wake together, and the socket
-  loop and RTP echo wait with epoll (#1110, #1117, #1118, #1119,
-  #1122-#1131, #1230, #1232-#1234, #1247, #1253, #1255, by Orgad
-  Shaneh)
+  far above 3.6: at 12000 calls/s the built-in UAS peaks at 164 MB
+  (1162 MB in 3.7.8, 282 MB in 3.6.1), and 10000 calls playing media
+  take 74 MB (220 MB in 3.7.8, 31 MB in 3.6.1). The built-in UAC and
+  UAS keep up with 26000 calls/s, up from 24000. SRTP sets up AES and
+  HMAC once, not per packet, and takes a fifth less CPU and a quarter
+  less memory. Message parsing and building copy less, Call-IDs are
+  found in a hash table, paused calls no longer stall the main loop for
+  30-45 ms every 4 s, and RTP makes fewer system calls (#1110, #1117,
+  #1118, #1119, #1122-#1131, #1230, #1232-#1234, #1247, #1253, #1255,
+  by Orgad Shaneh)
 - A pass over the calls ends after 10 ms and runs the calls that resume
   first, so a burst of new calls no longer leaves incoming messages
   unread for seconds (#1101), and the call rate starts with the traffic,
