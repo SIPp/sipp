@@ -22,6 +22,7 @@ Welcome to SIPp reference documentation!
    multi_instance
    media
    dtls_srtp
+   ice_stun_turn
    media_impairment
    rtcp_qos
    statistics
