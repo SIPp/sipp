@@ -13,10 +13,13 @@ import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Set
 
 
 _THRESHOLD_RE = re.compile(r"^\s*(.+?)\s*(<=|>=|==|!=|<|>)\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*$")
+# SIPp writes elapsed times, response times and call lengths as HH:MM:SS or
+# HH:MM:SS:UUUUUU (microseconds); they are read as seconds.
+_TIME_RE = re.compile(r"^(\d+):(\d{2}):(\d{2})(?::(\d{1,6}))?$")
 _OPS: Dict[str, Callable[[float, float], bool]] = {
     "<": operator.lt,
     "<=": operator.le,
@@ -53,40 +56,61 @@ class ThresholdResult:
     message: str
 
 
+def _parse_value(raw: str) -> Optional[float]:
+    """A number, or an HH:MM:SS[:UUUUUU] time as seconds; None for any other text."""
+    raw = raw.strip()
+    match = _TIME_RE.match(raw)
+    if match:
+        hours, minutes, seconds, micros = match.groups()
+        return int(hours) * 3600 + int(minutes) * 60 + int(seconds) + int((micros or "0").ljust(6, "0")) / 1e6
+    try:
+        value = float(raw)
+    except ValueError:
+        return None
+    return value if math.isfinite(value) else None
+
+
 class StatResult:
     def __init__(self, path: Path, delimiter: str = ";") -> None:
         self.path = path
         self.delimiter = delimiter
-        self.values = self._read_latest()
+        self.values: Dict[str, float] = {}
+        self.text_columns: Set[str] = set()
+        self._read_latest()
 
-    def _read_latest(self) -> Dict[str, float]:
+    def _read_latest(self) -> None:
+        header: Optional[List[str]] = None
+        data: Optional[List[str]] = None
+        # Only the header and the last row are kept: a long run with -fd 1s has many rows.
         with self.path.open("r", encoding="utf-8", newline="") as handle:
-            rows = [row for row in csv.reader(handle, delimiter=self.delimiter) if any(v.strip() for v in row)]
-        if len(rows) < 2:
+            for row in csv.reader(handle, delimiter=self.delimiter):
+                if not any(v.strip() for v in row):
+                    continue
+                if header is None:
+                    header = [value.strip() for value in row]
+                else:
+                    data = row
+        if header is None or data is None:
             raise ValueError(f"{self.path} has no complete statistics row")
-        header = [value.strip() for value in rows[0]]
-        data = rows[-1]
         if len(data) < len(header):
             raise ValueError(f"{self.path} ends with an incomplete statistics row")
         named = [name for name in header if name]
         if len(named) != len(set(named)):
             raise ValueError(f"{self.path} contains duplicate statistics column names")
-        result: Dict[str, float] = {}
         for name, raw in zip(header, data):
             if not name:
                 continue
-            try:
-                value = float(raw.strip())
-            except ValueError:
-                continue
-            if math.isfinite(value):
-                result[name] = value
-        return result
+            value = _parse_value(raw)
+            if value is None:
+                self.text_columns.add(name)
+            else:
+                self.values[name] = value
 
     def evaluate(self, threshold: Threshold) -> ThresholdResult:
         actual = self.values.get(threshold.column)
         if actual is None:
-            return ThresholdResult(threshold, None, False, f"column {threshold.column!r} not found or not numeric")
+            reason = "is not a number or a time" if threshold.column in self.text_columns else "not found"
+            return ThresholdResult(threshold, None, False, f"column {threshold.column!r} {reason}")
         passed = _OPS[threshold.operator](actual, threshold.target)
         message = f"{threshold.column}: {actual:g} {threshold.operator} {threshold.target:g}"
         return ThresholdResult(threshold, actual, passed, message)
@@ -97,10 +121,14 @@ def load_threshold_file(path: Path) -> List[Threshold]:
     if not isinstance(data, dict):
         raise ValueError("threshold file must be a JSON object")
     result: List[Threshold] = []
-    for column, condition in data.items():
-        if not isinstance(column, str) or not isinstance(condition, str):
-            raise ValueError("threshold file keys and values must be strings")
-        result.append(Threshold.parse(f"{column}{condition}"))
+    for column, conditions in data.items():
+        # A list gives several bounds on one column: ["<=5", ">=1"]
+        if isinstance(conditions, str):
+            conditions = [conditions]
+        if not isinstance(column, str) or not isinstance(conditions, list) or not all(
+                isinstance(condition, str) for condition in conditions):
+            raise ValueError("threshold file keys must be strings and values strings or lists of strings")
+        result.extend(Threshold.parse(f"{column}{condition}") for condition in conditions)
     return result
 
 

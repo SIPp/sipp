@@ -88,6 +88,9 @@ any earlier release (see the "Memory and CPU per call" entry).
   could not send, and a request that the old connection lost without a
   response, go on the new connection. Over TLS too, whose failed writes
   now make the connection again as over TCP (#782, by Orgad Shaneh)
+- `tools/sipp_report.py` checks the last row of a `-trace_stat` file
+  against thresholds for CI and writes JSON and JUnit reports (#1277, by
+  Darwvin)
 
 ### Changed
 
