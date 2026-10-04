@@ -36,6 +36,7 @@ Ben Langfeld
 Richard van den Berg
 Mustafa Kocaturk
 Konstantin S. Vishnivetsky
+Orgad Shaneh
 
 SIPp also uses code originally by Aaron Turner (send_packets.c) and L Peter Deutsch (md5.c).
 
