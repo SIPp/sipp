@@ -22,6 +22,7 @@ Welcome to SIPp reference documentation!
    media
    dtls_srtp
    statistics
+   observability
    ci_reports
    error
    perftest
