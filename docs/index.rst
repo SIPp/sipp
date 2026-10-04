@@ -23,6 +23,7 @@ Welcome to SIPp reference documentation!
    media
    dtls_srtp
    media_impairment
+   rtcp_qos
    statistics
    observability
    ci_reports
