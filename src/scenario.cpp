@@ -795,7 +795,7 @@ scenario::scenario(char * filename, int deflt)
             if (labelMap.find(id) != labelMap.end()) {
                 ERROR("The label name '%s' is used twice.", id.c_str());
             }
-            labelMap[id] = messages.size();
+            labelMap[std::move(id)] = messages.size();
         } else if (!strcmp(elem, "init")) {
             /* We have an init section, which must be full of nops or labels. */
             int nop_cursor = 0;
@@ -813,7 +813,7 @@ scenario::scenario(char * filename, int deflt)
                     if (initLabelMap.find(id) != initLabelMap.end()) {
                         ERROR("The label name '%s' is used twice.", id.c_str());
                     }
-                    initLabelMap[id] = initmessages.size();
+                    initLabelMap[std::move(id)] = initmessages.size();
                 } else {
                     ERROR("Invalid element in an init stanza: '%s'", initelem);
                 }
@@ -1015,7 +1015,7 @@ scenario::scenario(char * filename, int deflt)
                         T_peer_infos infos = {};
                         infos.peer_socket = 0;
                         infos.peer_host = get_peer_addr(peer);
-                        peers[peer] = infos;
+                        peers[peer] = std::move(infos);
                     }
                 } else if (extendedTwinSippMode) {
                     ERROR("You must specify a 'dest' for sendCmd with extended 3pcc mode!");
