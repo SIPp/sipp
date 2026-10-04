@@ -1,0 +1,34 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# rtp_stream plays on when the peer has not opened its media port yet:
+# the ICMP port unreachable of its first packets made the next send()
+# fail with ECONNREFUSED, which closed the stream's socket for good.
+. "`dirname "$0"`/../functions"; init
+
+# Three seconds of 8 kHz 8-bit audio: 24000 bytes, in 150 packets of 160.
+python3 -c '
+import wave
+w = wave.open("audio.wav", "wb")
+w.setnchannels(1)
+w.setsampwidth(1)
+w.setframerate(8000)
+w.writeframes(b"\x40" * 24000)
+w.close()
+'
+python3 rtp.py 127.0.0.1:31920 >rtp.out &
+sippbg -sf uas.xml -i 127.0.0.1 -p 31910 -m 1 -timeout 10
+sippfg -sf uac.xml -i 127.0.0.1 -p 31911 -m 1 \
+    -min_rtp_port 32200 -max_rtp_port 32299 \
+    127.0.0.1:31910 -timeout 10 -timeout_error >/dev/null 2>&1
+status=$?
+wait
+read packets <rtp.out
+rm -f rtp.out audio.wav
+
+if test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test "${packets:-0}" -lt 50; then
+    fail "${packets:-0} packets arrived at the port that opened late, not 50 or more"
+else
+    ok
+fi

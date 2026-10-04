@@ -272,6 +272,10 @@ any earlier release (see the "Memory and CPU per call" entry).
   - a paused `rtp_stream` resumes at once, with the timestamp of the
     packet time it resumes in, rather than sending the packet before it
     and the current one together (#1228)
+  - `rtp_stream` goes on playing when the peer's media port is not open
+    yet, instead of closing its socket at the first ICMP port
+    unreachable, which left a call to an SBC that opens its port a few
+    milliseconds after the ACK with no media at all
   - the RTCP socket is kept (#898), WAV chunk sizes and short files are
     read right (#902, #1075), a WAV file with no audio no longer hangs
     the playback thread (#1144), a missing `rtp_stream` file fails the

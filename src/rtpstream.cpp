@@ -1060,6 +1060,12 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                 /* now send the actual packet */
                 rc = send(taskinfo->audio_rtp_socket, audio_out.data(), audio_out.size(), 0);
+                if (rc < 0 && errno == ECONNREFUSED) {
+                    /* The port unreachable of an earlier packet, as the peer
+                     * has not opened its port yet: reported once, and this
+                     * packet was not sent. Send it, and play on. */
+                    rc = send(taskinfo->audio_rtp_socket, audio_out.data(), audio_out.size(), 0);
+                }
                 if (rc < 0)
                 {
                     debugafile.printHex("SEND FAILED: ", "", 0, rc, errno);
@@ -1325,6 +1331,12 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
 
                 /* now send the actual packet */
                 rc = send(taskinfo->video_rtp_socket, video_out.data(), video_out.size(), 0);
+                if (rc < 0 && errno == ECONNREFUSED) {
+                    /* The port unreachable of an earlier packet, as the peer
+                     * has not opened its port yet: reported once, and this
+                     * packet was not sent. Send it, and play on. */
+                    rc = send(taskinfo->video_rtp_socket, video_out.data(), video_out.size(), 0);
+                }
                 if (rc < 0)
                 {
                     debugvfile.printHex("SEND FAILED: ", "", 0, rc, errno);
