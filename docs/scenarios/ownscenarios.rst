@@ -343,6 +343,11 @@ List of commands with their attributes
         message is not received, the call is aborted, unless an ontimeout
         label is defined.
 
+        The timeout may contain keywords, such as ``[$wait]`` or
+        ``[field3]``, expanded in milliseconds each time the call
+        reaches this message. A value that is not a number, or is less
+        than 1, sets no timeout.
+
         The timeout (and ontimeout) only applies while the call waits at
         this message. After a run of optional recvs, the call waits at
         the first of them until a mandatory message arrives, so it is the
@@ -354,6 +359,12 @@ List of commands with their attributes
 
           <recv timeout="100000">
 
+        A timeout from the fourth field of the ``-inf`` file:
+
+        ::
+
+          <recv request="BYE" timeout="[field3]" ontimeout="5">
+
         Timing out while waiting for 180 or 200:
 
         ::
@@ -362,22 +373,6 @@ List of commands with their attributes
           </recv>
           <recv response="200" timeout="4000" ontimeout="5">
           </recv>
-    * -
-      - ``timeout_variable``
-      - Like ``timeout``, but the timeout is read, in milliseconds, from
-        the given call variable each time the call reaches this message.
-        A string variable (e.g. assigned from a CSV field) is converted
-        like ``<todouble>`` does. A variable that is not a number, or is
-        less than 1, sets no timeout. Cannot be used together with
-        ``timeout``.
-      - ::
-
-          <nop>
-            <action>
-              <assignstr assign_to="wait" value="[field3]" />
-            </action>
-          </nop>
-          <recv request="BYE" timeout_variable="wait" ontimeout="5">
     * -
       - ``ontimeout``
       - Specify a label to jump to if the timeout popped before the message to be received.

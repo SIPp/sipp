@@ -4772,15 +4772,15 @@ double call::get_rhs(CAction *currentAction)
     }
 }
 
-/* The receive timeout of curmsg in ms, from its timeout_variable when
- * it has one, or 0 when it has none. */
+/* The receive timeout of curmsg in ms: its timeout, with the keywords
+ * expanded now if it has any. */
 unsigned int call::recvTimeout(message *curmsg)
 {
-    if (curmsg->timeout_variable == -1) {
+    if (!curmsg->timeout_scheme) {
         return curmsg->timeout;
     }
 
-    double timeout = get_var_double(curmsg->timeout_variable);
+    double timeout = strtod(createSendingString(curmsg->timeout_scheme).c_str(), nullptr);
     if (!(timeout >= 1)) { // Also NaN
         return 0;
     }
