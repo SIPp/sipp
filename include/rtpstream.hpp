@@ -100,6 +100,9 @@ struct taskentry_t
     /* the playback thread's: a stream was paused at its last pass */
     bool audio_was_paused = false;
     bool video_was_paused = false;
+    /* the audio RTP socket has the small receive buffer of one that is
+     * not read */
+    bool audio_rcvbuf_small = false;
     unsigned short       audio_seq_out;
     unsigned short       video_seq_out;
     unsigned short       audio_seq_check; /* the first packet of the pattern */
