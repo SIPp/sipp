@@ -1107,11 +1107,31 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                         audio_in_size = sizeof(rtp_header_t) + taskinfo->audio_bytes_per_packet;
                     }
 
-                    audio_in.assign(audio_in_size, 0);
+                    /* Read what comes back only when something looks at it:
+                     * the SRTP decrypt, the pattern check, <rtp_stats> or
+                     * the debug file. Left unread, as 3.6 left it, the
+                     * socket's queue fills once and the kernel drops each
+                     * later packet as it comes, for less than a read of
+                     * each costs. */
+                    const bool read_in = rx || taskinfo->audio_pattern_id > 0 || rtp_stats_used || rtpcheck_debug;
+                    if (read_in == taskinfo->audio_rcvbuf_small) {
+                        /* The queue of a socket that is not read holds
+                         * rtp_buffsize of kernel memory per call, 64 KB by
+                         * default: give it the least the kernel allows, a
+                         * few packets, and the full size back when a later
+                         * play reads it. */
+                        int rcvbuf = read_in ? rtp_buffsize : 1;
+                        setsockopt(taskinfo->audio_rtp_socket, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+                        taskinfo->audio_rcvbuf_small = !read_in;
+                    }
                     static thread_local RtpstreamReader reader;
-                    reader.reset(taskinfo->audio_rtp_socket, packet_in, std::max<size_t>(media_bufsize, audio_in_size));
                     const unsigned char *packet;
-                    while ((rc = reader.next(&packet)) >= 0) {
+                    if (read_in) {
+                        audio_in.assign(audio_in_size, 0);
+                        reader.reset(taskinfo->audio_rtp_socket, packet_in,
+                                     std::max<size_t>(media_bufsize, audio_in_size));
+                    }
+                    while (read_in && (rc = reader.next(&packet)) >= 0) {
                         audio_echo = true;
                         memcpy(audio_in.data(), packet, std::min<size_t>(rc, audio_in_size));
                         /* for now we will just ignore any received data or receive errors */

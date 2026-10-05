@@ -116,16 +116,18 @@ any earlier release (see the "Memory and CPU per call" entry).
   `IPPROTO_RAW` sockets, and plays start on multiples of 20 ms (#1005,
   #1111, #1113, by Orgad Shaneh)
 - Memory and CPU per call are much lower, after 3.7 had raised them
-  far above 3.6: at 12000 calls/s the built-in UAS peaks at 164 MB
-  (1162 MB in 3.7.8, 282 MB in 3.6.1), and 10000 calls playing media
-  take 74 MB (220 MB in 3.7.8, 31 MB in 3.6.1). The built-in UAC and
-  UAS keep up with 26000 calls/s, up from 24000. SRTP sets up AES and
-  HMAC once, not per packet, and takes a fifth less CPU and a quarter
-  less memory. Message parsing and building copy less, Call-IDs are
-  found in a hash table, paused calls no longer stall the main loop for
-  30-45 ms every 4 s, and RTP makes fewer system calls (#1110, #1117,
-  #1118, #1119, #1122-#1131, #1230, #1232-#1234, #1247, #1253, #1255,
-  by Orgad Shaneh)
+  far above 3.6: at 12000 calls/s the built-in UAS peaks at 148 MB
+  (1240 MB in 3.7.8, 242 MB in 3.6.1), and 2000 calls playing media
+  take 16 MB (54 MB in 3.7.8, 14 MB in 3.6.1). The built-in UAC and UAS
+  keep up with 18000 calls/s on 2 cores, where 3.6.1 and 3.7.8 lose
+  calls from 7000 and 5000. SRTP sets up AES and HMAC once, not per
+  packet, and takes a sixth less CPU and a third less memory. Message
+  parsing and building copy less, Call-IDs are found in a hash table,
+  paused calls no longer stall the main loop for 30-45 ms every 4 s, RTP
+  makes fewer system calls, and a play that nothing looks at no longer
+  reads what comes back, which took 30% of its CPU and 120 KB of kernel
+  memory per call (#1110, #1117, #1118, #1119, #1122-#1131, #1230,
+  #1232-#1234, #1247, #1253, #1255, by Orgad Shaneh)
 - A pass over the calls ends after 10 ms and runs the calls that resume
   first, so a burst of new calls no longer leaves incoming messages
   unread for seconds (#1101), and the call rate starts with the traffic,
