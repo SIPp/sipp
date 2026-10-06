@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import heapq
+import ipaddress
 import math
 import random
 import selectors
@@ -16,7 +17,7 @@ import time
 from dataclasses import dataclass, field, fields
 from typing import Dict, List, Optional, TextIO, Tuple
 
-from sipp_endpoint import parse_endpoint
+from sipp_endpoint import format_endpoint, parse_endpoint
 
 Address = Tuple[str, int]
 SocketAddress = tuple
@@ -146,9 +147,12 @@ class ImpairmentEngine:
                          target: Optional[SocketAddress], data: bytes, due: float,
                          duplicate: bool) -> None:
         self._schedule(direction, sock, target, data, due)
-        # A copy that does not fit in the queue is an overflow drop.
-        if duplicate and self._schedule(direction, sock, target, data, due + EPSILON):
+        # A copy counts as duplicated even if the queue is full, where it
+        # also counts as overflow, so that received + duplicated always
+        # equals dropped + forwarded + overflow + send_errors + waiting.
+        if duplicate:
             direction.counters.duplicated += 1
+            self._schedule(direction, sock, target, data, due + EPSILON)
 
     def _base_due(self, direction: Direction, now: float) -> float:
         jitter = direction.random.uniform(-self.profile.jitter_ms, self.profile.jitter_ms)
@@ -258,11 +262,16 @@ def _resolve(endpoint: Address, passive: bool = False, family: int = socket.AF_U
     return family, sockaddr
 
 
-def _resolve_client(client: Address, listen_family: int) -> SocketAddress:
+def _dual_stack(listen_family: int, listen_addr: SocketAddress) -> bool:
+    return listen_family == socket.AF_INET6 and ipaddress.ip_address(listen_addr[0]).is_unspecified
+
+
+def _resolve_client(client: Address, listen_family: int, listen_addr: SocketAddress) -> SocketAddress:
     try:
         return _resolve(client, family=listen_family)[1]
     except ValueError:
-        if listen_family != socket.AF_INET6:
+        # Only a [::] listener takes IPv4 too; [::1] can never see this client.
+        if not _dual_stack(listen_family, listen_addr):
             raise
     # A dual-stack IPv6 socket sees an IPv4 client as ::ffff:a.b.c.d and
     # sends to it through that address.
@@ -285,9 +294,12 @@ class Proxy:
         upstream_family, upstream_addr = _resolve(upstream)
         self.client: Optional[SocketAddress] = None
         if client is not None:
-            self.client = _resolve_client(client, listen_family)
+            self.client = _resolve_client(client, listen_family, listen_addr)
 
         self.listen = socket.socket(listen_family, socket.SOCK_DGRAM)
+        if _dual_stack(listen_family, listen_addr):
+            # Linux defaults to dual-stack, but net.ipv6.bindv6only can change it
+            self.listen.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
         self.upstream = socket.socket(upstream_family, socket.SOCK_DGRAM)
         try:
             self.listen.bind(listen_addr)
@@ -392,6 +404,8 @@ def main() -> int:
     except ValueError as exc:
         parser.error(str(exc))
     _install_signals(proxy)
+    print(f"sipp_impair: listening on {format_endpoint(proxy.listen.getsockname()[:2])}, "
+          f"forwarding to {format_endpoint(args.upstream)}", file=sys.stderr, flush=True)
     try:
         proxy.run(sys.stderr)
     except KeyboardInterrupt:
