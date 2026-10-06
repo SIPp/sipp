@@ -543,10 +543,12 @@ def _allocation_details(response: StunMessage) -> Tuple[Tuple[str, int], Optiona
 
 
 def _release_quietly(release: Callable[[], None]) -> None:
+    # The unusable success response is the error to report, but say if the
+    # allocation may be left on the server.
     try:
         release()
-    except (RuntimeError, ValueError, OSError):
-        pass  # the unusable success response is the error to report
+    except (RuntimeError, ValueError, OSError) as exc:
+        print(f"warning: TURN allocation may not be released: {exc}", file=sys.stderr)
 
 
 def _finish_allocation(response: StunMessage, release: Callable[[], None], *,
