@@ -14,11 +14,14 @@ import math
 import os
 import socket
 import struct
+import sys
 import time
 from collections import OrderedDict
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Tuple
+
+from sipp_endpoint import format_endpoint, parse_endpoint
 
 
 NTP_EPOCH = 2208988800
@@ -355,29 +358,6 @@ def decode_datagram(data: bytes, clock_rate: int, srtcp: Optional[SrtcpContext],
     }
 
 
-def _host_port(value: str) -> tuple[str, int]:
-    value = value.strip()
-    if value.startswith("["):
-        end = value.find("]")
-        if end <= 1 or end + 1 >= len(value) or value[end + 1] != ":":
-            raise argparse.ArgumentTypeError("expected [IPv6]:PORT")
-        host = value[1:end]
-        port = value[end + 2:]
-    else:
-        if value.count(":") != 1:
-            raise argparse.ArgumentTypeError("IPv6 literals must use [IPv6]:PORT")
-        host, port = value.split(":", 1)
-        if not host:
-            raise argparse.ArgumentTypeError("expected HOST:PORT")
-    try:
-        parsed = int(port)
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError("invalid port") from exc
-    if not 1 <= parsed <= 65535:
-        raise argparse.ArgumentTypeError("port must be 1..65535")
-    return host, parsed
-
-
 def _parse_ssrc(value: str) -> int:
     try:
         parsed = int(value, 0)
@@ -476,7 +456,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Decode RTCP/SRTCP QoS reports and estimate conversational MOS")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--hex", dest="hex_data", help="one RTCP/SRTCP datagram as hex")
-    source.add_argument("--listen", type=_host_port, metavar="HOST:PORT", help="listen for RTCP/SRTCP UDP datagrams")
+    source.add_argument("--listen", type=parse_endpoint, metavar="HOST:PORT", help="listen for RTCP/SRTCP UDP datagrams")
     parser.add_argument("--clock-rate", type=int, default=8000, help="RTP clock rate for jitter conversion")
     parser.add_argument("--local-ssrc", action="append", type=_parse_ssrc, default=[], help="local RTP SSRC whose SR may be referenced by LSR (repeatable)")
     parser.add_argument("--max-rtt-ms", type=float, default=DEFAULT_MAX_RTT_MS, help="reject larger RTT samples")
@@ -486,9 +466,12 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     secret.add_argument("--srtcp-inline", help="SDES inline key material (visible in process listings; prefer file/env)")
     secret.add_argument("--srtcp-inline-file", help="read SDES inline key material from a file")
     secret.add_argument("--srtcp-inline-env", help="read SDES inline key material from this environment variable")
-    parser.add_argument("--peer", type=_host_port, metavar="HOST:PORT", help="accept listener datagrams only from this source")
+    parser.add_argument("--peer", type=parse_endpoint, metavar="HOST:PORT", help="accept listener datagrams only from this source")
     parser.add_argument("--rate-limit", type=float, default=50.0, metavar="LINES_PER_SEC", help="maximum listener JSON lines per second; 0 disables limiting")
     args = parser.parse_args(argv)
+    for name in ("max_rtt_ms", "ie", "bpl", "rate_limit"):
+        if not math.isfinite(getattr(args, name)):
+            parser.error(f"--{name.replace('_', '-')} must be a finite number")
     if args.clock_rate <= 0:
         parser.error("--clock-rate must be positive")
     if args.max_rtt_ms <= 0:
@@ -529,25 +512,30 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         limiter = OutputRateLimiter(args.rate_limit)
     except (ValueError, RuntimeError) as exc:
         parser.error(str(exc))
+    print(f"sipp_rtcp_qos: listening on {format_endpoint(sock.getsockname()[:2])}", file=sys.stderr, flush=True)
     with sock:
-        while True:
-            data, peer = sock.recvfrom(65535)
-            peer_key = (_normalize_ip(peer[0]), peer[1])
-            if allowed_peers is not None and peer_key not in allowed_peers:
-                continue
-            peer_text = f"[{peer[0]}]:{peer[1]}" if ":" in peer[0] else f"{peer[0]}:{peer[1]}"
-            try:
-                payload = {
-                    "peer": peer_text,
-                    **decode_datagram(data, args.clock_rate, srtcp,
-                                      local_ssrcs=local_ssrcs,
-                                      max_rtt_ms=args.max_rtt_ms,
-                                      ie=args.ie, bpl=args.bpl, state=state),
-                }
-            except (ValueError, RuntimeError) as exc:
-                payload = {"peer": peer_text, "error": str(exc)}
-            if limiter.allow():
-                print(json.dumps(payload, sort_keys=True), flush=True)
+        try:
+            while True:
+                data, peer = sock.recvfrom(65535)
+                peer_key = (_normalize_ip(peer[0]), peer[1])
+                if allowed_peers is not None and peer_key not in allowed_peers:
+                    continue
+                peer_text = f"[{peer[0]}]:{peer[1]}" if ":" in peer[0] else f"{peer[0]}:{peer[1]}"
+                try:
+                    payload = {
+                        "peer": peer_text,
+                        **decode_datagram(data, args.clock_rate, srtcp,
+                                          local_ssrcs=local_ssrcs,
+                                          max_rtt_ms=args.max_rtt_ms,
+                                          ie=args.ie, bpl=args.bpl, state=state),
+                    }
+                except (ValueError, RuntimeError) as exc:
+                    payload = {"peer": peer_text, "error": str(exc)}
+                if limiter.allow():
+                    print(json.dumps(payload, sort_keys=True), flush=True)
+        except KeyboardInterrupt:
+            pass
+    return 0
 
 
 if __name__ == "__main__":
