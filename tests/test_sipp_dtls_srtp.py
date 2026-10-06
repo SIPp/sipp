@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 
+import argparse
 import hashlib
 import importlib.util
 import io
@@ -18,6 +19,7 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
 spec = importlib.util.spec_from_file_location("sipp_dtls_srtp", ROOT / "tools" / "sipp_dtls_srtp.py")
 dtls = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
@@ -75,12 +77,14 @@ class FingerprintTests(unittest.TestCase):
 
 class EndpointTests(unittest.TestCase):
     def test_remote_parser_and_formatter(self):
-        self.assertEqual(dtls._remote("192.0.2.1:4444"), ("192.0.2.1", 4444))
-        self.assertEqual(dtls._remote("[2001:db8::1]:4444"), ("2001:db8::1", 4444))
+        self.assertEqual(dtls.parse_endpoint("192.0.2.1:4444"), ("192.0.2.1", 4444))
+        self.assertEqual(dtls.parse_endpoint("[2001:db8::1]:4444"), ("2001:db8::1", 4444))
         self.assertEqual(dtls.format_endpoint(("192.0.2.1", 4444)), "192.0.2.1:4444")
         self.assertEqual(dtls.format_endpoint(("2001:db8::1", 4444)), "[2001:db8::1]:4444")
 
     def test_invalid_endpoint_is_rejected(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            dtls.parse_endpoint("::1:4444")
         with self.assertRaises(ValueError):
             dtls.format_endpoint(("", 4444))
         with self.assertRaises(ValueError):
