@@ -856,6 +856,13 @@ class TurnTests(unittest.TestCase):
         self.assertEqual(server.types()[-1], ice.REFRESH_REQUEST)
         self.assertIsNone(server.allocation)
 
+    def test_integrity_failure_warns_when_the_release_fails(self):
+        stderr = io.StringIO()
+        with MockTurnServer(bad_integrity=True, answer_refresh=False) as server, redirect_stderr(stderr):
+            with self.assertRaisesRegex(RuntimeError, "MESSAGE-INTEGRITY"):
+                ice.turn_allocate(server.endpoint, "user", "pass", timeout=1.0)
+        self.assertIn("may not be released", stderr.getvalue())
+
     def test_integrity_failure_with_keep_sends_no_release(self):
         with MockTurnServer(bad_integrity=True) as server:
             with self.assertRaisesRegex(RuntimeError, "MESSAGE-INTEGRITY"):
