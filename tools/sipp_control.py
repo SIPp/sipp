@@ -13,6 +13,7 @@ import json
 import os
 import re
 import socket
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -20,6 +21,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urlsplit
 
+from sipp_endpoint import format_endpoint
 from sipp_report import StatResult
 
 
@@ -91,8 +93,9 @@ def send_control(host: str, port: int, payload: str) -> None:
     an ICMP port unreachable arrives at once and shows up as
     ConnectionRefusedError on the connected socket.
     """
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.connect((host, port))
+    family, _, _, _, address = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_DGRAM)[0]
+    with socket.socket(family, socket.SOCK_DGRAM) as sock:
+        sock.connect(address)
         sock.send(payload.encode("utf-8"))
         sock.settimeout(UNREACHABLE_WAIT)
         try:
@@ -114,13 +117,13 @@ def _number_text(action: str, value: object) -> str:
         raise ValueError(f"{action} requires a non-negative value")
     if action == "rate-scale" and numeric == 0:
         raise ValueError("rate-scale must be greater than 0")
+    if numeric > INT_MAX:
+        raise ValueError(f"{action} must be at most {INT_MAX}")
     if action in INTEGER_COMMANDS:
         if numeric != int(numeric):
             raise ValueError(f"{action} requires an integer value")
-        if numeric > INT_MAX:
-            raise ValueError(f"{action} must be at most {INT_MAX}")
         return str(int(numeric))
-    return str(int(numeric)) if numeric == int(numeric) and numeric <= INT_MAX else repr(numeric)
+    return str(int(numeric)) if numeric == int(numeric) else repr(numeric)
 
 
 def build_control(action: str, value: Optional[object] = None) -> str:
@@ -141,9 +144,15 @@ def find_stat_file(directory: Path, scenario: str) -> Optional[Path]:
         candidates = [path for path in directory.iterdir() if pattern.fullmatch(path.name)]
     except OSError:
         return None
-    if not candidates:
-        return None
-    return max(candidates, key=lambda path: path.stat().st_mtime)
+    newest: Optional[Tuple[int, Path]] = None
+    for path in candidates:
+        try:
+            mtime = path.stat().st_mtime_ns
+        except OSError:
+            continue  # removed since the listing
+        if newest is None or mtime > newest[0]:
+            newest = (mtime, path)
+    return newest[1] if newest else None
 
 
 def stat_file_pid(path: Path) -> Optional[int]:
@@ -423,8 +432,9 @@ def build_parser() -> argparse.ArgumentParser:
     stats.add_argument("--stat-dir", type=Path, help="directory to search for the newest <scenario>_<pid>_.csv")
     parser.add_argument("--scenario", help="scenario name used with --stat-dir, e.g. uac for -sf uac.xml")
     parser.add_argument("--delimiter", default=";")
-    parser.add_argument("--stale-after", type=float, default=10.0,
-                        help="seconds without a stat file update before it is shown as stale (keep above -fd)")
+    parser.add_argument("--stale-after", type=float, default=120.0,
+                        help="seconds without a stat file update before it is shown as stale "
+                             "(keep above -fd, 60 by default)")
     parser.add_argument("--listen", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=9880)
     parser.add_argument("--allow-remote", action="store_true",
@@ -458,6 +468,9 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     except OSError as exc:
         print(f"sipp_control: {exc}")
         return 2
+    host, port = server.server_address[:2]
+    print(f"sipp_control: listening on http://{format_endpoint((host, port))}/, "
+          f"sending to SIPp at {format_endpoint((args.sipp_host, args.sipp_port))}", file=sys.stderr, flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

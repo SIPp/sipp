@@ -3,6 +3,7 @@
 
 import http.client
 import importlib.util
+import io
 import json
 import os
 import socket
@@ -76,6 +77,11 @@ class ControlTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             control.build_control("rate", 10**400)
 
+    def test_rate_is_capped(self):
+        with self.assertRaises(ValueError):
+            control.build_control("rate", 1e308)
+        self.assertEqual(control.build_control("rate", control.INT_MAX), f"cset rate {control.INT_MAX}")
+
     def test_zero_is_valid(self):
         self.assertEqual(control.build_control("rate", 0), "cset rate 0")
         self.assertEqual(control.build_control("users", 0), "cset users 0")
@@ -132,6 +138,21 @@ class StatTests(unittest.TestCase):
         self.assertEqual(control.find_stat_file(self.dir, "uac"), new)
         self.assertIsNone(control.find_stat_file(self.dir, "nope"))
 
+    def test_file_removed_after_listing_is_skipped(self):
+        kept = self.dir / "uac_100_.csv"
+        gone = self.dir / "uac_200_.csv"
+        for path in (kept, gone):
+            path.write_text(STAT_HEADER + stat_row(1, 1, 1), encoding="utf-8")
+        real_stat = Path.stat
+
+        def stat(path, *args, **kwargs):
+            if path.name == gone.name:
+                raise FileNotFoundError(path)
+            return real_stat(path, *args, **kwargs)
+
+        with unittest.mock.patch.object(Path, "stat", stat):
+            self.assertEqual(control.find_stat_file(self.dir, "uac"), kept)
+
     def test_stale_when_not_updated_or_process_gone(self):
         path = self.dir / "uac_1_.csv"
         path.write_text(STAT_HEADER + stat_row(1, 1, 1), encoding="utf-8")
@@ -180,6 +201,19 @@ class UdpTests(unittest.TestCase):
     def test_closed_port_is_reported(self):
         with self.assertRaises(OSError):
             control.send_control("127.0.0.1", closed_udp_port(), "p")
+
+
+class UdpIpv6Tests(unittest.TestCase):
+    def test_send_over_ipv6(self):
+        try:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+            sock.bind(("::1", 0))
+        except OSError:
+            self.skipTest("no IPv6 loopback")
+        self.addCleanup(sock.close)
+        sock.settimeout(2)
+        control.send_control("::1", sock.getsockname()[1], "cset rate 5")
+        self.assertEqual(sock.recv(4096), b"cset rate 5")
 
 
 class HttpTests(unittest.TestCase):
@@ -344,6 +378,16 @@ class MainTests(unittest.TestCase):
                             unittest.mock.patch("sys.stderr"):
                         control.main(argv)
                     self.assertEqual(caught.exception.code, 2)
+
+    def test_startup_says_where_the_dashboard_is(self):
+        server = unittest.mock.MagicMock()
+        server.server_address = ("127.0.0.1", 9880)
+        server.serve_forever.side_effect = KeyboardInterrupt
+        with unittest.mock.patch.object(control, "make_server", return_value=server), \
+                unittest.mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            self.assertEqual(control.main([]), 0)
+        self.assertIn("listening on http://127.0.0.1:9880/", err.getvalue())
+        self.assertIn("SIPp at 127.0.0.1:8888", err.getvalue())
 
     def test_remote_hosts_include_listen_address(self):
         hosts = control.allowed_hosts("192.0.2.1", 9880, ["sipp.example"])
