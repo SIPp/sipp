@@ -15,6 +15,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable, Optional, Tuple
 
+from sipp_endpoint import format_endpoint, parse_endpoint
+
 EXPORTER_LABEL = "EXTRACTOR-dtls_srtp"
 SUPPORTED_PROFILES = {
     "SRTP_AEAD_AES_128_GCM": (16, 12),
@@ -134,16 +136,6 @@ def verify_peer_fingerprint(output: str, expected: str) -> str:
     return actual
 
 
-def format_endpoint(endpoint: Tuple[str, int]) -> str:
-    host, port = endpoint
-    if not 1 <= port <= 65535:
-        raise ValueError("port must be 1..65535")
-    host = host.strip()
-    if not host:
-        raise ValueError("host cannot be empty")
-    return f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
-
-
 def _error_tail(output: Optional[str], lines: int = 12) -> str:
     """Return a useful OpenSSL error tail without exposing session key material."""
     if not output:
@@ -220,30 +212,9 @@ def run_handshake(remote: Tuple[str, int], *, cert: str, key: str,
     return keys, fingerprint
 
 
-def _remote(value: str) -> Tuple[str, int]:
-    value = value.strip()
-    if value.startswith("["):
-        end = value.find("]")
-        if end <= 1 or end + 1 >= len(value) or value[end + 1] != ":":
-            raise argparse.ArgumentTypeError("expected [IPv6]:PORT")
-        host = value[1:end]
-        raw_port = value[end + 2:]
-    else:
-        host, sep, raw_port = value.rpartition(":")
-        if not sep or not host:
-            raise argparse.ArgumentTypeError("expected HOST:PORT")
-    try:
-        port = int(raw_port)
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError("invalid port") from exc
-    if not 1 <= port <= 65535:
-        raise argparse.ArgumentTypeError("port must be 1..65535")
-    return host, port
-
-
 def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="DTLS-SRTP diagnostic handshake probe for SIPp media tests")
-    parser.add_argument("remote", type=_remote)
+    parser.add_argument("remote", type=parse_endpoint)
     parser.add_argument("--cert", required=True, help="local PEM certificate")
     parser.add_argument("--key", required=True, help="local PEM private key (unencrypted only)")
     parser.add_argument(
