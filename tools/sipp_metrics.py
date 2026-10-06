@@ -15,6 +15,7 @@ import csv
 import io
 import json
 import re
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from pathlib import Path
 from stat import S_ISREG
 from typing import Callable, Dict, Iterable, List, Optional
 
+from sipp_endpoint import format_endpoint
 from sipp_report import StatResult
 
 
@@ -71,12 +73,14 @@ def describe_column(column: str) -> tuple[str, bool, bool]:
     (C) columns are cumulative since SIPp started and are counters, except the
     running averages (CallRate, ResponseTime, CallLength and their StDev).
     (P) columns cover the last -fd period only and get a _period suffix.
+    TotalCallCreated has neither suffix and is a counter too.
     """
     match = _SUFFIX_RE.match(column.strip())
     base = match.group("base") if match else column.strip()
     kind = match.group("kind") if match else ""
     seconds = bool(_TIME_COLUMN_RE.match(base))
-    counter = kind == "C" and not _AVERAGE_RE.match(base)
+    # TotalCallCreated has no suffix, but only grows
+    counter = (kind == "C" and not _AVERAGE_RE.match(base)) or base == "TotalCallCreated"
     name = metric_name(base)
     if kind == "P":
         name += "_period"
@@ -405,7 +409,15 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         parser.error("--stale-after cannot be negative")
     store = SnapshotStore(reader_from_args(args), args.stale_after)
     if args.serve:
-        make_server(store, args.listen, args.port).serve_forever()
+        server = make_server(store, args.listen, args.port)
+        host, port = server.server_address[:2]
+        print(f"sipp_metrics: listening on http://{format_endpoint((host, port))}/metrics", file=sys.stderr, flush=True)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            server.server_close()
         return 0
     while True:
         snapshot, error, stale, now = store.refresh()

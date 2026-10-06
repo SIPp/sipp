@@ -34,6 +34,7 @@ def load(name: str, path: Path):
     return module
 
 
+load("sipp_endpoint", ROOT / "tools" / "sipp_endpoint.py")
 load("sipp_report", ROOT / "tools" / "sipp_report.py")
 metrics = load("sipp_metrics", ROOT / "tools" / "sipp_metrics.py")
 otlp = load("sipp_otlp", ROOT / "tools" / "sipp_otlp.py")
@@ -183,6 +184,7 @@ class PrometheusTests(unittest.TestCase):
         self.assertEqual(metrics.describe_column("ElapsedTime(C)"), ("sipp_elapsedtime_seconds", True, True))
         self.assertEqual(metrics.describe_column("ResponseTime1(C)"), ("sipp_responsetime1_seconds", False, True))
         self.assertEqual(metrics.describe_column("CallRate(C)"), ("sipp_callrate", False, False))
+        self.assertEqual(metrics.describe_column("TotalCallCreated"), ("sipp_totalcallcreated", True, False))
         self.assertEqual(metrics.describe_column("CallLengthRepartition_>=10000(C)"),
                          ("sipp_calllengthrepartition_ge_10000", True, False))
 
@@ -252,6 +254,16 @@ class HttpTests(unittest.TestCase):
                 self.assertEqual(get(base + "/healthz")[0], 503)
                 self.assertIn("sipp_exporter_up 0", get(base + "/metrics")[2])
 
+    def test_serve_says_where_it_listens(self):
+        server = mock.MagicMock()
+        server.server_address = ("127.0.0.1", 9100)
+        server.serve_forever.side_effect = KeyboardInterrupt
+        err = io.StringIO()
+        with mock.patch.object(metrics, "make_server", return_value=server), contextlib.redirect_stderr(err):
+            self.assertEqual(metrics.main(["--stat-file", str(FIXTURE), "--serve"]), 0)
+        self.assertIn("listening on http://127.0.0.1:9100/metrics", err.getvalue())
+        server.server_close.assert_called_once()
+
     def test_main_prints_one_snapshot(self):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
@@ -277,7 +289,32 @@ class Collector(http.server.BaseHTTPRequestHandler):
         return
 
 
+class Redirector(http.server.BaseHTTPRequestHandler):
+    location = ""
+
+    def do_POST(self):
+        self.send_response(302)
+        self.send_header("Location", type(self).location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def log_message(self, fmt, *args):
+        return
+
+
 class OtlpTests(unittest.TestCase):
+    def test_redirect_is_not_followed(self):
+        Collector.requests = []
+        Collector.status = 200
+        target = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Collector)
+        redirector = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Redirector)
+        with serving(target) as target_base, serving(redirector) as base:
+            Redirector.location = target_base + "/v1/metrics"
+            with self.assertRaisesRegex(RuntimeError, "HTTP 302"):
+                otlp.push(base + "/v1/metrics", {}, 2, {"Authorization": "Bearer secret"})
+        self.assertEqual(Collector.requests, [])
+
+
     def test_counters_are_cumulative_sums_at_the_row_time(self):
         payload = otlp.build_otlp(metrics.StatFileReader(FIXTURE).read(), "loadtest")
         found = {m["name"]: m for m in payload["resourceMetrics"][0]["scopeMetrics"][0]["metrics"]}
