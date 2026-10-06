@@ -91,6 +91,12 @@ any earlier release (see the "Memory and CPU per call" entry).
 - `tools/sipp_report.py` checks the last row of a `-trace_stat` file
   against thresholds for CI and writes JSON and JUnit reports (#1277, by
   Darwvin)
+- More Python tools in `tools/`, outside SIPp: an HTTP API and dashboard
+  for the remote control socket (#1275), Prometheus and OpenTelemetry
+  exporters of the `-trace_stat` file (#1276), an RTP/RTCP impairment
+  proxy (#1278), an RTCP/SRTCP QoS and MOS analyzer (#1279), STUN, ICE
+  and TURN probes (#1280) and a DTLS-SRTP handshake probe (#1281), all by
+  Darwvin
 
 ### Changed
 
