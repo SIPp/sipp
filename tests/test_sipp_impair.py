@@ -157,14 +157,16 @@ class ImpairmentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             impair.ImpairmentEngine(impair.Profile(), max_queue=0)
 
-    def test_duplicate_dropped_by_full_queue_is_overflow(self):
+    def test_counters_balance_when_copies_overflow(self):
         sock = FakeSocket()
         engine = impair.ImpairmentEngine(impair.Profile(duplicate_percent=100), seed=1, max_queue=1)
-        engine.submit(UP, sock, TARGET, b"x", 1.0)
+        for i in range(20):
+            engine.submit(UP, sock, TARGET, b"x", 1.0 + i / 1000)
         engine.flush(2.0)
-        counters = engine.directions[UP].counters
+        c = engine.directions[UP].counters
         self.assertEqual(len(sock.sent), 1)
-        self.assertEqual((counters.duplicated, counters.overflow), (0, 1))
+        self.assertEqual((c.received, c.duplicated, c.forwarded, c.overflow), (20, 20, 1, 39))
+        self.assertEqual(c.received + c.duplicated, c.dropped + c.forwarded + c.overflow + c.send_errors)
 
     def test_seed_repeats_per_direction_regardless_of_interleaving(self):
         profile = impair.Profile(loss_percent=30, duplicate_percent=10, reorder_percent=10,
@@ -372,6 +374,12 @@ class ProxySocketTests(unittest.TestCase):
         self.assertEqual(data, b"ok")
         self.peer.sendto(b"back", proxy_upstream)
         self.assertEqual(allowed.recvfrom(2048)[0], b"back")
+
+    @unittest.skipUnless(_ipv6_available(), "IPv6 loopback unavailable")
+    def test_ipv4_client_is_refused_on_ipv6_only_listen(self):
+        with self.assertRaises(ValueError):
+            impair.Proxy(("::1", 0), ("127.0.0.1", 9), impair.ImpairmentEngine(impair.Profile()),
+                         client=("127.0.0.1", 5004))
 
     def test_injection_to_upstream_socket_is_ignored(self):
         self.start()

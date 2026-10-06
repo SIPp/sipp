@@ -47,6 +47,9 @@ direction to standard error; ``SIGUSR1`` prints them without stopping:
 ``rejected`` counts datagrams discarded because they came from an unexpected
 source, ``overflow`` counts packets dropped because more than ``--max-queue``
 (default 4096) were waiting, and ``send_errors`` counts failed sends.
+``duplicated`` counts every copy made, including one dropped as ``overflow``,
+so once nothing is waiting ``received + duplicated`` equals ``dropped +
+forwarded + overflow + send_errors``.
 
 Topology
 --------
@@ -65,8 +68,9 @@ to the client:
 * The client is fixed with ``--client HOST:PORT``; without it the proxy locks
   to the first sender. Datagrams to ``--listen`` from any other source are
   discarded, so a third party cannot take over the return path. With an
-  IPv6 ``--listen`` such as ``[::]``, an IPv4 ``--client`` matches the
-  IPv4-mapped address (``::ffff:a.b.c.d``) the client arrives from.
+  IPv6 ``--listen`` of ``[::]``, an IPv4 ``--client`` matches the
+  IPv4-mapped address (``::ffff:a.b.c.d``) the client arrives from. Any
+  other IPv6 ``--listen``, such as ``[::1]``, does not take IPv4 clients.
 * The return direction is only impaired if the upstream peer uses symmetric
   RTP (RFC 4961), i.e. it sends its media back to the address the media came
   from. Most user agents send to the address in the SDP instead, which
@@ -109,8 +113,9 @@ The supported controls are:
 * ``--duplicate-percent`` - probability of forwarding a second copy.
 * ``--reorder-percent`` - probability of holding one packet and sending it
   just after the next packet of the same direction, so the two adjacent
-  packets are swapped. If no further packet arrives within
-  ``--reorder-delay-ms``, the held packet is sent then, so reordering never
+  packets are swapped. If no further packet arrives by
+  ``--reorder-delay-ms`` after the held packet's own send time (its arrival
+  plus ``--delay-ms`` and jitter), the held packet is sent then, so reordering never
   silently becomes packet loss. The packet that a held one waits for is
   never held itself, even when the held packet has already been sent at its
   deadline.
@@ -126,8 +131,8 @@ whether the Nth packet of a direction is lost, duplicated or held for
 reordering, and the jitter it gets, depend only on the seed and N, not on
 traffic in the other direction or on packet timing. Timing still decides the
 rest: send times follow arrival times plus the configured delay and jitter, a
-held packet whose successor arrives after ``--reorder-delay-ms`` is sent
-without being swapped, and packets that find ``--max-queue`` packets waiting
+held packet whose successor arrives after its deadline (send time plus
+``--reorder-delay-ms``) is sent without being swapped, and packets that find ``--max-queue`` packets waiting
 are dropped as ``overflow``.
 
 Examples
