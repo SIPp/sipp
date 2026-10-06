@@ -9,6 +9,7 @@ import http.client
 import json
 import os
 import re
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -75,6 +76,16 @@ def build_otlp(snapshot: MetricsSnapshot, service_name: str) -> dict:
     }
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect would send the headers, such as Authorization, elsewhere."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
 def push(endpoint: str, payload: dict, timeout: float, headers: Dict[str, str]) -> None:
     body = json.dumps(payload, separators=(",", ":")).encode()
     request = urllib.request.Request(endpoint, data=body, method="POST")
@@ -82,7 +93,7 @@ def push(endpoint: str, payload: dict, timeout: float, headers: Dict[str, str]) 
     for name, value in headers.items():
         request.add_header(name, value)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with _OPENER.open(request, timeout=timeout) as response:
             status = response.status
     except urllib.error.HTTPError as exc:
         exc.close()
@@ -202,11 +213,16 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     store = SnapshotStore(reader_from_args(args), args.stale_after)
     exporter = OtlpExporter(store, args.endpoint, args.timeout, headers, args.service_name)
 
-    while True:
-        ok = exporter.run_once()
-        if args.once:
-            return 0 if ok else 1
-        time.sleep(max(args.interval, 0.1))
+    if not args.once:
+        print(f"sipp_otlp: pushing to {args.endpoint} every {args.interval:g} s", file=sys.stderr, flush=True)
+    try:
+        while True:
+            ok = exporter.run_once()
+            if args.once:
+                return 0 if ok else 1
+            time.sleep(max(args.interval, 0.1))
+    except KeyboardInterrupt:
+        return 0
 
 
 if __name__ == "__main__":
