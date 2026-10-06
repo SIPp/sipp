@@ -55,7 +55,8 @@ failures, retransmissions, watchdogs, ``ResponseTime1(C)`` and
 ``CallLength(C)`` in seconds).  ``TargetRate`` is the rate SIPp is aiming for,
 or the number of users when it runs with ``-users``; it is the way to see
 whether a rate or users command took effect.  SIPp writes a row every ``-fd``
-period, so set ``--stale-after`` (default 10 seconds) above it.  The values are
+period (60 seconds by default), so keep ``--stale-after`` (default 120
+seconds) above it.  The values are
 marked stale when the file stops changing or when the SIPp process named by
 the pid in the file name has exited.
 
