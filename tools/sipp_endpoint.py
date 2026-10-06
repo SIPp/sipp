@@ -37,10 +37,10 @@ def parse_endpoint(value: str, *, allow_zero_port: bool = False) -> Tuple[str, i
         if not host:
             raise argparse.ArgumentTypeError("expected HOST:PORT")
 
-    try:
-        port = int(raw_port)
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError("invalid port") from exc
+    # int() would also take "8_0", "+80", " 80" and non-ASCII digits
+    if not (raw_port.isascii() and raw_port.isdigit()):
+        raise argparse.ArgumentTypeError("invalid port")
+    port = int(raw_port)
     if allow_zero_port and port == 0:
         return host, port
     if not 1 <= port <= 65535:
