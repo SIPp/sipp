@@ -3,15 +3,19 @@
 
 import argparse
 import base64
+import contextlib
 import importlib.util
+import io
 import os
 import struct
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
 spec = importlib.util.spec_from_file_location("sipp_rtcp_qos", ROOT / "tools" / "sipp_rtcp_qos.py")
 qos = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
@@ -103,9 +107,9 @@ class RtcpParserTests(unittest.TestCase):
             qos.parse_rtcp(bytes(data))
 
     def test_endpoint_parser_rejects_unbracketed_ipv6(self):
-        self.assertEqual(qos._host_port("[2001:db8::1]:9001"), ("2001:db8::1", 9001))
+        self.assertEqual(qos.parse_endpoint("[2001:db8::1]:9001"), ("2001:db8::1", 9001))
         with self.assertRaises(argparse.ArgumentTypeError):
-            qos._host_port("2001:db8::1:9001")
+            qos.parse_endpoint("2001:db8::1:9001")
 
 
 class QosTests(unittest.TestCase):
@@ -195,6 +199,7 @@ class QosTests(unittest.TestCase):
             qos.decode(receiver_report(), -1)
 
 
+@unittest.skipUnless(importlib.util.find_spec("cryptography"), "needs the cryptography package")
 class SrtcpTests(unittest.TestCase):
     MASTER = bytes.fromhex("e1f97a0d3e018be0d64fa32c06de4139")
     SALT = bytes.fromhex("0ec675ad498afeebb6960b3aabe6")
@@ -270,6 +275,22 @@ class SrtcpTests(unittest.TestCase):
 
 
 class ListenerHelpersTests(unittest.TestCase):
+    def test_non_finite_options_are_rejected(self):
+        for option in ("--bpl", "--max-rtt-ms", "--rate-limit", "--ie"):
+            with self.subTest(option=option), self.assertRaises(SystemExit), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                qos.main(["--hex", "00", option, "nan"])
+
+    def test_listener_reports_its_address_and_stops_on_ctrl_c(self):
+        sock = mock.MagicMock()
+        sock.__enter__.return_value = sock
+        sock.getsockname.return_value = ("127.0.0.1", 9001)
+        sock.recvfrom.side_effect = KeyboardInterrupt
+        err = io.StringIO()
+        with mock.patch.object(qos, "_bind_udp", return_value=sock), contextlib.redirect_stderr(err):
+            self.assertEqual(qos.main(["--listen", "127.0.0.1:9001"]), 0)
+        self.assertIn("listening on 127.0.0.1:9001", err.getvalue())
+
     def test_rate_limiter_zero_disables_limit(self):
         limiter = qos.OutputRateLimiter(0)
         self.assertTrue(all(limiter.allow() for _ in range(100)))
