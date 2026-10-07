@@ -2519,33 +2519,6 @@ int main(int argc, char *argv[])
         rate_increase_freq = report_freq_dumpLog;
     }
 
-    // Check the soft limit on the number of open files,
-    // error out if this does not allow us to open the
-    // required number of signalling channels, and warn
-    // if this may not allow enough media channels.
-    if (!skip_rlimit) {
-        struct rlimit rlimit;
-        unsigned max_sockets_needed = multisocket ? max_multi_socket : 1;
-
-        if (getrlimit (RLIMIT_NOFILE, &rlimit) < 0) {
-            ERROR_NO("getrlimit error");
-        }
-
-        if (max_sockets_needed > rlimit.rlim_cur) {
-            ERROR("Maximum number of open sockets (%d) should be less than the maximum number "
-                  "of open files (%lu). Tune this with the `ulimit` command or the -max_socket "
-                  "option", max_sockets_needed, (unsigned long)rlimit.rlim_cur);
-        }
-
-        if ((open_calls_allowed + max_sockets_needed) > rlimit.rlim_cur) {
-            WARNING("Maximum number of open sockets (%d) plus number of open calls (%d) "
-                    "should be less than the maximum number of open files (%lu) to "
-                    "allow for media support. Tune this with the `ulimit` command, "
-                    "the -l option or the -max_socket option",
-                    max_sockets_needed, open_calls_allowed, (unsigned long)rlimit.rlim_cur);
-        }
-    }
-
     if (periodic_rtd) {
         WARNING("-periodic_rtd is deprecated and ignored: the statistics file "
                 "has periodic (P) and cumulative (C) repartition columns");
@@ -2653,6 +2626,48 @@ int main(int argc, char *argv[])
     if (creationMode == MODE_CLIENT || creationMode == MODE_MIXED) {
         CallGenerationTask::initialize();
         CallGenerationTask::set_rate(rate);
+    }
+
+    // Raise the soft limit on the number of open files to the hard
+    // limit, then error out if it does not allow us to open the
+    // required number of signalling channels, and warn if it may not
+    // allow enough media channels. This runs after set_rate(), which
+    // sets open_calls_allowed from the rate.
+    if (!skip_rlimit) {
+        struct rlimit rlimit;
+        unsigned max_sockets_needed = multisocket ? max_multi_socket : 1;
+
+        if (getrlimit(RLIMIT_NOFILE, &rlimit) < 0) {
+            ERROR_NO("getrlimit error");
+        }
+
+        if (rlimit.rlim_cur < rlimit.rlim_max) {
+            struct rlimit raised = rlimit;
+            raised.rlim_cur = rlimit.rlim_max;
+#ifdef __APPLE__
+            // macOS refuses a soft limit above OPEN_MAX.
+            raised.rlim_cur = std::min<rlim_t>(raised.rlim_cur, OPEN_MAX);
+#endif
+            if (raised.rlim_cur > rlimit.rlim_cur && setrlimit(RLIMIT_NOFILE, &raised) == 0) {
+                rlimit = raised;
+            }
+        }
+
+        if (max_sockets_needed > rlimit.rlim_cur) {
+            ERROR("Maximum number of open sockets (%d) should be less than the maximum number "
+                  "of open files (%lu). Tune this with the `ulimit` command or the -max_socket "
+                  "option",
+                  max_sockets_needed, (unsigned long)rlimit.rlim_cur);
+        }
+
+        // An rtp_stream takes two sockets per call, RTP and RTCP.
+        if ((2 * open_calls_allowed + max_sockets_needed) > rlimit.rlim_cur) {
+            WARNING("Maximum number of open sockets (%d) plus two per open call (%d) "
+                    "should be less than the maximum number of open files (%lu) to "
+                    "allow for media support. Tune this with the `ulimit` command, "
+                    "the -l option or the -max_socket option",
+                    max_sockets_needed, open_calls_allowed, (unsigned long)rlimit.rlim_cur);
+        }
     }
 
     open_connections();

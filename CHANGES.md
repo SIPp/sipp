@@ -155,6 +155,10 @@ any earlier release (see the "Memory and CPU per call" entry).
   than the call's destination, such as a BYE after a proxy fails over,
   is answered there instead of at the destination. `-rsa` still sends
   every message to its address (#240, by Orgad Shaneh)
+- SIPp raises its soft limit on open files to the hard limit, as the
+  `-skip_rlimit` help says, so a default limit of 1024 no longer leaves
+  calls without RTP sockets. The startup warning counts two sockets per
+  call and the open calls derived from `-r` (#1287, by Orgad Shaneh)
 
 ### Fixed
 
