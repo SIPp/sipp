@@ -1119,10 +1119,12 @@ static unsigned long rtpstream_playrtptask(taskentry_t* taskinfo,
                          * rtp_buffsize of kernel memory per call, 64 KB by
                          * default: give it the least the kernel allows, a
                          * few packets, and the full size back when a later
-                         * play reads it. */
+                         * play reads it. A failed resize leaves the flag
+                         * as it was, to try again on the next packet. */
                         int rcvbuf = read_in ? rtp_buffsize : 1;
-                        setsockopt(taskinfo->audio_rtp_socket, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
-                        taskinfo->audio_rcvbuf_small = !read_in;
+                        if (!setsockopt(taskinfo->audio_rtp_socket, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
+                            taskinfo->audio_rcvbuf_small = !read_in;
+                        }
                     }
                     static thread_local RtpstreamReader reader;
                     const unsigned char *packet;
