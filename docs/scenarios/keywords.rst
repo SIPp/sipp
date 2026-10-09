@@ -69,7 +69,8 @@ Keyword list
 
 ``[local_ip]``
 ==============
-:Description: (Primary host IP address) Will take the value of -i parameter.
+:Description: (Primary host IP address) Will take the value of -i parameter. IPv6 addresses will be enclosed in
+  square brackets, e.g. ``[2001:db8::1]``. These are not valid in SDP, use ``[media_ip]`` instead.
 
 ``[local_ip_type]``
 ===================

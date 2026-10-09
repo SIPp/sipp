@@ -115,6 +115,10 @@ any earlier release (see the "Memory and CPU per call" entry).
   (C) columns for each ResponseTimeRepartition and CallLengthRepartition
   range; `-periodic_rtd` is deprecated and ignored (#19, by Orgad
   Shaneh)
+- **Breaking:** Scenario uses of `[local_ip]` in SDP now use `[media_ip]`.
+  The SDP `o=` field therefore uses the media address (`-mi`) instead of
+  the signaling address (`-i`), matching `c=`. Tests that expect `o=` to
+  contain the `-i` address may need updating. (#1289, by Joshua Hatter)
 - Default for `-rtp_threadtasks` (media calls per thread) raised from 20
   to 50 (#1116, by Orgad Shaneh)
 - pcap play runs in the RTP playback threads, not in a thread per play,
@@ -373,6 +377,8 @@ any earlier release (see the "Memory and CPU per call" entry).
   documented (#950, #952, #953), CONTRIBUTING.md says what makes a PR
   mergeable (#954), and the regress tests run on BSD and macOS (#946,
   #947, #948)
+- The embedded `uac_pcap` scenario sent an IPv6 address in brackets in SDP
+  `c=` (#1289, by Joshua Hatter)
 
 ## [3.7.9] - 2026-09-30
 
