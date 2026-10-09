@@ -677,7 +677,7 @@ let's start::
           Content-Length: [len]
 
           v=0
-          o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]
+          o=user1 53655765 2353687637 IN IP[media_ip_type] [media_ip]
           s=-
           t=0 0
           c=IN IP[media_ip_type] [media_ip]

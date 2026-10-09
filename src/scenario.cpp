@@ -2019,6 +2019,7 @@ int find_scenario(const char *scenario)
 
 // TIP: to integrate an existing XML scenario, use the following sed line:
 // cat ../3pcc-controller-B.xml | sed -e 's/\"/\\\"/g' -e 's/\(.*\)/\"\1\\n\"/'
+// clang-format off
 const char * default_scenario [] = {
     /************* Default_scenario[0] ***************/
     "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n"
@@ -2061,7 +2062,7 @@ const char * default_scenario [] = {
     "      Content-Length: [len]\n"
     "\n"
     "      v=0\n"
-    "      o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]\n"
+    "      o=user1 53655765 2353687637 IN IP[media_ip_type] [media_ip]\n"
     "      s=-\n"
     "      c=IN IP[media_ip_type] [media_ip]\n"
     "      t=0 0\n"
@@ -2214,7 +2215,7 @@ const char * default_scenario [] = {
     "      Content-Length: [len]\n"
     "\n"
     "      v=0\n"
-    "      o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]\n"
+    "      o=user1 53655765 2353687637 IN IP[media_ip_type] [media_ip]\n"
     "      s=-\n"
     "      c=IN IP[media_ip_type] [media_ip]\n"
     "      t=0 0\n"
@@ -2301,7 +2302,7 @@ const char * default_scenario [] = {
     "      Content-Length: [len]\n"
     "\n"
     "      v=0\n"
-    "      o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]\n"
+    "      o=user1 53655765 2353687637 IN IP[media_ip_type] [media_ip]\n"
     "      s=-\n"
     "      c=IN IP[media_ip_type] [media_ip]\n"
     "      t=0 0\n"
@@ -2732,7 +2733,7 @@ const char * default_scenario [] = {
     "      Content-Length: [len]\n"
     "\n"
     "      v=0\n"
-    "      o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]\n"
+    "      o=user1 53655765 2353687637 IN IP[media_ip_type] [media_ip]\n"
     "      s=-\n"
     "      c=IN IP[media_ip_type] [media_ip]\n"
     "      t=0 0\n"
@@ -2827,7 +2828,7 @@ const char * default_scenario [] = {
     "      Content-Length: [len]\n"
     "\n"
     "      v=0\n"
-    "      o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]\n"
+    "      o=user1 53655765 2353687637 IN IP[media_ip_type] [media_ip]\n"
     "      s=-\n"
     "      c=IN IP[media_ip_type] [media_ip]\n"
     "      t=0 0\n"
@@ -2928,7 +2929,7 @@ const char * default_scenario [] = {
     "      Content-Length: [len]\n"
     "\n"
     "      v=0\n"
-    "      o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]\n"
+    "      o=user1 53655765 2353687637 IN IP[media_ip_type] [media_ip]\n"
     "      s=-\n"
     "      c=IN IP[media_ip_type] [media_ip]\n"
     "      t=0 0\n"
@@ -3128,7 +3129,7 @@ const char * default_scenario [] = {
     "      Content-Length: [len]\n"
     "\n"
     "      v=0\n"
-    "      o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]\n"
+    "      o=user1 53655765 2353687637 IN IP[media_ip_type] [media_ip]\n"
     "      s=-\n"
     "      c=IN IP[media_ip_type] [media_ip]\n"
     "      t=0 0\n"
@@ -3222,9 +3223,9 @@ const char * default_scenario [] = {
     "      Content-Length: [len]\n"
     "\n"
     "      v=0\n"
-    "      o=user1 53655765 2353687637 IN IP[local_ip_type] [local_ip]\n"
+    "      o=user1 53655765 2353687637 IN IP[media_ip_type] [media_ip]\n"
     "      s=-\n"
-    "      c=IN IP[local_ip_type] [local_ip]\n"
+    "      c=IN IP[media_ip_type] [media_ip]\n"
     "      t=0 0\n"
     "      m=audio [media_port] RTP/AVP 8 101\n"
     "      a=rtpmap:8 PCMA/8000\n"
@@ -3396,6 +3397,7 @@ const char * default_scenario [] = {
     "\n"
     "</scenario>\n",
 };
+// clang-format on
 
 #ifdef GTEST
 #include "gtest/gtest.h"

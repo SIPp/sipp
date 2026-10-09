@@ -1,0 +1,16 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# The embedded scenarios need [media_ip] in SDP o= and c=, not [local_ip],
+# which is bracketed for IPv6
+. "`dirname "$0"`/../functions"; init
+
+out=`mktemp`
+trap 'rm -f "$out" err.log' EXIT
+
+for s in uac uas regexp 3pcc-C-A 3pcc-C-B 3pcc-A 3pcc-B branchc branchs uac_pcap; do
+    sippfg --sd $s > "$out" 2> err.log
+    grep -q '<scenario name=' "$out" || fail "--sd $s: `tail -n 1 err.log`"
+    grep -qE '^ *[oc]=.*\[local_ip' "$out" && fail "$s: [local_ip] in SDP"
+done
+
+ok

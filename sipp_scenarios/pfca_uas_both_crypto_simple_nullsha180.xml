@@ -65,7 +65,7 @@
       Content-Length: [len]
 
       v=0
-      o=16002 0 0 IN IP[local_ip_type] [local_ip]
+      o=16002 0 0 IN IP[media_ip_type] [media_ip]
       s=-
       c=IN IP[media_ip_type] [media_ip]
       t=0 0
