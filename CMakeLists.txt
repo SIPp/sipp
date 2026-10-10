@@ -262,6 +262,19 @@ CHECK_STRUCT_HAS_MEMBER("struct udphdr" uh_sport "sys/types.h;netinet/udp.h"  HA
 configure_file("${PROJECT_SOURCE_DIR}/include/config.h.in"
                "${PROJECT_BINARY_DIR}/config.h" )
 
+# The built-in scenarios (-sn, -sd) are docs/*.xml, each made into a raw
+# string literal for src/scenario.cpp to include.
+file(GLOB builtin_scenarios "${PROJECT_SOURCE_DIR}/docs/*.xml")
+foreach(xml ${builtin_scenarios})
+  get_filename_component(name "${xml}" NAME)
+  file(READ "${xml}" content)
+  file(WRITE "${PROJECT_BINARY_DIR}/docs/${name}.inc.tmp" "R\"SIPP(${content})SIPP\",\n")
+  # Rewritten only when it changed, so scenario.cpp isn't rebuilt each time.
+  configure_file("${PROJECT_BINARY_DIR}/docs/${name}.inc.tmp"
+                 "${PROJECT_BINARY_DIR}/docs/${name}.inc" COPYONLY)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${xml}")
+endforeach()
+
 list(REMOVE_ITEM all_SRCS
   "${PROJECT_SOURCE_DIR}/src/sipp_unittest.cpp")
 

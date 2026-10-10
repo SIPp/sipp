@@ -30,6 +30,7 @@ WORKDIR /sipp
 COPY CMakeLists.txt ./
 COPY src src
 COPY include include
+COPY docs/*.xml docs/
 COPY gtest gtest
 COPY third_party third_party
 
