@@ -163,6 +163,10 @@ any earlier release (see the "Memory and CPU per call" entry).
   `-skip_rlimit` help says, so a default limit of 1024 no longer leaves
   calls without RTP sockets. The startup warning counts two sockets per
   call and the open calls derived from `-r` (#1287, by Orgad Shaneh)
+- The built-in scenarios are built from `docs/*.xml`, so the scenario
+  files in the documentation are the ones `-sd` prints. The docs copies
+  of uas, branchc and branchs had drifted from them, and ooc_dummy had
+  none (#1290, by Orgad Shaneh)
 
 ### Fixed
 
