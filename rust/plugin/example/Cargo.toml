@@ -1,0 +1,14 @@
+[package]
+name = "sipp-plugin-example"
+version = "0.1.0"
+edition = "2021"
+description = "An example sipp-rs plugin"
+license = "GPL-2.0-or-later"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+sipp-plugin = { path = ".." }

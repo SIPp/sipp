@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<scenario name="auth uac">
+  <send retrans="500"><![CDATA[
+      REGISTER sip:[remote_ip] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:user1@[remote_ip]>;tag=[call_number]
+      To: <sip:user1@[remote_ip]>
+      Call-ID: [call_id]
+      CSeq: 1 REGISTER
+      Contact: <sip:user1@[local_ip]:[local_port]>
+      Expires: 60
+      Content-Length: 0
+
+    ]]></send>
+  <recv response="401" auth="true"/>
+  <send retrans="500"><![CDATA[
+      REGISTER sip:[remote_ip] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: <sip:user1@[remote_ip]>;tag=[call_number]
+      To: <sip:user1@[remote_ip]>
+      Call-ID: [call_id]
+      CSeq: 2 REGISTER
+      Contact: <sip:user1@[local_ip]:[local_port]>
+      [authentication username=user1 password=secret]
+      Expires: 60
+      Content-Length: [len]
+
+      body-for-auth-int
+    ]]></send>
+  <recv response="200"/>
+</scenario>

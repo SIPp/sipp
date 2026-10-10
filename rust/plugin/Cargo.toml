@@ -1,0 +1,9 @@
+[package]
+name = "sipp-plugin"
+version = "0.1.0"
+edition = "2021"
+description = "Plugins for sipp-rs: shared objects that add [keywords] to its messages"
+license = "GPL-2.0-or-later"
+
+[lib]
+path = "src/lib.rs"

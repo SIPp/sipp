@@ -97,6 +97,10 @@ any earlier release (see the "Memory and CPU per call" entry).
   proxy (#1278), an RTCP/SRTCP QoS and MOS analyzer (#1279), STUN, ICE
   and TURN probes (#1280) and a DTLS-SRTP handshake probe (#1281), all by
   Darwvin
+- sipp-rs, a Rust port of SIPp in `rust/`. It behaves like SIPp, down to
+  message texts, exit codes, logs and screens, passes SIPp's regress
+  tests, and builds with cargo on Linux, macOS and Windows (#1261, by
+  Orgad Shaneh)
 
 ### Changed
 
