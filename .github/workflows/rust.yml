@@ -2,9 +2,7 @@ name: sipp-rs
 
 on:
   push:
-    branches: [rust]
-  pull_request:
-    branches: [rust]
+    branches: [master]
   workflow_dispatch:
 
 # A newer push or merge supersedes the runs before it.
