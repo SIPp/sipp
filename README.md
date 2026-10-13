@@ -23,7 +23,7 @@ with this program.  If not, see
 # Documentation
 
 See the `docs/` directory. It should also be available in html format at:
-https://sipp.readthedocs.io/en/latest/
+https://sipp3.readthedocs.io/en/latest/
 
 Build a local copy using: ``sphinx-build docs _build``
 
@@ -39,7 +39,7 @@ cmake .
 make
 ```
 
-_The SIPp master branch (3.7.x) requires a modern C++17 compiler._
+_The SIPp master branch (3.8.x) requires a modern C++17 compiler._
 
 There are several optional flags to enable features (SIP-over-SCTP, media
 playback from PCAP files and the GNU Scientific Libraries for random

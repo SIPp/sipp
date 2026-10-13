@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Changes that may break existing scenarios, command lines or builds are
 marked **Breaking**.
 
-## [Unreleased]
+## [3.8.0] - 2026-10-13
 
 This is the largest pass over the project in its history: every open
 issue and pull request is closed, every Coverity finding is resolved,
@@ -58,6 +58,8 @@ any earlier release (see the "Memory and CPU per call" entry).
   port of the `m=text` line (#403, by Orgad Shaneh)
 - `<rtp_dtmf>` assigns the RFC 4733 DTMF digits a call received to a
   variable (#407, by Orgad Shaneh)
+- `<xi:include href="file"/>` includes the commands of another file, such
+  as a registration several scenarios share (#1, by Orgad Shaneh)
 - `<recv timeout>` may contain keywords, such as `[field3]` or
   `[$wait]`, for a receive timeout that varies per call (#968, by Orgad
   Shaneh)
@@ -265,8 +267,9 @@ any earlier release (see the "Memory and CPU per call" entry).
     aborts (#1226), 3PCC and peer parameters
     (#1088, #1089, #1090, #1093)
   - 3PCC: twin connection resets and losses, the body's last CRLF, and
-    a scenario with only `<sendCmd>` and `<recvCmd>` (#969, #985, #1084,
-    #1085)
+    a scenario with only `<sendCmd>` and `<recvCmd>`, and a command
+    the twin answers before the `<send>` after a `<sendCmd>` (#969,
+    #985, #1084, #1085, #1191)
   - `-t` refuses a value that is not a transport and socket mode (#1246)
 - RTP, SRTP and pcap play (by Orgad Shaneh):
   - rtp_echo runs per call, so overlapping calls no longer stop or
@@ -377,7 +380,8 @@ any earlier release (see the "Memory and CPU per call" entry).
     were refused over 254, 126 or 39 characters, or cut to 39 for the
     peer of a `<sendCmd>` and to 255 in an `-ip_field` (#1214, #1258)
 - Documentation and tests (by Orgad Shaneh): the docs build with current
-  Sphinx (#949), exit codes, media ports and receive timeouts are
+  Sphinx (#949) and on Read the Docs again (#1273), the scenarios in
+  `docs/` are the built-in ones that `-sd` prints (#1290), exit codes, media ports and receive timeouts are
   documented (#950, #952, #953), CONTRIBUTING.md says what makes a PR
   mergeable (#954), and the regress tests run on BSD and macOS (#946,
   #947, #948)
@@ -842,7 +846,7 @@ any earlier release (see the "Memory and CPU per call" entry).
 
 Not documented here.
 
-[Unreleased]: https://github.com/SIPp/sipp/compare/v3.7.8...HEAD
+[3.8.0]: https://github.com/SIPp/sipp/releases/tag/v3.8.0
 [3.7.9]: https://github.com/SIPp/sipp/releases/tag/v3.7.9
 [3.7.8]: https://github.com/SIPp/sipp/releases/tag/v3.7.8
 [3.7.7]: https://github.com/SIPp/sipp/releases/tag/v3.7.7
