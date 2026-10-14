@@ -266,6 +266,8 @@ struct Args {
     inject: infile::Injection,
     transport: Transport,
     rtp_echo: bool,
+    /// -rtp_echo_threads: sockets and threads per echo port.
+    rtp_echo_threads: usize,
     rtp_ports: (u16, u16),
     /// Without -p, SIPp falls back to another port when 5060 is taken.
     explicit_port: bool,
@@ -742,6 +744,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
     let mut scenario_dir = std::path::PathBuf::new();
     let (mut ip, mut port, mut service) = (None::<String>, None, "service".to_string());
     let (mut min_rtp_port, mut max_rtp_port, mut rtp_echo) = (6000u16, 65535u16, false);
+    let mut rtp_echo_threads = 1usize;
     let (mut remote, mut max_calls, mut rate, mut rate_period_ms, mut limit, mut pause_ms) =
         (None, None, 10.0, 1000, usize::MAX, 0);
     let (mut timeout, mut timeout_error, mut recv_timeout, mut default_behaviors) = (None, false, None, call::BEHAVIOR_ALL);
@@ -889,6 +892,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
             "-mp" | "-min_rtp_port" => min_rtp_port = num(arg, val()?)?,
             "-max_rtp_port" => max_rtp_port = num(arg, val()?)?,
             "-rtp_echo" => rtp_echo = true,
+            "-rtp_echo_threads" => rtp_echo_threads = num(arg, val()?)?,
             "-m" => max_calls = Some(num(arg, val()?)?),
             "-m_csv" => max_calls_csv = true,
             "-r" => {
@@ -1447,6 +1451,13 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
         }
         bind_ip = per_ip[0];
     }
+    if rtp_echo_threads == 0 {
+        return Err(ArgsError::Exit(EXIT_FATAL_ERROR, "-rtp_echo_threads must be at least 1".into()));
+    }
+    if rtp_echo_threads > 1 && !cfg!(target_os = "linux") {
+        log.warning("-rtp_echo_threads: SO_REUSEPORT load balancing needs Linux, echoing on one thread per port");
+        rtp_echo_threads = 1;
+    }
     if periodic_rtd {
         log.warning("-periodic_rtd is deprecated and ignored: the statistics file has periodic (P) and cumulative (C) repartition columns");
     }
@@ -1476,6 +1487,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
         inject,
         transport,
         rtp_echo,
+        rtp_echo_threads,
         srtpctx: media::echo_debug::ON.load(Ordering::Relaxed).then_some(send_mode),
         rtp_ports: (min_rtp_port, max_rtp_port),
         scenario,
@@ -4286,7 +4298,7 @@ impl Setup {
             self.peers = Some(p);
         }
         if args.rtp_echo {
-            let (e, port) = media::Echo::bind(args.cfg.media_ip, args.cfg.media_port, args.rtp_ports.1).map_err(|(text, e)| error_no(&text, &e))?;
+            let (e, port) = media::Echo::bind(args.cfg.media_ip, args.cfg.media_port, args.rtp_ports.1, args.rtp_echo_threads).map_err(|(text, e)| error_no(&text, &e))?;
             args.cfg.media_port = port;
             e.start().map_err(|e| error_no("Unable to create RTP echo thread", &e))?;
             self.echo = Some(e);
