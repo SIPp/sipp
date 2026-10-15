@@ -1088,41 +1088,71 @@ pub static ECHO_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBoo
 
 /// -rtp_echo: what arrives on the media ports goes back where it came from.
 pub struct Echo {
-    socks: Vec<UdpSocket>,
+    /// Each socket and its stream: 0 audio, 1 video.
+    socks: Vec<(usize, UdpSocket)>,
+}
+
+/// An echo socket on `addr`; of more than one per port, sharing it with
+/// SO_REUSEPORT, the kernel spreading the peers over them.
+fn echo_socket(addr: SocketAddr, shared: bool) -> io::Result<UdpSocket> {
+    use socket2::{Domain, Protocol, Socket, Type};
+    let s = Socket::new(Domain::for_address(addr), Type::DGRAM, Some(Protocol::UDP))?;
+    #[cfg(target_os = "linux")]
+    if shared {
+        use std::os::fd::AsRawFd;
+        let on: libc::c_int = 1;
+        let r = unsafe { libc::setsockopt(s.as_raw_fd(), libc::SOL_SOCKET, libc::SO_REUSEPORT, (&on as *const libc::c_int).cast(), std::mem::size_of_val(&on) as libc::socklen_t) };
+        if r != 0 {
+            return Err(io::Error::last_os_error());
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = shared;
+    s.bind(&addr.into())?;
+    Ok(s.into())
 }
 
 impl Echo {
     /// Binds audio and video (the port two above), moving up two at a time
-    /// while taken, as SIPp does. Returns the audio port.
+    /// while taken, as SIPp does, then `threads - 1` more of each on the
+    /// ports found. Returns the audio port.
     /// A failure has the socket SIPp names, and its error.
-    pub fn bind(ip: IpAddr, first: u16, max: u16) -> Result<(Echo, u16), (String, io::Error)> {
+    pub fn bind(ip: IpAddr, first: u16, max: u16, threads: usize) -> Result<(Echo, u16), (String, io::Error)> {
+        let shared = threads > 1;
+        let audio_err = |port: u16| format!("Unable to bind audio RTP socket (IP={ip}, port={port})");
+        let video_err = |port: u16| format!("Unable to bind video RTP socket (IP={ip}, port={port})");
         let mut port = first;
         let mut attempt = 1;
-        loop {
-            let pair = (UdpSocket::bind(SocketAddr::new(ip, port)), UdpSocket::bind(SocketAddr::new(ip, port + 2)));
+        let mut socks = loop {
+            let pair = (echo_socket(SocketAddr::new(ip, port), shared), echo_socket(SocketAddr::new(ip, port + 2), shared));
             match pair {
-                (Ok(a), Ok(v)) => {
-                    let set = a.set_nonblocking(true).and_then(|_| v.set_nonblocking(true));
-                    set.map_err(|e| (format!("Unable to bind audio RTP socket (IP={ip}, port={port})"), e))?;
-                    return Ok((Echo { socks: vec![a, v] }, port));
-                }
-                (Err(e), _) if attempt >= 100 || port.saturating_add(4) > max => return Err((format!("Unable to bind audio RTP socket (IP={ip}, port={port})"), e)),
-                (_, Err(e)) if attempt >= 100 || port.saturating_add(4) > max => return Err((format!("Unable to bind video RTP socket (IP={ip}, port={})", port + 2), e)),
+                (Ok(a), Ok(v)) => break vec![(0, a), (1, v)],
+                (Err(e), _) if attempt >= 100 || port.saturating_add(4) > max => return Err((audio_err(port), e)),
+                (_, Err(e)) if attempt >= 100 || port.saturating_add(4) > max => return Err((video_err(port + 2), e)),
                 _ => {
                     port += 2;
                     attempt += 1;
                 }
             }
+        };
+        for _ in 1..threads {
+            socks.push((0, echo_socket(SocketAddr::new(ip, port), true).map_err(|e| (audio_err(port), e))?));
+            socks.push((1, echo_socket(SocketAddr::new(ip, port + 2), true).map_err(|e| (video_err(port + 2), e))?));
         }
+        for (_, s) in &socks {
+            s.set_nonblocking(true).map_err(|e| (audio_err(port), e))?;
+        }
+        Ok((Echo { socks }, port))
     }
 
-    /// SIPp's rtp_echo_thread(): one for audio, one for video, until the
-    /// process ends.
+    /// SIPp's rtp_echo_thread(): one per socket, until the process ends.
     pub fn start(&self) -> io::Result<()> {
-        for (i, s) in self.socks.iter().enumerate() {
+        for (k, (i, s)) in self.socks.iter().enumerate() {
+            let i = *i;
             let s = s.try_clone()?;
             s.set_nonblocking(false)?;
-            std::thread::Builder::new().name("rtp_echo".into()).stack_size(crate::mediapool::THREAD_STACK).spawn(move || {
+            let name = format!("rtp_echo_{}{}", ["a", "v"][i], k / 2);
+            std::thread::Builder::new().name(name).stack_size(crate::mediapool::THREAD_STACK).spawn(move || {
                 block_signals();
                 // -mb: what is longer is cut to it, as in SIPp.
                 let mut buf = vec![0u8; counters::MEDIA_BUFSIZE.load(std::sync::atomic::Ordering::Relaxed)];
@@ -1327,6 +1357,31 @@ mod wav_tests {
         assert_eq!(cached(&f).1, ["rtp_stream file f.wav: 16000 Hz plays at the rate of the payload type, not resampled"]);
         // Not of a format it would know the rate of.
         assert_eq!(cached(&file(&[fmt(0x11, 1, 4, 16000), chunk(b"data", &[0; 4])])).1, Vec::<String>::new());
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod echo_tests {
+    use super::Echo;
+    use std::net::{IpAddr, Ipv4Addr, UdpSocket};
+    use std::time::Duration;
+
+    #[test]
+    fn shared_port_echoes_every_peer() {
+        let lo = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        let (echo, port) = Echo::bind(lo, 46000, 65535, 4).unwrap();
+        // Two streams of four sockets each, all on the one pair of ports.
+        assert_eq!(echo.socks.len(), 8);
+        assert!(echo.socks.iter().all(|(i, s)| s.local_addr().unwrap().port() == port + 2 * *i as u16));
+        echo.start().unwrap();
+        for k in 0..16u8 {
+            let c = UdpSocket::bind((lo, 0)).unwrap();
+            c.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            c.send_to(&[k; 12], (lo, port)).unwrap();
+            let mut buf = [0u8; 64];
+            let (n, from) = c.recv_from(&mut buf).unwrap();
+            assert_eq!((&buf[..n], from.port()), (&[k; 12][..], port));
+        }
     }
 }
 

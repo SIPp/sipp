@@ -195,6 +195,7 @@ pub static OPTIONS: &[Opt] = &[
         "RTP/UDP packets coming on this port + 2 are also echoed to their sender (used for sound and video echo).",
     ]),
     Opt("mb", Args(1), &["Set the RTP echo buffer size (default: 2048)."]),
+    Opt("rtp_echo_threads", Args(1), &["RTP echo sockets and threads per echo port, sharing it with SO_REUSEPORT (Linux; default: 1)."]),
     Opt("min_rtp_port", Args(1), &["Minimum port number for RTP socket range."]),
     Opt("max_rtp_port", Args(1), &["Maximum port number for RTP socket range."]),
     Opt("mp", Args(1), &["Sets -min_rtp_port for backwards compatibility."]),
