@@ -1086,9 +1086,39 @@ pub fn wav_payload(mut data: Vec<u8>, path: &str, mut warn: impl FnMut(String)) 
 /// The <exec rtp_echo> switch of -rtp_echo, SIPp's rtp_echo_state.
 pub static ECHO_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
+/// -rtp_echo: open calls per audio and video echo thread. On Linux, a
+/// thread more of each comes every that many open calls, on another
+/// socket SO_REUSEPORT shares the port with, the kernel spreading the
+/// peers over them.
+const ECHO_CALLS_PER_THREAD: u64 = 500;
+
 /// -rtp_echo: what arrives on the media ports goes back where it came from.
 pub struct Echo {
+    /// The audio and video sockets bound first.
     socks: Vec<UdpSocket>,
+    /// The threads of each, once started.
+    threads: u64,
+    /// Adding one failed: it has what it has.
+    failed: bool,
+}
+
+/// Lets other sockets of ours bind `s`'s port, which the kernel then
+/// spreads the peers over.
+#[cfg(target_os = "linux")]
+fn share_port(s: &impl std::os::fd::AsRawFd) -> io::Result<()> {
+    let on: libc::c_int = 1;
+    let r = unsafe { libc::setsockopt(s.as_raw_fd(), libc::SOL_SOCKET, libc::SO_REUSEPORT, (&on as *const libc::c_int).cast(), std::mem::size_of_val(&on) as libc::socklen_t) };
+    if r == 0 { Ok(()) } else { Err(io::Error::last_os_error()) }
+}
+
+/// Another socket on the port of `s`, sharing it.
+#[cfg(target_os = "linux")]
+fn shared_socket(s: &UdpSocket) -> io::Result<UdpSocket> {
+    let addr = s.local_addr()?;
+    let n = socket2::Socket::new(socket2::Domain::for_address(addr), socket2::Type::DGRAM, Some(socket2::Protocol::UDP))?;
+    share_port(&n)?;
+    n.bind(&addr.into())?;
+    Ok(n.into())
 }
 
 impl Echo {
@@ -1104,7 +1134,7 @@ impl Echo {
                 (Ok(a), Ok(v)) => {
                     let set = a.set_nonblocking(true).and_then(|_| v.set_nonblocking(true));
                     set.map_err(|e| (format!("Unable to bind audio RTP socket (IP={ip}, port={port})"), e))?;
-                    return Ok((Echo { socks: vec![a, v] }, port));
+                    return Ok((Echo { socks: vec![a, v], threads: 0, failed: false }, port));
                 }
                 (Err(e), _) if attempt >= 100 || port.saturating_add(4) > max => return Err((format!("Unable to bind audio RTP socket (IP={ip}, port={port})"), e)),
                 (_, Err(e)) if attempt >= 100 || port.saturating_add(4) > max => return Err((format!("Unable to bind video RTP socket (IP={ip}, port={})", port + 2), e)),
@@ -1118,40 +1148,81 @@ impl Echo {
 
     /// SIPp's rtp_echo_thread(): one for audio, one for video, until the
     /// process ends.
-    pub fn start(&self) -> io::Result<()> {
+    pub fn start(&mut self) -> io::Result<()> {
         for (i, s) in self.socks.iter().enumerate() {
-            let s = s.try_clone()?;
-            s.set_nonblocking(false)?;
-            std::thread::Builder::new().name("rtp_echo".into()).stack_size(crate::mediapool::THREAD_STACK).spawn(move || {
-                block_signals();
-                // -mb: what is longer is cut to it, as in SIPp.
-                let mut buf = vec![0u8; counters::MEDIA_BUFSIZE.load(std::sync::atomic::Ordering::Relaxed)];
-                // An error stops the echo on this socket, with SIPp's
-                // warning.
-                let stop = |what: &str, e: io::Error| {
-                    crate::log::defer_thread_warning(format!("Error on RTP echo {what} - stopping echo - errno= {}", e.raw_os_error().unwrap_or(0)));
-                };
-                loop {
-                    let (n, from) = match s.recv_from(&mut buf) {
-                        Ok(got) => got,
-                        Err(e) if e.kind() == io::ErrorKind::WouldBlock => continue,
-                        Err(e) => return stop("reception", e),
-                    };
-                    if !ECHO_ON.load(std::sync::atomic::Ordering::Relaxed) {
-                        continue;
-                    }
-                    match s.send_to(&buf[..n], from) {
-                        Ok(sent) => {
-                            counters::add(&counters::ECHO_PACKETS[i], 1);
-                            counters::add(&counters::ECHO_BYTES[i], sent as u64);
-                        }
-                        Err(e) => return stop("transmission", e),
-                    }
-                }
-            })?;
+            echo_thread(i, s.try_clone()?)?;
         }
+        self.threads = 1;
         Ok(())
     }
+
+    /// SIPp's grow_rtp_echo(), at the timer cycle: the threads `calls`
+    /// open calls take. They stay until the end; an error is a thread
+    /// that could not be made.
+    pub fn grow(&mut self, calls: u64, log: &mut crate::log::Log) -> io::Result<()> {
+        #[cfg(target_os = "linux")]
+        while !self.failed && self.threads > 0 && calls > self.threads * ECHO_CALLS_PER_THREAD {
+            // The first sockets bound alone, so that no other process
+            // shares the ports; from the second on, they let ours in.
+            if self.threads == 1 {
+                if let Err(e) = self.socks.iter().try_for_each(share_port) {
+                    log.warning(&format!("Unable to share the RTP echo ports, errno = {} ({})", e.raw_os_error().unwrap_or(0), crate::net::os_error(&e)));
+                    self.failed = true;
+                    break;
+                }
+            }
+            let new: io::Result<Vec<UdpSocket>> = self.socks.iter().map(shared_socket).collect();
+            match new {
+                Ok(new) => {
+                    for (i, s) in new.into_iter().enumerate() {
+                        echo_thread(i, s)?;
+                    }
+                    self.threads += 1;
+                }
+                Err(e) => {
+                    let port = self.socks[0].local_addr().map_or(0, |a| a.port());
+                    log.warning(&format!("Unable to add an RTP echo socket on port {port}, errno = {} ({})", e.raw_os_error().unwrap_or(0), crate::net::os_error(&e)));
+                    self.failed = true;
+                }
+            }
+        }
+        #[cfg(not(target_os = "linux"))]
+        let _ = (calls, log);
+        Ok(())
+    }
+}
+
+/// An echo thread on `s`, of stream `i`: 0 audio, 1 video.
+fn echo_thread(i: usize, s: UdpSocket) -> io::Result<()> {
+    s.set_nonblocking(false)?;
+    std::thread::Builder::new().name("rtp_echo".into()).stack_size(crate::mediapool::THREAD_STACK).spawn(move || {
+        block_signals();
+        // -mb: what is longer is cut to it, as in SIPp.
+        let mut buf = vec![0u8; counters::MEDIA_BUFSIZE.load(std::sync::atomic::Ordering::Relaxed)];
+        // An error stops the echo on this socket, with SIPp's
+        // warning.
+        let stop = |what: &str, e: io::Error| {
+            crate::log::defer_thread_warning(format!("Error on RTP echo {what} - stopping echo - errno= {}", e.raw_os_error().unwrap_or(0)));
+        };
+        loop {
+            let (n, from) = match s.recv_from(&mut buf) {
+                Ok(got) => got,
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => continue,
+                Err(e) => return stop("reception", e),
+            };
+            if !ECHO_ON.load(std::sync::atomic::Ordering::Relaxed) {
+                continue;
+            }
+            match s.send_to(&buf[..n], from) {
+                Ok(sent) => {
+                    counters::add(&counters::ECHO_PACKETS[i], 1);
+                    counters::add(&counters::ECHO_BYTES[i], sent as u64);
+                }
+                Err(e) => return stop("transmission", e),
+            }
+        }
+    })?;
+    Ok(())
 }
 
 /// Signals go to the engine's thread, as SIPp's other threads mask them.
@@ -1327,6 +1398,35 @@ mod wav_tests {
         assert_eq!(cached(&f).1, ["rtp_stream file f.wav: 16000 Hz plays at the rate of the payload type, not resampled"]);
         // Not of a format it would know the rate of.
         assert_eq!(cached(&file(&[fmt(0x11, 1, 4, 16000), chunk(b"data", &[0; 4])])).1, Vec::<String>::new());
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod echo_tests {
+    use super::Echo;
+    use std::net::{IpAddr, Ipv4Addr, UdpSocket};
+    use std::time::Duration;
+
+    #[test]
+    fn grows_with_calls_and_echoes_every_peer() {
+        let lo = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        let (mut echo, port) = Echo::bind(lo, 46000, 65535).unwrap();
+        echo.start().unwrap();
+        let mut log = crate::log::Log::default();
+        echo.grow(500, &mut log).unwrap();
+        assert_eq!(echo.threads, 1);
+        echo.grow(1001, &mut log).unwrap();
+        assert_eq!(echo.threads, 3);
+        // Another process still cannot bind the port.
+        assert!(UdpSocket::bind((lo, port)).is_err());
+        for k in 0..16u8 {
+            let c = UdpSocket::bind((lo, 0)).unwrap();
+            c.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            c.send_to(&[k; 12], (lo, port)).unwrap();
+            let mut buf = [0u8; 64];
+            let (n, from) = c.recv_from(&mut buf).unwrap();
+            assert_eq!((&buf[..n], from.port()), (&[k; 12][..], port));
+        }
     }
 }
 

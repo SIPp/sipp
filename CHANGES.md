@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Changes that may break existing scenarios, command lines or builds are
 marked **Breaking**.
 
+## [Unreleased]
+
+### Changed
+
+- `-rtp_echo` on Linux takes another audio and video echo thread every
+  500 open calls, which share its ports, so the echo of thousands of
+  calls is no longer capped by one thread (#1292, by fu'ad and Orgad
+  Shaneh)
+
 ## [3.8.0] - 2026-10-13
 
 This is the largest pass over the project in its history: every open
@@ -846,6 +855,7 @@ any earlier release (see the "Memory and CPU per call" entry).
 
 Not documented here.
 
+[Unreleased]: https://github.com/SIPp/sipp/compare/v3.8.0...HEAD
 [3.8.0]: https://github.com/SIPp/sipp/releases/tag/v3.8.0
 [3.7.9]: https://github.com/SIPp/sipp/releases/tag/v3.7.9
 [3.7.8]: https://github.com/SIPp/sipp/releases/tag/v3.7.8

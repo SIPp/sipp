@@ -3128,6 +3128,11 @@ impl Engine {
         }
         self.cycle = Some(tick);
         self.last_cycle = tick;
+        if let Some(e) = &mut self.echo {
+            if let Err(e) = e.grow(self.stats.current, &mut self.args.log) {
+                self.control.fatal = Some(error_no("Unable to create RTP echo thread", &e).0);
+            }
+        }
         let by = call::epoch() + Duration::from_millis(tick);
         let mut due = Vec::new();
         while self.timers.peek().is_some_and(|Reverse((t, _))| *t < by) {
@@ -4286,7 +4291,7 @@ impl Setup {
             self.peers = Some(p);
         }
         if args.rtp_echo {
-            let (e, port) = media::Echo::bind(args.cfg.media_ip, args.cfg.media_port, args.rtp_ports.1).map_err(|(text, e)| error_no(&text, &e))?;
+            let (mut e, port) = media::Echo::bind(args.cfg.media_ip, args.cfg.media_port, args.rtp_ports.1).map_err(|(text, e)| error_no(&text, &e))?;
             args.cfg.media_port = port;
             e.start().map_err(|e| error_no("Unable to create RTP echo thread", &e))?;
             self.echo = Some(e);

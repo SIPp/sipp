@@ -1,0 +1,37 @@
+#!/bin/sh
+# This regression test is a part of SIPp.
+# -rtp_echo takes another audio and video thread every 500 open calls,
+# on Linux, and the calls echo on all of them.
+. "`dirname "$0"`/../functions"; init
+
+test -d /proc/self/task || skip "no /proc"
+test "`uname`" = Linux || skip "not Linux"
+
+sippbg -sn uas -i 127.0.0.1 -p 21920 -rtp_echo \
+    -min_rtp_port 21930 -max_rtp_port 21939
+uas=$pid
+sleep 0.5
+base=`ls /proc/$uas/task | wc -l`
+
+# 600 calls without media, held while the next UAC's calls run.
+sippbg -sn uac -i 127.0.0.1 -p 21921 -m 600 -l 600 -r 1000 -d 6000 \
+    127.0.0.1:21920 -timeout 30
+sleep 1.5
+threads=`ls /proc/$uas/task | wc -l`
+
+# Calls from their own ports, which the kernel spreads over the
+# threads: each gets its pattern back.
+sippfg -sf uac.xml -i 127.0.0.1 -p 21922 -m 20 -l 20 -r 100 -d 1000 \
+    -min_rtp_port 21940 -max_rtp_port 21999 -audiotolerance 0.2 \
+    127.0.0.1:21920 -timeout 30 -timeout_error >/dev/null 2>&1
+status=$?
+
+if test $status -eq 253; then
+    fail "the UAS did not echo all calls"
+elif test $status -ne 0; then
+    fail "UAC failed with $status"
+elif test $((threads - base)) -ne 2; then
+    fail "the UAS went from $base to $threads threads for 600 calls"
+else
+    ok
+fi
