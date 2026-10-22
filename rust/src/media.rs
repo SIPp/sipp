@@ -1419,13 +1419,14 @@ mod echo_tests {
         assert_eq!(echo.threads, 3);
         // Another process still cannot bind the port.
         assert!(UdpSocket::bind((lo, port)).is_err());
+        // To the video port: rtp_screen_lines counts the audio echoes.
         for k in 0..16u8 {
             let c = UdpSocket::bind((lo, 0)).unwrap();
             c.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
-            c.send_to(&[k; 12], (lo, port)).unwrap();
+            c.send_to(&[k; 12], (lo, port + 2)).unwrap();
             let mut buf = [0u8; 64];
             let (n, from) = c.recv_from(&mut buf).unwrap();
-            assert_eq!((&buf[..n], from.port()), (&[k; 12][..], port));
+            assert_eq!((&buf[..n], from.port()), (&[k; 12][..], port + 2));
         }
     }
 }

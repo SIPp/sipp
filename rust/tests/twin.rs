@@ -210,14 +210,16 @@ fn controller_a_sends_a_command_written_while_b_is_down() {
         }
         panic!("A sent no command with a Call-ID");
     };
-    let args = ["-sf", "a.xml", "-3pcc", &twin, "-m", "2", "-max_reconnect", "-1", "-reconnect_sleep", "50", "-reconnect_close", "false"];
+    let args = ["-sf", "a.xml", "-3pcc", &twin, "-m", "2", "-r", "1", "-max_reconnect", "-1", "-reconnect_sleep", "50", "-reconnect_close", "false"];
     let mut child = sipp(&d, &[&args[..], &["-trace_err", "-error_file", "errors.log"]].concat());
     let (first, one) = answer(&b, &mut child);
     std::thread::sleep(Duration::from_millis(20));
     reset(first);
     drop(b);
-    // The second call's command comes while A's reconnections are refused.
-    std::thread::sleep(Duration::from_millis(500));
+    // The second call's command comes, a second after the first, while
+    // A's reconnections are refused: after the reset, however late B
+    // answered, not on the connection reset.
+    std::thread::sleep(Duration::from_millis(1500));
     let b = TcpListener::bind(&twin).unwrap();
     let (_again, two) = answer(&b, &mut child);
     // -timeout 5 ends A; a kill after 15 s fails the test instead of hanging.
