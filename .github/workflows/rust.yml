@@ -3,6 +3,7 @@ name: sipp-rs
 on:
   push:
     branches: [master]
+  pull_request:
   workflow_dispatch:
 
 # A newer push or merge supersedes the runs before it.
