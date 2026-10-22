@@ -79,6 +79,7 @@ static bool random_base_ssrc = false;
 static int argiFileName;
 static int argiLuaFile;
 static std::atomic<bool> run_echo_thread(true);
+static void grow_rtp_echo();
 
 /***************** Option Handling Table *****************/
 struct sipp_option {
@@ -1025,6 +1026,8 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
             last_paused_calls = paused_tasks_count();
 
             last_timer_cycle = clock_tick;
+
+            grow_rtp_echo();
         }
 
         /* We should never get so busy with running calls that we can't
@@ -1064,7 +1067,18 @@ static void traffic_thread(int &rtp_errors, int &echo_errors)
 }
 
 /*************** RTP ECHO THREAD ***********************/
-/* param is a pointer to RTP socket */
+/* -rtp_echo: open calls per audio and video echo thread. On Linux, a
+ * thread more of each comes every that many open calls, on another
+ * socket SO_REUSEPORT shares the port with, the kernel spreading the
+ * peers over them. */
+#define RTP_ECHO_CALLS_PER_THREAD 500
+
+struct rtp_echo_thread_t {
+    pthread_t id;
+    int sock;
+    bool video;
+};
+static std::list<rtp_echo_thread_t> rtp_echo_threads;
 
 static void rtp_echo_thread(void* param)
 {
@@ -1073,7 +1087,8 @@ static void rtp_echo_thread(void* param)
     ssize_t nr, ns;
     sipp_socklen_t len;
     struct sockaddr_storage remote_rtp_addr;
-    int sock = *(int *)param;
+    const rtp_echo_thread_t *self = (rtp_echo_thread_t *)param;
+    int sock = self->sock;
 
 
     int                   rc;
@@ -1118,7 +1133,7 @@ static void rtp_echo_thread(void* param)
             return;
         }
 
-        if (*(int*)param == media_socket_audio) {
+        if (!self->video) {
             rtp_pckts.fetch_add(1, std::memory_order_relaxed);
             rtp_bytes.fetch_add(ns, std::memory_order_relaxed);
         } else {
@@ -1127,6 +1142,74 @@ static void rtp_echo_thread(void* param)
             rtp2_bytes.fetch_add(ns, std::memory_order_relaxed);
         }
     }
+}
+
+static void start_rtp_echo_thread(int sock, bool video)
+{
+    rtp_echo_threads.push_back({0, sock, video});
+    rtp_echo_thread_t &t = rtp_echo_threads.back();
+    errno = pthread_create(&t.id, nullptr, (void *(*)(void *))rtp_echo_thread, &t);
+    if (errno) {
+        ERROR_NO("Unable to create %sRTP echo thread", video ? "video " : "");
+    }
+}
+
+#ifdef __linux__
+/* Another socket on a -rtp_echo port, sharing it with SO_REUSEPORT. */
+static int share_rtp_echo_port(int port)
+{
+    struct sockaddr_storage sa = media_sockaddr;
+    if (sa.ss_family == AF_INET) {
+        (_RCAST(struct sockaddr_in *, &sa))->sin_port = htons(port);
+    } else {
+        (_RCAST(struct sockaddr_in6 *, &sa))->sin6_port = htons(port);
+    }
+    int on = 1;
+    int s = socket(sa.ss_family, SOCK_DGRAM, IPPROTO_UDP);
+    if (s != -1 && (setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on)) ||
+                    ::bind(s, (sockaddr *)&sa, socklen_from_addr(&sa)))) {
+        ::close(s);
+        s = -1;
+    }
+    return s;
+}
+#endif
+
+/* Called from the traffic loop's timer cycle: what -rtp_echo needs for
+ * the open calls. The threads stay until the end. */
+static void grow_rtp_echo()
+{
+#ifdef __linux__
+    static bool failed = false;
+    if (rtp_echo_threads.empty() || failed) {
+        return;
+    }
+    unsigned long long calls = main_scenario->stats->GetStat(CStat::CPT_C_CurrentCall);
+    while (calls > rtp_echo_threads.size() / 2 * RTP_ECHO_CALLS_PER_THREAD) {
+        int on = 1;
+        /* The first sockets bound alone, so that no other process
+         * shares the ports; from the second on, they let ours in. */
+        if (rtp_echo_threads.size() == 2 &&
+            (setsockopt(media_socket_audio, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on)) ||
+             setsockopt(media_socket_video, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on)))) {
+            WARNING_NO("Unable to share the RTP echo ports");
+            failed = true;
+            return;
+        }
+        int audio = share_rtp_echo_port(media_port);
+        int video = audio == -1 ? -1 : share_rtp_echo_port(media_port + 2);
+        if (video == -1) {
+            WARNING_NO("Unable to add an RTP echo socket on port %d", audio == -1 ? media_port : media_port + 2);
+            if (audio != -1) {
+                ::close(audio);
+            }
+            failed = true;
+            return;
+        }
+        start_rtp_echo_thread(audio, false);
+        start_rtp_echo_thread(video, true);
+    }
+#endif
 }
 
 /* If stdout is a TTY, wrap stdout in a call to PAGER (generally less(1)).
@@ -1793,8 +1876,7 @@ int main(int argc, char *argv[])
     }
 #endif
     main_thread = std::this_thread::get_id();
-    int                  argi = 0;
-    pthread_t pthread2_id = 0, pthread3_id = 0;
+    int argi = 0;
     bool                 slave_masterSet = false;
     int rtp_errors;
     int echo_errors;
@@ -2683,30 +2765,17 @@ int main(int argc, char *argv[])
         setup_stdin_socket();
     }
 
-    if (rtp_echo_enabled && media_socket_audio > 0) {
-        if (pthread_create(&pthread2_id, nullptr,
-                (void *(*)(void *))rtp_echo_thread, &media_socket_audio) == -1) {
-            ERROR_NO("Unable to create RTP echo thread");
-        }
-    }
-
-    /* Creating second RTP echo thread for video. */
-    if (rtp_echo_enabled && media_socket_video > 0) {
-        if (pthread_create(&pthread3_id, nullptr,
-                (void *(*)(void *)) rtp_echo_thread, &media_socket_video) == -1) {
-            ERROR_NO("Unable to create video RTP echo thread");
-        }
+    if (rtp_echo_enabled && media_socket_audio > 0 && media_socket_video > 0) {
+        start_rtp_echo_thread(media_socket_audio, false);
+        start_rtp_echo_thread(media_socket_video, true);
     }
 
     traffic_thread(rtp_errors, echo_errors);
 
     /* Cancel and join other threads. */
     run_echo_thread.store(false, std::memory_order_relaxed);
-    if (pthread2_id) {
-        pthread_join(pthread2_id, nullptr);
-    }
-    if (pthread3_id) {
-        pthread_join(pthread3_id, nullptr);
+    for (const rtp_echo_thread_t &t : rtp_echo_threads) {
+        pthread_join(t.id, nullptr);
     }
 
     sipp_exit(EXIT_TEST_RES_UNKNOWN, rtp_errors, echo_errors); // MAIN EXIT PATH HERE...);
