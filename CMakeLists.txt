@@ -440,4 +440,7 @@ if(CYGWIN)
 endif(CYGWIN)
 
 install(TARGETS sipp DESTINATION bin)
-install(PROGRAMS "${PROJECT_SOURCE_DIR}/sipp-multi.py" DESTINATION bin)
+option(INSTALL_SIPP_MULTI "Install tools/sipp_multi.py next to sipp" OFF)
+if(INSTALL_SIPP_MULTI)
+  install(PROGRAMS "${PROJECT_SOURCE_DIR}/tools/sipp_multi.py" DESTINATION bin)
+endif()

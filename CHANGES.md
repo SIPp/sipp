@@ -14,6 +14,9 @@ marked **Breaking**.
   500 open calls, which share its ports, so the echo of thousands of
   calls is no longer capped by one thread (#1292, by fu'ad and Orgad
   Shaneh)
+- **Breaking:** `sipp-multi.py` moved to `tools/sipp_multi.py` and is
+  no longer installed by default; configure with
+  `-DINSTALL_SIPP_MULTI=ON` to install it next to `sipp`
 
 ## [3.8.0] - 2026-10-13
 

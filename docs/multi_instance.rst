@@ -8,19 +8,20 @@ Run it with a CSV configuration file:
 
 .. code-block:: bash
 
-   python3 sipp-multi.py multi.csv --base-port 5060
+   python3 tools/sipp_multi.py multi.csv --base-port 5060
 
 The base port defaults to 5060.  Use ``--sipp`` when the SIPp binary is not
 next to the helper and is not available on ``PATH``:
 
 .. code-block:: bash
 
-   python3 sipp-multi.py multi.csv --sipp ./build/sipp
+   python3 tools/sipp_multi.py multi.csv --sipp ./build/sipp
 
-When installed with SIPp, ``sipp-multi.py`` is placed in the same ``bin``
-directory as the ``sipp`` executable.  If ``--sipp`` is omitted, the helper
-first looks for that sibling executable (or ``sipp.exe`` on Windows) and then
-searches ``PATH``.  The CSV file cannot select or replace the executable.
+It is not installed by default.  Configure with ``-DINSTALL_SIPP_MULTI=ON``
+to install ``sipp_multi.py`` in the same ``bin`` directory as the ``sipp``
+executable.  If ``--sipp`` is omitted, the helper first looks for that sibling
+executable (or ``sipp.exe`` on Windows) and then searches ``PATH``.  The CSV
+file cannot select or replace the executable.
 
 CSV format
 ----------
@@ -87,7 +88,7 @@ pass ``-nostdin`` in each row and redirect the helper output when desired:
 
 .. code-block:: bash
 
-   python3 sipp-multi.py multi.csv >multi.log 2>&1
+   python3 tools/sipp_multi.py multi.csv >multi.log 2>&1
 
 Avoid SIPp's ``-bg`` option when the helper is expected to supervise a child
 for the complete lifetime of a test; a process that backgrounds itself leaves

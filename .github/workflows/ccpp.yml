@@ -46,10 +46,6 @@ jobs:
       run: sudo apt-get update && sudo apt-get install --yes build-essential cmake libpcap-dev openssl libssl-dev libgsl-dev libsctp-dev liblua5.4-dev libncurses-dev libncurses6 python3-websockets
     - name: build
       run: ./build.sh --full
-    - name: install
-      run: |
-        cmake --install . --prefix "$RUNNER_TEMP/sipp-install"
-        test -x "$RUNNER_TEMP/sipp-install/bin/sipp-multi.py"
     - name: allow-userns
       # the raw socket tests re-run in a user and network namespace
       run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true

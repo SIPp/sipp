@@ -11,7 +11,7 @@ from io import StringIO
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "sipp-multi.py"
+SCRIPT = ROOT / "tools" / "sipp_multi.py"
 SPEC = importlib.util.spec_from_file_location("sipp_multi", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 sipp_multi = importlib.util.module_from_spec(SPEC)
