@@ -6,22 +6,62 @@ on:
     - '*'
 
 jobs:
-  build:
+  # Static sipp and sipp-rs, each built on its own architecture.
+  static:
+    strategy:
+      matrix:
+        include:
+        - runner: ubuntu-26.04
+          arch: x86_64
+        - runner: ubuntu-26.04-arm
+          arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    env:
+      TARGET: ${{ matrix.arch }}-unknown-linux-musl
+    steps:
+    - uses: actions/checkout@v7
+    - name: prepare
+      run: |
+        git submodule update --init
+        sudo apt-get update && sudo apt-get install --yes musl-tools
+    - name: build-static
+      run: |
+        docker build -f docker/Dockerfile --output=. --target=bin .
+        mv sipp sipp-linux-${{ matrix.arch }}
+    - name: build-static-rs
+      working-directory: rust
+      run: |
+        rustup target add $TARGET
+        export CC_${TARGET//-/_}=musl-gcc
+        cargo build --release --locked --target $TARGET
+        cp target/$TARGET/release/sipp-rs ../sipp-rs-linux-${{ matrix.arch }}
+    - uses: actions/upload-artifact@v7
+      with:
+        name: static-${{ matrix.arch }}
+        path: |
+          sipp-linux-*
+          sipp-rs-linux-*
+          sipp.1
+          version.h
+
+  release:
+    needs: static
     runs-on: ubuntu-26.04
     permissions:
       contents: write
     steps:
     - uses: actions/checkout@v7
-    - name: prepare
-      run: git submodule update --init
-    - name: build-static
-      run: docker build -f docker/Dockerfile --output=. --target=bin .
+    - uses: actions/download-artifact@v8
+      with:
+        merge-multiple: true
     - name: Set version
       run: |
         TAG=${{ github.ref_name }}
         echo "VERSION=${TAG#v}" >> $GITHUB_ENV
     - name: pack
       run: |
+        # as earlier releases named it, for the links to it
+        cp sipp-linux-x86_64 sipp
         git ls-files -z | grep -zv '^\.\|gtest\|gmock\|version.h' | \
           tar --transform "s:^version.h:include/version.h:" \
               --transform "s:^:sipp-$VERSION/:" \
@@ -32,4 +72,4 @@ jobs:
     - uses: ncipollo/release-action@v1
       with:
         generateReleaseNotes: true
-        artifacts: "sipp-*.tar.gz,sipp"
+        artifacts: "sipp-*.tar.gz,sipp,sipp-linux-*,sipp-rs-linux-*"
