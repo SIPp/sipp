@@ -80,10 +80,10 @@ impl MediaPoll {
     pub fn wait(&mut self, wait: Option<Duration>, mut each: impl FnMut(u64)) {
         let (epfd, max) = (self.epfd.as_raw_fd(), self.events.len() as libc::c_int);
         let n = if self.pwait2 {
-            let ts = wait.map(|d| libc::timespec { tv_sec: d.as_secs() as libc::time_t, tv_nsec: d.subsec_nanos() as libc::c_long });
+            let ts = wait.map(|d| libc::timespec { tv_sec: d.as_secs() as _, tv_nsec: d.subsec_nanos() as libc::c_long });
             let tp = ts.as_ref().map_or(std::ptr::null(), |t| t as *const libc::timespec);
             // SAFETY: events is a live array of max events.
-            let n = unsafe { libc::epoll_pwait2(epfd, self.events.as_mut_ptr(), max, tp, std::ptr::null()) };
+            let n = unsafe { epoll_pwait2(epfd, self.events.as_mut_ptr(), max, tp) };
             if n < 0 && io::Error::last_os_error().raw_os_error() == Some(libc::ENOSYS) {
                 self.pwait2 = false;
                 return;
@@ -98,6 +98,17 @@ impl MediaPoll {
             each(ev.u64);
         }
     }
+}
+
+#[cfg(all(target_os = "linux", not(target_env = "musl")))]
+unsafe fn epoll_pwait2(epfd: libc::c_int, events: *mut libc::epoll_event, max: libc::c_int, timeout: *const libc::timespec) -> libc::c_int {
+    libc::epoll_pwait2(epfd, events, max, timeout, std::ptr::null())
+}
+
+/// musl has no epoll_pwait2(): the system call.
+#[cfg(all(target_os = "linux", target_env = "musl"))]
+unsafe fn epoll_pwait2(epfd: libc::c_int, events: *mut libc::epoll_event, max: libc::c_int, timeout: *const libc::timespec) -> libc::c_int {
+    libc::syscall(libc::SYS_epoll_pwait2, epfd, events, max, timeout, std::ptr::null::<libc::sigset_t>(), 0usize) as libc::c_int
 }
 
 /// What wakes a media thread up where there is no eventfd: a pipe, whose
@@ -181,7 +192,7 @@ impl MediaPoll {
     /// The keys of what is readable, once something is or `wait` is over
     /// (None: until then), to the nanosecond.
     pub fn wait(&mut self, wait: Option<Duration>, mut each: impl FnMut(u64)) {
-        let ts = wait.map(|d| libc::timespec { tv_sec: d.as_secs() as libc::time_t, tv_nsec: d.subsec_nanos() as libc::c_long });
+        let ts = wait.map(|d| libc::timespec { tv_sec: d.as_secs() as _, tv_nsec: d.subsec_nanos() as libc::c_long });
         let tp = ts.as_ref().map_or(std::ptr::null(), |t| t as *const libc::timespec);
         // SAFETY: events is a live array of its length.
         let n = unsafe { libc::kevent(self.kq.as_raw_fd(), std::ptr::null(), 0, self.events.as_mut_ptr(), self.events.len() as libc::c_int, tp) };
@@ -212,7 +223,7 @@ pub fn localtime(t: i64) -> (libc::tm, i64) {
     // SAFETY: localtime_r() fills the zeroed tm it is given.
     let tm = unsafe {
         let mut tm: libc::tm = std::mem::zeroed();
-        libc::localtime_r(&(t as libc::time_t), &mut tm);
+        libc::localtime_r(&(t as _), &mut tm);
         tm
     };
     let off = tm.tm_gmtoff as i64;

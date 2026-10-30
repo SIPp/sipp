@@ -603,7 +603,7 @@ fn recv_all(sock: &UdpSocket, buf: &mut [u8], mut each: impl FnMut(&[u8], Socket
             m.msg_hdr.msg_iovlen = 1;
         }
         // SAFETY: each message points at its own address and share of buf.
-        let n = unsafe { libc::recvmmsg(sock.as_raw_fd(), msgs.as_mut_ptr(), RECV_BATCH as libc::c_uint, libc::MSG_DONTWAIT, std::ptr::null_mut()) };
+        let n = unsafe { libc::recvmmsg(sock.as_raw_fd(), msgs.as_mut_ptr(), RECV_BATCH as libc::c_uint, libc::MSG_DONTWAIT as _, std::ptr::null_mut()) };
         if n < 0 {
             let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
             return (errno != libc::EAGAIN && errno != libc::EWOULDBLOCK && errno != libc::EINTR).then_some(errno);
