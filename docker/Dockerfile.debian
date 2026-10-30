@@ -4,7 +4,7 @@
 # Add --build-arg UNITTEST=1 to also build and run sipp_unittest, and
 # --build-arg REGRESS="github-#0773 ..." to run those regress tests.
 
-FROM debian:12-slim AS build
+FROM debian:13-slim AS build
 
 ARG FULL=''
 ARG WOLFSSL=''
@@ -21,10 +21,11 @@ RUN apt-get update \
   libpcap-dev \
   libncurses-dev \
   libpugixml-dev \
+  libssl-dev \
   make \
   ninja-build \
   ${WOLFSSL:+libwolfssl-dev} \
-  ${FULL:+libsctp-dev libssl-dev} \
+  ${FULL:+libsctp-dev} \
   ${REGRESS:+openssl perl procps}
 
 WORKDIR /sipp
@@ -57,16 +58,17 @@ RUN ulimit -n "$(ulimit -Hn)"; \
   done; \
   test -z "$failed" || { echo "Failed:$failed"; exit 1; }
 
-FROM debian:12-slim
+FROM debian:13-slim
 CMD ["sipp"]
 ARG FULL=''
 ARG WOLFSSL=''
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  libgsl27 \
+  libgsl28 \
   libpcap0.8 \
   libncursesw6 \
-  ${WOLFSSL:+libwolfssl35} \
-  ${FULL:+libsctp1 libssl3} \
+  libssl3 \
+  ${WOLFSSL:+libwolfssl42} \
+  ${FULL:+libsctp1} \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=build /sipp/sipp /usr/local/bin/sipp
