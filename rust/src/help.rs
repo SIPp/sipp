@@ -305,6 +305,8 @@ pub static OPTIONS: &[Opt] = &[
     Opt("screen_overwrite", Args(1), &["Overwrite the screen file (default true)."]),
     Opt("trace_rtt", Args(0), &["Allow tracing of all response times in <scenario file name>_<pid>_rtt.csv."]),
     Opt("rtt_freq", Args(1), &["freq is mandatory. Dump response times every freq calls in the log file defined by -trace_rtt. Default value is 200."]),
+    Opt("trace_rtp_rtt", Args(0), &["Trace the round-trip times of apattern/vpattern 7 probes, one row per call, in <scenario file name>_<pid>_rtp_rtt.csv."]),
+    Opt("rtp_rtt_file", Args(1), &["Set the name of the RTP round-trip time file (-trace_rtp_rtt)."]),
     Opt("trace_logs", Args(0), &["Allow tracing of <log> actions in <scenario file name>_<pid>_logs.log."]),
     Opt("log_file", Args(1), &["Set the name of the log actions log file."]),
     Opt("log_overwrite", Args(1), &["Overwrite the log actions log file (default true)."]),

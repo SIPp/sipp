@@ -707,8 +707,22 @@ pub fn tick_ms(t: Instant) -> u64 {
     t.saturating_duration_since(epoch()).as_millis() as u64
 }
 
+/// `t` in microseconds from the clock: an RTT probe's stamp, which wraps
+/// every ~71 minutes; differences are taken with wrapping arithmetic.
+pub fn epoch_us(t: Instant) -> u32 {
+    t.saturating_duration_since(epoch()).as_micros() as u32
+}
+
 fn epoch_ms(t: Instant) -> f64 {
     tick_ms(t) as f64
+}
+
+/// The process's RTT probe salt, from the std hasher's random keys: fixed
+/// for the process, different between processes.
+fn probe_salt() -> u32 {
+    use std::hash::{BuildHasher, Hasher};
+    static SALT: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    *SALT.get_or_init(|| std::collections::hash_map::RandomState::new().build_hasher().finish() as u32)
 }
 
 /// SIPp's url_encode(): unreserved characters as they are, the rest %XX.
@@ -921,6 +935,13 @@ impl Call {
     /// SIPp's SSRCs: from the base up, audio then video, by call.
     fn ssrc(cfg: &Config, number: u64, video: bool) -> u32 {
         cfg.ssrc_base.wrapping_add((2 * number as u32).wrapping_sub(2) + video as u32)
+    }
+
+    /// An RTT probe's tag: stable for a (call, media) in this process, and
+    /// effectively random across processes, so a peer's own probes are
+    /// told from ours in a two-sided test.
+    fn probe_tag(number: u64, video: bool) -> u32 {
+        probe_salt() ^ (number as u32).wrapping_mul(0x9E37_79B1) ^ ((video as u32) << 31)
     }
 
     /// The call's audio (or video) RTP port, bound on first use: its
@@ -3446,6 +3467,10 @@ impl Call {
                     let m = &self.media[*video as usize];
                     let mut stream = Stream::new(data, *loops, *codec, remote, ssrc);
                     stream.held = held;
+                    // Pattern 7 stamps each packet for its round-trip time.
+                    let probe_tag = matches!(source, StreamSource::Pattern(id) if *id == media::PROBE_PATTERN_ID)
+                        .then(|| Call::probe_tag(self.number, *video));
+                    stream.probe = probe_tag;
                     // The keys go with the stream: none of it goes out with others.
                     stream.srtp = m.crypto().tx_context();
                     if media::rtp_debug::on() {
@@ -3454,11 +3479,11 @@ impl Call {
                     let check = match source {
                         StreamSource::Pattern(id) => {
                             let byte = media::pattern(*id, codec).map_or(0, |p| p[0]);
-                            Some(mediapool::PatternCheck { rx: m.crypto().rx_context(), id: *id, byte, len: codec.bytes, ok: 0 })
+                            Some(mediapool::PatternCheck { rx: m.crypto().rx_context(), id: *id, byte, len: codec.bytes, ok: 0, probe_tag })
                         }
                         StreamSource::File(_) => None,
                     };
-                    self.media_cmd(mediapool::Cmd::Stream { video: *video, stream, check, end: None });
+                    self.media_cmd(mediapool::Cmd::Stream { call: self.number, video: *video, stream, check, end: None });
                 }
             }
             Ok(())

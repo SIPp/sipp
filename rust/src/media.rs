@@ -578,11 +578,46 @@ pub fn codec(payload: i64, name: Option<&str>) -> Result<Codec, String> {
     Ok(Codec { payload: payload as u8, bytes, ticks, interval: Duration::from_millis(ms), video })
 }
 
+/// The pattern id of an RTP round-trip probe: its payload carries a send
+/// stamp that an echo returns, so the sender can time the round trip.
+pub const PROBE_PATTERN_ID: u8 = 7;
+/// A probe payload's marker: magic, tag and send stamp, then 0xAA fill.
+pub const PROBE_MAGIC: u8 = 0x53;
+pub const PROBE_TAG_LEN: usize = 4;
+pub const PROBE_STAMP_LEN: usize = 4;
+pub const PROBE_LEN: usize = 1 + PROBE_TAG_LEN + PROBE_STAMP_LEN;
+
+/// The probe fields of a payload slice, if it carries them: its tag and
+/// its send stamp.
+#[inline(always)]
+pub fn probe_payload(payload: &[u8]) -> Option<(u32, u32)> {
+    if payload.len() < PROBE_LEN || payload[0] != PROBE_MAGIC {
+        return None;
+    }
+    let tag = u32::from_be_bytes(payload[1..5].try_into().ok()?);
+    let stamp = u32::from_be_bytes(payload[5..9].try_into().ok()?);
+    Some((tag, stamp))
+}
+
+/// Writes a probe's marker and stamp over the start of its payload.
+#[inline(always)]
+pub fn probe_write(payload: &mut [u8], tag: u32, stamp: u32) {
+    payload[0] = PROBE_MAGIC;
+    payload[1..5].copy_from_slice(&tag.to_be_bytes());
+    payload[5..9].copy_from_slice(&stamp.to_be_bytes());
+}
+
 /// apattern/vpattern N: every payload byte is 0xAA, 0xBB, ... 0xFF.
+/// Pattern 7 is the RTT probe: 0xAA fill, overwritten per packet.
 pub fn pattern(id: u8, codec: &Codec) -> Result<Vec<u8>, String> {
     match id {
         1..=6 => Ok(vec![0xAA + 0x11 * (id - 1); codec.bytes]),
-        _ => Err(format!("rtp_stream pattern {id}: must be 1 to 6")),
+        PROBE_PATTERN_ID if codec.bytes >= PROBE_LEN => Ok(vec![0xAA; codec.bytes]),
+        PROBE_PATTERN_ID => Err(format!(
+            "rtp_stream pattern {id}: payload type {} has {} bytes, needs at least {PROBE_LEN}",
+            codec.payload, codec.bytes
+        )),
+        _ => Err(format!("rtp_stream pattern {id}: must be 1 to {PROBE_PATTERN_ID}")),
     }
 }
 
@@ -667,6 +702,12 @@ pub struct Stream {
     /// The RTP bytes of the packets sent, header and payload, as SIPp's
     /// rtpstream_abytes_out.
     pub bytes: u64,
+    /// An RTT probe's tag, when the stream is one.
+    pub probe: Option<u32>,
+    /// Its last send stamp: each probe's is newer than the one before.
+    last_probe_stamp: u32,
+    /// The probes it sent.
+    pub probe_sent: u64,
 }
 
 impl Stream {
@@ -689,6 +730,9 @@ impl Stream {
             rx: None,
             sent: 0,
             bytes: 0,
+            probe: None,
+            last_probe_stamp: 0,
+            probe_sent: 0,
         }
     }
 
@@ -704,7 +748,7 @@ impl Stream {
     /// The next packet into `p`, stamped `ts`; false once the stream has
     /// played.
     #[inline(always)]
-    fn packet(&mut self, p: &mut Vec<u8>, ts: u32) -> bool {
+    fn packet(&mut self, p: &mut Vec<u8>, ts: u32, probe_stamp: Option<u32>) -> bool {
         let len = self.data.len();
         if self.loops == 0 || len == 0 {
             return false;
@@ -719,6 +763,12 @@ impl Stream {
             let n = want.min(len - at);
             p.extend_from_slice(&self.data[at..at + n]);
             (want, at) = (want - n, 0);
+        }
+        // An RTT probe's marker and send stamp go over the 0xAA fill.
+        if let (Some(tag), Some(stamp)) = (self.probe, probe_stamp) {
+            if p.len() >= 12 + PROBE_LEN {
+                probe_write(&mut p[12..], tag, stamp);
+            }
         }
         // What the file has left past this packet, a loop more each time
         // it ends in it.
@@ -783,7 +833,27 @@ impl Stream {
             if paused {
                 continue;
             }
-            if !self.packet(plain, time.wrapping_mul(u64::from(self.codec.ticks)) as u32) {
+            // An RTT probe is stamped just before it goes. A catch-up send
+            // in this pass may share the microsecond: the next stamp is
+            // then one later, so stamps stay unique and ordered.
+            let probe_stamp = if self.probe.is_some() {
+                let now_us = crate::call::epoch_us(Instant::now());
+                let stamp = if self.probe_sent > 0 {
+                    let diff = now_us.wrapping_sub(self.last_probe_stamp);
+                    if diff == 0 || diff >= 0x8000_0000 {
+                        self.last_probe_stamp.wrapping_add(1)
+                    } else {
+                        now_us
+                    }
+                } else {
+                    now_us
+                };
+                self.last_probe_stamp = stamp;
+                Some(stamp)
+            } else {
+                None
+            };
+            if !self.packet(plain, time.wrapping_mul(u64::from(self.codec.ticks)) as u32, probe_stamp) {
                 return false;
             }
             // A packet that does not protect goes as it is.
@@ -794,6 +864,9 @@ impl Stream {
             if result.is_ok() {
                 self.sent += 1;
                 self.bytes += plain.len() as u64;
+                if self.probe.is_some() {
+                    self.probe_sent += 1;
+                }
             }
         }
         true
@@ -1437,7 +1510,35 @@ mod tests {
 
     fn next_packet(s: &mut Stream) -> Option<Vec<u8>> {
         let mut p = Vec::new();
-        s.packet(&mut p, 0x01020304).then_some(p)
+        s.packet(&mut p, 0x01020304, None).then_some(p)
+    }
+
+    #[test]
+    fn patterns_one_to_six_are_constant_and_seven_is_the_probe_fill() {
+        let pcmu = codec(0, None).unwrap();
+        for id in 1..=6u8 {
+            assert_eq!(pattern(id, &pcmu).unwrap(), vec![0xAA + 0x11 * (id - 1); 160]);
+        }
+        assert_eq!(pattern(PROBE_PATTERN_ID, &pcmu).unwrap(), vec![0xAA; 160]);
+        // Comfort noise has one byte of payload: no room for magic, tag and stamp.
+        assert!(pattern(PROBE_PATTERN_ID, &codec(13, Some("CN/8000")).unwrap()).is_err());
+        assert!(pattern(8, &pcmu).is_err());
+    }
+
+    #[test]
+    fn a_probe_packet_carries_its_tag_and_stamp() {
+        let c = codec(0, None).unwrap();
+        let remote: std::net::SocketAddr = "127.0.0.1:9".parse().unwrap();
+        let mut s = Stream::new(pattern(PROBE_PATTERN_ID, &c).unwrap(), -1, c, remote, 1);
+        s.probe = Some(0xA1B2_C3D4);
+        let mut p = Vec::new();
+        assert!(s.packet(&mut p, 0, Some(0x0102_0304)));
+        assert_eq!(probe_payload(&p[12..]), Some((0xA1B2_C3D4, 0x0102_0304)));
+        assert!(p[12 + PROBE_LEN..].iter().all(|&b| b == 0xAA));
+        // Without a stamp a probe stream keeps its 0xAA fill.
+        let mut q = Vec::new();
+        assert!(s.packet(&mut q, 0, None));
+        assert_eq!(probe_payload(&q[12..]), None);
     }
 
     #[test]

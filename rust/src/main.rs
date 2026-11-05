@@ -320,6 +320,8 @@ struct Args {
     rtt_paths: [Option<String>; 3],
     /// -rtt_freq: -trace_rtt lines held back before a write.
     rtt_freq: usize,
+    /// -trace_rtp_rtt's file: an RTT probe's per-call rows.
+    rtp_rtt_path: Option<String>,
     screen_file: Option<String>,
     /// The screen file, which -trace_screen opens once the scenario is
     /// loaded, else each SIGUSR2 as rotate_screenf().
@@ -784,6 +786,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
     let (mut trace_short, mut short_file, mut trace_screen, mut screen_file) = (false, None, false, None);
     let (mut trace_calldebug, mut calldebug_file) = (false, None);
     let (mut trace_counts, mut trace_codes, mut trace_rtt, mut rtt_freq) = (false, false, false, 200usize);
+    let (mut trace_rtp_rtt, mut rtp_rtt_file) = (false, None);
     let (mut trace_msg, mut trace_err, mut trace_logs) = (false, false, false);
     let (mut message_file, mut error_file, mut log_file) = (None, None, None);
     // -X_overwrite, by X.
@@ -1020,7 +1023,8 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
             "-trace_logs" => trace_logs = true,
             "-trace_shortmsg" => trace_short = true,
             "-trace_calldebug" => trace_calldebug = true,
-            "-calldebug_file" | "-shortmessage_file" | "-screen_file" | "-message_file" | "-error_file" | "-log_file" => {
+            "-calldebug_file" | "-shortmessage_file" | "-screen_file" | "-message_file" | "-error_file" | "-log_file"
+            | "-rtp_rtt_file" => {
                 let name = Some(val()?.clone());
                 match opt {
                     "-calldebug_file" => calldebug_file = name,
@@ -1029,6 +1033,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
                     "-message_file" => message_file = name,
                     "-error_file" => error_file = name,
                     "-log_file" => log_file = name,
+                    "-rtp_rtt_file" => rtp_rtt_file = name,
                     _ => unreachable!(),
                 }
             }
@@ -1036,6 +1041,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
             "-trace_counts" => trace_counts = true,
             "-trace_error_codes" => trace_codes = true,
             "-trace_rtt" => trace_rtt = true,
+            "-trace_rtp_rtt" => trace_rtp_rtt = true,
             "-rtt_freq" => rtt_freq = num(arg, val()?)?,
             // false: the log is added to when it is first opened.
             "-message_overwrite" | "-error_overwrite" | "-log_overwrite" | "-screen_overwrite" | "-shortmessage_overwrite"
@@ -1415,6 +1421,8 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
     // Each scenario's own, named after it, as its RTD names are its own.
     let rtt_paths = [Some(&scenario_name), side_names[0].as_ref(), side_names[1].as_ref()]
         .map(|n| n.filter(|_| trace_rtt).map(|n| format!("{n}_{pid}_rtt.csv")));
+    // -trace_rtp_rtt: -rtp_rtt_file's name, else the scenario's.
+    let rtp_rtt_path = trace_rtp_rtt.then(|| rtp_rtt_file.unwrap_or_else(|| format!("{scenario_name}_{pid}_rtp_rtt.csv")));
     // -t ui: the IPs of -inf's -ip_field, the main socket on the first,
     // and a server's on all of them, as SIPp resolves them.
     let mut per_ip = Vec::new();
@@ -1572,6 +1580,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
         setup_error,
         rtt_paths,
         rtt_freq: rtt_freq.max(1),
+        rtp_rtt_path,
         screen_file,
         screen_log,
         auto_limit,
@@ -2105,6 +2114,8 @@ struct Engine {
     traffic_paused: bool,
     /// -trace_rtt's files, as the paths in Args.
     rtt_files: [Option<File>; 3],
+    /// -trace_rtp_rtt's file, created with the first probe row.
+    rtp_rtt_file: Option<File>,
     /// SIPp's next_number: the number of the next call made.
     next_number: u64,
     /// -round_robin: the remote address the next call takes.
@@ -3598,6 +3609,9 @@ impl Engine {
     /// dumpDataRtt() of each scenario: the response times held back, or
     /// with `full` only those of -rtt_freq times.
     fn write_rtts(&mut self, full: bool) {
+        // Probe rows are independent of -rtt_freq: what finished since the
+        // last write goes now, so a reader follows them live.
+        self.write_rtp_rtts();
         let freq = if full { self.args.rtt_freq } else { 1 };
         let [ooc, rx, aa] = &mut self.side_stats;
         if let Some(aa) = aa {
@@ -3625,6 +3639,46 @@ impl Engine {
             for (date, rtt, rtd) in std::mem::take(&mut st.rtts) {
                 let _ = raw::write(f, &format!("{date:.3}{d}{rtt:.3}{d}{}\n", st.rtd_names()[rtd]));
             }
+        }
+    }
+
+    /// -trace_rtp_rtt: the probe rows of the calls that ended since the
+    /// last write. Rows are drained even without the flag, so the queue
+    /// stays bounded.
+    fn write_rtp_rtts(&mut self) {
+        let rows = mediapool::take_rtt_rows();
+        if rows.is_empty() {
+            return;
+        }
+        let Some(path) = self.args.rtp_rtt_path.clone() else { return };
+        let d = self.stats.delimiter.clone();
+        if self.rtp_rtt_file.is_none() {
+            let Ok(mut f) = File::create(&path) else {
+                self.args.log.warning(&format!("Unable to open RTP RTT file '{path}'"));
+                return;
+            };
+            let _ = writeln!(f, "date_ms{d}call{d}stream{d}sent{d}matched{d}min_ms{d}avg_ms{d}p95_ms{d}max_ms{d}duplicates{d}late{d}missing");
+            self.rtp_rtt_file = Some(f);
+        }
+        let f = self.rtp_rtt_file.as_mut().expect("opened above");
+        for r in rows {
+            let stream = if r.video { "video" } else { "audio" };
+            let _ = raw::write(
+                f,
+                &format!(
+                    "{}{d}{}{d}{stream}{d}{}{d}{}{d}{:.3}{d}{:.3}{d}{:.3}{d}{:.3}{d}{}{d}{}{d}{}\n",
+                    r.date_ms, r.call, r.sent, r.matched, r.min_ms, r.avg_ms, r.p95_ms, r.max_ms, r.duplicates, r.late, r.missing
+                ),
+            );
+        }
+    }
+
+    /// The probe summary, on the screen and in -trace_logs' file, when a
+    /// probe ran.
+    fn print_rtp_rtt_summary(&mut self) {
+        if let Some(line) = mediapool::rtp_rtt_summary() {
+            println!("{line}");
+            self.args.log.log(&line);
         }
     }
 
@@ -3786,6 +3840,8 @@ impl Engine {
         if std::mem::take(&mut self.args.log.stop_stats) {
             (self.args.stat_path, self.args.stat_file) = (None, None);
             self.args.rtt_paths = Default::default();
+            self.args.rtp_rtt_path = None;
+            self.rtp_rtt_file = None;
         }
     }
 
@@ -4041,6 +4097,7 @@ impl Engine {
             self.closing_screens();
             self.dump_stats();
             self.write_rtts(false);
+            self.print_rtp_rtt_summary();
             self.args.log.print_errors();
             let c = &self.counters;
             return if fatal.is_some() {
@@ -4080,6 +4137,7 @@ impl Engine {
         self.closing_screens();
         self.dump_stats();
         self.write_rtts(false);
+        self.print_rtp_rtt_summary();
         self.args.log.print_errors();
         let c = &self.counters;
         if c.rtp_errors > 0 || c.echo_errors {
@@ -4514,6 +4572,7 @@ fn main() -> ExitCode {
         loops: 0,
         side_stats,
         rtt_files: Default::default(),
+        rtp_rtt_file: None,
         keyboard,
         live_screen,
         screen: 1,
