@@ -179,7 +179,7 @@ fn a_probe_measures_the_echo_round_trip() {
     let mut lines = csv.lines();
     assert_eq!(
         lines.next().unwrap(),
-        "date_ms;call;stream;window_ms;sent;matched;min_ms;avg_ms;p95_ms;max_ms;duplicates;late;missing"
+        "date_ms;call;stream;window_ms;sent;matched;min_ms;avg_ms;p95_ms;max_ms;jitter_ms;duplicates;late;missing"
     );
     let rows: Vec<Vec<&str>> = lines.map(|l| l.split(';').collect()).collect();
     let total: Vec<&Vec<&str>> = rows.iter().filter(|f| f[3] == "0").collect();
@@ -189,8 +189,9 @@ fn a_probe_measures_the_echo_round_trip() {
     let matched: u64 = t[5].parse().unwrap();
     assert!(sent > 0, "total {t:?}");
     assert!(matched >= sent * 9 / 10, "matched {matched} of {sent}: {t:?}");
-    assert_eq!(t[10], "0", "duplicates: {t:?}");
-    assert_eq!(t[11], "0", "late: {t:?}");
+    assert_eq!(t[11], "0", "duplicates: {t:?}");
+    assert_eq!(t[12], "0", "late: {t:?}");
+    assert!(t[10].parse::<f64>().unwrap() >= 0.0, "jitter: {t:?}");
     let avg: f64 = t[7].parse().unwrap();
     assert!(avg < 50.0, "loopback RTT should be well under a packet time: {t:?}");
 

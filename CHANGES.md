@@ -17,7 +17,8 @@ marked **Breaking**.
   duplicates, reordering and loss, even when an SBC rewrites the SSRC,
   sequence number and timestamp. `-rtp_rtt_interval` (default 1000 ms,
   0 off) also writes a row per call per window, so a long call's latency
-  evolution is in the CSV (Rust port only)
+  evolution is in the CSV; each row carries the RTT jitter (RFC
+  3550-style on successive RTT samples) (Rust port only)
 
 ### Changed
 

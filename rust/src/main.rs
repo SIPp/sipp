@@ -3669,7 +3669,7 @@ impl Engine {
                 self.args.log.warning(&format!("Unable to open RTP RTT file '{path}'"));
                 return;
             };
-            let _ = writeln!(f, "date_ms{d}call{d}stream{d}window_ms{d}sent{d}matched{d}min_ms{d}avg_ms{d}p95_ms{d}max_ms{d}duplicates{d}late{d}missing");
+            let _ = writeln!(f, "date_ms{d}call{d}stream{d}window_ms{d}sent{d}matched{d}min_ms{d}avg_ms{d}p95_ms{d}max_ms{d}jitter_ms{d}duplicates{d}late{d}missing");
             self.rtp_rtt_file = Some(f);
         }
         let f = self.rtp_rtt_file.as_mut().expect("opened above");
@@ -3678,8 +3678,8 @@ impl Engine {
             let _ = raw::write(
                 f,
                 &format!(
-                    "{}{d}{}{d}{stream}{d}{}{d}{}{d}{}{d}{:.3}{d}{:.3}{d}{:.3}{d}{:.3}{d}{}{d}{}{d}{}\n",
-                    r.date_ms, r.call, r.window_ms, r.sent, r.matched, r.min_ms, r.avg_ms, r.p95_ms, r.max_ms, r.duplicates, r.late, r.missing
+                    "{}{d}{}{d}{stream}{d}{}{d}{}{d}{}{d}{:.3}{d}{:.3}{d}{:.3}{d}{:.3}{d}{:.3}{d}{}{d}{}{d}{}\n",
+                    r.date_ms, r.call, r.window_ms, r.sent, r.matched, r.min_ms, r.avg_ms, r.p95_ms, r.max_ms, r.jitter_ms, r.duplicates, r.late, r.missing
                 ),
             );
         }

@@ -71,6 +71,9 @@ pub struct ProbeCheck {
     min_us: u32,
     max_us: u32,
     sum_us: u64,
+    /// The previous distinct RTT, and the call's RFC 3550-style jitter (µs).
+    last_rtt_us: Option<u32>,
+    jitter_us: f64,
     /// -rtp_rtt_interval: a window's length, ms; 0 writes only the call
     /// total. Its start on the run clock, its samples, its own min/max/sum,
     /// and the totals at its start for its sent/matched/duplicate deltas.
@@ -81,6 +84,9 @@ pub struct ProbeCheck {
     window_min_us: u32,
     window_max_us: u32,
     window_sum_us: u64,
+    /// The window's own jitter, from its first sample on.
+    window_last_rtt_us: Option<u32>,
+    window_jitter_us: f64,
     window_sent: u64,
     window_matched: u64,
     window_duplicates: u64,
@@ -101,6 +107,8 @@ pub struct RttRow {
     pub avg_ms: f64,
     pub p95_ms: f64,
     pub max_ms: f64,
+    /// RFC 3550-style smoothed |difference| of successive RTT samples, ms.
+    pub jitter_ms: f64,
     pub duplicates: u64,
     pub late: u64,
     pub missing: u64,
@@ -142,6 +150,8 @@ impl ProbeCheck {
             min_us: 0,
             max_us: 0,
             sum_us: 0,
+            last_rtt_us: None,
+            jitter_us: 0.0,
             interval_ms,
             window_start_ms: 0,
             window_samples: [0; WINDOW_SAMPLES],
@@ -149,6 +159,8 @@ impl ProbeCheck {
             window_min_us: 0,
             window_max_us: 0,
             window_sum_us: 0,
+            window_last_rtt_us: None,
+            window_jitter_us: 0.0,
             window_sent: 0,
             window_matched: 0,
             window_duplicates: 0,
@@ -207,6 +219,7 @@ impl ProbeCheck {
                 avg_ms: if matched > 0 { self.window_sum_us as f64 / matched as f64 / 1000.0 } else { 0.0 },
                 p95_ms: f64::from(p95_us) / 1000.0,
                 max_ms: f64::from(self.window_max_us) / 1000.0,
+                jitter_ms: self.window_jitter_us / 1000.0,
                 duplicates,
                 late,
                 // An echo of the window's last packet can come in the next
@@ -220,6 +233,8 @@ impl ProbeCheck {
         self.window_min_us = 0;
         self.window_max_us = 0;
         self.window_sum_us = 0;
+        self.window_last_rtt_us = None;
+        self.window_jitter_us = 0.0;
         self.window_sent = self.sent;
         self.window_matched = self.matched;
         self.window_duplicates = self.duplicates;
@@ -273,6 +288,18 @@ impl ProbeCheck {
             self.window_samples[self.window_len] = rtt;
             self.window_len += 1;
         }
+        // RFC 3550-style jitter on successive distinct RTT samples (RTT variation,
+        // not one-way network jitter). The call's is continuous; a window starts over.
+        if let Some(prev) = self.last_rtt_us {
+            let d = rtt.abs_diff(prev) as f64;
+            self.jitter_us += (d - self.jitter_us) / 16.0;
+        }
+        self.last_rtt_us = Some(rtt);
+        if let Some(prev) = self.window_last_rtt_us {
+            let d = rtt.abs_diff(prev) as f64;
+            self.window_jitter_us += (d - self.window_jitter_us) / 16.0;
+        }
+        self.window_last_rtt_us = Some(rtt);
         true
     }
 
@@ -298,6 +325,7 @@ impl ProbeCheck {
             avg_ms: if self.matched > 0 { self.sum_us as f64 / self.matched as f64 / 1000.0 } else { 0.0 },
             p95_ms: f64::from(p95_us) / 1000.0,
             max_ms: f64::from(self.max_us) / 1000.0,
+            jitter_ms: self.jitter_us / 1000.0,
             duplicates: self.duplicates,
             late: self.late,
             missing: self.sent.saturating_sub(self.matched),
@@ -1641,6 +1669,8 @@ mod tests {
         assert!((row.min_ms - 0.075).abs() < 1e-9);
         assert!((row.max_ms - 0.100).abs() < 1e-9);
         assert!((row.avg_ms - 0.091_666_666_7).abs() < 1e-6);
+        // RTTs 100, 100, 75 µs: the only non-zero |difference| is 25 µs -> 25/16 µs.
+        assert!((row.jitter_ms - 0.001_562_5).abs() < 1e-9);
     }
 
     #[test]
@@ -1653,7 +1683,7 @@ mod tests {
         let mut p = ProbeCheck::new(7, 1000);
         p.sent = 2;
         assert!(p.observe(&payload(1000), 1100, 100, 42, false));
-        assert!(p.observe(&payload(1020), 1120, 200, 42, false));
+        assert!(p.observe(&payload(1020), 1160, 200, 42, false));
         // The third probe is sent, but its echo lands in the next window:
         // the first window flushes with one sent-but-unanswered probe.
         p.sent = 3;
@@ -1666,6 +1696,11 @@ mod tests {
         assert_eq!((first.window_ms, first.date_ms, first.sent, first.matched, first.missing), (1000, 1100, 3, 2, 1));
         assert_eq!((last.window_ms, last.sent, last.matched), (1400, 1, 1));
         assert_eq!((total.window_ms, total.sent, total.matched), (0, 4, 3));
+        // Window 1 sees RTTs 100 then 140 µs (|d| 40 -> 40/16); window 2 starts over.
+        assert!((first.jitter_ms - 0.002_5).abs() < 1e-9);
+        assert_eq!(last.jitter_ms, 0.0);
+        // The call's jitter goes on across the boundary: 40 µs later -> J += (40 - J)/16.
+        assert!((total.jitter_ms - 0.004_843_75).abs() < 1e-9);
         // Empty windows write nothing.
         p.tick(9000, 42, false);
         assert!(RTT_ROWS.lock().unwrap().is_empty());
