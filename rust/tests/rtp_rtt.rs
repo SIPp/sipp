@@ -155,7 +155,7 @@ fn uac(ports: &Ports, dir: &std::path::Path, rtt: bool) -> std::process::Output 
         "-p", &ports.uac_sip.to_string(),
         "-min_rtp_port", &ports.uac_media.to_string(),
         "-max_rtp_port", &(ports.uac_media + 20).to_string(),
-        "-m", "1", "-nostdin", "-d", "700",
+        "-m", "1", "-nostdin", "-d", "2500",
         "-key", "from_user", "sipp", "-s", "service", "-timeout", "15s",
     ]);
     if rtt {
@@ -179,18 +179,28 @@ fn a_probe_measures_the_echo_round_trip() {
     let mut lines = csv.lines();
     assert_eq!(
         lines.next().unwrap(),
-        "date_ms;call;stream;sent;matched;min_ms;avg_ms;p95_ms;max_ms;duplicates;late;missing"
+        "date_ms;call;stream;window_ms;sent;matched;min_ms;avg_ms;p95_ms;max_ms;duplicates;late;missing"
     );
-    let row = lines.next().expect("one row for the call");
-    let f: Vec<&str> = row.split(';').collect();
-    let sent: u64 = f[3].parse().unwrap();
-    let matched: u64 = f[4].parse().unwrap();
-    assert!(sent > 0, "row {row}");
-    assert!(matched >= sent * 9 / 10, "matched {matched} of {sent}: {row}");
-    assert_eq!(f[9], "0", "duplicates: {row}");
-    assert_eq!(f[10], "0", "late: {row}");
-    let avg: f64 = f[6].parse().unwrap();
-    assert!(avg < 50.0, "loopback RTT should be well under a packet time: {row}");
+    let rows: Vec<Vec<&str>> = lines.map(|l| l.split(';').collect()).collect();
+    let total: Vec<&Vec<&str>> = rows.iter().filter(|f| f[3] == "0").collect();
+    assert_eq!(total.len(), 1, "one call-total row: {csv}");
+    let t = total[0];
+    let sent: u64 = t[4].parse().unwrap();
+    let matched: u64 = t[5].parse().unwrap();
+    assert!(sent > 0, "total {t:?}");
+    assert!(matched >= sent * 9 / 10, "matched {matched} of {sent}: {t:?}");
+    assert_eq!(t[10], "0", "duplicates: {t:?}");
+    assert_eq!(t[11], "0", "late: {t:?}");
+    let avg: f64 = t[7].parse().unwrap();
+    assert!(avg < 50.0, "loopback RTT should be well under a packet time: {t:?}");
+
+    // A 2.5 s hold: full windows plus the final partial one.
+    let intervals: Vec<&Vec<&str>> = rows.iter().filter(|f| f[3] != "0").collect();
+    assert!(intervals.len() >= 2, "no interval rows: {csv}");
+    assert!(intervals.iter().all(|f| f[3].parse::<u64>().unwrap() > 0));
+    let window_sent: u64 = intervals.iter().map(|f| f[4].parse::<u64>().unwrap()).sum();
+    let window_matched: u64 = intervals.iter().map(|f| f[5].parse::<u64>().unwrap()).sum();
+    assert_eq!((window_sent, window_matched), (sent, matched), "windows must partition the total");
 
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("RTP RTT probe:"), "{stdout}");

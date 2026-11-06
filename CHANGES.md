@@ -15,7 +15,9 @@ marked **Breaking**.
   stamp; an echoing peer returns it, and the sender reports each call's
   round trip in `-trace_rtp_rtt`'s CSV (`-rtp_rtt_file`), with
   duplicates, reordering and loss, even when an SBC rewrites the SSRC,
-  sequence number and timestamp (Rust port only)
+  sequence number and timestamp. `-rtp_rtt_interval` (default 1000 ms,
+  0 off) also writes a row per call per window, so a long call's latency
+  evolution is in the CSV (Rust port only)
 
 ### Changed
 

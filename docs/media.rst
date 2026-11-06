@@ -42,8 +42,9 @@ verbatim. The sender times the round trip and reports duplicates,
 reordering and loss, even when a B2BUA rewrites the SSRC, sequence number
 and timestamp. It needs a payload of at least 9 bytes and an echoing
 peer. ``-trace_rtp_rtt`` writes one row per call to ``-rtp_rtt_file``,
-and a run summary is printed at exit. The C++ SIPp does not have this
-yet.
+and a run summary is printed at exit. ``-rtp_rtt_interval`` (default
+1000 ms, 0 off) adds a row per call per window, with ``window_ms`` on
+every row (0 is the call total). The C++ SIPp does not have this yet.
 
 
 PCAP Play

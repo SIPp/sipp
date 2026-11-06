@@ -787,6 +787,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
     let (mut trace_calldebug, mut calldebug_file) = (false, None);
     let (mut trace_counts, mut trace_codes, mut trace_rtt, mut rtt_freq) = (false, false, false, 200usize);
     let (mut trace_rtp_rtt, mut rtp_rtt_file) = (false, None);
+    let mut rtp_rtt_interval: Option<u32> = None;
     let (mut trace_msg, mut trace_err, mut trace_logs) = (false, false, false);
     let (mut message_file, mut error_file, mut log_file) = (None, None, None);
     // -X_overwrite, by X.
@@ -1042,6 +1043,15 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
             "-trace_error_codes" => trace_codes = true,
             "-trace_rtt" => trace_rtt = true,
             "-trace_rtp_rtt" => trace_rtp_rtt = true,
+            "-rtp_rtt_interval" => {
+                let v: i64 = num(arg, val()?)?;
+                // 0 turns interval rows off; a sub-100 ms window is more
+                // rows than a probe's 50 packets/s can fill.
+                if v != 0 && !(100..=3_600_000).contains(&v) {
+                    return Err(fatal(format!("-rtp_rtt_interval must be 0 or 100 to 3600000 ms, not {v}")));
+                }
+                rtp_rtt_interval = Some(v as u32);
+            }
             "-rtt_freq" => rtt_freq = num(arg, val()?)?,
             // false: the log is added to when it is first opened.
             "-message_overwrite" | "-error_overwrite" | "-log_overwrite" | "-screen_overwrite" | "-shortmessage_overwrite"
@@ -1508,6 +1518,8 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
             // SIPp: min_rtp_port, moved up if -rtp_echo finds it taken.
             media_port: min_rtp_port,
             default_pause: Duration::from_millis(pause_ms),
+            // A probe's rounds are written every second unless told otherwise.
+            rtp_rtt_interval_ms: if trace_rtp_rtt { rtp_rtt_interval.unwrap_or(1000) } else { 0 },
             recv_timeout,
             default_behaviors,
             auto_answer,
@@ -3657,7 +3669,7 @@ impl Engine {
                 self.args.log.warning(&format!("Unable to open RTP RTT file '{path}'"));
                 return;
             };
-            let _ = writeln!(f, "date_ms{d}call{d}stream{d}sent{d}matched{d}min_ms{d}avg_ms{d}p95_ms{d}max_ms{d}duplicates{d}late{d}missing");
+            let _ = writeln!(f, "date_ms{d}call{d}stream{d}window_ms{d}sent{d}matched{d}min_ms{d}avg_ms{d}p95_ms{d}max_ms{d}duplicates{d}late{d}missing");
             self.rtp_rtt_file = Some(f);
         }
         let f = self.rtp_rtt_file.as_mut().expect("opened above");
@@ -3666,8 +3678,8 @@ impl Engine {
             let _ = raw::write(
                 f,
                 &format!(
-                    "{}{d}{}{d}{stream}{d}{}{d}{}{d}{:.3}{d}{:.3}{d}{:.3}{d}{:.3}{d}{}{d}{}{d}{}\n",
-                    r.date_ms, r.call, r.sent, r.matched, r.min_ms, r.avg_ms, r.p95_ms, r.max_ms, r.duplicates, r.late, r.missing
+                    "{}{d}{}{d}{stream}{d}{}{d}{}{d}{}{d}{:.3}{d}{:.3}{d}{:.3}{d}{:.3}{d}{}{d}{}{d}{}\n",
+                    r.date_ms, r.call, r.window_ms, r.sent, r.matched, r.min_ms, r.avg_ms, r.p95_ms, r.max_ms, r.duplicates, r.late, r.missing
                 ),
             );
         }

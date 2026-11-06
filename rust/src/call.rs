@@ -68,6 +68,9 @@ pub struct Config {
     /// fails a pattern check.
     pub audio_tolerance: f64,
     pub video_tolerance: f64,
+    /// -rtp_rtt_interval: how often a probe call's round trips are written,
+    /// ms (0: only the call total). Default 1000 with -trace_rtp_rtt.
+    pub rtp_rtt_interval_ms: u32,
     /// -rtcheck loose: a retransmission is the same To, From, Call-ID and
     /// CSeq (and a response's status line and body), not the same text.
     pub rtcheck_loose: bool,
@@ -3479,7 +3482,15 @@ impl Call {
                     let check = match source {
                         StreamSource::Pattern(id) => {
                             let byte = media::pattern(*id, codec).map_or(0, |p| p[0]);
-                            Some(mediapool::PatternCheck { rx: m.crypto().rx_context(), id: *id, byte, len: codec.bytes, ok: 0, probe_tag })
+                            Some(mediapool::PatternCheck {
+                                rx: m.crypto().rx_context(),
+                                id: *id,
+                                byte,
+                                len: codec.bytes,
+                                ok: 0,
+                                probe_tag,
+                                rtt_interval_ms: env.cfg.rtp_rtt_interval_ms,
+                            })
                         }
                         StreamSource::File(_) => None,
                     };
@@ -3612,6 +3623,7 @@ mod tests {
                     service: "svc".into(),
                     media_port: 6000,
                     default_pause: Duration::ZERO,
+                    rtp_rtt_interval_ms: 0,
                     recv_timeout: None,
                     default_behaviors: BEHAVIOR_ALL,
                     auth_user: "svc".into(),
