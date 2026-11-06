@@ -157,14 +157,14 @@ else the crate's. `[sipp_version]` drops the `v`, as C does.
     3550-style on successive RTT samples (`J += (|d| - J)/16`), so it
     reflects RTT variation, not one-way interarrival jitter; it needs two
     samples (zero otherwise) and each window starts over. `-rtp_rtt_interval <ms>`
-    (default 1000; 0 turns it off) also writes a row per call per window
+    (default 250; 0 turns it off) also writes a row per call per window
     with `window_ms` set; the call's total row has `window_ms` 0. A
     summary of the run's round trips is printed at exit even without the
     flag. Rows appear as they are completed, so a reader can follow them
     live. The round trip is application-level: the receive time is when
-    SIPp's playback thread reads the packet. Per-second rows cost about
-    100 bytes per call per second: a 5,000-call run adds about 30 MB a
-    minute.
+    SIPp's playback thread reads the packet. A window row costs about
+    100 bytes: at the 250 ms default that is ~400 B per call per second,
+    and a 5,000-call run adds about 120 MB a minute.
   - `-rtpcheck_debug`: SIPp's `debugafile` and `debugvfile`, the same
     lines for each packet sent and what came back after it, compared as
     SIPp compares them, and for each pass of its playback thread over

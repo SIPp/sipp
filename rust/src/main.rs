@@ -1519,7 +1519,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
             media_port: min_rtp_port,
             default_pause: Duration::from_millis(pause_ms),
             // A probe's rounds are written every second unless told otherwise.
-            rtp_rtt_interval_ms: if trace_rtp_rtt { rtp_rtt_interval.unwrap_or(1000) } else { 0 },
+            rtp_rtt_interval_ms: if trace_rtp_rtt { rtp_rtt_interval.unwrap_or(250) } else { 0 },
             recv_timeout,
             default_behaviors,
             auto_answer,
