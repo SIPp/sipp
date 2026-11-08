@@ -3368,7 +3368,7 @@ impl Call {
                         f.line(format_args!("{at}TX/RX-UAS-{name} SRTP contexts - setting SRTP payload size to {bytes}, deriving session encryption/salting/authentication keys\n"));
                     }
                     let m = &self.media[*video as usize];
-                    let cmd = mediapool::Cmd::Echo { video: *video, srtp: on.then(|| (m.crypto().rx_context(), m.crypto().tx_context())), failed: None };
+                    let cmd = mediapool::Cmd::Echo { call: self.number, id: Arc::from(self.dialog_call_id()), video: *video, srtp: on.then(|| (m.crypto().rx_context(), m.crypto().tx_context())), failed: None };
                     let srtp = if *on { "Some(..)" } else { "None" };
                     srtpctx!(self.srtpctx, "Call::action() [{what}{name}]:  mediapool::Cmd::Echo {{ video: {video}, srtp: {srtp} }}\n");
                     match self.stream_task {

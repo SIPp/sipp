@@ -599,6 +599,25 @@ pub fn probe_payload(payload: &[u8]) -> Option<(u32, u32)> {
     Some((tag, stamp))
 }
 
+/// The payload offset of an RTP packet: the fixed header, the CSRC list
+/// and the header extension. A peer that adds either must not hide a
+/// marker (or a pattern byte) behind them.
+pub fn probe_payload_offset(pkt: &[u8]) -> Option<usize> {
+    if pkt.len() < 12 || pkt[0] >> 6 != 2 {
+        return None;
+    }
+    let mut offset = 12 + 4 * usize::from(pkt[0] & 0x0F);
+    if pkt[0] & 0x10 != 0 {
+        // One extension header word, then its declared 32-bit words.
+        if pkt.len() < offset + 4 {
+            return None;
+        }
+        let words = usize::from(u16::from_be_bytes([pkt[offset + 2], pkt[offset + 3]]));
+        offset += 4 + 4 * words;
+    }
+    (offset <= pkt.len()).then_some(offset)
+}
+
 /// Writes a probe's marker and stamp over the start of its payload.
 #[inline(always)]
 pub fn probe_write(payload: &mut [u8], tag: u32, stamp: u32) {
@@ -1707,5 +1726,19 @@ mod tests {
         let (rtp, rtcp) = ports.bind(ip).unwrap();
         assert_eq!(rtp.local_addr().unwrap().port(), port + 2);
         assert!(rtcp.is_none());
+    }
+
+    #[test]
+    fn a_probe_payload_offset_follows_csrc_and_the_header_extension() {
+        // The fixed header alone.
+        assert_eq!(probe_payload_offset(&[0x80; 40]), Some(12));
+        // CSRC count 2: four bytes each.
+        assert_eq!(probe_payload_offset(&[0x82; 40]), Some(20));
+        // Extension bit, 2 words: one extension header word, then 8 bytes.
+        let mut pkt = vec![0x90; 12];
+        pkt.extend_from_slice(&[0xBE, 0xDE, 0x00, 0x02, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(probe_payload_offset(&pkt), Some(12 + 4 + 8));
+        // A truncated extension header declares more than it has.
+        assert_eq!(probe_payload_offset(&[0x90; 14]), None);
     }
 }

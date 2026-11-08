@@ -2,7 +2,7 @@
 //! it, and the UAC writes one row per call to -rtp_rtt_file and summarises the
 //! round trips at exit. The second test runs without the flag.
 
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command};
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::Duration;
 
@@ -80,6 +80,57 @@ const UAC: &str = r#"<?xml version="1.0" encoding="ISO-8859-1" ?>
 </scenario>
 "#;
 
+const UAS: &str = r#"<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+<scenario name="uas_echo">
+  <recv request="INVITE" crlf="true" />
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:];tag=[pid]SIPpTag01[call_number]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+      Content-Type: application/sdp
+      Content-Length: [len]
+
+      v=0
+      o=uas 0 0 IN IP[media_ip_type] [media_ip]
+      s=-
+      c=IN IP[media_ip_type] [media_ip]
+      t=0 0
+      m=audio [rtpstream_audio_port] RTP/AVP 0
+      a=rtpmap:0 PCMU/8000
+
+    ]]>
+  </send>
+  <recv request="ACK" crlf="true" />
+  <nop>
+    <action>
+      <exec rtp_echo="startaudio" />
+    </action>
+  </nop>
+  <recv request="BYE" crlf="true" />
+  <send>
+    <![CDATA[
+
+      SIP/2.0 200 OK
+      [last_Via:]
+      [last_From:]
+      [last_To:]
+      [last_Call-ID:]
+      [last_CSeq:]
+      Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+      Content-Length: 0
+
+    ]]>
+  </send>
+</scenario>
+"#;
+
 /// Distinct loopback ports per test in this process.
 static SLOT: AtomicU16 = AtomicU16::new(0);
 
@@ -113,18 +164,20 @@ fn dir(name: &str) -> std::path::PathBuf {
 }
 
 fn start_uas(ports: &Ports, dir: &std::path::Path) -> Child {
+    std::fs::write(dir.join("uas_echo.xml"), UAS).unwrap();
     let child = Command::new(env!("CARGO_BIN_EXE_sipp-rs"))
         .args([
-            "-sn", "uas", "-rtp_echo", "-i", "127.0.0.1",
+            "-sf", "uas_echo.xml", "-i", "127.0.0.1",
             "-p", &ports.uas_sip.to_string(),
             "-mp", &ports.uas_media.to_string(),
             "-min_rtp_port", &ports.uas_media.to_string(),
             "-max_rtp_port", &(ports.uas_media + 20).to_string(),
+            "-trace_probe_tags", "-probe_tags_file", "uas_tags.csv",
             "-nostdin", "-timeout", "15s",
         ])
         .current_dir(dir)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdout(std::fs::File::create(dir.join("uas.out")).unwrap())
+        .stderr(std::fs::File::create(dir.join("uas.err")).unwrap())
         .spawn()
         .expect("start the echoing UAS");
     wait_ready(ports.uas_sip);
@@ -171,8 +224,6 @@ fn a_probe_measures_the_echo_round_trip() {
     std::fs::write(dir.join("rtp_rtt.xml"), UAC).unwrap();
     let mut uas = start_uas(&ports, &dir);
     let out = uac(&ports, &dir, true);
-    let _ = uas.kill();
-    let _ = uas.wait();
 
     assert_eq!(out.status.code(), Some(0), "stderr:\n{}", String::from_utf8_lossy(&out.stderr));
     let csv = std::fs::read_to_string(dir.join("rtt.csv")).expect("rtt.csv written");
@@ -199,6 +250,34 @@ fn a_probe_measures_the_echo_round_trip() {
     let avg: f64 = t[7].parse().unwrap();
     assert!(avg < 50.0, "loopback RTT should be well under a packet time: {t:?}");
 
+    // The echoing UAS noted the tag per call (-trace_probe_tags), so the legs
+    // can be paired without a packet capture. Rows are flushed at the next
+    // screen refresh after the call ends.
+    let started = std::time::Instant::now();
+    let tags = loop {
+        if let Ok(text) = std::fs::read_to_string(dir.join("uas_tags.csv")) {
+            if text.lines().count() >= 2 {
+                break text;
+            }
+        }
+        assert!(
+            started.elapsed().as_secs() < 5,
+            "the UAS did not write the probe tag row"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    };
+    let mut tag_lines = tags.lines();
+    assert_eq!(
+        tag_lines.next().unwrap(),
+        "date_ms;call;stream;tag;packets;call_id"
+    );
+    let echoed: Vec<&str> = tag_lines.next().unwrap().split(';').collect();
+    assert_eq!(echoed.len(), 6, "row shape: {echoed:?}");
+    assert!(echoed[2] == "audio" || echoed[2] == "video", "stream: {echoed:?}");
+    assert_eq!(echoed[3].parse::<u32>().unwrap(), tag, "the echoed tag is the sent one");
+    assert!(echoed[4].parse::<u64>().unwrap() > 0, "echoed packets: {echoed:?}");
+    assert!(echoed[5].contains('@'), "the UAS knows its call's Call-ID: {echoed:?}");
+
     // A 2.5 s hold: full windows plus the final partial one.
     let intervals: Vec<&Vec<&str>> = rows.iter().filter(|f| f[3] != "0").collect();
     assert!(intervals.len() >= 2, "no interval rows: {csv}");
@@ -212,6 +291,9 @@ fn a_probe_measures_the_echo_round_trip() {
 
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("RTP RTT probe:"), "{stdout}");
+    // The UAS is still running: its rows flush on the next screen refresh.
+    let _ = uas.kill();
+    let _ = uas.wait();
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -229,5 +311,8 @@ fn without_the_flag_the_summary_is_still_printed() {
     assert!(!dir.join("rtt.csv").exists());
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("RTP RTT probe:"), "{stdout}");
+    // The UAS is still running: its rows flush on the next screen refresh.
+    let _ = uas.kill();
+    let _ = uas.wait();
     std::fs::remove_dir_all(&dir).unwrap();
 }

@@ -322,6 +322,8 @@ struct Args {
     rtt_freq: usize,
     /// -trace_rtp_rtt's file: an RTT probe's per-call rows.
     rtp_rtt_path: Option<String>,
+    /// -trace_probe_tags' file: the probe tag each echoed media stream carried.
+    probe_tags_path: Option<String>,
     screen_file: Option<String>,
     /// The screen file, which -trace_screen opens once the scenario is
     /// loaded, else each SIGUSR2 as rotate_screenf().
@@ -787,6 +789,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
     let (mut trace_calldebug, mut calldebug_file) = (false, None);
     let (mut trace_counts, mut trace_codes, mut trace_rtt, mut rtt_freq) = (false, false, false, 200usize);
     let (mut trace_rtp_rtt, mut rtp_rtt_file) = (false, None);
+    let (mut trace_probe_tags, mut probe_tags_file) = (false, None);
     let mut rtp_rtt_interval: Option<u32> = None;
     let (mut trace_msg, mut trace_err, mut trace_logs) = (false, false, false);
     let (mut message_file, mut error_file, mut log_file) = (None, None, None);
@@ -1025,7 +1028,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
             "-trace_shortmsg" => trace_short = true,
             "-trace_calldebug" => trace_calldebug = true,
             "-calldebug_file" | "-shortmessage_file" | "-screen_file" | "-message_file" | "-error_file" | "-log_file"
-            | "-rtp_rtt_file" => {
+            | "-rtp_rtt_file" | "-probe_tags_file" => {
                 let name = Some(val()?.clone());
                 match opt {
                     "-calldebug_file" => calldebug_file = name,
@@ -1035,6 +1038,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
                     "-error_file" => error_file = name,
                     "-log_file" => log_file = name,
                     "-rtp_rtt_file" => rtp_rtt_file = name,
+                    "-probe_tags_file" => probe_tags_file = name,
                     _ => unreachable!(),
                 }
             }
@@ -1043,6 +1047,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
             "-trace_error_codes" => trace_codes = true,
             "-trace_rtt" => trace_rtt = true,
             "-trace_rtp_rtt" => trace_rtp_rtt = true,
+            "-trace_probe_tags" => trace_probe_tags = true,
             "-rtp_rtt_interval" => {
                 let v: i64 = num(arg, val()?)?;
                 // 0 turns interval rows off; a sub-100 ms window is more
@@ -1433,6 +1438,8 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
         .map(|n| n.filter(|_| trace_rtt).map(|n| format!("{n}_{pid}_rtt.csv")));
     // -trace_rtp_rtt: -rtp_rtt_file's name, else the scenario's.
     let rtp_rtt_path = trace_rtp_rtt.then(|| rtp_rtt_file.unwrap_or_else(|| format!("{scenario_name}_{pid}_rtp_rtt.csv")));
+    // -trace_probe_tags: the tag an echoing stream received, per call.
+    let probe_tags_path = trace_probe_tags.then(|| probe_tags_file.unwrap_or_else(|| format!("{scenario_name}_{pid}_probe_tags.csv")));
     // -t ui: the IPs of -inf's -ip_field, the main socket on the first,
     // and a server's on all of them, as SIPp resolves them.
     let mut per_ip = Vec::new();
@@ -1593,6 +1600,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
         rtt_paths,
         rtt_freq: rtt_freq.max(1),
         rtp_rtt_path,
+        probe_tags_path,
         screen_file,
         screen_log,
         auto_limit,
@@ -2128,6 +2136,8 @@ struct Engine {
     rtt_files: [Option<File>; 3],
     /// -trace_rtp_rtt's file, created with the first probe row.
     rtp_rtt_file: Option<File>,
+    /// -trace_probe_tags' file, created with the first echo-tag row.
+    probe_tags_file: Option<File>,
     /// SIPp's next_number: the number of the next call made.
     next_number: u64,
     /// -round_robin: the remote address the next call takes.
@@ -3624,6 +3634,7 @@ impl Engine {
         // Probe rows are independent of -rtt_freq: what finished since the
         // last write goes now, so a reader follows them live.
         self.write_rtp_rtts();
+        self.write_probe_tags();
         let freq = if full { self.args.rtt_freq } else { 1 };
         let [ooc, rx, aa] = &mut self.side_stats;
         if let Some(aa) = aa {
@@ -3681,6 +3692,34 @@ impl Engine {
                     "{}{d}{}{d}{stream}{d}{}{d}{}{d}{}{d}{:.3}{d}{:.3}{d}{:.3}{d}{:.3}{d}{:.3}{d}{}{d}{}{d}{}{d}{}\n",
                     r.date_ms, r.call, r.window_ms, r.sent, r.matched, r.min_ms, r.avg_ms, r.p95_ms, r.max_ms, r.jitter_ms, r.duplicates, r.late, r.missing, r.tag
                 ),
+            );
+        }
+    }
+
+    /// -trace_probe_tags: the probe tags the calls that ended since the last
+    /// write echoed, one row per call/media. Draining happens even without
+    /// the flag, so the queue stays bounded.
+    fn write_probe_tags(&mut self) {
+        let rows = mediapool::take_echo_tag_rows();
+        if rows.is_empty() {
+            return;
+        }
+        let Some(path) = self.args.probe_tags_path.clone() else { return };
+        let d = self.stats.delimiter.clone();
+        if self.probe_tags_file.is_none() {
+            let Ok(mut f) = File::create(&path) else {
+                self.args.log.warning(&format!("Unable to open probe tag file '{path}'"));
+                return;
+            };
+            let _ = writeln!(f, "date_ms{d}call{d}stream{d}tag{d}packets{d}call_id");
+            self.probe_tags_file = Some(f);
+        }
+        let f = self.probe_tags_file.as_mut().expect("opened above");
+        for r in rows {
+            let stream = if r.video { "video" } else { "audio" };
+            let _ = raw::write(
+                f,
+                &format!("{}{d}{}{d}{stream}{d}{}{d}{}{d}{}\n", r.date_ms, r.call, r.tag, r.packets, r.call_id),
             );
         }
     }
@@ -3854,6 +3893,8 @@ impl Engine {
             self.args.rtt_paths = Default::default();
             self.args.rtp_rtt_path = None;
             self.rtp_rtt_file = None;
+            self.args.probe_tags_path = None;
+            self.probe_tags_file = None;
         }
     }
 
@@ -4585,6 +4626,7 @@ fn main() -> ExitCode {
         side_stats,
         rtt_files: Default::default(),
         rtp_rtt_file: None,
+        probe_tags_file: None,
         keyboard,
         live_screen,
         screen: 1,
