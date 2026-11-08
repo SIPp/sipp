@@ -99,6 +99,9 @@ pub struct RttRow {
     pub date_ms: u64,
     pub call: u64,
     pub video: bool,
+    /// The stream's probe tag (payload marker), so a capture pair can be
+    /// attributed to a call number.
+    pub tag: u32,
     /// Its length, ms; 0 is the call's total row.
     pub window_ms: u32,
     pub sent: u64,
@@ -212,6 +215,7 @@ impl ProbeCheck {
                 date_ms: end_ms,
                 call,
                 video,
+                tag: self.tag,
                 window_ms,
                 sent,
                 matched,
@@ -318,6 +322,7 @@ impl ProbeCheck {
             date_ms: now_ms,
             call,
             video,
+            tag: self.tag,
             window_ms: 0,
             sent: self.sent,
             matched: self.matched,

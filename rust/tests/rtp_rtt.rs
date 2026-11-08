@@ -179,7 +179,7 @@ fn a_probe_measures_the_echo_round_trip() {
     let mut lines = csv.lines();
     assert_eq!(
         lines.next().unwrap(),
-        "date_ms;call;stream;window_ms;sent;matched;min_ms;avg_ms;p95_ms;max_ms;jitter_ms;duplicates;late;missing"
+        "date_ms;call;stream;window_ms;sent;matched;min_ms;avg_ms;p95_ms;max_ms;jitter_ms;duplicates;late;missing;tag"
     );
     let rows: Vec<Vec<&str>> = lines.map(|l| l.split(';').collect()).collect();
     let total: Vec<&Vec<&str>> = rows.iter().filter(|f| f[3] == "0").collect();
@@ -192,6 +192,10 @@ fn a_probe_measures_the_echo_round_trip() {
     assert_eq!(t[11], "0", "duplicates: {t:?}");
     assert_eq!(t[12], "0", "late: {t:?}");
     assert!(t[10].parse::<f64>().unwrap() >= 0.0, "jitter: {t:?}");
+    // The probe tag names the payload marker, so a capture pair can be
+    // attributed to this call number; the total and its windows agree.
+    let tag: u32 = t[14].parse().expect("tag column");
+    assert!(tag != 0, "tag is the payload marker: {t:?}");
     let avg: f64 = t[7].parse().unwrap();
     assert!(avg < 50.0, "loopback RTT should be well under a packet time: {t:?}");
 
@@ -199,6 +203,9 @@ fn a_probe_measures_the_echo_round_trip() {
     let intervals: Vec<&Vec<&str>> = rows.iter().filter(|f| f[3] != "0").collect();
     assert!(intervals.len() >= 2, "no interval rows: {csv}");
     assert!(intervals.iter().all(|f| f[3].parse::<u64>().unwrap() > 0));
+    assert!(intervals.iter().all(|f| f[14].parse::<u32>().unwrap() == tag),
+        "every window carries the stream's tag: total {tag}, windows {:?}",
+        intervals.iter().map(|f| f[14]).collect::<Vec<_>>());
     let window_sent: u64 = intervals.iter().map(|f| f[4].parse::<u64>().unwrap()).sum();
     let window_matched: u64 = intervals.iter().map(|f| f[5].parse::<u64>().unwrap()).sum();
     assert_eq!((window_sent, window_matched), (sent, matched), "windows must partition the total");
