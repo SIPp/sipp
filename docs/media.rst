@@ -35,6 +35,26 @@ checking. This is not detailed in the RST docs, but in a separate PDF,
 unfortunately. See:
 :download:`rtpcheck_xml_syntax_reference.pdf <rtpcheck_xml_syntax_reference.pdf>`
 
+The Rust port adds an RTT probe as pattern 7: every 0xAA-filled packet
+carries a magic byte, a 64-bit per-call tag and a microsecond send stamp, which
+an echoing peer (a UAS ``rtp_echo`` or an SBC media loop) returns
+verbatim. The sender times the round trip and reports duplicates,
+reordering and loss, even when a B2BUA rewrites the SSRC, sequence number
+and timestamp. It needs a payload of at least 13 bytes and an echoing
+peer. ``-trace_rtp_rtt`` writes one row per call to ``-rtp_rtt_file``,
+and a run summary is printed at exit. ``-rtp_rtt_interval`` (default
+250 ms, 0 off) adds a row per call per window, with ``window_ms`` on
+every row (0 is the call total). Each row also carries an RFC 3550-style
+RTT jitter: the smoothed difference of successive round trips, not
+one-way interarrival jitter, and zero until two samples arrive. p95 is
+nearest-rank over a histogram of every sample in the window, call or run,
+reported as the bucket's upper bound (within 6.25%).
+``-trace_probe_tags`` (``-probe_tags_file``) writes, on the echoing
+side, one row per call with the probe tag it received, the echoed packet
+count and the call's Call-ID, so the sender's ``tag -> call`` column
+pairs the two legs without a capture. The C++ SIPp does not have this
+yet.
+
 
 PCAP Play
 `````````

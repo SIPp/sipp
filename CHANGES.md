@@ -8,6 +8,21 @@ marked **Breaking**.
 
 ## [Unreleased]
 
+### Added
+
+- RTP round-trip probe: `apattern|vpattern,7,...` stamps every RTP
+  payload with a magic byte, a 64-bit per-call tag and a microsecond send
+  stamp; an echoing peer returns it, and the sender reports each call's
+  round trip in `-trace_rtp_rtt`'s CSV (`-rtp_rtt_file`), with
+  duplicates, reordering and loss, even when an SBC rewrites the SSRC,
+  sequence number and timestamp. `-rtp_rtt_interval` (default 250 ms,
+  0 off) also writes a row per call per window, so a long call's latency
+  evolution is in the CSV; each row carries the RTT jitter (RFC
+  3550-style on successive RTT samples) and the stream's probe tag.
+  `-trace_probe_tags` (`-probe_tags_file`) makes the echoing side log
+  the tag it received with its Call-ID, so the sender's tag-to-call
+  column pairs the two legs without a packet capture (Rust port only)
+
 ### Changed
 
 - `-rtp_echo` on Linux takes another audio and video echo thread every

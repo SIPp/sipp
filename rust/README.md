@@ -143,6 +143,35 @@ else the crate's. `[sipp_version]` drops the `v`, as C does.
     on audio or video (H264 every 160 ms), checked against what the peer
     echoes back; a pattern that never comes back ends the run with
     EXIT_RTPCHECK_FAILED (253) and a warning saying so, as in SIPp;
+  - `apattern|vpattern,7,...`: an RTT probe. Each 0xAA-filled packet
+    carries a magic byte, a 64-bit per-call tag and a microsecond send stamp, so
+    an echoing peer (a UAS `rtp_echo`, or an SBC media loop) returns them
+    and the sender times the round trip even when the SBC rewrites SSRC,
+    sequence and timestamp. It needs a payload of at least 13 bytes (not
+    comfort noise) and an echoing peer; a sender-only test has nothing to
+    time. The tag keeps a two-sided run from timing the peer's probes.
+    `-trace_rtp_rtt` writes one row per call to `-rtp_rtt_file` (default
+    `<scenario>_<pid>_rtp_rtt.csv`): date, call, stream, window,
+    sent, matched, minimum/average/p95/maximum round trip in ms, RTT
+    jitter, duplicates, reordered and missing probes, and the stream's
+    probe tag. Jitter is RFC
+    3550-style on successive RTT samples (`J += (|d| - J)/16`), so it
+    reflects RTT variation, not one-way interarrival jitter; it needs two
+    samples (zero otherwise) and each window starts over. p95 is nearest-rank
+    over a histogram of every round trip in the window, call or run, so a
+    long call is never truncated; the value is the bucket's upper bound,
+    within 6.25%. `-rtp_rtt_interval <ms>`
+    (default 250; 0 turns it off) also writes a row per call per window
+    with `window_ms` set; the call's total row has `window_ms` 0. A
+    summary of the run's round trips is printed at exit even without the
+    flag. `-trace_probe_tags`/`-probe_tags_file` write, on the echoing
+    side, one row per call with the received tag, echoed packet count and
+    Call-ID, so the sender's tag column pairs the two legs without a
+    capture. Rows appear as they are completed, so a reader can follow
+    them live. The round trip is application-level: the receive time is when
+    SIPp's playback thread reads the packet. A window row costs about
+    100 bytes: at the 250 ms default that is ~400 B per call per second,
+    and a 5,000-call run adds about 120 MB a minute.
   - `-rtpcheck_debug`: SIPp's `debugafile` and `debugvfile`, the same
     lines for each packet sent and what came back after it, compared as
     SIPp compares them, and for each pass of its playback thread over
@@ -243,7 +272,9 @@ else the crate's. `[sipp_version]` drops the `v`, as C does.
   - logs and statistics: `-trace_msg`/`-message_file`,
     `-trace_err`/`-error_file`, `-trace_logs`/`-log_file`,
     `-trace_shortmsg`, `-trace_screen`, `-trace_counts`,
-    `-trace_error_codes`, `-trace_rtt`, and `-trace_stat`/`-stf`/`-fd`
+    `-trace_error_codes`, `-trace_rtt`,
+    `-trace_rtp_rtt`/`-rtp_rtt_file`/`-rtp_rtt_interval`,
+    `-trace_probe_tags`/`-probe_tags_file`, and `-trace_stat`/`-stf`/`-fd`
     with SIPp's CSV (every column: failure reasons, response times, call
     lengths, counters, periodic and cumulative repartitions), `-rfc3339`,
     `-stat_delimiter`; `-periodic_rtd` is ignored, with SIPp's warning;

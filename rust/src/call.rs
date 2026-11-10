@@ -68,6 +68,9 @@ pub struct Config {
     /// fails a pattern check.
     pub audio_tolerance: f64,
     pub video_tolerance: f64,
+    /// -rtp_rtt_interval: how often a probe call's round trips are written,
+    /// ms (0: only the call total). Default 250 with -trace_rtp_rtt.
+    pub rtp_rtt_interval_ms: u32,
     /// -rtcheck loose: a retransmission is the same To, From, Call-ID and
     /// CSeq (and a response's status line and body), not the same text.
     pub rtcheck_loose: bool,
@@ -707,8 +710,22 @@ pub fn tick_ms(t: Instant) -> u64 {
     t.saturating_duration_since(epoch()).as_millis() as u64
 }
 
+/// `t` in microseconds from the clock: an RTT probe's stamp, which wraps
+/// every ~71 minutes; differences are taken with wrapping arithmetic.
+pub fn epoch_us(t: Instant) -> u32 {
+    t.saturating_duration_since(epoch()).as_micros() as u32
+}
+
 fn epoch_ms(t: Instant) -> f64 {
     tick_ms(t) as f64
+}
+
+/// The process's RTT probe salt, from the std hasher's random keys: fixed
+/// for the process, different between processes.
+fn probe_salt() -> u32 {
+    use std::hash::{BuildHasher, Hasher};
+    static SALT: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    *SALT.get_or_init(|| std::collections::hash_map::RandomState::new().build_hasher().finish() as u32)
 }
 
 /// SIPp's url_encode(): unreserved characters as they are, the rest %XX.
@@ -921,6 +938,14 @@ impl Call {
     /// SIPp's SSRCs: from the base up, audio then video, by call.
     fn ssrc(cfg: &Config, number: u64, video: bool) -> u32 {
         cfg.ssrc_base.wrapping_add((2 * number as u32).wrapping_sub(2) + video as u32)
+    }
+
+    /// An RTT probe's 64-bit tag: the process salt in the high half, and a
+    /// bijection of (call, media) in the low half, so tags are unique in a
+    /// process. Across processes a collision needs the same salt.
+    fn probe_tag(number: u64, video: bool) -> u64 {
+        (u64::from(probe_salt()) << 32)
+            | u64::from((number as u32).wrapping_mul(0x9E37_79B1) ^ ((video as u32) << 31))
     }
 
     /// The call's audio (or video) RTP port, bound on first use: its
@@ -3344,7 +3369,7 @@ impl Call {
                         f.line(format_args!("{at}TX/RX-UAS-{name} SRTP contexts - setting SRTP payload size to {bytes}, deriving session encryption/salting/authentication keys\n"));
                     }
                     let m = &self.media[*video as usize];
-                    let cmd = mediapool::Cmd::Echo { video: *video, srtp: on.then(|| (m.crypto().rx_context(), m.crypto().tx_context())), failed: None };
+                    let cmd = mediapool::Cmd::Echo { call: self.number, id: Arc::from(self.dialog_call_id()), video: *video, srtp: on.then(|| (m.crypto().rx_context(), m.crypto().tx_context())), failed: None };
                     let srtp = if *on { "Some(..)" } else { "None" };
                     srtpctx!(self.srtpctx, "Call::action() [{what}{name}]:  mediapool::Cmd::Echo {{ video: {video}, srtp: {srtp} }}\n");
                     match self.stream_task {
@@ -3446,6 +3471,10 @@ impl Call {
                     let m = &self.media[*video as usize];
                     let mut stream = Stream::new(data, *loops, *codec, remote, ssrc);
                     stream.held = held;
+                    // Pattern 7 stamps each packet for its round-trip time.
+                    let probe_tag = matches!(source, StreamSource::Pattern(id) if *id == media::PROBE_PATTERN_ID)
+                        .then(|| Call::probe_tag(self.number, *video));
+                    stream.probe = probe_tag;
                     // The keys go with the stream: none of it goes out with others.
                     stream.srtp = m.crypto().tx_context();
                     if media::rtp_debug::on() {
@@ -3454,11 +3483,19 @@ impl Call {
                     let check = match source {
                         StreamSource::Pattern(id) => {
                             let byte = media::pattern(*id, codec).map_or(0, |p| p[0]);
-                            Some(mediapool::PatternCheck { rx: m.crypto().rx_context(), id: *id, byte, len: codec.bytes, ok: 0 })
+                            Some(mediapool::PatternCheck {
+                                rx: m.crypto().rx_context(),
+                                id: *id,
+                                byte,
+                                len: codec.bytes,
+                                ok: 0,
+                                probe_tag,
+                                rtt_interval_ms: env.cfg.rtp_rtt_interval_ms,
+                            })
                         }
                         StreamSource::File(_) => None,
                     };
-                    self.media_cmd(mediapool::Cmd::Stream { video: *video, stream, check, end: None });
+                    self.media_cmd(mediapool::Cmd::Stream { call: self.number, video: *video, stream, check, end: None });
                 }
             }
             Ok(())
@@ -3587,6 +3624,7 @@ mod tests {
                     service: "svc".into(),
                     media_port: 6000,
                     default_pause: Duration::ZERO,
+                    rtp_rtt_interval_ms: 0,
                     recv_timeout: None,
                     default_behaviors: BEHAVIOR_ALL,
                     auth_user: "svc".into(),

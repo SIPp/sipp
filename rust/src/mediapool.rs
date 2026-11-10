@@ -32,6 +32,503 @@ pub struct PatternCheck {
     /// The payload bytes compared, as many as the pattern sends.
     pub len: usize,
     pub ok: u64,
+    /// Pattern 7: the probe tag its echoes carry.
+    pub probe_tag: Option<u64>,
+    /// -rtp_rtt_interval: a probe's window, ms (0: only the call total).
+    pub rtt_interval_ms: u32,
+}
+
+/// How many stamps are kept to tell a duplicate from a reordered one.
+const PROBE_RING: usize = 64;
+/// Resolution of the RTT histogram: each octave is split into this many
+/// buckets, so a percentile is reported at most 1/16 (6.25%) high.
+const HIST_SUB: usize = 16;
+/// Octaves: 1 µs .. 2^26 µs (about 67 s).
+const HIST_OCTAVES: usize = 26;
+const HIST_BUCKETS: usize = HIST_OCTAVES * HIST_SUB;
+
+/// A fixed-count histogram of round-trip times, microseconds, so a window,
+/// call or run covers every sample in bounded memory instead of the newest
+/// or first few. A percentile is its bucket's upper bound.
+#[derive(Clone)]
+struct Histogram {
+    counts: [u32; HIST_BUCKETS],
+    total: u64,
+}
+
+impl Default for Histogram {
+    fn default() -> Histogram {
+        Histogram { counts: [0; HIST_BUCKETS], total: 0 }
+    }
+}
+
+impl Histogram {
+    fn add(&mut self, us: u32) {
+        let i = hist_bucket(us);
+        self.counts[i] = self.counts[i].saturating_add(1);
+        self.total += 1;
+    }
+
+    /// Adds another histogram's counts, for the run's totals.
+    fn merge(&mut self, other: &Histogram) {
+        for (a, b) in self.counts.iter_mut().zip(other.counts.iter()) {
+            *a = a.saturating_add(*b);
+        }
+        self.total += other.total;
+    }
+
+    fn clear(&mut self) {
+        self.counts = [0; HIST_BUCKETS];
+        self.total = 0;
+    }
+
+    /// The nearest-rank percentile, microseconds, as the upper bound of its
+    /// bucket (at most 1/HIST_SUB above the true value).
+    fn percentile(&self, pct: usize) -> u32 {
+        if self.total == 0 {
+            return 0;
+        }
+        let rank = (self.total as usize * pct).div_ceil(100).max(1) as u64;
+        let mut seen = 0u64;
+        for (i, &c) in self.counts.iter().enumerate() {
+            if c == 0 {
+                continue;
+            }
+            seen += u64::from(c);
+            if seen >= rank {
+                return hist_upper(i);
+            }
+        }
+        hist_upper(HIST_BUCKETS - 1)
+    }
+}
+
+/// The octave and sub-bucket a microsecond value falls in.
+fn hist_bucket(us: u32) -> usize {
+    if us <= 1 {
+        return 0;
+    }
+    let e = 31 - us.leading_zeros() as usize;
+    if e >= HIST_OCTAVES {
+        return HIST_BUCKETS - 1;
+    }
+    let base = 1u32 << e;
+    let sub = (((us - base) as u64 * HIST_SUB as u64) >> e) as usize;
+    (e * HIST_SUB + sub).min(HIST_BUCKETS - 1)
+}
+
+/// The upper bound of a bucket, microseconds.
+fn hist_upper(i: usize) -> u32 {
+    if i == 0 {
+        return 1;
+    }
+    let e = i / HIST_SUB;
+    let sub = i % HIST_SUB;
+    let base = 1u64 << e;
+    let upper = base + ((sub as u64 + 1) * base).div_ceil(HIST_SUB as u64);
+    upper.min(u32::MAX as u64) as u32
+}
+
+/// A call's RTT probe, over all its probe streams: the echoes that came
+/// back, their round trips, and the duplicates and reorders among them.
+pub struct ProbeCheck {
+    tag: u64,
+    /// The newest stamp seen.
+    high: Option<u32>,
+    /// The last stamps, to tell a duplicate from a reorder.
+    seen: [u32; PROBE_RING],
+    seen_len: usize,
+    seen_pos: usize,
+    /// Probes sent on the media, over its probe streams.
+    pub sent: u64,
+    /// Distinct probes that came back.
+    pub matched: u64,
+    pub duplicates: u64,
+    pub late: u64,
+    /// Every round trip of the call, for its p95.
+    samples: Histogram,
+    min_us: u32,
+    max_us: u32,
+    sum_us: u64,
+    /// The previous distinct RTT, and the call's RFC 3550-style jitter (µs).
+    last_rtt_us: Option<u32>,
+    jitter_us: f64,
+    /// -rtp_rtt_interval: a window's length, ms; 0 writes only the call
+    /// total. Its start on the run clock, its samples, its own min/max/sum,
+    /// and the totals at its start for its sent/matched/duplicate deltas.
+    interval_ms: u32,
+    window_start_ms: u64,
+    /// Every round trip of the current window, for its p95.
+    window_samples: Histogram,
+    window_min_us: u32,
+    window_max_us: u32,
+    window_sum_us: u64,
+    /// The window's own jitter, from its first sample on.
+    window_last_rtt_us: Option<u32>,
+    window_jitter_us: f64,
+    window_sent: u64,
+    window_matched: u64,
+    window_duplicates: u64,
+    window_late: u64,
+}
+
+/// One call's probe round trip, for its trace row.
+pub struct RttRow {
+    /// When the window (or the call) ended, ms on the run's clock.
+    pub date_ms: u64,
+    pub call: u64,
+    pub video: bool,
+    /// The stream's probe tag (payload marker), so a capture pair can be
+    /// attributed to a call number.
+    pub tag: u64,
+    /// Its length, ms; 0 is the call's total row.
+    pub window_ms: u32,
+    pub sent: u64,
+    pub matched: u64,
+    pub min_ms: f64,
+    pub avg_ms: f64,
+    pub p95_ms: f64,
+    pub max_ms: f64,
+    /// RFC 3550-style smoothed |difference| of successive RTT samples, ms.
+    pub jitter_ms: f64,
+    pub duplicates: u64,
+    pub late: u64,
+    pub missing: u64,
+}
+
+/// The run's probe totals, for the exit summary.
+#[derive(Default)]
+struct RttAggregate {
+    calls: u64,
+    sent: u64,
+    matched: u64,
+    duplicates: u64,
+    late: u64,
+    missing: u64,
+    min_us: u32,
+    max_us: u32,
+    sum_us: u64,
+    samples: Histogram,
+}
+
+static RTT_ROWS: Mutex<Vec<RttRow>> = Mutex::new(Vec::new());
+static RTT_AGG: Mutex<Option<RttAggregate>> = Mutex::new(None);
+
+/// One echoed media stream's probe tag, for -trace_probe_tags: the echoing
+/// side notes the tag it received so the agent can pair its call with the
+/// sender's call by that tag alone (no packet capture).
+pub struct EchoTagRow {
+    pub date_ms: u64,
+    pub call: u64,
+    pub video: bool,
+    pub tag: u64,
+    /// Echoed packets that carried the tag.
+    pub packets: u64,
+    /// The call's Call-ID as the echoing side knows it (the peer's when an
+    /// SBC rewrote it): the key of the call row the agent joins on.
+    pub call_id: String,
+}
+
+static ECHO_TAG_ROWS: Mutex<Vec<EchoTagRow>> = Mutex::new(Vec::new());
+
+/// What one media stream's echo carried: the probe tag, validated like the
+/// capture analyzer (magic, length and the 0xAA fill), and how many packets.
+#[derive(Default)]
+struct EchoProbe {
+    call: u64,
+    call_id: Arc<str>,
+    tag: Option<u64>,
+    packets: u64,
+    conflict: bool,
+    /// The fill was validated once; later markers only compare the tag.
+    fill_checked: bool,
+}
+
+impl EchoProbe {
+    fn new(call: u64, call_id: Arc<str>) -> EchoProbe {
+        EchoProbe { call, call_id, ..EchoProbe::default() }
+    }
+
+    /// A packet the echo returned: note the marker it carried, if any.
+    fn observe(&mut self, plain: &[u8]) {
+        let Some(offset) = media::probe_payload_offset(plain) else { return };
+        let Some((tag, _stamp)) = media::probe_payload(&plain[offset..]) else { return };
+        if !self.fill_checked {
+            // Padding: the last byte counts the padded bytes, itself included.
+            let end = if plain[0] & 0x20 != 0 {
+                plain.len().saturating_sub(usize::from(plain.last().copied().unwrap_or(0)))
+            } else {
+                plain.len()
+            };
+            if end < offset + media::PROBE_LEN
+                || plain[offset + media::PROBE_LEN..end].iter().any(|&b| b != 0xAA)
+            {
+                return;
+            }
+            self.fill_checked = true;
+        }
+        self.packets += 1;
+        match self.tag {
+            None => self.tag = Some(tag),
+            Some(t) if t != tag => {
+                // Two tags on one media stream: do not guess a pair.
+                self.tag = None;
+                self.conflict = true;
+            }
+            Some(_) => {}
+        }
+    }
+}
+
+impl ProbeCheck {
+    fn new(tag: u64, interval_ms: u32) -> ProbeCheck {
+        ProbeCheck {
+            tag,
+            high: None,
+            seen: [0; PROBE_RING],
+            seen_len: 0,
+            seen_pos: 0,
+            sent: 0,
+            matched: 0,
+            duplicates: 0,
+            late: 0,
+            samples: Histogram::default(),
+            min_us: 0,
+            max_us: 0,
+            sum_us: 0,
+            last_rtt_us: None,
+            jitter_us: 0.0,
+            interval_ms,
+            window_start_ms: 0,
+            window_samples: Histogram::default(),
+            window_min_us: 0,
+            window_max_us: 0,
+            window_sum_us: 0,
+            window_last_rtt_us: None,
+            window_jitter_us: 0.0,
+            window_sent: 0,
+            window_matched: 0,
+            window_duplicates: 0,
+            window_late: 0,
+        }
+    }
+
+    /// A probe stream of the same call: a new tag means a new identity, so
+    /// the ordering state starts afresh, while the totals go on.
+    fn set_tag(&mut self, tag: u64) {
+        if self.tag != tag {
+            self.tag = tag;
+            self.high = None;
+            self.seen_len = 0;
+            self.seen_pos = 0;
+        }
+    }
+
+    /// Starts the window clock, and writes the windows that have ended.
+    /// Called with every probe sent and every echo read, so a window with
+    /// no traffic still advances the clock (and writes nothing).
+    fn tick(&mut self, now_ms: u64, call: u64, video: bool) {
+        if self.interval_ms == 0 {
+            return;
+        }
+        if self.window_start_ms == 0 {
+            self.window_start_ms = now_ms.max(1);
+            return;
+        }
+        let interval = u64::from(self.interval_ms);
+        if now_ms < self.window_start_ms + interval {
+            return;
+        }
+        let end = self.window_start_ms + interval;
+        self.flush_window(end, u32::try_from(interval).unwrap_or(u32::MAX), call, video);
+        // Empty windows write nothing: skip them in one step instead of
+        // looping once per interval through a long stall.
+        let skip = (now_ms - self.window_start_ms) / interval;
+        self.window_start_ms += skip * interval;
+    }
+
+    /// Writes one window, then starts the next. A window with nothing sent
+    /// and nothing matched is skipped; the totals carry on regardless.
+    fn flush_window(&mut self, end_ms: u64, window_ms: u32, call: u64, video: bool) {
+        let sent = self.sent - self.window_sent;
+        let matched = self.matched - self.window_matched;
+        let duplicates = self.duplicates - self.window_duplicates;
+        let late = self.late - self.window_late;
+        if sent > 0 || matched > 0 {
+            let p95_us = self.window_samples.percentile(95);
+            RTT_ROWS.lock().unwrap().push(RttRow {
+                date_ms: end_ms,
+                call,
+                video,
+                tag: self.tag,
+                window_ms,
+                sent,
+                matched,
+                min_ms: f64::from(self.window_min_us) / 1000.0,
+                avg_ms: if matched > 0 { self.window_sum_us as f64 / matched as f64 / 1000.0 } else { 0.0 },
+                p95_ms: f64::from(p95_us) / 1000.0,
+                max_ms: f64::from(self.window_max_us) / 1000.0,
+                jitter_ms: self.window_jitter_us / 1000.0,
+                duplicates,
+                late,
+                // An echo of the window's last packet can come in the next
+                // one, so a window can match more than it sent.
+                missing: sent.saturating_sub(matched),
+            });
+        }
+        self.window_start_ms = end_ms;
+        self.window_samples.clear();
+        self.window_min_us = 0;
+        self.window_max_us = 0;
+        self.window_sum_us = 0;
+        self.window_last_rtt_us = None;
+        self.window_jitter_us = 0.0;
+        self.window_sent = self.sent;
+        self.window_matched = self.matched;
+        self.window_duplicates = self.duplicates;
+        self.window_late = self.late;
+    }
+
+    /// A packet that came back: its round trip, or false when it is not
+    /// ours or is a duplicate of one already seen.
+    fn observe(&mut self, payload: &[u8], recv_us: u32, now_ms: u64, call: u64, video: bool) -> bool {
+        self.tick(now_ms, call, video);
+        let Some((tag, stamp)) = media::probe_payload(payload) else { return false };
+        if tag != self.tag {
+            return false;
+        }
+        if self.seen[..self.seen_len].contains(&stamp) {
+            self.duplicates += 1;
+            return false;
+        }
+        self.seen[self.seen_pos] = stamp;
+        self.seen_pos = (self.seen_pos + 1) % PROBE_RING;
+        self.seen_len = self.seen_len.saturating_add(1).min(PROBE_RING);
+        // A stamp older than the newest one is a reordered, not a new, packet.
+        if self.high.is_some_and(|h| stamp.wrapping_sub(h) >= 0x8000_0000) {
+            self.late += 1;
+        } else {
+            self.high = Some(stamp);
+        }
+        let rtt = recv_us.wrapping_sub(stamp);
+        self.matched += 1;
+        self.sum_us += u64::from(rtt);
+        if self.matched == 1 {
+            self.min_us = rtt;
+            self.max_us = rtt;
+        } else {
+            self.min_us = self.min_us.min(rtt);
+            self.max_us = self.max_us.max(rtt);
+        }
+        self.samples.add(rtt);
+        // The window's own figures, for its row.
+        if self.matched == self.window_matched + 1 {
+            self.window_min_us = rtt;
+            self.window_max_us = rtt;
+        } else {
+            self.window_min_us = self.window_min_us.min(rtt);
+            self.window_max_us = self.window_max_us.max(rtt);
+        }
+        self.window_sum_us += u64::from(rtt);
+        self.window_samples.add(rtt);
+        // RFC 3550-style jitter on successive distinct RTT samples (RTT variation,
+        // not one-way network jitter). The call's is continuous; a window starts over.
+        if let Some(prev) = self.last_rtt_us {
+            let d = rtt.abs_diff(prev) as f64;
+            self.jitter_us += (d - self.jitter_us) / 16.0;
+        }
+        self.last_rtt_us = Some(rtt);
+        if let Some(prev) = self.window_last_rtt_us {
+            let d = rtt.abs_diff(prev) as f64;
+            self.window_jitter_us += (d - self.window_jitter_us) / 16.0;
+        }
+        self.window_last_rtt_us = Some(rtt);
+        true
+    }
+
+    /// The call ended: any partial window, then its total row and the
+    /// run's totals.
+    fn finish(&mut self, call: u64, video: bool, now_ms: u64) -> RttRow {
+        if self.interval_ms > 0 && self.window_start_ms > 0 && now_ms >= self.window_start_ms {
+            let end = now_ms.max(self.window_start_ms + 1);
+            let window_ms = u32::try_from(end - self.window_start_ms).unwrap_or(u32::MAX);
+            self.flush_window(end, window_ms, call, video);
+        }
+        let p95_us = self.samples.percentile(95);
+        let row = RttRow {
+            date_ms: now_ms,
+            call,
+            video,
+            tag: self.tag,
+            window_ms: 0,
+            sent: self.sent,
+            matched: self.matched,
+            min_ms: f64::from(self.min_us) / 1000.0,
+            avg_ms: if self.matched > 0 { self.sum_us as f64 / self.matched as f64 / 1000.0 } else { 0.0 },
+            p95_ms: f64::from(p95_us) / 1000.0,
+            max_ms: f64::from(self.max_us) / 1000.0,
+            jitter_ms: self.jitter_us / 1000.0,
+            duplicates: self.duplicates,
+            late: self.late,
+            missing: self.sent.saturating_sub(self.matched),
+        };
+        record_rtt(&row, &self.samples);
+        row
+    }
+}
+
+/// Adds a call's row to the run's totals.
+fn record_rtt(row: &RttRow, samples: &Histogram) {
+    let mut agg = RTT_AGG.lock().unwrap();
+    let a = agg.get_or_insert_with(RttAggregate::default);
+    a.calls += 1;
+    a.sent += row.sent;
+    a.matched += row.matched;
+    a.duplicates += row.duplicates;
+    a.late += row.late;
+    a.missing += row.missing;
+    a.sum_us += (row.avg_ms * 1000.0 * row.matched as f64) as u64;
+    if row.matched > 0 {
+        let min_us = (row.min_ms * 1000.0) as u32;
+        let max_us = (row.max_ms * 1000.0) as u32;
+        a.min_us = if a.min_us == 0 { min_us } else { a.min_us.min(min_us) };
+        a.max_us = a.max_us.max(max_us);
+    }
+    a.samples.merge(samples);
+}
+
+/// The probe rows a finished call added, for -trace_rtp_rtt.
+pub fn take_rtt_rows() -> Vec<RttRow> {
+    std::mem::take(&mut *RTT_ROWS.lock().unwrap())
+}
+
+/// The run's round trip summary, if any probe ran.
+pub fn rtp_rtt_summary() -> Option<String> {
+    let mut agg = RTT_AGG.lock().unwrap();
+    let a = agg.as_mut()?;
+    if a.calls == 0 {
+        return None;
+    }
+    Some(summary_text(a))
+}
+
+/// The exit summary's line, from the run's probe totals.
+fn summary_text(a: &mut RttAggregate) -> String {
+    let p95 = a.samples.percentile(95);
+    let avg = if a.matched > 0 { a.sum_us as f64 / a.matched as f64 / 1000.0 } else { 0.0 };
+    format!(
+        "RTP RTT probe: {} probe streams, {} sent, {} matched, min {:.3} ms, avg {:.3} ms, p95 {:.3} ms, max {:.3} ms, {} duplicates, {} late, {} missing",
+        a.calls,
+        a.sent,
+        a.matched,
+        f64::from(a.min_us) / 1000.0,
+        avg,
+        f64::from(p95) / 1000.0,
+        f64::from(a.max_us) / 1000.0,
+        a.duplicates,
+        a.late,
+        a.missing
+    )
 }
 
 /// What the engine asks of a call's media.
@@ -39,15 +536,18 @@ pub enum Cmd {
     /// The call's audio or video RTP socket, and its RTCP one.
     Sockets { video: bool, rtp: UdpSocket, rtcp: Option<UdpSocket> },
     /// rtp_stream: a file, or a pattern and its check; Task::send() adds
-    /// what to tell the engine when it has played.
-    Stream { video: bool, stream: Stream, check: Option<PatternCheck>, end: Option<(Arc<Playing>, u64)> },
+    /// what to tell the engine when it has played. `call` names the call
+    /// of an RTT probe's row.
+    Stream { call: u64, video: bool, stream: Stream, check: Option<PatternCheck>, end: Option<(Arc<Playing>, u64)> },
     Pause { video: bool, paused: bool },
     /// The peer's SDP moved its media: the stream follows; or it has no
     /// address for it: the stream holds.
     Remote { video: bool, addr: Option<SocketAddr> },
     /// rtp_echo start or update with the call's SRTP contexts (rx, tx),
     /// or stop; Task::send() adds where to tell of a failed receive.
-    Echo { video: bool, srtp: Option<(Option<srtp::Context>, Option<srtp::Context>)>, failed: Option<Arc<Playing>> },
+    /// `call`/`id` name the call for -trace_probe_tags (an echo-only call
+    /// has no Cmd::Stream, so it would otherwise stay call 0).
+    Echo { call: u64, id: Arc<str>, video: bool, srtp: Option<(Option<srtp::Context>, Option<srtp::Context>)>, failed: Option<Arc<Playing>> },
     /// play_pcap_* or play_dtmf, on audio (0), image (1), video (2) or
     /// text (3).
     Play { index: usize, player: Player },
@@ -365,6 +865,12 @@ struct Media {
     /// Where the echo tells of a failed receive.
     echo_failed: Option<Arc<Playing>>,
     check: Option<PatternCheck>,
+    /// The call's RTT probe, over all its probe streams.
+    probe: Option<ProbeCheck>,
+    /// -trace_probe_tags: the probe tag this call's echoed media carried.
+    echo_probe: Option<EchoProbe>,
+    /// The call it belongs to, for the probe's row.
+    call: u64,
     /// The stream plays a pattern: its packets are the ones checked.
     pattern: bool,
     /// Pattern packets sent by the streams of this check that ended, for
@@ -396,7 +902,11 @@ impl Media {
     /// what came back after each packet, as SIPp.
     fn wants(&self) -> [bool; 2] {
         let reads = self.check.is_some() || self.received.is_some();
-        let rtp = self.sock.is_some() && (self.echo.is_some() || (self.stream.is_none() && reads));
+        // An RTT probe reads its echoes as they come, not only after its
+        // next packet: its round trips would otherwise be a packet time
+        // long, as a pattern's check accepts that.
+        let probing = self.probe.is_some() && self.stream.is_some();
+        let rtp = self.sock.is_some() && (self.echo.is_some() || probing || (self.stream.is_none() && reads));
         [rtp, self.rtcp.is_some() && self.active()]
     }
 
@@ -423,7 +933,7 @@ impl Media {
         if s.next > now {
             return Some(s.next);
         }
-        let (before, bytes) = (s.sent, s.bytes);
+        let (before, bytes, probes_before) = (s.sent, s.bytes, s.probe_sent);
         let playing = s.send_due(sock, now);
         // Played once its last packet is out, as SIPp's loop count.
         if !playing || s.finished() {
@@ -432,9 +942,18 @@ impl Media {
             }
         }
         let sent = s.sent - before;
+        let probes = s.probe_sent - probes_before;
         let next = s.next;
         counters::add(&counters::STREAM_PACKETS[index], sent);
         counters::add(&counters::STREAM_BYTES_OUT[index], s.bytes - bytes);
+        if probes > 0 {
+            if let Some(p) = self.probe.as_mut() {
+                p.sent += probes;
+                // Close the probe's window on the send clock, even when
+                // nothing comes back: sent-but-unanswered still counts.
+                p.tick(crate::call::tick_ms(now), self.call, index == 1);
+            }
+        }
         // SIPp reads what came back after each packet, when anything looks
         // at it: an audio play that nothing does leaves it to the kernel,
         // which drops what its queue cannot hold.
@@ -500,7 +1019,15 @@ impl Media {
     /// read(), with each packet to `first` first.
     fn read_with(&mut self, buf: &mut [u8], index: usize, mut first: impl FnMut(&[u8])) {
         let Some(sock) = &self.sock else { return };
-        let (streaming, echoes, echoing, check) = (self.stream.is_some(), self.echo.is_some(), &mut self.echo, &mut self.check);
+        let (call, video) = (self.call, index == 1);
+        let (streaming, echoes, echoing, check, probe, echo_probe) = (
+            self.stream.is_some(),
+            self.echo.is_some(),
+            &mut self.echo,
+            &mut self.check,
+            &mut self.probe,
+            &mut self.echo_probe,
+        );
         let mut received = self.received.as_ref().map(|r| r[index].lock().unwrap());
         let mut each = |pkt: &[u8], from| {
             first(pkt);
@@ -512,7 +1039,7 @@ impl Media {
                 counters::add(&counters::STREAM_BYTES_IN[index], pkt.len() as u64);
             }
             if let Some((rx, tx)) = echoing.as_mut() {
-                echo(sock, pkt, from, rx, tx, index == 1);
+                echo(sock, pkt, from, rx, tx, index == 1, echo_probe);
             } else if let Some(check) = check.as_mut() {
                 SRTP_PACKET.with_borrow_mut(|(plain_buf, _)| {
                     let plain = match check.rx.as_mut() {
@@ -521,7 +1048,22 @@ impl Media {
                     };
                     // SIPp compares the payload a pattern packet has: what
                     // comes after it, as SRTP's tag when nothing decrypts, is not.
-                    if plain.is_some_and(|p| p.len() >= 12 + check.len.max(1) && p[12..12 + check.len.max(1)].iter().all(|&b| b == check.byte)) {
+                    if check.probe_tag.is_some() {
+                        // Pattern 7: the echo carries our stamp; its round
+                        // trip is the time since we sent it.
+                        let recv_us = crate::call::epoch_us(Instant::now());
+                        let now_ms = crate::call::tick_ms(Instant::now());
+                        // The payload follows the CSRC list and any header extension,
+                        // so a peer that adds either does not hide the marker.
+                        let distinct = plain.is_some_and(|p| {
+                            media::probe_payload_offset(p).is_some_and(|off| {
+                                probe.as_mut().is_some_and(|pr| pr.observe(&p[off..], recv_us, now_ms, call, video))
+                            })
+                        });
+                        if distinct {
+                            check.ok += 1;
+                        }
+                    } else if plain.is_some_and(|p| p.len() >= 12 + check.len.max(1) && p[12..12 + check.len.max(1)].iter().all(|&b| b == check.byte)) {
                         check.ok += 1;
                     }
                 });
@@ -657,7 +1199,7 @@ fn recv_all(sock: &UdpSocket, buf: &mut [u8], mut each: impl FnMut(&[u8], Socket
 
 /// rtpstream_echotask(): a packet of the call back to where it came from,
 /// through the call's SRTP, with -srtpcheck_debug's log.
-fn echo(sock: &UdpSocket, pkt: &[u8], from: SocketAddr, rx: &mut Option<srtp::Context>, tx: &mut Option<srtp::Context>, video: bool) {
+fn echo(sock: &UdpSocket, pkt: &[u8], from: SocketAddr, rx: &mut Option<srtp::Context>, tx: &mut Option<srtp::Context>, video: bool, probe: &mut Option<EchoProbe>) {
     let n = pkt.len();
     let debug = media::echo_debug::is_open(video);
     let what = if video { "VIDEO" } else { "AUDIO" };
@@ -677,6 +1219,10 @@ fn echo(sock: &UdpSocket, pkt: &[u8], from: SocketAddr, rx: &mut Option<srtp::Co
             }
             None => Some(pkt),
         };
+        if let (Some(p), Some(record)) = (plain, probe.as_mut()) {
+            // -trace_probe_tags: note the tag the sender stamped, for pairing.
+            record.observe(p);
+        }
         let out = match (plain, tx.as_mut()) {
             (Some(p), Some(ctx)) => {
                 let ok = ctx.protect_into(p, out_buf);
@@ -740,15 +1286,21 @@ impl TaskState {
                 let m = &mut self.media[video as usize];
                 (m.sock, m.rtcp) = (Some(rtp), rtcp);
             }
-            Cmd::Stream { video, mut stream, check, end } => {
+            Cmd::Stream { call, video, mut stream, check, end } => {
                 // rtpstream_check_verdict(): the pattern playing gets its
                 // verdict, with what came back of it, and the new stream
                 // its own check.
                 let m = &mut self.media[video as usize];
+                m.call = call;
                 if m.active() {
                     m.read(buf, video as usize);
                 }
                 fail(m.check_failed(tolerance(video as usize)));
+                // A probe stream of the call: its totals go on, a new tag
+                // starts its ordering state afresh.
+                if let Some((tag, interval)) = check.as_ref().and_then(|c| c.probe_tag.map(|t| (t, c.rtt_interval_ms))) {
+                    m.probe.get_or_insert_with(|| ProbeCheck::new(tag, interval)).set_tag(tag);
+                }
                 if rtp_debug::on() {
                     m.verdict_traced(video);
                     let t = m.trace.get_or_insert_with(Default::default);
@@ -779,9 +1331,16 @@ impl TaskState {
                     s.resume(waited, other);
                 }
             }
-            Cmd::Echo { video, srtp, failed } => {
+            Cmd::Echo { call, id, video, srtp, failed } => {
                 let m = &mut self.media[video as usize];
                 (m.echo, m.echo_failed) = (srtp, failed);
+                m.call = call;
+                // Start/update/stop all carry the identity; keep the counts of
+                // a running echo (an update must not reset them).
+                let same = m.echo_probe.as_ref().is_some_and(|p| p.call == call && p.call_id == id);
+                if !same {
+                    m.echo_probe = Some(EchoProbe::new(call, id));
+                }
             }
             Cmd::Play { index, mut player } => {
                 self.playback[index] = None;
@@ -845,11 +1404,41 @@ impl TaskState {
         }
         let mask = self.media[0].check_failed(tolerance(0)) | self.media[1].check_failed(tolerance(1));
         fail(mask);
+        // The call's probe row, one per media, for -trace_rtp_rtt.
+        for (i, m) in self.media.iter_mut().enumerate() {
+            if let Some(mut probe) = m.probe.take() {
+                let call = m.call;
+                let row = probe.finish(call, i == 1, crate::call::tick_ms(Instant::now()));
+                RTT_ROWS.lock().unwrap().push(row);
+            }
+        }
+        // -trace_probe_tags: one row per echoed media stream that carried a tag.
+        let now_ms = crate::call::tick_ms(Instant::now());
+        for (i, m) in self.media.iter_mut().enumerate() {
+            let Some(record) = m.echo_probe.take() else { continue };
+            let Some(tag) = record.tag else { continue };
+            if record.conflict {
+                continue;
+            }
+            ECHO_TAG_ROWS.lock().unwrap().push(EchoTagRow {
+                date_ms: now_ms,
+                call: record.call,
+                video: i == 1,
+                tag,
+                packets: record.packets,
+                call_id: record.call_id.to_string(),
+            });
+        }
         if rtp_debug::on() {
             self.media[0].verdict_traced(false);
             self.media[1].verdict_traced(true);
         }
     }
+}
+
+/// The echo-side probe tags a finished call added, for -trace_probe_tags.
+pub fn take_echo_tag_rows() -> Vec<EchoTagRow> {
+    std::mem::take(&mut *ECHO_TAG_ROWS.lock().unwrap())
 }
 
 /// -rtpcheck_debug: a media's RTP check as SIPp's playback thread logs
@@ -1238,17 +1827,179 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_summary_counts_probe_streams_not_calls() {
+        let mut a = RttAggregate {
+            calls: 2,
+            sent: 10,
+            matched: 10,
+            min_us: 100,
+            max_us: 200,
+            sum_us: 1500,
+            ..Default::default()
+        };
+        a.samples.add(100);
+        a.samples.add(200);
+        let line = summary_text(&mut a);
+        assert!(line.contains("2 probe streams"), "{line}");
+    }
+
+    #[test]
+    fn an_echo_notes_the_probe_tag_of_its_media() {
+        let packet = |tag: u64, fill: u8| {
+            let mut v = vec![0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            v.extend_from_slice(&[fill; 160]);
+            if fill == 0xAA {
+                media::probe_write(&mut v[12..], tag, 1000);
+            }
+            v
+        };
+        let mut p = EchoProbe::new(42, Arc::from("abc@host"));
+        p.observe(&packet(7, 0xAA));
+        p.observe(&packet(7, 0xAA));
+        assert_eq!((p.tag, p.packets, p.conflict), (Some(7), 2, false));
+        // Media that merely starts with the magic is not a probe (the fill check).
+        p.observe(&packet(7, 0x55));
+        assert_eq!(p.packets, 2);
+        // A second, different tag voids the record rather than guessing a pair.
+        p.observe(&packet(8, 0xAA));
+        assert_eq!((p.tag, p.conflict), (None, true));
+    }
+
+    #[test]
+    fn a_probe_counts_duplicates_reorders_and_round_trips() {
+        let payload = |tag: u64, stamp: u32| {
+            let mut v = vec![0xAA; 160];
+            media::probe_write(&mut v, tag, stamp);
+            v
+        };
+        let mut p = ProbeCheck::new(7, 0);
+        assert!(p.observe(&payload(7, 1000), 1100, 0, 1, false));
+        assert!(p.observe(&payload(7, 1020), 1120, 0, 1, false));
+        assert_eq!((p.matched, p.late, p.duplicates), (2, 0, 0));
+        // The same stamp again is a duplicate, not a new echo.
+        assert!(!p.observe(&payload(7, 1000), 1150, 0, 1, false));
+        assert_eq!((p.matched, p.duplicates), (2, 1));
+        // An older distinct stamp is a reorder.
+        assert!(p.observe(&payload(7, 1005), 1080, 0, 1, false));
+        assert_eq!((p.matched, p.late), (3, 1));
+        // Another process's tag is ignored.
+        assert!(!p.observe(&payload(8, 1040), 1060, 0, 1, false));
+        p.sent = 4;
+        let row = p.finish(1, false, 1);
+        assert_eq!((row.sent, row.matched, row.missing), (4, 3, 1));
+        assert!((row.min_ms - 0.075).abs() < 1e-9);
+        assert!((row.max_ms - 0.100).abs() < 1e-9);
+        assert!((row.avg_ms - 0.091_666_666_7).abs() < 1e-6);
+        // RTTs 100, 100, 75 µs: the only non-zero |difference| is 25 µs -> 25/16 µs.
+        assert!((row.jitter_ms - 0.001_562_5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_probe_writes_a_row_each_window_and_a_total() {
+        let payload = |stamp: u32| {
+            let mut v = vec![0xAA; 160];
+            media::probe_write(&mut v, 7, stamp);
+            v
+        };
+        let mut p = ProbeCheck::new(7, 1000);
+        p.sent = 2;
+        assert!(p.observe(&payload(1000), 1100, 100, 42, false));
+        assert!(p.observe(&payload(1020), 1160, 200, 42, false));
+        // The third probe is sent, but its echo lands in the next window:
+        // the first window flushes with one sent-but-unanswered probe.
+        p.sent = 3;
+        assert!(p.observe(&payload(2000), 2100, 1200, 42, false));
+        p.sent = 4;
+        let total = p.finish(42, false, 2500);
+        let rows: Vec<RttRow> = RTT_ROWS.lock().unwrap().drain(..).filter(|r| r.call == 42).collect();
+        assert_eq!(rows.len(), 2); // the final partial window; the total is returned
+        let (first, last) = (&rows[0], &rows[1]);
+        assert_eq!((first.window_ms, first.date_ms, first.sent, first.matched, first.missing), (1000, 1100, 3, 2, 1));
+        assert_eq!((last.window_ms, last.sent, last.matched), (1400, 1, 1));
+        assert_eq!((total.window_ms, total.sent, total.matched), (0, 4, 3));
+        // Window 1 sees RTTs 100 then 140 µs (|d| 40 -> 40/16); window 2 starts over.
+        assert!((first.jitter_ms - 0.002_5).abs() < 1e-9);
+        assert_eq!(last.jitter_ms, 0.0);
+        // The call's jitter goes on across the boundary: 40 µs later -> J += (40 - J)/16.
+        assert!((total.jitter_ms - 0.004_843_75).abs() < 1e-9);
+        // Empty windows write nothing.
+        p.tick(9000, 42, false);
+        assert!(RTT_ROWS.lock().unwrap().is_empty());
+    }
+
+    /// A call's p95 is over every round trip, not only the newest ones.
+    #[test]
+    fn a_call_p95_covers_every_sample_not_just_the_newest() {
+        let payload = |tag: u64, stamp: u32| {
+            let mut v = vec![0xAA; 160];
+            media::probe_write(&mut v, tag, stamp);
+            v
+        };
+        let mut p = ProbeCheck::new(7, 0);
+        // 30 slow round trips (10 ms) first, then 270 fast ones (1 ms): the
+        // newest 256 are all fast, but the call's p95 is still slow.
+        for i in 0..30u32 {
+            assert!(p.observe(&payload(7, i), i + 10_000, 0, 91, false));
+        }
+        for i in 30..300u32 {
+            assert!(p.observe(&payload(7, i), i + 1_000, 0, 91, false));
+        }
+        p.sent = 300;
+        let row = p.finish(91, false, 0);
+        assert!((row.p95_ms - 10.0).abs() < 0.7, "call p95 {}", row.p95_ms);
+    }
+
+    /// A window's p95 is over every round trip in that window.
+    #[test]
+    fn a_window_p95_covers_every_sample_in_the_window() {
+        let payload = |tag: u64, stamp: u32| {
+            let mut v = vec![0xAA; 160];
+            media::probe_write(&mut v, tag, stamp);
+            v
+        };
+        let mut p = ProbeCheck::new(7, 1000);
+        // 270 fast round trips first, then 30 slow ones: the first 64 are all
+        // fast, but the window's p95 is still slow.
+        for i in 0..270u32 {
+            assert!(p.observe(&payload(7, i), i + 1_000, 100, 92, false));
+        }
+        for i in 270..300u32 {
+            assert!(p.observe(&payload(7, i), i + 10_000, 100, 92, false));
+        }
+        p.sent = 300;
+        let _total = p.finish(92, false, 500);
+        let rows: Vec<RttRow> = RTT_ROWS.lock().unwrap().drain(..).filter(|r| r.call == 92).collect();
+        let window = rows.iter().find(|r| r.window_ms > 0).expect("a window row");
+        assert!((window.p95_ms - 10.0).abs() < 0.7, "window p95 {}", window.p95_ms);
+    }
+
+    #[test]
+    fn a_probe_with_no_echo_fails_its_check() {
+        let remote: SocketAddr = "127.0.0.1:9".parse().unwrap();
+        let codec = media::codec(0, None).unwrap();
+        let stream = Stream::new(vec![0xAA; 160], -1, codec, remote, 1);
+        let mut buf = [0u8; 16];
+        let mut t = TaskState { media: Default::default(), playback: [None, None, None, None], idle_pass: None, ended: false };
+        let check = Some(PatternCheck { rx: None, id: 7, byte: 0xAA, len: 160, ok: 0, probe_tag: Some(1), rtt_interval_ms: 0 });
+        t.apply(Cmd::Stream { call: 1, video: false, stream, check, end: None }, &mut buf);
+        t.media[0].stream.as_mut().unwrap().sent = 10;
+        assert_ne!(t.media[0].check_failed(1.0), 0);
+        t.media[0].check.as_mut().unwrap().ok = 10;
+        assert_eq!(t.media[0].check_failed(1.0), 0);
+    }
+
+    #[test]
     fn each_pattern_gets_its_own_verdict() {
         // A pattern never echoed fails when the next one starts, though
         // that one's echoes all come back; they are the next one's alone.
         let remote: SocketAddr = "127.0.0.1:9".parse().unwrap();
-        let check = |id| Some(PatternCheck { rx: None, id, byte: 1, len: 160, ok: 0 });
+        let check = |id| Some(PatternCheck { rx: None, id, byte: 1, len: 160, ok: 0, probe_tag: None, rtt_interval_ms: 0 });
         let stream = || Stream::new(vec![1; 160], -1, media::codec(0, None).unwrap(), remote, 1);
         let mut buf = [0u8; 16];
         let mut t = TaskState { media: Default::default(), playback: [None, None, None, None], idle_pass: None, ended: false };
-        t.apply(Cmd::Stream { video: false, stream: stream(), check: check(30), end: None }, &mut buf);
+        t.apply(Cmd::Stream { call: 0, video: false, stream: stream(), check: check(30), end: None }, &mut buf);
         t.media[0].stream.as_mut().unwrap().sent = 10;
-        t.apply(Cmd::Stream { video: false, stream: stream(), check: check(31), end: None }, &mut buf);
+        t.apply(Cmd::Stream { call: 0, video: false, stream: stream(), check: check(31), end: None }, &mut buf);
         assert_ne!(RTP_ERRORS.load(Relaxed) & 1 << 29, 0);
         t.media[0].stream.as_mut().unwrap().sent = 10;
         t.media[0].check.as_mut().unwrap().ok = 10;
@@ -1268,7 +2019,7 @@ mod tests {
         t.media[0].sock = Some(media);
         let mut seqs = Vec::new();
         for _ in 0..2 {
-            t.apply(Cmd::Stream { video: false, stream: stream(), check: None, end: None }, &mut buf);
+            t.apply(Cmd::Stream { call: 0, video: false, stream: stream(), check: None, end: None }, &mut buf);
             let s = t.media[0].stream.as_ref().unwrap();
             seqs.push(s.seq);
             // Its one packet, then its end.
@@ -1293,7 +2044,7 @@ mod tests {
         let mut t = TaskState { media: Default::default(), playback: [None, None, None, None], idle_pass: None, ended: false };
         t.media[0].sock = Some(media);
         let stream = Stream::new(vec![1; 160], -1, media::codec(0, None).unwrap(), peer_addr, 1);
-        t.apply(Cmd::Stream { video: false, stream, check: None, end: None }, &mut buf);
+        t.apply(Cmd::Stream { call: 0, video: false, stream, check: None, end: None }, &mut buf);
         let due = t.media[0].stream.as_ref().unwrap().next;
         peer.send_to(&[0x80; 172], media_addr).unwrap();
         // It has come when the play sends.
@@ -1305,7 +2056,7 @@ mod tests {
         let peeked = t.media[0].sock.as_ref().unwrap().peek_from(&mut buf);
         assert!(peeked.is_ok(), "{peeked:?}");
         // Something that looks at it: read, and the buffer is back.
-        t.media[0].check = Some(PatternCheck { rx: None, id: 1, byte: 1, len: 160, ok: 0 });
+        t.media[0].check = Some(PatternCheck { rx: None, id: 1, byte: 1, len: 160, ok: 0, probe_tag: None, rtt_interval_ms: 0 });
         let next = t.media[0].stream.as_ref().unwrap().next;
         t.media[0].send_due(next, 0, &mut buf);
         assert!(t.media[0].rcvbuf_full.is_none());
