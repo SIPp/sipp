@@ -145,10 +145,10 @@ impl Ports {
     fn new() -> Ports {
         let slot = SLOT.fetch_add(1, Ordering::Relaxed) % 200;
         Ports {
-            uas_sip: 16000 + slot * 6,
-            uac_sip: 16001 + slot * 6,
-            uas_media: 25000 + slot * 40,
-            uac_media: 30000 + slot * 40,
+            uas_sip: 16000 + slot * 10,
+            uac_sip: 16001 + slot * 10,
+            uas_media: 25000 + slot * 100,
+            uac_media: 30000 + slot * 100,
         }
     }
 }
@@ -185,6 +185,7 @@ fn start_uas(ports: &Ports, dir: &std::path::Path) -> Child {
 }
 
 /// Whether the UAS has bound its SIP port, as /proc/net/udp shows it.
+#[cfg(target_os = "linux")]
 fn wait_ready(port: u16) {
     let needle = format!(":{port:04X}");
     for _ in 0..150 {
@@ -198,6 +199,12 @@ fn wait_ready(port: u16) {
         std::thread::sleep(Duration::from_millis(20));
     }
     panic!("the UAS did not bind port {port}");
+}
+
+/// No /proc elsewhere: give the UAS the same grace before the UAC starts.
+#[cfg(not(target_os = "linux"))]
+fn wait_ready(_port: u16) {
+    std::thread::sleep(Duration::from_millis(200));
 }
 
 fn uac(ports: &Ports, dir: &std::path::Path, rtt: bool) -> std::process::Output {
@@ -245,7 +252,7 @@ fn a_probe_measures_the_echo_round_trip() {
     assert!(t[10].parse::<f64>().unwrap() >= 0.0, "jitter: {t:?}");
     // The probe tag names the payload marker, so a capture pair can be
     // attributed to this call number; the total and its windows agree.
-    let tag: u32 = t[14].parse().expect("tag column");
+    let tag: u64 = t[14].parse().expect("tag column");
     assert!(tag != 0, "tag is the payload marker: {t:?}");
     let avg: f64 = t[7].parse().unwrap();
     assert!(avg < 50.0, "loopback RTT should be well under a packet time: {t:?}");
@@ -274,7 +281,7 @@ fn a_probe_measures_the_echo_round_trip() {
     let echoed: Vec<&str> = tag_lines.next().unwrap().split(';').collect();
     assert_eq!(echoed.len(), 6, "row shape: {echoed:?}");
     assert!(echoed[2] == "audio" || echoed[2] == "video", "stream: {echoed:?}");
-    assert_eq!(echoed[3].parse::<u32>().unwrap(), tag, "the echoed tag is the sent one");
+    assert_eq!(echoed[3].parse::<u64>().unwrap(), tag, "the echoed tag is the sent one");
     assert!(echoed[4].parse::<u64>().unwrap() > 0, "echoed packets: {echoed:?}");
     assert!(echoed[5].contains('@'), "the UAS knows its call's Call-ID: {echoed:?}");
 
@@ -282,7 +289,7 @@ fn a_probe_measures_the_echo_round_trip() {
     let intervals: Vec<&Vec<&str>> = rows.iter().filter(|f| f[3] != "0").collect();
     assert!(intervals.len() >= 2, "no interval rows: {csv}");
     assert!(intervals.iter().all(|f| f[3].parse::<u64>().unwrap() > 0));
-    assert!(intervals.iter().all(|f| f[14].parse::<u32>().unwrap() == tag),
+    assert!(intervals.iter().all(|f| f[14].parse::<u64>().unwrap() == tag),
         "every window carries the stream's tag: total {tag}, windows {:?}",
         intervals.iter().map(|f| f[14]).collect::<Vec<_>>());
     let window_sent: u64 = intervals.iter().map(|f| f[4].parse::<u64>().unwrap()).sum();

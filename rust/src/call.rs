@@ -940,11 +940,12 @@ impl Call {
         cfg.ssrc_base.wrapping_add((2 * number as u32).wrapping_sub(2) + video as u32)
     }
 
-    /// An RTT probe's tag: stable for a (call, media) in this process, and
-    /// effectively random across processes, so a peer's own probes are
-    /// told from ours in a two-sided test.
-    fn probe_tag(number: u64, video: bool) -> u32 {
-        probe_salt() ^ (number as u32).wrapping_mul(0x9E37_79B1) ^ ((video as u32) << 31)
+    /// An RTT probe's 64-bit tag: the process salt in the high half, and a
+    /// bijection of (call, media) in the low half, so tags are unique in a
+    /// process. Across processes a collision needs the same salt.
+    fn probe_tag(number: u64, video: bool) -> u64 {
+        (u64::from(probe_salt()) << 32)
+            | u64::from((number as u32).wrapping_mul(0x9E37_79B1) ^ ((video as u32) << 31))
     }
 
     /// The call's audio (or video) RTP port, bound on first use: its

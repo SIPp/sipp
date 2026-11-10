@@ -2131,7 +2131,7 @@ mod tests {
             (r#"<recv response="200"><action><exec rtp_stream="silence.raw,1x,0"/></action></recv>"#, r#"rtp_stream loop count, "1x" is not a valid integer!"#),
             (r#"<recv response="200"><action><exec rtp_stream="apattern,,0"/></action></recv>"#, r#"rtp_stream pattern id, "" is not a valid integer!"#),
             (r#"<recv response="200"><action><exec rtp_stream="apattern,1,x"/></action></recv>"#, r#"rtp_stream payload type, "x" is not a valid integer!"#),
-            (r#"<recv response="200"><action><exec rtp_stream="apattern,7,13,CN/8000"/></action></recv>"#, "rtp_stream pattern 7: payload type 13 has 1 bytes, needs at least 9"),
+            (r#"<recv response="200"><action><exec rtp_stream="apattern,7,13,CN/8000"/></action></recv>"#, "rtp_stream pattern 7: payload type 13 has 1 bytes, needs at least 13"),
             (r#"<recv response="200"><action><exec rtp_stream="apattern,8,0"/></action></recv>"#, "rtp_stream pattern 8: must be 1 to 7"),
             (r#"<recv response="200"><action><exec rtp_echo="startaudio,x"/></action></recv>"#, r#"rtp_echo payload type, "x" is not a valid integer!"#),
             (r#"<recv response="200"><action><exec rtp_echo="startaudio,13"/></action></recv>"#, "Missing mandatory payload_name parameter in rtp_echo action"),

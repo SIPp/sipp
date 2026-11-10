@@ -144,10 +144,10 @@ else the crate's. `[sipp_version]` drops the `v`, as C does.
     echoes back; a pattern that never comes back ends the run with
     EXIT_RTPCHECK_FAILED (253) and a warning saying so, as in SIPp;
   - `apattern|vpattern,7,...`: an RTT probe. Each 0xAA-filled packet
-    carries a magic byte, a per-call tag and a microsecond send stamp, so
+    carries a magic byte, a 64-bit per-call tag and a microsecond send stamp, so
     an echoing peer (a UAS `rtp_echo`, or an SBC media loop) returns them
     and the sender times the round trip even when the SBC rewrites SSRC,
-    sequence and timestamp. It needs a payload of at least 9 bytes (not
+    sequence and timestamp. It needs a payload of at least 13 bytes (not
     comfort noise) and an echoing peer; a sender-only test has nothing to
     time. The tag keeps a two-sided run from timing the peer's probes.
     `-trace_rtp_rtt` writes one row per call to `-rtp_rtt_file` (default
@@ -157,7 +157,10 @@ else the crate's. `[sipp_version]` drops the `v`, as C does.
     probe tag. Jitter is RFC
     3550-style on successive RTT samples (`J += (|d| - J)/16`), so it
     reflects RTT variation, not one-way interarrival jitter; it needs two
-    samples (zero otherwise) and each window starts over. `-rtp_rtt_interval <ms>`
+    samples (zero otherwise) and each window starts over. p95 is nearest-rank
+    over the samples kept for that window (up to 64) or call (the last 256),
+    so a long call reports its recent p95; the run summary keeps the first
+    100,000 samples. `-rtp_rtt_interval <ms>`
     (default 250; 0 turns it off) also writes a row per call per window
     with `window_ms` set; the call's total row has `window_ms` 0. A
     summary of the run's round trips is printed at exit even without the

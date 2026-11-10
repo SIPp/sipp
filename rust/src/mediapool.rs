@@ -33,7 +33,7 @@ pub struct PatternCheck {
     pub len: usize,
     pub ok: u64,
     /// Pattern 7: the probe tag its echoes carry.
-    pub probe_tag: Option<u32>,
+    pub probe_tag: Option<u64>,
     /// -rtp_rtt_interval: a probe's window, ms (0: only the call total).
     pub rtt_interval_ms: u32,
 }
@@ -51,7 +51,7 @@ const GLOBAL_SAMPLES: usize = 100_000;
 /// A call's RTT probe, over all its probe streams: the echoes that came
 /// back, their round trips, and the duplicates and reorders among them.
 pub struct ProbeCheck {
-    tag: u32,
+    tag: u64,
     /// The newest stamp seen.
     high: Option<u32>,
     /// The last stamps, to tell a duplicate from a reorder.
@@ -101,7 +101,7 @@ pub struct RttRow {
     pub video: bool,
     /// The stream's probe tag (payload marker), so a capture pair can be
     /// attributed to a call number.
-    pub tag: u32,
+    pub tag: u64,
     /// Its length, ms; 0 is the call's total row.
     pub window_ms: u32,
     pub sent: u64,
@@ -142,7 +142,7 @@ pub struct EchoTagRow {
     pub date_ms: u64,
     pub call: u64,
     pub video: bool,
-    pub tag: u32,
+    pub tag: u64,
     /// Echoed packets that carried the tag.
     pub packets: u64,
     /// The call's Call-ID as the echoing side knows it (the peer's when an
@@ -158,7 +158,7 @@ static ECHO_TAG_ROWS: Mutex<Vec<EchoTagRow>> = Mutex::new(Vec::new());
 struct EchoProbe {
     call: u64,
     call_id: Arc<str>,
-    tag: Option<u32>,
+    tag: Option<u64>,
     packets: u64,
     conflict: bool,
     /// The fill was validated once; later markers only compare the tag.
@@ -202,7 +202,7 @@ impl EchoProbe {
 }
 
 impl ProbeCheck {
-    fn new(tag: u32, interval_ms: u32) -> ProbeCheck {
+    fn new(tag: u64, interval_ms: u32) -> ProbeCheck {
         ProbeCheck {
             tag,
             high: None,
@@ -239,7 +239,7 @@ impl ProbeCheck {
 
     /// A probe stream of the same call: a new tag means a new identity, so
     /// the ordering state starts afresh, while the totals go on.
-    fn set_tag(&mut self, tag: u32) {
+    fn set_tag(&mut self, tag: u64) {
         if self.tag != tag {
             self.tag = tag;
             self.high = None;
@@ -260,10 +260,15 @@ impl ProbeCheck {
             return;
         }
         let interval = u64::from(self.interval_ms);
-        while now_ms >= self.window_start_ms + interval {
-            let end = self.window_start_ms + interval;
-            self.flush_window(end, u32::try_from(interval).unwrap_or(u32::MAX), call, video);
+        if now_ms < self.window_start_ms + interval {
+            return;
         }
+        let end = self.window_start_ms + interval;
+        self.flush_window(end, u32::try_from(interval).unwrap_or(u32::MAX), call, video);
+        // Empty windows write nothing: skip them in one step instead of
+        // looping once per interval through a long stall.
+        let skip = (now_ms - self.window_start_ms) / interval;
+        self.window_start_ms += skip * interval;
     }
 
     /// Writes one window, then starts the next. A window with nothing sent
@@ -1784,7 +1789,7 @@ mod tests {
 
     #[test]
     fn an_echo_notes_the_probe_tag_of_its_media() {
-        let packet = |tag: u32, fill: u8| {
+        let packet = |tag: u64, fill: u8| {
             let mut v = vec![0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
             v.extend_from_slice(&[fill; 160]);
             if fill == 0xAA {
@@ -1806,7 +1811,7 @@ mod tests {
 
     #[test]
     fn a_probe_counts_duplicates_reorders_and_round_trips() {
-        let payload = |tag: u32, stamp: u32| {
+        let payload = |tag: u64, stamp: u32| {
             let mut v = vec![0xAA; 160];
             media::probe_write(&mut v, tag, stamp);
             v

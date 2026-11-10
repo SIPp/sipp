@@ -583,19 +583,19 @@ pub fn codec(payload: i64, name: Option<&str>) -> Result<Codec, String> {
 pub const PROBE_PATTERN_ID: u8 = 7;
 /// A probe payload's marker: magic, tag and send stamp, then 0xAA fill.
 pub const PROBE_MAGIC: u8 = 0x53;
-pub const PROBE_TAG_LEN: usize = 4;
+pub const PROBE_TAG_LEN: usize = 8;
 pub const PROBE_STAMP_LEN: usize = 4;
 pub const PROBE_LEN: usize = 1 + PROBE_TAG_LEN + PROBE_STAMP_LEN;
 
 /// The probe fields of a payload slice, if it carries them: its tag and
 /// its send stamp.
 #[inline(always)]
-pub fn probe_payload(payload: &[u8]) -> Option<(u32, u32)> {
+pub fn probe_payload(payload: &[u8]) -> Option<(u64, u32)> {
     if payload.len() < PROBE_LEN || payload[0] != PROBE_MAGIC {
         return None;
     }
-    let tag = u32::from_be_bytes(payload[1..5].try_into().ok()?);
-    let stamp = u32::from_be_bytes(payload[5..9].try_into().ok()?);
+    let tag = u64::from_be_bytes(payload[1..9].try_into().ok()?);
+    let stamp = u32::from_be_bytes(payload[9..13].try_into().ok()?);
     Some((tag, stamp))
 }
 
@@ -620,10 +620,10 @@ pub fn probe_payload_offset(pkt: &[u8]) -> Option<usize> {
 
 /// Writes a probe's marker and stamp over the start of its payload.
 #[inline(always)]
-pub fn probe_write(payload: &mut [u8], tag: u32, stamp: u32) {
+pub fn probe_write(payload: &mut [u8], tag: u64, stamp: u32) {
     payload[0] = PROBE_MAGIC;
-    payload[1..5].copy_from_slice(&tag.to_be_bytes());
-    payload[5..9].copy_from_slice(&stamp.to_be_bytes());
+    payload[1..9].copy_from_slice(&tag.to_be_bytes());
+    payload[9..13].copy_from_slice(&stamp.to_be_bytes());
 }
 
 /// apattern/vpattern N: every payload byte is 0xAA, 0xBB, ... 0xFF.
@@ -721,8 +721,8 @@ pub struct Stream {
     /// The RTP bytes of the packets sent, header and payload, as SIPp's
     /// rtpstream_abytes_out.
     pub bytes: u64,
-    /// An RTT probe's tag, when the stream is one.
-    pub probe: Option<u32>,
+    /// An RTT probe's 64-bit tag, when the stream is one.
+    pub probe: Option<u64>,
     /// Its last send stamp: each probe's is newer than the one before.
     last_probe_stamp: u32,
     /// The probes it sent.
@@ -1549,10 +1549,10 @@ mod tests {
         let c = codec(0, None).unwrap();
         let remote: std::net::SocketAddr = "127.0.0.1:9".parse().unwrap();
         let mut s = Stream::new(pattern(PROBE_PATTERN_ID, &c).unwrap(), -1, c, remote, 1);
-        s.probe = Some(0xA1B2_C3D4);
+        s.probe = Some(0x1122_3344_A1B2_C3D4);
         let mut p = Vec::new();
         assert!(s.packet(&mut p, 0, Some(0x0102_0304)));
-        assert_eq!(probe_payload(&p[12..]), Some((0xA1B2_C3D4, 0x0102_0304)));
+        assert_eq!(probe_payload(&p[12..]), Some((0x1122_3344_A1B2_C3D4, 0x0102_0304)));
         assert!(p[12 + PROBE_LEN..].iter().all(|&b| b == 0xAA));
         // Without a stamp a probe stream keeps its 0xAA fill.
         let mut q = Vec::new();
