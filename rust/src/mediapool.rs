@@ -40,13 +40,94 @@ pub struct PatternCheck {
 
 /// How many stamps are kept to tell a duplicate from a reordered one.
 const PROBE_RING: usize = 64;
-/// How many round-trip samples a call keeps for its p95.
-const RTT_SAMPLES: usize = 256;
-/// How many samples a window keeps for its p95: 50 packets a second at a
-/// 20 ms packet time, with room to spare.
-const WINDOW_SAMPLES: usize = 64;
-/// How many samples the run keeps for its own p95.
-const GLOBAL_SAMPLES: usize = 100_000;
+/// Resolution of the RTT histogram: each octave is split into this many
+/// buckets, so a percentile is reported at most 1/16 (6.25%) high.
+const HIST_SUB: usize = 16;
+/// Octaves: 1 µs .. 2^26 µs (about 67 s).
+const HIST_OCTAVES: usize = 26;
+const HIST_BUCKETS: usize = HIST_OCTAVES * HIST_SUB;
+
+/// A fixed-count histogram of round-trip times, microseconds, so a window,
+/// call or run covers every sample in bounded memory instead of the newest
+/// or first few. A percentile is its bucket's upper bound.
+#[derive(Clone)]
+struct Histogram {
+    counts: [u32; HIST_BUCKETS],
+    total: u64,
+}
+
+impl Default for Histogram {
+    fn default() -> Histogram {
+        Histogram { counts: [0; HIST_BUCKETS], total: 0 }
+    }
+}
+
+impl Histogram {
+    fn add(&mut self, us: u32) {
+        let i = hist_bucket(us);
+        self.counts[i] = self.counts[i].saturating_add(1);
+        self.total += 1;
+    }
+
+    /// Adds another histogram's counts, for the run's totals.
+    fn merge(&mut self, other: &Histogram) {
+        for (a, b) in self.counts.iter_mut().zip(other.counts.iter()) {
+            *a = a.saturating_add(*b);
+        }
+        self.total += other.total;
+    }
+
+    fn clear(&mut self) {
+        self.counts = [0; HIST_BUCKETS];
+        self.total = 0;
+    }
+
+    /// The nearest-rank percentile, microseconds, as the upper bound of its
+    /// bucket (at most 1/HIST_SUB above the true value).
+    fn percentile(&self, pct: usize) -> u32 {
+        if self.total == 0 {
+            return 0;
+        }
+        let rank = (self.total as usize * pct).div_ceil(100).max(1) as u64;
+        let mut seen = 0u64;
+        for (i, &c) in self.counts.iter().enumerate() {
+            if c == 0 {
+                continue;
+            }
+            seen += u64::from(c);
+            if seen >= rank {
+                return hist_upper(i);
+            }
+        }
+        hist_upper(HIST_BUCKETS - 1)
+    }
+}
+
+/// The octave and sub-bucket a microsecond value falls in.
+fn hist_bucket(us: u32) -> usize {
+    if us <= 1 {
+        return 0;
+    }
+    let e = 31 - us.leading_zeros() as usize;
+    if e >= HIST_OCTAVES {
+        return HIST_BUCKETS - 1;
+    }
+    let base = 1u32 << e;
+    let sub = (((us - base) as u64 * HIST_SUB as u64) >> e) as usize;
+    (e * HIST_SUB + sub).min(HIST_BUCKETS - 1)
+}
+
+/// The upper bound of a bucket, microseconds.
+fn hist_upper(i: usize) -> u32 {
+    if i == 0 {
+        return 1;
+    }
+    let e = i / HIST_SUB;
+    let sub = i % HIST_SUB;
+    let base = 1u64 << e;
+    let upper = base + ((sub as u64 + 1) * base).div_ceil(HIST_SUB as u64);
+    upper.min(u32::MAX as u64) as u32
+}
 
 /// A call's RTT probe, over all its probe streams: the echoes that came
 /// back, their round trips, and the duplicates and reorders among them.
@@ -64,10 +145,8 @@ pub struct ProbeCheck {
     pub matched: u64,
     pub duplicates: u64,
     pub late: u64,
-    /// The last round trips, microseconds, for the p95.
-    samples: [u32; RTT_SAMPLES],
-    sample_len: usize,
-    sample_pos: usize,
+    /// Every round trip of the call, for its p95.
+    samples: Histogram,
     min_us: u32,
     max_us: u32,
     sum_us: u64,
@@ -79,8 +158,8 @@ pub struct ProbeCheck {
     /// and the totals at its start for its sent/matched/duplicate deltas.
     interval_ms: u32,
     window_start_ms: u64,
-    window_samples: [u32; WINDOW_SAMPLES],
-    window_len: usize,
+    /// Every round trip of the current window, for its p95.
+    window_samples: Histogram,
     window_min_us: u32,
     window_max_us: u32,
     window_sum_us: u64,
@@ -129,7 +208,7 @@ struct RttAggregate {
     min_us: u32,
     max_us: u32,
     sum_us: u64,
-    samples: Vec<u32>,
+    samples: Histogram,
 }
 
 static RTT_ROWS: Mutex<Vec<RttRow>> = Mutex::new(Vec::new());
@@ -213,9 +292,7 @@ impl ProbeCheck {
             matched: 0,
             duplicates: 0,
             late: 0,
-            samples: [0; RTT_SAMPLES],
-            sample_len: 0,
-            sample_pos: 0,
+            samples: Histogram::default(),
             min_us: 0,
             max_us: 0,
             sum_us: 0,
@@ -223,8 +300,7 @@ impl ProbeCheck {
             jitter_us: 0.0,
             interval_ms,
             window_start_ms: 0,
-            window_samples: [0; WINDOW_SAMPLES],
-            window_len: 0,
+            window_samples: Histogram::default(),
             window_min_us: 0,
             window_max_us: 0,
             window_sum_us: 0,
@@ -279,9 +355,7 @@ impl ProbeCheck {
         let duplicates = self.duplicates - self.window_duplicates;
         let late = self.late - self.window_late;
         if sent > 0 || matched > 0 {
-            let mut sorted = self.window_samples[..self.window_len].to_vec();
-            sorted.sort_unstable();
-            let p95_us = percentile(&mut sorted, 95);
+            let p95_us = self.window_samples.percentile(95);
             RTT_ROWS.lock().unwrap().push(RttRow {
                 date_ms: end_ms,
                 call,
@@ -303,8 +377,7 @@ impl ProbeCheck {
             });
         }
         self.window_start_ms = end_ms;
-        self.window_samples = [0; WINDOW_SAMPLES];
-        self.window_len = 0;
+        self.window_samples.clear();
         self.window_min_us = 0;
         self.window_max_us = 0;
         self.window_sum_us = 0;
@@ -347,9 +420,7 @@ impl ProbeCheck {
             self.min_us = self.min_us.min(rtt);
             self.max_us = self.max_us.max(rtt);
         }
-        self.samples[self.sample_pos] = rtt;
-        self.sample_pos = (self.sample_pos + 1) % RTT_SAMPLES;
-        self.sample_len = (self.sample_len + 1).min(RTT_SAMPLES);
+        self.samples.add(rtt);
         // The window's own figures, for its row.
         if self.matched == self.window_matched + 1 {
             self.window_min_us = rtt;
@@ -359,10 +430,7 @@ impl ProbeCheck {
             self.window_max_us = self.window_max_us.max(rtt);
         }
         self.window_sum_us += u64::from(rtt);
-        if self.window_len < WINDOW_SAMPLES {
-            self.window_samples[self.window_len] = rtt;
-            self.window_len += 1;
-        }
+        self.window_samples.add(rtt);
         // RFC 3550-style jitter on successive distinct RTT samples (RTT variation,
         // not one-way network jitter). The call's is continuous; a window starts over.
         if let Some(prev) = self.last_rtt_us {
@@ -386,9 +454,7 @@ impl ProbeCheck {
             let window_ms = u32::try_from(end - self.window_start_ms).unwrap_or(u32::MAX);
             self.flush_window(end, window_ms, call, video);
         }
-        let mut sorted = self.samples[..self.sample_len].to_vec();
-        sorted.sort_unstable();
-        let p95_us = percentile(&mut sorted, 95);
+        let p95_us = self.samples.percentile(95);
         let row = RttRow {
             date_ms: now_ms,
             call,
@@ -406,22 +472,13 @@ impl ProbeCheck {
             late: self.late,
             missing: self.sent.saturating_sub(self.matched),
         };
-        record_rtt(&row, &sorted);
+        record_rtt(&row, &self.samples);
         row
     }
 }
 
-/// The nearest-rank percentile of a sorted sample.
-fn percentile(sorted: &mut [u32], pct: usize) -> u32 {
-    if sorted.is_empty() {
-        return 0;
-    }
-    let rank = (sorted.len() * pct).div_ceil(100).max(1) - 1;
-    sorted[rank.min(sorted.len() - 1)]
-}
-
 /// Adds a call's row to the run's totals.
-fn record_rtt(row: &RttRow, samples: &[u32]) {
+fn record_rtt(row: &RttRow, samples: &Histogram) {
     let mut agg = RTT_AGG.lock().unwrap();
     let a = agg.get_or_insert_with(RttAggregate::default);
     a.calls += 1;
@@ -437,8 +494,7 @@ fn record_rtt(row: &RttRow, samples: &[u32]) {
         a.min_us = if a.min_us == 0 { min_us } else { a.min_us.min(min_us) };
         a.max_us = a.max_us.max(max_us);
     }
-    let room = GLOBAL_SAMPLES.saturating_sub(a.samples.len());
-    a.samples.extend(samples.iter().take(room));
+    a.samples.merge(samples);
 }
 
 /// The probe rows a finished call added, for -trace_rtp_rtt.
@@ -458,8 +514,7 @@ pub fn rtp_rtt_summary() -> Option<String> {
 
 /// The exit summary's line, from the run's probe totals.
 fn summary_text(a: &mut RttAggregate) -> String {
-    a.samples.sort_unstable();
-    let p95 = percentile(&mut a.samples, 95);
+    let p95 = a.samples.percentile(95);
     let avg = if a.matched > 0 { a.sum_us as f64 / a.matched as f64 / 1000.0 } else { 0.0 };
     format!(
         "RTP RTT probe: {} probe streams, {} sent, {} matched, min {:.3} ms, avg {:.3} ms, p95 {:.3} ms, max {:.3} ms, {} duplicates, {} late, {} missing",
@@ -1780,9 +1835,10 @@ mod tests {
             min_us: 100,
             max_us: 200,
             sum_us: 1500,
-            samples: vec![100, 200],
             ..Default::default()
         };
+        a.samples.add(100);
+        a.samples.add(200);
         let line = summary_text(&mut a);
         assert!(line.contains("2 probe streams"), "{line}");
     }
@@ -1869,6 +1925,52 @@ mod tests {
         // Empty windows write nothing.
         p.tick(9000, 42, false);
         assert!(RTT_ROWS.lock().unwrap().is_empty());
+    }
+
+    /// A call's p95 is over every round trip, not only the newest ones.
+    #[test]
+    fn a_call_p95_covers_every_sample_not_just_the_newest() {
+        let payload = |tag: u64, stamp: u32| {
+            let mut v = vec![0xAA; 160];
+            media::probe_write(&mut v, tag, stamp);
+            v
+        };
+        let mut p = ProbeCheck::new(7, 0);
+        // 30 slow round trips (10 ms) first, then 270 fast ones (1 ms): the
+        // newest 256 are all fast, but the call's p95 is still slow.
+        for i in 0..30u32 {
+            assert!(p.observe(&payload(7, i), i + 10_000, 0, 91, false));
+        }
+        for i in 30..300u32 {
+            assert!(p.observe(&payload(7, i), i + 1_000, 0, 91, false));
+        }
+        p.sent = 300;
+        let row = p.finish(91, false, 0);
+        assert!((row.p95_ms - 10.0).abs() < 0.7, "call p95 {}", row.p95_ms);
+    }
+
+    /// A window's p95 is over every round trip in that window.
+    #[test]
+    fn a_window_p95_covers_every_sample_in_the_window() {
+        let payload = |tag: u64, stamp: u32| {
+            let mut v = vec![0xAA; 160];
+            media::probe_write(&mut v, tag, stamp);
+            v
+        };
+        let mut p = ProbeCheck::new(7, 1000);
+        // 270 fast round trips first, then 30 slow ones: the first 64 are all
+        // fast, but the window's p95 is still slow.
+        for i in 0..270u32 {
+            assert!(p.observe(&payload(7, i), i + 1_000, 100, 92, false));
+        }
+        for i in 270..300u32 {
+            assert!(p.observe(&payload(7, i), i + 10_000, 100, 92, false));
+        }
+        p.sent = 300;
+        let _total = p.finish(92, false, 500);
+        let rows: Vec<RttRow> = RTT_ROWS.lock().unwrap().drain(..).filter(|r| r.call == 92).collect();
+        let window = rows.iter().find(|r| r.window_ms > 0).expect("a window row");
+        assert!((window.p95_ms - 10.0).abs() < 0.7, "window p95 {}", window.p95_ms);
     }
 
     #[test]

@@ -158,9 +158,9 @@ else the crate's. `[sipp_version]` drops the `v`, as C does.
     3550-style on successive RTT samples (`J += (|d| - J)/16`), so it
     reflects RTT variation, not one-way interarrival jitter; it needs two
     samples (zero otherwise) and each window starts over. p95 is nearest-rank
-    over the samples kept for that window (up to 64) or call (the last 256),
-    so a long call reports its recent p95; the run summary keeps the first
-    100,000 samples. `-rtp_rtt_interval <ms>`
+    over a histogram of every round trip in the window, call or run, so a
+    long call is never truncated; the value is the bucket's upper bound,
+    within 6.25%. `-rtp_rtt_interval <ms>`
     (default 250; 0 turns it off) also writes a row per call per window
     with `window_ms` set; the call's total row has `window_ms` 0. A
     summary of the run's round trips is printed at exit even without the
