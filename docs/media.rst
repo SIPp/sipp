@@ -46,8 +46,12 @@ and a run summary is printed at exit. ``-rtp_rtt_interval`` (default
 250 ms, 0 off) adds a row per call per window, with ``window_ms`` on
 every row (0 is the call total). Each row also carries an RFC 3550-style
 RTT jitter: the smoothed difference of successive round trips, not
-one-way interarrival jitter, and zero until two samples arrive. The C++
-SIPp does not have this yet.
+one-way interarrival jitter, and zero until two samples arrive.
+``-trace_probe_tags`` (``-probe_tags_file``) writes, on the echoing
+side, one row per call with the probe tag it received, the echoed packet
+count and the call's Call-ID, so the sender's ``tag -> call`` column
+pairs the two legs without a capture. The C++ SIPp does not have this
+yet.
 
 
 PCAP Play

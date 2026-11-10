@@ -153,15 +153,19 @@ else the crate's. `[sipp_version]` drops the `v`, as C does.
     `-trace_rtp_rtt` writes one row per call to `-rtp_rtt_file` (default
     `<scenario>_<pid>_rtp_rtt.csv`): date, call, stream, window,
     sent, matched, minimum/average/p95/maximum round trip in ms, RTT
-    jitter, duplicates, reordered and missing probes. Jitter is RFC
+    jitter, duplicates, reordered and missing probes, and the stream's
+    probe tag. Jitter is RFC
     3550-style on successive RTT samples (`J += (|d| - J)/16`), so it
     reflects RTT variation, not one-way interarrival jitter; it needs two
     samples (zero otherwise) and each window starts over. `-rtp_rtt_interval <ms>`
     (default 250; 0 turns it off) also writes a row per call per window
     with `window_ms` set; the call's total row has `window_ms` 0. A
     summary of the run's round trips is printed at exit even without the
-    flag. Rows appear as they are completed, so a reader can follow them
-    live. The round trip is application-level: the receive time is when
+    flag. `-trace_probe_tags`/`-probe_tags_file` write, on the echoing
+    side, one row per call with the received tag, echoed packet count and
+    Call-ID, so the sender's tag column pairs the two legs without a
+    capture. Rows appear as they are completed, so a reader can follow
+    them live. The round trip is application-level: the receive time is when
     SIPp's playback thread reads the packet. A window row costs about
     100 bytes: at the 250 ms default that is ~400 B per call per second,
     and a 5,000-call run adds about 120 MB a minute.
@@ -266,7 +270,8 @@ else the crate's. `[sipp_version]` drops the `v`, as C does.
     `-trace_err`/`-error_file`, `-trace_logs`/`-log_file`,
     `-trace_shortmsg`, `-trace_screen`, `-trace_counts`,
     `-trace_error_codes`, `-trace_rtt`,
-    `-trace_rtp_rtt`/`-rtp_rtt_file`/`-rtp_rtt_interval`, and `-trace_stat`/`-stf`/`-fd`
+    `-trace_rtp_rtt`/`-rtp_rtt_file`/`-rtp_rtt_interval`,
+    `-trace_probe_tags`/`-probe_tags_file`, and `-trace_stat`/`-stf`/`-fd`
     with SIPp's CSV (every column: failure reasons, response times, call
     lengths, counters, periodic and cumulative repartitions), `-rfc3339`,
     `-stat_delimiter`; `-periodic_rtd` is ignored, with SIPp's warning;

@@ -18,7 +18,10 @@ marked **Breaking**.
   sequence number and timestamp. `-rtp_rtt_interval` (default 250 ms,
   0 off) also writes a row per call per window, so a long call's latency
   evolution is in the CSV; each row carries the RTT jitter (RFC
-  3550-style on successive RTT samples) (Rust port only)
+  3550-style on successive RTT samples) and the stream's probe tag.
+  `-trace_probe_tags` (`-probe_tags_file`) makes the echoing side log
+  the tag it received with its Call-ID, so the sender's tag-to-call
+  column pairs the two legs without a packet capture (Rust port only)
 
 ### Changed
 

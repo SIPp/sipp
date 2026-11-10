@@ -448,11 +448,16 @@ pub fn rtp_rtt_summary() -> Option<String> {
     if a.calls == 0 {
         return None;
     }
+    Some(summary_text(a))
+}
+
+/// The exit summary's line, from the run's probe totals.
+fn summary_text(a: &mut RttAggregate) -> String {
     a.samples.sort_unstable();
     let p95 = percentile(&mut a.samples, 95);
     let avg = if a.matched > 0 { a.sum_us as f64 / a.matched as f64 / 1000.0 } else { 0.0 };
-    Some(format!(
-        "RTP RTT probe: {} calls, {} sent, {} matched, min {:.3} ms, avg {:.3} ms, p95 {:.3} ms, max {:.3} ms, {} duplicates, {} late, {} missing",
+    format!(
+        "RTP RTT probe: {} probe streams, {} sent, {} matched, min {:.3} ms, avg {:.3} ms, p95 {:.3} ms, max {:.3} ms, {} duplicates, {} late, {} missing",
         a.calls,
         a.sent,
         a.matched,
@@ -463,7 +468,7 @@ pub fn rtp_rtt_summary() -> Option<String> {
         a.duplicates,
         a.late,
         a.missing
-    ))
+    )
 }
 
 /// What the engine asks of a call's media.
@@ -1760,6 +1765,22 @@ fn run(rx: Receiver<(u64, Box<Cmd>)>, wake: &sys::Wake, shift: Duration) -> u64 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_summary_counts_probe_streams_not_calls() {
+        let mut a = RttAggregate {
+            calls: 2,
+            sent: 10,
+            matched: 10,
+            min_us: 100,
+            max_us: 200,
+            sum_us: 1500,
+            samples: vec![100, 200],
+            ..Default::default()
+        };
+        let line = summary_text(&mut a);
+        assert!(line.contains("2 probe streams"), "{line}");
+    }
 
     #[test]
     fn an_echo_notes_the_probe_tag_of_its_media() {

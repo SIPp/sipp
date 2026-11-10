@@ -305,11 +305,9 @@ pub static OPTIONS: &[Opt] = &[
     Opt("screen_overwrite", Args(1), &["Overwrite the screen file (default true)."]),
     Opt("trace_rtt", Args(0), &["Allow tracing of all response times in <scenario file name>_<pid>_rtt.csv."]),
     Opt("rtt_freq", Args(1), &["freq is mandatory. Dump response times every freq calls in the log file defined by -trace_rtt. Default value is 200."]),
-    Opt("trace_rtp_rtt", Args(0), &["Trace the round-trip times of apattern/vpattern 7 probes, one row per call, in <scenario file name>_<pid>_rtp_rtt.csv."]),
+    Opt("trace_rtp_rtt", Args(0), &["Trace the round-trip times of apattern/vpattern 7 probes in <scenario file name>_<pid>_rtp_rtt.csv: one row per call, and one per -rtp_rtt_interval window."]),
     Opt("rtp_rtt_file", Args(1), &["Set the name of the RTP round-trip time file (-trace_rtp_rtt)."]),
     Opt("rtp_rtt_interval", Args(1), &["With -trace_rtp_rtt, write a call's round trips every this many ms (default 250; 0 writes only the call total)."]),
-    Opt("trace_probe_tags", Args(0), &["Trace the probe tag an echoing stream received, one row per call, in <scenario file name>_<pid>_probe_tags.csv."]),
-    Opt("probe_tags_file", Args(1), &["Set the name of the probe tag file (-trace_probe_tags)."]),
     Opt("trace_probe_tags", Args(0), &["Trace the probe tag an echoing stream received, one row per call, in <scenario file name>_<pid>_probe_tags.csv."]),
     Opt("probe_tags_file", Args(1), &["Set the name of the probe tag file (-trace_probe_tags)."]),
     Opt("trace_logs", Args(0), &["Allow tracing of <log> actions in <scenario file name>_<pid>_logs.log."]),
@@ -643,5 +641,13 @@ mod tests {
         assert!(text.starts_with("\nUsage:\n"));
         assert!(text.contains("\n*** Scenario file options:\n\n   -sd              : Dumps a default scenario"));
         assert!(text.ends_with("   -2: Fatal error binding a socket\n"));
+    }
+
+    #[test]
+    fn option_names_are_unique() {
+        let mut names: Vec<&str> = OPTIONS.iter().filter(|o| !matches!(o.1, Header)).map(|o| o.0).collect();
+        names.sort_unstable();
+        let dup: Vec<&str> = names.windows(2).filter(|w| w[0] == w[1]).map(|w| w[0]).collect();
+        assert!(dup.is_empty(), "duplicate option names: {dup:?}");
     }
 }

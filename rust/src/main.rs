@@ -1525,7 +1525,7 @@ fn parse_args(argv: &[String]) -> Result<Args, ArgsError> {
             // SIPp: min_rtp_port, moved up if -rtp_echo finds it taken.
             media_port: min_rtp_port,
             default_pause: Duration::from_millis(pause_ms),
-            // A probe's rounds are written every second unless told otherwise.
+            // A probe's rounds are written every 250 ms unless told otherwise.
             rtp_rtt_interval_ms: if trace_rtp_rtt { rtp_rtt_interval.unwrap_or(250) } else { 0 },
             recv_timeout,
             default_behaviors,

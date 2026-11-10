@@ -69,7 +69,7 @@ pub struct Config {
     pub audio_tolerance: f64,
     pub video_tolerance: f64,
     /// -rtp_rtt_interval: how often a probe call's round trips are written,
-    /// ms (0: only the call total). Default 1000 with -trace_rtp_rtt.
+    /// ms (0: only the call total). Default 250 with -trace_rtp_rtt.
     pub rtp_rtt_interval_ms: u32,
     /// -rtcheck loose: a retransmission is the same To, From, Call-ID and
     /// CSeq (and a response's status line and body), not the same text.
